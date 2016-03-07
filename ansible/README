@@ -1,0 +1,46 @@
+# file: ansible/README
+# Ansible top level file and directory structure
+# adapted from http://docs.ansible.com/ansible/playbooks_best_practices.html
+
+prod                      # inventory file for production servers
+pre_prod                  # inventory file for staging environment
+lab                       # inventory file for test lab environment
+
+group_vars/
+   prod                   # here we assign variables to particular groups
+   pre_prod               # groups can be environments, geographical, role based
+   lab
+
+host_vars/
+   hostname1              # if an individual system must have specific variables, put them here
+   hostname2              # (use of host_vars should be avoided)
+
+library/                  # if any custom modules, put them here (optional)
+filter_plugins/           # if any custom filter plugins, put them here (optional)
+
+deploy_sonic.yml          # playbook to initialize a sonic switch after imaging process is complete
+integration_test.yml      # playbook to run all integration tests
+
+roles/
+    sonic_common/         # common "role" for the sonic switch, only add tasks here that are for all sonic switches
+        tasks/            #
+            main.yml      #  <-- tasks file can include smaller files if warranted
+        handlers/         #
+            main.yml      #  <-- handlers file
+        templates/        #  <-- files for use with the template resource
+            ntp.conf.j2   #  <------- templates end in .j2
+        files/            #
+            bar.txt       #  <-- files for use with the copy resource
+            foo.sh        #  <-- script files for use with the script resource
+        vars/             #
+            main.yml      #  <-- variables associated with this role
+        defaults/         #
+            main.yml      #  <-- default lower priority variables for this role
+        meta/             #
+            main.yml      #  <-- role dependencies
+
+    sonic_test/           # same kind of structure as above, but for the integration test role, 
+                          #        see http://github.com/Azure/sonic-integrationtest
+    sonic_vm/             # for a future, vm based deployment of sonic
+    sonic_s6000/          # place Dell s6000 specific tasks here
+    sonic_msn2700/        # place Mellanox msn2700 specific tasks here
