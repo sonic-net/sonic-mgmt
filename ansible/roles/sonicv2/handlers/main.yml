@@ -1,0 +1,5 @@
+---
+- name: Restart Quagga Daemon
+  become: true
+  service: name=bgp
+           state=restarted
