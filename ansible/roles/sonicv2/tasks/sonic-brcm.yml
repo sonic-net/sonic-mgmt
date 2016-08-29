@@ -1,0 +1,55 @@
+# SONiC
+
+# FIXME: de-dup with sonic-common/tasks/main.yml?
+# Setup Platform
+#- include: platform.yml
+
+# Remove v1 docker containers
+- name: Remove sswsyncd docker container
+  docker:
+    name: docker-sswsyncd
+    image: "{{docker_registry_host}}/{{image_id_sswsyncd}}"
+    state: absent
+
+# Ensure newer version of BCM OpenNSL
+- name: Remove old version of BCM OpenNSL Linux Module
+  become: yes
+  apt: pkg={{ opennsl.name }}={{ opennsl.version }}
+       state=absent
+       force=yes
+
+- name: Install new version of BCM OpenNSL Linux Module
+  become: yes
+  apt: pkg={{ opennslv2.name }}={{ opennslv2.version }}
+       state=present
+       default_release=trusty
+       force=yes
+
+# Install docker containers
+- name: Start syncd docker container
+  include: ../../sonic-common/tasks/sonicdocker.yml
+  vars:
+    docker_container: syncd
+    docker_image: "{{ image_id_syncd }}"
+    docker_privileged: yes
+    docker_state: reloaded
+    docker_volumes: "{{ syncd_docker_volumes }}"
+  tags: syncd
+
+- name: Copy bcmcmd helper script
+  become: true
+  copy: src=bin/bcmcmd.v2
+        dest=/usr/bin/bcmcmd
+        owner=root
+        group=root
+        mode=0755
+
+- name: Start orchagent docker container
+  include: ../../sonic-common/tasks/sonicdocker.yml
+  vars:
+    docker_container: orchagent
+    docker_image: "{{ image_id_orchagent }}"
+    docker_privileged: yes
+    docker_state: reloaded
+    docker_volumes: "{{ orchagent_docker_volumes }}"
+  tags: orchagent

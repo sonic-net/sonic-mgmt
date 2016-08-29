@@ -1,0 +1,51 @@
+# SONiC
+
+# Setup Platform
+- include: platform-mlnx.yml
+
+# Remove v1 docker containers
+- name: Remove sswsyncd docker container
+  docker:
+    name: docker-sswsyncd
+    image: "{{docker_registry_host}}/{{image_id_sswsyncd}}"
+    state: absent
+
+- name: Ensure MLNX Linux Module is installed
+  become: true
+  apt: pkg=sx-kernel={{ version_sx_kernel }}
+       state=present
+       default_release=trusty
+       force=yes
+
+# Install docker containers
+- name: Start syncd docker container
+  include: ../../sonic-common/tasks/sonicdocker.yml
+  vars:
+    docker_container: syncd
+    docker_image: "{{ image_id_syncd_mlnx }}"
+    docker_privileged: yes
+    docker_state: reloaded
+    docker_volumes: "{{ syncd_docker_volumes }}"
+  when: host_saithrift is not defined
+  tags: syncd
+
+- name: Start syncd docker container with rpc
+  include: ../../sonic-common/tasks/sonicdocker.yml
+  vars:
+    docker_container: syncd
+    docker_image: "{{ image_id_syncd_mlnx_rpc }}"
+    docker_privileged: yes
+    docker_state: reloaded
+    docker_volumes: "{{ syncd_docker_volumes }}"
+  when: host_saithrift is defined
+  tags: syncd
+
+- name: Start orchagent docker container
+  include: ../../sonic-common/tasks/sonicdocker.yml
+  vars:
+    docker_container: orchagent
+    docker_image: "{{ image_id_orchagent_mlnx }}"
+    docker_privileged: yes
+    docker_state: reloaded
+    docker_volumes: "{{ orchagent_docker_volumes }}"
+  tags: orchagent

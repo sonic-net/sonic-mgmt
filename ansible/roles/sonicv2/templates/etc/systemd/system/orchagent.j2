@@ -1,0 +1,14 @@
+[Unit]
+Description=orchagent container
+Requires=database.service
+After=database.service
+
+[Service]
+User=acsadmin
+ExecStart=/usr/bin/docker start -a orchagent
+ExecStop=/usr/bin/docker stop orchagent
+ExecStopPost=/usr/bin/docker stop syncd
+ExecStopPost=/usr/bin/docker exec database redis-cli FLUSHALL
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,35 @@
+# Setup VLAN Interfaces
+- name: Copy VLAN Interfaces File.
+  become: true
+  template: src=vlan_interfaces.j2
+            dest=/etc/network/interfaces.d/vlan_interfaces
+            owner=root
+            group=root
+            mode=0644
+  register: if_copy
+  tags: network,unsafe
+  when: sonic_version == "v2"
+
+# SSW
+- name: Copy SSW files.
+  become: true
+  copy: directory_mode=0755
+        src=ssw/{{ sonic_hwsku }}
+        dest=/etc/ssw
+        owner=root
+        group=root
+        mode=0644
+  tags: ssw
+
+
+# SONiC
+- include: sonic-brcm.yml
+  when: sonic_asic_type == 'broadcom'
+  tags: swss,unsafe
+
+- include: sonic-mlnx.yml
+  when: sonic_asic_type == 'mellanox'
+  tags: swss,unsafe
+
+- include: quagga.yml
+  tags: quagga,unsafe
