@@ -1,0 +1,187 @@
+# Gather minigraph facts
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  connection: local
+  tags: always
+  become: no
+  when: use_minigraph|default(false)|bool
+
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: broadcom
+  when: sonic_hwsku in broadcom_hwskus
+  tags: always
+  
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: mellanox
+  when: sonic_hwsku in mellanox_hwskus
+  tags: always
+
+# Setup apt repo
+- include: aptrepo.yml
+  tags: repo
+
+# Syslog
+- name: Install Syslog daemon
+  become: true
+  apt: pkg=rsyslog
+       state=latest
+  tags: syslog
+
+- name: Setup Syslog Daemon Config File
+  become: true
+  template: src=rsyslog.conf.j2
+            dest=/etc/rsyslog.conf
+  notify:
+    - Restart Syslog Daemon
+  tags: syslog
+
+- name: Setup Syslog Config Directory
+  become: true
+  copy: src=rsyslog.d/
+        dest=/etc/rsyslog.d/
+  notify:
+    - Restart Syslog Daemon
+  tags: syslog
+
+- name: Ensure Syslog Daemon started and enabled
+  become: true
+  service: name=rsyslog
+           state=started
+           enabled=yes
+  tags: syslog
+
+# NTP
+# This needs to be early in the playbook otherwise clock changes can cause problems
+- name: Install NTP daemon and ntpstat
+  become: true
+  apt: pkg={{ item }}
+       state=latest
+  with_items:
+  - ntp
+  - ntpstat
+  tags: ntp
+
+- name: Setup NTP Daemon Config File
+  become: true
+  template: src=ntp.conf.j2
+            dest=/etc/ntp.conf
+  notify:
+    - Restart NTP Daemon
+  tags: ntp
+
+# Update initramfs
+- name: Update initramfs to prevent fsck error 2 at bootup
+  become: yes
+  shell: update-initramfs -u
+  when: bootstrap is defined
+
+# Hosts File
+- name: Setup Hosts File
+  become: true
+  template: src=hosts.j2
+            dest=/etc/hosts
+  tags: system
+
+# Assign hostname
+- name: Assign hostname
+  hostname: name={{ inventory_hostname }}
+  tags: system
+
+# Setup environment file
+- name: Copy /etc/environment
+  become: true
+  copy: src=environment
+        dest=/etc
+        owner=root
+        group=root
+        mode=0644
+  tags: system
+
+# Setup motd file
+- name: Copy Message of the Day
+  become: true
+  copy: directory_mode=0755
+        src=etc/motd
+        dest=/etc/motd
+        owner=root
+        group=root
+        mode=0644
+  tags: system
+
+- name: Check docker base verison is correct
+  become: true
+  apt: pkg=docker-engine={{ version_docker_engine }}
+       state=present
+
+# Ensure docker service started and enabled
+# Note: keep it before all dockers
+- name: Ensure docker service started and enabled
+  become: true
+  service: name=docker
+           state=started
+           enabled=yes
+
+## Redis database
+- include: database.yml
+  tags: 
+    - swss
+    - database
+    - unsafe
+
+# DHCP exit hooks hostname sync.
+- name: DHCP Client Exit Script Sync.
+  become: true
+  template: src=dhclient-exit-hook-hostname
+            dest=/etc/dhcp/dhclient-exit-hooks.d/hostname
+
+# SSW
+- name: Copy all SSW files.
+  become: true
+  copy: directory_mode=0755
+        src=ssw/{{ sonic_hwsku }}
+        dest=/etc/ssw
+        owner=root
+        group=root
+        mode=0644
+  tags: ssw
+
+# Setup Platform
+- include: platform.yml
+  tags: platform,unsafe
+
+# Install Persistent Iptables Package
+- name: Install iptables-persistent
+  become: true
+  apt: pkg=iptables-persistent
+       state=latest
+  tags: unsafe
+
+# setup sudoers
+- include: sudoers.yml
+
+# Install Logrotate
+- include: logrotate.yml
+
+- command: /bin/true
+  notify: Clean up apt
+
+### Final Actions below this line
+
+- meta: flush_handlers
+
+- name: Reboot if required
+  shell: sleep 2 && shutdown -r now "Ansible updates triggered reboot."
+  async: 1
+  poll: 0
+  become: true
+  ignore_errors: true
+  when: reboot_required is defined
+  tags: unsafe
+
+- name: After rebooting, wait for switch to come back
+  local_action: wait_for host={{ inventory_hostname }} port=22 state=started delay=30 timeout=300
+  become: false
+  when: reboot_required is defined
+  tags: unsafe
