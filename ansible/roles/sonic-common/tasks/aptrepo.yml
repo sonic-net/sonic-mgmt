@@ -1,0 +1,20 @@
+# Apt Sources Setup
+- name: Purge apt sources.list File.
+  become: true
+  copy: src=apt/sources.list
+        dest=/etc/apt/sources.list
+
+- name: Add apt-key for internal Apt Mirror
+  become: true
+  apt_key: data="{{ lookup('file', 'apt/sonic.gpg.key') }}" state=present
+
+# Adding deb mirror so switch can download packages
+- name: Add internal Apt Package Mirror
+  apt_repository: repo='deb http://{{ apt_repo_ip }}/debian/ jessie main contrib non-free'
+       update_cache=yes
+       state=present
+
+# Force apt cache update if the repos are already present but cache is stale
+- name: Update Cache if stale
+  become: true
+  apt: update_cache=yes

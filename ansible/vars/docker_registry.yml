@@ -1,0 +1,5 @@
+docker_registry_host: yourhost.domain.com:5000
+
+docker_registry_username: username
+docker_registry_password: password
+

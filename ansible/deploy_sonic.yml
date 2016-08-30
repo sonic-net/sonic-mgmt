@@ -1,0 +1,11 @@
+---
+# This Playbook would deploy to all the devices.
+
+- hosts: sonic
+  gather_facts: no
+  vars_files:
+    - vars/docker_registry.yml
+  roles:
+  - role: sonic-common
+  - { role: sonicv1 , when: "sonic_version == 'v1'" }
+  - { role: sonicv2 , when: "sonic_version == 'v2'" }

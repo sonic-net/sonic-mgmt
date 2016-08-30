@@ -5,12 +5,12 @@ After=database.service
 
 [Service]
 User=root
-{% if minigraph_hwsku == 'ACS-MSN2700' %}
+{% if sonic_hwsku == 'ACS-MSN2700' %}
 ExecStopPost=/etc/init.d/sxdkernel start
 {% endif %}
 ExecStart=/usr/bin/docker start -a syncd
 ExecStop=/usr/bin/docker stop syncd
-{% if minigraph_hwsku == 'ACS-MSN2700' %}
+{% if sonic_hwsku == 'ACS-MSN2700' %}
 ExecStopPost=/etc/init.d/sxdkernel stop
 {% endif %}
 Restart=always

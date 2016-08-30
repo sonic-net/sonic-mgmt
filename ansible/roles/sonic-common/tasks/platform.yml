@@ -1,0 +1,32 @@
+# Install Platform Modules for Dell
+- name: Confirm Platform Modules for Dell are installed
+  become: true
+  include: platform-dell.yml
+  when: sonic_hwsku == "Force10-S6000" or sonic_hwsku == "Force10-S6000-Q24S32" or sonic_hwsku == "ACS-S6000" or sonic_hwsku == "ACS-S6000-Q24S32"
+
+# Install Platform Modules for Mellanox
+- name: Confirm Platform Modules for Mellanox are installed
+  become: true
+  include: platform-mlnx.yml
+  when: sonic_hwsku == "ACS-MSN2700"
+
+# Start container with platform monitor services
+- name: Start container with platform monitor services
+  include: platform-monitor.yml
+
+# Setup General Conf Files
+- name: Copy /etc Files
+  become: true
+  copy: directory_mode=0755
+        src=etc
+        dest=/etc
+        owner=root
+        group=root
+        mode=0644
+
+# Install acs utilities
+- name: Install acs utilities
+  become: true
+  apt: pkg=acs-utilities
+       state=latest
+

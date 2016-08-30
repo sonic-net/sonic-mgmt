@@ -1,0 +1,6 @@
+case $reason in
+        BOUND|RENEW|REBIND|REBOOT)
+                current_hostname=`hostname`
+                echo $current_hostname > /etc/hostname
+                ;;
+esac

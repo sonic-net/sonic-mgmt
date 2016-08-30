@@ -1,0 +1,42 @@
+# Ensure S.M.A.R.T. monitoring tools are not installed on host
+- name: Ensure S.M.A.R.T. monitoring tools are not installed on host
+  become: true
+  apt: pkg=smartmontools
+       state=absent
+
+- name: Start the platform monitor docker container
+  include: sonicdocker.yml
+  vars:
+    docker_container: platform-monitor
+    docker_image: "{{ image_id_platform_monitor }}"
+    docker_privileged: yes
+
+- block:
+  # Setup sensord Conf Files
+  - name: Copy sensord Conf File
+    copy: src=ssw/{{ sonic_hwsku }}/etc/sensors.conf
+          dest=/etc/sensors.d/sensors.conf
+          owner=root
+          group=root
+          mode=0644
+    when: sonic_hwsku in sensor_hwskus
+    notify:
+      - Restart Platform Monitor Container Service
+
+  # Install S.M.A.R.T. monitoring tools
+  - include: smartd.yml
+    tags: smart
+
+  # Force handler flush to trigger daemon restarts
+  - meta: flush_handlers
+  vars:
+    ansible_shell_type: docker
+    ansible_python_interpreter: docker exec -i platform-monitor python
+
+- name: Copy sensors helper script
+  become: true
+  copy: src=bin/sensors
+        dest=/usr/bin/sensors
+        owner=root
+        group=root
+        mode=0755
