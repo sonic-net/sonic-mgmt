@@ -9,7 +9,7 @@
 # The switch VLAN interfaces
 {% for interface in minigraph_vlan_interfaces %}
 auto {{ interface['name'] }}
-iface {{ interface['name'] }} inet static
+iface {{ interface['name'] }} {{ interface['family'] }} static
     bridge_ports {{ interface['members'] }}
     address {{ interface['addr'] }}
     netmask {{ interface['mask'] }}

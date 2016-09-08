@@ -29,7 +29,7 @@ ip route 0.0.0.0/0 {{ minigraph_mgmt_interface['gwaddr'] }} 200
 {% block source_loopback %}
 ! Set ip source to loopback for bgp learned routes
 route-map RM_SET_SRC permit 10
-    set src {{ minigraph_lo_interface['addr'] }}
+    set src {{ minigraph_lo_interfaces[0]['addr'] }}
 !
 ip protocol bgp route-map RM_SET_SRC
 {% endblock source_loopback %}

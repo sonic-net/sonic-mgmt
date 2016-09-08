@@ -1,4 +1,4 @@
-- name: Clean up old container
+- name: Clean up old docker-bgp container
   include: sonicdocker.yml
   vars:
     docker_container: docker-bgp
@@ -6,6 +6,13 @@
     docker_privileged: yes
     docker_state: absent
 
+- name: Clean up old bgp container
+  include: sonicdocker.yml
+  vars:
+    docker_container: bgp
+    docker_image: "{{ image_id_bgp }}"
+    docker_privileged: yes
+    docker_state: absent
 
 - name: Start the BGP docker container (Quagga)
   include: sonicdocker.yml

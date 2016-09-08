@@ -1,7 +1,7 @@
 # SONiC
 
 # Setup Platform
-- include: platform-mlnx.yml
+- include: ../../sonic-common/tasks/platform-mlnx.yml
 
 # Remove v1 docker containers
 - name: Remove sswsyncd docker container

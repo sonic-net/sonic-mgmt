@@ -21,9 +21,11 @@ log facility local4
 router bgp {{ minigraph_bgp_asn }}
   bgp log-neighbor-changes
   bgp bestpath as-path multipath-relax
-  bgp router-id {{ minigraph_lo_interface['addr'] }}
+{# TODO: use lo[0] for backward compatibility, will revisit the case with multiple lo interfaces #}
+  bgp router-id {{ minigraph_lo_interfaces[0]['addr'] }}
 {# advertise loopback #}
-  network {{ minigraph_lo_interface['addr'] }}/32
+{# TODO: use lo[0] for backward compatibility, will revisit the case with multiple lo interfaces #}
+  network {{ minigraph_lo_interfaces[0]['addr'] }}/32
 {% endblock bgp_init %}
 {% block vlan_advertisement %}
 {% for interface in minigraph_interfaces %}
