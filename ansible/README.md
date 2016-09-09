@@ -1,6 +1,6 @@
 #How to use this Ansible sample playbook to deploy SONiC:
 
-1. Prepare a switch with the sonic base image. See: https://github.com/Azure/SONiC/blob/gh-pages/quickstart.md
+1. Prepare a switch with the SONiC base image. See: https://github.com/Azure/SONiC/blob/gh-pages/quickstart.md
 2. Update inventory file with appropriate information for your environment:
   * ansible_host = management ip address
   * sonic_hwsku = Supported Hardware SKU, e.g. ACS-S6000
