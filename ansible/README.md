@@ -43,11 +43,11 @@ host_vars/
 library/                  # if any custom modules, put them here (optional)
 filter_plugins/           # if any custom filter plugins, put them here (optional)
 
-deploy_sonic.yml          # playbook to initialize a sonic switch after imaging process is complete
+deploy_sonic.yml          # playbook to initialize a SONiC switch after imaging process is complete
 integration_test.yml      # playbook to run all integration tests
 
 roles/
-    sonic_common/         # common "role" for the sonic switch, only add tasks here that are for all sonic switches
+    sonic_common/         # common "role" for the SONiC switch, only add tasks here that are for all SONiC switches
         tasks/            #
             main.yml      #  <-- tasks file can include smaller files if warranted
         handlers/         #
@@ -63,7 +63,7 @@ roles/
             main.yml      #  <-- default lower priority variables for this role
         meta/             #
             main.yml      #  <-- role dependencies
-    sonicv2/              # role for installing sonic v2 components (syncd, orchagent, quagga, etc)
+    sonicv2/              # role for installing SONiC v2 components (syncd, orchagent, quagga, etc)
 
     sonic_test/           # same kind of structure as above, but for the integration test role, 
                           #        see http://github.com/Azure/sonic-integrationtest
