@@ -1,11 +1,3 @@
-# Gather minigraph facts
-- name: Gathering minigraph facts about the device
-  minigraph_facts: host={{ inventory_hostname }}
-  connection: local
-  tags: always
-  become: no
-  when: use_minigraph|default(false)|bool
-
 - name: Set sonic_asic_type fact
   set_fact:
     sonic_asic_type: broadcom
