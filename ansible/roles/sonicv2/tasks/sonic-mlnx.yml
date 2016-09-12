@@ -14,7 +14,7 @@
   become: true
   apt: pkg=sx-kernel={{ version_sx_kernel }}
        state=present
-       default_release=trusty
+       default_release={{ apt_default_release }}
        force=yes
 
 # Install docker containers

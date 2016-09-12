@@ -6,7 +6,7 @@
   * sonic_hwsku = Supported Hardware SKU, e.g. ACS-S6000
 3. Update group_vars/sonic/vars file with:
   * Replace 'password' with your own passwords. Note: Leave the initial_password as 123456.
-  * apt_repo_ip = The ip address (or URL) of your APT mirror, typically private.
+  * apt_repo_ip = The ip address (or FQDN) of your APT mirror, typically private.
   * [ntp,syslog,dns]_servers = A list of your server IPs for these services. 
   * snmp_rocommunity = your internal snmp community string.
 4. Update vars/docker_registry.yml:

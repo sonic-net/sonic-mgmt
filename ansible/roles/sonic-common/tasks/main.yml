@@ -10,6 +10,10 @@
   when: sonic_hwsku in mellanox_hwskus
   tags: always
 
+- name: update acsadmin password
+  include: passwd.yml
+  tags: system
+
 # Setup apt repo
 - include: aptrepo.yml
   tags: repo
@@ -138,10 +142,6 @@
         group=root
         mode=0644
   tags: ssw
-
-# Setup Platform
-- include: platform.yml
-  tags: platform,unsafe
 
 # Install Persistent Iptables Package
 - name: Install iptables-persistent
