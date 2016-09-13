@@ -4,7 +4,7 @@ Requires=database.service
 After=database.service
 
 [Service]
-User=acsadmin
+User={{ sonicadmin_user }}
 ExecStart=/usr/bin/docker start -a orchagent
 ExecStop=/usr/bin/docker stop orchagent
 ExecStopPost=/usr/bin/docker stop syncd
