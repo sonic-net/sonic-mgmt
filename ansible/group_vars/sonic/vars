@@ -33,6 +33,7 @@ orchagent_docker_volumes_dict:
 orchagent_docker_volumes: "{{ orchagent_docker_volumes_dict.keys() }}"
 
 apt_repo_ip: "10.0.0.5"
+apt_default_release: "trusty"
 
 # ntp variables
 ntp_servers: ['10.0.0.1', '10.0.0.2']
