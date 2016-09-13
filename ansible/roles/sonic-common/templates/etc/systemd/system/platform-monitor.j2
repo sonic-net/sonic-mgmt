@@ -1,0 +1,12 @@
+[Unit]
+Description=platform monitor container
+Requires=docker.service
+After=docker.service
+
+[Service]
+User=acsadmin
+ExecStart=/usr/bin/docker start -a platform-monitor
+ExecStop=/usr/bin/docker stop platform-monitor
+
+[Install]
+WantedBy=multi-user.target

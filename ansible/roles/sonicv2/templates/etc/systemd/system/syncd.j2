@@ -6,7 +6,7 @@ After=database.service
 [Service]
 User=root
 {% if sonic_hwsku == 'ACS-MSN2700' %}
-ExecStopPost=/etc/init.d/sxdkernel start
+ExecStartPre=/etc/init.d/sxdkernel start
 {% endif %}
 ExecStart=/usr/bin/docker start -a syncd
 ExecStop=/usr/bin/docker stop syncd

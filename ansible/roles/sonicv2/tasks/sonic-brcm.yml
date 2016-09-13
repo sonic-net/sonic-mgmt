@@ -32,7 +32,7 @@
   become: yes
   apt: pkg={{ opennslv2.name }}={{ opennslv2.version }}
        state=present
-       default_release=trusty
+       default_release={{ apt_default_release }}
        force=yes
 
 # Install docker containers

@@ -1,11 +1,8 @@
-[sonic_stable]
-
 [sonic_latest]
-switch1  ansible_host=10.0.0.100  sonic_version=v2  sonic_hwsku=Force10-S6000
+switch1  ansible_host=10.0.0.100  sonic_version=v2  sonic_hwsku=ACS-S6000
 switch2  ansible_host=10.0.0.101  sonic_version=v2  sonic_hwsku=ACS-MSN2700 
 
 [sonic:children]
-sonic_stable
 sonic_latest
 
 [ptf]
