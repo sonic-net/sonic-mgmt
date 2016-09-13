@@ -10,7 +10,7 @@
   when: sonic_hwsku in mellanox_hwskus
   tags: always
 
-- name: update acsadmin password
+- name: update sonicadmin password
   include: passwd.yml
   tags: system
 

@@ -1,3 +1,14 @@
+#Installing Ansible
+1. git clone https://github.com/ansible/ansible
+2. cd ansible
+3. git checkout v2.0.0.2-1 -b v2.0.0.2-1
+4. git submodule update --init --recursive
+5. make
+6. sudo make install
+
+Note: v2.0.0.2 is the currently tested Ansible version.  Other versions may not work correctly.
+
+
 #How to use this Ansible sample playbook to deploy SONiC:
 
 1. Prepare a switch with the SONiC base image. See: https://github.com/Azure/SONiC/blob/gh-pages/quickstart.md
@@ -9,6 +20,7 @@
   * apt_repo_ip = The ip address (or FQDN) of your APT mirror, typically private.
   * [ntp,syslog,dns]_servers = A list of your server IPs for these services. 
   * snmp_rocommunity = your internal snmp community string.
+  * Replace sonicadmin_user and ansible_ssh_user with the username you built into the baseimage
 4. Update vars/docker_registry.yml:
   * docker_registry_host = FQDN:port of your docker registry
   * docker_registry_username = username of your docker registry

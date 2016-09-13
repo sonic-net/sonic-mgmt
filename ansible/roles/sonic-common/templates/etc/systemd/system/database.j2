@@ -4,7 +4,7 @@ Requires=docker.service
 After=docker.service
 
 [Service]
-User=acsadmin
+User={{ sonicadmin_user }}
 ExecStart=/usr/bin/docker start -a database
 ExecStop=/usr/bin/docker stop database
 
