@@ -355,9 +355,12 @@ minigraph_interfaces:
     peer_addr: 10.0.0.49
     prefixlen: 31
     subnet: 10.0.0.48/31
-minigraph_lo_interface:
-    addr: 10.1.0.32
-    prefixlen: '32'
+minigraph_lo_interfaces:
+-   addr: 10.1.0.32
+    family: inet
+    mask: 255.255.255.255
+    name: Loopback0
+    prefixlen: 32
 minigraph_mgmt_interface:
     addr: 10.3.147.195
     gwaddr: 10.3.146.1
