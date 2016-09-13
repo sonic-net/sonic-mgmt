@@ -2,7 +2,7 @@
   include: sonicdocker.yml
   vars:
     docker_container: docker-bgp
-    docker_image: "{{ image_id_bgp }}"
+    docker_image: "docker-bgp"
     docker_privileged: yes
     docker_state: absent
 
@@ -10,7 +10,7 @@
   include: sonicdocker.yml
   vars:
     docker_container: bgp
-    docker_image: "{{ image_id_bgp }}"
+    docker_image: "docker-bgp"
     docker_privileged: yes
     docker_state: absent
 
