@@ -1,8 +1,6 @@
 # Software for Open Networking in the Cloud - SONiC
 # Management
 
-### This software repository must be treated as private and is only shared under NDA terms with Microsoft until publicly released.
-
 # Description
 Tools for managing, configuring and monitoring SONiC
 
