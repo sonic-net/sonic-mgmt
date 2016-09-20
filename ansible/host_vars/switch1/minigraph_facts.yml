@@ -133,6 +133,7 @@ minigraph_devices: {}
 minigraph_interfaces:
 -   addr: 10.0.0.0
     alias: Ethernet0
+    family: inet
     mask: 255.255.255.254
     name: Ethernet0
     peer_addr: 10.0.0.1
@@ -140,6 +141,7 @@ minigraph_interfaces:
     subnet: 10.0.0.0/31
 -   addr: 10.0.0.50
     alias: Ethernet100
+    family: inet
     mask: 255.255.255.254
     name: Ethernet100
     peer_addr: 10.0.0.51
@@ -147,6 +149,7 @@ minigraph_interfaces:
     subnet: 10.0.0.50/31
 -   addr: 10.0.0.52
     alias: Ethernet104
+    family: inet
     mask: 255.255.255.254
     name: Ethernet104
     peer_addr: 10.0.0.53
@@ -154,6 +157,7 @@ minigraph_interfaces:
     subnet: 10.0.0.52/31
 -   addr: 10.0.0.54
     alias: Ethernet108
+    family: inet
     mask: 255.255.255.254
     name: Ethernet108
     peer_addr: 10.0.0.55
@@ -161,6 +165,7 @@ minigraph_interfaces:
     subnet: 10.0.0.54/31
 -   addr: 10.0.0.56
     alias: Ethernet112
+    family: inet
     mask: 255.255.255.254
     name: Ethernet112
     peer_addr: 10.0.0.57
@@ -168,6 +173,7 @@ minigraph_interfaces:
     subnet: 10.0.0.56/31
 -   addr: 10.0.0.58
     alias: Ethernet116
+    family: inet
     mask: 255.255.255.254
     name: Ethernet116
     peer_addr: 10.0.0.59
@@ -175,6 +181,7 @@ minigraph_interfaces:
     subnet: 10.0.0.58/31
 -   addr: 10.0.0.6
     alias: Ethernet12
+    family: inet
     mask: 255.255.255.254
     name: Ethernet12
     peer_addr: 10.0.0.7
@@ -182,6 +189,7 @@ minigraph_interfaces:
     subnet: 10.0.0.6/31
 -   addr: 10.0.0.60
     alias: Ethernet120
+    family: inet
     mask: 255.255.255.254
     name: Ethernet120
     peer_addr: 10.0.0.61
@@ -189,6 +197,7 @@ minigraph_interfaces:
     subnet: 10.0.0.60/31
 -   addr: 10.0.0.62
     alias: Ethernet124
+    family: inet
     mask: 255.255.255.254
     name: Ethernet124
     peer_addr: 10.0.0.63
@@ -196,6 +205,7 @@ minigraph_interfaces:
     subnet: 10.0.0.62/31
 -   addr: 10.0.0.8
     alias: Ethernet16
+    family: inet
     mask: 255.255.255.254
     name: Ethernet16
     peer_addr: 10.0.0.9
@@ -203,6 +213,7 @@ minigraph_interfaces:
     subnet: 10.0.0.8/31
 -   addr: 10.0.0.10
     alias: Ethernet20
+    family: inet
     mask: 255.255.255.254
     name: Ethernet20
     peer_addr: 10.0.0.11
@@ -210,6 +221,7 @@ minigraph_interfaces:
     subnet: 10.0.0.10/31
 -   addr: 10.0.0.12
     alias: Ethernet24
+    family: inet
     mask: 255.255.255.254
     name: Ethernet24
     peer_addr: 10.0.0.13
@@ -217,6 +229,7 @@ minigraph_interfaces:
     subnet: 10.0.0.12/31
 -   addr: 10.0.0.14
     alias: Ethernet28
+    family: inet
     mask: 255.255.255.254
     name: Ethernet28
     peer_addr: 10.0.0.15
@@ -224,6 +237,7 @@ minigraph_interfaces:
     subnet: 10.0.0.14/31
 -   addr: 10.0.0.16
     alias: Ethernet32
+    family: inet
     mask: 255.255.255.254
     name: Ethernet32
     peer_addr: 10.0.0.17
@@ -231,6 +245,7 @@ minigraph_interfaces:
     subnet: 10.0.0.16/31
 -   addr: 10.0.0.18
     alias: Ethernet36
+    family: inet
     mask: 255.255.255.254
     name: Ethernet36
     peer_addr: 10.0.0.19
@@ -238,6 +253,7 @@ minigraph_interfaces:
     subnet: 10.0.0.18/31
 -   addr: 10.0.0.2
     alias: Ethernet4
+    family: inet
     mask: 255.255.255.254
     name: Ethernet4
     peer_addr: 10.0.0.3
@@ -245,6 +261,7 @@ minigraph_interfaces:
     subnet: 10.0.0.2/31
 -   addr: 10.0.0.20
     alias: Ethernet40
+    family: inet
     mask: 255.255.255.254
     name: Ethernet40
     peer_addr: 10.0.0.21
@@ -252,6 +269,7 @@ minigraph_interfaces:
     subnet: 10.0.0.20/31
 -   addr: 10.0.0.22
     alias: Ethernet44
+    family: inet
     mask: 255.255.255.254
     name: Ethernet44
     peer_addr: 10.0.0.23
@@ -259,6 +277,7 @@ minigraph_interfaces:
     subnet: 10.0.0.22/31
 -   addr: 10.0.0.24
     alias: Ethernet48
+    family: inet
     mask: 255.255.255.254
     name: Ethernet48
     peer_addr: 10.0.0.25
@@ -266,6 +285,7 @@ minigraph_interfaces:
     subnet: 10.0.0.24/31
 -   addr: 10.0.0.26
     alias: Ethernet52
+    family: inet
     mask: 255.255.255.254
     name: Ethernet52
     peer_addr: 10.0.0.27
@@ -273,6 +293,7 @@ minigraph_interfaces:
     subnet: 10.0.0.26/31
 -   addr: 10.0.0.28
     alias: Ethernet56
+    family: inet
     mask: 255.255.255.254
     name: Ethernet56
     peer_addr: 10.0.0.29
@@ -280,6 +301,7 @@ minigraph_interfaces:
     subnet: 10.0.0.28/31
 -   addr: 10.0.0.30
     alias: Ethernet60
+    family: inet
     mask: 255.255.255.254
     name: Ethernet60
     peer_addr: 10.0.0.31
@@ -287,6 +309,7 @@ minigraph_interfaces:
     subnet: 10.0.0.30/31
 -   addr: 10.0.0.32
     alias: Ethernet64
+    family: inet
     mask: 255.255.255.254
     name: Ethernet64
     peer_addr: 10.0.0.33
@@ -294,6 +317,7 @@ minigraph_interfaces:
     subnet: 10.0.0.32/31
 -   addr: 10.0.0.34
     alias: Ethernet68
+    family: inet
     mask: 255.255.255.254
     name: Ethernet68
     peer_addr: 10.0.0.35
@@ -301,6 +325,7 @@ minigraph_interfaces:
     subnet: 10.0.0.34/31
 -   addr: 10.0.0.36
     alias: Ethernet72
+    family: inet
     mask: 255.255.255.254
     name: Ethernet72
     peer_addr: 10.0.0.37
@@ -308,6 +333,7 @@ minigraph_interfaces:
     subnet: 10.0.0.36/31
 -   addr: 10.0.0.38
     alias: Ethernet76
+    family: inet
     mask: 255.255.255.254
     name: Ethernet76
     peer_addr: 10.0.0.39
@@ -315,6 +341,7 @@ minigraph_interfaces:
     subnet: 10.0.0.38/31
 -   addr: 10.0.0.4
     alias: Ethernet8
+    family: inet
     mask: 255.255.255.254
     name: Ethernet8
     peer_addr: 10.0.0.5
@@ -322,6 +349,7 @@ minigraph_interfaces:
     subnet: 10.0.0.4/31
 -   addr: 10.0.0.40
     alias: Ethernet80
+    family: inet
     mask: 255.255.255.254
     name: Ethernet80
     peer_addr: 10.0.0.41
@@ -329,6 +357,7 @@ minigraph_interfaces:
     subnet: 10.0.0.40/31
 -   addr: 10.0.0.42
     alias: Ethernet84
+    family: inet
     mask: 255.255.255.254
     name: Ethernet84
     peer_addr: 10.0.0.43
@@ -336,6 +365,7 @@ minigraph_interfaces:
     subnet: 10.0.0.42/31
 -   addr: 10.0.0.44
     alias: Ethernet88
+    family: inet
     mask: 255.255.255.254
     name: Ethernet88
     peer_addr: 10.0.0.45
@@ -343,6 +373,7 @@ minigraph_interfaces:
     subnet: 10.0.0.44/31
 -   addr: 10.0.0.46
     alias: Ethernet92
+    family: inet
     mask: 255.255.255.254
     name: Ethernet92
     peer_addr: 10.0.0.47
@@ -350,6 +381,7 @@ minigraph_interfaces:
     subnet: 10.0.0.46/31
 -   addr: 10.0.0.48
     alias: Ethernet96
+    family: inet
     mask: 255.255.255.254
     name: Ethernet96
     peer_addr: 10.0.0.49
