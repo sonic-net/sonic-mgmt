@@ -1,9 +1,5 @@
 # SONiC
 
-# FIXME: de-dup with sonic-common/tasks/main.yml?
-# Setup Platform
-#- include: platform.yml
-
 # Remove v1 docker containers
 - name: Remove docker-sswsyncd docker container
   include: sonicdocker.yml

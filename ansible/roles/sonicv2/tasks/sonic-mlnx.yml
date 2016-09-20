@@ -1,14 +1,21 @@
 # SONiC
 
-# Setup Platform
-- include: ../../sonic-common/tasks/platform-mlnx.yml
-
 # Remove v1 docker containers
+- name: Remove docker-sswsyncd docker container
+  include: sonicdocker.yml
+  vars:
+    docker_container: docker-sswsyncd
+    docker_image: "docker-sswsyncd"
+    docker_privileged: yes
+    docker_state: absent
+
 - name: Remove sswsyncd docker container
-  docker:
-    name: docker-sswsyncd
-    image: "{{docker_registry_host}}/{{image_id_sswsyncd}}"
-    state: absent
+  include: sonicdocker.yml
+  vars:
+    docker_container: sswsyncd
+    docker_image: "docker-sswsyncd"
+    docker_privileged: yes
+    docker_state: absent
 
 - name: Ensure MLNX Linux Module is installed
   become: true
