@@ -106,6 +106,42 @@
         mode=0644
   tags: system
 
+# Setup Interfaces
+- name: Copy Interfaces File.
+  become: true
+  template: src=interfaces.j2
+            dest=/etc/network/interfaces
+            owner=root
+            group=root
+            mode=0644
+  register: if_copy
+  tags: network,unsafe
+
+- name: Add MGMT Default Route to table default
+  become: true
+  command: ip route add default via {{ minigraph_mgmt_interface["gwaddr"] }} dev eth0 table default
+  register: route_add_result
+  failed_when: 'route_add_result.rc != 0 and "RTNETLINK answers: File exists" not in route_add_result.stderr'
+  when: if_copy.changed
+  tags: network,unsafe
+
+- name: Test if there is mgmt ip rule
+  command: /bin/ip rule show
+  register: ip_rules
+  tags: network
+  changed_when: False
+
+- name: Add mgmt ip rule if it does not exist
+  shell: /bin/ip rule add from {{ minigraph_mgmt_interface['addr'] }}/32 table default
+  tags: network,unsafe
+  when: ip_rules.stdout.find("from {{ minigraph_mgmt_interface['addr'] }} lookup default") == -1
+
+- name: Setup loopback ip address
+  become: true
+  command: ifup --force lo
+  changed_when: False
+  tags: network,unsafe
+
 - name: Check docker base verison is correct
   become: true
   apt: pkg=docker-engine={{ version_docker_engine }}
