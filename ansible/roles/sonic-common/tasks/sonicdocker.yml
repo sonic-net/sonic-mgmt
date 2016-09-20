@@ -6,9 +6,9 @@
 ## docker_state: emulate the behavior of docker module
 ##   ref: http://docs.ansible.com/ansible/docker_module.html
 ##
-## +-----------+------+--------------+----------+---------------------+----------------+-------------+
+## +-------------+------+--------------+----------+---------------------+----------------+-------------+
 ## | sonicdocker | pull | stop service |  docker  |    post service     | enable service | clean image |
-## +-----------+------+--------------+----------+---------------------+----------------+-------------+
+## +-------------+------+--------------+----------+---------------------+----------------+-------------+
 ## | present     |      |              | present  |                     | y              |             |
 ## | started     |      |              | present  | started             | y              |             |
 ## | reloaded    | y    | pulled?      | reloaded | restarted if pulled | y              | if pulled   |
@@ -85,12 +85,13 @@
 
 - name: "{{docker_container}} - Reload systemd"
   command: systemctl daemon-reload
+  become: yes
   when: configfile_result.changed
 
 - block:
   ## Clean up images before pulling
   - name: "{{docker_container}} - Clean up images before pulling"
-    include: ../../sonic-common/tasks/sonicdocker_clean.yml
+    include: sonicdocker_clean.yml
 
   ## Pull docker image from registry
   - name: "{{docker_container}} - Pull docker image from registry"
@@ -118,8 +119,8 @@
 
 - name: "{{docker_container}} - Reload systemd"
   command: systemctl daemon-reload
+  become: yes
   when: configfile_remove.changed
-
 
 - name: "{{docker_container}} - Control docker container"
   docker:
