@@ -1,0 +1,26 @@
+# Shuotian Cheng <shuche@microsoft.com>
+#
+# This test is part of sswsyncd functionality tests.
+#
+# In this test, I try to iteratively shutdown and bring up BGP session from
+# the DUT spine neighbor side and test after a certain time period that the
+# nexthopgroup table is updated according to the certain BGP session flappings.
+- set_fact:
+    acs_devices: "{{ minigraph_devices }}"
+    bgp_neighbors: "{{ minigraph_bgp }}"
+
+- debug: var=sonic_asic_type
+
+- set_fact: asic="{{ sonic_asic_type }}"
+
+- include: bgp_nei_up.yml
+  with_items: bgp_neighbors
+  when: "'T2' in item['name']"
+        
+- include: bgp_entry_flap.yml
+  with_items: bgp_neighbors
+
+- name: recover minigraph facts about the device(above steps loaded neighbors configuration)
+  minigraph_facts: host="{{ inventory_hostname }}"
+  connection: local
+  become: no

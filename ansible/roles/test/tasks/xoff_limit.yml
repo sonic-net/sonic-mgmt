@@ -1,0 +1,106 @@
+- block:
+    - name: Pause port
+      switch_port: port=Ethernet4 pause=yes drain=yes
+
+    - name: Clear switch counters
+      clear_switch_counters:
+
+    - name: Send packets dscp = {{ dscp }}, ecn = {{ ecn }}, number of packets = {{ egress_pipe_leak + xon_limit|int - 1 }}
+      command: ptf --test-dir acstests dscp_ecn_send.DscpEcnSend --platform remote -t "dscp={{ dscp }};ecn={{ ecn }};packet_num={{ egress_pipe_leak + xon_limit|int - 1 }};router_mac='{{ ansible_Ethernet0['macaddress'] }}'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Get switch counters
+      switch_counters:
+
+    - debug: msg="Ethernet4 queue {{ queue }} pkt = {{ switch_counters['Ethernet4'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt'] }}"
+    - debug: msg="Ethernet0 ing_queue {{ queue }} tpfc pkt = {{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+    - debug: msg="Ethernet0 ing_queue {{ queue }} drop pkt = {{ switch_counters['Ethernet0']['ing_drop']['pkt'] }}"
+
+    - name: "Assert no queue drop and no tx pfc"
+      assert:
+        that:
+          - "{{ switch_counters['Ethernet0']['ing_drop']['pkt']|int == 0 }}"
+          - "{{ switch_counters['Ethernet0'][queue]['tpfc']['pkt']|int == 0 }}"
+          - "{{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt']|int == 0 }}"
+
+    - name: Send packets dscp = {{ dscp }}, ecn = {{ ecn }}, number of packets = 1
+      command: ptf --test-dir acstests dscp_ecn_send.DscpEcnSend --platform remote -t "dscp={{ dscp }};ecn={{ ecn }};packet_num=1;router_mac='{{ ansible_Ethernet0['macaddress'] }}'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Get switch counters
+      switch_counters:
+
+    - debug: msg="Ethernet4 queue {{ queue }} pkt = {{ switch_counters['Ethernet4'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt'] }}"
+    - debug: msg="Ethernet0 ing_queue {{ queue }} tpfc pkt = {{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+    - debug: msg="Ethernet0 ing_queue {{ queue }} drop pkt = {{ switch_counters['Ethernet0']['ing_drop']['pkt'] }}"
+
+    - name: "Assert no ingress and egress drop and tx pfc"
+      assert:
+        that:
+          - "{{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt']|int == 0 }}"
+          - "{{ switch_counters['Ethernet0'][queue]['tpfc']['pkt']|int > 0 }}"
+          - "{{ switch_counters['Ethernet0']['ing_drop']['pkt']|int == 0 }}"
+
+    - name: Send packets dscp = {{ dscp }}, ecn = {{ ecn }}, number of packets = {{ xoff_limit }}
+      command: ptf --test-dir acstests dscp_ecn_send.DscpEcnSend --platform remote -t "dscp={{ dscp }};ecn={{ ecn }};packet_num={{ xoff_limit }};router_mac='{{ ansible_Ethernet0['macaddress'] }}'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Get switch counters
+      switch_counters:
+
+    - name: "Assert no ingress and egress drop and tx pfc"
+      assert:
+        that:
+          - "{{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt']|int == 0 }}"
+          - "{{ switch_counters['Ethernet0'][queue]['tpfc']['pkt']|int > 0 }}"
+          - "{{ switch_counters['Ethernet0']['ing_drop']['pkt']|int == 0 }}"
+
+    - name: Send packets dscp = {{ dscp }}, ecn = {{ ecn }}, number of packets = 1
+      command: ptf --test-dir acstests dscp_ecn_send.DscpEcnSend --platform remote -t "dscp={{ dscp }};ecn={{ ecn }};packet_num=1;router_mac='{{ ansible_Ethernet0['macaddress'] }}'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Get switch counters
+      switch_counters:
+
+    - debug: msg="Ethernet4 queue {{ queue }} pkt = {{ switch_counters['Ethernet4'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt'] }}"
+    - debug: msg="Ethernet0 ing_queue {{ queue }} tpfc pkt = {{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+    - debug: msg="Ethernet0 ing_queue {{ queue }} drop pkt = {{ switch_counters['Ethernet0']['ing_drop']['pkt'] }}"
+
+    - name: "Assert ingress drop, no egress drop and tx pfc"
+      assert:
+        that:
+          - "{{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt']|int == 0 }}"
+          - "{{ switch_counters['Ethernet0'][queue]['tpfc']['pkt']|int > 0 }}"
+          - "{{ switch_counters['Ethernet0']['ing_drop']['pkt']|int == 1 }}"
+
+    - name: Clear switch counters
+      clear_switch_counters:
+
+    - name: Resume port
+      switch_port: port=Ethernet4 pause=no
+
+    - name: Get switch counters
+      switch_counters:
+
+    - debug: msg="Ingress priority buffer size = {{ switch_counters['Ethernet4'][queue]['ucq']['pkt']|int * 208 }} bytes"
+
+    - name: "Assert the size of the ingress buffer (xon+xoff)"
+      assert:
+        that:
+          - "{{ switch_counters['Ethernet4'][queue]['ucq']['pkt']|int == xon_limit + xoff_limit }}"
+
+  always:
+    - name: Resume port
+      switch_port: port=Ethernet4 pause=no
+

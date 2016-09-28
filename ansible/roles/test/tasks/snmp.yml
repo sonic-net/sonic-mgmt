@@ -1,0 +1,10 @@
+# Gather facts with SNMP version 2
+- name: Gathering basic snmp facts about the device
+  snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
+  connection: local
+
+# Test SNMP is working with sysdesc
+- name: Validating SNMP was successful and Hostname is what is expected
+  assert: { that: "ansible_sysname == '{{ inventory_hostname }}'" }
+
+

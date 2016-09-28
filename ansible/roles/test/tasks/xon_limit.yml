@@ -1,0 +1,192 @@
+- block:
+    - name: Pause port 4
+      switch_port: port=Ethernet4 pause=yes drain=yes
+
+    - name: Pause port 8
+      switch_port: port=Ethernet8 pause=yes drain=yes
+
+    - name: Clear switch counters
+      clear_switch_counters:
+
+
+    # Send (egress_pipe_leak + xon_limit - 1) packets to the ASIC port 4
+    # No drops
+    # No tx pfc notifications
+    - name: Send packets to port 4 dscp = {{ dscp }}, ecn = {{ ecn }}, number of packets = (egress_pipe_leak + xon_limit - 1) = {{ egress_pipe_leak + xon_limit|int - 1 }}
+      command: ptf --test-dir acstests dscp_ecn_send.DscpEcnSend --platform remote -t "dscp={{ dscp }};ecn={{ ecn }};packet_num={{ egress_pipe_leak + xon_limit|int - 1 }};router_mac='{{ ansible_Ethernet0['macaddress'] }}';ip_dst='10.0.0.3'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Get switch counters
+      switch_counters:
+    - debug: msg="Ethernet0 ing_queue {{ queue }} tpfc pkt = {{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+    - debug: msg="Ethernet0 ing_queue {{ queue }} drop pkt = {{ switch_counters['Ethernet0']['ing_drop']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} pkt = {{ switch_counters['Ethernet4'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} pkt = {{ switch_counters['Ethernet8'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet8'][queue]['ucqdrop']['pkt'] }}"
+
+    - set_fact: tpfc_prev="{{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+
+    - pause: seconds=5
+
+    - name: Get switch counters
+      switch_counters:
+    - debug: msg="Ethernet0 ing_queue {{ queue }} tpfc pkt = {{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+    - debug: msg="Ethernet0 ing_queue {{ queue }} drop pkt = {{ switch_counters['Ethernet0']['ing_drop']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} pkt = {{ switch_counters['Ethernet4'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} pkt = {{ switch_counters['Ethernet8'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet8'][queue]['ucqdrop']['pkt'] }}"
+
+    - name: "Assert no tx pfc increasing"
+      assert:
+        that:
+          - "{{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] - tpfc_prev|int == 0 }}"
+
+    # Send (egress_pipe_leak + xoff_limit_prime - xon_limit) packets to the ASIC port 8. It _almost_ activates tx pfc
+    # No drops
+    # Got some tx pfc notifications because leaked packets through port 8 activate tx pfc for a moment
+    - name: Send packets to port 8 dscp = {{ dscp }}, ecn = {{ ecn }}, number of packets = (egress_pipe_leak + xoff_limit_prime - xon_limit) = {{ egress_pipe_leak + xoff_limit_prime - xon_limit|int }}
+      command: ptf --test-dir acstests dscp_ecn_send.DscpEcnSend --platform remote -t "dscp={{ dscp }};ecn={{ ecn }};packet_num={{ egress_pipe_leak + xoff_limit_prime - xon_limit|int }};router_mac='{{ ansible_Ethernet0['macaddress'] }}';ip_dst='10.0.0.5'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Get switch counters
+      switch_counters:
+    - debug: msg="Ethernet0 ing_queue {{ queue }} tpfc pkt = {{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+    - debug: msg="Ethernet0 ing_queue {{ queue }} drop pkt = {{ switch_counters['Ethernet0']['ing_drop']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} pkt = {{ switch_counters['Ethernet4'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} pkt = {{ switch_counters['Ethernet8'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet8'][queue]['ucqdrop']['pkt'] }}"
+
+    - set_fact: tpfc_prev="{{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+
+    - pause: seconds=5
+
+    - name: Get switch counters
+      switch_counters:
+    - debug: msg="Ethernet0 ing_queue {{ queue }} tpfc pkt = {{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+    - debug: msg="Ethernet0 ing_queue {{ queue }} drop pkt = {{ switch_counters['Ethernet0']['ing_drop']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} pkt = {{ switch_counters['Ethernet4'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} pkt = {{ switch_counters['Ethernet8'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet8'][queue]['ucqdrop']['pkt'] }}"
+
+    - name: "Assert no tx pfc increasing"
+      assert:
+        that:
+          - "{{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] - tpfc_prev|int == 0 }}"
+
+    # Send 1 packet to the ASIC port 8. Now we overstep xoff threshold so tx pfc actives
+    # No drops
+    # tx pfc active
+    - name: Send packets to port 8 dscp = {{ dscp }}, ecn = {{ ecn }}, number of packets = 1
+      command: ptf --test-dir acstests dscp_ecn_send.DscpEcnSend --platform remote -t "dscp={{ dscp }};ecn={{ ecn }};packet_num=1;router_mac='{{ ansible_Ethernet0['macaddress'] }}';ip_dst='10.0.0.5'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Get switch counters
+      switch_counters:
+    - debug: msg="Ethernet0 ing_queue {{ queue }} tpfc pkt = {{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+    - debug: msg="Ethernet0 ing_queue {{ queue }} drop pkt = {{ switch_counters['Ethernet0']['ing_drop']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} pkt = {{ switch_counters['Ethernet4'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} pkt = {{ switch_counters['Ethernet8'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet8'][queue]['ucqdrop']['pkt'] }}"
+
+    - set_fact: tpfc_prev="{{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+
+    - pause: seconds=5
+
+    - name: Get switch counters
+      switch_counters:
+    - debug: msg="Ethernet0 ing_queue {{ queue }} tpfc pkt = {{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+    - debug: msg="Ethernet0 ing_queue {{ queue }} drop pkt = {{ switch_counters['Ethernet0']['ing_drop']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} pkt = {{ switch_counters['Ethernet4'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} pkt = {{ switch_counters['Ethernet8'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet8'][queue]['ucqdrop']['pkt'] }}"
+
+    - name: "Assert no tx pfc increasing"
+      assert:
+        that:
+          - "{{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] - tpfc_prev|int > 0 }}"
+
+    # Open gate for port 8. So the packet which overstep xoff threshold leaks away
+    # No drops
+    # tx pfc disactivated
+    - name: Resume port 8
+      switch_port: port=Ethernet8 pause=no
+
+    - name: Get switch counters
+      switch_counters:
+    - debug: msg="Ethernet0 ing_queue {{ queue }} tpfc pkt = {{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+    - debug: msg="Ethernet0 ing_queue {{ queue }} drop pkt = {{ switch_counters['Ethernet0']['ing_drop']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} pkt = {{ switch_counters['Ethernet4'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} pkt = {{ switch_counters['Ethernet8'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet8'][queue]['ucqdrop']['pkt'] }}"
+
+    - set_fact: tpfc_prev="{{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+
+    - pause: seconds=5
+
+    - name: Get switch counters
+      switch_counters:
+    - debug: msg="Ethernet0 ing_queue {{ queue }} tpfc pkt = {{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+    - debug: msg="Ethernet0 ing_queue {{ queue }} drop pkt = {{ switch_counters['Ethernet0']['ing_drop']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} pkt = {{ switch_counters['Ethernet4'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} pkt = {{ switch_counters['Ethernet8'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet8'][queue]['ucqdrop']['pkt'] }}"
+
+    - name: "Assert no tx pfc increasing"
+      assert:
+        that:
+          - "{{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] - tpfc_prev|int == 0 }}"
+
+    # Resume normal operation
+    # No drops
+    # no tx pfc counting
+    - name: Resume port 4
+      switch_port: port=Ethernet4 pause=no
+
+    - name: Get switch counters
+      switch_counters:
+    - debug: msg="Ethernet0 ing_queue {{ queue }} tpfc pkt = {{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+    - debug: msg="Ethernet0 ing_queue {{ queue }} drop pkt = {{ switch_counters['Ethernet0']['ing_drop']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} pkt = {{ switch_counters['Ethernet4'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} pkt = {{ switch_counters['Ethernet8'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet8'][queue]['ucqdrop']['pkt'] }}"
+
+    - set_fact: tpfc_prev="{{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+
+    - pause: seconds=5
+
+    - name: Get switch counters
+      switch_counters:
+    - debug: msg="Ethernet0 ing_queue {{ queue }} tpfc pkt = {{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] }}"
+    - debug: msg="Ethernet0 ing_queue {{ queue }} drop pkt = {{ switch_counters['Ethernet0']['ing_drop']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} pkt = {{ switch_counters['Ethernet4'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} pkt = {{ switch_counters['Ethernet8'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet8 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet8'][queue]['ucqdrop']['pkt'] }}"
+
+    - name: "Assert no tx pfc increasing"
+      assert:
+        that:
+          - "{{ switch_counters['Ethernet0'][queue]['tpfc']['pkt'] - tpfc_prev|int == 0 }}"
+
+  always:
+    - name: Resume port 4
+      switch_port: port=Ethernet4 pause=no
+
+    - name: Resume port 8
+      switch_port: port=Ethernet8 pause=no
+

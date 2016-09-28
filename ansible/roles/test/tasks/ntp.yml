@@ -1,0 +1,9 @@
+- name: Check if NTP is synced
+  become: true
+  shell: ntpstat
+  register: ntpstat_result
+  until: ntpstat_result.rc == 0
+  retries: 5
+  delay: 2
+
+- debug: msg="NTP Status {{ ntpstat_result.stdout }}"

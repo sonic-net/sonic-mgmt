@@ -1,0 +1,41 @@
+# Gather minigraph facts
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  become: no
+  connection: local
+
+- name: Print neighbors in minigraph
+  debug: msg="{{ minigraph_neighbors }}"
+
+- name: Print underlay neighbors in minigraph
+  debug: msg="{{ minigraph_underlay_neighbors }}"
+
+- name: Gather information from lldp
+  lldp:
+  vars:
+    ansible_shell_type: docker
+    ansible_python_interpreter: docker exec -i lldp python
+
+- name: If underlay exists, use it.
+  set_fact:
+    minigraph_neighbors: "{{ minigraph_underlay_neighbors }}"
+  when: minigraph_underlay_neighbors is defined
+
+- name: Compare the lldp neighbors name with minigraph neigbhors name (exclude the management port)
+  assert: { that: "'{{ lldp[item]['chassis']['name'] }}' == '{{ minigraph_neighbors[item]['name'] }}'" }
+  with_items: lldp.keys()
+  when: item != "eth0"
+  ignore_errors: yes
+  #todo - samirja and johnar - need to implement a minigraph topology that matches the fanout otherwise it errors out
+
+- name: Compare the lldp neighbors interface with minigraph neigbhor interface(exclude the management port)
+  assert: { that: "'{{ lldp[item]['port']['ifname'] }}' == '{{ minigraph_neighbors[item]['port'] }}'" }
+  with_items: lldp.keys()
+  when: item != "eth0"
+  ignore_errors: yes
+  #todo - samirja and johnar - need to implement a minigraph topology that matches the fanout otherwise it errors out
+
+- name: add host
+  add_host: name={{ lldp[item]['chassis']['mgmt-ip'] }} groups=lldp_neighbors neighbor_interface={{lldp[item]['port']['ifname']}} dut_interface={{item}} hname={{lldp[item]['chassis']['mgmt-ip'] }}
+  with_items: lldp.keys()
+  when: lldp[item]['chassis']['mgmt-ip'] is defined 

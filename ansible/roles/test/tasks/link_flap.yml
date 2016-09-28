@@ -1,0 +1,15 @@
+# Shuotian Cheng <shuche@microsoft.com>
+#
+# This test is part of sswsyncd functionality tests.
+#
+# In this test, I try to iteratively shutdown and bring up physical interface
+# from the DUT spine neighbor side by controlling the underlay fan-out switch.
+# Then, I check the neighbor table to ensure certian entries are updated
+# according to the certain link flappings.
+
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  connection: local
+
+- include: link_entry_flap.yml
+  with_items: "{{ minigraph_interfaces }}"
