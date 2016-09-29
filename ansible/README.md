@@ -27,7 +27,7 @@ Note: v2.0.0.2 is the currently tested Ansible version.  Other versions may not 
   * docker_registry_password = password of your docker registry
 5. Update host_vars/switch1/minigraph_facts.yml:
   * Update minigraph_mgmt_interface block with the address/gateway/mask/prefix information for your management interface
-6. Update roles/sonic-common/files/apt/sonic-gpg.key with the contents of your apt repo signing key.
+6. Update roles/sonic-common/files/apt/sonic.gpg.key with the contents of your apt repo signing key.
 7. Run the playbook:
 
   ansible-playbook deploy_sonic.yml -i inventory --limit switch1 --become -e "bootstrap=yes"
