@@ -1,0 +1,54 @@
+- set_fact:
+    addr: "{{ item['addr'] }}"
+    name: "{{ item['name'] }}"
+    peer_addr: "{{ item['peer_addr'] }}"
+
+- name: Get Broadcom ASIC tables
+  switch_tables: asic='broadcom' nexthop=yes
+  become: yes
+
+- name: Assert the particular entry is in nexthop table
+  assert: 
+    that:
+      - peer_addr in nexthop
+
+- set_fact:
+    interface: "{{ minigraph_underlay_neighbors[name]['port'] }}"
+
+- name: Shut down link from fanout switch
+  action: cisco template=port_shut.j2 enable=no
+  args:
+    host:  "{{ minigraph_underlay_devices[minigraph_underlay_neighbors[name]['name']]['mgmt_addr'] }}"
+    login: "{{ switch_login[minigraph_underlay_devices[minigraph_underlay_neighbors[name]['name']]['hwsku']] }}"
+  connection: cisco
+
+- name: Pause for 60 seconds
+  pause: seconds=60
+
+- name: Get Broadcom ASIC tables
+  switch_tables: asic='broadcom' nexthop=yes
+  become: yes
+
+- name: Assert the particular entry is not in nexthop table
+  assert:
+    that:
+      - peer_addr not in nexthop
+
+- name: Bring up link from fanout switch
+  action: cisco template=port_noshut.j2 enable=no
+  args:
+    host: "{{ minigraph_underlay_devices[minigraph_underlay_neighbors[name]['name']]['mgmt_addr'] }}"
+    login: "{{ switch_login[minigraph_underlay_devices[minigraph_underlay_neighbors[name]['name']]['hwsku']] }}"
+  connection: cisco
+
+- name: Pause for 60 seconds
+  pause: seconds=60
+
+- name: Get Broadcom ASIC tables
+  switch_tables: asic='broadcom' nexthop=yes
+  become: yes
+
+- name: Assert the particular entry is in nexthop table
+  assert:
+    that:
+      - peer_addr in nexthop

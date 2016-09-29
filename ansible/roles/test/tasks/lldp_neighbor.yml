@@ -1,0 +1,15 @@
+- name: Gather LLDP information from all neighbors by performing a SNMP walk 
+  lldp_facts: host={{ hname }} version=v2c community={{ snmp_rocommunity }} 
+  connection: local
+
+- name: verify the dut system name field is not empty
+  assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_sys_name'] }}' != ''"}
+
+- name: verify the dut chassis id field is not empty
+  assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_chassis_id'] }}' != ''"}
+
+- name: verify the dut system description field is not empty
+  assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_sys_desc'] }}' != ''"}
+
+- name: verify the dut port id field is published correctly
+  assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_port_id'] }}' == dut_interface"}

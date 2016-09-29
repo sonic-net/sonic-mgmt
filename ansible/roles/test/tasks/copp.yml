@@ -1,0 +1,39 @@
+- block:
+    - fail: msg="Please set ptf_host variable"
+      when: ptf_host is not defined
+
+    - name: Disable Mellanox copp rate limiting
+      script: roles/test/files/mlnx/disable_copp_rate_limiting.sh
+      when: minigraph_hwsku is defined and minigraph_hwsku == 'ACS-MSN2700'
+
+    - name: Remove existing ip from ptf host
+      script: roles/test/files/helpers/remove_ip.sh
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Install test ip to ptf host
+      script: roles/test/files/helpers/add_ip.sh
+      delegate_to: "{{ ptf_host }}"
+
+    - name: copy the test to ptf container
+      copy: src=roles/test/files/saitests dest=/root
+      delegate_to: "{{ ptf_host }}"
+
+    - include: copp_ptf.yml
+      vars:
+        test_name: COPP test - {{ item }}
+        test_path: copp_tests.{{ item }}
+        test_params: ""
+      with_items:
+        - ARPTest
+        - DHCPTest
+        - LLDPTest
+        - BGPTest
+        - LACPTest
+        - SNMPTest
+        - SSHTest
+        - IP2METest
+
+  always:
+    - name: Remove existing ip from ptf host
+      script: roles/test/files/helpers/remove_ip.sh
+      delegate_to: "{{ ptf_host }}"

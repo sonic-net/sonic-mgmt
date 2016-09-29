@@ -1,0 +1,33 @@
+- block:
+    - fail: msg="Please set ptf_host variable"
+      when: ptf_host is not defined
+
+    - name: Remove existing ip from ptf host
+      script: roles/test/files/helpers/remove_ip.sh
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Install test ip to ptf host
+      script: roles/test/files/helpers/add_ip.sh
+      delegate_to: "{{ ptf_host }}"
+
+    - name: copy the test to ptf container
+      copy: src=roles/test/files/saitests dest=/root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Install routes on the switch
+      script: roles/test/files/helpers/add_routes.sh
+
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: ECMP test
+        test_path: ecmp_test.ECMPtest
+        test_params: ""
+        extra_options: "--relax --log-dir /tmp/"
+
+  always:
+    - name: Remove routes from the switch
+      script: roles/test/files/helpers/remove_routes.sh
+
+    - name: Remove existing ip from ptf host
+      script: roles/test/files/helpers/remove_ip.sh
+      delegate_to: "{{ ptf_host }}"

@@ -1,0 +1,110 @@
+# Basic test of syslog functionality
+#
+#  - Configures DUT to send syslogs to ansible host.
+#  - Start Syslog Server on ansible host.
+#  - SSH to device and generate a syslog
+#  - Validate syslog was received
+#  - Clean up DUT
+#
+# Requires:  Ansible v2+
+#
+# Usage:
+#
+#  sudo ansible-playbook test.yml -i str --limit 10.3.147.142 --sudo --vault-password-file ~/password.txt --tags syslog
+#
+#
+
+- debug: msg="Starting Syslog Tests..."
+
+# Fetch the source IP of the ansible server
+- name: Get localhost facts
+  setup:
+  connection: local
+  register: local_facts
+
+#- debug: var=local_facts.ansible_facts.ansible_eth0.ipv4.address
+
+
+# Set variables for the test
+- name: Set variables for the test
+  set_fact:
+    local_srcip: "{{ local_facts.ansible_facts.ansible_eth0.ipv4.address }}"
+    original_syslog_servers: "{{ syslog_servers }}"
+    syslog_port: "{{ 65535 | random(start=65000) }}"
+
+- debug: var=local_srcip
+
+# TODO: (johnar) rsyslog template needs to be changed to allow variable port.  Static the config for now...
+# Reconfigure syslog on the DUT to point at this remote host
+#  set_fact:
+#    syslog_servers:
+#      - "{{ local_srcip }}"
+
+#- name: Reconfigure Rsyslog for Testing
+#  become: true
+#  template: src=../../acs/templates/rsyslog.conf.j2
+#            dest=/etc/rsyslog.conf
+
+- name: Add Rsyslog destination for testing
+  become: true
+  shell: 'echo "*.* @{{ local_srcip }}:{{ syslog_port }}" >> /etc/rsyslog.conf'
+
+- name: Restart Syslog Daemon
+  become: true
+  service: name=rsyslog state=restarted
+
+# Start Syslog Server
+
+- name: Start Syslog Server on ansible localhost
+  syslog_server: timeout=10 port="{{ syslog_port }}" host="{{ local_srcip }}"
+  async: 60
+  poll: 0
+  register: syslog_sleeper
+  connection: local
+  become: no
+
+- name: Wait a little bit for service to start
+  wait_for: timeout=2
+
+# SSH to device and generate a syslog
+- name: Send test syslog
+  become: yes
+  command: logger --priority INFO Basic Test Message
+
+#- debug: var=syslog_sleeper
+
+# Retreive syslogs
+- name: Retreive syslog messages
+  async_status: jid="{{ syslog_sleeper.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 30
+  delay: 1
+  connection: local
+
+- debug: msg="{{ syslog_messages }}"
+
+# Reconfigure Rsyslog to to original state
+
+- set_fact:
+    syslog_servers: "{{ original_syslog_servers }}"
+
+- name: Reconfigure Rsyslog to original state
+  template: src=roles/sonic-common/templates/rsyslog.conf.j2
+            dest=/etc/rsyslog.conf
+  become: true
+
+- name: Restart Syslog Daemon
+  become: true
+  service: name=rsyslog state=restarted
+
+
+# Check Messages
+- name: Check syslog messages for the test message
+  set_fact: 
+    found1: "true"
+  when: "{{ item | search('Basic Test Message') }}"
+  with_items: "{{ syslog_messages }}"
+
+- fail: msg='Unable to find test syslog "Basic Test Message"'
+  when: found1 is not defined

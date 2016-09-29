@@ -1,0 +1,31 @@
+# Gather facts with SNMP version 2
+- name: Gathering basic snmp facts about the device
+  snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
+  connection: local
+
+- set_fact:
+    snmp_intf: []
+
+- set_fact:
+    mg_intf: []
+
+- name: Create snmp interfaces list
+  set_fact: 
+    snmp_intf: "{{snmp_intf + [item.value.name] }}"
+  with_dict: snmp_interfaces
+  when: "{{item.value.name is defined}}"  
+
+- name: Create minigraph interfaces list
+  set_fact:
+      mg_intf: "{{mg_intf + [item.name] }}"
+  with_items: minigraph_interfaces
+  when: "{{item.name is defined}}"
+
+- debug: var=snmp_intf
+- debug: var=mg_intf
+
+- name: Check for missing interfaces in SNMP
+  fail: msg="Minigraph interface {{item}} not in SNMP interfaces"
+  when: "{{item not in snmp_intf}}"
+  with_items: mg_intf
+
