@@ -1,0 +1,10 @@
+---
+
+# Actions for SONiC switches
+- include: sonic.yml
+  when: scope == 'sonic'
+
+# Actions for lldp_neighbors
+- include: lldp_neighbor.yml
+  when: scope == 'lldp_neighbors'
+
