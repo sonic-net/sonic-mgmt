@@ -1,0 +1,81 @@
+hostname {{ hostname }}
+!
+spanning-tree mode mstp
+!
+aaa root secret 0 123456
+!
+username admin privilege 15 role network-admin secret 0 123456
+!
+clock timezone UTC
+!
+lldp run
+!
+!
+ip routing
+ipv6 unicast-routing
+!
+ip route 0.0.0.0/0 {{ minigraph_mgmt_interface["gwaddr"] }}
+!
+{% for subnet in range(0, tor_subnet_number) %}
+ip route 172.16.{{ tornum }}.{{ subnet }}/32 {{ nhip }}
+{% endfor %}
+!
+interface Management 1
+ description TO LAB MGMT SWITCH
+ ip address {{ minigraph_mgmt_interface["addr"] }} {{ minigraph_mgmt_interface["mask"] }}
+ no shutdown
+!
+{% for lo in minigraph_lo_interfaces %}
+interface {{ lo['name'] }}
+ description LOOPBACK
+{% if lo['addr'] | ipv4 %}
+ ip address {{ lo['addr'] }}/{{ lo['prefixlen'] }}
+{% elif lo['addr'] | ipv6 %}
+ ipv6 enable
+ ipv6 address {{ lo['addr'] }}/{{ lo['prefixlen'] }}
+ ipv6 nd ra suppress
+{% endif %}
+ no shutdown
+{% endfor %}
+!
+{% for iface in minigraph_interfaces %}
+interface {{ iface['name'] }}
+ no switchport
+{% if iface['addr'] | ipv4 %}
+ ip address {{ iface['addr'] }} {{ iface['mask'] }}
+{% elif iface['addr'] | ipv6 %}
+ ipv6 enable
+ ipv6 address {{ iface['addr'] }}/{{ iface['mask'] }}
+ ipv6 nd ra suppress
+{% endif %}
+ no shutdown
+!
+{% endfor %}
+!
+router bgp {{ minigraph_bgp_asn }}
+ router-id {{ minigraph_lo_interfaces[0]['addr'] }}
+ !
+{% for neighbor in minigraph_bgp %}
+ neighbor {{ neighbor["addr"] }} remote-as {{ neighbor["asn"] }}
+ neighbor {{ neighbor["addr"] }} description {{ neighbor["asn"]}}
+{% if neighbor["addr"] | ipv6 %}
+ address-family ipv6
+  neighbor {{ neighbor["addr"] }} activate
+ exit
+{% endif %}
+{% endfor %}
+ !
+{% for lo in minigraph_lo_interfaces %}
+ network {{ lo['addr'] }}/{{ lo['prefixlen'] }}
+{% endfor %}
+
+{% for subnet in range(0, tor_subnet_number) %}
+ network 172.16.{{ tornum }}.{{ subnet }}/32
+{% endfor %}
+!
+management api http-commands
+ no protocol https
+ protocol http
+ no shutdown
+!
+end

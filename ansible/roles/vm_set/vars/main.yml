@@ -1,0 +1,13 @@
+login: "admin"
+password: ""
+new_login: admin
+new_password: 123456
+new_root_password: 123456
+
+src_disk_image: "{{ root_path }}/images/{{ hdd_image_filename }}"
+cdrom_image: "{{ root_path }}/images/{{ cd_image_filename }}"
+
+tor_memory: 1572864
+spine_memory: 2097152
+
+port1_bridge: br-port1-{{ id }}

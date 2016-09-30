@@ -1,0 +1,31 @@
+---
+# This Playbook undeploys the vm sets.
+#
+# For additional details see playbook start_vm_sets.yml
+#
+# To run on both servers with all VM sets and ptf containers:
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos stop_vm_sets.yml
+#
+# To run on the first server only:
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos stop_vm_sets.yml --limit server_1
+#
+# To run on the second server and remove second vm set only
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos stop_vm_sets.yml --limit server_2 -e vm_set_2=true
+
+- hosts: servers:&vm_host
+  gather_facts: yes
+  become: true
+  vars:
+    vm_set_1: false
+    vm_set_2: false
+  vars_files:
+    - vars/docker_registry.yml
+  pre_tasks:
+    - name: Set "tag" variables
+      set_fact:
+        vm_set_1: true
+        vm_set_2: true
+      when: not (vm_set_1 or vm_set_2)
+  roles:
+  - { role: vm_set, action: 'stop', id: 1, external_iface: "{{ vm_1_external_iface }}", VMs: "{{ VMs_1 }}", vlan_base: "{{ vm_1_vlan_base }}", when: vm_set_1 and vm_1_enabled }
+  - { role: vm_set, action: 'stop', id: 2, external_iface: "{{ vm_2_external_iface }}", VMs: "{{ VMs_2 }}", vlan_base: "{{ vm_2_vlan_base }}", when: vm_set_2 and vm_2_enabled }

@@ -1,0 +1,78 @@
+minigraph_bgp:
+-   addr: 10.0.0.42
+    asn: 65100
+    name: str-s6000-on-3
+    peer_addr: 10.0.0.43
+
+
+minigraph_bgp_asn:
+64006
+...
+
+
+minigraph_console:
+{}
+
+
+minigraph_devices:
+{}
+
+
+minigraph_hwsku:
+Arista-VEOS
+...
+
+
+minigraph_interfaces:
+-   addr: 10.0.0.43
+    alias: Ethernet1
+    family: inet
+    mask: 255.255.255.254
+    name: Ethernet1
+    peer_addr: 10.0.0.42
+    prefixlen: 31
+    subnet: 10.0.0.42/31
+-   addr: 10.10.246.22
+    alias: Ethernet2
+    family: inet
+    mask: 255.255.255.0
+    name: Ethernet2
+    prefixlen: 24
+    subnet: 10.10.246.0/24
+
+
+minigraph_lo_interfaces:
+-   addr: 100.1.0.22
+    family: inet
+    mask: 255.255.255.255
+    name: Loopback0
+    prefixlen: 32
+
+
+minigraph_mgmt_interface:
+addr: 10.255.0.89
+gwaddr: 10.255.0.1
+mask: 255.255.255.0
+prefixlen: '24'
+
+
+minigraph_neighbors:
+{}
+
+
+minigraph_portchannel_interfaces:
+[]
+
+
+minigraph_underlay_devices:
+null
+...
+
+
+minigraph_underlay_neighbors:
+null
+...
+
+
+minigraph_vlan_interfaces:
+[]

@@ -1,0 +1,69 @@
+- name: Gathering facts about the device
+  include_vars: name=vars/configurations/{{ filename }}
+
+- name: Device debug output
+  debug: msg="hostname = {{ hostname }} serial port = {{ serial_port }} ip = {{ minigraph_mgmt_interface.addr }}"
+
+- name: Check destination file existance. vm set {{ id }}
+  stat: path={{ disk_image }}
+  register: file_stat
+
+- name: Copy arista disk image for {{ hostname }}. vm set {{ id }}
+  copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
+  when: not file_stat.stat.exists
+
+- name: Define vm {{ vm_name }}. vm set {{ id }}
+  virt: name={{ vm_name }}
+        command=define
+        xml="{{ lookup('template', 'templates/arista.xml.j2') }}"
+        uri=qemu:///system
+  when: vm_name not in vm_list_defined.list_vms
+
+- name: Start vm {{ vm_name }}. vm set {{ id }}
+  virt: name={{ vm_name }}
+        state=running
+        uri=qemu:///system
+  when: vm_name not in vm_list_running.list_vms
+
+- name: Wait until vm {{ vm_name }} is loaded. vm set {{ id }}
+  kickstart: telnet_port={{ serial_port }}
+             login={{ login }}
+             password={{ password }}
+             hostname={{ hostname }}
+             mgmt_ip="{{ minigraph_mgmt_interface.addr }}/{{ minigraph_mgmt_interface.prefixlen }}"
+             mgmt_gw={{ minigraph_mgmt_interface.gwaddr }}
+             new_login={{ new_login }}
+             new_password={{ new_password }}
+             new_root_password={{ new_root_password }}
+  register: kickstart_output
+  when: vm_name not in vm_list_running.list_vms
+
+- name: Destroy vm {{ vm_name }} if it hangs. vm set {{ id }}
+  virt: name={{ vm_name }}
+        command=destroy
+        uri=qemu:///system
+  when: vm_name not in vm_list_running.list_vms and kickstart_output.kickstart_code != 0
+
+- name: Start vm again {{ vm_name }}. vm set {{ id }}
+  virt: name={{ vm_name }}
+        state=running
+        uri=qemu:///system
+  when: vm_name not in vm_list_running.list_vms and kickstart_output.kickstart_code != 0
+
+- name: Wait until vm {{ vm_name }} is loaded. vm set {{ id }}
+  kickstart: telnet_port={{ serial_port }}
+             login={{ login }}
+             password={{ password }}
+             hostname={{ hostname }}
+             mgmt_ip="{{ minigraph_mgmt_interface.addr }}/{{ minigraph_mgmt_interface.prefixlen }}"
+             mgmt_gw={{ minigraph_mgmt_interface.gwaddr }}
+             new_login={{ new_login }}
+             new_password={{ new_password }}
+             new_root_password={{ new_root_password }}
+  register: kickstart_output_final
+  when: vm_name not in vm_list_running.list_vms and kickstart_output.kickstart_code != 0
+
+- name: Fail if kickstart gives error again vm {{ vm_name }}. vm set {{ id }}
+  fail: msg="Two attempts to start vm weren't succesfull"
+  when: '"skipped" in kickstart_output_final and "kickstart_code" in kickstart_output_final and kickstart_output_final.kickstart_code != 0'
+

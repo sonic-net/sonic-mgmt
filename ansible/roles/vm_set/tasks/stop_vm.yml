@@ -1,0 +1,14 @@
+- name: Destroy VM {{ vm_name }}. vm set {{ id }}
+  virt: name={{ vm_name }}
+        state=destroyed
+        uri=qemu:///system
+  when: vm_name in vm_list_running.list_vms
+
+- name: Undefine VM {{ vm_name }}. vm set {{ id }}
+  virt: name={{ vm_name }}
+        command=undefine
+        uri=qemu:///system
+  when: vm_name in vm_list_defined.list_vms
+
+- name: Remove arista disk image for {{ vm_name }}. vm set {{ id }}
+  file: path={{ disk_image }} state=absent

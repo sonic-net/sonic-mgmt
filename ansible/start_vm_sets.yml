@@ -1,0 +1,57 @@
+---
+# This Playbook deploys two vm sets with 32 veos VMs each
+# 
+# Every VM has three interfaces:
+#  - mgmt interface which is connected to the management network
+#    10.0.0.x/24. See host_vars/SERV-02.yml for the ip
+#    address
+#  - Eth1/1 is connected to the external port with corresponding vlan
+#    See the vlan number in host_vars/SERV-02.yml
+#  - Eth1/2 is connected to other VM's Eth1/2
+#
+# To start all vm_sets on both servers:
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos start_vm_sets.yml
+#
+# To run on the first server only:
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos start_vm_sets.yml --limit server_1
+#
+# To create second vm set only on the second server
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos start_vm_sets.yml --limit server_2 -e vm_set_2=true
+
+# To destroy second vm set only on the second server
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos stop_vm_sets.yml --limit server_2 -e vm_set_2=true
+
+# To renumber second vm set to new vlan range on the second server
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos renumber.yml --limit server_2 -e vm_set_2=true -e vm_2_vlan_base=233
+
+- hosts: servers:&vm_host
+  gather_facts: yes
+  become: true
+  vars:
+    vm_set_1: false
+    vm_set_2: false
+  vars_files:
+    - vars/azure_storage.yml
+  pre_tasks:
+    - name: Set "tag" variables
+      set_fact:
+        vm_set_1: true
+        vm_set_2: true
+      when: not (vm_set_1 or vm_set_2)
+  roles:
+    - { role: vm_set, action: 'start', id: 1, external_iface: "{{ vm_1_external_iface }}", VMs: "{{ VMs_1 }}", vlan_base: "{{ vm_1_vlan_base }}", when: vm_set_1 and vm_1_enabled }
+    - { role: vm_set, action: 'start', id: 2, external_iface: "{{ vm_2_external_iface }}", VMs: "{{ VMs_2 }}", vlan_base: "{{ vm_2_vlan_base }}", when: vm_set_2 and vm_2_enabled }
+ 
+- hosts: servers:&eos
+  gather_facts: no
+  vars:
+    vm_set_1: false
+    vm_set_2: false
+  pre_tasks:
+    - name: Set "tag" variables
+      set_fact:
+        vm_set_1: true
+        vm_set_2: true
+      when: not (vm_set_1 or vm_set_2)
+  roles:
+    - { role: eos, when: vm_set_1 or vm_set_2 }

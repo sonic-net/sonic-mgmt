@@ -1,0 +1,37 @@
+---
+# This Playbook undeploys containers for the testbed.
+#
+# For additional details see playbook start_ptf_containers.yml
+#
+# To run on both servers with all ptf containers:
+# ansible-playbook -i veos stop_ptf_containers.yml
+#
+# To run on the first server only:
+# ansible-playbook -i veos stop_ptf_containers.yml --limit server_1
+#
+# To run on the second server and remove second container only
+# ansible-playbook -i veos stop_testbed.yml --limit server_2 -e ptf_2=true
+
+- hosts: servers:&vm_host
+  gather_facts: no
+  become: true
+  vars:
+    ptf_1:    false
+    ptf_2:    false
+    ptf_3:    false
+    ptf_4:    false
+  vars_files:
+    - vars/docker_registry.yml
+  pre_tasks:
+    - name: Set "tag" variables
+      set_fact:
+        ptf_1:    true
+        ptf_2:    true
+        ptf_3:    true
+        ptf_4:    true
+      when: not (ptf_1 or ptf_2 or ptf_3 or ptf_4)
+  roles:
+  - { role: ptf_host, action: 'stop', id: 1, when: ptf_1 and ptf_1_enabled }
+  - { role: ptf_host, action: 'stop', id: 2, when: ptf_2 and ptf_2_enabled }
+  - { role: ptf_host, action: 'stop', id: 3, when: ptf_3 and ptf_3_enabled }
+  - { role: ptf_host, action: 'stop', id: 4, when: ptf_4 and ptf_4_enabled }

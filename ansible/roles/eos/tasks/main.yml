@@ -1,0 +1,21 @@
+# Gather minigraph facts
+- name: Gathering facts about the device
+  include_vars: name=vars/configurations/{{ filename }}
+
+- name: copy boot-config
+  copy: src=boot-config
+        dest=/mnt/flash/boot-config
+
+- name: build spine startup config
+  template: src=spine.j2
+            dest=/mnt/flash/startup-config
+  when: swrole == "spine"
+  notify:
+    - Restart the box
+
+- name: build tor startup config
+  template: src=tor.j2
+            dest=/mnt/flash/startup-config
+  when: swrole == "tor"
+  notify:
+    - Restart the box

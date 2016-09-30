@@ -1,0 +1,23 @@
+- name: Create the external vlan {{ external_iface }} {{ vlan }}. vm set {{ id }}
+  command: vconfig add {{ external_iface }} {{ vlan }}
+  when: vlan_iface not in ansible_interfaces
+
+- name: Enable the external vlan {{ vlan_iface }}. vm set {{ id }}
+  command: ifconfig {{ vlan_iface }} up
+
+- name: Get list-ports output {{ port0_bridge }}. vm set {{ id }}
+  command: ovs-vsctl list-ports {{ port0_bridge }}
+  register: cur_bridges
+
+- name: Connect port0 to the external vlan {{ port0_bridge }} {{ vlan_iface }}. vm set {{ id }}
+  command: ovs-vsctl add-port {{ port0_bridge }} {{ vlan_iface }}
+  when: cur_bridges.stdout.find( vlan_iface ) == -1
+
+- name: Remove standard rules from the ovs bridge {{ port0_bridge }}. vm set {{ id }}
+  command: ovs-ofctl del-flows {{ port0_bridge }}
+
+- name: Add first forwarding rule for the ovs bridge {{ port0_bridge }}. vm set {{ id }}
+  command: ovs-ofctl add-flow {{ port0_bridge }} 'table=0,in_port=1,action=output:2'
+
+- name: Add second forwarding rule for the ovs bridge {{ port0_bridge }}. vm set {{ id }}
+  command: ovs-ofctl add-flow {{ port0_bridge }} 'table=0,in_port=2,action=output:1'
