@@ -11,7 +11,7 @@
   tags: snmp
 
 ### when calling this QoS test, please add command line of which PTF docker image host to test against
-### -e "ptf_host=10.3.155.188"
+### -e "ptf_host=10.0.0.200"
 - fail: msg="Please set ptf_host variable"
   when: ptf_host is not defined
   tags: qos
@@ -53,7 +53,7 @@
   tags: link
 
 ### when calling this ARP test, please add command line of which PTF docker image host to test against
-### -e "ptf_host=10.3.155.188"
+### -e "ptf_host=10.0.0.200"
 - fail: msg="Please set ptf_host variable"
   when: ptf_host is not defined
   tags: arp

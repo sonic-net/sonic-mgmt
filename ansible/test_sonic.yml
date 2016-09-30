@@ -3,8 +3,8 @@
 #
 # Examples of running this playbook:
 #
-## QoS tests using sonic switch1 and ptf_host 10.3.155.188
-# ansible-playbook -i inventory --limit switch1 test.yml -b --ask-vault-pass -e "ptf_host=10.3.155.188" --tags qos
+## QoS tests using sonic switch1 and ptf_host 10.0.0.200
+# ansible-playbook -i inventory --limit switch1 test.yml -b --ask-vault-pass -e "ptf_host=10.0.0.200" --tags qos
 #
 ## Test CPU SNMP utilization
 # ansible-playbook -i inventory --limit switch1 test.yml -b --ask-vault-pass --tags snmp_cpu
