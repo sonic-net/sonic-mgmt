@@ -1,0 +1,6 @@
+- name: Create port0 bridge {{ port0_bridge }}. vm set {{ id }}
+  command: ovs-vsctl add-br {{ port0_bridge }}
+  when: port0_bridge not in ansible_interfaces
+
+- name: Enable port0 bridge {{ port0_bridge }}. vm set {{ id }}
+  command: ifconfig {{ port0_bridge }} up

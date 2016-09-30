@@ -1,0 +1,9 @@
+root_path: /home/azure/veos-vm
+vm_images_url: https://your_id.blob.core.windows.net/vmimages
+cd_image_filename: Aboot-veos-serial-2.1.0.iso
+hdd_image_filename: vEOS-lab-4.15.2.1F.vmdk
+
+# Starlab proxy
+proxy_env:
+  http_proxy: http://10.0.0.1:3128
+  https_proxy: http://10.0.0.1:3128

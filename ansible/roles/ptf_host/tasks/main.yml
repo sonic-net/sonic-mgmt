@@ -1,0 +1,60 @@
+# This role create/destroy one entity of ptf container.
+# Input parameters for the role:
+# - action: 'start' or 'stop' for creating or removeing ptf container respectively
+# - id: sequence number for ptf container on the host.
+# - external_iface: interface which will be used as parent for vlan interface creation
+# - vlan_base: first vlan id for the container
+# - mgmt_ip: ip address with netmask for the management interface of the container
+# - mgmt_gw: gateway for the container
+# - mgmt_bridge: linux bridge which is used for management interface connections
+# - proxy_env: for docker daemon proxy settings. should be dictionary with 'http_proxy', 'https_proxy' values
+# - docker_registry_host: ip address of a docker registry host
+# - docker_registry_username: username for the docker registry host
+# - docker_registry_password: password for the docker registry host
+
+- name: Install necessary packages. ptf {{ id }}
+  apt: pkg={{ item }} update_cache=yes cache_valid_time=3600
+  with_items:
+    - net-tools
+    - bridge-utils
+    - util-linux
+    - iproute2
+    - vlan
+    - python-pip
+
+- name: Install python packages. ptf {{ id }}
+  pip: name=docker-py state=present version=1.7.2
+  environment: "{{ proxy_env | default({}) }}"
+
+- name: Remove ptf docker container. ptf {{ id }}
+  docker:
+    name: ptf_{{ id }}
+    image: "{{ docker_registry_host }}/{{ docker_image }}"
+    state: absent
+  when: action == 'stop'
+
+- name: Create docker container. ptf {{ id }}
+  docker:
+    registry: "{{ docker_registry_host }}"
+    username: "{{ docker_registry_username }}"
+    password: "{{ docker_registry_password }}"
+    name: ptf_{{ id }}
+    image: "{{ docker_registry_host }}/{{ docker_image }}"
+    pull: always
+    state: reloaded
+    net: none
+    detach: True
+    cap_add: NET_ADMIN
+  when: action == 'start'
+
+- name: Create internal network for the docker container. ptf {{ id }}
+  ptf_network:
+    ptf_name: ptf_{{ id }}
+    ctr_num: "{{ id }}"
+    iface: "{{ external_iface }}"
+    vlan_base: "{{ vlan_base }}"
+    fp_mtu: "{{ fp_mtu_size }}"
+    mgmt_ip_addr: "{{ mgmt_ip }}"
+    mgmt_ip_gw: "{{ mgmt_gw }}"
+    mgmt_bridge: "{{ mgmt_bridge }}"
+  when: action == 'start'

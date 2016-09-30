@@ -1,0 +1,60 @@
+- name: Create directory for vm images and vm disks. vm set {{ id }}
+  file: path={{ item }} state=directory mode=0755 recurse=yes
+  with_items:
+    - "{{ root_path }}/images"
+    - "{{ root_path }}/disks"
+
+- name: Check hdd image. vm set {{ id }}
+  stat: path={{ root_path }}/images/{{ hdd_image_filename }}
+  register: hdd_stat
+
+- name: Download hdd images. vm set {{ id }}
+  get_url: url="{{ vm_images_url }}/{{ hdd_image_filename }}?{{ vmimages_saskey }}" dest="{{ root_path }}/images/{{ hdd_image_filename }}"
+  when: not hdd_stat.stat.exists
+
+- name: Check cd image. vm set {{ id }}
+  stat: path={{ root_path }}/images/{{ cd_image_filename }}
+  register: cd_stat
+
+- name: Download cd images. vm set {{ id }}
+  get_url: url="{{ vm_images_url }}/{{ cd_image_filename }}?{{ vmimages_saskey }}" dest="{{ root_path }}/images/{{ cd_image_filename }}"
+  when: not cd_stat.stat.exists
+
+- name: Create port1 bridge {{ port1_bridge }}. vm set {{ id }}
+  command: brctl addbr {{ port1_bridge }}
+  when: port1_bridge not in ansible_interfaces
+
+- name: Enable port1 bridge {{ port1_bridge }}. vm set {{ id }}
+  command: ifconfig {{ port1_bridge }} up
+
+- name: Add bridges for fp. vm set {{ id }}
+  include: add_bridge.yml
+  vars:
+    port0_bridge: "br-vm{{ id }}-vlan{{ item.value.vlan|int - 1 }}"
+  with_dict: "{{ VMs }}"
+
+- name: Start VMs. vm set {{ id }}
+  include: start_vm.yml
+  vars:
+    vm_name: "{{ id }}_{{ item.key }}"
+    memory: "{{ item.value.memory }}"
+    hostname: "{{ item.key }}"
+    filename: "{{ item.value.filename }}"
+    serial_port: "{{ item.value.serial_port }}"
+    disk_image: "{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
+    mgmt_tap:  "{{ vm_name }}-m"
+    port0_bridge: "br-vm{{ id }}-vlan{{ item.value.vlan|int - 1 }}"
+    port0_tap: "{{ vm_name }}-t0"
+    port1_tap: "{{ vm_name }}-t1"
+  with_dict: "{{ VMs }}"
+
+- name: Enable external interface {{ external_iface }}. vm set {{ id }}
+  command: ifconfig {{ external_iface }} up
+
+- name: Add external interfaces. vm set {{ id }}
+  include: add_vlan.yml
+  vars:
+    port0_bridge: "br-vm{{ id }}-vlan{{ item.value.vlan|int - 1 }}"
+    vlan: "{{ vlan_base|int + item.value.vlan|int - 1 }}"
+    vlan_iface: "{{ external_iface }}.{{ vlan_base|int + item.value.vlan|int - 1 }}"
+  with_dict: "{{ VMs }}"

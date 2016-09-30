@@ -1,0 +1,18 @@
+---
+# This Playbook renumber a vm set. See details about vm sets in start_vm_sets.yml
+# 
+# To renumber second vm set to new vlan range on the second server
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos renumber_vm_set.yml --limit server_2 -e vm_set_2=true -e vm_2_vlan_base=233
+
+- hosts: servers:&vm_host
+  gather_facts: yes
+  become: true
+  vars:
+    vm_set_1: false
+    vm_set_2: false
+  vars_files:
+    - vars/azure_storage.yml
+  pre_tasks:
+  roles:
+    - { role: vm_set, action: 'renumber', id: 1, external_iface: "{{ vm_1_external_iface }}", VMs: "{{ VMs_1 }}", vlan_base: "{{ vm_1_vlan_base }}", when: vm_set_1 and vm_1_enabled }
+    - { role: vm_set, action: 'renumber', id: 2, external_iface: "{{ vm_2_external_iface }}", VMs: "{{ VMs_2 }}", vlan_base: "{{ vm_2_vlan_base }}", when: vm_set_2 and vm_2_enabled }

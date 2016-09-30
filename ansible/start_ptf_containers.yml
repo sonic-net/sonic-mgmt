@@ -1,0 +1,47 @@
+---
+# This Playbook deploys three ptf docker containers
+#
+# The ptf docker container has management interface. See ip address of the interface in host_vars
+# Also it has 32 ethX interfaces which is connected to an external port with corresponding vlans.
+# See the vlan number in host_vars
+#
+# To start all ptf containers on both servers:
+# ansible-playbook -i veos start_ptf_containers.yml
+#
+# To start all ptf_containers on the first server only:
+# ansible-playbook -i veos start_ptf_containers.yml --limit server_1
+#
+# To run second ptf container on the second server only
+# ansible-playbook -i veos start_only.yml --limit server_2 -e ptf_2=true
+#
+# To renumber third ptf container to the new vlan range on the second server
+# Firstly destroy previous container
+# ansible-playbook -i veos  stop_ptf_containers.yml --limit server_2 -e ptf_3=true
+#
+# Then start a new container with new vlan range
+# ansible-playbook -i veos start_ptf_containers.yml --limit server_2 -e ptf_3=true -e ptf_3_vlan_base=381
+
+- hosts: servers:&vm_host
+  gather_facts: no
+  become: true
+  vars:
+    ptf_1:    false
+    ptf_2:    false
+    ptf_3:    false
+    ptf_4:    false
+  vars_files:
+    - vars/docker_registry.yml
+    - vars/azure_storage.yml
+  pre_tasks:
+    - name: Set "tag" variables
+      set_fact:
+        ptf_1:    true
+        ptf_2:    true
+        ptf_3:    true
+        ptf_4:    true
+      when: not (ptf_1 or ptf_2 or ptf_3 or ptf_4)
+  roles:
+    - { role: ptf_host, action: 'start', id: 1, external_iface: "{{ ptf_1_external_iface }}",vlan_base: "{{ ptf_1_vlan_base }}", mgmt_ip: "{{ ptf_1_mgmt_ip }}", when: ptf_1 and ptf_1_enabled }
+    - { role: ptf_host, action: 'start', id: 2, external_iface: "{{ ptf_2_external_iface }}",vlan_base: "{{ ptf_2_vlan_base }}", mgmt_ip: "{{ ptf_2_mgmt_ip }}", when: ptf_2 and ptf_2_enabled }
+    - { role: ptf_host, action: 'start', id: 3, external_iface: "{{ ptf_3_external_iface }}",vlan_base: "{{ ptf_3_vlan_base }}", mgmt_ip: "{{ ptf_3_mgmt_ip }}", when: ptf_3 and ptf_3_enabled }
+    - { role: ptf_host, action: 'start', id: 4, external_iface: "{{ ptf_4_external_iface }}",vlan_base: "{{ ptf_4_vlan_base }}", mgmt_ip: "{{ ptf_4_mgmt_ip }}", when: ptf_4 and ptf_4_enabled }
