@@ -1,0 +1,70 @@
+- name: Test LLDP
+  include: lldp.yml
+  tags: lldp
+
+- name: Test NTP
+  include: ntp.yml
+  tags: ntp
+
+- name: Test SNMP Basic
+  include: snmp.yml
+  tags: snmp
+
+### when calling this QoS test, please add command line of which PTF docker image host to test against
+### -e "ptf_host=10.0.0.200"
+- fail: msg="Please set ptf_host variable"
+  when: ptf_host is not defined
+  tags: qos
+
+- name: Test QOS
+  include: qos.yml
+  when: host_saithrift is not defined
+  tags: qos
+
+- name: Test QoS using SAI
+  include: qos_sai.yml
+  when: host_saithrift is defined
+  tags: qos
+
+### when callng BGP flaps test, please add command line of which VMs host to test against
+### -e "vmhost_num='01'"
+- fail: msg="Please set vmhost_num variable"
+  when: vmhost_num is not defined
+  tags: sync
+
+- name: Test SyncD BGP Flaps
+  include: bgp_flap.yml
+  tags: sync
+
+- name: Test Syslog Basic
+  include: syslog.yml
+  tags: syslog
+
+- name: Test SNMP CPU
+  include: snmp/cpu.yml
+  tags: snmp_cpu
+
+- name: Test SNMP Interfaces
+  include: snmp/interfaces.yml
+  tags: snmp_interfaces
+
+- name: Test Interface Flap from Neighbor
+  include: interface_up_down.yml
+  tags: link
+
+### when calling this ARP test, please add command line of which PTF docker image host to test against
+### -e "ptf_host=10.0.0.200"
+- fail: msg="Please set ptf_host variable"
+  when: ptf_host is not defined
+  tags: arp
+
+- name: Test kernel ARP behavior
+  include: arpall.yml
+  tags: arp
+
+### When calling this basic_route, Chip is setup with proper parameters and
+### SAI API used by syncd daemon are called. This test is mainly for validation purpose used by external vendors.
+- name: Test basic_router
+  include: basic_router.yml
+  tags: basic_router
+
