@@ -10,6 +10,12 @@
   when: sonic_hwsku in mellanox_hwskus
   tags: always
 
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: cavium
+  when: sonic_hwsku in cavium_hwskus
+  tags: always
+
 - name: update sonicadmin password
   include: passwd.yml
   tags: system
@@ -17,6 +23,14 @@
 # Setup apt repo
 - include: aptrepo.yml
   tags: repo
+
+# Dbus
+- name: Install dbus
+  become: true
+  apt: pkg=dbus
+       state=latest
+  when: sonic_hwsku == "AS7512"
+  tags: dbus
 
 # Syslog
 - name: Install Syslog daemon
@@ -82,6 +96,7 @@
 
 # Assign hostname
 - name: Assign hostname
+  become: true
   hostname: name={{ inventory_hostname }}
   tags: system
 
@@ -132,6 +147,7 @@
   changed_when: False
 
 - name: Add mgmt ip rule if it does not exist
+  become: true
   shell: /bin/ip rule add from {{ minigraph_mgmt_interface['addr'] }}/32 table default
   tags: network,unsafe
   when: ip_rules.stdout.find("from {{ minigraph_mgmt_interface['addr'] }} lookup default") == -1
