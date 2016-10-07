@@ -11,7 +11,7 @@ auto lo
 iface lo inet loopback
 # Use command 'ip addr list dev lo' to check all addresses
 {% for minigraph_lo_interface in minigraph_lo_interfaces %}
-iface lo {{ minigraph_lo_interface['family'] }} static
+iface lo {{ 'inet' if minigraph_lo_interface['addr'] | ipv4 else 'inet6' }} static
     address {{ minigraph_lo_interface['addr'] }}
     netmask {{ minigraph_lo_interface['mask'] }}
 #
@@ -38,7 +38,7 @@ iface eth0 inet static
 # The switch front panel interfaces
 {% for interface in minigraph_interfaces %}
 auto {{ interface['alias'] }}
-iface {{ interface['alias'] }} {{ interface['family'] }} static
+iface {{ interface['alias'] }} {{ 'inet' if interface['addr'] | ipv4 else 'inet6' }} static
     address {{ interface['addr'] }}
     netmask {{ interface['mask'] }}
 #
