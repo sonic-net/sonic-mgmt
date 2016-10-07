@@ -24,14 +24,6 @@
 - include: aptrepo.yml
   tags: repo
 
-# Dbus
-- name: Install dbus
-  become: true
-  apt: pkg=dbus
-       state=latest
-  when: sonic_hwsku == "AS7512"
-  tags: dbus
-
 # Syslog
 - name: Install Syslog daemon
   become: true
