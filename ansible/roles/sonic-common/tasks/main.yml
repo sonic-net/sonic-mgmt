@@ -88,7 +88,6 @@
 
 # Assign hostname
 - name: Assign hostname
-  become: true
   hostname: name={{ inventory_hostname }}
   tags: system
 
@@ -139,7 +138,6 @@
   changed_when: False
 
 - name: Add mgmt ip rule if it does not exist
-  become: true
   shell: /bin/ip rule add from {{ minigraph_mgmt_interface['addr'] }}/32 table default
   tags: network,unsafe
   when: ip_rules.stdout.find("from {{ minigraph_mgmt_interface['addr'] }} lookup default") == -1
