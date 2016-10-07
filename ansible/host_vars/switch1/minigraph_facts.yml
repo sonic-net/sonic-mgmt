@@ -127,9 +127,140 @@ minigraph_bgp:
     asn: 65200
     name: ROUTER05T2
     peer_addr: 10.0.0.8
+-   addr: FC00::12
+    asn: 65200
+    name: ROUTER05T2
+    peer_addr: FC00::11
+-   addr: FC00::16
+    asn: 65200
+    name: ROUTER06T2
+    peer_addr: FC00::15
+-   addr: FC00::1A
+    asn: 65200
+    name: ROUTER07T2
+    peer_addr: FC00::19
+-   addr: FC00::1E
+    asn: 65200
+    name: ROUTER08T2
+    peer_addr: FC00::1D
+-   addr: FC00::2
+    asn: 65200
+    name: ROUTER01T2
+    peer_addr: FC00::1
+-   addr: FC00::22
+    asn: 65200
+    name: ROUTER09T2
+    peer_addr: FC00::21
+-   addr: FC00::26
+    asn: 65200
+    name: ROUTER10T2
+    peer_addr: FC00::25
+-   addr: FC00::2A
+    asn: 65200
+    name: ROUTER11T2
+    peer_addr: FC00::29
+-   addr: FC00::2E
+    asn: 65200
+    name: ROUTER12T2
+    peer_addr: FC00::2D
+-   addr: FC00::32
+    asn: 65200
+    name: ROUTER13T2
+    peer_addr: FC00::31
+-   addr: FC00::36
+    asn: 65200
+    name: ROUTER14T2
+    peer_addr: FC00::35
+-   addr: FC00::3A
+    asn: 65200
+    name: ROUTER15T2
+    peer_addr: FC00::39
+-   addr: FC00::3E
+    asn: 65200
+    name: ROUTER16T2
+    peer_addr: FC00::3D
+-   addr: FC00::42
+    asn: 64001
+    name: ROUTER01T0
+    peer_addr: FC00::41
+-   addr: FC00::46
+    asn: 64002
+    name: ROUTER02T0
+    peer_addr: FC00::45
+-   addr: FC00::4A
+    asn: 64003
+    name: ROUTER03T0
+    peer_addr: FC00::49
+-   addr: FC00::4E
+    asn: 64004
+    name: ROUTER04T0
+    peer_addr: FC00::4D
+-   addr: FC00::52
+    asn: 64005
+    name: ROUTER05T0
+    peer_addr: FC00::51
+-   addr: FC00::56
+    asn: 64006
+    name: ROUTER06T0
+    peer_addr: FC00::55
+-   addr: FC00::5A
+    asn: 64007
+    name: ROUTER07T0
+    peer_addr: FC00::59
+-   addr: FC00::5E
+    asn: 64008
+    name: ROUTER08T0
+    peer_addr: FC00::5D
+-   addr: FC00::6
+    asn: 65200
+    name: ROUTER02T2
+    peer_addr: FC00::5
+-   addr: FC00::62
+    asn: 64009
+    name: ROUTER09T0
+    peer_addr: FC00::61
+-   addr: FC00::66
+    asn: 64010
+    name: ROUTER10T0
+    peer_addr: FC00::65
+-   addr: FC00::6A
+    asn: 64011
+    name: ROUTER11T0
+    peer_addr: FC00::69
+-   addr: FC00::6E
+    asn: 64012
+    name: ROUTER12T0
+    peer_addr: FC00::6D
+-   addr: FC00::72
+    asn: 64013
+    name: ROUTER13T0
+    peer_addr: FC00::71
+-   addr: FC00::76
+    asn: 64014
+    name: ROUTER14T0
+    peer_addr: FC00::75
+-   addr: FC00::7A
+    asn: 64015
+    name: ROUTER15T0
+    peer_addr: FC00::79
+-   addr: FC00::7E
+    asn: 64016
+    name: ROUTER16T0
+    peer_addr: FC00::7D
+-   addr: FC00::A
+    asn: 65200
+    name: ROUTER03T2
+    peer_addr: FC00::9
+-   addr: FC00::E
+    asn: 65200
+    name: ROUTER04T2
+    peer_addr: FC00::D
+
+
 minigraph_bgp_asn: 65100
 minigraph_console: {}
 minigraph_devices: {}
+
 minigraph_interfaces:
 -   addr: 10.0.0.0
     alias: Ethernet0
@@ -139,6 +270,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.1
     prefixlen: 31
     subnet: 10.0.0.0/31
+-   addr: fc00::1
+    alias: Ethernet0
+    family: inet6
+    mask: '126'
+    name: Ethernet0
+    peer_addr: fc00::2
+    prefixlen: 126
+    subnet: fc00::/126
 -   addr: 10.0.0.50
     alias: Ethernet100
     family: inet
@@ -147,6 +286,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.51
     prefixlen: 31
     subnet: 10.0.0.50/31
+-   addr: fc00::65
+    alias: Ethernet100
+    family: inet6
+    mask: '126'
+    name: Ethernet100
+    peer_addr: fc00::66
+    prefixlen: 126
+    subnet: fc00::64/126
 -   addr: 10.0.0.52
     alias: Ethernet104
     family: inet
@@ -155,6 +302,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.53
     prefixlen: 31
     subnet: 10.0.0.52/31
+-   addr: fc00::69
+    alias: Ethernet104
+    family: inet6
+    mask: '126'
+    name: Ethernet104
+    peer_addr: fc00::6a
+    prefixlen: 126
+    subnet: fc00::68/126
 -   addr: 10.0.0.54
     alias: Ethernet108
     family: inet
@@ -163,6 +318,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.55
     prefixlen: 31
     subnet: 10.0.0.54/31
+-   addr: fc00::6d
+    alias: Ethernet108
+    family: inet6
+    mask: '126'
+    name: Ethernet108
+    peer_addr: fc00::6e
+    prefixlen: 126
+    subnet: fc00::6c/126
 -   addr: 10.0.0.56
     alias: Ethernet112
     family: inet
@@ -171,6 +334,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.57
     prefixlen: 31
     subnet: 10.0.0.56/31
+-   addr: fc00::71
+    alias: Ethernet112
+    family: inet6
+    mask: '126'
+    name: Ethernet112
+    peer_addr: fc00::72
+    prefixlen: 126
+    subnet: fc00::70/126
 -   addr: 10.0.0.58
     alias: Ethernet116
     family: inet
@@ -179,6 +350,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.59
     prefixlen: 31
     subnet: 10.0.0.58/31
+-   addr: fc00::75
+    alias: Ethernet116
+    family: inet6
+    mask: '126'
+    name: Ethernet116
+    peer_addr: fc00::76
+    prefixlen: 126
+    subnet: fc00::74/126
 -   addr: 10.0.0.6
     alias: Ethernet12
     family: inet
@@ -187,6 +366,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.7
     prefixlen: 31
     subnet: 10.0.0.6/31
+-   addr: fc00::d
+    alias: Ethernet12
+    family: inet6
+    mask: '126'
+    name: Ethernet12
+    peer_addr: fc00::e
+    prefixlen: 126
+    subnet: fc00::c/126
 -   addr: 10.0.0.60
     alias: Ethernet120
     family: inet
@@ -195,6 +382,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.61
     prefixlen: 31
     subnet: 10.0.0.60/31
+-   addr: fc00::79
+    alias: Ethernet120
+    family: inet6
+    mask: '126'
+    name: Ethernet120
+    peer_addr: fc00::7a
+    prefixlen: 126
+    subnet: fc00::78/126
 -   addr: 10.0.0.62
     alias: Ethernet124
     family: inet
@@ -203,6 +398,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.63
     prefixlen: 31
     subnet: 10.0.0.62/31
+-   addr: fc00::7d
+    alias: Ethernet124
+    family: inet6
+    mask: '126'
+    name: Ethernet124
+    peer_addr: fc00::7e
+    prefixlen: 126
+    subnet: fc00::7c/126
 -   addr: 10.0.0.8
     alias: Ethernet16
     family: inet
@@ -211,6 +414,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.9
     prefixlen: 31
     subnet: 10.0.0.8/31
+-   addr: fc00::11
+    alias: Ethernet16
+    family: inet6
+    mask: '126'
+    name: Ethernet16
+    peer_addr: fc00::12
+    prefixlen: 126
+    subnet: fc00::10/126
 -   addr: 10.0.0.10
     alias: Ethernet20
     family: inet
@@ -219,6 +430,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.11
     prefixlen: 31
     subnet: 10.0.0.10/31
+-   addr: fc00::15
+    alias: Ethernet20
+    family: inet6
+    mask: '126'
+    name: Ethernet20
+    peer_addr: fc00::16
+    prefixlen: 126
+    subnet: fc00::14/126
 -   addr: 10.0.0.12
     alias: Ethernet24
     family: inet
@@ -227,6 +446,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.13
     prefixlen: 31
     subnet: 10.0.0.12/31
+-   addr: fc00::19
+    alias: Ethernet24
+    family: inet6
+    mask: '126'
+    name: Ethernet24
+    peer_addr: fc00::1a
+    prefixlen: 126
+    subnet: fc00::18/126
 -   addr: 10.0.0.14
     alias: Ethernet28
     family: inet
@@ -235,6 +462,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.15
     prefixlen: 31
     subnet: 10.0.0.14/31
+-   addr: fc00::1d
+    alias: Ethernet28
+    family: inet6
+    mask: '126'
+    name: Ethernet28
+    peer_addr: fc00::1e
+    prefixlen: 126
+    subnet: fc00::1c/126
 -   addr: 10.0.0.16
     alias: Ethernet32
     family: inet
@@ -243,6 +478,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.17
     prefixlen: 31
     subnet: 10.0.0.16/31
+-   addr: fc00::21
+    alias: Ethernet32
+    family: inet6
+    mask: '126'
+    name: Ethernet32
+    peer_addr: fc00::22
+    prefixlen: 126
+    subnet: fc00::20/126
 -   addr: 10.0.0.18
     alias: Ethernet36
     family: inet
@@ -251,6 +494,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.19
     prefixlen: 31
     subnet: 10.0.0.18/31
+-   addr: fc00::25
+    alias: Ethernet36
+    family: inet6
+    mask: '126'
+    name: Ethernet36
+    peer_addr: fc00::26
+    prefixlen: 126
+    subnet: fc00::24/126
 -   addr: 10.0.0.2
     alias: Ethernet4
     family: inet
@@ -259,6 +510,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.3
     prefixlen: 31
     subnet: 10.0.0.2/31
+-   addr: fc00::5
+    alias: Ethernet4
+    family: inet6
+    mask: '126'
+    name: Ethernet4
+    peer_addr: fc00::6
+    prefixlen: 126
+    subnet: fc00::4/126
 -   addr: 10.0.0.20
     alias: Ethernet40
     family: inet
@@ -267,6 +526,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.21
     prefixlen: 31
     subnet: 10.0.0.20/31
+-   addr: fc00::29
+    alias: Ethernet40
+    family: inet6
+    mask: '126'
+    name: Ethernet40
+    peer_addr: fc00::2a
+    prefixlen: 126
+    subnet: fc00::28/126
 -   addr: 10.0.0.22
     alias: Ethernet44
     family: inet
@@ -275,6 +542,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.23
     prefixlen: 31
     subnet: 10.0.0.22/31
+-   addr: fc00::2d
+    alias: Ethernet44
+    family: inet6
+    mask: '126'
+    name: Ethernet44
+    peer_addr: fc00::2e
+    prefixlen: 126
+    subnet: fc00::2c/126
 -   addr: 10.0.0.24
     alias: Ethernet48
     family: inet
@@ -283,6 +558,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.25
     prefixlen: 31
     subnet: 10.0.0.24/31
+-   addr: fc00::31
+    alias: Ethernet48
+    family: inet6
+    mask: '126'
+    name: Ethernet48
+    peer_addr: fc00::32
+    prefixlen: 126
+    subnet: fc00::30/126
 -   addr: 10.0.0.26
     alias: Ethernet52
     family: inet
@@ -291,6 +574,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.27
     prefixlen: 31
     subnet: 10.0.0.26/31
+-   addr: fc00::35
+    alias: Ethernet52
+    family: inet6
+    mask: '126'
+    name: Ethernet52
+    peer_addr: fc00::36
+    prefixlen: 126
+    subnet: fc00::34/126
 -   addr: 10.0.0.28
     alias: Ethernet56
     family: inet
@@ -299,6 +590,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.29
     prefixlen: 31
     subnet: 10.0.0.28/31
+-   addr: fc00::39
+    alias: Ethernet56
+    family: inet6
+    mask: '126'
+    name: Ethernet56
+    peer_addr: fc00::3a
+    prefixlen: 126
+    subnet: fc00::38/126
 -   addr: 10.0.0.30
     alias: Ethernet60
     family: inet
@@ -307,6 +606,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.31
     prefixlen: 31
     subnet: 10.0.0.30/31
+-   addr: fc00::3d
+    alias: Ethernet60
+    family: inet6
+    mask: '126'
+    name: Ethernet60
+    peer_addr: fc00::3e
+    prefixlen: 126
+    subnet: fc00::3c/126
 -   addr: 10.0.0.32
     alias: Ethernet64
     family: inet
@@ -315,6 +622,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.33
     prefixlen: 31
     subnet: 10.0.0.32/31
+-   addr: fc00::41
+    alias: Ethernet64
+    family: inet6
+    mask: '126'
+    name: Ethernet64
+    peer_addr: fc00::42
+    prefixlen: 126
+    subnet: fc00::40/126
 -   addr: 10.0.0.34
     alias: Ethernet68
     family: inet
@@ -323,6 +638,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.35
     prefixlen: 31
     subnet: 10.0.0.34/31
+-   addr: fc00::45
+    alias: Ethernet68
+    family: inet6
+    mask: '126'
+    name: Ethernet68
+    peer_addr: fc00::46
+    prefixlen: 126
+    subnet: fc00::44/126
 -   addr: 10.0.0.36
     alias: Ethernet72
     family: inet
@@ -331,6 +654,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.37
     prefixlen: 31
     subnet: 10.0.0.36/31
+-   addr: fc00::49
+    alias: Ethernet72
+    family: inet6
+    mask: '126'
+    name: Ethernet72
+    peer_addr: fc00::4a
+    prefixlen: 126
+    subnet: fc00::48/126
 -   addr: 10.0.0.38
     alias: Ethernet76
     family: inet
@@ -339,6 +670,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.39
     prefixlen: 31
     subnet: 10.0.0.38/31
+-   addr: fc00::4d
+    alias: Ethernet76
+    family: inet6
+    mask: '126'
+    name: Ethernet76
+    peer_addr: fc00::4e
+    prefixlen: 126
+    subnet: fc00::4c/126
 -   addr: 10.0.0.4
     alias: Ethernet8
     family: inet
@@ -347,6 +686,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.5
     prefixlen: 31
     subnet: 10.0.0.4/31
+-   addr: fc00::9
+    alias: Ethernet8
+    family: inet6
+    mask: '126'
+    name: Ethernet8
+    peer_addr: fc00::a
+    prefixlen: 126
+    subnet: fc00::8/126
 -   addr: 10.0.0.40
     alias: Ethernet80
     family: inet
@@ -355,6 +702,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.41
     prefixlen: 31
     subnet: 10.0.0.40/31
+-   addr: fc00::51
+    alias: Ethernet80
+    family: inet6
+    mask: '126'
+    name: Ethernet80
+    peer_addr: fc00::52
+    prefixlen: 126
+    subnet: fc00::50/126
 -   addr: 10.0.0.42
     alias: Ethernet84
     family: inet
@@ -363,6 +718,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.43
     prefixlen: 31
     subnet: 10.0.0.42/31
+-   addr: fc00::55
+    alias: Ethernet84
+    family: inet6
+    mask: '126'
+    name: Ethernet84
+    peer_addr: fc00::56
+    prefixlen: 126
+    subnet: fc00::54/126
 -   addr: 10.0.0.44
     alias: Ethernet88
     family: inet
@@ -371,6 +734,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.45
     prefixlen: 31
     subnet: 10.0.0.44/31
+-   addr: fc00::59
+    alias: Ethernet88
+    family: inet6
+    mask: '126'
+    name: Ethernet88
+    peer_addr: fc00::5a
+    prefixlen: 126
+    subnet: fc00::58/126
 -   addr: 10.0.0.46
     alias: Ethernet92
     family: inet
@@ -379,6 +750,14 @@ minigraph_interfaces:
     peer_addr: 10.0.0.47
     prefixlen: 31
     subnet: 10.0.0.46/31
+-   addr: fc00::5d
+    alias: Ethernet92
+    family: inet6
+    mask: '126'
+    name: Ethernet92
+    peer_addr: fc00::5e
+    prefixlen: 126
+    subnet: fc00::5c/126
 -   addr: 10.0.0.48
     alias: Ethernet96
     family: inet
@@ -387,17 +766,35 @@ minigraph_interfaces:
     peer_addr: 10.0.0.49
     prefixlen: 31
     subnet: 10.0.0.48/31
+-   addr: fc00::61
+    alias: Ethernet96
+    family: inet6
+    mask: '126'
+    name: Ethernet96
+    peer_addr: fc00::62
+    prefixlen: 126
+    subnet: fc00::60/126
+
+
 minigraph_lo_interfaces:
 -   addr: 10.1.0.32
     family: inet
     mask: 255.255.255.255
     name: Loopback0
     prefixlen: 32
+-   addr: 200a:100::20
+    family: inet6
+    mask: '128'
+    name: Loopback0
+    prefixlen: 128
+
+
 minigraph_mgmt_interface:
     addr: 10.3.147.195
     gwaddr: 10.3.146.1
     mask: 255.255.254.0
     prefixlen: '23'
+
 minigraph_neighbors:
     Ethernet0:
         name: ROUTER01T2
@@ -495,5 +892,6 @@ minigraph_neighbors:
     Ethernet96:
         name: ROUTER09T0
         port: Ethernet1
+
 minigraph_portchannel_interfaces: []
 minigraph_vlan_interfaces: []
