@@ -11,6 +11,8 @@ broadcom_hwskus: [ 'ACS-S6000', 'Force10-S6000' ]
 
 mellanox_hwskus: [ 'ACS-MSN2700' ]
 
+cavium_hwskus: [ "AS7512", "XP-SIM" ]
+
 sensor_hwskus: [ "ACS-S6000", "ACS-MSN2700", "Force10-S6000" ]
 
 ## Note:

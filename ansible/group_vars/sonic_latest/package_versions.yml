@@ -15,7 +15,9 @@ image_id_platform_monitor: docker-platform-monitor:latest
 
 image_id_syncd: docker-syncd:latest
 image_id_syncd_mlnx: docker-syncd-mlnx:latest
+image_id_syncd_cavm: docker-syncd-cavm:latest
 image_id_syncd_mlnx_rpc: docker-syncd-mlnx-rpc:latest
 image_id_orchagent: docker-orchagent:latest
 image_id_orchagent_mlnx: docker-orchagent-mlnx:latest
+image_id_orchagent_cavm: docker-orchagent-cavm:latest
 image_id_fpm: docker-fpm:latest

@@ -37,8 +37,8 @@
     become: true
     template: src=quagga/bgpd.conf.j2
               dest=/etc/quagga/bgpd.conf
-              owner=root
-              group=root
+              owner=quagga
+              group=quaggavty
               mode=0644
     notify:
       - Restart Quagga Daemon
@@ -48,8 +48,8 @@
     become: true
     template: src=quagga/daemons
               dest=/etc/quagga/daemons
-              owner=root
-              group=root
+              owner=quagga
+              group=quaggavty
               mode=0644
     notify:
       - Restart Quagga Daemon
