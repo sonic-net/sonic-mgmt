@@ -185,6 +185,10 @@
         mode=0644
   tags: ssw
 
+# Setup Platform
+- include: platform.yml
+  tags: platform,unsafe
+
 # Install Persistent Iptables Package
 - name: Install iptables-persistent
   become: true
