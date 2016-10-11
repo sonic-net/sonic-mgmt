@@ -25,7 +25,7 @@
 - block:
   - name: Copy Device Specific Quagga Zebra Configuration File.
     become: true
-    template: src=quagga/zebra.conf.j2
+    template: src=quagga/{{ sonic_asic_type }}_zebra.conf.j2
               dest=/etc/quagga/zebra.conf
               owner=root
               group=root
