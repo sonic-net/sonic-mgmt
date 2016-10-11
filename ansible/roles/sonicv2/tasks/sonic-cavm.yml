@@ -1,0 +1,58 @@
+# SONiC
+
+# Setup Platform
+#- include: platform-cavm.yml
+
+# Install Cavium Host Interface Driver
+- block:
+  - name: Rmmod for driver
+    modprobe: name=xp80-Pcie-Endpoint state=absent
+
+  - name: Install driver package
+    apt: pkg=xp80PcieEndpoint
+         state=present
+         force=yes
+
+  - name: Create a list of module dependencies
+    command: depmod -a
+
+  when: sonic_hwsku != "XP-SIM"
+  become: true
+  tags: drivermod
+
+# Setup port SKU
+- name: Setup port configuration file
+  become: yes
+  template: src=etc/ssw/{{ sonic_hwsku }}/profile.ini.j2
+            dest=/etc/ssw/{{ sonic_hwsku }}/profile.ini
+            owner=root
+            group=root
+            mode=0644
+  tags: syncd
+
+- name: Setup port configuration file
+  become: yes
+  shell: ln -s -f /etc/ssw/{{ sonic_hwsku }}/port_config_{{ sonic_portsku }}.ini /etc/ssw/{{ sonic_hwsku }}/port_config.ini
+  tags: orchagent
+
+# Install docker containers
+- name: Start syncd docker container
+  include: ../../sonic-common/tasks/sonicdocker.yml
+  vars:
+    docker_container: syncd
+    docker_image: "{{ image_id_syncd_cavm }}"
+    docker_privileged: yes
+    docker_state: reloaded
+    docker_volumes: "{{ syncd_docker_volumes }}"
+  when: host_saithrift is not defined
+  tags: syncd
+
+- name: Start orchagent docker container
+  include: ../../sonic-common/tasks/sonicdocker.yml
+  vars:
+    docker_container: orchagent
+    docker_image: "{{ image_id_orchagent_cavm }}"
+    docker_privileged: yes
+    docker_state: reloaded
+    docker_volumes: "{{ orchagent_docker_volumes }}"
+  tags: orchagent
