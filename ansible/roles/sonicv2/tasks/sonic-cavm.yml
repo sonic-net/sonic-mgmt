@@ -4,21 +4,11 @@
 #- include: platform-cavm.yml
 
 # Install Cavium Host Interface Driver
-- block:
-  - name: Rmmod for driver
-    modprobe: name=xp80-Pcie-Endpoint state=absent
-
-  - name: Install driver package
-    apt: pkg=xp80PcieEndpoint
-         state=present
-         force=yes
-
-  - name: Create a list of module dependencies
-    command: depmod -a
-
-  when: sonic_hwsku != "XP-SIM"
+- name: Install driver package
   become: true
-  tags: drivermod
+  apt: pkg=xp80PcieEndpoint
+       state=present
+       force=yes
 
 # Setup port SKU
 - name: Setup port configuration file
