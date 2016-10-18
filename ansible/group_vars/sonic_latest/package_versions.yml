@@ -21,3 +21,4 @@ image_id_orchagent: docker-orchagent:latest
 image_id_orchagent_mlnx: docker-orchagent-mlnx:latest
 image_id_orchagent_cavm: docker-orchagent-cavm:latest
 image_id_fpm: docker-fpm:latest
+image_id_team: docker-team: latest

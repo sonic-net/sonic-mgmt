@@ -33,3 +33,6 @@
 
 - include: quagga.yml
   tags: quagga,unsafe
+
+- include: team.yml
+  tags: team,unsafe
