@@ -10,16 +10,6 @@
        state=present
        force=yes
 
-# Setup port SKU
-- name: Setup port configuration file
-  become: yes
-  template: src=etc/ssw/{{ sonic_hwsku }}/profile.ini.j2
-            dest=/etc/ssw/{{ sonic_hwsku }}/profile.ini
-            owner=root
-            group=root
-            mode=0644
-  tags: syncd
-
 - name: Setup port configuration file
   become: yes
   shell: ln -s -f /etc/ssw/{{ sonic_hwsku }}/port_config_{{ sonic_portsku }}.ini /etc/ssw/{{ sonic_hwsku }}/port_config.ini

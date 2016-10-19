@@ -21,7 +21,6 @@ sensor_hwskus: [ "ACS-S6000", "ACS-MSN2700", "Force10-S6000" ]
 ## 2. https://groups.google.com/forum/#!msg/ansible-project/M-FNUK9Wz98/gH63Ka4hDAAJ
 
 syncd_docker_volumes_dict:
-  "/etc/ssw/:/etc/ssw/:ro":
   "/host/machine.conf:/etc/machine.conf":
 
 syncd_docker_volumes: "{{ syncd_docker_volumes_dict.keys() }}"
