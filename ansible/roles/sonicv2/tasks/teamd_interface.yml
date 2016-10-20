@@ -14,4 +14,4 @@
 
   vars:
     ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i team python
+    ansible_python_interpreter: docker exec -i teamd python

@@ -44,5 +44,5 @@
 - include: quagga.yml
   tags: quagga,unsafe
 
-- include: team.yml
-  tags: team,unsafe
+- include: teamd.yml
+  tags: teamd,unsafe
