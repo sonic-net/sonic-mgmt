@@ -1,0 +1,5 @@
+- name: Test port aliases
+  script: roles/test/files/helpers/test_aliases.sh
+  register: test_port_aliases_config
+  failed_when: test_port_aliases_config.rc != 0
+  changed_when: False
