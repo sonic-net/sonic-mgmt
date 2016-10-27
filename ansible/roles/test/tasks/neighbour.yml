@@ -1,0 +1,24 @@
+# Test run example:
+# ansible-playbook -i inventory --limit switch-host test_sonic.yml -b -e "ptf_host=ptf-1" --tags neighbour
+
+- name: Change DUT interface IP to test IP address
+  become: yes
+  command: /sbin/ifconfig Ethernet0 20.0.0.1 netmask 255.255.255.0
+
+- name: Change host interface IP to test IP address
+  become: yes
+  command: /sbin/ifconfig eth0 20.0.0.2 netmask 255.255.255.0
+  delegate_to: "{{ ptf_host }}"
+
+- name: copy neighbour test files
+  become: yes
+  copy: src=roles/test/files/neighbour/neigh_test.sh dest=/root mode=u=rx
+  delegate_to: "{{ ptf_host }}"
+
+- name: Check if switch handles neighbour MAC address change
+  become: true
+  shell: /root/neigh_test.sh admin {{ inventory_hostname }} 20.0.0.1 20.0.0.2
+  register: result
+  failed_when: result.rc != 0
+  delegate_to: "{{ ptf_host }}"
+

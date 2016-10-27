@@ -1,3 +1,7 @@
+- name: Neighbour tests
+  include: neighbour.yml
+  tags: neighbour
+
 - name: Test LLDP
   include: lldp.yml
   tags: lldp
