@@ -1,5 +1,5 @@
-- name: Neighbour tests
-  include: neighbour.yml
+- name: Neighbor mac change test
+  include: neighbour-mac.yml
   tags: neighbour
 
 - name: Test LLDP
