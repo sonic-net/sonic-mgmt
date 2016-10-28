@@ -1,24 +1,86 @@
+# docker exec -it syncd sx_api_port_speed_set_100G.py
 # Test run example:
-# ansible-playbook -i inventory --limit switch-host test_sonic.yml -b -e "ptf_host=ptf-1" --tags neighbour
+# ansible-playbook -i inventory --limit arc-switch1027 test_sonic.yml -b -e "ptf_host=ptf-1" --tags neighbour
+
+- set_fact:
+    host_if: eth0
+    dut_if: Ethernet0
+    host_ip: 20.0.0.2
+    dut_ip: 20.0.0.1
+    nei_mac1: 00:c0:ca:c0:1a:05
+    nei_mac2: 00:c0:ca:c0:1a:06
 
 - name: Change DUT interface IP to test IP address
   become: yes
-  command: /sbin/ifconfig Ethernet0 20.0.0.1 netmask 255.255.255.0
+  command: /sbin/ifconfig {{ dut_if }} {{ dut_ip }} netmask 255.255.255.0
 
 - name: Change host interface IP to test IP address
   become: yes
-  command: /sbin/ifconfig eth0 20.0.0.2 netmask 255.255.255.0
+  command: /sbin/ifconfig {{ host_if }} {{ host_ip }} netmask 255.255.255.0
   delegate_to: "{{ ptf_host }}"
 
-- name: copy neighbour test files
-  become: yes
-  copy: src=roles/test/files/neighbour/neigh_test.sh dest=/root mode=u=rx
-  delegate_to: "{{ ptf_host }}"
-
-- name: Check if switch handles neighbour MAC address change
+- name: Get host MAC
   become: true
-  shell: /root/neigh_test.sh admin {{ inventory_hostname }} 20.0.0.1 20.0.0.2
-  register: result
-  failed_when: result.rc != 0
+  shell: ifconfig {{ host_if }} | grep -o -E '([[:xdigit:]]{1,2}:){5}[[:xdigit:]]{1,2}'
+  register: host_mac
+  failed_when: host_mac.rc != 0
   delegate_to: "{{ ptf_host }}"
 
+- name: Set host MAC to pretend neighbour #1
+  become: true
+  shell: ifconfig {{ host_if }} down; ifconfig {{ host_if }} hw ether {{ nei_mac1 }}; ifconfig {{ host_if }} up
+  register: set1
+  failed_when: set1.rc != 0
+  delegate_to: "{{ ptf_host }}"
+
+- name: Ping DUT to populate neighbour #1
+  become: true
+  shell: ping {{ dut_ip }} -c 3 -I {{ host_if }}
+  register: ping1
+  failed_when: ping1.rc != 0
+  delegate_to: "{{ ptf_host }}"
+
+- name: Get host ip in hex
+  become: true
+  shell: printf '%02x%02x%02x%02x' `echo {{ host_ip }} | sed 's/\./ /g'`
+  register: host_ip_hex
+
+- name: Get the SONiC DB key holding neighbour MAC for {{ host_ip_hex.stdout }}
+  become: true
+  shell: docker exec database redis-cli -n 1 KEYS ASIC* | grep -i {{ host_ip_hex.stdout }}
+  register: neighbour_key
+  failed_when: neighbour_key.rc != 0
+
+- name: Check neighbour MAC on DUT. Should be {{ nei_mac1 }}
+  become: true
+  shell: docker exec database redis-cli -n 1 HGET {{ neighbour_key.stdout }} 00000000
+  register: neighbour_mac
+  failed_when: neighbour_mac.rc != 0
+  failed_when: neighbour_mac.stdout != "{{ nei_mac1 | regex_replace(':', '') }}"
+
+- name: Set host MAC to pretend neighbour #2
+  become: true
+  shell: ifconfig {{ host_if }} down; ifconfig {{ host_if }} hw ether {{ nei_mac2 }}; ifconfig {{ host_if }} up
+  register: set2
+  failed_when: set2.rc != 0
+  delegate_to: "{{ ptf_host }}"
+
+- name: Ping DUT to populate neighbour #2
+  become: true
+  shell: ping {{ dut_ip }} -c 3 -I {{ host_if }}
+  register: ping2
+  failed_when: ping2.rc != 0
+  delegate_to: "{{ ptf_host }}"
+
+- name: Get the SONiC DB key holding neighbour MAC for {{ host_ip_hex.stdout }}
+  become: true
+  shell: docker exec database redis-cli -n 1 KEYS ASIC* | grep -i {{ host_ip_hex.stdout }}
+  register: neighbour_key
+  failed_when: neighbour_key.rc != 0
+
+- name: Check neighbour MAC on DUT. Should be {{ nei_mac2 }}
+  become: true
+  shell: docker exec database redis-cli -n 1 HGET {{ neighbour_key.stdout }} 00000000
+  register: neighbour_mac
+  failed_when: neighbour_mac.rc != 0
+  failed_when: neighbour_mac.stdout != "{{ nei_mac2 | regex_replace(':', '') }}"
