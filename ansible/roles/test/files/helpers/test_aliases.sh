@@ -13,14 +13,19 @@ function read_configfile_aliases
     local ether_number
     local port_alias
     while [ $line_counter -le $LINESNUMBER ]; do
-        port_config_entry=`echo "${port_config}" | sed -n "$line_counter"p | sed -n "s/Ethernet//p" | sed -n "s/ [[:digit:]].* //p"`
+        # Read and parse data from port_config.ini
+        port_config_entry=`echo "${port_config}" | sed -n "$line_counter"p |  sed -n "s/Ethernet//p" | sed -n "s/\([[:digit:]]*,[[:digit:]]*\)\+//p"`
         ether_number=`echo $port_config_entry | cut -d" " -f1`
-        port_alias=`echo $port_config_entry | sed -n "s/[[:digit:]]* //p"`
+        port_alias=`echo $port_config_entry | sed -n "s/[[:digit:]]*[[:space:]]//p"`
 
-        # Write into table
+        # If no alias, use port name
+        if [[ -z "$port_alias" ]]; then
+            port_alias="Ethernet"$ether_number""
+        fi
+
+        # Write into port_config_table
         port_config_array[$ether_number]="$port_alias"
         let line_counter="line_counter + 1"
-
         print_debug "-------------------------------"
         print_debug "PORT_ENTRY = $port_config_entry\n"
         print_debug "ETHER_NUMBER = $ether_number\n"
@@ -39,21 +44,24 @@ function read_redis_aliases_and_compare
     while [ $ether_counter -le $ETHERMAX ]; do
         port_data_entry=`docker exec -ti database redis-cli hgetall "PORT_TABLE:Ethernet"$ether_counter""`
 
-        # Grep next line after "alias"; remove numbering, quotes and
-        # everything else except of alias name.
+        #   Grep next line after "alias"; remove numbering,
+        # quotes and everything else except of alias name.
         port_data_alias=`echo "${port_data_entry}" | grep -A1 'alias' | grep -v 'alias' | sed -n 's/.* \"//p' | sed -n 's/\".*//p'`
 
         # Compare db-alias to alias from CONFIGFILE
         print_debug "---------------------------------------------"
-        print_debug "comparing: configfile_alias='"${port_config_array[$ether_counter]}"'\n
-                Redis_alias="$port_data_alias""
+        print_debug "comparing: configfile_alias="${port_config_array[$ether_counter]}"\n
+            Redis_alias="$port_data_alias""
 
-        # Check if aliases are same
+        # Check if alias are the same
         if [[ "$port_data_alias" != "${port_config_array[$ether_counter]}" ]]; then
-            echo -e "\nERROR: port has got different aliases in port_config.ini and database."
+            echo -e "\n*** ERROR: port has got different aliases in port_config.ini and database."
             echo -e "Port name:                 Ethernet$ether_counter"
             echo -e "Alias in port_config.ini:  ${port_config_array[$ether_counter]}"
             echo -e "Alias in Redis DB:         $port_data_alias\n"
+
+            print_debug "=============================="
+            print_debug "${port_config_array[*]}"
             exit 1
         fi
         let ether_counter="ether_counter + 4"
