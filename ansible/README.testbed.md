@@ -1,4 +1,4 @@
-Requirenments for the server:
+## Requirenments for the server
 1. Ubuntu 16.04 x64
 2. Installed docker-engine
 3. Three network cards:
@@ -7,7 +7,7 @@ Requirenments for the server:
   3. third is used to connect VMs and ptf containers to DUTs
 
 Content of /etc/network/interfaces:
-`
+```
 root@STR-AZURE-SERV-02:~# cat /etc/network/interfaces
 # The primary network interface
 auto em1
@@ -31,9 +31,9 @@ iface br1 inet manual
 auto p4p1
 iface p4p1 inet manual
 up ip link set p4p1 up
-`
+```
 
-To deploy testbed with one VM set.
+## To deploy testbed with one VM set
 1. clone sonic-mgmt repo to local directory
 2. Edit 'ansible/veos' file. Put ip address of your server after 'ansible_host='
 3. Edit 'ansible/group_vars/vm_host'. Put your credentials to reach the server
