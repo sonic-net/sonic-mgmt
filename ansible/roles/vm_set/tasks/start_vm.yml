@@ -1,5 +1,5 @@
 - name: Gathering facts about the device
-  include_vars: name=vars/configurations/{{ filename }}
+  include_vars: vars/configurations/{{ filename }}
 
 - name: Device debug output
   debug: msg="hostname = {{ hostname }} serial port = {{ serial_port }} ip = {{ minigraph_mgmt_interface.addr }}"
