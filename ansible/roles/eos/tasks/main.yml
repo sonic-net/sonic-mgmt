@@ -1,6 +1,6 @@
 # Gather minigraph facts
 - name: Gathering facts about the device
-  include_vars: name=vars/configurations/{{ filename }}
+  include_vars: vars/configurations/{{ filename }}
 
 - name: copy boot-config
   copy: src=boot-config
