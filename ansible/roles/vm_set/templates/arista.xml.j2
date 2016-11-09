@@ -39,8 +39,50 @@
     </interface>
     <interface type='bridge'>
       <model type='virtio'/>
-      <source bridge='{{ port0_bridge }}'/>
-      <target dev='{{ port0_tap }}'/>
+      <source bridge='{{ fp0_bridge }}'/>
+      <target dev='{{ fp0_tap }}'/>
+      <virtualport type='openvswitch'/>
+    </interface>
+    <interface type='bridge'>
+      <model type='virtio'/>
+      <source bridge='{{ fp1_bridge }}'/>
+      <target dev='{{ fp1_tap }}'/>
+      <virtualport type='openvswitch'/>
+    </interface>
+    <interface type='bridge'>
+      <model type='virtio'/>
+      <source bridge='{{ fp2_bridge }}'/>
+      <target dev='{{ fp2_tap }}'/>
+      <virtualport type='openvswitch'/>
+    </interface>
+    <interface type='bridge'>
+      <model type='virtio'/>
+      <source bridge='{{ fp3_bridge }}'/>
+      <target dev='{{ fp3_tap }}'/>
+      <virtualport type='openvswitch'/>
+    </interface>
+    <interface type='bridge'>
+      <model type='virtio'/>
+      <source bridge='{{ fp4_bridge }}'/>
+      <target dev='{{ fp4_tap }}'/>
+      <virtualport type='openvswitch'/>
+    </interface>
+    <interface type='bridge'>
+      <model type='virtio'/>
+      <source bridge='{{ fp5_bridge }}'/>
+      <target dev='{{ fp5_tap }}'/>
+      <virtualport type='openvswitch'/>
+    </interface>
+    <interface type='bridge'>
+      <model type='virtio'/>
+      <source bridge='{{ fp6_bridge }}'/>
+      <target dev='{{ fp6_tap }}'/>
+      <virtualport type='openvswitch'/>
+    </interface>
+    <interface type='bridge'>
+      <model type='virtio'/>
+      <source bridge='{{ fp7_bridge }}'/>
+      <target dev='{{ fp7_tap }}'/>
       <virtualport type='openvswitch'/>
     </interface>
     <interface type='bridge'>
@@ -61,3 +103,4 @@
   </devices>
   <seclabel type='dynamic' model='apparmor' relabel='yes'/>
 </domain>
+

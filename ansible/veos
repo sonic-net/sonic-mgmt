@@ -1,84 +1,84 @@
 [vm_host_1]
-SERV-01 ansible_host=10.250.0.245
+STR-ACS-SERV-01 ansible_host=10.251.0.245
 
 [vm_host_2]
-SERV-02 ansible_host=10.250.0.246
+STR-ACS-SERV-02 ansible_host=10.251.0.246
 
 [vm_host:children]
 vm_host_1
 vm_host_2
 
 [spine_1]
-10.255.0.238 hostname=ARISTA01T2 filename=01-ARISTA01T2.yml
-10.255.0.239 hostname=ARISTA02T2 filename=01-ARISTA02T2.yml
-10.255.0.240 hostname=ARISTA03T2 filename=01-ARISTA03T2.yml
-10.255.0.241 hostname=ARISTA04T2 filename=01-ARISTA04T2.yml
-10.255.0.242 hostname=ARISTA05T2 filename=01-ARISTA05T2.yml
-10.255.0.243 hostname=ARISTA06T2 filename=01-ARISTA06T2.yml
-10.255.0.244 hostname=ARISTA07T2 filename=01-ARISTA07T2.yml
-10.255.0.245 hostname=ARISTA08T2 filename=01-ARISTA08T2.yml
-10.255.0.246 hostname=ARISTA09T2 filename=01-ARISTA09T2.yml
-10.255.0.247 hostname=ARISTA10T2 filename=01-ARISTA10T2.yml
-10.255.0.248 hostname=ARISTA11T2 filename=01-ARISTA11T2.yml
-10.255.0.249 hostname=ARISTA12T2 filename=01-ARISTA12T2.yml
-10.255.0.250 hostname=ARISTA13T2 filename=01-ARISTA13T2.yml
-10.255.0.251 hostname=ARISTA14T2 filename=01-ARISTA14T2.yml
-10.255.0.252 hostname=ARISTA15T2 filename=01-ARISTA15T2.yml
-10.255.0.253 hostname=ARISTA16T2 filename=01-ARISTA16T2.yml
+10.255.0.238 hostname=ARISTA01T2 filename=01-ARISTA01T2.xml
+10.255.0.239 hostname=ARISTA02T2 filename=01-ARISTA02T2.xml
+10.255.0.240 hostname=ARISTA03T2 filename=01-ARISTA03T2.xml
+10.255.0.241 hostname=ARISTA04T2 filename=01-ARISTA04T2.xml
+10.255.0.242 hostname=ARISTA05T2 filename=01-ARISTA05T2.xml
+10.255.0.243 hostname=ARISTA06T2 filename=01-ARISTA06T2.xml
+10.255.0.244 hostname=ARISTA07T2 filename=01-ARISTA07T2.xml
+10.255.0.245 hostname=ARISTA08T2 filename=01-ARISTA08T2.xml
+10.255.0.246 hostname=ARISTA09T2 filename=01-ARISTA09T2.xml
+10.255.0.247 hostname=ARISTA10T2 filename=01-ARISTA10T2.xml
+10.255.0.248 hostname=ARISTA11T2 filename=01-ARISTA11T2.xml
+10.255.0.249 hostname=ARISTA12T2 filename=01-ARISTA12T2.xml
+10.255.0.250 hostname=ARISTA13T2 filename=01-ARISTA13T2.xml
+10.255.0.251 hostname=ARISTA14T2 filename=01-ARISTA14T2.xml
+10.255.0.252 hostname=ARISTA15T2 filename=01-ARISTA15T2.xml
+10.255.0.253 hostname=ARISTA16T2 filename=01-ARISTA16T2.xml
 
 [spine_2]
-10.255.0.206 hostname=ARISTA01T2 filename=02-ARISTA01T2.yml
-10.255.0.207 hostname=ARISTA02T2 filename=02-ARISTA02T2.yml
-10.255.0.208 hostname=ARISTA03T2 filename=02-ARISTA03T2.yml
-10.255.0.209 hostname=ARISTA04T2 filename=02-ARISTA04T2.yml
-10.255.0.210 hostname=ARISTA05T2 filename=02-ARISTA05T2.yml
-10.255.0.211 hostname=ARISTA06T2 filename=02-ARISTA06T2.yml
-10.255.0.212 hostname=ARISTA07T2 filename=02-ARISTA07T2.yml
-10.255.0.213 hostname=ARISTA08T2 filename=02-ARISTA08T2.yml
-10.255.0.214 hostname=ARISTA09T2 filename=02-ARISTA09T2.yml
-10.255.0.215 hostname=ARISTA10T2 filename=02-ARISTA10T2.yml
-10.255.0.216 hostname=ARISTA11T2 filename=02-ARISTA11T2.yml
-10.255.0.217 hostname=ARISTA12T2 filename=02-ARISTA12T2.yml
-10.255.0.218 hostname=ARISTA13T2 filename=02-ARISTA13T2.yml
-10.255.0.219 hostname=ARISTA14T2 filename=02-ARISTA14T2.yml
-10.255.0.220 hostname=ARISTA15T2 filename=02-ARISTA15T2.yml
-10.255.0.221 hostname=ARISTA16T2 filename=02-ARISTA16T2.yml
+10.255.0.206 hostname=ARISTA01T2 filename=02-ARISTA01T2.xml
+10.255.0.207 hostname=ARISTA02T2 filename=02-ARISTA02T2.xml
+10.255.0.208 hostname=ARISTA03T2 filename=02-ARISTA03T2.xml
+10.255.0.209 hostname=ARISTA04T2 filename=02-ARISTA04T2.xml
+10.255.0.210 hostname=ARISTA05T2 filename=02-ARISTA05T2.xml
+10.255.0.211 hostname=ARISTA06T2 filename=02-ARISTA06T2.xml
+10.255.0.212 hostname=ARISTA07T2 filename=02-ARISTA07T2.xml
+10.255.0.213 hostname=ARISTA08T2 filename=02-ARISTA08T2.xml
+10.255.0.214 hostname=ARISTA09T2 filename=02-ARISTA09T2.xml
+10.255.0.215 hostname=ARISTA10T2 filename=02-ARISTA10T2.xml
+10.255.0.216 hostname=ARISTA11T2 filename=02-ARISTA11T2.xml
+10.255.0.217 hostname=ARISTA12T2 filename=02-ARISTA12T2.xml
+10.255.0.218 hostname=ARISTA13T2 filename=02-ARISTA13T2.xml
+10.255.0.219 hostname=ARISTA14T2 filename=02-ARISTA14T2.xml
+10.255.0.220 hostname=ARISTA15T2 filename=02-ARISTA15T2.xml
+10.255.0.221 hostname=ARISTA16T2 filename=02-ARISTA16T2.xml
 
 [spine_3]
-10.255.0.68 hostname=ARISTA01T2 filename=03-ARISTA01T2.yml
-10.255.0.69 hostname=ARISTA02T2 filename=03-ARISTA02T2.yml
-10.255.0.70 hostname=ARISTA03T2 filename=03-ARISTA03T2.yml
-10.255.0.71 hostname=ARISTA04T2 filename=03-ARISTA04T2.yml
-10.255.0.72 hostname=ARISTA05T2 filename=03-ARISTA05T2.yml
-10.255.0.73 hostname=ARISTA06T2 filename=03-ARISTA06T2.yml
-10.255.0.74 hostname=ARISTA07T2 filename=03-ARISTA07T2.yml
-10.255.0.75 hostname=ARISTA08T2 filename=03-ARISTA08T2.yml
-10.255.0.76 hostname=ARISTA09T2 filename=03-ARISTA09T2.yml
-10.255.0.77 hostname=ARISTA10T2 filename=03-ARISTA10T2.yml
-10.255.0.78 hostname=ARISTA11T2 filename=03-ARISTA11T2.yml
-10.255.0.79 hostname=ARISTA12T2 filename=03-ARISTA12T2.yml
-10.255.0.80 hostname=ARISTA13T2 filename=03-ARISTA13T2.yml
-10.255.0.81 hostname=ARISTA14T2 filename=03-ARISTA14T2.yml
-10.255.0.82 hostname=ARISTA15T2 filename=03-ARISTA15T2.yml
-10.255.0.83 hostname=ARISTA16T2 filename=03-ARISTA16T2.yml
+10.255.0.68 hostname=ARISTA01T2 filename=03-ARISTA01T2.xml
+10.255.0.69 hostname=ARISTA02T2 filename=03-ARISTA02T2.xml
+10.255.0.70 hostname=ARISTA03T2 filename=03-ARISTA03T2.xml
+10.255.0.71 hostname=ARISTA04T2 filename=03-ARISTA04T2.xml
+10.255.0.72 hostname=ARISTA05T2 filename=03-ARISTA05T2.xml
+10.255.0.73 hostname=ARISTA06T2 filename=03-ARISTA06T2.xml
+10.255.0.74 hostname=ARISTA07T2 filename=03-ARISTA07T2.xml
+10.255.0.75 hostname=ARISTA08T2 filename=03-ARISTA08T2.xml
+10.255.0.76 hostname=ARISTA09T2 filename=03-ARISTA09T2.xml
+10.255.0.77 hostname=ARISTA10T2 filename=03-ARISTA10T2.xml
+10.255.0.78 hostname=ARISTA11T2 filename=03-ARISTA11T2.xml
+10.255.0.79 hostname=ARISTA12T2 filename=03-ARISTA12T2.xml
+10.255.0.80 hostname=ARISTA13T2 filename=03-ARISTA13T2.xml
+10.255.0.81 hostname=ARISTA14T2 filename=03-ARISTA14T2.xml
+10.255.0.82 hostname=ARISTA15T2 filename=03-ARISTA15T2.xml
+10.255.0.83 hostname=ARISTA16T2 filename=03-ARISTA16T2.xml
 
 [spine_4]
-10.255.0.108 hostname=ARISTA01T2 filename=04-ARISTA01T2.yml
-10.255.0.109 hostname=ARISTA02T2 filename=04-ARISTA02T2.yml
-10.255.0.114 hostname=ARISTA03T2 filename=04-ARISTA03T2.yml
-10.255.0.115 hostname=ARISTA04T2 filename=04-ARISTA04T2.yml
-10.255.0.116 hostname=ARISTA05T2 filename=04-ARISTA05T2.yml
-10.255.0.117 hostname=ARISTA06T2 filename=04-ARISTA06T2.yml
-10.255.0.118 hostname=ARISTA07T2 filename=04-ARISTA07T2.yml
-10.255.0.119 hostname=ARISTA08T2 filename=04-ARISTA08T2.yml
-10.255.0.120 hostname=ARISTA09T2 filename=04-ARISTA09T2.yml
-10.255.0.121 hostname=ARISTA10T2 filename=04-ARISTA10T2.yml
-10.255.0.122 hostname=ARISTA11T2 filename=04-ARISTA11T2.yml
-10.255.0.123 hostname=ARISTA12T2 filename=04-ARISTA12T2.yml
-10.255.0.124 hostname=ARISTA13T2 filename=04-ARISTA13T2.yml
-10.255.0.125 hostname=ARISTA14T2 filename=04-ARISTA14T2.yml
-10.255.0.146 hostname=ARISTA15T2 filename=04-ARISTA15T2.yml
-10.255.0.147 hostname=ARISTA16T2 filename=04-ARISTA16T2.yml
+10.255.0.108 hostname=ARISTA01T2 filename=04-ARISTA01T2.xml
+10.255.0.109 hostname=ARISTA02T2 filename=04-ARISTA02T2.xml
+10.255.0.114 hostname=ARISTA03T2 filename=04-ARISTA03T2.xml
+10.255.0.115 hostname=ARISTA04T2 filename=04-ARISTA04T2.xml
+10.255.0.116 hostname=ARISTA05T2 filename=04-ARISTA05T2.xml
+10.255.0.117 hostname=ARISTA06T2 filename=04-ARISTA06T2.xml
+10.255.0.118 hostname=ARISTA07T2 filename=04-ARISTA07T2.xml
+10.255.0.119 hostname=ARISTA08T2 filename=04-ARISTA08T2.xml
+10.255.0.120 hostname=ARISTA09T2 filename=04-ARISTA09T2.xml
+10.255.0.121 hostname=ARISTA10T2 filename=04-ARISTA10T2.xml
+10.255.0.122 hostname=ARISTA11T2 filename=04-ARISTA11T2.xml
+10.255.0.123 hostname=ARISTA12T2 filename=04-ARISTA12T2.xml
+10.255.0.124 hostname=ARISTA13T2 filename=04-ARISTA13T2.xml
+10.255.0.125 hostname=ARISTA14T2 filename=04-ARISTA14T2.xml
+10.255.0.146 hostname=ARISTA15T2 filename=04-ARISTA15T2.xml
+10.255.0.147 hostname=ARISTA16T2 filename=04-ARISTA16T2.xml
 
 [spine:children]
 spine_1
@@ -96,76 +96,76 @@ tor_asn_start=65501
 failure_rate=0
 
 [tor_1]
-10.255.0.222 hostname=ARISTA01T0 filename=01-ARISTA01T0.yml tornum=1
-10.255.0.223 hostname=ARISTA02T0 filename=01-ARISTA02T0.yml tornum=2
-10.255.0.224 hostname=ARISTA03T0 filename=01-ARISTA03T0.yml tornum=3
-10.255.0.225 hostname=ARISTA04T0 filename=01-ARISTA04T0.yml tornum=4
-10.255.0.226 hostname=ARISTA05T0 filename=01-ARISTA05T0.yml tornum=5
-10.255.0.227 hostname=ARISTA06T0 filename=01-ARISTA06T0.yml tornum=6
-10.255.0.228 hostname=ARISTA07T0 filename=01-ARISTA07T0.yml tornum=7
-10.255.0.229 hostname=ARISTA08T0 filename=01-ARISTA08T0.yml tornum=8
-10.255.0.230 hostname=ARISTA09T0 filename=01-ARISTA09T0.yml tornum=9
-10.255.0.231 hostname=ARISTA10T0 filename=01-ARISTA10T0.yml tornum=10
-10.255.0.232 hostname=ARISTA11T0 filename=01-ARISTA11T0.yml tornum=11
-10.255.0.233 hostname=ARISTA12T0 filename=01-ARISTA12T0.yml tornum=12
-10.255.0.234 hostname=ARISTA13T0 filename=01-ARISTA13T0.yml tornum=13
-10.255.0.235 hostname=ARISTA14T0 filename=01-ARISTA14T0.yml tornum=14
-10.255.0.236 hostname=ARISTA15T0 filename=01-ARISTA15T0.yml tornum=15
-10.255.0.237 hostname=ARISTA16T0 filename=01-ARISTA16T0.yml tornum=16
+10.255.0.222 hostname=ARISTA01T0 filename=01-ARISTA01T0.xml tornum=1
+10.255.0.223 hostname=ARISTA02T0 filename=01-ARISTA02T0.xml tornum=2
+10.255.0.224 hostname=ARISTA03T0 filename=01-ARISTA03T0.xml tornum=3
+10.255.0.225 hostname=ARISTA04T0 filename=01-ARISTA04T0.xml tornum=4
+10.255.0.226 hostname=ARISTA05T0 filename=01-ARISTA05T0.xml tornum=5
+10.255.0.227 hostname=ARISTA06T0 filename=01-ARISTA06T0.xml tornum=6
+10.255.0.228 hostname=ARISTA07T0 filename=01-ARISTA07T0.xml tornum=7
+10.255.0.229 hostname=ARISTA08T0 filename=01-ARISTA08T0.xml tornum=8
+10.255.0.230 hostname=ARISTA09T0 filename=01-ARISTA09T0.xml tornum=9
+10.255.0.231 hostname=ARISTA10T0 filename=01-ARISTA10T0.xml tornum=10
+10.255.0.232 hostname=ARISTA11T0 filename=01-ARISTA11T0.xml tornum=11
+10.255.0.233 hostname=ARISTA12T0 filename=01-ARISTA12T0.xml tornum=12
+10.255.0.234 hostname=ARISTA13T0 filename=01-ARISTA13T0.xml tornum=13
+10.255.0.235 hostname=ARISTA14T0 filename=01-ARISTA14T0.xml tornum=14
+10.255.0.236 hostname=ARISTA15T0 filename=01-ARISTA15T0.xml tornum=15
+10.255.0.237 hostname=ARISTA16T0 filename=01-ARISTA16T0.xml tornum=16
 
 [tor_2]
-10.255.0.190 hostname=ARISTA01T0 filename=02-ARISTA01T0.yml tornum=1
-10.255.0.191 hostname=ARISTA02T0 filename=02-ARISTA02T0.yml tornum=2
-10.255.0.192 hostname=ARISTA03T0 filename=02-ARISTA03T0.yml tornum=3
-10.255.0.193 hostname=ARISTA04T0 filename=02-ARISTA04T0.yml tornum=4
-10.255.0.194 hostname=ARISTA05T0 filename=02-ARISTA05T0.yml tornum=5
-10.255.0.195 hostname=ARISTA06T0 filename=02-ARISTA06T0.yml tornum=6
-10.255.0.196 hostname=ARISTA07T0 filename=02-ARISTA07T0.yml tornum=7
-10.255.0.197 hostname=ARISTA08T0 filename=02-ARISTA08T0.yml tornum=8
-10.255.0.198 hostname=ARISTA09T0 filename=02-ARISTA09T0.yml tornum=9
-10.255.0.199 hostname=ARISTA10T0 filename=02-ARISTA10T0.yml tornum=10
-10.255.0.200 hostname=ARISTA11T0 filename=02-ARISTA11T0.yml tornum=11
-10.255.0.201 hostname=ARISTA12T0 filename=02-ARISTA12T0.yml tornum=12
-10.255.0.202 hostname=ARISTA13T0 filename=02-ARISTA13T0.yml tornum=13
-10.255.0.203 hostname=ARISTA14T0 filename=02-ARISTA14T0.yml tornum=14
-10.255.0.204 hostname=ARISTA15T0 filename=02-ARISTA15T0.yml tornum=15
-10.255.0.205 hostname=ARISTA16T0 filename=02-ARISTA16T0.yml tornum=16
+10.255.0.190 hostname=ARISTA01T0 filename=02-ARISTA01T0.xml tornum=1
+10.255.0.191 hostname=ARISTA02T0 filename=02-ARISTA02T0.xml tornum=2
+10.255.0.192 hostname=ARISTA03T0 filename=02-ARISTA03T0.xml tornum=3
+10.255.0.193 hostname=ARISTA04T0 filename=02-ARISTA04T0.xml tornum=4
+10.255.0.194 hostname=ARISTA05T0 filename=02-ARISTA05T0.xml tornum=5
+10.255.0.195 hostname=ARISTA06T0 filename=02-ARISTA06T0.xml tornum=6
+10.255.0.196 hostname=ARISTA07T0 filename=02-ARISTA07T0.xml tornum=7
+10.255.0.197 hostname=ARISTA08T0 filename=02-ARISTA08T0.xml tornum=8
+10.255.0.198 hostname=ARISTA09T0 filename=02-ARISTA09T0.xml tornum=9
+10.255.0.199 hostname=ARISTA10T0 filename=02-ARISTA10T0.xml tornum=10
+10.255.0.200 hostname=ARISTA11T0 filename=02-ARISTA11T0.xml tornum=11
+10.255.0.201 hostname=ARISTA12T0 filename=02-ARISTA12T0.xml tornum=12
+10.255.0.202 hostname=ARISTA13T0 filename=02-ARISTA13T0.xml tornum=13
+10.255.0.203 hostname=ARISTA14T0 filename=02-ARISTA14T0.xml tornum=14
+10.255.0.204 hostname=ARISTA15T0 filename=02-ARISTA15T0.xml tornum=15
+10.255.0.205 hostname=ARISTA16T0 filename=02-ARISTA16T0.xml tornum=16
 
 [tor_3]
-10.255.0.52 hostname=ARISTA01T0 filename=03-ARISTA01T0.yml tornum=1
-10.255.0.53 hostname=ARISTA02T0 filename=03-ARISTA02T0.yml tornum=2
-10.255.0.54 hostname=ARISTA03T0 filename=03-ARISTA03T0.yml tornum=3
-10.255.0.55 hostname=ARISTA04T0 filename=03-ARISTA04T0.yml tornum=4
-10.255.0.56 hostname=ARISTA05T0 filename=03-ARISTA05T0.yml tornum=5
-10.255.0.57 hostname=ARISTA06T0 filename=03-ARISTA06T0.yml tornum=6
-10.255.0.58 hostname=ARISTA07T0 filename=03-ARISTA07T0.yml tornum=7
-10.255.0.59 hostname=ARISTA08T0 filename=03-ARISTA08T0.yml tornum=8
-10.255.0.60 hostname=ARISTA09T0 filename=03-ARISTA09T0.yml tornum=9
-10.255.0.61 hostname=ARISTA10T0 filename=03-ARISTA10T0.yml tornum=10
-10.255.0.62 hostname=ARISTA11T0 filename=03-ARISTA11T0.yml tornum=11
-10.255.0.63 hostname=ARISTA12T0 filename=03-ARISTA12T0.yml tornum=12
-10.255.0.64 hostname=ARISTA13T0 filename=03-ARISTA13T0.yml tornum=13
-10.255.0.65 hostname=ARISTA14T0 filename=03-ARISTA14T0.yml tornum=14
-10.255.0.66 hostname=ARISTA15T0 filename=03-ARISTA15T0.yml tornum=15
-10.255.0.67 hostname=ARISTA16T0 filename=03-ARISTA16T0.yml tornum=16
+10.255.0.52 hostname=ARISTA01T0 filename=03-ARISTA01T0.xml tornum=1
+10.255.0.53 hostname=ARISTA02T0 filename=03-ARISTA02T0.xml tornum=2
+10.255.0.54 hostname=ARISTA03T0 filename=03-ARISTA03T0.xml tornum=3
+10.255.0.55 hostname=ARISTA04T0 filename=03-ARISTA04T0.xml tornum=4
+10.255.0.56 hostname=ARISTA05T0 filename=03-ARISTA05T0.xml tornum=5
+10.255.0.57 hostname=ARISTA06T0 filename=03-ARISTA06T0.xml tornum=6
+10.255.0.58 hostname=ARISTA07T0 filename=03-ARISTA07T0.xml tornum=7
+10.255.0.59 hostname=ARISTA08T0 filename=03-ARISTA08T0.xml tornum=8
+10.255.0.60 hostname=ARISTA09T0 filename=03-ARISTA09T0.xml tornum=9
+10.255.0.61 hostname=ARISTA10T0 filename=03-ARISTA10T0.xml tornum=10
+10.255.0.62 hostname=ARISTA11T0 filename=03-ARISTA11T0.xml tornum=11
+10.255.0.63 hostname=ARISTA12T0 filename=03-ARISTA12T0.xml tornum=12
+10.255.0.64 hostname=ARISTA13T0 filename=03-ARISTA13T0.xml tornum=13
+10.255.0.65 hostname=ARISTA14T0 filename=03-ARISTA14T0.xml tornum=14
+10.255.0.66 hostname=ARISTA15T0 filename=03-ARISTA15T0.xml tornum=15
+10.255.0.67 hostname=ARISTA16T0 filename=03-ARISTA16T0.xml tornum=16
 
 [tor_4]
-10.255.0.84  hostname=ARISTA01T0 filename=04-ARISTA01T0.yml tornum=1
-10.255.0.85  hostname=ARISTA02T0 filename=04-ARISTA02T0.yml tornum=2
-10.255.0.86  hostname=ARISTA03T0 filename=04-ARISTA03T0.yml tornum=3
-10.255.0.87  hostname=ARISTA04T0 filename=04-ARISTA04T0.yml tornum=4
-10.255.0.88  hostname=ARISTA05T0 filename=04-ARISTA05T0.yml tornum=5
-10.255.0.89  hostname=ARISTA06T0 filename=04-ARISTA06T0.yml tornum=6
-10.255.0.90  hostname=ARISTA07T0 filename=04-ARISTA07T0.yml tornum=7
-10.255.0.92  hostname=ARISTA08T0 filename=04-ARISTA08T0.yml tornum=8
-10.255.0.93  hostname=ARISTA09T0 filename=04-ARISTA09T0.yml tornum=9
-10.255.0.94  hostname=ARISTA10T0 filename=04-ARISTA10T0.yml tornum=10
-10.255.0.95  hostname=ARISTA11T0 filename=04-ARISTA11T0.yml tornum=11
-10.255.0.96  hostname=ARISTA12T0 filename=04-ARISTA12T0.yml tornum=12
-10.255.0.97  hostname=ARISTA13T0 filename=04-ARISTA13T0.yml tornum=13
-10.255.0.98  hostname=ARISTA14T0 filename=04-ARISTA14T0.yml tornum=14
-10.255.0.99  hostname=ARISTA15T0 filename=04-ARISTA15T0.yml tornum=15
-10.255.0.107 hostname=ARISTA16T0 filename=04-ARISTA16T0.yml tornum=16
+10.255.0.84  hostname=ARISTA01T0 filename=04-ARISTA01T0.xml tornum=1
+10.255.0.85  hostname=ARISTA02T0 filename=04-ARISTA02T0.xml tornum=2
+10.255.0.86  hostname=ARISTA03T0 filename=04-ARISTA03T0.xml tornum=3
+10.255.0.87  hostname=ARISTA04T0 filename=04-ARISTA04T0.xml tornum=4
+10.255.0.88  hostname=ARISTA05T0 filename=04-ARISTA05T0.xml tornum=5
+10.255.0.89  hostname=ARISTA06T0 filename=04-ARISTA06T0.xml tornum=6
+10.255.0.90  hostname=ARISTA07T0 filename=04-ARISTA07T0.xml tornum=7
+10.255.0.92  hostname=ARISTA08T0 filename=04-ARISTA08T0.xml tornum=8
+10.255.0.93  hostname=ARISTA09T0 filename=04-ARISTA09T0.xml tornum=9
+10.255.0.94  hostname=ARISTA10T0 filename=04-ARISTA10T0.xml tornum=10
+10.255.0.95  hostname=ARISTA11T0 filename=04-ARISTA11T0.xml tornum=11
+10.255.0.96  hostname=ARISTA12T0 filename=04-ARISTA12T0.xml tornum=12
+10.255.0.97  hostname=ARISTA13T0 filename=04-ARISTA13T0.xml tornum=13
+10.255.0.98  hostname=ARISTA14T0 filename=04-ARISTA14T0.xml tornum=14
+10.255.0.99  hostname=ARISTA15T0 filename=04-ARISTA15T0.xml tornum=15
+10.255.0.107 hostname=ARISTA16T0 filename=04-ARISTA16T0.xml tornum=16
 
 [tor:children]
 tor_1
@@ -182,7 +182,7 @@ spine
 tor
 
 [eos:vars]
-nhip=10.10.246.100
+nhipv4=10.10.246.100
 nhipv6=FC0A::C9
 
 ## The groups below are helper to limit running playbooks to server_1 or server_2 only
@@ -203,3 +203,4 @@ spine_4
 [servers:children]
 server_1
 server_2
+

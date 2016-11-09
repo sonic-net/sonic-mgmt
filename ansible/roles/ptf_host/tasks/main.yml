@@ -58,3 +58,4 @@
     mgmt_ip_gw: "{{ mgmt_gw }}"
     mgmt_bridge: "{{ mgmt_bridge }}"
   when: action == 'start'
+

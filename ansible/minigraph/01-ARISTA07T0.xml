@@ -1,0 +1,116 @@
+<DeviceMiniGraph xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="Microsoft.Search.Autopilot.Evolution">
+  <CpgDec>
+    <IsisRouters xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
+    <PeeringSessions>
+      <BGPSession>
+        <StartRouter>ARISTA07T0</StartRouter>
+        <StartPeer>10.0.0.45</StartPeer>
+        <EndRouter>str-s6000-on-3</EndRouter>
+        <EndPeer>10.0.0.44</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>180</HoldTime>
+        <KeepAliveTime>60</KeepAliveTime>
+      </BGPSession>
+      <BGPSession>
+        <StartRouter>ARISTA07T0</StartRouter>
+        <StartPeer>FC00::5A</StartPeer>
+        <EndRouter>str-s6000-on-3</EndRouter>
+        <EndPeer>FC00::59</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>180</HoldTime>
+        <KeepAliveTime>60</KeepAliveTime>
+      </BGPSession>
+    </PeeringSessions>
+    <Routers xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+      <a:BGPRouterDeclaration>
+        <a:ASN>64007</a:ASN>
+        <a:Hostname>ARISTA07T0</a:Hostname>
+        <a:Peers>
+          <BGPPeer>
+            <Address>10.0.0.44</Address>
+            <RouteMapIn i:nil="true"/>
+            <RouteMapOut i:nil="true"/>
+          </BGPPeer>
+        </a:Peers>
+        <a:RouteMaps/>
+      </a:BGPRouterDeclaration>
+      <a:BGPRouterDeclaration>
+        <a:ASN>65100</a:ASN>
+        <a:Hostname>str-s6000-on-3</a:Hostname>
+        <a:RouteMaps/>
+      </a:BGPRouterDeclaration>
+    </Routers>
+  </CpgDec>
+  <DpgDec>
+    <DeviceDataPlaneInfo>
+      <IPSecTunnels/>
+      <LoopbackIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+        <a:LoopbackIPInterface>
+          <Name>HostIP</Name>
+          <AttachTo>Loopback0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>100.1.0.23/32</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>100.1.0.23/32</a:PrefixStr>
+        </a:LoopbackIPInterface>
+        <a:LoopbackIPInterface>
+          <Name>HostIP1</Name>
+          <AttachTo>Loopback0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>2064:0100::17/128</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>2064:0100::17/128</a:PrefixStr>
+        </a:LoopbackIPInterface>
+      </LoopbackIPInterfaces>
+      <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+        <a:ManagementIPInterface>
+          <Name>HostIP</Name>
+          <AttachTo>eth0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>10.255.0.228/24</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>10.255.0.228/24</a:PrefixStr>
+        </a:ManagementIPInterface>
+      </ManagementIPInterfaces>
+      <MplsInterfaces/>
+      <MplsTeInterfaces/>
+      <RsvpInterfaces/>
+      <Hostname>ARISTA07T0</Hostname>
+      <PortChannelInterfaces/>
+      <VlanInterfaces/>
+      <IPInterfaces>
+        <IPInterface>
+          <Name i:Name="true"/>
+          <AttachTo>Ethernet1</AttachTo>
+          <Prefix>10.0.0.45/31</Prefix>
+        </IPInterface>
+        <IPInterface>
+          <Name i:Name="true"/>
+          <AttachTo>Ethernet1</AttachTo>
+          <Prefix>FC00::5A/126</Prefix>
+        </IPInterface>
+        <IPInterface>
+          <Name i:Name="true"/>
+          <AttachTo>Ethernet9</AttachTo>
+          <Prefix>10.10.246.23/24</Prefix>
+        </IPInterface>
+        <IPInterface>
+          <Name i:Name="true"/>
+          <AttachTo>Ethernet9</AttachTo>
+          <Prefix>FC0A::2E/64</Prefix>
+        </IPInterface>
+      </IPInterfaces>
+      <DataAcls/>
+      <AclInterfaces/>
+      <DownstreamSummaries/>
+      <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
+    </DeviceDataPlaneInfo>
+  </DpgDec>
+  <PngDec>
+    <DeviceInterfaceLinks>
+    </DeviceInterfaceLinks>
+  </PngDec>
+  <Hostname>ARISTA07T0</Hostname>
+  <HwSku>Arista-VEOS</HwSku>
+</DeviceMiniGraph>
+

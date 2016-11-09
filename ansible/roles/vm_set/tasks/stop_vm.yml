@@ -12,3 +12,4 @@
 
 - name: Remove arista disk image for {{ vm_name }}. vm set {{ id }}
   file: path={{ disk_image }} state=absent
+

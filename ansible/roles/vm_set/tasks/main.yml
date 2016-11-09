@@ -23,6 +23,11 @@
     - vlan
     - libvirt-bin
     - python-libvirt
+    - python-pip
+
+- name: Install python packages. vm set {{ id }}
+  pip: name=docker-py state=present version=1.7.2
+  environment: "{{ proxy_env | default({}) }}"
 
 - name: Retrieve a list of the defined VMs. vm set {{ id }}
   virt: command=list_vms
@@ -46,3 +51,4 @@
 - name: Renumber vm set {{ id }}
   include: renumber.yml
   when: action == 'renumber'
+

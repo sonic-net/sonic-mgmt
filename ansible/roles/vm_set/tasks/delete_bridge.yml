@@ -5,3 +5,4 @@
 - name: Destroy port0 vm bridge {{ port0_bridge }}. vm set {{ id }}
   command: ovs-vsctl del-br {{ port0_bridge }}
   when: port0_bridge in ansible_interfaces
+

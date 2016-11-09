@@ -15,18 +15,24 @@ ip routing
 ipv6 unicast-routing
 !
 ip route 0.0.0.0/0 {{ minigraph_mgmt_interface["gwaddr"] }}
+
+route-map DEFAULT_ROUTES permit
 !
 {% for podset in range(0, podset_number) %}
 {% for tor in range(0, tor_number) %}
 {% for subnet in range(0, tor_subnet_number) %}
-ip route 192.168.{{ podset }}.{{ tor * 16 + subnet }}/32 {{ nhip }}
+ip route 192.168.{{ podset }}.{{ tor * 16 + subnet }}/32 {{ nhipv4 }}
+ipv6 route 20C0:A8{{ '%02X' % podset }}:0:{{ '%02X' % (tor * 16 + subnet)}}::/64 {{ nhipv6 }}
 {% endfor %}
 {% endfor %}
 {% endfor %}
 !
 {% for podset in range(0, podset_number) %}
 {% for tor in range(0, tor_number) %}
-ip prefix-list test{{ podset}}_{{ tor }} seq 10 permit 192.168.{{ podset }}.{{ tor * 16 }}/28 ge 28
+ip prefix-list test_ipv4_{{ podset}}_{{ tor }} seq 10 permit 192.168.{{ podset }}.{{ tor * 16 }}/28 ge 28
+ipv6 prefix-list test_ipv6_{{ podset}}_{{ tor }}
+ seq 10 permit 20C0:A8{{ '%02X' % podset }}:0:{{ '%02X' % (tor * 16) }}::/60 ge 60
+exit
 {% endfor %}
 {% endfor %}
 !
@@ -67,8 +73,12 @@ interface {{ iface['name'] }}
 {% for tor in range(0, tor_number) %}
 {% set leafasn = leaf_asn_start + podset %}
 {% set torasn = tor_asn_start + tor %}
-route-map PREPENDAS permit {{ podset * tor_number + tor + 1 }}
-  match ip address prefix-list test{{ podset }}_{{ tor }}
+route-map PREPENDAS permit {{ 2 * (podset * tor_number + tor + 1) }}
+  match ip address prefix-list test_ipv4_{{ podset }}_{{ tor }}
+  set as-path prepend {{ leafasn }} {{ torasn }}
+!
+route-map PREPENDAS permit {{ 2 * (podset * tor_number + tor + 1) + 1 }}
+  match ipv6 address prefix-list test_ipv6_{{ podset }}_{{ tor }}
   set as-path prepend {{ leafasn }} {{ torasn }}
 !
 {% endfor %}
@@ -81,6 +91,7 @@ router bgp {{ minigraph_bgp_asn }}
 {% for neighbor in minigraph_bgp %}
  neighbor {{ neighbor["addr"] }} remote-as {{ neighbor["asn"] }}
  neighbor {{ neighbor["addr"] }} description {{ neighbor["asn"]}}
+ neighbor {{ neighbor["addr"] }} default-originate route-map DEFAULT_ROUTES
 {% if neighbor["addr"] | ipv6 %}
  address-family ipv6
   neighbor {{ neighbor["addr"] }} activate
@@ -99,3 +110,4 @@ management api http-commands
  no shutdown
 !
 end
+
