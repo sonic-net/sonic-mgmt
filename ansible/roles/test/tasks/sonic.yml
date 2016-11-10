@@ -62,9 +62,9 @@
   include: arpall.yml
   tags: arp
 
-- name: Test hardware configuration
-  include: config.yml
-  tags: config
+- name: Test port aliases configuration
+  include: port-alias.yml
+  tags: port-alias
 
 ## When calling this basic_route, Chip is setup with proper parameters and
 ## SAI API used by syncd daemon are called. This test is mainly for validation purpose used by external vendors.
