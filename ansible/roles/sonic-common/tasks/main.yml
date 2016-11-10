@@ -202,6 +202,10 @@
 # Install Logrotate
 - include: logrotate.yml
 
+# LLDP
+- include: lldp.yml
+  tags: lldp
+
 - command: /bin/true
   notify: Clean up apt
 
