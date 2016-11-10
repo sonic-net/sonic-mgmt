@@ -1,5 +1,7 @@
-- name: Gathering facts about the device
-  include_vars: vars/configurations/{{ filename }}
+- name: Gathering minigraph facts device {{ hostname }}. vm set {{ id }}
+  minigraph_facts: host={{ hostname }} filename={{ filename }}
+  become: false
+  connection: local
 
 - name: Device debug output
   debug: msg="hostname = {{ hostname }} serial port = {{ serial_port }} ip = {{ minigraph_mgmt_interface.addr }}"
@@ -66,4 +68,5 @@
 - name: Fail if kickstart gives error again vm {{ vm_name }}. vm set {{ id }}
   fail: msg="Two attempts to start vm weren't succesfull"
   when: '"skipped" in kickstart_output_final and "kickstart_code" in kickstart_output_final and kickstart_output_final.kickstart_code != 0'
+
 

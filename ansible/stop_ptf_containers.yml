@@ -4,13 +4,13 @@
 # For additional details see playbook start_ptf_containers.yml
 #
 # To run on both servers with all ptf containers:
-# ansible-playbook -i veos stop_ptf_containers.yml
+# ansible-playbook -i veos stop_ptf_containers.yml --vault-password-file=~/.password
 #
 # To run on the first server only:
-# ansible-playbook -i veos stop_ptf_containers.yml --limit server_1
+# ansible-playbook -i veos stop_ptf_containers.yml --vault-password-file=~/.password --limit server_1
 #
 # To run on the second server and remove second container only
-# ansible-playbook -i veos stop_testbed.yml --limit server_2 -e ptf_2=true
+# ansible-playbook -i veos stop_ptf_containers.yml --vault-password-file=~/.password --limit server_2 -e ptf_2=true
 
 - hosts: servers:&vm_host
   gather_facts: no
@@ -20,6 +20,8 @@
     ptf_2:    false
     ptf_3:    false
     ptf_4:    false
+    ptf_5:    false
+    ptf_6:    false
   vars_files:
     - vars/docker_registry.yml
   pre_tasks:
@@ -29,9 +31,14 @@
         ptf_2:    true
         ptf_3:    true
         ptf_4:    true
-      when: not (ptf_1 or ptf_2 or ptf_3 or ptf_4)
+        ptf_5:    true
+        ptf_6:    true
+      when: not (ptf_1 or ptf_2 or ptf_3 or ptf_4 or ptf_5 or ptf_6)
   roles:
   - { role: ptf_host, action: 'stop', id: 1, when: ptf_1 and ptf_1_enabled }
   - { role: ptf_host, action: 'stop', id: 2, when: ptf_2 and ptf_2_enabled }
   - { role: ptf_host, action: 'stop', id: 3, when: ptf_3 and ptf_3_enabled }
   - { role: ptf_host, action: 'stop', id: 4, when: ptf_4 and ptf_4_enabled }
+  - { role: ptf_host, action: 'stop', id: 5, when: ptf_5 and ptf_5_enabled }
+  - { role: ptf_host, action: 'stop', id: 6, when: ptf_6 and ptf_6_enabled }
+

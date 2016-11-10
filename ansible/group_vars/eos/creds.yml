@@ -1,2 +1,4 @@
-ansible_user: root
-ansible_password: 123456
+---
+ansible_user: use_own_value
+ansible_password: use_own_value
+

@@ -1,10 +1,14 @@
-- name: Get output of bridge configurations {{ port0_bridge }}. vm set {{ id }}
-  command: ovs-vsctl show
-  register: show
+- name: Find name of vlan iface {{ port0_bridge }}. vm set {{ id }}
+  shell: ovs-vsctl list-ports {{ port0_bridge }} | grep {{ external_iface }}
+  register: vlan_out
+  failed_when: False
+
+- name: Extract vlan name {{ port0_bridge }}. vm set {{ id }}
+  set_fact: vlan_iface={{ vlan_out.stdout|default('not_exist') }}
 
 - name: Remove portinterface {{ vlan_iface }} from the bridge {{ port0_bridge }}. vm set {{ id }}
   command: ovs-vsctl del-port {{ port0_bridge }} {{ vlan_iface }}
-  when: show.stdout.find( vlan_iface ) != -1
+  when: vlan_out.rc == 0
 
 - name: Disable external vlan {{ vlan_iface }}. vm set {{ id }}
   command: ifconfig {{ vlan_iface }} down
@@ -13,3 +17,4 @@
 - name: Destroy external vlan {{ vlan_iface }}. vm set {{ id }}
   command: vconfig rem {{ vlan_iface }}
   when: vlan_iface in ansible_interfaces
+

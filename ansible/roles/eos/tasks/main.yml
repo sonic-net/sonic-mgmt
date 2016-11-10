@@ -1,6 +1,8 @@
 # Gather minigraph facts
-- name: Gathering facts about the device
-  include_vars: vars/configurations/{{ filename }}
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ hostname }} filename={{ filename }}
+  connection: local
+  tags: always
 
 - name: copy boot-config
   copy: src=boot-config
@@ -19,3 +21,4 @@
   when: swrole == "tor"
   notify:
     - Restart the box
+

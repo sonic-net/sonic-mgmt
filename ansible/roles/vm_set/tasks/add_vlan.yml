@@ -13,11 +13,32 @@
   command: ovs-vsctl add-port {{ port0_bridge }} {{ vlan_iface }}
   when: cur_bridges.stdout.find( vlan_iface ) == -1
 
+- name: Connect port0 to injected port {{ port0_bridge }} {{ injected_iface }}. vm set {{ id }}
+  command: ovs-vsctl add-port {{ port0_bridge }} {{ injected_iface }}
+  when: cur_bridges.stdout.find( injected_iface ) == -1 and vm_injected_ptf
+
+- name: Define port number for vlan interface {{ vlan_iface }} in {{ port0_bridge }}. vm set {{ id }}
+  shell: ovs-ofctl show {{ port0_bridge }} | sed -n '/(\(.*\..*\)).*addr/ s/ \(.*\)(.*/\1/p'
+  register: port_number_digits
+
+- name: Setting ext_port_number={{ port_number_digits.stdout }}. vm set {{ id }}
+  set_fact: ext_port_number={{ port_number_digits.stdout|int }}
+
 - name: Remove standard rules from the ovs bridge {{ port0_bridge }}. vm set {{ id }}
   command: ovs-ofctl del-flows {{ port0_bridge }}
 
 - name: Add first forwarding rule for the ovs bridge {{ port0_bridge }}. vm set {{ id }}
-  command: ovs-ofctl add-flow {{ port0_bridge }} 'table=0,in_port=1,action=output:2'
+  command: ovs-ofctl add-flow {{ port0_bridge }} 'table=0,in_port=1,action=output:{{ ext_port_number }}'
 
 - name: Add second forwarding rule for the ovs bridge {{ port0_bridge }}. vm set {{ id }}
-  command: ovs-ofctl add-flow {{ port0_bridge }} 'table=0,in_port=2,action=output:1'
+  command: ovs-ofctl add-flow {{ port0_bridge }} 'table=0,in_port={{ ext_port_number }},action=output:1'
+  when: not vm_injected_ptf
+
+- name: Add second forwarding rule for the ovs bridge {{ port0_bridge }}. vm set {{ id }}
+  command: ovs-ofctl add-flow {{ port0_bridge }} 'table=0,in_port={{ ext_port_number }},actions=3,1'
+  when: vm_injected_ptf
+
+- name: Add third forwarding rule for the ovs bridge {{ port0_bridge }}. vm set {{ id }}
+  command: ovs-ofctl add-flow {{ port0_bridge }} 'table=0,in_port=3,actions={{ ext_port_number }}'
+  when: vm_injected_ptf
+
