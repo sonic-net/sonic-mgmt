@@ -10,7 +10,7 @@ version_sonic_cli: "*"
 
 image_id_database: docker-database:latest
 image_id_snmp: docker-snmp:latest
-image_id_lldp: docker-lldp:latest
+image_id_lldp: docker-lldp-sv2:latest
 image_id_platform_monitor: docker-platform-monitor:latest
 
 image_id_syncd: docker-syncd:latest

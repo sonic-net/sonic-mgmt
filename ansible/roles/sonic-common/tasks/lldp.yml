@@ -1,0 +1,27 @@
+- name: Ensure LLDP container started
+  include: sonicdocker.yml
+  vars:
+    docker_container: lldp
+    docker_image: "{{ image_id_lldp }}"
+    docker_privileged: yes
+    docker_state: reloaded
+
+- block:
+  - name: Setup LLDPD Daemon Config File
+    become: true
+    template: src=lldpd
+              dest=/etc/default/lldpd
+    notify:
+      - Restart LLDP Daemon
+
+  vars:
+    ansible_shell_type: docker
+    ansible_python_interpreter: docker exec -i lldp python
+
+- name: Copy lldpctl helper script
+  become: true
+  copy: src=bin/lldpctl
+        dest=/usr/sbin/lldpctl
+        owner=root
+        group=root
+        mode=0755
