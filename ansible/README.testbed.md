@@ -1,4 +1,4 @@
-# Requirenments for the Linux Host
+# Requirements for the Linux Host
 1. Ubuntu 16.04 x64
 2. Installed docker-engine
 3. Three network cards:
