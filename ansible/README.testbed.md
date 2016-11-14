@@ -47,8 +47,6 @@ Figure 1: PTF container testbed
 - *Vlan ports*: 32 vlan ports are created on top of a physical port, e.g., eth0, inside the Linux host. After creation the vlan ports are injected directly to a ptf docker host.
 - *Fanout switch*: A physical switch which enables VLAN trunking. Et33 is a vlan trunking port and is connected to the eth0 port of the linux host. Et1-Et32 are vlan access ports and are connect to DUT.
 
-```
-
 ### Deploy testbed with one ptf container
 1. clone sonic-mgmt repo to local directory
 2. Edit 'ansible/group_vars/vm_host'. Put your credentials to reach the server
@@ -67,6 +65,7 @@ Figure 1: PTF container testbed
 8. Start ptf container with command 'ansible-playbook -i veos start_ptf_containers.yml --vault-password-file=~/.password --limit server_1 -e ptf_1=true'. See start_ptf_containers.yml for more examples
 9. Stop ptf container with command 'ansible-playbook -i veos stop_ptf_containers.yml --vault-password-file=~/.password --limit server_1 -e ptf_1=true'. See stop_ptf_containers.yml for more examples
 
+```
                               Linux Host                                         Fanout Switch             DUT
  +-------------------------------------------------------------------+          +--------------+     +---------------+
  |  PTF Docker        VM sets            Openvswitch                 |          |              |     |               |
