@@ -1,4 +1,41 @@
-# Testbed topology
+# Requirenments for the Linux Host
+1. Ubuntu 16.04 x64
+2. Installed docker-engine
+3. Three network cards:
+  1. first is used for the server management
+  2. second is used to connect management interfaces of VMs and docker containers to network.
+  3. third is used to connect VMs and ptf containers to DUTs
+
+Content of /etc/network/interfaces:
+```
+root@STR-AZURE-SERV-02:~# cat /etc/network/interfaces
+# The primary network interface
+auto em1
+iface em1 inet static
+        address 10.250.0.245
+        netmask 255.255.255.0
+        network 10.250.0.0
+        broadcast 10.250.0.255
+        mtu 9216
+        gateway 10.250.0.1
+        dns-nameservers 10.250.0.1 10.250.0.2
+        # dns-* options are implemented by the resolvconf package, if installed
+        dns-search SOMECOMPANY
+
+auto br1
+iface br1 inet manual
+    bridge_ports em2
+    bridge_stp on
+    bridge_maxwait 0
+    bridge_fd 0
+
+auto p4p1
+iface p4p1 inet manual
+up ip link set p4p1 up
+```
+
+
+# PTF Testbed topology
 
 ```
                              Linux Host                                         Fanout Switch             DUT
@@ -64,6 +101,9 @@ Figure 1: PTF container testbed
 7. Edit 'ansible/vars/docker_registry.yml'. You need put your docker registry server here
 8. Start ptf container with command 'ansible-playbook -i veos start_ptf_containers.yml --vault-password-file=~/.password --limit server_1 -e ptf_1=true'. See start_ptf_containers.yml for more examples
 9. Stop ptf container with command 'ansible-playbook -i veos stop_ptf_containers.yml --vault-password-file=~/.password --limit server_1 -e ptf_1=true'. See stop_ptf_containers.yml for more examples
+
+
+# VM set testbed topology
 
 ```
                               Linux Host                                         Fanout Switch             DUT
@@ -215,42 +255,6 @@ The ptf docker container connects to the bridges which connect the VMs frontpane
 
 Packets coming from the physical vlan interface are sent to both the VMs and the PTF docker. Packets from the VM and PTF docker are
 sent to the vlan interface. It allows us to inject packets from the PTF host to DUT and maintain a BGP session between VM and DUT at the same time.
-
-## Requirenments for the Linux Host
-1. Ubuntu 16.04 x64
-2. Installed docker-engine
-3. Three network cards:
-  1. first is used for the server management
-  2. second is used to connect management interfaces of VMs and docker containers to network.
-  3. third is used to connect VMs and ptf containers to DUTs
-
-Content of /etc/network/interfaces:
-```
-root@STR-AZURE-SERV-02:~# cat /etc/network/interfaces
-# The primary network interface
-auto em1
-iface em1 inet static
-        address 10.250.0.245
-        netmask 255.255.255.0
-        network 10.250.0.0
-        broadcast 10.250.0.255
-        mtu 9216
-        gateway 10.250.0.1
-        dns-nameservers 10.250.0.1 10.250.0.2
-        # dns-* options are implemented by the resolvconf package, if installed
-        dns-search SOMECOMPANY
-
-auto br1
-iface br1 inet manual
-    bridge_ports em2
-    bridge_stp on
-    bridge_maxwait 0
-    bridge_fd 0
-
-auto p4p1
-iface p4p1 inet manual
-up ip link set p4p1 up
-```
 
 ### Deploy testbed with one VM set
 1. clone sonic-mgmt repo to local directory
