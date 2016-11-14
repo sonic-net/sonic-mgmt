@@ -185,9 +185,18 @@ Figure 1: PTF container testbed
 ```
 Figure 2: VM set testbed with injected PTF docker
 
-In this testbed, we have 32 VMs and 1 PTF docker connected to 32 openvswitch. Each openvswitch connected to a vlan interface. 
-Packets coming from the vlan interface are sent to both the VMs and the PTF docker. Packets from the VM and PTF docker are
-sent to the vlan interface.
+In this testbed, we have 32 VMs and 1 PTF docker. The VMs use Arista vEOS. Each VM has 10 network interfaces:
+ 1. 8 front panel ports. These ports are connected to openvswitch bridges, which are connected to vlan interfaces. The vlan interfaces are connected to the fanout switch (through physical port).
+ 2. 1 back panel port. All testbed VMs connected to each other using this port (it isn't shown on the figure above).
+ 3. 1 management port. This port is used to connect to the VMs
+
+The ptf docker container connects to the bridges which connect the VMs frontpanel ports and physical vlans. Each bridge has three ports:
+ 1. Frontpanel port from a VM
+ 2. Physical vlan port
+ 3. PTF container port
+
+Packets coming from the physical vlan interface are sent to both the VMs and the PTF docker. Packets from the VM and PTF docker are
+sent to the vlan interface. It allows us to inject packets from the PTF host to DUT and maintain a BGP session between VM and DUT at the same time.
 
 ## Requirenments for the Linux Host
 1. Ubuntu 16.04 x64
@@ -241,6 +250,7 @@ up ip link set p4p1 up
    * 'vm_X_enabled': true, if you want to run X vm set
    * 'vm_X_external_iface': name of interface which connected to DUT. See 3.3
    * 'vm_X_vlan_base': vlan number which is used for connection to first port of DUT.
+   * 'vlans': list of vlan offsets for the VM FP ports. For example: if vlans equal to "5,6" it means that the VM frontpanel port 0 will be connected to vlan {{ vm_X_vlan_base + 5 - 1 }} and VM frontpanel port 1 will be connected to vlan {{ vm_X_vlan_base + 6 - 1 }}
 7. Edit 'ansible/vars/configurations/*.yml' files. You need to adjust 'minigraph_mgmt_interface' to settings of your network See 3.2
 8. Start testbed with command 'ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos start_vm_sets.yml --limit server_1 -e vm_set_1=true'
 9. Stop testbed with command 'ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos stop_vm_sets.yml --limit server_1 -e vm_set_1=true'
