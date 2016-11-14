@@ -48,6 +48,25 @@ Figure 1: PTF container testbed
 - *Fanout switch*: A physical switch which enables VLAN trunking. Et33 is a vlan trunking port and is connected to the eth0 port of the linux host. Et1-Et32 are vlan access ports and are connect to DUT.
 
 ```
+
+### Deploy testbed with one ptf container
+1. clone sonic-mgmt repo to local directory
+2. Edit 'ansible/group_vars/vm_host'. Put your credentials to reach the server
+3. Check, that you can reach the server by running command 'ansible -i veos -m ping vm_host_1' from ansible directory. The output should contain 'pong'
+4. Edit 'ansible/group_vars/vm_host/main.yml'. 
+   * 'http_proxy': your http_proxy
+   * 'http_proxy': your https_proxy
+5. Edit 'ansible/host_vars/STR-ACS-SERV-01.yml'. It contains settings for STR-ACS-SERV-01. STR-ACS-SERV-02 contains similar settings which are applied to STR-ACS-SERV-02
+   * 'mgmt_gw': ip address of gateway for management interfaces of ptf_container
+   * 'mgmt_bridge': the bridge which is used to connect the management network
+   * 'externel_iface': the interface which is connected to the fanout switch
+   * 'ptf_X_enabled': true, if you want to run X ptf container
+   * 'ptf_X_mgmt_ip': which ip is used inside of the container for the management network
+   * 'ptf_X_vlan_base': vlan number which is used for connection to first port of DUT
+7. Edit 'ansible/vars/docker_registry.yml'. You need put your docker registry server here
+8. Start ptf container with command 'ansible-playbook -i veos start_ptf_containers.yml --vault-password-file=~/.password --limit server_1 -e ptf_1=true'. See start_ptf_containers.yml for more examples
+9. Stop ptf container with command 'ansible-playbook -i veos stop_ptf_containers.yml --vault-password-file=~/.password --limit server_1 -e ptf_1=true'. See stop_ptf_containers.yml for more examples
+
                               Linux Host                                         Fanout Switch             DUT
  +-------------------------------------------------------------------+          +--------------+     +---------------+
  |  PTF Docker        VM sets            Openvswitch                 |          |              |     |               |
@@ -216,6 +235,7 @@ iface em1 inet static
         netmask 255.255.255.0
         network 10.250.0.0
         broadcast 10.250.0.255
+        mtu 9216
         gateway 10.250.0.1
         dns-nameservers 10.250.0.1 10.250.0.2
         # dns-* options are implemented by the resolvconf package, if installed
@@ -248,9 +268,10 @@ up ip link set p4p1 up
 6. Edit 'ansible/host_vars/STR-ACS-SERV-01.yml'. It contains settings for STR-ACS-SERV-01. STR-ACS-SERV-02 contains similar settings which are applied to STR-ACS-SERV-02
    * 'mgmt_gw': ip address of gateway for management interfaces of VM. See 3.2
    * 'vm_X_enabled': true, if you want to run X vm set
-   * 'vm_X_external_iface': name of interface which connected to DUT. See 3.3
    * 'vm_X_vlan_base': vlan number which is used for connection to first port of DUT.
    * 'vlans': list of vlan offsets for the VM FP ports. For example: if vlans equal to "5,6" it means that the VM frontpanel port 0 will be connected to vlan {{ vm_X_vlan_base + 5 - 1 }} and VM frontpanel port 1 will be connected to vlan {{ vm_X_vlan_base + 6 - 1 }}
-7. Edit 'ansible/vars/configurations/*.yml' files. You need to adjust 'minigraph_mgmt_interface' to settings of your network See 3.2
+7. Edit 'ansible/minigraph/*.xml' files. You need to adjust following xml nodes to settings of your network:
+   * DeviceMiniGraph/DpgDec/DeviceDataPlaneInfo/ManagementIPInterfaces/ManagementIPInterface/Prefix/IPPrefix
+   * DeviceMiniGraph/DpgDec/DeviceDataPlaneInfo/ManagementIPInterfaces/ManagementIPInterface/PrefixStr
 8. Start testbed with command 'ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos start_vm_sets.yml --limit server_1 -e vm_set_1=true'
 9. Stop testbed with command 'ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos stop_vm_sets.yml --limit server_1 -e vm_set_1=true'
