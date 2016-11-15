@@ -13,8 +13,7 @@
     docker_image: "{{ image_id_database }}"
     docker_state: reloaded
     docker_log_driver: syslog
-    # Prevent color control char to stdout
-    docker_tty: no
+    docker_volumes:
+    - /var/run/redis/
 #   docker_net: bridge
 #   docker_host_address: "{{ remote_facts.ansible_facts.ansible_docker0.ipv4.address }}"
-

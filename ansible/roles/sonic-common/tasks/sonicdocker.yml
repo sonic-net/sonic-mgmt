@@ -33,6 +33,10 @@
   set_fact:
     docker_volumes: []
   when: docker_volumes is undefined
+- name: "{{docker_container}} - Set docker variable - docker_volumes_from"
+  set_fact:
+    docker_volumes_from: []
+  when: docker_volumes_from is undefined
 - name: "{{docker_container}} - Set docker variable - docker_privileged"
   set_fact:
     docker_privileged: no
@@ -138,6 +142,7 @@
     password: "{{docker_registry_password}}"
     email: "@"
     volumes: "{{docker_volumes}}"
+    volumes_from: "{{docker_volumes_from}}"
     privileged: "{{docker_privileged}}"
     env: "{{docker_env}}"
     log_driver: "{{docker_log_driver}}"
@@ -174,6 +179,7 @@
     docker_net: host
     docker_state: reloaded
     docker_volumes: []
+    docker_volumes_from: []
     docker_privileged: no
     docker_log_driver: json-file
     docker_env: {}
