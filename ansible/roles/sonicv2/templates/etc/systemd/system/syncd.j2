@@ -9,6 +9,7 @@ User=root
 ExecStartPre=/etc/init.d/sxdkernel start
 ExecStartPre=/usr/bin/mst start
 {% endif %}
+ExecStartPre=/usr/bin/docker exec database redis-cli FLUSHALL
 ExecStart=/usr/bin/docker start -a syncd
 ExecStop=/usr/bin/docker stop syncd
 {% if sonic_hwsku == 'ACS-MSN2700' %}
