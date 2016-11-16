@@ -16,7 +16,6 @@ iface em1 inet static
         netmask 255.255.255.0
         network 10.250.0.0
         broadcast 10.250.0.255
-        mtu 9216
         gateway 10.250.0.1
         dns-nameservers 10.250.0.1 10.250.0.2
         # dns-* options are implemented by the resolvconf package, if installed
@@ -31,6 +30,7 @@ iface br1 inet manual
 
 auto p4p1
 iface p4p1 inet manual
+  mtu 9216
 up ip link set p4p1 up
 ```
 
