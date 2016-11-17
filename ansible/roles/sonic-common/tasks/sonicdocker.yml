@@ -12,8 +12,9 @@
 ## | present     |      |              | present  |                     | y              |             |
 ## | started     |      |              | present  | started             | y              |             |
 ## | reloaded    | y    | pulled?      | reloaded | restarted if pulled | y              | if pulled   |
+## |             |      |              |          | started if not      |                |             |
 ## | restarted   |      |              | present  | restarted           | y              |             |
-## | stopped     |      | y            | stopped  |                     | n              |             |
+## | stopped     |      | y            | stopped  | stopped             | n              |             |
 ## | killed      |      | y            | killed   |                     | n              |             |
 ## | absent      |      | y            | absent   |                     | n              | y           |
 ## +-------------+------+--------------+----------+---------------------+----------------+-------------+
@@ -149,17 +150,26 @@
     log_opt: "{{docker_log_opt}}"
 
 ## Container service operation
-- name: "{{docker_container}} - Post docker - start container service"
-  become: true
-  service: name="{{docker_container}}"
-           state=started
-  when: docker_state == 'started'
 - name: "{{docker_container}} - Post docker - restart container service"
   become: true
   service: name="{{docker_container}}"
            state=restarted
   when: "docker_state == 'restarted' or      \
         docker_state == 'reloaded' and 'Status: Downloaded newer image' in pull_result.stdout"
+
+- name: "{{docker_container}} - Post docker - start container service"
+  become: true
+  service: name="{{docker_container}}"
+           state=started
+  when: "docker_state == 'started' or docker_state == 'reloaded'"
+
+- name: "{{docker_container}} - Post docker - stop and disable container service"
+  become: true
+  service: name="{{docker_container}}"
+           state=stopped
+           enabled=no
+  when: docker_state == 'stopped'
+
 - name: "{{docker_container}} - Post docker - enable container service"
   become: true
   service: name="{{docker_container}}"
