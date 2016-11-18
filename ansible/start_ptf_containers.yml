@@ -20,6 +20,10 @@
 #
 # Then start a new container with new vlan range
 # ansible-playbook -i veos start_ptf_containers.yml --vault-password-file=~/.password --limit server_2 -e ptf_3=true -e ptf_3_vlan_base=381
+#
+# To start a ptf container with saithrift packge deployed instead of raw ptf:
+# ansible-playbook -i veos start_ptf_containers.yml --vault=password-file=~/.password --limit server_1 -e ptf_3=true -e docker_image=docker-ptf-sai-{ASIC vender name}
+
 
 - hosts: servers:&vm_host
   gather_facts: no

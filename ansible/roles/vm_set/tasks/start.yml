@@ -45,61 +45,15 @@
     mgmt_bridge: "{{ mgmt_bridge }}"
   when: vm_injected_ptf
 
-- name: Create port1 bridge {{ port1_bridge }}. vm set {{ id }}
-  command: brctl addbr {{ port1_bridge }}
-  when: port1_bridge not in ansible_interfaces
-
-- name: Enable port1 bridge {{ port1_bridge }}. vm set {{ id }}
-  command: ifconfig {{ port1_bridge }} up
-
-# FIXME: my ansible doesn't support nested loops. So below are copy of everything
-- name: Add bridges for fp. vm set {{ id }}. Vlan 0
-  include: add_bridge.yml
-  vars:
-    port0_bridge: "br-vs{{ id }}-vm{{ item.value.num }}-0"
-  with_dict: "{{ VMs }}"
-
-- name: Add bridges for fp. vm set {{ id }}. Vlan 1
-  include: add_bridge.yml
-  vars:
-    port0_bridge: "br-vs{{ id }}-vm{{ item.value.num }}-1"
-  with_dict: "{{ VMs }}"
-
-- name: Add bridges for fp. vm set {{ id }}. Vlan 2
-  include: add_bridge.yml
-  vars:
-    port0_bridge: "br-vs{{ id }}-vm{{ item.value.num }}-2"
-  with_dict: "{{ VMs }}"
-
-- name: Add bridges for fp. vm set {{ id }}. Vlan 3
-  include: add_bridge.yml
-  vars:
-    port0_bridge: "br-vs{{ id }}-vm{{ item.value.num }}-3"
-  with_dict: "{{ VMs }}"
-
-- name: Add bridges for fp. vm set {{ id }}. Vlan 4
-  include: add_bridge.yml
-  vars:
-    port0_bridge: "br-vs{{ id }}-vm{{ item.value.num }}-4"
-  with_dict: "{{ VMs }}"
-
-- name: Add bridges for fp. vm set {{ id }}. Vlan 5
-  include: add_bridge.yml
-  vars:
-    port0_bridge: "br-vs{{ id }}-vm{{ item.value.num }}-5"
-  with_dict: "{{ VMs }}"
-
-- name: Add bridges for fp. vm set {{ id }}. Vlan 6
-  include: add_bridge.yml
-  vars:
-    port0_bridge: "br-vs{{ id }}-vm{{ item.value.num }}-6"
-  with_dict: "{{ VMs }}"
-
-- name: Add bridges for fp. vm set {{ id }}. Vlan 7
-  include: add_bridge.yml
-  vars:
-    port0_bridge: "br-vs{{ id }}-vm{{ item.value.num }}-7"
-  with_dict: "{{ VMs }}"
+- name: Create VM set network. vm set {{ id }}
+  vm_network:
+    cmd: 'create'
+    vm_set_id: "{{ id }}"
+    port1_bridge: "{{ port1_bridge }}"
+    vm_set_dict: "{{ VMs }}"
+    fp_mtu: "{{ fp_mtu_size }}"
+    ext_iface: "{{ external_iface }}"
+    vlan_base: "{{ vlan_base }}"
 
 - name: Start VMs. vm set {{ id }}
   include: start_vm.yml
@@ -130,14 +84,13 @@
     port1_tap: "{{ vm_name }}-p1"
   with_dict: "{{ VMs }}"
 
-- name: Enable external interface {{ external_iface }}. vm set {{ id }}
-  command: ifconfig {{ external_iface }} up
-
-- name: Add external interfaces. vm set {{ id }}
-  include: add_vlans.yml
-  vars:
-    num: "{{ item.value.num }}"
-    vlans: "{{ item.value.vlans }}"
-  when: vlans != ""
-  with_dict: "{{ VMs }}"
+- name: Bind external ifaces to VM set. vm set {{ id }}
+  vm_network:
+    cmd: 'bind'
+    vm_set_id: "{{ id }}"
+    port1_bridge: "{{ port1_bridge }}"
+    vm_set_dict: "{{ VMs }}"
+    fp_mtu: "{{ fp_mtu_size }}"
+    ext_iface: "{{ external_iface }}"
+    vlan_base: "{{ vlan_base }}"
 
