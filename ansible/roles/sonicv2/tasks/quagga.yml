@@ -21,6 +21,8 @@
     docker_image: "{{ image_id_fpm }}"
     docker_privileged: yes
     docker_state: reloaded
+    docker_volumes_from:
+    - database
 
 - block:
   - name: Copy Device Specific Quagga Zebra Configuration File.

@@ -29,22 +29,12 @@
   include: ../../sonic-common/tasks/sonicdocker.yml
   vars:
     docker_container: syncd
-    docker_image: "{{ image_id_syncd_mlnx }}"
+    docker_image: "{{ image_id_syncd_mlnx_rpc if host_saithrift is defined else image_id_syncd_mlnx }}"
     docker_privileged: yes
     docker_state: reloaded
     docker_volumes: "{{ syncd_docker_volumes }}"
-  when: host_saithrift is not defined
-  tags: syncd
-
-- name: Start syncd docker container with rpc
-  include: ../../sonic-common/tasks/sonicdocker.yml
-  vars:
-    docker_container: syncd
-    docker_image: "{{ image_id_syncd_mlnx_rpc }}"
-    docker_privileged: yes
-    docker_state: reloaded
-    docker_volumes: "{{ syncd_docker_volumes }}"
-  when: host_saithrift is defined
+    docker_volumes_from:
+    - database
   tags: syncd
 
 - name: Start orchagent docker container
@@ -55,4 +45,6 @@
     docker_privileged: yes
     docker_state: reloaded
     docker_volumes: "{{ orchagent_docker_volumes }}"
+    docker_volumes_from:
+    - database
   tags: orchagent
