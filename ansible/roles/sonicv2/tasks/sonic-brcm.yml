@@ -36,23 +36,13 @@
   include: ../../sonic-common/tasks/sonicdocker.yml
   vars:
     docker_container: syncd
-    docker_image: "{{ image_id_syncd }}"
+    docker_image: "{{ image_id_syncd_rpc if host_saithrift is defined else image_id_syncd }}"
     docker_privileged: yes
     docker_state: reloaded
     docker_volumes: "{{ syncd_docker_volumes }}"
+    docker_volumes_from:
+    - database
   tags: syncd
-  when: host_saithrift is not defined
-
-- name: Start syncd docker container
-  include: ../../sonic-common/tasks/sonicdocker.yml
-  vars:
-    docker_container: syncd
-    docker_image: "{{ image_id_syncd_rpc }}"
-    docker_privileged: yes
-    docker_state: reloaded
-    docker_volumes: "{{ syncd_docker_volumes }}"
-  tags: syncd
-  when: host_saithrift is defined
 
 - name: Remove old copies of bcmcmd
   become: true
@@ -75,4 +65,6 @@
     docker_privileged: yes
     docker_state: reloaded
     docker_volumes: "{{ orchagent_docker_volumes }}"
+    docker_volumes_from:
+    - database
   tags: orchagent
