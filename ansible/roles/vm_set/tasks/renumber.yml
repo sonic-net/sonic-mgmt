@@ -1,14 +1,20 @@
-- name: Remove external interfaces. vm set {{ id }}
-  include: delete_vlans.yml
-  vars:
-    num: "{{ item.value.num }}"
-  with_dict: "{{ VMs }}"
+- name: Unbind external ifaces to VM set. vm set {{ id }}
+  vm_network:
+    cmd: 'unbind'
+    vm_set_id: "{{ id }}"
+    port1_bridge: "{{ port1_bridge }}"
+    vm_set_dict: "{{ VMs }}"
+    fp_mtu: "{{ fp_mtu_size }}"
+    ext_iface: "{{ external_iface }}"
+    vlan_base: "{{ vlan_base }}"
 
-- name: Add external interfaces. vm set {{ id }}
-  include: add_vlans.yml
-  vars:
-    num: "{{ item.value.num }}"
-    vlans: "{{ item.value.vlans }}"
-  when: vlans != ""
-  with_dict: "{{ VMs }}"
+- name: Bind external ifaces to VM set. vm set {{ id }}
+  vm_network:
+    cmd: 'bind'
+    vm_set_id: "{{ id }}"
+    port1_bridge: "{{ port1_bridge }}"
+    vm_set_dict: "{{ VMs }}"
+    fp_mtu: "{{ fp_mtu_size }}"
+    ext_iface: "{{ external_iface }}"
+    vlan_base: "{{ vlan_base }}"
 
