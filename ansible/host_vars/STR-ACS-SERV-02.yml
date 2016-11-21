@@ -28,398 +28,396 @@ ptf_6_vlan_base: 745 # ???
 
 vm_1_enabled: true
 vm_1_vlan_base: 457
-vm_1_injected_ptf: true
 vm_1_injected_ip: 10.255.0.180/24
 VMs_1:
   ARISTA01T0:
     num: 0
     filename: 02-ARISTA01T0.xml
     serial_port: 5000
-    vlans: "17"
+    vlans: "16"
     memory: "{{ tor_memory }}"
   ARISTA01T2:
     num: 1
     filename: 02-ARISTA01T2.xml
     serial_port: 5016
-    vlans: "1"
+    vlans: "0"
     memory: "{{ spine_memory }}"
   ARISTA02T0:
     num: 2
     filename: 02-ARISTA02T0.xml
     serial_port: 5001
-    vlans: "18"
+    vlans: "17"
     memory: "{{ tor_memory }}"
   ARISTA02T2:
     num: 3
     filename: 02-ARISTA02T2.xml
     serial_port: 5017
-    vlans: "2"
+    vlans: "1"
     memory: "{{ spine_memory }}"
   ARISTA03T0:
     num: 4
     filename: 02-ARISTA03T0.xml
     serial_port: 5002
-    vlans: "19"
+    vlans: "18"
     memory: "{{ tor_memory }}"
   ARISTA03T2:
     num: 5
     filename: 02-ARISTA03T2.xml
     serial_port: 5018
-    vlans: "3"
+    vlans: "2"
     memory: "{{ spine_memory }}"
   ARISTA04T0:
     num: 6
     filename: 02-ARISTA04T0.xml
     serial_port: 5003
-    vlans: "20"
+    vlans: "19"
     memory: "{{ tor_memory }}"
   ARISTA04T2:
     num: 7
     filename: 02-ARISTA04T2.xml
     serial_port: 5019
-    vlans: "4"
+    vlans: "3"
     memory: "{{ spine_memory }}"
   ARISTA05T0:
     num: 8
     filename: 02-ARISTA05T0.xml
     serial_port: 5004
-    vlans: "21"
+    vlans: "20"
     memory: "{{ tor_memory }}"
   ARISTA05T2:
     num: 9
     filename: 02-ARISTA05T2.xml
     serial_port: 5020
-    vlans: "5"
+    vlans: "4"
     memory: "{{ spine_memory }}"
   ARISTA06T0:
     num: 10
     filename: 02-ARISTA06T0.xml
     serial_port: 5005
-    vlans: "22"
+    vlans: "21"
     memory: "{{ tor_memory }}"
   ARISTA06T2:
     num: 11
     filename: 02-ARISTA06T2.xml
     serial_port: 5021
-    vlans: "6"
+    vlans: "5"
     memory: "{{ spine_memory }}"
   ARISTA07T0:
     num: 12
     filename: 02-ARISTA07T0.xml
     serial_port: 5006
-    vlans: "23"
+    vlans: "22"
     memory: "{{ tor_memory }}"
   ARISTA07T2:
     num: 13
     filename: 02-ARISTA07T2.xml
     serial_port: 5022
-    vlans: "7"
+    vlans: "6"
     memory: "{{ spine_memory }}"
   ARISTA08T0:
     num: 14
     filename: 02-ARISTA08T0.xml
     serial_port: 5007
-    vlans: "24"
+    vlans: "23"
     memory: "{{ tor_memory }}"
   ARISTA08T2:
     num: 15
     filename: 02-ARISTA08T2.xml
     serial_port: 5023
-    vlans: "8"
+    vlans: "7"
     memory: "{{ spine_memory }}"
   ARISTA09T0:
     num: 16
     filename: 02-ARISTA09T0.xml
     serial_port: 5008
-    vlans: "25"
+    vlans: "24"
     memory: "{{ tor_memory }}"
   ARISTA09T2:
     num: 17
     filename: 02-ARISTA09T2.xml
     serial_port: 5024
-    vlans: "9"
+    vlans: "8"
     memory: "{{ spine_memory }}"
   ARISTA10T0:
     num: 18
     filename: 02-ARISTA10T0.xml
     serial_port: 5009
-    vlans: "26"
+    vlans: "25"
     memory: "{{ tor_memory }}"
   ARISTA10T2:
     num: 19
     filename: 02-ARISTA10T2.xml
     serial_port: 5025
-    vlans: "10"
+    vlans: "9"
     memory: "{{ spine_memory }}"
   ARISTA11T0:
     num: 20
     filename: 02-ARISTA11T0.xml
     serial_port: 5010
-    vlans: "27"
+    vlans: "26"
     memory: "{{ tor_memory }}"
   ARISTA11T2:
     num: 21
     filename: 02-ARISTA11T2.xml
     serial_port: 5026
-    vlans: "11"
+    vlans: "10"
     memory: "{{ spine_memory }}"
   ARISTA12T0:
     num: 22
     filename: 02-ARISTA12T0.xml
     serial_port: 5011
-    vlans: "28"
+    vlans: "27"
     memory: "{{ tor_memory }}"
   ARISTA12T2:
     num: 23
     filename: 02-ARISTA12T2.xml
     serial_port: 5027
-    vlans: "12"
+    vlans: "11"
     memory: "{{ spine_memory }}"
   ARISTA13T0:
     num: 24
     filename: 02-ARISTA13T0.xml
     serial_port: 5012
-    vlans: "29"
+    vlans: "28"
     memory: "{{ tor_memory }}"
   ARISTA13T2:
     num: 25
     filename: 02-ARISTA13T2.xml
     serial_port: 5028
-    vlans: "13"
+    vlans: "12"
     memory: "{{ spine_memory }}"
   ARISTA14T0:
     num: 26
     filename: 02-ARISTA14T0.xml
     serial_port: 5013
-    vlans: "30"
+    vlans: "29"
     memory: "{{ tor_memory }}"
   ARISTA14T2:
     num: 27
     filename: 02-ARISTA14T2.xml
     serial_port: 5029
-    vlans: "14"
+    vlans: "13"
     memory: "{{ spine_memory }}"
   ARISTA15T0:
     num: 28
     filename: 02-ARISTA15T0.xml
     serial_port: 5014
-    vlans: "31"
+    vlans: "30"
     memory: "{{ tor_memory }}"
   ARISTA15T2:
     num: 29
     filename: 02-ARISTA15T2.xml
     serial_port: 5030
-    vlans: "15"
+    vlans: "14"
     memory: "{{ spine_memory }}"
   ARISTA16T0:
     num: 30
     filename: 02-ARISTA16T0.xml
     serial_port: 5015
-    vlans: "32"
+    vlans: "31"
     memory: "{{ tor_memory }}"
   ARISTA16T2:
     num: 31
     filename: 02-ARISTA16T2.xml
     serial_port: 5031
-    vlans: "16"
+    vlans: "15"
     memory: "{{ spine_memory }}"
 
 
 vm_2_enabled: true
 vm_2_vlan_base: 777
-vm_2_injected_ptf: true
 vm_2_injected_ip: 10.255.0.181/24
 VMs_2:
   ARISTA01T0:
     num: 0
     filename: 04-ARISTA01T0.xml
     serial_port: 5032
-    vlans: "17"
+    vlans: "16"
     memory: "{{ tor_memory }}"
   ARISTA01T2:
     num: 1
     filename: 04-ARISTA01T2.xml
     serial_port: 5048
-    vlans: "1"
+    vlans: "0"
     memory: "{{ spine_memory }}"
   ARISTA02T0:
     num: 2
     filename: 04-ARISTA02T0.xml
     serial_port: 5033
-    vlans: "18"
+    vlans: "17"
     memory: "{{ tor_memory }}"
   ARISTA02T2:
     num: 3
     filename: 04-ARISTA02T2.xml
     serial_port: 5049
-    vlans: "2"
+    vlans: "1"
     memory: "{{ spine_memory }}"
   ARISTA03T0:
     num: 4
     filename: 04-ARISTA03T0.xml
     serial_port: 5034
-    vlans: "19"
+    vlans: "18"
     memory: "{{ tor_memory }}"
   ARISTA03T2:
     num: 5
     filename: 04-ARISTA03T2.xml
     serial_port: 5050
-    vlans: "3"
+    vlans: "2"
     memory: "{{ spine_memory }}"
   ARISTA04T0:
     num: 6
     filename: 04-ARISTA04T0.xml
     serial_port: 5035
-    vlans: "20"
+    vlans: "19"
     memory: "{{ tor_memory }}"
   ARISTA04T2:
     num: 7
     filename: 04-ARISTA04T2.xml
     serial_port: 5051
-    vlans: "4"
+    vlans: "3"
     memory: "{{ spine_memory }}"
   ARISTA05T0:
     num: 8
     filename: 04-ARISTA05T0.xml
     serial_port: 5036
-    vlans: "21"
+    vlans: "20"
     memory: "{{ tor_memory }}"
   ARISTA05T2:
     num: 9
     filename: 04-ARISTA05T2.xml
     serial_port: 5052
-    vlans: "5"
+    vlans: "4"
     memory: "{{ spine_memory }}"
   ARISTA06T0:
     num: 10
     filename: 04-ARISTA06T0.xml
     serial_port: 5037
-    vlans: "22"
+    vlans: "21"
     memory: "{{ tor_memory }}"
   ARISTA06T2:
     num: 11
     filename: 04-ARISTA06T2.xml
     serial_port: 5053
-    vlans: "6"
+    vlans: "5"
     memory: "{{ spine_memory }}"
   ARISTA07T0:
     num: 12
     filename: 04-ARISTA07T0.xml
     serial_port: 5038
-    vlans: "23"
+    vlans: "22"
     memory: "{{ tor_memory }}"
   ARISTA07T2:
     num: 13
     filename: 04-ARISTA07T2.xml
     serial_port: 5054
-    vlans: "7"
+    vlans: "6"
     memory: "{{ spine_memory }}"
   ARISTA08T0:
     num: 14
     filename: 04-ARISTA08T0.xml
     serial_port: 5039
-    vlans: "24"
+    vlans: "23"
     memory: "{{ tor_memory }}"
   ARISTA08T2:
     num: 15
     filename: 04-ARISTA08T2.xml
     serial_port: 5055
-    vlans: "8"
+    vlans: "7"
     memory: "{{ spine_memory }}"
   ARISTA09T0:
     num: 16
     filename: 04-ARISTA09T0.xml
     serial_port: 5040
-    vlans: "25"
+    vlans: "24"
     memory: "{{ tor_memory }}"
   ARISTA09T2:
     num: 17
     filename: 04-ARISTA09T2.xml
     serial_port: 5056
-    vlans: "9"
+    vlans: "8"
     memory: "{{ spine_memory }}"
   ARISTA10T0:
     num: 18
     filename: 04-ARISTA10T0.xml
     serial_port: 5041
-    vlans: "26"
+    vlans: "25"
     memory: "{{ tor_memory }}"
   ARISTA10T2:
     num: 19
     filename: 04-ARISTA10T2.xml
     serial_port: 5057
-    vlans: "10"
+    vlans: "9"
     memory: "{{ spine_memory }}"
   ARISTA11T0:
     num: 20
     filename: 04-ARISTA11T0.xml
     serial_port: 5042
-    vlans: "27"
+    vlans: "26"
     memory: "{{ tor_memory }}"
   ARISTA11T2:
     num: 21
     filename: 04-ARISTA11T2.xml
     serial_port: 5058
-    vlans: "11"
+    vlans: "10"
     memory: "{{ spine_memory }}"
   ARISTA12T0:
     num: 22
     filename: 04-ARISTA12T0.xml
     serial_port: 5043
-    vlans: "28"
+    vlans: "27"
     memory: "{{ tor_memory }}"
   ARISTA12T2:
     num: 23
     filename: 04-ARISTA12T2.xml
     serial_port: 5059
-    vlans: "12"
+    vlans: "11"
     memory: "{{ spine_memory }}"
   ARISTA13T0:
     num: 24
     filename: 04-ARISTA13T0.xml
     serial_port: 5044
-    vlans: "29"
+    vlans: "28"
     memory: "{{ tor_memory }}"
   ARISTA13T2:
     num: 25
     filename: 04-ARISTA13T2.xml
     serial_port: 5060
-    vlans: "13"
+    vlans: "12"
     memory: "{{ spine_memory }}"
   ARISTA14T0:
     num: 26
     filename: 04-ARISTA14T0.xml
     serial_port: 5045
-    vlans: "30"
+    vlans: "29"
     memory: "{{ tor_memory }}"
   ARISTA14T2:
     num: 27
     filename: 04-ARISTA14T2.xml
     serial_port: 5061
-    vlans: "14"
+    vlans: "13"
     memory: "{{ spine_memory }}"
   ARISTA15T0:
     num: 28
     filename: 04-ARISTA15T0.xml
     serial_port: 5046
-    vlans: "31"
+    vlans: "30"
     memory: "{{ tor_memory }}"
   ARISTA15T2:
     num: 29
     filename: 04-ARISTA15T2.xml
     serial_port: 5062
-    vlans: "15"
+    vlans: "14"
     memory: "{{ spine_memory }}"
   ARISTA16T0:
     num: 30
     filename: 04-ARISTA16T0.xml
     serial_port: 5047
-    vlans: "32"
+    vlans: "31"
     memory: "{{ tor_memory }}"
   ARISTA16T2:
     num: 31
     filename: 04-ARISTA16T2.xml
     serial_port: 5063
-    vlans: "16"
+    vlans: "15"
     memory: "{{ spine_memory }}"
 
