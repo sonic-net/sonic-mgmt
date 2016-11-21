@@ -14,6 +14,6 @@
     - vars/azure_storage.yml
   pre_tasks:
   roles:
-    - { role: vm_set, action: 'renumber', id: 1, VMs: "{{ VMs_1 }}", vlan_base: "{{ vm_1_vlan_base }}", vm_injected_ptf: "{{ vm_1_injected_ptf }}", when: vm_set_1 and vm_1_enabled }
-    - { role: vm_set, action: 'renumber', id: 2, VMs: "{{ VMs_2 }}", vlan_base: "{{ vm_2_vlan_base }}", vm_injected_ptf: "{{ vm_2_injected_ptf }}", when: vm_set_2 and vm_2_enabled }
+    - { role: vm_set, action: 'renumber', id: 1, VMs: "{{ VMs_1 }}", vlan_base: "{{ vm_1_vlan_base }}", when: vm_set_1 and vm_1_enabled }
+    - { role: vm_set, action: 'renumber', id: 2, VMs: "{{ VMs_2 }}", vlan_base: "{{ vm_2_vlan_base }}", when: vm_set_2 and vm_2_enabled }
 

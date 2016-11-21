@@ -136,8 +136,8 @@ class VMNetwork(object):
                 raise Exception("Wrong vlans parameter: %s" % vlans_str)
 
         for vlan in vlans:
-            if int(vlan) > 32:  # FIXME: -1
-                raise Exception("Vlan offset %s supposed to be not more then 32: %s" % (vlan, vlans_str))
+            if int(vlan) > 31:
+                raise Exception("Vlan offset %s supposed to be not more then 31: %s" % (vlan, vlans_str))
 
         return
 
@@ -148,9 +148,9 @@ class VMNetwork(object):
             vlans = [int(vlan) for vlan in vlans_str.split(',')]
             self.check_vlans(vlans_str, vlans)
             for vlan_num, vlan in enumerate(vlans):
-               vlan_id = self.vlan_base + vlan - 1 # FIXME: finally change the VMs in host vars with right offsets
+               vlan_id = self.vlan_base + vlan
                vlan_iface = "%s.%d" % (self.ext_iface, vlan_id)
-               injected_iface = INJECTED_INTERFACES_TEMPLATE % (self.vm_set_id, (vlan - 1)) # FIXME: this -1 thing
+               injected_iface = INJECTED_INTERFACES_TEMPLATE % (self.vm_set_id, vlan)
                port0_bridge = OVS_BRIDGE_TEMPLATE % (self.vm_set_id, int(vm_num), vlan_num)
                self.create_phys_vlan(vlan_iface, vlan_id)
                self.bind_phys_vlan(port0_bridge, vlan_iface, injected_iface)
@@ -199,9 +199,9 @@ class VMNetwork(object):
             vlans = [int(vlan) for vlan in vlans_str.split(',')]
             self.check_vlans(vlans_str, vlans)
             for vlan_num, vlan in enumerate(vlans):
-               vlan_id = self.vlan_base + vlan - 1 # FIXME: finally change the VMs in host vars with right offsets
+               vlan_id = self.vlan_base + vlan
                vlan_iface = "%s.%d" % (self.ext_iface, vlan_id)
-               injected_iface = INJECTED_INTERFACES_TEMPLATE % (self.vm_set_id, (vlan - 1)) # FIXME: fix this -1 thing
+               injected_iface = INJECTED_INTERFACES_TEMPLATE % (self.vm_set_id, vlan)
                port0_bridge = OVS_BRIDGE_TEMPLATE % (self.vm_set_id, int(vm_num), vlan_num)
                self.unbind_phys_vlan(port0_bridge, vlan_iface)
                self.destroy_phys_vlan(vlan_iface)

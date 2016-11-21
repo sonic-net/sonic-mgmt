@@ -27,6 +27,6 @@
         vm_set_2: true
       when: not (vm_set_1 or vm_set_2)
   roles:
-  - { role: vm_set, action: 'stop', id: 1, VMs: "{{ VMs_1 }}", vlan_base: "{{ vm_1_vlan_base }}", vm_injected_ptf: "{{ vm_1_injected_ptf }}", when: vm_set_1 and vm_1_enabled }
-  - { role: vm_set, action: 'stop', id: 2, VMs: "{{ VMs_2 }}", vlan_base: "{{ vm_2_vlan_base }}", vm_injected_ptf: "{{ vm_2_injected_ptf }}", when: vm_set_2 and vm_2_enabled }
+  - { role: vm_set, action: 'stop', id: 1, VMs: "{{ VMs_1 }}", vlan_base: "{{ vm_1_vlan_base }}", when: vm_set_1 and vm_1_enabled }
+  - { role: vm_set, action: 'stop', id: 2, VMs: "{{ VMs_2 }}", vlan_base: "{{ vm_2_vlan_base }}", when: vm_set_2 and vm_2_enabled }
 

@@ -32,7 +32,6 @@
     net: none
     detach: True
     cap_add: NET_ADMIN
-  when: vm_injected_ptf
 
 - name: Create injected network for the docker container. vm set {{ id }}
   ptf_network_inj:
@@ -43,7 +42,6 @@
     mgmt_ip_addr: "{{ vm_injected_ip }}"
     mgmt_ip_gw: "{{ mgmt_gw }}"
     mgmt_bridge: "{{ mgmt_bridge }}"
-  when: vm_injected_ptf
 
 - name: Create VM set network. vm set {{ id }}
   vm_network:
