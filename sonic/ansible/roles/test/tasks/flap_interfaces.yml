@@ -1,0 +1,27 @@
+- fail: msg="Please set ptf_host variable"
+  when: ptf_host is not defined
+
+- name: Copy tests to PTF server
+  copy: src=roles/test/files/saitests dest=/root
+  delegate_to: "{{ ptf_host }}"
+
+- name: Copy portmap
+  copy: src={{ ptf_portmap }} dest=/root
+  delegate_to: "{{ ptf_host }}"
+
+- set_fact:
+    test_name: Flap test - BGPTest
+    test_path: flap_tests.BGPTest
+    test_params: ""
+
+- set_fact:
+    minigraph_neighbors: "{{ minigraph_underlay_neighbors }}"
+    minigraph_devices: "{{ minigraph_underlay_devices }}"
+  when: minigraph_underlay_neighbors is defined
+
+- set_fact:
+    spine_interfaces: "['Ethernet1', 'Ethernet2', 'Ethernet3', 'Ethernet4', 'Ethernet5', 'Ethernet6', 'Ethernet7', 'Ethernet8', 'Ethernet9', 'Ethernet10', 'Ethernet11', 'Ethernet12', 'Ethernet13', 'Ethernet14', 'Ethernet15', 'Ethernet16']"
+
+- include: flap_interface_ptf.yml
+  with_items: minigraph_neighbors.keys()
+  when: "'{{minigraph_neighbors[item][\"port\"]}}' in {{spine_interfaces}}"
