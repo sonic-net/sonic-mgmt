@@ -9,7 +9,9 @@ username admin privilege 15 role network-admin secret 0 123456
 clock timezone UTC
 !
 lldp run
+lldp management-address Management1
 !
+snmp-server community {{ snmp_rocommunity }} ro
 !
 ip routing
 ipv6 unicast-routing

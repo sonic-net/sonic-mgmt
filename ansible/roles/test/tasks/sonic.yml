@@ -14,22 +14,14 @@
   include: snmp.yml
   tags: snmp
 
-### when calling this QoS test, please add command line of which PTF docker image host to test against
-### -e "ptf_host=10.0.0.200"
-- fail: msg="Please set ptf_host variable"
-  when: ptf_host is not defined
-  tags: qos
+- name: Test SNMP CPU
+  include: snmp/cpu.yml
+  tags: snmp_cpu
 
-- name: Test QOS
-  include: qos.yml
-  when: host_saithrift is not defined
-  tags: qos
-
-- name: Test QoS using SAI
-  include: qos_sai.yml
-  when: host_saithrift is defined
-  tags: qos
-
+- name: Test SNMP Interfaces
+  include: snmp/interfaces.yml
+  tags: snmp_interfaces
+  
 ### when callng BGP flaps test, please add command line of which VMs host to test against
 ### -e "vmhost_num='01'"
 - fail: msg="Please set vmhost_num variable"
@@ -43,14 +35,6 @@
 - name: Test Syslog Basic
   include: syslog.yml
   tags: syslog
-
-- name: Test SNMP CPU
-  include: snmp/cpu.yml
-  tags: snmp_cpu
-
-- name: Test SNMP Interfaces
-  include: snmp/interfaces.yml
-  tags: snmp_interfaces
 
 - name: Test Interface Flap from Neighbor
   include: interface_up_down.yml
@@ -66,9 +50,4 @@
   include: arpall.yml
   tags: arp
 
-### When calling this basic_route, Chip is setup with proper parameters and
-### SAI API used by syncd daemon are called. This test is mainly for validation purpose used by external vendors.
-- name: Test basic_router
-  include: basic_router.yml
-  tags: basic_router
 

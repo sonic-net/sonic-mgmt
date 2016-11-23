@@ -7,4 +7,4 @@
 # Actions for lldp_neighbors
 - include: lldp_neighbor.yml
   when: scope == 'lldp_neighbors'
-
+  tags: lldp
