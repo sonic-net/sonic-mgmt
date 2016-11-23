@@ -260,22 +260,23 @@ sent to the vlan interface. It allows us to inject packets from the PTF host to 
 ### Deploy testbed with one VM set
 1. clone sonic-mgmt repo to local directory
 2. Edit 'ansible/veos' file. Put ip address of your server after 'ansible_host='
-3. Edit 'ansible/group_vars/vm_host'. Put your credentials to reach the server
-4. Check, that you can reach the server by running command 'ansible -i veos -m ping vm_host_1' from ansible directory. The output should contain 'pong'
-5. Edit 'ansible/group_vars/vm_host/main.yml'. 
+3. Edit 'ansible/group_vars/eos/eos.yml' file. Put your internal snmp community string after 'snmp_rocommunity:'.
+4. Edit 'ansible/group_vars/vm_host'. Put your credentials to reach the server
+5. Check, that you can reach the server by running command 'ansible -i veos -m ping vm_host_1' from ansible directory. The output should contain 'pong'
+6. Edit 'ansible/group_vars/vm_host/main.yml'. 
    * 'root_path': path where VMs virtual disks resides
    * 'vm_images_url': URL where VM images could be downloaded
    * 'cd_image_filename': filename of cd image of veos
    * 'hdd_image_filename': filename of hdd image of veos
    * 'http_proxy': your http_proxy
    * 'http_proxy': your https_proxy
-6. Edit 'ansible/host_vars/STR-ACS-SERV-01.yml'. It contains settings for STR-ACS-SERV-01. STR-ACS-SERV-02 contains similar settings which are applied to STR-ACS-SERV-02
+7. Edit 'ansible/host_vars/STR-ACS-SERV-01.yml'. It contains settings for STR-ACS-SERV-01. STR-ACS-SERV-02 contains similar settings which are applied to STR-ACS-SERV-02
    * 'mgmt_gw': ip address of gateway for management interfaces of VM. See 3.2
    * 'vm_X_enabled': true, if you want to run X vm set
    * 'vm_X_vlan_base': vlan number which is used for connection to first port of DUT.
    * 'vlans': list of vlan offsets for the VM FP ports. For example: if vlans equal to "5,6" it means that the VM frontpanel port 0 will be connected to vlan {{ vm_X_vlan_base + 5 - 1 }} and VM frontpanel port 1 will be connected to vlan {{ vm_X_vlan_base + 6 - 1 }}
-7. Edit 'ansible/minigraph/*.xml' files. You need to adjust following xml nodes to settings of your network:
+8. Edit 'ansible/minigraph/*.xml' files. You need to adjust following xml nodes to settings of your network:
    * DeviceMiniGraph/DpgDec/DeviceDataPlaneInfo/ManagementIPInterfaces/ManagementIPInterface/Prefix/IPPrefix
    * DeviceMiniGraph/DpgDec/DeviceDataPlaneInfo/ManagementIPInterfaces/ManagementIPInterface/PrefixStr
-8. Start testbed with command 'ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos start_vm_sets.yml --limit server_1 -e vm_set_1=true'
-9. Stop testbed with command 'ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos stop_vm_sets.yml --limit server_1 -e vm_set_1=true'
+9. Start testbed with command 'ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos start_vm_sets.yml --limit server_1 -e vm_set_1=true'
+10. Stop testbed with command 'ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos stop_vm_sets.yml --limit server_1 -e vm_set_1=true'

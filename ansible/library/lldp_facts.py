@@ -94,6 +94,7 @@ class DefineOid(object):
 
         # From LLDP-MIB
         self.lldp_rem_port_id      = dp + "1.0.8802.1.1.2.1.4.1.1.7"
+        self.lldp_rem_port_desc    = dp + "1.0.8802.1.1.2.1.4.1.1.8"
         self.lldp_rem_sys_desc     = dp + "1.0.8802.1.1.2.1.4.1.1.10"
         self.lldp_rem_sys_name     = dp + "1.0.8802.1.1.2.1.4.1.1.9"
         self.lldp_rem_chassis_id   = dp + "1.0.8802.1.1.2.1.4.1.1.5"
@@ -207,6 +208,7 @@ def main():
         snmp_auth,
         cmdgen.UdpTransportTarget((host, 161)),
         cmdgen.MibVariable(p.lldp_rem_port_id,),
+        cmdgen.MibVariable(p.lldp_rem_port_desc,),
         cmdgen.MibVariable(p.lldp_rem_sys_desc,),
         cmdgen.MibVariable(p.lldp_rem_sys_name,),
         cmdgen.MibVariable(p.lldp_rem_chassis_id,),
@@ -217,6 +219,7 @@ def main():
 
     lldp_rem_sys = dict()
     lldp_rem_port_id = dict()
+    lldp_rem_port_desc = dict()
     lldp_rem_chassis_id = dict()
     lldp_rem_sys_desc = dict()
     
@@ -243,6 +246,9 @@ def main():
             if v.lldp_rem_port_id in current_oid:
                 lldp_rem_port_id[if_name] = current_val
                 continue
+            if v.lldp_rem_port_desc in current_oid:
+                lldp_rem_port_desc[if_name] = current_val
+                continue
             if v.lldp_rem_chassis_id in current_oid:
                 lldp_rem_chassis_id[if_name] = current_val
                 continue
@@ -254,6 +260,7 @@ def main():
 
     for intf in lldp_rem_sys.viewkeys():
         lldp_data[intf] = {'neighbor_sys_name': lldp_rem_sys[intf], 
+                                'neighbor_port_desc': lldp_rem_port_desc[intf], 
                                 'neighbor_port_id': lldp_rem_port_id[intf], 
                                 'neighbor_sys_desc': lldp_rem_sys_desc[intf], 
                                 'neighbor_chassis_id': lldp_rem_chassis_id[intf]}
