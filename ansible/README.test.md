@@ -1,7 +1,7 @@
 # ansible playbooks for SONiC testing
 
 ## Requirements
-- A testbed needed to be set up before hand. See [Testbed Readme](README_testbed.md) for more information.
+- A testbed needed to be set up before hand. See [Testbed](README.testbed.md) for more information.
  -- Depending on the test, either a PTF testbed or a VM set testbed might be required. 
 
 ## Run Tests
