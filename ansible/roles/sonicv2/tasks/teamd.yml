@@ -1,0 +1,10 @@
+- name: Start the teamd docker container
+  include: sonicdocker.yml
+  vars:
+    docker_container: teamd
+    docker_image: "{{ image_id_teamd }}"
+    docker_privileged: yes
+    docker_state: reloaded
+
+- include: teamd_interface.yml
+  with_items: "{{ minigraph_portchannel_interfaces }}"
