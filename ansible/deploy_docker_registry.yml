@@ -1,9 +1,0 @@
----
-# This Playbook would deploy to all docker registry servers.
-
-- hosts: docker_registry
-  gather_facts: no
-  vars_files:
-    - vars/docker_registry.yml
-  roles:
-    - role: docker_registry
