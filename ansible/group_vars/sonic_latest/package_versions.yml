@@ -1,7 +1,6 @@
-linux_image: { name: linux-image-3.16.0-4-amd64 , version: 3.16.7-ckt11-2+acs8u2 }
 platform_modules_s6000: { name: platform-modules-s6000 , version: "*" }
 opennsl: { name: opennsl-modules-3.16.0-4-amd64 , version: "6.4.5.B*" }
-opennslv2: { name: opennsl-modules-3.16.0-4-amd64 , version: "6.4.10*" }
+opennslv2: { name: opennsl-modules-3.16.0-4-amd64 , version: "6.5.5*" }
 version_sx_kernel: "*"
 version_mlnxsdk: "*"
 version_iproute2_mlnx: "1.mlnx*"
@@ -10,7 +9,7 @@ version_sonic_cli: "*"
 
 image_id_database: docker-database:latest
 image_id_snmp: docker-snmp:latest
-image_id_lldp: docker-lldp-sv2:latest
+image_id_lldp: docker-lldp:latest
 image_id_platform_monitor: docker-platform-monitor:latest
 
 image_id_syncd: docker-syncd:latest
@@ -21,3 +20,5 @@ image_id_orchagent: docker-orchagent:latest
 image_id_orchagent_mlnx: docker-orchagent-mlnx:latest
 image_id_orchagent_cavm: docker-orchagent-cavm:latest
 image_id_fpm: docker-fpm:latest
+image_id_snmp_sv2: docker-snmp-sv2:latest
+image_id_lldp_sv2: docker-lldp-sv2:latest

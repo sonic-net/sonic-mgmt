@@ -1,2 +1,1 @@
-#!/bin/bash
-docker exec -i bgp vtysh "$@"
+../../../sonic-common/files/bin/vtysh

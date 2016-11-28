@@ -2,6 +2,16 @@
     - fail: msg="Please set ptf_host variable"
       when: ptf_host is not defined
 
+    - name: Ensure LLDP Daemon stopped
+      become: yes
+      supervisorctl: state=stopped name={{ item }}
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i lldp python
+      with_items:
+        - lldp-syncd
+        - lldpd
+
     - name: Disable Mellanox copp rate limiting
       script: roles/test/files/mlnx/disable_copp_rate_limiting.sh
       when: minigraph_hwsku is defined and minigraph_hwsku == 'ACS-MSN2700'
@@ -37,3 +47,13 @@
     - name: Remove existing ip from ptf host
       script: roles/test/files/helpers/remove_ip.sh
       delegate_to: "{{ ptf_host }}"
+
+    - name: Restore LLDP Daemon
+      become: yes
+      supervisorctl: state=started name={{ item }}
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i lldp python
+      with_items:
+        - lldpd
+        - lldp-syncd

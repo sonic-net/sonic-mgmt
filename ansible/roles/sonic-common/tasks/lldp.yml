@@ -1,3 +1,16 @@
+- name: Clean up old container
+  include: sonicdocker.yml
+  vars:
+    docker_container: docker-lldp
+    docker_image: "{{ image_id_lldp }}"
+    docker_privileged: yes
+    docker_state: absent
+
+- name: switch LLDP image based on SONiC version
+  set_fact:
+    image_id_lldp: "{{ image_id_lldp_sv2 }}"
+  when: sonic_version == "v2"
+
 - name: Ensure LLDP container started
   include: sonicdocker.yml
   vars:
@@ -13,6 +26,20 @@
               dest=/etc/default/lldpd
     notify:
       - Restart LLDP Daemon
+      - Restart SNMP Daemon
+
+  - name: Setup LLDPD Daemon Config File
+    become: true
+    copy: src="ssw/{{sonic_hwsku}}/etc/lldpd.conf"
+          dest=/etc/lldpd.conf
+    notify:
+      - Restart LLDP Daemon
+      - Restart SNMP Daemon
+    # for production hwsku, we need to add lldpd.conf to generate ngs 
+    # interface name in the lldp message we sent
+    when: sonic_hwsku != 'ACS-S6000' and sonic_hwsku != 'ACS-MSN2700'
+  # Force handler flush to trigger daemon restarts
+  - meta: flush_handlers
 
   vars:
     ansible_shell_type: docker

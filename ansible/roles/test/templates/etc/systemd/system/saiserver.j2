@@ -1,0 +1,17 @@
+[Unit]
+Description=saiserver container
+Conflicts=sswsyncd.service syncd.service
+
+[Service]
+User=root
+{% if sonic_hwsku == 'ACS-MSN2700' %}
+ExecStartPre=/etc/init.d/sxdkernel start
+{% endif %}
+ExecStart=/usr/bin/docker start -a saiserver
+ExecStop=/usr/bin/docker stop saiserver
+{% if sonic_hwsku == 'ACS-MSN2700' %}
+ExecStopPost=/etc/init.d/sxdkernel stop
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target
