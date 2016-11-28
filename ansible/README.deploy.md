@@ -12,9 +12,6 @@ Packages and docker images must be uploaded to the repositories before running f
 
 ### Setup docker registry
 
-- Prepare docker registry (HOWTO)
-  * TBD
-
 - Update vars/docker_registry.yml:
   * docker_registry_host = FQDN:port of your docker registry
   * docker_registry_username = username of your docker registry
