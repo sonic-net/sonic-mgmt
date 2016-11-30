@@ -35,7 +35,8 @@ orchagent_docker_volumes_dict:
 
 orchagent_docker_volumes: "{{ orchagent_docker_volumes_dict.keys() }}"
 
-apt_repo_ip: "10.0.0.5"
+sonic_apt_repo: "http://packages.microsoft.com/repos/sonic-dev/"
+apt_repo: "http://debian-archive.trafficmanager.net/debian/"
 apt_default_release: "*"
 
 # ntp variables
