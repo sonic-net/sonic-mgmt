@@ -7,23 +7,30 @@
 ## Run Tests
 - Replace {DUT_NAME} in each command line with the host name of switch under test.
 
-### NTP Test
+### NTP test
 ```
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags ntp
 ```
 
-### Syslog Test
+### Syslog test
 ```
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags syslog
 ```
 
-### SNMP Tests
+### SNMP tests
 ```
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags snmp,snmp_cpu,snmp_interfaces
 ```
 
-### LLDP Test
+### LLDP test
 ```
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME},lldp_neighbors --become --tags lldp
 ```
 - Required switch connected to a VM set testbed.
+
+### BGP facts verification test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags bgp_fact
+```
+- Required switch connected to a VM set testbed.
+
