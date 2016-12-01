@@ -1,3 +1,8 @@
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  become: no
+  connection: local
+
 - name: Set sonic_asic_type fact
   set_fact:
     sonic_asic_type: broadcom
