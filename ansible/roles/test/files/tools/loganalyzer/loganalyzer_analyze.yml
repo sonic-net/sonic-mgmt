@@ -1,0 +1,16 @@
+#------------------------------------------------
+# Call loganalyzer with analyze phase
+#------------------------------------------------
+
+- debug: msg="starting loganalyzer analysis phase"
+
+- set_fact: cmd="python {{ run_dir }}/loganalyzer.py --action analyze --run_id {{ testname_unique }} --out_dir {{ test_out_dir }} -m {{match_file_list}} -i {{ ignore_file_list }} -v"
+
+- debug: msg={{cmd}}
+
+- name: Initialize loganalyzer
+  become: True
+  shell: "{{ cmd }}"
+  register: out
+- debug: var=out.stdout_lines
+- debug: msg="Finished calling loganalyzer analyze phase"
