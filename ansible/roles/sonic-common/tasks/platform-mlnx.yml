@@ -15,6 +15,7 @@
        default_release={{ apt_default_release }}
        force=yes
 
+# temp workaround: kernel-mft-dkms-module package does not refresh kernel modules in its postinst script
 - name: Refresh kernel modules
   become: true
   command: /sbin/depmod -a
