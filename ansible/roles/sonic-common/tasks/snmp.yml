@@ -1,0 +1,101 @@
+- name: Clean up old container
+  include: sonicdocker.yml
+  vars:
+    docker_container: docker-snmp
+    docker_image: "{{ image_id_snmp }}"
+    docker_privileged: yes
+    docker_state: absent
+    docker_volumes:
+      -  /etc/ssw/:/etc/ssw/:ro
+
+- name: switch SNMP image based on SONiC version
+  set_fact:
+    image_id_snmp: "{{ image_id_snmp_sv2 }}"
+  when: sonic_version == "v2"
+
+- name: Ensure SNMP container started
+  include: sonicdocker.yml
+  vars:
+    docker_container: snmp
+    docker_image: "{{ image_id_snmp }}"
+    docker_privileged: yes
+    docker_state: reloaded
+    docker_volumes:
+      -  /etc/ssw/:/etc/ssw/:ro
+
+- name: Gather setup facts about system
+  setup:
+
+- name: Gather SONiC base image version
+  shell: grep -E "menuentry ['](ACS)|(SONiC)-OS" /host/grub/grub.cfg | awk '{print $2}' | sed 's/'\''//g'
+  become: true
+  register: result
+  changed_when: false
+
+- name: Set base image verison variable
+  set_fact:
+    sonic_baseimage_version: "{{ result.stdout }}"
+
+- name: Setup sysDescription file
+  become: true
+  template: src=sysDescription.j2
+            dest=/etc/ssw/sysDescription
+            owner=root
+            group=root
+            mode=0644
+
+- name: Determine if alias mappings are required
+  stat: path="roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_map.json"
+  become: false
+  connection: local
+  register: snmp_remap
+
+
+- block:
+  - name: Check version of snmpd
+    shell: dpkg-query -W --showformat='${Version}' snmpd
+    register: snmp_version
+    changed_when: false
+
+  - name: Set a fact for snmp user
+    set_fact:
+      snmp_user: Debian-snmp
+
+    # Override snmp user for older SNMPD version
+  - name: Set a fact for snmp user (Old version override)
+    set_fact:
+      snmp_user: snmp
+    when: snmp_version.stdout.find('5.7.2') != -1
+
+  - name: Setup SNMP Daemon start config file
+    become: true
+    template: src=default/snmpd.j2
+          dest=/etc/default/snmpd
+          owner=root
+          group=root
+          mode=0644
+    notify:
+      - Restart SNMP Daemon
+
+  - name: Setup SNMP Daemon Config File
+    become: true
+    template: src=snmpd.conf.j2
+              dest=/etc/snmp/snmpd.conf
+    notify:
+      - Restart SNMP Daemon
+
+  - name: Setup SNMP interface rename
+    become: true
+    template: src="roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_map.json"
+              dest=/etc/snmp/alias_map.json
+    notify:
+      - Restart SNMP Daemon
+    when: snmp_remap.stat.exists and sonic_version == "v2"
+
+
+  # Force handler flush to trigger daemon restarts
+  - meta: flush_handlers
+
+  vars:
+    ansible_shell_type: docker
+    ansible_python_interpreter: docker exec -i snmp python
