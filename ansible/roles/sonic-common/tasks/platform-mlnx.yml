@@ -10,10 +10,15 @@
        force=yes
 
 - name: Ensure MLNX Firmware kernel modules are installed
-  apt: pkg=kernel-mft-modules
+  apt: pkg=kernel-mft-dkms-modules-3.16.0-4-amd64
        state=present
        default_release={{ apt_default_release }}
        force=yes
+
+# temp workaround: kernel-mft-dkms-module package does not refresh kernel modules in its postinst script
+- name: Refresh kernel modules
+  become: true
+  command: /sbin/depmod -a
 
 - name: Ensure Firmware service started and Enabled
   become: true
