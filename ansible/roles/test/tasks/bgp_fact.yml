@@ -10,7 +10,7 @@
 - name: Print AS numbers in minigraph
   debug: msg="{{ minigraph_bgp_asn }}"
 
-- name: Gather information from lldp
+- name: Gather facts from bgp container
   bgp_facts:
 
 - name: Print bgp facts
@@ -18,6 +18,9 @@
 
 - name: Verify bgp sessions are established
   assert: { that: "'{{ bgp_neighbors[item]['state'] }}' == 'established'" }
+  with_items: bgp_neighbors.keys()
+  
+- name: Verify locat ASNs in bgp sessions
   assert: { that: "'{{ bgp_neighbors[item]['local AS'] }}' == '{{ minigraph_bgp_asn }}'" }
   with_items: bgp_neighbors.keys()
 
