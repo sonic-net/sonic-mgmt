@@ -153,19 +153,10 @@
   changed_when: False
   tags: network,unsafe
 
-- name: Check docker base verison is correct
-  become: true
-  apt: pkg=docker-engine={{ version_docker_engine }}
-       state=present
-
-# Ensure docker service started and enabled
-# Note: keep it before all dockers
-- name: Ensure docker service started and enabled
-  become: true
-  service: name=docker
-           state=started
-           enabled=yes
-
+# Docker engine
+- include: docker.yml
+  tags: docker
+ 
 ## Redis database
 - include: database.yml
   tags: 
