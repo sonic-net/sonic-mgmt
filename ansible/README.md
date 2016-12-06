@@ -7,6 +7,8 @@ This ansible playbook consists following functionalities:
 
 # Installing Ansible
 ```
+apt-get install git gcc make python python-dev python-pip python-cffi libffi-dev libssl-dev sshpass
+pip install setuptools # version from the distribution is too old
 git clone https://github.com/ansible/ansible
 cd ansible
 git checkout v2.0.0.2-1 -b v2.0.0.2-1
