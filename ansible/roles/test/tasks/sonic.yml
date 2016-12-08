@@ -54,4 +54,6 @@
   include: arpall.yml
   tags: arp
 
-
+- name: Fib test
+  include: fib.yml
+  tags: fib
