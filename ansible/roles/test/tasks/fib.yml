@@ -1,0 +1,17 @@
+# Gather minigraph facts
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  become: no
+  connection: local
+
+- name: Print neighbors in minigraph
+  debug: msg="{{ minigraph_neighbors }}"
+
+- name: Read port reverse alias mapping
+  set_fact:
+    alias_reverse_map: "{{ lookup('file', 'roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_reverse_map.json') | from_json }}"
+
+- debug: msg="{{ alias_reverse_map }}"
+
+- template: src=fib.j2 dest=/tmp/fib.txt
+  connection: local

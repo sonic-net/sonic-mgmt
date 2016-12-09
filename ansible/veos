@@ -88,12 +88,6 @@ spine_4
 
 [spine:vars]
 swrole=spine
-podset_number=200
-tor_number=16
-tor_subnet_number=2
-leaf_asn_start=62001
-tor_asn_start=65501
-failure_rate=0
 
 [tor_1]
 10.255.0.222 hostname=ARISTA01T0 filename=01-ARISTA01T0.xml tornum=1
@@ -175,11 +169,13 @@ tor_4
 
 [tor:vars]
 swrole=tor
-tor_subnet_number=5
 
 [eos:children]
 spine
 tor
+
+[leaf_topo_1:children]
+eos
 
 [eos:vars]
 nhipv4=10.10.246.100
