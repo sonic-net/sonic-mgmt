@@ -168,7 +168,7 @@ class LogAnalyzer:
         '''
         messages_regex = []
 
-        if file_lsit is None or len(file_lsit):
+        if file_lsit is None or (0 == len(file_lsit)):
             return None
         
         for filename in file_lsit:
@@ -306,7 +306,8 @@ class LogAnalyzer:
                 break
             
             if in_analysis_range :
-                if self.line_matches(rev_line, match_messages_regex, ignore_messages_regex):                    
+                if self.line_matches(rev_line, match_messages_regex, ignore_messages_regex):
+                    self.print_diagnostic_message('matching string: %s' % rev_line)
                     matching_lines.append(rev_line)
         
         if (not found_start_marker):
@@ -532,7 +533,10 @@ def main(argv):
         return 0
     elif (action == "analyze"):
         match_file_list = match_files_in.split(tokenizer);
-        ignore_file_list = ignore_files_in.split(tokenizer);
+        
+        ignore_file_list = []
+        if ignore_files_in :
+            ignore_file_list = ignore_files_in.split(tokenizer);
         
         analyzer.place_marker(log_file_list, analyzer.create_end_marker())
 
@@ -552,6 +556,3 @@ def main(argv):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-
-
-    
