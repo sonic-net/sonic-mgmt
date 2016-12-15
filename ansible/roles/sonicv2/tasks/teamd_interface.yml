@@ -1,0 +1,19 @@
+- block:
+  - name: Ensure /etc/teamd folder exists
+    become: true
+    file: path=/etc/teamd
+          state=directory
+
+  - debug: msg={{ item }}
+
+  - name: Copy teamd configuration file
+    become: true
+    template: src=teamd.j2
+              dest=/etc/teamd/{{ item['name'] }}.conf
+              owner=root
+              group=root
+              mode=644
+
+  vars:
+    ansible_shell_type: docker
+    ansible_python_interpreter: docker exec -i teamd python

@@ -179,7 +179,7 @@ def parse_dpg(dpg, hname):
             pcintfname = pcintf.find(str(QName(ns, "Name"))).text
             pcintfmbr = pcintf.find(str(QName(ns, "AttachTo"))).text
             mbr_list = pcintfmbr.split(';', 1)
-            pc_intfs.append({'name': pcintfname.lower(), 'members': mbr_list})
+            pc_intfs.append({'name': pcintfname, 'members': mbr_list})
 
         lointfs = child.find(str(QName(ns, "LoopbackIPInterfaces")))
         lo_intfs = []
@@ -369,6 +369,11 @@ def parse_xml(filename, hostname):
         elif child.tag == str(QName(ns, "UngDec")):
             (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
 
+    # Replace port with alias in port channel interfaces members
+    for pc in pc_intfs:
+        for i,member in enumerate(pc['members']):
+            pc['members'][i] = port_alias_map[member]
+
     Tree = lambda: defaultdict(Tree)
 
     results = Tree()
@@ -398,7 +403,6 @@ def parse_xml(filename, hostname):
 
 
 port_alias_map = {}
-
 
 def main():
     module = AnsibleModule(
@@ -441,13 +445,9 @@ def main():
 def print_parse_xml(hostname):
     filename = '../minigraph/' + hostname + '.xml'
     results = parse_xml(filename, hostname)
-    import json
     print(json.dumps(results, indent=3, cls=minigraph_encoder))
-
 
 from ansible.module_utils.basic import *
 
 if __name__ == "__main__":
     main()
-    #debug_main()
-

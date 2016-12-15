@@ -1,0 +1,19 @@
+{
+    "device": "{{item['name']}}",
+    "runner": {
+        "name": "lacp",
+        "active": true,
+        "min_ports": 2,
+        "tx_hash": ["eth", "ipv4", "ipv6"]
+    },
+    "link_watch": {
+        "name": "ethtool"
+    },
+    "ports": {
+        {% for member in item['members'] %}
+        "{{member}}": {}{% if not loop.last %},
+        {% endif %}
+        {% endfor %}
+    }
+}
+

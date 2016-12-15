@@ -22,3 +22,4 @@ image_id_orchagent_cavm: docker-orchagent-cavm:latest
 image_id_fpm: docker-fpm:latest
 image_id_snmp_sv2: docker-snmp-sv2:latest
 image_id_lldp_sv2: docker-lldp-sv2:latest
+image_id_teamd: docker-teamd:latest
