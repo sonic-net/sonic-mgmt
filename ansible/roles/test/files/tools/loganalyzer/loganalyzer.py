@@ -249,7 +249,19 @@ class LogAnalyzer:
         return ret_code
     #---------------------------------------------------------------------
 
-    def analyze_file(self, log_file_path, match_messages_regex, ignore_messages_regex):
+    def line_is_expected(self, str, expect_messages_regex):
+        '''
+        @summary: This method checks whether given string matches against the
+                  set of "expected" regular expressions.
+        '''
+
+        ret_code = False
+        if (expect_messages_regex is not None) and (expect_messages_regex.findall(str)):
+            ret_code = True
+
+        return ret_code
+
+    def analyze_file(self, log_file_path, match_messages_regex, ignore_messages_regex, expect_messages_regex):
         '''
         @summary: Analyze input file content for messages matching input regex
                   expressions. See line_matches() for details on matching criteria.
@@ -261,6 +273,9 @@ class LogAnalyzer:
 
         @param ignore_messages_regex:
             regex class instance containing messages to ignore match against.
+
+        @param expect_messages_regex:
+            regex class instance containing messages that are expected to appear in logfile.
 
         @param end_marker_regex - end marker
 
@@ -277,6 +292,10 @@ class LogAnalyzer:
         log_file = open(log_file_path, 'r')
         found_start_marker = False
         found_end_marker = False
+
+        #-- True if expected message is found
+        found_expected_message = False
+        expecting_lines = []
 
         start_marker = self.create_start_marker()
         end_marker = self.create_end_marker()
@@ -306,8 +325,11 @@ class LogAnalyzer:
                 break
 
             if in_analysis_range :
+                if self.line_is_expected(rev_line, expect_messages_regex):
+                    found_expected_message = True
+                    expecting_lines.append(rev_line)
+
                 if self.line_matches(rev_line, match_messages_regex, ignore_messages_regex):
-                    self.print_diagnostic_message('matching string: %s' % rev_line)
                     matching_lines.append(rev_line)
 
         if (not found_start_marker):
@@ -318,10 +340,13 @@ class LogAnalyzer:
             print 'ERROR: end marker was not found'
             sys.exit(err_no_end_marker)
 
-        return matching_lines
+        if (not found_expected_message) and (expect_messages_regex is not None):
+            print 'ERROR: expected error messages were not found in logfile'
+
+        return matching_lines,expecting_lines
     #---------------------------------------------------------------------
 
-    def analyze_file_list(self, log_file_list, match_messages_regex, ignore_messages_regex):
+    def analyze_file_list(self, log_file_list, match_messages_regex, ignore_messages_regex, expect_messages_regex):
         '''
         @summary: Analyze input files messages matching input regex expressions.
             See line_matches() for details on matching criteria.
@@ -334,6 +359,9 @@ class LogAnalyzer:
         @param ignore_messages_regex:
             regex class instance containing messages to ignore match against.
 
+        @param expect_messages_regex:
+            regex class instance containing messages that are expected to appear in logfile.
+
         @return: Returns map <file_name, list_of_matching_strings>
         '''
         res = {}
@@ -341,9 +369,11 @@ class LogAnalyzer:
         for log_file in log_file_list:
             if not len(log_file):
                 continue
-            msg_list = self.analyze_file(log_file, match_messages_regex, ignore_messages_regex)
-            msg_list.reverse()
-            res[log_file] = msg_list
+            match_strings, expect_strings = self.analyze_file(log_file, match_messages_regex, ignore_messages_regex, expect_messages_regex)
+
+            match_strings.reverse()
+            expect_strings.reverse()
+            res[log_file] = [ match_strings, expect_strings ]
 
         return res
     #---------------------------------------------------------------------
@@ -373,7 +403,7 @@ def usage():
 
 #---------------------------------------------------------------------
 
-def check_action(action, log_files_in, out_dir, match_files_in, ignore_files_in):
+def check_action(action, log_files_in, out_dir, match_files_in, ignore_files_in, expect_files_in):
     '''
     @summary: This function validates command line parameter 'action' and
         other related parameters.
@@ -435,15 +465,30 @@ def write_result_file(run_id, out_dir, analysis_result_per_file):
     '''
 
     match_cnt = 0
+    expect_cnt = 0
     with open(out_dir + "/result.loganalysis." + run_id + ".log", 'w') as out_file:
         for key, val in analysis_result_per_file.iteritems():
+            matching_lines, expecting_lines = val
+
             out_file.write("\n-----------Matches found in file:%s-----------\n" % key)
-            for s in val:
+            for s in matching_lines:
                 out_file.write(s)
                 out_file.flush()
-            out_file.write('\nMatches:%d\n' % len(val))
-            match_cnt += len(val)
-        out_file.write('\n\nTotal matches:%d\n' % match_cnt)
+            out_file.write('\nMatches:%d\n' % len(matching_lines))
+            match_cnt += len(matching_lines)
+
+            out_file.write("\n-------------------------------------------------\n\n")
+
+            for i in expecting_lines:
+                out_file.write(i)
+                out_file.flush()
+            out_file.write('\nExpecting matches:%d\n' % len(expecting_lines))
+            expect_cnt += len(expecting_lines)
+
+        out_file.write("\n-------------------------------------------------\n\n")
+        out_file.write('Total matches:%d\n' % match_cnt)
+        out_file.write('Total expected matches:%d\n' % expect_cnt)
+        out_file.write("\n-------------------------------------------------\n\n")
         out_file.flush()
 
 #---------------------------------------------------------------------
@@ -464,13 +509,22 @@ def write_summary_file(run_id, out_dir, analysis_result_per_file):
     out_file = open(out_dir + "/summary.loganalysis." + run_id + ".log", 'w')
     out_file.write("\nLOG ANALYSIS SUMMARY\n")
     total_match_cnt = 0
+    total_expect_cnt = 0
     for key, val in analysis_result_per_file.iteritems():
-        file_match_cnt = len(val)
+        matching_lines, expecting_lines = val
+
+        file_match_cnt = len(matching_lines)
+        file_expect_cnt = len(expecting_lines)
         out_file.write("FILE:    %s    MATCHES    %d\n" % (key, file_match_cnt))
+        out_file.write("FILE:    %s    EXPECTED MATCHES    %d\n" % (key, file_expect_cnt))
         out_file.flush()
         total_match_cnt += file_match_cnt
+        total_expect_cnt += file_expect_cnt
 
+    out_file.write("-----------------------------\n")
     out_file.write("TOTAL MATCHES:    %d\n" % total_match_cnt)
+    out_file.write("TOTAL EXPECTED MATCHES:    %d\n" % total_expect_cnt)
+    out_file.write("-----------------------------\n")
     out_file.flush()
     out_file.close()
 #---------------------------------------------------------------------
@@ -483,10 +537,11 @@ def main(argv):
     out_dir = None
     match_files_in = None
     ignore_files_in = None
+    expect_files_in = None
     verbose = False
 
     try:
-        opts, args = getopt.getopt(argv, "a:r:l:o:m:i:vh", ["action=", "run_id=", "logs=", "out_dir=", "match_files_in=", "ignore_files_in=", "verbose", "help"])
+        opts, args = getopt.getopt(argv, "a:r:l:o:m:i:e:vh", ["action=", "run_id=", "logs=", "out_dir=", "match_files_in=", "ignore_files_in=", "expect_files_in=", "verbose", "help"])
 
     except getopt.GetoptError:
         print "Invalid option specified"
@@ -516,10 +571,13 @@ def main(argv):
         elif (opt in ("-i", "--ignore_files_in")):
             ignore_files_in = arg
 
+        elif (opt in ("-e", "--expect_files_in")):
+            expect_files_in = arg
+
         elif (opt in ("-v", "--verbose")):
             verbose = True
 
-    if not (check_action(action, log_files_in, out_dir, match_files_in, ignore_files_in) and check_run_id(run_id)):
+    if not (check_action(action, log_files_in, out_dir, match_files_in, ignore_files_in, expect_files_in) and check_run_id(run_id)):
         usage()
         sys.exit(err_invalid_input)
 
@@ -533,19 +591,18 @@ def main(argv):
         return 0
     elif (action == "analyze"):
         match_file_list = match_files_in.split(tokenizer);
-
-        ignore_file_list = []
-        if ignore_files_in :
-            ignore_file_list = ignore_files_in.split(tokenizer);
+        ignore_file_list = ignore_files_in.split(tokenizer);
+        expect_file_list = expect_files_in.split(tokenizer);
 
         analyzer.place_marker(log_file_list, analyzer.create_end_marker())
 
         match_messages_regex = analyzer.create_msg_regex(match_file_list)
         ignore_messages_regex = analyzer.create_msg_regex(ignore_file_list)
+        expect_messages_regex = analyzer.create_msg_regex(expect_file_list)
 
         log_file_list.append(system_log_file)
         result = analyzer.analyze_file_list(log_file_list, match_messages_regex,
-                                            ignore_messages_regex)
+                                            ignore_messages_regex, expect_messages_regex)
         write_result_file(run_id, out_dir, result)
         write_summary_file(run_id, out_dir, result)
 
