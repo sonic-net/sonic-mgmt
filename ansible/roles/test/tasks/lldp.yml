@@ -17,7 +17,7 @@
   debug: msg="{{ lldp }}"
 
 - name: Verify LLDP information is available on most interfaces
-  assert: { that: "'{{ lldp|length }} > {{ minigraph_neighbors|length }} * 0.8'"}
+  assert: { that: "{{ lldp|length }} > {{ minigraph_neighbors|length * 0.8 }}"}
 
 - name: Read port alias mapping
   set_fact:
