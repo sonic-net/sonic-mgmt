@@ -8,7 +8,17 @@
             mode=0644
   register: if_copy
   tags: network,unsafe
-  when: sonic_version == "v2"
+
+# Setup LAG Interfaces
+- name: Copy LAG Interfaces File
+  become: true
+  template: src=lag_interfaces.j2
+            dest=/etc/network/interfaces.d/lag_interfaces
+            owner=root
+            group=root
+            mode=0644
+  register: if_copy
+  tags: network,unsafe
 
 # SSW
 - name: Copy SSW files.
@@ -21,7 +31,6 @@
         mode=0644
   tags: ssw
 
-
 # SONiC
 - include: sonic-brcm.yml
   when: sonic_asic_type == 'broadcom'
@@ -33,3 +42,6 @@
 
 - include: quagga.yml
   tags: quagga,unsafe
+
+- include: teamd.yml
+  tags: teamd,unsafe
