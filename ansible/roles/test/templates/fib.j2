@@ -1,0 +1,22 @@
+{# routes to spines #}
+{% for podset in range(0, podset_number) %}
+{% for tor in range(0, tor_number) %}
+{% for subnet in range(0, tor_subnet_number) %}
+192.168.{{ podset }}.{{ tor * 16 + subnet }}/32 {% for ifname, v in minigraph_neighbors.iteritems() %}{% if "T2" in v.name %}{{ '%d' % (alias_reverse_map[ifname]|replace("Ethernet","")|int / 4)}},{% endif %}{% endfor %}
+
+20C0:A8{{ '%02X' % podset }}:0:{{ '%02X' % (tor * 16 + subnet)}}::/64 {% for ifname, v in minigraph_neighbors.iteritems() %}{% if "T2" in v.name %}{{ '%d' % (alias_reverse_map[ifname]|replace("Ethernet","")|int / 4)}},{% endif %}{% endfor %}
+
+{% endfor %}
+{% endfor %}
+{% endfor %}
+
+
+{# routes to tor #}
+{% for ifname, v in minigraph_neighbors.iteritems() %}
+{% if "T0" in v.name %}
+{% for subnet in range(0, local_tor_subnet_number) %}
+172.16.{{ v.name|replace("ARISTA", "")|replace("T0", "")|int }}.{{ subnet }}/32 {{ '%d' % (alias_reverse_map[ifname]|replace("Ethernet","")|int / 4)}}
+20AC:10{{ '%02X' % v.name|replace("ARISTA", "")|replace("T0", "")|int }}:0:{{ '%02X' % subnet }}::/64 {{ '%d' % (alias_reverse_map[ifname]|replace("Ethernet","")|int / 4)}}
+{% endfor %}
+{% endif %}
+{% endfor %}

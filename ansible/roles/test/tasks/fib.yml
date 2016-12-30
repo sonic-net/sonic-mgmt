@@ -1,0 +1,83 @@
+#-----------------------------------------
+# Run FIB test and Perform log analysis.
+#-----------------------------------------
+
+# Gather minigraph facts
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  become: no
+  connection: local
+
+- name: Print neighbors in minigraph
+  debug: msg="{{ minigraph_neighbors }}"
+
+- name: Read port reverse alias mapping
+  set_fact:
+    alias_reverse_map: "{{ lookup('file', 'roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_reverse_map.json') | from_json }}"
+
+- name: Print alias reverse mapping
+  debug: msg="{{ alias_reverse_map }}"
+
+# Generate file with BGP routes information
+- template: src=fib.j2 dest=/tmp/fib.txt
+  connection: local
+
+- name: Copy route into file to the PTF host
+  copy: src="/tmp/fib.txt" dest="/tmp/route_info.txt"
+  delegate_to: "{{ ptf_host }}"
+
+- set_fact:
+    testname: fib
+    run_dir: /tmp
+    out_dir: /tmp/ansible-loganalyzer-results
+    test_match_file: fib_match_messages.txt
+    test_ignore_file: fib_ignore_messages.txt
+    match_file: loganalyzer_common_match.txt
+    ignore_file: loganalyzer_common_ignore.txt
+
+# Separate set_fact is required to be able to use 'testname' fact.
+- set_fact:
+    testname_unique: "{{ testname }}.{{ ansible_date_time.date}}.{{ ansible_date_time.hour}}-{{ ansible_date_time.minute}}-{{ ansible_date_time.second}}"
+
+# Separate set_fact is required to be able to use 'testname_unique' fact.
+- set_fact:
+    test_out_dir: "{{ out_dir }}/{{testname_unique}}"
+    match_file_list: "{{ run_dir }}/{{test_match_file}},{{ run_dir }}/{{match_file}}"
+    ignore_file_list: "{{ run_dir }}/{{test_ignore_file}},{{ run_dir }}/{{ignore_file}}"
+
+- debug: msg="output directory for current test run {{ test_out_dir }}"
+- debug: msg="generated run id:{{testname_unique}}"
+
+- include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+- debug : msg="INVOKE FIB TEST"
+
+- block:
+
+    - name: copy the test to ptf container
+      copy: src=roles/test/files/acstests dest=/root
+      delegate_to: "{{ ptf_host }}"
+      
+    - name: copy route_info.txt to ptf container
+      copy: src=roles/test/tasks/fib/route_info.txt dest=/root/acstests
+      delegate_to: "{{ ptf_host }}"
+
+    - name: "Running test {{ testname }}"
+      shell: ptf --test-dir acstests fib_test.FibTest  --platform remote -t "verbose=True;router_mac='{{ ansible_Ethernet0['macaddress'] }}';route_info='/tmp/route_info.txt'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+      register: out
+      
+    - debug: var=out.stdout_lines
+      when: out.rc != 0
+
+  always:
+    - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+
+    # Output content of result files to ansible console
+    - shell: cat {{ test_out_dir }}/*
+      register: out
+    - debug: var=out.stdout_lines
+    
+    - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml

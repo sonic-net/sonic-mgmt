@@ -82,7 +82,11 @@ Figure 1: PTF container testbed
 
 - *PTF docker*: A docker container that has 32 ports with pre-installed PTF tools. See https://github.com/Azure/sonic-buildimage/tree/master/dockers/docker-ptf
 - *Vlan ports*: 32 vlan ports are created on top of a physical port, e.g., eth0, inside the Linux host. After creation the vlan ports are injected directly to a ptf docker host.
-- *Fanout switch*: A physical switch which enables VLAN trunking. Et33 is a vlan trunking port and is connected to the eth0 port of the linux host. Et1-Et32 are vlan access ports and are connect to DUT.
+- *Fanout switch*: A physical switch which enables VLAN trunking.
+   * Et33 is a vlan trunking port and is connected to the eth0 port of the linux host.
+   * Et1-Et32 are vlan access ports and are connect to DUT.
+   * Enable LACP/LLDP passthrough
+   * Disable spanning tree protocol
 
 ### Deploy testbed with one ptf container
 1. clone sonic-mgmt repo to local directory

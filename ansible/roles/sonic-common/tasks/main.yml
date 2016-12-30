@@ -207,6 +207,10 @@
 # Install Logrotate
 - include: logrotate.yml
 
+# SNMP
+- include: snmp.yml
+  tags: snmp
+
 # LLDP
 - include: lldp.yml
   tags: lldp

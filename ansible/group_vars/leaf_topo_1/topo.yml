@@ -1,0 +1,7 @@
+podset_number : 200
+tor_number : 16
+tor_subnet_number : 2
+leaf_asn_start : 62001
+tor_asn_start : 65501
+failure_rate : 0
+local_tor_subnet_number : 5

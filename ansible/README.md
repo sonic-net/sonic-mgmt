@@ -5,8 +5,11 @@ This ansible playbook consists following functionalities:
 - [Setup SONiC testbed](README.testbed.md)
 - [Run SONiC tests](README.test.md)
 
-# Installing Ansible
+# Installing Ansible on Ubuntu 14.04.4 LTS
 ```
+sudo apt-get install git gcc make python python-dev python-cffi libffi-dev libssl-dev sshpass libxml2 libxslt1-dev
+sudo easy_install pip
+sudo pip install setuptools ipaddr lxml netaddr
 git clone https://github.com/ansible/ansible
 cd ansible
 git checkout v2.0.0.2-1 -b v2.0.0.2-1

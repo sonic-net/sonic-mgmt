@@ -18,7 +18,7 @@ ipv6 unicast-routing
 !
 ip route 0.0.0.0/0 {{ minigraph_mgmt_interface["gwaddr"] }}
 !
-{% for subnet in range(0, tor_subnet_number) %}
+{% for subnet in range(0, local_tor_subnet_number) %}
 ip route 172.16.{{ tornum }}.{{ subnet }}/32 {{ nhipv4 }}
 ipv6 route 20AC:10{{ '%02X' % tornum }}:0:{{ '%02X' % subnet }}::/64 {{ nhipv6 }}
 {% endfor %}
@@ -72,7 +72,7 @@ router bgp {{ minigraph_bgp_asn }}
  network {{ lo['addr'] }}/{{ lo['prefixlen'] }}
 {% endfor %}
 
-{% for subnet in range(0, tor_subnet_number) %}
+{% for subnet in range(0, local_tor_subnet_number) %}
  network 172.16.{{ tornum }}.{{ subnet }}/32
  network 20AC:10{{ '%02X' % tornum }}:0:{{ '%02X' % subnet }}::/64
 {% endfor %}

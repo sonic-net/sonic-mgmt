@@ -1,0 +1,127 @@
+###############################################################################
+# Managed by Ansible
+# file: ansible/roles/acs/templates/snmpd.conf.j2
+###############################################################################
+#
+# EXAMPLE.conf:
+#   An example configuration file for configuring the Net-SNMP agent ('snmpd')
+#   See the 'snmpd.conf(5)' man page for details
+#
+#  Some entries are deliberately commented out, and will need to be explicitly activated
+#
+###############################################################################
+#
+#  AGENT BEHAVIOUR
+#
+
+#  Listen for connections on localhost, loopback ip and mgmt (eth0) ip
+agentAddress udp:127.0.0.1:161
+agentAddress udp:{{ minigraph_mgmt_interface.addr }}:161
+{% for minigraph_lo_interface in minigraph_lo_interfaces %}
+# TODO: only support ipv4 lo addresses, add ipv6 support later
+{% if minigraph_lo_interface.addr | ipv4 %}
+agentAddress udp:{{ minigraph_lo_interface.addr }}:161
+{% endif %}
+{% endfor %}
+###############################################################################
+#
+#  ACCESS CONTROL
+#
+
+                                                 #  system + hrSystem groups only
+view   systemonly  included   .1.3.6.1.2.1.1
+view   systemonly  included   .1.3.6.1.2.1.25.1
+
+                                                 #  Default access to basic system info
+rocommunity {{ snmp_rocommunity }}
+
+
+###############################################################################
+#
+#  SYSTEM INFORMATION
+#
+
+#  Note that setting these values here, results in the corresponding MIB objects being 'read-only'
+#  See snmpd.conf(5) for more details
+sysLocation    {{ snmp_location }}
+sysContact     SONiC team <sonicproject@googlegroups.com>
+                                                 # Application + End-to-End layers
+sysServices    72
+
+
+#
+#  Process Monitoring
+#
+# todo: should we enable snmp based monitoring of sonic processes?
+
+# At least one 'sendmail' process, but no more than 10
+#proc  sendmail 10 1
+
+#  Walk the UCD-SNMP-MIB::prTable to see the resulting output
+#  Note that this table will be empty if there are no "proc" entries in the snmpd.conf file
+
+
+#
+#  Disk Monitoring
+#
+                               # 10MBs required on root disk, 5% free on /var, 10% free on all other disks
+disk       /     10000
+disk       /var  5%
+includeAllDisks  10%
+
+#  Walk the UCD-SNMP-MIB::dskTable to see the resulting output
+#  Note that this table will be empty if there are no "disk" entries in the snmpd.conf file
+
+
+#
+#  System Load
+#
+                               # Unacceptable 1-, 5-, and 15-minute load averages
+load   12 10 5
+
+#  Walk the UCD-SNMP-MIB::laTable to see the resulting output
+#  Note that this table *will* be populated, even without a "load" entry in the snmpd.conf file
+
+
+
+###############################################################################
+#
+#  ACTIVE MONITORING
+#
+# Note: disabled snmp traps due to side effect of causing snmpd to listen on all ports (0.0.0.0)
+#
+#   send SNMPv1  traps
+#trapsink     localhost public
+#   send SNMPv2c traps
+#trap2sink    localhost public
+#   send SNMPv2c INFORMs
+#informsink   localhost public
+
+#  Note that you typically only want *one* of these three lines
+#  Uncommenting two (or all three) will result in multiple copies of each notification.
+
+
+#
+#  Event MIB - automatically generate alerts
+#
+# Remember to activate the 'createUser' lines above
+#iquerySecName   internalUser       
+#rouser          internalUser
+# generate traps on UCD error conditions
+#defaultMonitors          yes
+#note, this release of snmpd does not support linkUpDownNotifications
+# generate traps on linkUp/Down
+#linkUpDownNotifications  yes
+
+
+#
+#  AgentX Sub-agents
+#
+                                           #  Run as an AgentX master agent
+master          agentx
+
+#
+#  SysDescription pass-through
+#
+
+pass -p 10 .1.3.6.1.2.1.1.1 /usr/share/snmp/sysDescr_pass.py

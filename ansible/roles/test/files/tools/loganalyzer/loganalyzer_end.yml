@@ -1,0 +1,26 @@
+#------------------------------------------------
+# Copy loganalyzer logs from switch to PTF host
+#------------------------------------------------
+
+- set_fact:
+    result_file:  result.loganalysis.{{testname_unique}}.log
+    summary_file:  summary.loganalysis.{{testname_unique}}.log
+- debug : msg="summary_file {{summary_file}}"
+- name : Fetch result files from switch to ansible machine
+  fetch: src={{ test_out_dir }}/{{item}} dest=/tmp
+  with_items:
+    - "{{result_file}}"
+    - "{{summary_file}}"
+
+- name : Create destination directory on PTF host for loganalyzer results
+  file: path="{{ test_out_dir }}" state=directory
+  delegate_to: "{{ ptf_host }}"
+
+- name: Copy loganalyzer result files from ansible machine to PTF host
+  copy: src="/tmp/{{inventory_hostname}}/{{test_out_dir}}/{{item}}" dest="{{ test_out_dir }}/{{item}}"
+  with_items:
+        - "{{ result_file }}"
+        - "{{ summary_file }}"
+  delegate_to: "{{ ptf_host }}"
+
+- debug: msg="Location of log files on PTF host - {{ test_out_dir }}"
