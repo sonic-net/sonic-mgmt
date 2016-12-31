@@ -36,4 +36,4 @@
 - name: Iterate throguh each lldp neighbor and verify the information received by neighbor are also correct
   add_host: name={{ lldp[item]['chassis']['mgmt-ip'] }} groups=lldp_neighbors neighbor_interface={{lldp[item]['port']['ifname']}} dut_interface={{item}} hname={{lldp[item]['chassis']['mgmt-ip'] }} snmp_rocommunity={{ snmp_rocommunity }}
   with_items: lldp.keys()
-  when: lldp[item]['chassis']['mgmt-ip'] is defined 
+  when: item != "eth0"
