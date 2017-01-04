@@ -10,10 +10,11 @@
        state=present
        force=yes
 
-- name: Setup port configuration file
-  become: yes
-  shell: ln -s -f /etc/ssw/{{ sonic_hwsku }}/port_config_{{ sonic_portsku }}.ini /etc/ssw/{{ sonic_hwsku }}/port_config.ini
-  tags: orchagent
+- name: Copy the port config file based on port sku
+  become: true
+  copy:
+    src: ssw_extra/{{ sonic_hwsku }}/port_config_{{ sonic_portsku }}.ini
+    dest: /etc/ssw/{{ sonic_hwsku }}/port_config.ini
 
 # Install docker containers
 - name: Start syncd docker container
