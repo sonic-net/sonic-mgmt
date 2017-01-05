@@ -40,6 +40,10 @@
   when: sonic_asic_type == 'mellanox'
   tags: swss,unsafe
 
+- include: sonic-cavm.yml
+  when: sonic_asic_type == 'cavium'
+  tags: swss,unsafe
+
 - include: quagga.yml
   tags: quagga,unsafe
 
