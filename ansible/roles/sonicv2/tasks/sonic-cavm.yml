@@ -25,6 +25,8 @@
     docker_privileged: yes
     docker_state: reloaded
     docker_volumes: "{{ syncd_docker_volumes }}"
+    docker_volumes_from:
+    - database
   when: host_saithrift is not defined
   tags: syncd
 
@@ -36,4 +38,6 @@
     docker_privileged: yes
     docker_state: reloaded
     docker_volumes: "{{ orchagent_docker_volumes }}"
+    docker_volumes_from:
+    - database
   tags: orchagent
