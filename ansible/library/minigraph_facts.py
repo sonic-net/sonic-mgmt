@@ -9,7 +9,6 @@ import copy
 import ipaddr as ipaddress
 from collections import defaultdict
 
-
 from lxml import etree as ET
 from lxml.etree import QName
 
@@ -178,8 +177,8 @@ def parse_dpg(dpg, hname):
         for pcintf in pcintfs.findall(str(QName(ns, "PortChannel"))):
             pcintfname = pcintf.find(str(QName(ns, "Name"))).text
             pcintfmbr = pcintf.find(str(QName(ns, "AttachTo"))).text
-            mbr_list = pcintfmbr.split(';', 1)
-            pc_intfs.append({'name': pcintfname, 'members': mbr_list})
+            pcmbr_list = pcintfmbr.split(';', 1)
+            pc_intfs.append({'name': pcintfname, 'members': pcmbr_list})
 
         lointfs = child.find(str(QName(ns, "LoopbackIPInterfaces")))
         lo_intfs = []
@@ -213,9 +212,9 @@ def parse_dpg(dpg, hname):
         for vintf in vlanintfs.findall(str(QName(ns, "VlanInterface"))):
             vintfname = vintf.find(str(QName(ns, "Name"))).text
             vlanid = vintf.find(str(QName(ns, "VlanID"))).text
-            members = vintf.find(str(QName(ns, "AttachTo"))).text
-            members = " ".join(members.split(';'))
-            vlan_attributes = {'name': vintfname, 'members': members, 'vlanid': vlanid}
+            vintfmbr = vintf.find(str(QName(ns, "AttachTo"))).text
+            vmbr_list = vintfmbr.split(';')
+            vlan_attributes = {'name': vintfname, 'members': vmbr_list, 'vlanid': vlanid}
             for addrtuple in vlan_map.get(vintfname, []):
                 vlan_attributes.update(addrtuple)
                 vlan_intfs.append(copy.deepcopy(vlan_attributes))
@@ -353,6 +352,10 @@ def parse_xml(filename, hostname):
     if hwsku == "Force10-S6000":
         for i in range(0, 128, 4):
             port_alias_map["fortyGigE0/%d" % i] = "Ethernet%d" % i
+    elif hwsku == "Force10-S6100":
+        for i in range(0, 4):
+            for j in range(0, 16):
+                port_alias_map["fortyGigE1/%d/%d" % (i+1, j+1)] = "Ethernet%d" % (i * 16 + j + 1)
     elif hwsku == "Arista-7050-QX32":
         for i in range(1, 25):
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
@@ -369,10 +372,19 @@ def parse_xml(filename, hostname):
         elif child.tag == str(QName(ns, "UngDec")):
             (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
 
+    # Replace port with alias in Vlan interfaces members
+    if vlan_intfs is not None:
+        for vlan in vlan_intfs:
+            for i,member in enumerate(vlan['members']):
+                vlan['members'][i] = port_alias_map[member]
+            # Convert vlan members into a space-delimited string
+            vlan['members'] = " ".join(vlan['members'])
+
     # Replace port with alias in port channel interfaces members
-    for pc in pc_intfs:
-        for i,member in enumerate(pc['members']):
-            pc['members'][i] = port_alias_map[member]
+    if pc_intfs is not None:
+        for pc in pc_intfs:
+            for i,member in enumerate(pc['members']):
+                pc['members'][i] = port_alias_map[member]
 
     Tree = lambda: defaultdict(Tree)
 
@@ -447,7 +459,11 @@ def print_parse_xml(hostname):
     results = parse_xml(filename, hostname)
     print(json.dumps(results, indent=3, cls=minigraph_encoder))
 
+def debug_main():
+    print_parse_xml('switch1')
+
 from ansible.module_utils.basic import *
 
 if __name__ == "__main__":
     main()
+    #debug_main()

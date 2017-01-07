@@ -5,6 +5,8 @@
     docker_image: "{{ image_id_teamd }}"
     docker_privileged: yes
     docker_state: reloaded
+    docker_volumes_from:
+    - database
 
 - include: teamd_interface.yml
   with_items: "{{ minigraph_portchannel_interfaces }}"
