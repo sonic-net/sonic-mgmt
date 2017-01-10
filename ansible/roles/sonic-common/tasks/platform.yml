@@ -9,3 +9,10 @@
   become: true
   include: platform-mlnx.yml
   when: sonic_hwsku == "ACS-MSN2700"
+
+# Install Platform Modules for Cavium
+- name: Confirm Platform Modules for Cavium are installed
+  become: true
+  include: platform-cavm.yml
+  when: sonic_hwsku == "AS7512"
+
