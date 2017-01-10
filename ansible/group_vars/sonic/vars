@@ -1,9 +1,9 @@
 ansible_ssh_user: admin
-ansible_ssh_pass: password
-ansible_become_pass: password
+ansible_ssh_pass: admin
+ansible_become_pass: admin
 sonicadmin_user: admin
-sonicadmin_password: password
-sonicadmin_initial_password: 123456
+sonicadmin_password: admin
+sonicadmin_initial_password: admin
 
 sonic_version: "v2"
 
