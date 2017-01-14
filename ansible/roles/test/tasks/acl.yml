@@ -27,6 +27,9 @@
     - name: Test file input.
       include: "{{ tests_location }}/acl_input_test/acl_input_test.yml"
 
+    - name: Test port bind configuration.
+      include: "{{ tests_location }}/acl_port_bind_test/acl_port_bind_test.yml"
+
   always:
     - name: General cleanup.
       file: path="{{ item }}" state=absent
