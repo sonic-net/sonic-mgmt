@@ -1,0 +1,35 @@
+
+#-----------------------------------------
+# Run all the acl tests.
+#-----------------------------------------
+
+- set_fact:
+    run_dir: "{{ '/home/admin/acl_tests' }}"
+    out_dir: "{{ '/home/admin/acl_tests/results' }}"
+    docker_testdir: "{{ '/tmp' }}"
+    logfile: "{{ '' }}"
+    tests_location: "{{ 'roles/test/tasks/acl' }}"
+
+- set_fact:
+    run_config_test: "{{ tests_location }}/run_config_test.yml"
+    run_config_cleanup: "{{ tests_location }}/run_config_cleanup.yml"
+    run_loganalyzer: "{{ tests_location }}/run_loganalyzer.yml"
+    set_ports_speed: "{{ tests_location }}/set_ports_speed.yml"
+
+- name: Create run_dir
+  file: path="{{ run_dir }}" state=directory
+
+ #****************************************#
+ #           Start tests                  #
+ #****************************************#
+
+- block:
+    - name: Test file input.
+      include: "{{ tests_location }}/acl_input_test/acl_input_test.yml"
+
+  always:
+    - name: General cleanup.
+      file: path="{{ item }}" state=absent
+      with_items:
+        - "{{ run_dir }}/loganalyzer.py"
+
