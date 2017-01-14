@@ -1,0 +1,5 @@
+- name: Set proper port speed (to activate mirror session).
+  command: docker exec -i syncd sx_api_port_speed_set_100G.py
+
+- name: Wait for speed to be set.
+  command: sleep 40
