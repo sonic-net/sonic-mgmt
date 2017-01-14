@@ -30,6 +30,9 @@
     - name: Test port bind configuration.
       include: "{{ tests_location }}/acl_port_bind_test/acl_port_bind_test.yml"
 
+    - name: Test orchagent logic.
+      include: "{{ tests_location }}/acl_orchagent_logic_test/acl_orchagent_logic_test.yml"
+
   always:
     - name: General cleanup.
       file: path="{{ item }}" state=absent
