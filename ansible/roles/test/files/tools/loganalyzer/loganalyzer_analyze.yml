@@ -4,13 +4,13 @@
 
 - debug: msg="starting loganalyzer analysis phase"
 
-- set_fact: cmd="python {{ run_dir }}/loganalyzer.py --action analyze --run_id {{ testname_unique }} --out_dir {{ test_out_dir }} -m {{match_file_list}} -i {{ ignore_file_list }} -v"
+- set_fact: cmd="python {{ run_dir }}/loganalyzer.py --action analyze --run_id {{ testname_unique }} --out_dir {{ test_out_dir }} -m {{ match_file }} -i {{ ignore_file }} -e {{ test_expect_file }} -v"
 
 - debug: msg={{cmd}}
 
-- name: Initialize loganalyzer
+- name: Initialize loganalyzer {{ testname }}
   become: True
   shell: "{{ cmd }}"
-  register: out
-- debug: var=out.stdout_lines
+  args:
+      chdir: "{{ run_dir }}"
 - debug: msg="Finished calling loganalyzer analyze phase"
