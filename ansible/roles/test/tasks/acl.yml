@@ -36,6 +36,9 @@
     - name: Test traffic.
       include: "{{ tests_location }}/acl_traffic_test/acl_traffic_test.yml"
 
+    - name: Test counters traffic.
+      include: "{{ tests_location }}/acl_counter_traffic_test/acl_counter_traffic_test.yml"
+
   always:
     - name: General cleanup.
       file: path="{{ item }}" state=absent
