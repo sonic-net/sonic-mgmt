@@ -310,10 +310,6 @@
           shell: ifconfig {{ ptf_host_if }} {{ ptf_host_if_ip }}/24
           delegate_to: "{{ ptf_host }}"
 
-          # todo: remove when config is done by IT dept.
-        - name: Run script that sets ports speed.
-          include: "{{ set_ports_speed }}"
-
         - name: Create target directory
           file: path={{ host_testdir }} state=directory
           delegate_to: "{{ ptf_host }}"
