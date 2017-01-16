@@ -61,10 +61,6 @@
       shell: ifconfig {{ ptf_host_if }} 20.0.0.2
       delegate_to: "{{ ptf_host }}"
 
-      # todo:  remove when config is done by IT dept.
-    - name: Run script that sets ports speed.
-      include: "{{ set_ports_speed }}"
-
     - name: Create an ACL L3 table.
       shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
 

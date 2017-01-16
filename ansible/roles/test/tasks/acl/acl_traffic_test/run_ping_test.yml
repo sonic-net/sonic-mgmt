@@ -7,9 +7,6 @@
         summary_file: "{{ 'summary.loganalysis.{{ testname_unique }}.log' }}"
         result_file: "{{ 'result.loganalysis.{{ testname_unique }}.log' }}"
 
-    - name: Configure link
-      command: docker exec -i syncd sx_api_port_speed_set_100G.py
-
     - name: Wait for link
       command: sleep 40
 
