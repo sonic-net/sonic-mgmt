@@ -361,6 +361,9 @@ def parse_xml(filename, hostname):
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
         for i in range(25, 33):
             port_alias_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+    else:
+        for i in range(0, 128, 4):
+            port_alias_map["Ethernet%d" % i] = "Ethernet%d" % i
 
     for child in root:
         if child.tag == str(QName(ns, "DpgDec")):
