@@ -1,6 +1,5 @@
 platform_modules_s6000: { name: platform-modules-s6000 , version: "*" }
-opennsl: { name: opennsl-modules-3.16.0-4-amd64 , version: "6.4.5.B*" }
-opennslv2: { name: opennsl-modules-3.16.0-4-amd64 , version: "6.5.5*" }
+opennslv2: { name: opennsl-modules-3.16.0-4-amd64 , version: "3.2.1.5-3*" }
 version_sx_kernel: "*"
 version_mlnxsdk: "*"
 version_iproute2_mlnx: "1.mlnx*"
