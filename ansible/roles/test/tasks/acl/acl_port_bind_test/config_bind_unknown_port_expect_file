@@ -1,0 +1,5 @@
+#s, "33333333333333333333"
+# match repeating characters aaa, bbbb, etc.
+#r, "(\w)\1*"
+#
+r, ".*Failed to process port. Port .* doesn't exist"

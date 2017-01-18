@@ -57,3 +57,7 @@
 - name: Fib test
   include: fib.yml
   tags: fib
+
+- name: Test ACL
+  include: acl.yml
+  tags: acl
