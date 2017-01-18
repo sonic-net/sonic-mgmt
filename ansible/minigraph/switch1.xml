@@ -1047,5 +1047,5 @@
     </DeviceInterfaceLinks>
   </PngDec>
   <Hostname>switch1</Hostname>
-  <HwSku>ACS-S6000</HwSku>
+  <HwSku>Force10-S6000</HwSku>
 </DeviceMiniGraph>
