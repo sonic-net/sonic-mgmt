@@ -2,27 +2,28 @@
 # Copy all loganalyzer related file to DUT, and invoke loganalyzer with init phase
 #----------------------------------------------------------------------------------
 
+- set_fact:
+    loganalyzer_location: "{{ 'roles/test/files/tools/loganalyzer' }}"
+
 - name: Copy loganalyzer common match and ignore files to switch
-  copy: src="roles/test/files/tools/loganalyzer/{{ item }}"  dest="{{ run_dir }}/{{ item }}"
+  copy: src="{{ loganalyzer_location }}/{{ item }}"  dest="{{ run_dir }}/{{ item }}"
   with_items:
         - "{{ match_file }}"
         - "{{ ignore_file }}"
 
-- name: Copy test specific loganalyzer match and ignore files to switch
-  copy: src="roles/test/tasks/{{ testname }}/{{ item }}"  dest="{{ run_dir }}/{{ item }}"
+- name: Copy test specific expect-files to switch
+  copy: src="{{ tests_location }}/{{ testname }}/{{ item }}"  dest="{{ run_dir }}/{{ item }}"
   with_items:
-        - "{{ test_match_file }}"
-        - "{{ test_ignore_file }}"
-        
-- name: Copy loganalyer.py to run directory
-  copy: src="roles/test/files/tools/loganalyzer/loganalyzer.py" dest="{{ run_dir }}"
+        - "{{ test_expect_file }}"
 
-# Create directory to hold results for different runs of loganalyzer 
+- name: Copy loganalyzer.py to run directory
+  copy: src="{{ loganalyzer_location }}/loganalyzer.py" dest="{{ run_dir }}"
+
+# Create directory to hold results for different runs of loganalyzer
 - name: create output directory
   file: path="{{ out_dir }}" state=directory
 
 # Create directory where loganalyzer will write output files for current run.
-
 - name: create output directory for current test run
   file: path="{{ test_out_dir }}" state=directory
 
