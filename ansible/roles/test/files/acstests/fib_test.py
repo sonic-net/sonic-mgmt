@@ -279,10 +279,11 @@ class FibTest(BaseTest):
         send_packet(self, source_port_index, pkt)
 
         (match_index,rcv_pkt, received) = self.verify_packet_any_port(masked_exp_pkt,destination_port_list)
-        print 'src_port:%d' % source_port_index,
+        
         if received:
             result = True            
         else:
+            print 'src_port:%d' % source_port_index,
             print 'FAIL for ip:%s' % dest_ip_addr ,
             pprint.pprint(destination_port_list)
         return result
@@ -327,6 +328,6 @@ class FibTest(BaseTest):
                     
         print 'pass_count:%d' % pass_count
         print 'ip4_route_cnt:%d' % ip4_route_cnt
-        print 'ip6_route_cnt:%d' % ip4_route_cnt
+        print 'ip6_route_cnt:%d' % ip6_route_cnt
         assert(test_result)
     #---------------------------------------------------------------------
