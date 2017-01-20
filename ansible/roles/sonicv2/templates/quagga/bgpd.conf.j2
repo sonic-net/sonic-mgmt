@@ -35,10 +35,8 @@ router bgp {{ minigraph_bgp_asn }}
 {% endfor %}
 {% endblock bgp_init %}
 {% block vlan_advertisement %}
-{% for interface in minigraph_interfaces %}
-{% if interface['name'].startswith('Vlan') %}
-  network {{ interface['subnet'] }}
-{% endif %}
+{% for vlan in minigraph_vlan_interfaces %}
+  network {{ vlan['subnet'] }}
 {% endfor %}
 {% endblock vlan_advertisement %}
 {% block bgp_sessions %}
@@ -49,6 +47,7 @@ router bgp {{ minigraph_bgp_asn }}
 {% if bgp_session['addr'] | ipv6 %}
   address-family ipv6
     neighbor {{ bgp_session['addr'] }} activate
+    maximum-paths 64
   exit-address-family
 {% endif %}
 {% endif %}

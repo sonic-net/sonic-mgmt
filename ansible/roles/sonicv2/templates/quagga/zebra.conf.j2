@@ -31,7 +31,26 @@ ip route 0.0.0.0/0 {{ minigraph_mgmt_interface['gwaddr'] }} 200
 route-map RM_SET_SRC permit 10
     set src {{ minigraph_lo_interfaces[0]['addr'] }}
 !
+{% set lo_ipv6_addrs = [] %}
+{% if minigraph_lo_interfaces is defined %}
+{%   for interface in minigraph_lo_interfaces %}
+{%     if interface['addr'] is defined and interface['addr']|ipv6 %}
+{%       if lo_ipv6_addrs.append(interface['addr']) %}
+{%       endif %}
+{%     endif %}
+{%   endfor %}
+{% endif %}
+{% if lo_ipv6_addrs|length > 0 %} 
+route-map RM_SET_SRC6 permit 10
+    set src {{ lo_ipv6_addrs[0] }}
+!
+{% endif %}
 ip protocol bgp route-map RM_SET_SRC
+!
+{% if lo_ipv6_addrs|length > 0 %}
+ipv6 protocol bgp route-map RM_SET_SRC6
+!
+{% endif %}
 {% endblock source_loopback %}
 !
 {% block logging %}
