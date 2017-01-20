@@ -8,6 +8,7 @@ import ipaddress
 
 import pprint
 import ipaddress
+import random
 
 #---------------------------------------------------------------------
 # Global variables
@@ -81,7 +82,14 @@ class RouterUtility():
         return (match_index, rcv_pkt, received)
     #---------------------------------------------------------------------
     
-    def create_ipv4_packets(self, ip_src, sport, dport, dest_ip_addr, destination_port_list):
+    def create_random_mac(self):
+        '''
+        @summary: create random mac
+        '''    
+        return '00:02:03:%02X:%02X:%02X' % (random.randint(0, 0xFF), random.randint(0, 0xFF), random.randint(0, 0xFF))
+    #---------------------------------------------------------------------
+    
+    def create_ipv4_packets(self, ip_src, sport, dport, dest_ip_addr, destination_port_list, src_mac):
         '''
         @summary: Check IPv4 route works.
         @sport: source tcp port
@@ -91,15 +99,12 @@ class RouterUtility():
         @param destination_port_list: list of ports on which to expect packet to come back from the switch        
         @return Boolean
         '''
-        ip_dst = dest_ip_addr
-
-        src_mac = self.dataplane.get_mac(0, 0)
 
         pkt = simple_tcp_packet(
                             eth_dst=self.router_mac,
                             eth_src=src_mac,
                             ip_src=ip_src,
-                            ip_dst=ip_dst,
+                            ip_dst=dest_ip_addr,
                             tcp_sport=sport,
                             tcp_dport=dport,
                             ip_ttl=64)
@@ -107,7 +112,7 @@ class RouterUtility():
                             eth_dst=self.dataplane.get_mac(0, 0),
                             eth_src=self.router_mac,
                             ip_src=ip_src,
-                            ip_dst=ip_dst,
+                            ip_dst=dest_ip_addr,
                             tcp_sport=sport,
                             tcp_dport=dport,
                             ip_ttl=63)
@@ -118,7 +123,7 @@ class RouterUtility():
         return (pkt, masked_exp_pkt)
     #---------------------------------------------------------------------
 
-    def create_ipv6_packets(self,  sport, dport, ip_src, dest_ip_addr, destination_port_list):
+    def create_ipv6_packets(self, ip_src, sport, dport, dest_ip_addr, destination_port_list, src_mac):
         '''
         @summary: Check IPv4 route works.
         @param ip_src: source IP to build packet with.
@@ -128,13 +133,11 @@ class RouterUtility():
         @param destination_port_list: list of ports on which to expect packet to come back from the switch        
         @return Boolean
         '''
-
-        ip_dst = dest_ip_addr
-        src_mac = self.dataplane.get_mac(0, 0)
+        
         pkt = simple_tcpv6_packet(
                                 eth_dst=self.router_mac,
                                 eth_src=src_mac,
-                                ipv6_dst=ip_dst,
+                                ipv6_dst=dest_ip_addr,
                                 ipv6_src=ip_src,
                                 tcp_sport=sport,
                                 tcp_dport=dport,
@@ -142,7 +145,7 @@ class RouterUtility():
         exp_pkt = simple_tcpv6_packet(
                                 eth_dst=self.dataplane.get_mac(0, 0),
                                 eth_src=src_mac,
-                                ipv6_dst=ip_dst,
+                                ipv6_dst=dest_ip_addr,
                                 ipv6_src=ip_src,
                                 tcp_sport=sport,
                                 tcp_dport=dport,
@@ -172,6 +175,7 @@ class RouterUtility():
             print 'src_port:%d' % source_port_index,
             print 'FAIL for ip:%s' % dest_ip_addr ,
             pprint.pprint(destination_port_list)
+
         return received, match_index
     #---------------------------------------------------------------------
     
