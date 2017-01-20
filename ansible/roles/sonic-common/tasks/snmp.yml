@@ -6,6 +6,7 @@
     docker_privileged: yes
     docker_state: absent
     docker_volumes:
+      -  /etc/sonic/:/etc/sonic/:ro
       -  /etc/ssw/:/etc/ssw/:ro
 
 - name: switch SNMP image based on SONiC version
@@ -21,6 +22,7 @@
     docker_privileged: yes
     docker_state: reloaded
     docker_volumes:
+      -  /etc/sonic/:/etc/sonic/:ro
       -  /etc/ssw/:/etc/ssw/:ro
 
 - name: Gather setup facts about system
@@ -50,6 +52,11 @@
   connection: local
   register: snmp_remap
 
+- name: Copy snmp_rocommunity file
+  become: true
+  template: src=snmp.yml.j2
+            dest=/etc/sonic/snmp.yml
+            mode=0644
 
 - block:
   - name: Check version of snmpd

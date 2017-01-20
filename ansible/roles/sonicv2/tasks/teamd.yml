@@ -5,6 +5,8 @@
     docker_image: "{{ image_id_teamd }}"
     docker_privileged: yes
     docker_state: reloaded
+    docker_volumes:
+    - /etc/sonic/:/etc/sonic/:ro
     docker_volumes_from:
     - database
 

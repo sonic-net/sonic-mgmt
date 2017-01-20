@@ -5,6 +5,8 @@
     docker_image: "{{ image_id_lldp }}"
     docker_privileged: yes
     docker_state: absent
+    docker_volumns:
+      - /etc/sonic/:/etc/sonic/:ro
 
 - name: switch LLDP image based on SONiC version
   set_fact:
@@ -18,6 +20,8 @@
     docker_image: "{{ image_id_lldp }}"
     docker_privileged: yes
     docker_state: reloaded
+    docker_volumns:
+      - /etc/sonic/:/etc/sonic/:ro
 
 - block:
   - name: Setup LLDPD Daemon Config File
