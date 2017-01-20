@@ -38,6 +38,12 @@
   set_fact:
     sonic_baseimage_version: "{{ result.stdout }}"
 
+- name: Copy snmp_rocommunity file
+  become: true
+  template: src=snmp.yml.j2
+            dest=/etc/sonic/snmp.yml
+            mode=0644
+    
 - name: Setup sysDescription file
   become: true
   template: src=sysDescription.j2
@@ -51,12 +57,6 @@
   become: false
   connection: local
   register: snmp_remap
-
-- name: Copy snmp_rocommunity file
-  become: true
-  template: src=snmp.yml.j2
-            dest=/etc/sonic/snmp.yml
-            mode=0644
 
 - block:
   - name: Check version of snmpd
