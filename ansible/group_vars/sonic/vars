@@ -29,6 +29,7 @@ syncd_docker_volumes: "{{ syncd_docker_volumes_dict.keys() }}"
 
 orchagent_docker_volumes_dict:
   "/etc/ssw/:/etc/ssw/:ro":
+  "/etc/sonic/:/etc/sonic/:ro":
   "/etc/network/interfaces:/etc/network/interfaces:ro":
   "/etc/network/interfaces.d/:/etc/network/interfaces.d/:ro":
   "/host/machine.conf:/host/machine.conf":

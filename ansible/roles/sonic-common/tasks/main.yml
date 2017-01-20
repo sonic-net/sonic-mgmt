@@ -29,6 +29,16 @@
 - include: aptrepo.yml
   tags: repo
 
+- name: Ensure /etc/sonic path exists
+  file: path=/etc/sonic state=directory
+
+- name: Copy minigraph
+  become: true
+  copy: src=../minigraph/{{ inventory_hostname }}.xml
+        dest=/etc/sonic/minigraph.xml
+        mode=0644
+  tags: always
+  
 # Syslog
 - name: Install Syslog daemon
   become: true
