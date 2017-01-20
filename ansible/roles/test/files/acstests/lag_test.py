@@ -384,17 +384,31 @@ class LagAllRoutes(BaseTest,RouterUtility):
                 for ipv4_src in src_ipv4_list :
                     sport = random.randint(0,0xffff)
                     dport = random.randint(0,0xffff)
-                    ipv4_packets[ipv4_src] = self.create_ipv4_packets(ipv4_src, sport, dport, dest_ip_addr, destination_port_list)
+                    src_mac = self.create_random_mac()
+                    ipv4_packets[ipv4_src] = self.create_ipv4_packets(ipv4_src, sport, dport, dest_ip_addr, destination_port_list, src_mac)
 
                 for src_ip in ipv4_packets:
-                    total_ipv4_packet_cnt += self.IPV4_SEND_PACKET_COPY_CNT                        
+                    total_ipv4_packet_cnt += self.IPV4_SEND_PACKET_COPY_CNT
                     ret_val, rcv_port_ind = self.check_route(ipv4_packets[src_ip][0], ipv4_packets[src_ip][1], src_port, dest_ip_addr, destination_port_list, self.IPV4_SEND_PACKET_COPY_CNT)
                     result = result and ret_val
                     self.update_port_counter(port_counter, destination_port_list[rcv_port_ind], self.IPV4_SEND_PACKET_COPY_CNT)
 
             elif self.is_ipv6_address(dest_ip_addr):
-                #TODO: ipv6 doesnt work currently, need to test once ipv6 routes start working.
-                self.IPV6_SEND_PACKET_COPY_CNT = 1
+                #Generate list of src_ip addresses. Currently we generate only 1 src_ip, but
+                #in next stages of test we'll generate N amount(tbd).
+                src_ipv6_list = self.generate_ipv6_list(1,1)
+                
+                for ipv6_src in src_ipv6_list :
+                    sport = random.randint(0,0xffff)
+                    dport = random.randint(0,0xffff)
+                    src_mac = self.create_random_mac()
+                    ipv6_packets[ipv6_src] = self.create_ipv6_packets(ipv6_src,  sport, dport, dest_ip_addr, destination_port_list, src_mac)
+                
+                for src_ip in ipv6_packets:
+                    total_ipv6_packet_cnt += self.IPV6_SEND_PACKET_COPY_CNT
+                    ret_val, rcv_port_ind = self.check_route(ipv6_packets[src_ip][0], ipv6_packets[src_ip][1], src_port, dest_ip_addr, destination_port_list, self.IPV6_SEND_PACKET_COPY_CNT)
+                    result = result and ret_val
+                    self.update_port_counter(port_counter, destination_port_list[rcv_port_ind], self.IPV6_SEND_PACKET_COPY_CNT)
             else:
                 print 'Invalid ip address:%s\n' % dest_ip_addr
                 assert(False)
