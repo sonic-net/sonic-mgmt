@@ -9,38 +9,7 @@
 - fail: msg="Please set ptf_host_if variable (interface that host is connected to switch)"
   when: ptf_host_if is not defined
 
-- set_fact:
-    acl_check_db: "{{ '{{ tests_location }}/acl_counter_traffic_test/acl_check_db.yml' }}"
-
-    config_table_type_l3: "{{ 'config_table_type_l3.json' }}"
-    config_rule: "{{ 'config_rule.json' }}"
-    config_rule_delete: "{{ 'config_rule_delete.json' }}"
-
-    config_mirror_session: "{{ 'config_mirror_session.json' }}"
-    config_table_type_mirror: "{{ 'config_table_type_mirror.json' }}"
-    config_rule_mirror: "{{ 'config_rule_mirror.json' }}"
-    config_rule_mirror_delete: "{{ 'config_rule_mirror_delete.json' }}"
-
-    table_name: "{{ 'acl_test_table' }}"
-    rule_name: "{{ 'acl_config_rule' }}"
-    mirror_table_name: "{{ 'acl_test_table_mirror' }}"
-    mirror_rule_name: "{{ 'acl_config_rule_mirror' }}"
-
-    switch_if1_ip: "{{ '20.0.0.1' }}"
-    switch_if2_ip: "{{ '21.0.0.1' }}"
-    dst_mirror_subnet: "{{ '2.0.0.0/24' }}"
-    packets_sent: "{{ '3' }}"
-    testname: "{{ 'acl_counter_traffic_test' }}"
-
-- set_fact:
-    config_files:
-        - "{{ config_table_type_l3 }}"
-        - "{{ config_rule }}"
-        - "{{ config_rule_delete }}"
-        - "{{ config_mirror_session }}"
-        - "{{ config_table_type_mirror }}"
-        - "{{ config_rule_mirror }}"
-        - "{{ config_rule_mirror_delete }}"
+- include_vars: "{{ vars_files_location }}/acl_counter_traffic_test_vars.yml"
 
 - name: Copy JSON configs onto switch.
   copy: src="{{ tests_location }}/{{ testname }}/{{ item }}"  dest="{{ run_dir }}/{{ item }}"
@@ -67,12 +36,12 @@
     - name: Create a rule within L3 table.
       shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_rule }}
 
-    - set_fact:
+    - name: Check if {{ rule_name}} data is written into DBs.
+      vars:
         table_name_check: "{{ table_name }}"
         rule_name_check: "{{ rule_name }}"
         expect_data: true
-        expected_counter_value: "{{ '0' }}"
-    - name: Check if {{ rule_name}} data is written into DBs.
+        expected_counter_value: 0
       include: "{{ acl_check_db }}"
 
     - name: Read initial counters value (before ping).
@@ -87,7 +56,8 @@
       failed_when: ping_result.rc != 0
 
     - name: Wait for counters to update (it updates every 10 sec) ...
-      shell: sleep 10
+      pause:
+          seconds: 10
 
     - name: Read result counters value (after ping).
       shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_name }}" Packets
@@ -105,7 +75,8 @@
       failed_when: ping_result.rc == 0
 
     - name: Wait for counters to update (it updates every 10 sec) ...
-      shell: sleep 10
+      pause:
+          seconds: 10
 
     - name: Read counters value.
       shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_name }}" Packets
@@ -118,11 +89,11 @@
     - name: Delete L3-rule.
       shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_rule_delete }}
 
-    - set_fact:
+    - name: Check if {{ rule_name}} data is removed from DBs.
+      vars:
         table_name_check: "{{ table_name }}"
         rule_name_check: "{{ rule_name }}"
         expect_data: false
-    - name: Check if {{ rule_name}} data is removed from DBs.
       include: "{{ acl_check_db }}"
 
 #--------------------
@@ -144,12 +115,12 @@
     - name: Create a rule within mirror table.
       shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_rule_mirror }}
 
-    - set_fact:
+    - name: Check that {{ mirror_rule_name }} data is written into DBs.
+      vars:
         table_name_check: "{{ mirror_table_name }}"
         rule_name_check: "{{ mirror_rule_name }}"
         expect_data: true
-        expected_counter_value: "{{ '0' }}"
-    - name: Check that {{ mirror_rule_name }} data is written into DBs.
+        expected_counter_value: 0
       include: "{{ acl_check_db }}"
 
     - name: Read initial counters value (before ping).
@@ -163,7 +134,8 @@
       failed_when: ping_result.rc != 0
 
     - name: Wait for counters to update (it updates every 10 sec) ...
-      shell: sleep 10
+      pause:
+          seconds: 10
 
     - name: Read result counters value (after ping).
       shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ mirror_table_name }}:{{ mirror_rule_name }}" Packets
@@ -175,11 +147,11 @@
     - name: Delete mirror-rule.
       shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_rule_mirror_delete }}
 
-    - set_fact:
+    - name: Check that {{ mirror_rule_name }} data is removed from DBs.
+      vars:
         table_name_check: "{{ mirror_table_name }}"
         rule_name_check: "{{ mirror_rule_name }}"
         expect_data: false
-    - name: Check that {{ mirror_rule_name }} data is removed from DBs.
       include: "{{ acl_check_db }}"
 
 

@@ -2,52 +2,10 @@
 # Perform ACL traffic tests
 #-----------------------------------------
 
-
 - fail: msg="Please set ptf_host variable"
   when: ptf_host is not defined
 
-- set_fact:
-    host1_ip :   21.0.0.2
-    host2_ip :   22.0.0.2
-    subnet1 :    21.0.0.0/24
-    subnet2 :    22.0.0.0/24
-    switch_ip1 : 21.0.0.1
-    switch_ip2 : 22.0.0.1
-    host_testdir: "{{ '/tmp' }}"
-
-    run_ping_test: "{{ tests_location }}/acl_traffic_test/run_ping_test.yml"
-    run_ptf_test: "{{ tests_location }}/acl_traffic_test/run_ptf_test.yml"
-
-    config_traffic_drop_ether_ip:    "{{ 'config_traffic_drop_ether_ip.json' }}"
-    config_traffic_drop_src_ip:      "{{ 'config_traffic_drop_src_ip.json' }}"
-    config_traffic_drop_dst_ip:      "{{ 'config_traffic_drop_dst_ip.json' }}"
-    config_traffic_drop_l4_src_port: "{{ 'config_traffic_drop_l4_src_port.json' }}"
-    config_traffic_drop_l4_dst_port: "{{ 'config_traffic_drop_l4_dst_port.json' }}"
-    config_traffic_drop_ip_protocol: "{{ 'config_traffic_drop_ip_protocol.json' }}"
-    config_traffic_drop_ip_type:     "{{ 'config_traffic_drop_ip_type.json' }}"
-    config_traffic_drop_tcp_flags:   "{{ 'config_traffic_drop_tcp_flags.json' }}"
-    config_traffic_drop_priority:    "{{ 'config_traffic_drop_priority.json' }}"
-    config_empty_expect:             "{{ 'config_empty_expect_file' }}"
-
-    match_file:                      "{{ 'loganalyzer_common_match.txt' }}"
-    ignore_file:                     "{{ 'loganalyzer_common_ignore.txt' }}"
-
-    loganalyzer_init:                "{{ 'roles/test/files/tools/loganalyzer/loganalyzer_init.yml' }}"
-    loganalyzer_analyze:             "{{ 'roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml' }}"
-
-    testname:                        "{{ 'acl_traffic_test' }}"
-
-- set_fact:
-    config_files:
-      - "{{ config_traffic_drop_ether_ip }}"
-      - "{{ config_traffic_drop_src_ip }}"
-      - "{{ config_traffic_drop_dst_ip }}"
-      - "{{ config_traffic_drop_l4_src_port }}"
-      - "{{ config_traffic_drop_l4_dst_port }}"
-      - "{{ config_traffic_drop_ip_protocol }}"
-      - "{{ config_traffic_drop_ip_type }}"
-      - "{{ config_traffic_drop_tcp_flags }}"
-      - "{{ config_traffic_drop_priority }}"
+- include_vars: "{{ vars_files_location }}/acl_traffic_test_vars.yml"
 
 - name: Copy JSON configs onto switch.
   copy: src="{{ tests_location }}/{{ testname }}/{{ item }}"  dest="{{ run_dir }}/{{ item }}"
@@ -71,76 +29,76 @@
   delegate_to: "{{ ptf_host }}"
 
 - block:
-    - set_fact:
+    - name: ACL drop traffic by ether type test
+      vars:
         config_file: "{{ config_traffic_drop_ether_ip }}"
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: true
         run_cleanup: true
-    - name: ACL drop traffic by ether type test
       include: "{{ run_ping_test }}"
 
-    - set_fact:
+    - name: ACL drop traffic by source ip address test
+      vars:
         config_file: "{{ config_traffic_drop_src_ip }}"
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: true
         run_cleanup: true
-    - name: ACL drop traffic by source ip address test
       include: "{{ run_ping_test }}"
 
-    - set_fact:
+    - name: ACL drop traffic by destination ip address test
+      vars:
         config_file: "{{ config_traffic_drop_dst_ip }}"
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: true
         run_cleanup: true
-    - name: ACL drop traffic by destination ip address test
       include: "{{ run_ping_test }}"
 
-    - set_fact:
+    - name: ACL drop traffic by ip prototype test
+      vars:
         config_file: "{{ config_traffic_drop_ip_protocol }}"
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: true
         run_cleanup: true
-    - name: ACL drop traffic by ip prototype test
       include: "{{ run_ping_test }}"
 
-    - set_fact:
+    - name: ACL drop traffic by ip type test
+      vars:
         config_file: "{{ config_traffic_drop_ip_type }}"
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: true
         run_cleanup: true
-    - name: ACL drop traffic by ip type test
       include: "{{ run_ping_test }}"
 
-    - set_fact:
+    - name: ACL drop traffic by tcp flags test
+      vars:
         config_file: "{{ config_traffic_drop_priority }}"
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: true
-    - name: ACL drop traffic by tcp flags test
       include: "{{ run_ping_test }}"
 
-    - set_fact:
+    - name: ACL drop traffic by destination l4 port test
+      vars:
         config_file: "{{ config_traffic_drop_l4_dst_port }}"
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: true
         run_cleanup: true
-    - name: ACL drop traffic by destination l4 port test
       include: "{{ run_ptf_test }}"
 
-    - set_fact:
+    - name: ACL drop traffic by source l4 port test
+      vars:
         config_file: "{{ config_traffic_drop_l4_src_port }}"
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: true
         run_cleanup: true
-    - name: ACL drop traffic by source l4 port test
       include: "{{ run_ptf_test }}"
 
-    - set_fact:
+    - name: ACL drop traffic by tcp flags test
+      vars:
         config_file: "{{ config_traffic_drop_tcp_flags }}"
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: true
         run_cleanup: true
-    - name: ACL drop traffic by tcp flags test
       include: "{{ run_ptf_test }}"
 
   always:

@@ -18,64 +18,7 @@
 - fail: msg="Please set switch_if variable (interface that switch is connected to host)"
   when: switch_if is not defined
 
-- set_fact:
-
-    # configuration-test settings
-    config_table_type_l3: "{{ 'config_table_type_l3.json' }}"
-    config_mirror_session: "{{ 'config_mirror_session.json' }}"
-    config_table_type_mirror: "{{ 'config_table_type_mirror.json' }}"
-    config_l4_port_range_1_on_l3_table: "{{ 'config_l4_port_range_1_on_l3_table.json' }}"
-    config_l4_port_range_2_on_l3_table: "{{ 'config_l4_port_range_2_on_l3_table.json' }}"
-    config_l4_port_range_on_mirror_table: "{{ 'config_l4_port_range_on_mirror_table.json' }}"
-    config_l4_full_port_range: "{{ 'config_l4_full_port_range.json' }}"
-    config_l4_limited_port_range: "{{ 'config_l4_limited_port_range.json' }}"
-    config_delete_limited_port_range: "{{ 'config_delete_limited_port_range.json' }}"
-    config_delete_different_port_range: "{{ 'config_delete_different_port_range.json' }}"
-    config_l4_port_range_invalid_1: "{{ 'config_l4_port_range_invalid_1.json' }}"
-    config_l4_port_range_invalid_2: "{{ 'config_l4_port_range_invalid_2.json' }}"
-    config_l4_port_range_invalid_3: "{{ 'config_l4_port_range_invalid_3.json' }}"
-    config_l4_port_range_invalid_4: "{{ 'config_l4_port_range_invalid_4.json' }}"
-    config_l4_port_range_invalid_5: "{{ 'config_l4_port_range_invalid_5.json' }}"
-    config_l4_port_range_invalid_6: "{{ 'config_l4_port_range_invalid_6.json' }}"
-    config_l4_port_range_invalid_7: "{{ 'config_l4_port_range_invalid_7.json' }}"
-    config_l4_port_range_invalid_8: "{{ 'config_l4_port_range_invalid_8.json' }}"
-
-    config_l4_port_range_expect: "{{ 'config_l4_port_range_expect_file' }}"
-    config_empty_expect: "{{ 'config_empty_expect_file' }}"
-    host_testdir: "{{ '/tmp/ptf_tests' }}"
-
-    # traffic-test settings
-    table_name: "{{ 'acl_test_table' }}"
-    rule_limited_port_range_name: "{{ 'acl_rule_limited_port_range' }}"
-    packets_sent: "{{ '3' }}"
-
-    # mirror-testing settings
-    switch_if_ip: "{{ '20.0.0.1' }}"
-    ptf_host_if_ip: "{{ '20.0.0.2' }}"
-    dst_mirror_subnet: "{{ '2.0.0.0/24' }}"
-
-- set_fact:
-    config_files:
-      - "{{ config_table_type_l3 }}"
-      - "{{ config_mirror_session }}"
-      - "{{ config_table_type_mirror }}"
-      - "{{ config_l4_port_range_1_on_l3_table }}"
-      - "{{ config_l4_port_range_2_on_l3_table }}"
-      - "{{ config_l4_port_range_on_mirror_table }}"
-      - "{{ config_l4_full_port_range }}"
-      - "{{ config_l4_limited_port_range }}"
-      - "{{ config_delete_limited_port_range }}"
-      - "{{ config_delete_different_port_range }}"
-      - "{{ config_l4_port_range_invalid_1 }}"
-      - "{{ config_l4_port_range_invalid_2 }}"
-      - "{{ config_l4_port_range_invalid_3 }}"
-      - "{{ config_l4_port_range_invalid_4 }}"
-      - "{{ config_l4_port_range_invalid_5 }}"
-      - "{{ config_l4_port_range_invalid_6 }}"
-      - "{{ config_l4_port_range_invalid_7 }}"
-      - "{{ config_l4_port_range_invalid_8 }}"
-
-    testname: "{{ 'acl_port_range_test' }}"
+- include_vars: "{{ vars_files_location }}/acl_port_range_test_vars.yml"
 
 - name: Copy JSON configs onto switch.
   copy: src="{{ tests_location }}/{{ testname }}/{{ item }}"  dest="{{ run_dir }}/{{ item }}"
@@ -101,12 +44,12 @@
     - name: Create an L3 table.
       shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
 
-    - set_fact:
+    - name: Rule test - valid port range on L3 table.
+      vars:
         config_file: "{{ config_l4_port_range_1_on_l3_table }}"
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-    - name: Rule test - valid port range on L3 table.
       include: "{{ run_config_test }}"
 
     - block:
@@ -119,12 +62,12 @@
         - fail: msg="Redis DB has NOT got an appropriate field for rule (config file used - {{ config_l4_port_range_1_on_l3_table }})"
           when: grep.rc != 0
 
-    - set_fact:
+    - name: Rule test - put L4_DST_RANGE and L4_SRC_RANGE into one rule.
+      vars:
         config_file: "{{ config_l4_port_range_2_on_l3_table }}"
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-    - name: Rule test - put L4_DST_RANGE and L4_SRC_RANGE into one rule.
       include: "{{ run_config_test }}"
 
     - name: Run config cleanup after.
@@ -143,12 +86,12 @@
     - name: Add route.
       shell: ip route add {{ dst_mirror_subnet }} via {{ switch_if_ip }}
 
-    - set_fact:
+    - name: Rule test - valid port range on mirror table.
+      vars:
         config_file: "{{ config_l4_port_range_on_mirror_table }}"
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-    - name: Rule test - valid port range on mirror table.
       include: "{{ run_config_test }}"
 
     - block:
@@ -170,68 +113,68 @@
     - name: Create an L3 table.
       shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
 
-    - set_fact:
+    - name: Rule test - negative numbers used in range.
+      vars:
         config_file: "{{ config_l4_port_range_invalid_1 }}"
         test_expect_file: "{{ config_l4_port_range_expect }}"
         errors_expected: true
         run_cleanup: false
-    - name: Rule test - negative numbers used in range.
       include: "{{ run_config_test }}"
 
-    - set_fact:
+    - name: Rule test - boundaries reversed.
+      vars:
         config_file: "{{ config_l4_port_range_invalid_2 }}"
         test_expect_file: "{{ config_l4_port_range_expect }}"
         errors_expected: true
         run_cleanup: false
-    - name: Rule test - boundaries reversed.
       include: "{{ run_config_test }}"
 
-    - set_fact:
+    - name: Rule test - port out of range.
+      vars:
         config_file: "{{ config_l4_port_range_invalid_3 }}"
         test_expect_file: "{{ config_l4_port_range_expect }}"
         errors_expected: true
         run_cleanup: false
-    - name: Rule test - port out of range.
       include: "{{ run_config_test }}"
 
-    - set_fact:
+    - name: Rule test - invalid syntax used in range.
+      vars:
         config_file: "{{ config_l4_port_range_invalid_4 }}"
         test_expect_file: "{{ config_l4_port_range_expect }}"
         errors_expected: true
         run_cleanup: false
-    - name: Rule test - invalid syntax used in range.
       include: "{{ run_config_test }}"
 
-    - set_fact:
+    - name: Rule test - two ranges in rule, both matching source port.
+      vars:
         config_file: "{{ config_l4_port_range_invalid_5 }}"
         test_expect_file: "{{ config_l4_port_range_expect }}"
         errors_expected: true
         run_cleanup: false
-    - name: Rule test - two ranges in rule, both matching source port.
       include: "{{ run_config_test }}"
 
-    - set_fact:
+    - name: Rule test - two ranges in rule, both matching destination port.
+      vars:
         config_file: "{{ config_l4_port_range_invalid_6 }}"
         test_expect_file: "{{ config_l4_port_range_expect }}"
         errors_expected: true
         run_cleanup: false
-    - name: Rule test - two ranges in rule, both matching destination port.
       include: "{{ run_config_test }}"
 
-    - set_fact:
+    - name: Rule test - three valid ranges in one rule (error case).
+      vars:
         config_file: "{{ config_l4_port_range_invalid_7 }}"
         test_expect_file: "{{ config_l4_port_range_expect }}"
         errors_expected: true
         run_cleanup: false
-    - name: Rule test - three valid ranges in one rule (error case).
       include: "{{ run_config_test }}"
 
-    - set_fact:
+    - name: Rule test - 17 valid rules (syncd might crash).
+      vars:
         config_file: "{{ config_l4_port_range_invalid_8 }}"
         test_expect_file: "{{ config_l4_port_range_expect }}"
         errors_expected: false
         run_cleanup: false
-    - name: Rule test - 17 valid rules (syncd might crash).
       include: "{{ run_config_test }}"
 
     - block:
@@ -253,12 +196,12 @@
     - name: Create the rule with limited port range permitted (1028 - 4096).
       shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_l4_limited_port_range }}
 
-    - set_fact:
+    - name: Delete rule test - rule with port range.
+      vars:
         config_file: "{{ config_delete_limited_port_range }}"
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-    - name: Delete rule test - rule with port range.
       include: "{{ run_config_test }}"
 
     - block:
@@ -276,12 +219,12 @@
     - name: Create the rule with limited port range permitted (1028 - 4096).
       shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_l4_limited_port_range }}
 
-    - set_fact:
+    - name: Delete rule test - rule with port range.
+      vars:
         config_file: "{{ config_delete_different_port_range }}"
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-    - name: Delete rule test - rule with port range.
       include: "{{ run_config_test }}"
 
     - block:
@@ -299,11 +242,11 @@
   #----------------------------------------------
 
     - block:
-        - set_fact:
+        - name: Initialize loganalizer. Put start marker to log file.
+          vars:
             test_expect_file: "{{ config_empty_expect }}"
             loganalyzer_run_init: true
             loganalyzer_run_analyze: false
-        - name: Initialize loganalizer. Put start marker to log file.
           include: "{{ run_loganalyzer }}"
 
         - name: Set host interface IP address.
@@ -343,7 +286,8 @@
           delegate_to: "{{ ptf_host }}"
 
         - name: Wait for counters to update (it updates every 10 sec) ...
-          shell: sleep 10
+          pause:
+            seconds: 10
 
         - name: Read result counters value (after sending packets).
           command: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_limited_port_range_name }}" Packets
@@ -369,7 +313,8 @@
           delegate_to: "{{ ptf_host }}"
 
         - name: Wait for counters to update (it updates every 10 sec) ...
-          shell: sleep 10
+          pause:
+            seconds: 10
 
         - name: Read result counters value (after sending packets).
           shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_limited_port_range_name }}" Packets
@@ -380,11 +325,11 @@
           when: (counters_value_result.stdout|int - counters_value_initial.stdout|int) != 0
 
       always:
-        - set_fact:
+        - name: Run analyze-phase and check if no errors occured.
+          vars:
             test_expect_file: "{{ config_empty_expect }}"
             loganalyzer_run_analyze: true
             loganalyzer_run_init: false
-        - name: Run analyze-phase and check if no errors occured.
           include: "{{ run_loganalyzer }}"
 
   always:

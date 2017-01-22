@@ -1,0 +1,7 @@
+---
+
+testname_unique: "{{ testname }}.{{ ansible_date_time.date }}.{{ ansible_date_time.time }}"
+
+test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
+summary_file: "{{ 'summary.loganalysis.{{ testname_unique }}.log' }}"
+result_file: "{{ 'result.loganalysis.{{ testname_unique }}.log' }}"

@@ -6,7 +6,8 @@
       failed_when: (expect_data == true and grep_redis.rc != 0) or (expect_data == false and grep_redis.rc == 0)
 
     - name: Wait for data to be written into Counters DB ...
-      shell: sleep 10
+      pause:
+        seconds: 10
 
     - name: Read counters value.
       shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name_check }}:{{ rule_name_check }}" Packets

@@ -1,18 +1,13 @@
+#-----------------------------------------
+# Test json-configuration:
+#   1) Upload json-config through swssconfig.
+#   2) Check log through the loganalyzer.
+#   3) Run cleanup if needed.
+#-----------------------------------------
+
+- include_vars: "{{ vars_files_location }}/run_config_test_vars.yml"
+
 - block:
-    - set_fact:
-        testname_unique: "{{ testname }}.{{ ansible_date_time.date }}.{{ ansible_date_time.time }}"
-
-    - set_fact:
-        test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
-        loganalyzer_init: "{{ 'roles/test/files/tools/loganalyzer/loganalyzer_init.yml' }}"
-        loganalyzer_analyze: "{{ 'roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml' }}"
-
-        match_file: "{{ 'loganalyzer_common_match.txt' }}"
-        ignore_file: "{{ 'loganalyzer_common_ignore.txt' }}"
-
-        summary_file: "{{ 'summary.loganalysis.{{ testname_unique }}.log' }}"
-        result_file: "{{ 'result.loganalysis.{{ testname_unique }}.log' }}"
-
     - name: Initialize loganalizer. Put start marker to log file.
       include: "{{ loganalyzer_init }}"
 
@@ -46,6 +41,6 @@
           - "{{ result_file }}"
       when: (errors_expected == true and expects_found.stdout == "0") or (errors_expected == false and errors_found.stdout != "0")
 
-    - name: Do configuration cleanup after {{ testname}} / {{ config_file }}
+    - name: Do configuration cleanup after {{ testname }} / {{ config_file }}
       include: "{{ run_config_cleanup }}"
       when: run_cleanup == true

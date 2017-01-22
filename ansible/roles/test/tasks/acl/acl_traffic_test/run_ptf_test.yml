@@ -1,15 +1,10 @@
+#-----------------------------------------
+# Send some TCP packets.
+#-----------------------------------------
+
+- include_vars: "{{ vars_files_location }}/run_ptf_test_vars.yml"
+
 - block:
-    - set_fact:
-        testname_unique: "{{ testname }}.{{ ansible_date_time.date }}.{{ ansible_date_time.time }}"
-
-    - set_fact:
-        test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
-        summary_file: "{{ 'summary.loganalysis.{{ testname_unique }}.log' }}"
-        result_file: "{{ 'result.loganalysis.{{ testname_unique }}.log' }}"
-
-    - name: Wait for link
-      command: sleep 40
-
     - name: Execute ping from host to switch to validate link
       shell: ping {{ switch_ip1 }} -c 3
       register: pingrc
@@ -62,14 +57,6 @@
       fail: msg="{{ errors_found.stdout }} errors found while running {{ testname }} / {{ config_file }}. Please see {{ test_out_dir }}/{{ result_file }}"
       when: errors_found.stdout != "0"
 
-    - name: Do configuration cleanup after the test
-      command: systemctl restart orchagent
-      register: clean_up
-      when: run_cleanup == true
-
-    - fail: msg="Failed to cleanup the ACL configuration"
-      when: clean_up.rc != 0 and run_cleanup == true
-
-    - name: Wait for orchagent initialization
-      command: sleep 35
+    - name: Do configuration cleanup.
+      include: "{{ run_config_cleanup }}"
       when: run_cleanup == true

@@ -1,10 +1,7 @@
 # Tests json-file correctness.
 # Syntax correctness analysis is performed by Orchagent.
 
-- set_fact:
-    acl_config_valid: "{{ 'acl_config_valid.json' }}"
-    acl_config_invalid: "{{ 'acl_config_invalid.json' }}"
-    testname: "{{ 'acl_input_test' }}"
+- include_vars: "{{ vars_files_location }}/acl_input_test_vars.yml"
 
 - name: Copy JSON configs onto switch
   copy: src="{{ tests_location }}/{{ testname }}/{{ item }}" dest="{{ run_dir }}/{{ item }}"
@@ -38,15 +35,8 @@
     - fail: msg="swssconfig - no error caught when uploading {{ acl_config_invalid }}"
       when: invalid_config_upload.rc == 0
 
-    - name: Do configuration cleanup after input_test.
-      command: systemctl restart orchagent
-      register: clean_up
-
-    - fail: msg="swssconfig - failed to cleanup the ACL configuration"
-      when: clean_up.rc != 0
-
-    - name: Wait for orchagent initialization
-      command: sleep 35
+    - name: Do configuration cleanup.
+      include: "{{ run_config_cleanup }}"
 
     - name: Remove all the files created by test.
       file: path="{{ run_dir }}/{{ item }}" state=absent

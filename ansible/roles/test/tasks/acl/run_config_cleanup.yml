@@ -7,4 +7,5 @@
   when: clean_up.rc != 0
 
 - name: Wait for orchagent initialization
-  command: sleep 35
+  pause:
+    seconds: 35
