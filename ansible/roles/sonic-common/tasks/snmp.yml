@@ -5,9 +5,6 @@
     docker_image: "{{ image_id_snmp }}"
     docker_privileged: yes
     docker_state: absent
-    docker_volumes:
-      -  /etc/sonic/:/etc/sonic/:ro
-      -  /etc/ssw/:/etc/ssw/:ro
 
 - name: switch SNMP image based on SONiC version
   set_fact:
