@@ -1,0 +1,46 @@
+#-----------------------------------------
+# Test json-configuration:
+#   1) Upload json-config through swssconfig.
+#   2) Check log through the loganalyzer.
+#   3) Run cleanup if needed.
+#-----------------------------------------
+
+- include_vars: "{{ vars_files_location }}/run_config_test_vars.yml"
+
+- block:
+    - name: Initialize loganalizer. Put start marker to log file.
+      include: "{{ loganalyzer_init }}"
+
+    - name: Load JSON config {{ config_file }}
+      command: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_file }}
+
+    - name: Use loganalyzer to check for the error messages {{ testname }} / {{ config_file }}.
+      include: "{{ loganalyzer_analyze }}"
+
+    - name: Get the total number of expected messages.
+      shell: grep "TOTAL EXPECTED" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL EXPECTED MATCHES:[[:space:]]*//p"
+      register: expects_found
+      when: errors_expected == true
+
+    - name: Check that expected error messages are found (negative tests only).
+      fail: msg="Expected error messages are not found while running {{ testname }} / {{ config_file }}"
+      when: errors_expected == true and expects_found.stdout == "0"
+
+    - name: Get the total number of error messages.
+      shell: grep "TOTAL MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL MATCHES:[[:space:]]*//p"
+      register: errors_found
+
+    - name: Check the number of error messages (positive tests only).
+      fail: msg="{{ errors_found.stdout }} errors found while running {{ testname }} / {{ config_file }}. Please see {{ test_out_dir }}/{{ result_file }}"
+      when: errors_expected == false and errors_found.stdout != "0"
+
+    - name: Copy test data to host.
+      fetch: src={{ test_out_dir }}/{{ item }} dest=failed-test-data/{{ testname_unique }}/{{ item }}
+      with_items:
+          - "{{ summary_file }}"
+          - "{{ result_file }}"
+      when: (errors_expected == true and expects_found.stdout == "0") or (errors_expected == false and errors_found.stdout != "0")
+
+    - name: Do configuration cleanup after {{ testname }} / {{ config_file }}
+      include: "{{ run_config_cleanup }}"
+      when: run_cleanup == true

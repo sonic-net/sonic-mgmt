@@ -1,0 +1,42 @@
+#-----------------------------------------
+# Execute ping and check the log.
+#-----------------------------------------
+
+- include_vars: "{{ vars_files_location }}/run_ping_test_vars.yml"
+
+- block:
+    - name: Execute ping from host to switch to validate link
+      shell: ping {{ switch_ip1 }} -c 3
+      register: pingrc
+      failed_when: pingrc.rc != 0
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Start log analyser
+      include: "{{ loganalyzer_init }}"
+
+    - name: Set ACL rules.
+      command: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_file }}
+
+    - debug: msg="=== test json = {{ config_file }}"
+
+    - name: Execute ping from host to switch
+      shell: ping {{ switch_ip1 }} -c 3
+      register: pingrc
+      failed_when: (pingrc.rc != 0 and errors_expected == false) or (pingrc.rc == 0 and errors_expected == true)
+      delegate_to: "{{ ptf_host }}"
+
+  always:
+    - name: Stop log analyser
+      include: "{{ loganalyzer_analyze }}"
+
+    - name: Get the total number of error messages.
+      shell: grep "TOTAL MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL MATCHES:[[:space:]]*//p"
+      register: errors_found
+
+    - name: Check the number of error messages (positive tests only).
+      fail: msg="{{ errors_found.stdout }} errors found while running {{ testname }} / {{ config_file }}. Please see {{ test_out_dir }}/{{ result_file }}"
+      when: errors_found.stdout != "0"
+
+    - name: Do configuration cleanup.
+      include: "{{ run_config_cleanup }}"
+      when: run_cleanup == true

@@ -1,0 +1,11 @@
+
+- name: Do configuration cleanup.
+  shell: systemctl restart orchagent
+  register: clean_up
+
+- fail: msg="swssconfig - failed to cleanup the ACL configuration"
+  when: clean_up.rc != 0
+
+- name: Wait for orchagent initialization
+  pause:
+    seconds: 35
