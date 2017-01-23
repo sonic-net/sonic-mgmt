@@ -7,19 +7,21 @@ version_iproute2_mlnx: "1.mlnx*"
 version_docker_engine: 1.11.1-0~jessie
 version_sonic_cli: "*"
 
-image_id_database: docker-database:latest
-image_id_snmp: docker-snmp:latest
-image_id_lldp: docker-lldp:latest
-image_id_platform_monitor: docker-platform-monitor:latest
+dockers_tag: "latest"
 
-image_id_syncd: docker-syncd:latest
-image_id_syncd_mlnx: docker-syncd-mlnx:latest
-image_id_syncd_cavm: docker-syncd-cavm:latest
-image_id_syncd_mlnx_rpc: docker-syncd-mlnx-rpc:latest
-image_id_orchagent: docker-orchagent:latest
-image_id_orchagent_mlnx: docker-orchagent-mlnx:latest
-image_id_orchagent_cavm: docker-orchagent-cavm:latest
-image_id_fpm: docker-fpm:latest
-image_id_snmp_sv2: docker-snmp-sv2:latest
-image_id_lldp_sv2: docker-lldp-sv2:latest
-image_id_teamd: docker-teamd:latest
+image_id_database: docker-database:{{ dockers_tag }}
+image_id_snmp: docker-snmp:{{ dockers_tag }}
+image_id_lldp: docker-lldp:{{ dockers_tag }}
+image_id_platform_monitor: docker-platform-monitor:{{ dockers_tag }}
+
+image_id_syncd: docker-syncd:{{ dockers_tag }}
+image_id_syncd_mlnx: docker-syncd-mlnx:{{ dockers_tag }}
+image_id_syncd_cavm: docker-syncd-cavm:{{ dockers_tag }}
+image_id_syncd_mlnx_rpc: docker-syncd-mlnx-rpc:{{ dockers_tag }}
+image_id_orchagent: docker-orchagent:{{ dockers_tag }}
+image_id_orchagent_mlnx: docker-orchagent-mlnx:{{ dockers_tag }}
+image_id_orchagent_cavm: docker-orchagent-cavm:{{ dockers_tag }}
+image_id_fpm: docker-fpm:{{ dockers_tag }}
+image_id_snmp_sv2: docker-snmp-sv2:{{ dockers_tag }}
+image_id_lldp_sv2: docker-lldp-sv2:{{ dockers_tag }}
+image_id_teamd: docker-teamd:{{ dockers_tag }}
