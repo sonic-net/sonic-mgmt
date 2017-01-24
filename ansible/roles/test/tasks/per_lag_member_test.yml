@@ -1,0 +1,27 @@
+#--------------------------------------------------------------------
+# Run lag test per member..
+#--------------------------------------------------------------------
+#
+- block:
+
+    - name: "bring {{lag_name}} member port {{cur_lag_member_name}} down"
+      become: yes
+      shell: ifconfig "{{cur_lag_member_name}}" down
+
+    #Pause to let route changes propagated from uqagga to sonic and asic.
+    - pause: seconds=240
+   
+    - name: "Running INNER test {{ testname }}"
+      shell: ptf --test-dir acstests lag_test.LagAllRoutes  --platform remote -t "lag_index={{lag_index}};member_index={{cur_lag_member_index}};verbose=True;router_mac='{{ ansible_Ethernet0['macaddress'] }}';lag_info='/tmp/lag.txt'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+      register: out
+      
+    - debug: var=out.stdout_lines
+      when: out.rc != 0
+
+  always:
+    - name: "bring {{lag_name}} member port {{cur_lag_member_name}} up"
+      become: yes
+      shell: ifconfig "{{cur_lag_member_name}}" up
