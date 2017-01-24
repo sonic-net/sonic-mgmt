@@ -1,33 +1,12 @@
-- name: Remove VMs. vm set {{ id }}
+- name: Remove VMs.
   include: stop_vm.yml
   vars:
-    vm_name: "{{ id }}_{{ item.key }}"
+    vm_name: "{{ item }}"
     disk_image: "{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
-  with_dict: "{{ VMs }}"
+  with_items: "{{ VM_hosts }}"
 
-- name: Unbind external ifaces to VM set. vm set {{ id }}
-  vm_network:
-    cmd: 'unbind'
-    vm_set_id: "{{ id }}"
-    port1_bridge: "{{ port1_bridge }}"
-    vm_set_dict: "{{ VMs }}"
-    fp_mtu: "{{ fp_mtu_size }}"
-    ext_iface: "{{ external_iface }}"
-    vlan_base: "{{ vlan_base }}"
-
-- name: Remove ptf docker container. vm set {{ id }}
-  docker:
-    name: ptf_injected_{{ id }}
-    image: "{{ docker_registry_host }}/{{ docker_image }}"
-    state: absent
-
-- name: Destroy VM set network. vm set {{ id }}
-  vm_network:
+- name: Destroy VMs network
+  vm_topology:
     cmd: 'destroy'
-    vm_set_id: "{{ id }}"
-    port1_bridge: "{{ port1_bridge }}"
-    vm_set_dict: "{{ VMs }}"
-    fp_mtu: "{{ fp_mtu_size }}"
-    ext_iface: "{{ external_iface }}"
-    vlan_base: "{{ vlan_base }}"
+    vm_names: "{{ VM_hosts }}"
 

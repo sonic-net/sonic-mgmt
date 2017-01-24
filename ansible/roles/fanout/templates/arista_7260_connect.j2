@@ -1,0 +1,22 @@
+!
+config
+{% for i in range(1,65) %}
+{% set intf =  'Ethernet' + i|string  %}
+{% if intf in root_conn %}
+{% set peer_dev = root_conn[intf]['peerdevice'] %}
+{% set peer_port = root_conn[intf]['peerport'] %}
+{% if 'Fanout' not in lab_devices[peer_dev]['Type']  %}
+ interface {{ intf }} 
+  switchport mode trunk
+  switchport trunk allowed vlan remove {{ dut_vlans | list | join(',') }}
+  no shutdown
+{% if peer_dev == server and peer_port == server_port %}
+  switchport trunk allowed vlan add {{ dut_vlans | list | join(',') }}
+{% endif %}
+{% endif %}
+{% endif %}
+{% endfor %}
+!
+copy running-config startup-config
+end
+

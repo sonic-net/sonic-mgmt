@@ -9,6 +9,7 @@ import copy
 import ipaddr as ipaddress
 from collections import defaultdict
 
+
 from lxml import etree as ET
 from lxml.etree import QName
 
@@ -361,6 +362,9 @@ def parse_xml(filename, hostname):
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
         for i in range(25, 33):
             port_alias_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+    else:
+        for i in range(0, 128, 4):
+            port_alias_map["Ethernet%d" % i] = "Ethernet%d" % i
 
     for child in root:
         if child.tag == str(QName(ns, "DpgDec")):
@@ -459,11 +463,10 @@ def print_parse_xml(hostname):
     results = parse_xml(filename, hostname)
     print(json.dumps(results, indent=3, cls=minigraph_encoder))
 
-def debug_main():
-    print_parse_xml('switch1')
 
 from ansible.module_utils.basic import *
 
 if __name__ == "__main__":
     main()
     #debug_main()
+
