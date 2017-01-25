@@ -26,9 +26,7 @@ class ActionModule(ActionBase):
         _timeout  = self._task.args.get('timeout', None)
 
         login = { 'user': [], 'enable': _login['enable'] }
-        if _svcacc is not None:
-            for acc in _svcacc:
-                login['user'].append((acc['user'], acc['passwd']))
+
         for passwd in reversed(_login['passwd']):
             login['user'].append((_login['user'], passwd))
 
