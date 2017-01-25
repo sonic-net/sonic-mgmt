@@ -48,8 +48,6 @@
 
 - include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
-- debug : msg="INVOKE LAG TEST"
-
 - block:
 
     - name: copy the test to ptf container
@@ -65,6 +63,13 @@
       
     - debug: var=out.stdout_lines
       when: out.rc != 0
+
+    - name: PortChannel structure
+      debug: msg="{{ minigraph_portchannel_interfaces }}"
+      
+    - name: "Run {{ testname }} with changing member port state to up and down"
+      include: per_lag_test.yml
+      with_items: minigraph_portchannel_interfaces
 
   always:
     - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml

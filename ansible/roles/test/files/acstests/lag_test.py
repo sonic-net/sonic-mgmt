@@ -185,7 +185,7 @@ class LagAllRoutes(BaseTest,RouterUtility):
         return True
     #---------------------------------------------------------------------
     
-    def check_lag_member_counts(self, port_cnt_map, ecmp_group_list, expected_ratio = 0.25):
+    def check_lag_member_counts(self, port_cnt_map, ecmp_group_list, expected_ratio = 0.25, inactive_lag_info = None):
         '''
         @summary: Check traffic distributed between lag memeber ports inside each lag.
         @param port_cnt_map: map with collected port counters during runtime
@@ -195,8 +195,8 @@ class LagAllRoutes(BaseTest,RouterUtility):
         The expected amount of packets == total packets on lag / number of members.
         @return Boolean
         '''
-        self.print_verbose('\ncheck_lag_member_counts--------------\n')
-        self.print_verbose('expected_ratio%f'%expected_ratio)
+        self.print_verbose('\ncheck_lag_member_counts --------------\n')
+        self.print_verbose('expected_ratio:%f'%expected_ratio)
         if self.VERBOSE_OUT:
             pprint.pprint(port_cnt_map)
         
@@ -209,10 +209,19 @@ class LagAllRoutes(BaseTest,RouterUtility):
         # process each LAG
         for group_idx, port_group in enumerate(ecmp_group_list) :
             
-            self.print_verbose('check lag[%d] members ----------------' % group_idx)
+            self.print_verbose('\ncheck lag[%d] members ----------------' % group_idx)
             
             # total packet count for current LAG
             lag_total_cnt = self.get_lag_total_cnt(port_group, port_cnt_map)
+            
+            if inactive_lag_info is not None:
+                if group_idx == inactive_lag_info[0]:
+                    self.print_verbose('lag[%d] member marked as inactive' % group_idx)
+                    if lag_total_cnt != 0:
+                        self.print_verbose('ERROR: lag[%d] member:%d is marked as inactive, but total lag count is not 0, count:%d' % (group_idx, inactive_lag_info[0], lag_total_cnt))
+                    result = result and (lag_total_cnt == 0)
+                    continue
+            
             if lag_total_cnt == 0:            
                 self.print_verbose('lag received 0 packets')
                 continue
@@ -240,10 +249,11 @@ class LagAllRoutes(BaseTest,RouterUtility):
         return result
             
     #---------------------------------------------------------------------
-    def check_lag_counts(self, port_cnt_map, ecmp_group_list, expected_ratio = 0.25):
+    def check_lag_counts(self, port_cnt_map, ecmp_group_list, expected_ratio = 0.25, inactive_lag_info = None):
         '''
         @summary: Check traffic distributed between lags
         @param port_cnt_map: map with collected port counters during runtime
+        @param inactive_lag_info: tuple <lag_index, inactive_member_index>
         @return Boolean
         '''
         self.print_verbose('\ncheck_lag_counts ------------\n')
@@ -257,15 +267,21 @@ class LagAllRoutes(BaseTest,RouterUtility):
 
         result = True       
         
-        lag_counter = []
+        lag_counter = {}
         lag_total_cnt = 0
         # get counters for each LAG, and total across all LAGs.
         for group_idx, port_group in enumerate(ecmp_group_list) :
-
             # total packet count for current LAG
             lag_cnt = self.get_lag_total_cnt(port_group, port_cnt_map)
-            lag_counter.append(lag_cnt)
             self.print_verbose('lag[%d] counter:%d' % (group_idx, lag_cnt))
+            
+            if (inactive_lag_info is not None) and (group_idx == inactive_lag_info[0]):
+                    self.print_verbose('lag[%d] member:%d marked as inactive.'%(group_idx,inactive_lag_info[1]))
+                    if lag_cnt != 0:
+                        self.print_verbose('ERROR: counter of inactive lag[%d] is not 0. counter:%d' % (group_idx, lag_cnt))
+                        result = False
+            else:
+                lag_counter[group_idx] = lag_cnt
             lag_total_cnt += lag_cnt
             
         self.print_verbose('lag_total_cnt:%d' % lag_total_cnt)
@@ -282,8 +298,8 @@ class LagAllRoutes(BaseTest,RouterUtility):
         self.print_verbose('expected_cnt_per_lag:%f' % expected_cnt_per_lag)
 
         # check counter on each LAG
-        for lag_ind, actual_lag_cnt in enumerate(lag_counter):
-            self.print_verbose('check lag[%d] ----------------' % lag_ind)
+        for lag_ind, actual_lag_cnt in lag_counter.iteritems():
+            self.print_verbose('\ncheck lag[%d] ----------------' % lag_ind)
             self.print_verbose('actual_lag_cnt:%d' % actual_lag_cnt)
             lag_result = self.check_packet_count_ratio(actual_lag_cnt, expected_cnt_per_lag, expected_ratio)
             if not lag_result:
@@ -336,14 +352,44 @@ class LagAllRoutes(BaseTest,RouterUtility):
                     src_ipv6_addr = '200' + str(i) + '::' + str(j)
                     src_ipv6_list.append(src_ipv6_addr)
         return src_ipv6_list
-
     #---------------------------------------------------------------------
+    
+    def get_inactive_lag_info(self):
+        '''
+        @summary:   parse test_params for information about inactive lag.
+                    lag_index specifies index of the lag which is inactive.
+                    member_index specifies index of the lag member port which is inactive.
+        '''
+        inactive_lag_info = None
+        lag_index = None
+        member_index = None
+        if 'lag_index' in self.test_params:
+            lag_index = self.test_params["lag_index"]
+        
+        if 'member_index' in self.test_params:
+            member_index = self.test_params["member_index"]
+        
+        if (lag_index is None) and (member_index is None):
+            inactive_lag_info = None
+        elif (lag_index is not None) and (member_index is not None):
+            inactive_lag_info = (lag_index, member_index)
+        else:
+            print 'Invalid input parameters for inactive lag state'
+            assert(False)
+            
+        return inactive_lag_info
+    
+    #---------------------------------------------------------------------
+    
     def runTest(self):
         """
         @summary: Send packet for each route and validate it arrives 
         on one of expected ECMP ports
         """
+
         self.load_lag_info(self.test_params["lag_info"])
+        inactive_lag_info = self.get_inactive_lag_info()
+        pprint.pprint(inactive_lag_info)
         passed_prefic_count = 0
         test_result = True
         result = True
@@ -377,6 +423,8 @@ class LagAllRoutes(BaseTest,RouterUtility):
             ipv6_packets = {}            
             
             if self.is_ipv4_address(dest_ip_addr):
+                if 'skip_ipv4' in self.test_params:
+                    continue
                 #Generate list of src_ip addresses. Currently we generate only 1 src_ip, but
                 #in next stages of test we'll generate N amount(tbd).
                 src_ipv4_list = self.generate_ipv4_list(1,1)
@@ -394,6 +442,8 @@ class LagAllRoutes(BaseTest,RouterUtility):
                     self.update_port_counter(port_counter, destination_port_list[rcv_port_ind], self.IPV4_SEND_PACKET_COPY_CNT)
 
             elif self.is_ipv6_address(dest_ip_addr):
+                if 'skip_ipv6' in self.test_params:
+                    continue
                 #Generate list of src_ip addresses. Currently we generate only 1 src_ip, but
                 #in next stages of test we'll generate N amount(tbd).
                 src_ipv6_list = self.generate_ipv6_list(1,1)
@@ -419,8 +469,8 @@ class LagAllRoutes(BaseTest,RouterUtility):
             
         
         spine_ecmp_group = self.get_spine_ecmp_group()
-        lag_member_counter_check = self.check_lag_member_counts(port_counter, spine_ecmp_group)
-        lag_counter_check = self.check_lag_counts(port_counter, spine_ecmp_group)
+        lag_member_counter_check = self.check_lag_member_counts(port_counter, spine_ecmp_group, 0.25, inactive_lag_info)
+        lag_counter_check = self.check_lag_counts(port_counter, spine_ecmp_group, 0.25, inactive_lag_info)
         
         print 'passed routes count:%d' % passed_prefic_count
         print 'total_ipv4_packet_cnt:%d' % total_ipv4_packet_cnt
