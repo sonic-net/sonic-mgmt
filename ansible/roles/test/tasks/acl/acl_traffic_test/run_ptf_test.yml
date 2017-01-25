@@ -31,7 +31,7 @@
       include: "{{ loganalyzer_init }}"
 
     - name: Set ACL rules.
-      command: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_file }}
+      command: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_file }}
 
     - debug: msg="======================= PTF TEST =========================="
 

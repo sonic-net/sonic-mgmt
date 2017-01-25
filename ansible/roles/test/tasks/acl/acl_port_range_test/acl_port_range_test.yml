@@ -21,12 +21,12 @@
 - include_vars: "{{ vars_files_location }}/acl_port_range_test_vars.yml"
 
 - name: Copy JSON configs onto switch.
-  copy: src="{{ tests_location }}/{{ testname }}/{{ item }}"  dest="{{ run_dir }}/{{ item }}"
+  copy: src={{ tests_location }}/{{ testname }}/{{ item }} dest={{ run_dir }}/{{ item }}
   with_items:
       - "{{ config_files }}"
 
 - name: Copy JSON configs from switch into docker filesystem.
-  command: docker cp "{{ run_dir }}/{{ item }}" orchagent:{{ docker_testdir }}/{{ item }}
+  command: docker cp {{ run_dir }}/{{ item }} {{ orchagent }}:{{ docker_testdir }}/{{ item }}
   with_items:
       - "{{ config_files }}"
 
@@ -42,7 +42,7 @@
 
       # L3 table testing.
     - name: Create an L3 table.
-      shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
 
     - name: Rule test - valid port range on L3 table.
       vars:
@@ -75,10 +75,10 @@
 
      # Mirror table and rule testing.
     - name: Create a mirror session.
-      shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_mirror_session }}
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_mirror_session }}
 
     - name: Create a mirror table.
-      shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_table_type_mirror }}
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_table_type_mirror }}
 
     - name: Add neighbor.
       shell: ip neigh add {{ switch_if_ip }} lladdr 0e:9c:37:42:43:67 dev {{ switch_if }}
@@ -111,7 +111,7 @@
       # Invalid configuration testing (valid L3 table + invalid rules).
       #--------------------------------
     - name: Create an L3 table.
-      shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
 
     - name: Rule test - negative numbers used in range.
       vars:
@@ -191,10 +191,10 @@
 # Test the configuration deleting.
 #--------------------------------
     - name: Create an L3 table.
-      shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
 
     - name: Create the rule with limited port range permitted (1028 - 4096).
-      shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_l4_limited_port_range }}
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_l4_limited_port_range }}
 
     - name: Delete rule test - rule with port range.
       vars:
@@ -217,7 +217,7 @@
       # Try to delete the same rule, but use another port range in delete-json.
       # This should not make any difference, so we dont expect any errors.
     - name: Create the rule with limited port range permitted (1028 - 4096).
-      shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_l4_limited_port_range }}
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_l4_limited_port_range }}
 
     - name: Delete rule test - rule with port range.
       vars:
@@ -265,10 +265,10 @@
           delegate_to: "{{ ptf_host }}"
 
         - name: Create an L3 table.
-          shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
+          shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
 
         - name: Create the rule with limited port range permitted (1028 - 4096).
-          shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_l4_limited_port_range }}
+          shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_l4_limited_port_range }}
 
           # Sending packets with L4 port permitted (counters value should be increased).
         - name: Read initial counters value (before sending packets).

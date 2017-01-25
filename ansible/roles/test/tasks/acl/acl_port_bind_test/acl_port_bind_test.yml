@@ -5,12 +5,12 @@
 - include_vars: "{{ vars_files_location }}/acl_port_bind_test_vars.yml"
 
 - name: Copy JSON configs onto switch.
-  copy: src="{{ tests_location }}/{{ testname }}/{{ item }}"  dest="{{ run_dir }}/{{ item }}"
+  copy: src={{ tests_location }}/{{ testname }}/{{ item }} dest={{ run_dir }}/{{ item }}
   with_items:
       - "{{ config_files }}"
 
 - name: Copy JSON configs from switch into docker filesystem.
-  command: docker cp "{{ run_dir }}/{{ item }}" orchagent:{{ docker_testdir }}/{{ item }}
+  command: docker cp {{ run_dir }}/{{ item }} {{ orchagent }}:{{ docker_testdir }}/{{ item }}
   with_items:
       - "{{ config_files }}"
 

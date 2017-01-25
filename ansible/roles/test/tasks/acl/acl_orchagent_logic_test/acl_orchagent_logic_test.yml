@@ -5,12 +5,12 @@
 - include_vars: "{{ vars_files_location }}/acl_orchagent_logic_test_vars.yml"
 
 - name: Copy JSON configs onto switch.
-  copy: src="{{ tests_location }}/{{ testname }}/{{ item }}"  dest="{{ run_dir }}/{{ item }}"
+  copy: src={{ tests_location }}/{{ testname }}/{{ item }} dest={{ run_dir }}/{{ item }}
   with_items:
       - "{{ config_files }}"
 
 - name: Copy JSON configs from switch into docker filesystem.
-  command: docker cp "{{ run_dir }}/{{ item }}" orchagent:{{ docker_testdir }}/{{ item }}
+  command: docker cp {{ run_dir }}/{{ item }} {{ orchagent }}:{{ docker_testdir }}/{{ item }}
   with_items:
       - "{{ config_files }}"
 
@@ -67,17 +67,18 @@
 
       # Check return code from swssconfig
     - name: Table test - invalid operation applied for table ("OP" field).
-      shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_operation_invalid_1 }}
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_operation_invalid_1 }}
       register: invalid_oper_1
       failed_when: invalid_oper_1.rc == 0
 
     - name: Table test - invalid operation applied for table ("OP" field).
-      shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_operation_invalid_2 }}
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_operation_invalid_2 }}
       register: invalid_oper_2
       failed_when: invalid_oper_2.rc == 0
 
     - name: Run config cleanup after.
       include: "{{ run_config_cleanup }}"
+
 #-----------------------------------------
 # test duplicate table creation
 #-----------------------------------------
@@ -630,4 +631,3 @@
       file: path="{{ run_dir }}/{{ item }}" state=absent
       with_items:
           - "{{ config_files }}"
-
