@@ -30,10 +30,20 @@
   when: host_saithrift is not defined
   tags: syncd
 
-- name: Start orchagent docker container
-  include: ../../sonic-common/tasks/sonicdocker.yml
+# Remove deprecated orchagent container
+- name: Remove orchagent docker container
+  include: sonicdocker.yml
   vars:
     docker_container: orchagent
+    docker_image: "{{ image_id_orchagent_cavm }}"
+    docker_privileged: yes
+    docker_state: absent
+  tags: orchagent
+
+- name: Start swss docker container
+  include: sonicdocker.yml
+  vars:
+    docker_container: swss
     docker_image: "{{ image_id_orchagent_cavm }}"
     docker_privileged: yes
     docker_state: reloaded
