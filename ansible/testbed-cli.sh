@@ -81,7 +81,7 @@ function add_topo
     server_3) server_port=p5p1 ;;
   esac
 
-#  ansible-playbook fanout_connect.yml -i str --limit "$dut" -b --vault-password-file="$2" -e "server=${server/server_/str-acs-serv-0} server_port=$server_port"
+  ansible-playbook fanout_connect.yml -i str --limit "$dut" -b --vault-password-file="$2" -e "server=${server/server_/str-acs-serv-0} server_port=$server_port"
 
   echo Done
 }
@@ -111,7 +111,7 @@ function renumber_topo
     server_3) server_port=p5p1 ;;
   esac
 
-#  ansible-playbook fanout_connect.yml -i str --limit "$dut" -b --vault-password-file="$2" -e "server=${server/server_/str-acs-serv-0} server_port=$server_port"
+  ansible-playbook fanout_connect.yml -i str --limit "$dut" -b --vault-password-file="$2" -e "server=${server/server_/str-acs-serv-0} server_port=$server_port"
 
   echo Done
 }

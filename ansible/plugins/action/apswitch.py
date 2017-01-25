@@ -26,7 +26,6 @@ class ActionModule(ActionBase):
         _timeout  = self._task.args.get('timeout', None)
 
         login = { 'user': [], 'enable': _login['enable'] }
-
         for passwd in reversed(_login['passwd']):
             login['user'].append((_login['user'], passwd))
 
