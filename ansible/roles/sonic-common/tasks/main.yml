@@ -190,6 +190,7 @@
         group=root
         mode=0644
   tags: ssw
+  when: sonic_hwsku != "AS7512"
 
 # Setup Platform
 - include: platform.yml
