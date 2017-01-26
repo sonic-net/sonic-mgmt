@@ -83,6 +83,7 @@ CMD_DEBUG_FNAME = '/tmp/vmtopology.cmds.txt'
 EXCEPTION_DEBUG_FNAME = '/tmp/vmtopology.exception.txt'
 
 OVS_FP_BRIDGE_TEMPLATE = 'br-%s-%d'
+OVS_FP_TAP_TEMPLATE = '%s-t%d'
 OVS_BRIDGE_BACK_TEMPLATE = 'br-%s-back'
 INJECTED_INTERFACES_TEMPLATE = 'inje-%s-%d'
 PTF_NAME_TEMPLATE = 'ptf_%s'
@@ -296,8 +297,9 @@ class VMTopology(object):
                vlan_iface = "%s.%d" % (self.ext_iface, vlan_id)
                injected_iface = INJECTED_INTERFACES_TEMPLATE % (self.vm_set_name, vlan)
                port0_bridge = OVS_FP_BRIDGE_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
+               vm_tap = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
                self.create_phys_vlan(vlan_iface, vlan_id)
-               self.bind_phys_vlan(port0_bridge, vlan_iface, injected_iface)
+               self.bind_phys_vlan(port0_bridge, vlan_iface, injected_iface, vm_tap)
 
         return
 
@@ -374,7 +376,7 @@ class VMTopology(object):
 
         return
 
-    def bind_phys_vlan(self, br_name, vlan_iface, injected_iface):
+    def bind_phys_vlan(self, br_name, vlan_iface, injected_iface, vm_iface):
         ports = VMTopology.get_ovs_br_ports(br_name)
 
         if injected_iface not in ports:
@@ -386,15 +388,16 @@ class VMTopology(object):
         bindings = VMTopology.get_ovs_port_bindings(br_name)
         vlan_iface_id = bindings[vlan_iface]
         injected_iface_id = bindings[injected_iface]
+        vm_iface_id = bindings[vm_iface]
 
         # clear old bindings
         VMTopology.cmd('ovs-ofctl del-flows %s' % br_name)
 
         # Add flow from a VM to an external iface
-        VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=1,action=output:%s" % (br_name, vlan_iface_id))
+        VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br_name, vm_iface_id, vlan_iface_id))
 
         # Add flow from external iface to a VM and a ptf container
-        VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:1,%s" % (br_name, vlan_iface_id, injected_iface_id))
+        VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s,%s" % (br_name, vlan_iface_id, vm_iface_id, injected_iface_id))
 
         # Add flow from a ptf container to an external iface
         VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br_name, injected_iface_id, vlan_iface_id))
