@@ -12,12 +12,12 @@
 - include_vars: "{{ vars_files_location }}/acl_counter_traffic_test_vars.yml"
 
 - name: Copy JSON configs onto switch.
-  copy: src="{{ tests_location }}/{{ testname }}/{{ item }}"  dest="{{ run_dir }}/{{ item }}"
+  copy: src={{ tests_location }}/{{ testname }}/{{ item }} dest={{ run_dir }}/{{ item }}
   with_items:
       - "{{ config_files }}"
 
 - name: Copy JSON configs from switch into docker filesystem.
-  shell: docker cp "{{ run_dir }}/{{ item }}" orchagent:{{ docker_testdir }}/{{ item }}
+  shell: docker cp {{ run_dir }}/{{ item }} {{ orchagent }}:{{ docker_testdir }}/{{ item }}
   with_items:
       - "{{ config_files }}"
 
@@ -31,10 +31,10 @@
       delegate_to: "{{ ptf_host }}"
 
     - name: Create an ACL L3 table.
-      shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
 
     - name: Create a rule within L3 table.
-      shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_rule }}
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_rule }}
 
     - name: Check if {{ rule_name}} data is written into DBs.
       vars:
@@ -87,7 +87,7 @@
 
       # Delete rule and check if config is deleted as well
     - name: Delete L3-rule.
-      shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_rule_delete }}
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_rule_delete }}
 
     - name: Check if {{ rule_name}} data is removed from DBs.
       vars:
@@ -101,10 +101,10 @@
 #--------------------
 
     - name: Create a mirror session.
-      shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_mirror_session }}
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_mirror_session }}
 
     - name: Create a mirror table.
-      shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_table_type_mirror }}
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_table_type_mirror }}
 
     - name: Add neighbor.
       shell: ip neigh add {{ switch_if1_ip }} lladdr 0e:9c:37:42:43:67 dev Ethernet0
@@ -113,7 +113,7 @@
       shell: ip route add {{ dst_mirror_subnet }} via {{ switch_if1_ip }}
 
     - name: Create a rule within mirror table.
-      shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_rule_mirror }}
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_rule_mirror }}
 
     - name: Check that {{ mirror_rule_name }} data is written into DBs.
       vars:
@@ -145,7 +145,7 @@
       when: (counters_value_result.stdout|int - counters_value_initial.stdout|int) != packets_sent|int
 
     - name: Delete mirror-rule.
-      shell: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_rule_mirror_delete }}
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_rule_mirror_delete }}
 
     - name: Check that {{ mirror_rule_name }} data is removed from DBs.
       vars:
@@ -153,7 +153,6 @@
         rule_name_check: "{{ mirror_rule_name }}"
         expect_data: false
       include: "{{ acl_check_db }}"
-
 
       # CLEANUP.
     - name: Run config cleanup after {{ testname}}

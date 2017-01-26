@@ -1,6 +1,6 @@
 
 - name: Do configuration cleanup.
-  shell: systemctl restart orchagent
+  shell: systemctl restart {{ orchagent }}
   register: clean_up
 
 - fail: msg="swssconfig - failed to cleanup the ACL configuration"

@@ -4,25 +4,25 @@
 - include_vars: "{{ vars_files_location }}/acl_input_test_vars.yml"
 
 - name: Copy JSON configs onto switch
-  copy: src="{{ tests_location }}/{{ testname }}/{{ item }}" dest="{{ run_dir }}/{{ item }}"
+  copy: src={{ tests_location }}/{{ testname }}/{{ item }} dest={{ run_dir }}/{{ item }}
   with_items:
       - "{{ acl_config_valid }}"
       - "{{ acl_config_invalid }}"
 
 - name: Copy JSON configs from switch into docker filesystem
-  command: docker cp "{{ run_dir }}/{{ item }}" orchagent:"{{ docker_testdir }}/{{ item }}"
+  command: docker cp {{ run_dir }}/{{ item }} {{ orchagent }}:{{ docker_testdir }}/{{ item }}
   with_items:
       - "{{ acl_config_valid }}"
       - "{{ acl_config_invalid }}"
 
 - block:
     - name: Load valid JSON config.
-      command: docker exec -i orchagent swssconfig "{{ docker_testdir }}/{{ acl_config_valid }}"
+      command: docker exec -i {{ orchagent }} swssconfig "{{ docker_testdir }}/{{ acl_config_valid }}"
       register: valid_config_upload
       failed_when: valid_config_upload.rc != 0
 
     - name: Load invalid JSON config and check that errors returned.
-      command: docker exec -i orchagent swssconfig "{{ docker_testdir }}/{{ acl_config_invalid }}"
+      command: docker exec -i {{ orchagent }} swssconfig "{{ docker_testdir }}/{{ acl_config_invalid }}"
       register: invalid_config_upload
       failed_when: invalid_config_upload.rc == 0
 

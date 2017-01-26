@@ -1,5 +1,7 @@
 ---
 
+orchagent: swss
+
 run_dir: /home/admin/acl_tests
 out_dir: /home/admin/acl_tests/results
 docker_testdir: /tmp

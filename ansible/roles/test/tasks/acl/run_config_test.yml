@@ -12,7 +12,7 @@
       include: "{{ loganalyzer_init }}"
 
     - name: Load JSON config {{ config_file }}
-      command: docker exec -i orchagent swssconfig {{ docker_testdir }}/{{ config_file }}
+      command: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_file }}
 
     - name: Use loganalyzer to check for the error messages {{ testname }} / {{ config_file }}.
       include: "{{ loganalyzer_analyze }}"
