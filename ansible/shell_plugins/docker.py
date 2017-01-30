@@ -24,7 +24,7 @@ class ShellModule(sh):
         ## We observe the interactions between ShellModule and ActionModule, and
         ## find the temporary directories Ansible created on remote machine. So we
         ## collect them and copied to docker container in build_module_command
-        if len(args) >= 2 and args[0].startswith('/home/') and args[1] == '':
+        if len(args) >= 2 and args[1] == '':
             self.dtemps.append(args[0])
 
         return super(ShellModule, self).join_path(*args)
