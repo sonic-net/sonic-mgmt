@@ -32,6 +32,15 @@
   tags: ssw
   when: sonic_hwsku != "AS7512"
 
+# System dump script
+- name: Copy system dump script
+  become: true
+  copy: src=bin/sonic_support
+        dest=/usr/bin/sonic_support
+        owner=root
+        group=root
+        mode=0755
+
 # SONiC
 - include: sonic-brcm.yml
   when: sonic_asic_type == 'broadcom'

@@ -1,0 +1,410 @@
+#!/bin/bash
+#
+# SONiC SUPPORT
+# creates a snapshot of system state for debugging later.
+#
+
+set -u
+
+TAR=tar
+MKDIR=mkdir
+RM=rm
+LN=ln
+GZIP=gzip
+CP=cp
+MV=mv
+V=
+NOOP=false
+DO_COMPRESS=true
+CMD_PREFIX=
+BASE=sonic_support_`hostname`_`date +%Y%m%d_%H%M%S`
+SUPPORTDIR=/var/support
+TARDIR=$SUPPORTDIR/$BASE
+TARFILE=$SUPPORTDIR/$BASE.tar
+LOGDIR=$SUPPORTDIR/$BASE/support
+COREDIR=$SUPPORTDIR/$BASE/core
+
+###############################################################################
+# Runs a comamnd and saves its output to the incrementally built tar.
+# Globals:
+#  LOGDIR
+#  BASE
+#  MKDIR
+#  TAR
+#  TARFILE
+#  SUPPORTDIR
+#  V
+#  RM
+#  NOOP
+# Arguments:
+#  cmd: The command to run. Make sure that arguments with spaces have quotes
+#  filename: the filename to save the output as in $BASE/support
+#  do_gzip: (OPTIONAL) true or false. Should the output be gzipped
+# Returns:
+#  None
+###############################################################################
+save_cmd() {
+    local cmd="$1"
+    local filename=$2
+    local filepath="${LOGDIR}/$filename"
+    local do_gzip=${3:-false}
+    local tarpath="${BASE}/support/$filename"
+    [ ! -d $LOGDIR ] && $MKDIR $V -p $LOGDIR
+
+    # eval required here to re-evaluate the $cmd properly at runtime
+    # This is required if $cmd has quoted strings that should be bunched
+    # as one argument, e.g. vtysh -c "COMMAND HERE" needs to have
+    # "COMMAND HERE" bunched together as 1 arg to vtysh -c
+    if $do_gzip
+    then
+        tarpath="${tarpath}.gz"
+        filepath="${filepath}.gz"
+        if $NOOP; then
+            echo "eval $cmd 2>&1 | gzip -c > '${filepath}'"
+        else
+            eval "$cmd" 2>&1 | gzip -c > "${filepath}"
+        fi
+    else
+        if $NOOP; then
+            echo "eval $cmd &> '$filepath'"
+        else
+            eval "$cmd" &> "$filepath"
+        fi
+    fi
+    ($TAR $V -rhf $TARFILE -C $SUPPORTDIR "$tarpath" \
+        || abort 5 "tar append operation failed. Aborting to prevent data loss.") \
+        && $RM $V -rf "$filepath"
+}
+
+###############################################################################
+# Runs a vtysh command and saves its output to the incrementally built tar.
+# Globals:
+#  None
+# Arguments:
+#  cmd: the vtysh command to run. This should NOT include vtysh -c
+#  filename: The filename to save the output as.
+#  do_gzip: (OPTIONAL) true or false. Should the output be gzipped
+# Returns:
+#  None
+###############################################################################
+save_vtysh() {
+    local vtysh_cmd=$1
+    local filename=$2
+    local do_gzip=${3:-false}
+    save_cmd "vtysh -c '${vtysh_cmd}'" "$filename" $do_gzip
+}
+
+###############################################################################
+# Runs an ip command and saves its output to the incrementally built tar.
+# Globals:
+#  None
+# Arguments:
+#  cmd: the ip command to run sans 'ip'
+#  filename: Files will be named 'ip.<filename>'
+#  do_gzip: (OPTIONAL) true or false. Should the output be gzipped
+# Returns:
+#  None
+###############################################################################
+save_ip() {
+    local ip_args=$1
+    local filename="ip.$2"
+    local do_gzip=${3:-false}
+    save_cmd "ip $ip_args" "$filename" $do_gzip
+}
+
+###############################################################################
+# Iterates all neighbors and runs save_vtysh to save each neighbor's
+# advertised-routes and received-routes
+# Globals:
+#  None
+# Arguments:
+#  None
+# Returns:
+#  None
+###############################################################################
+save_bgp_neighbor() {
+    neighbor_list=`vtysh -c "show ip bgp neighbors" | grep "BGP neighbor is" | awk -F '[, ]' '{print $4}'`
+    for word in $neighbor_list; do
+        save_vtysh "show ip bgp neighbors $word advertised-routes" "ip.bgp.neighbor.$word.adv"
+        save_vtysh "show ip bgp neighbors $word received-routes" "ip.bgp.neighbor.$word.rcv"
+    done
+}
+
+###############################################################################
+# Given list of proc files, saves proc files to tar.
+# Globals:
+#  V
+#  TARDIR
+#  MKDIR
+#  CP
+#  SUPPORTDIR
+#  TAR
+#  RM
+#  BASE
+#  TARFILE
+# Arguments:
+#  *procfiles: variable-length list of proc file paths to save
+# Returns:
+#  None
+###############################################################################
+save_proc() {
+    local procfiles="$@"
+    $MKDIR $V -p $TARDIR/proc \
+        && $CP $V -r $procfiles $TARDIR/proc \
+        && $TAR $V -rhf $TARFILE -C $SUPPORTDIR --mode=+r $BASE/proc \
+        && $RM $V -rf $TARDIR/proc
+}
+
+###############################################################################
+# Dumps all fields and values from given Redis DB.
+# Arguments:
+#  DB id: id of DB for redis-cli
+#  DB name: filename to which output will be saved
+# Returns:
+#  None
+###############################################################################
+save_redis() {
+    local db=$1
+    local db_name=$2
+    save_cmd "docker exec -i database redis-cli -n $db keys \* | docker exec -i database xargs --verbose -n 1 redis-cli -n $db hgetall" "$db_name"
+}
+
+###############################################################################
+# Runs a comamnd and saves its output to the incrementally built tar.
+# Globals:
+#  LOGDIR
+#  BASE
+#  MKDIR
+#  TAR
+#  TARFILE
+#  SUPPORTDIR
+#  V
+#  RM
+#  NOOP
+# Arguments:
+#  filename: the full path of the file to save
+#  base_dir: the directory in $TARDIR/ to stage the file
+#  do_gzip: (OPTIONAL) true or false. Should the output be gzipped
+# Returns:
+#  None
+###############################################################################
+save_file() {
+    local orig_path=$1
+    local supp_dir=$2
+    local gz_path="$TARDIR/$supp_dir/$(basename $orig_path)"
+    local tar_path="${BASE}/$supp_dir/$(basename $orig_path)"
+    local do_gzip=${3:-true}
+    [ ! -d "$TARDIR/$supp_dir" ] && $MKDIR $V -p "$TARDIR/$supp_dir"
+
+    if $do_gzip; then
+        gz_path="${gz_path}.gz"
+        tar_path="${tar_path}.gz"
+        if $NOOP; then
+            echo "gzip -c $orig_path > $gz_path"
+        else
+            gzip -c $orig_path > $gz_path
+        fi
+    else
+        if $NOOP; then
+            echo "cp $orig_path $gz_path"
+        else
+            cp $orig_path $gz_path
+        fi
+    fi
+    ($TAR $V -rhf $TARFILE -C $SUPPORTDIR "$tar_path" \
+        || abort 5 "tar append operation failed. Aborting to prevent data loss.") \
+        && $RM $V -f "$gz_path"
+}
+
+###############################################################################
+# Main sonic_support routine
+# Globals:
+#  All of them.
+# Arguments:
+#  None
+# Returns:
+#  None
+###############################################################################
+main() {
+    if [ `whoami` != root ] && ! $NOOP;
+    then
+        echo "$0: must be run as root (or in sudo)" >&2
+        exit 10
+    fi
+    ${CMD_PREFIX}renice +5 -p $$ >> /dev/null
+    ${CMD_PREFIX}ionice -c 2 -n 5 -p $$ >> /dev/null
+
+    $MKDIR $V -p $TARDIR
+
+    # Start with this script so its obvious what code is responsible
+    $LN $V -s /usr/bin/sonic_support $TARDIR
+    $TAR $V -chf $TARFILE -C $SUPPORTDIR $BASE
+    $RM $V $TARDIR/sonic_support
+
+    # Capture /proc state early
+    save_proc /proc/buddyinfo /proc/cmdline /proc/consoles \
+        /proc/cpuinfo /proc/devices /proc/diskstats /proc/dma \
+        /proc/interrupts /proc/iomem /proc/ioports /proc/kallsyms \
+        /proc/loadavg /proc/locks /proc/meminfo /proc/misc \
+        /proc/modules /proc/self/mounts /proc/self/net \
+        /proc/pagetypeinfo /proc/partitions /proc/sched_debug /proc/slabinfo \
+        /proc/softirqs /proc/stat /proc/swaps /proc/sysvipc /proc/timer_list \
+        /proc/uptime /proc/version /proc/vmallocinfo /proc/vmstat \
+        /proc/zoneinfo \
+        || abort 6 "Proc saving operation failed. Aborting for safety."
+
+    save_cmd 'sysctl -a' "sysctl"
+    save_ip 'link' 'link'
+    save_ip 'addr' 'addr'
+    save_ip 'rule' 'rule'
+    save_ip 'route show table all' 'route'
+    save_ip 'neigh' 'neigh'
+
+    save_vtysh "show ip bgp summary" "bgp.summary"
+    save_vtysh "show ip bgp neighbors" "bgp.neighbors"
+    save_vtysh "show ip bgp" "bgp.table" true
+    save_bgp_neighbor
+
+    save_cmd 'lldpctl' "lldpctl"
+
+    save_cmd 'ps aux' "ps.aux"
+    save_cmd 'free' "free"
+    save_cmd 'vmstat 1 5' "vmstat"
+    save_cmd 'vmstat -m' "vmstat.m"
+    save_cmd 'vmstat -s' "vmstat.s"
+    save_cmd 'mount' "mount"
+    save_cmd 'df' "df"
+
+    save_redis '0' "APP_DB"
+    save_redis '1' "ASIC_DB"
+    save_redis '2' "COUNTERS_DB"
+
+    save_cmd 'docker exec -it syncd saidump' "saidump"
+
+    $RM $V -rf $TARDIR
+    $MKDIR $V -p $TARDIR
+    $MKDIR $V -p $LOGDIR
+    $LN $V -s /etc $TARDIR/etc
+
+    ($TAR $V -rhf $TARFILE -C $SUPPORTDIR --mode=+r \
+        --exclude='etc/alternatives' \
+        --exclude='*/etc/passwd*' \
+        --exclude='*/etc/shadow*' \
+        --exclude='*/etc/group*' \
+        --exclude='*/etc/gshadow*' \
+        --exclude='*/etc/ssh*' \
+        --exclude='*get_creds*' \
+        --exclude='*snmpd.conf*' \
+        $BASE/etc \
+        || abort 5 "Tar append operation failed. Aborting for safety.") \
+        && $RM $V -rf $TARDIR
+
+    # gzip up all log files individually before placing them in the incremental tarball
+    for file in $(find -L /var/log -type f); do
+        # don't gzip already-gzipped log files :)
+        if [ -z "${file##*.gz}" ]; then
+            save_file $file log false
+        else
+            save_file $file log true
+        fi
+    done
+    # clean up working tar dir before compressing
+    $RM $V -rf $TARDIR
+
+    if $DO_COMPRESS; then
+        $GZIP $V $TARFILE
+        if [ $? -eq 0 ]; then
+            TARFILE="${TARFILE}.gz"
+        else
+            echo "WARNING: gzip operation appears to have failed." >&2
+        fi
+    fi
+
+    echo ${TARFILE}
+}
+
+###############################################################################
+# Terminates sonic_support early just in case we have issues.
+# Globals:
+#  None
+# Arguments:
+#  retcode: 0-255 return code to exit with. default is 1
+#  msg: (OPTIONAL) msg to print to standard error
+# Returns:
+#  None
+###############################################################################
+abort() {
+    local exitcode=${1:-1}
+    local msg=${2:-Error. Terminating early for safety.}
+    echo "$msg" >&2
+    exit $exitcode
+}
+
+###############################################################################
+# Prints usage to stdout.
+# Globals:
+#  None
+# Arguments:
+#  None
+# Returns:
+#  None
+###############################################################################
+usage() {
+    cat <<EOF
+$0 [-xnvh]
+
+Create a sonic_suport dump for debugging. Requires root privileges.
+
+OPTIONS
+    -x
+        Enable bash debug mode.
+    -h
+        The usage information you are reading right now
+    -v
+        Enable verbose mode. All commands (like tar, mkdir, rm..) will have -v
+        passed to them
+    -n
+        Noop mode. Don't actually create anything, just echo what would happen
+    -z
+        Don't compress the tar at the end.
+EOF
+}
+
+while getopts ":xnvhz" opt; do
+    case $opt in
+        x)
+            # enable bash debugging
+            PS4='+(${BASH_SOURCE}:${LINENO}): ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
+            set -x
+            ;;
+        h)
+            usage
+            exit 0
+            ;;
+        v)
+            # echo commands about to be run to stderr
+            set -v
+            V='-v'
+            ;;
+        n)
+            TAR='echo tar'
+            MKDIR='echo mkdir'
+            RM='echo rm'
+            LN='echo ln'
+            GZIP='echo gzip'
+            CMD_PREFIX='echo '
+            MV='echo mv'
+            CP='echo cp'
+            NOOP=true
+            ;;
+        z)
+            DO_COMPRESS=false
+            ;;
+        /?)
+            echo "Invalid option: -$OPTARG" >&2
+            exit 1
+            ;;
+    esac
+done
+
+main
