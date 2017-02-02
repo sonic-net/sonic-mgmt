@@ -1,3 +1,13 @@
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  connection: local
+  become: no
+  tags: always
+
+- name: Verify interfaces are up
+  include: interface.yml
+  tags: always
+
 - name: Neighbor mac change test
   include: neighbour-mac.yml
   tags: neighbour
