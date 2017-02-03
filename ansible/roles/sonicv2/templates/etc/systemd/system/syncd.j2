@@ -1,7 +1,7 @@
 [Unit]
 Description=syncd container
-Requires=database.service
-After=database.service
+Requires=database.service swss.service
+After=database.service swss.service
 
 [Service]
 User=root
