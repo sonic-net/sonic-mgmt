@@ -16,9 +16,18 @@
     src: ssw_extra/{{ sonic_hwsku }}/port_config_{{ sonic_portsku }}.ini
     dest: /etc/ssw/{{ sonic_hwsku }}/port_config.ini
 
+# Setup profile for syncd
+- name: Setup profile configuration file
+  become: yes
+  template: src=etc/ssw/{{ sonic_hwsku }}/profile.ini.j2
+            dest=/etc/ssw/{{ sonic_hwsku }}/profile.ini
+            owner=root
+            group=root
+            mode=0644
+
 # Install docker containers
 - name: Start syncd docker container
-  include: ../../sonic-common/tasks/sonicdocker.yml
+  include: sonicdocker.yml
   vars:
     docker_container: syncd
     docker_image: "{{ image_id_syncd_cavm }}"
