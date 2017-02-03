@@ -35,13 +35,19 @@
   set_fact:
     sonic_baseimage_version: "{{ result.stdout }}"
 
-- name: Copy snmp_rocommunity file
+- name: Generate snmp.yml file (for oneimage snmp dockers)
   become: true
   template: src=snmp.yml.j2
             dest=/etc/sonic/snmp.yml
             mode=0644
     
-- name: Setup sysDescription file
+- name: Setup sonic_version file (for oneimage snmp dockers)
+  become: true
+  template: src=sonic_version.yml.j2
+            dest=/etc/sonic/sonic_version.yml
+            mode=0644
+    
+- name: Setup sysDescription file (for legacy snmp dockers)
   become: true
   template: src=sysDescription.j2
             dest=/etc/ssw/sysDescription
