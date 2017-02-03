@@ -8,17 +8,28 @@
   copy: src=boot-config
         dest=/mnt/flash/boot-config
 
-- name: build spine startup config
-  template: src=spine.j2
-            dest=/mnt/flash/startup-config
-  when: swrole == "spine"
-  notify:
-    - Restart the box
+- block:
+  - name: build spine startup config
+    template: src=spine.j2
+              dest=/mnt/flash/startup-config
+    notify:
+      - Restart the box
+  - name: Dump all routes to ~/.ansible/state/{{ hostname }}_routes.txt
+    template: src=spine_routes.j2 dest="~/.ansible/state/{{ hostname }}_routes.txt" mode=0600
+    connection: local
 
-- name: build tor startup config
-  template: src=tor.j2
-            dest=/mnt/flash/startup-config
+  when: swrole == "spine"
+
+- block:
+  - name: build tor startup config
+    template: src=tor.j2
+              dest=/mnt/flash/startup-config
+    notify:
+      - Restart the box
+  - name: Dump all routes to ~/.ansible/state/{{ hostname }}_routes.txt
+    template: src=tor_routes.j2 dest="~/.ansible/state/{{ hostname }}_routes.txt" mode=0600
+    connection: local
+
   when: swrole == "tor"
   notify:
     - Restart the box
-

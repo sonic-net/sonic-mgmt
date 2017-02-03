@@ -1,0 +1,4 @@
+{% for subnet in range(0, tor_subnet_number) %}
+172.16.{{ tornum }}.{{ subnet }}/32,{{ hostname }}
+20AC:10{{ '%02X' % tornum }}:0:{{ '%02X' % subnet }}::/64,{{ hostname }}
+{% endfor %}
