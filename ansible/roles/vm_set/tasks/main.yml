@@ -4,7 +4,8 @@
 # - id: sequence number for vm set on the host.
 # - external_iface: interface which will be used as parent for vlan interface creation
 # - vlan_base: first vlan id for the VMs
-# - VMs: a dictionary which contains hostnames of VMs as a key and a dictionary with parameters (filename, serial_port, vlan, memory) for every VM. 
+# - VMs: a dictionary which contains hostnames of VMs as a key and a dictionary with parameters (num, memory, mgmt_ip) for every VM. 
+# - topology: a dictionary which contains hostnames of VMs as a key and vlans value which define a topology (numbers of connected ports for every VM)
 # - mgmt_bridge: linux bridge which is used for management interface connections
 # - root_path: path where disk images for VMs are created
 # - hdd_image_filename: base hdd image for VMs
@@ -12,9 +13,10 @@
 # - vm_images_url: url where base images are located
 # - vmimages_saskey: a key for Azure download service. Could be set to ''
 
-- name: Install necessary packages. vm set {{ id }}
+- name: Install necessary packages
   apt: pkg={{ item }} update_cache=yes cache_valid_time=3600
   with_items:
+    - qemu
     - openvswitch-switch
     - net-tools
     - bridge-utils
@@ -25,30 +27,44 @@
     - python-libvirt
     - python-pip
 
-- name: Install python packages. vm set {{ id }}
+- name: Install python packages
   pip: name=docker-py state=present version=1.7.2
   environment: "{{ proxy_env | default({}) }}"
 
-- name: Retrieve a list of the defined VMs. vm set {{ id }}
+- name: Retrieve a list of the defined VMs
   virt: command=list_vms
         uri=qemu:///system
   register: vm_list_defined
 
-- name: Retrieve a list of the running VMs. vm set {{ id }}
+- name: Retrieve a list of the running VMs
   virt: command=list_vms
         uri=qemu:///system
         state=running
   register: vm_list_running
 
-- name: Stop vm set {{ id }}
+- name: Find current server group
+  set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
+
+- name: Extract VM names from the inventory
+  set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') }}
+
+- name: Stop VMs
   include: stop.yml
   when: action == 'stop'
 
-- name: Start vm set {{ id }}
+- name: Start VMs
   include: start.yml
   when: action == 'start'
 
-- name: Renumber vm set {{ id }}
-  include: renumber.yml
-  when: action == 'renumber'
+- name: Add topology
+  include: add_topo.yml
+  when: action == 'add_topo'
+
+- name: Remove topology
+  include: remove_topo.yml
+  when: action == 'remove_topo'
+
+- name: Renumber topology
+  include: renumber_topo.yml
+  when: action == 'renumber_topo'
 

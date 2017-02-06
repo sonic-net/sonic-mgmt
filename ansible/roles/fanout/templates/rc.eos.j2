@@ -1,0 +1,5 @@
+#!/bin/sh
+useradd -d /persist/local/{{ sonicadmin_user }} -G eosadmin {{ sonicadmin_user }}
+echo {{ sonicadmin_password }} | sudo passwd --stdin {{ sonicadmin_user }}
+
+
