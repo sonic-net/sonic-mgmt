@@ -79,9 +79,4 @@
   always:
     - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
-    # Output content of result files to ansible console
-    - shell: cat {{ test_out_dir }}/*
-      register: out
-    - debug: var=out.stdout_lines
-    
     - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
