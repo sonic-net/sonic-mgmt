@@ -9,6 +9,7 @@ import copy
 import ipaddr as ipaddress
 from collections import defaultdict
 
+
 from lxml import etree as ET
 from lxml.etree import QName
 
@@ -462,11 +463,10 @@ def print_parse_xml(hostname):
     results = parse_xml(filename, hostname)
     print(json.dumps(results, indent=3, cls=minigraph_encoder))
 
-def debug_main():
-    print_parse_xml('switch1')
 
 from ansible.module_utils.basic import *
 
 if __name__ == "__main__":
     main()
     #debug_main()
+

@@ -1,3 +1,4 @@
 # snmp variables
-snmp_rocommunity: public
+snmp_rocommunity: strcommunity
+snmp_location: str
 

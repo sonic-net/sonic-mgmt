@@ -155,7 +155,7 @@ def session(port, login, password, new_params):
         if param is not None:
             seq.extend(templates[key])
 
-    debug = MyDebug('/tmp/debug.txt', enabled=False)
+    debug = MyDebug('/tmp/debug.%s.txt' % new_params['hostname'], enabled=True)
     ss = SerialSession(port, debug)
     ss.login(login, password)
     ss.enable()

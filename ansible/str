@@ -1,0 +1,17 @@
+[sonic_latest]
+str-msn2700-01    ansible_host=10.251.0.188 sonic_version=v2
+
+[sonic:children]
+sonic_latest
+
+[ptf]
+ptf_ptf1    ansible_host=10.255.0.188 ansible_ssh_user=root ansible_ssh_pass=root
+ptf_vms1-1  ansible_host=10.255.0.178 ansible_ssh_user=root ansible_ssh_pass=root
+
+[str:children]
+sonic
+fanout
+
+[fanout]
+str-7260-10       ansible_host=10.251.0.13
+str-7260-11       ansible_host=10.251.0.234
