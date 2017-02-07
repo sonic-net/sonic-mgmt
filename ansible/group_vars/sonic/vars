@@ -7,13 +7,13 @@ sonicadmin_initial_password: YourPaSsWoRd
 
 sonic_version: "v2"
 
-broadcom_hwskus: [ 'Force10-S6000' ]
+broadcom_hwskus: [ 'Force10-S6000', 'ingrasys-s9100' ]
 
 mellanox_hwskus: [ 'ACS-MSN2700' ]
 
 cavium_hwskus: [ "AS7512", "XP-SIM" ]
 
-sensor_hwskus: [ "ACS-MSN2700", "Force10-S6000" ]
+sensor_hwskus: [ "ACS-MSN2700", "Force10-S6000", 'ingrasys-s9100' ]
 
 ## Note:
 ## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we
@@ -35,6 +35,13 @@ orchagent_docker_volumes_dict:
   "/host/machine.conf:/host/machine.conf":
 
 orchagent_docker_volumes: "{{ orchagent_docker_volumes_dict.keys() }}"
+
+platform_monitor_docker_volumes_dict:
+  "/etc/fancontrol:/etc/fancontrol":
+  "/etc/sensors.conf:/etc/sensors.conf":
+  "/etc/sonic/:/etc/sonic/:ro":
+
+platform_monitor_docker_volumes: "{{ platform_monitor_docker_volumes_dict.keys() }}"
 
 sonic_apt_repo: "http://packages.microsoft.com/repos/sonic-dev/"
 apt_repo: "http://debian-archive.trafficmanager.net/debian/"
