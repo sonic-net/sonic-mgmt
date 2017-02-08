@@ -31,19 +31,6 @@
        default_release={{ apt_default_release }}
        force=yes
 
-# Install docker containers
-- name: Start syncd docker container
-  include: sonicdocker.yml
-  vars:
-    docker_container: syncd
-    docker_image: "{{ image_id_syncd_rpc if host_saithrift is defined else image_id_syncd }}"
-    docker_privileged: yes
-    docker_state: reloaded
-    docker_volumes: "{{ syncd_docker_volumes }}"
-    docker_volumes_from:
-    - database
-  tags: syncd
-
 - name: Remove old copies of bcmcmd
   become: true
   file: path=/usr/sbin/bcmcmd
@@ -78,3 +65,17 @@
     docker_volumes_from:
     - database
   tags: orchagent
+
+# Install docker containers
+- name: Start syncd docker container
+  include: sonicdocker.yml
+  vars:
+    docker_container: syncd
+    docker_image: "{{ image_id_syncd_rpc if host_saithrift is defined else image_id_syncd }}"
+    docker_privileged: yes
+    docker_state: reloaded
+    docker_volumes: "{{ syncd_docker_volumes }}"
+    docker_volumes_from:
+    - database
+  tags: syncd
+
