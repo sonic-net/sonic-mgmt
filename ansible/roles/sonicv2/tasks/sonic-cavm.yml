@@ -18,7 +18,7 @@
 
 # Install docker containers
 - name: Start syncd docker container
-  include: ../../sonic-common/tasks/sonicdocker.yml
+  include: sonicdocker.yml
   vars:
     docker_container: syncd
     docker_image: "{{ image_id_syncd_cavm }}"
