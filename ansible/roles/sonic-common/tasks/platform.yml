@@ -16,3 +16,9 @@
   include: platform-cavm.yml
   when: sonic_hwsku == "AS7512"
 
+# Install Platform Modules for Ingrasys
+- name: Confirm Platform Modules for Ingrasys are installed
+  become: true
+  include: platform-ingrasys.yml
+  when: sonic_hwsku == "ingrasys-s9100"
+

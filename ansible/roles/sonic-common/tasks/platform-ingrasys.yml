@@ -1,0 +1,9 @@
+- name: Setup Fancontrol Config
+  become: true
+  copy: src="roles/sonic-common/files/ssw/{{sonic_hwsku}}/etc/fancontrol"
+        dest=/etc/fancontrol
+
+- name: Setup Sensord Config
+  become: true
+  copy: src="roles/sonic-common/files/ssw/{{sonic_hwsku}}/etc/sensors.conf"
+        dest=/etc/sensors.conf
