@@ -83,12 +83,12 @@
       <IPInterfaces>
         <IPInterface>
           <Name i:nil="true"/>
-          <AttachTo>Ethernet0</AttachTo>
+          <AttachTo>fortyGigE0/0</AttachTo>
           <Prefix>10.10.1.13/30</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:nil="true"/>
-          <AttachTo>Ethernet4</AttachTo>
+          <AttachTo>fortyGigE0/4</AttachTo>
           <Prefix>10.10.2.13/30</Prefix>
         </IPInterface>
       </IPInterfaces>
@@ -99,5 +99,5 @@
     </DeviceDataPlaneInfo>
   </DpgDec>
   <Hostname>OCPSCH01040DDLF</Hostname>
-  <HwSku>ACS-BF</HwSku>
+  <HwSku>Force10-Z9100</HwSku>
 </DeviceMiniGraph>
