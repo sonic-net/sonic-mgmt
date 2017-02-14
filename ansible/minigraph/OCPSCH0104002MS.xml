@@ -270,13 +270,13 @@
           <ElementType>IPInterface</ElementType>
           <Name i:nil="true"/>
           <AttachTo>Ethernet24</AttachTo>
-          <Prefix>10.10.2.22/30</Prefix>
+          <Prefix>10.10.2.26/30</Prefix>
         </IPInterface>
         <IPInterface>
           <ElementType>IPInterface</ElementType>
           <Name i:nil="true"/>
           <AttachTo>Ethernet28</AttachTo>
-          <Prefix>10.10.2.22/30</Prefix>
+          <Prefix>10.10.2.30/30</Prefix>
         </IPInterface>
       </IPInterfaces>
       <DataAcls/>
@@ -360,6 +360,12 @@
         <StartPort>Ethernet4</StartPort>
       </DeviceLinkBase>
     </DeviceInterfaceLinks>
+    <Devices>
+      <Device i:type="ToRRouter">
+        <Hostname>OCPSCH0104002MS</Hostname>
+        <HwSku>ACS-MSN2700</HwSku>
+      </Device>
+    </Devices>
   </PngDec>
   <MetadataDeclaration>
     <Devices xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
