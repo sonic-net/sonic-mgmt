@@ -329,7 +329,7 @@ class LogAnalyzer:
                     found_expected_message = True
                     expecting_lines.append(rev_line)
 
-                if self.line_matches(rev_line, match_messages_regex, ignore_messages_regex):
+                elif self.line_matches(rev_line, match_messages_regex, ignore_messages_regex):
                     matching_lines.append(rev_line)
 
         if (not found_start_marker):
