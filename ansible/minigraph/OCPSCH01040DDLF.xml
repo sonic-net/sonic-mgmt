@@ -83,12 +83,12 @@
       <IPInterfaces>
         <IPInterface>
           <Name i:nil="true"/>
-          <AttachTo>fortyGigE0/0</AttachTo>
+          <AttachTo>Ethernet0</AttachTo>
           <Prefix>10.10.1.13/30</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:nil="true"/>
-          <AttachTo>fortyGigE0/4</AttachTo>
+          <AttachTo>Ethernet1</AttachTo>
           <Prefix>10.10.2.13/30</Prefix>
         </IPInterface>
       </IPInterfaces>
@@ -98,6 +98,32 @@
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     </DeviceDataPlaneInfo>
   </DpgDec>
+  <PngDec>
+    <DeviceInterfaceLinks>
+      <DeviceLinkBase i:type="DeviceInterfaceLink">
+        <Bandwidth>40000</Bandwidth>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>OCPSCH01040DDLF</EndDevice>
+        <EndPort>Ethernet0</EndPort>
+        <StartDevice>OCPSCH0104012MS</StartDevice>
+        <StartPort>Ethernet12</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase i:type="DeviceInterfaceLink">
+        <Bandwidth>40000</Bandwidth>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>OCPCH01040DDLF</EndDevice>
+        <EndPort>Ethernet1</EndPort>
+        <StartDevice>OCPSCH0104002MS</StartDevice>
+        <StartPort>Ethernet12</StartPort>
+      </DeviceLinkBase>
+    </DeviceInterfaceLinks>
+    <Devices>
+      <Device i:type="LeafRouter">
+        <Hostname>OCPSCH01040DDLF</Hostname>
+        <HwSku>Force10-Z9100</HwSku>
+      </Device>
+    </Devices>
+  </PngDec>
   <Hostname>OCPSCH01040DDLF</Hostname>
   <HwSku>Force10-Z9100</HwSku>
 </DeviceMiniGraph>
