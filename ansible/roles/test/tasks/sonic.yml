@@ -68,6 +68,9 @@
   include: fib.yml
   tags: fib
 
+- name: Acl test setup on testbed
+  include: acltb.yml
+
 - name: Test ACL
   include: acl.yml
   tags: acl

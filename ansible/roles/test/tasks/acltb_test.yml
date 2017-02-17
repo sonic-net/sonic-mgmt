@@ -1,0 +1,69 @@
+#-----------------------------------------
+# Run ACL test and Perform log analysis.
+#-----------------------------------------
+
+# Gather minigraph facts
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  become: no
+  connection: local
+
+- name: Read port reverse alias mapping
+  set_fact:
+    alias_reverse_map: "{{ lookup('file', 'roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_reverse_map.json') | from_json }}"
+
+# Generate file with switch information
+- template: src=acltb.j2 dest=/tmp/acltb_switch_info.txt
+  connection: local
+
+- name: Copy switch info file to the PTF host
+  copy: src="/tmp/acltb.txt" dest="/tmp/acltb_switch_info.txt"
+  delegate_to: "{{ ptf_host }}"
+
+- set_fact:
+    testname: acl
+    run_dir: /tmp
+    out_dir: /tmp/ansible-loganalyzer-results
+    test_match_file: acltb_match_messages.txt
+    test_ignore_file: acltb_ignore_messages.txt
+    test_expect_file: acltb_expect_messages.txt
+    match_file: loganalyzer_common_match.txt
+    ignore_file: loganalyzer_common_ignore.txt
+    tests_location: "{{ 'roles/test/tasks' }}"
+
+# Separate set_fact is required to be able to use 'testname' fact.
+- set_fact:
+    testname_unique: "{{ testname }}.{{ ansible_date_time.date}}.{{ ansible_date_time.hour}}-{{ ansible_date_time.minute}}-{{ ansible_date_time.second}}"
+
+# Separate set_fact is required to be able to use 'testname_unique' fact.
+- set_fact:
+    test_out_dir: "{{ out_dir }}/{{testname_unique}}"
+    match_file_list: "{{ run_dir }}/{{test_match_file}},{{ run_dir }}/{{match_file}}"
+    ignore_file_list: "{{ run_dir }}/{{test_ignore_file}},{{ run_dir }}/{{ignore_file}}"
+
+- include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+- block:
+    - name: copy the test to ptf container
+      copy: src=roles/test/files/acstests dest=/root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: "Running test {{ testname }}"
+      shell: ptf --test-dir acstests acltb_test.AclTest --platform remote -t "verbose=True;router_mac='{{ ansible_Ethernet0['macaddress'] }}';switch_info='/tmp/acltb_switch_info.txt'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+      register: out
+
+    - debug: var=out.stdout_lines
+      when: out.rc != 0
+
+  always:
+    - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+
+    # Output content of result files to ansible console
+    - shell: cat {{ test_out_dir }}/*
+      register: out
+    - debug: var=out.stdout_lines
+
+    - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml

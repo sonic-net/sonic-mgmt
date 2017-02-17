@@ -1,0 +1,45 @@
+#-----------------------------------------
+# Apply ACL configuration
+#-----------------------------------------
+- set_fact:
+    acltb_configs:
+      - "{{ 'acltb_test_table.json' }}"
+      - "{{ 'acltb_test_rules.json' }}"
+
+# Gather minigraph facts
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  become: no
+  connection: local
+
+- name: Read port reverse alias mapping
+  set_fact:
+    alias_reverse_map: "{{ lookup('file', 'roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_reverse_map.json') | from_json }}"
+
+# Generate json files with ACL configuration for tests
+- template: src=acltb_test_table.j2 dest=/tmp/acltb_test_table.json
+  connection: local
+
+- template: src=acltb_test_rules.j2 dest=/tmp/acltb_test_rules.json
+  connection: local
+
+# Copy ACL config to the swss container via the switch
+- name: Copy ACL config file to the DUT
+  copy: src="/tmp/{{ item }}" dest="/tmp/{{ item }}"
+  with_items:
+    - "{{ acltb_configs }}"
+
+- name: Copy ACL config file to the swss container
+  command: docker cp "/tmp/{{ item }}" swss:/etc/swss/config.d/"{{ item }}"
+  with_items:
+    - "{{ acltb_configs }}"
+
+- debug: msg="sdhjfkjsdhskjdfh"
+  when: acltb_configs is undefined
+
+- name: Apply ACL configuration
+  command: docker exec -t swss bash -c "swssconfig /etc/swss/config.d/{{ item }}"
+  with_items:
+    - "{{ acltb_configs }}"
+
+
