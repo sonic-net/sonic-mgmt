@@ -43,7 +43,6 @@ import ptf.testutils as testutils
 import pprint
 from router_utils import *
 
-#TODO: please make sure all imports are required. those that are not should be removed.
 
 #---------------------------------------------------------------------
 # Global variables
