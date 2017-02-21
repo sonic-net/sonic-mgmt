@@ -1,0 +1,107 @@
+#-----------------------------------------
+# Run Decap test and Perform log analysis.
+#-----------------------------------------
+
+- fail: msg="information about testbed missing."
+  when: (testbed_type is not defined) or
+        (lo_ip is not defined) or
+        (dscp_mode is not defined) 
+
+- fail: msg="Invalid testbed_type value '{{testbed_type}}'"
+  when: testbed_type not in [ 'fib']
+
+- fail: msg="Invalid testbed_type value '{{dscp_mode}}'"
+  when: dscp_mode not in [ 'pipe','uniform']
+
+# Gather minigraph facts
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  become: no
+  connection: local
+
+- name: Print neighbors in minigraph
+  debug: msg="{{ minigraph_neighbors }}"
+
+- name: Read port reverse alias mapping
+  set_fact:
+    alias_reverse_map: "{{ lookup('file', 'roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_reverse_map.json') | from_json }}"
+
+- name: Print alias reverse mapping
+  debug: msg="{{ alias_reverse_map }}"
+
+# Generate file with BGP routes information
+- template: src=fib.j2 dest=/tmp/fib.txt
+  connection: local
+
+- template: src=decap_conf.j2 dest=/tmp/decap_conf.json
+  connection: local
+
+- name: Copy conf file to the switch
+  copy: src="/tmp/decap_conf.json" dest="/tmp/decap_conf.json"
+
+- name: Copy route into file to the PTF host
+  copy: src="/tmp/fib.txt" dest="/tmp/route_info.txt"
+  delegate_to: "{{ ptf_host }}"
+
+- set_fact:
+    testname: decap
+    run_dir: /tmp
+    out_dir: /tmp/ansible-loganalyzer-results
+    test_match_file: decap_match_messages.txt
+    test_ignore_file: decap_ignore_messages.txt
+    test_expect_file: decap_expect_messages.txt
+    match_file: loganalyzer_common_match.txt
+    ignore_file: loganalyzer_common_ignore.txt
+    tests_location: "{{ 'roles/test/tasks' }}"
+
+# Separate set_fact is required to be able to use 'testname' fact.
+- set_fact:
+    testname_unique: "{{ testname }}.{{ ansible_date_time.date}}.{{ ansible_date_time.hour}}-{{ ansible_date_time.minute}}-{{ ansible_date_time.second}}"
+
+# Separate set_fact is required to be able to use 'testname_unique' fact.
+- set_fact:
+    test_out_dir: "{{ out_dir }}/{{testname_unique}}"
+    match_file_list: "{{ run_dir }}/{{test_match_file}},{{ run_dir }}/{{match_file}}"
+    ignore_file_list: "{{ run_dir }}/{{test_ignore_file}},{{ run_dir }}/{{ignore_file}}"
+
+- debug: msg="output directory for current test run {{ test_out_dir }}"
+- debug: msg="generated run id:{{testname_unique}}"
+
+- include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+- debug : msg="INVOKE FIB TEST"
+
+- block:
+
+    - name: Copy JSON configs from switch into docker filesystem
+      command: docker cp /tmp/decap_conf.json  swss:/tmp/decap_conf.json
+
+    - name: Load decap JSON config.
+      command: docker exec -i swss swssconfig /tmp/decap_conf.json
+      register: valid_config_upload
+      failed_when: valid_config_upload.rc != 0
+    
+    - name: copy the test to ptf container
+      copy: src=roles/test/files/acstests dest=/root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: "Running test {{ testname }}"
+      #shell: ptf --test-dir acstests IP_decap_test --platform remote -t "verbose=True; router_mac='{{ ansible_Ethernet0['macaddress'] }}';lo_ip='{{ ansible_lo['ipv4']['address'] }}';dscp_mode='uniform'; route_info='/tmp/route_info.txt'" --relax
+      shell: ptf --test-dir acstests IP_decap_test --platform remote -t "verbose=True; router_mac='{{ ansible_Ethernet0['macaddress'] }}';lo_ip='{{lo_ip}}';dscp_mode='{{dscp_mode}}'; route_info='/tmp/route_info.txt'" --relax
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+      register: out
+      
+    - debug: var=out.stdout_lines
+      when: out.rc != 0
+
+  always:
+    - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+
+    # Output content of result files to ansible console
+    - shell: cat {{ test_out_dir }}/*
+      register: out
+    - debug: var=out.stdout_lines
+    
+    - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml

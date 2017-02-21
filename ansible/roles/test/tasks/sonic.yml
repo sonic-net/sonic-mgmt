@@ -64,10 +64,14 @@
   include: arpall.yml
   tags: arp
 
+- name: Decap test
+  include: decap.yml
+  tags: decap
+
 - name: Fib test
   include: fib.yml
   tags: fib
 
-- name: Test ACL
-  include: acl.yml
-  tags: acl
+#- name: Test ACL
+#  include: acl.yml
+#  tags: acl

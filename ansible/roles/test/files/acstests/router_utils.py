@@ -19,6 +19,30 @@ PORT_GROUP_SPLITTER=";"
 PORT_COUNT = 32
 
 class RouterUtility():
+    route_info = {}
+    def load_route_info(self, route_info_path):
+        '''
+        @summary: Load route_info file into self.route_info. For details see section 'Format of the route_info file' in the summary of the class.        
+        @param route_info_path : Path to the file        
+        '''
+        with open(route_info_path, 'r') as route_info_file:
+            for line in route_info_file:
+                line = line.strip()
+                if (0==len(line)): 
+                    continue
+                prefix_ports_pair = line.split(PREFIX_AND_PORT_SPLITTER)
+                port_list = prefix_ports_pair[1].split(PORT_LIST_SPLITTER)
+                self.route_info[prefix_ports_pair[0]]=port_list
+        return
+    #---------------------------------------------------------------------
+    
+    def print_route_info(self):
+        '''
+        For diagnostic purposes only
+        '''
+        pprint.pprint(self.route_info)
+        return
+    #---------------------------------------------------------------------
     def is_ipv4_address(self, ipaddr):
         '''
         @summary: Check address is valid IPv4 address.
