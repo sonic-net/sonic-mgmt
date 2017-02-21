@@ -205,17 +205,6 @@ class AclTest(BaseTest):
         tests_passed += (0 if res else 1)
         print "Test #7 %s" % ("FAILED" if res else "PASSED")
 
-
-#        # Test #8 -  Verify ip type match
-#        pkt = pkt0.copy()
-#        exp_pkt = exp_pkt0.copy()
-#        #pkt['IP'].version = 4
-#        #exp_pkt['IP'].version = 4
-#        res = True # self.runSendReceiveTest(pkt, self.src_port, exp_pkt, self.spine_ports)
-#        tests_passed += (1 if res else 0)
-#        print "Test #8 %s" % ("PASSED" if res else "FAILED")
-
-
         # Test #9 - Verify source port range match
         pkt = pkt0.copy()
         exp_pkt = exp_pkt0.copy()
@@ -266,7 +255,6 @@ class AclTest(BaseTest):
         print "Ports to expect packet from: ",
         pprint.pprint(self.spine_ports)
         print "Dst IP expected to be blocked: ", self.dest_ip_addr_blocked
-
 
         (tests_passed, tests_total) = self.runAclTests()
         print "Passed %d test of %d" % (tests_passed, tests_total)

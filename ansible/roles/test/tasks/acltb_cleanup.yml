@@ -43,5 +43,3 @@
   command: docker exec -t swss bash -c "swssconfig /etc/swss/config.d/{{ item }}"
   with_items:
     - "{{ acltb_configs }}"
-
-

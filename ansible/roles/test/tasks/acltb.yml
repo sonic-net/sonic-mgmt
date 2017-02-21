@@ -12,5 +12,3 @@
 - name: Clean up ACL test configuration on the testbed
   include: acltb_cleanup.yml
   tags: acltb_cleanup
-
-

@@ -34,12 +34,7 @@
   with_items:
     - "{{ acltb_configs }}"
 
-- debug: msg="sdhjfkjsdhskjdfh"
-  when: acltb_configs is undefined
-
 - name: Apply ACL configuration
   command: docker exec -t swss bash -c "swssconfig /etc/swss/config.d/{{ item }}"
   with_items:
     - "{{ acltb_configs }}"
-
-
