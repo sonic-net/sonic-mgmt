@@ -69,7 +69,7 @@
 
 - include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
-- debug : msg="INVOKE FIB TEST"
+- debug : msg="INVOKE DECAP TEST"
 
 - block:
 
@@ -86,17 +86,23 @@
       delegate_to: "{{ ptf_host }}"
 
     - name: "Running test {{ testname }}"
-      #shell: ptf --test-dir acstests IP_decap_test --platform remote -t "verbose=True; router_mac='{{ ansible_Ethernet0['macaddress'] }}';lo_ip='{{ ansible_lo['ipv4']['address'] }}';dscp_mode='uniform'; route_info='/tmp/route_info.txt'" --relax
       shell: ptf --test-dir acstests IP_decap_test --platform remote -t "verbose=True; router_mac='{{ ansible_Ethernet0['macaddress'] }}';lo_ip='{{lo_ip}}';dscp_mode='{{dscp_mode}}'; route_info='/tmp/route_info.txt'" --relax
       args:
         chdir: /root
       delegate_to: "{{ ptf_host }}"
       register: out
-      
+
     - debug: var=out.stdout_lines
       when: out.rc != 0
 
   always:
+  
+    - name: Create ACL configuration to delete decap 
+     command: docker exec -t swss bash -c "sed -i 's/SET/DEL/g' /tmp/decap_conf.json"
+    
+    - name: Apply ACL delete configuration
+      command: docker exec -t swss bash -c "swssconfig /tmp/decap_conf.json"
+  
     - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     # Output content of result files to ansible console
