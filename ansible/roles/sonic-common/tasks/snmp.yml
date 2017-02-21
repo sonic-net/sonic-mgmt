@@ -5,8 +5,6 @@
     docker_image: "{{ image_id_snmp }}"
     docker_privileged: yes
     docker_state: absent
-    docker_volumes:
-      -  /etc/ssw/:/etc/ssw/:ro
 
 - name: switch SNMP image based on SONiC version
   set_fact:
@@ -20,7 +18,10 @@
     docker_image: "{{ image_id_snmp }}"
     docker_privileged: yes
     docker_state: reloaded
+    docker_volumes_from:
+    - database
     docker_volumes:
+      -  /etc/sonic/:/etc/sonic/:ro
       -  /etc/ssw/:/etc/ssw/:ro
 
 - name: Gather setup facts about system
@@ -36,7 +37,19 @@
   set_fact:
     sonic_baseimage_version: "{{ result.stdout }}"
 
-- name: Setup sysDescription file
+- name: Generate snmp.yml file (for oneimage snmp dockers)
+  become: true
+  template: src=snmp.yml.j2
+            dest=/etc/sonic/snmp.yml
+            mode=0644
+    
+- name: Setup sonic_version file (for oneimage snmp dockers)
+  become: true
+  template: src=sonic_version.yml.j2
+            dest=/etc/sonic/sonic_version.yml
+            mode=0644
+    
+- name: Setup sysDescription file (for legacy snmp dockers)
   become: true
   template: src=sysDescription.j2
             dest=/etc/ssw/sysDescription
@@ -49,7 +62,6 @@
   become: false
   connection: local
   register: snmp_remap
-
 
 - block:
   - name: Check version of snmpd

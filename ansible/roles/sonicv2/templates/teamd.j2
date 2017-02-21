@@ -3,17 +3,18 @@
     "runner": {
         "name": "lacp",
         "active": true,
-        "min_ports": 2,
+{# Use 75% links upperbound as min-links #}
+        "min_ports": {{item['members'] | length * 0.75 | round(0, 'ceil') | int}},
         "tx_hash": ["eth", "ipv4", "ipv6"]
     },
     "link_watch": {
         "name": "ethtool"
     },
     "ports": {
-        {% for member in item['members'] %}
+{% for member in item['members'] %}
         "{{member}}": {}{% if not loop.last %},
-        {% endif %}
-        {% endfor %}
+{% endif %}
+{% endfor %}
+
     }
 }
-

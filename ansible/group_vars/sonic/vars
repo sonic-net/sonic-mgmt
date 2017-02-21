@@ -1,19 +1,19 @@
 ansible_ssh_user: admin
-ansible_ssh_pass: password
-ansible_become_pass: password
+ansible_ssh_pass: YourPaSsWoRd
+ansible_become_pass: YourPaSsWoRd
 sonicadmin_user: admin
-sonicadmin_password: password
-sonicadmin_initial_password: 123456
+sonicadmin_password: YourPaSsWoRd
+sonicadmin_initial_password: YourPaSsWoRd
 
 sonic_version: "v2"
 
-broadcom_hwskus: [ 'ACS-S6000', 'Force10-S6000' ]
+broadcom_hwskus: [ 'Force10-S6000' ]
 
 mellanox_hwskus: [ 'ACS-MSN2700' ]
 
 cavium_hwskus: [ "AS7512", "XP-SIM" ]
 
-sensor_hwskus: [ "ACS-S6000", "ACS-MSN2700", "Force10-S6000" ]
+sensor_hwskus: [ "ACS-MSN2700", "Force10-S6000" ]
 
 ## Note:
 ## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we
@@ -29,6 +29,7 @@ syncd_docker_volumes: "{{ syncd_docker_volumes_dict.keys() }}"
 
 orchagent_docker_volumes_dict:
   "/etc/ssw/:/etc/ssw/:ro":
+  "/etc/sonic/:/etc/sonic/:ro":
   "/etc/network/interfaces:/etc/network/interfaces:ro":
   "/etc/network/interfaces.d/:/etc/network/interfaces.d/:ro":
   "/host/machine.conf:/host/machine.conf":

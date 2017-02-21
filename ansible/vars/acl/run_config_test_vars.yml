@@ -1,0 +1,13 @@
+---
+
+testname_unique: "{{ testname }}.{{ ansible_date_time.date }}.{{ ansible_date_time.time }}"
+
+test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
+loganalyzer_init: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+loganalyzer_analyze: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+
+match_file: loganalyzer_common_match.txt
+ignore_file: loganalyzer_common_ignore.txt
+
+summary_file: summary.loganalysis.{{ testname_unique }}.log
+result_file: result.loganalysis.{{ testname_unique }}.log

@@ -85,19 +85,19 @@ class DefineOid(object):
 
     def __init__(self,dotprefix=False):
         if dotprefix:
-            dp = "."
+            dp = ".1"
         else:
             dp = ""
 
         # From IF-MIB
-        self.if_descr       = dp + "1.0.8802.1.1.2.1.3.7.1.3"
+        self.if_descr       = dp + ".0.8802.1.1.2.1.3.7.1.3"
 
         # From LLDP-MIB
-        self.lldp_rem_port_id      = dp + "1.0.8802.1.1.2.1.4.1.1.7"
-        self.lldp_rem_port_desc    = dp + "1.0.8802.1.1.2.1.4.1.1.8"
-        self.lldp_rem_sys_desc     = dp + "1.0.8802.1.1.2.1.4.1.1.10"
-        self.lldp_rem_sys_name     = dp + "1.0.8802.1.1.2.1.4.1.1.9"
-        self.lldp_rem_chassis_id   = dp + "1.0.8802.1.1.2.1.4.1.1.5"
+        self.lldp_rem_port_id      = dp + ".0.8802.1.1.2.1.4.1.1.7"
+        self.lldp_rem_port_desc    = dp + ".0.8802.1.1.2.1.4.1.1.8"
+        self.lldp_rem_sys_desc     = dp + ".0.8802.1.1.2.1.4.1.1.10"
+        self.lldp_rem_sys_name     = dp + ".0.8802.1.1.2.1.4.1.1.9"
+        self.lldp_rem_chassis_id   = dp + ".0.8802.1.1.2.1.4.1.1.5"
 
 def get_iftable(snmp_data):
     """ Gets the interface table (if_index and interface) for a given device

@@ -1,0 +1,7 @@
+[
+    {
+        "ACL_RULE_TABLE:acl_test_table_mirror:acl_config_rule_mirror": {
+        },
+        "OP": "DEL"
+    }
+]

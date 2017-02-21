@@ -1,0 +1,33 @@
+- name: Remove ptf docker container ptf_{{ vm_set_name }}
+  docker:
+    name: ptf_{{ vm_set_name }}
+    image: "{{ docker_registry_host }}/{{ ptf_imagename }}"
+    state: absent
+
+- name: Create a docker container ptf_{{ vm_set_name }}
+  docker:
+    registry: "{{ docker_registry_host }}"
+    username: "{{ docker_registry_username }}"
+    password: "{{ docker_registry_password }}"
+    name: ptf_{{ vm_set_name }}
+    image: "{{ docker_registry_host }}/{{ ptf_imagename }}"
+    pull: always
+    state: reloaded
+    net: none
+    detach: True
+    cap_add: NET_ADMIN
+
+- name: Renumber topology {{ topo }} to VMs. base vm = {{ VM_base }} base vlan = {{ vlan_base }}
+  vm_topology:
+    cmd: "renumber"
+    vm_set_name: "{{ vm_set_name }}"
+    topo: "{{ topology }}"
+    vm_names: "{{ VM_hosts }}"
+    vm_base: "{{ VM_base }}"
+    vlan_base: "{{ vlan_base }}"
+    mgmt_ip_addr: "{{ ptf_ip }}"
+    mgmt_ip_gw: "{{ mgmt_gw }}"
+    mgmt_bridge: "{{ mgmt_bridge }}"
+    ext_iface: "{{ external_iface }}"
+    fp_mtu: "{{ fp_mtu_size }}"
+

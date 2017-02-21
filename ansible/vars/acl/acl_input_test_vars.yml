@@ -1,0 +1,6 @@
+---
+
+testname: acl_input_test
+
+acl_config_valid: acl_config_valid.json
+acl_config_invalid: acl_config_invalid.json

@@ -18,6 +18,10 @@
     docker_image: "{{ image_id_lldp }}"
     docker_privileged: yes
     docker_state: reloaded
+    docker_volumes_from:
+    - database
+    docker_volumes:
+      - /etc/sonic/:/etc/sonic/:ro
 
 - block:
   - name: Setup LLDPD Daemon Config File
@@ -35,9 +39,7 @@
     notify:
       - Restart LLDP Daemon
       - Restart SNMP Daemon
-    # for production hwsku, we need to add lldpd.conf to generate ngs 
-    # interface name in the lldp message we sent
-    when: sonic_hwsku != 'ACS-S6000' and sonic_hwsku != 'ACS-MSN2700'
+    when: sonic_hwsku == 'Force10-S6000'
   # Force handler flush to trigger daemon restarts
   - meta: flush_handlers
 

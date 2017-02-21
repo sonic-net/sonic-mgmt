@@ -2,6 +2,12 @@
 # Run FIB test and Perform log analysis.
 #-----------------------------------------
 
+- fail: msg="information about testbed missing."
+  when: testbed_type is not defined
+
+- fail: msg="Invalid testbed_type value '{{testbed_type}}'"
+  when: testbed_type not in ['lag', 'fib']
+
 # Gather minigraph facts
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
@@ -32,8 +38,10 @@
     out_dir: /tmp/ansible-loganalyzer-results
     test_match_file: fib_match_messages.txt
     test_ignore_file: fib_ignore_messages.txt
+    test_expect_file: fib_expect_messages.txt
     match_file: loganalyzer_common_match.txt
     ignore_file: loganalyzer_common_ignore.txt
+    tests_location: "{{ 'roles/test/tasks' }}"
 
 # Separate set_fact is required to be able to use 'testname' fact.
 - set_fact:
@@ -56,10 +64,6 @@
 
     - name: copy the test to ptf container
       copy: src=roles/test/files/acstests dest=/root
-      delegate_to: "{{ ptf_host }}"
-      
-    - name: copy route_info.txt to ptf container
-      copy: src=roles/test/tasks/fib/route_info.txt dest=/root/acstests
       delegate_to: "{{ ptf_host }}"
 
     - name: "Running test {{ testname }}"

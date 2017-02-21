@@ -1,0 +1,5 @@
+---
+
+- name: Restart the box
+  command: /sbin/shutdown -r now "Ansible updates triggered"
+

@@ -13,7 +13,7 @@ and public [sonicdev Docker registry](https://sonicdev-microsoft.azurecr.io/).
 
 - Update [inventory](/ansible/inventory/) file with correct information for your environment.
   * ansible_host = management ip address
-  * sonic_hwsku = Supported Hardware SKU, e.g. ACS-S6000, ACS-MSN2700
+  * sonic_hwsku = Supported Hardware SKU, e.g. Force10-S6000, ACS-MSN2700
 - Update [group_vars/sonic/vars](/ansible/group_vars/sonic/vars/) file with:
   * Replace ```sonicadmin_user``` and ```ansible_ssh_user``` with the username you built into the baseimage
   * Replace ```sonicadmin_initial_password``` with the password you built into baseimage.
