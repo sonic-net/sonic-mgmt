@@ -1,0 +1,15 @@
+#-----------------------
+# Send traffic from PTF docker and verify all the packets arrived.
+#
+# Parameters:
+#   @ param: vm_under_test  -   VM name that contains LAG being tested
+#   @ param: dst_addr   -   destination address of the traffic (usually it's VM LAG interface IP)
+#   @ param: src_iface  -   interface, where traffic is sent from
+#   @ param: check_pkts_iface   -   where packets should arrive (because usually one of LAG members is being DOWN in test purposes).
+#   @ param: number_of_pkts        -   amount of traffic to send
+#-----------------------
+- name: Run traffic from eth{{ src_iface }} (PTF docker) to {{ dst_addr }} (VM LAG iface) on {{ vm_under_test }}; sniff packets on eth{{ check_pkts_iface }} (PTF docker).
+  shell: ptf --test-dir . --platform remote lag_test.LagMembersTrafficTest -t "dst_addr='{{ dst_addr }}'; src_iface={{ src_iface }}; check_pkts_iface={{ check_pkts_iface }}; num_of_pkts={{ number_of_pkts }}"
+  args:
+    chdir: "{{ change_dir }}"
+  delegate_to: "{{ ptf_docker }}"
