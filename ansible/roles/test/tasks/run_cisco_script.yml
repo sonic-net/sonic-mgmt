@@ -21,7 +21,7 @@
   connection: switch
   args:
     host: "{{ host }}"
-    enable: yes
+    enable: no
     login: "{{ log_in }}"
     timeout: 300
   register: cisco_script_res
@@ -41,7 +41,7 @@
   connection: switch
   args:
     host: "{{ host }}"
-    enable: yes
+    enable: no
     login: "{{ log_in }}"
     timeout: 300
   vars:
@@ -55,7 +55,7 @@
   connection: switch
   args:
     host: "{{ host }}"
-    enable: yes
+    enable: no
     login: "{{ log_in }}"
     timeout: 300
   register: cisco_script_res
@@ -68,7 +68,7 @@
   connection: switch
   args:
     host: "{{ host }}"
-    enable: yes
+    enable: no
     login: "{{ log_in }}"
     timeout: 300
   vars:

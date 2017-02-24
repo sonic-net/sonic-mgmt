@@ -19,8 +19,12 @@
 #       cd ansible;
 #       ansible-playbook test_sonic.yml -i inventory --limit <DUT-inventory-hostname> --tags lag -e "fanout_switch=<fanout-inventory-hostname> ; ptf_docker=<ptf-docker-inventory-hostname> ; dut_mac=<dut_mac_addr>" -vvvvv
 #-----------------------------------
-- set_fact:
-    ptf_docker: ptf-fib
+
+- fail: msg="Please define fanout_switch"
+  when: fanout_switch is not defined
+
+- fail: msg="Please define ptf_docker"
+  when: ptf_docker is not defined
 
 - fail: msg="Please define dut_mac"
   when: dut_mac is not defined
@@ -130,3 +134,20 @@
   vars:
     lag_iface: "{{ item.1 }}"
   with_indexed_items: "{{ dut_lags }}"
+
+- set_fact:
+    iface_behind_lag_member_index: 1
+
+- name: --TEST-- Fanout ports test.
+  include: lag_fanout_ports_test.yml
+  vars:
+    fanout_mgmt_ip: "{{ hostvars[fanout_switch]['ansible_host'] }}"
+    fanout_user: "{{ hostvars[fanout_switch]['ansible_ssh_user'] }}"
+    fanout_pass: "{{ hostvars[fanout_switch]['ansible_ssh_pass'] }}"
+    dut_mac_addr: "{{ dut_mac }}"
+    lag_ip: "{{ configuration[lldp[item.1]['chassis']['name']]['interfaces']['Port-Channel1']['ipv4'] }}"
+    ifaces_behind_lag_member: "{{ topology['VMs'][lldp[item.1]['chassis']['name']]['vlans'] }}"
+    not_behind_lag_iface: 29
+    dut_lag_member: "{{ item.1 }}"
+    num_of_pkts: 100
+  with_indexed_items: "{{ dut_lag_members }}"
