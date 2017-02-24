@@ -1,0 +1,42 @@
+- set_fact:
+    run_dir: /home/admin/everflow_tests
+    out_dir: /home/admin/everflow_tests/results
+    docker_testdir: /tmp
+    tests_location: roles/test/tasks/everflow_testbed
+    testname: del_config
+    config_files:
+        - session.json
+        - acl_table.json
+        - acl_rule_persistent.json
+
+- name: Initialize config test
+  include: roles/test/tasks/init_config_test.yml
+
+- block:
+    - name: Delete Everflow session configuration.
+      vars:
+        config_file: acl_rule_persistent.json
+        test_expect_file: expect_messages.txt
+        errors_expected: false
+        run_cleanup: false
+      include: roles/test/tasks/run_config_test.yml
+
+    - name: Delete Everflow ACL table configuration.
+      vars:
+        config_file: acl_table.json
+        test_expect_file: expect_messages.txt
+        errors_expected: false
+        run_cleanup: false
+      include: roles/test/tasks/run_config_test.yml
+
+    - name: Delete Everflow ACL rule configuration.
+      vars:
+        config_file: session.json
+        test_expect_file: expect_messages.txt
+        errors_expected: false
+        run_cleanup: false
+      include: roles/test/tasks/run_config_test.yml
+
+  always:
+    - name: Remove all the temporary files created by the test.
+      include: roles/test/tasks/deinit_config_test.yml

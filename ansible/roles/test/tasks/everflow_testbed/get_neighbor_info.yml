@@ -1,0 +1,17 @@
+- name: Get DST port 1 info.
+  set_fact:
+      neighbor_info_1: "{{ item }}"
+  with_items: "{{ minigraph_bgp }}"
+  when: item['name'] == minigraph_neighbors[dst_port_1]['name']
+
+- name: neighbor 1 info.
+  debug: msg="{{neighbor_info_1}}"
+
+- name: Get DST port 2 info.
+  set_fact:
+      neighbor_info_2: "{{ item }}"
+  with_items: "{{ minigraph_bgp }}"
+  when: item['name'] == minigraph_neighbors[dst_port_2]['name']
+
+- name: neighbor 2 info.
+  debug: msg="{{neighbor_info_2}}"
