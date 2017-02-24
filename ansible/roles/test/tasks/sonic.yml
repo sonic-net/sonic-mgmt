@@ -75,3 +75,6 @@
 - name: Test Everflow
   include: everflow.yml
   tags: everflow
+
+- name: Test Everflow on testbed
+  include: everflow_testbed.yml

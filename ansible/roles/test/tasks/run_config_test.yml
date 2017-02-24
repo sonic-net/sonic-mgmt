@@ -9,13 +9,13 @@
 
 - block:
     - name: Initialize loganalizer. Put start marker to log file.
-      include: "{{ loganalyzer_init }}"
+      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Load JSON config {{ config_file }}
       command: docker exec -i swss swssconfig {{ docker_testdir }}/{{ config_file }}
 
     - name: Use loganalyzer to check for the error messages {{ testname }} / {{ config_file }}.
-      include: "{{ loganalyzer_analyze }}"
+      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     - name: Get the total number of expected messages.
       shell: grep "TOTAL EXPECTED" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL EXPECTED MATCHES:[[:space:]]*//p"

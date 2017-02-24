@@ -1,3 +1,6 @@
+- name: Create run_dir
+  file: path="{{ run_dir }}" state=directory
+
 - name: Copy JSON configs onto switch.
   copy: src={{ tests_location }}/{{ testname }}/{{ item }} dest={{ run_dir }}/{{ item }}
   with_items:
