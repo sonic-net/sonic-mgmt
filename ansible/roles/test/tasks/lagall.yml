@@ -17,7 +17,6 @@
 #
 # Run command (from ansible/): ansible-playbook test_sonic.yml -i inventory --limit <DUT_inventory_hostname> --tags lag -vvvvv
 #-----------------------------------
-
 - set_fact:
     ptf_docker: ptf-fib
 
@@ -83,7 +82,7 @@
     - router_utils.py
   delegate_to: "{{ ptf_docker }}"
 
-- name: Include testbed topology configuration (to get LAG_IP and PTF docker ifaces, that are behind LAG VMs).
+- name: Include testbed topology configuration (to get LAG IP and PTF docker ifaces, that are behind LAG VMs).
   include_vars: vars/topo_t1-lag.yml
 
 - name: --TEST-- LAG members UP and DOWN on all VMs.
@@ -115,7 +114,7 @@
 - set_fact:
     dut_lags: []
 
-- name: Create a list of LAG members.
+- name: Get a list of LAGs on DUT.
   set_fact:
     dut_lags: "{{ dut_lags }} + [ '{{ item.1['name'] }}' ]"
   with_indexed_items: "{{ minigraph_portchannel_interfaces }}"
