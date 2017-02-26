@@ -78,3 +78,24 @@
     docker_volumes_from:
     - database
   tags: orchagent
+
+- name: Remove platform-monitor docker container
+  include: sonicdocker.yml
+  vars:
+    docker_container: platform-monitor
+    docker_image: "{{ image_id_platform_monitor }}"
+    docker_privileged: yes
+    docker_state: absent
+  tags: platform-monitor
+
+- name: Start platform-monitor docker container
+  include: ../../sonic-common/tasks/sonicdocker.yml
+  vars:
+    docker_container: platform-monitor
+    docker_image: "{{ image_id_platform_monitor }}"
+    docker_privileged: yes
+    docker_state: reloaded
+    docker_volumes: "{{ platform_monitor_docker_volumes }}"
+    docker_volumes_from:
+    - database
+  tags: platform-monitor
