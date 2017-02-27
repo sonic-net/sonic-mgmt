@@ -1,0 +1,13 @@
+# This Playbook deploys DUT configurations
+#
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i inventory -l <DUT> testbed_add_configuration.yml
+#
+# Ansible tags can be used to select configuration to be applied
+#
+# Parameters
+
+- hosts: sonic
+  gather_facts: no
+  roles:
+    - { role: configure }
+

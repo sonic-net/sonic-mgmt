@@ -7,6 +7,7 @@ function usage
   echo "testbed-cli. Interface to testbeds"
   echo "Usage : $0 { start-vms | stop-vms    } server-name vault-password-file"
   echo "Usage : $0 { add-topo  | remove-topo | renumber-topo } topo-name vault-password-file"
+  echo "Usage : $0 { add-config } dut-name [tags]"
   echo
   echo "To start VMs on a server: $0 start-vms 'server-name' ~/.password"
   echo "To stop VMs on a server:  $0 stop-vms 'server-name' ~/.password"
@@ -116,6 +117,21 @@ function renumber_topo
   echo Done
 }
 
+function add_config
+{
+  echo "Adding configuration to the DUT $1"
+
+  tags=""
+  if [ "$2" != "all" ]
+  then
+    tags="--tags $2"
+  fi
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook testbed_add_configuration.yml -i inventory --limit $1 $tags
+
+  echo Done
+}
+
 
 if [ $# -lt 3 ]
 then
@@ -132,6 +148,8 @@ case "$1" in
   remove-topo) remove_topo $2 $3
                ;;
   renumber-topo) renumber_topo $2 $3
+               ;;
+  add-config) add_config $2 $3
                ;;
   *)           usage
                ;;

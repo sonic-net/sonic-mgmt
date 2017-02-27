@@ -1,0 +1,62 @@
+#-----------------------------------------
+# Apply ACL configuration
+#-----------------------------------------
+- set_fact:
+    acltb_configs:
+      - "{{ 'acltb_persistent_acl_table' }}"
+      - "{{ 'acltb_persistent_acl_rules' }}"
+
+# Gather minigraph facts
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  become: no
+  connection: local
+
+- name: Print neighbors in minigraph
+  debug: msg="{{ minigraph_neighbors }}"
+
+- name: Read port reverse alias mapping
+  set_fact:
+    alias_reverse_map: "{{ lookup('file', 'roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_reverse_map.json') | from_json }}"
+
+# Generate file with ACL table for rules which permit other tests traffic
+- template: src={{ item }}.j2 dest=/tmp/{{ item }}.json
+  connection: local
+  with_items:
+    - "{{ acltb_configs }}"
+
+# Copy ACL config to the swss container via the switch
+- name: Copy ACL config file to the DUT
+  copy: src="/tmp/{{ item }}.json" dest="/tmp/{{ item }}.json"
+  with_items:
+    - "{{ acltb_configs }}"
+
+- name: Copy ACL config files to the swss container
+  command: docker cp "/tmp/{{ item }}.json" swss:/etc/swss/config.d/"{{ item }}.json"
+  with_items:
+    - "{{ acltb_configs }}"
+
+- name: Copy start.sh modification script to the DUT
+  copy: src="roles/configure/files/helpers/swssconfig_args_update.sh" dest="/tmp/swssconfig_args_update.sh"
+
+- name: Copy script to the swss container
+  command: docker cp "/tmp/swssconfig_args_update.sh" swss:/tmp/swssconfig_args_update.sh
+
+- name: Make script executable
+  command: docker exec -t swss bash -c 'chmod +x /tmp/swssconfig_args_update.sh'
+  become: yes
+
+- name: Modify start.sh to apply ACL config on start (table)
+  command: docker exec -t swss bash -c '/tmp/swssconfig_args_update.sh /usr/bin/start.sh /etc/swss/config.d/acltb_\*table.json'
+  become: yes
+
+- name: Modify start.sh to apply ACL config on start (rule)
+  command: docker exec -t swss bash -c '/tmp/swssconfig_args_update.sh /usr/bin/start.sh /etc/swss/config.d/acltb_\*rules.json'
+  become: yes
+
+- name: Apply ACL configuration
+  command: docker exec -t swss bash -c "swssconfig /etc/swss/config.d/{{ item }}.json"
+  with_items:
+    - "{{ acltb_configs }}"
+  tags: acltb_configure
+

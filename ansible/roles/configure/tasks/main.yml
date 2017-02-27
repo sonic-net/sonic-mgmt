@@ -1,0 +1,15 @@
+#-----------------------------------------
+# Apply ACL permanent configuration
+#-----------------------------------------
+
+- name: ACL configuration
+  include: acltb_permanent_config.yml
+  tags: acl
+
+#-----------------------------------------
+# Apply Everflow permanent configuration
+#-----------------------------------------
+
+#-----------------------------------------
+# Apply IPinIP permanent configuration
+#-----------------------------------------
