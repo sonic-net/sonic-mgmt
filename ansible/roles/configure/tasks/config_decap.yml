@@ -1,0 +1,26 @@
+- fail: msg="information about testbed missing."
+  when: (lo_ip is not defined) or
+        (dscp_mode is not defined) 
+        
+- fail: msg="Invalid testbed_type value '{{dscp_mode}}'"
+  when: dscp_mode not in [ 'pipe','uniform']
+
+- template: src=decap_conf.j2 dest=/tmp/decap_conf.json
+  connection: local
+
+- name: Copy conf file to the switch
+  copy: src="/tmp/decap_conf.json" dest="/tmp/decap_conf.json"
+
+- name: Modify start.sh to apply decap config on start (rule)
+  command: docker exec -t swss bash -c '/tmp/swssconfig_args_update.sh /usr/bin/start.sh /etc/swss/config.d/decap_config.json'
+  become: yes
+
+ 
+- name: Copy JSON configs from switch into docker filesystem
+  command: docker cp /tmp/decap_conf.json  swss:/etc/swss/config.d/decap_config.json
+
+- name: Load decap JSON config.
+  command: docker exec -i swss swssconfig /etc/swss/config.d/decap_config.json
+  register: valid_config_upload
+  failed_when: valid_config_upload.rc != 0
+  tags: decap

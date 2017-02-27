@@ -5,6 +5,8 @@
 # Ansible tags can be used to select configuration to be applied
 #
 # Parameters
+# -e dscp_mode 'pipe' or 'uniform'
+# -e lo_ip ip for the decap rule
 
 - hosts: sonic
   gather_facts: no

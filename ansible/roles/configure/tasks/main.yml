@@ -5,7 +5,6 @@
 - name: ACL configuration
   include: acltb_permanent_config.yml
   tags: acl
-
 #-----------------------------------------
 # Apply Everflow permanent configuration
 #-----------------------------------------
@@ -13,3 +12,7 @@
 #-----------------------------------------
 # Apply IPinIP permanent configuration
 #-----------------------------------------
+- name: Decap configuration
+  include: config_decap.yml
+  tags: decap
+
