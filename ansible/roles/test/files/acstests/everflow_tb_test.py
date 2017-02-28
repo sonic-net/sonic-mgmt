@@ -30,7 +30,7 @@ def reportResults(test_name):
 
 class EverflowTest(BaseTest):
     '''
-    @summary: Everflow tests on testbed topo: t1
+    @summary: Everflow tests on testbed topo: t1 or t1-lag
     '''
 
     GRE_PROTOCOL_NUMBER = 47
@@ -73,6 +73,7 @@ class EverflowTest(BaseTest):
         self.session_dscp = int(self.test_params['session_dscp'])
         self.src_port = int(float(self.test_params['src_port']))
         self.dst_ports = [int(float(p)) for p in self.test_params['dst_ports'].split(",")]
+        self.expected_dst_mac = self.test_params.get('expected_dst_mac', None)
 
         testutils.add_filter(self.gre_type_filter)
 
@@ -121,6 +122,9 @@ class EverflowTest(BaseTest):
         if scapy.IP not in scapy_pkt:
             return False
 
+        if self.expected_dst_mac and scapy_pkt.dst != self.expected_dst_mac:
+            return False
+
         if scapy_pkt[scapy.IP].src != self.session_src_ip:
             return False
 
@@ -130,8 +134,9 @@ class EverflowTest(BaseTest):
         if scapy_pkt[scapy.IP].ttl != self.session_ttl:
             return False
 
-        if (scapy_pkt[scapy.IP].tos >> 2) != self.session_dscp:
-            return False
+        # TODO: Fanout modifies DSCP. TOS value is olways 0.
+        #if (scapy_pkt[scapy.IP].tos >> 2) != self.session_dscp:
+        #    return False
 
         payload = str(scapy_pkt[scapy.GRE].payload)[22:]
         inner_pkt = scapy.Ether(payload)

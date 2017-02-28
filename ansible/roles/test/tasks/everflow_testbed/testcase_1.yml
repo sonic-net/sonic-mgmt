@@ -1,10 +1,12 @@
-- name: test case 1 - Resolved route (Verify that session with resolved route has active state.)
-  shell: ip route add 2.2.2.0/24 via {{ neighbor_info_1['addr'] }}
-  become: yes
+# Test case 1 - Resolved route.
+# Verify that session with resolved route has active state.
+
+- name: Create route with next hop {{ dst_port_1 }}.
+  shell: ip route add {{ session_prefix_1 }} via {{ neighbor_info_1['addr'] }}
 
 - block:
-    - name: "Running test case 1"
-      shell: ptf --test-dir acstests everflow_tb_test.EverflowTest  --platform remote -t 'router_mac="00:02:03:04:05:00";src_port="{{ alias_reverse_map[src_port]|replace("Ethernet",     "")|int / 4 }}";dst_ports="{{ alias_reverse_map[dst_port_1]|replace("Ethernet","")|int / 4 }},{{ alias_reverse_map[dst_port_2]|replace("Ethernet","")|int / 4 }}";session_src_ip="{{      session_src_ip }}";session_dst_ip="{{ session_dst_ip }}";session_ttl="{{ session_ttl }}";session_dscp="{{ session_dscp }}";verbose=True'
+    - name: Send traffic and verify that packets with correct Everflow header are received on destination port {{ dst_port_1 }}.
+      shell: ptf --test-dir acstests everflow_tb_test.EverflowTest  --platform remote -t 'router_mac="{{ ansible_Ethernet0['macaddress'] }}";src_port="{{ src_port_ptf_id }}";dst_ports="{{ dst_port_1_ptf_id }}";session_src_ip="{{ session_src_ip }}";session_dst_ip="{{ session_dst_ip }}";session_ttl="{{ session_ttl }}";session_dscp="{{ session_dscp }}";verbose=True'
       args:
         chdir: /root
       delegate_to: "{{ ptf_host }}"
@@ -12,6 +14,4 @@
 
   always:
     - name: Remove route
-      shell: ip route del 2.2.2.0/24
-      become: yes
-
+      shell: ip route del {{ session_prefix_1 }}

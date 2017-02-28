@@ -39,3 +39,12 @@
 - name: Initialize session_dscp variable.
   set_fact:
     session_dscp: "{{ session_dscp_info.stdout }}"
+
+- set_fact:
+    addr_1: "{{ session_dst_ip }}/24"
+    addr_2: "{{ session_dst_ip }}/30"
+
+- name: Initialize session prefixes.
+  set_fact:
+    session_prefix_1: "{{ addr_1|ipaddr('network') }}/{{ addr_1|ipaddr('prefix') }}"
+    session_prefix_2: "{{ addr_2|ipaddr('network') }}/{{ addr_2|ipaddr('prefix') }}"

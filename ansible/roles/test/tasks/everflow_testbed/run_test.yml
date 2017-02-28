@@ -10,7 +10,6 @@
 - name: Print neighbors in minigraph
   debug: msg="{{ minigraph_neighbors }}"
 
-# TODO: is it needed
 - name: Read port reverse alias mapping.
   set_fact:
     alias_reverse_map: "{{ lookup('file', 'roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_reverse_map.json') | from_json }}"
@@ -28,9 +27,9 @@
     match_file: loganalyzer_common_match.txt
     ignore_file: loganalyzer_common_ignore.txt
     tests_location: "{{ 'roles/test/tasks' }}"
-    src_port: Ethernet84
-    dst_port_1: Ethernet92
-    dst_port_2: Ethernet96
+
+- name: Get port info.
+  include: roles/test/tasks/everflow_testbed/get_port_info.yml
 
 - name: Get session info.
   include: roles/test/tasks/everflow_testbed/get_session_info.yml
@@ -50,15 +49,41 @@
 - include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
 - block:
-
     - name: Copy the test to ptf container.
       copy: src=roles/test/files/acstests dest=/root
       delegate_to: "{{ ptf_host }}"
 
+    - name: Add route to unresolved next hop.
+      shell: ip route add {{ unresolved_nexthop_prefix }} dev {{ dst_port_2 }}
+
     - name: Run testcase 1 - Resolved route
       include: roles/test/tasks/everflow_testbed/testcase_1.yml
 
+    - name: Run testcase 2 - Longer prefix route with resolved next hop.
+      include: roles/test/tasks/everflow_testbed/testcase_2.yml
+
+    - name: Run testcase 3 - Remove longer prefix route.
+      include: roles/test/tasks/everflow_testbed/testcase_3.yml
+
+    - name: Run testcase 4 - Change neighbor MAC address.
+      include: roles/test/tasks/everflow_testbed/testcase_4.yml
+
+    - name: Run testcase 5 - Resolved ECMP route.
+      include: roles/test/tasks/everflow_testbed/testcase_5.yml
+
+    - name: Run testcase 6 - ECMP route change (add next hop).
+      include: roles/test/tasks/everflow_testbed/testcase_6.yml
+
+    - name: Run testcase 7 - ECMP route change (remove next hop used by session).
+      include: roles/test/tasks/everflow_testbed/testcase_7.yml
+
+    - name: Run testcase 8 - ECMP route change (remove next hop not used by session).
+      include: roles/test/tasks/everflow_testbed/testcase_8.yml
+
   always:
+    - name: Remove route to unresolved next hop.
+      shell: ip route del {{ unresolved_nexthop_prefix }}
+
     - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     # Output content of result files to ansible console

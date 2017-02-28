@@ -1,0 +1,68 @@
+- name: Init list with tor ports.
+  set_fact:
+      tor_ports: []
+
+- name: Get tor ports
+  set_fact:
+      tor_ports: "{{ tor_ports + [item.key]  }}"
+  with_dict: "{{ minigraph_neighbors }}"
+  when: "'T0' in item.value.name"
+
+- name: Sort tor ports by name.
+  set_fact:
+      tor_port: "{{ tor_ports|sort }}"
+
+- name: Print top ports
+  debug: msg="{{ tor_ports }}"
+
+#    src_port: Ethernet84
+#    dst_port_1: Ethernet92
+#    dst_port_2: Ethernet96
+#    dst_port_3: Ethernet100
+#- set_fact:
+#    src_port_ptf_id: "{{ alias_reverse_map[src_port]|replace(\"Ethernet\", \"\")|int / 4 }}"
+#    dst_port_1_ptf_id: "{{ alias_reverse_map[dst_port_1]|replace(\"Ethernet\", \"\")|int / 4 }}"
+#    dst_port_2_ptf_id: "{{ alias_reverse_map[dst_port_2]|replace(\"Ethernet\", \"\")|int / 4 }}"
+#    dst_port_3_ptf_id: "{{ alias_reverse_map[dst_port_3]|replace(\"Ethernet\", \"\")|int / 4 }}"
+
+- name: Define port variables.
+  set_fact:
+      src_port: "{{ tor_ports[0] }}"
+      dst_port_1: "{{ tor_ports[1] }}"
+      dst_port_2: "{{ tor_ports[2] }}"
+      dst_port_3: "{{ tor_ports[3] }}"
+
+- name: Print port variables.
+  debug:
+      var: src_port
+
+- name: Print port variables.
+  debug:
+      var: dst_port_1
+
+- name: Print port variables.
+  debug:
+      var: dst_port_2
+
+- name: Print port variables.
+  debug:
+      var: dst_port_3
+
+- name: Define PTF port IDs
+  set_fact:
+      src_port_ptf_id: "{{ alias_reverse_map[src_port]|replace(\"Ethernet\", \"\")|int / 4 }}"
+      dst_port_1_ptf_id: "{{ alias_reverse_map[dst_port_1]|replace(\"Ethernet\", \"\")|int / 4 }}"
+      dst_port_2_ptf_id: "{{ alias_reverse_map[dst_port_2]|replace(\"Ethernet\", \"\")|int / 4 }}"
+      dst_port_3_ptf_id: "{{ alias_reverse_map[dst_port_3]|replace(\"Ethernet\", \"\")|int / 4 }}"
+
+- name: Print PTF port ID.
+  debug: msg="{{ src_port }} = {{ src_port_ptf_id }}"
+
+- name: Print PTF port ID
+  debug: msg="{{ dst_port_1 }} = {{ dst_port_1_ptf_id }}"
+
+- name: Print PTF port ID
+  debug: msg="{{ dst_port_2 }} = {{ dst_port_2_ptf_id }}"
+
+- name: Print PTF port ID
+  debug: msg="{{ dst_port_3 }} = {{ dst_port_3_ptf_id }}"

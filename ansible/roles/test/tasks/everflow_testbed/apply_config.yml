@@ -9,6 +9,14 @@
         - acl_table.json
         - acl_rule_persistent.json
 
+- name: Read port reverse alias mapping.
+  set_fact:
+    alias_reverse_map: "{{ lookup('file', 'roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_reverse_map.json') | from_json }}"
+
+- name: Generate json files with ACL configuration for tests
+  template: src={{ tests_location }}/{{ testname }}/acl_table.j2 dest={{ tests_location }}/{{ testname }}/acl_table.json
+  connection: local
+
 - name: Initialize config test
   include: roles/test/tasks/init_config_test.yml
 
@@ -40,4 +48,7 @@
   always:
     - name: Remove all the temporary files created by the test.
       include: roles/test/tasks/deinit_config_test.yml
+
+    - name: Remove temporary files.
+      file: path={{ tests_location }}/{{ testname }}/acl_table.json state=absent
 
