@@ -101,6 +101,7 @@ vms-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str
 9. Comment – any text here
 
 # testbed-cli.sh
+
 1. Maintenance purposes only
  - ./testbed-cli.sh start-vms {server_name} ~./password   # after a server restarted
  - ./testbed-cli.sh stop-vms {server_name} ~./password    # before a server restarted
@@ -109,49 +110,49 @@ vms-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str
  - ./testbed-cli.sh remove-topo {topo_name} ~./password   # destroy topo with name {topo_name} from testbed.csv
  - ./testbed-cli.sh renumber-topo {topo_name} ~./password # renumber topo with name {topo_name} from testbed.csv
 
+# Current topologies
+
+## t1
+
+![](img/testbed-t1.png)
+
+ - Requires 32 VMs
+ - All DUT ports are connected to VMs
+ - PTF container has injected ports only
+
+## t1-lag
+
+![](img/testbed-t1-lag.png)
+
+ - Requires 24 VMs
+ - All DUT ports are connected to VMs
+ - PTF container has injected ports only
+
+## ptf32
+
+![](img/testbed-ptf32.png)
+
+ - Requires 0 VMs
+ - All DUT ports are directly connected to PTF container
+ - PTF container has no injected ports
+
+## ptf64
+
+![](img/testbed-ptf64.png)
+
+ - Requires 0 VMs
+ - All DUT ports are directly connected to PTF container
+ - PTF container has no injected ports
+
+## t0
+
+![](img/testbed-t0.png)
+
+ - Requires 4 VMs
+ - 4 DUT ports are connected to VMs
+ - PTF container has 4 injected ports and 28 directly connected ports
 
 # PTF Testbed topology
-
-```
-             Linux Host                                         Fanout Switch             DUT
-    +----------------------------------------------+          +--------------+     +---------------+
-    |       PTF Docker                             |          |              |     |               |
-    |   +----------------------+                   |          |              |     |               |
-    |   |                eth0  +------vlan101--+   |          |         Et1  +-----+ Ethernet0     |
-    |   |                eth1  +------vlan102--|   |          |         Et2  +-----+ Ethernet4     |
-    |   |                eth2  +------vlan103--|   |          |         Et3  +-----+ Ethernet8     |
-    |   |                eth3  +------vlan104--|   |          |         Et4  +-----+ Ethernet12    |
-    |   |                eth4  +------vlan105--|   |          |         Et5  +-----+ Ethernet16    |
-    |   |                eth5  +------vlan106--|   |          |         Et6  +-----+ Ethernet20    |
-    |   |                eth6  +------vlan107--|   |          |         Et7  +-----+ Ethernet24    |
-    |   |                eth7  +------vlan108--|   |          |         Et8  +-----+ Ethernet28    |
-    |   |                eth8  +------vlan109--|   |          |         Et9  +-----+ Etherent32    |
-    |   |                eth9  +------vlan110--|   |          |         Et10 +-----+ Ethernet36    |
-    |   |                eth10 +------vlan111--|   |          |         Et11 +-----+ Ethernet40    |
-    |   |                eth11 +------vlan112--|   |          |         Et12 +-----+ Ethernet44    |
-    |   |                eth12 +------vlan113--|   |          |         Et13 +-----+ Ethernet48    |
-    |   |                eth13 +------vlan114--|   |          |         Et14 +-----+ Ethernet52    |
-    |   |                eth14 +------vlan115--|   |          |         Et15 +-----+ Ethernet56    |
-    |   |                eth15 +------vlan116--+---+-- eth0 --+ Et33    Et16 +-----+ Ethernet60    |
-    |   |                eth16 +------vlan117--|   |          |         Et17 +-----+ Ethernet64    |
-    |   |                eth17 +------vlan118--|   |          |         Et18 +-----+ Ethernet68    |
-    |   |                eth18 +------vlan119--|   |          |         Et19 +-----+ Ethernet72    |
-    |   |                eth19 +------vlan120--|   |          |         Et20 +-----+ Ethernet76    |
-    |   |                eth20 +------vlan121--|   |          |         Et21 +-----+ Ethernet80    |
-    |   |                eth21 +------vlan122--|   |          |         Et22 +-----+ Ethernet84    |
-    |   |                eth22 +------vlan123--|   |          |         Et23 +-----+ Ethernet88    |
-    |   |                eth23 +------vlan124--|   |          |         Et24 +-----+ Ethernet92    |
-    |   |                eth24 +------vlan125--|   |          |         Et25 +-----+ Ethernet96    |
-    |   |                eth25 +------vlan126--|   |          |         Et26 +-----+ Ethernet100   |
-    |   |                eth26 +------vlan127--|   |          |         Et27 +-----+ Ethernet104   |
-    |   |                eth27 +------vlan128--|   |          |         Et28 +-----+ Ethernet108   |
-    |   |                eth28 +------vlan129--|   |          |         Et29 +-----+ Ethernet112   |
-    |   |                eth29 +------vlan130--|   |          |         Et30 +-----+ Ethernet116   |
-    |   |                eth30 +------vlan131--|   |          |         Et31 +-----+ Ethernet120   |
-    |   |                eth31 +------vlan132--+   |          |         Et32 +-----+ Ethernet124   |
-    |   +----------------------+                   |          |              |     |               |
-    |                                              |          |              |     |               |
-    +----------------------------------------------+          +--------------+     +---------------+
 ```
 Figure 1: PTF container testbed
 
