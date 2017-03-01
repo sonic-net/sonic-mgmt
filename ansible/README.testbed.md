@@ -9,7 +9,7 @@
 Content of /etc/network/interfaces:
 ```
 root@STR-AZURE-SERV-01:~# cat /etc/network/interfaces
-# The primary network interface
+# The primary network interface - testbed server management
 auto em1
 iface em1 inet static
         address 10.250.0.245
@@ -21,6 +21,7 @@ iface em1 inet static
         # dns-* options are implemented by the resolvconf package, if installed
         dns-search SOMECOMPANY
 
+# VM and dockers management interfaces
 auto br1
 iface br1 inet manual
     bridge_ports em2
@@ -28,6 +29,7 @@ iface br1 inet manual
     bridge_maxwait 0
     bridge_fd 0
 
+# DUTs frontpanel ports
 auto p4p1
 iface p4p1 inet manual
   mtu 9216
