@@ -46,6 +46,17 @@ up ip link set p4p1 up
 4. Connections from root fanout switches are 802.1Q trunks
 5. Any testbed server can access any DUT port by sending a packet with the port vlan tag (root fanout switch should have this vlan number enabled on the server trunk)
 
+# Testbed server connections
+
+![](img/testbed-server.png)
+
+1. The testbed server has 3 network ports:
+  1. Trunk port to root fanout switch
+  2. Server management port to manage the server
+  3. Testbed management port to manage VMs and PTFs containers on the server
+2. VMs are created right after the server starts
+3. VMs connections and PTF containers are created when a new topology is being added
+
 
 # PTF Testbed topology
 
