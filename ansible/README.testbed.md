@@ -57,6 +57,16 @@ up ip link set p4p1 up
 2. VMs are created right after the server starts
 3. VMs connections and PTF containers are created when a new topology is being added
 
+# Testbed topology
+
+1. Configuration of a testbed topology is defined in one file: testbed.csv
+2. One script to operate all testbeds: testbed-cli.sh
+3. Flexible topologies which allow to use vm_set and ptf container as one entity
+4. All VM management ip information in one place: veos inventory file
+5. ptf container is generalized and used in every topology
+6. Automatic provisioning of fanout switch configuration (should be refactored)
+7. Every VM uses 2G of RAM
+
 
 # PTF Testbed topology
 
