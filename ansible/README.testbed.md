@@ -38,7 +38,8 @@ up ip link set p4p1 up
 
 # SONiC testbed physical topology
 
-![](img/testbed.svg?raw=true)
+![](img/testbed.png)
+
 1. Every DUT port is connected to one of leaf fanout switches
 2. Every leaf fanout switch has unique vlan tag for every DUT port
 3. Root fanout switch connects leaf fanout switches and testbed servers
