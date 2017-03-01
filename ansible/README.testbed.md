@@ -6,7 +6,8 @@
   2. second is used to connect management interfaces of VMs and docker containers to a network.
   3. third is used to connect VMs and ptf containers to DUTs frontal panel ports
 
-Content of /etc/network/interfaces:
+
+# Content of /etc/network/interfaces:
 ```
 root@STR-AZURE-SERV-01:~# cat /etc/network/interfaces
 # The primary network interface - testbed server management
@@ -46,6 +47,13 @@ up ip link set p4p1 up
 4. Connections from root fanout switches are 802.1Q trunks
 5. Any testbed server can access any DUT port by sending a packet with the port vlan tag (root fanout switch should have this vlan number enabled on the server trunk)
 
+# Fanout switch configuration
+*Fanout switch*: A physical switch which enables VLAN trunking.
+   * Et33 is a vlan trunking port and is connected to the eth0 port of the linux host.
+   * Et1-Et32 are vlan access ports and are connect to DUT.
+   * Enable LACP/LLDP passthrough
+   * Disable spanning tree protocol
+
 # Testbed server connections
 
 ![](img/testbed-server.png)
@@ -56,6 +64,12 @@ up ip link set p4p1 up
   3. Testbed management port to manage VMs and PTFs containers on the server
 2. VMs are created right after the server starts
 3. VMs connections and PTF containers are created when a new topology is being added
+
+# VMs
+The VMs use Arista vEOS. Each VM has 10 network interfaces:
+1. 8 front panel ports. These ports are connected to openvswitch bridges, which are connected to vlan interfaces. The vlan interfaces are connected to the fanout switch (through physical port).
+2. 1 back panel port. All testbed VMs connected to each other using this port (it isn't shown on the figure above).
+3. 1 management port. This port is used to connect to the VMs
 
 # Topologies
 
@@ -160,7 +174,7 @@ DUT front panel port is directly connected to one of ptf container ports. Usuall
 
 ## Injected
 ![](img/testbed-injected.png)
-DUT front panel port is directly connected to one of VMs interfaces. But also we have a tap into this connection. This tap is inserted into ptf container and it allows us to send traffic to DUT front panel ports and receive all traffic from DUT frontpanel ports. Every connection from VM to a DUT port is tapped. It's used in topologies which include VMs.
+DUT front panel port is directly connected to one of VMs interfaces. But also we have a tap into this connection. Packets coming from the physical vlan interface are sent to both the VMs and the PTF docker. Packets from the VM and PTF docker are sent to the vlan interface. It allows us to inject packets from the PTF host to DUT and maintain a BGP session between VM and DUT at the same time.
 
 # testbed-cli.sh – Add/Remove topo
 ```
@@ -380,84 +394,3 @@ configuration:
 {% set host = configuration[hostname] %}
 {% for name, iface in host['interfaces'].items() %}
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# PTF Testbed topology
-```
-Figure 1: PTF container testbed
-
-- *Vlan ports*: 32 vlan ports are created on top of a physical port, e.g., eth0, inside the Linux host. After creation the vlan ports are injected directly to a ptf docker host.
-- *Fanout switch*: A physical switch which enables VLAN trunking.
-   * Et33 is a vlan trunking port and is connected to the eth0 port of the linux host.
-   * Et1-Et32 are vlan access ports and are connect to DUT.
-   * Enable LACP/LLDP passthrough
-   * Disable spanning tree protocol
-
-### Deploy testbed with one ptf container
-1. clone sonic-mgmt repo to local directory
-2. Edit 'ansible/group_vars/vm_host'. Put your credentials to reach the server
-3. Check, that you can reach the server by running command 'ansible -i veos -m ping vm_host_1' from ansible directory. The output should contain 'pong'
-4. Edit 'ansible/group_vars/vm_host/main.yml'. 
-   * 'http_proxy': your http_proxy
-   * 'http_proxy': your https_proxy
-5. Edit 'ansible/host_vars/STR-ACS-SERV-01.yml'. It contains settings for STR-ACS-SERV-01. STR-ACS-SERV-02 contains similar settings which are applied to STR-ACS-SERV-02
-   * 'mgmt_gw': ip address of gateway for management interfaces of ptf_container
-   * 'mgmt_bridge': the bridge which is used to connect the management network
-   * 'externel_iface': the interface which is connected to the fanout switch
-   * 'ptf_X_enabled': true, if you want to run X ptf container
-   * 'ptf_X_mgmt_ip': which ip is used inside of the container for the management network
-   * 'ptf_X_vlan_base': vlan number which is used for connection to first port of DUT
-7. Edit 'ansible/vars/docker_registry.yml'. You need put your docker registry server here
-8. Start ptf container with command 'ansible-playbook -i veos start_ptf_containers.yml --vault-password-file=~/.password --limit server_1 -e ptf_1=true'. See start_ptf_containers.yml for more examples
-9. Stop ptf container with command 'ansible-playbook -i veos stop_ptf_containers.yml --vault-password-file=~/.password --limit server_1 -e ptf_1=true'. See stop_ptf_containers.yml for more examples
-
-
-In this testbed, we have 32 VMs and 1 PTF docker. The VMs use Arista vEOS. Each VM has 10 network interfaces:
- 1. 8 front panel ports. These ports are connected to openvswitch bridges, which are connected to vlan interfaces. The vlan interfaces are connected to the fanout switch (through physical port).
- 2. 1 back panel port. All testbed VMs connected to each other using this port (it isn't shown on the figure above).
- 3. 1 management port. This port is used to connect to the VMs
-
-The ptf docker container connects to the bridges which connect the VMs frontpanel ports and physical vlans. Each bridge has three ports:
- 1. Frontpanel port from a VM
- 2. Physical vlan port
- 3. PTF container port
-
-Packets coming from the physical vlan interface are sent to both the VMs and the PTF docker. Packets from the VM and PTF docker are
-sent to the vlan interface. It allows us to inject packets from the PTF host to DUT and maintain a BGP session between VM and DUT at the same time.
-
-### Deploy testbed with one VM set
-1. clone sonic-mgmt repo to local directory
-2. Edit 'ansible/veos' file. Put ip address of your server after 'ansible_host='
-3. Edit 'ansible/group_vars/eos/eos.yml' file. Put your internal snmp community string after 'snmp_rocommunity:'.
-4. Edit 'ansible/group_vars/vm_host'. Put your credentials to reach the server
-5. Check, that you can reach the server by running command 'ansible -i veos -m ping vm_host_1' from ansible directory. The output should contain 'pong'
-6. Edit 'ansible/group_vars/vm_host/main.yml'. 
-   * 'root_path': path where VMs virtual disks resides
-   * 'vm_images_url': URL where VM images could be downloaded
-   * 'cd_image_filename': filename of cd image of veos
-   * 'hdd_image_filename': filename of hdd image of veos
-   * 'http_proxy': your http_proxy
-   * 'http_proxy': your https_proxy
-7. Edit 'ansible/host_vars/STR-ACS-SERV-01.yml'. It contains settings for STR-ACS-SERV-01. STR-ACS-SERV-02 contains similar settings which are applied to STR-ACS-SERV-02
-   * 'mgmt_gw': ip address of gateway for management interfaces of VM. See 3.2
-   * 'vm_X_enabled': true, if you want to run X vm set
-   * 'vm_X_vlan_base': vlan number which is used for connection to first port of DUT.
-   * 'vlans': list of vlan offsets for the VM FP ports. For example: if vlans equal to "5,6" it means that the VM frontpanel port 0 will be connected to vlan {{ vm_X_vlan_base + 5 - 1 }} and VM frontpanel port 1 will be connected to vlan {{ vm_X_vlan_base + 6 - 1 }}
-8. Edit 'ansible/minigraph/*.xml' files. You need to adjust following xml nodes to settings of your network:
-   * DeviceMiniGraph/DpgDec/DeviceDataPlaneInfo/ManagementIPInterfaces/ManagementIPInterface/Prefix/IPPrefix
-   * DeviceMiniGraph/DpgDec/DeviceDataPlaneInfo/ManagementIPInterfaces/ManagementIPInterface/PrefixStr
-9. Start testbed with command 'ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos start_vm_sets.yml --limit server_1 -e vm_set_1=true'
-10. Stop testbed with command 'ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos stop_vm_sets.yml --limit server_1 -e vm_set_1=true'
