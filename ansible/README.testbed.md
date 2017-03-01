@@ -152,6 +152,16 @@ vms-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str
  - 4 DUT ports are connected to VMs
  - PTF container has 4 injected ports and 28 directly connected ports
 
+# Direct interface vs injected interface
+
+## Direct
+![](img/testbed-direct.png)
+DUT front panel port is directly connected to one of ptf container ports. Usually eth0 port of ptf container connects Ethernet0 port of DUT, eth1 port of ptf container connects Ethernet4 port of DUT and so on. This is usually used in ptf topologies to connect DUT ports to ptf container ports.
+
+## Injected
+![](img/testbed-injected.png)
+DUT front panel port is directly connected to one of VMs interfaces. But also we have a tap into this connection. This tap is inserted into ptf container and it allows us to send traffic to DUT front panel ports and receive all traffic from DUT frontpanel ports. Every connection from VM to a DUT port is tapped. It's used in topologies which include VMs.
+
 # PTF Testbed topology
 ```
 Figure 1: PTF container testbed
