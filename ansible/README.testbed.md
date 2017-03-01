@@ -67,7 +67,6 @@ up ip link set p4p1 up
 6. Automatic provisioning of fanout switch configuration (should be refactored)
 7. Every VM uses 2G of RAM
 
-
 # Testbed topology configuration
 
 1. One entry in testbed.csv
@@ -81,6 +80,25 @@ up ip link set p4p1 up
   3. ptf32: classic ptf container with 32 ports connected directly to DUT ports
   4. ptf64: as ptf32, but with 64 ports
   5. t0: 4 VMs + ptf. ptf container has 4 injected ports + 28 directly connected ports
+
+# testbed.csv
+```
+# conf-name,group-name,topo,ptf_image_name,ptf_mgmt_ip,server,vm_base,dut,comment
+ptf1-m,ptf1,ptf32,docker-ptf-sai-mlnx,10.255.0.188/24,server_1,,str-msn2700-01,Tests ptf
+vms-t1,vms1-1,t1,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str-msn2700-01,Tests vms
+vms-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str-msn2700-01,Tests vms
+
+```
+
+1. uniq-name - to address row in table
+2. testbed-name – used in interface names, up to 8 characters
+3. topo – name of topology
+4. ptf_imagename – defines ptf image
+5. ptf_mgmt_ip – ip address for mgmt interface of ptf container
+6. server – server where the testbed resides
+7. vm_base – first VM for the testbed. If empty, no VMs are used
+8. DUT – target dut name
+9. Comment – any text here
 
 
 # PTF Testbed topology
