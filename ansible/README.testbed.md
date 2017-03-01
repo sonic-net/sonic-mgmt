@@ -57,7 +57,7 @@ up ip link set p4p1 up
 2. VMs are created right after the server starts
 3. VMs connections and PTF containers are created when a new topology is being added
 
-# Testbed topology
+# Topologies
 
 1. Configuration of a testbed topology is defined in one file: testbed.csv
 2. One script to operate all testbeds: testbed-cli.sh
@@ -66,6 +66,21 @@ up ip link set p4p1 up
 5. ptf container is generalized and used in every topology
 6. Automatic provisioning of fanout switch configuration (should be refactored)
 7. Every VM uses 2G of RAM
+
+
+# Testbed topology configuration
+
+1. One entry in testbed.csv
+2. Consist of:
+  1. physical topology: How ports of VMs and ptf connected to DUT
+  2. configuration templates for VMs
+3. Defined in vars/topo_*.yml files
+4. Current topologies are:
+  1. t1: 32 VMs + ptf container for injected ports
+  2. t1-lag: 24 VMs + ptf container for injected ports. 8 VMs has two ports each in LAG
+  3. ptf32: classic ptf container with 32 ports connected directly to DUT ports
+  4. ptf64: as ptf32, but with 64 ports
+  5. t0: 4 VMs + ptf. ptf container has 4 injected ports + 28 directly connected ports
 
 
 # PTF Testbed topology
