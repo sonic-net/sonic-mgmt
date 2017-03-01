@@ -1,14 +1,14 @@
 # Requirements for the Linux Host
 1. Ubuntu 16.04 x64
-2. Installed docker-engine
+2. Installed docker-engine and python (ansible requires python 2.7)
 3. Three network cards:
   1. first is used for the server management
-  2. second is used to connect management interfaces of VMs and docker containers to network.
-  3. third is used to connect VMs and ptf containers to DUTs
+  2. second is used to connect management interfaces of VMs and docker containers to a network.
+  3. third is used to connect VMs and ptf containers to DUTs frontal panel ports
 
 Content of /etc/network/interfaces:
 ```
-root@STR-AZURE-SERV-02:~# cat /etc/network/interfaces
+root@STR-AZURE-SERV-01:~# cat /etc/network/interfaces
 # The primary network interface
 auto em1
 iface em1 inet static
@@ -24,7 +24,7 @@ iface em1 inet static
 auto br1
 iface br1 inet manual
     bridge_ports em2
-    bridge_stp on
+    bridge_stp off
     bridge_maxwait 0
     bridge_fd 0
 
