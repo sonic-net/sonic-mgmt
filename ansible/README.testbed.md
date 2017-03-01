@@ -67,6 +67,7 @@ up ip link set p4p1 up
 
 # VMs
 The VMs use Arista vEOS. Each VM has 10 network interfaces:
+
 1. 8 front panel ports. These ports are connected to openvswitch bridges, which are connected to vlan interfaces. The vlan interfaces are connected to the fanout switch (through physical port).
 2. 1 back panel port. All testbed VMs connected to each other using this port (it isn't shown on the figure above).
 3. 1 management port. This port is used to connect to the VMs
@@ -170,10 +171,12 @@ vms-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str
 
 ## Direct
 ![](img/testbed-direct.png)
+
 DUT front panel port is directly connected to one of ptf container ports. Usually eth0 port of ptf container connects Ethernet0 port of DUT, eth1 port of ptf container connects Ethernet4 port of DUT and so on. This is usually used in ptf topologies to connect DUT ports to ptf container ports.
 
 ## Injected
 ![](img/testbed-injected.png)
+
 DUT front panel port is directly connected to one of VMs interfaces. But also we have a tap into this connection. Packets coming from the physical vlan interface are sent to both the VMs and the PTF docker. Packets from the VM and PTF docker are sent to the vlan interface. It allows us to inject packets from the PTF host to DUT and maintain a BGP session between VM and DUT at the same time.
 
 # testbed-cli.sh – Add/Remove topo
