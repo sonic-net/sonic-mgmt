@@ -100,6 +100,15 @@ vms-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str
 8. DUT – target dut name
 9. Comment – any text here
 
+# testbed-cli.sh
+1. Maintenance purposes only
+ - ./testbed-cli.sh start-vms {server_name} ~./password   # after a server restarted
+ - ./testbed-cli.sh stop-vms {server_name} ~./password    # before a server restarted
+2. General usage
+ - ./testbed-cli.sh add-topo {topo_name} ~./password      # create topo with name {topo_name} from testbed.csv
+ - ./testbed-cli.sh remove-topo {topo_name} ~./password   # destroy topo with name {topo_name} from testbed.csv
+ - ./testbed-cli.sh renumber-topo {topo_name} ~./password # renumber topo with name {topo_name} from testbed.csv
+
 
 # PTF Testbed topology
 
