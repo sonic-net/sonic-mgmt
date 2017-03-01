@@ -36,6 +36,15 @@ iface p4p1 inet manual
 up ip link set p4p1 up
 ```
 
+# SONiC testbed physical topology
+
+![](img/testbed.svg?raw=true)
+1. Every DUT port is connected to one of leaf fanout switches
+2. Every leaf fanout switch has unique vlan tag for every DUT port
+3. Root fanout switch connects leaf fanout switches and testbed servers
+4. Connections from root fanout switches are 802.1Q trunks
+5. Any testbed server can access any DUT port by sending a packet with the port vlan tag (root fanout switch should have this vlan number enabled on the server trunk)
+
 
 # PTF Testbed topology
 
