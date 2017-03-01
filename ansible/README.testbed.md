@@ -232,6 +232,24 @@ TODO: check this constraints in testbed-cli.sh
 
 TODO: Create ansible playbook for this
 
+# Example of deploying a topology
+## Start VMs
+1. clone sonic-mgmt repo to local directory
+2. Add/Update ip address of your testbed server in veos file. For example add ip address to STR-ACS-SERV-01
+3. Edit testbed server credentials in group_vars/vm_host/creds.yml
+4. Check that ansible could reach this device by command 'ansible -m ping -i veos vm_host_1'
+5. Put files: Aboot-veos-serial-8.0.0.iso and vEOS-lab-4.15.9M.vmdk to ~/veos-vm/images on your testbed server
+6. Edit host_vars/STR-ACS-SERV-01.yml. You need to change external_iface, mgmt_gw and mgmt_prefixlen. These settings define network parameters for VM/ptf management interfaces
+7. Add ip addresses for your VMs in veos inventory file. These ip addresses should be at the same network as parameters in p.6
+8. Update VM credentials in group_vars/eos/creds.yml. Use root:123456 as credentials
+9. Start initial deploy VMs ./testbed-cli.sh start-vms server_1 ~/.password
+10. Check that all VMs are up and running: ansible -m ping -i veos server_1
+
+## Deploy topology
+1. Add information about your docker registry here: vars/docker_registry.yml
+2. Update testbed.csv with your data. At least update ptf mgmt interface settings
+3. To deploy topology run: ./testbed-cli.sh add-topo ptf1-m ~/.password
+4. To remove topology run: ./testbed-cli.sh remove-topo ptf1-m ~/.password
 
 # Testbed internals
 
@@ -406,147 +424,6 @@ Figure 1: PTF container testbed
 8. Start ptf container with command 'ansible-playbook -i veos start_ptf_containers.yml --vault-password-file=~/.password --limit server_1 -e ptf_1=true'. See start_ptf_containers.yml for more examples
 9. Stop ptf container with command 'ansible-playbook -i veos stop_ptf_containers.yml --vault-password-file=~/.password --limit server_1 -e ptf_1=true'. See stop_ptf_containers.yml for more examples
 
-
-# VM set testbed topology
-
-```
-                              Linux Host                                     Fanout              DUT
-                                                                             Switch
- +-------------------------------------------------------------+          +----------+     +-------------+
- |  PTF Docker        VM sets             Ovs                  |          |          |     |             |
- |               +--------------+      +-------+               |          |          |     |             |
- |  +---------+  | VM_1    eth0 +------+       +--vlan101--+   |          |     Et1  +-----+ Ethernet0   |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth0  +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_2    eth0 +------+       +--vlan102--+   |          |     Et2  +-----+ Ethernet4   |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth1  +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_3    eth0 +------+       +--vlan103--+   |          |     Et3  +-----+ Ethernet8   |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth2  +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_4    eth0 +------+       +--vlan104--+   |          |     Et4  +-----+ Ethernet12  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth3  +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_5    eth0 +------+       +--vlan105--+   |          |     Et5  +-----+ Ethernet16  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth4  +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_6    eth0 +------+       +--vlan106--+   |          |     Et6  +-----+ Ethernet20  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth5  +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_7    eth0 +------+       +--vlan107--+   |          |     Et7  +-----+ Ethernet24  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth6  +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_8    eth0 +------+       +--vlan108--+   |          |     Et8  +-----+ Ethernet28  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth7  +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_9    eth0 +------+       +--vlan109--+   |          |     Et9  +-----+ Etherent32  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth8  +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_10   eth0 +------+       +--vlan110--+   |          |     Et10 +-----+ Ethernet36  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth9  +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_11   eth0 +------+       +--vlan111--+   |          |     Et11 +-----+ Ethernet40  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth10 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_12   eth0 +------+       +--vlan112--+   |          |     Et12 +-----+ Ethernet44  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth11 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_13   eth0 +------+       +--vlan113--+   |          |     Et13 +-----+ Ethernet48  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth12 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_14   eth0 +------+       +--vlan114--+   |          |     Et14 +-----+ Ethernet52  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth13 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_15   eth0 +------+       +--vlan115--+   |          |     Et15 +-----+ Ethernet56  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth14 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_16   eth0 +------+       |           |   |          |     Et16 +-----+ Ethernet60  |
- |  |         |  +--------------+      |       +--vlan116--+---+-- eth0 --+ Et33     |     |             |
- |  |   eth15 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_17   eth0 +------+       +--vlan117--+   |          |     Et17 +-----+ Ethernet64  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth16 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_18   eth0 +------+       +--vlan118--+   |          |     Et18 +-----+ Ethernet68  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth17 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_19   eth0 +------+       +--vlan119--+   |          |     Et19 +-----+ Ethernet72  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth18 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_20   eth0 +------+       +--vlan120--+   |          |     Et20 +-----+ Ethernet76  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth19 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_21   eth0 +------+       +--vlan121--+   |          |     Et21 +-----+ Ethernet80  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth20 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_22   eth0 +------+       +--vlan122--+   |          |     Et22 +-----+ Ethernet84  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth21 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_23   eth0 +------+       +--vlan123--+   |          |     Et23 +-----+ Ethernet88  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth22 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_24   eth0 +------+       +--vlan124--+   |          |     Et24 +-----+ Ethernet92  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth23 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_25   eth0 +------+       +--vlan125--+   |          |     Et25 +-----+ Ethernet96  |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth24 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_26   eth0 +------+       +--vlan126--+   |          |     Et26 +-----+ Ethernet100 |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth25 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_27   eth0 +------+       +--vlan127--+   |          |     Et27 +-----+ Ethernet104 |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth26 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_28   eth0 +------+       +--vlan128--+   |          |     Et28 +-----+ Ethernet108 |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth27 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_29   eth0 +------+       +--vlan129--+   |          |     Et29 +-----+ Ethernet112 |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth28 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_30   eth0 +------+       +--vlan130--+   |          |     Et30 +-----+ Ethernet116 |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth29 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_31   eth0 +------+       +--vlan131--+   |          |     Et31 +-----+ Ethernet120 |
- |  |         |  +--------------+      |       |           |   |          |          |     |             |
- |  |   eth30 +------------------------+       |           |   |          |          |     |             |
- |  |         |  +--------------+      +-------|           |   |          |          |     |             |
- |  |         |  | VM_32   eth0 +------+       +--vlan132--+   |          |     Et32 +-----+ Ethernet124 |
- |  |         |  +--------------+      +       |               |          |          |     |             |
- |  |   eth31 +------------------------+       |               |          |          |     |             |
- |  |         |                        +-------|               |          |          |     |             |
- |  |---------+                                                |          |          |     |             |
- +-------------------------------------------------------------+          +----------+     +-------------+
-```
-Figure 2: VM set testbed with injected PTF docker
 
 In this testbed, we have 32 VMs and 1 PTF docker. The VMs use Arista vEOS. Each VM has 10 network interfaces:
  1. 8 front panel ports. These ports are connected to openvswitch bridges, which are connected to vlan interfaces. The vlan interfaces are connected to the fanout switch (through physical port).
