@@ -15,16 +15,6 @@
 - name: Print top ports
   debug: msg="{{ tor_ports }}"
 
-#    src_port: Ethernet84
-#    dst_port_1: Ethernet92
-#    dst_port_2: Ethernet96
-#    dst_port_3: Ethernet100
-#- set_fact:
-#    src_port_ptf_id: "{{ alias_reverse_map[src_port]|replace(\"Ethernet\", \"\")|int / 4 }}"
-#    dst_port_1_ptf_id: "{{ alias_reverse_map[dst_port_1]|replace(\"Ethernet\", \"\")|int / 4 }}"
-#    dst_port_2_ptf_id: "{{ alias_reverse_map[dst_port_2]|replace(\"Ethernet\", \"\")|int / 4 }}"
-#    dst_port_3_ptf_id: "{{ alias_reverse_map[dst_port_3]|replace(\"Ethernet\", \"\")|int / 4 }}"
-
 - name: Define port variables.
   set_fact:
       src_port: "{{ tor_ports[0] }}"
