@@ -8,6 +8,7 @@ import json
 import copy
 import ipaddr as ipaddress
 from collections import defaultdict
+from natsort import natsort
 
 
 from lxml import etree as ET
@@ -327,7 +328,6 @@ def reconcile_mini_graph_locations(filename, hostname):
 
     return mini_graph_path, root
 
-
 def parse_xml(filename, hostname):
     mini_graph_path, root = reconcile_mini_graph_locations(filename, hostname)
 
@@ -356,7 +356,7 @@ def parse_xml(filename, hostname):
     elif hwsku == "Force10-S6100":
         for i in range(0, 4):
             for j in range(0, 16):
-                port_alias_map["fortyGigE1/%d/%d" % (i+1, j+1)] = "Ethernet%d" % (i * 16 + j + 1)
+                port_alias_map["fortyGigE1/%d/%d" % (i+1, j+1)] = "Ethernet%d" % (i * 16 + j)
     elif hwsku == "Arista-7050-QX32":
         for i in range(1, 25):
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
@@ -390,6 +390,34 @@ def parse_xml(filename, hostname):
             for i,member in enumerate(pc['members']):
                 pc['members'][i] = port_alias_map[member]
 
+
+    # Create port index map. Since we currently output a mix of NGS names
+    # and SONiC mapped names, we include both in this map.
+    # SONiC aliases, when sorted in natural sort order, match the phyical port
+    # index order, so we sort by SONiC port alias, and map
+    # back to NGS names after sorting using this inverted map
+    #
+    # TODO: Move all alias-related code out of minigraph_facts.py and into
+    # its own module to be used as another layer after parsing the minigraph.
+    inverted_port_alias_map = {v: k for k, v in port_alias_map.iteritems()}
+
+    # Start by creating a list of all port aliases
+    port_alias_list = []
+    for k, v in port_alias_map.iteritems():
+        port_alias_list.append(v)
+
+    # Sort the list in natural order
+    port_alias_list_sorted = natsort(port_alias_list)
+
+    # Create map from SONiC alias to physical index and NGS name to physical index
+    port_index_map = {}
+    for idx, val in enumerate(port_alias_list_sorted):
+        port_index_map[val] = idx
+        port_index_map[inverted_port_alias_map[val]] = idx
+
+
+
+    # Generate results
     Tree = lambda: defaultdict(Tree)
 
     results = Tree()
@@ -414,6 +442,7 @@ def parse_xml(filename, hostname):
     results['minigraph_as_xml'] = mini_graph_path
     results['minigraph_console'] = get_console_info(devices, console_dev, console_port)
     results['minigraph_mgmt'] = get_mgmt_info(devices, mgmt_dev, mgmt_port)
+    results['minigraph_port_indices'] = port_index_map
 
     return results
 
@@ -468,5 +497,4 @@ from ansible.module_utils.basic import *
 
 if __name__ == "__main__":
     main()
-    #debug_main()
 

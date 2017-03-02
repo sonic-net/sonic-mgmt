@@ -28,6 +28,11 @@
   include: snmp.yml
   tags: snmp
 
+- name: Test DHCP Relay
+  include: dhcp_relay.yml
+  tags: dhcp_relay
+  when: minigraph_devices[inventory_hostname]['type'] == "ToRRouter"
+
 - name: Test SNMP CPU
   include: snmp/cpu.yml
   tags: snmp_cpu
@@ -35,11 +40,11 @@
 - name: Test SNMP Interfaces
   include: snmp/interfaces.yml
   tags: snmp_interfaces
-  
+
 - name: BGP facts test
   include: bgp_fact.yml
   tags: bgp_fact
-  
+
 ### when callng BGP flaps test, please add command line of which VMs host to test against
 ### -e "vmhost_num='01'"
 - fail: msg="Please set vmhost_num variable"

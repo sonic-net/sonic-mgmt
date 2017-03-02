@@ -1045,6 +1045,12 @@
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
     </DeviceInterfaceLinks>
+	<Devices>
+      <Device i:type="LeafRouter">
+        <Hostname>switch2</Hostname>
+        <HwSku>ACS-MSN2700</HwSku>
+      </Device>
+    </Devices>
   </PngDec>
   <Hostname>switch2</Hostname>
   <HwSku>ACS-MSN2700</HwSku>
