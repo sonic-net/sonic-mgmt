@@ -2,12 +2,29 @@
 # Run FIB test and Perform log analysis.
 #-----------------------------------------
 
+
 - fail: msg="information about testbed missing."
   when: testbed_type is not defined
 
 - fail: msg="Invalid testbed_type value '{{testbed_type}}'"
   when: testbed_type not in ['lag', 'fib']
 
+- include_vars: "vars/topo_t1-lag.yml"
+  when: testbed_type == 'lag'
+
+- include_vars: "vars/topo_t1.yml"
+  when: testbed_type == 'fib'
+
+- set_fact:
+    failure_rate: configuration_properties['spine']['failure_rate']
+    leaf_asn_start: configuration_properties['spine']['leaf_asn_start']
+    podset_number: configuration_properties['spine']['podsset_number']
+    swrole: configuration_properties['spine']['swrole']
+    tor_asn_start: configuration_properties['spine']['tor_asn_start']
+    tor_number: configuration_properties['spine']['tor_number']
+    tor_subnet_number: configuration_properties['spine']['tor_subnet_number']
+    local_tor_subnet_number: configuration_properties['spine']['local_tor_subnet_number']
+    
 # Gather minigraph facts
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
