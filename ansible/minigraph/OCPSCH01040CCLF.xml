@@ -98,6 +98,32 @@
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     </DeviceDataPlaneInfo>
   </DpgDec>
+  <PngDec>
+    <DeviceInterfaceLinks>
+      <DeviceLinkBase i:type="DeviceInterfaceLink">
+        <Bandwidth>40000</Bandwidth>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>OCPSCH0104001MS</EndDevice>
+        <EndPort>Ethernet0</EndPort>
+        <StartDevice>OCPSCH01040CCLF</StartDevice>
+        <StartPort>Ethernet0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase i:type="DeviceInterfaceLink">
+        <Bandwidth>40000</Bandwidth>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>OCPSCH0104002MS</EndDevice>
+        <EndPort>Ethernet0</EndPort>
+        <StartDevice>OCPSCH01040CCLF</StartDevice>
+        <StartPort>Ethernet4</StartPort>
+      </DeviceLinkBase>
+    </DeviceInterfaceLinks>
+	<Devices>
+      <Device i:type="LeafRouter">
+        <Hostname>OCPSCH01040CCLF</Hostname>
+        <HwSku>ACS-CAVM</HwSku>
+      </Device>
+    </Devices>
+  </PngDec>
   <Hostname>OCPSCH01040CCLF</Hostname>
   <HwSku>ACS-CAVM</HwSku>
 </DeviceMiniGraph>
