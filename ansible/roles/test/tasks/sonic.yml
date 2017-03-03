@@ -69,6 +69,8 @@
   include: arpall.yml
   tags: arp
 
+### When calling this FIB test, please add command line of what testbed_type and which PTF docker to test against
+### -e "testbed_type=t1-lag ptf_host=10.0.0.200"
 - name: Fib test
   include: fib.yml
   tags: fib
