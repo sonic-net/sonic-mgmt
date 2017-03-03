@@ -78,3 +78,7 @@
 - name: Test ACL
   include: acl.yml
   tags: acl
+
+- name: Test LAG link flap.
+  include: lagall.yml
+  tags: lag
