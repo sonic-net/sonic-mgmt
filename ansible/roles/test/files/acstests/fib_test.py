@@ -14,28 +14,20 @@ Usage:          Examples of how to use log analyzer
 #---------------------------------------------------------------------
 # Global imports
 #---------------------------------------------------------------------
-import random
-import time
-import logging
-import ptf.packet as scapy
-import socket
-import ptf.dataplane as dataplane
-
-from ptf.testutils import *
-from ptf.mask import Mask
 import ipaddress
-
-import os
 import logging
-import unittest
+import random
+import socket
+import sys
 
 import ptf
-from ptf.base_tests import BaseTest
-from ptf import config
+import ptf.packet as scapy
 import ptf.dataplane as dataplane
-import ptf.testutils as testutils
 
-import pprint
+from ptf import config
+from ptf.base_tests import BaseTest
+from ptf.mask import Mask
+from ptf.testutils import *
 
 class FibTest(BaseTest):
     '''
@@ -47,21 +39,9 @@ class FibTest(BaseTest):
     Routes advertized by the peers have ECMP groups. The purpose of the test is to make sure
     that packets are forwarded through one of the ports specified in route's ECMP group.
     
-    
     This class receives a text file describing the bgp routes added to the switch.
-
     File contains informaiton about each bgp route which was added to the switch.
     
-    #-----------------------------------------------------------------------
-    Format of the route_info file
-    #-----------------------------------------------------------------------
-    Example:
-        192.168.0.65/32 02,00,01,13,14,08,04,09,03,07,06,12,11,10,15,05,
-        20C0:A800:0:41::/64 02,00,01,13,14,08,04,09,03,07,06,12,11,10,15,05,
-    
-    Meaning:
-    Each entry describes IP prefix, and indexes of ports-members of ecmp group for the route.
-    The packet should be received from one of those ports.
     #-----------------------------------------------------------------------
     
     The file is loaded on startup and is used to 
@@ -80,22 +60,22 @@ class FibTest(BaseTest):
     #---------------------------------------------------------------------
     # Class variables
     #---------------------------------------------------------------------
-    PREFIX_AND_PORT_SPLITTER=" "
-    PORT_LIST_SPLITTER=","
-    PORT_COUNT = 32
+    PORT_COUNT = 32 # TODO: need to get the total number of ports from param
+    EXPECTED_RANGE = 0.25 # TODO: need to get the percentage from param
 
     '''
     Information about routes to test.
     '''
-    route_info={}
-    
+    port_list = []  # a list of lists describing ecmp/lag relationships
+    route_list = [] # a list of route to be tested
+    hit_dict = {}   # a dict of hit count recording the number of hits per port
 
     def __init__(self):
         '''
         @summary: constructor
         '''
         BaseTest.__init__(self)
-        self.test_params = testutils.test_params_get()
+        self.test_params = test_params_get()
     #---------------------------------------------------------------------
 
     def setUp(self):
@@ -104,29 +84,25 @@ class FibTest(BaseTest):
         '''
         self.dataplane = ptf.dataplane_instance
         self.router_mac = self.test_params['router_mac']
+        self.load_route_info(self.test_params["route_info"])
     #---------------------------------------------------------------------
         
     def load_route_info(self, route_info_path):
         '''
-        @summary: Load route_info file into self.route_info. For details see section 'Format of the route_info file' in the summary of the class.        
+        @summary: Load route_info file
         @param route_info_path : Path to the file        
         '''
         with open(route_info_path, 'r') as route_info_file:
-            for line in route_info_file:
-                line = line.strip()
-                if (0==len(line)): 
-                    continue
-                prefix_ports_pair = line.split(self.PREFIX_AND_PORT_SPLITTER)
-                port_list = prefix_ports_pair[1].split(self.PORT_LIST_SPLITTER)
-                self.route_info[prefix_ports_pair[0]]=port_list
-        return
-    #---------------------------------------------------------------------
-    
-    '''
-    For diagnostic purposes only
-    '''
-    def print_route_info(self):
-        pprint.pprint(self.route_info)
+            content = route_info_file.readlines()
+            # Parse the first line to get the port_list
+            ecmp_list = content[0].split()
+            for ecmp_entry in ecmp_list:
+                lag_list = ecmp_entry.split(',')
+                lag_list = [ int(member) for member in lag_list ]
+                self.port_list.append(lag_list)
+            # Parse the reset of the file to get the route_list
+            for line in content[1:]:
+                self.route_list.append(line.strip())
         return
     #---------------------------------------------------------------------
 
@@ -146,7 +122,7 @@ class FibTest(BaseTest):
         @return: index of the port on which the packet is received and the packet.
         """
         received = False
-        match_index = 0
+        match_index = -1
         (rcv_device, rcv_port, rcv_pkt, pkt_time) = dp_poll(
          self,
          device_number=device_number,
@@ -155,10 +131,10 @@ class FibTest(BaseTest):
         )
 
         if rcv_port in ports:
-         match_index = ports.index(rcv_port)
-         received = True
+            match_index = ports.index(rcv_port)
+            received = True
 
-        return (match_index, rcv_pkt, received)
+        return (match_index, received)
     #---------------------------------------------------------------------
      
     def is_ipv4_address(self, ipaddr):
@@ -167,15 +143,13 @@ class FibTest(BaseTest):
         @param ipaddr IP address to check
         @return Boolean
         '''
-        is_valid_ipv4 = True
-        try :
+        try:
             # building ipaddress fails for some of addresses unless unicode(ipaddr) is specified for both ipv4/ipv6
             # Example - 192.168.156.129, it is valid IPV4 address, send_packet works with it.
-            ip = ipaddress.IPv4Address(unicode(ipaddr))
-        except Exception, e :
-            is_valid_ipv4 = False
-
-        return is_valid_ipv4
+            ipaddress.IPv4Address(unicode(ipaddr))
+            return True
+        except Exception, e:
+            return False
     #---------------------------------------------------------------------
         
     def is_ipv6_address(self, ipaddr):
@@ -184,13 +158,11 @@ class FibTest(BaseTest):
         @param ipaddr IP address to check
         @return Boolean
         '''
-        is_valid_ipv6 = True
-        try :
-            ip = ipaddress.IPv6Address(unicode(ipaddr))
+        try:
+            ipaddress.IPv6Address(unicode(ipaddr))
+            return True
         except Exception, e:
-            is_valid_ipv6 = False
-
-        return is_valid_ipv6
+            return False
     #---------------------------------------------------------------------
 
     def check_ipv4_route(self, source_port_index, dest_ip_addr, destination_port_list):
@@ -201,8 +173,8 @@ class FibTest(BaseTest):
         @param destination_port_list: list of ports on which to expect packet to come back from the switch        
         @return Boolean
         '''
-        sport = 0x1234
-        dport = 0x50
+        sport = random.randint(0, 65535)
+        dport = random.randint(0, 65535)
         ip_src = "10.0.0.1"
         ip_dst = dest_ip_addr
 
@@ -217,7 +189,6 @@ class FibTest(BaseTest):
                             tcp_dport=dport,
                             ip_ttl=64)
         exp_pkt = simple_tcp_packet(
-                            eth_dst=self.dataplane.get_mac(0, 0),
                             eth_src=self.router_mac,
                             ip_src=ip_src,
                             ip_dst=ip_dst,
@@ -226,18 +197,10 @@ class FibTest(BaseTest):
                             ip_ttl=63)
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"src")
 
-        result = False
         send_packet(self, source_port_index, pkt)
 
-        (match_index,rcv_pkt, received) = self.verify_packet_any_port(masked_exp_pkt,destination_port_list)
-        if received:
-            result = True            
-        else:
-            print 'FAIL for ip:%s' % dest_ip_addr ,
-            pprint.pprint(destination_port_list)
-        return result
+        return self.verify_packet_any_port(masked_exp_pkt,destination_port_list)
     #---------------------------------------------------------------------
     
     def check_ipv6_route(self, source_port_index, dest_ip_addr, destination_port_list):
@@ -248,8 +211,8 @@ class FibTest(BaseTest):
         @param destination_port_list: list of ports on which to expect packet to come back from the switch        
         @return Boolean
         '''
-        sport = 0x2233
-        dport = 0x60
+        sport = random.randint(0, 65535)
+        dport = random.randint(0, 65535)
         ip_src = '2000::1'
         ip_dst = dest_ip_addr
 
@@ -264,8 +227,7 @@ class FibTest(BaseTest):
                                 tcp_dport=dport,
                                 ipv6_hlim=64)
         exp_pkt = simple_tcpv6_packet(
-                                eth_dst=self.dataplane.get_mac(0, 0),
-                                eth_src=src_mac,
+                                eth_src=self.router_mac,
                                 ipv6_dst=ip_dst,
                                 ipv6_src=ip_src,
                                 tcp_sport=sport,
@@ -273,61 +235,98 @@ class FibTest(BaseTest):
                                 ipv6_hlim=63)
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"src")
 
-        result = False
         send_packet(self, source_port_index, pkt)
 
-        (match_index,rcv_pkt, received) = self.verify_packet_any_port(masked_exp_pkt,destination_port_list)
-        
-        if received:
-            result = True            
-        else:
-            print 'src_port:%d' % source_port_index,
-            print 'FAIL for ip:%s' % dest_ip_addr ,
-            pprint.pprint(destination_port_list)
-        return result
+        return self.verify_packet_any_port(masked_exp_pkt,destination_port_list)
     #---------------------------------------------------------------------
-    
+    def check_within_expected_range(self, actual, expected):
+        '''
+        @summary: Check if the actual number is within the accepted range of the expected number
+        @param actual : acutal number of recieved packets
+        @param expected : expected number of recieved packets
+        @return (percentage, bool)
+        '''
+        percentage = abs(actual - expected) / float(expected)
+        return (percentage, percentage <= self.EXPECTED_RANGE)
+
+    #---------------------------------------------------------------------
+    def check_balancing(self, port_list, port_hit_cnt):
+        '''
+        @summary: Check if the traffic is balanced across the ECMP groups and the LAG members
+        @param port_list : a list of ECMP entries and in each ECMP entry a list of ports
+        @param port_hit_cnt : a dict that records the number of packets each port received
+        @return bool
+        '''
+
+        logging.debug("%-10s \t %10s \t %10s \t %10s" % ("port(s)", "exp_cnt", "act_cnt", "diff(%)"))
+        result = True
+
+        total_hit_cnt = float(sum(port_hit_cnt.values()))
+        for ecmp_entry in port_list:
+            total_entry_hit_cnt = 0.0
+            for member in ecmp_entry:
+                total_entry_hit_cnt += port_hit_cnt[member]
+            (p, r) = self.check_within_expected_range(total_entry_hit_cnt, total_hit_cnt/len(port_list))
+            logging.debug("%-10s \t %10d \t %10d \t %10s"
+                          % (str(ecmp_entry), total_hit_cnt/len(port_list), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
+            result &= r
+            for member in ecmp_entry:
+                (p, r) = self.check_within_expected_range(port_hit_cnt[member], total_entry_hit_cnt/len(ecmp_entry))
+                logging.debug("%-10s \t %10d \t %10d \t %10s"
+                              % (str(member), total_entry_hit_cnt/len(ecmp_entry), port_hit_cnt[member], str(round(p, 4)*100) + '%'))
+                result &= r
+        return result
+
+    #---------------------------------------------------------------------
+
     def runTest(self):
         """
         @summary: Send packet for each route and validate it arrives 
         on one of expected ECMP ports
         """
-        self.load_route_info(self.test_params["route_info"])
-        pass_count = 0
-        test_result = True
-        result = True
+        exp_port_list = []
+        for ecmp_entry in self.port_list:
+            for port in ecmp_entry:
+                exp_port_list.append(port)
+
         ip4_route_cnt = 0
         ip6_route_cnt = 0
-        
-        for prefix, port_index_list in self.route_info.iteritems() :
-            dest_ip_addr = prefix.split("/")[0]
-            destination_port_list = []
-            for port_index in port_index_list :
-                if len(port_index) > 0 :
-                    destination_port_list.append(int(port_index))
-            
+        ip4_hit_cnt = 0
+        ip6_hit_cnt = 0
+        port_cnt_dict = {}
+
+        x = 0
+        for dest_ip in self.route_list:
             for src_port in xrange(0, self.PORT_COUNT):
-                
-                if src_port in destination_port_list: continue
-                
-                if self.is_ipv4_address(dest_ip_addr):
+                if self.is_ipv4_address(dest_ip):
                     ip4_route_cnt += 1
-                    result = self.check_ipv4_route(src_port, dest_ip_addr, destination_port_list)
-                elif self.is_ipv6_address(dest_ip_addr):
+                    (matched_index, received) = self.check_ipv4_route(src_port, dest_ip, exp_port_list)
+                    if received:
+                        ip4_hit_cnt += 1
+                        port_cnt_dict[exp_port_list[matched_index]] = port_cnt_dict.setdefault(exp_port_list[matched_index], 0) + 1
+                elif self.is_ipv6_address(dest_ip):
                     ip6_route_cnt += 1
-                    result = self.check_ipv6_route(src_port, dest_ip_addr, destination_port_list)
+                    (matched_index, received) = self.check_ipv6_route(src_port, dest_ip, exp_port_list)
+                    if received:
+                        ip6_hit_cnt += 1
+                        port_cnt_dict[exp_port_list[matched_index]] = port_cnt_dict.setdefault(exp_port_list[matched_index], 0) + 1
                 else:
-                    print 'Invalid ip address:%s' % dest_ip_addr
+                    print 'Invalid IP  address:%s' % dest_ip_addr
                     assert(False)
 
-                test_result = test_result and result
-                if(result):
-                    pass_count = pass_count + 1
-                    
-        print 'pass_count:%d' % pass_count
-        print 'ip4_route_cnt:%d' % ip4_route_cnt
-        print 'ip6_route_cnt:%d' % ip6_route_cnt
-        assert(test_result)
+        ch = logging.StreamHandler(sys.stdout)
+        # Modify the logging level to enable debugs
+        ch.setLevel(logging.INFO)
+        ch.terminator = ""
+        logging.getLogger().addHandler(ch)
+
+        # Check if sent/received counts are matched
+        logging.debug("\n")
+        logging.debug("--------------------------- TEST RESULT ------------------------------")
+        logging.debug("Sent %d IPv4 packets; recieved %d IPv4 packets" % (ip4_route_cnt, ip4_hit_cnt))
+        logging.debug("Sent %d IPv6 packets; recieved %d IPv6 packets" % (ip6_route_cnt, ip6_hit_cnt))
+        logging.debug("----------------------------------------------------------------------")
+        balancing_result = self.check_balancing(self.port_list, port_cnt_dict)
+        assert (ip4_route_cnt == ip4_hit_cnt) and (ip6_route_cnt == ip6_hit_cnt) and balancing_result
     #---------------------------------------------------------------------
