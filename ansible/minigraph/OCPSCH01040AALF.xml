@@ -117,6 +117,12 @@
         <StartPort>Ethernet4</StartPort>
       </DeviceLinkBase>
     </DeviceInterfaceLinks>
+	<Devices>
+      <Device i:type="LeafRouter">
+        <Hostname>OCPSCH01040AALF</Hostname>
+        <HwSku>ACS-S6000</HwSku>
+      </Device>
+    </Devices>
   </PngDec>
   <MetadataDeclaration>
     <Devices xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>

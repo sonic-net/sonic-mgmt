@@ -28,6 +28,11 @@
   include: snmp.yml
   tags: snmp
 
+- name: Test DHCP Relay
+  include: dhcp_relay.yml
+  tags: dhcp_relay
+  when: minigraph_devices[inventory_hostname]['type'] == "ToRRouter"
+
 - name: Test SNMP CPU
   include: snmp/cpu.yml
   tags: snmp_cpu
@@ -35,11 +40,11 @@
 - name: Test SNMP Interfaces
   include: snmp/interfaces.yml
   tags: snmp_interfaces
-  
+
 - name: BGP facts test
   include: bgp_fact.yml
   tags: bgp_fact
-  
+
 ### when callng BGP flaps test, please add command line of which VMs host to test against
 ### -e "vmhost_num='01'"
 - fail: msg="Please set vmhost_num variable"
@@ -64,10 +69,13 @@
   include: arpall.yml
   tags: arp
 
+
 - name: Decap test
   include: decap.yml
   tags: decap
 
+### When calling this FIB test, please add command line of what testbed_type and which PTF docker to test against
+### -e "testbed_type=t1-lag ptf_host=10.0.0.200"
 - name: Fib test
   include: fib.yml
   tags: fib

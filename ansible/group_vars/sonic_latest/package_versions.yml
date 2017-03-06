@@ -24,3 +24,4 @@ image_id_fpm: docker-fpm:{{ dockers_tag }}
 image_id_snmp_sv2: docker-snmp-sv2:{{ dockers_tag }}
 image_id_lldp_sv2: docker-lldp-sv2:{{ dockers_tag }}
 image_id_teamd: docker-teamd:{{ dockers_tag }}
+image_id_dhcp_relay: docker-dhcp-relay:{{ dockers_tag }}
