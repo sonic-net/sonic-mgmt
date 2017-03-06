@@ -33,11 +33,7 @@
 - template: src=fib.j2 dest=/tmp/fib.txt
   connection: local
 
-- template: src=decap_conf.j2 dest=/tmp/decap_conf.json
-  connection: local
 
-- name: Copy conf file to the switch
-  copy: src="/tmp/decap_conf.json" dest="/tmp/decap_conf.json"
 
 - name: Copy route into file to the PTF host
   copy: src="/tmp/fib.txt" dest="/tmp/route_info.txt"
@@ -73,13 +69,7 @@
 
 - block:
 
-    - name: Copy JSON configs from switch into docker filesystem
-      command: docker cp /tmp/decap_conf.json  swss:/tmp/decap_conf.json
-
-    - name: Load decap JSON config.
-      command: docker exec -i swss swssconfig /tmp/decap_conf.json
-      register: valid_config_upload
-      failed_when: valid_config_upload.rc != 0
+    
     
     - name: copy the test to ptf container
       copy: src=roles/test/files/acstests dest=/root
@@ -97,11 +87,7 @@
 
   always:
   
-    - name: Create ACL configuration to delete decap 
-     command: docker exec -t swss bash -c "sed -i 's/SET/DEL/g' /tmp/decap_conf.json"
     
-    - name: Apply ACL delete configuration
-      command: docker exec -t swss bash -c "swssconfig /tmp/decap_conf.json"
   
     - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
