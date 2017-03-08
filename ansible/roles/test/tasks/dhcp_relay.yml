@@ -42,6 +42,7 @@
     ptf_test_params:
       - client_port_index=\"{{ client_port_index }}\"
       - leaf_port_indices=\"{{ leaf_port_indices }}\"
+      - num_dhcp_servers=\"{{ dhcp_servers | length }}\"
       - server_ip=\"{{ dhcp_servers[0] }}\"
       - relay_iface_name=\"{{ minigraph_vlan_interfaces[0]['name'] }}\"
       - relay_iface_ip=\"{{ minigraph_vlan_interfaces[0]['addr'] }}\"
