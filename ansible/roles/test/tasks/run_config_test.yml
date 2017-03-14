@@ -5,17 +5,17 @@
 #   3) Run cleanup if needed.
 #-----------------------------------------
 
-- include_vars: "{{ vars_files_location }}/run_config_test_vars.yml"
+- include_vars: "vars/run_config_test_vars.yml"
 
 - block:
     - name: Initialize loganalizer. Put start marker to log file.
-      include: "{{ loganalyzer_init }}"
+      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Load JSON config {{ config_file }}
-      command: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_file }}
+      command: docker exec -i swss swssconfig {{ docker_testdir }}/{{ config_file }}
 
     - name: Use loganalyzer to check for the error messages {{ testname }} / {{ config_file }}.
-      include: "{{ loganalyzer_analyze }}"
+      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     - name: Get the total number of expected messages.
       shell: grep "TOTAL EXPECTED" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL EXPECTED MATCHES:[[:space:]]*//p"
@@ -42,5 +42,5 @@
       when: (errors_expected == true and expects_found.stdout == "0") or (errors_expected == false and errors_found.stdout != "0")
 
     - name: Do configuration cleanup after {{ testname }} / {{ config_file }}
-      include: "{{ run_config_cleanup }}"
+      include: roles/test/tasks/run_config_cleanup.yml
       when: run_cleanup == true
