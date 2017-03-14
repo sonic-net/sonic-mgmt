@@ -1,0 +1,11 @@
+- name: Apply Everflow configuration.
+  include: "roles/test/tasks/everflow_testbed/apply_config.yml"
+  tags: everflow_tb_configure
+
+- name: Run Everflow tests.
+  include: "roles/test/tasks/everflow_testbed/run_test.yml"
+  tags: everflow_tb_test
+
+- name: Clear Everflow configuration.
+  include: "roles/test/tasks/everflow_testbed/del_config.yml"
+  tags: everflow_tb_cleanup
