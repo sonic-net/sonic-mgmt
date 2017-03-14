@@ -103,6 +103,8 @@ class DecapPacketTest(BaseTest, RouterUtility):
                                         eth_src=router_mac,
                                         ip_dst=dst_ip,
                                         ip_src=inner_src_ip,
+                                        tcp_sport=sport,
+                                        tcp_dport=dport,
                                         ip_tos=exp_tos,
                                         ip_ttl=63)
         else:
