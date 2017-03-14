@@ -75,16 +75,12 @@ class DecapPacketTest(BaseTest, RouterUtility):
         #setting parameters
         src_mac =  self.dataplane.get_mac(0, 0)
         dst_mac = '00:11:22:33:44:55'
-        outer_src_ip = '1.1.1.1'
         inner_src_ip = '2.2.2.2'
         router_mac = self.test_params['router_mac']
         dscp_in = random.randint(0, 32)
         tos_in = dscp_in << 2
         dscp_out = random.randint(0, 32)
         tos_out = dscp_out << 2
-        outer_ttl = random.randint(2, 63) 
-        sport=1234
-        dport=80
         if ("pipe" == self.test_params['dscp_mode']):
             exp_tos = tos_in
         elif("uniform" == self.test_params['dscp_mode']):
@@ -103,13 +99,11 @@ class DecapPacketTest(BaseTest, RouterUtility):
                                         eth_src=router_mac,
                                         ip_dst=dst_ip,
                                         ip_src=inner_src_ip,
-                                        tcp_sport=sport,
-                                        tcp_dport=dport,
                                         ip_tos=exp_tos,
                                         ip_ttl=63)
         else:
 		    #Building triple encap packet with SCAPY, because there is no PTF function for it, I use the defualt values for the TCP header
-            tcp_hdr    = scapy.TCP(sport=sport, dport=dport, flags="S", chksum=0)
+            tcp_hdr    = scapy.TCP(sport=1234, dport=80, flags="S", chksum=0)
             inner_pkt2 = scapy.IP(src='4.4.4.4', dst='3.3.3.3', tos=0, ttl=64, id=1, ihl=None) / tcp_hdr
             inner_pkt  = scapy.IP(src=inner_src_ip, dst=dst_ip, tos=tos_in, ttl=64, id=1, ihl=None,proto =4) / inner_pkt2
             inner_pkt  = inner_pkt/("".join([chr(x) for x in xrange(100 - len(inner_pkt))]))
@@ -121,10 +115,10 @@ class DecapPacketTest(BaseTest, RouterUtility):
         pkt = simple_ipv4ip_packet(
                             eth_dst=router_mac,
                             eth_src=src_mac,
-                            ip_src=outer_src_ip,
+                            ip_src='1.1.1.1',
                             ip_dst=self.test_params['lo_ip'],
                             ip_tos=tos_out,
-                            ip_ttl=outer_ttl, 
+                            ip_ttl=random.randint(2, 63), 
                             inner_frame=inner_pkt)
         
         #send and verify the return packets
