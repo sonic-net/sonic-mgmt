@@ -1,10 +1,4 @@
-{# routes to spines #}
-{% if testbed_type == 't1-lag' %}
-{% for pc_interface in minigraph_portchannel_interfaces %}{% for member in pc_interface['members']%}{{ minigraph_port_indices[member] }}{% if not loop.last %},{% endif %}{% endfor %}{% if not loop.last %} {% endif %}{% endfor %}
-{% elif testbed_type == 't1' %}
-{% for iface in minigraph_interfaces %}{{ minigraph_port_indices[iface.name] }}{% if not loop.last %} {% endif %}{% endfor %}
-{% endif %}
-
+{% if testbed_type == 't1' or testbed_type == 't1-lag' %}
 {% for podset in range(0, props.podset_number) %}
 {% for tor in range(0, props.tor_number) %}
 {% for subnet in range(0, props.tor_subnet_number) %}
@@ -13,3 +7,22 @@
 {% endfor %}
 {% endfor %}
 {% endfor %}
+{% elif testbed_type == 't0' %}
+{% for podset in range(0, props.podset_number) %}
+{% for tor in range(0, props.tor_number) %}
+{% for subnet in range(0, props.tor_subnet_number) %}
+{% set suffix = ( (podset * props.tor_number * props.max_tor_subnet_number * props.tor_subnet_size) +
+                  (tor * props.max_tor_subnet_number * props.tor_subnet_size) +
+                  (subnet * props.tor_subnet_size) ) %}
+{% set octet2 = (168 + ((suffix // (256 ** 2))) % 256) %}
+{% set octet3 = ((suffix // 256) % 256) %}
+{% set octet4 = (suffix % 256) %}
+{# Skip 192.168.0.0 as it is in Vlan1000 subnet  #}
+{% if octet2 != 168 and octet3 != 0 and octet4 != 0 %}
+192.{{ octet2 }}.{{ octet3 }}.{{ octet4 }}
+20C0:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% endfor %}
+{% endif %}
