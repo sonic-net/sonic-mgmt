@@ -86,7 +86,7 @@ class BgpModule(object):
 
     def parse_neighbors(self):
 
-        regex_ip = re.compile(r'^BGP neighbor is (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
+        regex_ip = re.compile(r'^BGP neighbor is (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[0-9a-fA-F:]+)')
         regex_remote_as = re.compile(r'.*remote AS (\d+)')
         regex_local_as = re.compile(r'.*local AS (\d+)')
         regex_desc = re.compile(r'.*Description: (.*)')
@@ -113,7 +113,7 @@ class BgpModule(object):
                     lines = n.splitlines()
 
                     for line in lines:
-                        if regex_ip.match(line): neighbor_ip = regex_ip.match(line).group(1)
+                        if regex_ip.match(line): neighbor_ip = regex_ip.match(line).group(1).lower()
                         if regex_remote_as.match(line): neighbor['remote AS'] = int(regex_remote_as.match(line).group(1))
                         if regex_local_as.match(line): neighbor['local AS'] = int(regex_local_as.match(line).group(1))
                         if regex_desc.match(line): neighbor['description'] = regex_desc.match(line).group(1)

@@ -18,17 +18,17 @@
 
 - name: Verify bgp sessions are established
   assert: { that: "'{{ bgp_neighbors[item]['state'] }}' == 'established'" }
-  with_items: bgp_neighbors.keys()
+  with_items: "{{ bgp_neighbors.keys() }}"
   
 - name: Verify locat ASNs in bgp sessions
   assert: { that: "'{{ bgp_neighbors[item]['local AS'] }}' == '{{ minigraph_bgp_asn }}'" }
-  with_items: bgp_neighbors.keys()
+  with_items: "{{ bgp_neighbors.keys() }}"
 
 - name: Compare the bgp neighbors name with minigraph bgp neigbhors name
-  assert: { that: "'{{ item['name'] }}' == '{{ bgp_neighbors[item['addr']]['description'] }}'" }
-  with_items: minigraph_bgp
+  assert: { that: "'{{ item['name'] }}' == '{{ bgp_neighbors[item['addr'].lower()]['description'] }}'" }
+  with_items: "{{ minigraph_bgp }}"
 
 - name: Compare the bgp neighbors ASN with minigraph
-  assert: { that: "'{{ item['asn'] }}' == '{{ bgp_neighbors[item['addr']]['remote AS'] }}'" }
-  with_items: minigraph_bgp
+  assert: { that: "'{{ item['asn'] }}' == '{{ bgp_neighbors[item['addr'].lower()]['remote AS'] }}'" }
+  with_items: "{{ minigraph_bgp }}"
 
