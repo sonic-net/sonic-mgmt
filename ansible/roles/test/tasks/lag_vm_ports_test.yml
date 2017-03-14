@@ -65,7 +65,7 @@
         dst_addr: "{{ lag_ip }}"
         src_iface: "{{ not_behind_lag_iface }}"
         check_pkts_iface: "{{ iface_behind_lag_member_0 }}"
-        number_of_packets: "{{ num_of_pkts }}"
+        number_of_pkts: "{{ num_of_pkts }}"
         change_dir: /tmp
   always:
     - name: Put up LAG member interface {{ lag_member_1 }} on {{ vm_name }}.
