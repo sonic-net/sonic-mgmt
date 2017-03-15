@@ -17,14 +17,14 @@
 #
 # Run command:
 #       cd ansible;
-#       ansible-playbook test_sonic.yml -i inventory --limit <DUT-inventory-hostname> --tags lag -e "fanout_switch=<fanout-inventory-hostname> ; ptf_docker=<ptf-docker-inventory-hostname> ; dut_mac=<dut_mac_addr>" -vvvvv
+#       ansible-playbook test_sonic.yml -i inventory --limit <DUT-inventory-hostname> --tags lag -e "fanout_switch=<fanout-inventory-hostname> ; ptf_host=<ptf-docker-inventory-hostname> ; dut_mac=<dut_mac_addr>" -vvvvv
 #-----------------------------------
 
 - fail: msg="Please define fanout_switch"
   when: fanout_switch is not defined
 
-- fail: msg="Please define ptf_docker"
-  when: ptf_docker is not defined
+- fail: msg="Please define ptf_host"
+  when: ptf_host is not defined
 
 - fail: msg="Please define dut_mac"
   when: dut_mac is not defined
@@ -89,7 +89,7 @@
     - lag_test.py
     - acs_base_test.py
     - router_utils.py
-  delegate_to: "{{ ptf_docker }}"
+  delegate_to: "{{ ptf_host }}"
 
 - name: Include testbed topology configuration (to get LAG IP and PTF docker ifaces, that are behind LAG VMs).
   include_vars: vars/topo_t1-lag.yml
@@ -151,3 +151,11 @@
     dut_lag_member: "{{ item.1 }}"
     num_of_pkts: 100
   with_indexed_items: "{{ dut_lag_members }}"
+
+- name: --TEST-- LACP timing test.
+  include: lag_lacp_timing_test.yml
+  vars:
+    iface_behind_lag_member_0: "{{ topology['VMs'][item]['vlans'][0] }}"
+    iface_behind_lag_member_1: "{{ topology['VMs'][item]['vlans'][1] }}"
+    vm_name: "{{ item }}"
+  with_items: lag_vms.keys()

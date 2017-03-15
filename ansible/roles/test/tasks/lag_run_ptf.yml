@@ -11,4 +11,4 @@
   shell: ptf --test-dir . --platform remote lag_test.{{ lag_ptf_test_name }} -t "{{ params }}"
   args:
     chdir: "{{ change_dir }}"
-  delegate_to: "{{ ptf_docker }}"
+  delegate_to: "{{ ptf_host }}"
