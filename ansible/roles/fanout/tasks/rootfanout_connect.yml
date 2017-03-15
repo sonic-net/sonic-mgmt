@@ -20,7 +20,7 @@
 - set_fact: 
     ansible_host: "{{ lab_devices[item]['mgmtip'] }}"
     root_dev: "{{ item }}" 
-  with_items: lab_devices
+  with_items: "{{ lab_devices }}"
   when: lab_devices[item]['Type'] == 'FanoutRoot'
 
 - set_fact: 
