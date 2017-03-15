@@ -4,7 +4,7 @@
 
 - name: Expand {{ hostname }} properties into props
   set_fact: props="{{ configuration_properties[item] | combine(props | default({})) }}"
-  with_items: configuration[hostname]['properties']
+  with_items: "{{ configuration[hostname]['properties'] }}"
   when: hostname in configuration
 
 - name: build a startup config
