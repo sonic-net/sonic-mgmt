@@ -1,0 +1,47 @@
+- name: Shut down neighbor interface {{minigraph_neighbors[item]['port']}}
+  action: cisco template=neighbor_interface_shut_single.j2
+  args:
+    host: "{{minigraph_devices[minigraph_neighbors[item]['name']]['mgmt_addr']}}"
+    login: "{{switch_login[minigraph_devices[minigraph_neighbors[item]['name']]['hwsku']]}}"
+    skip_default_user: "yes"
+  connection: cisco
+
+- name: Sleep for 60 seconds
+  pause: seconds=60
+
+- name: "{{ test_name }}"
+  shell: ptf --test-dir saitests {{ test_path }} --platform remote -t "verbose=True; router_mac='{{ ansible_Ethernet0['macaddress'] }}'; server='{{ ansible_host }}'; port_map_file='/root/{{ ptf_portmap | basename }}'; exclude_port='{{ minigraph_neighbors[item]['port'] }}'; {{ test_params }}" --disable-ipv6 --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre 2>&1
+  args:
+    chdir: /root
+  delegate_to: "{{ ptf_host }}"
+  failed_when: False
+  register: out
+
+- debug: var=out.stdout_lines
+
+- fail: msg = "Failed test '{{ test_name }}'"
+  when: out.rc != 0
+
+- name: Bring up neighbor interface {{minigraph_neighbors[item]['port']}}
+  action: cisco template=neighbor_interface_no_shut_single.j2
+  args:
+    host: "{{minigraph_devices[minigraph_neighbors[item]['name']]['mgmt_addr']}}"
+    login: "{{switch_login[minigraph_devices[minigraph_neighbors[item]['name']]['hwsku']]}}"
+    skip_default_user: "yes"
+  connection: cisco
+
+- name: Sleep for 90 seconds
+  pause: seconds=90
+
+- name: "{{ test_name }}"
+  shell: ptf --test-dir saitests {{ test_path }} --platform remote -t "verbose=True; router_mac='{{ ansible_Ethernet0['macaddress'] }}'; server='{{ ansible_host }}'; port_map_file='/root/{{ ptf_portmap | basename }}'; {{ test_params }}" --disable-ipv6 --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre 2>&1
+  args:
+    chdir: /root
+  delegate_to: "{{ ptf_host }}"
+  failed_when: False
+  register: out
+
+- debug: var=out.stdout_lines
+
+- fail: msg = "Failed test '{{ test_name }}'"
+  when: out.rc != 0

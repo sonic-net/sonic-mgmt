@@ -56,8 +56,8 @@
   tags: sync
 
 - name: Test Interface Flap from Neighbor
-  include: interface_up_down.yml
-  tags: link
+  include: flap_interfaces.yml
+  tags: interfaces
 
 ### when calling this ARP test, please add command line of which PTF docker image host to test against
 ### -e "ptf_host=10.0.0.200"
