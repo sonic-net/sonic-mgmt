@@ -1,9 +1,3 @@
-- name: Copy DHCP relay docker config file to device
-  become: true
-  template: src=dhcp_relay.yml.j2
-            dest=/etc/sonic/dhcp_relay.yml
-            mode=0644
-
 - name: Ensure DHCP Relay container started
   include: sonicdocker.yml
   vars:
