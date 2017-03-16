@@ -91,11 +91,6 @@ class DHCPTest(DataplaneBaseTest):
     DHCP_LEASE_TIME_LEN = 6
     LEASE_TIME = 86400
 
-    # Number of DHCP servers relay is forwarding to
-    # Currently this is the number of DHCP servers specified in str.yml
-    # TODO: Calculate this number dynamically
-    NUM_DHCP_SERVERS = 48
-
     def __init__(self):
         DataplaneBaseTest.__init__(self)
 
@@ -107,6 +102,7 @@ class DHCPTest(DataplaneBaseTest):
 
         # These are the interfaces we are injected into that link to out leaf switches
         self.server_port_indices = ast.literal_eval(self.test_params['leaf_port_indices'])
+        self.num_dhcp_servers = int(self.test_params['num_dhcp_servers'])
         self.server_ip = self.test_params['server_ip']
 
         self.relay_iface_name = self.test_params['relay_iface_name']
@@ -290,8 +286,8 @@ class DHCPTest(DataplaneBaseTest):
 
         # Count the number of these packets received on the ports connected to our leaves
         discover_count = testutils.count_matched_packets_all_ports(self, masked_discover, self.server_port_indices)
-        self.assertTrue(discover_count == self.NUM_DHCP_SERVERS,
-                "Failed: Discover count of %d != %d (NUM_DHCP_SERVERS)" % (discover_count, self.NUM_DHCP_SERVERS))
+        self.assertTrue(discover_count == self.num_dhcp_servers,
+                "Failed: Discover count of %d != %d (num_dhcp_servers)" % (discover_count, self.num_dhcp_servers))
 
     # Simulate a DHCP server sending a DHCPOFFER message to client.
     # We do this by injecting a DHCPOFFER message on the link connected to one
@@ -357,8 +353,8 @@ class DHCPTest(DataplaneBaseTest):
 
         # Count the number of these packets received on the ports connected to our leaves
         request_count = testutils.count_matched_packets_all_ports(self, masked_request, self.server_port_indices)
-        self.assertTrue(request_count == self.NUM_DHCP_SERVERS,
-                "Failed: Request count of %d != %d (NUM_DHCP_SERVERS)" % (request_count, self.NUM_DHCP_SERVERS))
+        self.assertTrue(request_count == self.num_dhcp_servers,
+                "Failed: Request count of %d != %d (num_dhcp_servers)" % (request_count, self.num_dhcp_servers))
 
     # Simulate a DHCP server sending a DHCPOFFER message to client from one of our leaves
     def server_send_ack(self):
