@@ -45,6 +45,11 @@
   include: bgp_fact.yml
   tags: bgp_fact
 
+- name: Fast-reboot test
+  include: fast-reboot.yml
+  when: minigraph_portchannel_interfaces | length > 0 and minigraph_vlan_interfaces | length > 0
+  tags: fast_reboot
+
 ### when callng BGP flaps test, please add command line of which VMs host to test against
 ### -e "vmhost_num='01'"
 - fail: msg="Please set vmhost_num variable"
