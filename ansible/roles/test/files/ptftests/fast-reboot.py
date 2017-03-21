@@ -322,7 +322,7 @@ class FastReloadTest(BaseTest):
         for i in xrange(self.nr_pkts):
             testutils.send_packet(self, from_port, str(packet))
 
-        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(exp_packet, to_ports)
+        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, exp_packet, to_ports)
 
         self.log("Send %5d Received %5d %s" % (self.nr_pkts, total_rcv_pkt_cnt, msg), True)
 
