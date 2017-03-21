@@ -8,7 +8,7 @@ import json
 import copy
 import ipaddr as ipaddress
 from collections import defaultdict
-from natsort import natsort
+from natsort import natsorted
 
 
 from lxml import etree as ET
@@ -432,7 +432,7 @@ def parse_xml(filename, hostname):
         port_alias_list.append(v)
 
     # Sort the list in natural order
-    port_alias_list_sorted = natsort(port_alias_list)
+    port_alias_list_sorted = natsorted(port_alias_list)
 
     # Create map from SONiC alias to physical index and NGS name to physical index
     port_index_map = {}
