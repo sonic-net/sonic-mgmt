@@ -19,6 +19,11 @@
 #        ptf_platform: nn
 #        ptf_qlen: 100000
 #        ptf_extra_options: --device-socket 0-3@tcp://127.0.0.1:10900 --device-socket 1-3@tcp://{{ ansible_eth0['ipv4']['address'] }}:10900
+#        ptf_test_params:
+#        - verbose=False
+#        - dut_username=\"{{ ansible_ssh_user }}\"
+#        - dut_hostname=\"{{ ansible_host }}\"
+#        - fast_reboot_limit=30
 #      with_items:
 #        - ARPTest
 #        - DHCPTest
@@ -34,7 +39,7 @@
   when: ptf_host is not defined
 
 - name: "PTF Test - {{ ptf_test_name }}"
-  shell: ptf --test-dir {{ ptf_test_dir }} {{ ptf_test_path }} {% if ptf_qlen is defined %} --qlen={{ ptf_qlen }} {% endif %} --platform {{ ptf_platform }} -t "verbose=True;{{ ptf_test_params | default([]) | join(';') }}" {{ ptf_extra_options | default("")}} --disable-ipv6 --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre 2>&1
+  shell: ptf --test-dir {{ ptf_test_dir }} {{ ptf_test_path }} {% if ptf_qlen is defined %} --qlen={{ ptf_qlen }} {% endif %} --platform {{ ptf_platform }} {% if ptf_test_params is defined %} -t "{{ ptf_test_params | default([]) | join(';') }}" {% endif %} {{ ptf_extra_options | default("")}} --disable-ipv6 --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre 2>&1
   args:
     chdir: /root
   delegate_to: "{{ ptf_host }}"

@@ -2,14 +2,14 @@
 #
 #
 # To renumber a topology please use following command
-# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_renumber_vm_topology.yml --vault-password-file=~/.password -l server_3 -e vm_set_name=first -e VM_base=VM0300 -e ptf_ip=10.64.246.255/23 -e topo=t0 -e dut_name=str-msn-2700-05 -e ptf_imagename="docker_ptf"
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_renumber_vm_topology.yml --vault-password-file=~/.password -l server_3 -e vm_set_name=first -e VM_base=VM0300 -e ptf_ip=10.255.0.255/23 -e topo=t0 -e dut_name=str-msn-2700-05 -e ptf_imagename="docker_ptf"
 #
 # Parameters
 # -l server_3                - this playbook have to be limited to run only on one server
 # -e vm_set_name=first       - the name of vm_set
 # -e dut_name=str-msn2700-02 - the new value of a dut name, the dut will be connected to the current testbed
 # -e VM_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
-# -e ptf_ip=10.64.246.255/23 - the ip address and prefix of ptf container mgmt interface
+# -e ptf_ip=10.255.0.255/23 - the ip address and prefix of ptf container mgmt interface
 # -e topo=t0                 - the name of removed topo
 # -e ptf_imagename=docker-ptf - name of a docker-image which will be used for the ptf docker container
 
