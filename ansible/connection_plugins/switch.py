@@ -93,17 +93,28 @@ class Connection(ConnectionBase):
         if attempt == len(self.login['user']):
             raise AnsibleError("none of the passwords in the book works")
 
-        self.hname = client.before.split()[-1]
-        self.hname = self.hname.replace("(", "[(]")
-        self.hname = self.hname.replace(")", "[)]")
+        self.before_backup = client.before.split()
 
         # determine the sku
-        client.sendline('show version | no-more')
+        client.sendline('show version')
         client.expect(['#', '>'])
         if 'Arista' in client.before:
             self.sku = 'eos'
         elif 'Cisco' in client.before:
             self.sku = 'nxos'
+        if 'MLNX-OS' in client.before:
+            self.sku = 'mlnx_os'
+
+        if self.sku == 'mlnx_os':
+            self.hname = ' '.join(self.before_backup[-3:])
+            self.hname = self.hname.replace("(", "[(]")
+            self.hname = self.hname.replace(")", "[)]")
+            self.hname = self.hname.replace("]", "\]")
+            self.hname = self.hname.replace("[", "\[")
+        else:
+            self.hname = self.before_backup[-1]
+            self.hname = self.hname.replace("(", "[(]")
+            self.hname = self.hname.replace(")", "[)]")
 
         if i == 0 and self.enable:
             attempt = 0
@@ -182,7 +193,7 @@ class Connection(ConnectionBase):
         # "%s(\([a-z\-]+\))?#": privileged prompt including configure mode
         # Prompt includes Login, Password, and yes/no for "start shell" case in Dell FTOS (launch bash shell)
         if not self.bash:
-            prompts = ["%s>" % self.hname, "%s(\([a-zA-Z0-9\/\-]+\))?#" % self.hname, '[Ll]ogin:', '[Pp]assword:', '\[(confirm )?yes\/no\]:', '\(y\/n\)\??\s?\[n\]']
+            prompts = ["%s>" % self.hname, "%s.+" % self.hname, "%s(\([a-zA-Z0-9\/\-]+\))?#" % self.hname, '[Ll]ogin:', '[Pp]assword:', '\[(confirm )?yes\/no\]:', '\(y\/n\)\??\s?\[n\]']
         else:
             if self.sku == 'nxos':
                 # bash-3.2$ for nexus 6.5
