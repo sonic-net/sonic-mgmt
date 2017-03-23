@@ -44,4 +44,4 @@ server_1
 server_2
 
 [servers:vars]
-topologies=['t1', 't1-lag', 't0', 'ptf32', 'ptf64']
+topologies=['t1', 't1-lag', 't0', 'ptf32', 'ptf64', 't0-32']
