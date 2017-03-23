@@ -95,3 +95,7 @@
 
 - name: Test Everflow on testbed
   include: everflow_testbed.yml
+
+- name: Test LAG.
+  include: lagall.yml
+  tags: lag

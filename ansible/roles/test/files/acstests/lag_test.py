@@ -481,3 +481,45 @@ class LagAllRoutes(BaseTest,RouterUtility):
                     
         assert(test_result)
     #---------------------------------------------------------------------
+
+
+class LagMembersTrafficTest(BaseTest,RouterUtility):
+    '''
+    @ summary: run traffic from <src_iface> to <dst_addr>. All packets should arrive to <check_pkts_iface>.
+
+    @ param: dst_addr   -   destination address of the traffic (usually LAG interface IP)
+    @ param: src_iface  -   interface, where traffic is sent from
+    @ param: check_pkts_iface   -   where packets should arrive (because usually one of LAG members is being DOWN in test purposes).
+    @ param: num_of_pkts        -   amount of traffic to send
+    '''
+    def __init__(self):
+        BaseTest.__init__(self)
+        self.test_params = testutils.test_params_get()
+        print("test params = %s" % self.test_params)
+
+    def setUp(self):
+        '''
+        @summary: Setup for the test
+        '''
+        self.dataplane = ptf.dataplane_instance
+
+    def runTest(self):
+        self.dst_addr = self.test_params['dst_addr']
+        self.src_iface = int(self.test_params['src_iface'])
+        self.check_pkts_iface = int(self.test_params['check_pkts_iface'])
+        self.num_of_pkts = int(self.test_params['num_of_pkts'])
+
+        # Generate packet.
+        pkt = scapy.Ether()
+        pkt /= scapy.IP(src='10.0.0.99', dst=self.dst_addr)
+        pkt /= scapy.ICMP()
+        pkt /= ("Yellow Sun")
+
+        # Send packet and verify it on dst port.
+        i = 0
+        while i < int(self.num_of_pkts):
+            print("sending packet")
+            send_packet(self, self.src_iface, pkt)
+            print("verifying packet")
+            verify_packet(self, pkt, self.check_pkts_iface)
+            i += 1
