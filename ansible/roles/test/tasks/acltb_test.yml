@@ -2,6 +2,15 @@
 # Run ACL test and Perform log analysis.
 #-----------------------------------------
 
+# Pre-check testbed_type value
+- fail: msg="testbed_type is not defined."
+  when: testbed_type is not defined
+
+- fail: msg="testbed_type {{testbed_type}} is invalid."
+  when: testbed_type not in ['t1-lag', 't1']
+
+- include_vars: "vars/topo_{{testbed_type}}.yml"
+
 # Gather minigraph facts
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
@@ -12,12 +21,16 @@
   set_fact:
     alias_reverse_map: "{{ lookup('file', 'roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_reverse_map.json') | from_json }}"
 
+- name: Expand properties into props
+  set_fact: props="{{configuration_properties['spine']}}"
+  when: testbed_type in ['t1', 't1-lag']
+
 # Generate file with switch information
 - template: src=acltb.j2 dest=/tmp/acltb_switch_info.txt
   connection: local
 
 - name: Copy switch info file to the PTF host
-  copy: src="/tmp/acltb.txt" dest="/tmp/acltb_switch_info.txt"
+  copy: src=/tmp/acltb_switch_info.txt dest=/tmp/acltb_switch_info.txt
   delegate_to: "{{ ptf_host }}"
 
 - set_fact:

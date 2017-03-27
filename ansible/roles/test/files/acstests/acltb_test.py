@@ -112,7 +112,7 @@ class AclTest(BaseTest):
         return received
 
     #---------------------------------------------------------------------
-    def runAclTests(self):
+    def runAclTests(self, dst_ip, dst_ip_blocked, src_port, dst_ports):
         """
         @summary: Crete and send packet to verify each ACL rule
         @return: Number of tests passed
@@ -121,11 +121,17 @@ class AclTest(BaseTest):
         tests_passed = 0
         self.tests_total = 0
 
+        print "\nPort to sent packets to: %d" % src_port
+        print "Destination IP: %s" % dst_ip_blocked
+        print "Ports to expect packet from: ",
+        pprint.pprint(dst_ports)
+        print "Dst IP expected to be blocked: ", dst_ip_blocked
+
         pkt0 = simple_tcp_packet(
                                 eth_dst = self.router_mac,
                                 eth_src = self.dataplane.get_mac(0, 0),
                                 ip_src = "10.0.0.1",
-                                ip_dst = self.dest_ip_addr,
+                                ip_dst = dst_ip,
                                 tcp_sport = 0x1234,
                                 tcp_dport = 0x50,
                                 ip_ttl = 64
@@ -135,7 +141,7 @@ class AclTest(BaseTest):
                                 eth_dst = self.dataplane.get_mac(0, 0),
                                 eth_src = self.router_mac,
                                 ip_src = "10.0.0.1",
-                                ip_dst = self.dest_ip_addr,
+                                ip_dst = dst_ip,
                                 tcp_sport = 0x1234,
                                 tcp_dport = 0x50,
                                 ip_ttl = 63
@@ -147,16 +153,16 @@ class AclTest(BaseTest):
         exp_pkt = exp_pkt0.copy()
         pkt['IP'].src = "10.0.0.2"
         exp_pkt['IP'].src = "10.0.0.2"
-        res = self.runSendReceiveTest(pkt, self.src_port, exp_pkt, self.spine_ports)
+        res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
         tests_passed += (0 if res else 1)
         print "Test #1 %s" % ("FAILED" if res else "PASSED")
 
         # Test #2 - Verify destination IP match
         pkt = pkt0.copy()
         exp_pkt = exp_pkt0.copy()
-        pkt['IP'].dst = self.dest_ip_addr_blocked
-        exp_pkt['IP'].dst = self.dest_ip_addr_blocked
-        res = self.runSendReceiveTest(pkt, self.src_port, exp_pkt, self.spine_ports)
+        pkt['IP'].dst = dst_ip_blocked
+        exp_pkt['IP'].dst = dst_ip_blocked
+        res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
         tests_passed += (0 if res else 1)
         print "Test #2 %s" % ("FAILED" if res else "PASSED")
 
@@ -165,7 +171,7 @@ class AclTest(BaseTest):
         exp_pkt = exp_pkt0.copy()
         pkt['TCP'].sport = 0x1235
         exp_pkt['TCP'].sport = 0x1235
-        res = self.runSendReceiveTest(pkt, self.src_port, exp_pkt, self.spine_ports)
+        res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
         tests_passed += (0 if res else 1)
         print "Test #3 %s" % ("FAILED" if res else "PASSED")
 
@@ -174,7 +180,7 @@ class AclTest(BaseTest):
         exp_pkt = exp_pkt0.copy()
         pkt['TCP'].dport = 0x1235
         exp_pkt['TCP'].dport = 0x1235
-        res = self.runSendReceiveTest(pkt, self.src_port, exp_pkt, self.spine_ports)
+        res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
         tests_passed += (0 if res else 1)
         print "Test #4 %s" % ("FAILED" if res else "PASSED")
 
@@ -183,7 +189,7 @@ class AclTest(BaseTest):
         exp_pkt = exp_pkt0.copy()
         pkt['Ethernet'].type = 0x1234
         exp_pkt['Ethernet'].type = 0x1234
-        res = self.runSendReceiveTest(pkt, self.src_port, exp_pkt, self.spine_ports)
+        res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
         tests_passed += (0 if res else 1)
         print "Test #5 %s" % ("FAILED" if res else "PASSED")
 
@@ -192,7 +198,7 @@ class AclTest(BaseTest):
         exp_pkt = exp_pkt0.copy()
         pkt['IP'].proto = 0x7E
         exp_pkt['IP'].proto = 0x7E
-        res = self.runSendReceiveTest(pkt, self.src_port, exp_pkt, self.spine_ports)
+        res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
         tests_passed += (0 if res else 1)
         print "Test #6 %s" % ("FAILED" if res else "PASSED")
 
@@ -201,7 +207,7 @@ class AclTest(BaseTest):
         exp_pkt = exp_pkt0.copy()
         pkt['TCP'].flags = 0x12
         exp_pkt['TCP'].flags = 0x12
-        res = self.runSendReceiveTest(pkt, self.src_port, exp_pkt, self.spine_ports)
+        res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
         tests_passed += (0 if res else 1)
         print "Test #7 %s" % ("FAILED" if res else "PASSED")
 
@@ -210,7 +216,7 @@ class AclTest(BaseTest):
         exp_pkt = exp_pkt0.copy()
         pkt['TCP'].sport = 0x123A
         exp_pkt['TCP'].sport = 0x123A
-        res = self.runSendReceiveTest(pkt, self.src_port, exp_pkt, self.spine_ports)
+        res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
         tests_passed += (0 if res else 1)
         print "Test #9 %s" % ("FAILED" if res else "PASSED")
 
@@ -219,7 +225,7 @@ class AclTest(BaseTest):
         exp_pkt = exp_pkt0.copy()
         pkt['TCP'].dport = 0x123A
         exp_pkt['TCP'].dport = 0x123A
-        res = self.runSendReceiveTest(pkt, self.src_port, exp_pkt, self.spine_ports)
+        res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
         tests_passed += (0 if res else 1)
         print "Test #10 %s" % ("FAILED" if res else "PASSED")
 
@@ -228,7 +234,7 @@ class AclTest(BaseTest):
         exp_pkt = exp_pkt0.copy()
         pkt['IP'].src = "10.0.0.3"
         exp_pkt['IP'].src = "10.0.0.3"
-        res = self.runSendReceiveTest(pkt, self.src_port, exp_pkt, self.spine_ports)
+        res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
         tests_passed += (1 if res else 0)
         print "Test #11 %s" % ("PASSED" if res else "FAILED")
 
@@ -246,17 +252,15 @@ class AclTest(BaseTest):
         self.switch_info = open(self.test_params["switch_info"], 'r').readlines()
         self.tor_ports = map(int, self.switch_info[0].rstrip(",\n").split(","))
         self.spine_ports = map(int, self.switch_info[1].rstrip(",\n").split(","))
-        self.dest_ip_addr = self.switch_info[2].strip()
-        self.dest_ip_addr_blocked = self.switch_info[3].strip()
-        self.src_port = self.tor_ports[0]  # get any tor port
+        self.dest_ip_addr_spine = self.switch_info[2].strip()
+        self.dest_ip_addr_spine_blocked = self.switch_info[3].strip()
+        self.dest_ip_addr_tor = self.switch_info[4].strip()
+        self.dest_ip_addr_tor_blocked = self.switch_info[5].strip()
 
-        print "\nPort to sent packets to: %d" % self.src_port
-        print "Destination IP: %s" % self.dest_ip_addr
-        print "Ports to expect packet from: ",
-        pprint.pprint(self.spine_ports)
-        print "Dst IP expected to be blocked: ", self.dest_ip_addr_blocked
+        # Verify ACLs on tor port
+        (tests_passed, tests_total) = self.runAclTests(self.dest_ip_addr_spine, self.dest_ip_addr_spine_blocked, self.tor_ports[0], self.spine_ports)
+        assert(tests_passed == tests_total)
 
-        (tests_passed, tests_total) = self.runAclTests()
-        print "Passed %d test of %d" % (tests_passed, tests_total)
-
+        # Verify ACLs on spine port
+        (tests_passed, tests_total) = self.runAclTests(self.dest_ip_addr_tor, self.dest_ip_addr_tor_blocked, self.spine_ports[0], self.tor_ports)
         assert(tests_passed == tests_total)
