@@ -17,12 +17,10 @@
 
 - block:
     - name: Test Everflow configuration validation.
-      include: "{{ tests_location }}/config_test/config_test.yml"
-      when: tests_location is defined
+      include: "roles/test/tasks/everflow/config_test/config_test.yml"
 
     - name: Test Everflow session activation/deactivation logic.
-      include: "{{ tests_location }}/logic_test/logic_test.yml"
-      when: tests_location is defined
+      include: "roles/test/tasks/everflow/logic_test/logic_test.yml"
 
   always:
     - name: General cleanup.
