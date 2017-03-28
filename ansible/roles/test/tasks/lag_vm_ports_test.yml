@@ -1,0 +1,72 @@
+#---------------------------------------------------------
+# --- Part of lagall.yml test ---
+#---------------------------------------------------------
+# Shutdown each LAG member on VMs and verify traffic.
+#
+# The following actions are to be done for each LAG (and each VM):
+#   1) Put DOWN EOS interface on VM (simulation of the halt of sending LACP packets).
+#   2) Verify all the traffic goes through another LAG member and no packets lost.
+#
+# @ params: login_creds     -   credentials for Arista VM
+# @ params: vm_name
+# @ params: lag_ip          -   LAG interface IP address
+# @ params: lag_member_0    -   First LAG member on VM
+# @ params: lag_member_1    -   Second LAG member on VM
+# @ params: iface_behind_lag_member_0   -   PTF docker iface, connected to LAG VM
+# @ params: iface_behind_lag_member_1   -   PTF docker iface, connected to LAG VM
+# @ params: not_behind_lag_iface        -   PTF docker interface that is connected to non-LAG VM (meaning eth31)
+# @ params: vm_ip       -    VM mgmt IP; taken from lag_link_flap_vars.yml
+# @ params: num_of_pkts -    number of packets to send while PTF test.
+#---------------------------------------------------------
+
+        # --- TEST FIRST LAG MEMBER ---
+- block:
+    - name: Put down LAG member interface {{ lag_member_0 }} on {{ vm_name }}.
+      include: run_cisco_script.yml
+      vars:
+        template: roles/vm_set/templates/lag_vm_ports.j2
+        host: "{{ vm_ip }}"
+        log_in: "{{ login_creds }}"
+        config_iface: "{{ lag_member_0 }}"
+        state: 'shutdown'
+
+    - include: lag_run_ptf.yml
+      vars:
+        lag_ptf_test_name: LagMembersTrafficTest
+        params: "dst_addr='{{ lag_ip }}';src_iface={{ not_behind_lag_iface }};check_pkts_iface={{ iface_behind_lag_member_1 }};num_of_pkts={{ num_of_pkts }};dut_mac='{{ dut_mac }}'"
+        change_dir: /tmp
+  always:
+    - name: Put up LAG member interface {{ lag_member_0 }} on {{ vm_name }}.
+      include: run_cisco_script.yml
+      vars:
+        template: roles/vm_set/templates/lag_vm_ports.j2
+        host: "{{ vm_ip }}"
+        log_in: "{{ login_creds }}"
+        config_iface: "{{ lag_member_0 }}"
+        state: 'no shutdown'
+
+        # --- TEST SECOND LAG MEMBER ---
+- block:
+    - name: Put down LAG member interface {{ lag_member_1 }} on {{ vm_name }}.
+      include: run_cisco_script.yml
+      vars:
+        template: roles/vm_set/templates/lag_vm_ports.j2
+        host: "{{ vm_ip }}"
+        log_in: "{{ login_creds }}"
+        config_iface: "{{ lag_member_1 }}"
+        state: 'shutdown'
+
+    - include: lag_run_ptf.yml
+      vars:
+        lag_ptf_test_name: LagMembersTrafficTest
+        params: "dst_addr='{{ lag_ip }}';src_iface={{ not_behind_lag_iface }};check_pkts_iface={{ iface_behind_lag_member_0 }};num_of_pkts={{ num_of_pkts }};dut_mac='{{ dut_mac }}'"
+        change_dir: /tmp
+  always:
+    - name: Put up LAG member interface {{ lag_member_1 }} on {{ vm_name }}.
+      include: run_cisco_script.yml
+      vars:
+        template: roles/vm_set/templates/lag_vm_ports.j2
+        host: "{{ vm_ip }}"
+        log_in: "{{ login_creds }}"
+        config_iface: "{{ lag_member_1 }}"
+        state: 'no shutdown'
