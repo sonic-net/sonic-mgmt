@@ -57,7 +57,7 @@ interface {{ name }}
 {% endif %}
 {% if iface['lacp'] is defined %}
  channel-group {{ iface['lacp'] }} mode active
- lacp rate fast
+ lacp rate normal
 {% endif %}
 {% if iface['ipv4'] is defined %}
  ip address {{ iface['ipv4'] }}
