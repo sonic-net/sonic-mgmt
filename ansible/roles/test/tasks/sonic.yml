@@ -4,9 +4,9 @@
   become: no
   tags: always
 
-- name: Verify interfaces are up
-  include: interface.yml
-  tags: always
+  #- name: Verify interfaces are up
+  #  include: interface.yml
+  #  tags: always
 
 - name: Neighbor mac change test
   include: neighbour-mac.yml
@@ -95,3 +95,7 @@
 
 - name: Test Everflow on testbed
   include: everflow_testbed.yml
+
+- name: Test LAG.
+  include: lagall.yml
+  tags: lag
