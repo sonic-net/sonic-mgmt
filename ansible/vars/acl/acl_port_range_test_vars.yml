@@ -28,12 +28,12 @@ host_testdir: /tmp/ptf_tests
 
 # traffic-test settings
 table_name: acl_test_table
-rule_limited_port_range_name: acl_rule_limited_port_range
+rule_limited_port_range_name: acl_rule_limited_range
 packets_sent: 3
 
 # mirror-testing settings
-switch_if_ip: 20.0.0.1
-ptf_host_if_ip: 20.0.0.2
+switch_if_ip: 10.0.0.0
+ptf_host_if_ip: 10.0.0.1
 dst_mirror_subnet: 2.0.0.0/24
 
 config_files:

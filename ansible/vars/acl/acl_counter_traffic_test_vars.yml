@@ -18,9 +18,11 @@ rule_name: acl_config_rule
 mirror_table_name: acl_test_table_mirror
 mirror_rule_name: acl_config_rule_mirror
 
-switch_if1_ip: 20.0.0.1
-switch_if2_ip: 21.0.0.1
-dst_mirror_subnet: 2.0.0.0/24
+switch_if1_ip: 10.0.0.0
+neighbor1_ip: 10.0.0.1
+switch_if2_ip: 10.0.0.2
+neighbor2_ip: 10.0.0.3
+dst_mirror_subnet: 2.2.2.0/24
 packets_sent: 3
 
 config_files:
