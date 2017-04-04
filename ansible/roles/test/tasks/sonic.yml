@@ -4,9 +4,9 @@
   become: no
   tags: always
 
-- name: Verify interfaces are up
-  include: interface.yml
-  tags: always
+  #- name: Verify interfaces are up
+  #  include: interface.yml
+  #  tags: always
 
 - name: Neighbor mac change test
   include: neighbour-mac.yml
@@ -45,6 +45,11 @@
   include: bgp_fact.yml
   tags: bgp_fact
 
+- name: Fast-reboot test
+  include: fast-reboot.yml
+  when: minigraph_portchannel_interfaces | length > 0 and minigraph_vlan_interfaces | length > 0
+  tags: fast_reboot
+
 ### when callng BGP flaps test, please add command line of which VMs host to test against
 ### -e "vmhost_num='01'"
 - fail: msg="Please set vmhost_num variable"
@@ -56,8 +61,8 @@
   tags: sync
 
 - name: Test Interface Flap from Neighbor
-  include: interface_up_down.yml
-  tags: link
+  include: link_flap.yml
+  tags: link_flap
 
 ### when calling this ARP test, please add command line of which PTF docker image host to test against
 ### -e "ptf_host=10.0.0.200"
@@ -90,3 +95,7 @@
 
 - name: Test Everflow on testbed
   include: everflow_testbed.yml
+
+- name: Test LAG.
+  include: lagall.yml
+  tags: lag

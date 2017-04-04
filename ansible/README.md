@@ -1,6 +1,6 @@
 # Overview of SONiC deployment, testbed setup and tests
 
-This ansible playbook consists following functionalities:
+This ansible playbook consists of the following functionality:
 - [Deploy SONiC](README.deploy.md)
 - [Setup SONiC testbed](README.testbed.md)
 - [Run SONiC tests](README.test.md)
@@ -17,9 +17,9 @@ git submodule update --init --recursive
 make
 sudo make install
 ```
-Note: v2.0.0.2 is the currently tested Ansible version.  Other versions may not work correctly.
+*Note: v2.0.0.2 is the currently tested Ansible version.  Other versions may not work correctly.*
 
-# Ansible playbood layout
+# Ansible playbook layout
 
 ``` 
 # Ansible top level file and directory structure

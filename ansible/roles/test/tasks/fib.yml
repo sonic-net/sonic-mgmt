@@ -7,7 +7,7 @@
   when: testbed_type is not defined
 
 - fail: msg="testbed_type {{testbed_type}} is invalid."
-  when: testbed_type not in ['t1-lag', 't1']
+  when: testbed_type not in ['t1-lag', 't1', 't0']
 
 - include_vars: "vars/topo_{{testbed_type}}.yml"
 
@@ -16,6 +16,11 @@
 
 - name: Expand properties into props
   set_fact: props="{{configuration_properties['spine']}}"
+  when: testbed_type in ['t1', 't1-lag']
+
+- name: Expand properties into props
+  set_fact: props="{{configuration_properties['common']}}"
+  when: testbed_type in ['t0']
 
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
@@ -30,11 +35,11 @@
 - debug : msg="Start FIB Test"
 
 - name: copy the test to ptf container
-  copy: src=roles/test/files/acstests dest=/root
+  copy: src=roles/test/files/ptftests dest=/root
   delegate_to: "{{ ptf_host }}"
 
 - name: "Running the test"
-  shell: ptf --test-dir acstests fib_test.FibTest --platform remote -t "verbose=True;router_mac='{{ ansible_Ethernet0['macaddress'] }}';route_info='/tmp/route_info.txt'"
+  shell: ptf --test-dir ptftests fib_test.FibTest --platform remote -t "testbed_type='{{testbed_type}}';router_mac='{{ansible_Ethernet0['macaddress']}}';route_info='/tmp/route_info.txt'"
   args:
     chdir: /root
   delegate_to: "{{ ptf_host }}"

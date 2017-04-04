@@ -2,7 +2,7 @@
   set_fact:
       neighbor_info_1: "{{ item }}"
   with_items: "{{ minigraph_bgp }}"
-  when: item['name'] == minigraph_neighbors[dst_port_1]['name']
+  when: item['name'] == minigraph_neighbors[dst_port_1]['name'] and item['addr']|ipv4
 
 - name: Get neighbor 1 MAC address.
   shell: ip neigh show {{ neighbor_info_1['addr'] }} | awk -F' ' '{print $5}'
@@ -19,7 +19,7 @@
   set_fact:
       neighbor_info_2: "{{ item }}"
   with_items: "{{ minigraph_bgp }}"
-  when: item['name'] == minigraph_neighbors[dst_port_2]['name']
+  when: item['name'] == minigraph_neighbors[dst_port_2]['name'] and item['addr']|ipv4
 
 - name: Get neighbor 2 MAC address.
   shell: ip neigh show {{ neighbor_info_2['addr'] }} | awk -F' ' '{print $5}'
@@ -36,7 +36,7 @@
   set_fact:
       neighbor_info_3: "{{ item }}"
   with_items: "{{ minigraph_bgp }}"
-  when: item['name'] == minigraph_neighbors[dst_port_3]['name']
+  when: item['name'] == minigraph_neighbors[dst_port_3]['name'] and item['addr']|ipv4
 
 - name: Get neighbor 3 MAC address.
   shell: ip neigh show {{ neighbor_info_3['addr'] }} | awk -F' ' '{print $5}'
