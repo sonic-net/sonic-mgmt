@@ -32,7 +32,7 @@
         state: 'shutdown'
 
     - debug:
-        msg: "Wait for configuration to be applied"
+        msg: "Wait for configuration to be applied..."
 
     - pause:
         seconds: 30
@@ -53,11 +53,11 @@
         config_iface: "{{ portmap_dut_fn[dut_lag_member] }}"
         state: 'no shutdown'
 
+    - debug:
+        msg: "Wait for configuration to be applied..."
+
     - pause:
         seconds: 100
-
-    - debug:
-        msg: "Wait for configuration to be applied"
 
     # Invert PTF interface index
     - include: roles/test/files/helpers/invert_iface_behind_lag_member.yml
