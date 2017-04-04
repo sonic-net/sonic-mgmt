@@ -16,11 +16,8 @@
         state: directory
       delegate_to: "{{ ptf_host }}"
 
-    - name: copy the test to ptf container
-      copy: src=roles/test/files/ptftests/{{ item }} dest=/root/fast-reboot
-      with_items:
-        - fast-reboot.py
-        - remote.py
+    - name: Copy tests to the PTF container
+      copy: src=roles/test/files/ptftests dest=/root
       delegate_to: "{{ ptf_host }}"
 
     - name: Remove old keys
@@ -30,6 +27,10 @@
       with_items:
         - /root/.ssh/id_rsa
         - /root/.ssh/id_rsa.pub
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Remove old entry about DUT
+      shell: ssh-keygen -f /root/.ssh/known_hosts -R {{ ansible_host }}
       delegate_to: "{{ ptf_host }}"
 
     - name: Generate public key for ptf host
@@ -72,11 +73,11 @@
     - include: ptf_runner.yml
       vars:
         ptf_test_name: Fast-reboot test
-        ptf_test_dir: fast-reboot
+        ptf_test_dir: ptftests
         ptf_test_path: fast-reboot.FastReloadTest
         ptf_platform: remote
         ptf_qlen: 1000
-        ptf_extra_options: --platform-dir fast-reboot
+        ptf_extra_options: --platform-dir ptftests
         ptf_test_params:
         - verbose=False
         - dut_username=\"{{ ansible_ssh_user }}\"

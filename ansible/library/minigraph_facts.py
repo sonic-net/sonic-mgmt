@@ -440,7 +440,17 @@ def parse_xml(filename, hostname):
         port_index_map[val] = idx
         port_index_map[inverted_port_alias_map[val]] = idx
 
-
+    # Create maps:
+    #  from SONiC phy iface name to NGS phy iface name
+    #  from NGS phy iface name to SONiC phy iface name
+    # These maps include mappings from original name to original name too
+    iface_map_sonic_to_ngs = {}
+    iface_map_ngs_to_sonic = {}
+    for val in port_alias_list_sorted:
+        iface_map_sonic_to_ngs[val] = inverted_port_alias_map[val]
+        iface_map_sonic_to_ngs[inverted_port_alias_map[val]] = inverted_port_alias_map[val]
+        iface_map_ngs_to_sonic[inverted_port_alias_map[val]] = val
+        iface_map_ngs_to_sonic[val] = val
 
     # Generate results
     Tree = lambda: defaultdict(Tree)
@@ -468,6 +478,8 @@ def parse_xml(filename, hostname):
     results['minigraph_console'] = get_console_info(devices, console_dev, console_port)
     results['minigraph_mgmt'] = get_mgmt_info(devices, mgmt_dev, mgmt_port)
     results['minigraph_port_indices'] = port_index_map
+    results['minigraph_map_sonic_to_ngs'] = iface_map_sonic_to_ngs
+    results['minigraph_map_ngs_to_sonic'] = iface_map_ngs_to_sonic
     results['syslog_servers'] = syslog_servers
     results['dhcp_servers'] = dhcp_servers
     results['ntp_servers'] = ntp_servers
