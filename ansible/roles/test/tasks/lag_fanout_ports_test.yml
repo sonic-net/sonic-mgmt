@@ -31,6 +31,12 @@
         config_iface: "{{ portmap_dut_fn[dut_lag_member] }}"
         state: 'shutdown'
 
+    - debug:
+        msg: "Wait for configuration to be applied"
+
+    - pause:
+        seconds: 30
+
     - include: lag_run_ptf.yml
       vars:
         lag_ptf_test_name: LagMembersTrafficTest
@@ -47,5 +53,11 @@
         config_iface: "{{ portmap_dut_fn[dut_lag_member] }}"
         state: 'no shutdown'
 
-# Invert PTF interface index
-- include: roles/test/files/helpers/invert_iface_behind_lag_member.yml
+    - pause:
+        seconds: 100
+
+    - debug:
+        msg: "Wait for configuration to be applied"
+
+    # Invert PTF interface index
+    - include: roles/test/files/helpers/invert_iface_behind_lag_member.yml
