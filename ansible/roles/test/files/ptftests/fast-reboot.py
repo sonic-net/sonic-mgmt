@@ -1,8 +1,8 @@
 #
-#ptf --test-dir fast-reboot fast-reboot.FastReloadTest --platform remote --platform-dir fast-reboot --qlen 1000 -t "verbose=True;dut_username='acsadmin';dut_hostname='10.251.0.243';fast_reboot_limit=30;portchannel_ports_file='/tmp/portchannel_interfaces.json';vlan_ports_file='/tmp/vlan_interfaces.json';port_indices_file='/tmp/port_indices.json';dut_mac='4c:76:25:f4:b7:00';vlan_ip_range='172.0.0.0/26';default_ip_range='192.168.0.0/16'"
+#ptf --test-dir ptftests fast-reboot.FastReloadTest --platform remote --platform-dir ptftests --qlen 1000 -t "verbose=True;dut_username='acsadmin';dut_hostname='10.251.0.243';fast_reboot_limit=30;portchannel_ports_file='/tmp/portchannel_interfaces.json';vlan_ports_file='/tmp/vlan_interfaces.json';port_indices_file='/tmp/port_indices.json';dut_mac='4c:76:25:f4:b7:00';vlan_ip_range='172.0.0.0/26';default_ip_range='192.168.0.0/16'"
 #
 #
-# This test measures length of DUT dataplace disruption in fast-reboot procedure.
+# This test measures length of DUT dataplane disruption in fast-reboot procedure.
 #
 # This test supposes that fast-reboot initiates by running /usr/bin/fast-reboot command.
 # The test sequence are following:
@@ -55,6 +55,7 @@ class FastReloadTest(BaseTest):
         self.nr_pkts = 100
         self.nr_tests = 3
         self.reboot_delay = 10
+        self.task_timeout = 300   # Wait up to 5 minutes for tasks to complete
         self.timeout_thr = None
 
         self.read_port_indices()
@@ -150,6 +151,7 @@ class FastReloadTest(BaseTest):
     def timeout(self, seconds, message):
         def timeout_exception(self, message):
             self.log('Timeout is reached: %s' % message)
+            self.tearDown()
             os.kill(os.getpid(), signal.SIGINT)
 
         if self.timeout_thr is None:
@@ -197,13 +199,13 @@ class FastReloadTest(BaseTest):
         self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
         thr.start()
 
-        self.log("Wait when ASIC stops")
-        self.timeout(120, "DUT hasn't stopped for 120 seconds")
+        self.log("Wait until ASIC stops")
+        self.timeout(self.task_timeout, "DUT hasn't stopped in %d seconds" % self.task_timeout)
         no_routing_start = self.check_stop()
         self.cancel_timeout()
 
-        self.log("ASIC was stopped, Waiting when it's up. Stop time: %s" % str(no_routing_start))
-        self.timeout(120, "DUT hasn't started to work for 120 seconds")
+        self.log("ASIC was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
+        self.timeout(self.task_timeout, "DUT hasn't started to work for %d seconds" % self.task_timeout)
         no_routing_stop = self.check_start()
         self.cancel_timeout() 
         self.log("ASIC works again. Start time: %s" % str(no_routing_stop))
@@ -216,7 +218,7 @@ class FastReloadTest(BaseTest):
         time.sleep(self.reboot_delay)
 
         self.log("Rebooting remote side")
-        stdout, stderr, return_code = self.cmd(["ssh", self.dut_ssh, "sudo fast-reboot"])
+        stdout, stderr, return_code = self.cmd(["ssh", "-oStrictHostKeyChecking=no", self.dut_ssh, "sudo fast-reboot"])
         if stdout != []:
             self.log("stdout from fast-reboot: %s" % str(stdout))
         if stderr != []:
@@ -264,18 +266,23 @@ class FastReloadTest(BaseTest):
         return self.pingFromServers() > 0 and self.pingFromUpperTier() > 0
 
     def check_alive(self):
-        counter = self.nr_tests
-        while True:
+        # This function checks that DUT routes packets in both directions.
+        #
+        # Sometimes first attempt failes because ARP response to DUT is not so fast.
+        # But after this the functions expects to see "replies" on at least 50% of requests.
+        # If the function sees that there is some issue with dataplane after we see successful replies
+        # it consider that DUT is not healthy too
+        was_alive = 0
+        for counter in range(self.nr_tests * 2):
             success = self.ping_alive()
-            if not success:
-                return False
-            if counter == 0:
-                break
+            if success:
+              was_alive += 1
             else:
-                counter -= 1
-            time.sleep(1)
+              if was_alive > 0:
+                return False    # Stopped working after it working for sometime?
+              time.sleep(1)
 
-        return True
+        return was_alive > self.nr_tests
 
     def ping_alive(self):
         nr_from_s = self.pingFromServers()

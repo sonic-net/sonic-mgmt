@@ -15,8 +15,8 @@
         },
         "Arista": {
             "user": "admin",
-            "passwd": ["123456"],
-            "enable": ["password"]
+            "passwd": ["password", "123456"],
+            "enable": null
         },
         "Force10": {
             "user": "admin",
