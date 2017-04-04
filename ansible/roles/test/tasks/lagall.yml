@@ -94,22 +94,6 @@
 - name: Include testbed topology configuration (to get LAG IP and PTF docker ifaces, that are behind LAG VMs).
   include_vars: vars/topo_t1-lag.yml
 
-- name: --TEST-- LAG members UP and DOWN on all VMs.
-  include: lag_vm_ports_test.yml
-  vars:
-    login_creds: "{{ switch_login['Arista'] }}"
-    dut_mac_addr: "{{ dut_mac }}"
-    lag_ip: "{{ configuration[item]['interfaces']['Port-Channel1']['ipv4'] }}"
-    lag_member_0: "{{ lag_vms[item][1] }}"
-    lag_member_1: "{{ lag_vms[item][2] }}"
-    iface_behind_lag_member_0: "{{ topology['VMs'][item]['vlans'][0] }}"
-    iface_behind_lag_member_1: "{{ topology['VMs'][item]['vlans'][1] }}"
-    not_behind_lag_iface: 29
-    vm_ip: "{{ lag_vms[item][0] }}"
-    vm_name: "{{ item }}"
-    num_of_pkts: 100
-  with_items: lag_vms.keys()
-
 - name: --TEST-- LACP verification on all VMs.
   include: lag_vm_lacp_test.yml
   vars:
