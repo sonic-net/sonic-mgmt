@@ -54,22 +54,26 @@
     match_file_list: "{{ run_dir }}/{{test_match_file}},{{ run_dir }}/{{match_file}}"
     ignore_file_list: "{{ run_dir }}/{{test_ignore_file}},{{ run_dir }}/{{ignore_file}}"
 
+- name: Copy the ACL test to PTF container
+  become: true
+  copy: src=roles/test/files/acstests/acltb_test.py dest=/root/test/
+  delegate_to: "{{ ptf_host }}"
+
 - include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
+# Run the ACL PTF test
 - block:
-    - name: copy the test to ptf container
-      copy: src=roles/test/files/acstests dest=/root
-      delegate_to: "{{ ptf_host }}"
-
-    - name: "Running test {{ testname }}"
-      shell: ptf --test-dir acstests acltb_test.AclTest --platform remote -t "verbose=True;router_mac='{{ ansible_Ethernet0['macaddress'] }}';switch_info='/tmp/acltb_switch_info.txt'"
-      args:
-        chdir: /root
-      delegate_to: "{{ ptf_host }}"
-      register: out
-
-    - debug: var=out.stdout_lines
-      when: out.rc != 0
+    - name: Run the test
+      include: ptf_runner.yml
+      vars:
+          ptf_test_name: ACL Test
+          ptf_test_dir: test
+          ptf_test_path: acltb_test.AclTest
+          ptf_platform: remote
+          ptf_test_params:
+            - verbose=True
+            - router_mac=\"{{ ansible_Ethernet0['macaddress'] }}\"
+            - switch_info=\"/tmp/acltb_switch_info.txt\"
 
   always:
     - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
