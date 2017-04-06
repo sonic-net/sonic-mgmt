@@ -3,7 +3,7 @@
 # or analyze-phase of loganalyzer.
 #-----------------------------------------
 
-- include_vars: "{{ vars_files_location }}/run_loganalyzer_vars.yml"
+- include_vars: "vars/run_loganalyzer_vars.yml"
 
 - name: Initialize loganalizer. Put start marker to log file.
   include: "{{ loganalyzer_init }}"

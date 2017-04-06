@@ -8,6 +8,9 @@
     config_files:
       - config_valid.json
 
+- fail: msg="Please set sw_if variable (interface that switch is connected to host)"
+  when: sw_if is not defined
+
 - name: Initialize config test.
   include: roles/test/tasks/init_config_test.yml
 
@@ -39,11 +42,6 @@
     - name: Create route with prefix that matches session DST IP and unresolved next hop.
       command: ip route add {{ session_ip_prefix_1 }} via {{ neigh_ip }}
       
-    - name: Verify session state is inactive.
-      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
-      register: session_status
-      failed_when: session_status.stdout != "inactive"
-
     - name: Resolve session route.
       command: ip neigh replace {{ neigh_ip }} lladdr {{ neigh_mac_1 }} nud permanent dev {{ sw_if }}
 

@@ -26,10 +26,6 @@
 #----------------------------------------
 # L3 TRAFFIC TESTING.
 #----------------------------------------
-    - name: Set host interface IP address.
-      shell: ifconfig {{ ptf_host_if }} 20.0.0.2
-      delegate_to: "{{ ptf_host }}"
-
     - name: Create an ACL L3 table.
       shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
 
@@ -94,6 +90,7 @@
         table_name_check: "{{ table_name }}"
         rule_name_check: "{{ rule_name }}"
         expect_data: false
+        expected_counter_value: 0
       include: "{{ acl_check_db }}"
 
 #--------------------
@@ -107,10 +104,10 @@
       shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_table_type_mirror }}
 
     - name: Add neighbor.
-      shell: ip neigh add {{ switch_if1_ip }} lladdr 0e:9c:37:42:43:67 dev Ethernet0
+      shell: ip neigh replace {{ neighbor2_ip }} lladdr 0e:9c:37:42:43:67 dev Ethernet0
 
     - name: Add route.
-      shell: ip route add {{ dst_mirror_subnet }} via {{ switch_if1_ip }}
+      shell: ip route add {{ dst_mirror_subnet }} via {{ neighbor2_ip }}
 
     - name: Create a rule within mirror table.
       shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_rule_mirror }}
@@ -152,6 +149,7 @@
         table_name_check: "{{ mirror_table_name }}"
         rule_name_check: "{{ mirror_rule_name }}"
         expect_data: false
+        expected_counter_value: 0
       include: "{{ acl_check_db }}"
 
       # CLEANUP.
@@ -159,6 +157,14 @@
       include: "{{ run_config_cleanup }}"
 
 - always:
+    - name: Delete neighbor.
+      shell: ip neigh del {{ neighbor2_ip }} dev Ethernet0
+      ignore_errors: yes
+
+    - name: Delete route.
+      shell: ip route del {{ dst_mirror_subnet }}
+      ignore_errors: yes
+    
     - name: Remove all the temporary files created by the test.
       file: path="{{ run_dir }}/{{ item }}" state=absent
       with_items:

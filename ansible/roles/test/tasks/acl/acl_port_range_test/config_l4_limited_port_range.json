@@ -1,6 +1,6 @@
 [
     {
-        "ACL_RULE_TABLE:acl_test_table:acl_rule_limited_port_range": {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_limited_range": {
                     "priority" : "55",
                     "PACKET_ACTION" : "FORWARD",
                     "L4_SRC_PORT_RANGE" : "1028-4096"

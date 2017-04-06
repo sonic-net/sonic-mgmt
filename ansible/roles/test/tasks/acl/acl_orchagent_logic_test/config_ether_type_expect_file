@@ -1,1 +1,1 @@
-r, ".*Failed to create.*rule. Rule configuration is invalid"
+r, ".*Failed to create ACL rule. Rule configuration is invalid"
