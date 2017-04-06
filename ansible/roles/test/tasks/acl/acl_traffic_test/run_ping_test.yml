@@ -2,7 +2,10 @@
 # Execute ping and check the log.
 #-----------------------------------------
 
-- include_vars: "{{ vars_files_location }}/run_ping_test_vars.yml"
+- include_vars: "vars/run_ping_test_vars.yml"
+
+- name: Start log analyser
+  include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
 - block:
     - name: Execute ping from host to switch to validate link
@@ -10,9 +13,6 @@
       register: pingrc
       failed_when: pingrc.rc != 0
       delegate_to: "{{ ptf_host }}"
-
-    - name: Start log analyser
-      include: "{{ loganalyzer_init }}"
 
     - name: Set ACL rules.
       command: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_file }}
@@ -35,7 +35,7 @@
 
     - name: Check the number of error messages (positive tests only).
       fail: msg="{{ errors_found.stdout }} errors found while running {{ testname }} / {{ config_file }}. Please see {{ test_out_dir }}/{{ result_file }}"
-      when: errors_found.stdout != "0"
+      when: errors_found.rc != 0
 
     - name: Do configuration cleanup.
       include: "{{ run_config_cleanup }}"

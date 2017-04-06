@@ -10,7 +10,7 @@ import scapy.all as scapy2
 class SendTCP(acs_base_test.ACSDataplaneTest):
     def runTest(self):
         pkt = scapy2.Ether(src="e4:1d:2d:a5:f3:ac", dst="00:02:03:04:05:00")
-        pkt /= scapy2.IP(src="20.0.0.2", dst="20.0.0.1")
+        pkt /= scapy2.IP(src="10.0.0.1", dst="10.0.0.0")
 
         # get L4 port number
         port_number = testutils.test_params_get("port_number")

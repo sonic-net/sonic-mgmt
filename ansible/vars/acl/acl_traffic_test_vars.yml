@@ -1,11 +1,11 @@
 ---
 
-host1_ip :   21.0.0.2
-host2_ip :   22.0.0.2
-subnet1 :    21.0.0.0/24
-subnet2 :    22.0.0.0/24
-switch_ip1 : 21.0.0.1
-switch_ip2 : 22.0.0.1
+host1_ip :   10.0.0.1
+host2_ip :   10.0.0.3
+subnet1 :    10.0.0.0/31
+subnet2 :    10.0.0.2/31
+switch_ip1 : 10.0.0.0
+switch_ip2 : 10.0.0.2
 host_testdir: /tmp
 
 run_ping_test: "{{ tests_location }}/acl_traffic_test/run_ping_test.yml"

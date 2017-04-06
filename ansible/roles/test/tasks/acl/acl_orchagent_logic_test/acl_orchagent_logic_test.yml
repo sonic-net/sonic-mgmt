@@ -79,25 +79,6 @@
     - name: Run config cleanup after.
       include: "{{ run_config_cleanup }}"
 
-#-----------------------------------------
-# test duplicate table creation
-#-----------------------------------------
-    - name: Create L3 table.
-      vars:
-        config_file: "{{ config_table_type_l3 }}"
-        test_expect_file: "{{ config_empty_expect }}"
-        errors_expected: false
-        run_cleanup: false
-      include: "{{ run_config_test }}"
-
-    - name: Create duplicate L3 table.
-      vars:
-        config_file: "{{ config_table_type_l3 }}"
-        test_expect_file: "{{ config_table_type_expect }}"
-        errors_expected: true
-        run_cleanup: true
-      include: "{{ run_config_test }}"
-
 #------------------------------------------
 # RULES TESTING
 #------------------------------------------
@@ -479,13 +460,6 @@
         run_cleanup: false
       include: "{{ run_config_test }}"
 
-    - name: Rule test - empty rule with no expectes.
-      vars:
-        config_file: "{{ config_rule_empty_invalid }}"
-        test_expect_file: "{{ config_rule_empty_expect }}"
-        errors_expected: true
-        run_cleanup: false
-      include: "{{ run_config_test }}"
 
     - name: Rule test - create rule in non-existing table.
       vars:
@@ -494,35 +468,6 @@
         errors_expected: true
         run_cleanup: true
       include: "{{ run_config_test }}"
-
-#----------------------------------------------
-# test duplicate rule creation
-#----------------------------------------------
-    - name: Create L3 table.
-      vars:
-        config_file: "{{ config_table_type_l3 }}"
-        test_expect_file: "{{ config_empty_expect }}"
-        errors_expected: false
-        run_cleanup: false
-      include: "{{ run_config_test }}"
-
-    - name: Rule test - valid rule.
-      vars:
-        config_file: "{{ config_rule }}"
-        test_expect_file: "{{ config_empty_expect }}"
-        errors_expected: false
-        run_cleanup: false
-      include: "{{ run_config_test }}"
-
-   # Duplicate rule!
-    - name: Rule test - duplicate rule creation.
-      vars:
-        config_file: "{{ config_rule }}"
-        test_expect_file: "{{ config_duplicate_rule_expect }}"
-        errors_expected: true
-        run_cleanup: true
-      include: "{{ run_config_test }}"
-
 
 #----------------------------------------------------------------------------------
 #----------------------------------------------------------------------------------
