@@ -29,9 +29,15 @@
         - /root/.ssh/id_rsa.pub
       delegate_to: "{{ ptf_host }}"
 
+    - name: Check that file /root/.ssh/known_hosts exists
+      stat: path=/etc/shorewall/rules
+      delegate_to: "{{ ptf_host }}"
+      register: known_hosts
+
     - name: Remove old entry about DUT
       shell: ssh-keygen -f /root/.ssh/known_hosts -R {{ ansible_host }}
       delegate_to: "{{ ptf_host }}"
+      when: known_hosts.stat.exists
 
     - name: Generate public key for ptf host
       shell: ssh-keygen -b 2048 -t rsa -f /root/.ssh/id_rsa -q -N ""
