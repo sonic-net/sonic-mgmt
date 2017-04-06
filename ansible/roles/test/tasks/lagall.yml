@@ -116,8 +116,8 @@
 - name: --TEST-- LACP verification on DUT LAGs.
   include: lag_dut_lacp_test.yml
   vars:
-    lag_iface: "{{ item.1 }}"
-  with_indexed_items: "{{ dut_lags }}"
+    lag_iface: "{{ dut_lags[1] }}"
+  when: dut_lags is defined
 
 - set_fact:
     iface_behind_lag_member_index: 1
@@ -129,12 +129,12 @@
     fanout_user: "{{ hostvars[fanout_switch]['ansible_ssh_user'] }}"
     fanout_pass: "{{ hostvars[fanout_switch]['ansible_ssh_pass'] }}"
     dut_mac_addr: "{{ dut_mac }}"
-    lag_ip: "{{ configuration[lldp[item.1]['chassis']['name']]['interfaces']['Port-Channel1']['ipv4'] }}"
-    ifaces_behind_lag_member: "{{ topology['VMs'][lldp[item.1]['chassis']['name']]['vlans'] }}"
+    lag_ip: "{{ configuration[lldp[dut_lag_members[1]]['chassis']['name']]['interfaces']['Port-Channel1']['ipv4'] }}"
+    ifaces_behind_lag_member: "{{ topology['VMs'][lldp[dut_lag_members[1] ]['chassis']['name']]['vlans'] }}"
     not_behind_lag_iface: 29
-    dut_lag_member: "{{ item.1 }}"
+    dut_lag_member: "{{ dut_lag_members[1] }}"
     num_of_pkts: 100
-  with_indexed_items: "{{ dut_lag_members }}"
+  when: dut_lag_members is defined
 
 - name: --TEST-- LACP timing test.
   include: lag_lacp_timing_test.yml
