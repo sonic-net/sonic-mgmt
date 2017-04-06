@@ -4,6 +4,14 @@
 
 - name: Run Everflow tests.
   include: "roles/test/tasks/everflow_testbed/run_test.yml"
+  vars:
+    dst_port_type: "tor"
+  tags: everflow_tb_test
+
+- name: Run Everflow tests.
+  include: "roles/test/tasks/everflow_testbed/run_test.yml"
+  vars:
+    dst_port_type: "spine"
   tags: everflow_tb_test
 
 - name: Clear Everflow configuration.

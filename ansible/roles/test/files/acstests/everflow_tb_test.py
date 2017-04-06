@@ -72,7 +72,7 @@ class EverflowTest(BaseTest):
         self.session_ttl = int(self.test_params['session_ttl'])
         self.session_dscp = int(self.test_params['session_dscp'])
         self.src_port = int(float(self.test_params['src_port']))
-        self.dst_ports = [int(float(p)) for p in self.test_params['dst_ports'].split(",")]
+        self.dst_ports = [int(float(p)) for p in self.test_params['dst_ports'].split(",") if p]
         self.expected_dst_mac = self.test_params.get('expected_dst_mac', None)
 
         testutils.add_filter(self.gre_type_filter)
