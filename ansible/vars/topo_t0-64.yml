@@ -189,4 +189,3 @@ configuration:
       Port-Channel20:
         ipv4: 10.0.0.13/31
         ipv6: fc00::1a/126
-
