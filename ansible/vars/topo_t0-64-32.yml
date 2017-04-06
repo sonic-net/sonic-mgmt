@@ -82,7 +82,7 @@ configuration:
       Ethernet9:
         ipv4: 10.10.246.1/24
         ipv6: fc0a::1/64
-      Port-Channel0:
+      Port-Channel1:
         ipv4: 10.0.0.1/31
         ipv6: fc00::2/126
 
@@ -100,9 +100,9 @@ configuration:
         ipv4: 100.1.0.2/32
         ipv6: 2064:100::2/128
       Ethernet1:
-        lacp: 5
+        lacp: 4
       Ethernet2:
-        lacp: 5
+        lacp: 4
       Ethernet9:
         ipv4: 10.10.246.2/24
         ipv6: fc0a::2/64
@@ -124,9 +124,9 @@ configuration:
         ipv4: 100.1.0.3/32
         ipv6: 2064:100::3/128
       Ethernet1:
-        lacp: 17
+        lacp: 16
       Ethernet2:
-        lacp: 17
+        lacp: 16
       Ethernet9:
         ipv4: 10.10.246.3/24
         ipv6: fc0a::3/64
@@ -148,9 +148,9 @@ configuration:
         ipv4: 100.1.0.4/32
         ipv6: 2064:100::4/128
       Ethernet1:
-        lacp: 21
+        lacp: 20
       Ethernet2:
-        lacp: 21
+        lacp: 20
       Ethernet9:
         ipv4: 10.10.246.4/24
         ipv6: fc0a::4/64
