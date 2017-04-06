@@ -4,9 +4,9 @@
   become: no
   tags: always
 
-  #- name: Verify interfaces are up
-  #  include: interface.yml
-  #  tags: always
+- name: Verify interfaces are up
+  include: interface.yml
+  tags: always
 
 - name: Neighbor mac change test
   include: neighbour-mac.yml
