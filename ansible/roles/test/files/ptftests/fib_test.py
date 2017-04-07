@@ -89,6 +89,9 @@ class FibTest(BaseTest):
         elif self.testbed == 't1':
             self.source_port_list = range(0,32)
             self.dest_port_list = [[i] for i in range(0,16)]
+        elif self.testbed == 't1-lag':
+            self.source_port_list = range(0,32)
+            self.dest_port_list = [[i, i+1] for i in range(0,16,2)]
     #---------------------------------------------------------------------
 
     def load_route_info(self, route_info_path):
@@ -201,7 +204,7 @@ class FibTest(BaseTest):
 
         if not received:
             logging.error("Packet sent from %d to %s...Failed" % (source_port_index, dest_ip_addr))
-            assert(False)
+            assert(False) # Fail the test immediately
         else:
             logging.debug("Packet sent from %d to %s...OK received at %d" %
                           (source_port_index, dest_ip_addr, received_port_index))
