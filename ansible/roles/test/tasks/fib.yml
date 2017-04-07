@@ -11,9 +11,6 @@
 
 - include_vars: "vars/topo_{{testbed_type}}.yml"
 
-- debug: msg="{{minigraph_port_indices}}"
-- debug: msg="{{minigraph_interfaces}}"
-
 - name: Expand properties into props
   set_fact: props="{{configuration_properties['spine']}}"
   when: testbed_type in ['t1', 't1-lag']
