@@ -53,6 +53,8 @@
     test_out_dir: "{{ out_dir }}/{{testname_unique}}"
     match_file_list: "{{ run_dir }}/{{test_match_file}},{{ run_dir }}/{{match_file}}"
     ignore_file_list: "{{ run_dir }}/{{test_ignore_file}},{{ run_dir }}/{{ignore_file}}"
+    result_file: result.loganalysis.{{testname_unique}}.log
+    summary_file: summary.loganalysis.{{testname_unique}}.log
 
 - name: Copy the ACL test to PTF container
   become: true
@@ -82,5 +84,13 @@
     - shell: cat {{ test_out_dir }}/*
       register: out
     - debug: var=out.stdout_lines
+
+    - name: Get the total number of error messages.
+      shell: grep "TOTAL MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL MATCHES:[[:space:]]*//p"
+      register: errors_found
+
+    - name: Check the number of error messages (positive tests only).
+      fail: msg="{{ errors_found.stdout }} errors found while running {{ testname }} test. Please see {{ test_out_dir }}/{{ result_file }}"
+      when: errors_found.stdout != "0"
 
     - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml

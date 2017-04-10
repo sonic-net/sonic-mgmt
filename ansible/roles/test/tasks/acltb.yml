@@ -5,10 +5,16 @@
   include: acltb_configure.yml
   tags: acltb_configure
 
+#-----------------------------------------
+# Run ACL test
+#-----------------------------------------
 - name: Acl test run on testbed
   include: acltb_test.yml
   tags: acltb_test
 
+#-----------------------------------------
+# Clean up ACL configuration
+#-----------------------------------------
 - name: Clean up ACL test configuration on the testbed
   include: acltb_cleanup.yml
   tags: acltb_cleanup
