@@ -87,10 +87,10 @@ class FibTest(BaseTest):
             self.source_port_list = range(1,25) + range(28,32)
             self.dest_port_list = [[i] for i in range(28,32)]
         elif self.testbed == 't1':
-            self.source_port_list = range(0,32)
+            self.source_port_list = range(16,32)
             self.dest_port_list = [[i] for i in range(0,16)]
         elif self.testbed == 't1-lag':
-            self.source_port_list = range(0,32)
+            self.source_port_list = range(16,32)
             self.dest_port_list = [[i, i+1] for i in range(0,16,2)]
     #---------------------------------------------------------------------
 
