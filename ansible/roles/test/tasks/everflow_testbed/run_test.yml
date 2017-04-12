@@ -2,6 +2,12 @@
 # Run Everflow test and Perform log analysis.
 #-----------------------------------------
 
+- fail: msg="testbed_type is not defined."
+  when: testbed_type is not defined
+
+- fail: msg="testbed_type {{testbed_type}} is invalid."
+  when: testbed_type not in ['t1-lag', 't1']
+
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
   become: no
@@ -67,6 +73,7 @@
 
     - name: Run testcase 4 - Change neighbor MAC address.
       include: roles/test/tasks/everflow_testbed/testcase_4.yml
+      when: testbed_type == "t1"
 
     - name: Run testcase 5 - Resolved ECMP route.
       include: roles/test/tasks/everflow_testbed/testcase_5.yml
