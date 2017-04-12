@@ -3,7 +3,7 @@
         "ACL_TABLE:acl_table_mirror": {
             "policy_desc" : "Everflow_ACL_table",
             "type" : "MIRROR",
-            "ports" : "{% for ifname, v in minigraph_neighbors.iteritems() %}{% if "T0" in v.name %}{{"%s" % alias_reverse_map[ifname]}},{% endif %}{% endfor %}"
+            "ports" : "{% for ifname, v in minigraph_neighbors.iteritems() %}{{"%s" % alias_reverse_map[ifname]}},{% endfor %}"
         },
         "OP": "SET"
     }
