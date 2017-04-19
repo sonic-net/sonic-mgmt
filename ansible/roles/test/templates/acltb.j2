@@ -1,0 +1,10 @@
+{# tor ports #}
+{% for ifname, v in minigraph_neighbors.iteritems() %}{% if "T0" in v.name %}{{ '%d' % (alias_reverse_map[ifname]|replace("Ethernet","")|int / 4)}},{% endif %}{% endfor %}
+
+{# spine ports #}
+{% for ifname, v in minigraph_neighbors.iteritems() %}{% if "T2" in v.name %}{{ '%d' % (alias_reverse_map[ifname]|replace("Ethernet","")|int / 4)}},{% endif %}{% endfor %}
+
+192.168.0.0
+192.168.0.16
+172.16.1.0
+172.16.2.0
