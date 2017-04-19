@@ -2,6 +2,7 @@
 - name: Do configuration cleanup.
   shell: systemctl restart swss
   register: clean_up
+  become: true
 
 - fail: msg="swssconfig - failed to cleanup the ACL configuration"
   when: clean_up.rc != 0
