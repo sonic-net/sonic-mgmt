@@ -1,3 +1,9 @@
+# Run command:
+#   cd ansible
+#   ansible-playbook test_sonic.yml -i inventory --limit <DUT> -b --tags everflow_tb_configure -e ptf_host=<PTF-HOST> -vvvvv
+#   ansible-playbook test_sonic.yml -i inventory --limit <DUT> -b --tags everflow_tb_test -e ptf_host=ptf-fib -e testbed_type=<t1|t1-lag> -vvvv
+#   ansible-playbook test_sonic.yml -i inventory --limit <DUT> -b --tags everflow_tb_cleanup -e ptf_host=<PTF-HOST> -vvvvv
+
 - name: Apply Everflow configuration.
   include: "roles/test/tasks/everflow_testbed/apply_config.yml"
   tags: everflow_tb_configure
