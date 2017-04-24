@@ -120,7 +120,7 @@
   when: dut_lags is defined
 
 - set_fact:
-    iface_behind_lag_member_index: 1
+    iface_behind_lag_member_index: 0
 
 - name: --TEST-- Fanout ports test.
   include: lag_fanout_ports_test.yml
