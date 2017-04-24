@@ -19,7 +19,7 @@
     msg: "VM under test is {{ vm_name }}"
 
 - set_fact:
-    expected_rate: 'slow'
+    expected_rate: 'normal'
 
         # --- TEST FIRST LAG MEMBER ---
 - name: Read first LAG member configuration to learn LACP rate.
@@ -34,8 +34,9 @@
   shell: echo {{ cisco_script_res }} | grep lacp | sed -n "s/.*rate //p"
   register: lacp_rate
 
+# "normal" is default value for LACP rate on Arista VM so it may not be shown
 - fail: msg="Wrong LACP rate for {{ lag_member_0 }} on {{ vm_name }}. The rate is \'{{ lacp_rate.stdout }}\', while the expected value is \'{{ expected_rate }}\'."
-  when: lacp_rate.stdout != "{{ expected_rate }}"
+  when: lacp_rate.stdout != "{{ expected_rate }}" and lacp_rate.stdout != ""
 
         # --- TEST SECOND LAG MEMBER ---
 - name: Read second LAG member configuration to learn LACP rate.
@@ -50,5 +51,6 @@
   shell: echo {{ cisco_script_res }} | grep lacp | sed -n "s/.*rate //p"
   register: lacp_rate
 
+# "normal" is default value for LACP rate on Arista VM so it may not be shown
 - fail: msg="Wrong LACP rate for {{ lag_member_1 }} on {{ vm_name }}. The rate is \'{{ lacp_rate.stdout }}\', while the expected value is \'{{ expected_rate }}\'."
-  when: lacp_rate.stdout != "{{ expected_rate }}"
+  when: lacp_rate.stdout != "{{ expected_rate }}" and lacp_rate.stdout != ""

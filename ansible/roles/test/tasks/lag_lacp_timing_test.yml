@@ -12,7 +12,7 @@
 - set_fact:
     lacp_ether_type: '0x8809'
     packet_timing: 30
-    packet_timeout: 10
+    packet_timeout: 35
 
 - name: Check LACP timing on eth{{ iface_behind_lag_member_0 }} (interface behind {{ vm_name }}).
   include: lag_run_ptf.yml

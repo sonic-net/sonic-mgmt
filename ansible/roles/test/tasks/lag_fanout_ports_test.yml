@@ -35,7 +35,7 @@
         msg: "Wait for configuration to be applied..."
 
     - pause:
-        seconds: 30
+        seconds: 60
 
     - include: lag_run_ptf.yml
       vars:
@@ -58,6 +58,3 @@
 
     - pause:
         seconds: 100
-
-    # Invert PTF interface index
-    - include: roles/test/files/helpers/invert_iface_behind_lag_member.yml
