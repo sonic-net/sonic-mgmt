@@ -62,15 +62,11 @@
 
     - name: Load JSON configs
       shell: swssconfig /tmp/{{ item }}.json
-      register: res
-      failed_when: res.rc != 0
       with_items:
         - "{{ acltb_configs }}"
 
     - name: Change JSON configs to delete (table)
       shell: sed 's/SET/DEL/g' /tmp/{{ item }}.json >/tmp/del_{{ item }}.json
-      register: res
-      failed_when: res.rc != 0
       with_items:
         - "{{ acltb_configs }}"
 
@@ -80,8 +76,6 @@
 
     - name: Load JSON configs in reversed order
       shell: swssconfig /tmp/del_{{ item }}.json
-      register: res
-      failed_when: res.rc != 0
       with_items:
         - "{{ acltb_configs[::-1] }}"
 
