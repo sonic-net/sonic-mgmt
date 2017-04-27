@@ -42,7 +42,6 @@
     test_expect_file: acltb_expect_messages.txt
     match_file: loganalyzer_common_match.txt
     ignore_file: loganalyzer_common_ignore.txt
-    tests_location: "{{ 'roles/test/tasks' }}"
 
 # Separate set_fact is required to be able to use 'testname' fact.
 - set_fact:
@@ -62,6 +61,8 @@
   delegate_to: "{{ ptf_host }}"
 
 - include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+  vars:
+    tests_location: "{{ 'roles/test/tasks' }}"
 
 # Run the ACL PTF test
 - block:
@@ -79,6 +80,8 @@
 
   always:
     - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      vars:
+        tests_location: "{{ 'roles/test/tasks' }}"
 
     # Output content of result files to ansible console
     - shell: cat {{ test_out_dir }}/*
@@ -94,3 +97,5 @@
       when: errors_found.stdout != "0"
 
     - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+      vars:
+        tests_location: "{{ 'roles/test/tasks' }}"
