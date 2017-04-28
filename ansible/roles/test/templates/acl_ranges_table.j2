@@ -1,0 +1,10 @@
+[
+    {
+        "ACL_TABLE:ACL_Testbed_Range_Test_Table": {
+            "policy_desc" : "This_table_contains_rules_needed_for_the_testbed_ranges_test",
+            "type" : "L3",
+            "ports" : "{% for ifname, v in minigraph_neighbors.iteritems() %}{{"%s" % alias_reverse_map[ifname]}},{% endfor %}"
+        },
+        "OP": "SET"
+    }
+]
