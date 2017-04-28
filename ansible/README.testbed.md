@@ -1,5 +1,7 @@
 # Requirements for the Linux Host
-1. Ubuntu 16.04 x64
+1. Server SKU (this is what we are using, not mandatory)
+   Dell 70030; 2 CPUs each has 18 cores; 192G memory; hard disk:2X500G
+2. Ubuntu 16.04 x64
 2. Installed docker-engine and python (ansible requires python 2.7)
 3. Three network cards:
   1. first is used for the server management
@@ -106,14 +108,14 @@ vms-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str
 ```
 
 1. uniq-name - to address row in table
-2. testbed-name ñ used in interface names, up to 8 characters
-3. topo ñ name of topology
-4. ptf_imagename ñ defines ptf image
-5. ptf_mgmt_ip ñ ip address for mgmt interface of ptf container
-6. server ñ server where the testbed resides
-7. vm_base ñ first VM for the testbed. If empty, no VMs are used
-8. DUT ñ target dut name
-9. Comment ñ any text here
+2. testbed-name ‚Äì used in interface names, up to 8 characters
+3. topo ‚Äì name of topology
+4. ptf_imagename ‚Äì defines ptf image
+5. ptf_mgmt_ip ‚Äì ip address for mgmt interface of ptf container
+6. server ‚Äì server where the testbed resides
+7. vm_base ‚Äì first VM for the testbed. If empty, no VMs are used
+8. DUT ‚Äì target dut name
+9. Comment ‚Äì any text here
 
 # testbed-cli.sh
 
@@ -179,7 +181,7 @@ DUT front panel port is directly connected to one of ptf container ports. Usuall
 
 DUT front panel port is directly connected to one of VMs interfaces. But also we have a tap into this connection. Packets coming from the physical vlan interface are sent to both the VMs and the PTF docker. Packets from the VM and PTF docker are sent to the vlan interface. It allows us to inject packets from the PTF host to DUT and maintain a BGP session between VM and DUT at the same time.
 
-# testbed-cli.sh ñ Add/Remove topo
+# testbed-cli.sh ‚Äì Add/Remove topo
 ```
 # uniq-name,testbed-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,owner
 vms1-1-t1,vms1-1,t1,docker-ptf-sai-mlnx,10.0.10.5/23,server_1,VM0100,str-msn2700-11,t1 tests
@@ -188,10 +190,10 @@ vms1-1-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.0.10.5/23,server_1,VM0100,str
 ```
 Goal is to use one VM with different topologies
 
-1. To add a new testbed ìvms1-1-t1î:
+1. To add a new testbed ‚Äúvms1-1-t1‚Äù:
   - ./testbed-cli add-topo vms1-1-t1 ~/.password
 
-2. To switch from testbed ìvms1-1-t1î to testbed ìvms1-1-lagî
+2. To switch from testbed ‚Äúvms1-1-t1‚Äù to testbed ‚Äúvms1-1-lag‚Äù
   - ./testbed-cli remove-topo vms1-1-t1 ~/.password
   - ./testbed-cli add-topo vms1-1-t1-lag ~/.password
 
@@ -199,7 +201,7 @@ Feature: The VMs configuration will be updated while switching from one topo to 
 Feature: Might be used for renumbering too
 Caveat: Have to remember what was the initial topology. Should be fixed in future
 
-# testbed-cli.sh ñ Renumber topo
+# testbed-cli.sh ‚Äì Renumber topo
 ```
 # uniq-name,testbed-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,owner
 vms2-2-b,vms2-2,t1,docker-ptf-sai-brcm,10.0.10.7/23,server_1,VM0100,str-d6000-05,brcm test
@@ -208,10 +210,10 @@ vms2-2-m,vms2-2,t1,docker-ptf-sai-mlnx,10.0.10.7/23,server_1,VM0100,str-msn2700-
 ```
 Goal is to use one VM set against different DUTs
 
-1. To add a new testbed ìvms2-2-bî:
+1. To add a new testbed ‚Äúvms2-2-b‚Äù:
  - ./testbed-cli add-topo vms2-2-b ~/.password
 
-2. To switch from testbed ìvms2-2-bî to testbed ìvms2-2-mî
+2. To switch from testbed ‚Äúvms2-2-b‚Äù to testbed ‚Äúvms2-2-m‚Äù
  - ./testbed-cli renumber-topo vms2-2-m ~/.password
 
 Feature: The VMs configuration will NOT be updated while switching from one topo to another (faster).
@@ -275,7 +277,7 @@ TODO: Create ansible playbook for this
  - List of currently defined topologies in veos inventory file
 ```
 [servers:vars]
-topologies=[ët1', ët1-lag', 't0', 'ptf32', 'ptf64']
+topologies=[‚Äòt1', ‚Äòt1-lag', 't0', 'ptf32', 'ptf64']
 ```
  - Topologies stored inside of vars/topo_*.yml, where * is a topology name
  - Configuration templates for the topologies saved in roles/eos/templates/*.yml
@@ -283,9 +285,9 @@ topologies=[ët1', ët1-lag', 't0', 'ptf32', 'ptf64']
 ## Topology file
 
  - Topology file is a regular ansible yaml file with variables:
-   - topology ñ defines physical topology
-   - configuration ñ defines variables for VMs configuration templates
-   - configuration_properties ñ defines group variables for VMs configuration templates
+   - topology ‚Äì defines physical topology
+   - configuration ‚Äì defines variables for VMs configuration templates
+   - configuration_properties ‚Äì defines group variables for VMs configuration templates
 
  - topology dictionary is required
  - configuration and configuration_properties are optional and used only for topologies with VMs
@@ -293,8 +295,8 @@ topologies=[ët1', ët1-lag', 't0', 'ptf32', 'ptf64']
 ## Topology file. topology dictionary
 
  - Two dictionaries:
-   - host_interface ñ defines a list of port offsets which would be inserted into the ptf container
-   - VMs ñ defines a list and a physical configuration of VMs used in topology
+   - host_interface ‚Äì defines a list of port offsets which would be inserted into the ptf container
+   - VMs ‚Äì defines a list and a physical configuration of VMs used in topology
 
 ```
 topology:
@@ -313,12 +315,12 @@ topology:
       vm_offset: 1
 
 ```
- - ARISTA01T1 ñ hostname for a VM
+ - ARISTA01T1 ‚Äì hostname for a VM
  - vlans - list of vlan offsets used in VM
- - vm_offset ñ offset of VM with base configured as vm_base in testbed.csv
+ - vm_offset ‚Äì offset of VM with base configured as vm_base in testbed.csv
 
  - In this example:
-   - Letís consider: vm_base == VM0100, vlan_base == ë100í
+   - Let‚Äôs consider: vm_base == VM0100, vlan_base == ‚Äò100‚Äô
    - First VM:
      - hostname ARISTA01T1
      - Uses VM with physical name VM0100
@@ -359,7 +361,7 @@ configuration_properties:
 ```
  - Configuration properties contains any number of dictionary entries
  - You could have as many as you want
- - Lately you can refer to these entries in your configuration dictionary. See entry ìpropertiesî
+ - Lately you can refer to these entries in your configuration dictionary. See entry ‚Äúproperties‚Äù
  - You could use them as {{ props.property_name }} inside of jinja2 template. Example: {% for tor in range(0, props.tor_number) %}
 
 ## Topology file. configuration
