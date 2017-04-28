@@ -2,19 +2,14 @@
 1. Ubuntu 16.04 x64
 2. Installed docker-engine and python (ansible requires python 2.7)
 3. Three network cards:
-  1. first is used for the server management
-  2. second is used to connect management interfaces of VMs and docker containers to a network.
-  3. third is used to connect VMs and ptf containers to DUTs frontal panel ports
+  * first is used for the server management
+  * second is used to connect management interfaces of VMs and docker containers to a network.
+  * third is used to connect VMs and ptf containers to DUTs frontal panel ports
 
 # Hardware SKU
-1. Server SKU (this is what we are using, not mandatory):   
- * Dell 70030; 2 CPUs each has 18 cores; 192G memory; hard disk:2X500G
- 
-2. Fanout switch: 
- * Arista 7260 or similar 
- 
-3. NIC
- * Mellanox MT27700 Family CX4
+1. Server SKU (this is what we are using, not mandatory): Dell 70030; 2 CPUs each has 18 cores; 192G memory; hard disk:2X500G
+2. Fanout switch: Arista 7260 or similar 
+3. NIC: Mellanox MT27700 Family CX4
 
 # Content of /etc/network/interfaces:
 ```
