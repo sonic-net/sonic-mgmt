@@ -50,7 +50,7 @@ up ip link set p4p1 up
 5. Any testbed server can access any DUT port by sending a packet with the port vlan tag (root fanout switch should have this vlan number enabled on the server trunk)
 
 # Fanout switch configuration
-*Fanout switch*: A physical switch which enables VLAN trunking.
+*Fanout switch*: A physical switch which enables VLAN trunking. (SKU: Arista 7260 or similar)
    * Et33 is a vlan trunking port and is connected to the eth0 port of the linux host.
    * Et1-Et32 are vlan access ports and are connect to DUT.
    * Enable LACP/LLDP passthrough
