@@ -253,17 +253,26 @@ TODO: check this constraints in testbed-cli.sh
 
 TODO: Create ansible playbook for this
 
-# Example of deploying a topology
+# Example of setting up the testbed and deploying a topology
 ## Start VMs
-1. clone sonic-mgmt repo to local directory
-2. Add/Update ip address of your testbed server in veos file. For example add ip address to STR-ACS-SERV-01
-3. Edit testbed server credentials in group_vars/vm_host/creds.yml
+1. clone sonic-mgmt repo (https://github.com/Azure/sonic-mgmt.git) to local directory
+2. Add/Update your testbed server management IP in veos file. Example:'STR-ACS-SERV-01 ansible_host=10.0.0.5' where 10.0.0.5 your server mgmt ip
+3. Add testbed server credentials in ansible/group_vars/vm_host/creds.yml
 4. Check that ansible could reach this device by command 'ansible -m ping -i veos vm_host_1'
-5. Put files: Aboot-veos-serial-8.0.0.iso and vEOS-lab-4.15.9M.vmdk to ~/veos-vm/images on your testbed server
-6. Edit host_vars/STR-ACS-SERV-01.yml. You need to change external_iface, mgmt_gw and mgmt_prefixlen. These settings define network parameters for VM/ptf management interfaces
-7. Add ip addresses for your VMs in veos inventory file. These ip addresses should be at the same network as parameters in p.6
-8. Update VM credentials in group_vars/eos/creds.yml. Use root:123456 as credentials
-9. Start initial deploy VMs ./testbed-cli.sh start-vms server_1 ~/.password
+5. Put files: Aboot-veos-serial-8.0.0.iso and vEOS-lab-4.15.9M.vmdk to /home/{your_username from step 3}/veos-vm/images on your testbed server
+6. Edit ansible/host_vars/STR-ACS-SERV-01.yml. You need to change external_iface, mgmt_gw and mgmt_prefixlen. These settings define network parameters for VM/ptf management interfaces. Example:
+```
+external_iface: eno2   <--- your interface which will be used for
+VM mgmt interfaces
+
+mgmt_gw: 10.64.246.1   <--- ip of gateway for VM mgmt interfaces
+ 
+mgmt_prefixlen: 23     <--- prefixlen for management
+interfaces
+```
+7. Add ip addresses for your VMs in veos inventory file ansible/veos inventory file. These ip addresses should be at the same network as parameters in step 6
+8. Update VM credentials in ansible/group_vars/eos/creds.yml. Use root:123456 as credentials
+9. Start initial deploy VMs by: bash ./testbed-cli.sh start-vms server_1 ~/.password
 10. Check that all VMs are up and running: ansible -m ping -i veos server_1
 
 ## Deploy topology
