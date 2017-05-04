@@ -24,19 +24,6 @@
        default_release={{ apt_default_release }}
        force=yes
 
-# Install docker containers
-- name: Start syncd docker container
-  include: sonicdocker.yml
-  vars:
-    docker_container: syncd
-    docker_image: "{{ image_id_syncd_mlnx_rpc if host_saithrift is defined else image_id_syncd_mlnx }}"
-    docker_privileged: yes
-    docker_state: reloaded
-    docker_volumes: "{{ syncd_docker_volumes }}"
-    docker_volumes_from:
-    - database
-  tags: syncd
-
 # Remove deprecated orchagent container
 - name: Remove orchagent docker container
   include: sonicdocker.yml
@@ -58,3 +45,17 @@
     docker_volumes_from:
     - database
   tags: orchagent
+
+# Install docker containers
+- name: Start syncd docker container
+  include: sonicdocker.yml
+  vars:
+    docker_container: syncd
+    docker_image: "{{ image_id_syncd_mlnx_rpc if host_saithrift is defined else image_id_syncd_mlnx }}"
+    docker_privileged: yes
+    docker_state: reloaded
+    docker_volumes: "{{ syncd_docker_volumes }}"
+    docker_volumes_from:
+    - database
+  tags: syncd
+
