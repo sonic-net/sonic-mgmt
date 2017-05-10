@@ -44,5 +44,3 @@
 
 - debug: var=out.stdout_lines
   when: out.rc != 0
-  
-- include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
