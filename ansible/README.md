@@ -7,7 +7,7 @@ This ansible playbook consists of the following functionality:
 
 # Installing Ansible on Ubuntu 14.04.4 LTS
 ```
-sudo apt-get install git gcc make python python-dev python-cffi libffi-dev libssl-dev sshpass libxml2 libxslt1-dev
+sudo apt-get install git gcc make python python-dev python-cffi libffi-dev libssl-dev sshpass libxml2 libxslt1-dev util-linux
 sudo easy_install pip
 sudo pip install setuptools ipaddr lxml netaddr
 git clone https://github.com/ansible/ansible
