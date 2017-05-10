@@ -1,0 +1,10 @@
+[
+    {
+        "ACL_TABLE:ACL_Table":{
+            "policy_desc":"ACL_Table",
+            "ports":"{% for ifname, v in minigraph_neighbors.iteritems() %}{% if "T2" in v.name %}{{ '%s' % (alias_reverse_map[ifname])}},{% endif %}{% endfor %}",
+            "type":"L3"
+        },
+        "OP":"SET"
+    }
+]

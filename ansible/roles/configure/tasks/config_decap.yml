@@ -1,0 +1,31 @@
+- fail: msg="information about testbed missing."
+  when: (lo_ip is not defined) or
+        (dscp_mode is not defined) 
+        
+- fail: msg="Invalid testbed_type value '{{dscp_mode}}'"
+  when: dscp_mode not in [ 'pipe','uniform']
+
+- block:
+  - name: Copy JSON configs into docker filesystem
+    template: src=decap_conf.j2 dest=/etc/swss/config.d/decap_config.json
+
+  - name: Copy start.sh modification script to the DUT/swss
+    copy: src=roles/configure/files/helpers/swssconfig_args_update.sh
+          dest=/tmp/swssconfig_args_update.sh
+          mode=0755
+
+  - name: Modify start.sh to apply decap config on start (rule)
+    command: /tmp/swssconfig_args_update.sh /usr/bin/start.sh /etc/swss/config.d/decap_config.json
+    become: yes
+
+  - name: Load decap JSON config.
+    shell: swssconfig /etc/swss/config.d/decap_config.json
+    register: valid_config_upload
+    failed_when: valid_config_upload.rc != 0
+    tags: decap
+
+  vars:
+    ansible_shell_type: docker
+    ansible_python_interpreter: docker exec -i swss python
+
+

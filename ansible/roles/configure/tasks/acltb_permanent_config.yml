@@ -1,0 +1,51 @@
+#-----------------------------------------
+# Apply ACL configuration
+#-----------------------------------------
+- set_fact:
+    acltb_configs:
+      - "{{ 'acltb_persistent_acl_table' }}"
+      - "{{ 'acltb_persistent_acl_rules' }}"
+
+# Gather minigraph facts
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  become: no
+  connection: local
+
+- name: Print neighbors in minigraph
+  debug: msg="{{ minigraph_neighbors }}"
+
+- name: Read port reverse alias mapping
+  set_fact:
+    alias_reverse_map: "{{ lookup('file', 'roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_reverse_map.json') | from_json }}"
+
+- block:
+  - name: Generate and copy ACL permanent configuration to DUT/swss
+    become: true
+    template: src={{ item }}.j2
+              dest=/etc/swss/config.d/{{ item }}.json
+              mode=0644
+    with_items:
+      - "{{ acltb_configs }}"
+
+  - name: Copy start.sh modification script to the DUT/swss
+    copy: src=roles/configure/files/helpers/swssconfig_args_update.sh
+          dest=/tmp/swssconfig_args_update.sh
+          mode=0755
+
+  - name: Modify start.sh to apply ACL config on start (table)
+    shell: /tmp/swssconfig_args_update.sh /usr/bin/start.sh /etc/swss/config.d/{{ item }}.json
+    become: yes
+    with_items:
+      - "{{ acltb_configs }}"
+
+  - name: Apply ACL configuration
+    shell: swssconfig /etc/swss/config.d/{{ item }}.json
+    with_items:
+      - "{{ acltb_configs }}"
+    tags: acltb_configure
+
+  vars:
+    ansible_shell_type: docker
+    ansible_python_interpreter: docker exec -i swss python
+
