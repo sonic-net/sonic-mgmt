@@ -1,0 +1,55 @@
+- name: Get DST port 1 info.
+  set_fact:
+      neighbor_info_1: "{{ item }}"
+  with_items: "{{ minigraph_bgp }}"
+  when: item['name'] == minigraph_neighbors[dst_port_1]['name'] and item['addr']|ipv4
+
+- name: Get neighbor 1 MAC address.
+  shell: ip neigh show {{ neighbor_info_1['addr'] }} | awk -F' ' '{print $5}'
+  register: neighbor_mac_info_1
+
+- name: Initialize neighbor_mac_1 variable.
+  set_fact:
+    neighbor_mac_1: "{{ neighbor_mac_info_1.stdout }}"
+
+- name: neighbor 1 info.
+  debug: msg="{{neighbor_info_1}}"
+
+- name: Get DST port 2 info.
+  set_fact:
+      neighbor_info_2: "{{ item }}"
+  with_items: "{{ minigraph_bgp }}"
+  when: item['name'] == minigraph_neighbors[dst_port_2]['name'] and item['addr']|ipv4
+
+- name: Get neighbor 2 MAC address.
+  shell: ip neigh show {{ neighbor_info_2['addr'] }} | awk -F' ' '{print $5}'
+  register: neighbor_mac_info_2
+
+- name: Initialize neighbor_mac_2 variable.
+  set_fact:
+    neighbor_mac_2: "{{ neighbor_mac_info_2.stdout }}"
+
+- name: neighbor 2 info.
+  debug: msg="{{neighbor_info_2}}"
+
+- name: Get DST port 3 info.
+  set_fact:
+      neighbor_info_3: "{{ item }}"
+  with_items: "{{ minigraph_bgp }}"
+  when: item['name'] == minigraph_neighbors[dst_port_3]['name'] and item['addr']|ipv4
+
+- name: Get neighbor 3 MAC address.
+  shell: ip neigh show {{ neighbor_info_3['addr'] }} | awk -F' ' '{print $5}'
+  register: neighbor_mac_info_3
+
+- name: Initialize neighbor_mac_3 variable.
+  set_fact:
+    neighbor_mac_3: "{{ neighbor_mac_info_3.stdout }}"
+
+- name: neighbor 3 info.
+  debug: msg="{{neighbor_info_3}}"
+
+- name: Define unresolved_nexthop variable
+  set_fact:
+      unresolved_nexthop: "20.20.20.100"
+      unresolved_nexthop_prefix: "20.20.20.0/24"

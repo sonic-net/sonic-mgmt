@@ -1,5 +1,5 @@
 platform_modules_s6000: { name: platform-modules-s6000 , version: "*" }
-opennslv2: { name: opennsl-modules-3.16.0-4-amd64 , version: "3.2.1.5-3*" }
+opennslv2: { name: opennsl-modules-3.16.0-4-amd64 , version: "3.2.2.2*" }
 version_sx_kernel: "*"
 version_mlnxsdk: "*"
 version_iproute2_mlnx: "1.mlnx*"
@@ -24,3 +24,4 @@ image_id_fpm: docker-fpm:{{ dockers_tag }}
 image_id_snmp_sv2: docker-snmp-sv2:{{ dockers_tag }}
 image_id_lldp_sv2: docker-lldp-sv2:{{ dockers_tag }}
 image_id_teamd: docker-teamd:{{ dockers_tag }}
+image_id_dhcp_relay: docker-dhcp-relay:{{ dockers_tag }}

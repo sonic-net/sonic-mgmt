@@ -1,0 +1,43 @@
+# Gather minigraph facts
+- name: Gathering lab graph facts about the device
+  conn_graph_facts: host={{ inventory_hostname }}
+  connection: local
+  tags: always
+
+- block:
+  - name: prepare {{ sonicadmin_user }} password
+    set_fact: ansible_ssh_user={{ sonicadmin_user }} ansible_ssh_pass={{ sonicadmin_password }}
+
+  - name: setup fanout bash account
+    template: src=rc.eos.j2
+              dest=/mnt/flash/rc.eos
+ 
+  - name: build fanout startup config
+    template: src=arista_7260_deploy.j2
+              dest=/mnt/flash/startup-config
+    notify:
+      - Restart the box
+  when: device_info.HwSku == "Arista-7260QX-64" 
+
+- block:
+  - name: prepare admin password
+    set_fact: ansible_ssh_user=admin ansible_ssh_pass={{ lab_admin_pass }}
+
+  - name: build fanout startup config
+    action: apswitch template=force10_s6100_deploy.j2
+    connection: switch
+    args:
+      login: "{{ switch_login['Force10'] }}"
+  when: device_info.HwSku == "Force10-S6100"
+
+- block:
+  - name: prepare admin password
+    set_fact: ansible_ssh_user=admin ansible_ssh_pass={{ lab_admin_pass }}
+
+  - name: build fanout startup config
+    action: apswitch template=nexus_3164_deploy.j2
+    connection: switch
+    args:
+      login: "{{ switch_login['Nexus'] }}"
+  when: device_info.HwSku == "Nexus-3164"
+

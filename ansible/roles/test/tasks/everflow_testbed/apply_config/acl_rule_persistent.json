@@ -1,0 +1,82 @@
+[
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_1": {
+            "priority" : "50",
+            "src_ip" : "20.0.0.10",
+            "mirror_action" : "session_1"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_2": {
+            "priority" : "50",
+            "dst_ip" : "30.0.0.10",
+            "mirror_action" : "session_1"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_3": {
+            "priority" : "50",
+            "l4_src_port" : "0x1235",
+            "mirror_action" : "session_1"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_4": {
+            "priority" : "50",
+            "l4_dst_port" : "0x1235",
+            "mirror_action" : "session_1"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_5": {
+            "priority" : "50",
+            "ether_type" : "0x1234",
+            "mirror_action" : "session_1"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_6": {
+            "priority" : "50",
+            "ip_protocol" : "0x7E",
+            "mirror_action" : "session_1"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_7": {
+            "priority" : "50",
+            "tcp_flags" : "0x12/0x12",
+            "mirror_action" : "session_1"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_8": {
+            "priority" : "50",
+            "l4_src_port_range" : "4672-4681",
+            "mirror_action" : "session_1"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_9": {
+            "priority" : "50",
+            "l4_dst_port_range" : "4672-4681",
+            "mirror_action" : "session_1"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_10": {
+            "priority" : "50",
+            "dscp" : "51",
+            "mirror_action" : "session_1"
+        },
+        "OP": "SET"
+    }
+]

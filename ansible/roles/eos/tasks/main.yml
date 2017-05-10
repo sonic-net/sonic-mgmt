@@ -1,24 +1,16 @@
-# Gather minigraph facts
-- name: Gathering minigraph facts about the device
-  minigraph_facts: host={{ hostname }} filename={{ filename }}
-  connection: local
-  tags: always
-
 - name: copy boot-config
   copy: src=boot-config
         dest=/mnt/flash/boot-config
 
-- name: build spine startup config
-  template: src=spine.j2
-            dest=/mnt/flash/startup-config
-  when: swrole == "spine"
-  notify:
-    - Restart the box
+- name: Expand {{ hostname }} properties into props
+  set_fact: props="{{ configuration_properties[item] | combine(props | default({})) }}"
+  with_items: "{{ configuration[hostname]['properties'] }}"
+  when: hostname in configuration
 
-- name: build tor startup config
-  template: src=tor.j2
+- name: build a startup config
+  template: src="{{ topo }}-{{ props.swrole }}.j2"
             dest=/mnt/flash/startup-config
-  when: swrole == "tor"
+  when: hostname in configuration
   notify:
     - Restart the box
 

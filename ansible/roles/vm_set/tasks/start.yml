@@ -1,94 +1,76 @@
-- name: Create directory for vm images and vm disks. vm set {{ id }}
+- name: Set sysctl parameters for testbed
+  sysctl:
+    name: "{{ item }}"
+    value: 0
+    sysctl_set: yes
+  with_items:
+   - net.bridge.bridge-nf-call-arptables
+   - net.bridge.bridge-nf-call-ip6tables
+   - net.bridge.bridge-nf-call-iptables
+
+- name: Create directory for vm images and vm disks
   file: path={{ item }} state=directory mode=0755 recurse=yes
   with_items:
     - "{{ root_path }}/images"
     - "{{ root_path }}/disks"
 
-- name: Check hdd image. vm set {{ id }}
+- name: Check hdd image
   stat: path={{ root_path }}/images/{{ hdd_image_filename }}
   register: hdd_stat
 
-- name: Download hdd images. vm set {{ id }}
-  get_url: url="{{ vm_images_url }}/{{ hdd_image_filename }}?{{ vmimages_saskey }}" dest="{{ root_path }}/images/{{ hdd_image_filename }}"
-  when: not hdd_stat.stat.exists
+- name: Fail if there are no hdd image and skip image downloading is active
+  fail: msg="Please put {{ hdd_image_filename }} to {{ root_path }}/images"
+  when: not hdd_stat.stat.exists and skip_image_downloading
 
-- name: Check cd image. vm set {{ id }}
+- name: Download hdd image
+  get_url: url="{{ vm_images_url }}/{{ hdd_image_filename }}?{{ vmimage_saskey }}" dest="{{ root_path }}/images/{{ hdd_image_filename }}"
+  when: not hdd_stat.stat.exists and not skip_image_downloading
+
+- name: Check cd image
   stat: path={{ root_path }}/images/{{ cd_image_filename }}
   register: cd_stat
 
-- name: Download cd images. vm set {{ id }}
-  get_url: url="{{ vm_images_url }}/{{ cd_image_filename }}?{{ vmimages_saskey }}" dest="{{ root_path }}/images/{{ cd_image_filename }}"
-  when: not cd_stat.stat.exists
+- name: Fail if there are no cd image and skip image downloading is active
+  fail: msg="Please put {{ cd_image_filename }} to {{ root_path }}/images"
+  when: not cd_stat.stat.exists and skip_image_downloading
 
-- name: Create docker container for injected ports. vm set {{ id }}
-  docker:
-    registry: "{{ docker_registry_host }}"
-    username: "{{ docker_registry_username }}"
-    password: "{{ docker_registry_password }}"
-    name: ptf_injected_{{ id }}
-    image: "{{ docker_registry_host }}/{{ docker_image }}"
-    pull: always
-    state: reloaded
-    net: none
-    detach: True
-    cap_add: NET_ADMIN
+- name: Download cd image
+  get_url: url="{{ vm_images_url }}/{{ cd_image_filename }}?{{ cdimage_saskey }}" dest="{{ root_path }}/images/{{ cd_image_filename }}"
+  when: not cd_stat.stat.exists and not skip_image_downloading
 
-- name: Create injected network for the docker container. vm set {{ id }}
-  ptf_network_inj:
-    ptf_name: ptf_injected_{{ id }}
-    ctr_num: "{{ id }}"
-    vlan_base: "{{ vlan_base }}"
-    fp_mtu: "{{ fp_mtu_size }}"
-    mgmt_ip_addr: "{{ vm_injected_ip }}"
-    mgmt_ip_gw: "{{ mgmt_gw }}"
-    mgmt_bridge: "{{ mgmt_bridge }}"
+- name: Create VMs network
+  vm_topology:
+    cmd:          'create'
+    vm_names:     "{{ VM_hosts }}"
+    fp_mtu:       "{{ fp_mtu_size }}"
 
-- name: Create VM set network. vm set {{ id }}
-  vm_network:
-    cmd: 'create'
-    vm_set_id: "{{ id }}"
-    port1_bridge: "{{ port1_bridge }}"
-    vm_set_dict: "{{ VMs }}"
-    fp_mtu: "{{ fp_mtu_size }}"
-    ext_iface: "{{ external_iface }}"
-    vlan_base: "{{ vlan_base }}"
-
-- name: Start VMs. vm set {{ id }}
+- name: Start VMs
   include: start_vm.yml
   vars:
-    vm_name: "{{ id }}_{{ item.key }}"
-    memory: "{{ item.value.memory }}"
-    hostname: "{{ item.key }}"
-    filename: "{{ item.value.filename }}"
-    serial_port: "{{ item.value.serial_port }}"
+    vm_name: "{{ item }}"
+    hostname: "{{ vm_name }}"
+    mgmt_ip_address: "{{ hostvars[vm_name]['ansible_host'] }}"
+    serial_port: "{{ vm_console_base|int + vm_name[4:]|int }}"
     disk_image: "{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
     mgmt_tap:  "{{ vm_name }}-m"
-    fp0_bridge: "br-vs{{ id }}-vm{{ item.value.num }}-0"
+    fp0_bridge: "br-{{ vm_name }}-0"
     fp0_tap: "{{ vm_name }}-t0"
-    fp1_bridge: "br-vs{{ id }}-vm{{ item.value.num }}-1"
+    fp1_bridge: "br-{{ vm_name }}-1"
     fp1_tap: "{{ vm_name }}-t1"
-    fp2_bridge: "br-vs{{ id }}-vm{{ item.value.num }}-2"
+    fp2_bridge: "br-{{ vm_name }}-2"
     fp2_tap: "{{ vm_name }}-t2"
-    fp3_bridge: "br-vs{{ id }}-vm{{ item.value.num }}-3"
+    fp3_bridge: "br-{{ vm_name }}-3"
     fp3_tap: "{{ vm_name }}-t3"
-    fp4_bridge: "br-vs{{ id }}-vm{{ item.value.num }}-4"
+    fp4_bridge: "br-{{ vm_name }}-4"
     fp4_tap: "{{ vm_name }}-t4"
-    fp5_bridge: "br-vs{{ id }}-vm{{ item.value.num }}-5"
+    fp5_bridge: "br-{{ vm_name }}-5"
     fp5_tap: "{{ vm_name }}-t5"
-    fp6_bridge: "br-vs{{ id }}-vm{{ item.value.num }}-6"
+    fp6_bridge: "br-{{ vm_name }}-6"
     fp6_tap: "{{ vm_name }}-t6"
-    fp7_bridge: "br-vs{{ id }}-vm{{ item.value.num }}-7"
+    fp7_bridge: "br-{{ vm_name }}-7"
     fp7_tap: "{{ vm_name }}-t7"
-    port1_tap: "{{ vm_name }}-p1"
-  with_dict: "{{ VMs }}"
+    port1_bridge: "br-{{ vm_name }}-back"
+    port1_tap: "{{ vm_name }}-back"
+  with_items: "{{ VM_hosts }}"
 
-- name: Bind external ifaces to VM set. vm set {{ id }}
-  vm_network:
-    cmd: 'bind'
-    vm_set_id: "{{ id }}"
-    port1_bridge: "{{ port1_bridge }}"
-    vm_set_dict: "{{ VMs }}"
-    fp_mtu: "{{ fp_mtu_size }}"
-    ext_iface: "{{ external_iface }}"
-    vlan_base: "{{ vlan_base }}"
 

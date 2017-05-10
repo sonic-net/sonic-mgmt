@@ -2,7 +2,7 @@
 # Send some TCP packets.
 #-----------------------------------------
 
-- include_vars: "{{ vars_files_location }}/run_ptf_test_vars.yml"
+- include_vars: "vars/run_ptf_test_vars.yml"
 
 - block:
     - name: Execute ping from host to switch to validate link

@@ -1,0 +1,15 @@
+#------------------------------
+# This playbook inverts iface_behind_lag_member_index variable (from 0 to 1, and vice versa).
+#------------------------------
+
+- set_fact:
+    inverted: 0
+
+- set_fact:
+    iface_behind_lag_member_index: 1
+    inverted: 1
+  when: iface_behind_lag_member_index == 0
+
+- set_fact:
+    iface_behind_lag_member_index: 0
+  when: (iface_behind_lag_member_index == 1) and (inverted == 0)

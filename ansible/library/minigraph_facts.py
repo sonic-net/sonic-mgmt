@@ -8,6 +8,8 @@ import json
 import copy
 import ipaddr as ipaddress
 from collections import defaultdict
+from natsort import natsorted
+
 
 from lxml import etree as ET
 from lxml.etree import QName
@@ -258,6 +260,26 @@ def parse_cpg(cpg, hname):
 
     return bgp_sessions, myasn
 
+def parse_meta(meta, hname):
+    syslog_servers = []
+    dhcp_servers = []
+    ntp_servers = []
+    device_metas = meta.find(str(QName(ns, "Devices")))
+    for device in device_metas.findall(str(QName(ns1, "DeviceMetadata"))):
+        if device.find(str(QName(ns1, "Name"))).text == hname:
+            properties = device.find(str(QName(ns1, "Properties")))
+            for device_property in properties.findall(str(QName(ns1, "DeviceProperty"))):
+                name = device_property.find(str(QName(ns1, "Name"))).text
+                value = device_property.find(str(QName(ns1, "Value"))).text
+                value_group = value.split(';') if value and value != "" else []
+                if name == "DhcpResources":
+                    dhcp_servers = value_group
+                elif name == "NtpResources":
+                    ntp_servers = value_group
+                elif name == "SyslogResources":
+                    syslog_servers = value_group
+    return syslog_servers, dhcp_servers, ntp_servers
+
 
 def get_console_info(devices, dev, port):
     for k, v in devices.items():
@@ -326,7 +348,6 @@ def reconcile_mini_graph_locations(filename, hostname):
 
     return mini_graph_path, root
 
-
 def parse_xml(filename, hostname):
     mini_graph_path, root = reconcile_mini_graph_locations(filename, hostname)
 
@@ -342,6 +363,9 @@ def parse_xml(filename, hostname):
     lo_intf = None
     neighbors = None
     devices = None
+    syslog_servers = []
+    dhcp_servers = []
+    ntp_servers = []
 
     hwsku_qn = QName(ns, "HwSku")
     for child in root:
@@ -355,7 +379,7 @@ def parse_xml(filename, hostname):
     elif hwsku == "Force10-S6100":
         for i in range(0, 4):
             for j in range(0, 16):
-                port_alias_map["fortyGigE1/%d/%d" % (i+1, j+1)] = "Ethernet%d" % (i * 16 + j + 1)
+                port_alias_map["fortyGigE1/%d/%d" % (i+1, j+1)] = "Ethernet%d" % (i * 16 + j)
     elif hwsku == "Arista-7050-QX32":
         for i in range(1, 25):
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
@@ -374,6 +398,8 @@ def parse_xml(filename, hostname):
             (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port) = parse_png(child, hostname)
         elif child.tag == str(QName(ns, "UngDec")):
             (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
+        elif child.tag == str(QName(ns, "MetadataDeclaration")):
+            (syslog_servers, dhcp_servers, ntp_servers) = parse_meta(child, hostname)
 
     # Replace port with alias in Vlan interfaces members
     if vlan_intfs is not None:
@@ -389,6 +415,44 @@ def parse_xml(filename, hostname):
             for i,member in enumerate(pc['members']):
                 pc['members'][i] = port_alias_map[member]
 
+
+    # Create port index map. Since we currently output a mix of NGS names
+    # and SONiC mapped names, we include both in this map.
+    # SONiC aliases, when sorted in natural sort order, match the phyical port
+    # index order, so we sort by SONiC port alias, and map
+    # back to NGS names after sorting using this inverted map
+    #
+    # TODO: Move all alias-related code out of minigraph_facts.py and into
+    # its own module to be used as another layer after parsing the minigraph.
+    inverted_port_alias_map = {v: k for k, v in port_alias_map.iteritems()}
+
+    # Start by creating a list of all port aliases
+    port_alias_list = []
+    for k, v in port_alias_map.iteritems():
+        port_alias_list.append(v)
+
+    # Sort the list in natural order
+    port_alias_list_sorted = natsorted(port_alias_list)
+
+    # Create map from SONiC alias to physical index and NGS name to physical index
+    port_index_map = {}
+    for idx, val in enumerate(port_alias_list_sorted):
+        port_index_map[val] = idx
+        port_index_map[inverted_port_alias_map[val]] = idx
+
+    # Create maps:
+    #  from SONiC phy iface name to NGS phy iface name
+    #  from NGS phy iface name to SONiC phy iface name
+    # These maps include mappings from original name to original name too
+    iface_map_sonic_to_ngs = {}
+    iface_map_ngs_to_sonic = {}
+    for val in port_alias_list_sorted:
+        iface_map_sonic_to_ngs[val] = inverted_port_alias_map[val]
+        iface_map_sonic_to_ngs[inverted_port_alias_map[val]] = inverted_port_alias_map[val]
+        iface_map_ngs_to_sonic[inverted_port_alias_map[val]] = val
+        iface_map_ngs_to_sonic[val] = val
+
+    # Generate results
     Tree = lambda: defaultdict(Tree)
 
     results = Tree()
@@ -413,6 +477,12 @@ def parse_xml(filename, hostname):
     results['minigraph_as_xml'] = mini_graph_path
     results['minigraph_console'] = get_console_info(devices, console_dev, console_port)
     results['minigraph_mgmt'] = get_mgmt_info(devices, mgmt_dev, mgmt_port)
+    results['minigraph_port_indices'] = port_index_map
+    results['minigraph_map_sonic_to_ngs'] = iface_map_sonic_to_ngs
+    results['minigraph_map_ngs_to_sonic'] = iface_map_ngs_to_sonic
+    results['syslog_servers'] = syslog_servers
+    results['dhcp_servers'] = dhcp_servers
+    results['ntp_servers'] = ntp_servers
 
     return results
 
@@ -462,11 +532,10 @@ def print_parse_xml(hostname):
     results = parse_xml(filename, hostname)
     print(json.dumps(results, indent=3, cls=minigraph_encoder))
 
-def debug_main():
-    print_parse_xml('switch1')
 
 from ansible.module_utils.basic import *
 
 if __name__ == "__main__":
     main()
     #debug_main()
+

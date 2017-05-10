@@ -25,15 +25,17 @@
 
 - name: Compare the lldp neighbors name with minigraph neigbhors name (exclude the management port)
   assert: { that: "'{{ lldp[item]['chassis']['name'] }}' == '{{ minigraph_neighbors[alias_map[item]]['name'] }}'" }
-  with_items: lldp.keys()
+  with_items: "{{ lldp.keys() }}"
   when: item != "eth0"
 
 - name: Compare the lldp neighbors interface with minigraph neigbhor interface (exclude the management port)
   assert: { that: "'{{ lldp[item]['port']['ifname'] }}' == '{{ minigraph_neighbors[alias_map[item]]['port'] }}'" }
-  with_items: lldp.keys()
+  with_items: "{{ lldp.keys() }}"
   when: item != "eth0"
 
 - name: Iterate throguh each lldp neighbor and verify the information received by neighbor are also correct
-  add_host: name={{ lldp[item]['chassis']['mgmt-ip'] }} groups=lldp_neighbors neighbor_interface={{lldp[item]['port']['ifname']}} dut_interface={{item}} hname={{lldp[item]['chassis']['mgmt-ip'] }} snmp_rocommunity={{ snmp_rocommunity }}
-  with_items: lldp.keys()
+  add_host: name={{ lldp[item]['chassis']['mgmt-ip'] }} groups=lldp_neighbors,eos neighbor_interface={{lldp[item]['port']['ifname']}} dut_interface={{item}} hname={{lldp[item]['chassis']['mgmt-ip'] }}
+  with_items: "{{ lldp.keys() }}"
   when: item != "eth0"
+
+

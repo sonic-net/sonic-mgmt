@@ -1,0 +1,13 @@
+[
+        {
+                "TUNNEL_DECAP_TABLE:NETBOUNCER" : {
+                        "tunnel_type":"IPINIP",
+                        "dst_ip":"{{lo_ip}}",
+                        "src_ip":"1.1.1.1",
+                        "dscp_mode":"{{dscp_mode}}",
+                        "ecn_mode":"standard",
+                        "ttl_mode":"pipe"
+                },
+                "OP": "SET"
+        }
+]

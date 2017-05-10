@@ -77,30 +77,6 @@
         run_cleanup: true
       include: "{{ run_ping_test }}"
 
-    - name: ACL drop traffic by destination l4 port test
-      vars:
-        config_file: "{{ config_traffic_drop_l4_dst_port }}"
-        test_expect_file: "{{ config_empty_expect }}"
-        errors_expected: true
-        run_cleanup: true
-      include: "{{ run_ptf_test }}"
-
-    - name: ACL drop traffic by source l4 port test
-      vars:
-        config_file: "{{ config_traffic_drop_l4_src_port }}"
-        test_expect_file: "{{ config_empty_expect }}"
-        errors_expected: true
-        run_cleanup: true
-      include: "{{ run_ptf_test }}"
-
-    - name: ACL drop traffic by tcp flags test
-      vars:
-        config_file: "{{ config_traffic_drop_tcp_flags }}"
-        test_expect_file: "{{ config_empty_expect }}"
-        errors_expected: true
-        run_cleanup: true
-      include: "{{ run_ptf_test }}"
-
   always:
     - name: Remove all the temporary created by the test.
       file: path="{{ run_dir }}/{{ item }}" state=absent

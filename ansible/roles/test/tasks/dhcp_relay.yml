@@ -1,0 +1,51 @@
+# We choose client port index to be index of first port on Vlan
+- name: Obtain client port index
+  set_fact:
+    client_port_name: "{{ minigraph_vlan_interfaces[0]['members'].split(' ')[0] }}"
+
+- set_fact:
+    client_port_index: "{{ minigraph_port_indices[client_port_name] }}"
+
+
+- name: Obtain leaf port indices
+  set_fact:
+    leaf_port_indices: []
+
+- set_fact:
+    leaf_port_indices: "{{ leaf_port_indices }} + [ {{ minigraph_port_indices[item.key] }} ]"
+  with_dict: "{{ minigraph_neighbors }}"
+  when: minigraph_devices[item.value.name] is defined and minigraph_devices[item.value.name]['type'] == "LeafRouter"
+
+
+- name: Obtain MAC address of {{ minigraph_vlan_interfaces[0]['name'] }} interface
+  become: true
+  shell: "cat /sys/class/net/{{ minigraph_vlan_interfaces[0]['name'] }}/address"
+  register: result
+
+- set_fact:
+    relay_iface_mac: "{{ result.stdout | from_yaml }}"
+
+
+- name: Copy the DHCP relay test to PTF container
+  become: true
+  copy: src=roles/test/files/ptftests/dhcp_relay_test.py dest=/root/test/
+  delegate_to: "{{ ptf_host }}"
+
+
+# Run the DHCP relay PTF test
+- include: ptf_runner.yml
+  vars:
+    ptf_test_name: DHCP Relay Test
+    ptf_test_dir: test
+    ptf_test_path: dhcp_relay_test.DHCPTest
+    ptf_platform: remote
+    ptf_test_params:
+      - client_port_index=\"{{ client_port_index }}\"
+      - leaf_port_indices=\"{{ leaf_port_indices }}\"
+      - num_dhcp_servers=\"{{ dhcp_servers | length }}\"
+      - server_ip=\"{{ dhcp_servers[0] }}\"
+      - relay_iface_name=\"{{ minigraph_vlan_interfaces[0]['name'] }}\"
+      - relay_iface_ip=\"{{ minigraph_vlan_interfaces[0]['addr'] }}\"
+      - relay_iface_mac=\"{{ relay_iface_mac }}\"
+      - relay_iface_netmask=\"{{ minigraph_vlan_interfaces[0]['mask'] }}\"
+

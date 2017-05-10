@@ -352,6 +352,12 @@
         <StartPort>Ethernet0</StartPort>
       </DeviceLinkBase>
     </DeviceInterfaceLinks>
+    <Devices>
+      <Device i:type="ToRRouter">
+        <Hostname>OCPSCH0104001MS</Hostname>
+        <HwSku>AS7512</HwSku>
+      </Device>
+    </Devices>
   </PngDec>
   <MetadataDeclaration>
     <Devices xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>

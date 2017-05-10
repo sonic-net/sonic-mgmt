@@ -12,6 +12,5 @@ spine_memory: 2097152
 
 port1_bridge: br-port1-{{ id }}
 
-docker_image: docker-ptf
 fp_mtu_size: 9216
 
