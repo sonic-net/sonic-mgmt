@@ -7,7 +7,7 @@
   * third is used to connect VMs and ptf containers to DUTs frontal panel ports
 
 # Hardware SKU
-1. Server SKU (this is what we are using, not mandatory): Dell 70030; 2 CPUs each has 18 cores; 192G memory; hard disk:2X500G
+1. Server SKU (this is what we are using, not mandatory): Dell 730; 2 CPUs each has 18 cores; 192G memory; hard disk:2X500G
 2. Fanout switch: Arista 7260 or similar 
 3. NIC: Mellanox MT27700 Family CX4
 
