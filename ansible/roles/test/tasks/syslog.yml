@@ -34,6 +34,10 @@
 
 - debug: var=local_srcip
 
+- name: Back up current /etc/rsyslog.conf
+  become: true
+  command: cp -f /etc/rsyslog.conf /etc/rsyslog.conf.bak
+
 # TODO: (johnar) rsyslog template needs to be changed to allow variable port.  Static the config for now...
 # Reconfigure syslog on the DUT to point at this remote host
 #  set_fact:
@@ -84,15 +88,9 @@
 
 - debug: msg="{{ syslog_messages }}"
 
-# Reconfigure Rsyslog to to original state
-
-- set_fact:
-    syslog_servers: "{{ original_syslog_servers }}"
-
-- name: Reconfigure Rsyslog to original state
-  template: src=roles/sonic-common/templates/rsyslog.conf.j2
-            dest=/etc/rsyslog.conf
+- name: Restore original /etc/rsyslog.conf
   become: true
+  command: mv -f /etc/rsyslog.conf.bak /etc/rsyslog.conf
 
 - name: Restart Syslog Daemon
   become: true

@@ -1,9 +1,4 @@
 ansible_ssh_user: admin
-ansible_ssh_pass: YourPaSsWoRd
-ansible_become_pass: YourPaSsWoRd
-sonicadmin_user: admin
-sonicadmin_password: YourPaSsWoRd
-sonicadmin_initial_password: YourPaSsWoRd
 
 sonic_version: "v2"
 
@@ -16,14 +11,23 @@ cavium_hwskus: [ "AS7512", "XP-SIM" ]
 sensor_hwskus: [ "ACS-MSN2700", "Force10-S6000" ]
 
 ## Note:
-## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we
+## Dokcer volumes should be list instead of dict. However, if we want to keep code DRY, we
 ## need to merge dictionaries, and convert them to list
 ## Ref:
 ## 1. http://stackoverflow.com/questions/9254178/is-there-yaml-syntax-for-sharing-part-of-a-list-or-map
 ## 2. https://groups.google.com/forum/#!msg/ansible-project/M-FNUK9Wz98/gH63Ka4hDAAJ
 
+sswsyncd_docker_volumes_dict:
+  "/etc/ssw/:/etc/ssw/:ro":
+  "/etc/sonic/:/etc/sonic/:ro":
+  "/etc/network/interfaces:/etc/network/interfaces:ro":
+  "/var/run/docker-syncd:/var/run/sswsyncd":
+
+sswsyncd_docker_volumes: "{{ sswsyncd_docker_volumes_dict.keys() }}"
+
 syncd_docker_volumes_dict:
-  "/host/machine.conf:/etc/machine.conf:ro":
+  "/host/machine.conf:/etc/machine.conf":
+  "/var/run/docker-syncd:/var/run/sswsyncd":
   "/etc/sonic/:/etc/sonic/:ro":
 
 syncd_docker_volumes: "{{ syncd_docker_volumes_dict.keys() }}"
@@ -36,20 +40,3 @@ orchagent_docker_volumes_dict:
   "/host/machine.conf:/host/machine.conf":
 
 orchagent_docker_volumes: "{{ orchagent_docker_volumes_dict.keys() }}"
-
-sonic_apt_repo: "http://packages.microsoft.com/repos/sonic-dev/"
-apt_repo: "http://debian-archive.trafficmanager.net/debian/"
-apt_default_release: "*"
-
-# ntp variables
-ntp_servers: ['10.0.0.1', '10.0.0.2']
-
-# syslog variables
-syslog_servers: ['10.0.0.5', '10.0.0.6']
-
-# dns variables
-dns_servers: ['10.0.0.5', '10.0.0.6']
-
-# snmp variables
-snmp_rocommunity: public
-snmp_location: testlab

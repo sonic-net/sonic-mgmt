@@ -19,14 +19,22 @@
   set_fact: props="{{configuration_properties['common']}}"
   when: testbed_type in ['t0']
 
+- name: Expand ToR properties into props
+  set_fact: props_tor="{{configuration_properties['tor']}}"
+  when: testbed_type in ['t1', 't1-lag']
+
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
   connection: local
 
 # Generate route file
 - name: Generate route-port map information
-  template: src=fib.j2
-            dest=/tmp/route_info.txt
+  template: src=roles/test/templates/fib.j2
+            dest=/tmp/fib_info.txt
+  connection: local
+
+- name: copy the fib_info to ptf container
+  copy: src=/tmp/fib_info.txt dest=/root
   delegate_to: "{{ptf_host}}"
 
 - debug : msg="Start FIB Test"
@@ -35,12 +43,23 @@
   copy: src=roles/test/files/ptftests dest=/root
   delegate_to: "{{ ptf_host }}"
 
-- name: "Running the test"
-  shell: ptf --test-dir ptftests fib_test.FibTest --platform remote -t "testbed_type='{{testbed_type}}';router_mac='{{ansible_Ethernet0['macaddress']}}';route_info='/tmp/route_info.txt'"
-  args:
-    chdir: /root
-  delegate_to: "{{ ptf_host }}"
-  register: out
+- set_fact: ipv4=true
+  when: ipv4 is not defined
 
-- debug: var=out.stdout_lines
-  when: out.rc != 0
+- set_fact: ipv6=true
+  when: ipv6 is not defined
+
+- name: "Start PTF runner"
+  include: ptf_runner.yml
+  vars:
+    ptf_test_name: FIB test
+    ptf_test_dir: ptftests
+    ptf_test_path: fib_test.FibTest
+    ptf_platform: remote
+    ptf_test_params:
+      - testbed_type='{{testbed_type}}'
+      - router_mac='{{ansible_Ethernet0['macaddress']}}'
+      - fib_info='/root/fib_info.txt'
+      - ipv4={{ipv4}}
+      - ipv6={{ipv6}}
+    ptf_extra_options: "--relax --log-dir /tmp/"
