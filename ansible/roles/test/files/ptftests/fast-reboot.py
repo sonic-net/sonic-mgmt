@@ -1,5 +1,5 @@
 #
-#ptf --test-dir ptftests fast-reboot.FastReloadTest --platform remote --platform-dir ptftests --qlen 1000 -t "verbose=True;dut_username='acsadmin';dut_hostname='10.251.0.243';fast_reboot_limit=30;portchannel_ports_file='/tmp/portchannel_interfaces.json';vlan_ports_file='/tmp/vlan_interfaces.json';port_indices_file='/tmp/port_indices.json';dut_mac='4c:76:25:f4:b7:00';vlan_ip_range='172.0.0.0/26';default_ip_range='192.168.0.0/16'"
+#ptf --test-dir ptftests fast-reboot.FastReloadTest --platform remote --platform-dir ptftests --qlen 1000 -t "verbose=True;dut_username='acsadmin';dut_hostname='10.3.147.243';fast_reboot_limit=30;portchannel_ports_file='/tmp/portchannel_interfaces.json';vlan_ports_file='/tmp/vlan_interfaces.json';ports_file='/tmp/ports.json';dut_mac='4c:76:25:f4:b7:00';vlan_ip_range='172.0.0.0/26';default_ip_range='192.168.0.0/16';vlan_ip_range='172.0.0.0/26'"
 #
 #
 # This test measures length of DUT dataplane disruption in fast-reboot procedure.
@@ -33,7 +33,11 @@ import random
 import struct
 import socket
 from pprint import pprint
+from fcntl import ioctl
 import sys
+import json
+import re
+from collections import defaultdict
 import json
 
 class FastReloadTest(BaseTest):
@@ -47,50 +51,18 @@ class FastReloadTest(BaseTest):
         self.check_param('fast_reboot_limit', 30, required = False)
         self.check_param('portchannel_ports_file', '', required = True)
         self.check_param('vlan_ports_file', '', required = True)
-        self.check_param('port_indices_file', '', required = True)
+        self.check_param('ports_file', '', required = True)
         self.check_param('dut_mac', '', required = True)
         self.check_param('default_ip_range', '', required = True)
+        self.check_param('vlan_ip_range', '', required = True)
 
         # Default settings
-        self.nr_pkts = 100
+        self.nr_pc_pkts = 100
         self.nr_tests = 3
         self.reboot_delay = 10
         self.task_timeout = 300   # Wait up to 5 minutes for tasks to complete
+        self.max_nr_vl_pkts = 1000
         self.timeout_thr = None
-
-        self.read_port_indices()
-        portchannel_ports = self.read_portchannel_ports()
-        vlan_ip_range = self.read_vlan_ip_range()
-        vlan_ports = self.read_vlan_ports()
-
-        self.limit = datetime.timedelta(seconds=self.test_params['fast_reboot_limit'])
-        self.dut_ssh = self.test_params['dut_username'] + '@' + self.test_params['dut_hostname']
-        self.dut_mac = self.test_params['dut_mac']
-        #
-        self.from_t1_src_addr = self.random_ip(self.test_params['default_ip_range'])
-        self.from_t1_src_port = self.random_port(portchannel_ports)
-        self.from_t1_dst_addr = self.random_ip(vlan_ip_range)
-        self.from_t1_dst_ports = [self.random_port(vlan_ports)]
-        self.from_t1_if_name = "eth%d" % self.from_t1_dst_ports[0]
-        self.from_t1_if_addr = "%s/%s" % (self.from_t1_dst_addr, vlan_ip_range.split('/')[1])
-        #
-        self.from_server_src_addr = self.random_ip(vlan_ip_range)
-        self.from_server_src_port = self.random_port(vlan_ports)
-        self.from_server_dst_addr = self.random_ip(self.test_params['default_ip_range'])
-        self.from_server_dst_ports = portchannel_ports
-
-        self.log("Test params:")
-        self.log("DUT ssh: %s" % self.dut_ssh)
-        self.log("DUT fast-reboot limit: %s" % self.limit)
-        self.log("DUT mac address: %s" % self.dut_mac)
-        self.log("From T1 src addr: %s" % self.from_t1_src_addr)
-        self.log("From T1 src port: %s" % self.from_t1_src_port)
-        self.log("From T1 dst addr: %s" % self.from_t1_dst_addr)
-        self.log("From T1 dst ports: %s" % self.from_t1_dst_ports)
-        self.log("From server src addr: %s" % self.from_server_src_addr)
-        self.log("From server src port: %s" % self.from_server_src_port)
-        self.log("From server dst addr: %s" % self.from_server_dst_addr)
-        self.log("From server dst ports: %s" % self.from_server_dst_ports)
 
         return
 
@@ -101,26 +73,23 @@ class FastReloadTest(BaseTest):
         return content
 
     def read_port_indices(self):
-        self.port_indices = self.read_json('port_indices_file')
+        self.port_indices = self.read_json('ports_file')
+
+        return
 
     def read_portchannel_ports(self):
         content = self.read_json('portchannel_ports_file')
         pc_ifaces = []
-        for pc in content:
+        for pc in content.values():
             pc_ifaces.extend([self.port_indices[member] for member in pc['members']])
 
         return pc_ifaces
 
-    def read_vlan_ip_range(self):
-        content = self.read_json('vlan_ports_file')
-        if len(content) > 1:
-            self.log('DUT has more than 1 VLANS')
-        return content[0]['subnet']
-
     def read_vlan_ports(self):
         content = self.read_json('vlan_ports_file')
-
-        return [self.port_indices[ifname] for ifname in content[0]['members'].split(" ")]
+        if len(content) > 1:
+            raise "Too many vlans"
+        return [self.port_indices[ifname] for ifname in content.values()[0]['members']]
 
     def check_param(self, param, default, required = False):
         if param not in self.test_params:
@@ -129,15 +98,22 @@ class FastReloadTest(BaseTest):
             self.test_params[param] = default
 
     def random_ip(self, ip):
-        src_addr, mask = ip.split('/')
+        net_addr, mask = ip.split('/')
         n_hosts = 2**(32 - int(mask))
         random_host = random.randint(2, n_hosts - 2)
+        return self.host_ip(ip, random_host)
+
+    def host_ip(self, net_ip, host_number):
+        src_addr, mask = net_ip.split('/')
+        n_hosts = 2**(32 - int(mask))
+        if host_number > (n_hosts - 2):
+            raise Exception("host number %d is greater than number of hosts %d in the network %s" % (host_number, n_hosts - 2, net_ip))
         src_addr_n = struct.unpack(">I", socket.inet_aton(src_addr))[0]
         net_addr_n = src_addr_n & (2**32 - n_hosts)
-        random_addr_n = net_addr_n + random_host
-        random_ip = socket.inet_ntoa(struct.pack(">I", random_addr_n))
+        host_addr_n = net_addr_n + host_number
+        host_ip = socket.inet_ntoa(struct.pack(">I", host_addr_n))
 
-        return random_ip
+        return host_ip
 
     def random_port(self, ports):
         return random.choice(ports)
@@ -166,10 +142,33 @@ class FastReloadTest(BaseTest):
             self.timeout_thr = None
 
     def setUp(self):
-        print
+        self.read_port_indices()
+        self.portchannel_ports = self.read_portchannel_ports()
+        vlan_ip_range = self.test_params['vlan_ip_range']
+        self.vlan_ports = self.read_vlan_ports()
 
-        self.cmd(['ifconfig', self.from_t1_if_name, self.from_t1_if_addr])
-        # FIXME: Check return value for self.cmd
+        self.limit = datetime.timedelta(seconds=self.test_params['fast_reboot_limit'])
+        self.dut_ssh = self.test_params['dut_username'] + '@' + self.test_params['dut_hostname']
+        self.dut_mac = self.test_params['dut_mac']
+        #
+        self.from_server_src_addr = self.random_ip(vlan_ip_range)
+        self.from_server_src_port = self.random_port(self.vlan_ports)
+        self.from_server_dst_addr = self.random_ip(self.test_params['default_ip_range'])
+        self.from_server_dst_ports = self.portchannel_ports
+
+        self.nr_vl_pkts = self.generate_from_t1()
+
+        self.log("Test params:")
+        self.log("DUT ssh: %s" % self.dut_ssh)
+        self.log("DUT fast-reboot limit: %s" % self.limit)
+        self.log("DUT mac address: %s" % self.dut_mac)
+
+        self.log("From server src addr: %s" % self.from_server_src_addr)
+        self.log("From server src port: %s" % self.from_server_src_port)
+        self.log("From server dst addr: %s" % self.from_server_dst_addr)
+        self.log("From server dst ports: %s" % self.from_server_dst_ports)
+        self.log("From upper layer number of packets: %d" % self.nr_vl_pkts)
+
         self.dataplane = ptf.dataplane_instance
         for p in self.dataplane.ports.values():
             port = p.get_packet_source()
@@ -180,19 +179,84 @@ class FastReloadTest(BaseTest):
             filename = os.path.join(config["log_dir"], str(self)) + ".pcap"
             self.dataplane.start_pcap(filename)
 
+        self.log("Enabling arp_responder")
+        self.cmd(["supervisorctl", "start", "arp_responder"])
+
+        return
+
     def tearDown(self):
-        self.cmd(['ifconfig', self.from_t1_if_name, '0'])
-        # FIXME: Check return value for self.cmd
+        self.log("Disabling arp_responder")
+        self.cmd(["supervisorctl", "stop", "arp_responder"])
         if config["log_dir"] != None:
             self.dataplane.stop_pcap()
         self.log_fp.close()
+
+    def get_if(self, iff, cmd):
+        s = socket.socket()
+        ifreq = ioctl(s, cmd, struct.pack("16s16x",iff))
+        s.close()
+
+        return ifreq
+
+    def get_mac(self, iff):
+        SIOCGIFHWADDR = 0x8927          # Get hardware address
+        return ':'.join(['%02x' % ord(char) for char in self.get_if(iff, SIOCGIFHWADDR)[18:24]])
+
+    def generate_from_t1(self):
+        self.from_t1 = []
+        self.ip_addr = []
+
+        vlan_ip_range = self.test_params['vlan_ip_range']
+
+        _, mask = vlan_ip_range.split('/')
+        n_hosts = min(2**(32 - int(mask)) - 3, self.max_nr_vl_pkts)
+
+        for i in xrange(2, n_hosts + 2):
+            from_t1_src_addr = self.random_ip(self.test_params['default_ip_range'])
+            from_t1_src_port = self.random_port(self.portchannel_ports)
+            from_t1_dst_addr = self.host_ip(vlan_ip_range, i)
+            from_t1_dst_ports = self.vlan_ports[i % len(self.vlan_ports)]
+            from_t1_if_name = "eth%d" % from_t1_dst_ports
+            from_t1_if_addr = "%s/%s" % (from_t1_dst_addr, vlan_ip_range.split('/')[1])
+            packet = simple_tcp_packet(
+                      eth_dst=self.dut_mac,
+                      ip_src=from_t1_src_addr,
+                      ip_dst=from_t1_dst_addr,
+                      ip_ttl=255,
+                      tcp_dport=5000
+            )
+            self.from_t1.append((from_t1_src_port, from_t1_dst_ports, str(packet)))
+            self.ip_addr.append((from_t1_if_name, from_t1_if_addr))
+
+        exp_packet = simple_tcp_packet(
+                      ip_src="0.0.0.0",
+                      ip_dst="0.0.0.0",
+                      tcp_dport=5000,
+        )
+
+        self.from_t1_exp_packet = Mask(exp_packet)
+        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
+        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
+        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "src")
+        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "dst")
+        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
+        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.TCP, "chksum")
+        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "ttl")
+
+        # save data for arp_replay process
+        with open("/tmp/from_t1.json", "w") as fp:
+            d = defaultdict(list)
+            for e in self.ip_addr:
+                d[e[0]].append(e[1].split('/')[0])
+            json.dump(d, fp)
+
+        return n_hosts
 
     def runTest(self):
         no_routing_start = None
         no_routing_stop = None
         thr = threading.Thread(target=self.background)
         thr.setDaemon(True)
-
         self.log("Check that device is alive and pinging")
         self.assertTrue(self.check_alive(), 'DUT is not stable')
 
@@ -207,7 +271,7 @@ class FastReloadTest(BaseTest):
         self.log("ASIC was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
         self.timeout(self.task_timeout, "DUT hasn't started to work for %d seconds" % self.task_timeout)
         no_routing_stop = self.check_start()
-        self.cancel_timeout() 
+        self.cancel_timeout()
         self.log("ASIC works again. Start time: %s" % str(no_routing_stop))
 
         self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
@@ -280,44 +344,27 @@ class FastReloadTest(BaseTest):
             else:
               if was_alive > 0:
                 return False    # Stopped working after it working for sometime?
-              time.sleep(1)
 
         return was_alive > self.nr_tests
 
     def ping_alive(self):
         nr_from_s = self.pingFromServers()
         nr_from_l = self.pingFromUpperTier()
-        is_success_from_s = nr_from_s > self.nr_pkts * 0.7
-        is_success_from_l = nr_from_l > self.nr_pkts * 0.7
+        is_success_from_s = nr_from_s > self.nr_pc_pkts * 0.7
+        is_success_from_l = nr_from_l > self.nr_vl_pkts * 0.7
 
         return is_success_from_s and is_success_from_l
 
     def pingFromServers(self):
-        return self.ping0(self.dut_mac,
-                          self.from_server_src_addr,
-                          self.from_server_dst_addr,
-                          self.from_server_src_port,
-                          self.from_server_dst_ports,
-                          "servers->t1")
-
-    def pingFromUpperTier(self):
-        return self.ping0(self.dut_mac,
-                          self.from_t1_src_addr,
-                          self.from_t1_dst_addr,
-                          self.from_t1_src_port,
-                          self.from_t1_dst_ports,
-                          "t1->servers")
-
-    def ping0(self, eth_dst, ip_src, ip_dst, from_port, to_ports, msg):
         packet = simple_tcp_packet(
-                      eth_dst=eth_dst,
-                      ip_src=ip_src,
-                      ip_dst=ip_dst,
+                      eth_dst=self.dut_mac,
+                      ip_src=self.from_server_src_addr,
+                      ip_dst=self.from_server_dst_addr,
                       tcp_dport=5000
                  )
         exp_packet = simple_tcp_packet(
-                      ip_src=ip_src,
-                      ip_dst=ip_dst,
+                      ip_src=self.from_server_src_addr,
+                      ip_dst=self.from_server_dst_addr,
                       ip_ttl=63,
                       tcp_dport=5000,
                      )
@@ -326,12 +373,23 @@ class FastReloadTest(BaseTest):
         exp_packet.set_do_not_care_scapy(scapy.Ether,"src")
         exp_packet.set_do_not_care_scapy(scapy.Ether,"dst")
 
-        for i in xrange(self.nr_pkts):
-            testutils.send_packet(self, from_port, str(packet))
+        raw_packet = str(packet)
 
-        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, exp_packet, to_ports)
+        for i in xrange(self.nr_pc_pkts):
+            testutils.send_packet(self, self.from_server_src_port, raw_packet)
 
-        self.log("Send %5d Received %5d %s" % (self.nr_pkts, total_rcv_pkt_cnt, msg), True)
+        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, exp_packet, self.from_server_dst_ports)
+
+        self.log("Send %5d Received %5d servers->t1" % (self.nr_pc_pkts, total_rcv_pkt_cnt), True)
 
         return total_rcv_pkt_cnt
 
+    def pingFromUpperTier(self):
+        for entry in self.from_t1:
+            testutils.send_packet(self, entry[0], entry[2])
+
+        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.from_t1_exp_packet, self.vlan_ports)
+
+        self.log("Send %5d Received %5d t1->servers" % (self.nr_vl_pkts, total_rcv_pkt_cnt), True)
+
+        return total_rcv_pkt_cnt

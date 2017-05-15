@@ -1,0 +1,16 @@
+---
+#starlab (str) group variables
+# file: group_vars/str.yml
+
+# ntp variables
+ntp_servers: ['10.0.0.1', '10.0.0.2']
+
+# syslog variables
+syslog_servers: ['10.0.0.5', '10.0.0.6']
+#
+# dns variables
+dns_servers: ['10.0.0.5', '10.0.0.6']
+#
+# snmp variables
+snmp_rocommunity: public
+snmp_location: testlab

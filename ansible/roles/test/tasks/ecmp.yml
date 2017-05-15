@@ -1,27 +1,4 @@
 - block:
-    - name: Ensure LLDP Daemon stopped
-      become: yes
-      supervisorctl: state=stopped name={{ item }}
-      vars:
-        ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i lldp python
-      with_items:
-        - lldp-syncd
-        - lldpd
-
-    - name: Disable bgpd
-      become: yes
-      lineinfile: dest=/etc/quagga/daemons
-                  regexp=^bgpd=.*$
-                  line='bgpd=no'
-      notify:
-        - Restart Quagga Daemon
-      vars:
-        ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i bgp python
-
-    - meta: flush_handlers
-
     - fail: msg="Please set ptf_host variable"
       when: ptf_host is not defined
 
@@ -60,7 +37,7 @@
       debug: var=out.stdout_lines
 
     - name: copy the test to ptf container
-      copy: src=roles/test/files/saitests dest=/root
+      copy: src=roles/test/files/ptftests dest=/root
       delegate_to: "{{ ptf_host }}"
 
     - name: Install routes on the switch
@@ -92,12 +69,18 @@
     - name: Output of the arp table on target host {{ ansible_host }}
       debug: var=out.stdout_lines
 
-    - include: qos_sai_ptf.yml
+    - include: ptf_runner.yml
       vars:
-        test_name: ECMP test
-        test_path: ecmp_test.ECMPtest
-        test_params: ""
-        extra_options: "--relax --log-dir /tmp/"
+        ptf_test_name: ECMP test
+        ptf_test_dir: ptftests
+        ptf_test_path: ecmp_test.ECMPtest
+        ptf_platform: remote
+        ptf_test_params:
+          - verbose=True
+          - server='{{ ansible_host }}'
+          - port_map_file='/root/{{ ptf_portmap | basename }}'
+          - router_mac='{{ ansible_Ethernet0['macaddress'] }}'
+        ptf_extra_options: "--relax --log-dir /tmp/"
 
   always:
     - name: Remove routes from the switch
@@ -106,26 +89,3 @@
     - name: Remove existing ip from ptf host
       script: roles/test/files/helpers/remove_ip.sh
       delegate_to: "{{ ptf_host }}"
-
-    - name: Restore LLDP Daemon
-      become: yes
-      supervisorctl: state=started name={{ item }}
-      vars:
-        ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i lldp python
-      with_items:
-        - lldpd
-        - lldp-syncd
-
-    - name: Enable bgpd
-      become: yes
-      lineinfile: dest=/etc/quagga/daemons
-                  regexp=^bgpd=.*$
-                  line='bgpd=yes'
-      notify:
-        - Restart Quagga Daemon
-      vars:
-        ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i bgp python
-
-    - meta: flush_handlers
