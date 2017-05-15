@@ -147,7 +147,11 @@ class EverflowTest(BaseTest):
         inner_pkt = scapy.Ether(payload)
 
         masked_inner_pkt = Mask(inner_pkt)
-        masked_inner_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+        if scapy.IP in inner_pkt:
+            masked_inner_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+
+        if scapy.TCP in inner_pkt:
+            masked_inner_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
 
         return dataplane.match_exp_pkt(masked_inner_pkt, pkt2send)
 
