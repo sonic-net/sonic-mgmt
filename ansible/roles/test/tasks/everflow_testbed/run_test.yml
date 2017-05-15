@@ -16,13 +16,6 @@
 - name: Print neighbors in minigraph
   debug: msg="{{ minigraph_neighbors }}"
 
-- name: Read port reverse alias mapping.
-  set_fact:
-    alias_reverse_map: "{{ lookup('file', 'roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_reverse_map.json') | from_json }}"
-
-- name: Print alias reverse mapping
-  debug: msg="{{ alias_reverse_map }}"
-
 - set_fact:
     testname: everflow_testbed
     run_dir: /tmp

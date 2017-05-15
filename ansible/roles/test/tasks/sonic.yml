@@ -85,11 +85,8 @@
   include: fib.yml
   tags: fib
 
-- name: Acl test setup on testbed
+- name: Acl test 
   include: acltb.yml
-
-- name: Test ACL
-  include: acl.yml
   tags: acl
 
 - name: Test Everflow
@@ -102,3 +99,11 @@
 - name: Test LAG.
   include: lagall.yml
   tags: lag
+
+- name: Memory check
+  include: mem_check.yml
+  tags: mem_check
+
+- name: Test reboot
+  include: reboot.yml
+  tags: reboot

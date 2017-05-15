@@ -1,9 +1,25 @@
+- name: Stop NTP service
+  become: true
+  service:
+    name: ntp
+    state: stopped
+
+- name: Force local clock to sync with an NTP clock
+  become: true
+  command: ntpd -gq
+
+- name: Start NTP service
+  become: true
+  service:
+    name: ntp
+    state: started
+
 - name: Check if NTP is synced
   become: true
   shell: ntpstat
   register: ntpstat_result
   until: ntpstat_result.rc == 0
-  retries: 5
-  delay: 2
+  retries: 8
+  delay: 10
 
 - debug: msg="NTP Status {{ ntpstat_result.stdout }}"

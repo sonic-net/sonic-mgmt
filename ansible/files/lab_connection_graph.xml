@@ -1,4 +1,4 @@
-<StarlabConnectionGraph>
+<LabConnectionGraph>
   <PhysicalNetworkGraphDeclaration>
     <Devices>
       <Device Hostname="str-msn2700-01" HwSku="Mellanox-2700" Type="DevSonic"/>

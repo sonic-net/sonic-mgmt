@@ -68,8 +68,7 @@ EXAMPLES='''
 
 '''
 
-LAB_CONNECTION_GRAPH_FILE = 'starlab_connection_graph.xml'
-LAB_SERVER_CONNECTION = 'sonic_server_links.yml'
+LAB_CONNECTION_GRAPH_FILE = 'lab_connection_graph.xml'
 LAB_GRAPHFILE_PATH = 'files/'
 
 class Parse_Lab_Graph():
@@ -163,44 +162,6 @@ class Parse_Lab_Graph():
         self.devices = deviceinfo
         self.vlanport = devicel2info
 
-    def parse_server_links(self, server_link):
-        """
-        lab graph file only contains physical links information between all fanout switches, Sonic devices and servers
-        to connect server docker to a Sonic device through vlan switching, information is in sonic_server_links.yml
-        grab each server external interface through host_vars/server.yml file
-        read server docker to Sonic link yaml file to figure out each server port vlan range
-        """
-        with open(server_link) as f:
-            server_linkdict = yaml.load(f)
-            for server in server_linkdict:
-                ### get server external interface from default configured host_vars
-                server_hostfile = 'host_vars/'+server.upper()+'.yml'
-                with open(server_hostfile) as hf:
-                    server_hostdict = yaml.load(hf)
-                    self.server[server]['ext_intf'] = server_hostdict['external_iface']
-                self.server[server]['vlanlist'] = []
-                for dut in server_linkdict[server]:
-                    self.server[server]['vlanlist'] += self.get_host_vlan(dut)['VlanList']
-        for serv in self.server:
-            self.server[serv]['vlanrange'] = self.convert_list2range(self.server[serv]['vlanlist'])
-        self.fanoutroot_server_ports()
-
-    def fanoutroot_server_ports(self):
-        """
-        configure each server port on root fanout switch to correct vlan range after getting server connections
-        """
-        for dev in self.devices:
-           if 'fanoutroot' in self.devices[dev]['Type'].lower():
-               fanoutroot = dev
-        if fanoutroot is not None:
-            for link in self.links[fanoutroot]:
-                if 'acs-serv-' in self.links[fanoutroot][link]['peerdevice']:
-                    server = self.links[fanoutroot][link]['peerdevice']
-                    if self.links[fanoutroot][link]['peerport'] ==  self.server[server]['ext_intf']:
-                        self.vlanport[fanoutroot][link]['vlanids'] = ','.join(self.server[server]['vlanrange'])
-                        self.vlanport[fanoutroot][link]['vlanlist'] = self.server[server]['vlanlist']
-
-
     def convert_list2range(self, l):
         """
         common module to convert a  list to range for easier vlan configuration generation
@@ -281,7 +242,6 @@ def main():
     try:
         lab_graph = Parse_Lab_Graph(LAB_GRAPHFILE_PATH+LAB_CONNECTION_GRAPH_FILE)
         lab_graph.parse_graph()
-        lab_graph.parse_server_links(LAB_GRAPHFILE_PATH+LAB_SERVER_CONNECTION)
         dev = lab_graph.get_host_device_info(hostname)
         if dev is None:
             module.fail_json(msg="cannot find info for "+hostname)
@@ -300,11 +260,10 @@ def main():
 
 def debug_main():
 #    host = 'str-7260-11'
-#    host = 'str-s6000-on-4'
-    host = 'str-7260-01'
-    lab_graph = Parse_Lab_Graph(LAB_CONNECTION_GRAPH_FILE)
+    host = 'str-s6000-on-6'
+#    host = 'str-7260-01'
+    lab_graph = Parse_Lab_Graph(LAB_GRAPHFILE_PATH+LAB_CONNECTION_GRAPH_FILE)
     lab_graph.parse_graph()
-    lab_graph.parse_server_links(LAB_SERVER_CONNECTION)
     dev = lab_graph.get_host_device_info(host)
     results = {}
     results['device_info'] =  lab_graph.get_host_device_info(host)
@@ -321,6 +280,5 @@ def debug_main():
 from ansible.module_utils.basic import *
 if __name__== "__main__":
     main()
-#    debug_main()
 
 

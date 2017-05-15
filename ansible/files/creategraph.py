@@ -2,15 +2,15 @@
 import csv, sys, os
 from lxml import etree
 
-DEVICECSV = 'sonic_str_devices.csv'
-LINKCSV = 'sonic_str_links.csv'
-STARLAB_CONNECTION_GRAPH_ROOT_NAME = 'StarlabConnectionGraph'
-STARLAB_CONNECTION_GRAPH_DPGL2_NAME = 'DevicesL2Info'
+DEVICECSV = 'sonic_lab_devices.csv'
+LINKCSV = 'sonic_lab_links.csv'
+LAB_CONNECTION_GRAPH_ROOT_NAME = 'LabConnectionGraph'
+LAB_CONNECTION_GRAPH_DPGL2_NAME = 'DevicesL2Info'
 
 class LabGraph(object):
 
     """ 
-    This is used to create "graph" file of starlab for all connections and vlan info from csv file
+    This is used to create "graph" file of lab for all connections and vlan info from csv file
     We(both engineer and lab technician) maintian and modify the csv file to keep track of the lab
     infrastucture for Sonic development and testing environment. 
     """
@@ -63,7 +63,7 @@ class LabGraph(object):
                 l3inforoot = etree.SubElement(self.dpgroot, 'DevicesL3Info', {'Hostname': hostname})
                 etree.SubElement(l3inforoot, 'ManagementIPInterface', {'Name': 'ManagementIp', 'Prefix': managementip})
                 ####### Build L2 information Here
-                l2inforoot = etree.SubElement(self.dpgroot, STARLAB_CONNECTION_GRAPH_DPGL2_NAME, {'Hostname': hostname})
+                l2inforoot = etree.SubElement(self.dpgroot, LAB_CONNECTION_GRAPH_DPGL2_NAME, {'Hostname': hostname})
                 vlanattr = {}
                 for link in self.links:
                     if link['StartDevice'] == hostname:
@@ -90,7 +90,7 @@ class LabGraph(object):
         '''
 
         onexml = open(self.one_xmlfile, 'w')
-        root=etree.Element(STARLAB_CONNECTION_GRAPH_ROOT_NAME)
+        root=etree.Element(LAB_CONNECTION_GRAPH_ROOT_NAME)
         root.append(self.pngroot)
         root.append(self.dpgroot)
         result = etree.tostring(root, pretty_print=True)

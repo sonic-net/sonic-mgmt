@@ -14,6 +14,7 @@
     test_expect_file: acltb_expect_messages.txt
     match_file: loganalyzer_common_match.txt
     ignore_file: loganalyzer_common_ignore.txt
+    tests_location: "{{ 'roles/test/tasks' }}"
 
 # Separate set_fact is required to be able to use 'testname' fact.
 - set_fact:
@@ -35,7 +36,8 @@
 
 - name: Read port reverse alias mapping
   set_fact:
-    alias_reverse_map: "{{ lookup('file', 'roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_reverse_map.json') | from_json }}"
+    alias_reverse_map: "{{ minigraph_map_ngs_to_sonic }}"
+    podset_number: 200
 
 # Generate json files with ACL configuration for tests
 - template: src=acltb_test_table.j2 dest=/tmp/acltb_test_table.json
@@ -55,33 +57,8 @@
   with_items:
     - "{{ acltb_configs }}"
 
-- include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
-  vars:
-    tests_location: "{{ 'roles/test/tasks' }}"
-
 - block:
   - name: Apply ACL configuration
     command: docker exec -t swss bash -c "swssconfig /etc/swss/config.d/{{ item }}"
     with_items:
       - "{{ acltb_configs }}"
-  always:
-    - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
-      vars:
-        tests_location: "{{ 'roles/test/tasks' }}"
-
-    # Output content of result files to ansible console
-    - shell: cat {{ test_out_dir }}/*
-      register: out
-    - debug: var=out.stdout_lines
-
-    - name: Get the total number of error messages.
-      shell: grep "TOTAL MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL MATCHES:[[:space:]]*//p"
-      register: errors_found
-
-    - name: Check the number of error messages (positive tests only).
-      fail: msg="{{ errors_found.stdout }} errors found while running {{ testname }} test. Please see {{ test_out_dir }}/{{ result_file }}"
-      when: errors_found.stdout != "0"
-
-    - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
-      vars:
-        tests_location: "{{ 'roles/test/tasks' }}"
