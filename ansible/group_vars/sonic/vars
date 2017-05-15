@@ -11,7 +11,7 @@ cavium_hwskus: [ "AS7512", "XP-SIM" ]
 sensor_hwskus: [ "ACS-MSN2700", "Force10-S6000" ]
 
 ## Note:
-## Dokcer volumes should be list instead of dict. However, if we want to keep code DRY, we
+## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we
 ## need to merge dictionaries, and convert them to list
 ## Ref:
 ## 1. http://stackoverflow.com/questions/9254178/is-there-yaml-syntax-for-sharing-part-of-a-list-or-map

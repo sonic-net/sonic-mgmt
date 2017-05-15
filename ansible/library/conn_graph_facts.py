@@ -68,7 +68,7 @@ EXAMPLES='''
 
 '''
 
-LAB_CONNECTION_GRAPH_FILE = 'starlab_connection_graph.xml'
+LAB_CONNECTION_GRAPH_FILE = 'lab_connection_graph.xml'
 LAB_GRAPHFILE_PATH = 'files/'
 
 class Parse_Lab_Graph():
@@ -262,7 +262,7 @@ def debug_main():
 #    host = 'str-7260-11'
     host = 'str-s6000-on-6'
 #    host = 'str-7260-01'
-    lab_graph = Parse_Lab_Graph(LAB_CONNECTION_GRAPH_FILE)
+    lab_graph = Parse_Lab_Graph(LAB_GRAPHFILE_PATH+LAB_CONNECTION_GRAPH_FILE)
     lab_graph.parse_graph()
     dev = lab_graph.get_host_device_info(host)
     results = {}
