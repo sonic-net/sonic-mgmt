@@ -1,10 +1,6 @@
-- name: Get session name.
-  shell: docker exec -i swss redis-cli KEYS MIRROR_SESSION_TABLE:* | sed "s/MIRROR_SESSION_TABLE://"
-  register: session_name_info
-
 - name: Initialize session_name variable.
   set_fact:
-    session_name: "{{ session_name_info.stdout }}"
+    session_name: "test_session_1"
 
 - debug: msg="session name {{ session_name }}"
 
