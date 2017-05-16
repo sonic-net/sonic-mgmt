@@ -13,7 +13,7 @@ import ptf.packet as scapy
 import ptf.dataplane as dataplane
 import ptf.testutils as testutils
 from ptf.base_tests import BaseTest
-
+from ptf.mask import Mask
 
 def reportResults(test_name):
     '''
@@ -66,6 +66,7 @@ class EverflowTest(BaseTest):
         '''
 
         self.dataplane = ptf.dataplane_instance
+        self.hwsku = self.test_params['hwsku']
         self.router_mac = self.test_params['router_mac']
         self.session_src_ip = self.test_params['session_src_ip']
         self.session_dst_ip = self.test_params['session_dst_ip']
@@ -138,10 +139,21 @@ class EverflowTest(BaseTest):
         #if (scapy_pkt[scapy.IP].tos >> 2) != self.session_dscp:
         #    return False
 
-        payload = str(scapy_pkt[scapy.GRE].payload)[22:]
+        payload = str(scapy_pkt[scapy.GRE].payload)
+
+        if self.hwsku in ["ACS-MSN2700", "ACS-MSN2100", "ACS-MSN2410"]:
+            payload = str(scapy_pkt[scapy.GRE].payload)[22:]
+
         inner_pkt = scapy.Ether(payload)
 
-        return dataplane.match_exp_pkt(pkt2send, inner_pkt)
+        masked_inner_pkt = Mask(inner_pkt)
+        if scapy.IP in inner_pkt:
+            masked_inner_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+
+        if scapy.TCP in inner_pkt:
+            masked_inner_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
+
+        return dataplane.match_exp_pkt(masked_inner_pkt, pkt2send)
 
 
     @reportResults("Verify SRC IP match")
@@ -172,13 +184,6 @@ class EverflowTest(BaseTest):
         return self.runSendReceiveTest(pkt, self.src_port, self.dst_ports)
 
 
-    @reportResults("Verify ether type match")
-    def verifyEthertype(self):
-        pkt = self.base_pkt.copy()
-        pkt['Ethernet'].type = 0x1234
-        return self.runSendReceiveTest(pkt, self.src_port, self.dst_ports)
-
-
     @reportResults("Verify IP protocol match")
     def verifyIpProtocol(self):
         pkt = self.base_pkt.copy()
@@ -194,16 +199,16 @@ class EverflowTest(BaseTest):
 
 
     @reportResults("Verify L4 SRC port range match")
-    def verifyL4SrcPort(self):
+    def verifyL4SrcPortRange(self):
         pkt = self.base_pkt.copy()
-        pkt['TCP'].sport = 0x123A
+        pkt['TCP'].sport = 4675
         return self.runSendReceiveTest(pkt, self.src_port, self.dst_ports)
 
 
     @reportResults("Verify L4 DST port range match")
-    def verifyL4DstPort(self):
+    def verifyL4DstPortRange(self):
         pkt = self.base_pkt.copy()
-        pkt['TCP'].dport = 0x123A
+        pkt['TCP'].dport = 4675
         return self.runSendReceiveTest(pkt, self.src_port, self.dst_ports)
 
 
@@ -235,19 +240,16 @@ class EverflowTest(BaseTest):
         if self.verifyL4DstPort():
             tests_passed += 1
 
-        if self.verifyEthertype():
-            tests_passed += 1
-
         if self.verifyIpProtocol():
             tests_passed += 1
 
         if self.verifyTcpFlags():
             tests_passed += 1
 
-        if self.verifyL4SrcPort():
+        if self.verifyL4SrcPortRange():
             tests_passed += 1
 
-        if self.verifyL4DstPort():
+        if self.verifyL4DstPortRange():
             tests_passed += 1
 
         if self.verifyIpDscp():
