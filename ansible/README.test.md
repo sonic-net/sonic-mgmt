@@ -9,6 +9,13 @@
 - Replace {PTF_HOST} in each command line with the host name or IP of the PTF testbed host
 - Replace {TESTBED_TYPE} in each command line with the type of the testbed being used
 
+### ACL tests
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags acltb_configure --extra-vars "run_dir=/tmp testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST}"
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags acltb_test      --extra-vars "run_dir=/tmp testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST}"
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags acltb_cleanup   --extra-vars "run_dir=/tmp testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST}"
+```
+- Requires switch connected to a PTF testbed
 
 ### ARP tests
 ```
