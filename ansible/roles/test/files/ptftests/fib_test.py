@@ -243,7 +243,7 @@ class FibTest(BaseTest):
         for ecmp_entry in dest_port_list:
             total_entry_hit_cnt = 0.0
             for member in ecmp_entry:
-                total_entry_hit_cnt += port_hit_cnt[member]
+                total_entry_hit_cnt += port_hit_cnt.get(member, 0)
             (p, r) = self.check_within_expected_range(total_entry_hit_cnt, total_hit_cnt/len(dest_port_list))
             logging.info("%-10s \t %10d \t %10d \t %10s"
                          % (str(ecmp_entry), total_hit_cnt/len(dest_port_list), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
@@ -251,9 +251,9 @@ class FibTest(BaseTest):
             if len(ecmp_entry) == 1:
                 continue
             for member in ecmp_entry:
-                (p, r) = self.check_within_expected_range(port_hit_cnt[member], total_entry_hit_cnt/len(ecmp_entry))
+                (p, r) = self.check_within_expected_range(port_hit_cnt.get(member, 0), total_entry_hit_cnt/len(ecmp_entry))
                 logging.info("%-10s \t %10d \t %10d \t %10s"
-                              % (str(member), total_entry_hit_cnt/len(ecmp_entry), port_hit_cnt[member], str(round(p, 4)*100) + '%'))
+                              % (str(member), total_entry_hit_cnt/len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
                 result &= r
 
         assert result

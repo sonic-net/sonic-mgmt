@@ -28,6 +28,6 @@
 - debug: var=mg_intf
 
 - name: Check for missing interfaces in SNMP
-  fail: msg="Minigraph interface {{ minigraph_map_sonic_to_ngs[item] }} not in SNMP interfaces"
+  fail: msg="Minigraph interface {{ minigraph_map_sonic_to_ngs[item] if item in minigraph_map_sonic_to_ngs else item }} not in SNMP interfaces"
   when: "{{ (item in minigraph_map_sonic_to_ngs and minigraph_map_sonic_to_ngs[item] not in snmp_intf) or (item not in minigraph_map_sonic_to_ngs and item not in snmp_intf) }}"
   with_items: "{{ mg_intf }}"

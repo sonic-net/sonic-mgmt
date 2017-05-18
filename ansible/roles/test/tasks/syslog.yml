@@ -31,41 +31,64 @@
     local_srcip: "{{ local_facts.ansible_facts.ansible_eth0.ipv4.address }}"
     original_syslog_servers: "{{ syslog_servers }}"
     syslog_port: "{{ 65535 | random(start=65000) }}"
+    test_message: "Basic Test Message"
 
 - debug: var=local_srcip
 
-- name: Back up current /etc/rsyslog.conf
-  become: true
-  command: cp -f /etc/rsyslog.conf /etc/rsyslog.conf.bak
-
-# TODO: (johnar) rsyslog template needs to be changed to allow variable port.  Static the config for now...
-# Reconfigure syslog on the DUT to point at this remote host
-#  set_fact:
-#    syslog_servers:
-#      - "{{ local_srcip }}"
-
-#- name: Reconfigure Rsyslog for Testing
-#  become: true
-#  template: src=../../acs/templates/rsyslog.conf.j2
-#            dest=/etc/rsyslog.conf
-
 - name: Add Rsyslog destination for testing
   become: true
-  shell: 'echo "*.* @{{ local_srcip }}:{{ syslog_port }}" >> /etc/rsyslog.conf'
+  lineinfile:
+    line: "*.* @{{ local_srcip }}:{{ syslog_port }}"
+    dest: /etc/rsyslog.conf
+    state: present
 
 - name: Restart Syslog Daemon
   become: true
   service: name=rsyslog state=restarted
 
-# Start Syslog Server
+# Start local ryslog Server
 
-- name: Start Syslog Server on ansible localhost
-  syslog_server: timeout=10 port="{{ syslog_port }}" host="{{ local_srcip }}"
-  async: 60
-  poll: 0
-  register: syslog_sleeper
+- name: Load imudp module in local syslog
   connection: local
-  become: no
+  become: true
+  lineinfile:
+    line: "module(load=\"imudp\")"
+    dest: /etc/rsyslog.conf
+    state: present
+
+- name: Remove imudp ports
+  connection: local
+  become: true
+  lineinfile:
+    regexp: "input\\(type=\"imudp\" port=\"\\d+\"\\)"
+    dest: /etc/rsyslog.conf
+    state: absent
+
+- name: Add imudp port {{ syslog_port }}
+  connection: local
+  become: true
+  lineinfile:
+    line: "input(type=\"imudp\" port=\"{{ syslog_port }}\")"
+    dest: /etc/rsyslog.conf
+    state: present
+
+- name: Stop Syslog Daemon
+  connection: local
+  become: true
+  shell: killall rsyslogd
+  ignore_errors: true
+
+- name: Remove local /var/log/syslog
+  become: true
+  connection: local
+  file:
+    path: /var/log/syslog
+    state: absent
+
+- name: Start Syslog Daemon
+  connection: local
+  become: true
+  service: name=rsyslog state=started
 
 - name: Wait a little bit for service to start
   wait_for: timeout=2
@@ -73,36 +96,24 @@
 # SSH to device and generate a syslog
 - name: Send test syslog
   become: yes
-  command: logger --priority INFO Basic Test Message
-
-#- debug: var=syslog_sleeper
-
-# Retreive syslogs
-- name: Retreive syslog messages
-  async_status: jid="{{ syslog_sleeper.ansible_job_id }}"
-  register: job_result
-  until: job_result.finished
-  retries: 30
-  delay: 1
-  connection: local
-
-- debug: msg="{{ syslog_messages }}"
+  command: logger --priority INFO {{ test_message }}
 
 - name: Restore original /etc/rsyslog.conf
   become: true
-  command: mv -f /etc/rsyslog.conf.bak /etc/rsyslog.conf
+  lineinfile:
+    regexp: "\\*\\.\\* @{{ local_srcip }}:{{ syslog_port }}"
+    dest: /etc/rsyslog.conf
+    state: absent
 
 - name: Restart Syslog Daemon
   become: true
   service: name=rsyslog state=restarted
 
-
 # Check Messages
 - name: Check syslog messages for the test message
-  set_fact: 
-    found1: "true"
-  when: "{{ item | search('Basic Test Message') }}"
-  with_items: "{{ syslog_messages }}"
+  connection: local
+  become: true
+  shell: grep {{ inventory_hostname }} /var/log/syslog | grep "{{ test_message }}" | grep -v ansible
+  register: grep_result
 
-- fail: msg='Unable to find test syslog "Basic Test Message"'
-  when: found1 is not defined
+- debug: var=grep_result
