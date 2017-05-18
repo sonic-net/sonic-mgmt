@@ -8,4 +8,3 @@ do
   echo $i $mac
   ifconfig $i hw ether $mac
 done
-

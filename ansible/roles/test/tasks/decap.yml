@@ -1,17 +1,30 @@
 #-----------------------------------------
-# Run Decap test and Perform log analysis.
+# Run Decap test
 #-----------------------------------------
 
 - fail: msg="information about testbed missing."
   when: (testbed_type is not defined) or
-        (lo_ip is not defined) or
         (dscp_mode is not defined) 
 
 - fail: msg="Invalid testbed_type value '{{testbed_type}}'"
-  when: testbed_type not in [ 'fib']
+  when: testbed_type not in [ 't1', 't0', 't1-lag']
 
 - fail: msg="Invalid testbed_type value '{{dscp_mode}}'"
   when: dscp_mode not in [ 'pipe','uniform']
+
+- include_vars: "vars/topo_{{testbed_type}}.yml"
+
+- name: Expand properties into props
+  set_fact: props="{{configuration_properties['spine']}}"
+  when: testbed_type in ['t1', 't1-lag']
+
+- name: Expand properties into props
+  set_fact: props="{{configuration_properties['common']}}"
+  when: testbed_type in ['t0']
+
+- name: Expand properties into props
+  set_fact: props_tor="{{configuration_properties['tor']}}"
+  when: testbed_type in ['t1', 't1-lag']
 
 # Gather minigraph facts
 - name: Gathering minigraph facts about the device
@@ -19,24 +32,20 @@
   become: no
   connection: local
 
-- name: Print neighbors in minigraph
-  debug: msg="{{ minigraph_neighbors }}"
+# Obtain loopback ip of the device
+- name: Obtain loopback ip of the device
+  set_fact: lo_ip="{{ minigraph_lo_interfaces[0]['addr'] }}"
 
-- name: Read port reverse alias mapping
-  set_fact:
-    alias_reverse_map: "{{ lookup('file', 'roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_reverse_map.json') | from_json }}"
-
-- name: Print alias reverse mapping
-  debug: msg="{{ alias_reverse_map }}"
+- name: print loopback ip
+  debug: msg="{{ lo_ip }}"
 
 # Generate file with BGP routes information
-- template: src=fib.j2 dest=/tmp/fib.txt
+- template: src=roles/test/templates/fib.j2 dest=/tmp/fib_info.txt
   connection: local
 
-
-
-- name: Copy route into file to the PTF host
-  copy: src="/tmp/fib.txt" dest="/tmp/route_info.txt"
+# Copy the fib_info to ptf container
+- template: src=/tmp/fib_info.txt dest=/root
+  connection: local
   delegate_to: "{{ ptf_host }}"
 
 - set_fact:
@@ -61,39 +70,21 @@
     ignore_file_list: "{{ run_dir }}/{{test_ignore_file}},{{ run_dir }}/{{ignore_file}}"
 
 - debug: msg="output directory for current test run {{ test_out_dir }}"
-- debug: msg="generated run id:{{testname_unique}}"
 
-- include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+- debug: msg="generated run id:{{testname_unique}}"
 
 - debug : msg="INVOKE DECAP TEST"
 
-- block:
+- name: copy the test to ptf container
+  copy: src=roles/test/files/ptftests dest=/root
+  delegate_to: "{{ ptf_host }}"
 
-    
-    
-    - name: copy the test to ptf container
-      copy: src=roles/test/files/acstests dest=/root
-      delegate_to: "{{ ptf_host }}"
+- name: "Running test {{ testname }}"
+  shell: ptf --test-dir ptftests IP_decap_test --platform remote -t "verbose=True; router_mac='{{ ansible_Ethernet0['macaddress'] }}';lo_ip='{{lo_ip}}';dscp_mode='{{dscp_mode}}'; testbed_type='{{testbed_type}}'; fib_info='/root/fib_info.txt'" --relax
+  args:
+    chdir: /root
+  delegate_to: "{{ ptf_host }}"
+  failed_when: False
+  register: out
 
-    - name: "Running test {{ testname }}"
-      shell: ptf --test-dir acstests IP_decap_test --platform remote -t "verbose=True; router_mac='{{ ansible_Ethernet0['macaddress'] }}';lo_ip='{{lo_ip}}';dscp_mode='{{dscp_mode}}'; route_info='/tmp/route_info.txt'" --relax
-      args:
-        chdir: /root
-      delegate_to: "{{ ptf_host }}"
-      register: out
-
-    - debug: var=out.stdout_lines
-      when: out.rc != 0
-
-  always:
-  
-    
-  
-    - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
-
-    # Output content of result files to ansible console
-    - shell: cat {{ test_out_dir }}/*
-      register: out
-    - debug: var=out.stdout_lines
-    
-    - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+- debug: var=out.stdout_lines

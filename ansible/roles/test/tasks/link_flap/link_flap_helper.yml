@@ -1,0 +1,62 @@
+# This is the link_flap.yml helper playbook. link_flap.yml passes the interface
+# to this playbook and in this playbook the neighbor of this interface is
+# flapped.
+
+- block:
+    - set_fact:
+        interface: "{{item}}"
+    
+    - debug: msg={{interface}}
+    
+    - set_fact:
+        peer_device: "{{neighbors[interface]['peerdevice']}}"
+        neighbor_interface: "{{neighbors[interface]['peerport']}}"
+    
+    - conn_graph_facts: host={{ peer_device }}
+      connection: local
+    
+    - set_fact:
+        peer_host: "{{device_info['mgmtip']}}"
+        peer_hwsku: "{{device_info['HwSku']}}"
+    
+    - set_fact:
+        intfs_to_exclude: "{{interface}}"
+    
+    - name: Shut down neighbor interface {{neighbor_interface}} on {{peer_host}}
+      action: apswitch template=neighbor_interface_shut_single.j2
+      args:
+        host: "{{peer_host}}"
+        login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+      connection: switch
+    
+    - pause:
+        seconds: 20
+    
+    - interface_facts:
+    
+    - name: Verify interfaces are up correctly
+      assert: { that: "'{{ ansible_interface_facts[item]['active'] }}' == 'True'" }
+      with_items: "{{ minigraph_ports }}"
+      when: item != "{{ intfs_to_exclude }}"
+    
+    - name: Verify {{intfs_to_exclude}} is down correctly
+      assert: { that: "'{{ ansible_interface_facts[item]['active'] }}' == 'False'" }
+      with_items: "{{ minigraph_ports }}"
+      when: item == "{{ intfs_to_exclude }}"
+
+  always:
+    - name: Bring up neighbor interface {{neighbor_interface}} on {{peer_host}}
+      action: apswitch template=neighbor_interface_no_shut_single.j2
+      args:
+        host: "{{peer_host}}"
+        login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+      connection: switch
+    
+    - pause:
+        seconds: 20
+    
+    - interface_facts:
+    
+    - name: Verify all interfaces are up
+      assert: { that: "'{{ ansible_interface_facts[item]['active'] }}' == 'True'" }
+      with_items: "{{ minigraph_ports }}"
