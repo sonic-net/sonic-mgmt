@@ -10,6 +10,9 @@
   vars:
     ansible_shell_type: docker
 
+- set_fact: 
+    ansible_python_interpreter: "/usr/bin/python"
+
 - name: Output of sensors information
   debug: var=vars['sensors']
 
