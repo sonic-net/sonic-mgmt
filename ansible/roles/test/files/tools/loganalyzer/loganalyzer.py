@@ -96,6 +96,11 @@ class LogAnalyzer:
 
     #---------------------------------------------------------------------
 
+    def is_filename_stdin(self, file_name):
+        return True if file_name == "-" else False
+
+    #---------------------------------------------------------------------
+
     def create_end_marker(self):
         return self.end_marker_prefix + "-" + self.run_id
     #---------------------------------------------------------------------
@@ -108,7 +113,7 @@ class LogAnalyzer:
         '''
 
         for log_file in log_file_list:
-            if not len(log_file) :
+            if not len(log_file) or self.is_filename_stdin(log_file):
                 continue
             self.print_diagnostic_message('log file:%s, place marker %s'%(log_file, marker))
             with open(log_file, 'a') as file:
@@ -288,10 +293,14 @@ class LogAnalyzer:
         #-- indicates whether log analyzer currently is in the log range between start
         #-- and end marker. see analyze_file method.
         in_analysis_range = False
+        stdin_as_input = True if self.is_filename_stdin(log_file_path) else False
         matching_lines = []
-        log_file = open(log_file_path, 'r')
         found_start_marker = False
         found_end_marker = False
+        if stdin_as_input:
+            log_file = sys.stdin
+        else:
+            log_file = open(log_file_path, 'r')
 
         #-- True if expected message is found
         found_expected_message = False
@@ -302,27 +311,31 @@ class LogAnalyzer:
 
         for rev_line in reversed(log_file.readlines()):
 
-            if rev_line.find(end_marker) != -1:
-                self.print_diagnostic_message('found end marker: %s' % end_marker)
-                if (found_end_marker):
-                    print 'ERROR: duplicate end marker found'
-                    sys.exit(err_duplicate_end_marker)
-                found_end_marker = True
+            if stdin_as_input:
                 in_analysis_range = True
-                continue
+            else:
+                if rev_line.find(end_marker) != -1:
+                    self.print_diagnostic_message('found end marker: %s' % end_marker)
+                    if (found_end_marker):
+                        print 'ERROR: duplicate end marker found'
+                        sys.exit(err_duplicate_end_marker)
+                    found_end_marker = True
+                    in_analysis_range = True
+                    continue
 
-            if rev_line.find(start_marker) != -1:
-                self.print_diagnostic_message('found start marker: %s' % start_marker)
-                if (found_start_marker):
-                    print 'ERROR: duplicate start marker found'
-                    sys.exit(err_duplicate_start_marker)
-                found_start_marker = True
+            if not stdin_as_input:
+                if rev_line.find(start_marker) != -1:
+                    self.print_diagnostic_message('found start marker: %s' % start_marker)
+                    if (found_start_marker):
+                        print 'ERROR: duplicate start marker found'
+                        sys.exit(err_duplicate_start_marker)
+                    found_start_marker = True
 
-                if(not in_analysis_range):
-                    print 'ERROR: found start marker:%s without corresponding end marker' % rev_line
-                    sys.exit(err_no_end_marker)
-                in_analysis_range = False
-                break
+                    if(not in_analysis_range):
+                        print 'ERROR: found start marker:%s without corresponding end marker' % rev_line
+                        sys.exit(err_no_end_marker)
+                    in_analysis_range = False
+                    break
 
             if in_analysis_range :
                 if self.line_is_expected(rev_line, expect_messages_regex):
@@ -332,13 +345,15 @@ class LogAnalyzer:
                 elif self.line_matches(rev_line, match_messages_regex, ignore_messages_regex):
                     matching_lines.append(rev_line)
 
-        if (not found_start_marker):
-            print 'ERROR: start marker was not found'
-            sys.exit(err_no_start_marker)
+        # care about the markers only if input is not stdin
+        if not stdin_as_input:
+            if (not found_start_marker):
+                print 'ERROR: start marker was not found'
+                sys.exit(err_no_start_marker)
 
-        if (not found_end_marker):
-            print 'ERROR: end marker was not found'
-            sys.exit(err_no_end_marker)
+            if (not found_end_marker):
+                print 'ERROR: end marker was not found'
+                sys.exit(err_no_end_marker)
 
         if (not found_expected_message) and (expect_messages_regex is not None):
             print 'ERROR: expected error messages were not found in logfile'
@@ -600,7 +615,10 @@ def main(argv):
         ignore_messages_regex = analyzer.create_msg_regex(ignore_file_list)
         expect_messages_regex = analyzer.create_msg_regex(expect_file_list)
 
-        log_file_list.append(system_log_file)
+        # if no log file specified - add system log
+        if not log_file_list:
+            log_file_list.append(system_log_file)
+
         result = analyzer.analyze_file_list(log_file_list, match_messages_regex,
                                             ignore_messages_regex, expect_messages_regex)
         write_result_file(run_id, out_dir, result)
