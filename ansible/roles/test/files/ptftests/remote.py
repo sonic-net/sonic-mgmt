@@ -36,4 +36,3 @@ def platform_config_update(config):
     remote_port_map = {(0, i) : v for i, v in enumerate(get_ifaces())}
     config["port_map"] = remote_port_map.copy()
     config["caps_table_idx"] = 0
-

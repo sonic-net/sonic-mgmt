@@ -25,6 +25,8 @@ from ptf.base_tests import BaseTest
 from ptf.mask import Mask
 from ptf.testutils import *
 
+import fib
+
 class FibTest(BaseTest):
     '''
     @summary: Overview of functionality
@@ -56,15 +58,9 @@ class FibTest(BaseTest):
     #---------------------------------------------------------------------
     # Class variables
     #---------------------------------------------------------------------
-    EXPECTED_RANGE = 0.25 # TODO: need to get the percentage from param
-
-    '''
-    Information about routes to test.
-    '''
-    source_port_list = [] # a list of source port indices
-    dest_port_list = []  # a list of lists describing ecmp/lag relationships
-    route_list = [] # a list of route to be tested
-    hit_dict = {}   # a dict of hit count recording the number of hits per port
+    DEFAULT_BALANCING_RANGE = 0.25
+    BALANCING_TEST_TIMES = 5000
+    DEFAULT_BALANCING_TEST_RATIO = 0.0001
 
     def __init__(self):
         '''
@@ -72,112 +68,89 @@ class FibTest(BaseTest):
         '''
         BaseTest.__init__(self)
         self.test_params = test_params_get()
+
     #---------------------------------------------------------------------
 
     def setUp(self):
         '''
         @summary: Setup for the test
+        Two test parameters are used:
+         - fib_info: the FIB information generated according to the testbed
+         - router_mac: the MAC address of the DUT used to create the eth_dst
+           of the packet
+         - testbed_type: the type of the testbed used to determine the source
+           port
+        TODO: Have a separate line in fib_info/file to indicate all UP ports
         '''
         self.dataplane = ptf.dataplane_instance
-        self.testbed = self.test_params['testbed_type']
+        self.fib = fib.Fib(self.test_params['fib_info'])
         self.router_mac = self.test_params['router_mac']
-        self.load_route_info(self.test_params["route_info"])
 
-        if self.testbed == 't0':
-            self.source_port_list = range(1,25) + range(28,32)
-            self.dest_port_list = [[i] for i in range(28,32)]
-        elif self.testbed == 't1':
-            self.source_port_list = range(16,32)
-            self.dest_port_list = [[i] for i in range(0,16)]
-        elif self.testbed == 't1-lag':
-            self.source_port_list = range(16,32)
-            self.dest_port_list = [[i, i+1] for i in range(0,16,2)]
+        self.test_ipv4 = self.test_params.get('ipv4', True)
+        self.test_ipv6 = self.test_params.get('ipv6', True)
+
+        self.balancing_range = self.test_params.get('balancing_range', self.DEFAULT_BALANCING_RANGE)
+        self.balancing_test_ratio = self.test_params.get('balancing_test_ratio', self.DEFAULT_BALANCING_TEST_RATIO)
+
+        if self.test_params['testbed_type'] == 't1' or self.test_params['testbed_type'] == 't1-lag':
+            self.src_ports = range(0, 32)
+        if self.test_params['testbed_type'] == 't0':
+            self.src_ports = range(1, 25) + range(28, 32)
     #---------------------------------------------------------------------
 
-    def load_route_info(self, route_info_path):
-        '''
-        @summary: Load route_info file
-        @param route_info_path : Path to the file
-        '''
-        with open(route_info_path, 'r') as route_info_file:
-            content = route_info_file.readlines()
-            for line in content:
-                self.route_list.append(line.strip())
-        return
-    #---------------------------------------------------------------------
+    def check_ip_range(self, ipv4=True):
+        if ipv4:
+            ip_ranges = self.fib.ipv4_ranges()
+        else:
+            ip_ranges = self.fib.ipv6_ranges()
 
-    def verify_packet_any_port(self, pkt, ports=[], device_number=0):
-        """
-        @summary: Check that the packet is received on _any_ of the specified ports belonging to
-        the given device (default device_number is 0).
+        for ip_range in ip_ranges:
+            # Get the expected list of ports that would receive the packets
+            exp_port_list = self.fib[ip_range.get_first_ip()].get_next_hop_list()
+            # Choose random one source port from all ports excluding the expected ones
+            src_port = random.choice([port for port in self.src_ports if port not in exp_port_list])
 
-        The function returns when either the expected packet is received or timeout (1 second).
+            if not len(exp_port_list):
+                continue
 
-        Also verifies that the packet is or received on any other ports for this
-        device, and that no other packets are received on the device (unless --relax
-        is in effect).
-        @param pkt : packet to verify
-        @param ports : list of ports
+            # Send a packet with the first IP in the range
+            self.check_ip_route(src_port, ip_range.get_first_ip(), exp_port_list, ipv4)
+            # Send a packet with the last IP in the range
+            if ip_range.length() > 1:
+                self.check_ip_route(src_port, ip_range.get_last_ip(), exp_port_list, ipv4)
+            # Send a packet with a random IP in the range
+            if ip_range.length() > 2:
+                self.check_ip_route(src_port, ip_range.get_random_ip(), exp_port_list, ipv4)
 
-        @return: index of the port on which the packet is received and the packet.
-        """
-        received = False
-        match_index = -1
-        (rcv_device, rcv_port, rcv_pkt, pkt_time) = dp_poll(
-         self,
-         device_number=device_number,
-         exp_pkt=pkt,
-         timeout=1
-        )
+            # Test traffic balancing across ECMP/LAG members
+            if len(exp_port_list) > 1 and random.random() < self.balancing_test_ratio:
+                dst_ip = ip_range.get_random_ip()
+                hit_count_map = {}
+                for i in range(0, self.BALANCING_TEST_TIMES):
+                    (matched_index, received) = self.check_ip_route(src_port, dst_ip, exp_port_list, ipv4)
+                    hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
+                self.check_balancing(self.fib[dst_ip].get_next_hop(), hit_count_map)
 
-        if rcv_port in ports:
-            match_index = ports.index(rcv_port)
-            received = True
+    def check_ip_route(self, src_port, dst_ip_addr, dst_port_list, ipv4=True):
+        if ipv4:
+            (matched_index, received) = self.check_ipv4_route(src_port, dst_ip_addr, dst_port_list)
+        else:
+            (matched_index, received) = self.check_ipv6_route(src_port, dst_ip_addr, dst_port_list)
 
-        return (match_index, received)
-    #---------------------------------------------------------------------
+        assert received
+        return (matched_index, received)
 
-    def is_ipv4_address(self, ipaddr):
-        '''
-        @summary: Check address is valid IPv4 address.
-        @param ipaddr IP address to check
-        @return Boolean
-        '''
-        try:
-            # building ipaddress fails for some of addresses unless unicode(ipaddr) is specified for both ipv4/ipv6
-            # Example - 192.168.156.129, it is valid IPV4 address, send_packet works with it.
-            ipaddress.IPv4Address(unicode(ipaddr))
-            return True
-        except Exception, e:
-            return False
-    #---------------------------------------------------------------------
-
-    def is_ipv6_address(self, ipaddr):
-        '''
-        @summary: Check address is valid IPv6 address.
-        @param ipaddr IP address to check
-        @return Boolean
-        '''
-        try:
-            ipaddress.IPv6Address(unicode(ipaddr))
-            return True
-        except Exception, e:
-            return False
-    #---------------------------------------------------------------------
-
-    def check_ipv4_route(self, source_port_index, dest_ip_addr, destination_port_list):
+    def check_ipv4_route(self, src_port, dst_ip_addr, dst_port_list):
         '''
         @summary: Check IPv4 route works.
-        @param source_port_index: index of port to use for sending packet to switch
+        @param src_port: index of port to use for sending packet to switch
         @param dest_ip_addr: destination IP to build packet with.
-        @param destination_port_list: list of ports on which to expect packet to come back from the switch
-        @return Boolean
+        @param dst_port_list: list of ports on which to expect packet to come back from the switch
         '''
         sport = random.randint(0, 65535)
         dport = random.randint(0, 65535)
         ip_src = "10.0.0.1"
-        ip_dst = dest_ip_addr
-
+        ip_dst = dst_ip_addr
         src_mac = self.dataplane.get_mac(0, 0)
 
         pkt = simple_tcp_packet(
@@ -196,35 +169,26 @@ class FibTest(BaseTest):
                             tcp_dport=dport,
                             ip_ttl=63)
         masked_exp_pkt = Mask(exp_pkt)
-        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
 
-        send_packet(self, source_port_index, pkt)
+        send_packet(self, src_port, pkt)
+        logging.info("Sending packet from port " + str(src_port) + " to " + ip_dst)
 
-        (received_port_index, received) = self.verify_packet_any_port(masked_exp_pkt,destination_port_list)
-
-        if not received:
-            logging.error("Packet sent from %d to %s...Failed" % (source_port_index, dest_ip_addr))
-            assert(False) # Fail the test immediately
-        else:
-            logging.debug("Packet sent from %d to %s...OK received at %d" %
-                          (source_port_index, dest_ip_addr, received_port_index))
-
-        return (received_port_index, received)
+        return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
     #---------------------------------------------------------------------
 
-    def check_ipv6_route(self, source_port_index, dest_ip_addr, destination_port_list):
+    def check_ipv6_route(self, src_port, dst_ip_addr, dst_port_list):
         '''
         @summary: Check IPv6 route works.
         @param source_port_index: index of port to use for sending packet to switch
         @param dest_ip_addr: destination IP to build packet with.
-        @param destination_port_list: list of ports on which to expect packet to come back from the switch
+        @param dst_port_list: list of ports on which to expect packet to come back from the switch
         @return Boolean
         '''
         sport = random.randint(0, 65535)
         dport = random.randint(0, 65535)
         ip_src = '2000::1'
-        ip_dst = dest_ip_addr
-
+        ip_dst = dst_ip_addr
         src_mac = self.dataplane.get_mac(0, 0)
 
         pkt = simple_tcpv6_packet(
@@ -245,9 +209,10 @@ class FibTest(BaseTest):
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
 
-        send_packet(self, source_port_index, pkt)
+        send_packet(self, src_port, pkt)
+        logging.info("Sending packet from port " + str(src_port) + " to " + ip_dst)
 
-        return self.verify_packet_any_port(masked_exp_pkt,destination_port_list)
+        return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
     #---------------------------------------------------------------------
     def check_within_expected_range(self, actual, expected):
         '''
@@ -260,7 +225,7 @@ class FibTest(BaseTest):
         '''
         print "%10s" % str(round(percentage, 4)*100) + '%'
         '''
-        return (percentage, abs(percentage) <= self.EXPECTED_RANGE)
+        return (percentage, abs(percentage) <= self.balancing_range)
 
     #---------------------------------------------------------------------
     def check_balancing(self, dest_port_list, port_hit_cnt):
@@ -278,7 +243,7 @@ class FibTest(BaseTest):
         for ecmp_entry in dest_port_list:
             total_entry_hit_cnt = 0.0
             for member in ecmp_entry:
-                total_entry_hit_cnt += port_hit_cnt[member]
+                total_entry_hit_cnt += port_hit_cnt.get(member, 0)
             (p, r) = self.check_within_expected_range(total_entry_hit_cnt, total_hit_cnt/len(dest_port_list))
             logging.info("%-10s \t %10d \t %10d \t %10s"
                          % (str(ecmp_entry), total_hit_cnt/len(dest_port_list), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
@@ -286,64 +251,23 @@ class FibTest(BaseTest):
             if len(ecmp_entry) == 1:
                 continue
             for member in ecmp_entry:
-                (p, r) = self.check_within_expected_range(port_hit_cnt[member], total_entry_hit_cnt/len(ecmp_entry))
+                (p, r) = self.check_within_expected_range(port_hit_cnt.get(member, 0), total_entry_hit_cnt/len(ecmp_entry))
                 logging.info("%-10s \t %10d \t %10d \t %10s"
-                              % (str(member), total_entry_hit_cnt/len(ecmp_entry), port_hit_cnt[member], str(round(p, 4)*100) + '%'))
+                              % (str(member), total_entry_hit_cnt/len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
                 result &= r
 
-        return result
+        assert result
 
     #---------------------------------------------------------------------
 
     def runTest(self):
         """
-        @summary: Send packet for each route and validate it arrives
-        on one of expected ECMP ports
+        @summary: Send packet for each range of both IPv4 and IPv6 spaces and
+        expect the packet to be received from one of the expected ports
         """
-        exp_port_list = []
-        for ecmp_entry in self.dest_port_list:
-            for port in ecmp_entry:
-                exp_port_list.append(port)
-
-        ip4_route_cnt = 0
-        ip6_route_cnt = 0
-        ip4_hit_cnt = 0
-        ip6_hit_cnt = 0
-        port_cnt_dict = {}
-
-        for i in self.source_port_list:
-            port_cnt_dict[i] = 0
-
-        for dest_ip in self.route_list:
-            for src_port in self.source_port_list:
-                if self.is_ipv4_address(dest_ip):
-                    ip4_route_cnt += 1
-                    (matched_index, received) = self.check_ipv4_route(src_port, dest_ip, exp_port_list)
-                    if received:
-                        ip4_hit_cnt += 1
-                        port_cnt_dict[exp_port_list[matched_index]] = port_cnt_dict.setdefault(exp_port_list[matched_index], 0) + 1
-                elif self.is_ipv6_address(dest_ip):
-                    continue
-                    ip6_route_cnt += 1
-                    (matched_index, received) = self.check_ipv6_route(src_port, dest_ip, exp_port_list)
-                    if received:
-                        ip6_hit_cnt += 1
-                        port_cnt_dict[exp_port_list[matched_index]] = port_cnt_dict.setdefault(exp_port_list[matched_index], 0) + 1
-                else:
-                    print 'Invalid IP  address:%s' % dest_ip_addr
-                    assert(False)
-
-        ch = logging.StreamHandler(sys.stdout)
-        ch.setLevel(logging.DEBUG)
-        ch.terminator = ""
-        logging.getLogger().addHandler(ch)
-
-        # Check if sent/received counts are matched
-        logging.info("\n")
-        logging.info("--------------------------- TEST RESULT ------------------------------")
-        logging.info("Sent %d IPv4 packets; recieved %d IPv4 packets" % (ip4_route_cnt, ip4_hit_cnt))
-        logging.info("Sent %d IPv6 packets; recieved %d IPv6 packets" % (ip6_route_cnt, ip6_hit_cnt))
-        logging.info("----------------------------------------------------------------------")
-        balancing_result = self.check_balancing(self.dest_port_list, port_cnt_dict)
-        assert (ip4_route_cnt == ip4_hit_cnt) and (ip6_route_cnt == ip6_hit_cnt) and balancing_result
-    #---------------------------------------------------------------------
+        # IPv4 Test
+        if (self.test_ipv4):
+            self.check_ip_range()
+        # IPv6 Test
+        if (self.test_ipv6):
+            self.check_ip_range(ipv4=False)

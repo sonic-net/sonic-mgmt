@@ -18,10 +18,3 @@
 - name: Clean up ACL test configuration on the testbed
   include: acltb_cleanup.yml
   tags: acltb_cleanup
-
-#-----------------------------------------
-# Run ACL ranges count test
-#-----------------------------------------
-- name: Acl ranges count test
-  include: acltb_ranges_test.yml
-  tags: acltb_ranges_test

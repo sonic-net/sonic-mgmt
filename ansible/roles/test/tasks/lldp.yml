@@ -19,17 +19,13 @@
 - name: Verify LLDP information is available on most interfaces
   assert: { that: "{{ lldp|length }} > {{ minigraph_neighbors|length * 0.8 }}"}
 
-- name: Read port alias mapping
-  set_fact:
-    alias_map: "{{ lookup('file', 'roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_map.json') | from_json }}"
-
 - name: Compare the lldp neighbors name with minigraph neigbhors name (exclude the management port)
-  assert: { that: "'{{ lldp[item]['chassis']['name'] }}' == '{{ minigraph_neighbors[alias_map[item]]['name'] }}'" }
+  assert: { that: "'{{ lldp[item]['chassis']['name'] }}' == '{{ minigraph_neighbors[item]['name'] }}'" }
   with_items: "{{ lldp.keys() }}"
   when: item != "eth0"
 
 - name: Compare the lldp neighbors interface with minigraph neigbhor interface (exclude the management port)
-  assert: { that: "'{{ lldp[item]['port']['ifname'] }}' == '{{ minigraph_neighbors[alias_map[item]]['port'] }}'" }
+  assert: { that: "'{{ lldp[item]['port']['ifname'] }}' == '{{ minigraph_neighbors[item]['port'] }}'" }
   with_items: "{{ lldp.keys() }}"
   when: item != "eth0"
 
@@ -37,5 +33,4 @@
   add_host: name={{ lldp[item]['chassis']['mgmt-ip'] }} groups=lldp_neighbors,eos neighbor_interface={{lldp[item]['port']['ifname']}} dut_interface={{item}} hname={{lldp[item]['chassis']['mgmt-ip'] }}
   with_items: "{{ lldp.keys() }}"
   when: item != "eth0"
-
 

@@ -1,0 +1,24 @@
+- name: Get platform monitor docker name
+  shell: docker ps -a --format '{{'{{'}}.Image{{'}} {{'}}.Names{{'}}'}}' | grep 'platform' | awk '{print $2}'
+  register: pmon_ps
+
+- set_fact: 
+    ansible_python_interpreter: "docker exec -i {{ pmon_ps.stdout }} python"
+
+- name: Gather sensors
+  sensors_facts: checks={{ sensors_checks[minigraph_hwsku] }}
+  vars:
+    ansible_shell_type: docker
+
+- set_fact: 
+    ansible_python_interpreter: "/usr/bin/python"
+
+- name: Output of sensors information
+  debug: var=vars['sensors']
+
+- name: Assert no alarm
+  assert: { that: "{{ vars['sensors']['alarm'] }} == False" }
+
+- name: Show warnings
+  debug: var=vars['sensors']['warnings']
+  when: vars['sensors']['warning']
