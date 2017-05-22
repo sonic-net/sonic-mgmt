@@ -1,8 +1,8 @@
 {# tor ports #}
-{% for ifname, v in minigraph_neighbors.iteritems() %}{% if "T0" in v.name %}{{ '%d' % (alias_reverse_map[ifname]|replace("Ethernet","")|int / 4)}},{% endif %}{% endfor %}
+{% for ifname, v in minigraph_neighbors.iteritems() %}{% if "T0" in v.name %}{{ '%d' % minigraph_port_indices[ifname] }},{% endif %}{% endfor %}
 
 {# spine ports #}
-{% for ifname, v in minigraph_neighbors.iteritems() %}{% if "T2" in v.name %}{{ '%d' % (alias_reverse_map[ifname]|replace("Ethernet","")|int / 4)}},{% endif %}{% endfor %}
+{% for ifname, v in minigraph_neighbors.iteritems() %}{% if "T2" in v.name %}{{ '%d' % minigraph_port_indices[ifname] }},{% endif %}{% endfor %}
 
 192.168.0.0
 192.168.0.16

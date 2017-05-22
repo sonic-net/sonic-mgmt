@@ -20,4 +20,3 @@
 - name: verify the dut port description field is published correctly
   assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_port_desc'] }}' == dut_interface"}
 
-
