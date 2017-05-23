@@ -219,7 +219,7 @@ class LogAnalyzer:
             regex = re.compile('|'.join(messages_regex))
         else:
             regex = None
-        return regex
+        return regex, messages_regex
     #---------------------------------------------------------------------
 
     def line_matches(self, str, match_messages_regex, ignore_messages_regex):
@@ -295,16 +295,13 @@ class LogAnalyzer:
         in_analysis_range = False
         stdin_as_input = True if self.is_filename_stdin(log_file_path) else False
         matching_lines = []
+        expected_lines = []
         found_start_marker = False
         found_end_marker = False
         if stdin_as_input:
             log_file = sys.stdin
         else:
             log_file = open(log_file_path, 'r')
-
-        #-- True if expected message is found
-        found_expected_message = False
-        expecting_lines = []
 
         start_marker = self.create_start_marker()
         end_marker = self.create_end_marker()
@@ -339,8 +336,7 @@ class LogAnalyzer:
 
             if in_analysis_range :
                 if self.line_is_expected(rev_line, expect_messages_regex):
-                    found_expected_message = True
-                    expecting_lines.append(rev_line)
+                    expected_lines.append(rev_line)
 
                 elif self.line_matches(rev_line, match_messages_regex, ignore_messages_regex):
                     matching_lines.append(rev_line)
@@ -355,10 +351,7 @@ class LogAnalyzer:
                 print 'ERROR: end marker was not found'
                 sys.exit(err_no_end_marker)
 
-        if (not found_expected_message) and (expect_messages_regex is not None):
-            print 'ERROR: expected error messages were not found in logfile'
-
-        return matching_lines,expecting_lines
+        return matching_lines, expected_lines
     #---------------------------------------------------------------------
 
     def analyze_file_list(self, log_file_list, match_messages_regex, ignore_messages_regex, expect_messages_regex):
@@ -415,6 +408,10 @@ def usage():
     print '                                 A string from log file matching any string from these'
     print '                                 files will be ignored during analysis. Must be present'
     print '                                 when action == analyze.'
+    print '--expect_files_in path{,path}    List of path to files containing string. '
+    print '                                 All the strings from these files will be expected to present'
+    print '                                 in one of specified log files during the analysis. Must be present'
+    print '                                 when action == analyze.'
 
 #---------------------------------------------------------------------
 
@@ -466,7 +463,7 @@ def check_run_id(run_id):
     return ret_code
 #---------------------------------------------------------------------
 
-def write_result_file(run_id, out_dir, analysis_result_per_file):
+def write_result_file(run_id, out_dir, analysis_result_per_file, messages_regex_e, unused_regex_messages):
     '''
     @summary: Write results of analysis into a file.
 
@@ -480,35 +477,50 @@ def write_result_file(run_id, out_dir, analysis_result_per_file):
     '''
 
     match_cnt = 0
-    expect_cnt = 0
+    expected_cnt = 0
+    expected_lines_total = []
+
     with open(out_dir + "/result.loganalysis." + run_id + ".log", 'w') as out_file:
         for key, val in analysis_result_per_file.iteritems():
-            matching_lines, expecting_lines = val
+            matching_lines, expected_lines = val
 
-            out_file.write("\n-----------Matches found in file:%s-----------\n" % key)
+            out_file.write("\n-----------Matches found in file:'%s'-----------\n" % key)
             for s in matching_lines:
                 out_file.write(s)
-                out_file.flush()
             out_file.write('\nMatches:%d\n' % len(matching_lines))
             match_cnt += len(matching_lines)
 
             out_file.write("\n-------------------------------------------------\n\n")
 
-            for i in expecting_lines:
+            for i in expected_lines:
                 out_file.write(i)
-                out_file.flush()
-            out_file.write('\nExpecting matches:%d\n' % len(expecting_lines))
-            expect_cnt += len(expecting_lines)
+                expected_lines_total.append(i)
+            out_file.write('\nExpected and found matches:%d\n' % len(expected_lines))
+            expected_cnt += len(expected_lines)
 
         out_file.write("\n-------------------------------------------------\n\n")
         out_file.write('Total matches:%d\n' % match_cnt)
-        out_file.write('Total expected matches:%d\n' % expect_cnt)
+        # Find unused regex matches
+        for regex in messages_regex_e:
+            regex_used = False
+            for line in expected_lines_total:
+                if re.search(regex, line):
+                    regex_used = True
+                    break
+            if not regex_used:
+                unused_regex_messages.append(regex)
+
+        out_file.write('Total expected and found matches:%d\n' % expected_cnt)
+        out_file.write('Total expected but not found matches: %d\n\n' % len(unused_regex_messages))
+        for regex in unused_regex_messages:
+            out_file.write(regex + "\n")
+
         out_file.write("\n-------------------------------------------------\n\n")
         out_file.flush()
 
 #---------------------------------------------------------------------
 
-def write_summary_file(run_id, out_dir, analysis_result_per_file):
+def write_summary_file(run_id, out_dir, analysis_result_per_file, unused_regex_messages):
     '''
     @summary: This function writes results summary into a file
 
@@ -536,10 +548,11 @@ def write_summary_file(run_id, out_dir, analysis_result_per_file):
         total_match_cnt += file_match_cnt
         total_expect_cnt += file_expect_cnt
 
-    out_file.write("-----------------------------\n")
-    out_file.write("TOTAL MATCHES:    %d\n" % total_match_cnt)
-    out_file.write("TOTAL EXPECTED MATCHES:    %d\n" % total_expect_cnt)
-    out_file.write("-----------------------------\n")
+    out_file.write("-----------------------------------\n")
+    out_file.write("TOTAL MATCHES:                  %d\n" % total_match_cnt)
+    out_file.write("TOTAL EXPECTED MATCHES:         %d\n" % total_expect_cnt)
+    out_file.write("TOTAL EXPECTED MISSING MATCHES: %d\n" % len(unused_regex_messages))
+    out_file.write("-----------------------------------\n")
     out_file.flush()
     out_file.close()
 #---------------------------------------------------------------------
@@ -598,7 +611,7 @@ def main(argv):
 
     analyzer = LogAnalyzer(run_id, verbose)
 
-    log_file_list = log_files_in.split(tokenizer)
+    log_file_list = filter(None, log_files_in.split(tokenizer))
 
     result = {}
     if (action == "init"):
@@ -611,9 +624,9 @@ def main(argv):
 
         analyzer.place_marker(log_file_list, analyzer.create_end_marker())
 
-        match_messages_regex = analyzer.create_msg_regex(match_file_list)
-        ignore_messages_regex = analyzer.create_msg_regex(ignore_file_list)
-        expect_messages_regex = analyzer.create_msg_regex(expect_file_list)
+        match_messages_regex, messages_regex_m = analyzer.create_msg_regex(match_file_list)
+        ignore_messages_regex, messages_regex_i = analyzer.create_msg_regex(ignore_file_list)
+        expect_messages_regex, messages_regex_e = analyzer.create_msg_regex(expect_file_list)
 
         # if no log file specified - add system log
         if not log_file_list:
@@ -621,8 +634,9 @@ def main(argv):
 
         result = analyzer.analyze_file_list(log_file_list, match_messages_regex,
                                             ignore_messages_regex, expect_messages_regex)
-        write_result_file(run_id, out_dir, result)
-        write_summary_file(run_id, out_dir, result)
+        unused_regex_messages = []
+        write_result_file(run_id, out_dir, result, messages_regex_e, unused_regex_messages)
+        write_summary_file(run_id, out_dir, result, unused_regex_messages)
 
     else:
         print 'Unknown action:%s specified' % action
