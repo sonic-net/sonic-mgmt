@@ -11,9 +11,31 @@
   when: ptf_host is not defined
   tags: arp,dhcp_relay
 
+# Set sonic_hwsku
+- name: Set sonic_hwsku fact
+  set_fact:
+    sonic_hwsku: "{{minigraph_hwsku}}"
+  tags: always
+
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: broadcom
+  when: sonic_hwsku in broadcom_hwskus
+  tags: always
+
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: mellanox
+  when: sonic_hwsku in mellanox_hwskus
+  tags: always
+
 - name: Verify interfaces are up
   include: interface.yml
   tags: always
+
+- name: BGP facts test
+  include: bgp_fact.yml
+  tags: bgp_fact
 
 - name: Neighbor mac change test
   include: neighbour-mac.yml
@@ -27,10 +49,6 @@
   include: ntp.yml
   tags: ntp
 
-- name: Test Syslog Basic
-  include: syslog.yml
-  tags: syslog
-
 - name: Test SNMP Basic
   include: snmp.yml
   tags: snmp
@@ -40,17 +58,13 @@
   tags: dhcp_relay
   when: minigraph_devices[inventory_hostname]['type'] == "ToRRouter"
 
-- name: Test SNMP CPU
-  include: snmp/cpu.yml
-  tags: snmp_cpu
+- name: Test ECMP route distribution
+  include: ecmp.yml
+  tags: ecmp
 
-- name: Test SNMP Interfaces
-  include: snmp/interfaces.yml
-  tags: snmp_interfaces
-
-- name: BGP facts test
-  include: bgp_fact.yml
-  tags: bgp_fact
+- name: Test Control-Plain policing COPP
+  include: copp.yml
+  tags: copp
 
 - name: Fast-reboot test
   include: fast-reboot.yml
@@ -67,6 +81,19 @@
   include: bgp_flap.yml
   tags: sync
 
+- name: Test Syslog Basic
+  include: syslog.yml
+  tags: syslog
+
+- name: Test SNMP CPU
+  include: snmp/cpu.yml
+  tags: snmp_cpu
+  when: minigraph_hwsku == "Force10-S6000" or minigraph_hwsku == "ACS-S6000"
+
+- name: Test SNMP Interfaces
+  include: snmp/interfaces.yml
+  tags: snmp_interfaces
+
 - name: Test Interface Flap from Neighbor
   include: link_flap.yml
   tags: link_flap
@@ -75,13 +102,13 @@
   include: arpall.yml
   tags: arp
 
-- name: Decap test
-  include: decap.yml
-  tags: decap
-
 - name: Test sensors
   include: sensors_check.yml
   tags: sensors
+
+- name: Test reboot
+  include: reboot.yml
+  tags: reboot
 
 ### When calling this FIB test, please add command line of what testbed_type and which PTF docker to test against
 ### -e "testbed_type=t1-lag ptf_host=10.0.0.200"
@@ -89,9 +116,11 @@
   include: fib.yml
   tags: fib
 
-- name: Acl test 
-  include: acltb.yml
-  tags: acl
+### When calling this decap test, please add command line of what testbed_type, dscp_mode, and which PTF docker to test against
+#### -e "testbed_type=t1-lag dscp_mode=pipe ptf_host=10.0.0.200"
+- name: Decap test
+  include: decap.yml
+  tags: decap
 
 - name: Test Everflow
   include: everflow.yml
@@ -108,6 +137,6 @@
   include: mem_check.yml
   tags: mem_check
 
-- name: Test reboot
-  include: reboot.yml
-  tags: reboot
+- name: ACL test 
+  include: acltb.yml
+  tags: acl
