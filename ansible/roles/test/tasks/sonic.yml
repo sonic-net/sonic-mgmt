@@ -128,6 +128,7 @@
 
 - name: Test Everflow on testbed
   include: everflow_testbed.yml
+  tags: everflow_testbed
 
 - name: Test LAG
   include: lagall.yml
