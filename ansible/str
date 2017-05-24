@@ -1,0 +1,100 @@
+[sonic_stable]
+
+[sonic_latest]
+str-s6000-on-1    ansible_host=10.3.147.141  sonic_version=v2
+str-s6000-on-2    ansible_host=10.3.147.142  
+str-s6000-on-3    ansible_host=10.3.146.112 
+str-s6000-on-4    ansible_host=10.3.146.113  sonic_version=v2 
+str-s6000-on-5    ansible_host=10.3.147.171  sonic_version=v2 fanout_port="str-7260QX-01/Ethernet 61"
+str-s6000-on-6    ansible_host=10.3.147.172  sonic_version=v2 
+
+str-s6000-acs-7   ansible_host=10.3.147.195  fanout_port="str-7260QX-13/Ethernet 61" 
+str-s6000-acs-8   ansible_host=10.3.147.197  fanout_port="str-7260QX-14/Ethernet 61"
+str-s6000-acs-9   ansible_host=10.3.147.235  sonic_version=v2 fanout_port="str-7260QX-15/Ethernet 61" 
+str-s6000-acs-10  ansible_host=10.3.147.237  fanout_port="str-7260QX-16/Ethernet 61"
+str-s6000-acs-11  ansible_host=10.3.147.239  
+str-s6000-acs-12  ansible_host=10.3.147.252  sonic_version=v2
+str-s6000-acs-13  ansible_host=10.3.147.253  
+str-s6000-acs-14  ansible_host=10.3.147.17
+str-s6100-acs-1   ansible_host=10.3.147.243  sonic_version=v2 
+str-s6100-acs-3   ansible_host=10.64.247.2   sonic_version=v2 
+str-n3132-acs-1   ansible_host=10.3.147.204  fanout_port="str-C3164Q-05/1-61"
+str-n3132-acs-2   ansible_host=10.3.147.247
+str-n3132-acs-3   ansible_host=10.3.147.251  fanout_port="str-s6100-on-04/Port 61"
+str-n3132-acs-4   ansible_host=10.3.147.160  
+str-a7050-acs-1   ansible_host=10.3.147.241
+str-a7050-acs-2   ansible_host=10.3.147.199  fanout_port="str-7260QX-18/Ethernet 61"
+str-msn2700-01    ansible_host=10.3.147.188  sonic_version=v2 fanout_port="str-S6100-ON-02/Port 61"
+str-msn2700-02    ansible_host=10.3.147.45   fanout_port="str-7260QX-08/Ethernet 61"
+str-msn2700-03    ansible_host=10.3.147.46   sonic_version=v2
+str-msn2700-04    ansible_host=10.3.147.47   sonic_version=v2 host_saithrift=True ptf_portmap="roles/test/files/mlnx/default_interface_to_front_map.ini" fanout_port="str-7260QX-05/Ethernet 61" 
+str-msn2700-05    ansible_host=10.3.147.48   sonic_version=v2 host_saithrift=True ptf_portmap="roles/test/files/mlnx/default_interface_to_front_map.ini" fanout_port="str-7260QX-06/Ethernet 61" 
+str-msn2700-06    ansible_host=10.3.147.49   sonic_version=v2
+str-msn2700-11-3po  ansible_host=10.3.147.54  
+str-cavium-acs-01 ansible_host=10.3.147.10
+str-s6000-acs-3po   ansible_host=10.3.147.8 
+str-9232-acs-1    ansible_host=10.3.147.189  sonic_version=v2
+str-9232-acs-2    ansible_host=10.3.147.254  sonic_version=v2
+
+[sonic:children]
+sonic_stable
+sonic_latest
+
+[acs_ixia_dscp]
+10.3.147.141
+
+[ptf]
+ptf1-1  ansible_host=10.64.246.6   ansible_ssh_user=root ansible_ssh_pass=root
+ptf1-2  ansible_host=10.64.246.13  ansible_ssh_user=root ansible_ssh_pass=root
+ptf1-3  ansible_host=10.64.246.7   ansible_ssh_user=root ansible_ssh_pass=root
+ptf1-4  ansible_host=10.64.246.8   ansible_ssh_user=root ansible_ssh_pass=root
+ptf1-5  ansible_host=10.64.246.9   ansible_ssh_user=root ansible_ssh_pass=root
+ptf1-6  ansible_host=10.64.246.10  ansible_ssh_user=root ansible_ssh_pass=root
+ptf2-1  ansible_host=10.64.246.14  ansible_ssh_user=root ansible_ssh_pass=root
+ptf2-3  ansible_host=10.64.246.15  ansible_ssh_user=root ansible_ssh_pass=root
+ptf2-6  ansible_host=10.64.246.16  ansible_ssh_user=root ansible_ssh_pass=root
+ptf3-1  ansible_host=10.64.246.18  ansible_ssh_user=root ansible_ssh_pass=root
+vms1-1  ansible_host=10.64.246.22  ansible_ssh_user=root ansible_ssh_pass=root
+vms1-2  ansible_host=10.64.246.23  ansible_ssh_user=root ansible_ssh_pass=root
+vms2-1  ansible_host=10.64.246.24  ansible_ssh_user=root ansible_ssh_pass=root
+vms2-2  ansible_host=10.64.246.25  ansible_ssh_user=root ansible_ssh_pass=root
+vms3-1  ansible_host=10.64.246.17  ansible_ssh_user=root ansible_ssh_pass=root
+vms3-2  ansible_host=10.64.246.19  ansible_ssh_user=root ansible_ssh_pass=root
+vms3-3  ansible_host=10.64.246.20  ansible_ssh_user=root ansible_ssh_pass=root
+vms3-5  ansible_host=10.64.246.26  ansible_ssh_user=root ansible_ssh_pass=root
+vms3-61 ansible_host=10.64.246.21  ansible_ssh_user=root ansible_ssh_pass=root
+vms3-60 ansible_host=10.64.246.12  ansible_ssh_user=root ansible_ssh_pass=root
+
+[str:children]
+sonic
+acs_ixia_dscp 
+fanout
+
+[fanout]
+str-7260-01       ansible_host=10.3.147.76
+str-7260-05       ansible_host=10.3.146.105
+str-7260-06       ansible_host=10.3.146.106
+str-7260-08       ansible_host=10.3.147.108
+str-7260-11       ansible_host=10.3.147.234
+str-7260-13       ansible_host=10.3.147.196
+str-7260-14       ansible_host=10.3.147.198
+str-7260-15       ansible_host=10.3.147.236
+str-7260-16       ansible_host=10.3.147.238
+str-7260-17       ansible_host=10.3.147.240
+str-7260-18       ansible_host=10.3.147.242
+str-s6100-on-02   ansible_host=10.3.147.187
+str-s6100-on-04   ansible_host=10.3.147.250
+str-7260-02       ansible_host=10.3.147.154
+str-7260-03       ansible_host=10.3.147.169
+str-7260-04       ansible_host=10.3.147.164
+str-7260-09       ansible_host=10.3.147.12
+str-7260-07       ansible_host=10.3.147.11
+str-7260-10       ansible_host=10.3.147.13
+
+
+
+
+
+[docker_registry]
+acs-devrepo.corp.microsoft.com
+acs-repo.corp.microsoft.com

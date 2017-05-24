@@ -4,7 +4,7 @@ ansible_altpassword: YourPaSsWoRd
 
 sonic_version: "v2"
 
-broadcom_hwskus: [ "Force10-S6000", "Accton-AS7712-32X", "Celestica-DX010-C32", "Seastone-DX010", "Celestica-E1031-T48S4"]
+broadcom_hwskus: [ 'ACS-S6000', 'ACS-S6000-Q24S32', 'ACS-N3132', 'Force10-S6000', 'Force10-S6000-Q24S32', 'Nexus-3132-Q32', 'Arista-7050-QX32', 'Force10-S6100', 'Accton-AS7712-32X', "Celestica-DX010-C32", "Seastone-DX010", "Celestica-E1031-T48S4" ]
 
 broadcom_td2_hwskus: ['Force10-S6000', 'Force10-S6000-Q24S32', 'Arista-7050-QX32', 'Arista-7050-QX-32S']
 broadcom_th_hwskus: ['Force10-S6100', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-D48C8', 'Celestica-DX010-C32', "Seastone-DX010" ]
@@ -22,7 +22,7 @@ barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C", "newport", "Arista
 marvell_hwskus: [ "et6448m" ]
 
 ## Note:
-## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we
+## Dokcer volumes should be list instead of dict. However, if we want to keep code DRY, we
 ## need to merge dictionaries, and convert them to list
 ## Ref:
 ## 1. http://stackoverflow.com/questions/9254178/is-there-yaml-syntax-for-sharing-part-of-a-list-or-map

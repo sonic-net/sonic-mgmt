@@ -1,0 +1,35 @@
+linux_image: { name: linux-image-3.16.0-4-amd64 , version: 3.16.7-ckt11-2+acs8u2 }
+platform_modules_s6000: { name: platform-modules-s6000 , version: 1.0+0~20160122231804.23~1.gbpbc91df }
+platform_modules_n3132: { name: platform-modules-n3132 , version: 1.0+0~20160914094321.15~1.gbpd171b8 }
+platform_modules_a7050: { name: platform-modules-a7050 , version: 1.3+0~20161129043847.8~1.gbp111753 }
+opennsl: { name: opennsl-modules-3.16.0-4-amd64 , version: 6.4.5.B-1+0~20161104075224.52~1.gbpce35d4 }
+opennslv2: { name: opennsl-modules-3.16.0-4-amd64 , version: 6.5.5-4+0~20161221205958.5~1.gbp621e27 }
+version_libsaibcm: 1.0.1-1~20151029231640.64
+version_libsswsdk: 0.4.3~20151030010155.75
+version_sswsyncd: 0.2-6~20151030010247.711
+version_quagga: 0.99.24.1-2.1+0~20150803160126.3~1.gbp863c1b
+version_lldpsyncd: 1.0+0~20151125003913.1~1.gbpe3a3ef
+version_docker_engine: 1.11.1-0~jessie
+python_sswsdk: { name: python-sswsdk , version: 1.0-1+0~20151204050445.3~1.gbp88e7a4 }
+acs_snmp_subagent: { name: acs-snmp-subagent , version: 1.0+0~20151006174628.5~1.gbp186ce0 }
+version_sonic_cli: 1.0+0~20170201231530.19~1.gbp72142e
+
+image_id_sswsyncd: docker-sswsyncd:20160915.206
+image_id_bgp: docker-bgp:20160907.161
+image_id_snmp: docker-snmp:20161113.146
+image_id_lldp: docker-lldp:20160804.199
+image_id_sensord: docker-sensord@sha256:080bca38f3054778078c9e79c627c356468ff7876652c148f5afa915bacf2dc6
+
+image_id_platform_monitor: docker-platform-monitor:20160907.151
+image_id_vas: docker-vas:20160907.239
+
+image_id_basic_router: docker-basic_router:latest
+
+image_id_database: docker-database:20161128.222
+image_id_syncd_brcm: docker-syncd:20170207
+image_id_orchagent_brcm: docker-orchagent:20170207
+image_id_fpm: docker-fpm:20170110.10
+image_id_snmp_sv2: docker-snmp-sv2:20170330.718
+image_id_lldp_sv2: docker-lldp-sv2:20161201.139
+image_id_teamd: docker-teamd:20170206.585
+image_id_dhcp_relay: docker-dhcp-relay:latest

@@ -1,27 +1,47 @@
 platform_modules_s6000: { name: platform-modules-s6000 , version: "*" }
+platform_modules_s6100: { name: platform-modules-s6100 , version: "*" }
+platform_modules_n3132: { name: platform-modules-n3132 , version: "*" }
+platform_modules_a7050: { name: platform-modules-a7050 , version: "*" }
+opennsl: { name: opennsl-modules-3.16.0-4-amd64 , version: "6.4.5.B*" }
 opennslv2: { name: opennsl-modules-3.16.0-4-amd64 , version: "3.2.2.2*" }
+version_libsaibcm: "*"
+version_libsswsdk: "*"
+version_sswsyncd: "*"
+version_quagga: "*"
 version_sx_kernel: "*"
 version_mlnxsdk: "*"
+version_libsaimlnx: "*"
 version_iproute2_mlnx: "1.mlnx*"
+version_lldpsyncd: "*"
 version_docker_engine: 1.11.1-0~jessie
+python_sswsdk: { name: python-sswsdk , version: "*" }
+acs_snmp_subagent: { name: acs-snmp-subagent , version: "*" }
 version_sonic_cli: "*"
 
-dockers_tag: "latest"
+image_id_sswsyncd: docker-sswsyncd:latest
+image_id_database: docker-database:latest
+image_id_bgp: docker-bgp:latest
+image_id_snmp: docker-snmp:latest
+image_id_lldp: docker-lldp:latest
+image_id_mlnx_sswsyncd: docker-mlnx-sswsyncd:latest
+image_id_mlnx_sswsyncd_rpc: docker-mlnx-sswsyncd-rpc:latest
+image_id_basic_router: docker-basic_router:latest
+image_id_platform_monitor: docker-platform-monitor:latest
+image_id_vas: docker-vas:latest
 
-image_id_database: docker-database:{{ dockers_tag }}
-image_id_snmp: docker-snmp:{{ dockers_tag }}
-image_id_lldp: docker-lldp:{{ dockers_tag }}
-image_id_platform_monitor: docker-platform-monitor:{{ dockers_tag }}
-
-image_id_syncd: docker-syncd:{{ dockers_tag }}
-image_id_syncd_mlnx: docker-syncd-mlnx:{{ dockers_tag }}
-image_id_syncd_cavm: docker-syncd-cavm:{{ dockers_tag }}
-image_id_syncd_mlnx_rpc: docker-syncd-mlnx-rpc:{{ dockers_tag }}
-image_id_orchagent: docker-orchagent:{{ dockers_tag }}
-image_id_orchagent_mlnx: docker-orchagent-mlnx:{{ dockers_tag }}
-image_id_orchagent_cavm: docker-orchagent-cavm:{{ dockers_tag }}
-image_id_fpm: docker-fpm:{{ dockers_tag }}
-image_id_snmp_sv2: docker-snmp-sv2:{{ dockers_tag }}
-image_id_lldp_sv2: docker-lldp-sv2:{{ dockers_tag }}
-image_id_teamd: docker-teamd:{{ dockers_tag }}
-image_id_dhcp_relay: docker-dhcp-relay:{{ dockers_tag }}
+image_id_syncd_rpc: docker-syncd-rpc:latest
+image_id_syncd_brcm: docker-syncd-brcm:latest
+image_id_syncd_brcm_rpc: docker-syncd-rpc:latest
+image_id_syncd_mlnx: docker-syncd-mlnx:latest
+image_id_syncd_cavm: docker-syncd-cavm:latest
+image_id_syncd_mlnx_rpc: docker-syncd-mlnx-rpc:latest
+image_id_orchagent_brcm: docker-orchagent-brcm:latest
+image_id_orchagent_mlnx: docker-orchagent-mlnx:latest
+image_id_orchagent_cavm: docker-orchagent-cavm:latest
+image_id_fpm: docker-fpm:latest
+image_id_snmp_sv2: docker-snmp-sv2:latest
+image_id_lldp_sv2: docker-lldp-sv2:latest
+image_id_saiserver: docker-saiserver-brcm:latest
+image_id_saiserver_mlnx: docker-saiserver-mlnx:latest
+image_id_teamd: docker-teamd:latest
+image_id_dhcp_relay: docker-dhcp-relay:latest

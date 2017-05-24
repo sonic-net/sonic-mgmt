@@ -1,0 +1,291 @@
+# this test verified there is no egress packet drop when sending traffic from 31 input ports to 1 congested output port.
+# 1.  Pause port 0
+# 2.  Send n pkt from port 1~31 to port 0, where n = xon + xoff threshold. 
+# 3.  Verify no packet drop at egress port 0.
+# 4.  Verify port 1~31 sending pfc pause frames.
+
+- block:
+    - set_fact:
+        input_ports:
+          Ethernet4:
+            mac_address: "{{ ansible_Ethernet4['macaddress'] }}"
+            ip_src: 10.0.0.3
+            port_src: 1
+          Ethernet8:
+            mac_address: "{{ ansible_Ethernet8['macaddress'] }}"
+            ip_src: 10.0.0.5
+            port_src: 2
+          Ethernet12:
+            mac_address: "{{ ansible_Ethernet12['macaddress'] }}"
+            ip_src: 10.0.0.7
+            port_src: 3
+          Ethernet16:
+            mac_address: "{{ ansible_Ethernet16['macaddress'] }}"
+            ip_src: 10.0.0.9
+            port_src: 4
+          Ethernet20:
+            mac_address: "{{ ansible_Ethernet20['macaddress'] }}"
+            ip_src: 10.0.0.11
+            port_src: 5
+          Ethernet24:
+            mac_address: "{{ ansible_Ethernet24['macaddress'] }}"
+            ip_src: 10.0.0.13
+            port_src: 6
+          Ethernet28:
+            mac_address: "{{ ansible_Ethernet28['macaddress'] }}"
+            ip_src: 10.0.0.15
+            port_src: 7
+          Ethernet32:
+            mac_address: "{{ ansible_Ethernet32['macaddress'] }}"
+            ip_src: 10.0.0.17
+            port_src: 8
+          Ethernet36:
+            mac_address: "{{ ansible_Ethernet36['macaddress'] }}"
+            ip_src: 10.0.0.19
+            port_src: 9
+          Ethernet40:
+            mac_address: "{{ ansible_Ethernet40['macaddress'] }}"
+            ip_src: 10.0.0.21
+            port_src: 10
+          Ethernet44:
+            mac_address: "{{ ansible_Ethernet44['macaddress'] }}"
+            ip_src: 10.0.0.23
+            port_src: 11
+          Ethernet48:
+            mac_address: "{{ ansible_Ethernet48['macaddress'] }}"
+            ip_src: 10.0.0.25
+            port_src: 12
+          Ethernet52:
+            mac_address: "{{ ansible_Ethernet52['macaddress'] }}"
+            ip_src: 10.0.0.27
+            port_src: 13
+          Ethernet56:
+            mac_address: "{{ ansible_Ethernet56['macaddress'] }}"
+            ip_src: 10.0.0.29
+            port_src: 14
+          Ethernet60:
+            mac_address: "{{ ansible_Ethernet60['macaddress'] }}"
+            ip_src: 10.0.0.31
+            port_src: 15
+          Ethernet64:
+            mac_address: "{{ ansible_Ethernet64['macaddress'] }}"
+            ip_src: 10.0.0.33
+            port_src: 16
+          Ethernet68:
+            mac_address: "{{ ansible_Ethernet68['macaddress'] }}"
+            ip_src: 10.0.0.35
+            port_src: 17
+          Ethernet72:
+            mac_address: "{{ ansible_Ethernet72['macaddress'] }}"
+            ip_src: 10.0.0.37
+            port_src: 18
+          Ethernet76:
+            mac_address: "{{ ansible_Ethernet76['macaddress'] }}"
+            ip_src: 10.0.0.39
+            port_src: 19
+          Ethernet80:
+            mac_address: "{{ ansible_Ethernet80['macaddress'] }}"
+            ip_src: 10.0.0.41
+            port_src: 20
+          Ethernet84:
+            mac_address: "{{ ansible_Ethernet84['macaddress'] }}"
+            ip_src: 10.0.0.43
+            port_src: 21
+          Ethernet88:
+            mac_address: "{{ ansible_Ethernet88['macaddress'] }}"
+            ip_src: 10.0.0.45
+            port_src: 22
+          Ethernet92:
+            mac_address: "{{ ansible_Ethernet92['macaddress'] }}"
+            ip_src: 10.0.0.47
+            port_src: 23
+          Ethernet96:
+            mac_address: "{{ ansible_Ethernet96['macaddress'] }}"
+            ip_src: 10.0.0.49
+            port_src: 24
+          Ethernet100:
+            mac_address: "{{ ansible_Ethernet100['macaddress'] }}"
+            ip_src: 10.0.0.51
+            port_src: 25
+          Ethernet104:
+            mac_address: "{{ ansible_Ethernet104['macaddress'] }}"
+            ip_src: 10.0.0.53
+            port_src: 26
+          Ethernet108:
+            mac_address: "{{ ansible_Ethernet108['macaddress'] }}"
+            ip_src: 10.0.0.55
+            port_src: 27
+          Ethernet112:
+            mac_address: "{{ ansible_Ethernet112['macaddress'] }}"
+            ip_src: 10.0.0.57
+            port_src: 28
+          Ethernet116:
+            mac_address: "{{ ansible_Ethernet116['macaddress'] }}"
+            ip_src: 10.0.0.59
+            port_src: 29
+          Ethernet120:
+            mac_address: "{{ ansible_Ethernet120['macaddress'] }}"
+            ip_src: 10.0.0.61
+            port_src: 30
+          Ethernet124:
+            mac_address: "{{ ansible_Ethernet124['macaddress'] }}"
+            ip_src: 10.0.0.63
+            port_src: 31
+
+
+    - name: Pause port Ethernet0
+      switch_port: port=Ethernet0 pause=yes drain=yes
+
+    - name: Send packets. dscp = {{ dscp }}, ecn = {{ ecn }}, number of packets = {{ egress_pipe_leak }}. To make leakage
+      command: ptf --test-dir acstests dscp_ecn_send.DscpEcnSend --platform remote -t "dscp={{ dscp }};ecn={{ ecn }};packet_num={{ egress_pipe_leak }};router_mac='{{ ansible_Ethernet0['macaddress'] }}';ip_src='10.0.0.1';ip_dst='10.0.0.1';port_src=0"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Clear switch counters
+      clear_switch_counters:
+
+    - debug: msg="Send packets. dscp = {{ dscp }}, ecn = {{ ecn }}, number of packets = {{ xon_limit|int - 1}}"
+
+    - name: Send packets 
+      command: ptf --test-dir acstests dscp_ecn_send.DscpEcnSend --platform remote -t "dscp={{ dscp }};ecn={{ ecn }};packet_num={{ xon_limit|int - 1}};router_mac='{{ item.value.mac_address }}';ip_src='{{ item.value.ip_src }}';ip_dst='10.0.0.1';port_src='{{ item.value.port_src }}'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+      with_dict: "{{ input_ports }}"
+
+    - name: Get switch counters
+      switch_counters:
+
+    - debug: msg="Ethernet0 queue {{ queue }} pkt = {{ switch_counters['Ethernet0'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet0 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet0'][queue]['ucqdrop']['pkt'] }}"
+
+    - debug: msg="{{ item.key }} ing_queue {{ queue }} tpfc pkt = {{ switch_counters[item.key][queue]['tpfc']['pkt'] }}"
+      with_dict: "{{ input_ports }}"
+
+    - debug: msg="{{ item.key }} ing_queue {{ queue }} drop pkt = {{ switch_counters[item.key]['ing_drop']['pkt'] }}"
+      with_dict: "{{ input_ports }}"
+
+    - name: Assert no ingress queue drop and no tx pfc
+      assert:
+        that:
+          - "{{ switch_counters[item.key]['ing_drop']['pkt']|int == 0 }}"
+          - "{{ switch_counters[item.key][queue]['tpfc']['pkt']|int == 0 }}"
+      with_dict: "{{ input_ports }}"
+
+    - name: Assert no egress queue drop
+      assert:
+        that:
+          - "{{ switch_counters['Ethernet0'][queue]['ucqdrop']['pkt']|int == 0 }}"
+
+    - debug: msg="Send packets dscp = {{ dscp }}, ecn = {{ ecn }}, number of packets = 1"
+
+    - name: Send packets
+      command: ptf --test-dir acstests dscp_ecn_send.DscpEcnSend --platform remote -t "dscp={{ dscp }};ecn={{ ecn }};packet_num=1;router_mac='{{ item.value.mac_address }}';ip_src='{{ item.value.ip_src  }}';ip_dst='10.0.0.1';port_src='{{ item.value.port_src }}'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+      with_dict: "{{ input_ports }}"
+
+    - name: Get switch counters
+      switch_counters:
+
+    - debug: msg="Ethernet0 queue {{ queue }} pkt = {{ switch_counters['Ethernet0'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet0 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet0'][queue]['ucqdrop']['pkt'] }}"
+
+    - debug: msg="{{ item.key }} ing_queue {{ queue }} tpfc pkt = {{ switch_counters[item.key][queue]['tpfc']['pkt'] }}"
+      with_dict: "{{ input_ports }}"
+
+    - debug: msg="{{ item.key }} ing_queue {{ queue }} drop pkt = {{ switch_counters[item.key]['ing_drop']['pkt'] }}"
+      with_dict: "{{ input_ports }}"
+
+    - name: Assert no egress drop
+      assert:
+        that:
+          - "{{ switch_counters['Ethernet0'][queue]['ucqdrop']['pkt']|int == 0 }}"
+
+    - name: Assert no ingress drop and tx pfc
+      assert:
+        that:
+          - "{{ switch_counters[item.key][queue]['tpfc']['pkt']|int > 0 }}"
+          - "{{ switch_counters[item.key]['ing_drop']['pkt']|int == 0 }}"
+      with_dict: "{{ input_ports }}"
+
+    - debug: msg="Send packets dscp = {{ dscp }}, ecn = {{ ecn }}, number of packets = {{ xoff_limit }}"
+
+    - name: Send packets
+      command: ptf --test-dir acstests dscp_ecn_send.DscpEcnSend --platform remote -t "dscp={{ dscp }};ecn={{ ecn }};packet_num={{ xoff_limit }};router_mac='{{ item.value.mac_address }}';ip_src='{{ item.value.ip_src }}';ip_dst='10.0.0.1';port_src='{{ item.value.port_src }}'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+      with_dict: "{{ input_ports }}"
+
+    - name: Get switch counters
+      switch_counters:
+
+    - name: "Assert no egress drop and tx pfc"
+      assert:
+        that:
+          - "{{ switch_counters['Ethernet0'][queue]['ucqdrop']['pkt']|int == 0 }}"
+
+    - name: Assert no ingress drops
+      assert:
+        that:
+          - "{{ switch_counters[item.key][queue]['tpfc']['pkt']|int > 0 }}"
+          - "{{ switch_counters[item.key]['ing_drop']['pkt']|int == 0 }}"
+      with_dict: "{{ input_ports }}"
+
+    - debug: msg="Send packets dscp = {{ dscp }}, ecn = {{ ecn }}, number of packets = 1"
+
+    - name: Send packets
+      command: ptf --test-dir acstests dscp_ecn_send.DscpEcnSend --platform remote -t "dscp={{ dscp }};ecn={{ ecn }};packet_num=1;router_mac='{{ item.value.mac_address }}';ip_src='{{ item.value.ip_src }}';ip_dst='10.0.0.1';port_src='{{ item.value.port_src }}'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+      with_dict: "{{ input_ports }}"
+
+    - name: Get switch counters
+      switch_counters:
+
+    - debug: msg="Ethernet0 queue {{ queue }} pkt = {{ switch_counters['Ethernet0'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet0 queue {{ queue }} drop pkt = {{ switch_counters['Ethernet0'][queue]['ucqdrop']['pkt'] }}"
+
+    - debug: msg="{{ item.key }} ing_queue {{ queue }} tpfc pkt = {{ switch_counters[item.key][queue]['tpfc']['pkt'] }}"
+      with_dict: "{{ input_ports }}"
+
+    - debug: msg="{{ item.key }} ing_queue {{ queue }} drop pkt = {{ switch_counters[item.key]['ing_drop']['pkt'] }}"
+      with_dict: "{{ input_ports }}"
+
+    - name: "Assert no egress drop and tx pfc"
+      assert:
+        that:
+          - "{{ switch_counters['Ethernet0'][queue]['ucqdrop']['pkt']|int == 0 }}"
+
+    - name: Assert ingress drop
+      assert:
+        that:
+          - "{{ switch_counters[item.key][queue]['tpfc']['pkt']|int > 0 }}"
+          - "{{ switch_counters[item.key]['ing_drop']['pkt']|int == 1 }}"
+      with_dict: "{{ input_ports }}"
+
+    - name: Clear switch counters
+      clear_switch_counters:
+
+    - name: Resume port Ethernet0
+      switch_port: port=Ethernet0 pause=no
+
+    - name: Get switch counters
+      switch_counters:
+
+    - debug: msg="Ingress priority buffer size = {{ switch_counters['Ethernet0'][queue]['ucq']['pkt']|int * 208 }} bytes"
+
+    - name: "Assert the size of the ingress buffer (xon+xoff)"
+      assert:
+        that:
+          - "{{ switch_counters['Ethernet0'][queue]['ucq']['pkt']|int == (xon_limit + xoff_limit)*input_ports|length }}"
+
+  always:
+    - name: Resume port
+      switch_port: port=Ethernet0 pause=no
+
+

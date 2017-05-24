@@ -1,0 +1,44 @@
+- block:
+    - name: Pause port
+      switch_port: port=Ethernet4 pause=yes drain=yes
+
+    - name: Clear switch counters
+      clear_switch_counters:
+
+    - name: Send packets dscp = {{ dscp }}, ecn = {{ ecn }}, number of packets = {{ packet_num }}
+      command: ptf --test-dir acstests --platform remote dscp_ecn_send.DscpEcnSend -t "dscp={{ dscp }};ecn={{ ecn }};packet_num={{ packet_num }};router_mac='{{ ansible_Ethernet0['macaddress'] }}'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Get switch counters
+      switch_counters:
+
+    - debug: msg="Ethernet4 queue {{ queue }} pkt = {{ switch_counters['Ethernet4'][queue]['ucq']['pkt'] }}"
+    - debug: msg="Ethernet4 queue {{ queue }} drop = {{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt'] }}"
+    - debug: msg="Etherent0 ING_DROP = {{ switch_counters['Ethernet0']['ing_drop']['pkt'] }}"
+
+    - name: "Assert queue drop"
+      assert:
+        that:
+          - "{{ switch_counters['Ethernet4'][queue]['ucqdrop']['pkt']|int > 0 or switch_counters['Ethernet0']['ing_drop']['pkt']|int > 0 }}"
+
+    - name: Clear switch counters
+      clear_switch_counters:
+
+    - name: Resume port
+      switch_port: port=Ethernet4 pause=no
+
+    - name: Get switch counters
+      switch_counters:
+
+    - debug: msg="Ethernet4 queue {{ queue }} length = {{ (switch_counters['Ethernet4'][queue]['ucq']['pkt']|int * 208) // 1024 }} KB"
+
+    - name: "Assert egress queue size for dscp = {{ dscp }}, ecn = {{ ecn }}"
+      assert:
+        that: 
+          - "{{ (switch_counters['Ethernet4'][queue]['ucq']['pkt']|int * 208) // 1024 == limit }}"
+
+  always:
+    - name: Resume port
+      switch_port: port=Ethernet4 pause=no

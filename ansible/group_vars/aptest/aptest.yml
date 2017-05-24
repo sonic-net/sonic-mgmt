@@ -1,0 +1,41 @@
+---
+# ntp variables
+ntp_servers: [ "10.208.90.151", "10.208.92.83", "10.203.241.53", "10.203.244.207" ]
+
+# syslog variables
+syslog_servers: [ "10.173.156.70", "100.127.20.21" , "10.20.6.16"]
+
+# dns variables
+dns_servers: [ "10.64.5.5", "10.64.6.6", "10.64.6.7" ]
+
+# snmp variables
+snmp_location: aptest04
+
+# nfs servers
+nfs_server: "100.127.20.23"
+
+#
+# Active Directory Integration
+ad_integration_enabled: True
+
+# OU for this environment (TEST,PREPRODUCTION,PRODUCTION)
+ou_environment: PREPRODUCTION
+
+#network security groups
+ad_domain: GME
+rw_netgroups: [
+        "NWK-FABRIC-FTE-ALLDVC-PERSISTENTRW",          # FTEs with full time RW for FABRIC devices; they do not use JIT for access
+        "NWK-FABRIC-FTE-ALLDVC-TEMPRW",                # FTEs allowed to use JIT to request elevation of access to FABRIC devices
+        "NWK-FABRIC-VENDOR-ALLDVC-TEMPRW"              # Vendors allowed to use JIT to request elevation of access to FABRIC devices
+]
+
+ro_netgroups: [
+        "NWK-ALLDVC-PERSISTENTRO"                     # users with full time RO access to all network devices
+]
+
+#service account name and domain
+_acsadminsvc_uid: _acsadminsvc
+_acsadminsvc_domain: gme.gbl
+
+# NetworkDeviceManager SLB VIP
+ndm_vip: 25.71.6.196

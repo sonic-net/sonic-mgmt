@@ -1,0 +1,2 @@
+azure_repo: "net-test"
+apt_default_release: "trusty"

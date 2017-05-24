@@ -1,0 +1,126 @@
+---
+#starlab (str) group variables
+# file: group_vars/str.yml
+
+# ntp variables
+ntp_servers: ['10.3.149.170', '10.3.149.171']
+
+# syslog variables
+syslog_servers: ['10.3.145.8', '100.127.20.21']
+
+# dns variables
+dns_servers: ['10.3.145.98', '10.3.145.99']
+
+# forced_mgmt_routes
+# 40.122.216.24 acsdockerregistry.blob.core.windows.net
+# 13.91.48.226 apt-mo.trafficmanager.net
+forced_mgmt_routes: ['10.3.145.98/31', '10.3.145.8', '100.127.20.16/28', '10.3.149.170/31', '40.122.216.24', '13.91.48.226']
+
+# snmp variables
+snmp_rocommunity: strcommunity
+snmp_location: str
+
+# NetworkDeviceManager SLB VIP
+ndm_vip: 25.71.6.196
+
+# HTTP/HTTPS proxy environment variables
+proxy_env:
+  http_proxy: http://10.3.145.99:3128
+  https_proxy: http://10.3.145.99:3128
+
+#Active Directory Integration
+ad_integration_enabled: True
+
+# OU for this environment (TEST,PREPRODUCTION,PRODUCTION)
+ou_environment: TEST
+
+#network security groups
+ad_domain: GME
+rw_netgroups: [
+        "NWK-FABRIC-FTE-ALLDVC-PERSISTENTRW",          # FTEs with full time RW for FABRIC devices; they do not use JIT for access
+        "NWK-FABRIC-FTE-ALLDVC-TEMPRW",                # FTEs allowed to use JIT to request elevation of access to FABRIC devices
+        "NWK-FABRIC-VENDOR-ALLDVC-TEMPRW",             # Vendors allowed to use JIT to request elevation of access to FABRIC devices
+        "NWK-AZURE-FABRICATOR-TORTEST-CUSTOM",         # starlab test users 
+]
+
+ro_netgroups: [
+        "NWK-ALLDVC-PERSISTENTRO",                     # users with full time RO access to all network devices
+]
+
+#service account name and domain
+_acsadminsvc_uid: _acsadminsvc
+_acsadminsvc_domain: gme.gbl
+
+
+#TBD for ACS-MSN2700 xon_1, xon_2:
+# Once the new fw version with the fix is burned, should change the
+# xon_th_pkts to 10687
+# xoff_th_pkts to 0
+# since xon_th and xoff_th are configured to the same value.
+# The current parameters are according to current fw behavior
+qos_params:
+    ACS-MSN2700:
+        xoff_1:
+            dscp: 3
+            ecn: 0
+            xoff_th_pkts: 10653
+            fill_buffer_pkts: 158
+            pg: 3
+        xoff_2:
+            dscp: 4
+            ecn: 0
+            xoff_th_pkts: 10653
+            fill_buffer_pkts: 158
+            pg: 4
+        xon_1:
+            dscp: 3
+            ecn: 0
+            xon_th_pkts: 185
+            xoff_th_pkts: 10468
+            pg: 3
+        xon_2:
+            dscp: 4
+            ecn: 0
+            xon_th_pkts: 185
+            xoff_th_pkts: 10468
+            pg: 4
+        ecn_1:
+            dscp: 8
+            ecn: 0
+            num_of_pkts: 5000
+            limit: 182000
+            min_limit: 180000
+            cell_size: 96
+        ecn_2:
+            dscp: 8
+            ecn: 1
+            num_of_pkts: 2047
+            limit: 182320
+            min_limit: 0
+            cell_size: 96
+        ecn_3:
+            dscp: 0
+            ecn: 0
+            num_of_pkts: 5000
+            limit: 182000
+            min_limit: 180000
+            cell_size: 96
+        ecn_4:
+            dscp: 0
+            ecn: 1
+            num_of_pkts: 2047
+            limit: 182320
+            min_limit: 0
+            cell_size: 96
+        lossy_queue:
+            dscp: 8
+            ecn: 1
+            num_of_pkts: 28676
+        wrr:
+           dscp: 8
+           ecn: 1
+           q0_num_of_pkts: 600
+           q1_num_of_pkts: 400
+           q3_num_of_pkts: 500
+           q4_num_of_pkts: 500
+           limit: 80

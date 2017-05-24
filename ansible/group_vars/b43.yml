@@ -1,0 +1,13 @@
+---
+#starlab (str) group variables
+# file: group_vars/str.yml
+
+# ntp variables
+ntp_servers: ['TK5-RED-DC-16.redmond.corp.microsoft.com']
+
+# syslog variables
+syslog_servers: ['192.168.200.1']
+
+# snmp variables
+snmp_rocommunity: public
+snmp_location: b43

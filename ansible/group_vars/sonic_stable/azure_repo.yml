@@ -1,0 +1,2 @@
+azure_repo: "net-dev"
+apt_default_release: "trusty"
