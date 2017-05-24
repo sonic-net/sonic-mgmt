@@ -75,6 +75,11 @@ ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags 
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags snmp,snmp_cpu,snmp_interfaces
 ```
 
+### Sensors test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags sensors
+```
+
 ### Syslog test
 ```
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags syslog
