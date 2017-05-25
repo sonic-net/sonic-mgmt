@@ -7,7 +7,7 @@
 ### -e "ptf_host=10.0.0.200"
 - fail: msg="Please set ptf_host variable"
   when: ptf_host is not defined
-  tags: arp,dhcp_relay
+  tags: arp,dhcp_relay,qos,saiserver
 
 # Set sonic_hwsku
 - name: Set sonic_hwsku fact
@@ -60,6 +60,16 @@
   tags: dhcp_relay
   when: minigraph_devices[inventory_hostname]['type'] == "ToRRouter"
 
+- name: Test QOS
+  include: qos.yml
+  when: sonic_hwsku in broadcom_hwskus
+  tags: qos
+
+- name: Test QoS using SAI
+  include: qos_sai.yml
+  when: sonic_hwsku in mellanox_hwskus and sonic_version=='v2' and host_saithrift
+  tags: qos
+
 - name: Test Control-Plain policing COPP
   include_tasks: copp.yml
   tags: copp
@@ -107,6 +117,10 @@
 - name: Test reboot
   include_tasks: reboot.yml
   tags: reboot
+
+- name: SAIThrift tests
+  include: saiserver.yml
+  tags: saiserver
 
 ### When calling the following tests, please add command line of what testbed_type and which PTF docker to test against
 ### -e "testbed_type=t1-lag ptf_host=10.0.0.200"
