@@ -25,14 +25,19 @@
       delegate_to: "{{ ptf_host }}"
 
     - name: copy the test to ptf container
-      copy: src=roles/test/files/saitests dest=/root
+      copy: src=roles/test/files/ptftests dest=/root
       delegate_to: "{{ ptf_host }}"
 
-    - include: copp_ptf.yml
+    - include: ptf_runner.yml
       vars:
-        test_name: COPP test - {{ item }}
-        test_path: copp_tests.{{ item }}
-        test_params: ""
+        ptf_test_name: COPP test - {{ item }}
+        ptf_test_dir: ptftests
+        ptf_test_path: copp_tests.{{ item }}
+        ptf_platform: nn
+        ptf_qlen: 100000
+        ptf_test_params:
+        - verbose=False
+        ptf_extra_options: --device-socket 0-3@tcp://127.0.0.1:10900 --device-socket 1-3@tcp://{{ ansible_eth0['ipv4']['address'] }}:10900
       with_items:
         - ARPTest
         - DHCPTest
