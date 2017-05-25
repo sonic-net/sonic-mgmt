@@ -61,6 +61,7 @@ vms2-2  ansible_host=10.64.246.25  ansible_ssh_user=root ansible_ssh_pass=root
 vms3-1  ansible_host=10.64.246.17  ansible_ssh_user=root ansible_ssh_pass=root
 vms3-2  ansible_host=10.64.246.19  ansible_ssh_user=root ansible_ssh_pass=root
 vms3-3  ansible_host=10.64.246.20  ansible_ssh_user=root ansible_ssh_pass=root
+vms3-4  ansible_host=10.64.246.11  ansible_ssh_user=root ansible_ssh_pass=root
 vms3-5  ansible_host=10.64.246.26  ansible_ssh_user=root ansible_ssh_pass=root
 vms3-61 ansible_host=10.64.246.21  ansible_ssh_user=root ansible_ssh_pass=root
 vms3-60 ansible_host=10.64.246.12  ansible_ssh_user=root ansible_ssh_pass=root

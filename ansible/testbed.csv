@@ -28,5 +28,5 @@ vms3-3,vms3-3,t0,docker-ptf-sai-brcm,10.64.246.20/23,server_3,VM0336,str-s6000-a
 vms3-t0-s6100,vms3-61,t0-64,docker-ptf-sai-brcm,10.64.246.21/23,server_3,VM0340,str-s6100-acs-1,Pavel
 vms3-t0-s6000,vms3-60,t0-64-32,docker-ptf-sai-brcm,10.64.246.12/23,server_3,VM0344,str-s6000-on-4,Pavel
 vms3-5,vms3-5,t0,docker-ptf-sai-mlnx,10.64.246.26/23,server_3,VM0348,str-msn2700-04,Jenkins
-vms3-4,vms3-4,t1,docker-ptf-sai-brcm,10.64.246.11/23,server_3,VM0364,str-s6000-acs-13,Sihui
+vms3-4,vms3-4,t0,docker-ptf-sai-brcm,10.64.246.11/23,server_3,VM0360,str-s6000-acs-13,Sihui
 vms-example-ixia-1,vms6-1,t0-64,docker-ptf-ixia,example-ixia-ptf-1,10.0.0.30/32,server_6,VM0600,example-s6100-dut-1,superman
