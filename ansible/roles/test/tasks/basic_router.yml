@@ -1,0 +1,62 @@
+- block: 
+  - name: Stop the sswsyncd docker container
+    include: ../../sonic-common/tasks/sonicdocker.yml
+    vars:
+      docker_container: docker-sswsyncd
+      docker_image: "{{ image_id_sswsyncd }}"
+      docker_privileged: yes
+      docker_volumes: "{{ sswsyncd_docker_volumes }}"
+      docker_state: stopped
+
+  - name: Pause 1 seconds
+    pause: seconds=1
+
+  - name: Start the basic_router docker container
+    include: ../../sonic-common/tasks/sonicdocker.yml
+    vars:
+      docker_container: docker-basic_router
+      docker_image: "{{ image_id_basic_router }}"
+      docker_privileged: yes
+      docker_volumes: "{{ rsyslog_volumes }}"
+
+  - name: Run sai basic_router test
+    shell: ( [ -e /dev/linux-bcm-knet ] || mknod /dev/linux-bcm-knet c 122 0 ) && ( [ -e /dev/linux-uk-proxy ] || mknod /dev/linux-uk-proxy c 125 0 ) && ( [ -e /dev/linux-user-bde ] || mknod /dev/linux-user-bde c 126 0 ) && ( [ -e /dev/linux-kernel-bde ] || mknod /dev/linux-kernel-bde c 127 0 ) && /usr/sbin/basic_router
+    register: echo
+    vars:
+      ansible_shell_type: docker
+      ansible_python_interpreter: docker exec -i basic_router python
+    ignore_errors: true
+    
+- always:
+  - name: Stop the basic_router docker container
+    include: ../../sonic-common/tasks/sonicdocker.yml
+    vars:
+      docker_container: docker-basic_router
+      docker_image: "{{ image_id_basic_router }}"
+      docker_privileged: yes
+      docker_volumes: "{{ rsyslog_volumes }}"
+      docker_state: stopped
+
+  - name: ReStart the sswsyncd docker container
+    include: ../../sonic-common/tasks/sonicdocker.yml
+    vars:
+      docker_container: docker-sswsyncd
+      docker_image: "{{ image_id_sswsyncd }}"
+      docker_privileged: yes
+      docker_volumes: "{{ sswsyncd_docker_volumes }}"
+
+  - name: Pause 1 seconds
+    pause: seconds=1
+
+  - name: Log stdout_lines
+    debug: var=echo.stdout_lines
+
+  - name: Log stderr
+    debug: var=echo.stderr
+
+  - name: Fail if return code is not 0
+    assert:
+      that:
+        - echo.rc == 0
+    no_log: true
+

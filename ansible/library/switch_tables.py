@@ -2,7 +2,7 @@
 
 # Note:
 # Do not use 'env python' in shebang because Ansbile parses it straightforwardly and try to
-# replace it with var ansible_python_interpreter. We exploit this var to implement docker exec support.
+# replace it with var ansible_python_interpreter.
 #
 # ref: https://github.com/ansible/ansible/blob/devel/lib/ansible/executor/module_common.py
 
@@ -32,6 +32,62 @@ import json
 import re
 import socket
 
+
+# BROADCOM SECTION #
+####################
+
+# Entry VRF IPaddress MacAddress INTF MOD PORT CLASS HIT
+def parse_l3table(output):
+    table = {}
+
+    for line in output.split('\n')[3:]:
+        li = line.split()
+        if len(li) != 9:
+            break
+        table[li[2]] = li[3]
+
+    return table
+
+
+# Entry Mac Vlan INTF PORT MOD MPLS_LABEL ToCpu Drop RefCount L3MC
+def parse_egress(output):
+    table = {}
+
+    for line in output.split('\n')[2:]:
+        li = line.split()
+        if len(li) != 11:
+            break
+        table[li[1]] = li[0]
+
+    return table
+
+
+# # VRF Netaddr NextHopMac INTF MODID PORT PRIO CLASS HIT VLAN
+def parse_defip(output):
+    table = {}
+
+    for line in output.split('\n')[3:]:
+        li = line.split()
+        if len(li) != 10 and len(li) != 11:
+            break
+        table[li[2]] = li[4]
+
+    return table
+
+
+# Multipath Egress Object
+# Interfaces:
+# Reference count:
+def parse_multipath(output):
+    table = {}
+
+    multipath_re = """Multipath Egress Object (\d{6})\s*Interfaces: (((\d{6})\s*)+)"""
+    matches = re.findall(multipath_re, output)
+
+    for match in matches:
+        table[match[0]] = match[1].split()
+
+    return table
 
 
 # MELLANOX SECTION #
@@ -106,8 +162,45 @@ def main():
     results = dict()
 
     if module.params['asic'] == 'broadcom':
-        self.module.fail_json(msg="Broadcom support missing.")
-        
+        rc, out, err = module.run_command('bcmcmd "l3 l3table show"')
+        if rc != 0:
+            self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" %
+                                      (rc, out, err))
+        l3table = parse_l3table(out)
+
+        rc, out, err = module.run_command('bcmcmd "l3 egress show"')
+        if rc != 0:
+            self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" %
+                                      (rc, out, err))
+        egress = parse_egress(out)
+
+        rc, out, err = module.run_command('bcmcmd "l3 defip show"')
+        if rc != 0:
+            self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" %
+                                      (rc, out, err))
+        defip = parse_defip(out)
+
+        rc, out, err = module.run_command('bcmcmd "l3 multipath show"')
+        if rc != 0:
+            self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" %
+                                      (rc, out, err))
+        multipath = parse_multipath(out)
+
+        if module.params['nexthop']:
+            results['nexthop'] = dict()
+            for ip in l3table:
+                assert l3table[ip] in egress
+                results['nexthop'][ip] = egress[l3table[ip]]
+
+        if module.params['nexthopgroup']:
+            results['nexthopgroup'] = multipath
+
+        if module.params['neighbor']:
+            results['neighbor'] = l3table
+
+        if module.params['route']:
+            results['route'] = defip
+
 
     if module.params['asic'] == 'mellanox':
 
