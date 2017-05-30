@@ -37,12 +37,11 @@ class DataplaneBaseTest(BaseTest):
             self.dataplane.stop_pcap()
 
 """
- This test simulates a new host booting up of the Vlan network of a ToR and
+ This test simulates a new host booting up on the VLAN network of a ToR and
  requesting an IP address via DHCP. Setup is as follows:
-  - DHCP client is simulated by crafting and sending packets on a port
-    connected to Vlan of ToR.
-  - PTF listens/sends on injected interfaces which link ToR to leaves. With this,
-    we can listen for traffic sent from DHCP relay out to would-be DHCP servers
+  - DHCP client is simulated by listening/sending on an interface connected to VLAN of ToR.
+  - DHCP server is simulated by listening/sending on injected PTF interfaces which link
+    ToR to leaves. This way we can listen for traffic sent from DHCP relay out to would-be DHCP servers
 
  This test performs the following functionality:
    1.) Simulated client broadcasts a DHCPDISCOVER message
@@ -58,25 +57,24 @@ class DataplaneBaseTest(BaseTest):
    8.) Verify DHCP relay receives the DHCPACK message and forwards it to our
        simulated client.
 
-
  To run: place the following in a shell script (this will test against str-s6000-acs-12 (ec:f4:bb:fe:88:0a)):
-   ptf --test-dir test dhcp_relay_test.DHCPTest --platform remote -t "verbose=True; client_port_index=\"4\"; leaf_port_indices=\"[28, 29, 30, 31]\"; server_ip=\"2.2.2.2\"; relay_iface_name=\"Vlan1000\"; relay_iface_ip=\"192.168.0.1\"; relay_iface_mac=\"ec:f4:bb:fe:88:0a\"; relay_iface_netmask=\"255.255.255.224\"" --disable-ipv6 --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
+   ptf --test-dir test dhcp_relay_test.DHCPTest --platform remote -t "verbose=True; client_port_index=\"4\"; leaf_port_indices=\"[28, 29, 30, 31]\"; server_ip=\"192.0.0.1\"; relay_iface_name=\"Vlan1000\"; relay_iface_ip=\"192.168.0.1\"; relay_iface_mac=\"ec:f4:bb:fe:88:0a\"; relay_iface_netmask=\"255.255.255.224\"" --disable-ipv6 --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
 
  The above command is configured to test with the following configuration:
-  - Vlan IP of DuT is 192.168.0.1, MAC address is ec:f4:bb:fe:88:0a (this is configured to test against str-s6000-acs-12)
+  - VLAN IP of DuT is 192.168.0.1, MAC address is ec:f4:bb:fe:88:0a (this is configured to test against str-s6000-acs-12)
   - Simulated client will live on PTF interface eth4 (interface number 4)
   - Assumes leaf switches are connected to injected PTF interfaces 28, 29, 30, 31
-  - Test will simulate replies from server with IP '2.2.2.2'
-  - Simulated server will offer simulated client IP '192.168.0.2' with a subnet of '255.255.255.0' (this should be in the Vlan of DuT)
+  - Test will simulate replies from server with IP '192.0.0.1'
+  - Simulated server will offer simulated client IP '192.168.0.2' with a subnet of '255.255.255.0' (this should be in the VLAN of DuT)
 
 
  DHCP Relay currently installed with SONiC is isc-dhcp-relay
 
  TODO???:
-	1) DHCP Renew Test
-	2) DHCP NACK Test
-	3) DHCP Option 82 - remote ID test when available
-	4) Test with multiple DHCP Servers
+        1) DHCP Renew Test
+        2) DHCP NACK Test
+        3) DHCP Option 82 - remote ID test when available
+        4) Test with multiple DHCP Servers
 
 """
 
@@ -103,7 +101,10 @@ class DHCPTest(DataplaneBaseTest):
         # These are the interfaces we are injected into that link to out leaf switches
         self.server_port_indices = ast.literal_eval(self.test_params['leaf_port_indices'])
         self.num_dhcp_servers = int(self.test_params['num_dhcp_servers'])
+
+        # We will simulate a responding DHCP server on the first interface in the provided set
         self.server_ip = self.test_params['server_ip']
+        self.server_iface_mac = self.dataplane.get_mac(0, self.server_port_indices[0])
 
         self.relay_iface_name = self.test_params['relay_iface_name']
         self.relay_iface_ip = self.test_params['relay_iface_ip']
@@ -165,7 +166,7 @@ class DHCPTest(DataplaneBaseTest):
                     hops=1,
                     xid=0,
                     secs=0,
-                    flags=0x8000,
+                    flags=0,
                     ciaddr=self.DEFAULT_ROUTE_IP,
                     yiaddr=self.DEFAULT_ROUTE_IP,
                     siaddr=self.DEFAULT_ROUTE_IP,
@@ -180,10 +181,13 @@ class DHCPTest(DataplaneBaseTest):
         return pkt
 
     def create_dhcp_offer_packet(self):
-        return testutils.dhcp_offer_packet(eth_client=self.client_iface_mac,
-                    eth_server=self.relay_iface_mac,
-                    ip_server=self.relay_iface_ip,
+        return testutils.dhcp_offer_packet(eth_server=self.server_iface_mac,
+                    eth_dst=self.relay_iface_mac,
+                    eth_client=self.client_iface_mac,
+                    ip_server=self.server_ip,
+                    ip_dst=self.relay_iface_ip,
                     ip_offered=self.client_ip,
+                    port_dst=self.DHCP_SERVER_PORT,
                     ip_gateway=self.relay_iface_ip,
                     netmask_client=self.client_subnet,
                     dhcp_lease=self.LEASE_TIME,
@@ -214,7 +218,7 @@ class DHCPTest(DataplaneBaseTest):
                     hops=1,
                     xid=0,
                     secs=0,
-                    flags=0x8000,
+                    flags=0,
                     ciaddr=self.DEFAULT_ROUTE_IP,
                     yiaddr=self.DEFAULT_ROUTE_IP,
                     siaddr=self.DEFAULT_ROUTE_IP,
@@ -231,12 +235,15 @@ class DHCPTest(DataplaneBaseTest):
         return pkt
 
     def create_dhcp_ack_packet(self):
-        return testutils.dhcp_ack_packet(eth_client=self.client_iface_mac,
-                    eth_server=self.relay_iface_mac,
-                    ip_server=self.relay_iface_ip,
+        return testutils.dhcp_ack_packet(eth_server=self.server_iface_mac,
+                    eth_dst=self.relay_iface_mac,
+                    eth_client=self.client_iface_mac,
+                    ip_server=self.server_ip,
+                    ip_dst=self.relay_iface_ip,
                     ip_offered=self.client_ip,
-                    netmask_client=self.client_subnet,
+                    port_dst=self.DHCP_SERVER_PORT,
                     ip_gateway=self.relay_iface_ip,
+                    netmask_client=self.client_subnet,
                     dhcp_lease=self.LEASE_TIME,
                     padding_bytes=0)
 
@@ -246,7 +253,7 @@ class DHCPTest(DataplaneBaseTest):
 
     """
 
-    # Simulate client coming on vlan and broadcasting a DHCPDISCOVER message
+    # Simulate client coming on VLAN and broadcasting a DHCPDISCOVER message
     def client_send_discover(self):
         # Form and send DHCPDISCOVER packet
         dhcp_discover = self.create_dhcp_discover_packet()
@@ -294,24 +301,30 @@ class DHCPTest(DataplaneBaseTest):
     # of our leaf switches.
     def server_send_offer(self):
         dhcp_offer = self.create_dhcp_offer_packet()
-        testutils.send_packet(self, self.client_port_index, dhcp_offer)
+        testutils.send_packet(self, self.server_port_indices[0], dhcp_offer)
 
     # Verify that the DHCPOFFER would be received by our simulated client
     def verify_offer_received(self):
         dhcp_offer = self.create_dhcp_offer_packet()
 
         masked_offer = Mask(dhcp_offer)
+        masked_offer.set_do_not_care_scapy(scapy.Ether, "src")
         masked_offer.set_do_not_care_scapy(scapy.Ether, "dst")
-        masked_offer.set_do_not_care_scapy(scapy.UDP, "chksum")
-        masked_offer.set_do_not_care_scapy(scapy.IP, "chksum")
 
-        # Mask out lease time since it changes depending on when the server recieves the request
+        masked_offer.set_do_not_care_scapy(scapy.IP, "chksum")
+        masked_offer.set_do_not_care_scapy(scapy.IP, "src")
+        masked_offer.set_do_not_care_scapy(scapy.IP, "dst")
+
+        masked_offer.set_do_not_care_scapy(scapy.UDP, "chksum")
+        masked_offer.set_do_not_care_scapy(scapy.UDP, "dport")
+
+        # Mask out lease time since it can change depending on when the server receives the request
         # Lease time in ack can be slightly different than in offer, since lease time varies slightly
         # We also want to ignore the checksums since they will vary a bit depending on the timestamp
         # Offset is byte 292, 6 byte field, set_do_not_care() expects values in bits
         masked_offer.set_do_not_care((self.DHCP_LEASE_TIME_OFFSET * 8), (self.DHCP_LEASE_TIME_LEN * 8))
 
-        # NOTE: verify_packet() will fail for us via an assert, so no nedd to check a return value here
+        # NOTE: verify_packet() will fail for us via an assert, so no need to check a return value here
         testutils.verify_packet(self, masked_offer, self.client_port_index)
 
     # Simulate our client sending a DHCPREQUEST message
@@ -359,7 +372,7 @@ class DHCPTest(DataplaneBaseTest):
     # Simulate a DHCP server sending a DHCPOFFER message to client from one of our leaves
     def server_send_ack(self):
         dhcp_ack = self.create_dhcp_ack_packet()
-        testutils.send_packet(self, self.client_port_index, dhcp_ack)
+        testutils.send_packet(self, self.server_port_indices[0], dhcp_ack)
 
     # Verify that the DHCPACK would be received by our simulated client
     def verify_ack_received(self):
@@ -367,14 +380,21 @@ class DHCPTest(DataplaneBaseTest):
 
         # Mask out lease time, ip checksum, udp checksum (explanation above)
         masked_ack = Mask(dhcp_ack)
+
+        masked_ack.set_do_not_care_scapy(scapy.Ether, "src")
         masked_ack.set_do_not_care_scapy(scapy.Ether, "dst")
-        masked_ack.set_do_not_care_scapy(scapy.UDP, "chksum")
+
         masked_ack.set_do_not_care_scapy(scapy.IP, "chksum")
+        masked_ack.set_do_not_care_scapy(scapy.IP, "src")
+        masked_ack.set_do_not_care_scapy(scapy.IP, "dst")
+
+        masked_ack.set_do_not_care_scapy(scapy.UDP, "chksum")
+        masked_ack.set_do_not_care_scapy(scapy.UDP, "dport")
 
         # Also mask out lease time (see comment in verify_offer_received() above)
         masked_ack.set_do_not_care((self.DHCP_LEASE_TIME_OFFSET * 8), (self.DHCP_LEASE_TIME_LEN * 8))
 
-        # NOTE: verify_packet() will fail for us via an assert, so no nedd to check a return value here
+        # NOTE: verify_packet() will fail for us via an assert, so no need to check a return value here
         testutils.verify_packet(self, masked_ack, self.client_port_index)
 
     def runTest(self):
