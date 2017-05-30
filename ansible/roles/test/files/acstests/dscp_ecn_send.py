@@ -24,6 +24,7 @@ class DscpEcnSend(acs_base_test.ACSDataplaneTest):
         tos |= self.test_params['ecn']
         ip_src = '10.0.0.1' if 'ip_src' not in self.test_params else self.test_params['ip_src']
         ip_dst = '10.0.0.3' if 'ip_dst' not in self.test_params else self.test_params['ip_dst']
+        port_src = 0 if 'port_src' not in self.test_params else self.test_params['port_src']
         for i in range(0, self.test_params['packet_num']):
             pkt = simple_tcp_packet(eth_dst=router_mac,
                             eth_src=src_mac[0],
@@ -32,7 +33,7 @@ class DscpEcnSend(acs_base_test.ACSDataplaneTest):
                             ip_tos=tos,
                             ip_id=i,
                             ip_ttl=64)
-            send_packet(self, 0, pkt)
+            send_packet(self, int(port_src), pkt)
 
         leaking_pkt_number = 0
         for (rcv_port_number, pkt_str, pkt_time) in self.dataplane.packets(0, 1):
