@@ -1514,8 +1514,8 @@
   <MetadataDeclaration>
     <Devices xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
       <a:DeviceMetadata>
-      <a:Name>str-s6000-acs-8</a:Name>
-      <a:Properties>
+         <a:Name>str-s6000-acs-8</a:Name>
+         <a:Properties>
          <a:DeviceProperty>
            <a:Name>DhcpResources</a:Name>
            <a:Reference i:nil="true"/>
@@ -1537,9 +1537,14 @@
            <a:Value>10.3.145.98/31;10.3.145.0/24;100.127.20.16/28;10.3.149.170/31;40.122.216.24;13.91.48.226;10.20.6.16;10.20.8.128/25;10.64.5.5</a:Value>
          </a:DeviceProperty>
          </a:Properties>
-         </a:DeviceMetadata>
-     </Devices>
-     <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
+         <a:DeviceProperty>
+            <a:Name>ErspanDestinationIpv4</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>10.20.6.16</a:Value>
+         </a:DeviceProperty>
+      </a:DeviceMetadata>
+    </Devices>
+    <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
   </MetadataDeclaration>
   <Hostname>str-s6000-acs-8</Hostname>
   <HwSku>Force10-S6000</HwSku>

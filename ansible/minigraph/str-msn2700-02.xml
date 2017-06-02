@@ -1055,6 +1055,21 @@
       </Device>
     </Devices>
   </PngDec>
+  <MetadataDeclaration>
+    <Devices xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+      <a:DeviceMetadata>
+        <a:Name>str-msn2700-02</a:Name>
+        <a:Properties>
+          <a:DeviceProperty>
+            <a:Name>ErspanDestinationIpv4</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>10.20.6.16</a:Value>
+          </a:DeviceProperty>          
+        </a:Properties>
+      </a:DeviceMetadata>
+    </Devices>
+    <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
+  </MetadataDeclaration>
   <Hostname>str-msn2700-02</Hostname>
   <HwSku>ACS-MSN2700</HwSku>
 </DeviceMiniGraph>

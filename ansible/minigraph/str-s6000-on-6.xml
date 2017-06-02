@@ -1536,8 +1536,13 @@
            <a:Reference i:nil="true"/>
            <a:Value>10.3.145.98/31;10.3.145.0/24;100.127.20.16/28;10.3.149.170/31;40.122.216.24;13.91.48.226;10.20.6.16;10.20.8.128/25;10.64.5.5</a:Value>
          </a:DeviceProperty>
-         </a:Properties>
-         </a:DeviceMetadata>
+         <a:DeviceProperty>
+           <a:Name>ErspanDestinationIpv4</a:Name>
+           <a:Reference i:nil="true"/>
+           <a:Value>10.20.6.16</a:Value>
+         </a:DeviceProperty>          
+       </a:Properties>
+      </a:DeviceMetadata>
      </Devices>
      <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
   </MetadataDeclaration>
