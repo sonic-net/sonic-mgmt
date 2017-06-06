@@ -1,0 +1,62 @@
+- fail: msg="testbed_type is not defined"
+  when: testbed_type is not defined
+
+- fail: msg="testbed_type {{test_type}} is invalid"
+  when: testbed_type not in ['t0']
+
+- include_vars: "vars/topo_{{testbed_type}}.yml"
+
+- name: Expand properties into props
+  set_fact: props="{{configuration_properties['common']}}"
+  when: testbed_type in ['t0']
+
+- name: Gather minigraph facts about the device
+  minigraph_facts: host={{inventory_hostname}}
+  connection: local
+
+- name: Remove existing IPs from PTF host
+  script: roles/test/files/helpers/remove_ip.sh
+  delegate_to: "{{ptf_host}}"
+
+- name: Set unique MACs to PTF interfaces
+  script: roles/test/files/helpers/change_mac.sh
+  delegate_to: "{{ptf_host}}"
+
+- name: Copy tests to PTF
+  copy: src=roles/test/files/ptftests dest=/root
+  delegate_to: "{{ptf_host}}"
+
+- name: Copy ARP responder to PTF
+  copy: src=roles/test/files/helpers/arp_responder.py dest=/opt
+  delegate_to: "{{ptf_host}}"
+
+- name: Copy ARP responder supervisor configuration to PTF
+  copy: src=roles/test/files/supervisor/arp_responder.conf dest=/etc/supervisor/conf.d
+  delegate_to: "{{ptf_host}}"
+
+- name: Reread supervisor configuration
+  shell: /usr/bin/supervisorctl reread
+  delegate_to: "{{ptf_host}}"
+
+- name: Update supervisor configuration
+  shell: /usr/bin/supervisorctl update
+  delegate_to: "{{ ptf_host }}"
+
+- name: Copy FDB information file to PTF
+  template: src=roles/test/templates/fdb.j2 dest=/root/fdb_info.txt
+  delegate_to: "{{ ptf_host }}"
+
+- name: "Start PTF runner"
+  include: ptf_runner.yml
+  vars:
+    ptf_test_name: FDB test
+    ptf_test_dir: ptftests
+    ptf_test_path: fdb_test.FdbTest
+    ptf_platform: remote
+    ptf_test_params:
+      - testbed_type='{{testbed_type}}'
+      - router_mac='{{ansible_Ethernet0['macaddress']}}'
+      - fdb_info='/root/fdb_info.txt'
+      - vlan_ip='{{minigraph_vlan_interfaces[0]['addr']}}'
+    ptf_extra_options: "--relax --debug info --log-file /tmp/fdb_test.FdbTest.{{ansible_date_time.iso8601}}.log "
+  
