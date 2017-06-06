@@ -59,7 +59,7 @@ class FibTest(BaseTest):
     # Class variables
     #---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
-    BALANCING_TEST_TIMES = 5000
+    BALANCING_TEST_TIMES = 10000
     DEFAULT_BALANCING_TEST_RATIO = 0.0001
 
     def __init__(self):
@@ -105,13 +105,16 @@ class FibTest(BaseTest):
             ip_ranges = self.fib.ipv6_ranges()
 
         for ip_range in ip_ranges:
+
             # Get the expected list of ports that would receive the packets
             exp_port_list = self.fib[ip_range.get_first_ip()].get_next_hop_list()
             # Choose random one source port from all ports excluding the expected ones
             src_port = random.choice([port for port in self.src_ports if port not in exp_port_list])
 
-            if not len(exp_port_list):
+            if not exp_port_list:
                 continue
+
+            logging.info("Check IP range:" + str(ip_range) + " on " + str(exp_port_list) + "...")
 
             # Send a packet with the first IP in the range
             self.check_ip_route(src_port, ip_range.get_first_ip(), exp_port_list, ipv4)
@@ -124,6 +127,7 @@ class FibTest(BaseTest):
 
             # Test traffic balancing across ECMP/LAG members
             if len(exp_port_list) > 1 and random.random() < self.balancing_test_ratio:
+                logging.info("Check IP range balancing...")
                 dst_ip = ip_range.get_random_ip()
                 hit_count_map = {}
                 for i in range(0, self.BALANCING_TEST_TIMES):
@@ -222,9 +226,6 @@ class FibTest(BaseTest):
         @return (percentage, bool)
         '''
         percentage = (actual - expected) / float(expected)
-        '''
-        print "%10s" % str(round(percentage, 4)*100) + '%'
-        '''
         return (percentage, abs(percentage) <= self.balancing_range)
 
     #---------------------------------------------------------------------
@@ -236,24 +237,24 @@ class FibTest(BaseTest):
         @return bool
         '''
 
-        logging.info("%-10s \t %10s \t %10s \t %10s" % ("port(s)", "exp_cnt", "act_cnt", "diff(%)"))
+        logging.info("%10s \t %-10s \t %10s \t %10s \t %10s" % ("type", "port(s)", "exp_cnt", "act_cnt", "diff(%)"))
         result = True
 
-        total_hit_cnt = float(sum(port_hit_cnt.values()))
+        total_hit_cnt = sum(port_hit_cnt.values())
         for ecmp_entry in dest_port_list:
-            total_entry_hit_cnt = 0.0
+            total_entry_hit_cnt = 0
             for member in ecmp_entry:
                 total_entry_hit_cnt += port_hit_cnt.get(member, 0)
-            (p, r) = self.check_within_expected_range(total_entry_hit_cnt, total_hit_cnt/len(dest_port_list))
-            logging.info("%-10s \t %10d \t %10d \t %10s"
-                         % (str(ecmp_entry), total_hit_cnt/len(dest_port_list), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
+            (p, r) = self.check_within_expected_range(total_entry_hit_cnt, float(total_hit_cnt)/len(dest_port_list))
+            logging.info("%10s \t %-10s \t %10d \t %10d \t %10s"
+                         % ("ECMP", str(ecmp_entry), total_hit_cnt/len(dest_port_list), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
             result &= r
-            if len(ecmp_entry) == 1:
+            if len(ecmp_entry) == 1 or total_entry_hit_cnt == 0:
                 continue
             for member in ecmp_entry:
-                (p, r) = self.check_within_expected_range(port_hit_cnt.get(member, 0), total_entry_hit_cnt/len(ecmp_entry))
-                logging.info("%-10s \t %10d \t %10d \t %10s"
-                              % (str(member), total_entry_hit_cnt/len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
+                (p, r) = self.check_within_expected_range(port_hit_cnt.get(member, 0), float(total_entry_hit_cnt)/len(ecmp_entry))
+                logging.info("%10s \t %-10s \t %10d \t %10d \t %10s"
+                              % ("LAG", str(member), total_entry_hit_cnt/len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
                 result &= r
 
         assert result
