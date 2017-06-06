@@ -1,32 +1,32 @@
 # uniq-name,testbed-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,owner
 
 # ptfs
-ptf1-1,ptf1-1,ptf32,docker-ptf-sai-brcm,10.64.246.6/23,server_1,,str-s6000-acs-8,Jenkins
-ptf1-2,ptf1-2,ptf32,docker-ptf-sai-brcm,10.64.246.13/23,server_1,,str-s6000-on-6,masun
-ptf1-3,ptf1-3,ptf32,docker-ptf-sai-brcm,10.64.246.7/23,server_1,,str-s6000-on-2,John
-ptf1-4,ptf1-4,ptf32,docker-ptf-sai-brcm,10.64.246.8/23,server_1,,str-s6000-on-4,Pavel
-ptf1-5,ptf1-5,ptf32,docker-ptf-sai-brcm,10.64.246.9/23,server_1,,str-a7050-acs-2,Guohan
-ptf1-6,ptf1-6,ptf32,docker-ptf-sai-mlnx,10.64.246.10/23,server_1,,str-msn2700-05,Jenkins
-ptf2-1,ptf2-1,ptf32,docker-ptf-sai-mlnx,10.64.246.14/23,server_2,,str-msn2700-02,Dor
-ptf2-3,ptf2-3,ptf32,docker-ptf-sai-mlnx,10.64.246.15/23,server_2,,str-msn2700-06,Manny
-ptf2-6-b,ptf2-6,ptf32,docker-ptf-sai-brcm,10.64.246.16/23,server_2,,str-s6000-acs-9,Taoyu
+ptf1-1,ptf1-1,ptf32,docker-ptf-brcm,10.64.246.6/23,server_1,,str-s6000-acs-8,Jenkins
+ptf1-2,ptf1-2,ptf32,docker-ptf-brcm,10.64.246.13/23,server_1,,str-s6000-on-6,masun
+ptf1-3,ptf1-3,ptf32,docker-ptf-brcm,10.64.246.7/23,server_1,,str-s6000-on-2,John
+ptf1-4,ptf1-4,ptf32,docker-ptf-brcm,10.64.246.8/23,server_1,,str-s6000-on-4,Pavel
+ptf1-5,ptf1-5,ptf32,docker-ptf-brcm,10.64.246.9/23,server_1,,str-a7050-acs-2,Guohan
+ptf1-6,ptf1-6,ptf32,docker-ptf-mlnx,10.64.246.10/23,server_1,,str-msn2700-05,Jenkins
+ptf2-1,ptf2-1,ptf32,docker-ptf-mlnx,10.64.246.14/23,server_2,,str-msn2700-02,Dor
+ptf2-3,ptf2-3,ptf32,docker-ptf-mlnx,10.64.246.15/23,server_2,,str-msn2700-06,Manny
+ptf2-6-b,ptf2-6,ptf32,docker-ptf-brcm,10.64.246.16/23,server_2,,str-s6000-acs-9,Taoyu
 ptf2-6-c,ptf2-6,ptf32,docker-ptf,10.64.246.16/23,server_2,,str-cavium-str-1,Taoyu
 ptf2-6-s,ptf2-6,ptf32,docker-ptf,10.64.246.16/23,server_2,,str-9232-acs-2,Taoyu
-ptf3-1,ptf3-1,ptf32,docker-ptf-sai-brcm,10.64.246.18/23,server_3,,str-s6000-acs-14,Guohan
+ptf3-1,ptf3-1,ptf32,docker-ptf-brcm,10.64.246.18/23,server_3,,str-s6000-acs-14,Guohan
 # vmsets
-vms1-1-generic,vms1-1,t1,docker-ptf-sai-brcm,10.64.246.22/23,server_1,VM0100,str-s6000-acs-11,Shuotian
-vms1-1-lag,vms1-1,t1-lag,docker-ptf-sai-brcm,10.64.246.22/23,server_1,VM0100,str-s6000-acs-11,Shuotian
-vms1-1-t0,vms1-1,t0,docker-ptf-sai-brcm,10.64.246.22/23,server_1,VM0100,str-s6000-acs-11,Shuotian
-vms1-2,vms1-2,t1,docker-ptf-sai-brcm,10.64.246.23/23,server_1,VM0132,str-s6000-on-5,Qi
-vms1-2-b,vms1-2,t1,docker-ptf-sai-brcm,10.64.246.23/23,server_1,VM0132,str-a7050-acs-2,Qi
-vms1-2-m,vms1-2,t1,docker-ptf-sai-mlnx,10.64.246.23/23,server_1,VM0132,str-msn2700-03,Qi
-vms2-1,vms2-1,t1,docker-ptf-sai-brcm,10.64.246.24/23,server_2,VM0200,str-s6000-acs-13,Sihui
-vms2-2,vms2-2,t1,docker-ptf-sai-mlnx,10.64.246.25/23,server_2,VM0232,str-msn2700-05,Jenkins
-vms3-1,vms3-1,t0,docker-ptf-sai-brcm,10.64.246.17/23,server_3,VM0300,str-s6000-acs-12,Joe
-vms3-2,vms3-2,t1-lag,docker-ptf-sai-brcm,10.64.246.19/23,server_3,VM0304,str-s6000-on-2,Jenkins
-vms3-3,vms3-3,t0,docker-ptf-sai-brcm,10.64.246.20/23,server_3,VM0336,str-s6000-acs-7,Jenkins
-vms3-t0-s6100,vms3-61,t0-64,docker-ptf-sai-brcm,10.64.246.21/23,server_3,VM0340,str-s6100-acs-1,Pavel
-vms3-t0-s6000,vms3-60,t0-64-32,docker-ptf-sai-brcm,10.64.246.12/23,server_3,VM0344,str-s6000-on-4,Pavel
-vms3-5,vms3-5,t0,docker-ptf-sai-mlnx,10.64.246.26/23,server_3,VM0348,str-msn2700-04,Jenkins
-vms3-4,vms3-4,t0,docker-ptf-sai-brcm,10.64.246.11/23,server_3,VM0360,str-s6000-acs-13,Sihui
+vms1-1-generic,vms1-1,t1,docker-ptf-brcm,10.64.246.22/23,server_1,VM0100,str-s6000-acs-11,Shuotian
+vms1-1-lag,vms1-1,t1-lag,docker-ptf-brcm,10.64.246.22/23,server_1,VM0100,str-s6000-acs-11,Shuotian
+vms1-1-t0,vms1-1,t0,docker-ptf-brcm,10.64.246.22/23,server_1,VM0100,str-s6000-acs-11,Shuotian
+vms1-2,vms1-2,t1,docker-ptf-brcm,10.64.246.23/23,server_1,VM0132,str-s6000-on-5,Qi
+vms1-2-b,vms1-2,t1,docker-ptf-brcm,10.64.246.23/23,server_1,VM0132,str-a7050-acs-2,Qi
+vms1-2-m,vms1-2,t1,docker-ptf-mlnx,10.64.246.23/23,server_1,VM0132,str-msn2700-03,Qi
+vms2-1,vms2-1,t1,docker-ptf-brcm,10.64.246.24/23,server_2,VM0200,str-s6000-acs-13,Sihui
+vms2-2,vms2-2,t1,docker-ptf-mlnx,10.64.246.25/23,server_2,VM0232,str-msn2700-05,Jenkins
+vms3-1,vms3-1,t0,docker-ptf-brcm,10.64.246.17/23,server_3,VM0300,str-s6000-acs-12,Joe
+vms3-2,vms3-2,t1-lag,docker-ptf-brcm,10.64.246.19/23,server_3,VM0304,str-s6000-on-2,Jenkins
+vms3-3,vms3-3,t0,docker-ptf-brcm,10.64.246.20/23,server_3,VM0336,str-s6000-acs-7,Jenkins
+vms3-t0-s6100,vms3-61,t0-64,docker-ptf-brcm,10.64.246.21/23,server_3,VM0340,str-s6100-acs-1,Pavel
+vms3-t0-s6000,vms3-60,t0-64-32,docker-ptf-brcm,10.64.246.12/23,server_3,VM0344,str-s6000-on-4,Pavel
+vms3-5,vms3-5,t0,docker-ptf-mlnx,10.64.246.26/23,server_3,VM0348,str-msn2700-04,Jenkins
+vms3-4,vms3-4,t0,docker-ptf-brcm,10.64.246.11/23,server_3,VM0360,str-s6000-acs-13,Sihui
 vms-example-ixia-1,vms6-1,t0-64,docker-ptf-ixia,example-ixia-ptf-1,10.0.0.30/32,server_6,VM0600,example-s6100-dut-1,superman
