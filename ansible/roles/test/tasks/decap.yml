@@ -50,26 +50,10 @@
 
 - set_fact:
     testname: decap
-    run_dir: /tmp
-    out_dir: /tmp/ansible-loganalyzer-results
-    test_match_file: decap_match_messages.txt
-    test_ignore_file: decap_ignore_messages.txt
-    test_expect_file: decap_expect_messages.txt
-    match_file: loganalyzer_common_match.txt
-    ignore_file: loganalyzer_common_ignore.txt
-    tests_location: "{{ 'roles/test/tasks' }}"
 
 # Separate set_fact is required to be able to use 'testname' fact.
 - set_fact:
     testname_unique: "{{ testname }}.{{ ansible_date_time.date}}.{{ ansible_date_time.hour}}-{{ ansible_date_time.minute}}-{{ ansible_date_time.second}}"
-
-# Separate set_fact is required to be able to use 'testname_unique' fact.
-- set_fact:
-    test_out_dir: "{{ out_dir }}/{{testname_unique}}"
-    match_file_list: "{{ run_dir }}/{{test_match_file}},{{ run_dir }}/{{match_file}}"
-    ignore_file_list: "{{ run_dir }}/{{test_ignore_file}},{{ run_dir }}/{{ignore_file}}"
-
-- debug: msg="output directory for current test run {{ test_out_dir }}"
 
 - debug: msg="generated run id:{{testname_unique}}"
 
@@ -80,11 +64,16 @@
   delegate_to: "{{ ptf_host }}"
 
 - name: "Running test {{ testname }}"
-  shell: ptf --test-dir ptftests IP_decap_test --platform remote -t "verbose=True; router_mac='{{ ansible_Ethernet0['macaddress'] }}';lo_ip='{{lo_ip}}';dscp_mode='{{dscp_mode}}'; testbed_type='{{testbed_type}}'; fib_info='/root/fib_info.txt'" --relax
-  args:
-    chdir: /root
-  delegate_to: "{{ ptf_host }}"
-  failed_when: False
-  register: out
-
-- debug: var=out.stdout_lines
+  include: ptf_runner.yml
+  vars:
+    ptf_test_name: '{{ testname_unique }}'
+    ptf_test_dir: ptftests
+    ptf_test_path: IP_decap_test.DecapPacketTest
+    ptf_platform: remote
+    ptf_test_params:
+      - testbed_type='{{ testbed_type }}'
+      - fib_info='/root/fib_info.txt'
+      - router_mac='{{ansible_Ethernet0['macaddress']}}'
+      - dscp_mode='{{ dscp_mode }}'
+      - lo_ip='{{ lo_ip }}'
+    ptf_extra_options:  "--relax --debug info --log-file /tmp/{{ testname_unique }}.log "
