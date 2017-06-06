@@ -66,11 +66,11 @@ class DecapPacketTest(BaseTest):
     
     def send_and_verify(self, dst_ip, expected_ports, src_port, triple_encap = False):
         '''
-        @summary: This function builds encap packet, send and verify their arrival, When a packet will not arrived as expected an exeption will be throwen 
+        @summary: This function builds encap packet, send and verify their arrival.
         @dst_ip: the destination ip for the inner IP header
         @expected_ports: list of ports that a packet can arrived from 
         @src_port: the physical port that the packet will be sent from 
-        @triple_encap: Bool if to send triple encapsulated packet
+        @triple_encap: True to send triple encapsulated packet
         '''
         #setting parameters
         src_mac =  self.dataplane.get_mac(0, 0)
@@ -129,7 +129,7 @@ class DecapPacketTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
         send_packet(self, src_port, pkt)
-        logging.info("Sending packet from port" + str(src_port) + " to " + dst_ip + "triple_encap: " + str(triple_encap))
+        logging.info(".....Sending packet from port" + str(src_port) + " to " + dst_ip + ", Triple_encap: " + str(triple_encap))
         (matched, received) = verify_packet_any_port(self, masked_exp_pkt, expected_ports)
         assert received
         return (matched, received)
@@ -150,6 +150,7 @@ class DecapPacketTest(BaseTest):
             if not len(exp_port_list):
                 continue
 
+            logging.info("Check IP range:" + str(ip_range) + " on " + str(exp_port_list) + "...")
             # Send a packet with the first IP in the range
             self.send_and_verify(ip_range.get_first_ip(), exp_port_list, src_port)
             self.send_and_verify(ip_range.get_first_ip(), exp_port_list, src_port, True)
