@@ -20,8 +20,8 @@
     fail_in_logs: errors_found.stdout != "0"
 
 - name: Generate system dump
-  command: sonic_support
-  register: sonic_support
+  command: generate_dump
+  register: generate_dump
   when: fail_in_logs
 
 - name : Fetch result files from switch to ansible machine
@@ -32,14 +32,14 @@
   with_items:
     - "{{ test_out_dir }}/{{result_file}}"
     - "{{ test_out_dir }}/{{summary_file}}"
-    - "{{ sonic_support.stdout | default(omit) }}"
+    - "{{ generate_dump.stdout | default(omit) }}"
   when: fail_in_logs
 
 - debug: msg="File {{ item }} saved to {{ test_fetch_dir }}"
   with_items:
     - "{{result_file}}"
     - "{{summary_file}}"
-    - "{{ sonic_support.stdout | default(omit) }}"
+    - "{{ generate_dump.stdout | default(omit) }}"
   when: fail_in_logs
 
 - name: Fail due to errors in logs
