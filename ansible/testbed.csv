@@ -20,7 +20,7 @@ vms1-1-t0,vms1-1,t0,docker-ptf-brcm,10.64.246.22/23,server_1,VM0100,str-s6000-ac
 vms1-2,vms1-2,t1,docker-ptf-brcm,10.64.246.23/23,server_1,VM0132,str-s6000-on-5,Qi
 vms1-2-b,vms1-2,t1,docker-ptf-brcm,10.64.246.23/23,server_1,VM0132,str-a7050-acs-2,Qi
 vms1-2-m,vms1-2,t1,docker-ptf-mlnx,10.64.246.23/23,server_1,VM0132,str-msn2700-03,Qi
-vms2-1,vms2-1,t1,docker-ptf-brcm,10.64.246.24/23,server_2,VM0200,str-s6000-acs-13,Sihui
+vms2-1,vms2-1,t1,docker-ptf-brcm,10.64.246.24/23,server_2,VM0200,str-s6000-acs-10,Kamil
 vms2-2,vms2-2,t1,docker-ptf-mlnx,10.64.246.25/23,server_2,VM0232,str-msn2700-05,Jenkins
 vms3-1,vms3-1,t0,docker-ptf-brcm,10.64.246.17/23,server_3,VM0300,str-s6000-acs-12,Joe
 vms3-2,vms3-2,t1-lag,docker-ptf-brcm,10.64.246.19/23,server_3,VM0304,str-s6000-on-2,Jenkins
