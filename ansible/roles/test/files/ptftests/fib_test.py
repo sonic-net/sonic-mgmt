@@ -142,7 +142,11 @@ class FibTest(BaseTest):
             (matched_index, received) = self.check_ipv6_route(src_port, dst_ip_addr, dst_port_list)
 
         assert received
-        return (matched_index, received)
+
+        matched_port = dst_port_list[matched_index]
+        logging.info("Received packet at " + str(matched_port))
+
+        return (matched_port, received)
 
     def check_ipv4_route(self, src_port, dst_ip_addr, dst_port_list):
         '''
@@ -237,7 +241,7 @@ class FibTest(BaseTest):
         @return bool
         '''
 
-        logging.info("%10s \t %-10s \t %10s \t %10s \t %10s" % ("type", "port(s)", "exp_cnt", "act_cnt", "diff(%)"))
+        logging.info("%-10s \t %-10s \t %10s \t %10s \t %10s" % ("type", "port(s)", "exp_cnt", "act_cnt", "diff(%)"))
         result = True
 
         total_hit_cnt = sum(port_hit_cnt.values())
@@ -246,14 +250,14 @@ class FibTest(BaseTest):
             for member in ecmp_entry:
                 total_entry_hit_cnt += port_hit_cnt.get(member, 0)
             (p, r) = self.check_within_expected_range(total_entry_hit_cnt, float(total_hit_cnt)/len(dest_port_list))
-            logging.info("%10s \t %-10s \t %10d \t %10d \t %10s"
+            logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
                          % ("ECMP", str(ecmp_entry), total_hit_cnt/len(dest_port_list), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
             result &= r
             if len(ecmp_entry) == 1 or total_entry_hit_cnt == 0:
                 continue
             for member in ecmp_entry:
                 (p, r) = self.check_within_expected_range(port_hit_cnt.get(member, 0), float(total_entry_hit_cnt)/len(ecmp_entry))
-                logging.info("%10s \t %-10s \t %10d \t %10d \t %10s"
+                logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
                               % ("LAG", str(member), total_entry_hit_cnt/len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
                 result &= r
 
