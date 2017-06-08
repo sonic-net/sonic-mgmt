@@ -18,8 +18,11 @@ from ptf import config
 import ptf.testutils as testutils
 from ptf.testutils import *
 from ptf.dataplane import match_exp_pkt
+import os
+import signal
 import datetime
 import subprocess
+import threading
 
 
 class ControlPlaneBaseTest(BaseTest):
@@ -30,12 +33,14 @@ class ControlPlaneBaseTest(BaseTest):
     NO_POLICER_LIMIT = PPS_LIMIT * 1.4
     PKT_TX_COUNT = 100000
     PKT_RX_LIMIT = PKT_TX_COUNT * 0.90
+    TASK_TIMEOUT = 300 # Wait up to 5 minutes for tasks to complete
 
     def __init__(self):
         BaseTest.__init__(self)
         self.log_fp = open('/tmp/copp.log', 'a')
         test_params = testutils.test_params_get()
         self.verbose = 'verbose' in test_params and test_params['verbose']
+        self.timeout_thr = None
 
         self.myip = {}
         self.peerip = {}
@@ -73,6 +78,23 @@ class ControlPlaneBaseTest(BaseTest):
         if config["log_dir"] != None:
             self.dataplane.stop_pcap()
         self.log_fp.close()
+
+    def timeout(self, seconds, message):
+        def timeout_exception(self, message):
+            self.log('Timeout is reached: %s' % message)
+            self.tearDown()
+            os.kill(os.getpid(), signal.SIGINT)
+
+        if self.timeout_thr is None:
+            self.timeout_thr = threading.Timer(seconds, timeout_exception, args=(self, message))
+            self.timeout_thr.start()
+        else:
+            raise Exception("Timeout already set")
+
+    def cancel_timeout(self):
+        if self.timeout_thr is not None:
+            self.timeout_thr.cancel()
+            self.timeout_thr = None
 
     def copp_test(self, packet, count, send_intf, recv_intf):
         b_c_0 = self.dataplane.get_counters(*send_intf)
@@ -133,7 +155,9 @@ class ControlPlaneBaseTest(BaseTest):
         return
 
     def run_suite(self):
+        self.timeout(self.TASK_TIMEOUT, "The test case hasn't been completed in %d seconds" % self.TASK_TIMEOUT) # FIXME: better make it decorator
         self.one_port_test(3)
+        self.cancel_timeout()
 
     def printStats(self, pkt_send_count, total_rcv_pkt_cnt, time_delta, tx_pps, rx_pps):
         self.log("")
