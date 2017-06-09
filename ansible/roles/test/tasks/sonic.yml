@@ -134,6 +134,10 @@
   include: lagall.yml
   tags: lag
 
+- name: Test LAG using lag graph file
+  include: lag_2.yml
+  tags: lag_2
+
 - name: Memory check
   include: mem_check.yml
   tags: mem_check

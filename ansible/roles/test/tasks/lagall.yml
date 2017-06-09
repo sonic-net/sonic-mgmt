@@ -142,4 +142,5 @@
     iface_behind_lag_member_0: "{{ topology['VMs'][item]['vlans'][0] }}"
     iface_behind_lag_member_1: "{{ topology['VMs'][item]['vlans'][1] }}"
     vm_name: "{{ item }}"
+    lacp_timer: 30
   with_items: lag_vms.keys()

@@ -1,6 +1,6 @@
-#-----------------------------------
-# --- Part of lagall.yml test ---
-#-----------------------------------
+#--------------------------------------------------
+# --- Part of lagall.yml test and lag_2.yml test---
+#-------------------------------------------------
 # Using PTF test framework, check the LACP packets timing
 # for each VM that has LAG configured.
 #
@@ -11,7 +11,7 @@
 
 - set_fact:
     lacp_ether_type: '0x8809'
-    packet_timing: 30
+    packet_timing: "{{ lacp_timer }}"
     packet_timeout: 35
 
 - name: Check LACP timing on eth{{ iface_behind_lag_member_0 }} (interface behind {{ vm_name }}).
