@@ -8,6 +8,13 @@
 - fail: msg="Please define ptf_host"
   when: ptf_host is not defined
 
+- fail: msg="Please define testbed_type"
+  when: testbed_type is not defined
+
+
+- fail: msg="this test only support t1-lag and t0 testbed_type"
+  when: testbed_type not in ['t1-lag', 't0']
+
 - name: gathering lag facts from device
   lag_facts: host={{ inventory_hostname }}
 
@@ -44,6 +51,14 @@
 
 - name: Include testbed topology configuration (to get LAG IP and PTF docker interfaces, that are behind LAG VMs).
   include_vars: vars/topo_t1-lag.yml
+  when: testbed_type == 't1-lag'
+
+- name: Include testbed topology configuration (to get LAG IP and PTF docker interfaces, that are behind LAG VMs).
+  include_vars: vars/topo_t0.yml
+  when: testbed_type == 't0'
+
+- set_fact:
+    dut_mac: "{{ ansible_Ethernet0['macaddress'] }}"
 
 - name: test each lag interface minimum links and rate 
   include: single_lag_test.yml
