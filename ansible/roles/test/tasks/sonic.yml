@@ -116,6 +116,12 @@
   include: fib.yml
   tags: fib
 
+### When calling this FDB test, please add command line of what testbed_type and which PTF docker to test agains
+### -e "testbed_type=t0 ptf_host=10.64.246.22"
+- name: FDB test
+  include: fdb.yml
+  tags: fdb
+
 ### When calling this decap test, please add command line of what testbed_type, dscp_mode, and which PTF docker to test against
 #### -e "testbed_type=t1-lag dscp_mode=pipe ptf_host=10.0.0.200"
 - name: Decap test
