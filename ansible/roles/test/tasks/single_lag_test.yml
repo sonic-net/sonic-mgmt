@@ -39,6 +39,10 @@
     neighbor_interface: "{{vm_neighbors[flap_intf]['port']}}"
     peer_hwsku: 'Arista-VM'
 
+##############################################################################################
+##### TODO:  use minigraph/and VM configuration to figure out neighbor host access info #####
+#####        try not using lldp dynamic info to find neighbor access
+##############################################################################################
 - set_fact:
     peer_host: "{{ lldp[flap_intf]['chassis']['mgmt-ip'] }}"
 
@@ -90,7 +94,7 @@
 - pause: 
     seconds: 5
  
-- name: test lacp packet seending rate is 30 seconds
+- name: test lacp packet sending rate is 30 seconds
   include: lag_lacp_timing_test.yml
   vars: 
     vm_name: "{{ peer_device }}"
