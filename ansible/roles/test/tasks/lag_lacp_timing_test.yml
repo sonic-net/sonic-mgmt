@@ -1,5 +1,5 @@
 #--------------------------------------------------
-# --- Part of lagall.yml test and lag_2.yml test---
+# --- lag_2.yml test---
 #-------------------------------------------------
 # Using PTF test framework, check the LACP packets timing
 # for each VM that has LAG configured.
@@ -7,7 +7,9 @@
 # @ params: iface_behind_lag_member_0   -   PTF docker iface, that receives all the packets that VM LAG member does.
 # @ params: iface_behind_lag_member_1   -   PTF docker iface, that receives all the packets that VM LAG member does.
 # @ params: vm_name     -       VM hostname that will be printed before running test.
-#-----------------------------------
+# 
+# Originally in lagall.yml, and lag_2.yml should cover it 
+#--------------------------------------------------------
 
 - set_fact:
     lacp_ether_type: '0x8809'
