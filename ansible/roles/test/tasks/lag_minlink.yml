@@ -53,5 +53,5 @@
       assert: { that: "'{{ lag_facts.lags[po]['po_stats']['ports'][item]['link']['up'] }}' == 'True'" }
       with_items: "{{ po_interfaces.keys() }}"
 
-    - name: verify port-channel {{ po }} interface are marked up ncorrectly
+    - name: verify port-channel {{ po }} interface are marked up correctly
       assert: { that: "'{{ lag_facts.lags[po]['po_intf_stat'] }}' == 'Up' "}
