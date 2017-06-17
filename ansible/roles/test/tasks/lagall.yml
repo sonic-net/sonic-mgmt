@@ -135,11 +135,3 @@
     dut_lag_member: "{{ dut_lag_members[1] }}"
     num_of_pkts: 100
   when: dut_lag_members is defined
-
-- name: --TEST-- LACP timing test.
-  include: lag_lacp_timing_test.yml
-  vars:
-    iface_behind_lag_member_0: "{{ topology['VMs'][item]['vlans'][0] }}"
-    iface_behind_lag_member_1: "{{ topology['VMs'][item]['vlans'][1] }}"
-    vm_name: "{{ item }}"
-  with_items: lag_vms.keys()

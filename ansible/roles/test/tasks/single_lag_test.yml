@@ -1,0 +1,101 @@
+### Part of lag test palybook lag_2.yml (--tag lag_2)
+### This playbook test one single port channel minimum link feature of one member interface shutdown 
+### and portchannel member interfaces sending ACP DU rate
+
+# Gather information of port channel ports, minimum links and total interface member numbers
+- set_fact: 
+    po: "{{ item }}"
+    po_interfaces: "{{ lag_facts.lags[item]['po_config']['ports'] }}"
+    po_intf_num: "{{ lag_facts.lags[item]['po_config']['ports']|length }}"
+    po_min_links: "{{lag_facts.lags[item]['po_config']['runner']['min_ports']}}"
+
+# pick flap interface name and calculate when it flaps, should portchannel interface flap or not
+# Current it is using a static capacity < 75%, Portchannel will flap which match Sonic configuration
+# if need to be random, then will make it a var
+- set_fact:
+    po_flap: "{{ (po_intf_num|float - 1)/(po_min_links|float)*100 < 75 }}"
+    flap_intf: "{{ lag_facts.lags[item]['po_config']['ports'].keys()[0] }}"
+
+### figure out fanout switches info for the flapping lag member and run minlink test
+- set_fact:
+    peer_device: "{{ fanout_neighbors[flap_intf]['peerdevice'] }}"
+    neighbor_interface: "{{ fanout_neighbors[flap_intf]['peerport'] }}"
+
+- conn_graph_facts: host={{ peer_device }}
+  connection: local
+
+- set_fact:
+    peer_host: "{{ device_info['mgmtip'] }}"
+    peer_hwsku: "{{ device_info['HwSku'] }}"
+
+- name: test fanout interface (physical) flap and lacp keep correct po status follow minimum links requirement
+  include: lag_minlink.yml
+  vars:
+    wait_down_time: 20
+
+### Now figure out remote VM and interface info for the falpping lag member and run minlink test 
+- set_fact:
+    peer_device: "{{vm_neighbors[flap_intf]['name']}}"
+    neighbor_interface: "{{vm_neighbors[flap_intf]['port']}}"
+    peer_hwsku: 'Arista-VM'
+
+##############################################################################################
+##### TODO:  use minigraph/and VM configuration to figure out neighbor host access info #####
+#####        try not using lldp dynamic info to find neighbor access
+##############################################################################################
+- set_fact:
+    peer_host: "{{ lldp[flap_intf]['chassis']['mgmt-ip'] }}"
+
+- name: test vm interface flap (no physical port down, more like remote port lock) that lag interface can change to correct po status follow minimum links requirement
+  include: lag_minlink.yml
+  vars: 
+    wait_down_time: 120
+
+### Now prepare for the remote VM interfaces that using PTF docker to check teh LACP DU packet rate is correct 
+- set_fact:
+    iface_behind_lag_member_0: "{{ topology['VMs'][peer_device]['vlans'][0] }}"
+
+- set_fact:
+    iface_behind_lag_member_1: "{{ topology['VMs'][peer_device]['vlans'][1] }}"
+  when: testbed_type == 't1-lag'
+
+- set_fact:
+    neighbor_lag_intfs: []
+
+- set_fact:
+    neighbor_lag_intfs: "{{ neighbor_lag_intfs }} + [ '{{ vm_neighbors[item]['port'] }}' ]"
+  with_items: "{{ po_interfaces }}"
+ 
+# make sure portchannel peer rate is set to fast
+- name: make sure all lag members on VM are set to fast
+  action: apswitch template=neighbor_lag_rate_fast.j2
+  args:
+    host: "{{peer_host}}"
+    login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+  connection: switch
+
+- pause: 
+    seconds: 5
+ 
+- name: test lacp packet sending rate is 1 seconds
+  include: lag_lacp_timing_test.yml
+  vars: 
+    vm_name: "{{ peer_device }}"
+    lacp_timer: 1
+
+# make sure portchannel peer rate is set to slow
+- name: make sure all lag members on VM are set to slow
+  action: apswitch template=neighbor_lag_rate_slow.j2
+  args:
+    host: "{{peer_host}}"
+    login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+  connection: switch
+
+- pause: 
+    seconds: 5
+ 
+- name: test lacp packet sending rate is 30 seconds
+  include: lag_lacp_timing_test.yml
+  vars: 
+    vm_name: "{{ peer_device }}"
+    lacp_timer: 30

@@ -1,0 +1,65 @@
+### this is the Lag_2 lag test that tests each Lag interface minimum link and rate of sending LACP DU packets
+### this test could be consider as an additional/alternative lag test from existing lagall.yml.
+### Due to some labs are using two layer fanout switches, and one DUT might connects to multiple fanoutleaf switches
+### so for minimum link test of lag member flaps, it requires to use lab connection facts to determine the fanout neighbor ports, 
+### Also, most of the traffic load balancing tests of LAG interface are covered in new FIB tests. so we are ignoring traffic test 
+### for lag member flaps for now, will consider add traffic back if required
+
+- fail: msg="Please define ptf_host"
+  when: ptf_host is not defined
+
+- fail: msg="Please define testbed_type"
+  when: testbed_type is not defined
+
+
+- fail: msg="this test only support t1-lag and t0 testbed_type"
+  when: testbed_type not in ['t1-lag', 't0']
+
+- name: gathering lag facts from device
+  lag_facts: host={{ inventory_hostname }}
+
+- fail: msg="No lag configuration found in {{ inventory_hostname }}"
+  when: lag_facts.names == [] 
+
+- name: Gathering peer VM information from lldp
+  lldp:
+  vars:
+    ansible_shell_type: docker
+    ansible_python_interpreter: docker exec -i lldp python
+
+- name: gathering minigraph of the device configuration
+  minigraph_facts: host={{ inventory_hostname }}
+  connection: local
+
+- name: Gathering lab graph facts about the device
+  conn_graph_facts: host={{ inventory_hostname }}
+  connection: local
+
+- set_fact:
+    fanout_neighbors: "{{device_conn}}"   
+
+- set_fact:
+    vm_neighbors: "{{ minigraph_neighbors }}"   
+
+- name: Copy PTF test into PTF-docker for test LACP DU.
+  copy: src=roles/test/files/acstests/{{ item }} dest=/tmp/{{ item }}
+  with_items:
+    - lag_test.py
+    - acs_base_test.py
+    - router_utils.py
+  delegate_to: "{{ ptf_host }}"
+
+- name: Include testbed topology configuration (to get LAG IP and PTF docker interfaces, that are behind LAG VMs).
+  include_vars: vars/topo_t1-lag.yml
+  when: testbed_type == 't1-lag'
+
+- name: Include testbed topology configuration (to get LAG IP and PTF docker interfaces, that are behind LAG VMs).
+  include_vars: vars/topo_t0.yml
+  when: testbed_type == 't0'
+
+- set_fact:
+    dut_mac: "{{ ansible_Ethernet0['macaddress'] }}"
+
+- name: test each lag interface minimum links and rate 
+  include: single_lag_test.yml
+  with_items: lag_facts.names

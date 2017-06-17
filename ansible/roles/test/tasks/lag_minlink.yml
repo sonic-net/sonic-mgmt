@@ -1,0 +1,57 @@
+### This playbook is part of lag_2.yml test
+### It is to test LACP LAG functionality behave correctly when link flaps. 
+### In this playbook the neighbor of the selected flap_intf interface is shutdown and playbook validate Portchannel interface status and member
+### selection status are correct based on port channel min link configuration. Then bring up the remote interface to make sure
+### Port channel interface is up after peer port is back
+
+- block:
+    - name: Shut down neighbor interface {{ neighbor_interface }} on {{ peer_device }}
+      action: apswitch template=neighbor_interface_shut_single.j2
+      args:
+        host: "{{peer_host}}"
+        login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+      connection: switch
+    
+    - pause:
+        seconds: "{{ wait_down_time }}"
+    
+    - lag_facts: host={{ inventory_hostname }}
+    
+    - name: Verify all other lag member interfaces are marked selected
+      assert: { that: "'{{ lag_facts.lags[po]['po_stats']['ports'][item]['runner']['selected'] }}' == 'True'" }
+      with_items: "{{ po_interfaces.keys() }}"
+      when: item != "{{ flap_intf }}"
+
+    - name: Verify {{ flap_intf}}  lag member interfaces are marked as deselected for the shutdown port
+      assert: { that: "'{{ lag_facts.lags[po]['po_stats']['ports'][item]['runner']['selected'] }}' == 'False'" }
+      with_items: "{{ po_interfaces.keys() }}"
+      when: item == "{{ flap_intf }}"
+
+    - name: verify port-channel {{ po }} interface are marked down correctly if portchannel should down
+      assert: { that: "'{{ lag_facts.lags[po]['po_intf_stat'] }}' == 'Down' "}
+      when: po_flap == True
+
+    - name: verify port-channel {{ po }} interface are marked Up correctly if portchannel should keepup
+      assert: { that: "'{{ lag_facts.lags[po]['po_intf_stat'] }}' == 'Up' "}
+      when: po_flap != True
+
+  ### always bring back port in case test error and left testbed in unknow stage
+  always:
+    - name: Bring up neighbor interface {{ neighbor_interface }} on {{ peer_host }}
+      action: apswitch template=neighbor_interface_no_shut_single.j2
+      args:
+        host: "{{peer_host}}"
+        login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+      connection: switch
+    
+    - pause:
+        seconds: 20
+    
+    - lag_facts: host={{ inventory_hostname }}
+    
+    - name: Verify all interfaces in port_channel  are marked up
+      assert: { that: "'{{ lag_facts.lags[po]['po_stats']['ports'][item]['link']['up'] }}' == 'True'" }
+      with_items: "{{ po_interfaces.keys() }}"
+
+    - name: verify port-channel {{ po }} interface are marked up correctly
+      assert: { that: "'{{ lag_facts.lags[po]['po_intf_stat'] }}' == 'Up' "}
