@@ -95,12 +95,12 @@ class Parse_Lab_Graph():
 
     def port_vlanlist(self, vlanrange):
         vlans = []
-        for vlanid in map(str.strip,vlanrange.split(',')):
+        for vlanid in list(map(str.strip,vlanrange.split(','))):
             if vlanid.isdigit():
                 vlans.append(int(vlanid))
                 continue
             elif '-' in vlanid:
-                vlanlist = map(str.strip,vlanid.split('-'))
+                vlanlist = list(map(str.strip,vlanid.split('-')))
                 vlans.extend(range(int(vlanlist[0]), int(vlanlist[1])+1))
                 continue
             elif vlanid != '':
@@ -169,7 +169,7 @@ class Parse_Lab_Graph():
         ranges = []
         sl = sorted(set(l))
         for k,g in groupby(enumerate(sl), lambda (i,x): i-x):
-            group = map(itemgetter(1), g)
+            group = list(map(itemgetter(1), g))
             if len(group) == 1:
                 ranges.append(str(group[0]))
             else:
