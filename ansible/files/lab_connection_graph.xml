@@ -90,4 +90,4 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet30" vlanids="1681-1712"/>
     </DevicesL2Info>
   </DataPlaneGraph>
-</StarlabConnectionGraph>
+</LabConnectionGraph>
