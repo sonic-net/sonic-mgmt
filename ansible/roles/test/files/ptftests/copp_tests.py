@@ -306,7 +306,7 @@ class LACPTest(NoPolicyTest):
                pktlen=14,
                eth_dst='01:80:c2:00:00:02',
                eth_type=0x8809
-               ) / (chr(0x01)+(chr(0x01)))
+               ) / (chr(0x01)*50)
 
         return packet
 
