@@ -103,6 +103,9 @@ class DHCPTest(DataplaneBaseTest):
         self.server_port_indices = ast.literal_eval(self.test_params['leaf_port_indices'])
         self.num_dhcp_servers = int(self.test_params['num_dhcp_servers'])
 
+        self.assertTrue(self.num_dhcp_servers > 0,
+                "Error: This test requires at least one DHCP server to be specified!")
+
         # We will simulate a responding DHCP server on the first interface in the provided set
         self.server_ip = self.test_params['server_ip']
         self.server_iface_mac = self.dataplane.get_mac(0, self.server_port_indices[0])
