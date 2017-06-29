@@ -87,6 +87,7 @@ class DHCPTest(DataplaneBaseTest):
     DHCP_LEASE_TIME_OFFSET = 292
     DHCP_LEASE_TIME_LEN = 6
     LEASE_TIME = 86400
+    DHCP_PKT_BOOTP_MIN_LEN = 300
 
     def __init__(self):
         DataplaneBaseTest.__init__(self)
@@ -170,13 +171,13 @@ class DHCPTest(DataplaneBaseTest):
         # the relay is forwarding to. We don't need to confirm these, so we'll
         # just mask them off later
         #
-        # TODO: Relay also replaces source IP with IP of interface on which it received the 
-        #       broadcast DHCPDISCOVER from client. This appears to be loopback.
-        #       We could pull from minigraph and check here.
-        pkt = scapy.Ether(dst=self.BROADCAST_MAC, src=self.relay_iface_mac, type=0x0800)
-        pkt /= scapy.IP(src=self.DEFAULT_ROUTE_IP, dst=self.BROADCAST_IP, len=328, ttl=64)
-        pkt /= scapy.UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT, len=308)
-        pkt /= scapy.BOOTP(op=1,
+        # TODO: In IP layer, DHCP relay also replaces source IP with IP of interface on
+        #       which it received the broadcast DHCPDISCOVER from client. This appears to
+        #       be loopback. We could pull from minigraph and check here.
+        ether = scapy.Ether(dst=self.BROADCAST_MAC, src=self.relay_iface_mac, type=0x0800)
+        ip = scapy.IP(src=self.DEFAULT_ROUTE_IP, dst=self.BROADCAST_IP, len=328, ttl=64)
+        udp = scapy.UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT, len=308)
+        bootp = scapy.BOOTP(op=1,
                     htype=1,
                     hlen=6,
                     hops=1,
@@ -188,12 +189,16 @@ class DHCPTest(DataplaneBaseTest):
                     siaddr=self.DEFAULT_ROUTE_IP,
                     giaddr=self.relay_iface_ip,
                     chaddr=my_chaddr)
-        pkt /= scapy.DHCP(options=[('message-type', 'discover'),
+        bootp /= scapy.DHCP(options=[('message-type', 'discover'),
                     ('relay_agent_Information', self.option82),
                     ('end')])
 
-        # The isc-dhcp-relay adds 4 bytes of padding to our discover packet
-        pkt /= scapy.PADDING('\x00' * 4)
+        # If our bootp layer is too small, pad it
+        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
+        if pad_bytes > 0:
+            bootp /= scapy.PADDING('\x00' * pad_bytes)
+
+        pkt = ether / ip / udp / bootp
         return pkt
 
     def create_dhcp_offer_packet(self):
@@ -222,13 +227,13 @@ class DHCPTest(DataplaneBaseTest):
         # the relay is forwarding to. We don't need to confirm these, so we'll
         # just mask them off later
         #
-        # TODO: Relay also replaces source IP with IP of interface on which it received the 
-        #       broadcast DHCPDISCOVER from client. This appears to be loopback.
-        #       We could pull from minigraph and check here.
-        pkt = scapy.Ether(dst=self.BROADCAST_MAC, src=self.relay_iface_mac, type=0x0800)
-        pkt /= scapy.IP(src=self.DEFAULT_ROUTE_IP, dst=self.BROADCAST_IP, len=336, ttl=64)
-        pkt /= scapy.UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT, len=316)
-        pkt /= scapy.BOOTP(op=1,
+        # TODO: In IP layer, DHCP relay also replaces source IP with IP of interface on
+        #       which it received the broadcast DHCPREQUEST from client. This appears to
+        #       be loopback. We could pull from minigraph and check here.
+        ether = scapy.Ether(dst=self.BROADCAST_MAC, src=self.relay_iface_mac, type=0x0800)
+        ip = scapy.IP(src=self.DEFAULT_ROUTE_IP, dst=self.BROADCAST_IP, len=336, ttl=64)
+        udp = scapy.UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT, len=316)
+        bootp = scapy.BOOTP(op=1,
                     htype=1,
                     hlen=6,
                     hops=1,
@@ -240,14 +245,18 @@ class DHCPTest(DataplaneBaseTest):
                     siaddr=self.DEFAULT_ROUTE_IP,
                     giaddr=self.relay_iface_ip,
                     chaddr=my_chaddr)
-        pkt /= scapy.DHCP(options=[('message-type', 'request'),
+        bootp /= scapy.DHCP(options=[('message-type', 'request'),
                     ('requested_addr', self.client_ip),
                     ('server_id', self.server_ip),
                     ('relay_agent_Information', self.option82),
                     ('end')])
 
-        # The isc-dhcp-relay adds 0 bytes of padding to our request
-        pkt /= scapy.PADDING('\x00' * 0)
+        # If our bootp layer is too small, pad it
+        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
+        if pad_bytes > 0:
+            bootp /= scapy.PADDING('\x00' * pad_bytes)
+
+        pkt = ether / ip / udp / bootp
         return pkt
 
     def create_dhcp_ack_packet(self):
@@ -301,6 +310,7 @@ class DHCPTest(DataplaneBaseTest):
         masked_discover.set_do_not_care_scapy(scapy.IP, "options")
 
         masked_discover.set_do_not_care_scapy(scapy.UDP, "chksum")
+        masked_discover.set_do_not_care_scapy(scapy.UDP, "len")
 
         masked_discover.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_discover.set_do_not_care_scapy(scapy.BOOTP, "file")
@@ -374,6 +384,7 @@ class DHCPTest(DataplaneBaseTest):
         masked_request.set_do_not_care_scapy(scapy.IP, "options")
 
         masked_request.set_do_not_care_scapy(scapy.UDP, "chksum")
+        masked_request.set_do_not_care_scapy(scapy.UDP, "len")
 
         masked_request.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_request.set_do_not_care_scapy(scapy.BOOTP, "file")
