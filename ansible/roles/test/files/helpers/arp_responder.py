@@ -3,6 +3,8 @@ import socket
 import struct
 import select
 import json
+import argparse
+import os.path
 from fcntl import ioctl
 from pprint import pprint
 
@@ -34,7 +36,7 @@ class Interface(object):
 
     def __del__(self):
         if self.socket:
-   	    self.socket.close()
+            self.socket.close()
 
     def bind(self):
         self.socket = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(self.ETH_P_ALL))
@@ -93,7 +95,7 @@ class ARPResponder(object):
         if request_ip_str not in self.ip_sets[interface.name()]:
             return
 
-        arp_reply = self.generate_arp_reply(interface.mac(), remote_mac, request_ip, remote_ip)
+        arp_reply = self.generate_arp_reply(self.ip_sets[interface.name()][request_ip_str], remote_mac, request_ip, remote_ip)
         interface.send(arp_reply)
 
         return
@@ -104,12 +106,36 @@ class ARPResponder(object):
     def generate_arp_reply(self, local_mac, remote_mac, local_ip, remote_ip):
         return remote_mac + local_mac + self.arp_chunk + local_mac + local_ip + remote_mac + remote_ip + self.arp_pad
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='ARP autoresponder')
+    parser.add_argument('--conf', '-c', type=str, dest='conf', default='/tmp/from_t1.json', help='path to json file with configuration')
+    parser.add_argument('--extended', '-e', action='store_true', dest='extended', default=False, help='enable extended mode')
+    args = parser.parse_args()
+
+    return args
 
 def main():
-    with open('/tmp/from_t1.json') as fp:
+    args = parse_args()
+
+    if not os.path.exists(args.conf):
+        print "Can't find file %s" % args.conf
+        return
+
+    with open(args.conf) as fp:
         data = json.load(fp)
 
-    ip_sets = {str(k): set(v) for k, v in data.items()}
+    # generate ip_sets. every ip address will have it's own uniq mac address
+    ip_sets = {}
+    counter = 0
+    for iface, ip_dict in data.items():
+        ip_sets[str(iface)] = {}
+        if args.extended:
+            for ip, mac in ip_dict.items():
+                ip_sets[str(iface)][str(ip)] = binascii.unhexlify(str(mac))
+                counter += 1
+        else:
+            for ip in ip_dict:
+                ip_sets[str(iface)][str(ip)] = get_mac(iface)
 
     ifaces = []
     for iface_name in ip_sets.keys():
