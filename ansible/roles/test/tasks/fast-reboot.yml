@@ -116,13 +116,6 @@
         - arista_vms=\"{{ vm_hosts }}\"
 
   always:
-    - shell: cat /tmp/fast-reboot.log | grep FAILED
-      register: fast_reboot_log
-      delegate_to: "{{ ptf_host }}"
-      ignore_errors: yes
-
-    - debug: msg="{{ fast_reboot_log.stdout_lines }}"
-
     - name: Remove existing ip from ptf host
       script: roles/test/files/helpers/remove_ip.sh
       delegate_to: "{{ ptf_host }}"
