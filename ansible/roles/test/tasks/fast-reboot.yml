@@ -25,7 +25,9 @@
       delegate_to: "{{ ptf_host }}"
 
     - name: Copy arp responder supervisor configuration to the PTF container
-      copy: src=roles/test/files/supervisor/arp_responder_f.conf dest=/etc/supervisor/conf.d/arp_responder.conf
+      template: src=arp_responder.conf.j2 dest=/etc/supervisor/conf.d/arp_responder.conf
+      vars:
+        - arp_responder_args: '-e'
       delegate_to: "{{ ptf_host }}"
 
     - name: Reread supervisor configuration
