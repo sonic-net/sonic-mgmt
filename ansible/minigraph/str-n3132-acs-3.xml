@@ -639,9 +639,9 @@
           <Name>HostIP</Name>
           <AttachTo>eth0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>10.3.147.251/23</b:IPPrefix>
+            <b:IPPrefix>10.3.147.19/23</b:IPPrefix>
           </a:Prefix>
-          <a:PrefixStr>10.3.147.251/23</a:PrefixStr>
+          <a:PrefixStr>10.3.147.19/23</a:PrefixStr>
         </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <MplsInterfaces/>
@@ -1048,9 +1048,9 @@
     <Devices>
       <Device i:type="LeafRouter">
         <Hostname>str-n3132-acs-3</Hostname>
-        <HwSku>ACS-N3132</HwSku>
+        <HwSku>Nexus-3132-Q32</HwSku>
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-          <a:IPPrefix>10.3.147.251</a:IPPrefix>
+          <a:IPPrefix>10.3.147.19</a:IPPrefix>
         </ManagementAddress>
       </Device>
     </Devices>
@@ -1071,5 +1071,5 @@
     <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
   </MetadataDeclaration>  
   <Hostname>str-n3132-acs-3</Hostname>
-  <HwSku>ACS-N3132</HwSku>
+  <HwSku>Nexus-3132-Q32</HwSku>
 </DeviceMiniGraph>
