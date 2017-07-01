@@ -1048,7 +1048,7 @@
     <Devices>
       <Device i:type="LeafRouter">
         <Hostname>str-a7050-acs-1</Hostname>
-        <HwSku>Arista-7050-QX32</HwSku>
+        <HwSku>Arista-7050-QX-32S</HwSku>
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
           <a:IPPrefix>10.3.147.241</a:IPPrefix>
         </ManagementAddress>
@@ -1071,5 +1071,5 @@
     <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
   </MetadataDeclaration>
   <Hostname>str-a7050-acs-1</Hostname>
-  <HwSku>Arista-7050-QX32S</HwSku>
+  <HwSku>Arista-7050-QX-32S</HwSku>
 </DeviceMiniGraph>
