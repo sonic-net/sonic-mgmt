@@ -46,19 +46,19 @@ class DataplaneBaseTest(BaseTest):
  This test performs the following functionality:
    1.) Simulated client broadcasts a DHCPDISCOVER message
    2.) Verify DHCP relay running on ToR receives the DHCPDISCOVER message
-       and relays it to all of its known DHCP servers
+       and relays it to all of its known DHCP servers, appending the proper Option 82 information
    3.) Simulate DHCPOFFER message broadcast from a DHCP server to the ToR
    4.) Verify DHCP relay receives the DHCPOFFER message and forwards it to our
        simulated client.
    5.) Simulated client broadcasts a DHCPREQUEST message
    6.) Verify DHCP relay running on ToR receives the DHCPREQUEST message
-       and relays it to all of its known DHCP servers
+       and relays it to all of its known DHCP servers, appending the proper Option 82 information
    7.) Simulate DHCPACK message sent from a DHCP server to the ToR
    8.) Verify DHCP relay receives the DHCPACK message and forwards it to our
        simulated client.
 
  To run: place the following in a shell script (this will test against str-s6000-acs-12 (ec:f4:bb:fe:88:0a)):
-   ptf --test-dir test dhcp_relay_test.DHCPTest --platform remote -t "verbose=True; client_port_index=\"4\"; leaf_port_indices=\"[28, 29, 30, 31]\"; server_ip=\"192.0.0.1\"; relay_iface_name=\"Vlan1000\"; relay_iface_ip=\"192.168.0.1\"; relay_iface_mac=\"ec:f4:bb:fe:88:0a\"; relay_iface_netmask=\"255.255.255.224\"" --disable-ipv6 --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
+   ptf --test-dir ptftests dhcp_relay_test.DHCPTest --platform remote -t "hostname=\"str-s6000-acs-12\"; client_port_index=\"1\"; client_iface_alias=\"fortyGigE0/4\"; leaf_port_indices=\"[29, 31, 28, 30]\"; num_dhcp_servers=\"48\"; server_ip=\"192.0.0.1\"; relay_iface_ip=\"192.168.0.1\"; relay_iface_mac=\"ec:f4:bb:fe:88:0a\"; relay_iface_netmask=\"255.255.255.224\"" --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
 
  The above command is configured to test with the following configuration:
   - VLAN IP of DuT is 192.168.0.1, MAC address is ec:f4:bb:fe:88:0a (this is configured to test against str-s6000-acs-12)
@@ -73,8 +73,7 @@ class DataplaneBaseTest(BaseTest):
  TODO???:
         1) DHCP Renew Test
         2) DHCP NACK Test
-        3) DHCP Option 82 - remote ID test when available
-        4) Test with multiple DHCP Servers
+        3) Test with multiple DHCP Servers
 
 """
 
@@ -88,6 +87,7 @@ class DHCPTest(DataplaneBaseTest):
     DHCP_LEASE_TIME_OFFSET = 292
     DHCP_LEASE_TIME_LEN = 6
     LEASE_TIME = 86400
+    DHCP_PKT_BOOTP_MIN_LEN = 300
 
     def __init__(self):
         DataplaneBaseTest.__init__(self)
@@ -98,29 +98,46 @@ class DHCPTest(DataplaneBaseTest):
 
         self.test_params = testutils.test_params_get()
 
+        self.hostname = self.test_params['hostname']
+
         # These are the interfaces we are injected into that link to out leaf switches
         self.server_port_indices = ast.literal_eval(self.test_params['leaf_port_indices'])
         self.num_dhcp_servers = int(self.test_params['num_dhcp_servers'])
+
+        self.assertTrue(self.num_dhcp_servers > 0,
+                "Error: This test requires at least one DHCP server to be specified!")
 
         # We will simulate a responding DHCP server on the first interface in the provided set
         self.server_ip = self.test_params['server_ip']
         self.server_iface_mac = self.dataplane.get_mac(0, self.server_port_indices[0])
 
-        self.relay_iface_name = self.test_params['relay_iface_name']
         self.relay_iface_ip = self.test_params['relay_iface_ip']
         self.relay_iface_mac = self.test_params['relay_iface_mac']
 
+        self.client_iface_alias = self.test_params['client_iface_alias']
         self.client_port_index = int(self.test_params['client_port_index'])
-        self.client_iface_mac = self.dataplane.get_mac(0, self.client_port_index)
+        self.client_mac = self.dataplane.get_mac(0, self.client_port_index)
 
-        # relay_agent_info is a byte string created by the relay agent to specify which
-        # interface it received the message on. It is stored as suboption 1 of option 82.
+        # option82 is a byte string created by the relay agent. It contains the circuit_id and remote_id fields.
+        # circuit_id is stored as suboption 1 of option 82.
         # It consists of the following:
         #  Byte 0: Suboption number, always set to 1
-        #  Byte 1: Length of suboption data in bytes (i.e., length of interface name)
-        #  Bytes 2+: Suboption data (interface name)
-        self.relay_agent_info = struct.pack('BB', 1, len(self.relay_iface_name))
-        self.relay_agent_info += self.relay_iface_name
+        #  Byte 1: Length of suboption data in bytes
+        #  Bytes 2+: Suboption data
+        # Our circuit_id string is of the form "hostname:portname"
+        circuit_id_string = self.hostname + ":" + self.client_iface_alias
+        self.option82 = struct.pack('BB', 1, len(circuit_id_string))
+        self.option82 += circuit_id_string
+
+        # remote_id is stored as suboption 2 of option 82.
+        # It consists of the following:
+        #  Byte 0: Suboption number, always set to 2
+        #  Byte 1: Length of suboption data in bytes
+        #  Bytes 2+: Suboption data
+        # Our remote_id string simply consists of the MAC address of the port that received the request
+        remote_id_string = self.relay_iface_mac
+        self.option82 += struct.pack('BB', 2, len(remote_id_string))
+        self.option82 += remote_id_string
 
         # We'll assign our client the IP address 1 greater than our relay interface (i.e., gateway) IP
         self.client_ip = incrementIpAddress(self.relay_iface_ip, 1) 
@@ -137,10 +154,10 @@ class DHCPTest(DataplaneBaseTest):
     """
 
     def create_dhcp_discover_packet(self):
-        return testutils.dhcp_discover_packet(eth_client=self.client_iface_mac)
+        return testutils.dhcp_discover_packet(eth_client=self.client_mac)
 
     def create_dhcp_discover_relayed_packet(self):
-        my_chaddr = ''.join([chr(int(octet, 16)) for octet in self.client_iface_mac.split(':')])
+        my_chaddr = ''.join([chr(int(octet, 16)) for octet in self.client_mac.split(':')])
 
         # Relay modifies the DHCPDISCOVER message in the following ways:
         #  1.) Increments the hops count in the DHCP header
@@ -154,13 +171,13 @@ class DHCPTest(DataplaneBaseTest):
         # the relay is forwarding to. We don't need to confirm these, so we'll
         # just mask them off later
         #
-        # TODO: Relay also replaces source IP with IP of interface on which it received the 
-        #       broadcast DHCPDISCOVER from client. This appears to be loopback.
-        #       We could pull from minigraph and check here.
-        pkt = scapy.Ether(dst=self.BROADCAST_MAC, src=self.relay_iface_mac, type=0x0800)
-        pkt /= scapy.IP(src=self.DEFAULT_ROUTE_IP, dst=self.BROADCAST_IP, len=328, ttl=64)
-        pkt /= scapy.UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT, len=308)
-        pkt /= scapy.BOOTP(op=1,
+        # TODO: In IP layer, DHCP relay also replaces source IP with IP of interface on
+        #       which it received the broadcast DHCPDISCOVER from client. This appears to
+        #       be loopback. We could pull from minigraph and check here.
+        ether = scapy.Ether(dst=self.BROADCAST_MAC, src=self.relay_iface_mac, type=0x0800)
+        ip = scapy.IP(src=self.DEFAULT_ROUTE_IP, dst=self.BROADCAST_IP, len=328, ttl=64)
+        udp = scapy.UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT, len=308)
+        bootp = scapy.BOOTP(op=1,
                     htype=1,
                     hlen=6,
                     hops=1,
@@ -172,18 +189,22 @@ class DHCPTest(DataplaneBaseTest):
                     siaddr=self.DEFAULT_ROUTE_IP,
                     giaddr=self.relay_iface_ip,
                     chaddr=my_chaddr)
-        pkt /= scapy.DHCP(options=[('message-type', 'discover'),
-                    ('relay_agent_Information', self.relay_agent_info),
+        bootp /= scapy.DHCP(options=[('message-type', 'discover'),
+                    ('relay_agent_Information', self.option82),
                     ('end')])
 
-        # The isc-dhcp-relay adds 44 bytes of padding to our discover packet
-        pkt /= scapy.PADDING('\x00' * 44)
+        # If our bootp layer is too small, pad it
+        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
+        if pad_bytes > 0:
+            bootp /= scapy.PADDING('\x00' * pad_bytes)
+
+        pkt = ether / ip / udp / bootp
         return pkt
 
     def create_dhcp_offer_packet(self):
         return testutils.dhcp_offer_packet(eth_server=self.server_iface_mac,
                     eth_dst=self.relay_iface_mac,
-                    eth_client=self.client_iface_mac,
+                    eth_client=self.client_mac,
                     ip_server=self.server_ip,
                     ip_dst=self.relay_iface_ip,
                     ip_offered=self.client_ip,
@@ -194,25 +215,25 @@ class DHCPTest(DataplaneBaseTest):
                     padding_bytes=0)
 
     def create_dhcp_request_packet(self):
-        return testutils.dhcp_request_packet(eth_client=self.client_iface_mac,
+        return testutils.dhcp_request_packet(eth_client=self.client_mac,
                     ip_server=self.server_ip,
                     ip_requested=self.client_ip)
 
     def create_dhcp_request_relayed_packet(self):
-        my_chaddr = ''.join([chr(int(octet, 16)) for octet in self.client_iface_mac.split(':')])
+        my_chaddr = ''.join([chr(int(octet, 16)) for octet in self.client_mac.split(':')])
 
         # Here, the actual destination MAC should be the MAC of the leaf the relay
         # forwards through and the destination IP should be the IP of the DHCP server
         # the relay is forwarding to. We don't need to confirm these, so we'll
         # just mask them off later
         #
-        # TODO: Relay also replaces source IP with IP of interface on which it received the 
-        #       broadcast DHCPDISCOVER from client. This appears to be loopback.
-        #       We could pull from minigraph and check here.
-        pkt = scapy.Ether(dst=self.BROADCAST_MAC, src=self.relay_iface_mac, type=0x0800)
-        pkt /= scapy.IP(src=self.DEFAULT_ROUTE_IP, dst=self.BROADCAST_IP, len=328, ttl=64)
-        pkt /= scapy.UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT, len=308)
-        pkt /= scapy.BOOTP(op=1,
+        # TODO: In IP layer, DHCP relay also replaces source IP with IP of interface on
+        #       which it received the broadcast DHCPREQUEST from client. This appears to
+        #       be loopback. We could pull from minigraph and check here.
+        ether = scapy.Ether(dst=self.BROADCAST_MAC, src=self.relay_iface_mac, type=0x0800)
+        ip = scapy.IP(src=self.DEFAULT_ROUTE_IP, dst=self.BROADCAST_IP, len=336, ttl=64)
+        udp = scapy.UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT, len=316)
+        bootp = scapy.BOOTP(op=1,
                     htype=1,
                     hlen=6,
                     hops=1,
@@ -224,20 +245,24 @@ class DHCPTest(DataplaneBaseTest):
                     siaddr=self.DEFAULT_ROUTE_IP,
                     giaddr=self.relay_iface_ip,
                     chaddr=my_chaddr)
-        pkt /= scapy.DHCP(options=[('message-type', 'request'),
+        bootp /= scapy.DHCP(options=[('message-type', 'request'),
                     ('requested_addr', self.client_ip),
                     ('server_id', self.server_ip),
-                    ('relay_agent_Information', self.relay_agent_info),
+                    ('relay_agent_Information', self.option82),
                     ('end')])
 
-        # The isc-dhcp-relay adds 32 bytes of padding to our request
-        pkt /= scapy.PADDING('\x00' * 32)
+        # If our bootp layer is too small, pad it
+        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
+        if pad_bytes > 0:
+            bootp /= scapy.PADDING('\x00' * pad_bytes)
+
+        pkt = ether / ip / udp / bootp
         return pkt
 
     def create_dhcp_ack_packet(self):
         return testutils.dhcp_ack_packet(eth_server=self.server_iface_mac,
                     eth_dst=self.relay_iface_mac,
-                    eth_client=self.client_iface_mac,
+                    eth_client=self.client_mac,
                     ip_server=self.server_ip,
                     ip_dst=self.relay_iface_ip,
                     ip_offered=self.client_ip,
@@ -285,6 +310,7 @@ class DHCPTest(DataplaneBaseTest):
         masked_discover.set_do_not_care_scapy(scapy.IP, "options")
 
         masked_discover.set_do_not_care_scapy(scapy.UDP, "chksum")
+        masked_discover.set_do_not_care_scapy(scapy.UDP, "len")
 
         masked_discover.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_discover.set_do_not_care_scapy(scapy.BOOTP, "file")
@@ -358,11 +384,10 @@ class DHCPTest(DataplaneBaseTest):
         masked_request.set_do_not_care_scapy(scapy.IP, "options")
 
         masked_request.set_do_not_care_scapy(scapy.UDP, "chksum")
+        masked_request.set_do_not_care_scapy(scapy.UDP, "len")
 
         masked_request.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_request.set_do_not_care_scapy(scapy.BOOTP, "file")
-
-        masked_request.set_do_not_care_scapy(scapy.PADDING, "load")
 
         # Count the number of these packets received on the ports connected to our leaves
         request_count = testutils.count_matched_packets_all_ports(self, masked_request, self.server_port_indices)
