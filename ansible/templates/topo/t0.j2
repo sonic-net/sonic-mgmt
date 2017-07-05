@@ -1,0 +1,203 @@
+<DeviceMiniGraph xmlns="Microsoft.Search.Autopilot.Evolution" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+  <CpgDec>
+    <IsisRouters xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
+    <PeeringSessions>
+{% for index in range(4) %}
+      <BGPSession>
+        <MacSec>false</MacSec>
+        <StartRouter>{{ inventory_hostname }}</StartRouter>
+        <StartPeer>10.0.0.{{ 56 + index*2 }}</StartPeer>
+        <EndRouter>ARISTA0{{ index+1 }}T1</EndRouter>
+        <EndPeer>10.0.0.{{ 56 + index*2 +1 }}</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
+      </BGPSession>
+      <BGPSession>
+        <StartRouter>{{ inventory_hostname }}</StartRouter>
+        <StartPeer>FC00::{{ ('%0x' % (113 + index*4 )) | upper }}</StartPeer>
+        <EndRouter>ARISTA0{{ index+1 }}T1</EndRouter>
+        <EndPeer>FC00::{{ ('%0x' % (113 + index*4 +1)) | upper }}</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
+      </BGPSession>
+{% endfor %}
+    </PeeringSessions>
+    <Routers xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+      <a:BGPRouterDeclaration>
+        <a:ASN>65100</a:ASN>
+        <a:Hostname>{{ inventory_hostname }}</a:Hostname>
+        <a:Peers>
+{% for index in range(4) %}
+          <BGPPeer>
+            <Address>10.0.0.{{ 57 + index*2 }}</Address>
+            <RouteMapIn i:nil="true"/>
+            <RouteMapOut i:nil="true"/>
+            <Vrf i:nil="true"/>
+          </BGPPeer>
+{% endfor %}
+          <BGPPeer i:type="a:BGPPeerPassive">
+            <ElementType>BGPPeer</ElementType>
+            <Address>10.1.0.32</Address>
+            <RouteMapIn i:nil="true"/>
+            <RouteMapOut i:nil="true"/>
+            <Vrf i:nil="true"/>
+            <a:Name>BGPSLBPassive</a:Name>
+            <a:PeersRange>10.255.0.0/27</a:PeersRange>
+          </BGPPeer>
+          <BGPPeer i:type="a:BGPPeerPassive">
+            <ElementType>BGPPeer</ElementType>
+            <Address>10.1.0.32</Address>
+            <RouteMapIn i:nil="true"/>
+            <RouteMapOut i:nil="true"/>
+            <Vrf i:nil="true"/>
+            <a:Name>BGPVac</a:Name>
+            <a:PeersRange>192.168.0.0/27</a:PeersRange>
+          </BGPPeer>
+        </a:Peers>
+        <a:RouteMaps/>
+      </a:BGPRouterDeclaration>
+{% for index in range(4) %}
+      <a:BGPRouterDeclaration>
+        <a:ASN>64600</a:ASN>
+        <a:Hostname>ARISTA0{{ index+1 }}T1</a:Hostname>
+        <a:RouteMaps/>
+      </a:BGPRouterDeclaration>
+{% endfor %}
+    </Routers>
+  </CpgDec>
+  <DpgDec>
+    <DeviceDataPlaneInfo>
+      <IPSecTunnels/>
+      <LoopbackIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+        <a:LoopbackIPInterface>
+          <Name>HostIP</Name>
+          <AttachTo>Loopback0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>10.1.0.32/32</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>10.1.0.32/32</a:PrefixStr>
+        </a:LoopbackIPInterface>
+        <a:LoopbackIPInterface>
+          <Name>HostIP1</Name>
+          <AttachTo>Loopback0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>FC00:1::32/128</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>FC00:1::32/128</a:PrefixStr>
+        </a:LoopbackIPInterface>
+      </LoopbackIPInterfaces>
+      <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+        <a:ManagementIPInterface>
+          <Name>HostIP</Name>
+          <AttachTo>eth0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ ansible_host }}/{{ mgmt_subnet_mask_length }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ ansible_host }}/{{ mgmt_subnet_mask_length }}</a:PrefixStr>
+        </a:ManagementIPInterface>
+      </ManagementIPInterfaces>
+      <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
+      <MplsInterfaces/>
+      <MplsTeInterfaces/>
+      <RsvpInterfaces/>
+      <Hostname>{{ inventory_hostname }}</Hostname>
+      <PortChannelInterfaces>
+{% for index in range(4) %}
+{% set intf_id=112+index*4 if ('Force10-S6000' in hwsku or 'MSN' in hwsku) else 29 %}
+        <PortChannel>
+          <Name>PortChannel0{{ index+1 }}</Name>
+          <AttachTo>{{ iface_prefix }}{{ intf_id }}</AttachTo>
+          <SubInterface/>
+        </PortChannel>
+{% endfor %}
+      </PortChannelInterfaces>
+      <VlanInterfaces>
+        <VlanInterface>
+          <Name>Vlan1000</Name>
+{% if ('Force10-S6000' in hwsku or 'MSN' in hwsku) %}
+          <AttachTo>{{ iface_prefix }}4;{{ iface_prefix }}8;{{ iface_prefix }}12;{{ iface_prefix }}16;{{ iface_prefix }}20;{{ iface_prefix }}24;{{ iface_prefix }}28;{{ iface_prefix }}32;{{ iface_prefix }}36;{{ iface_prefix }}40;{{ iface_prefix }}44;{{ iface_prefix }}48;{{ iface_prefix }}52;{{ iface_prefix }}56;{{ iface_prefix }}60;{{ iface_prefix }}64;{{ iface_prefix }}68;{{ iface_prefix }}72;{{ iface_prefix }}76;{{ iface_prefix }}80;{{ iface_prefix }}84;{{ iface_prefix }}88;{{ iface_prefix }}92;{{ iface_prefix }}96</AttachTo>
+{% else%}
+          <AttachTo>{{ iface_prefix }}2{{ iface_postfix }};{{ iface_prefix }}3{{ iface_postfix }};{{ iface_prefix }}4{{ iface_postfix }};{{ iface_prefix }}5{{ iface_postfix }};{{ iface_prefix }}6{{ iface_postfix }};{{ iface_prefix }}7{{  iface_postfix }};{{ iface_prefix }}8{{ iface_postfix }};{{ iface_prefix }}9{{ iface_postfix }};{{ iface_prefix }}10{{ iface_postfix }};{{ iface_prefix }}11{{ iface_postfix }};{{ iface_prefix }}12{{ iface_postfix }};{{ iface_prefix }}13{{ iface_postfix }};{{ iface_prefix }}14{{ iface_postfix }};{{ iface_prefix }}15{{ iface_postfix }};{{ iface_prefix }}16{{ iface_postfix }};{{ iface_prefix }}17{{ iface_postfix }};{{ iface_prefix }}18{{ iface_postfix }};{{ iface_prefix }}19{{ iface_postfix }};{{ iface_prefix }}20{{ iface_postfix }};{{ iface_prefix }}21{{ iface_postfix }};{{ iface_prefix }}22{{ iface_postfix }};{{ iface_prefix }}23{{ iface_postfix }};{{ iface_prefix }}24{{ iface_postfix }}</AttachTo>
+{% endif %}
+          <NoDhcpRelay>False</NoDhcpRelay>
+          <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
+          <Type i:nil="true"/>
+          <VlanID>1000</VlanID>
+          <Tag>1000</Tag>
+          <Subnets>192.168.0.0/27</Subnets>
+        </VlanInterface>
+      </VlanInterfaces>
+      <IPInterfaces>
+{% for index in range(4) %}
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>PortChannel0{{ index +1 }}</AttachTo>
+          <Prefix>10.0.0.{{ 56 + index*2 }}/31</Prefix>
+        </IPInterface>
+        <IPInterface>
+          <Name i:Name="true"/>
+          <AttachTo>PortChannel0{{ index +1 }}</AttachTo>
+          <Prefix>FC00::{{ ('%0x' % (113+index*4)) | upper }}/126</Prefix>
+        </IPInterface>
+{% endfor %}
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>Vlan1000</AttachTo>
+          <Prefix>192.168.0.1/27</Prefix>
+        </IPInterface>
+      </IPInterfaces>
+      <DataAcls/>
+      <AclInterfaces/>
+      <DownstreamSummaries/>
+      <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
+    </DeviceDataPlaneInfo>
+  </DpgDec>
+  <PngDec>
+    <DeviceInterfaceLinks>
+{% for index in range(4) %}
+{% set intf_id=112+index*4 if ('Force10-S6000' in hwsku or 'MSN' in hwsku ) else 29 %}
+     <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>ARISTA0{{ index+1 }}T1</EndDevice>
+        <EndPort>Ethernet1</EndPort>
+        <StartDevice>{{ inventory_hostname }}</StartDevice>
+        <StartPort>{{ iface_prefix }}{{ intf_id }}</StartPort>
+      </DeviceLinkBase>
+{% endfor %}
+    </DeviceInterfaceLinks>
+    <Devices>
+      <Device i:type="ToRRouter">
+        <Hostname>{{ inventory_hostname }}</Hostname>
+        <HwSku>{{ hwsku }}</HwSku>
+        <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
+        </ManagementAddress>
+      </Device>
+{% if  VM_topo  %}
+{% for dev in neighbor_eosvm_mgmt %}
+{% if 'T1' in dev %}
+{% set dev_type = 'LeafRouter' %}
+{% elif 'T2' in dev %}
+{% set dev_type = 'SpineRouter' %}
+{% elif 'T0' in dev %}
+{% set dev_type = 'TorRouter' %}
+{% else %}
+{% set dev_ytpe = 'Unknown' %}
+{% endif %}
+      <Device i:type="{{ dev_type }}">
+         <Hostname>"{{ dev }}"</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>{{ neighbor_eosvm_mgmt[dev] }}</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+       </Device>
+{% endfor %}
+{% endif %}
+    </Devices>
+  </PngDec>
+{% include 'dev_metadata.j2' %}
+  <Hostname>{{ inventory_hostname }}</Hostname>
+  <HwSku>{{ hwsku }}</HwSku>
+</DeviceMiniGraph>

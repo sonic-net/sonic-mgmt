@@ -1,15 +1,34 @@
 ---
-#starlab (str) group variables
-# file: group_vars/str.yml
+#testlab (lab) group variables
+# file: group_vars/lab.yml
 
 # ntp variables
 ntp_servers: ['10.0.0.1', '10.0.0.2']
 
 # syslog variables
 syslog_servers: ['10.0.0.5', '10.0.0.6']
-#
+
 # dns variables
 dns_servers: ['10.0.0.5', '10.0.0.6']
+
+# forced_mgmt_routes
+forced_mgmt_routes: ['10.0.0.100/31', '10.250.0.8', '10.255.0.0/28']
+
+# ErspanDestinationIpv4
+erspan_dest: ['10.0.0.7']
+
+radius_servers: []
+
+tacacs_servers: ['10.0.0.9', '10.0.0.8']
+
+# tacacs grous
+tacacs_group: 'testlab'
+
+# snmp servers
+snmp_servers: ['10.0.0.9']
+
+# dhcp replay servers
+dhcp_servers: ['10.0.0.1']
 #
 # snmp variables
 snmp_rocommunity: public
