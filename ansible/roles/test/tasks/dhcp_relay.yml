@@ -1,10 +1,11 @@
 # We choose client port index to be index of first port on Vlan
+- name: Obtain client interface alias
+  set_fact:
+    client_iface_alias: "{{ minigraph_map_sonic_to_ngs[minigraph_vlans[minigraph_vlans.keys()[0]]['members'][0]] }}"
+
 - name: Obtain client port index
   set_fact:
-    client_port_name: "{{ minigraph_vlans[minigraph_vlans.keys()[0]]['members'][0] }}"
-
-- set_fact:
-    client_port_index: "{{ minigraph_port_indices[client_port_name] }}"
+    client_port_index: "{{ minigraph_port_indices[client_iface_alias] }}"
 
 - name: Obtain leaf port indices
   set_fact:
@@ -35,11 +36,12 @@
     ptf_test_path: dhcp_relay_test.DHCPTest
     ptf_platform: remote
     ptf_test_params:
+      - hostname=\"{{ inventory_hostname }}\"
       - client_port_index=\"{{ client_port_index }}\"
+      - client_iface_alias=\"{{ client_iface_alias }}\"
       - leaf_port_indices=\"{{ leaf_port_indices }}\"
       - num_dhcp_servers=\"{{ dhcp_servers | length }}\"
       - server_ip=\"{{ dhcp_servers[0] }}\"
-      - relay_iface_name=\"{{ minigraph_vlan_interfaces[0]['attachto'] }}\"
       - relay_iface_ip=\"{{ minigraph_vlan_interfaces[0]['addr'] }}\"
       - relay_iface_mac=\"{{ relay_iface_mac }}\"
       - relay_iface_netmask=\"{{ minigraph_vlan_interfaces[0]['mask'] }}\"
