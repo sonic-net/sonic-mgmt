@@ -15,15 +15,15 @@
 # 1. Check that DUT is stable. That means that "pings" work in both directions: from T1 to servers and from servers to T1.
 # 2. If DUT is stable the test starts continiously pinging DUT in both directions.
 # 3. The test runs '/usr/bin/fast-reboot' on DUT remotely. The ssh key supposed to be uploaded by ansible before the test
-# 3. As soon as it sees that ping starts failuring in one of directions the test registers a start of dataplace disruption
-# 4. As soon as the test sess that pings start working for DUT in both directions it registers a stop of dataplane disruption
-# 5. If the length of the disruption is less 30 seconds (if not redefined by parameter) - the test passes
-# 6. If there're any drops, when control plane is down - the test fails
-# 7. When test start fast-reboot procedure it connects to all VM (which emulates T1) and starts fetching status of BGP and LACP
+# 4. As soon as it sees that ping starts failuring in one of directions the test registers a start of dataplace disruption
+# 5. As soon as the test sess that pings start working for DUT in both directions it registers a stop of dataplane disruption
+# 6. If the length of the disruption is less 30 seconds (if not redefined by parameter) - the test passes
+# 7. If there're any drops, when control plane is down - the test fails
+# 8. When test start fast-reboot procedure it connects to all VM (which emulates T1) and starts fetching status of BGP and LACP
 #    if LACP is inactive on VMs and interfaces goes down test failes
-#    if BGP graceful restart timeout is not equal 120 seconds the test fails
+#    if default value of BGP graceful restart timeout is not equal 120 seconds the test fails
 #    if BGP graceful restart is not enabled on DUT the test fails
-#    If BGP graceful restart timeout is less than 15 seconds the test fails
+#    If BGP graceful restart timeout value is almost exceeded (less than 15 seconds) the test fails
 #    if BGP routes disappeared the test is failed
 
 import ptf
@@ -120,9 +120,9 @@ class Arista(object):
             lacp_output = self.do_cmd('show lacp neighbor')
             info['lacp'] = self.parse_lacp(lacp_output)
             bgp_neig_output = self.do_cmd('show ip bgp neighbors')
-            info['bgp_neig'] = self.parse_bgp_neig(bgp_neig_output)
+            info['bgp_neig'] = self.parse_bgp_neighbor(bgp_neig_output)
             if not bgp_once:
-                self.ipv4_gr_enabled, self.ipv6_gr_enabled, self.gr_timeout = self.parse_bgp_neig_once(bgp_neig_output)
+                self.ipv4_gr_enabled, self.ipv6_gr_enabled, self.gr_timeout = self.parse_bgp_neighbor_once(bgp_neig_output)
                 bgp_once = True
             bgp_route_output = self.do_cmd('show ip route bgp')
             info['bgp_route'] = self.parse_bgp_route(bgp_route_output, lo_prefix, vlan_prefix)
@@ -130,12 +130,12 @@ class Arista(object):
 
         self.disconnect()
 
-        return self.test_all_client_cases(data)
+        return self.check_all_peer_status(data)
 
     def parse_lacp(self, output):
         return output.find('Bundled') != -1
 
-    def parse_bgp_neig_once(self, output):
+    def parse_bgp_neighbor_once(self, output):
         is_gr_ipv4_enabled = False
         is_gr_ipv6_enabled = False
         restart_time = None
@@ -152,7 +152,7 @@ class Arista(object):
 
         return is_gr_ipv4_enabled, is_gr_ipv6_enabled, restart_time
 
-    def parse_bgp_neig(self, output):
+    def parse_bgp_neighbor(self, output):
         gr_active = None
         gr_timer = None
         for line in output.split('\n'):
@@ -184,7 +184,7 @@ class Arista(object):
 
         return [('lo', lo_route, lo_valid, lo_prefix, lo_nexthop), ('vlan', vlan_route, vlan_valid, vlan_prefix, vlan_nexthop)]
 
-    def test_all_client_cases(self, output):
+    def check_all_peer_status(self, output):
         # [0] True 'ipv4_gr_enabled', [1] doesn't matter 'ipv6_enabled', [2] should be >= 120
         if not self.ipv4_gr_enabled:
             self.fails.add("bgp ipv4 graceful restart is not enabled")
@@ -201,7 +201,7 @@ class Arista(object):
 
             gr_active, timer = other['bgp_neig']
             # wnen it's False, it's ok, wnen it's True, check that inactivity timer not less then 15 seconds
-            if gr_active and datetime.datetime.strptime(timer, '%H:%M:%S') < datetime.datetime(1900, 1, 1, second = 15):
+            if gr_active and datetime.datetime.strptime(timer, '%H:%M:%S') < datetime.datetime(1900, 1, 1, second = int(self.test_params['min_bgp_gr_timeout'])):
                 self.fails.add("graceful restart timer is almost finished. Less then 15 seconds left")
             bgp_route_results = other['bgp_route']
             # check that route is present [0] = True, is valid [1] = True. if it's not show
@@ -233,6 +233,7 @@ class FastReloadTest(BaseTest):
         self.check_param('vlan_ip_range', '', required = True)
         self.check_param('lo_prefix', '10.1.0.32/32', required = False)
         self.check_param('arista_vms', [], required = True)
+        self.check_param('min_bgp_gr_timeout', 15, required = False)
 
         # Default settings
         self.nr_pc_pkts = 100
@@ -445,7 +446,7 @@ class FastReloadTest(BaseTest):
         self.ssh_jobs = []
         for addr in ssh_targets:
             q = Queue.Queue()
-            thr = threading.Thread(target=self.ssh_job, kwargs={'ip': addr, 'queue': q})
+            thr = threading.Thread(target=self.peer_state_check, kwargs={'ip': addr, 'queue': q})
             thr.setDaemon(True)
             self.ssh_jobs.append((thr, q))
             thr.start()
@@ -460,12 +461,12 @@ class FastReloadTest(BaseTest):
 
         self.log("Wait until ASIC stops")
         self.timeout(self.task_timeout, "DUT hasn't stopped in %d seconds" % self.task_timeout)
-        no_routing_start, upper_replies = self.check_stop()
+        no_routing_start, upper_replies = self.check_forwarding_stop()
         self.cancel_timeout()
 
         self.log("ASIC was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
         self.timeout(self.task_timeout, "DUT hasn't started to work for %d seconds" % self.task_timeout)
-        no_routing_stop, _ = self.check_start()
+        no_routing_stop, _ = self.check_forwarding_resume()
         self.cancel_timeout()
 
         for thr, q in self.ssh_jobs:
@@ -478,13 +479,13 @@ class FastReloadTest(BaseTest):
 
         self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
         self.log("Reboot time was %s" % str(no_routing_stop - self.reboot_start))
-        self.log("Number replies when control plane was down: %d Expected: %d" % (no_cp_replies, self.nr_vl_pkts))
+        self.log("How many packets were received back when control plane was down: %d Expected: %d" % (no_cp_replies, self.nr_vl_pkts))
 
         self.fails['dut'] = set()
         if no_routing_stop - no_routing_start > self.limit:
             self.fails['dut'].add("Downtime must be less then %s seconds" % self.test_params['fast_reboot_limit'])
         if no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
-            self.fails['dut'].add("Fast-reboot cycle must be less then graceful limit %s seconds" % self.test_params['graceful_limit'])
+            self.fails['dut'].add("Fast-reboot cycle must be less than graceful limit %s seconds" % self.test_params['graceful_limit'])
         if no_cp_replies < 0.95 * self.nr_vl_pkts:
             self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (no_cp_replies, self.nr_vl_pkts))
 
@@ -536,14 +537,14 @@ class FastReloadTest(BaseTest):
 
         return stdout, stderr, return_code
 
-    def ssh_job(self, ip, queue):
+    def peer_state_check(self, ip, queue):
         ssh = Arista(ip, queue)
         self.fails[ip] = ssh.run(self.test_params['lo_prefix'], self.test_params['vlan_ip_range'])
 
-    def check_stop(self):
+    def check_forwarding_stop(self):
         return self.iteration(True)
 
-    def check_start(self):
+    def check_forwarding_resume(self):
         return self.iteration(False)
 
     def iteration(self, is_stop):
@@ -570,12 +571,12 @@ class FastReloadTest(BaseTest):
         return recorded_time, nr_from_upper_array
 
     def ping_iteration(self):
-        nr_from_servers = self.pingFromServers()
-        if nr_from_servers > 0:
-            nr_from_upper = self.pingFromUpperTier()
+        replies_from_servers = self.pingFromServers()
+        if replies_from_servers > 0:
+            replies_from_upper = self.pingFromUpperTier()
         else:
-            nr_from_upper = 0
-        return nr_from_servers > 0 and nr_from_upper > 0, nr_from_upper
+            replies_from_upper = 0
+        return replies_from_servers > 0 and replies_from_upper > 0, replies_from_upper
 
     def check_alive(self):
         # This function checks that DUT routes packets in both directions.
