@@ -2,6 +2,9 @@
     - fail: msg="Please set ptf_host variable"
       when: ptf_host is not defined
 
+    - fail: msg="Please set pkt_tx_count variable"
+      when: pkt_tx_count is not defined
+
     - name: Ensure LLDP Daemon stopped
       become: yes
       supervisorctl: state=stopped name={{ item }}
@@ -37,6 +40,7 @@
         ptf_qlen: 100000
         ptf_test_params:
         - verbose=False
+        - pkt_tx_count={{ pkt_tx_count }}
         ptf_extra_options: --device-socket 0-3@tcp://127.0.0.1:10900 --device-socket 1-3@tcp://{{ ansible_eth0['ipv4']['address'] }}:10900
       with_items:
         - ARPTest
