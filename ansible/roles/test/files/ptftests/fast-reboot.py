@@ -56,7 +56,7 @@ import Queue
 
 
 class Arista(object):
-    def __init__(self, ip, queue, login='admin', password='123456'):
+    def __init__(self, ip, queue, min_bgp_gr_timeout, login='admin', password='123456'):
         self.ip = ip
         self.queue = queue
         self.login = login
@@ -64,6 +64,7 @@ class Arista(object):
         self.conn = None
         self.hostname = None
         self.fails = set()
+        self.min_bgp_gr_timeout = int(min_bgp_gr_timeout)
 
     def __del__(self):
         self.disconnect()
@@ -201,7 +202,7 @@ class Arista(object):
 
             gr_active, timer = other['bgp_neig']
             # wnen it's False, it's ok, wnen it's True, check that inactivity timer not less then 15 seconds
-            if gr_active and datetime.datetime.strptime(timer, '%H:%M:%S') < datetime.datetime(1900, 1, 1, second = int(self.test_params['min_bgp_gr_timeout'])):
+            if gr_active and datetime.datetime.strptime(timer, '%H:%M:%S') < datetime.datetime(1900, 1, 1, second = self.min_bgp_gr_timeout):
                 self.fails.add("graceful restart timer is almost finished. Less then 15 seconds left")
             bgp_route_results = other['bgp_route']
             # check that route is present [0] = True, is valid [1] = True. if it's not show
@@ -538,7 +539,7 @@ class FastReloadTest(BaseTest):
         return stdout, stderr, return_code
 
     def peer_state_check(self, ip, queue):
-        ssh = Arista(ip, queue)
+        ssh = Arista(ip, queue, self.test_params['min_bgp_gr_timeout'])
         self.fails[ip] = ssh.run(self.test_params['lo_prefix'], self.test_params['vlan_ip_range'])
 
     def check_forwarding_stop(self):
