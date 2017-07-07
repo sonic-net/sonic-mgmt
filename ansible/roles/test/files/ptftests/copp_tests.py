@@ -31,6 +31,7 @@ class ControlPlaneBaseTest(BaseTest):
     PPS_LIMIT_MIN = PPS_LIMIT * 0.9
     PPS_LIMIT_MAX = PPS_LIMIT * 1.1
     NO_POLICER_LIMIT = PPS_LIMIT * 1.4
+    PKT_TX_COUNT = 100000
     TASK_TIMEOUT = 300 # Wait up to 5 minutes for tasks to complete
 
     def __init__(self):
@@ -38,7 +39,7 @@ class ControlPlaneBaseTest(BaseTest):
         self.log_fp = open('/tmp/copp.log', 'a')
         test_params = testutils.test_params_get()
         self.verbose = 'verbose' in test_params and test_params['verbose']
-        self.pkt_tx_count = 'pkt_tx_count' in test_params and test_params['pkt_tx_count']
+        self.pkt_tx_count = test_params['pkt_tx_count'] if 'pkt_tx_count' in test_params else self.PKT_TX_COUNT
         self.pkt_rx_limit = self.pkt_tx_count * 0.90
         self.timeout_thr = None
 
