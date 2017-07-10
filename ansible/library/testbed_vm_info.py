@@ -53,7 +53,6 @@ class TestbedVMFacts():
         eos = {}
         with open(self.topofile) as f:
             vm_topology = yaml.load(f)
-            f.close()
         self.topoall = vm_topology
         for  vm in vm_topology['topology']['VMs']:
             vm_index = int(vm_topology['topology']['VMs'][vm]['vm_offset'])+self.start_index
@@ -61,20 +60,15 @@ class TestbedVMFacts():
         return eos
 
 
-    def gather_veos_vm(self, eos_name, vm_index):
-        vmname = 'VM'+format(vm_index, '04d')
-        vmcmd = 'cat '+VM_INV_FILE+' | grep '+  vmname
-        p = subprocess.Popen(vmcmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = p.communicate()
-        rt_code = p.returncode
-        if rt_code != 0 or stdout == '':
-            msg="cannot find the VM=" +vmname+" in VM inventory file that is used to generate the minigraph, please make sure you have enouh VMs in inventory file for the VM ranges you specified"
-            raise Exception(msg)
-        vm_prop = stdout.split()
-        if vmname == vm_prop[0] and 'ansible_host' in vm_prop[1]:
-            self.vmhosts[eos_name] = vm_prop[1].split('=')[1]
-        return 
-
+    def gather_veos_vms(self):
+        vms = {}
+        with open(VM_INV_FILE) as f:
+            lines = f.readlines()
+        for  line in lines:
+            if 'VM' in line and 'ansible_host' in line:
+                items = line.split()
+                vms[items[0]] = items[1].split('=')[1]
+        return vms
 
 def main():
     module = AnsibleModule(
@@ -85,14 +79,20 @@ def main():
         supports_check_mode=False
     )
     m_args = module.params
-    topo_type = m_args['topo'] 
+    topo_type = m_args['topo']
     if 'ptf' in topo_type:
         module.exit_json(ansible_facts= {'neighbor_eosvm_mgmt': {}})
     try:
         vmsall = TestbedVMFacts(m_args['topo'], m_args['base_vm'])
         neighbor_eos = vmsall.get_neighbor_eos()
+        vm_inv = vmsall.gather_veos_vms()
         for eos in neighbor_eos:
-            vmsall.gather_veos_vm(eos, neighbor_eos[eos])
+            vmname = 'VM'+format(neighbor_eos[eos], '04d')
+            if vmname in vm_inv:
+                vmsall.vmhosts[eos] = vm_inv[vmname]
+            else:
+                err_msg = "cannot find the vm " + vmname + " in VM inventory file, please make sure you have enough VMs for the topology you are using"
+                module.fail_json(msg=err_msg)
         module.exit_json(ansible_facts={'neighbor_eosvm_mgmt':vmsall.vmhosts, 'topoall': vmsall.topoall})
     except (IOError, OSError):
         module.fail_json(msg="Can not find file "+vmsall.topofile+" or "+VM_INV_FILE)
@@ -102,5 +102,4 @@ def main():
 from ansible.module_utils.basic import *
 if __name__== "__main__":
     main()
-
 

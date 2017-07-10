@@ -11,12 +11,12 @@
 # Template files for generating minigraph.xml are defined in template/topo directory
 #
 # To generate and deploy minigraph for SONiC switch matching the VM topology please use following command
-# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i lab config_sonic_basedon_testbed.yml --vault-password-file=~/.password -l sonic_dut_name -e VM_base=VM0300 -e topo=t0 [-e deploy=true]
+# ansible-playbook -i lab config_sonic_basedon_testbed.yml --vault-password-file=~/.password -l sonic_dut_name -e VM_base=VM0300 -e topo=t0 [-e deploy=true]
 #
 # Parameters
 # -l str-msn2700-01          - the sonic_dut_name you are going to generate minigraph for
-# -e VM_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
-# -e topo=t0                 - the name of removed topo
+# -e vm_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
+# -e topo=t0                 - the name of topology to generate minigraph file
 # -e deploy=True             - if deploy the newly generated minigraph to the targent DUT, default is false if not defined
 #
 # After minigraph.xml is generated, the playbook will replace the original minigraph file under ansible/minigraph/ with the newly generated minigraph file for the SONiC device.
@@ -29,10 +29,10 @@
   gather_facts: yes
   tasks:
   - fail: msg="need to provide topology type and vm base like topo=t0 and vm_base=VM100"
-    when: topo and vm_base is not defined 
+    when: (topo is not defined) or (vm_base is not defined)
       
   - fail: msg="need hwsku, interface speed, netmask and interface prefix/postfix defined to generate configuration file"
-    when: hwsku and iface_speed and mgmt_subnet_mask_length and iface_prefix and iface_postfix is not defined
+    when: (hwsku is not defined) or (iface_speed is not defined) or (mgmt_subnet_mask_length is not defined) or (iface_prefix is not defined) or (iface_postfix is not defined)
 
   - set_fact:
       VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
@@ -44,7 +44,7 @@
     when: VM_topo
 
   - name: save original minigraph file (if original file may don't exist, then ignore errors)
-    shell: mv minigraph/{{ inventory_hostname }}.xml minigraph/{{ inventory_hostname }}.xml.ori
+    shell: mv minigraph/{{ inventory_hostname }}.xml minigraph/{{ inventory_hostname }}.xml.orig
     connection: local
     ignore_errors: true
 
