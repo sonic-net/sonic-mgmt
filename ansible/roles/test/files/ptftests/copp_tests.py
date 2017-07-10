@@ -39,8 +39,12 @@ class ControlPlaneBaseTest(BaseTest):
         self.log_fp = open('/tmp/copp.log', 'a')
         test_params = testutils.test_params_get()
         self.verbose = 'verbose' in test_params and test_params['verbose']
+
         self.pkt_tx_count = test_params.get('pkt_tx_count', self.PKT_TX_COUNT)
+        if self.pkt_tx_count == 0:
+            self.pkt_tx_count = self.PKT_TX_COUNT
         self.pkt_rx_limit = self.pkt_tx_count * 0.90
+
         self.timeout_thr = None
 
         self.myip = {}
