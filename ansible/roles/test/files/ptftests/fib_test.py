@@ -96,6 +96,9 @@ class FibTest(BaseTest):
             self.src_ports = range(0, 32)
         if self.test_params['testbed_type'] == 't0':
             self.src_ports = range(1, 25) + range(28, 32)
+
+        # This parameter is used for link flap traffic testing
+        self.down_port = self.test_params.get('down_port', None)
     #---------------------------------------------------------------------
 
     def check_ip_range(self, ipv4=True):
@@ -109,7 +112,10 @@ class FibTest(BaseTest):
             # Get the expected list of ports that would receive the packets
             exp_port_list = self.fib[ip_range.get_first_ip()].get_next_hop_list()
             # Choose random one source port from all ports excluding the expected ones
-            src_port = random.choice([port for port in self.src_ports if port not in exp_port_list])
+            src_port = random.choice([port for port in self.src_ports if port not in exp_port_list and port != self.down_port])
+
+            if self.down_port in exp_port_list:
+                exp_port_list.remove(self.down_port)
 
             if not exp_port_list:
                 continue
@@ -133,7 +139,13 @@ class FibTest(BaseTest):
                 for i in range(0, self.BALANCING_TEST_TIMES):
                     (matched_index, received) = self.check_ip_route(src_port, dst_ip, exp_port_list, ipv4)
                     hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
-                self.check_balancing(self.fib[dst_ip].get_next_hop(), hit_count_map)
+                next_hop = self.fib[dst_ip].get_next_hop()
+                for group in next_hop:
+                    if self.down_port in group:
+                        group.remove(self.down_port)
+                        if not group:
+                            next_hop.remove(group)
+                self.check_balancing(next_hop, hit_count_map)
 
     def check_ip_route(self, src_port, dst_ip_addr, dst_port_list, ipv4=True):
         if ipv4:

@@ -1,0 +1,57 @@
+- block:
+    - set_fact:
+        interface: "{{item}}"
+    
+    - debug: msg={{interface}}
+    
+    - set_fact:
+        peer_device: "{{neighbors[interface]['peerdevice']}}"
+        neighbor_interface: "{{neighbors[interface]['peerport']}}"
+    
+    - conn_graph_facts: host={{ peer_device }}
+      connection: local
+    
+    - set_fact:
+        peer_host: "{{device_info['mgmtip']}}"
+        peer_hwsku: "{{device_info['HwSku']}}"
+    
+    - set_fact:
+        down_port: "{{minigraph_port_indices[interface]}}"
+    
+    - name: Shut down neighbor interface {{neighbor_interface}} on {{peer_host}}
+      action: apswitch template=neighbor_interface_shut_single.j2
+      args:
+        host: "{{peer_host}}"
+        login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+      connection: switch
+    
+    - pause:
+        seconds: 20
+    
+    - name: "Start PTF runner"
+      include: ../ptf_runner.yml
+      vars:
+        ptf_test_name: FIB test
+        ptf_test_dir: ptftests
+        ptf_test_path: fib_test.FibTest
+        ptf_platform: remote
+        ptf_test_params:
+          - testbed_type='{{testbed_type}}'
+          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - fib_info='/root/fib_info.txt'
+          - ipv4={{ipv4}}
+          - ipv6={{ipv6}}
+          - down_port={{down_port}}
+        ptf_extra_options: "--relax --debug info --log-file /tmp/fib_test.FibTest.ipv4.{{ipv4}}.ipv6.{{ipv6}}.{{ansible_date_time.iso8601}}.log "
+    
+
+  always:
+    - name: Bring up neighbor interface {{neighbor_interface}} on {{peer_host}}
+      action: apswitch template=neighbor_interface_no_shut_single.j2
+      args:
+        host: "{{peer_host}}"
+        login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+      connection: switch
+    
+    - pause:
+        seconds: 20
