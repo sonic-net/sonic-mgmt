@@ -21,8 +21,7 @@ options:
       required: true
    exclude_ips:
       description:
-          - the ips within the prefixs that are excluded.
-          - the format is ips separated by whitespace eg: 10.0.0.0 10.0.0.1
+          - the ips within the prefix that are excluded.
       required: false
 '''
 
@@ -31,13 +30,14 @@ EXAMPLES = '''
   get_ip_in_range: num={{num}} prefix={{prefix}}
 '''
 
+
 class IpRangeModule(object):
     def __init__(self):
         self.module = AnsibleModule(
             argument_spec=dict(
               num=dict(required=True, type='int'),
               prefix=dict(required=True),
-              exclude_ips=dict(required=False),
+              exclude_ips=dict(required=False, default=[], type='list'),
             ),
             supports_check_mode=True)
 
@@ -53,20 +53,19 @@ class IpRangeModule(object):
         """
         m_args = self.module.params
         exclude_ips = []
-        if m_args['exclude_ips'] is not None:
-            ip_list = m_args['exclude_ips'].split() 
-            for ip in ip_list:
-                exclude_ips.append(IPAddress(ip))
+        ip_list = m_args['exclude_ips']
+        for ip in ip_list:
+            exclude_ips.append(IPAddress(ip))
 
         self.generate_ips(m_args['num'], m_args['prefix'], exclude_ips)
         self.module.exit_json(ansible_facts=self.facts)
+
 
     def generate_ips(self, num, prefix, exclude_ips):
         """
            Generate ips
         """
         prefix = IPNetwork(prefix)
-        print "prefix broadcast ip " + str(prefix.broadcast)
         exclude_ips.append(prefix.broadcast)
         exclude_ips.append(prefix.network)
         available_ips = list(prefix)
@@ -81,8 +80,8 @@ class IpRangeModule(object):
             if len(generated_ips) == num:
                 break            
         self.facts['generated_ips'] = generated_ips
-
         return
+
 
 def main():
     ip_range = IpRangeModule()

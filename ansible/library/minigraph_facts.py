@@ -278,14 +278,14 @@ def parse_cpg(cpg, hname):
                     myasn = int(asn)
                     peers = router.find(str(QName(ns1, "Peers")))
                     for bgpPeer in peers.findall(str(QName(ns, "BGPPeer"))):
-			addr = bgpPeer.find(str(QName(ns, "Address"))).text
-			if bgpPeer.find(str(QName(ns1, "PeersRange"))) is not None:
-		            name = bgpPeer.find(str(QName(ns1, "Name"))).text
-			    ip_range = bgpPeer.find(str(QName(ns1, "PeersRange"))).text
-			    bgp_peers_with_range.append({
-			        'name': name,
-			        'ip_range': ip_range
-			    })
+                        addr = bgpPeer.find(str(QName(ns, "Address"))).text
+                        if bgpPeer.find(str(QName(ns1, "PeersRange"))) is not None:
+                            name = bgpPeer.find(str(QName(ns1, "Name"))).text
+                            ip_range = bgpPeer.find(str(QName(ns1, "PeersRange"))).text
+                            bgp_peers_with_range.append({
+                                'name': name,
+                                'ip_range': ip_range
+                            })
 
                 else:
                     for bgp_session in bgp_sessions:
