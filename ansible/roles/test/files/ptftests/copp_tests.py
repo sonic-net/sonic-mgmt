@@ -1,4 +1,4 @@
-# ptf --test-dir saitests copp_tests  --qlen=100000 --platform nn -t "verbose=True" --device-socket 0-3@tcp://127.0.0.1:10900 --device-socket 1-3@tcp://10.3.147.47:10900
+# ptf --test-dir saitests copp_tests  --qlen=100000 --platform nn -t "verbose=True;pkt_tx_count=100000" --device-socket 0-3@tcp://127.0.0.1:10900 --device-socket 1-3@tcp://10.3.147.47:10900
 #
 # copp_test.${name_test}
 #
@@ -32,7 +32,6 @@ class ControlPlaneBaseTest(BaseTest):
     PPS_LIMIT_MAX = PPS_LIMIT * 1.1
     NO_POLICER_LIMIT = PPS_LIMIT * 1.4
     PKT_TX_COUNT = 100000
-    PKT_RX_LIMIT = PKT_TX_COUNT * 0.90
     TASK_TIMEOUT = 300 # Wait up to 5 minutes for tasks to complete
 
     def __init__(self):
@@ -40,6 +39,12 @@ class ControlPlaneBaseTest(BaseTest):
         self.log_fp = open('/tmp/copp.log', 'a')
         test_params = testutils.test_params_get()
         self.verbose = 'verbose' in test_params and test_params['verbose']
+
+        self.pkt_tx_count = test_params.get('pkt_tx_count', self.PKT_TX_COUNT)
+        if self.pkt_tx_count == 0:
+            self.pkt_tx_count = self.PKT_TX_COUNT
+        self.pkt_rx_limit = self.pkt_tx_count * 0.90
+
         self.timeout_thr = None
 
         self.myip = {}
@@ -148,8 +153,8 @@ class ControlPlaneBaseTest(BaseTest):
 
     def one_port_test(self, port_number):
         packet = self.contruct_packet(port_number)
-        total_rcv_pkt_cnt, time_delta, time_delta_ms, tx_pps, rx_pps = self.copp_test(str(packet), self.PKT_TX_COUNT, (0, port_number), (1, port_number))
-        self.printStats(self.PKT_TX_COUNT, total_rcv_pkt_cnt, time_delta, tx_pps, rx_pps)
+        total_rcv_pkt_cnt, time_delta, time_delta_ms, tx_pps, rx_pps = self.copp_test(str(packet), self.pkt_tx_count, (0, port_number), (1, port_number))
+        self.printStats(self.pkt_tx_count, total_rcv_pkt_cnt, time_delta, tx_pps, rx_pps)
         self.check_constraints(total_rcv_pkt_cnt, time_delta_ms, rx_pps)
 
         return
@@ -178,11 +183,11 @@ class NoPolicyTest(ControlPlaneBaseTest):
         self.log("")
         self.log("Checking constraints (NoPolicy):")
         self.log("rx_pps (%d) > NO_POLICER_LIMIT (%d): %s" % (int(rx_pps), int(self.NO_POLICER_LIMIT), str(rx_pps > self.NO_POLICER_LIMIT)))
-        self.log("total_rcv_pkt_cnt (%d) > PKT_RX_LIMIT (%d): %s" % \
-                (int(total_rcv_pkt_cnt), int(self.PKT_RX_LIMIT), str(total_rcv_pkt_cnt > self.PKT_RX_LIMIT)))
+        self.log("total_rcv_pkt_cnt (%d) > pkt_rx_limit (%d): %s" % \
+                (int(total_rcv_pkt_cnt), int(self.pkt_rx_limit), str(total_rcv_pkt_cnt > self.pkt_rx_limit)))
 
         assert(rx_pps > self.NO_POLICER_LIMIT)
-        assert(total_rcv_pkt_cnt > self.PKT_RX_LIMIT)
+        assert(total_rcv_pkt_cnt > self.pkt_rx_limit)
 
 class PolicyTest(ControlPlaneBaseTest):
     def __init__(self):
@@ -370,8 +375,8 @@ class IP2METest(PolicyTest):
             if port[0] == 0:
                 continue
             packet = self.contruct_packet(port[1])
-            total_rcv_pkt_cnt, time_delta, time_delta_ms, tx_pps, rx_pps = self.copp_test(str(packet), self.PKT_TX_COUNT, (0, port_number), (1, port_number))
-            self.printStats(self.PKT_TX_COUNT, total_rcv_pkt_cnt, time_delta, tx_pps, rx_pps)
+            total_rcv_pkt_cnt, time_delta, time_delta_ms, tx_pps, rx_pps = self.copp_test(str(packet), self.pkt_tx_count, (0, port_number), (1, port_number))
+            self.printStats(self.pkt_tx_count, total_rcv_pkt_cnt, time_delta, tx_pps, rx_pps)
             self.check_constraints(total_rcv_pkt_cnt, time_delta_ms, rx_pps)
 
         return
