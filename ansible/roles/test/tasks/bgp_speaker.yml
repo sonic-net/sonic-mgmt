@@ -38,7 +38,7 @@
 - debug: msg="{{generated_ips}}"
 
 - name: Generate two ips in bgp speaker peer range
-  get_ip_in_range: num=2 prefix={{minigraph_bgp_peers_with_range[0]['ip_range']}}
+  get_ip_in_range: num=2 prefix={{minigraph_bgp_peers_with_range[0]['ip_range'][0]}}
   become: no
   connection: local
 

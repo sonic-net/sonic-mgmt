@@ -282,9 +282,10 @@ def parse_cpg(cpg, hname):
                         if bgpPeer.find(str(QName(ns1, "PeersRange"))) is not None:
                             name = bgpPeer.find(str(QName(ns1, "Name"))).text
                             ip_range = bgpPeer.find(str(QName(ns1, "PeersRange"))).text
+                            ip_range_group = ip_range.split(';') if ip_range and ip_range != "" else []
                             bgp_peers_with_range.append({
                                 'name': name,
-                                'ip_range': ip_range
+                                'ip_range': ip_range_group
                             })
 
                 else:
