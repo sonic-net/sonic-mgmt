@@ -128,6 +128,10 @@
   include: decap.yml
   tags: decap
 
+- name: BGP Speaker test
+  include: bgp_speaker.yml
+  tags: bgp_speaker
+
 - name: Test Everflow
   include: everflow.yml
   tags: everflow

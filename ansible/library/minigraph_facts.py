@@ -10,6 +10,7 @@ import ipaddr as ipaddress
 from collections import defaultdict
 from natsort import natsorted
 
+
 from lxml import etree as ET
 from lxml.etree import QName
 
@@ -248,6 +249,7 @@ def parse_dpg(dpg, hname):
 def parse_cpg(cpg, hname):
     bgp_sessions = []
     myasn = None
+    bgp_peers_with_range = []
     for child in cpg:
         tag = child.tag
         if tag == str(QName(ns, "PeeringSessions")):
@@ -274,12 +276,24 @@ def parse_cpg(cpg, hname):
                 hostname = router.find(str(QName(ns1, "Hostname"))).text
                 if hostname == hname:
                     myasn = int(asn)
+                    peers = router.find(str(QName(ns1, "Peers")))
+                    for bgpPeer in peers.findall(str(QName(ns, "BGPPeer"))):
+                        addr = bgpPeer.find(str(QName(ns, "Address"))).text
+                        if bgpPeer.find(str(QName(ns1, "PeersRange"))) is not None:
+                            name = bgpPeer.find(str(QName(ns1, "Name"))).text
+                            ip_range = bgpPeer.find(str(QName(ns1, "PeersRange"))).text
+                            ip_range_group = ip_range.split(';') if ip_range and ip_range != "" else []
+                            bgp_peers_with_range.append({
+                                'name': name,
+                                'ip_range': ip_range_group
+                            })
+
                 else:
                     for bgp_session in bgp_sessions:
                         if hostname == bgp_session['name']:
                             bgp_session['asn'] = int(asn)
 
-    return bgp_sessions, myasn
+    return bgp_sessions, myasn, bgp_peers_with_range
 
 
 def parse_meta(meta, hname):
@@ -287,6 +301,7 @@ def parse_meta(meta, hname):
     dhcp_servers = []
     ntp_servers = []
     mgmt_routes = []
+    deployment_id = None
     device_metas = meta.find(str(QName(ns, "Devices")))
     for device in device_metas.findall(str(QName(ns1, "DeviceMetadata"))):
         if device.find(str(QName(ns1, "Name"))).text == hname:
@@ -303,7 +318,9 @@ def parse_meta(meta, hname):
                     syslog_servers = value_group
                 elif name == "ForcedMgmtRoutes":
                     mgmt_routes = value_group
-    return syslog_servers, dhcp_servers, ntp_servers, mgmt_routes
+                elif name == "DeploymentId":
+                    deployment_id = value
+    return syslog_servers, dhcp_servers, ntp_servers, mgmt_routes, deployment_id
 
 
 def get_console_info(devices, dev, port):
@@ -371,6 +388,7 @@ def reconcile_mini_graph_locations(filename, hostname):
         if os.path.exists(mini_graph_path) and file_age(mini_graph_path) < ANSIBLE_USER_MINIGRAPH_MAX_AGE:
             # found a cached mini-graph, load it.
             root = ET.parse(mini_graph_path).getroot()
+
     return mini_graph_path, root
 
 
@@ -396,6 +414,8 @@ def parse_xml(filename, hostname):
     dhcp_servers = []
     ntp_servers = []
     mgmt_routes = []
+    bgp_peers_with_range = []
+    deployment_id = None
 
     hwsku_qn = QName(ns, "HwSku")
     hostname_qn = QName(ns, "Hostname")
@@ -431,13 +451,13 @@ def parse_xml(filename, hostname):
         if child.tag == str(QName(ns, "DpgDec")):
             (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls) = parse_dpg(child, hostname)
         elif child.tag == str(QName(ns, "CpgDec")):
-            (bgp_sessions, bgp_asn) = parse_cpg(child, hostname)
+            (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(child, hostname)
         elif child.tag == str(QName(ns, "PngDec")):
             (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port) = parse_png(child, hostname)
         elif child.tag == str(QName(ns, "UngDec")):
             (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
         elif child.tag == str(QName(ns, "MetadataDeclaration")):
-            (syslog_servers, dhcp_servers, ntp_servers, mgmt_routes) = parse_meta(child, hostname)
+            (syslog_servers, dhcp_servers, ntp_servers, mgmt_routes, deployment_id) = parse_meta(child, hostname)
 
     # Create port index map. Since we currently output a mix of NGS names
     # and SONiC mapped names, we include both in this map.
@@ -485,6 +505,7 @@ def parse_xml(filename, hostname):
     # TODO: alternatively (preferred), implement class containers for multiple-attribute entries, enabling sort by attr
     results['minigraph_bgp'] = sorted(bgp_sessions, key=lambda x: x['addr'])
     results['minigraph_bgp_asn'] = bgp_asn
+    results['minigraph_bgp_peers_with_range'] = bgp_peers_with_range
     # TODO: sort does not work properly on all interfaces of varying lengths. Need to sort by integer group(s).
 
     phyport_intfs = []
@@ -525,7 +546,7 @@ def parse_xml(filename, hostname):
     results['dhcp_servers'] = dhcp_servers
     results['ntp_servers'] = ntp_servers
     results['forced_mgmt_routes'] = mgmt_routes
-
+    results['deployment_id'] = deployment_id
     return results
 
 ports = {}
@@ -573,7 +594,6 @@ def print_parse_xml(hostname):
     filename = '../minigraph/' + hostname + '.xml'
     results = parse_xml(filename, hostname)
     print(json.dumps(results, indent=3, cls=minigraph_encoder))
-
 
 from ansible.module_utils.basic import *
 
