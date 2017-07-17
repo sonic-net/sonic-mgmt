@@ -56,6 +56,10 @@
       <Device Hostname="str-acs-serv-01" HwSku="TestServ" Type="Server"/>
       <Device Hostname="str-acs-serv-02" HwSku="TestServ" Type="Server"/>
       <Device Hostname="str-acs-serv-03" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="str-acs-serv-05" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="str-acs-serv-06" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="str-acs-serv-07" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="str-acs-serv-08" HwSku="TestServ" Type="Server"/>
       <Device Hostname="calient" HwSku="ODL" Type="ODL"/>
     </Devices>
     <DeviceInterfaceLinks>
@@ -753,6 +757,10 @@
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-02" EndPort="p4p2" StartDevice="str-7260-11" StartPort="Ethernet22"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-03" EndPort="p4p1" StartDevice="str-7260-11" StartPort="Ethernet23"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-03" EndPort="p4p2" StartDevice="str-7260-11" StartPort="Ethernet24"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-05" EndPort="p4p1" StartDevice="str-7260-11" StartPort="Ethernet25"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-06" EndPort="p4p1" StartDevice="str-7260-11" StartPort="Ethernet26"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-07" EndPort="p4p1" StartDevice="str-7260-11" StartPort="Ethernet27"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-08" EndPort="p4p1" StartDevice="str-7260-11" StartPort="Ethernet28"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet30"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-09" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet32"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-07" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet34"/>
@@ -1862,6 +1870,10 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet22" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet23" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet24" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet25" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet26" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet27" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet28" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet30" vlanids="937-968"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet32" vlanids="905-936"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet34" vlanids="873-904,1093-1096,1125-1128"/>

@@ -693,6 +693,10 @@ str-7260-11,Ethernet21,str-acs-serv-02,p4p1,40000,,Trunk
 str-7260-11,Ethernet22,str-acs-serv-02,p4p2,40000,,Trunk
 str-7260-11,Ethernet23,str-acs-serv-03,p4p1,40000,,Trunk
 str-7260-11,Ethernet24,str-acs-serv-03,p4p2,40000,,Trunk
+str-7260-11,Ethernet25,str-acs-serv-05,p4p1,40000,,Trunk
+str-7260-11,Ethernet26,str-acs-serv-06,p4p1,40000,,Trunk
+str-7260-11,Ethernet27,str-acs-serv-07,p4p1,40000,,Trunk
+str-7260-11,Ethernet28,str-acs-serv-08,p4p1,40000,,Trunk
 str-7260-11,Ethernet30,str-7260-10,Ethernet64,40000,937-968,Trunk
 str-7260-11,Ethernet32,str-7260-09,Ethernet64,40000,905-936,Trunk
 str-7260-11,Ethernet34,str-7260-07,Ethernet64,40000,"873-904,1093-1096,1125-1128",Trunk
