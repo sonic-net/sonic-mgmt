@@ -1,0 +1,126 @@
+#========================================
+# Run BGP Speaker test
+#========================================
+
+- fail: msg="Information about tested missing"
+  when: (testbed_type is not defined or ptf_host is not defined)
+
+- fail: msg="Invalid testbed_type value '{{testbed_type}}'"
+  when: testbed_type not in ['t0']
+
+- include_vars: "vars/deployment_id_asn_map.yml"
+
+- name: Gather minigraph facts about the device
+  minigraph_facts: host={{inventory_hostname}}
+  become: no
+  connection: local
+
+- name: print deployment id
+  debug: msg="{{deployment_id}}"
+
+- name: set bgp speaker asn number
+  set_fact:
+     bgp_speaker_asn={{deployment_id_asn_map[deployment_id]}}
+
+- name: print bgp speaker asn number
+  debug: msg="{{bgp_speaker_asn}}"
+
+- name: Generate three ips in VLAN range
+  get_ip_in_range: num=3 prefix="{{minigraph_vlan_interfaces[0]['addr']}}/{{minigraph_vlan_interfaces[0]['prefixlen']}}" exclude_ips="{{minigraph_vlan_interfaces[0]['addr']}}" 
+  become: no
+  connection: local
+  failed_when: False
+
+- name: Store the value of VLAN IPs
+  set_fact:
+     vlan_ips={{generated_ips}}
+
+- debug: msg="{{generated_ips}}"
+
+- name: Generate two ips in bgp speaker peer range
+  get_ip_in_range: num=2 prefix={{minigraph_bgp_peers_with_range[0]['ip_range'][0]}}
+  become: no
+  connection: local
+
+- name: Set the value of ips in bgp speaker peer range
+  set_fact: speaker_ips={{generated_ips}}
+
+- debug: msg="{{generated_ips}}"
+
+# vlan_ips[0], speaker_ips[0], speaker_ips[1] are IPs for three bgp speakers
+# vlan_ips[1], vlan_ips[2] are IPs for mux under DUT.
+- name: Create directory /exabgp to store exabgp related files.
+  file: path=/root/exabgp state=directory
+  connection: local
+
+- name: set exabgp folder name
+  set_fact:
+     exabgp_dir="/root/exabgp"
+
+- name: Create directory /exabgp to store exabgp related files.
+  file: path={{exabgp_dir}} state=directory
+  delegate_to: "{{ptf_host}}"
+
+- name: Copy helper files to ptf container
+  copy: src=roles/test/files/helpers dest=/root
+  delegate_to: "{{ptf_host}}"
+
+- name: set exabgp folder name
+  set_fact:
+     helper_dir="/root/helpers"
+
+- name: Generate configurations for exabgp instances
+  template: src=roles/test/templates/exabgp/config.j2 dest={{exabgp_dir}}/{{item.file_name}}
+  with_items:
+    - {file_name: "config_1.ini", local_ip: '{{speaker_ips[0]}}', port_num: '5000'}
+    - {file_name: "config_2.ini", local_ip: '{{speaker_ips[1]}}', port_num: '6000'}
+    - {file_name: "config_3.ini", local_ip: '{{vlan_ips[0]}}', port_num: '7000'}
+  delegate_to: "{{ptf_host}}"
+
+- name: Set the prefix to be announced
+  set_fact: announce_prefix="10.10.10.10/26"
+
+- name: Generate routes to be announced
+  template: src=roles/test/templates/exabgp/routes.j2 dest={{exabgp_dir}}/routes
+  with_items:
+    - {speaker_ip: '{{vlan_ips[0]}}', mux_ip_1: '{{vlan_ips[1]}}', mux_ip_2: '{{vlan_ips[2]}}', port_num_1: '5000', port_num_2: '6000', port_num_3: '7000'}
+  delegate_to: "{{ptf_host}}"
+
+- name: Generate start file for exabgp instances
+  template: src=roles/test/templates/exabgp/start.j2 dest={{exabgp_dir}}/{{item.file_name}} mode=u+rwx
+  with_items:
+    - {file_name: 'start.sh', config_file_1: 'config_1.ini', config_file_2: 'config_2.ini', config_file_3: 'config_3.ini', phy_ip: '{{vlan_ips[0]}}', logical_ip_1: '{{speaker_ips[0]}}', logical_ip_2: '{{speaker_ips[1]}}'}
+  delegate_to: "{{ptf_host}}"
+
+- name: Start exabgp instances
+  shell: sh {{exabgp_dir}}/start.sh
+  delegate_to: "{{ptf_host}}"
+
+- name: Announce the routes
+  shell: python {{helper_dir}}/announce_routes.py {{exabgp_dir}}/routes >/dev/null 2>&1 &
+  delegate_to: "{{ptf_host}}"
+
+- pause:
+    seconds: 10
+    prompt: "make sure dynamic bgp neighbors appear"
+
+- name: Gather bgp facts from bgp container
+  bgp_facts:
+
+- debug: msg="{{bgp_neighbors}}"
+
+- name: Verify bgp sessions are established
+  assert: {that: "'{{ bgp_neighbors[item]['state'] }}' == 'established'"}
+  with_items: "{{ bgp_neighbors.keys() }}"
+
+- name: Verify accepted prefixes of the dynamic neighbors are correct
+  assert: {that: "'{{ bgp_neighbors[item]['accepted prefixes'] }}' == '1'"}
+  with_items: "['{{speaker_ips[0].split('/')[0]}}', '{{speaker_ips[1].split('/')[0]}}', '{{vlan_ips[0].split('/')[0]}}'] "  
+
+- name: Kill exabgp instances
+  shell: pkill exabgp
+  delegate_to: "{{ptf_host}}"
+
+- name: Remove Assigned IPs
+  shell: ip addr flush dev eth{{ '%d' % (minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'][0] | replace("Ethernet", "") | int / 4)}}
+  delegate_to: "{{ptf_host}}"

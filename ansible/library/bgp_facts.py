@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-
 DOCUMENTATION = '''
 module:         bgp_facts
 version_added:  "2.0"
@@ -63,17 +62,18 @@ class BgpModule(object):
         """
             Main method of the class
         """
-        self.collect_neighbors()
+        self.collect_data('summary')
+        self.parse_summary()
+        self.collect_data('neighbor')
         self.parse_neighbors()
         self.module.exit_json(ansible_facts=self.facts)
 
-
-    def collect_neighbors(self):
+    def collect_data(self, command_str):
         """
-            Collect bgp neighbors by reading output of 'vtysh' command line tool
+            Collect bgp information by reading output of 'vtysh' command line tool
         """
         try:
-            rc, self.out, err = self.module.run_command('vtysh -c "show ip bgp neighbors"',
+            rc, self.out, err = self.module.run_command('vtysh -c "show ip bgp ' + command_str + '"',
                                                         executable='/bin/bash', use_unsafe_shell=True)
         except Exception as e:
             self.module.fail_json(msg=str(e))
@@ -84,9 +84,14 @@ class BgpModule(object):
 
         return
 
+    def parse_summary(self):
+        regex_asn = re.compile(r'.*local AS number (\d+).*')
+        if regex_asn.match(self.out):
+            self.facts['bgp_localasn'] = regex_asn.match(self.out).group(1)
+
     def parse_neighbors(self):
 
-        regex_ip = re.compile(r'^BGP neighbor is (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[0-9a-fA-F:]+)')
+        regex_ip = re.compile(r'^BGP neighbor is \*?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[0-9a-fA-F:]+)')
         regex_remote_as = re.compile(r'.*remote AS (\d+)')
         regex_local_as = re.compile(r'.*local AS (\d+)')
         regex_desc = re.compile(r'.*Description: (.*)')
@@ -97,11 +102,12 @@ class BgpModule(object):
         regex_conn_est = re.compile(r'.*Connections established (\d+)')
         regex_conn_dropped = re.compile(r'.*Connections established \d+; dropped (\d+)')
         regex_routerid = re.compile(r'.*remote router ID (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
-
+        regex_peer_group = re.compile(r'.*Member of peer-group (.*) for session parameters')
+        regex_subnet =  re.compile(r'.*subnet range group: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2})')
         neighbors = {}
 
         try:
-            split_output = self.out.split("BGP neighbor")
+            split_output = self.out.split("BGP neighbor is")
 
             for n in split_output:
 
@@ -109,7 +115,7 @@ class BgpModule(object):
                 if 'BGP' in n:
                     neighbor = {}
                     message_stats = {}
-                    n = "BGP neighbor" + n
+                    n = "BGP neighbor is" + n
                     lines = n.splitlines()
 
                     for line in lines:
@@ -123,6 +129,8 @@ class BgpModule(object):
                         if regex_conn_est.match(line): neighbor['connections established'] = int(regex_conn_est.match(line).group(1))
                         if regex_conn_dropped.match(line): neighbor['connections dropped'] = int(regex_conn_dropped.match(line).group(1))
                         if regex_routerid.match(line): neighbor['remote routerid'] = regex_routerid.match(line).group(1)
+                        if regex_peer_group.match(line): neighbor['peer group'] = regex_peer_group.match(line).group(1)
+                        if regex_subnet.match(line): neighbor['subnet'] = regex_subnet.match(line).group(1)
 
                         if regex_stats.match(line):
                             key, values = line.split(':')
@@ -142,7 +150,6 @@ class BgpModule(object):
             self.module.fail_json(msg=str(e))
 
         self.facts['bgp_neighbors'] = neighbors
-
         return
 
 
