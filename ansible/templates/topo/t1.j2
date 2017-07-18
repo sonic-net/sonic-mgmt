@@ -113,25 +113,25 @@
       <PortChannelInterfaces/>
       <VlanInterfaces/>
       <IPInterfaces>
-{% for i in range(32) %}
-{% set if_index = i*4 if ('Force10-S6000' in hwsku or 'MSN' in hwsku) else i+1 %}
+{% for index in range(32) %}
+{% set sonic_if_name = 'Ethernet'+ ((index*4) | string) %}
         <IPInterface>
           <Name i:Name="true"/>
-{% if 'Arista-7050-QX32' in hwsku and if_index > 24 %}
-          <AttachTo>{{ iface_prefix }}{{ if_index }}</AttachTo>
+{% if port_alias['alias'] %}
+          <AttachTo>{{ port_alias['mapping'][sonic_if_name] }}</AttachTo>
 {% else %}
-          <AttachTo>{{ iface_prefix }}{{ if_index }}{{ iface_postfix }}</AttachTo>
+          <AttachTo>{{ sonic_if_name }}</AttachTo>
 {% endif %}
-          <Prefix>10.0.0.{{ i*2 }}/31</Prefix>
+          <Prefix>10.0.0.{{ index*2 }}/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-{% if 'Arista-7050-QX32' in hwsku and if_index > 24 %}
-          <AttachTo>{{ iface_prefix }}{{ if_index }}</AttachTo>
+{% if port_alias['alias'] %}
+          <AttachTo>{{ port_alias['mapping'][sonic_if_name] }}</AttachTo>
 {% else %}
-          <AttachTo>{{ iface_prefix }}{{ if_index }}{{ iface_postfix }}</AttachTo>
+          <AttachTo>{{ sonic_if_name }}</AttachTo>
 {% endif %}
-          <Prefix>FC00::{{ ('%0x' % (i*4 +1)) | upper }}/126</Prefix>
+          <Prefix>FC00::{{ ('%0x' % (index*4 +1)) | upper }}/126</Prefix>
         </IPInterface>
 {% endfor %}
       </IPInterfaces>
@@ -144,24 +144,28 @@
   <PngDec>
     <DeviceInterfaceLinks>
 {% for index in range(16) %}
-{% set if_index = index*4 if ('Force10-S6000' in hwsku or 'MSN' in hwsku) else index+1 %}
-      <DeviceLinkBase>
+{% set sonic_if_name = 'Ethernet' + ((index*4) | string) %}
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>{{ inventory_hostname }}</EndDevice>
-        <EndPort>{{ iface_prefix }}{{ if_index }}{{ iface_postfix }}</EndPort>
+{% if port_alias['alias'] %}
+        <EndPort>{{ port_alias['mapping'][sonic_if_name] }}</EndPort>
+{% else %}
+        <EndPort>{{ sonic_if_name }}</EndPort>
+{% endif %}
         <StartDevice>ARISTA{{ '%02d' % (index+1) }}T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
 {% endfor %}
 {% for index in range(16) %}
-{% set if_index = 64+index*4 if ('Force10-S6000' in hwsku or 'MSN' in hwsku) else 16+index+1 %}
+{% set sonic_if_name = 'Ethernet' + ((64+index*4) | string) %}
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>{{ inventory_hostname }}</EndDevice>
-{% if 'Arista-7050-QX32' in hwsku and if_index > 24 %}
-        <EndPort>{{ iface_prefix }}{{ if_index }}</EndPort>
+{% if port_alias['alias'] %}
+        <EndPort>{{ port_alias['mapping'][sonic_if_name] }}</EndPort>
 {% else %}
-        <EndPort>{{ iface_prefix }}{{ if_index }}{{ iface_postfix }}</EndPort>
+        <EndPort>{{ sonic_if_name }}</EndPort>
 {% endif %}
         <StartDevice>ARISTA{{ '%02d' % (index+1) }}T0</StartDevice>
         <StartPort>Ethernet1</StartPort>

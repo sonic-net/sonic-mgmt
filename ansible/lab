@@ -3,8 +3,6 @@ str-msn2700-01    ansible_host=10.251.0.188
 
 [sonic_mlnx_40:vars]
 hwsku="ACS-MSN2700"
-iface_prefix="Ethernet"
-iface_postfix=""
 iface_speed='40000'
 mgmt_subnet_mask_length="24"
 

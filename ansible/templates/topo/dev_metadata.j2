@@ -3,17 +3,17 @@
       <AutoNegotiation>true</AutoNegotiation>
       <EthernetInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% for index in range(32) %}
-{% set if_index=index*4 if ('Force10-S6000' in hwsku or 'MSN' in hwsku) else index+1 %}
+{% set sonic_if_name='Ethernet'+((index*4)|string)  %}
         <a:EthernetInterface>
           <ElementType>DeviceInterface</ElementType>
           <AlternateSpeeds i:nil="true"/>
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-{% if 'Arista-7050-QX32' in hwsku and index > 23 %}
-          <InterfaceName>{{ iface_prefix }}{{ if_index }}</InterfaceName>
+{% if port_alias['alias'] %}
+          <InterfaceName>{{ port_alias['mapping'][sonic_if_name] }}</InterfaceName>
 {% else %}
-          <InterfaceName>{{ iface_prefix }}{{ if_index }}{{ iface_postfix }}</InterfaceName>
+          <InterfaceName>{{ sonic_if_name }}</InterfaceName>
 {% endif %}
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>

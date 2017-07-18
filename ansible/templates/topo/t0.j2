@@ -105,10 +105,14 @@
       <Hostname>{{ inventory_hostname }}</Hostname>
       <PortChannelInterfaces>
 {% for index in range(4) %}
-{% set intf_id=112+index*4 if ('Force10-S6000' in hwsku or 'MSN' in hwsku) else 29 %}
+{% set sonic_if_name='Ethernet'+((112+index*4) | string) %}
         <PortChannel>
           <Name>PortChannel0{{ index+1 }}</Name>
-          <AttachTo>{{ iface_prefix }}{{ intf_id }}</AttachTo>
+{% if port_alias['alias'] %}
+          <AttachTo>{{ port_alias['mapping'][sonic_if_name] }}</AttachTo>
+{% else %}
+          <AttachTo>{{ sonic_if_name }}</AttachTo>
+{% endif %}
           <SubInterface/>
         </PortChannel>
 {% endfor %}
@@ -116,10 +120,10 @@
       <VlanInterfaces>
         <VlanInterface>
           <Name>Vlan1000</Name>
-{% if ('Force10-S6000' in hwsku or 'MSN' in hwsku) %}
-          <AttachTo>{{ iface_prefix }}4;{{ iface_prefix }}8;{{ iface_prefix }}12;{{ iface_prefix }}16;{{ iface_prefix }}20;{{ iface_prefix }}24;{{ iface_prefix }}28;{{ iface_prefix }}32;{{ iface_prefix }}36;{{ iface_prefix }}40;{{ iface_prefix }}44;{{ iface_prefix }}48;{{ iface_prefix }}52;{{ iface_prefix }}56;{{ iface_prefix }}60;{{ iface_prefix }}64;{{ iface_prefix }}68;{{ iface_prefix }}72;{{ iface_prefix }}76;{{ iface_prefix }}80;{{ iface_prefix }}84;{{ iface_prefix }}88;{{ iface_prefix }}92;{{ iface_prefix }}96</AttachTo>
+{% if port_alias['alias'] %}
+          <AttachTo>{{ port_alias['mapping']['Ethernet4'] }};{{ port_alias['mapping']['Ethernet8'] }};{{ port_alias['mapping']['Ethernet12'] }};{{ port_alias['mapping']['Ethernet16'] }};{{ port_alias['mapping']['Ethernet20'] }};{{ port_alias['mapping']['Ethernet24'] }};{{ port_alias['mapping']['Ethernet28'] }};{{ port_alias['mapping']['Ethernet32'] }};{{ port_alias['mapping']['Ethernet36'] }};{{ port_alias['mapping']['Ethernet40'] }};{{ port_alias['mapping']['Ethernet44'] }};{{ port_alias['mapping']['Ethernet48'] }};{{ port_alias['mapping']['Ethernet52'] }};{{ port_alias['mapping']['Ethernet56'] }};{{ port_alias['mapping']['Ethernet60'] }};{{ port_alias['mapping']['Ethernet64'] }};{{ port_alias['mapping']['Ethernet68'] }};{{ port_alias['mapping']['Ethernet72'] }};{{ port_alias['mapping']['Ethernet76'] }};{{ port_alias['mapping']['Ethernet80'] }};{{ port_alias['mapping']['Ethernet84'] }};{{ port_alias['mapping']['Ethernet88'] }};{{ port_alias['mapping']['Ethernet92'] }};{{ port_alias['mapping']['Ethernet96'] }}</AttachTo>          
 {% else%}
-          <AttachTo>{{ iface_prefix }}2{{ iface_postfix }};{{ iface_prefix }}3{{ iface_postfix }};{{ iface_prefix }}4{{ iface_postfix }};{{ iface_prefix }}5{{ iface_postfix }};{{ iface_prefix }}6{{ iface_postfix }};{{ iface_prefix }}7{{  iface_postfix }};{{ iface_prefix }}8{{ iface_postfix }};{{ iface_prefix }}9{{ iface_postfix }};{{ iface_prefix }}10{{ iface_postfix }};{{ iface_prefix }}11{{ iface_postfix }};{{ iface_prefix }}12{{ iface_postfix }};{{ iface_prefix }}13{{ iface_postfix }};{{ iface_prefix }}14{{ iface_postfix }};{{ iface_prefix }}15{{ iface_postfix }};{{ iface_prefix }}16{{ iface_postfix }};{{ iface_prefix }}17{{ iface_postfix }};{{ iface_prefix }}18{{ iface_postfix }};{{ iface_prefix }}19{{ iface_postfix }};{{ iface_prefix }}20{{ iface_postfix }};{{ iface_prefix }}21{{ iface_postfix }};{{ iface_prefix }}22{{ iface_postfix }};{{ iface_prefix }}23{{ iface_postfix }};{{ iface_prefix }}24{{ iface_postfix }}</AttachTo>
+          <AttachTo>Ethernet4;Ethernet8;Ethernet12;Ethernet16;Ethernet20;Ethernet24;Ethernet28;Ethernet32;Ethernet36;Ethernet40;Ethernet44;Ethernet48;Ethernet52;Ethernet56;Ethernet60;Ethernet64;Ethernet68;Ethernet72;Ethernet76;Ethernet80;Ethernet84;Ethernet88;Ethernet92;Ethernet96</AttachTo>          
 {% endif %}
           <NoDhcpRelay>False</NoDhcpRelay>
           <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
@@ -157,13 +161,17 @@
   <PngDec>
     <DeviceInterfaceLinks>
 {% for index in range(4) %}
-{% set intf_id=112+index*4 if ('Force10-S6000' in hwsku or 'MSN' in hwsku ) else 29 %}
+{% set sonic_if_name='Ethernet'+((112+index*4) | string) %}
      <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>ARISTA0{{ index+1 }}T1</EndDevice>
         <EndPort>Ethernet1</EndPort>
         <StartDevice>{{ inventory_hostname }}</StartDevice>
-        <StartPort>{{ iface_prefix }}{{ intf_id }}</StartPort>
+{% if port_alias['alias'] %}
+        <StartPort>{{ port_alias['mapping'][sonic_if_name] }}</StartPort>
+{% else %}
+        <StartPort>{{ sonic_if_name }}</StartPort>
+{% endif %}
       </DeviceLinkBase>
 {% endfor %}
     </DeviceInterfaceLinks>

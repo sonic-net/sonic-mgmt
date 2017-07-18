@@ -32,8 +32,33 @@
     when: (topo is not defined) or (vm_base is not defined)
       
   - fail: msg="need hwsku, interface speed, netmask and interface prefix/postfix defined to generate configuration file"
-    when: (hwsku is not defined) or (iface_speed is not defined) or (mgmt_subnet_mask_length is not defined) or (iface_prefix is not defined) or (iface_postfix is not defined)
+    when: (hwsku is not defined) or (iface_speed is not defined) or (mgmt_subnet_mask_length is not defined)
 
+  - stat:
+      path: /usr/share/sonic/device
+    register: p
+    connection: local
+
+  #### TODO: build the package into sonic-mgmt docker and remove this block of code ####
+  - block:  
+     - file: path=/tmp/buildimage state=absent
+       connection: local
+
+     - name: git download
+       shell: git clone https://github.com/azure/sonic-buildimage /tmp/buildimage
+       connection: local
+
+     - name: create folder
+       file: path=/usr/share/sonic state=directory
+       connection: local
+       become: true
+
+     - name: move files
+       shell: cp -r /tmp/buildimage/device /usr/share/sonic/
+       become: true
+       connection: local
+    when: p.stat.isdir is not defined
+      
   - set_fact:
       VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
       remote_dut: "{{ ansible_ssh_host }}"
@@ -43,7 +68,13 @@
     connection: local
     when: VM_topo
 
-  - name: save original minigraph file (if original file may don't exist, then ignore errors)
+  - name: find interface name mapping
+    port_alias: hwsku="{{ hwsku }}"
+    connection: local
+
+  - debug: var=port_alias
+
+  - name: save original minigraph file (if original file does not exist, then ignore errors)
     shell: mv minigraph/{{ inventory_hostname }}.xml minigraph/{{ inventory_hostname }}.xml.orig
     connection: local
     ignore_errors: true
@@ -53,21 +84,41 @@
     template: src=templates/topo/{{ template_name }}.j2
               dest=minigraph/{{ inventory_hostname}}.xml
     connection: local
+  
+  #### TODO: remove this step block when the device data package is built into sonic-mgmt docker ####
+  - block:
+    - name: remove tempfile
+      file: path=/usr/share/sonic/device state=absent
+      connection: local
+      become: true
 
-  - debug: var=deploy
-
+    - name: remove tempfile
+      file: path=/tmp/buildimage state=absent
+      when: p.stat.isdir is not defined
+      connection: local
+    when: p.stat.isdir is not defined
+ 
   - block:
       - name: saved original minigraph file (if original file may don't exist, then ignore errors)
-        shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.ori
+        shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
         become: true
         ignore_errors: true
-        when: deploy is defined and deploy==True
+
+      - name: save original updategraph configuration (if original file may don't exist, then ignore errors)
+        shell: mv /etc/sonic/updategraph.conf /etc/sonic/updategrph.conf.orig
+        become: true
+        ignore_errors: true
 
       - name: create minigraph file for SONiC device
-        become: true
         template: src=templates/topo/{{ template_name }}.j2
                   dest=/etc/sonic/minigraph.xml
-
+        become: true
+ 
+      - name: disable automatic minigraph update if we are deploying new minigraph into SONiC
+        copy: src=templates/topo/updategraph.conf
+              dest=/etc/sonic/updategraph.conf
+        become: true
+ 
     # reload the device and wait it to come back
       - name: Reboot is required for minigraph change
         shell: sleep 2 && shutdown -r now "Ansible Create new configuration Minigraph file, triggered reboot."

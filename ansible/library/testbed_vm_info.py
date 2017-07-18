@@ -10,7 +10,7 @@ from operator import itemgetter
 from itertools import groupby
 from collections import defaultdict
 
-DOCUMENTATION='''
+DOCUMENTATION = '''
 module: testbed_vm_info.py
 Ansible_version_added:  2.0.0.2
 short_description:   Gather all related VMs info 
@@ -26,7 +26,7 @@ Ansible_facts:
 
 '''
 
-EXAMPLES='''
+EXAMPLES = '''
     - name: gather vm information
       testbed_vm_info: base_vm='VM0100' topo='t1'
 '''
@@ -64,7 +64,7 @@ class TestbedVMFacts():
         vms = {}
         with open(VM_INV_FILE) as f:
             lines = f.readlines()
-        for  line in lines:
+        for line in lines:
             if 'VM' in line and 'ansible_host' in line:
                 items = line.split()
                 vms[items[0]] = items[1].split('=')[1]
@@ -81,7 +81,7 @@ def main():
     m_args = module.params
     topo_type = m_args['topo']
     if 'ptf' in topo_type:
-        module.exit_json(ansible_facts= {'neighbor_eosvm_mgmt': {}})
+        module.exit_json(ansible_facts={'neighbor_eosvm_mgmt': {}})
     try:
         vmsall = TestbedVMFacts(m_args['topo'], m_args['base_vm'])
         neighbor_eos = vmsall.get_neighbor_eos()
@@ -100,6 +100,6 @@ def main():
         module.fail_json(msg=traceback.format_exc())
 
 from ansible.module_utils.basic import *
-if __name__== "__main__":
+if __name__ == "__main__":
     main()
 
