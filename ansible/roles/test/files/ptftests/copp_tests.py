@@ -293,6 +293,7 @@ class BGPTest(NoPolicyTest):
         packet = simple_tcp_packet(
                       eth_dst=dst_mac,
                       ip_dst=dst_ip,
+                      ip_ttl=1,
                       tcp_dport=179
                       )
         return packet
