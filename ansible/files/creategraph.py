@@ -23,7 +23,7 @@ class LabGraph(object):
         self.linkcsv = link_csvfile
         self.png_xmlfile = 'str_sonic_png.xml'
         self.dpg_xmlfile = 'str_sonic_dpg.xml'
-        self.one_xmlfile = 'starlab_connection_graph.xml'
+        self.one_xmlfile = 'lab_connection_graph.xml'
         self.pngroot = etree.Element('PhysicalNetworkGraphDeclaration')
         self.dpgroot = etree.Element('DataPlaneGraph')
 
