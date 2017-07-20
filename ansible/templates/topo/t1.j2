@@ -1,0 +1,189 @@
+<DeviceMiniGraph xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="Microsoft.Search.Autopilot.Evolution">
+  <CpgDec>
+    <IsisRouters xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
+    <PeeringSessions>
+{% for index in range(16) %}
+      <BGPSession>
+        <StartRouter>ARISTA{{ '%02d' % (index + 1) }}T0</StartRouter>
+        <StartPeer>10.0.0.{{ (32 + index * 2 + 1) }}</StartPeer>
+        <EndRouter>{{ inventory_hostname }}</EndRouter>
+        <EndPeer>10.0.0.{{ (32 + index * 2) }}</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
+      </BGPSession>
+      <BGPSession>
+        <StartRouter>ARISTA{{ '%02d' % (index + 1) }}T0</StartRouter>
+        <StartPeer>FC00::{{ ('%0x' % (65+index*4+1)) | upper }}</StartPeer>
+        <EndRouter>{{ inventory_hostname }}</EndRouter>
+        <EndPeer>FC00::{{ ('%0x' % (65+index*4)) | upper}}</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
+      </BGPSession>
+      <BGPSession>
+        <StartRouter>{{ inventory_hostname }}</StartRouter>
+        <StartPeer>10.0.0.{{ (index*2) }}</StartPeer>
+        <EndRouter>ARISTA{{ '%02d' % (index+1) }}T2</EndRouter>
+        <EndPeer>10.0.0.{{ (index*2+1) }}</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
+      </BGPSession>
+      <BGPSession>
+        <StartRouter>{{ inventory_hostname }}</StartRouter>
+        <StartPeer>FC00::{{ ('%0x' % (index*4 +1)) | upper }}</StartPeer>
+        <EndRouter>ARISTA{{ '%02d' % (index+1) }}T2</EndRouter>
+        <EndPeer>FC00::{{ ('%0x' % (index*4+2)) | upper }}</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
+      </BGPSession>
+{% endfor %}
+    </PeeringSessions>
+    <Routers xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+      <a:BGPRouterDeclaration>
+        <a:ASN>65100</a:ASN>
+        <a:Hostname>{{ inventory_hostname }}</a:Hostname>
+        <a:Peers>
+{% for ip in range(1,32,2) %}
+          <BGPPeer>
+            <Address>10.0.0.{{ 32+ip }}</Address>
+            <RouteMapIn i:nil="true"/>
+            <RouteMapOut i:nil="true"/>
+          </BGPPeer>
+          <BGPPeer>
+            <Address>10.0.0.{{ ip }}</Address>
+            <RouteMapIn i:nil="true"/>
+            <RouteMapOut i:nil="true"/>
+          </BGPPeer>
+{% endfor %}
+        </a:Peers>
+        <a:RouteMaps/>
+      </a:BGPRouterDeclaration>
+{% for i in range(1,17,1) %}
+      <a:BGPRouterDeclaration>
+        <a:ASN>640{{ '%02d' % i }}</a:ASN>
+        <a:Hostname>ARISTA{{ '%02d' % i }}T0</a:Hostname>
+        <a:RouteMaps/>
+      </a:BGPRouterDeclaration>
+      <a:BGPRouterDeclaration>
+        <a:ASN>65200</a:ASN>
+        <a:Hostname>ARISTA{{ '%02d' % i }}T2</a:Hostname>
+        <a:RouteMaps/>
+      </a:BGPRouterDeclaration>
+{% endfor %}
+    </Routers>
+  </CpgDec>
+  <DpgDec>
+    <DeviceDataPlaneInfo>
+      <IPSecTunnels/>
+      <LoopbackIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+        <a:LoopbackIPInterface>
+          <Name>HostIP</Name>
+          <AttachTo>Loopback0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>10.1.0.32/32</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>10.1.0.32/32</a:PrefixStr>
+        </a:LoopbackIPInterface>
+        <a:LoopbackIPInterface>
+          <Name>HostIP1</Name>
+          <AttachTo>Loopback0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>FC00:1::32/128</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>FC00:1::32/128</a:PrefixStr>
+        </a:LoopbackIPInterface>
+      </LoopbackIPInterfaces>
+      <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+        <a:ManagementIPInterface>
+          <Name>HostIP</Name>
+          <AttachTo>eth0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ ansible_host }}/{{ mgmt_subnet_mask_length }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ ansible_host }}/{{ mgmt_subnet_mask_length }}</a:PrefixStr>
+        </a:ManagementIPInterface>
+      </ManagementIPInterfaces>
+      <MplsInterfaces/>
+      <MplsTeInterfaces/>
+      <RsvpInterfaces/>
+      <Hostname>{{ inventory_hostname }}</Hostname>
+      <PortChannelInterfaces/>
+      <VlanInterfaces/>
+      <IPInterfaces>
+{% for index in range(32) %}
+        <IPInterface>
+          <Name i:Name="true"/>
+          <AttachTo>{{ port_alias[index] }}</AttachTo>
+          <Prefix>10.0.0.{{ index*2 }}/31</Prefix>
+        </IPInterface>
+        <IPInterface>
+          <Name i:Name="true"/>
+          <AttachTo>{{ port_alias[index] }}</AttachTo>
+          <Prefix>FC00::{{ ('%0x' % (index*4 +1)) | upper }}/126</Prefix>
+        </IPInterface>
+{% endfor %}
+      </IPInterfaces>
+      <DataAcls/>
+      <AclInterfaces/>
+      <DownstreamSummaries/>
+      <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
+    </DeviceDataPlaneInfo>
+  </DpgDec>
+  <PngDec>
+    <DeviceInterfaceLinks>
+{% for index in range(16) %}
+     <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>{{ inventory_hostname }}</EndDevice>
+        <EndPort>{{ port_alias[index] }}</EndPort>
+        <StartDevice>ARISTA{{ '%02d' % (index+1) }}T2</StartDevice>
+        <StartPort>Ethernet1</StartPort>
+      </DeviceLinkBase>
+{% endfor %}
+{% for index in range(16) %}
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>{{ inventory_hostname }}</EndDevice>
+          <EndPort>{{ port_alias[16+index] }}</EndPort>
+        <StartDevice>ARISTA{{ '%02d' % (index+1) }}T0</StartDevice>
+        <StartPort>Ethernet1</StartPort>
+      </DeviceLinkBase>
+{% endfor %}
+    </DeviceInterfaceLinks>
+    <Devices>
+      <Device i:type="LeafRouter">
+        <Hostname>{{ inventory_hostname }}</Hostname>
+        <HwSku>{{ hwsku }}</HwSku>
+        <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
+        </ManagementAddress>
+      </Device>
+{% if  VM_topo  %}
+{% for dev in neighbor_eosvm_mgmt.keys()|sort %}
+{% if 'T1' in dev %}
+{% set dev_type = 'LeafRouter' %}
+{% elif 'T2' in dev %}
+{% set dev_type = 'SpineRouter' %}
+{% elif 'T0' in dev %}
+{% set dev_type = 'ToRRouter' %}
+{% else %}
+{% set dev_type = 'Unknown' %}
+{% endif %}
+      <Device i:type="{{ dev_type }}">
+         <Hostname>"{{ dev }}"</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>{{ neighbor_eosvm_mgmt[dev] }}</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+{% endfor %}
+{% endif %}
+    </Devices>
+  </PngDec>
+{% include 'dev_metadata.j2' %}
+  <Hostname>{{ inventory_hostname }}</Hostname>
+  <HwSku>{{ hwsku }}</HwSku>
+</DeviceMiniGraph>
