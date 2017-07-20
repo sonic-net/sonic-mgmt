@@ -1,0 +1,98 @@
+# This Playbook run time generate matching configuration file for SONiC switch(Minigraph) based on a specific testbed topology specified in testbed.csv  
+# When user call testbed-cli to deploy a testbed topology, use this playbook to generate matching SONiC minigraph file and deploy it into SONiC switch under test. 
+# Or when you know your topology name, you may use this playbook alone to generate a minigraph matching your topology name without deploy it.
+#
+# VM Topologies are defined inside of vars/ directory in files vars/topo_{{ topology_name}}.yml
+#  Every topology should have a name to distinct one topology from another on the server
+#  Every topology contains a ptf container which will be used as placeholder for the injected interfaces from VMs, or direct connections to PTF host
+# VMs inventory file is also required to have all VMs ready for generating the minigraph file
+# VMs inventory is in file 'veos'
+#
+# Template files for generating minigraph.xml are defined in template/topo directory
+#
+# To generate and deploy minigraph for SONiC switch matching the VM topology please use following command
+# ansible-playbook -i lab config_sonic_basedon_testbed.yml -l sonic_dut_name -e vm_base=VM0300 -e topo=t0 [-e deploy=true]
+#
+# Parameters
+# -l str-msn2700-01          - the sonic_dut_name you are going to generate minigraph for
+# -e vm_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
+# -e topo=t0                 - the name of topology to generate minigraph file
+# -e deploy=True             - if deploy the newly generated minigraph to the targent DUT, default is false if not defined
+#
+# After minigraph.xml is generated, the playbook will replace the original minigraph file under ansible/minigraph/ with the newly generated minigraph file for the SONiC device.
+# The playbook will based on deploy=True or False to deside if load the SONiC device with new minigraph or not. 
+# If deploy=true, the playbook will reboot the SONiC switch after change to new minigraph to make it take effect
+#
+####################################################################################################################################################################################
+
+- hosts: sonic
+  gather_facts: yes
+  tasks:
+  - fail: msg="need to provide topology type and vm base like topo=t0 and vm_base=VM100"
+    when: (topo is not defined) or (vm_base is not defined)
+      
+  - fail: msg="need hwsku, interface speed, netmask and interface prefix/postfix defined to generate configuration file"
+    when: (hwsku is not defined) or (iface_speed is not defined) or (mgmt_subnet_mask_length is not defined)
+
+  - set_fact:
+      VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
+      remote_dut: "{{ ansible_ssh_host }}"
+      template_name: "{{ 't1' if topo=='ptf32' else topo }}"
+
+  - testbed_vm_info: base_vm="{{ vm_base }}"  topo="{{ topo }}"
+    connection: local
+    when: VM_topo
+
+  - name: find interface name mapping
+    port_alias: hwsku="{{ hwsku }}"
+    connection: local
+
+  - debug: var=port_alias
+
+  - name: save original minigraph file (if original file does not exist, then ignore errors)
+    shell: mv minigraph/{{ inventory_hostname }}.xml minigraph/{{ inventory_hostname }}.xml.orig
+    connection: local
+    ignore_errors: true
+
+  - name: create minigraph file in minigraph folder
+    become: true
+    template: src=templates/topo/{{ template_name }}.j2
+              dest=minigraph/{{ inventory_hostname}}.xml
+    connection: local
+  
+  - block:
+      - name: saved original minigraph file (if original file may don't exist, then ignore errors)
+        shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
+        become: true
+        ignore_errors: true
+
+      - name: create minigraph file for SONiC device
+        template: src=templates/topo/{{ template_name }}.j2
+                  dest=/etc/sonic/minigraph.xml
+        become: true
+ 
+      - name: disable automatic minigraph update if we are deploying new minigraph into SONiC
+        lineinfile: 
+            name: /etc/sonic/updategraph.conf
+            regexp: '^enabled='
+            line: 'enabled=false'
+        become: true
+ 
+      # reload the device and wait it to come back
+      - name: Reboot is required for minigraph change
+        shell: sleep 2 && shutdown -r now "Ansible Create new configuration Minigraph file, triggered reboot."
+        async: 1
+        poll: 0
+        become: true
+        ignore_errors: true
+
+      - name: waiting for switch to come back
+        local_action: 
+            wait_for host={{ remote_dut }} 
+            port=22 
+            state=started
+            delay=30 
+            timeout=300
+        become: false
+        changed_when: false
+    when: deploy is defined and deploy|bool == true

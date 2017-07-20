@@ -1,14 +1,19 @@
-[sonic_latest]
-str-msn2700-01    ansible_host=10.251.0.188 sonic_version=v2
+[sonic_mlnx_40]
+str-msn2700-01    ansible_host=10.251.0.188
+
+[sonic_mlnx_40:vars]
+hwsku="ACS-MSN2700"
+iface_speed='40000'
+mgmt_subnet_mask_length="24"
 
 [sonic:children]
-sonic_latest
+sonic_mlnx_40
 
 [ptf]
 ptf_ptf1    ansible_host=10.255.0.188 ansible_ssh_user=root ansible_ssh_pass=root
 ptf_vms1-1  ansible_host=10.255.0.178 ansible_ssh_user=root ansible_ssh_pass=root
 
-[str:children]
+[lab:children]
 sonic
 fanout
 
