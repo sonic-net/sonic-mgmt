@@ -10,11 +10,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-{% if port_alias['alias'] %}
-          <InterfaceName>{{ port_alias['mapping'][sonic_if_name] }}</InterfaceName>
-{% else %}
-          <InterfaceName>{{ sonic_if_name }}</InterfaceName>
-{% endif %}
+          <InterfaceName>{{ port_alias[index] }}</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>

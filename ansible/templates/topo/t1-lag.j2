@@ -118,26 +118,17 @@
       <Hostname>{{ inventory_hostname }}</Hostname>
       <PortChannelInterfaces>
 {% for index in range(8) %}
-{% set if_index = index*8 %}
-{% set sonic_if_name = 'Ethernet'+(if_index | string) %}
-{% set sonic_if_next = 'Ethernet'+((if_index+4) | string) %}
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
-          <Name>PortChannel{{ if_index }}</Name>
-{% if port_alias['alias'] %}
-          <AttachTo>{{ port_alias['mapping'][sonic_if_name] }};{{ port_alias['mapping'][sonic_if_next] }}</AttachTo>
-{% else %}
-          <AttachTo>{{ sonic_if_name }};{{ sonic_if_next }}</AttachTo>
-{% endif %}
-          <SubInterface/> 
-        </PortChannel>
+          <Name>PortChannel{{ index*8 }}</Name>
+          <AttachTo>{{ port_alias[index*2] }};{{ port_alias[index*2+1] }}</AttachTo>
+           <SubInterface/> 
+         </PortChannel>
 {% endfor %}
       </PortChannelInterfaces>
       <VlanInterfaces/>
       <IPInterfaces>
 {% for index in range(8) %}
-{% set if_index = index*4 %}
-{% set po_index = index*8 %}
         <IPInterface>
           <ElementType>IPInterface</ElementType>
           <Name i:Name="true"/>
@@ -152,25 +143,16 @@
         </IPInterface>
 {% endfor %}
 {% for index in range(16) %}
-{% set sonic_if_name = 'Ethernet'+((64+index*4) | string) %}
         <IPInterface>
           <ElementType>IPInterface</ElementType>
           <Name i:Name="true"/>
-{% if port_alias['alias'] %}
-          <AttachTo>{{ port_alias['mapping'][sonic_if_name] }}</AttachTo>
-{% else %}
-          <AttachTo>{{ sonic_if_name }}</AttachTo>
-{% endif %}
+          <AttachTo>{{ port_alias[16+index] }}</AttachTo>
           <Prefix>10.0.0.{{ 32+index*2 }}/31</Prefix>
         </IPInterface>
         <IPInterface>
           <ElementType>IPInterface</ElementType>
           <Name i:Name="true"/>
-{% if port_alias['alias'] %}
-          <AttachTo>{{ port_alias['mapping'][sonic_if_name] }}</AttachTo>
-{% else %}
-          <AttachTo>{{ sonic_if_name }}</AttachTo>
-{% endif %}
+          <AttachTo>{{ port_alias[16+index] }}</AttachTo>
           <Prefix>FC00::{{ ('%0x' % (64+index*4 +1)) | upper }}/126</Prefix>
         </IPInterface>
 {% endfor %}
@@ -184,41 +166,26 @@
   <PngDec>
     <DeviceInterfaceLinks>
 {% for index in range(0,16,2) %}
-{% set sonic_if_name = 'Ethernet'+((index*4) | string) %}
-{% set sonic_if_next = 'Ethernet'+((index*4+4) | string) %}
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>{{ inventory_hostname }}</EndDevice>
-{% if port_alias['alias'] %}
-        <EndPort>{{ port_alias['mapping'][sonic_if_name] }}</EndPort>
-{% else %}
-        <EndPort>{{ sonic_if_name }}</EndPort>
-{% endif %}
+        <EndPort>{{ port_alias[index] }}</EndPort>
         <StartDevice>ARISTA{{ '%02d' % (index+1) }}T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>{{ inventory_hostname }}</EndDevice>
-{% if port_alias['alias'] %}
-        <EndPort>{{ port_alias['mapping'][sonic_if_next] }}</EndPort>
-{% else %}
-        <EndPort>{{ sonic_if_next }}</EndPort>
-{% endif %}
+        <EndPort>{{ port_alias[index+1] }}</EndPort>
         <StartDevice>ARISTA{{ '%02d' % (index+1) }}T2</StartDevice>
         <StartPort>Ethernet2</StartPort>
       </DeviceLinkBase>
 {% endfor %}
 {% for index in range(16) %}
-{% set sonic_if_name = 'Ethernet'+((64+index*4) | string) %}
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>{{ inventory_hostname }}</EndDevice>
-{% if port_alias['alias'] %}
-        <EndPort>{{ port_alias['mapping'][sonic_if_name] }}</EndPort>
-{% else %}
-        <EndPort>{{ sonic_if_name }}</EndPort>
-{% endif %}
+        <EndPort>{{ port_alias[16+index] }}</EndPort>
         <StartDevice>ARISTA{{ '%02d' % (index+1) }}T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>

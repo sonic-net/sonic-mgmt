@@ -14,28 +14,28 @@ Ansible_version_added:  2.0.0.2
 short_description:   Find SONiC device port alias mapping if there is alias mapping
 Description:
         Minigraph file is using SONiC deivce alias to describe the interface name, it's vendor and and hardware platform dependent
-        This module try to find the correct port_config.ini for the hwsku and return Ansible ansible_facts.port_alias
+        This module is used to find the correct port_config.ini for the hwsku and return Ansible ansible_facts.port_alias
         The definition of this mapping is specified in http://github.com/azure/sonic-buildimage/device
-        docker-sonic-mgmt will gather and include the information from sonic-buildimage
+        You should build docker-sonic-mgmt from sonic-buildimage and run Ansible from sonic-mgmt docker container 
     Input:
         hwsku
 
     Return Ansible_facts:
-    port_alias:  SONiC interface name mapping to actual vendor specified name
+    port_alias:  SONiC interface name or SONiC interface alias if alias is available
 
 '''
 
 EXAMPLES = '''
-    - name: get hardware interface alias name
+    - name: get hardware interface name
       port_alias: hwsku='ACS-MSN2700'
 '''
 
-### TODO:  use sonic config sonic-cfggen to replace this port_alias module ###############
+### TODO:  we could eventually use sonic config package to replace this port_alias module later ###############
 ### Here are the expectation of files of device port_config.ini located, in case changed please modify it here 
 FILE_PATH = '/usr/share/sonic/device'
 PORTMAP_FILE = 'port_config.ini'
 
-class SonicPortmap():
+class SonicPortAliasMap():
     """
     Retrieve SONiC device interface port alias mapping
 
@@ -43,7 +43,7 @@ class SonicPortmap():
     def __init__(self, hwsku):
         self.filename = ''
         self.hwsku = hwsku
-        self.portmap = dict()
+        self.portmap = []
         return
 
     def findfile(self):
@@ -57,17 +57,13 @@ class SonicPortmap():
             raise Exception("Something wrong when trying to find the portmap file, either the hwsku is not available or file location is not correct")
         with open(self.filename) as f:
             lines = f.readlines()
-            self.portmap['mapping'] = dict()
         for  line in lines:
             if 'Ethernet' in line:
                 mapping = line.split()
                 if len(mapping) < 3:
-                    self.portmap['alias'] = False
-                    self.portmap['mapping'] = {}
-                    return
+                    self.portmap.append(mapping[0])
                 else:
-                    self.portmap['alias'] = True
-                    self.portmap['mapping'][mapping[0]] = mapping[2]
+                    self.portmap.append(mapping[2])
         return
 
 def main():
@@ -79,7 +75,7 @@ def main():
     )
     m_args = module.params
     try:
-        allmap = SonicPortmap(m_args['hwsku'])
+        allmap = SonicPortAliasMap(m_args['hwsku'])
         allmap.get_portmap()
         module.exit_json(ansible_facts={'port_alias': allmap.portmap})
     except (IOError, OSError):
@@ -87,12 +83,6 @@ def main():
     except Exception:
         module.fail_json(msg=allmap.portmap)
 
-def debugmain():
-    allmap = SonicPortmap('Arista-7050-QX32')
-    allmap.get_portmap()
-    print allmap.portmap
-
 from ansible.module_utils.basic import *
 if __name__ == "__main__":
-    #debugmain()
     main()

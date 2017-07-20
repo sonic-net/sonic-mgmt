@@ -15,7 +15,7 @@
       </BGPSession>
       <BGPSession>
         <StartRouter>{{ inventory_hostname }}</StartRouter>
-        <StartPeer>FC00::{{ ('%0x' % (113 + index*4 )) | upper }}</StartPeer>
+        <StartPeer>FC00::{{ ('%0x' % (113 + index*4)) | upper }}</StartPeer>
         <EndRouter>ARISTA0{{ index+1 }}T1</EndRouter>
         <EndPeer>FC00::{{ ('%0x' % (113 + index*4 +1)) | upper }}</EndPeer>
         <Multihop>1</Multihop>
@@ -105,14 +105,9 @@
       <Hostname>{{ inventory_hostname }}</Hostname>
       <PortChannelInterfaces>
 {% for index in range(4) %}
-{% set sonic_if_name='Ethernet'+((112+index*4) | string) %}
         <PortChannel>
           <Name>PortChannel0{{ index+1 }}</Name>
-{% if port_alias['alias'] %}
-          <AttachTo>{{ port_alias['mapping'][sonic_if_name] }}</AttachTo>
-{% else %}
-          <AttachTo>{{ sonic_if_name }}</AttachTo>
-{% endif %}
+          <AttachTo>{{ port_alias[28+index] }}</AttachTo>
           <SubInterface/>
         </PortChannel>
 {% endfor %}
@@ -120,11 +115,7 @@
       <VlanInterfaces>
         <VlanInterface>
           <Name>Vlan1000</Name>
-{% if port_alias['alias'] %}
-          <AttachTo>{{ port_alias['mapping']['Ethernet4'] }};{{ port_alias['mapping']['Ethernet8'] }};{{ port_alias['mapping']['Ethernet12'] }};{{ port_alias['mapping']['Ethernet16'] }};{{ port_alias['mapping']['Ethernet20'] }};{{ port_alias['mapping']['Ethernet24'] }};{{ port_alias['mapping']['Ethernet28'] }};{{ port_alias['mapping']['Ethernet32'] }};{{ port_alias['mapping']['Ethernet36'] }};{{ port_alias['mapping']['Ethernet40'] }};{{ port_alias['mapping']['Ethernet44'] }};{{ port_alias['mapping']['Ethernet48'] }};{{ port_alias['mapping']['Ethernet52'] }};{{ port_alias['mapping']['Ethernet56'] }};{{ port_alias['mapping']['Ethernet60'] }};{{ port_alias['mapping']['Ethernet64'] }};{{ port_alias['mapping']['Ethernet68'] }};{{ port_alias['mapping']['Ethernet72'] }};{{ port_alias['mapping']['Ethernet76'] }};{{ port_alias['mapping']['Ethernet80'] }};{{ port_alias['mapping']['Ethernet84'] }};{{ port_alias['mapping']['Ethernet88'] }};{{ port_alias['mapping']['Ethernet92'] }};{{ port_alias['mapping']['Ethernet96'] }}</AttachTo>          
-{% else%}
-          <AttachTo>Ethernet4;Ethernet8;Ethernet12;Ethernet16;Ethernet20;Ethernet24;Ethernet28;Ethernet32;Ethernet36;Ethernet40;Ethernet44;Ethernet48;Ethernet52;Ethernet56;Ethernet60;Ethernet64;Ethernet68;Ethernet72;Ethernet76;Ethernet80;Ethernet84;Ethernet88;Ethernet92;Ethernet96</AttachTo>          
-{% endif %}
+           <AttachTo>{{ port_alias[1] }};{{ port_alias[2] }};{{ port_alias[3] }};{{ port_alias[4] }};{{ port_alias[5] }};{{ port_alias[6] }};{{ port_alias[7] }};{{ port_alias[8] }};{{ port_alias[9] }};{{ port_alias[10] }};{{ port_alias[11] }};{{ port_alias[12] }};{{ port_alias[13] }};{{ port_alias[14] }};{{ port_alias[15] }};{{ port_alias[16] }};{{ port_alias[17] }};{{ port_alias[18] }};{{ port_alias[19] }};{{ port_alias[20] }};{{ port_alias[21] }};{{ port_alias[22] }};{{ port_alias[23] }};{{ port_alias[24] }}</AttachTo>          
           <NoDhcpRelay>False</NoDhcpRelay>
           <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
           <Type i:nil="true"/>
@@ -161,17 +152,12 @@
   <PngDec>
     <DeviceInterfaceLinks>
 {% for index in range(4) %}
-{% set sonic_if_name='Ethernet'+((112+index*4) | string) %}
-     <DeviceLinkBase>
+      <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>ARISTA0{{ index+1 }}T1</EndDevice>
         <EndPort>Ethernet1</EndPort>
         <StartDevice>{{ inventory_hostname }}</StartDevice>
-{% if port_alias['alias'] %}
-        <StartPort>{{ port_alias['mapping'][sonic_if_name] }}</StartPort>
-{% else %}
-        <StartPort>{{ sonic_if_name }}</StartPort>
-{% endif %}
+        <StartPort>{{ port_alias[28+index] }}</StartPort>
       </DeviceLinkBase>
 {% endfor %}
     </DeviceInterfaceLinks>
