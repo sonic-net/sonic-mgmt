@@ -3,6 +3,7 @@
     name: "{{ item }}"
     value: 0
     sysctl_set: yes
+  become: yes
   with_items:
    - net.bridge.bridge-nf-call-arptables
    - net.bridge.bridge-nf-call-ip6tables
@@ -13,6 +14,7 @@
     name: "net.core.rmem_max"
     value: 509430500
     sysctl_set: yes
+  become: yes
 
 - name: Create directory for vm images and vm disks
   file: path={{ item }} state=directory mode=0755 recurse=yes
@@ -45,6 +47,7 @@
   when: not cd_stat.stat.exists and not skip_image_downloading
 
 - name: Create VMs network
+  become: yes
   vm_topology:
     cmd:          'create'
     vm_names:     "{{ VM_hosts }}"

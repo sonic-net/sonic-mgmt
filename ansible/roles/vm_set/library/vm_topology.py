@@ -444,7 +444,7 @@ class VMTopology(object):
     @staticmethod
     def cmd(cmdline):
         with open(CMD_DEBUG_FNAME, 'a') as fp:
-            pprint(cmdline, fp)
+            pprint("CMD: %s" % cmdline, fp)
         cmd = cmdline.split(' ')
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = process.communicate()
@@ -453,6 +453,8 @@ class VMTopology(object):
         if ret_code != 0:
             raise Exception("ret_code=%d, error message=%s. cmd=%s" % (ret_code, stderr, cmdline))
 
+        with open(CMD_DEBUG_FNAME, 'a') as fp:
+            pprint("OUTPUT: %s" % stdout, fp)
         return stdout
 
     @staticmethod
@@ -486,7 +488,7 @@ class VMTopology(object):
                 continue
             terms = row.split()
             if not row[0].isspace():
-                ifaces.add(terms[0])
+                ifaces.add(terms[0].rstrip(':'))
 
         return ifaces
 
