@@ -1,44 +1,91 @@
 [sonic_stable]
-
 [sonic_latest]
-str-s6000-on-1    ansible_host=10.3.147.141  sonic_version=v2
+
+[sonic_dell32_40]
+str-s6000-on-1    ansible_host=10.3.147.141  
 str-s6000-on-2    ansible_host=10.3.147.142  
 str-s6000-on-3    ansible_host=10.3.146.112 
-str-s6000-on-4    ansible_host=10.3.146.113  sonic_version=v2 
-str-s6000-on-5    ansible_host=10.3.147.171  sonic_version=v2 fanout_port="str-7260QX-01/Ethernet 61"
-str-s6000-on-6    ansible_host=10.3.147.172  sonic_version=v2 
-
-str-s6000-acs-7   ansible_host=10.3.147.195  fanout_port="str-7260QX-13/Ethernet 61" 
-str-s6000-acs-8   ansible_host=10.3.147.197  fanout_port="str-7260QX-14/Ethernet 61"
-str-s6000-acs-9   ansible_host=10.3.147.235  sonic_version=v2 fanout_port="str-7260QX-15/Ethernet 61" 
-str-s6000-acs-10  ansible_host=10.3.147.237  fanout_port="str-7260QX-16/Ethernet 61"
+str-s6000-on-4    ansible_host=10.3.146.113  
+str-s6000-on-5    ansible_host=10.3.147.171  
+str-s6000-on-6    ansible_host=10.3.147.172   
+str-s6000-acs-7   ansible_host=10.3.147.195   
+str-s6000-acs-8   ansible_host=10.3.147.197  
+str-s6000-acs-9   ansible_host=10.3.147.235  
+str-s6000-acs-10  ansible_host=10.3.147.237 
 str-s6000-acs-11  ansible_host=10.3.147.239  
-str-s6000-acs-12  ansible_host=10.3.147.252  sonic_version=v2
+str-s6000-acs-12  ansible_host=10.3.147.252 
 str-s6000-acs-13  ansible_host=10.3.147.253  
 str-s6000-acs-14  ansible_host=10.3.147.17
-str-s6100-acs-1   ansible_host=10.3.147.243  sonic_version=v2 
-str-s6100-acs-3   ansible_host=10.64.247.2   sonic_version=v2 
-str-n3132-acs-1   ansible_host=10.3.147.204  fanout_port="str-C3164Q-05/1-61"
-str-n3132-acs-2   ansible_host=10.3.147.247
-str-n3132-acs-3   ansible_host=10.3.147.251  fanout_port="str-s6100-on-04/Port 61"
-str-n3132-acs-4   ansible_host=10.3.147.160  
-str-a7050-acs-1   ansible_host=10.3.147.241
-str-a7050-acs-2   ansible_host=10.3.147.199  fanout_port="str-7260QX-18/Ethernet 61"
-str-msn2700-01    ansible_host=10.3.147.188  sonic_version=v2 fanout_port="str-S6100-ON-02/Port 61"
-str-msn2700-02    ansible_host=10.3.147.45   fanout_port="str-7260QX-08/Ethernet 61"
-str-msn2700-03    ansible_host=10.3.147.46   sonic_version=v2
-str-msn2700-04    ansible_host=10.3.147.47   sonic_version=v2 host_saithrift=True ptf_portmap="roles/test/files/mlnx/default_interface_to_front_map.ini" fanout_port="str-7260QX-05/Ethernet 61" 
-str-msn2700-05    ansible_host=10.3.147.48   sonic_version=v2 host_saithrift=True ptf_portmap="roles/test/files/mlnx/default_interface_to_front_map.ini" fanout_port="str-7260QX-06/Ethernet 61" 
-str-msn2700-06    ansible_host=10.3.147.49   sonic_version=v2
-str-msn2700-11-3po  ansible_host=10.3.147.54  
-str-cavium-acs-01 ansible_host=10.3.147.10
 str-s6000-acs-3po   ansible_host=10.3.147.8 
-str-9232-acs-1    ansible_host=10.3.147.189  sonic_version=v2
-str-9232-acs-2    ansible_host=10.3.147.254  sonic_version=v2
+
+[sonic_dell32_40:vars]
+hwsku="Force10-S6000"
+iface_speed='40000'
+mgmt_subnet_mask_length='23'
+
+[sonic_dell64_40]
+str-s6100-acs-1   ansible_host=10.3.147.243   
+str-s6100-acs-3   ansible_host=10.64.247.2    
+
+[sonic_dell32_64:vars]
+hwsku="Force10-S6100"
+iface_speed='40000'
+mgmt_subnet_mask_length='23'
+
+
+[sonic_nexus_3132_40]
+str-n3132-acs-1   ansible_host=10.3.147.204  
+str-n3132-acs-2   ansible_host=10.3.147.247
+str-n3132-acs-3   ansible_host=10.3.147.251  
+str-n3132-acs-4   ansible_host=10.3.147.160  
+
+[sonic_nexus_3132_40:vars]
+hwsku="Nexus-3132-Q32"
+iface_speed='40000'
+mgmt_subnet_mask_length='23'
+
+[sonic_nexus_9232_100]
+str-9232-acs-1    ansible_host=10.3.147.189  
+str-9232-acs-2    ansible_host=10.3.147.254 
+
+[sonic_nexus_9232_40:vars]
+hwsku="Nexus-9232C"
+iface_speed='100000'
+mgmt_subnet_mask_length='23'
+
+[sonic_arista_40]
+str-a7050-acs-1   ansible_host=10.3.147.241 hwsku="Arista-7050-QX-32S"
+str-a7050-acs-2   ansible_host=10.3.147.199  hwsku="Arista-7050QX32"
+
+[sonic_arista_40:vars]
+iface_speed='40000'
+mgmt_subnet_mask_length='23'
+
+[sonic_mlnx_40]
+str-msn2700-01    ansible_host=10.3.147.188  
+str-msn2700-02    ansible_host=10.3.147.45 
+str-msn2700-03    ansible_host=10.3.147.46 
+str-msn2700-04    ansible_host=10.3.147.47   
+str-msn2700-05    ansible_host=10.3.147.48   
+str-msn2700-06    ansible_host=10.3.147.49   
+str-msn2700-11-3po  ansible_host=10.3.147.54 
+
+[sonic_mlnx_40:vars]
+hwsku="ACS-MSN2700"
+iface_speed='40000'
+mgmt_subnet_mask_length="23"
+
+[sonic_cavium32] 
+str-cavium-acs-01 ansible_host=10.3.147.10
 
 [sonic:children]
 sonic_stable
 sonic_latest
+sonic_mlnx_40
+sonic_dell32_40
+sonic_arista_40
+sonic_nexus_3132_40
+sonic_nexus_9232_40
 
 [acs_ixia_dscp]
 10.3.147.141
@@ -91,10 +138,6 @@ str-7260-04       ansible_host=10.3.147.164
 str-7260-09       ansible_host=10.3.147.12
 str-7260-07       ansible_host=10.3.147.11
 str-7260-10       ansible_host=10.3.147.13
-
-
-
-
 
 [docker_registry]
 acs-devrepo.corp.microsoft.com

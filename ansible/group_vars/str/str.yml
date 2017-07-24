@@ -16,6 +16,24 @@ dns_servers: ['10.3.145.98', '10.3.145.99']
 # 13.91.48.226 apt-mo.trafficmanager.net
 forced_mgmt_routes: ['10.3.145.98/31', '10.3.145.8', '100.127.20.16/28', '10.3.149.170/31', '40.122.216.24', '13.91.48.226']
 
+#properties of ErspanDestinationIpv4 in minigraph
+erspan_dest: ['10.20.6.16']
+
+#'RadiusResources' in minigraph
+radius_servers: []
+
+#'TacacsServer' in minigraph
+tacacs_servers: ['10.3.145.14', '10.3.145.15']
+
+#'TacacsGroup' in minigraph
+tacacs_group: 'Starlab'
+
+#'SnmpResources in minigraph
+snmp_servers: ['10.3.145.98']
+
+#'DhcpResources' in minigraph
+dhcp_servers: ['10.3.146.1']
+#
 # snmp variables
 snmp_rocommunity: strcommunity
 snmp_location: str
