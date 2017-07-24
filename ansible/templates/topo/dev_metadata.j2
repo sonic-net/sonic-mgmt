@@ -36,7 +36,7 @@
 {% set erspan_dest_str = ';'.join(erspan_dest) %}
     <Devices xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
       <a:DeviceMetadata>
-        <a:Name>{{ ansible_hostname }}</a:Name>
+        <a:Name>{{ inventory_hostname }}</a:Name>
         <a:Properties>
           <a:DeviceProperty>
             <a:Name>DhcpResources</a:Name>
