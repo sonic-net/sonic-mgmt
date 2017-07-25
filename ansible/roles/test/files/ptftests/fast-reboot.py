@@ -131,7 +131,11 @@ class Arista(object):
 
         self.disconnect()
 
-        return self.check_all_peer_status(data)
+        self.check_gr_peer_status(data)
+        lacp_down_time = self.check_lacp_peer_status(data)
+        bgp_down_time = self.check_bgp_peer_status(data)
+
+        return self.fails, lacp_down_time, bgp_down_time
 
     def parse_lacp(self, output):
         return output.find('Bundled') != -1
@@ -185,7 +189,7 @@ class Arista(object):
 
         return [('lo', lo_route, lo_valid, lo_prefix, lo_nexthop), ('vlan', vlan_route, vlan_valid, vlan_prefix, vlan_nexthop)]
 
-    def check_all_peer_status(self, output):
+    def check_gr_peer_status(self, output):
         # [0] True 'ipv4_gr_enabled', [1] doesn't matter 'ipv6_enabled', [2] should be >= 120
         if not self.ipv4_gr_enabled:
             self.fails.add("bgp ipv4 graceful restart is not enabled")
@@ -194,31 +198,80 @@ class Arista(object):
         if self.gr_timeout < 120: # bgp graceful restart timeout less then 120 seconds
             self.fails.add("bgp graceful restart timeout is less then 120 seconds")
 
-        for when, other in sorted(output.items()):
-            lacp_bundled = other['lacp']
-            # Should be true always
-            if not lacp_bundled:
-                self.fails.add("PortChannel bundle was down")
-
+        for when, other in sorted(output.items(), key = lambda x : x[0]):
             gr_active, timer = other['bgp_neig']
-            # wnen it's False, it's ok, wnen it's True, check that inactivity timer not less then 15 seconds
+            # wnen it's False, it's ok, wnen it's True, check that inactivity timer not less then self.min_bgp_gr_timeout seconds
             if gr_active and datetime.datetime.strptime(timer, '%H:%M:%S') < datetime.datetime(1900, 1, 1, second = self.min_bgp_gr_timeout):
-                self.fails.add("graceful restart timer is almost finished. Less then 15 seconds left")
+                self.fails.add("graceful restart timer is almost finished. Less then %d seconds left" % self.min_bgp_gr_timeout)
+
+    def check_lacp_peer_status(self, output):
+        # find how long lacp session was down
+        # lacp session must be down just once
+        # lacp session must be up when the test starts
+        lacp_bundled_off = 0
+        lacp_bundled_on = 0
+        first_iteration = True
+        for when, other in sorted(output.items(), key = lambda x : x[0]):
+            lacp_bundled = other['lacp']
+            if first_iteration:
+                first_iteration = False
+                if not lacp_bundled:
+                    self.fails.add("LACP was down when fast-reboot test started")
+                    return 0
+
+            if not lacp_bundled:
+                if lacp_bundled_off == 0:
+                    lacp_bundled_off = when
+                elif lacp_bundled_on != 0:
+                    self.fails.add("LACP session was down more than once")
+            else:
+                if lacp_bundled_off != 0:
+                    if lacp_bundled_on == 0:
+                        lacp_bundled_on = when
+
+        lacp_down_time = lacp_bundled_on - lacp_bundled_off
+
+        return lacp_down_time
+
+    def check_bgp_peer_status(self, output):
+        # find how long bgp routes were down
+        # bgp routes must be down just once
+        # bgp routes must be up when the test starts
+        bgp_routes_off = 0
+        bgp_routes_on = 0
+        first_iteration = True
+        for when, other in sorted(output.items(), key = lambda x : x[0]):
             bgp_route_results = other['bgp_route']
-            # check that route is present [0] = True, is valid [1] = True. if it's not show
             for iface, r_exists, r_valid, r_prefix, r_nexthop in bgp_route_results:
-                if not r_exists:
-                    self.fails.add("route for %s prefix %s does not exist" % (iface, r_prefix))
-                elif not r_valid:
+                if r_exists and not r_valid:
                     self.fails.add("route for %s prefix %s points to wrong interface %s" % (iface, r_prefix, r_nexthop))
 
-        return self.fails
+                if first_iteration:
+                    if not r_exists:
+                        self.fails.add("BGP routes must be up when the test starts")
+                        continue
+                    first_iteration = False
 
+                if not r_exists:
+                    if bgp_routes_off == 0:
+                        bgp_routes_off = when
+                    elif bgp_routes_on != 0:
+                        self.fails.add("bgp routes were removed  more than once")
+                else:
+                    if bgp_routes_off != 0:
+                        if bgp_routes_on == 0:
+                            bgp_routes_on = when
+
+        bgp_down_time  = bgp_routes_on - bgp_routes_off
+
+        return bgp_down_time
 
 class FastReloadTest(BaseTest):
     def __init__(self):
         BaseTest.__init__(self)
         self.fails = {}
+        self.lacp_down_times = {}
+        self.bgp_down_times = {}
         self.log_fp = open('/tmp/fast-reboot.log', 'w')
         self.test_params = testutils.test_params_get()
         self.check_param('verbose', False,   required = False)
@@ -478,9 +531,16 @@ class FastReloadTest(BaseTest):
 
         self.log("ASIC works again. Start time: %s" % str(no_routing_stop))
 
+        self.log("-"*50)
         self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
         self.log("Reboot time was %s" % str(no_routing_stop - self.reboot_start))
         self.log("How many packets were received back when control plane was down: %d Expected: %d" % (no_cp_replies, self.nr_vl_pkts))
+
+        self.log("LACP/BGP were down for:")
+        for ip in self.lacp_down_times.keys():
+            self.log("    %s - lacp: %7.3f bgp: %7.3f diff = %7.3f" \
+                     % (ip, self.lacp_down_times[ip], self.bgp_down_times[ip], \
+                        self.bgp_down_times[ip] - self.lacp_down_times[ip]))
 
         self.fails['dut'] = set()
         if no_routing_stop - no_routing_start > self.limit:
@@ -490,6 +550,7 @@ class FastReloadTest(BaseTest):
         if no_cp_replies < 0.95 * self.nr_vl_pkts:
             self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (no_cp_replies, self.nr_vl_pkts))
 
+        self.log("="*50)
         is_good = True
         errors = ""
         for name, fails in self.fails.items():
@@ -540,7 +601,9 @@ class FastReloadTest(BaseTest):
 
     def peer_state_check(self, ip, queue):
         ssh = Arista(ip, queue, self.test_params['min_bgp_gr_timeout'])
-        self.fails[ip] = ssh.run(self.test_params['lo_prefix'], self.test_params['vlan_ip_range'])
+        self.fails[ip], \
+        self.lacp_down_times[ip], \
+        self.bgp_down_times[ip] = ssh.run(self.test_params['lo_prefix'], self.test_params['vlan_ip_range'])
 
     def check_forwarding_stop(self):
         return self.iteration(True)
@@ -643,3 +706,4 @@ class FastReloadTest(BaseTest):
         self.log("Send %5d Received %5d t1->servers" % (self.nr_vl_pkts, total_rcv_pkt_cnt), True)
 
         return total_rcv_pkt_cnt
+
