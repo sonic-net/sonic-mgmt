@@ -16,11 +16,8 @@
 #
 
 - hosts: servers:&vm_host
-  gather_facts: no
-  become: true
   vars_files:
     - vars/azure_storage.yml
   tasks:
   roles:
     - { role: vm_set, action: 'start' }
-

@@ -9,4 +9,4 @@
   vm_topology:
     cmd: 'destroy'
     vm_names: "{{ VM_hosts }}"
-
+  become: yes
