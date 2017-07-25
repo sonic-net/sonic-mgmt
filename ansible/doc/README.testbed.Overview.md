@@ -37,9 +37,9 @@ This document gives overview of the SONiC testbed.
 
 The VMs use Arista vEOS. They are using to setup protocol test such as BGP, LACP, LLDP. They are created using ```testbed-cli.sh start-vms``` command. Each VM uses 2G of RAM and has 10 network interfaces:
 
-1. 8 front panel ports. These ports are connected to openvswitch bridges, which are connected to vlan interfaces. The vlan interfaces are connected to the fanout switch (through physical port).
-2. 1 back panel port. All testbed VMs connected to each other using this port (it isn't shown on the figure above).
-3. 1 management port. This port is used to connect to the VMs
+- 8 front panel ports. These ports are connected to openvswitch bridges, which are connected to vlan interfaces. The vlan interfaces are connected to the fanout switch (through physical port).
+- 1 back panel port. All VMs in one topology have their 9th port connected to this backplane network.
+- 1 management port. This port is used to connect to the VMs
 
 ### PTF
 

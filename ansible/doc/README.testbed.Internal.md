@@ -54,12 +54,12 @@ topology:
      - Uses VM with physical name VM0100
      - Ethernet1 is connected to vlan 102
      - Ethernet2 is connected to vlan 103
-     - Ethernet9 is connected to Ethernet9 of ARISTA02T1
+     - Ethernet9 is connected to backplane network (implicitly configured)
    - Second VM:
      - hostname ARISTA02T1
      - Uses VM with physical name VM0101 (vm_offset: 1 + vm_base: VM0100)
      - Ethernet1 is connected to vlan 104
-     - Ethernet9 is connected to Ethernet9 of ARISTA01T1
+     - Ethernet9 is connected to backplane network (implicitly configured)
    - PTF container:
      - 5 ethernet interfaces:
      - eth0 is directly connected to DUT. vlan 100
