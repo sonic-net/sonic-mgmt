@@ -6,7 +6,7 @@
 #
 # This test supposes that fast-reboot initiates by running /usr/bin/fast-reboot command.
 #
-# The test is using "pings". This is packets which are sent through dataplane in two directions
+# The test uses "pings". The "pings" are packets which are sent through dataplane in two directions
 # 1. From one of vlan interfaces to T1 device. The source ip, source interface, and destination IP are chosen randomly from valid choices. Number of packet is 100.
 # 2. From all of portchannel ports to all of vlan ports. The source ip, source interface, and destination IP are chosed sequentially from valid choices.
 #    Currently we have 500 distrinct destination vlan addresses. Our target to have 1000 of them.
@@ -16,15 +16,18 @@
 # 2. If DUT is stable the test starts continiously pinging DUT in both directions.
 # 3. The test runs '/usr/bin/fast-reboot' on DUT remotely. The ssh key supposed to be uploaded by ansible before the test
 # 4. As soon as it sees that ping starts failuring in one of directions the test registers a start of dataplace disruption
-# 5. As soon as the test sess that pings start working for DUT in both directions it registers a stop of dataplane disruption
-# 6. If the length of the disruption is less 30 seconds (if not redefined by parameter) - the test passes
+# 5. As soon as the test sees that pings start working for DUT in both directions it registers a stop of dataplane disruption
+# 6. If the length of the disruption is less than 30 seconds (if not redefined by parameter) - the test passes
 # 7. If there're any drops, when control plane is down - the test fails
 # 8. When test start fast-reboot procedure it connects to all VM (which emulates T1) and starts fetching status of BGP and LACP
-#    if LACP is inactive on VMs and interfaces goes down test failes
-#    if default value of BGP graceful restart timeout is not equal 120 seconds the test fails
+#    LACP is supposed to be down for one time only, if not - the test fails
+#    if default value of BGP graceful restart timeout is less than 120 seconds the test fails
 #    if BGP graceful restart is not enabled on DUT the test fails
 #    If BGP graceful restart timeout value is almost exceeded (less than 15 seconds) the test fails
-#    if BGP routes disappeared the test is failed
+#    if BGP routes disappeares more then once, the test failed
+#
+#The test expects you're running the test with link state propagation helper. That helper propagate a link state from fanout switch port to corresponding VM port
+#
 
 import ptf
 from ptf.base_tests import BaseTest
