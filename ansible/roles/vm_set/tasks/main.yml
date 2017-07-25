@@ -13,6 +13,8 @@
 # - vm_images_url: url where base images are located
 # - vmimages_saskey: a key for Azure download service. Could be set to ''
 
+# Need latest ubuntu 4.10 kernel to fix a openvswitch bug
+# https://bugs.launchpad.net/ubuntu/+source/kernel-package/+bug/1685742
 - name: Check if kernel upgrade needed
   set_fact:
     kernel_upgrade_needed: true
