@@ -3,6 +3,7 @@
     name: ptf_{{ vm_set_name }}
     image: "{{ docker_registry_host }}/{{ ptf_imagename }}"
     state: absent
+  become: yes
 
 - name: Create a docker container ptf_{{ vm_set_name }}
   docker:
@@ -16,6 +17,7 @@
     net: none
     detach: True
     cap_add: NET_ADMIN
+  become: yes
 
 - name: Renumber topology {{ topo }} to VMs. base vm = {{ VM_base }} base vlan = {{ vlan_base }}
   vm_topology:
@@ -30,4 +32,4 @@
     mgmt_bridge: "{{ mgmt_bridge }}"
     ext_iface: "{{ external_iface }}"
     fp_mtu: "{{ fp_mtu_size }}"
-
+  become: yes

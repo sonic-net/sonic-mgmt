@@ -3,6 +3,7 @@
     name: ptf_{{ vm_set_name }}
     image: "{{ docker_registry_host }}/{{ ptf_imagename }}"
     state: absent
+  become: yes
 
 - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }} base vlan = {{ vlan_base }}
   vm_topology:
@@ -13,4 +14,4 @@
     vm_base: "{{ VM_base }}"
     vlan_base: "{{ vlan_base }}"
     ext_iface: "{{ external_iface }}"
-
+  become: yes

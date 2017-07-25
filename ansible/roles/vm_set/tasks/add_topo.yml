@@ -10,6 +10,7 @@
     net: none
     detach: True
     cap_add: NET_ADMIN
+  become: yes
 
 - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }} base vlan = {{ vlan_base }}
   vm_topology:
@@ -24,4 +25,4 @@
     mgmt_bridge: "{{ mgmt_bridge }}"
     ext_iface: "{{ external_iface }}"
     fp_mtu: "{{ fp_mtu_size }}"
-
+  become: yes
