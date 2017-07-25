@@ -82,6 +82,17 @@
   become: yes
   modprobe: name=br_netfilter state=present
 
+- name: setup trunk port
+  template: src=trunk_port.j2
+            dest=/etc/network/interfaces.d/trunk_port
+  become: yes
+  register: trunk_port
+
+- name: bring up trunk port
+  shell: /sbin/ifup {{ external_iface }} --force
+  become: yes
+  when: trunk_port.changed
+
 - name: Ensure {{ root_path }} exists
   file: path={{ root_path }} state=directory
 
