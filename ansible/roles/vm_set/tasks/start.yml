@@ -17,7 +17,7 @@
   become: yes
 
 - name: Create directory for vm images and vm disks
-  file: path={{ item }} state=directory mode=0755 recurse=yes
+  file: path={{ item }} state=directory mode=0755
   with_items:
     - "{{ root_path }}/images"
     - "{{ root_path }}/disks"

@@ -1,0 +1,5 @@
+# trunk port
+auto {{ external_iface }}
+iface {{ external_iface }} inet manual
+  mtu 9216
+  up ip link set {{ external_iface }} up
