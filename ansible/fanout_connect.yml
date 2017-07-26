@@ -1,18 +1,24 @@
 #Example:
-# ansible-playbook fanout_connect.yml -i str --limit str-7260-01 -b --vault-password-file password.txt -e "server=str-acs-serv-02 server_port=p6p2"
-- hosts:  all
+# ansible-playbook fanout_connect.yml -i veos --limit server_1 --vault-password-file password.txt -e "dut=str-msn2700-01"
+- hosts: servers:&vm_host
   gather_facts: no
   tasks:
       - fail: msg="Please provide VM server name and server port name, see comment line in playbook"
         when: 
-            - server is not defined
-            - server_port is not defined
-              
+            - dut is not defined
+
+      - set_fact:
+          server: "{{ inventory_hostname|lower }}"
+          server_port: "{{ external_iface }}"
+
+      - debug: msg="Connect {{ server }}:{{ server_port }} to {{ dut }}"
+
       - name: get the username running the deploy
         command: whoami
         connection: local
         become: no
         register: calling_username
+        changed_when: false
 
       - set_fact: userid={{ calling_username.stdout }}
 

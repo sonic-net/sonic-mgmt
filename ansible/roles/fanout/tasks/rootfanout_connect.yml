@@ -2,10 +2,10 @@
 # This playbook is called from fanout_connect.yml 
 # Gather graph facts
 - name: Gathering connection facts about the DUT device
-  conn_graph_facts: host={{ inventory_hostname }}
+  conn_graph_facts: host={{ dut }}
   connection: local
   tags: always
-  register: dut
+  register: dutinfo
 
 - name: Gathering connection facts about the lab 
   conn_graph_facts: 
@@ -14,10 +14,11 @@
   register: lab
 
 - set_fact:
-    dut_vlans: "{{ dut.ansible_facts.device_vlan_range }}"
+    dut_vlans: "{{ dutinfo.ansible_facts.device_vlan_range }}"
     lab_devices: "{{ lab.ansible_facts.device_info }}"
 
-- set_fact: 
+- name: Find the root fanout switch
+  set_fact:
     ansible_host: "{{ lab_devices[item]['mgmtip'] }}"
     root_dev: "{{ item }}" 
   with_items: "{{ lab_devices }}"
@@ -26,10 +27,8 @@
 - set_fact: 
     root_conn: "{{ lab.ansible_facts['device_conn'][root_dev] }}"
 
-- name: change root fanout port vlan 
+- name: Change root fanout port vlan
   action: apswitch template=roles/fanout/templates/arista_7260_connect.j2
   connection: switch
   args:
       login: "{{ switch_login['Arista'] }}"
-
-
