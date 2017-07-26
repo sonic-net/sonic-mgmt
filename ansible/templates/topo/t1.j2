@@ -105,6 +105,14 @@
           </a:Prefix>
           <a:PrefixStr>{{ ansible_host }}/{{ mgmt_subnet_mask_length }}</a:PrefixStr>
         </a:ManagementIPInterface>
+        <a:ManagementIPInterface>
+          <Name>V6HostIP</Name>
+          <AttachTo>eth0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>FC00:2::32/64</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>FC00:2::32/64</a:PrefixStr>
+        </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <MplsInterfaces/>
       <MplsTeInterfaces/>

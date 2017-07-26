@@ -192,6 +192,9 @@ def parse_dpg(dpg, hname):
         for mgmtintf in mgmtintfs.findall(str(QName(ns1, "ManagementIPInterface"))):
             ipprefix = mgmtintf.find(str(QName(ns1, "PrefixStr"))).text
             mgmtipn = ipaddress.IPNetwork(ipprefix)
+            # Ignore IPv6 management address
+            if mgmtipn.version == 6:
+                continue
             ipaddr = mgmtipn.ip
             prefix_len = str(mgmtipn.prefixlen)
             ipmask = mgmtipn.netmask
