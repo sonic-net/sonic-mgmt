@@ -155,3 +155,7 @@
 - name: ACL test 
   include: acltb.yml
   tags: acl
+
+- name: BGP GR helper test
+  include: bgp_gr_helper.yml
+  tags: bgp_gr_helper
