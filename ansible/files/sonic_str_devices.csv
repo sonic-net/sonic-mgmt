@@ -32,6 +32,10 @@ str-msn2700-09,10.3.147.52/23,Mellanox-2700,DevSonic
 str-s6100-acs-1,10.3.147.243/23,Force10-S6100,DevSonic
 str-cavium-acs-01,10.3.147.10/23,Cavium,DevSonic
 str-s6100-acs-3,10.64.247.2/23,Force10-S6100,DevSonic
+str-wedge100b-acs-1,10.64.246.30,Wedge-100B-C32,DevSonic
+str-wedge100b-acs-2,10.64.247.3,Wedge-100B-C32,DevSonic
+str-wedge100b65-acs-1,10.64.247.4,Wedge-100B-65X,DevSonic
+str-wedge100b65-acs-2,10.64.247.5,Wedge-100B-65X,DevSonic
 str-7260-02,10.3.147.154/23,Arista-7260QX-64,FanoutLeaf
 str-7260-03,10.3.147.169/23,Arista-7260QX-64,FanoutLeaf
 str-7260-04,10.3.147.164/23,Arista-7260QX-64,FanoutLeaf

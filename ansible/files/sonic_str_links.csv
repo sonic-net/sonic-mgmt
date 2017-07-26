@@ -698,7 +698,7 @@ str-7260-11,Ethernet26,str-acs-serv-06,p4p1,40000,,Trunk
 str-7260-11,Ethernet27,str-acs-serv-07,p4p1,40000,,Trunk
 str-7260-11,Ethernet28,str-acs-serv-08,p4p1,40000,,Trunk
 str-7260-11,Ethernet30,str-7260-10,Ethernet64,40000,937-968,Trunk
-str-7260-11,Ethernet32,str-7260-09,Ethernet64,40000,905-936,Trunk
+str-7260-11,Ethernet32,str-7260-09,Ethernet64,40000,"905-936,1193-1222",Trunk
 str-7260-11,Ethernet34,str-7260-07,Ethernet64,40000,"873-904,1093-1096,1125-1128",Trunk
 str-7260-11,Ethernet36,str-s6100-on-04,fortyGigE 1/4/16,40000,681-712,Trunk
 str-7260-11,Ethernet38,str-s6100-on-02,fortyGigE 1/4/16,40000,649-680,Trunk
@@ -824,6 +824,36 @@ str-s6000-acs-13,Ethernet112,str-7260-09,Ethernet29,40000,933,Access
 str-s6000-acs-13,Ethernet116,str-7260-09,Ethernet30,40000,934,Access
 str-s6000-acs-13,Ethernet120,str-7260-09,Ethernet31,40000,935,Access
 str-s6000-acs-13,Ethernet124,str-7260-09,Ethernet32,40000,936,Access
+str-wedge100b-acs-1,Ethernet0,str-7260-09,Ethernet33,40000,1193,Access
+str-wedge100b-acs-1,Ethernet4,str-7260-09,Ethernet34,40000,1194,Access
+str-wedge100b-acs-1,Ethernet8,str-7260-09,Ethernet35,40000,1195,Access
+str-wedge100b-acs-1,Ethernet12,str-7260-09,Ethernet36,40000,1196,Access
+str-wedge100b-acs-1,Ethernet16,str-7260-09,Ethernet37,40000,1197,Access
+str-wedge100b-acs-1,Ethernet20,str-7260-09,Ethernet38,40000,1198,Access
+str-wedge100b-acs-1,Ethernet24,str-7260-09,Ethernet39,40000,1199,Access
+str-wedge100b-acs-1,Ethernet28,str-7260-09,Ethernet40,40000,1200,Access
+str-wedge100b-acs-1,Ethernet32,str-7260-09,Ethernet41,40000,1201,Access
+str-wedge100b-acs-1,Ethernet36,str-7260-09,Ethernet42,40000,1202,Access
+str-wedge100b-acs-1,Ethernet40,str-7260-09,Ethernet43,40000,1203,Access
+str-wedge100b-acs-1,Ethernet44,str-7260-09,Ethernet44,40000,1204,Access
+str-wedge100b-acs-1,Ethernet48,str-7260-09,Ethernet45,40000,1205,Access
+str-wedge100b-acs-1,Ethernet52,str-7260-09,Ethernet46,40000,1206,Access
+str-wedge100b-acs-1,Ethernet56,str-7260-09,Ethernet47,40000,1207,Access
+str-wedge100b-acs-1,Ethernet60,str-7260-09,Ethernet48,40000,1208,Access
+str-wedge100b-acs-1,Ethernet64,str-7260-09,Ethernet49,40000,1209,Access
+str-wedge100b-acs-1,Ethernet68,str-7260-09,Ethernet50,40000,1210,Access
+str-wedge100b-acs-1,Ethernet72,str-7260-09,Ethernet51,40000,1211,Access
+str-wedge100b-acs-1,Ethernet76,str-7260-09,Ethernet52,40000,1212,Access
+str-wedge100b-acs-1,Ethernet80,str-7260-09,Ethernet54,40000,1213,Access
+str-wedge100b-acs-1,Ethernet84,str-7260-09,Ethernet55,40000,1214,Access
+str-wedge100b-acs-1,Ethernet88,str-7260-09,Ethernet56,40000,1215,Access
+str-wedge100b-acs-1,Ethernet92,str-7260-09,Ethernet57,40000,1216,Access
+str-wedge100b-acs-1,Ethernet96,str-7260-09,Ethernet58,40000,1217,Access
+str-wedge100b-acs-1,Ethernet100,str-7260-09,Ethernet59,40000,1218,Access
+str-wedge100b-acs-1,Ethernet104,str-7260-09,Ethernet60,40000,1219,Access
+str-wedge100b-acs-1,Ethernet108,str-7260-09,Ethernet61,40000,1220,Access
+str-wedge100b-acs-1,Ethernet112,str-7260-09,Ethernet62,40000,1221,Access
+str-wedge100b-acs-1,Ethernet116,str-7260-09,Ethernet63,40000,1222,Access
 str-s6000-acs-14,Ethernet0,str-7260-10,Ethernet1,40000,937,Access
 str-s6000-acs-14,Ethernet4,str-7260-10,Ethernet2,40000,938,Access
 str-s6000-acs-14,Ethernet8,str-7260-10,Ethernet3,40000,939,Access
