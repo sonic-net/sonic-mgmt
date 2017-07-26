@@ -75,13 +75,7 @@ function add_topo
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_add_vm_topology.yml --vault-password-file="$2" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename"
 
-  case "$server" in
-    server_1) server_port=p4p1 ;;
-    server_2) server_port=p4p1 ;;
-    server_3) server_port=p5p1 ;;
-  esac
-
-  ansible-playbook fanout_connect.yml -i str --limit "$dut" -b --vault-password-file="$2" -e "server=${server/server_/str-acs-serv-0} server_port=$server_port"
+  ansible-playbook fanout_connect.yml -i veos --limit "$server" --vault-password-file="$2" -e "dut=$dut"
 
   echo Done
 }
@@ -105,13 +99,7 @@ function renumber_topo
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_renumber_vm_topology.yml --vault-password-file="$2" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename"
 
-  case "$server" in
-    server_1) server_port=p4p1 ;;
-    server_2) server_port=p4p1 ;;
-    server_3) server_port=p5p1 ;;
-  esac
-
-  ansible-playbook fanout_connect.yml -i str --limit "$dut" -b --vault-password-file="$2" -e "server=${server/server_/str-acs-serv-0} server_port=$server_port"
+  ansible-playbook fanout_connect.yml -i veos --limit "$server" --vault-password-file="$2" -e "dut=$dut"
 
   echo Done
 }
