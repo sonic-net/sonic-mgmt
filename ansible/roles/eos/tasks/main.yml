@@ -4,13 +4,13 @@
 
 - name: Expand {{ hostname }} properties into props
   set_fact: props="{{ configuration_properties[item] | combine(props | default({})) }}"
-  with_items: "{{ configuration[hostname]['properties'] }}"
-  when: hostname in configuration
+  with_items: properties_list
+  when: hostname in configuration and configuration_properties[item] is defined
 
 - name: build a startup config
   template: src="{{ topo }}-{{ props.swrole }}.j2"
             dest=/mnt/flash/startup-config
-  when: hostname in configuration
+  when: configuration is defined
   notify:
     - Restart the box
 
