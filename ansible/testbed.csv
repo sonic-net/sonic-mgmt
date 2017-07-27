@@ -13,6 +13,7 @@ ptf2-6-b,ptf2-6,ptf32,docker-ptf-brcm,10.64.246.16/23,server_2,,str-s6000-acs-9,
 ptf2-6-c,ptf2-6,ptf32,docker-ptf,10.64.246.16/23,server_2,,str-cavium-str-1,Taoyu
 ptf2-6-s,ptf2-6,ptf32,docker-ptf,10.64.246.16/23,server_2,,str-9232-acs-2,Taoyu
 ptf3-1,ptf3-1,ptf32,docker-ptf-brcm,10.64.246.18/23,server_3,,str-s6000-acs-14,Guohan
+ptf6-1,ptf6-1,ptf32,docker-ptf,10.64.247.7/23,server_6,,str-wedge100b-acs-1,Robert
 # vmsets
 vms1-1-generic,vms1-1,t1,docker-ptf-brcm,10.64.246.22/23,server_1,VM0100,str-s6000-acs-11,Shuotian
 vms1-1-lag,vms1-1,t1-lag,docker-ptf-brcm,10.64.246.22/23,server_1,VM0100,str-s6000-acs-11,Shuotian
