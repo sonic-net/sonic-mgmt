@@ -126,7 +126,7 @@ class SerialSession(object):
 
         return
 
-def session(port, new_params):
+def session(new_params):
     seq = [
         ('hostname %s' % str(new_params['hostname']), [r'\(config\)#']),
         ('vrf definition MGMT', [r'\(config-vrf-MGMT\)#']),
@@ -144,8 +144,8 @@ def session(port, new_params):
     ]
 
     debug = MyDebug('/tmp/debug.%s.txt' % new_params['hostname'], enabled=True)
-    ss = SerialSession(port, debug)
-    ss.login(login, password)
+    ss = SerialSession(new_params['telnet_port'], debug)
+    ss.login(new_params['login'], new_params['password'])
     ss.enable()
     ss.wait_for_warmup()
     ss.rename_boot(seq) # FIXME: do we need this rename?
@@ -158,8 +158,7 @@ def session(port, new_params):
 
 
 def core(module):
-    telnet_port = module.params['telnet_port']
-    session(telnet_port, module.params)
+    session(module.params)
 
     return {'kickstart_code': 0, 'changed': True, 'msg': 'Kickstart completed'}
 
