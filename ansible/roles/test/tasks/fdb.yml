@@ -30,6 +30,12 @@
   copy: src=roles/test/files/helpers/arp_responder.py dest=/opt
   delegate_to: "{{ptf_host}}"
 
+- name: Copy arp responder supervisor configuration to the PTF container
+  template: src=arp_responder.conf.j2 dest=/etc/supervisor/conf.d/arp_responder.conf
+  vars:
+    - arp_responder_args: ''
+  delegate_to: "{{ ptf_host }}"
+
 - name: Copy ARP responder supervisor configuration to PTF
   copy: src=roles/test/files/supervisor/arp_responder.conf dest=/etc/supervisor/conf.d
   delegate_to: "{{ptf_host}}"

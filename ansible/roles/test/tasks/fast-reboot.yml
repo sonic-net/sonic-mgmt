@@ -1,6 +1,12 @@
+# example:
+# ansible-playbook sonic-test.yml -i str --limit device_1 --become --vault-password-file ~/password  --tags fast_reboot -e "ptf_host=10.0.0.21" -e "vm_hosts=['10.0.0.200','10.0.0.201','10.0.0.202','10.0.0.203']"
+
 - block:
     - fail: msg="Please set ptf_host variable"
       when: ptf_host is not defined
+
+    - fail: msg="Please set vm_hosts variable with a list of VMs"
+      when: vm_hosts is not defined
 
     - name: Remove existing ip from ptf host
       script: roles/test/files/helpers/remove_ip.sh
@@ -19,7 +25,9 @@
       delegate_to: "{{ ptf_host }}"
 
     - name: Copy arp responder supervisor configuration to the PTF container
-      copy: src=roles/test/files/supervisor/arp_responder.conf dest=/etc/supervisor/conf.d
+      template: src=arp_responder.conf.j2 dest=/etc/supervisor/conf.d/arp_responder.conf
+      vars:
+        - arp_responder_args: '-e'
       delegate_to: "{{ ptf_host }}"
 
     - name: Reread supervisor configuration
@@ -105,6 +113,7 @@
         - dut_mac='{{ ansible_Ethernet0['macaddress'] }}'
         - default_ip_range='192.168.0.0/16'
         - vlan_ip_range=\"{{ minigraph_vlan_interfaces[0]['subnet'] }}\"
+        - arista_vms=\"{{ vm_hosts }}\"
 
   always:
     - name: Remove existing ip from ptf host
