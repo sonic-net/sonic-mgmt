@@ -62,7 +62,7 @@ from operator import itemgetter
 
 
 class Arista(object):
-    DEBUG = True   # have it disabled in the repo
+    DEBUG = False
     def __init__(self, ip, queue, test_params, login='admin', password='123456'):
         self.ip = ip
         self.queue = queue
