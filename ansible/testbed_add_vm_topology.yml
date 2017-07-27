@@ -111,7 +111,6 @@
     set_fact: properties_list=configuration[hostname]['properties']
     when: configuration and configuration[hostname] and configuration[hostname]['properties'] is defined
 
-  - debug: msg="{{ inventory_hostname }}"
   roles:
     - { role: eos, when: topology.VMs is defined and inventory_hostname in VM_targets } # role eos will be executed in any case, and when will evaluate with every task
 
