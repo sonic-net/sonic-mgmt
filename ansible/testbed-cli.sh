@@ -7,12 +7,15 @@ function usage
   echo "testbed-cli. Interface to testbeds"
   echo "Usage : $0 { start-vms | stop-vms    } server-name vault-password-file"
   echo "Usage : $0 { add-topo  | remove-topo | renumber-topo } topo-name vault-password-file"
+  echo "Usage : $0 { gen-mg | deploy-mg } topo-name vault-password-file"
   echo
   echo "To start VMs on a server: $0 start-vms 'server-name' ~/.password"
   echo "To stop VMs on a server:  $0 stop-vms 'server-name' ~/.password"
   echo "To deploy a topology on a server: $0 add-topo 'topo-name' ~/.password"
   echo "To remove a topology on a server: $0 remove-topo 'topo-name' ~/.password"
   echo "To renumber a topology on a server: $0 renumber-topo 'topo-name' ~/.password" , where topo-name is target topology
+  echo "To generate minigraph for DUT in a topology: $0 gen-mg 'topo-name' ~/.password"
+  echo "To deploy minigraph to DUT in a topology: $0 deploy-mg 'topo-name' ~/.password"
   echo
   echo "You should define your topology in testbed.csv file"
   echo
@@ -104,6 +107,27 @@ function renumber_topo
   echo Done
 }
 
+function generate_minigraph
+{
+  echo "Generating minigraph '$1'"
+
+  read_file $1
+
+  ansible-playbook -i lab config_sonic_basedon_testbed.yml --vault-password-file="$2" -l "$dut" -e vm_base="$vm_base" -e topo="$topo"
+
+  echo Done
+}
+
+function deploy_minigraph
+{
+  echo "Deploying minigraph '$1'"
+
+  read_file $1
+
+  ansible-playbook -i lab config_sonic_basedon_testbed.yml --vault-password-file="$2" -l "$dut" -e vm_base="$vm_base" -e topo="$topo" -e deploy=true
+
+  echo Done
+}
 
 if [ $# -lt 3 ]
 then
@@ -121,7 +145,10 @@ case "$1" in
                ;;
   renumber-topo) renumber_topo $2 $3
                ;;
+  gen-mg)      generate_minigraph $2 $3
+               ;;
+  deploy-mg)   deploy_minigraph $2 $3
+               ;;
   *)           usage
                ;;
 esac
-
