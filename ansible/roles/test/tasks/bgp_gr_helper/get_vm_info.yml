@@ -1,0 +1,39 @@
+- name: Gathering lab graph facts about the device
+  conn_graph_facts: host={{ ansible_host }}
+  connection: local
+  tags: always
+
+- name: Init variables.
+  set_fact:
+      vm_name: ""
+      vm_intf: ""
+      vm_ip: ""
+      peer_ip: ""
+
+- name: Get neighbor VM info.
+  set_fact:
+      vm_name: "{{ item.value.name }}"
+      vm_intf: "{{ item.key }}"
+  with_dict: "{{ minigraph_neighbors }}"
+  when: "testbed_type in ['t1-lag', 't1'] and 'T0' in item.value.name and not vm_name"
+
+- name: Get neighbor IP address.
+  set_fact:
+      peer_ip: "{{ item.addr }}"
+  with_items: "{{ minigraph_bgp }}"
+  when: "item.name == vm_name and item.addr|ipv4"
+
+- name: Gather information from LLDP
+  include: "roles/test/tasks/lldp.yml"
+
+- name: Get VM IP address.
+  set_fact:
+      vm_ip: "{{ lldp[vm_intf]['chassis']['mgmt-ip'] }}"
+
+- debug:
+    var: vm_name
+- debug:
+    var: vm_intf
+- debug:
+    var: vm_ip
+      

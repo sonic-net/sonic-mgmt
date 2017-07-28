@@ -1,4 +1,5 @@
 # snmp variables
 snmp_rocommunity: strcommunity
 snmp_location: str
-
+# Default value. Should be adjusted based on VMs capabilities
+bgp_gr_timer: 300

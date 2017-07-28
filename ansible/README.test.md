@@ -85,3 +85,8 @@ ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags 
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags syslog
 ```
 
+### BGP GR helper mode test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags bgp_gr_helper --extra-vars "testbed_type={TESTBED_TYPE}" 
+```
+
