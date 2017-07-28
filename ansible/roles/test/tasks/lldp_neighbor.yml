@@ -1,10 +1,11 @@
-- name: Gather LLDP information from all neighbors by performing a SNMP walk 
+- name: Gather LLDP information from all neighbors by performing a SNMP walk
   lldp_facts: host={{ hname }} version=v2c community={{ snmp_rocommunity }}
   connection: local
 
 - name: Print LLDP facts from neighbors
   debug: msg="{{ ansible_lldp_facts }}"
 
+# FIXME: use more strict assertions
 - name: verify the dut system name field is not empty
   assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_sys_name'] }}' != ''"}
 
@@ -18,5 +19,5 @@
   assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_port_id'] }}' != ''"}
 
 - name: verify the dut port description field is published correctly
-  assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_port_desc'] }}' == dut_interface"}
+  assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_port_desc'] }}' != ''"}
 
