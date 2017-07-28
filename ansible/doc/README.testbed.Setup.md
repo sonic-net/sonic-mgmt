@@ -30,54 +30,72 @@ iface br1 inet static
 ```
 
 - Installed python 2.7 (required by ansible).
-- Add Docker’s official GPG key
+- Add Docker's official GPG key
 ```
    $ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 ```
 
-## Build and run ```sonic-mgmt``` docker
+## Setup docker registry for *PTF* docker
 
-ansible playbook in ```sonic-mgmt``` repo requires to setup ansible and various dependencies.
-We have built a ```sonic-mgmt``` docker that installs all dependencies, and you can simply
-build that docker and ansible playbook inside the docker.
+PTF docker is used to send and receive packets to test data plane. 
 
-- Build ```sonic-mgmt``` docker
+- Build PTF docker
+```
+git clone --recursive https://github.com/Azure/sonic-buildimage.git
+make target/docker-ptf.gz
+```
+
+- Setup [docker registry](https://docs.docker.com/registry/) and upload *docker-ptf* to the docker registry.
+
+## Build and run *sonic-mgmt* docker
+
+ansible playbook in *sonic-mgmt* repo requires to setup ansible and various dependencies.
+We have built a *sonic-mgmt* docker that installs all dependencies, and you can build 
+the docker and run ansible playbook inside the docker.
+
+- Build *sonic-mgmt* docker
 ```
 git clone --recursive https://github.com/Azure/sonic-buildimage.git
 make target/docker-sonic-mgmt.gz
 ```
 
-- Run ```sonic-mgmt``` docker
+Pre-built *sonic-mgmt* can also be downloaded from [here](https://sonic-jenkins.westus.cloudapp.azure.com/job/common/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/target/docker-sonic-mgmt.gz).
+
+- Run *sonic-mgmt* docker
 ```
 docker load -i target/docker-sonic-mgmt.gz
 docker run -it docker-sonic-mgmt bash
 cd ~/sonic-mgmt
 ```
 
-From now on, all steps are running inside the ```sonic-mgmt``` docker.
+From now on, all steps are running inside the *sonic-mgmt* docker.
 
 ## Prepare testbed configurations
 
-Prepare various configuration files for your testbed.
+Latest *sonic-mgmt* repo is cloned into *sonic-mgmt* docker under '/var/[your-login-username]/sonic-mgmt`. 
+Once you are in the docker, you need to modify the testbed configuration files to reflect your lab setup.
 
-- Add/Update your testbed server management IP in veos file. Example:'STR-ACS-SERV-01 ansible_host=10.0.0.5' where 10.0.0.5 your server mgmt ip
-- Add testbed server credentials in ```ansible/group_vars/vm_host/creds.yml```
-- Check that ansible could reach this device by command ```ansible -m ping -i veos vm_host_1```
-- Put files: ```Aboot-veos-serial-8.0.0.iso``` and ```vEOS-lab-4.15.9M.vmdk``` to /home/{your_username from step 3}/veos-vm/images on your testbed server
-- Edit ```ansible/host_vars/STR-ACS-SERV-01.yml```. You need to change ```external_iface```,```mgmt_gw``` and ```mgmt_prefixlen```. These settings define network parameters for VM/ptf management interfaces. Example:
+- Server
+  - Update server management IP in [```ansible/veos```](../veos).
+  - Update testbed server credentials in [```ansible/group_vars/vm_host/creds.yml```](../group_vars/vm_host/creds.yml).
+  - Update server network configuration for VM and PTF management interface in [```ansible/host_vars/STR-ACS-SERV-01.yml```](../host_vars/STR-ACS-SERV-01.yml).
+    - ```external_iface```: server trunk port name (connected to the fanout switch)
+    - ```mgmt_gw```: ip of gateway for VM mgmt interfaces
+    - ```mgmt_prefixlen```: prefixlen for management interfaces
+  - Check that ansible could reach this device by command ```ansible -m ping -i veos vm_host_1```.
 
-```
-external_iface: p4p1   <--- trunk port of the server (connected to the fanout switch)
-mgmt_gw: 10.250.0.1    <--- ip of gateway for VM mgmt interfaces
-mgmt_prefixlen: 24     <--- prefixlen for management interfaces
-```
+- VM
+  - Download vEOS image from [arista](https://www.arista.com/en/support/software-download).
+  - Copy below image files to ```~/veos-vm/images``` on your testbed server.
+     - ```Aboot-veos-serial-8.0.0.iso```
+     - ```vEOS-lab-4.15.9M.vmdk```
+  - Update VM IP addresses [```ansible/veos```](../voes) inventory file. These IP addresses should be in the management subnet defined above.
+  - Update VM credentials in [```ansible/group_vars/eos/creds.yml```](../group_vars/eos/creds.yml).
 
-- Add ip addresses for your VMs in veos inventory file ```ansible/veos``` inventory file. These IP addresses should be in the management subnet defined in above file.
-- Update VM credentials in ```ansible/group_vars/eos/creds.yml```. Use root:123456 as credentials
-- Add information about your docker registry here: ```vars/docker_registry.yml```
+- ```PTF``` docker
+  - Update docker registry information in [```vars/docker_registry.yml```](../vars/docker_registry.yml).
 
 ## Setup VMs in the server
-
 
 ```
 ./testbed-cli.sh start-vms server_1 password.txt
@@ -87,7 +105,7 @@ Check that all VMs are up and running: ```ansible -m ping -i veos server_1```
 
 ## Deploy topology
 
-- Update testbed.csv with your data. At least update PTF mgmt interface settings
+- Update ```testbed.csv``` with your data. At least update PTF mgmt interface settings
 - To deploy PTF topology run: ```./testbed-cli.sh add-topo ptf1-m ~/.password```
 - To remove PTF topology run: ```./testbed-cli.sh remove-topo ptf1-m ~/.password```
 - To deploy T1 topology run: ```./testbed-cli.sh add-topo vms-t1 ~/.password```
