@@ -4,7 +4,28 @@
 
 - debug: msg="starting loganalyzer analysis phase"
 
-- set_fact: cmd="python {{ run_dir }}/loganalyzer.py --action analyze --run_id {{ testname_unique }} --out_dir {{ test_out_dir }} -m {{ match_file }} -i {{ ignore_file }} -e {{ test_expect_file }} -v"
+- name: Init variables
+  set_fact:
+    match_file_option: "-m {{ match_file }}"
+    ignore_file_option: "-i {{ ignore_file }}"
+    expect_file_option: "-e {{ expect_file }}"
+
+- name: Add test specific match file
+  set_fact:
+      match_file_option: "{{ match_file_option }},{{ test_match_file }} "
+  when: test_match_file is defined
+
+- name: Add test specific ignore file
+  set_fact:
+      ignore_file_option: "{{ ignore_file_option }},{{ test_ignore_file }}"
+  when: test_ignore_file is defined
+
+- name: Use test specific expect file
+  set_fact:
+      expect_file_option: "-e {{ test_expect_file }}"
+  when: test_expect_file is defined
+
+- set_fact: cmd="python {{ run_dir }}/loganalyzer.py --action analyze --run_id {{ testname_unique }} --out_dir {{ test_out_dir }} {{ match_file_option }} {{ ignore_file_option }} {{ expect_file_option }} -v"
 
 - debug: msg={{cmd}}
 
