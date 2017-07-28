@@ -2,8 +2,8 @@
     <DeviceInfo>
       <AutoNegotiation>true</AutoNegotiation>
       <EthernetInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
-{% for index in range(32) %}
-{% set sonic_if_name='Ethernet'+((index*4)|string)  %}
+{% set num_of_intf = port_alias | length %}
+{% for index in range(num_of_intf) %}
         <a:EthernetInterface>
           <ElementType>DeviceInterface</ElementType>
           <AlternateSpeeds i:nil="true"/>
