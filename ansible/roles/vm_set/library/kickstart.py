@@ -126,41 +126,29 @@ class SerialSession(object):
 
         return
 
-
-def session(port, login, password, new_params):
-    templates = {
-        'hostname': [
-            ('hostname %s' % str(new_params['hostname']), [r'\(config\)#']),
-        ],
-        'mgmt_ip': [
-            ('interface management 1', [r'\(config-if-Ma1\)#']),
-            ('no shutdown', [r'\(config-if-Ma1\)#']),
-            ('ip address %s' % str(new_params['mgmt_ip']), [r'\(config-if-Ma1\)#']),
-            ('exit', [r'\(config\)#']),
-        ],
-        'mgmt_gw': [
-            ('ip route 0.0.0.0/0 %s' % str(new_params['mgmt_gw']), [r'\(config\)#']),
-        ],
-        'new_login': [
-            ('username %s privilege 15 role network-admin secret 0 %s' % (str(new_params['new_login']), str(new_params['new_password'])), [r'\(config\)#']),
-        ],
-        'new_password': [], # empty. All data in new_login
-        'new_root_password': [
-            ('aaa root secret 0 %s' % str(new_params['new_root_password']), [r'\(config\)#']),
-        ],
-    }
-
-    seq = []
-    for key, param in new_params.iteritems():
-        if param is not None:
-            seq.extend(templates[key])
+def session(new_params):
+    seq = [
+        ('hostname %s' % str(new_params['hostname']), [r'\(config\)#']),
+        ('vrf definition MGMT', [r'\(config-vrf-MGMT\)#']),
+        ('rd 1:1', [r'\(config-vrf-MGMT\)#']),
+        ('exit', [r'\(config\)#']),
+        ('ip routing vrf MGMT', [r'\(config\)#']),
+        ('interface management 1', [r'\(config-if-Ma1\)#']),
+        ('no shutdown', [r'\(config-if-Ma1\)#']),
+        ('vrf forwarding MGMT', [r'\(config-if-Ma1\)#']),
+        ('ip address %s' % str(new_params['mgmt_ip']), [r'\(config-if-Ma1\)#']),
+        ('exit', [r'\(config\)#']),
+        ('ip route vrf MGMT 0.0.0.0/0 %s' % str(new_params['mgmt_gw']), [r'\(config\)#']),
+        ('username %s privilege 15 role network-admin secret 0 %s' % (str(new_params['new_login']), str(new_params['new_password'])), [r'\(config\)#']),
+        ('aaa root secret 0 %s' % str(new_params['new_root_password']), [r'\(config\)#']),
+    ]
 
     debug = MyDebug('/tmp/debug.%s.txt' % new_params['hostname'], enabled=True)
-    ss = SerialSession(port, debug)
-    ss.login(login, password)
+    ss = SerialSession(new_params['telnet_port'], debug)
+    ss.login(new_params['login'], new_params['password'])
     ss.enable()
     ss.wait_for_warmup()
-    ss.rename_boot(seq)
+    ss.rename_boot(seq) # FIXME: do we need this rename?
     ss.configure(seq)
     ss.wait_for_warmup()
     ss.logout()
@@ -170,28 +158,7 @@ def session(port, login, password, new_params):
 
 
 def core(module):
-    telnet_port = module.params.get('telnet_port', None)
-    login = module.params.get('login', None)
-    password = module.params.get('password', None)
-
-    new_params = {}
-    new_params['hostname'] = module.params.get('hostname', None)
-    new_params['mgmt_ip'] = module.params.get('mgmt_ip', None)
-    new_params['mgmt_gw'] = module.params.get('mgmt_gw', None)
-    new_params['new_login'] = module.params.get('new_login', None)
-    new_params['new_password'] = module.params.get('new_password', None)
-    new_params['new_root_password'] = module.params.get('new_root_password', None)
-
-    if (new_params['new_login'] is not None and new_params['new_password'] is None):
-        module.fail_json(msg = 'new_password is required')
-
-    if (new_params['new_login'] is None and new_params['new_password'] is not None):
-        module.fail_json(msg = 'new_login is required')
-
-    if telnet_port is None:
-        module.fail_json(msg = 'telnet port number is required')
-
-    session(telnet_port, login, password, new_params)
+    session(module.params)
 
     return {'kickstart_code': 0, 'changed': True, 'msg': 'Kickstart completed'}
 
@@ -202,12 +169,12 @@ def main():
         telnet_port = dict(required=True),
         login = dict(required=True),
         password = dict(required=True),
-        hostname = dict(),
-        mgmt_ip = dict(),
-        mgmt_gw = dict(),
-        new_login = dict(),
-        new_password = dict(),
-        new_root_password = dict(),
+        hostname = dict(required=True),
+        mgmt_ip = dict(required=True),
+        mgmt_gw = dict(required=True),
+        new_login = dict(required=True),
+        new_password = dict(required=True),
+        new_root_password = dict(required=True),
     ))
 
     try:
@@ -228,4 +195,3 @@ def main():
 
 from ansible.module_utils.basic import *
 main()
-

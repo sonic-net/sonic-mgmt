@@ -3,6 +3,9 @@
 {% set tornum = host['tornum'] %}
 hostname {{ hostname }}
 !
+vrf definition MGMT
+ rd 1:1
+!
 spanning-tree mode mstp
 !
 aaa root secret 0 123456
@@ -13,13 +16,16 @@ clock timezone UTC
 !
 lldp run
 lldp management-address Management1
+lldp management-address vrf MGMT
 !
 snmp-server community {{ snmp_rocommunity }} ro
+snmp-server vrf MGMT
 !
 ip routing
+ip routing vrf MGMT
 ipv6 unicast-routing
 !
-ip route 0.0.0.0/0 {{ mgmt_gw }}
+ip route vrf MGMT 0.0.0.0/0 {{ mgmt_gw }}
 !
 {% for subnet in range(0, props.tor_subnet_number) %}
 ip route 172.16.{{ tornum }}.{{ subnet }}/32 {{ props.nhipv4 }}
@@ -28,6 +34,7 @@ ipv6 route 20AC:10{{ '%02X' % tornum }}:0:{{ '%02X' % subnet }}::/64 {{ props.nh
 !
 interface Management 1
  description TO LAB MGMT SWITCH
+ vrf forwarding MGMT
  ip address {{ mgmt_ip }}/{{ mgmt_prefixlen }}
  no shutdown
 !
