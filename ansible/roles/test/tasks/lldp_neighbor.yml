@@ -1,23 +1,26 @@
 - name: Gather LLDP information from all neighbors by performing a SNMP walk
-  lldp_facts: host={{ hname }} version=v2c community={{ snmp_rocommunity }}
+  lldp_facts:
+    host: "{{ hname }}"
+    version: "v2c"
+    community: "{{ snmp_rocommunity }}"
   connection: local
 
 - name: Print LLDP facts from neighbors
   debug: msg="{{ ansible_lldp_facts }}"
 
-# FIXME: use more strict assertions
-- name: verify the dut system name field is not empty
-  assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_sys_name'] }}' != ''"}
+- name: Verify the published DuT system name field is correct
+  assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_sys_name'] }}' == '{{ dut_hostname }}'"}
 
-- name: verify the dut chassis id field is not empty
+# FIXME: use more strict assertion
+- name: Verify the published DuT chassis id field is not empty
   assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_chassis_id'] }}' != ''"}
 
-- name: verify the dut system description field is not empty
+# FIXME: use more strict assertion
+- name: Verify the published DuT system description field is not empty
   assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_sys_desc'] }}' != ''"}
 
-- name: verify the dut port id field is not empty
-  assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_port_id'] }}' != ''"}
+- name: Verify the published DuT port id field is correct
+  assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_port_id'] }}' == '{{ dut_port_alias }}'"}
 
-- name: verify the dut port description field is published correctly
-  assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_port_desc'] }}' != ''"}
-
+- name: Verify the published DuT port description field is correct
+  assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_port_desc'] }}' == '{{ dut_port_description }}'"}
