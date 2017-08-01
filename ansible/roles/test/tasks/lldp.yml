@@ -32,7 +32,6 @@
 
 - block:
   - name: Obtain the system description of the DUT chassis
-    become: true
     shell: "docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'"
     register: result
 
