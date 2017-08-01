@@ -1,36 +1,54 @@
 # Gather minigraph facts
 - name: Gathering minigraph facts about the device
-  minigraph_facts: host={{ inventory_hostname }}
+  minigraph_facts:
+    host: "{{ inventory_hostname }}"
   become: no
   connection: local
 
 - name: Print neighbors in minigraph
   debug: msg="{{ minigraph_neighbors }}"
 
-- name: Gather information from lldp
+- name: Gather information from LLDP
   lldp:
   vars:
     ansible_shell_type: docker
     ansible_python_interpreter: docker exec -i lldp python
 
-- name: Print lldp information
+- name: Print LLDP information
   debug: msg="{{ lldp }}"
 
 - name: Verify LLDP information is available on most interfaces
   assert: { that: "{{ lldp|length }} > {{ minigraph_neighbors|length * 0.8 }}"}
 
-- name: Compare the lldp neighbors name with minigraph neigbhors name (exclude the management port)
+- name: Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
   assert: { that: "'{{ lldp[item]['chassis']['name'] }}' == '{{ minigraph_neighbors[item]['name'] }}'" }
   with_items: "{{ lldp.keys() }}"
   when: item != "eth0"
 
-- name: Compare the lldp neighbors interface with minigraph neigbhor interface (exclude the management port)
+- name: Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port)
   assert: { that: "'{{ lldp[item]['port']['ifname'] }}' == '{{ minigraph_neighbors[item]['port'] }}'" }
   with_items: "{{ lldp.keys() }}"
   when: item != "eth0"
 
-- name: Iterate throguh each lldp neighbor and verify the information received by neighbor are also correct
-  add_host: name={{ lldp[item]['chassis']['mgmt-ip'] }} groups=lldp_neighbors,eos neighbor_interface={{lldp[item]['port']['ifname']}} dut_interface={{item}} hname={{lldp[item]['chassis']['mgmt-ip'] }}
+- block:
+  - name: Obtain the system description of the DUT chassis
+    shell: "docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'"
+    register: result
+
+  - name: Store system description of the DUT chassis as a fact
+    set_fact:
+      dut_system_description: "{{ result.stdout }}"
+
+- name: Iterate through each LLDP neighbor and verify the information received by neighbor is correct
+  add_host:
+    name: "{{ lldp[item]['chassis']['mgmt-ip'] }}"
+    groups: "lldp_neighbors,eos"
+    neighbor_interface: "{{ lldp[item]['port']['ifname'] }}"
+    dut_interface: "{{ item }}"
+    hname: "{{ lldp[item]['chassis']['mgmt-ip'] }}"
+    dut_hostname: "{{ inventory_hostname }}"
+    dut_port_alias: "{{ minigraph_ports[item]['alias'] }}"
+    dut_port_description: "{{ minigraph_neighbors[item]['name'] }}:{{ minigraph_neighbors[item]['port'] }}"
+    dut_system_description: "{{ dut_system_description }}"
   with_items: "{{ lldp.keys() }}"
   when: item != "eth0"
-
