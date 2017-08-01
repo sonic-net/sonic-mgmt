@@ -15,9 +15,8 @@
 - name: Verify the published DUT chassis id field is not empty
   assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_chassis_id'] }}' != ''"}
 
-# FIXME: use more strict assertion
-- name: Verify the published DUT system description field is not empty
-  assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_sys_desc'] }}' != ''"}
+- name: Verify the published DUT system description field is correct
+  assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_sys_desc'] }}' == '{{ dut_system_description }}'"}
 
 - name: Verify the published DUT port id field is correct
   assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_port_id'] }}' == '{{ dut_port_alias }}'"}

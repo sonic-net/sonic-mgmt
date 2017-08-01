@@ -1,6 +1,7 @@
 # Gather minigraph facts
 - name: Gathering minigraph facts about the device
-  minigraph_facts: host={{ inventory_hostname }}
+  minigraph_facts:
+    host: "{{ inventory_hostname }}"
   become: no
   connection: local
 
@@ -29,7 +30,17 @@
   with_items: "{{ lldp.keys() }}"
   when: item != "eth0"
 
-- name: Iterate through each LLDP neighbor and verify the information received by neighbor are also correct
+- block:
+  - name: Obtain the system description of the DUT chassis
+    become: true
+    shell: "docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'"
+    register: result
+
+  - name: Store system description of the DUT chassis as a fact
+    set_fact:
+      dut_system_description: "{{ result.stdout }}"
+
+- name: Iterate through each LLDP neighbor and verify the information received by neighbor is correct
   add_host:
     name: "{{ lldp[item]['chassis']['mgmt-ip'] }}"
     groups: "lldp_neighbors,eos"
@@ -39,5 +50,6 @@
     dut_hostname: "{{ inventory_hostname }}"
     dut_port_alias: "{{ minigraph_ports[item]['alias'] }}"
     dut_port_description: "{{ minigraph_neighbors[item]['name'] }}:{{ minigraph_neighbors[item]['port'] }}"
+    dut_system_description: "{{ dut_system_description }}"
   with_items: "{{ lldp.keys() }}"
   when: item != "eth0"
