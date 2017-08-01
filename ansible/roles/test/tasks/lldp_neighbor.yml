@@ -8,19 +8,19 @@
 - name: Print LLDP facts from neighbors
   debug: msg="{{ ansible_lldp_facts }}"
 
-- name: Verify the published DuT system name field is correct
+- name: Verify the published DUT system name field is correct
   assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_sys_name'] }}' == '{{ dut_hostname }}'"}
 
 # FIXME: use more strict assertion
-- name: Verify the published DuT chassis id field is not empty
+- name: Verify the published DUT chassis id field is not empty
   assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_chassis_id'] }}' != ''"}
 
 # FIXME: use more strict assertion
-- name: Verify the published DuT system description field is not empty
+- name: Verify the published DUT system description field is not empty
   assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_sys_desc'] }}' != ''"}
 
-- name: Verify the published DuT port id field is correct
+- name: Verify the published DUT port id field is correct
   assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_port_id'] }}' == '{{ dut_port_alias }}'"}
 
-- name: Verify the published DuT port description field is correct
+- name: Verify the published DUT port description field is correct
   assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_port_desc'] }}' == '{{ dut_port_description }}'"}
