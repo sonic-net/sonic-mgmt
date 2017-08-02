@@ -77,13 +77,26 @@
     - {file_name: "config_3.ini", local_ip: '{{vlan_ips[0]}}', port_num: '7000'}
   delegate_to: "{{ptf_host}}"
 
+- set_fact: addr_family='ipv4'
+  when: addr_family is not defined
+
+- name: Activate IPv6 address family
+  shell: vtysh -c "conf t" -c "router bgp {{ minigraph_bgp_asn }}" -c "address-family ipv6" -c "neighbor BGPSLBPassive activate"
+  when: addr_family == 'ipv6'
+
 - name: Set the prefix to be announced
-  set_fact: announce_prefix="10.10.10.10/26"
+  set_fact:
+    announce_prefix: "{% if addr_family=='ipv4' %}10.10.10.0/26{% else %}2010::/126{% endif %}"
 
 - name: Generate routes to be announced
   template: src=roles/test/templates/exabgp/routes.j2 dest={{exabgp_dir}}/routes
   with_items:
-    - {speaker_ip: '{{vlan_ips[0]}}', mux_ip_1: '{{vlan_ips[1]}}', mux_ip_2: '{{vlan_ips[2]}}', port_num_1: '5000', port_num_2: '6000', port_num_3: '7000'}
+    - {speaker_ip: '{{vlan_ips[0]}}',
+       mux_ip_1: "{% if addr_family=='ipv4' %}{{vlan_ips[1]}}{% else %}{{minigraph_portchannel_interfaces[1]['peer_addr']}}{% endif %}",
+       mux_ip_2: "{% if addr_family=='ipv4' %}{{vlan_ips[2]}}{% else %}{{minigraph_portchannel_interfaces[3]['peer_addr']}}{% endif %}",
+       port_num_1: '5000',
+       port_num_2: '6000',
+       port_num_3: '7000'}
   delegate_to: "{{ptf_host}}"
 
 - name: Generate start file for exabgp instances
@@ -96,13 +109,17 @@
   shell: sh {{exabgp_dir}}/start.sh
   delegate_to: "{{ptf_host}}"
 
+- pause:
+    seconds: 5
+    prompt: "make sure dynamic bgp neighbors appear"
+
 - name: Announce the routes
   shell: python {{helper_dir}}/announce_routes.py {{exabgp_dir}}/routes >/dev/null 2>&1 &
   delegate_to: "{{ptf_host}}"
 
 - pause:
-    seconds: 10
-    prompt: "make sure dynamic bgp neighbors appear"
+    seconds: 30
+    prompt: "make sure routes announced to dynamic bgp neighbors"
 
 - name: Gather bgp facts from bgp container
   bgp_facts:
@@ -116,6 +133,47 @@
 - name: Verify accepted prefixes of the dynamic neighbors are correct
   assert: {that: "'{{ bgp_neighbors[item]['accepted prefixes'] }}' == '1'"}
   with_items: "['{{speaker_ips[0].split('/')[0]}}', '{{speaker_ips[1].split('/')[0]}}', '{{vlan_ips[0].split('/')[0]}}'] "  
+
+# Send packets to verify that accepted prefixes are correctly applied in HW.
+# PTF FIB test is used to send the packets.
+
+- name: Generate route-port map information
+  template: src=roles/test/templates/bgp_speaker_route.j2
+            dest=/tmp/bgp_speaker_route.txt
+  connection: local
+
+- name: Copy the bgp_speaker_route to ptf container
+  copy: src=/tmp/bgp_speaker_route.txt dest=/root
+  delegate_to: "{{ptf_host}}"
+
+- name: Copy the test to ptf container
+  copy: src=roles/test/files/ptftests dest=/root
+  delegate_to: "{{ ptf_host }}"
+
+- set_fact: ipv4=true
+  when: addr_family == 'ipv4'
+
+- set_fact: ipv6=true
+  when: addr_family == 'ipv6'
+
+- name: "Start PTF runner"
+  include: ptf_runner.yml
+  vars:
+    ptf_test_name: FIB test
+    ptf_test_dir: ptftests
+    ptf_test_path: fib_test.FibTest
+    ptf_platform: remote
+    ptf_test_params:
+      - testbed_type='{{testbed_type}}'
+      - router_mac='{{ansible_Ethernet0['macaddress']}}'
+      - fib_info='/root/bgp_speaker_route.txt'
+      - ipv4={{ ipv4|default(false) }}
+      - ipv6={{ ipv6|default(false) }}
+    ptf_extra_options: "--relax --debug info --log-file /tmp/bgp_speaker_test.FibTest.log"
+
+- name: Deactivate IPv6 address family
+  shell: vtysh -c "conf t" -c "router bgp {{ minigraph_bgp_asn }}" -c "address-family ipv6" -c "no neighbor BGPSLBPassive activate"
+  when: addr_family == 'ipv6'
 
 - name: Kill exabgp instances
   shell: pkill exabgp
