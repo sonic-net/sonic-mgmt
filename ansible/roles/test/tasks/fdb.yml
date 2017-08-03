@@ -36,10 +36,6 @@
     - arp_responder_args: ''
   delegate_to: "{{ ptf_host }}"
 
-- name: Copy ARP responder supervisor configuration to PTF
-  copy: src=roles/test/files/supervisor/arp_responder.conf dest=/etc/supervisor/conf.d
-  delegate_to: "{{ptf_host}}"
-
 - name: Reread supervisor configuration
   shell: /usr/bin/supervisorctl reread
   delegate_to: "{{ptf_host}}"
