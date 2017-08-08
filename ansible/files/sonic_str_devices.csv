@@ -13,9 +13,12 @@ str-s6000-acs-12,10.3.147.252/23,ACS-S6000,DevSonic
 str-s6000-acs-13,10.3.147.253/23,ACS-S6000,DevSonic
 str-s6000-acs-14,10.3.147.17/23,ACS-S6000,DevSonic
 str-s6100-acs-1,10.3.147.243/23,Force10-S6100,DevSonic
-str-s6100-acs-2,10.3.147.9/23,Force10-S6100,DevSonic
-str-a7050-acs-1,10.3.147.241/23,ACS-A7050-QX32,DevSonic
+str-s6100-acs-2,10.64.246.225/23,Force10-S6100,DevSonic
+str-s6100-acs-3,10.64.247.2/23,Force10-S6100,DevSonic
+str-s6100-acs-4,10.64.246.226/23,Force10-S6100,DevSonic
+str-a7050-acs-1,10.3.147.241/23,ACS-A7050QX-32S,DevSonic
 str-a7050-acs-2,10.3.147.199/23,ACS-A7050-QX32,DevSonic
+str-a7050-acs-3,10.64.247.227/23,ACS-A7050QX-32S,DevSonic
 str-n3132-acs-1,10.3.147.204/23,ACS-N3132-XOE,DevSonic
 str-n3132-acs-2,10.3.147.247/23,ACS-N3132-GE,DevSonic
 str-n3132-acs-3,10.3.147.251/23,ACS-N3132-GE,DevSonic
@@ -29,9 +32,7 @@ str-msn2700-05,10.3.147.48/23,Mellanox-2700,DevSonic
 str-msn2700-06,10.3.147.49/23,Mellanox-2700,DevSonic
 str-msn2700-08,10.3.147.51/23,Mellanox-2700,DevSonic
 str-msn2700-09,10.3.147.52/23,Mellanox-2700,DevSonic
-str-s6100-acs-1,10.3.147.243/23,Force10-S6100,DevSonic
 str-cavium-acs-01,10.3.147.10/23,Cavium,DevSonic
-str-s6100-acs-3,10.64.247.2/23,Force10-S6100,DevSonic
 str-wedge100b-acs-1,10.64.246.30,Wedge-100B-C32,DevSonic
 str-wedge100b-acs-2,10.64.247.3,Wedge-100B-C32,DevSonic
 str-wedge100b65-acs-1,10.64.247.4,Wedge-100B-65X,DevSonic
@@ -39,8 +40,6 @@ str-wedge100b65-acs-2,10.64.247.5,Wedge-100B-65X,DevSonic
 str-7260-02,10.3.147.154/23,Arista-7260QX-64,FanoutLeaf
 str-7260-03,10.3.147.169/23,Arista-7260QX-64,FanoutLeaf
 str-7260-04,10.3.147.164/23,Arista-7260QX-64,FanoutLeaf
-str-s6100-on-02,10.3.147.187/23,Force10-S6100,FanoutLeaf
-str-s6100-on-04,10.3.147.250/23,Force10-S6100,FanoutLeaf
 str-7260-01,10.3.147.76/23,Arista-7260QX-64,FanoutLeaf
 str-7260-05,10.3.146.105/23,Arista-7260QX-64,FanoutLeaf
 str-7260-06,10.3.146.106/23,Arista-7260QX-64,FanoutLeaf
@@ -55,6 +54,11 @@ str-7260-15,10.3.147.236/23,Arista-7260QX-64,FanoutLeaf
 str-7260-16,10.3.147.238/23,Arista-7260QX-64,FanoutLeaf
 str-7260-17,10.3.147.240/23,Arista-7260QX-64,FanoutLeaf
 str-7260-18,10.3.147.242/23,Arista-7260QX-64,FanoutLeaf
+str-7260-20,10.64.247.250/23,Arista-7260QX-64,FanoutLeaf
+str-7260-21,10.64.247.251/23,Arista-7260QX-64,FanoutLeaf
+str-7260-22,10.64.247.252/23,Arista-7260QX-64,FanoutLeaf
+str-7260-23,10.64.247.253/23,Arista-7260QX-64,FanoutLeaf
+str-7260-24,10.64.247.254/23,Arista-7260QX-64,FanoutLeaf
 str-acs-serv-01,10.3.147.245/23,TestServ,Server
 str-acs-serv-02,10.3.147.246/23,TestServ,Server
 str-acs-serv-03,10.3.147.244/23,TestServ,Server
@@ -62,4 +66,3 @@ str-acs-serv-05,10.64.246.29/23,TestServ,Server
 str-acs-serv-06,10.64.247.1/23,TestServ,Server
 str-acs-serv-07,10.64.246.28/23,TestServ,Server
 str-acs-serv-08,10.64.247.0/23,TestServ,Server
-calient,10.3.146.4/23,ODL,ODL

@@ -447,70 +447,70 @@ str-n3132-acs-2,Ethernet112,str-7260-14,Ethernet49,40000,645,Access
 str-n3132-acs-2,Ethernet116,str-7260-14,Ethernet50,40000,646,Access
 str-n3132-acs-2,Ethernet120,str-7260-14,Ethernet51,40000,647,Access
 str-n3132-acs-2,Ethernet124,str-7260-14,Ethernet52,40000,648,Access
-str-n3132-acs-3,Ethernet0,str-s6100-on-02,fortyGigE 1/1/1,40000,649,Access
-str-n3132-acs-3,Ethernet4,str-s6100-on-02,fortyGigE 1/1/2,40000,650,Access
-str-n3132-acs-3,Ethernet8,str-s6100-on-02,fortyGigE 1/1/3,40000,651,Access
-str-n3132-acs-3,Ethernet12,str-s6100-on-02,fortyGigE 1/1/4,40000,652,Access
-str-n3132-acs-3,Ethernet16,str-s6100-on-02,fortyGigE 1/1/5,40000,653,Access
-str-n3132-acs-3,Ethernet20,str-s6100-on-02,fortyGigE 1/1/6,40000,654,Access
-str-n3132-acs-3,Ethernet24,str-s6100-on-02,fortyGigE 1/1/7,40000,655,Access
-str-n3132-acs-3,Ethernet28,str-s6100-on-02,fortyGigE 1/1/8,40000,656,Access
-str-n3132-acs-3,Ethernet32,str-s6100-on-02,fortyGigE 1/1/9,40000,657,Access
-str-n3132-acs-3,Ethernet36,str-s6100-on-02,fortyGigE 1/1/10,40000,658,Access
-str-n3132-acs-3,Ethernet40,str-s6100-on-02,fortyGigE 1/1/11,40000,659,Access
-str-n3132-acs-3,Ethernet44,str-s6100-on-02,fortyGigE 1/1/12,40000,660,Access
-str-n3132-acs-3,Ethernet48,str-s6100-on-02,fortyGigE 1/1/13,40000,661,Access
-str-n3132-acs-3,Ethernet52,str-s6100-on-02,fortyGigE 1/1/14,40000,662,Access
-str-n3132-acs-3,Ethernet56,str-s6100-on-02,fortyGigE 1/1/15,40000,663,Access
-str-n3132-acs-3,Ethernet60,str-s6100-on-02,fortyGigE 1/1/16,40000,664,Access
-str-n3132-acs-3,Ethernet64,str-s6100-on-02,fortyGigE 1/2/1,40000,665,Access
-str-n3132-acs-3,Ethernet68,str-s6100-on-02,fortyGigE 1/2/2,40000,666,Access
-str-n3132-acs-3,Ethernet72,str-s6100-on-02,fortyGigE 1/2/3,40000,667,Access
-str-n3132-acs-3,Ethernet76,str-s6100-on-02,fortyGigE 1/2/4,40000,668,Access
-str-n3132-acs-3,Ethernet80,str-s6100-on-02,fortyGigE 1/2/5,40000,669,Access
-str-n3132-acs-3,Ethernet84,str-s6100-on-02,fortyGigE 1/2/6,40000,670,Access
-str-n3132-acs-3,Ethernet88,str-s6100-on-02,fortyGigE 1/2/7,40000,671,Access
-str-n3132-acs-3,Ethernet92,str-s6100-on-02,fortyGigE 1/2/8,40000,672,Access
-str-n3132-acs-3,Ethernet96,str-s6100-on-02,fortyGigE 1/2/9,40000,673,Access
-str-n3132-acs-3,Ethernet100,str-s6100-on-02,fortyGigE 1/2/10,40000,674,Access
-str-n3132-acs-3,Ethernet104,str-s6100-on-02,fortyGigE 1/2/11,40000,675,Access
-str-n3132-acs-3,Ethernet108,str-s6100-on-02,fortyGigE 1/2/12,40000,676,Access
-str-n3132-acs-3,Ethernet112,str-s6100-on-02,fortyGigE 1/2/13,40000,677,Access
-str-n3132-acs-3,Ethernet116,str-s6100-on-02,fortyGigE 1/2/14,40000,678,Access
-str-n3132-acs-3,Ethernet120,str-s6100-on-02,fortyGigE 1/2/15,40000,679,Access
-str-n3132-acs-3,Ethernet124,str-s6100-on-02,fortyGigE 1/2/16,40000,680,Access
-str-msn2700-01,Ethernet0,str-s6100-on-04,fortyGigE 1/1/1,40000,681,Access
-str-msn2700-01,Ethernet4,str-s6100-on-04,fortyGigE 1/1/2,40000,682,Access
-str-msn2700-01,Ethernet8,str-s6100-on-04,fortyGigE 1/1/3,40000,683,Access
-str-msn2700-01,Ethernet12,str-s6100-on-04,fortyGigE 1/1/4,40000,684,Access
-str-msn2700-01,Ethernet16,str-s6100-on-04,fortyGigE 1/1/5,40000,685,Access
-str-msn2700-01,Ethernet20,str-s6100-on-04,fortyGigE 1/1/6,40000,686,Access
-str-msn2700-01,Ethernet24,str-s6100-on-04,fortyGigE 1/1/7,40000,687,Access
-str-msn2700-01,Ethernet28,str-s6100-on-04,fortyGigE 1/1/8,40000,688,Access
-str-msn2700-01,Ethernet32,str-s6100-on-04,fortyGigE 1/1/9,40000,689,Access
-str-msn2700-01,Ethernet36,str-s6100-on-04,fortyGigE 1/1/10,40000,690,Access
-str-msn2700-01,Ethernet40,str-s6100-on-04,fortyGigE 1/1/11,40000,691,Access
-str-msn2700-01,Ethernet44,str-s6100-on-04,fortyGigE 1/1/12,40000,692,Access
-str-msn2700-01,Ethernet48,str-s6100-on-04,fortyGigE 1/1/13,40000,693,Access
-str-msn2700-01,Ethernet52,str-s6100-on-04,fortyGigE 1/1/14,40000,694,Access
-str-msn2700-01,Ethernet56,str-s6100-on-04,fortyGigE 1/1/15,40000,695,Access
-str-msn2700-01,Ethernet60,str-s6100-on-04,fortyGigE 1/1/16,40000,696,Access
-str-msn2700-01,Ethernet64,str-s6100-on-04,fortyGigE 1/2/1,40000,697,Access
-str-msn2700-01,Ethernet68,str-s6100-on-04,fortyGigE 1/2/2,40000,698,Access
-str-msn2700-01,Ethernet72,str-s6100-on-04,fortyGigE 1/2/3,40000,699,Access
-str-msn2700-01,Ethernet76,str-s6100-on-04,fortyGigE 1/2/4,40000,700,Access
-str-msn2700-01,Ethernet80,str-s6100-on-04,fortyGigE 1/2/5,40000,701,Access
-str-msn2700-01,Ethernet84,str-s6100-on-04,fortyGigE 1/2/6,40000,702,Access
-str-msn2700-01,Ethernet88,str-s6100-on-04,fortyGigE 1/2/7,40000,703,Access
-str-msn2700-01,Ethernet92,str-s6100-on-04,fortyGigE 1/2/8,40000,704,Access
-str-msn2700-01,Ethernet96,str-s6100-on-04,fortyGigE 1/2/9,40000,705,Access
-str-msn2700-01,Ethernet100,str-s6100-on-04,fortyGigE 1/2/10,40000,706,Access
-str-msn2700-01,Ethernet104,str-s6100-on-04,fortyGigE 1/2/11,40000,707,Access
-str-msn2700-01,Ethernet108,str-s6100-on-04,fortyGigE 1/2/12,40000,708,Access
-str-msn2700-01,Ethernet112,str-s6100-on-04,fortyGigE 1/2/13,40000,709,Access
-str-msn2700-01,Ethernet116,str-s6100-on-04,fortyGigE 1/2/14,40000,710,Access
-str-msn2700-01,Ethernet120,str-s6100-on-04,fortyGigE 1/2/15,40000,711,Access
-str-msn2700-01,Ethernet124,str-s6100-on-04,fortyGigE 1/2/16,40000,712,Access
+str-n3132-acs-3,Ethernet0,str-7260-23,Ethernet1,40000,649,Access
+str-n3132-acs-3,Ethernet4,str-7260-23,Ethernet2,40000,650,Access
+str-n3132-acs-3,Ethernet8,str-7260-23,Ethernet3,40000,651,Access
+str-n3132-acs-3,Ethernet12,str-7260-23,Ethernet4,40000,652,Access
+str-n3132-acs-3,Ethernet16,str-7260-23,Ethernet5,40000,653,Access
+str-n3132-acs-3,Ethernet20,str-7260-23,Ethernet6,40000,654,Access
+str-n3132-acs-3,Ethernet24,str-7260-23,Ethernet7,40000,655,Access
+str-n3132-acs-3,Ethernet28,str-7260-23,Ethernet8,40000,656,Access
+str-n3132-acs-3,Ethernet32,str-7260-23,Ethernet9,40000,657,Access
+str-n3132-acs-3,Ethernet36,str-7260-23,Ethernet10,40000,658,Access
+str-n3132-acs-3,Ethernet40,str-7260-23,Ethernet11,40000,659,Access
+str-n3132-acs-3,Ethernet44,str-7260-23,Ethernet12,40000,660,Access
+str-n3132-acs-3,Ethernet48,str-7260-23,Ethernet13,40000,661,Access
+str-n3132-acs-3,Ethernet52,str-7260-23,Ethernet14,40000,662,Access
+str-n3132-acs-3,Ethernet56,str-7260-23,Ethernet15,40000,663,Access
+str-n3132-acs-3,Ethernet60,str-7260-23,Ethernet16,40000,664,Access
+str-n3132-acs-3,Ethernet64,str-7260-23,Ethernet17,40000,665,Access
+str-n3132-acs-3,Ethernet68,str-7260-23,Ethernet18,40000,666,Access
+str-n3132-acs-3,Ethernet72,str-7260-23,Ethernet19,40000,667,Access
+str-n3132-acs-3,Ethernet76,str-7260-23,Ethernet20,40000,668,Access
+str-n3132-acs-3,Ethernet80,str-7260-23,Ethernet21,40000,669,Access
+str-n3132-acs-3,Ethernet84,str-7260-23,Ethernet22,40000,670,Access
+str-n3132-acs-3,Ethernet88,str-7260-23,Ethernet23,40000,671,Access
+str-n3132-acs-3,Ethernet92,str-7260-23,Ethernet24,40000,672,Access
+str-n3132-acs-3,Ethernet96,str-7260-23,Ethernet25,40000,673,Access
+str-n3132-acs-3,Ethernet100,str-7260-23,Ethernet26,40000,674,Access
+str-n3132-acs-3,Ethernet104,str-7260-23,Ethernet27,40000,675,Access
+str-n3132-acs-3,Ethernet108,str-7260-23,Ethernet28,40000,676,Access
+str-n3132-acs-3,Ethernet112,str-7260-23,Ethernet29,40000,677,Access
+str-n3132-acs-3,Ethernet116,str-7260-23,Ethernet30,40000,678,Access
+str-n3132-acs-3,Ethernet120,str-7260-23,Ethernet31,40000,679,Access
+str-n3132-acs-3,Ethernet124,str-7260-23,Ethernet32,40000,680,Access
+str-msn2700-01,Ethernet0,str-7260-24,Ethernet1,40000,681,Access
+str-msn2700-01,Ethernet4,str-7260-24,Ethernet2,40000,682,Access
+str-msn2700-01,Ethernet8,str-7260-24,Ethernet3,40000,683,Access
+str-msn2700-01,Ethernet12,str-7260-24,Ethernet4,40000,684,Access
+str-msn2700-01,Ethernet16,str-7260-24,Ethernet5,40000,685,Access
+str-msn2700-01,Ethernet20,str-7260-24,Ethernet6,40000,686,Access
+str-msn2700-01,Ethernet24,str-7260-24,Ethernet7,40000,687,Access
+str-msn2700-01,Ethernet28,str-7260-24,Ethernet8,40000,688,Access
+str-msn2700-01,Ethernet32,str-7260-24,Ethernet9,40000,689,Access
+str-msn2700-01,Ethernet36,str-7260-24,Ethernet10,40000,690,Access
+str-msn2700-01,Ethernet40,str-7260-24,Ethernet11,40000,691,Access
+str-msn2700-01,Ethernet44,str-7260-24,Ethernet12,40000,692,Access
+str-msn2700-01,Ethernet48,str-7260-24,Ethernet13,40000,693,Access
+str-msn2700-01,Ethernet52,str-7260-24,Ethernet14,40000,694,Access
+str-msn2700-01,Ethernet56,str-7260-24,Ethernet15,40000,695,Access
+str-msn2700-01,Ethernet60,str-7260-24,Ethernet16,40000,696,Access
+str-msn2700-01,Ethernet64,str-7260-24,Ethernet17,40000,697,Access
+str-msn2700-01,Ethernet68,str-7260-24,Ethernet18,40000,698,Access
+str-msn2700-01,Ethernet72,str-7260-24,Ethernet19,40000,699,Access
+str-msn2700-01,Ethernet76,str-7260-24,Ethernet20,40000,700,Access
+str-msn2700-01,Ethernet80,str-7260-24,Ethernet21,40000,701,Access
+str-msn2700-01,Ethernet84,str-7260-24,Ethernet22,40000,702,Access
+str-msn2700-01,Ethernet88,str-7260-24,Ethernet23,40000,703,Access
+str-msn2700-01,Ethernet92,str-7260-24,Ethernet24,40000,704,Access
+str-msn2700-01,Ethernet96,str-7260-24,Ethernet25,40000,705,Access
+str-msn2700-01,Ethernet100,str-7260-24,Ethernet26,40000,706,Access
+str-msn2700-01,Ethernet104,str-7260-24,Ethernet27,40000,707,Access
+str-msn2700-01,Ethernet108,str-7260-24,Ethernet28,40000,708,Access
+str-msn2700-01,Ethernet112,str-7260-24,Ethernet29,40000,709,Access
+str-msn2700-01,Ethernet116,str-7260-24,Ethernet30,40000,710,Access
+str-msn2700-01,Ethernet120,str-7260-24,Ethernet31,40000,711,Access
+str-msn2700-01,Ethernet124,str-7260-24,Ethernet32,40000,712,Access
 str-msn2700-02,Ethernet0,str-7260-08,Ethernet1,40000,713,Access
 str-msn2700-02,Ethernet4,str-7260-08,Ethernet2,40000,714,Access
 str-msn2700-02,Ethernet8,str-7260-08,Ethernet3,40000,715,Access
@@ -671,20 +671,6 @@ str-msn2700-06,Ethernet112,str-7260-06,Ethernet37,40000,869,Access
 str-msn2700-06,Ethernet116,str-7260-06,Ethernet38,40000,870,Access
 str-msn2700-06,Ethernet120,str-7260-06,Ethernet39,40000,871,Access
 str-msn2700-06,Ethernet124,str-7260-06,Ethernet40,40000,872,Access
-str-7260-11,Ethernet1,calient,p1,40000,,Trunk
-str-7260-11,Ethernet2,calient,p2,40000,,Trunk
-str-7260-11,Ethernet3,calient,p3,40000,,Trunk
-str-7260-11,Ethernet4,calient,p4,40000,,Trunk
-str-7260-11,Ethernet5,calient,p5,40000,,Trunk
-str-7260-11,Ethernet6,calient,p6,40000,,Trunk
-str-7260-11,Ethernet7,calient,p7,40000,,Trunk
-str-7260-11,Ethernet8,calient,p8,40000,,Trunk
-str-7260-11,Ethernet9,calient,p9,40000,,Trunk
-str-7260-11,Ethernet10,calient,p10,40000,,Trunk
-str-7260-11,Ethernet11,calient,p11,40000,,Trunk
-str-7260-11,Ethernet12,calient,p12,40000,,Trunk
-str-7260-11,Ethernet13,calient,p13,40000,,Trunk
-str-7260-11,Ethernet14,calient,p14,40000,,Trunk
 str-7260-11,Ethernet17,str-acs-serv-03,p5p1,40000,,Trunk
 str-7260-11,Ethernet18,str-acs-serv-03,p5p2,40000,,Trunk
 str-7260-11,Ethernet19,str-acs-serv-01,p4p1,40000,,Trunk
@@ -700,8 +686,8 @@ str-7260-11,Ethernet28,str-acs-serv-08,p4p1,40000,,Trunk
 str-7260-11,Ethernet30,str-7260-10,Ethernet64,40000,937-968,Trunk
 str-7260-11,Ethernet32,str-7260-09,Ethernet64,40000,"905-936,1193-1222",Trunk
 str-7260-11,Ethernet34,str-7260-07,Ethernet64,40000,"873-904,1093-1096,1125-1128",Trunk
-str-7260-11,Ethernet36,str-s6100-on-04,fortyGigE 1/4/16,40000,681-712,Trunk
-str-7260-11,Ethernet38,str-s6100-on-02,fortyGigE 1/4/16,40000,649-680,Trunk
+str-7260-11,Ethernet36,str-7260-24,Ethernet64,40000,681-712,Trunk
+str-7260-11,Ethernet38,str-7260-23,Ethernet64,40000,649-680,Trunk
 str-7260-11,Ethernet40,str-7260-04,Ethernet64,40000,"233-264,1097-1124",Trunk
 str-7260-11,Ethernet42,str-7260-03,Ethernet64,40000,"585-616,1065-1092",Trunk
 str-7260-11,Ethernet44,str-7260-02,Ethernet64,40000,"265-296,1057-1064",Trunk
@@ -715,51 +701,6 @@ str-7260-11,Ethernet58,str-7260-08,Ethernet64,40000,"349-360,521-536,713-744",Tr
 str-7260-11,Ethernet60,str-7260-06,Ethernet64,40000,"329-348,809-840,865-872",Trunk
 str-7260-11,Ethernet62,str-7260-05,Ethernet64,40000,"229-232,777-808,841-864",Trunk
 str-7260-11,Ethernet64,str-7260-01,Ethernet64,40000,"201-228,297-328",Trunk
-str-7260-01,Ethernet61,calient,p15,40000,,Trunk
-str-7260-01,Ethernet62,calient,p16,40000,,Trunk
-str-7260-01,Ethernet63,calient,p17,40000,,Trunk
-str-7260-05,Ethernet61,calient,p18,40000,,Trunk
-str-7260-05,Ethernet62,calient,p19,40000,,Trunk
-str-7260-05,Ethernet63,calient,p20,40000,,Trunk
-str-7260-06,Ethernet61,calient,p21,40000,,Trunk
-str-7260-06,Ethernet62,calient,p22,40000,,Trunk
-str-7260-06,Ethernet63,calient,p23,40000,,Trunk
-str-7260-08,Ethernet61,calient,p24,40000,,Trunk
-str-7260-08,Ethernet62,calient,p25,40000,,Trunk
-str-7260-08,Ethernet63,calient,p26,40000,,Trunk
-str-7260-13,Ethernet61,calient,p27,40000,,Trunk
-str-7260-13,Ethernet62,calient,p28,40000,,Trunk
-str-7260-13,Ethernet63,calient,p29,40000,,Trunk
-str-7260-14,Ethernet61,calient,p30,40000,,Trunk
-str-7260-14,Ethernet62,calient,p31,40000,,Trunk
-str-7260-14,Ethernet63,calient,p32,40000,,Trunk
-str-7260-15,Ethernet61,calient,p33,40000,,Trunk
-str-7260-15,Ethernet62,calient,p34,40000,,Trunk
-str-7260-15,Ethernet63,calient,p35,40000,,Trunk
-str-7260-16,Ethernet61,calient,p36,40000,,Trunk
-str-7260-16,Ethernet62,calient,p37,40000,,Trunk
-str-7260-16,Ethernet63,calient,p38,40000,,Trunk
-str-7260-17,Ethernet61,calient,p39,40000,,Trunk
-str-7260-17,Ethernet62,calient,p40,40000,,Trunk
-str-7260-17,Ethernet63,calient,p41,40000,,Trunk
-str-7260-18,Ethernet61,calient,p42,40000,,Trunk
-str-7260-18,Ethernet62,calient,p43,40000,,Trunk
-str-7260-18,Ethernet63,calient,p44,40000,,Trunk
-str-7260-02,Ethernet61,calient,p45,40000,,Trunk
-str-7260-02,Ethernet62,calient,p46,40000,,Trunk
-str-7260-02,Ethernet63,calient,p47,40000,,Trunk
-str-7260-03,Ethernet61,calient,p48,40000,,Trunk
-str-7260-03,Ethernet62,calient,p49,40000,,Trunk
-str-7260-03,Ethernet63,calient,p50,40000,,Trunk
-str-7260-04,Ethernet61,calient,p51,40000,,Trunk
-str-7260-04,Ethernet62,calient,p52,40000,,Trunk
-str-7260-04,Ethernet63,calient,p53,40000,,Trunk
-str-s6100-on-02,fortyGigE 1/4/13,calient,p54,40000,,Trunk
-str-s6100-on-02,fortyGigE 1/4/14,calient,p55,40000,,Trunk
-str-s6100-on-02,fortyGigE 1/4/15,calient,p56,40000,,Trunk
-str-s6100-on-04,fortyGigE 1/4/13,calient,p57,40000,,Trunk
-str-s6100-on-04,fortyGigE 1/4/14,calient,p58,40000,,Trunk
-str-s6100-on-04,fortyGigE 1/4/15,calient,p59,40000,,Trunk
 str-s6000-acs-12,Ethernet0,str-7260-07,Ethernet1,40000,873,Access
 str-s6000-acs-12,Ethernet4,str-7260-07,Ethernet2,40000,874,Access
 str-s6000-acs-12,Ethernet8,str-7260-07,Ethernet3,40000,875,Access
@@ -855,7 +796,7 @@ str-wedge100b-acs-1,Ethernet108,str-7260-09,Ethernet60,40000,1220,Access
 str-wedge100b-acs-1,Ethernet112,str-7260-09,Ethernet61,40000,1221,Access
 str-wedge100b-acs-1,Ethernet116,str-7260-09,Ethernet62,40000,1222,Access
 str-wedge100b-acs-1,Ethernet120,str-7260-09,Ethernet63,40000,1223,Access
-str-wedge100b-acs-1,Ethernet124,str-s6100-on-04,Ethernet1/3/1,40000,1224,Access
+str-wedge100b-acs-1,Ethernet124,str-7260-24,Ethernet33,40000,1224,Access
 str-s6000-acs-14,Ethernet0,str-7260-10,Ethernet1,40000,937,Access
 str-s6000-acs-14,Ethernet4,str-7260-10,Ethernet2,40000,938,Access
 str-s6000-acs-14,Ethernet8,str-7260-10,Ethernet3,40000,939,Access
@@ -1095,3 +1036,134 @@ str-s6100-acs-3,Ethernet60,str-7260-10,Ethernet53,40000,1189,Access
 str-s6100-acs-3,Ethernet61,str-7260-10,Ethernet54,40000,1190,Access
 str-s6100-acs-3,Ethernet62,str-7260-10,Ethernet55,40000,1191,Access
 str-s6100-acs-3,Ethernet63,str-7260-10,Ethernet56,40000,1192,Access
+str-s6100-acs-2,Ethernet0,str-7260-20,Ethernet1,40000,1225,Access
+str-s6100-acs-2,Ethernet1,str-7260-20,Ethernet2,40000,1226,Access
+str-s6100-acs-2,Ethernet2,str-7260-20,Ethernet3,40000,1227,Access
+str-s6100-acs-2,Ethernet3,str-7260-20,Ethernet4,40000,1228,Access
+str-s6100-acs-2,Ethernet4,str-7260-20,Ethernet5,40000,1229,Access
+str-s6100-acs-2,Ethernet5,str-7260-20,Ethernet6,40000,1230,Access
+str-s6100-acs-2,Ethernet6,str-7260-20,Ethernet7,40000,1231,Access
+str-s6100-acs-2,Ethernet7,str-7260-20,Ethernet8,40000,1232,Access
+str-s6100-acs-2,Ethernet8,str-7260-20,Ethernet9,40000,1233,Access
+str-s6100-acs-2,Ethernet9,str-7260-20,Ethernet10,40000,1234,Access
+str-s6100-acs-2,Ethernet10,str-7260-20,Ethernet11,40000,1235,Access
+str-s6100-acs-2,Ethernet11,str-7260-20,Ethernet12,40000,1236,Access
+str-s6100-acs-2,Ethernet12,str-7260-20,Ethernet13,40000,1237,Access
+str-s6100-acs-2,Ethernet13,str-7260-20,Ethernet14,40000,1238,Access
+str-s6100-acs-2,Ethernet14,str-7260-20,Ethernet15,40000,1239,Access
+str-s6100-acs-2,Ethernet15,str-7260-20,Ethernet16,40000,1240,Access
+str-s6100-acs-2,Ethernet16,str-7260-20,Ethernet17,40000,1241,Access
+str-s6100-acs-2,Ethernet17,str-7260-20,Ethernet18,40000,1242,Access
+str-s6100-acs-2,Ethernet18,str-7260-20,Ethernet19,40000,1243,Access
+str-s6100-acs-2,Ethernet19,str-7260-20,Ethernet20,40000,1244,Access
+str-s6100-acs-2,Ethernet20,str-7260-20,Ethernet21,40000,1245,Access
+str-s6100-acs-2,Ethernet21,str-7260-20,Ethernet22,40000,1246,Access
+str-s6100-acs-2,Ethernet22,str-7260-20,Ethernet23,40000,1247,Access
+str-s6100-acs-2,Ethernet23,str-7260-20,Ethernet24,40000,1248,Access
+str-s6100-acs-2,Ethernet24,str-7260-20,Ethernet25,40000,1249,Access
+str-s6100-acs-2,Ethernet25,str-7260-20,Ethernet26,40000,1250,Access
+str-s6100-acs-2,Ethernet26,str-7260-20,Ethernet27,40000,1251,Access
+str-s6100-acs-2,Ethernet27,str-7260-20,Ethernet28,40000,1252,Access
+str-s6100-acs-2,Ethernet28,str-7260-20,Ethernet29,40000,1253,Access
+str-s6100-acs-2,Ethernet29,str-7260-20,Ethernet30,40000,1254,Access
+str-s6100-acs-2,Ethernet30,str-7260-20,Ethernet31,40000,1255,Access
+str-s6100-acs-2,Ethernet31,str-7260-20,Ethernet32,40000,1256,Access
+str-s6100-acs-2,Ethernet32,str-7260-20,Ethernet33,40000,1257,Access
+str-s6100-acs-2,Ethernet33,str-7260-20,Ethernet34,40000,1258,Access
+str-s6100-acs-2,Ethernet34,str-7260-20,Ethernet35,40000,1259,Access
+str-s6100-acs-2,Ethernet35,str-7260-20,Ethernet36,40000,1260,Access
+str-s6100-acs-2,Ethernet36,str-7260-20,Ethernet37,40000,1261,Access
+str-s6100-acs-2,Ethernet37,str-7260-20,Ethernet38,40000,1262,Access
+str-s6100-acs-2,Ethernet38,str-7260-20,Ethernet39,40000,1263,Access
+str-s6100-acs-2,Ethernet39,str-7260-20,Ethernet40,40000,1264,Access
+str-s6100-acs-2,Ethernet40,str-7260-20,Ethernet41,40000,1265,Access
+str-s6100-acs-2,Ethernet41,str-7260-20,Ethernet42,40000,1266,Access
+str-s6100-acs-2,Ethernet42,str-7260-20,Ethernet43,40000,1267,Access
+str-s6100-acs-2,Ethernet43,str-7260-20,Ethernet44,40000,1268,Access
+str-s6100-acs-2,Ethernet44,str-7260-20,Ethernet45,40000,1269,Access
+str-s6100-acs-2,Ethernet45,str-7260-20,Ethernet46,40000,1270,Access
+str-s6100-acs-2,Ethernet46,str-7260-20,Ethernet47,40000,1271,Access
+str-s6100-acs-2,Ethernet47,str-7260-20,Ethernet48,40000,1272,Access
+str-s6100-acs-2,Ethernet48,str-7260-20,Ethernet49,40000,1273,Access
+str-s6100-acs-2,Ethernet49,str-7260-20,Ethernet50,40000,1274,Access
+str-s6100-acs-2,Ethernet50,str-7260-20,Ethernet51,40000,1275,Access
+str-s6100-acs-2,Ethernet51,str-7260-20,Ethernet52,40000,1276,Access
+str-s6100-acs-2,Ethernet52,str-7260-20,Ethernet53,40000,1277,Access
+str-s6100-acs-2,Ethernet53,str-7260-20,Ethernet54,40000,1278,Access
+str-s6100-acs-2,Ethernet54,str-7260-20,Ethernet55,40000,1279,Access
+str-s6100-acs-2,Ethernet55,str-7260-20,Ethernet56,40000,1280,Access
+str-s6100-acs-2,Ethernet56,str-7260-20,Ethernet57,40000,1281,Access
+str-s6100-acs-2,Ethernet57,str-7260-20,Ethernet58,40000,1282,Access
+str-s6100-acs-2,Ethernet58,str-7260-20,Ethernet59,40000,1283,Access
+str-s6100-acs-2,Ethernet59,str-7260-20,Ethernet60,40000,1284,Access
+str7260-11,Ethernet63,str-7260-20,Ethernet64,40000,,trunk
+str-s6100-acs-2,Ethernet60,str-7260-21,Ethernet1,40000,1285,Access
+str-s6100-acs-2,Ethernet61,str-7260-21,Ethernet2,40000,1286,Access
+str-s6100-acs-2,Ethernet62,str-7260-21,Ethernet3,40000,1287,Access
+str-s6100-acs-2,Ethernet63,str-7260-21,Ethernet4,40000,1288,Access
+str-s6100-acs-4,Ethernet0,str-7260-21,Ethernet5,40000,1289,Access
+str-s6100-acs-4,Ethernet1,str-7260-21,Ethernet6,40000,1290,Access
+str-s6100-acs-4,Ethernet2,str-7260-21,Ethernet7,40000,1291,Access
+str-s6100-acs-4,Ethernet3,str-7260-21,Ethernet8,40000,1292,Access
+str-s6100-acs-4,Ethernet4,str-7260-21,Ethernet9,40000,1293,Access
+str-s6100-acs-4,Ethernet5,str-7260-21,Ethernet10,40000,1294,Access
+str-s6100-acs-4,Ethernet6,str-7260-21,Ethernet11,40000,1295,Access
+str-s6100-acs-4,Ethernet7,str-7260-21,Ethernet12,40000,1296,Access
+str-s6100-acs-4,Ethernet8,str-7260-21,Ethernet13,40000,1297,Access
+str-s6100-acs-4,Ethernet9,str-7260-21,Ethernet14,40000,1298,Access
+str-s6100-acs-4,Ethernet10,str-7260-21,Ethernet15,40000,1299,Access
+str-s6100-acs-4,Ethernet11,str-7260-21,Ethernet16,40000,1300,Access
+str-s6100-acs-4,Ethernet12,str-7260-21,Ethernet17,40000,1301,Access
+str-s6100-acs-4,Ethernet13,str-7260-21,Ethernet18,40000,1302,Access
+str-s6100-acs-4,Ethernet14,str-7260-21,Ethernet19,40000,1303,Access
+str-s6100-acs-4,Ethernet15,str-7260-21,Ethernet20,40000,1304,Access
+str-s6100-acs-4,Ethernet16,str-7260-21,Ethernet21,40000,1305,Access
+str-s6100-acs-4,Ethernet17,str-7260-21,Ethernet22,40000,1306,Access
+str-s6100-acs-4,Ethernet18,str-7260-21,Ethernet23,40000,1307,Access
+str-s6100-acs-4,Ethernet19,str-7260-21,Ethernet24,40000,1308,Access
+str-s6100-acs-4,Ethernet20,str-7260-21,Ethernet25,40000,1309,Access
+str-s6100-acs-4,Ethernet21,str-7260-21,Ethernet26,40000,1310,Access
+str-s6100-acs-4,Ethernet22,str-7260-21,Ethernet27,40000,1311,Access
+str-s6100-acs-4,Ethernet23,str-7260-21,Ethernet28,40000,1312,Access
+str-s6100-acs-4,Ethernet24,str-7260-21,Ethernet29,40000,1313,Access
+str-s6100-acs-4,Ethernet25,str-7260-21,Ethernet30,40000,1314,Access
+str-s6100-acs-4,Ethernet26,str-7260-21,Ethernet31,40000,1315,Access
+str-s6100-acs-4,Ethernet27,str-7260-21,Ethernet32,40000,1316,Access
+str-s6100-acs-4,Ethernet28,str-7260-21,Ethernet33,40000,1317,Access
+str-s6100-acs-4,Ethernet29,str-7260-21,Ethernet34,40000,1318,Access
+str-s6100-acs-4,Ethernet30,str-7260-21,Ethernet35,40000,1319,Access
+str-s6100-acs-4,Ethernet31,str-7260-21,Ethernet36,40000,1320,Access
+str-s6100-acs-4,Ethernet32,str-7260-21,Ethernet37,40000,1321,Access
+str-s6100-acs-4,Ethernet33,str-7260-21,Ethernet38,40000,1322,Access
+str-s6100-acs-4,Ethernet34,str-7260-21,Ethernet39,40000,1323,Access
+str-s6100-acs-4,Ethernet35,str-7260-21,Ethernet40,40000,1324,Access
+str-s6100-acs-4,Ethernet36,str-7260-21,Ethernet41,40000,1325,Access
+str-s6100-acs-4,Ethernet37,str-7260-21,Ethernet42,40000,1326,Access
+str-s6100-acs-4,Ethernet38,str-7260-21,Ethernet43,40000,1327,Access
+str-s6100-acs-4,Ethernet39,str-7260-21,Ethernet44,40000,1328,Access
+str-s6100-acs-4,Ethernet40,str-7260-21,Ethernet45,40000,1329,Access
+str-s6100-acs-4,Ethernet41,str-7260-21,Ethernet46,40000,1330,Access
+str-s6100-acs-4,Ethernet42,str-7260-21,Ethernet47,40000,1331,Access
+str-s6100-acs-4,Ethernet43,str-7260-21,Ethernet48,40000,1332,Access
+str-s6100-acs-4,Ethernet44,str-7260-21,Ethernet49,40000,1333,Access
+str-s6100-acs-4,Ethernet45,str-7260-21,Ethernet50,40000,1334,Access
+str-s6100-acs-4,Ethernet46,str-7260-21,Ethernet51,40000,1335,Access
+str-s6100-acs-4,Ethernet47,str-7260-21,Ethernet52,40000,1336,Access
+str-s6100-acs-4,Ethernet48,str-7260-21,Ethernet53,40000,1337,Access
+str-s6100-acs-4,Ethernet49,str-7260-21,Ethernet54,40000,1338,Access
+str-s6100-acs-4,Ethernet50,str-7260-21,Ethernet55,40000,1339,Access
+str-s6100-acs-4,Ethernet51,str-7260-21,Ethernet56,40000,1340,Access
+str-s6100-acs-4,Ethernet52,str-7260-21,Ethernet57,40000,1341,Access
+str-s6100-acs-4,Ethernet53,str-7260-21,Ethernet58,40000,1342,Access
+str-s6100-acs-4,Ethernet54,str-7260-21,Ethernet59,40000,1343,Access
+str-s6100-acs-4,Ethernet55,str-7260-21,Ethernet60,40000,1344,Access
+str-7260-11,Ethernet61,str-7260-21,Ethernet64,40000,,trunk
+str-s6100-acs-4,Ethernet56,str-7260-22,Ethernet1,40000,1345,Access
+str-s6100-acs-4,Ethernet57,str-7260-22,Ethernet2,40000,1346,Access
+str-s6100-acs-4,Ethernet58,str-7260-22,Ethernet3,40000,1347,Access
+str-s6100-acs-4,Ethernet59,str-7260-22,Ethernet4,40000,1348,Access
+str-s6100-acs-4,Ethernet60,str-7260-22,Ethernet5,40000,1349,Access
+str-s6100-acs-4,Ethernet61,str-7260-22,Ethernet6,40000,1350,Access
+str-s6100-acs-4,Ethernet62,str-7260-23,Ethernet7,40000,1351,Access
+str-s6100-acs-4,Ethernet63,str-7260-24,Ethernet8,40000,1352,Access
+str-7260-11,Ethernet59,str-7260-25,Ethernet64,40000,,trunk
