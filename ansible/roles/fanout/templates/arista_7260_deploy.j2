@@ -55,6 +55,7 @@ interface {{ intf }}
 !
 interface Management 1
  description TO LAB MGMT SWITCH
+ vrf forwarding management
  ip address {{ device_info["ManagementIp"] }} 
  no shutdown
 !
@@ -63,7 +64,6 @@ mac address-table reserved forward 0180.c200.0002
 # LLDP packets pass through
 mac address-table reserved forward 0180.c200.000e
 !
-ip route 0.0.0.0/0 {{ device_info["ManagementGw"] }}
 ip route vrf management 0.0.0.0/0 {{ device_info["ManagementGw"] }}
 !
 ip routing
