@@ -20,11 +20,6 @@
     testname: everflow_testbed
     run_dir: /tmp
     out_dir: /tmp/ansible-loganalyzer-results
-    test_match_file: match_messages.txt
-    test_ignore_file: ignore_messages.txt
-    test_expect_file: expect_messages.txt
-    match_file: loganalyzer_common_match.txt
-    ignore_file: loganalyzer_common_ignore.txt
     tests_location: "{{ 'roles/test/tasks' }}"
 
 - name: Get port info.
@@ -36,16 +31,10 @@
 - name: Get neighbor info.
   include: roles/test/tasks/everflow_testbed/get_neighbor_info.yml
 
-- name: Define test unique name
-  set_fact:
-    testname_unique: "{{ testname }}.{{ ansible_date_time.date}}.{{ ansible_date_time.hour}}-{{ ansible_date_time.minute}}-{{ ansible_date_time.second}}"
+- include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
 - set_fact:
     test_out_dir: "{{ out_dir }}/{{testname_unique}}"
-    match_file_list: "{{ run_dir }}/{{test_match_file}},{{ run_dir }}/{{match_file}}"
-    ignore_file_list: "{{ run_dir }}/{{test_ignore_file}},{{ run_dir }}/{{ignore_file}}"
-
-- include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
 - block:
     - name: Copy the test to ptf container.
