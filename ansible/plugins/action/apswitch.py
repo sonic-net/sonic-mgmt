@@ -5,6 +5,8 @@ from ansible.plugins.action import ActionBase
 from ansible.utils.boolean import boolean
 from ansible.utils.unicode import to_unicode
 
+import ast
+
 class ActionModule(ActionBase):
 
     def run(self, tmp=None, task_vars=None):
@@ -24,6 +26,9 @@ class ActionModule(ActionBase):
         _root     = boolean(self._task.args.get('root', 'no'))
         _reboot   = boolean(self._task.args.get('reboot', 'no'))
         _timeout  = self._task.args.get('timeout', None)
+
+        if (type(_login) == unicode):
+            _login = ast.literal_eval(_login)
 
         login = { 'user': [], 'enable': _login['enable'] }
         for passwd in reversed(_login['passwd']):

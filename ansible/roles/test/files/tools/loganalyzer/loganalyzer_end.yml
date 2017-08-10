@@ -16,8 +16,12 @@
   shell: grep "TOTAL MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL MATCHES:[[:space:]]*//p"
   register: errors_found
 
+- name: Check if loganalyzer missed expected messages
+  shell: grep "TOTAL EXPECTED MISSING MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL EXPECTED MISSING MATCHES:[[:space:]]*//p"
+  register: expected_missing_matches
+
 - set_fact:
-    fail_in_logs: errors_found.stdout != "0"
+    fail_in_logs: errors_found.stdout != "0" or expected_missing_matches.stdout != "0"
 
 - name: Generate system dump
   command: generate_dump
