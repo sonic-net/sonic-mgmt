@@ -212,9 +212,9 @@ class Arista(object):
 
     def parse_logs(self, data):
         result = {}
-        bgp_r = r'^(\S+ \d+ \S+) \S+ Rib: %BGP-5-ADJCHANGE: peer (\S+) .+ (\S+)$'
+        bgp_r = r'^(\S+\s+\d+\s+\S+) \S+ Rib: %BGP-5-ADJCHANGE: peer (\S+) .+ (\S+)$'
         result_bgp, initial_time_bgp = self.extract_from_logs(bgp_r, data)
-        if_r = r'^(\S+ \d+ \S+) \S+ Ebra: %LINEPROTO-5-UPDOWN: Line protocol on Interface (\S+), changed state to (\S+)$'
+        if_r = r'^(\S+\s+\d+\s+\S+) \S+ Ebra: %LINEPROTO-5-UPDOWN: Line protocol on Interface (\S+), changed state to (\S+)$'
         result_if, initial_time_if = self.extract_from_logs(if_r, data)
 
         if initial_time_bgp == -1 or initial_time_if == -1:
@@ -380,7 +380,8 @@ class FastReloadTest(BaseTest):
         self.nr_tests = 3
         self.reboot_delay = 10
         self.task_timeout = 300   # Wait up to 5 minutes for tasks to complete
-        self.max_nr_vl_pkts = 500 # FIXME: should be 1000. But bcm asic is not stable
+        self.max_nr_vl_pkts = 500 # FIXME: should be 1000.
+                                  # But ptf is not fast enough + swss is slow for FDB and ARP entries insertions
         self.timeout_thr = None
 
         return
@@ -470,7 +471,8 @@ class FastReloadTest(BaseTest):
         self.dut_ssh = self.test_params['dut_username'] + '@' + self.test_params['dut_hostname']
         self.dut_mac = self.test_params['dut_mac']
         #
-        self.nr_vl_pkts = self.generate_from_t1()
+        self.generate_from_t1()
+        self.generate_from_vlan()
 
         self.log("Test params:")
         self.log("DUT ssh: %s" % self.dut_ssh)
@@ -573,7 +575,31 @@ class FastReloadTest(BaseTest):
         self.from_server_dst_addr = self.random_ip(self.test_params['default_ip_range'])
         self.from_server_dst_ports = self.portchannel_ports
 
-        return n_hosts
+        self.nr_vl_pkts = n_hosts
+
+        return
+
+    def generate_from_vlan(self):
+        packet = simple_tcp_packet(
+                      eth_dst=self.dut_mac,
+                      ip_src=self.from_server_src_addr,
+                      ip_dst=self.from_server_dst_addr,
+                      tcp_dport=5000
+                 )
+        exp_packet = simple_tcp_packet(
+                      ip_src=self.from_server_src_addr,
+                      ip_dst=self.from_server_dst_addr,
+                      ip_ttl=63,
+                      tcp_dport=5000,
+                     )
+
+        self.from_vlan_exp_packet = Mask(exp_packet)
+        self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.Ether,"src")
+        self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.Ether,"dst")
+
+        self.from_vlan_packet = str(packet)
+
+        return
 
     def runTest(self):
         self.reboot_start = None
@@ -670,6 +696,7 @@ class FastReloadTest(BaseTest):
 
         is_good = all(len(fails) == 0 for fails in self.fails.values())
 
+        errors = ""
         if not is_good:
             self.log("-"*50)
             self.log("Fails:")
@@ -764,12 +791,12 @@ class FastReloadTest(BaseTest):
         return replies_from_servers > 0 and replies_from_upper > 0, replies_from_upper
 
     def check_alive(self):
-        # This function checks that DUT routes packets in both directions.
+        # This function checks that DUT routes the packets in the both directions.
         #
-        # Sometimes first attempt failes because ARP response to DUT is not so fast.
-        # But after this the functions expects to see steady "replies".
-        # If the function sees that there is some issue with dataplane after we see successful replies
-        # it consider that DUT is not healthy too
+        # Sometimes first attempt failes because ARP responses to DUT are not so fast.
+        # But after this the function expects to see steady "replies".
+        # If the function sees that there is an issue with the dataplane after we saw
+        # successful replies it considers that the DUT is not healthy
         #
         # Sometimes I see that DUT returns more replies then requests.
         # I think this is because of not populated FDB table
@@ -785,10 +812,11 @@ class FastReloadTest(BaseTest):
                 return False    # Stopped working after it working for sometime?
 
         # wait, until FDB entries are populated
-        while self.ping_alive()[1]:
-            pass
+        for _ in range(self.nr_tests * 10): # wait for some time
+            if not self.ping_alive()[1]:    # until we see that there're no extra replies
+                return True
 
-        return True
+        return False                        # we still see extra replies
 
     def ping_alive(self):
         nr_from_s = self.pingFromServers()
@@ -801,29 +829,10 @@ class FastReloadTest(BaseTest):
         return is_alive, is_asic_weird
 
     def pingFromServers(self):
-        packet = simple_tcp_packet(
-                      eth_dst=self.dut_mac,
-                      ip_src=self.from_server_src_addr,
-                      ip_dst=self.from_server_dst_addr,
-                      tcp_dport=5000
-                 )
-        exp_packet = simple_tcp_packet(
-                      ip_src=self.from_server_src_addr,
-                      ip_dst=self.from_server_dst_addr,
-                      ip_ttl=63,
-                      tcp_dport=5000,
-                     )
-
-        exp_packet = Mask(exp_packet)
-        exp_packet.set_do_not_care_scapy(scapy.Ether,"src")
-        exp_packet.set_do_not_care_scapy(scapy.Ether,"dst")
-
-        raw_packet = str(packet)
-
         for i in xrange(self.nr_pc_pkts):
-            testutils.send_packet(self, self.from_server_src_port, raw_packet)
+            testutils.send_packet(self, self.from_server_src_port, self.from_vlan_packet)
 
-        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, exp_packet, self.from_server_dst_ports, timeout=self.TIMEOUT)
+        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.from_vlan_exp_packet, self.from_server_dst_ports, timeout=self.TIMEOUT)
 
         self.log("Send %5d Received %5d servers->t1" % (self.nr_pc_pkts, total_rcv_pkt_cnt), True)
 
@@ -838,3 +847,4 @@ class FastReloadTest(BaseTest):
         self.log("Send %5d Received %5d t1->servers" % (self.nr_vl_pkts, total_rcv_pkt_cnt), True)
 
         return total_rcv_pkt_cnt
+
