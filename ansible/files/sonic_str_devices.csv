@@ -55,8 +55,8 @@ str-7260-16,10.3.147.238/23,Arista-7260QX-64,FanoutLeaf
 str-7260-17,10.3.147.240/23,Arista-7260QX-64,FanoutLeaf
 str-7260-18,10.3.147.242/23,Arista-7260QX-64,FanoutLeaf
 str-7260-20,10.64.247.250/23,Arista-7260QX-64,FanoutLeaf
-str-7260-21,10.64.247.251/23,Arista-7260QX-64,FanoutLeaf
-str-7260-22,10.64.247.252/23,Arista-7260QX-64,FanoutLeaf
+str-7260-21,10.64.247.248/23,Arista-7260QX-64,FanoutLeaf
+str-7260-22,10.64.247.247/23,Arista-7260QX-64,FanoutLeaf
 str-7260-23,10.64.247.253/23,Arista-7260QX-64,FanoutLeaf
 str-7260-24,10.64.247.254/23,Arista-7260QX-64,FanoutLeaf
 str-acs-serv-01,10.3.147.245/23,TestServ,Server
