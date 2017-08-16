@@ -87,6 +87,7 @@ sonic_stable
 sonic_latest
 sonic_mlnx_40
 sonic_dell32_40
+sonic_dell64_40
 sonic_arista_40
 sonic_nexus_3132_40
 sonic_nexus_9232_40

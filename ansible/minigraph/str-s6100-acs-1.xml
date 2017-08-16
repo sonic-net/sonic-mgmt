@@ -759,7 +759,7 @@
             <a:Name>ErspanDestinationIpv4</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>10.20.6.16</a:Value>
-          </a:DeviceProperty>          
+          </a:DeviceProperty>
         </a:Properties>
       </a:DeviceMetadata>
     </Devices>
