@@ -6,10 +6,6 @@
 ### specified in this playbook, you would need to come up with your own fanout switch deployment 
 ### playbook
 ################################################################################################
-
-- include_vars: group_vars/lab/lab.yml
-  
-
   # Gather minigraph facts
 - name: Gathering lab graph facts about the device
   conn_graph_facts: host={{ inventory_hostname }}
