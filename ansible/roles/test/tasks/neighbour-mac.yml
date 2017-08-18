@@ -46,9 +46,13 @@
   register: neighbour_key
   failed_when: neighbour_key.rc != 0
 
+# Note:
+# Attribute name changes in new SAI spec
+#   v0.9.4      - SAI_NEIGHBOR_ATTR_DST_MAC_ADDRESS
+#   v1.0        - SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS
 - name: Check neighbour MAC1 on DUT. Should be {{ nei_mac1 }}
   become: true
-  shell: docker exec database redis-cli -n 1 HGET '{{ neighbour_key.stdout }}' 'SAI_NEIGHBOR_ATTR_DST_MAC_ADDRESS'
+  shell: docker exec database redis-cli -n 1 HGETALL '{{ neighbour_key.stdout }}' | grep "_ATTR_DST_MAC_ADDRESS" -A 1 | tail -1
   register: neighbour_mac
   failed_when: neighbour_mac.stdout != "{{ nei_mac1 }}"
 
@@ -74,6 +78,6 @@
 
 - name: Check neighbour MAC2 on DUT. Should be {{ nei_mac2 }}
   become: true
-  shell: docker exec database redis-cli -n 1 HGET '{{ neighbour_key.stdout }}' 'SAI_NEIGHBOR_ATTR_DST_MAC_ADDRESS'
+  shell: docker exec database redis-cli -n 1 HGETALL '{{ neighbour_key.stdout }}' | grep "_ATTR_DST_MAC_ADDRESS" -A 1 | tail -1
   register: neighbour_mac
   failed_when: neighbour_mac.stdout != "{{ nei_mac2 }}"
