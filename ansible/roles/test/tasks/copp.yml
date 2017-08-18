@@ -38,7 +38,7 @@
         ptf_test_params:
         - verbose=False
         - pkt_tx_count={{ pkt_tx_count|default(0) }}
-        ptf_extra_options: --device-socket 0-3@tcp://127.0.0.1:10900 --device-socket 1-3@tcp://{{ ansible_eth0['ipv4']['address'] }}:10900
+        ptf_extra_options: "--device-socket 0-3@tcp://127.0.0.1:10900 --device-socket 1-3@tcp://{{ ansible_eth0['ipv4']['address'] }}:10900"
       with_items:
         - ARPTest
         - DHCPTest
