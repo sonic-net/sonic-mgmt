@@ -108,7 +108,7 @@
     when: configuration is not defined or configuration[hostname] is not defined or configuration[hostname]['properties'] is not defined
 
   - name: Set properties list to values, when they're defined
-    set_fact: properties_list=configuration[hostname]['properties']
+    set_fact: properties_list="{{ configuration[hostname]['properties'] }}"
     when: configuration and configuration[hostname] and configuration[hostname]['properties'] is defined
 
   roles:
