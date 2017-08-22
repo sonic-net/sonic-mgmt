@@ -33,3 +33,7 @@ dhcp_servers: ['10.0.0.1']
 # snmp variables
 snmp_rocommunity: public
 snmp_location: testlab
+
+#For Arista fanout switch deployment only
+fanout_admin_user: "fanoutadminuser"
+fanout_admin_password: "fanoutadminpassword"

@@ -1,43 +1,32 @@
-# Gather minigraph facts
+##############################################################################################
+### playbook to deploy the fanout swtich 
+### Use this playbook to deploy the VLAN configurations of fanout leaf switch in SONiC testbed
+### This playbook will run based on hardware flatform. Each fanout switch hardware type has its
+### own unique feature and configuration command or format. Unless you use the hardware swtich
+### specified in this playbook, you would need to come up with your own fanout switch deployment 
+### playbook
+################################################################################################
+  # Gather minigraph facts
 - name: Gathering lab graph facts about the device
   conn_graph_facts: host={{ inventory_hostname }}
   connection: local
   tags: always
 
-- block:
-  - name: prepare {{ sonicadmin_user }} password
-    set_fact: ansible_ssh_user={{ sonicadmin_user }} ansible_ssh_pass={{ sonicadmin_password }}
+- name: prepare fanout switch admin login info
+  set_fact: ansible_ssh_user={{ fanout_admin_user }} ansible_ssh_pass={{ fanout_admin_password }}
 
-  - name: setup fanout bash account
-    template: src=rc.eos.j2
-              dest=/mnt/flash/rc.eos
- 
-  - name: build fanout startup config
+- block:
+  - name: build fanout startup config for Arista Fanout leaf
     template: src=arista_7260_deploy.j2
               dest=/mnt/flash/startup-config
     notify:
       - Restart the box
   when: device_info.HwSku == "Arista-7260QX-64" 
 
-- block:
-  - name: prepare admin password
-    set_fact: ansible_ssh_user=admin ansible_ssh_pass={{ lab_admin_pass }}
 
-  - name: build fanout startup config
-    action: apswitch template=force10_s6100_deploy.j2
-    connection: switch
-    args:
-      login: "{{ switch_login['Force10'] }}"
+- name: build fanout startup config
+  action: apswitch template=force10_s6100_deploy.j2
+  connection: switch
+  args:
+    login: "{{ switch_login['Force10'] }}"
   when: device_info.HwSku == "Force10-S6100"
-
-- block:
-  - name: prepare admin password
-    set_fact: ansible_ssh_user=admin ansible_ssh_pass={{ lab_admin_pass }}
-
-  - name: build fanout startup config
-    action: apswitch template=nexus_3164_deploy.j2
-    connection: switch
-    args:
-      login: "{{ switch_login['Nexus'] }}"
-  when: device_info.HwSku == "Nexus-3164"
-
