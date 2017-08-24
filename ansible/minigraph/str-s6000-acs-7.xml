@@ -113,6 +113,11 @@
             <a:Name>BGPSLBPassive</a:Name>
             <a:PeersRange>10.154.239.128/26</a:PeersRange>
           </BGPPeer>
+          <BGPPeer>
+            <Address>10.1.0.32</Address>
+            <a:Name>BGPVac</a:Name>
+            <a:PeersRange>192.168.0.0/27</a:PeersRange>
+          </BGPPeer>
         </a:Peers>
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
