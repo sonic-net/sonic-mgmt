@@ -49,9 +49,6 @@
 
 # vlan_ips[0], speaker_ips[0], speaker_ips[1] are IPs for three bgp speakers
 # vlan_ips[1], vlan_ips[2] are IPs for mux under DUT.
-- name: Create directory /exabgp to store exabgp related files.
-  file: path=/root/exabgp state=directory
-  connection: local
 
 - name: set exabgp folder name
   set_fact:
