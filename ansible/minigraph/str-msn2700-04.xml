@@ -108,6 +108,11 @@
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>
           </BGPPeer>
+          <BGPPeer>
+            <Address>10.1.0.32</Address>
+            <a:Name>BGPSLBPassive</a:Name>
+            <a:PeersRange>10.154.239.128/26</a:PeersRange>
+          </BGPPeer>
         </a:Peers>
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
@@ -330,6 +335,10 @@
       <a:DeviceMetadata>
         <a:Name>str-msn2700-04</a:Name>
         <a:Properties>
+          <a:DeviceProperty>
+            <a:Name>DeploymentId</a:Name>
+            <a:Value>1</a:Value>
+          </a:DeviceProperty>
           <a:DeviceProperty>
             <a:Name>DhcpResources</a:Name>
             <a:Reference i:nil="true"/>
