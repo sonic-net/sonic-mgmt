@@ -65,10 +65,6 @@ ro_netgroups: [
         "NWK-ALLDVC-PERSISTENTRO",                     # users with full time RO access to all network devices
 ]
 
-#service account name and domain
-_acsadminsvc_uid: _acsadminsvc
-_acsadminsvc_domain: gme.gbl
-
 
 #TBD for ACS-MSN2700 xon_1, xon_2:
 # Once the new fw version with the fix is burned, should change the
