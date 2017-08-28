@@ -155,3 +155,7 @@
 - name: ACL test 
   include: acltb.yml
   tags: acl
+
+- name: Buffer Profile test
+  include: buffer_profile.yml
+  tags: buffer_profile

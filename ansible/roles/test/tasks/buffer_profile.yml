@@ -1,0 +1,36 @@
+#
+# ansible-playbook test_sonic.yml -i inventory --limit arc-switch1028 --tags buffer_profile -e skip_interface_check=true
+#
+#
+
+- set_fact:
+    port_name="Ethernet64"
+    speed="[ '10', '25', '40', '50', '56', '100' ]"
+    minigr="[ 'minigraph0.xml', 'minigraph1.xml']"
+    test_files_dir="roles/test/files/buffer_profile"
+
+- block:
+    - name: Copy JSON configs to DUT
+      template: src=set_speed.j2 dest=/tmp/{{ item }}G.json
+      with_items:
+        - "{{ speed }}"
+
+    - name: Copy test files to DUT
+      copy: src={{ item }} dest=/tmp/
+      with_fileglob:
+        - "{{ test_files_dir }}/*"
+
+    - name: Generate buffers config
+      shell: sonic-cfggen -m /tmp/{{ item.1 }} -t /usr/share/sonic/templates/msn27xx.32ports.buffers.json.j2 >/tmp/buffers{{ item.0}}.json
+      with_indexed_items:
+        - "{{ minigr }}"
+
+    - name: Compare generated buffers configuration with the expected
+      shell: diff /tmp/{{ (item | basename | splitext)[0]}}.json /tmp/{{ (item | basename).split('_')[0] }}.json
+      register: out
+      with_fileglob:
+        - "{{ test_files_dir }}/buf*.json"
+
+  vars:
+    ansible_shell_type: docker
+    ansible_python_interpreter: docker exec -i swss python
