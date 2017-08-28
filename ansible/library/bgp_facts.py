@@ -117,6 +117,7 @@ class BgpModule(object):
                     message_stats = {}
                     n = "BGP neighbor is" + n
                     lines = n.splitlines()
+                    neighbor['accepted prefixes'] = 0
 
                     for line in lines:
                         if regex_ip.match(line): neighbor_ip = regex_ip.match(line).group(1).lower()
@@ -125,7 +126,7 @@ class BgpModule(object):
                         if regex_desc.match(line): neighbor['description'] = regex_desc.match(line).group(1)
                         if regex_state.match(line): neighbor['state'] = regex_state.match(line).group(1).lower()
                         if regex_mrai.match(line): neighbor['mrai'] = int(regex_mrai.match(line).group(1))
-                        if regex_accepted.match(line): neighbor['accepted prefixes'] = int(regex_accepted.match(line).group(1))
+                        if regex_accepted.match(line): neighbor['accepted prefixes'] += int(regex_accepted.match(line).group(1))
                         if regex_conn_est.match(line): neighbor['connections established'] = int(regex_conn_est.match(line).group(1))
                         if regex_conn_dropped.match(line): neighbor['connections dropped'] = int(regex_conn_dropped.match(line).group(1))
                         if regex_routerid.match(line): neighbor['remote routerid'] = regex_routerid.match(line).group(1)
