@@ -23,7 +23,7 @@ def get_ifaces():
         ifaces.append(iface)
 
     # Sort before return
-    return sorted(ifaces, key=lambda x: int(x.replace('eth', '')))
+    return ifaces
 
 
 def platform_config_update(config):
@@ -33,6 +33,6 @@ def platform_config_update(config):
     @param config The configuration dictionary to use/update
     """
 
-    remote_port_map = {(0, i) : v for i, v in enumerate(get_ifaces())}
+    remote_port_map = {(0, int(i.replace('eth', ''))) : i for i in get_ifaces()}
     config["port_map"] = remote_port_map.copy()
     config["caps_table_idx"] = 0
