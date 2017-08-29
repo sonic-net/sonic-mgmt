@@ -58,10 +58,6 @@
   tags: dhcp_relay
   when: minigraph_devices[inventory_hostname]['type'] == "ToRRouter"
 
-- name: Test ECMP route distribution
-  include: ecmp.yml
-  tags: ecmp
-
 - name: Test Control-Plain policing COPP
   include: copp.yml
   tags: copp
