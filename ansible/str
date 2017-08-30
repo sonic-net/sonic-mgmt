@@ -77,6 +77,15 @@ hwsku="ACS-MSN2700"
 iface_speed='40000'
 mgmt_subnet_mask_length="23"
 
+[sonic_mlnx_100]
+str-msn2700-20    ansible_host=10.64.247.235 
+str-msn2700-22    ansible_host=10.64.247.236
+
+[sonic_mlnx_100:vars]
+hwsku="ACS-MSN2700"
+iface_speed='100000'
+mgmt_subnet_mask_length="23"
+
 [sonic_cavium32] 
 str-cavium-acs-01 ansible_host=10.3.147.10
 
@@ -107,6 +116,7 @@ sonic_nexus_3132_40
 sonic_nexus_9232_40
 sonic_arista64_100
 sonic_dell32_100
+sonic_mlnx_100
 
 [acs_ixia_dscp]
 10.3.147.141
@@ -168,6 +178,8 @@ str-7060cx-32s-04  ansible_host=10.64.247.231
 str-7060cx-32s-05  ansible_host=10.64.247.232
 str-7060cx-32s-06  ansible_host=10.64.247.233
 str-7060cx-32s-07  ansible_host=10.64.247.234
+str-7060cx-32s-08  ansible_host=10.64.247.238
+
 
 [docker_registry]
 acs-devrepo.corp.microsoft.com
