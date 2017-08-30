@@ -1,0 +1,100 @@
+{% set host = configuration[hostname] %}
+{% set mgmt_ip = ansible_host %}
+{% set tornum = host['tornum'] %}
+hostname {{ hostname }}
+!
+vrf definition MGMT
+ rd 1:1
+!
+spanning-tree mode mstp
+!
+aaa root secret 0 123456
+!
+username admin privilege 15 role network-admin secret 0 123456
+!
+clock timezone UTC
+!
+lldp run
+lldp management-address Management1
+lldp management-address vrf MGMT
+!
+snmp-server community {{ snmp_rocommunity }} ro
+snmp-server vrf MGMT
+!
+ip routing
+ip routing vrf MGMT
+ipv6 unicast-routing
+!
+ip route vrf MGMT 0.0.0.0/0 {{ mgmt_gw }}
+!
+{% for subnet in range(0, props.tor_subnet_number) %}
+ip route 172.16.{{ tornum }}.{{ subnet }}/32 {{ props.nhipv4 }}
+ipv6 route 20AC:10{{ '%02X' % tornum }}:0:{{ '%02X' % subnet }}::/64 {{ props.nhipv6 }}
+{% endfor %}
+!
+interface Management 1
+ description TO LAB MGMT SWITCH
+ vrf forwarding MGMT
+ ip address {{ mgmt_ip }}/{{ mgmt_prefixlen }}
+ no shutdown
+!
+{% for name, iface in host['interfaces'].items() %}
+interface {{ name }}
+{% if name.startswith('Loopback') %}
+ description LOOPBACK
+{% else %}
+ no switchport
+{% endif %}
+{% if name.startswith('Port-Channel') %}
+ port-channel min-links 1
+{% endif %}
+{% if iface['ipv4'] is defined %}
+ ip address {{ iface['ipv4'] }}
+{% endif %}
+{% if iface['ipv6'] is defined %}
+ ipv6 enable
+ ipv6 address {{ iface['ipv6'] }}
+ ipv6 nd ra suppress
+{% endif %}
+{% if iface['lacp'] is defined %}
+ channel-group {{ iface['lacp'] }} mode active
+ lacp rate normal
+{% endif %}
+ no shutdown
+!
+{% endfor %}
+router bgp {{ host['bgp']['asn'] }}
+ router-id {{ host['interfaces']['Loopback0']['ipv4'] |  ipaddr('address') }}
+ !
+{% for asn, remote_ips in host['bgp']['peers'].items() %}
+{% for remote_ip in remote_ips %}
+ neighbor {{ remote_ip }} remote-as {{ asn }}
+ neighbor {{ remote_ip }} description {{ asn }}
+{% if remote_ip | ipv6 %}
+ address-family ipv6
+  neighbor {{ remote_ip }} activate
+ exit
+{% endif %}
+{% endfor %}
+{% endfor %}
+ !
+{% for name, iface in host['interfaces'].items() if name.startswith('Loopback') %}
+{% if iface['ipv4'] is defined %}
+ network {{ iface['ipv4'] }}
+{% endif %}
+{% if iface['ipv6'] is defined %}
+ network {{ iface['ipv6'] }}
+{% endif %}
+{% endfor %}
+{% for subnet in range(0, props.tor_subnet_number) %}
+ network 172.16.{{ tornum }}.{{ subnet }}/32
+ network 20AC:10{{ '%02X' % tornum }}:0:{{ '%02X' % subnet }}::/64
+{% endfor %}
+!
+management api http-commands
+ no protocol https
+ protocol http
+ no shutdown
+!
+end
+
