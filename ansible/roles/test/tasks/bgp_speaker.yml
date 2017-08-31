@@ -80,10 +80,6 @@
 - set_fact: addr_family='ipv4'
   when: addr_family is not defined
 
-- name: Activate IPv6 address family
-  shell: vtysh -c "conf t" -c "router bgp {{ minigraph_bgp_asn }}" -c "address-family ipv6" -c "neighbor BGPSLBPassive activate"
-  when: addr_family == 'ipv6'
-
 - name: Set the prefix to be announced
   set_fact:
     announce_prefix: "{% if addr_family=='ipv4' %}10.10.10.0/26{% else %}2010::/126{% endif %}"
@@ -170,10 +166,6 @@
       - ipv4={{ ipv4|default(false) }}
       - ipv6={{ ipv6|default(false) }}
     ptf_extra_options: "--relax --debug info --log-file /tmp/bgp_speaker_test.FibTest.log"
-
-- name: Deactivate IPv6 address family
-  shell: vtysh -c "conf t" -c "router bgp {{ minigraph_bgp_asn }}" -c "address-family ipv6" -c "no neighbor BGPSLBPassive activate"
-  when: addr_family == 'ipv6'
 
 - name: Kill exabgp instances
   shell: pkill exabgp
