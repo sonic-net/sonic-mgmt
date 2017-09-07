@@ -2,13 +2,12 @@
   when: testbed_type is not defined
 
 - fail: msg="testbed_type {{test_type}} is invalid"
-  when: testbed_type not in ['t0']
+  when: testbed_type not in ['t0', 't0-64']
 
 - include_vars: "vars/topo_{{testbed_type}}.yml"
 
 - name: Expand properties into props
   set_fact: props="{{configuration_properties['common']}}"
-  when: testbed_type in ['t0']
 
 - name: Gather minigraph facts about the device
   minigraph_facts: host={{inventory_hostname}}
@@ -37,11 +36,11 @@
   delegate_to: "{{ ptf_host }}"
 
 - name: Reread supervisor configuration
-  shell: /usr/bin/supervisorctl reread
+  shell: supervisorctl reread
   delegate_to: "{{ptf_host}}"
 
 - name: Update supervisor configuration
-  shell: /usr/bin/supervisorctl update
+  shell: supervisorctl update
   delegate_to: "{{ ptf_host }}"
 
 - name: Copy FDB information file to PTF
