@@ -1,0 +1,22 @@
+# This is the pfcwd helper playbook. pfcwd passes the device interface, and shape rate
+# to this playbook and in this playbook the shape rate of this interface will be set accordingly.
+
+- block:
+    - set_fact:
+        device: "{{item.device}}"
+        interface: "{{item.interface}}"
+        shape_rate: "{{item.shape_rate}}"
+ 
+    - conn_graph_facts: host={{ device }}
+      connection: local
+
+    - set_fact:
+        device_host: "{{device_info['mgmtip']}}"
+        device_hwsku: "{{device_info['HwSku']}}"
+
+    - name: Set shape rate of interface {{interface}} on {{device_host}}
+      action: apswitch template=interface_shape_rate.j2
+      args:
+        host: "{{device_host}}"
+        login: "{{switch_login[hwsku_map[device_hwsku]]}}"
+      connection: switch
