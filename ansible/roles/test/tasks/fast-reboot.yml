@@ -31,11 +31,11 @@
       delegate_to: "{{ ptf_host }}"
 
     - name: Reread supervisor configuration
-      shell: /usr/bin/supervisorctl reread
+      shell: supervisorctl reread
       delegate_to: "{{ ptf_host }}"
 
     - name: Update supervisor configuration
-      shell: /usr/bin/supervisorctl update
+      shell: supervisorctl update
       delegate_to: "{{ ptf_host }}"
 
     - name: Remove old keys
