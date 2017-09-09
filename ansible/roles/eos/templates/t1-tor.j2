@@ -31,6 +31,11 @@ ip route vrf MGMT 0.0.0.0/0 {{ mgmt_gw }}
 ip route 172.16.{{ tornum }}.{{ subnet }}/32 {{ props.nhipv4 }}
 ipv6 route 20AC:10{{ '%02X' % tornum }}:0:{{ '%02X' % subnet }}::/64 {{ props.nhipv6 }}
 {% endfor %}
+{% if 'vips' in host %}
+{% for subnet in host['vips']['ipv4'] %}
+ip route {{ subnet }} {{ props.nhipv4 }}
+{% endfor %}
+{% endif %}
 !
 interface Management 1
  description TO LAB MGMT SWITCH
@@ -83,6 +88,11 @@ router bgp {{ host['bgp']['asn'] }}
  network 172.16.{{ tornum }}.{{ subnet }}/32
  network 20AC:10{{ '%02X' % tornum }}:0:{{ '%02X' % subnet }}::/64
 {% endfor %}
+{% if 'vips' in host %}
+{% for subnet in host['vips']['ipv4'] %}
+ network {{ subnet }}
+{% endfor %}
+{% endif %}
 !
 management api http-commands
  no protocol https
