@@ -343,6 +343,9 @@ configuration:
       Ethernet9:
         ipv4: 10.10.246.17/24
         ipv6: fc0a::22/64
+    vips:
+      ipv4:
+        - 200.0.1.0/24
 
   ARISTA02T0:
     properties:
@@ -387,6 +390,9 @@ configuration:
       Ethernet9:
         ipv4: 10.10.246.19/24
         ipv6: fc0a::26/64
+    vips:
+      ipv4:
+        - 200.0.1.0/24
 
   ARISTA04T0:
     properties:
