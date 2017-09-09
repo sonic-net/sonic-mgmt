@@ -7,6 +7,7 @@ function usage
   echo "testbed-cli. Interface to testbeds"
   echo "Usage : $0 { start-vms | stop-vms    } server-name vault-password-file"
   echo "Usage : $0 { add-topo  | remove-topo | renumber-topo } topo-name vault-password-file"
+  echo "Usage : $0 { config-vm } topo-name vm-name vault-password-file"
   echo "Usage : $0 { gen-mg | deploy-mg } topo-name vault-password-file"
   echo
   echo "To start VMs on a server: $0 start-vms 'server-name' ~/.password"
@@ -14,6 +15,7 @@ function usage
   echo "To deploy a topology on a server: $0 add-topo 'topo-name' ~/.password"
   echo "To remove a topology on a server: $0 remove-topo 'topo-name' ~/.password"
   echo "To renumber a topology on a server: $0 renumber-topo 'topo-name' ~/.password" , where topo-name is target topology
+  echo "To configure a VM on a server: $0 config-vm 'topo-name' 'vm-name' ~/.password"
   echo "To generate minigraph for DUT in a topology: $0 gen-mg 'topo-name' ~/.password"
   echo "To deploy minigraph to DUT in a topology: $0 deploy-mg 'topo-name' ~/.password"
   echo
@@ -129,6 +131,17 @@ function deploy_minigraph
   echo Done
 }
 
+function config_vm
+{
+  echo "Configure VM $2"
+
+  read_file $1
+
+  ansible-playbook -i veos eos.yml --vault-password-file="$3" -l "$2" -e topo="$topo" -e VM_base="$vm_base"
+
+  echo Done
+}
+
 if [ $# -lt 3 ]
 then
  usage
@@ -144,6 +157,8 @@ case "$1" in
   remove-topo) remove_topo $2 $3
                ;;
   renumber-topo) renumber_topo $2 $3
+               ;;
+  config-vm)   config_vm $2 $3 $4
                ;;
   gen-mg)      generate_minigraph $2 $3
                ;;
