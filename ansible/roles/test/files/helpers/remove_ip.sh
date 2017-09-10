@@ -2,6 +2,6 @@
 
 set -e
 
-for i in $(seq 0 31); do
+for i in `cat /proc/net/dev | grep eth | awk -F'eth|:' '{print $2}'`; do
   ip address flush dev eth$i
 done
