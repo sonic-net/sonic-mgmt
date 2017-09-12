@@ -1918,7 +1918,7 @@
             <a:Value>10.3.146.1</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
-            <a:Name>NTPResources</a:Name>
+            <a:Name>NtpResources</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>10.3.149.170;10.3.149.171</a:Value>
           </a:DeviceProperty>
