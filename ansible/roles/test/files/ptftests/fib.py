@@ -44,12 +44,15 @@ class Fib():
     # Initialize FIB with FIB file
     def __init__(self, file_path):
         self._ipv4_lpm_dict = LpmDict()
-        for ip in EXCLUDE_IPV4_PREFIXES:
-            self._ipv4_lpm_dict[ip] = self.NextHop()
+        # no need to add EXCLUDE_IPV4_PREFIXES into test
+        # for ip in EXCLUDE_IPV4_PREFIXES:
+        #     os.system("echo NH: " + str(ip) + " >> ~/ip_decap.txt")
+        #     self._ipv4_lpm_dict[ip] = self.NextHop()
 
         self._ipv6_lpm_dict = LpmDict(ipv4=False)
-        for ip in EXCLUDE_IPV6_PREFIXES:
-            self._ipv6_lpm_dict[ip] = self.NextHop()
+        # no need to add EXCLUDE_IPV^_PREFIXES into test
+        # for ip in EXCLUDE_IPV6_PREFIXES:
+        #     self._ipv6_lpm_dict[ip] = self.NextHop()
 
         with open(file_path, 'r') as f:
             for line in f.readlines():
