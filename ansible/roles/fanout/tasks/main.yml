@@ -30,3 +30,12 @@
   args:
     login: "{{ switch_login['Force10'] }}"
   when: device_info.HwSku == "Force10-S6100"
+
+- block:
+  - name: build fanout startup config
+    template: src=arista_7060_deploy.j2
+              dest=/mnt/flash/startup-config
+    notify:
+       - Restart the box
+  when: device_info.HwSku == "Arista-7060CX-32S"
+
