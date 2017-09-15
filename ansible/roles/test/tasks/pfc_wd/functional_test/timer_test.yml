@@ -10,7 +10,7 @@
 
 - name: Wait for queue to recover from PFC storm
   pause:
-    seconds: "{{(pfc_wd_penalty / 1000 * 2) | int}}"
+    seconds: 5
 
 - name: Find PFC stoprm start marker
   shell: grep "PFC_STORM_START" /var/log/syslog

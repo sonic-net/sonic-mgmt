@@ -31,12 +31,12 @@
 
     - name: Test PFC WD configuration validation.
       vars:
-        pfc_wd_template: roles/test/tasks/pfc_wd/pfc_wd_config.j2
+        pfc_wd_template: roles/test/templates/pfc_wd_config.j2
       include: roles/test/tasks/pfc_wd/config_test/config_test.yml
 
     - name: Test PFC WD Functional tests.
       vars:
-        pfc_wd_template: roles/test/tasks/pfc_wd/pfc_wd_config.j2
+        pfc_wd_template: roles/test/templates/pfc_wd_config.j2
         peer_device: "{{ neighbors[pfc_wd_test_port]['peerdevice'] }}" 
       include: roles/test/tasks/pfc_wd/functional_test/functional_test.yml
 
