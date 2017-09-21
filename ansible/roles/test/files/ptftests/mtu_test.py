@@ -55,7 +55,7 @@ class MtuTest(BaseTest):
 
     def check_icmp_mtu(self):
         '''
-        @summary: Check ICMP/Ping works for MAX MTU.
+        @summary: Check ICMP/Ping to DUT works for MAX MTU.
         '''
         ip_src = "10.0.0.1"
         ip_dst = "10.0.0.0"
@@ -74,13 +74,13 @@ class MtuTest(BaseTest):
                             eth_src=self.router_mac,
                             ip_src=ip_dst,
                             ip_dst=ip_src,
-                            ip_ttl=64,
                             icmp_type=0)
 
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
         masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, "chksum")
          
         src_port = 0
@@ -101,7 +101,7 @@ class MtuTest(BaseTest):
 
     def check_ip_mtu(self):
         '''
-        @summary: Check unicast IP works for MAX MTU.
+        @summary: Check unicast IP forwarding in DUT works for MAX MTU.
         '''
         ip_src = "10.0.0.1"
         ip_dst = "10.0.0.63"
