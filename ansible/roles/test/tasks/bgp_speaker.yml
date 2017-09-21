@@ -80,6 +80,9 @@
 - set_fact: addr_family='ipv4'
   when: addr_family is not defined
 
+- set_fact: mux_ip_1="{% if addr_family=='ipv4' %}{{vlan_ips[1]}}{% else %}{{minigraph_portchannel_interfaces[1]['peer_addr']}}{% endif %}"
+- set_fact: mux_ip_2="{% if addr_family=='ipv4' %}{{vlan_ips[2]}}{% else %}{{minigraph_portchannel_interfaces[1]['peer_addr']}}{% endif %}"
+
 - name: Set the prefix to be announced
   set_fact:
     announce_prefix: "{% if addr_family=='ipv4' %}10.10.10.0/26{% else %}2010::/126{% endif %}"
@@ -88,8 +91,8 @@
   template: src=roles/test/templates/exabgp/routes.j2 dest={{exabgp_dir}}/routes
   with_items:
     - {speaker_ip: '{{vlan_ips[0]}}',
-       mux_ip_1: "{% if addr_family=='ipv4' %}{{vlan_ips[1]}}{% else %}{{minigraph_portchannel_interfaces[1]['peer_addr']}}{% endif %}",
-       mux_ip_2: "{% if addr_family=='ipv4' %}{{vlan_ips[2]}}{% else %}{{minigraph_portchannel_interfaces[3]['peer_addr']}}{% endif %}",
+       mux_ip_1: "{{mux_ip_1}}",
+       mux_ip_2: "{{mux_ip_2}}",
        port_num_1: '5000',
        port_num_2: '6000',
        port_num_3: '7000'}
@@ -98,7 +101,15 @@
 - name: Generate start file for exabgp instances
   template: src=roles/test/templates/exabgp/start.j2 dest={{exabgp_dir}}/{{item.file_name}} mode=u+rwx
   with_items:
-    - {file_name: 'start.sh', config_file_1: 'config_1.ini', config_file_2: 'config_2.ini', config_file_3: 'config_3.ini', phy_ip: '{{vlan_ips[0]}}', logical_ip_1: '{{speaker_ips[0]}}', logical_ip_2: '{{speaker_ips[1]}}'}
+    - {file_name: 'start.sh',
+       config_file_1: 'config_1.ini',
+       config_file_2: 'config_2.ini',
+       config_file_3: 'config_3.ini',
+       phy_ip: '{{vlan_ips[0]}}',
+       logical_ip_1: '{{speaker_ips[0]}}',
+       logical_ip_2: '{{speaker_ips[1]}}',
+       mux_ip_1: "{{mux_ip_1}}",
+       mux_ip_2: "{{mux_ip_2}}"}
   delegate_to: "{{ptf_host}}"
 
 - name: Start exabgp instances
