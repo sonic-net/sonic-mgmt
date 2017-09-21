@@ -14,8 +14,8 @@
       - pfc_wd_timer.json
       - pfc_wd_del_action.json
 
-- set_fact: pfc_wd_test_neighbor_addr="{{ pfc_wd_test_port_addr | regex_replace('(^.*\.).*$', '\\1') }}{{pfc_wd_test_port_addr.split('.')[3] | int + 1 }}"
-- set_fact: pfc_wd_rx_neighbor_addr="{{ pfc_wd_rx_port_addr | regex_replace('(^.*\.).*$', '\\1') }}{{pfc_wd_rx_port_addr.split('.')[3] | int + 1 }}"
+- set_fact: pfc_wd_test_neighbor_addr="{{((minigraph_bgp|selectattr('peer_addr', 'equalto', pfc_wd_test_port_addr))|list)[0]['addr']}}"
+- set_fact: pfc_wd_rx_neighbor_addr="{{((minigraph_bgp|selectattr('peer_addr', 'equalto', pfc_wd_rx_port_addr))|list)[0]['addr']}}"
 
 - set_fact:
       peer_login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
