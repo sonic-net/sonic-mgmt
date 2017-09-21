@@ -1,0 +1,42 @@
+#-----------------------------------------
+# Run MTU test and Perform log analysis.
+#-----------------------------------------
+
+# Pre-check testbed_type value
+- fail: msg="testbed_type is not defined."
+  when: testbed_type is not defined
+
+- fail: msg="testbed_type {{testbed_type}} is invalid."
+  when: testbed_type not in ['t1-lag', 't1']
+
+- include_vars: "vars/topo_{{testbed_type}}.yml"
+
+- name: Expand properties into props
+  set_fact: props="{{configuration_properties['spine']}}"
+  when: testbed_type in ['t1', 't1-lag']
+
+- name: Expand ToR properties into props
+  set_fact: props_tor="{{configuration_properties['tor']}}"
+  when: testbed_type in ['t1', 't1-lag']
+
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  connection: local
+
+- debug : msg="Start MTU Test"
+
+- name: copy the test to ptf container
+  copy: src=roles/test/files/ptftests dest=/root
+  delegate_to: "{{ ptf_host }}"
+
+- name: "Start PTF runner"
+  include: ptf_runner.yml
+  vars:
+    ptf_test_name: MTU test
+    ptf_test_dir: ptftests
+    ptf_test_path: mtu_test.MtuTest
+    ptf_platform: remote
+    ptf_test_params:
+      - testbed_type='{{testbed_type}}'
+      - router_mac='{{ansible_Ethernet0['macaddress']}}'
+    ptf_extra_options: "--relax --debug info --log-file /tmp/mtu_test.MtuTest.{{ansible_date_time.iso8601}}.log --socket-recv-size 16384"
