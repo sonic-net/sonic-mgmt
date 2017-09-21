@@ -2,7 +2,7 @@
   shell: logrotate -f /etc/logrotate.conf
 
 - name: Generate PFC storm on fanout switch
-  action: apswitch template=pfc_storm.j2
+  action: apswitch template="{{pfc_wd_storm_template}}"
   args:
     host: "{{peer_device}}"
     login: "{{peer_login}}"

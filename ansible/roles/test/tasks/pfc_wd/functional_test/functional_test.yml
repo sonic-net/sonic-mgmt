@@ -20,6 +20,10 @@
 - set_fact:
       peer_login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
 
+- set_fact:
+      pfc_wd_storm_template: pfc_storm_mlnx.j2
+  when: peer_hwsku == "MLNX-OS"
+
 - name: Set timers
   set_fact:
       pfc_wd_detect_time: 200
@@ -101,7 +105,7 @@
       include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Generate PFC storm on fanout switch
-      action: apswitch template=pfc_storm.j2
+      action: apswitch template="{{pfc_wd_storm_template}}"
       args:
         host: "{{peer_device}}"
         login: "{{peer_login}}"
@@ -204,7 +208,7 @@
       include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Generate PFC storm on fanout switch
-      action: apswitch template=pfc_storm.j2
+      action: apswitch template="{{pfc_wd_storm_template}}"
       args:
         host: "{{peer_device}}"
         login: "{{peer_login}}"
