@@ -142,9 +142,6 @@ class DecapPacketTest(BaseTest):
         """
         # IPv4 Test
         for ip_range in self.fib.ipv4_ranges():
-            # add this to skip default route 0.0.0.0/0
-            if str(ip_range.get_first_ip()) == "0.0.0.0":
-                continue
             # Get the expected list of ports that would receive the packets
             exp_port_list = self.fib[ip_range.get_first_ip()].get_next_hop_list()
             # Choose random one source port from all ports excluding the expected ones

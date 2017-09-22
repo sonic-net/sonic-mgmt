@@ -97,22 +97,17 @@
             regexp: '^enabled='
             line: 'enabled=false'
         become: true
- 
-      # reload the device and wait it to come back
-      - name: Reboot is required for minigraph change
-        shell: sleep 2 && shutdown -r now "Ansible Create new configuration Minigraph file, triggered reboot."
-        async: 1
-        poll: 0
+
+      - name: pip install pexpect to support ansible expect module 
+        shell: pip install pexpect
         become: true
         ignore_errors: true
 
-      - name: waiting for switch to come back
-        local_action: 
-            wait_for host={{ remote_dut }} 
-            port=22 
-            state=started
-            delay=30 
-            timeout=300
-        become: false
-        changed_when: false
+      - name: execute cli "config load_minigraph" to apply new minigraph
+        become: true
+        ignore_errors: true
+        expect:
+          command: config load_minigraph
+          responses:
+            "Reload config from minigraph": "y"
     when: deploy is defined and deploy|bool == true
