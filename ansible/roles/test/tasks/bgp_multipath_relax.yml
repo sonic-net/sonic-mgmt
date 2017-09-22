@@ -1,0 +1,93 @@
+##########################################################
+### playbook to test leaf router BGP multipath relex
+########################################################## 
+
+- fail: msg="please provide testbed_type for bgp_multipath_relax test"
+  when: testbed_type is not defined 
+
+- fail: mgs="This test only works for leaf routers as DUT in topology, t1, t1-lag, t1-lag-64"
+  when: testbed_type not in ['t1', 't1-lag', 't1-64-lag']
+
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  connection: local
+
+- name:  Find all V4 bgp neighbors from minigraph
+  set_fact:
+    bgp_v4nei: "{{ bgp_v4nei | default({}) | combine({ item['name']: item['addr'] }) }}"
+  with_items: minigraph_bgp
+  when: "'::' not in item['addr']"
+
+- include_vars: "vars/topo_{{ testbed_type }}.yml"
+
+- name: get all t0 routers names
+  set_fact:
+    dut_t0_nei: "{{ dut_t0_nei|default([]) + [ item ] }}"
+  with_items: "{{ topology['VMs'] }}"
+  when: '"T0" in item'
+
+- name: get all t2 routers names
+  set_fact:
+    dut_t2_nei: "{{ dut_t2_nei|default([]) + [ item ] }}"
+  with_items: "{{ topology['VMs'] }}"
+  when: '"T2" in item'
+
+- name: find all t0 routers with vips defined and vips information
+  set_fact: 
+     vips_t0: "{{ vips_t0 | default([]) + [item] }}"
+     t0_asns: "{{ t0_asns | default([]) + [configuration[item]['bgp']['asn']] }}"
+     vips_prefixes: "{{ configuration[item]['vips']['ipv4']['range'] }}"
+     vips_asn: "{{ configuration[item]['vips']['ipv4']['asn'] }}"
+  with_items: "{{ dut_t0_nei }}"
+  when:  "{{ 'vips' in configuration[item].keys() }}" 
+
+- name: pick first vips prefixes for test
+  set_fact: 
+      vips_prefix: "{{ vips_prefixes[0] }}"
+
+- name: gather Sonic DUT bgp routing info for vips_prefix range {{ vips_prefix }}
+  bgp_route: show_cmd="{{ vips_prefix }}"
+
+- name: Verify found vips prefix entry in Sonic bgp routes; and total multipath match number of t0 with vips
+  assert:
+    that:
+        - bgp_rt[vips_prefix]['found'] == True
+        - bgp_rt[vips_prefix]['path_num'] | int == vips_t0 | length
+        
+- name: verify vips asn in each path vips prefix 
+  assert:
+    that:
+        - vips_asn in item
+  with_items: bgp_rt[vips_prefix]['paths']
+
+#### Verify each t2 adv routers: this option takes time and resources; verified working bug print out too much
+#- name: get BGP advertized routes to eatch T2 neighbor 
+#  bgp_route: show_cmd="neighbor {{ bgp_v4nei[item] }} adv"
+#  with_items: dut_t2_nei
+#  register: adv_t2_results
+#
+#- name: Verify vips prefix is in advertized prefixes for each T2 neighbor; and the vips path just has one t0 and vips 
+#  assert:
+#    that:
+#        - vips_prefix in item.ansible_facts['bgp_rt_neiadv'].keys()
+#        - item.ansible_facts['bgp_rt_neiadv'][vips_prefix]['paths'] | length == 2
+#        - vips_asn in item.ansible_facts['bgp_rt_neiadv'][vips_prefix]['paths']
+#  with_items: adv_t2_results.results  
+######### Verify each t2 option 
+
+
+- name: Verify one t2 advertised routes
+  bgp_route: show_cmd="neighbor {{ bgp_v4nei[dut_t2_nei[0]] }} adv"
+
+- name: Verify vips prefix is in advertised prefixes for  T2 neighbor; and the vips path just has one t0 and vips asn
+  assert:
+     that:
+         - vips_prefix in bgp_rt_neiadv.keys()
+         - bgp_rt_neiadv[vips_prefix]['paths'] | length == 2
+         - vips_asn in bgp_rt_neiadv[vips_prefix]['paths']
+
+- name: verify the advertised router path for vips has only t0 and vips path.
+  assert:
+    that:
+        - item in "{{ t0_asns + [vips_asn] }}"
+  with_items: bgp_rt_neiadv[vips_prefix]['paths']
