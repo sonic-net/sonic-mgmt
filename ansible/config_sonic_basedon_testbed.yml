@@ -61,14 +61,34 @@
     connection: local
   
   - block:
+      - name: get platform info
+        shell: show platform summary | grep 'Platform' | awk '{print $2}'
+        register: platform_name
+        become: yes
+
+      - name: platform_name
+        debug: var=platform_name.stdout
+
+      - name: get image info
+        shell: ls /host/ | grep 'image'
+        register: image_name
+        become: yes
+
+      - name: image_name
+        debug: var=image_name.stdout
+
       - name: saved original minigraph file (if original file may don't exist, then ignore errors)
-        shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
+        shell: mv /usr/share/sonic/device/{{ platform_name.stdout }}/minigraph.xml /usr/share/sonic/device/{{ platform_name.stdout }}/minigraph.xml.orig
         become: true
         ignore_errors: true
 
       - name: create minigraph file for SONiC device
         template: src=templates/topo/{{ template_name }}.j2
-                  dest=/etc/sonic/minigraph.xml
+                  dest=/usr/share/sonic/device/{{ platform_name.stdout }}/minigraph.xml
+        become: true
+
+      - name: set the status of dut as first time configuration
+        shell: touch /host/{{ image_name.stdout }}/platform/firsttime
         become: true
  
       - name: disable automatic minigraph update if we are deploying new minigraph into SONiC
@@ -77,22 +97,17 @@
             regexp: '^enabled='
             line: 'enabled=false'
         become: true
- 
-      # reload the device and wait it to come back
-      - name: Reboot is required for minigraph change
-        shell: sleep 2 && shutdown -r now "Ansible Create new configuration Minigraph file, triggered reboot."
-        async: 1
-        poll: 0
+
+      - name: pip install pexpect to support ansible expect module 
+        shell: pip install pexpect
         become: true
         ignore_errors: true
 
-      - name: waiting for switch to come back
-        local_action: 
-            wait_for host={{ remote_dut }} 
-            port=22 
-            state=started
-            delay=30 
-            timeout=300
-        become: false
-        changed_when: false
+      - name: execute cli "config load_minigraph" to apply new minigraph
+        become: true
+        ignore_errors: true
+        expect:
+          command: config load_minigraph
+          responses:
+            "Reload config from minigraph": "y"
     when: deploy is defined and deploy|bool == true
