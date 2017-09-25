@@ -21,6 +21,7 @@ spanning-tree mode none
 no spanning-tree vlan {{ device_vlan_range | list | join(',') }}
 !
 aaa authorization exec default local
+aaa root secret 0 {{ lab_admin_pass }}
 !
 no aaa root
 !
