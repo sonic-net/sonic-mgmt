@@ -505,7 +505,7 @@ configuration:
         ipv6: fc0a::22/64
       vips:
         ipv4:
-          range: 
+          prefixes:
             - 200.0.1.0/26
           asn: 64700
 
@@ -554,7 +554,7 @@ configuration:
         ipv6: fc0a::26/64
       vips:
         ipv4:
-          range: 
+          prefixes:
             - 200.0.1.0/26
           asn: 64700
 

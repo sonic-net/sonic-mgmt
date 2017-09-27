@@ -101,6 +101,9 @@ vtysh -c "show ip bgp 192.168.10.1"
 '''
 
 
+### TODO: ipv6 route entries parsing is not fully working, need continue working on ipv6 ###
+
+
 class BgpRoutes(object):
     '''
         parsing bgp routing information
@@ -117,7 +120,7 @@ class BgpRoutes(object):
         parse BGP routing facts of neighbor advertised routes
         '''
         regex_neighbor = re.compile('nei.*\s([0-9a-fA-F.:]+)\s.*')
-        regix_iprange = re.compile('[0-9a-fA-F.:]+\/\d+')
+        #regix_iprange = re.compile('[0-9a-fA-F.:]+\/\d+')
         if regex_neighbor.match(cmd):
             neighbor = regex_neighbor.match(cmd).group(1)
         else:
@@ -165,17 +168,15 @@ class BgpRoutes(object):
         cmd_err1 = 'Unknown command'
         cmd_err2 = 'Network not in table'
         self.facts['bgp_rt'] = defaultdict(dict)
-        #self.facts[prefix]['line'] = []
         if cmd_err1 in cmd_result or cmd_err2 in cmd_result:
             self.facts['bgp_rt'][prefix]['found'] = False
             return
         result_lines = cmd_result.split('\n')
-        ## search_state = ['header', 'path_prop', 'prefix_prop1', 'prefix_prop2', 'paths', 'path_l1', 'path_l2', 'path_l2', 'path_l3', 'err' ]
+        ## search_state = ['header', 'path_prop', 'prefix_prop1', 'prefix_prop2', 'paths', 'path_l1', 'path_l2', 'path_l3', 'err' ]
         state = 'header'
         self.facts['bgp_rt'][prefix]['paths'] = []
         while len(result_lines) != 0:
             line = result_lines.pop(0)
-            #self.facts[prefix]['line'].append(line)
             if line == '':
                 continue
             if state == 'header':
@@ -229,40 +230,47 @@ class BgpRoutes(object):
 
 
 def collect_data(module, command=None):
-   """
+    """
        Collect bgp information by reading output of 'vtysh' command line tool
-   """
-   rc, out, err = module.run_command('vtysh -c "show ip bgp ' + command + '"',
+    """
+    rc, out, err = module.run_command('vtysh -c "show ip bgp ' + command + '"',
                                         executable='/bin/bash', use_unsafe_shell=True)
-   return (rc, out, err)
+    return (rc, out, err)
 
 
 def main():
     module = AnsibleModule(
             argument_spec=dict(
-               show_cmd=dict(required=False, default=''),
+                neighbor=dict(required=False, default=''),
+                direction=dict(required=False, default=''),
+                prefix=dict(required=False, default='')
                 ),
             supports_check_mode=False
             )
     m_args = module.params
-    show_cmd = m_args['show_cmd']
+    neigh = m_args['neighbor']
+    direction = m_args['direction'].lower()
+    prefix = m_args['prefix']
     try:
         bgproute = BgpRoutes()
         regex_ip = re.compile('[0-9a-fA-F.:]+')
-        if show_cmd == '':
+        regex_iprange = re.compile('[0-9a-fA-F.:]+\/\d+')
+        if neigh == '' and direction == '' and prefix == '':
             raise Exception("parsing 'show ip bgp' full prefix table not implemented yet")
-        if show_cmd and 'nei' in show_cmd:
-            if 'adv' not in show_cmd :
-                raise Exception('No support parsing this command " show ip(v6) bgp %s " yet' % show_cmd)
+        if neigh and (not netaddr.valid_ipv4(neigh)) and (not netaddr.valid_ipv6(neigh)) or neigh and ('adv' not in direction):
+            raise Exception('No support parsing this command " show ip(v6) bgp neighbor %s %s" yet' % (neigh, direction))
+        if neigh and 'adv' in direction:
+            show_cmd = "neighbor " + neigh + " adv"
+            (rc, out, err) = collect_data(module, show_cmd)
+            bgproute.parse_bgp_rt_adv(show_cmd, out)
+        elif prefix:
+            if regex_ip.match(prefix) or regex_iprange.match(prefix):
+                (rc, out, err) = collect_data(module, prefix)
+                bgproute.parse_bgp_rt_prefix(prefix, out)
             else:
-                (rc, out, err) = collect_data(module, show_cmd)
-                bgproute.parse_bgp_rt_adv(show_cmd, out)
-        elif show_cmd and regex_ip.match(show_cmd):
-            if netaddr.valid_ipv4 or netaddr.valid_ipv6:
-                (rc, out, err) = collect_data(module, show_cmd)
-                bgproute.parse_bgp_rt_prefix(show_cmd, out)
-            else :
-                raise Exception('No support of this command "show ip(v6) bgp %s " yet ' % show_cmd)
+                raise Exception('No support of this command "show ip(v6) bgp %s " yet ' % prefix)
+        else:
+            raise Exception('No support parsing this command " show ip(v6) bgp neighbor=%s direction=%s prefix=%s" yet' % (neigh, direction, prefix))
         results = bgproute.get_facts()
         module.exit_json(ansible_facts=results)
     except Exception as e:
