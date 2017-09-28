@@ -172,29 +172,29 @@
       <PortChannelInterfaces>
         <PortChannel>
           <Name>PortChannel01</Name>
-          <AttachTo>Ethernet176;Ethernet180</AttachTo>
+          <AttachTo>Ethernet45/1;Ethernet46/1</AttachTo>
           <SubInterface/>
         </PortChannel>
         <PortChannel>
           <Name>PortChannel02</Name>
-          <AttachTo>Ethernet184;Ethernet188</AttachTo>
+          <AttachTo>Ethernet47/1;Ethernet48/1</AttachTo>
           <SubInterface/>
         </PortChannel>
         <PortChannel>
           <Name>PortChannel03</Name>
-          <AttachTo>Ethernet192;Ethernet196</AttachTo>
+          <AttachTo>Ethernet49/1;Ethernet50/1</AttachTo>
           <SubInterface/>
         </PortChannel>
         <PortChannel>
           <Name>PortChannel04</Name>
-          <AttachTo>Ethernet200;Ethernet204</AttachTo>
+          <AttachTo>Ethernet51/1;Ethernet52/1</AttachTo>
           <SubInterface/>
         </PortChannel>
       </PortChannelInterfaces>
       <VlanInterfaces>
         <VlanInterface>
           <Name>Vlan100</Name>
-          <AttachTo>Ethernet0;Ethernet2;Ethernet4;Ethernet6;Ethernet8;Ethernet10;Ethernet12;Ethernet14;Ethernet16;Ethernet18;Ethernet20;Ethernet22;Ethernet24;Ethernet26;Ethernet28;Ethernet30;Ethernet32;Ethernet34;Ethernet36;Ethernet38;Ethernet40;Ethernet42;Ethernet44;Ethernet46;Ethernet48;Ethernet50;Ethernet52;Ethernet54;Ethernet56;Ethernet58;Ethernet60;Ethernet62;Ethernet64;Ethernet66;Ethernet72;Ethernet74;Ethernet80;Ethernet82;Ethernet84;Ethernet86;Ethernet88;Ethernet90;Ethernet92;Ethernet94;Ethernet96;Ethernet98;Ethernet100;Ethernet102;Ethernet104;Ethernet106;Ethernet108;Ethernet110;Ethernet112;Ethernet114;Ethernet116;Ethernet118;Ethernet120;Ethernet122;Ethernet124;Ethernet126;Ethernet128;Ethernet130;Ethernet132;Ethernet134;Ethernet136;Ethernet138;Ethernet140;Ethernet142;Ethernet144;Ethernet146;Ethernet148;Ethernet150;Ethernet152;Ethernet154;Ethernet156;Ethernet158;Ethernet160;Ethernet162;Ethernet164;Ethernet166;Ethernet168;Ethernet170;Ethernet172;Ethernet174;Ethernet208;Ethernet210;Ethernet212;Ethernet214;Ethernet216;Ethernet218;Ethernet220;Ethernet222;Ethernet224;Ethernet226;Ethernet228;Ethernet230;Ethernet232;Ethernet234;Ethernet236;Ethernet238;Ethernet240;Ethernet242;Ethernet244;Ethernet246;Ethernet248;Ethernet250;Ethernet252;Ethernet254</AttachTo>
+          <AttachTo>Ethernet1/1;Ethernet1/3;Ethernet2/1;Ethernet2/3;Ethernet3/1;Ethernet3/3;Ethernet4/1;Ethernet4/3;Ethernet5/1;Ethernet5/3;Ethernet6/1;Ethernet6/3;Ethernet7/1;Ethernet7/3;Ethernet8/1;Ethernet8/3;Ethernet9/1;Ethernet9/3;Ethernet10/1;Ethernet10/3;Ethernet11/1;Ethernet11/3;Ethernet12/1;Ethernet12/3;Ethernet13/1;Ethernet13/3;Ethernet14/1;Ethernet14/3;Ethernet15/1;Ethernet15/3;Ethernet16/1;Ethernet16/3;Ethernet17/1;Ethernet17/3;Ethernet19/1;Ethernet19/3;Ethernet21/1;Ethernet21/3;Ethernet22/1;Ethernet22/3;Ethernet23/1;Ethernet23/3;Ethernet24/1;Ethernet24/3;Ethernet25/1;Ethernet25/3;Ethernet26/1;Ethernet26/3;Ethernet27/1;Ethernet27/3;Ethernet28/1;Ethernet28/3;Ethernet29/1;Ethernet29/3;Ethernet30/1;Ethernet30/3;Ethernet31/1;Ethernet31/3;Ethernet32/1;Ethernet32/3;Ethernet33/1;Ethernet33/3;Ethernet34/1;Ethernet34/3;Ethernet35/1;Ethernet35/3;Ethernet36/1;Ethernet36/3;Ethernet37/1;Ethernet37/3;Ethernet38/1;Ethernet38/3;Ethernet39/1;Ethernet39/3;Ethernet40/1;Ethernet40/3;Ethernet41/1;Ethernet41/3;Ethernet42/1;Ethernet42/3;Ethernet43/1;Ethernet43/3;Ethernet44/1;Ethernet44/3;Ethernet53/1;Ethernet53/3;Ethernet54/1;Ethernet54/3;Ethernet55/1;Ethernet55/3;Ethernet56/1;Ethernet56/3;Ethernet57/1;Ethernet57/3;Ethernet58/1;Ethernet58/3;Ethernet59/1;Ethernet59/3;Ethernet60/1;Ethernet60/3;Ethernet61/1;Ethernet61/3;Ethernet62/1;Ethernet62/3;Ethernet63/1;Ethernet63/3;Ethernet64/1;Ethernet64/3</AttachTo>
           <NoDhcpRelay>False</NoDhcpRelay>
           <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
           <Type i:nil="true"/>
@@ -265,7 +265,7 @@
         <EndDevice>ARISTA01T1</EndDevice>
         <EndPort>Ethernet1</EndPort>
         <StartDevice>str-7260cx3-acs-1</StartDevice>
-        <StartPort>Ethernet176</StartPort>
+        <StartPort>Ethernet45/1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
@@ -274,7 +274,7 @@
         <EndDevice>ARISTA01T1</EndDevice>
         <EndPort>Ethernet2</EndPort>
         <StartDevice>str-7260cx3-acs-1</StartDevice>
-        <StartPort>Ethernet180</StartPort>
+        <StartPort>Ethernet46/1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
@@ -283,7 +283,7 @@
         <EndDevice>ARISTA02T1</EndDevice>
         <EndPort>Ethernet1</EndPort>
         <StartDevice>str-7260cx3-acs-1</StartDevice>
-        <StartPort>Ethernet184</StartPort>
+        <StartPort>Ethernet47/1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
@@ -292,7 +292,7 @@
         <EndDevice>ARISTA02T1</EndDevice>
         <EndPort>Ethernet2</EndPort>
         <StartDevice>str-7260cx3-acs-1</StartDevice>
-        <StartPort>Ethernet188</StartPort>
+        <StartPort>Ethernet48/1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
@@ -301,7 +301,7 @@
         <EndDevice>ARISTA03T1</EndDevice>
         <EndPort>Ethernet1</EndPort>
         <StartDevice>str-7260cx3-acs-1</StartDevice>
-        <StartPort>Ethernet192</StartPort>
+        <StartPort>Ethernet49/1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
@@ -310,7 +310,7 @@
         <EndDevice>ARISTA03T1</EndDevice>
         <EndPort>Ethernet2</EndPort>
         <StartDevice>str-7260cx3-acs-1</StartDevice>
-        <StartPort>Ethernet196</StartPort>
+        <StartPort>Ethernet50/1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
@@ -319,7 +319,7 @@
         <EndDevice>ARISTA03T1</EndDevice>
         <EndPort>Ethernet1</EndPort>
         <StartDevice>str-7260cx3-acs-1</StartDevice>
-        <StartPort>Ethernet200</StartPort>
+        <StartPort>Ethernet51/1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
@@ -328,7 +328,7 @@
         <EndDevice>ARISTA03T1</EndDevice>
         <EndPort>Ethernet2</EndPort>
         <StartDevice>str-7260cx3-acs-1</StartDevice>
-        <StartPort>Ethernet204</StartPort>
+        <StartPort>Ethernet52/1</StartPort>
       </DeviceLinkBase>
     </DeviceInterfaceLinks>
     <Devices>
