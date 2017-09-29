@@ -4,6 +4,8 @@
 {% elif testbed_type == 't0' or testbed_type == 't0-64' or testbed_type == 't1-lag' %}
 0.0.0.0/0 {% for portchannel, v in minigraph_portchannels.iteritems() %}
 [{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}
+{% elif testbed_type == 't1-64-lag' %}
+0.0.0.0/0 [0 1] [4 5] [16 17] [20 21]
 {% endif %}
 
 {#routes to uplink#}
@@ -21,6 +23,11 @@
 
 20C0:A8{{ '%02X' % podset }}:0:{{ '%02X' % (tor * 16 + subnet)}}::/64 {% for portchannel, v in minigraph_portchannels.iteritems() %}
 [{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}
+
+{% elif testbed_type == 't1-64-lag' %}
+192.168.{{ podset }}.{{ tor * 16 + subnet }}/32 [0 1] [4 5] [16 17] [20 21]
+
+20C0:A8{{ '%02X' % podset }}:0:{{ '%02X' % (tor * 16 + subnet)}}::/64 [0 1] [4 5] [16 17] [20 21]
 
 {% elif testbed_type == 't0' or testbed_type == 't0-64' %}
 {% set suffix = ( (podset * props.tor_number * props.max_tor_subnet_number * props.tor_subnet_size) +
