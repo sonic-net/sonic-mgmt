@@ -1,10 +1,9 @@
 ############################################################################
 ### playbook to test leaf router BGP multipath relex
-### There are presumptions for this test that for now:
+### There are presumptions for this test that:
 #       1) all pre-configured vips are from the same asn and
-#       2) each prefix is "multipath" for leaf router, so we won't validate
-#          if one prefix from vips is multipathed when we select prefix to test
-#       3) we we only test vips advertised ipv4 prefixes
+#       2) each prefix is "multipath" for leaf router
+#       3) we only test vips advertised ipv4 prefixes for now
 ############################################################################ 
 
 - fail: msg="please provide testbed_type for bgp_multipath_relax test"
@@ -33,6 +32,10 @@
     - "'T0' in item"
     - "'vips' in configuration[item].keys()"
 
+- name: fail if we cannot find multiple t0s with vips configured
+  fail: msg="Didn't find multipath t0's"
+  when: dut_t0_nei | length <= 1
+
 - name: get all t2 routers names
   set_fact:
     dut_t2_nei: "{{ dut_t2_nei|default([]) + [ item ] }}"
@@ -41,12 +44,8 @@
 
 - name: find all vips prefixes
   set_fact:
-     vips_prefixes: "{{ vips_prefixes | default([])  + configuration[item]['vips']['ipv4']['prefixes'] | unique}}"
+     vips_prefixes: "{{ (vips_prefixes | default([])  + configuration[item]['vips']['ipv4']['prefixes']) | unique}}"
   with_items: "{{ dut_t0_nei }}"
-
-- name: remove duplicate entries
-  set_fact:
-     vips_prefixes: "{{ vips_prefixes | unique }}"
 
 - name: pick first vips prefix to test
   set_fact:
@@ -58,6 +57,10 @@
      vips_asn: "{{ configuration[item]['vips']['ipv4']['asn'] }}"
   with_items:  "{{ dut_t0_nei }}"
   when: vips_prefix in "{{ configuration[item]['vips']['ipv4']['prefixes'] }}"
+
+- name: fail if the vips prefix is not multiplathed
+  fail: msg="Did not find preconfigured multipath for the vips prefix under test, something wrong??"
+  when: vips_t0 | length <= 1
 
 - name: gather Sonic DUT bgp routing info for vips_prefix range {{ vips_prefix }}
   bgp_route: prefix="{{ vips_prefix }}"
@@ -88,11 +91,11 @@
 #        - item.ansible_facts['bgp_rt_neiadv'][vips_prefix]['paths'] | length == 2
 #        - vips_asn in item.ansible_facts['bgp_rt_neiadv'][vips_prefix]['paths']
 #        - vips_asn == item.ansible_facts['bgp_rt_neiadv'][vips_prefix]['paths'][-1]
-#  with_items: adv_t2_results.results  
+#  with_items: adv_t2_results.results
 ######### Verify each t2 option 
 
 
-- name: gather one t2 neighbor advertised routes to validate routes advertised to t2 are correct with replaxed multipath
+- name: gather one t2 neighbor advertised routes to validate routes advertised to t2 are correct with relaxed multipath
   bgp_route: neighbor="{{ bgp_v4nei[dut_t2_nei[0]] }}" direction="adv"
 
 - name: Verify vips prefix in advertised routes to t2 neighbor; vips prefix path has only 2 hops; vips_asn in path and is the last hop

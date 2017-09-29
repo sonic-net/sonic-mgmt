@@ -15,10 +15,10 @@ description:
 
 EXAMPLES = '''
 - name: Get BGP route information
-  bgp_route: show_cmd='100.0.0.1'
+  bgp_route: prefix='100.0.0.1/28'
 
-- name: Get BGP route information
-  bgp_route: show_cmd='neighbor 10.0.0.1 advert'
+- name: Get neighbor BGP advertise route information
+  bgp_route: neighbor='10.0.0.1' direction='adv'
 '''
 
 SAMPLE_COMMAND_DATA = '''
@@ -241,25 +241,25 @@ def collect_data(module, command=None):
 def main():
     module = AnsibleModule(
             argument_spec=dict(
-                neighbor=dict(required=False, default=''),
-                direction=dict(required=False, default=''),
-                prefix=dict(required=False, default='')
+                neighbor=dict(required=False, default=None),
+                direction=dict(required=False, default=None),
+                prefix=dict(required=False, default=None)
                 ),
             supports_check_mode=False
             )
     m_args = module.params
     neigh = m_args['neighbor']
-    direction = m_args['direction'].lower()
+    direction = m_args['direction']
     prefix = m_args['prefix']
     try:
         bgproute = BgpRoutes()
         regex_ip = re.compile('[0-9a-fA-F.:]+')
         regex_iprange = re.compile('[0-9a-fA-F.:]+\/\d+')
-        if neigh == '' and direction == '' and prefix == '':
+        if neigh == None and direction == None and prefix == None:
             raise Exception("parsing 'show ip bgp' full prefix table not implemented yet")
-        if neigh and (not netaddr.valid_ipv4(neigh)) and (not netaddr.valid_ipv6(neigh)) or neigh and ('adv' not in direction):
+        if neigh and (not netaddr.valid_ipv4(neigh)) and (not netaddr.valid_ipv6(neigh)) or neigh and not direction:
             raise Exception('No support parsing this command " show ip(v6) bgp neighbor %s %s" yet' % (neigh, direction))
-        if neigh and 'adv' in direction:
+        if neigh and 'adv' in direction.lower():
             show_cmd = "neighbor " + neigh + " adv"
             (rc, out, err) = collect_data(module, show_cmd)
             bgproute.parse_bgp_rt_adv(show_cmd, out)
