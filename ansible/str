@@ -132,6 +132,7 @@ ptf2-1  ansible_host=10.64.246.14  ansible_ssh_user=root ansible_ssh_pass=root
 ptf2-3  ansible_host=10.64.246.15  ansible_ssh_user=root ansible_ssh_pass=root
 ptf2-6  ansible_host=10.64.246.16  ansible_ssh_user=root ansible_ssh_pass=root
 ptf3-1  ansible_host=10.64.246.18  ansible_ssh_user=root ansible_ssh_pass=root
+ptf7-6  ansible_host=10.64.247.16  ansible_ssh_user=root ansible_ssh_pass=root
 vms1-1  ansible_host=10.64.246.22  ansible_ssh_user=root ansible_ssh_pass=root
 vms1-2  ansible_host=10.64.246.23  ansible_ssh_user=root ansible_ssh_pass=root
 vms2-1  ansible_host=10.64.246.24  ansible_ssh_user=root ansible_ssh_pass=root

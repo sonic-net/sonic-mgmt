@@ -232,7 +232,7 @@
           <Type i:nil="true"/>
           <VlanID>2</VlanID>
           <Tag>2</Tag>
-          <Subnets>172.0.0.0/26</Subnets>
+          <Subnets>172.0.0.0/21</Subnets>
         </VlanInterface>
       </VlanInterfaces>
       <IPInterfaces>
@@ -288,7 +288,7 @@
           <ElementType>IPInterface</ElementType>
           <Name i:nil="true"/>
           <AttachTo>Vlan2</AttachTo>
-          <Prefix>172.0.0.1/26</Prefix>
+          <Prefix>172.0.0.1/21</Prefix>
         </IPInterface>
       </IPInterfaces>
       <DataAcls/>
