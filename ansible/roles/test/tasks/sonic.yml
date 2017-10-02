@@ -155,3 +155,7 @@
 - name: ACL test 
   include: acltb.yml
   tags: acl
+
+- name: PFC Watchdog test
+  include: pfc_wd.yml
+  tags: pfc_wd
