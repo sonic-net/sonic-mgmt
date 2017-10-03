@@ -53,7 +53,7 @@ class LagModule(object):
         '''
             Collect configured lag interface names
         '''
-        rt, out, err = self.module.run_command("sonic-cfggen -m /etc/sonic/minigraph.xml -v \"minigraph_portchannels.keys() | join(' ')\"")
+        rt, out, err = self.module.run_command("sonic-cfggen -m /etc/sonic/minigraph.xml -v \"PORTCHANNEL.keys() | join(' ')\"")
         if rt != 0:
             fail_msg="Command to retrieve portchannel names failed return=%d, out=%s, err=%s" %(rt, out, err)
             self.module.fail_json(msg=fail_msg)
