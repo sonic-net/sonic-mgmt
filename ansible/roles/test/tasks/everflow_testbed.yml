@@ -2,13 +2,11 @@
   include: "roles/test/tasks/everflow_testbed/apply_config.yml"
   tags: everflow_tb_configure
 
-# TODO: Fix issue #288
-# Please check URL: https://github.com/Azure/sonic-mgmt/issues/288 to get the detail of the issue
-#- name: Run Everflow tests.
-#  include: "roles/test/tasks/everflow_testbed/run_test.yml"
-#  vars:
-#    dst_port_type: "tor"
-#  tags: everflow_tb_test
+- name: Run Everflow tests.
+  include: "roles/test/tasks/everflow_testbed/run_test.yml"
+  vars:
+    dst_port_type: "tor"
+  tags: everflow_tb_test
 
 - name: Run Everflow tests.
   include: "roles/test/tasks/everflow_testbed/run_test.yml"
