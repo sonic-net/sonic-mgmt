@@ -1,9 +1,3 @@
-# Set facts for ACL configuration
-- set_fact:
-    acltb_configs:
-      - "{{ 'acltb_test_rules.json' }}"
-      - "{{ 'acltb_test_table.json' }}"
-
 # Set facts for the loganalizer
 - set_fact:
     testname: acl
@@ -28,41 +22,9 @@
     result_file: result.loganalysis.{{testname_unique}}.log
     summary_file: summary.loganalysis.{{testname_unique}}.log
 
-# Gather minigraph facts
-- name: Gathering minigraph facts about the device
-  minigraph_facts: host={{ inventory_hostname }}
-  become: no
-  connection: local
-
-- name: Read port reverse alias mapping
-  set_fact:
-    alias_reverse_map: "{{ minigraph_map_ngs_to_sonic }}"
-
-# Generate json files with ACL configuration for tests
-- template: src=acltb_test_table.j2 dest=/tmp/acltb_test_table.json
-  connection: local
-
-- template: src=acltb_test_rules.j2 dest=/tmp/acltb_test_rules.json
-  connection: local
-
-# Copy ACL config to the swss container via the switch
+# Copy ACL config to the switch
 - name: Copy ACL config file to the DUT
-  copy: src="/tmp/{{ item }}" dest="/tmp/{{ item }}"
-  with_items:
-    - "{{ acltb_configs }}"
+  copy: src="roles/test/tasks/acl/acltb_test_rules-del.json" dest="/tmp/acltb_test_rules-del.json"
 
-- name: Copy ACL config file to the swss container
-  command: docker cp "/tmp/{{ item }}" swss:/etc/swss/config.d/"{{ item }}"
-  with_items:
-    - "{{ acltb_configs }}"
-
-- name: Create ACL configuration to delete rules/tables
-  command: docker exec -t swss bash -c "sed -i 's/SET/DEL/g' /etc/swss/config.d/{{ item }}"
-  with_items:
-    - "{{ acltb_configs }}"
-
-- block:
-  - name: Apply ACL delete configuration
-    command: docker exec -t swss bash -c "swssconfig /etc/swss/config.d/{{ item }}"
-    with_items:
-      - "{{ acltb_configs }}"
+- name: Apply ACL configuration.
+  command: acl-loader update full /tmp/acltb_test_rules-del.json
