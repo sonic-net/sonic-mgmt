@@ -2604,7 +2604,7 @@
       <InterfaceVlan mode="Access" portname="Ethernet60" vlanids="1056"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-20">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.250/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.249/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-20">
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="1225"/>
