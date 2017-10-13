@@ -10,8 +10,8 @@ from ptf.mask import Mask
 
 class ExpectReply(acs_base_test.ACSDataplaneTest):
     '''
-    Test correct ARP behavior, make sure ACS is replying ARP request for local interface IP address
-    ACS switch should reply ARP and update ARP table entry to correct peer MAC address
+    Test correct ARP behavior, make sure SONiC is replying ARP request for local interface IP address
+    SONiC switch should reply ARP and update ARP table entry to correct peer MAC address
     '''
     def runTest(self):
             acs_mac = self.test_params['acs_mac']
@@ -36,6 +36,36 @@ class ExpectReply(acs_base_test.ACSDataplaneTest):
                       )
             send_packet(self, 1, pkt)
             verify_packet(self, exp_pkt, 1)
+
+class ExpectUnicastReply(acs_base_test.ACSDataplaneTest):
+    '''
+    Test correct ARP behavior, make sure SONiC is replying Unicast ARP request for local interface IP address
+    SONiC switch should reply ARP and update ARP table entry to correct peer MAC address
+    '''
+    def runTest(self):
+            acs_mac = self.test_params['acs_mac']
+            pkt = simple_arp_packet(pktlen=60,
+                      eth_dst=acs_mac,
+                      eth_src='00:06:07:08:09:00',
+                      vlan_vid=0,
+                      vlan_pcp=0,
+                      arp_op=1,
+                      ip_snd='10.10.1.3',
+                      ip_tgt='10.10.1.2',
+                      hw_snd='00:06:07:08:09:00',
+                      hw_tgt=acs_mac,
+                      )
+            exp_pkt = simple_arp_packet(eth_dst='00:06:07:08:09:00',
+                      eth_src=acs_mac,
+                      arp_op=2,
+                      ip_snd='10.10.1.2',
+                      ip_tgt='10.10.1.3',
+                      hw_tgt='00:06:07:08:09:00',
+                      hw_snd=acs_mac,
+                      )
+            send_packet(self, 1, pkt)
+            verify_packet(self, exp_pkt, 1)
+
 
 class WrongIntNoReply(acs_base_test.ACSDataplaneTest):
     '''
