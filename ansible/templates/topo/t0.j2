@@ -189,7 +189,7 @@
 {% set dev_ytpe = 'Unknown' %}
 {% endif %}
       <Device i:type="{{ dev_type }}">
-         <Hostname>"{{ dev }}"</Hostname>
+         <Hostname>{{ dev }}</Hostname>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>{{ neighbor_eosvm_mgmt[dev] }}</a:IPPrefix>
          </ManagementAddress>
