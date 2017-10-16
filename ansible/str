@@ -91,6 +91,8 @@ str-cavium-acs-01 ansible_host=10.3.147.10
 
 [sonic_arista64_100]
 str-7260cx3-acs-1   ansible_host=10.64.247.224 hwsku="Arista-7260CX3-64"
+str-7060cx-acs-10   ansible_host=10.64.247.240 hwsku="Arista-7260CX-32S"
+
 
 [sonic_arista64_100:vars]
 iface_speed='100000'
