@@ -50,11 +50,13 @@ RETURN = '''
         - ansible_facts.bgp_route_neiadv:
           "bgp_route_neiadv": {"192.10.0.0/24":
                                    {"next_hop": "10.0.0.20",
-                                     "paths": ["65200", "62101", "65516"]
+                                     "paths": ["65200", "62101", "65516"],
+                                     "origin": ?
                                    },
                                "192.168.99.81/32":
                                    {"next_hop": "10.0.0.20",
-                                    "paths": ["65200", "62100", "65506"]
+                                    "paths": ["65200", "62100", "65506"],
+                                    "origin": i
                                    }
                               }
 '''
@@ -163,12 +165,11 @@ class BgpRoutes(object):
         else:
             raise Exception('cannot find neighbor in "show ip  bgp ' + cmd + '"')
         self.facts['bgp_route_neiadv']['neighbor'] = neighbor
-        ### so far parsing by fixed length table
-        ### will improve this if find better way to parse it
-        header_position = [0, 3, 20, 40, 47, 54, 61]
-        header = 'Network          Next Hop            Metric LocPrf Weight Path'
+        ### so far parsing prifix, nexthop and paths only
+        header = 'Metric LocPrf Weight Path'
         result_lines = cmd_result.split('\n')
         table_start = False
+        re_path = re.compile('.*\s{2,}(\d+)\s((\d+\s)+)?([ie\?])$')
         while len(result_lines) != 0:
             line = result_lines.pop(0)
             if not table_start:
@@ -179,15 +180,22 @@ class BgpRoutes(object):
                 ## only parse valid route entry, ignore if it's not marked as valid
                 if not re.match('^\*', line):
                     continue
-                entry = {}
-                if len(line) > 30:   ## route entry in one line
-                    prefix = line[header_position[1]:header_position[2]].strip()
-                else:    ### route entry in two lines
-                    prefix = line[header_position[1]:30].strip()
+                entry = dict()
+                fields = line.strip().split()
+                prefix = fields[1]
+                if len(fields) > 2:    ### route entry in one line
+                    nexthop = fields[2]
+                else:                  ### route entry in two lines
                     line = result_lines.pop(0)
-                entry['next_hop'] = line[header_position[2]:header_position[3]].strip()
-                paths = line[header_position[6]:].strip()
-                entry['paths'] = re.findall('[0-9]+', paths)
+                    nexthop = line.strip().split()[0]
+                paths = re_path.match(line).group(2)
+                origin = re_path.match(line).group(4)
+                if paths:
+                    entry['paths'] = paths.split()
+                else:
+                    entry['paths'] = []
+                entry['nexthop'] = nexthop
+                entry['origin'] = origin
                 self.facts['bgp_route_neiadv'][prefix] = entry
 
 
@@ -222,7 +230,6 @@ class BgpRoutes(object):
             self.facts['bgp_route'][prefix]['found'] = False
             return
         result_lines = cmd_result.split('\n')
-        ## search_state = ['header', 'path_prop', 'prefix_prop1', 'prefix_prop2', 'paths', 'path_l1', 'path_l2', 'path_l3', 'err' ]
         state = HEADER
         self.facts['bgp_route'][prefix]['paths'] = []
         while len(result_lines) != 0:
