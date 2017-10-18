@@ -49,13 +49,19 @@ ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags everflow_
 ```
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags fdb --extra-vars "testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST} [ipv6=True]"
 ```
-- Requires switch connected to a VM testbed(t0); default ipb4
+- Requires switch connected to a VM testbed(t0); default IPv4
 
 ### FIB test
 ```
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags fib --extra-vars "testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST} [ipv4=Flase]"
 ```
 - Requires switch connected to a VM testbed; default IPv4
+
+### MTU test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags mtu --extra-vars "testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST}"
+```
+- Requires switch connected to a t1 or t1-lag testbed
 
 ### Fast-Reboot test
 ```
@@ -110,3 +116,8 @@ ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags 
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags syslog
 ```
 
+### PFC WD test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags pfc_wd --extra-vars "testbed_type={TESTBED_TYPE}"
+```
+PFC WD test assumes that Fanout switch has [PFC generator](https://github.com/marian-pritsak/pfctest/blob/master/pfctest.py) available.

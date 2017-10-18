@@ -450,21 +450,27 @@ def parse_xml(filename, hostname):
         for i in range(1,5) + range(29, 37):
             port_alias_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "Arista-7260CX3-C64":
-        for i in range(0, 256, 4):
-            port_alias_map["Ethernet%d" % i] = "Ethernet%d" % i
+        for i in range(1, 65):
+            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "Arista-7260CX3-D108C8":
         # All possible breakout 50G port numbers:
-        port_candidates = [ x for x in range(0, 256, 2)]
+        all_ports = [ x for x in range(1, 65)]
+
+        # 100G ports
+        s100G_ports = [ x for x in range(45, 53) ]
 
         # Unsed ports are not configured:
         unused_ports = [18, 20]
 
-        # Exclude 100G port number + 2 and unused 100G ports:
-        exclude_ports = [ ((x-1)*4+2) for x in unused_ports + range(45, 53) ] + [ ((x-1)*4) for x in unused_ports ]
-        valid_ports = list(set(port_candidates) - set(exclude_ports))
+        # 50G ports
+        s50g_ports = list(set(all_ports) - set(s100G_ports) - set(unused_ports))
 
-        for i in valid_ports:
-            port_alias_map["Ethernet%d" % i] = "Ethernet%d" % i
+        for i in s50g_ports:
+            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+            port_alias_map["Ethernet%d/3" % i] = "Ethernet%d" % ((i - 1) * 4 + 2)
+
+        for i in s100G_ports:
+            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
     else:
         for i in range(0, 128, 4):
             port_alias_map["Ethernet%d" % i] = "Ethernet%d" % i

@@ -57,13 +57,21 @@ class SonicPortAliasMap():
             raise Exception("Something wrong when trying to find the portmap file, either the hwsku is not available or file location is not correct")
         with open(self.filename) as f:
             lines = f.readlines()
-        for  line in lines:
-            if 'Ethernet' in line:
-                mapping = line.split()
-                if len(mapping) < 3:
-                    self.portmap.append(mapping[0])
-                else:
-                    self.portmap.append(mapping[2])
+        alias=False
+        while len(lines) != 0:
+            line = lines.pop(0)
+            if re.match('^#', line):
+                title=re.sub('#', '', line.strip().lower()).split()
+                if 'alias' in title:
+                    index = title.index('alias')
+                    alias = True
+            else: 
+                if re.match('^Ethernet', line):
+                    mapping = line.split()
+                    if alias and len(mapping) > index:
+                        self.portmap.append(mapping[index])
+                    else:
+                        self.portmap.append(mapping[0])
         return
 
 def main():
@@ -78,10 +86,12 @@ def main():
         allmap = SonicPortAliasMap(m_args['hwsku'])
         allmap.get_portmap()
         module.exit_json(ansible_facts={'port_alias': allmap.portmap})
-    except (IOError, OSError):
-        module.fail_json(msg=allmap.portmap)
-    except Exception:
-        module.fail_json(msg=allmap.portmap)
+    except (IOError, OSError), e:
+        fail_msg = "IO error" + str(e)
+        module.fail_json(msg=fail_msg)
+    except Exception, e:
+        fail_msg = "failed to find the correct port names for "+m_args['hwsku'] + str(e)
+        module.fail_json(msg=fail_msg)
 
 from ansible.module_utils.basic import *
 if __name__ == "__main__":

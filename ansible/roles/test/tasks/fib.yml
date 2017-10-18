@@ -7,13 +7,13 @@
   when: testbed_type is not defined
 
 - fail: msg="testbed_type {{testbed_type}} is invalid."
-  when: testbed_type not in ['t1-lag', 't1', 't0', 't0-64']
+  when: testbed_type not in ['t1-lag', 't1', 't1-64-lag', 't0', 't0-64']
 
 - include_vars: "vars/topo_{{testbed_type}}.yml"
 
 - name: Expand properties into props
   set_fact: props="{{configuration_properties['spine']}}"
-  when: testbed_type in ['t1', 't1-lag']
+  when: testbed_type in ['t1', 't1-lag', 't1-64-lag']
 
 - name: Expand properties into props
   set_fact: props="{{configuration_properties['common']}}"
@@ -21,7 +21,7 @@
 
 - name: Expand ToR properties into props
   set_fact: props_tor="{{configuration_properties['tor']}}"
-  when: testbed_type in ['t1', 't1-lag']
+  when: testbed_type in ['t1', 't1-lag', 't1-64-lag']
 
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
@@ -56,6 +56,7 @@
     ptf_test_dir: ptftests
     ptf_test_path: fib_test.FibTest
     ptf_platform: remote
+    ptf_extra_options: --platform-dir ptftests
     ptf_test_params:
       - testbed_type='{{testbed_type}}'
       - router_mac='{{ansible_Ethernet0['macaddress']}}'
