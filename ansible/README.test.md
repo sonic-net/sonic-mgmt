@@ -121,3 +121,11 @@ ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags 
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags pfc_wd --extra-vars "testbed_type={TESTBED_TYPE}"
 ```
 PFC WD test assumes that Fanout switch has [PFC generator](https://github.com/marian-pritsak/pfctest/blob/master/pfctest.py) available.
+
+### BGP multipath relax test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags bgp_multipath_relax --extra-vars "testbed_type={TESTBED_TYPE}"
+```
+This test only works for T1 related topologies(t1, t1-lag, ...) 
+You might need to redeploy your VMs before you run this test due to the change for ToR VM router configuration changes
+`./testbed-cli.sh config-vm your-topo-name(vms1-1) your-vm-name(VM0108)` will do this for you
