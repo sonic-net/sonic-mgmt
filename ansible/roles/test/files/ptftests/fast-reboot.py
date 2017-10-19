@@ -699,7 +699,7 @@ class FastReloadTest(BaseTest):
 
         self.log("How many packets were received back when control plane was down: %d Expected: %d" % (no_cp_replies, self.nr_vl_pkts))
 
-        has_info = all(len(info) > 0 for info in self.info.values())
+        has_info = any(len(info) > 0 for info in self.info.values())
         if has_info:
             self.log("-"*50)
             self.log("Additional info:")
