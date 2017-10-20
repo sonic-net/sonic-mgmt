@@ -16,13 +16,13 @@
       become: true
       shell: grub-editenv /host/grub/grubenv set next_entry=ONIE
 
-    - name: Reboot into ONIE 
+    - name: Reboot into ONIE
       become: true
       shell: sleep 2 && shutdown -r now "Boot into onie."
       async: 1
       poll: 0
       ignore_errors: true
-    
+
     - set_fact:
         real_ansible_host: "{{ ansible_ssh_host }}"
 
@@ -59,3 +59,8 @@
 
     - name: Wait for the SONiC initialization process
       pause: seconds=60
+
+    - name: Set all bgp interfaces admin-up
+      become: true
+      shell: config bgp startup all
+
