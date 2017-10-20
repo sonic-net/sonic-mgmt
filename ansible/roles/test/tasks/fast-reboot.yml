@@ -117,6 +117,10 @@
         - arista_vms=\"{{ vm_hosts }}\"
 
   always:
+    - name: Copy test results from ptf to the local box /tmp/fast-reboot.log
+      fetch: src='/tmp/fast-reboot.log' dest='/tmp' flat=true
+      delegate_to: "{{ ptf_host }}"
+
     - name: Remove existing ip from ptf host
       script: roles/test/files/helpers/remove_ip.sh
       delegate_to: "{{ ptf_host }}"
