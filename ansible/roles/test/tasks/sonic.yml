@@ -155,3 +155,17 @@
 - name: ACL test 
   include: acltb.yml
   tags: acl
+
+- name: PFC Watchdog test
+  include: pfc_wd.yml
+  tags: pfc_wd
+
+### when calling this test, please add command line of testbed_type 
+### -e testbed_type=t1
+- name: BGP multipath relax
+  include: bgp_multipath_relax.yml
+  tags: bgp_multipath_relax
+
+- name: neighbor mac change test without using ptf
+  include: neighbour-mac-noptf.yml
+  tags: neighbour_mac_noptf

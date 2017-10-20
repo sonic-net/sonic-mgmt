@@ -2,9 +2,6 @@
 # Test run example:
 # ansible-playbook -i inventory --limit arc-switch1027 test_sonic.yml -b -e "ptf_host=ptf-1" --tags neighbour
 
-- name: Add a new test to test SONiC kernel change neighbor mac address, no ptf neighbor requried
-  include: neighbour-mac-noptf.yml 
-
 - set_fact:
     host_if: eth0
     dut_if: Ethernet0

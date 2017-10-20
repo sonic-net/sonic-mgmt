@@ -93,16 +93,16 @@ def main():
         argument_spec=dict(),
         supports_check_mode=False)
 
-    rt, out, err = module.run_command("ip neigh")
-    if rt != 0:
-        self.module.fail_json(msg="Command 'ip neigh' failed rc=%d, out=%s, err=%s" %(rt, out, err))
-
-    arp_tbl = parse_arptable(out)
-
-    if arp_tbl == None:
-        self.module.fail_json(msg="Parse arp table failed??")
-
-    module.exit_json(changed=False, ansible_facts={'arptable':arp_tbl})
+    try:
+        rt, out, err = module.run_command("ip neigh")
+        if rt != 0:
+            self.module.fail_json(msg="Command 'ip neigh' failed rc=%d, out=%s, err=%s" %(rt, out, err))
+            return
+        arp_tbl = parse_arptable(out)
+        module.exit_json(changed=False, ansible_facts={'arptable':arp_tbl})
+    except Exception as e:
+        err_msg = "Parse ip neigh table failed! " + str(e)
+        self.module.fail_json(msg=err_msg)
 
 if __name__ == "__main__":
     main()
