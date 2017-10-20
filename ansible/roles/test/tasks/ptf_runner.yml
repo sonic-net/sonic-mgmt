@@ -39,9 +39,9 @@
   when: ptf_host is not defined
 
 - name: "PTF Test - {{ ptf_test_name }}"
-  debug: msg="ptf --test-dir {{ ptf_test_dir }} {{ ptf_test_path }} {% if ptf_qlen is defined %} --qlen={{ ptf_qlen }} {% endif %} --platform {{ ptf_platform }} {% if ptf_test_params is defined %} -t \"{{ ptf_test_params | default([]) | join(';') }}\" {% endif %} {{ ptf_extra_options | default(\"\")}} --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre 2>&1"
+  debug: msg="ptf --test-dir {{ ptf_test_dir }} {{ ptf_test_path }} {% if ptf_qlen is defined %} --qlen={{ ptf_qlen }} {% endif %} {% if ptf_platform_dir is defined %} --platform-dir {{ ptf_platform_dir }} {% endif %} --platform {{ ptf_platform }} {% if ptf_test_params is defined %} -t \"{{ ptf_test_params | default([]) | join(';') }}\" {% endif %} {{ ptf_extra_options | default(\"\")}} --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre 2>&1"
 
-- shell: ptf --test-dir {{ ptf_test_dir }} {{ ptf_test_path }} {% if ptf_qlen is defined %} --qlen={{ ptf_qlen }} {% endif %} --platform {{ ptf_platform }} {% if ptf_test_params is defined %} -t "{{ ptf_test_params | default([]) | join(';') }}" {% endif %} {{ ptf_extra_options | default("")}} --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre 2>&1
+- shell: ptf --test-dir {{ ptf_test_dir }} {{ ptf_test_path }} {% if ptf_qlen is defined %} --qlen={{ ptf_qlen }} {% endif %} {% if ptf_platform_dir is defined %} --platform-dir {{ ptf_platform_dir }} {% endif %} --platform {{ ptf_platform }} {% if ptf_test_params is defined %} -t "{{ ptf_test_params | default([]) | join(';') }}" {% endif %} {{ ptf_extra_options | default("")}} --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre 2>&1
   args:
     chdir: /root
   delegate_to: "{{ ptf_host }}"

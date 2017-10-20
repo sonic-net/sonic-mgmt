@@ -70,7 +70,7 @@
     ptf_test_dir: ptftests
     ptf_test_path: IP_decap_test.DecapPacketTest
     ptf_platform: remote
-    ptf_extra_options: --platform-dir ptftests
+    ptf_platform_dir: ptftests
     ptf_test_params:
       - testbed_type='{{ testbed_type }}'
       - fib_info='/root/fib_info.txt'
