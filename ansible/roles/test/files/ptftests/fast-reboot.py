@@ -489,6 +489,7 @@ class FastReloadTest(BaseTest):
         self.log("From server dst addr: %s" % self.from_server_dst_addr)
         self.log("From server dst ports: %s" % self.from_server_dst_ports)
         self.log("From upper layer number of packets: %d" % self.nr_vl_pkts)
+        self.log("VMs: %s" % str(self.test_params['arista_vms']))
 
         self.dataplane = ptf.dataplane_instance
         for p in self.dataplane.ports.values():
@@ -612,7 +613,14 @@ class FastReloadTest(BaseTest):
         no_routing_stop = None
 
         arista_vms = self.test_params['arista_vms'][1:-1].split(",")
-        ssh_targets = [vm[1:-1] for vm in arista_vms]
+        ssh_targets = []
+        for vm in arista_vms:
+            if (vm.startswith("'") or vm.startswith('"')) and (vm.endswith("'") or vm.endswith('"')):
+                ssh_targets.append(vm[1:-1])
+            else:
+                ssh_targets.append(vm)
+
+        self.log("Converted addresses VMs: %s" % str(ssh_targets))
 
         self.ssh_jobs = []
         for addr in ssh_targets:
