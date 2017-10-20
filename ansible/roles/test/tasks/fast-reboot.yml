@@ -113,6 +113,7 @@
         - dut_mac='{{ ansible_Ethernet0['macaddress'] }}'
         - default_ip_range='192.168.0.0/16'
         - vlan_ip_range=\"{{ minigraph_vlan_interfaces[0]['subnet'] }}\"
+        - lo_v6_prefix=\"{{ minigraph_lo_interfaces | map(attribute='addr') | ipv6 | first | ipsubnet(64) }}\"
         - arista_vms=\"{{ vm_hosts }}\"
 
   always:
