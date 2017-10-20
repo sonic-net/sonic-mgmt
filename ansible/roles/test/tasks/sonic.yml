@@ -165,3 +165,7 @@
 - name: BGP multipath relax
   include: bgp_multipath_relax.yml
   tags: bgp_multipath_relax
+
+- name: neighbor mac change test without using ptf
+  include: neighbour-mac-noptf.yml
+  tags: neighbour_mac_noptf
