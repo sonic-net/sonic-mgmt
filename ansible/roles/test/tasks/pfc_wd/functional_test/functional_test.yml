@@ -1,0 +1,348 @@
+- conn_graph_facts: host={{ peer_device }}
+  connection: local
+
+- name: Prepare variables required for PFC test
+  set_fact:
+    pfc_queue_index: 4
+    pfc_frames_number: 100000
+    pfc_fanout_interface: "{{neighbors[pfc_wd_test_port]['peerport']}}"
+    peer_hwsku: "{{device_info['HwSku']}}"
+    testname: functional_test
+    config_files:
+      - pfc_wd_drp_action.json
+      - pfc_wd_fwd_action.json
+      - pfc_wd_timer.json
+      - pfc_wd_del_action.json
+
+- set_fact: pfc_wd_test_neighbor_addr="{{((minigraph_bgp|selectattr('peer_addr', 'equalto', pfc_wd_test_port_addr))|list)[0]['addr']}}"
+- set_fact: pfc_wd_rx_neighbor_addr="{{((minigraph_bgp|selectattr('peer_addr', 'equalto', pfc_wd_rx_port_addr))|list)[0]['addr']}}"
+
+- set_fact:
+      peer_login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+
+- set_fact:
+      pfc_wd_storm_template: pfc_storm_mlnx.j2
+  when: peer_hwsku == "MLNX-OS"
+
+- name: Set timers
+  set_fact:
+      pfc_wd_detect_time: 200
+      pfc_wd_restore_time: 200
+      pfc_wd_restore_time_large: 30000
+
+- name: Generate config file for drop action.
+  vars:
+      pfc_wd_interface_list: "{{ pfc_wd_test_port }}"
+      pfc_wd_action: drop
+      pfc_wd_detection_time: "{{ pfc_wd_detect_time }}"
+      pfc_wd_restoration_time: "{{ pfc_wd_restore_time_large }}"
+      pfc_wd_op: SET
+  template:
+      src: "{{ pfc_wd_template }}"
+      dest: "{{ tests_location }}/{{testname}}/pfc_wd_drp_action.json"
+  connection: local
+  become: false
+
+- name: Generate config file for timers verification.
+  vars:
+      pfc_wd_interface_list: "{{ pfc_wd_test_port }}"
+      pfc_wd_action: drop
+      pfc_wd_detection_time: "{{ pfc_wd_detect_time }}"
+      pfc_wd_restoration_time: "{{ pfc_wd_restore_time }}"
+      pfc_wd_op: SET
+  template:
+      src: "{{ pfc_wd_template }}"
+      dest: "{{ tests_location }}/{{testname}}/pfc_wd_timer.json"
+  connection: local
+  become: false
+
+- name: Generate config file for forward action.
+  vars:
+      pfc_wd_interface_list: "{{ pfc_wd_test_port }}"
+      pfc_wd_action: forward
+      pfc_wd_detection_time: "{{ pfc_wd_detect_time }}"
+      pfc_wd_restoration_time: "{{ pfc_wd_restore_time_large }}"
+      pfc_wd_op: SET
+  template:
+      src: "{{ pfc_wd_template }}"
+      dest: "{{ tests_location }}/{{testname}}/pfc_wd_fwd_action.json"
+  connection: local
+  become: false
+
+- name: Generate config file for config removal.
+  vars:
+      pfc_wd_interface_list: "{{ pfc_wd_test_port }}"
+      pfc_wd_action: drop
+      pfc_wd_detection_time: "{{ pfc_wd_detect_time }}"
+      pfc_wd_restoration_time: "{{ pfc_wd_restore_time_large }}"
+      pfc_wd_op: DEL
+  template:
+      src: "{{ pfc_wd_template }}"
+      dest: "{{ tests_location }}/{{testname}}/pfc_wd_del_action.json"
+  connection: local
+  become: false
+
+- name: Initialize config test
+  include: roles/test/tasks/init_config_test.yml
+
+- name: copy the test to ptf container
+  copy: src=roles/test/files/ptftests dest=/root
+  delegate_to: "{{ ptf_host }}"
+
+# Verify proper function of drop action
+- block:
+    - name: Apply drop config to {{ pfc_wd_test_port }}.
+      vars:
+        config_file: pfc_wd_drp_action.json
+        errors_expected: false
+        run_cleanup: false
+      include: roles/test/tasks/run_config_test.yml
+
+    - set_fact:
+        test_expect_file: "expect_pfc_wd_detect"
+
+    - name: Initialize loganalyzer
+      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+    - name: Generate PFC storm on fanout switch
+      action: apswitch template="{{pfc_wd_storm_template}}"
+      args:
+        host: "{{peer_device}}"
+        login: "{{peer_login}}"
+      connection: switch
+
+    - name: Check if logs contain message that PFC WD detected deadlock
+      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+
+    - name: Check if logs contain message that PFC WD detected deadlock
+      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+
+    - name: "Send 10K packets to {{pfc_wd_test_port}}"
+      include: roles/test/tasks/ptf_runner.yml
+      vars:
+        ptf_test_name: PFC WD test
+        ptf_test_dir: ptftests
+        ptf_test_path: pfc_wd.PfcWdTest
+        ptf_platform: remote
+        ptf_test_params:
+          - testbed_type='{{testbed_type}}'
+          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - queue_index='{{pfc_queue_index}}'
+          - pkt_count='10000'
+          - port_src='{{pfc_wd_rx_port_id}}'
+          - ip_src='{{pfc_wd_rx_neighbor_addr}}'
+          - ip_dst='{{pfc_wd_test_neighbor_addr}}'
+          - wd_action='drop'
+        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{ansible_date_time.iso8601}}.log "
+
+    - name: "Send 10K packets to {{pfc_wd_test_port}} to verify that other queue is not affected"
+      include: roles/test/tasks/ptf_runner.yml
+      vars:
+        ptf_test_name: PFC WD test
+        ptf_test_dir: ptftests
+        ptf_test_path: pfc_wd.PfcWdTest
+        ptf_platform: remote
+        ptf_test_params:
+          - testbed_type='{{testbed_type}}'
+          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - queue_index='{{pfc_queue_index - 1}}'
+          - pkt_count='10000'
+          - port_src='{{pfc_wd_rx_port_id}}'
+          - ip_src='{{pfc_wd_rx_neighbor_addr}}'
+          - ip_dst='{{pfc_wd_test_neighbor_addr}}'
+          - wd_action='forward'
+        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{ansible_date_time.iso8601}}.log "
+
+
+    - set_fact:
+        test_expect_file: "expect_pfc_wd_restore"
+
+    - name: Initialize loganalyzer
+      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+    - name: Wait for queue to recover from PFC storm
+      pause:
+        seconds: "{{(pfc_wd_restore_time_large / 1000 * 2) | int}}"
+
+    - name: Check if logs contain message that PFC WD restored from deadlock
+      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+
+    - name: Check if logs contain message that PFC WD restored from deadlock
+      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+
+  rescue:
+    - name: Remove all temporary files from local host.
+      file:
+        name: "{{ tests_location }}/functional_test/{{ item }}"
+        state: absent
+      with_items: "{{ config_files }}"
+      connection: local
+      become: false
+
+  always:
+    - name: Delete drop config from {{ pfc_wd_test_port }}.
+      vars:
+        config_file: pfc_wd_del_action.json
+        errors_expected: false
+        run_cleanup: false
+      include: roles/test/tasks/run_config_test.yml
+    - name: Remove all the temporary files created by the test.
+      include: roles/test/tasks/deinit_config_test.yml
+
+# Verify proper function of forward action
+- name: Initialize config test
+  include: roles/test/tasks/init_config_test.yml
+
+- block:
+    - name: Apply forward config to {{ pfc_wd_test_port }}.
+      vars:
+        config_file: pfc_wd_fwd_action.json
+        errors_expected: false
+        run_cleanup: false
+      include: roles/test/tasks/run_config_test.yml
+
+    - set_fact:
+        test_expect_file: "expect_pfc_wd_detect"
+
+    - name: Initialize loganalyzer
+      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+    - name: Generate PFC storm on fanout switch
+      action: apswitch template="{{pfc_wd_storm_template}}"
+      args:
+        host: "{{peer_device}}"
+        login: "{{peer_login}}"
+      connection: switch
+
+    - name: Check if logs contain message that PFC WD detected deadlock
+      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+
+    - name: Check if logs contain message that PFC WD detected deadlock
+      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+
+    - name: "Send 10K packets to {{pfc_wd_test_port}}"
+      include: roles/test/tasks/ptf_runner.yml
+      vars:
+        ptf_test_name: PFC WD test
+        ptf_test_dir: ptftests
+        ptf_test_path: pfc_wd.PfcWdTest
+        ptf_platform: remote
+        ptf_test_params:
+          - testbed_type='{{testbed_type}}'
+          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - queue_index='{{pfc_queue_index}}'
+          - pkt_count='10000'
+          - port_src='{{pfc_wd_rx_port_id}}'
+          - ip_src='{{pfc_wd_rx_neighbor_addr}}'
+          - ip_dst='{{pfc_wd_test_neighbor_addr}}'
+          - wd_action='forward'
+        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{ansible_date_time.iso8601}}.log "
+
+    - set_fact:
+        test_expect_file: "expect_pfc_wd_restore"
+
+    - name: Initialize loganalyzer
+      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+    - name: Wait for queue to recover from PFC storm
+      pause:
+        seconds: "{{(pfc_wd_restore_time_large / 1000 * 2) | int}}"
+
+    - name: Check if logs contain message that PFC WD restored from deadlock
+      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+
+    - name: Check if logs contain message that PFC WD restored from deadlock
+      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+
+  rescue:
+    - name: Remove all temporary files from local host.
+      file:
+        name: "{{ tests_location }}/functional_test/{{ item }}"
+        state: absent
+      with_items: "{{ config_files }}"
+      connection: local
+      become: false
+
+  always:
+    - name: Delete forward config from {{ pfc_wd_test_port }}.
+      vars:
+        config_file: pfc_wd_del_action.json
+        errors_expected: false
+        run_cleanup: false
+      include: roles/test/tasks/run_config_test.yml
+    - name: Remove all the temporary files created by the test.
+      include: roles/test/tasks/deinit_config_test.yml
+
+# Verify timers
+- name: Initialize config test
+  include: roles/test/tasks/init_config_test.yml
+
+- block:
+    - name: Apply config with proper timers to {{ pfc_wd_test_port }}.
+      vars:
+        config_file: pfc_wd_timer.json
+        errors_expected: false
+        run_cleanup: false
+      include: roles/test/tasks/run_config_test.yml
+
+    - name: Enable routing from mgmt interface to localhost
+      sysctl:
+        name: net.ipv4.conf.eth0.route_localnet=1
+        value: 1
+        sysctl_set: yes
+
+      # Cannot use iptables module, because it does not support to_destination in 2.0
+    - name: Add iptables rule to forward syslog packets from mgmt interface to localhost
+      shell: "iptables -t nat -I PREROUTING -p udp -d {{ansible_eth0['ipv4']['address']}} --dport 514 -j DNAT --to-destination 127.0.0.1:514"
+
+    - set_fact:
+        detect_time_list: []
+        restore_time_list: []
+
+    - name: Calculate detection and restoration timings
+      include: roles/test/tasks/pfc_wd/functional_test/timer_test.yml
+      with_sequence: start=1 end=3
+
+    - debug:
+        var: "{{item}}"
+      with_items: 
+        - detect_time_list
+        - restore_time_list
+
+    # XXX Change X2 value to polling period
+    - name: Verify that real detection time is not greater than configured X2
+      fail:
+        msg: Real detection time is greater than configured X2
+      when: "{{(detect_time_list | sum) / 3 > pfc_wd_detect_time * 2}}"
+
+    - name: Verify that real detection time is not less than configured
+      fail:
+        msg: Real detection time is less than configured
+      when: "{{(detect_time_list | sum) / 3 < pfc_wd_detect_time}}"
+
+    - name: Verify that real restoration time is not less than configured
+      fail:
+        msg: Real restoration time is less than configured
+      when: "{{(restore_time_list | sum) / 3 < pfc_wd_restore_time }}"
+
+    - name: Verify that real restoration time is less than configured X2
+      fail:
+        msg: Real restoration time is greater than configured X2
+      when: "{{(restore_time_list | sum) / 3 > pfc_wd_restore_time * 2 }}"
+
+  always:
+    - name: Delete forward config from {{ pfc_wd_test_port }}.
+      vars:
+        config_file: pfc_wd_del_action.json
+        errors_expected: false
+        run_cleanup: false
+      include: roles/test/tasks/run_config_test.yml
+    - name: Remove all the temporary files created by the test.
+      include: roles/test/tasks/deinit_config_test.yml
+    - name: Remove all temporary files from local host.
+      file:
+        name: "{{ tests_location }}/functional_test/{{ item }}"
+        state: absent
+      with_items: "{{ config_files }}"
+      connection: local
+      become: false

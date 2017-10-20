@@ -219,7 +219,7 @@
 {% set dev_type = 'Unknown' %}
 {% endif %}
       <Device i:type="{{ dev_type }}">
-         <Hostname>"{{ dev }}"</Hostname>
+         <Hostname>{{ dev }}</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>{{ neighbor_eosvm_mgmt[dev] }}</a:IPPrefix>

@@ -1,0 +1,19 @@
+- set_fact:
+    pfc_wd_available_port_ids: "{{range(16) | list | shuffle}}"
+  when: testbed_type == "t1-lag"
+
+- set_fact:
+    pfc_wd_available_port_ids: "{{range(32) | list | shuffle}}"
+  when: testbed_type == "t1"
+
+- set_fact:
+    pfc_wd_test_port_id: "{{pfc_wd_available_port_ids[0]}}"
+    pfc_wd_rx_port_id: "{{pfc_wd_available_port_ids[1]}}"
+
+- set_fact:
+    pfc_wd_test_port: "Ethernet{{(pfc_wd_test_port_id | int) * 4}}"
+    pfc_wd_rx_port: "Ethernet{{(pfc_wd_rx_port_id | int) * 4}}"
+
+- set_fact:
+    pfc_wd_test_port_addr: "{{ansible_interface_facts[pfc_wd_test_port]['ipv4']['address']}}"
+    pfc_wd_rx_port_addr: "{{ansible_interface_facts[pfc_wd_rx_port]['ipv4']['address']}}"

@@ -289,6 +289,11 @@ configuration:
       Port-Channel1:
         ipv4: 10.0.0.37/31
         ipv6: fc00::4a/126
+      vips:
+        ipv4: 
+          prefixes:
+            - 200.0.1.0/26
+          asn: 64700
 
   ARISTA04T0:
     properties:
@@ -337,6 +342,11 @@ configuration:
       Port-Channel1:
         ipv4: 10.0.0.41/31
         ipv6: fc00::52/126
+      vips:
+        ipv4: 
+          prefixes:
+            - 200.0.1.0/26
+          asn: 64700
 
   ARISTA06T0:
     properties:

@@ -32,8 +32,20 @@ ip route 172.16.{{ tornum }}.{{ subnet }}/32 {{ props.nhipv4 }}
 ipv6 route 20AC:10{{ '%02X' % tornum }}:0:{{ '%02X' % subnet }}::/64 {{ props.nhipv6 }}
 {% endfor %}
 {% if 'vips' in host %}
-{% for subnet in host['vips']['ipv4'] %}
+{% for subnet in host['vips']['ipv4']['prefixes'] %}
 ip route {{ subnet }} {{ props.nhipv4 }}
+{% endfor %}
+{% set index = 1 %}
+{% for subnet in host['vips']['ipv4']['prefixes'] %}
+ip prefix-list test_vip_{{ index }} seq 1{{ index }} permit {{ subnet }}
+{% set index = index + 1 %}
+{% endfor %}
+{% set index = 1 %}
+{% for subnet in host['vips']['ipv4']['prefixes'] %}
+route-map PREPENDAS permit 2{{ index }}
+ match ip address prefix-list test_vip_{{ index }}
+ set as-path prepend {{ host['vips']['ipv4']['asn'] }}
+{% set index = index + 1 %}
 {% endfor %}
 {% endif %}
 !
@@ -76,6 +88,9 @@ router bgp {{ host['bgp']['asn'] }}
 {% endfor %}
 {% endfor %}
  !
+{% if 'vips' in host %}
+redistribute static route-map PREPENDAS
+{% endif %}
 {% for name, iface in host['interfaces'].items() if name.startswith('Loopback') %}
 {% if iface['ipv4'] is defined %}
  network {{ iface['ipv4'] }}
@@ -88,11 +103,6 @@ router bgp {{ host['bgp']['asn'] }}
  network 172.16.{{ tornum }}.{{ subnet }}/32
  network 20AC:10{{ '%02X' % tornum }}:0:{{ '%02X' % subnet }}::/64
 {% endfor %}
-{% if 'vips' in host %}
-{% for subnet in host['vips']['ipv4'] %}
- network {{ subnet }}
-{% endfor %}
-{% endif %}
 !
 management api http-commands
  no protocol https
@@ -100,4 +110,3 @@ management api http-commands
  no shutdown
 !
 end
-

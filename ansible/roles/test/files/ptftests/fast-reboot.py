@@ -73,6 +73,7 @@ class Arista(object):
         self.v4_routes = [test_params['vlan_ip_range'], test_params['lo_prefix']]
         self.v6_routes = [test_params['lo_v6_prefix']]
         self.fails = set()
+        self.info = set()
         self.min_bgp_gr_timeout = int(test_params['min_bgp_gr_timeout'])
 
     def __del__(self):
@@ -158,10 +159,10 @@ class Arista(object):
                     'show lacp neighbor' : lacp_output,
                     'show ip bgp neighbors' : bgp_neig_output,
                     'show ip route bgp' : bgp_route_v4_output,
-                    'show ipv6 route bgp' : bgp_route_v4_output,
+                    'show ipv6 route bgp' : bgp_route_v6_output,
                 }
 
-        attempts = 15
+        attempts = 60
         for _ in range(attempts):
             log_output = self.do_cmd("show log | begin %s" % log_first_line)
             log_lines = log_output.split("\r\n")[1:-1]
@@ -169,6 +170,9 @@ class Arista(object):
             if len(log_data) != 0:
                 break
             time.sleep(1) # wait until logs are populated
+
+        if len(log_data) == 0:
+            log_data['error'] = 'Incomplete output'
 
         self.disconnect()
 
@@ -189,7 +193,7 @@ class Arista(object):
         cli_data['bgp_v4'] = self.check_series_status(data, "bgp_route_v4", "BGP v4 routes")
         cli_data['bgp_v6'] = self.check_series_status(data, "bgp_route_v6", "BGP v6 routes")
 
-        return self.fails, cli_data, log_data
+        return self.fails, self.info, cli_data, log_data
 
     def extract_from_logs(self, regexp, data):
         raw_data = []
@@ -346,7 +350,7 @@ class Arista(object):
         is_down_count = len(res[False])
 
         if is_down_count > 1:
-            self.fails.add("%s must be down just for once" % what)
+            self.info.add("%s must be down just for once" % what)
 
         return is_down_count, sum(res[False]) # summary_downtime
 
@@ -355,6 +359,7 @@ class FastReloadTest(BaseTest):
     def __init__(self):
         BaseTest.__init__(self)
         self.fails = {}
+        self.info = {}
         self.cli_info = {}
         self.logs_info = {}
         self.log_fp = open('/tmp/fast-reboot.log', 'w')
@@ -694,6 +699,16 @@ class FastReloadTest(BaseTest):
 
         self.log("How many packets were received back when control plane was down: %d Expected: %d" % (no_cp_replies, self.nr_vl_pkts))
 
+        has_info = all(len(info) > 0 for info in self.info.values())
+        if has_info:
+            self.log("-"*50)
+            self.log("Additional info:")
+            self.log("-"*50)
+            for name, info in self.info.items():
+                for entry in info:
+                    self.log("INFO:%s:%s" % (name, entry))
+            self.log("-"*50)
+
         is_good = all(len(fails) == 0 for fails in self.fails.values())
 
         errors = ""
@@ -751,7 +766,7 @@ class FastReloadTest(BaseTest):
 
     def peer_state_check(self, ip, queue):
         ssh = Arista(ip, queue, self.test_params)
-        self.fails[ip], self.cli_info[ip], self.logs_info[ip] = ssh.run()
+        self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip] = ssh.run()
 
     def check_forwarding_stop(self):
         return self.iteration(True)

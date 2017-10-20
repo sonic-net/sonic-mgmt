@@ -620,3 +620,52 @@ sensors_checks:
       temp: []
 
     psu_skips: {}
+
+  Arista-7260CX3-D108C8:
+    alarms:
+      fan:
+      - pmbus-i2c-3-58/fan1/fan1_alarm
+      - pmbus-i2c-3-58/fan1/fan1_fault
+      - pmbus-i2c-4-58/fan1/fan1_alarm
+      - pmbus-i2c-4-58/fan1/fan1_fault
+      power:
+      - pmbus-i2c-3-58/vout1/in2_crit_alarm
+      - pmbus-i2c-3-58/vout1/in2_lcrit_alarm
+      - pmbus-i2c-4-58/vout1/in2_crit_alarm
+      - pmbus-i2c-4-58/vout1/in2_lcrit_alarm
+      temp: []
+
+    compares:
+      fan: []
+      power: []
+      temp: []
+
+    non_zero:
+      fan:
+      - pmbus-i2c-3-58/fan1/fan1_input
+      - pmbus-i2c-4-58/fan1/fan1_input
+      power:
+      - pmbus-i2c-3-58/vout1/in2_input
+      - pmbus-i2c-4-58/vout1/in2_input
+      - pmbus-i2c-74-4e/vout1/in1_input
+      - pmbus-i2c-74-4e/vout2/in2_input
+      - pmbus-i2c-74-4e/vout3/in3_input
+      - pmbus-i2c-74-4e/vout4/in4_input
+      - pmbus-i2c-74-4e/vout5/in5_input
+      - pmbus-i2c-74-4e/vout6/in6_input
+      - pmbus-i2c-74-4e/vout7/in7_input
+      - pmbus-i2c-74-4e/vout8/in8_input
+      - pmbus-i2c-74-4e/vout9/in9_input
+      - pmbus-i2c-74-4e/vout10/in10_input
+      - pmbus-i2c-74-4e/vout11/in11_input
+      - pmbus-i2c-74-4e/vout12/in12_input
+      - pmbus-i2c-74-4e/vout13/in13_input
+      - pmbus-i2c-74-4e/vout14/in14_input
+      - pmbus-i2c-74-4e/vout15/in15_input
+      - pmbus-i2c-74-4e/vout16/in16_input
+      temp:
+      - coretemp-isa-0000/Physical id 0/temp1_input
+      - coretemp-isa-0000/Core 0/temp2_input
+      - coretemp-isa-0000/Core 1/temp3_input
+
+    psu_skips: {}
