@@ -98,6 +98,8 @@ class FibTest(BaseTest):
             self.src_ports = range(1, 25) + range(28, 32)
         if self.test_params['testbed_type'] == 't0-64':
             self.src_ports = range(0, 2) + range(4, 18) + range(20, 33) + range(36, 43) + range(48, 49) + range(52, 59)
+        if self.test_params['testbed_type'] == 't0-116':
+            self.src_ports = range(0, 17) + [18] + range(20,44) + range(52, 64)
     #---------------------------------------------------------------------
 
     def check_ip_range(self, ipv4=True):
