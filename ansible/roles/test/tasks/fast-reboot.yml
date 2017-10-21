@@ -118,7 +118,7 @@
 
   always:
     - name: Copy test results from ptf to the local box /tmp/fast-reboot.log
-      fetch: src='/tmp/fast-reboot.log' dest='/tmp' flat=true
+      fetch: src='/tmp/fast-reboot.log' dest='/tmp/' flat=true fail_on_missing=false
       delegate_to: "{{ ptf_host }}"
 
     - name: Remove existing ip from ptf host
