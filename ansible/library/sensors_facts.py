@@ -16,7 +16,7 @@ description:
     - Recognized alarms will be inserted to the 'alarms' key.
     - 'alarm' key will be set to True if the device has any alarm situation.
     - If there's only one PSU on the device, 'warning' is set to True and 'warnings' have a message about it. 
-
+    - sensors data: group_vars/sonic/sku-sensors/data.yml
 '''
 
 EXAMPLES = '''
