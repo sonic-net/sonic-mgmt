@@ -100,8 +100,8 @@
         ptf_test_dir: ptftests
         ptf_test_path: fast-reboot.FastReloadTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_qlen: 1000
-        ptf_extra_options: --platform-dir ptftests
         ptf_test_params:
         - verbose=False
         - dut_username=\"{{ ansible_ssh_user }}\"
