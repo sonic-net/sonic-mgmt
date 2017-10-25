@@ -1,13 +1,5 @@
 [
     {
-        "BUFFER_POOL_TABLE:ingress_lossless_pool": {
-            "size": "3024486",
-            "type": "ingress",
-            "mode": "dynamic"
-        },
-        "OP": "SET"
-    },
-    {
         "BUFFER_POOL_TABLE:ingress_lossy_pool": {
             "size": "6422528",
             "type": "ingress",
@@ -297,7 +289,7 @@
 
     {
         "BUFFER_PROFILE_TABLE:pg_lossless_100G_300m_profile": {
-            "pool":"[BUFFER_POOL_TABLE:ingress_lossless_pg_pool]",
+            "pool":"[BUFFER_POOL_TABLE:ingress_lossless_pool]",
             "xon":"18432",
             "xoff":"165888",
             "size":"184320",
@@ -306,8 +298,8 @@
         "OP": "SET"
     },
     {
-        "BUFFER_POOL_TABLE:ingress_lossless_pg_pool": {
-            "size": "5898240",
+        "BUFFER_POOL_TABLE:ingress_lossless_pool": {
+            "size": "6764966",
             "type": "ingress",
             "mode": "dynamic"
         },

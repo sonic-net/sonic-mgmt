@@ -1510,224 +1510,224 @@
         </ManagementAddress>
       </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA01T0"</Hostname>
+         <Hostname>ARISTA01T0</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.112</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="Server">
-         <Hostname>"ARISTA01T2"</Hostname>
+         <Hostname>ARISTA01T2</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.96</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA02T0"</Hostname>
+         <Hostname>ARISTA02T0</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.113</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="Server">
-         <Hostname>"ARISTA02T2"</Hostname>
+         <Hostname>ARISTA02T2</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.97</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA03T0"</Hostname>
+         <Hostname>ARISTA03T0</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.114</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="Server">
-         <Hostname>"ARISTA03T2"</Hostname>
+         <Hostname>ARISTA03T2</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.98</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA04T0"</Hostname>
+         <Hostname>ARISTA04T0</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.115</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="Server">
-         <Hostname>"ARISTA04T2"</Hostname>
+         <Hostname>ARISTA04T2</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.99</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA05T0"</Hostname>
+         <Hostname>ARISTA05T0</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.116</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="Server">
-         <Hostname>"ARISTA05T2"</Hostname>
+         <Hostname>ARISTA05T2</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.100</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA06T0"</Hostname>
+         <Hostname>ARISTA06T0</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.117</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="Server">
-         <Hostname>"ARISTA06T2"</Hostname>
+         <Hostname>ARISTA06T2</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.101</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA07T0"</Hostname>
+         <Hostname>ARISTA07T0</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.118</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA07T2"</Hostname>
+         <Hostname>ARISTA07T2</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.102</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA08T0"</Hostname>
+         <Hostname>ARISTA08T0</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.119</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA08T2"</Hostname>
+         <Hostname>ARISTA08T2</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.103</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA09T0"</Hostname>
+         <Hostname>ARISTA09T0</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.120</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA09T2"</Hostname>
+         <Hostname>ARISTA09T2</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.104</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA10T0"</Hostname>
+         <Hostname>ARISTA10T0</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.121</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA10T2"</Hostname>
+         <Hostname>ARISTA10T2</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.105</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA11T0"</Hostname>
+         <Hostname>ARISTA11T0</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.122</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA11T2"</Hostname>
+         <Hostname>ARISTA11T2</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.106</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA12T0"</Hostname>
+         <Hostname>ARISTA12T0</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.123</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA12T2"</Hostname>
+         <Hostname>ARISTA12T2</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.107</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA13T0"</Hostname>
+         <Hostname>ARISTA13T0</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.124</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA13T2"</Hostname>
+         <Hostname>ARISTA13T2</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.108</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA14T0"</Hostname>
+         <Hostname>ARISTA14T0</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.125</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA14T2"</Hostname>
+         <Hostname>ARISTA14T2</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.109</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA15T0"</Hostname>
+         <Hostname>ARISTA15T0</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.126</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA15T2"</Hostname>
+         <Hostname>ARISTA15T2</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.110</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA16T0"</Hostname>
+         <Hostname>ARISTA16T0</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.127</a:IPPrefix>
          </ManagementAddress>
        </Device>
       <Device i:type="LeafRouter">
-         <Hostname>"ARISTA16T2"</Hostname>
+         <Hostname>ARISTA16T2</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.246.111</a:IPPrefix>
