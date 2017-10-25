@@ -1,0 +1,207 @@
+- name: Init variables.
+  set_fact:
+      ptf_interfaces: []
+      dut_switch_ports: []
+      ptf_lag_interfaces: []
+      dut_switch_lag_members: []
+      ports_info: []
+      ports_ip: []
+      lags_ip: []
+      testing_ptf_interfaces: []
+      xoff_src_ports_ptf_intf: []
+      xoff_src_ports_ip: []
+
+- name: Getting minigraph facts
+  minigraph_facts: host={{ inventory_hostname }}
+  connection: local
+  become: no
+      
+- name: Get PTF interfaces from map
+  set_fact:
+    ptf_interfaces: "{{ ptf_interfaces + [item.split('@')[0]] }}"
+  with_lines: cat 'roles/test/files/mlnx/default_interface_to_front_map.ini'
+  when: "'#' not in item"
+  
+- name: Get switch ports from map
+  set_fact:
+    dut_switch_ports: "{{ dut_switch_ports + [item.split('@')[1]] }}"
+  with_lines: cat 'roles/test/files/mlnx/default_interface_to_front_map.ini'
+  when: "'#' not in item"
+
+- name: Print switch ports and PTF interfaces
+  debug: msg="ptf_interfaces={{ ptf_interfaces }} dut_switch_ports={{ dut_switch_ports }}"
+
+- name: Set ptf LAG interfaces
+  set_fact:
+    ptf_lag_interfaces: "{{ ptf_lag_interfaces + [ (item|replace(\"PortChannel\", \"\")|int / 4)|int ] }}"
+  with_items: "{{ minigraph_portchannels.keys() }}"
+  
+- name: Get switch LAG members
+  set_fact:
+    dut_switch_lag_members: "{{ dut_switch_lag_members + item['members'] }}"
+  with_items: "{{ minigraph_portchannels.values() }}"  
+
+- name: Print LAG members
+  debug: msg="ptf_lag_interfaces={{ ptf_lag_interfaces }} dut_switch_lag_members={{ dut_switch_lag_members }}"
+  
+- name: Set LAG ip addresses
+  set_fact:
+    lags_ip: "{{ lags_ip + [ item[1]['peer_addr'] ] }}"
+  with_nested: 
+    - "{{ minigraph_portchannels.keys() }}"
+    - "{{ minigraph_portchannel_interfaces }}"
+  when:
+    - item[0] in item[1]['attachto']
+    - item[1]['peer_addr']|ipv4   
+  
+- name: Get ports info.
+  set_fact:
+    ports_info: "{{ ports_info + [item[1]] }}"
+  when: item[1]['name'] == minigraph_neighbors[item[0]]['name'] and item[1]['addr']|ipv4
+  with_nested: 
+    - "{{ dut_switch_ports }}"
+    - "{{ minigraph_bgp }}"
+    
+- name: Get IP address for ports
+  set_fact: 
+    ports_ip: "{{ ports_ip + [item['addr']] }}"
+  with_items: "{{ ports_info }}"  
+
+- name: Init testing port count
+  set_fact:
+    testing_ports_count: 0
+    testing_ports_id: []
+
+- name: Find the not lag ports for testing
+  set_fact:
+    testing_ports_id: "{{ testing_ports_id + [item] }}"
+  with_items: "{{ ptf_interfaces }}"
+  when:
+    - dut_switch_ports[item|int] not in dut_switch_lag_members
+    - item != '31' # Only for Mellanox testbed. The last port is used for up link from DUT switch
+ 
+- name: Set DST port ID
+  set_fact:
+    dst_port_id: "{{ testing_ports_id[0] }}"
+
+- name: Set DST port 2 ID
+  set_fact:
+    dst_port_2_id: "{{ testing_ports_id[1] }}"
+    
+- name: Set SRC port ID
+  set_fact:
+    src_port_id: "{{ testing_ports_id[2] }}"
+
+- name: Init SRC ports for XOFF test
+  set_fact:
+    xoff_src_ports_ptf_intf: []
+    xoff_src_ports_ip: []
+  
+- name: Set SRC ports ID for XOFF test
+  set_fact:
+    xoff_src_ports_ptf_intf: "{{ xoff_src_ports_ptf_intf + [item] }}"
+  with_items: "{{ testing_ports_id }}"
+  when: 
+    - "item != '31'" # The last port is user for the feedback from DUT switch 
+    - "item|int != dst_port_id|int"
+    
+- name: Set SRC ports IP addresses for XOFF test
+  set_fact:
+    xoff_src_ports_ip: "{{ xoff_src_ports_ip + [ports_ip[item|int]] }}"
+  with_items: "{{ xoff_src_ports_ptf_intf }}"
+    
+- include: roles/test/tasks/qos_get_max_buff_size.yml
+  vars:
+    target_table: 'BUFFER_PG_TABLE'
+    target_port_name: "{{ dut_switch_ports[dst_port_id|int] }}"
+    target_pg: '3-4'
+    
+- name: Set lossless MAX buffer size
+  set_fact:
+    lossless_buffer_max_size: "{{ buffer_max_size }}"
+    
+- include: roles/test/tasks/qos_get_max_buff_size.yml
+  vars:
+    target_table: 'BUFFER_PG_TABLE'
+    target_port_name: "{{ dut_switch_ports[dst_port_id|int] }}"
+    target_pg: '0-1'
+    
+- name: Set lossy MAX buffer size
+  set_fact:
+    lossy_buffer_max_size: "{{ buffer_max_size }}"
+
+- name: Set lossy headroom size
+  set_fact:
+    lossy_headroom_size: "{{ buffer_headroom.stdout|int }}"
+    
+- include: roles/test/tasks/qos_get_max_buff_size.yml
+  vars:
+    target_table: 'BUFFER_QUEUE_TABLE'
+    target_port_name: "{{ dut_switch_ports[src_port_id|int] }}"
+    target_pg: '3-4'
+    
+- name: Set MAX queue size for {{ dut_switch_ports[src_port_id|int] }}
+  set_fact:
+    lossless_queue_max_size: "{{ buffer_max_size }}"
+
+# !Uncomment below for ECN tests
+
+#- name: Get the WRED profile key for "{{ dut_switch_ports[dst_port_id|int] }}"
+#  shell: docker exec database redis-cli -n 4 KEYS "QUEUE|*{{ dut_switch_ports[dst_port_id|int] }}*|0-1"
+#  register: wred_profile_name
+  
+#- fail:
+#    msg: "Unable to get the wred profile key for {{ dut_switch_ports[dst_port_id|int] }}"
+#  when: wred_profile_name.stdout == ""
+  
+#- name: Parse WRED profile key
+#  set_fact:
+#    wred_profile_name="{{ wred_profile_name.stdout|replace('[','')|replace(']','') }}"
+    
+#- name: Get the WRED profile for "{{ dut_switch_ports[dst_port_id|int] }}"
+#  shell: docker exec database redis-cli -n 4 HGET "{{ wred_profile_name }}" wred_profile
+#  register: wred_profile
+        
+#- fail:
+#    msg: "Unable to get the buffer profile for {{ dut_switch_ports[dst_port_id|int] }}"
+#  when: wred_profile.stdout == ""
+  
+#- name: Parse WRED profile name
+#  set_fact:
+#    wred_profile="{{ wred_profile.stdout|replace('[','')|replace(']','') }}"
+    
+#- name: Get green_max_threshold for {{ dut_switch_ports[dst_port_id|int] }} from {{ wred_profile }}
+#  shell: docker exec database redis-cli -n 4 HGET "{{ wred_profile }}" green_max_threshold
+#  register: green_max_threshold
+  
+#- fail:
+#    msg: "Unable to get the green_max_threshold for {{ dut_switch_ports[dst_port_id|int] }} from {{ wred_profile }}"
+#  when: green_max_threshold.stdout == ""
+  
+#- name: Parse WRED green_max_threshold
+#  set_fact:
+#    green_max_threshold="{{ green_max_threshold.stdout|int }}"
+    
+#- name: Get yellow_max_threshold for {{ dut_switch_ports[dst_port_id|int] }} from {{ wred_profile }}
+#  shell: docker exec database redis-cli -n 4 HGET "{{ wred_profile }}" yellow_max_threshold
+#  register: yellow_max_threshold
+  
+#- fail:
+#    msg: "Unable to get the yellow_max_threshold for {{ dut_switch_ports[dst_port_id|int] }} from {{ wred_profile }}"
+#  when: yellow_max_threshold.stdout == ""
+  
+#- name: Parse WRED yellow_max_threshold
+#  set_fact:
+#    yellow_max_threshold="{{ yellow_max_threshold.stdout|int }}"
+    
+#- name: Get red_max_threshold for {{ dut_switch_ports[dst_port_id|int] }} from {{ wred_profile }}
+#  shell: docker exec database redis-cli -n 4 HGET "{{ wred_profile }}" red_max_threshold
+#  register: red_max_threshold
+  
+#- fail:
+#    msg: "Unable to get the red_max_threshold for {{ dut_switch_ports[dst_port_id|int] }} from {{ wred_profile }}"
+#  when: red_max_threshold.stdout == ""
+  
+#- name: Parse WRED red_max_threshold
+#  set_fact:
+#    red_max_threshold="{{ red_max_threshold.stdout|int }}"
