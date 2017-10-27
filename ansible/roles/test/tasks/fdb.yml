@@ -54,6 +54,7 @@
     ptf_test_dir: ptftests
     ptf_test_path: fdb_test.FdbTest
     ptf_platform: remote
+    ptf_platform_dir: ptftests
     ptf_test_params:
       - testbed_type='{{testbed_type}}'
       - router_mac='{{ansible_Ethernet0['macaddress']}}'
