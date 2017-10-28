@@ -1,6 +1,6 @@
-ifconfig eth{{ '%d' % (minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'][0] | replace("Ethernet", "") | int / 4)}} {{item.phy_ip}}
-ifconfig eth{{ '%d' % (minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'][0] | replace("Ethernet", "") | int / 4)}}:0 {{item.logical_ip_1}}
-ifconfig eth{{ '%d' % (minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'][0] | replace("Ethernet", "") | int / 4)}}:1 {{item.logical_ip_2}}
+ifconfig eth{{ '%d' % (minigraph_port_indices[minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'][0]])}} {{item.phy_ip}}
+ifconfig eth{{ '%d' % (minigraph_port_indices[minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'][0]])}}:0 {{item.logical_ip_1}}
+ifconfig eth{{ '%d' % (minigraph_port_indices[minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'][0]])}}:1 {{item.logical_ip_2}}
 ip route flush {{minigraph_lo_interfaces[0]['addr']}}/{{minigraph_lo_interfaces[0]['prefixlen']}}
 ip route add {{minigraph_lo_interfaces[0]['addr']}}/{{minigraph_lo_interfaces[0]['prefixlen']}} via {{ minigraph_vlan_interfaces[0]['addr']}}
 env exabgp.daemon.user=root exabgp {{exabgp_dir}}/{{item.config_file_1}} >/dev/null 2>&1 &
