@@ -38,11 +38,11 @@
       assert: { that: "'{{ ansible_interface_facts[item]['active'] }}' == 'True'" }
       with_items: "{{ minigraph_ports }}"
       when: item != "{{ intfs_to_exclude }}"
+      connection: local
     
     - name: Verify {{intfs_to_exclude}} is down correctly
-      assert: { that: "'{{ ansible_interface_facts[item]['active'] }}' == 'False'" }
-      with_items: "{{ minigraph_ports }}"
-      when: item == "{{ intfs_to_exclude }}"
+      assert: { that: "'{{ ansible_interface_facts[intfs_to_exclude]['active'] }}' == 'False'" }
+      connection: local
 
   always:
     - name: Bring up neighbor interface {{neighbor_interface}} on {{peer_host}}
@@ -60,3 +60,4 @@
     - name: Verify all interfaces are up
       assert: { that: "'{{ ansible_interface_facts[item]['active'] }}' == 'True'" }
       with_items: "{{ minigraph_ports }}"
+      connection: local
