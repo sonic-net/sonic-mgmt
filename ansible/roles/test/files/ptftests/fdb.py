@@ -1,3 +1,4 @@
+import re
 from ipaddress import ip_address, ip_network
 
 class Fdb():
@@ -6,8 +7,12 @@ class Fdb():
         self._arp_dict = {}
         self._vlan_dict = {}
 
+        # filter out empty lines and lines starting with '#'
+        pattern = re.compile("^#.*$|^[ \t]*$")
+
         with open(file_path, 'r') as f:
             for line in f.readlines():
+                if pattern.match(line): continue
                 entry = line.split(' ', 1)
                 prefix = ip_network(unicode(entry[0]))
                 self._vlan_dict[prefix] = [int(i) for i in entry[1].split()]
