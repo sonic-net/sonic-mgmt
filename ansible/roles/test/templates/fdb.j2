@@ -1,3 +1,7 @@
 {% for vlan in minigraph_vlan_interfaces %}
+{% if testbed_type == 't0-116' %}
+{{ vlan['subnet'] }} {% for n in range(0, 17) %} {{ n }} {% endfor %} 18 {% for n in range(20, 44) %} {{ n }} {% endfor %}{% for n in range(52, 64) %} {{ n }} {% endfor %}
+{% else %}
 {{ vlan['subnet'] }} {% for ifname in minigraph_vlans[vlan['attachto']]['members'] %} {{ minigraph_port_indices[ifname] }} {% endfor %}
+{% endif %}
 {% endfor %}
