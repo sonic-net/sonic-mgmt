@@ -37,5 +37,5 @@ vms7-2,vms72,t1-lag,dcoker-ptf-brcm,10.64.247.8/23,server_7,VM0700,str-s6000-on-
 vms7-3,vms73t0,t0,docker-ptf-brcm,10.64.247.8/23,server_7,VM0700,str-s6000-on-6,masun
 vms7-t0-s6100,vms7-6,t0-64,docker-ptf-brcm,10.64.247.16/23,server_7,VM0732,str-s6100-acs-2,Shuotian
 vms7-t1-s6100,vms7-6,t1-64-lag,docker-ptf-brcm,10.64.247.16/23,server_7,VM0740,str-s6100-acs-2,Shuotian
-vms7-t0-7260,vms7-7,t0-64,docker-ptf-brcm,10.64.247.17/23,server_7,VM0736,str-7260cx3-acs-1,yingxie
+vms7-t0-7260,vms7-7,t0-116,docker-ptf-brcm,10.64.247.17/23,server_7,VM0736,str-7260cx3-acs-1,yingxie
 vms-example-ixia-1,vms6-1,t0-64,docker-ptf-ixia,example-ixia-ptf-1,10.0.0.30/32,server_6,VM0600,example-s6100-dut-1,superman
