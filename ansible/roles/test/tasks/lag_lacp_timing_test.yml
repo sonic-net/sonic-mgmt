@@ -29,4 +29,4 @@
     lag_ptf_test_name: LacpTimingTest
     params: "exp_iface={{ iface_behind_lag_member_1 }}; timeout={{ packet_timeout }}; packet_timing={{ packet_timing }}; ether_type={{ lacp_ether_type }}"
     change_dir: /tmp
-  when: iface_behind_lab_member_1 is defined
+  when: iface_behind_lag_member_1 is defined
