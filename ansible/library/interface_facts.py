@@ -21,6 +21,40 @@ import StringIO
 from ansible.module_utils.basic import *
 from collections import defaultdict
 
+DOCUMENTATION = '''
+---
+module: interfaces_facts
+version_added: "1.1"
+author: Ying Xie (yinxi@microsoft.com)
+short_description: Retrive interface facts from device
+description:
+    - Retrieve interface facts for a device, the facts will be
+      inserted to the ansible_facts key.
+options:
+    up_ports:
+        description:
+            - all ports that expected to be at link up status
+            - this parameter doens't limit how many ports can
+              be present on the device, interface_facts returns
+              facts of all existing ports.
+        required: false
+'''
+
+EXAMPLES = '''
+# Gather minigraph facts
+- name: Gathering minigraph facts about the device
+  interface_facts:
+
+# Gather minigraph facts and check a set of ports should be up
+- name: Gathering minigraph facts about the device
+  interface_facts: up_ports={{minigraph_ports}}
+
+# Gather minigraph facts and check a set of ports should be up except one
+- name: Gathering minigraph facts about the device
+  interface_facts: up_ports={{minigraph_ports | difference('Some port, e.g. Ethernet0'}}
+
+'''
+
 def get_default_interfaces(ip_path, module):
     # Use the commands:
     #     ip -4 route get 8.8.8.8                     -> Google public DNS
@@ -73,7 +107,9 @@ def get_file_content(path, default=None, strip=True):
 def main():
     module = AnsibleModule(
         argument_spec=dict(
-        ip_path=dict(required=False, default="/sbin/ip"),),
+            ip_path=dict(required=False, default="/sbin/ip"),
+            up_ports=dict(default={}),
+        ),
         supports_check_mode=False)
 
     """
@@ -86,7 +122,8 @@ def main():
 
     """
     m_args = module.params
-    ip_path = m_args['ip_path'] 
+    ip_path = m_args['ip_path']
+    up_ports = m_args['up_ports']
     default_ipv4, default_ipv6 = get_default_interfaces(ip_path, module)
     interfaces = dict()
     ips = dict(
@@ -106,7 +143,7 @@ def main():
             if macaddress and macaddress != '00:00:00:00:00:00':
                 interfaces[device]['macaddress'] = macaddress
         if os.path.exists(os.path.join(path, 'mtu')):
-            val = get_file_content(os.path.join(path, 'mtu'))  
+            val = get_file_content(os.path.join(path, 'mtu'))
             if val != None and True == val.isdigit():
                 interfaces[device]['mtu'] = int(val)
         if os.path.exists(os.path.join(path, 'operstate')):
@@ -213,7 +250,7 @@ def main():
 
                     # If this is the default address, update default_ipv4
                     if 'address' in default_ipv4 and default_ipv4['address'] == address:
-                        default_ipv4['broadcast'] = broadcast 
+                        default_ipv4['broadcast'] = broadcast
                         default_ipv4['netmask'] = netmask
                         default_ipv4['network'] = network
                         default_ipv4['macaddress'] = macaddress
@@ -255,11 +292,17 @@ def main():
         parse_ip_output(module, primary_data)
         parse_ip_output(module, secondary_data, secondary=True)
 
-    results = {} 
+    results = {}
 
-    results['ansible_interface_facts'] = interfaces 
+    down_ports = []
+    for name in up_ports:
+        if not interfaces[name]['link']:
+            down_ports += [name]
+
+    results['ansible_interface_facts'] = interfaces
     results['ansible_interface_ips'] = ips
+    results['ansible_interface_link_down_ports'] = down_ports
     module.exit_json(ansible_facts=results)
 
-main()    
+main()
 
