@@ -147,6 +147,7 @@ vms3-5  ansible_host=10.64.246.26  ansible_ssh_user=root ansible_ssh_pass=root
 vms3-61 ansible_host=10.64.246.21  ansible_ssh_user=root ansible_ssh_pass=root
 vms3-60 ansible_host=10.64.246.12  ansible_ssh_user=root ansible_ssh_pass=root
 vms6-2  ansible_host=10.64.247.18  ansible_ssh_user=root ansible_ssh_pass=root
+vms7-7  ansible_host=10.64.247.17  ansible_ssh_user=root ansible_ssh_pass=root
 
 [str:children]
 sonic
