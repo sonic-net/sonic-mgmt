@@ -6,6 +6,8 @@
 [{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}
 {% elif testbed_type == 't1-64-lag' %}
 0.0.0.0/0 [0 1] [4 5] [16 17] [20 21]
+{% elif testbed_type == 't0-116' %}
+0.0.0.0/0 [44 45] [46 47] [48 49] [50 51]
 {% endif %}
 
 {#routes to uplink#}
@@ -43,6 +45,19 @@
 
 20C0:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/64 {% for portchannel, v in minigraph_portchannels.iteritems() %}[{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}
 
+{% endif %}
+{% elif testbed_type == 't0-116' %}
+{% set suffix = ( (podset * props.tor_number * props.max_tor_subnet_number * props.tor_subnet_size) +
+                  (tor * props.max_tor_subnet_number * props.tor_subnet_size) +
+                  (subnet * props.tor_subnet_size) ) %}
+{% set octet2 = (168 + ((suffix // (256 ** 2))) % 256) %}
+{% set octet3 = ((suffix // 256) % 256) %}
+{% set octet4 = (suffix % 256) %}
+{% set prefixlen_v4 = (32 - ((props.tor_subnet_size | log(2))) | int) %}
+{# Skip 192.168.0.0 as it is in Vlan1000 subnet  #}
+{% if octet2 != 168 and octet3 != 0 and octet4 != 0 %}
+192.{{ octet2 }}.{{ octet3 }}.{{ octet4 }}/{{ prefixlen_v4 }} [44 45] [46 47] [48 49] [50 51]
+20C0:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/64 [44 45] [46 47] [48 49] [50 51]
 {% endif %}
 {% endif %}
 {% endfor %}
