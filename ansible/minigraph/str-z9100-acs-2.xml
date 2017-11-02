@@ -1,435 +1,79 @@
-<DeviceMiniGraph xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="Microsoft.Search.Autopilot.Evolution">
+<DeviceMiniGraph xmlns="Microsoft.Search.Autopilot.Evolution" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
   <CpgDec>
     <IsisRouters xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     <PeeringSessions>
       <BGPSession>
-        <StartRouter>ARISTA01T0</StartRouter>
-        <StartPeer>10.0.0.33</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>10.0.0.32</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA01T0</StartRouter>
-        <StartPeer>FC00::42</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>FC00::41</EndPeer>
+        <MacSec>false</MacSec>
+        <StartRouter>str-z9100-acs-2</StartRouter>
+        <StartPeer>10.0.0.56</StartPeer>
+        <EndRouter>ARISTA01T1</EndRouter>
+        <EndPeer>10.0.0.57</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>10</HoldTime>
         <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-z9100-acs-2</StartRouter>
-        <StartPeer>10.0.0.0</StartPeer>
-        <EndRouter>ARISTA01T2</EndRouter>
-        <EndPeer>10.0.0.1</EndPeer>
+        <StartPeer>FC00::71</StartPeer>
+        <EndRouter>ARISTA01T1</EndRouter>
+        <EndPeer>FC00::72</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
+      </BGPSession>
+      <BGPSession>
+        <MacSec>false</MacSec>
+        <StartRouter>str-z9100-acs-2</StartRouter>
+        <StartPeer>10.0.0.58</StartPeer>
+        <EndRouter>ARISTA02T1</EndRouter>
+        <EndPeer>10.0.0.59</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>10</HoldTime>
         <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-z9100-acs-2</StartRouter>
-        <StartPeer>FC00::1</StartPeer>
-        <EndRouter>ARISTA01T2</EndRouter>
-        <EndPeer>FC00::2</EndPeer>
+        <StartPeer>FC00::75</StartPeer>
+        <EndRouter>ARISTA02T1</EndRouter>
+        <EndPeer>FC00::76</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>10</HoldTime>
         <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
-        <StartRouter>ARISTA02T0</StartRouter>
-        <StartPeer>10.0.0.35</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>10.0.0.34</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA02T0</StartRouter>
-        <StartPeer>FC00::46</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>FC00::45</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA03T0</StartRouter>
-        <StartPeer>10.0.0.37</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>10.0.0.36</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA03T0</StartRouter>
-        <StartPeer>FC00::4A</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>FC00::49</EndPeer>
+        <MacSec>false</MacSec>
+        <StartRouter>str-z9100-acs-2</StartRouter>
+        <StartPeer>10.0.0.60</StartPeer>
+        <EndRouter>ARISTA03T1</EndRouter>
+        <EndPeer>10.0.0.61</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>10</HoldTime>
         <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-z9100-acs-2</StartRouter>
-        <StartPeer>10.0.0.4</StartPeer>
-        <EndRouter>ARISTA03T2</EndRouter>
-        <EndPeer>10.0.0.5</EndPeer>
+        <StartPeer>FC00::79</StartPeer>
+        <EndRouter>ARISTA03T1</EndRouter>
+        <EndPeer>FC00::7A</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
+      </BGPSession>
+      <BGPSession>
+        <MacSec>false</MacSec>
+        <StartRouter>str-z9100-acs-2</StartRouter>
+        <StartPeer>10.0.0.62</StartPeer>
+        <EndRouter>ARISTA04T1</EndRouter>
+        <EndPeer>10.0.0.63</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>10</HoldTime>
         <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-z9100-acs-2</StartRouter>
-        <StartPeer>FC00::9</StartPeer>
-        <EndRouter>ARISTA03T2</EndRouter>
-        <EndPeer>FC00::A</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA04T0</StartRouter>
-        <StartPeer>10.0.0.39</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>10.0.0.38</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA04T0</StartRouter>
-        <StartPeer>FC00::4E</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>FC00::4D</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA05T0</StartRouter>
-        <StartPeer>10.0.0.41</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>10.0.0.40</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA05T0</StartRouter>
-        <StartPeer>FC00::52</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>FC00::51</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>str-z9100-acs-2</StartRouter>
-        <StartPeer>10.0.0.8</StartPeer>
-        <EndRouter>ARISTA05T2</EndRouter>
-        <EndPeer>10.0.0.9</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>str-z9100-acs-2</StartRouter>
-        <StartPeer>FC00::11</StartPeer>
-        <EndRouter>ARISTA05T2</EndRouter>
-        <EndPeer>FC00::12</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA06T0</StartRouter>
-        <StartPeer>10.0.0.43</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>10.0.0.42</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA06T0</StartRouter>
-        <StartPeer>FC00::56</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>FC00::55</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA07T0</StartRouter>
-        <StartPeer>10.0.0.45</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>10.0.0.44</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA07T0</StartRouter>
-        <StartPeer>FC00::5A</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>FC00::59</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>str-z9100-acs-2</StartRouter>
-        <StartPeer>10.0.0.12</StartPeer>
-        <EndRouter>ARISTA07T2</EndRouter>
-        <EndPeer>10.0.0.13</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>str-z9100-acs-2</StartRouter>
-        <StartPeer>FC00::19</StartPeer>
-        <EndRouter>ARISTA07T2</EndRouter>
-        <EndPeer>FC00::1A</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA08T0</StartRouter>
-        <StartPeer>10.0.0.47</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>10.0.0.46</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA08T0</StartRouter>
-        <StartPeer>FC00::5E</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>FC00::5D</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA09T0</StartRouter>
-        <StartPeer>10.0.0.49</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>10.0.0.48</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA09T0</StartRouter>
-        <StartPeer>FC00::62</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>FC00::61</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>str-z9100-acs-2</StartRouter>
-        <StartPeer>10.0.0.16</StartPeer>
-        <EndRouter>ARISTA09T2</EndRouter>
-        <EndPeer>10.0.0.17</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>str-z9100-acs-2</StartRouter>
-        <StartPeer>FC00::21</StartPeer>
-        <EndRouter>ARISTA09T2</EndRouter>
-        <EndPeer>FC00::22</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA10T0</StartRouter>
-        <StartPeer>10.0.0.51</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>10.0.0.50</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA10T0</StartRouter>
-        <StartPeer>FC00::66</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>FC00::65</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA11T0</StartRouter>
-        <StartPeer>10.0.0.53</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>10.0.0.52</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA11T0</StartRouter>
-        <StartPeer>FC00::6A</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>FC00::69</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>str-z9100-acs-2</StartRouter>
-        <StartPeer>10.0.0.20</StartPeer>
-        <EndRouter>ARISTA11T2</EndRouter>
-        <EndPeer>10.0.0.21</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>str-z9100-acs-2</StartRouter>
-        <StartPeer>FC00::29</StartPeer>
-        <EndRouter>ARISTA11T2</EndRouter>
-        <EndPeer>FC00::2A</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA12T0</StartRouter>
-        <StartPeer>10.0.0.55</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>10.0.0.54</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA12T0</StartRouter>
-        <StartPeer>FC00::6E</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>FC00::6D</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA13T0</StartRouter>
-        <StartPeer>10.0.0.57</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>10.0.0.56</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA13T0</StartRouter>
-        <StartPeer>FC00::72</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>FC00::71</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>str-z9100-acs-2</StartRouter>
-        <StartPeer>10.0.0.24</StartPeer>
-        <EndRouter>ARISTA13T2</EndRouter>
-        <EndPeer>10.0.0.25</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>str-z9100-acs-2</StartRouter>
-        <StartPeer>FC00::31</StartPeer>
-        <EndRouter>ARISTA13T2</EndRouter>
-        <EndPeer>FC00::32</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA14T0</StartRouter>
-        <StartPeer>10.0.0.59</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>10.0.0.58</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA14T0</StartRouter>
-        <StartPeer>FC00::76</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>FC00::75</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA15T0</StartRouter>
-        <StartPeer>10.0.0.61</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>10.0.0.60</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA15T0</StartRouter>
-        <StartPeer>FC00::7A</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>FC00::79</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>str-z9100-acs-2</StartRouter>
-        <StartPeer>10.0.0.28</StartPeer>
-        <EndRouter>ARISTA15T2</EndRouter>
-        <EndPeer>10.0.0.29</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>str-z9100-acs-2</StartRouter>
-        <StartPeer>FC00::39</StartPeer>
-        <EndRouter>ARISTA15T2</EndRouter>
-        <EndPeer>FC00::3A</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA16T0</StartRouter>
-        <StartPeer>10.0.0.63</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>10.0.0.62</EndPeer>
-        <Multihop>1</Multihop>
-        <HoldTime>10</HoldTime>
-        <KeepAliveTime>3</KeepAliveTime>
-      </BGPSession>
-      <BGPSession>
-        <StartRouter>ARISTA16T0</StartRouter>
-        <StartPeer>FC00::7E</StartPeer>
-        <EndRouter>str-z9100-acs-2</EndRouter>
-        <EndPeer>FC00::7D</EndPeer>
+        <StartPeer>FC00::7D</StartPeer>
+        <EndRouter>ARISTA04T1</EndRouter>
+        <EndPeer>FC00::7E</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>10</HoldTime>
         <KeepAliveTime>3</KeepAliveTime>
@@ -441,246 +85,68 @@
         <a:Hostname>str-z9100-acs-2</a:Hostname>
         <a:Peers>
           <BGPPeer>
-            <Address>10.0.0.33</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.1</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.35</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.37</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.5</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.39</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.41</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.9</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.43</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.45</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.13</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.47</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.49</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.17</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.51</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.53</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.21</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.55</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
             <Address>10.0.0.57</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.25</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
+            <Vrf i:nil="true"/>
           </BGPPeer>
           <BGPPeer>
             <Address>10.0.0.59</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
+            <Vrf i:nil="true"/>
           </BGPPeer>
           <BGPPeer>
             <Address>10.0.0.61</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
-          </BGPPeer>
-          <BGPPeer>
-            <Address>10.0.0.29</Address>
-            <RouteMapIn i:nil="true"/>
-            <RouteMapOut i:nil="true"/>
+            <Vrf i:nil="true"/>
           </BGPPeer>
           <BGPPeer>
             <Address>10.0.0.63</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
+            <Vrf i:nil="true"/>
+          </BGPPeer>
+          <BGPPeer i:type="a:BGPPeerPassive">
+            <ElementType>BGPPeer</ElementType>
+            <Address>10.1.0.32</Address>
+            <RouteMapIn i:nil="true"/>
+            <RouteMapOut i:nil="true"/>
+            <Vrf i:nil="true"/>
+            <a:Name>BGPSLBPassive</a:Name>
+            <a:PeersRange>10.255.0.0/27</a:PeersRange>
+          </BGPPeer>
+          <BGPPeer i:type="a:BGPPeerPassive">
+            <ElementType>BGPPeer</ElementType>
+            <Address>10.1.0.32</Address>
+            <RouteMapIn i:nil="true"/>
+            <RouteMapOut i:nil="true"/>
+            <Vrf i:nil="true"/>
+            <a:Name>BGPVac</a:Name>
+            <a:PeersRange>192.168.0.0/27</a:PeersRange>
           </BGPPeer>
         </a:Peers>
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
       <a:BGPRouterDeclaration>
-        <a:ASN>64001</a:ASN>
-        <a:Hostname>ARISTA01T0</a:Hostname>
+        <a:ASN>64600</a:ASN>
+        <a:Hostname>ARISTA01T1</a:Hostname>
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
       <a:BGPRouterDeclaration>
-        <a:ASN>65200</a:ASN>
-        <a:Hostname>ARISTA01T2</a:Hostname>
+        <a:ASN>64600</a:ASN>
+        <a:Hostname>ARISTA02T1</a:Hostname>
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
       <a:BGPRouterDeclaration>
-        <a:ASN>64002</a:ASN>
-        <a:Hostname>ARISTA02T0</a:Hostname>
+        <a:ASN>64600</a:ASN>
+        <a:Hostname>ARISTA03T1</a:Hostname>
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
       <a:BGPRouterDeclaration>
-        <a:ASN>64003</a:ASN>
-        <a:Hostname>ARISTA03T0</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>65200</a:ASN>
-        <a:Hostname>ARISTA03T2</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>64004</a:ASN>
-        <a:Hostname>ARISTA04T0</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>64005</a:ASN>
-        <a:Hostname>ARISTA05T0</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>65200</a:ASN>
-        <a:Hostname>ARISTA05T2</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>64006</a:ASN>
-        <a:Hostname>ARISTA06T0</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>64007</a:ASN>
-        <a:Hostname>ARISTA07T0</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>65200</a:ASN>
-        <a:Hostname>ARISTA07T2</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>64008</a:ASN>
-        <a:Hostname>ARISTA08T0</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>64009</a:ASN>
-        <a:Hostname>ARISTA09T0</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>65200</a:ASN>
-        <a:Hostname>ARISTA09T2</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>64010</a:ASN>
-        <a:Hostname>ARISTA10T0</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>64011</a:ASN>
-        <a:Hostname>ARISTA11T0</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>65200</a:ASN>
-        <a:Hostname>ARISTA11T2</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>64012</a:ASN>
-        <a:Hostname>ARISTA12T0</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>64013</a:ASN>
-        <a:Hostname>ARISTA13T0</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>65200</a:ASN>
-        <a:Hostname>ARISTA13T2</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>64014</a:ASN>
-        <a:Hostname>ARISTA14T0</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>64015</a:ASN>
-        <a:Hostname>ARISTA15T0</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>65200</a:ASN>
-        <a:Hostname>ARISTA15T2</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-      <a:BGPRouterDeclaration>
-        <a:ASN>64016</a:ASN>
-        <a:Hostname>ARISTA16T0</a:Hostname>
+        <a:ASN>64600</a:ASN>
+        <a:Hostname>ARISTA04T1</a:Hostname>
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
     </Routers>
@@ -724,349 +190,90 @@
           <a:PrefixStr>FC00:2::32/64</a:PrefixStr>
         </a:ManagementIPInterface>
       </ManagementIPInterfaces>
+      <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
       <MplsInterfaces/>
       <MplsTeInterfaces/>
       <RsvpInterfaces/>
       <Hostname>str-z9100-acs-2</Hostname>
       <PortChannelInterfaces>
         <PortChannel>
-          <ElementType>PortChannelInterface</ElementType>
-          <Name>PortChannel0</Name>
-          <AttachTo>hundredGigE1/1;hundredGigE1/2</AttachTo>
-           <SubInterface/> 
-         </PortChannel>
+          <Name>PortChannel01</Name>
+          <AttachTo>hundredGigE1/29</AttachTo>
+          <SubInterface/>
+        </PortChannel>
         <PortChannel>
-          <ElementType>PortChannelInterface</ElementType>
-          <Name>PortChannel8</Name>
-          <AttachTo>hundredGigE1/3;hundredGigE1/4</AttachTo>
-           <SubInterface/> 
-         </PortChannel>
+          <Name>PortChannel02</Name>
+          <AttachTo>hundredGigE1/30</AttachTo>
+          <SubInterface/>
+        </PortChannel>
         <PortChannel>
-          <ElementType>PortChannelInterface</ElementType>
-          <Name>PortChannel16</Name>
-          <AttachTo>hundredGigE1/5;hundredGigE1/6</AttachTo>
-           <SubInterface/> 
-         </PortChannel>
+          <Name>PortChannel03</Name>
+          <AttachTo>hundredGigE1/31</AttachTo>
+          <SubInterface/>
+        </PortChannel>
         <PortChannel>
-          <ElementType>PortChannelInterface</ElementType>
-          <Name>PortChannel24</Name>
-          <AttachTo>hundredGigE1/7;hundredGigE1/8</AttachTo>
-           <SubInterface/> 
-         </PortChannel>
-        <PortChannel>
-          <ElementType>PortChannelInterface</ElementType>
-          <Name>PortChannel32</Name>
-          <AttachTo>hundredGigE1/9;hundredGigE1/10</AttachTo>
-           <SubInterface/> 
-         </PortChannel>
-        <PortChannel>
-          <ElementType>PortChannelInterface</ElementType>
-          <Name>PortChannel40</Name>
-          <AttachTo>hundredGigE1/11;hundredGigE1/12</AttachTo>
-           <SubInterface/> 
-         </PortChannel>
-        <PortChannel>
-          <ElementType>PortChannelInterface</ElementType>
-          <Name>PortChannel48</Name>
-          <AttachTo>hundredGigE1/13;hundredGigE1/14</AttachTo>
-           <SubInterface/> 
-         </PortChannel>
-        <PortChannel>
-          <ElementType>PortChannelInterface</ElementType>
-          <Name>PortChannel56</Name>
-          <AttachTo>hundredGigE1/15;hundredGigE1/16</AttachTo>
-           <SubInterface/> 
-         </PortChannel>
+          <Name>PortChannel04</Name>
+          <AttachTo>hundredGigE1/32</AttachTo>
+          <SubInterface/>
+        </PortChannel>
       </PortChannelInterfaces>
-      <VlanInterfaces/>
+      <VlanInterfaces>
+        <VlanInterface>
+          <Name>Vlan1000</Name>
+           <AttachTo>hundredGigE1/2;hundredGigE1/3;hundredGigE1/4;hundredGigE1/5;hundredGigE1/6;hundredGigE1/7;hundredGigE1/8;hundredGigE1/9;hundredGigE1/10;hundredGigE1/11;hundredGigE1/12;hundredGigE1/13;hundredGigE1/14;hundredGigE1/15;hundredGigE1/16;hundredGigE1/17;hundredGigE1/18;hundredGigE1/19;hundredGigE1/20;hundredGigE1/21;hundredGigE1/22;hundredGigE1/23;hundredGigE1/24;hundredGigE1/25</AttachTo>          
+          <NoDhcpRelay>False</NoDhcpRelay>
+          <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
+          <Type i:nil="true"/>
+          <VlanID>1000</VlanID>
+          <Tag>1000</Tag>
+          <Subnets>192.168.0.0/27</Subnets>
+        </VlanInterface>
+      </VlanInterfaces>
       <IPInterfaces>
         <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>PortChannel0</AttachTo>
-          <Prefix>10.0.0.0/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>PortChannel0</AttachTo>
-          <Prefix>FC00::1/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>PortChannel8</AttachTo>
-          <Prefix>10.0.0.4/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>PortChannel8</AttachTo>
-          <Prefix>FC00::9/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>PortChannel16</AttachTo>
-          <Prefix>10.0.0.8/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>PortChannel16</AttachTo>
-          <Prefix>FC00::11/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>PortChannel24</AttachTo>
-          <Prefix>10.0.0.12/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>PortChannel24</AttachTo>
-          <Prefix>FC00::19/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>PortChannel32</AttachTo>
-          <Prefix>10.0.0.16/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>PortChannel32</AttachTo>
-          <Prefix>FC00::21/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>PortChannel40</AttachTo>
-          <Prefix>10.0.0.20/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>PortChannel40</AttachTo>
-          <Prefix>FC00::29/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>PortChannel48</AttachTo>
-          <Prefix>10.0.0.24/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>PortChannel48</AttachTo>
-          <Prefix>FC00::31/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>PortChannel56</AttachTo>
-          <Prefix>10.0.0.28/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>PortChannel56</AttachTo>
-          <Prefix>FC00::39/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/17</AttachTo>
-          <Prefix>10.0.0.32/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/17</AttachTo>
-          <Prefix>FC00::41/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/18</AttachTo>
-          <Prefix>10.0.0.34/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/18</AttachTo>
-          <Prefix>FC00::45/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/19</AttachTo>
-          <Prefix>10.0.0.36/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/19</AttachTo>
-          <Prefix>FC00::49/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/20</AttachTo>
-          <Prefix>10.0.0.38/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/20</AttachTo>
-          <Prefix>FC00::4D/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/21</AttachTo>
-          <Prefix>10.0.0.40/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/21</AttachTo>
-          <Prefix>FC00::51/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/22</AttachTo>
-          <Prefix>10.0.0.42/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/22</AttachTo>
-          <Prefix>FC00::55/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/23</AttachTo>
-          <Prefix>10.0.0.44/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/23</AttachTo>
-          <Prefix>FC00::59/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/24</AttachTo>
-          <Prefix>10.0.0.46/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/24</AttachTo>
-          <Prefix>FC00::5D/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/25</AttachTo>
-          <Prefix>10.0.0.48/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/25</AttachTo>
-          <Prefix>FC00::61/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/26</AttachTo>
-          <Prefix>10.0.0.50/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/26</AttachTo>
-          <Prefix>FC00::65/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/27</AttachTo>
-          <Prefix>10.0.0.52/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/27</AttachTo>
-          <Prefix>FC00::69/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/28</AttachTo>
-          <Prefix>10.0.0.54/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/28</AttachTo>
-          <Prefix>FC00::6D/126</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/29</AttachTo>
+          <Name i:nil="true"/>
+          <AttachTo>PortChannel01</AttachTo>
           <Prefix>10.0.0.56/31</Prefix>
         </IPInterface>
         <IPInterface>
-          <ElementType>IPInterface</ElementType>
           <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/29</AttachTo>
+          <AttachTo>PortChannel01</AttachTo>
           <Prefix>FC00::71/126</Prefix>
         </IPInterface>
         <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/30</AttachTo>
+          <Name i:nil="true"/>
+          <AttachTo>PortChannel02</AttachTo>
           <Prefix>10.0.0.58/31</Prefix>
         </IPInterface>
         <IPInterface>
-          <ElementType>IPInterface</ElementType>
           <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/30</AttachTo>
+          <AttachTo>PortChannel02</AttachTo>
           <Prefix>FC00::75/126</Prefix>
         </IPInterface>
         <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/31</AttachTo>
+          <Name i:nil="true"/>
+          <AttachTo>PortChannel03</AttachTo>
           <Prefix>10.0.0.60/31</Prefix>
         </IPInterface>
         <IPInterface>
-          <ElementType>IPInterface</ElementType>
           <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/31</AttachTo>
+          <AttachTo>PortChannel03</AttachTo>
           <Prefix>FC00::79/126</Prefix>
         </IPInterface>
         <IPInterface>
-          <ElementType>IPInterface</ElementType>
-          <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/32</AttachTo>
+          <Name i:nil="true"/>
+          <AttachTo>PortChannel04</AttachTo>
           <Prefix>10.0.0.62/31</Prefix>
         </IPInterface>
         <IPInterface>
-          <ElementType>IPInterface</ElementType>
           <Name i:Name="true"/>
-          <AttachTo>hundredGigE1/32</AttachTo>
+          <AttachTo>PortChannel04</AttachTo>
           <Prefix>FC00::7D/126</Prefix>
+        </IPInterface>
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>Vlan1000</AttachTo>
+          <Prefix>192.168.0.1/27</Prefix>
         </IPInterface>
       </IPInterfaces>
       <DataAcls/>
@@ -1079,404 +286,68 @@
     <DeviceInterfaceLinks>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/1</EndPort>
-        <StartDevice>ARISTA01T2</StartDevice>
-        <StartPort>Ethernet1</StartPort>
+        <EndDevice>ARISTA01T1</EndDevice>
+        <EndPort>Ethernet1</EndPort>
+        <StartDevice>str-z9100-acs-2</StartDevice>
+        <StartPort>hundredGigE1/29</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/2</EndPort>
-        <StartDevice>ARISTA01T2</StartDevice>
-        <StartPort>Ethernet2</StartPort>
+        <EndDevice>ARISTA02T1</EndDevice>
+        <EndPort>Ethernet1</EndPort>
+        <StartDevice>str-z9100-acs-2</StartDevice>
+        <StartPort>hundredGigE1/30</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/3</EndPort>
-        <StartDevice>ARISTA03T2</StartDevice>
-        <StartPort>Ethernet1</StartPort>
+        <EndDevice>ARISTA03T1</EndDevice>
+        <EndPort>Ethernet1</EndPort>
+        <StartDevice>str-z9100-acs-2</StartDevice>
+        <StartPort>hundredGigE1/31</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/4</EndPort>
-        <StartDevice>ARISTA03T2</StartDevice>
-        <StartPort>Ethernet2</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/5</EndPort>
-        <StartDevice>ARISTA05T2</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/6</EndPort>
-        <StartDevice>ARISTA05T2</StartDevice>
-        <StartPort>Ethernet2</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/7</EndPort>
-        <StartDevice>ARISTA07T2</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/8</EndPort>
-        <StartDevice>ARISTA07T2</StartDevice>
-        <StartPort>Ethernet2</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/9</EndPort>
-        <StartDevice>ARISTA09T2</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/10</EndPort>
-        <StartDevice>ARISTA09T2</StartDevice>
-        <StartPort>Ethernet2</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/11</EndPort>
-        <StartDevice>ARISTA11T2</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/12</EndPort>
-        <StartDevice>ARISTA11T2</StartDevice>
-        <StartPort>Ethernet2</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/13</EndPort>
-        <StartDevice>ARISTA13T2</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/14</EndPort>
-        <StartDevice>ARISTA13T2</StartDevice>
-        <StartPort>Ethernet2</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/15</EndPort>
-        <StartDevice>ARISTA15T2</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/16</EndPort>
-        <StartDevice>ARISTA15T2</StartDevice>
-        <StartPort>Ethernet2</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/17</EndPort>
-        <StartDevice>ARISTA01T0</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/18</EndPort>
-        <StartDevice>ARISTA02T0</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/19</EndPort>
-        <StartDevice>ARISTA03T0</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/20</EndPort>
-        <StartDevice>ARISTA04T0</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/21</EndPort>
-        <StartDevice>ARISTA05T0</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/22</EndPort>
-        <StartDevice>ARISTA06T0</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/23</EndPort>
-        <StartDevice>ARISTA07T0</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/24</EndPort>
-        <StartDevice>ARISTA08T0</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/25</EndPort>
-        <StartDevice>ARISTA09T0</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/26</EndPort>
-        <StartDevice>ARISTA10T0</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/27</EndPort>
-        <StartDevice>ARISTA11T0</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/28</EndPort>
-        <StartDevice>ARISTA12T0</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/29</EndPort>
-        <StartDevice>ARISTA13T0</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/30</EndPort>
-        <StartDevice>ARISTA14T0</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/31</EndPort>
-        <StartDevice>ARISTA15T0</StartDevice>
-        <StartPort>Ethernet1</StartPort>
-      </DeviceLinkBase>
-      <DeviceLinkBase>
-        <ElementType>DeviceInterfaceLink</ElementType>
-        <EndDevice>str-z9100-acs-2</EndDevice>
-        <EndPort>hundredGigE1/32</EndPort>
-        <StartDevice>ARISTA16T0</StartDevice>
-        <StartPort>Ethernet1</StartPort>
+        <EndDevice>ARISTA04T1</EndDevice>
+        <EndPort>Ethernet1</EndPort>
+        <StartDevice>str-z9100-acs-2</StartDevice>
+        <StartPort>hundredGigE1/32</StartPort>
       </DeviceLinkBase>
     </DeviceInterfaceLinks>
     <Devices>
-      <Device i:type="LeafRouter">
+      <Device i:type="ToRRouter">
         <Hostname>str-z9100-acs-2</Hostname>
         <HwSku>Force10-Z9100</HwSku>
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-          <a:IPPrefix>10.64.247.237</a:IPPrefix>
+           <a:IPPrefix>10.64.247.237</a:IPPrefix>
         </ManagementAddress>
       </Device>
-      <Device i:type="ToRRouter">
-         <Hostname>"ARISTA01T0"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.136</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="SpineRouter">
-         <Hostname>"ARISTA01T2"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.128</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="ToRRouter">
-         <Hostname>"ARISTA02T0"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.137</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="ToRRouter">
-         <Hostname>"ARISTA03T0"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.138</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="SpineRouter">
-         <Hostname>"ARISTA03T2"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.129</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="ToRRouter">
-         <Hostname>"ARISTA04T0"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.139</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="ToRRouter">
-         <Hostname>"ARISTA05T0"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.140</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="SpineRouter">
-         <Hostname>"ARISTA05T2"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.130</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="ToRRouter">
-         <Hostname>"ARISTA06T0"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.141</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="ToRRouter">
-         <Hostname>"ARISTA07T0"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.142</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="SpineRouter">
-         <Hostname>"ARISTA07T2"</Hostname>
-         <HwSku>Arista-VM</HwSku>
+      <Device i:type="LeafRouter">
+         <Hostname>ARISTA04T1</Hostname>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.247.131</a:IPPrefix>
          </ManagementAddress>
-       </Device>
-      <Device i:type="ToRRouter">
-         <Hostname>"ARISTA08T0"</Hostname>
          <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.143</a:IPPrefix>
-         </ManagementAddress>
        </Device>
-      <Device i:type="ToRRouter">
-         <Hostname>"ARISTA09T0"</Hostname>
-         <HwSku>Arista-VM</HwSku>
+      <Device i:type="LeafRouter">
+         <Hostname>ARISTA03T1</Hostname>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.144</a:IPPrefix>
+           <a:IPPrefix>10.64.247.130</a:IPPrefix>
          </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
        </Device>
-      <Device i:type="SpineRouter">
-         <Hostname>"ARISTA09T2"</Hostname>
-         <HwSku>Arista-VM</HwSku>
+      <Device i:type="LeafRouter">
+         <Hostname>ARISTA02T1</Hostname>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.132</a:IPPrefix>
+           <a:IPPrefix>10.64.247.129</a:IPPrefix>
          </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
        </Device>
-      <Device i:type="ToRRouter">
-         <Hostname>"ARISTA10T0"</Hostname>
-         <HwSku>Arista-VM</HwSku>
+      <Device i:type="LeafRouter">
+         <Hostname>ARISTA01T1</Hostname>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.145</a:IPPrefix>
+           <a:IPPrefix>10.64.247.128</a:IPPrefix>
          </ManagementAddress>
-       </Device>
-      <Device i:type="ToRRouter">
-         <Hostname>"ARISTA11T0"</Hostname>
          <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.146</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="SpineRouter">
-         <Hostname>"ARISTA11T2"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.133</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="ToRRouter">
-         <Hostname>"ARISTA12T0"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.147</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="ToRRouter">
-         <Hostname>"ARISTA13T0"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.148</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="SpineRouter">
-         <Hostname>"ARISTA13T2"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.134</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="ToRRouter">
-         <Hostname>"ARISTA14T0"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.149</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="ToRRouter">
-         <Hostname>"ARISTA15T0"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.150</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="SpineRouter">
-         <Hostname>"ARISTA15T2"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.135</a:IPPrefix>
-         </ManagementAddress>
-       </Device>
-      <Device i:type="ToRRouter">
-         <Hostname>"ARISTA16T0"</Hostname>
-         <HwSku>Arista-VM</HwSku>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.64.247.151</a:IPPrefix>
-         </ManagementAddress>
        </Device>
     </Devices>
   </PngDec>

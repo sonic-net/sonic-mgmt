@@ -40,7 +40,7 @@
       <Device Hostname="str-wedge100b-acs-2" HwSku="Wedge-100B-C32" Type="DevSonic"/>
       <Device Hostname="str-wedge100b65-acs-1" HwSku="Wedge-100B-65X" Type="DevSonic"/>
       <Device Hostname="str-wedge100b65-acs-2" HwSku="Wedge-100B-65X" Type="DevSonic"/>
-      <Device Hostname="str-7060cx-acs-10" HwSku="Arista-7060CX-32S" Type="DevSonic"/>
+      <Device Hostname="str-7060cx-acs-10" HwSku="Arista-7060CX-32S-C32" Type="DevSonic"/>
       <Device Hostname="str-7260cx3-acs-1" HwSku="Arista-7260CX3-64" Type="DevSonic"/>
       <Device Hostname="str-msn2700-20" HwSku="Mellanox-2700" Type="DevSonic"/>
       <Device Hostname="str-msn2700-22" HwSku="Mellanox-2700" Type="DevSonic"/>
