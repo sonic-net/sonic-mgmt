@@ -16,17 +16,17 @@
     packet_timing: "{{ lacp_timer }}"
     packet_timeout: 35
 
-- name: Check LACP timing on eth{{ iface_behind_lag_member_0 }} (interface behind {{ vm_name }}).
+- name: Check LACP timing on eth{{ iface_behind_lag_member[0] }} (interface behind {{ vm_name }}).
   include: lag_run_ptf.yml
   vars:
     lag_ptf_test_name: LacpTimingTest
-    params: "exp_iface={{ iface_behind_lag_member_0 }}; timeout={{ packet_timeout }}; packet_timing={{ packet_timing }}; ether_type={{ lacp_ether_type }}"
+    params: "exp_iface={{ iface_behind_lag_member[0] }}; timeout={{ packet_timeout }}; packet_timing={{ packet_timing }}; ether_type={{ lacp_ether_type }}"
     change_dir: /tmp
 
-- name: Check LACP timing on eth{{ iface_behind_lag_member_1 }} (interface behind {{ vm_name }}).
+- name: Check LACP timing on eth{{ iface_behind_lag_member[1] }} (interface behind {{ vm_name }}).
   include: lag_run_ptf.yml
   vars:
     lag_ptf_test_name: LacpTimingTest
-    params: "exp_iface={{ iface_behind_lag_member_1 }}; timeout={{ packet_timeout }}; packet_timing={{ packet_timing }}; ether_type={{ lacp_ether_type }}"
+    params: "exp_iface={{ iface_behind_lag_member[1] }}; timeout={{ packet_timeout }}; packet_timing={{ packet_timing }}; ether_type={{ lacp_ether_type }}"
     change_dir: /tmp
-  when: iface_behind_lab_member_1 is defined
+  when: iface_behind_lag_member[1] is defined
