@@ -97,7 +97,7 @@ class LogAnalyzer:
     #---------------------------------------------------------------------
 
     def is_filename_stdin(self, file_name):
-        return True if file_name == "-" else False
+        return file_name == "-"
 
     #---------------------------------------------------------------------
 
@@ -293,7 +293,7 @@ class LogAnalyzer:
         #-- indicates whether log analyzer currently is in the log range between start
         #-- and end marker. see analyze_file method.
         in_analysis_range = False
-        stdin_as_input = True if self.is_filename_stdin(log_file_path) else False
+        stdin_as_input = self.is_filename_stdin(log_file_path)
         matching_lines = []
         expected_lines = []
         found_start_marker = False
