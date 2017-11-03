@@ -1,40 +1,14 @@
 - name: Initialize session_name variable.
   set_fact:
     session_name: "test_session_1"
+    session_src_ip: "1.1.1.1"
+    session_dst_ip: "2.2.2.2"
+    session_ttl: "1"
+    session_dscp: "50"
+    session_gre: "0x6558"
+    session_queue: "0"
 
 - debug: msg="session name {{ session_name }}"
-
-- name: Get session SRC IP address.
-  shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" src_ip
-  register: session_src_ip_info
-
-- name: Initialize session_src_ip variable.
-  set_fact:
-    session_src_ip: "{{ session_src_ip_info.stdout }}"
-
-- name: Get session DST IP address.
-  shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" dst_ip
-  register: session_dst_ip_info
-
-- name: Initialize session_dst_ip variable.
-  set_fact:
-    session_dst_ip: "{{ session_dst_ip_info.stdout }}"
-
-- name: Get session TTL.
-  shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" ttl
-  register: session_ttl_info
-
-- name: Initialize session_ttl variable.
-  set_fact:
-    session_ttl: "{{ session_ttl_info.stdout }}"
-
-- name: Get session DSCP.
-  shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" dscp
-  register: session_dscp_info
-
-- name: Initialize session_dscp variable.
-  set_fact:
-    session_dscp: "{{ session_dscp_info.stdout }}"
 
 - set_fact:
     addr_1: "{{ session_dst_ip }}/24"
