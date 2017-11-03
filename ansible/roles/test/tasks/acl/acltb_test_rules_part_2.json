@@ -1,0 +1,194 @@
+{
+    "acl": {
+        "acl-sets": {
+            "acl-set": {
+                "dataacl": {
+                    "acl-entries": {
+                        "acl-entry": {
+                            "1": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 1
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "10.0.0.2/32"
+                                    }
+                                }
+                            },
+                            "2": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 2
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "192.168.0.16/32"
+                                    }
+                                }
+                            },
+                            "3": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 3
+                                },
+                                "transport": {
+                                    "config": {
+                                        "source-port": "4661"
+                                    }
+                                }
+                            },
+                            "4": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 4
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": 126
+                                    }
+                                }
+                            },
+                            "5": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 5
+                                },
+                                "transport": {
+                                    "config": {
+                                        "tcp-flags": ["TCP_ACK", "TCP_SYN"]
+                                    }
+                                }
+                            },
+                            "6": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 6
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "10.0.0.3/32"
+                                    }
+                                }
+                            },
+                            "7": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 7
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "10.0.0.3/32"
+                                    }
+                                }
+                            },
+                            "8": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 8
+                                },
+                                "transport": {
+                                    "config": {
+                                        "destination-port": "4661"
+                                    }
+                                }
+                            },
+                            "9": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "4660"
+                                    }
+                                }
+                            },
+                            "10": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 10
+                                },
+                                "transport": {
+                                    "config": {
+                                        "source-port": "4656..4671"
+                                    }
+                                }
+                            },
+                            "11": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 11
+                                },
+                                "transport": {
+                                    "config": {
+                                        "destination-port": "4640..4687"
+                                    }
+                                }
+                            },
+                            "12": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 12
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV4"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
