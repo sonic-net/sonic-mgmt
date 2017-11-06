@@ -135,7 +135,20 @@
 {% endfor %}
       </IPInterfaces>
       <DataAcls/>
-      <AclInterfaces/>
+      <AclInterfaces>
+        <AclInterface>
+          <AttachTo>
+          {{ port_alias|join(";") }}
+          </AttachTo>
+          <InAcl>DataAcl</InAcl>
+        </AclInterface>
+        <AclInterface>
+          <AttachTo>
+            ERSPAN
+          </AttachTo>
+          <InAcl>Everflow</InAcl>
+        </AclInterface>
+      </AclInterfaces>
       <DownstreamSummaries/>
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     </DeviceDataPlaneInfo>
