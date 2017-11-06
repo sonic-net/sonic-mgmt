@@ -104,6 +104,8 @@ class Connection(ConnectionBase):
             self.sku = 'nxos'
         if 'MLNX-OS' in client.before:
             self.sku = 'mlnx_os'
+        if 'Dell' in client.before:
+            self.sku = 'dell'
 
         if self.sku == 'mlnx_os':
             self.hname = ' '.join(self.before_backup[-3:])
