@@ -474,6 +474,22 @@ def parse_xml(filename, hostname):
 
         for i in s100G_ports:
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "INGRASYS-S9100-C32":
+        for i in range(1, 33):
+            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "INGRASYS-S9100-C32" or hwsku == "INGRASYS-S9130-32X" or hwsku == "INGRASYS-S8810-32Q":
+        for i in range(1, 33):
+            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "INGRASYS-S8900-54XC":
+        for i in range(1, 49):
+            port_alias_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
+        for i in range(49, 55):
+            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 49) * 4 + 48)
+    elif hwsku == "INGRASYS-S8900-64XC":
+        for i in range(1, 49):
+            port_alias_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
+        for i in range(49, 65):
+            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 49) * 4 + 48)
     else:
         for i in range(0, 128, 4):
             port_alias_map["Ethernet%d" % i] = "Ethernet%d" % i
