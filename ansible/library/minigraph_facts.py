@@ -463,7 +463,7 @@ def parse_xml(filename, hostname):
         s100G_ports = [ x for x in range(45, 53) ]
 
         # 50G ports
-        s50g_ports = list(set(all_ports) - set(s100G_ports)
+        s50g_ports = list(set(all_ports) - set(s100G_ports))
 
         for i in s50g_ports:
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
