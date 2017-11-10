@@ -52,7 +52,7 @@
 
 - name: Define SRC PTF port IDs
   set_fact:
-      src_port_ptf_id: "{{ src_port|replace(\"Ethernet\", \"\")|int / 4 }}"
+      src_port_ptf_id: "{{ minigraph_port_indices[src_port] }}"
 
 - name: Define port variables.
   set_fact:
@@ -72,12 +72,13 @@
 
 - name: Define PTF port IDs for dst_port_1
   set_fact:
-      dst_port_1_ptf_id: "{{ dst_port_1|replace(\"Ethernet\", \"\")|int / 4 }}"
+      dst_port_1_ptf_id: "{{ minigraph_port_indices[dst_port_1]}}"
   when: "not dst_port_1_is_lag_member"
 
 - name: Define PTF port IDs for dst_port_1
   set_fact:
-      dst_port_1_ptf_id: "{{ item|replace(\"Ethernet\", \"\")|int / 4 }},{{ dst_port_1_ptf_id }}"
+      dst_port_1_ptf_id: "{{ minigraph_port_indices[item] }},{{ dst_port_1_ptf_id }}"
+
   with_items: "{{ dst_port_1_is_lag_member }}"
   when: "dst_port_1_is_lag_member"
 
@@ -105,12 +106,12 @@
 
 - name: Define PTF port IDs for dst_port_2
   set_fact:
-      dst_port_2_ptf_id: "{{ dst_port_2|replace(\"Ethernet\", \"\")|int / 4 }}"
+      dst_port_2_ptf_id: "{{ minigraph_port_indices[dst_port_2]}}"
   when: "not dst_port_2_is_lag_member"
 
 - name: Define PTF port IDs for dst_port_2
   set_fact:
-      dst_port_2_ptf_id: "{{ item|replace(\"Ethernet\", \"\")|int / 4 }},{{ dst_port_2_ptf_id }}"
+      dst_port_2_ptf_id: "{{ minigraph_port_indices[item] }},{{ dst_port_2_ptf_id }}"
   with_items: "{{ dst_port_2_is_lag_member }}"
   when: "dst_port_2_is_lag_member"
 
@@ -138,12 +139,12 @@
 
 - name: Define PTF port IDs for dst_port_3
   set_fact:
-      dst_port_3_ptf_id: "{{ dst_port_3|replace(\"Ethernet\", \"\")|int / 4 }}"
+      dst_port_3_ptf_id: "{{ minigraph_port_indices[dst_port_3] }}"
   when: "not dst_port_3_is_lag_member"
 
 - name: Define PTF port IDs for dst_port_3
   set_fact:
-      dst_port_3_ptf_id: "{{ item|replace(\"Ethernet\", \"\")|int / 4 }},{{ dst_port_3_ptf_id }}"
+      dst_port_3_ptf_id: "{{ minigraph_port_indices[item]}},{{ dst_port_3_ptf_id }}"
   with_items: "{{ dst_port_3_is_lag_member }}"
   when: "dst_port_3_is_lag_member"
 

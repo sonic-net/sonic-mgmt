@@ -4,47 +4,16 @@
     docker_testdir: /tmp
     tests_location: roles/test/tasks/everflow_testbed
     testname: apply_config
-    config_files:
-        - session.json
-        - acl_table.json
-        - acl_rule_persistent.json
 
-- name: Generate json files with ACL configuration for tests
-  template: src={{ tests_location }}/{{ testname }}/acl_table.j2 dest={{ tests_location }}/{{ testname }}/acl_table.json
-  connection: local
+- name: Get session info.
+  include: roles/test/tasks/everflow_testbed/get_session_info.yml
 
-- name: Initialize config test
-  include: roles/test/tasks/init_config_test.yml
+- name: Copy python script for session configuration.
+  copy: src=roles/test/files/helpers/mirror_session.py dest={{ run_dir }}/
 
-- block:
-    - name: Apply Everflow session configuration.
-      vars:
-        config_file: session.json
-        test_expect_file: expect_messages.txt
-        errors_expected: false
-        run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
+- name: Copy ACL rules configuration file.
+  copy: src={{ tests_location }}/{{ testname}}/acl_rule_persistent.json dest={{ run_dir }}/
 
-    - name: Apply Everflow ACL table configuration.
-      vars:
-        config_file: acl_table.json
-        test_expect_file: expect_messages.txt
-        errors_expected: false
-        run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
+- command: "python {{ run_dir }}/mirror_session.py create {{ session_name }} {{ session_src_ip }} {{ session_dst_ip }} {{ session_gre }} {{ session_dscp }} {{ session_ttl }} {{ session_queue }}"
 
-    - name: Apply Everflow ACL rule configuration.
-      vars:
-        config_file: acl_rule_persistent.json 
-        test_expect_file: expect_messages.txt
-        errors_expected: false
-        run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
-
-  always:
-    - name: Remove all the temporary files created by the test.
-      include: roles/test/tasks/deinit_config_test.yml
-
-    - name: Remove temporary files.
-      file: path={{ tests_location }}/{{ testname }}/acl_table.json state=absent
-
+- command: "acl-loader update full {{ run_dir }}/acl_rule_persistent.json --session_name={{ session_name }}"

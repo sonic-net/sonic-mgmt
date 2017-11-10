@@ -452,6 +452,9 @@ def parse_xml(filename, hostname):
     elif hwsku == "Arista-7260CX3-C64":
         for i in range(1, 65):
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "Arista-7060CX-32S-C32":
+        for i in range(1, 33):
+            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "Arista-7260CX3-D108C8":
         # All possible breakout 50G port numbers:
         all_ports = [ x for x in range(1, 65)]
@@ -459,11 +462,8 @@ def parse_xml(filename, hostname):
         # 100G ports
         s100G_ports = [ x for x in range(45, 53) ]
 
-        # Unsed ports are not configured:
-        unused_ports = [18, 20]
-
         # 50G ports
-        s50g_ports = list(set(all_ports) - set(s100G_ports) - set(unused_ports))
+        s50g_ports = list(set(all_ports) - set(s100G_ports))
 
         for i in s50g_ports:
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
@@ -471,6 +471,22 @@ def parse_xml(filename, hostname):
 
         for i in s100G_ports:
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "INGRASYS-S9100-C32":
+        for i in range(1, 33):
+            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "INGRASYS-S9100-C32" or hwsku == "INGRASYS-S9130-32X" or hwsku == "INGRASYS-S8810-32Q":
+        for i in range(1, 33):
+            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "INGRASYS-S8900-54XC":
+        for i in range(1, 49):
+            port_alias_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
+        for i in range(49, 55):
+            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 49) * 4 + 48)
+    elif hwsku == "INGRASYS-S8900-64XC":
+        for i in range(1, 49):
+            port_alias_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
+        for i in range(49, 65):
+            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 49) * 4 + 48)
     else:
         for i in range(0, 128, 4):
             port_alias_map["Ethernet%d" % i] = "Ethernet%d" % i

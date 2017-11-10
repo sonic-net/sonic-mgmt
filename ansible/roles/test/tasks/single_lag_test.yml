@@ -52,13 +52,12 @@
     wait_down_time: 120
 
 ### Now prepare for the remote VM interfaces that using PTF docker to check teh LACP DU packet rate is correct 
+- set_fact: 
+     iface_behind_lag_member: []
 - set_fact:
-    iface_behind_lag_member_0: "{{ topology['VMs'][peer_device]['vlans'][0] }}"
-
-- set_fact:
-    iface_behind_lag_member_1: "{{ topology['VMs'][peer_device]['vlans'][1] }}"
-  when: testbed_type == 't1-lag'
-
+     iface_behind_lag_member: "{{iface_behind_lag_member}}+ ['{{minigraph_port_indices[item.key]}}']"
+  with_dict: "{{ minigraph_neighbors }}"
+  when: peer_device == "{{item.value.name}}"
 - set_fact:
     neighbor_lag_intfs: []
 

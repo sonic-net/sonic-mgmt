@@ -18,10 +18,12 @@
 # -e vm_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
 # -e topo=t0                 - the name of topology to generate minigraph file
 # -e deploy=True             - if deploy the newly generated minigraph to the targent DUT, default is false if not defined
+# -e save=True               - if save the newly generated minigraph to the targent DUT as starup-config, default is false if not defined
 #
 # After minigraph.xml is generated, the playbook will replace the original minigraph file under ansible/minigraph/ with the newly generated minigraph file for the SONiC device.
-# The playbook will based on deploy=True or False to deside if load the SONiC device with new minigraph or not. 
-# If deploy=true, the playbook will reboot the SONiC switch after change to new minigraph to make it take effect
+# The playbook will based on deploy=True or False to deside if load the SONiC device with new minigraph or not.
+# If deploy=true, the playbook will apply the newly generated minigraph to the SONiC switch
+# If save=true, the playbook will save the newly generated minigraph to SONiC switch as startup-config
 #
 ####################################################################################################################################################################################
 
@@ -77,22 +79,15 @@
             regexp: '^enabled='
             line: 'enabled=false'
         become: true
- 
-      # reload the device and wait it to come back
-      - name: Reboot is required for minigraph change
-        shell: sleep 2 && shutdown -r now "Ansible Create new configuration Minigraph file, triggered reboot."
-        async: 1
-        poll: 0
+
+      - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
         ignore_errors: true
+        shell: config load_minigraph -y
 
-      - name: waiting for switch to come back
-        local_action: 
-            wait_for host={{ remote_dut }} 
-            port=22 
-            state=started
-            delay=30 
-            timeout=300
-        become: false
-        changed_when: false
+      - name: execute cli "config save -y" to save current minigraph as startup-config
+        become: true
+        ignore_errors: true
+        shell: config save -y
+        when: save is defined and save|bool == true
     when: deploy is defined and deploy|bool == true

@@ -1,20 +1,87 @@
-#-----------------------------------------
-# Apply ACL configuration
-#-----------------------------------------
-- name: Acl test setup on testbed
-  include: acltb_configure.yml
-  tags: acltb_configure
+# Set facts for the loganalizer
+- set_fact:
+    out_dir: /tmp/
+    testname: acl
 
-#-----------------------------------------
-# Run ACL test
-#-----------------------------------------
-- name: Acl test run on testbed
-  include: acltb_test.yml
-  tags: acltb_test
+# Gather minigraph facts
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  become: no
+  connection: local
 
-#-----------------------------------------
-# Clean up ACL configuration
-#-----------------------------------------
-- name: Clean up ACL test configuration on the testbed
-  include: acltb_cleanup.yml
-  tags: acltb_cleanup
+- name: Read port reverse alias mapping
+  set_fact:
+    alias_reverse_map: "{{ minigraph_map_ngs_to_sonic }}"
+    podset_number: 200
+
+# Copy ACL config to the switch
+- name: Copy ACL config file to the DUT
+  copy: src="roles/test/tasks/acl/{{ item }}" dest="/tmp/"
+  with_items:
+    - "acltb_test_rules.json"
+    - "acltb_test_rules_allow_all.json"
+    - "acltb_test_rules-del.json"
+    - "acltb_test_rules_part_1.json"
+    - "acltb_test_rules_part_2.json"
+
+- block:
+    - name: Apply allow all rule
+      vars:
+        command_to_run: "acl-loader update full /tmp/acltb_test_rules_allow_all.json"
+        errors_expected: false
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
+
+    - name: Apply test rules
+      vars:
+        command_to_run: "acl-loader update full /tmp/acltb_test_rules.json"
+        errors_expected: false
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
+
+    - name: Run the test
+      include: ptf_runner.yml
+      vars:
+          ptf_test_name: ACL Test
+          ptf_test_dir: test
+          ptf_test_path: acltb_test.AclTest
+          ptf_platform: remote
+          ptf_test_params:
+            - verbose=True
+            - router_mac=\"{{ ansible_Ethernet0['macaddress'] }}\"
+            - switch_info=\"/tmp/acltb_switch_info.txt\"
+
+    - name: Clean up ACL rules.
+      vars:
+        command_to_run: "acl-loader update full /tmp/acltb_test_rules-del.json"
+        errors_expected: false
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
+
+    - name: Apply part 1 of ACL rules.
+      vars:
+        command_to_run: "acl-loader update incremental /tmp/acltb_test_rules_part_1.json"
+        errors_expected: false
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
+
+    - name: Apply part 2 of ACL rules.
+      vars:
+        command_to_run: "acl-loader update incremental /tmp/acltb_test_rules_part_2.json"
+        errors_expected: false
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
+
+    - name: Run the test
+      include: ptf_runner.yml
+      vars:
+          ptf_test_name: ACL Test
+          ptf_test_dir: test
+          ptf_test_path: acltb_test.AclTest
+          ptf_platform: remote
+          ptf_test_params:
+            - verbose=True
+            - router_mac=\"{{ ansible_Ethernet0['macaddress'] }}\"
+            - switch_info=\"/tmp/acltb_switch_info.txt\"
+
+  always:
+    - name: Clean up ACL rules.
+      vars:
+        command_to_run: "acl-loader update full /tmp/acltb_test_rules-del.json"
+        errors_expected: false
+      include: roles/test/tasks/run_command_with_log_analyzer.yml

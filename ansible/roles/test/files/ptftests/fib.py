@@ -51,9 +51,12 @@ class Fib():
         for ip in EXCLUDE_IPV6_PREFIXES:
             self._ipv6_lpm_dict[ip] = self.NextHop()
 
+        # filter out empty lines and lines starting with '#'
+        pattern = re.compile("^#.*$|^[ \t]*$")
+
         with open(file_path, 'r') as f:
             for line in f.readlines():
-                if line[0] == '#': continue
+                if pattern.match(line): continue
                 entry = line.split(' ', 1)
                 prefix = ip_network(unicode(entry[0]))
                 next_hop = self.NextHop(entry[1])
