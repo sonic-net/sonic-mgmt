@@ -21,7 +21,7 @@
   register: expected_missing_matches
 
 - set_fact:
-    fail_in_logs: "{{ errors_found.stdout  != \"0\" or expected_matches.stdout != \"0\" }}" 
+    fail_in_logs: "{{ errors_found.stdout  != \"0\" or expected_missing_matches.stdout != \"0\" }}" 
 
 - name: Generate system dump
   command: generate_dump
