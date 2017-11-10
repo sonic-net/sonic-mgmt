@@ -134,6 +134,7 @@
           <SubInterface/>
         </PortChannel>
 {% endfor %}
+{% set dhcp_servers_str=';'.join(dhcp_servers) %}
       </PortChannelInterfaces>
       <VlanInterfaces>
         <VlanInterface>
