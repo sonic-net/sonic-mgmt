@@ -80,8 +80,14 @@
 - set_fact: addr_family='ipv4'
   when: addr_family is not defined
 
-- set_fact: mux_ip_1="{% if addr_family=='ipv4' %}{{vlan_ips[1]}}{% else %}{{minigraph_portchannel_interfaces[1]['peer_addr']}}{% endif %}"
-- set_fact: mux_ip_2="{% if addr_family=='ipv4' %}{{vlan_ips[2]}}{% else %}{{minigraph_portchannel_interfaces[1]['peer_addr']}}{% endif %}"
+- set_fact: portchannel_name="{{minigraph_portchannel_interfaces[0].attachto}}"
+  when: addr_family == 'ipv6'
+
+- set_fact: portchannel_peer="{%for p in minigraph_portchannel_interfaces%}{%if p['attachto']==portchannel_name and p['peer_addr']|ipv6%}{{p['peer_addr']}}{%endif %}{%endfor%}"
+  when: addr_family == 'ipv6'
+
+- set_fact: mux_ip_1="{% if addr_family=='ipv4' %}{{vlan_ips[1]}}{% else %}{{portchannel_peer}}{% endif %}"
+- set_fact: mux_ip_2="{% if addr_family=='ipv4' %}{{vlan_ips[2]}}{% else %}{{portchannel_peer}}{% endif %}"
 
 - name: Set the prefix to be announced
   set_fact:
