@@ -24,6 +24,14 @@
     - "acltb_test_rules_part_1.json"
     - "acltb_test_rules_part_2.json"
 
+# Generate file with switch information
+- template: src=acltb.j2 dest=/tmp/acltb_switch_info.txt
+  connection: local
+
+- name: Copy switch info file to the PTF host
+  copy: src=/tmp/acltb_switch_info.txt dest=/tmp/acltb_switch_info.txt
+  delegate_to: "{{ ptf_host }}"
+
 - block:
     - name: Apply allow all rule
       vars:
@@ -41,7 +49,7 @@
       include: ptf_runner.yml
       vars:
           ptf_test_name: ACL Test
-          ptf_test_dir: test
+          ptf_test_dir: acstests
           ptf_test_path: acltb_test.AclTest
           ptf_platform: remote
           ptf_test_params:
@@ -71,7 +79,7 @@
       include: ptf_runner.yml
       vars:
           ptf_test_name: ACL Test
-          ptf_test_dir: test
+          ptf_test_dir: acstests
           ptf_test_path: acltb_test.AclTest
           ptf_platform: remote
           ptf_test_params:
