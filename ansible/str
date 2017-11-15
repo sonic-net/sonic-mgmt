@@ -2,21 +2,21 @@
 [sonic_latest]
 
 [sonic_dell32_40]
-str-s6000-on-1    ansible_host=10.3.147.141  
-str-s6000-on-2    ansible_host=10.3.147.142  
-str-s6000-on-3    ansible_host=10.3.146.112 
-str-s6000-on-4    ansible_host=10.3.146.113  
-str-s6000-on-5    ansible_host=10.3.147.171  
-str-s6000-on-6    ansible_host=10.3.147.172   
-str-s6000-acs-7   ansible_host=10.3.147.195   
-str-s6000-acs-8   ansible_host=10.3.147.197  
-str-s6000-acs-9   ansible_host=10.3.147.235  
-str-s6000-acs-10  ansible_host=10.3.147.237 
-str-s6000-acs-11  ansible_host=10.3.147.239  
-str-s6000-acs-12  ansible_host=10.3.147.252 
-str-s6000-acs-13  ansible_host=10.3.147.253  
+str-s6000-on-1    ansible_host=10.3.147.141
+str-s6000-on-2    ansible_host=10.3.147.142
+str-s6000-on-3    ansible_host=10.3.146.112
+str-s6000-on-4    ansible_host=10.3.146.113
+str-s6000-on-5    ansible_host=10.3.147.171
+str-s6000-on-6    ansible_host=10.3.147.172
+str-s6000-acs-7   ansible_host=10.3.147.195
+str-s6000-acs-8   ansible_host=10.3.147.197
+str-s6000-acs-9   ansible_host=10.3.147.235
+str-s6000-acs-10  ansible_host=10.3.147.237
+str-s6000-acs-11  ansible_host=10.3.147.239
+str-s6000-acs-12  ansible_host=10.3.147.252
+str-s6000-acs-13  ansible_host=10.3.147.253
 str-s6000-acs-14  ansible_host=10.3.147.17
-str-s6000-acs-3po   ansible_host=10.3.147.8 
+str-s6000-acs-3po   ansible_host=10.3.147.8
 
 [sonic_dell32_40:vars]
 hwsku="Force10-S6000"
@@ -24,10 +24,10 @@ iface_speed='40000'
 mgmt_subnet_mask_length='23'
 
 [sonic_dell64_40]
-str-s6100-acs-1   ansible_host=10.3.147.243   
+str-s6100-acs-1   ansible_host=10.3.147.243
 str-s6100-acs-2   ansible_host=10.64.247.225
-str-s6100-acs-3   ansible_host=10.64.247.2    
 str-s6100-acs-4   ansible_host=10.64.247.226
+str-s6100-acs-5   ansible_host=10.3.147.187
 
 [sonic_dell64_40:vars]
 hwsku="Force10-S6100"
@@ -35,10 +35,11 @@ iface_speed='40000'
 mgmt_subnet_mask_length='23'
 
 [sonic_nexus_3132_40]
-str-n3132-acs-1   ansible_host=10.3.147.204  
+str-n3132-acs-1   ansible_host=10.3.147.204
 str-n3132-acs-2   ansible_host=10.3.147.247
-str-n3132-acs-3   ansible_host=10.3.147.251  
-str-n3132-acs-4   ansible_host=10.3.147.160  
+str-n3132-acs-3   ansible_host=10.3.147.251
+str-n3132-acs-4   ansible_host=10.3.147.160
+
 
 [sonic_nexus_3132_40:vars]
 hwsku="Nexus-3132-Q32"
@@ -46,8 +47,8 @@ iface_speed='40000'
 mgmt_subnet_mask_length='23'
 
 [sonic_nexus_9232_40]
-str-9232-acs-1    ansible_host=10.3.147.189  
-str-9232-acs-2    ansible_host=10.3.147.254 
+str-9232-acs-1    ansible_host=10.3.147.189
+str-9232-acs-2    ansible_host=10.3.147.254
 
 [sonic_nexus_9232_40:vars]
 hwsku="Nexus-9232C"
@@ -64,13 +65,13 @@ iface_speed='40000'
 mgmt_subnet_mask_length='23'
 
 [sonic_mlnx_40]
-str-msn2700-01    ansible_host=10.3.147.188  
-str-msn2700-02    ansible_host=10.3.147.45 
-str-msn2700-03    ansible_host=10.3.147.46 
-str-msn2700-04    ansible_host=10.3.147.47   
-str-msn2700-05    ansible_host=10.3.147.48   
-str-msn2700-06    ansible_host=10.3.147.49   
-str-msn2700-11-3po  ansible_host=10.3.147.54 
+str-msn2700-01    ansible_host=10.3.147.188
+str-msn2700-02    ansible_host=10.3.147.45
+str-msn2700-03    ansible_host=10.3.147.46
+str-msn2700-04    ansible_host=10.3.147.47
+str-msn2700-05    ansible_host=10.3.147.48
+str-msn2700-06    ansible_host=10.3.147.49
+str-msn2700-11-3po  ansible_host=10.3.147.54
 
 [sonic_mlnx_40:vars]
 hwsku="ACS-MSN2700"
@@ -78,7 +79,7 @@ iface_speed='40000'
 mgmt_subnet_mask_length="23"
 
 [sonic_mlnx_100]
-str-msn2700-20    ansible_host=10.64.247.235 
+str-msn2700-20    ansible_host=10.64.247.235
 str-msn2700-22    ansible_host=10.64.247.236
 
 [sonic_mlnx_100:vars]
@@ -86,7 +87,7 @@ hwsku="ACS-MSN2700"
 iface_speed='100000'
 mgmt_subnet_mask_length="23"
 
-[sonic_cavium32] 
+[sonic_cavium32]
 str-cavium-acs-01 ansible_host=10.3.147.10
 
 [sonic_arista64_100]
@@ -99,7 +100,7 @@ iface_speed='100000'
 mgmt_subnet_mask_length='23'
 
 [sonic_dell32_100]
-str-z9100-acs-1   ansible_host=10.3.146.191 
+str-z9100-acs-1   ansible_host=10.3.146.191
 str-z9100-acs-2   ansible_host=10.64.247.237
 
 [sonic_dell32_100:vars]
@@ -152,7 +153,7 @@ vms7-7  ansible_host=10.64.247.17  ansible_ssh_user=root ansible_ssh_pass=root
 
 [str:children]
 sonic
-acs_ixia_dscp 
+acs_ixia_dscp
 fanout
 
 [fanout]
