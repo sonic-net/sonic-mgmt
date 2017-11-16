@@ -1,0 +1,40 @@
+# Example usage:
+#
+# ansible-playbook upgrade_sonic.yml -i lab -l device -e "image_url='http://8.8.8.8/sonic-broadcom.bin'"
+
+- hosts: all
+  gather_facts: no
+  tasks:
+
+    - name: Gather minigraph facts about the device
+      minigraph_facts: host={{ inventory_hostname }}
+      connection: local
+
+    - fail: msg="image_url is not defined"
+      when: image_url is not defined
+
+    - name: Install the target image
+      become: true
+      shell: sonic_installer install -y {{ image_url }}
+      register: output
+      failed_when: output.rc != 0
+
+    - name: Reboot
+      become: true
+      shell: shutdown -r now "Reboot"
+      async: 1
+      poll: 0
+      ignore_errors: true
+
+    - name: Wait for switch to come back
+      local_action:
+        wait_for host={{ inventory_hostname }}
+        port=22
+        state=started
+        delay=30
+        timeout=600
+        search_regex=OpenSSH
+      changed_when: false
+
+    - name: Wait for SONiC initialization
+      pause: seconds=60
