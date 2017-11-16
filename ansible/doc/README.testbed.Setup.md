@@ -42,6 +42,7 @@ PTF docker is used to send and receive packets to test data plane.
 - Build PTF docker
 ```
 git clone --recursive https://github.com/Azure/sonic-buildimage.git
+make configure PLATFORM=generic
 make target/docker-ptf.gz
 ```
 
@@ -56,6 +57,7 @@ the docker and run ansible playbook inside the docker.
 - Build *sonic-mgmt* docker
 ```
 git clone --recursive https://github.com/Azure/sonic-buildimage.git
+make configure PLATFORM=generic
 make target/docker-sonic-mgmt.gz
 ```
 
