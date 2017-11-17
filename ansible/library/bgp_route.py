@@ -322,9 +322,9 @@ def main():
 
         if prefix:
             if regex_ipv4.match(prefix):
-                command = "vtysh -c 'show ip bgp " + str(prefix) + "'"
+                command = "docker exec -i bgp vtysh -c 'show ip bgp " + str(prefix) + "'"
             else:
-                command = "vtysh -c 'show ipv6 bgp " + str(prefix) +  "'"
+                command = "docker exec -i bgp vtysh -c 'show ipv6 bgp " + str(prefix) +  "'"
             rc, out, err = module.run_command(command)
             if rc != 0:
                 err_message = "command %s failed rc=%d, out=%s, err=%s" %(command, rt, out, err)
@@ -334,9 +334,9 @@ def main():
 
         elif neighbor:
             if netaddr.valid_ipv4(neighbor):
-                command = "vtysh -c 'show ip bgp neighbor " + str(neighbor) + " " + str(direction) + "'"
+                command = "docker exec -i bgp vtysh -c 'show ip bgp neighbor " + str(neighbor) + " " + str(direction) + "'"
             else:
-                command = "vtysh -c 'show ipv6 bgp neighbor " + str(neighbor) + " " + str(direction) + "'"
+                command = "docker exec -i bgp vtysh -c 'show ipv6 bgp neighbor " + str(neighbor) + " " + str(direction) + "'"
             rc, out, err = module.run_command(command)
             if rc !=  0:
                 err_message = "command %s failed rc=%d, out=%s, err=%s" %(command, rt, out, err)

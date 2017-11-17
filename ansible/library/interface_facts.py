@@ -296,8 +296,12 @@ def main():
 
     down_ports = []
     for name in up_ports:
-        if not interfaces[name]['link']:
+        try:
+            if not interfaces[name]['link']:
+                down_ports += [name]
+        except:
             down_ports += [name]
+            pass 
 
     results['ansible_interface_facts'] = interfaces
     results['ansible_interface_ips'] = ips
