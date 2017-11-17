@@ -4,7 +4,11 @@
 {# spine ports #}
 {% for ifname, v in minigraph_neighbors.iteritems() %}{% if "T2" in v.name %}{{ '%d' % minigraph_port_indices[ifname] }},{% endif %}{% endfor %}
 
+{# DST IP address (spine port) #}
 192.168.0.0
+{# DST IP address (spine port)  #}
 192.168.0.16
-172.16.1.0
+{# DST IP address (tor port) #}
+172.16.3.0
+{# Blocked DST IP address (tor port) #}
 172.16.2.0
