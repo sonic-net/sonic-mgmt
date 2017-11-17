@@ -73,7 +73,7 @@ class BgpModule(object):
             Collect bgp information by reading output of 'vtysh' command line tool
         """
         try:
-            rc, self.out, err = self.module.run_command('vtysh -c "show ip bgp ' + command_str + '"',
+            rc, self.out, err = self.module.run_command('docker exec -i bgp vtysh -c "show ip bgp ' + command_str + '"',
                                                         executable='/bin/bash', use_unsafe_shell=True)
         except Exception as e:
             self.module.fail_json(msg=str(e))
