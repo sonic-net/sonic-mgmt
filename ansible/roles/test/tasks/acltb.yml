@@ -32,6 +32,11 @@
   copy: src=/tmp/acltb_switch_info.txt dest=/tmp/acltb_switch_info.txt
   delegate_to: "{{ ptf_host }}"
 
+- name: Copy the ACL test to PTF container
+  copy: src=roles/test/files/acstests/acltb_test.py dest=/tmp/acstests/
+  delegate_to: "{{ ptf_host }}"
+
+
 - block:
     - name: Apply allow all rule
       vars:
@@ -49,7 +54,7 @@
       include: ptf_runner.yml
       vars:
           ptf_test_name: ACL Test
-          ptf_test_dir: acstests
+          ptf_test_dir: /tmp/acstests
           ptf_test_path: acltb_test.AclTest
           ptf_platform: remote
           ptf_test_params:
@@ -79,7 +84,7 @@
       include: ptf_runner.yml
       vars:
           ptf_test_name: ACL Test
-          ptf_test_dir: acstests
+          ptf_test_dir: /tmp/acstests
           ptf_test_path: acltb_test.AclTest
           ptf_platform: remote
           ptf_test_params:
