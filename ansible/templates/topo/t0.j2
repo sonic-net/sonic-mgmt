@@ -114,7 +114,7 @@
       <PortChannelInterfaces>
 {% for index in range(4) %}
         <PortChannel>
-          <Name>PortChannel0{{ index+1 }}</Name>
+          <Name>PortChannel{{ ((index+1)|string).zfill(4) }}</Name>
           <AttachTo>{{ port_alias[28+index] }}</AttachTo>
           <SubInterface/>
         </PortChannel>
@@ -138,12 +138,12 @@
 {% for index in range(4) %}
         <IPInterface>
           <Name i:nil="true"/>
-          <AttachTo>PortChannel0{{ index +1 }}</AttachTo>
+          <AttachTo>PortChannel{{ ((index +1)|string).zfill(4) }}</AttachTo>
           <Prefix>10.0.0.{{ 56 + index*2 }}/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>PortChannel0{{ index +1 }}</AttachTo>
+          <AttachTo>PortChannel{{ ((index +1)|string).zfill(4) }}</AttachTo>
           <Prefix>FC00::{{ ('%0x' % (113+index*4)) | upper }}/126</Prefix>
         </IPInterface>
 {% endfor %}
