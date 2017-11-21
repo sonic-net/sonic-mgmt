@@ -1,0 +1,50 @@
+#-----------------------------------------
+# Test json-configuration:
+#   1) Upload json-config through swssconfig.
+#   2) Check log through the loganalyzer.
+#   3) Run cleanup if needed.
+#-----------------------------------------
+
+- include_vars: "vars/run_config_test_vars.yml"
+
+- block:
+    - name: Initialize loganalizer. Put start marker to log file.
+      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+    - name: Run command {{ command_to_run }}
+      command: "{{ command_to_run }}"
+
+    - name: Use loganalyzer to check for the error messages {{ testname }} / {{ command_to_run }}.
+      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+
+    - name: Read loganalyzer summary file.
+      shell: cat "{{ test_out_dir }}/{{ summary_file }}"
+      register: log_summary
+
+    - name: Print loganalyzer summary file.
+      debug:
+        var: log_summary.stdout_lines
+
+    - name: Get the total number of expected messages.
+      shell: grep "TOTAL EXPECTED" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL EXPECTED MATCHES:[[:space:]]*//p"
+      register: expects_found
+      when: errors_expected == true
+
+    - name: Check that expected error messages are found (negative tests only).
+      fail: msg="Expected error messages are not found while running {{ testname }} / {{ command_to_run }}"
+      when: errors_expected == true and expects_found.stdout == "0"
+
+    - name: Get the total number of error messages.
+      shell: grep "TOTAL MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL MATCHES:[[:space:]]*//p"
+      register: errors_found
+
+    - name: Check the number of error messages (positive tests only).
+      fail: msg="{{ errors_found.stdout }} errors found while running {{ testname }} / {{ command_to_run }}."
+      when: errors_expected == false and errors_found.stdout != "0"
+
+    - name: Copy test data to host.
+      fetch: src={{ test_out_dir }}/{{ item }} dest=failed-test-data/{{ testname_unique }}/{{ item }}
+      with_items:
+          - "{{ summary_file }}"
+          - "{{ result_file }}"
+      when: (errors_expected == true and expects_found.stdout == "0") or (errors_expected == false and errors_found.stdout != "0")

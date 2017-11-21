@@ -79,15 +79,12 @@
     fail: msg="Define topo variable with -e topo=something"
     when: topo is not defined or topo not in topologies
 
-  - name: Load topo variables
-    include_vars: "vars/topo_{{ topo }}.yml"
-
   - name: Check that variable VM_base is defined
     fail: msg="Define VM_base variable with -e VM_base=something"
     when: VM_base is not defined
 
-  - name: Include server vars
-    include_vars: "{{ host_var_file }}"
+  - name: Load topo variables
+    include_vars: "vars/topo_{{ topo }}.yml"
 
   - name: Find current server group
     set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
@@ -98,18 +95,6 @@
   - name: Generate vm list of target VMs
     set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) }}
     when: topology['VMs'] is defined
-
-  - name: Generate hostname for target VM
-    set_fact: hostname={{ VM_hosts | extract_hostname(topology['VMs'], VM_base, inventory_hostname) }}
-    when: topology['VMs'] is defined
-
-  - name: Set properties list to default value, when properties are not defined
-    set_fact: properties_list=[]
-    when: configuration is not defined or configuration[hostname] is not defined or configuration[hostname]['properties'] is not defined
-
-  - name: Set properties list to values, when they're defined
-    set_fact: properties_list=configuration[hostname]['properties']
-    when: configuration and configuration[hostname] and configuration[hostname]['properties'] is defined
 
   roles:
     - { role: eos, when: topology.VMs is defined and inventory_hostname in VM_targets } # role eos will be executed in any case, and when will evaluate with every task

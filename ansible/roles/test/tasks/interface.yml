@@ -1,9 +1,11 @@
 - name: Get interface facts
-  interface_facts:
+  interface_facts: up_ports={{minigraph_ports}}
+
+- debug: msg="Found link down ports {{ansible_interface_link_down_ports}} "
+  when: ansible_interface_link_down_ports | length > 0
 
 - name: Verify interfaces are up correctly
-  assert: { that: "'{{ ansible_interface_facts[item]['active'] }}' == 'True'" }
-  with_items: "{{ minigraph_ports }}"
+  assert: { that: "{{ ansible_interface_link_down_ports | length }} == 0" }
 
 - name: Verify port channel interfaces are up correctly
   assert: { that: "'{{ ansible_interface_facts[item]['active'] }}' == 'True'" }

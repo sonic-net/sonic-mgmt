@@ -114,11 +114,12 @@
       <PortChannelInterfaces>
 {% for index in range(4) %}
         <PortChannel>
-          <Name>PortChannel0{{ index+1 }}</Name>
+          <Name>PortChannel{{ ((index+1)|string).zfill(4) }}</Name>
           <AttachTo>{{ port_alias[28+index] }}</AttachTo>
           <SubInterface/>
         </PortChannel>
 {% endfor %}
+{% set dhcp_servers_str=';'.join(dhcp_servers) %}
       </PortChannelInterfaces>
       <VlanInterfaces>
         <VlanInterface>
@@ -127,6 +128,7 @@
           <NoDhcpRelay>False</NoDhcpRelay>
           <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
           <Type i:nil="true"/>
+          <DhcpRelays>{{ dhcp_servers_str }}</DhcpRelays>
           <VlanID>1000</VlanID>
           <Tag>1000</Tag>
           <Subnets>192.168.0.0/27</Subnets>
@@ -136,12 +138,12 @@
 {% for index in range(4) %}
         <IPInterface>
           <Name i:nil="true"/>
-          <AttachTo>PortChannel0{{ index +1 }}</AttachTo>
+          <AttachTo>PortChannel{{ ((index +1)|string).zfill(4) }}</AttachTo>
           <Prefix>10.0.0.{{ 56 + index*2 }}/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>PortChannel0{{ index +1 }}</AttachTo>
+          <AttachTo>PortChannel{{ ((index +1)|string).zfill(4) }}</AttachTo>
           <Prefix>FC00::{{ ('%0x' % (113+index*4)) | upper }}/126</Prefix>
         </IPInterface>
 {% endfor %}
@@ -189,7 +191,7 @@
 {% set dev_ytpe = 'Unknown' %}
 {% endif %}
       <Device i:type="{{ dev_type }}">
-         <Hostname>"{{ dev }}"</Hostname>
+         <Hostname>{{ dev }}</Hostname>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>{{ neighbor_eosvm_mgmt[dev] }}</a:IPPrefix>
          </ManagementAddress>

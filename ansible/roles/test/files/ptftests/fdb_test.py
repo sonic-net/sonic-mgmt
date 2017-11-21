@@ -38,7 +38,6 @@ class FdbTest(BaseTest):
         self.vlan_ip = ip_address(unicode(self.test_params['vlan_ip']))
 
         self.setUpFdb()
-        self.setUpArpResponder()
 
         self.log("Start arp_responder")
         self.shell(["supervisorctl", "start", "arp_responder"])
@@ -55,6 +54,12 @@ class FdbTest(BaseTest):
             for member in vlan_table[vlan]:
                 mac = self.dataplane.get_mac(0, member)
                 self.fdb.insert(mac, member)
+
+                # Send a packet to switch to populate the layer 2 table
+                pkt = simple_eth_packet(eth_dst=self.test_params['router_mac'],
+                                        eth_src=mac,
+                                        eth_type=0x1234)
+                send(self, member, pkt)
     #--------------------------------------------------------------------------
 
     def setUpArpResponder(self):
@@ -79,7 +84,7 @@ class FdbTest(BaseTest):
                                 eth_type=0x1234)
         self.log("Send packet " + str(src_mac) + "->" + str(dst_mac) + " from " + str(src_port) + " to " + str(dst_port) + "...")
         send(self, src_port, pkt)
-        verify_packet(self, pkt, dst_port)
+        verify_packet_any_port(self, pkt, [dst_port])
     #--------------------------------------------------------------------------
 
     def runTest(self):

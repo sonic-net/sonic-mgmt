@@ -96,6 +96,11 @@ class LogAnalyzer:
 
     #---------------------------------------------------------------------
 
+    def is_filename_stdin(self, file_name):
+        return file_name == "-"
+
+    #---------------------------------------------------------------------
+
     def create_end_marker(self):
         return self.end_marker_prefix + "-" + self.run_id
     #---------------------------------------------------------------------
@@ -108,7 +113,7 @@ class LogAnalyzer:
         '''
 
         for log_file in log_file_list:
-            if not len(log_file) :
+            if not len(log_file) or self.is_filename_stdin(log_file):
                 continue
             self.print_diagnostic_message('log file:%s, place marker %s'%(log_file, marker))
             with open(log_file, 'a') as file:
@@ -214,7 +219,7 @@ class LogAnalyzer:
             regex = re.compile('|'.join(messages_regex))
         else:
             regex = None
-        return regex
+        return regex, messages_regex
     #---------------------------------------------------------------------
 
     def line_matches(self, str, match_messages_regex, ignore_messages_regex):
@@ -288,62 +293,65 @@ class LogAnalyzer:
         #-- indicates whether log analyzer currently is in the log range between start
         #-- and end marker. see analyze_file method.
         in_analysis_range = False
+        stdin_as_input = self.is_filename_stdin(log_file_path)
         matching_lines = []
-        log_file = open(log_file_path, 'r')
+        expected_lines = []
         found_start_marker = False
         found_end_marker = False
-
-        #-- True if expected message is found
-        found_expected_message = False
-        expecting_lines = []
+        if stdin_as_input:
+            log_file = sys.stdin
+        else:
+            log_file = open(log_file_path, 'r')
 
         start_marker = self.create_start_marker()
         end_marker = self.create_end_marker()
 
         for rev_line in reversed(log_file.readlines()):
 
-            if rev_line.find(end_marker) != -1:
-                self.print_diagnostic_message('found end marker: %s' % end_marker)
-                if (found_end_marker):
-                    print 'ERROR: duplicate end marker found'
-                    sys.exit(err_duplicate_end_marker)
-                found_end_marker = True
+            if stdin_as_input:
                 in_analysis_range = True
-                continue
+            else:
+                if rev_line.find(end_marker) != -1:
+                    self.print_diagnostic_message('found end marker: %s' % end_marker)
+                    if (found_end_marker):
+                        print 'ERROR: duplicate end marker found'
+                        sys.exit(err_duplicate_end_marker)
+                    found_end_marker = True
+                    in_analysis_range = True
+                    continue
 
-            if rev_line.find(start_marker) != -1:
-                self.print_diagnostic_message('found start marker: %s' % start_marker)
-                if (found_start_marker):
-                    print 'ERROR: duplicate start marker found'
-                    sys.exit(err_duplicate_start_marker)
-                found_start_marker = True
+            if not stdin_as_input:
+                if rev_line.find(start_marker) != -1:
+                    self.print_diagnostic_message('found start marker: %s' % start_marker)
+                    if (found_start_marker):
+                        print 'ERROR: duplicate start marker found'
+                        sys.exit(err_duplicate_start_marker)
+                    found_start_marker = True
 
-                if(not in_analysis_range):
-                    print 'ERROR: found start marker:%s without corresponding end marker' % rev_line
-                    sys.exit(err_no_end_marker)
-                in_analysis_range = False
-                break
+                    if(not in_analysis_range):
+                        print 'ERROR: found start marker:%s without corresponding end marker' % rev_line
+                        sys.exit(err_no_end_marker)
+                    in_analysis_range = False
+                    break
 
             if in_analysis_range :
                 if self.line_is_expected(rev_line, expect_messages_regex):
-                    found_expected_message = True
-                    expecting_lines.append(rev_line)
+                    expected_lines.append(rev_line)
 
                 elif self.line_matches(rev_line, match_messages_regex, ignore_messages_regex):
                     matching_lines.append(rev_line)
 
-        if (not found_start_marker):
-            print 'ERROR: start marker was not found'
-            sys.exit(err_no_start_marker)
+        # care about the markers only if input is not stdin
+        if not stdin_as_input:
+            if (not found_start_marker):
+                print 'ERROR: start marker was not found'
+                sys.exit(err_no_start_marker)
 
-        if (not found_end_marker):
-            print 'ERROR: end marker was not found'
-            sys.exit(err_no_end_marker)
+            if (not found_end_marker):
+                print 'ERROR: end marker was not found'
+                sys.exit(err_no_end_marker)
 
-        if (not found_expected_message) and (expect_messages_regex is not None):
-            print 'ERROR: expected error messages were not found in logfile'
-
-        return matching_lines,expecting_lines
+        return matching_lines, expected_lines
     #---------------------------------------------------------------------
 
     def analyze_file_list(self, log_file_list, match_messages_regex, ignore_messages_regex, expect_messages_regex):
@@ -400,6 +408,10 @@ def usage():
     print '                                 A string from log file matching any string from these'
     print '                                 files will be ignored during analysis. Must be present'
     print '                                 when action == analyze.'
+    print '--expect_files_in path{,path}    List of path to files containing string. '
+    print '                                 All the strings from these files will be expected to present'
+    print '                                 in one of specified log files during the analysis. Must be present'
+    print '                                 when action == analyze.'
 
 #---------------------------------------------------------------------
 
@@ -451,7 +463,7 @@ def check_run_id(run_id):
     return ret_code
 #---------------------------------------------------------------------
 
-def write_result_file(run_id, out_dir, analysis_result_per_file):
+def write_result_file(run_id, out_dir, analysis_result_per_file, messages_regex_e, unused_regex_messages):
     '''
     @summary: Write results of analysis into a file.
 
@@ -465,35 +477,50 @@ def write_result_file(run_id, out_dir, analysis_result_per_file):
     '''
 
     match_cnt = 0
-    expect_cnt = 0
+    expected_cnt = 0
+    expected_lines_total = []
+
     with open(out_dir + "/result.loganalysis." + run_id + ".log", 'w') as out_file:
         for key, val in analysis_result_per_file.iteritems():
-            matching_lines, expecting_lines = val
+            matching_lines, expected_lines = val
 
-            out_file.write("\n-----------Matches found in file:%s-----------\n" % key)
+            out_file.write("\n-----------Matches found in file:'%s'-----------\n" % key)
             for s in matching_lines:
                 out_file.write(s)
-                out_file.flush()
             out_file.write('\nMatches:%d\n' % len(matching_lines))
             match_cnt += len(matching_lines)
 
             out_file.write("\n-------------------------------------------------\n\n")
 
-            for i in expecting_lines:
+            for i in expected_lines:
                 out_file.write(i)
-                out_file.flush()
-            out_file.write('\nExpecting matches:%d\n' % len(expecting_lines))
-            expect_cnt += len(expecting_lines)
+                expected_lines_total.append(i)
+            out_file.write('\nExpected and found matches:%d\n' % len(expected_lines))
+            expected_cnt += len(expected_lines)
 
         out_file.write("\n-------------------------------------------------\n\n")
         out_file.write('Total matches:%d\n' % match_cnt)
-        out_file.write('Total expected matches:%d\n' % expect_cnt)
+        # Find unused regex matches
+        for regex in messages_regex_e:
+            regex_used = False
+            for line in expected_lines_total:
+                if re.search(regex, line):
+                    regex_used = True
+                    break
+            if not regex_used:
+                unused_regex_messages.append(regex)
+
+        out_file.write('Total expected and found matches:%d\n' % expected_cnt)
+        out_file.write('Total expected but not found matches: %d\n\n' % len(unused_regex_messages))
+        for regex in unused_regex_messages:
+            out_file.write(regex + "\n")
+
         out_file.write("\n-------------------------------------------------\n\n")
         out_file.flush()
 
 #---------------------------------------------------------------------
 
-def write_summary_file(run_id, out_dir, analysis_result_per_file):
+def write_summary_file(run_id, out_dir, analysis_result_per_file, unused_regex_messages):
     '''
     @summary: This function writes results summary into a file
 
@@ -521,10 +548,11 @@ def write_summary_file(run_id, out_dir, analysis_result_per_file):
         total_match_cnt += file_match_cnt
         total_expect_cnt += file_expect_cnt
 
-    out_file.write("-----------------------------\n")
-    out_file.write("TOTAL MATCHES:    %d\n" % total_match_cnt)
-    out_file.write("TOTAL EXPECTED MATCHES:    %d\n" % total_expect_cnt)
-    out_file.write("-----------------------------\n")
+    out_file.write("-----------------------------------\n")
+    out_file.write("TOTAL MATCHES:                  %d\n" % total_match_cnt)
+    out_file.write("TOTAL EXPECTED MATCHES:         %d\n" % total_expect_cnt)
+    out_file.write("TOTAL EXPECTED MISSING MATCHES: %d\n" % len(unused_regex_messages))
+    out_file.write("-----------------------------------\n")
     out_file.flush()
     out_file.close()
 #---------------------------------------------------------------------
@@ -583,7 +611,7 @@ def main(argv):
 
     analyzer = LogAnalyzer(run_id, verbose)
 
-    log_file_list = log_files_in.split(tokenizer)
+    log_file_list = filter(None, log_files_in.split(tokenizer))
 
     result = {}
     if (action == "init"):
@@ -596,15 +624,19 @@ def main(argv):
 
         analyzer.place_marker(log_file_list, analyzer.create_end_marker())
 
-        match_messages_regex = analyzer.create_msg_regex(match_file_list)
-        ignore_messages_regex = analyzer.create_msg_regex(ignore_file_list)
-        expect_messages_regex = analyzer.create_msg_regex(expect_file_list)
+        match_messages_regex, messages_regex_m = analyzer.create_msg_regex(match_file_list)
+        ignore_messages_regex, messages_regex_i = analyzer.create_msg_regex(ignore_file_list)
+        expect_messages_regex, messages_regex_e = analyzer.create_msg_regex(expect_file_list)
 
-        log_file_list.append(system_log_file)
+        # if no log file specified - add system log
+        if not log_file_list:
+            log_file_list.append(system_log_file)
+
         result = analyzer.analyze_file_list(log_file_list, match_messages_regex,
                                             ignore_messages_regex, expect_messages_regex)
-        write_result_file(run_id, out_dir, result)
-        write_summary_file(run_id, out_dir, result)
+        unused_regex_messages = []
+        write_result_file(run_id, out_dir, result, messages_regex_e, unused_regex_messages)
+        write_summary_file(run_id, out_dir, result, unused_regex_messages)
 
     else:
         print 'Unknown action:%s specified' % action

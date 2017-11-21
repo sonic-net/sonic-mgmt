@@ -35,6 +35,7 @@
     ptf_test_dir: ptftests
     ptf_test_path: dhcp_relay_test.DHCPTest
     ptf_platform: remote
+    ptf_platform_dir: ptftests
     ptf_test_params:
       - hostname=\"{{ inventory_hostname }}\"
       - client_port_index=\"{{ client_port_index }}\"

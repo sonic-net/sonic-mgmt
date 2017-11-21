@@ -4,7 +4,7 @@
   register: clean_up
   become: true
 
-- fail: msg="swssconfig - failed to cleanup the ACL configuration"
+- fail: msg="swssconfig - failed to cleanup the configuration"
   when: clean_up.rc != 0
 
 - name: Wait for orchagent initialization

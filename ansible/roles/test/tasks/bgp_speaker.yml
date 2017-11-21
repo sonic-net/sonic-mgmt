@@ -6,9 +6,7 @@
   when: (testbed_type is not defined or ptf_host is not defined)
 
 - fail: msg="Invalid testbed_type value '{{testbed_type}}'"
-  when: testbed_type not in ['t0']
-
-- include_vars: "vars/deployment_id_asn_map.yml"
+  when: testbed_type not in ['t0', 't0-64']
 
 - name: Gather minigraph facts about the device
   minigraph_facts: host={{inventory_hostname}}
@@ -18,9 +16,13 @@
 - name: print deployment id
   debug: msg="{{deployment_id}}"
 
+- name: fetch bgp speaker asn number from DUT
+  shell: sonic-cfggen -m -d -y /etc/sonic/deployment_id_asn_map.yml -v "deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]"
+  register: cfggen_out
+
 - name: set bgp speaker asn number
   set_fact:
-     bgp_speaker_asn={{deployment_id_asn_map[deployment_id]}}
+     bgp_speaker_asn={{cfggen_out.stdout}}
 
 - name: print bgp speaker asn number
   debug: msg="{{bgp_speaker_asn}}"
@@ -49,9 +51,6 @@
 
 # vlan_ips[0], speaker_ips[0], speaker_ips[1] are IPs for three bgp speakers
 # vlan_ips[1], vlan_ips[2] are IPs for mux under DUT.
-- name: Create directory /exabgp to store exabgp related files.
-  file: path=/root/exabgp state=directory
-  connection: local
 
 - name: set exabgp folder name
   set_fact:
@@ -117,6 +116,11 @@
        mux_ip_1: "{{mux_ip_1}}",
        mux_ip_2: "{{mux_ip_2}}"}
   delegate_to: "{{ptf_host}}"
+
+- name: Kill exabgp instances if existing
+  shell: pkill exabgp
+  delegate_to: "{{ptf_host}}"
+  ignore_errors: yes
 
 - name: Start exabgp instances
   shell: sh {{exabgp_dir}}/start.sh

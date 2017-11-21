@@ -1,0 +1,47 @@
+#-----------------------------------------
+# Run all the PFC WD tests.
+#-----------------------------------------
+
+- set_fact:
+    run_dir: /home/admin/pfc_wd_tests
+    out_dir: /home/admin/pfc_wd_tests/results
+    docker_testdir: /tmp
+    tests_location: roles/test/tasks/pfc_wd
+
+- name: Create run_dir
+  file:
+    path: "{{ run_dir }}"
+    state: directory
+
+- name: Gathering lab graph facts about the device
+  conn_graph_facts: host={{ ansible_host }}
+  connection: local
+  tags: always
+
+- set_fact:
+    neighbors: "{{device_conn}}"
+
+ #****************************************#
+ #           Start tests                  #
+ #****************************************#
+
+- block:
+    - name: Choose random port for testing
+      include: roles/test/tasks/pfc_wd/choose_test_port.yml
+
+    - name: Test PFC WD configuration validation.
+      vars:
+        pfc_wd_template: roles/test/templates/pfc_wd_config.j2
+      include: roles/test/tasks/pfc_wd/config_test/config_test.yml
+
+    - name: Test PFC WD Functional tests.
+      vars:
+        pfc_wd_template: roles/test/templates/pfc_wd_config.j2
+        peer_device: "{{ neighbors[pfc_wd_test_port]['peerdevice'] }}" 
+      include: roles/test/tasks/pfc_wd/functional_test/functional_test.yml
+
+  always:
+    - name: General cleanup.
+      file:
+        path: "{{ run_dir }}"
+        state: absent

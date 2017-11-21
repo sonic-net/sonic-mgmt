@@ -620,3 +620,314 @@ sensors_checks:
       temp: []
 
     psu_skips: {}
+
+  Arista-7260CX3-D108C8:
+    alarms:
+      fan:
+      - pmbus-i2c-3-58/fan1/fan1_alarm
+      - pmbus-i2c-3-58/fan1/fan1_fault
+      - pmbus-i2c-4-58/fan1/fan1_alarm
+      - pmbus-i2c-4-58/fan1/fan1_fault
+      power:
+      - pmbus-i2c-3-58/vout1/in2_crit_alarm
+      - pmbus-i2c-3-58/vout1/in2_lcrit_alarm
+      - pmbus-i2c-4-58/vout1/in2_crit_alarm
+      - pmbus-i2c-4-58/vout1/in2_lcrit_alarm
+      temp: []
+
+    compares:
+      fan: []
+      power: []
+      temp: []
+
+    non_zero:
+      fan:
+      - pmbus-i2c-3-58/fan1/fan1_input
+      - pmbus-i2c-4-58/fan1/fan1_input
+      power:
+      - pmbus-i2c-3-58/vout1/in2_input
+      - pmbus-i2c-4-58/vout1/in2_input
+      - pmbus-i2c-74-4e/vout1/in1_input
+      - pmbus-i2c-74-4e/vout2/in2_input
+      - pmbus-i2c-74-4e/vout3/in3_input
+      - pmbus-i2c-74-4e/vout4/in4_input
+      - pmbus-i2c-74-4e/vout5/in5_input
+      - pmbus-i2c-74-4e/vout6/in6_input
+      - pmbus-i2c-74-4e/vout7/in7_input
+      - pmbus-i2c-74-4e/vout8/in8_input
+      - pmbus-i2c-74-4e/vout9/in9_input
+      - pmbus-i2c-74-4e/vout10/in10_input
+      - pmbus-i2c-74-4e/vout11/in11_input
+      - pmbus-i2c-74-4e/vout12/in12_input
+      - pmbus-i2c-74-4e/vout13/in13_input
+      - pmbus-i2c-74-4e/vout14/in14_input
+      - pmbus-i2c-74-4e/vout15/in15_input
+      - pmbus-i2c-74-4e/vout16/in16_input
+      temp:
+      - coretemp-isa-0000/Physical id 0/temp1_input
+      - coretemp-isa-0000/Core 0/temp2_input
+      - coretemp-isa-0000/Core 1/temp3_input
+
+    psu_skips: {}
+
+  INGRASYS-S9100-C32:
+    alarms:
+      fan:
+      - w83795adg-i2c-0-2f/FANTRAY 1-A/fan1_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 1-B/fan2_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 2-A/fan3_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 2-B/fan4_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 3-A/fan5_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 3-B/fan6_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 4-A/fan7_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 4-B/fan8_alarm
+      power:
+      - w83795adg-i2c-0-2f/1.0V/in0_alarm
+      - w83795adg-i2c-0-2f/1.0V_ROV/in1_alarm
+      - w83795adg-i2c-0-2f/1.25V/in2_alarm
+      - w83795adg-i2c-0-2f/1.8V/in3_alarm
+      - w83795adg-i2c-0-2f/+3.3V/in12_alarm
+      temp:
+      - coretemp-isa-0000/Core 0/temp2_crit_alarm
+      - coretemp-isa-0000/Core 1/temp3_crit_alarm
+      - coretemp-isa-0000/Core 2/temp4_crit_alarm
+      - coretemp-isa-0000/Core 3/temp5_crit_alarm
+      - jc42-i2c-0-18/DIMM Temp/temp1_max_alarm
+      - jc42-i2c-0-18/DIMM Temp/temp1_min_alarm
+      - jc42-i2c-0-18/DIMM Temp/temp1_crit_alarm
+      - w83795adg-i2c-0-2f/Front MAC Temp/temp1_alarm
+      - w83795adg-i2c-0-2f/Rear MAC Temp/temp2_alarm
+
+    compares:
+      fan: []
+      power: []
+      temp:
+      - - w83795adg-i2c-0-2f/Front MAC Temp/temp1_input
+        - w83795adg-i2c-0-2f/Front MAC Temp/temp1_crit
+      - - w83795adg-i2c-0-2f/Rear MAC Temp/temp2_input
+        - w83795adg-i2c-0-2f/Rear MAC Temp/temp2_crit
+    non_zero:
+      fan:
+      - w83795adg-i2c-0-2f/FANTRAY 1-A/fan1_input
+      - w83795adg-i2c-0-2f/FANTRAY 1-B/fan2_input
+      - w83795adg-i2c-0-2f/FANTRAY 2-A/fan3_input
+      - w83795adg-i2c-0-2f/FANTRAY 2-B/fan4_input
+      - w83795adg-i2c-0-2f/FANTRAY 3-A/fan5_input
+      - w83795adg-i2c-0-2f/FANTRAY 3-B/fan6_input
+      - w83795adg-i2c-0-2f/FANTRAY 4-A/fan7_input
+      - w83795adg-i2c-0-2f/FANTRAY 4-B/fan8_input
+      power: []
+      temp: []
+    psu_skips: {}
+
+  INGRASYS-S8900-54XC:
+    alarms:
+      fan:
+      - w83795adg-i2c-0-2f/FANTRAY 1-A/fan1_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 1-B/fan2_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 2-A/fan3_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 2-B/fan4_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 3-A/fan5_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 3-B/fan6_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 4-A/fan7_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 4-B/fan8_alarm
+      power:
+      - w83795adg-i2c-0-2f/1.0V/in0_alarm
+      - w83795adg-i2c-0-2f/1.0V_ROV/in1_alarm
+      - w83795adg-i2c-0-2f/1.25V/in2_alarm
+      - w83795adg-i2c-0-2f/1.8V/in3_alarm
+      - w83795adg-i2c-0-2f/+3.3V/in12_alarm
+      temp:
+      - coretemp-isa-0000/Core 0/temp2_crit_alarm
+      - coretemp-isa-0000/Core 1/temp3_crit_alarm
+      - coretemp-isa-0000/Core 2/temp4_crit_alarm
+      - coretemp-isa-0000/Core 3/temp5_crit_alarm
+      - jc42-i2c-0-18/DIMM Temp/temp1_max_alarm
+      - jc42-i2c-0-18/DIMM Temp/temp1_min_alarm
+      - jc42-i2c-0-18/DIMM Temp/temp1_crit_alarm
+      - w83795adg-i2c-0-2f/Front MAC Temp/temp1_alarm
+      - w83795adg-i2c-0-2f/Rear MAC Temp/temp2_alarm
+
+    compares:
+      fan: []
+      power: []
+      temp:
+      - - w83795adg-i2c-0-2f/Front MAC Temp/temp1_input
+        - w83795adg-i2c-0-2f/Front MAC Temp/temp1_crit
+      - - w83795adg-i2c-0-2f/Rear MAC Temp/temp2_input
+        - w83795adg-i2c-0-2f/Rear MAC Temp/temp2_crit
+    non_zero:
+      fan:
+      - w83795adg-i2c-0-2f/FANTRAY 1-A/fan1_input
+      - w83795adg-i2c-0-2f/FANTRAY 1-B/fan2_input
+      - w83795adg-i2c-0-2f/FANTRAY 2-A/fan3_input
+      - w83795adg-i2c-0-2f/FANTRAY 2-B/fan4_input
+      - w83795adg-i2c-0-2f/FANTRAY 3-A/fan5_input
+      - w83795adg-i2c-0-2f/FANTRAY 3-B/fan6_input
+      - w83795adg-i2c-0-2f/FANTRAY 4-A/fan7_input
+      - w83795adg-i2c-0-2f/FANTRAY 4-B/fan8_input
+      power: []
+      temp: []
+    psu_skips: {}
+
+  INGRASYS-S8900-64XC:
+    alarms:
+      fan:
+      - w83795adg-i2c-0-2f/FANTRAY 1-A/fan1_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 1-B/fan2_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 2-A/fan3_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 2-B/fan4_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 3-A/fan5_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 3-B/fan6_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 4-A/fan7_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 4-B/fan8_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 5-A/fan9_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 5-B/fan10_alarm
+      power:
+      - w83795adg-i2c-0-2f/1.0V/in0_alarm
+      - w83795adg-i2c-0-2f/1.0V_ROV/in1_alarm
+      - w83795adg-i2c-0-2f/1.25V/in2_alarm
+      - w83795adg-i2c-0-2f/1.8V/in3_alarm
+      - w83795adg-i2c-0-2f/+3.3V/in12_alarm
+      temp:
+      - coretemp-isa-0000/Core 0/temp2_crit_alarm
+      - coretemp-isa-0000/Core 1/temp3_crit_alarm
+      - coretemp-isa-0000/Core 2/temp4_crit_alarm
+      - coretemp-isa-0000/Core 3/temp5_crit_alarm
+      - jc42-i2c-0-18/DIMM Temp/temp1_max_alarm
+      - jc42-i2c-0-18/DIMM Temp/temp1_min_alarm
+      - jc42-i2c-0-18/DIMM Temp/temp1_crit_alarm
+      - w83795adg-i2c-0-2f/Front MAC Temp/temp1_alarm
+      - w83795adg-i2c-0-2f/Rear MAC Temp/temp2_alarm
+
+    compares:
+      fan: []
+      power: []
+      temp:
+      - - w83795adg-i2c-0-2f/Front MAC Temp/temp1_input
+        - w83795adg-i2c-0-2f/Front MAC Temp/temp1_crit
+      - - w83795adg-i2c-0-2f/Rear MAC Temp/temp2_input
+        - w83795adg-i2c-0-2f/Rear MAC Temp/temp2_crit
+      - - tmp75-i2c-5-48/FAN Temp1/temp1_input
+        - tmp75-i2c-5-48/FAN Temp1/temp1_max
+      - - tmp75-i2c-5-49/FAN Temp2/temp1_input
+        - tmp75-i2c-5-49/FAN Temp2/temp1_max
+    non_zero:
+      fan:
+      - w83795adg-i2c-0-2f/FANTRAY 1-A/fan1_input
+      - w83795adg-i2c-0-2f/FANTRAY 1-B/fan2_input
+      - w83795adg-i2c-0-2f/FANTRAY 2-A/fan3_input
+      - w83795adg-i2c-0-2f/FANTRAY 2-B/fan4_input
+      - w83795adg-i2c-0-2f/FANTRAY 3-A/fan5_input
+      - w83795adg-i2c-0-2f/FANTRAY 3-B/fan6_input
+      - w83795adg-i2c-0-2f/FANTRAY 4-A/fan7_input
+      - w83795adg-i2c-0-2f/FANTRAY 4-B/fan8_input
+      - w83795adg-i2c-0-2f/FANTRAY 5-A/fan9_input
+      - w83795adg-i2c-0-2f/FANTRAY 5-B/fan10_input
+      power: []
+      temp: []
+    psu_skips: {}
+
+  INGRASYS-S8810-32Q:
+    alarms:
+      fan:
+      - w83795adg-i2c-0-2f/FANTRAY 1-A/fan1_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 1-B/fan2_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 2-A/fan3_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 2-B/fan4_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 3-A/fan5_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 3-B/fan6_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 4-A/fan7_alarm
+      - w83795adg-i2c-0-2f/FANTRAY 4-B/fan8_alarm
+      power:
+      - w83795adg-i2c-0-2f/ROV/in0_alarm
+      - w83795adg-i2c-0-2f/1.0V/in3_alarm
+      - w83795adg-i2c-0-2f/1.8V/in4_alarm
+      - w83795adg-i2c-0-2f/5.0V/in6_alarm
+      - w83795adg-i2c-0-2f/3.3V/in12_alarm
+      temp:
+      - coretemp-isa-0000/Core 0/temp2_crit_alarm
+      - coretemp-isa-0000/Core 1/temp3_crit_alarm
+      - coretemp-isa-0000/Core 2/temp4_crit_alarm
+      - coretemp-isa-0000/Core 3/temp5_crit_alarm
+      - jc42-i2c-0-18/DIMM Temp/temp1_max_alarm
+      - jc42-i2c-0-18/DIMM Temp/temp1_min_alarm
+      - jc42-i2c-0-18/DIMM Temp/temp1_crit_alarm
+      - w83795adg-i2c-0-2f/MAC Temp/temp1_alarm
+      - w83795adg-i2c-0-2f/SFP+ Port 1 Temp/temp2_alarm
+      - w83795adg-i2c-0-2f/SFP+ Port 8 Temp/temp3_alarm
+
+    compares:
+      fan: []
+      power: []
+      temp:
+      - - w83795adg-i2c-0-2f/MAC Temp/temp1_input
+        - w83795adg-i2c-0-2f/MAC Temp/temp1_crit
+      - - w83795adg-i2c-0-2f/SFP+ Port 1 Temp/temp2_input
+        - w83795adg-i2c-0-2f/SFP+ Port 1 Temp/temp2_crit
+      - - w83795adg-i2c-0-2f/SFP+ Port 8 Temp/temp3_input
+        - w83795adg-i2c-0-2f/SFP+ Port 8 Temp/temp3_crit  
+    non_zero:
+      fan:
+      - w83795adg-i2c-0-2f/FANTRAY 1-A/fan1_input
+      - w83795adg-i2c-0-2f/FANTRAY 1-B/fan2_input
+      - w83795adg-i2c-0-2f/FANTRAY 2-A/fan3_input
+      - w83795adg-i2c-0-2f/FANTRAY 2-B/fan4_input
+      - w83795adg-i2c-0-2f/FANTRAY 3-A/fan5_input
+      - w83795adg-i2c-0-2f/FANTRAY 3-B/fan6_input
+      - w83795adg-i2c-0-2f/FANTRAY 4-A/fan7_input
+      - w83795adg-i2c-0-2f/FANTRAY 4-B/fan8_input
+      power: []
+      temp: []
+    psu_skips: {}
+
+  INGRASYS-S9130-32X:
+    alarms:
+      fan:
+      - w83795adg-i2c-8-2f/FANTRAY 1-A/fan1_alarm
+      - w83795adg-i2c-8-2f/FANTRAY 1-B/fan2_alarm
+      - w83795adg-i2c-8-2f/FANTRAY 2-A/fan3_alarm
+      - w83795adg-i2c-8-2f/FANTRAY 2-B/fan4_alarm
+      - w83795adg-i2c-8-2f/FANTRAY 3-A/fan5_alarm
+      - w83795adg-i2c-8-2f/FANTRAY 3-B/fan6_alarm
+      - w83795adg-i2c-8-2f/FANTRAY 4-A/fan7_alarm
+      - w83795adg-i2c-8-2f/FANTRAY 4-B/fan8_alarm
+      power:
+      - w83795adg-i2c-8-2f/0.9V/in0_alarm
+      - w83795adg-i2c-8-2f/VDD_CORE/in1_alarm
+      - w83795adg-i2c-8-2f/1.2V/in2_alarm
+      - w83795adg-i2c-8-2f/1.8V/in3_alarm
+      - w83795adg-i2c-8-2f/1.01V/in4_alarm
+      - w83795adg-i2c-8-2f/3.3VDD/in12_alarm
+      temp:
+      - coretemp-isa-0000/Physical id 0/temp1_crit_alarm
+      - coretemp-isa-0000/Core 0/temp2_crit_alarm
+      - coretemp-isa-0000/Core 1/temp3_crit_alarm
+      - coretemp-isa-0000/Core 2/temp4_crit_alarm
+      - coretemp-isa-0000/Core 3/temp5_crit_alarm
+
+    compares:
+      fan: []
+      power: []
+      temp:
+      - - tmp75-i2c-12-4c/rear MAC Temp/temp1_input
+        - tmp75-i2c-12-4c/rear MAC Temp/temp1_max
+      - - tmp75-i2c-12-49/front MAC Temp/temp1_input
+        - tmp75-i2c-12-49/front MAC Temp/temp1_max
+      - - tmp75-i2c-0-4f/x86 CPU board Temp/temp1_input
+        - tmp75-i2c-0-4f/x86 CPU board Temp/temp1_max
+      - - tmp75-i2c-8-4a/BMC board Temp/temp1_input
+        - tmp75-i2c-8-4a/BMC board Temp/temp1_max
+    non_zero:
+      fan:
+      - w83795adg-i2c-8-2f/FANTRAY 1-A/fan1_input
+      - w83795adg-i2c-8-2f/FANTRAY 1-B/fan2_input
+      - w83795adg-i2c-8-2f/FANTRAY 2-A/fan3_input
+      - w83795adg-i2c-8-2f/FANTRAY 2-B/fan4_input
+      - w83795adg-i2c-8-2f/FANTRAY 3-A/fan5_input
+      - w83795adg-i2c-8-2f/FANTRAY 3-B/fan6_input
+      - w83795adg-i2c-8-2f/FANTRAY 4-A/fan7_input
+      - w83795adg-i2c-8-2f/FANTRAY 4-B/fan8_input
+      power: []
+      temp: []
+    psu_skips: {}

@@ -11,11 +11,9 @@
 
 ### ACL tests
 ```
-ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags acltb_configure --extra-vars "run_dir=/tmp testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST}"
-ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags acltb_test      --extra-vars "run_dir=/tmp testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST}"
-ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags acltb_cleanup   --extra-vars "run_dir=/tmp testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST}"
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags acl   --extra-vars "testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST}"
 ```
-- Requires switch connected to a PTF testbed
+- Requires switch connected to a t1 or t1-lag testbed
 
 ### ARP tests
 ```
@@ -41,17 +39,49 @@ ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags 
 ```
 - Requires switch connected to a PTF testbed
 
+### Everflow_testbed test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags everflow_testbed --extra-vars "testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST}"
+```
+- Requires switch connected to a VM testbed
+
+### FDB test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags fdb --extra-vars "testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST} [ipv6=True]"
+```
+- Requires switch connected to a VM testbed(t0); default IPv4
+
 ### FIB test
 ```
-ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags fib --extra-vars "testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST}"
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags fib --extra-vars "testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST} [ipv4=Flase]"
 ```
-- Requires switch connected to a PTF testbed
+- Requires switch connected to a VM testbed; default IPv4
+
+### MTU test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags mtu --extra-vars "testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST}"
+```
+- Requires switch connected to a t1 or t1-lag testbed
 
 ### Fast-Reboot test
 ```
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags fast_reboot --extra-vars "ptf_host={PTF_HOST}"
 ```
 - Requires switch connected to a PTF testbed
+
+### IPDecap Test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} -tags decap --extra-vars "testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST} dscp_mode=pipe|uniform"
+```
+- Require VM testbed
+- dscp_mode=pipe: if your ASIC type is Broadcom; 
+- dscp_mode=uniform: if your ASIC type is Mellanox
+
+### Lag-2 test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags lag-2 --extra-vars "testbed_type={TESTBED_TYPE} ptf_host={PTF_HOST}"
+```
+- Requires switch connected to a VM testbed with lag configured (t0, t1-lag)
 
 ### LLDP test
 ```
@@ -63,7 +93,7 @@ ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME},lldp_neighbors -
 ```
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME}, --become --tags link_flap
 ```
-- Requires switch connected to a VM set testbed
+- Requires switch connected to fanout switch. VM or PTF testbed
 
 ### NTP test
 ```
@@ -74,6 +104,7 @@ ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags 
 ```
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags snmp,snmp_cpu,snmp_interfaces
 ```
+- Require to run Anisble-playbook from docker-sonic-mgmt container. 
 
 ### Sensors test
 ```
@@ -85,3 +116,16 @@ ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags 
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags syslog
 ```
 
+### PFC WD test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags pfc_wd --extra-vars "testbed_type={TESTBED_TYPE}"
+```
+PFC WD test assumes that Fanout switch has [PFC generator](https://github.com/marian-pritsak/pfctest/blob/master/pfctest.py) available.
+
+### BGP multipath relax test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags bgp_multipath_relax --extra-vars "testbed_type={TESTBED_TYPE}"
+```
+This test only works for T1 related topologies(t1, t1-lag, ...) 
+You might need to redeploy your VMs before you run this test due to the change for ToR VM router configuration changes
+`./testbed-cli.sh config-vm your-topo-name(vms1-1) your-vm-name(VM0108)` will do this for you

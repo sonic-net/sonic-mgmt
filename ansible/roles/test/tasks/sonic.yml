@@ -58,10 +58,6 @@
   tags: dhcp_relay
   when: minigraph_devices[inventory_hostname]['type'] == "ToRRouter"
 
-- name: Test ECMP route distribution
-  include: ecmp.yml
-  tags: ecmp
-
 - name: Test Control-Plain policing COPP
   include: copp.yml
   tags: copp
@@ -116,6 +112,10 @@
   include: fib.yml
   tags: fib
 
+- name: MTU test
+  include: mtu.yml
+  tags: mtu
+
 ### When calling this FDB test, please add command line of what testbed_type and which PTF docker to test agains
 ### -e "testbed_type=t0 ptf_host=10.64.246.22"
 - name: FDB test
@@ -155,3 +155,17 @@
 - name: ACL test 
   include: acltb.yml
   tags: acl
+
+- name: PFC Watchdog test
+  include: pfc_wd.yml
+  tags: pfc_wd
+
+### when calling this test, please add command line of testbed_type 
+### -e testbed_type=t1
+- name: BGP multipath relax
+  include: bgp_multipath_relax.yml
+  tags: bgp_multipath_relax
+
+- name: neighbor mac change test without using ptf
+  include: neighbour-mac-noptf.yml
+  tags: neighbour_mac_noptf

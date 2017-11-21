@@ -130,7 +130,7 @@
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel{{ index*8 }}</Name>
           <AttachTo>{{ port_alias[index*2] }};{{ port_alias[index*2+1] }}</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
 {% endfor %}
       </PortChannelInterfaces>
@@ -166,7 +166,20 @@
 {% endfor %}
       </IPInterfaces>
       <DataAcls/>
-      <AclInterfaces/>
+      <AclInterfaces>
+        <AclInterface>
+          <AttachTo>
+          {{ port_alias|join(";") }}
+          </AttachTo>
+          <InAcl>DataAcl</InAcl>
+        </AclInterface>
+        <AclInterface>
+          <AttachTo>
+            ERSPAN
+          </AttachTo>
+          <InAcl>Everflow</InAcl>
+        </AclInterface>
+      </AclInterfaces>
       <DownstreamSummaries/>
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     </DeviceDataPlaneInfo>
@@ -219,7 +232,7 @@
 {% set dev_type = 'Unknown' %}
 {% endif %}
       <Device i:type="{{ dev_type }}">
-         <Hostname>"{{ dev }}"</Hostname>
+         <Hostname>{{ dev }}</Hostname>
          <HwSku>Arista-VM</HwSku>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>{{ neighbor_eosvm_mgmt[dev] }}</a:IPPrefix>

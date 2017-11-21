@@ -4,39 +4,15 @@
     docker_testdir: /tmp
     tests_location: roles/test/tasks/everflow_testbed
     testname: del_config
-    config_files:
-        - session.json
-        - acl_table.json
-        - acl_rule_persistent.json
 
-- name: Initialize config test
-  include: roles/test/tasks/init_config_test.yml
+- name: Get session info.
+  include: roles/test/tasks/everflow_testbed/get_session_info.yml
 
-- block:
-    - name: Delete Everflow session configuration.
-      vars:
-        config_file: acl_rule_persistent.json
-        test_expect_file: expect_messages.txt
-        errors_expected: false
-        run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
+- name: Copy python script for session configuration.
+  copy: src=roles/test/files/helpers/mirror_session.py dest={{ run_dir }}/
 
-    - name: Delete Everflow ACL table configuration.
-      vars:
-        config_file: acl_table.json
-        test_expect_file: expect_messages.txt
-        errors_expected: false
-        run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
+- name: Copy ACL rules configuration file.
+  copy: src={{ tests_location }}/{{ testname}}/acl_rule_persistent-del.json dest={{ run_dir }}/
 
-    - name: Delete Everflow ACL rule configuration.
-      vars:
-        config_file: session.json
-        test_expect_file: expect_messages.txt
-        errors_expected: false
-        run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
-
-  always:
-    - name: Remove all the temporary files created by the test.
-      include: roles/test/tasks/deinit_config_test.yml
+- command: "acl-loader update full {{ run_dir }}/acl_rule_persistent-del.json"
+- command: "python {{ run_dir }}/mirror_session.py delete {{ session_name }}"

@@ -1,143 +1,158 @@
 #####   This playbook tests Kernal ARP/GARP request and reply work as design
-- name: collect ACS current configuration info(to find macaddress)
-  setup:
+- block:
+    - name: collect SONiC current configuration info(to find macaddress)
+      setup:
 
-- name: change ACS DUT interface IP to test IP address
-  command: /sbin/ifconfig  Ethernet4 10.10.1.2 netmask 255.255.255.240
-  become: yes
+    - name: change SONiC DUT interface IP to test IP address
+      command: /sbin/ifconfig  Ethernet4 10.10.1.2 netmask 255.255.255.240
+      become: yes
 
-- name: change ACS DUT interface IP to test IP address
-  command: /sbin/ifconfig  Ethernet8 10.10.1.20 netmask 255.255.255.240
-  become: yes
+    - name: change SONiC DUT interface IP to test IP address
+      command: /sbin/ifconfig  Ethernet8 10.10.1.20 netmask 255.255.255.240
+      become: yes
 
-- name: copy acsbase files
-  copy: src=roles/test/files/acstests
-        dest=/root
-  delegate_to: "{{ ptf_host }}"
+    - name: copy acsbase files
+      copy: src=roles/test/files/acstests
+            dest=/root
+      delegate_to: "{{ ptf_host }}"
 
-- name: Clear DUT arp cache
-  command: ip nei flush all
-  become: yes
+    - name: Clear DUT arp cache
+      command: ip nei flush all
+      become: yes
 
-# Send correct ARP request from correct interface, expecting normal behavior
-- name: Send correct arp packets (10.10.1.3 to 10.10.1.2 with src_mac=00:06:07:08:09:0a)
-  command: ptf  --test-dir acstests arptest.ExpectReply --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'" 
-  args:
-    chdir: /root
-  delegate_to: "{{ ptf_host }}"
+    # Send Unicast ARP request from correct interface, expecting reply
+    - name: Send correct arp packets (10.10.1.3 to 10.10.1.2 with src_mac=00:06:07:08:09:00)
+      command: ptf  --test-dir acstests arptest.VerifyUnicastARPReply --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
 
-- name: Get DUT arp table
-  switch_arptable:
-  register: arptable1
+    - name: Get DUT arp table
+      switch_arptable:
 
-- name: Check ACS ARP table and confirm macaddress and interface are correct 
-  assert: 
-    that:
-      - "{{ arptable1['arptable']['v4']['10.10.1.3']['macaddress'] == '00:06:07:08:09:0a' }}"
-      - "{{ arptable1['arptable']['v4']['10.10.1.3']['interface'] == 'Ethernet4' }}"
+    - name: Check SONiC ARP table and confirm macaddress and interface are correct
+      assert:
+        that:
+          - "{{ arptable['v4']['10.10.1.3']['macaddress'] == '00:06:07:08:09:00' }}"
+          - "{{ arptable['v4']['10.10.1.3']['interface'] == 'Ethernet4' }}"
 
-## check DUT won't reply ARP and install ARP entry when ARP request coming from other interfaces
-- name: Clear DUT arp cache
-  command: ip nei flush all
-  become: yes
+    - name: Clear DUT arp cache
+      command: ip nei flush all
+      become: yes
 
-- name: Send correct arp packets from other interface expect no reply(10.10.1.4 to 10.10.1.2 with src_mac=00:02:07:08:09:0a)
-  command: ptf  --test-dir acstests arptest.WrongIntNoReply --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'"
-  args:
-    chdir: /root
-  delegate_to: "{{ ptf_host }}"
+    # Send correct ARP request from correct interface, expecting normal behavior
+    - name: Send correct arp packets (10.10.1.3 to 10.10.1.2 with src_mac=00:06:07:08:09:0a)
+      command: ptf  --test-dir acstests arptest.ExpectReply --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
 
-- name: Get DUT arp table
-  switch_arptable:
-  register: arptable2
+    - name: Get DUT arp table
+      switch_arptable:
 
-- name: Check ARP request coming in from other interface should not be installed in DUT ARP table, should be dropped
-  assert:
-    that: 
-     - "'{{ item.key }}|string' != '10.10.1.4'"
-  with_dict: "{{ arptable2.arptable.v4 }}"
+    - name: Check SONiC ARP table and confirm macaddress and interface are correct
+      assert:
+        that:
+          - "{{ arptable['v4']['10.10.1.3']['macaddress'] == '00:06:07:08:09:0a' }}"
+          - "{{ arptable['v4']['10.10.1.3']['interface'] == 'Ethernet4' }}"
 
-## check DUT won't reply ARP and install ARP entry when src address is not in interface subnet range
-- name: Clear DUT arp cache
-  command: ip nei flush all
-  become: yes
+    ## check DUT won't reply ARP and install ARP entry when ARP request coming from other interfaces
+    - name: Clear DUT arp cache
+      command: ip nei flush all
+      become: yes
 
-- name: Send Src IP out of interface subnet range arp packets, expect no reply and no arp table entry (10.10.1.22 to 10.10.1.2 with src_mac=00:03:07:08:09:0a)
-  command: ptf  --test-dir acstests arptest.SrcOutRangeNoReply --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'" 
-  args:
-    chdir: /root
-  delegate_to: "{{ ptf_host }}"
+    - name: Send correct arp packets from other interface expect no reply(10.10.1.4 to 10.10.1.2 with src_mac=00:02:07:08:09:0a)
+      command: ptf  --test-dir acstests arptest.WrongIntNoReply --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
 
-- name: Get DUT arp table
-  switch_arptable:
-  register: arptable3
+    - name: Get DUT arp table
+      switch_arptable:
 
-- name: Check ARP request from out of range address will not be installed in DUT ARP table, should be dropped 
-  assert:
-    that:
-      - "'{{ item.key }}|string' != '10.10.1.22'"
-  with_dict: "{{ arptable3.arptable.v4 }}"
+    - name: Check ARP request coming in from other interface should not be installed in DUT ARP table, should be dropped
+      assert:
+        that:
+         - "'{{ item.key }}|string' != '10.10.1.4'"
+      with_dict: "{{ arptable.v4 }}"
 
-## Test Gratuitous ARP behavior, no Gratuitous ARP installed when arp was not resolved before
-- name: Clear DUT arp cache
-  command: ip nei flush all
-  become: yes
+    ## check DUT won't reply ARP and install ARP entry when src address is not in interface subnet range
+    - name: Clear DUT arp cache
+      command: ip nei flush all
+      become: yes
 
-- name: Send  garp packets (10.10.1.7 to 10.10.1.7)
-  command: ptf  --test-dir acstests  arptest.GarpNoUpdate --platform remote  -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'" 
-  args:
-    chdir: /root
-  delegate_to: "{{ ptf_host }}"
+    - name: Send Src IP out of interface subnet range arp packets, expect no reply and no arp table entry (10.10.1.22 to 10.10.1.2 with src_mac=00:03:07:08:09:0a)
+      command: ptf  --test-dir acstests arptest.SrcOutRangeNoReply --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
 
-- name: Get DUT arp table
-  switch_arptable:
-  register: arptable5
+    - name: Get DUT arp table
+      switch_arptable:
 
-- name: Check this GARP request will not be installed in DUT ARP table, should be ignored
-  assert:
-    that:
-      - "'{{ item.key }}|string' != '10.10.1.7'"
-  with_dict: "{{ arptable5.arptable.v4 }}"
+    - name: Check ARP request from out of range address will not be installed in DUT ARP table, should be dropped
+      assert:
+        that:
+          - "'{{ item.key }}|string' != '10.10.1.22'"
+      with_dict: "{{ arptable.v4 }}"
 
-# Test Gratuitous ARP update case, when received garp, no arp reply, update arp table if it was solved before
-- name: Send correct arp packets (10.10.1.3 to 10.10.1.2 with src_mac=00:06:07:08:09:0a)
-  command: ptf  --test-dir acstests arptest.ExpectReply --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'" 
-  args:
-    chdir: /root
-  delegate_to: "{{ ptf_host }}"
+    ## Test Gratuitous ARP behavior, no Gratuitous ARP installed when arp was not resolved before
+    - name: Clear DUT arp cache
+      command: ip nei flush all
+      become: yes
 
-- name: Get DUT arp table
-  switch_arptable:
-  register: arptable6
+    - name: Send  garp packets (10.10.1.7 to 10.10.1.7)
+      command: ptf  --test-dir acstests  arptest.GarpNoUpdate --platform remote  -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
 
-- name: Check ACS ARP table and confirm macaddress and interface are correct 
-  assert: 
-    that:
-      - "{{ arptable6['arptable']['v4']['10.10.1.3']['macaddress'] == '00:06:07:08:09:0a' }}"
-      - "{{ arptable6['arptable']['v4']['10.10.1.3']['interface'] == 'Ethernet4' }}"
+    - name: Get DUT arp table
+      switch_arptable:
 
-- pause: seconds=2
+    - name: Check this GARP request will not be installed in DUT ARP table, should be ignored
+      assert:
+        that:
+          - "'{{ item.key }}|string' != '10.10.1.7'"
+      with_dict: "{{ arptable.v4 }}"
 
-- name: Send  garp packets to update arp table(10.10.1.3 to 10.10.1.3 with src_mac=00:00:07:08:09:0a)
-  command: ptf  --test-dir acstests arptest.GarpUpdate --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'" 
-  args:
-    chdir: /root
-  delegate_to: "{{ ptf_host }}"
+    # Test Gratuitous ARP update case, when received garp, no arp reply, update arp table if it was solved before
+    - name: Send correct arp packets (10.10.1.3 to 10.10.1.2 with src_mac=00:06:07:08:09:0a)
+      command: ptf  --test-dir acstests arptest.ExpectReply --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
 
-- name: Get DUT arp table
-  switch_arptable:
-  register: arptable7
+    - name: Get DUT arp table
+      switch_arptable:
 
-- name: Check ACS ARP table and confirm macaddress and interface are updated correctly by garp
-  assert: 
-    that:
-      - "{{ arptable7['arptable']['v4']['10.10.1.3']['macaddress'] == '00:00:07:08:09:0a' }}"
-      - "{{ arptable7['arptable']['v4']['10.10.1.3']['interface'] == 'Ethernet4' }}"
+    - name: Check ACS ARP table and confirm macaddress and interface are correct
+      assert:
+        that:
+          - "{{ arptable['v4']['10.10.1.3']['macaddress'] == '00:06:07:08:09:0a' }}"
+          - "{{ arptable['v4']['10.10.1.3']['interface'] == 'Ethernet4' }}"
 
-# Recover DUT interface IP Address before entering this test case
-- name: Recover DUT IP address based on minigraph
-  command: /sbin/ifconfig  {{item.attachto}} {{ item.addr }}  netmask {{ item.mask }}
-  become: yes
-  with_items: "{{  minigraph_interfaces  }}"
-  when:  (item.attachto  == 'Ethernet4' or  item.attachto == 'Ethernet8') and item.addr|ipv4
+    - pause: seconds=2
 
+    - name: Send  garp packets to update arp table(10.10.1.3 to 10.10.1.3 with src_mac=00:00:07:08:09:0a)
+      command: ptf  --test-dir acstests arptest.GarpUpdate --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'"
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Get DUT arp table
+      switch_arptable:
+
+    - name: Check SONiC ARP table and confirm macaddress and interface are updated correctly by garp
+      assert:
+        that:
+          - "{{ arptable['v4']['10.10.1.3']['macaddress'] == '00:00:07:08:09:0a' }}"
+          - "{{ arptable['v4']['10.10.1.3']['interface'] == 'Ethernet4' }}"
+
+  always:
+    # Recover DUT interface IP Address before entering this test case
+    - name: Recover DUT IP address based on minigraph
+      command: /sbin/ifconfig  {{item.attachto}} {{ item.addr }}  netmask {{ item.mask }}
+      become: yes
+      with_items: "{{  minigraph_interfaces  }}"
+      when:  (item.attachto  == 'Ethernet4' or  item.attachto == 'Ethernet8') and item.addr|ipv4
