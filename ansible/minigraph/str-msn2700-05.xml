@@ -8,8 +8,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>10.0.0.32</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA01T0</StartRouter>
@@ -17,8 +17,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>FC00::41</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -26,8 +26,8 @@
         <EndRouter>ARISTA01T2</EndRouter>
         <EndPeer>10.0.0.1</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -35,8 +35,8 @@
         <EndRouter>ARISTA01T2</EndRouter>
         <EndPeer>FC00::2</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA02T0</StartRouter>
@@ -44,8 +44,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>10.0.0.34</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA02T0</StartRouter>
@@ -53,8 +53,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>FC00::45</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -62,8 +62,8 @@
         <EndRouter>ARISTA02T2</EndRouter>
         <EndPeer>10.0.0.3</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -71,8 +71,8 @@
         <EndRouter>ARISTA02T2</EndRouter>
         <EndPeer>FC00::6</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA03T0</StartRouter>
@@ -80,8 +80,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>10.0.0.36</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA03T0</StartRouter>
@@ -89,8 +89,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>FC00::49</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -98,8 +98,8 @@
         <EndRouter>ARISTA03T2</EndRouter>
         <EndPeer>10.0.0.5</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -107,8 +107,8 @@
         <EndRouter>ARISTA03T2</EndRouter>
         <EndPeer>FC00::A</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA04T0</StartRouter>
@@ -116,8 +116,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>10.0.0.38</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA04T0</StartRouter>
@@ -125,8 +125,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>FC00::4D</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -134,8 +134,8 @@
         <EndRouter>ARISTA04T2</EndRouter>
         <EndPeer>10.0.0.7</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -143,8 +143,8 @@
         <EndRouter>ARISTA04T2</EndRouter>
         <EndPeer>FC00::E</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA05T0</StartRouter>
@@ -152,8 +152,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>10.0.0.40</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA05T0</StartRouter>
@@ -161,8 +161,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>FC00::51</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -170,8 +170,8 @@
         <EndRouter>ARISTA05T2</EndRouter>
         <EndPeer>10.0.0.9</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -179,8 +179,8 @@
         <EndRouter>ARISTA05T2</EndRouter>
         <EndPeer>FC00::12</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA06T0</StartRouter>
@@ -188,8 +188,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>10.0.0.42</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA06T0</StartRouter>
@@ -197,8 +197,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>FC00::55</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -206,8 +206,8 @@
         <EndRouter>ARISTA06T2</EndRouter>
         <EndPeer>10.0.0.11</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -215,8 +215,8 @@
         <EndRouter>ARISTA06T2</EndRouter>
         <EndPeer>FC00::16</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA07T0</StartRouter>
@@ -224,8 +224,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>10.0.0.44</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA07T0</StartRouter>
@@ -233,8 +233,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>FC00::59</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -242,8 +242,8 @@
         <EndRouter>ARISTA07T2</EndRouter>
         <EndPeer>10.0.0.13</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -251,8 +251,8 @@
         <EndRouter>ARISTA07T2</EndRouter>
         <EndPeer>FC00::1A</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA08T0</StartRouter>
@@ -260,8 +260,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>10.0.0.46</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA08T0</StartRouter>
@@ -269,8 +269,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>FC00::5D</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -278,8 +278,8 @@
         <EndRouter>ARISTA08T2</EndRouter>
         <EndPeer>10.0.0.15</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -287,8 +287,8 @@
         <EndRouter>ARISTA08T2</EndRouter>
         <EndPeer>FC00::1E</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA09T0</StartRouter>
@@ -296,8 +296,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>10.0.0.48</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA09T0</StartRouter>
@@ -305,8 +305,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>FC00::61</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -314,8 +314,8 @@
         <EndRouter>ARISTA09T2</EndRouter>
         <EndPeer>10.0.0.17</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -323,8 +323,8 @@
         <EndRouter>ARISTA09T2</EndRouter>
         <EndPeer>FC00::22</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA10T0</StartRouter>
@@ -332,8 +332,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>10.0.0.50</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA10T0</StartRouter>
@@ -341,8 +341,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>FC00::65</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -350,8 +350,8 @@
         <EndRouter>ARISTA10T2</EndRouter>
         <EndPeer>10.0.0.19</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -359,8 +359,8 @@
         <EndRouter>ARISTA10T2</EndRouter>
         <EndPeer>FC00::26</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA11T0</StartRouter>
@@ -368,8 +368,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>10.0.0.52</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA11T0</StartRouter>
@@ -377,8 +377,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>FC00::69</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -386,8 +386,8 @@
         <EndRouter>ARISTA11T2</EndRouter>
         <EndPeer>10.0.0.21</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -395,8 +395,8 @@
         <EndRouter>ARISTA11T2</EndRouter>
         <EndPeer>FC00::2A</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA12T0</StartRouter>
@@ -404,8 +404,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>10.0.0.54</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA12T0</StartRouter>
@@ -413,8 +413,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>FC00::6D</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -422,8 +422,8 @@
         <EndRouter>ARISTA12T2</EndRouter>
         <EndPeer>10.0.0.23</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -431,8 +431,8 @@
         <EndRouter>ARISTA12T2</EndRouter>
         <EndPeer>FC00::2E</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA13T0</StartRouter>
@@ -440,8 +440,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>10.0.0.56</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA13T0</StartRouter>
@@ -449,8 +449,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>FC00::71</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -458,8 +458,8 @@
         <EndRouter>ARISTA13T2</EndRouter>
         <EndPeer>10.0.0.25</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -467,8 +467,8 @@
         <EndRouter>ARISTA13T2</EndRouter>
         <EndPeer>FC00::32</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA14T0</StartRouter>
@@ -476,8 +476,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>10.0.0.58</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA14T0</StartRouter>
@@ -485,8 +485,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>FC00::75</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -494,8 +494,8 @@
         <EndRouter>ARISTA14T2</EndRouter>
         <EndPeer>10.0.0.27</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -503,8 +503,8 @@
         <EndRouter>ARISTA14T2</EndRouter>
         <EndPeer>FC00::36</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA15T0</StartRouter>
@@ -512,8 +512,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>10.0.0.60</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA15T0</StartRouter>
@@ -521,8 +521,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>FC00::79</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -530,8 +530,8 @@
         <EndRouter>ARISTA15T2</EndRouter>
         <EndPeer>10.0.0.29</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -539,8 +539,8 @@
         <EndRouter>ARISTA15T2</EndRouter>
         <EndPeer>FC00::3A</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA16T0</StartRouter>
@@ -548,8 +548,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>10.0.0.62</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>ARISTA16T0</StartRouter>
@@ -557,8 +557,8 @@
         <EndRouter>str-msn2700-05</EndRouter>
         <EndPeer>FC00::7D</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -566,8 +566,8 @@
         <EndRouter>ARISTA16T2</EndRouter>
         <EndPeer>10.0.0.31</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
         <StartRouter>str-msn2700-05</StartRouter>
@@ -575,8 +575,8 @@
         <EndRouter>ARISTA16T2</EndRouter>
         <EndPeer>FC00::3E</EndPeer>
         <Multihop>1</Multihop>
-        <HoldTime>180</HoldTime>
-        <KeepAliveTime>60</KeepAliveTime>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
     </PeeringSessions>
     <Routers xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
@@ -939,6 +939,14 @@
           </a:Prefix>
           <a:PrefixStr>10.3.147.48/23</a:PrefixStr>
         </a:ManagementIPInterface>
+        <a:ManagementIPInterface>
+          <Name>V6HostIP</Name>
+          <AttachTo>eth0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>FC00:2::32/64</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>FC00:2::32/64</a:PrefixStr>
+        </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <MplsInterfaces/>
       <MplsTeInterfaces/>
@@ -1269,119 +1277,132 @@
         </IPInterface>
       </IPInterfaces>
       <DataAcls/>
-      <AclInterfaces/>
+      <AclInterfaces>
+        <AclInterface>
+          <AttachTo>
+          Ethernet0;Ethernet4;Ethernet8;Ethernet12;Ethernet16;Ethernet20;Ethernet24;Ethernet28;Ethernet32;Ethernet36;Ethernet40;Ethernet44;Ethernet48;Ethernet52;Ethernet56;Ethernet60;Ethernet64;Ethernet68;Ethernet72;Ethernet76;Ethernet80;Ethernet84;Ethernet88;Ethernet92;Ethernet96;Ethernet100;Ethernet104;Ethernet108;Ethernet112;Ethernet116;Ethernet120;Ethernet124
+          </AttachTo>
+          <InAcl>DataAcl</InAcl>
+        </AclInterface>
+        <AclInterface>
+          <AttachTo>
+            ERSPAN
+          </AttachTo>
+          <InAcl>Everflow</InAcl>
+        </AclInterface>
+      </AclInterfaces>
       <DownstreamSummaries/>
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     </DeviceDataPlaneInfo>
   </DpgDec>
   <PngDec>
     <DeviceInterfaceLinks>
-      <DeviceLinkBase>
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
         <EndPort>Ethernet0</EndPort>
         <StartDevice>ARISTA01T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
-      <DeviceLinkBase>
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
         <EndPort>Ethernet4</EndPort>
         <StartDevice>ARISTA02T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
-      <DeviceLinkBase>
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
         <EndPort>Ethernet8</EndPort>
         <StartDevice>ARISTA03T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
-      <DeviceLinkBase>
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
         <EndPort>Ethernet12</EndPort>
         <StartDevice>ARISTA04T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
-      <DeviceLinkBase>
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
         <EndPort>Ethernet16</EndPort>
         <StartDevice>ARISTA05T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
-      <DeviceLinkBase>
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
         <EndPort>Ethernet20</EndPort>
         <StartDevice>ARISTA06T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
-      <DeviceLinkBase>
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
         <EndPort>Ethernet24</EndPort>
         <StartDevice>ARISTA07T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
-      <DeviceLinkBase>
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
         <EndPort>Ethernet28</EndPort>
         <StartDevice>ARISTA08T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
-      <DeviceLinkBase>
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
         <EndPort>Ethernet32</EndPort>
         <StartDevice>ARISTA09T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
-      <DeviceLinkBase>
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
         <EndPort>Ethernet36</EndPort>
         <StartDevice>ARISTA10T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
-      <DeviceLinkBase>
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
         <EndPort>Ethernet40</EndPort>
         <StartDevice>ARISTA11T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
-      <DeviceLinkBase>
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
         <EndPort>Ethernet44</EndPort>
         <StartDevice>ARISTA12T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
-      <DeviceLinkBase>
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
         <EndPort>Ethernet48</EndPort>
         <StartDevice>ARISTA13T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
-      <DeviceLinkBase>
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
         <EndPort>Ethernet52</EndPort>
         <StartDevice>ARISTA14T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
-      <DeviceLinkBase>
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
         <EndPort>Ethernet56</EndPort>
         <StartDevice>ARISTA15T2</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
-      <DeviceLinkBase>
+     <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
         <EndPort>Ethernet60</EndPort>
@@ -1391,112 +1412,112 @@
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
-        <EndPort>Ethernet64</EndPort>
+          <EndPort>Ethernet64</EndPort>
         <StartDevice>ARISTA01T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
-        <EndPort>Ethernet68</EndPort>
+          <EndPort>Ethernet68</EndPort>
         <StartDevice>ARISTA02T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
-        <EndPort>Ethernet72</EndPort>
+          <EndPort>Ethernet72</EndPort>
         <StartDevice>ARISTA03T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
-        <EndPort>Ethernet76</EndPort>
+          <EndPort>Ethernet76</EndPort>
         <StartDevice>ARISTA04T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
-        <EndPort>Ethernet80</EndPort>
+          <EndPort>Ethernet80</EndPort>
         <StartDevice>ARISTA05T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
-        <EndPort>Ethernet84</EndPort>
+          <EndPort>Ethernet84</EndPort>
         <StartDevice>ARISTA06T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
-        <EndPort>Ethernet88</EndPort>
+          <EndPort>Ethernet88</EndPort>
         <StartDevice>ARISTA07T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
-        <EndPort>Ethernet92</EndPort>
+          <EndPort>Ethernet92</EndPort>
         <StartDevice>ARISTA08T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
-        <EndPort>Ethernet96</EndPort>
+          <EndPort>Ethernet96</EndPort>
         <StartDevice>ARISTA09T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
-        <EndPort>Ethernet100</EndPort>
+          <EndPort>Ethernet100</EndPort>
         <StartDevice>ARISTA10T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
-        <EndPort>Ethernet104</EndPort>
+          <EndPort>Ethernet104</EndPort>
         <StartDevice>ARISTA11T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
-        <EndPort>Ethernet108</EndPort>
+          <EndPort>Ethernet108</EndPort>
         <StartDevice>ARISTA12T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
-        <EndPort>Ethernet112</EndPort>
+          <EndPort>Ethernet112</EndPort>
         <StartDevice>ARISTA13T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
-        <EndPort>Ethernet116</EndPort>
+          <EndPort>Ethernet116</EndPort>
         <StartDevice>ARISTA14T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
-        <EndPort>Ethernet120</EndPort>
+          <EndPort>Ethernet120</EndPort>
         <StartDevice>ARISTA15T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>str-msn2700-05</EndDevice>
-        <EndPort>Ethernet124</EndPort>
+          <EndPort>Ethernet124</EndPort>
         <StartDevice>ARISTA16T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
@@ -1509,42 +1530,723 @@
           <a:IPPrefix>10.3.147.48</a:IPPrefix>
         </ManagementAddress>
       </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA01T0</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.144</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA01T2</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.128</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA02T0</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.145</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA02T2</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.129</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA03T0</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.146</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA03T2</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.130</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA04T0</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.147</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA04T2</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.131</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA05T0</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.148</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA05T2</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.132</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA06T0</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.149</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA06T2</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.133</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA07T0</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.150</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA07T2</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.134</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA08T0</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.151</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA08T2</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.135</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA09T0</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.152</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA09T2</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.136</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA10T0</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.153</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA10T2</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.137</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA11T0</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.154</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA11T2</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.138</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA12T0</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.155</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA12T2</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.139</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA13T0</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.156</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA13T2</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.140</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA14T0</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.157</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA14T2</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.141</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA15T0</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.158</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA15T2</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.142</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA16T0</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.159</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA16T2</Hostname>
+         <HwSku>Arista-VM</HwSku>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.64.246.143</a:IPPrefix>
+         </ManagementAddress>
+       </Device>
     </Devices>
   </PngDec>
+  <DeviceInfos>
+    <DeviceInfo>
+      <AutoNegotiation>true</AutoNegotiation>
+      <EthernetInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet0</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet4</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet8</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet12</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet16</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet20</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet24</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet28</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet32</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet36</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet40</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet44</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet48</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet52</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet56</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet60</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet64</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet68</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet72</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet76</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet80</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet84</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet88</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet92</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet96</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet100</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet104</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet108</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet112</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet116</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet120</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+        <a:EthernetInterface>
+          <ElementType>DeviceInterface</ElementType>
+          <AlternateSpeeds i:nil="true"/>
+          <EnableAutoNegotiation>true</EnableAutoNegotiation>
+          <EnableFlowControl>true</EnableFlowControl>
+          <Index>1</Index>
+          <InterfaceName>Ethernet124</InterfaceName>
+          <InterfaceType i:nil="true"/>
+          <MultiPortsInterface>false</MultiPortsInterface>
+          <PortName>0</PortName>
+          <Priority>0</Priority>
+          <Speed>40000</Speed>
+        </a:EthernetInterface>
+      </EthernetInterfaces>
+      <FlowControl>true</FlowControl>
+      <Height>0</Height>
+      <HwSku>ACS-MSN2700</HwSku> 
+      <ManagementInterfaces/>
+    </DeviceInfo> 
+  </DeviceInfos>
   <MetadataDeclaration>
     <Devices xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
       <a:DeviceMetadata>
-      <a:Name>str-msn2700-05</a:Name>
-      <a:Properties>
-         <a:DeviceProperty>
-           <a:Name>DhcpResources</a:Name>
-           <a:Reference i:nil="true"/>
-           <a:Value></a:Value>
-         </a:DeviceProperty>
-         <a:DeviceProperty>
+        <a:Name>str-msn2700-05</a:Name>
+        <a:Properties>
+          <a:DeviceProperty>
+            <a:Name>DhcpResources</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>10.3.146.1</a:Value>
+          </a:DeviceProperty>
+          <a:DeviceProperty>
             <a:Name>NtpResources</a:Name>
             <a:Reference i:nil="true"/>
-            <a:Value>10.20.8.129;10.20.8.130</a:Value>
-         </a:DeviceProperty>
-         <a:DeviceProperty>
+            <a:Value>10.3.149.170;10.3.149.171</a:Value>
+          </a:DeviceProperty>
+          <a:DeviceProperty>
+            <a:Name>DeploymentId</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>1</a:Value>
+          </a:DeviceProperty>
+          <a:DeviceProperty>
+            <a:Name>QosProfile</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>Profile0</a:Value>
+          </a:DeviceProperty>
+          <a:DeviceProperty>
+            <a:Name>RadiusResources</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value></a:Value>
+          </a:DeviceProperty>
+          <a:DeviceProperty>
+            <a:Name>SnmpResources</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>10.3.145.98</a:Value>
+          </a:DeviceProperty>
+          <a:DeviceProperty>
             <a:Name>SyslogResources</a:Name>
             <a:Reference i:nil="true"/>
-            <a:Value>10.3.145.8;100.127.20.21;10.20.6.16</a:Value>
-         </a:DeviceProperty>
-         <a:DeviceProperty>
-           <a:Name>ForcedMgmtRoutes</a:Name>
-           <a:Reference i:nil="true"/>
-           <a:Value>10.3.145.98/31;10.3.145.0/24;100.127.20.16/28;10.3.149.170/31;40.122.216.24;13.91.48.226;10.20.6.16;10.20.8.128/25;10.64.5.5</a:Value>
-         </a:DeviceProperty>
-         </a:Properties>
-         <a:DeviceProperty>
+            <a:Value>10.3.145.8;100.127.20.21</a:Value>
+          </a:DeviceProperty>
+          <a:DeviceProperty>
+            <a:Name>TacacsGroup</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>Starlab</a:Value>
+          </a:DeviceProperty>
+          <a:DeviceProperty>
+            <a:Name>TacacsServer</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>10.3.145.14;10.3.145.15</a:Value>
+          </a:DeviceProperty>
+          <a:DeviceProperty>
+            <a:Name>ForcedMgmtRoutes</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>10.3.145.98/31;10.3.145.8;100.127.20.16/28;10.3.149.170/31;40.122.216.24;13.91.48.226</a:Value>
+          </a:DeviceProperty>
+          <a:DeviceProperty>
             <a:Name>ErspanDestinationIpv4</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>10.20.6.16</a:Value>
          </a:DeviceProperty>
-       </a:DeviceMetadata>
-     </Devices>
-     <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
+        </a:Properties>
+      </a:DeviceMetadata>
+    </Devices>
+    <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
   </MetadataDeclaration>
   <Hostname>str-msn2700-05</Hostname>
   <HwSku>ACS-MSN2700</HwSku>
