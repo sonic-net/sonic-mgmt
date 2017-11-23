@@ -5,6 +5,7 @@ config
 {% if intf in root_conn %}
 {% set peer_dev = root_conn[intf]['peerdevice'] %}
 {% set peer_port = root_conn[intf]['peerport'] %}
+{% if not connect_leaf %}
 {% if 'Fanout' not in lab_devices[peer_dev]['Type']  %}
  interface {{ intf }} 
   switchport mode trunk
@@ -12,6 +13,18 @@ config
   no shutdown
 {% if peer_dev == server and peer_port == server_port %}
   switchport trunk allowed vlan add {{ dut_vlans | list | join(',') }}
+{% endif %}
+{% endif %}
+{% endif %}
+{% if connect_leaf %}
+{% if 'Fanout' in lab_devices[peer_dev]['Type']  %}
+ interface {{ intf }}
+  switchport mode trunk fanout
+  switchport trunk allowed vlan remove {{ dut_vlans | list | join(',') }}
+  no shutdown
+{% if peer_dev == dut %}
+  switchport trunk allowed vlan add {{ dut_vlans | list | join(',') }}
+{% endif %}
 {% endif %}
 {% endif %}
 {% endif %}

@@ -6,11 +6,17 @@
 ### specified in this playbook, you would need to come up with your own fanout switch deployment 
 ### playbook
 ################################################################################################
-  # Gather minigraph facts
+# change the root fanout port vlans
+- set_fact:
+    dut: "{{ inventory_hostname }}"
+    connect_leaf: true
+
+- include: rootfanout_connect.yml
+
+# Deploy leaf fanout switch
 - name: Gathering lab graph facts about the device
   conn_graph_facts: host={{ inventory_hostname }}
   connection: local
-  tags: always
 
 - name: prepare fanout switch admin login info
   set_fact: ansible_ssh_user={{ fanout_admin_user }} ansible_ssh_pass={{ fanout_admin_password }}
@@ -23,14 +29,6 @@
       - Restart the box
   when: device_info.HwSku == "Arista-7260QX-64" 
 
-
-- name: build fanout startup config
-  action: apswitch template=force10_s6100_deploy.j2
-  connection: switch
-  args:
-    login: "{{ switch_login['Force10'] }}"
-  when: device_info.HwSku == "Force10-S6100"
-
 - block:
   - name: build fanout startup config
     template: src=arista_7060_deploy.j2
@@ -38,4 +36,3 @@
     notify:
        - Restart the box
   when: device_info.HwSku == "Arista-7060CX-32S"
-
