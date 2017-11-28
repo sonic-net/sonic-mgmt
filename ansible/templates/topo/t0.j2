@@ -154,7 +154,23 @@
         </IPInterface>
       </IPInterfaces>
       <DataAcls/>
-      <AclInterfaces/>
+      <AclInterfaces>
+        <AclInterface>
+          <AttachTo>
+          {% for index in range(4) -%}
+          PortChannel{{ ((index + 1)|string).zfill(4) }};
+          {%- endfor -%}
+          Vlan1000
+          </AttachTo>
+          <InAcl>DataAcl</InAcl>
+        </AclInterface>
+        <AclInterface>
+          <AttachTo>
+            ERSPAN
+          </AttachTo>
+          <InAcl>Everflow</InAcl>
+        </AclInterface>
+      </AclInterfaces>
       <DownstreamSummaries/>
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     </DeviceDataPlaneInfo>
