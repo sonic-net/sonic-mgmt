@@ -4,23 +4,9 @@
       pfc_wd_action: forward
       pfc_wd_detection_time: 4000
       pfc_wd_restoration_time: 5000
-      pfc_wd_op: SET
   template:
       src: "{{ pfc_wd_template }}"
       dest: "{{ tests_location }}/config_test/pfc_wd_fwd_action.json"
-  connection: local
-  become: false
-
-- name: Generate config file for forward action removal test.
-  vars:
-      pfc_wd_interface_list: "{{ pfc_wd_test_port }}"
-      pfc_wd_action: forward
-      pfc_wd_detection_time: 4000
-      pfc_wd_restoration_time: 5000
-      pfc_wd_op: DEL
-  template:
-      src: "{{ pfc_wd_template }}"
-      dest: "{{ tests_location }}/config_test/pfc_wd_fwd_action_del.json"
   connection: local
   become: false
 
@@ -30,7 +16,6 @@
       pfc_wd_action: invalid
       pfc_wd_detection_time: 4000
       pfc_wd_restoration_time: 5000
-      pfc_wd_op: SET
   template:
       src: "{{ pfc_wd_template }}"
       dest: "{{ tests_location }}/config_test/pfc_wd_invalid_action.json"
@@ -43,7 +28,6 @@
       pfc_wd_action: forward
       pfc_wd_detection_time: 400a
       pfc_wd_restoration_time: 5000
-      pfc_wd_op: SET
   template:
       src: "{{ pfc_wd_template }}"
       dest: "{{ tests_location }}/config_test/pfc_wd_invalid_detect_time.json"
@@ -56,7 +40,6 @@
       pfc_wd_action: forward
       pfc_wd_detection_time: 40
       pfc_wd_restoration_time: 5000
-      pfc_wd_op: SET
   template:
       src: "{{ pfc_wd_template }}"
       dest: "{{ tests_location }}/config_test/pfc_wd_low_detect_time.json"
@@ -69,7 +52,6 @@
       pfc_wd_action: forward
       pfc_wd_detection_time: 4000000
       pfc_wd_restoration_time: 5000
-      pfc_wd_op: SET
   template:
       src: "{{ pfc_wd_template }}"
       dest: "{{ tests_location }}/config_test/pfc_wd_high_detect_time.json"
@@ -82,7 +64,6 @@
       pfc_wd_action: forward
       pfc_wd_detection_time: 4000
       pfc_wd_restoration_time: 500c
-      pfc_wd_op: SET
   template:
       src: "{{ pfc_wd_template }}"
       dest: "{{ tests_location }}/config_test/pfc_wd_invalid_restore_time.json"
@@ -95,7 +76,6 @@
       pfc_wd_action: forward
       pfc_wd_detection_time: 4000
       pfc_wd_restoration_time: 50
-      pfc_wd_op: SET
   template:
       src: "{{ pfc_wd_template }}"
       dest: "{{ tests_location }}/config_test/pfc_wd_low_restore_time.json"
@@ -108,7 +88,6 @@
       pfc_wd_action: forward
       pfc_wd_detection_time: 4000
       pfc_wd_restoration_time: 50000000
-      pfc_wd_op: SET
   template:
       src: "{{ pfc_wd_template }}"
       dest: "{{ tests_location }}/config_test/pfc_wd_high_restore_time.json"
@@ -120,7 +99,6 @@
       testname: config_test
       config_files:
           - pfc_wd_fwd_action.json
-          - pfc_wd_fwd_action_del.json
           - pfc_wd_invalid_action.json
           - pfc_wd_invalid_detect_time.json
           - pfc_wd_low_detect_time.json
@@ -129,83 +107,76 @@
           - pfc_wd_low_restore_time.json
           - pfc_wd_high_restore_time.json
 
-- name: Initialize config test
-  include: roles/test/tasks/init_config_test.yml
+- name: Copy files to switch
+  copy:
+    src: "{{ tests_location }}/config_test/{{ item }}"
+    dest: "{{ run_dir }}/{{ item }}"
+  with_items:
+      - "{{ config_files }}"
 
 - block:
     - name: Config tests - Check forward action configuration.
       vars:
-        config_file: pfc_wd_fwd_action.json
+        command_to_run: "sonic-cfggen -j {{ run_dir }}/pfc_wd_fwd_action.json --write-to-db"
         errors_expected: false
-        run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
-
-    - name: Config tests - Check forward action deletion.
-      vars:
-        config_file: pfc_wd_fwd_action_del.json
-        errors_expected: false
-        run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Config tests - Check invalid action configuration.
       vars:
-        config_file: pfc_wd_invalid_action.json
+        command_to_run: "sonic-cfggen -j {{ run_dir }}/pfc_wd_invalid_action.json --write-to-db"
         test_expect_file: config_test_expect_invalid_action
         errors_expected: true
-        run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Config tests - Check invalid detection time configuration.
       vars:
-        config_file: pfc_wd_invalid_detect_time.json
+        command_to_run: "sonic-cfggen -j {{ run_dir }}/pfc_wd_invalid_detect_time.json --write-to-db"
         test_expect_file: config_test_expect_invalid_detect_time
         errors_expected: true
-        run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Config tests - Check invalid detection time < lower bound configuration.
       vars:
-        config_file: pfc_wd_low_detect_time.json
+        command_to_run: "sonic-cfggen -j {{ run_dir }}/pfc_wd_low_detect_time.json --write-to-db"
         test_expect_file: config_test_expect_invalid_detect_time
         errors_expected: true
-        run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Config tests - Check invalid detection time > higher bound configuration.
       vars:
-        config_file: pfc_wd_high_detect_time.json
+        command_to_run: "sonic-cfggen -j {{ run_dir }}/pfc_wd_high_detect_time.json --write-to-db"
         test_expect_file: config_test_expect_invalid_detect_time
         errors_expected: true
-        run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Config tests - Check invalid restoration time configuration.
       vars:
-        config_file: pfc_wd_invalid_restore_time.json
+        command_to_run: "sonic-cfggen -j {{ run_dir }}/pfc_wd_invalid_restore_time.json --write-to-db"
         test_expect_file: config_test_expect_invalid_restore_time
         errors_expected: true
-        run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Config tests - Check invalid restoration time < lower bound configuration.
       vars:
-        config_file: pfc_wd_low_restore_time.json
+        command_to_run: "sonic-cfggen -j {{ run_dir }}/pfc_wd_low_restore_time.json --write-to-db"
         test_expect_file: config_test_expect_invalid_restore_time
         errors_expected: true
-        run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Config tests - Check invalid restoration time > higher bound configuration.
       vars:
-        config_file: pfc_wd_high_restore_time.json
+        command_to_run: "sonic-cfggen -j {{ run_dir }}/pfc_wd_high_restore_time.json --write-to-db"
         test_expect_file: config_test_expect_invalid_restore_time
         errors_expected: true
-        run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
 
   always:
-    - name: Remove all the temporary files created by the test.
-      include: roles/test/tasks/deinit_config_test.yml
+    - name: Clean up config
+      vars:
+        command_to_run: "pfcwd stop"
+        errors_expected: false
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
+
     - name: Remove all temporary files from local host.
       file:
         name: "{{ tests_location }}/config_test/{{ item }}"
