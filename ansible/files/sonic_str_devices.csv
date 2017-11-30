@@ -39,7 +39,9 @@ str-wedge100b-acs-2,10.64.247.3/23,Wedge-100B-C32,DevSonic
 str-wedge100b65-acs-1,10.64.247.4/23,Wedge-100B-65X,DevSonic
 str-wedge100b65-acs-2,10.64.247.5/23,Wedge-100B-65X,DevSonic
 str-7060cx-acs-10,10.64.247.240/23,Arista-7060CX-32S-C32,DevSonic
+str-7060cx-acs-1,10.64.247.14/23,Arista-7060CX-32S-C32,DevSonic
 str-7260cx3-acs-1,10.64.247.224/23,Arista-7260CX3-64,DevSonic
+str-7260cx3-acs-2,10.64.247.10/23,Arista-7260CX3-64,DevSonic
 str-msn2700-20,10.64.247.235/23,Mellanox-2700,DevSonic
 str-msn2700-22,10.64.247.236/23,Mellanox-2700,DevSonic
 str-z9100-acs-2,10.64.246.237/23,Force10-Z9100,DevSonic
@@ -73,6 +75,9 @@ str-7060cx-32s-06,10.64.247.233/23,Arista-7060CX-32S,FanoutLeaf
 str-7060cx-32s-07,10.64.247.234/23,Arista-7060CX-32S,FanoutLeaf
 str-7060cx-32s-08,10.64.247.238/23,Arista-7060CX-32S,FanoutLeaf
 str-7060cx-32s-09,10.64.247.239/23,Arista-7060CX-32S,FanoutLeaf
+str-7060cx-32s-15,10.64.247.11/23,Arista-7060CX-32S,FanoutLeaf
+str-7060cx-32s-16,10.64.247.12/23,Arista-7060CX-32S,FanoutLeaf
+str-7060cx-32s-17,10.64.247.13/23,Arista-7060CX-32S,FanoutLeaf
 str-acs-serv-01,10.3.147.245/23,TestServ,Server
 str-acs-serv-02,10.3.147.246/23,TestServ,Server
 str-acs-serv-03,10.3.147.244/23,TestServ,Server
