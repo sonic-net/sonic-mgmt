@@ -1,0 +1,83 @@
+- name: Set variables for TACACS+ test
+  set_fact:
+    loopback_ip: "100.1.1.1"
+
+# Test TACACS+ login authentication
+- name: Enable TACACS+ Authentication
+  become: true
+  shell: config aaa authentication login tacacs+ local
+
+- name: Check if pam configuration ok
+  become: true
+  shell: "grep 'pam_tacplus.so server={{ tacacs_server }}' /etc/pam.d/common-auth-sonic"
+  register: tacplus_pam_module
+  failed_when: '"secret={{ tacacs_passkey }}" not in tacplus_pam_module.stdout'
+
+- name: Check if TACACS+ user login ok
+  shell: "sshpass -p {{ tacacs_passwd }} ssh {{ tacacs_username }}@{{ ansible_host }} whoami"
+  connection: local
+  become: no
+  register: login_result
+  failed_when: login_result.stdout != "{{ tacacs_username }}"
+
+# Test failthrough mechanism
+- name: Config local authentication prior to TACACS+ authentication
+  become: true
+  shell: config aaa authentication login local tacacs+
+
+- name: Disable fail-through mechanism
+  become: true
+  shell: config aaa authentication failthrough disable
+
+- name: Check if TACACS+ user login fail
+  shell: "sshpass -p {{ tacacs_passwd }} ssh {{ tacacs_username }}@{{ ansible_host }} whoami"
+  connection: local
+  become: no
+  register: login_result
+  failed_when: login_result.stdout == "{{ tacacs_username }}"
+
+- name: Restore fail-through mechanism
+  become: true
+  shell: config aaa authentication failthrough default
+
+# Test source address
+- name: Config TACACS+ source address
+  become: true
+  shell: config tacacs src_ip {{ loopback_ip }}
+
+- name: Set loopback secondary address
+  become: true
+  shell: ip address add {{ loopback_ip }}/32 dev lo
+
+- name: Check no route for loopback address in TACACS+ server
+  become: true
+  shell: ping {{ loopback_ip }} -c 3
+  delegate_to: "{{ tacacs_server }}"
+  register: ping1
+  failed_when: ping1.rc == 0
+
+- name: Check if TACACS+ user login fail
+  shell: "sshpass -p {{ tacacs_passwd }} ssh {{ tacacs_username }}@{{ ansible_host }} whoami"
+  connection: local
+  become: no
+  register: login_result
+  failed_when: login_result.stdout == "{{ tacacs_username }}"
+
+- name: Set static route for loopback ip in TACACS+ server
+  become: true
+  shell: ip route add {{ loopback_ip }}/32 via {{ ansible_host }}
+  delegate_to: "{{ tacacs_server }}"
+
+- name: Check route for loopback address in TACACS+ server
+  become: true
+  shell: ping {{ loopback_ip }} -c 3
+  delegate_to: "{{ tacacs_server }}"
+  register: ping2
+  failed_when: ping2.rc != 0
+
+- name: Check if TACACS+ user login ok
+  shell: "sshpass -p {{ tacacs_passwd }} ssh {{ tacacs_username }}@{{ ansible_host }} whoami"
+  connection: local
+  become: no
+  register: login_result
+  failed_when: login_result.stdout != "{{ tacacs_username }}"

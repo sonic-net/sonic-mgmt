@@ -1,0 +1,29 @@
+# Delete TACACS+ server configuration
+- name: Delete TACACS+ server
+  become: true
+  shell: config tacacs delete {{ tacacs_server }}
+
+- name: Delete TACACS+ passkey
+  become: true
+  shell: config tacacs default passkey
+
+- name: Delete TACACS+ source address
+  become: true
+  shell: config tacacs default src_ip
+
+- name: Delete loopback address
+  become: true
+  shell: ip address del {{ loopback_ip }}/32 dev lo
+
+- name: Delete static route for loopback ip in TACACS+ server
+  become: true
+  shell: ip route del {{ loopback_ip }}/32
+  delegate_to: "{{ tacacs_server }}"
+
+- name: Set AAA authentication default
+  become: true
+  shell: config aaa authentication login default 
+
+- name: Set AAA authentication failthrough default
+  become: true
+  shell: config aaa authentication failthrough default

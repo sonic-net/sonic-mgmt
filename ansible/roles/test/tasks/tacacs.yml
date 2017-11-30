@@ -1,0 +1,20 @@
+#-----------------------------------------
+# Apply TACACS+ configuration
+#-----------------------------------------
+- name: TACACS+ test setup on testbed
+  include: tacacs_configure.yml
+  tags: tacacs_configure
+
+#-----------------------------------------
+# Run TACACS+ test
+#-----------------------------------------
+- name: TACACS+ test run on testbed
+  include: tacacs_test.yml
+  tags: tacacs_test
+
+#-----------------------------------------
+# Clean up TACACS+ configuration
+#-----------------------------------------
+- name: Clean up TACACS+ test configuration on testbed
+  include: tacacs_cleanup.yml
+  tags: tacacs_cleanup

@@ -1,0 +1,23 @@
+# Set variables for setup
+- name: Set variables for TACACS+ setup
+  set_fact:
+    tacacs_server: "{{ tacacs_servers[0] }}"
+    tacacs_passkey: "test123"
+    tacacs_username: "test"
+    tacacs_passwd: "test"
+
+- name: Start TACACS+ service
+  become: true
+  service:
+    name: tac_plus
+    state: started
+  delegate_to: "{{ tacacs_server }}"
+
+# Set TACACS+ authentication configuration in DUT
+- name: Set global TACACS+ passkey
+  become: true
+  shell: config tacacs passkey {{ tacacs_passkey }}
+
+- name: Add TACACS+ server
+  become: true
+  shell: config tacacs add {{ tacacs_server }}

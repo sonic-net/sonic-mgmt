@@ -14,3 +14,6 @@ switch5
 
 [ptf]
 ptf-1 ansible_host=10.0.0.200 ansible_ssh_user=root ansible_ssh_pass=password
+
+[tacacs_server]
+tacacs_server ansible_host=10.0.0.9 ansible_ssh_user=root ansible_ssh_pass=root
