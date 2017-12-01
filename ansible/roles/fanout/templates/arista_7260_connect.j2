@@ -23,6 +23,7 @@ config
   switchport trunk allowed vlan remove {{ dut_vlans | list | join(',') }}
   no shutdown
 {% if peer_dev == dut %}
+  description {{ peer_dev }}-{{ peer_port }}
   switchport trunk allowed vlan add {{ dut_vlans | list | join(',') }}
 {% endif %}
 {% endif %}

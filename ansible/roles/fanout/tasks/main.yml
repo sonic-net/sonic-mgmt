@@ -22,17 +22,33 @@
   set_fact: ansible_ssh_user={{ fanout_admin_user }} ansible_ssh_pass={{ fanout_admin_password }}
 
 - block:
+  - name: create persistent shell login
+    shell: touch /mnt/flash/rc.eos
+
+  - name: save persistent shell login
+    template: src=rc.eos.j2
+              dest=/mnt/flash/rc.eos
+
   - name: build fanout startup config for Arista Fanout leaf
     template: src=arista_7260_deploy.j2
               dest=/mnt/flash/startup-config
     notify:
       - Restart the box
   when: device_info.HwSku == "Arista-7260QX-64" 
+  become: yes
 
 - block:
+  - name: create persistent shell login
+    shell: touch /mnt/flash/rc.eos
+
+  - name: save persistent shell login
+    template: src=rc.eos.j2
+              dest=/mnt/flash/rc.eos
+
   - name: build fanout startup config
     template: src=arista_7060_deploy.j2
               dest=/mnt/flash/startup-config
     notify:
        - Restart the box
   when: device_info.HwSku == "Arista-7060CX-32S"
+  become: yes
