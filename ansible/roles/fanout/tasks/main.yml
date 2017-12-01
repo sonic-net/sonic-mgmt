@@ -10,10 +10,14 @@
 - set_fact:
     dut: "{{ inventory_hostname }}"
     connect_leaf: true
+    leaf: "{{ ansible_host }}"
 
 - include: rootfanout_connect.yml
 
 # Deploy leaf fanout switch
+- set_fact:
+    ansible_host: "{{ leaf }}"
+
 - name: Gathering lab graph facts about the device
   conn_graph_facts: host={{ inventory_hostname }}
   connection: local
@@ -32,8 +36,11 @@
   - name: build fanout startup config for Arista Fanout leaf
     template: src=arista_7260_deploy.j2
               dest=/mnt/flash/startup-config
-    notify:
-      - Restart the box
+  - name: reboot
+    shell: sleep 2 && shutdown -r now "Reboot"
+    async: 1
+    poll: 0
+    ignore_errors: true
   when: device_info.HwSku == "Arista-7260QX-64" 
   become: yes
 
@@ -48,7 +55,11 @@
   - name: build fanout startup config
     template: src=arista_7060_deploy.j2
               dest=/mnt/flash/startup-config
-    notify:
-       - Restart the box
+
+  - name: reboot
+    shell: sleep 2 && shutdown -r now "Reboot"
+    async: 1
+    poll: 0
+    ignore_errors: true
   when: device_info.HwSku == "Arista-7060CX-32S"
   become: yes
