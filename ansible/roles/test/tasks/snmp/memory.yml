@@ -1,0 +1,105 @@
+# Test SNMP Memory Utilization
+#
+#  - Check the difference percentage of Total Memory between SNMP and shell is 0
+#  - Check the difference percentage of Total Free Memory between SNMP and shell small than 3% when:
+#    * Check free memory before stress test
+#    * Check free memory in stress test
+#    * Check free memory after stress test
+#  - Check memory leak issue, the difference percentage between Total Free Memory before stress test and after should small than 3%
+#
+# Requires:  Ansible v2.0.0.2-1
+#
+# Usage:
+#
+#  ansible-playbook test_sonic.yml -i inventory --limit switch2 --become --tags snmp_memory -vvvvvv
+#
+
+- block:
+    - name: Copy Memory stress script to the switch
+      copy: src={{ item.src }} dest={{ item.dest }}
+      with_items:
+        - { src: 'roles/test/tasks/snmp/memory.py', dest: '/tmp/memory.py' }
+
+    - name: Gathering basic snmp facts about the device
+      snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
+      connection: local
+
+    - name: Check total memory via shell
+      shell: grep MemTotal /proc/meminfo | awk '{print $2}'
+      register: shell_total_memory
+      become: yes
+
+    - name: 'Validating SNMP total memory matches shell "/proc/meminfo" result'
+      assert:
+        that: "{{ (ansible_sysTotalMemery|int - shell_total_memory.stdout|int)|abs }} == 0"
+
+    - name: Gathering basic snmp facts about the device
+      snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
+      connection: local
+
+    - name: Check total free memory via shell
+      shell: grep MemFree /proc/meminfo | awk '{print $2}'
+      register: shell_total_free_memory
+      become: yes
+
+    - name: Validating SNMP total free memory matches shell result before stress test
+      assert:
+        that: "{{ '%.6f'|format((ansible_sysTotalFreeMemery|int - shell_total_free_memory.stdout|int)|abs / ansible_sysTotalFreeMemery|int) }} <= 0.03"
+
+    - set_fact: free_memery_before_test="{{ ansible_sysTotalFreeMemery }}"
+
+    - set_fact: test_momory="{{ ((ansible_sysTotalFreeMemery - 512000) / 1024)|int }}"
+
+    - name: Start memory stress generation
+      shell: python /tmp/memory.py {{ test_momory }} &
+      become: yes
+
+    - name: Wait for memory stress to reflect in SNMP
+      pause: seconds=20
+
+    - name: Gathering basic snmp facts about the device
+      snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
+      connection: local
+
+    - name: Check total free memory via shell
+      shell: grep MemFree /proc/meminfo | awk '{print $2}'
+      register: shell_total_free_memory
+      become: yes
+
+    - name: Validating SNMP total free memory matches shell result in stress test
+      assert:
+        that: "{{ '%.6f'|format((ansible_sysTotalFreeMemery|int - shell_total_free_memory.stdout|int)|abs / ansible_sysTotalFreeMemery|int) }} <= 0.03"
+
+    - name: Stop memory stress generation
+      shell: killall python /tmp/memory.py
+      become: yes
+      ignore_errors: true
+
+    - name: Wait for memory recovery to reflect in SNMP
+      pause: seconds=20
+
+    - name: Gathering basic snmp facts about the device
+      snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
+      connection: local
+
+    - name: Check total free memory via shell
+      shell: grep MemFree /proc/meminfo | awk '{print $2}'
+      register: shell_total_free_memory
+      become: yes
+
+    - name: Validating SNMP total free memory matches shell result after stress test
+      assert:
+        that: "{{ '%.6f'|format((ansible_sysTotalFreeMemery|int - shell_total_free_memory.stdout|int)|abs / ansible_sysTotalFreeMemery|int) }} <= 0.03"
+
+    - name: Validating memory leak issue on DUT
+      assert:
+        that: "{{ '%.6f'|format((free_memery_before_test|int - ansible_sysTotalFreeMemery|int)|abs / free_memery_before_test|int) }} <= 0.03"
+
+  always:
+    - name: Stop memory stress generation
+      shell: killall python /tmp/memory.py
+      become: yes
+      ignore_errors: true
+
+    - name: Remove stress test file from DUT
+      file: path="/tmp/memory.py" state=absent
