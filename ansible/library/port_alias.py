@@ -48,7 +48,7 @@ class SonicPortAliasMap():
 
     def findfile(self):
         for (rootdir, dirnames, filenames) in os.walk(FILE_PATH):
-            if self.hwsku in rootdir and len(dirnames) == 0 and PORTMAP_FILE in filenames:
+            if self.hwsku == rootdir.split('/')[-1] and len(dirnames) == 0 and PORTMAP_FILE in filenames:
                 self.filename = rootdir+'/'+PORTMAP_FILE
 
     def get_portmap(self):
