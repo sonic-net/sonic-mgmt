@@ -1,0 +1,23 @@
+- name: Generate config_db.json
+  shell: sonic-cfggen -m /etc/sonic/minigraph.xml --print-data > /etc/sonic/config_db.json
+  become: true
+
+- name: Reboot is required for config_db.json change
+  shell: sleep 2 && shutdown -r now "Ansible change config_db.json file, triggerred reboot."
+  async: 1
+  poll: 0
+  become: true
+  ignore_errors: true
+
+- name: Waiting for switch to come back
+  local_action:
+      wait_for host={{ ansible_ssh_host }}
+      port=22
+      state=started
+      delay=30
+      timeout=300
+  become: false
+  changed_when: false
+
+- name: sleep for some time
+  pause: seconds=60

@@ -1,0 +1,79 @@
+- fail: msg="Please set ptf_host variable"
+  when: ptf_host is not defined
+
+- fail: msg="Invalid testbed_type value '{{testbed_type}}'"
+  when: testbed_type not in [ 't0' ]
+
+
+- debug: var=minigraph_portchannels
+
+- debug: var=minigraph_port_indices
+
+- name: Generate VLAN ports information
+  template: src=roles/test/templates/vlan_info.j2
+            dest=/tmp/vlan_info.yml
+  connection: local
+
+- name: Load VLAN ports info from file
+  include_vars: '/tmp/vlan_info.yml'
+
+- debug: var=vlan_ports_list
+- debug: var=vlan_intf_list
+
+- name: Flush all IP addresses on the LAGs
+  shell: cfgmgr intf del {{ (item.addr ~ "/" ~ item.mask)|ipaddr()|upper() }} dev {{ item.attachto }}
+  with_items:
+    - "{{ minigraph_portchannel_interfaces }}"
+  become: true
+
+- name: Remove native VLAN members
+  shell: cfgmgr vlan del vlan 1000 dev {{ item.dev }}
+  with_items: "{{ vlan_ports_list }}"
+  become: true
+
+- name: Create VLAN interfaces
+  shell: cfgmgr vlan add vlan {{ item.vlan_id }} up
+  with_items: "{{ vlan_intf_list }}"
+  become: true
+
+- name: Add VLAN members
+  shell: cfgmgr vlan add vlan {{ item.1 }} dev {{ item.0.dev }}
+  with_nested:
+    - "{{ vlan_ports_list }}"
+    - "{{ vlan_ports_list[0].permit_vlanid.keys() }}"
+  become: true
+
+- name: Add native VLAN members
+  shell: cfgmgr vlan add vlan {{ item.pvid }} dev {{ item.dev }} untagged
+  with_items: "{{ vlan_ports_list }}"
+  become: true
+
+- name: Configure IP addresses on VLAN interfaces
+  shell: cfgmgr intf add {{ item.ip }} dev Vlan{{ item.vlan_id }}
+  with_items: "{{ vlan_intf_list }}"
+  become: true
+
+- name: Save configuration in config_db.json
+  shell: config save -y
+  become: true
+
+- name: Reboot is required for config_db.json change
+  shell: sleep 2 && shutdown -r now "Ansible change config_db.json file, triggered reboot."
+  async: 1
+  poll: 0
+  become: true
+  ignore_errors: true
+
+- name: waiting for switch to come back
+  local_action:
+      wait_for host={{ ansible_ssh_host }}
+      port=22
+      state=started
+      delay=30
+      timeout=300
+  become: false
+  changed_when: false
+
+- name: sleep for some time
+  pause: seconds=60
+
