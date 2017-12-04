@@ -127,6 +127,7 @@ sonic_nexus_9232_40
 sonic_arista64_100
 sonic_dell32_100
 sonic_mlnx_100
+sonic_arista32_100
 
 [acs_ixia_dscp]
 10.3.147.141
