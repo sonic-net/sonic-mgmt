@@ -144,6 +144,13 @@ class DefineOid(object):
         # From Dell Private MIB
         self.ChStackUnitCpuUtil5sec = dp + "1.3.6.1.4.1.6027.3.10.1.2.9.1.2.1"
 
+        # From Cisco private MIB
+        self.cpfcIfRequests         = dp + "1.3.6.1.4.1.9.9.813.1.1.1.1" # + .ifindex
+        self.cpfcIfIndications      = dp + "1.3.6.1.4.1.9.9.813.1.1.1.2" # + .ifindex
+        self.requestsPerPriority    = dp + "1.3.6.1.4.1.9.9.813.1.2.1.2" # + .ifindex.prio
+        self.indicationsPerPriority = dp + "1.3.6.1.4.1.9.9.813.1.2.1.3" # + .ifindex.prio
+        self.csqIfQosGroupStats     = dp + "1.3.6.1.4.1.9.9.580.1.5.5.1.4" # + .ifindex.IfDirection.QueueID
+
 
 def decode_hex(hexstring):
  
@@ -456,6 +463,57 @@ def main():
             current_val = val.prettyPrint()
             if current_oid == v.ChStackUnitCpuUtil5sec:
                 results['ansible_ChStackUnitCpuUtil5sec'] = decode_type(module, current_oid, val)
+
+    errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+        snmp_auth,
+        cmdgen.UdpTransportTarget((m_args['host'], 161)),
+        cmdgen.MibVariable(p.cpfcIfRequests,),
+        cmdgen.MibVariable(p.cpfcIfIndications,),
+        cmdgen.MibVariable(p.requestsPerPriority,),
+        cmdgen.MibVariable(p.indicationsPerPriority,),
+    )
+
+    if errorIndication:
+        module.fail_json(msg=str(errorIndication))
+
+    for varBinds in varTable:
+        for oid, val in varBinds:
+            current_oid = oid.prettyPrint()
+            current_val = val.prettyPrint()
+            if v.cpfcIfRequests in current_oid:
+                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_interfaces'][ifIndex]['cpfcIfRequests'] = current_val
+            if v.cpfcIfIndications in current_oid:
+                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_interfaces'][ifIndex]['cpfcIfIndications'] = current_val
+            if v.requestsPerPriority in current_oid:
+                ifIndex = int(current_oid.split('.')[-2])
+                prio = int(current_oid.split('.')[-1])
+                results['snmp_interfaces'][ifIndex]['requestsPerPriority'][prio] = current_val
+            if v.indicationsPerPriority in current_oid:
+                ifIndex = int(current_oid.split('.')[-2])
+                prio = int(current_oid.split('.')[-1])
+                results['snmp_interfaces'][ifIndex]['indicationsPerPriority'][prio] = current_val
+
+    errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+        snmp_auth,
+        cmdgen.UdpTransportTarget((m_args['host'], 161)),
+        cmdgen.MibVariable(p.csqIfQosGroupStats,),
+    )
+
+    if errorIndication:
+        module.fail_json(msg=str(errorIndication))
+
+    for varBinds in varTable:
+        for oid, val in varBinds:
+            current_oid = oid.prettyPrint()
+            current_val = val.prettyPrint()
+            if v.csqIfQosGroupStats in current_oid:
+                ifIndex = int(current_oid.split('.')[-4])
+                ifDirection = int(current_oid.split('.')[-3])
+                queueId = int(current_oid.split('.')[-2])
+                counterId = int(current_oid.split('.')[-1])
+                results['snmp_interfaces'][ifIndex]['queues'][ifDirection][queueId][counterId] = current_val
 
     module.exit_json(ansible_facts=results)
     
