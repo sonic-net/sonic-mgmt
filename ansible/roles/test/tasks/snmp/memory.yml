@@ -33,10 +33,6 @@
       assert:
         that: "{{ (ansible_sysTotalMemery|int - shell_total_memory.stdout|int)|abs }} == 0"
 
-    - name: Gathering basic snmp facts about the device
-      snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
-      connection: local
-
     - name: Check total free memory via shell
       shell: grep MemFree /proc/meminfo | awk '{print $2}'
       register: shell_total_free_memory
