@@ -116,6 +116,10 @@
   include: mtu.yml
   tags: mtu
 
+- name: Directed Broadcast test
+  include: dir_bcast.yml
+  tags: dir_bcast
+
 ### When calling this FDB test, please add command line of what testbed_type and which PTF docker to test agains
 ### -e "testbed_type=t0 ptf_host=10.64.246.22"
 - name: FDB test
