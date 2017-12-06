@@ -21,6 +21,7 @@ Fixes # (issue)
 How did you do it?
 How did you verify/test it?
 Any platform specific information?
+Supported testbed topology if it's a new test case?
 
 ### Documentation 
 <!--
