@@ -4,7 +4,6 @@
 - fail: msg="Invalid testbed_type value '{{testbed_type}}'"
   when: testbed_type not in [ 't0' ]
 
-
 - debug: var=minigraph_portchannels
 
 - debug: var=minigraph_port_indices
@@ -21,36 +20,47 @@
 - debug: var=vlan_intf_list
 
 - name: Flush all IP addresses on the LAGs
-  shell: cfgmgr intf del {{ (item.addr ~ "/" ~ item.mask)|ipaddr()|upper() }} dev {{ item.attachto }}
+  shell: ip addr flush {{ item.attachto }}
   with_items:
     - "{{ minigraph_portchannel_interfaces }}"
   become: true
 
-- name: Remove native VLAN members
-  shell: cfgmgr vlan del vlan 1000 dev {{ item.dev }}
-  with_items: "{{ vlan_ports_list }}"
+- name: Delete all IP addresses on the LAGs in config DB
+  shell: docker exec -i database redis-cli -n 4 del "PORTCHANNEL_INTERFACE|{{ item.attachto }}|{{ (item.addr ~ '/' ~ item.mask)|ipaddr()|upper() }}"
+  with_items:
+    - "{{ minigraph_portchannel_interfaces }}"
   become: true
 
 - name: Create VLAN interfaces
-  shell: cfgmgr vlan add vlan {{ item.vlan_id }} up
+  shell: config vlan add {{ item.vlan_id}}
   with_items: "{{ vlan_intf_list }}"
   become: true
 
 - name: Add VLAN members
-  shell: cfgmgr vlan add vlan {{ item.1 }} dev {{ item.0.dev }}
+  shell: config vlan member add {{ item.1 }} {{ item.0.dev }}
   with_nested:
     - "{{ vlan_ports_list }}"
     - "{{ vlan_ports_list[0].permit_vlanid.keys() }}"
+  when: item.1 != item.0.pvid
   become: true
 
 - name: Add native VLAN members
-  shell: cfgmgr vlan add vlan {{ item.pvid }} dev {{ item.dev }} untagged
+  shell: config vlan member add {{ item.pvid }} {{ item.dev }} -u
   with_items: "{{ vlan_ports_list }}"
   become: true
 
 - name: Configure IP addresses on VLAN interfaces
-  shell: cfgmgr intf add {{ item.ip }} dev Vlan{{ item.vlan_id }}
+  shell: ip addr add {{ item.ip }} dev Vlan{{ item.vlan_id }}
   with_items: "{{ vlan_intf_list }}"
+  become: true
+
+- name: Configure IP addresses on VLAN interfaces
+  shell: docker exec -i database redis-cli -n 4 hset "VLAN_INTERFACE|Vlan{{ item.vlan_id }}|{{ item.ip }}" NULL NULL
+  with_items: "{{ vlan_intf_list }}"
+  become: true
+
+- name: Backup original configuration
+  shell: cp /etc/sonic/config_db.json /etc/sonic/config_db_bak.json
   become: true
 
 - name: Save configuration in config_db.json

@@ -1,5 +1,5 @@
-- name: Generate config_db.json
-  shell: sonic-cfggen -m /etc/sonic/minigraph.xml --print-data > /etc/sonic/config_db.json
+- name: Restore config_db.json
+  shell: mv /etc/sonic/config_db_bak.json /etc/sonic/config_db.json
   become: true
 
 - name: Reboot is required for config_db.json change
