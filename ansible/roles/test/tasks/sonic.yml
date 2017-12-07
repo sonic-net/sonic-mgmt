@@ -106,7 +106,7 @@
   include: reboot.yml
   tags: reboot
 
-### When calling this FIB test, please add command line of what testbed_type and which PTF docker to test against
+### When calling the following tests, please add command line of what testbed_type and which PTF docker to test against
 ### -e "testbed_type=t1-lag ptf_host=10.0.0.200"
 - name: Fib test
   include: fib.yml
@@ -120,8 +120,6 @@
   include: dir_bcast.yml
   tags: dir_bcast
 
-### When calling this FDB test, please add command line of what testbed_type and which PTF docker to test agains
-### -e "testbed_type=t0 ptf_host=10.64.246.22"
 - name: FDB test
   include: fdb.yml
   tags: fdb

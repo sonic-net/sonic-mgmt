@@ -15,18 +15,18 @@
   set_fact: props="{{configuration_properties['common']}}"
 
 - name: Gathering minigraph facts about the device
-  minigraph_facts: host={{ inventory_hostname }}
+  minigraph_facts: host={{inventory_hostname}}
   connection: local
 
 - debug : msg="Start dir_bcast Test"
 
 - name: Copy the test to ptf container
   copy: src=roles/test/files/ptftests dest=/root
-  delegate_to: "{{ ptf_host }}"
+  delegate_to: "{{ptf_host}}"
 
 - name: Copy Vlan information file to PTF
   template: src=roles/test/templates/fdb.j2 dest=/root/vlan_info.txt
-  delegate_to: "{{ ptf_host }}"
+  delegate_to: "{{ptf_host}}"
 
 - name: "Start PTF runner"
   include: ptf_runner.yml
