@@ -54,7 +54,7 @@
   with_items: "{{ vlan_intf_list }}"
   become: true
 
-- name: Configure IP addresses on VLAN interfaces
+- name: Configure IP addresses on VLAN interfaces in Config DB
   shell: docker exec -i database redis-cli -n 4 hset "VLAN_INTERFACE|Vlan{{ item.vlan_id }}|{{ item.ip }}" NULL NULL
   with_items: "{{ vlan_intf_list }}"
   become: true
