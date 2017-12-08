@@ -1,65 +1,54 @@
 ##############################################################################################
 ### playbook to deploy the fanout swtich 
-### Use this playbook to deploy the VLAN configurations of fanout leaf switch in SONiC testbed
+### Use this playbook to deploy the VLAN configurations of fanout switch in SONiC testbed
 ### This playbook will run based on hardware flatform. Each fanout switch hardware type has its
 ### own unique feature and configuration command or format. Unless you use the hardware swtich
 ### specified in this playbook, you would need to come up with your own fanout switch deployment 
 ### playbook
 ################################################################################################
-# change the root fanout port vlans
-- set_fact:
-    dut: "{{ inventory_hostname }}"
-    connect_leaf: true
-    leaf: "{{ ansible_host }}"
-
-- include: rootfanout_connect.yml
-
-# Deploy leaf fanout switch
-- set_fact:
-    ansible_host: "{{ leaf }}"
-
+# Deploy fanout switch
 - name: Gathering lab graph facts about the device
   conn_graph_facts: host={{ inventory_hostname }}
   connection: local
 
+- set_fact: sw_type="{{ device_info['Type'] }}"
+
 - name: prepare fanout switch admin login info
   set_fact: ansible_ssh_user={{ fanout_admin_user }} ansible_ssh_pass={{ fanout_admin_password }}
 
-- block:
-  - name: create persistent shell login
-    shell: touch /mnt/flash/rc.eos
+- name: create persistent shell login
+  file: path=/mnt/flash/rc.eos state=touch
+  become: yes
 
-  - name: save persistent shell login
-    template: src=rc.eos.j2
-              dest=/mnt/flash/rc.eos
+- name: save persistent shell login
+  template: src=rc.eos.j2
+            dest=/mnt/flash/rc.eos
+  become: yes
 
-  - name: build fanout startup config for Arista Fanout leaf
-    template: src=arista_7260_deploy.j2
-              dest=/mnt/flash/startup-config
-  - name: reboot
-    shell: sleep 2 && shutdown -r now "Reboot"
-    async: 1
-    poll: 0
-    ignore_errors: true
+- name: build fanout startup config for Arista fanout leaf
+  template: src=arista_7260_deploy.j2
+            dest=/mnt/flash/startup-config
   when: device_info.HwSku == "Arista-7260QX-64" 
   become: yes
 
-- block:
-  - name: create persistent shell login
-    shell: touch /mnt/flash/rc.eos
-
-  - name: save persistent shell login
-    template: src=rc.eos.j2
-              dest=/mnt/flash/rc.eos
-
-  - name: build fanout startup config
-    template: src=arista_7060_deploy.j2
-              dest=/mnt/flash/startup-config
-
-  - name: reboot
-    shell: sleep 2 && shutdown -r now "Reboot"
-    async: 1
-    poll: 0
-    ignore_errors: true
+- name: build fanout startup config for 7060
+  template: src=arista_7060_deploy.j2
+            dest=/mnt/flash/startup-config
   when: device_info.HwSku == "Arista-7060CX-32S"
   become: yes
+
+- name: reboot
+  shell: sleep 2 && shutdown -r now "Reboot"
+  async: 1
+  poll: 0
+  ignore_errors: true
+  become: yes
+
+- block:
+  - set_fact:
+      leaf_name: "{{ inventory_hostname }}"
+      leaf: "{{ ansible_host }}"
+
+  - include: rootfanout_connect.yml
+      deploy_leaf=true
+  when: sw_type == 'FanoutLeaf'

@@ -1,11 +1,17 @@
-# This playbook is trying to change root fanout switch one port to the DUT vlan range based on which server which port and DUT name
-# This playbook is called from fanout_connect.yml 
-# Gather graph facts
-- name: Gathering connection facts about the DUT device
+# This playbook is trying to change root fanout switch port vlans when deploy leaf fanout or connect server to SONiC DUT
+# This playbook is called from fanout_connect.yml or fanout.yml
+
+- set_fact: deploy_leaf=false
+  when: deploy_leaf is not defined
+
+- set_fact: dut="{{ leaf_name }}"
+  when: deploy_leaf
+
+- name: Gathering connection facts about the DUT or leaffanout device
   conn_graph_facts: host={{ dut }}
   connection: local
   tags: always
-  register: dutinfo
+  register: devinfo
 
 - name: Gathering connection facts about the lab 
   conn_graph_facts: 
@@ -14,7 +20,7 @@
   register: lab
 
 - set_fact:
-    dut_vlans: "{{ dutinfo.ansible_facts.device_vlan_range }}"
+    dev_vlans: "{{ devinfo.ansible_facts.device_vlan_range }}"
     lab_devices: "{{ lab.ansible_facts.device_info }}"
 
 - name: Find the root fanout switch
@@ -31,4 +37,4 @@
   action: apswitch template=roles/fanout/templates/arista_7260_connect.j2
   connection: switch
   args:
-      login: "{{ switch_login['Arista'] }}"
+    login: "{{ switch_login['Arista'] }}"

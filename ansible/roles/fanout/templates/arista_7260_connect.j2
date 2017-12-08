@@ -5,27 +5,23 @@ config
 {% if intf in root_conn %}
 {% set peer_dev = root_conn[intf]['peerdevice'] %}
 {% set peer_port = root_conn[intf]['peerport'] %}
-{% if not connect_leaf %}
-{% if 'Fanout' not in lab_devices[peer_dev]['Type']  %}
- interface {{ intf }} 
-  switchport mode trunk
-  switchport trunk allowed vlan remove {{ dut_vlans | list | join(',') }}
-  no shutdown
-{% if peer_dev == server and peer_port == server_port %}
-  switchport trunk allowed vlan add {{ dut_vlans | list | join(',') }}
-{% endif %}
-{% endif %}
-{% endif %}
-{% if connect_leaf %}
-{% if 'Fanout' in lab_devices[peer_dev]['Type']  %}
+{% if 'Fanout' not in lab_devices[peer_dev]['Type'] and not deploy_leaf %}
  interface {{ intf }}
-  switchport mode trunk fanout
-  switchport trunk allowed vlan remove {{ dut_vlans | list | join(',') }}
+  switchport trunk allowed vlan remove {{ dev_vlans | list | join(',') }}
+{% if peer_dev == server and peer_port == server_port %}
+  switchport mode trunk
+  switchport trunk allowed vlan add {{ dev_vlans | list | join(',') }}
   no shutdown
-{% if peer_dev == dut %}
-  description {{ peer_dev }}-{{ peer_port }}
-  switchport trunk allowed vlan add {{ dut_vlans | list | join(',') }}
 {% endif %}
+{% endif %}
+{% if 'Fanout' in lab_devices[peer_dev]['Type']  and deploy_leaf %}
+ interface {{ intf }}
+  switchport trunk allowed vlan remove {{ dev_vlans | list | join(',') }}
+{% if peer_dev == leaf_name %}
+  description {{ peer_dev }}-{{ peer_port }}
+  switchport mode trunk
+  switchport trunk allowed vlan add {{ dev_vlans | list | join(',') }}
+  no shutdown
 {% endif %}
 {% endif %}
 {% endif %}
@@ -33,4 +29,3 @@ config
 !
 copy running-config startup-config
 end
-
