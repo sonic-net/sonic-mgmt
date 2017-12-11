@@ -92,7 +92,7 @@ class VlanTest(BaseTest):
 
     #--------------------------------------------------------------------------
     def build_icmp_packet(self, vlan_id, 
-                          src_mac="00:22:00:00:00:02", dst_mac="00:22:00:00:00:01", 
+                          src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff:ff:ff", 
                           src_ip="192.168.0.1", dst_ip="192.168.0.2", ttl=64):
         pkt = simple_icmp_packet(pktlen=100 if vlan_id == 0 else 104,
                                  eth_dst=dst_mac,
@@ -107,25 +107,13 @@ class VlanTest(BaseTest):
 
 
     #--------------------------------------------------------------------------
-    def send_icmp_packet(self, vlan_port, vlan_id=0,
-                       src_mac="00:22:00:00:00:02", dst_mac="00:22:00:00:00:01", 
-                       src_ip="192.168.0.1", dst_ip="192.168.0.2", ttl=64):
-        pkt = self.build_icmp_packet(vlan_id, src_mac, dst_mac, src_ip, dst_ip, ttl)
-        self.log("Send " + ("untagged" if vlan_id == 0 else "tagged(%d)"%vlan_id) 
-                 + " packet from " + str(vlan_port["port_index"]) + "...")
-        self.log("%s -> %s, %s -> %s"%(src_mac, dst_mac, src_ip, dst_ip))
-        send(self, vlan_port["port_index"], pkt)
-
-    #--------------------------------------------------------------------------
-    def verify_icmp_packets(self, vlan_port, vlan_id,
-                          src_mac="00:22:00:00:00:02", dst_mac="00:22:00:00:00:01", 
-                          src_ip="192.168.0.1", dst_ip="192.168.0.2", ttl=64):
+    def verify_icmp_packets(self, vlan_port, vlan_id):
         untagged_dst_ports = []
         tagged_dst_ports = []
         untagged_pkts = []
         tagged_pkts = []
-        untagged_pkt = self.build_icmp_packet(0, src_mac, dst_mac, src_ip, dst_ip, ttl)
-        tagged_pkt = self.build_icmp_packet(vlan_id, src_mac, dst_mac, src_ip, dst_ip, ttl)
+        untagged_pkt = self.build_icmp_packet(0)
+        tagged_pkt = self.build_icmp_packet(vlan_id)
 
         for port in self.vlan_ports_list:
             if vlan_port["port_index"] == port["port_index"]:
@@ -141,9 +129,7 @@ class VlanTest(BaseTest):
         verify_each_packet_on_each_port(self, untagged_pkts+tagged_pkts, untagged_dst_ports+tagged_dst_ports)
 
     #--------------------------------------------------------------------------
-    def verify_icmp_packets_from_specified_port(self, port_id, vlan_id, 
-                          src_mac="00:22:00:00:00:02", dst_mac="00:22:00:00:00:01", 
-                          src_ip="192.168.0.1", dst_ip="192.168.0.2", ttl=64):
+    def verify_icmp_packets_from_specified_port(self, port_id, vlan_id, src_mac, dst_mac, src_ip, dst_ip, ttl):
         self.log("Verify packet from port " + str(port_id))
         pkt = self.build_icmp_packet(vlan_id, src_mac, dst_mac, src_ip, dst_ip, ttl)
         verify_packet(self, pkt, port_id)
@@ -156,12 +142,14 @@ class VlanTest(BaseTest):
 
         # Test case #1 
         self.log("Test case #1 starting ...")
-
         # Send untagged packets from each port. 
         # Verify packets egress without tag from ports whose PVID same with ingress port 
         # Verify packets egress with tag from ports who include VLAN ID but PVID different from ingress port.
         for vlan_port in vlan_ports_list:
-            self.send_icmp_packet(vlan_port, 0)
+            pkt = self.build_icmp_packet(0)
+            self.log("Send untagged packet from {} ...".format(str(vlan_port["port_index"])))
+            self.log(pkt.sprintf("%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
+            send(self, vlan_port["port_index"], pkt)
             self.verify_icmp_packets(vlan_port, vlan_port["pvid"])
 
         # Test case #2
@@ -171,7 +159,10 @@ class VlanTest(BaseTest):
         # Verify packets egress with tag from ports who include VLAN ID but PVID different from ingress port.
         for vlan_port in vlan_ports_list:
             for permit_vlanid in map(int, vlan_port["permit_vlanid"].keys()):
-                self.send_icmp_packet(vlan_port, permit_vlanid)
+                pkt = self.build_icmp_packet(permit_vlanid)
+                self.log("Send tagged({}) packet from {} ...".format(permit_vlanid, str(vlan_port["port_index"])))
+                self.log(pkt.sprintf("%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
+                send(self, vlan_port["port_index"], pkt)
                 self.verify_icmp_packets(vlan_port, permit_vlanid)
 
         # Test case #3
@@ -187,6 +178,7 @@ class VlanTest(BaseTest):
             dst_ports = [port["port_index"] for port in vlan_ports_list 
                                  if port != vlan_port ]
             self.log("Send invalid tagged packet " + " from " + str(src_port) + "...")
+            self.log(invalid_tagged_pkt.sprintf("%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
             send(self, src_port, invalid_tagged_pkt)
             self.log("Check on " + str(dst_ports) + "...")
             verify_no_packet_any(self, masked_invalid_tagged_pkt, dst_ports)
@@ -216,8 +208,11 @@ class VlanTest(BaseTest):
                     if vlan_id == target["vlan_id"]:
                         # Skip same VLAN forwarding
                         continue
-                    self.send_icmp_packet(vlan_port, vlan_id if vlan_id != vlan_port["pvid"] else 0,
+                    pkt = self.build_icmp_packet(vlan_id if vlan_id != vlan_port["pvid"] else 0,
                                           src_mac, dst_mac, src_ip, target["peer_ip"])
+                    send(self, src_port, pkt)
+                    self.log("Send {} packet from {} ...".format("untagged" if vlan_id == 0 else "tagged(%d)"%vlan_id, src_port))
+                    self.log(pkt.sprintf("%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
                     self.verify_icmp_packets_from_specified_port(target["port_index"], 
                                                                  target["vlan_id"] if target["vlan_id"] != target["pvid"] else 0,
                                                                  dst_mac, self.dataplane.get_mac(0, target["port_index"]),
@@ -228,8 +223,11 @@ class VlanTest(BaseTest):
                     if vlan_id == target["vlan_id"]:
                         # Skip same VLAN forwarding
                         continue
-                    self.send_icmp_packet(vlan_port, vlan_id if vlan_id != vlan_port["pvid"] else 0,
+                    pkt = self.build_icmp_packet(vlan_id if vlan_id != vlan_port["pvid"] else 0,
                                           src_mac, dst_mac, src_ip, target["remote_ip"])
+                    self.log("Send {} packet from {} ...".format("untagged" if vlan_id == 0 else "tagged(%d)"%vlan_id, src_port))
+                    self.log(pkt.sprintf("%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
+                    send(self, src_port, pkt)
                     self.verify_icmp_packets_from_specified_port(target["port_index"], 
                                                                  target["vlan_id"] if target["vlan_id"] != target["pvid"] else 0,
                                                                  dst_mac, self.dataplane.get_mac(0, target["port_index"]),
@@ -249,8 +247,11 @@ class VlanTest(BaseTest):
                     if int(vlan_intf["vlan_id"]) != vlan_id:
                         continue
                     dst_ip = vlan_intf["ip"].split("/")[0]
-                    self.send_icmp_packet(vlan_port, vlan_id if vlan_id != vlan_port["pvid"] else 0,
+                    pkt = self.build_icmp_packet(vlan_id if vlan_id != vlan_port["pvid"] else 0,
                                           src_mac, dst_mac, src_ip, dst_ip)
+                    self.log("Send {} packet from {} ...".format("untagged" if vlan_id == 0 else "tagged(%d)"%vlan_id, src_port))
+                    self.log(pkt.sprintf("%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
+                    send(self, src_port, pkt)
                     exp_pkt = simple_icmp_packet(eth_src=self.router_mac,
                                            eth_dst=src_mac,
                                            dl_vlan_enable=True if vlan_id != vlan_port["pvid"] else False,
@@ -265,4 +266,5 @@ class VlanTest(BaseTest):
                     masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
 
                     verify_packets(self, masked_exp_pkt, list(str(src_port)))
+                    self.log("Verify packet from port " + str(src_port))
     #--------------------------------------------------------------------------

@@ -5,6 +5,10 @@
     - "{{ vlan_ports_list[0].permit_vlanid.keys() }}"
   become: true
 
+- name: Set unique MACs to PTF interfaces
+  script: roles/test/files/helpers/change_mac.sh
+  delegate_to: "{{ptf_host}}"
+
 - name: Copy ARP responder to PTF
   copy: src=roles/test/files/helpers/arp_responder.py dest=/opt
   delegate_to: "{{ptf_host}}"
@@ -41,4 +45,3 @@
         ptf_extra_options: "--relax --debug info --log-file /tmp/vlan_test.log" 
   rescue:
     - debug: msg="PTF test raise error"
-

@@ -1,23 +1,21 @@
-- name: Restore config_db.json
-  shell: mv /etc/sonic/config_db_bak.json /etc/sonic/config_db.json
+- name: Restore all IP addresses on the LAGs
+  shell: ip addr add {{ (item.addr ~ "/" ~ item.mask)|ipaddr() }} dev {{ item.attachto }}
+  with_items:
+    - "{{ minigraph_portchannel_interfaces }}"
   become: true
 
-- name: Reboot is required for config_db.json change
-  shell: sleep 2 && shutdown -r now "Ansible change config_db.json file, triggerred reboot."
-  async: 1
-  poll: 0
+- name: Bring up LAGs
+  shell: ifconfig {{ item.attachto }} up
+  with_items:
+    - "{{ minigraph_portchannel_interfaces }}"
   become: true
-  ignore_errors: true
 
-- name: Waiting for switch to come back
-  local_action:
-      wait_for host={{ ansible_ssh_host }}
-      port=22
-      state=started
-      delay=30
-      timeout=300
-  become: false
-  changed_when: false
+- name: Remove configuration for test
+  file: 
+    state: absent
+    path: /etc/sonic/vlan_configuration.json
+  become: true
 
-- name: sleep for some time
-  pause: seconds=60
+- name: Reload configuration
+  shell: config reload -y
+  become: true

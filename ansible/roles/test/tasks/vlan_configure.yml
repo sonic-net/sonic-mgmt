@@ -8,6 +8,8 @@
 
 - debug: var=minigraph_port_indices
 
+- debug: var=minigraph_ports
+
 - name: Generate VLAN ports information
   template: src=roles/test/templates/vlan_info.j2
             dest=/tmp/vlan_info.yml
@@ -31,59 +33,23 @@
     - "{{ minigraph_portchannel_interfaces }}"
   become: true
 
-- name: Create VLAN interfaces
-  shell: config vlan add {{ item.vlan_id}}
-  with_items: "{{ vlan_intf_list }}"
+- name: Shutdown LAGs
+  shell: ifconfig {{ item.attachto }} down
+  with_items:
+    - "{{ minigraph_portchannel_interfaces }}"
   become: true
-
-- name: Add VLAN members
-  shell: config vlan member add {{ item.1 }} {{ item.0.dev }}
-  with_nested:
-    - "{{ vlan_ports_list }}"
-    - "{{ vlan_ports_list[0].permit_vlanid.keys() }}"
-  when: item.1 != item.0.pvid
-  become: true
-
-- name: Add native VLAN members
-  shell: config vlan member add {{ item.pvid }} {{ item.dev }} -u
-  with_items: "{{ vlan_ports_list }}"
-  become: true
-
-- name: Configure IP addresses on VLAN interfaces
-  shell: ip addr add {{ item.ip }} dev Vlan{{ item.vlan_id }}
-  with_items: "{{ vlan_intf_list }}"
-  become: true
-
-- name: Configure IP addresses on VLAN interfaces in Config DB
-  shell: docker exec -i database redis-cli -n 4 hset "VLAN_INTERFACE|Vlan{{ item.vlan_id }}|{{ item.ip }}" NULL NULL
-  with_items: "{{ vlan_intf_list }}"
-  become: true
-
-- name: Backup original configuration
-  shell: cp /etc/sonic/config_db.json /etc/sonic/config_db_bak.json
-  become: true
-
-- name: Save configuration in config_db.json
-  shell: config save -y
-  become: true
-
-- name: Reboot is required for config_db.json change
-  shell: sleep 2 && shutdown -r now "Ansible change config_db.json file, triggered reboot."
-  async: 1
-  poll: 0
-  become: true
-  ignore_errors: true
-
-- name: waiting for switch to come back
-  local_action:
-      wait_for host={{ ansible_ssh_host }}
-      port=22
-      state=started
-      delay=30
-      timeout=300
-  become: false
-  changed_when: false
 
 - name: sleep for some time
-  pause: seconds=60
+  pause: seconds=10
 
+- name: Generate nessesary configuration for test
+  template: src=roles/test/templates/vlan_configuration.j2
+            dest=/etc/sonic/vlan_configuration.json
+  become: true
+
+- name: Load configuration
+  shell: config load -y /etc/sonic/vlan_configuration.json
+  become: true
+
+- name: sleep for some time
+  pause: seconds=10

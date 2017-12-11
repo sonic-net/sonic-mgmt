@@ -2,26 +2,27 @@
 
 {% set vlan_id_list = [ 100, 200 ] %}
 vlan_ports_list: 
-{% for lag_number in range(2) %}
-  - dev: '{{ minigraph_portchannels.keys()[lag_number|int] }}'
-    port_index: '{{ minigraph_port_indices[minigraph_portchannels[minigraph_portchannels.keys()[lag_number|int]].members[0]] }}'
-    pvid: '{{ vlan_id_list[(lag_number|int)%2] }}'
+{% for portchannel in minigraph_portchannels.keys()[:2] %}
+{% set members = minigraph_portchannels[portchannel].members %}
+  - dev: {{ portchannel }}
+    port_index: {{ minigraph_port_indices[members[0]] }}
+    pvid: '{{ vlan_id_list[loop.index0%2] }}'
     permit_vlanid: 
 {% for vlan in vlan_id_list %}
       '{{ vlan }}':
-        peer_ip: '192.168.{{ vlan }}.{{ minigraph_port_indices[minigraph_portchannels[minigraph_portchannels.keys()[lag_number|int]].members[0]] }}'
-        remote_ip: '{{vlan}}.1.1.{{ minigraph_port_indices[minigraph_portchannels[minigraph_portchannels.keys()[lag_number|int]].members[0]] }}'
+        peer_ip: '192.168.{{ vlan }}.{{ 1 + minigraph_port_indices.keys().index(members[0]) }}'
+        remote_ip: '{{vlan}}.1.1.{{ 1 + minigraph_port_indices.keys().index(members[0]) }}'
 {% endfor %}
 {% endfor %}
-{% for port_number in range(2) %}
-  - dev: '{{ minigraph_ports.keys()[port_number|int]}}'
-    port_index: '{{ minigraph_port_indices[minigraph_ports.keys()[port_number|int]]}}'
-    pvid: '{{ ((port_number|int)%2+1)*100}}'
+{% for port in minigraph_ports.keys()[:2] %}
+  - dev: {{ port }}
+    port_index: '{{ minigraph_port_indices[port]}}'
+    pvid: '{{ vlan_id_list[loop.index0%2] }}'
     permit_vlanid:
-{% for vlan in ['100', '200'] %}
+{% for vlan in vlan_id_list %}
       '{{ vlan }}':
-        peer_ip: '192.168.{{ vlan }}.{{ minigraph_port_indices[minigraph_ports.keys()[port_number|int]] }}'
-        remote_ip: '{{vlan}}.1.1.{{ minigraph_port_indices[minigraph_ports.keys()[port_number|int]] }}'
+        peer_ip: '192.168.{{ vlan }}.{{ 1 + minigraph_port_indices.keys().index(port) }}'
+        remote_ip: '{{vlan}}.1.1.{{ 1 + minigraph_port_indices.keys().index(port) }}'
 {% endfor %}
 {% endfor %}
 
