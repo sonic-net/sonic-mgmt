@@ -7,10 +7,10 @@
         (dscp_mode is not defined) 
 
 - fail: msg="Invalid testbed_type value '{{testbed_type}}'"
-  when: testbed_type not in [ 't1', 't0', 't1-lag', 't1-64-lag']
+  when: testbed_type not in ['t1', 't0', 't1-lag', 't1-64-lag', 't0-116']
 
 - fail: msg="Invalid testbed_type value '{{dscp_mode}}'"
-  when: dscp_mode not in [ 'pipe','uniform']
+  when: dscp_mode not in ['pipe','uniform']
 
 - include_vars: "vars/topo_{{testbed_type}}.yml"
 
@@ -20,7 +20,7 @@
 
 - name: Expand properties into props
   set_fact: props="{{configuration_properties['common']}}"
-  when: testbed_type in ['t0']
+  when: testbed_type in ['t0', 't0-116']
 
 - name: Expand properties into props
   set_fact: props_tor="{{configuration_properties['tor']}}"
