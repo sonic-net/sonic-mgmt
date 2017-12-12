@@ -44,11 +44,8 @@ class VlanTest(BaseTest):
 
         self.dataplane = ptf.dataplane_instance
         self.test_params = test_params_get()
-        self.setUpArpResponder()
-        self.log("Start arp_responder")
-        self.shell(["supervisorctl", "start", "arp_responder"])
-
         self.log("Create VLAN intf")
+
         for vlan_port in self.vlan_ports_list:
             for permit_vlanid in vlan_port["permit_vlanid"].keys():
                 if int(permit_vlanid) != vlan_port["pvid"]:
@@ -57,6 +54,10 @@ class VlanTest(BaseTest):
                                 "type", "vlan", "id", str(permit_vlanid)])
                     self.shell(["ip", "link", "set", 
                                 "eth%d.%s"%(vlan_port["port_index"], permit_vlanid), "up"])
+
+        self.setUpArpResponder()
+        self.log("Start arp_responder")
+        self.shell(["supervisorctl", "start", "arp_responder"])
 
         logging.info("VLAN test starting ...")
         pass
@@ -79,14 +80,14 @@ class VlanTest(BaseTest):
     def tearDown(self):
         logging.info("VLAN test ending ...")
 
+        self.log("Stop arp_responder")
+        self.shell(["supervisorctl", "stop", "arp_responder"])
+
         self.log("Delete VLAN intf")
         for vlan_port in self.vlan_ports_list:
             for permit_vlanid in vlan_port["permit_vlanid"].keys():
                 if int(permit_vlanid) != vlan_port["pvid"]:
                     self.shell(["ip", "link", "delete", "eth%d.%d"%(vlan_port["port_index"], int(permit_vlanid))])
-
-        self.log("Stop arp_responder")
-        self.shell(["supervisorctl", "stop", "arp_responder"])
 
         pass
 
