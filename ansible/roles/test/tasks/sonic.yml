@@ -169,3 +169,8 @@
 - name: neighbor mac change test without using ptf
   include: neighbour-mac-noptf.yml
   tags: neighbour_mac_noptf
+
+- name: Test SNMP Memory
+  include: snmp/memory.yml
+  tags: snmp_memory
+

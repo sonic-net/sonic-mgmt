@@ -129,3 +129,9 @@ ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags bgp_multi
 This test only works for T1 related topologies(t1, t1-lag, ...) 
 You might need to redeploy your VMs before you run this test due to the change for ToR VM router configuration changes
 `./testbed-cli.sh config-vm your-topo-name(vms1-1) your-vm-name(VM0108)` will do this for you
+
+### SNMP memory test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME}, --become --tags snmp_memory -e "tolerance=0.05" -e "min_memory_size=512000"
+```
+
