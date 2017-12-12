@@ -128,7 +128,7 @@ class ParseTestbedTopoinfo():
 
     def get_testbed_info(self, testbed_name):
         if testbed_name:
-            return self.testbed_topo[testbed_name]
+            return [self.testbed_topo[testbed_name]]
         else:
             return self.testbed_topo
 
@@ -172,7 +172,7 @@ def main():
     try:
         topoinfo = ParseTestbedTopoinfo(testbed_file)
         topoinfo.read_testbed_topo()
-        testbed_topo = topoinfo.get_testbed_info(testbed_name)
+        testbed_topo = topoinfo.get_testbed_info(testbed_name)[0]
         testcaseinfo = TestcasesTopology(testcase_file)
         testcaseinfo.read_testcases()
         testcase_topo = testcaseinfo.get_topo_testcase()

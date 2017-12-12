@@ -59,7 +59,7 @@ testcases:
           testbed_type:
     
     fast-reboot:
-      filename: bgp_fact.yml
+      filename: fast-reboot.yml
       topologies: [t0, t0-64, t0-64-32, t0-116]
       execvars:
           ptf_host:
