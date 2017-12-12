@@ -37,3 +37,8 @@ snmp_location: testlab
 #For Arista fanout switch deployment only
 fanout_admin_user: "fanoutadminuser"
 fanout_admin_password: "fanoutadminpassword"
+
+# tacacs server configuration
+tacacs_passkey: "test123"
+tacacs_username: "test"
+tacacs_passwd: "test"

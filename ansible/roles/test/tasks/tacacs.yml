@@ -1,20 +1,70 @@
-#-----------------------------------------
-# Apply TACACS+ configuration
-#-----------------------------------------
-- name: TACACS+ test setup on testbed
-  include: tacacs_configure.yml
-  tags: tacacs_configure
+# Setup for TACACS+ testbed:
+# 1. Start TACACS+ service (tac_plus) in TACACS+ server.
+# 2. Add TACACS+ passkey, user account and password for test in TACACS+ server.
+# 3. Update TACACS+ server ip, passkey, user account and password in group_vars/lab/lab.yml
+# 4. Update ssh_user and ssh_pass for TACACS+ server in inventory
+###############################################################################################
 
-#-----------------------------------------
-# Run TACACS+ test
-#-----------------------------------------
-- name: TACACS+ test run on testbed
-  include: tacacs_test.yml
-  tags: tacacs_test
+# Set TACACS+ authentication configuration in DUT
+- name: Set global TACACS+ passkey
+  become: true
+  shell: config tacacs passkey {{ tacacs_passkey }}
 
-#-----------------------------------------
-# Clean up TACACS+ configuration
-#-----------------------------------------
-- name: Clean up TACACS+ test configuration on testbed
-  include: tacacs_cleanup.yml
-  tags: tacacs_cleanup
+- name: Add TACACS+ server
+  become: true
+  shell: config tacacs add {{ tacacs_servers[0] }}
+
+# Test TACACS+ login authentication
+- name: Enable TACACS+ Authentication
+  become: true
+  shell: config aaa authentication login tacacs+ local
+
+- name: Check if pam configuration ok
+  become: true
+  shell: "grep 'pam_tacplus.so server={{ tacacs_servers[0] }}' /etc/pam.d/common-auth-sonic"
+  register: tacplus_pam_module
+  failed_when: '"secret={{ tacacs_passkey }}" not in tacplus_pam_module.stdout'
+
+- name: Check if TACACS+ user login ok
+  shell: "sshpass -p {{ tacacs_passwd }} ssh {{ tacacs_username }}@{{ ansible_host }} whoami"
+  connection: local
+  become: no
+  register: login_result
+  failed_when: login_result.stdout != "{{ tacacs_username }}"
+
+# Test failthrough mechanism
+- name: Config local authentication prior to TACACS+ authentication
+  become: true
+  shell: config aaa authentication login local tacacs+
+
+- name: Disable fail-through mechanism
+  become: true
+  shell: config aaa authentication failthrough disable
+
+- name: Check if TACACS+ user login fail
+  shell: "sshpass -p {{ tacacs_passwd }} ssh {{ tacacs_username }}@{{ ansible_host }} whoami"
+  connection: local
+  become: no
+  register: login_result
+  failed_when: login_result.stdout == "{{ tacacs_username }}"
+
+- name: Restore fail-through mechanism
+  become: true
+  shell: config aaa authentication failthrough default
+
+# Cleanup TACACS+ configuration
+- name: Delete TACACS+ server
+  become: true
+  shell: config tacacs delete {{ tacacs_servers[0] }}
+
+- name: Delete TACACS+ passkey
+  become: true
+  shell: config tacacs default passkey
+
+- name: Set AAA authentication default
+  become: true
+  shell: config aaa authentication login default
+
+- name: Set AAA authentication failthrough default
+  become: true
+  shell: config aaa authentication failthrough default
