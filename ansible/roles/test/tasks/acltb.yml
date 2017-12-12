@@ -45,6 +45,11 @@
         errors_expected: false
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 
+    - name: copy acsbase files
+      copy: src=roles/test/files/acstests
+            dest=/root
+      delegate_to: "{{ ptf_host }}"
+
     - name: Run the test
       include: ptf_runner.yml
       vars:
