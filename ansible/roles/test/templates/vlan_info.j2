@@ -10,8 +10,8 @@ vlan_ports_list:
     permit_vlanid: 
 {% for vlan in vlan_id_list %}
       '{{ vlan }}':
-        peer_ip: '192.168.{{ vlan }}.{{ 1 + minigraph_port_indices.keys().index(members[0]) }}'
-        remote_ip: '{{vlan}}.1.1.{{ 1 + minigraph_port_indices.keys().index(members[0]) }}'
+        peer_ip: '192.168.{{ vlan }}.{{ 2 + minigraph_port_indices.keys().index(members[0]) }}'
+        remote_ip: '{{vlan}}.1.1.{{ 2 + minigraph_port_indices.keys().index(members[0]) }}'
 {% endfor %}
 {% endfor %}
 {% for port in minigraph_ports.keys()[:2] %}
@@ -21,8 +21,8 @@ vlan_ports_list:
     permit_vlanid:
 {% for vlan in vlan_id_list %}
       '{{ vlan }}':
-        peer_ip: '192.168.{{ vlan }}.{{ 1 + minigraph_port_indices.keys().index(port) }}'
-        remote_ip: '{{vlan}}.1.1.{{ 1 + minigraph_port_indices.keys().index(port) }}'
+        peer_ip: '192.168.{{ vlan }}.{{ 2 + minigraph_port_indices.keys().index(port) }}'
+        remote_ip: '{{vlan}}.1.1.{{ 2 + minigraph_port_indices.keys().index(port) }}'
 {% endfor %}
 {% endfor %}
 
