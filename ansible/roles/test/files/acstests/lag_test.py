@@ -113,6 +113,9 @@ class LacpTimingTest(BaseTest,RouterUtility):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"src")
         masked_exp_pkt.set_do_not_care(14 * 8, 110 * 8)
 
+        # Flush packets in dataplane
+        self.dataplane.flush()
+
         # Verify two LACP packets.
         (rcv_device, rcv_port, rcv_pkt, first_pkt_time) = self.dataplane.poll(port_number=self.exp_iface, timeout=self.timeout, exp_pkt=masked_exp_pkt)
         (rcv_device, rcv_port, rcv_pkt, last_pkt_time) = self.dataplane.poll(port_number=self.exp_iface, timeout=self.timeout, exp_pkt=masked_exp_pkt)
@@ -126,4 +129,4 @@ class LacpTimingTest(BaseTest,RouterUtility):
         current_pkt_timing = last_pkt_time - first_pkt_time
 
         # Check that packet timing matches the expected value.
-        self.assertTrue(abs(current_pkt_timing - float(self.packet_timing)) < 0.01, "Bad packet timing: %.2f seconds while expected timing is %d seconds" % (current_pkt_timing, self.packet_timing))
+        self.assertTrue(abs(current_pkt_timing - float(self.packet_timing)) < 0.1, "Bad packet timing: %.2f seconds while expected timing is %d seconds from %s" % (current_pkt_timing, self.packet_timing, self.exp_iface))
