@@ -13,7 +13,7 @@
 
 
 - fail: msg="this test only support t1-lag and t0 testbed_type"
-  when: testbed_type not in ['t1-lag', 't0']
+  when: testbed_type not in ['t1-lag', 't0', 't0-116']
 
 - name: gathering lag facts from device
   lag_facts: host={{ inventory_hostname }}
