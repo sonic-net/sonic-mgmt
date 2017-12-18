@@ -116,7 +116,7 @@
           <BGPPeer>
             <Address>10.1.0.32</Address>
             <a:Name>BGPVac</a:Name>
-            <a:PeersRange>192.168.0.0/25</a:PeersRange>
+            <a:PeersRange>192.168.1.0/25</a:PeersRange>
           </BGPPeer>
         </a:Peers>
         <a:RouteMaps/>
@@ -211,7 +211,7 @@
           <DhcpRelays>192.0.0.1;192.0.0.2;192.0.0.3;192.0.0.4;192.0.0.5;192.0.0.6;192.0.0.7;192.0.0.8;192.0.0.9;192.0.0.10;192.0.0.11;192.0.0.12;192.0.0.13;192.0.0.14;192.0.0.15;192.0.0.16;192.0.0.17;192.0.0.18;192.0.0.19;192.0.0.20;192.0.0.21;192.0.0.22;192.0.0.23;192.0.0.24;192.0.0.25;192.0.0.26;192.0.0.27;192.0.0.28;192.0.0.29;192.0.0.30;192.0.0.31;192.0.0.32;192.0.0.33;192.0.0.34;192.0.0.35;192.0.0.36;192.0.0.37;192.0.0.38;192.0.0.39;192.0.0.40;192.0.0.41;192.0.0.42;192.0.0.43;192.0.0.44;192.0.0.45;192.0.0.46;192.0.0.47;192.0.0.48</DhcpRelays>
           <VlanID>168</VlanID>
           <Tag>168</Tag>
-          <Subnets>192.168.0.0/25</Subnets>
+          <Subnets>192.168.1.0/25</Subnets>
         </VlanInterface>
       </VlanInterfaces>
       <IPInterfaces>
@@ -258,7 +258,7 @@
         <IPInterface>
           <Name i:nil="true"/>
           <AttachTo>Vlan168</AttachTo>
-          <Prefix>192.168.0.1/25</Prefix>
+          <Prefix>192.168.1.1/25</Prefix>
         </IPInterface>
       </IPInterfaces>
       <DataAcls/>
@@ -327,7 +327,7 @@
         <ElementType>DeviceInterfaceLink</ElementType>
         <AutoNegotiation>true</AutoNegotiation>
         <Bandwidth>100000</Bandwidth>
-        <EndDevice>ARISTA03T1</EndDevice>
+        <EndDevice>ARISTA04T1</EndDevice>
         <EndPort>Ethernet1</EndPort>
         <StartDevice>str-7260cx3-acs-1</StartDevice>
         <StartPort>Ethernet51/1</StartPort>
@@ -336,7 +336,7 @@
         <ElementType>DeviceInterfaceLink</ElementType>
         <AutoNegotiation>true</AutoNegotiation>
         <Bandwidth>100000</Bandwidth>
-        <EndDevice>ARISTA03T1</EndDevice>
+        <EndDevice>ARISTA04T1</EndDevice>
         <EndPort>Ethernet2</EndPort>
         <StartDevice>str-7260cx3-acs-1</StartDevice>
         <StartPort>Ethernet52/1</StartPort>
