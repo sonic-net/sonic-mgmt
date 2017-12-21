@@ -544,22 +544,22 @@ sensors_checks:
       - pmbus-i2c-6-58/iout1/curr2_crit_alarm
 
       temp:
-      - pmbus-i2c-5-58/Power Supply 1 Sensor 1/temp1_max_alarm
-      - pmbus-i2c-5-58/Power Supply 1 Sensor 1/temp1_min_alarm
-      - pmbus-i2c-5-58/Power Supply 1 Sensor 1/temp1_crit_alarm
-      - pmbus-i2c-5-58/Power Supply 1 Sensor 1/temp1_lcrit_alarm
-      - pmbus-i2c-5-58/Power Supply 1 Sensor 2/temp2_max_alarm
-      - pmbus-i2c-5-58/Power Supply 1 Sensor 2/temp2_min_alarm
-      - pmbus-i2c-5-58/Power Supply 1 Sensor 2/temp2_crit_alarm
-      - pmbus-i2c-5-58/Power Supply 1 Sensor 2/temp2_lcrit_alarm
-      - pmbus-i2c-6-58/Power Supply 2 Sensor 1/temp1_max_alarm
-      - pmbus-i2c-6-58/Power Supply 2 Sensor 1/temp1_min_alarm
-      - pmbus-i2c-6-58/Power Supply 2 Sensor 1/temp1_crit_alarm
-      - pmbus-i2c-6-58/Power Supply 2 Sensor 1/temp1_lcrit_alarm
-      - pmbus-i2c-6-58/Power Supply 2 Sensor 2/temp2_max_alarm
-      - pmbus-i2c-6-58/Power Supply 2 Sensor 2/temp2_min_alarm
-      - pmbus-i2c-6-58/Power Supply 2 Sensor 2/temp2_crit_alarm
-      - pmbus-i2c-6-58/Power Supply 2 Sensor 2/temp2_lcrit_alarm
+      - pmbus-i2c-5-58/Power supply 1 inlet temp sensor/temp1_max_alarm
+      - pmbus-i2c-5-58/Power supply 1 inlet temp sensor/temp1_min_alarm
+      - pmbus-i2c-5-58/Power supply 1 inlet temp sensor/temp1_crit_alarm
+      - pmbus-i2c-5-58/Power supply 1 inlet temp sensor/temp1_lcrit_alarm
+      - pmbus-i2c-5-58/Power supply 1 internal sensor/temp2_max_alarm
+      - pmbus-i2c-5-58/Power supply 1 internal sensor/temp2_min_alarm
+      - pmbus-i2c-5-58/Power supply 1 internal sensor/temp2_crit_alarm
+      - pmbus-i2c-5-58/Power supply 1 internal sensor/temp2_lcrit_alarm
+      - pmbus-i2c-6-58/Power supply 2 inlet temp sensor/temp1_max_alarm
+      - pmbus-i2c-6-58/Power supply 2 inlet temp sensor/temp1_min_alarm
+      - pmbus-i2c-6-58/Power supply 2 inlet temp sensor/temp1_crit_alarm
+      - pmbus-i2c-6-58/Power supply 2 inlet temp sensor/temp1_lcrit_alarm
+      - pmbus-i2c-6-58/Power supply 2 internal sensor/temp2_max_alarm
+      - pmbus-i2c-6-58/Power supply 2 internal sensor/temp2_min_alarm
+      - pmbus-i2c-6-58/Power supply 2 internal sensor/temp2_crit_alarm
+      - pmbus-i2c-6-58/Power supply 2 internal sensor/temp2_lcrit_alarm
 
     compares:
       fan: []
@@ -579,20 +579,20 @@ sensors_checks:
       temp:
       - - k10temp-pci-00c3/Cpu temp sensor/temp1_input
         - k10temp-pci-00c3/Cpu temp sensor/temp1_max
-      - - lm73-i2c-3-48/Rear Temp Sensor/temp1_input
-        - lm73-i2c-3-48/Rear Temp Sensor/temp1_max
-      - - lm86-i2c-2-4c/Board Temp Sensor/temp1_input
-        - lm86-i2c-2-4c/Board Temp Sensor/temp1_max
-      - - lm86-i2c-2-4c/Front-panel Temp Sensor/temp2_input
-        - lm86-i2c-2-4c/Front-panel Temp Sensor/temp2_max
-      - - pmbus-i2c-5-58/Power Supply 1 Sensor 1/temp1_input
-        - pmbus-i2c-5-58/Power Supply 1 Sensor 1/temp1_max
-      - - pmbus-i2c-5-58/Power Supply 1 Sensor 2/temp2_input
-        - pmbus-i2c-5-58/Power Supply 1 Sensor 2/temp2_max
-      - - pmbus-i2c-6-58/Power Supply 2 Sensor 1/temp1_input
-        - pmbus-i2c-6-58/Power Supply 2 Sensor 1/temp1_max
-      - - pmbus-i2c-6-58/Power Supply 2 Sensor 2/temp2_input
-        - pmbus-i2c-6-58/Power Supply 2 Sensor 2/temp2_max
+      - - lm73-i2c-3-48/Back panel temp sensor/temp1_input
+        - lm73-i2c-3-48/Back panel temp sensor/temp1_max
+      - - lm86-i2c-2-4c/Board temp sensor/temp1_input
+        - lm86-i2c-2-4c/Board temp sensor/temp1_max
+      - - lm86-i2c-2-4c/Front panel temp sensor/temp2_input
+        - lm86-i2c-2-4c/Front panel temp sensor/temp2_max
+      - - pmbus-i2c-5-58/Power supply 1 inlet temp sensor/temp1_input
+        - pmbus-i2c-5-58/Power supply 1 inlet temp sensor/temp1_max
+      - - pmbus-i2c-5-58/Power supply 1 internal sensor/temp2_input
+        - pmbus-i2c-5-58/Power supply 1 internal sensor/temp2_max
+      - - pmbus-i2c-6-58/Power supply 2 inlet temp sensor/temp1_input
+        - pmbus-i2c-6-58/Power supply 2 inlet temp sensor/temp1_max
+      - - pmbus-i2c-6-58/Power supply 2 internal sensor/temp2_input
+        - pmbus-i2c-6-58/Power supply 2 internal sensor/temp2_max
 
     non_zero:
       fan:
@@ -635,24 +635,24 @@ sensors_checks:
       - coretemp-isa-0000/Physical id 0/temp1_crit_alarm
       - coretemp-isa-0000/Core 0/temp2_crit_alarm
       - coretemp-isa-0000/Core 1/temp3_crit_alarm
-      - lm73-i2c-88-48/Front air temp/temp1_min_alarm
-      - lm73-i2c-88-48/Front air temp/temp1_max_alarm
-      - max6658-i2c-1-4c/Temp sensor near TH2/temp1_min_alarm
-      - max6658-i2c-1-4c/Temp sensor near TH2/temp1_max_alarm
-      - max6658-i2c-1-4c/Temp sensor near TH2/temp1_crit_alarm
-      - max6658-i2c-73-4c/Rear air temp1/temp1_min_alarm
-      - max6658-i2c-73-4c/Rear air temp1/temp1_max_alarm
-      - max6658-i2c-73-4c/Rear air temp1/temp1_crit_alarm
-      - max6658-i2c-73-4c/Rear air temp2/temp2_min_alarm
-      - max6658-i2c-73-4c/Rear air temp2/temp2_max_alarm
-      - max6658-i2c-73-4c/Rear air temp2/temp2_crit_alarm
-      - max6658-i2c-73-4c/Rear air temp2/temp2_fault
-      - pmbus-i2c-3-58/PSU1 exhaust temp/temp3_alarm
-      - pmbus-i2c-3-58/PSU1 inlet temp/temp2_alarm
-      - pmbus-i2c-3-58/PSU1 primary hotspot temp/temp1_alarm
-      - pmbus-i2c-4-58/PSU2 exhaust temp/temp3_alarm
-      - pmbus-i2c-4-58/PSU2 inlet temp/temp2_alarm
-      - pmbus-i2c-4-58/PSU2 primary hotspot temp/temp1_alarm
+      - lm73-i2c-88-48/Front panel temp sensor/temp1_min_alarm
+      - lm73-i2c-88-48/Front panel temp sensor/temp1_max_alarm
+      - max6658-i2c-1-4c/Asic temp sensor/temp1_min_alarm
+      - max6658-i2c-1-4c/Asic temp sensor/temp1_max_alarm
+      - max6658-i2c-1-4c/Asic temp sensor/temp1_crit_alarm
+      - max6658-i2c-73-4c/Back panel temp sensor 1/temp1_min_alarm
+      - max6658-i2c-73-4c/Back panel temp sensor 1/temp1_max_alarm
+      - max6658-i2c-73-4c/Back panel temp sensor 1/temp1_crit_alarm
+      - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_min_alarm
+      - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_max_alarm
+      - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_crit_alarm
+      - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_fault
+      - pmbus-i2c-3-58/Power supply 1 exhaust temp sensor/temp3_alarm
+      - pmbus-i2c-3-58/Power supply 1 inlet temp sensor/temp2_alarm
+      - pmbus-i2c-3-58/Power supply 1 hotspot sensor/temp1_alarm
+      - pmbus-i2c-4-58/Power supply 2 exhaust temp sensor/temp3_alarm
+      - pmbus-i2c-4-58/Power supply 2 inlet temp sensor/temp2_alarm
+      - pmbus-i2c-4-58/Power supply 2 hotspot sensor/temp1_alarm
 
     compares:
       fan: []
@@ -672,14 +672,14 @@ sensors_checks:
         - coretemp-isa-0000/Core 0/temp2_max
       - - coretemp-isa-0000/Core 1/temp3_input
         - coretemp-isa-0000/Core 1/temp3_max
-      - - lm73-i2c-88-48/Front air temp/temp1_input
-        - lm73-i2c-88-48/Front air temp/temp1_max
-      - - max6658-i2c-1-4c/Temp sensor near TH2/temp1_input
-        - max6658-i2c-1-4c/Temp sensor near TH2/temp1_max
-      - - max6658-i2c-73-4c/Rear air temp1/temp1_input
-        - max6658-i2c-73-4c/Rear air temp1/temp1_max
-      - - max6658-i2c-73-4c/Rear air temp2/temp2_input
-        - max6658-i2c-73-4c/Rear air temp2/temp2_max
+      - - lm73-i2c-88-48/Front panel temp sensor/temp1_input
+        - lm73-i2c-88-48/Front panel temp sensor/temp1_max
+      - - max6658-i2c-1-4c/Asic temp sensor/temp1_input
+        - max6658-i2c-1-4c/Asic temp sensor/temp1_max
+      - - max6658-i2c-73-4c/Back panel temp sensor 1/temp1_input
+        - max6658-i2c-73-4c/Back panel temp sensor 1/temp1_max
+      - - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_input
+        - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_max
 
     non_zero:
       fan:
