@@ -22,9 +22,9 @@ str-a7050-acs-3,10.64.247.227/23,ACS-A7050QX-32S,DevSonic
 str-n3132-acs-1,10.3.147.204/23,ACS-N3132-XOE,DevSonic
 str-n3132-acs-2,10.3.147.247/23,ACS-N3132-GE,DevSonic
 str-n3132-acs-3,10.3.147.251/23,ACS-N3132-GE,DevSonic
-str-9232-acs-1,10.3.147.189/23,ACS-9232,DevSonic
-str-9232-acs-2,10.3.147.254/23,ACS-9232,DevSonic
-str-9232-acs-3,10.64.247.241/23,ACS-9232,DevSonic
+str-n9232-acs-1,10.3.147.189/23,ACS-9232,DevSonic
+str-n9232-acs-2,10.3.147.254/23,ACS-9232,DevSonic
+str-n9232-acs-3,10.64.247.241/23,ACS-9232,DevSonic
 str-msn2700-01,10.3.147.188/23,Mellanox-2700,DevSonic
 str-msn2700-02,10.3.147.45/23,Mellanox-2700,DevSonic
 str-msn2700-03,10.3.147.46/23,Mellanox-2700,DevSonic
@@ -85,3 +85,6 @@ str-acs-serv-05,10.64.246.29/23,TestServ,Server
 str-acs-serv-06,10.64.247.1/23,TestServ,Server
 str-acs-serv-07,10.64.246.28/23,TestServ,Server
 str-acs-serv-08,10.64.247.0/23,TestServ,Server
+str-acs-serv-11,10.64.247.244/23,TestServ,Server
+str-acs-serv-12,10.64.247.245/23,TestServ,Server
+str-acs-serv-13,10.64.247.246/23,TestServ,Server

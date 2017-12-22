@@ -11,7 +11,7 @@ ptf2-1,ptf2-1,ptf32,docker-ptf-mlnx,10.64.246.14/23,server_2,,str-msn2700-02,Dor
 ptf2-3,ptf2-3,ptf32,docker-ptf-mlnx,10.64.246.15/23,server_2,,str-msn2700-06,Manny
 ptf2-6-b,ptf2-6,ptf32,docker-ptf-brcm,10.64.246.16/23,server_2,,str-s6000-acs-9,Taoyu
 ptf2-6-c,ptf2-6,ptf32,docker-ptf,10.64.246.16/23,server_2,,str-cavium-str-1,Taoyu
-ptf2-6-s,ptf2-6,ptf32,docker-ptf,10.64.246.16/23,server_2,,str-9232-acs-2,Taoyu
+ptf2-6-s,ptf2-6,ptf32,docker-ptf,10.64.246.16/23,server_2,,str-n9232-acs-2,Taoyu
 ptf3-1,ptf3-1,ptf32,docker-ptf-brcm,10.64.246.18/23,server_3,,str-s6000-acs-14,Guohan
 ptf6-1,ptf6-1,ptf32,docker-ptf,10.64.247.7/23,server_6,,str-wedge100b-acs-1,Robert
 # vmsets
@@ -41,4 +41,6 @@ vms7-t0-s6100,vms7-5,t0-64,docker-ptf-brcm,10.64.247.16/23,server_7,VM0732,str-s
 vms7-t1-s6100,vms7-6,t1-64-lag,docker-ptf-brcm,10.64.247.8/23,server_7,VM0700,str-s6100-acs-5,Shuotian
 vms7-t0-7260,vms7-7,t0-116,docker-ptf-brcm,10.64.247.17/23,server_7,VM0736,str-7260cx3-acs-1,yingxie
 vms8-t0-7260,vms7-8,t0-116,docker-ptf-brcm,10.64.247.21/23,server_7,VM0740,str-7260cx3-acs-2,yingxie
+vms13-t1,vms13-1,t1,docker-ptf-brcm,10.64.247.29/23,server_13,VM1300,str-n9232-acs-1,gulv
+vms13-t0,vms13-2,t0,docker-ptf-brcm,10.64.247.28/23,server_13,VM1332,str-n9232-acs-2,gulv
 vms-example-ixia-1,vms6-1,t0-64,docker-ptf-ixia,example-ixia-ptf-1,10.0.0.30/32,server_6,VM0600,example-s6100-dut-1,superman

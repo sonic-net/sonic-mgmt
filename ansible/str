@@ -47,12 +47,12 @@ iface_speed='40000'
 mgmt_subnet_mask_length='23'
 
 [sonic_nexus_9232_40]
-str-9232-acs-1    ansible_host=10.3.147.189
-str-9232-acs-2    ansible_host=10.3.147.254
+str-n9232-acs-1    ansible_host=10.3.147.189
+str-n9232-acs-2    ansible_host=10.3.147.254
 
 [sonic_nexus_9232_40:vars]
-hwsku="Nexus-9232C"
-iface_speed='100000'
+hwsku="Nexus-9232-Q32"
+iface_speed='40000'
 mgmt_subnet_mask_length='23'
 
 [sonic_arista_40]
@@ -160,6 +160,8 @@ vms6-3  ansible_host=10.64.247.19  ansible_ssh_user=root ansible_ssh_pass=root
 vms6-4  ansible_host=10.64.247.20  ansible_ssh_user=root ansible_ssh_pass=root
 vms7-7  ansible_host=10.64.247.17  ansible_ssh_user=root ansible_ssh_pass=root
 vms7-8  ansible_host=10.64.247.21  ansible_ssh_user=root ansible_ssh_pass=root
+vms13-1 ansible_host=10.64.247.29  ansible_ssh_user=root ansible_ssh_pass=root
+vms13-2 ansible_host=10.64.247.28  ansible_ssh_user=root ansible_ssh_pass=root
 
 [str:children]
 sonic
