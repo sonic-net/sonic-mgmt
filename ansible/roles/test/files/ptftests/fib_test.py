@@ -80,6 +80,8 @@ class FibTest(BaseTest):
            of the packet
          - testbed_type: the type of the testbed used to determine the source
            port
+         - src_port: this list should include all enabled ports, both up links
+                     and down links.
         TODO: Have a separate line in fib_info/file to indicate all UP ports
         '''
         self.dataplane = ptf.dataplane_instance
@@ -99,7 +101,7 @@ class FibTest(BaseTest):
         if self.test_params['testbed_type'] == 't0-64':
             self.src_ports = range(0, 2) + range(4, 18) + range(20, 33) + range(36, 43) + range(48, 49) + range(52, 59)
         if self.test_params['testbed_type'] == 't0-116':
-            self.src_ports = range(0, 24) + range(32, 120)
+            self.src_ports = range(0, 120)
     #---------------------------------------------------------------------
 
     def check_ip_range(self, ipv4=True):
