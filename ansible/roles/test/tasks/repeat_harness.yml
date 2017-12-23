@@ -1,0 +1,18 @@
+#-------------------------------------------------------------------
+# Repeat harness: Repeat a list of taks defined in repeat_tasks.yml,
+#                 by default, 10 times.
+#                 repeat count can be set by
+#                     --extra-vars 'test_iterations=<num>'
+#-------------------------------------------------------------------
+
+- name: Default test count
+  set_fact:
+    test_count=10
+
+- name: Update test count
+  set_fact:
+      test_count={{test_iterations}}
+  when: test_iterations is defined
+
+- include: repeat_tasks.yml iteration={{item}}
+  with_sequence: start=1 end={{test_count}}

@@ -1,4 +1,8 @@
 testcases:
+    repeat_harness:
+      filename: repeat_harness.yml
+      topologies: [t0, t0-64, t0-64-32,t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+
     acl: 
       filename: acl.yml
       topologies: [t1, t1-lag, t1-64-lag]
