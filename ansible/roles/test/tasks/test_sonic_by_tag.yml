@@ -106,6 +106,10 @@
   include: reboot.yml
   tags: reboot
 
+- name: Test case repeat harness
+  include: repeat_harness.yml
+  tags: repeat_harness
+
 ### When calling the following tests, please add command line of what testbed_type and which PTF docker to test against
 ### -e "testbed_type=t1-lag ptf_host=10.0.0.200"
 - name: Fib test
