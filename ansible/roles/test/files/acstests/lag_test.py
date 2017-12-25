@@ -95,6 +95,21 @@ class LacpTimingTest(BaseTest,RouterUtility):
         '''
         self.dataplane = ptf.dataplane_instance
 
+    def getTimeInterval(self, masked_exp_pkt):
+        # Verify two LACP packets.
+        (rcv_device, rcv_port, rcv_pkt, first_pkt_time) = self.dataplane.poll(port_number=self.exp_iface, timeout=self.timeout, exp_pkt=masked_exp_pkt)
+        (rcv_device, rcv_port, rcv_pkt, last_pkt_time) = self.dataplane.poll(port_number=self.exp_iface, timeout=self.timeout, exp_pkt=masked_exp_pkt)
+
+        # Check the packet received.
+        self.assertTrue(rcv_pkt != None, "Failed to receive LACP packet\n")
+
+        # Get current packet timing
+        first_pkt_time = round(float(first_pkt_time), 2)
+        last_pkt_time = round(float(last_pkt_time), 2)
+        current_pkt_timing = last_pkt_time - first_pkt_time
+        return current_pkt_timing
+
+
     def runTest(self):
 
         # Get test parameters
@@ -116,17 +131,17 @@ class LacpTimingTest(BaseTest,RouterUtility):
         # Flush packets in dataplane
         self.dataplane.flush()
 
-        # Verify two LACP packets.
-        (rcv_device, rcv_port, rcv_pkt, first_pkt_time) = self.dataplane.poll(port_number=self.exp_iface, timeout=self.timeout, exp_pkt=masked_exp_pkt)
-        (rcv_device, rcv_port, rcv_pkt, last_pkt_time) = self.dataplane.poll(port_number=self.exp_iface, timeout=self.timeout, exp_pkt=masked_exp_pkt)
-
-        # Check the packet received.
-        self.assertTrue(rcv_pkt != None, "Failed to receive LACP packet\n")
-
-        # Get current packet timing
-        first_pkt_time = round(float(first_pkt_time), 2)
-        last_pkt_time = round(float(last_pkt_time), 2)
-        current_pkt_timing = last_pkt_time - first_pkt_time
-
         # Check that packet timing matches the expected value.
+        current_pkt_timing = 0
+        retry_count = 0
+        while retry_count < 10:
+            try:
+                current_pkt_timing = self.getTimeInterval(masked_exp_pkt)
+                if abs(current_pkt_timing - float(self.packet_timing)) < 0.1:
+                    break
+                retry_count += 1
+            except:
+                retry_count += 1
+                pass
+
         self.assertTrue(abs(current_pkt_timing - float(self.packet_timing)) < 0.1, "Bad packet timing: %.2f seconds while expected timing is %d seconds from %s" % (current_pkt_timing, self.packet_timing, self.exp_iface))
