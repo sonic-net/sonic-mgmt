@@ -167,12 +167,12 @@ configuration:
         lacp: 1
       Ethernet2:
         lacp: 1
-      Ethernet9:
-        ipv4: 10.10.246.33/24
-        ipv6: fc0a::23/64
       Port-Channel1:
         ipv4: 10.0.0.33/31
         ipv6: fc00::22/126
+    bp_interface:
+      ipv4: 10.10.246.33/24
+      ipv6: fc0a::23/64
 
   ARISTA02T1:
     properties:
@@ -191,12 +191,12 @@ configuration:
         lacp: 2
       Ethernet2:
         lacp: 2
-      Ethernet9:
-        ipv4: 10.10.246.35/24
-        ipv6: fc0a::26/64
       Port-Channel2:
         ipv4: 10.0.0.35/31
         ipv6: fc00::26/126
+    bp_interface:
+      ipv4: 10.10.246.35/24
+      ipv6: fc0a::26/64
 
   ARISTA03T1:
     properties:
@@ -215,12 +215,12 @@ configuration:
         lacp: 3
       Ethernet2:
         lacp: 3
-      Ethernet9:
-        ipv4: 10.10.246.37/24
-        ipv6: fc0a::2A/64
       Port-Channel3:
         ipv4: 10.0.0.37/31
         ipv6: fc00::2A/126
+    bp_interface:
+      ipv4: 10.10.246.37/24
+      ipv6: fc0a::2A/64
 
   ARISTA04T1:
     properties:
@@ -239,9 +239,9 @@ configuration:
         lacp: 4
       Ethernet2:
         lacp: 4
-      Ethernet9:
-        ipv4: 10.10.246.39/24
-        ipv6: fc0a::2E/64
       Port-Channel4:
         ipv4: 10.0.0.39/31
         ipv6: fc00::2E/126
+    bp_interface:
+      ipv4: 10.10.246.39/24
+      ipv6: fc0a::2E/64
