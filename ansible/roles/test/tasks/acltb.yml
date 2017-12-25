@@ -61,6 +61,7 @@
             - verbose=True
             - router_mac=\"{{ ansible_Ethernet0['macaddress'] }}\"
             - switch_info=\"/tmp/acltb_switch_info.txt\"
+            - testbed_type=\"{{ testbed_type }}\"
 
     - name: Clean up ACL rules.
       vars:
@@ -91,6 +92,7 @@
             - verbose=True
             - router_mac=\"{{ ansible_Ethernet0['macaddress'] }}\"
             - switch_info=\"/tmp/acltb_switch_info.txt\"
+            - testbed_type=\"{{ testbed_type }}\"
 
   always:
     - name: Clean up ACL rules.

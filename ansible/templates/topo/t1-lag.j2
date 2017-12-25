@@ -169,7 +169,10 @@
       <AclInterfaces>
         <AclInterface>
           <AttachTo>
-          {{ port_alias|join(";") }}
+          {% for index in range(8) -%}
+          PortChannel{{ index*8 }};
+          {%- endfor -%}
+          {{ port_alias[16:]|join(";") }}
           </AttachTo>
           <InAcl>DataAcl</InAcl>
         </AclInterface>
