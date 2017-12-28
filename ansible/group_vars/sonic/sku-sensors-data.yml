@@ -1024,3 +1024,76 @@ sensors_checks:
       temp: []
 
     psu_skips: {}
+
+  Accton-AS7712-32X:
+    alarms:
+      fan:
+      - as7712_32x_fan-i2c-2-66/fan1/fan1_fault
+      - as7712_32x_fan-i2c-2-66/fan2/fan2_fault
+      - as7712_32x_fan-i2c-2-66/fan3/fan3_fault
+      - as7712_32x_fan-i2c-2-66/fan4/fan4_fault
+      - as7712_32x_fan-i2c-2-66/fan5/fan5_fault
+      - as7712_32x_fan-i2c-2-66/fan6/fan6_fault
+      - as7712_32x_fan-i2c-2-66/fan11/fan11_fault
+      - as7712_32x_fan-i2c-2-66/fan12/fan12_fault
+      - as7712_32x_fan-i2c-2-66/fan13/fan13_fault
+      - as7712_32x_fan-i2c-2-66/fan14/fan14_fault
+      - as7712_32x_fan-i2c-2-66/fan15/fan15_fault
+      - as7712_32x_fan-i2c-2-66/fan16/fan16_fault
+      power: []
+      temp:
+      - coretemp-isa-0000/Core 0/temp2_crit_alarm
+      - coretemp-isa-0000/Core 1/temp3_crit_alarm
+      - coretemp-isa-0000/Core 2/temp4_crit_alarm
+      - coretemp-isa-0000/Core 3/temp5_crit_alarm
+      - ym2651-i2c-10-58/temp1/temp1_fault
+      - ym2651-i2c-11-5b/temp1/temp1_fault
+    compares:
+      fan: []
+      power: []
+      temp:
+      - - coretemp-isa-0000/Core 0/temp2_input
+        - coretemp-isa-0000/Core 0/temp2_crit
+      - - coretemp-isa-0000/Core 1/temp3_input
+        - coretemp-isa-0000/Core 1/temp3_crit
+      - - coretemp-isa-0000/Core 2/temp4_input
+        - coretemp-isa-0000/Core 2/temp4_crit
+      - - coretemp-isa-0000/Core 3/temp5_input
+        - coretemp-isa-0000/Core 3/temp5_crit
+      - - lm75-i2c-3-48/temp1/temp1_input
+        - lm75-i2c-3-48/temp1/temp1_max
+      - - lm75-i2c-3-49/temp1/temp1_input
+        - lm75-i2c-3-49/temp1/temp1_max
+      - - lm75-i2c-3-4a/temp1/temp1_input
+        - lm75-i2c-3-4a/temp1/temp1_max
+    non_zero:
+      fan:
+      - as7712_32x_fan-i2c-2-66/fan1/fan1_input
+      - as7712_32x_fan-i2c-2-66/fan2/fan2_input
+      - as7712_32x_fan-i2c-2-66/fan3/fan3_input
+      - as7712_32x_fan-i2c-2-66/fan4/fan4_input
+      - as7712_32x_fan-i2c-2-66/fan5/fan5_input
+      - as7712_32x_fan-i2c-2-66/fan6/fan6_input
+      - as7712_32x_fan-i2c-2-66/fan11/fan11_input
+      - as7712_32x_fan-i2c-2-66/fan12/fan12_input
+      - as7712_32x_fan-i2c-2-66/fan13/fan13_input
+      - as7712_32x_fan-i2c-2-66/fan14/fan14_input
+      - as7712_32x_fan-i2c-2-66/fan15/fan15_input
+      - as7712_32x_fan-i2c-2-66/fan16/fan16_input
+      - ym2651-i2c-10-58/fan1/fan1_input
+      - ym2651-i2c-11-5b/fan1/fan1_input
+      power:
+      - ym2651-i2c-11-5b/power1/power1_input
+      - ym2651-i2c-10-58/power1/power1_input
+      temp: []
+    psu_skips:
+      ym2651-i2c-10-58:
+        number: 2
+        side: right
+        skip_list:
+        - ym2651-i2c-10-58
+      ym2651-i2c-11-5b:
+        number: 1
+        side: left
+        skip_list:
+        - ym2651-i2c-11-5b

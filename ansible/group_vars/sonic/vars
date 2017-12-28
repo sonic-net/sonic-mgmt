@@ -2,13 +2,13 @@ ansible_ssh_user: admin
 
 sonic_version: "v2"
 
-broadcom_hwskus: [ 'Force10-S6000' ]
+broadcom_hwskus: [ "Force10-S6000", "Accton-AS7712-32X" ]
 
 mellanox_hwskus: [ 'ACS-MSN2700' ]
 
 cavium_hwskus: [ "AS7512", "XP-SIM" ]
 
-sensor_hwskus: [ "ACS-MSN2700", "Force10-S6000" ]
+sensor_hwskus: [ "ACS-MSN2700", "Force10-S6000", "Accton-AS7712-32X" ]
 
 ## Note:
 ## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we
