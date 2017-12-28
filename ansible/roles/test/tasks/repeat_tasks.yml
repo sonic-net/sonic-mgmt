@@ -1,9 +1,9 @@
 - debug:
-    msg: "===================== iteration {{iteration}} starts ======================"
+    msg: "===================== Repeating starts ======================"
 
 # Add tasks here to be repeated:
 # e.g. - include: reboot.yml
 
 
 - debug:
-    msg: "===================== iteration {{iteration}} ends   ======================"
+    msg: "===================== Repeating ends   ======================"

@@ -12,5 +12,5 @@
 
 - debug: msg="test iterations {{ test_iterations }}"
 
-- include: repeat_tasks.yml iteration={{item}}
+- include: repeat_tasks.yml
   with_sequence: count={{test_iterations}}
