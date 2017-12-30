@@ -104,7 +104,7 @@
   become: true
   copy:
     src: roles/vm_set/files/vm_resumer.py
-    dest: {{ root_path }}
+    dest: "{{ root_path }}"
     mode: 0755
 
 - name: Retrieve a list of the defined VMs

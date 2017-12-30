@@ -52,6 +52,7 @@
     cmd:          'create'
     vm_names:     "{{ VM_hosts }}"
     fp_mtu:       "{{ fp_mtu_size }}"
+    max_fp_num:   "{{ max_fp_num }}"
 
 - name: Start VMs
   include: start_vm.yml
@@ -62,22 +63,6 @@
     serial_port: "{{ vm_console_base|int + vm_name[4:]|int }}"
     disk_image: "{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
     mgmt_tap:  "{{ vm_name }}-m"
-    fp0_bridge: "br-{{ vm_name }}-0"
-    fp0_tap: "{{ vm_name }}-t0"
-    fp1_bridge: "br-{{ vm_name }}-1"
-    fp1_tap: "{{ vm_name }}-t1"
-    fp2_bridge: "br-{{ vm_name }}-2"
-    fp2_tap: "{{ vm_name }}-t2"
-    fp3_bridge: "br-{{ vm_name }}-3"
-    fp3_tap: "{{ vm_name }}-t3"
-    fp4_bridge: "br-{{ vm_name }}-4"
-    fp4_tap: "{{ vm_name }}-t4"
-    fp5_bridge: "br-{{ vm_name }}-5"
-    fp5_tap: "{{ vm_name }}-t5"
-    fp6_bridge: "br-{{ vm_name }}-6"
-    fp6_tap: "{{ vm_name }}-t6"
-    fp7_bridge: "br-{{ vm_name }}-7"
-    fp7_tap: "{{ vm_name }}-t7"
     port1_bridge: "br-{{ vm_name }}-back"
     port1_tap: "{{ vm_name }}-back"
   with_items: "{{ VM_hosts }}"

@@ -460,7 +460,7 @@ def parse_xml(filename, hostname):
         all_ports = [ x for x in range(1, 65)]
 
         # 100G ports
-        s100G_ports = [ x for x in range(45, 53) ]
+        s100G_ports = [ x for x in range(13, 21) ]
 
         # 50G ports
         s50g_ports = list(set(all_ports) - set(s100G_ports))

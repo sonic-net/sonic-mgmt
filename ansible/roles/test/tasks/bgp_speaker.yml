@@ -6,7 +6,7 @@
   when: (testbed_type is not defined or ptf_host is not defined)
 
 - fail: msg="Invalid testbed_type value '{{testbed_type}}'"
-  when: testbed_type not in ['t0', 't0-64']
+  when: testbed_type not in ['t0', 't0-64', 't0-116']
 
 - name: Gather minigraph facts about the device
   minigraph_facts: host={{inventory_hostname}}
@@ -23,6 +23,12 @@
 - name: set bgp speaker asn number
   set_fact:
      bgp_speaker_asn={{cfggen_out.stdout}}
+
+- set_fact: addr_family='ipv4'
+  when: addr_family is not defined
+
+- set_fact: portchannel_name="{{minigraph_portchannel_interfaces[0].attachto}}"
+  when: addr_family == 'ipv6'
 
 - name: print bgp speaker asn number
   debug: msg="{{bgp_speaker_asn}}"
@@ -46,6 +52,18 @@
 
 - name: Set the value of ips in bgp speaker peer range
   set_fact: speaker_ips={{generated_ips}}
+
+- name: Flush vlan ips route
+  command: ip route flush {{item.split('/')[0]}}/32
+  when: addr_family == 'ipv4'
+  become: yes
+  with_items: "{{vlan_ips}}"
+
+- name: Add vlan ips route
+  command: ip route add {{item.split('/')[0]}}/32 dev {{minigraph_vlan_interfaces[0]['attachto']}}
+  when: addr_family == 'ipv4'
+  become: yes
+  with_items: "{{vlan_ips}}"
 
 - debug: msg="{{generated_ips}}"
 
@@ -75,12 +93,6 @@
     - {file_name: "config_2.ini", local_ip: '{{speaker_ips[1]}}', port_num: '6000'}
     - {file_name: "config_3.ini", local_ip: '{{vlan_ips[0]}}', port_num: '7000'}
   delegate_to: "{{ptf_host}}"
-
-- set_fact: addr_family='ipv4'
-  when: addr_family is not defined
-
-- set_fact: portchannel_name="{{minigraph_portchannel_interfaces[0].attachto}}"
-  when: addr_family == 'ipv6'
 
 - set_fact: portchannel_peer="{%for p in minigraph_portchannel_interfaces%}{%if p['attachto']==portchannel_name and p['peer_addr']|ipv6%}{{p['peer_addr']}}{%endif %}{%endfor%}"
   when: addr_family == 'ipv6'
@@ -180,6 +192,7 @@
     ptf_test_dir: ptftests
     ptf_test_path: fib_test.FibTest
     ptf_platform: remote
+    ptf_platform_dir: ptftests
     ptf_test_params:
       - testbed_type='{{testbed_type}}'
       - router_mac='{{ansible_Ethernet0['macaddress']}}'
@@ -191,6 +204,12 @@
 - name: Kill exabgp instances
   shell: pkill exabgp
   delegate_to: "{{ptf_host}}"
+
+- name: Flush vlan ips route
+  command: ip route flush {{item.split('/')[0]}}/32
+  when: addr_family == 'ipv4'
+  become: yes
+  with_items: "{{vlan_ips}}"
 
 - name: Remove Assigned IPs
   shell: ip addr flush dev eth{{ '%d' % (minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'][0] | replace("Ethernet", "") | int / 4)}}

@@ -29,7 +29,7 @@ vlan {{ device_vlan_range | list | join(',') }}
 vrf definition management
    rd 1:1
 !
-{% for i in range(1,32) %}
+{% for i in range(1,33) %}
 {% set intf =  'Ethernet' + i|string + '/1'  %}
 interface {{ intf }}
 {% if intf in device_port_vlans and device_port_vlans[intf]['mode'] != "Trunk" %}

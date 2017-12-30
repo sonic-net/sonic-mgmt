@@ -1,0 +1,136 @@
+testcases:
+    acl: 
+      filename: acl.yml
+      topologies: [t1, t1-lag, t1-64-lag]
+      execvar:
+          ptf_host: 
+          testbed_type: 
+    
+    arp:
+      filename: arpall.yml
+      topologies: [ptf32, ptf64]
+      execvars: 
+          ptf_host: 
+    
+    bgp_fact:
+      filename: bgp_fact.yml
+      topologies: [t0, t0-64, t0-64-32, t1, t1-lag, t1-64-lag]
+ 
+    
+    bgp_multipath_relax:
+      filename: bgp_multipath_relax.yml
+      topologies: [t1, t1-lag, t1-64-lag]
+      execvars:
+          ptf_host:
+          testbed_type:
+    
+    bgp_speaker:
+      filename: bgp_speaker.yml
+      topologies: [t0, t0-64, t0-64-32, t0-116]
+      execvars:
+          ptf_host:
+          testbed_type:
+    
+    copp:
+      filename: copp.yml
+      topologies: [ptf32, ptf64]
+      execvars:
+          ptf_host:
+ 
+    decap:
+      filename: decap.yml
+      topologies: [t1, t1-lag, t1-64-lag]
+      execvars:
+          ptf_host: 
+          testbed_type: 
+          dscp_mode: 
+ 
+    dhcp_relay:
+      filename: dhcp_relay.yml
+      topologies: [t0, t0-64, t0-64-32, t0-116]
+      execvars:
+          ptf_host:
+ 
+    everflow_testbed:
+      filename: everflow_testbed.yml
+      topologies: [t1, t1-lag, t1-64-lag]
+      execvars:
+          ptf_host:
+          testbed_type:
+    
+    fast-reboot:
+      filename: fast-reboot.yml
+      topologies: [t0, t0-64, t0-64-32, t0-116]
+      execvars:
+          ptf_host:
+          vm_hosts:
+ 
+    fib:
+      filename: fib.yml
+      topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
+      execvars: 
+          ptf_host: 
+          testbed_type:
+ 
+    fdb:
+      filename: bgp_fact.yml
+      topologies: [t0, t0-64, t0-64-32, t0-116]
+      execvars: 
+          ptf_host: 
+          testbed_type:
+ 
+    lag_2:
+      filename: lag_2.yml
+      topologies: [t0, t0-64, t0-64-32, t0-116, t1-lag, t1-64-lag]
+      execvars: 
+          ptf_host:
+          testbed_type:
+    
+    lldp:
+      filename: lldp.yml
+      topologies: [t0, t0-64, t0-64-32, t1, t1-lag, t1-64-lag]
+    
+    link_flap:
+      filename: link_flap.yml
+      topologies: [t0, t0-64, t0-64-32,t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+    
+    mem_check:
+      filename: mem_check.yml
+      topologies: [t0, t0-64, t0-64-32,t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+    
+    neighbour:
+      filename: neighbour.yml
+      topologies: [ptf32, ptf64]
+      execvars: 
+          ptf_host:
+    
+    neighbour_mac_noptf:
+      filename: neighbour-mac-noptf.yml
+      topologies: [ptf32, ptf64]
+      execvars: 
+          ptf_host:
+     
+    pfc_wd:
+      filename: pfc_wd.yml
+      topologies: [t0, t0-64, t0-64-32,t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+
+    qos:
+      filename: qos.yml
+      topologies: [ptf32, ptf64]
+    
+    reboot:
+      filename: reboot.yml
+      topologies: [t0, t0-64, t0-64-32,t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+    
+    sensors_check:
+      filename: sensors_check.yml
+      topologies: [t0, t0-64, t0-64-32,t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+    
+    snmp:
+      filename: snmp.yml
+      topologies: [t0, t0-64, t0-64-32,t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+     
+    syslog:
+      filename: syslog.yml
+      topologies: [t0, t0-64, t0-64-32,t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+
