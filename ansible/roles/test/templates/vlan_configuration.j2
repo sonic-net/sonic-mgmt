@@ -1,0 +1,29 @@
+{
+    "PORTCHANNEL_INTERFACE": {},
+    "VLAN": {
+{% for vlan_intf in vlan_intf_list %}
+        "Vlan{{ vlan_intf.vlan_id }}": {
+            "vlanid": {{ vlan_intf.vlan_id }}
+        }{{ "," if not loop.last else "" }}
+{% endfor %}
+    },
+    "VLAN_INTERFACE": {
+{% for vlan_intf in vlan_intf_list %}
+        "Vlan{{ vlan_intf.vlan_id }}|{{ vlan_intf.ip }}": {}{{ "," if not loop.last else "" }}
+{% endfor %}
+    },
+    "VLAN_MEMBER": {
+{% for vlan_port in vlan_ports_list %}
+{% set outer_loop = loop %}
+{% for permit_vlanid in vlan_port['permit_vlanid'].keys() %}
+        "Vlan{{ permit_vlanid }}|{{ vlan_port['dev'] }}": {
+{% if vlan_port['pvid'] == permit_vlanid %}
+            "tagging_mode": "untagged"
+{% else %}
+            "tagging_mode": "tagged"
+{% endif %}
+        }{{ "," if not outer_loop.last or not loop.last else "" }}
+{% endfor %}
+{% endfor %}
+    }
+}
