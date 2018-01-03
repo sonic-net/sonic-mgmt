@@ -33,10 +33,6 @@
   include: interface.yml
   tags: always
 
-- name: Test case repeat harness
-  include: repeat_harness.yml
-  tags: repeat_harness
-
 - name: BGP facts test
   include: bgp_fact.yml
   tags: bgp_fact
