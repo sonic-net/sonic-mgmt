@@ -73,7 +73,7 @@ testcases:
           testbed_type:
  
     fdb:
-      filename: bgp_fact.yml
+      filename: fdb.yml
       topologies: [t0, t0-64, t0-64-32, t0-116]
       execvars: 
           ptf_host: 
