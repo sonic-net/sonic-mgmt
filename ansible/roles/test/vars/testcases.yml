@@ -92,11 +92,11 @@ testcases:
     
     link_flap:
       filename: link_flap.yml
-      topologies: [t0, t0-64, t0-64-32,t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+      topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
     
     mem_check:
       filename: mem_check.yml
-      topologies: [t0, t0-64, t0-64-32,t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+      topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
     
     neighbour:
       filename: neighbour.yml
@@ -112,7 +112,7 @@ testcases:
      
     pfc_wd:
       filename: pfc_wd.yml
-      topologies: [t0, t0-64, t0-64-32,t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+      topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
     qos:
       filename: qos.yml
@@ -120,17 +120,17 @@ testcases:
     
     reboot:
       filename: reboot.yml
-      topologies: [t0, t0-64, t0-64-32,t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+      topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
     
     sensors:
       filename: sensors_check.yml
-      topologies: [t0, t0-64, t0-64-32,t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+      topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
     
     snmp:
       filename: snmp.yml
-      topologies: [t0, t0-64, t0-64-32,t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+      topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
      
     syslog:
       filename: syslog.yml
-      topologies: [t0, t0-64, t0-64-32,t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+      topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
