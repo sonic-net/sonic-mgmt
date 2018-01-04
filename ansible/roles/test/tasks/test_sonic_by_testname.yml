@@ -27,17 +27,11 @@
         - sonic_hwsku in mellanox_hwskus
         - dscp_mode is not defined
 
-    - name: Set test repeat count
-      set_fact:
-          repeat_count: 1
-      when: repeat_count is not defined
-
 - debug: var=testcases[testcase_name]['execvars']
   when: testcases[testcase_name]['execvars'] is defined
 
-- name: run test case {{ testcases[testcase_name]['filename'] }} file {{ repeat_count }} time(s)
+- name: run test case {{ testcases[testcase_name]['filename'] }} file
   include: "{{ testcases[testcase_name]['filename'] }}"
-  with_sequence: end={{ repeat_count }}
 
 - debug: msg="!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 - debug: msg="!!!!!!!!!!!!!!!!!!!! end running test {{ testcase_name }} !!!!!!!!!!!!!!!!!!!!"
