@@ -1,0 +1,20 @@
+#-----------------------------------------
+# Apply Vlan configuration
+#-----------------------------------------
+- name: Vlan test setup on testbed
+  include: vlan_configure.yml
+  tags: vlan_configure
+
+#-----------------------------------------
+# Run Vlan test
+#-----------------------------------------
+- name: Vlan test run on testbed
+  include: vlan_test.yml
+  tags: vlan_test
+
+#-----------------------------------------
+# Clean up Vlan configuration
+#-----------------------------------------
+- name: Clean up Vlan test configuration on the testbed
+  include: vlan_cleanup.yml
+  tags: vlan_cleanup

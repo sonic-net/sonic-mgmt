@@ -135,7 +135,7 @@ def main():
                 counter += 1
         else:
             for ip in ip_dict:
-                ip_sets[str(iface)][str(ip)] = get_mac(iface)
+                ip_sets[str(iface)][str(ip)] = get_mac(str(iface))
 
     ifaces = []
     for iface_name in ip_sets.keys():

@@ -58,6 +58,7 @@ class AclTest(BaseTest):
 
         self.dataplane = ptf.dataplane_instance
         self.router_mac = self.test_params['router_mac']
+        self.testbed_type = self.test_params['testbed_type']
 
     #---------------------------------------------------------------------
 
@@ -250,17 +251,28 @@ class AclTest(BaseTest):
         test_result = False
 
         self.switch_info = open(self.test_params["switch_info"], 'r').readlines()
-        self.tor_ports = map(int, self.switch_info[0].rstrip(",\n").split(","))
-        self.spine_ports = map(int, self.switch_info[1].rstrip(",\n").split(","))
-        self.dest_ip_addr_spine = self.switch_info[2].strip()
-        self.dest_ip_addr_spine_blocked = self.switch_info[3].strip()
-        self.dest_ip_addr_tor = self.switch_info[4].strip()
-        self.dest_ip_addr_tor_blocked = self.switch_info[5].strip()
+        if self.testbed_type in [ 't1', 't1-lag' ]:
+            self.tor_ports = map(int, self.switch_info[0].rstrip(",\n").split(","))
+            self.spine_ports = map(int, self.switch_info[1].rstrip(",\n").split(","))
+            self.dest_ip_addr_spine = self.switch_info[2].strip()
+            self.dest_ip_addr_spine_blocked = self.switch_info[3].strip()
+            self.dest_ip_addr_tor = self.switch_info[4].strip()
+            self.dest_ip_addr_tor_blocked = self.switch_info[5].strip()
 
-        # Verify ACLs on tor port
-        (tests_passed, tests_total) = self.runAclTests(self.dest_ip_addr_spine, self.dest_ip_addr_spine_blocked, self.tor_ports[0], self.spine_ports)
-        assert(tests_passed == tests_total)
+            # Verify ACLs on tor port
+            (tests_passed, tests_total) = self.runAclTests(self.dest_ip_addr_spine, self.dest_ip_addr_spine_blocked, self.tor_ports[0], self.spine_ports)
+            assert(tests_passed == tests_total)
 
-        # Verify ACLs on spine port
-        (tests_passed, tests_total) = self.runAclTests(self.dest_ip_addr_tor, self.dest_ip_addr_tor_blocked, self.spine_ports[0], self.tor_ports)
-        assert(tests_passed == tests_total)
+            # Verify ACLs on spine port
+            (tests_passed, tests_total) = self.runAclTests(self.dest_ip_addr_tor, self.dest_ip_addr_tor_blocked, self.spine_ports[0], self.tor_ports)
+            assert(tests_passed == tests_total)
+        elif self.testbed_type == 't0':
+            src_port = map(int, self.switch_info[0].rstrip(",\n").split(","))
+            dst_ports =  map(int, self.switch_info[1].rstrip(",\n").split(","))
+            dst_ip = self.switch_info[2].strip()
+            dst_ip_blocked = self.switch_info[3].strip()
+
+            (tests_passed, tests_total) = self.runAclTests(dst_ip, dst_ip_blocked, src_port[0], dst_ports)
+            assert(tests_passed == tests_total)
+
+
