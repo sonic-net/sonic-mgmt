@@ -92,7 +92,7 @@
           - ip_src='{{pfc_wd_rx_neighbor_addr}}'
           - ip_dst='{{pfc_wd_test_neighbor_addr}}'
           - wd_action='drop'
-        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{ansible_date_time.iso8601}}.log "
+        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: "Send 10K packets to {{pfc_wd_test_port}}"
       include: roles/test/tasks/ptf_runner.yml
@@ -110,7 +110,7 @@
           - ip_src='{{pfc_wd_test_neighbor_addr}}'
           - ip_dst='{{pfc_wd_rx_neighbor_addr}}'
           - wd_action='drop'
-        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{ansible_date_time.iso8601}}.log "
+        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: "Send 10K packets via {{pfc_wd_test_port}} to verify that other queue is not affected"
       include: roles/test/tasks/ptf_runner.yml
@@ -128,7 +128,7 @@
           - ip_src='{{pfc_wd_rx_neighbor_addr}}'
           - ip_dst='{{pfc_wd_test_neighbor_addr}}'
           - wd_action='forward'
-        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{ansible_date_time.iso8601}}.log "
+        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: "Send 10K packets to {{pfc_wd_test_port}} to verify that other pg is not affected"
       include: roles/test/tasks/ptf_runner.yml
@@ -146,7 +146,7 @@
           - ip_src='{{pfc_wd_test_neighbor_addr}}'
           - ip_dst='{{pfc_wd_rx_neighbor_addr}}'
           - wd_action='forward'
-        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{ansible_date_time.iso8601}}.log "
+        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - set_fact:
         test_expect_file: "expect_pfc_wd_restore"
@@ -259,7 +259,7 @@
           - ip_src='{{pfc_wd_rx_neighbor_addr}}'
           - ip_dst='{{pfc_wd_test_neighbor_addr}}'
           - wd_action='forward'
-        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{ansible_date_time.iso8601}}.log "
+        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: "Send 10K packets to {{pfc_wd_test_port}}"
       include: roles/test/tasks/ptf_runner.yml
@@ -277,7 +277,7 @@
           - ip_src='{{pfc_wd_test_neighbor_addr}}'
           - ip_dst='{{pfc_wd_rx_neighbor_addr}}'
           - wd_action='forward'
-        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{ansible_date_time.iso8601}}.log "
+        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - set_fact:
         test_expect_file: "expect_pfc_wd_restore"
