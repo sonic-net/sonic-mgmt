@@ -1,16 +1,13 @@
 ##########################################################################
-# Repeat harness is used to repeat a list of tasks, for single test case #
-#     repeatation, we can use repeat_count in test by testcase name      #
-#     infrastructure. This test case is the template for repeat a list   #
-#     of test cases, or run a test with delay between iterations. etc.   #
+# Repeat harness is used to repeat a list of tasks, the list of the      #
+#     tasks should be defined in repeat_tasks.yml                        #
 ##########################################################################
 
-- debug:
-    msg: "===================== Repeating starts ======================"
+- name: Default test repeat count
+  set_fact: repeat_count=3
+  when: repeat_count is not defined
 
-# Add tasks here to be repeated:
-# e.g. - include: reboot.yml
+- debug: msg="Execute repeat_tasks.yml {{ repeat_count }} time(s)"
 
-
-- debug:
-    msg: "===================== Repeating ends   ======================"
+- include: repeat_tasks.yml
+  with_sequence: end={{repeat_count}}
