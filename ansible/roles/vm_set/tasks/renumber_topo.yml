@@ -32,4 +32,5 @@
     mgmt_bridge: "{{ mgmt_bridge }}"
     ext_iface: "{{ external_iface }}"
     fp_mtu: "{{ fp_mtu_size }}"
+    max_fp_num: "{{ max_fp_num }}"
   become: yes

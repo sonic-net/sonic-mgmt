@@ -1,0 +1,47 @@
+- name: Configure route for remote IP
+  shell: ip route add {{ item[0].permit_vlanid[item[1]].remote_ip }} via {{ item[0].permit_vlanid[item[1]].peer_ip }}
+  with_nested:
+    - "{{ vlan_ports_list }}"
+    - "{{ vlan_ports_list[0].permit_vlanid.keys() }}"
+  become: true
+
+- name: Set unique MACs to PTF interfaces
+  script: roles/test/files/helpers/change_mac.sh
+  delegate_to: "{{ptf_host}}"
+
+- name: Copy ARP responder to PTF
+  copy: src=roles/test/files/helpers/arp_responder.py dest=/opt
+  delegate_to: "{{ptf_host}}"
+
+- name: Copy arp responder supervisor configuration to the PTF container
+  template: src=arp_responder.conf.j2 dest=/etc/supervisor/conf.d/arp_responder.conf
+  vars:
+    - arp_responder_args: ''
+  delegate_to: "{{ ptf_host }}"
+
+- name: Reread supervisor configuration
+  shell: /usr/local/bin/supervisorctl reread
+  delegate_to: "{{ptf_host}}"
+
+- name: Update supervisor configuration
+  shell: /usr/local/bin/supervisorctl update
+  delegate_to: "{{ ptf_host }}"
+
+- name: Copy tests to the PTF container
+  copy: src=roles/test/files/ptftests dest=/root
+  delegate_to: "{{ ptf_host }}"
+
+- block:
+    - include: ptf_runner.yml
+      vars:
+        ptf_test_name: VLAN test
+        ptf_test_dir: ptftests
+        ptf_test_path: vlan_test.VlanTest
+        ptf_platform: remote
+        ptf_test_params:
+          - vlan_ports_list = \"{{ vlan_ports_list }}\"
+          - vlan_intf_list = \"{{ vlan_intf_list }}\"
+          - router_mac = \"{{ ansible_Ethernet0['macaddress'] }}\"
+        ptf_extra_options: "--relax --debug info --log-file /tmp/vlan_test.log" 
+  rescue:
+    - debug: msg="PTF test raise error"

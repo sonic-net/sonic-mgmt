@@ -8,15 +8,27 @@
   set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
 
 - name: Extract VM names from the inventory
-  set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') }}
+  set_fact: VM_list={{ groups[current_server] | filter_by_prefix('VM') }}
+
+- name: Get VM host name
+  set_fact: VM_host={{ groups[current_server] | difference(VM_list) }}
 
 - name: Generate hostname for target VM
-  set_fact: hostname={{ VM_hosts | extract_hostname(topology['VMs'], VM_base, inventory_hostname) }}
+  set_fact: hostname={{ VM_list | extract_hostname(topology['VMs'], VM_base, inventory_hostname) }}
   when: topology['VMs'] is defined
 
 - fail:
     msg: "cannot find {{ inventory_hostname }} in the topology"
   when: hostname == "hostname not found"
+
+- name: Get VM front panel interface number
+  shell: virsh domiflist {{ inventory_hostname }} | grep -E "^{{ inventory_hostname }}-t" | wc -l
+  register: fp_num
+  delegate_to: "{{ VM_host[0] }}"
+  become: yes
+
+- name: Set EOS backplane port name
+  set_fact: bp_ifname="Ethernet{{ fp_num.stdout|int + 1 }}"
 
 - name: Set properties list to default value, when properties are not defined
   set_fact: properties_list=[]

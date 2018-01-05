@@ -60,5 +60,5 @@
       - router_mac='{{ansible_Ethernet0['macaddress']}}'
       - fdb_info='/root/fdb_info.txt'
       - vlan_ip='{{minigraph_vlan_interfaces[0]['addr']}}'
-    ptf_extra_options: "--relax --debug info --log-file /tmp/fdb_test.FdbTest.{{ansible_date_time.iso8601}}.log "
+    ptf_extra_options: "--relax --debug info --log-file /tmp/fdb_test.FdbTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
   

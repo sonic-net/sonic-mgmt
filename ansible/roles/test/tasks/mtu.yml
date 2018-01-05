@@ -39,4 +39,4 @@
     ptf_test_params:
       - testbed_type='{{testbed_type}}'
       - router_mac='{{ansible_Ethernet0['macaddress']}}'
-    ptf_extra_options: "--relax --debug info --log-file /tmp/mtu_test.MtuTest.{{ansible_date_time.iso8601}}.log --socket-recv-size 16384"
+    ptf_extra_options: "--relax --debug info --log-file /tmp/mtu_test.MtuTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log --socket-recv-size 16384"

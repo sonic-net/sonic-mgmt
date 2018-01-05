@@ -110,7 +110,7 @@ Check that all VMs are up and running: ```ansible -m ping -i veos server_1```
  
 You need to specify all lab physical connections before running fanout deployment and some of the tests.  
  
-Please follow [Configuration](doc/README.testbed.Config.md) 'Testbed Physical Topology' section to prepare your lab connection graph file.  
+Please follow [Configuration](README.testbed.Config.md) 'Testbed Physical Topology' section to prepare your lab connection graph file.  
 
 We are using Arista switches as fanout switch in our lab. So, the playbook under roles/fanout is for deploy fanout(leaf) switch Vlans configuration of Arista only. If you are using other type of fanout switches, you may manually configure Vlan configurations in switch or you have a good way to deploy regular Layer2 switch configuration in lab would also work. Our fanout switch deploy using Arista switch eosadmin shell login. If you do have an Arista switch as fanout and you want to run the fanout/tasks/main.yml to deploy the switch, please scp the roles/fanout/template/rc.eos file to Arista switch flash, and make sure that you can use your fanout_admin_user/fanout_admin_password to login to shell.  
  
