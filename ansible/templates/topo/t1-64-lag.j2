@@ -324,35 +324,35 @@
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>{{ inventory_hostname }}</EndDevice>
         <EndPort>{{ port_alias[32+index*8+2] }}</EndPort>
-        <StartDevice>ARISTA{{ '%02d' % (index+1) }}T0</StartDevice>
+        <StartDevice>ARISTA{{ '%02d' % (index*5+1) }}T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>{{ inventory_hostname }}</EndDevice>
-        <EndPort>{{ port_alias[32+index*8+2] }}</EndPort>
-        <StartDevice>ARISTA{{ '%02d' % (index+1) }}T0</StartDevice>
+        <EndPort>{{ port_alias[32+index*8+4] }}</EndPort>
+        <StartDevice>ARISTA{{ '%02d' % (index*5+2) }}T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>{{ inventory_hostname }}</EndDevice>
         <EndPort>{{ port_alias[32+index*8+5] }}</EndPort>
-        <StartDevice>ARISTA{{ '%02d' % (index+1) }}T0</StartDevice>
+        <StartDevice>ARISTA{{ '%02d' % (index*5+3) }}T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>{{ inventory_hostname }}</EndDevice>
         <EndPort>{{ port_alias[32+index*8+6] }}</EndPort>
-        <StartDevice>ARISTA{{ '%02d' % (index+1) }}T0</StartDevice>
+        <StartDevice>ARISTA{{ '%02d' % (index*5+4) }}T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>{{ inventory_hostname }}</EndDevice>
         <EndPort>{{ port_alias[32+index*8+7] }}</EndPort>
-        <StartDevice>ARISTA{{ '%02d' % (index+1) }}T0</StartDevice>
+        <StartDevice>ARISTA{{ '%02d' % (index*5+5) }}T0</StartDevice>
         <StartPort>Ethernet1</StartPort>
       </DeviceLinkBase>
 {% endfor %}
