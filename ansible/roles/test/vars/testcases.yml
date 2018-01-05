@@ -101,7 +101,13 @@ testcases:
     mem_check:
       filename: mem_check.yml
       topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
-    
+
+    mtu:
+      filename: mtu.yml
+      topologies: [t1, t1-lag]
+      execvars:
+          testbed_type:
+
     neighbour:
       filename: neighbour.yml
       topologies: [ptf32, ptf64]
@@ -113,7 +119,11 @@ testcases:
       topologies: [ptf32, ptf64]
       execvars: 
           ptf_host:
-     
+
+    ntp:
+      filename: ntp.yml
+      topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+
     pfc_wd:
       filename: pfc_wd.yml
       topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
