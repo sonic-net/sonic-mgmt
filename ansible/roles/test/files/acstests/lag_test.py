@@ -96,7 +96,7 @@ class LacpTimingTest(BaseTest,RouterUtility):
         '''
         self.dataplane = ptf.dataplane_instance
 
-    def getTimeInterval(self, masked_exp_pkt):
+    def getMedianInterval(self, masked_exp_pkt):
         intervals = []
         # Verify two LACP packets.
         (rcv_device, rcv_port, rcv_pkt, last_pkt_time) = self.dataplane.poll(port_number=self.exp_iface, timeout=self.timeout, exp_pkt=masked_exp_pkt)
@@ -151,5 +151,5 @@ class LacpTimingTest(BaseTest,RouterUtility):
         self.dataplane.flush()
 
         # Check that packet timing matches the expected value.
-        current_pkt_timing = self.getTimeInterval(masked_exp_pkt)
+        current_pkt_timing = self.getMedianInterval(masked_exp_pkt)
         self.assertTrue(abs(current_pkt_timing - float(self.packet_timing)) < 0.1, "Bad packet timing: %.2f seconds while expected timing is %d seconds from port %s out of %d intervals" % (current_pkt_timing, self.packet_timing, self.exp_iface, self.interval_count))
