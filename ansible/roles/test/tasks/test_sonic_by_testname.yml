@@ -22,7 +22,7 @@
 
     - name: Set dscp_mode var for decap test for mellanox
       set_fact:
-          dhcp_mode: uniform
+          dscp_mode: uniform
       when:
         - sonic_hwsku in mellanox_hwskus
         - dscp_mode is not defined
