@@ -1,0 +1,280 @@
+# To run ecn test the host system where ptf container resides should have
+# optimized sysctl parameter "net.core.rmem_max". Now it's set to 4194304
+# Also the NICs supposed to have maximum buffer size of RX queue
+# See: ethtool -g
+#      ethtool -G p4p1 rx 8192
+
+- include_vars: group_vars/str/str.yml
+
+- block:
+    - name: Getting minigraph facts
+      minigraph_facts: host={{ inventory_hostname }}
+      connection: local
+      become: no
+
+    - name: check if the device has configured qos parameters
+      fail: msg="device doesn't have configured qos parameters"
+      when: minigraph_hwsku is not defined or qos_params[minigraph_hwsku] is not defined
+
+    - name: set qos test parameters for the device
+      set_fact: qp={{ qos_params[minigraph_hwsku] }}
+
+    - name: Ensure LLDP Daemon stopped
+      become: yes
+      service: name=lldpd
+               state=stopped
+               enabled=no
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i lldp python
+
+    - name: Disable bgpd
+      become: yes
+      lineinfile: dest=/etc/quagga/daemons
+                  regexp=^bgpd=.*$
+                  line='bgpd=no'
+      notify:
+        - Restart Quagga Daemon
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i bgp python
+
+    - meta: flush_handlers
+
+    - name: copy sai tests
+      copy: src=roles/test/files/saitests dest=/root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: copy portmap
+      copy: src={{ ptf_portmap }} dest=/root
+      delegate_to: "{{ ptf_host }}"
+      when: minigraph_hwsku is defined and (minigraph_hwsku == 'ACS-MSN2700' or minigraph_hwsku == 'ACS-MSN2740')
+
+    - name: Init PTF base test parameters
+      set_fact: 
+        ptf_base_params:
+        - router_mac='{{ ansible_Ethernet0['macaddress'] }}'
+        - server='{{ ansible_host }}'
+        - port_map_file='/root/{{ ptf_portmap | basename }}'
+
+    - name: Get ports info.
+      include: roles/test/tasks/qos_get_ports.yml
+      
+    # Unpause all paused port
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: release all paused ports
+        test_path: sai_qos_tests.ReleaseAllPorts
+        test_params: []
+
+    # Populate arps
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: populate arp on all ports
+        test_path: sai_qos_tests.ARPpopulate
+        test_params: []
+
+    #XON limit
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: xon limit ptf test dscp = {{ qp.xon_1.dscp }}, ecn = {{ qp.xon_1.ecn }}
+        test_path: sai_qos_tests.PFCXonTest
+        test_params:
+        - dscp='{{ qp.xon_1.dscp }}'
+        - ecn='{{ qp.xon_1.ecn }}'
+        - pg='{{ qp.xon_1.pg }}'
+        - buffer_max_size='{{ lossless_buffer_max_size|int }}'
+        - dst_port_id='{{ dst_port_id }}'
+        - dst_port_ip='{{ ports_ip[dst_port_id|int] }}'
+        - src_port_id='{{ src_port_id }}'
+        - src_port_ip='{{ ports_ip[src_port_id|int] }}'
+
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: xon limit ptf test dscp = {{ qp.xon_2.dscp }}, ecn = {{ qp.xon_2.ecn }}
+        test_path: sai_qos_tests.PFCXonTest
+        test_params:
+        - dscp='{{ qp.xon_2.dscp }}'
+        - ecn='{{ qp.xon_2.ecn }}'
+        - pg='{{ qp.xon_2.pg }}'
+        - buffer_max_size='{{ lossless_buffer_max_size|int }}'
+        - dst_port_id='{{ dst_port_id }}'
+        - dst_port_ip='{{ ports_ip[dst_port_id|int] }}'
+        - src_port_id='{{ src_port_id }}'
+        - src_port_ip='{{ ports_ip[src_port_id|int] }}'
+       
+    #XOFF limit
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: xoff limit ptf test dscp = {{ qp.xoff_1.dscp }}, ecn = {{ qp.xoff_1.ecn }}
+        test_path: sai_qos_tests.PFCtest
+        test_params: 
+        - dscp='{{ qp.xoff_1.dscp }}'
+        - ecn='{{ qp.xoff_1.ecn }}'
+        - pg='{{ qp.xoff_1.pg }}'
+        - dst_port_id='{{ dst_port_id }}'
+        - dst_port_ip='{{ ports_ip[dst_port_id|int] }}'
+        - buffer_max_size='{{ lossless_buffer_max_size|int }}'
+        - queue_max_size='{{ lossless_queue_max_size|int }}'
+        - drop_src_port_id='{{ src_port_id }}'
+        - xoff_src_ports_id='{{ xoff_src_ports_ptf_intf|join('@') }}'
+        - xoff_src_ports_ip='{{ xoff_src_ports_ip|join('@') }}'
+        
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: xoff limit ptf test dscp = {{ qp.xoff_2.dscp }}, ecn = {{ qp.xoff_2.ecn }}
+        test_path: sai_qos_tests.PFCtest
+        test_params: 
+        - dscp='{{ qp.xoff_2.dscp }}'
+        - ecn='{{ qp.xoff_2.ecn }}'
+        - pg='{{ qp.xoff_2.pg }}'
+        - dst_port_id='{{ dst_port_id }}'
+        - dst_port_ip='{{ ports_ip[dst_port_id|int] }}'
+        - buffer_max_size='{{ lossless_buffer_max_size|int }}'
+        - queue_max_size='{{ lossless_queue_max_size|int }}'
+        - drop_src_port_id='{{ src_port_id }}'
+        - xoff_src_ports_id='{{ xoff_src_ports_ptf_intf|join('@') }}'
+        - xoff_src_ports_ip='{{ xoff_src_ports_ip|join('@') }}'
+
+    #DSCP MAPPING
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: dscp mapping ptf test
+        test_path: sai_qos_tests.DscpMappingPB
+        test_params:
+        - dst_port_id='{{ dst_port_id }}'
+        - dst_port_ip='{{ ports_ip[dst_port_id|int] }}'
+        - src_port_id='{{ src_port_id }}'
+        - src_port_ip='{{ ports_ip[src_port_id|int] }}'
+
+    #ECN limit
+ # TODO: Will be updated after buffer configuration will be moved to Config DB 
+ #   - include: qos_sai_ptf.yml
+ #     vars:
+ #       test_name: ECN threshold. dscp = {{ qp.ecn_1.dscp }}, ecn = {{ qp.ecn_1.ecn }}
+ #       test_path: sai_qos_tests.DscpEcnSend
+ #       test_params:
+ #       - dscp='{{ qp.ecn_1.dscp }}'
+ #       - ecn='{{  qp.ecn_1.ecn }}'
+ #       - limit='{{ red_max_threshold }}'
+ #       - min_limit='{{ green_max_threshold }}'
+ #       - num_of_pkts='{{ qp.ecn_1.num_of_pkts }}'
+ #       - limit='{{ qp.ecn_1.limit }}'
+ #       - min_limit='{{ qp.ecn_1.min_limit }}'
+ #       - cell_size='{{ qp.ecn_1.cell_size }}'
+ #       - dst_port_id='{{ dst_port_id }}'
+ #       - dst_port_ip='{{ ports_ip[dst_port_id|int] }}'
+ #       - src_port_id='{{ src_port_id }}'
+ #       - src_port_ip='{{ ports_ip[src_port_id|int] }}'
+        
+ #   - include: qos_sai_ptf.yml
+ #     vars:
+ #       test_name: ECN threshold. dscp = {{ qp.ecn_2.dscp }}, ecn = {{ qp.ecn_2.ecn }}
+ #       test_path: sai_qos_tests.DscpEcnSend
+ #       test_params:
+ #       - dscp='{{ qp.ecn_2.dscp }}'
+ #       - ecn='{{  qp.ecn_2.ecn }}'
+ #       - limit='{{ red_max_threshold }}'
+ #       - min_limit='{{ green_max_threshold }}'
+ #       - num_of_pkts='{{ qp.ecn_2.num_of_pkts }}'
+ #       - limit='{{ qp.ecn_2.limit }}'
+ #       - min_limit='{{ qp.ecn_2.min_limit }}'
+ #       - cell_size='{{ qp.ecn_2.cell_size }}'
+ #       - dst_port_id='{{ dst_port_id }}'
+ #       - dst_port_ip='{{ ports_ip[dst_port_id|int] }}'
+ #       - src_port_id='{{ src_port_id }}'
+ #       - src_port_ip='{{ ports_ip[src_port_id|int] }}'
+        
+ #   - include: qos_sai_ptf.yml
+ #     vars:
+ #       test_name: ECN threshold. dscp = {{ qp.ecn_3.dscp }}, ecn = {{ qp.ecn_3.ecn }}
+ #       test_path: sai_qos_tests.DscpEcnSend
+ #       test_params:
+ #       - dscp='{{ qp.ecn_3.dscp }}'
+ #       - ecn='{{  qp.ecn_3.ecn }}'
+ #       - limit='{{ red_max_threshold }}'
+ #       - min_limit='{{ green_max_threshold }}'
+ #       - num_of_pkts='{{ qp.ecn_3.num_of_pkts }}'
+ #       - limit='{{ qp.ecn_3.limit }}'
+ #       - min_limit='{{ qp.ecn_3.min_limit }}'
+ #       - cell_size='{{ qp.ecn_3.cell_size }}'
+ #       - dst_port_id='{{ dst_port_id }}'
+ #       - dst_port_ip='{{ ports_ip[dst_port_id|int] }}'
+ #       - src_port_id='{{ src_port_id }}'
+ #       - src_port_ip='{{ ports_ip[src_port_id|int] }}'
+       
+ #   - include: qos_sai_ptf.yml
+ #     vars:
+ #       test_name: ECN threshold. dscp = {{ qp.ecn_4.dscp }}, ecn = {{ qp.ecn_4.ecn }}
+ #       test_path: sai_qos_tests.DscpEcnSend
+ #       test_params:
+ #       - dscp='{{ qp.ecn_4.dscp }}'
+ #       - ecn='{{  qp.ecn_4.ecn }}'
+ #       - limit='{{ red_max_threshold }}'
+ #       - min_limit='{{ green_max_threshold }}'
+ #       - num_of_pkts='{{ qp.ecn_4.num_of_pkts }}'
+ #       - limit='{{ qp.ecn_4.limit }}'
+ #       - min_limit='{{ qp.ecn_4.min_limit }}'
+ #       - cell_size='{{ qp.ecn_4.cell_size }}'
+ #       - dst_port_id='{{ dst_port_id }}'
+ #       - dst_port_ip='{{ ports_ip[dst_port_id|int] }}'
+ #       - src_port_id='{{ src_port_id }}'
+ #       - src_port_ip='{{ ports_ip[src_port_id|int] }}'
+        
+    #Lossy queue
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: Lossy queue, shared buffer dynamic allocation.
+        test_path: sai_qos_tests.LossyQueueTest
+        test_params:
+        - dscp='{{ qp.lossy_queue.dscp }}'
+        - ecn='{{ qp.lossy_queue.ecn }}'
+        - buffer_max_size='{{ lossy_buffer_max_size|int }}'
+        - headroom_size='{{ lossy_headroom_size }}'
+        - dst_port_id='{{ dst_port_id }}'
+        - dst_port_ip='{{ ports_ip[dst_port_id|int] }}'
+        - dst_port_2_id='{{ dst_port_2_id }}'
+        - dst_port_2_ip='{{ ports_ip[dst_port_2_id|int] }}'
+        - src_port_id='{{ src_port_id }}'
+        - src_port_ip='{{ ports_ip[src_port_id|int] }}'
+
+    #WRR test
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: WRR
+        test_path: sai_qos_tests.WRRtest
+        test_params:
+        - ecn='{{ qp.wrr.ecn }}'
+        - dst_port_id='{{ dst_port_id }}'
+        - dst_port_ip='{{ ports_ip[dst_port_id|int] }}'
+        - src_port_id='{{ src_port_id }}'
+        - src_port_ip='{{ ports_ip[src_port_id|int] }}'
+        - q0_num_of_pkts='{{ qp.wrr.q0_num_of_pkts }}'
+        - q1_num_of_pkts='{{ qp.wrr.q1_num_of_pkts }}'
+        - q3_num_of_pkts='{{ qp.wrr.q3_num_of_pkts }}'
+        - q4_num_of_pkts='{{ qp.wrr.q4_num_of_pkts }}'
+        - limit='{{ qp.wrr.limit }}'
+        
+  always:
+    - name: Restore LLDP Daemon
+      become: yes
+      service: name=lldpd
+               state=started
+               enabled=yes
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i lldp python
+
+    - name: Enable bgpd
+      become: yes
+      lineinfile: dest=/etc/quagga/daemons
+                  regexp=^bgpd=.*$
+                  line='bgpd=yes'
+      notify:
+        - Restart Quagga Daemon
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i bgp python
+
+    - meta: flush_handlers
+
