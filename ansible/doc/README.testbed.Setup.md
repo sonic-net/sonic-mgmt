@@ -42,6 +42,7 @@ PTF docker is used to send and receive packets to test data plane.
 - Build PTF docker
 ```
 git clone --recursive https://github.com/Azure/sonic-buildimage.git
+make configure PLATFORM=generic
 make target/docker-ptf.gz
 ```
 
@@ -56,6 +57,7 @@ the docker and run ansible playbook inside the docker.
 - Build *sonic-mgmt* docker
 ```
 git clone --recursive https://github.com/Azure/sonic-buildimage.git
+make configure PLATFORM=generic
 make target/docker-sonic-mgmt.gz
 ```
 
@@ -100,6 +102,7 @@ Once you are in the docker, you need to modify the testbed configuration files t
 ```
 ./testbed-cli.sh start-vms server_1 password.txt
 ```
+  - please note: Here "password.txt" is the ansible vault password file name/path. Ansible allows user use ansible vault to encrypt password files. By default, this shell script require a password file. If you are not using ansible vault, just create an empty file and pass the filename to the command line. The file name and location is created and maintained by user. 
 
 Check that all VMs are up and running: ```ansible -m ping -i veos server_1```
 
@@ -107,7 +110,7 @@ Check that all VMs are up and running: ```ansible -m ping -i veos server_1```
  
 You need to specify all lab physical connections before running fanout deployment and some of the tests.  
  
-Please follow [Configuration](doc/README.testbed.Config.md) 'Testbed Physical Topology' section to prepare your lab connection graph file.  
+Please follow [Configuration](README.testbed.Config.md) 'Testbed Physical Topology' section to prepare your lab connection graph file.  
 
 We are using Arista switches as fanout switch in our lab. So, the playbook under roles/fanout is for deploy fanout(leaf) switch Vlans configuration of Arista only. If you are using other type of fanout switches, you may manually configure Vlan configurations in switch or you have a good way to deploy regular Layer2 switch configuration in lab would also work. Our fanout switch deploy using Arista switch eosadmin shell login. If you do have an Arista switch as fanout and you want to run the fanout/tasks/main.yml to deploy the switch, please scp the roles/fanout/template/rc.eos file to Arista switch flash, and make sure that you can use your fanout_admin_user/fanout_admin_password to login to shell.  
  

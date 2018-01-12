@@ -4,7 +4,7 @@ Description:    This file contains the Decapasulation test for SONIC, to test De
                 Design is available in https://github.com/Azure/SONiC/wiki/IPv4-Decapsulation-test
                 
 Precondition:   Before the test start, all routes need to be defined as in the fib_info.txt file, in addition to the decap rule that need to be set as the dspc_mode
-topology:       SUpports t1, t1-lag and t0 topology
+topology:       SUpports t1, t1-lag, t0-116 and t0 topology
                       
 Usage:          Examples of how to start the test 
                 ptf  --test-dir /root/dor/ ip_decap_test_red --platform remote -t "verbose=True;fib_info='/root/fib_info.txt';lo_ip='10.1.0.32';router_mac='00:02:03:04:05:00';dscp_mode='pipe'; testbed_type='t1'"  --log-dir /tmp/logs --verbose 
@@ -62,6 +62,8 @@ class DecapPacketTest(BaseTest):
             self.src_ports = range(0, 32)
         if self.test_params['testbed_type'] == 't0':
             self.src_ports = range(1, 25) + range(28, 32)
+        if self.test_params['testbed_type'] == 't0-116':
+            self.src_ports = range(0, 24) + range(32, 120)
     #-----------------------------------------------------------------
     
     def send_and_verify(self, dst_ip, expected_ports, src_port, triple_encap = False):

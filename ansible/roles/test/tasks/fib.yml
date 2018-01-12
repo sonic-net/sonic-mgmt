@@ -63,4 +63,4 @@
       - fib_info='/root/fib_info.txt'
       - ipv4={{ipv4}}
       - ipv6={{ipv6}}
-    ptf_extra_options: "--relax --debug info --log-file /tmp/fib_test.FibTest.ipv4.{{ipv4}}.ipv6.{{ipv6}}.{{ansible_date_time.iso8601}}.log "
+    ptf_extra_options: "--relax --debug info --log-file /tmp/fib_test.FibTest.ipv4.{{ipv4}}.ipv6.{{ipv6}}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "

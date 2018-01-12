@@ -24,14 +24,6 @@ topology:
    - 21
    - 22
    - 23
-   - 24
-   - 25
-   - 26
-   - 27
-   - 28
-   - 29
-   - 30
-   - 31
    - 32
    - 33
    - 34
@@ -44,6 +36,14 @@ topology:
    - 41
    - 42
    - 43
+   - 44
+   - 45
+   - 46
+   - 47
+   - 48
+   - 49
+   - 50
+   - 51
    - 52
    - 53
    - 54
@@ -56,26 +56,82 @@ topology:
    - 61
    - 62
    - 63
+   - 64
+   - 65
+   - 66
+   - 67
+   - 68
+   - 69
+   - 70
+   - 71
+   - 72
+   - 73
+   - 74
+   - 75
+   - 76
+   - 77
+   - 78
+   - 79
+   - 80
+   - 81
+   - 82
+   - 83
+   - 84
+   - 85
+   - 86
+   - 87
+   - 88
+   - 89
+   - 90
+   - 91
+   - 92
+   - 93
+   - 94
+   - 95
+   - 96
+   - 97
+   - 98
+   - 99
+   - 100
+   - 101
+   - 102
+   - 103
+   - 104
+   - 105
+   - 106
+   - 107
+   - 108
+   - 109
+   - 110
+   - 111
+   - 112
+   - 113
+   - 114
+   - 115
+   - 116
+   - 117
+   - 118
+   - 119
   VMs:
     ARISTA01T1:
       vlans:
-        - 44
-        - 45
+        - 24
+        - 25
       vm_offset: 0
     ARISTA02T1:
       vlans:
-        - 46
-        - 47
+        - 26
+        - 27
       vm_offset: 1
     ARISTA03T1:
       vlans:
-        - 48
-        - 49
+        - 28
+        - 29
       vm_offset: 2
     ARISTA04T1:
       vlans:
-        - 50
-        - 51
+        - 30
+        - 31
       vm_offset: 3
 
 configuration_properties:
@@ -87,8 +143,8 @@ configuration_properties:
     max_tor_subnet_number: 16
     tor_subnet_size: 64
     spine_asn: 65534
-    leaf_asn_start: 64600
-    tor_asn_start: 65100
+    leaf_asn_start: 4200064600
+    tor_asn_start: 4200065100
     failure_rate: 0
     nhipv4: 10.10.246.100
     nhipv6: FC0A::C9
@@ -98,9 +154,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200064600
       peers:
-        65100:
+        4200065100:
         - 10.0.0.32
         - FC00::21
     interfaces:
@@ -111,20 +167,20 @@ configuration:
         lacp: 1
       Ethernet2:
         lacp: 1
-      Ethernet9:
-        ipv4: 10.10.246.33/24
-        ipv6: fc0a::23/64
       Port-Channel1:
         ipv4: 10.0.0.33/31
         ipv6: fc00::22/126
+    bp_interface:
+      ipv4: 10.10.246.33/24
+      ipv6: fc0a::23/64
 
   ARISTA02T1:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200064600
       peers:
-        65100:
+        4200065100:
         - 10.0.0.34
         - FC00::25
     interfaces:
@@ -135,20 +191,20 @@ configuration:
         lacp: 2
       Ethernet2:
         lacp: 2
-      Ethernet9:
-        ipv4: 10.10.246.35/24
-        ipv6: fc0a::26/64
       Port-Channel2:
         ipv4: 10.0.0.35/31
         ipv6: fc00::26/126
+    bp_interface:
+      ipv4: 10.10.246.35/24
+      ipv6: fc0a::26/64
 
   ARISTA03T1:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200064600
       peers:
-        65100:
+        4200065100:
         - 10.0.0.36
         - FC00::29
     interfaces:
@@ -159,20 +215,20 @@ configuration:
         lacp: 3
       Ethernet2:
         lacp: 3
-      Ethernet9:
-        ipv4: 10.10.246.37/24
-        ipv6: fc0a::2A/64
       Port-Channel3:
         ipv4: 10.0.0.37/31
         ipv6: fc00::2A/126
+    bp_interface:
+      ipv4: 10.10.246.37/24
+      ipv6: fc0a::2A/64
 
   ARISTA04T1:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200064600
       peers:
-        65100:
+        4200065100:
         - 10.0.0.38
         - FC00::2D
     interfaces:
@@ -183,9 +239,9 @@ configuration:
         lacp: 4
       Ethernet2:
         lacp: 4
-      Ethernet9:
-        ipv4: 10.10.246.39/24
-        ipv6: fc0a::2E/64
       Port-Channel4:
         ipv4: 10.0.0.39/31
         ipv6: fc00::2E/126
+    bp_interface:
+      ipv4: 10.10.246.39/24
+      ipv6: fc0a::2E/64

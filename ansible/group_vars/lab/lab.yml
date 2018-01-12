@@ -27,9 +27,9 @@ tacacs_group: 'testlab'
 # snmp servers
 snmp_servers: ['10.0.0.9']
 
-# dhcp replay servers
-dhcp_servers: ['10.0.0.1']
-#
+# dhcp relay servers
+dhcp_servers: ['192.0.0.1', '192.0.0.2', '192.0.0.3', '192.0.0.4']
+
 # snmp variables
 snmp_rocommunity: public
 snmp_location: testlab

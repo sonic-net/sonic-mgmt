@@ -27,15 +27,14 @@ class MtuTest(BaseTest):
     back. It also sends a jumbo frame to a route destination for verifying the 
     forwarding functionality
     
-    For the device configured with IP-MTU=9100, PHY-MTU=9122, 
-     - ICMP frame, the packet-len is 9114 (Subtracting 8 bytes of ICMP header from 9122)
-     - IP frame, the packet-len is 9122 (This includes the Layer 2 Ethernet header + FCS)
+    For the device configured with IP-MTU=9100, PHY-MTU=9114,
+     - ICMP/IP frame, the packet-len is 9114 (This includes the 14 bytes Layer 2 Ethernet header)
     '''
 
     #---------------------------------------------------------------------
     # Class variables
     #---------------------------------------------------------------------
-    DEFAULT_PACKET_LEN = 9122
+    DEFAULT_PACKET_LEN = 9114
     ICMP_HDR_LEN = 8
 
     def __init__(self):
@@ -61,7 +60,7 @@ class MtuTest(BaseTest):
         ip_dst = "10.0.0.0"
         src_mac = self.dataplane.get_mac(0, 0)
 
-        pktlen = (self.DEFAULT_PACKET_LEN - self.ICMP_HDR_LEN)
+        pktlen = self.DEFAULT_PACKET_LEN
 
         pkt = simple_icmp_packet(pktlen=pktlen,
                             eth_dst=self.router_mac,

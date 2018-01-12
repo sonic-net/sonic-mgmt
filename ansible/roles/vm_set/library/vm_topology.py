@@ -4,6 +4,7 @@ import subprocess
 import re
 import os
 import os.path
+import re
 from docker import Client
 from ansible.module_utils.basic import *
 import traceback
@@ -18,7 +19,7 @@ short_description: Create a custom virtual topology for vm_sets
 description:
     - With cmd: 'create' the module:
       - creates a bridges for every VM name in vm_names which will be used for back plane connections
-      - creates len(vm_names)*8 ovs bridges with name template "br-{{ vm_name }}-{{ 0..7 }}" which will be used by FP port of VMs
+      - creates len(vm_names)*max_fp_num ovs bridges with name template "br-{{ vm_name }}-{{ 0..max_fp_num-1 }}" which will be used by FP port of VMs
     - With cmd: 'destroy' the module:
       - destroys ovs bridges which were created with 'create' cmd
     - With cmd: 'bind' the module:
@@ -72,16 +73,18 @@ EXAMPLES = '''
     mgmt_bridge: "{{ mgmt_bridge }}"
     ext_iface: "{{ external_iface }}"
     fp_mtu: "{{ fp_mtu_size }}"
+    max_fp_num: "{{ max_fp_num }}
 '''
 
 
 DEFAULT_MTU = 0
-NUM_FP_VLANS_PER_FP = 8
+NUM_FP_VLANS_PER_FP = 4
 VM_SET_NAME_MAX_LEN = 8  # used in interface names. So restricted
 MGMT_BR_NAME = 'mgmt'
 CMD_DEBUG_FNAME = '/tmp/vmtopology.cmds.txt'
 EXCEPTION_DEBUG_FNAME = '/tmp/vmtopology.exception.txt'
 
+OVS_FP_BRIDGE_REGEX = 'br-%s-\d+'
 OVS_FP_BRIDGE_TEMPLATE = 'br-%s-%d'
 OVS_FP_TAP_TEMPLATE = '%s-t%d'
 OVS_BRIDGE_BACK_TEMPLATE = 'br-%s-back'
@@ -96,9 +99,10 @@ BACK_VM_END_IF_TEMPLATE = 'veth-bv-%s'
 
 class VMTopology(object):
 
-    def __init__(self, vm_names, fp_mtu):
+    def __init__(self, vm_names, fp_mtu, max_fp_num):
         self.vm_names = vm_names
         self.fp_mtu = fp_mtu
+        self.max_fp_num = max_fp_num
 
         self.host_ifaces = VMTopology.ifconfig('ifconfig -a')
 
@@ -113,6 +117,10 @@ class VMTopology(object):
                 self.vm_base_index = self.vm_names.index(vm_base)
             else:
                 raise Exception('VM_base "%s" should be presented in current vm_names: %s' % (vm_base, str(self.vm_names)))
+            for hostname, attrs in self.VMs.iteritems():
+                vmname = self.vm_names[self.vm_base_index + attrs['vm_offset']]
+                if len(attrs['vlans']) > len(self.get_bridges(vmname)):
+                    raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d" % (hostname, vmname, len(self.get_bridges(vmname))))
         else:
             self.VMs = {}
             
@@ -154,7 +162,7 @@ class VMTopology(object):
 
     def create_bridges(self):
         for vm in self.vm_names:
-            for vlan_num in xrange(NUM_FP_VLANS_PER_FP):
+            for vlan_num in xrange(self.max_fp_num):
                 vlan_br_name = OVS_FP_BRIDGE_TEMPLATE % (vm, vlan_num)
                 self.create_bridge(vlan_br_name)
             port1_br_name = OVS_BRIDGE_BACK_TEMPLATE = 'br-%s-back' % vm
@@ -175,9 +183,9 @@ class VMTopology(object):
 
     def destroy_bridges(self):
         for vm in self.vm_names:
-            for vlan_num in xrange(NUM_FP_VLANS_PER_FP):
-                vlan_br_name = OVS_FP_BRIDGE_TEMPLATE % (vm, vlan_num)
-                self.destroy_bridge(vlan_br_name)
+            for ifname in self.host_ifaces:
+                if re.compile(OVS_FP_BRIDGE_REGEX % vm).match(ifname):
+                    self.destroy_bridge(ifname)
             port1_br_name = OVS_BRIDGE_BACK_TEMPLATE = 'br-%s-back' % vm
             self.destroy_bridge(port1_br_name)
 
@@ -189,6 +197,14 @@ class VMTopology(object):
             VMTopology.cmd('ovs-vsctl del-br %s' % bridge_name)
 
         return
+
+    def get_bridges(self, vmname):
+        brs = []
+        for ifname in self.host_ifaces:
+            if re.compile(OVS_FP_BRIDGE_REGEX % vmname).match(ifname):
+                brs.append(ifname)
+
+        return brs
 
     def add_veth_ports_to_docker(self):
         for vlan in self.injected_fp_ports:
@@ -573,9 +589,6 @@ def check_topo(topo):
             if 'vm_offset' not in attrs or not isinstance(attrs['vm_offset'], int):
                 raise Exception("topo['VMs']['%s'] should contain 'vm_offset' with a number" % hostname)
 
-            if len(attrs['vlans']) > NUM_FP_VLANS_PER_FP:
-                raise Exception("Wrong vlans parameter for hostname %s. Too many vlans. Maximum is %d" % (hostname, NUM_FP_VLANS_PER_FP))
-
             for vlan in attrs['vlans']:
                 if not isinstance(vlan, int) or vlan < 0:
                     raise Exception("topo['VMs'][%s]['vlans'] should contain a list with integers" % hostname)
@@ -609,18 +622,20 @@ def main():
             mgmt_bridge=dict(required=False, type='str'),
             ext_iface=dict(required=False, type='str'),
             fp_mtu=dict(required=False, type='int', default=DEFAULT_MTU),
+            max_fp_num=dict(required=False, type='int', default=NUM_FP_VLANS_PER_FP),
         ),
         supports_check_mode=False)
 
     cmd = module.params['cmd']
     vm_names = module.params['vm_names']
     fp_mtu = module.params['fp_mtu']
+    max_fp_num = module.params['max_fp_num']
 
     try:
         if os.path.exists(CMD_DEBUG_FNAME) and os.path.isfile(CMD_DEBUG_FNAME):
             os.remove(CMD_DEBUG_FNAME)
 
-        net = VMTopology(vm_names, fp_mtu)
+        net = VMTopology(vm_names, fp_mtu, max_fp_num)
 
         if cmd == 'create':
             net.create_bridges()

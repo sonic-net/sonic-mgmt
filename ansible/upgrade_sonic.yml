@@ -1,0 +1,101 @@
+# Example usage:
+#
+# upgrade via sonic2sonic upgrade:
+#   ansible-playbook upgrade_sonic.yml -i lab -l devicename -e "upgrade_type=sonic" -e "image_url='http://8.8.8.8/sonic-broadcom.bin'"
+# upgrade via onie:
+#   ansible-playbook upgrade_sonic.yml -i lab -l devicename -e "upgrade_type=onie" -e "image_url='http://8.8.8.8/sonic-broadcom.bin'"
+
+- hosts: all
+  gather_facts: no
+  tasks:
+
+    - name: Gather minigraph facts for the switch {{ inventory_hostname }}
+      minigraph_facts: host={{ inventory_hostname }}
+      connection: local
+      tags: always
+
+    - set_fact:
+        real_ansible_host: "{{ ansible_ssh_host }}"
+
+    - block:
+
+        - name: Set next boot device to ONIE
+          become: true
+          shell: grub-editenv /host/grub/grubenv set next_entry=ONIE
+
+        - name: Reboot into ONIE
+          become: true
+          shell: sleep 2 && shutdown -r now "Boot into onie."
+          async: 1
+          poll: 0
+          ignore_errors: true
+
+        - name: Wait for switch to come back (to ONIE)
+          local_action:
+            wait_for host={{ real_ansible_host }}
+            port=22
+            state=started
+            delay=60
+            timeout=300
+          changed_when: false
+
+        - name: Stop onie discovery
+          shell: ssh root@{{ real_ansible_host }} '/bin/ash -ilc "onie-discovery-stop"'
+          delegate_to: 127.0.0.1
+
+          # since onie install will reboot the box, the shell command cannot exit in synchronized mode.
+          # Now, use async mode and set a maximum wait period, the next task will wait for installation
+          # to finish and switch to reboot
+        - name: Install the target image from {{ image_url }}
+          shell: ssh root@{{ real_ansible_host }} '/bin/ash -ilc "onie-nos-install {{ image_url }}"'
+          delegate_to: 127.0.0.1
+          async: 60
+          poll: 5
+          ignore_errors: true
+
+        - name: Wait for switch to reboot again (ONIE installation finishes)
+          local_action:
+            wait_for host={{ real_ansible_host }}
+            port=22
+            state=stopped
+            delay=5
+            timeout=600
+          changed_when: false
+
+      when: upgrade_type == "onie"
+
+    - block:
+        - fail: msg="image_url is not defined"
+          when: image_url is not defined
+
+        - name: Install the target image from {{ image_url }}
+          become: true
+          shell: sonic_installer install -y {{ image_url }}
+          register: output
+          failed_when: output.rc != 0
+
+        - name: Reboot the switch {{ inventory_hostname }}
+          become: true
+          shell: shutdown -r now "Reboot"
+          async: 1
+          poll: 0
+          ignore_errors: true
+
+      when: upgrade_type == "sonic"
+
+    - name: Wait for switch {{ inventory_hostname }} to come back (to SONiC)
+      local_action:
+        wait_for host={{ ansible_host }}
+        port=22
+        state=started
+        delay=30
+        timeout=600
+        search_regex=OpenSSH
+      changed_when: false
+
+    - name: Wait for SONiC initialization
+      pause: seconds=60
+
+    - name: Set all bgp interfaces admin-up
+      become: true
+      shell: config bgp startup all

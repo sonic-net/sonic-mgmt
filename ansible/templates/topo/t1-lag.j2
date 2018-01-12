@@ -130,7 +130,7 @@
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel{{ index*8 }}</Name>
           <AttachTo>{{ port_alias[index*2] }};{{ port_alias[index*2+1] }}</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
 {% endfor %}
       </PortChannelInterfaces>
@@ -169,7 +169,10 @@
       <AclInterfaces>
         <AclInterface>
           <AttachTo>
-          {{ port_alias|join(";") }}
+          {% for index in range(8) -%}
+          PortChannel{{ index*8 }};
+          {%- endfor -%}
+          {{ port_alias[16:]|join(";") }}
           </AttachTo>
           <InAcl>DataAcl</InAcl>
         </AclInterface>

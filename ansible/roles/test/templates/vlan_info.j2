@@ -1,0 +1,35 @@
+--- 
+
+{% set vlan_id_list = [ 100, 200 ] %}
+vlan_ports_list: 
+{% for portchannel in minigraph_portchannels.keys()[:2] %}
+{% set members = minigraph_portchannels[portchannel].members %}
+  - dev: {{ portchannel }}
+    port_index: {{ minigraph_port_indices[members[0]] }}
+    pvid: '{{ vlan_id_list[loop.index0%2] }}'
+    permit_vlanid: 
+{% for vlan in vlan_id_list %}
+      '{{ vlan }}':
+        peer_ip: '192.168.{{ vlan }}.{{ 2 + minigraph_port_indices.keys().index(members[0]) }}'
+        remote_ip: '{{vlan}}.1.1.{{ 2 + minigraph_port_indices.keys().index(members[0]) }}'
+{% endfor %}
+{% endfor %}
+{% for port in minigraph_ports.keys()[:2] %}
+  - dev: {{ port }}
+    port_index: '{{ minigraph_port_indices[port]}}'
+    pvid: '{{ vlan_id_list[loop.index0%2] }}'
+    permit_vlanid:
+{% for vlan in vlan_id_list %}
+      '{{ vlan }}':
+        peer_ip: '192.168.{{ vlan }}.{{ 2 + minigraph_port_indices.keys().index(port) }}'
+        remote_ip: '{{vlan}}.1.1.{{ 2 + minigraph_port_indices.keys().index(port) }}'
+{% endfor %}
+{% endfor %}
+
+vlan_intf_list:
+{% for vlan in vlan_id_list %}
+  - vlan_id: '{{ (vlan|int) }}'
+    ip: '192.168.{{ vlan }}.1/24'
+{% endfor %}
+
+...

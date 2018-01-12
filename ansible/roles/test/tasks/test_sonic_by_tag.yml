@@ -1,0 +1,173 @@
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  connection: local
+  become: no
+  tags: always
+
+### When calling the following tests, you need to provide a command line parameter
+### specifying which PTF docker image host to test against. For example,
+### -e "ptf_host=10.0.0.200"
+- fail: msg="Please set ptf_host variable"
+  when: ptf_host is not defined
+  tags: arp,dhcp_relay
+
+# Set sonic_hwsku
+- name: Set sonic_hwsku fact
+  set_fact:
+    sonic_hwsku: "{{minigraph_hwsku}}"
+  tags: always
+
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: broadcom
+  when: sonic_hwsku in broadcom_hwskus
+  tags: always
+
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: mellanox
+  when: sonic_hwsku in mellanox_hwskus
+  tags: always
+
+- name: Verify interfaces are up
+  include: interface.yml
+  tags: always
+
+- name: BGP facts test
+  include: bgp_fact.yml
+  tags: bgp_fact
+
+- name: Neighbor mac change test
+  include: neighbour-mac.yml
+  tags: neighbour
+
+- name: Test LLDP
+  include: lldp.yml
+  tags: lldp
+
+- name: Test NTP
+  include: ntp.yml
+  tags: ntp
+
+- name: Test SNMP Basic
+  include: snmp.yml
+  tags: snmp
+
+- name: Test DHCP Relay
+  include: dhcp_relay.yml
+  tags: dhcp_relay
+  when: minigraph_devices[inventory_hostname]['type'] == "ToRRouter"
+
+- name: Test Control-Plain policing COPP
+  include: copp.yml
+  tags: copp
+
+- name: Fast-reboot test
+  include: fast-reboot.yml
+  when: minigraph_portchannel_interfaces | length > 0 and minigraph_vlan_interfaces | length > 0
+  tags: fast_reboot
+
+### when callng BGP flaps test, please add command line of which VMs host to test against
+### -e "vmhost_num='01'"
+- fail: msg="Please set vmhost_num variable"
+  when: vmhost_num is not defined
+  tags: sync
+
+- name: Test SyncD BGP Flaps
+  include: bgp_flap.yml
+  tags: sync
+
+- name: Test Syslog Basic
+  include: syslog.yml
+  tags: syslog
+
+- name: Test SNMP CPU
+  include: snmp/cpu.yml
+  tags: snmp_cpu
+  when: minigraph_hwsku == "Force10-S6000" or minigraph_hwsku == "ACS-S6000"
+
+- name: Test SNMP Interfaces
+  include: snmp/interfaces.yml
+  tags: snmp_interfaces
+
+- name: Test Interface Flap from Neighbor
+  include: link_flap.yml
+  tags: link_flap
+
+- name: Test kernel ARP behavior
+  include: arpall.yml
+  tags: arp
+
+- name: Test sensors
+  include: sensors_check.yml
+  tags: sensors
+
+- name: Test reboot
+  include: reboot.yml
+  tags: reboot
+
+### When calling the following tests, please add command line of what testbed_type and which PTF docker to test against
+### -e "testbed_type=t1-lag ptf_host=10.0.0.200"
+- name: Fib test
+  include: fib.yml
+  tags: fib
+
+- name: MTU test
+  include: mtu.yml
+  tags: mtu
+
+- name: Directed Broadcast test
+  include: dir_bcast.yml
+  tags: dir_bcast
+
+- name: FDB test
+  include: fdb.yml
+  tags: fdb
+
+### When calling this decap test, please add command line of what testbed_type, dscp_mode, and which PTF docker to test against
+#### -e "testbed_type=t1-lag dscp_mode=pipe ptf_host=10.0.0.200"
+- name: Decap test
+  include: decap.yml
+  tags: decap
+
+- name: BGP Speaker test
+  include: bgp_speaker.yml
+  tags: bgp_speaker
+
+- name: Test Everflow
+  include: everflow.yml
+  tags: everflow
+
+- name: Test Everflow on testbed
+  include: everflow_testbed.yml
+  tags: everflow_testbed
+
+- name: Test LAG
+  include: lagall.yml
+  tags: lag
+
+- name: Test LAG using lag graph file
+  include: lag_2.yml
+  tags: lag_2
+
+- name: Memory check
+  include: mem_check.yml
+  tags: mem_check
+
+- name: ACL test 
+  include: acltb.yml
+  tags: acl
+
+- name: PFC Watchdog test
+  include: pfc_wd.yml
+  tags: pfc_wd
+
+### when calling this test, please add command line of testbed_type 
+### -e testbed_type=t1
+- name: BGP multipath relax
+  include: bgp_multipath_relax.yml
+  tags: bgp_multipath_relax
+
+- name: neighbor mac change test without using ptf
+  include: neighbour-mac-noptf.yml
+  tags: neighbour_mac_noptf

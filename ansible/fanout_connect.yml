@@ -22,6 +22,6 @@
 
       - set_fact: userid={{ calling_username.stdout }}
 
+      - set_fact: connect_leaf=false
+
       - include: roles/fanout/tasks/rootfanout_connect.yml
-
-
