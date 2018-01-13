@@ -57,6 +57,10 @@
   include_vars: vars/topo_t0.yml
   when: testbed_type == 't0'
 
+- name: Include testbed topology configuration (to get LAG IP and PTF docker interfaces, that are behind LAG VMs).
+  include_vars: vars/topo_t0-116.yml
+  when: testbed_type == 't0-116'
+
 - set_fact:
     dut_mac: "{{ ansible_Ethernet0['macaddress'] }}"
 

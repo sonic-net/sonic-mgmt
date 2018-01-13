@@ -81,6 +81,7 @@
   vars: 
     vm_name: "{{ peer_device }}"
     lacp_timer: 1
+    interval_count: 3
 
 # make sure portchannel peer rate is set to slow
 - name: make sure all lag members on VM are set to slow
@@ -98,3 +99,4 @@
   vars: 
     vm_name: "{{ peer_device }}"
     lacp_timer: 30
+    interval_count: 3
