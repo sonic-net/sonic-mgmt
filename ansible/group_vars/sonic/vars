@@ -2,7 +2,7 @@ ansible_ssh_user: admin
 
 sonic_version: "v2"
 
-broadcom_hwskus: [ 'Force10-S6000' ]
+broadcom_hwskus: [ "Force10-S6000", "Accton-AS7712-32X" ]
 
 mellanox_hwskus: [ 'ACS-MSN2700' ]
 

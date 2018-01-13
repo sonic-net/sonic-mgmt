@@ -487,6 +487,9 @@ def parse_xml(filename, hostname):
             port_alias_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
         for i in range(49, 65):
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 49) * 4 + 48)
+    elif hwsku == "Accton-AS7712-32X":
+        for i in range(1, 33):
+            port_alias_map["hundredGigE%d" % i] = "Ethernet%d" % ((i - 1) * 4)
     else:
         for i in range(0, 128, 4):
             port_alias_map["Ethernet%d" % i] = "Ethernet%d" % i
