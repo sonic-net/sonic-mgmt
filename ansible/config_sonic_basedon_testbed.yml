@@ -11,12 +11,15 @@
 # Template files for generating minigraph.xml are defined in template/topo directory
 #
 # To generate and deploy minigraph for SONiC switch matching the VM topology please use following command
-# ansible-playbook -i lab config_sonic_basedon_testbed.yml -l sonic_dut_name -e vm_base=VM0300 -e topo=t0 [-e deploy=true]
+# ansible-playbook -i lab config_sonic_basedon_testbed.yml -l sonic_dut_name -e vm_base=VM0300 -e topo=t0 [-e deploy=true -e save=true]
+# ansible-playbook -i lab config_sonic_basedon_testbed.yml -l sonic_dut_name -e testbed_name=vms1-1 [-e deploy=true -e save=true]
 #
 # Parameters
 # -l str-msn2700-01          - the sonic_dut_name you are going to generate minigraph for
 # -e vm_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
 # -e topo=t0                 - the name of topology to generate minigraph file
+# -e testbed_name=vms1-1     - the testbed name specified in testbed.csv file 
+#                              (if you give 'testbed_name' option, will use info from testbed and ignore topo and vm_base options)
 # -e deploy=True             - if deploy the newly generated minigraph to the targent DUT, default is false if not defined
 # -e save=True               - if save the newly generated minigraph to the targent DUT as starup-config, default is false if not defined
 #
@@ -30,16 +33,32 @@
 - hosts: sonic
   gather_facts: yes
   tasks:
-  - fail: msg="need to provide topology type and vm base like topo=t0 and vm_base=VM100"
-    when: (topo is not defined) or (vm_base is not defined)
-      
+
   - fail: msg="need hwsku, interface speed, netmask and interface prefix/postfix defined to generate configuration file"
     when: (hwsku is not defined) or (iface_speed is not defined) or (mgmt_subnet_mask_length is not defined)
+
+  - block:
+    - name: Gathering testbed information
+      test_facts: testbed_name="{{ testbed_name }}"
+      connection: local
+
+    - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
+      when: testbed_facts['dut'] != inventory_hostname
+
+    - name: set testbed_type
+      set_fact:
+        topo: "{{ testbed_facts['topo'] }}"
+
+    - name: set vm
+      set_fact:
+        vm_base: "{{ testbed_facts['vm_base'] }}"
+      when: "testbed_facts['vm_base'] != ''"
+    when: testbed_name is defined
 
   - set_fact:
       VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
       remote_dut: "{{ ansible_ssh_host }}"
-      template_name: "{{ 't1' if topo=='ptf32' else topo }}"
+      template_name: "{{ 't1' if 'ptf' in topo else topo }}"
 
   - testbed_vm_info: base_vm="{{ vm_base }}"  topo="{{ topo }}"
     connection: local
@@ -47,7 +66,6 @@
 
   - name: find interface name mapping
     port_alias: hwsku="{{ hwsku }}"
-    connection: local
 
   - debug: var=port_alias
 
@@ -61,7 +79,7 @@
     template: src=templates/topo/{{ template_name }}.j2
               dest=minigraph/{{ inventory_hostname}}.xml
     connection: local
-  
+
   - block:
       - name: saved original minigraph file (if original file may don't exist, then ignore errors)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
@@ -72,9 +90,9 @@
         template: src=templates/topo/{{ template_name }}.j2
                   dest=/etc/sonic/minigraph.xml
         become: true
- 
+
       - name: disable automatic minigraph update if we are deploying new minigraph into SONiC
-        lineinfile: 
+        lineinfile:
             name: /etc/sonic/updategraph.conf
             regexp: '^enabled='
             line: 'enabled=false'
