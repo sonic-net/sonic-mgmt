@@ -150,6 +150,9 @@ class EverflowTest(BaseTest):
         if self.asic_type in ["barefoot"]:
             payload = str(scapy_pkt[scapy.GRE].payload)[12:]
 
+        if self.hwsku in ["Nexus-9232-C32", "Nexus-9232-Q32"]:
+            payload = str(scapy_pkt[scapy.GRE].payload)[8:]
+
         inner_pkt = scapy.Ether(payload)
 
         if self.mirror_stage == 'egress':
