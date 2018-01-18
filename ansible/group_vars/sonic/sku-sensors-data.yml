@@ -956,7 +956,7 @@ sensors_checks:
       temp: []
     psu_skips: {}
 
-  Arista-7060CX-32S-C32:
+  Arista-7060-CX32S:
     alarms:
       fan:
       - pmbus-i2c-5-58/fan1/fan1_alarm
@@ -979,19 +979,19 @@ sensors_checks:
       - pmbus-i2c-6-58/vout1/in2_crit_alarm
       - pmbus-i2c-6-58/vout1/in2_lcrit_alarm
       temp:
-      - max6658-i2c-3-4c/temp1/temp1_min_alarm
-      - max6658-i2c-3-4c/temp1/temp1_max_alarm
-      - max6658-i2c-3-4c/temp1/temp1_crit_alarm
-      - max6658-i2c-3-4c/temp2/temp2_min_alarm
-      - max6658-i2c-3-4c/temp2/temp2_max_alarm
-      - max6658-i2c-3-4c/temp2/temp2_crit_alarm
-      - max6658-i2c-3-4c/temp2/temp2_fault
-      - pmbus-i2c-5-58/temp1/temp1_alarm
-      - pmbus-i2c-5-58/temp2/temp2_alarm
-      - pmbus-i2c-5-58/temp3/temp3_alarm
-      - pmbus-i2c-6-58/temp1/temp1_alarm
-      - pmbus-i2c-6-58/temp2/temp2_alarm
-      - pmbus-i2c-6-58/temp3/temp3_alarm
+      - max6658-i2c-3-4c/Cpu board temp sensor/temp1_min_alarm
+      - max6658-i2c-3-4c/Cpu board temp sensor/temp1_max_alarm
+      - max6658-i2c-3-4c/Cpu board temp sensor/temp1_crit_alarm
+      - max6658-i2c-3-4c/Back panel temp sensor/temp2_min_alarm
+      - max6658-i2c-3-4c/Back panel temp sensor/temp2_max_alarm
+      - max6658-i2c-3-4c/Back panel temp sensor/temp2_crit_alarm
+      - max6658-i2c-3-4c/Back panel temp sensor/temp2_fault
+      - pmbus-i2c-5-58/Power supply 2 hotspot sensor/temp1_alarm
+      - pmbus-i2c-5-58/Power supply 2 inlet temp sensor/temp2_alarm
+      - pmbus-i2c-5-58/Power supply 2 exhaust temp sensor/temp3_alarm
+      - pmbus-i2c-6-58/Power supply 1 hotspot sensor/temp1_alarm
+      - pmbus-i2c-6-58/Power supply 1 inlet temp sensor/temp2_alarm
+      - pmbus-i2c-6-58/Power supply 1 exhaust temp sensor/temp3_alarm
 
     compares:
       fan: []
@@ -1007,10 +1007,10 @@ sensors_checks:
       temp:
       - - k10temp-pci-00c3/Cpu temp sensor/temp1_input
         - k10temp-pci-00c3/Cpu temp sensor/temp1_max
-      - - max6658-i2c-3-4c/temp1/temp1_input
-        - max6658-i2c-3-4c/temp1/temp1_max
-      - - max6658-i2c-3-4c/temp2/temp2_input
-        - max6658-i2c-3-4c/temp2/temp2_max
+      - - max6658-i2c-3-4c/Cpu board temp sensor/temp1_input
+        - max6658-i2c-3-4c/Cpu board temp sensor/temp1_max
+      - - max6658-i2c-3-4c/Back panel temp sensor/temp2_input
+        - max6658-i2c-3-4c/Back panel temp sensor/temp2_max
 
     non_zero:
       fan:
