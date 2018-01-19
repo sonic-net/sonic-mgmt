@@ -956,7 +956,7 @@ sensors_checks:
       temp: []
     psu_skips: {}
 
-  Arista-7060-CX32S:
+  Arista-7060CX-32S-C32:
     alarms:
       fan:
       - pmbus-i2c-5-58/fan1/fan1_alarm
