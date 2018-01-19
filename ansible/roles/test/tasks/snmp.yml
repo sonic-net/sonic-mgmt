@@ -7,4 +7,10 @@
 - name: Validating SNMP was successful and Hostname is what is expected
   assert: { that: "ansible_sysname == '{{ inventory_hostname }}'" }
 
+- block:
+    - name: inlcude snmp cpu test
+      include: roles/test/tasks/snmp/cpu.yml
 
+    - name: include snmp interfaces test
+      include: roles/test/tasks/snmp/interfaces.yml
+  when: testcase_name is defined

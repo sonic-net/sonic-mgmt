@@ -110,14 +110,14 @@ testcases:
           testbed_type:
 
     neighbour:
-      filename: neighbour.yml
+      filename: neighbour-mac.yml
       topologies: [ptf32, ptf64]
       required_vars:
           ptf_host:
 
     neighbour_mac_noptf:
       filename: neighbour-mac-noptf.yml
-      topologies: [ptf32, ptf64]
+      topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
     ntp:
       filename: ntp.yml
