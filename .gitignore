@@ -11,6 +11,10 @@ ansible.log
 tests/logs
 tests/_cache
 tests/metadata
+ansible/plugins/filter/*.pyc
 
 # Dev tools
 .vscode/
+
+# Credential files
+ansible/group_vars/all/secrets.json
