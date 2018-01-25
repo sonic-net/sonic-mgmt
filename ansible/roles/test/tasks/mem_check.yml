@@ -1,7 +1,7 @@
 - name: Copy mem_check.sh to the DuT
   become: true
   copy:
-    src: roles/test/files/mem_check.sh
+    src: roles/test/files/helpers/mem_check.sh
     dest: /tmp/mem_check.sh
     mode: 0755
 
