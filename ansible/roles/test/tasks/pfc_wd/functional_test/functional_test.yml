@@ -1,5 +1,10 @@
+# To support fanout platform other than arista
+# 1. Change the pfc_gen_file copy dest to platform-specific location.
+# 2. Create pfc_storm_[sku].j2 and pfc_storm_stop_[sku].j2 to start and stop pfc generator
+
 - conn_graph_facts: host={{ peer_device }}
   connection: local
+  become: no
 
 - name: Prepare variables required for PFC test
   set_fact:
@@ -8,6 +13,7 @@
     pfc_wd_test_pkt_count: 10000
     pfc_fanout_interface: "{{neighbors[pfc_wd_test_port]['peerport']}}"
     peer_hwsku: "{{device_info['HwSku']}}"
+    peer_mgmt: "{{device_info['mgmtip']}}"
     testname: functional_test
     config_files:
       - pfc_wd_drp_action.json
@@ -25,12 +31,32 @@
       pfc_wd_storm_template: pfc_storm_mlnx.j2
   when: peer_hwsku == "MLNX-OS"
 
+- set_fact:
+      pfc_wd_storm_template: pfc_storm_arista.j2
+      pfc_wd_storm_stop_template: pfc_storm_stop_arista.j2
+  when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
+
 - name: Set timers
   set_fact:
       pfc_wd_detect_time: 200
       pfc_wd_restore_time: 200
       pfc_wd_restore_time_large: 30000
       pfc_wd_poll_time: 100
+
+- set_fact:
+      pfc_gen_file: pfc_gen.py
+
+- name: Create pfc generater file in case it doesn't exist.
+  file: path=/mnt/flash/{{pfc_gen_file}} state=touch
+  delegate_to: "{{ peer_mgmt}}"
+  become: true
+  when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
+
+- name: Deploy PFC generator to the fanout switch
+  copy: src=roles/test/files/helpers/{{pfc_gen_file}} dest=/mnt/flash
+  delegate_to: "{{peer_mgmt}}"
+  become: true
+  when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
 
 - name: copy the test to ptf container
   copy: src=roles/test/files/ptftests dest=/root
@@ -41,7 +67,6 @@
   register: queue_oid
 
 # Verify proper function of drop action
-
 - block:
     - name: Apply drop config to {{ pfc_wd_test_port }}.
       vars:
@@ -60,13 +85,17 @@
     - set_fact:
         test_expect_file: "expect_pfc_wd_detect"
 
+    - set_fact:
+        pfc_frames_number: 100000000
+      when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
+
     - name: Initialize loganalyzer
       include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Generate PFC storm on fanout switch
       action: apswitch template="{{pfc_wd_storm_template}}"
       args:
-        host: "{{peer_device}}"
+        host: "{{peer_mgmt}}"
         login: "{{peer_login}}"
       connection: switch
 
@@ -154,6 +183,14 @@
     - name: Initialize loganalyzer
       include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
+    - name: Stop PFC storm on fanout switch
+      action: apswitch template="{{pfc_wd_storm_stop_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch
+      when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
+
     - name: Wait for queue to recover from PFC storm
       pause:
         seconds: "{{(pfc_wd_restore_time_large / 1000 * 2) | int}}"
@@ -208,7 +245,6 @@
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 
 # Verify proper function of forward action
-
 - block:
     - name: Apply forward config to {{ pfc_wd_test_port }}.
       vars:
@@ -227,15 +263,24 @@
     - set_fact:
         test_expect_file: "expect_pfc_wd_detect"
 
+    - set_fact:
+        pfc_frames_number: 100000000
+      when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
+
+
     - name: Initialize loganalyzer
       include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Generate PFC storm on fanout switch
       action: apswitch template="{{pfc_wd_storm_template}}"
       args:
-        host: "{{peer_device}}"
+        host: "{{peer_mgmt}}"
         login: "{{peer_login}}"
       connection: switch
+
+    - name: Let PFC storm happen for a while
+      pause:
+        seconds: 1
 
     - name: Check if logs contain message that PFC WD detected deadlock
       include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
@@ -284,6 +329,15 @@
 
     - name: Initialize loganalyzer
       include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+    - name: Stop PFC storm on fanout switch
+      action: apswitch template="{{pfc_wd_storm_stop_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch
+      when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
+
 
     - name: Wait for queue to recover from PFC storm
       pause:
@@ -355,49 +409,59 @@
         command_to_run: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time }} {{ pfc_wd_test_port }} {{ pfc_wd_detect_time }}"
         errors_expected: false
       include: roles/test/tasks/run_command_with_log_analyzer.yml
+
     - name: Enable routing from mgmt interface to localhost
       sysctl:
-        name: net.ipv4.conf.eth0.route_localnet=1
+        name: net.ipv4.conf.eth0.route_localnet
         value: 1
         sysctl_set: yes
+      become: true
 
       # Cannot use iptables module, because it does not support to_destination in 2.0
     - name: Add iptables rule to forward syslog packets from mgmt interface to localhost
       shell: "iptables -t nat -I PREROUTING -p udp -d {{ansible_eth0['ipv4']['address']}} --dport 514 -j DNAT --to-destination 127.0.0.1:514"
+      become: true
 
     - set_fact:
         detect_time_list: []
         restore_time_list: []
+        total_run: 5
+
+    - set_fact:
+        pfc_frames_number: 100000
+      when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
+
 
     - name: Calculate detection and restoration timings
       include: roles/test/tasks/pfc_wd/functional_test/timer_test.yml
-      with_sequence: start=1 end=3
+      with_sequence: start=1 end={{total_run}}
 
     - debug:
         var: "{{item}}"
       with_items: 
         - detect_time_list
         - restore_time_list
+        - total_run
 
     - name: Verify that real detection time is not greater than configured
       fail:
         msg: Real detection time is greater than configured
-      when: "{{(detect_time_list | sum) / 3 > pfc_wd_detect_time + pfc_wd_poll_time}}"
+      when: "{{(detect_time_list | sum) / total_run > pfc_wd_detect_time + pfc_wd_poll_time}}"
 
     - name: Verify that real detection time is not less than configured
       fail:
         msg: Real detection time is less than configured
-      when: "{{(detect_time_list | sum) / 3 < pfc_wd_detect_time}}"
+      when: "{{(detect_time_list | sum) / total_run <  pfc_wd_detect_time}}"
 
     - name: Verify that real restoration time is not less than configured
       fail:
         msg: Real restoration time is less than configured
-      when: "{{(restore_time_list | sum) / 3 < pfc_wd_restore_time}}"
+      when: "{{(restore_time_list | sum) / total_run < pfc_wd_restore_time}}"
 
     - name: Verify that real restoration time is less than configured
       fail:
         msg: Real restoration time is greater than configured
-      when: "{{(restore_time_list | sum) / 3 > pfc_wd_restore_time + pfc_wd_poll_time}}"
+      when: "{{(restore_time_list | sum) / total_run > pfc_wd_restore_time + pfc_wd_poll_time}}"
 
   always:
     - name: Clean up config

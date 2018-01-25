@@ -14,9 +14,14 @@
     state: directory
 
 - name: Gathering lab graph facts about the device
-  conn_graph_facts: host={{ ansible_host }}
+  conn_graph_facts: host={{ inventory_hostname }}
   connection: local
   tags: always
+
+- name: Gather minigraph facts about the device
+  minigraph_facts: host={{inventory_hostname}}
+  become: no
+  connection: local
 
 - set_fact:
     neighbors: "{{device_conn}}"
@@ -37,7 +42,7 @@
     - name: Test PFC WD Functional tests.
       vars:
         pfc_wd_template: roles/test/templates/pfc_wd_config.j2
-        peer_device: "{{ neighbors[pfc_wd_test_port]['peerdevice'] }}" 
+        peer_device: "{{ neighbors[pfc_wd_test_port]['peerdevice'] }}"
       include: roles/test/tasks/pfc_wd/functional_test/functional_test.yml
 
   always:
