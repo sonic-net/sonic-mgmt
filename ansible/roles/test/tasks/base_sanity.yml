@@ -7,6 +7,15 @@
    - name: Verify that syncd process is running
      assert: { that: "{{ ps_out.stdout_lines | length }} > 0"}
 
+   - name: Get oragent process information
+     shell: pgrep orchagent -a
+     register: orch_out
+
+   - debug: var=orch_out.stdout_lines
+
+   - name: Verify that orch process is running
+     assert: { that: "{{ orch_out.stdout_lines | length }} > 0"}
+
    - name: Get syslog error information
      shell: cat /var/log/syslog |tail -n 5000 |grep -i error
      become: true
