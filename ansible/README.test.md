@@ -120,7 +120,6 @@ ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags 
 ```
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --tags pfc_wd --extra-vars "testbed_type={TESTBED_TYPE}"
 ```
-PFC WD test assumes that Fanout switch has [PFC generator](https://github.com/marian-pritsak/pfctest/blob/master/pfctest.py) available.
 
 ### BGP multipath relax test
 ```
