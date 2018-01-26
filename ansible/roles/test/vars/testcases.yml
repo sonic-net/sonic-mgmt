@@ -146,6 +146,10 @@ testcases:
     sensors:
       filename: sensors_check.yml
       topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+
+    service_acl:
+      filename: service_acl.yml
+      topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
     
     snmp:
       filename: snmp.yml
