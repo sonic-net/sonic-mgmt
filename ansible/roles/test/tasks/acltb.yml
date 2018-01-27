@@ -2,6 +2,7 @@
 - set_fact:
     out_dir: /tmp/
     testname: acl
+    run_dir: /tmp/
 
 # Gather minigraph facts
 - name: Gathering minigraph facts about the device

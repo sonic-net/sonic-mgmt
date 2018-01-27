@@ -1,6 +1,6 @@
 testcases:
     acl: 
-      filename: acl.yml
+      filename: acltb.yml
       topologies: [t1, t1-lag, t1-64-lag]
       required_vars:
           ptf_host: 
