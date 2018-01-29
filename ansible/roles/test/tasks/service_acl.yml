@@ -1,0 +1,75 @@
+- name: Check for existence of /etc/sonic/acl.json (this also ensures we can successfully SSH to the DuT)
+  become: true
+  stat:
+    path: /etc/sonic/acl.json
+  register: file_stat
+  failed_when: not file_stat.stat.exists
+
+# Gather facts with SNMP version 2
+- name: Ensure we can gather basic SNMP facts about the device
+  snmp_facts:
+    host: "{{ ansible_host }}"
+    version: "v2c"
+    community: "{{ snmp_rocommunity }}"
+  connection: local
+
+- name: Copy config_service_acls.sh to the DuT
+  become: true
+  copy:
+    src: roles/test/files/helpers/config_service_acls.sh
+    dest: /tmp/config_service_acls.sh
+    mode: 0755
+
+# We run the script in the background because if it works
+# properly, it will sever our SSH session, but we don't want
+# the script to get killed, because it is also responsible
+# for resetting the service ACLs back to their previous state
+- name: Run config_service_acls.sh in the background on the DuT
+  become: true
+  shell: "nohup /tmp/config_service_acls.sh < /dev/null > /dev/null 2>&1 &"
+
+- name: Sleep for a few seconds to let new ACLs take effect
+  pause:
+    seconds: 5
+
+- name: Ensure SSH connection to DuT now times out
+  wait_for:
+    port: "22"
+    state: "started"
+    host: "{{ inventory_hostname }}"
+    connect_timeout: "5"
+    timeout: "10"
+  delegate_to: "localhost"
+  register: result
+  failed_when: result.msg != "Timeout when waiting for {{ inventory_hostname }}:22"
+
+# Gather facts with SNMP version 2
+- name: Ensure attempt to gather basic SNMP facts about the device now times out
+  snmp_facts:
+    host: "{{ ansible_host }}"
+    version: "v2c"
+    community: "{{ snmp_rocommunity }}"
+  connection: local
+  register: result
+#  failed_when: "'No SNMP response received before timeout' not in result.msg"
+  failed_when: result.msg != "No SNMP response received before timeout"
+
+# Adjust the number of seconds we sleep here relative to the number of seconds
+# config_service_acls.sh is set to sleep before applying the original service ACLs
+- name: Sleep to ensure config_service_acls.sh has reinstated the original service ACLs
+  pause:
+    seconds: 30
+
+- name: Delete config_service_acls.sh from the DuT (this also tests that we can once again SSH to the DuT)
+  become: true
+  file:
+    state: absent
+    path: /tmp/config_service_acls.sh
+
+# Gather facts with SNMP version 2
+- name: Ensure we can gather basic SNMP facts about the device once again
+  snmp_facts:
+    host: "{{ ansible_host }}"
+    version: "v2c"
+    community: "{{ snmp_rocommunity }}"
+  connection: local
