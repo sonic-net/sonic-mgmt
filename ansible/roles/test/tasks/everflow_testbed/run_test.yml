@@ -43,6 +43,7 @@
 
     - name: Add route to unresolved next hop.
       shell: ip route add {{ unresolved_nexthop_prefix }} dev {{ dst_port_2 }}
+      become: yes
 
     - name: Run testcase 1 - Resolved route
       include: roles/test/tasks/everflow_testbed/testcase_1.yml
@@ -72,6 +73,7 @@
   always:
     - name: Remove route to unresolved next hop.
       shell: ip route del {{ unresolved_nexthop_prefix }}
+      become: yes
 
     - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 

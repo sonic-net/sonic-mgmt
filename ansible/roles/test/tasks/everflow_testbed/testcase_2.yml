@@ -31,6 +31,7 @@
         chdir: /root
       delegate_to: "{{ ptf_host }}"
       register: out
+  become: yes
 
   always:
     - name: Remove route.
@@ -40,3 +41,4 @@
     - name: Remove best match route.
       shell: ip route del {{ session_prefix_2 }}
       ignore_errors: yes
+  become: yes
