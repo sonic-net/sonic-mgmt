@@ -3,6 +3,7 @@
 
 - name: Create route with next hop {{ dst_port_1 }}.
   shell: ip route add {{ session_prefix_1 }} via {{ neighbor_info_1['addr'] }}
+  become: yes
 
 - block:
     - name: Send traffic and verify that packets with correct Everflow header are received on destination port {{ dst_port_1 }}.
@@ -15,3 +16,4 @@
   always:
     - name: Remove route
       shell: ip route del {{ session_prefix_1 }}
+      become: yes
