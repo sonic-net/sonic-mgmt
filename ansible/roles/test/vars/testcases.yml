@@ -54,7 +54,11 @@ testcases:
       topologies: [t0, t0-64, t0-64-32, t0-116]
       required_vars:
           ptf_host:
- 
+
+    ecn_wred:
+      filename: ecn_wred.yml
+      topologies: [t0, t1, t1-lag]
+
     everflow_testbed:
       filename: everflow_testbed.yml
       topologies: [t1, t1-lag, t1-64-lag]
