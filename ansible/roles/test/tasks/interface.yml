@@ -1,7 +1,32 @@
 - name: Get interface facts
   interface_facts: up_ports={{minigraph_ports}}
 
-- debug: msg="Found link down ports {{ansible_interface_link_down_ports}} "
+- block:
+  - debug: msg="Found link down ports {{ansible_interface_link_down_ports}}, reload SONiC and reenable down ports"
+
+  - name: reboot
+    include: common_tasks/reboot_sonic.yml
+
+  - name: figure out fanout switch port in case it was down
+    conn_graph_facts: host={{ inventory_hostname }}
+    connection: local
+
+  - set_fact: neighbors="{{device_conn}}"
+
+  - include: resume_fanout_ports.yml
+    with_items: ansible_interface_link_down_ports
+
+  - name: pause and wait interface to be up
+    pause: seconds=30
+
+  - name: Get interface facts
+    interface_facts: up_ports={{minigraph_ports}}
+
+  when:
+    - ansible_interface_link_down_ports | length > 0
+    - recover is defined
+
+- debug: msg="Found link down ports {{ansible_interface_link_down_ports}}"
   when: ansible_interface_link_down_ports | length > 0
 
 - name: Verify interfaces are up correctly
