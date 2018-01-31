@@ -5,7 +5,7 @@
 
    - debug: var=ps_out.stdout_lines
    
-   - name: Get oragent process information
+   - name: Get orchagent process information
      shell: pgrep orchagent -a
      register: orch_out
      ignore_errors: yes
@@ -25,13 +25,13 @@
      - name: Verify that syncd process is running
        assert: { that: "{{ psnew_out.stdout_lines | length }} > 0"}
 
-     - name: Get oragent process information
+     - name: Get orchagent process information
        shell: pgrep orchagent -a
        register: orchnew_out
 
      - debug: var=orchnew_out.stdout_lines
 
-     - name: Verify that orch process is running
+     - name: Verify that orchagent process is running
        assert: { that: "{{ orchnew_out.stdout_lines | length }} > 0"}
 
      when:
