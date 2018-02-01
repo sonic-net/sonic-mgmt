@@ -74,7 +74,7 @@ str-msn2700-06    ansible_host=10.3.147.49
 str-msn2700-11-3po  ansible_host=10.3.147.54
 
 [sonic_mlnx_40:vars]
-hwsku="ACS-MSN2700"
+hwsku="Mellanox-SN2700"
 iface_speed='40000'
 mgmt_subnet_mask_length="23"
 
@@ -83,7 +83,7 @@ str-msn2700-20    ansible_host=10.64.247.235
 str-msn2700-22    ansible_host=10.64.247.236
 
 [sonic_mlnx_100:vars]
-hwsku="ACS-MSN2700"
+hwsku="Mellanox-SN2700"
 iface_speed='100000'
 mgmt_subnet_mask_length="23"
 
@@ -91,16 +91,16 @@ mgmt_subnet_mask_length="23"
 str-cavium-acs-01 ansible_host=10.3.147.10
 
 [sonic_arista64_100]
-str-7260cx3-acs-1   ansible_host=10.64.247.224 hwsku="Arista-7260CX3-64"
-str-7260cx3-acs-2   ansible_host=10.64.247.10  hwsku="Arista-7260CX3-64"
+str-7260cx3-acs-1   ansible_host=10.64.247.224 hwsku="Arista-7260CX3-D108C8"
+str-7260cx3-acs-2   ansible_host=10.64.247.10  hwsku="Arista-7260CX3-D108C8"
 
 [sonic_arista64_100:vars]
 iface_speed='100000'
 mgmt_subnet_mask_length='23'
 
 [sonic_arista32_100]
-str-7060cx-acs-10   ansible_host=10.64.247.240 hwsku="Arista-7060CX-32S-C32"
-str-7060cx-acs-1    ansible_host=10.64.247.14  hwsku="Arista-7060CX-32S-C32"
+str-a7060cx-acs-10   ansible_host=10.64.247.240 hwsku="Arista-7060CX-32S-C32"
+str-a7060cx-acs-1    ansible_host=10.64.247.14  hwsku="Arista-7060CX-32S-C32"
 
 [sonic_arista32_100:vars]
 iface_speed='100000'
