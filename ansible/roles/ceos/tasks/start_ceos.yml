@@ -1,0 +1,25 @@
+- name: Device debug output
+  debug: msg="hostname = {{ hostname }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }}"
+
+- name: Create and start docker container ceos {{ vm_name }}
+  docker:
+    name: "{{ vm_name }}"
+    state: started
+    detach: True
+    image: ceos-belin-eft
+    command: /sbin/init
+    hostname: ceos
+    stdin_open: true
+    tty: true
+    privileged: true
+    net: bridge
+    env:
+      CEOS=1
+      container=docker
+      EOS_PLATFORM=Docker
+      SKIP_ZEROTOUCH_BARRIER_IN_SYSDBINIT=1
+      ETBA=1
+      INTFTYPE=eth
+  become: yes
+
+###

@@ -1,0 +1,11 @@
+- name: Stop ceos
+  include: stop_ceos.yml
+  vars:
+    vm_name: "{{ item }}"
+    hostname: "{{ vm_name }}"
+    mgmt_ip_address: "{{ hostvars[vm_name]['ansible_host'] }}"
+    serial_port: "{{ vm_console_base|int + vm_name[4:]|int }}"
+    mgmt_tap:  "{{ vm_name }}-m"
+    port1_bridge: "br-{{ vm_name }}-back"
+    port1_tap: "{{ vm_name }}-back"
+  with_items: "{{ VM_hosts }}"

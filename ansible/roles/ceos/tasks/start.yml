@@ -1,0 +1,38 @@
+- name: Set sysctl bridge parameters for testbed
+  sysctl:
+    name: "{{ item }}"
+    value: 0
+    sysctl_set: yes
+  become: yes
+  with_items:
+   - net.bridge.bridge-nf-call-arptables
+   - net.bridge.bridge-nf-call-ip6tables
+   - net.bridge.bridge-nf-call-iptables
+
+- name: Set sysctl RCVBUF parameter for testbed
+  sysctl:
+    name: "net.core.rmem_max"
+    value: 509430500
+    sysctl_set: yes
+  become: yes
+
+- name: Create ceos network
+  become: yes
+  vm_topology:
+    cmd:          'create'
+    vm_names:     "{{ VM_hosts }}"
+    fp_mtu:       "{{ fp_mtu_size }}"
+    max_fp_num:   "{{ max_fp_num }}"
+
+- name: Start ceos
+  include: start_ceos.yml
+  vars:
+    vm_name: "{{ item }}"
+    hostname: "{{ vm_name }}"
+    mgmt_ip_address: "{{ hostvars[vm_name]['ansible_host'] }}"
+    serial_port: "{{ vm_console_base|int + vm_name[4:]|int }}"
+    mgmt_tap:  "{{ vm_name }}-m"
+    port1_bridge: "br-{{ vm_name }}-back"
+    port1_tap: "{{ vm_name }}-back"
+  with_items: "{{ VM_hosts }}"
+
