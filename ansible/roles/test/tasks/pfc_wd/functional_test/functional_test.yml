@@ -425,7 +425,6 @@
     - set_fact:
         detect_time_list: []
         restore_time_list: []
-        total_run: 5
 
     - set_fact:
         pfc_frames_number: 100000
@@ -434,34 +433,33 @@
 
     - name: Calculate detection and restoration timings
       include: roles/test/tasks/pfc_wd/functional_test/timer_test.yml
-      with_sequence: start=1 end={{total_run}}
+      with_sequence: start=1 end=3
 
     - debug:
         var: "{{item}}"
       with_items: 
         - detect_time_list
         - restore_time_list
-        - total_run
 
     - name: Verify that real detection time is not greater than configured
       fail:
         msg: Real detection time is greater than configured
-      when: "{{(detect_time_list | sum) / total_run > pfc_wd_detect_time + pfc_wd_poll_time}}"
+      when: "{{(detect_time_list | sum) / 3 > pfc_wd_detect_time + pfc_wd_poll_time}}"
 
     - name: Verify that real detection time is not less than configured
       fail:
         msg: Real detection time is less than configured
-      when: "{{(detect_time_list | sum) / total_run <  pfc_wd_detect_time}}"
+      when: "{{(detect_time_list | sum) / 3 <  pfc_wd_detect_time}}"
 
     - name: Verify that real restoration time is not less than configured
       fail:
         msg: Real restoration time is less than configured
-      when: "{{(restore_time_list | sum) / total_run < pfc_wd_restore_time}}"
+      when: "{{(restore_time_list | sum) / 3 < pfc_wd_restore_time}}"
 
     - name: Verify that real restoration time is less than configured
       fail:
         msg: Real restoration time is greater than configured
-      when: "{{(restore_time_list | sum) / total_run > pfc_wd_restore_time + pfc_wd_poll_time}}"
+      when: "{{(restore_time_list | sum) / 3 > pfc_wd_restore_time + pfc_wd_poll_time}}"
 
   always:
     - name: Clean up config
