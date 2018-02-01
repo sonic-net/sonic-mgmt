@@ -9,6 +9,7 @@
     test_files_dir="roles/test/tasks/qos"
     tmp_dir="/tmp"
     test_wred_values="[ '491520', '516096', '430080' ]"
+  tags: always
 
   # Read and store original rmin value for AZURE_LOSSY
 - name: Get red_min_threshold
