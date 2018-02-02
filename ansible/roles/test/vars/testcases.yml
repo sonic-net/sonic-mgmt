@@ -87,6 +87,13 @@ testcases:
           ptf_host: 
           testbed_type:
  
+    dir_bcast:
+      filename: dir_bcast.yml
+      topologies: [t0, t0-64, t0-64-32, t0-116]
+      required_vars:
+          ptf_host:
+          testbed_type:
+
     lag_2:
       filename: lag_2.yml
       topologies: [t0, t0-64, t0-64-32, t0-116, t1-lag, t1-64-lag]
