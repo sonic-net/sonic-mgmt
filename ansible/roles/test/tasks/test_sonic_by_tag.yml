@@ -162,6 +162,10 @@
   include: pfc_wd.yml
   tags: pfc_wd
 
+- name: ECN WRED configure test
+  include: ecn_wred.yml
+  tags: ecn_wred
+
 ### when calling this test, please add command line of testbed_type 
 ### -e testbed_type=t1
 - name: BGP multipath relax

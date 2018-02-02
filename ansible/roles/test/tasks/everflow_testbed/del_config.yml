@@ -15,4 +15,6 @@
   copy: src={{ tests_location }}/{{ testname}}/acl_rule_persistent-del.json dest={{ run_dir }}/
 
 - command: "acl-loader update full {{ run_dir }}/acl_rule_persistent-del.json"
+  become: yes
+
 - command: "python {{ run_dir }}/mirror_session.py delete {{ session_name }}"
