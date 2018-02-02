@@ -2,6 +2,21 @@
 # Run Decap test
 #-----------------------------------------
 
+- block:
+  - name: Set dscp_mode for decap test for broadcom
+    set_fact:
+       dscp_mode: pipe
+    when:
+       - sonic_hwsku in broadcom_hwskus
+       - dscp_mode is not defined
+
+  - name: Set dscp_mode var for decap test for mellanox
+    set_fact:
+       dscp_mode: uniform
+    when:
+       - sonic_hwsku in mellanox_hwskus
+       - dscp_mode is not defined
+
 - fail: msg="information about testbed missing."
   when: (testbed_type is not defined) or
         (dscp_mode is not defined) 

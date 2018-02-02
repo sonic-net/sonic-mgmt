@@ -1,40 +1,32 @@
+### Playbook that call individual testcase by name defined in roles/test/vars/testcases.yml
+#
 - debug: msg="!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 - debug: msg="!!!!!!!!!!!!!!!!!!!! start to run test {{ testcase_name }} !!!!!!!!!!!!!!!!!!!!"
 - debug: msg="!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 
 - name: do basic sanity check before each test
   include: base_sanity.yml
+  vars: 
+     recover: true
 
 - name: validate all interfaces is up
   include: interface.yml
+  vars:
+     recover: true
 
-########### if your test playbook requires more extra_vars than ptf_host and testbed_type, you may specify them here
-########### ptf_host and testbed_type are handled by default
-########### configure extra vars if your testcases need more vars
-########### or when you call the playbook, you have to specify your extra_vars
-- block:
-    - name: Set dscp_mode for decap test for broadcom
-      set_fact:
-          dscp_mode: pipe
-      when:
-        - sonic_hwsku in broadcom_hwskus
-        - dscp_mode is not defined
-
-    - name: Set dscp_mode var for decap test for mellanox
-      set_fact:
-          dscp_mode: uniform
-      when:
-        - sonic_hwsku in mellanox_hwskus
-        - dscp_mode is not defined
-
-- debug: var=testcases[testcase_name]['execvars']
-  when: testcases[testcase_name]['execvars'] is defined
+### by default, when calling a test case name, we pass 'testbed_type', 'ptf_host, 'dut_name(ansible_hoatname)' down to test playbook.
+### if your test playbook requires more extra vars then default, please make sure you handled them correctly within test playbook.
+- debug: var=testcases[testcase_name]['required_vars']
+  when: testcases[testcase_name]['required_vars'] is defined
 
 - name: run test case {{ testcases[testcase_name]['filename'] }} file
   include: "{{ testcases[testcase_name]['filename'] }}"
 
 - name: do basic sanity check after each test
   include: base_sanity.yml
+
+- name: validate all interfaces are up after test
+  include: interface.yml
 
 - debug: msg="!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 - debug: msg="!!!!!!!!!!!!!!!!!!!! end running test {{ testcase_name }} !!!!!!!!!!!!!!!!!!!!"
