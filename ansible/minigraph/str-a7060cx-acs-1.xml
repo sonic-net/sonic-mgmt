@@ -4,7 +4,7 @@
     <PeeringSessions>
       <BGPSession>
         <MacSec>false</MacSec>
-        <StartRouter>str-7060cx-acs-1</StartRouter>
+        <StartRouter>str-a7060cx-acs-1</StartRouter>
         <StartPeer>10.0.0.56</StartPeer>
         <EndRouter>ARISTA01T1</EndRouter>
         <EndPeer>10.0.0.57</EndPeer>
@@ -13,7 +13,7 @@
         <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
-        <StartRouter>str-7060cx-acs-1</StartRouter>
+        <StartRouter>str-a7060cx-acs-1</StartRouter>
         <StartPeer>FC00::71</StartPeer>
         <EndRouter>ARISTA01T1</EndRouter>
         <EndPeer>FC00::72</EndPeer>
@@ -23,7 +23,7 @@
       </BGPSession>
       <BGPSession>
         <MacSec>false</MacSec>
-        <StartRouter>str-7060cx-acs-1</StartRouter>
+        <StartRouter>str-a7060cx-acs-1</StartRouter>
         <StartPeer>10.0.0.58</StartPeer>
         <EndRouter>ARISTA02T1</EndRouter>
         <EndPeer>10.0.0.59</EndPeer>
@@ -32,7 +32,7 @@
         <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
-        <StartRouter>str-7060cx-acs-1</StartRouter>
+        <StartRouter>str-a7060cx-acs-1</StartRouter>
         <StartPeer>FC00::75</StartPeer>
         <EndRouter>ARISTA02T1</EndRouter>
         <EndPeer>FC00::76</EndPeer>
@@ -42,7 +42,7 @@
       </BGPSession>
       <BGPSession>
         <MacSec>false</MacSec>
-        <StartRouter>str-7060cx-acs-1</StartRouter>
+        <StartRouter>str-a7060cx-acs-1</StartRouter>
         <StartPeer>10.0.0.60</StartPeer>
         <EndRouter>ARISTA03T1</EndRouter>
         <EndPeer>10.0.0.61</EndPeer>
@@ -51,7 +51,7 @@
         <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
-        <StartRouter>str-7060cx-acs-1</StartRouter>
+        <StartRouter>str-a7060cx-acs-1</StartRouter>
         <StartPeer>FC00::79</StartPeer>
         <EndRouter>ARISTA03T1</EndRouter>
         <EndPeer>FC00::7A</EndPeer>
@@ -61,7 +61,7 @@
       </BGPSession>
       <BGPSession>
         <MacSec>false</MacSec>
-        <StartRouter>str-7060cx-acs-1</StartRouter>
+        <StartRouter>str-a7060cx-acs-1</StartRouter>
         <StartPeer>10.0.0.62</StartPeer>
         <EndRouter>ARISTA04T1</EndRouter>
         <EndPeer>10.0.0.63</EndPeer>
@@ -70,7 +70,7 @@
         <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
       <BGPSession>
-        <StartRouter>str-7060cx-acs-1</StartRouter>
+        <StartRouter>str-a7060cx-acs-1</StartRouter>
         <StartPeer>FC00::7D</StartPeer>
         <EndRouter>ARISTA04T1</EndRouter>
         <EndPeer>FC00::7E</EndPeer>
@@ -82,7 +82,7 @@
     <Routers xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
       <a:BGPRouterDeclaration>
         <a:ASN>65100</a:ASN>
-        <a:Hostname>str-7060cx-acs-1</a:Hostname>
+        <a:Hostname>str-a7060cx-acs-1</a:Hostname>
         <a:Peers>
           <BGPPeer>
             <Address>10.0.0.57</Address>
@@ -194,7 +194,7 @@
       <MplsInterfaces/>
       <MplsTeInterfaces/>
       <RsvpInterfaces/>
-      <Hostname>str-7060cx-acs-1</Hostname>
+      <Hostname>str-a7060cx-acs-1</Hostname>
       <PortChannelInterfaces>
         <PortChannel>
           <Name>PortChannel0001</Name>
@@ -278,7 +278,20 @@
         </IPInterface>
       </IPInterfaces>
       <DataAcls/>
-      <AclInterfaces/>
+      <AclInterfaces>
+        <AclInterface>
+          <AttachTo>
+          PortChannel0001;PortChannel0002;PortChannel0003;PortChannel0004;Vlan1000
+          </AttachTo>
+          <InAcl>DataAcl</InAcl>
+        </AclInterface>
+        <AclInterface>
+          <AttachTo>
+            ERSPAN
+          </AttachTo>
+          <InAcl>Everflow</InAcl>
+        </AclInterface>
+      </AclInterfaces>
       <DownstreamSummaries/>
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     </DeviceDataPlaneInfo>
@@ -289,34 +302,34 @@
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>ARISTA01T1</EndDevice>
         <EndPort>Ethernet1</EndPort>
-        <StartDevice>str-7060cx-acs-1</StartDevice>
+        <StartDevice>str-a7060cx-acs-1</StartDevice>
         <StartPort>Ethernet29/1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>ARISTA02T1</EndDevice>
         <EndPort>Ethernet1</EndPort>
-        <StartDevice>str-7060cx-acs-1</StartDevice>
+        <StartDevice>str-a7060cx-acs-1</StartDevice>
         <StartPort>Ethernet30/1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>ARISTA03T1</EndDevice>
         <EndPort>Ethernet1</EndPort>
-        <StartDevice>str-7060cx-acs-1</StartDevice>
+        <StartDevice>str-a7060cx-acs-1</StartDevice>
         <StartPort>Ethernet31/1</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>ARISTA04T1</EndDevice>
         <EndPort>Ethernet1</EndPort>
-        <StartDevice>str-7060cx-acs-1</StartDevice>
+        <StartDevice>str-a7060cx-acs-1</StartDevice>
         <StartPort>Ethernet32/1</StartPort>
       </DeviceLinkBase>
     </DeviceInterfaceLinks>
     <Devices>
       <Device i:type="ToRRouter">
-        <Hostname>str-7060cx-acs-1</Hostname>
+        <Hostname>str-a7060cx-acs-1</Hostname>
         <HwSku>Arista-7060CX-32S-C32</HwSku>
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.64.247.14</a:IPPrefix>
@@ -782,7 +795,7 @@
   <MetadataDeclaration>
     <Devices xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
       <a:DeviceMetadata>
-        <a:Name>str-7060cx-acs-1</a:Name>
+        <a:Name>str-a7060cx-acs-1</a:Name>
         <a:Properties>
           <a:DeviceProperty>
             <a:Name>DhcpResources</a:Name>
@@ -832,7 +845,7 @@
           <a:DeviceProperty>
             <a:Name>ForcedMgmtRoutes</a:Name>
             <a:Reference i:nil="true"/>
-            <a:Value>10.3.145.98/31;10.3.145.8;100.127.20.16/28;10.3.149.170/31;40.122.216.24;13.91.48.226</a:Value>
+            <a:Value>10.3.145.98/31;10.3.145.8;100.127.20.16/28;10.3.149.170/31;40.122.216.24;13.91.48.226;10.3.145.14</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
             <a:Name>ErspanDestinationIpv4</a:Name>
@@ -844,6 +857,6 @@
     </Devices>
     <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
   </MetadataDeclaration>
-  <Hostname>str-7060cx-acs-1</Hostname>
+  <Hostname>str-a7060cx-acs-1</Hostname>
   <HwSku>Arista-7060CX-32S-C32</HwSku>
 </DeviceMiniGraph>

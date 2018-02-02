@@ -32,8 +32,8 @@ vms3-5,vms3-5,t0,docker-ptf-mlnx,10.64.246.26/23,server_3,VM0348,str-msn2700-04,
 vms3-4,vms3-4,t0,docker-ptf-brcm,10.64.246.11/23,server_3,VM0360,str-s6000-acs-13,Sihui
 vms6-1,vms6-1,t1-lag,docker-ptf-brcm,10.64.247.6/23,server_6,VM0600,str-a7050-acs-2,gulv
 vms6-t0-z91,vms6-2,t0,docker-ptf-brcm,10.64.247.18/23,server_6,VM0632,str-z9100-acs-2,prsunny
-vms6-t0-7060,vms6-4,t0,docker-ptf-brcm,10.64.247.20/23,server_6,VM0636,str-7060cx-acs-1,prsunny
-vms6-t1-7060,vms6-3,t1-lag,docker-ptf-brcm,10.64.247.19/23,server_6,VM0640,str-7060cx-acs-10,prsunny
+vms6-t0-7060,vms6-4,t0,docker-ptf-brcm,10.64.247.20/23,server_6,VM0636,str-a7060cx-acs-1,prsunny
+vms6-t1-7060,vms6-3,t1-lag,docker-ptf-brcm,10.64.247.19/23,server_6,VM0640,str-a7060cx-acs-10,prsunny
 #vms7-1,vms71t1,t1,docker-ptf-brcm,10.64.247.8/23,server_7,VM0700,str-s6000-on-6,masun
 #vms7-2,vms72,t1-lag,dcoker-ptf-brcm,10.64.247.8/23,server_7,VM0700,str-s6000-on-6,masun
 #vms7-3,vms73t0,t0,docker-ptf-brcm,10.64.247.8/23,server_7,VM0700,str-s6000-on-6,masun
