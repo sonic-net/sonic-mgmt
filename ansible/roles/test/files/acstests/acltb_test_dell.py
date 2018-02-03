@@ -233,7 +233,8 @@ class AclTest(BaseTest):
         res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
         tests_passed += (1 if res else 0)
         print "Test #11 %s" % ("PASSED" if res else "FAILED")
-
+	
+	#Creates a ICMP packet
 	pkt0 = simple_icmp_packet(
                                 eth_dst = self.router_mac,
                                 eth_src = self.dataplane.get_mac(0, 0),
@@ -254,11 +255,13 @@ class AclTest(BaseTest):
                                 ip_ttl = 63
                             )
 							
-        # Test #12 - Verify ICMP match 
+        # Test #12 - Verify IP protocol & source IP match
         pkt = pkt0.copy()
         exp_pkt = exp_pkt0.copy()
         pkt['IP'].src = "10.0.0.2"
         exp_pkt['IP'].src = "10.0.0.2"
+	pkt['IP'].proto=0x1
+	exp_pkt['IP'].proto=0x1
         res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
         tests_passed += (0 if res else 1)
         print "Test #12 %s" % ("FAILED" if res else "PASSED")							
