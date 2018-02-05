@@ -1,6 +1,5 @@
-- name: reboot
-  become: true
-  shell: shutdown -r now "Warning! System is being rebooted remotely by reboot_sonic.yml"
+- name: "rebooting {{ inventory_hostname }} : {{ ansible_host }} ..."
+  shell: sudo reboot
   async: 1
   poll: 0
   ignore_errors: true
