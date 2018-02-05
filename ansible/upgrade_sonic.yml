@@ -99,3 +99,7 @@
     - name: Set all bgp interfaces admin-up
       become: true
       shell: config bgp startup all
+
+    - name: save bgp admin-up states
+      become: true
+      shell: config save -y
