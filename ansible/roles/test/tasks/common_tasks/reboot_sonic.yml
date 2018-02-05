@@ -1,4 +1,4 @@
-- name: rebooting {{ ansible_host }} ...
+- name: "rebooting {{ inventory_hostname }} : {{ ansible_host }} ..."
   shell: sudo reboot
   async: 1
   poll: 0
