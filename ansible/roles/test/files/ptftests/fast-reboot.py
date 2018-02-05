@@ -376,7 +376,7 @@ class FastReloadTest(BaseTest):
         self.check_param('default_ip_range', '', required = True)
         self.check_param('vlan_ip_range', '', required = True)
         self.check_param('lo_prefix', '10.1.0.32/32', required = False)
-        self.check_param('lo_v6_prefix', 'fc00:1::32/128', required = False)
+        self.check_param('lo_v6_prefix', 'fc00:1::/64', required = False)
         self.check_param('arista_vms', [], required = True)
         self.check_param('min_bgp_gr_timeout', 15, required = False)
 
@@ -696,7 +696,10 @@ class FastReloadTest(BaseTest):
         for ip in sorted(self.logs_info.keys()):
             self.log("Extracted log info from %s" % ip)
             for msg in sorted(self.logs_info[ip].keys()):
-                self.log("    %s : %d" % (msg, self.logs_info[ip][msg]))
+                if msg != 'error':
+                    self.log("    %s : %d" % (msg, self.logs_info[ip][msg]))
+                else:
+                    self.log("    %s" % self.logs_info[ip][msg])
             self.log("-"*50)
 
         self.log("Summary:")
@@ -847,7 +850,7 @@ class FastReloadTest(BaseTest):
 
         is_alive      = nr_from_s > self.nr_pc_pkts * 0.7 and nr_from_l > self.nr_vl_pkts * 0.7
         is_asic_weird = nr_from_s > self.nr_pc_pkts        or nr_from_l > self.nr_vl_pkts
-        # we receive more, then received. not populated FDB table
+        # we receive more, then sent. not populated FDB table
 
         return is_alive, is_asic_weird
 

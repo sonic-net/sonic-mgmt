@@ -2,7 +2,7 @@
   when: ptf_host is not defined
 
 - fail: msg="Invalid testbed_type value '{{testbed_type}}'"
-  when: testbed_type not in [ 't0' ]
+  when: testbed_type not in [ 't0', 't0-116' ]
 
 - debug: var=minigraph_portchannels
 

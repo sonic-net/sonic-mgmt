@@ -47,7 +47,9 @@
         chdir: /root
       delegate_to: "{{ ptf_host }}"
       register: out
+  become: yes
 
   always:
     - name: Remove route
       shell: ip route del {{ session_prefix_1 }}
+      become: yes

@@ -1,26 +1,5 @@
 - name: reboot 
-  become: true
-  shell: sleep 2 && shutdown -r now "Reboot test."
-  async: 1
-  poll: 0
-  ignore_errors: true
-
-- name: pause for 1 minute before check
-  pause: minutes=1
-
-- name: Wait for switch to come back
-  local_action:
-    wait_for host={{ ansible_host }}
-    port=22
-    state=started
-    delay=10
-    timeout=180
-    search_regex="OpenSSH_[\w\.]+ Debian"
-  become: false
-  changed_when: false
-
-- name: wait again, processes and interfaces are not availabe right away
-  pause: seconds=120
+  include: common_tasks/reboot_sonic.yml 
 
 - name: sanity check to pass
   include: base_sanity.yml

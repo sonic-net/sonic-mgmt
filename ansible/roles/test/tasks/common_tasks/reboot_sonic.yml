@@ -1,0 +1,22 @@
+- name: "rebooting {{ inventory_hostname }} : {{ ansible_host }} ..."
+  shell: sudo reboot
+  async: 1
+  poll: 0
+  ignore_errors: true
+
+- name: pause for 1 minute before check
+  pause: minutes=1
+
+- name: Wait for switch to come back
+  local_action:
+    wait_for host={{ ansible_host }}
+    port=22
+    state=started
+    delay=10
+    timeout=180
+    search_regex="OpenSSH_[\w\.]+ Debian"
+  become: false
+  changed_when: false
+
+- name: wait for 2 minute for prcesses and interfaces to be stable
+  pause: seconds=120

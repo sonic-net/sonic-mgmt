@@ -1,10 +1,11 @@
 - name: Flush logs
   shell: logrotate -f /etc/logrotate.conf
+  become: true
 
 - name: Generate PFC storm on fanout switch
   action: apswitch template="{{pfc_wd_storm_template}}"
   args:
-    host: "{{peer_device}}"
+    host: "{{peer_mgmt}}"
     login: "{{peer_login}}"
   connection: switch
 
