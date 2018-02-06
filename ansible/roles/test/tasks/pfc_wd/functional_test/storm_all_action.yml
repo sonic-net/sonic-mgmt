@@ -1,0 +1,56 @@
+- conn_graph_facts: host={{item.key}}
+  connection: local
+  become: no
+
+- set_fact:
+    peer_hwsku: "{{device_info['HwSku']}}"
+    peer_mgmt: "{{device_info['mgmtip']}}"
+
+- set_fact:
+    peer_login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+    pfc_gen_file: "pfc_gen.py"
+    pfc_fanout_interface: "{{item.value | list | join(',')}}"
+
+- set_fact:
+    pfc_wd_storm_template: pfc_storm_mlnx.j2
+  when: peer_hwsku == "MLNX-OS"
+
+- set_fact:
+    pfc_wd_storm_template: pfc_storm_arista.j2
+    pfc_wd_storm_stop_template: pfc_storm_stop_arista.j2
+  when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
+
+- set_fact: 
+    storm_action_template: "{%if storm_action=='start'%}{{pfc_wd_storm_template}}{%else%}{{pfc_wd_storm_stop_template}}{%endif%}"
+
+- name: Create pfc generater file in case it doesn't exist.
+  file: path=/mnt/flash/{{pfc_gen_file}} state=touch
+  delegate_to: "{{ peer_mgmt}}"
+  become: true
+  when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
+
+- name: Deploy PFC generator to the fanout switch
+  copy: src=roles/test/files/helpers/{{pfc_gen_file}} dest=/mnt/flash
+  delegate_to: "{{peer_mgmt}}"
+  become: true
+  when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
+
+- name: copy the test to ptf container
+  copy: src=roles/test/files/ptftests dest=/root
+  delegate_to: "{{ ptf_host }}"
+
+- name: Initialize loganalyzer
+  include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+- name: Generate PFC storm on fanout switch
+  action: apswitch template="{{storm_action_template}}"
+  args:
+    host: "{{peer_mgmt}}"
+    login: "{{peer_login}}"
+  connection: switch
+
+- name: Check if logs contain message that PFC WD detected deadlock
+  include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+
+- name: Check if logs contain message that PFC WD detected deadlock
+  include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml

@@ -24,6 +24,10 @@
   connection: local
 
 - set_fact:
+    port_list: "{{minigraph_ports.keys()}}"
+    ports: "{{minigraph_ports.keys() | join(' ')}}"
+
+- set_fact:
     neighbors: "{{device_conn}}"
 
  #****************************************#
@@ -44,6 +48,9 @@
         pfc_wd_template: roles/test/templates/pfc_wd_config.j2
         peer_device: "{{ neighbors[pfc_wd_test_port]['peerdevice'] }}"
       include: roles/test/tasks/pfc_wd/functional_test/functional_test.yml
+
+    - name: Test PFC WD extreme case when all ports have storm
+      include: roles/test/tasks/pfc_wd/functional_test/storm_all_test.yml
 
   always:
     - name: General cleanup.

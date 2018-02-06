@@ -57,8 +57,12 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    try:  
-       s = socket(AF_PACKET, SOCK_RAW)
+    interfaces = options.interface.split(',')
+
+    try:
+       sockets = []
+       for i in range(0, len(interfaces)):
+           sockets.append(socket(AF_PACKET, SOCK_RAW))
     except:
         print "Unable to create socket. Check your permissions"
         sys.exit(1)
@@ -66,8 +70,9 @@ def main():
     # Configure logging
     handler = logging.handlers.SysLogHandler(address = (options.rsyslog_server,514))
     my_logger.addHandler(handler)
-        
-    s.bind((options.interface, 0))
+
+    for s,interface in zip(sockets, interfaces):
+        s.bind((interface, 0))
 
     """
     Set PFC defined fields and generate the packet
@@ -112,7 +117,8 @@ def main():
     my_logger.debug('PFC_STORM_START')
     iteration = options.num
     while iteration > 0:
-        s.send(packetsend)
+        for s in sockets:
+            s.send(packetsend)
         iteration -= 1
     my_logger.debug('PFC_STORM_END')
         
