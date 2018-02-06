@@ -100,12 +100,14 @@
 
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
-        ignore_errors: true
         shell: config load_minigraph -y
+
+      - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
+        become: true
+        shell: config bgp startup all
 
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true
-        ignore_errors: true
         shell: config save -y
         when: save is defined and save|bool == true
     when: deploy is defined and deploy|bool == true
