@@ -1,7 +1,3 @@
-# To support fanout platform other than arista
-# 1. Change the pfc_gen_file copy dest to platform-specific location.
-# 2. Create pfc_storm_[sku].j2 and pfc_storm_stop_[sku].j2 to start and stop pfc generator
-
 - conn_graph_facts: host={{ peer_device }}
   connection: local
   become: no
@@ -32,6 +28,7 @@
 
 - set_fact:
       pfc_wd_storm_template: pfc_storm_mlnx.j2
+      pfc_wd_storm_stop_template: pfc_storm_stop_mlnx.j2
   when: peer_hwsku == "MLNX-OS"
 
 - set_fact:
@@ -202,7 +199,6 @@
         host: "{{peer_mgmt}}"
         login: "{{peer_login}}"
       connection: switch
-      when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
 
     - name: Wait for queue to recover from PFC storm
       pause:
@@ -468,8 +464,6 @@
 
     - set_fact:
         pfc_frames_number: 100000000
-      when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
-
 
     - name: Initialize loganalyzer
       include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml

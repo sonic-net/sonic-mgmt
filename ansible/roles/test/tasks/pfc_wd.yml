@@ -1,5 +1,12 @@
 #-----------------------------------------
 # Run all the PFC WD tests.
+# To support fanout platform other than arista
+# 1. Add platform specific logic in roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
+#    to deploy pfc packet generator file
+# 2. Create pfc_storm_[sku].j2 and pfc_storm_stop_[sku].j2 under roles/test/templates/
+#    to trigger start/stop action of pfc storm by running pfc packet generator.
+# 3. Add logic to set pfc_storm_template and pfc_storm_stop_template to platform-specific templates
+#    in roles/test/tasks/pfc_wd/functional_test/functional_test.yml and storm_all_action.yml
 #-----------------------------------------
 
 - set_fact:
