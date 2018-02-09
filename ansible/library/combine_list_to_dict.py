@@ -1,7 +1,5 @@
 #!/usr/bin/python
-from netaddr import *
 import sys
-import ipaddress
 
 DOCUMENTATION = '''
 module:         combine_list_to_dict
@@ -24,9 +22,8 @@ options:
 
 EXAMPLES = '''
 - name: Combine list to dict
-  get_ip_in_range: keys={{keys}} values={{values}}
+  combine_list_to_dict: keys={{keys}} values={{values}}
 '''
-
 
 class CombineListModule(object):
     def __init__(self):
@@ -56,17 +53,14 @@ class CombineListModule(object):
                 combined_dict[key] = [value]
             else:
                 combined_dict[key].append(value)
-	self.facts['combined_dict'] = combined_dict
-        print "get the combined dict"
+        self.facts['combined_dict'] = combined_dict
         self.module.exit_json(ansible_facts=self.facts)
-
 
 def main():
     combine_list = CombineListModule()
     combine_list.run()
 
     return
-
 
 from ansible.module_utils.basic import *
 if __name__ == "__main__":

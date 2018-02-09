@@ -49,30 +49,21 @@
 - set_fact:
       pfc_gen_file: pfc_gen.py
 
-- name: Create pfc generater file in case it doesn't exist.
-  file: path=/mnt/flash/{{pfc_gen_file}} state=touch
-  delegate_to: "{{ peer_mgmt}}"
-  become: true
-  when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
+- name: Deploy pfc packet generater file to fanout switch
+  include: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
 
-- name: Deploy PFC generator to the fanout switch
-  copy: src=roles/test/files/helpers/{{pfc_gen_file}} dest=/mnt/flash
-  delegate_to: "{{peer_mgmt}}"
-  become: true
-  when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
 - name: copy the test to ptf container
   copy: src=roles/test/files/ptftests dest=/root
   delegate_to: "{{ ptf_host }}"
 
 - name: Get queue OID
-  shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS_QUEUE_NAME_MAP {{ pfc_wd_test_port }}:{{ pfc_queue_index }}"
+  shell: "redis-cli -n 2 HGET COUNTERS_QUEUE_NAME_MAP {{ pfc_wd_test_port }}:{{ pfc_queue_index }}"
   register: queue_oid
 
 # Verify PFCWD detection when queue buffer is not empty and proper function of drop action
 - block:
     - set_fact:
         pfc_frames_number: 100000000
-      when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
 
     - name: Generate PFC storm on fanout switch
       action: apswitch template="{{pfc_wd_storm_template}}"
@@ -120,11 +111,11 @@
       include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS before test
-      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
+      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
       register: pfc_wd_tx_drop_before
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS before test
-      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
+      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
       register: pfc_wd_rx_drop_before
 
     - name: "check egress drop, tx port {{pfc_wd_test_port}}"
@@ -242,7 +233,7 @@
       when: "{{ pfc_wd_tx_drop_last.stdout | int != pfc_wd_test_pkt_count }}"
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS after test
-      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
+      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
       register: pfc_wd_rx_drop_after
 
     - name: Verify rx drop counter
@@ -251,7 +242,7 @@
       when: "{{ pfc_wd_rx_drop_after.stdout | int - pfc_wd_rx_drop_before.stdout | int != pfc_wd_test_pkt_count }}"
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST after test
-      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST"
+      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST"
       register: pfc_wd_rx_drop_last
 
     - name: Verify last rx drop counter
@@ -266,7 +257,6 @@
         host: "{{peer_mgmt}}"
         login: "{{peer_login}}"
       connection: switch
-      when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
 
     - name: Clean up config
       vars:
@@ -283,11 +273,11 @@
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS before test
-      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
+      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
       register: pfc_wd_tx_drop_before
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS before test
-      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
+      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
       register: pfc_wd_rx_drop_before
 
     - set_fact:
@@ -295,7 +285,6 @@
 
     - set_fact:
         pfc_frames_number: 100000000
-      when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
 
     - name: Initialize loganalyzer
       include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
@@ -397,7 +386,6 @@
         host: "{{peer_mgmt}}"
         login: "{{peer_login}}"
       connection: switch
-      when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
 
     - name: Wait for queue to recover from PFC storm
       pause:
@@ -410,7 +398,7 @@
       include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS after test
-      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
+      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
       register: pfc_wd_tx_drop_after
 
     - name: Verify tx drop counter
@@ -428,7 +416,7 @@
       when: "{{ pfc_wd_tx_drop_last.stdout | int != pfc_wd_test_pkt_count }}"
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS after test
-      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
+      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
       register: pfc_wd_rx_drop_after
 
     - name: Verify rx drop counter
@@ -437,7 +425,7 @@
       when: "{{ pfc_wd_rx_drop_after.stdout | int - pfc_wd_rx_drop_before.stdout | int != pfc_wd_test_pkt_count }}"
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST after test
-      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST"
+      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST"
       register: pfc_wd_rx_drop_last
 
     - name: Verify last rx drop counter
@@ -452,7 +440,6 @@
         host: "{{peer_mgmt}}"
         login: "{{peer_login}}"
       connection: switch
-      when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
 
     - name: Clean up config
       vars:
@@ -469,11 +456,11 @@
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_PACKETS before test
-      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS"
+      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS"
       register: pfc_wd_tx_before
 
     - name: Get PFC_WD_QUEUE_STATS_RX_PACKETS before test
-      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_PACKETS"
+      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_PACKETS"
       register: pfc_wd_rx_before
 
     - set_fact:
@@ -552,8 +539,6 @@
         host: "{{peer_mgmt}}"
         login: "{{peer_login}}"
       connection: switch
-      when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
-
 
     - name: Wait for queue to recover from PFC storm
       pause:
@@ -566,7 +551,7 @@
       include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_PACKETS after test
-      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS"
+      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS"
       register: pfc_wd_tx_after
 
     - name: Verify tx counter
@@ -575,7 +560,7 @@
       when: "{{ pfc_wd_tx_after.stdout | int - pfc_wd_tx_before.stdout | int != pfc_wd_test_pkt_count }}"
 
     - name: Get PFC_WD_QUEUE_STATS_TX_PACKETS_LAST after test
-      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS_LAST"
+      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS_LAST"
       register: pfc_wd_tx_last
 
     - name: Verify last tx counter
@@ -584,7 +569,7 @@
       when: "{{ pfc_wd_tx_last.stdout | int != pfc_wd_test_pkt_count }}"
 
     - name: Get PFC_WD_QUEUE_STATS_RX_PACKETS after test
-      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_PACKETS"
+      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_PACKETS"
       register: pfc_wd_rx_after
 
     - name: Verify rx counter
@@ -593,7 +578,7 @@
       when: "{{ pfc_wd_rx_after.stdout | int - pfc_wd_rx_before.stdout | int != pfc_wd_test_pkt_count }}"
 
     - name: Get PFC_WD_QUEUE_STATS_RX_PACKETS_LAST after test
-      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_PACKETS_LAST"
+      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_PACKETS_LAST"
       register: pfc_wd_rx_last
 
     - name: Verify last rx counter
@@ -617,7 +602,6 @@
         host: "{{peer_mgmt}}"
         login: "{{peer_login}}"
       connection: switch
-      when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
 
     - name: Clean up config
       vars:
@@ -652,7 +636,6 @@
 
     - set_fact:
         pfc_frames_number: 100000
-      when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
 
     - name: Calculate detection and restoration timings
       include: roles/test/tasks/pfc_wd/functional_test/timer_test.yml
