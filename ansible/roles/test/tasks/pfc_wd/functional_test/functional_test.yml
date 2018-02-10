@@ -26,15 +26,8 @@
 - set_fact:
       peer_login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
 
-- set_fact:
-      pfc_wd_storm_template: pfc_storm_mlnx.j2
-      pfc_wd_storm_stop_template: pfc_storm_stop_mlnx.j2
-  when: peer_hwsku == "MLNX-OS"
-
-- set_fact:
-      pfc_wd_storm_template: pfc_storm_arista.j2
-      pfc_wd_storm_stop_template: pfc_storm_stop_arista.j2
-  when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
+- name: set pfc storm templates based on fanout platform sku
+  include: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
 
 - name: Set timers
   set_fact:
