@@ -1,6 +1,17 @@
 #-----------------------------------------
 # Run all the PFC WD tests.
-#-----------------------------------------
+# The test currently supports arista fanout switches,to support othern platforms:
+#
+# 1. Add platform specific logic to deploy pfc packet generator automatically
+# in roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
+# or manual deploy roles/test/files/helpers/pfc_gen.py and ensure the file is available on fanout switch.
+#
+# 2. Create pfc_storm_[sku].j2 and pfc_storm_stop_[sku].j2 under roles/test/templates/
+# to run/stop pfc packet generator which triggers pfc storm start/stop action.
+#
+# 3. Set pfc_storm_template and pfc_storm_stop_template variables to platform-specific template names.
+# in roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
+#---------------------------------------------
 
 - set_fact:
     run_dir: /home/admin/pfc_wd_tests
@@ -24,6 +35,10 @@
   connection: local
 
 - set_fact:
+    port_list: "{{minigraph_ports.keys()}}"
+    ports: "{{minigraph_ports.keys() | join(' ')}}"
+
+- set_fact:
     neighbors: "{{device_conn}}"
 
  #****************************************#
@@ -44,6 +59,9 @@
         pfc_wd_template: roles/test/templates/pfc_wd_config.j2
         peer_device: "{{ neighbors[pfc_wd_test_port]['peerdevice'] }}"
       include: roles/test/tasks/pfc_wd/functional_test/functional_test.yml
+
+    - name: Test PFC WD extreme case when all ports have storm
+      include: roles/test/tasks/pfc_wd/functional_test/storm_all_test.yml
 
   always:
     - name: General cleanup.
