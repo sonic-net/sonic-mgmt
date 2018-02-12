@@ -72,7 +72,10 @@
           become: true
           shell: sonic_installer install -y {{ image_url }}
           register: output
-          failed_when: output.rc != 0
+          ignore_errors: yes
+
+        - fail: msg="SONiC upgrade failed"
+          when: (output.rc != 0) and (not "'Running SONiC has the same version' in {{ output.stdout }}")
 
         - name: Reboot the switch {{ inventory_hostname }}
           become: true
