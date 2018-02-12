@@ -80,7 +80,7 @@ sensors_checks:
         - dni_dps460-i2c-1-59
         - ltc4215-i2c-11-42
 
-  ACS-MSN2700:
+  Mellanox-SN2700:
     alarms:
       fan:
       - dps460-i2c-10-59/fan1/fan1_alarm
