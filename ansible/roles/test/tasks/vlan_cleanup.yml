@@ -19,3 +19,6 @@
 - name: Reload configuration
   shell: config reload -y
   become: true
+
+- name: wait for config reload
+  pause: seconds=60
