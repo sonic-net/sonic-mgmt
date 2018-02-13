@@ -7,12 +7,6 @@ sensors_checks:
       - dni_dps460-i2c-1-59/fan1/fan1_alarm
       - dni_dps460-i2c-1-59/fan1/fan1_fault
       power:
-      - w83627dhg-isa-0a00/VCore 1/in0_alarm
-      - w83627dhg-isa-0a00/VCore 2/in1_alarm
-      - w83627dhg-isa-0a00/AVCC/in2_alarm
-      - w83627dhg-isa-0a00/+3.3V/in3_alarm
-      - w83627dhg-isa-0a00/3VSB/in7_alarm
-      - w83627dhg-isa-0a00/Vbat/in8_alarm
       - ltc4215-i2c-11-40/in1/in1_min_alarm
       - ltc4215-i2c-11-40/in1/in1_max_alarm
       - ltc4215-i2c-11-40/in2/in2_min_alarm
