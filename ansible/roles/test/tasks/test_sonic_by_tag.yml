@@ -158,9 +158,9 @@
   include: acltb.yml
   tags: acl
 
-- name: PFC Watchdog test
-  include: pfc_wd.yml
-  tags: pfc_wd
+#- name: PFC Watchdog test
+#  include: pfc_wd.yml
+#tags: pfc_wd
 
 - name: ECN WRED configure test
   include: ecn_wred.yml
