@@ -239,37 +239,38 @@ class AclTest(BaseTest):
         tests_passed += (1 if res else 0)
         print "Test #11 %s" % ("PASSED" if res else "FAILED")
 
-	#Creates a ICMP packet
-	pkt0 = simple_icmp_packet(
+        pkt0 = simple_udp_packet(
                                 eth_dst = self.router_mac,
                                 eth_src = self.dataplane.get_mac(0, 0),
                                 ip_src = "10.0.0.1",
                                 ip_dst = dst_ip,
-                                icmp_type=8,
-                                icmp_code=0,
+                                udp_sport = 1234,
+                                udp_dport = 80,
                                 ip_ttl = 64
-                            )
+                                )
         #exp_pkt = pkt.deepcopy()
-        exp_pkt0 = simple_icmp_packet(
+        exp_pkt0 = simple_udp_packet(
                                 eth_dst = self.dataplane.get_mac(0, 0),
                                 eth_src = self.router_mac,
                                 ip_src = "10.0.0.1",
                                 ip_dst = dst_ip,
-                                icmp_type=8,
-                                icmp_code=0,
+                                udp_sport = 1234,
+                                udp_dport = 80,
                                 ip_ttl = 63
-                            )
-							
-        # Test #12 - Verify IP protocol & source IP match
+                                )
+
+        print ""
+
+        # Test #13 - Verify source IP match - UDP packet and UDP protocol 
         pkt = pkt0.copy()
         exp_pkt = exp_pkt0.copy()
         pkt['IP'].src = "10.0.0.2"
         exp_pkt['IP'].src = "10.0.0.2"
-        pkt['IP'].proto=0x1
-        exp_pkt['IP'].proto=0x1
+        pkt['IP'].proto=0x11
+        exp_pkt['IP'].proto=0x11
         res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
         tests_passed += (0 if res else 1)
-        print "Test #12 %s" % ("FAILED" if res else "PASSED")							
+        print "Test #13 %s" % ("FAILED" if res else "PASSED")
 
         return tests_passed, self.tests_total
 
