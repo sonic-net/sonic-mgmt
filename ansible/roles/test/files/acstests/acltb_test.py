@@ -265,8 +265,8 @@ class AclTest(BaseTest):
         exp_pkt = exp_pkt0.copy()
         pkt['IP'].src = "10.0.0.2"
         exp_pkt['IP'].src = "10.0.0.2"
-	pkt['IP'].proto=0x1
-	exp_pkt['IP'].proto=0x1
+        pkt['IP'].proto=0x1
+        exp_pkt['IP'].proto=0x1
         res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
         tests_passed += (0 if res else 1)
         print "Test #12 %s" % ("FAILED" if res else "PASSED")							
