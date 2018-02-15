@@ -134,3 +134,42 @@
     - name: Remove existing ip from ptf host
       script: roles/test/files/helpers/remove_ip.sh
       delegate_to: "{{ ptf_host }}"
+
+    - name: Extract all syslog entries since the last reboot
+      extract_log:
+        directory: '/var/log'
+        file_prefix: 'syslog'
+        start_string: 'Initializing cgroup subsys cpuset'
+        target_filename: '/tmp/syslog'
+
+    - name: Copy the exctracted syslog entries to the local machine
+      fetch:
+        src: '/tmp/syslog'
+        dest: '/tmp/'
+        flat: yes
+
+    - name: Extract all sairedis.rec entries since the last reboot
+      extract_log:
+        directory: '/var/log/swss'
+        file_prefix: 'sairedis.rec'
+        start_string: 'recording on:'
+        target_filename: '/tmp/sairedis.rec'
+
+    - name: Copy the exctracted sairedis.rec entries to the local machine
+      fetch:
+        src: '/tmp/sairedis.rec'
+        dest: '/tmp/'
+        flat: yes
+
+    - name: Extract all swss.rec entries since the last reboot
+      extract_log:
+        directory: '/var/log/swss'
+        file_prefix: 'swss.rec'
+        start_string: 'recording started'
+        target_filename: '/tmp/swss.rec'
+
+    - name: Copy the exctracted swss.rec entries to the local machine
+      fetch:
+        src: '/tmp/swss.rec'
+        dest: '/tmp/'
+        flat: yes
