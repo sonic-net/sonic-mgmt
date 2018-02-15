@@ -47,7 +47,7 @@
   delegate_to: "{{ ptf_host }}"
 
 - name: Get queue OID
-  shell: "redis-cli -n 2 HGET COUNTERS_QUEUE_NAME_MAP {{ pfc_wd_test_port }}:{{ pfc_queue_index }}"
+  shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS_QUEUE_NAME_MAP {{ pfc_wd_test_port }}:{{ pfc_queue_index }}"
   register: queue_oid
 
 # Verify PFCWD detection when queue buffer is not empty and proper function of drop action
@@ -101,11 +101,11 @@
       include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS before test
-      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
+      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
       register: pfc_wd_tx_drop_before
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS before test
-      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
+      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
       register: pfc_wd_rx_drop_before
 
     - name: "check egress drop, tx port {{pfc_wd_test_port}}"
@@ -222,7 +222,7 @@
       when: "{{ pfc_wd_tx_drop_last.stdout | int != pfc_wd_test_pkt_count }}"
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS after test
-      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
+      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
       register: pfc_wd_rx_drop_after
 
     - name: Verify rx drop counter
@@ -231,7 +231,7 @@
       when: "{{ pfc_wd_rx_drop_after.stdout | int - pfc_wd_rx_drop_before.stdout | int != pfc_wd_test_pkt_count }}"
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST after test
-      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST"
+      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST"
       register: pfc_wd_rx_drop_last
 
     - name: Verify last rx drop counter
@@ -262,11 +262,11 @@
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS before test
-      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
+      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
       register: pfc_wd_tx_drop_before
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS before test
-      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
+      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
       register: pfc_wd_rx_drop_before
 
     - set_fact:
@@ -387,7 +387,7 @@
       include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS after test
-      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
+      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
       register: pfc_wd_tx_drop_after
 
     - name: Verify tx drop counter
@@ -405,7 +405,7 @@
       when: "{{ pfc_wd_tx_drop_last.stdout | int != pfc_wd_test_pkt_count }}"
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS after test
-      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
+      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
       register: pfc_wd_rx_drop_after
 
     - name: Verify rx drop counter
@@ -414,7 +414,7 @@
       when: "{{ pfc_wd_rx_drop_after.stdout | int - pfc_wd_rx_drop_before.stdout | int != pfc_wd_test_pkt_count }}"
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST after test
-      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST"
+      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST"
       register: pfc_wd_rx_drop_last
 
     - name: Verify last rx drop counter
@@ -445,11 +445,11 @@
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_PACKETS before test
-      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS"
+      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS"
       register: pfc_wd_tx_before
 
     - name: Get PFC_WD_QUEUE_STATS_RX_PACKETS before test
-      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_PACKETS"
+      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_PACKETS"
       register: pfc_wd_rx_before
 
     - set_fact:
@@ -538,7 +538,7 @@
       include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_PACKETS after test
-      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS"
+      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS"
       register: pfc_wd_tx_after
 
     - name: Verify tx counter
@@ -547,7 +547,7 @@
       when: "{{ pfc_wd_tx_after.stdout | int - pfc_wd_tx_before.stdout | int != pfc_wd_test_pkt_count }}"
 
     - name: Get PFC_WD_QUEUE_STATS_TX_PACKETS_LAST after test
-      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS_LAST"
+      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS_LAST"
       register: pfc_wd_tx_last
 
     - name: Verify last tx counter
@@ -556,7 +556,7 @@
       when: "{{ pfc_wd_tx_last.stdout | int != pfc_wd_test_pkt_count }}"
 
     - name: Get PFC_WD_QUEUE_STATS_RX_PACKETS after test
-      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_PACKETS"
+      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_PACKETS"
       register: pfc_wd_rx_after
 
     - name: Verify rx counter
@@ -565,7 +565,7 @@
       when: "{{ pfc_wd_rx_after.stdout | int - pfc_wd_rx_before.stdout | int != pfc_wd_test_pkt_count }}"
 
     - name: Get PFC_WD_QUEUE_STATS_RX_PACKETS_LAST after test
-      shell: "redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_PACKETS_LAST"
+      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_PACKETS_LAST"
       register: pfc_wd_rx_last
 
     - name: Verify last rx counter
