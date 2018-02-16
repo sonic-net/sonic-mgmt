@@ -6,7 +6,8 @@ version_added:  "1.0"
 short_description: Unrotate logs and extract information starting from a row with predefined string
 description: The module scans the 'directory' in search of files which filenames start with 'file_prefix'.
 The found files are ungzipped and combined together in the rotation order. After that all lines after
-'start_string' are copied into a file with name 'target_filename'.
+'start_string' are copied into a file with name 'target_filename'. All input strings with 'nsible' in it
+aren't considered as 'start_string' to avoid clashing with ansible output.
 
 Options:
     - option-name: directory
@@ -91,7 +92,7 @@ def extract_line(directory, filename, target_string):
         file = open(path)
     result = None
     with file:
-        result = [(filename, line) for line in file if target_string in line]
+        result = [(filename, line) for line in file if target_string in line and 'nsible' not in line]
     return result
 
 
