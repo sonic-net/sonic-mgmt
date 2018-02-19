@@ -165,3 +165,7 @@ ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} -e "testbed_name
 ```
 - Requires switch connected to a t0 testbed
 - Requires switch connected to fanout switch and fanout switch need support [QinQ](https://en.wikipedia.org/wiki/IEEE_802.1ad).
+
+### CRM test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags crm

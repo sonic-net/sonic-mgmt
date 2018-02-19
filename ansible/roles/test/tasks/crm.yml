@@ -1,0 +1,45 @@
+- block:
+
+   - name: Set polling interval
+     command: crm config polling interval 1
+
+   - name: Make sure CRM counters updated
+     pause: seconds=300
+
+   - name: Run test case "CRM IPv4 route resource"
+     include: roles/test/tasks/crm/crm_test_ipv4_route.yml
+
+   - name: Run test case "CRM IPv6 route resource"
+     include: roles/test/tasks/crm/crm_test_ipv6_route.yml
+
+   - name: Run test case "CRM IPv4 nexthop resource"
+     include: roles/test/tasks/crm/crm_test_ipv4_nexthop.yml
+
+   - name: Run test case "CRM IPv6 nexthop resource"
+     include: roles/test/tasks/crm/crm_test_ipv6_nexthop.yml
+
+   - name: Run test case "CRM IPv4 neighbor resource"
+     include: roles/test/tasks/crm/crm_test_ipv4_neighbor.yml
+
+   - name: Run test case "CRM IPv6 neighbor resource"
+     include: roles/test/tasks/crm/crm_test_ipv6_neighbor.yml
+
+   - name: Run test case "CRM nexthop group resource"
+     include: roles/test/tasks/crm/crm_test_nexthop_group.yml
+
+   - name: Run test case "CRM nexthop group member resource"
+     include: roles/test/tasks/crm/crm_test_nexthop_group_member.yml
+
+   - name: Run test case "CRM ACL entry resources"
+     include: roles/test/tasks/crm/crm_test_acl_entry.yml
+
+   - name: Run test case "CRM ACL counter resources"
+     include: roles/test/tasks/crm/crm_test_acl_counter.yml
+
+   - name: Run test case "CRM FDB entry resource"
+     include: roles/test/tasks/crm/crm_test_fdb_entry.yml
+
+  always:
+
+    - name: Restore polling interval
+      command: crm config polling interval 300

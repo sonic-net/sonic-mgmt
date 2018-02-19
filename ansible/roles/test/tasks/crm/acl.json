@@ -1,0 +1,30 @@
+{
+    "acl": {
+        "acl-sets": {
+            "acl-set": {
+                "dataacl": {
+                    "acl-entries": {
+                        "acl-entry": {
+                            "1": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 1
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "2048"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
