@@ -69,3 +69,11 @@
   when:
     - testbed_name is defined
     - testcase_name is defined
+    - testbed_name| lower != 'none'
+
+- name: call test directly if no testbed_name is required
+  include: test_sonic_by_testname.yml
+  when:
+    - testbed_name is defined
+    - testcase_name is defined
+    - testbed_name| lower == 'none'
