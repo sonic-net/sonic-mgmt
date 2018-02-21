@@ -53,7 +53,11 @@
 
   - name: Check that variable topo is defined
     fail: msg="Define topo variable with -e topo=something"
-    when: topo is not defined or topo not in topologies
+    when: topo is not defined
+
+  - name: Check if it is a known topology
+    fail: msg="Unknown topology {{ topo }}"
+    when: topo not in topologies
 
   - name: Check that variable ptf_imagename is defined
     fail: msg="Define ptf_imagename variable with -e ptf_imagename=something"
@@ -77,7 +81,11 @@
   pre_tasks:
   - name: Check that variable topo is defined
     fail: msg="Define topo variable with -e topo=something"
-    when: topo is not defined or topo not in topologies
+    when: topo is not defined
+
+  - name: Check if it is a known topology
+    fail: msg="Unknown topology {{ topo }}"
+    when: topo not in topologies
 
   - name: Check that variable VM_base is defined
     fail: msg="Define VM_base variable with -e VM_base=something"
