@@ -24,7 +24,7 @@
 
   when:
     - ansible_interface_link_down_ports | length > 0
-    - recover is defined
+    - recover == "true"
 
 - debug: msg="Found link down ports {{ansible_interface_link_down_ports}}"
   when: ansible_interface_link_down_ports | length > 0
