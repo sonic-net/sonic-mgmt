@@ -4,15 +4,19 @@
 - debug: msg="!!!!!!!!!!!!!!!!!!!! start to run test {{ testcase_name }} !!!!!!!!!!!!!!!!!!!!"
 - debug: msg="!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 
+- set_fact:
+    allow_recover: true
+  when: allow_recover is not defined
+
 - name: do basic sanity check before each test
   include: base_sanity.yml
   vars: 
-     recover: true
+     recover: "{{ allow_recover }}"
 
 - name: validate all interfaces is up
   include: interface.yml
   vars:
-     recover: true
+     recover: "{{ allow_recover }}"
 
 ### by default, when calling a test case name, we pass 'testbed_type', 'ptf_host, 'dut_name(ansible_hoatname)' down to test playbook.
 ### if your test playbook requires more extra vars then default, please make sure you handled them correctly within test playbook.
