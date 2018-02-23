@@ -1,0 +1,27 @@
+- name: turn off all ports on device
+  shell: config interface shutdown {{item}}
+  become: yes
+  with_items:
+    - "{{minigraph_ports.keys()}}"
+
+- name: Get interface facts
+  interface_facts: up_ports={{minigraph_ports}}
+
+- name: Verify interfaces are all down
+  assert: { that: "{{ ansible_interface_link_down_ports | length }} == {{ minigraph_ports | length }}" }
+
+- always:
+  - name: turn on all ports on device
+    shell: config interface startup {{item}}
+    become: yes
+    with_items:
+      - "{{minigraph_ports.keys()}}"
+
+  - name: wait 1 minute for ports to come up
+    pause: seconds=60
+
+  - name: Get interface facts
+    interface_facts: up_ports={{minigraph_ports}}
+
+  - name: Verify interfaces are up correctly
+    assert: { that: "{{ ansible_interface_link_down_ports | length }} == 0" }
