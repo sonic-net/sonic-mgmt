@@ -8,7 +8,7 @@
   pause:
     seconds: 120
 
-- name: do basic sanity check before each test
+- name: check basic sanity of the device
   include: base_sanity.yml
   vars:
      recover: false
