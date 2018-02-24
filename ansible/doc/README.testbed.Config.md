@@ -25,7 +25,7 @@
 
 ### ```testbed.csv``` format
 ```
-# conf-name,group-name,topo,ptf_image_name,ptf_mgmt_ip,server,vm_base,dut,comment
+# conf-name,group-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,comment
 ptf1-m,ptf1,ptf32,docker-ptf-sai-mlnx,10.255.0.188/24,server_1,,str-msn2700-01,Tests ptf
 vms-t1,vms1-1,t1,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str-msn2700-01,Tests vms
 vms-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str-msn2700-01,Tests vms
@@ -36,7 +36,7 @@ vms-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str
 - group-name – used in interface names, up to 8 characters
 - topo – name of topology
 - ptf_imagename – defines PTF image
-- ptf_mgmt_ip – ip address for mgmt interface of PTF container
+- ptf_ip – ip address for mgmt interface of PTF container
 - server – server where the testbed resides
 - vm_base – first VM for the testbed. If empty, no VMs are used
 - dut – target dut name
