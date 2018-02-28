@@ -115,6 +115,14 @@ hwsku='Force10-Z9100'
 iface_speed='100000'
 mgmt_subnet_mask_length='23'
 
+[sonic_e1031]
+str-e1031-acs-1   ansible_host=10.64.247.24
+
+[sonic_e1031:vars]
+hwsku='E1031-T48S4'
+iface_speed='1000'
+mgmt_subnet_mask_length='23'
+
 [sonic:children]
 sonic_stable
 sonic_latest
@@ -128,6 +136,7 @@ sonic_arista64_100
 sonic_dell32_100
 sonic_mlnx_100
 sonic_arista32_100
+sonic_e1031
 
 [acs_ixia_dscp]
 10.3.147.141

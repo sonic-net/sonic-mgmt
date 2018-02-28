@@ -45,6 +45,8 @@ str-7260cx3-acs-2,10.64.247.10/23,Arista-7260CX3-D108C8,DevSonic
 str-msn2700-20,10.64.247.235/23,Mellanox-SN2700,DevSonic
 str-msn2700-22,10.64.247.236/23,Mellanox-SN2700,DevSonic
 str-z9100-acs-2,10.64.246.237/23,Force10-Z9100,DevSonic
+str-e1031-acs-1,10.64.247.24/23,E1031-T48S4,DevSonic
+str-e1031-acs-2,10.64.247.25/23,E1031-T48S4,FanoutLeaf
 str-7260-02,10.3.147.154/23,Arista-7260QX-64,FanoutLeaf
 str-7260-03,10.3.147.169/23,Arista-7260QX-64,FanoutLeaf
 str-7260-04,10.3.147.164/23,Arista-7260QX-64,FanoutLeaf
