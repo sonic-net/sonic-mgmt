@@ -1,0 +1,45 @@
+{
+
+"DEVICE_METADATA": {
+    "localhost": {
+        "hwsku": "{{ device_info["HwSku"] }}",
+        "hostname": "{{ inventory_hostname }}"
+    }
+},
+
+"VLAN": {
+{% for vlanid in device_vlan_list | unique %}
+    "Vlan{{ vlanid }}": {
+        "vlanid": "{{ vlanid }}"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+},
+
+{% set ns = {'firstPrinted': False} %}
+"VLAN_MEMBER": {
+{% for port in device_port_vlans %}
+{% if device_port_vlans[port]['mode'] == 'Access' %}
+{% if ns.firstPrinted %},{% endif %}
+    "Vlan{{ device_port_vlans[port]['vlanids'] }}|{{ port }}": {
+        "tagging_mode" : "untagged"
+    }
+{% if ns.update({'firstPrinted': True}) %} {% endif %}
+{% elif device_port_vlans[port]['mode'] == 'Trunk' %}
+  {% for vlanid in device_port_vlans[port]['vlanlist'] %}
+{% if ns.firstPrinted %},{% endif %}
+    "Vlan{{ vlanid }}|{{ port }}": {
+        "tagging_mode" : "tagged"
+    }
+{% if ns.update({'firstPrinted': True}) %} {% endif %}
+  {% endfor %}
+{% endif %}
+{% endfor %}
+},
+
+"MGMT_INTERFACE": {
+    "eth0|{{ device_info["ManagementIp"] }}": {
+        "gwaddr": "{{ device_info["ManagementGw"] }}"
+    }
+}
+
+}
