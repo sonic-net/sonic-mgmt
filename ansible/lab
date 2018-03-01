@@ -20,3 +20,4 @@ fanout
 [fanout]
 str-7260-10       ansible_host=10.251.0.13
 str-7260-11       ansible_host=10.251.0.234
+str-msn2700-02    ansible_host=10.251.0.235 os=sonic
