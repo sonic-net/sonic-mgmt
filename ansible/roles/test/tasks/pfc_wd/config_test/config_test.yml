@@ -118,6 +118,7 @@
     - name: Config tests - Check forward action configuration.
       vars:
         command_to_run: "sonic-cfggen -j {{ run_dir }}/pfc_wd_fwd_action.json --write-to-db"
+        test_ignore_file: config_test_ignore_messages
         errors_expected: false
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 
@@ -174,6 +175,7 @@
     - name: Clean up config
       vars:
         command_to_run: "pfcwd stop"
+        test_ignore_file: config_test_ignore_messages
         errors_expected: false
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 

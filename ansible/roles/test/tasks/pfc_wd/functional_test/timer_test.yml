@@ -38,7 +38,7 @@
   register: storm_end_millis
 
 - name: Find PFC storm restore message
-  shell: grep "restored from PFC storm" /var/log/syslog
+  shell: grep "PFC Watchdog storm restored" /var/log/syslog
   register: storm_restore
 
 - name: Convert restore message time to milliseconds

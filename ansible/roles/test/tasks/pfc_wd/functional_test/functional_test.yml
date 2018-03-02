@@ -33,7 +33,7 @@
   set_fact:
       pfc_wd_detect_time: 200
       pfc_wd_restore_time: 200
-      pfc_wd_restore_time_large: 30000
+      pfc_wd_restore_time_large: 50000
       pfc_wd_poll_time: 100
 
 - set_fact:
@@ -258,6 +258,7 @@
     - name: Apply drop config to {{ pfc_wd_test_port }}.
       vars:
         command_to_run: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time_large }} {{ ports }} {{ pfc_wd_detect_time }}"
+        test_ignore_file: ignore_pfc_wd_messages
         errors_expected: false
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 
@@ -433,6 +434,7 @@
     - name: Clean up config
       vars:
         command_to_run: "pfcwd stop"
+        test_ignore_file: ignore_pfc_wd_messages
         errors_expected: false
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 
@@ -602,6 +604,7 @@
     - name: Apply config with proper timers to {{ pfc_wd_test_port }}.
       vars:
         command_to_run: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time }} {{ ports }} {{ pfc_wd_detect_time }}"
+        test_ignore_file: ignore_pfc_wd_messages
         errors_expected: false
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 
