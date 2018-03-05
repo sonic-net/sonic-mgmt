@@ -11,7 +11,8 @@
     - set_fact: crm_stats_nexthop_group_member_available={{out.stdout}}
 
     - name: Add nexthop group members
-      command: ip route add 2.2.2.0/24 nexthop via 10.0.0.1 dev Ethernet0 nexthop via 10.0.0.5 dev Ethernet8
+      command: ip route add 2.2.2.0/24 nexthop via 10.0.0.57 nexthop via 10.0.0.59
+      become: yes
 
     - name: Make sure CRM counters updated
       pause: seconds=1
@@ -33,7 +34,8 @@
       assert: {that: "{{crm_stats_nexthop_group_member_available|int - new_crm_stats_nexthop_group_member_available|int == 2}}"}
 
     - name: Remove nexthop group members
-      command: ip route del 2.2.2.0/24 nexthop via 10.0.0.1 dev Ethernet0 nexthop via 10.0.0.5 dev Ethernet8
+      command: ip route del 2.2.2.0/24 nexthop via 10.0.0.57 nexthop via 10.0.0.59
+      become: yes
 
     - name: Make sure CRM counters updated
       pause: seconds=1

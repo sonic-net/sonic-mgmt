@@ -21,9 +21,11 @@
 
     - name: Add VLAN required for FDB entry
       command: config vlan add 2
+      become: yes
 
     - name: Add VLAN member required for FDB entry
       command: config vlan member add 2 Ethernet0
+      become: yes
 
     - name: Make sure CRM counters updated
       pause: seconds=1
@@ -55,9 +57,11 @@
 
     - name: Remove VLAN member required for FDB entry
       command: config vlan member del 2 Ethernet0
+      become: yes
 
     - name: Remove VLAN required for FDB entry
       command: config vlan del 2
+      become: yes
 
     - name: Remove FDB JSON config from switch.
       command: rm /tmp/fdb.json

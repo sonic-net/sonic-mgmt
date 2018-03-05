@@ -1,5 +1,17 @@
 - block:
 
+   - fail: msg="Information about tested missing"
+     when: (testbed_type is not defined)
+
+   - fail: msg="Invalid testbed_type value '{{testbed_type}}'"
+     when: testbed_type not in ['t1', 't1-lag', 't0']
+
+   - set_fact: crm_intf="{{minigraph_interfaces[0].attachto}}"
+     when: testbed_type == "t1"
+
+   - set_fact: crm_intf="{{minigraph_portchannel_interfaces[0].attachto}}"
+     when: (testbed_type == "t0") or (testbed_type == "t1-lag")
+
    - name: Set polling interval
      command: crm config polling interval 1
 

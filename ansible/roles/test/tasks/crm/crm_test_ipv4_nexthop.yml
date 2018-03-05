@@ -11,7 +11,8 @@
     - set_fact: crm_stats_ipv4_nexthop_available={{out.stdout}}
 
     - name: Add IPv4 nexthop
-      command: ip neigh replace 2.2.2.2 lladdr 11:22:33:44:55:66 dev Ethernet0
+      command: ip neigh replace 2.2.2.2 lladdr 11:22:33:44:55:66 dev {{crm_intf}}
+      become: yes
 
     - name: Make sure CRM counters updated
       pause: seconds=1
@@ -33,7 +34,8 @@
       assert: {that: "{{crm_stats_ipv4_nexthop_available|int - new_crm_stats_ipv4_nexthop_available|int == 1}}"}
 
     - name: Remove IPv4 nexthop
-      command: ip neigh del 2.2.2.2 lladdr 11:22:33:44:55:66 dev Ethernet0
+      command: ip neigh del 2.2.2.2 lladdr 11:22:33:44:55:66 dev {{crm_intf}}
+      become: yes
 
     - name: Make sure CRM counters updated
       pause: seconds=1
