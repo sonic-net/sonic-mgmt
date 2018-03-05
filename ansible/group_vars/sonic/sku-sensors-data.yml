@@ -326,35 +326,42 @@ sensors_checks:
       - dps460-i2c-4-58/iout1/curr2_max_alarm
       - dps460-i2c-4-58/iout1/curr2_lcrit_alarm
       - dps460-i2c-4-58/iout1/curr2_crit_alarm
-      - ucd9200-i2c-5-27/UCD1 vin/in1_min_alarm
-      - ucd9200-i2c-5-27/UCD1 vin/in1_max_alarm
-      - ucd9200-i2c-5-27/UCD1 vin/in1_lcrit_alarm
-      - ucd9200-i2c-5-27/UCD1 vin/in1_crit_alarm
-      - ucd9200-i2c-5-27/ASIC 3.3 vout/in2_min_alarm
-      - ucd9200-i2c-5-27/ASIC 3.3 vout/in2_max_alarm
-      - ucd9200-i2c-5-27/ASIC 3.3 vout/in2_lcrit_alarm
-      - ucd9200-i2c-5-27/ASIC 3.3 vout/in2_crit_alarm
-      - ucd9200-i2c-5-27/ASIC 1.2 vout/in3_min_alarm
-      - ucd9200-i2c-5-27/ASIC 1.2 vout/in3_max_alarm
-      - ucd9200-i2c-5-27/ASIC 1.2 vout/in3_lcrit_alarm
-      - ucd9200-i2c-5-27/ASIC 1.2 vout/in3_crit_alarm
+      - ucd9200-i2c-5-27/vin/in1_min_alarm
+      - ucd9200-i2c-5-27/vin/in1_max_alarm
+      - ucd9200-i2c-5-27/vin/in1_lcrit_alarm
+      - ucd9200-i2c-5-27/vin/in1_crit_alarm
+      - ucd9200-i2c-5-27/vout1/in2_min_alarm
+      - ucd9200-i2c-5-27/vout1/in2_max_alarm
+      - ucd9200-i2c-5-27/vout1/in2_lcrit_alarm
+      - ucd9200-i2c-5-27/vout1/in2_crit_alarm
+      - ucd9200-i2c-5-27/vout2/in3_min_alarm
+      - ucd9200-i2c-5-27/vout2/in3_max_alarm
+      - ucd9200-i2c-5-27/vout2/in3_lcrit_alarm
+      - ucd9200-i2c-5-27/vout2/in3_crit_alarm
       - ucd9200-i2c-5-27/iout1/curr2_max_alarm
       - ucd9200-i2c-5-27/iout1/curr2_lcrit_alarm
       - ucd9200-i2c-5-27/iout1/curr2_crit_alarm
       - ucd9200-i2c-5-27/iout2/curr3_max_alarm
       - ucd9200-i2c-5-27/iout2/curr3_lcrit_alarm
       - ucd9200-i2c-5-27/iout2/curr3_crit_alarm
-      - ucd9200-i2c-5-41/UCD2 vin/in1_min_alarm
-      - ucd9200-i2c-5-41/UCD2 vin/in1_max_alarm
-      - ucd9200-i2c-5-41/UCD2 vin/in1_lcrit_alarm
-      - ucd9200-i2c-5-41/UCD2 vin/in1_crit_alarm
-      - ucd9200-i2c-5-41/ASIC Vcore vout/in2_min_alarm
-      - ucd9200-i2c-5-41/ASIC Vcore vout/in2_max_alarm
-      - ucd9200-i2c-5-41/ASIC Vcore vout/in2_lcrit_alarm
-      - ucd9200-i2c-5-41/ASIC Vcore vout/in2_crit_alarm
+      - ucd9200-i2c-5-41/vin/in1_min_alarm
+      - ucd9200-i2c-5-41/vin/in1_max_alarm
+      - ucd9200-i2c-5-41/vin/in1_lcrit_alarm
+      - ucd9200-i2c-5-41/vin/in1_crit_alarm
+      - ucd9200-i2c-5-41/vout1/in2_min_alarm
+      - ucd9200-i2c-5-41/vout1/in2_max_alarm
+      - ucd9200-i2c-5-41/vout1/in2_lcrit_alarm
+      - ucd9200-i2c-5-41/vout1/in2_crit_alarm
+      - ucd9200-i2c-5-41/vout2/in3_min_alarm
+      - ucd9200-i2c-5-41/vout2/in3_max_alarm
+      - ucd9200-i2c-5-41/vout2/in3_lcrit_alarm
+      - ucd9200-i2c-5-41/vout2/in3_crit_alarm
       - ucd9200-i2c-5-41/iout1/curr2_max_alarm
       - ucd9200-i2c-5-41/iout1/curr2_lcrit_alarm
       - ucd9200-i2c-5-41/iout1/curr2_crit_alarm
+      - ucd9200-i2c-5-41/iout2/curr3_max_alarm
+      - ucd9200-i2c-5-41/iout2/curr3_lcrit_alarm
+      - ucd9200-i2c-5-41/iout2/curr3_crit_alarm
       temp:
       - coretemp-isa-0000/Core 0/temp2_crit_alarm
       - coretemp-isa-0000/Core 1/temp3_crit_alarm
@@ -384,16 +391,18 @@ sensors_checks:
       - dps460-i2c-4-58/temp3/temp3_min_alarm
       - dps460-i2c-4-58/temp3/temp3_crit_alarm
       - dps460-i2c-4-58/temp3/temp3_lcrit_alarm
-      - ucd9200-i2c-5-27/UCD1 Temp/temp1_max_alarm
-      - ucd9200-i2c-5-27/UCD1 Temp/temp1_crit_alarm
-      - ucd9200-i2c-5-27/UCD1 Temp2/temp2_max_alarm
-      - ucd9200-i2c-5-27/UCD1 Temp2/temp2_crit_alarm
+      - ucd9200-i2c-5-27/temp1/temp1_max_alarm
+      - ucd9200-i2c-5-27/temp1/temp1_crit_alarm
+      - ucd9200-i2c-5-27/temp2/temp2_max_alarm
+      - ucd9200-i2c-5-27/temp2/temp2_crit_alarm
       - ucd9200-i2c-5-27/temp3/temp3_max_alarm
       - ucd9200-i2c-5-27/temp3/temp3_crit_alarm
-      - ucd9200-i2c-5-41/UCD2 Temp1/temp1_max_alarm
-      - ucd9200-i2c-5-41/UCD2 Temp1/temp1_crit_alarm
-      - ucd9200-i2c-5-41/UCD2 Temp2/temp2_max_alarm
-      - ucd9200-i2c-5-41/UCD2 Temp2/temp2_crit_alarm
+      - ucd9200-i2c-5-41/temp1/temp1_max_alarm
+      - ucd9200-i2c-5-41/temp1/temp1_crit_alarm
+      - ucd9200-i2c-5-41/temp2/temp2_max_alarm
+      - ucd9200-i2c-5-41/temp2/temp2_crit_alarm
+      - ucd9200-i2c-5-41/temp3/temp3_max_alarm
+      - ucd9200-i2c-5-41/temp3/temp3_crit_alarm
     compares:
       fan:
       - - spectrum-i2c-2-48/fan1/fan1_input
