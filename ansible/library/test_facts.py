@@ -49,7 +49,7 @@ EXAMPLES = '''
                   ptf_host:
             bgp_fact:
                 filename: bgp_fact.yml
-                topologies: [t0, t0-64, t0-64-32, t1, t1-lag, t1-lag-64]
+                topologies: [t0, t0-64, t0-64-32, t1, t1-lag, t1-64-lag]
             ...
 
     To use it:

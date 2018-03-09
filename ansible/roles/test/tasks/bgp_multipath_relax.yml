@@ -9,7 +9,7 @@
 - fail: msg="please provide testbed_type for bgp_multipath_relax test"
   when: testbed_type is not defined 
 
-- fail: mgs="This test only works for leaf routers as DUT in topology, t1, t1-lag, t1-lag-64"
+- fail: mgs="This test only works for leaf routers as DUT in topology, t1, t1-lag, t1-64-lag"
   when: testbed_type not in ['t1', 't1-lag', 't1-64-lag']
 
 - name: Gathering minigraph facts about the device
