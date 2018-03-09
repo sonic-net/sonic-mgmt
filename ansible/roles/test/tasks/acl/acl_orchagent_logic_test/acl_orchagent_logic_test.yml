@@ -185,7 +185,7 @@
         run_cleanup: false
       include: "{{ run_config_test }}"
 
-    - name: Rule test - invalid ip type.
+    - name: Rule test - valid ip type.
       vars:
         config_file: "{{ config_ip_type_valid_1 }}"
         test_expect_file: "{{ config_empty_expect }}"
