@@ -1,4 +1,151 @@
 sensors_checks:
+  Force10-S6100:
+    alarms:
+      fan:
+      - SMF_S6100_ON-isa-0000/Tray1 Fan1/fan1_alarm
+      - SMF_S6100_ON-isa-0000/Tray2 Fan1/fan3_alarm
+      - SMF_S6100_ON-isa-0000/Tray3 Fan1/fan5_alarm
+      - SMF_S6100_ON-isa-0000/Tray4 Fan1/fan7_alarm
+      - SMF_S6100_ON-isa-0000/Tray1 Fan1/fan1_fault
+      - SMF_S6100_ON-isa-0000/Tray2 Fan1/fan3_fault
+      - SMF_S6100_ON-isa-0000/Tray3 Fan1/fan5_fault
+      - SMF_S6100_ON-isa-0000/Tray4 Fan1/fan7_fault
+      - SMF_S6100_ON-isa-0000/Psu1 Fan/fan11_alarm
+      - SMF_S6100_ON-isa-0000/Psu2 Fan/fan12_alarm
+      - SMF_S6100_ON-isa-0000/Psu1 Fan/fan11_fault
+      - SMF_S6100_ON-isa-0000/Psu2 Fan/fan12_fault
+      power:
+      - SMF_S6100_ON-isa-0000/CPU XP3R3V_EARLY/in1_alarm
+      - SMF_S6100_ON-isa-0000/CPU XP5R0V_CP/in2_alarm
+      - SMF_S6100_ON-isa-0000/CPU XP3R3V_STD/in3_alarm
+      - SMF_S6100_ON-isa-0000/CPU XP3R3V_CP /in4_alarm
+      - SMF_S6100_ON-isa-0000/CPU XP0R75V_VTT_A/in5_alarm
+      - SMF_S6100_ON-isa-0000/CPU XP0R75V_VTT_B/in6_alarm
+      - SMF_S6100_ON-isa-0000/CPU XP1R07V_CPU/in7_alarm
+      - SMF_S6100_ON-isa-0000/CPU XP1R0V_CPU/in8_alarm
+      - SMF_S6100_ON-isa-0000/CPU XP12R0V/in9_alarm
+      - SMF_S6100_ON-isa-0000/CPU VDDR_CPU_2/in10_alarm
+      - SMF_S6100_ON-isa-0000/CPU VDDR_CPU_1/in11_alarm
+      - SMF_S6100_ON-isa-0000/CPU XP1R5V_CLK/in12_alarm
+      - SMF_S6100_ON-isa-0000/CPU XP1R35V_CPU/in13_alarm
+      - SMF_S6100_ON-isa-0000/CPU XP1R8V_CPU/in14_alarm
+      - SMF_S6100_ON-isa-0000/CPU XP1R0V_CPU_VNN/in15_alarm
+      - SMF_S6100_ON-isa-0000/CPU XP1R0V_CPU_VCC/in16_alarm
+      - SMF_S6100_ON-isa-0000/CPU XP1R5V_EARLY/in17_alarm
+      - SMF_S6100_ON-isa-0000/SW XP3R3V_MON/in19_alarm
+      - SMF_S6100_ON-isa-0000/SW XP1R8V_MON/in20_alarm
+      - SMF_S6100_ON-isa-0000/SW XP1R25V_MON/in21_alarm
+      - SMF_S6100_ON-isa-0000/SW XP1R2V_MON/in22_alarm
+      - SMF_S6100_ON-isa-0000/SW XP1R0V_SW_MON/in23_alarm
+      - SMF_S6100_ON-isa-0000/SW XP1R0V_ROV_SW_MON/in24_alarm
+      - SMF_S6100_ON-isa-0000/SW XP5V_MB_MON/in26_alarm
+      - SMF_S6100_ON-isa-0000/SW XP1R8V_FPGA_MON/in27_alarm
+      - SMF_S6100_ON-isa-0000/SW XP3R3V_FPGA_MON/in28_alarm
+      temp:
+      - coretemp-isa-0000/Core 0/temp2_crit_alarm
+      - coretemp-isa-0000/Core 1/temp3_crit_alarm
+      - coretemp-isa-0000/Core 2/temp4_crit_alarm
+      - coretemp-isa-0000/Core 3/temp5_crit_alarm
+    compares:
+      fan: []
+      power:
+      - - SMF_S6100_ON-isa-0000/Psu1 Input/power1_input
+        - SMF_S6100_ON-isa-0000/Psu1 Input/power1_max
+      - - SMF_S6100_ON-isa-0000/Psu1 Output/power2_input
+        - SMF_S6100_ON-isa-0000/Psu1 Output/power2_max
+      - - SMF_S6100_ON-isa-0000/Psu2 Input/power3_input
+        - SMF_S6100_ON-isa-0000/Psu2 Input/power3_max
+      - - SMF_S6100_ON-isa-0000/Psu2 Output/power4_input
+        - SMF_S6100_ON-isa-0000/Psu2 Output/power4_max
+      temp:
+      - - coretemp-isa-0000/Core 0/temp2_input
+        - coretemp-isa-0000/Core 0/temp2_crit
+      - - coretemp-isa-0000/Core 1/temp3_input
+        - coretemp-isa-0000/Core 1/temp3_crit
+      - - coretemp-isa-0000/Core 2/temp4_input
+        - coretemp-isa-0000/Core 2/temp4_crit
+      - - coretemp-isa-0000/Core 3/temp5_input
+        - coretemp-isa-0000/Core 3/temp5_crit
+      - - SMF_S6100_ON-isa-0000/CPU On-board (U2900)/temp1_input
+        - SMF_S6100_ON-isa-0000/CPU On-board (U2900)/temp1_crit
+      - - "SMF_S6100_ON-isa-0000/BCM On-Board #1 (U44)/temp2_input"
+        - "SMF_S6100_ON-isa-0000/BCM On-Board #1 (U44)/temp2_crit"
+      - - SMF_S6100_ON-isa-0000/Front BCM On-board (U4)/temp3_input
+        - SMF_S6100_ON-isa-0000/Front BCM On-board (U4)/temp3_crit
+      - - SMF_S6100_ON-isa-0000/Front BCM On-board (U2)/temp4_input
+        - SMF_S6100_ON-isa-0000/Front BCM On-board (U2)/temp4_crit
+      - - SMF_S6100_ON-isa-0000/Front GE/temp10_input
+        - SMF_S6100_ON-isa-0000/Front GE/temp10_crit
+      - - SMF_S6100_ON-isa-0000/Front SFP+/temp11_input
+        - SMF_S6100_ON-isa-0000/Front SFP+/temp11_crit
+      - - SMF_S6100_ON-isa-0000/PSU 1/temp14_input
+        - SMF_S6100_ON-isa-0000/PSU 1/temp14_crit
+      - - SMF_S6100_ON-isa-0000/PSU 2/temp15_input
+        - SMF_S6100_ON-isa-0000/PSU 2/temp15_crit
+    non_zero:
+      fan:
+      - SMF_S6100_ON-isa-0000/Tray1 Fan1/fan1_input
+      - SMF_S6100_ON-isa-0000/Tray2 Fan1/fan3_input
+      - SMF_S6100_ON-isa-0000/Tray3 Fan1/fan5_input
+      - SMF_S6100_ON-isa-0000/Tray4 Fan1/fan7_input
+      - SMF_S6100_ON-isa-0000/Psu1 Fan/fan11_input
+      - SMF_S6100_ON-isa-0000/Psu2 Fan/fan12_input
+      power:
+       - SMF_S6100_ON-isa-0000/CPU XP3R3V_EARLY/in1_input
+       - SMF_S6100_ON-isa-0000/CPU XP5R0V_CP/in2_input
+       - SMF_S6100_ON-isa-0000/CPU XP3R3V_STD/in3_input
+       - SMF_S6100_ON-isa-0000/CPU XP3R3V_CP /in4_input
+       - SMF_S6100_ON-isa-0000/CPU XP0R75V_VTT_A/in5_input
+       - SMF_S6100_ON-isa-0000/CPU XP0R75V_VTT_B/in6_input
+       - SMF_S6100_ON-isa-0000/CPU XP1R07V_CPU/in7_input
+       - SMF_S6100_ON-isa-0000/CPU XP1R0V_CPU/in8_input
+       - SMF_S6100_ON-isa-0000/CPU XP12R0V/in9_input
+       - SMF_S6100_ON-isa-0000/CPU VDDR_CPU_2/in10_input
+       - SMF_S6100_ON-isa-0000/CPU VDDR_CPU_1/in11_input
+       - SMF_S6100_ON-isa-0000/CPU XP1R5V_CLK/in12_input
+       - SMF_S6100_ON-isa-0000/CPU XP1R35V_CPU/in13_input
+       - SMF_S6100_ON-isa-0000/CPU XP1R8V_CPU/in14_input
+       - SMF_S6100_ON-isa-0000/CPU XP1R0V_CPU_VNN/in15_input
+       - SMF_S6100_ON-isa-0000/CPU XP1R0V_CPU_VCC/in16_input
+       - SMF_S6100_ON-isa-0000/CPU XP1R5V_EARLY/in17_input
+       - SMF_S6100_ON-isa-0000/SW XP3R3V_MON/in19_input
+       - SMF_S6100_ON-isa-0000/SW XP1R8V_MON/in20_input
+       - SMF_S6100_ON-isa-0000/SW XP1R25V_MON/in21_input
+       - SMF_S6100_ON-isa-0000/SW XP1R2V_MON/in22_input
+       - SMF_S6100_ON-isa-0000/SW XP1R0V_SW_MON/in23_input
+       - SMF_S6100_ON-isa-0000/SW XP1R0V_ROV_SW_MON/in24_input
+       - SMF_S6100_ON-isa-0000/SW XP5V_MB_MON/in26_input
+       - SMF_S6100_ON-isa-0000/SW XP1R8V_FPGA_MON/in27_input
+       - SMF_S6100_ON-isa-0000/SW XP3R3V_FPGA_MON/in28_input
+       - SMF_S6100_ON-isa-0000/PSU1 VIN/in29_input
+       - SMF_S6100_ON-isa-0000/PSU1 VOUT/in30_input
+       - SMF_S6100_ON-isa-0000/PSU2 VIN/in31_input
+       - SMF_S6100_ON-isa-0000/PSU2 VOUT/in32_input
+       - SMF_S6100_ON-isa-0000/Psu1 Input/power1_input
+       - SMF_S6100_ON-isa-0000/Psu1 Output/power2_input
+       - SMF_S6100_ON-isa-0000/Psu2 Input/power3_input
+       - SMF_S6100_ON-isa-0000/Psu2 Output/power4_input
+       - SMF_S6100_ON-isa-0000/XP1R0V/curr21_input
+       - SMF_S6100_ON-isa-0000/XP1R0V_ROV/curr22_input
+      temp:
+       - SMF_S6100_ON-isa-0000/CPU On-board (U2900)/temp1_input
+       - "SMF_S6100_ON-isa-0000/BCM On-Board #1 (U44)/temp2_input"
+       - SMF_S6100_ON-isa-0000/Front BCM On-board (U4)/temp3_input
+       - SMF_S6100_ON-isa-0000/Front BCM On-board (U2)/temp4_input
+       - "SMF_S6100_ON-isa-0000/IOM #1/temp5_input"
+       - "SMF_S6100_ON-isa-0000/IOM #2/temp6_input"
+       - "SMF_S6100_ON-isa-0000/IOM #3/temp7_input"
+       - "SMF_S6100_ON-isa-0000/IOM #4/temp8_input"
+       - SMF_S6100_ON-isa-0000/U2 Switch board?/temp9_input
+       - SMF_S6100_ON-isa-0000/Front GE/temp10_input
+       - SMF_S6100_ON-isa-0000/Front SFP+/temp11_input
+       - SMF_S6100_ON-isa-0000/BCM Internal/temp12_input
+       - SMF_S6100_ON-isa-0000/CPU Internal/temp13_input
+       - SMF_S6100_ON-isa-0000/PSU 1/temp14_input
+       - SMF_S6100_ON-isa-0000/PSU 2/temp15_input
+
+    psu_skips: {}
+
   Force10-Z9100:
     alarms:
       fan:
