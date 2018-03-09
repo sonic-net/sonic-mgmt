@@ -156,9 +156,9 @@ class Parse_Lab_Graph():
                 start_dev = link.attrib['StartDevice']
                 end_dev = link.attrib['EndDevice']
                 if start_dev:
-                    self.links[start_dev][link.attrib['StartPort']] = {'peerdevice':link.attrib['EndDevice'], 'peerport': link.attrib['EndPort']}
+                    self.links[start_dev][link.attrib['StartPort']] = {'peerdevice':link.attrib['EndDevice'], 'peerport': link.attrib['EndPort'], 'speed': link.attrib['BandWidth']}
                 if end_dev:
-                    self.links[end_dev][link.attrib['EndPort']] = {'peerdevice': link.attrib['StartDevice'], 'peerport': link.attrib['StartPort']}
+                    self.links[end_dev][link.attrib['EndPort']] = {'peerdevice': link.attrib['StartDevice'], 'peerport': link.attrib['StartPort'], 'speed': link.attrib['BandWidth']}
         self.devices = deviceinfo
         self.vlanport = devicel2info
 

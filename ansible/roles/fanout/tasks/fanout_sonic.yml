@@ -1,5 +1,9 @@
 - debug: msg="{{ device_info }}"
 
+- name: find interface name mapping
+  port_alias: hwsku="{{ device_info["HwSku"] }}"
+  connection: local
+
 - name: prepare fanout switch admin login info
   set_fact: ansible_user={{ fanout_sonic_user }} ansible_password={{ fanout_sonic_password }}
 
@@ -17,7 +21,7 @@
     ansible_python_interpreter: docker exec -i swss python
 
 - name: generate config_db.json
-  shell: sonic-cfggen -j /etc/sonic/vlan.json -j /etc/sonic/init_cfg.json --print-data > /etc/sonic/config_db.json
+  shell: sonic-cfggen -H -j /etc/sonic/vlan.json -j /etc/sonic/init_cfg.json --print-data > /etc/sonic/config_db.json
   become: yes
 
 - name: reload config_db.json

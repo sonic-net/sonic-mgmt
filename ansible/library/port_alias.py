@@ -43,7 +43,6 @@ class SonicPortAliasMap():
     def __init__(self, hwsku):
         self.filename = ''
         self.hwsku = hwsku
-        self.portmap = []
         return
 
     def findfile(self):
@@ -52,27 +51,35 @@ class SonicPortAliasMap():
                 self.filename = rootdir+'/'+PORTMAP_FILE
 
     def get_portmap(self):
+        aliases = []
+        portmap = {}
+        aliasmap = {}
         self.findfile()
         if self.filename == '':
             raise Exception("Something wrong when trying to find the portmap file, either the hwsku is not available or file location is not correct")
         with open(self.filename) as f:
             lines = f.readlines()
-        alias=False
+        has_alias=False
         while len(lines) != 0:
             line = lines.pop(0)
             if re.match('^#', line):
                 title=re.sub('#', '', line.strip().lower()).split()
                 if 'alias' in title:
                     index = title.index('alias')
-                    alias = True
+                    has_alias = True
             else: 
                 if re.match('^Ethernet', line):
                     mapping = line.split()
-                    if alias and len(mapping) > index:
-                        self.portmap.append(mapping[index])
+                    name = mapping[0]
+                    if has_alias and len(mapping) > index:
+                        alias = mapping[index]
                     else:
-                        self.portmap.append(mapping[0])
-        return
+                        alias = name
+                    aliases.append(alias)
+                    portmap[name] = alias
+                    aliasmap[alias] = name
+
+        return (aliases, portmap, aliasmap)
 
 def main():
     module = AnsibleModule(
@@ -84,8 +91,8 @@ def main():
     m_args = module.params
     try:
         allmap = SonicPortAliasMap(m_args['hwsku'])
-        allmap.get_portmap()
-        module.exit_json(ansible_facts={'port_alias': allmap.portmap})
+        (aliases, portmap, aliasmap) = allmap.get_portmap()
+        module.exit_json(ansible_facts={'port_alias': aliases, 'port_name_map': portmap, 'port_alias_map': aliasmap})
     except (IOError, OSError), e:
         fail_msg = "IO error" + str(e)
         module.fail_json(msg=fail_msg)

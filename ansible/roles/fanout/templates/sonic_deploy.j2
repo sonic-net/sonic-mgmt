@@ -7,6 +7,17 @@
     }
 },
 
+"PORT": {
+{% for alias in device_conn %}
+    "{{ port_alias_map[alias] }}": {
+{% if device_conn[alias]['speed'] == "100000" %}
+        "fec" : "rs",
+{% endif %}
+        "speed" : "{{ device_conn[alias]['speed'] }}"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+},
+
 "VLAN": {
 {% for vlanid in device_vlan_list | unique %}
     "Vlan{{ vlanid }}": {
@@ -17,17 +28,17 @@
 
 {% set ns = {'firstPrinted': False} %}
 "VLAN_MEMBER": {
-{% for port in device_port_vlans %}
-{% if device_port_vlans[port]['mode'] == 'Access' %}
+{% for alias in device_port_vlans %}
+{% if device_port_vlans[alias]['mode'] == 'Access' %}
 {% if ns.firstPrinted %},{% endif %}
-    "Vlan{{ device_port_vlans[port]['vlanids'] }}|{{ port }}": {
+    "Vlan{{ device_port_vlans[alias]['vlanids'] }}|{{ port_alias_map[alias] }}": {
         "tagging_mode" : "untagged"
     }
 {% if ns.update({'firstPrinted': True}) %} {% endif %}
-{% elif device_port_vlans[port]['mode'] == 'Trunk' %}
-  {% for vlanid in device_port_vlans[port]['vlanlist'] %}
+{% elif device_port_vlans[alias]['mode'] == 'Trunk' %}
+  {% for vlanid in device_port_vlans[alias]['vlanlist'] %}
 {% if ns.firstPrinted %},{% endif %}
-    "Vlan{{ vlanid }}|{{ port }}": {
+    "Vlan{{ vlanid }}|{{ port_alias_map[alias] }}": {
         "tagging_mode" : "tagged"
     }
 {% if ns.update({'firstPrinted': True}) %} {% endif %}
