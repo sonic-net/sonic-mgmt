@@ -13,6 +13,7 @@ ptf2-6-c,ptf2-6,ptf32,docker-ptf,10.64.246.16/23,server_2,,str-cavium-str-1,Taoy
 ptf2-6-s,ptf2-6,ptf32,docker-ptf,10.64.246.16/23,server_2,,str-n9232-acs-2,Taoyu
 ptf3-1,ptf3-1,ptf32,docker-ptf-brcm,10.64.246.18/23,server_3,,str-s6000-acs-14,Guohan
 ptf12-1,ptf12-1,ptf32,docker-ptf-mlnx,10.64.246.44/23,server_12,,str-msn2700-06,Jenkins
+ptf11-1,ptf11-1,ptf32,docker-ptf-brcm,10.64.246.45/23,server_11,,str-wedge100b65-acs-1,prsunny
 # vmsets
 vms1-8,vms1-8,t1,docker-ptf-mlnx,10.64.246.43/23,server_1,VM0160,str-msn2700-06,Jenkins
 vms1-9,vms1-9,t0,docker-ptf-brcm,10.64.246.15/23,server_1,VM0192,str-s6000-on-6,masun

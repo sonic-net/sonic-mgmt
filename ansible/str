@@ -121,6 +121,14 @@ str-e1031-acs-1   ansible_host=10.64.247.24
 [sonic_e1031:vars]
 hwsku='E1031-T48S4'
 iface_speed='1000'
+
+[sonic_wedge100b65_100]
+str-wedge100b65-acs-1 ansible_host=10.64.247.4
+str-wedge100b65-acs-2 ansible_host=10.64.247.5
+
+[sonic_wedge100b65_100:vars]
+hwsku="mavericks"
+iface_speed='100000'
 mgmt_subnet_mask_length='23'
 
 [sonic:children]
@@ -137,6 +145,7 @@ sonic_dell32_100
 sonic_mlnx_100
 sonic_arista32_100
 sonic_e1031
+sonic_wedge100b65_100
 
 [acs_ixia_dscp]
 10.3.147.141
@@ -224,6 +233,7 @@ str-7060cx-32s-09  ansible_host=10.64.247.239
 str-7060cx-32s-15  ansible_host=10.64.247.11
 str-7060cx-32s-16  ansible_host=10.64.247.12
 str-7060cx-32s-17  ansible_host=10.64.247.13
+str-7060cx-32s-18  ansible_host=10.64.247.22
 
 [docker_registry]
 acs-devrepo.corp.microsoft.com

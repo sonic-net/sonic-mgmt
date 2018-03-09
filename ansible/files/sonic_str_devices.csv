@@ -80,6 +80,7 @@ str-7060cx-32s-09,10.64.247.239/23,Arista-7060CX-32S,FanoutLeaf
 str-7060cx-32s-15,10.64.247.11/23,Arista-7060CX-32S,FanoutLeaf
 str-7060cx-32s-16,10.64.247.12/23,Arista-7060CX-32S,FanoutLeaf
 str-7060cx-32s-17,10.64.247.13/23,Arista-7060CX-32S,FanoutLeaf
+str-7060cx-32s-18,10.64.247.22/23,Arista-7060CX-32S,FanoutLeaf
 str-acs-serv-01,10.3.147.245/23,TestServ,Server
 str-acs-serv-02,10.3.147.246/23,TestServ,Server
 str-acs-serv-03,10.3.147.244/23,TestServ,Server
