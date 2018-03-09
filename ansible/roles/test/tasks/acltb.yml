@@ -115,17 +115,8 @@
             - testbed_type=\"{{ testbed_type }}\"
             
   always:
-    # Copy ACL config to the switch
-    - name: Copy ACL config file to the DUT
-      copy: src="roles/test/tasks/acl/{{ item }}" dest="/tmp/"
-      with_items:
-        - "acltb_test_rules-del.json"
-      
     - name: Clean up ACL rules.
-      vars:
-        command_to_run: "acl-loader update full /tmp/acltb_test_rules-del.json"
-        errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      command: acl-loader delete
 
     - name: Ensure ConfigDB is cleaned up 
       command: config save -y 	      
