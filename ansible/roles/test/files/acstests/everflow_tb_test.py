@@ -141,7 +141,7 @@ class EverflowTest(BaseTest):
 
         payload = str(scapy_pkt[scapy.GRE].payload)
 
-        if self.hwsku in ["ACS-MSN2700", "ACS-MSN2100", "ACS-MSN2410", "ACS-MSN2740"]:
+        if self.hwsku in ["ACS-MSN2700", "ACS-MSN2100", "ACS-MSN2410", "ACS-MSN2740", "Mellanox-SN2700"]:
             payload = str(scapy_pkt[scapy.GRE].payload)[22:]
 
         inner_pkt = scapy.Ether(payload)
