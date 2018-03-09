@@ -54,6 +54,7 @@
 
   - set_fact:
       VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
+      remote_dut: "{{ ansible_ssh_host }}"
 
   - name: gather testbed VM informations
     testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }}
@@ -62,11 +63,16 @@
 
   - name: find interface name mapping and indivisual interface speed if defined
     port_alias: hwsku="{{ hwsku }}"
+    connection: local
 
+  - name: find all enalbed host_interfaces
+    set_fact:
+      host_if_indexes: "{{ vm_topo_config['host_interfaces'] | difference(vm_topo_config['off_host_interfaces']) }}"
+ 
   - name: find all vlan interface names for T0 topology
     set_fact:
       vlan_intfs: "{{ vlan_intfs|default([])}} + ['{{ port_alias[item] }}' ]"
-    with_items: "{{ vm_topo_config['host_interfaces'] }}"
+    with_items: "{{ host_if_indexes }}"
     when: ("'host_interfaces' in vm_topo_config") and ("'tor' in vm_topo_config['dut_type'] | lower")
 
   - name: find all interface indexes connecting to VM
@@ -86,7 +92,7 @@
     
   - name: create minigraph file in ansible minigraph folder
     become: true
-    template: src=templates/alltopo.j2
+    template: src=templates/minigraph_template.j2
               dest=minigraph/{{ inventory_hostname}}.xml
     connection: local
   
