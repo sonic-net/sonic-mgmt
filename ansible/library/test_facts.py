@@ -92,7 +92,6 @@ RETURN = '''
 TESTBED_FILE = 'testbed.csv'
 TESTCASE_FILE = 'roles/test/vars/testcases.yml'
 
-
 class ParseTestbedTopoinfo():
     '''
     Parse the CSV file used to describe whole testbed info
@@ -103,6 +102,7 @@ class ParseTestbedTopoinfo():
     def __init__(self, testbed_file):
         self.testbed_filename = testbed_file
         self.testbed_topo = {}
+        self.vm_topo_config = {}
 
     def read_testbed_topo(self):
         with open(self.testbed_filename) as f:
@@ -131,6 +131,52 @@ class ParseTestbedTopoinfo():
             return [self.testbed_topo[testbed_name]]
         else:
             return self.testbed_topo
+
+    def get_testbed_topo_config(self, topo_name):
+        if 'ptf32' in topo_name:
+            topo_name = 't1'
+        if 'ptf64' in topo_name:
+            topo_name = 't1-64'  ###TODO: there is no t1-64 topology checked in yet
+        topo_filename = 'vars/topo_' + topo_name + '.yml'
+        vm_topo_config = dict()
+        ### read topology definition
+        if not os.path.isfile(topo_filename):
+            raise Exception("cannot find topology definition file under vars/topo_%s.yml file!" % topo_name)
+        else:
+            with open(topo_filename) as f:
+                topo_definition = yaml.load(f)
+        ### parse topo file specified in vars/ to reverse as dut config
+        if 'VMs' in topo_definition['topology']:
+            dut_asn = topo_definition['configuration_properties']['common']['dut_asn']
+            vm_topo_config['dut_asn'] = dut_asn
+            vm_topo_config['dut_type'] = topo_definition['configuration_properties']['common']['dut_type']
+            vmconfig = dict()
+            for vm in topo_definition['topology']['VMs']:
+                vmconfig[vm] = dict()
+                vmconfig[vm]['intfs'] = []
+                vmconfig[vm]['properties']=topo_definition['configuration'][vm]['properties']
+                vmconfig[vm]['interface_indexes'] = topo_definition['topology']['VMs'][vm]['vlans']
+                vmconfig[vm]['bgp_asn'] = topo_definition['configuration'][vm]['bgp']['asn']
+                for intf in topo_definition['configuration'][vm]['interfaces']:
+                    if 'ipv4' in topo_definition['configuration'][vm]['interfaces'][intf] and ('loopback' not in intf.lower()):
+                        (vmconfig[vm]['peer_ipv4'], vmconfig[vm]['ipv4mask']) = topo_definition['configuration'][vm]['interfaces'][intf]['ipv4'].split('/')
+                        vmconfig[vm]['ip_intf'] = intf
+                    if 'ipv6' in topo_definition['configuration'][vm]['interfaces'][intf] and ('loopback' not in intf.lower()):
+                        (ipv6_addr, vmconfig[vm]['ipv6mask']) = topo_definition['configuration'][vm]['interfaces'][intf]['ipv6'].split('/')
+                        vmconfig[vm]['ip_intf'] = intf
+                        vmconfig[vm]['peer_ipv6'] = ipv6_addr.upper()
+                    if 'Ethernet' in intf:
+                        vmconfig[vm]['intfs'].append(intf)
+                for ip in topo_definition['configuration'][vm]['bgp']['peers'][dut_asn]:
+                    if ip[0:5].upper() in vmconfig[vm]['peer_ipv4'].upper():
+                        vmconfig[vm]['bgp_ipv4'] = ip.upper()
+                    if ip[0:5].upper() in vmconfig[vm]['peer_ipv6'].upper():
+                        vmconfig[vm]['bgp_ipv6'] = ip.upper()
+            vm_topo_config['vm'] = vmconfig
+        if 'host_interfaces' in topo_definition['topology']:
+            vm_topo_config['host_interfaces'] = topo_definition['topology']['host_interfaces']
+        self.vm_topo_config = vm_topo_config
+        return vm_topo_config
 
 class TestcasesTopology():
     '''
@@ -176,7 +222,9 @@ def main():
         testcaseinfo = TestcasesTopology(testcase_file)
         testcaseinfo.read_testcases()
         testcase_topo = testcaseinfo.get_topo_testcase()
-        module.exit_json(ansible_facts={'testbed_facts': testbed_topo, 'topo_testcases': testcase_topo})
+        if testbed_name:
+            vm_topo_config = topoinfo.get_testbed_topo_config(testbed_topo['topo'])
+        module.exit_json(ansible_facts={'testbed_facts': testbed_topo, 'topo_testcases': testcase_topo, 'vm_topo_config': vm_topo_config})
     except (IOError, OSError):
         module.fail_json(msg="Can not find lab testbed file  "+testbed_file+" or testcase file "+testcase_file+"??")
     except Exception as e:

@@ -30,20 +30,28 @@ EXAMPLES = '''
       port_alias: hwsku='ACS-MSN2700'
 '''
 
-### TODO:  we could eventually use sonic config package to replace this port_alias module later ###############
+RETURN = '''
+      ansible_facts{
+        port_alias: [Ethernet0, Ethernet4, ....],
+        port_speed: ['40000', '40000', ......]
+      }
+'''
+
 ### Here are the expectation of files of device port_config.ini located, in case changed please modify it here 
 FILE_PATH = '/usr/share/sonic/device'
 PORTMAP_FILE = 'port_config.ini'
+ALLOWED_HEADER = ['name', 'lanes', 'alias', 'index', 'speed']
 
 class SonicPortAliasMap():
     """
-    Retrieve SONiC device interface port alias mapping
+    Retrieve SONiC device interface port alias mapping and port speed if they are definded
 
     """
     def __init__(self, hwsku):
         self.filename = ''
         self.hwsku = hwsku
         self.portmap = []
+        self.portspeed = []
         return
 
     def findfile(self):
@@ -57,21 +65,25 @@ class SonicPortAliasMap():
             raise Exception("Something wrong when trying to find the portmap file, either the hwsku is not available or file location is not correct")
         with open(self.filename) as f:
             lines = f.readlines()
-        alias=False
+        alias_index = 0
+        speed_index = 0
         while len(lines) != 0:
             line = lines.pop(0)
             if re.match('^#', line):
                 title=re.sub('#', '', line.strip().lower()).split()
-                if 'alias' in title:
-                    index = title.index('alias')
-                    alias = True
-            else: 
+                for text in title:
+                    if text in ALLOWED_HEADER:
+                        index = title.index(text)
+                        if 'alias' in text:
+                            alias_index = index
+                        if 'speed' in text:
+                            speed_index = index
+            else:
                 if re.match('^Ethernet', line):
                     mapping = line.split()
-                    if alias and len(mapping) > index:
-                        self.portmap.append(mapping[index])
-                    else:
-                        self.portmap.append(mapping[0])
+                    self.portmap.append(mapping[alias_index])
+                    if speed_index != 0:
+                        self.portspeed.append(mapping[speed_index])
         return
 
 def main():
@@ -85,14 +97,14 @@ def main():
     try:
         allmap = SonicPortAliasMap(m_args['hwsku'])
         allmap.get_portmap()
-        module.exit_json(ansible_facts={'port_alias': allmap.portmap})
+        module.exit_json(ansible_facts={'port_alias': allmap.portmap, 'port_speed': allmap.portspeed})
     except (IOError, OSError), e:
         fail_msg = "IO error" + str(e)
         module.fail_json(msg=fail_msg)
     except Exception, e:
-        fail_msg = "failed to find the correct port names for "+m_args['hwsku'] + str(e)
+        fail_msg = "failed to find the correct port config for "+m_args['hwsku'] + str(e)
         module.fail_json(msg=fail_msg)
 
 from ansible.module_utils.basic import *
 if __name__ == "__main__":
-    main()
+     main()
