@@ -28,6 +28,11 @@ topology:
     - 25
     - 26
     - 27
+  off_host_interfaces:
+    - 0
+    - 25
+    - 26
+    - 27
   VMs:
     ARISTA01T1:
       vlans:
