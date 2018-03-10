@@ -175,6 +175,12 @@ class ParseTestbedTopoinfo():
             vm_topo_config['vm'] = vmconfig
         if 'host_interfaces' in topo_definition['topology']:
             vm_topo_config['host_interfaces'] = topo_definition['topology']['host_interfaces']
+        else:
+            vm_topo_config['host_interfaces'] = []
+        if 'off_host_interfaces' in topo_definition['topology']:
+            vm_topo_config['off_host_interfaces'] = topo_definition['topology']['off_host_interfaces']
+        else:
+            vm_topo_config['off_host_interfaces'] = []
         self.vm_topo_config = vm_topo_config
         return vm_topo_config
 
