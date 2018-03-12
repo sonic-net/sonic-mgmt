@@ -37,6 +37,10 @@
   include: bgp_fact.yml
   tags: bgp_fact
 
+- name: ECMP test
+  include: ecmp.yml
+  tags: ecmp
+
 - name: Neighbor mac change test
   include: neighbour-mac.yml
   tags: neighbour
