@@ -5,6 +5,7 @@
 # ptf_test_name     - name of the test
 # ptf_test_dir      - directory where test was copied to
 # ptf_test_path     - ptf path to the test
+# ptf_platform_dir  - directory where ptf platform was copied to (only required when using customized platform)
 # ptf_platform      - ptf platform
 # ptf_test_params   - a list with the test parameters
 # ptf_qlen          - qlen parameter for ptf
