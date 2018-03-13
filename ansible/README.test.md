@@ -63,6 +63,12 @@ ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags 
 ```
 - Requires switch connected to a PTF testbed
 
+##### ECMP test
+```
+ansible-playbook test_sonic_by_tag.yml -i inventory --limit {DUT_NAME}, --become --tags ecmp --extra-vars "testbed_type={TESTBED_TYPE} vm_hosts=[DESTINATION_VMS] vm_source={SOURCE_VM}"
+```
+- Requires switch connected to a VM testbed (t1) 
+
 ##### ECN WRED test
 ```
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags ecn_wred
