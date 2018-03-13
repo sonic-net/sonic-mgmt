@@ -65,9 +65,9 @@ ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags 
 
 ##### ECMP test
 ```
-ansible-playbook test_sonic_by_tag.yml -i inventory --limit {DUT_NAME}, --become --tags ecmp --extra-vars "testbed_type={TESTBED_TYPE} vm_hosts=[DESTINATION_VMS] vm_source={SOURCE_VM}"
+ansible-playbook test_sonic_by_tag.yml -i inventory --limit {DUT_NAME}, --become --tags ecmp --extra-vars "testbed_type={TESTBED_TYPE} vm_hosts=[DESTINATION_VMS] vm_source={SOURCE_VM} [ipv6=True]"
 ```
-- Requires switch connected to a VM testbed (t1) 
+- Requires switch connected to a VM testbed (t1); default IPv4
 
 ##### ECN WRED test
 ```

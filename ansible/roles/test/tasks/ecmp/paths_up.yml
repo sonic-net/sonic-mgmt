@@ -9,7 +9,7 @@
     - debug: msg={{interface}}
 
     - name: Gather facts from ip route
-      ip_route:
+      ip_route: "{{ ipv6 }}"
 
     - debug: msg="ethernet_list {{ ethernet_list }}"
 

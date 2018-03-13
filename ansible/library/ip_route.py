@@ -12,7 +12,7 @@ description:
 
 EXAMPLES = '''
 - name: Get ECMP paths for a particular prefix
-  ip_route:
+  ip_route: "{{ ipv6 }}"
 '''
 
 from ansible.module_utils.basic import *
@@ -21,13 +21,12 @@ import json
 import re
 
 DEFAULT_PREFIX = "100.1.1.1/32"
+DEFAULT_IPV6_PREFIX = "2064:200::1/128"
 
 class IpRouteModule(object):
-    def __init__(self):
-        self.module = AnsibleModule(
-            argument_spec=dict(
-            ),
-            supports_check_mode=True)
+    def __init__(self, ipv6, module):
+        self.ipv6 = ipv6
+        self.module = module
 
         self.out = None
         self.facts = {}
@@ -39,7 +38,10 @@ class IpRouteModule(object):
             Main method of the class
         """
 
-        interfaces = self.get_interfaces(DEFAULT_PREFIX)
+        if (self.ipv6 == False):
+            interfaces = self.get_interfaces(DEFAULT_PREFIX)
+        else:
+            interfaces = self.get_interfaces(DEFAULT_IPV6_PREFIX)
         self.facts = self.parse_interfaces(interfaces)
         self.module.exit_json(ansible_facts={'ethernet_list':self.facts})
 
@@ -52,10 +54,16 @@ class IpRouteModule(object):
         """
 
         try:
-            rc, self.out, err = self.module.run_command('docker exec -i bgp vtysh \
-                                                         -c "show ip route ' + prefix \
-                                                         + '"', executable='/bin/bash', \
-                                                        use_unsafe_shell=True)
+            if (self.ipv6 == False):
+                rc, self.out, err = self.module.run_command('docker exec -i bgp vtysh \
+                                                             -c "show ip route ' + prefix \
+                                                             + '"', executable='/bin/bash', \
+                                                             use_unsafe_shell=True)
+            else:
+                rc, self.out, err = self.module.run_command('docker exec -i bgp vtysh \
+                                                             -c "show ipv6 route ' + prefix \
+                                                             + '"', executable='/bin/bash', \
+                                                             use_unsafe_shell=True) 
 
         except Exception as e:
             err_msg = "Exception occured while trying to get the list of \
@@ -89,8 +97,16 @@ class IpRouteModule(object):
         return ifaces
 
 def main():
+    module = AnsibleModule(
+        argument_spec=dict(
+            ipv6=dict(required=False),
+        ),
+        supports_check_mode=True)
 
-    iproute = IpRouteModule()
+    m_args = module.params
+    ipv6 = m_args['ipv6']
+
+    iproute = IpRouteModule(ipv6, module)
     iproute.run()
 
     return

@@ -11,6 +11,11 @@
 
 - debug: msg="total_VMs {{ vm_hosts.split(",")|length }}"
 
+- set_fact:
+    ipv6: "{{ ipv6 | default(False) }}" 
+
+- debug: msg="ipv6 {{ ipv6 }}"
+
 - name: Initialize the array with the list of commands to be sent to the VM
   set_fact:
     commands:
@@ -21,6 +26,21 @@
       - 'address-family ipv4'
       - 'network 100.1.1.1/32'
       - 'quit'
+  when: "{{ ipv6 }} == False"
+
+- name: Initialize the array with the list of commands to be sent to the VM
+  set_fact:
+    commands:
+      - 'config t'
+      - 'interface loopback1'
+      - 'ipv6 enable'
+      - 'ipv6 address 2064:200::1/128'
+      - 'ipv6 nd ra suppress'
+      - 'router bgp 65200'
+      - 'address-family ipv6'
+      - 'network 2064:200::1/128'
+      - 'quit'
+  when: "{{ ipv6 }} == True"
 
 - name: Configure VMs to add loopback interface
   configure_vms: ip={{ item }} cmds={{ commands }}
