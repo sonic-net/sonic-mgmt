@@ -82,7 +82,7 @@
     - name: Check ping status
       async_status:
         jid: "{{ ping_result.ansible_job_id }}"
-      delegate_to: 172.25.11.207
+      delegate_to: "{{ vm_source }}"
       register: job_result
       until: job_result.finished
       retries: 50
