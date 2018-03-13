@@ -52,14 +52,13 @@
         sysctl_set: yes
 
     - name: Gather SONiC base image version
-      shell: grep -E "^menuentry [']((ACS)|(SONiC))-OS-" /host/grub/grub.cfg | awk '{print $2}' | sed 's/'\''//g'
-      become: true
+      shell: sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version
       register: result
       changed_when: false
 
     - name: Set base image verison variable
       set_fact:
-        sonic_image_version: "{{ result.stdout | regex_replace('.+-([^-]+)$', '\\1') }}"
+        sonic_image_version: "{{ result.stdout }}"
 
     - name: Pull syncd-rpc docker from registry
       shell: docker login -u {{docker_registry_username}} -p {{docker_registry_password}} {{docker_registry_host}}; docker pull {{docker_registry_host}}/{{docker_rpc_image_name}}:{{sonic_image_version}}
