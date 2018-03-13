@@ -78,7 +78,7 @@ class GetInterfaceModule(object):
         # Ignore 1st 4 lines, and then get only the first 16 interfaces:
         # Ethernet0 to Ethernet 16. Since our topology is fixed, first 16
         # interfaces would give us the right set of interfaces that we need
-        for line in eth_lines:
+        for line in eth_lines[:15]:
             iface_rx[line.split()[0]] = line.split()[rx_index]
 
         # Find out the interface having maximum RX_OK value
