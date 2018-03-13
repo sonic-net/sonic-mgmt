@@ -27,7 +27,7 @@
 - name: Initialize loganalyzer
   include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
-- name: Generate PFC storm on fanout switch
+- name: Take action on fanout switch
   action: apswitch template="{{storm_action_template}}"
   args:
     host: "{{peer_mgmt}}"

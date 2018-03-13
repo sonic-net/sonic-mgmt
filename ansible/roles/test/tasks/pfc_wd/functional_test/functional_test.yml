@@ -9,6 +9,15 @@
    pfc_wd_rx_port_id: "{{item.value.rx_port_id}}"
    port_type: "{{item.value.test_port_type}}"
 
+- name: Set fact for test port ids and include portchannel other members if exists
+  set_fact:
+    pfc_wd_test_port_ids: "[{{item.value.test_portchannel_members | join(' ')}}]"
+  when: port_type == "portchannel"
+
+- set_fact:
+    pfc_wd_test_port_ids: "[{{pfc_wd_test_port_id}}]"
+  when: port_type in ["vlan", "interface"]
+
 - name: Remove existing IPs from PTF host
   script: roles/test/files/helpers/remove_ip.sh
   delegate_to: "{{ptf_host}}"
@@ -18,6 +27,11 @@
   shell: ifconfig eth{{pfc_wd_test_port_id}} {{pfc_wd_test_neighbor_addr}}
   delegate_to: "{{ptf_host}}"
   when: port_type == "vlan"
+
+  #- name: "Update ARP entry on DUT"
+  #shell: ping {{minigraph_vlan_interfaces[0]['addr']}} -c 5 -I eth{{pfc_wd_test_port_id}}
+  #delegate_to: "{{ptf_host}}"
+  #when: port_type == "vlan"
 
 - name: "Update ARP entry on DUT"
   shell: docker exec -i swss arping {{pfc_wd_test_neighbor_addr}} -c 5
@@ -53,10 +67,10 @@
 
 - name: Set timers
   set_fact:
-      pfc_wd_detect_time: 200
-      pfc_wd_restore_time: 200
+      pfc_wd_detect_time: 400
+      pfc_wd_restore_time: 400
       pfc_wd_restore_time_large: 50000
-      pfc_wd_poll_time: 200
+      pfc_wd_poll_time: 400
 
 - name: Set timers if user has specified
   set_fact:
@@ -103,9 +117,10 @@
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
           - port_src='{{pfc_wd_rx_port_id[0]}}'
@@ -124,6 +139,10 @@
 
     - name: Apply drop config to port {{ pfc_wd_test_port }}.
       shell: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time_large }} {{ ports }} {{ pfc_wd_detect_time }}"
+
+    - name: Let PFC storm happen for a while
+      pause:
+        seconds: 1
 
     - name: Check if logs contain message that PFC WD detected deadlock
       include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
@@ -146,9 +165,10 @@
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
           - port_src='{{pfc_wd_rx_port_id[0]}}'
@@ -165,9 +185,10 @@
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
           - port_src='{{pfc_wd_test_port_id}}'
@@ -184,13 +205,14 @@
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index - 1}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
           - port_src='{{pfc_wd_rx_port_id[0]}}'
-          - port_dst='[{{pfc_wd_test_port_id}}]'
+          - port_dst='{{pfc_wd_test_port_ids}}'
           - ip_dst='{{pfc_wd_test_neighbor_addr}}'
           - port_type='{{port_type}}'
           - wd_action='forward'
@@ -203,9 +225,10 @@
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index - 1}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
           - port_src='{{pfc_wd_test_port_id}}'
@@ -333,9 +356,10 @@
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
           - port_src='{{pfc_wd_rx_port_id[0]}}'
@@ -352,9 +376,10 @@
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
           - port_src='{{pfc_wd_test_port_id}}'
@@ -371,13 +396,14 @@
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index - 1}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
           - port_src='{{pfc_wd_rx_port_id[0]}}'
-          - port_dst='[{{pfc_wd_test_port_id}}]'
+          - port_dst='{{pfc_wd_test_port_ids}}'
           - ip_dst='{{pfc_wd_test_neighbor_addr}}'
           - port_type='{{port_type}}'
           - wd_action='forward'
@@ -390,9 +416,10 @@
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index - 1}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
           - port_src='{{pfc_wd_test_port_id}}'
@@ -528,13 +555,14 @@
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
           - port_src='{{pfc_wd_rx_port_id[0]}}'
-          - port_dst='[{{pfc_wd_test_port_id}}]'
+          - port_dst='{{pfc_wd_test_port_ids}}'
           - ip_dst='{{pfc_wd_test_neighbor_addr}}'
           - port_type='{{port_type}}'
           - wd_action='forward'
@@ -547,9 +575,10 @@
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
           - port_src='{{pfc_wd_test_port_id}}'
@@ -641,67 +670,3 @@
         errors_expected: false
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 
-# Verify timers
-
-- block:
-    - name: Apply config with proper timers to {{ pfc_wd_test_port }}.
-      vars:
-        command_to_run: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time }} {{ ports }} {{ pfc_wd_detect_time }}"
-        errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
-
-    - name: Enable routing from mgmt interface to localhost
-      sysctl:
-        name: net.ipv4.conf.eth0.route_localnet
-        value: 1
-        sysctl_set: yes
-      become: true
-
-      # Cannot use iptables module, because it does not support to_destination in 2.0
-    - name: Add iptables rule to forward syslog packets from mgmt interface to localhost
-      shell: "iptables -t nat -I PREROUTING -p udp -d {{ansible_eth0['ipv4']['address']}} --dport 514 -j DNAT --to-destination 127.0.0.1:514"
-      become: true
-
-    - set_fact:
-        detect_time_list: []
-        restore_time_list: []
-
-    - set_fact:
-        pfc_frames_number: 100000
-
-    - name: Calculate detection and restoration timings
-      include: roles/test/tasks/pfc_wd/functional_test/timer_test.yml
-      with_sequence: start=1 end=5
-
-    - debug:
-        var: "{{item}}"
-      with_items: 
-        - detect_time_list
-        - restore_time_list
-
-    - name: Verify that real detection time is not greater than configured
-      fail:
-        msg: Real detection time is greater than configured
-      when: "{{(detect_time_list | sum) / 5 > pfc_wd_detect_time + pfc_wd_poll_time}}"
-
-    - name: Verify that real detection time is not less than configured
-      fail:
-        msg: Real detection time is less than configured
-      when: "{{(detect_time_list | sum) / 5 <  pfc_wd_detect_time}}"
-
-    - name: Verify that real restoration time is not less than configured
-      fail:
-          msg: Real restoration time is less than configured
-      when: "{{(restore_time_list | sum) / 5 < pfc_wd_restore_time}}"
-
-    - name: Verify that real restoration time is less than configured
-      fail:
-          msg: Real restoration time is greater than configured
-      when: "{{(restore_time_list | sum) / 5 > pfc_wd_restore_time + pfc_wd_poll_time}}"
-
-  always:
-    - name: Clean up config
-      vars:
-        command_to_run: "pfcwd stop"
-        errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml

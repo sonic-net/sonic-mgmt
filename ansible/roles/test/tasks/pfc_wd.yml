@@ -11,7 +11,6 @@
 #
 # 3. Set pfc_storm_template and pfc_storm_stop_template variables to platform-specific template names.
 # in roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
-#
 #---------------------------------------------
 
 - set_fact:
@@ -39,6 +38,10 @@
 
 - set_fact:
     neighbors: "{{device_conn}}"
+
+- set_fact:
+    ansible_eth0_ipv4_addr: "{{ansible_eth0['ipv4']['address']}}"
+    ansible_ethernet0_mac_addr: "{{ansible_Ethernet0['macaddress']}}"
 
 - set_fact:
     used: false
@@ -83,8 +86,22 @@
   with_items: "{{vlan_members | default([])}}"
   when: minigraph_vlans | length >0
 
-- debug: msg="{{test_ports}}"
+- name: Flush vlan ips route
+  command: ip route flush {{generated_ips[0].split('/')[0]}}/32
+  become: yes
+  when: minigraph_vlans | length >0
 
+- name: Add vlan ips route
+  command: ip route add {{generated_ips[0].split('/')[0]}}/32 dev {{minigraph_vlan_interfaces[0]['attachto']}}
+  become: yes
+  when: minigraph_vlans | length >0
+
+- name: "Update ARP entry on DUT"
+  shell: ping {{minigraph_vlan_interfaces[0]['addr']}} -c 5
+  delegate_to: "{{ptf_host}}"
+  when: minigraph_vlans | length >0
+
+- debug: msg="{{test_ports}}"
 
  #****************************************#
  #           Start tests                  #
@@ -99,6 +116,9 @@
     - name: Test PFC WD Functional tests.
       include: roles/test/tasks/pfc_wd/functional_test/functional_test.yml
       with_dict: "{{test_ports}}"
+
+    - name: Test PFC WD Timer accuracy.
+      include: roles/test/tasks/pfc_wd/functional_test/check_timer_accuracy_test.yml
 
     - name: Test PFC WD extreme case when all ports have storm
       include: roles/test/tasks/pfc_wd/functional_test/storm_all_test.yml
