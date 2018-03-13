@@ -28,7 +28,7 @@
   setup:
 
 - name: Gather SONiC base image version
-  shell: grep -E "menuentry ['](ACS)|(SONiC)-OS" /host/grub/grub.cfg | awk '{print $2}' | sed 's/'\''//g'
+  shell: grep -E "^menuentry [']((ACS)|(SONiC))-OS-" /host/grub/grub.cfg | awk '{print $2}' | sed 's/'\''//g'
   become: true
   register: result
   changed_when: false
