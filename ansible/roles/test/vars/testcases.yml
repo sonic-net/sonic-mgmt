@@ -184,3 +184,7 @@ testcases:
       required_vars:
           ptf_host:
           testbed_type:
+
+    crm:
+      filename: crm.yml
+      topologies: [t1, t1-lag, t0]

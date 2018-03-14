@@ -1,0 +1,57 @@
+- block:
+
+   - fail: msg="Information about tested missing"
+     when: (testbed_type is not defined)
+
+   - fail: msg="Invalid testbed_type value '{{testbed_type}}'"
+     when: testbed_type not in ['t1', 't1-lag', 't0']
+
+   - set_fact: crm_intf="{{minigraph_interfaces[0].attachto}}"
+     when: testbed_type == "t1"
+
+   - set_fact: crm_intf="{{minigraph_portchannel_interfaces[0].attachto}}"
+     when: (testbed_type == "t0") or (testbed_type == "t1-lag")
+
+   - name: Set polling interval
+     command: crm config polling interval 1
+
+   - name: Make sure CRM counters updated
+     pause: seconds=300
+
+   - name: Run test case "CRM IPv4 route resource"
+     include: roles/test/tasks/crm/crm_test_ipv4_route.yml
+
+   - name: Run test case "CRM IPv6 route resource"
+     include: roles/test/tasks/crm/crm_test_ipv6_route.yml
+
+   - name: Run test case "CRM IPv4 nexthop resource"
+     include: roles/test/tasks/crm/crm_test_ipv4_nexthop.yml
+
+   - name: Run test case "CRM IPv6 nexthop resource"
+     include: roles/test/tasks/crm/crm_test_ipv6_nexthop.yml
+
+   - name: Run test case "CRM IPv4 neighbor resource"
+     include: roles/test/tasks/crm/crm_test_ipv4_neighbor.yml
+
+   - name: Run test case "CRM IPv6 neighbor resource"
+     include: roles/test/tasks/crm/crm_test_ipv6_neighbor.yml
+
+   - name: Run test case "CRM nexthop group resource"
+     include: roles/test/tasks/crm/crm_test_nexthop_group.yml
+
+   - name: Run test case "CRM nexthop group member resource"
+     include: roles/test/tasks/crm/crm_test_nexthop_group_member.yml
+
+   - name: Run test case "CRM ACL entry resources"
+     include: roles/test/tasks/crm/crm_test_acl_entry.yml
+
+   - name: Run test case "CRM ACL counter resources"
+     include: roles/test/tasks/crm/crm_test_acl_counter.yml
+
+   - name: Run test case "CRM FDB entry resource"
+     include: roles/test/tasks/crm/crm_test_fdb_entry.yml
+
+  always:
+
+    - name: Restore polling interval
+      command: crm config polling interval 300

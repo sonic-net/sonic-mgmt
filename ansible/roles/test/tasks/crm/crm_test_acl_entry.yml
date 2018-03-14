@@ -1,0 +1,82 @@
+- block:
+
+    - set_fact: crm_stats_acl_entry_used=0
+    - set_fact: crm_stats_acl_entry_available=0
+
+    - name: Copy ACL JSON config to switch.
+      copy: src=roles/test/tasks/crm/acl.json dest=/tmp
+
+    - name: Add ACL
+      command: acl-loader update full /tmp/acl.json
+      become: yes
+
+    - name: Make sure CRM counters updated
+      pause: seconds=1
+
+    - name: Get ACL entry keys
+      command: bash -c "docker exec -i database redis-cli --raw -n 1 KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*"
+      register: out
+    - set_fact: acl_tbl_keys={{out.stdout.split()}}
+
+    - name: Get ethertype for ACL entry in order to match ACL which was configured
+      command: bash -c "docker exec -i database redis-cli -n 1 HGET {{item}} SAI_ACL_ENTRY_ATTR_FIELD_ETHER_TYPE"
+      with_items: "{{acl_tbl_keys}}"
+      register: out
+
+    - name: Match ethertype value for ACL entry
+      set_fact: key={{item.item}}
+      with_items: "{{out.results}}"
+      when: item.stdout|search("2048")
+
+    - name: Get ACL table key
+      command: bash -c "docker exec -i database redis-cli -n 1 HGET {{key}} SAI_ACL_ENTRY_ATTR_TABLE_ID"
+      register: out
+    - set_fact: acl_tbl_key={{"CRM:ACL_TABLE_STATS:{0}".format(out.stdout|replace("oid:", ""))}}
+
+    - name: Make sure CRM counters updated
+      pause: seconds=1
+
+    - name: Get new "crm_stats_acl_entry_used" counter value
+      command: docker exec -i database redis-cli -n 2 HGET {{acl_tbl_key}} crm_stats_acl_entry_used
+      register: out
+    - set_fact: new_crm_stats_acl_entry_used={{out.stdout}}
+
+    - name: Get new "crm_stats_acl_entry_available" counter value
+      command: docker exec -i database redis-cli -n 2 HGET {{acl_tbl_key}} crm_stats_acl_entry_available
+      register: out
+    - set_fact: new_crm_stats_acl_entry_available={{out.stdout}}
+
+    - name: Verify "crm_stats_acl_entry_used" counter was incremented
+      assert: {that: "{{new_crm_stats_acl_entry_used|int - crm_stats_acl_entry_used|int == 2}}"}
+
+    - set_fact: crm_stats_acl_entry_available="{{new_crm_stats_acl_entry_available|int + new_crm_stats_acl_entry_used|int}}"
+
+    - name: Verify thresholds for "ACL entry" CRM resource
+      vars:
+        crm_cli_res: "acl group entry"
+        crm_used: "{{new_crm_stats_acl_entry_used}}"
+        crm_avail: "{{new_crm_stats_acl_entry_available}}"
+      include: roles/test/tasks/crm/crm_test_threshold.yml
+
+    - name: Remove ACL
+      command: acl-loader delete
+      become: yes
+
+    - name: Make sure CRM counters updated
+      pause: seconds=1
+
+    - name: Get new "crm_stats_acl_entry_used" counter value
+      command: docker exec -i database redis-cli -n 2 HGET {{acl_tbl_key}} crm_stats_acl_entry_used
+      register: out
+    - set_fact: new_crm_stats_acl_entry_used={{out.stdout}}
+
+    - name: Get new "crm_stats_acl_entry_available" counter value
+      command: docker exec -i database redis-cli -n 2 HGET {{acl_tbl_key}} crm_stats_acl_entry_available
+      register: out
+    - set_fact: new_crm_stats_acl_entry_available={{out.stdout}}
+
+    - name: Verify "crm_stats_acl_entry_used" counter was decremented
+      assert: {that: "{{new_crm_stats_acl_entry_used|int - crm_stats_acl_entry_used|int == 0}}"}
+
+    - name: Verify "crm_stats_acl_entry_available" counter was incremented
+      assert: {that: "{{new_crm_stats_acl_entry_available|int - crm_stats_acl_entry_available|int == 0}}"}

@@ -175,3 +175,7 @@
 - name: neighbor mac change test without using ptf
   include: neighbour-mac-noptf.yml
   tags: neighbour_mac_noptf
+
+- name: CRM test
+  include: crm.yml
+  tags: crm
