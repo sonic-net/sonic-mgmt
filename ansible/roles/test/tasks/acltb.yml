@@ -57,6 +57,7 @@
           ptf_test_name: ACL Test
           ptf_test_dir: acstests
           ptf_test_path: acltb_test.AclTest
+          ptf_platform_dir: ptftests
           ptf_platform: remote
           ptf_test_params:
             - verbose=True
@@ -88,6 +89,7 @@
           ptf_test_name: ACL Test
           ptf_test_dir: acstests
           ptf_test_path: acltb_test.AclTest
+          ptf_platform_dir: ptftests
           ptf_platform: remote
           ptf_test_params:
             - verbose=True
