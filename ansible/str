@@ -228,7 +228,7 @@ str-7060cx-32s-04  ansible_host=10.64.247.231
 str-7060cx-32s-05  ansible_host=10.64.247.232
 str-7060cx-32s-06  ansible_host=10.64.247.233
 str-7060cx-32s-07  ansible_host=10.64.247.234
-str-7060cx-32s-08  ansible_host=10.64.247.238
+str-7060cx-32s-08  ansible_host=10.64.247.238 os=sonic
 str-7060cx-32s-09  ansible_host=10.64.247.239
 str-7060cx-32s-15  ansible_host=10.64.247.11
 str-7060cx-32s-16  ansible_host=10.64.247.12

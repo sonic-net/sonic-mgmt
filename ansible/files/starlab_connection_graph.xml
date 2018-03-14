@@ -77,7 +77,7 @@
       <Device Hostname="str-7060cx-32s-05" HwSku="Arista-7060CX-32S" Type="FanoutLeaf"/>
       <Device Hostname="str-7060cx-32s-06" HwSku="Arista-7060CX-32S" Type="FanoutLeaf"/>
       <Device Hostname="str-7060cx-32s-07" HwSku="Arista-7060CX-32S" Type="FanoutLeaf"/>
-      <Device Hostname="str-7060cx-32s-08" HwSku="Arista-7060CX-32S" Type="FanoutLeaf"/>
+      <Device Hostname="str-7060cx-32s-08" HwSku="Arista-7060CX-32S-C32" Type="FanoutLeaf"/>
       <Device Hostname="str-7060cx-32s-09" HwSku="Arista-7060CX-32S" Type="FanoutLeaf"/>
       <Device Hostname="str-7060cx-32s-15" HwSku="Arista-7060CX-32S" Type="FanoutLeaf"/>
       <Device Hostname="str-7060cx-32s-16" HwSku="Arista-7060CX-32S" Type="FanoutLeaf"/>
