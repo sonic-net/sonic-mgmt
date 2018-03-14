@@ -20,6 +20,7 @@ EXAMPLES = '''
 from ansible.module_utils.basic import *
 import paramiko
 import json
+import time
 
 class ConfigureVMs(object):
     def __init__(self, ip, cmds, module, login='admin', password='123456'):
@@ -45,11 +46,6 @@ class ConfigureVMs(object):
                           look_for_keys=False)
         self.shell = self.conn.invoke_shell()
 
-        first_prompt = self.do_cmd(None)
-
-        self.do_cmd('enable')
-        self.do_cmd('terminal length 0')
-
         return self.shell
 
     def do_cmd(self, cmd):
@@ -68,8 +64,12 @@ class ConfigureVMs(object):
     def run(self):
         self.connect()
 
+        self.do_cmd('enable')
+        time.sleep(1)
+
         for cmd in self.cmds:
             self.do_cmd(cmd)
+            time.sleep(5)
 
         self.module.exit_json(ansible_facts={'conf_vm':self.facts})
 
