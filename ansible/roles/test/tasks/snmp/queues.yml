@@ -5,5 +5,5 @@
 
 - fail:
     msg: "Port {{ item.key }} does not has queue counters"
-  when: not item.value.queues
+  when: "{{ item.value.description | match('^Ethernet') }} and {{ item.value['queues'] is not defined }}"
   with_dict: "{{ snmp_interfaces }}"
