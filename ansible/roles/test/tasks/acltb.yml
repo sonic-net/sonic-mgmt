@@ -51,6 +51,11 @@
             dest=/root
       delegate_to: "{{ ptf_host }}"
 
+    - name: copy ptftests
+      copy: src=roles/test/files/ptftests
+            dest=/root
+      delegate_to: "{{ ptf_host }}"
+
     - name: Run the test
       include: ptf_runner.yml
       vars:
