@@ -43,7 +43,7 @@ testcases:
  
     decap:
       filename: decap.yml
-      topologies: [t1, t1-lag, t1-64-lag, t0, t0-116]
+      topologies: [t1, t1-lag, t1-64-lag, t0, t0-64, t0-116]
       required_vars:
           ptf_host: 
           testbed_type: 
