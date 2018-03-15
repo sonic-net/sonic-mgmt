@@ -1,8 +1,8 @@
 '''
 Description:    This file contains the MTU test for SONIC
 
-Usage:          Examples of how to use log analyzer
-                ptf --test-dir ptftests mtu_test.MtuTest  --platform remote  -t "testbed_type='t1-lag';" --relax --debug info --log-file /tmp/mtu_test.log  --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre --socket-recv-size 16384
+Usage:          Examples of how to start this script
+                ptf --test-dir ptftests mtu_test.MtuTest --platform-dir ptftests --platform remote -t "router_mac='11:22:33:44:55';testbed_type='t1-64-lag'" --relax --debug info --log-file /tmp/mtu_test.log  --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre --socket-recv-size 16384
 
 '''
 
@@ -49,6 +49,7 @@ class MtuTest(BaseTest):
     def setUp(self):
         self.dataplane = ptf.dataplane_instance
         self.router_mac = self.test_params['router_mac']
+        self.testbed_type = self.test_params['testbed_type']
     
     #---------------------------------------------------------------------
 
@@ -125,7 +126,11 @@ class MtuTest(BaseTest):
         src_port = 0
         send_packet(self, src_port, pkt)
         logging.info("Sending packet from port " + str(src_port) + " to " + ip_dst)
-        dst_port_list = [31]
+        dst_port_list = []
+        if self.testbed_type == 't1' or self.testbed_type == 't1-lag':
+            dst_port_list = [31]
+        elif self.testbed_type == 't1-64-lag':
+            dst_port_list = [58]
 
         (matched_index, received) = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
 

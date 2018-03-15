@@ -115,7 +115,7 @@ testcases:
 
     mtu:
       filename: mtu.yml
-      topologies: [t1, t1-lag]
+      topologies: [t1, t1-lag, t1-64-lag]
       required_vars:
           ptf_host:
           testbed_type:
