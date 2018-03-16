@@ -41,6 +41,10 @@
       copy: src=roles/test/files/acstests dest=/root
       delegate_to: "{{ ptf_host }}"
 
+    - name: Copy the platform files to ptf container.
+      copy: src=roles/test/files/ptftests dest=/root
+      delegate_to: "{{ ptf_host }}"
+
     - name: Add route to unresolved next hop.
       shell: ip route add {{ unresolved_nexthop_prefix }} dev {{ dst_port_2 }}
       become: yes
