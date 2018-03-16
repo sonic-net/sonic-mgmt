@@ -530,7 +530,7 @@ def main():
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
-            if v.csqIfQosGroupStats in current_oid:
+            if v.cefcFRUPowerOperStatus in current_oid:
                 psuIndex = int(current_oid.split('.')[-1])
                 results['snmp_psu'][psuIndex]['operstatus'] = current_val
 
