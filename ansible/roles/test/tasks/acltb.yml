@@ -55,7 +55,7 @@
       copy: src=roles/test/files/ptftests
             dest=/root
       delegate_to: "{{ ptf_host }}"
-
+      
     - name: Run the test
       include: ptf_runner.yml
       vars:
@@ -82,11 +82,99 @@
         errors_expected: false
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 
-    - name: Apply part 2 of ACL rules.
+    - name: Apply part 2 of ACL rules
       vars:
         command_to_run: "acl-loader update incremental /tmp/acltb_test_rules_part_2.json"
         errors_expected: false
       include: roles/test/tasks/run_command_with_log_analyzer.yml
+
+    - name: Get ACL entry keys in ConfDB
+      command: bash -c "docker exec -i database redis-cli --raw -n 4 KEYS '*ACL_RULE*'"
+      register: keys
+    - set_fact: acl_tbl_confdb_keys={{keys.stdout.split()}}
+
+    - name: Collect ConfDB ACL entries based on the ACL entry keys
+      command: bash -c "docker exec -i database redis-cli -n 4 HGETALL '{{item}}'"
+      register: confDBentries
+      with_items: "{{acl_tbl_confdb_keys}}"
+
+    - name: Extract the stdout values and store in a register
+      set_fact:
+        rule: "{{item.stdout}}"
+      with_items: "{{confDBentries.results}}"
+      register: rules
+
+    - name: Make a list of rules with qualifiers & actions
+      set_fact:
+        acl:  "{{ rules.results | map(attribute='ansible_facts.rule') | list }}"
+
+    - name: Join the acl entries for comparison
+      set_fact:
+        entries: "{{acl | join(' ')}}"
+
+    - name: Verify the acltb_test_rules_part_1 are not present in ConfDB
+      assert:
+        that:
+          - "'FORWARD\nSRC_IP\n21.0.0.0/8' not in entries"
+          - "'FORWARD\nDST_IP\n104.146.32.0/19' not in entries"
+          - "'FORWARD\nSRC_IP\n23.103.0.0/18' not in entries"
+          - "'FORWARD\nSRC_IP\n104.44.94.0/23' not in entries"
+          - "'FORWARD\nDST_IP\n100.64.0.0/10' not in entries"
+          - "'FORWARD\nDST_IP\n172.16.0.0/12' not in entries"
+        msg: Mismatch in ACL loaded via acl-loader JSON file Vs ConfDB
+
+    - name: Get ACL entry keys in ASICDB
+      command: bash -c "docker exec -i database redis-cli --raw -n 1 KEYS '*SAI_OBJECT_TYPE_ACL_ENTRY*'"
+      register: mask
+    - set_fact: acl_tbl_asicdb_keys={{mask.stdout.split()}}
+
+    - name: Collect ASICDB ACL entries based on the ACL entry keys
+      command: bash -c "docker exec -i database redis-cli -n 1 HGETALL {{item}}"
+      register: asicDBentries
+      with_items: "{{acl_tbl_asicdb_keys}}"
+
+    - name: Extract the stdout values and store in a register
+      set_fact:
+        rule: "{{item.stdout}}"
+      with_items: "{{asicDBentries.results}}"
+      register: rules
+
+    - name: Make a list of rules with qualifiers & actions
+      set_fact:
+        acl:  "{{ rules.results | map(attribute='ansible_facts.rule') | list }}"
+
+    - name: Join the acl entries for comparison
+      set_fact:
+        entries: "{{acl | join(' ')}}"
+
+    - name: Verify the acltb_test_rules_part_1 are not present in ASICDB
+      assert:
+        that:
+          - >
+            "'SAI_ACL_ENTRY_ATTR_FIELD_SRC_IP\n21.0.0.0&mask:255.0.0.0\n
+            SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION\nSAI_PACKET_ACTION_FORWARD'
+            not in entries"
+          - >
+            "'SAI_ACL_ENTRY_ATTR_FIELD_DST_IP\n104.146.32.0&mask:255.255.224.0\n
+            SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION\nSAI_PACKET_ACTION_FORWARD'
+            not in entries"
+          - >
+            "'SAI_ACL_ENTRY_ATTR_FIELD_SRC_IP\n23.103.0.0&mask:255.255.192.0\n
+            SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION\nSAI_PACKET_ACTION_FORWARD'
+            not in entries"
+          - >
+            "'SAI_ACL_ENTRY_ATTR_FIELD_SRC_IP\n104.44.94.0&mask:255.255.254.0\n
+            SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION\nSAI_PACKET_ACTION_FORWARD'
+            not in entries"
+          - >
+            "'SAI_ACL_ENTRY_ATTR_FIELD_DST_IP\n100.64.0.0&mask:255.192.0.0\n
+            SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION\nSAI_PACKET_ACTION_FORWARD'
+            not in entries"
+          - >
+            "'SAI_ACL_ENTRY_ATTR_FIELD_DST_IP\n172.16.0.0&mask:255.240.0.0\n
+            SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION\nSAI_PACKET_ACTION_FORWARD'
+            not in entries"
+        msg: Mismatch in ACL loaded via acl-loader JSON file Vs ASICDB
 
     - name: Run the test
       include: ptf_runner.yml
