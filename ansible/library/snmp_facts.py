@@ -302,7 +302,7 @@ def main():
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication))
+        module.fail_json(msg=str(errorIndication) + ' querying system infomation.')
 
     for oid, val in varBinds:
         current_oid = oid.prettyPrint()
@@ -337,7 +337,7 @@ def main():
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication))
+        module.fail_json(msg=str(errorIndication) + ' querying interface details')
 
     interface_indexes = []
 
@@ -401,7 +401,7 @@ def main():
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication))
+        module.fail_json(msg=str(errorIndication) + ' querying interface counters')
 
     for varBinds in varTable:
         for oid, val in varBinds:
@@ -458,7 +458,7 @@ def main():
         )
 
         if errorIndication:
-            module.fail_json(msg=str(errorIndication))
+            module.fail_json(msg=str(errorIndication) + ' querying CPU busy indeces')
 
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
@@ -476,7 +476,7 @@ def main():
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication))
+        module.fail_json(msg=str(errorIndication) + ' querying PFC counters')
 
     for varBinds in varTable:
         for oid, val in varBinds:
@@ -504,7 +504,7 @@ def main():
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication))
+        module.fail_json(msg=str(errorIndication) + ' querying QoS stats')
 
     for varBinds in varTable:
         for oid, val in varBinds:
@@ -524,7 +524,7 @@ def main():
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication))
+        module.fail_json(msg=str(errorIndication) + ' querying FRU')
 
     for varBinds in varTable:
         for oid, val in varBinds:
