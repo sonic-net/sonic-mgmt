@@ -290,10 +290,26 @@ def main():
 
     results = Tree()
 
+    # Getting system description could take more than 1 second on some Dell platform
+    # (e.g. S6000) when cpu utilization is high, increse timeout to tolerate the delay.
+    errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
+        snmp_auth,
+        cmdgen.UdpTransportTarget((m_args['host'], 161), timeout=5.0),
+        cmdgen.MibVariable(p.sysDescr,),
+    )
+
+    if errorIndication:
+        module.fail_json(msg=str(errorIndication) + ' querying system description.')
+
+    for oid, val in varBinds:
+        current_oid = oid.prettyPrint()
+        current_val = val.prettyPrint()
+        if current_oid == v.sysDescr:
+            results['ansible_sysdescr'] = decode_hex(current_val)
+
     errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
         snmp_auth,
         cmdgen.UdpTransportTarget((m_args['host'], 161)),
-        cmdgen.MibVariable(p.sysDescr,),
         cmdgen.MibVariable(p.sysObjectId,),
         cmdgen.MibVariable(p.sysUpTime,),
         cmdgen.MibVariable(p.sysContact,),
@@ -302,14 +318,12 @@ def main():
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication))
+        module.fail_json(msg=str(errorIndication) + ' querying system infomation.')
 
     for oid, val in varBinds:
         current_oid = oid.prettyPrint()
         current_val = val.prettyPrint()
-        if current_oid == v.sysDescr:
-            results['ansible_sysdescr'] = decode_hex(current_val)
-        elif current_oid == v.sysObjectId:
+        if current_oid == v.sysObjectId:
             results['ansible_sysobjectid'] = current_val
         elif current_oid == v.sysUpTime:
             results['ansible_sysuptime'] = current_val
@@ -337,7 +351,7 @@ def main():
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication))
+        module.fail_json(msg=str(errorIndication) + ' querying interface details')
 
     interface_indexes = []
 
@@ -401,7 +415,7 @@ def main():
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication))
+        module.fail_json(msg=str(errorIndication) + ' querying interface counters')
 
     for varBinds in varTable:
         for oid, val in varBinds:
@@ -458,7 +472,7 @@ def main():
         )
 
         if errorIndication:
-            module.fail_json(msg=str(errorIndication))
+            module.fail_json(msg=str(errorIndication) + ' querying CPU busy indeces')
 
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
@@ -476,7 +490,7 @@ def main():
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication))
+        module.fail_json(msg=str(errorIndication) + ' querying PFC counters')
 
     for varBinds in varTable:
         for oid, val in varBinds:
@@ -504,7 +518,7 @@ def main():
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication))
+        module.fail_json(msg=str(errorIndication) + ' querying QoS stats')
 
     for varBinds in varTable:
         for oid, val in varBinds:
@@ -524,7 +538,7 @@ def main():
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication))
+        module.fail_json(msg=str(errorIndication) + ' querying FRU')
 
     for varBinds in varTable:
         for oid, val in varBinds:
