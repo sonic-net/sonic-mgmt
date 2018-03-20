@@ -216,12 +216,15 @@ def parse_dpg(dpg, hname):
 
         vlanintfs = child.find(str(QName(ns, "VlanInterfaces")))
         vlan_intfs = []
+        dhcp_servers = []
         vlans = {}
         for vintf in vlanintfs.findall(str(QName(ns, "VlanInterface"))):
             vintfname = vintf.find(str(QName(ns, "Name"))).text
             vlanid = vintf.find(str(QName(ns, "VlanID"))).text
             vintfmbr = vintf.find(str(QName(ns, "AttachTo"))).text
             vmbr_list = vintfmbr.split(';')
+            vlandhcpservers = vintf.find(str(QName(ns, "DhcpRelays"))).text
+            dhcp_servers = vlandhcpservers.split(";")
             for i, member in enumerate(vmbr_list):
                 vmbr_list[i] = port_alias_map[member]
                 ports[port_alias_map[member]] = {'name': port_alias_map[member], 'alias': member}
@@ -246,7 +249,7 @@ def parse_dpg(dpg, hname):
             if acl_intfs:
                 acls[aclname] = acl_intfs
 
-        return intfs, lo_intfs, mgmt_intf, vlans, pcs, acls
+        return intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers
     return None, None, None, None, None, None
 
 def parse_cpg(cpg, hname):
@@ -493,7 +496,7 @@ def parse_xml(filename, hostname):
 
     for child in root:
         if child.tag == str(QName(ns, "DpgDec")):
-            (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls) = parse_dpg(child, hostname)
+            (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers) = parse_dpg(child, hostname)
         elif child.tag == str(QName(ns, "CpgDec")):
             (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(child, hostname)
         elif child.tag == str(QName(ns, "PngDec")):
