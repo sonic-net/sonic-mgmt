@@ -301,7 +301,6 @@ def parse_cpg(cpg, hname):
 
 def parse_meta(meta, hname):
     syslog_servers = []
-    dhcp_servers = []
     ntp_servers = []
     mgmt_routes = []
     deployment_id = None
@@ -313,9 +312,7 @@ def parse_meta(meta, hname):
                 name = device_property.find(str(QName(ns1, "Name"))).text
                 value = device_property.find(str(QName(ns1, "Value"))).text
                 value_group = value.split(';') if value and value != "" else []
-                if name == "DhcpResources":
-                    dhcp_servers = value_group
-                elif name == "NtpResources":
+                if name == "NtpResources":
                     ntp_servers = value_group
                 elif name == "SyslogResources":
                     syslog_servers = value_group
@@ -323,7 +320,7 @@ def parse_meta(meta, hname):
                     mgmt_routes = value_group
                 elif name == "DeploymentId":
                     deployment_id = value
-    return syslog_servers, dhcp_servers, ntp_servers, mgmt_routes, deployment_id
+    return syslog_servers, ntp_servers, mgmt_routes, deployment_id
 
 
 def get_console_info(devices, dev, port):
@@ -504,7 +501,7 @@ def parse_xml(filename, hostname):
         elif child.tag == str(QName(ns, "UngDec")):
             (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
         elif child.tag == str(QName(ns, "MetadataDeclaration")):
-            (syslog_servers, dhcp_servers, ntp_servers, mgmt_routes, deployment_id) = parse_meta(child, hostname)
+            (syslog_servers, ntp_servers, mgmt_routes, deployment_id) = parse_meta(child, hostname)
 
     # Create port index map. Since we currently output a mix of NGS names
     # and SONiC mapped names, we include both in this map.
