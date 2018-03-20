@@ -291,7 +291,7 @@ def main():
     results = Tree()
 
     # Getting system description could take more than 1 second on some Dell platform
-    # (e.g. S6000), increse timeout to tolerate the delay.
+    # (e.g. S6000) when cpu utilization is high, increse timeout to tolerate the delay.
     errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
         snmp_auth,
         cmdgen.UdpTransportTarget((m_args['host'], 161), timeout=5.0),
