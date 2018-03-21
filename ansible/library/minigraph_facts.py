@@ -216,12 +216,15 @@ def parse_dpg(dpg, hname):
 
         vlanintfs = child.find(str(QName(ns, "VlanInterfaces")))
         vlan_intfs = []
+        dhcp_servers = []
         vlans = {}
         for vintf in vlanintfs.findall(str(QName(ns, "VlanInterface"))):
             vintfname = vintf.find(str(QName(ns, "Name"))).text
             vlanid = vintf.find(str(QName(ns, "VlanID"))).text
             vintfmbr = vintf.find(str(QName(ns, "AttachTo"))).text
             vmbr_list = vintfmbr.split(';')
+            vlandhcpservers = vintf.find(str(QName(ns, "DhcpRelays"))).text
+            dhcp_servers = vlandhcpservers.split(";")
             for i, member in enumerate(vmbr_list):
                 vmbr_list[i] = port_alias_map[member]
                 ports[port_alias_map[member]] = {'name': port_alias_map[member], 'alias': member}
@@ -246,7 +249,7 @@ def parse_dpg(dpg, hname):
             if acl_intfs:
                 acls[aclname] = acl_intfs
 
-        return intfs, lo_intfs, mgmt_intf, vlans, pcs, acls
+        return intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers
     return None, None, None, None, None, None
 
 def parse_cpg(cpg, hname):
@@ -301,7 +304,6 @@ def parse_cpg(cpg, hname):
 
 def parse_meta(meta, hname):
     syslog_servers = []
-    dhcp_servers = []
     ntp_servers = []
     mgmt_routes = []
     deployment_id = None
@@ -313,9 +315,7 @@ def parse_meta(meta, hname):
                 name = device_property.find(str(QName(ns1, "Name"))).text
                 value = device_property.find(str(QName(ns1, "Value"))).text
                 value_group = value.split(';') if value and value != "" else []
-                if name == "DhcpResources":
-                    dhcp_servers = value_group
-                elif name == "NtpResources":
+                if name == "NtpResources":
                     ntp_servers = value_group
                 elif name == "SyslogResources":
                     syslog_servers = value_group
@@ -323,7 +323,7 @@ def parse_meta(meta, hname):
                     mgmt_routes = value_group
                 elif name == "DeploymentId":
                     deployment_id = value
-    return syslog_servers, dhcp_servers, ntp_servers, mgmt_routes, deployment_id
+    return syslog_servers, ntp_servers, mgmt_routes, deployment_id
 
 
 def get_console_info(devices, dev, port):
@@ -496,7 +496,7 @@ def parse_xml(filename, hostname):
 
     for child in root:
         if child.tag == str(QName(ns, "DpgDec")):
-            (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls) = parse_dpg(child, hostname)
+            (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers) = parse_dpg(child, hostname)
         elif child.tag == str(QName(ns, "CpgDec")):
             (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(child, hostname)
         elif child.tag == str(QName(ns, "PngDec")):
@@ -504,7 +504,7 @@ def parse_xml(filename, hostname):
         elif child.tag == str(QName(ns, "UngDec")):
             (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
         elif child.tag == str(QName(ns, "MetadataDeclaration")):
-            (syslog_servers, dhcp_servers, ntp_servers, mgmt_routes, deployment_id) = parse_meta(child, hostname)
+            (syslog_servers, ntp_servers, mgmt_routes, deployment_id) = parse_meta(child, hostname)
 
     # Create port index map. Since we currently output a mix of NGS names
     # and SONiC mapped names, we include both in this map.
