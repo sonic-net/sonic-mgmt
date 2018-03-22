@@ -243,7 +243,13 @@
   tags: unsafe
 
 - name: After rebooting, wait for switch to come back
-  local_action: wait_for host={{ inventory_hostname }} port=22 state=started delay=30 timeout=300
+  local_action:
+    wait_for:
+      host: "{{ inventory_hostname }}"
+      port: 22
+      state: started
+      delay: 30
+      timeout: 300
   become: false
   when: reboot_required is defined
   tags: unsafe

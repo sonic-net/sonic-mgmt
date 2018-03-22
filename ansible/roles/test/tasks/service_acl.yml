@@ -31,12 +31,12 @@
 # Note that the timeout here should be sufficiently long enough to allow
 # config_service_acls.sh to apply the new service ACLs
 - name: Ensure the SSH port on the DuT becomes closed to us
-  wait_for:
-    port: 22
-    state: stopped
-    host: "{{ ansible_host }}"
-    timeout: 15
-  connection: local
+  local_action:
+    wait_for:
+      host: "{{ ansible_host }}"
+      port: 22
+      state: stopped
+      timeout: 15
 
 # Gather facts with SNMP version 2
 - name: Ensure attempt to gather basic SNMP facts about the device now times out
@@ -51,13 +51,13 @@
 # Note that the timeout here should be sufficiently long enough to allow
 # config_service_acls.sh to reset the ACLs to their original configuration
 - name: Wait until the original service ACLs are reinstated and the SSH port on the DUT is open to us once again
-  wait_for:
-    port: 22
-    state: started
-    host: "{{ ansible_host }}"
-    search_regex: "OpenSSH"
-    timeout: 60
-  connection: local
+  local_action:
+    wait_for:
+      host: "{{ ansible_host }}"
+      port: 22
+      state: started
+      search_regex: "OpenSSH"
+      timeout: 60
 
 - name: Delete config_service_acls.sh from the DuT
   become: true
