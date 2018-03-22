@@ -27,37 +27,37 @@
         real_ansible_host: "{{ ansible_ssh_host }}"
 
     - name: Wait for switch to come back (to ONIE)
-      local_action:
-        wait_for:
-          host: "{{ real_ansible_host }}"
-          port: 22
-          state: started
-          delay: 60
-          timeout: 300
       become: false
+      local_action: wait_for
+      args:
+        host: "{{ real_ansible_host }}"
+        port: 22
+        state: started
+        delay: 60
+        timeout: 300
       changed_when: false
 
     - name: Wait for switch to reboot again
-      local_action:
-        wait_for:
-          host: "{{ real_ansible_host }}"
-          port: 22
-          state: stopped
-          delay: 5
-          timeout: 600
       become: false
+      local_action: wait_for
+      args:
+        host: "{{ real_ansible_host }}"
+        port: 22
+        state: stopped
+        delay: 5
+        timeout: 600
       changed_when: false
 
     - name: Wait for switch to come back (to SONiC)
-      local_action:
-        wait_for:
-          host: "{{ real_ansible_host }}"
-          port: 22
-          state: started
-          search_regex: "OpenSSH"
-          delay: 30
-          timeout: 600
       become: false
+      local_action: wait_for
+      args:
+        host: "{{ real_ansible_host }}"
+        port: 22
+        state: started
+        search_regex: "OpenSSH"
+        delay: 30
+        timeout: 600
       changed_when: false
 
     - name: Wait for the SONiC initialization process
