@@ -26,7 +26,8 @@
   when: no_deploy_saiserver is not defined
 
 - name: Wait to make sure saiserver is started
-  wait_for: timeout=20
+  wait_for:
+    timeout: 20
 
 - name: Run SAI Test
   shell: ptf --test-dir /usr/share/ptf-tests {{ tests | default ("")}} -t "server='{{ ansible_host }}';port_map_file='/etc/ptf/default_interface_to_front_map.ini'" --platform remote {{ extra_options | default("")}} 2>&1
