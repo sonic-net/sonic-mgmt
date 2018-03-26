@@ -11,8 +11,6 @@
 
     - name: Gather minigraph facts about the device
       minigraph_facts: host={{inventory_hostname}}
-      become: no
-      connection: local
 
     - name: print deployment id
       debug: msg="{{deployment_id}}"

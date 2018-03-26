@@ -9,8 +9,6 @@
 
 - name: Gathering minigraph facts about neighbor
   minigraph_facts: host={{ name }} filename="{{ vmhost_num }}-{{ name }}.xml"
-  connection: local
-  become: no
 
 - name: Configure BGP session of neighbor router to up
   action: cisco template=bgp_neighbor_noshut.j2

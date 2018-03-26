@@ -42,7 +42,7 @@ ns2 = "Microsoft.Search.Autopilot.NetMux"
 ns3 = "http://www.w3.org/2001/XMLSchema-instance"
 
 ANSIBLE_USER_MINIGRAPH_PATH = os.path.expanduser('~/.ansible/minigraph')
-ANSIBLE_LOCAL_MINIGRAPH_PATH = 'minigraph/{}.xml'
+ANSIBLE_LOCAL_MINIGRAPH_PATH = '{}.xml'
 ANSIBLE_USER_MINIGRAPH_MAX_AGE = 86400  # 24-hours (in seconds)
 
 class minigraph_encoder(json.JSONEncoder):
@@ -383,15 +383,12 @@ def reconcile_mini_graph_locations(filename, hostname):
     """
     if filename is not None:
         # literal filename specified. read directly from the file.
-        root = ET.parse(filename).getroot()
         mini_graph_path = filename
     else:
         # only the hostname was specified, determine the output path
-        mini_graph_path = os.path.join(ANSIBLE_USER_MINIGRAPH_PATH, hostname + '_minigraph.xml')
-        if os.path.exists(mini_graph_path) and file_age(mini_graph_path) < ANSIBLE_USER_MINIGRAPH_MAX_AGE:
-            # found a cached mini-graph, load it.
-            root = ET.parse(mini_graph_path).getroot()
+        mini_graph_path = '/etc/sonic/minigraph.xml'
 
+    root = ET.parse(mini_graph_path).getroot()
     return mini_graph_path, root
 
 
@@ -620,7 +617,7 @@ def main():
     local_file_path = ANSIBLE_LOCAL_MINIGRAPH_PATH.format(m_args['host'])
     if 'filename' in m_args and m_args['filename'] is not None:
         # literal filename specified
-        filename = "minigraph/%s" % m_args['filename']
+        filename = "%s" % m_args['filename']
     elif os.path.exists(local_file_path):
         # local project minigraph found for the hostname, use that file
         filename = local_file_path
@@ -638,7 +635,7 @@ def main():
 
 
 def print_parse_xml(hostname):
-    filename = '../minigraph/' + hostname + '.xml'
+    filename = hostname + '.xml'
     results = parse_xml(filename, hostname)
     print(json.dumps(results, indent=3, cls=minigraph_encoder))
 

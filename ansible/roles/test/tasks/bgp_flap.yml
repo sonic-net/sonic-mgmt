@@ -20,5 +20,3 @@
 
 - name: recover minigraph facts about the device(above steps loaded neighbors configuration)
   minigraph_facts: host="{{ inventory_hostname }}"
-  connection: local
-  become: no
