@@ -25,7 +25,6 @@
 
 - name: gathering minigraph of the device configuration
   minigraph_facts: host={{ inventory_hostname }}
-  connection: local
 
 - name: Gathering lab graph facts about the device
   conn_graph_facts: host={{ inventory_hostname }}

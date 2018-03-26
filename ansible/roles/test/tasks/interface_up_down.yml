@@ -2,8 +2,6 @@
 #
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
-  connection: local
-  become: no
 
 - name: Ensure LLDP Daemon started and Enabled
   become: true

@@ -2,8 +2,6 @@
 - name: Gathering minigraph facts about the device
   minigraph_facts:
     host: "{{ inventory_hostname }}"
-  become: no
-  connection: local
 
 - name: Print neighbors in minigraph
   debug: msg="{{ minigraph_neighbors }}"

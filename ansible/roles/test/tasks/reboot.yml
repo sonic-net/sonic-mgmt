@@ -6,8 +6,6 @@
 
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
-  connection: local
-  become: no
   when: minigraph_interfaces is not defined 
         
 - include: interface.yml

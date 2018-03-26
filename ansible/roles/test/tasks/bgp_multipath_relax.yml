@@ -14,7 +14,6 @@
 
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
-  connection: local
 
 - name:  Find all V4 bgp neighbors from minigraph
   set_fact:

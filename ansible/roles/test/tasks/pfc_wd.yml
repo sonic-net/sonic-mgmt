@@ -31,8 +31,6 @@
 
 - name: Gather minigraph facts about the device
   minigraph_facts: host={{inventory_hostname}}
-  become: no
-  connection: local
 
 - set_fact:
     port_list: "{{minigraph_ports.keys()}}"
