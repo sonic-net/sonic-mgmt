@@ -90,7 +90,7 @@
 
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
-              dest=minigraph/{{ inventory_hostname}}-{{ topo }}.xml
+              dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
     connection: local
 
   - block:
