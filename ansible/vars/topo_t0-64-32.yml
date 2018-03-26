@@ -48,6 +48,8 @@ topology:
 
 configuration_properties:
   common:
+    dut_asn: 64601
+    dut_type: ToRRouter
     swrole: leaf
     podset_number: 200
     tor_number: 16

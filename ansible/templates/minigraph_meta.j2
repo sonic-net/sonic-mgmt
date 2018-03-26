@@ -1,30 +1,3 @@
-  <DeviceInfos>
-    <DeviceInfo>
-      <AutoNegotiation>true</AutoNegotiation>
-      <EthernetInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
-{% set num_of_intf = port_alias | length %}
-{% for index in range(num_of_intf) %}
-        <a:EthernetInterface>
-          <ElementType>DeviceInterface</ElementType>
-          <AlternateSpeeds i:nil="true"/>
-          <EnableAutoNegotiation>true</EnableAutoNegotiation>
-          <EnableFlowControl>true</EnableFlowControl>
-          <Index>1</Index>
-          <InterfaceName>{{ port_alias[index] }}</InterfaceName>
-          <InterfaceType i:nil="true"/>
-          <MultiPortsInterface>false</MultiPortsInterface>
-          <PortName>0</PortName>
-          <Priority>0</Priority>
-          <Speed>{{ iface_speed }}</Speed>
-        </a:EthernetInterface>
-{% endfor %}
-      </EthernetInterfaces>
-      <FlowControl>true</FlowControl>
-      <Height>0</Height>
-      <HwSku>{{ hwsku }}</HwSku> 
-      <ManagementInterfaces/>
-    </DeviceInfo> 
-  </DeviceInfos>
   <MetadataDeclaration>
 {% set syslog_servers_str=';'.join(syslog_servers) %}
 {% set dhcp_servers_str=';'.join(dhcp_servers) %}
@@ -39,16 +12,6 @@
         <a:Name>{{ inventory_hostname }}</a:Name>
         <a:Properties>
           <a:DeviceProperty>
-            <a:Name>DhcpResources</a:Name>
-            <a:Reference i:nil="true"/>
-            <a:Value>{{ dhcp_servers_str }}</a:Value>
-          </a:DeviceProperty>
-          <a:DeviceProperty>
-            <a:Name>NtpResources</a:Name>
-            <a:Reference i:nil="true"/>
-            <a:Value>{{ ntp_servers_str }}</a:Value>
-          </a:DeviceProperty>
-          <a:DeviceProperty>
             <a:Name>DeploymentId</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>1</a:Value>
@@ -58,41 +21,69 @@
             <a:Reference i:nil="true"/>
             <a:Value>Profile0</a:Value>
           </a:DeviceProperty>
+{% if dhcp_servers %}
+          <a:DeviceProperty>
+            <a:Name>DhcpResources</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>{{ dhcp_servers_str }}</a:Value>
+          </a:DeviceProperty>
+{% endif %}
+{% if ntp_servers %}
+          <a:DeviceProperty>
+            <a:Name>NtpResources</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>{{ ntp_servers_str }}</a:Value>
+          </a:DeviceProperty>
+{% endif %}
+{% if radius_servers %}
           <a:DeviceProperty>
             <a:Name>RadiusResources</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>{{ radius_servers_str }}</a:Value>
           </a:DeviceProperty>
+{% endif %}
+{% if snmp_servers %}
           <a:DeviceProperty>
             <a:Name>SnmpResources</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>{{ snmp_servers_str }}</a:Value>
           </a:DeviceProperty>
+{% endif %}
+{% if syslog_servers %}
           <a:DeviceProperty>
             <a:Name>SyslogResources</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>{{ syslog_servers_str }}</a:Value>
           </a:DeviceProperty>
+{% endif %}
+{% if tacacs_group %}
           <a:DeviceProperty>
             <a:Name>TacacsGroup</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>{{ tacacs_group }}</a:Value>
           </a:DeviceProperty>
+{% endif %}
+{% if tacacs_servers %}
           <a:DeviceProperty>
             <a:Name>TacacsServer</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>{{ tacacs_servers_str }}</a:Value>
           </a:DeviceProperty>
+{% endif %}
+{% if forced_mgmt_routes %}
           <a:DeviceProperty>
             <a:Name>ForcedMgmtRoutes</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>{{ forced_mgmt_routes_str }}</a:Value>
           </a:DeviceProperty>
+{% endif %}
+{% if erspan_dest %}
           <a:DeviceProperty>
             <a:Name>ErspanDestinationIpv4</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>{{ erspan_dest_str }}</a:Value>
          </a:DeviceProperty>
+{% endif %}
         </a:Properties>
       </a:DeviceMetadata>
     </Devices>

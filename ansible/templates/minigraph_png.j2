@@ -1,0 +1,46 @@
+  <PngDec>
+    <DeviceInterfaceLinks>
+{% for index in range(vms_number) %}
+{% set vm_intfs=vm_topo_config['vm'][vms[index]]['intfs']|sort %}
+{% set dut_intfs=vm_topo_config['vm'][vms[index]]['interface_indexes']|sort %}
+{% for if_index in range(vm_intfs | length) %}
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>{{ vms[index] }}</EndDevice>
+        <EndPort>{{ vm_intfs[if_index] }}</EndPort>
+        <StartDevice>{{ inventory_hostname }}</StartDevice>
+        <StartPort>{{ port_alias[dut_intfs[if_index]] }}</StartPort>
+      </DeviceLinkBase>
+{% endfor %}
+{% endfor %}
+    </DeviceInterfaceLinks>
+    <Devices>
+      <Device i:type="{{ vm_topo_config['dut_type'] }}">
+        <Hostname>{{ inventory_hostname }}</Hostname>
+        <HwSku>{{ hwsku }}</HwSku>
+        <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
+        </ManagementAddress>
+      </Device>
+{% if VM_topo %}
+{% for dev in neighbor_eosvm_mgmt %}
+{% if 'T1' in dev %}
+{% set dev_type = 'LeafRouter' %}
+{% elif 'T2' in dev %}
+{% set dev_type = 'SpineRouter' %}
+{% elif 'T0' in dev %}
+{% set dev_type = 'ToRRouter' %}
+{% else %}
+{% set dev_ytpe = 'Unknown' %}
+{% endif %}
+      <Device i:type="{{ dev_type }}">
+         <Hostname>{{ dev }}</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>{{ neighbor_eosvm_mgmt[dev] }}</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+{% endfor %}
+{% endif %}
+    </Devices>
+  </PngDec>
