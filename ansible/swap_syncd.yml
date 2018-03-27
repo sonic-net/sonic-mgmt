@@ -11,9 +11,7 @@
 
     - name: Gathering minigraph facts about the device
       minigraph_facts: host={{ inventory_hostname }}
-      connection: local
       tags: always
-      become: no
 
     - name: Set sonic_hwsku fact
       set_fact:
