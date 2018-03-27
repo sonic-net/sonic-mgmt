@@ -11,7 +11,6 @@
 
     - name: Gather minigraph facts for the switch {{ inventory_hostname }}
       minigraph_facts: host={{ inventory_hostname }}
-      connection: local
       tags: always
 
     - set_fact:
