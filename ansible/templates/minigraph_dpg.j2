@@ -59,7 +59,7 @@
 {% set vlan_intf_str=';'.join(vlan_intfs) %}
         <VlanInterface>
           <Name>Vlan1000</Name>
-           <AttachTo>{{ vlan_intf_str }}</AttachTo>          
+           <AttachTo>{{ vlan_intf_str }}</AttachTo>
           <NoDhcpRelay>False</NoDhcpRelay>
           <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
           <Type i:nil="true"/>
@@ -106,8 +106,8 @@
           <InAcl>SNMP_ACL</InAcl>
           <AttachTo>SNMP</AttachTo>
           <Type>SNMP</Type>
-       </AclInterface>
-       <AclInterface>
+        </AclInterface>
+        <AclInterface>
           <AttachTo>ERSPAN</AttachTo>
           <InAcl>Everflow</InAcl>
           <Type>Everflow</Type>
@@ -116,6 +116,15 @@
           <AttachTo>VTY_LINE</AttachTo>
           <InAcl>ssh-only</InAcl>
           <Type>SSH</Type>
+        </AclInterface>
+        <AclInterface>
+          <AttachTo>
+{%- for index in host_if_indexes %}
+{{ port_alias[index] }}{% if not loop.last %},{% endif %}
+{% endfor -%}
+          </AttachTo>
+          <InAcl>DataAcl</InAcl>
+          <Type>DataPlane</Type>
         </AclInterface>
       </AclInterfaces>
       <DownstreamSummaries/>

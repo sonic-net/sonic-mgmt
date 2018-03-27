@@ -1349,8 +1349,8 @@
           <InAcl>SNMP_ACL</InAcl>
           <AttachTo>SNMP</AttachTo>
           <Type>SNMP</Type>
-       </AclInterface>
-       <AclInterface>
+        </AclInterface>
+        <AclInterface>
           <AttachTo>ERSPAN</AttachTo>
           <InAcl>Everflow</InAcl>
           <Type>Everflow</Type>
@@ -1359,6 +1359,11 @@
           <AttachTo>VTY_LINE</AttachTo>
           <InAcl>ssh-only</InAcl>
           <Type>SSH</Type>
+        </AclInterface>
+        <AclInterface>
+          <AttachTo></AttachTo>
+          <InAcl>DataAcl</InAcl>
+          <Type>DataPlane</Type>
         </AclInterface>
       </AclInterfaces>
       <DownstreamSummaries/>
