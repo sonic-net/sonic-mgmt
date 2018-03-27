@@ -141,6 +141,7 @@
         file_prefix: 'syslog'
         start_string: 'Initializing cgroup subsys cpuset'
         target_filename: '/tmp/syslog'
+      become: yes
 
     - name: Copy the exctracted syslog entries to the local machine
       fetch:
