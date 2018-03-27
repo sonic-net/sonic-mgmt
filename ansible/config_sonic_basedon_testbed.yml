@@ -77,10 +77,17 @@
     with_items: "{{ host_if_indexes }}"
     when: ("'host_interfaces' in vm_topo_config") and ("'tor' in vm_topo_config['dut_type'] | lower")
 
-  - name: find all interface indexes connecting to VM
+  - name: find all interface indexes mapping connecting to VM
     set_fact:
       interface_to_vms: "{{ interface_to_vms|default({}) | combine({ item.key: item.value['interface_indexes'] }) }}"
     with_dict: vm_topo_config['vm']
+
+  - name: find all interface indexes connecting to VM
+    set_fact:
+      ifindex_to_vms: "{{ ifindex_to_vms|default([]) }} + {{ item.value['interface_indexes']}}"
+    with_dict: vm_topo_config['vm']
+
+  - debug: msg={{ ifindex_to_vms }}
 
   - name: find all interface names
     set_fact:
