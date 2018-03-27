@@ -46,6 +46,7 @@
       - relay_iface_ip=\"{{ minigraph_vlan_interfaces[0]['addr'] }}\"
       - relay_iface_mac=\"{{ relay_iface_mac }}\"
       - relay_iface_netmask=\"{{ minigraph_vlan_interfaces[0]['mask'] }}\"
+    ptf_extra_options: "--relax"
 
 # Service restart and service stop -> start exhibited different behaviors.
 # Therefore testing them separately.
@@ -73,6 +74,7 @@
       - relay_iface_ip=\"{{ minigraph_vlan_interfaces[0]['addr'] }}\"
       - relay_iface_mac=\"{{ relay_iface_mac }}\"
       - relay_iface_netmask=\"{{ minigraph_vlan_interfaces[0]['mask'] }}\"
+    ptf_extra_options: "--relax"
 
 - name: Stop teamd on DUT
   shell: systemctl stop teamd
@@ -102,4 +104,5 @@
       - relay_iface_ip=\"{{ minigraph_vlan_interfaces[0]['addr'] }}\"
       - relay_iface_mac=\"{{ relay_iface_mac }}\"
       - relay_iface_netmask=\"{{ minigraph_vlan_interfaces[0]['mask'] }}\"
+    ptf_extra_options: "--relax"
 
