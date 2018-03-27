@@ -9,10 +9,6 @@
   gather_facts: no
   tasks:
 
-    - name: Gather minigraph facts for the switch {{ inventory_hostname }}
-      minigraph_facts: host={{ inventory_hostname }}
-      tags: always
-
     - set_fact:
         real_ansible_host: "{{ ansible_ssh_host }}"
 
@@ -39,29 +35,9 @@
             timeout: 300
           changed_when: false
 
-        - name: Stop onie discovery
-          shell: ssh root@{{ real_ansible_host }} '/bin/ash -ilc "onie-discovery-stop"'
-          delegate_to: 127.0.0.1
-
-          # since onie install will reboot the box, the shell command cannot exit in synchronized mode.
-          # Now, use async mode and set a maximum wait period, the next task will wait for installation
-          # to finish and switch to reboot
-        - name: Install the target image from {{ image_url }}
-          shell: ssh root@{{ real_ansible_host }} '/bin/ash -ilc "onie-nos-install {{ image_url }}"'
-          delegate_to: 127.0.0.1
-          async: 60
-          poll: 5
-          ignore_errors: true
-
-        - name: Wait for switch to reboot again (ONIE installation finishes)
-          local_action: wait_for
-          args:
-            host: "{{ real_ansible_host }}"
-            port: 22
-            state: stopped
-            delay: 5
-            timeout: 600
-          changed_when: false
+        - name: Install SONiC image in ONIE
+          action: onie install=yes url={{ image_url }}
+          connection: onie
 
       when: upgrade_type == "onie"
 
