@@ -87,8 +87,6 @@
       ifindex_to_vms: "{{ ifindex_to_vms|default([]) }} + {{ item.value['interface_indexes']}}"
     with_dict: vm_topo_config['vm']
 
-  - debug: msg={{ ifindex_to_vms }}
-
   - name: find all interface names
     set_fact:
       intf_names: "{{ intf_names | default({}) | combine({item.key: port_alias[item.value[0]|int:item.value[-1]|int+1] }) }}"
