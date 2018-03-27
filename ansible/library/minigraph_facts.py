@@ -607,11 +607,11 @@ def main():
 
     try:
         # make the directory for caching the mini-graph.
-        os.mkdir(ANSIBLE_USER_MINIGRAPH_PATH)
+        os.makedirs(ANSIBLE_USER_MINIGRAPH_PATH)
     except OSError:
         if not os.path.isdir(ANSIBLE_USER_MINIGRAPH_PATH):
             # file conflict, report the error and exit.
-            module.fail_json(msg="'{}' exists but is not a directory".format(ANSIBLE_USER_MINIGRAPH_PATH))
+            module.fail_json(msg="Cannot create dir: {}".format(ANSIBLE_USER_MINIGRAPH_PATH))
 
     m_args = module.params
     local_file_path = ANSIBLE_LOCAL_MINIGRAPH_PATH.format(m_args['host'])
