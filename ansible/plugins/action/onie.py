@@ -22,6 +22,7 @@ class ActionModule(ActionBase):
         _install  = boolean(self._task.args.get('install', 'no'))
         _url      = self._task.args.get('url', None)
         _timeout  = self._task.args.get('timeout', None)
+        _nretry   = int(self._task.args.get('retry', 3))
 
         if _timeout is None:
             _timeout = 300
@@ -43,7 +44,8 @@ class ActionModule(ActionBase):
                                       host=_host,
                                       url=_url,
                                       install=_install,
-                                      timeout=_timeout)
+                                      timeout=_timeout,
+                                      retry=_nretry)
 
         return result
 
