@@ -107,7 +107,9 @@ class Connection(ConnectionBase):
             if i != 0:
                 raise AnsibleError("Failed to install sonic image. %s" % stdout)
             self._display.vvv("SONiC installed.", host=self.host)
-            client.expect(pexpect.EOF)
+            # for some platform, e.g., DELL S6000, it will do hard reboot,
+            # which will not give EOF
+            client.expect([pexpect.EOF, pexpect.TIMEOUT], timeout=15)
             stdout += client.before
             self._display.vvv("ONIE Rebooted. %s" % stdout, host=self.host)
 

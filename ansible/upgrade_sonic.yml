@@ -9,10 +9,6 @@
   gather_facts: no
   tasks:
 
-    - name: Gather minigraph facts for the switch {{ inventory_hostname }}
-      minigraph_facts: host={{ inventory_hostname }}
-      tags: always
-
     - set_fact:
         real_ansible_host: "{{ ansible_ssh_host }}"
 
