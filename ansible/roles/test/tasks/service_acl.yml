@@ -46,7 +46,7 @@
     community: "{{ snmp_rocommunity }}"
   connection: local
   register: result
-  failed_when: result.msg != "No SNMP response received before timeout"
+  failed_when: "'No SNMP response received before timeout' not in result.msg"
 
 # Note that the timeout here should be sufficiently long enough to allow
 # config_service_acls.sh to reset the ACLs to their original configuration
