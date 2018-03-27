@@ -1,3 +1,6 @@
+- name: Gather minigraph facts about the device
+  minigraph_facts: host={{inventory_hostname}}
+
 - name: Get interface facts
   interface_facts: up_ports={{minigraph_ports}}
 

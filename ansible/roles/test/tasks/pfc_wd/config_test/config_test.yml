@@ -1,3 +1,6 @@
+- set_fact:
+    pfc_wd_test_port: "{{test_ports.keys()[0]}}"
+
 - name: Generate config file for forward action test.
   vars:
       pfc_wd_interface_list: "{{ pfc_wd_test_port }}"

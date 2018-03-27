@@ -41,6 +41,7 @@
     - name: Start to copy and send PFC packets from all peers
       vars: 
         test_expect_file: "expect_pfc_wd_detect"
+        test_ignore_file: "ignore_pfc_wd_messages"
         storm_action: "start"
       include: roles/test/tasks/pfc_wd/functional_test/storm_all_action.yml
       with_dict: "{{combined_dict}}" 
@@ -48,6 +49,7 @@
     - name: Stop PFC packets from all peers
       vars: 
         test_expect_file: "expect_pfc_wd_restore"
+        test_ignore_file: "ignore_pfc_wd_messages"
         storm_action: "stop"
       include: roles/test/tasks/pfc_wd/functional_test/storm_all_action.yml
       with_dict: "{{combined_dict}}" 

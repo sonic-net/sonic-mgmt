@@ -2,6 +2,11 @@
   shell: logrotate -f /etc/logrotate.conf
   become: true
 
+- name: Wait for queue to recover from PFC storm
+  pause:
+    seconds: 1
+
+
 - name: Generate PFC storm on fanout switch
   action: apswitch template="{{pfc_wd_storm_template}}"
   args:
@@ -16,6 +21,7 @@
 - name: Find PFC storm start marker
   shell: grep "PFC_STORM_START" /var/log/syslog
   register: storm_start
+  become: true
 
 - name: Convert start marker time to milliseconds
   shell: "date -d {{storm_start.stdout.replace('  ',' ').split(' ')[2]}} +'%s%3N'"
@@ -24,6 +30,7 @@
 - name: Find PFC storm detect message
   shell: grep "detected PFC storm" /var/log/syslog
   register: storm_detect
+  become: true
 
 - name: Convert detect message time to milliseconds
   shell: "date -d {{storm_detect.stdout.replace('  ',' ').split(' ')[2]}} +'%s%3N'"
@@ -32,14 +39,16 @@
 - name: Find PFC storm end marker
   shell: grep "PFC_STORM_END" /var/log/syslog
   register: storm_end
+  become: true
 
-- name: Convert start marker time to milliseconds
+- name: Convert end marker time to milliseconds
   shell: "date -d {{storm_end.stdout.replace('  ',' ').split(' ')[2]}} +'%s%3N'"
   register: storm_end_millis
 
 - name: Find PFC storm restore message
-  shell: grep "PFC Watchdog storm restored" /var/log/syslog
+  shell: grep "storm restored" /var/log/syslog
   register: storm_restore
+  become: true
 
 - name: Convert restore message time to milliseconds
   shell: "date -d {{storm_restore.stdout.replace('  ',' ').split(' ')[2]}} +'%s%3N'"

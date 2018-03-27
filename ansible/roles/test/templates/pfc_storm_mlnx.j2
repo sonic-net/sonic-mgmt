@@ -1,5 +1,5 @@
 enable
 configure terminal
-docker exec scapy "./pfcgen.py --p{{pfc_queue_index}} --q{{pfc_queue_index}}=65535 -i {{pfc_frames_number}} -d {{pfc_fanout_interface | replace("ernet 1/", "")}} -r {{ansible_eth0['ipv4']['address']}}"
+docker exec scapy "./pfcgen.py --p{{pfc_queue_index}} --q{{pfc_queue_index}}=65535 -i {{pfc_frames_number}} -d {{pfc_fanout_interface | replace("ernet 1/", "")}} -r {{ansible_eth0_ipv4_addr}}"
 exit
 exit
