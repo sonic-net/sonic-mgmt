@@ -73,6 +73,7 @@ class Connection(ConnectionBase):
             self.host     = kwargs['host']
         self.url      = kwargs['url']
         self.install  = kwargs['install']
+        self.nretry   = kwargs['retry']
 
         self._build_command()
 
@@ -101,11 +102,18 @@ class Connection(ConnectionBase):
             client.sendline('onie-discovery-stop')
             client.expect(prompts)
             stdout += client.before
-            client.sendline("onie-nos-install %s" % self.url)
-            i = client.expect(["Installed SONiC base image SONiC-OS successfully"] + prompts)
-            stdout += client.before
-            if i != 0:
-                raise AnsibleError("Failed to install sonic image. %s" % stdout)
+            attempt = 0
+            while attempt < self.nretry:
+                client.sendline("onie-nos-install %s" % self.url)
+                i = client.expect(["Installed SONiC base image SONiC-OS successfully"] + prompts)
+                stdout += client.before
+                if i == 0:
+                    break
+                elif i == 1:
+                    attempt += 1
+                    self._display.vvv("Installation fails, retry %d..." % attempt, host=self.host)
+                else:
+                    raise AnsibleError("Failed to install sonic image. %s" % stdout)
             self._display.vvv("SONiC installed.", host=self.host)
             # for some platform, e.g., DELL S6000, it will do hard reboot,
             # which will not give EOF
