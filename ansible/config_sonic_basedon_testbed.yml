@@ -66,7 +66,6 @@
 
   - name: find interface name mapping and individual interface speed if defined
     port_alias: hwsku="{{ hwsku }}"
-    connection: local
 
   - name: find all enabled host_interfaces
     set_fact:
