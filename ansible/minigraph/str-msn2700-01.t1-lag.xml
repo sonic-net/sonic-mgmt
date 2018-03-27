@@ -1066,19 +1066,25 @@
       <DataAcls/>
       <AclInterfaces>
         <AclInterface>
+          <ElementType>DataAcl</ElementType>
+          <Name i:nil="true"/>
           <InAcl>SNMP_ACL</InAcl>
           <AttachTo>SNMP</AttachTo>
           <Type>SNMP</Type>
+          <File>Router_Protect_AP.xml</File>
        </AclInterface>
        <AclInterface>
           <AttachTo>ERSPAN</AttachTo>
           <InAcl>Everflow</InAcl>
           <Type>Everflow</Type>
         </AclInterface>
-          <AclInterface>
+        <AclInterface>
+          <ElementType>DataAcl</ElementType>
+          <Name i:nil="true"/>
           <AttachTo>VTY_LINE</AttachTo>
           <InAcl>ssh-only</InAcl>
           <Type>SSH</Type>
+          <File>Router_Protect_AP.xml</File>
         </AclInterface>
       </AclInterfaces>
       <DownstreamSummaries/>
