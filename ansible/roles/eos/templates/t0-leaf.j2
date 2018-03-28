@@ -37,6 +37,8 @@ route-map DEFAULT_ROUTES permit
 {% for podset in range(0, props.podset_number) %}
 {% for tor in range(0, props.tor_number) %}
 {% for subnet in range(0, props.tor_subnet_number) %}
+{# Skip tor 0 podset 0 #}
+{% if podset != 0 or tor != 0 %}
 {% set suffix = ( (podset * props.tor_number * props.max_tor_subnet_number * props.tor_subnet_size) +
                   (tor * props.max_tor_subnet_number * props.tor_subnet_size) +
                   (subnet * props.tor_subnet_size) ) %}
@@ -46,12 +48,15 @@ route-map DEFAULT_ROUTES permit
 {% set prefixlen_v4 = (32 - ((props.tor_subnet_size | log(2))) | int) %}
 ip route 192.{{ octet2 }}.{{ octet3 }}.{{ octet4 }}/{{ prefixlen_v4 }} {{ props.nhipv4 }}
 ipv6 route 20C0:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/64 {{ props.nhipv6 }}
+{% endif %}
 {% endfor %}
 {% endfor %}
 {% endfor %}
 !
 {% for podset in range(0, props.podset_number) %}
 {% for tor in range(0, props.tor_number) %}
+{# Skip tor 0 podset 0 #}
+{% if podset != 0 or tor != 0 %}
 {% set suffix = ( (podset * props.tor_number * props.max_tor_subnet_number * props.tor_subnet_size) +
                   (tor * props.max_tor_subnet_number * props.tor_subnet_size) ) %}
 {% set octet2 = (168 + ((suffix // (256 ** 2))) % 256) %}
@@ -63,6 +68,7 @@ ip prefix-list test_ipv4_{{ podset}}_{{ tor }} seq 10 permit 192.{{ octet2 }}.{{
 ipv6 prefix-list test_ipv6_{{ podset}}_{{ tor }}
  seq 10 permit 20C0:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/{{ prefixlen_v6 }} ge {{ prefixlen_v6 }}
 exit
+{% endif %}
 {% endfor %}
 {% endfor %}
 !
