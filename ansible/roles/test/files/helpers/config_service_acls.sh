@@ -75,8 +75,8 @@ EOF
 # Install the new service ACLs
 acl-loader update full /tmp/testacl.json
 
-# Sleep to allow Ansible playbook to attmept to connect and timeout
-sleep 30
+# Sleep to allow Ansible playbook ample time to attempt to connect and timeout
+sleep 60
 
 # Delete the test ACL config file
 rm -rf /tmp/testacl.json

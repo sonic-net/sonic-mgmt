@@ -28,15 +28,20 @@
   become: true
   shell: "nohup /tmp/config_service_acls.sh < /dev/null > /dev/null 2>&1 &"
 
-# Note that the timeout here should be sufficiently long enough to allow
-# config_service_acls.sh to apply the new service ACLs
+- name: Sleep a bit to allow config_service_acls.sh to apply the new service ACLs
+  pause:
+    seconds: 5
+
 - name: Ensure the SSH port on the DuT becomes closed to us
   local_action: wait_for
   args:
     host: "{{ ansible_host }}"
     port: 22
-    state: stopped
-    timeout: 15
+    state: started
+    search_regex: "OpenSSH"
+    timeout: 10
+  register: result
+  failed_when: "'Timeout when waiting for search string OpenSSH' not in result.msg"
 
 # Gather facts with SNMP version 2
 - name: Ensure attempt to gather basic SNMP facts about the device now times out
@@ -57,7 +62,7 @@
     port: 22
     state: started
     search_regex: "OpenSSH"
-    timeout: 60
+    timeout: 90
 
 - name: Delete config_service_acls.sh from the DuT
   become: true
