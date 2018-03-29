@@ -10,7 +10,6 @@
         vm_hosts: "{{ neighbor_eosvm_mgmt.values() }}"
   when: testbed_type is defined and vm is defined
 
-
 - block:
     - fail: msg="Please set ptf_host variable"
       when: ptf_host is not defined
@@ -124,7 +123,7 @@
         - default_ip_range='192.168.0.0/16'
         - vlan_ip_range=\"{{ minigraph_vlan_interfaces[0]['subnet'] }}\"
         - lo_v6_prefix=\"{{ minigraph_lo_interfaces | map(attribute='addr') | ipv6 | first | ipsubnet(64) }}\"
-        - arista_vms=\"{{ vm_hosts }}\"
+        - arista_vms=\"['{{ vm_hosts | list | join("','") }}']\"
 
   always:
     - name: Copy test results from ptf to the local box /tmp/fast-reboot.log
