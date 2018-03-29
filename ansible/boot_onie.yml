@@ -6,10 +6,6 @@
   gather_facts: no
   tasks:
 
-    - name: Gathering minigraph facts about the device
-      minigraph_facts: host={{ inventory_hostname }}
-      tags: always
-
     - name: Set next boot device to ONIE
       become: true
       shell: grub-editenv /host/grub/grubenv set next_entry=ONIE
