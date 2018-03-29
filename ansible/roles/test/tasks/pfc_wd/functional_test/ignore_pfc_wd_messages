@@ -1,6 +1,7 @@
 r, ".* Port counter .* not implemented"
 r, ".* Port counter .* not supported"
 r, ".* Invalid port counter .*"
-r, ".* Unknown stat.*"
+r, ".* Unknown.*"
+r, ".* SAI_STATUS_ATTR_NOT_SUPPORT.*"
 r, ".* snmpd.*"
 r, ".* Trying to remove nonexisting queue from flex counter .*"
