@@ -33,11 +33,11 @@
   when:
     - host_distribution.stdout == "Ubuntu"
     - host_distribution_version.stdout == "17.04"
-    - host_kernel.find('4.10.0') != -1
-    - "{{ host_kernel | regex_replace('4.10.0-([0-9]+)-.*', '\\1') | int < 25 }}"
+    - host_kernel.stdout.find('4.10.0') != -1
+    - "{{ host_kernel.stdout | regex_replace('4.10.0-([0-9]+)-.*', '\\1') | int < 25 }}"
 
 - block:
-    - debug: msg="{{ host_kernel }}"
+    - debug: msg="{{ host_kernel.stdout }}"
 
     - name: Upgrade kernel package
       apt: pkg={{ item }} state=latest
