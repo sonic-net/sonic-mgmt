@@ -11,5 +11,6 @@
 #
 
 - hosts: servers:&vm_host
+  gather_facts: no
   roles:
   - { role: vm_set, action: 'stop' }
