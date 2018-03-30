@@ -75,7 +75,7 @@ str-7060cx-32s-04,10.64.247.231/23,Arista-7060CX-32S,FanoutLeaf
 str-7060cx-32s-05,10.64.247.232/23,Arista-7060CX-32S,FanoutLeaf
 str-7060cx-32s-06,10.64.247.233/23,Arista-7060CX-32S,FanoutLeaf
 str-7060cx-32s-07,10.64.247.234/23,Arista-7060CX-32S,FanoutLeaf
-str-7060cx-32s-08,10.64.247.238/23,Arista-7060CX-32S-C32,FanoutLeaf
+str-7060cx-32s-08,10.64.247.238/23,Arista-7060CX-32S-C32,FanoutLeafSonic
 str-7060cx-32s-09,10.64.247.239/23,Arista-7060CX-32S,FanoutLeaf
 str-7060cx-32s-15,10.64.247.11/23,Arista-7060CX-32S,FanoutLeaf
 str-7060cx-32s-16,10.64.247.12/23,Arista-7060CX-32S,FanoutLeaf
