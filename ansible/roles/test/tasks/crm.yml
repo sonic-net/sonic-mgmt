@@ -12,6 +12,9 @@
    - set_fact: crm_intf="{{minigraph_portchannel_interfaces[0].attachto}}"
      when: (testbed_type == "t0") or (testbed_type == "t1-lag")
 
+   - set_fact:
+        ansible_date_time: "{{ansible_date_time}}"
+
    - name: Set polling interval
      command: crm config polling interval 1
 
