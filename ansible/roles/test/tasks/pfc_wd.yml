@@ -42,6 +42,7 @@
 - set_fact:
     ansible_eth0_ipv4_addr: "{{ansible_eth0['ipv4']['address']}}"
     ansible_ethernet0_mac_addr: "{{ansible_Ethernet0['macaddress']}}"
+    ansible_date_time: "{{ansible_date_time}}"
 
 - set_fact:
     used: false
