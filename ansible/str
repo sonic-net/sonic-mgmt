@@ -38,7 +38,6 @@ str-n3132-acs-2   ansible_host=10.3.147.247
 str-n3132-acs-3   ansible_host=10.3.147.251
 str-n3132-acs-4   ansible_host=10.3.147.160
 
-
 [sonic_nexus_3132_40:vars]
 hwsku="Nexus-3132-Q32"
 iface_speed='40000'
@@ -153,6 +152,7 @@ ptf1-7  ansible_host=10.64.246.35
 ptf12-1 ansible_host=10.64.246.44
 vtf2-6  ansible_host=10.64.246.16
 ptf3-1  ansible_host=10.64.246.18
+vms1-1  ansible_host=10.64.246.22
 vms1-8  ansible_host=10.64.246.43
 vms1-9  ansible_host=10.64.246.15
 vms2-1  ansible_host=10.64.246.24
