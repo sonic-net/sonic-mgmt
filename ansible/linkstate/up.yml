@@ -34,6 +34,8 @@
 - hosts: ptf_host
   gather_facts: no
   tasks:
+    - name: prepare admin password
+      set_fact: ansible_ssh_user={{ ptf_host_user }} ansible_ssh_pass={{ ptf_host_pass }}
     - name: Check list of processes
       command: ps ax
       changed_when: False
