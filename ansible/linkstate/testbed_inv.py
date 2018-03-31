@@ -43,7 +43,7 @@ def parse_topology(topology_name, vm_start):
 
 def parse_links(links, dut, ports):
     with open(links) as fp:
-        result = set(line.split(',')[2] for line in fp if line.startswith(dut))
+        result = set(line.split(',')[2] for line in fp if line.startswith(dut + ','))
     return list(result)
 
 def extract_hostvars(filename, host):
