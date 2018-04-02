@@ -22,7 +22,7 @@ class ActionModule(ActionBase):
         _install  = boolean(self._task.args.get('install', 'no'))
         _url      = self._task.args.get('url', None)
         _timeout  = self._task.args.get('timeout', None)
-        _nretry   = int(self._task.args.get('retry', 3))
+        _nretry   = int(self._task.args.get('retry', 1))
 
         if _timeout is None:
             _timeout = 300
