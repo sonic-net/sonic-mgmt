@@ -92,7 +92,12 @@ def extract_line(directory, filename, target_string):
         file = open(path)
     result = None
     with file:
-        result = [(filename, line) for line in file if target_string in line and 'nsible' not in line]
+        # This might be a gunzip file or logrotate issue, there has
+        # been '\x00's in front of the log entry timestamp which
+        # messes up with the comparator.
+        # Prehandle lines to remove these sub-strings
+        result = [(filename, line.replace('\x00', '')) for line in file if target_string in line and 'nsible' not in line]
+
     return result
 
 
@@ -159,9 +164,12 @@ def extract_latest_line_with_string(directory, filenames, start_string):
     for filename in filenames:
         target_lines.extend(extract_line(directory, filename, start_string))
 
-    sorted_target_lines = sorted(target_lines, cmp=comparator)
+    target = target_lines[0] if len(target_lines) > 0 else None
+    for line in target_lines:
+        if comparator(line, target) > 0:
+            target = line
 
-    return sorted_target_lines[-1]
+    return target
 
 
 def calculate_files_to_copy(filenames, file_with_latest_line):
