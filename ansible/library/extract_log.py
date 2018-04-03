@@ -90,7 +90,7 @@ def extract_line(directory, filename, target_string):
         file = gzip.GzipFile(path)
     else:
         file = open(path)
-    result = []
+    result = None
     with file:
         # This might be a gunzip file or logrotate issue, there has
         # been '\x00's in front of the log entry timestamp which
