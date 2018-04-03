@@ -46,7 +46,6 @@ interface {{ intf }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
    speed forced 40gfull
-   no error-correction encoding
    no shutdown
 {%     elif device_port_vlans[intf]['speed'] == "50000" %}
    description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
