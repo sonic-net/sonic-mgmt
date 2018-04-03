@@ -92,13 +92,11 @@ def extract_line(directory, filename, target_string):
         file = open(path)
     result = []
     with file:
-        for line in file:
-            # This might be a gunzip file issue, there has been '\x00's in front of the
-            # log entry timestamp which messes up with the comparator.
-            # Prehandle lines to remove these sub-strings
-            line = line.replace('\x00', '')
-            if target_string in line and 'nsible' not in line:
-                result.append((filename, line))
+        # This might be a gunzip file or logrotate issue, there has
+        # been '\x00's in front of the log entry timestamp which
+        # messes up with the comparator.
+        # Prehandle lines to remove these sub-strings
+        result = [(filename, line.replace('\x00', '')) for line in file if target_string in line and 'nsible' not in line]
 
     return result
 
