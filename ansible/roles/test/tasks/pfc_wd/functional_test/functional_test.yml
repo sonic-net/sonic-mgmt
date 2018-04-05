@@ -28,10 +28,10 @@
   delegate_to: "{{ptf_host}}"
   when: port_type == "vlan"
 
-  #- name: "Update ARP entry on DUT"
-  #shell: ping {{minigraph_vlan_interfaces[0]['addr']}} -c 5 -I eth{{pfc_wd_test_port_id}}
-  #delegate_to: "{{ptf_host}}"
-  #when: port_type == "vlan"
+- name: "Update ARP entry on DUT"
+  shell: ping {{minigraph_vlan_interfaces[0]['addr']}} -c 10
+  delegate_to: "{{ptf_host}}"
+  when: port_type == "vlan"
 
 - name: "Update ARP entry on DUT"
   shell: docker exec -i swss arping {{pfc_wd_test_neighbor_addr}} -c 5
@@ -108,7 +108,7 @@
 
     - name: Let PFC storm happen for a while
       pause:
-        seconds: 1
+        seconds: 5
 
     - name: "Buffer up the queue in {{pfc_wd_test_port}}"
       include: roles/test/tasks/ptf_runner.yml
@@ -342,6 +342,10 @@
         host: "{{peer_mgmt}}"
         login: "{{peer_login}}"
       connection: switch
+
+    - name: Let PFC storm happen for a while
+      pause:
+        seconds: 5
 
     - name: Check if logs contain message that PFC WD detected deadlock
       include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
