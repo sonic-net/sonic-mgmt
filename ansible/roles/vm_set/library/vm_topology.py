@@ -37,10 +37,14 @@ description:
       - binds internal interfaces of the docker container to correspoinding VM ports
     - With cmd: 'unbind' the module:
       - destroys everything what was created with command 'bind'
+    - With cmd: 'connect-vms' the module:
+      - disconnect all VM ports from the DUT
+    - With cmd: 'disconnect-vms' the module:
+      - reconnect all VM ports to the DUT
 
 
 Parameters:
-    - cmd: One of the commands: 'create', 'bind', 'renumber', 'unbind', 'destroy'
+    - cmd: One of the commands: 'create', 'bind', 'renumber', 'unbind', 'destroy', 'connect-vms', 'disconnect-vms'
     - vm_set_name: name of the current vm set. It will be used for generation of interface names
     - topo: dictionary with VMs topology. Check vars/topo_*.yml for details
     - vm_names: list of VMs represented on a current host
@@ -306,7 +310,7 @@ class VMTopology(object):
 
         return
 
-    def bind_fp_ports(self):
+    def bind_fp_ports(self, disconnect_vm=False):
         for attr in self.VMs.itervalues():
             for vlan_num, vlan in enumerate(attr['vlans']):
                vlan_id = self.vlan_base + vlan
@@ -315,7 +319,7 @@ class VMTopology(object):
                port0_bridge = OVS_FP_BRIDGE_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
                vm_tap = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
                self.create_phys_vlan(vlan_iface, vlan_id)
-               self.bind_phys_vlan(port0_bridge, vlan_iface, injected_iface, vm_tap)
+               self.bind_phys_vlan(port0_bridge, vlan_iface, injected_iface, vm_tap, disconnect_vm)
 
         return
 
@@ -392,7 +396,7 @@ class VMTopology(object):
 
         return
 
-    def bind_phys_vlan(self, br_name, vlan_iface, injected_iface, vm_iface):
+    def bind_phys_vlan(self, br_name, vlan_iface, injected_iface, vm_iface, disconnect_vm=False):
         ports = VMTopology.get_ovs_br_ports(br_name)
 
         if injected_iface not in ports:
@@ -409,11 +413,19 @@ class VMTopology(object):
         # clear old bindings
         VMTopology.cmd('ovs-ofctl del-flows %s' % br_name)
 
-        # Add flow from a VM to an external iface
-        VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br_name, vm_iface_id, vlan_iface_id))
+        if disconnect_vm:
+            # Drop packets from VM
+            VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=drop" % (br_name, vm_iface_id))
+        else:
+            # Add flow from a VM to an external iface
+            VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br_name, vm_iface_id, vlan_iface_id))
 
-        # Add flow from external iface to a VM and a ptf container
-        VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s,%s" % (br_name, vlan_iface_id, vm_iface_id, injected_iface_id))
+        if disconnect_vm:
+            # Add flow from external iface to ptf container
+            VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br_name, vlan_iface_id, injected_iface_id))
+        else:
+            # Add flow from external iface to a VM and a ptf container
+            VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s,%s" % (br_name, vlan_iface_id, vm_iface_id, injected_iface_id))
 
         # Add flow from a ptf container to an external iface
         VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br_name, injected_iface_id, vlan_iface_id))
@@ -611,7 +623,7 @@ def check_params(module, params, mode):
 def main():
     module = AnsibleModule(
         argument_spec=dict(
-            cmd=dict(required=True, choices=['create', 'bind', 'renumber', 'unbind', 'destroy']),
+            cmd=dict(required=True, choices=['create', 'bind', 'renumber', 'unbind', 'destroy', "connect-vms", "disconnect-vms"]),
             vm_set_name=dict(required=False, type='str'),
             topo=dict(required=False, type='dict'),
             vm_names=dict(required=True, type='list'),
@@ -749,6 +761,34 @@ def main():
                 net.bind_fp_ports()
             if hostif_exists:
                 net.inject_host_ports()
+        elif cmd == 'connect-vms' or cmd == 'disconnect-vms':
+            check_params(module, ['vm_set_name',
+                                  'topo',
+                                  'ext_iface'], cmd)
+
+            vm_set_name = module.params['vm_set_name']
+            topo = module.params['topo']
+            ext_iface = module.params['ext_iface']
+            vlan_base = module.params['vlan_base']
+
+            if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
+                raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (VM_SET_NAME_MAX_LEN, vm_set_name, len(vm_set_name)))
+
+            hostif_exists, vms_exists = check_topo(topo)
+
+            if vms_exists:
+                check_params(module, ['vm_base', 'vlan_base'], cmd)
+                vm_base = module.params['vm_base']
+            else:
+                vm_base = None
+
+            net.init(vm_set_name, topo, vm_base, vlan_base, ext_iface)
+
+            if vms_exists:
+                if cmd == 'connect-vms':
+                    net.bind_fp_ports()
+                else:
+                    net.bind_fp_ports(True)
         else:
             raise Exception("Got wrong cmd: %s. Ansible bug?" % cmd)
 

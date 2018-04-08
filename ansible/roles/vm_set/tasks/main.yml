@@ -156,3 +156,10 @@
   include: renumber_topo.yml
   when: action == 'renumber_topo'
 
+- name: Connect VMs
+  include: connect_vms.yml
+  when: action == 'connect_vms'
+
+- name: Disconnect VMs
+  include: disconnect_vms.yml
+  when: action == 'disconnect_vms'

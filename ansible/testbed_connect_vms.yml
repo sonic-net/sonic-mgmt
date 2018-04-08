@@ -1,0 +1,52 @@
+# This Playbook connect VMs to a topology
+#
+#
+# To renumber a topology please use following command
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_connect_vms.yml --vault-password-file=~/.password -l server_3 -e vm_set_name=first -e VM_base=VM0300 -e ptf_ip=10.255.0.255/23 -e topo=t0 -e dut_name=str-msn-2700-05 -e ptf_imagename="docker_ptf"
+#
+# Parameters
+# -l server_3                - this playbook have to be limited to run only on one server
+# -e vm_set_name=first       - the name of vm_set
+# -e dut_name=str-msn2700-02 - the new value of a dut name, the dut will be connected to the current testbed
+# -e VM_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
+# -e ptf_ip=10.255.0.255/23 - the ip address and prefix of ptf container mgmt interface
+# -e topo=t0                 - the name of removed topo
+# -e ptf_imagename=docker-ptf - name of a docker-image which will be used for the ptf docker container
+
+- hosts: servers:&vm_host
+  gather_facts: no
+  vars_files:
+    - vars/docker_registry.yml
+  pre_tasks:
+  - name: Check for a single host
+    fail: msg="Please use -l server_X to limit this playbook to one host"
+    when: "{{ play_hosts|length }} != 1"
+
+  - name: Check that variable vm_set_name is defined
+    fail: msg="Define vm_set_name variable with -e vm_set_name=something"
+    when: vm_set_name is not defined
+
+  - name: Check that variable dut_name is defined
+    fail: msg="Define dut_name variable with -e dut_name=something"
+    when: dut_name is not defined
+
+  - name: Check that variable VM_base is defined
+    fail: msg="Define VM_base variable with -e VM_base=something"
+    when: VM_base is not defined
+
+  - name: Check that variable topo is defined
+    fail: msg="Define topo variable with -e topo=something"
+    when: topo is not defined or topo not in topologies
+
+  - name: Load topo variables
+    include_vars: "vars/topo_{{ topo }}.yml"
+
+  - name: Read dut minigraph
+    conn_graph_facts: host={{ dut_name }}
+    connection: local
+
+  - name: Extracting vlan_range
+    set_fact: vlan_base={{ device_vlan_list | min }}
+
+  roles:
+    - { role: vm_set, action: 'connect_vms' }
