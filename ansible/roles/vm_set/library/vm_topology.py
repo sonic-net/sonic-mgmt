@@ -421,6 +421,7 @@ class VMTopology(object):
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br_name, vm_iface_id, vlan_iface_id))
 
         if disconnect_vm:
+            # Add flow from external iface to ptf container
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br_name, vlan_iface_id, injected_iface_id))
         else:
             # Add flow from external iface to a VM and a ptf container
