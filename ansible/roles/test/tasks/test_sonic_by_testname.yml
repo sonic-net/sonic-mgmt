@@ -23,6 +23,13 @@
 - debug: var=testcases[testcase_name]['required_vars']
   when: testcases[testcase_name]['required_vars'] is defined
 
+- name: gather system version information
+  shell: "show ver"
+  register: versions
+
+- name: print system versions
+  debug: var=versions.stdout_lines
+
 - name: run test case {{ testcases[testcase_name]['filename'] }} file
   include: "{{ testcases[testcase_name]['filename'] }}"
 
