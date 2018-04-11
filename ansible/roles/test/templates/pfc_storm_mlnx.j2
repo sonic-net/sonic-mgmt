@@ -1,5 +1,9 @@
 enable
 configure terminal
-docker exec scapy "./pfcgen.py --p{{pfc_queue_index}} --q{{pfc_queue_index}}=65535 -i {{pfc_frames_number}} -d {{pfc_fanout_interface | replace("ernet 1/", "")}} -r {{ansible_eth0_ipv4_addr}}"
+docker no start storm
+docker exec args "/root/save_args.sh --p{{pfc_queue_index}} --q{{pfc_queue_index}}=65535 -i {{pfc_frames_number}} -d {{pfc_fanout_interface | replace("ernet 1/", "")}} -r {{ansible_eth0_ipv4_addr}}"
+ping -c 5 8.8.8.8
+docker start pfc_storm latest storm now label storm privileged sdk network
+ping -c 5 8.8.8.8
 exit
 exit
