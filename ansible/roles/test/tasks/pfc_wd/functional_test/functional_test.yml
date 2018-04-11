@@ -69,7 +69,7 @@
   set_fact:
       pfc_wd_detect_time: 400
       pfc_wd_restore_time: 400
-      pfc_wd_restore_time_large: 50000
+      pfc_wd_restore_time_large: 3000
       pfc_wd_poll_time: 400
 
 - name: Set timers if user has specified
@@ -79,6 +79,10 @@
 
 - name: Set polling interval {{ pfc_wd_poll_time }}.
   shell: "pfcwd interval {{ pfc_wd_poll_time }}"
+
+- name: Set timers 2
+  set_fact:
+    pfc_wait_for_restore_time: "{{(pfc_wd_restore_time_large | int / 1000 * 2) | int}}"
 
 - set_fact:
       pfc_gen_file: pfc_gen.py
@@ -140,7 +144,7 @@
     - name: Apply drop config to port {{ pfc_wd_test_port }}.
       shell: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time_large }} {{ ports }} {{ pfc_wd_detect_time }}"
 
-    - name: Let PFC storm happen for a while
+    - name: Let PFC storm happen for a while / Let Watchdog start
       pause:
         seconds: 5
 
@@ -253,7 +257,7 @@
 
     - name: Wait for queue to recover from PFC storm
       pause:
-        seconds: "{{(pfc_wd_restore_time_large | int / 1000 * 2) | int}}"
+        seconds: "{{ pfc_wait_for_restore_time }}"
 
     - name: Check if logs contain message that PFC WD restored from deadlock
       include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
@@ -448,7 +452,7 @@
 
     - name: Wait for queue to recover from PFC storm
       pause:
-        seconds: "{{(pfc_wd_restore_time_large | int / 1000 * 2) | int}}"
+        seconds: "{{ pfc_wait_for_restore_time }}"
 
     - name: Check if logs contain message that PFC WD restored from deadlock
       include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
@@ -471,7 +475,7 @@
 
     - name: Verify last tx drop counter
       fail:
-        msg: "Number of last tx dropped packets {{(pfc_wd_tx_drop_last.stdout | int}} is not equal to {{ pfc_wd_test_pkt_count }}"
+        msg: "Number of last tx dropped packets {{pfc_wd_tx_drop_last.stdout | int}} is not equal to {{ pfc_wd_test_pkt_count }}"
       when: (pfc_wd_tx_drop_last.stdout | int != pfc_wd_test_pkt_count and port_type in ["vlan", "interface"]) or (pfc_wd_tx_drop_last.stdout | int <= 0)
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS after test
@@ -607,7 +611,7 @@
 
     - name: Wait for queue to recover from PFC storm
       pause:
-        seconds: "{{(pfc_wd_restore_time_large | int / 1000 * 2) | int}}"
+        seconds: "{{ pfc_wait_for_restore_time }}"
 
     - name: Check if logs contain message that PFC WD restored from deadlock
       include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml

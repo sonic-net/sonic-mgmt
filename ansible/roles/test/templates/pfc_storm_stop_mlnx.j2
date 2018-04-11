@@ -1,0 +1,7 @@
+enable
+configure terminal
+docker exec storm "bash -c killall5 -9"
+docker no start storm
+ping -c 5 8.8.8.8
+exit
+exit
