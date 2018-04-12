@@ -25,6 +25,7 @@
 
 - name: Generate system dump
   command: generate_dump
+  become: true
   register: generate_dump
   when: fail_in_logs
 
