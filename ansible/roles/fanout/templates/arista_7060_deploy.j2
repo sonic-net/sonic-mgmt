@@ -17,8 +17,6 @@ ntp server vrf management {{ ntp_server }}
 spanning-tree mode none
 no spanning-tree vlan {{ device_vlan_range | list | join(',') }}
 !
-service unsupported-transceiver microsoft 361ac33e
-!
 aaa authorization exec default local
 aaa root secret 0 {{ lab_admin_pass }}
 !
