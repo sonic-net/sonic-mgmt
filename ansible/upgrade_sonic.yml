@@ -35,6 +35,10 @@
             timeout: 300
           changed_when: false
 
+        - name: Pause {{pause_time}} seconds for ONIE initialization
+          pause: seconds={{pause_time}}
+          when: pause_time is defined
+
         - name: Install SONiC image in ONIE
           action: onie install=yes url={{ image_url }}
           connection: onie
