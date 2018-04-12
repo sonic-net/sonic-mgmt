@@ -391,6 +391,18 @@ def reconcile_mini_graph_locations(filename, hostname):
     root = ET.parse(mini_graph_path).getroot()
     return mini_graph_path, root
 
+def port_alias_map_50G(all_ports, s100G_ports):
+    # 50G ports
+    s50G_ports = list(set(all_ports) - set(s100G_ports))
+
+    for i in s50G_ports:
+        port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+        port_alias_map["Ethernet%d/3" % i] = "Ethernet%d" % ((i - 1) * 4 + 2)
+
+    for i in s100G_ports:
+        port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+
+    return port_alias_map
 
 def parse_xml(filename, hostname):
     mini_graph_path, root = reconcile_mini_graph_locations(filename, hostname)
@@ -452,6 +464,15 @@ def parse_xml(filename, hostname):
     elif hwsku == "Arista-7060CX-32S-C32":
         for i in range(1, 33):
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "Arista-7060CX-32S-D48C8":
+        # All possible breakout 50G port numbers:
+        all_ports = [ x for x in range(1, 33)]
+
+        # 100G ports
+        s100G_ports = [ x for x in range(7, 11) ]
+        s100G_ports += [ x for x in range(23, 27) ]
+
+        port_alias_map = port_alias_map_50G(all_ports, s100G_ports)
     elif hwsku == "Arista-7260CX3-D108C8":
         # All possible breakout 50G port numbers:
         all_ports = [ x for x in range(1, 65)]
@@ -459,15 +480,7 @@ def parse_xml(filename, hostname):
         # 100G ports
         s100G_ports = [ x for x in range(13, 21) ]
 
-        # 50G ports
-        s50g_ports = list(set(all_ports) - set(s100G_ports))
-
-        for i in s50g_ports:
-            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-            port_alias_map["Ethernet%d/3" % i] = "Ethernet%d" % ((i - 1) * 4 + 2)
-
-        for i in s100G_ports:
-            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+        port_alias_map = port_alias_map_50G(all_ports, s100G_ports)
     elif hwsku == "INGRASYS-S9100-C32":
         for i in range(1, 33):
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)

@@ -17,6 +17,8 @@ ntp server vrf management {{ ntp_server }}
 spanning-tree mode none
 no spanning-tree vlan {{ device_vlan_range | list | join(',') }}
 !
+service unsupported-transceiver microsoft 361ac33e
+!
 aaa authorization exec default local
 aaa root secret 0 {{ lab_admin_pass }}
 !
@@ -32,7 +34,7 @@ vrf definition management
 {% set intf =  'Ethernet' + i|string + '/1'  %}
 interface {{ intf }}
 {% if intf in device_port_vlans and device_port_vlans[intf]['mode'] != "Trunk" %}
-{%     if device_port_vlans[intf]['speed'] == "100000" %}
+{%     if device_conn[intf]['speed'] == "100000" %}
    description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
    switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
    switchport mode dot1q-tunnel
@@ -40,14 +42,14 @@ interface {{ intf }}
    speed forced 100gfull
    error-correction encoding reed-solomon
    no shutdown
-{%     elif device_port_vlans[intf]['speed'] == "40000" %}
+{%     elif device_conn[intf]['speed'] == "40000" %}
    description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
    switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
    speed forced 40gfull
    no shutdown
-{%     elif device_port_vlans[intf]['speed'] == "50000" %}
+{%     elif device_conn[intf]['speed'] == "50000" %}
    description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
    switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
    switchport mode dot1q-tunnel
