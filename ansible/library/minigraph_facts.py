@@ -437,6 +437,7 @@ def parse_xml(filename, hostname):
         if child.tag == str(hostname_qn):
             hostname = child.text
 
+    global port_alias_map
     # port_alias_map maps ngs port name to sonic port name
     if hwsku == "Force10-S6000":
         for i in range(0, 128, 4):
