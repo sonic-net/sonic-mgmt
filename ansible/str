@@ -91,7 +91,7 @@ iface_speed='100000'
 
 [sonic_arista32_100]
 str-a7060cx-acs-10   ansible_host=10.64.247.240 hwsku="Arista-7060CX-32S-C32"
-str-a7060cx-acs-1    ansible_host=10.64.247.14  hwsku="Arista-7060CX-32S-C32"
+str-a7060cx-acs-1    ansible_host=10.64.247.14  hwsku="Arista-7060CX-32S-D48C8"
 
 [sonic_arista32_100:vars]
 iface_speed='100000'

@@ -39,7 +39,7 @@ str-wedge100b-acs-2,10.64.247.3/23,Wedge-100B-C32,DevSonic
 str-wedge100b65-acs-1,10.64.247.4/23,Wedge-100B-65X,DevSonic
 str-wedge100b65-acs-2,10.64.247.5/23,Wedge-100B-65X,DevSonic
 str-a7060cx-acs-10,10.64.247.240/23,Arista-7060CX-32S-C32,DevSonic
-str-a7060cx-acs-1,10.64.247.14/23,Arista-7060CX-32S-C32,DevSonic
+str-a7060cx-acs-1,10.64.247.14/23,Arista-7060CX-32S-D48C8,DevSonic
 str-7260cx3-acs-1,10.64.247.224/23,Arista-7260CX3-D108C8,DevSonic
 str-7260cx3-acs-2,10.64.247.10/23,Arista-7260CX3-D108C8,DevSonic
 str-msn2700-20,10.64.247.235/23,Mellanox-SN2700,DevSonic
