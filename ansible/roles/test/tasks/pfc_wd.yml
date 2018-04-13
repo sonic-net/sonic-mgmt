@@ -45,6 +45,9 @@
     ansible_date_time: "{{ansible_date_time}}"
 
 - set_fact:
+    seed: "{{ansible_date_time['weekday_number']}}"
+
+- set_fact:
     used: false
     first_pair: false
     pfc_wd_rx_port: "rx"
@@ -104,6 +107,13 @@
 
 - debug: msg="{{test_ports}}"
 
+- set_fact:
+    select_test_ports: "{{select_test_ports | default({}) | combine({item.key: item.value})}}"
+  with_dict: "{{test_ports}}"
+  when: item.value.test_port_id | int % 7 == seed | int
+
+- debug: msg="{{select_test_ports}}"
+
  #****************************************#
  #           Start tests                  #
  #****************************************#
@@ -116,7 +126,7 @@
 
     - name: Test PFC WD Functional tests.
       include: roles/test/tasks/pfc_wd/functional_test/functional_test.yml
-      with_dict: "{{test_ports}}"
+      with_dict: "{{select_test_ports}}"
 
     - name: Test PFC WD Timer accuracy.
       include: roles/test/tasks/pfc_wd/functional_test/check_timer_accuracy_test.yml
