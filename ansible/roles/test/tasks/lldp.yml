@@ -44,6 +44,7 @@
     neighbor_interface: "{{ lldp[item]['port']['ifname'] }}"
     dut_interface: "{{ item }}"
     hname: "{{ lldp[item]['chassis']['mgmt-ip'] }}"
+    dut_chassis_id: "0x{{ ansible_eth0['macaddress'] | replace(':', '') }}"
     dut_hostname: "{{ inventory_hostname }}"
     dut_port_alias: "{{ minigraph_ports[item]['alias'] }}"
     dut_port_description: "{{ minigraph_neighbors[item]['name'] }}:{{ minigraph_neighbors[item]['port'] }}"
