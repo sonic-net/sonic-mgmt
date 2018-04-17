@@ -9,6 +9,7 @@ ptf1-5,ptf1-5,ptf32,docker-ptf-brcm,10.64.246.9/23,server_1,,str-a7050-acs-2,Guo
 ptf1-6,ptf1-6,ptf32,docker-ptf-mlnx,10.64.246.10/23,server_1,,str-msn2700-05,Jenkins
 ptf1-7,ptf1-7,ptf32,docker-ptf-brcm,10.64.246.35/23,server_1,,str-a7060cx-acs-10,prsunny
 ptf2-1,ptf2-1,ptf32,docker-ptf-brcm,10.64.246.14/23,server_2,,str-a7050-acs-1,wenda
+ptf2-2,ptf2-2,ptf64,docker-ptf-brcm,10.64.246.36/23,server_2,,str-s6100-acs-4,wenda
 ptf2-6-b,ptf2-6,ptf32,docker-ptf-brcm,10.64.246.16/23,server_2,,str-s6000-acs-9,Taoyu
 ptf2-6-c,ptf2-6,ptf32,docker-ptf,10.64.246.16/23,server_2,,str-cavium-str-1,Taoyu
 ptf2-6-s,ptf2-6,ptf32,docker-ptf,10.64.246.16/23,server_2,,str-n9232-acs-2,Taoyu
