@@ -29,7 +29,7 @@ class ParseTestbedTopoinfo():
         if 'ptf32' in topo_name:
             topo_name = 't1'
         if 'ptf64' in topo_name:
-            topo_name = 't1-64'  ###TODO: there is no t1-64 topology checked in yet
+            topo_name = 't1-64'
         topo_filename = 'vars/topo_' + topo_name + '.yml'
         vm_topo_config = dict()
 
