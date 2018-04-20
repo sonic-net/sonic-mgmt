@@ -8,7 +8,7 @@ testcases:
     
     arp:
       filename: arpall.yml
-      topologies: [ptf32, ptf64]
+      topologies: [ptf32, ptf64, t1]
       required_vars:
           ptf_host: 
     
@@ -37,7 +37,7 @@ testcases:
 
     copp:
       filename: copp.yml
-      topologies: [ptf32, ptf64]
+      topologies: [ptf32, ptf64, t1, t1-lag]
       required_vars:
           ptf_host:
  
