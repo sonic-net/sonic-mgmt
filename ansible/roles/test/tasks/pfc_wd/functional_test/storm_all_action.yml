@@ -34,6 +34,10 @@
     login: "{{peer_login}}"
   connection: switch
 
+- name: Let PFC storm happen for a while
+  pause:
+    seconds: 5
+
 - name: Check if logs contain message that PFC WD detected deadlock
   include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
