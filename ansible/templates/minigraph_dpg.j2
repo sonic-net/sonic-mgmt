@@ -119,11 +119,15 @@
         </AclInterface>
         <AclInterface>
           <AttachTo>
-{%- for index in host_if_indexes %}
-{{ port_alias[index] }}{% if not loop.last %};{% endif %}
+{%- for index in range(vms_number) %}
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf']|lower %}
+PortChannel{{ ((index+1) |string).zfill(4) }}{% if not loop.last %};{% endif %}
+{% endif %}
 {% endfor %}
-{% for index in ifindex_to_vms %}
-{{ port_alias[index] }}{% if not loop.last %};{% endif %}
+{%- for index in range(vms_number) %}
+{% if 'port-channel' not in vm_topo_config['vm'][vms[index]]['ip_intf']|lower %}
+{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][0]] }}{% if not loop.last %};{% endif %}
+{% endif %}
 {% endfor -%}
           </AttachTo>
           <InAcl>DataAcl</InAcl>
