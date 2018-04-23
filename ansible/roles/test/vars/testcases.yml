@@ -12,6 +12,10 @@ testcases:
       required_vars:
           ptf_host: 
     
+    bgp_gr_helper:
+      filename: bgp_gr_helper.yml
+      topologies: [t1, t1-lag]
+
     bgp_fact:
       filename: bgp_fact.yml
       topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
