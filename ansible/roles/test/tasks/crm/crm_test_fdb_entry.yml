@@ -57,7 +57,7 @@
       command: fdbclear
 
     - name: Make sure CRM counters updated
-      pause: seconds=1
+      pause: seconds=2
 
     - name: Get new "crm_stats_fdb_entry_used" counter value
       command: docker exec -i database redis-cli -n 2 HGET CRM:STATS crm_stats_fdb_entry_used
@@ -70,10 +70,10 @@
     - set_fact: new_crm_stats_fdb_entry_available={{out.stdout}}
 
     - name: Verify "crm_stats_fdb_entry_used" counter was decremented
-      assert: {that: "{{new_crm_stats_fdb_entry_used|int - crm_stats_fdb_entry_used|int == 0}}"}
+      assert: {that: "{{new_crm_stats_fdb_entry_used|int == 0}}"}
 
     - name: Verify "crm_stats_fdb_entry_available" counter was incremented
-      assert: {that: "{{new_crm_stats_fdb_entry_available|int - crm_stats_fdb_entry_available|int == 0}}"}
+      assert: {that: "{{new_crm_stats_fdb_entry_available|int - crm_stats_fdb_entry_available|int >= 0}}"}
 
   always:
 
