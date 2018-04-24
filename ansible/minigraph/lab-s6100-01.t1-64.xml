@@ -1959,9 +1959,9 @@
           <Name>HostIP</Name>
           <AttachTo>eth0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>10.3.147.187/23</b:IPPrefix>
+            <b:IPPrefix>10.251.0.190/24</b:IPPrefix>
           </a:Prefix>
-          <a:PrefixStr>10.3.147.187/23</a:PrefixStr>
+          <a:PrefixStr>10.251.0.190/24</a:PrefixStr>
         </a:ManagementIPInterface>
         <a:ManagementIPInterface>
           <Name>V6HostIP</Name>
@@ -2641,7 +2641,7 @@
           <Type>SSH</Type>
         </AclInterface>
         <AclInterface>
-          <AttachTo>fortyGigE1/2/4;fortyGigE1/1/16;fortyGigE1/4/8;fortyGigE1/2/16;fortyGigE1/2/11;fortyGigE1/2/10;fortyGigE1/1/11;fortyGigE1/1/10;fortyGigE1/4/11;fortyGigE1/3/1;fortyGigE1/4/13;fortyGigE1/2/5;fortyGigE1/4/12;fortyGigE1/2/2;fortyGigE1/4/14;fortyGigE1/1/9;fortyGigE1/2/9;fortyGigE1/2/6;fortyGigE1/1/6;fortyGigE1/1/8;fortyGigE1/2/8;fortyGigE1/4/6;fortyGigE1/4/7;fortyGigE1/3/5;fortyGigE1/1/7;fortyGigE1/1/1;fortyGigE1/2/1;fortyGigE1/4/5;fortyGigE1/4/16;fortyGigE1/4/2;fortyGigE1/3/16;fortyGigE1/3/10;fortyGigE1/3/4;fortyGigE1/4/3;fortyGigE1/3/7;fortyGigE1/3/8;fortyGigE1/2/3;fortyGigE1/1/2;fortyGigE1/1/3;fortyGigE1/3/12;fortyGigE1/4/4;fortyGigE1/3/6;fortyGigE1/3/11;fortyGigE1/2/7;fortyGigE1/3/2;fortyGigE1/1/5;fortyGigE1/3/15;fortyGigE1/3/13;fortyGigE1/3/14;fortyGigE1/4/1;fortyGigE1/2/15;fortyGigE1/1/15;fortyGigE1/3/9;fortyGigE1/1/4;fortyGigE1/3/3;fortyGigE1/2/14;fortyGigE1/1/14;fortyGigE1/1/12;fortyGigE1/2/12;fortyGigE1/4/10;fortyGigE1/4/9;fortyGigE1/1/13;fortyGigE1/4/15;fortyGigE1/2/13</AttachTo>
+          <AttachTo>fortyGigE1/2/1;fortyGigE1/1/1;fortyGigE1/2/2;fortyGigE1/1/2;fortyGigE1/2/3;fortyGigE1/1/3;fortyGigE1/2/4;fortyGigE1/1/4;fortyGigE1/2/5;fortyGigE1/1/5;fortyGigE1/2/6;fortyGigE1/1/6;fortyGigE1/2/7;fortyGigE1/1/7;fortyGigE1/2/8;fortyGigE1/1/8;fortyGigE1/2/9;fortyGigE1/1/9;fortyGigE1/2/10;fortyGigE1/1/10;fortyGigE1/2/11;fortyGigE1/1/11;fortyGigE1/2/12;fortyGigE1/1/12;fortyGigE1/2/13;fortyGigE1/1/13;fortyGigE1/2/14;fortyGigE1/1/14;fortyGigE1/2/15;fortyGigE1/1/15;fortyGigE1/2/16;fortyGigE1/1/16;fortyGigE1/3/1;fortyGigE1/3/2;fortyGigE1/3/3;fortyGigE1/3/4;fortyGigE1/3/5;fortyGigE1/3/6;fortyGigE1/3/7;fortyGigE1/3/8;fortyGigE1/3/9;fortyGigE1/3/10;fortyGigE1/3/11;fortyGigE1/3/12;fortyGigE1/3/13;fortyGigE1/3/14;fortyGigE1/3/15;fortyGigE1/3/16;fortyGigE1/4/1;fortyGigE1/4/2;fortyGigE1/4/3;fortyGigE1/4/4;fortyGigE1/4/5;fortyGigE1/4/6;fortyGigE1/4/7;fortyGigE1/4/8;fortyGigE1/4/9;fortyGigE1/4/10;fortyGigE1/4/11;fortyGigE1/4/12;fortyGigE1/4/13;fortyGigE1/4/14;fortyGigE1/4/15;fortyGigE1/4/16</AttachTo>
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
         </AclInterface>
@@ -3106,8 +3106,456 @@
         <Hostname>lab-s6100-01</Hostname>
         <HwSku>Force10-S6100</HwSku>
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.3.147.187</a:IPPrefix>
+           <a:IPPrefix>10.251.0.190</a:IPPrefix>
         </ManagementAddress>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA04T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.21</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA16T2</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.17</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA40T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.57</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA16T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.33</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA11T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.28</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA10T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.27</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA11T2</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.12</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA10T2</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.11</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA43T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.60</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA17T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.34</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA45T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.62</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA05T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.22</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA44T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.61</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA02T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.19</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA46T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.63</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA09T2</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.10</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA09T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.26</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA06T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.23</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA06T2</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.7</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA08T2</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.9</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA08T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.25</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA38T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.55</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA39T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.56</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA21T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.38</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA07T2</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.8</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA01T2</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.2</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA01T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.18</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA37T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.54</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA48T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.65</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA34T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.51</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA32T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.49</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA26T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.43</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA20T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.37</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA35T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.52</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA23T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.40</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA24T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.41</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA03T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.20</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA02T2</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.3</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA03T2</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.4</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA28T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.45</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA36T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.53</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA22T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.39</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA27T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.44</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA07T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.24</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA18T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.35</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA05T2</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.6</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA31T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.48</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA29T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.46</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA30T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.47</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA33T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.50</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA15T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.32</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA15T2</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.16</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA25T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.42</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA04T2</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.5</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA19T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.36</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA14T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.31</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA14T2</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.15</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA12T2</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.13</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA12T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.29</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA42T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.59</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA41T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.58</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="SpineRouter">
+         <Hostname>ARISTA13T2</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.14</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA47T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.64</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA13T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.30</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
       </Device>
     </Devices>
   </PngDec>  <DeviceInfos>
@@ -3971,42 +4419,42 @@
           <a:DeviceProperty>
             <a:Name>DhcpResources</a:Name>
             <a:Reference i:nil="true"/>
-            <a:Value>192.0.0.1;192.0.0.2;192.0.0.3;192.0.0.4;192.0.0.5;192.0.0.6;192.0.0.7;192.0.0.8;192.0.0.9;192.0.0.10;192.0.0.11;192.0.0.12;192.0.0.13;192.0.0.14;192.0.0.15;192.0.0.16;192.0.0.17;192.0.0.18;192.0.0.19;192.0.0.20;192.0.0.21;192.0.0.22;192.0.0.23;192.0.0.24;192.0.0.25;192.0.0.26;192.0.0.27;192.0.0.28;192.0.0.29;192.0.0.30;192.0.0.31;192.0.0.32;192.0.0.33;192.0.0.34;192.0.0.35;192.0.0.36;192.0.0.37;192.0.0.38;192.0.0.39;192.0.0.40;192.0.0.41;192.0.0.42;192.0.0.43;192.0.0.44;192.0.0.45;192.0.0.46;192.0.0.47;192.0.0.48</a:Value>
+            <a:Value>192.0.0.1;192.0.0.2;192.0.0.3;192.0.0.4</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
             <a:Name>NtpResources</a:Name>
             <a:Reference i:nil="true"/>
-            <a:Value>10.3.149.170;10.3.149.171</a:Value>
+            <a:Value>10.0.0.1;10.0.0.2</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
             <a:Name>SnmpResources</a:Name>
             <a:Reference i:nil="true"/>
-            <a:Value>10.3.145.98</a:Value>
+            <a:Value>10.0.0.9</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
             <a:Name>SyslogResources</a:Name>
             <a:Reference i:nil="true"/>
-            <a:Value>10.3.145.8;100.127.20.21</a:Value>
+            <a:Value>10.0.0.5;10.0.0.6</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
             <a:Name>TacacsGroup</a:Name>
             <a:Reference i:nil="true"/>
-            <a:Value>Starlab</a:Value>
+            <a:Value>testlab</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
             <a:Name>TacacsServer</a:Name>
             <a:Reference i:nil="true"/>
-            <a:Value>10.3.145.14;10.3.145.15</a:Value>
+            <a:Value>10.0.0.9;10.0.0.8</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
             <a:Name>ForcedMgmtRoutes</a:Name>
             <a:Reference i:nil="true"/>
-            <a:Value>10.3.145.98/31;10.3.145.8;100.127.20.16/28;10.3.149.170/31;40.122.216.24;13.91.48.226;10.3.145.14</a:Value>
+            <a:Value>10.0.0.100/31;10.250.0.8;10.255.0.0/28</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
             <a:Name>ErspanDestinationIpv4</a:Name>
             <a:Reference i:nil="true"/>
-            <a:Value>10.20.6.16</a:Value>
+            <a:Value>10.0.0.7</a:Value>
          </a:DeviceProperty>
         </a:Properties>
       </a:DeviceMetadata>
