@@ -295,7 +295,7 @@
           <Type>SSH</Type>
         </AclInterface>
         <AclInterface>
-          <AttachTo>fortyGigE0/4;fortyGigE0/8;fortyGigE0/12;fortyGigE0/16;fortyGigE0/20;fortyGigE0/24;fortyGigE0/28;fortyGigE0/32;fortyGigE0/36;fortyGigE0/40;fortyGigE0/44;fortyGigE0/48;fortyGigE0/52;fortyGigE0/56;fortyGigE0/60;fortyGigE0/64;fortyGigE0/68;fortyGigE0/72;fortyGigE0/76;fortyGigE0/80;fortyGigE0/84;fortyGigE0/88;fortyGigE0/92;fortyGigE0/96fortyGigE0/124;fortyGigE0/120;fortyGigE0/116;fortyGigE0/112</AttachTo>
+          <AttachTo>PortChannel0001;PortChannel0002;PortChannel0003;PortChannel0004</AttachTo>
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
         </AclInterface>

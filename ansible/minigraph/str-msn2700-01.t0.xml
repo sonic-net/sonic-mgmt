@@ -295,7 +295,7 @@
           <Type>SSH</Type>
         </AclInterface>
         <AclInterface>
-          <AttachTo>Ethernet4;Ethernet8;Ethernet12;Ethernet16;Ethernet20;Ethernet24;Ethernet28;Ethernet32;Ethernet36;Ethernet40;Ethernet44;Ethernet48;Ethernet52;Ethernet56;Ethernet60;Ethernet64;Ethernet68;Ethernet72;Ethernet76;Ethernet80;Ethernet84;Ethernet88;Ethernet92;Ethernet96Ethernet124;Ethernet120;Ethernet116;Ethernet112</AttachTo>
+          <AttachTo>PortChannel0001;PortChannel0002;PortChannel0003;PortChannel0004</AttachTo>
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
         </AclInterface>

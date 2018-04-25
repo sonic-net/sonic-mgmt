@@ -1361,7 +1361,7 @@
           <Type>SSH</Type>
         </AclInterface>
         <AclInterface>
-          <AttachTo>Ethernet60;Ethernet72;Ethernet124;Ethernet104;Ethernet100;Ethernet40;Ethernet36;Ethernet12;Ethernet76;Ethernet108;Ethernet56;Ethernet16;Ethernet80;Ethernet120;Ethernet68;Ethernet32;Ethernet96;Ethernet84;Ethernet20;Ethernet28;Ethernet4;Ethernet92;Ethernet116;Ethernet8;Ethernet88;Ethernet24;Ethernet0;Ethernet64;Ethernet52;Ethernet48;Ethernet112;Ethernet44</AttachTo>
+          <AttachTo>Ethernet64;Ethernet0;Ethernet68;Ethernet4;Ethernet72;Ethernet8;Ethernet76;Ethernet12;Ethernet80;Ethernet16;Ethernet84;Ethernet20;Ethernet88;Ethernet24;Ethernet92;Ethernet28;Ethernet96;Ethernet32;Ethernet100;Ethernet36;Ethernet104;Ethernet40;Ethernet108;Ethernet44;Ethernet112;Ethernet48;Ethernet116;Ethernet52;Ethernet120;Ethernet56;Ethernet124;Ethernet60</AttachTo>
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
         </AclInterface>
