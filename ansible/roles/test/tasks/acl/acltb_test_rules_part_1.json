@@ -16,7 +16,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "source-ip-address": "10.0.0.2/32"
+                                        "source-ip-address": "21.0.0.0/8"
                                     }
                                 }
                             },
@@ -31,7 +31,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "192.168.0.16/32"
+                                        "destination-ip-address": "104.146.32.0/19"
                                     }
                                 }
                             },
@@ -47,6 +47,66 @@
                                 "transport": {
                                     "config": {
                                         "source-port": "4661"
+                                    }
+                                }
+                            },
+                            "4": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 4
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "23.103.0.0/18"
+                                    }
+                                }
+                            },
+                            "5": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 5
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "104.44.94.0/23"
+                                    }
+                                }
+                            },
+                            "6": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 6
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "100.64.0.0/10"
+                                    }
+                                }
+                            },
+                            "7": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 7
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "172.16.0.0/12"
                                     }
                                 }
                             },

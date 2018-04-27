@@ -80,6 +80,81 @@
         errors_expected: false
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 
+    - name: Collect ConfDB values
+      command: bash -c "docker exec -i database redis-cli -n 4 HGETALL '{{item}}' "
+      register: confDBmask
+      with_items:
+        - "ACL_RULE|DATAACL|RULE_1"
+        - "ACL_RULE|DATAACL|RULE_2"
+        - "ACL_RULE|DATAACL|RULE_4"
+        - "ACL_RULE|DATAACL|RULE_5"
+        - "ACL_RULE|DATAACL|RULE_6"
+        - "ACL_RULE|DATAACL|RULE_7"
+
+    - name: Verify the desired entries are present in ConfDB
+      assert:
+        that:
+          - "'FORWARD\nSRC_IP\n21.0.0.0/8' in confDBmask.results[0].stdout"
+          - "'FORWARD\nDST_IP\n104.146.32.0/19' in confDBmask.results[1].stdout"
+          - "'FORWARD\nSRC_IP\n23.103.0.0/18' in confDBmask.results[2].stdout"
+          - "'FORWARD\nSRC_IP\n104.44.94.0/23' in confDBmask.results[3].stdout"
+          - "'FORWARD\nDST_IP\n100.64.0.0/10' in confDBmask.results[4].stdout"
+          - "'FORWARD\nDST_IP\n172.16.0.0/12' in confDBmask.results[5].stdout"
+        msg: Mismatch in ACL loaded via acl-loader JSON file Vs ConfDB
+
+    - name: Get ACL entry keys in ASICDB
+      command: bash -c "docker exec -i database redis-cli --raw -n 1 KEYS '*SAI_OBJECT_TYPE_ACL_ENTRY*'"
+      register: mask
+    - set_fact: acl_tbl_keys={{mask.stdout.split()}}
+
+    - name: Collect ASICDB ACL entries based on the ACL entry keys
+      command: bash -c "docker exec -i database redis-cli -n 1 HGETALL {{item}}"
+      register: asicDBmask
+      with_items: "{{acl_tbl_keys}}"
+
+    - name: Extract the stdout values and store in a register
+      set_fact:
+        rule: "{{item.stdout}}"
+      with_items: "{{asicDBmask.results}}"
+      register: rules
+
+    - name: Make a list of rules with qualifiers & actions
+      set_fact:
+        acl:  "{{ rules.results | map(attribute='ansible_facts.rule') | list }}"
+
+    - name: Join the acl entries for comparison
+      set_fact:
+        entries: "{{acl | join(' ')}}"
+
+    - name: Verify the desired entries are present in ASICDB
+      assert:
+        that:
+          - >
+            "'SAI_ACL_ENTRY_ATTR_FIELD_SRC_IP\n21.0.0.0&mask:255.0.0.0\n
+            SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION\nSAI_PACKET_ACTION_FORWARD'
+            in entries"
+          - >
+            "'SAI_ACL_ENTRY_ATTR_FIELD_DST_IP\n104.146.32.0&mask:255.255.224.0\n
+            SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION\nSAI_PACKET_ACTION_FORWARD'
+            in entries"
+          - >
+            "'SAI_ACL_ENTRY_ATTR_FIELD_SRC_IP\n23.103.0.0&mask:255.255.192.0\n
+            SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION\nSAI_PACKET_ACTION_FORWARD'
+            in entries"
+          - >
+            "'SAI_ACL_ENTRY_ATTR_FIELD_SRC_IP\n104.44.94.0&mask:255.255.254.0\n
+            SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION\nSAI_PACKET_ACTION_FORWARD'
+            in entries"
+          - >
+            "'SAI_ACL_ENTRY_ATTR_FIELD_DST_IP\n100.64.0.0&mask:255.192.0.0\n
+            SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION\nSAI_PACKET_ACTION_FORWARD'
+            in entries"
+          - >
+            "'SAI_ACL_ENTRY_ATTR_FIELD_DST_IP\n172.16.0.0&mask:255.240.0.0\n
+            SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION\nSAI_PACKET_ACTION_FORWARD'
+            in entries"
+        msg: Mismatch in ACL loaded via acl-loader JSON file Vs ASICDB
+
     - name: Apply part 2 of ACL rules.
       vars:
         command_to_run: "acl-loader update incremental /tmp/acltb_test_rules_part_2.json"
