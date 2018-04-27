@@ -66,6 +66,7 @@ class BgpModule(object):
         self.parse_summary()
         self.collect_data('neighbor')
         self.parse_neighbors()
+        self.get_statistics()
         self.module.exit_json(ansible_facts=self.facts)
 
     def collect_data(self, command_str):
@@ -162,6 +163,32 @@ class BgpModule(object):
         self.facts['bgp_neighbors'] = neighbors
         return
 
+    def get_statistics(self):
+        statistics = {}
+        statistics['ipv4'] = 0
+        statistics['ipv4_admin_down'] = 0
+        statistics['ipv4_idle'] = 0
+        statistics['ipv6'] = 0
+        statistics['ipv6_admin_down'] = 0
+        statistics['ipv6_idle'] = 0
+
+        for neighbor in self.facts['bgp_neighbors'].itervalues():
+            if neighbor['ip_version'] == 4:
+                statistics['ipv4'] += 1
+                if neighbor['admin'] == 'down':
+                    statistics['ipv4_admin_down'] += 1
+                elif neighbor['state'] != 'established':
+                    statistics['ipv4_idle'] += 1
+            elif neighbor['ip_version'] == 6:
+                statistics['ipv6'] += 1
+                if neighbor['admin'] == 'down':
+                    statistics['ipv6_admin_down'] += 1
+                elif neighbor['state'] != 'established':
+                    statistics['ipv6_idle'] += 1
+
+        self.facts['bgp_statistics'] = statistics
+
+        return
 
 def main():
     bgp = BgpModule()
