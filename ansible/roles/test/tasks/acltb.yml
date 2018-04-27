@@ -22,6 +22,7 @@
     - "acltb_test_rules-del.json"
     - "acltb_test_rules_part_1.json"
     - "acltb_test_rules_part_2.json"
+    - "acltb_test_rules_part_3.json"
 
 # Generate file with switch information
 - template: src=acltb.j2 dest=/tmp/acltb_switch_info.txt
@@ -85,7 +86,7 @@
         command_to_run: "acl-loader update incremental /tmp/acltb_test_rules_part_2.json"
         errors_expected: false
       include: roles/test/tasks/run_command_with_log_analyzer.yml
-
+         
     - name: Run the test
       include: ptf_runner.yml
       vars:
@@ -99,6 +100,75 @@
             - router_mac=\"{{ ansible_Ethernet0['macaddress'] }}\"
             - switch_info=\"/tmp/acltb_switch_info.txt\"
             - testbed_type=\"{{ testbed_type }}\"
+
+    - name: Test to verify ACL rule insertion 
+      vars:
+        command_to_run: "acl-loader update incremental /tmp/acltb_test_rules_part_3.json"
+        errors_expected: false
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
+
+    - name: Collect ConfDB values
+      command: bash -c "docker exec -i database redis-cli -n 4 HGETALL '{{item}}' "
+      register: confDBout
+      with_items: 
+        - "ACL_RULE|DATAACL|RULE_71"
+        - "ACL_RULE|DATAACL|RULE_72"
+        - "ACL_RULE|DATAACL|RULE_73"
+        - "ACL_RULE|DATAACL|RULE_74"
+
+    - name: Verify the desired entries are present in ConfDB
+      assert:
+        that:
+          - "'FORWARD\nSRC_IP\n10.0.0.64/26' in confDBout.results[0].stdout"
+          - "'FORWARD\nSRC_IP\n10.0.8.0/21' in confDBout.results[1].stdout"
+          - "'FORWARD\nDST_IP\n10.4.0.0/14' in confDBout.results[2].stdout"
+          - "'FORWARD\nDST_IP\n10.32.0.0/11' in confDBout.results[3].stdout"
+        msg: Mismatch in ACL loaded via acl-loader JSON file Vs ConfDB
+
+    - name: Get ACL entry keys in ASICDB
+      command: bash -c "docker exec -i database redis-cli --raw -n 1 KEYS '*SAI_OBJECT_TYPE_ACL_ENTRY*'"
+      register: out
+    - set_fact: acl_tbl_keys={{out.stdout.split()}}
+
+    - name: Collect ASICDB ACL entries based on the ACL entry keys
+      command: bash -c "docker exec -i database redis-cli -n 1 HGETALL {{item}}"
+      register: asicDBout
+      with_items: "{{acl_tbl_keys}}"
+
+    - name: Extract the stdout values and store in a register
+      set_fact:
+        rule: "{{item.stdout}}"
+      with_items: "{{asicDBout.results}}"
+      register: rules
+
+    - name: Make a list of rules with qualifiers & actions
+      set_fact:
+        acl:  "{{ rules.results | map(attribute='ansible_facts.rule') | list }}"
+
+    - name: Join the acl entries for comparison
+      set_fact:
+        entries: "{{acl | join(' ')}}"
+
+    - name: Verify the desired entries are present in ASICDB
+      assert:
+        that:
+          - >
+            "'SAI_ACL_ENTRY_ATTR_FIELD_DST_IP\n10.4.0.0&mask:255.252.0.0\n
+            SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION\nSAI_PACKET_ACTION_FORWARD'
+            in entries"
+          - >
+            "'SAI_ACL_ENTRY_ATTR_FIELD_SRC_IP\n10.0.8.0&mask:255.255.248.0\n
+            SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION\nSAI_PACKET_ACTION_FORWARD'
+            in entries"
+          - >
+            "'SAI_ACL_ENTRY_ATTR_FIELD_DST_IP\n10.32.0.0&mask:255.224.0.0\n
+            SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION\nSAI_PACKET_ACTION_FORWARD'
+            in entries"
+          - >
+            "'SAI_ACL_ENTRY_ATTR_FIELD_SRC_IP\n10.0.0.64&mask:255.255.255.192\n
+            SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION\nSAI_PACKET_ACTION_FORWARD'
+            in entries"
+        msg: Mismatch in ACL loaded via acl-loader JSON file Vs ASICDB
 
   always:
     - name: Clean up ACL rules.
