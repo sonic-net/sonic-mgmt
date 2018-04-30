@@ -31,7 +31,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "192.168.0.16/32"
+                                        "source-ip-address": "192.168.0.16/32"
                                     }
                                 }
                             },
@@ -182,22 +182,6 @@
                                 "l2": {
                                     "config": {
                                         "ethertype": "ETHERTYPE_IPV4"
-                                    }
-                                }
-                            },
-                            "13": {
-                                "actions": {
-                                    "config": {
-                                        "forwarding-action": "DROP"
-                                    }
-                                },
-                                "config": {
-                                    "sequence-id": 13
-                                },
-                                "ip": {
-                                    "config": {
-					"protocol":1,
-                                        "source-ip-address": "10.0.0.2/32"
                                     }
                                 }
                             }
