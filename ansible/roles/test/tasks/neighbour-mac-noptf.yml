@@ -156,7 +156,8 @@
 
   always:
     - name: reset all changes
-      service:
-        name:  swss
-        state: restarted
+      shell: "config load_minigraph -y"
       become: yes
+
+    - name: wait for port channel interface to be up
+      pause: seconds=30
