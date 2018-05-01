@@ -59,7 +59,6 @@ class AclTest(BaseTest):
         self.dataplane = ptf.dataplane_instance
         self.router_mac = self.test_params['router_mac']
         self.testbed_type = self.test_params['testbed_type']
-        self.deny_all_rule = self.test_params['deny_all_rule']
 
     #---------------------------------------------------------------------
 
@@ -232,17 +231,13 @@ class AclTest(BaseTest):
         print "Test #10 %s" % ("FAILED" if res else "PASSED")
 
         # Test #11 - Verify rules priority
-        # Do not run this test if testing deny_all rule
-        if self.deny_all_rule:
-           print "Test #11 SKIPPED - Deny All Test"
-        else:
-           pkt = pkt0.copy()
-           exp_pkt = exp_pkt0.copy()
-           pkt['IP'].src = "10.0.0.3"
-           exp_pkt['IP'].src = "10.0.0.3"
-           res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
-           tests_passed += (1 if res else 0)
-           print "Test #11 %s" % ("PASSED" if res else "FAILED")
+        pkt = pkt0.copy()
+        exp_pkt = exp_pkt0.copy()
+        pkt['IP'].src = "10.0.0.3"
+        exp_pkt['IP'].src = "10.0.0.3"
+        res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
+        tests_passed += (1 if res else 0)
+        print "Test #11 %s" % ("PASSED" if res else "FAILED")
 
         return tests_passed, self.tests_total
 
