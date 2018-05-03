@@ -108,5 +108,5 @@ class PfcWdTest(BaseTest):
 
         if self.wd_action == 'drop':
             return verify_no_packet_any(self, masked_exp_pkt, dst_port_list)
-        else:
+        elif self.wd_action == 'forward':
             return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
