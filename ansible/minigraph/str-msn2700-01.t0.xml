@@ -124,7 +124,7 @@
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>
             <a:Name>BGPVac</a:Name>
-            <a:PeersRange>192.168.0.0/24</a:PeersRange>
+            <a:PeersRange>192.168.0.0/21</a:PeersRange>
           </BGPPeer>
         </a:Peers>
         <a:RouteMaps/>
@@ -227,7 +227,7 @@
           <DhcpRelays>192.0.0.1;192.0.0.2;192.0.0.3;192.0.0.4</DhcpRelays>
           <VlanID>1000</VlanID>
           <Tag>1000</Tag>
-          <Subnets>192.168.0.0/24</Subnets>
+          <Subnets>192.168.0.0/21</Subnets>
         </VlanInterface>
       </VlanInterfaces>
       <IPInterfaces>
@@ -274,7 +274,7 @@
         <IPInterface>
           <Name i:nil="true"/>
           <AttachTo>Vlan1000</AttachTo>
-          <Prefix>192.168.0.1/24</Prefix>
+          <Prefix>192.168.0.1/21</Prefix>
         </IPInterface>
       </IPInterfaces>
       <DataAcls/>
