@@ -131,7 +131,7 @@
           - port_dst='[{{pfc_wd_test_port_id}}]'
           - ip_dst='{{pfc_wd_test_neighbor_addr}}'
           - port_type='{{port_type}}'
-          - wd_action='drop'
+          - wd_action='dontcare'
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - set_fact:
