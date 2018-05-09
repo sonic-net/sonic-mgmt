@@ -102,6 +102,7 @@
 
     - name: Save the applied ACL in ConfigDB
       command: config save -y
+      become: true
 
     - name: Reboot the switch
       include: common_tasks/reboot_sonic.yml
@@ -128,3 +129,4 @@
 
     - name: Ensure ConfigDB is cleaned up
       command: config save -y
+      become: true
