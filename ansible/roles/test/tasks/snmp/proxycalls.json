@@ -1,0 +1,18 @@
+{
+    "snmpproxycalls":
+   {
+    "GetFirmwareVersion": {"validate": "fw_version.yml"},
+    "GetDeviceSerialNumber": {"validate": "serial_number.yml"},
+    "GetBgpInfo": {},
+    "GetInterfaceStatus": {},
+    "GetInterfaceCounters": {},
+    "GetMacAddressTable": {},
+    "GetPowerInfo": {},
+    "GetSysUpTime": {},
+    "GetPfcCounters": {},
+    "GetEgressQueueCounters": {},
+    "GetInterfaceNeighbor": {},
+    "GetBgpInfo": {},
+    "GetArpTable": {}
+   }
+}

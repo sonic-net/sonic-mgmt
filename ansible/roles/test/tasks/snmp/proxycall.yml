@@ -1,0 +1,22 @@
+## Playbook tasks that issue SNMPProxy request and validate response is successful of accessing the IOD
+## No detailed return value validation for each SNMP query yet
+## TODO: write specific SNMP return value playbook for each SNMPProxy call
+- set_fact:
+    action: "{{ item }}"
+
+- proxy_snmp: action="{{ action }}" hostname="{{ inventory_hostname }}"
+  connection: local
+
+- set_fact: 
+      error_code: "{{ snmp_proxy_response['_items'].values()[0][0] }}"
+      rt_value: "{{ snmp_proxy_response['_items'].values()[0][3] }}"
+
+- assert: { that: "error_code['ErrorCode'] == 'Success'" }
+
+- assert: { that: "rt_value['Value'] != 'Unknown'" }
+
+- include: roles/test/tasks/snmp/proxyvalidate/{{snmpproxycalls[action]['validate']}}
+  when: "'validate' in snmpproxycalls[action]"
+
+
+   

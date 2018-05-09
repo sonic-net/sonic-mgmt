@@ -1,0 +1,8 @@
+### Playbook to test SONiC SNMPProxy service
+### all support SNMPProxy command are in proxycalls.json
+### for each SNMPProxy command, call proxycall.yml playbook to validate SNMPProxy returns
+
+- include_vars: roles/test/tasks/snmp/proxycalls.json
+
+- include: roles/test/tasks/snmp/proxycall.yml
+  with_items: snmpproxycalls

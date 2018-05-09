@@ -1,0 +1,37 @@
+### Playbook to validate SNMPProxy get serial number
+
+- name: validate SN from CLI (arista, mellanox, dells6100)
+  shell: "show platform syseeprom | grep --text -i serial"
+  register: sh_serial
+  ignore_errors: yes
+
+- set_fact: 
+      sn: "{{ sh_serial.stdout.replace('\u0000', '', 20) }}"
+  when: "sh_serial.stdout != ''"
+
+- block:
+    - name: validate SN from CLI dells6000
+      shell: "show platform syseeprom | grep --text -i \"Service Tag\""
+      register: sh_serial
+      ignore_errors: yes
+
+    - set_fact:
+        sn: "{{ sh_serial.stdout.replace('\u0000', '', 20) }}"
+      when: "sh_serial.stdout != ''"
+  when: sn is not defined
+
+
+- block:
+    - name: validate SN from CLI cisco
+      shell: "show platform syseeprom | grep --text -i -v \"Sup\" | grep --text -i \"S/N\""
+      register: sh_serial
+
+    - set_fact:
+        sn: "{{ sh_serial.stdout.replace('\u0000', '', 20) }}"
+      when: "sh_serial.stdout != ''"
+  when: sn is not defined
+
+- debug: var=sn
+
+- assert: { that: "rt_value['Value'] == sn.split(' ')[-1]" }
+

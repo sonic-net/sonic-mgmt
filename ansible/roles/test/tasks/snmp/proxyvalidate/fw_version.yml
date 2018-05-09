@@ -1,0 +1,6 @@
+### Playbook to validate SNMPProxy Firmware Version match SONiC CLI
+- shell: "show ver | grep Version"
+  register: sh_fwversion
+
+- assert: { that: "rt_value['Value'] == sh_fwversion.stdout.split(' ')[-1]" }
+
