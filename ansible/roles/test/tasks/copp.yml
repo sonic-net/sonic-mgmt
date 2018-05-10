@@ -41,6 +41,7 @@
         ptf_extra_options: "--device-socket 0-3@tcp://127.0.0.1:10900 --device-socket 1-3@tcp://{{ ansible_eth0['ipv4']['address'] }}:10900"
       with_items:
         - ARPTest
+        - UDLDTest
         - DHCPTest
         - LLDPTest
         - BGPTest
