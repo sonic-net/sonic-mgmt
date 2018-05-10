@@ -49,6 +49,16 @@
         - fail: msg="image_url is not defined"
           when: image_url is not defined
 
+        - name: define retain_copies if not defined
+          set_fact:
+            retain_copies: 2
+          when: retain_copies is not defined
+
+        - reduce_sonic_images:
+          become: true
+          args:
+            retain_copies: '{{retain_copies}}'
+
         - name: Install the target image from {{ image_url }}
           become: true
           shell: sonic_installer install -y {{ image_url }}
