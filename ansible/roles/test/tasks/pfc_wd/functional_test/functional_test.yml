@@ -41,6 +41,7 @@
   connection: local
   become: no
 
+# pfc_frames_number intends to be large enough so that PFC storm keeps happenning until runs pfc_storm_stop command. 
 - name: Prepare variables required for PFC test
   set_fact:
     pfc_queue_index: 4
