@@ -53,6 +53,7 @@
 
    - name: Run test case "CRM FDB entry resource"
      include: roles/test/tasks/crm/crm_test_fdb_entry.yml
+     when: testbed_type == "t0"
 
   always:
 
