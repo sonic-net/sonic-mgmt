@@ -45,15 +45,21 @@
 
       when: upgrade_type == "onie"
 
+    - name: define disk_used_pcent if not defined
+      set_fact:
+        disk_used_pcent: 50
+      when: disk_used_pcent is not defined
+
     - block:
         - fail: msg="image_url is not defined"
           when: image_url is not defined
 
-        - name: Install the target image from {{ image_url }}
+        - name: Remove some old sonic image(s) and install new image
+          reduce_and_add_sonic_images:
           become: true
-          shell: sonic_installer install -y {{ image_url }}
-          register: output
-          failed_when: output.rc != 0
+          args:
+            disk_used_pcent: '{{disk_used_pcent}}'
+            new_image_url: '{{ image_url }}'
 
         - name: Reboot the switch {{ inventory_hostname }}
           become: true
@@ -85,3 +91,9 @@
     - name: save bgp admin-up states
       become: true
       shell: config save -y
+
+    - name: Remove some old sonic image(s) after installing new image
+      reduce_and_add_sonic_images:
+      become: true
+      args:
+        disk_used_pcent: '{{disk_used_pcent}}'
