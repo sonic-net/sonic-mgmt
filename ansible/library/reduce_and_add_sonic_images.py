@@ -4,7 +4,7 @@ DOCUMENTATION = '''
 module:  reduce_and_add_sonic_images
 version_added:  "1.0"
 
-short_description: remove excessive sonic images install new image if specified
+short_description: remove excessive sonic images and install new image if specified
 description: remove excessive sonic images from the target device.
 Note that this version doesn't guarantee to remove older images. Images
 in the 'Available' list that are not 'Current' or 'Next' wil subject to
@@ -33,7 +33,7 @@ def exec_command(module, cmd, ignore_error=False, msg="executing command"):
     return out
 
 
-def get_sonic_image_list(module):
+def get_sonic_image_removal_candidates(module):
     keep   = set()
     images = set()
 
@@ -67,8 +67,8 @@ def get_disk_used_percent(module, partition):
     return pcent
 
 
-def reduce_sonic_image_copies(module, disk_used_pcent):
-    images = get_sonic_image_list(module)
+def reduce_installed_sonic_images(module, disk_used_pcent):
+    images = get_sonic_removal_candidates(module)
 
     while len(images) > 0:
         pcent = get_disk_used_percent(module, "/host")
@@ -121,7 +121,7 @@ def main():
     new_image_url   = module.params['new_image_url']
 
     try:
-        reduce_sonic_image_copies(module, disk_used_pcent)
+        reduce_installed_sonic_images(module, disk_used_pcent)
         install_new_sonic_image(module, new_image_url)
     except:
         err = str(sys.exc_info())
