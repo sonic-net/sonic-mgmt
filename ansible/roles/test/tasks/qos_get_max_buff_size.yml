@@ -11,6 +11,10 @@
 - name: Get buffer profile table for {{ target_port_name }} port
   shell: redis-cli -n 4 KEYS "{{ target_table }}|{{ target_port_name }}|{{ target_pg }}"
   register: buffer_profile_table
+
+- fail:
+    msg: "Unable to get the buffer profile table for {{ target_port_name }}"
+  when: buffer_profile_table.stdout == ""
         
 - name: Get buffer profile for {{ target_port_name }} port
   shell: redis-cli -n 4 HGET "{{ buffer_profile_table.stdout }}" profile
