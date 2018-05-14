@@ -74,6 +74,9 @@ def reduce_installed_sonic_images(module, disk_used_pcent):
         pcent = get_disk_used_percent(module, "/host")
         if pcent < disk_used_pcent:
             break
+        # Randomly choose an old image to remove. On a system with
+        # developer built images and offical build images mix-installed
+        # it is hard to compare image tag to find 'oldest' image.
         img = images.pop()
         exec_command(module, cmd="sonic_installer remove %s -y" % img,
                      ignore_error=True)
