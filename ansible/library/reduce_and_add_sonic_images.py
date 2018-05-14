@@ -68,7 +68,7 @@ def get_disk_used_percent(module, partition):
 
 
 def reduce_installed_sonic_images(module, disk_used_pcent):
-    images = get_sonic_removal_candidates(module)
+    images = get_sonic_image_removal_candidates(module)
 
     while len(images) > 0:
         pcent = get_disk_used_percent(module, "/host")
