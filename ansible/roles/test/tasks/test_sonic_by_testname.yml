@@ -14,11 +14,13 @@
   include: base_sanity.yml
   vars: 
      recover: "{{ allow_recover }}"
+  when: skip_sanity is not defined or skip_sanity|bool == false
 
 - name: validate all interfaces is up
   include: interface.yml
   vars:
      recover: "{{ allow_recover }}"
+  when: skip_sanity is not defined or skip_sanity|bool == false
 
 ### by default, when calling a test case name, we pass 'testbed_type', 'ptf_host, 'dut_name(ansible_hoatname)' down to test playbook.
 ### if your test playbook requires more extra vars then default, please make sure you handled them correctly within test playbook.
@@ -37,9 +39,11 @@
 
 - name: do basic sanity check after each test
   include: base_sanity.yml
+  when: skip_sanity is not defined or skip_sanity|bool == false
 
 - name: validate all interfaces are up after test
   include: interface.yml
+  when: skip_sanity is not defined or skip_sanity|bool == false
 
 - debug:
     msg:
