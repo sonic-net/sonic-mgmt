@@ -53,7 +53,7 @@ iface_speed='40000'
 [sonic_arista_40]
 str-a7050-acs-1   ansible_host=10.3.147.241 hwsku="Arista-7050-QX-32S"
 str-a7050-acs-2   ansible_host=10.3.147.199  hwsku="Arista-7050-QX32"
-str-a7050-acs-2   ansible_host=10.64.247.227  hwsku="Arista-7050-QX-32S"
+str-a7050-acs-3   ansible_host=10.64.247.227  hwsku="Arista-7050-QX-32S"
 
 [sonic_arista_40:vars]
 iface_speed='40000'
