@@ -39,6 +39,9 @@ class ControlPlaneBaseTest(BaseTest):
         self.log_fp = open('/tmp/copp.log', 'a')
         test_params = testutils.test_params_get()
         self.verbose = 'verbose' in test_params and test_params['verbose']
+        self.test_port_index = test_params.get('test_port')
+        self.test_port_src_ip = test_params.get('test_port_src_ip')
+        self.test_port_peer_ip = test_params.get('test_port_peer_ip')
 
         self.pkt_tx_count = test_params.get('pkt_tx_count', self.PKT_TX_COUNT)
         if self.pkt_tx_count == 0:
@@ -46,12 +49,6 @@ class ControlPlaneBaseTest(BaseTest):
         self.pkt_rx_limit = self.pkt_tx_count * 0.90
 
         self.timeout_thr = None
-
-        self.myip = {}
-        self.peerip = {}
-        for i in xrange(self.MAX_PORTS):
-            self.myip[i] = "10.0.0.%d" % (i*2+1)
-            self.peerip[i] = "10.0.0.%d" % (i*2)
 
         return
 
@@ -161,7 +158,7 @@ class ControlPlaneBaseTest(BaseTest):
 
     def run_suite(self):
         self.timeout(self.TASK_TIMEOUT, "The test case hasn't been completed in %d seconds" % self.TASK_TIMEOUT) # FIXME: better make it decorator
-        self.one_port_test(3)
+        self.one_port_test(self.test_port_index)
         self.cancel_timeout()
 
     def printStats(self, pkt_send_count, total_rcv_pkt_cnt, time_delta, tx_pps, rx_pps):
@@ -213,8 +210,8 @@ class ARPTest(PolicyTest):
 
     def contruct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
-        src_ip = self.myip[port_number]
-        dst_ip = self.peerip[port_number]
+        src_ip = self.test_port_src_ip
+        dst_ip = self.test_port_peer_ip
 
         packet = simple_arp_packet(
                        eth_dst='ff:ff:ff:ff:ff:ff',
@@ -289,7 +286,7 @@ class BGPTest(NoPolicyTest):
 
     def contruct_packet(self, port_number):
         dst_mac = self.peer_mac[port_number]
-        dst_ip = self.peerip[port_number]
+        dst_ip = self.test_port_peer_ip
         packet = simple_tcp_packet(
                       eth_dst=dst_mac,
                       ip_dst=dst_ip,
@@ -329,7 +326,7 @@ class SNMPTest(PolicyTest): #FIXME: trapped as ip2me. mellanox should add suppor
     def contruct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         dst_mac = self.peer_mac[port_number]
-        dst_ip = self.peerip[port_number]
+        dst_ip = self.test_port_peer_ip
         packet = simple_udp_packet(
                           eth_dst=dst_mac,
                           ip_dst=dst_ip,
@@ -349,8 +346,8 @@ class SSHTest(PolicyTest): # FIXME: ssh is policed now
 
     def contruct_packet(self, port_number):
         dst_mac = self.peer_mac[port_number]
-        src_ip = self.myip[port_number]
-        dst_ip = self.peerip[port_number]
+        src_ip = self.test_port_src_ip
+        dst_ip = self.test_port_peer_ip
 
         packet = simple_tcp_packet(
                 eth_dst=dst_mac,
@@ -385,7 +382,7 @@ class IP2METest(PolicyTest):
     def contruct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         dst_mac = self.peer_mac[port_number]
-        dst_ip = self.peerip[port_number]
+        dst_ip = self.test_port_peer_ip
 
         packet = simple_tcp_packet(
                       eth_src=src_mac,
@@ -408,7 +405,7 @@ class DefaultTest(PolicyTest):
         dst_mac = self.peer_mac[port_number]
         src_ip = self.myip[port_number]
         dst_port_number = (port_number + 1) % self.MAX_PORTS
-        dst_ip = self.peerip[dst_port_number]
+        dst_ip = self.test_port_peer_ip
 
         packet = simple_tcp_packet(
                 eth_dst=dst_mac,
