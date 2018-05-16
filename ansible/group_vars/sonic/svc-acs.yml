@@ -1,1 +1,0 @@
-svc-acs_password: "{{ secret_group_vars['sonic']['svc-acs_password'] }}"
