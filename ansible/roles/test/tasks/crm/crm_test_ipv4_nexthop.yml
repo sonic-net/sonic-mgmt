@@ -15,7 +15,7 @@
       become: yes
 
     - name: Make sure CRM counters updated
-      pause: seconds=1
+      pause: seconds=2
 
     - name: Get new "crm_stats_ipv4_nexthop_used" counter value
       command: docker exec -i database redis-cli -n 2 HGET CRM:STATS crm_stats_ipv4_nexthop_used
@@ -38,7 +38,7 @@
       become: yes
 
     - name: Make sure CRM counters updated
-      pause: seconds=1
+      pause: seconds=2
 
     - name: Get new "crm_stats_ipv4_nexthop_used" counter value
       command: docker exec -i database redis-cli -n 2 HGET CRM:STATS crm_stats_ipv4_nexthop_used
