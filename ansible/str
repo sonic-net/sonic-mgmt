@@ -72,7 +72,7 @@ hwsku="Mellanox-SN2700"
 iface_speed='40000'
 
 [sonic_mlnx_100]
-str-msn2700-20    ansible_host=10.64.247.235
+str-msn2700-20    ansible_host=10.64.247.235  hwsku="Mellanox-SN2700-D48C8"
 str-msn2700-22    ansible_host=10.64.247.236
 
 [sonic_mlnx_100:vars]
