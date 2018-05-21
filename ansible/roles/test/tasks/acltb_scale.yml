@@ -1,0 +1,44 @@
+# Set facts for the loganalizer
+- set_fact:
+    out_dir: /tmp/
+    testname: acl
+    run_dir: /tmp/
+
+- name: Copy acl rules file
+  become: true
+  template: src=acl_scale_rules.j2 
+            dest=/tmp/acltb_scale_rules.json
+
+- block:
+    - name: Apply scalable rule set
+      vars:
+        command_to_run: "acl-loader update full /tmp/acltb_scale_rules.json"
+        errors_expected: false
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
+    
+    - pause:
+        seconds: 5
+
+    - name: Get the ACL usage via CRM
+      command: crm show resources acl table
+      register: out
+
+    - name: Extract out the total available acl entry count from CRM show
+      set_fact:
+        count: "{{out.stdout_lines[11].split()}}"
+
+    - name: Convert the used count value to integer
+      set_fact:
+        used_count: "{{count[2] | int}}"    
+      
+    - name: compare the cam usage
+      fail:
+        msg: "Used count is out of scale"
+      when: (used_count|int) > 512
+
+- always:
+    - name: Clean up ACL rules.
+      vars:
+        command_to_run: "acl-loader update full /tmp/acltb_test_rules-del.json"
+        errors_expected: false
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
