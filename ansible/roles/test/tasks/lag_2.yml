@@ -17,6 +17,12 @@
 - fail: msg="No lag configuration found in {{ inventory_hostname }}"
   when: lag_facts.names == [] 
 
+- set_fact: test_minlink=true
+  when: test_minlink is not defined
+
+- set_fact: test_rate=true
+  when: test_rate is not defined
+
 - name: Gathering peer VM information from lldp
   lldp:
   vars:
@@ -62,3 +68,9 @@
 - name: test each lag interface minimum links and rate 
   include: single_lag_test.yml
   with_items: lag_facts.names
+  when: test_minlink|bool == true
+
+- name: test each lag interface LACP DU rate 
+  include: single_lag_lacp_rate_test.yml
+  with_items: lag_facts.names
+  when: test_rate|bool == true
