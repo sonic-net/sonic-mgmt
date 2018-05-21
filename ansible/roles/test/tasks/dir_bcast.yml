@@ -7,7 +7,7 @@
   when: testbed_type is not defined
 
 - fail: msg="testbed_type {{testbed_type}} is invalid."
-  when: testbed_type not in ['t0', 't0-64']
+  when: testbed_type not in ['t0', 't0-64', 't0-116']
 
 - include_vars: "vars/topo_{{testbed_type}}.yml"
 
@@ -16,7 +16,6 @@
 
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{inventory_hostname}}
-  connection: local
 
 - debug : msg="Start dir_bcast Test"
 
@@ -35,6 +34,7 @@
     ptf_test_dir: ptftests
     ptf_test_path: dir_bcast_test.BcastTest
     ptf_platform: remote
+    ptf_platform_dir: ptftests
     ptf_test_params:
       - testbed_type='{{testbed_type}}'
       - router_mac='{{ansible_Ethernet0['macaddress']}}'

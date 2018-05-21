@@ -1,23 +1,36 @@
 ### Playbook that call individual testcase by name defined in roles/test/vars/testcases.yml
-#
-- debug: msg="!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-- debug: msg="!!!!!!!!!!!!!!!!!!!! start to run test {{ testcase_name }} !!!!!!!!!!!!!!!!!!!!"
-- debug: msg="!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+
+- debug:
+    msg:
+      - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+      - "!!!!!!!!!!!!!!!!!!!! start running test {{ testcase_name }} !!!!!!!!!!!!!!!!!!!!"
+      - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+
+- set_fact:
+    allow_recover: true
+  when: allow_recover is not defined
 
 - name: do basic sanity check before each test
   include: base_sanity.yml
   vars: 
-     recover: true
+     recover: "{{ allow_recover }}"
 
 - name: validate all interfaces is up
   include: interface.yml
   vars:
-     recover: true
+     recover: "{{ allow_recover }}"
 
 ### by default, when calling a test case name, we pass 'testbed_type', 'ptf_host, 'dut_name(ansible_hoatname)' down to test playbook.
 ### if your test playbook requires more extra vars then default, please make sure you handled them correctly within test playbook.
 - debug: var=testcases[testcase_name]['required_vars']
   when: testcases[testcase_name]['required_vars'] is defined
+
+- name: gather system version information
+  shell: "show ver"
+  register: versions
+
+- name: print system versions
+  debug: var=versions.stdout_lines
 
 - name: run test case {{ testcases[testcase_name]['filename'] }} file
   include: "{{ testcases[testcase_name]['filename'] }}"
@@ -28,6 +41,8 @@
 - name: validate all interfaces are up after test
   include: interface.yml
 
-- debug: msg="!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-- debug: msg="!!!!!!!!!!!!!!!!!!!! end running test {{ testcase_name }} !!!!!!!!!!!!!!!!!!!!"
-- debug: msg="!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+- debug:
+    msg:
+      - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+      - "!!!!!!!!!!!!!!!!!!!! end running test {{ testcase_name }} !!!!!!!!!!!!!!!!!!!!!!"
+      - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"

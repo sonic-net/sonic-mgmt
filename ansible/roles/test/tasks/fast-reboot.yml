@@ -10,7 +10,6 @@
         vm_hosts: "{{ neighbor_eosvm_mgmt.values() }}"
   when: testbed_type is defined and vm is defined
 
-
 - block:
     - fail: msg="Please set ptf_host variable"
       when: ptf_host is not defined
@@ -124,7 +123,7 @@
         - default_ip_range='192.168.0.0/16'
         - vlan_ip_range=\"{{ minigraph_vlan_interfaces[0]['subnet'] }}\"
         - lo_v6_prefix=\"{{ minigraph_lo_interfaces | map(attribute='addr') | ipv6 | first | ipsubnet(64) }}\"
-        - arista_vms=\"{{ vm_hosts }}\"
+        - arista_vms=\"['{{ vm_hosts | list | join("','") }}']\"
 
   always:
     - name: Copy test results from ptf to the local box /tmp/fast-reboot.log
@@ -134,3 +133,43 @@
     - name: Remove existing ip from ptf host
       script: roles/test/files/helpers/remove_ip.sh
       delegate_to: "{{ ptf_host }}"
+
+    - name: Extract all syslog entries since the last reboot
+      extract_log:
+        directory: '/var/log'
+        file_prefix: 'syslog'
+        start_string: 'Initializing cgroup subsys cpuset'
+        target_filename: '/tmp/syslog'
+      become: yes
+
+    - name: Copy the exctracted syslog entries to the local machine
+      fetch:
+        src: '/tmp/syslog'
+        dest: '/tmp/'
+        flat: yes
+
+    - name: Extract all sairedis.rec entries since the last reboot
+      extract_log:
+        directory: '/var/log/swss'
+        file_prefix: 'sairedis.rec'
+        start_string: 'recording on:'
+        target_filename: '/tmp/sairedis.rec'
+
+    - name: Copy the exctracted sairedis.rec entries to the local machine
+      fetch:
+        src: '/tmp/sairedis.rec'
+        dest: '/tmp/'
+        flat: yes
+
+    - name: Extract all swss.rec entries since the last reboot
+      extract_log:
+        directory: '/var/log/swss'
+        file_prefix: 'swss.rec'
+        start_string: 'recording started'
+        target_filename: '/tmp/swss.rec'
+
+    - name: Copy the exctracted swss.rec entries to the local machine
+      fetch:
+        src: '/tmp/swss.rec'
+        dest: '/tmp/'
+        flat: yes

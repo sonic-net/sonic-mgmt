@@ -11,9 +11,7 @@
 
     - name: Gathering minigraph facts about the device
       minigraph_facts: host={{ inventory_hostname }}
-      connection: local
       tags: always
-      become: no
 
     - name: Set sonic_hwsku fact
       set_fact:
@@ -51,11 +49,20 @@
         value: 509430500
         sysctl_set: yes
 
+    - name: Gather SONiC base image version
+      shell: sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version
+      register: result
+      changed_when: false
+
+    - name: Set base image verison variable
+      set_fact:
+        sonic_image_version: "{{ result.stdout }}"
+
     - name: Pull syncd-rpc docker from registry
-      shell: docker login -u {{docker_registry_username}} -p {{docker_registry_password}} -e "@" {{docker_registry_host}}; docker pull {{docker_registry_host}}/{{docker_rpc_image_name}} 
+      shell: docker login -u {{docker_registry_username}} -p {{docker_registry_password}} {{docker_registry_host}}; docker pull {{docker_registry_host}}/{{docker_rpc_image_name}}:{{sonic_image_version}}
 
     - name: Tag pulled images as syncd
-      shell: docker tag {{docker_registry_host}}/{{docker_rpc_image_name}} {{docker_syncd_name}}
+      shell: docker tag {{docker_registry_host}}/{{docker_rpc_image_name}}:{{sonic_image_version}} {{docker_syncd_name}}
 
     - name: Start swss service
       become: true

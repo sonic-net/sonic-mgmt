@@ -11,10 +11,6 @@
 - fail: msg="Please define testbed_type"
   when: testbed_type is not defined
 
-
-- fail: msg="this test only support t1-lag and t0 testbed_type"
-  when: testbed_type not in ['t1-lag', 't0', 't0-116']
-
 - name: gathering lag facts from device
   lag_facts: host={{ inventory_hostname }}
 
@@ -29,7 +25,6 @@
 
 - name: gathering minigraph of the device configuration
   minigraph_facts: host={{ inventory_hostname }}
-  connection: local
 
 - name: Gathering lab graph facts about the device
   conn_graph_facts: host={{ inventory_hostname }}

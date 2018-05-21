@@ -14,6 +14,7 @@
 # -e ptf_imagename=docker-ptf - name of a docker-image which will be used for the ptf docker container
 
 - hosts: servers:&vm_host
+  gather_facts: no
   vars_files:
     - vars/docker_registry.yml
   pre_tasks:

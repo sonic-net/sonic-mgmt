@@ -1,13 +1,35 @@
-[sonic_mlnx_40]
+[sonic_sn2700_40]
 str-msn2700-01    ansible_host=10.251.0.188
 
-[sonic_mlnx_40:vars]
+[sonic_sn2700_40:vars]
 hwsku="ACS-MSN2700"
 iface_speed='40000'
-mgmt_subnet_mask_length="24"
+
+[sonic_s6000]
+lab-s6000-01      ansible_host=10.251.0.189
+
+[sonic_s6000:vars]
+hwsku="Force10-S6000"
+iface_speed='40000'
+
+[sonic_s6100]
+lab-s6100-01      ansible_host=10.251.0.190
+
+[sonic_s6100:vars]
+hwsku="Force10-S6100"
+iface_speed='40000'
+
+[sonic_a7260]
+lab-a7260-01      ansible_host=10.251.0.191    hwsku="Arista-7260CX3-D108C8"
+
+[sonic_a7260:vars]
+iface_speed='100000'
 
 [sonic:children]
-sonic_mlnx_40
+sonic_sn2700_40
+sonic_s6000
+sonic_s6100
+sonic_a7260
 
 [ptf]
 ptf_ptf1    ansible_host=10.255.0.188 ansible_ssh_user=root ansible_ssh_pass=root
@@ -17,6 +39,10 @@ ptf_vms1-1  ansible_host=10.255.0.178 ansible_ssh_user=root ansible_ssh_pass=roo
 sonic
 fanout
 
+[lab:vars]
+mgmt_subnet_mask_length="24"
+
 [fanout]
 str-7260-10       ansible_host=10.251.0.13
 str-7260-11       ansible_host=10.251.0.234
+str-msn2700-02    ansible_host=10.251.0.235 os=sonic

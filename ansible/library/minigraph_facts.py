@@ -42,7 +42,7 @@ ns2 = "Microsoft.Search.Autopilot.NetMux"
 ns3 = "http://www.w3.org/2001/XMLSchema-instance"
 
 ANSIBLE_USER_MINIGRAPH_PATH = os.path.expanduser('~/.ansible/minigraph')
-ANSIBLE_LOCAL_MINIGRAPH_PATH = 'minigraph/{}.xml'
+ANSIBLE_LOCAL_MINIGRAPH_PATH = '{}.xml'
 ANSIBLE_USER_MINIGRAPH_MAX_AGE = 86400  # 24-hours (in seconds)
 
 class minigraph_encoder(json.JSONEncoder):
@@ -216,12 +216,15 @@ def parse_dpg(dpg, hname):
 
         vlanintfs = child.find(str(QName(ns, "VlanInterfaces")))
         vlan_intfs = []
+        dhcp_servers = []
         vlans = {}
         for vintf in vlanintfs.findall(str(QName(ns, "VlanInterface"))):
             vintfname = vintf.find(str(QName(ns, "Name"))).text
             vlanid = vintf.find(str(QName(ns, "VlanID"))).text
             vintfmbr = vintf.find(str(QName(ns, "AttachTo"))).text
             vmbr_list = vintfmbr.split(';')
+            vlandhcpservers = vintf.find(str(QName(ns, "DhcpRelays"))).text
+            dhcp_servers = vlandhcpservers.split(";")
             for i, member in enumerate(vmbr_list):
                 vmbr_list[i] = port_alias_map[member]
                 ports[port_alias_map[member]] = {'name': port_alias_map[member], 'alias': member}
@@ -246,7 +249,7 @@ def parse_dpg(dpg, hname):
             if acl_intfs:
                 acls[aclname] = acl_intfs
 
-        return intfs, lo_intfs, mgmt_intf, vlans, pcs, acls
+        return intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers
     return None, None, None, None, None, None
 
 def parse_cpg(cpg, hname):
@@ -301,7 +304,6 @@ def parse_cpg(cpg, hname):
 
 def parse_meta(meta, hname):
     syslog_servers = []
-    dhcp_servers = []
     ntp_servers = []
     mgmt_routes = []
     deployment_id = None
@@ -313,9 +315,7 @@ def parse_meta(meta, hname):
                 name = device_property.find(str(QName(ns1, "Name"))).text
                 value = device_property.find(str(QName(ns1, "Value"))).text
                 value_group = value.split(';') if value and value != "" else []
-                if name == "DhcpResources":
-                    dhcp_servers = value_group
-                elif name == "NtpResources":
+                if name == "NtpResources":
                     ntp_servers = value_group
                 elif name == "SyslogResources":
                     syslog_servers = value_group
@@ -323,7 +323,7 @@ def parse_meta(meta, hname):
                     mgmt_routes = value_group
                 elif name == "DeploymentId":
                     deployment_id = value
-    return syslog_servers, dhcp_servers, ntp_servers, mgmt_routes, deployment_id
+    return syslog_servers, ntp_servers, mgmt_routes, deployment_id
 
 
 def get_console_info(devices, dev, port):
@@ -383,17 +383,26 @@ def reconcile_mini_graph_locations(filename, hostname):
     """
     if filename is not None:
         # literal filename specified. read directly from the file.
-        root = ET.parse(filename).getroot()
         mini_graph_path = filename
     else:
         # only the hostname was specified, determine the output path
-        mini_graph_path = os.path.join(ANSIBLE_USER_MINIGRAPH_PATH, hostname + '_minigraph.xml')
-        if os.path.exists(mini_graph_path) and file_age(mini_graph_path) < ANSIBLE_USER_MINIGRAPH_MAX_AGE:
-            # found a cached mini-graph, load it.
-            root = ET.parse(mini_graph_path).getroot()
+        mini_graph_path = '/etc/sonic/minigraph.xml'
 
+    root = ET.parse(mini_graph_path).getroot()
     return mini_graph_path, root
 
+def port_alias_map_50G(all_ports, s100G_ports):
+    # 50G ports
+    s50G_ports = list(set(all_ports) - set(s100G_ports))
+
+    for i in s50G_ports:
+        port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+        port_alias_map["Ethernet%d/3" % i] = "Ethernet%d" % ((i - 1) * 4 + 2)
+
+    for i in s100G_ports:
+        port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+
+    return port_alias_map
 
 def parse_xml(filename, hostname):
     mini_graph_path, root = reconcile_mini_graph_locations(filename, hostname)
@@ -428,6 +437,7 @@ def parse_xml(filename, hostname):
         if child.tag == str(hostname_qn):
             hostname = child.text
 
+    global port_alias_map
     # port_alias_map maps ngs port name to sonic port name
     if hwsku == "Force10-S6000":
         for i in range(0, 128, 4):
@@ -455,6 +465,15 @@ def parse_xml(filename, hostname):
     elif hwsku == "Arista-7060CX-32S-C32":
         for i in range(1, 33):
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "Arista-7060CX-32S-D48C8":
+        # All possible breakout 50G port numbers:
+        all_ports = [ x for x in range(1, 33)]
+
+        # 100G ports
+        s100G_ports = [ x for x in range(7, 11) ]
+        s100G_ports += [ x for x in range(23, 27) ]
+
+        port_alias_map = port_alias_map_50G(all_ports, s100G_ports)
     elif hwsku == "Arista-7260CX3-D108C8":
         # All possible breakout 50G port numbers:
         all_ports = [ x for x in range(1, 65)]
@@ -462,15 +481,7 @@ def parse_xml(filename, hostname):
         # 100G ports
         s100G_ports = [ x for x in range(13, 21) ]
 
-        # 50G ports
-        s50g_ports = list(set(all_ports) - set(s100G_ports))
-
-        for i in s50g_ports:
-            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-            port_alias_map["Ethernet%d/3" % i] = "Ethernet%d" % ((i - 1) * 4 + 2)
-
-        for i in s100G_ports:
-            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+        port_alias_map = port_alias_map_50G(all_ports, s100G_ports)
     elif hwsku == "INGRASYS-S9100-C32":
         for i in range(1, 33):
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
@@ -496,7 +507,7 @@ def parse_xml(filename, hostname):
 
     for child in root:
         if child.tag == str(QName(ns, "DpgDec")):
-            (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls) = parse_dpg(child, hostname)
+            (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers) = parse_dpg(child, hostname)
         elif child.tag == str(QName(ns, "CpgDec")):
             (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(child, hostname)
         elif child.tag == str(QName(ns, "PngDec")):
@@ -504,7 +515,7 @@ def parse_xml(filename, hostname):
         elif child.tag == str(QName(ns, "UngDec")):
             (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
         elif child.tag == str(QName(ns, "MetadataDeclaration")):
-            (syslog_servers, dhcp_servers, ntp_servers, mgmt_routes, deployment_id) = parse_meta(child, hostname)
+            (syslog_servers, ntp_servers, mgmt_routes, deployment_id) = parse_meta(child, hostname)
 
     # Create port index map. Since we currently output a mix of NGS names
     # and SONiC mapped names, we include both in this map.
@@ -610,17 +621,17 @@ def main():
 
     try:
         # make the directory for caching the mini-graph.
-        os.mkdir(ANSIBLE_USER_MINIGRAPH_PATH)
+        os.makedirs(ANSIBLE_USER_MINIGRAPH_PATH)
     except OSError:
         if not os.path.isdir(ANSIBLE_USER_MINIGRAPH_PATH):
             # file conflict, report the error and exit.
-            module.fail_json(msg="'{}' exists but is not a directory".format(ANSIBLE_USER_MINIGRAPH_PATH))
+            module.fail_json(msg="Cannot create dir: {}".format(ANSIBLE_USER_MINIGRAPH_PATH))
 
     m_args = module.params
     local_file_path = ANSIBLE_LOCAL_MINIGRAPH_PATH.format(m_args['host'])
     if 'filename' in m_args and m_args['filename'] is not None:
         # literal filename specified
-        filename = "minigraph/%s" % m_args['filename']
+        filename = "%s" % m_args['filename']
     elif os.path.exists(local_file_path):
         # local project minigraph found for the hostname, use that file
         filename = local_file_path
@@ -638,7 +649,7 @@ def main():
 
 
 def print_parse_xml(hostname):
-    filename = '../minigraph/' + hostname + '.xml'
+    filename = hostname + '.xml'
     results = parse_xml(filename, hostname)
     print(json.dumps(results, indent=3, cls=minigraph_encoder))
 

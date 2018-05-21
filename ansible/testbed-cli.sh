@@ -7,8 +7,9 @@ function usage
   echo "testbed-cli. Interface to testbeds"
   echo "Usage : $0 { start-vms | stop-vms    } server-name vault-password-file"
   echo "Usage : $0 { add-topo  | remove-topo | renumber-topo | connect-topo } topo-name vault-password-file"
+  echo "Usage : $0 { connect-vms  | disconnect-vms } topo-name vault-password-file"
   echo "Usage : $0 { config-vm } topo-name vm-name vault-password-file"
-  echo "Usage : $0 { gen-mg | deploy-mg } topo-name vault-password-file"
+  echo "Usage : $0 { gen-mg | deploy-mg | test-mg } topo-name inventory vault-password-file"
   echo
   echo "To start VMs on a server: $0 start-vms 'server-name' ~/.password"
   echo "To stop VMs on a server:  $0 stop-vms 'server-name' ~/.password"
@@ -110,13 +111,36 @@ function renumber_topo
   echo Done
 }
 
+function connect_vms
+{
+  echo "Connect VMs '$1'"
+
+  read_file $1
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_connect_vms.yml --vault-password-file="$2" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e topo="$topo" -e vm_set_name="$testbed_name"
+
+  echo Done
+}
+
+function disconnect_vms
+{
+  echo "Disconnect VMs '$1'"
+
+  read_file $1
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_disconnect_vms.yml --vault-password-file="$2" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e topo="$topo" -e vm_set_name="$testbed_name"
+
+  echo Done
+}
+
+
 function generate_minigraph
 {
   echo "Generating minigraph '$1'"
 
   read_file $1
 
-  ansible-playbook -i lab config_sonic_basedon_testbed.yml --vault-password-file="$2" -l "$dut" -e vm_base="$vm_base" -e topo="$topo"
+  ansible-playbook -i "$2" config_sonic_basedon_testbed.yml --vault-password-file="$3" -l "$dut" -e testbed_name="$1" -v
 
   echo Done
 }
@@ -127,7 +151,18 @@ function deploy_minigraph
 
   read_file $1
 
-  ansible-playbook -i lab config_sonic_basedon_testbed.yml --vault-password-file="$2" -l "$dut" -e vm_base="$vm_base" -e topo="$topo" -e deploy=true -e save=true
+  ansible-playbook -i "$2" config_sonic_basedon_testbed.yml --vault-password-file="$3" -l "$dut" -e testbed_name="$1" -e deploy=true -e save=true
+
+  echo Done
+}
+
+function test_minigraph
+{
+  echo "Test minigraph generation '$1'"
+
+  read_file $1
+
+  ansible-playbook -i "$2" --diff --connection=local --check config_sonic_basedon_testbed.yml --vault-password-file="$3" -l "$dut" -e testbed_name="$1"
 
   echo Done
 }
@@ -170,11 +205,17 @@ case "$1" in
                ;;
   connect-topo) connect_topo $2 $3
                ;;
+  connect-vms) connect_vms $2 $3
+               ;;
+  disconnect-vms) disconnect_vms $2 $3
+               ;;
   config-vm)   config_vm $2 $3 $4
                ;;
-  gen-mg)      generate_minigraph $2 $3
+  gen-mg)      generate_minigraph $2 $3 $4
                ;;
-  deploy-mg)   deploy_minigraph $2 $3
+  deploy-mg)   deploy_minigraph $2 $3 $4
+               ;;
+  test-mg)     test_minigraph $2 $3 $4
                ;;
   *)           usage
                ;;

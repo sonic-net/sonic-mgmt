@@ -76,7 +76,7 @@ def main():
             base_vm=dict(required=True, type='str'),
             topo=dict(required=True, type='str'),
         ),
-        supports_check_mode=False
+        supports_check_mode=True
     )
     m_args = module.params
     topo_type = m_args['topo']

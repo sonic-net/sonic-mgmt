@@ -6,12 +6,10 @@
   when: testbed_type is not defined
 
 - fail: msg="testbed_type {{testbed_type}} is invalid."
-  when: testbed_type not in ['t1-lag', 't1']
+  when: testbed_type not in ['t1-lag', 't1', 't1-64-lag']
 
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
-  become: no
-  connection: local
 
 - name: Print neighbors in minigraph
   debug: msg="{{ minigraph_neighbors }}"
@@ -39,6 +37,10 @@
 - block:
     - name: Copy the test to ptf container.
       copy: src=roles/test/files/acstests dest=/root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Copy the platform files to ptf container.
+      copy: src=roles/test/files/ptftests dest=/root
       delegate_to: "{{ ptf_host }}"
 
     - name: Add route to unresolved next hop.

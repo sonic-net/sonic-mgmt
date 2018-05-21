@@ -126,6 +126,7 @@ def parse_veos(vms):
         all = fp.read()
     rows = all.split('\n')
     for r in rows:
+        r = r.strip()
         if r == '':
             continue
         if not r.startswith('VM'):

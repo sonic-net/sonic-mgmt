@@ -1,8 +1,6 @@
 # Gather minigraph facts
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
-  become: no
-  connection: local
 
 - name: Set sonic_asic_type fact
   set_fact:
@@ -243,7 +241,13 @@
   tags: unsafe
 
 - name: After rebooting, wait for switch to come back
-  local_action: wait_for host={{ inventory_hostname }} port=22 state=started delay=30 timeout=300
   become: false
+  local_action: wait_for
+  args:
+    host: "{{ inventory_hostname }}"
+    port: 22
+    state: started
+    delay: 30
+    timeout: 300
   when: reboot_required is defined
   tags: unsafe

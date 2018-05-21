@@ -8,10 +8,14 @@ testcases:
     
     arp:
       filename: arpall.yml
-      topologies: [ptf32, ptf64]
+      topologies: [ptf32, ptf64, t1]
       required_vars:
           ptf_host: 
     
+    bgp_gr_helper:
+      filename: bgp_gr_helper.yml
+      topologies: [t1, t1-lag]
+
     bgp_fact:
       filename: bgp_fact.yml
       topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
@@ -37,13 +41,13 @@ testcases:
 
     copp:
       filename: copp.yml
-      topologies: [ptf32, ptf64]
+      topologies: [ptf32, ptf64, t1, t1-lag]
       required_vars:
           ptf_host:
  
     decap:
       filename: decap.yml
-      topologies: [t1, t1-lag, t1-64-lag, t0, t0-116]
+      topologies: [t1, t1-lag, t1-64-lag, t0, t0-64, t0-116]
       required_vars:
           ptf_host: 
           testbed_type: 
@@ -115,7 +119,7 @@ testcases:
 
     mtu:
       filename: mtu.yml
-      topologies: [t1, t1-lag]
+      topologies: [t1, t1-lag, t1-64-lag]
       required_vars:
           ptf_host:
           testbed_type:
@@ -138,6 +142,10 @@ testcases:
       filename: pfc_wd.yml
       topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
+    port_toggle:
+      filename: port_toggle.yml
+      topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+
     qos:
       filename: qos.yml
       topologies: [ptf32, ptf64]
@@ -152,6 +160,10 @@ testcases:
 
     restart_swss:
       filename: run_config_cleanup.yml
+      topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+
+    restart_swss_service:
+      filename: restart_swss.yml
       topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
     sensors:
@@ -176,3 +188,7 @@ testcases:
       required_vars:
           ptf_host:
           testbed_type:
+
+    crm:
+      filename: crm.yml
+      topologies: [t1, t1-lag, t0]

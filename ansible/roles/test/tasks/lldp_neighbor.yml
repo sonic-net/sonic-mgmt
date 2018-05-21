@@ -13,7 +13,7 @@
 
 # FIXME: use more strict assertion
 - name: Verify the published DUT chassis id field is not empty
-  assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_chassis_id'] }}' != ''"}
+  assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_chassis_id'] }}' == '{{ dut_chassis_id }}'"}
 
 - name: Verify the published DUT system description field is correct
   assert: {that: "'{{ ansible_lldp_facts[neighbor_interface]['neighbor_sys_desc'] }}' == '{{ dut_system_description }}'"}

@@ -28,6 +28,11 @@ topology:
     - 25
     - 26
     - 27
+  disabled_host_interfaces:
+    - 0
+    - 25
+    - 26
+    - 27
   VMs:
     ARISTA01T1:
       vlans:
@@ -48,6 +53,8 @@ topology:
 
 configuration_properties:
   common:
+    dut_asn: 65100
+    dut_type: ToRRouter
     swrole: leaf
     podset_number: 200
     tor_number: 16

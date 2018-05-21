@@ -25,7 +25,6 @@
 
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
-  connection: local
 
 # Generate route file
 - name: Generate route-port map information

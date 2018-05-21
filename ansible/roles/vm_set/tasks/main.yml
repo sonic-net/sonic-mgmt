@@ -15,17 +15,29 @@
 
 # Need latest ubuntu 4.10 kernel to fix a openvswitch bug
 # https://bugs.launchpad.net/ubuntu/+source/kernel-package/+bug/1685742
+- name: get host distribution
+  shell: grep ^NAME /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
+  register: host_distribution
+
+- name: get host distribution version
+  shell: grep ^VERSION_ID /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
+  register: host_distribution_version
+
+- name: get host kernel version
+  shell: uname -r
+  register: host_kernel
+
 - name: Check if kernel upgrade needed
   set_fact:
     kernel_upgrade_needed: true
   when:
-    - ansible_distribution == "Ubuntu"
-    - ansible_distribution_version == "17.04"
-    - ansible_kernel.find('4.10.0') != -1
-    - "{{ ansible_kernel | regex_replace('4.10.0-([0-9]+)-.*', '\\1') | int < 25 }}"
+    - host_distribution.stdout == "Ubuntu"
+    - host_distribution_version.stdout == "17.04"
+    - host_kernel.stdout.find('4.10.0') != -1
+    - "{{ host_kernel.stdout | regex_replace('4.10.0-([0-9]+)-.*', '\\1') | int < 25 }}"
 
 - block:
-    - debug: msg="{{ ansible_kernel }}"
+    - debug: msg="{{ host_kernel.stdout }}"
 
     - name: Upgrade kernel package
       apt: pkg={{ item }} state=latest
@@ -44,14 +56,14 @@
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu zesty stable
     state: present
   become: yes
-  when: ansible_distribution_version == "17.04"
+  when: host_distribution_version == "17.04"
 
 - name: Add docker repository for 16.04
   apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable
     state: present
   become: yes
-  when: ansible_distribution_version == "16.04"
+  when: host_distribution_version == "16.04"
 
 - name: Install necessary packages
   apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
@@ -144,3 +156,10 @@
   include: renumber_topo.yml
   when: action == 'renumber_topo'
 
+- name: Connect VMs
+  include: connect_vms.yml
+  when: action == 'connect_vms'
+
+- name: Disconnect VMs
+  include: disconnect_vms.yml
+  when: action == 'disconnect_vms'

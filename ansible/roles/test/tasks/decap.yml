@@ -21,9 +21,6 @@
   when: (testbed_type is not defined) or
         (dscp_mode is not defined) 
 
-- fail: msg="Invalid testbed_type value '{{testbed_type}}'"
-  when: testbed_type not in ['t1', 't0', 't1-lag', 't1-64-lag', 't0-116']
-
 - fail: msg="Invalid testbed_type value '{{dscp_mode}}'"
   when: dscp_mode not in ['pipe','uniform']
 
@@ -35,7 +32,7 @@
 
 - name: Expand properties into props
   set_fact: props="{{configuration_properties['common']}}"
-  when: testbed_type in ['t0', 't0-116']
+  when: testbed_type in ['t0', 't0-64', 't0-116']
 
 - name: Expand properties into props
   set_fact: props_tor="{{configuration_properties['tor']}}"
@@ -44,8 +41,6 @@
 # Gather minigraph facts
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
-  become: no
-  connection: local
 
 # Obtain loopback ip of the device
 - name: Obtain loopback ip of the device

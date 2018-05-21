@@ -1,0 +1,64 @@
+- block:
+
+    - name: Get "crm_stats_nexthop_group_member_used" counter value
+      command: docker exec -i database redis-cli -n 2 HGET CRM:STATS crm_stats_nexthop_group_member_used
+      register: out
+    - set_fact: crm_stats_nexthop_group_member_used={{out.stdout}}
+
+    - name: Get "crm_stats_nexthop_group_member_available" counter value
+      command: docker exec -i database redis-cli -n 2 HGET CRM:STATS crm_stats_nexthop_group_member_available
+      register: out
+    - set_fact: crm_stats_nexthop_group_member_available={{out.stdout}}
+
+    - name: Add nexthop group members
+      command: ip route add 2.2.2.0/24 nexthop via 10.0.0.57 nexthop via 10.0.0.59
+      become: yes
+
+    - name: Make sure CRM counters updated
+      pause: seconds=1
+
+    - name: Get new "crm_stats_nexthop_group_member_used" counter value
+      command: docker exec -i database redis-cli -n 2 HGET CRM:STATS crm_stats_nexthop_group_member_used
+      register: out
+    - set_fact: new_crm_stats_nexthop_group_member_used={{out.stdout}}
+
+    - name: Get new "crm_stats_nexthop_group_member_available" counter value
+      command: docker exec -i database redis-cli -n 2 HGET CRM:STATS crm_stats_nexthop_group_member_available
+      register: out
+    - set_fact: new_crm_stats_nexthop_group_member_available={{out.stdout}}
+
+    - name: Verify "crm_stats_nexthop_group_member_used" counter was incremented
+      assert: {that: "{{new_crm_stats_nexthop_group_member_used|int - crm_stats_nexthop_group_member_used|int == 2}}"}
+
+    - name: Verify "crm_stats_nexthop_group_member_available" counter was decremented
+      assert: {that: "{{crm_stats_nexthop_group_member_available|int - new_crm_stats_nexthop_group_member_available|int == 2}}"}
+
+    - name: Remove nexthop group members
+      command: ip route del 2.2.2.0/24 nexthop via 10.0.0.57 nexthop via 10.0.0.59
+      become: yes
+
+    - name: Make sure CRM counters updated
+      pause: seconds=1
+
+    - name: Get new "crm_stats_nexthop_group_member_used" counter value
+      command: docker exec -i database redis-cli -n 2 HGET CRM:STATS crm_stats_nexthop_group_member_used
+      register: out
+    - set_fact: new_crm_stats_nexthop_group_member_used={{out.stdout}}
+
+    - name: Get new "crm_stats_nexthop_group_member_available" counter value
+      command: docker exec -i database redis-cli -n 2 HGET CRM:STATS crm_stats_nexthop_group_member_available
+      register: out
+    - set_fact: new_crm_stats_nexthop_group_member_available={{out.stdout}}
+
+    - name: Verify "crm_stats_nexthop_group_member_used" counter was decremented
+      assert: {that: "{{new_crm_stats_nexthop_group_member_used|int - crm_stats_nexthop_group_member_used|int == 0}}"}
+
+    - name: Verify "crm_stats_nexthop_group_member_available" counter was incremented
+      assert: {that: "{{new_crm_stats_nexthop_group_member_available|int - crm_stats_nexthop_group_member_available|int == 0}}"}
+
+    - name: Verify thresholds for "nexthop group member" CRM resource
+      vars:
+        crm_cli_res: "nexthop group member"
+        crm_used: "{{new_crm_stats_nexthop_group_member_used}}"
+        crm_avail: "{{new_crm_stats_nexthop_group_member_available}}"
+      include: roles/test/tasks/crm/crm_test_threshold.yml

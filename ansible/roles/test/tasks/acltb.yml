@@ -7,8 +7,6 @@
 # Gather minigraph facts
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
-  become: no
-  connection: local
 
 - name: Read port reverse alias mapping
   set_fact:
@@ -52,12 +50,18 @@
             dest=/root
       delegate_to: "{{ ptf_host }}"
 
+    - name: copy ptftests
+      copy: src=roles/test/files/ptftests
+            dest=/root
+      delegate_to: "{{ ptf_host }}"
+
     - name: Run the test
       include: ptf_runner.yml
       vars:
           ptf_test_name: ACL Test
           ptf_test_dir: acstests
           ptf_test_path: acltb_test.AclTest
+          ptf_platform_dir: ptftests
           ptf_platform: remote
           ptf_test_params:
             - verbose=True
@@ -89,6 +93,28 @@
           ptf_test_name: ACL Test
           ptf_test_dir: acstests
           ptf_test_path: acltb_test.AclTest
+          ptf_platform_dir: ptftests
+          ptf_platform: remote
+          ptf_test_params:
+            - verbose=True
+            - router_mac=\"{{ ansible_Ethernet0['macaddress'] }}\"
+            - switch_info=\"/tmp/acltb_switch_info.txt\"
+            - testbed_type=\"{{ testbed_type }}\"
+
+    - name: Save the applied ACL in ConfigDB
+      command: config save -y
+      become: true
+
+    - name: Reboot the switch
+      include: common_tasks/reboot_sonic.yml
+
+    - name: Run the test
+      include: ptf_runner.yml
+      vars:
+          ptf_test_name: ACL Test
+          ptf_test_dir: acstests
+          ptf_test_path: acltb_test.AclTest
+          ptf_platform_dir: ptftests
           ptf_platform: remote
           ptf_test_params:
             - verbose=True
@@ -123,8 +149,16 @@
             - deny_all_rule=True
 
   always:
+    # Copy ACL config to the switch
+    - name: Copy ACL config file to the DUT
+      copy: src="roles/test/tasks/acl/acltb_test_rules-del.json" dest="/tmp/"
+
     - name: Clean up ACL rules.
       vars:
         command_to_run: "acl-loader update full /tmp/acltb_test_rules-del.json"
         errors_expected: false
       include: roles/test/tasks/run_command_with_log_analyzer.yml
+
+    - name: Ensure ConfigDB is cleaned up
+      command: config save -y
+      become: true

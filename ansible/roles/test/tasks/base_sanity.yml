@@ -36,7 +36,7 @@
 
      when:
        - ({{ ps_out.stdout_lines | length }} <= 0) or ({{ orch_out.stdout_lines | length }} <= 0)
-       - recover is defined
+       - recover is defined and recover | bool
 
    - name: Get syslog error information
      shell: cat /var/log/syslog |tail -n 5000 |grep -i error

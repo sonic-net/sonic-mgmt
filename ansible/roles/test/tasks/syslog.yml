@@ -91,7 +91,8 @@
   service: name=rsyslog state=started
 
 - name: Wait a little bit for service to start
-  wait_for: timeout=2
+  wait_for:
+    timeout: 2
 
 # SSH to device and generate a syslog
 - name: Send test syslog

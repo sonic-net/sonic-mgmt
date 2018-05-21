@@ -11,7 +11,6 @@
 
 - name: Gather minigraph facts about the device
   minigraph_facts: host={{inventory_hostname}}
-  connection: local
 
 - name: Remove existing IPs from PTF host
   script: roles/test/files/helpers/remove_ip.sh

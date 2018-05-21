@@ -1,5 +1,5 @@
 - set_fact:
-    pfc_wd_available_port_ids: "{{range(16) | list | shuffle}}"
+    pfc_wd_available_port_ids: "{{range(16,32) | list | shuffle}}"
   when: testbed_type == "t1-lag"
 
 - set_fact:

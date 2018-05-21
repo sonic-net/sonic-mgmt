@@ -31,8 +31,6 @@
 
 - name: Read DUT minigraph facts.
   minigraph_facts: host={{ inventory_hostname }}
-  connection: local
-  become: no
 
 - set_fact:
     dut_lag_members: []
