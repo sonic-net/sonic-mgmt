@@ -290,7 +290,7 @@ configuration:
         - FC00::8D
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.24/32
+        ipv4: 100.1.0.36/32
         ipv6: 2064:100::20/128
       Ethernet1:
         lacp: 1
