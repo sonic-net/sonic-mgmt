@@ -74,6 +74,25 @@
         errors_expected: false
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 
+    - name: change the polling interval to 4 seconds
+      command: crm config polling interval 4
+
+    - name: Get the total ACL table size before populating the ACL table
+      command: crm show resources acl table
+      register: out
+
+    - name: Extract out the total available acl entry count from CRM show
+      set_fact:
+        count: "{{out.stdout_lines[11].split()}}"
+
+    - name: Convert the total count value to integer
+      set_fact:
+        total: "{{count[3] | int}}"
+
+    - name: Subtracting configured rules from total rules
+      set_fact:
+        expected: "{{total|int - 14}}"
+
     - name: Apply part 1 of ACL rules.
       vars:
         command_to_run: "acl-loader update incremental /tmp/acltb_test_rules_part_1.json"
@@ -85,6 +104,26 @@
         command_to_run: "acl-loader update incremental /tmp/acltb_test_rules_part_2.json"
         errors_expected: false
       include: roles/test/tasks/run_command_with_log_analyzer.yml
+
+    - pause:
+        seconds: 5
+
+    - name: Get the ACL usage via CRM
+      command: crm show resources acl table
+      register: out
+
+    - name: Extract out the total available acl entry count from CRM show
+      set_fact:
+        count: "{{out.stdout_lines[11].split()}}"
+
+    - name: Convert the used count value to integer
+      set_fact:
+        used: "{{count[3] | int}}"
+
+    - name: compare the cam usage
+      fail:
+        msg: "Used count is different from expected"
+      when: used != expected
 
     - name: Run the test
       include: ptf_runner.yml
