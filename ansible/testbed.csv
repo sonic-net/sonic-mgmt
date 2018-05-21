@@ -24,8 +24,8 @@ vms1-t1-lag-3132,vms1-1,t1-lag,docker-ptf-brcm,10.64.246.22/23,server_1,VM0100,s
 vms1-8,vms1-8,t1-lag,docker-ptf-mlnx,10.64.246.43/23,server_1,VM0160,str-msn2700-06,Jenkins
 vms1-9,vms1-9,t0,docker-ptf-brcm,10.64.246.15/23,server_1,VM0192,str-s6000-on-6,masun
 vms2-1,vms2-1,t1,docker-ptf-brcm,10.64.246.24/23,server_2,VM0200,str-s6000-acs-10,Kamil
-vms2-2-t0-2700,vms2-2,t0,docker-ptf-mlnx,10.64.246.27/23,server_2,VM0232,str-msn2700-20,wenda
-vms2-3-t1-2700,vms2-3,t1,docker-ptf-mlnx,10.64.246.29/23,server_2,VM0236,str-msn2700-22,wenda
+vms2-2-t0-2700,vms2-2,t0-56,docker-ptf-mlnx,10.64.246.27/23,server_2,VM0232,str-msn2700-20,wenda
+vms2-3-t1-2700,vms2-3,t1,docker-ptf-mlnx,10.64.246.29/23,server_2,VM0240,str-msn2700-22,wenda
 vms3-t0-s6100,vms3-61,t0-64,docker-ptf-brcm,10.64.246.21/23,server_3,VM0340,str-s6100-acs-1,Pavel
 vms3-t0-s6000,vms3-60,t0-64-32,docker-ptf-brcm,10.64.246.12/23,server_3,VM0344,str-s6000-on-4,Pavel
 vms3-4,vms3-4,t0,docker-ptf-brcm,10.64.246.11/23,server_3,VM0360,str-s6000-acs-13,Sihui
