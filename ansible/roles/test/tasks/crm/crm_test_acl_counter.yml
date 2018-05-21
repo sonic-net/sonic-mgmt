@@ -31,7 +31,7 @@
     - set_fact: acl_tbl_key={{"CRM:ACL_TABLE_STATS:{0}".format(out.stdout|replace("oid:", ""))}}
 
     - name: Make sure CRM counters updated
-      pause: seconds=1
+      pause: seconds=2
 
     - name: Get new "crm_stats_acl_counter_used" counter value
       command: docker exec -i database redis-cli -n 2 HGET {{acl_tbl_key}} crm_stats_acl_counter_used
@@ -60,7 +60,7 @@
       become: yes
 
     - name: Make sure CRM counters updated
-      pause: seconds=1
+      pause: seconds=2
 
     - name: Get new "crm_stats_acl_counter_used" counter value
       command: docker exec -i database redis-cli -n 2 HGET {{acl_tbl_key}} crm_stats_acl_counter_used
