@@ -1,3 +1,4 @@
+
 # **EXAMPLE OF DEPLOY TESTBED AND RUN TEST CASES**
 
 Here is a quick walk through of how to bring up and connect your testbed and SONiC DUT to run test cases
@@ -7,6 +8,7 @@ Please make sure you have following ready:
   - You have your test server ready and reachable
   - You have your SONiC DUT readd, reachable and loaded with SONiC image
   - You have your lab graph file edited/created matching your testbed configuraton and connection.
+  - You have successfully started your sonic-mgmt docker and be able to login to docker and run ansible-playbook. 
   
 ## **Deploy your testbed VMs and topology**
 
@@ -64,7 +66,7 @@ If save=true, the playbook will save the newly generated minigraph to SONiC swit
 ```
 ## **Run tests**
 
-This is going to be the supported method to call individual test case going forward. All test cases name and calling variables and applied topologies are specified in ansible/roles/test/vars/testcases.yml
+Run test from sonic-mgmt docker to avoid incompatibility issue. This is going to be the supported method to call individual test case going forward. All test cases name and calling variables and applied topologies are specified in ansible/roles/test/vars/testcases.yml
 
 When calling test, testbed_name is the main entry to pickup/understand the testbed information associated with the test (ie. ptf_host and tyestbed_type, VMs info...). testbed_name is inherited from your own `ansible/testbed.csv` file.  The first column of each line(one testbed topology definition) is the unique name of the testbed and will be used in testbed_name option when calling test.
 
