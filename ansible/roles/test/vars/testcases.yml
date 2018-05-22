@@ -191,4 +191,4 @@ testcases:
 
     crm:
       filename: crm.yml
-      topologies: [t1, t1-lag, t0]
+      topologies: [t1, t1-lag, t0, t0-56, t0-64, t0-116]
