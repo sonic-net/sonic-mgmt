@@ -81,6 +81,7 @@ class Connection(ConnectionBase):
 
             self._display.vvv("Try password %s..." % login_passwd[0:4], host=self.host)
             client.sendline(login_passwd)
+            client.timeout = 60
             i = client.expect(['>', '#', '[Pp]assword:', pexpect.EOF])
             if i < 2:
                 break
