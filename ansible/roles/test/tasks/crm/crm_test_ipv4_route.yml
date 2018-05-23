@@ -10,8 +10,13 @@
       register: out
     - set_fact: crm_stats_ipv4_route_available={{out.stdout}}
 
+    - name: Get NH IP
+      command: ip -4 neigh show dev {{crm_intf}}
+      register: out
+    - set_fact: nh_ip="{{out.stdout.split()[0]}}"
+
     - name: Add IPv4 route
-      command: ip route add 2.2.2.0/24 via 10.0.0.57
+      command: ip route add 2.2.2.0/24 via {{nh_ip}}
       become: yes
 
     - name: Make sure CRM counters updated
@@ -34,7 +39,7 @@
       assert: {that: "{{crm_stats_ipv4_route_available|int - new_crm_stats_ipv4_route_available|int >= 1}}"}
 
     - name: Remove IPv4 route
-      command: ip route del 2.2.2.0/24 via 10.0.0.57
+      command: ip route del 2.2.2.0/24 via {{nh_ip}}
       become: yes
 
     - name: Make sure CRM counters updated

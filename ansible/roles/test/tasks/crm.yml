@@ -4,13 +4,15 @@
      when: (testbed_type is not defined)
 
    - fail: msg="Invalid testbed_type value '{{testbed_type}}'"
-     when: testbed_type not in ['t1', 't1-lag', 't0']
+     when: testbed_type not in ['t1', 't1-lag', 't0', 't0-56', 't0-64', 't0-116']
 
    - set_fact: crm_intf="{{minigraph_interfaces[0].attachto}}"
+               crm_intf1="{{minigraph_interfaces[2].attachto}}"
      when: testbed_type == "t1"
 
    - set_fact: crm_intf="{{minigraph_portchannel_interfaces[0].attachto}}"
-     when: (testbed_type == "t0") or (testbed_type == "t1-lag")
+               crm_intf1="{{minigraph_portchannel_interfaces[2].attachto}}"
+     when: testbed_type in ['t0', 't1-lag', 't0-56', 't0-64', 't0-116']
 
    - set_fact:
         ansible_date_time: "{{ansible_date_time}}"
