@@ -1,18 +1,74 @@
 #####   This playbook tests Kernal ARP/GARP request and reply work as design
 - block:
-    - name: collect SONiC current configuration info(to find macaddress)
-      setup:
+    - name: gather interface information if not available
+      interface_facts:
+      when: ansible_interface_facts is not defined
+
+    - name: get all available interface names
+      set_fact:
+        ports: "{{ ports|default([]) + [ item | regex_replace('Ethernet', '') | int ] }}"
+      with_items: minigraph_ports
+
+    - name: get all interface numbers
+      set_fact:
+        index: "{{ ports | sort }}"
+
+    - name: select 1&2 two interfaces for test
+      set_fact:
+        intf1: "Ethernet{{ index[1] }}"
+        intf2: "Ethernet{{ index[2] }}"
+
+    - name: figure out selected interface inices
+      set_fact:
+        intf1_indice: "{{ minigraph_port_indices[intf1] }}"
+        intf2_indice: "{{ minigraph_port_indices[intf2] }}"
+
+    - name: find if interface1 in portchannel
+      set_fact:
+          po1: "{{ item.key }}"
+      when: intf1 in item.value['members']
+      with_dict: minigraph_portchannels
+
+    - name: move interface {{ intf1 }} out of {{ po1 }}
+      shell: teamdctl {{ po1 }} port remove {{ intf1 }}
+      become: yes
+      when: po1 is defined
+
+    - name: bring {{ intf1 }} up
+      shell: ifconfig {{ intf1 }} up
+      become: yes
+      when: po1 is defined
+
+    - name: find if interface2 in portchannel
+      set_fact:
+          po2: "{{ item.key }}"
+      when: intf2 in item.value['members']
+      with_dict: minigraph_portchannels
+
+    - name: move {{ intf2 }} out of {{ po2 }}
+      shell: teamdctl {{ po2 }} port remove {{ intf2 }}
+      become: yes
+      when: po2 is defined
+
+    - name: bring {{ intf2 }} up
+      shell: ifconfig {{ intf2 }} up
+      become: yes
+      when: po2 is defined
 
     - name: change SONiC DUT interface IP to test IP address
-      command: /sbin/ifconfig  Ethernet4 10.10.1.2 netmask 255.255.255.240
+      command: /sbin/ifconfig  {{ intf1 }} 10.10.1.2 netmask 255.255.255.240
       become: yes
 
     - name: change SONiC DUT interface IP to test IP address
-      command: /sbin/ifconfig  Ethernet8 10.10.1.20 netmask 255.255.255.240
+      command: /sbin/ifconfig {{ intf2 }} 10.10.1.20 netmask 255.255.255.240
       become: yes
 
-    - name: copy acsbase files
-      copy: src=roles/test/files/acstests
+    - name: wait for interfaces to be up after removed from portchannel
+      pause: seconds=40
+      when: (po1 is defined) or (po2 is defined)
+
+    - name: copy test files over
+      copy: src=roles/test/files/ptftests
             dest=/root
       delegate_to: "{{ ptf_host }}"
 
@@ -20,12 +76,18 @@
       command: ip nei flush all
       become: yes
 
-    # Send Unicast ARP request from correct interface, expecting reply
-    - name: Send correct unicast arp packets (10.10.1.3 to 10.10.1.2 with src_mac=00:06:07:08:09:00)
-      command: ptf  --test-dir acstests arptest.VerifyUnicastARPReply --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'"
-      args:
-        chdir: /root
-      delegate_to: "{{ ptf_host }}"
+    - name: Start PTF runner and Send correct unicast arp packets (10.10.1.3 to 10.10.1.2 with src_mac=00:06:07:08:09:00)
+      include: ptf_runner.yml
+      vars:
+         ptf_test_name: ARP test
+         ptf_test_dir: ptftests
+         ptf_test_path: arptest.VerifyUnicastARPReply
+         ptf_platform: remote
+         ptf_platform_dir: ptftests
+         ptf_test_params:
+            - acs_mac='{{ ansible_interface_facts[intf1]['macaddress'] }}'
+            - port='{{ intf1_indice }}'
+         ptf_extra_options: "--relax --debug info --log-file /tmp/arptest.VerifyUnicastARPReply.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: Get DUT arp table
       switch_arptable:
@@ -34,18 +96,25 @@
       assert:
         that:
           - "{{ arptable['v4']['10.10.1.3']['macaddress'] == '00:06:07:08:09:00' }}"
-          - "{{ arptable['v4']['10.10.1.3']['interface'] == 'Ethernet4' }}"
+          - "{{ arptable['v4']['10.10.1.3']['interface'] == intf1 }}"
 
     - name: Clear DUT arp cache
       command: ip nei flush all
       become: yes
 
     # Send correct ARP request from correct interface, expecting normal behavior
-    - name: Send correct arp packets (10.10.1.3 to 10.10.1.2 with src_mac=00:06:07:08:09:0a)
-      command: ptf  --test-dir acstests arptest.ExpectReply --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'"
-      args:
-        chdir: /root
-      delegate_to: "{{ ptf_host }}"
+    - name: PTF funner Send correct arp packets (10.10.1.3 to 10.10.1.2 with src_mac=00:06:07:08:09:0a)
+      include: ptf_runner.yml
+      vars:
+         ptf_test_name: ARP test
+         ptf_test_dir: ptftests
+         ptf_test_path: arptest.ExpectReply
+         ptf_platform: remote
+         ptf_platform_dir: ptftests
+         ptf_test_params:
+            - acs_mac='{{ ansible_interface_facts[intf1]['macaddress'] }}'
+            - port='{{ intf1_indice }}'
+         ptf_extra_options: "--relax --debug info --log-file /tmp/arptest.VerifyARPReply.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: Get DUT arp table
       switch_arptable:
@@ -54,7 +123,7 @@
       assert:
         that:
           - "{{ arptable['v4']['10.10.1.3']['macaddress'] == '00:06:07:08:09:0a' }}"
-          - "{{ arptable['v4']['10.10.1.3']['interface'] == 'Ethernet4' }}"
+          - "{{ arptable['v4']['10.10.1.3']['interface'] == intf1 }}"
 
     ## check DUT won't reply ARP and install ARP entry when ARP request coming from other interfaces
     - name: Clear DUT arp cache
@@ -62,10 +131,17 @@
       become: yes
 
     - name: Send correct arp packets from other interface expect no reply(10.10.1.4 to 10.10.1.2 with src_mac=00:02:07:08:09:0a)
-      command: ptf  --test-dir acstests arptest.WrongIntNoReply --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'"
-      args:
-        chdir: /root
-      delegate_to: "{{ ptf_host }}"
+      include: ptf_runner.yml
+      vars:
+         ptf_test_name: ARP test
+         ptf_test_dir: ptftests
+         ptf_test_path: arptest.WrongIntNoReply
+         ptf_platform: remote
+         ptf_platform_dir: ptftests
+         ptf_test_params:
+            - acs_mac='{{ ansible_interface_facts[intf2]['macaddress'] }}'
+            - port='{{ intf2_indice }}'
+         ptf_extra_options: "--relax --debug info --log-file /tmp/arptest.VerifyWrongInterface.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: Get DUT arp table
       switch_arptable:
@@ -82,10 +158,17 @@
       become: yes
 
     - name: Send Src IP out of interface subnet range arp packets, expect no reply and no arp table entry (10.10.1.22 to 10.10.1.2 with src_mac=00:03:07:08:09:0a)
-      command: ptf  --test-dir acstests arptest.SrcOutRangeNoReply --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'"
-      args:
-        chdir: /root
-      delegate_to: "{{ ptf_host }}"
+      include: ptf_runner.yml
+      vars:
+         ptf_test_name: ARP test
+         ptf_test_dir: ptftests
+         ptf_test_path: arptest.SrcOutRangeNoReply
+         ptf_platform: remote
+         ptf_platform_dir: ptftests
+         ptf_test_params:
+            - acs_mac='{{ ansible_interface_facts[intf1]['macaddress'] }}'
+            - port='{{ intf1_indice }}'
+         ptf_extra_options: "--relax --debug info --log-file /tmp/arptest.SrcOutRangeNoReply.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: Get DUT arp table
       switch_arptable:
@@ -102,10 +185,17 @@
       become: yes
 
     - name: Send  garp packets (10.10.1.7 to 10.10.1.7)
-      command: ptf  --test-dir acstests  arptest.GarpNoUpdate --platform remote  -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'"
-      args:
-        chdir: /root
-      delegate_to: "{{ ptf_host }}"
+      include: ptf_runner.yml
+      vars:
+         ptf_test_name: ARP test
+         ptf_test_dir: ptftests
+         ptf_test_path: arptest.GarpNoUpdate
+         ptf_platform: remote
+         ptf_platform_dir: ptftests
+         ptf_test_params:
+            - acs_mac='{{ ansible_interface_facts[intf1]['macaddress'] }}'
+            - port='{{ intf1_indice }}'
+         ptf_extra_options: "--relax --debug info --log-file /tmp/arptest.GarpNoUpdate.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: Get DUT arp table
       switch_arptable:
@@ -118,27 +208,41 @@
 
     # Test Gratuitous ARP update case, when received garp, no arp reply, update arp table if it was solved before
     - name: Send correct arp packets (10.10.1.3 to 10.10.1.2 with src_mac=00:06:07:08:09:0a)
-      command: ptf  --test-dir acstests arptest.ExpectReply --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'"
-      args:
-        chdir: /root
-      delegate_to: "{{ ptf_host }}"
+      include: ptf_runner.yml
+      vars:
+         ptf_test_name: ARP test
+         ptf_test_dir: ptftests
+         ptf_test_path: arptest.ExpectReply
+         ptf_platform: remote
+         ptf_platform_dir: ptftests
+         ptf_test_params:
+            - acs_mac='{{ ansible_interface_facts[intf1]['macaddress'] }}'
+            - port='{{ intf1_indice }}'
+         ptf_extra_options: "--relax --debug info --log-file /tmp/arptest.ExpectReply.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: Get DUT arp table
       switch_arptable:
 
-    - name: Check ACS ARP table and confirm macaddress and interface are correct
+    - name: Check DUT table and confirm macaddress and interface are correct
       assert:
         that:
           - "{{ arptable['v4']['10.10.1.3']['macaddress'] == '00:06:07:08:09:0a' }}"
-          - "{{ arptable['v4']['10.10.1.3']['interface'] == 'Ethernet4' }}"
+          - "{{ arptable['v4']['10.10.1.3']['interface'] == intf1 }}"
 
     - pause: seconds=2
 
     - name: Send  garp packets to update arp table(10.10.1.3 to 10.10.1.3 with src_mac=00:00:07:08:09:0a)
-      command: ptf  --test-dir acstests arptest.GarpUpdate --platform remote -t "acs_mac='{{ ansible_Ethernet4['macaddress'] }}'"
-      args:
-        chdir: /root
-      delegate_to: "{{ ptf_host }}"
+      include: ptf_runner.yml
+      vars:
+         ptf_test_name: ARP test
+         ptf_test_dir: ptftests
+         ptf_test_path: arptest.GarpUpdate
+         ptf_platform: remote
+         ptf_platform_dir: ptftests
+         ptf_test_params:
+            - acs_mac='{{ ansible_interface_facts[intf1]['macaddress'] }}'
+            - port='{{ intf1_indice }}'
+         ptf_extra_options: "--relax --debug info --log-file /tmp/arptest.GarpUpdate.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: Get DUT arp table
       switch_arptable:
@@ -147,12 +251,28 @@
       assert:
         that:
           - "{{ arptable['v4']['10.10.1.3']['macaddress'] == '00:00:07:08:09:0a' }}"
-          - "{{ arptable['v4']['10.10.1.3']['interface'] == 'Ethernet4' }}"
+          - "{{ arptable['v4']['10.10.1.3']['interface'] == intf1 }}"
 
   always:
     # Recover DUT interface IP Address before entering this test case
-    - name: Recover DUT IP address based on minigraph
-      command: /sbin/ifconfig  {{item.attachto}} {{ item.addr }}  netmask {{ item.mask }}
+    - name: restore dut original state
+      command: config reload -y
       become: yes
-      with_items: "{{  minigraph_interfaces  }}"
-      when:  (item.attachto  == 'Ethernet4' or  item.attachto == 'Ethernet8') and item.addr|ipv4
+
+    - name: wait 60 seconds for ports to be up
+      pause: seconds=60
+
+    - name: check port status
+      interface_facts: up_ports={{ minigraph_ports }}
+
+    - name: wait again if still not up
+      pause: seconds=30
+      when: ansible_interface_link_down_ports | length != 0
+
+    - name: second chance to check
+      interface_facts: up_ports={{ minigraph_ports }}
+      when: ansible_interface_link_down_ports | length != 0
+
+    - name: last wait if still not up
+      pause: seconds=30
+      when: ansible_interface_link_down_ports | length != 0
