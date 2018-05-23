@@ -196,7 +196,23 @@
                                 },
                                 "ip": {
                                     "config": {
-					"protocol":1,
+                                        "protocol":1,
+                                        "source-ip-address": "10.0.0.2/32"
+                                    }
+                                }
+                            },
+                            "14": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 14
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol":17,
                                         "source-ip-address": "10.0.0.2/32"
                                     }
                                 }
