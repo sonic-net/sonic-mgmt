@@ -1,0 +1,174 @@
+---
+
+#TBD for ACS-MSN2700 xon_1, xon_2:
+# Once the new fw version with the fix is burned, should change the
+# xon_th_pkts to 10687
+# xoff_th_pkts to 0
+# since xon_th and xoff_th are configured to the same value.
+# The current parameters are according to current fw behavior
+qos_params:
+    ACS-MSN2700:
+        xoff_1:
+            dscp: 3
+            ecn: 1
+            pg: 3
+        xoff_2:
+            dscp: 4
+            ecn: 1
+            pg: 4
+        xon_1:
+            dscp: 3
+            ecn: 1
+            pg: 3
+        xon_2:
+            dscp: 4
+            ecn: 1
+            pg: 4
+        ecn_1:
+            dscp: 8
+            ecn: 0
+            num_of_pkts: 5000
+            limit: 182000
+            min_limit: 180000
+            cell_size: 96
+        ecn_2:
+            dscp: 8
+            ecn: 1
+            num_of_pkts: 2047
+            limit: 182320
+            min_limit: 0
+            cell_size: 96
+        ecn_3:
+            dscp: 0
+            ecn: 0
+            num_of_pkts: 5000
+            limit: 182000
+            min_limit: 180000
+            cell_size: 96
+        ecn_4:
+            dscp: 0
+            ecn: 1
+            num_of_pkts: 2047
+            limit: 182320
+            min_limit: 0
+            cell_size: 96
+        lossy_queue:
+            dscp: 8
+            ecn: 1
+        wrr:
+           ecn: 1
+           q0_num_of_pkts: 600
+           q1_num_of_pkts: 400
+           q3_num_of_pkts: 500
+           q4_num_of_pkts: 500
+           limit: 80
+    Mellanox-SN2700:
+        xoff_1:
+            dscp: 3
+            ecn: 1
+            pg: 3
+        xoff_2:
+            dscp: 4
+            ecn: 1
+            pg: 4
+        xon_1:
+            dscp: 3
+            ecn: 1
+            pg: 3
+        xon_2:
+            dscp: 4
+            ecn: 1
+            pg: 4
+        ecn_1:
+            dscp: 8
+            ecn: 0
+            num_of_pkts: 5000
+            limit: 182000
+            min_limit: 180000
+            cell_size: 96
+        ecn_2:
+            dscp: 8
+            ecn: 1
+            num_of_pkts: 2047
+            limit: 182320
+            min_limit: 0
+            cell_size: 96
+        ecn_3:
+            dscp: 0
+            ecn: 0
+            num_of_pkts: 5000
+            limit: 182000
+            min_limit: 180000
+            cell_size: 96
+        ecn_4:
+            dscp: 0
+            ecn: 1
+            num_of_pkts: 2047
+            limit: 182320
+            min_limit: 0
+            cell_size: 96
+        lossy_queue:
+            dscp: 8
+            ecn: 1
+        wrr:
+           ecn: 1
+           q0_num_of_pkts: 600
+           q1_num_of_pkts: 400
+           q3_num_of_pkts: 500
+           q4_num_of_pkts: 500
+           limit: 80
+    ACS-MSN2740:
+        xoff_1:
+            dscp: 3
+            ecn: 1
+            pg: 3
+        xoff_2:
+            dscp: 4
+            ecn: 1
+            pg: 4
+        xon_1:
+            dscp: 3
+            ecn: 1
+            pg: 3
+        xon_2:
+            dscp: 4
+            ecn: 1
+            pg: 4
+        ecn_1:
+            dscp: 8
+            ecn: 0
+            num_of_pkts: 5000
+            limit: 182000
+            min_limit: 180000
+            cell_size: 96
+        ecn_2:
+            dscp: 8
+            ecn: 1
+            num_of_pkts: 2047
+            limit: 182320
+            min_limit: 0
+            cell_size: 96
+        ecn_3:
+            dscp: 0
+            ecn: 0
+            num_of_pkts: 5000
+            limit: 182000
+            min_limit: 180000
+            cell_size: 96
+        ecn_4:
+            dscp: 0
+            ecn: 1
+            num_of_pkts: 2047
+            limit: 182320
+            min_limit: 0
+            cell_size: 96
+        lossy_queue:
+            dscp: 8
+            ecn: 1
+        wrr:
+           ecn: 1
+           q0_num_of_pkts: 600
+           q1_num_of_pkts: 400
+           q3_num_of_pkts: 500
+           q4_num_of_pkts: 500
+           limit: 80

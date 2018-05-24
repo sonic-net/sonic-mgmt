@@ -1,0 +1,259 @@
+# To run ecn test the host system where ptf container resides should have
+# optimized sysctl parameter "net.core.rmem_max". Now it's set to 4194304
+# Also the NICs supposed to have maximum buffer size of RX queue
+# See: ethtool -g
+#      ethtool -G p4p1 rx 8192
+
+- include_vars: vars/qos.yml
+
+- block:
+    - name: Getting minigraph facts
+      minigraph_facts: host={{ inventory_hostname }}
+      become: no
+
+    - name: check if the device has configured qos parameters
+      fail: msg="device doesn't have configured qos parameters"
+      when: minigraph_hwsku is not defined or qos_params[minigraph_hwsku] is not defined
+
+    - name: set qos parameters for the device
+      set_fact: qp={{ qos_params[minigraph_hwsku] }}
+
+    - name: Ensure LLDP Daemon stopped
+      become: yes
+      supervisorctl: state=stopped name={{ item }}
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i lldp python
+      with_items:
+        - lldpd
+        - lldp-syncd
+
+    - name: Disable bgpd
+      become: yes
+      lineinfile: dest=/etc/quagga/daemons
+                  regexp=^bgpd=.*$
+                  line='bgpd=no'
+      notify:
+        - Restart Quagga Daemon
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i bgp python
+
+    - meta: flush_handlers
+
+    - block:
+        - name: Deploy script to DUT/syncd
+          copy: src=roles/test/files/mlnx/packets_aging.py dest=/root/packets_aging.py
+
+        - name: Disable Mellanox packet aging
+          shell: python /root/packets_aging.py disable
+
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i syncd python
+      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
+
+    - name: copy sai tests
+      copy: src=roles/test/files/saitests dest=/root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: copy portmap
+      copy: src={{ ptf_portmap }} dest=/root
+      delegate_to: "{{ ptf_host }}"
+      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
+
+    - name: Init PTF base test parameters
+      set_fact: 
+        ptf_base_params:
+        - router_mac='{{ ansible_Ethernet0['macaddress'] }}'
+        - server='{{ ansible_host }}'
+        - port_map_file='/root/{{ ptf_portmap | basename }}'
+
+    - name: Get ports info.
+      include: roles/test/tasks/qos_get_ports.yml
+      
+    # Unpause all paused port
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: release all paused ports
+        test_path: sai_qos_tests.ReleaseAllPorts
+        test_params: []
+
+    # Populate arps
+    - name: Check if DUT has ARP aging issue or not
+      command: arp -n
+      become: yes
+      register: arp_entries
+
+    - debug:
+        var: arp_entries
+
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: populate arp on all ports
+        test_path: sai_qos_tests.ARPpopulate
+        test_params: []
+      when: arp_entries.stdout.find('incomplete') == -1
+
+    - name: Manually add an ARP entry for dst port
+      command: ip neigh replace {{ dst_port_ip }} lladdr 7c:fe:90:5e:6b:be dev {{ dut_switch_ports[dst_port_id|int] }}
+      become: yes
+      when: arp_entries.stdout.find('incomplete') != -1
+
+    - name: Set testing buffer profile for PFC tests
+      shell: sonic-cfggen -j /tmp/pfc_lossless_test_profile.json --write-to-db
+
+    # XON limit
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: xon limit ptf test dscp = {{ qp.xon_1.dscp }}, ecn = {{ qp.xon_1.ecn }}
+        test_path: sai_qos_tests.PFCXonTest
+        test_params:
+        - dscp='{{ qp.xon_1.dscp }}'
+        - ecn='{{ qp.xon_1.ecn }}'
+        - pg='{{ qp.xon_1.pg }}'
+        - buffer_max_size='{{ lossless_buffer_max_size|int }}'
+        - dst_port_id='{{ dst_port_id }}'
+        - dst_port_ip='{{ dst_port_ip }}'
+        - src_port_id='{{ src_port_id }}'
+        - src_port_ip='{{ src_port_ip }}'
+
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: xon limit ptf test dscp = {{ qp.xon_2.dscp }}, ecn = {{ qp.xon_2.ecn }}
+        test_path: sai_qos_tests.PFCXonTest
+        test_params:
+        - dscp='{{ qp.xon_2.dscp }}'
+        - ecn='{{ qp.xon_2.ecn }}'
+        - pg='{{ qp.xon_2.pg }}'
+        - buffer_max_size='{{ lossless_buffer_max_size|int }}'
+        - dst_port_id='{{ dst_port_id }}'
+        - dst_port_ip='{{ dst_port_ip }}'
+        - src_port_id='{{ src_port_id }}'
+        - src_port_ip='{{ src_port_ip }}'
+       
+    # XOFF limit
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: xoff limit ptf test dscp = {{ qp.xoff_1.dscp }}, ecn = {{ qp.xoff_1.ecn }}
+        test_path: sai_qos_tests.PFCtest
+        test_params:
+        - dscp='{{ qp.xoff_1.dscp }}'
+        - ecn='{{ qp.xoff_1.ecn }}'
+        - pg='{{ qp.xoff_1.pg }}'
+        - buffer_max_size='{{ lossless_buffer_max_size|int }}'
+        - queue_max_size='{{ lossless_queue_max_size|int }}'
+        - dst_port_id='{{ dst_port_id }}'
+        - dst_port_ip='{{ dst_port_ip }}'
+        - src_port_id='{{ src_port_id }}'
+        - src_port_ip='{{ src_port_ip }}'
+
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: xoff limit ptf test dscp = {{ qp.xoff_2.dscp }}, ecn = {{ qp.xoff_2.ecn }}
+        test_path: sai_qos_tests.PFCtest
+        test_params:
+        - dscp='{{ qp.xoff_2.dscp }}'
+        - ecn='{{ qp.xoff_2.ecn }}'
+        - pg='{{ qp.xoff_2.pg }}'
+        - buffer_max_size='{{ lossless_buffer_max_size|int }}'
+        - queue_max_size='{{ lossless_queue_max_size|int }}'
+        - dst_port_id='{{ dst_port_id }}'
+        - dst_port_ip='{{ dst_port_ip }}'
+        - src_port_id='{{ src_port_id }}'
+        - src_port_ip='{{ src_port_ip }}'
+
+    - name: Restore origin buffer profile after PFC tests
+      shell: sonic-cfggen -j /tmp/pfc_lossless_base_profile.json --write-to-db
+
+    # DSCP MAPPING
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: dscp mapping ptf test
+        test_path: sai_qos_tests.DscpMappingPB
+        test_params:
+        - dst_port_id='{{ dst_port_id }}'
+        - dst_port_ip='{{ dst_port_ip }}'
+        - src_port_id='{{ src_port_id }}'
+        - src_port_ip='{{ src_port_ip }}'
+
+    - name: Set testing buffer profile for lossy test
+      shell: sonic-cfggen -j /tmp/pfc_lossy_test_profile.json --write-to-db
+
+    # Lossy queue
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: Lossy queue, shared buffer dynamic allocation.
+        test_path: sai_qos_tests.LossyQueueTest
+        test_params:
+        - dscp='{{ qp.lossy_queue.dscp }}'
+        - ecn='{{ qp.lossy_queue.ecn }}'
+        - buffer_max_size='{{ lossy_buffer_max_size|int }}'
+        - headroom_size='{{ lossy_headroom_size }}'
+        - dst_port_id='{{ dst_port_id }}'
+        - dst_port_ip='{{ dst_port_ip }}'
+        - dst_port_2_id='{{ dst_port_2_id }}'
+        - dst_port_2_ip='{{ dst_port_2_ip }}'
+        - src_port_id='{{ src_port_id }}'
+        - src_port_ip='{{ src_port_ip }}'
+
+    - name: Restore origin buffer profile after lossy tests
+      shell: sonic-cfggen -j /tmp/pfc_lossy_base_profile.json --write-to-db
+
+    # WRR test
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: WRR
+        test_path: sai_qos_tests.WRRtest
+        test_params:
+        - ecn='{{ qp.wrr.ecn }}'
+        - dst_port_id='{{ dst_port_id }}'
+        - dst_port_ip='{{ dst_port_ip }}'
+        - src_port_id='{{ src_port_id }}'
+        - src_port_ip='{{ src_port_ip }}'
+        - q0_num_of_pkts='{{ qp.wrr.q0_num_of_pkts }}'
+        - q1_num_of_pkts='{{ qp.wrr.q1_num_of_pkts }}'
+        - q3_num_of_pkts='{{ qp.wrr.q3_num_of_pkts }}'
+        - q4_num_of_pkts='{{ qp.wrr.q4_num_of_pkts }}'
+        - limit='{{ qp.wrr.limit }}'
+        
+  always:
+    - name: Restore LLDP Daemon
+      become: yes
+      supervisorctl: state=started name={{ item }}
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i lldp python
+      with_items:
+        - lldpd
+        - lldp-syncd
+
+    - name: Enable bgpd
+      become: yes
+      lineinfile: dest=/etc/quagga/daemons
+                  regexp=^bgpd=.*$
+                  line='bgpd=yes'
+      notify:
+        - Restart Quagga Daemon
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i bgp python
+
+    - name: Restore origin buffer profile after PFC tests
+      shell: sonic-cfggen -j /tmp/pfc_lossless_base_profile.json --write-to-db
+
+    - name: Restore origin buffer profile after lossy tests
+      shell: sonic-cfggen -j /tmp/pfc_lossy_base_profile.json --write-to-db
+
+    - name: Remove extra record for lossy pg profile
+      shell: redis-cli -n 4 del 'BUFFER_PG|{{ dut_switch_ports[src_port_id|int] }}|0-1'
+
+    - name: Enable Mellanox packet aging
+      shell: python /root/packets_aging.py enable
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i syncd python
+      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
+
+    - meta: flush_handlers
+

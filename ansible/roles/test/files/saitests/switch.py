@@ -544,7 +544,7 @@ def sai_thrift_create_scheduler_profile(client, max_rate, algorithm=0):
                                        value=attribute_value)
     scheduler_attr_list.append(attribute)
     attribute_value = sai_thrift_attribute_value_t(s32=algorithm)
-    attribute = sai_thrift_attribute_t(id=SAI_SCHEDULER_ATTR_SCHEDULING_ALGORITHM ,
+    attribute = sai_thrift_attribute_t(id=SAI_SCHEDULER_ATTR_SCHEDULING_TYPE,
                                        value=attribute_value)
     scheduler_attr_list.append(attribute)
     scheduler_profile_id = client.sai_thrift_create_scheduler_profile(scheduler_attr_list)
