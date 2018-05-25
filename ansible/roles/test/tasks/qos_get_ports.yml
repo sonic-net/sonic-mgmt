@@ -145,8 +145,21 @@
   set_fact:
     lossless_queue_max_size: "{{ buffer_max_size }}"
 
+
+# ECN/WRED
+- block:
+  - name: Determine the targe queue of the WRED profile
+    set_fact:
+      target_q_wred: '0-1'
+
+  - set_fact:
+      target_q_wred: '3-4'
+    when: minigraph_hwsku is defined and minigraph_hwsku != 'Mellanox-SN2700'
+
+  - debug: var=target_q_wred
+
 - name: Get the WRED profile key for "{{ dut_switch_ports[dst_port_id|int] }}"
-  shell: redis-cli -n 4 KEYS "QUEUE|*{{ dut_switch_ports[dst_port_id|int] }}*|0-1"
+  shell: redis-cli -n 4 KEYS "QUEUE|*{{ dut_switch_ports[dst_port_id|int] }}*|{{ target_q_wred }}"
   register: wred_profile_name
 
 - fail:
