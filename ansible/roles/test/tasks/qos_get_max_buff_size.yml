@@ -42,16 +42,58 @@
 
 - name: Get {{ target_buffer_profile_type }} buffer alpha ID for {{ target_port_name }} port
   shell: redis-cli -n 4 HGET "{{ buffer_profile }}" dynamic_th
-  register: buffer_alpha
-        
-- fail:
-    msg: "Unable to get the alpha for {{ target_port_name }}"
-  when: buffer_alpha.stdout == ""
-  
-- name: Calculate the alpha
-  set_fact:
-    buffer_alpha="{{ 2|pow(buffer_alpha.stdout|int) }}"
+  register: buffer_alpha_raw
 
+# static threshold
+- block:
+  - debug:
+      msg: >
+        "Unable to get the {{ target_buffer_profile_type }} alpha for {{ target_port_name }}\n"
+        "{{ target_buffer_profile_type }} buffer uses static threshold"
+
+  - name: Get {{ target_buffer_profile_type }} buffer alpha ID for {{ target_port_name }} port
+    shell: redis-cli -n 4 HGET "{{ buffer_profile }}" static_th
+    register: buffer_static_th
+
+  - fail:
+      msg: "Unable to get the {{ target_buffer_profile_type }} static threshold for {{ target_port_name }}"
+    when: buffer_static_th.stdout == ""
+
+  - set_fact:
+      buffer_max_size: "{{ buffer_static_th.stdout|int }}"
+
+  when: buffer_alpha_raw.stdout == ""
+
+# dynamic threshold
+- block:
+  - name: Calculate the {{ target_buffer_profile_type }} alpha
+    set_fact:
+      buffer_alpha="{{ 2|pow(buffer_alpha_raw.stdout|int) }}"
+
+  - name: Get {{ target_buffer_profile_type }} buffer pool profile for {{ target_port_name }} port
+    shell: redis-cli -n 4 HGET "{{ buffer_profile }}" pool
+    register: buffer_pool_id
+
+  - name: Parse {{ target_buffer_profile_type }} buffer pool profile name
+    set_fact:
+      buffer_pool_id="{{ buffer_pool_id.stdout|replace('[','')|replace(']','') }}"
+
+  - name: Get {{ target_buffer_profile_type }} buffer pool size for {{ target_port_name }} port
+    shell: redis-cli -n 4 HGET "{{ buffer_pool_id }}" size
+    register: buffer_pool_size
+
+  - fail:
+      msg: "Unable to get the {{ target_buffer_profile_type }} buffer pool size for {{ target_port_name }}"
+    when: buffer_pool_size.stdout == ""
+
+  - name: Calculate MAX buffer size for {{ target_port_name }} port
+    set_fact:
+      buffer_max_size="{{ buffer_headroom.stdout|int + ((buffer_alpha|float / (buffer_alpha|float + 1)) * buffer_pool_size.stdout|int) }}"
+
+  when: buffer_alpha_raw.stdout != ""
+
+
+# ingress lossless specific
 - name: Get XON for {{ target_port_name }} port
   shell: redis-cli -n 4 HGET "{{ buffer_profile }}" xon
   register: buffer_xon
@@ -71,24 +113,3 @@
 - fail:
     msg: "Unable to get the XOFF for {{ target_port_name }}"
   when: "'pg_lossless' in buffer_profile and buffer_xoff.stdout == ''"
-    
-- name: Get buffer pool profile for {{ target_port_name }} port
-  shell: redis-cli -n 4 HGET "{{ buffer_profile }}" pool
-  register: buffer_pool_id
-        
-- name: Parse buffer pool profile name
-  set_fact:
-    buffer_pool_id="{{ buffer_pool_id.stdout|replace('[','')|replace(']','') }}"
-    
-- name: Get buffer pool size for {{ target_port_name }} port
-  shell: redis-cli -n 4 HGET "{{ buffer_pool_id }}" size
-  register: buffer_pool_size
-        
-- fail:
-    msg: "Unable to get the buffer pool size for {{ target_port_name }}"
-  when: buffer_pool_size.stdout == ""
-        
-- name: Calculate MAX buffer size for {{ target_port_name }} port
-  set_fact:
-    buffer_max_size="{{ buffer_headroom.stdout|int + ((buffer_alpha|float / (buffer_alpha|float + 1)) * buffer_pool_size.stdout|int) }}"
-  
