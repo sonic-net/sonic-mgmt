@@ -80,5 +80,5 @@
         
 - name: Calculate MAX buffer size for {{ target_port_name }} port
   set_fact:
-    buffer_max_size="{{ buffer_headroom.stdout|int + ((buffer_alpha|int / (buffer_alpha|int + 1)) * buffer_pool_size.stdout|int) }}"
+    buffer_max_size="{{ buffer_headroom.stdout|int + ((buffer_alpha|float / (buffer_alpha|float + 1)) * buffer_pool_size.stdout|int) }}"
   
