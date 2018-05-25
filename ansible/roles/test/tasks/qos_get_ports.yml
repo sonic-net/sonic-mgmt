@@ -85,11 +85,13 @@
     - "{{ minigraph_bgp }}"
 
 # Get buffers size
+# Ingress lossless
 - include: roles/test/tasks/qos_get_max_buff_size.yml
   vars:
     target_table: 'BUFFER_PG'
     target_port_name: "{{ dut_switch_ports[src_port_id|int] }}"
     target_pg: '3-4'
+    target_buffer_profile_type: 'ingress lossless'
 
 - name: Set lossless MAX buffer size
   set_fact:
@@ -104,13 +106,15 @@
   template: src=qos_pfc_profile.j2 dest=/tmp/pfc_lossless_test_profile.json
   vars:
     - pfc_generate_buffer_profile: 'True'
-    
+
+# Ingress lossy
 - include: roles/test/tasks/qos_get_max_buff_size.yml
   vars:
     target_table: 'BUFFER_PG'
     target_port_name: "***{{ dut_switch_ports[src_port_id|int] }}***"
     target_pg: '0-1'
-    
+    target_buffer_profile_type: 'ingress lossy'
+
 - name: Set lossy MAX buffer size
   set_fact:
     lossy_buffer_max_size: "{{ buffer_max_size }}"
@@ -129,12 +133,14 @@
   vars:
     - pfc_generate_buffer_profile: 'True'
     
+# Egress lossless
 - include: roles/test/tasks/qos_get_max_buff_size.yml
   vars:
     target_table: 'BUFFER_QUEUE'
     target_port_name: "***{{ dut_switch_ports[src_port_id|int] }}***"
     target_pg: '3-4'
-    
+    target_buffer_profile_type: 'egress lossless'
+
 - name: Set MAX queue size for {{ dut_switch_ports[src_port_id|int] }}
   set_fact:
     lossless_queue_max_size: "{{ buffer_max_size }}"
@@ -142,7 +148,7 @@
 - name: Get the WRED profile key for "{{ dut_switch_ports[dst_port_id|int] }}"
   shell: redis-cli -n 4 KEYS "QUEUE|*{{ dut_switch_ports[dst_port_id|int] }}*|0-1"
   register: wred_profile_name
-  
+
 - fail:
     msg: "Unable to get the wred profile key for {{ dut_switch_ports[dst_port_id|int] }}"
   when: wred_profile_name.stdout == ""
