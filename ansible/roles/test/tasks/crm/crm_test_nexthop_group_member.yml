@@ -11,12 +11,12 @@
     - set_fact: crm_stats_nexthop_group_member_available={{out.stdout}}
 
     - name: Get NH IP 1
-      command: ip -4 neigh show dev {{crm_intf}}
+      command: ip -4 neigh show dev {{crm_intf}} nud reachable nud stale
       register: out
     - set_fact: nh_ip1="{{out.stdout.split()[0]}}"
 
     - name: Get NH IP 2
-      command: ip -4 neigh show dev {{crm_intf1}}
+      command: ip -4 neigh show dev {{crm_intf1}} nud reachable nud stale
       register: out
     - set_fact: nh_ip2="{{out.stdout.split()[0]}}"
 
