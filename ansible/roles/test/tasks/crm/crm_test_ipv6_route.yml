@@ -11,7 +11,7 @@
     - set_fact: crm_stats_ipv6_route_available={{out.stdout}}
 
     - name: Get NH IP
-      command: ip -6 neigh show dev {{crm_intf}}
+      shell: ip -6 neigh show dev {{crm_intf}} nud reachable nud stale | grep -v fe80
       register: out
     - set_fact: nh_ip="{{out.stdout.split()[0]}}"
 

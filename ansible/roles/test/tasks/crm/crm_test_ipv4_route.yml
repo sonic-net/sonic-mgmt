@@ -11,7 +11,7 @@
     - set_fact: crm_stats_ipv4_route_available={{out.stdout}}
 
     - name: Get NH IP
-      command: ip -4 neigh show dev {{crm_intf}}
+      command: ip -4 neigh show dev {{crm_intf}} nud reachable nud stale
       register: out
     - set_fact: nh_ip="{{out.stdout.split()[0]}}"
 
