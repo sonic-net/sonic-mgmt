@@ -246,7 +246,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         ecn = int(self.test_params['ecn'])
         router_mac = self.test_params['router_mac']
         max_buffer_size = int(self.test_params['buffer_max_size'])
-        pg = int(self.test_params['pg']) + 2 #The pfc counter index starts from index 2        
+        pg = int(self.test_params['pg']) + 2 # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
@@ -254,14 +254,18 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
 
-        #STOP PORT FUNCTION
+        # STOP PORT FUNCTION
         sched_prof_id = sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
         attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
         attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
         self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
         # Clear Counters
-        sai_thrift_clear_all_counters(self.client)
+        # sai_thrift_clear_all_counters(self.client)
+        # Get a snapshot of counter values
+        # queue_counters is not of our interest here
+        recv_port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+        transmit_port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
         try:
             tos = dscp << 2
@@ -272,7 +276,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             pkts_max = (max_buffer_size / default_packet_length) * 1.3
             pkts_bunch_size = 70 # Number of packages to send to DST port
             pkts_count = 0 # Total number of shipped packages
-            port_pg_counter = 0
+            port_pg_counter = recv_port_counters_base[pg]
             recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
             
             # Send the packets untill PFC counter will be trigerred or max pkts reached
@@ -282,8 +286,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ip_src=src_port_ip,
                                     ip_dst=dst_port_ip,
                                     ip_tos=tos,
-                                    ip_ttl=ttl)            
-            while port_pg_counter == 0 and pkts_count < pkts_max:                
+                                    ip_ttl=ttl)
+            while port_pg_counter == recv_port_counters_base[pg] and pkts_count < pkts_max:
                 send_packet(self, src_port_id, pkt, pkts_bunch_size)
                 pkts_count += pkts_bunch_size
                 time.sleep(8)
@@ -291,9 +295,10 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
                 port_pg_counter = recv_port_counters[pg]
 
-            assert(recv_port_counters[pg] != 0)
-            assert(recv_port_counters[EGRESS_DROP] == 0)
-            assert(recv_port_counters[INGRESS_DROP] == 0)
+            # PFC must be triggered and PFC counters must increment
+            assert(recv_port_counters[pg] != recv_port_counters_base[pg])
+            assert(recv_port_counters[EGRESS_DROP] == recv_port_counters_base[EGRESS_DROP])
+            assert(recv_port_counters[INGRESS_DROP] == recv_port_counters_base[INGRESS_DROP])
 
             # RELEASE PORT
             sched_prof_id=sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
@@ -313,10 +318,10 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
             transmit_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
                 
-            assert (recv_port_counters[EGRESS_DROP] == 0)
-            assert (recv_port_counters[INGRESS_DROP] == 0)
-            assert (recv_port_counters[pg] != 0)
-            assert (transmit_port_counters[TRANSMITTED_PKTS] != 0)
+            assert (recv_port_counters[EGRESS_DROP] == recv_port_counters_base[EGRESS_DROP])
+            assert (recv_port_counters[INGRESS_DROP] == recv_port_counters_base[INGRESS_DROP])
+            assert (recv_port_counters[pg] != recv_port_counters_base[pg])
+            assert (transmit_port_counters[TRANSMITTED_PKTS] != transmit_port_counters_base[TRANSMITTED_PKTS])
             assert (recv_port_counters[pg] == last_pfc_counter)
 
         finally:
