@@ -43,12 +43,19 @@ hwsku="Nexus-3132-Q32"
 iface_speed='40000'
 
 [sonic_nexus_9232_40]
-str-n9232-acs-1    ansible_host=10.3.147.189
 str-n9232-acs-2    ansible_host=10.3.147.254
 
 [sonic_nexus_9232_40:vars]
 hwsku="Nexus-9232-Q32"
 iface_speed='40000'
+
+[sonic_nexus_9232_100]
+str-n9232-acs-1    ansible_host=10.3.147.189
+str-n9232-acs-3    ansible_host=10.64.247.241
+
+[sonic_nexus_9232_100:vars]
+hwsku="Nexus-9232-C32"
+iface_speed='100000'
 
 [sonic_arista_40]
 str-a7050-acs-1   ansible_host=10.3.147.241 hwsku="Arista-7050-QX-32S"
@@ -149,6 +156,7 @@ sonic_e1031
 sonic_wedge100b65_100
 sonic_dx010_100
 sonic_agc7648
+sonic_nexus_9232_100
 
 [sonic:vars]
 mgmt_subnet_mask_length='23'
