@@ -82,10 +82,13 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         exp_ip_id = 101
         exp_ttl = 63
 
-        ## Clear Switch Counters
-        sai_thrift_clear_all_counters(self.client)
+        # Clear Switch Counters
+        # sai_thrift_clear_all_counters(self.client)
+        # Get a snapshot of counter values
+        # port_results is not of our interest here
+        port_results, queue_results_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
-        ## DSCP Mapping test
+        # DSCP Mapping test
         try:
             for dscp in range(0,64):
                 tos = dscp << 2
@@ -115,19 +118,19 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                     except AttributeError:
                         continue
 
-            ## Read Counters
+            # Read Counters
             port_results, queue_results = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
-            ## According to SONiC configuration all dscp are classified to queue 0 except:
-            ## dscp 3 -> queue 3
-            ## dscp 4 -> queue 4
-            ## dscp 8 -> queue 1
-            ## So for the 64 pkts sent the mapping should be -> 61 queue 0, and 1 for queue1, queue3 and queue4
-            ## Check results
-            assert (queue_results[QUEUE_0] == 61)
-            assert (queue_results[QUEUE_1] == 1)
-            assert (queue_results[QUEUE_3] == 1)
-            assert (queue_results[QUEUE_4] == 1)
+            # According to SONiC configuration all dscp are classified to queue 0 except:
+            # dscp 3 -> queue 3
+            # dscp 4 -> queue 4
+            # dscp 8 -> queue 1
+            # So for the 64 pkts sent the mapping should be -> 61 queue 0, and 1 for queue1, queue3 and queue4
+            # Check results
+            assert(queue_results[QUEUE_0] == 61 + queue_results_base[QUEUE_0])
+            assert(queue_results[QUEUE_1] == 1 + queue_results_base[QUEUE_1])
+            assert(queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
+            assert(queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
 
         finally:
             print "END OF TEST"
