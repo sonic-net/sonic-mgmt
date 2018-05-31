@@ -84,8 +84,6 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         exp_ip_id = 101
         exp_ttl = 63
 
-        # Clear switch counters
-        # sai_thrift_clear_all_counters(self.client)
         # Get a snapshot of counter values
         # port_results is not of our interest here
         port_results, queue_results_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
@@ -166,8 +164,6 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         # Increase the number of packets on 25% for a oversight of translating packet size to cells
         pkts_max = (max_buffer_size / default_packet_length + 1) * 1.3
             
-        # Clear counters
-        # sai_thrift_clear_all_counters(self.client)
         # Get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
         port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
@@ -282,8 +278,6 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
         self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
-        # Clear counters
-        # sai_thrift_clear_all_counters(self.client)
         # Get a snapshot of counter values
         # queue_counters is not of our interest here
         recv_port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
@@ -519,8 +513,6 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
         self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
-        # Clear counters
-        # sai_thrift_clear_all_counters(self.client)
         # Get a snapshot of counter values
         port_counters_base, queue_counters_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
@@ -668,8 +660,6 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
         self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
 
-        # Clear counters
-        # sai_thrift_clear_all_counters(self.client)
         # Get a snapshot of counter values at both xmit and recv ports
         # queue_counters value is not of our interest here
         recv_port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
