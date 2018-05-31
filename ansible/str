@@ -204,6 +204,7 @@ v12-22  ansible_host=10.64.246.25
 v12-31  ansible_host=10.64.246.42
 vms13-1 ansible_host=10.64.247.29
 vms13-2 ansible_host=10.64.247.28
+vms13-3 ansible_host=10.64.246.49
 v13-41  ansible_host=10.64.246.17
 v13-51  ansible_host=10.64.246.19
 
