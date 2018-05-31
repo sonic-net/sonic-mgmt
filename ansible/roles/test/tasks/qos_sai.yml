@@ -60,7 +60,8 @@
     - name: copy portmap
       copy: src={{ ptf_portmap }} dest=/root
       delegate_to: "{{ ptf_host }}"
-      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
+      when: minigraph_hwsku is defined and
+            (minigraph_hwsku in mellanox_hwskus or minigraph_hwsku == 'Arista-7050-QX-32S')
 
     - name: Init PTF base test parameters
       set_fact: 
