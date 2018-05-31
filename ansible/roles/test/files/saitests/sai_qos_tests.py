@@ -271,7 +271,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
         self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
-        # Clear Counters
+        # Clear counters
         # sai_thrift_clear_all_counters(self.client)
         # Get a snapshot of counter values
         # queue_counters is not of our interest here
@@ -290,7 +290,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             port_pg_counter = recv_port_counters_base[pg]
             recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
             
-            # Send the packets untill PFC counter will be trigerred or max pkts reached
+            # Send packets untill PFC counter will be trigerred or max pkts reached
             pkt = simple_tcp_packet(pktlen=default_packet_length,
                                     eth_dst=router_mac,
                                     eth_src=src_port_mac,
@@ -306,12 +306,15 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
                 port_pg_counter = recv_port_counters[pg]
 
-            # src port PFC must be triggered and PFC counters must increment
+            # recv port PFC must be triggered and PFC counters must increment
             assert(recv_port_counters[pg] != recv_port_counters_base[pg])
-            # src port no egress drop (no need to assert this, because it is not the dst port)
+            # recv port no egress drop (no need to assert this, because it is not the xmit port)
             assert(recv_port_counters[EGRESS_DROP] == recv_port_counters_base[EGRESS_DROP])
-            # src port no ingress drop
+            # recv port no ingress drop
             assert(recv_port_counters[INGRESS_DROP] == recv_port_counters_base[INGRESS_DROP])
+            # xmit port no egress drop
+            transmit_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            assert(transmit_port_counters[EGRESS_DROP] == transmit_port_counters_base[EGRESS_DROP])
 
             # Release dst port
             sched_prof_id=sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
@@ -331,15 +334,18 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
             transmit_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
-            # src port no egress drop (no need to assert this, because it is not the dst port)
+            # recv port no egress drop (no need to assert this, because it is not the xmit port)
             assert(recv_port_counters[EGRESS_DROP] == recv_port_counters_base[EGRESS_DROP])
-            # src port no ingress drop
+            # recv port no ingress drop
             assert(recv_port_counters[INGRESS_DROP] == recv_port_counters_base[INGRESS_DROP])
-            # src port PFC must be triggered and PFC counters must increment
+            # recv port PFC must be triggered and PFC counters must increment
             assert(recv_port_counters[pg] != recv_port_counters_base[pg])
-            assert(transmit_port_counters[TRANSMITTED_PKTS] != transmit_port_counters_base[TRANSMITTED_PKTS])
-            # src port PFC counters remain the same value as sampled immediately after release
+            # recv port PFC counters remain the same value as sampled immediately after release
             assert(recv_port_counters[pg] == last_pfc_counter)
+            # xmit port has transmitted packets and tx counters must increment
+            assert(transmit_port_counters[TRANSMITTED_PKTS] != transmit_port_counters_base[TRANSMITTED_PKTS])
+            # xmit port no egress drop
+            assert(transmit_port_counters[EGRESS_DROP] == transmit_port_counters_base[EGRESS_DROP])
 
         finally:
             # Release port
