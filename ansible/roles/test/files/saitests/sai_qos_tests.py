@@ -24,6 +24,7 @@ from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
 from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID
 
 # Counters
+# The index number comes from the append order in sai_thrift_read_port_counters
 EGRESS_DROP = 0
 INGRESS_DROP = 1
 PFC_PRIO_3 = 5
@@ -82,7 +83,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         exp_ip_id = 101
         exp_ttl = 63
 
-        # Clear Switch Counters
+        # Clear switch counters
         # sai_thrift_clear_all_counters(self.client)
         # Get a snapshot of counter values
         # port_results is not of our interest here
@@ -135,7 +136,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             print "END OF TEST"
 
-#This test is to measure the Xoff threshold, and buffer limit
+# This test is to measure the Xoff threshold, and buffer limit
 class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         time.sleep(5)
@@ -164,8 +165,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         # Increase the number of packets on 25% for a oversight of translating packet size to cells
         pkts_max = (max_buffer_size / default_packet_length + 1) * 1.3
             
-        # Clear Counters
-        sai_thrift_clear_all_counters(self.client)
+        # Clear counters
+        # sai_thrift_clear_all_counters(self.client)
 
         # Close DST port
         sched_prof_id = sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
@@ -173,7 +174,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
         self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
-        #send packets
+        # Send packets
         try:
             src_port_index = -1
             pkts_bunch_size = 70 # Number of packages to send to DST port
@@ -194,22 +195,25 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 time.sleep(8)
 
                 drop_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                assert (drop_counters[EGRESS_DROP] == 0)
-                
+                assert(drop_counters[EGRESS_DROP] == 0)
+
                 port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
                 port_pg_counter = port_counters[pg]
 
+            # PFC must be triggered and PFC counters must increment
             assert(port_counters[pg] != 0)
+            # No egress drop
             assert(port_counters[EGRESS_DROP] == 0)
+            # No ingress drop
             assert(port_counters[INGRESS_DROP] == 0)
-            
+
             # Send the packages till ingress drop on src port
             pkts_bunch_size = 70
             # Increase the number of packets on 25% for a oversight of translating packet size to cells
             pkts_max = ((max_buffer_size + max_queue_size) / default_packet_length) * 1.3
             port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
             ingress_counter = port_counters[INGRESS_DROP]            
-            while ingress_counter == 0 and pkts_count < pkts_max:               
+            while ingress_counter == 0 and pkts_count < pkts_max:
                 pkt = simple_tcp_packet(pktlen=default_packet_length,
                                         eth_dst=router_mac,
                                         eth_src=src_port_mac,
@@ -220,22 +224,26 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt, pkts_bunch_size)
                 pkts_count += pkts_bunch_size
                 time.sleep(8)
-                
+
                 port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-                ingress_counter = port_counters[INGRESS_DROP]    
-                    
+                ingress_counter = port_counters[INGRESS_DROP]
+
+            # No egress drop
             assert(port_counters[EGRESS_DROP] == 0)
+            # Must have ingress drop
             assert(port_counters[INGRESS_DROP] != 0)
+            # PFC must be triggered and PFC counters must increment
             assert(port_counters[pg] != 0)
 
         finally:
-            # RELEASE PORT
+            # Release port
             sched_prof_id = sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
             attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
             print "END OF TEST"
 
+# This test looks to measure xon (pg_reset_floor)
 class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         time.sleep(5)
@@ -257,7 +265,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
 
-        # STOP PORT FUNCTION
+        # Stop dst port function
         sched_prof_id = sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
         attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
         attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
@@ -298,12 +306,14 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
                 port_pg_counter = recv_port_counters[pg]
 
-            # PFC must be triggered and PFC counters must increment
+            # src port PFC must be triggered and PFC counters must increment
             assert(recv_port_counters[pg] != recv_port_counters_base[pg])
+            # src port no egress drop (no need to assert this, because it is not the dst port)
             assert(recv_port_counters[EGRESS_DROP] == recv_port_counters_base[EGRESS_DROP])
+            # src port no ingress drop
             assert(recv_port_counters[INGRESS_DROP] == recv_port_counters_base[INGRESS_DROP])
 
-            # RELEASE PORT
+            # Release dst port
             sched_prof_id=sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
             attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
@@ -317,18 +327,22 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             send_packet(self, src_port_id, pkt, non_xoff_pkts_num)
             time.sleep(5)
 
-            # Read Counters
+            # Read counters
             recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
             transmit_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                
-            assert (recv_port_counters[EGRESS_DROP] == recv_port_counters_base[EGRESS_DROP])
-            assert (recv_port_counters[INGRESS_DROP] == recv_port_counters_base[INGRESS_DROP])
-            assert (recv_port_counters[pg] != recv_port_counters_base[pg])
-            assert (transmit_port_counters[TRANSMITTED_PKTS] != transmit_port_counters_base[TRANSMITTED_PKTS])
-            assert (recv_port_counters[pg] == last_pfc_counter)
+
+            # src port no egress drop (no need to assert this, because it is not the dst port)
+            assert(recv_port_counters[EGRESS_DROP] == recv_port_counters_base[EGRESS_DROP])
+            # src port no ingress drop
+            assert(recv_port_counters[INGRESS_DROP] == recv_port_counters_base[INGRESS_DROP])
+            # src port PFC must be triggered and PFC counters must increment
+            assert(recv_port_counters[pg] != recv_port_counters_base[pg])
+            assert(transmit_port_counters[TRANSMITTED_PKTS] != transmit_port_counters_base[TRANSMITTED_PKTS])
+            # src port PFC counters remain the same value as sampled immediately after release
+            assert(recv_port_counters[pg] == last_pfc_counter)
 
         finally:
-            # RELEASE PORT
+            # Release port
             sched_prof_id=sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
             attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
