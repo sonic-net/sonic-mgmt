@@ -8,6 +8,7 @@ import ptf.packet as scapy
 import socket
 import ptf.dataplane as dataplane
 import sai_base_test
+import operator
 from ptf.testutils import (ptf_ports,
                            simple_arp_packet,
                            send_packet,
@@ -512,16 +513,18 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         queue_3_num_of_pkts = int(self.test_params['q3_num_of_pkts'])
         queue_4_num_of_pkts = int(self.test_params['q4_num_of_pkts'])
 
-        #STOP PORT FUNCTION
+        # Stop port function
         sched_prof_id=sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
         attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
         attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
         self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
-        # Clear Counters
-        sai_thrift_clear_all_counters(self.client)
+        # Clear counters
+        # sai_thrift_clear_all_counters(self.client)
+        # Get a snapshot of counter values
+        port_counters_base, queue_counters_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
-        #send packets to each queue based on dscp field
+        # Send packets to each queue based on dscp field
         try:
             for i in range(0, queue_0_num_of_pkts):
                 dscp = 0
@@ -583,7 +586,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             for p in self.dataplane.ports.values():
                 p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
 
-            # RELEASE PORT
+            # Release port
             sched_prof_id=sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
             attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
@@ -624,14 +627,14 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 
                 print queue_pkt_counters
 
-            # Read Counters
+            # Read counters
             print "DST port counters: "
             port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-            print port_counters
-            print queue_counters
+            print map(operator.sub, port_counters, port_counters_base)
+            print map(operator.sub, queue_counters, queue_counters_base)
 
         finally:
-            # RELEASE PORT
+            # Release port
             sched_prof_id=sai_thrift_create_scheduler_profile(self.client, RELEASE_PORT_MAX_RATE)
             attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
