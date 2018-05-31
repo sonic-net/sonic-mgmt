@@ -55,6 +55,7 @@ qos_params:
         lossy_queue:
             dscp: 8
             ecn: 1
+            pg: 1
         wrr:
            ecn: 1
            q0_num_of_pkts: 600
@@ -110,6 +111,7 @@ qos_params:
         lossy_queue:
             dscp: 8
             ecn: 1
+            pg: 1
         wrr:
            ecn: 1
            q0_num_of_pkts: 600
@@ -165,6 +167,7 @@ qos_params:
         lossy_queue:
             dscp: 8
             ecn: 1
+            pg: 1
         wrr:
            ecn: 1
            q0_num_of_pkts: 600

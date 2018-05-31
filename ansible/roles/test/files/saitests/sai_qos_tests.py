@@ -644,6 +644,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         # Parse input parameters
         dscp = int(self.test_params['dscp'])
         ecn = int(self.test_params['ecn'])
+        pg = int(self.test_params['pg'])
         router_mac = self.test_params['router_mac']
         max_buffer_size = int(self.test_params['buffer_max_size'])
         headroom_size = int(self.test_params['headroom_size'])
@@ -657,17 +658,22 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
 
-        #STOP PORT FUNCTION
+        # Stop port function
         sched_prof_id=sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
         attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
         attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
         self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
         self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
 
-        # Clear Counters
-        sai_thrift_clear_all_counters(self.client)
+        # Clear counters
+        # sai_thrift_clear_all_counters(self.client)
+        # Get a snapshot of counter values at both xmit and recv ports
+        # queue_counters value is not of our interest here
+        recv_port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+        xmit_port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+        xmit_port_2_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
 
-        #send packets
+        # send packets
         try:
             tos = dscp << 2
             tos |= ecn
@@ -677,9 +683,8 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             pkts_max = (max_buffer_size / default_packet_length) * 1.25
             pkts_bunch_size = 200 # Number of packages to send to DST port
             pkts_count = 0 # Total number of shipped packages
-            egress_drop_counter = 0
-            recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-            
+            egress_drop_counter = xmit_port_counters_base[EGRESS_DROP]
+
             pkt = simple_tcp_packet(pktlen=default_packet_length,
                                     eth_dst=router_mac,
                                     eth_src=src_port_mac,
@@ -688,16 +693,17 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ip_tos=tos,
                                     ip_ttl=ttl)
             # Send packets till egress drop or max number of packages is reached
-            while egress_drop_counter == 0 and pkts_count < pkts_max:
+            while egress_drop_counter == xmit_port_counters_base[EGRESS_DROP] and pkts_count < pkts_max:
                 send_packet(self, src_port_id, pkt, pkts_bunch_size)
                 pkts_count += pkts_bunch_size
                 time.sleep(5)
-                
+
                 port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
                 egress_drop_counter = port_counters[EGRESS_DROP]
-            
+
+            # xmit port must have egress drop
             port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-            assert (port_counters[EGRESS_DROP] != 0)
+            assert(port_counters[EGRESS_DROP] != xmit_port_counters_base[EGRESS_DROP])
 
             # Send N packets to another port to fill the headroom and check if no drops
             pkt = simple_tcp_packet(pktlen=default_packet_length,
@@ -712,18 +718,23 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             if no_drop_pkts_max > 0:
                 send_packet(self, src_port_id, pkt, no_drop_pkts_max)
                 time.sleep(5)
-            
+
+                # xmit port must have egress drop
                 port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                assert (port_counters[EGRESS_DROP] != 0)
-            
+                assert(port_counters[EGRESS_DROP] != xmit_port_counters_base[EGRESS_DROP])
+
+                # xmit port 2 no egress drop
                 port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
-                assert (port_counters[EGRESS_DROP] == 0)
-            
-            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])            
-            assert (port_counters[INGRESS_DROP] == 0)
+                assert(port_counters[EGRESS_DROP] == xmit_port_2_counters_base[EGRESS_DROP])
+
+            # recv port no ingress drop
+            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            assert(port_counters[INGRESS_DROP] == recv_port_counters_base[INGRESS_DROP])
+            # recv port no PFC ever triggered
+            assert(port_counters[pg] == recv_port_counters_base[pg])
 
         finally:
-            # RELEASE PORTS
+            # Release ports
             sched_prof_id=sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
             attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)

@@ -188,6 +188,7 @@
         test_params:
         - dscp='{{ qp.lossy_queue.dscp }}'
         - ecn='{{ qp.lossy_queue.ecn }}'
+        - pg='{{ qp.lossy_queue.pg }}'
         - buffer_max_size='{{ lossy_buffer_max_size|int }}'
         - headroom_size='{{ lossy_headroom_size }}'
         - dst_port_id='{{ dst_port_id }}'
