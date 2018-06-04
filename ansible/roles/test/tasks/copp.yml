@@ -1,7 +1,4 @@
 - block:
-    - fail: msg="Please set ptf_host variable"
-      when: ptf_host is not defined
-
     - name: Ensure LLDP Daemon stopped
       become: yes
       supervisorctl: state=stopped name={{ item }}
@@ -28,6 +25,36 @@
       copy: src=roles/test/files/ptftests dest=/root
       delegate_to: "{{ ptf_host }}"
 
+# Add case for Force10-S6100 since this platform has 64 ports
+# TODO: Generalize the code so that it fits for any topologies
+    - set_fact:
+        test_port_index: "3"
+        test_port_src_ip: "10.0.0.7"
+        test_port_peer_ip: "10.0.0.6"
+        test_port_alias: "Ethernet12"
+      when: minigraph_hwsku != 'Force10-S6100'
+
+    - set_fact:
+        test_port_index: "1"
+        test_port_src_ip: "10.0.0.1"
+        test_port_peer_ip: "10.0.0.0"
+        test_port_alias: "Ethernet1"
+      when: minigraph_hwsku == 'Force10-S6100'
+
+    - block:
+      - name: Stop the original ptf_nn_agent thread started by supervisord
+        shell: supervisorctl stop ptf_nn_agent
+        vars:
+          ansible_shell_type: docker
+          ansible_python_interpreter: docker exec -i syncd python
+
+      - name: Start ptf_nn_agent on DUT
+        shell: /usr/bin/python /opt/ptf_nn_agent.py --device-socket 1@tcp://0.0.0.0:10900 -i 1-{{test_port_index}}@{{test_port_alias}} --set-iface-rcv-buffer=109430400 &
+        vars:
+          ansible_shell_type: docker
+          ansible_python_interpreter: docker exec -i syncd python
+      when: minigraph_hwsku == 'Force10-S6100'
+
     - include: ptf_runner.yml
       vars:
         ptf_test_name: COPP test - {{ item }}
@@ -38,7 +65,10 @@
         ptf_test_params:
         - verbose=False
         - pkt_tx_count={{ pkt_tx_count|default(0) }}
-        ptf_extra_options: "--device-socket 0-3@tcp://127.0.0.1:10900 --device-socket 1-3@tcp://{{ ansible_eth0['ipv4']['address'] }}:10900"
+        - test_port={{test_port_index}}
+        - test_port_src_ip='{{test_port_src_ip}}'
+        - test_port_peer_ip='{{test_port_peer_ip}}'
+        ptf_extra_options: "--device-socket 0-{{test_port_index}}@tcp://127.0.0.1:10900 --device-socket 1-{{test_port_index}}@tcp://{{ ansible_eth0['ipv4']['address'] }}:10900"
       with_items:
         - ARPTest
         - DHCPTest
