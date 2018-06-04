@@ -7,7 +7,7 @@ testcases:
           testbed_type:
 
     acl_scale:
-      filename: 1acltb_scale.yml
+      filename: acltb_scale.yml
       topologies: [t1, t1-lag, t1-64-lag]
       required_vars:
           ptf_host:
