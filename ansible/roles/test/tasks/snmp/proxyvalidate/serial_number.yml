@@ -1,37 +1,18 @@
 ### Playbook to validate SNMPProxy get serial number
+- block:
+  - name: validate SN from CLI (arista, mellanox, dells6100)
+    shell: "decode-syseeprom -s"
+    register: sh_serial
+    become: yes
+    ignore_errors: yes
 
-- name: validate SN from CLI (arista, mellanox, dells6100)
-  shell: "show platform syseeprom | grep --text -i serial"
-  register: sh_serial
-  ignore_errors: yes
-
-- set_fact: 
+  - set_fact:
       sn: "{{ sh_serial.stdout.replace('\u0000', '', 20) }}"
-  when: "sh_serial.stdout != ''"
+    when: "sh_serial.stdout != ''"
 
-- block:
-    - name: validate SN from CLI dells6000
-      shell: "show platform syseeprom | grep --text -i \"Service Tag\""
-      register: sh_serial
-      ignore_errors: yes
+  - debug: var=sn
 
-    - set_fact:
-        sn: "{{ sh_serial.stdout.replace('\u0000', '', 20) }}"
-      when: "sh_serial.stdout != ''"
-  when: sn is not defined
+  - assert: { that: "rt_value['Value'] == sn" }
+  when: "'on' not in inventory_hostname "
 
-
-- block:
-    - name: validate SN from CLI cisco
-      shell: "show platform syseeprom | grep --text -i -v \"Sup\" | grep --text -i \"S/N\""
-      register: sh_serial
-
-    - set_fact:
-        sn: "{{ sh_serial.stdout.replace('\u0000', '', 20) }}"
-      when: "sh_serial.stdout != ''"
-  when: sn is not defined
-
-- debug: var=sn
-
-- assert: { that: "rt_value['Value'] == sn.split(' ')[-1]" }
-
+- debug: msg="no validation of serial for S6000 Onie"

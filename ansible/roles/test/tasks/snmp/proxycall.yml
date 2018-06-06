@@ -14,9 +14,9 @@
 - assert: { that: "error_code['ErrorCode'] == 'Success'" }
 
 - assert: { that: "rt_value['Value'] != 'Unknown'" }
+  when:
+      - '"on" not in inventory_hostname'
+      - '"SerialNumber" not in action'
 
 - include: roles/test/tasks/snmp/proxyvalidate/{{snmpproxycalls[action]['validate']}}
   when: "'validate' in snmpproxycalls[action]"
-
-
-   
