@@ -307,7 +307,6 @@ class LogAnalyzer:
         end_marker = self.create_end_marker()
 
         for rev_line in reversed(log_file.readlines()):
-
             if stdin_as_input:
                 in_analysis_range = True
             else:
@@ -321,7 +320,7 @@ class LogAnalyzer:
                     continue
 
             if not stdin_as_input:
-                if rev_line.find(start_marker) != -1:
+                if rev_line.find(start_marker) != -1 and 'nsible' not in rev_line:
                     self.print_diagnostic_message('found start marker: %s' % start_marker)
                     if (found_start_marker):
                         print 'ERROR: duplicate start marker found'
@@ -427,7 +426,6 @@ def check_action(action, log_files_in, out_dir, match_files_in, ignore_files_in,
 
     if (action == 'init'):
         ret_code = True
-
     elif (action == 'analyze'):
         if out_dir is None or len(out_dir) == 0:
             print 'ERROR: missing required out_dir for analyze action'
