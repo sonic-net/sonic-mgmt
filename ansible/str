@@ -130,7 +130,7 @@ iface_speed='100000'
 str-dx010-acs-1 ansible_host=10.64.246.33
 
 [sonic_dx010_100:vars]
-hwsku="Seastone-DX010"
+hwsku="Seastone-DX010-C32"
 iface_speed='100000'
 
 [sonic_agc7648]

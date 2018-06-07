@@ -47,7 +47,7 @@
       <Device Hostname="str-msn2700-20" HwSku="Mellanox-SN2700-D48C8" Type="DevSonic"/>
       <Device Hostname="str-msn2700-22" HwSku="Mellanox-SN2700" Type="DevSonic"/>
       <Device Hostname="str-z9100-acs-2" HwSku="Force10-Z9100" Type="DevSonic"/>
-      <Device Hostname="str-dx010-acs-1" HwSku="Celestica-DX010" Type="DevSonic"/>
+      <Device Hostname="str-dx010-acs-1" HwSku="SeaStone-DX010-C32" Type="DevSonic"/>
       <Device Hostname="str-agc7648-acs-1" HwSku="Delta-AGC7648" Type="DevSonic"/>
       <Device Hostname="str-e1031-acs-1" HwSku="E1031-T48S4" Type="DevSonic"/>
       <Device Hostname="str-e1031-acs-2" HwSku="E1031-T48S4" Type="FanoutLeaf"/>
