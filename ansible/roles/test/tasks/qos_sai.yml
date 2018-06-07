@@ -103,6 +103,7 @@
 
     - name: Set testing buffer profile for PFC tests
       shell: sonic-cfggen -j /tmp/pfc_lossless_test_profile.json --write-to-db
+      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
     # XON limit
     - include: qos_sai_ptf.yml
@@ -166,6 +167,7 @@
 
     - name: Restore origin buffer profile after PFC tests
       shell: sonic-cfggen -j /tmp/pfc_lossless_base_profile.json --write-to-db
+      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
     # DSCP MAPPING
     - include: qos_sai_ptf.yml
@@ -178,8 +180,9 @@
         - src_port_id='{{ src_port_id }}'
         - src_port_ip='{{ src_port_ip }}'
 
-    - name: Set testing buffer profile for lossy test
+    - name: Set testing buffer profile for lossy traffic test
       shell: sonic-cfggen -j /tmp/pfc_lossy_test_profile.json --write-to-db
+      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
     # Lossy queue
     - include: qos_sai_ptf.yml
@@ -199,8 +202,9 @@
         - src_port_id='{{ src_port_id }}'
         - src_port_ip='{{ src_port_ip }}'
 
-    - name: Restore origin buffer profile after lossy tests
+    - name: Restore origin buffer profile after lossy traffic tests
       shell: sonic-cfggen -j /tmp/pfc_lossy_base_profile.json --write-to-db
+      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
     # WRR test
     - include: qos_sai_ptf.yml
@@ -241,14 +245,17 @@
         ansible_shell_type: docker
         ansible_python_interpreter: docker exec -i bgp python
 
-    - name: Restore origin buffer profile after PFC tests
-      shell: sonic-cfggen -j /tmp/pfc_lossless_base_profile.json --write-to-db
+    - block:
+      - name: Restore origin buffer profile after PFC tests
+        shell: sonic-cfggen -j /tmp/pfc_lossless_base_profile.json --write-to-db
 
-    - name: Restore origin buffer profile after lossy tests
-      shell: sonic-cfggen -j /tmp/pfc_lossy_base_profile.json --write-to-db
+      - name: Restore origin buffer profile after lossy tests
+        shell: sonic-cfggen -j /tmp/pfc_lossy_base_profile.json --write-to-db
 
-    - name: Remove extra record for lossy pg profile
-      shell: redis-cli -n 4 del 'BUFFER_PG|{{ dut_switch_ports[src_port_id|int] }}|0-1'
+      - name: Remove extra record for lossy pg profile
+        shell: redis-cli -n 4 del 'BUFFER_PG|{{ dut_switch_ports[src_port_id|int] }}|0-1'
+
+      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
     - name: Enable Mellanox packet aging
       shell: python /root/packets_aging.py enable
