@@ -165,55 +165,55 @@
 - fail:
     msg: "Unable to get the wred profile key for {{ dut_switch_ports[dst_port_id|int] }}"
   when: wred_profile_name.stdout == ""
-  
+
 - name: Parse WRED profile key
   set_fact:
     wred_profile_name="{{ wred_profile_name.stdout|replace('[','')|replace(']','') }}"
-    
+
 - name: Get the WRED profile for "{{ dut_switch_ports[dst_port_id|int] }}"
   shell: redis-cli -n 4 HGET "{{ wred_profile_name }}" wred_profile
   register: wred_profile
-        
+
 - fail:
     msg: "Unable to get the buffer profile for {{ dut_switch_ports[dst_port_id|int] }}"
   when: wred_profile.stdout == ""
-  
+
 - name: Parse WRED profile name
   set_fact:
     wred_profile="{{ wred_profile.stdout|replace('[','')|replace(']','') }}"
-    
+
 - name: Get green_max_threshold for {{ dut_switch_ports[dst_port_id|int] }} from {{ wred_profile }}
   shell: redis-cli -n 4 HGET "{{ wred_profile }}" green_max_threshold
   register: green_max_threshold
-  
+
 - fail:
     msg: "Unable to get the green_max_threshold for {{ dut_switch_ports[dst_port_id|int] }} from {{ wred_profile }}"
   when: green_max_threshold.stdout == ""
-  
+
 - name: Parse WRED green_max_threshold
   set_fact:
     green_max_threshold="{{ green_max_threshold.stdout|int }}"
-    
+
 - name: Get yellow_max_threshold for {{ dut_switch_ports[dst_port_id|int] }} from {{ wred_profile }}
   shell: redis-cli -n 4 HGET "{{ wred_profile }}" yellow_max_threshold
   register: yellow_max_threshold
-  
+
 - fail:
     msg: "Unable to get the yellow_max_threshold for {{ dut_switch_ports[dst_port_id|int] }} from {{ wred_profile }}"
   when: yellow_max_threshold.stdout == ""
-  
+
 - name: Parse WRED yellow_max_threshold
   set_fact:
     yellow_max_threshold="{{ yellow_max_threshold.stdout|int }}"
-    
+
 - name: Get red_max_threshold for {{ dut_switch_ports[dst_port_id|int] }} from {{ wred_profile }}
   shell: redis-cli -n 4 HGET "{{ wred_profile }}" red_max_threshold
   register: red_max_threshold
-  
+
 - fail:
     msg: "Unable to get the red_max_threshold for {{ dut_switch_ports[dst_port_id|int] }} from {{ wred_profile }}"
   when: red_max_threshold.stdout == ""
-  
+
 - name: Parse WRED red_max_threshold
   set_fact:
     red_max_threshold="{{ red_max_threshold.stdout|int }}"

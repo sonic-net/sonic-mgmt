@@ -9,6 +9,7 @@ import socket
 import ptf.dataplane as dataplane
 import sai_base_test
 import operator
+import sys
 from ptf.testutils import (ptf_ports,
                            simple_arp_packet,
                            send_packet,
@@ -73,7 +74,7 @@ class ReleaseAllPorts(sai_base_test.ThriftInterfaceDataPlane):
 class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)
-        
+
         router_mac = self.test_params['router_mac']        
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
@@ -140,12 +141,12 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         time.sleep(5)
         switch_init(self.client)
-        
+
         # Parse input parameters
         dscp = int(self.test_params['dscp'])
         ecn = int(self.test_params['ecn'])
         router_mac = self.test_params['router_mac']
-        pg = int(self.test_params['pg']) + 2 #The pfc counter index starts from index 2
+        pg = int(self.test_params['pg']) + 2 # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
@@ -154,7 +155,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
-        
+
         # Prepare TCP packet data
         tos = dscp << 2
         tos |= ecn
@@ -163,7 +164,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         # Calculate the max number of packets which port buffer can consists
         # Increase the number of packets on 25% for a oversight of translating packet size to cells
         pkts_max = (max_buffer_size / default_packet_length + 1) * 1.3
-            
+
         # Get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
         port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
@@ -181,7 +182,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             pkts_bunch_size = 70 # Number of packages to send to DST port
             pkts_count = 0 # Total number of shipped packages
             port_pg_counter = port_counters_base[pg]
-            
+
             # Send the packets untill PFC counter will be trigerred or max pkts reached
             pkt = simple_tcp_packet(pktlen=default_packet_length,
                                     eth_dst=router_mac,
@@ -193,6 +194,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             while port_pg_counter == port_counters_base[pg] and pkts_count < pkts_max:
                 send_packet(self, src_port_id, pkt, pkts_bunch_size)
                 pkts_count += pkts_bunch_size
+                # To allow enough time for the dut to sync up the counter values in counters_db
                 time.sleep(8)
 
                 drop_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
@@ -201,8 +203,9 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
                 port_pg_counter = port_counters[pg]
 
+            print >> sys.stderr, "# of packets sent to trigger PFC: %d" % pkts_count
             # recv port PFC must be triggered and PFC counters must increment
-            assert(port_counters[pg] != port_counters_base[pg])
+            assert(port_counters[pg] > port_counters_base[pg])
             # recv port no egress drop (no need to assert this, because it is not the xmit port)
             assert(port_counters[EGRESS_DROP] == port_counters_base[EGRESS_DROP])
             # recv port no ingress drop
@@ -227,17 +230,19 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_ttl=ttl)
                 send_packet(self, src_port_id, pkt, pkts_bunch_size)
                 pkts_count += pkts_bunch_size
+                # To allow enough time for the dut to sync up the counter values in counters_db
                 time.sleep(8)
 
                 port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
                 ingress_counter = port_counters[INGRESS_DROP]
 
+            print >> sys.stderr, "# of packets sent to trigger ingress drop: %d" % pkts_count
             # recv port no egress drop (no need to assert this, because it is not the xmit port)
             assert(port_counters[EGRESS_DROP] == port_counters_base[EGRESS_DROP])
             # recv port must have ingress drop
-            assert(port_counters[INGRESS_DROP] != port_counters_base[INGRESS_DROP])
+            assert(port_counters[INGRESS_DROP] > port_counters_base[INGRESS_DROP])
             # recv port PFC must be triggered and PFC counters must increment
-            assert(port_counters[pg] != port_counters_base[pg])
+            assert(port_counters[pg] > port_counters_base[pg])
             # xmit port no egress drop
             drop_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
             assert(drop_counters[EGRESS_DROP] == drop_counters_base[EGRESS_DROP])
@@ -258,7 +263,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         last_pfc_counter = 0
         recv_port_counters = []
         transmit_port_counters = []
-        
+
         # Parse input parameters
         dscp = int(self.test_params['dscp'])
         ecn = int(self.test_params['ecn'])
@@ -294,7 +299,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             pkts_count = 0 # Total number of shipped packages
             port_pg_counter = recv_port_counters_base[pg]
             recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-            
+
             # Send packets untill PFC counter will be trigerred or max pkts reached
             pkt = simple_tcp_packet(pktlen=default_packet_length,
                                     eth_dst=router_mac,
@@ -306,13 +311,15 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             while port_pg_counter == recv_port_counters_base[pg] and pkts_count < pkts_max:
                 send_packet(self, src_port_id, pkt, pkts_bunch_size)
                 pkts_count += pkts_bunch_size
+                # To allow enough time for the dut to sync up the counter values in counters_db
                 time.sleep(8)
-                
+
                 recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
                 port_pg_counter = recv_port_counters[pg]
 
+            print >> sys.stderr, "# of packets sent to trigger PFC: %d" % pkts_count
             # recv port PFC must be triggered and PFC counters must increment
-            assert(recv_port_counters[pg] != recv_port_counters_base[pg])
+            assert(recv_port_counters[pg] > recv_port_counters_base[pg])
             # recv port no egress drop (no need to assert this, because it is not the xmit port)
             assert(recv_port_counters[EGRESS_DROP] == recv_port_counters_base[EGRESS_DROP])
             # recv port no ingress drop
@@ -327,7 +334,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)            
             time.sleep(10)
-            
+
             # After release, send the packets and verify if no drops on port
             recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
             last_pfc_counter = recv_port_counters[pg]
@@ -344,11 +351,11 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             # recv port no ingress drop
             assert(recv_port_counters[INGRESS_DROP] == recv_port_counters_base[INGRESS_DROP])
             # recv port PFC must be triggered and PFC counters must increment
-            assert(recv_port_counters[pg] != recv_port_counters_base[pg])
+            assert(recv_port_counters[pg] > recv_port_counters_base[pg])
             # recv port PFC counters remain the same value as sampled immediately after release
             assert(recv_port_counters[pg] == last_pfc_counter)
             # xmit port has transmitted packets and tx counters must increment
-            assert(transmit_port_counters[TRANSMITTED_PKTS] != transmit_port_counters_base[TRANSMITTED_PKTS])
+            assert(transmit_port_counters[TRANSMITTED_PKTS] > transmit_port_counters_base[TRANSMITTED_PKTS])
             # xmit port no egress drop
             assert(transmit_port_counters[EGRESS_DROP] == transmit_port_counters_base[EGRESS_DROP])
 
@@ -360,10 +367,11 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
             print "END OF TEST"
 
+# TODO: remove sai_thrift_clear_all_counters and change to use incremental counter values
 class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)
-        
+
         # Parse input parameters
         dscp = int(self.test_params['dscp'])
         ecn = int(self.test_params['ecn'])
@@ -635,7 +643,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)
-        
+
         # Parse input parameters
         dscp = int(self.test_params['dscp'])
         ecn = int(self.test_params['ecn'])
@@ -689,14 +697,16 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             while egress_drop_counter == xmit_port_counters_base[EGRESS_DROP] and pkts_count < pkts_max:
                 send_packet(self, src_port_id, pkt, pkts_bunch_size)
                 pkts_count += pkts_bunch_size
+                # To allow enough time for the dut to sync up the counter values in counters_db
                 time.sleep(5)
 
                 port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
                 egress_drop_counter = port_counters[EGRESS_DROP]
 
+            print >> sys.stderr, "# of packets sent to trigger egress drop: %d" % pkts_count
             # xmit port must have egress drop
             port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-            assert(port_counters[EGRESS_DROP] != xmit_port_counters_base[EGRESS_DROP])
+            assert(port_counters[EGRESS_DROP] > xmit_port_counters_base[EGRESS_DROP])
 
             # Send N packets to another port to fill the headroom and check if no drops
             pkt = simple_tcp_packet(pktlen=default_packet_length,
@@ -706,7 +716,8 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ip_dst=dst_port_2_ip,
                                     ip_tos=tos,
                                     ip_ttl=ttl)
-            no_drop_pkts_max = headroom_size / default_packet_length * 0.9
+            no_drop_pkts_max = int(headroom_size / default_packet_length * 0.9)
+            print >> sys.stderr, "# of packets to the second dst port; %d" % no_drop_pkts_max
 
             if no_drop_pkts_max > 0:
                 send_packet(self, src_port_id, pkt, no_drop_pkts_max)
@@ -714,7 +725,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 # xmit port must have egress drop
                 port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                assert(port_counters[EGRESS_DROP] != xmit_port_counters_base[EGRESS_DROP])
+                assert(port_counters[EGRESS_DROP] > xmit_port_counters_base[EGRESS_DROP])
 
                 # xmit port 2 no egress drop
                 port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
