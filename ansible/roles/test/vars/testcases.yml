@@ -12,6 +12,10 @@ testcases:
       required_vars:
           ptf_host:
 
+    bgp_bounce:
+      filename: bgp_bounce.yml
+      topologies: [t1]
+
     bgp_gr_helper:
       filename: bgp_gr_helper.yml
       topologies: [t1, t1-lag]
