@@ -204,31 +204,32 @@ qos_params:
             num_of_pkts: 5000
             limit: 182000
             min_limit: 180000
-            cell_size: 96
+            cell_size: 208
         ecn_2:
             dscp: 8
             ecn: 1
             num_of_pkts: 2047
             limit: 182320
             min_limit: 0
-            cell_size: 96
+            cell_size: 208
         ecn_3:
             dscp: 0
             ecn: 0
             num_of_pkts: 5000
             limit: 182000
             min_limit: 180000
-            cell_size: 96
+            cell_size: 208
         ecn_4:
             dscp: 0
             ecn: 1
             num_of_pkts: 2047
             limit: 182320
             min_limit: 0
-            cell_size: 96
+            cell_size: 208
         lossy_queue:
             dscp: 8
             ecn: 1
+            pg: 1
         wrr:
            ecn: 1
            q0_num_of_pkts: 600
