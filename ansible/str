@@ -183,6 +183,7 @@ vms2-2  ansible_host=10.64.246.27
 vms2-3  ansible_host=10.64.246.29
 vms3-3  ansible_host=10.64.246.20
 vms3-4  ansible_host=10.64.246.11
+vms3-5  ansible_host=10.64.247.15
 vms3-61 ansible_host=10.64.246.21
 vms3-60 ansible_host=10.64.246.12
 vms6-1  ansible_host=10.64.247.6
