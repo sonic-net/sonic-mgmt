@@ -1,13 +1,9 @@
 # Set facts for the loganalizer
 - set_fact:
     out_dir: /tmp/
-    testname: acl
+    tests_location: roles/test/tasks
+    testname: acl_scale
     run_dir: /tmp/
-
-- name: Copy acl rules file
-  become: true
-  template: src=acl_scale_rules.j2 
-            dest=/tmp/acltb_scale_rules.json
 
 # Copy ACL config to the switch
 - name: Copy ACL config file to the DUT
@@ -20,16 +16,29 @@
       command: crm config polling interval 10 
 
     - pause:
-        seconds: 80 
+        seconds: 10 
 
     - name: Get the ACL usage via CRM
       command: crm show resources acl table
       register: out
 
+    - name: Extract out the data acl info from CRM output
+      set_fact:
+        data_acl_crm_info: "{{out.stdout_lines[4].split()}}"
+
+    # scale_number is the number of rules the template file will generate
     - name: Extract out the total available acl entry count from CRM show
       set_fact:
-        scale_number: "{{out.stdout_lines[11].split()}}"
+        scale_number: "{{data_acl_crm_info[3] | int}}"
 
+    - debug:
+        msg: "scale number is {{scale_number}}" 
+    
+    - name: Copy acl rules file
+      become: true
+      template: src=acl_scale_rules.j2 
+                dest=/tmp/acltb_scale_rules.json
+    
     - name: Apply scalable rule set
       vars:
         command_to_run: "acl-loader update full /tmp/acltb_scale_rules.json"
@@ -38,18 +47,22 @@
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - pause:
-        seconds: 80 
+        seconds: 10 
 
     - name: Get the ACL usage via CRM
       command: crm show resources acl table
       register: out
 
-    - name: Convert the used count value to integer
+    - name: Extract out the data acl info from CRM output
       set_fact:
-        used_count: "{{count[3] | int}}"
+        data_acl_crm_info: "{{out.stdout_lines[4].split()}}"
+
+    - name: Extract out the total available acl entry count from CRM show
+      set_fact:
+        used_count: "{{data_acl_crm_info[2] | int}}"
 
     - debug:
-      msg: "This DUT can scale up to {{ used_count }} ACL entries"
+        msg: "This DUT can scale up to {{ used_count }} ACL entries"
 
 - always:
     - name: Clean up ACL rules.
