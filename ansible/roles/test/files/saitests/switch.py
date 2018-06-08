@@ -88,7 +88,6 @@ def switch_init(client):
         sai_port_id = client.sai_thrift_get_port_id_by_front_port(front);
         port_list[int(interface)]=sai_port_id
 
-    print port_list
     switch_inited = 1
 
 

@@ -69,6 +69,7 @@
         - router_mac='{{ ansible_Ethernet0['macaddress'] }}'
         - server='{{ ansible_host }}'
         - port_map_file='/root/{{ ptf_portmap | basename }}'
+        - sonic_asic_type='{{ sonic_asic_type }}'
 
     - name: Get ports info.
       include: roles/test/tasks/qos_get_ports.yml
@@ -245,16 +246,16 @@
         ansible_shell_type: docker
         ansible_python_interpreter: docker exec -i bgp python
 
-    - block:
-      - name: Restore origin buffer profile after PFC tests
-        shell: sonic-cfggen -j /tmp/pfc_lossless_base_profile.json --write-to-db
+    - name: Restore origin buffer profile after PFC tests
+      shell: sonic-cfggen -j /tmp/pfc_lossless_base_profile.json --write-to-db
+      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
-      - name: Restore origin buffer profile after lossy tests
-        shell: sonic-cfggen -j /tmp/pfc_lossy_base_profile.json --write-to-db
+    - name: Restore origin buffer profile after lossy tests
+      shell: sonic-cfggen -j /tmp/pfc_lossy_base_profile.json --write-to-db
+      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
-      - name: Remove extra record for lossy pg profile
-        shell: redis-cli -n 4 del 'BUFFER_PG|{{ dut_switch_ports[src_port_id|int] }}|0-1'
-
+    - name: Remove extra record for lossy pg profile
+      shell: redis-cli -n 4 del 'BUFFER_PG|{{ dut_switch_ports[src_port_id|int] }}|0-1'
       when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
     - name: Enable Mellanox packet aging

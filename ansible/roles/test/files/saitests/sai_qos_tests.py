@@ -48,7 +48,7 @@ DSCP_INDEX_IN_HEADER = 52 # Fits the ptf hex_dump_buffer() parse function
 class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         router_mac = self.test_params['router_mac']
-        ## ARP Populate
+        # ARP Populate
         index = 0
         for port in ptf_ports():
             arpreq_pkt = simple_arp_packet(
@@ -65,11 +65,17 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
 class ReleaseAllPorts(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)
-        sched_prof_id=sai_thrift_create_scheduler_profile(self.client, RELEASE_PORT_MAX_RATE)
-        attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-        for port in sai_port_list:
-            self.client.sai_thrift_set_port_attribute(port, attr)
+
+        asic_type = self.test_params['sonic_asic_type']
+
+        if asic_type == 'mellanox':
+            sched_prof_id=sai_thrift_create_scheduler_profile(self.client, RELEASE_PORT_MAX_RATE)
+            attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+            for port in sai_port_list:
+                self.client.sai_thrift_set_port_attribute(port, attr)
+        else:
+            print >> sys.stderr, "Not supported asic. Skipped port release."
 
 class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
@@ -155,72 +161,37 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        asic_type = self.test_params['sonic_asic_type']
 
-        # Prepare TCP packet data
-        tos = dscp << 2
-        tos |= ecn
-        ttl = 64        
-        default_packet_length = 72
-        # Calculate the max number of packets which port buffer can consists
-        # Increase the number of packets on 25% for a oversight of translating packet size to cells
-        pkts_max = (max_buffer_size / default_packet_length + 1) * 1.3
-
-        # Get a snapshot of counter values at recv and transmit ports
-        # queue_counters value is not of our interest here
-        port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-        drop_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-
-        # Close DST port
-        sched_prof_id = sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
-        attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-        self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
-
-        # Send packets
-        try:
-            src_port_index = -1
-            pkts_bunch_size = 70 # Number of packages to send to DST port
-            pkts_count = 0 # Total number of shipped packages
-            port_pg_counter = port_counters_base[pg]
-
-            # Send the packets untill PFC counter will be trigerred or max pkts reached
-            pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                    eth_dst=router_mac,
-                                    eth_src=src_port_mac,
-                                    ip_src=src_port_ip,
-                                    ip_dst=dst_port_ip,
-                                    ip_tos=tos,
-                                    ip_ttl=ttl)
-            while port_pg_counter == port_counters_base[pg] and pkts_count < pkts_max:
-                send_packet(self, src_port_id, pkt, pkts_bunch_size)
-                pkts_count += pkts_bunch_size
-                # To allow enough time for the dut to sync up the counter values in counters_db
-                time.sleep(8)
-
-                drop_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                assert(drop_counters[EGRESS_DROP] == drop_counters_base[EGRESS_DROP])
-
-                port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-                port_pg_counter = port_counters[pg]
-
-            print >> sys.stderr, "# of packets sent to trigger PFC: %d" % pkts_count
-            # recv port PFC must be triggered and PFC counters must increment
-            assert(port_counters[pg] > port_counters_base[pg])
-            # recv port no egress drop (no need to assert this, because it is not the xmit port)
-            assert(port_counters[EGRESS_DROP] == port_counters_base[EGRESS_DROP])
-            # recv port no ingress drop
-            assert(port_counters[INGRESS_DROP] == port_counters_base[INGRESS_DROP])
-            # xmit port no egress drop
-            drop_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-            assert(drop_counters[EGRESS_DROP] == drop_counters_base[EGRESS_DROP])
-
-            # Send the packages till ingress drop on src port
-            pkts_bunch_size = 70
+        if asic_type == 'mellanox':
+            # Prepare TCP packet data
+            tos = dscp << 2
+            tos |= ecn
+            ttl = 64
+            default_packet_length = 72
+            # Calculate the max number of packets which port buffer can consists
             # Increase the number of packets on 25% for a oversight of translating packet size to cells
-            pkts_max = ((max_buffer_size + max_queue_size) / default_packet_length) * 1.3
-            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-            ingress_counter = port_counters[INGRESS_DROP]            
-            while ingress_counter == port_counters_base[INGRESS_DROP] and pkts_count < pkts_max:
+            pkts_max = (max_buffer_size / default_packet_length + 1) * 1.3
+
+            # Get a snapshot of counter values at recv and transmit ports
+            # queue_counters value is not of our interest here
+            port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            drop_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+
+            # Close DST port
+            sched_prof_id = sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
+            attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+            self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+
+            # Send packets
+            try:
+                src_port_index = -1
+                pkts_bunch_size = 70 # Number of packages to send to DST port
+                pkts_count = 0 # Total number of shipped packages
+                port_pg_counter = port_counters_base[pg]
+
+                # Send the packets untill PFC counter will be trigerred or max pkts reached
                 pkt = simple_tcp_packet(pktlen=default_packet_length,
                                         eth_dst=router_mac,
                                         eth_src=src_port_mac,
@@ -228,32 +199,71 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_dst=dst_port_ip,
                                         ip_tos=tos,
                                         ip_ttl=ttl)
-                send_packet(self, src_port_id, pkt, pkts_bunch_size)
-                pkts_count += pkts_bunch_size
-                # To allow enough time for the dut to sync up the counter values in counters_db
-                time.sleep(8)
+                while port_pg_counter == port_counters_base[pg] and pkts_count < pkts_max:
+                    send_packet(self, src_port_id, pkt, pkts_bunch_size)
+                    pkts_count += pkts_bunch_size
+                    # To allow enough time for the dut to sync up the counter values in counters_db
+                    time.sleep(8)
 
+                    drop_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                    assert(drop_counters[EGRESS_DROP] == drop_counters_base[EGRESS_DROP])
+
+                    port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+                    port_pg_counter = port_counters[pg]
+
+                print >> sys.stderr, "# of packets sent to trigger PFC: %d" % pkts_count
+                # recv port PFC must be triggered and PFC counters must increment
+                assert(port_counters[pg] > port_counters_base[pg])
+                # recv port no egress drop (no need to assert this, because it is not the xmit port)
+                assert(port_counters[EGRESS_DROP] == port_counters_base[EGRESS_DROP])
+                # recv port no ingress drop
+                assert(port_counters[INGRESS_DROP] == port_counters_base[INGRESS_DROP])
+                # xmit port no egress drop
+                drop_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                assert(drop_counters[EGRESS_DROP] == drop_counters_base[EGRESS_DROP])
+
+                # Send the packages till ingress drop on src port
+                pkts_bunch_size = 70
+                # Increase the number of packets on 25% for a oversight of translating packet size to cells
+                pkts_max = ((max_buffer_size + max_queue_size) / default_packet_length) * 1.3
                 port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
                 ingress_counter = port_counters[INGRESS_DROP]
+                while ingress_counter == port_counters_base[INGRESS_DROP] and pkts_count < pkts_max:
+                    pkt = simple_tcp_packet(pktlen=default_packet_length,
+                                            eth_dst=router_mac,
+                                            eth_src=src_port_mac,
+                                            ip_src=src_port_ip,
+                                            ip_dst=dst_port_ip,
+                                            ip_tos=tos,
+                                            ip_ttl=ttl)
+                    send_packet(self, src_port_id, pkt, pkts_bunch_size)
+                    pkts_count += pkts_bunch_size
+                    # To allow enough time for the dut to sync up the counter values in counters_db
+                    time.sleep(8)
 
-            print >> sys.stderr, "# of packets sent to trigger ingress drop: %d" % pkts_count
-            # recv port no egress drop (no need to assert this, because it is not the xmit port)
-            assert(port_counters[EGRESS_DROP] == port_counters_base[EGRESS_DROP])
-            # recv port must have ingress drop
-            assert(port_counters[INGRESS_DROP] > port_counters_base[INGRESS_DROP])
-            # recv port PFC must be triggered and PFC counters must increment
-            assert(port_counters[pg] > port_counters_base[pg])
-            # xmit port no egress drop
-            drop_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-            assert(drop_counters[EGRESS_DROP] == drop_counters_base[EGRESS_DROP])
+                    port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+                    ingress_counter = port_counters[INGRESS_DROP]
 
-        finally:
-            # Release port
-            sched_prof_id = sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
-            attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-            self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
-            print "END OF TEST"
+                print >> sys.stderr, "# of packets sent to trigger ingress drop: %d" % pkts_count
+                # recv port no egress drop (no need to assert this, because it is not the xmit port)
+                assert(port_counters[EGRESS_DROP] == port_counters_base[EGRESS_DROP])
+                # recv port must have ingress drop
+                assert(port_counters[INGRESS_DROP] > port_counters_base[INGRESS_DROP])
+                # recv port PFC must be triggered and PFC counters must increment
+                assert(port_counters[pg] > port_counters_base[pg])
+                # xmit port no egress drop
+                drop_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                assert(drop_counters[EGRESS_DROP] == drop_counters_base[EGRESS_DROP])
+
+            finally:
+                # Release port
+                sched_prof_id = sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
+                attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
+                print "END OF TEST"
+        else:
+            print >> sys.stderr, "Not supported asic. Skipped test"
 
 # This test looks to measure xon (pg_reset_floor)
 class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
@@ -276,96 +286,100 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        asic_type = self.test_params['sonic_asic_type']
 
-        # Stop dst port function
-        sched_prof_id = sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
-        attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-        self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+        if asic_type == 'mellanox':
+            # Stop dst port function
+            sched_prof_id = sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
+            attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+            self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
-        # Get a snapshot of counter values
-        # queue_counters is not of our interest here
-        recv_port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-        transmit_port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            # Get a snapshot of counter values
+            # queue_counters is not of our interest here
+            recv_port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            transmit_port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
-        try:
-            tos = dscp << 2
-            tos |= ecn
-            ttl=64
-            default_packet_length = 72
-            # Calculate the max number of packets which port buffer can consists
-            pkts_max = (max_buffer_size / default_packet_length) * 1.3
-            pkts_bunch_size = 70 # Number of packages to send to DST port
-            pkts_count = 0 # Total number of shipped packages
-            port_pg_counter = recv_port_counters_base[pg]
-            recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-
-            # Send packets untill PFC counter will be trigerred or max pkts reached
-            pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                    eth_dst=router_mac,
-                                    eth_src=src_port_mac,
-                                    ip_src=src_port_ip,
-                                    ip_dst=dst_port_ip,
-                                    ip_tos=tos,
-                                    ip_ttl=ttl)
-            while port_pg_counter == recv_port_counters_base[pg] and pkts_count < pkts_max:
-                send_packet(self, src_port_id, pkt, pkts_bunch_size)
-                pkts_count += pkts_bunch_size
-                # To allow enough time for the dut to sync up the counter values in counters_db
-                time.sleep(8)
-
+            try:
+                tos = dscp << 2
+                tos |= ecn
+                ttl=64
+                default_packet_length = 72
+                # Calculate the max number of packets which port buffer can consists
+                pkts_max = (max_buffer_size / default_packet_length) * 1.3
+                pkts_bunch_size = 70 # Number of packages to send to DST port
+                pkts_count = 0 # Total number of shipped packages
+                port_pg_counter = recv_port_counters_base[pg]
                 recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-                port_pg_counter = recv_port_counters[pg]
 
-            print >> sys.stderr, "# of packets sent to trigger PFC: %d" % pkts_count
-            # recv port PFC must be triggered and PFC counters must increment
-            assert(recv_port_counters[pg] > recv_port_counters_base[pg])
-            # recv port no egress drop (no need to assert this, because it is not the xmit port)
-            assert(recv_port_counters[EGRESS_DROP] == recv_port_counters_base[EGRESS_DROP])
-            # recv port no ingress drop
-            assert(recv_port_counters[INGRESS_DROP] == recv_port_counters_base[INGRESS_DROP])
-            # xmit port no egress drop
-            transmit_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-            assert(transmit_port_counters[EGRESS_DROP] == transmit_port_counters_base[EGRESS_DROP])
+                # Send packets untill PFC counter will be trigerred or max pkts reached
+                pkt = simple_tcp_packet(pktlen=default_packet_length,
+                                        eth_dst=router_mac,
+                                        eth_src=src_port_mac,
+                                        ip_src=src_port_ip,
+                                        ip_dst=dst_port_ip,
+                                        ip_tos=tos,
+                                        ip_ttl=ttl)
+                while port_pg_counter == recv_port_counters_base[pg] and pkts_count < pkts_max:
+                    send_packet(self, src_port_id, pkt, pkts_bunch_size)
+                    pkts_count += pkts_bunch_size
+                    # To allow enough time for the dut to sync up the counter values in counters_db
+                    time.sleep(8)
 
-            # Release dst port
-            sched_prof_id=sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
-            attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-            self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)            
-            time.sleep(10)
+                    recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+                    port_pg_counter = recv_port_counters[pg]
 
-            # After release, send the packets and verify if no drops on port
-            recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-            last_pfc_counter = recv_port_counters[pg]
-            non_xoff_pkts_num = pkts_count - pkts_bunch_size
-            send_packet(self, src_port_id, pkt, non_xoff_pkts_num)
-            time.sleep(5)
+                print >> sys.stderr, "# of packets sent to trigger PFC: %d" % pkts_count
+                # recv port PFC must be triggered and PFC counters must increment
+                assert(recv_port_counters[pg] > recv_port_counters_base[pg])
+                # recv port no egress drop (no need to assert this, because it is not the xmit port)
+                assert(recv_port_counters[EGRESS_DROP] == recv_port_counters_base[EGRESS_DROP])
+                # recv port no ingress drop
+                assert(recv_port_counters[INGRESS_DROP] == recv_port_counters_base[INGRESS_DROP])
+                # xmit port no egress drop
+                transmit_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                assert(transmit_port_counters[EGRESS_DROP] == transmit_port_counters_base[EGRESS_DROP])
 
-            # Read counters
-            recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-            transmit_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                # Release dst port
+                sched_prof_id=sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
+                attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
+                time.sleep(10)
 
-            # recv port no egress drop (no need to assert this, because it is not the xmit port)
-            assert(recv_port_counters[EGRESS_DROP] == recv_port_counters_base[EGRESS_DROP])
-            # recv port no ingress drop
-            assert(recv_port_counters[INGRESS_DROP] == recv_port_counters_base[INGRESS_DROP])
-            # recv port PFC must be triggered and PFC counters must increment
-            assert(recv_port_counters[pg] > recv_port_counters_base[pg])
-            # recv port PFC counters remain the same value as sampled immediately after release
-            assert(recv_port_counters[pg] == last_pfc_counter)
-            # xmit port has transmitted packets and tx counters must increment
-            assert(transmit_port_counters[TRANSMITTED_PKTS] > transmit_port_counters_base[TRANSMITTED_PKTS])
-            # xmit port no egress drop
-            assert(transmit_port_counters[EGRESS_DROP] == transmit_port_counters_base[EGRESS_DROP])
+                # After release, send the packets and verify if no drops on port
+                recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+                last_pfc_counter = recv_port_counters[pg]
+                non_xoff_pkts_num = pkts_count - pkts_bunch_size
+                send_packet(self, src_port_id, pkt, non_xoff_pkts_num)
+                time.sleep(5)
 
-        finally:
-            # Release port
-            sched_prof_id=sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
-            attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-            self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
-            print "END OF TEST"
+                # Read counters
+                recv_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+                transmit_port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+
+                # recv port no egress drop (no need to assert this, because it is not the xmit port)
+                assert(recv_port_counters[EGRESS_DROP] == recv_port_counters_base[EGRESS_DROP])
+                # recv port no ingress drop
+                assert(recv_port_counters[INGRESS_DROP] == recv_port_counters_base[INGRESS_DROP])
+                # recv port PFC must be triggered and PFC counters must increment
+                assert(recv_port_counters[pg] > recv_port_counters_base[pg])
+                # recv port PFC counters remain the same value as sampled immediately after release
+                assert(recv_port_counters[pg] == last_pfc_counter)
+                # xmit port has transmitted packets and tx counters must increment
+                assert(transmit_port_counters[TRANSMITTED_PKTS] > transmit_port_counters_base[TRANSMITTED_PKTS])
+                # xmit port no egress drop
+                assert(transmit_port_counters[EGRESS_DROP] == transmit_port_counters_base[EGRESS_DROP])
+
+            finally:
+                # Release port
+                sched_prof_id=sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
+                attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
+                print "END OF TEST"
+        else:
+            print >> sys.stderr, "Not supported asic. Skipped test"
 
 # TODO: remove sai_thrift_clear_all_counters and change to use incremental counter values
 class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
@@ -508,6 +522,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        asic_type = self.test_params['sonic_asic_type']
         default_packet_length = 1500
         exp_ip_id = 110
         queue_0_num_of_pkts = int(self.test_params['q0_num_of_pkts'])
@@ -515,130 +530,133 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         queue_3_num_of_pkts = int(self.test_params['q3_num_of_pkts'])
         queue_4_num_of_pkts = int(self.test_params['q4_num_of_pkts'])
 
-        # Stop port function
-        sched_prof_id=sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
-        attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-        self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
-
-        # Get a snapshot of counter values
-        port_counters_base, queue_counters_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-
-        # Send packets to each queue based on dscp field
-        try:
-            for i in range(0, queue_0_num_of_pkts):
-                dscp = 0
-                tos = dscp << 2
-                tos |= ecn
-                pkt = simple_tcp_packet(pktlen=default_packet_length,
-                            eth_dst=router_mac,
-                            eth_src=src_port_mac,
-                            ip_src=src_port_ip,
-                            ip_dst=dst_port_ip,
-                            ip_tos=tos,
-                            ip_id=exp_ip_id,
-                            ip_ttl=64)
-                send_packet(self, src_port_id, pkt)
-
-            for i in range(0, queue_1_num_of_pkts):
-                dscp = 8
-                tos = dscp << 2
-                tos |= ecn
-                pkt = simple_tcp_packet(pktlen=default_packet_length,
-                            eth_dst=router_mac,
-                            eth_src=src_port_mac,
-                            ip_src=src_port_ip,
-                            ip_dst=dst_port_ip,
-                            ip_tos=tos,
-                            ip_id=exp_ip_id,
-                            ip_ttl=64)
-                send_packet(self, src_port_id, pkt)
-
-            for i in range(0, queue_3_num_of_pkts):
-                dscp = 3
-                tos = dscp << 2
-                tos |= ecn
-                pkt = simple_tcp_packet(pktlen=default_packet_length,
-                            eth_dst=router_mac,
-                            eth_src=src_port_mac,
-                            ip_src=src_port_ip,
-                            ip_dst=dst_port_ip,
-                            ip_tos=tos,
-                            ip_id=exp_ip_id,
-                            ip_ttl=64)
-                send_packet(self, src_port_id, pkt)
-
-            for i in range(0, queue_4_num_of_pkts):
-                dscp = 4
-                tos = dscp << 2
-                tos |= ecn
-                pkt = simple_tcp_packet(pktlen=default_packet_length,
-                            eth_dst=router_mac,
-                            eth_src=src_port_mac,
-                            ip_src=src_port_ip,
-                            ip_dst=dst_port_ip,
-                            ip_tos=tos,
-                            ip_id=exp_ip_id,
-                            ip_ttl=64)
-                send_packet(self, src_port_id, pkt)
-
-            # Set receiving socket buffers to some big value
-            for p in self.dataplane.ports.values():
-                p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
-
-            # Release port
-            sched_prof_id=sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
+        if asic_type == 'mellanox':
+            # Stop port function
+            sched_prof_id=sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
             attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
-            cnt = 0
-            pkts = []
-            recv_pkt = scapy.Ether()
+            # Get a snapshot of counter values
+            port_counters_base, queue_counters_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
-            while recv_pkt:
-                received = self.dataplane.poll(device_number=0, port_number=dst_port_id, timeout=2)
-                if isinstance(received, self.dataplane.PollFailure):
-                    recv_pkt = None
-                    break
-                recv_pkt = scapy.Ether(received.packet)
+            # Send packets to each queue based on dscp field
+            try:
+                for i in range(0, queue_0_num_of_pkts):
+                    dscp = 0
+                    tos = dscp << 2
+                    tos |= ecn
+                    pkt = simple_tcp_packet(pktlen=default_packet_length,
+                                eth_dst=router_mac,
+                                eth_src=src_port_mac,
+                                ip_src=src_port_ip,
+                                ip_dst=dst_port_ip,
+                                ip_tos=tos,
+                                ip_id=exp_ip_id,
+                                ip_ttl=64)
+                    send_packet(self, src_port_id, pkt)
 
-                try:
-                    if recv_pkt.payload.src == src_port_ip and recv_pkt.payload.dst == dst_port_ip and recv_pkt.payload.id == exp_ip_id:
-                        cnt += 1
-                        pkts.append(recv_pkt)
-                except AttributeError:
-                    continue
+                for i in range(0, queue_1_num_of_pkts):
+                    dscp = 8
+                    tos = dscp << 2
+                    tos |= ecn
+                    pkt = simple_tcp_packet(pktlen=default_packet_length,
+                                eth_dst=router_mac,
+                                eth_src=src_port_mac,
+                                ip_src=src_port_ip,
+                                ip_dst=dst_port_ip,
+                                ip_tos=tos,
+                                ip_id=exp_ip_id,
+                                ip_ttl=64)
+                    send_packet(self, src_port_id, pkt)
 
-            queue_pkt_counters = [0,0,0,0,0,0,0,0,0]
-            queue_num_of_pkts  = [queue_0_num_of_pkts, 0, 0, queue_3_num_of_pkts, queue_4_num_of_pkts, 0, 0, 0, 0, queue_1_num_of_pkts]
-            total_pkts = 0
-            limit = self.test_params['limit']
+                for i in range(0, queue_3_num_of_pkts):
+                    dscp = 3
+                    tos = dscp << 2
+                    tos |= ecn
+                    pkt = simple_tcp_packet(pktlen=default_packet_length,
+                                eth_dst=router_mac,
+                                eth_src=src_port_mac,
+                                ip_src=src_port_ip,
+                                ip_dst=dst_port_ip,
+                                ip_tos=tos,
+                                ip_id=exp_ip_id,
+                                ip_ttl=64)
+                    send_packet(self, src_port_id, pkt)
 
-            for pkt_to_inspect in pkts:
-                dscp_of_pkt = pkt_to_inspect.payload.tos >> 2
-                total_pkts += 1
+                for i in range(0, queue_4_num_of_pkts):
+                    dscp = 4
+                    tos = dscp << 2
+                    tos |= ecn
+                    pkt = simple_tcp_packet(pktlen=default_packet_length,
+                                eth_dst=router_mac,
+                                eth_src=src_port_mac,
+                                ip_src=src_port_ip,
+                                ip_dst=dst_port_ip,
+                                ip_tos=tos,
+                                ip_id=exp_ip_id,
+                                ip_ttl=64)
+                    send_packet(self, src_port_id, pkt)
 
-                # Count packet oredering
+                # Set receiving socket buffers to some big value
+                for p in self.dataplane.ports.values():
+                    p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
 
-                queue_pkt_counters[dscp_of_pkt] += 1
-                if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
-                     assert ( (queue_0_num_of_pkts+queue_1_num_of_pkts+queue_3_num_of_pkts+queue_4_num_of_pkts) - total_pkts < limit)
+                # Release port
+                sched_prof_id=sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
+                attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
-                print queue_pkt_counters
+                cnt = 0
+                pkts = []
+                recv_pkt = scapy.Ether()
 
-            # Read counters
-            print "DST port counters: "
-            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-            print map(operator.sub, port_counters, port_counters_base)
-            print map(operator.sub, queue_counters, queue_counters_base)
+                while recv_pkt:
+                    received = self.dataplane.poll(device_number=0, port_number=dst_port_id, timeout=2)
+                    if isinstance(received, self.dataplane.PollFailure):
+                        recv_pkt = None
+                        break
+                    recv_pkt = scapy.Ether(received.packet)
 
-        finally:
-            # Release port
-            sched_prof_id=sai_thrift_create_scheduler_profile(self.client, RELEASE_PORT_MAX_RATE)
-            attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-            self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+                    try:
+                        if recv_pkt.payload.src == src_port_ip and recv_pkt.payload.dst == dst_port_ip and recv_pkt.payload.id == exp_ip_id:
+                            cnt += 1
+                            pkts.append(recv_pkt)
+                    except AttributeError:
+                        continue
+
+                queue_pkt_counters = [0,0,0,0,0,0,0,0,0]
+                queue_num_of_pkts  = [queue_0_num_of_pkts, 0, 0, queue_3_num_of_pkts, queue_4_num_of_pkts, 0, 0, 0, 0, queue_1_num_of_pkts]
+                total_pkts = 0
+                limit = self.test_params['limit']
+
+                for pkt_to_inspect in pkts:
+                    dscp_of_pkt = pkt_to_inspect.payload.tos >> 2
+                    total_pkts += 1
+
+                    # Count packet oredering
+
+                    queue_pkt_counters[dscp_of_pkt] += 1
+                    if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
+                         assert ( (queue_0_num_of_pkts+queue_1_num_of_pkts+queue_3_num_of_pkts+queue_4_num_of_pkts) - total_pkts < limit)
+
+                    print queue_pkt_counters
+
+                # Read counters
+                print "DST port counters: "
+                port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                print map(operator.sub, port_counters, port_counters_base)
+                print map(operator.sub, queue_counters, queue_counters_base)
+
+            finally:
+                # Release port
+                sched_prof_id=sai_thrift_create_scheduler_profile(self.client, RELEASE_PORT_MAX_RATE)
+                attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+        else:
+            print >> sys.stderr, "Not supported asic. Skipped test"
 
 class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
@@ -660,87 +678,91 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        asic_type = self.test_params['sonic_asic_type']
 
-        # Stop port function
-        sched_prof_id=sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
-        attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-        self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
-        self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
-
-        # Get a snapshot of counter values at both xmit and recv ports
-        # queue_counters value is not of our interest here
-        recv_port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-        xmit_port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-        xmit_port_2_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
-
-        # send packets
-        try:
-            tos = dscp << 2
-            tos |= ecn
-            ttl=64
-            default_packet_length = 64
-            # Calculate the max number of packets which port buffer can consists
-            pkts_max = (max_buffer_size / default_packet_length) * 1.25
-            pkts_bunch_size = 200 # Number of packages to send to DST port
-            pkts_count = 0 # Total number of shipped packages
-            egress_drop_counter = xmit_port_counters_base[EGRESS_DROP]
-
-            pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                    eth_dst=router_mac,
-                                    eth_src=src_port_mac,
-                                    ip_src=src_port_ip,
-                                    ip_dst=dst_port_ip,
-                                    ip_tos=tos,
-                                    ip_ttl=ttl)
-            # Send packets till egress drop or max number of packages is reached
-            while egress_drop_counter == xmit_port_counters_base[EGRESS_DROP] and pkts_count < pkts_max:
-                send_packet(self, src_port_id, pkt, pkts_bunch_size)
-                pkts_count += pkts_bunch_size
-                # To allow enough time for the dut to sync up the counter values in counters_db
-                time.sleep(5)
-
-                port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                egress_drop_counter = port_counters[EGRESS_DROP]
-
-            print >> sys.stderr, "# of packets sent to trigger egress drop: %d" % pkts_count
-            # xmit port must have egress drop
-            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-            assert(port_counters[EGRESS_DROP] > xmit_port_counters_base[EGRESS_DROP])
-
-            # Send N packets to another port to fill the headroom and check if no drops
-            pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                    eth_dst=router_mac,
-                                    eth_src=src_port_mac,
-                                    ip_src=src_port_ip,
-                                    ip_dst=dst_port_2_ip,
-                                    ip_tos=tos,
-                                    ip_ttl=ttl)
-            no_drop_pkts_max = int(headroom_size / default_packet_length * 0.9)
-            print >> sys.stderr, "# of packets to the second dst port; %d" % no_drop_pkts_max
-
-            if no_drop_pkts_max > 0:
-                send_packet(self, src_port_id, pkt, no_drop_pkts_max)
-                time.sleep(5)
-
-                # xmit port must have egress drop
-                port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                assert(port_counters[EGRESS_DROP] > xmit_port_counters_base[EGRESS_DROP])
-
-                # xmit port 2 no egress drop
-                port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
-                assert(port_counters[EGRESS_DROP] == xmit_port_2_counters_base[EGRESS_DROP])
-
-            # recv port no ingress drop
-            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-            assert(port_counters[INGRESS_DROP] == recv_port_counters_base[INGRESS_DROP])
-            # recv port no PFC ever triggered
-            assert(port_counters[pg] == recv_port_counters_base[pg])
-
-        finally:
-            # Release ports
-            sched_prof_id=sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
+        if asic_type == 'mellanox':
+            # Stop port function
+            sched_prof_id=sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
             attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
+
+            # Get a snapshot of counter values at both xmit and recv ports
+            # queue_counters value is not of our interest here
+            recv_port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            xmit_port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            xmit_port_2_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
+
+            # send packets
+            try:
+                tos = dscp << 2
+                tos |= ecn
+                ttl=64
+                default_packet_length = 64
+                # Calculate the max number of packets which port buffer can consists
+                pkts_max = (max_buffer_size / default_packet_length) * 1.25
+                pkts_bunch_size = 200 # Number of packages to send to DST port
+                pkts_count = 0 # Total number of shipped packages
+                egress_drop_counter = xmit_port_counters_base[EGRESS_DROP]
+
+                pkt = simple_tcp_packet(pktlen=default_packet_length,
+                                        eth_dst=router_mac,
+                                        eth_src=src_port_mac,
+                                        ip_src=src_port_ip,
+                                        ip_dst=dst_port_ip,
+                                        ip_tos=tos,
+                                        ip_ttl=ttl)
+                # Send packets till egress drop or max number of packages is reached
+                while egress_drop_counter == xmit_port_counters_base[EGRESS_DROP] and pkts_count < pkts_max:
+                    send_packet(self, src_port_id, pkt, pkts_bunch_size)
+                    pkts_count += pkts_bunch_size
+                    # To allow enough time for the dut to sync up the counter values in counters_db
+                    time.sleep(5)
+
+                    port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                    egress_drop_counter = port_counters[EGRESS_DROP]
+
+                print >> sys.stderr, "# of packets sent to trigger egress drop: %d" % pkts_count
+                # xmit port must have egress drop
+                port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                assert(port_counters[EGRESS_DROP] > xmit_port_counters_base[EGRESS_DROP])
+
+                # Send N packets to another port to fill the headroom and check if no drops
+                pkt = simple_tcp_packet(pktlen=default_packet_length,
+                                        eth_dst=router_mac,
+                                        eth_src=src_port_mac,
+                                        ip_src=src_port_ip,
+                                        ip_dst=dst_port_2_ip,
+                                        ip_tos=tos,
+                                        ip_ttl=ttl)
+                no_drop_pkts_max = int(headroom_size / default_packet_length * 0.9)
+                print >> sys.stderr, "# of packets to the second dst port; %d" % no_drop_pkts_max
+
+                if no_drop_pkts_max > 0:
+                    send_packet(self, src_port_id, pkt, no_drop_pkts_max)
+                    time.sleep(5)
+
+                    # xmit port must have egress drop
+                    port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                    assert(port_counters[EGRESS_DROP] > xmit_port_counters_base[EGRESS_DROP])
+
+                    # xmit port 2 no egress drop
+                    port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
+                    assert(port_counters[EGRESS_DROP] == xmit_port_2_counters_base[EGRESS_DROP])
+
+                # recv port no ingress drop
+                port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+                assert(port_counters[INGRESS_DROP] == recv_port_counters_base[INGRESS_DROP])
+                # recv port no PFC ever triggered
+                assert(port_counters[pg] == recv_port_counters_base[pg])
+
+            finally:
+                # Release ports
+                sched_prof_id=sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
+                attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
+        else:
+            print >> sys.stderr, "Not supported asic. Skipped test"
