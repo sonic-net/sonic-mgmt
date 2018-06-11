@@ -29,12 +29,8 @@
     neighbor_interface: "{{vm_neighbors[flap_intf]['port']}}"
     peer_hwsku: 'Arista-VM'
 
-##############################################################################################
-##### TODO:  use minigraph/and VM configuration to figure out neighbor host access info #####
-#####        try not using lldp dynamic info to find neighbor access
-##############################################################################################
 - set_fact:
-    peer_host: "{{ lldp[flap_intf]['chassis']['mgmt-ip'] }}"
+    peer_host: "{{ minigraph_devices[peer_device]['mgmt_addr'] }}"
 
 ### Now prepare for the remote VM interfaces that using PTF docker to check teh LACP DU packet rate is correct
 

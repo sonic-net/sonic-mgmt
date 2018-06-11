@@ -39,12 +39,8 @@
     neighbor_interface: "{{vm_neighbors[flap_intf]['port']}}"
     peer_hwsku: 'Arista-VM'
 
-##############################################################################################
-##### TODO:  use minigraph/and VM configuration to figure out neighbor host access info #####
-#####        try not using lldp dynamic info to find neighbor access
-##############################################################################################
 - set_fact:
-    peer_host: "{{ lldp[flap_intf]['chassis']['mgmt-ip'] }}"
+    peer_host: "{{ minigraph_devices[peer_device]['mgmt_addr'] }}"
 
 - name: test vm interface flap (no physical port down, more like remote port lock) that lag interface can change to correct po status follow minimum links requirement
   include: lag_minlink.yml
