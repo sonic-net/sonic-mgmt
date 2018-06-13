@@ -1,6 +1,8 @@
 {% set host = configuration[hostname] %}
 {% set mgmt_ip = ansible_host %}
 {% set tornum = host['tornum'] %}
+no schedule tech-support
+!
 hostname {{ hostname }}
 !
 vrf definition MGMT
