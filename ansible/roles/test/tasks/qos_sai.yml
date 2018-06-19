@@ -255,7 +255,10 @@
         - q3_num_of_pkts='{{ qp.wrr.q3_num_of_pkts }}'
         - q4_num_of_pkts='{{ qp.wrr.q4_num_of_pkts }}'
         - limit='{{ qp.wrr.limit }}'
-        
+
+    - debug:
+        var: out.stdout_lines
+
   always:
     - name: Restore LLDP Daemon
       become: yes
@@ -298,4 +301,3 @@
       when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
     - meta: flush_handlers
-
