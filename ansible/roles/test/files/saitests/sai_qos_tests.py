@@ -33,7 +33,6 @@ PFC_PRIO_3 = 5
 PFC_PRIO_4 = 6
 TRANSMITTED_OCTETS = 10
 TRANSMITTED_PKTS = 11
-INGRESS_DROP_BRCM = 12
 QUEUE_0 = 0
 QUEUE_1 = 1
 QUEUE_3 = 3
@@ -298,7 +297,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # recv port no pfc
             assert(recv_counters[pg] == recv_counters_base[pg])
             # recv port no ingress drop
-            assert(recv_counters[INGRESS_DROP_BRCM] == recv_counters_base[INGRESS_DROP_BRCM])
+            assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
             # xmit port no egress drop
             assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
 
@@ -313,7 +312,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # recv port pfc
             assert(recv_counters[pg] > recv_counters_base[pg])
             # recv port no ingress drop
-            assert(recv_counters[INGRESS_DROP_BRCM] == recv_counters_base[INGRESS_DROP_BRCM])
+            assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
             # xmit port no egress drop
             assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
 
@@ -328,7 +327,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # recv port pfc
             assert(recv_counters[pg] > recv_counters_base[pg])
             # recv port no ingress drop
-            assert(recv_counters[INGRESS_DROP_BRCM] == recv_counters_base[INGRESS_DROP_BRCM])
+            assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
             # xmit port no egress drop
             assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
 
@@ -343,7 +342,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # recv port pfc
             assert(recv_counters[pg] > recv_counters_base[pg])
             # recv port ingress drop
-            assert(recv_counters[INGRESS_DROP_BRCM] > recv_counters_base[INGRESS_DROP_BRCM])
+            assert(recv_counters[INGRESS_DROP] > recv_counters_base[INGRESS_DROP])
             # xmit port no egress drop
             assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
 
@@ -909,7 +908,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             # recv port no pfc
             assert(recv_counters[pg] == recv_counters_base[pg])
             # recv port no ingress drop
-            assert(recv_counters[INGRESS_DROP_BRCM] == recv_counters_base[INGRESS_DROP_BRCM])
+            assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
             # xmit port no egress drop
             assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
 
@@ -924,7 +923,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             # recv port no pfc
             assert(recv_counters[pg] == recv_counters_base[pg])
             # recv port no ingress drop
-            assert(recv_counters[INGRESS_DROP_BRCM] == recv_counters_base[INGRESS_DROP_BRCM])
+            assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
             # xmit port egress drop
             assert(xmit_counters[EGRESS_DROP] > xmit_counters_base[EGRESS_DROP])
 

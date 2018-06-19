@@ -620,7 +620,7 @@ def sai_thrift_clear_all_counters(client):
 def sai_thrift_read_port_counters(client,port):
     port_cnt_ids=[]
     port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_DISCARDS)
-    port_cnt_ids.append(SAI_PORT_STAT_ETHER_STATS_DROP_EVENTS)
+    port_cnt_ids.append(SAI_PORT_STAT_IF_IN_DISCARDS)
     port_cnt_ids.append(SAI_PORT_STAT_PFC_0_TX_PKTS)
     port_cnt_ids.append(SAI_PORT_STAT_PFC_1_TX_PKTS)
     port_cnt_ids.append(SAI_PORT_STAT_PFC_2_TX_PKTS)
@@ -631,7 +631,6 @@ def sai_thrift_read_port_counters(client,port):
     port_cnt_ids.append(SAI_PORT_STAT_PFC_7_TX_PKTS)
     port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_OCTETS)
     port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_UCAST_PKTS)
-    port_cnt_ids.append(SAI_PORT_STAT_IF_IN_DISCARDS)
     counters_results=[]
     counters_results = client.sai_thrift_get_port_stats(port,port_cnt_ids,len(port_cnt_ids))
     queue_list=[]
