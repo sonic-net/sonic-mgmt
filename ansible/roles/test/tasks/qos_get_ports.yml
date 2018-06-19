@@ -23,7 +23,7 @@
   when: "'#' not in item"
 
 - name: Print switch ports and PTF interfaces
-  debug: msg="ptf_interfaces={{ ptf_interfaces }} dut_switch_ports={{ dut_switch_ports }}"
+  debug: msg="ptf_interfaces={{ ptf_interfaces }} dut_switch_ports={{ dut_switch_ports }} total_ports={{ dut_switch_ports|length }}"
 
 - name: Set ptf LAG interfaces
   set_fact:

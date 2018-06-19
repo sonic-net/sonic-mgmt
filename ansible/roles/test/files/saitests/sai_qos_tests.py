@@ -352,7 +352,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             print >> sys.stderr, "Not supported asic. Skipped test"
 
-# This test looks to measure xon (pg_reset_floor)
+# This test looks to measure xon threshold (pg_reset_floor)
 class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         time.sleep(5)
@@ -465,6 +465,29 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
                 print "END OF TEST"
+        elif asic_type == 'broadcom':
+            print >> sys.stderr, "brcm asic."
+
+            # TODO: Pause egress of dut xmit ports
+
+            # send packets to dst port 0
+
+            # send packets to dst port 1
+
+            # send 1 packet to dst port 2
+
+            # recv port pfc
+
+            # Resume egress of dst port 1
+
+            # recv port pfc
+
+            # Resume egress of dst port 2
+
+            # recv port no pfc
+
+            # TODO: Resume egress of dut xmit ports
+
         else:
             print >> sys.stderr, "Not supported asic. Skipped test"
 
@@ -752,7 +775,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         # Parse input parameters
         dscp = int(self.test_params['dscp'])
         ecn = int(self.test_params['ecn'])
-        pg = int(self.test_params['pg'])
+        pg = int(self.test_params['pg']) + 2 # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
         router_mac = self.test_params['router_mac']
         max_buffer_size = int(self.test_params['buffer_max_size'])
         headroom_size = int(self.test_params['headroom_size'])
@@ -766,6 +789,11 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         asic_type = self.test_params['sonic_asic_type']
+
+        # prepare tcp packet date
+        tos = dscp << 2
+        tos |= ecn
+        ttl = 64
 
         if asic_type == 'mellanox':
             # Stop port function
@@ -783,9 +811,6 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
 
             # send packets
             try:
-                tos = dscp << 2
-                tos |= ecn
-                ttl=64
                 default_packet_length = 64
                 # Calculate the max number of packets which port buffer can consists
                 pkts_max = (max_buffer_size / default_packet_length) * 1.25
@@ -851,5 +876,59 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                 attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
+        elif asic_type == 'broadcom':
+            pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
+            pkts_num_trig_egr_drp = int(self.test_params['pkts_num_trig_egr_drp'])
+            default_packet_length = 64
+            pkt = simple_tcp_packet(pktlen=default_packet_length,
+                                    eth_dst=router_mac,
+                                    eth_src=src_port_mac,
+                                    ip_src=src_port_ip,
+                                    ip_dst=dst_port_ip,
+                                    ip_tos=tos,
+                                    ip_ttl=ttl)
+            # get a snapshot of counter values at recv and transmit ports
+            # queue_counters value is not of our interest here
+            recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            xmit_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            # add slight tolerance in threshold characterization to consider
+            # the case that cpu puts packets in the egress queue after we pause the egress
+            # or the leak out is simply less than expected as we have occasionally observed
+            margin = 2
+
+            # TODO: Pause egress of dut xmit port
+
+            # send packets short of triggering egress drop
+            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
+            # allow enough time for the dut to sync up the counter values in counters_db
+            time.sleep(8)
+            # get a snapshot of counter values at recv and transmit ports
+            # queue counters value is not of our interest here
+            recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            # recv port no pfc
+            assert(recv_counters[pg] == recv_counters_base[pg])
+            # recv port no ingress drop
+            assert(recv_counters[INGRESS_DROP_BRCM] == recv_counters_base[INGRESS_DROP_BRCM])
+            # xmit port no egress drop
+            assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
+
+            # send 1 packet to trigger egress drop
+            send_packet(self, src_port_id, pkt, 1 + 2 * margin)
+            # allow enough time for the dut to sync up the counter values in counters_db
+            time.sleep(8)
+            # get a snapshot of counter values at recv and transmit ports
+            # queue counters value is not of our interest here
+            recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            # recv port no pfc
+            assert(recv_counters[pg] == recv_counters_base[pg])
+            # recv port no ingress drop
+            assert(recv_counters[INGRESS_DROP_BRCM] == recv_counters_base[INGRESS_DROP_BRCM])
+            # xmit port egress drop
+            assert(xmit_counters[EGRESS_DROP] > xmit_counters_base[EGRESS_DROP])
+
+            # TODO: Resume egress of dut xmit port
+
         else:
             print >> sys.stderr, "Not supported asic. Skipped test"
