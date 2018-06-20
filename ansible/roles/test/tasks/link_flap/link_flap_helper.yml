@@ -51,10 +51,10 @@
       when: ansible_interface_link_down_ports | length > 0
 
     - name: Verify interfaces are up correctly
-      assert: { that: "{{ ansible_interface_link_down_ports | length }} == 0" }
+      assert: { that: "ansible_interface_link_down_ports | length == 0" }
 
     - name: Verify {{intfs_to_exclude}} is down correctly
-      assert: { that: "'{{ ansible_interface_facts[intfs_to_exclude]['active'] }}' == 'False'" }
+      assert: { that: "ansible_interface_facts[intfs_to_exclude]['active'] == False" }
 
   always:
     - name: Bring up neighbor interface {{neighbor_interface}} on {{peer_host}}
@@ -80,4 +80,4 @@
       when: ansible_interface_link_down_ports | length > 0
 
     - name: Verify all interfaces are up
-      assert: { that: "{{ ansible_interface_link_down_ports }}|length == 0" }
+      assert: { that: "ansible_interface_link_down_ports | length == 0" }
