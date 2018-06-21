@@ -60,6 +60,10 @@
   include: copp.yml
   tags: copp
 
+- name: Test Dtel
+  include: dtel.yml
+  tags: dtel
+
 - name: Fast-reboot test
   include: fast-reboot.yml
   when: minigraph_portchannel_interfaces | length > 0 and minigraph_vlan_interfaces | length > 0
