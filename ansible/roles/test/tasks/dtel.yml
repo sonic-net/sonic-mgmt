@@ -69,7 +69,8 @@
         - INT_UDP_SourceTest
         - INT_UDP_SinkTest
       when:
-        - ( {{ with_int_transit }} is not defined) or ( {{ with_postcard }} is not defined)
+        - {{ with_int_transit }} is not defined
+        - {{ with_postcard }} is not defined
 
     - include: ptf_runner.yml
       vars:
