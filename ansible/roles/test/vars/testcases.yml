@@ -58,6 +58,11 @@ testcases:
       topologies: [t0, t0-64, t0-64-32, t0-116]
       required_vars:
           ptf_host:
+    dtel:
+      filename: dtel.yml
+      topologies: [ptf32]
+      required_vars:
+          ptf_host:
 
     ecn_wred:
       filename: ecn_wred.yml
