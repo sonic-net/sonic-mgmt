@@ -176,6 +176,7 @@ ptf12-1 ansible_host=10.64.246.44
 vtf2-6  ansible_host=10.64.246.16
 ptf3-1  ansible_host=10.64.246.18
 vms1-1  ansible_host=10.64.246.22
+vms1-2  ansible_host=10.64.246.23
 vms1-8  ansible_host=10.64.246.43
 vms1-9  ansible_host=10.64.246.15
 vms2-1  ansible_host=10.64.246.24
