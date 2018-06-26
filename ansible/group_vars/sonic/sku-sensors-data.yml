@@ -1079,10 +1079,6 @@ sensors_checks:
         - mlnxa2dswb-i2c-5-6d/5v_usb/in5_max
       - - mlnxa2dswb-i2c-5-6d/5v_usb/in5_min
         - mlnxa2dswb-i2c-5-6d/5v_usb/in5_input
-      - - mlnxa2dswb-i2c-5-6d/12v_1_curr/curr1_input
-        - mlnxa2dswb-i2c-5-6d/12v_1_curr/curr1_max
-      - - mlnxa2dswb-i2c-5-6d/12v_2_curr/curr2_input
-        - mlnxa2dswb-i2c-5-6d/12v_2_curr/curr2_max
       - - mlnxa2dmnb-i2c-15-6d/soc_core/in1_input
         - mlnxa2dmnb-i2c-15-6d/soc_core/in1_max
       - - mlnxa2dmnb-i2c-15-6d/soc_core/in1_min
@@ -1147,6 +1143,8 @@ sensors_checks:
     non_zero:
       fan: []
       power:
+      - mlnxa2dswb-i2c-5-6d/12v_1_curr/curr1_input
+      - mlnxa2dswb-i2c-5-6d/12v_2_curr/curr2_input
       - ucd9200-i2c-5-27/pout1/power2_input
       - ucd9200-i2c-5-27/pout2/power3_input
       - ucd9200-i2c-5-41/pout1/power2_input
