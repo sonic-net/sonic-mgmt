@@ -42,7 +42,8 @@ class DTelWatchlistEntry(object):
                  dtel_postcard_enable=None,
                  dtel_sample_percent=None,
                  dtel_report_all=None,
-                 dtel_drop_report_enable=None):
+                 dtel_drop_report_enable=None,
+                 dtel_tail_drop_report_enable=None):
 
         if watchlist is None:
             raise ValueError('Need to provide watchlist')
@@ -62,6 +63,8 @@ class DTelWatchlistEntry(object):
         elif watchlist.watchlist_type == 'drop':
             if dtel_drop_report_enable is None:
                 dtel_drop_report_enable = True
+            if dtel_tail_drop_report_enable is None:
+                dtel_tail_drop_report_enable = True
         # Attributes
         self.switch = watchlist.switch
         self._watchlist = None
@@ -104,6 +107,7 @@ class DTelWatchlistEntry(object):
         self._dtel_sample_percent = None
         self._dtel_report_all = None
         self._dtel_drop_report_enable = None
+        self._dtel_tail_drop_report_enable = None
         # Properties
         DTelWatchlistEntry.watchlist.fset(self, watchlist)
         DTelWatchlistEntry.priority.fset(self, priority)
@@ -149,6 +153,7 @@ class DTelWatchlistEntry(object):
         DTelWatchlistEntry.dtel_sample_percent.fset(self, dtel_sample_percent)
         DTelWatchlistEntry.dtel_report_all.fset(self, dtel_report_all)
         DTelWatchlistEntry.dtel_drop_report_enable.fset(self, dtel_drop_report_enable)
+        DTelWatchlistEntry.dtel_tail_drop_report_enable.fset(self, dtel_tail_drop_report_enable)
         # Append
         self.watchlist.entries.append(self)
 
@@ -640,3 +645,15 @@ class DTelWatchlistEntry(object):
         if value is True and self.watchlist.watchlist_type == 'flow':
             raise ValueError('Cannot add a drop entry to a flow watchlist')
         self._dtel_drop_report_enable = value
+
+    @property
+    def dtel_tail_drop_report_enable(self):
+        return self._dtel_tail_drop_report_enable
+
+    @dtel_tail_drop_report_enable.setter
+    def dtel_tail_drop_report_enable(self, value):
+        if value is not None and not isinstance(value, bool):
+            raise ValueError('dtel_tail_drop_report_enable must be a boolean')
+        if value is True and self.watchlist.watchlist_type == 'flow':
+            raise ValueError('Cannot add a drop entry to a flow watchlist')
+        self._dtel_tail_drop_report_enable = value

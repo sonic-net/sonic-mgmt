@@ -43,7 +43,8 @@ class SONiCDTelWatchlistEntry(dtel_watchlist_entry.DTelWatchlistEntry, FrozenCla
                  dtel_postcard_enable=None,
                  dtel_sample_percent=None,
                  dtel_report_all=None,
-                 dtel_drop_report_enable=None):
+                 dtel_drop_report_enable=None,
+                 dtel_tail_drop_report_enable=None):
         super(SONiCDTelWatchlistEntry, self).__init__(
             watchlist,
             priority=priority,
@@ -84,13 +85,15 @@ class SONiCDTelWatchlistEntry(dtel_watchlist_entry.DTelWatchlistEntry, FrozenCla
             dtel_postcard_enable=dtel_postcard_enable,
             dtel_sample_percent=dtel_sample_percent,
             dtel_report_all=dtel_report_all,
-            dtel_drop_report_enable=dtel_drop_report_enable)
+            dtel_drop_report_enable=dtel_drop_report_enable,
+            dtel_tail_drop_report_enable=dtel_tail_drop_report_enable)
 
         # These four values can be changed by the superclass contructor, so they should be re-set here
         dtel_int_enable = dtel_watchlist_entry.DTelWatchlistEntry.dtel_int_enable.fget(self)
         dtel_int_session = dtel_watchlist_entry.DTelWatchlistEntry.dtel_int_session.fget(self)
         dtel_postcard_enable = dtel_watchlist_entry.DTelWatchlistEntry.dtel_postcard_enable.fget(self)
         dtel_drop_report_enable = dtel_watchlist_entry.DTelWatchlistEntry.dtel_drop_report_enable.fget(self)
+        dtel_tail_drop_report_enable = dtel_watchlist_entry.DTelWatchlistEntry.dtel_tail_drop_report_enable.fget(self)
 
         if watchlist is None:
             raise ValueError('Need to provide watchlist')
@@ -214,6 +217,9 @@ class SONiCDTelWatchlistEntry(dtel_watchlist_entry.DTelWatchlistEntry, FrozenCla
         if dtel_drop_report_enable is not None:
             keys.append('DROP_REPORT_ENABLE')
             values.append(dtel_drop_report_enable)
+        if dtel_tail_drop_report_enable is not None:
+            keys.append('TAIL_DROP_REPORT_ENABLE')
+            values.append(dtel_tail_drop_report_enable)
         self.watchlist.switch.redis_write(self.table_name,
                                           self.hashname,
                                           keys,
@@ -595,3 +601,14 @@ class SONiCDTelWatchlistEntry(dtel_watchlist_entry.DTelWatchlistEntry, FrozenCla
     def dtel_drop_report_enable(self, value):
         dtel_watchlist_entry.DTelWatchlistEntry.dtel_drop_report_enable.fset(self, value)
         self.switch.redis_write(self.table_name, self.hashname, 'DROP_REPORT_ENABLE', value)
+
+    @property
+    def dtel_tail_drop_report_enable(self):
+        value = self.switch.redis_read(self.table_name, self.hashname, 'TAIL_DROP_REPORT_ENABLE')
+        dtel_watchlist_entry.DTelWatchlistEntry.dtel_tail_drop_report_enable.fset(self, value)
+        return dtel_watchlist_entry.DTelWatchlistEntry.dtel_tail_drop_report_enable.fget(self)
+
+    @dtel_tail_drop_report_enable.setter
+    def dtel_tail_drop_report_enable(self, value):
+        dtel_watchlist_entry.DTelWatchlistEntry.dtel_tail_drop_report_enable.fset(self, value)
+        self.switch.redis_write(self.table_name, self.hashname, 'TAIL_DROP_REPORT_ENABLE', value)

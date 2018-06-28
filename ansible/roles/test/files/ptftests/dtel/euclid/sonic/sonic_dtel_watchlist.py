@@ -60,7 +60,8 @@ class SONiCDTelWatchlist(dtel_watchlist.DTelWatchlist, FrozenClass):
                      dtel_report_all=None,
                      dtel_int_enable=None,
                      dtel_postcard_enable=None,
-                     dtel_drop_report_enable=None):
+                     dtel_drop_report_enable=None,
+                     dtel_tail_drop_report_enable=None):
 
         if src_ip and not src_ip_mask:
             src_ip_mask = 32
@@ -151,5 +152,6 @@ class SONiCDTelWatchlist(dtel_watchlist.DTelWatchlist, FrozenClass):
                                                                   dtel_postcard_enable=dtel_postcard_enable,
                                                                   dtel_sample_percent=dtel_sample_percent,
                                                                   dtel_report_all=dtel_report_all,
-                                                                  dtel_drop_report_enable=dtel_drop_report_enable)
+                                                                  dtel_drop_report_enable=dtel_drop_report_enable,
+                                                                  dtel_tail_drop_report_enable=dtel_tail_drop_report_enable)
 

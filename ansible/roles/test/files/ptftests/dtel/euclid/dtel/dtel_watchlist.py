@@ -59,7 +59,8 @@ class DTelWatchlist(object):
                      dtel_report_all=None,
                      dtel_int_enable=None,
                      dtel_postcard_enable=None,
-                     dtel_drop_report_enable=None):
+                     dtel_drop_report_enable=None,
+                     dtel_tail_drop_report_enable=None):
 
         if self.watchlist_type == 'flow':
             if self.switch.dtel_monitoring_type == 'postcard':
@@ -73,6 +74,7 @@ class DTelWatchlist(object):
                 raise ValueError('INT transit switches do not need flow watchlists')
         elif self.watchlist_type == 'drop':
             dtel_drop_report_enable = False
+            dtel_tail_drop_report_enable = False
             if dtel_sample_percent is not None:
                 raise ValueError('dtel_sample_percent is not applicable to drop watchlists')
             if dtel_report_all is not None:
@@ -116,7 +118,8 @@ class DTelWatchlist(object):
                                                        dtel_postcard_enable=dtel_postcard_enable,
                                                        dtel_sample_percent=dtel_sample_percent,
                                                        dtel_report_all=dtel_report_all,
-                                                       dtel_drop_report_enable=dtel_drop_report_enable)
+                                                       dtel_drop_report_enable=dtel_drop_report_enable,
+                                                       dtel_tail_drop_report_enable=dtel_tail_drop_report_enable)
 
     @property
     def watchlist_type(self):
