@@ -31,9 +31,9 @@ class INT_TransitTest_switchid(BaseTest):
                                           dtel_switch_id=switch_id,
                                           management_ip=switch_ip)
 
-        switch.dtel_int_transit_enable = True
         switch.dtel_int_l4_dscp = {'value': get_int_l45_dscp_value(),
                                    'mask': get_int_l45_dscp_mask()}
+        switch.dtel_int_transit_enable = True
 
         # create a packet coming from INT src - i.e.
         #   - It has INT meta header, but no INT data
@@ -91,15 +91,15 @@ class INT_TransitTest_hop2_port_ids(BaseTest):
         switch = sonic_switch.SONiCSwitch(dtel_monitoring_type='int_transit',
                                           dtel_switch_id=switch_id,
                                           management_ip=switch_ip)
+        switch.dtel_int_l4_dscp = {'value': get_int_l45_dscp_value(),
+                                   'mask': get_int_l45_dscp_mask()}
+
         try:
             # This should throw an error
             switch.dtel_int_endpoint_enable = True
         except ValueError:
             # expected behavior
             switch.dtel_int_transit_enable = True
-
-        switch.dtel_int_l4_dscp = {'value': get_int_l45_dscp_value(),
-                                   'mask': get_int_l45_dscp_mask()}
 
         # send the test packet(s)
         payload = 'int l45'
@@ -177,9 +177,9 @@ class INT_TransitTest_Ebit(BaseTest):
                                           dtel_switch_id=switch_id,
                                           management_ip=switch_ip)
 
-        switch.dtel_int_transit_enable = True
         switch.dtel_int_l4_dscp = {'value': get_int_l45_dscp_value(),
                                    'mask': get_int_l45_dscp_mask()}
+        switch.dtel_int_transit_enable = True
 
         # send the test packet(s)
         payload = 'int l45'
@@ -268,9 +268,10 @@ class INT_TransitTest_hop2_qdepth(BaseTest):
                                           dtel_switch_id=switch_id,
                                           management_ip=switch_ip)
 
-        switch.dtel_int_transit_enable = True
         switch.dtel_int_l4_dscp = {'value': get_int_l45_dscp_value(),
                                    'mask': get_int_l45_dscp_mask()}
+        switch.dtel_int_transit_enable = True
+
         # Validate set
         assert switch.dtel_int_l4_dscp['value'] == get_int_l45_dscp_value()
         assert switch.dtel_int_l4_dscp['mask'] == get_int_l45_dscp_mask()
@@ -355,9 +356,9 @@ class INT_TransitTest_Metadata(BaseTest):
                                           dtel_switch_id=switch_id,
                                           management_ip=switch_ip)
 
-        switch.dtel_int_transit_enable = True
         switch.dtel_int_l4_dscp = {'value': get_int_l45_dscp_value(),
                                    'mask': get_int_l45_dscp_mask()}
+        switch.dtel_int_transit_enable = True
 
         # create a packet coming from INT src - i.e.
         #   - It has INT meta header, but no INT data
