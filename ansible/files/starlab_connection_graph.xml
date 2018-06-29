@@ -61,7 +61,7 @@
       <Device Hostname="str-7260-08" HwSku="Arista-7260QX-64" Type="FanoutLeaf"/>
       <Device Hostname="str-7260-09" HwSku="Arista-7260QX-64" Type="FanoutLeaf"/>
       <Device Hostname="str-7260-10" HwSku="Arista-7260QX-64" Type="FanoutLeaf"/>
-      <Device Hostname="str-7260-11" HwSku="Arista-7260QX-64" Type="FanoutRoot"/>
+      <Device Hostname="str-7260cx3-11" HwSku="Arista-7260CX3-64" Type="FanoutRoot"/>
       <Device Hostname="str-7260-13" HwSku="Arista-7260QX-64" Type="FanoutLeaf"/>
       <Device Hostname="str-7260-14" HwSku="Arista-7260QX-64" Type="FanoutLeaf"/>
       <Device Hostname="str-7260-15" HwSku="Arista-7260QX-64" Type="FanoutLeaf"/>
@@ -100,6 +100,57 @@
       <Device Hostname="str-acs-serv-13" HwSku="TestServ" Type="Server"/>
     </Devices>
     <DeviceInterfaceLinks>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260cx3-fan-03" EndPort="Ethernet64/1" StartDevice="str-7260cx3-11" StartPort="Ethernet13/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-11" EndPort="p4p1" StartDevice="str-7260cx3-11" StartPort="Ethernet14/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-12" EndPort="p4p1" StartDevice="str-7260cx3-11" StartPort="Ethernet15/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-13" EndPort="p4p1" StartDevice="str-7260cx3-11" StartPort="Ethernet16/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-03" EndPort="p5p1" StartDevice="str-7260cx3-11" StartPort="Ethernet17/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-03" EndPort="p5p2" StartDevice="str-7260cx3-11" StartPort="Ethernet18/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-01" EndPort="p4p1" StartDevice="str-7260cx3-11" StartPort="Ethernet19/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-01" EndPort="p4p2" StartDevice="str-7260cx3-11" StartPort="Ethernet20/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-02" EndPort="p4p1" StartDevice="str-7260cx3-11" StartPort="Ethernet21/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-02" EndPort="p4p2" StartDevice="str-7260cx3-11" StartPort="Ethernet22/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-03" EndPort="p4p1" StartDevice="str-7260cx3-11" StartPort="Ethernet23/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-03" EndPort="p4p2" StartDevice="str-7260cx3-11" StartPort="Ethernet24/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-05" EndPort="p4p1" StartDevice="str-7260cx3-11" StartPort="Ethernet25/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-06" EndPort="p4p1" StartDevice="str-7260cx3-11" StartPort="Ethernet26/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-07" EndPort="p4p1" StartDevice="str-7260cx3-11" StartPort="Ethernet27/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-21" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet28/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-22" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet29/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet30/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-18" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet31/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-09" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet32/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-04" EndPort="Ethernet31/1" StartDevice="str-7260cx3-11" StartPort="Etherent33/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-07" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet34/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-17" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet35/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-24" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet36/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-16" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet37/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-23" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet38/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-15" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet39/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-04" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet40/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-03" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet42/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-09" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet43/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-02" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet44/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-08" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet45/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-18" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet46/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-07" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet47/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-17" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet48/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-06" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet49/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-16" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet50/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-05" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet51/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-15" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet52/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-14" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet54/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-03" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet55/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-13" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet56/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-02" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet57/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-08" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet58/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-22" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet59/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-06" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet60/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-21" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet61/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-05" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet62/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-20" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet63/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-01" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet64/1"/>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="str-e1031-acs-2" EndPort="Ethernet48" StartDevice="str-7260cx3-11" StartPort="Ethernet65"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-01" EndPort="Ethernet33" StartDevice="str-s6000-on-1" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-01" EndPort="Ethernet34" StartDevice="str-s6000-on-1" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-01" EndPort="Ethernet35" StartDevice="str-s6000-on-1" StartPort="Ethernet8"/>
@@ -772,39 +823,6 @@
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-06" EndPort="Ethernet38" StartDevice="str-msn2700-06" StartPort="Ethernet116"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-06" EndPort="Ethernet39" StartDevice="str-msn2700-06" StartPort="Ethernet120"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-06" EndPort="Ethernet40" StartDevice="str-msn2700-06" StartPort="Ethernet124"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-11" EndPort="p4p1" StartDevice="str-7260-11" StartPort="Ethernet14"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-12" EndPort="p4p1" StartDevice="str-7260-11" StartPort="Ethernet15"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-13" EndPort="p4p1" StartDevice="str-7260-11" StartPort="Ethernet16"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-03" EndPort="p5p1" StartDevice="str-7260-11" StartPort="Ethernet17"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-03" EndPort="p5p2" StartDevice="str-7260-11" StartPort="Ethernet18"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-01" EndPort="p4p1" StartDevice="str-7260-11" StartPort="Ethernet19"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-01" EndPort="p4p2" StartDevice="str-7260-11" StartPort="Ethernet20"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-02" EndPort="p4p1" StartDevice="str-7260-11" StartPort="Ethernet21"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-02" EndPort="p4p2" StartDevice="str-7260-11" StartPort="Ethernet22"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-03" EndPort="p4p1" StartDevice="str-7260-11" StartPort="Ethernet23"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-03" EndPort="p4p2" StartDevice="str-7260-11" StartPort="Ethernet24"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-05" EndPort="p4p1" StartDevice="str-7260-11" StartPort="Ethernet25"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-06" EndPort="p4p1" StartDevice="str-7260-11" StartPort="Ethernet26"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-07" EndPort="p4p1" StartDevice="str-7260-11" StartPort="Ethernet27"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-08" EndPort="p4p1" StartDevice="str-7260-11" StartPort="Ethernet28"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet30"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-09" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet32"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-07" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet34"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-24" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet36"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-23" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet38"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-04" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet40"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-03" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet42"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-02" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet44"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-18" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet46"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-17" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet48"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-16" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet50"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-15" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet52"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-14" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet54"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-13" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet56"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-08" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet58"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-06" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet60"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-05" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet62"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-01" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet64"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-07" EndPort="Ethernet1" StartDevice="str-s6000-acs-12" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-07" EndPort="Ethernet2" StartDevice="str-s6000-acs-12" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-07" EndPort="Ethernet3" StartDevice="str-s6000-acs-12" StartPort="Ethernet8"/>
@@ -1217,7 +1235,6 @@
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-20" EndPort="Ethernet58" StartDevice="str-s6100-acs-2" StartPort="Ethernet57"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-20" EndPort="Ethernet59" StartDevice="str-s6100-acs-2" StartPort="Ethernet58"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-20" EndPort="Ethernet60" StartDevice="str-s6100-acs-2" StartPort="Ethernet59"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-20" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet63"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-21" EndPort="Ethernet1" StartDevice="str-s6100-acs-2" StartPort="Ethernet60"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-21" EndPort="Ethernet2" StartDevice="str-s6100-acs-2" StartPort="Ethernet61"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-21" EndPort="Ethernet3" StartDevice="str-s6100-acs-2" StartPort="Ethernet62"/>
@@ -1278,7 +1295,6 @@
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-21" EndPort="Ethernet58" StartDevice="str-s6100-acs-4" StartPort="Ethernet53"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-21" EndPort="Ethernet59" StartDevice="str-s6100-acs-4" StartPort="Ethernet54"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-21" EndPort="Ethernet60" StartDevice="str-s6100-acs-4" StartPort="Ethernet55"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-21" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet61"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-22" EndPort="Ethernet1" StartDevice="str-s6100-acs-4" StartPort="Ethernet56"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-22" EndPort="Ethernet2" StartDevice="str-s6100-acs-4" StartPort="Ethernet57"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-22" EndPort="Ethernet3" StartDevice="str-s6100-acs-4" StartPort="Ethernet58"/>
@@ -1319,7 +1335,6 @@
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-22" EndPort="Ethernet38" StartDevice="str-a7050-acs-3" StartPort="Ethernet116"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-22" EndPort="Ethernet39" StartDevice="str-a7050-acs-3" StartPort="Ethernet120"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-22" EndPort="Ethernet40" StartDevice="str-a7050-acs-3" StartPort="Ethernet124"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-22" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet59"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-02" EndPort="Ethernet1/1" StartDevice="str-7260cx3-acs-1" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-02" EndPort="Ethernet1/3" StartDevice="str-7260cx3-acs-1" StartPort="Ethernet2"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-02" EndPort="Ethernet2/1" StartDevice="str-7260cx3-acs-1" StartPort="Ethernet4"/>
@@ -1370,7 +1385,6 @@
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-02" EndPort="Ethernet28/3" StartDevice="str-7260cx3-acs-1" StartPort="Ethernet110"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-02" EndPort="Ethernet29/1" StartDevice="str-7260cx3-acs-1" StartPort="Ethernet112"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-02" EndPort="Ethernet29/3" StartDevice="str-7260cx3-acs-1" StartPort="Ethernet114"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-02" EndPort="Ethernet32/1" StartDevice="str-7260-11" StartPort="Ethernet57"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-03" EndPort="Ethernet1/1" StartDevice="str-7260cx3-acs-1" StartPort="Ethernet116"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-03" EndPort="Ethernet1/3" StartDevice="str-7260cx3-acs-1" StartPort="Ethernet118"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-03" EndPort="Ethernet2/1" StartDevice="str-7260cx3-acs-1" StartPort="Ethernet120"/>
@@ -1429,7 +1443,6 @@
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-03" EndPort="Ethernet28/3" StartDevice="str-7260cx3-acs-1" StartPort="Ethernet226"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-03" EndPort="Ethernet29/1" StartDevice="str-7260cx3-acs-1" StartPort="Ethernet228"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-03" EndPort="Ethernet29/3" StartDevice="str-7260cx3-acs-1" StartPort="Ethernet230"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-03" EndPort="Ethernet32/1" StartDevice="str-7260-11" StartPort="Ethernet55"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-04" EndPort="Ethernet1/1" StartDevice="str-7260cx3-acs-1" StartPort="Ethernet232"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-04" EndPort="Ethernet1/3" StartDevice="str-7260cx3-acs-1" StartPort="Ethernet234"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-04" EndPort="Ethernet2/1" StartDevice="str-7260cx3-acs-1" StartPort="Ethernet236"/>
@@ -1446,7 +1459,6 @@
       <DeviceInterfaceLink BandWidth="10000" EndDevice="str-7060cx-32s-04" EndPort="Ethernet30/2" StartDevice="str-e1031-acs-1" StartPort="Ethernet49"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="str-7060cx-32s-04" EndPort="Ethernet30/3" StartDevice="str-e1031-acs-1" StartPort="Ethernet50"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="str-7060cx-32s-04" EndPort="Ethernet30/4" StartDevice="str-e1031-acs-1" StartPort="Ethernet51"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-04" EndPort="Ethernet31/1" StartDevice="str-7260-11" StartPort="Etherent33"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-05" EndPort="Ethernet10/1" StartDevice="str-msn2700-22" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-05" EndPort="Ethernet11/1" StartDevice="str-msn2700-22" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-05" EndPort="Ethernet12/1" StartDevice="str-msn2700-22" StartPort="Ethernet8"/>
@@ -1467,7 +1479,6 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-05" EndPort="Ethernet27/1" StartDevice="str-msn2700-22" StartPort="Ethernet68"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-05" EndPort="Ethernet28/1" StartDevice="str-msn2700-22" StartPort="Ethernet72"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-05" EndPort="Ethernet29/1" StartDevice="str-msn2700-22" StartPort="Ethernet76"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-05" EndPort="Ethernet32/1" StartDevice="str-7260-11" StartPort="Ethernet51"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-06" EndPort="Ethernet1/1" StartDevice="str-msn2700-22" StartPort="Ethernet80"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-06" EndPort="Ethernet2/1" StartDevice="str-msn2700-22" StartPort="Ethernet84"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-06" EndPort="Ethernet3/1" StartDevice="str-msn2700-22" StartPort="Ethernet88"/>
@@ -1497,7 +1508,6 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-06" EndPort="Ethernet27/1" StartDevice="str-z9100-acs-2" StartPort="Ethernet56"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-06" EndPort="Ethernet28/1" StartDevice="str-z9100-acs-2" StartPort="Ethernet60"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-06" EndPort="Ethernet29/1" StartDevice="str-z9100-acs-2" StartPort="Ethernet64"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-06" EndPort="Ethernet32/1" StartDevice="str-7260-11" StartPort="Ethernet49"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-07" EndPort="Ethernet1/1" StartDevice="str-z9100-acs-2" StartPort="Ethernet68"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-07" EndPort="Ethernet2/1" StartDevice="str-z9100-acs-2" StartPort="Ethernet72"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-07" EndPort="Ethernet3/1" StartDevice="str-z9100-acs-2" StartPort="Ethernet76"/>
@@ -1527,7 +1537,6 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-07" EndPort="Ethernet27/1" StartDevice="str-a7060cx-acs-10" StartPort="Ethernet44"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-07" EndPort="Ethernet28/1" StartDevice="str-a7060cx-acs-10" StartPort="Ethernet48"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-07" EndPort="Ethernet29/1" StartDevice="str-a7060cx-acs-10" StartPort="Ethernet52"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-07" EndPort="Ethernet32/1" StartDevice="str-7260-11" StartPort="Ethernet47"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-08" EndPort="Ethernet1/1" StartDevice="str-a7060cx-acs-10" StartPort="Ethernet56"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-08" EndPort="Ethernet2/1" StartDevice="str-a7060cx-acs-10" StartPort="Ethernet60"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-08" EndPort="Ethernet3/1" StartDevice="str-a7060cx-acs-10" StartPort="Ethernet64"/>
@@ -1557,7 +1566,6 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-08" EndPort="Ethernet27/1" StartDevice="str-n9232-acs-3" StartPort="Ethernet32"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-08" EndPort="Ethernet28/1" StartDevice="str-n9232-acs-3" StartPort="Ethernet36"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-08" EndPort="Ethernet29/1" StartDevice="str-n9232-acs-3" StartPort="Ethernet40"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-08" EndPort="Ethernet32/1" StartDevice="str-7260-11" StartPort="Ethernet45"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-09" EndPort="Ethernet1/1" StartDevice="str-n9232-acs-3" StartPort="Ethernet44"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-09" EndPort="Ethernet2/1" StartDevice="str-n9232-acs-3" StartPort="Ethernet48"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-09" EndPort="Ethernet3/1" StartDevice="str-n9232-acs-3" StartPort="Ethernet52"/>
@@ -1595,7 +1603,6 @@
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-09" EndPort="Ethernet28/3" StartDevice="str-7260cx3-acs-2" StartPort="Ethernet26"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-09" EndPort="Ethernet29/1" StartDevice="str-7260cx3-acs-2" StartPort="Ethernet28"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-09" EndPort="Ethernet29/3" StartDevice="str-7260cx3-acs-2" StartPort="Ethernet30"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-09" EndPort="Ethernet32/1" StartDevice="str-7260-11" StartPort="Ethernet43"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-15" EndPort="Ethernet1/1" StartDevice="str-7260cx3-acs-2" StartPort="Ethernet32"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-15" EndPort="Ethernet1/3" StartDevice="str-7260cx3-acs-2" StartPort="Ethernet34"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-15" EndPort="Ethernet2/1" StartDevice="str-7260cx3-acs-2" StartPort="Ethernet36"/>
@@ -1646,7 +1653,6 @@
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-15" EndPort="Ethernet28/3" StartDevice="str-7260cx3-acs-2" StartPort="Ethernet142"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-15" EndPort="Ethernet29/1" StartDevice="str-7260cx3-acs-2" StartPort="Ethernet144"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-15" EndPort="Ethernet29/3" StartDevice="str-7260cx3-acs-2" StartPort="Ethernet146"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-15" EndPort="Ethernet32/1" StartDevice="str-7260-11" StartPort="Ethernet39"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-16" EndPort="Ethernet1/1" StartDevice="str-7260cx3-acs-2" StartPort="Ethernet148"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-16" EndPort="Ethernet1/3" StartDevice="str-7260cx3-acs-2" StartPort="Ethernet150"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-16" EndPort="Ethernet2/1" StartDevice="str-7260cx3-acs-2" StartPort="Ethernet152"/>
@@ -1705,7 +1711,6 @@
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-16" EndPort="Ethernet28/3" StartDevice="str-a7060cx-acs-1" StartPort="Ethernet2"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-16" EndPort="Ethernet29/1" StartDevice="str-a7060cx-acs-1" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-16" EndPort="Ethernet29/3" StartDevice="str-a7060cx-acs-1" StartPort="Ethernet6"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-16" EndPort="Ethernet32/1" StartDevice="str-7260-11" StartPort="Ethernet37"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-17" EndPort="Ethernet1/1" StartDevice="str-a7060cx-acs-1" StartPort="Ethernet8"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-17" EndPort="Ethernet1/3" StartDevice="str-a7060cx-acs-1" StartPort="Ethernet10"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-17" EndPort="Ethernet2/1" StartDevice="str-a7060cx-acs-1" StartPort="Ethernet12"/>
@@ -1758,7 +1763,6 @@
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-17" EndPort="Ethernet29/3" StartDevice="str-a7060cx-acs-1" StartPort="Ethernet122"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-17" EndPort="Ethernet30/1" StartDevice="str-a7060cx-acs-1" StartPort="Ethernet124"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str-7060cx-32s-17" EndPort="Ethernet30/3" StartDevice="str-a7060cx-acs-1" StartPort="Ethernet126"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-17" EndPort="Ethernet32/1" StartDevice="str-7260-11" StartPort="Ethernet35"/>
       <DeviceInterfaceLink BandWidth="1000" EndDevice="str-e1031-acs-2" EndPort="Ethernet0" StartDevice="str-e1031-acs-1" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="1000" EndDevice="str-e1031-acs-2" EndPort="Ethernet1" StartDevice="str-e1031-acs-1" StartPort="Ethernet1"/>
       <DeviceInterfaceLink BandWidth="1000" EndDevice="str-e1031-acs-2" EndPort="Ethernet2" StartDevice="str-e1031-acs-1" StartPort="Ethernet2"/>
@@ -1807,7 +1811,6 @@
       <DeviceInterfaceLink BandWidth="1000" EndDevice="str-e1031-acs-2" EndPort="Ethernet45" StartDevice="str-e1031-acs-1" StartPort="Ethernet45"/>
       <DeviceInterfaceLink BandWidth="1000" EndDevice="str-e1031-acs-2" EndPort="Ethernet46" StartDevice="str-e1031-acs-1" StartPort="Ethernet46"/>
       <DeviceInterfaceLink BandWidth="1000" EndDevice="str-e1031-acs-2" EndPort="Ethernet47" StartDevice="str-e1031-acs-1" StartPort="Ethernet47"/>
-      <DeviceInterfaceLink BandWidth="10000" EndDevice="str-e1031-acs-2" EndPort="Ethernet48" StartDevice="str-7260-11" StartPort="Ethernet65"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-18" EndPort="Ethernet1/1" StartDevice="str-wedge100b65-acs-1" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-18" EndPort="Ethernet2/1" StartDevice="str-wedge100b65-acs-1" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-18" EndPort="Ethernet3/1" StartDevice="str-wedge100b65-acs-1" StartPort="Ethernet8"/>
@@ -1838,10 +1841,6 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-18" EndPort="Ethernet28/1" StartDevice="str-wedge100b65-acs-1" StartPort="Ethernet108"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-18" EndPort="Ethernet29/1" StartDevice="str-wedge100b65-acs-1" StartPort="Ethernet112"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-18" EndPort="Ethernet30/1" StartDevice="str-wedge100b65-acs-1" StartPort="Ethernet116"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-18" EndPort="Ethernet32/1" StartDevice="str-7260-11" StartPort="Ethernet31"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-21" EndPort="Ethernet32/1" StartDevice="str-7260-11" StartPort="Ethernet28"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-22" EndPort="Ethernet32/1" StartDevice="str-7260-11" StartPort="Ethernet29"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260cx3-fan-03" EndPort="Ethernet64/1" StartDevice="str-7260-11" StartPort="Ethernet13"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-21" EndPort="Ethernet1/1" StartDevice="str-dx010-acs-1" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-21" EndPort="Ethernet2/1" StartDevice="str-dx010-acs-1" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7060cx-32s-21" EndPort="Ethernet3/1" StartDevice="str-dx010-acs-1" StartPort="Ethernet8"/>
@@ -1991,6 +1990,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.25/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-e1031-acs-2">
+      <InterfaceVlan mode="Trunk" portname="Ethernet48" vlanids="1897-1944"/>
       <InterfaceVlan mode="Access" portname="Ethernet0" vlanids="1897"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="1898"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="1899"/>
@@ -2039,12 +2039,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet45" vlanids="1942"/>
       <InterfaceVlan mode="Access" portname="Ethernet46" vlanids="1943"/>
       <InterfaceVlan mode="Access" portname="Ethernet47" vlanids="1944"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet48" vlanids="1897-1944"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-02">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.154/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-02">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="265-296,1057-1064"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="265"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="266"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="267"/>
@@ -2077,7 +2077,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet30" vlanids="294"/>
       <InterfaceVlan mode="Access" portname="Ethernet31" vlanids="295"/>
       <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="296"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="265-296,1057-1064"/>
       <InterfaceVlan mode="Access" portname="Ethernet33" vlanids="1057"/>
       <InterfaceVlan mode="Access" portname="Ethernet34" vlanids="1058"/>
       <InterfaceVlan mode="Access" portname="Ethernet35" vlanids="1059"/>
@@ -2091,6 +2090,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.169/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-03">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="585-616,1065-1092"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="585"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="586"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="587"/>
@@ -2123,12 +2123,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet30" vlanids="614"/>
       <InterfaceVlan mode="Access" portname="Ethernet31" vlanids="615"/>
       <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="616"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="585-616,1065-1092"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-04">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.164/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-04">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="233-264,1097-1124"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="233"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="234"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="235"/>
@@ -2161,7 +2161,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet30" vlanids="262"/>
       <InterfaceVlan mode="Access" portname="Ethernet31" vlanids="263"/>
       <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="264"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="233-264,1097-1124"/>
       <InterfaceVlan mode="Access" portname="Ethernet33" vlanids="1097"/>
       <InterfaceVlan mode="Access" portname="Ethernet34" vlanids="1098"/>
       <InterfaceVlan mode="Access" portname="Ethernet35" vlanids="1099"/>
@@ -2195,6 +2194,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.76/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-01">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="201-228,297-328"/>
       <InterfaceVlan mode="Access" portname="Ethernet33" vlanids="201"/>
       <InterfaceVlan mode="Access" portname="Ethernet34" vlanids="202"/>
       <InterfaceVlan mode="Access" portname="Ethernet35" vlanids="203"/>
@@ -2255,12 +2255,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet30" vlanids="326"/>
       <InterfaceVlan mode="Access" portname="Ethernet31" vlanids="327"/>
       <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="328"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="201-228,297-328"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-05">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.105/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-05">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="229-232,777-808,841-864"/>
       <InterfaceVlan mode="Access" portname="Ethernet33" vlanids="229"/>
       <InterfaceVlan mode="Access" portname="Ethernet34" vlanids="230"/>
       <InterfaceVlan mode="Access" portname="Ethernet35" vlanids="231"/>
@@ -2321,12 +2321,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet58" vlanids="862"/>
       <InterfaceVlan mode="Access" portname="Ethernet59" vlanids="863"/>
       <InterfaceVlan mode="Access" portname="Ethernet60" vlanids="864"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="229-232,777-808,841-864"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-06">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.106/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-06">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="329-348,809-840,865-872"/>
       <InterfaceVlan mode="Access" portname="Ethernet41" vlanids="329"/>
       <InterfaceVlan mode="Access" portname="Ethernet42" vlanids="330"/>
       <InterfaceVlan mode="Access" portname="Ethernet43" vlanids="331"/>
@@ -2387,7 +2387,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet38" vlanids="870"/>
       <InterfaceVlan mode="Access" portname="Ethernet39" vlanids="871"/>
       <InterfaceVlan mode="Access" portname="Ethernet40" vlanids="872"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="329-348,809-840,865-872"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-07">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.11/23"/>
@@ -2458,6 +2457,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.108/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-08">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="349-360,521-536,713-744"/>
       <InterfaceVlan mode="Access" portname="Ethernet33" vlanids="349"/>
       <InterfaceVlan mode="Access" portname="Ethernet34" vlanids="350"/>
       <InterfaceVlan mode="Access" portname="Ethernet35" vlanids="351"/>
@@ -2518,7 +2518,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet30" vlanids="742"/>
       <InterfaceVlan mode="Access" portname="Ethernet31" vlanids="743"/>
       <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="744"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="349-360,521-536,713-744"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-09">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.12/23"/>
@@ -2654,67 +2653,67 @@
       <InterfaceVlan mode="Access" portname="Ethernet62" vlanids="1177"/>
       <InterfaceVlan mode="Access" portname="Ethernet63" vlanids="1178"/>
     </DevicesL2Info>
-    <DevicesL3Info Hostname="str-7260-11">
+    <DevicesL3Info Hostname="str-7260cx3-11">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.234/23"/>
     </DevicesL3Info>
-    <DevicesL2Info Hostname="str-7260-11">
-      <InterfaceVlan mode="Trunk" portname="Ethernet14" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet15" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet16" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet17" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet18" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet19" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet20" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet21" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet22" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet23" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet24" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet25" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet26" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet27" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet28" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet30" vlanids="937-968,1152-1178"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet32" vlanids="905-936,1193-1222"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet34" vlanids="873-904,1093-1096,1125-1151"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet36" vlanids="681-712"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet38" vlanids="649-680,1179-1192"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet40" vlanids="233-264,1097-1124"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet42" vlanids="585-616,1065-1092"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet44" vlanids="265-296,1057-1064"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet46" vlanids="553-584,1029-1056"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet48" vlanids="489-520,1001-1028"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet50" vlanids="457-488,973-1000"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet52" vlanids="425-456,753-776,969-972"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet54" vlanids="393-424,629-648,745-752"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet56" vlanids="361-392,537-552,617-628"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet58" vlanids="349-360,521-536,713-744"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet60" vlanids="329-348,809-840,865-872"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet62" vlanids="229-232,777-808,841-864"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="201-228,297-328"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet63" vlanids="1225-1284"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet61" vlanids="1285-1344"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet59" vlanids="1345-1404"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet57" vlanids="1609-1658"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet55" vlanids="1659-1716"/>
-      <InterfaceVlan mode="Trunk" portname="Etherent33" vlanids="2065-2105,1717-1728,1945-1948"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet51" vlanids="1481-1500,2106-2120"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet49" vlanids="1501-1529"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet47" vlanids="1530-1558"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet45" vlanids="1559-1587"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet43" vlanids="1588-1608, 1737-1752"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet39" vlanids="1753-1802"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet37" vlanids="1803-1856,1385-1388"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet35" vlanids="1389-1440"/>
+    <DevicesL2Info Hostname="str-7260cx3-11">
+      <InterfaceVlan mode="Trunk" portname="Ethernet13/1" vlanids="1093-1096,2011-2064"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet14/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet15/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet16/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet17/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet18/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet19/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet20/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet21/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet22/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet23/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet24/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet25/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet26/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet27/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet28/1" vlanids="1979-2008"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet29/1" vlanids="1065-1092,2009,2010"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet30/1" vlanids="937-968,1152-1178"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet31/1" vlanids="1949-1978"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="905-936,1193-1222"/>
+      <InterfaceVlan mode="Trunk" portname="Etherent33/1" vlanids="2065-2105,1717-1728,1945-1948"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet34/1" vlanids="873-904,1093-1096,1125-1151"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet35/1" vlanids="1389-1440"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet36/1" vlanids="681-712"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet37/1" vlanids="1803-1856,1385-1388"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet38/1" vlanids="649-680,1179-1192"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet39/1" vlanids="1753-1802"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet40/1" vlanids="233-264,1097-1124"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet42/1" vlanids="585-616,1065-1092"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet43/1" vlanids="1588-1608, 1737-1752"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet44/1" vlanids="265-296,1057-1064"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet45/1" vlanids="1559-1587"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet46/1" vlanids="553-584,1029-1056"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet47/1" vlanids="1530-1558"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet48/1" vlanids="489-520,1001-1028"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet49/1" vlanids="1501-1529"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet50/1" vlanids="457-488,973-1000"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet51/1" vlanids="1481-1500,2106-2120"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet52/1" vlanids="425-456,753-776,969-972"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet54/1" vlanids="393-424,629-648,745-752"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet55/1" vlanids="1659-1716"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet56/1" vlanids="361-392,537-552,617-628"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet57/1" vlanids="1609-1658"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet58/1" vlanids="349-360,521-536,713-744"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet59/1" vlanids="1345-1404"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet60/1" vlanids="329-348,809-840,865-872"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet61/1" vlanids="1285-1344"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet62/1" vlanids="229-232,777-808,841-864"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet63/1" vlanids="1225-1284"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="201-228,297-328"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet65" vlanids="1897-1944"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet31" vlanids="1949-1978"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet28" vlanids="1979-2008"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet29" vlanids="1065-1092,2009,2010"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet13" vlanids="1093-1096,2011-2064"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-13">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.196/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-13">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="361-392,537-552,617-628"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="361"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="362"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="363"/>
@@ -2775,12 +2774,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet58" vlanids="626"/>
       <InterfaceVlan mode="Access" portname="Ethernet59" vlanids="627"/>
       <InterfaceVlan mode="Access" portname="Ethernet60" vlanids="628"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="361-392,537-552,617-628"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-14">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.198/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-14">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="393-424,629-648,745-752"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="393"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="394"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="395"/>
@@ -2841,12 +2840,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet58" vlanids="750"/>
       <InterfaceVlan mode="Access" portname="Ethernet59" vlanids="751"/>
       <InterfaceVlan mode="Access" portname="Ethernet60" vlanids="752"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="393-424,629-648,745-752"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-15">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.236/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-15">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="425-456,753-776,969-972"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="425"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="426"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="427"/>
@@ -2903,7 +2902,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet54" vlanids="774"/>
       <InterfaceVlan mode="Access" portname="Ethernet55" vlanids="775"/>
       <InterfaceVlan mode="Access" portname="Ethernet56" vlanids="776"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="425-456,753-776,969-972"/>
       <InterfaceVlan mode="Access" portname="Ethernet57" vlanids="969"/>
       <InterfaceVlan mode="Access" portname="Ethernet58" vlanids="970"/>
       <InterfaceVlan mode="Access" portname="Ethernet59" vlanids="971"/>
@@ -2913,6 +2911,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.238/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-16">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="457-488,973-1000"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="457"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="458"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="459"/>
@@ -2945,7 +2944,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet30" vlanids="486"/>
       <InterfaceVlan mode="Access" portname="Ethernet31" vlanids="487"/>
       <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="488"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="457-488,973-1000"/>
       <InterfaceVlan mode="Access" portname="Ethernet33" vlanids="973"/>
       <InterfaceVlan mode="Access" portname="Ethernet34" vlanids="974"/>
       <InterfaceVlan mode="Access" portname="Ethernet35" vlanids="975"/>
@@ -2979,6 +2977,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.240/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-17">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="489-520,1001-1028"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="489"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="490"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="491"/>
@@ -3011,7 +3010,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet30" vlanids="518"/>
       <InterfaceVlan mode="Access" portname="Ethernet31" vlanids="519"/>
       <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="520"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="489-520,1001-1028"/>
       <InterfaceVlan mode="Access" portname="Ethernet33" vlanids="1001"/>
       <InterfaceVlan mode="Access" portname="Ethernet34" vlanids="1002"/>
       <InterfaceVlan mode="Access" portname="Ethernet35" vlanids="1003"/>
@@ -3045,6 +3043,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.242/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-18">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="553-584,1029-1056"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="553"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="554"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="555"/>
@@ -3077,7 +3076,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet30" vlanids="582"/>
       <InterfaceVlan mode="Access" portname="Ethernet31" vlanids="583"/>
       <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="584"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="553-584,1029-1056"/>
       <InterfaceVlan mode="Access" portname="Ethernet33" vlanids="1029"/>
       <InterfaceVlan mode="Access" portname="Ethernet34" vlanids="1030"/>
       <InterfaceVlan mode="Access" portname="Ethernet35" vlanids="1031"/>
@@ -3111,6 +3109,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.249/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-20">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="1225-1284"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="1225"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="1226"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="1227"/>
@@ -3171,12 +3170,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet58" vlanids="1282"/>
       <InterfaceVlan mode="Access" portname="Ethernet59" vlanids="1283"/>
       <InterfaceVlan mode="Access" portname="Ethernet60" vlanids="1284"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="1225-1284"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-21">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.248/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-21">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="1285-1344"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="1285"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="1286"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="1287"/>
@@ -3237,12 +3236,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet58" vlanids="1342"/>
       <InterfaceVlan mode="Access" portname="Ethernet59" vlanids="1343"/>
       <InterfaceVlan mode="Access" portname="Ethernet60" vlanids="1344"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="1285-1344"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-22">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.247/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-22">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="1345-1404"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="1345"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="1346"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="1347"/>
@@ -3283,12 +3282,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet38" vlanids="1382"/>
       <InterfaceVlan mode="Access" portname="Ethernet39" vlanids="1383"/>
       <InterfaceVlan mode="Access" portname="Ethernet40" vlanids="1384"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="1345-1404"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-23">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.253/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-23">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="649-680,1179-1192"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="649"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="650"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="651"/>
@@ -3321,7 +3320,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet30" vlanids="678"/>
       <InterfaceVlan mode="Access" portname="Ethernet31" vlanids="679"/>
       <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="680"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="649-680,1179-1192"/>
       <InterfaceVlan mode="Access" portname="Ethernet34" vlanids="1179"/>
       <InterfaceVlan mode="Access" portname="Ethernet35" vlanids="1180"/>
       <InterfaceVlan mode="Access" portname="Ethernet36" vlanids="1181"/>
@@ -3341,6 +3339,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.254/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-24">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="681-712"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="681"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="682"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="683"/>
@@ -3373,13 +3372,13 @@
       <InterfaceVlan mode="Access" portname="Ethernet30" vlanids="710"/>
       <InterfaceVlan mode="Access" portname="Ethernet31" vlanids="711"/>
       <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="712"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="681-712"/>
       <InterfaceVlan mode="Access" portname="Ethernet33" vlanids="1224"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7060cx-32s-02">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.229/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7060cx-32s-02">
+      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1609-1658"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="1609"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/3" vlanids="1610"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="1611"/>
@@ -3430,12 +3429,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet28/3" vlanids="1656"/>
       <InterfaceVlan mode="Access" portname="Ethernet29/1" vlanids="1657"/>
       <InterfaceVlan mode="Access" portname="Ethernet29/3" vlanids="1658"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1609-1658"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7060cx-32s-03">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.230/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7060cx-32s-03">
+      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1659-1716"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="1659"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/3" vlanids="1660"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="1661"/>
@@ -3494,12 +3493,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet28/3" vlanids="1714"/>
       <InterfaceVlan mode="Access" portname="Ethernet29/1" vlanids="1715"/>
       <InterfaceVlan mode="Access" portname="Ethernet29/3" vlanids="1716"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1659-1716"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7060cx-32s-04">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.231/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7060cx-32s-04">
+      <InterfaceVlan mode="Trunk" portname="Ethernet31/1" vlanids="2065-2105,1717-1728,1945-1948"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="1717"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/3" vlanids="1718"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="1719"/>
@@ -3516,7 +3515,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet30/2" vlanids="1946"/>
       <InterfaceVlan mode="Access" portname="Ethernet30/3" vlanids="1947"/>
       <InterfaceVlan mode="Access" portname="Ethernet30/4" vlanids="1948"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet31/1" vlanids="2065-2105,1717-1728,1945-1948"/>
       <InterfaceVlan mode="Access" portname="Ethernet7/1" vlanids="2065"/>
       <InterfaceVlan mode="Access" portname="Ethernet7/3" vlanids="2066"/>
       <InterfaceVlan mode="Access" portname="Ethernet8/1" vlanids="2067"/>
@@ -3563,6 +3561,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.232/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7060cx-32s-05">
+      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1481-1500,2106-2120"/>
       <InterfaceVlan mode="Access" portname="Ethernet10/1" vlanids="1481"/>
       <InterfaceVlan mode="Access" portname="Ethernet11/1" vlanids="1482"/>
       <InterfaceVlan mode="Access" portname="Ethernet12/1" vlanids="1483"/>
@@ -3583,7 +3582,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet27/1" vlanids="1498"/>
       <InterfaceVlan mode="Access" portname="Ethernet28/1" vlanids="1499"/>
       <InterfaceVlan mode="Access" portname="Ethernet29/1" vlanids="1500"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1481-1500,2106-2120"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="2106"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="2107"/>
       <InterfaceVlan mode="Access" portname="Ethernet3/1" vlanids="2108"/>
@@ -3604,6 +3602,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.233/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7060cx-32s-06">
+      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1501-1529"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="1501"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="1502"/>
       <InterfaceVlan mode="Access" portname="Ethernet3/1" vlanids="1503"/>
@@ -3633,12 +3632,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet27/1" vlanids="1527"/>
       <InterfaceVlan mode="Access" portname="Ethernet28/1" vlanids="1528"/>
       <InterfaceVlan mode="Access" portname="Ethernet29/1" vlanids="1529"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1501-1529"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7060cx-32s-07">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.234/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7060cx-32s-07">
+      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1530-1558"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="1530"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="1531"/>
       <InterfaceVlan mode="Access" portname="Ethernet3/1" vlanids="1532"/>
@@ -3668,12 +3667,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet27/1" vlanids="1556"/>
       <InterfaceVlan mode="Access" portname="Ethernet28/1" vlanids="1557"/>
       <InterfaceVlan mode="Access" portname="Ethernet29/1" vlanids="1558"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1530-1558"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7060cx-32s-08">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.238/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7060cx-32s-08">
+      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1559-1587"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="1559"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="1560"/>
       <InterfaceVlan mode="Access" portname="Ethernet3/1" vlanids="1561"/>
@@ -3703,12 +3702,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet27/1" vlanids="1585"/>
       <InterfaceVlan mode="Access" portname="Ethernet28/1" vlanids="1586"/>
       <InterfaceVlan mode="Access" portname="Ethernet29/1" vlanids="1587"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1559-1587"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7060cx-32s-09">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.239/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7060cx-32s-09">
+      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1588-1608, 1737-1752"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="1588"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="1589"/>
       <InterfaceVlan mode="Access" portname="Ethernet3/1" vlanids="1590"/>
@@ -3746,12 +3745,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet28/3" vlanids="1750"/>
       <InterfaceVlan mode="Access" portname="Ethernet29/1" vlanids="1751"/>
       <InterfaceVlan mode="Access" portname="Ethernet29/3" vlanids="1752"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1588-1608, 1737-1752"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7060cx-32s-15">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.11/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7060cx-32s-15">
+      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1753-1802"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="1753"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/3" vlanids="1754"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="1755"/>
@@ -3802,12 +3801,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet28/3" vlanids="1800"/>
       <InterfaceVlan mode="Access" portname="Ethernet29/1" vlanids="1801"/>
       <InterfaceVlan mode="Access" portname="Ethernet29/3" vlanids="1802"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1753-1802"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7060cx-32s-16">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.12/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7060cx-32s-16">
+      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1803-1856,1385-1388"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="1803"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/3" vlanids="1804"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="1805"/>
@@ -3866,12 +3865,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet28/3" vlanids="1386"/>
       <InterfaceVlan mode="Access" portname="Ethernet29/1" vlanids="1387"/>
       <InterfaceVlan mode="Access" portname="Ethernet29/3" vlanids="1388"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1803-1856,1385-1388"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7060cx-32s-17">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.13/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7060cx-32s-17">
+      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1389-1440"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="1389"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/3" vlanids="1390"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="1391"/>
@@ -3924,12 +3923,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet29/3" vlanids="1438"/>
       <InterfaceVlan mode="Access" portname="Ethernet30/1" vlanids="1439"/>
       <InterfaceVlan mode="Access" portname="Ethernet30/3" vlanids="1440"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1389-1440"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7060cx-32s-18">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.22/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7060cx-32s-18">
+      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1949-1978"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="1949"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="1950"/>
       <InterfaceVlan mode="Access" portname="Ethernet3/1" vlanids="1951"/>
@@ -3960,7 +3959,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet28/1" vlanids="1976"/>
       <InterfaceVlan mode="Access" portname="Ethernet29/1" vlanids="1977"/>
       <InterfaceVlan mode="Access" portname="Ethernet30/1" vlanids="1978"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1949-1978"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7060cx-32s-21">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.246.32/23"/>
@@ -4002,6 +4000,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.246.34/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7060cx-32s-22">
+      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1065-1092,2009,2010"/>
       <InterfaceVlan mode="Access" portname="Ethernet3/1" vlanids="1065"/>
       <InterfaceVlan mode="Access" portname="Ethernet4/1" vlanids="1066"/>
       <InterfaceVlan mode="Access" portname="Ethernet5/1" vlanids="1067"/>
@@ -4030,7 +4029,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet28/1" vlanids="1090"/>
       <InterfaceVlan mode="Access" portname="Ethernet29/1" vlanids="1091"/>
       <InterfaceVlan mode="Access" portname="Ethernet30/1" vlanids="1092"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1065-1092,2009,2010"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="2009"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="2010"/>
     </DevicesL2Info>
@@ -4038,11 +4036,11 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.246.47/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260cx3-fan-03">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="1093-1096,2011-2064"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="1093"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="1094"/>
       <InterfaceVlan mode="Access" portname="Ethernet3/1" vlanids="1095"/>
       <InterfaceVlan mode="Access" portname="Ethernet4/1" vlanids="1096"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="1093-1096,2011-2064"/>
       <InterfaceVlan mode="Access" portname="Ethernet5/1" vlanids="2011"/>
       <InterfaceVlan mode="Access" portname="Ethernet5/2" vlanids="2012"/>
       <InterfaceVlan mode="Access" portname="Ethernet5/3" vlanids="2013"/>

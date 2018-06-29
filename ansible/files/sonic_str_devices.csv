@@ -59,7 +59,7 @@ str-7260-07,10.3.147.11/23,Arista-7260QX-64,FanoutLeaf
 str-7260-08,10.3.147.108/23,Arista-7260QX-64,FanoutLeaf
 str-7260-09,10.3.147.12/23,Arista-7260QX-64,FanoutLeaf
 str-7260-10,10.3.147.13/23,Arista-7260QX-64,FanoutLeaf
-str-7260-11,10.3.147.234/23,Arista-7260QX-64,FanoutRoot
+str-7260cx3-11,10.3.147.234/23,Arista-7260CX3-64,FanoutRoot
 str-7260-13,10.3.147.196/23,Arista-7260QX-64,FanoutLeaf
 str-7260-14,10.3.147.198/23,Arista-7260QX-64,FanoutLeaf
 str-7260-15,10.3.147.236/23,Arista-7260QX-64,FanoutLeaf
