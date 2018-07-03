@@ -7,7 +7,10 @@ Tools for managing, configuring and monitoring SONiC
 
 # Contribution guide
 
-All contributors must sign a contribution license agreement before contributions can be accepted.  Contact kasubra@microsoft.com or daloher@microsoft.com.  Later this will be automated.
+All contributors must sign a contribution license agreement before contributions can be accepted.  
+[How to become a contributer](https://github.com/Azure/SONiC/wiki/Becoming-a-contributor)
+ 
+
 
 ### GitHub Workflow
 
