@@ -136,10 +136,6 @@
         - src_port_ip='{{ src_port_ip }}'
        
     # XOFF limit
-    - name: pause egress on dut dst port (workaroud before sai support egress pause)
-      command: bcmcmd "mod egr_enable {{ qp.xoff_1.egr_pause_port }} 1 prt_enable=0"
-      when:  minigraph_hwsku is defined and minigraph_hwsku in broadcom_hwskus
-
     - include: qos_sai_ptf.yml
       vars:
         test_name: xoff limit ptf test dscp = {{ qp.xoff_1.dscp }}, ecn = {{ qp.xoff_1.ecn }}
@@ -158,14 +154,6 @@
         - pkts_num_trig_pfc={% if minigraph_hwsku is defined and minigraph_hwsku in broadcom_hwskus %}'{{ qp.xoff_1.pkts_num_trig_pfc }}'{% else %}'0'{% endif %}
         - pkts_num_trig_ingr_drp={% if minigraph_hwsku is defined and minigraph_hwsku in broadcom_hwskus %}'{{ qp.xoff_1.pkts_num_trig_ingr_drp }}'{% else %}'0'{% endif %}
 
-    - name: resume egress on dut dst port (workaroud before sai support egress pause)
-      command: bcmcmd "mod egr_enable {{ qp.xoff_1.egr_pause_port }} 1 prt_enable=1"
-      when:  minigraph_hwsku is defined and minigraph_hwsku in broadcom_hwskus
-
-    - name: pause egress on dut dst port (workaroud before sai support egress pause)
-      command: bcmcmd "mod egr_enable {{ qp.xoff_2.egr_pause_port }} 1 prt_enable=0"
-      when:  minigraph_hwsku is defined and minigraph_hwsku in broadcom_hwskus
-
     - include: qos_sai_ptf.yml
       vars:
         test_name: xoff limit ptf test dscp = {{ qp.xoff_2.dscp }}, ecn = {{ qp.xoff_2.ecn }}
@@ -183,10 +171,6 @@
         - pkts_num_leak_out={% if minigraph_hwsku is defined and minigraph_hwsku in broadcom_hwskus %}'{{ qp.xoff_2.pkts_num_leak_out }}'{% else %}'0'{% endif %}
         - pkts_num_trig_pfc={% if minigraph_hwsku is defined and minigraph_hwsku in broadcom_hwskus %}'{{ qp.xoff_2.pkts_num_trig_pfc }}'{% else %}'0'{% endif %}
         - pkts_num_trig_ingr_drp={% if minigraph_hwsku is defined and minigraph_hwsku in broadcom_hwskus %}'{{ qp.xoff_2.pkts_num_trig_ingr_drp }}'{% else %}'0'{% endif %}
-
-    - name: resume egress on dut dst port (workaroud before sai support egress pause)
-      command: bcmcmd "mod egr_enable {{ qp.xoff_2.egr_pause_port }} 1 prt_enable=1"
-      when:  minigraph_hwsku is defined and minigraph_hwsku in broadcom_hwskus
 
     - name: Restore origin buffer profile after PFC tests
       shell: sonic-cfggen -j /tmp/pfc_lossless_base_profile.json --write-to-db
