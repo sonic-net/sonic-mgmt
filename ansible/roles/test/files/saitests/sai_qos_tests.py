@@ -265,32 +265,32 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
                 print "END OF TEST"
         elif asic_type == 'broadcom':
+            pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
+            pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
+            pkts_num_trig_ingr_drp = int(self.test_params['pkts_num_trig_ingr_drp'])
+            default_packet_length = 64
+            pkt = simple_tcp_packet(pktlen=default_packet_length,
+                                    eth_dst=router_mac,
+                                    eth_src=src_port_mac,
+                                    ip_src=src_port_ip,
+                                    ip_dst=dst_port_ip,
+                                    ip_tos=tos,
+                                    ip_ttl=ttl)
+            # get a snapshot of counter values at recv and transmit ports
+            # queue_counters value is not of our interest here
+            recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            xmit_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            # Add slight tolerance in threshold characterization to consider
+            # the case that cpu puts packets in the egress queue after we pause the egress
+            # or the leak out is simply less than expected as we have occasionally observed
+            margin = 2
+
+            # Pause egress of dut xmit port
+            attr_value = sai_thrift_attribute_value_t(booldata=1)
+            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+            self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+
             try:
-                pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
-                pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
-                pkts_num_trig_ingr_drp = int(self.test_params['pkts_num_trig_ingr_drp'])
-                default_packet_length = 64
-                pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                        eth_dst=router_mac,
-                                        eth_src=src_port_mac,
-                                        ip_src=src_port_ip,
-                                        ip_dst=dst_port_ip,
-                                        ip_tos=tos,
-                                        ip_ttl=ttl)
-                # get a snapshot of counter values at recv and transmit ports
-                # queue_counters value is not of our interest here
-                recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-                xmit_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                # Add slight tolerance in threshold characterization to consider
-                # the case that cpu puts packets in the egress queue after we pause the egress
-                # or the leak out is simply less than expected as we have occasionally observed
-                margin = 2
-
-                # Pause egress of dut xmit port
-                attr_value = sai_thrift_attribute_value_t(booldata=1)
-                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
-                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
-
                 # send packets short of triggering pfc
                 send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - 1 - margin)
                 # allow enough time for the dut to sync up the counter values in counters_db
@@ -887,31 +887,31 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
         elif asic_type == 'broadcom':
+            pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
+            pkts_num_trig_egr_drp = int(self.test_params['pkts_num_trig_egr_drp'])
+            default_packet_length = 64
+            pkt = simple_tcp_packet(pktlen=default_packet_length,
+                                    eth_dst=router_mac,
+                                    eth_src=src_port_mac,
+                                    ip_src=src_port_ip,
+                                    ip_dst=dst_port_ip,
+                                    ip_tos=tos,
+                                    ip_ttl=ttl)
+            # get a snapshot of counter values at recv and transmit ports
+            # queue_counters value is not of our interest here
+            recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            xmit_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            # add slight tolerance in threshold characterization to consider
+            # the case that cpu puts packets in the egress queue after we pause the egress
+            # or the leak out is simply less than expected as we have occasionally observed
+            margin = 2
+
+            # Pause egress of dut xmit port
+            attr_value = sai_thrift_attribute_value_t(booldata=1)
+            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+            self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+
             try:
-                pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
-                pkts_num_trig_egr_drp = int(self.test_params['pkts_num_trig_egr_drp'])
-                default_packet_length = 64
-                pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                        eth_dst=router_mac,
-                                        eth_src=src_port_mac,
-                                        ip_src=src_port_ip,
-                                        ip_dst=dst_port_ip,
-                                        ip_tos=tos,
-                                        ip_ttl=ttl)
-                # get a snapshot of counter values at recv and transmit ports
-                # queue_counters value is not of our interest here
-                recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-                xmit_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                # add slight tolerance in threshold characterization to consider
-                # the case that cpu puts packets in the egress queue after we pause the egress
-                # or the leak out is simply less than expected as we have occasionally observed
-                margin = 2
-
-                # Pause egress of dut xmit port
-                attr_value = sai_thrift_attribute_value_t(booldata=1)
-                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
-                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
-
                 # send packets short of triggering egress drop
                 send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
                 # allow enough time for the dut to sync up the counter values in counters_db
