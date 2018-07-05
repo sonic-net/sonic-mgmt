@@ -58,10 +58,14 @@
 - name: Set DST port 2 ID
   set_fact:
     dst_port_2_id: "{{ testing_ports_id[1] }}"
-    
+
 - name: Set SRC port ID
   set_fact:
     src_port_id: "{{ testing_ports_id[2] }}"
+
+- name: Set DST port 3 ID
+  set_fact:
+    dst_port_3_id: "{{ testing_ports_id[3] }}"
 
 - name: Get DST port 1 IP
   set_fact:
@@ -81,6 +85,13 @@
   set_fact:
     src_port_ip: "{{ item['addr'] }}"
   when: item['name'] == minigraph_neighbors[ dut_switch_ports[src_port_id|int] ]['name'] and item['addr']|ipv4
+  with_items:
+    - "{{ minigraph_bgp }}"
+
+- name: Get DST port 3 IP
+  set_fact:
+    dst_port_3_ip: "{{ item['addr'] }}"
+  when: item['name'] == minigraph_neighbors[ dut_switch_ports[dst_port_3_id|int] ]['name'] and item['addr']|ipv4
   with_items:
     - "{{ minigraph_bgp }}"
 
