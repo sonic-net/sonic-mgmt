@@ -312,6 +312,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 time.sleep(8)
                 # get a snapshot of counter values at recv and transmit ports
                 # queue counters value is not of our interest here
+                recv_counters_base = recv_counters
                 recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
                 xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
                 # recv port pfc
@@ -327,6 +328,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 time.sleep(8)
                 # get a snapshot of counter values at recv and transmit ports
                 # queue counters value is not of our interest here
+                recv_counters_base = recv_counters
                 recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
                 xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
                 # recv port pfc
@@ -342,6 +344,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 time.sleep(8)
                 # get a snapshot of counter values at recv and transmit ports
                 # queue counters value is not of our interest here
+                recv_counters_base = recv_counters
                 recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
                 xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
                 # recv port pfc
