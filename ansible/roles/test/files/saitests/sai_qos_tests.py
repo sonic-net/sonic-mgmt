@@ -740,10 +740,12 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
             print "END OF TEST"
 
+# TODO: packet leak-out in egress pause on brcm chips
+# This, however, does not affect the scheduling result
 class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)        
-        
+
         # Parse input parameters
         ecn = int(self.test_params['ecn'])
         router_mac = self.test_params['router_mac']       
@@ -768,128 +770,142 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+        else:
+            attr_value = sai_thrift_attribute_value_t(booldata=1)
+            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+            self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
-            # Get a snapshot of counter values
-            port_counters_base, queue_counters_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+        # Get a snapshot of counter values
+        port_counters_base, queue_counters_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
-            # Send packets to each queue based on dscp field
-            try:
-                for i in range(0, queue_0_num_of_pkts):
-                    dscp = 0
-                    tos = dscp << 2
-                    tos |= ecn
-                    pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                eth_dst=router_mac,
-                                eth_src=src_port_mac,
-                                ip_src=src_port_ip,
-                                ip_dst=dst_port_ip,
-                                ip_tos=tos,
-                                ip_id=exp_ip_id,
-                                ip_ttl=64)
-                    send_packet(self, src_port_id, pkt)
+        # Send packets to each queue based on dscp field
+        try:
+            for i in range(0, queue_0_num_of_pkts):
+                dscp = 0
+                tos = dscp << 2
+                tos |= ecn
+                pkt = simple_tcp_packet(pktlen=default_packet_length,
+                            eth_dst=router_mac,
+                            eth_src=src_port_mac,
+                            ip_src=src_port_ip,
+                            ip_dst=dst_port_ip,
+                            ip_tos=tos,
+                            ip_id=exp_ip_id,
+                            ip_ttl=64)
+                send_packet(self, src_port_id, pkt)
 
-                for i in range(0, queue_1_num_of_pkts):
-                    dscp = 8
-                    tos = dscp << 2
-                    tos |= ecn
-                    pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                eth_dst=router_mac,
-                                eth_src=src_port_mac,
-                                ip_src=src_port_ip,
-                                ip_dst=dst_port_ip,
-                                ip_tos=tos,
-                                ip_id=exp_ip_id,
-                                ip_ttl=64)
-                    send_packet(self, src_port_id, pkt)
+            for i in range(0, queue_1_num_of_pkts):
+                dscp = 8
+                tos = dscp << 2
+                tos |= ecn
+                pkt = simple_tcp_packet(pktlen=default_packet_length,
+                            eth_dst=router_mac,
+                            eth_src=src_port_mac,
+                            ip_src=src_port_ip,
+                            ip_dst=dst_port_ip,
+                            ip_tos=tos,
+                            ip_id=exp_ip_id,
+                            ip_ttl=64)
+                send_packet(self, src_port_id, pkt)
 
-                for i in range(0, queue_3_num_of_pkts):
-                    dscp = 3
-                    tos = dscp << 2
-                    tos |= ecn
-                    pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                eth_dst=router_mac,
-                                eth_src=src_port_mac,
-                                ip_src=src_port_ip,
-                                ip_dst=dst_port_ip,
-                                ip_tos=tos,
-                                ip_id=exp_ip_id,
-                                ip_ttl=64)
-                    send_packet(self, src_port_id, pkt)
+            for i in range(0, queue_3_num_of_pkts):
+                dscp = 3
+                tos = dscp << 2
+                tos |= ecn
+                pkt = simple_tcp_packet(pktlen=default_packet_length,
+                            eth_dst=router_mac,
+                            eth_src=src_port_mac,
+                            ip_src=src_port_ip,
+                            ip_dst=dst_port_ip,
+                            ip_tos=tos,
+                            ip_id=exp_ip_id,
+                            ip_ttl=64)
+                send_packet(self, src_port_id, pkt)
 
-                for i in range(0, queue_4_num_of_pkts):
-                    dscp = 4
-                    tos = dscp << 2
-                    tos |= ecn
-                    pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                eth_dst=router_mac,
-                                eth_src=src_port_mac,
-                                ip_src=src_port_ip,
-                                ip_dst=dst_port_ip,
-                                ip_tos=tos,
-                                ip_id=exp_ip_id,
-                                ip_ttl=64)
-                    send_packet(self, src_port_id, pkt)
+            for i in range(0, queue_4_num_of_pkts):
+                dscp = 4
+                tos = dscp << 2
+                tos |= ecn
+                pkt = simple_tcp_packet(pktlen=default_packet_length,
+                            eth_dst=router_mac,
+                            eth_src=src_port_mac,
+                            ip_src=src_port_ip,
+                            ip_dst=dst_port_ip,
+                            ip_tos=tos,
+                            ip_id=exp_ip_id,
+                            ip_ttl=64)
+                send_packet(self, src_port_id, pkt)
 
-                # Set receiving socket buffers to some big value
-                for p in self.dataplane.ports.values():
-                    p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
+            # Set receiving socket buffers to some big value
+            for p in self.dataplane.ports.values():
+                p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
 
-                # Release port
+            # Release port
+            if asic_type == 'mellanox':
                 sched_prof_id=sai_thrift_create_scheduler_profile(self.client, RELEASE_PORT_MAX_RATE)
                 attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
                 attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+            else:
+                # Resume egress of dut xmit port
+                attr_value = sai_thrift_attribute_value_t(booldata=0)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
-                cnt = 0
-                pkts = []
-                recv_pkt = scapy.Ether()
+            cnt = 0
+            pkts = []
+            recv_pkt = scapy.Ether()
 
-                while recv_pkt:
-                    received = self.dataplane.poll(device_number=0, port_number=dst_port_id, timeout=2)
-                    if isinstance(received, self.dataplane.PollFailure):
-                        recv_pkt = None
-                        break
-                    recv_pkt = scapy.Ether(received.packet)
+            while recv_pkt:
+                received = self.dataplane.poll(device_number=0, port_number=dst_port_id, timeout=2)
+                if isinstance(received, self.dataplane.PollFailure):
+                    recv_pkt = None
+                    break
+                recv_pkt = scapy.Ether(received.packet)
 
-                    try:
-                        if recv_pkt.payload.src == src_port_ip and recv_pkt.payload.dst == dst_port_ip and recv_pkt.payload.id == exp_ip_id:
-                            cnt += 1
-                            pkts.append(recv_pkt)
-                    except AttributeError:
-                        continue
+                try:
+                    if recv_pkt.payload.src == src_port_ip and recv_pkt.payload.dst == dst_port_ip and recv_pkt.payload.id == exp_ip_id:
+                        cnt += 1
+                        pkts.append(recv_pkt)
+                except AttributeError:
+                    continue
 
-                queue_pkt_counters = [0,0,0,0,0,0,0,0,0]
-                queue_num_of_pkts  = [queue_0_num_of_pkts, 0, 0, queue_3_num_of_pkts, queue_4_num_of_pkts, 0, 0, 0, queue_1_num_of_pkts]
-                total_pkts = 0
+            queue_pkt_counters = [0,0,0,0,0,0,0,0,0]
+            queue_num_of_pkts  = [queue_0_num_of_pkts, 0, 0, queue_3_num_of_pkts, queue_4_num_of_pkts, 0, 0, 0, queue_1_num_of_pkts]
+            total_pkts = 0
 
-                for pkt_to_inspect in pkts:
-                    dscp_of_pkt = pkt_to_inspect.payload.tos >> 2
-                    total_pkts += 1
+            for pkt_to_inspect in pkts:
+                dscp_of_pkt = pkt_to_inspect.payload.tos >> 2
+                total_pkts += 1
 
-                    # Count packet ordering
+                # Count packet ordering
 
-                    queue_pkt_counters[dscp_of_pkt] += 1
-                    if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
-                         assert((queue_0_num_of_pkts + queue_1_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts) - total_pkts < limit)
+                queue_pkt_counters[dscp_of_pkt] += 1
+                if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
+                     assert((queue_0_num_of_pkts + queue_1_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts) - total_pkts < limit)
 
-                    print >> sys.stderr, queue_pkt_counters
+                print >> sys.stderr, queue_pkt_counters
 
-                # Read counters
-                print "DST port counters: "
-                port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                print >> sys.stderr, map(operator.sub, queue_counters, queue_counters_base)
+            # Read counters
+            print "DST port counters: "
+            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            print >> sys.stderr, map(operator.sub, queue_counters, queue_counters_base)
 
-                # All packets sent should be received intact
-                assert(queue_0_num_of_pkts + queue_1_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts == total_pkts)
+            # All packets sent should be received intact
+            assert(queue_0_num_of_pkts + queue_1_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts == total_pkts)
 
-            finally:
+        finally:
+            if asic_type == 'mellanox':
                 # Release port
                 sched_prof_id = sai_thrift_create_scheduler_profile(self.client, RELEASE_PORT_MAX_RATE)
                 attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
                 attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
-        else:
-            print >> sys.stderr, "Not supported asic. Skipped test"
+            else:
+                # Resume egress of dut xmit port
+                attr_value = sai_thrift_attribute_value_t(booldata=0)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
 class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):

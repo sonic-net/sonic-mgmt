@@ -47,7 +47,6 @@
 
         - name: Disable Mellanox packet aging
           shell: python /root/packets_aging.py disable
-
       vars:
         ansible_shell_type: docker
         ansible_python_interpreter: docker exec -i syncd python
