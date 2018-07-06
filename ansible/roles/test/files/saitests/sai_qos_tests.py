@@ -760,6 +760,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         queue_1_num_of_pkts = int(self.test_params['q1_num_of_pkts'])
         queue_3_num_of_pkts = int(self.test_params['q3_num_of_pkts'])
         queue_4_num_of_pkts = int(self.test_params['q4_num_of_pkts'])
+        limit = int(self.test_params['limit'])
 
         if asic_type == 'mellanox':
             # Stop port function
@@ -834,7 +835,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
 
                 # Release port
-                sched_prof_id=sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
+                sched_prof_id=sai_thrift_create_scheduler_profile(self.client, RELEASE_PORT_MAX_RATE)
                 attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
                 attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
@@ -860,7 +861,6 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                 queue_pkt_counters = [0,0,0,0,0,0,0,0,0]
                 queue_num_of_pkts  = [queue_0_num_of_pkts, 0, 0, queue_3_num_of_pkts, queue_4_num_of_pkts, 0, 0, 0, queue_1_num_of_pkts]
                 total_pkts = 0
-                limit = self.test_params['limit']
 
                 for pkt_to_inspect in pkts:
                     dscp_of_pkt = pkt_to_inspect.payload.tos >> 2
@@ -872,12 +872,15 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
                          assert((queue_0_num_of_pkts + queue_1_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts) - total_pkts < limit)
 
-                    print queue_pkt_counters
+                    print >> sys.stderr, queue_pkt_counters
 
                 # Read counters
                 print "DST port counters: "
                 port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                print map(operator.sub, queue_counters, queue_counters_base)
+                print >> sys.stderr, map(operator.sub, queue_counters, queue_counters_base)
+
+                # All packets sent should be received intact
+                assert(queue_0_num_of_pkts + queue_1_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts == total_pkts)
 
             finally:
                 # Release port
