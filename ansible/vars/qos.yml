@@ -78,10 +78,16 @@ qos_params:
             dscp: 3
             ecn: 1
             pg: 3
+            pkts_num_leak_out: 0
+            pkts_num_trig_pfc: 11115
+            pkts_num_trig_ingr_drp: 11213
         xoff_2:
             dscp: 4
             ecn: 1
             pg: 4
+            pkts_num_leak_out: 0
+            pkts_num_trig_pfc: 11115
+            pkts_num_trig_ingr_drp: 11213
         xon_1:
             dscp: 3
             ecn: 1
