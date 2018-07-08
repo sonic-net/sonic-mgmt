@@ -101,14 +101,6 @@
       become: yes
       when: arp_entries.stdout.find('incomplete') != -1
 
-    - name: Set testing buffer profile for PFC tests
-      shell: sonic-cfggen -j /tmp/pfc_lossless_test_profile.json --write-to-db
-      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
-
-    - name: Restore origin buffer profile after PFC tests
-      shell: sonic-cfggen -j /tmp/pfc_lossless_base_profile.json --write-to-db
-      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
-
     # XON limit
     - include: qos_sai_ptf.yml
       vars:
