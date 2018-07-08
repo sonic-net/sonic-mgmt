@@ -304,7 +304,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         tos |= ecn
         ttl = 64
 
-        if asic_type == 'mellanox':
+        if asic_type == 'mellanox_orig':
             # Stop dst port function
             sched_prof_id = sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
             attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
@@ -391,7 +391,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
                 print "END OF TEST"
-        elif asic_type == 'broadcom':
+        elif (asic_type == 'mellanox') or (asic_type == 'broadcom'):
             # TODO: pass in dst_port_id and _ip as a list
             dst_port_2_id = int(self.test_params['dst_port_2_id'])
             dst_port_2_ip = self.test_params['dst_port_2_ip']
@@ -410,12 +410,21 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_2_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
             xmit_3_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_3_id])
 
-            # Pause egress of dut xmit ports
-            attr_value = sai_thrift_attribute_value_t(booldata=1)
-            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
-            self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
-            self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
-            self.client.sai_thrift_set_port_attribute(port_list[dst_port_3_id], attr)
+            if asic_type == 'mellanox':
+                # Stop function of dst xmit ports
+                sched_prof_id = sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
+                attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_3_id], attr)
+            else:
+                # Pause egress of dut xmit ports
+                attr_value = sai_thrift_attribute_value_t(booldata=1)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_3_id], attr)
 
             try:
                 # send packets to dst port 0
@@ -463,10 +472,17 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 assert(xmit_2_counters[EGRESS_DROP] == xmit_2_counters_base[EGRESS_DROP])
                 assert(xmit_3_counters[EGRESS_DROP] == xmit_3_counters_base[EGRESS_DROP])
 
-                # Resume egress of dst port 1
-                attr_value = sai_thrift_attribute_value_t(booldata=0)
-                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
-                self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
+                if asic_type == 'mellanox':
+                    # Release dst port 1
+                    sched_prof_id=sai_thrift_create_scheduler_profile(self.client, RELEASE_PORT_MAX_RATE)
+                    attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+                    attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+                    self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
+                else:
+                    # Resume egress of dst port 1
+                    attr_value = sai_thrift_attribute_value_t(booldata=0)
+                    attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+                    self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
 
                 # allow enough time for the dut to sync up the counter values in counters_db
                 time.sleep(8)
@@ -486,10 +502,17 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 assert(xmit_2_counters[EGRESS_DROP] == xmit_2_counters_base[EGRESS_DROP])
                 assert(xmit_3_counters[EGRESS_DROP] == xmit_3_counters_base[EGRESS_DROP])
 
-                # Resume egress of dst port 2
-                attr_value = sai_thrift_attribute_value_t(booldata=0)
-                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
-                self.client.sai_thrift_set_port_attribute(port_list[dst_port_3_id], attr)
+                if asic_type == 'mellanox':
+                    # Release dst port 2
+                    sched_prof_id=sai_thrift_create_scheduler_profile(self.client, RELEASE_PORT_MAX_RATE)
+                    attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+                    attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+                    self.client.sai_thrift_set_port_attribute(port_list[dst_port_3_id], attr)
+                else:
+                    # Resume egress of dst port 2
+                    attr_value = sai_thrift_attribute_value_t(booldata=0)
+                    attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+                    self.client.sai_thrift_set_port_attribute(port_list[dst_port_3_id], attr)
 
                 # allow enough time for the dut to sync up the counter values in counters_db
                 time.sleep(8)
@@ -516,12 +539,21 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 assert(xmit_3_counters[EGRESS_DROP] == xmit_3_counters_base[EGRESS_DROP])
 
             finally:
-                # Resume egress of dut xmit ports
-                attr_value = sai_thrift_attribute_value_t(booldata=0)
-                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
-                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
-                self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
-                self.client.sai_thrift_set_port_attribute(port_list[dst_port_3_id], attr)
+                if asic_type == 'mellanox':
+                    # Release dst ports
+                    sched_prof_id=sai_thrift_create_scheduler_profile(self.client, RELEASE_PORT_MAX_RATE)
+                    attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+                    attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+                    self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+                    self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
+                    self.client.sai_thrift_set_port_attribute(port_list[dst_port_3_id], attr)
+                else:
+                    # Resume egress of dut xmit ports
+                    attr_value = sai_thrift_attribute_value_t(booldata=0)
+                    attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+                    self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+                    self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
+                    self.client.sai_thrift_set_port_attribute(port_list[dst_port_3_id], attr)
 
         else:
             print >> sys.stderr, "Not supported asic. Skipped test"
