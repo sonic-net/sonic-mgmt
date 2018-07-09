@@ -789,7 +789,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         tos |= ecn
         ttl = 64
 
-        if asic_type == 'mellanox':
+        if asic_type == 'mellanox_orig':
             # Stop port function
             sched_prof_id=sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
             attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
@@ -870,7 +870,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                 attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
-        elif asic_type == 'broadcom':
+        elif (asic_type == 'mellanox') or (asic_type == 'broadcom'):
             pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
             pkts_num_trig_egr_drp = int(self.test_params['pkts_num_trig_egr_drp'])
             default_packet_length = 64
@@ -890,10 +890,18 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             # or the leak out is simply less than expected as we have occasionally observed
             margin = 2
 
-            # Pause egress of dut xmit port
-            attr_value = sai_thrift_attribute_value_t(booldata=1)
-            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
-            self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+            if asic_type == 'mellanox':
+                # Stop port function
+                sched_prof_id=sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
+                attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
+            else:
+                # Pause egress of dut xmit port
+                attr_value = sai_thrift_attribute_value_t(booldata=1)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
             try:
                 # send packets short of triggering egress drop
@@ -927,10 +935,18 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                 assert(xmit_counters[EGRESS_DROP] > xmit_counters_base[EGRESS_DROP])
 
             finally:
-                # Resume egress of dut xmit port
-                attr_value = sai_thrift_attribute_value_t(booldata=0)
-                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
-                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+                if asic_type == 'mellanox':
+                    # Release ports
+                    sched_prof_id=sai_thrift_create_scheduler_profile(self.client, RELEASE_PORT_MAX_RATE)
+                    attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+                    attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+                    self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+                    self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
+                else:
+                    # Resume egress of dut xmit port
+                    attr_value = sai_thrift_attribute_value_t(booldata=0)
+                    attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+                    self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
         else:
             print >> sys.stderr, "Not supported asic. Skipped test"
