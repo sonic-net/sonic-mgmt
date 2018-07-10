@@ -789,164 +789,79 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         tos |= ecn
         ttl = 64
 
-        if asic_type == 'mellanox_orig':
+        pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
+        pkts_num_trig_egr_drp = int(self.test_params['pkts_num_trig_egr_drp'])
+        default_packet_length = 64
+        pkt = simple_tcp_packet(pktlen=default_packet_length,
+                                eth_dst=router_mac,
+                                eth_src=src_port_mac,
+                                ip_src=src_port_ip,
+                                ip_dst=dst_port_ip,
+                                ip_tos=tos,
+                                ip_ttl=ttl)
+        # get a snapshot of counter values at recv and transmit ports
+        # queue_counters value is not of our interest here
+        recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+        xmit_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+        # add slight tolerance in threshold characterization to consider
+        # the case that cpu puts packets in the egress queue after we pause the egress
+        # or the leak out is simply less than expected as we have occasionally observed
+        margin = 2
+
+        if asic_type == 'mellanox':
             # Stop port function
             sched_prof_id=sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
             attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
+        else:
+            # Pause egress of dut xmit port
+            attr_value = sai_thrift_attribute_value_t(booldata=1)
+            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+            self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
-            # Get a snapshot of counter values at both xmit and recv ports
-            # queue_counters value is not of our interest here
-            recv_port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-            xmit_port_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-            xmit_port_2_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
-
-            # send packets
-            try:
-                default_packet_length = 64
-                # Calculate the max number of packets which port buffer can consists
-                pkts_max = (max_buffer_size / default_packet_length) * 1.25
-                pkts_bunch_size = 200 # Number of packages to send to DST port
-                pkts_count = 0 # Total number of shipped packages
-                egress_drop_counter = xmit_port_counters_base[EGRESS_DROP]
-
-                pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                        eth_dst=router_mac,
-                                        eth_src=src_port_mac,
-                                        ip_src=src_port_ip,
-                                        ip_dst=dst_port_ip,
-                                        ip_tos=tos,
-                                        ip_ttl=ttl)
-                # Send packets till egress drop or max number of packages is reached
-                while egress_drop_counter == xmit_port_counters_base[EGRESS_DROP] and pkts_count < pkts_max:
-                    send_packet(self, src_port_id, pkt, pkts_bunch_size)
-                    pkts_count += pkts_bunch_size
-                    # To allow enough time for the dut to sync up the counter values in counters_db
-                    time.sleep(5)
-
-                    port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                    egress_drop_counter = port_counters[EGRESS_DROP]
-
-                print >> sys.stderr, "# of packets sent to trigger egress drop: %d" % pkts_count
-                # xmit port must have egress drop
-                port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                assert(port_counters[EGRESS_DROP] > xmit_port_counters_base[EGRESS_DROP])
-
-                # Send N packets to another port to fill the headroom and check if no drops
-                pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                        eth_dst=router_mac,
-                                        eth_src=src_port_mac,
-                                        ip_src=src_port_ip,
-                                        ip_dst=dst_port_2_ip,
-                                        ip_tos=tos,
-                                        ip_ttl=ttl)
-                no_drop_pkts_max = int(headroom_size / default_packet_length * 0.9)
-                print >> sys.stderr, "# of packets to the second dst port; %d" % no_drop_pkts_max
-
-                if no_drop_pkts_max > 0:
-                    send_packet(self, src_port_id, pkt, no_drop_pkts_max)
-                    time.sleep(5)
-
-                    # xmit port must have egress drop
-                    port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                    assert(port_counters[EGRESS_DROP] > xmit_port_counters_base[EGRESS_DROP])
-
-                    # xmit port 2 no egress drop
-                    port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
-                    assert(port_counters[EGRESS_DROP] == xmit_port_2_counters_base[EGRESS_DROP])
-
-                # recv port no ingress drop
-                port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-                assert(port_counters[INGRESS_DROP] == recv_port_counters_base[INGRESS_DROP])
-                # recv port no PFC ever triggered
-                assert(port_counters[pg] == recv_port_counters_base[pg])
-
-            finally:
-                # Release ports
-                sched_prof_id=sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
-                attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
-                self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
-        elif (asic_type == 'mellanox') or (asic_type == 'broadcom'):
-            pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
-            pkts_num_trig_egr_drp = int(self.test_params['pkts_num_trig_egr_drp'])
-            default_packet_length = 64
-            pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                    eth_dst=router_mac,
-                                    eth_src=src_port_mac,
-                                    ip_src=src_port_ip,
-                                    ip_dst=dst_port_ip,
-                                    ip_tos=tos,
-                                    ip_ttl=ttl)
+        try:
+            # send packets short of triggering egress drop
+            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
+            # allow enough time for the dut to sync up the counter values in counters_db
+            time.sleep(8)
             # get a snapshot of counter values at recv and transmit ports
-            # queue_counters value is not of our interest here
-            recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-            xmit_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-            # add slight tolerance in threshold characterization to consider
-            # the case that cpu puts packets in the egress queue after we pause the egress
-            # or the leak out is simply less than expected as we have occasionally observed
-            margin = 2
+            # queue counters value is not of our interest here
+            recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            # recv port no pfc
+            assert(recv_counters[pg] == recv_counters_base[pg])
+            # recv port no ingress drop
+            assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
+            # xmit port no egress drop
+            assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
 
+            # send 1 packet to trigger egress drop
+            send_packet(self, src_port_id, pkt, 1 + 2 * margin)
+            # allow enough time for the dut to sync up the counter values in counters_db
+            time.sleep(8)
+            # get a snapshot of counter values at recv and transmit ports
+            # queue counters value is not of our interest here
+            recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            # recv port no pfc
+            assert(recv_counters[pg] == recv_counters_base[pg])
+            # recv port no ingress drop
+            assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
+            # xmit port egress drop
+            assert(xmit_counters[EGRESS_DROP] > xmit_counters_base[EGRESS_DROP])
+
+        finally:
             if asic_type == 'mellanox':
-                # Stop port function
-                sched_prof_id=sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
+                # Release ports
+                sched_prof_id=sai_thrift_create_scheduler_profile(self.client, RELEASE_PORT_MAX_RATE)
                 attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
                 attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
             else:
-                # Pause egress of dut xmit port
-                attr_value = sai_thrift_attribute_value_t(booldata=1)
+                # Resume egress of dut xmit port
+                attr_value = sai_thrift_attribute_value_t(booldata=0)
                 attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
-
-            try:
-                # send packets short of triggering egress drop
-                send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
-                # allow enough time for the dut to sync up the counter values in counters_db
-                time.sleep(8)
-                # get a snapshot of counter values at recv and transmit ports
-                # queue counters value is not of our interest here
-                recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-                xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                # recv port no pfc
-                assert(recv_counters[pg] == recv_counters_base[pg])
-                # recv port no ingress drop
-                assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
-                # xmit port no egress drop
-                assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
-
-                # send 1 packet to trigger egress drop
-                send_packet(self, src_port_id, pkt, 1 + 2 * margin)
-                # allow enough time for the dut to sync up the counter values in counters_db
-                time.sleep(8)
-                # get a snapshot of counter values at recv and transmit ports
-                # queue counters value is not of our interest here
-                recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-                xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                # recv port no pfc
-                assert(recv_counters[pg] == recv_counters_base[pg])
-                # recv port no ingress drop
-                assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
-                # xmit port egress drop
-                assert(xmit_counters[EGRESS_DROP] > xmit_counters_base[EGRESS_DROP])
-
-            finally:
-                if asic_type == 'mellanox':
-                    # Release ports
-                    sched_prof_id=sai_thrift_create_scheduler_profile(self.client, RELEASE_PORT_MAX_RATE)
-                    attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-                    attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-                    self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
-                    self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
-                else:
-                    # Resume egress of dut xmit port
-                    attr_value = sai_thrift_attribute_value_t(booldata=0)
-                    attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
-                    self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
-
-        else:
-            print >> sys.stderr, "Not supported asic. Skipped test"

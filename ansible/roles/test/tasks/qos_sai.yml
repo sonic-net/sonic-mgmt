@@ -192,14 +192,6 @@
         - src_port_id='{{ src_port_id }}'
         - src_port_ip='{{ src_port_ip }}'
 
-    - name: Set testing buffer profile for lossy traffic test
-      shell: sonic-cfggen -j /tmp/pfc_lossy_test_profile.json --write-to-db
-      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
-
-    - name: Restore origin buffer profile after lossy traffic tests
-      shell: sonic-cfggen -j /tmp/pfc_lossy_base_profile.json --write-to-db
-      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
-
     # Lossy queue
     - include: qos_sai_ptf.yml
       vars:
