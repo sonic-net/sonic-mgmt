@@ -108,19 +108,6 @@
   set_fact:
     lossless_buffer_max_size: "{{ buffer_headroom.stdout|int }}"
 
-- block:
-  - name: Store current lossless buffer profile
-    template: src=qos_pfc_profile.j2 dest=/tmp/pfc_lossless_base_profile.json
-    vars:
-      - pfc_generate_buffer_profile: 'False'
-
-  - name: Generate testing lossless buffer profile
-    template: src=qos_pfc_profile.j2 dest=/tmp/pfc_lossless_test_profile.json
-    vars:
-      - pfc_generate_buffer_profile: 'True'
-
-  when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
-
 # Ingress lossy
 - include: roles/test/tasks/qos_get_max_buff_size.yml
   vars:
@@ -136,19 +123,6 @@
 - name: Set lossy headroom size
   set_fact:
     lossy_headroom_size: "{{ buffer_headroom.stdout|int }}"
-
-- block:
-  - name: Store current lossy buffer profile
-    template: src=qos_lossy_profile.j2 dest=/tmp/pfc_lossy_base_profile.json
-    vars:
-      - pfc_generate_buffer_profile: 'False'
-
-  - name: Generate testing lossy buffer profile
-    template: src=qos_lossy_profile.j2 dest=/tmp/pfc_lossy_test_profile.json
-    vars:
-      - pfc_generate_buffer_profile: 'True'
-
-  when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
 # Egress lossless
 - include: roles/test/tasks/qos_get_max_buff_size.yml
