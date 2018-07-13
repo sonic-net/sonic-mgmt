@@ -9,13 +9,13 @@
 - name: Getting minigraph facts
   minigraph_facts: host={{ inventory_hostname }}
   become: no
-      
+
 - name: Get PTF interfaces from map
   set_fact:
     ptf_interfaces: "{{ ptf_interfaces + [item.split('@')[0]] }}"
   with_lines: cat 'roles/test/files/mlnx/default_interface_to_front_map.ini'
   when: "'#' not in item"
-  
+
 - name: Get switch ports from map
   set_fact:
     dut_switch_ports: "{{ dut_switch_ports + [item.split('@')[1]] }}"
@@ -29,7 +29,7 @@
   set_fact:
     ptf_lag_interfaces: "{{ ptf_lag_interfaces + [ (item|replace(\"PortChannel\", \"\")|int / 4)|int ] }}"
   with_items: "{{ minigraph_portchannels.keys() }}"
-  
+
 - name: Get switch LAG members
   set_fact:
     dut_switch_lag_members: "{{ dut_switch_lag_members + item['members'] }}"
@@ -37,7 +37,7 @@
 
 - name: Print LAG members
   debug: msg="ptf_lag_interfaces={{ ptf_lag_interfaces }} dut_switch_lag_members={{ dut_switch_lag_members }}"
-  
+
 - name: Init testing port count
   set_fact:
     testing_ports_count: 0
@@ -145,7 +145,7 @@
 
   - set_fact:
       target_q_wred: '3-4'
-    when: minigraph_hwsku is defined and minigraph_hwsku != 'Mellanox-SN2700'
+    when: minigraph_hwsku is defined and minigraph_hwsku != 'Mellanox-SN2700' and minigraph_hwsku != 'Arista-7060CX-32S-C32'
 
   - debug: var=target_q_wred
 

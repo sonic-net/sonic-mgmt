@@ -60,7 +60,8 @@
       copy: src={{ ptf_portmap }} dest=/root
       delegate_to: "{{ ptf_host }}"
       when: minigraph_hwsku is defined and
-            (minigraph_hwsku in mellanox_hwskus or minigraph_hwsku == 'Arista-7050-QX-32S')
+            (minigraph_hwsku in mellanox_hwskus or minigraph_hwsku == 'Arista-7050-QX-32S'
+             or minigraph_hwsku == 'Arista-7060CX-32S-C32')
 
     - name: Init PTF base test parameters
       set_fact: 
@@ -97,7 +98,7 @@
       when: arp_entries.stdout.find('incomplete') == -1
 
     - name: Manually add an ARP entry for dst port
-      command: ip neigh replace {{ dst_port_ip }} lladdr 7c:fe:90:5e:6b:be dev {{ dut_switch_ports[dst_port_id|int] }}
+      command: ip neigh replace {{ dst_port_ip }} lladdr 7c:fe:90:5e:6b:a6 dev {{ dut_switch_ports[dst_port_id|int] }}
       become: yes
       when: arp_entries.stdout.find('incomplete') != -1
 
