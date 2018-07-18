@@ -159,5 +159,19 @@
       shell: "config load_minigraph -y"
       become: yes
 
-    - name: wait for port channel interface to be up
+    - name: wait 60 seconds for ports to be up
+      pause: seconds=60
+
+    - name: check port status
+      interface_facts: up_ports={{ minigraph_ports }}
+
+    - name: wait again if still not up
+      pause: seconds=30
+      when: ansible_interface_link_down_ports | length != 0
+
+    - name: second chance to check
+      interface_facts: up_ports={{ minigraph_ports }}
+      when: ansible_interface_link_down_ports | length != 0
+
+    - name: last wait if still not up
       pause: seconds=30
