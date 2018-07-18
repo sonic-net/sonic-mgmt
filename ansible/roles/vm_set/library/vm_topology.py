@@ -406,20 +406,10 @@ class VMTopology(object):
         if vlan_iface not in ports:
             VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, vlan_iface))
 
-        # Vlan interface addition may take few secs to reflect in OVS Command,
-        # Let`s retry few times.
-        retries = 0
-        vlan_iface_id = None
-        while retries < RETRIES:
-            bindings = VMTopology.get_ovs_port_bindings(br_name)
-            vlan_iface_id = bindings[vlan_iface]
-            if vlan_iface_id is not None:
-                break
-            time.sleep(1)
-            retries += 1
-        if vlan_iface_id is None:
+        bindings, error = VMTopology.get_ovs_port_bindings(br_name, vlan_iface)
+        if error:
             raise Exception("Can't find vlan_iface_id")
-
+        vlan_iface_id = bindings[vlan_iface]
         injected_iface_id = bindings[injected_iface]
         vm_iface_id = bindings[vm_iface]
 
@@ -503,19 +493,33 @@ class VMTopology(object):
         out = VMTopology.cmd('ovs-vsctl list-ports %s' % bridge)
         return set(out.split('\n'))
 
-    @staticmethod
-    def get_ovs_port_bindings(bridge):
-        out = VMTopology.cmd('ovs-ofctl show %s' % bridge)
-        lines = out.split('\n')
-        result = {}
-        for line in lines:
-            matched = re.match(r'^\s+(\S+)\((\S+)\):\s+addr:.+$', line)
-            if matched:
-                port_id = matched.group(1)
-                iface_name = matched.group(2)
-                result[iface_name] = port_id
 
-        return result
+    @staticmethod
+    def get_ovs_port_bindings(bridge, vlan_iface = None):
+        # Vlan interface addition may take few secs to reflect in OVS Command,
+        # Let`s retry few times in that case.
+        retries = 0
+        vlan_iface_id = None
+        while retries < RETRIES:
+            out = VMTopology.cmd('ovs-ofctl show %s' % bridge)
+            lines = out.split('\n')
+            result = {}
+            for line in lines:
+                matched = re.match(r'^\s+(\S+)\((\S+)\):\s+addr:.+$', line)
+                if matched:
+                    port_id = matched.group(1)
+                    iface_name = matched.group(2)
+                    result[iface_name] = port_id
+            if vlan_iface is None:
+                return result, False
+            # Check if we have vlan_iface populated
+            vlan_iface_id = result[vlan_iface]
+            if vlan_iface_id:
+                return result, False
+            time.sleep(1)
+            retries += 1
+
+        return result, True
 
     @staticmethod
     def ifconfig(cmdline):
