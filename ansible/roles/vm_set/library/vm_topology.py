@@ -406,9 +406,7 @@ class VMTopology(object):
         if vlan_iface not in ports:
             VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, vlan_iface))
 
-        bindings, error = VMTopology.get_ovs_port_bindings(br_name, vlan_iface)
-        if error:
-            raise Exception("Can't find vlan_iface_id")
+        bindings = VMTopology.get_ovs_port_bindings(br_name, vlan_iface)
         vlan_iface_id = bindings[vlan_iface]
         injected_iface_id = bindings[injected_iface]
         vm_iface_id = bindings[vm_iface]
@@ -498,9 +496,7 @@ class VMTopology(object):
     def get_ovs_port_bindings(bridge, vlan_iface = None):
         # Vlan interface addition may take few secs to reflect in OVS Command,
         # Let`s retry few times in that case.
-        retries = 0
-        vlan_iface_id = None
-        while retries < RETRIES:
+        for retries in range(RETRIES):
             out = VMTopology.cmd('ovs-ofctl show %s' % bridge)
             lines = out.split('\n')
             result = {}
@@ -510,16 +506,12 @@ class VMTopology(object):
                     port_id = matched.group(1)
                     iface_name = matched.group(2)
                     result[iface_name] = port_id
-            if vlan_iface is None:
-                return result, False
             # Check if we have vlan_iface populated
-            vlan_iface_id = result[vlan_iface]
-            if vlan_iface_id:
-                return result, False
-            time.sleep(1)
-            retries += 1
-
-        return result, True
+            if vlan_iface is None or vlan_iface in result:
+                return result
+            time.sleep(2*retries+1)
+        # Flow reaches here when vlan_iface not present in result 
+        raise Exception("Can't find vlan_iface_id")
 
     @staticmethod
     def ifconfig(cmdline):
