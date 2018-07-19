@@ -25,6 +25,8 @@ str-n3132-acs-3,10.3.147.251/23,Nexus-3132-Q32,DevSonic
 str-n9232-acs-1,10.3.147.189/23,Nexus-9232-Q32,DevSonic
 str-n9232-acs-2,10.3.147.254/23,Nexus-9232-Q32,DevSonic
 str-n9232-acs-3,10.64.247.241/23,Nexus-9232-Q32,DevSonic
+str-n92304-03,10.64.246.67/23,Nexus-92304,DevSonic
+str-n92304-04,10.64.246.68/23,Nexus-92304,DevSonic
 str-msn2700-01,10.3.147.188/23,Mellanox-SN2700,DevSonic
 str-msn2700-02,10.3.147.45/23,Mellanox-SN2700,DevSonic
 str-msn2700-03,10.3.147.46/23,Mellanox-SN2700,DevSonic

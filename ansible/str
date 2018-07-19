@@ -57,6 +57,14 @@ str-n9232-acs-3    ansible_host=10.64.247.241
 hwsku="Nexus-9232-C32"
 iface_speed='100000'
 
+[sonic_nexus_92304_40]
+str-c92304-03      ansible_host=10.64.246.67
+str-c92304-04      ansible_host=10.64.246.68
+
+[sonic_nexus_92304_40:vars]
+hwsku="Nexus-92304"
+iface_speed='40000'
+
 [sonic_arista_40]
 str-a7050-acs-1   ansible_host=10.3.147.241 hwsku="Arista-7050-QX-32S"
 str-a7050-acs-2   ansible_host=10.3.147.199  hwsku="Arista-7050-QX32"
@@ -177,6 +185,8 @@ vtf2-6  ansible_host=10.64.246.16
 ptf3-1  ansible_host=10.64.246.18
 vms1-1  ansible_host=10.64.246.22
 vms1-2  ansible_host=10.64.246.23
+vms1-3  ansible_host=10.64.246.69
+vms1-4  ansible_host=10.64.246.70
 vms1-8  ansible_host=10.64.246.43
 vms1-9  ansible_host=10.64.246.15
 vms2-1  ansible_host=10.64.246.24
