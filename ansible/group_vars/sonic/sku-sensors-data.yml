@@ -1697,3 +1697,57 @@ sensors_checks:
         side: left
         skip_list:
         - ym2651-i2c-11-5b
+
+  Seastone-DX010:
+    alarms:
+      fan:
+      - emc2305-i2c-13-2e/fan2/fan1_fault
+      - emc2305-i2c-13-2e/fan1/fan2_fault
+      - emc2305-i2c-13-2e/fan5/fan3_fault
+      - emc2305-i2c-13-2e/fan3/fan4_fault
+      - emc2305-i2c-13-2e/fan4/fan5_fault
+      - emc2305-i2c-13-4d/fan5/fan1_fault
+      - emc2305-i2c-13-4d/fan1/fan2_fault
+      - emc2305-i2c-13-4d/fan4/fan3_fault
+      - emc2305-i2c-13-4d/fan2/fan4_fault
+      - emc2305-i2c-13-4d/fan3/fan5_fault
+      power: []
+      temp:
+      - coretemp-isa-0000/Core 0/temp2_crit_alarm
+      - coretemp-isa-0000/Core 1/temp3_crit_alarm
+      - coretemp-isa-0000/Core 2/temp4_crit_alarm
+      - coretemp-isa-0000/Core 3/temp5_crit_alarm
+    compares:
+      fan: []
+      power: []
+      temp:
+      - - coretemp-isa-0000/Core 0/temp2_input
+        - coretemp-isa-0000/Core 0/temp2_crit
+      - - coretemp-isa-0000/Core 1/temp3_input
+        - coretemp-isa-0000/Core 1/temp3_crit
+      - - coretemp-isa-0000/Core 2/temp4_input
+        - coretemp-isa-0000/Core 2/temp4_crit
+      - - coretemp-isa-0000/Core 3/temp5_input
+        - coretemp-isa-0000/Core 3/temp5_crit
+      - - dx010_lm75b-i2c-14-48/Rear-panel temp sensor 1/temp1_input
+        - dx010_lm75b-i2c-14-48/Rear-panel temp sensor 1/temp1_max
+      - - dx010_lm75b-i2c-15-4e/Rear-panel temp sensor 2/temp1_input
+        - dx010_lm75b-i2c-15-4e/Rear-panel temp sensor 2/temp1_max
+      - - dx010_lm75b-i2c-5-48/Rear-panel temp sensor 1/temp1_input
+        - dx010_lm75b-i2c-5-48/Rear-panel temp sensor 1/temp1_max
+    non_zero:
+      fan:
+      - emc2305-i2c-13-2e/fan2/fan1_input
+      - emc2305-i2c-13-2e/fan1/fan2_input
+      - emc2305-i2c-13-2e/fan5/fan3_input
+      - emc2305-i2c-13-2e/fan3/fan4_input
+      - emc2305-i2c-13-2e/fan4/fan5_input
+      - emc2305-i2c-13-4d/fan5/fan1_input
+      - emc2305-i2c-13-4d/fan1/fan2_input
+      - emc2305-i2c-13-4d/fan4/fan3_input
+      - emc2305-i2c-13-4d/fan2/fan4_input
+      - emc2305-i2c-13-4d/fan3/fan5_input
+      power: []
+      temp: []
+    psu_skips: {}
+
