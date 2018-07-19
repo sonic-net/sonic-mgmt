@@ -42,12 +42,16 @@
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
 
-# Obtain loopback ip of the device
-- name: Obtain loopback ip of the device
-  set_fact: lo_ip="{{ minigraph_lo_interfaces[0]['addr'] }}"
+# Obtain loopback IPs of the device
 
-- name: print loopback ip
-  debug: msg="{{ lo_ip }}"
+- name: Obtain loopback IPv4 of the device
+  set_fact: lo_ip="{{ minigraph_lo_interfaces | map(attribute='addr') | ipv4 | first }}"
+
+- name: Obtain loopback IPv6 of the device
+  set_fact: lo_ipv6="{{ minigraph_lo_interfaces | map(attribute='addr') | ipv6 | first }}"
+
+- name: print loopback IPs
+  debug: msg="Loopback IPs {{ lo_ip }}, {{ lo_ipv6 }}"
 
 # Generate file with BGP routes information
 - template: src=roles/test/templates/fib.j2 dest=/tmp/fib_info.txt
@@ -58,33 +62,75 @@
   connection: local
   delegate_to: "{{ ptf_host }}"
 
-- set_fact:
-    testname: decap
+- set_fact: outer_ipv4=True
+  when: outer_ipv4 is not defined
 
-# Separate set_fact is required to be able to use 'testname' fact.
-- set_fact:
-    testname_unique: "{{ testname }}.{{ ansible_date_time.date}}.{{ ansible_date_time.hour}}-{{ ansible_date_time.minute}}-{{ ansible_date_time.second}}"
+- set_fact: outer_ipv6=True
+  when: outer_ipv6 is not defined
 
-- debug: msg="generated run id:{{testname_unique}}"
+- set_fact: inner_ipv4=True
+  when: inner_ipv4 is not defined
 
-- debug : msg="INVOKE DECAP TEST"
+- set_fact: inner_ipv6=True
+  when: inner_ipv6 is not defined
 
-- name: copy the test to ptf container
-  copy: src=roles/test/files/ptftests dest=/root
-  delegate_to: "{{ ptf_host }}"
+# Apply tunnel configuration
+- set_fact: op="SET"
 
-- name: "Running test {{ testname }}"
-  include: ptf_runner.yml
-  vars:
-    ptf_test_name: '{{ testname_unique }}'
-    ptf_test_dir: ptftests
-    ptf_test_path: IP_decap_test.DecapPacketTest
-    ptf_platform: remote
-    ptf_platform_dir: ptftests
-    ptf_test_params:
-      - testbed_type='{{ testbed_type }}'
-      - fib_info='/root/fib_info.txt'
-      - router_mac='{{ansible_Ethernet0['macaddress']}}'
-      - dscp_mode='{{ dscp_mode }}'
-      - lo_ip='{{ lo_ip }}'
-    ptf_extra_options:  "--relax --debug info --log-file /tmp/{{ testname_unique }}.log "
+- block:
+
+  - template: src=roles/test/templates/decap_conf.j2 dest=/tmp/decap_conf.json
+
+  - name: Copy configuration to swss container
+    shell: docker cp /tmp/decap_conf.json swss:/decap_conf.json
+
+  - name: Apply decap_conf.json configuration
+    shell: docker exec swss sh -c "swssconfig /decap_conf.json"
+
+  - set_fact:
+      testname: decap
+
+  # Separate set_fact is required to be able to use 'testname' fact.
+  - set_fact:
+      testname_unique: "{{ testname }}.{{ ansible_date_time.date}}.{{ ansible_date_time.hour}}-{{ ansible_date_time.minute}}-{{ ansible_date_time.second}}"
+
+  - debug: msg="generated run id:{{testname_unique}}"
+
+  - debug : msg="INVOKE DECAP TEST"
+
+  - name: copy the test to ptf container
+    copy: src=roles/test/files/ptftests dest=/root
+    delegate_to: "{{ ptf_host }}"
+
+  - name: "Running test {{ testname }}"
+    include: ptf_runner.yml
+    vars:
+      ptf_test_name: '{{ testname_unique }}'
+      ptf_test_dir: ptftests
+      ptf_test_path: IP_decap_test.DecapPacketTest
+      ptf_platform: remote
+      ptf_platform_dir: ptftests
+      ptf_test_params:
+        - testbed_type='{{ testbed_type }}'
+        - fib_info='/root/fib_info.txt'
+        - router_mac='{{ansible_Ethernet0['macaddress']}}'
+        - dscp_mode='{{ dscp_mode }}'
+        - lo_ip='{{ lo_ip }}'
+        - lo_ipv6='{{ lo_ipv6 }}'
+        - outer_ipv4={{ outer_ipv4 }}
+        - outer_ipv6={{ outer_ipv6 }}
+        - inner_ipv4={{ inner_ipv4 }}
+        - inner_ipv6={{ inner_ipv6 }}
+      ptf_extra_options:  "--relax --debug info --log-file /tmp/{{ testname_unique }}.log "
+
+  always:
+  # Delete the configuration
+  - set_fact: op="DEL"
+
+  - template: src=roles/test/templates/decap_conf.j2 dest=/tmp/decap_conf.json
+
+  - name: Copy configuration to swss container
+    shell: docker cp /tmp/decap_conf.json swss:/decap_conf.json
+
+  - name: Apply decap_conf.json configuration
+    shell: docker exec swss sh -c "swssconfig /decap_conf.json"

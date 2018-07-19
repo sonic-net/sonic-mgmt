@@ -1,13 +1,28 @@
 [
+{% if outer_ipv4 | bool %}
         {
-                "TUNNEL_DECAP_TABLE:NETBOUNCER" : {
+                "TUNNEL_DECAP_TABLE:IPINIP_V4_TUNNEL" : {
                         "tunnel_type":"IPINIP",
-                        "dst_ip":"{{lo_ip}}",
-                        "src_ip":"1.1.1.1",
-                        "dscp_mode":"{{dscp_mode}}",
+                        "dst_ip":"{{ lo_ip }}",
+                        "dscp_mode":"{{ dscp_mode }}",
                         "ecn_mode":"standard",
                         "ttl_mode":"pipe"
                 },
-                "OP": "SET"
+                "OP": "{{ op }}"
         }
+{% endif %}
+{% if outer_ipv6 | bool and outer_ipv4 | bool %} ,
+{% endif %}
+{% if outer_ipv6 | bool %}
+        {
+                "TUNNEL_DECAP_TABLE:IPINIP_V6_TUNNEL" : {
+                        "tunnel_type":"IPINIP",
+                        "dst_ip":"{{ lo_ipv6 }}",
+                        "dscp_mode":"{{ dscp_mode }}",
+                        "ecn_mode":"standard",
+                        "ttl_mode":"pipe"
+                },
+                "OP": "{{ op }}"
+        }
+{% endif %}
 ]
