@@ -55,10 +55,6 @@
 - name: create output directory for current test run
   file: path="{{ test_out_dir }}" state=directory
 
-- name: Force log rotation to have most of log file available
-  command: /usr/sbin/logrotate -f /etc/logrotate.conf
-  become: yes
-
 - debug: msg="starting loganalyzer_init.py"
 - debug: msg="python {{ run_dir }}/loganalyzer.py --action init --run_id {{ testname_unique }}"
 - name: Initialize loganalyzer
