@@ -112,7 +112,6 @@
 
 # Check Messages
 - name: Check syslog messages for the test message
-  connection: local
   become: true
   shell: grep {{ inventory_hostname }} /var/log/syslog | grep "{{ test_message }}" | grep -v ansible
   register: grep_result
