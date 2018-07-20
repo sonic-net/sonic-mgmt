@@ -105,7 +105,7 @@
 
     - name: Install a new sonic image if requested
       shell: sonic_installer install -y {{ new_sonic_image }}
-      where: new_sonic_image is defined
+      when: new_sonic_image is defined
 
     - include: ptf_runner.yml
       vars:
