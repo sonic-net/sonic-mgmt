@@ -83,7 +83,7 @@ from ansible.module_utils.basic import *
 from pprint import pprint
 
 
-def extract_line(directory, filename, target_string):
+def extract_lines(directory, filename, target_string):
     path = os.path.join(directory, filename)
     file = None
     if 'gz' in path:
@@ -100,12 +100,8 @@ def extract_line(directory, filename, target_string):
 
     return result
 
-
-def list_files(directory, prefixname):
-    return [filename for filename in os.listdir(directory) if filename.startswith(prefixname)]
-
-
 def extract_number(s):
+    """Extracts number from string, if not number found returns 0"""
     ns = re.findall(r'\d+', s)
     if len(ns) == 0:
         return 0
@@ -149,21 +145,44 @@ def comparator(l, r):
 
 
 def filename_comparator(l, r):
+    """Compares log filenames, assumes file with greater number is
+    older, e.g syslog.2 is older than syslog.1. This is how logrotate is currently configured.
+    Returns 0 if log files l and r are the same,
+    1 if log file l is older then r and -1 if l is newer then r"""
+
     nl = extract_number(l)
     nr = extract_number(r)
     if nl == nr:
         return 0
     elif nl > nr:
-        return -1
-    else:
         return 1
+    else:
+        return -1
+
+
+def list_files(directory, prefixname):
+    """Returns a sorted list(sort order is from newer to older)
+    of files in @directory starting with @prefixname
+    (Comparator used is @filename_comparator)"""
+
+    return sorted([filename for filename in os.listdir(directory)
+        if filename.startswith(prefixname)], cmp=filename_comparator)
 
 
 def extract_latest_line_with_string(directory, filenames, start_string):
+    """Extracts latest line with string @start_string. Assumes @filenames are sorted
+    and first file in @filenames is the newest log file"""
+
     target_lines = []
     for filename in filenames:
-        target_lines.extend(extract_line(directory, filename, start_string))
+        extracted_lines = extract_lines(directory, filename, start_string)
+        if extracted_lines:
+            # found lines are the lates since we start from the newest file
+            # assignt to target_lines and break the loop
+            target_lines = extracted_lines
+            break
 
+    # find the latest line from traget_lines comparing by date in line
     target = target_lines[0] if len(target_lines) > 0 else None
     for line in target_lines:
         if comparator(line, target) > 0:
@@ -173,15 +192,7 @@ def extract_latest_line_with_string(directory, filenames, start_string):
 
 
 def calculate_files_to_copy(filenames, file_with_latest_line):
-    sorted_filenames = sorted(filenames, cmp=filename_comparator)
-    files_to_copy = []
-    do_copy = False
-    for filename in sorted_filenames:
-        if filename == file_with_latest_line:
-            do_copy = True
-        if do_copy:
-            files_to_copy.append(filename)
-
+    files_to_copy = filenames[:filenames.index(file_with_latest_line) + 1]
     return files_to_copy
 
 
