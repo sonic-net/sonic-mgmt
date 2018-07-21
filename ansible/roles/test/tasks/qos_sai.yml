@@ -229,6 +229,7 @@
         - q3_num_of_pkts='{{ qp.wrr.q3_num_of_pkts }}'
         - q4_num_of_pkts='{{ qp.wrr.q4_num_of_pkts }}'
         - limit='{{ qp.wrr.limit }}'
+        - pkts_num_leak_out='{{ qp.wrr.pkts_num_leak_out }}'
 
     - debug:
         var: out.stdout_lines
