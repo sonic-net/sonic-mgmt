@@ -28,7 +28,7 @@ import threading
 
 
 class ControlPlaneBaseTest(BaseTest):
-    MAX_PORTS = 32
+    MAX_PORTS = 128
     PPS_LIMIT = 600
     PPS_LIMIT_MIN = PPS_LIMIT * 0.9
     PPS_LIMIT_MAX = PPS_LIMIT * 1.1
@@ -48,7 +48,7 @@ class ControlPlaneBaseTest(BaseTest):
             self.pkt_tx_count = self.PKT_TX_COUNT
         self.pkt_rx_limit = self.pkt_tx_count * 0.90
 
-        target_port_str = test_params.get('target_port', TARGET_PORT)
+        target_port_str = test_params.get('target_port', self.TARGET_PORT)
         self.target_port = int(target_port_str)
 
         self.timeout_thr = None
