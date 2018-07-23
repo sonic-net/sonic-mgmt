@@ -50,7 +50,7 @@
   when:
     - dut_switch_ports[item|int] not in dut_switch_lag_members
     - item != '31' # Only for Mellanox testbed. The last port is used for up link from DUT switch
- 
+
 - name: Set DST port ID
   set_fact:
     dst_port_id: "{{ testing_ports_id[0] }}"
@@ -67,33 +67,29 @@
   set_fact:
     dst_port_3_id: "{{ testing_ports_id[3] }}"
 
-- name: Get DST port 1 IP
-  set_fact:
-    dst_port_ip: "{{ item['addr'] }}"
-  when: item['name'] == minigraph_neighbors[ dut_switch_ports[dst_port_id|int] ]['name'] and item['addr']|ipv4
-  with_items:
-    - "{{ minigraph_bgp }}"
+- name: Get testing port IPs
+  testing_port_ip_facts:
+    testing_ports_id: "{{ testing_ports_id }}"
+    dut_switch_ports: "{{ dut_switch_ports }}"
+    minigraph_bgp: "{{ minigraph_bgp }}"
+    minigraph_neighbors: "{{ minigraph_neighbors }}"
+  connection: local
 
-- name: Get DST port 2 IP
+- name: Set DST port 1 IP
   set_fact:
-    dst_port_2_ip: "{{ item['addr'] }}"
-  when: item['name'] == minigraph_neighbors[ dut_switch_ports[dst_port_2_id|int] ]['name'] and item['addr']|ipv4
-  with_items:
-    - "{{ minigraph_bgp }}"
+    dst_port_ip: "{{ testing_ports_ip[0] }}"
 
-- name: Get SRC port IP
+- name: Set DST port 2 IP
   set_fact:
-    src_port_ip: "{{ item['addr'] }}"
-  when: item['name'] == minigraph_neighbors[ dut_switch_ports[src_port_id|int] ]['name'] and item['addr']|ipv4
-  with_items:
-    - "{{ minigraph_bgp }}"
+    dst_port_2_ip: "{{ testing_ports_ip[1] }}"
 
-- name: Get DST port 3 IP
+- name: Set SRC port IP
   set_fact:
-    dst_port_3_ip: "{{ item['addr'] }}"
-  when: item['name'] == minigraph_neighbors[ dut_switch_ports[dst_port_3_id|int] ]['name'] and item['addr']|ipv4
-  with_items:
-    - "{{ minigraph_bgp }}"
+    src_port_ip: "{{ testing_ports_ip[2] }}"
+
+- name: Set DST port 3 IP
+  set_fact:
+    dst_port_3_ip: "{{ testing_ports_ip[3] }}"
 
 # Get buffers size
 # Ingress lossless
