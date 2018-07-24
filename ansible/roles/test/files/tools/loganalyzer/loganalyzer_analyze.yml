@@ -25,7 +25,37 @@
       expect_file_option: "-e {{ test_expect_file }}"
   when: test_expect_file is defined
 
-- set_fact: cmd="python {{ run_dir }}/loganalyzer.py --action analyze --run_id {{ testname_unique }} --out_dir {{ test_out_dir }} {{ match_file_option }} {{ ignore_file_option }} {{ expect_file_option }} -v"
+- name: Set temporary file location for accumulated syslog
+  set_fact:
+      tmp_log_file: '/tmp/syslog'
+
+- block:
+    - name: Disable logrotate cron task
+      shell: sed -i 's/^/#/g' /etc/cron.d/logrotate
+      become: yes
+
+    - name: Wait for logrotate from previous cron task run to finish
+      shell: ! pgrep -f logrotate
+      register: output
+      until: output.rc == 0
+      retries: 6
+      delay: 10
+      ignore_errors: yes
+
+    - name: Extract all syslog entries since the latest start marker
+      extract_log:
+        directory: '/var/log'
+        file_prefix: 'syslog'
+        start_string: 'start-LogAnalyzer-{{ testname_unique }}'
+        target_filename: "/tmp/syslog"
+      become: yes
+
+  always:
+    - name: Enable logrotate cron task back
+      shell: sed -i 's/^#//g' /etc/cron.d/logrotate
+      become: yes
+
+- set_fact: cmd="python {{ run_dir }}/loganalyzer.py --action analyze --logs {{ tmp_log_file }} --run_id {{ testname_unique }} --out_dir {{ test_out_dir }} {{ match_file_option }} {{ ignore_file_option }} {{ expect_file_option }} -v"
 
 - debug: msg={{cmd}}
 
