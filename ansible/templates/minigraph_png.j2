@@ -13,7 +13,7 @@
       </DeviceLinkBase>
 {% endfor %}
 {% endfor %}
-{% if 'host_interfaces' in vm_topo_config %}
+{% if vm_topo_config['host_interfaces'] | length > 0 %}
 {% for host_index in range(vlan_intfs | length) %}
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
