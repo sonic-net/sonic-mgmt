@@ -1697,6 +1697,7 @@ sensors_checks:
         side: left
         skip_list:
         - ym2651-i2c-11-5b
+<<<<<<< HEAD
   Seastone-DX010:
     alarms:
       fan:
@@ -1984,4 +1985,6 @@ sensors_checks:
       - dx010_lm75b-i2c-6-49/Front-panel temp sensor 2/temp1_input
       - dx010_lm75b-i2c-7-4a/ASIC temp sensor/temp1_input
     psu_skips: {}
+=======
+>>>>>>> a31dce911ca0f891ea48e7ee0914777a0c94537b
 
