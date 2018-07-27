@@ -24,7 +24,7 @@ from switch import (switch_init,
 from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
                                       sai_thrift_attribute_t)
 from switch_sai_thrift.sai_headers import (SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID,
-                                           SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE)
+                                           SAI_PORT_ATTR_PKT_TX_ENABLE)
 
 # Counters
 # The index number comes from the append order in sai_thrift_read_port_counters
@@ -196,8 +196,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
         else:
             # Pause egress of dut xmit port
-            attr_value = sai_thrift_attribute_value_t(booldata=1)
-            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+            attr_value = sai_thrift_attribute_value_t(booldata=0)
+            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
         try:
@@ -273,8 +273,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
             else:
                 # Resume egress of dur xmit port
-                attr_value = sai_thrift_attribute_value_t(booldata=0)
-                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+                attr_value = sai_thrift_attribute_value_t(booldata=1)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
 # This test looks to measure xon threshold (pg_reset_floor)
@@ -332,8 +332,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_3_id], attr)
         else:
             # Pause egress of dut xmit ports
-            attr_value = sai_thrift_attribute_value_t(booldata=1)
-            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+            attr_value = sai_thrift_attribute_value_t(booldata=0)
+            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_3_id], attr)
@@ -392,8 +392,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
             else:
                 # Resume egress of dst port 1
-                attr_value = sai_thrift_attribute_value_t(booldata=0)
-                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+                attr_value = sai_thrift_attribute_value_t(booldata=1)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
 
             # allow enough time for the dut to sync up the counter values in counters_db
@@ -422,8 +422,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_3_id], attr)
             else:
                 # Resume egress of dst port 2
-                attr_value = sai_thrift_attribute_value_t(booldata=0)
-                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+                attr_value = sai_thrift_attribute_value_t(booldata=1)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_3_id], attr)
 
             # allow enough time for the dut to sync up the counter values in counters_db
@@ -461,8 +461,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_3_id], attr)
             else:
                 # Resume egress of dut xmit ports
-                attr_value = sai_thrift_attribute_value_t(booldata=0)
-                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+                attr_value = sai_thrift_attribute_value_t(booldata=1)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_3_id], attr)
@@ -625,8 +625,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
         else:
-            attr_value = sai_thrift_attribute_value_t(booldata=1)
-            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+            attr_value = sai_thrift_attribute_value_t(booldata=0)
+            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
         # Send packets to leak out
@@ -706,8 +706,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
         else:
             # Resume egress of dut xmit port
-            attr_value = sai_thrift_attribute_value_t(booldata=0)
-            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+            attr_value = sai_thrift_attribute_value_t(booldata=1)
+            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
         cnt = 0
@@ -807,8 +807,8 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
         else:
             # Pause egress of dut xmit port
-            attr_value = sai_thrift_attribute_value_t(booldata=1)
-            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+            attr_value = sai_thrift_attribute_value_t(booldata=0)
+            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
         try:
@@ -852,6 +852,6 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_2_id], attr)
             else:
                 # Resume egress of dut xmit port
-                attr_value = sai_thrift_attribute_value_t(booldata=0)
-                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+                attr_value = sai_thrift_attribute_value_t(booldata=1)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
