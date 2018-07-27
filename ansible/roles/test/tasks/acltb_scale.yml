@@ -47,7 +47,7 @@
       include: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - pause:
-        seconds: 10 
+        seconds: 90 
 
     - name: Get the ACL usage via CRM
       command: crm show resources acl table
@@ -61,8 +61,15 @@
       set_fact:
         used_count: "{{data_acl_crm_info[2] | int}}"
 
-    - debug:
+    - name: Print output
+      debug:
         msg: "This DUT can scale up to {{ used_count }} ACL entries"
+      when: used_count = 0
+
+    - name: Print error output
+      debug:
+        msg: "CRM module still shows some available entries while SAI_INSUFFICIENT_ERROR shown"
+      when: used_count != 0
 
 - always:
     - name: Clean up ACL rules.
