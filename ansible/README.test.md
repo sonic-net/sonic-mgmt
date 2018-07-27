@@ -3,6 +3,8 @@
 ## **Requirements**
 - A testbed needed to be set up before hand. See [Testbed](README.testbed.md) for more information.
 - Depending on the test, either a PTF testbed or a VM set testbed might be required. 
+- All management IP addresses, VM, ptf docker, SONiC, fanout switches, servers should be routable/reachable in testbed.
+- Syslog test: the run this test, sonic-mgmt docker needs to be started with host=net 
 
 ---
 

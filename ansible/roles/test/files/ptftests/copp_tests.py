@@ -1,4 +1,6 @@
-# ptf --test-dir saitests copp_tests  --qlen=100000 --platform nn -t "verbose=True;pkt_tx_count=100000" --device-socket 0-3@tcp://127.0.0.1:10900 --device-socket 1-3@tcp://10.3.147.47:10900
+# ptf --test-dir saitests copp_tests  --qlen=100000 --platform nn -t "verbose=True;pkt_tx_count=100000;target_port=3" --device-socket 0-3@tcp://127.0.0.1:10900 --device-socket 1-3@tcp://10.3.147.47:10900
+# or
+# ptf --test-dir saitests copp_tests  --qlen=100000 --platform nn -t "verbose=True;pkt_tx_count=100000;target_port=10" --device-socket 0-10@tcp://127.0.0.1:10900 --device-socket 1-10@tcp://10.3.147.47:10900
 #
 # copp_test.${name_test}
 #
@@ -26,12 +28,13 @@ import threading
 
 
 class ControlPlaneBaseTest(BaseTest):
-    MAX_PORTS = 32
+    MAX_PORTS = 128
     PPS_LIMIT = 600
     PPS_LIMIT_MIN = PPS_LIMIT * 0.9
     PPS_LIMIT_MAX = PPS_LIMIT * 1.1
     NO_POLICER_LIMIT = PPS_LIMIT * 1.4
     PKT_TX_COUNT = 100000
+    TARGET_PORT = "3"  # historically we have port 3 as a target port
     TASK_TIMEOUT = 300 # Wait up to 5 minutes for tasks to complete
 
     def __init__(self):
@@ -44,6 +47,9 @@ class ControlPlaneBaseTest(BaseTest):
         if self.pkt_tx_count == 0:
             self.pkt_tx_count = self.PKT_TX_COUNT
         self.pkt_rx_limit = self.pkt_tx_count * 0.90
+
+        target_port_str = test_params.get('target_port', self.TARGET_PORT)
+        self.target_port = int(target_port_str)
 
         self.timeout_thr = None
 
@@ -161,7 +167,7 @@ class ControlPlaneBaseTest(BaseTest):
 
     def run_suite(self):
         self.timeout(self.TASK_TIMEOUT, "The test case hasn't been completed in %d seconds" % self.TASK_TIMEOUT) # FIXME: better make it decorator
-        self.one_port_test(3)
+        self.one_port_test(self.target_port)
         self.cancel_timeout()
 
     def printStats(self, pkt_send_count, total_rcv_pkt_cnt, time_delta, tx_pps, rx_pps):

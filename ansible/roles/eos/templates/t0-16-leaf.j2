@@ -1,7 +1,5 @@
 {% set host = configuration[hostname] %}
 {% set mgmt_ip = ansible_host %}
-no schedule tech-support
-!
 hostname {{ hostname }}
 !
 vrf definition MGMT
@@ -180,4 +178,3 @@ management api http-commands
  no shutdown
 !
 end
-s

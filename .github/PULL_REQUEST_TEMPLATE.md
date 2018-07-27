@@ -10,18 +10,24 @@ Please provide following information to help code review process a bit easier:
 - Please also include relevant motivation and context. Where should reviewer start? background contaxt?
 - List any dependencies that are required for this change.
 -->
+
+PR summery
 Fixes # (issue)
 
 ### Type of change
-- [ ] Bug fix
-- [ ] Testbed and Framework(new/improvement)
-- [ ] Test case(new/improvement)
+
+- [] Bug fix
+- [] Testbed and Framework(new/improvement)
+- [] Test case(new/improvement)
 
 ### Approach
-How did you do it?
-How did you verify/test it?
-Any platform specific information?
-Supported testbed topology if it's a new test case?
+#### How did you do it?
+
+#### How did you verify/test it?
+
+#### Any platform specific information?
+
+#### Supported testbed topology if it's a new test case?
 
 ### Documentation 
 <!--

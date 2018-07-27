@@ -6,6 +6,12 @@
 - name: Print neighbors in minigraph
   debug: msg="{{ minigraph_neighbors }}"
 
+- name: find minigraph lldp neighbor
+  set_fact:
+    minigraph_lldp_nei:  "{{ minigraph_lldp_nei|default({}) | combine({ item.key : item.value}) }}"
+  when: "'server' not in item.value['name'] | lower"
+  with_dict: minigraph_neighbors
+
 - name: Gather information from LLDP
   lldp:
   vars:
@@ -16,10 +22,10 @@
   debug: msg="{{ lldp }}"
 
 - name: Verify LLDP information is available on most interfaces
-  assert: { that: "{{ lldp|length }} > {{ minigraph_neighbors|length * 0.8 }}"}
+  assert: { that: "{{ lldp|length }} > {{ minigraph_lldp_nei|length * 0.8 }}"}
 
 - name: Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
-  assert: { that: "'{{ lldp[item]['chassis']['name'] }}' == '{{ minigraph_neighbors[item]['name'] }}'" }
+  assert: { that: "'{{ lldp[item]['chassis']['name'] }}' == '{{ minigraph_lldp_nei[item]['name'] }}'" }
   with_items: "{{ lldp.keys() }}"
   when: item != "eth0"
 
@@ -37,6 +43,7 @@
     set_fact:
       dut_system_description: "{{ result.stdout }}"
 
+###TODO: fix this lldp_neighbor validation, this part is not running 
 - name: Iterate through each LLDP neighbor and verify the information received by neighbor is correct
   add_host:
     name: "{{ lldp[item]['chassis']['mgmt-ip'] }}"
@@ -51,3 +58,4 @@
     dut_system_description: "{{ dut_system_description }}"
   with_items: "{{ lldp.keys() }}"
   when: item != "eth0"
+
