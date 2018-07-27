@@ -509,8 +509,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
         else:
             # Pause egress of dut xmit port
-            attr_value = sai_thrift_attribute_value_t(booldata=1)
-            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+            attr_value = sai_thrift_attribute_value_t(booldata=0)
+            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
         try:
@@ -557,7 +557,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 pkt_cnt = 0
 
                 recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_ids[sidx_dscp_pg_tuples[i][0]]])
-                while (recv_counters[sidx_dscp_pg_tuples[i][2]] == recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
+                while (recv_counters[sidx_dscp_pg_tuples[i][2]] == recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]]):
                     send_packet(self, src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkts_num_trig_pfc)
                     pkt_cnt += 1
                     time.sleep(8)
@@ -568,6 +568,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 assert(recv_counters[sidx_dscp_pg_tuples[i][2]] > recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
                 print >> sys.stderr, "%d packets for sid: %d, pg: %d to trigger pfc" % (pkt_cnt, src_port_ids[sidx_dscp_pg_tuples[i][0]], sidx_dscp_pg_tuples[i][2])
+
+            time.sleep(60)
 
             # send packets to all pgs to fill the headroom pool
             for i in range(0, pgs_num):
@@ -608,8 +610,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
             else:
                 # Resume egress of dur xmit port
-                attr_value = sai_thrift_attribute_value_t(booldata=0)
-                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_EGRESS_PAUSE_ENABLE, value=attr_value)
+                attr_value = sai_thrift_attribute_value_t(booldata=1)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
 
 # TODO: remove sai_thrift_clear_all_counters and change to use incremental counter values
