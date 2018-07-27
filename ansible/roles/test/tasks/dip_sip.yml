@@ -56,8 +56,10 @@
         - src_host_mac='{{lldp[src_port]['chassis'].mac}}'
         - dst_router_mac='{{ansible_interface_facts[dst_port].macaddress}}'
         - src_router_mac='{{ansible_interface_facts[src_port].macaddress}}'
-        - dst_router_ip='{{ansible_interface_facts[dst_port]['ipv4']['address']}}'
-        - src_router_ip='{{ansible_interface_facts[src_port]['ipv4']['address']}}'
+        - dst_router_ipv4='{{ansible_interface_facts[dst_port]['ipv4']['address']}}'
+        - src_router_ipv4='{{ansible_interface_facts[src_port]['ipv4']['address']}}'
+        - dst_router_ipv6='{{ansible_interface_facts[dst_port]['ipv6'] | selectattr("scope", "equalto", "global") | map(attribute='address') | list | first }}'
+        - src_router_ipv6='{{ansible_interface_facts[src_port]['ipv6'] | selectattr("scope", "equalto", "global") | map(attribute='address') | list | first }}'
         - dst_port_ids=[{{minigraph_port_indices[dst_port]}}]
         - src_port_ids=[{{minigraph_port_indices[src_port]}}]
       ptf_extra_options: "--relax --debug info --log-file /tmp/dip_sip.DipSipTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log"
@@ -113,8 +115,10 @@
         - src_host_mac='{{lldp[minigraph_portchannels[src_lag].members[0]]['chassis'].mac}}'
         - dst_router_mac='{{ansible_interface_facts[dst_lag].macaddress}}'
         - src_router_mac='{{ansible_interface_facts[src_lag].macaddress}}'
-        - dst_router_ip='{{ansible_interface_facts[dst_lag]['ipv4']['address']}}'
-        - src_router_ip='{{ansible_interface_facts[src_lag]['ipv4']['address']}}'
+        - dst_router_ipv4='{{ansible_interface_facts[dst_lag]['ipv4']['address']}}'
+        - src_router_ipv4='{{ansible_interface_facts[src_lag]['ipv4']['address']}}'
+        - dst_router_ipv6='{{ansible_interface_facts[dst_lag]['ipv6'] | selectattr("scope", "equalto", "global") | map(attribute='address') | list | first }}'
+        - src_router_ipv6='{{ansible_interface_facts[src_lag]['ipv6'] | selectattr("scope", "equalto", "global") | map(attribute='address') | list | first }}'
         - dst_port_ids={{dst_port_ids}}
         - src_port_ids={{src_port_ids}}
       ptf_extra_options: "--relax --debug info --log-file /tmp/dip_sip.DipSipTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log"

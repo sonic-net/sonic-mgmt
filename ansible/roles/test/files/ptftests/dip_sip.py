@@ -8,15 +8,17 @@ Topologies:
     Supports t0, t1 and t1-lag topology
 
 Parameters:
-    testbed_type   - testbed type
-    dst_host_mac   - destination host MAC address
-    src_host_mac   - source host MAC address
-    dst_router_mac - destination router MAC address
-    src_router_mac - source router MAC address
-    dst_router_ip  - destination router IPv4 address
-    src_router_ip  - source router IPv4 address
-    dst_port_ids   - destination port array of indices (when router has a members)
-    src_port_ids   - source port array of indices (when router has a members)
+    testbed_type    - testbed type
+    dst_host_mac    - destination host MAC address
+    src_host_mac    - source host MAC address
+    dst_router_mac  - destination router MAC address
+    src_router_mac  - source router MAC address
+    dst_router_ipv4 - destination router IPv4 address
+    src_router_ipv4 - source router IPv4 address
+    dst_router_ipv6 - destination router IPv6 address
+    src_router_ipv6 - source router IPv6 address
+    dst_port_ids    - destination port array of indices (when router has a members)
+    src_port_ids    - source port array of indices (when router has a members)
 
 Usage:
     Example of how to start this script:
@@ -26,8 +28,10 @@ Usage:
             src_host_mac='<src_host_mac>'; \
             dst_router_mac='<dst_router_mac>'; \
             src_router_mac='<src_router_mac>'; \
-            dst_router_ip='<dst_router_ip>'; \
-            src_router_ip='<src_router_ip>'; \
+            dst_router_ipv4='<dst_router_ipv4>'; \
+            src_router_ipv4='<src_router_ipv4>'; \
+            dst_router_ipv6='<dst_router_ipv6>'; \
+            src_router_ipv6='<src_router_ipv6>'; \
             dst_port_ids='<dst_port_ids>'; \
             src_port_ids='<src_port_ids>'" \
         --relax --debug info --log-file /tmp/dip_sip.DipSipTest.log \
@@ -41,20 +45,17 @@ Notes:
 # Global imports
 #-------------------------------------------------------------------------------
 
-import json
-import time
 import logging
-
-from collections import defaultdict
-from ipaddress import ip_address, ip_network
-
 import ptf
-import ptf.packet as scapy
-import ptf.dataplane as dataplane
 
-from ptf import config
+from ipaddress import ip_address
 from ptf.base_tests import BaseTest
-from ptf.testutils import *
+
+from ptf.testutils import test_params_get
+from ptf.testutils import simple_udp_packet
+from ptf.testutils import simple_udpv6_packet
+from ptf.testutils import send
+from ptf.testutils import verify_packet_any_port
 
 #-------------------------------------------------------------------------------
 # Testcase
@@ -67,61 +68,99 @@ class PortLagRouterBasedTest:
     #--------------------------------------------------------------------------
 
     def logParams(self):
-        self.test.log("Destination router mac is: " + self.dstRouterMac)
-        self.test.log("Destination router ip is:  " + self.dstRouterIp)
+        self.test.log("Destination router mac is:  " + self.dstRouterMac)
+        self.test.log("Destination router ipv4 is: " + self.dstRouterIpv4)
+        self.test.log("Destination router ipv6 is: " + self.dstRouterIpv6)
 
-        self.test.log("Destination host mac is:   " + self.dstHostMac)
-        self.test.log("Destination host ip is:    " + self.dstHostIp)
+        self.test.log("Destination host mac is:    " + self.dstHostMac)
+        self.test.log("Destination host ipv4 is:   " + self.dstHostIpv4)
+        self.test.log("Destination host ipv6 is:   " + self.dstHostIpv6)
 
-        self.test.log("Source router mac is:      " + self.srcRouterMac)
-        self.test.log("Source router ip is:       " + self.srcRouterIp)
+        self.test.log("Source router mac is:       " + self.srcRouterMac)
+        self.test.log("Source router ipv4 is:      " + self.srcRouterIpv4)
+        self.test.log("Source router ipv6 is:      " + self.srcRouterIpv6)
 
-        self.test.log("Source host mac is:        " + self.srcHostMac)
-        self.test.log("Source host ip is:         " + self.srcHostIp)
+        self.test.log("Source host mac is:         " + self.srcHostMac)
+        self.test.log("Source host ipv4 is:        " + self.srcHostIpv4)
+        self.test.log("Source host ipv6 is:        " + self.srcHostIpv6)
 
-        self.test.log("Destination port ids is:   " + str([int(portId) for portId in self.dstPortIds]))
-        self.test.log("Source port ids is:        " + str([int(portId) for portId in self.srcPortIds]))
+        self.test.log("Destination port ids is:    " + str([int(portId) for portId in self.dstPortIds]))
+        self.test.log("Source port ids is:         " + str([int(portId) for portId in self.srcPortIds]))
 
-        self.test.log("Packet TTL is:             " + str(self.pktTtl))
+        self.test.log("Packet TTL/HL is:           " + str(self.pktTtlHlim))
     #--------------------------------------------------------------------------
 
     def setUpParams(self):
         self.dstRouterMac = self.testParams['dst_router_mac']
-        self.dstRouterIp = self.testParams['dst_router_ip']
+        self.dstRouterIpv4 = self.testParams['dst_router_ipv4']
+        self.dstRouterIpv6 = self.testParams['dst_router_ipv6']
 
         self.dstHostMac = self.testParams['dst_host_mac']
-        self.dstHostIp = str(ip_address(unicode(self.testParams['dst_router_ip'])) + 1)
+        self.dstHostIpv4 = str(ip_address(unicode(self.testParams['dst_router_ipv4'])) + 1)
+        self.dstHostIpv6 = str(ip_address(unicode(self.testParams['dst_router_ipv6'])) + 1)
 
         self.srcRouterMac = self.testParams['src_router_mac']
-        self.srcRouterIp = self.testParams['src_router_ip']
+        self.srcRouterIpv4 = self.testParams['src_router_ipv4']
+        self.srcRouterIpv6 = self.testParams['src_router_ipv6']
 
         self.srcHostMac = self.testParams['src_host_mac']
-        self.srcHostIp = str(ip_address(unicode(self.testParams['src_router_ip'])) + 1)
+        self.srcHostIpv4 = str(ip_address(unicode(self.testParams['src_router_ipv4'])) + 1)
+        self.srcHostIpv6 = str(ip_address(unicode(self.testParams['src_router_ipv6'])) + 1)
 
         self.dstPortIds = self.testParams['dst_port_ids']
         self.srcPortIds = self.testParams['src_port_ids']
 
-        self.pktTtl = 64 # Default packet TTL value
+        self.pktTtlHlim = 64 # Default packet TTL/HL value
+    #--------------------------------------------------------------------------
+
+    def runTestIpv6(self):
+        self.test.log("Run IPv6 based test")
+
+        pkt = simple_udpv6_packet(eth_dst=self.srcRouterMac,
+                                  eth_src=self.srcHostMac,
+                                  ipv6_src=self.dstHostIpv6,
+                                  ipv6_dst=self.dstHostIpv6,
+                                  ipv6_hlim=self.pktTtlHlim)
+        send(self.test, int(self.srcPortIds[0]), pkt)
+
+        pkt = simple_udpv6_packet(eth_dst=self.dstHostMac,
+                                  eth_src=self.dstRouterMac,
+                                  ipv6_src=self.dstHostIpv6,
+                                  ipv6_dst=self.dstHostIpv6,
+                                  ipv6_hlim=self.pktTtlHlim-1)
+
+        verify_packet_any_port(self.test, pkt, [int(port) for port in self.dstPortIds])
+
+        self.test.log("IPv6 based test: done")
+    #--------------------------------------------------------------------------
+
+    def runTestIpv4(self):
+        self.test.log("Run IPv4 based test")
+
+        pkt = simple_udp_packet(eth_dst=self.srcRouterMac,
+                                eth_src=self.srcHostMac,
+                                ip_src=self.dstHostIpv4,
+                                ip_dst=self.dstHostIpv4,
+                                ip_ttl=self.pktTtlHlim)
+        send(self.test, int(self.srcPortIds[0]), pkt)
+
+        pkt = simple_udp_packet(eth_dst=self.dstHostMac,
+                                eth_src=self.dstRouterMac,
+                                ip_src=self.dstHostIpv4,
+                                ip_dst=self.dstHostIpv4,
+                                ip_ttl=self.pktTtlHlim-1)
+
+        verify_packet_any_port(self.test, pkt, [int(port) for port in self.dstPortIds])
+
+        self.test.log("IPv4 based test: done")
     #--------------------------------------------------------------------------
 
     def runTest(self):
         self.setUpParams()
         self.logParams()
 
-        pkt = simple_udp_packet(eth_dst=self.srcRouterMac,
-                                eth_src=self.srcHostMac,
-                                ip_src=self.dstHostIp,
-                                ip_dst=self.dstHostIp,
-                                ip_ttl=self.pktTtl)
-        send(self.test, int(self.srcPortIds[0]), pkt)
-
-        pkt = simple_udp_packet(eth_dst=self.dstHostMac,
-                                eth_src=self.dstRouterMac,
-                                ip_src=self.dstHostIp,
-                                ip_dst=self.dstHostIp,
-                                ip_ttl=self.pktTtl-1)
-
-        verify_packet_any_port(self.test, pkt, [int(port) for port in self.dstPortIds])
+        self.runTestIpv4()
+        self.runTestIpv6()
     #--------------------------------------------------------------------------
 
 class DipSipTest(BaseTest):
@@ -151,6 +190,8 @@ class DipSipTest(BaseTest):
 
             test = PortLagRouterBasedTest(self)
             test.runTest()
+
+            self.log("PORT/LAG-router based test: done")
 
             return
 
