@@ -54,12 +54,12 @@ def main():
     minigraph_bgp = m_args['minigraph_bgp']
     minigraph_neighbors = m_args['minigraph_neighbors']
 
-    testing_ports_ip = []
+    testing_ports_ip = {}
 
     for port_id in testing_ports_id:
         for peer in minigraph_bgp:
             if peer['name'] == minigraph_neighbors[dut_switch_ports[int(port_id)]]['name'] and netaddr.valid_ipv4(peer['addr']):
-                testing_ports_ip.append(peer['addr'])
+                testing_ports_ip[port_id] = peer['addr']
                 break
 
     module.exit_json(ansible_facts={'testing_ports_ip': testing_ports_ip})

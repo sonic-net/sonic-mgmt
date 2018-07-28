@@ -75,21 +75,24 @@
     minigraph_neighbors: "{{ minigraph_neighbors }}"
   connection: local
 
+- debug:
+    var: testing_ports_ip
+
 - name: Set DST port 1 IP
   set_fact:
-    dst_port_ip: "{{ testing_ports_ip[0] }}"
+    dst_port_ip: "{{ testing_ports_ip[dst_port_id] }}"
 
 - name: Set DST port 2 IP
   set_fact:
-    dst_port_2_ip: "{{ testing_ports_ip[1] }}"
+    dst_port_2_ip: "{{ testing_ports_ip[dst_port_2_id] }}"
 
 - name: Set SRC port IP
   set_fact:
-    src_port_ip: "{{ testing_ports_ip[2] }}"
+    src_port_ip: "{{ testing_ports_ip[src_port_id] }}"
 
 - name: Set DST port 3 IP
   set_fact:
-    dst_port_3_ip: "{{ testing_ports_ip[3] }}"
+    dst_port_3_ip: "{{ testing_ports_ip[dst_port_3_id] }}"
 
 # Get buffers size
 # Ingress lossless
