@@ -182,19 +182,26 @@
         - pkts_num_trig_pfc='{{ qp.xoff_2.pkts_num_trig_pfc }}'
         - pkts_num_trig_ingr_drp='{{ qp.xoff_2.pkts_num_trig_ingr_drp }}'
 
-#    # Headroom pool size
-#    - include: qos_sai_ptf.yml
-#      vars:
-#        test_name: headroom pool size ptf test ecn = {{ qp.hdrm_pool_size.ecn }}
-#        test_path: sai_qos_tests.HdrmPoolSizeTest
-#        test_params:
-#        - dscps={{ qp.hdrm_pool_size.dscps }}
-#        - ecn={{ qp.hdrm_pool_size.ecn }}
-#        - pgs={{ qp.hdrm_pool_size.pgs }}
-#        - src_port_ids={{ qp.hdrm_pool_size.src_port_ids }}
-#        - src_port_ips=[{% for pid in qp.hdrm_pool_size.src_port_ids %}{% if not loop.last %}'{{ testing_ports_ip[pid] }}', {% else %}'{{ testing_ports_ip[pid] }}'{% endif %}{% endfor %}]
-#        - dst_port_id={{ qp.hdrm_pool_size.dst_port_id }}
-#        - dst_port_ip='{{ testing_ports_ip[qp.hdrm_pool_size.dst_port_id] }}'
+    # Headroom pool size
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: headroom pool size ptf test ecn = {{ qp.hdrm_pool_size.ecn }}
+        test_path: sai_qos_tests.HdrmPoolSizeTest
+        test_params:
+        - dscps={{ qp.hdrm_pool_size.dscps }}
+        - ecn={{ qp.hdrm_pool_size.ecn }}
+        - pgs={{ qp.hdrm_pool_size.pgs }}
+        - src_port_ids={{ qp.hdrm_pool_size.src_port_ids }}
+        - src_port_ips=[{% for pid in qp.hdrm_pool_size.src_port_ids %}{% if not loop.last %}'{{ testing_ports_ip[pid|string] }}', {% else %}'{{ testing_ports_ip[pid|string] }}'{% endif %}{% endfor %}]
+        - dst_port_id={{ qp.hdrm_pool_size.dst_port_id }}
+        - dst_port_ip='{{ testing_ports_ip[qp.hdrm_pool_size.dst_port_id|string] }}'
+        - pgs_num={{ qp.hdrm_pool_size.pgs_num }}
+        - pkts_num_leak_out={{ qp.hdrm_pool_size.pkts_num_leak_out }}
+        - pkts_num_trig_pfc={{ qp.hdrm_pool_size.pkts_num_trig_pfc }}
+        - pkts_num_hdrm_full={{ qp.hdrm_pool_size.pkts_num_hdrm_full }}
+        - pkts_num_hdrm_partial={{ qp.hdrm_pool_size.pkts_num_hdrm_partial }}
+      when: minigraph_hwsku is defined and
+            (minigraph_hwsku == 'Arista-7060CX-32S-C32')
 
     # DSCP mapping
     - include: qos_sai_ptf.yml
