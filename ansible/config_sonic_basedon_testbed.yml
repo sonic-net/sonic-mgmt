@@ -117,6 +117,11 @@
     delegate_to: localhost
     when: local_minigraph is defined and local_minigraph|bool == true
 
+  - name: create frr.conf file in ansible minigraph folder
+    template: src=templates/frr.j2
+              dest=minigraph/frr.conf
+    connection: local
+
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
