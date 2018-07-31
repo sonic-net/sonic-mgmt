@@ -13,7 +13,7 @@
       set_fact:
         index: "{{ ports | sort }}"
 
-    - name: select 1&2 two interfaces for test
+    - name: select port index 0&1 two interfaces for test
       set_fact:
         intf1: "Ethernet{{ index[0] }}"
         intf2: "Ethernet{{ index[1] }}"
