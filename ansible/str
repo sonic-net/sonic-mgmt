@@ -165,6 +165,7 @@ sonic_wedge100b65_100
 sonic_dx010_100
 sonic_agc7648
 sonic_nexus_9232_100
+sonic_nexus_92304_40
 
 [sonic:vars]
 mgmt_subnet_mask_length='23'
