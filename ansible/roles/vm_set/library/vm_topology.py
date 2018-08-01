@@ -99,6 +99,7 @@ ROOT_BACK_BR_TEMPLATE = 'br-b-%s'
 PTF_FP_IFACE_TEMPLATE = 'eth%d'
 BACK_ROOT_END_IF_TEMPLATE = 'veth-bb-%s'
 BACK_VM_END_IF_TEMPLATE = 'veth-bv-%s'
+RETRIES = 3
 
 
 class VMTopology(object):
@@ -405,7 +406,7 @@ class VMTopology(object):
         if vlan_iface not in ports:
             VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, vlan_iface))
 
-        bindings = VMTopology.get_ovs_port_bindings(br_name)
+        bindings = VMTopology.get_ovs_port_bindings(br_name, vlan_iface)
         vlan_iface_id = bindings[vlan_iface]
         injected_iface_id = bindings[injected_iface]
         vm_iface_id = bindings[vm_iface]
@@ -490,19 +491,27 @@ class VMTopology(object):
         out = VMTopology.cmd('ovs-vsctl list-ports %s' % bridge)
         return set(out.split('\n'))
 
-    @staticmethod
-    def get_ovs_port_bindings(bridge):
-        out = VMTopology.cmd('ovs-ofctl show %s' % bridge)
-        lines = out.split('\n')
-        result = {}
-        for line in lines:
-            matched = re.match(r'^\s+(\S+)\((\S+)\):\s+addr:.+$', line)
-            if matched:
-                port_id = matched.group(1)
-                iface_name = matched.group(2)
-                result[iface_name] = port_id
 
-        return result
+    @staticmethod
+    def get_ovs_port_bindings(bridge, vlan_iface = None):
+        # Vlan interface addition may take few secs to reflect in OVS Command,
+        # Let`s retry few times in that case.
+        for retries in range(RETRIES):
+            out = VMTopology.cmd('ovs-ofctl show %s' % bridge)
+            lines = out.split('\n')
+            result = {}
+            for line in lines:
+                matched = re.match(r'^\s+(\S+)\((\S+)\):\s+addr:.+$', line)
+                if matched:
+                    port_id = matched.group(1)
+                    iface_name = matched.group(2)
+                    result[iface_name] = port_id
+            # Check if we have vlan_iface populated
+            if vlan_iface is None or vlan_iface in result:
+                return result
+            time.sleep(2*retries+1)
+        # Flow reaches here when vlan_iface not present in result 
+        raise Exception("Can't find vlan_iface_id")
 
     @staticmethod
     def ifconfig(cmdline):
