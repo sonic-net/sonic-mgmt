@@ -145,7 +145,8 @@ iface_speed='100000'
 str-agc7648-acs-1 ansible_host=10.64.246.40
 
 [sonic_agc7648:vars]
-hwsku="Delta-7648"
+hwsku="Delta-AGC7648"
+iface_speed='10000'
 
 [sonic:children]
 sonic_stable

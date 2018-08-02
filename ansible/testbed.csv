@@ -35,6 +35,7 @@ vms3-t0-s6000,vms3-60,t0-64-32,docker-ptf-brcm,10.64.246.12/23,server_3,VM0344,s
 vms3-4,vms3-4,t0,docker-ptf-brcm,10.64.246.11/23,server_3,VM0360,str-s6000-acs-13,Sihui
 vms3-t1-dx010-1,vms3-5,t1-lag,docker-ptf-brcm,10.64.247.15/23,server_3,VM0300,str-dx010-acs-1,yingxie
 vms6-1,vms6-1,t1-lag,docker-ptf-brcm,10.64.247.6/23,server_6,VM0600,str-a7050-acs-2,gulv
+vms6-t0-7648,vms6-5,t0-16,docker-ptf-brcm,10.64.247.7/23,server_6,VM0624,str-agc7648-acs-1,prsunny
 vms6-t0-z91,vms6-2,t0,docker-ptf-brcm,10.64.247.18/23,server_6,VM0632,str-z9100-acs-2,prsunny
 vms6-t0-7060,vms6-4,t0,docker-ptf-brcm,10.64.247.20/23,server_6,VM0636,str-a7060cx-acs-1,prsunny
 vms6-t1-7060,vms6-3,t1-lag,docker-ptf-brcm,10.64.247.19/23,server_6,VM0640,str-a7060cx-acs-10,prsunny
