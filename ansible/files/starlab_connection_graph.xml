@@ -27,8 +27,8 @@
       <Device Hostname="str-n9232-acs-1" HwSku="Nexus-9232-Q32" Type="DevSonic"/>
       <Device Hostname="str-n9232-acs-2" HwSku="Nexus-9232-Q32" Type="DevSonic"/>
       <Device Hostname="str-n9232-acs-3" HwSku="Nexus-9232-Q32" Type="DevSonic"/>
-      <Device Hostname="str-n92304-03" HwSku="Nexus-92304" Type="DevSonic"/>
-      <Device Hostname="str-n92304-04" HwSku="Nexus-92304" Type="DevSonic"/>
+      <Device Hostname="str-n92304-03" HwSku="Nexus-92304QC-C0_64x40g" Type="DevSonic"/>
+      <Device Hostname="str-n92304-04" HwSku="Nexus-92304QC-C0_64x40g" Type="DevSonic"/>
       <Device Hostname="str-msn2700-01" HwSku="Mellanox-SN2700" Type="DevSonic"/>
       <Device Hostname="str-msn2700-02" HwSku="Mellanox-SN2700" Type="DevSonic"/>
       <Device Hostname="str-msn2700-03" HwSku="Mellanox-SN2700" Type="DevSonic"/>

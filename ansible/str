@@ -62,7 +62,7 @@ str-c92304-03      ansible_host=10.64.246.67
 str-c92304-04      ansible_host=10.64.246.68
 
 [sonic_nexus_92304_40:vars]
-hwsku="Nexus-92304"
+hwsku="Nexus-92304QC-C0_64x40g"
 iface_speed='40000'
 
 [sonic_arista_40]
