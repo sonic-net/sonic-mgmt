@@ -3,10 +3,9 @@
   snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
   connection: local
 
-# We assume that all the PSUs tested should be in good status, otherwise, fix the PSU manually
 - fail:
     msg: "PSU index {{ item.key }} operstatus is not OK"
-  when: "{{ item.value.operstatus | int }} != 2"
+  when: not item.value.operstatus
   with_dict: "{{ snmp_psu }}"
 
 - name: Get the PSU count from command line
