@@ -48,6 +48,7 @@ The device_groups section generates the lab file which is the inventory file nec
 The devices section is a dictionary that contains all devices and hosts. This section does not contain information on PTF containers. For more information on PTF containers, see the testbed.csv file. 
 
 For each device that you add, add the following:
+
 | Hostname | ansible_host | ansible_ssh_user | ansible_ssh_pass | HwSKU | device_type | 
 | ------ | ------ | ------ | ------ | ------ | ------ |
 | sonic-ag9032 | [IP Address] | [username] | [password] | DevSonic | DevSonic |
