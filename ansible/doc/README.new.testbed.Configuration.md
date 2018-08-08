@@ -1,11 +1,11 @@
 # Sonic-Mgmt Testbed Setup 
 Setting up the sonic-mgmt testbed from Github to your own environment can be a tedious process. There are 10+ files that need to be updated before you can run test cases. 
 
-However, this process can be automated with the testbed.yaml file and TestbedProcessing.py script. The testbed.yaml file is a configuration file that compiles all the data needed to run the testcases into one file. TestbedProcess.py works by pulling information from that configuration file and pushing the data into the files where they belong. This guide will outline and facilitate this testbed set up of sonic-mgmt.
+However, this process can be automated with the testbed.yaml file and TestbedProcessing.py script. The testbed.yaml file is a configuration file that compiles all the data needed to run the testcases into one file. TestbedProcess.py works by pulling information from that configuration file and pushing the data into the files where they belong. This guide will outline and facilitate the testbed set up of sonic-mgmt.
 
 
 # Objective
-The objective of this guide is to outline and facilitate the process of using the testbed.yaml and TestbedProcessing.py files. At the end of this guide, you should be able to setup the sonic-mgmt testbed and run the the neighbour testcase. 
+The objective of this guide is to outline and facilitate the process of using the testbed.yaml and TestbedProcessing.py files. At the end of this guide, you should be able to setup the sonic-mgmt testbed and run the the testcases. 
 
 Information for basic set up can be referenced at [Sonic-Mgmt Testbed Setup](https://github.com/Azure/sonic-mgmt/blob/master/ansible/doc/README.testbed.Setup.md).
 
@@ -34,16 +34,16 @@ Each of the sections above contribute to the files that need to be written into 
 Within the testbed.yaml file:
 
 ### (OPTIONAL) testbed_config section: 
-- Name - choose a name for this testbed config file
-- Alias - choose an alias for this testbed config file
+- name - choose a name for this testbed config file
+- alias - choose an alias for this testbed config file
 
 ### device_groups section
 **USAGE**: lab
 
-The device_groups section generates the lab file which is the inventory file necessary for setting up the testbed. The device groups section includes all lab DUTs, fanout switches, and testbed server topologies. Group children are referenced from the devices section below. For the most part this section can be left alone. 
+The device_groups section generates the lab file which is the inventory file necessary for setting up the testbed. While the format in the configuration file is in yaml format. The script converts it to INI format. The device groups section includes all lab DUTs, fanout switches, and testbed server topologies. Group children are referenced from the devices section below. For the most part this section can be left alone. 
 
 ### devices section
-**USAGE**: sonic_lab_devices, fanout/secrets, lab/secrets, lab
+**USAGE**: files/sonic_lab_devices, group_vars/fanout/secrets, group_vars/lab/secrets, lab
 
 The devices section is a dictionary that contains all devices and hosts. This section does not contain information on PTF containers. For more information on PTF containers, see the testbed.csv file. 
 
@@ -88,7 +88,7 @@ For the most part, the group names can be left alone. However, you should verify
 Variables and values in this section may fluctuate greatly depending on your testbed environment. 
 
 ### veos section:
-**USAGE**: eos/creds, main.yml, vm_host/creds
+**USAGE**: group_vars/eos/creds, main.yml, group_vars/vm_host/creds
 
 Like the veos_groups section, this section contains information about the servers and VMs within your testbed. There are two sets of tasks to perform.  
 
@@ -153,7 +153,7 @@ Must be strictly checked in code reviews
 - vm_base must not overlap with testbeds from different groups (different test-name)
 
 ### topology section:
-**USAGE**: sonic_lab_links.csv
+**USAGE**: files/sonic_lab_links.csv
 
 This section of the testbed configuration file defines the connection between the DUT to the leaf-fanout and the leaf-fanout to the lab server. 
 
@@ -181,7 +181,7 @@ Run the TestbedProcessing.py script:
 > -basedir = the basedir for the project
 > -backup = the backup directory for the files
 
-### Start VMS 
+### VMS Commands
 Start VMS (using vms_1):
 > ./testbed-cli.sh start-vms vms_1 password.txt
 
