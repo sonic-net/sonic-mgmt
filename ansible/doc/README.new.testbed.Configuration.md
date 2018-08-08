@@ -5,7 +5,7 @@ However, this process can be automated with the testbed.yaml file and TestbedPro
 
 
 # Objective
-The objective of this guide is to outline and facilitate the process of using the testbed.yaml and TestbedProcessing.py files. At the end of this guide, you should be able to setup the sonic-mgmt testbed and run the the testcases. 
+The objective of this guide is to outline and facilitate the process of using the testbed.yaml and TestbedProcessing.py files. At the end of this guide, you should be able to setup the sonic-mgmt testbed and run the testcases. 
 
 Information for basic set up can be referenced at [Sonic-Mgmt Testbed Setup](https://github.com/Azure/sonic-mgmt/blob/master/ansible/doc/README.testbed.Setup.md).
 
@@ -40,7 +40,7 @@ Within the testbed.yaml file:
 ### device_groups section
 **USAGE**: lab
 
-The device_groups section generates the lab file which is the inventory file necessary for setting up the testbed. While the format in the configuration file is in yaml format. The script converts it to INI format. The device groups section includes all lab DUTs, fanout switches, and testbed server topologies. Group children are referenced from the devices section below. For the most part this section can be left alone. 
+The device_groups section generates the lab file which is the inventory file necessary for setting up the testbed. While the format in the configuration file is in yaml format, the script converts it to INI format. The device groups section includes all lab DUTs, fanout switches, and testbed server topologies. Group children are referenced from the devices section below. For the most part this section can be left alone. 
 
 ### devices section
 **USAGE**: files/sonic_lab_devices, group_vars/fanout/secrets, group_vars/lab/secrets, lab
@@ -51,9 +51,9 @@ For each device that you add, add the following:
 
 | Hostname | ansible_host | ansible_ssh_user | ansible_ssh_pass | HwSKU | device_type | 
 | ------ | ------ | ------ | ------ | ------ | ------ |
-| sonic-ag9032 | [IP Address] | [username] | [password] | DevSonic | DevSonic |
-| root-fanout | [IP Address] | [username] | [password] |ICOS | FanoutRoot |
-| left-fanout | [IP Address] | [username] | [password] |ICOS | FanoutLeaf |
+| str-msn2700-01 | [IP Address] | [username] | [password] | DevSonic | DevSonic |
+| str-7260-10 | [IP Address] | [username] | [password] |Arista-7260QX-64 | FanoutRoot |
+| str-7260-10 | [IP Address] | [username] | [password] |Arista-7260QX-64 | FanoutLeaf |
 | str-acs-serv-01 | [IP Address] | [username] | [password] | TestServ | Server |
 
 - hostname - names the devices you will use 
@@ -98,7 +98,7 @@ Confirm the following:
 - hdd_image_file: you should also be able to locate "vEOS-lab-4.15.10M.vmdk"
 
 Define:
-- vm_console_base - if you are running multiple sets of sonic-mgmt VMs (perhaps on VMWare ESXi), define a conflict-free vm_console_base
+- vm_console_base - if you are running multiple sets of sonic-mgmt VMs, define a conflict-free vm_console_base
 - ansible_user - username to access VM
 - ansible_password - password to access VM
 - ansible_sudo_pass - same as password above
@@ -122,8 +122,8 @@ For each topology you use in your testbed environment, define the following:
 - group-name - used in interface names, up to 8 characters. The variable can be anything but should be identifiable. 
 - topo - name of topology 
 - ptf_image_name - defines PTF image. In this guide, the docker-ptf was an image already on the local registry. However, there is a docker-ptf from the sonic-mgmt github that a user can pull from
-    > git clone --recursive https://github.com/Azure/sonic-buildimage.git
-    > make configure PLATFORM=generic
+    > git clone --recursive https://github.com/Azure/sonic-buildimage.git <br/>
+    > make configure PLATFORM=generic <br/>
     > make target/docker-ptf.gz
 - ptf_ip - ip address for mgmt interface of PTF container. Choose an IP address that is available
 - server - server where the testbed resides. Choose a veos_group to use that contains both the lab server and virtual machines
@@ -134,23 +134,6 @@ For each topology you use in your testbed environment, define the following:
     - ansible_host - IP address with port number
     - ansible_ssh_user - username to login to lab server
     - ansible_ssh_pass - password to login to lab server 
-
-Consistency Rules
-> \# uniq-name,testbed-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,owner
-> vms2-2-b,vms2-2,t1,docker-ptf-sai-brcm,10.0.10.7/23,server_1,VM0100,str-d6000-05,brcm test
-> vms2-2-m,vms2-2,t1,docker-ptf-sai-mlnx,10.0.10.7/23,server_1,VM0100,str-msn2700-5,mlnx test
-
-Must be strictly checked in code reviews
-- uniq-name must be unique
-- All testbed records with the same testbed-name must have the same:
-- ptf_ip
-- server
-- vm_base
-- testbed-name must be up to 8 characters long
-- topo name must be valid (topo registered in veos and topo file presented in vars/topo_*.yml
-- ptf_imagename must be valid
-- server name must be valid and presented in veos inventory file
-- vm_base must not overlap with testbeds from different groups (different test-name)
 
 ### topology section:
 **USAGE**: files/sonic_lab_links.csv
@@ -176,9 +159,9 @@ When the testbed.yaml file is completed with the values pertaining to your setup
 Run the TestbedProcessing.py script:
 > python TestbedProcessing.py -i testbed.yaml
 > 
-> Options:
-> -i = the testbed.yaml file to parse
-> -basedir = the basedir for the project
+> Options: <br/>
+> -i = the testbed.yaml file to parse <br/>
+> -basedir = the basedir for the project <br/>
 > -backup = the backup directory for the files
 
 ### VMS Commands
@@ -188,7 +171,7 @@ Start VMS (using vms_1):
 Stop VMS (using vms_1): 
 > ./testbed-cli.sh stop-vms vms_1 password.txt
 
-### Deploy Topology Container 
+### Deploy (PTF32) Topology Container 
 In this guide, ptf32-1 will be added using the testbed-cli.sh script as an example. However, other topologies can be added as well.
 
 Remove topology ptf32-1: 
@@ -199,14 +182,14 @@ Add topology ptf32-1:
 
 You can check to see if it was removed or added using the "docker ps" or "docker container ls" command.
 
-### Running the First Test Case
+### Running the First Test Case (Neighbour)
 When VMs and ptf32-1 topology is successfully added, the first test case, “neighbour” can be run. The testbed name and test case name need to be exported first. Check to see if they were exported properly. Afterwards, the playbook can be run. 
 
 Run the following commands:
-> export TESTBED_NAME=ptf32-1
-> export TESTCASE_NAME=neighbour
-> echo $TESTBED_NAME
-> echo $TESTCASE_NAME
+> export TESTBED_NAME=ptf32-1 <br/>
+> export TESTCASE_NAME=neighbour <br/>
+> echo $TESTBED_NAME <br/>
+> echo $TESTCASE_NAME <br/>
 > ansible-playbook -i lab -l sonic-ag9032 test_sonic.yml -e testbed_name=$TESTBED_NAME -e testcase_name=$TESTCASE_NAME
 
 
@@ -216,17 +199,12 @@ Resolution: You can bypass this issue by creating an empty password file. CLI sh
 
 Issue: The IPs I want to use are unavailable even after running the stop-vms command. <br />
 Resolution: If you ran the stop-vms command and still face this issue, you can run the following:
-> virsh
-> list 
-> destroy VM_Name (delete the VM that is occupying the IP)
+> virsh <br/>
+> list <br/>
+> destroy VM_Name (delete the VM that is occupying the IP) <br/>
 > exit (exit out of virsh)
 However, make sure that no one else is using those IPs before permanently deleting the IPs 
 
-Issue: I am running VMware ESXi and traffic does not appear to connect the DUT to the Lab server <br/>
-Resolution: Within VMware ESXi you have allow your virtual network to:
-1. Allow forged transmits
-2. Allow promiscuous mode
-3. Allow MAC changes
 
 Issue: Task setup failure. SSH Error: data could not be sent to the remote host <br/>
 Resolution: There are a plethora of things that could be wrong here. Here are some potential issues:
