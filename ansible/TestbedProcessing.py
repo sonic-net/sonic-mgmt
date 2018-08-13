@@ -35,7 +35,7 @@ Script Procedure
 
 # ARGUMENTS TO PARSE
 parser = argparse.ArgumentParser(description="Process testbed.yml file")
-parser.add_argument('-i', help='a file for the testbed processing script', nargs="?", default="testbed.yaml")
+parser.add_argument('-i', help='a file for the testbed processing script', nargs="?", default="testbed-new.yaml")
 parser.add_argument('-basedir', help='base directory to find the files, points to /sonic-mgmt/ansible', default="")
 parser.add_argument('-backupdir', help='backup directory to store files,  points to /sonic-mgmt/ansible/backup',nargs="?", default="backup")
 args = parser.parse_args()
