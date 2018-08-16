@@ -487,12 +487,15 @@ updateDockerRegistry
 @:parameter outfile - the file to write to 
 hard codes the docker registry to search locally rather than externally 
 """
-def updateDockerRegistry(outfile):
-    with open(outfile, "w") as toWrite:
-        toWrite.write("docker_registry_host: localhost:5000")
-        toWrite.write("\n\n")
-        toWrite.write("docker_registry_username: root\n")
-        toWrite.write("docker_registry_password: root")
+def updateDockerRegistry(docker_registry, outfile):
+    if (not docker_registry.get("docker_registry_host")) or (not docker_registry.get("docker_registry_username")) or (not docker_registry.get("docker_registry_password")):
+        print("\t\tREGISTRY FIELD BLANK - SKIPPING THIS STEP")
+    else:
+        with open(outfile, "w") as toWrite:
+            toWrite.write("docker_registry_host: " + docker_registry.get("docker_registry_host"))
+            toWrite.write("\n\n")
+            toWrite.write("docker_registry_username: " + docker_registry.get("docker_registry_username") + "\n")
+            toWrite.write("docker_registry_password: root" + docker_registry.get("docker_registry_password"))
 
 
 def main():
@@ -501,15 +504,14 @@ def main():
     print("BACKUP PROCESS STARTED") # Backup data
     for file in backupList:
         try:
-            copyfile(args.basedir + main_file, args.backupdir + "/" + timestamp + "/" + file)
+            copyfile(args.basedir + file, args.backupdir + "/" + timestamp + "/" + file)
         except IOError:  # filenotfound
-            print("Error: could not back up " + file)
+            print("Error: could not back up " + args.basedir + file)
 
     host_var_files = os.listdir(args.basedir + "host_vars")
     for file_name in host_var_files:
         copyfile(args.basedir + "host_vars/" + file_name,
                  args.backupdir + "/" + timestamp + "/host_vars/" + file_name)
-
 
     print("BACKUP PROCESS COMPLETED")
 
@@ -532,6 +534,8 @@ def main():
     generateDictionary(doc, veos_groups, "veos_groups")     # load veos_groups
     device_groups = dict()                                  # dictionary contains information about device_groups
     generateDictionary(doc, device_groups, "device_groups") # load device_groups
+    docker_registry = dict()                                # dictionary contains information about docker_registry
+    generateDictionary(doc, docker_registry, "docker_registry") #load docker_registry
     print("LOADING PROCESS COMPLETED")
 
     ##############################################################
@@ -561,9 +565,10 @@ def main():
     makeHostVar(host_vars)  # Generate host_vars (HOST_VARS)
     print("UPDATING FILES FROM CONFIG FILE")
     print("\tUPDATING DOCKER REGISTRY")
-    updateDockerRegistry(args.basedir + dockerRegistry_file)
+    updateDockerRegistry(docker_registry, args.basedir + dockerRegistry_file)
     print("PROCESS COMPLETED")
 
 
 if __name__ == '__main__':
     main()
+    

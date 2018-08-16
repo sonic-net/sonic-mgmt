@@ -525,7 +525,6 @@ testbed:
         dut: lab-s6100-01                                   # source: sonic-mgmt/ansible/testbed.csv
         comment: Tests Dell S6100 vms                       # source: sonic-mgmt/ansible/testbed.csv
 
-# Topology is optional. It is not necessary unless you want to use topology features in testbed.
 # topology dictionary contains information about the topology (which device ports connect to each other)
 # topology is used to generate sonic_lab_links
 # topology dictionary does not cross reference with other files 
@@ -740,5 +739,13 @@ topology:                               # source: sonic-mgmt/ansible/files/sonic
                 VlanID: 1681-1712
                 VlanMode: Trunk
 
+# docker_registry is optional. It is not necessary unless you want to change the default location of the docker-registry.
+# docker_registry dictionary contains information about the host, username, and password
+# docker_registry is used to generate docker_registry.yaml
+# docker_registry dictionary does not cross reference with other files 
+docker_registry:
+    docker_registry_host: localhost:5000
+    docker_registry_username: root
+    docker_registry_password: root
     
 
