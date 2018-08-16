@@ -151,6 +151,16 @@ From the leaf-fanout to the server, make sure to define:
 - endport - find this in ifconfig on your testbed server
 - vlanID (range) - if you have 32 ports, the range is from the lowest VlanID you defined +31, totaling 32 ports
 
+### docker_registry section:
+**USAGE**: /vars/docker_registry.yml
+
+The docker registry container 3 pieces of information:
+
+1. docker_registry_host 
+2. docker_registry_username
+3. docker_registry_password
+
+If you already have this information set up, you can choose to leave this section blank and the script will skip this section.
 
 # Testbed Processing Script 
 
