@@ -86,7 +86,7 @@
 
 - debug:
     msg: "Found {{ active_intf | length }} Ifs with lldpRemTable data\n
-    Minigraph contains {{ minigraph_lldp_nei | length }} neighbors"
+      Minigraph contains {{ minigraph_lldp_nei | length }} neighbors"
 
 - name: Verify lldpRemTable is available on most interfaces
   assert: {that: "{{ minigraph_lldp_nei | length }} > {{ active_intf | length * 0.8 }}" }
@@ -109,7 +109,7 @@
 
 - debug:
     msg: "Found {{ active_intf | length }} Ifs with lldpRemManAddr data\n
-    Minigraph contains {{ minigraph_lldp_nei | length }} neighbors"
+      Minigraph contains {{ minigraph_lldp_nei | length }} neighbors"
 
 - name: Verify lldpRemManAddr is available on most interfaces
   assert: {that: "{{ minigraph_lldp_nei | length }} > {{ active_intf | length * 0.8 }}" }
