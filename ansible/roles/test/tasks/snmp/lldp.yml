@@ -24,17 +24,31 @@
 
 - name: "Verify {{ item }} is defined"
   assert: { that: "{{ snmp_lldp[item] is defined }}
-  and not {{ snmp_lldp[item] | search('No Such Object currently exists') }}" }
+    and not {{ snmp_lldp[item] | search('No Such Object currently exists') }}" }
   with_items:
     - lldpLocChassisIdSubtype
     - lldpLocChassisId
     - lldpLocSysName
     - lldpLocSysDesc
 
-# Check if lldpLocManAddr is present
+- set_fact:
+    snmp_ports:  "{{ snmp_ports|default({}) | combine({ item.key : item.value}) }}"
+  when: "{{ item.value.name is defined }}
+    and {{ item.value['name'].find('Ethernet') != -1 }}"
+  with_dict: "{{ snmp_interfaces }}"
+
+# Check if lldpLocPortTable is present for all ports
+- name: "Verify lldpLocPortTable is present"
+  assert: { that: "{{ item.value['lldpLocPortNum'] is defined }}
+    and {{ item.value['lldpLocPortIdSubtype'] is defined }}
+    and {{ item.value['lldpLocPortId'] is defined }}
+    and {{ item.value['lldpLocPortDesc'] is defined }}" }
+  with_dict: "{{ snmp_ports }}"
+
+# Check if lldpLocManAddrTable is present
 - name: "Verify {{ item }} is defined"
   assert: { that: "{{ snmp_lldp[item] is defined }}
-  and not {{ snmp_lldp[item] | search('No Such Object currently exists') }}" }
+    and not {{ snmp_lldp[item] | search('No Such Object currently exists') }}" }
   with_items:
     - lldpLocManAddrSubtype
     - lldpLocManAddr
@@ -43,18 +57,7 @@
     - lldpLocManAddrIfId
     - lldpLocManAddrOID
 
-# Check if lldpLocPortTable is present
-- fail:
-    msg: "lldpLocPortTable data missing for interface {{ item.key }}"
-  when: "{{ item.value.description | match('^Ethernet') }}
-  and ( {{ item.value['lldpLocPortNum'] is not defined }}
-  or {{ item.value['lldpLocPortIdSubtype'] is not defined }}
-  or {{ item.value['lldpLocPortId'] is not defined }}
-  or {{ item.value['lldpLocPortDesc'] is not defined }} )"
-  with_dict: "{{ snmp_interfaces }}"
-
 # Check if lldpRemTable is present
-
 - set_fact:
     active_intf: []
 
@@ -66,17 +69,17 @@
 
 - name: Create list of ports with lldpRemTable data
   when: "{{ item.value['lldpRemTimeMark'] is defined }}
-  and {{ item.value['lldpRemLocalPortNum'] is defined }}
-  and {{ item.value['lldpRemIndex'] is defined }}
-  and {{ item.value['lldpRemChassisIdSubtype'] is defined }}
-  and {{ item.value['lldpRemChassisId'] is defined }}
-  and {{ item.value['lldpRemPortIdSubtype'] is defined }}
-  and {{ item.value['lldpRemPortId'] is defined }}
-  and {{ item.value['lldpRemPortDesc'] is defined }}
-  and {{ item.value['lldpRemSysName'] is defined }}
-  and {{ item.value['lldpRemSysDesc'] is defined }}
-  and {{ item.value['lldpRemSysCapSupported'] is defined }}
-  and {{ item.value['lldpRemSysCapEnabled'] is defined }}"
+    and {{ item.value['lldpRemLocalPortNum'] is defined }}
+    and {{ item.value['lldpRemIndex'] is defined }}
+    and {{ item.value['lldpRemChassisIdSubtype'] is defined }}
+    and {{ item.value['lldpRemChassisId'] is defined }}
+    and {{ item.value['lldpRemPortIdSubtype'] is defined }}
+    and {{ item.value['lldpRemPortId'] is defined }}
+    and {{ item.value['lldpRemPortDesc'] is defined }}
+    and {{ item.value['lldpRemSysName'] is defined }}
+    and {{ item.value['lldpRemSysDesc'] is defined }}
+    and {{ item.value['lldpRemSysCapSupported'] is defined }}
+    and {{ item.value['lldpRemSysCapEnabled'] is defined }}"
   set_fact:
     active_intf: "{{ active_intf + [item] }}"
   with_dict: "{{ snmp_interfaces }}"
@@ -86,20 +89,20 @@
     Minigraph contains {{ minigraph_lldp_nei | length }} neighbors"
 
 - name: Verify lldpRemTable is available on most interfaces
-  assert: {that: "{{ minigraph_lldp_nei | length * 0.8 }} > {{ active_intf | length }}" }
+  assert: {that: "{{ minigraph_lldp_nei | length }} > {{ active_intf | length * 0.8 }}" }
+
 
 # Check if lldpRemManAddrTable is present
-
 - set_fact:
     active_intf: []
 
 - name: Create list of ports with lldpRemManAddr data
   when: "{{ item.value['lldpRemManAddrSubtype'] is defined }}
-  and {{ item.value['lldpRemManAddr'] is defined }}
-  and {{ item.value['lldpRemManAddr'] is defined }}
-  and {{ item.value['lldpRemManAddrIfSubtype'] is defined }}
-  and {{ item.value['lldpRemManAddrIfId'] is defined }}
-  and {{ item.value['lldpRemManAddrOID'] is defined }}"
+    and {{ item.value['lldpRemManAddr'] is defined }}
+    and {{ item.value['lldpRemManAddr'] is defined }}
+    and {{ item.value['lldpRemManAddrIfSubtype'] is defined }}
+    and {{ item.value['lldpRemManAddrIfId'] is defined }}
+    and {{ item.value['lldpRemManAddrOID'] is defined }}"
   set_fact:
    active_intf: "{{ active_intf + [item] }}"
   with_dict: "{{ snmp_interfaces }}"
@@ -109,4 +112,4 @@
     Minigraph contains {{ minigraph_lldp_nei | length }} neighbors"
 
 - name: Verify lldpRemManAddr is available on most interfaces
-  assert: {that: "{{ minigraph_lldp_nei | length * 0.8 }} > {{ active_intf | length }}" }
+  assert: {that: "{{ minigraph_lldp_nei | length }} > {{ active_intf | length * 0.8 }}" }

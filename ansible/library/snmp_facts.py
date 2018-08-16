@@ -141,44 +141,46 @@ class DefineOid(object):
         self.ipAdEntIfIndex = dp + "1.3.6.1.2.1.4.20.1.2"
         self.ipAdEntNetMask = dp + "1.3.6.1.2.1.4.20.1.3"
 
-        # From lldpLocalSystemData
+        # From LLDP-MIB: lldpLocalSystemData
         self.lldpLocChassisIdSubtype    = dp + "1.0.8802.1.1.2.1.3.1"
         self.lldpLocChassisId           = dp + "1.0.8802.1.1.2.1.3.2"
         self.lldpLocSysName             = dp + "1.0.8802.1.1.2.1.3.3"
         self.lldpLocSysDesc             = dp + "1.0.8802.1.1.2.1.3.4"
 
+        # From LLDP-MIB: lldpLocPortTable
         self.lldpLocPortNum             = dp + "1.0.8802.1.1.2.1.3.7.1.1" # + .ifindex
         self.lldpLocPortIdSubtype       = dp + "1.0.8802.1.1.2.1.3.7.1.2" # + .ifindex
         self.lldpLocPortId              = dp + "1.0.8802.1.1.2.1.3.7.1.3" # + .ifindex
         self.lldpLocPortDesc            = dp + "1.0.8802.1.1.2.1.3.7.1.4" # + .ifindex
 
-        self.lldpLocManAddrSubtype      = dp + "1.0.8802.1.1.2.1.3.8.1.1" # + .man addr
-        self.lldpLocManAddr             = dp + "1.0.8802.1.1.2.1.3.8.1.2" # + .man addr
-        self.lldpLocManAddrLen          = dp + "1.0.8802.1.1.2.1.3.8.1.3" # + .man addr
-        self.lldpLocManAddrIfSubtype    = dp + "1.0.8802.1.1.2.1.3.8.1.4" # + .man addr
-        self.lldpLocManAddrIfId         = dp + "1.0.8802.1.1.2.1.3.8.1.5" # + .man addr
-        self.lldpLocManAddrOID          = dp + "1.0.8802.1.1.2.1.3.8.1.6" # + .man addr
+        # From LLDP-MIB: lldpLocManAddrTables
+        self.lldpLocManAddrSubtype      = dp + "1.0.8802.1.1.2.1.3.8.1.1" # + .subtype + .man addr
+        self.lldpLocManAddr             = dp + "1.0.8802.1.1.2.1.3.8.1.2" # + .subtype + .man addr
+        self.lldpLocManAddrLen          = dp + "1.0.8802.1.1.2.1.3.8.1.3" # + .subtype + .man addr
+        self.lldpLocManAddrIfSubtype    = dp + "1.0.8802.1.1.2.1.3.8.1.4" # + .subtype + .man addr
+        self.lldpLocManAddrIfId         = dp + "1.0.8802.1.1.2.1.3.8.1.5" # + .subtype + .man addr
+        self.lldpLocManAddrOID          = dp + "1.0.8802.1.1.2.1.3.8.1.6" # + .subtype + .man addr
 
-        # From lldpRemTable
-        self.lldpRemTimeMark            = dp + "1.0.8802.1.1.2.1.4.1.1.1" # + .ifindex
-        self.lldpRemLocalPortNum        = dp + "1.0.8802.1.1.2.1.4.1.1.2" # + .ifindex
-        self.lldpRemIndex               = dp + "1.0.8802.1.1.2.1.4.1.1.3" # + .ifindex
-        self.lldpRemChassisIdSubtype    = dp + "1.0.8802.1.1.2.1.4.1.1.4" # + .ifindex
-        self.lldpRemChassisId           = dp + "1.0.8802.1.1.2.1.4.1.1.5" # + .ifindex
-        self.lldpRemPortIdSubtype       = dp + "1.0.8802.1.1.2.1.4.1.1.6" # + .ifindex
-        self.lldpRemPortId              = dp + "1.0.8802.1.1.2.1.4.1.1.7" # + .ifindex
-        self.lldpRemPortDesc            = dp + "1.0.8802.1.1.2.1.4.1.1.8" # + .ifindex
-        self.lldpRemSysName             = dp + "1.0.8802.1.1.2.1.4.1.1.9" # + .ifindex
-        self.lldpRemSysDesc             = dp + "1.0.8802.1.1.2.1.4.1.1.10" # + .ifindex
-        self.lldpRemSysCapSupported     = dp + "1.0.8802.1.1.2.1.4.1.1.11" # + .ifindex
-        self.lldpRemSysCapEnabled       = dp + "1.0.8802.1.1.2.1.4.1.1.12" # + .ifindex
+        # From LLDP-MIB: lldpRemTable
+        self.lldpRemTimeMark            = dp + "1.0.8802.1.1.2.1.4.1.1.1" # + .time mark + .ifindex + .rem index
+        self.lldpRemLocalPortNum        = dp + "1.0.8802.1.1.2.1.4.1.1.2" # + .time mark + .ifindex + .rem index
+        self.lldpRemIndex               = dp + "1.0.8802.1.1.2.1.4.1.1.3" # + .time mark + .ifindex + .rem index
+        self.lldpRemChassisIdSubtype    = dp + "1.0.8802.1.1.2.1.4.1.1.4" # + .time mark + .ifindex + .rem index
+        self.lldpRemChassisId           = dp + "1.0.8802.1.1.2.1.4.1.1.5" # + .time mark + .ifindex + .rem index
+        self.lldpRemPortIdSubtype       = dp + "1.0.8802.1.1.2.1.4.1.1.6" # + .time mark + .ifindex + .rem index
+        self.lldpRemPortId              = dp + "1.0.8802.1.1.2.1.4.1.1.7" # + .time mark + .ifindex + .rem index
+        self.lldpRemPortDesc            = dp + "1.0.8802.1.1.2.1.4.1.1.8" # + .time mark + .ifindex + .rem index
+        self.lldpRemSysName             = dp + "1.0.8802.1.1.2.1.4.1.1.9" # + .time mark + .ifindex + .rem index
+        self.lldpRemSysDesc             = dp + "1.0.8802.1.1.2.1.4.1.1.10" # + .time mark + .ifindex + .rem index
+        self.lldpRemSysCapSupported     = dp + "1.0.8802.1.1.2.1.4.1.1.11" # + .time mark + .ifindex + .rem index
+        self.lldpRemSysCapEnabled       = dp + "1.0.8802.1.1.2.1.4.1.1.12" # + .time mark + .ifindex + .rem index
 
-        # From lldpRemManAddrTable
-        self.lldpRemManAddrSubtype      = dp + "1.0.8802.1.1.2.1.4.2.1.1" # + .ifindex + .man addr
-        self.lldpRemManAddr             = dp + "1.0.8802.1.1.2.1.4.2.1.2" # + .ifindex + .man addr
-        self.lldpRemManAddrIfSubtype    = dp + "1.0.8802.1.1.2.1.4.2.1.3" # + .ifindex + .man addr
-        self.lldpRemManAddrIfId         = dp + "1.0.8802.1.1.2.1.4.2.1.4" # + .ifindex + .man addr
-        self.lldpRemManAddrOID          = dp + "1.0.8802.1.1.2.1.4.2.1.5" # + .ifindex + .man addr
+        # From LLDP-MIB: lldpRemManAddrTable
+        self.lldpRemManAddrSubtype      = dp + "1.0.8802.1.1.2.1.4.2.1.1" # + .time mark + .ifindex + .rem index + .addr_subtype + .man addr
+        self.lldpRemManAddr             = dp + "1.0.8802.1.1.2.1.4.2.1.2" # + .time mark + .ifindex + .rem index + .addr_subtype + .man addr
+        self.lldpRemManAddrIfSubtype    = dp + "1.0.8802.1.1.2.1.4.2.1.3" # + .time mark + .ifindex + .rem index + .addr_subtype + .man addr
+        self.lldpRemManAddrIfId         = dp + "1.0.8802.1.1.2.1.4.2.1.4" # + .time mark + .ifindex + .rem index + .addr_subtype + .man addr
+        self.lldpRemManAddrOID          = dp + "1.0.8802.1.1.2.1.4.2.1.5" # + .time mark + .ifindex + .rem index + .addr_subtype + .man addr
 
         # From Dell Private MIB
         self.ChStackUnitCpuUtil5sec = dp + "1.3.6.1.4.1.6027.3.10.1.2.9.1.2.1"
@@ -591,22 +593,22 @@ def main():
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
             if v.lldpLocManAddrSubtype in current_oid:
-                address = '.'.join(current_oid.split('.')[11:])
+                address = '.'.join(current_oid.split('.')[13:])
                 results['snmp_lldp']['lldpLocManAddrSubtype'] = current_val
             if v.lldpLocManAddr in current_oid:
-                address = '.'.join(current_oid.split('.')[11:])
+                address = '.'.join(current_oid.split('.')[13:])
                 results['snmp_lldp']['lldpLocManAddr'] = current_val
             if v.lldpLocManAddrLen in current_oid:
-                address = '.'.join(current_oid.split('.')[11:])
+                address = '.'.join(current_oid.split('.')[13:])
                 results['snmp_lldp']['lldpLocManAddrLen'] = current_val
             if v.lldpLocManAddrIfSubtype in current_oid:
-                address = '.'.join(current_oid.split('.')[11:])
+                address = '.'.join(current_oid.split('.')[13:])
                 results['snmp_lldp']['lldpLocManAddrIfSubtype'] = current_val
             if v.lldpLocManAddrIfId in current_oid:
-                address = '.'.join(current_oid.split('.')[11:])
+                address = '.'.join(current_oid.split('.')[13:])
                 results['snmp_lldp']['lldpLocManAddrIfId'] = current_val
             if v.lldpLocManAddrOID in current_oid:
-                address = '.'.join(current_oid.split('.')[11:])
+                address = '.'.join(current_oid.split('.')[13:])
                 results['snmp_lldp']['lldpLocManAddrOID'] = current_val
 
     errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
@@ -634,40 +636,40 @@ def main():
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
             if v.lldpRemTimeMark in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                ifIndex = int(current_oid.split('.')[12])
                 results['snmp_interfaces'][ifIndex]['lldpRemTimeMark'] = current_val
             if v.lldpRemLocalPortNum in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                ifIndex = int(current_oid.split('.')[12])
                 results['snmp_interfaces'][ifIndex]['lldpRemLocalPortNum'] = current_val
             if v.lldpRemIndex in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                ifIndex = int(current_oid.split('.')[12])
                 results['snmp_interfaces'][ifIndex]['lldpRemIndex'] = current_val
             if v.lldpRemChassisIdSubtype in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                ifIndex = int(current_oid.split('.')[12])
                 results['snmp_interfaces'][ifIndex]['lldpRemChassisIdSubtype'] = current_val
             if v.lldpRemChassisId in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                ifIndex = int(current_oid.split('.')[12])
                 results['snmp_interfaces'][ifIndex]['lldpRemChassisId'] = current_val
             if v.lldpRemPortIdSubtype in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                ifIndex = int(current_oid.split('.')[12])
                 results['snmp_interfaces'][ifIndex]['lldpRemPortIdSubtype'] = current_val
             if v.lldpRemPortId in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                ifIndex = int(current_oid.split('.')[12])
                 results['snmp_interfaces'][ifIndex]['lldpRemPortId'] = current_val
             if v.lldpRemPortDesc in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                ifIndex = int(current_oid.split('.')[12])
                 results['snmp_interfaces'][ifIndex]['lldpRemPortDesc'] = current_val
             if v.lldpRemSysName in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                ifIndex = int(current_oid.split('.')[12])
                 results['snmp_interfaces'][ifIndex]['lldpRemSysName'] = current_val
             if v.lldpRemSysDesc in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                ifIndex = int(current_oid.split('.')[12])
                 results['snmp_interfaces'][ifIndex]['lldpRemSysDesc'] = current_val
             if v.lldpRemSysCapSupported in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                ifIndex = int(current_oid.split('.')[12])
                 results['snmp_interfaces'][ifIndex]['lldpRemSysCapSupported'] = current_val
             if v.lldpRemSysCapEnabled in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                ifIndex = int(current_oid.split('.')[12])
                 results['snmp_interfaces'][ifIndex]['lldpRemSysCapEnabled'] = current_val
 
     errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
@@ -688,24 +690,24 @@ def main():
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
             if v.lldpRemManAddrSubtype in current_oid:
-                ifIndex = int(current_oid.split('.')[11])
-                address = '.'.join(current_oid.split('.')[12:])
+                ifIndex = int(current_oid.split('.')[12])
+                address = '.'.join(current_oid.split('.')[16:])
                 results['snmp_interfaces'][ifIndex]['lldpRemManAddrSubtype'] = current_val
             if v.lldpRemManAddr in current_oid:
-                ifIndex = int(current_oid.split('.')[11])
-                address = '.'.join(current_oid.split('.')[12:])
+                ifIndex = int(current_oid.split('.')[12])
+                address = '.'.join(current_oid.split('.')[16:])
                 results['snmp_interfaces'][ifIndex]['lldpRemManAddr'] = current_val
             if v.lldpRemManAddrIfSubtype in current_oid:
-                ifIndex = int(current_oid.split('.')[11])
-                address = '.'.join(current_oid.split('.')[12:])
+                ifIndex = int(current_oid.split('.')[12])
+                address = '.'.join(current_oid.split('.')[16:])
                 results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfSubtype'] = current_val
             if v.lldpRemManAddrIfId in current_oid:
-                ifIndex = int(current_oid.split('.')[11])
-                address = '.'.join(current_oid.split('.')[12:])
+                ifIndex = int(current_oid.split('.')[12])
+                address = '.'.join(current_oid.split('.')[16:])
                 results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfId'] = current_val
             if v.lldpRemManAddrOID in current_oid:
-                ifIndex = int(current_oid.split('.')[11])
-                address = '.'.join(current_oid.split('.')[12:])
+                ifIndex = int(current_oid.split('.')[12])
+                address = '.'.join(current_oid.split('.')[16:])
                 results['snmp_interfaces'][ifIndex]['lldpRemManAddrOID'] = current_val
 
     errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
