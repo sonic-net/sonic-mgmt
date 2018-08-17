@@ -93,7 +93,7 @@ devices:
             ansible_ssh_pass: 
 
     str-msn2700-02:                         
-        device_type:                                # source: sonic-mgmt/ansible/files/sonic_lab_devices-github.csv      
+        device_type: blank                          # source: sonic-mgmt/ansible/files/sonic_lab_devices-github.csv      
         hwsku:                                      # source: sonic-mgmt/ansible/files/sonic_lab_devices-github.csv
         alias: 
         os: sonic
@@ -150,7 +150,7 @@ devices:
             sonicadmin_password: password           # source: sonic-mgmt/ansible/group_vars/lab/secrets.yml
             sonicadmin_initial_password: password   # source: sonic-mgmt/ansible/group_vars/lab/secrets.yml
     str-acs-serv-02:                                # source: sonic-mgmt/ansible/lab
-        device_type: 
+        device_type: blank
         hwsku: 
         mgmt_subnet_mask_length: 
         alias:         
@@ -166,7 +166,7 @@ devices:
             sonicadmin_initial_password: 
 
     lab-s6100-01:                                   # source: sonic-mgmt/ansible/testbed.csv 
-        device_type: 
+        device_type: blank
         hwsku: 
         alias:         
         credentials:                        
@@ -181,7 +181,7 @@ devices:
             sonicadmin_initial_password: 
 
     lab-s6000-01:                                    # source: sonic-mgmt/ansible/testbed.csv
-        device_type: 
+        device_type: blank
         hwsku:
         alias:         
         credentials:                        
@@ -196,7 +196,7 @@ devices:
             sonicadmin_initial_password: 
 
     lab-a7260-01:                                   # source: sonic-mgmt/ansible/testbed.csv
-        device_type: 
+        device_type: blank
         hwsku: "Arista-7260CX3-D108C8"              # source: sonic-mgmt/ansible/lab
         alias:         
         credentials:                        
