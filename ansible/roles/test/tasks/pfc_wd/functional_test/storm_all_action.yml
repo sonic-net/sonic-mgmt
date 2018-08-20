@@ -5,6 +5,7 @@
 - set_fact:
     peer_hwsku: "{{device_info['HwSku']}}"
     peer_mgmt: "{{device_info['mgmtip']}}"
+    peer_type: "{{device_info['Type']}}"
 
 - set_fact:
     peer_login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
