@@ -38,6 +38,7 @@ QUEUE_0 = 0
 QUEUE_1 = 1
 QUEUE_3 = 3
 QUEUE_4 = 4
+QUEUE_5 = 5
 
 # Constants
 STOP_PORT_MAX_RATE = 1
@@ -135,10 +136,11 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # dscp 8 -> queue 1
             # So for the 64 pkts sent the mapping should be -> 61 queue 0, and 1 for queue1, queue3 and queue4
             # Check results
-            assert(queue_results[QUEUE_0] == 61 + queue_results_base[QUEUE_0])
+            assert(queue_results[QUEUE_0] == 60 + queue_results_base[QUEUE_0])
             assert(queue_results[QUEUE_1] == 1 + queue_results_base[QUEUE_1])
             assert(queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
             assert(queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
+            assert(queue_results[QUEUE_5] == 1 + queue_results_base[QUEUE_5])
 
         finally:
             print "END OF TEST"
@@ -783,6 +785,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         queue_1_num_of_pkts = int(self.test_params['q1_num_of_pkts'])
         queue_3_num_of_pkts = int(self.test_params['q3_num_of_pkts'])
         queue_4_num_of_pkts = int(self.test_params['q4_num_of_pkts'])
+        queue_5_num_of_pkts = int(self.test_params['q5_num_of_pkts'])
         limit = int(self.test_params['limit'])
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
 
@@ -862,6 +865,19 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     ip_ttl=64)
         send_packet(self, src_port_id, pkt, queue_4_num_of_pkts)
 
+        dscp = 46
+        tos = dscp << 2
+        tos |= ecn
+        pkt = simple_tcp_packet(pktlen=default_packet_length,
+                    eth_dst=router_mac,
+                    eth_src=src_port_mac,
+                    ip_src=src_port_ip,
+                    ip_dst=dst_port_ip,
+                    ip_tos=tos,
+                    ip_id=exp_ip_id,
+                    ip_ttl=64)
+        send_packet(self, src_port_id, pkt, queue_5_num_of_pkts)
+
         # Set receiving socket buffers to some big value
         for p in self.dataplane.ports.values():
             p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
@@ -896,8 +912,13 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             except AttributeError:
                 continue
 
-        queue_pkt_counters = [0,0,0,0,0,0,0,0,0]
-        queue_num_of_pkts  = [queue_0_num_of_pkts, 0, 0, queue_3_num_of_pkts, queue_4_num_of_pkts, 0, 0, 0, queue_1_num_of_pkts]
+        queue_pkt_counters = [0] * 47
+        queue_num_of_pkts  = [0] * 47
+        queue_num_of_pkts[0]  = queue_0_num_of_pkts
+        queue_num_of_pkts[3]  = queue_3_num_of_pkts
+        queue_num_of_pkts[4]  = queue_4_num_of_pkts
+        queue_num_of_pkts[8]  = queue_1_num_of_pkts
+        queue_num_of_pkts[46] = queue_5_num_of_pkts
         total_pkts = 0
 
         for pkt_to_inspect in pkts:
@@ -908,7 +929,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 
             queue_pkt_counters[dscp_of_pkt] += 1
             if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
-                 assert((queue_0_num_of_pkts + queue_1_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts) - total_pkts < limit)
+                 assert((queue_0_num_of_pkts + queue_1_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts + queue_5_num_of_pkts) - total_pkts < limit)
 
             print >> sys.stderr, queue_pkt_counters
 
@@ -918,7 +939,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         print >> sys.stderr, map(operator.sub, queue_counters, queue_counters_base)
 
         # All packets sent should be received intact
-        assert(queue_0_num_of_pkts + queue_1_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts == total_pkts)
+        assert(queue_0_num_of_pkts + queue_1_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts + queue_5_num_of_pkts == total_pkts)
 
 class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):

@@ -217,12 +217,12 @@
     # Lossy queue
     - include: qos_sai_ptf.yml
       vars:
-        test_name: Lossy queue, shared buffer dynamic allocation.
+        test_name: Lossy queue, shared buffer dynamic allocation. dscp = {{ qp.lossy_queue_1.dscp }}, ecn = {{ qp.lossy_queue_1.ecn }}
         test_path: sai_qos_tests.LossyQueueTest
         test_params:
-        - dscp='{{ qp.lossy_queue.dscp }}'
-        - ecn='{{ qp.lossy_queue.ecn }}'
-        - pg='{{ qp.lossy_queue.pg }}'
+        - dscp='{{ qp.lossy_queue_1.dscp }}'
+        - ecn='{{ qp.lossy_queue_1.ecn }}'
+        - pg='{{ qp.lossy_queue_1.pg }}'
         - buffer_max_size='{{ lossy_buffer_max_size|int }}'
         - headroom_size='{{ lossy_headroom_size }}'
         - dst_port_id='{{ dst_port_id }}'
@@ -231,8 +231,46 @@
         - dst_port_2_ip='{{ dst_port_2_ip }}'
         - src_port_id='{{ src_port_id }}'
         - src_port_ip='{{ src_port_ip }}'
-        - pkts_num_leak_out='{{ qp.lossy_queue.pkts_num_leak_out }}'
-        - pkts_num_trig_egr_drp='{{ qp.lossy_queue.pkts_num_trig_egr_drp }}'
+        - pkts_num_leak_out='{{ qp.lossy_queue_1.pkts_num_leak_out }}'
+        - pkts_num_trig_egr_drp='{{ qp.lossy_queue_1.pkts_num_trig_egr_drp }}'
+
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: Lossy queue, shared buffer dynamic allocation. dscp = {{ qp.lossy_queue_2.dscp }}, ecn = {{ qp.lossy_queue_2.ecn }}
+        test_path: sai_qos_tests.LossyQueueTest
+        test_params:
+        - dscp='{{ qp.lossy_queue_2.dscp }}'
+        - ecn='{{ qp.lossy_queue_2.ecn }}'
+        - pg='{{ qp.lossy_queue_2.pg }}'
+        - buffer_max_size='{{ lossy_buffer_max_size|int }}'
+        - headroom_size='{{ lossy_headroom_size }}'
+        - dst_port_id='{{ dst_port_id }}'
+        - dst_port_ip='{{ dst_port_ip }}'
+        - dst_port_2_id='{{ dst_port_2_id }}'
+        - dst_port_2_ip='{{ dst_port_2_ip }}'
+        - src_port_id='{{ src_port_id }}'
+        - src_port_ip='{{ src_port_ip }}'
+        - pkts_num_leak_out='{{ qp.lossy_queue_2.pkts_num_leak_out }}'
+        - pkts_num_trig_egr_drp='{{ qp.lossy_queue_2.pkts_num_trig_egr_drp }}'
+
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: Lossy queue, shared buffer dynamic allocation. dscp = {{ qp.lossy_queue_3.dscp }}, ecn = {{ qp.lossy_queue_3.ecn }}
+        test_path: sai_qos_tests.LossyQueueTest
+        test_params:
+        - dscp='{{ qp.lossy_queue_3.dscp }}'
+        - ecn='{{ qp.lossy_queue_3.ecn }}'
+        - pg='{{ qp.lossy_queue_3.pg }}'
+        - buffer_max_size='{{ lossy_buffer_max_size|int }}'
+        - headroom_size='{{ lossy_headroom_size }}'
+        - dst_port_id='{{ dst_port_id }}'
+        - dst_port_ip='{{ dst_port_ip }}'
+        - dst_port_2_id='{{ dst_port_2_id }}'
+        - dst_port_2_ip='{{ dst_port_2_ip }}'
+        - src_port_id='{{ src_port_id }}'
+        - src_port_ip='{{ src_port_ip }}'
+        - pkts_num_leak_out='{{ qp.lossy_queue_3.pkts_num_leak_out }}'
+        - pkts_num_trig_egr_drp='{{ qp.lossy_queue_3.pkts_num_trig_egr_drp }}'
 
     # WRR test
     - include: qos_sai_ptf.yml
@@ -249,6 +287,7 @@
         - q1_num_of_pkts='{{ qp.wrr.q1_num_of_pkts }}'
         - q3_num_of_pkts='{{ qp.wrr.q3_num_of_pkts }}'
         - q4_num_of_pkts='{{ qp.wrr.q4_num_of_pkts }}'
+        - q5_num_of_pkts='{{ qp.wrr.q5_num_of_pkts }}'
         - limit='{{ qp.wrr.limit }}'
         - pkts_num_leak_out='{{ qp.wrr.pkts_num_leak_out }}'
 
