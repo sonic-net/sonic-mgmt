@@ -10,15 +10,21 @@ Usage:          Examples of how to start the test
                 ptf  --test-dir /root/dor/ ip_decap_test_red --platform remote -t "verbose=True;fib_info='/root/fib_info.txt';lo_ip='10.1.0.32';router_mac='00:02:03:04:05:00';dscp_mode='pipe'; testbed_type='t1'"  --log-dir /tmp/logs --verbose 
 Parameters:     fib_info - The fib_info file location 
                 lo_ip -  The loop_back IP that is configured in the decap rule
+                lo_ipv6 -  The loop_back IP v6that is configured in the decap rule
                 router_mac - The mac of the router_mac
                 testbed_type - The type of testbed topology
                 dscp_mode - The rule for the dscp parameter in the decap packet that is configured in the JSON file ('pipe' for inner and 'uniform' for outer)
+                inner_ipv4 - Test IPv4 encap packets
+                inner_ipv6 - Test IPv6 encap packets
+                outer_ipv4 - Test packets encapsulated in IPv4
+                outer_ipv6 - Test packets encapsulated in IPv6
                 
 '''
 
 #---------------------------------------------------------------------
 # Global imports
 #---------------------------------------------------------------------
+import sys
 import random
 import time
 import logging
@@ -40,6 +46,7 @@ import ptf.dataplane as dataplane
 import ptf.testutils as testutils
 
 import pprint
+
 
 import fib
 
@@ -88,7 +95,20 @@ class DecapPacketTest(BaseTest):
         self.test_inner_ipv4 = self.test_params.get('inner_ipv4', True)
         self.test_inner_ipv6 = self.test_params.get('inner_ipv6', True)
 
+        self.summary = {}
+
     #-----------------------------------------------------------------
+
+    def print_summary(self):
+        """
+        Print summary
+        """
+
+        print '\nSummary:'
+        print '\n'.join(['{}: {}'.format(encap_comb, status)
+            for encap_comb, status in self.summary.items()])
+
+        sys.stdout.flush()
 
     def create_ipv4_inner_pkt_only(self, src_ip, dst_ip, tos, encap=False):
         """Creates an IP only packet for the test
@@ -245,50 +265,95 @@ class DecapPacketTest(BaseTest):
 
     #-----------------------------------------------------------------
 
-    def runTest(self):
+    def run_encap_combination_test(self, outer_pkt_type, inner_pkt_type):
         """
-        @summary: Send double and triple encapsulated packets for each range of IPv4 and
+        @summary: Send double and triple encapsulated packets for each IP range and
         expect the packet to be received from one of the expected ports
         """
 
-        ip_ranges = []
+        if inner_pkt_type == 'ipv4':
+            ip_ranges = self.fib.ipv4_ranges()[:20]
+        elif inner_pkt_type == 'ipv6':
+            ip_ranges = self.fib.ipv6_ranges()[:20]
+        else:
+            raise Exception('ERROR: Invalid inner packet type passed: ', inner_pkt_type)
 
+        for ip_range in ip_ranges:
+            # Get the expected list of ports that would receive the packets
+            exp_port_list = self.fib[ip_range.get_first_ip()].get_next_hop_list()
+            # Choose random one source port from all ports excluding the expected ones
+            src_port = random.choice([port for port in self.src_ports if port not in exp_port_list])
+
+            if not len(exp_port_list):
+                continue
+
+            logging.info("Check " + outer_pkt_type.replace('ip', 'IP') + " tunneled traffic on IP range:" +
+                         str(ip_range) + " on " + str(exp_port_list) + "...")
+            # Send a packet with the first IP in the range
+            self.send_and_verify(ip_range.get_first_ip(), exp_port_list, src_port, outer_pkt_type)
+            self.send_and_verify(ip_range.get_first_ip(), exp_port_list, src_port, outer_pkt_type, True)
+            # Send a packet with the last IP in the range
+            if ip_range.length() > 1:
+                self.send_and_verify(ip_range.get_last_ip(), exp_port_list, src_port, outer_pkt_type)
+                self.send_and_verify(ip_range.get_last_ip(), exp_port_list, src_port, outer_pkt_type, True)
+            # Send a packet with a random IP in the range
+            if ip_range.length() > 2:
+                self.send_and_verify(ip_range.get_random_ip(), exp_port_list, src_port, outer_pkt_type)
+                self.send_and_verify(ip_range.get_random_ip(), exp_port_list, src_port, outer_pkt_type, True)
+
+    def runTest(self):
+        """
+        @summary: run test cases
+        """
+
+        inner_pkt_types = []
         if self.test_inner_ipv4:
-            ip_ranges += self.fib.ipv4_ranges()
+            inner_pkt_types.append('ipv4')
         if self.test_inner_ipv6:
-            ip_ranges += self.fib.ipv6_ranges()
+            inner_pkt_types.append('ipv6')
 
-        outer_pkt_family_type = []
+        outer_pkt_types = []
         if self.test_outer_ipv4:
-            outer_pkt_family_type.append('ipv4')
+            outer_pkt_types.append('ipv4')
         if self.test_outer_ipv6:
-            outer_pkt_family_type.append('ipv6')
+            outer_pkt_types.append('ipv6')
 
-        # First test one tunnel with all ip ranges
-        for pkt_type in outer_pkt_family_type:
-            for ip_range in ip_ranges:
-                # Get the expected list of ports that would receive the packets
-                exp_port_list = self.fib[ip_range.get_first_ip()].get_next_hop_list()
-                # Choose random one source port from all ports excluding the expected ones
-                src_port = random.choice([port for port in self.src_ports if port not in exp_port_list])
+        for outer_pkt_type in outer_pkt_types:
+            for inner_pkt_type in inner_pkt_types:
 
-                if not len(exp_port_list):
-                    continue
+                encap_combination = "{}in{}".format(outer_pkt_type.replace('ip', 'IP'),
+                                                    inner_pkt_type.replace('ip', 'IP'))
 
-                logging.info("Check " + pkt_type.replace('ip', 'IP') + " tunneled traffic on IP range:" +
-                             str(ip_range) + " on " + str(exp_port_list) + "...")
-                # Send a packet with the first IP in the range
-                self.send_and_verify(ip_range.get_first_ip(), exp_port_list, src_port, pkt_type)
-                self.send_and_verify(ip_range.get_first_ip(), exp_port_list, src_port, pkt_type, True)
-                # Send a packet with the last IP in the range
-                if ip_range.length() > 1:
-                    self.send_and_verify(ip_range.get_last_ip(), exp_port_list, src_port, pkt_type)
-                    self.send_and_verify(ip_range.get_last_ip(), exp_port_list, src_port, pkt_type, True)
-                # Send a packet with a random IP in the range
-                if ip_range.length() > 2:
-                    self.send_and_verify(ip_range.get_random_ip(), exp_port_list, src_port, pkt_type)
-                    self.send_and_verify(ip_range.get_random_ip(), exp_port_list, src_port, pkt_type, True)
+                logging.info('----------------------------------------------------------------------')
+                logging.info("{} test started".format(encap_combination))
+                logging.info('----------------------------------------------------------------------')
+
+                status = 'Failed'
+                error = None
+
+                try:
+                    self.run_encap_combination_test(outer_pkt_type, inner_pkt_type)
+                except AssertionError, e:
+                    error = e
+                    # print error, but continue to test others encap traffic combinations
+                    print "\n{}:\n{}".format(encap_combination, error)
+                    sys.stdout.flush()
+                else:
+                    status = 'Passed'
+
+                self.summary[encap_combination] = status
+
+                logging.info('----------------------------------------------------------------------')
+                logging.info("{} test finished, status: {}".format(encap_combination, status))
+                logging.info('----------------------------------------------------------------------')
+
+        self.print_summary()
+
+        total = len(outer_pkt_types)*len(inner_pkt_types)
+        passed = len(filter(lambda status: status == 'Passed', self.summary.values()))
+
+        # assert all passed
+        assert total == passed, "total tests {}, passed: {}".format(total, passed)
 
 #---------------------------------------------------------------------
 
-    
