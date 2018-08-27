@@ -103,8 +103,28 @@
         dest: /tmp/ports.json
       delegate_to: "{{ ptf_host }}"
 
-    - name: Install a new sonic image if requested
-      shell: sonic_installer install -y {{ new_sonic_image }}
+    - block:
+
+        - name: Save image version
+          shell: 'sonic_installer list | grep Current | cut -f2 -d " "'
+          register: current_sonic_image
+          become: true
+
+        - set_fact:
+            new_image_location: '/tmp/new_sonic_image.bin'
+
+        - name: Download SONiC image.
+          local_action: get_url url={{ new_sonic_image }} dest={{ new_image_location }}
+
+        - name: Upload SONiC image to device.
+          copy:
+            src: "{{ new_image_location }}"
+            dest: "{{ new_image_location }}"
+
+        - name: Install a new SONiC image if requested
+          shell: sonic_installer install -y {{ new_image_location }}
+          become: true
+
       when: new_sonic_image is defined
 
     - include: ptf_runner.yml
@@ -177,3 +197,13 @@
         src: '/tmp/swss.rec'
         dest: '/tmp/'
         flat: yes
+
+    - block:
+      - name: Set previous image as default
+        shell: 'sonic_installer set_default {{ current_sonic_image.stdout }}'
+        become: true
+
+      - name: reboot
+        include: roles/test/tasks/common_tasks/reboot_sonic.yml
+
+      when: new_sonic_image is defined
