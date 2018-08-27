@@ -6,7 +6,7 @@
 
 - block:
     - name: Send traffic and verify that packets with correct Everflow header are received on {{ dst_port_1 }} or {{ dst_port_2 }}.
-      shell: ptf --test-dir acstests everflow_tb_test.EverflowTest --platform-dir ptftests --platform remote -t 'hwsku="{{ sonic_hwsku }}";router_mac="{{ ansible_Ethernet0['macaddress'] }}";src_port="{{ src_port_ptf_id }}";dst_ports="{{ dst_port_1_ptf_id }}, {{ dst_port_2_ptf_id }}";session_src_ip="{{ session_src_ip }}";session_dst_ip="{{ session_dst_ip }}";session_ttl="{{ session_ttl }}";session_dscp="{{ session_dscp }}";verbose=True'
+      shell: ptf --test-dir acstests everflow_tb_test.EverflowTest --platform-dir ptftests --platform remote -t 'asic_type="{{ sonic_asic_type }}";hwsku="{{ sonic_hwsku }}";router_mac="{{ ansible_Ethernet0['macaddress'] }}";src_port="{{ src_port_ptf_id }}";dst_ports="{{ dst_port_1_ptf_id }}, {{ dst_port_2_ptf_id }}";session_src_ip="{{ session_src_ip }}";session_dst_ip="{{ session_dst_ip }}";session_ttl="{{ session_ttl }}";session_dscp="{{ session_dscp }}";verbose=True'
       args:
         chdir: /root
       delegate_to: "{{ ptf_host }}"
