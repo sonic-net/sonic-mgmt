@@ -127,6 +127,7 @@ class DefineOid(object):
         self.ifAdminStatus = dp + "1.3.6.1.2.1.2.2.1.7"
         self.ifOperStatus  = dp + "1.3.6.1.2.1.2.2.1.8"
         self.ifAlias       = dp + "1.3.6.1.2.1.31.1.1.1.18"
+
         self.ifInDiscards  = dp + "1.3.6.1.2.1.2.2.1.13"
         self.ifOutDiscards = dp + "1.3.6.1.2.1.2.2.1.19"
         self.ifInErrors    = dp + "1.3.6.1.2.1.2.2.1.14"
@@ -135,6 +136,24 @@ class DefineOid(object):
         self.ifHCOutOctets = dp + "1.3.6.1.2.1.31.1.1.1.10"
         self.ifInUcastPkts = dp + "1.3.6.1.2.1.2.2.1.11"
         self.ifOutUcastPkts= dp + "1.3.6.1.2.1.2.2.1.17"
+
+        # From entity table MIB
+        self.entPhysDescr     = dp + "1.3.6.1.2.1.47.1.1.1.1.2"
+        self.entPhysClass     = dp + "1.3.6.1.2.1.47.1.1.1.1.5"
+        self.entPhysName      = dp + "1.3.6.1.2.1.47.1.1.1.1.7"
+        self.entPhysHwVer     = dp + "1.3.6.1.2.1.47.1.1.1.1.8"
+        self.entPhysFwVer     = dp + "1.3.6.1.2.1.47.1.1.1.1.9"
+        self.entPhysSwVer     = dp + "1.3.6.1.2.1.47.1.1.1.1.10"
+        self.entPhysSerialNum = dp + "1.3.6.1.2.1.47.1.1.1.1.11"
+        self.entPhysMfgName   = dp + "1.3.6.1.2.1.47.1.1.1.1.12"
+        self.entPhysModelName = dp + "1.3.6.1.2.1.47.1.1.1.1.13"
+
+        # From entity sensor MIB
+        self.entPhySensorType           = dp + "1.3.6.1.2.1.99.1.1.1.1"
+        self.entPhySensorScale          = dp + "1.3.6.1.2.1.99.1.1.1.2"
+        self.entPhySensorPrecision      = dp + "1.3.6.1.2.1.99.1.1.1.3"
+        self.entPhySensorValue          = dp + "1.3.6.1.2.1.99.1.1.1.4"
+        self.entPhySensorOperStatus     = dp + "1.3.6.1.2.1.99.1.1.1.5"
 
         # From IP-MIB
         self.ipAdEntAddr    = dp + "1.3.6.1.2.1.4.20.1.1"
@@ -486,6 +505,86 @@ def main():
             if v.ifOutUcastPkts in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_interfaces'][ifIndex]['ifOutUcastPkts'] = current_val
+
+    errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+        snmp_auth,
+        cmdgen.UdpTransportTarget((m_args['host'], 161)),
+        cmdgen.MibVariable(p.entPhysDescr,),
+        cmdgen.MibVariable(p.entPhysClass,),
+        cmdgen.MibVariable(p.entPhysName,),
+        cmdgen.MibVariable(p.entPhysHwVer,),
+        cmdgen.MibVariable(p.entPhysFwVer,),
+        cmdgen.MibVariable(p.entPhysSwVer,),
+        cmdgen.MibVariable(p.entPhysSerialNum,),
+        cmdgen.MibVariable(p.entPhysMfgName,),
+        cmdgen.MibVariable(p.entPhysModelName,),
+    )
+
+    if errorIndication:
+        module.fail_json(msg=str(errorIndication) + ' querying physical table')
+
+    for varBinds in varTable:
+        for oid, val in varBinds:
+            current_oid = oid.prettyPrint()
+            current_val = val.prettyPrint()
+            if v.entPhysDescr in current_oid:
+                entity_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_physical_entities'][entity_oid]['entPhysDescr'] = current_val
+            if v.entPhysClass in current_oid:
+                entity_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_physical_entities'][entity_oid]['entPhysClass'] = int(current_val)
+            if v.entPhysName in current_oid:
+                entity_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_physical_entities'][entity_oid]['entPhysName'] = current_val
+            if v.entPhysHwVer in current_oid:
+                entity_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_physical_entities'][entity_oid]['entPhysHwVer'] = current_val
+            if v.entPhysFwVer in current_oid:
+                entity_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_physical_entities'][entity_oid]['entPhysFwVer'] = current_val
+            if v.entPhysSwVer in current_oid:
+                entity_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_physical_entities'][entity_oid]['entPhysSwVer'] = current_val
+            if v.entPhysMfgName in current_oid:
+                entity_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_physical_entities'][entity_oid]['entPhysMfgName'] = current_val
+            if v.entPhysModelName in current_oid:
+                entity_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_physical_entities'][entity_oid]['entPhysModelName'] = current_val 
+
+
+    errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+        snmp_auth,
+        cmdgen.UdpTransportTarget((m_args['host'], 161)),
+        cmdgen.MibVariable(p.entPhySensorType,),
+        cmdgen.MibVariable(p.entPhySensorScale,),
+        cmdgen.MibVariable(p.entPhySensorPrecision,),
+        cmdgen.MibVariable(p.entPhySensorValue,),
+        cmdgen.MibVariable(p.entPhySensorOperStatus,),
+    )
+
+    if errorIndication:
+        module.fail_json(msg=str(errorIndication) + ' querying physical table')
+
+    for varBinds in varTable:
+        for oid, val in varBinds:
+            current_oid = oid.prettyPrint()
+            current_val = val.prettyPrint()
+            if v.entPhySensorType in current_oid:
+                sensor_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_sensors'][sensor_oid]['entPhySensorType'] = current_val
+            if v.entPhySensorScale in current_oid:
+                sensor_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_sensors'][sensor_oid]['entPhySensorScale'] = int(current_val)
+            if v.entPhySensorPrecision in current_oid:
+                sensor_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_sensors'][sensor_oid]['entPhySensorPrecision'] = current_val
+            if v.entPhySensorValue in current_oid:
+                sensor_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_sensors'][sensor_oid]['entPhySensorValue'] = current_val
+            if v.entPhySensorOperStatus in current_oid:
+                sensor_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_sensors'][sensor_oid]['entPhySensorOperStatus'] = current_val
 
     interface_to_ipv4 = {}
     for ipv4_network in ipv4_networks:
