@@ -116,9 +116,9 @@ devices:
         ansible:
             ansible_host: 10.251.0.13/23            # source: sonic-mgmt/ansible/files/sonic_lab_devices-github.csv
             ansible_ssh_user: user                  # source: sonic-mgmt/ansible/group_vars/fanout/secrets.yml
-            ansible_ssh_pass: password              # source: sonic-mgmt/ansible/group_vars/fanout/secrets.yml
+            ansible_ssh_pass:                       # source: sonic-mgmt/ansible/group_vars/fanout/secrets.yml
             fanout_sonic_user: admin                # source: sonic-mgmt/ansible/group_vars/fanout/secrets.yml
-            fanout_sonic_password: password         # source: sonic-mgmt/ansible/group_vars/fanout/secrets.yml
+            fanout_sonic_password:                  # source: sonic-mgmt/ansible/group_vars/fanout/secrets.yml
 
     str-7260-11:                            
         device_type: FanoutRoot                     # source: sonic-mgmt/ansible/files/sonic_lab_devices-github.csv
@@ -130,9 +130,9 @@ devices:
         ansible:
             ansible_host: 10.251.0.234/23           # source: sonic-mgmt/ansible/files/sonic_lab_devices-github.csv
             ansible_ssh_user: user                  # source: sonic-mgmt/ansible/group_vars/fanout/secrets.yml
-            ansible_ssh_pass: password              # source: sonic-mgmt/ansible/group_vars/fanout/secrets.yml
+            ansible_ssh_pass:                       # source: sonic-mgmt/ansible/group_vars/fanout/secrets.yml
             fanout_sonic_user: admin                # source: sonic-mgmt/ansible/group_vars/fanout/secrets.yml
-            fanout_sonic_password: password         # source: sonic-mgmt/ansible/group_vars/fanout/secrets.yml
+            fanout_sonic_password:                  # source: sonic-mgmt/ansible/group_vars/fanout/secrets.yml
 
     str-acs-serv-01:                                # source: sonic-mgmt/ansible/files/sonic_lab_devices-github.csv
         device_type: server                         # source: sonic-mgmt/ansible/files/sonic_lab_devices-github.csv
@@ -144,11 +144,11 @@ devices:
             password:               
         ansible:
             ansible_host: 10.251.0.245/23           # source: sonic-mgmt/ansible/files/sonic_lab_devices-github.csv
-            ansible_ssh_pass: password              # source: sonic-mgmt/ansible/group_vars/lab/secrets.yml
-            ansible_become_pass: password           # source: sonic-mgmt/ansible/group_vars/lab/secrets.yml
+            ansible_ssh_pass:                       # source: sonic-mgmt/ansible/group_vars/lab/secrets.yml
+            ansible_become_pass:                    # source: sonic-mgmt/ansible/group_vars/lab/secrets.yml
             sonicadmin_user: admin                  # source: sonic-mgmt/ansible/group_vars/lab/secrets.yml
-            sonicadmin_password: password           # source: sonic-mgmt/ansible/group_vars/lab/secrets.yml
-            sonicadmin_initial_password: password   # source: sonic-mgmt/ansible/group_vars/lab/secrets.yml
+            sonicadmin_password:                    # source: sonic-mgmt/ansible/group_vars/lab/secrets.yml
+            sonicadmin_initial_password:            # source: sonic-mgmt/ansible/group_vars/lab/secrets.yml
     str-acs-serv-02:                                # source: sonic-mgmt/ansible/lab
         device_type: blank
         hwsku: 
@@ -269,11 +269,11 @@ veos:
         https_proxy: http://10.252.0.99:3128                        # source: sonic-mgmt/ansible/group_vars/vm_host/main.yml                    
     vm_host_ansible:
         ansible_user: use_own_value                                 # source: sonic-mgmt/ansible/group_vars/vm_host/creds.yml
-        ansible_password: use_own_value                             # source: sonic-mgmt/ansible/group_vars/vm_host/creds.yml
+        ansible_password:                                           # source: sonic-mgmt/ansible/group_vars/vm_host/creds.yml
         ansible_sudo_pass: use_own_value                            # source: sonic-mgmt/ansible/group_vars/vm_host/creds.yml
     eos_ansible:
         ansible_user: use_own_value                                 # source: sonic-mgmt/ansible/group_vars/eos/creds.yml
-        ansible_password: use_own_value                             # source: sonic-mgmt/ansible/group_vars/eos/creds.yml
+        ansible_password:                                           # source: sonic-mgmt/ansible/group_vars/eos/creds.yml
     vms_1:
         VM0100:                                                     # source: sonic-mgmt/ansible/veo:
             ansible_host: 10.250.0.2
