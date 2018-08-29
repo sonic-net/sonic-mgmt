@@ -59,17 +59,17 @@
 
     - name: Extract out the total available acl entry count from CRM show
       set_fact:
-        used_count: "{{data_acl_crm_info[2] | int}}"
+        available_count: "{{data_acl_crm_info[2] | int}}"
 
     - name: Print output
       debug:
         msg: "This DUT can scale up to {{ used_count }} ACL entries"
-      when: used_count = 0
+      when: available_count = 0
 
     - name: Print error output
       debug:
         msg: "CRM module still shows some available entries while SAI_INSUFFICIENT_ERROR shown"
-      when: used_count != 0
+      when: available_count != 0
 
 - always:
     - name: Clean up ACL rules.
