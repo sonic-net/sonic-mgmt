@@ -199,7 +199,7 @@ def calculate_files_to_copy(filenames, file_with_latest_line):
 def combine_logs_and_save(directory, filenames, start_string, target_filename):
     do_copy = False
     with open(target_filename, 'w') as fp:
-        for filename in filenames:
+        for filename in reversed(filenames):
             path = os.path.join(directory, filename)
             file = None
             if 'gz' in path:

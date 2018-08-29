@@ -79,7 +79,7 @@
         flat: yes
       delegate_to: "{{ ptf_host }}"
 
-    - name: set authorized key took from file
+    - name: set authorized key taken from file
       authorized_key:
         user: "{{ ansible_ssh_user }}"
         state: present
@@ -102,6 +102,10 @@
         content: "{{ minigraph_port_indices | to_nice_json }}"
         dest: /tmp/ports.json
       delegate_to: "{{ ptf_host }}"
+
+    - name: Install a new sonic image if requested
+      shell: sonic_installer install -y {{ new_sonic_image }}
+      when: new_sonic_image is defined
 
     - include: ptf_runner.yml
       vars:

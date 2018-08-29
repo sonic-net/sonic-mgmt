@@ -80,7 +80,7 @@
     assert: { that: "arptable.v4[v4_nei]['macaddress'] | lower ==  v4_mac2" }
 
   - name: Get the SONiC Asic DB key holding neighbour MAC for {{ v4_nei }}
-    shell: docker exec database redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep {{ v4_nei }}
+    shell: docker exec database redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep -Fe '"{{ v4_nei }}"'
     register: neighbour_key
     failed_when: neighbour_key.rc != 0
 
@@ -137,7 +137,7 @@
     assert: { that: "arptable.v6[v6_nei]['macaddress'] | lower == v6_mac2" }
 
   - name: Get the SONiC DB key holding neighbour MAC for {{ v6_nei }}
-    shell: docker exec database redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep {{ v6_nei }}
+    shell: docker exec database redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep -Fe '"{{ v6_nei }}"'
     register: neighbour_key
     failed_when: neighbour_key.rc != 0
 

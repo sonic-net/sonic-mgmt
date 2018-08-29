@@ -472,8 +472,15 @@ def parse_xml(filename, hostname):
         # 100G ports
         s100G_ports = [x for x in range(24, 40, 4)] + [x for x in range(88, 104, 4)]
 
-        for i in s50G_ports + s100G_ports:
-            port_alias_map["Ethernet%d" % i] = "Ethernet%d" % i
+        for i in s50G_ports:
+            alias = "etp%d" % (i / 4 + 1) + "a" if i % 4 == 0 else "b"
+            port_alias_map[alias] = "Ethernet%d" % i
+        for i in s100G_ports:
+            alias = "etp%d" % (i / 4 + 1)
+            port_alias_map[alias] = "Ethernet%d" % i
+    elif hwsku == "Mellanox-SN2700" or hwsku == "ACS-MSN2700":
+        for i in range(1, 33):
+            port_alias_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "Arista-7060CX-32S-D48C8":
         # All possible breakout 50G port numbers:
         all_ports = [ x for x in range(1, 33)]
