@@ -2,8 +2,16 @@
   shell: docker ps -a --format '{{'{{'}}.Image{{'}} {{'}}.Names{{'}}'}}' | grep 'platform' | awk '{print $2}'
   register: pmon_ps
 
+- name: Get syncd docker name
+  shell: docker ps -a --format '{{'{{'}}.Image{{'}} {{'}}.Names{{'}}'}}' | grep 'syncd' | awk '{print $2}'
+  register: syncd_ps
+
 - set_fact: 
     ansible_python_interpreter: "docker exec -i {{ pmon_ps.stdout }} python"
+
+- set_fact:
+    ansible_python_interpreter: "docker exec -i {{ syncd_ps.stdout }} python"
+  when: minigraph_hwsku in [ 'montara', 'mavericks' ]
 
 - set_fact:
     minigraph_hwsku: "Mellanox-SN2700"
