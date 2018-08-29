@@ -270,7 +270,7 @@ veos:
     vm_host_ansible:
         ansible_user: use_own_value                                 # source: sonic-mgmt/ansible/group_vars/vm_host/creds.yml
         ansible_password:                                           # source: sonic-mgmt/ansible/group_vars/vm_host/creds.yml
-        ansible_sudo_pass: use_own_value                            # source: sonic-mgmt/ansible/group_vars/vm_host/creds.yml
+        ansible_sudo_pass:                                          # source: sonic-mgmt/ansible/group_vars/vm_host/creds.yml
     eos_ansible:
         ansible_user: use_own_value                                 # source: sonic-mgmt/ansible/group_vars/eos/creds.yml
         ansible_password:                                           # source: sonic-mgmt/ansible/group_vars/eos/creds.yml
