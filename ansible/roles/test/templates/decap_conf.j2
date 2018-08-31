@@ -5,7 +5,7 @@
                         "tunnel_type":"IPINIP",
                         "dst_ip":"{{ lo_ip }}",
                         "dscp_mode":"{{ dscp_mode }}",
-                        "ecn_mode":"standard",
+                        "ecn_mode":"{{ ecn_mode }}",
                         "ttl_mode":"pipe"
                 },
                 "OP": "{{ op }}"
@@ -19,7 +19,7 @@
                         "tunnel_type":"IPINIP",
                         "dst_ip":"{{ lo_ipv6 }}",
                         "dscp_mode":"{{ dscp_mode }}",
-                        "ecn_mode":"standard",
+                        "ecn_mode":"{{ ecn_mode }}",
                         "ttl_mode":"pipe"
                 },
                 "OP": "{{ op }}"
