@@ -8,6 +8,8 @@ mellanox_hwskus: [ 'ACS-MSN2700', 'Mellanox-SN2700', 'ACS-MSN2740', 'ACS-MSN2100
 
 cavium_hwskus: [ "AS7512", "XP-SIM" ]
 
+barefoot_hwskus: [ "montara", "mavericks" ]
+
 ## Note:
 ## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we
 ## need to merge dictionaries, and convert them to list

@@ -20,6 +20,12 @@
   when: sonic_hwsku in cavium_hwskus
   tags: always
 
+- name: Set sonic_asic_type fact
+    set_fact:
+    sonic_asic_type: barefoot
+  when: sonic_hwsku in barefoot_hwskus
+  tags: always
+
 - name: update sonicadmin password
   include: passwd.yml
   tags: system
