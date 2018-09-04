@@ -1882,10 +1882,10 @@ str-c92304-03,Ethernet224,str-7260-09,Ethernet57,40000,2177,Access
 str-c92304-03,Ethernet228,str-7260-09,Ethernet58,40000,2178,Access
 str-c92304-03,Ethernet232,str-7260-09,Ethernet59,40000,2179,Access
 str-c92304-03,Ethernet236,str-7260-09,Ethernet60,40000,2180,Access
-str-c92304-03,Ethernet240,str-7260-23,Ethernet47,40000,2181,Access
-str-c92304-03,Ethernet244,str-7260-23,Ethernet48,40000,2182,Access
-str-c92304-03,Ethernet248,str-7260-23,Ethernet49,40000,2183,Access
-str-c92304-03,Ethernet252,str-7260-23,Ethernet50,40000,2184,Access
+str-c92304-03,Ethernet240,str-7260-23,Ethernet48,40000,2181,Access
+str-c92304-03,Ethernet244,str-7260-23,Ethernet49,40000,2182,Access
+str-c92304-03,Ethernet248,str-7260-23,Ethernet50,40000,2183,Access
+str-c92304-03,Ethernet252,str-7260-23,Ethernet51,40000,2184,Access
 str-c92304-04,Ethernet0,str-7260-03,Ethernet33,40000,2185,Access
 str-c92304-04,Ethernet4,str-7260-03,Ethernet34,40000,2186,Access
 str-c92304-04,Ethernet8,str-7260-03,Ethernet35,40000,2187,Access
