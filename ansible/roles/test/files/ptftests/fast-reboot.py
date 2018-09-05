@@ -382,7 +382,7 @@ class FastReloadTest(BaseTest):
         self.check_param('min_bgp_gr_timeout', 15, required = False)
 
         # Default settings
-        self.ping_dut_pkts = 100
+        self.ping_dut_pkts = 10
         self.nr_pc_pkts = 100
         self.nr_tests = 3
         self.reboot_delay = 10
@@ -666,6 +666,9 @@ class FastReloadTest(BaseTest):
 
         self.reboot_start = datetime.datetime.now()
         self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
+
+        self.log("Check that device is still forwarding Data plane traffic")
+        self.assertTrue(self.check_alive(), 'DUT is not stable')
 
         self.log("Wait until ASIC stops")
         self.timeout(self.task_timeout, "DUT hasn't stopped in %d seconds" % self.task_timeout)
