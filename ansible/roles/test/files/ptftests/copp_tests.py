@@ -25,7 +25,7 @@ import signal
 import datetime
 import subprocess
 import threading
-
+import time
 
 class ControlPlaneBaseTest(BaseTest):
     MAX_PORTS = 128
@@ -106,14 +106,24 @@ class ControlPlaneBaseTest(BaseTest):
         if self.timeout_thr is not None:
             self.timeout_thr.cancel()
             self.timeout_thr = None
-
+    '''
+    Start keeping packets after 1 second to rule out the CBS factor.
+    '''
+    def slipSometime(self):
+         time.sleep(1)
+         self.dataplane.flush()
+    
     def copp_test(self, packet, count, send_intf, recv_intf):
         b_c_0 = self.dataplane.get_counters(*send_intf)
         b_c_1 = self.dataplane.get_counters(*recv_intf)
         b_n_0 = self.dataplane.get_nn_counters(*send_intf)
         b_n_1 = self.dataplane.get_nn_counters(*recv_intf)
-
+        
         start_time=datetime.datetime.now()
+
+        if self.needSlip:
+             t=threading.Thread(target=self.slipSometime)
+             t.start()
 
         for i in xrange(count):
             testutils.send_packet(self, send_intf, packet)
@@ -147,6 +157,14 @@ class ControlPlaneBaseTest(BaseTest):
         time_delta = end_time - start_time
         time_delta_ms = (time_delta.microseconds + time_delta.seconds * 10**6) / 10**3
         tx_pps = int(count/(float(time_delta_ms)/1000))
+
+        '''
+        To rule out the factor of CBS, the packets in the first second are not calculated.
+        '''
+        if self.needSlip:
+            t.join()
+            time_delta_ms -= 1000
+
         rx_pps = int(total_rcv_pkt_cnt/(float(time_delta_ms)/1000))
 
         return total_rcv_pkt_cnt, time_delta, time_delta_ms, tx_pps, rx_pps
@@ -184,6 +202,7 @@ class ControlPlaneBaseTest(BaseTest):
 class NoPolicyTest(ControlPlaneBaseTest):
     def __init__(self):
         ControlPlaneBaseTest.__init__(self)
+        self.needSlip=False
 
     def check_constraints(self, total_rcv_pkt_cnt, time_delta_ms, rx_pps):
         self.log("")
@@ -198,6 +217,7 @@ class NoPolicyTest(ControlPlaneBaseTest):
 class PolicyTest(ControlPlaneBaseTest):
     def __init__(self):
         ControlPlaneBaseTest.__init__(self)
+        self.needSlip=True
 
     def check_constraints(self, total_rcv_pkt_cnt, time_delta_ms, rx_pps):
         self.log("")
