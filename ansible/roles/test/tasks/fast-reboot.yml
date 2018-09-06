@@ -124,6 +124,7 @@
         - vlan_ports_file=\"/tmp/vlan_interfaces.json\"
         - ports_file=\"/tmp/ports.json\"
         - dut_mac='{{ ansible_Ethernet0['macaddress'] }}'
+        - dut_vlan_ip='192.168.0.1'
         - default_ip_range='192.168.0.0/16'
         - vlan_ip_range=\"{{ minigraph_vlan_interfaces[0]['subnet'] }}\"
         - lo_v6_prefix=\"{{ minigraph_lo_interfaces | map(attribute='addr') | ipv6 | first | ipsubnet(64) }}\"
