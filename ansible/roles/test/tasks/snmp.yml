@@ -8,7 +8,7 @@
   assert: { that: "ansible_sysname == '{{ inventory_hostname }}'" }
 
 - block:
-    - name: inlcude snmp cpu test
+    - name: include snmp cpu test
       include: roles/test/tasks/snmp/cpu.yml
 
     - name: inlcude snmp physical table test
