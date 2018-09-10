@@ -4,7 +4,7 @@
     session_src_ip: "1.1.1.1"
     session_dst_ip: "2.2.2.2"
     session_ttl: "1"
-    session_dscp: "50"
+    session_dscp: "8"
     session_gre: "0x6558"
     session_queue: "0"
 

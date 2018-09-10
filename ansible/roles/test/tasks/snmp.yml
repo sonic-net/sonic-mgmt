@@ -11,6 +11,9 @@
     - name: inlcude snmp cpu test
       include: roles/test/tasks/snmp/cpu.yml
 
+    - name: inlcude snmp physical table test
+      include: roles/test/tasks/snmp/phys_table.yml
+
     - name: include snmp interfaces test
       include: roles/test/tasks/snmp/interfaces.yml
 
@@ -22,4 +25,7 @@
 
     - name: include snmp PSU test
       include: roles/test/tasks/snmp/psu.yml
+
+    - name: include snmp lldp test
+      include: roles/test/tasks/snmp/lldp.yml
   when: testcase_name is defined

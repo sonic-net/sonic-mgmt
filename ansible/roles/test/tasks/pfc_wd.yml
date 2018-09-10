@@ -45,7 +45,7 @@
     ansible_date_time: "{{ansible_date_time}}"
 
 - set_fact:
-    seed: "{{ansible_date_time['weekday_number']}}"
+    seed: "{{ansible_date_time['day']}}"
 
 - set_fact:
     used: false
@@ -110,7 +110,7 @@
 - set_fact:
     select_test_ports: "{{select_test_ports | default({}) | combine({item.key: item.value})}}"
   with_dict: "{{test_ports}}"
-  when: item.value.test_port_id | int % 7 == seed | int
+  when: item.value.test_port_id | int % 15 == seed | int % 15
 
 - debug: msg="{{select_test_ports}}"
 

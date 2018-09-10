@@ -79,7 +79,7 @@
         flat: yes
       delegate_to: "{{ ptf_host }}"
 
-    - name: set authorized key took from file
+    - name: set authorized key taken from file
       authorized_key:
         user: "{{ ansible_ssh_user }}"
         state: present
@@ -103,6 +103,10 @@
         dest: /tmp/ports.json
       delegate_to: "{{ ptf_host }}"
 
+    - name: Install a new sonic image if requested
+      shell: sonic_installer install -y {{ new_sonic_image }}
+      when: new_sonic_image is defined
+
     - include: ptf_runner.yml
       vars:
         ptf_test_name: Fast-reboot test
@@ -120,6 +124,7 @@
         - vlan_ports_file=\"/tmp/vlan_interfaces.json\"
         - ports_file=\"/tmp/ports.json\"
         - dut_mac='{{ ansible_Ethernet0['macaddress'] }}'
+        - dut_vlan_ip='192.168.0.1'
         - default_ip_range='192.168.0.0/16'
         - vlan_ip_range=\"{{ minigraph_vlan_interfaces[0]['subnet'] }}\"
         - lo_v6_prefix=\"{{ minigraph_lo_interfaces | map(attribute='addr') | ipv6 | first | ipsubnet(64) }}\"

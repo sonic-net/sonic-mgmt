@@ -373,6 +373,7 @@ class FastReloadTest(BaseTest):
         self.check_param('vlan_ports_file', '', required = True)
         self.check_param('ports_file', '', required = True)
         self.check_param('dut_mac', '', required = True)
+        self.check_param('dut_vlan_ip', '', required = True)
         self.check_param('default_ip_range', '', required = True)
         self.check_param('vlan_ip_range', '', required = True)
         self.check_param('lo_prefix', '10.1.0.32/32', required = False)
@@ -381,6 +382,7 @@ class FastReloadTest(BaseTest):
         self.check_param('min_bgp_gr_timeout', 15, required = False)
 
         # Default settings
+        self.ping_dut_pkts = 10
         self.nr_pc_pkts = 100
         self.nr_tests = 3
         self.reboot_delay = 10
@@ -478,6 +480,7 @@ class FastReloadTest(BaseTest):
         #
         self.generate_from_t1()
         self.generate_from_vlan()
+        self.generate_ping_dut_vlan_intf()
 
         self.log("Test params:")
         self.log("DUT ssh: %s" % self.dut_ssh)
@@ -607,6 +610,24 @@ class FastReloadTest(BaseTest):
 
         return
 
+    def generate_ping_dut_vlan_intf(self):
+        packet = simple_icmp_packet(eth_dst=self.dut_mac,
+                                    ip_src=self.from_server_src_addr,
+                                    ip_dst=self.test_params['dut_vlan_ip'])
+
+        exp_packet = simple_icmp_packet(eth_src=self.dut_mac,
+                                        ip_src=self.test_params['dut_vlan_ip'],
+                                        ip_dst=self.from_server_src_addr,
+                                        icmp_type='echo-reply')
+
+
+        self.ping_dut_exp_packet  = Mask(exp_packet)
+        self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
+        self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "id")
+        self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
+
+        self.ping_dut_packet = str(packet)
+
     def runTest(self):
         self.reboot_start = None
         no_routing_start = None
@@ -637,6 +658,17 @@ class FastReloadTest(BaseTest):
 
         self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
         thr.start()
+
+        self.log("Wait until DUT reboots")
+        self.timeout(self.task_timeout, "DUT hasn't rebooted in %d seconds" % self.task_timeout)
+        self.wait_until_dut_reboots()
+        self.cancel_timeout()
+
+        self.reboot_start = datetime.datetime.now()
+        self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
+
+        self.log("Check that device is still forwarding Data plane traffic")
+        self.assertTrue(self.check_alive(), 'DUT is not stable')
 
         self.log("Wait until ASIC stops")
         self.timeout(self.task_timeout, "DUT hasn't stopped in %d seconds" % self.task_timeout)
@@ -755,7 +787,6 @@ class FastReloadTest(BaseTest):
         time.sleep(self.reboot_delay)
 
         self.log("Rebooting remote side")
-        self.reboot_start = datetime.datetime.now()
         stdout, stderr, return_code = self.cmd(["ssh", "-oStrictHostKeyChecking=no", self.dut_ssh, "sudo fast-reboot"])
         if stdout != []:
             self.log("stdout from fast-reboot: %s" % str(stdout))
@@ -778,6 +809,13 @@ class FastReloadTest(BaseTest):
     def peer_state_check(self, ip, queue):
         ssh = Arista(ip, queue, self.test_params)
         self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip] = ssh.run()
+
+    def wait_until_dut_reboots(self):
+        while True:
+            total_rcv_pkt_cnt = self.pingDut()
+            if total_rcv_pkt_cnt < self.ping_dut_pkts:
+                break
+
 
     def check_forwarding_stop(self):
         return self.iteration(True)
@@ -874,3 +912,12 @@ class FastReloadTest(BaseTest):
 
         return total_rcv_pkt_cnt
 
+    def pingDut(self):
+        for i in xrange(self.ping_dut_pkts):
+            testutils.send_packet(self, self.random_port(self.vlan_ports), self.ping_dut_packet)
+
+        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.ping_dut_exp_packet, self.vlan_ports, timeout=self.TIMEOUT)
+
+        self.log("Send %5d Received %5d ping DUT" % (self.ping_dut_pkts, total_rcv_pkt_cnt), True)
+
+        return total_rcv_pkt_cnt

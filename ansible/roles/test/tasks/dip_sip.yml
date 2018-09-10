@@ -1,0 +1,129 @@
+- fail: msg="testbed_type is not defined"
+  when: testbed_type is not defined
+
+- fail: msg="testbed_type {{ test_type }} is invalid"
+  when: testbed_type not in ['t0', 't0-16', 't0-56', 't0-64', 't0-64-32', 't0-116', 't1', 't1-lag', 't1-64-lag']
+
+- include_vars: "vars/topo_{{ testbed_type }}.yml"
+
+- name: "Expand properties into props"
+  set_fact: props="{{ configuration_properties['common'] }}"
+
+- name: "Gather minigraph facts about the device"
+  minigraph_facts: host={{ inventory_hostname }}
+
+- name: "Remove existing IPs from PTF host"
+  script: roles/test/files/helpers/remove_ip.sh
+  delegate_to: "{{ ptf_host }}"
+
+- name: "Set unique MACs to PTF interfaces"
+  script: roles/test/files/helpers/change_mac.sh
+  delegate_to: "{{ ptf_host }}"
+
+- name: "Gather information from LLDP"
+  lldp:
+  vars:
+    ansible_shell_type: docker
+    ansible_python_interpreter: docker exec -i lldp python
+
+- name: "Copy tests to PTF"
+  copy: src=roles/test/files/ptftests dest=/root
+  delegate_to: "{{ ptf_host }}"
+
+- block:
+  - fail: msg="minigraph_interfaces is not defined or zero length"
+    when: minigraph_interfaces is not defined or (minigraph_interfaces | length == 0)
+
+  - name: "Set destination PORT name"
+    set_fact:
+      dst_port: "{{ minigraph_interfaces[0].attachto }}"
+
+  - name: "Set source PORT name"
+    set_fact:
+      src_port: "{{ minigraph_interfaces[2].attachto }}"
+
+  - name: "Start PTF runner: '{{ testbed_type }}' designated"
+    include: ptf_runner.yml
+    vars:
+      ptf_test_name: DipSip test
+      ptf_test_dir: ptftests
+      ptf_test_path: dip_sip.DipSipTest
+      ptf_platform: remote
+      ptf_platform_dir: ptftests
+      ptf_test_params:
+        - testbed_type='{{ testbed_type }}'
+        - dst_host_mac='{{ lldp[dst_port]['chassis'].mac }}'
+        - src_host_mac='{{ lldp[src_port]['chassis'].mac }}'
+        - dst_router_mac='{{ ansible_interface_facts[dst_port].macaddress }}'
+        - src_router_mac='{{ ansible_interface_facts[src_port].macaddress }}'
+        - dst_router_ipv4='{{ ansible_interface_facts[dst_port]['ipv4']['address'] }}'
+        - src_router_ipv4='{{ ansible_interface_facts[src_port]['ipv4']['address'] }}'
+        - dst_router_ipv6='{{ ansible_interface_facts[dst_port]['ipv6'] | selectattr("scope", "match", "^global$") | map(attribute='address') | list | first }}'
+        - src_router_ipv6='{{ ansible_interface_facts[src_port]['ipv6'] | selectattr("scope", "match", "^global$") | map(attribute='address') | list | first }}'
+        - dst_port_ids=[{{ minigraph_port_indices[dst_port] }}]
+        - src_port_ids=[{{ minigraph_port_indices[src_port] }}]
+      ptf_extra_options: "--relax --debug info --log-file /tmp/dip_sip.DipSipTest.{{ lookup('pipe','date +%Y-%m-%d-%H:%M:%S') }}.log"
+
+  vars:
+    dst_port: "default('')"
+    src_port: "default('')"
+  when: testbed_type in ['t1']
+
+- block:
+  - fail: msg="minigraph_portchannel_interfaces is not defined or zero length"
+    when: minigraph_portchannel_interfaces is not defined or (minigraph_portchannel_interfaces | length == 0)
+
+  - name: "Set destination LAG name"
+    set_fact:
+      dst_lag: "{{ minigraph_portchannel_interfaces[0].attachto }}"
+
+  - name: "Set source LAG name"
+    set_fact:
+      src_lag: "{{ minigraph_portchannel_interfaces[2].attachto }}"
+
+  - name: "Gather destination port indices"
+    set_fact:
+      dst_port_ids: "{{ minigraph_port_indices[item] }}"
+    with_items: "{{ minigraph_portchannels[dst_lag].members }}"
+    register: dst_port_ids_result
+
+  - name: "Make a list from destination port indices"
+    set_fact:
+      dst_port_ids: "{{ dst_port_ids_result.results | map(attribute='ansible_facts.dst_port_ids') | list }}"
+
+  - name: "Gather source port indices"
+    set_fact:
+      src_port_ids: "{{ minigraph_port_indices[item] }}"
+    with_items: "{{ minigraph_portchannels[src_lag].members }}"
+    register: src_port_ids_result
+
+  - name: "Make a list from source port indices"
+    set_fact:
+      src_port_ids: "{{ src_port_ids_result.results | map(attribute='ansible_facts.src_port_ids') | list }}"
+
+  - name: "Start PTF runner: '{{ testbed_type }}' designated"
+    include: ptf_runner.yml
+    vars:
+      ptf_test_name: DipSip test
+      ptf_test_dir: ptftests
+      ptf_test_path: dip_sip.DipSipTest
+      ptf_platform: remote
+      ptf_platform_dir: ptftests
+      ptf_test_params:
+        - testbed_type='{{ testbed_type }}'
+        - dst_host_mac='{{ lldp[minigraph_portchannels[dst_lag].members[0]]['chassis'].mac }}'
+        - src_host_mac='{{ lldp[minigraph_portchannels[src_lag].members[0]]['chassis'].mac }}'
+        - dst_router_mac='{{ ansible_interface_facts[dst_lag].macaddress }}'
+        - src_router_mac='{{ ansible_interface_facts[src_lag].macaddress }}'
+        - dst_router_ipv4='{{ ansible_interface_facts[dst_lag]['ipv4']['address'] }}'
+        - src_router_ipv4='{{ ansible_interface_facts[src_lag]['ipv4']['address'] }}'
+        - dst_router_ipv6='{{ ansible_interface_facts[dst_lag]['ipv6'] | selectattr("scope", "match", "^global$") | map(attribute='address') | list | first }}'
+        - src_router_ipv6='{{ ansible_interface_facts[src_lag]['ipv6'] | selectattr("scope", "match", "^global$") | map(attribute='address') | list | first }}'
+        - dst_port_ids={{ dst_port_ids }}
+        - src_port_ids={{ src_port_ids }}
+      ptf_extra_options: "--relax --debug info --log-file /tmp/dip_sip.DipSipTest.{{ lookup('pipe','date +%Y-%m-%d-%H:%M:%S') }}.log"
+
+  vars:
+    dst_lag: "default('')"
+    src_lag: "default('')"
+  when: testbed_type in ['t0', 't0-16', 't0-56', 't0-64', 't0-64-32', 't0-116', 't1-lag', 't1-64-lag']

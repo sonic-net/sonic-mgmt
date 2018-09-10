@@ -1,10 +1,10 @@
 - debug: msg="{{ device_info }}"
 
-- name: find interface name mapping
-  port_alias: hwsku="{{ device_info["HwSku"] }}"
-
 - name: prepare fanout switch admin login info
   set_fact: ansible_user={{ fanout_sonic_user }} ansible_password={{ fanout_sonic_password }}
+
+- name: find interface name mapping
+  port_alias: hwsku="{{ device_info["HwSku"] }}"
 
 - name: build fanout vlan config
   template: src=sonic_deploy.j2

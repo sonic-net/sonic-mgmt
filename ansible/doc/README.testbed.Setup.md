@@ -61,7 +61,7 @@ make configure PLATFORM=generic
 make target/docker-sonic-mgmt.gz
 ```
 
-Pre-built *sonic-mgmt* can also be downloaded from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/common/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/target/docker-sonic-mgmt.gz).
+Pre-built *sonic-mgmt* can also be downloaded from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/target/docker-sonic-mgmt.gz).
 
 - Run *sonic-mgmt* docker
 ```

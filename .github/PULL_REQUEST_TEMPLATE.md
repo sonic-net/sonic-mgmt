@@ -11,7 +11,7 @@ Please provide following information to help code review process a bit easier:
 - List any dependencies that are required for this change.
 -->
 
-PR summery
+Summary:
 Fixes # (issue)
 
 ### Type of change

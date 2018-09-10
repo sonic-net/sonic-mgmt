@@ -67,6 +67,7 @@ class EverflowTest(BaseTest):
 
         self.dataplane = ptf.dataplane_instance
         self.hwsku = self.test_params['hwsku']
+        self.asic_type = self.test_params['asic_type']
         self.router_mac = self.test_params['router_mac']
         self.session_src_ip = self.test_params['session_src_ip']
         self.session_dst_ip = self.test_params['session_dst_ip']
@@ -143,6 +144,8 @@ class EverflowTest(BaseTest):
 
         if self.hwsku in ["ACS-MSN2700", "ACS-MSN2100", "ACS-MSN2410", "ACS-MSN2740", "Mellanox-SN2700"]:
             payload = str(scapy_pkt[scapy.GRE].payload)[22:]
+        if self.asic_type in ["barefoot"]:
+            payload = str(scapy_pkt[scapy.GRE].payload)[12:]
 
         inner_pkt = scapy.Ether(payload)
 
