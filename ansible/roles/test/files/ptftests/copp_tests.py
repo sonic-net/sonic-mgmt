@@ -108,6 +108,19 @@ class ControlPlaneBaseTest(BaseTest):
             self.timeout_thr = None
 
     def copp_test(self, packet, count, send_intf, recv_intf):
+        '''
+        Pre-send some packets for a second to absorb the CBS capacity.
+        '''
+        if self.needPreSend:
+            sendInFirst=0
+            endTime = datetime.datetime.now() + datetime.timedelta(seconds=1)
+            while datetime.datetime.now() < endTime:
+                testutils.send_packet(self, send_intf, packet)
+                sendInFirst += 1
+            rcv_pkt_cnt = testutils.count_matched_packets(self, packet, recv_intf[1], recv_intf[0],timeout=0.01)
+            self.log("Send %d and receive %d packets in the first second (PolicyTest)" % (sendInFirst,  rcv_pkt_cnt))
+            self.dataplane.flush()
+
         b_c_0 = self.dataplane.get_counters(*send_intf)
         b_c_1 = self.dataplane.get_counters(*recv_intf)
         b_n_0 = self.dataplane.get_nn_counters(*send_intf)
@@ -184,6 +197,7 @@ class ControlPlaneBaseTest(BaseTest):
 class NoPolicyTest(ControlPlaneBaseTest):
     def __init__(self):
         ControlPlaneBaseTest.__init__(self)
+        self.needPreSend=False
 
     def check_constraints(self, total_rcv_pkt_cnt, time_delta_ms, rx_pps):
         self.log("")
@@ -198,6 +212,7 @@ class NoPolicyTest(ControlPlaneBaseTest):
 class PolicyTest(ControlPlaneBaseTest):
     def __init__(self):
         ControlPlaneBaseTest.__init__(self)
+        self.needPreSend=True
 
     def check_constraints(self, total_rcv_pkt_cnt, time_delta_ms, rx_pps):
         self.log("")
