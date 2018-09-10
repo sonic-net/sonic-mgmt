@@ -25,7 +25,7 @@ import signal
 import datetime
 import subprocess
 import threading
-import time
+
 
 class ControlPlaneBaseTest(BaseTest):
     MAX_PORTS = 128
@@ -111,18 +111,14 @@ class ControlPlaneBaseTest(BaseTest):
         '''
         Pre-send some packets for a second to absorb the CBS capacity.
         '''
-        if self.needAbsorbCBS:
-            timeout_start = time.time()
-            sendInFirst = 0
-            while time.time() < timeout_start + 1:
+        if self.needPreSend:
+            sendInFirst=0
+            endTime = datetime.datetime.now() + datetime.timedelta(seconds=1)
+            while datetime.datetime.now() < endTime:
                 testutils.send_packet(self, send_intf, packet)
                 sendInFirst += 1
-            '''
-            count_matched_packets() takes a long time (more than 1 second)
-            Suspend counting matched packetes till all testing packets are sent.
-            Copy the received packets to 'queue'
-            '''
-            queue = self.dataplane.packet_queues[(recv_intf[0],recv_intf[1])]
+            rcv_pkt_cnt = testutils.count_matched_packets(self, packet, recv_intf[1], recv_intf[0],timeout=0.01)
+            self.log("Send %d and receive %d packets in the first second (PolicyTest)" % (sendInFirst,  rcv_pkt_cnt))
             self.dataplane.flush()
 
         b_c_0 = self.dataplane.get_counters(*send_intf)
@@ -143,15 +139,6 @@ class ControlPlaneBaseTest(BaseTest):
         e_c_1 = self.dataplane.get_counters(*recv_intf)
         e_n_0 = self.dataplane.get_nn_counters(*send_intf)
         e_n_1 = self.dataplane.get_nn_counters(*recv_intf)
-
-        if self.needAbsorbCBS:
-            '''
-            Restore the received packets('queue') in the pre-send
-            '''
-            self.dataplane.packet_queues[(recv_intf[0],recv_intf[1])]=queue
-            rcv_pkt_cnt = testutils.count_matched_packets(self, packet, recv_intf[1], recv_intf[0])
-            self.log("Send %d and receive %d packets in the first second (PolicyTest)" % (sendInFirst,  rcv_pkt_cnt))
-
         self.log("", True)
         self.log("Counters before the test:", True)
         self.log("If counter (0, n): %s" % str(b_c_0), True)
@@ -210,7 +197,7 @@ class ControlPlaneBaseTest(BaseTest):
 class NoPolicyTest(ControlPlaneBaseTest):
     def __init__(self):
         ControlPlaneBaseTest.__init__(self)
-        self.needAbsorbCBS=False
+        self.needPreSend=False
 
     def check_constraints(self, total_rcv_pkt_cnt, time_delta_ms, rx_pps):
         self.log("")
@@ -225,7 +212,7 @@ class NoPolicyTest(ControlPlaneBaseTest):
 class PolicyTest(ControlPlaneBaseTest):
     def __init__(self):
         ControlPlaneBaseTest.__init__(self)
-        self.needAbsorbCBS=True
+        self.needPreSend=True
 
     def check_constraints(self, total_rcv_pkt_cnt, time_delta_ms, rx_pps):
         self.log("")
