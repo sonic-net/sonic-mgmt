@@ -65,6 +65,11 @@
   when: minigraph_portchannel_interfaces | length > 0 and minigraph_vlan_interfaces | length > 0
   tags: fast_reboot
 
+- name: Vxlan decap test
+  include: vxlan-decap.yml
+  when: minigraph_portchannel_interfaces | length > 0 and minigraph_vlan_interfaces | length > 0
+  tags: vxlan_decap
+
 ### when callng BGP flaps test, please add command line of which VMs host to test against
 ### -e "vmhost_num='01'"
 - fail: msg="Please set vmhost_num variable"

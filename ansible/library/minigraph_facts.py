@@ -223,7 +223,10 @@ def parse_dpg(dpg, hname):
             vlanid = vintf.find(str(QName(ns, "VlanID"))).text
             vintfmbr = vintf.find(str(QName(ns, "AttachTo"))).text
             vmbr_list = vintfmbr.split(';')
-            vlandhcpservers = vintf.find(str(QName(ns, "DhcpRelays"))).text
+            if vintf.find(str(QName(ns, "DhcpRelays"))) is not None:
+                vlandhcpservers = vintf.find(str(QName(ns, "DhcpRelays"))).text
+            else:
+                vlandhcpservers = ""
             dhcp_servers = vlandhcpservers.split(";")
             for i, member in enumerate(vmbr_list):
                 vmbr_list[i] = port_alias_map[member]
