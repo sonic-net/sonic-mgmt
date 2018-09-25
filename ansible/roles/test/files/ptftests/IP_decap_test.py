@@ -321,8 +321,8 @@ class DecapPacketTest(BaseTest):
         for outer_pkt_type in outer_pkt_types:
             for inner_pkt_type in inner_pkt_types:
 
-                encap_combination = "{}in{}".format(outer_pkt_type.replace('ip', 'IP'),
-                                                    inner_pkt_type.replace('ip', 'IP'))
+                encap_combination = "{}in{}".format(inner_pkt_type.replace('ip', 'IP'),
+                                                    outer_pkt_type.replace('ip', 'IP'))
 
                 logging.info('----------------------------------------------------------------------')
                 logging.info("{} test started".format(encap_combination))
