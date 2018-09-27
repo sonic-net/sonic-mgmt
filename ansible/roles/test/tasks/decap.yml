@@ -67,13 +67,13 @@
 - set_fact: outer_ipv4=True
   when: outer_ipv4 is not defined
 
-- set_fact: outer_ipv6=False
+- set_fact: outer_ipv6=True
   when: outer_ipv6 is not defined
 
 - set_fact: inner_ipv4=True
   when: inner_ipv4 is not defined
 
-- set_fact: inner_ipv6=False
+- set_fact: inner_ipv6=True
   when: inner_ipv6 is not defined
 
 # Apply tunnel configuration
