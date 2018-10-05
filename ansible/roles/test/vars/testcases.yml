@@ -199,3 +199,9 @@ testcases:
       required_vars:
           ptf_host:
           testbed_type:
+
+    port_alias:
+      filename: port_alias.yml
+      topologies: [t0, t0-16, t0-64, t0-64-32, t0-116, t1, ptf32, ptf64]
+      required_vars:
+          testbed_type:

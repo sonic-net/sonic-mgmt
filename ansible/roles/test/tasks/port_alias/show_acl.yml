@@ -1,0 +1,17 @@
+- name: verify show acl table output 
+  shell: show acl table DATAACL
+  register: acl_table
+  environment:
+    SONIC_CLI_IFACE_MODE: "{{ifmode}}"
+
+- debug: var=acl_table.stdout_lines
+
+- name: check acl table output  shows default interface  names when mode is  default
+  assert: {that: item in acl_table.stdout}
+  with_items: minigraph_acls['DataAcl']
+  when: mode=='default' and item  not in minigraph_portchannels
+
+- name:  check acl table output  shows alias interface  names when mode is  set to alias
+  assert: {that: " '{{port_name_map[item]}}' in acl_table.stdout"}
+  with_items: minigraph_acls['DataAcl'] 
+  when: mode=='alias' and item not in minigraph_portchannels

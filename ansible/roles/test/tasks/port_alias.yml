@@ -1,0 +1,50 @@
+# Test for Port_alias feature
+- include_vars: roles/test/tasks/port_alias/vars/port_alias_vars.yml
+
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+
+- name: find interface name mapping
+  port_alias:  hwsku="{{ hwsku }}"
+
+# Get the default interface names list 
+- set_fact:
+    default_interfaces: "{{port_name_map | list}}"
+
+#Get the minigraph up ports and its alias names 
+- set_fact: 
+    up_ports: "{{ minigraph_ports | list}}"
+
+- set_fact:
+    upport_alias_list: "{{minigraph_ports.values()| map(attribute='alias') | list }}"
+
+#Sample Test interface name and its alias 
+- set_fact: 
+   interface: "{{minigraph_ports | sort | first }}"
+- set_fact:
+   interface_alias: "{{port_name_map[interface]}}"
+
+#############################################################
+######################## START OF TESTS #####################
+#############################################################
+
+# All tests run for user guest in alias mode as well as in default mode 
+
+- name: Test port alias feature in alias mode
+  include: "roles/test/tasks/port_alias/port_alias_tests.yml"
+  vars:
+    mode: alias
+
+- name: Test port alias feature in default mode 
+  include: "roles/test/tasks/port_alias/port_alias_tests.yml"
+  vars:
+    mode: default
+
+- always:
+  
+  - name: Remove the user 
+    user:
+      name: "{{uname1}}"
+      groups: sudo
+      state: absent
+      shell: /bin/bash
