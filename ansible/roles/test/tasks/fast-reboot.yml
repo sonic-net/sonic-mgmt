@@ -124,6 +124,9 @@
         - name: Install a new SONiC image if requested
           shell: sonic_installer install -y {{ new_image_location }}
           become: true
+          notify:
+            - restore current image
+            - reboot sonic
 
       when: new_sonic_image is defined
 
@@ -199,12 +202,5 @@
         dest: '/tmp/'
         flat: yes
 
-    - block:
-      - name: Set previous image as default
-        shell: 'sonic_installer set_default {{ current_sonic_image.stdout }}'
-        become: true
-
-      - name: reboot
-        include: roles/test/tasks/common_tasks/reboot_sonic.yml
-
-      when: new_sonic_image is defined
+    - name: make sure all handlers run
+      meta: flush_handlers
