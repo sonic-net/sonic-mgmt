@@ -35,29 +35,33 @@
 {% set suffix = ( (podset * props.tor_number * props.max_tor_subnet_number * props.tor_subnet_size) +
                   (tor * props.max_tor_subnet_number * props.tor_subnet_size) +
                   (subnet * props.tor_subnet_size) ) %}
-{% set octet2 = (168 + ((suffix // (256 ** 2))) % 256) %}
+{% set octet2 = (168 + ((suffix // (256 ** 2)))) %}
+{% set octet1 = (192 + (octet2 // 256)) %}
+{% set octet2 = (octet2 % 256) %}
 {% set octet3 = ((suffix // 256) % 256) %}
 {% set octet4 = (suffix % 256) %}
 {% set prefixlen_v4 = (32 - ((props.tor_subnet_size | log(2))) | int) %}
 {# Skip 192.168.0.0 as it is in Vlan1000 subnet  #}
 {% if octet2 != 168 and octet3 != 0 and octet4 != 0 %}
-192.{{ octet2 }}.{{ octet3 }}.{{ octet4 }}/{{ prefixlen_v4 }} {% for portchannel, v in minigraph_portchannels.iteritems() %}[{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}
+{{ octet1 }}.{{ octet2 }}.{{ octet3 }}.{{ octet4 }}/{{ prefixlen_v4 }} {% for portchannel, v in minigraph_portchannels.iteritems() %}[{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}
 
-20C0:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/64 {% for portchannel, v in minigraph_portchannels.iteritems() %}[{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}
+{{ '20%02x' % octet1 }}:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/64 {% for portchannel, v in minigraph_portchannels.iteritems() %}[{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}
 
 {% endif %}
 {% elif testbed_type == 't0-116' %}
 {% set suffix = ( (podset * props.tor_number * props.max_tor_subnet_number * props.tor_subnet_size) +
                   (tor * props.max_tor_subnet_number * props.tor_subnet_size) +
                   (subnet * props.tor_subnet_size) ) %}
-{% set octet2 = (168 + ((suffix // (256 ** 2))) % 256) %}
+{% set octet2 = (168 + ((suffix // (256 ** 2)))) %}
+{% set octet1 = (192 + (octet2 // 256)) %}
+{% set octet2 = (octet2 % 256) %}
 {% set octet3 = ((suffix // 256) % 256) %}
 {% set octet4 = (suffix % 256) %}
 {% set prefixlen_v4 = (32 - ((props.tor_subnet_size | log(2))) | int) %}
 {# Skip 192.168.0.0 as it is in Vlan1000 subnet  #}
 {% if octet2 != 168 and octet3 != 0 and octet4 != 0 %}
-192.{{ octet2 }}.{{ octet3 }}.{{ octet4 }}/{{ prefixlen_v4 }} [24 25] [26 27] [28 29] [30 31]
-20C0:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/64 [24 25] [26 27] [28 29] [30 31]
+{{ octet1 }}.{{ octet2 }}.{{ octet3 }}.{{ octet4 }}/{{ prefixlen_v4 }} [24 25] [26 27] [28 29] [30 31]
+{{ '20%02x' % octet1 }}:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/64 [24 25] [26 27] [28 29] [30 31]
 {% endif %}
 {% endif %}
 {% endfor %}
