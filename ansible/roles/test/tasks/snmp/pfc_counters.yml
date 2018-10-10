@@ -3,7 +3,9 @@
   snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
   connection: local
 
+# Check PFC counters
+# Ignore management ports, assuming the names starting with 'eth', eg. eth0
 - fail:
     msg: "Port {{ item.key }} does not has PFC counters"
-  when: not item.value.cpfcIfRequests or not item.value.cpfcIfIndications or not item.value.requestsPerPriority or not item.value.indicationsPerPriority
+  when: (not item.value.name.startswith("eth")) and (not item.value.cpfcIfRequests or not item.value.cpfcIfIndications or not item.value.requestsPerPriority or not item.value.indicationsPerPriority)
   with_dict: "{{ snmp_interfaces }}"
