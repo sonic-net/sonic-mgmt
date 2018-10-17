@@ -199,3 +199,6 @@ testcases:
       required_vars:
           ptf_host:
           testbed_type:
+    pfc_asym:
+      filename: pfc_asym.yml
+      topologies: [t0]
