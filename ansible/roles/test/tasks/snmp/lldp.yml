@@ -34,7 +34,7 @@
 - set_fact:
     snmp_ports:  "{{ snmp_ports|default({}) | combine({ item.key : item.value}) }}"
   when: "{{ item.value.name is defined }}
-    and {{ item.value['name'].find('Ethernet') != -1 }}"
+    and ({{ item.value['name'].find('Ethernet') != -1 }} or {{ item.value['name'].find('eth') != -1 }})"
   with_dict: "{{ snmp_interfaces }}"
 
 # Check if lldpLocPortTable is present for all ports
