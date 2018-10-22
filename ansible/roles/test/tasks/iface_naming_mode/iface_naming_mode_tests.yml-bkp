@@ -1,15 +1,14 @@
-- include_vars: roles/test/tasks/port_alias/vars/port_alias_vars.yml
-
-- name:  create users guest
+- name: Create normal guest user
   include: "roles/test/tasks/port_alias/add_user.yml"
 
-- name: set port alias to {{mode}} mode
+- name: set interface naming mode to {{mode}} mode
   shell : sudo  config interface_naming_mode {{mode}}
   register: out
   failed_when: out.rc != 0
   become_user: '{{uname1}}'
   become: yes
 
+# Check whether the interface mode is set properly in bashrc file
 - include: roles/test/tasks/port_alias/check_userifmode.yml
 
 - set_fact:
@@ -72,4 +71,4 @@
       groups: sudo
       state: absent
       shell: /bin/bash
-
+      remove: yes

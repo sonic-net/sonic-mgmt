@@ -5,5 +5,5 @@
     state: present
     shell: /bin/bash
 
-- name: Set password to user
+- name: Set password for user
   shell: "echo {{uname1}}:{{upasswd1}} | sudo chpasswd"

@@ -16,6 +16,8 @@
   when: "'T2' in item.value.name"
 
 # Test IPv4 routes
+# As the ansible work in non interactive mode, it doesnt read the environmental varaiable set in bashrc file. Hence as a workaround, the variable is  extracted through check_userifmode.yml and manually set the variable 'SONIC_CLI_IFACE_MODE' to take effect.
+
 - name: get the show ip route for 192.168.1.1
   shell: show ip route 192.168.1.1
   register: route
@@ -39,6 +41,7 @@
   when: mode=='default'
 
 # Test ipv6 routes 
+# As the ansible work in non interactive mode, it doesnt read the environmental varaiable set in bashrc file. Hence as a workaround, the variable is  extracted through check_userifmode.yml and manually set the variable 'SONIC_CLI_IFACE_MODE' to take effect.
 
 - name: get the show ipv6 route for 20c0:a800::/64
   shell: show ipv6 route 20c0:a800::/64

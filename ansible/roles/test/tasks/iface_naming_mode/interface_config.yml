@@ -1,3 +1,4 @@
+
 #set the test interface according to default or alias mode 
 - set_fact: 
     intf: "{{interface_alias if (mode=='alias') else interface}}"
@@ -8,7 +9,7 @@
 - block: 
 
     - name: shutdown the interface {{intf}} in {{mode}} mode 
-      shell: sudo config interface shutdown {{intf}}
+      shell: sudo config interface {{intf}} shutdown
       register: out
       failed_when: out.rc != 0
 
@@ -23,7 +24,7 @@
       assert: {that: "'{{int_status[intf]['admin_state']}}' == 'down'"}
 
     - name: Bringup the interface  {{intf}} in {{mode}} mode
-      shell: sudo config interface startup  {{intf}}
+      shell: sudo config interface {{intf}} startup
       register: out
       failed_when: out.rc != 0
     
@@ -37,7 +38,7 @@
 # check the  config interface speed
 
     - name: configure interface speed to 10G in {{mode}} mode
-      shell: sudo config interface speed {{intf}} 10000
+      shell: sudo config interface {{intf}} speed 10000
       register: out
       failed_when: out.rc != 0
 
@@ -51,7 +52,7 @@
       assert: {that: "'{{speed.stdout}}' == '10000'"}
 
     - name: chamge interface speed to native speed and check
-      shell: sudo config interface speed {{intf}} {{native_speed}}
+      shell: sudo config interface {{intf}} speed {{native_speed}}
       register: out
       failed_when: out.rc != 0
 
@@ -62,14 +63,16 @@
     - name: Check  whether the speed is set to native speed
       assert: {that: "'{{speed.stdout}}' == '{{native_speed}}'"}
 
+# As the ansible work in non interactive mode, it doesnt read the environmental varaiable set in bashrc file. Hence as a workaround , the variable is  extracted through check_userifmode.yml and manually set the variable 'SONIC_CLI_IFACE_MODE' to take effect.
+
   environment:
       SONIC_CLI_IFACE_MODE: "{{ifmode}}"
 
   always:
 
     - name: set the interface up 
-      shell:  sudo config interface startup  {{intf}} 
+      shell:  sudo config interface {{intf}}  startup
 
     - name: change interface speed to native speed and check
-      shell: sudo config interface speed {{intf}} {{native_speed}}
+      shell: sudo config interface {{intf}} speed {{native_speed}}
 

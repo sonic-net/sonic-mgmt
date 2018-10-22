@@ -7,9 +7,9 @@ import re
 DOCUMENTATION = '''
 module: show_interface.py
 version_added:  2.0.0.2
-Short_description: Retrieve the show interface status and show interface counter output values 
-Description: 
-    - Retrieve the show interface status and show interface counter output values 
+Short_description: Retrieve the show interface status and show interface counter output values
+Description:
+    - Retrieve the show interface status and show interface counter output values
       and inserted into ansible_facts
 
 options:
@@ -56,7 +56,7 @@ RETURN = '''
                     'TX_ERR' :  "0"
                     'TX_DRP' :  "0"
                     'TX_OVR' :  "0"
-      
+
 '''
 
 
@@ -64,9 +64,9 @@ class ShowInterfaceModule(object):
     def __init__(self):
         self.module = AnsibleModule(
             argument_spec=dict(
-	       command=dict(required=True, type='str'),
-               interfaces=dict(required=False, type='list', default=None),
-                               ),
+            command=dict(required=True, type='str'),
+            interfaces=dict(required=False, type='list', default=None),
+            ),
             supports_check_mode=False)
         self.m_args = self.module.params
         self.out = None
@@ -77,19 +77,19 @@ class ShowInterfaceModule(object):
         """
             Main method of the class
         """
-        if self.m_args['command']=='status': self.collect_interface_status()
-	if self.m_args['command']=='counter': self.collect_interface_counter()
+        if self.m_args['command'] == 'status': self.collect_interface_status()
+        if self.m_args['command'] == 'counter': self.collect_interface_counter()
         self.module.exit_json(ansible_facts=self.facts)
 
     def collect_interface_status(self):
         regex_int = re.compile(r'(\S+)\s+[\d,]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)')
         self.int_status = {}
-        if self.m_args['interfaces'] !=None:
+        if self.m_args['interfaces'] is not None:
             for interface in self.m_args['interfaces']:
-                self.int_status[interface]={}
+                self.int_status[interface] = {}
                 command = 'sudo show interface status ' + interface
                 try:
-                    rc, self.out, err = self.module.run_command(command , executable='/bin/bash', use_unsafe_shell=True)
+                    rc, self.out, err = self.module.run_command(command, executable='/bin/bash', use_unsafe_shell=True)
                     for line in self.out.split("\n"):
                         line = line.strip()
                         if regex_int.match(line):
@@ -98,31 +98,29 @@ class ShowInterfaceModule(object):
                             self.int_status[interface]['alias'] = regex_int.match(line).group(4)
                             self.int_status[interface]['oper_state'] = regex_int.match(line).group(5)
                             self.int_status[interface]['admin_state'] = regex_int.match(line).group(6)
-                    self.facts['int_status']=self.int_status
+                    self.facts['int_status'] = self.int_status
                 except Exception as e:
                     self.module.fail_json(msg=str(e))
                 if rc != 0:
-                    self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" %
-                                                (rc, self.out, err))
+                    self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" % (rc, self.out, err))
         else:
             try:
                 rc, self.out, err = self.module.run_command('show interface status', executable='/bin/bash', use_unsafe_shell=True)
                 for line in self.out.split("\n"):
-                    line=line.strip()
+                    line = line.strip()
                     if regex_int.match(line):
-                        interface= regex_int.match(line).group(1)
-                        self.int_status[interface]={}
+                        interface = regex_int.match(line).group(1)
+                        self.int_status[interface] = {}
                         self.int_status[interface]['name'] = interface
                         self.int_status[interface]['speed'] = regex_int.match(line).group(2)
                         self.int_status[interface]['alias'] = regex_int.match(line).group(4)
                         self.int_status[interface]['oper_state'] = regex_int.match(line).group(5)
                         self.int_status[interface]['admin_state'] = regex_int.match(line).group(6)
-                self.facts['int_status']=self.int_status
+                self.facts['int_status'] = self.int_status
             except Exception as e:
                 self.module.fail_json(msg=str(e))
             if rc != 0:
-                self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" %
-                                                (rc, self.out, err))
+                self.module.fail_json(msg="Command failed rc = %d, out = %s, err = %s" % (rc, self.out, err))
 
         return
 
@@ -132,10 +130,10 @@ class ShowInterfaceModule(object):
         try:
             rc, self.out, err = self.module.run_command('show interface counter', executable='/bin/bash', use_unsafe_shell=True)
             for line in self.out.split("\n"):
-                line=line.strip()
+                line = line.strip()
                 if regex_int.match(line):
-                    interface= regex_int.match(line).group(1)
-                    self.int_counter[interface]={}
+                    interface = regex_int.match(line).group(1)
+                    self.int_counter[interface] = {}
                     self.int_counter[interface]['IFACE'] = interface
                     self.int_counter[interface]['STATE'] = regex_int.match(line).group(2)
                     self.int_counter[interface]['RX_OK'] = regex_int.match(line).group(3)
@@ -153,12 +151,11 @@ class ShowInterfaceModule(object):
         except Exception as e:
             self.module.fail_json(msg=str(e))
         if rc != 0:
-            self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" %
-                                                (rc, self.out, err))
-        self.facts['int_counter']=self.int_counter
+            self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" % (rc, self.out, err))
+        self.facts['int_counter'] = self.int_counter
         return
 
-		
+
 def main():
     ShowInt = ShowInterfaceModule()
     ShowInt.run()
@@ -166,3 +163,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
