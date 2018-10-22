@@ -7,5 +7,5 @@
 # Ignore management ports, assuming the names starting with 'eth', eg. eth0
 - fail:
     msg: "Port {{ item.key }} does not have PFC counters"
-  when: (not item.value.name.startswith("eth")) and (item.value.cpfcIfRequests is not defined or not item.value.cpfcIfIndications or not item.value.requestsPerPriority or not item.value.indicationsPerPriority)
+  when: (not item.value.name.startswith("eth")) and (not item.value.cpfcIfRequests or not item.value.cpfcIfIndications or not item.value.requestsPerPriority or not item.value.indicationsPerPriority)
   with_dict: "{{ snmp_interfaces }}"
