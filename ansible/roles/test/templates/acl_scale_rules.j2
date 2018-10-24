@@ -1,0 +1,36 @@
+{% set network = '192.1.1.1/16' %}
+{% set iplist = [] %}
+{% for x in range(scale_number|int) %}
+   {% set newip = (network | ipaddr(x)) %}
+   {{ iplist.append(newip) }}
+{% endfor %}
+{
+    "acl": {
+        "acl-sets": {
+            "acl-set": {
+                "dataacl": {
+                    "acl-entries": {
+                        "acl-entry": { 
+                        {% for tor in range(scale_number|int)%}
+                        "{{loop.index}}": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": {{ loop.index }}
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "{{ iplist[loop.index-1] }}"
+                                    }
+                                }
+                            }{% if not loop.last %}, {% endif %} 
+                        {% endfor %}}
+                    }
+                }
+            }
+        }
+    }
+}
