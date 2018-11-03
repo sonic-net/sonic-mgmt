@@ -24,7 +24,7 @@
 #        - verbose=False
 #        - dut_username=\"{{ ansible_ssh_user }}\"
 #        - dut_hostname=\"{{ ansible_host }}\"
-#        - fast_reboot_limit=30
+#        - reboot_limit_in_seconds=30
 #      with_items:
 #        - ARPTest
 #        - DHCPTest

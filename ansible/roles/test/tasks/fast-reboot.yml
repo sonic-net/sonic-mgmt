@@ -134,7 +134,7 @@
       vars:
         ptf_test_name: Fast-reboot test
         ptf_test_dir: ptftests
-        ptf_test_path: fast-reboot.FastReloadTest
+        ptf_test_path: advanced-reboot.ReloadTest
         ptf_platform: remote
         ptf_platform_dir: ptftests
         ptf_qlen: 1000
@@ -142,7 +142,8 @@
         - verbose=False
         - dut_username=\"{{ ansible_ssh_user }}\"
         - dut_hostname=\"{{ ansible_host }}\"
-        - fast_reboot_limit=30
+        - reboot_limit_in_seconds=30
+        - reboot_type=\"fast-reboot\"
         - portchannel_ports_file=\"/tmp/portchannel_interfaces.json\"
         - vlan_ports_file=\"/tmp/vlan_interfaces.json\"
         - ports_file=\"/tmp/ports.json\"
@@ -154,8 +155,8 @@
         - arista_vms=\"['{{ vm_hosts | list | join("','") }}']\"
 
   always:
-    - name: Copy test results from ptf to the local box /tmp/fast-reboot.log
-      fetch: src='/tmp/fast-reboot.log' dest='/tmp/' flat=true fail_on_missing=false
+    - name: Copy test results from ptf to the local box /tmp/reboot.log
+      fetch: src='/tmp/reboot.log' dest='/tmp/' flat=true fail_on_missing=false
       delegate_to: "{{ ptf_host }}"
 
     - name: Remove existing ip from ptf host
