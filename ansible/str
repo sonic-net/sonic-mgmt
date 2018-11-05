@@ -222,6 +222,9 @@ vms13-3 ansible_host=10.64.246.49
 v13-41  ansible_host=10.64.246.17
 v13-51  ansible_host=10.64.246.19
 
+[ptf:vars]
+ansible_ssh_user=root
+ansible_ssh_pass=root
 
 [str:children]
 sonic
