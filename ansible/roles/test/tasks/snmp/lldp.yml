@@ -38,7 +38,7 @@
   with_dict: "{{ snmp_interfaces }}"
 
 # Check if lldpLocPortTable is present for all ports
-- name: "Verify lldpLocPortTable is present"
+- name: Verify lldpLocPortTable is present on port {{ item.value.name }}
   assert: { that: "{{ item.value['lldpLocPortNum'] is defined }}
     and {{ item.value['lldpLocPortIdSubtype'] is defined }}
     and {{ item.value['lldpLocPortId'] is defined }}
@@ -67,7 +67,7 @@
   when: "'server' not in item.value['name'] | lower"
   with_dict: minigraph_neighbors
 
-- name: Create list of ports with lldpRemTable data
+- name: Check if lldpRemTable is present on port {{ item.value.name }}
   when: "{{ item.value['lldpRemTimeMark'] is defined }}
     and {{ item.value['lldpRemLocalPortNum'] is defined }}
     and {{ item.value['lldpRemIndex'] is defined }}
@@ -89,14 +89,13 @@
       Minigraph contains {{ minigraph_lldp_nei | length }} neighbors"
 
 - name: Verify lldpRemTable is available on most interfaces
-  assert: {that: "{{ minigraph_lldp_nei | length }} > {{ active_intf | length * 0.8 }}" }
-
+  assert: {that: "{{ minigraph_lldp_nei | length * 0.8 }} <= {{ active_intf | length }}" }
 
 # Check if lldpRemManAddrTable is present
 - set_fact:
     active_intf: []
 
-- name: Create list of ports with lldpRemManAddr data
+- name: Check if lldpRemManAddrTable is present on port {{ item.value.name }}
   when: "{{ item.value['lldpRemManAddrSubtype'] is defined }}
     and {{ item.value['lldpRemManAddr'] is defined }}
     and {{ item.value['lldpRemManAddr'] is defined }}
@@ -112,4 +111,4 @@
       Minigraph contains {{ minigraph_lldp_nei | length }} neighbors"
 
 - name: Verify lldpRemManAddr is available on most interfaces
-  assert: {that: "{{ minigraph_lldp_nei | length }} > {{ active_intf | length * 0.8 }}" }
+  assert: {that: "{{ minigraph_lldp_nei | length * 0.8 }} <= {{ active_intf | length }}" }
