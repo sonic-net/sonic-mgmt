@@ -2,7 +2,7 @@
 # ansible-playbook sonic-test.yml -i str --limit device_1 --become --vault-password-file ~/password  --tags fast_reboot -e "ptf_host=10.0.0.21" -e "vm_hosts=['10.0.0.200','10.0.0.201','10.0.0.202','10.0.0.203']"
 
 - block:
-    - name: figure out fast reboot vm hosts
+    - name: figure out vm hosts
       testbed_vm_info: base_vm={{ vm }} topo={{ testbed_type }}
       connection: local
 
