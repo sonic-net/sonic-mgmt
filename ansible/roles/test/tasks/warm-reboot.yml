@@ -1,0 +1,5 @@
+- name: Warm-reboot test
+  include: advanced-reboot.yml
+  vars:
+      reboot_type: warm-reboot
+
