@@ -190,6 +190,7 @@ def parse_dpg(dpg, hname):
         mgmtintfs = child.find(str(QName(ns, "ManagementIPInterfaces")))
         mgmt_intf = None
         for mgmtintf in mgmtintfs.findall(str(QName(ns1, "ManagementIPInterface"))):
+            intfname = mgmtintf.find(str(QName(ns, "AttachTo"))).text
             ipprefix = mgmtintf.find(str(QName(ns1, "PrefixStr"))).text
             mgmtipn = ipaddress.IPNetwork(ipprefix)
             # Ignore IPv6 management address
@@ -199,7 +200,7 @@ def parse_dpg(dpg, hname):
             prefix_len = str(mgmtipn.prefixlen)
             ipmask = mgmtipn.netmask
             gwaddr = ipaddress.IPAddress(int(mgmtipn.network) + 1)
-            mgmt_intf = {'addr': ipaddr, 'prefixlen': prefix_len, 'mask': ipmask, 'gwaddr': gwaddr}
+            mgmt_intf = {'addr': ipaddr, 'alias': intfname, 'prefixlen': prefix_len, 'mask': ipmask, 'gwaddr': gwaddr}
 
         pcintfs = child.find(str(QName(ns, "PortChannelInterfaces")))
         pc_intfs = []

@@ -18,6 +18,7 @@
     - vars/docker_registry.yml
   roles:
     - { role: test, scope: 'sonic' }
+  force_handlers: true
 
 - hosts: [lldp_neighbors]
   gather_facts: no

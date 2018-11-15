@@ -38,6 +38,7 @@
 - block:
     - name: Apply drop config to all ports
       shell: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time }} {{ ports }} {{ pfc_wd_detect_time }}"
+      become: yes
 
     - name: Start to copy and send PFC packets from all peers
       vars: 

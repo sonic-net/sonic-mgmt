@@ -32,7 +32,6 @@ route-map DEFAULT_ROUTES permit
 !
 {# #}
 {# NOTE: Using large enough values (e.g., podset_number = 200, #}
-{# max_tor_subnet_number = 16, tor_subnet_size = 64), will cause #}
 {# us to overflow the 192.168.0.0/16 private address space here. #}
 {# This should be fine for internal use, but may pose an issue if used otherwise #}
 {# #}
@@ -44,12 +43,14 @@ route-map DEFAULT_ROUTES permit
 {% set suffix = ( (podset * props.tor_number * props.max_tor_subnet_number * props.tor_subnet_size) +
                   (tor * props.max_tor_subnet_number * props.tor_subnet_size) +
                   (subnet * props.tor_subnet_size) ) %}
-{% set octet2 = (168 + ((suffix // (256 ** 2))) % 256) %}
+{% set octet2 = (168 + (suffix // (256 ** 2))) %}
+{% set octet1 = (192 + (octet2 // 256)) %}
+{% set octet2 = (octet2 % 256) %}
 {% set octet3 = ((suffix // 256) % 256) %}
 {% set octet4 = (suffix % 256) %}
 {% set prefixlen_v4 = (32 - ((props.tor_subnet_size | log(2))) | int) %}
-ip route 192.{{ octet2 }}.{{ octet3 }}.{{ octet4 }}/{{ prefixlen_v4 }} {{ props.nhipv4 }}
-ipv6 route 20C0:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/64 {{ props.nhipv6 }}
+ip route {{ octet1 }}.{{ octet2 }}.{{ octet3 }}.{{ octet4 }}/{{ prefixlen_v4 }} {{ props.nhipv4 }}
+ipv6 route {{ '20%02x' % octet1 }}:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/64 {{ props.nhipv6 }}
 {% endif %}
 {% endfor %}
 {% endfor %}
@@ -61,14 +62,16 @@ ipv6 route 20C0:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/64
 {% if podset != 0 or tor != 0 %}
 {% set suffix = ( (podset * props.tor_number * props.max_tor_subnet_number * props.tor_subnet_size) +
                   (tor * props.max_tor_subnet_number * props.tor_subnet_size) ) %}
-{% set octet2 = (168 + ((suffix // (256 ** 2))) % 256) %}
+{% set octet2 = (168 + (suffix // (256 ** 2))) %}
+{% set octet1 = (192 + (octet2 // 256)) %}
+{% set octet2 = (octet2 % 256) %}
 {% set octet3 = ((suffix // 256) % 256) %}
 {% set octet4 = (suffix % 256) %}
 {% set prefixlen_v4 = (32 - (((props.max_tor_subnet_number * props.tor_subnet_size) | log(2)) | int) ) %}
 {% set prefixlen_v6 = (64 - (((props.max_tor_subnet_number * props.tor_subnet_size) | log(2)) | int) ) %}
-ip prefix-list test_ipv4_{{ podset}}_{{ tor }} seq 10 permit 192.{{ octet2 }}.{{ octet3 }}.{{ octet4 }}/{{ prefixlen_v4 }} ge {{ prefixlen_v4 }}
+ip prefix-list test_ipv4_{{ podset}}_{{ tor }} seq 10 permit {{ octet1 }}.{{ octet2 }}.{{ octet3 }}.{{ octet4 }}/{{ prefixlen_v4 }} ge {{ prefixlen_v4 }}
 ipv6 prefix-list test_ipv6_{{ podset}}_{{ tor }}
- seq 10 permit 20C0:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/{{ prefixlen_v6 }} ge {{ prefixlen_v6 }}
+ seq 10 permit {{ '20%02x' % octet1 }}:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/{{ prefixlen_v6 }} ge {{ prefixlen_v6 }}
 exit
 {% endif %}
 {% endfor %}

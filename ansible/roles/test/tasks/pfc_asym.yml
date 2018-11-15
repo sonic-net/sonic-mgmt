@@ -1,0 +1,286 @@
+- block:
+
+  - fail: msg="Information about testbed missing"
+    when: (testbed_type is not defined)
+
+  - fail: msg="Invalid testbed_type value '{{testbed_type}}'"
+    when: testbed_type not in ['t0']
+
+  # Initialize ports info
+
+  - name: Gather minigraph facts about the device
+    minigraph_facts: host={{inventory_hostname}}
+
+  - name: Initialize variables
+    set_fact:
+      server_ports: []
+
+  - name: Generate IP address in VLAN range for each server port
+    get_ip_in_range: num={{minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members']|length}} prefix="{{minigraph_vlan_interfaces[0]['addr']}}/{{minigraph_vlan_interfaces[0]['prefixlen']}}" exclude_ips="{{minigraph_vlan_interfaces[0]['addr']}}"
+    become: no
+    connection: local
+    failed_when: False
+
+  - name: Get server ports info
+    set_fact:
+      server_ports: "{{ server_ports + [{ 'dut_name': item.1, 'ptf_name': 'eth%u' % minigraph_port_indices[item.1], 'index': minigraph_port_indices[item.1], 'ptf_ip': generated_ips[item.0] }] }}"
+    with_indexed_items: "{{ minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'] }}"
+
+  - name: Get non server port info
+    set_fact:
+      non_server_port: "{{ {'dut_name': minigraph_portchannels[minigraph_portchannel_interfaces[0].attachto].members[0], 'ptf_name': 'eth%u' % minigraph_port_indices[minigraph_portchannels[minigraph_portchannel_interfaces[0].attachto].members[0]], 'index': minigraph_port_indices[minigraph_portchannels[minigraph_portchannel_interfaces[0].attachto].members[0]], 'ip': minigraph_portchannel_interfaces[0].peer_addr} }}"
+
+  # Configure ARP responder
+
+  - name: Set unique MACs to PTF interfaces
+    script: roles/test/files/helpers/change_mac.sh
+    delegate_to: "{{ptf_host}}"
+
+  - name: Copy ARP responder to PTF
+    copy: src=roles/test/files/helpers/arp_responder.py dest=/opt
+    delegate_to: "{{ptf_host}}"
+
+  - name: Copy ARP responder supervisor configuration to the PTF container
+    template: src=arp_responder.conf.j2 dest=/etc/supervisor/conf.d/arp_responder.conf
+    vars:
+      - arp_responder_args: '-c /tmp/arp_responder_pfc_asym.json'
+    delegate_to: "{{ ptf_host }}"
+
+  - name: Reread supervisor configuration
+    shell: /usr/local/bin/supervisorctl reread
+    delegate_to: "{{ptf_host}}"
+
+  - name: Update supervisor configuration
+    shell: /usr/local/bin/supervisorctl update
+    delegate_to: "{{ ptf_host }}"
+
+  # Copy tests to PTF host
+
+  - name: Copy PTF tests to PTF host
+    copy: src=roles/test/files/ptftests dest=/root
+    delegate_to: "{{ ptf_host }}"
+
+  - name: Copy SAI tests to PTF host
+    copy: src=roles/test/files/saitests dest=/root
+    delegate_to: "{{ ptf_host }}"
+
+  - name: Copy PTF portmap to PTF host
+    copy: src={{ ptf_portmap }} dest=/root
+    delegate_to: "{{ ptf_host }}"
+
+  # Get lossless and lossy priorities
+
+  - name: Get port QOS map key
+    command: docker exec -i database redis-cli --raw -n 4 KEYS *PORT_QOS_MAP*
+    register: out
+  - set_fact: port_qos_key={{out.stdout}}
+
+  - name: Get lossless priorities
+    command: docker exec -i database redis-cli -n 4 HGET "{{port_qos_key}}" "pfc_enable"
+    register: out
+  - set_fact: lossless_priorities={{out.stdout.split(",")}}
+
+  - name: Get buffer PG keys
+    command: docker exec -i database redis-cli --raw -n 4 KEYS *BUFFER_PG*
+    register: out
+  - set_fact: buf_pg_keys={{out.stdout.split()}}
+
+  - name: Get buffer PG profiles
+    command: docker exec -i database redis-cli -n 4 HGET {{item}} "profile"
+    with_items: "{{buf_pg_keys}}"
+    register: out
+
+  - name: Get lossy priorities
+    set_fact: lossy_priorities={{item.item.split("|")[-1].split("-")}}
+    with_items: "{{out.results}}"
+    when: item.stdout|search("lossy")
+
+  # Get PFC to DSCP mapping
+
+  - set_fact:
+      pfc_to_dscp: {}
+
+  - name: Get DSCP to TC map key
+    command: bash -c "docker exec -i database redis-cli --raw -n 4 KEYS *DSCP_TO_TC_MAP*"
+    register: out
+  - set_fact: dscp_to_tc_key={{out.stdout}}
+
+  - name: Get DSCP to TC map hash keys
+    command: docker exec -i database redis-cli --raw -n 4 HKEYS "{{dscp_to_tc_key}}"
+    register: out
+  - set_fact: dscp_to_tc_keys={{out.stdout.split()}}
+
+  - name: Get DSCP to TC map
+    command: docker exec -i database redis-cli -n 4 HGET {{dscp_to_tc_key}} {{item}}
+    with_items: "{{dscp_to_tc_keys}}"
+    register: out
+
+  - name: Get PFC to DSCP map
+    set_fact:
+      pfc_to_dscp: "{{ pfc_to_dscp | combine({item.stdout|int: item.item|int}) }}"
+    with_items: "{{out.results}}"
+
+  # Configure and deploy PFC generator
+
+  - name: Gathering lab graph facts about the device
+    conn_graph_facts: host={{ ansible_host }}
+    connection: local
+    tags: always
+
+  - set_fact:
+      neighbors: "{{device_conn}}"
+
+  - set_fact:
+      peer_device: "{{neighbors[server_ports[0]['dut_name']]['peerdevice']}}"
+      neighbor_interface: "{{neighbors[server_ports[0]['dut_name']]['peerport']}}"
+
+  - set_fact: neighbor_interfaces="{{ neighbor_interfaces|default([]) + [ neighbors[item]['peerport'] ] }}"
+    with_items: "{{ minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'] }}"
+
+  - conn_graph_facts: host={{ peer_device }}
+    connection: local
+
+  - set_fact:
+      peer_host: "{{device_info['mgmtip']}}"
+      peer_hwsku: "{{device_info['HwSku']}}"
+      peer_type: "{{device_info['Type']}}"
+
+  - name: Set PFC storm templates based on fanout platform SKU
+    include: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
+
+  - set_fact:
+      pfc_gen_file: pfc_gen.py
+      pfc_queue_index: 0xff
+      pfc_frames_number: 1000000
+      pfc_fanout_interface: "{{ neighbor_interfaces | join(',') }}"
+      ansible_eth0_ipv4_addr: "{{ansible_eth0['ipv4']['address']}}"
+      pfc_asym: True
+
+  - name: Deploy PFC packet generator to fanout switch
+    include: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
+
+  # Run test cases
+
+  - name: Start PTF runner
+    include: ptf_runner.yml
+    vars:
+      ptf_test_name: Asymmetric PFC test
+      ptf_test_dir: saitests
+      ptf_test_path: pfc_asym.PfcAsymOffOnTxTest
+      ptf_platform: remote
+      ptf_platform_dir: ptftests
+      ptf_test_params:
+        - port_map_file='/root/{{ ptf_portmap | basename }}'
+        - server='{{ ansible_host }}'
+        - server_ports={{server_ports}}
+        - non_server_port={{non_server_port}}
+        - router_mac='{{ ansible_Ethernet0['macaddress'] }}'
+        - pfc_to_dscp={{pfc_to_dscp}}
+        - lossless_priorities={{lossless_priorities}}
+        - lossy_priorities={{lossy_priorities}}
+      ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_asym.PfcAsymOffTxTest.log"
+
+  - name: Start PFC generator on fanout switch
+    action: apswitch template="{{pfc_wd_storm_template}}"
+    args:
+      host: "{{peer_host}}"
+      login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+    connection: switch
+
+  - name: Start PTF runner
+    include: ptf_runner.yml
+    vars:
+      ptf_test_name: Asymmetric PFC test
+      ptf_test_dir: saitests
+      ptf_test_path: pfc_asym.PfcAsymOffRxTest
+      ptf_platform: remote
+      ptf_platform_dir: ptftests
+      ptf_test_params:
+        - port_map_file='/root/{{ ptf_portmap | basename }}'
+        - server='{{ ansible_host }}'
+        - server_ports={{server_ports}}
+        - non_server_port={{non_server_port}}
+        - router_mac='{{ ansible_Ethernet0['macaddress'] }}'
+        - pfc_to_dscp={{pfc_to_dscp}}
+        - lossless_priorities={{lossless_priorities}}
+        - lossy_priorities={{lossy_priorities}}
+      ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_asym.PfcAsymOffRxTest.log"
+
+  - name: Stop PFC generator on fanout switch
+    action: apswitch template="{{pfc_wd_storm_stop_template}}"
+    args:
+      host: "{{peer_host}}"
+      login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+    connection: switch
+
+  - name: Enable asymmetric PFC on all server interfaces
+    command: config interface {{ item.dut_name }} pfc asymmetric on
+    become: yes
+    with_items: '{{ server_ports }}'
+
+  - name: Start PTF runner
+    include: ptf_runner.yml
+    vars:
+      ptf_test_name: Asymmetric PFC test
+      ptf_test_dir: saitests
+      ptf_test_path: pfc_asym.PfcAsymOffOnTxTest
+      ptf_platform: remote
+      ptf_platform_dir: ptftests
+      ptf_test_params:
+        - port_map_file='/root/{{ ptf_portmap | basename }}'
+        - server='{{ ansible_host }}'
+        - server_ports={{server_ports}}
+        - non_server_port={{non_server_port}}
+        - router_mac='{{ ansible_Ethernet0['macaddress'] }}'
+        - pfc_to_dscp={{pfc_to_dscp}}
+        - lossless_priorities={{lossless_priorities}}
+        - lossy_priorities={{lossy_priorities}}
+      ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_asym.PfcAsymOnTxTest.log"
+
+  - name: Start PFC generator on fanout switch
+    action: apswitch template="{{pfc_wd_storm_template}}"
+    args:
+      host: "{{peer_host}}"
+      login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+    connection: switch
+
+  - name: Start PTF runner
+    include: ptf_runner.yml
+    vars:
+      ptf_test_name: Asymmetric PFC test
+      ptf_test_dir: saitests
+      ptf_test_path: pfc_asym.PfcAsymOnRxTest
+      ptf_platform: remote
+      ptf_platform_dir: ptftests
+      ptf_test_params:
+        - port_map_file='/root/{{ ptf_portmap | basename }}'
+        - server='{{ ansible_host }}'
+        - server_ports={{server_ports}}
+        - non_server_port={{non_server_port}}
+        - router_mac='{{ ansible_Ethernet0['macaddress'] }}'
+        - pfc_to_dscp={{pfc_to_dscp}}
+        - lossless_priorities={{lossless_priorities}}
+        - lossy_priorities={{lossy_priorities}}
+      ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_asym.PfcAsymOnRxTest.log"
+
+  always:
+
+    - name: Disable asymmetric PFC on all server interfaces
+      command: config interface {{ item.dut_name }} pfc asymmetric off
+      become: yes
+      with_items: '{{ server_ports }}'
+
+    - name: Remove SAI tests from PTF container
+      file: path=/root/saitests state=absent
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Remove portmap
+      file: path=/root/={{ ptf_portmap }} state=absent
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Stop PFC generator on fanout switch
+      action: apswitch template="{{pfc_wd_storm_stop_template}}"
+      args:
+        host: "{{peer_host}}"
+        login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+      connection: switch
