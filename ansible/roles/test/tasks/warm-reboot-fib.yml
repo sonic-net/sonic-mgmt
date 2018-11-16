@@ -1,8 +1,8 @@
-#-----------------------------------------
-# Run FIB test and Perform log analysis.
-#-----------------------------------------
+#--------------------------------------------------
+# Run FIB Warm Reboot test and Perform log analysis.
+#--------------------------------------------------
 # Perform prechecks
-- include: fib_shared.yml
+- include: shared-fib.yml
 
 - debug : msg="Start FIB_WARM Test"
 
@@ -35,12 +35,12 @@
   failed_when: False
 
 - name: set config warm_restart enable {{ warm_restart_docker }}
-  shell: config warm_restart enable {{ warm_restart_docker }}
+  shell: echo "config warm_restart enable {{ warm_restart_docker }}"
   become: true
   when: warm_restart_docker is defined
 
 - name: set config warm_restart enable system
-  shell: config warm_restart enable system
+  shell: echo "config warm_restart enable system"
   become: true
   when: warm_restart_docker is not defined
 
@@ -49,12 +49,12 @@
     seconds: 10
 
 - name: restart {{ warm_restart_docker}}
-  shell: service {{ warm_restart_docker }} restart
+  shell: echo "service {{ warm_restart_docker }} restart"
   become: true
   when: warm_restart_docker is defined
 
-- name: reboot Sonic Switch
-  shell: reboot
+- name: reboot dut
+  shell: echo "reboot"
   become: true
   when: warm_restart_docker is not defined
 

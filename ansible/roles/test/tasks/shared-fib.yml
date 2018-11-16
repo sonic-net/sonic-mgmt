@@ -1,3 +1,6 @@
+#-----------------------------------------
+# Contains shared part for fib test cases.
+#-----------------------------------------
 # Pre-check testbed_type value
 - debug: msg="Fib Pre Checks"
 
