@@ -81,7 +81,14 @@ testcases:
           vm_hosts:
 
     fib:
-      filename: fib.yml
+      filename: simple-fib.yml
+      topologies: [t0, t0-16, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
+      required_vars:
+          ptf_host:
+          testbed_type:
+
+    warm-reboot-fib:
+      filename: warm-reboot-fib.yml
       topologies: [t0, t0-16, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
       required_vars:
           ptf_host:

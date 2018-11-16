@@ -1,8 +1,9 @@
 #-----------------------------------------
-# Run FIB test and Perform log analysis.
+# Contains shared part for fib test cases.
 #-----------------------------------------
-
 # Pre-check testbed_type value
+- debug: msg="Fib Pre Checks"
+
 - fail: msg="testbed_type is not defined."
   when: testbed_type is not defined
 
@@ -36,7 +37,6 @@
   copy: src=/tmp/fib_info.txt dest=/root
   delegate_to: "{{ptf_host}}"
 
-- debug : msg="Start FIB Test"
 
 - name: copy the test to ptf container
   copy: src=roles/test/files/ptftests dest=/root
@@ -47,19 +47,3 @@
 
 - set_fact: ipv6=true
   when: ipv6 is not defined
-
-- name: "Start PTF runner"
-  include: ptf_runner.yml
-  vars:
-    ptf_test_name: FIB test
-    ptf_test_dir: ptftests
-    ptf_test_path: fib_test.FibTest
-    ptf_platform: remote
-    ptf_platform_dir: ptftests
-    ptf_test_params:
-      - testbed_type='{{testbed_type}}'
-      - router_mac='{{ansible_Ethernet0['macaddress']}}'
-      - fib_info='/root/fib_info.txt'
-      - ipv4={{ipv4}}
-      - ipv6={{ipv6}}
-    ptf_extra_options: "--relax --debug info --log-file /tmp/fib_test.FibTest.ipv4.{{ipv4}}.ipv6.{{ipv6}}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
