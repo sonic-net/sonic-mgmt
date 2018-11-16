@@ -43,7 +43,7 @@
     set_fact:
       dut_system_description: "{{ result.stdout }}"
 
-###TODO: fix this lldp_neighbor validation, this part is not running 
+###TODO: fix this lldp_neighbor validation, this part is not running
 - name: Iterate through each LLDP neighbor and verify the information received by neighbor is correct
   add_host:
     name: "{{ lldp[item]['chassis']['mgmt-ip'] }}"
@@ -59,3 +59,81 @@
   with_items: "{{ lldp.keys() }}"
   when: item != "eth0"
 
+################Test Cases for LLDP bug fixes #######################
+- block:
+    - debug: msg="Deployment Specific Test Cases, Test LLDP timing/buffer issue."
+
+    # create the config_db.json (test specific)
+    - name: collect SONiC current configuration info (to find macaddress)
+      setup:
+
+    - name: saved original config_db.json in SONiC DUT (ignore errors when file does not exist)
+      shell: cp /etc/sonic/config_db.json /etc/sonic/config_db.json.orig
+      become: true
+      ignore_errors: true
+
+    - name: copy test specific lldp_config_db.json to Sonic DUT
+      become: true
+      copy:
+        src: roles/test/files/test_specific_configs/lldp_config_db.json
+        dest: /etc/sonic/config_db.json
+
+    - name: update mac hostname and speed in config_db.json
+      become: true
+      replace:
+        dest: /etc/sonic/config_db.json
+        regexp: "{{ item.regexp}}"
+        replace: "{{ item.line }}"
+      with_items:
+        - { regexp: '"hostname": ".*"', line: '"hostname": "{{ testbed_facts["dut"] }}"' }
+
+    - name: execute cli "config reload -l -y" to merge the system info on device
+      become: true
+      shell: config reload -l -y
+
+    - name: wait 60 seconds for completion of "config reload" command.
+      pause: seconds=60
+
+    - name: Ensure LLDP Daemon is runing and Enabled
+      become: true
+      service: name=lldpd
+               state=running
+               enabled=yes
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i lldp python
+
+    - name: Get total number of interfaces from config_db.json file
+      shell: sonic-cfggen -j /etc/sonic/config_db.json -v "PORT.keys() | length"
+      register: interface_num
+
+    - name: Restart swss service and check lldpcli show statistics 10 times in a loop
+      shell: |
+         service swss restart & sleep 15s
+         docker exec -it lldp bash -c "lldpcli show statistics | grep Ethernet | wc -l"
+      register: lldpcli_output
+      failed_when: lldpcli_output.stdout != interface_num.stdout
+      with_sequence: start=0 end=10 stride=1
+
+  always:
+    - name: Restore the original config_db.json
+      shell: mv /etc/sonic/config_db.json.orig /etc/sonic/config_db.json
+      become: true
+      ignore_errors: true
+
+    - name: execute cli "config reload -y" to apply restored config_db.json
+      become: true
+      shell: config reload -y
+
+    - name: reboot
+      include: common_tasks/reboot_sonic.yml
+
+    - name: validate all interfaces are up after test
+      include: interface.yml
+
+    - name: wait for interfaces to come up
+      interface_facts: up_ports={{minigraph_ports}}
+      until: "{{ ansible_interface_link_down_ports | length }} == 0"
+      retries: 10
+      delay: 15
+## End of Test Cases for LLDP bug fixes ###
