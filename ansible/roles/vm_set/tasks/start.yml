@@ -61,9 +61,10 @@
     hostname: "{{ vm_name }}"
     mgmt_ip_address: "{{ hostvars[vm_name]['ansible_host'] }}"
     serial_port: "{{ vm_console_base|int + vm_name[4:]|int }}"
-    disk_image: "{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
+    src_disk_image: "{{ root_path }}/images/{{ hdd_image_filename }}"
+    disk_image: "{{ home_path }}/{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
+    cdrom_image: "{{ home_path }}/{{ root_path }}/images/{{ cd_image_filename }}"
     mgmt_tap:  "{{ vm_name }}-m"
     port1_bridge: "br-{{ vm_name }}-back"
     port1_tap: "{{ vm_name }}-back"
   with_items: "{{ VM_hosts }}"
-
