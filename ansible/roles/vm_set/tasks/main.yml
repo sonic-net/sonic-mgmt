@@ -51,20 +51,6 @@
         msg: "Kernel upgraded, need to reboot!"
   when: kernel_upgrade_needed is defined
 
-- name: Add docker repository for 17.04
-  apt_repository:
-    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu zesty stable
-    state: present
-  become: yes
-  when: host_distribution_version == "17.04"
-
-- name: Add docker repository for 16.04
-  apt_repository:
-    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable
-    state: present
-  become: yes
-  when: host_distribution_version == "16.04"
-
 - name: Install necessary packages
   apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
   become: yes
@@ -83,12 +69,8 @@
     - ca-certificates
     - curl
     - software-properties-common
-    - docker-ce
 
-- name: Install python packages
-  pip: name=docker-py state=present version=1.7.2
-  become: yes
-  environment: "{{ proxy_env | default({}) }}"
+- include: docker.yml
 
 - name: Install br_netfilter kernel module
   become: yes
