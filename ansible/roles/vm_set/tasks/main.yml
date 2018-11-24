@@ -72,12 +72,27 @@
 
 - include: docker.yml
 
+- name: Ensure {{ ansible_user }} in libvirt and docker group
+  user:
+    name: "{{ ansible_user }}"
+    groups: libvirt,docker
+  become: yes
+
 - name: Install br_netfilter kernel module
   become: yes
   modprobe: name=br_netfilter state=present
 
 - include: external_port.yml
   when: external_port is defined
+
+- block:
+    - getent:
+        database: passwd
+        key: "{{ ansible_user }}"
+        split: ":"
+    - set_fact:
+        home_path: "{{ getent_passwd[ansible_user][4] }}"
+    - debug: msg="{{ home_path }}"
 
 - name: Ensure {{ root_path }} exists
   file: path={{ root_path }} state=directory
