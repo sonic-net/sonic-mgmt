@@ -1,21 +1,3 @@
-- name: Set sysctl bridge parameters for testbed
-  sysctl:
-    name: "{{ item }}"
-    value: 0
-    sysctl_set: yes
-  become: yes
-  with_items:
-   - net.bridge.bridge-nf-call-arptables
-   - net.bridge.bridge-nf-call-ip6tables
-   - net.bridge.bridge-nf-call-iptables
-
-- name: Set sysctl RCVBUF parameter for testbed
-  sysctl:
-    name: "net.core.rmem_max"
-    value: 509430500
-    sysctl_set: yes
-  become: yes
-
 - name: Create directory for vm images and vm disks
   file: path={{ item }} state=directory mode=0755
   with_items:
