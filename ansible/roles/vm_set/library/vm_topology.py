@@ -28,7 +28,8 @@ description:
       - inserts physical vlans into the docker container to represent endhosts
       - binds internal interfaces of the docker container to correspoinding VM ports
       - connects interfaces "Ethernet9" of every VM in current vm set to each other
-      - connect vlan interface to bridges representing vm set fp ports
+      - connect dut fp ports to bridges representing vm set fp ports
+      - connect dut mgmt ports to mgmt bridge (option)
     - with cmd: 'renumber' the module:
       - disconnect vlan interface to bridges representing vm set fp ports
       - inserts mgmt interface inside of the docker container with name "ptf_{{vm_set_name}}"
@@ -49,10 +50,11 @@ Parameters:
     - topo: dictionary with VMs topology. Check vars/topo_*.yml for details
     - vm_names: list of VMs represented on a current host
     - vm_base: which VM consider the first VM in the current vm set
-    - mgmt_ip_addr: ip address with prefixlen for the injected docker container
-    - mgmt_ip_gw: default gateway for the injected docker container
+    - ptf_mgmt_ip_addr: ip address with prefixlen for the injected docker container
+    - ptf_mgmt_ip_gw: default gateway for the injected docker container
     - mgmt_bridge: a bridge which is used as mgmt bridge on the host
-    - dut_ports: dut ports
+    - dut_fp_ports: dut ports
+    - dut_mgmt_port: dut mgmt port
     - fp_mtu: MTU for FP ports
 '''
 
@@ -70,10 +72,11 @@ EXAMPLES = '''
     topo: "{{ topology }}"
     vm_names: "{{ VM_hosts }}"
     vm_base: "{{ VM_base }}"
-    mgmt_ip_addr: "{{ ptf_ip }}"
-    mgmt_ip_gw: "{{ mgmt_gw }}"
+    ptf_mgmt_ip_addr: "{{ ptf_ip }}"
+    ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
     mgmt_bridge: "{{ mgmt_bridge }}"
-    dut_ports: "{{ dut_ports }}"
+    dut_mgmt_port: "{{ dut_mgmt_port }}"
+    dut_fp_ports: "{{ dut_fp_ports }}"
     fp_mtu: "{{ fp_mtu_size }}"
     max_fp_num: "{{ max_fp_num }}
 '''
@@ -111,7 +114,7 @@ class VMTopology(object):
 
         return
 
-    def init(self, vm_set_name, topo, vm_base, dut_ports, ptf_exists=True):
+    def init(self, vm_set_name, topo, vm_base, dut_fp_ports, ptf_exists=True):
         self.vm_set_name = vm_set_name
         if 'VMs' in topo:
             self.VMs = topo['VMs']
@@ -132,7 +135,7 @@ class VMTopology(object):
         else:
             self.host_interfaces = []
 
-        self.dut_ports = dut_ports
+        self.dut_fp_ports = dut_fp_ports
 
         self.injected_fp_ports = self.extract_vm_vlans()
 
@@ -298,9 +301,15 @@ class VMTopology(object):
 
         return
 
-    def up_ext_iface(self):
-        if self.ext_iface in self.host_interfaces:
-            VMTopology.iface_up(self.ext_iface)
+    def bind_mgmt_port(self, br_name, mgmt_port):
+        if mgmt_port not in self.host_if_to_br:
+            VMTopology.cmd("brctl addif %s %s" % (br_name, mgmt_port))
+
+        return
+
+    def unbind_mgmt_port(self, mgmt_port):
+        if mgmt_port in self.host_if_to_br:
+            VMTopology.cmd("brctl delif %s %s" % (self.host_if_to_br[mgmt_port], mgmt_port))
 
         return
 
@@ -310,7 +319,7 @@ class VMTopology(object):
                injected_iface = INJECTED_INTERFACES_TEMPLATE % (self.vm_set_name, vlan)
                br_name = OVS_FP_BRIDGE_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
                vm_iface = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
-               self.bind_ovs_ports(br_name, self.dut_ports[vlan], injected_iface, vm_iface, disconnect_vm)
+               self.bind_ovs_ports(br_name, self.dut_fp_ports[vlan], injected_iface, vm_iface, disconnect_vm)
 
         return
 
@@ -433,7 +442,7 @@ class VMTopology(object):
     def inject_host_ports(self):
         self.update()
         for vlan in self.host_interfaces:
-            self.add_dut_if_to_docker(PTF_FP_IFACE_TEMPLATE % vlan, self.dut_ports[vlan])
+            self.add_dut_if_to_docker(PTF_FP_IFACE_TEMPLATE % vlan, self.dut_fp_ports[vlan])
 
         return
 
@@ -604,10 +613,11 @@ def main():
             topo=dict(required=False, type='dict'),
             vm_names=dict(required=True, type='list'),
             vm_base=dict(required=False, type='str'),
-            mgmt_ip_addr=dict(required=False, type='str'),
-            mgmt_ip_gw=dict(required=False, type='str'),
+            ptf_mgmt_ip_addr=dict(required=False, type='str'),
+            ptf_mgmt_ip_gw=dict(required=False, type='str'),
             mgmt_bridge=dict(required=False, type='str'),
-            dut_ports=dict(required=False, type='str'),
+            dut_fp_ports=dict(required=False, type='list'),
+            dut_mgmt_port=dict(required=False, type='str'),
             fp_mtu=dict(required=False, type='int', default=DEFAULT_MTU),
             max_fp_num=dict(required=False, type='int', default=NUM_FP_VLANS_PER_FP),
         ),
@@ -617,6 +627,7 @@ def main():
     vm_names = module.params['vm_names']
     fp_mtu = module.params['fp_mtu']
     max_fp_num = module.params['max_fp_num']
+    dut_mgmt_port = None
 
     try:
         if os.path.exists(CMD_DEBUG_FNAME) and os.path.isfile(CMD_DEBUG_FNAME):
@@ -631,14 +642,14 @@ def main():
         elif cmd == 'bind':
             check_params(module, ['vm_set_name',
                                   'topo',
-                                  'mgmt_ip_addr',
-                                  'mgmt_ip_gw',
+                                  'ptf_mgmt_ip_addr',
+                                  'ptf_mgmt_ip_gw',
                                   'mgmt_bridge',
-                                  'dut_ports'], cmd)
+                                  'dut_fp_ports'], cmd)
 
             vm_set_name = module.params['vm_set_name']
             topo = module.params['topo']
-            dut_ports = module.params['dut_ports'].split(',')
+            dut_fp_ports = module.params['dut_fp_ports']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (VM_SET_NAME_MAX_LEN, vm_set_name, len(vm_set_name)))
@@ -651,17 +662,18 @@ def main():
             else:
                 vm_base = None
 
-            net.init(vm_set_name, topo, vm_base, ext_iface)
+            net.init(vm_set_name, topo, vm_base, dut_fp_ports)
 
-            mgmt_ip_addr = module.params['mgmt_ip_addr']
-            mgmt_ip_gw = module.params['mgmt_ip_gw']
+            ptf_mgmt_ip_addr = module.params['ptf_mgmt_ip_addr']
+            ptf_mgmt_ip_gw = module.params['ptf_mgmt_ip_gw']
             mgmt_bridge = module.params['mgmt_bridge']
 
-            net.add_mgmt_port_to_docker(mgmt_bridge, mgmt_ip_addr, mgmt_ip_gw)
-            net.up_ext_iface()
+            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw)
 
             if vms_exists:
                 net.add_veth_ports_to_docker()
+                if module.params['dut_mgmt_port']:
+                    net.bind_mgmt_port(mgmt_bridge, module.params['dut_mgmt_port'])
                 net.bind_fp_ports()
                 net.bind_vm_backplane()
 
@@ -670,11 +682,11 @@ def main():
         elif cmd == 'unbind':
             check_params(module, ['vm_set_name',
                                   'topo',
-                                  'dut_ports'], cmd)
+                                  'dut_fp_ports'], cmd)
 
             vm_set_name = module.params['vm_set_name']
             topo = module.params['topo']
-            dut_ports = module.params['dut_ports'].split(',')
+            dut_fp_ports = module.params['dut_fp_ports']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (VM_SET_NAME_MAX_LEN, vm_set_name, len(vm_set_name)))
@@ -687,22 +699,24 @@ def main():
             else:
                 vm_base = None
 
-            net.init(vm_set_name, topo, vm_base, ext_iface, False)
+            net.init(vm_set_name, topo, vm_base, dut_ext_ports, False)
 
             if vms_exists:
+                if module.params['dut_mgmt_port']:
+                    net.unbind_mgmt_port(module.params['dut_mgmt_port'])
                 net.unbind_vm_backplane()
                 net.unbind_fp_ports()
         elif cmd == 'renumber':
             check_params(module, ['vm_set_name',
                                   'topo',
-                                  'mgmt_ip_addr',
-                                  'mgmt_ip_gw',
+                                  'ptf_mgmt_ip_addr',
+                                  'ptf_mgmt_ip_gw',
                                   'mgmt_bridge',
-                                  'dut_ports'], cmd)
+                                  'dut_fp_ports'], cmd)
 
             vm_set_name = module.params['vm_set_name']
             topo = module.params['topo']
-            dut_iface = module.params['dut_ports'].split(',')
+            dut_iface = module.params['dut_fp_ports']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (VM_SET_NAME_MAX_LEN, vm_set_name, len(vm_set_name)))
@@ -715,13 +729,13 @@ def main():
             else:
                 vm_base = None
 
-            net.init(vm_set_name, topo, vm_base, dut_ports, True)
+            net.init(vm_set_name, topo, vm_base, dut_fp_ports, True)
 
-            mgmt_ip_addr = module.params['mgmt_ip_addr']
-            mgmt_ip_gw = module.params['mgmt_ip_gw']
+            ptf_mgmt_ip_addr = module.params['ptf_mgmt_ip_addr']
+            ptf_mgmt_ip_gw = module.params['ptf_mgmt_ip_gw']
             mgmt_bridge = module.params['mgmt_bridge']
 
-            net.add_mgmt_port_to_docker(mgmt_bridge, mgmt_ip_addr, mgmt_ip_gw)
+            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw)
 
             if vms_exists:
                 net.unbind_fp_ports()
@@ -732,11 +746,11 @@ def main():
         elif cmd == 'connect-vms' or cmd == 'disconnect-vms':
             check_params(module, ['vm_set_name',
                                   'topo',
-                                  'dut_ports'], cmd)
+                                  'dut_fp_ports'], cmd)
 
             vm_set_name = module.params['vm_set_name']
             topo = module.params['topo']
-            dut_ports = module.params['dut_iface'].split(',')
+            dut_fp_ports = module.params['dut_iface'].split(',')
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (VM_SET_NAME_MAX_LEN, vm_set_name, len(vm_set_name)))
@@ -749,7 +763,7 @@ def main():
             else:
                 vm_base = None
 
-            net.init(vm_set_name, topo, vm_base, dut_ports)
+            net.init(vm_set_name, topo, vm_base, dut_fp_ports)
 
             if vms_exists:
                 if cmd == 'connect-vms':
