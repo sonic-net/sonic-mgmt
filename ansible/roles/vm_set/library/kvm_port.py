@@ -7,6 +7,16 @@ import subprocess
 from ansible.module_utils.basic import *
 
 DOCUMENTATION = '''
+module: kvm_port
+version_added: "0.1"
+author: Guohan Lu (gulv@microsoft.com)
+short_description: Gather management and front panel ports from KVM-based DUT
+'''
+
+EXAMPLES = '''
+- name: Get front panel and mgmt port for kvm vm
+  kvm_port:
+    vmname: "{{ dut_name }}"
 '''
 
 def main():

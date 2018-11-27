@@ -71,10 +71,6 @@
     conn_graph_facts: host={{ dut_name }}
     connection: local
 
-  - name: Extracting vlan_range
-    set_fact: vlan_base={{ device_vlan_list | min }}
-    when: external_iface is defined
-
   roles:
     - { role: vm_set, action: 'start_sonic_vm' }
     - { role: vm_set, action: 'add_topo' }

@@ -18,14 +18,17 @@
 - name: get host distribution
   shell: grep ^NAME /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
   register: host_distribution
+  changed_when: False
 
 - name: get host distribution version
   shell: grep ^VERSION_ID /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
   register: host_distribution_version
+  changed_when: False
 
 - name: get host kernel version
   shell: uname -r
   register: host_kernel
+  changed_when: False
 
 - name: Check if kernel upgrade needed
   set_fact:
@@ -100,8 +103,13 @@
     sysctl_set: yes
   become: yes
 
-- include: external_port.yml
+- name: Setup external front port
+  include: external_port.yml
   when: external_port is defined
+
+- name: Setup internal management network
+  include: internal_mgmt_network.yml
+  when: internal_mgmt_network is defined and internal_mgmt_network == True
 
 - block:
     - getent:

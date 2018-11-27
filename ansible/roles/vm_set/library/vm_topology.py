@@ -699,7 +699,7 @@ def main():
             else:
                 vm_base = None
 
-            net.init(vm_set_name, topo, vm_base, dut_ext_ports, False)
+            net.init(vm_set_name, topo, vm_base, dut_fp_ports, False)
 
             if vms_exists:
                 if module.params['dut_mgmt_port']:
@@ -716,7 +716,7 @@ def main():
 
             vm_set_name = module.params['vm_set_name']
             topo = module.params['topo']
-            dut_iface = module.params['dut_fp_ports']
+            dut_fp_ports = module.params['dut_fp_ports']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (VM_SET_NAME_MAX_LEN, vm_set_name, len(vm_set_name)))
@@ -750,7 +750,7 @@ def main():
 
             vm_set_name = module.params['vm_set_name']
             topo = module.params['topo']
-            dut_fp_ports = module.params['dut_iface'].split(',')
+            dut_fp_ports = module.params['dut_fp_ports']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (VM_SET_NAME_MAX_LEN, vm_set_name, len(vm_set_name)))

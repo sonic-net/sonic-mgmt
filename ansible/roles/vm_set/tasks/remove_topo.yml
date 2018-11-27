@@ -5,14 +5,17 @@
     state: absent
   become: yes
 
-- name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }} base vlan = {{ vlan_base }}
+- name: Setup front panel/mgmt port for dut
+  include: setup_dut_port.yml
+
+- name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }}
   vm_topology:
     cmd: "unbind"
     vm_set_name: "{{ vm_set_name }}"
     topo: "{{ topology }}"
     vm_names: "{{ VM_hosts }}"
     vm_base: "{{ VM_base }}"
-    vlan_base: "{{ vlan_base }}"
-    ext_iface: "{{ external_iface }}"
+    dut_fp_ports: "{{ dut_fp_ports }}"
+    dut_mgmt_port: "{{ dut_mgmt_port }}"
     max_fp_num: "{{ max_fp_num }}"
   become: yes

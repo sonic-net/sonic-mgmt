@@ -45,6 +45,6 @@
              new_password={{ new_password }}
   register: kickstart_output
 
-- name: Fail if kickstart gives error again vm {{ vm_name }}
-  fail: msg="Start vm weren't succesfull"
+- name: Fail if kickstart gives error for {{ dut_name }}
+  fail: msg="Start sonic vm weren't succesfull"
   when: kickstart_output.kickstart_code != 0

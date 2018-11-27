@@ -17,22 +17,8 @@
   command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.conf.all.disable_ipv6=0
   become: yes
 
-- name: Setup front panel port for vlan tunnel
-  vlan_port:
-    ext_iface: "{{ external_iface }}"
-    vlan_base: "{{ vlan_base }}"
-  become: yes
-  when: external_iface is defined
-
-- name: Setup mgmt port for physical dut
-  set_fact:
-    dut_mgmt_port: None
-  when: external_iface is defined
-
-- name: Get front panel and mgmt port for kvm vm
-  kvm_port:
-    vmname: "{{ dut_name }}"
-  when: external_iface is not defined
+- name: Setup front panel/mgmt port for dut
+  include: setup_dut_port.yml
 
 - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
   vm_topology:
