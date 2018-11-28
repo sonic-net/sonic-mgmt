@@ -72,11 +72,18 @@ class SerialSession(object):
 
         return index
 
-    def login(self, user, password):
-        self.pair('\r', [r'login:'], 300)
-        index_password = self.pair(user, [r'assword:', r'\$'], 20)
-        if index_password == 0:
-            self.pair(password, [r'\$'], 10)
+    def login(self, user, passwords):
+        while True:
+            index = self.pair('\r', [r'login:', r'assword:'], 300)
+            if index == 0:
+                break
+
+        for password in passwords:
+            index = self.pair(user, [r'assword:', r'\$'], 20)
+            if index == 0:
+                index = self.pair(password, [r'login:', r'\$'], 10)
+                if index == 1:
+                    break
 
         return
 
@@ -96,13 +103,15 @@ class SerialSession(object):
 def session(new_params):
     seq = [
         ('hostname %s' % str(new_params['hostname']), [r'#']),
+        ('sed -i s:sonic:%s: /etc/hosts' % str(new_params['hostname']), [r'#']),
         ('ifconfig eth0 %s' % str(new_params['mgmt_ip']), [r'#']),
         ('ip route add 0.0.0.0/0 via %s table default' % str(new_params['mgmt_gw']), [r'#']),
+        ('echo %s:%s | chpasswd' % (str(new_params['login']), str(new_params['new_password'])), [r'#']),
     ]
 
     debug = MyDebug('/tmp/debug.%s.txt' % new_params['hostname'], enabled=True)
     ss = SerialSession(new_params['telnet_port'], debug)
-    ss.login(new_params['login'], new_params['password'])
+    ss.login(new_params['login'], new_params['passwords'])
     ss.configure(seq)
     ss.logout()
     ss.cleanup()
@@ -121,12 +130,11 @@ def main():
     module = AnsibleModule(argument_spec=dict(
         telnet_port = dict(required=True),
         login = dict(required=True),
-        password = dict(required=True),
+        passwords = dict(required=True, type='list'),
         hostname = dict(required=True),
         mgmt_ip = dict(required=True),
         mgmt_gw = dict(required=True),
-        new_login = dict(required=False),
-        new_password = dict(required=False),
+        new_password = dict(required=True),
     ))
 
     try:
