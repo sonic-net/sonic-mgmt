@@ -1,13 +1,3 @@
-- name: Remove ptf docker container ptf_{{ vm_set_name }}
-  docker:
-    name: ptf_{{ vm_set_name }}
-    image: "{{ docker_registry_host }}/{{ ptf_imagename }}"
-    state: absent
-  become: yes
-
-- name: Setup front panel/mgmt port for dut
-  include: setup_dut_port.yml
-
 - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }}
   vm_topology:
     cmd: "unbind"
@@ -18,4 +8,11 @@
     dut_fp_ports: "{{ dut_fp_ports }}"
     dut_mgmt_port: "{{ dut_mgmt_port }}"
     max_fp_num: "{{ max_fp_num }}"
+  become: yes
+
+- name: Remove ptf docker container ptf_{{ vm_set_name }}
+  docker:
+    name: ptf_{{ vm_set_name }}
+    image: "{{ docker_registry_host }}/{{ ptf_imagename }}"
+    state: absent
   become: yes

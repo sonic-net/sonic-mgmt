@@ -1,0 +1,20 @@
+- name: Extracting vlan_range
+  set_fact: vlan_base={{ device_vlan_list | min }}
+  when: external_iface is defined
+
+- name: Setup front panel port for vlan tunnel
+  vlan_port:
+    external_port: "{{ external_port }}"
+    vlan_base: "{{ vlan_base }}"
+  become: yes
+  when: external_port is defined
+
+- name: Setup mgmt port for physical dut
+  set_fact:
+    dut_mgmt_port: None
+  when: external_port is defined
+
+- name: Get front panel and mgmt port for kvm vm
+  kvm_port:
+    vmname: "{{ dut_name }}"
+  when: external_port is not defined

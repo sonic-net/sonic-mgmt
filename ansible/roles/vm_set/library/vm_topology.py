@@ -154,7 +154,7 @@ class VMTopology(object):
         if self.pid is not None:
             self.cntr_ifaces = VMTopology.ifconfig('nsenter -t %s -n ifconfig -a' % self.pid)
         else:
-            self.cntr_ifaces = None
+            self.cntr_ifaces = []
 
         return
 
@@ -267,6 +267,24 @@ class VMTopology(object):
 
         return
 
+    def remove_dut_if_from_docker(self, iface_name, dut_iface):
+
+        if self.pid is None:
+            return
+
+        self.update()
+        if iface_name in self.cntr_ifaces:
+            VMTopology.iface_down(iface_name, self.pid)
+
+        if iface_name in self.cntr_ifaces and dut_iface not in self.cntr_ifaces:
+            VMTopology.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, iface_name, dut_iface))
+
+        self.update()
+        if dut_iface not in self.host_ifaces and dut_iface in self.cntr_ifaces:
+            VMTopology.cmd("nsenter -t %s -n ip link set netns 1 dev %s" % (self.pid, dut_iface))
+
+        return
+
     def add_veth_if_to_docker(self, ext_if, int_if):
         self.update()
 
@@ -375,7 +393,7 @@ class VMTopology(object):
             back_int_name = BACK_ROOT_END_IF_TEMPLATE % vm_name
             vm_int_name = BACK_VM_END_IF_TEMPLATE % vm_name
 
-            self.unbind_phys_vlan(br_name, vm_int_name)
+            self.unbind_ovs_port(br_name, vm_int_name)
 
             if back_int_name in self.host_ifaces:
                 VMTopology.iface_down(back_int_name)
@@ -440,11 +458,18 @@ class VMTopology(object):
         return
 
     def inject_host_ports(self):
+        """inject dut port into the ptf docker"""
         self.update()
         for vlan in self.host_interfaces:
             self.add_dut_if_to_docker(PTF_FP_IFACE_TEMPLATE % vlan, self.dut_fp_ports[vlan])
 
         return
+
+    def deject_host_ports(self):
+        """deject dut port from the ptf docker"""
+        self.update()
+        for vlan in self.host_interfaces:
+            self.remove_dut_if_from_docker(PTF_FP_IFACE_TEMPLATE % vlan, self.dut_fp_ports[vlan])
 
     @staticmethod
     def iface_up(iface_name, pid=None):
@@ -480,8 +505,11 @@ class VMTopology(object):
     @staticmethod
     def get_ovs_br_ports(bridge):
         out = VMTopology.cmd('ovs-vsctl list-ports %s' % bridge)
-        return set(out.split('\n'))
-
+        ports = set()
+        for port in out.split('\n'):
+            if port != "":
+                ports.add(port)
+        return ports
 
     @staticmethod
     def get_ovs_port_bindings(bridge, vlan_iface = None):
@@ -523,7 +551,10 @@ class VMTopology(object):
     @staticmethod
     def get_pid(ptf_name):
         cli = Client(base_url='unix://var/run/docker.sock')
-        result = cli.inspect_container(ptf_name)
+        try:
+            result = cli.inspect_container(ptf_name)
+        except:
+            return None
 
         return result['State']['Pid']
 
@@ -691,7 +722,7 @@ def main():
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (VM_SET_NAME_MAX_LEN, vm_set_name, len(vm_set_name)))
 
-            _, vms_exists = check_topo(topo)
+            hostif_exists, vms_exists = check_topo(topo)
 
             if vms_exists:
                 check_params(module, ['vm_base'], cmd)
@@ -699,13 +730,16 @@ def main():
             else:
                 vm_base = None
 
-            net.init(vm_set_name, topo, vm_base, dut_fp_ports, False)
+            net.init(vm_set_name, topo, vm_base, dut_fp_ports)
 
             if vms_exists:
                 if module.params['dut_mgmt_port']:
                     net.unbind_mgmt_port(module.params['dut_mgmt_port'])
                 net.unbind_vm_backplane()
                 net.unbind_fp_ports()
+
+            if hostif_exists:
+                net.deject_host_ports()
         elif cmd == 'renumber':
             check_params(module, ['vm_set_name',
                                   'topo',

@@ -181,8 +181,8 @@
 
 - name: Start SONiC VM
   include: start_sonic_vm.yml
-  when: action == 'start_sonic_vm'
+  when: action == 'start_sonic_vm' and hostvars[dut_name]['type'] == 'kvm'
 
 - name: Stop SONiC VM
   include: stop_sonic_vm.yml
-  when: action == 'stop_sonic_vm'
+  when: action == 'stop_sonic_vm' and hostvars[dut_name]['type'] == 'kvm'
