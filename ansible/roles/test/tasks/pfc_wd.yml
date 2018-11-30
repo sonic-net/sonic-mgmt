@@ -134,10 +134,21 @@
     - name: Test PFC WD extreme case when all ports have storm
       include: roles/test/tasks/pfc_wd/functional_test/storm_all_test.yml
 
+    - name: Vlan members initial value
+      set_fact:
+        vlan_members: []
+
+    - name: Set vlan members
+      set_fact:
+        vlan_members: "{{ minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members']}}"
+      when:
+        - minigraph_vlan_interfaces
+        - pfc_asym is defined
+
     - name: Enable asymmetric PFC on all server interfaces
       command: config interface pfc asymmetric on {{ item }}
       become: yes
-      with_items: "{{ minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'] }}"
+      with_items: "{{ vlan_members }}"
       when:
         - pfc_asym is defined
         - testbed_type in ['t0']
@@ -158,6 +169,6 @@
     - name: Disable asymmetric PFC on all server interfaces
       command: config interface pfc asymmetric on {{ item.dut_name }}
       become: yes
-      with_items: "{{ minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'] }}"
+      with_items: "{{ vlan_members }}"
       when:
-        - pfc_asym is defined        
+        - pfc_asym is defined
