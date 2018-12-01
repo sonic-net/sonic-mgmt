@@ -462,7 +462,7 @@ def parse_xml(filename, hostname):
     elif hwsku == "Arista-7260CX3-C64":
         for i in range(1, 65):
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Arista-7060CX-32S-C32":
+    elif hwsku == "Arista-7060CX-32S-C32" or hwsku == "Arista-7060CX-32S-C32-T1":
         for i in range(1, 33):
             port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "Mellanox-SN2700-D48C8":
