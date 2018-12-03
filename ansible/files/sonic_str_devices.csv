@@ -40,6 +40,7 @@ str-wedge100b-acs-1,10.64.246.30/23,Wedge-100B-C32,DevSonic
 str-wedge100b-acs-2,10.64.247.3/23,Wedge-100B-C32,DevSonic
 str-wedge100b65-acs-1,10.64.247.4/23,Wedge-100B-65X,DevSonic
 str-wedge100b65-acs-2,10.64.247.5/23,Wedge-100B-65X,DevSonic
+str-a7170-acs-1,10.64.246.73/23,Arista-7170-64C,DevSonic
 str-a7060cx-acs-10,10.64.247.240/23,Arista-7060CX-32S-C32,DevSonic
 str-a7060cx-acs-1,10.64.247.14/23,Arista-7060CX-32S-D48C8,DevSonic
 str-7260cx3-acs-1,10.64.247.224/23,Arista-7260CX3-D108C8,DevSonic
@@ -88,6 +89,7 @@ str-7060cx-32s-18,10.64.247.22/23,Arista-7060CX-32S,FanoutLeaf
 str-7060cx-32s-21,10.64.246.32/23,Arista-7060CX-32S,FanoutLeaf
 str-7060cx-32s-22,10.64.246.34/23,Arista-7060CX-32S,FanoutLeaf
 str-7260cx3-fan-03,10.64.246.47/23,Arista-7260CX3,FanoutLeaf
+str-7260cx3-fan-04,10.64.246.74/23,Arista-7260CX3,FanoutLeaf
 str-acs-serv-01,10.3.147.245/23,TestServ,Server
 str-acs-serv-02,10.3.147.246/23,TestServ,Server
 str-acs-serv-03,10.3.147.244/23,TestServ,Server
