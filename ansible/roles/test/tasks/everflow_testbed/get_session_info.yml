@@ -8,6 +8,11 @@
     session_gre: "0x6558"
     session_queue: "0"
 
+- name: Set Mellanox GRE protocol type
+  set_fact:
+    session_gre: "0x8949"
+  when: sonic_hwsku in mellanox_hwskus
+
 - debug: msg="session name {{ session_name }}"
 
 - set_fact:

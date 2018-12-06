@@ -177,3 +177,7 @@
 - name: CRM test
   include: crm.yml
   tags: crm
+
+- name: Asymmetric PFC test
+  include: pfc_asym.yml
+  tags: pfc_asym

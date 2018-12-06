@@ -43,6 +43,6 @@
   always:
     - name: Restore original value
       shell: ecnconfig -p AZURE_LOSSLESS -rmin {{ red_min_threshold }}
+      become: yes
       register: ecn_restore
       failed_when: ecn_restore.rc != 0
-
