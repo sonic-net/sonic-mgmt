@@ -226,7 +226,7 @@ class Arista(object):
             return result
 
         for events in result_bgp.values():
-            if len(events) > 1 and events[-1][1] != 'Established':
+            if events[-1][1] != 'Established':
                 return result
 
         # first state is Idle, last state is Established
