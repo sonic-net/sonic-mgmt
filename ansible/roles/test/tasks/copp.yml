@@ -14,7 +14,7 @@
 
     - name: Disable Mellanox copp rate limiting
       script: roles/test/files/mlnx/disable_copp_rate_limiting.sh
-      when: minigraph_hwsku is defined and minigraph_hwsku == 'ACS-MSN2700'
+      when: minigraph_hwsku is defined #and minigraph_hwsku == 'ACS-MSN2700'  #harrison
 
     - name: Remove existing ip from ptf host
       script: roles/test/files/helpers/remove_ip.sh
@@ -42,6 +42,7 @@
 
     - name: Update ptf_nn_agent configuration inside dut
       template: src=ptf_nn_agent.conf.dut.j2 dest=/etc/supervisor/conf.d/ptf_nn_agent.conf
+#      template: src=ptf_nn_agent.conf.dut.j2 dest=/home/admin/ptf_nn_agent.conf
       vars:
         ansible_shell_type: docker
         ansible_python_interpreter: docker exec -i syncd python

@@ -1,0 +1,33 @@
+StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode
+cel_seastone_01,etp1,seastone-01,  Ethernet0,100000,200,Access
+cel_seastone_01,etp2,seastone-01,  Ethernet4,100000,201,Access
+cel_seastone_01,etp3,seastone-01,  Ethernet8,100000,202,Access
+cel_seastone_01,etp4,seastone-01, Ethernet12,100000,203,Access
+cel_seastone_01,etp5,seastone-01, Ethernet16,100000,204,Access
+cel_seastone_01,etp6,seastone-01, Ethernet20,100000,205,Access
+cel_seastone_01,etp7,seastone-01, Ethernet24,100000,206,Access
+cel_seastone_01,etp8,seastone-01, Ethernet28,100000,207,Access
+cel_seastone_01,etp9,seastone-01, Ethernet32,100000,208,Access
+cel_seastone_01,etp10,seastone-01, Ethernet36,100000,209,Access
+cel_seastone_01,etp11,seastone-01, Ethernet40,100000,210,Access
+cel_seastone_01,etp12,seastone-01, Ethernet44,100000,211,Access
+cel_seastone_01,etp13,seastone-01, Ethernet48,100000,212,Access
+cel_seastone_01,etp14,seastone-01, Ethernet52,100000,213,Access
+cel_seastone_01,etp15,seastone-01, Ethernet56,100000,214,Access
+cel_seastone_01,etp16,seastone-01, Ethernet60,100000,215,Access
+cel_seastone_01,etp17,seastone-01, Ethernet64,100000,216,Access
+cel_seastone_01,etp18,seastone-01, Ethernet68,100000,217,Access
+cel_seastone_01,etp19,seastone-01, Ethernet72,100000,218,Access
+cel_seastone_01,etp20,seastone-01, Ethernet76,100000,219,Access
+cel_seastone_01,etp21,seastone-01, Ethernet80,100000,220,Access
+cel_seastone_01,etp22,seastone-01, Ethernet84,100000,221,Access
+cel_seastone_01,etp23,seastone-01, Ethernet88,100000,222,Access
+cel_seastone_01,etp24,seastone-01, Ethernet92,100000,223,Access
+cel_seastone_01,etp25,seastone-01, Ethernet96,100000,224,Access
+cel_seastone_01,etp26,seastone-01,Ethernet100,100000,225,Access
+cel_seastone_01,etp27,seastone-01,Ethernet104,100000,226,Access
+cel_seastone_01,etp28,seastone-01,Ethernet108,100000,227,Access
+cel_seastone_01,etp29,seastone-01,Ethernet112,100000,228,Access
+cel_seastone_01,etp30,seastone-01,Ethernet116,100000,229,Access
+cel_seastone_01,etp31,seastone-01,Ethernet120,100000,230,Access
+seastone-01,etp32,STR-ACS-SERV-01,enp175s0f0,40000,,Trunk

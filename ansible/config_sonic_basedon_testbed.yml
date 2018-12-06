@@ -60,7 +60,8 @@
       remote_dut: "{{ ansible_ssh_host }}"
 
   - name: gather testbed VM informations
-    testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }}
+    #testbed_vm_info: base_vm="{{ testbed_facts['vm_base'] }}" topo="{{ testbed_facts['topo'] }}"
+    testbed_vm_info: base_vm="{{vm_base}}" topo="{{topo}}"
     connection: local
     when: "VM_topo | bool"
 
@@ -126,5 +127,5 @@
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true
         shell: config save -y
-        when: save is defined and save|bool == true
+       # when: save is defined and save|bool == true
     when: deploy is defined and deploy|bool == true

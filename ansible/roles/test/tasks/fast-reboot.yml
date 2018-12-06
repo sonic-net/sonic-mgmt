@@ -1,6 +1,9 @@
 # example:
 # ansible-playbook sonic-test.yml -i str --limit device_1 --become --vault-password-file ~/password  --tags fast_reboot -e "ptf_host=10.0.0.21" -e "vm_hosts=['10.0.0.200','10.0.0.201','10.0.0.202','10.0.0.203']"
 
+- debug:
+      msg: Fast-reboot MENGWEN test
+
 - block:
     - name: figure out fast reboot vm hosts
       testbed_vm_info: base_vm={{ vm }} topo={{ testbed_type }}
@@ -127,7 +130,7 @@
 
   always:
     - name: Copy test results from ptf to the local box /tmp/fast-reboot.log
-      fetch: src='/tmp/fast-reboot.log' dest='/tmp/' flat=true fail_on_missing=false
+      fetch: src='/tmp/fast-reboot.log' dest='/tmp/fast-reboot.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log' flat=true fail_on_missing=true
       delegate_to: "{{ ptf_host }}"
 
     - name: Remove existing ip from ptf host

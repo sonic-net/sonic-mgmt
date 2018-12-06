@@ -1,0 +1,6 @@
+Hostname,ManagementIp,HwSku,Type
+cel_seastone_01,10.250.0.53/23,Celestica-DX010-C32,DevSonic
+str-7260-10,10.250.0.110/23,Arista-7260QX-64,FanoutLeaf
+str-7260-11,10.251.0.234/23,Arista-7260QX-64,FanoutRoot
+seastone-01,10.250.0.54/23,Celestica-DX010-C32,FanoutLeaf
+STR-ACS-SERV-01,10.250.0.1/23,TestServ,Server

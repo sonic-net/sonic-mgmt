@@ -3,13 +3,13 @@
 
 # Set value...
 - name: Set WRED value {{ item }}
-  shell: ecnconfig -p AZURE_LOSSY -rmin {{ item }}
+  shell: sudo ecnconfig -p AZURE_LOSSY -rmin {{ item }}
   register: rc
   failed_when: rc.rc != 0
 
 # ... and check ASIC DB if it is set
 - name: Get WRED objects
-  shell: docker exec database redis-cli -n 1 --eval {{ tmp_dir }}/get_red_min.lua , {{ item }} | grep {{ item }}
+  shell: sudo docker exec database redis-cli -n 1 --eval {{ tmp_dir }}/get_red_min.lua , {{ item }} | grep {{ item }}
   register: wred_objects
   failed_when: wred_objects.rc != 0
 

@@ -16,10 +16,14 @@
     po_flap: "{{ (po_intf_num|float - 1)/(po_min_links|float)*100 < 75 }}"
     flap_intf: "{{ lag_facts.lags[item]['po_config']['ports'].keys()[0] }}"
 
+- debug: msg="fanout-neighbors----{{fanout_neighbors}}"
+
 ### figure out fanout switches info for the flapping lag member and run minlink test
 - set_fact:
-    peer_device: "{{ fanout_neighbors[flap_intf]['peerdevice'] }}"
-    neighbor_interface: "{{ fanout_neighbors[flap_intf]['peerport'] }}"
+#    peer_device: "{{ fanout_neighbors[minigraph_ports[flap_intf][alias]]['peerdevice'] }}"  # removed by Vincent Meng
+    peer_device: "{{ fanout_neighbors[minigraph_ports[flap_intf]['name']]['peerdevice'] }}"  # added by Vincent Meng
+#    neighbor_interface: "{{ fanout_neighbors[minigraph_ports[flap_intf][alias]]['peerport'] }}" # removed by Vincent Meng
+    neighbor_interface: "{{ fanout_neighbors[minigraph_ports[flap_intf]['name']]['peerport'] }}" # added by Vincent Meng
 
 - conn_graph_facts: host={{ peer_device }}
   connection: local
@@ -27,6 +31,7 @@
 - set_fact:
     peer_host: "{{ device_info['mgmtip'] }}"
     peer_hwsku: "{{ device_info['HwSku'] }}"
+    peer_type: "{{ device_info['Type']}}"     # added by Vincent Meng
 
 - name: test fanout interface (physical) flap and lacp keep correct po status follow minimum links requirement
   include: lag_minlink.yml
@@ -38,6 +43,7 @@
     peer_device: "{{vm_neighbors[flap_intf]['name']}}"
     neighbor_interface: "{{vm_neighbors[flap_intf]['port']}}"
     peer_hwsku: 'Arista-VM'
+    peer_type: 'Arista'         # added by Vincent Meng
 
 - set_fact:
     peer_host: "{{ minigraph_devices[peer_device]['mgmt_addr'] }}"

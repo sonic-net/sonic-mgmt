@@ -5,7 +5,7 @@
     password: "{{ docker_registry_password }}"
     name: ptf_{{ vm_set_name }}
     image: "{{ docker_registry_host }}/{{ ptf_imagename }}"
-    pull: always
+    pull: missing
     state: reloaded
     net: none
     detach: True

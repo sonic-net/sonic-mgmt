@@ -1,3 +1,4 @@
+hosts:sonic_slx01
 [sonic_sn2700_40]
 str-msn2700-01    ansible_host=10.251.0.188
 
@@ -32,18 +33,21 @@ cel-seastone-02    ansible_host=10.250.0.100  hwsku="Seastone-DX010"
 iface_speed='100000'
 mgmt_subnet_mask_length="24"
 
+[sonic_slx01]
+cel-seastone-01 ansible_host=10.250.0.53 hwsku="Celestica-DX010-C32"  ansible_ssh_user=admin ansible_ssh_pass=password
+
+[sonic_slx01:vars]
+iface_speed='100000'
+mgmt_subnet_mask_length="24"
+
 
 [sonic:children]
-sonic_sn2700_40
-sonic_s6000
-sonic_s6100
-sonic_a7260
-sonic_slx02
+sonic_slx01
 
 
 [ptf]
-ptf_ptf1    ansible_host=10.255.0.188 ansible_ssh_user=root ansible_ssh_pass=root
-ptf_vms1-1  ansible_host=10.255.0.178 ansible_ssh_user=root ansible_ssh_pass=root
+ptf_2 ansible_host=10.250.0.55 ansible_ssh_user=root ansible_ssh_pass=root
+ptf_1 ansible_host=10.250.0.56 ansible_ssh_user=root ansible_ssh_pass=root
 
 [lab:children]
 sonic
@@ -53,6 +57,5 @@ fanout
 mgmt_subnet_mask_length="24"
 
 [fanout]
-str-7260-10       ansible_host=10.251.0.13
-str-7260-11       ansible_host=10.251.0.234
-str-msn2700-02    ansible_host=10.251.0.235 os=sonic
+seastone-01 ansible_host=10.250.0.54 os=sonic ansible_ssh_user=admin ansible_ssh_pass=password
+

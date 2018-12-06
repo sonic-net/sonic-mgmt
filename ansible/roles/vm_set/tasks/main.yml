@@ -67,7 +67,7 @@
 
 - name: Install necessary packages
   apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
-  become: yes
+  become: no
   with_items:
     - qemu
     - openvswitch-switch
@@ -84,6 +84,7 @@
     - curl
     - software-properties-common
     - docker-ce
+  ignore_errors: true
 
 - name: Install python packages
   pip: name=docker-py state=present version=1.7.2

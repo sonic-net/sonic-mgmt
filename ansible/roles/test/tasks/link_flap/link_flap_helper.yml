@@ -29,18 +29,19 @@
         host: "{{peer_host}}"
         login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
       connection: switch
-      when: peer_type == "FanoutLeaf"
+      when: peer_type == "FanoutLeafArista"   # modified by Vincent Meng, from "FanoutLeaf"
 
     - name: find interface name mapping
       port_alias: hwsku="{{peer_hwsku}}"
       delegate_to: "{{peer_host}}"
-      when: peer_type == "FanoutLeafSonic"
+      when: peer_type == "FanoutLeaf"
 
     - name: Shutting down neighbor interface {{neighbor_interface}} on {{peer_host}}
       become: true
-      shell: ip link set {{port_alias_map[neighbor_interface]}} down
+      #shell: ip link set {{port_alias[neighbor_interface]}} down  #removed by Vincent Meng, insteaded by next line 
+      shell: ip link set {{neighbor_interface}} down
       delegate_to: "{{peer_host}}"
-      when: peer_type == "FanoutLeafSonic"
+      when: peer_type == "FanoutLeaf"
 
     - pause:
         seconds: 20
@@ -63,13 +64,14 @@
         host: "{{peer_host}}"
         login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
       connection: switch
-      when: peer_type == "FanoutLeaf"
+      when: peer_type == "FanoutLeafArista"    # modeified by Vincent Meng, from "FanoutLeaf"
 
     - name: Bring up neighbor interface {{neighbor_interface}} on {{peer_host}}
       become: true
-      shell: ip link set {{port_alias_map[neighbor_interface]}} up
+      #shell: ip link set {{port_alias_map[neighbor_interface]}} up    # removed by Vincent Meng, insteaded by next line
+      shell: ip link set {{neighbor_interface}} up
       delegate_to: "{{peer_host}}"
-      when: peer_type == "FanoutLeafSonic"
+      when: peer_type == "FanoutLeaf"
 
     - pause:
         seconds: 20

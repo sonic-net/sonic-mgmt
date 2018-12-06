@@ -82,10 +82,10 @@ class Connection(ConnectionBase):
             self._display.vvv("Try password %s..." % login_passwd[0:4], host=self.host)
             client.sendline(login_passwd)
             client.timeout = 60
-            i = client.expect(['>', '#', '[Pp]assword:', pexpect.EOF])
-            if i < 2:
+            i = client.expect(['>', '#', '\$', '[Pp]assword:', pexpect.EOF])
+            if i < 3:
                 break
-            elif i == 3:
+            elif i == 4:
                 last_user = None
 
             # try a new password
@@ -98,7 +98,7 @@ class Connection(ConnectionBase):
 
         # determine the sku
         client.sendline('show version')
-        client.expect(['#', '>'])
+        client.expect(['#', '>', '\$'])
         if 'Arista' in client.before:
             self.sku = 'eos'
         elif 'Cisco' in client.before:
@@ -107,7 +107,9 @@ class Connection(ConnectionBase):
             self.sku = 'mlnx_os'
         if 'Dell' in client.before:
             self.sku = 'dell'
-
+        if 'SONiC' in client.before:
+            self.sku = 'sonic'
+            
         if self.sku == 'mlnx_os':
             self.hname = ' '.join(self.before_backup[-3:])
             self.hname = self.hname.replace("(", "[(]")
@@ -197,12 +199,16 @@ class Connection(ConnectionBase):
         # Prompt includes Login, Password, and yes/no for "start shell" case in Dell FTOS (launch bash shell)
         if not self.bash:
             prompts = ["%s>" % self.hname, "%s.+" % self.hname, "%s(\([a-zA-Z0-9\/\-]+\))?#" % self.hname, '[Ll]ogin:', '[Pp]assword:', '\[(confirm )?yes\/no\]:', '\(y\/n\)\??\s?\[n\]']
+            if self.sku == 'sonic':
+                prompts.append('\$')
         else:
             if self.sku == 'nxos':
                 # bash-3.2$ for nexus 6.5
                 prompts = ['bash-3\.2\$', 'bash-3\.2#']
             elif self.sku == 'eos':
                 prompts = ['\$ ']
+            elif self.sku == 'sonic':
+                prompts = ['\$']
 
         prompts.append(pexpect.EOF)
 

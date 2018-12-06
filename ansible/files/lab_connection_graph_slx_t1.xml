@@ -1,0 +1,92 @@
+<LabConnectionGraph>
+  <PhysicalNetworkGraphDeclaration>
+    <Devices>
+      <Device Hostname="cel_seastone_01" HwSku="Celestica-DX010-C32" Type="DevSonic"/>
+      <Device Hostname="str-7260-10" HwSku="Arista-7260QX-64" Type="FanoutLeaf"/>
+      <Device Hostname="str-7260-11" HwSku="Arista-7260QX-64" Type="FanoutRoot"/>
+      <Device Hostname="seastone-01" HwSku="Celestica-DX010-C32" Type="FanoutLeaf"/>
+      <Device Hostname="STR-ACS-SERV-01" HwSku="TestServ" Type="Server"/>
+    </Devices>
+    <DeviceInterfaceLinks>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort="  Ethernet0" StartDevice="cel_seastone_01" StartPort="  Ethernet0"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort="  Ethernet4" StartDevice="cel_seastone_01" StartPort="  Ethernet4"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort="  Ethernet8" StartDevice="cel_seastone_01" StartPort="  Ethernet8"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet12" StartDevice="cel_seastone_01" StartPort=" Ethernet12"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet16" StartDevice="cel_seastone_01" StartPort=" Ethernet16"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet20" StartDevice="cel_seastone_01" StartPort=" Ethernet20"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet24" StartDevice="cel_seastone_01" StartPort=" Ethernet24"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet28" StartDevice="cel_seastone_01" StartPort=" Ethernet28"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet32" StartDevice="cel_seastone_01" StartPort=" Ethernet32"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet36" StartDevice="cel_seastone_01" StartPort=" Ethernet36"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet40" StartDevice="cel_seastone_01" StartPort=" Ethernet40"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet44" StartDevice="cel_seastone_01" StartPort=" Ethernet44"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet48" StartDevice="cel_seastone_01" StartPort=" Ethernet48"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet52" StartDevice="cel_seastone_01" StartPort=" Ethernet52"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet56" StartDevice="cel_seastone_01" StartPort=" Ethernet56"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet60" StartDevice="cel_seastone_01" StartPort=" Ethernet60"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet64" StartDevice="cel_seastone_01" StartPort=" Ethernet64"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet68" StartDevice="cel_seastone_01" StartPort=" Ethernet68"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet72" StartDevice="cel_seastone_01" StartPort=" Ethernet72"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet76" StartDevice="cel_seastone_01" StartPort=" Ethernet76"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet80" StartDevice="cel_seastone_01" StartPort=" Ethernet80"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet84" StartDevice="cel_seastone_01" StartPort=" Ethernet84"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet88" StartDevice="cel_seastone_01" StartPort=" Ethernet88"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet92" StartDevice="cel_seastone_01" StartPort=" Ethernet92"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort=" Ethernet96" StartDevice="cel_seastone_01" StartPort=" Ethernet96"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort="Ethernet100" StartDevice="cel_seastone_01" StartPort="Ethernet100"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort="Ethernet104" StartDevice="cel_seastone_01" StartPort="Ethernet104"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort="Ethernet108" StartDevice="cel_seastone_01" StartPort="Ethernet108"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort="Ethernet112" StartDevice="cel_seastone_01" StartPort="Ethernet112"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort="Ethernet116" StartDevice="cel_seastone_01" StartPort="Ethernet116"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="seastone-01" EndPort="Ethernet120" StartDevice="cel_seastone_01" StartPort="Ethernet120"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="STR-ACS-SERV-01" EndPort="enp175s0f0" StartDevice="seastone-01" StartPort="Ethernet124"/>
+    </DeviceInterfaceLinks>
+  </PhysicalNetworkGraphDeclaration>
+  <DataPlaneGraph>
+    <DevicesL3Info Hostname="str-7260-10">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.250.0.110/23"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="str-7260-10"/>
+    <DevicesL3Info Hostname="str-7260-11">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.251.0.234/23"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="str-7260-11"/>
+    <DevicesL3Info Hostname="seastone-01">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.250.0.54/23"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="seastone-01">
+      <InterfaceVlan mode="Access" portname="  Ethernet0" vlanids="100"/>
+      <InterfaceVlan mode="Access" portname="  Ethernet4" vlanids="101"/>
+      <InterfaceVlan mode="Access" portname="  Ethernet8" vlanids="102"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet12" vlanids="103"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet16" vlanids="104"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet20" vlanids="105"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet24" vlanids="106"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet28" vlanids="107"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet32" vlanids="108"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet36" vlanids="109"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet40" vlanids="110"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet44" vlanids="111"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet48" vlanids="112"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet52" vlanids="113"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet56" vlanids="114"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet60" vlanids="115"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet64" vlanids="116"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet68" vlanids="117"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet72" vlanids="118"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet76" vlanids="119"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet80" vlanids="120"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet84" vlanids="121"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet88" vlanids="122"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet92" vlanids="123"/>
+      <InterfaceVlan mode="Access" portname=" Ethernet96" vlanids="124"/>
+      <InterfaceVlan mode="Access" portname="Ethernet100" vlanids="125"/>
+      <InterfaceVlan mode="Access" portname="Ethernet104" vlanids="126"/>
+      <InterfaceVlan mode="Access" portname="Ethernet108" vlanids="127"/>
+      <InterfaceVlan mode="Access" portname="Ethernet112" vlanids="128"/>
+      <InterfaceVlan mode="Access" portname="Ethernet116" vlanids="129"/>
+      <InterfaceVlan mode="Access" portname="Ethernet120" vlanids="130"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet124" vlanids=""/>
+    </DevicesL2Info>
+  </DataPlaneGraph>
+</LabConnectionGraph>

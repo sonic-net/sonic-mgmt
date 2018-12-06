@@ -11,4 +11,5 @@ vms-s6100-t1,vms4-1,t1-64,docker-ptf-sai-brcm,10.255.0.182/24,server_1,VM0100,la
 vms-s6100-t1-lag,vms5-1,t1-64-lag,docker-ptf-sai-brcm,10.255.0.183/24,server_1,VM0100,lab-s6100-01,Tests Dell S6100 vms
 cel_slx_02,ptf1,t0,docker-ptf,10.250.0.110/24,server_1,VM0100,cel-seastone-02,Tests ptf
 cel_slx_12,ptf1,t1,docker-ptf,10.250.0.110/24,server_1,VM0100,cel-seastone-02,Tests ptf
-
+tst_slx_02,ptf_2,t1,docker-ptf,10.250.0.55/24,server_1,VM0201,cel-seastone-01,Tests ptf
+tst_slx_01,ptf_1,t0,docker-ptf,10.250.0.56/24,server_1,VM0333,cel-seastone-01,Tests ptf

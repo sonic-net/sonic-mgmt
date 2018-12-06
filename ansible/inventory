@@ -1,18 +1,61 @@
-[sonic_latest]
-switch1  ansible_host=10.0.0.100  sonic_version=v2  sonic_hwsku=Force10-S6000
-switch2  ansible_host=10.0.0.101  sonic_version=v2  sonic_hwsku=ACS-MSN2700 
-switch3  ansible_host=10.0.0.102  sonic_version=v2  sonic_hwsku=Force10-S6000   # LAG topo: 8 LAGs x 2 members/lag to spines; 16 ports to Tors
-switch4  ansible_host=10.0.0.103  sonic_version=v2  sonic_hwsku=AS7512 sonic_portsku=32x40
-switch5  ansible_host=10.0.0.104  sonic_version=v2  sonic_hwsku=ACS-MSN2700 # LAG topo: 8 LAGs x 2 members/lag to spines; 16 ports to Tors
-cel-seastone-02  ansible_host=10.250.0.100  sonic_version=v2  sonic_hwsku=Seastone-DX010
+hosts:sonic_slx01
+[sonic_sn2700_40]
+str-msn2700-01    ansible_host=10.251.0.188
+
+[sonic_sn2700_40:vars]
+hwsku="ACS-MSN2700"
+iface_speed='40000'
+
+[sonic_s6000]
+lab-s6000-01      ansible_host=10.251.0.189
+
+[sonic_s6000:vars]
+hwsku="Force10-S6000"
+iface_speed='40000'
+
+[sonic_s6100]
+lab-s6100-01      ansible_host=10.251.0.190
+
+[sonic_s6100:vars]
+hwsku="Force10-S6100"
+iface_speed='40000'
+
+[sonic_a7260]
+lab-a7260-01      ansible_host=10.251.0.191    hwsku="Arista-7260CX3-D108C8"
+
+[sonic_a7260:vars]
+iface_speed='100000'
+
+[sonic_slx02]
+cel-seastone-02    ansible_host=10.250.0.100  hwsku="Seastone-DX010"
+
+[sonic_slx02:vars]
+iface_speed='100000'
+mgmt_subnet_mask_length="24"
+
+[sonic_slx01]
+cel_seastone_01    ansible_host=10.250.0.53 hwsku="Celestica-DX010-C32"  
+
+[sonic_slx01:vars]
+iface_speed='100000'
+mgmt_subnet_mask_length="24"
+
 
 [sonic:children]
-sonic_latest
+sonic_slx01
 
-[leaf_topo_1]
-switch1
-switch5
-cel-seastone-02
 
 [ptf]
-ptf-1 ansible_host=10.0.0.200 ansible_ssh_user=root ansible_ssh_pass=password
+ptf_2  ansible_host=10.250.0.55 ansible_ssh_user=root ansible_ssh_pass=root
+ptf_1  ansible_host=10.250.0.56 ansible_ssh_user=root ansible_ssh_pass=root
+
+[lab:children]
+sonic
+fanout
+
+[lab:vars]
+mgmt_subnet_mask_length="24"
+
+[fanout]
+seastone-01       ansible_host=10.250.0.54 os=sonic ansible_ssh_user=admin ansible_ssh_pass=password
+

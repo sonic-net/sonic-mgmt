@@ -5,13 +5,20 @@
 ### Port channel interface is up after peer port is back
 
 - block:
+    - name: Shut down neighbor interface {{ neighbor_interface }} on {{ peer_device }}   # added by vincent Meng
+      become: true
+      shell: ip link set {{ neighbor_interface }} down
+      delegate_to: "{{peer_host}}"
+      when: peer_type == "FanoutLeaf"
+
     - name: Shut down neighbor interface {{ neighbor_interface }} on {{ peer_device }}
       action: apswitch template=neighbor_interface_shut_single.j2
       args:
         host: "{{peer_host}}"
         login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
       connection: switch
-    
+      when: peer_type == "Arista"             # added by Vincent Meng
+
     - pause:
         seconds: "{{ wait_down_time }}"
     
@@ -37,12 +44,19 @@
 
   ### always bring back port in case test error and left testbed in unknow stage
   always:
+    - name: Bring up neighbor interface {{ neighbor_interface }} on {{ peer_host }}   # added by Vincent Meng
+      become: true
+      shell: ip link set {{ neighbor_interface }} up
+      delegate_to: "{{peer_host}}"
+      when: peer_type == "FanoutLeaf"
+
     - name: Bring up neighbor interface {{ neighbor_interface }} on {{ peer_host }}
       action: apswitch template=neighbor_interface_no_shut_single.j2
       args:
         host: "{{peer_host}}"
         login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
       connection: switch
+      when: peer_type == "Arista"           # added by Vincent Meng
     
     - pause:
         seconds: 20

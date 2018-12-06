@@ -50,6 +50,12 @@
     - router_utils.py
   delegate_to: "{{ ptf_host }}"
 
+- name: Copy PTF remote.py into PTF-docker for test LACP DU.     # added by Vincent Meng
+  copy: src=roles/test/files/ptftests/{{ item }} dest=/usr/lib/python2.7/dist-packages/ptf/platforms/{{ item }}
+  with_items:
+    - remote.py
+  delegate_to: "{{ ptf_host }}"
+
 - name: Include testbed topology configuration (to get LAG IP and PTF docker interfaces, that are behind LAG VMs).
   include_vars: vars/topo_t1-lag.yml
   when: testbed_type == 't1-lag'

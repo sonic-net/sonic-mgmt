@@ -156,7 +156,9 @@
 
     - name: Verify bgp sessions are established
       assert: {that: "'{{ bgp_neighbors[item]['state'] }}' == 'established'"}
-      with_items: "{{ bgp_neighbors.keys() }}"
+      with_items: "{{bgp_neighbors.keys()}}"
+
+    - debug: msg="{{speaker_ips}}"
 
     - name: Verify accepted prefixes of the dynamic neighbors are correct
       assert: {that: "'{{ bgp_neighbors[item]['accepted prefixes'] }}' == '1'"}

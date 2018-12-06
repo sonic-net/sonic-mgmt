@@ -1,5 +1,5 @@
 mgmt_bridge: br1
 mgmt_prefixlen: 23
-mgmt_gw: 10.255.0.1
+mgmt_gw: 10.250.0.1
 external_iface: p4p1
 
