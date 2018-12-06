@@ -518,6 +518,12 @@ def parse_xml(filename, hostname):
     elif hwsku == "Accton-AS7712-32X":
         for i in range(1, 33):
             port_alias_map["hundredGigE%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "Celestica-DX010-C32":
+        for i in range(1, 33):
+            port_alias_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "Seastone-DX010":
+        for i in range(1, 33):
+            port_alias_map["Eth%d" % i] = "Ethernet%d" % ((i - 1) * 4)
     else:
         for i in range(0, 128, 4):
             port_alias_map["Ethernet%d" % i] = "Ethernet%d" % i
