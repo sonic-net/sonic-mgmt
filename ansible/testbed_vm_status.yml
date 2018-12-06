@@ -1,3 +1,5 @@
+# Example:
+# ansible-playbook testbed_vm_status.yml -i veos -l server_1
 - hosts: servers:&vm_host
   tasks:
   - name: Get VM statuses from Testbed server
