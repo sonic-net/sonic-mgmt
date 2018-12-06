@@ -13,7 +13,6 @@
   when: 
     - check_fanout is defined
 
-
 - block:
   - name: Get Portchannel status 
     shell: show interfaces portchannel
