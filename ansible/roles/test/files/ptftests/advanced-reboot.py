@@ -149,9 +149,10 @@ class Arista(object):
 
             if not run_once:
                 self.ipv4_gr_enabled, self.ipv6_gr_enabled, self.gr_timeout = self.parse_bgp_neighbor_once(bgp_neig_output)
-                log_first_line = "session_begins_%f" % cur_time
-                self.do_cmd("send log message %s" % log_first_line)
-                run_once = True
+                if self.gr_timeout is not None:
+                    log_first_line = "session_begins_%f" % cur_time
+                    self.do_cmd("send log message %s" % log_first_line)
+                    run_once = True
 
             data[cur_time] = info
             if self.DEBUG:
@@ -230,8 +231,11 @@ class Arista(object):
 
         # first state is Idle, last state is Established
         for events in result_bgp.values():
-            assert(events[0][1] == 'Idle')
+            if len(events) > 1:
+                assert(events[0][1] != 'Established')
+
             assert(events[-1][1] == 'Established')
+
         # first state is down, last state is up
         for events in result_if.values():
             assert(events[0][1] == 'down')
