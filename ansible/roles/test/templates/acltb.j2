@@ -1,4 +1,4 @@
-{% if testbed_type == "t1" or testbed_type == "t1-lag" %}
+{% if testbed_type == "t1" or testbed_type == "t1-lag" or testbed_type == "t1-64-lag" %}
 {# tor ports #}
 {% for ifname, v in minigraph_neighbors.iteritems() %}{% if "T0" in v.name %}{{ '%d' % minigraph_port_indices[ifname] }},{% endif %}{% endfor %}
 
