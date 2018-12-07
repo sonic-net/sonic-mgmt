@@ -8,7 +8,7 @@
                             "1": {
                                 "actions": {
                                     "config": {
-                                        "forwarding-action": "DROP"
+                                        "forwarding-action": "ACCEPT"
                                     }
                                 },
                                 "config": {
@@ -23,7 +23,7 @@
                             "2": {
                                 "actions": {
                                     "config": {
-                                        "forwarding-action": "DROP"
+                                        "forwarding-action": "ACCEPT"
                                     }
                                 },
                                 "config": {
@@ -38,11 +38,26 @@
                             "3": {
                                 "actions": {
                                     "config": {
-                                        "forwarding-action": "DROP"
+                                        "forwarding-action": "ACCEPT"
                                     }
                                 },
                                 "config": {
                                     "sequence-id": 3
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "172.16.2.0/32"
+                                    }
+                                }
+                            },
+                            "4": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 4
                                 },
                                 "transport": {
                                     "config": {
@@ -50,33 +65,18 @@
                                     }
                                 }
                             },
-                            "4": {
-                                "actions": {
-                                    "config": {
-                                        "forwarding-action": "DROP"
-                                    }
-                                },
-                                "config": {
-                                    "sequence-id": 4
-                                },
-                                "ip": {
-                                    "config": {
-                                        "protocol": 126
-                                    }
-                                }
-                            },
                             "5": {
                                 "actions": {
                                     "config": {
-                                        "forwarding-action": "DROP"
+                                        "forwarding-action": "ACCEPT"
                                     }
                                 },
                                 "config": {
                                     "sequence-id": 5
                                 },
-                                "transport": {
+                                "ip": {
                                     "config": {
-                                        "tcp-flags": ["TCP_ACK", "TCP_SYN"]
+                                        "protocol": 126
                                     }
                                 }
                             },
@@ -89,9 +89,9 @@
                                 "config": {
                                     "sequence-id": 6
                                 },
-                                "ip": {
+                                "transport": {
                                     "config": {
-                                        "source-ip-address": "10.0.0.3/32"
+                                        "tcp-flags": ["TCP_ACK", "TCP_SYN"]
                                     }
                                 }
                             },
@@ -113,11 +113,26 @@
                             "8": {
                                 "actions": {
                                     "config": {
-                                        "forwarding-action": "DROP"
+                                        "forwarding-action": "ACCEPT"
                                     }
                                 },
                                 "config": {
                                     "sequence-id": 8
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "10.0.0.3/32"
+                                    }
+                                }
+                            },
+                            "9": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9
                                 },
                                 "transport": {
                                     "config": {
@@ -125,25 +140,10 @@
                                     }
                                 }
                             },
-                            "9": {
-                                "actions": {
-                                    "config": {
-                                        "forwarding-action": "DROP"
-                                    }
-                                },
-                                "config": {
-                                    "sequence-id": 9
-                                },
-                                "l2": {
-                                    "config": {
-                                        "ethertype": "4660"
-                                    }
-                                }
-                            },
                             "10": {
                                 "actions": {
                                     "config": {
-                                        "forwarding-action": "DROP"
+                                        "forwarding-action": "ACCEPT"
                                     }
                                 },
                                 "config": {
@@ -158,7 +158,7 @@
                             "11": {
                                 "actions": {
                                     "config": {
-                                        "forwarding-action": "DROP"
+                                        "forwarding-action": "ACCEPT"
                                     }
                                 },
                                 "config": {
@@ -179,21 +179,6 @@
                                 "config": {
                                     "sequence-id": 12
                                 },
-                                "l2": {
-                                    "config": {
-                                        "ethertype": "ETHERTYPE_IPV4"
-                                    }
-                                }
-                            },
-                            "13": {
-                                "actions": {
-                                    "config": {
-                                        "forwarding-action": "DROP"
-                                    }
-                                },
-                                "config": {
-                                    "sequence-id": 13
-                                },
                                 "ip": {
                                     "config": {
                                         "protocol":1,
@@ -201,14 +186,14 @@
                                     }
                                 }
                             },
-                            "14": {
+                            "13": {
                                 "actions": {
                                     "config": {
-                                        "forwarding-action": "DROP"
+                                        "forwarding-action": "ACCEPT"
                                     }
                                 },
                                 "config": {
-                                    "sequence-id": 14
+                                    "sequence-id": 13
                                 },
                                 "ip": {
                                     "config": {
