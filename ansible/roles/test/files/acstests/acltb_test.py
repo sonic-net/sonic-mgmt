@@ -123,7 +123,7 @@ class AclTest(BaseTest):
         self.tests_total = 0
 
         print "\nPort to sent packets to: %d" % src_port
-        print "Destination IP: %s" % dst_ip_blocked
+        print "Destination IP: %s" % dst_ip
         print "Ports to expect packet from: ",
         pprint.pprint(dst_ports)
         print "Dst IP expected to be blocked: ", dst_ip_blocked
