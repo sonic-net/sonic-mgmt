@@ -22,6 +22,7 @@
     - "acltb_test_rules-del.json"
     - "acltb_test_rules_part_1.json"
     - "acltb_test_rules_part_2.json"
+    - "acltb_test_rules_v6.json"
 
 # Generate file with switch information
 - template: src=acltb.j2 dest=/tmp/acltb_switch_info.txt
@@ -120,6 +121,40 @@
             - router_mac=\"{{ ansible_Ethernet0['macaddress'] }}\"
             - switch_info=\"/tmp/acltb_switch_info.txt\"
             - testbed_type=\"{{ testbed_type }}\"
+
+    - name: Clean up ACL rules.
+      vars:
+        command_to_run: "acl-loader update full /tmp/acltb_test_rules-del.json"
+        errors_expected: false
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
+
+    - name: Create L3V6 ACL table
+      vars:
+        command_to_run: "config load /tmp/acl_v6_table.json -y"
+        errors_expected: false
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
+
+    - name: Apply L3V6 ACL rules
+      vars:
+        command_to_run: "acl-loader update full /tmp/acltb_test_rules_v6.json"
+        errors_expected: false
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
+
+    - name: Run the test
+      include: ptf_runner.yml
+      vars:
+          ptf_test_name: ACL Test
+          ptf_test_dir: acstests
+          ptf_test_path: acltb_test.AclTest
+          ptf_platform_dir: ptftests
+          ptf_platform: remote
+          ptf_test_params:
+            - verbose=True
+            - router_mac=\"{{ ansible_Ethernet0['macaddress'] }}\"
+            - switch_info=\"/tmp/acltb_switch_info.txt\"
+            - testbed_type=\"{{ testbed_type }}\"
+            - ipv6_test = True
+
 
   always:
     # Copy ACL config to the switch

@@ -59,6 +59,7 @@ class AclTest(BaseTest):
         self.dataplane = ptf.dataplane_instance
         self.router_mac = self.test_params['router_mac']
         self.testbed_type = self.test_params['testbed_type']
+        self.ipv6_test = self.test_params['ipv6_test']
 
     #---------------------------------------------------------------------
 
@@ -271,38 +272,65 @@ class AclTest(BaseTest):
         tests_passed += (0 if res else 1)
         print "Test #12 %s" % ("FAILED" if res else "PASSED")							
 
-        pkt0 = simple_udp_packet(
-                                eth_dst = self.router_mac,
-                                eth_src = self.dataplane.get_mac(0, 0),
-                                ip_src = "10.0.0.1",
-                                ip_dst = dst_ip,
-                                udp_sport = 1234,
-                                udp_dport = 80,
-                                ip_ttl = 64
-                                )
-        #exp_pkt = pkt.deepcopy()
-        exp_pkt0 = simple_udp_packet(
-                                eth_dst = self.dataplane.get_mac(0, 0),
-                                eth_src = self.router_mac,
-                                ip_src = "10.0.0.1",
-                                ip_dst = dst_ip,
-                                udp_sport = 1234,
-                                udp_dport = 80,
-                                ip_ttl = 63
-                                )
+        return tests_passed, self.tests_total
 
-        # Test #13 - Verify source IP match - UDP packet and UDP protocol
+
+    #---------------------------------------------------------------------
+    def runAclTestsv6(self, dst_ip, dst_ip_blocked, src_port, dst_ports):
+        """
+        @summary: Crete and send packet to verify each ACL rule
+        @return: Number of tests passed
+        """
+
+        tests_passed = 0
+        self.tests_total = 0
+
+        print "\nPort to sent packets to: %d" % src_port
+        print "Destination IP: %s" % dst_ip_blocked
+        print "Ports to expect packet from: ",
+        pprint.pprint(dst_ports)
+        print "Dst IP expected to be blocked: ", dst_ip_blocked
+        
+        # Test #1 - Verify source IP match
         pkt = pkt0.copy()
         exp_pkt = exp_pkt0.copy()
-        pkt['IP'].src = "10.0.0.2"
-        exp_pkt['IP'].src = "10.0.0.2"
-        pkt['IP'].proto=0x11
-        exp_pkt['IP'].proto=0x11
+        pkt['IP'].src = "2001:cdba::3257:9652"
+        exp_pkt['IP'].src = "2001:cdba::3257:9652"
         res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
         tests_passed += (0 if res else 1)
-        print "Test #13 %s" % ("FAILED" if res else "PASSED")
+        print "Test #1 %s" % ("FAILED" if res else "PASSED")
+
+        # Test #2 - Verify destination IP match
+        pkt = pkt0.copy()
+        exp_pkt = exp_pkt0.copy()
+        pkt['IP'].dst = dst_ip_blocked
+        exp_pkt['IP'].dst = dst_ip_blocked
+        res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
+        tests_passed += (0 if res else 1)
+        print "Test #2 %s" % ("FAILED" if res else "PASSED")
+
+        # Test #3 - Verify L4 source port match
+        pkt = pkt0.copy()
+        exp_pkt = exp_pkt0.copy()
+        pkt['TCP'].sport = 0x1235
+        exp_pkt['TCP'].sport = 0x1235
+        res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
+        tests_passed += (0 if res else 1)
+        print "Test #3 %s" % ("FAILED" if res else "PASSED")
+
+        # Test #4 - Verify L4 destination port match
+        pkt = pkt0.copy()
+        exp_pkt = exp_pkt0.copy()
+        pkt['TCP'].dport = 0x1235
+        exp_pkt['TCP'].dport = 0x1235
+        res = self.runSendReceiveTest(pkt, src_port, exp_pkt, dst_ports)
+        tests_passed += (0 if res else 1)
+        print "Test #4 %s" % ("FAILED" if res else "PASSED")
+
 
         return tests_passed, self.tests_total
+
+
 
     #---------------------------------------------------------------------
 
@@ -323,11 +351,17 @@ class AclTest(BaseTest):
             self.dest_ip_addr_tor_blocked = self.switch_info[5].strip()
 
             # Verify ACLs on tor port
-            (tests_passed, tests_total) = self.runAclTests(self.dest_ip_addr_spine, self.dest_ip_addr_spine_blocked, self.tor_ports[0], self.spine_ports)
+            if self.ipv6_test:
+               (tests_passed, tests_total) = self.runAclTestsv6(self.dest_ip_addr_spine, self.dest_ip_addr_spine_blocked, self.tor_ports[0], self.spine_ports)
+            else:
+               (tests_passed, tests_total) = self.runAclTests(self.dest_ip_addr_spine, self.dest_ip_addr_spine_blocked, self.tor_ports[0], self.spine_ports)
             assert(tests_passed == tests_total)
 
             # Verify ACLs on spine port
-            (tests_passed, tests_total) = self.runAclTests(self.dest_ip_addr_tor, self.dest_ip_addr_tor_blocked, self.spine_ports[0], self.tor_ports)
+            if self.ipv6_test:
+               (tests_passed, tests_total) = self.runAclTestsv6(self.dest_ip_addr_tor, self.dest_ip_addr_tor_blocked, self.spine_ports[0], self.tor_ports)
+            else:
+               (tests_passed, tests_total) = self.runAclTests(self.dest_ip_addr_spine, self.dest_ip_addr_spine_blocked, self.tor_ports[0], self.spine_ports)
             assert(tests_passed == tests_total)
         elif self.testbed_type == 't0':
             src_port = map(int, self.switch_info[0].rstrip(",\n").split(","))

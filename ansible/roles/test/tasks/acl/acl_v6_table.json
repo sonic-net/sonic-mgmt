@@ -1,0 +1,11 @@
+{
+    "ACL_TABLE" : {
+        "TEST_TABLE_V6": {
+            "policy_desc" : "my v6 table 2 testing ports",
+            "type" : "L3V6",
+            "stage" : "INGRESS",
+            "ports" : ["Ethernet16", 
+                      "Ethernet24"]
+        }
+     }
+} 
