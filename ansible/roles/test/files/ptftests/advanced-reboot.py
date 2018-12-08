@@ -667,9 +667,9 @@ class ReloadTest(BaseTest):
         self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
         thr.start()
 
-        self.log("Wait until DUT reboots")
-        self.timeout(self.task_timeout, "DUT hasn't rebooted in %d seconds" % self.task_timeout)
-        self.wait_until_dut_reboots()
+        self.log("Wait until VLAN and CPU port down")
+        self.timeout(self.task_timeout, "DUT hasn't shutdown in %d seconds" % self.task_timeout)
+        self.wait_until_vlan_cpu_port_down()
         self.cancel_timeout()
 
         self.reboot_start = datetime.datetime.now()
@@ -677,6 +677,11 @@ class ReloadTest(BaseTest):
 
         self.log("Check that device is still forwarding Data plane traffic")
         self.assertTrue(self.check_alive(), 'DUT is not stable')
+
+        self.log("Wait until VLAN and CPU port up")
+        self.timeout(self.task_timeout, "DUT hasn't bootup in %d seconds" % self.task_timeout)
+        self.wait_until_vlan_cpu_port_up()
+        self.cancel_timeout()
 
         self.log("Wait until ASIC stops")
         self.timeout(self.task_timeout, "DUT hasn't stopped in %d seconds" % self.task_timeout)
@@ -818,12 +823,17 @@ class ReloadTest(BaseTest):
         ssh = Arista(ip, queue, self.test_params)
         self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip] = ssh.run()
 
-    def wait_until_dut_reboots(self):
+    def wait_until_vlan_cpu_port_down(self):
         while True:
             total_rcv_pkt_cnt = self.pingDut()
             if total_rcv_pkt_cnt < self.ping_dut_pkts:
                 break
 
+    def wait_until_vlan_cpu_port_up(self):
+        while True:
+            total_rcv_pkt_cnt = self.pingDut()
+            if total_rcv_pkt_cnt >= self.ping_dut_pkts / 2:
+                break
 
     def check_forwarding_stop(self):
         return self.iteration(True)
