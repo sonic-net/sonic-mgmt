@@ -1664,3 +1664,78 @@ sensors_checks:
       - dx010_lm75b-i2c-7-4a/ASIC temp sensor/temp1_input
     psu_skips: {}
 
+  Arista-7170-64C:
+    alarms:
+      fan: 
+      - dps1900-i2c-6-58/fan1/fan1_alarm
+      - dps1900-i2c-7-58/fan1/fan1_alarm
+      power:
+      - dps1900-i2c-6-58/iin/curr1_max_alarm
+      - dps1900-i2c-6-58/iout1/curr2_crit_alarm
+      - dps1900-i2c-6-58/iout1/curr2_max_alarm
+      - dps1900-i2c-6-58/vin/in1_alarm
+      - dps1900-i2c-6-58/vout1/in2_crit_alarm
+      - dps1900-i2c-6-58/vout1/in2_lcrit_alarm
+      - dps1900-i2c-7-58/iin/curr1_max_alarm
+      - dps1900-i2c-7-58/iout1/curr2_crit_alarm
+      - dps1900-i2c-7-58/iout1/curr2_max_alarm
+      - dps1900-i2c-7-58/vin/in1_alarm
+      - dps1900-i2c-7-58/vout1/in2_crit_alarm
+      - dps1900-i2c-7-58/vout1/in2_lcrit_alarm
+      temp:
+      - coretemp-isa-0000/Physical id 0/temp1_crit_alarm
+      - coretemp-isa-0000/Core 0/temp2_crit_alarm
+      - coretemp-isa-0000/Core 1/temp3_crit_alarm
+      - dps1900-i2c-6-58/PSU1 primary hotspot temp/temp1_alarm
+      - dps1900-i2c-6-58/PSU1 inlet temp/temp2_alarm
+      - dps1900-i2c-7-58/PSU2 primary hotspot temp/temp1_alarm
+      - dps1900-i2c-7-58/PSU2 inlet temp/temp2_alarm
+      - lm73-i2c-96-48/Front air temp/temp1_max_alarm
+      - lm73-i2c-96-48/Front air temp/temp1_min_alarm
+      - max6658-i2c-8-4c/Temp sensor near ASIC/temp1_crit_alarm
+      - max6658-i2c-8-4c/Temp sensor near ASIC/temp1_max_alarm
+      - max6658-i2c-8-4c/Temp sensor near ASIC/temp1_min_alarm
+      - max6658-i2c-81-4c/Rear air temp1/temp1_crit_alarm
+      - max6658-i2c-81-4c/Rear air temp1/temp1_max_alarm
+      - max6658-i2c-81-4c/Rear air temp1/temp1_min_alarm
+      - max6658-i2c-81-4c/Rear air temp2/temp2_crit_alarm
+      - max6658-i2c-81-4c/Rear air temp2/temp2_max_alarm
+      - max6658-i2c-81-4c/Rear air temp2/temp2_min_alarm
+
+    compares:
+      fan: []
+      power:
+      - - dps1900-i2c-6-58/iin/curr1_input
+        - dps1900-i2c-6-58/iin/curr1_max
+      - - dps1900-i2c-6-58/iout1/curr2_input
+        - dps1900-i2c-6-58/iout1/curr2_max
+      - - dps1900-i2c-7-58/iin/curr1_input
+        - dps1900-i2c-7-58/iin/curr1_max
+      - - dps1900-i2c-7-58/iout1/curr2_input
+        - dps1900-i2c-7-58/iout1/curr2_max
+      temp:
+      - - coretemp-isa-0000/Physical id 0/temp1_input
+        - coretemp-isa-0000/Physical id 0/temp1_max
+      - - coretemp-isa-0000/Core 0/temp2_input
+        - coretemp-isa-0000/Core 0/temp2_max
+      - - coretemp-isa-0000/Core 1/temp3_input
+        - coretemp-isa-0000/Core 1/temp3_max
+      - - lm73-i2c-96-48/Front air temp/temp1_input
+        - lm73-i2c-96-48/Front air temp/temp1_max
+      - - max6658-i2c-8-4c/Temp sensor near ASIC/temp1_input
+        - max6658-i2c-8-4c/Temp sensor near ASIC/temp1_max
+      - - max6658-i2c-81-4c/Rear air temp1/temp1_input
+        - max6658-i2c-81-4c/Rear air temp1/temp1_max
+      - - max6658-i2c-81-4c/Rear air temp2/temp2_input
+        - max6658-i2c-81-4c/Rear air temp2/temp2_max
+
+    non_zero:
+      fan:
+      - rook_cpld-i2c-93-60/fan1/fan1_input
+      - rook_cpld-i2c-93-60/fan2/fan2_input
+      - rook_cpld-i2c-93-60/fan3/fan3_input
+      - rook_cpld-i2c-93-60/fan4/fan4_input
+      power: []
+      temp: []
+
+    psu_skips: {}
