@@ -127,6 +127,15 @@ class Arista(object):
         quit_enabled = False
         routing_works = True
         self.connect()
+
+        cur_time = time.time()
+        sample = {}
+        samples = {}
+        portchannel_output = self.do_cmd("show interfaces po1 | json")
+        portchannel_output = "\n".join(portchannel_output.split("\r\n")[1:-1])
+        sample["po_changetime"] = json.loads(portchannel_output, strict=False)['interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
+        samples[cur_time] = sample
+
         while not (quit_enabled and v4_routing_ok and v6_routing_ok):
             cmd = self.queue.get()
             if cmd == 'quit':
@@ -148,6 +157,10 @@ class Arista(object):
             v6_routing_ok = self.parse_bgp_route(bgp_route_v6_output, self.v6_routes)
             info["bgp_route_v6"] = v6_routing_ok
 
+            portchannel_output = self.do_cmd("show interfaces po1 | json")
+            portchannel_output = "\n".join(portchannel_output.split("\r\n")[1:-1])
+            sample["po_changetime"] = json.loads(portchannel_output, strict=False)['interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
+
             if not run_once:
                 self.ipv4_gr_enabled, self.ipv6_gr_enabled, self.gr_timeout = self.parse_bgp_neighbor_once(bgp_neig_output)
                 if self.gr_timeout is not None:
@@ -156,6 +169,7 @@ class Arista(object):
                     run_once = True
 
             data[cur_time] = info
+            samples[cur_time] = sample
             if self.DEBUG:
                 debug_data[cur_time] = {
                     'show lacp neighbor' : lacp_output,
