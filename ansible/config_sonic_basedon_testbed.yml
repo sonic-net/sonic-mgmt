@@ -56,7 +56,7 @@
     connection: local
 
   - set_fact:
-      VM_topo: "True"
+      VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
       remote_dut: "{{ ansible_ssh_host }}"
 
   - name: gather testbed VM informations
