@@ -1,7 +1,21 @@
-- name: "rebooting {{ inventory_hostname }} : {{ ansible_host }} ..."
-  shell: sudo reboot
+- name: set possible reboot types
+  set_fact:
+    reboot_types: ["reboot", "fast-reboot", "warm-reboot" ]
+
+- name: set default value for reboot type
+  set_fact:
+    reboot_type: "reboot"
+  when: reboot_type is not defined
+
+- fail:
+    msg: "Reboot type {{ reboot_type }} is invalid. Must be one of {{ reboot_types }}"
+  when: reboot_type not in reboot_types
+
+- name: "rebooting {{ inventory_hostname }} : {{ ansible_host }} with {{ reboot_type }}..."
+  command: "{{ reboot_type }}"
   async: 1
   poll: 0
+  become: yes
   ignore_errors: true
 
 - name: pause for 1 minute before check
