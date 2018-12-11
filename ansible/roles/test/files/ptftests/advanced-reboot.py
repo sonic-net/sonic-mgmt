@@ -194,6 +194,7 @@ class Arista(object):
         cli_data['lacp']   = self.check_series_status(data, "lacp",         "LACP session")
         cli_data['bgp_v4'] = self.check_series_status(data, "bgp_route_v4", "BGP v4 routes")
         cli_data['bgp_v6'] = self.check_series_status(data, "bgp_route_v6", "BGP v6 routes")
+        cli_data['po']     = self.check_change_time(samples, "po_changetime", "PortChannel interface")
 
         return self.fails, self.info, cli_data, log_data
 
@@ -358,6 +359,30 @@ class Arista(object):
             self.info.add("%s must be down just for once" % what)
 
         return is_down_count, sum(res[False]) # summary_downtime
+
+    def check_change_time(self, output, entity, what):
+        # find last changing time updated, if no update, the entity is never changed
+        # Input parameter is a dictionary when:last_changing_time
+        # constraints:
+        # the dictionary `output` cannot be empty
+        sorted_keys = sorted(output.keys())
+        if not output:
+            self.fails.add("%s cannot be empty" % what)
+            return 0, 0
+
+        start = sorted_keys[0]
+        prev_time = output[start]
+        change_count = 0
+        for when in sorted_keys[1:]:
+            if prev_time != output[when][entity]:
+                prev_time = output[when][entity]
+                change_count += 1
+
+        if change_count > 0:
+            self.info.add("%s state changed %d times" % (what, change_count))
+
+        # Note: the first item is a placeholder
+        return 0, change_count
 
 class ReloadTest(BaseTest):
     TIMEOUT = 0.5
@@ -733,8 +758,9 @@ class ReloadTest(BaseTest):
             self.log("LACP/BGP were down for (extracted from cli):")
             self.log("-"*50)
             for ip in sorted(self.cli_info.keys()):
-                self.log("    %s - lacp: %7.3f (%d) bgp v4: %7.3f (%d) bgp v6: %7.3f (%d)" \
+                self.log("    %s - lacp: %7.3f (%d) po_events: (%d) bgp v4: %7.3f (%d) bgp v6: %7.3f (%d)" \
                          % (ip, self.cli_info[ip]['lacp'][1],   self.cli_info[ip]['lacp'][0], \
+                                self.cli_info[ip]['po'][1], \
                                 self.cli_info[ip]['bgp_v4'][1], self.cli_info[ip]['bgp_v4'][0],\
                                 self.cli_info[ip]['bgp_v6'][1], self.cli_info[ip]['bgp_v6'][0]))
 
