@@ -42,6 +42,7 @@ import subprocess
 from ptf.mask import Mask
 import socket
 import ptf.packet as scapy
+import thread
 import threading
 import os
 import signal
@@ -193,6 +194,7 @@ class Arista(object):
         cli_data['lacp']   = self.check_series_status(data, "lacp",         "LACP session")
         cli_data['bgp_v4'] = self.check_series_status(data, "bgp_route_v4", "BGP v4 routes")
         cli_data['bgp_v6'] = self.check_series_status(data, "bgp_route_v6", "BGP v6 routes")
+        cli_data['po']     = self.check_change_time(samples, "po_changetime", "PortChannel interface")
 
         return self.fails, self.info, cli_data, log_data
 
@@ -357,6 +359,30 @@ class Arista(object):
             self.info.add("%s must be down just for once" % what)
 
         return is_down_count, sum(res[False]) # summary_downtime
+
+    def check_change_time(self, output, entity, what):
+        # find last changing time updated, if no update, the entity is never changed
+        # Input parameter is a dictionary when:last_changing_time
+        # constraints:
+        # the dictionary `output` cannot be empty
+        sorted_keys = sorted(output.keys())
+        if not output:
+            self.fails.add("%s cannot be empty" % what)
+            return 0, 0
+
+        start = sorted_keys[0]
+        prev_time = output[start]
+        change_count = 0
+        for when in sorted_keys[1:]:
+            if prev_time != output[when][entity]:
+                prev_time = output[when][entity]
+                change_count += 1
+
+        if change_count > 0:
+            self.info.add("%s state changed %d times" % (what, change_count))
+
+        # Note: the first item is a placeholder
+        return 0, change_count
 
 class ReloadTest(BaseTest):
     TIMEOUT = 0.5
@@ -664,124 +690,127 @@ class ReloadTest(BaseTest):
         self.log("Check that device is alive and pinging")
         self.assertTrue(self.check_alive(), 'DUT is not stable')
 
-        self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
-        thr.start()
+        try:
+            self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
+            thr.start()
 
-        self.log("Wait until VLAN and CPU port down")
-        self.timeout(self.task_timeout, "DUT hasn't shutdown in %d seconds" % self.task_timeout)
-        self.wait_until_vlan_cpu_port_down()
-        self.cancel_timeout()
+            self.log("Wait until VLAN and CPU port down")
+            self.timeout(self.task_timeout, "DUT hasn't shutdown in %d seconds" % self.task_timeout)
+            self.wait_until_vlan_cpu_port_down()
+            self.cancel_timeout()
 
-        self.reboot_start = datetime.datetime.now()
-        self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
+            self.reboot_start = datetime.datetime.now()
+            self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
 
-        self.log("Check that device is still forwarding Data plane traffic")
-        self.assertTrue(self.check_alive(), 'DUT is not stable')
+            self.log("Check that device is still forwarding Data plane traffic")
+            self.assertTrue(self.check_alive(), 'DUT is not stable')
 
-        self.log("Wait until VLAN and CPU port up")
-        self.timeout(self.task_timeout, "DUT hasn't bootup in %d seconds" % self.task_timeout)
-        self.wait_until_vlan_cpu_port_up()
-        self.cancel_timeout()
+            self.log("Wait until VLAN and CPU port up")
+            self.timeout(self.task_timeout, "DUT hasn't bootup in %d seconds" % self.task_timeout)
+            self.wait_until_vlan_cpu_port_up()
+            self.cancel_timeout()
 
-        self.log("Wait until ASIC stops")
-        self.timeout(self.task_timeout, "DUT hasn't stopped in %d seconds" % self.task_timeout)
-        no_routing_start, upper_replies = self.check_forwarding_stop()
-        self.cancel_timeout()
+            self.log("Wait until ASIC stops")
+            self.timeout(self.task_timeout, "DUT hasn't stopped in %d seconds" % self.task_timeout)
+            no_routing_start, upper_replies = self.check_forwarding_stop()
+            self.cancel_timeout()
 
-        self.log("ASIC was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
-        self.timeout(self.task_timeout, "DUT hasn't started to work for %d seconds" % self.task_timeout)
-        no_routing_stop, _ = self.check_forwarding_resume()
-        self.cancel_timeout()
+            self.log("ASIC was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
+            self.timeout(self.task_timeout, "DUT hasn't started to work for %d seconds" % self.task_timeout)
+            no_routing_stop, _ = self.check_forwarding_resume()
+            self.cancel_timeout()
 
-        # wait until all bgp session are established
-        self.log("Wait until bgp routing is up on all devices")
-        for _, q in self.ssh_jobs:
-            q.put('quit')
-
-        self.timeout(self.task_timeout, "SSH threads haven't finished for %d seconds" % self.task_timeout)
-        while any(thr.is_alive() for thr, _ in self.ssh_jobs):
+            # wait until all bgp session are established
+            self.log("Wait until bgp routing is up on all devices")
             for _, q in self.ssh_jobs:
-                q.put('go')
-            time.sleep(self.TIMEOUT)
+                q.put('quit')
 
-        for thr, _ in self.ssh_jobs:
-            thr.join()
-        self.cancel_timeout()
+            self.timeout(self.task_timeout, "SSH threads haven't finished for %d seconds" % self.task_timeout)
+            while any(thr.is_alive() for thr, _ in self.ssh_jobs):
+                for _, q in self.ssh_jobs:
+                    q.put('go')
+                time.sleep(self.TIMEOUT)
 
-        self.log("ASIC works again. Start time: %s" % str(no_routing_stop))
-        self.log("")
+            for thr, _ in self.ssh_jobs:
+                thr.join()
+            self.cancel_timeout()
 
-        no_cp_replies = self.extract_no_cpu_replies(upper_replies)
+            self.log("ASIC works again. Start time: %s" % str(no_routing_stop))
+            self.log("")
 
-        self.fails['dut'] = set()
-        if no_routing_stop - no_routing_start > self.limit:
-            self.fails['dut'].add("Downtime must be less then %s seconds. It was %s" \
-                    % (self.test_params['reboot_limit_in_seconds'], str(no_routing_stop - no_routing_start)))
-        if no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
-            self.fails['dut'].add("Fast-reboot cycle must be less than graceful limit %s seconds" % self.test_params['graceful_limit'])
-        if no_cp_replies < 0.95 * self.nr_vl_pkts:
-            self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (no_cp_replies, self.nr_vl_pkts))
+            no_cp_replies = self.extract_no_cpu_replies(upper_replies)
 
-        # Generating report
-        self.log("="*50)
-        self.log("Report:")
-        self.log("="*50)
+            self.fails['dut'] = set()
+            if no_routing_stop - no_routing_start > self.limit:
+                self.fails['dut'].add("Downtime must be less then %s seconds. It was %s" \
+                        % (self.test_params['reboot_limit_in_seconds'], str(no_routing_stop - no_routing_start)))
+            if no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
+                self.fails['dut'].add("Fast-reboot cycle must be less than graceful limit %s seconds" % self.test_params['graceful_limit'])
+            if no_cp_replies < 0.95 * self.nr_vl_pkts:
+                self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (no_cp_replies, self.nr_vl_pkts))
 
-        self.log("LACP/BGP were down for (extracted from cli):")
-        self.log("-"*50)
-        for ip in sorted(self.cli_info.keys()):
-            self.log("    %s - lacp: %7.3f (%d) bgp v4: %7.3f (%d) bgp v6: %7.3f (%d)" \
-                     % (ip, self.cli_info[ip]['lacp'][1],   self.cli_info[ip]['lacp'][0], \
-                            self.cli_info[ip]['bgp_v4'][1], self.cli_info[ip]['bgp_v4'][0],\
-                            self.cli_info[ip]['bgp_v6'][1], self.cli_info[ip]['bgp_v6'][0]))
+        finally:
+            # Generating report
+            self.log("="*50)
+            self.log("Report:")
+            self.log("="*50)
 
-        self.log("-"*50)
-        self.log("Extracted from VM logs:")
-        self.log("-"*50)
-        for ip in sorted(self.logs_info.keys()):
-            self.log("Extracted log info from %s" % ip)
-            for msg in sorted(self.logs_info[ip].keys()):
-                if msg != 'error':
-                    self.log("    %s : %d" % (msg, self.logs_info[ip][msg]))
-                else:
-                    self.log("    %s" % self.logs_info[ip][msg])
+            self.log("LACP/BGP were down for (extracted from cli):")
             self.log("-"*50)
+            for ip in sorted(self.cli_info.keys()):
+                self.log("    %s - lacp: %7.3f (%d) po_events: (%d) bgp v4: %7.3f (%d) bgp v6: %7.3f (%d)" \
+                         % (ip, self.cli_info[ip]['lacp'][1],   self.cli_info[ip]['lacp'][0], \
+                                self.cli_info[ip]['po'][1], \
+                                self.cli_info[ip]['bgp_v4'][1], self.cli_info[ip]['bgp_v4'][0],\
+                                self.cli_info[ip]['bgp_v6'][1], self.cli_info[ip]['bgp_v6'][0]))
 
-        self.log("Summary:")
-        self.log("-"*50)
-        self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
-        self.log("Reboot time was %s" % str(no_routing_stop - self.reboot_start))
-
-
-        self.log("How many packets were received back when control plane was down: %d Expected: %d" % (no_cp_replies, self.nr_vl_pkts))
-
-        has_info = any(len(info) > 0 for info in self.info.values())
-        if has_info:
             self.log("-"*50)
-            self.log("Additional info:")
+            self.log("Extracted from VM logs:")
             self.log("-"*50)
-            for name, info in self.info.items():
-                for entry in info:
-                    self.log("INFO:%s:%s" % (name, entry))
+            for ip in sorted(self.logs_info.keys()):
+                self.log("Extracted log info from %s" % ip)
+                for msg in sorted(self.logs_info[ip].keys()):
+                    if msg != 'error':
+                        self.log("    %s : %d" % (msg, self.logs_info[ip][msg]))
+                    else:
+                        self.log("    %s" % self.logs_info[ip][msg])
+                self.log("-"*50)
+
+            self.log("Summary:")
             self.log("-"*50)
+            self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
+            self.log("Reboot time was %s" % str(no_routing_stop - self.reboot_start))
 
-        is_good = all(len(fails) == 0 for fails in self.fails.values())
 
-        errors = ""
-        if not is_good:
-            self.log("-"*50)
-            self.log("Fails:")
-            self.log("-"*50)
+            self.log("How many packets were received back when control plane was down: %d Expected: %d" % (no_cp_replies, self.nr_vl_pkts))
 
-            errors = "\n\nSomething went wrong. Please check output below:\n\n"
-            for name, fails in self.fails.items():
-                for fail in fails:
-                    self.log("FAILED:%s:%s" % (name, fail))
-                    errors += "FAILED:%s:%s\n" % (name, fail)
+            has_info = any(len(info) > 0 for info in self.info.values())
+            if has_info:
+                self.log("-"*50)
+                self.log("Additional info:")
+                self.log("-"*50)
+                for name, info in self.info.items():
+                    for entry in info:
+                        self.log("INFO:%s:%s" % (name, entry))
+                self.log("-"*50)
 
-        self.log("="*50)
+            is_good = all(len(fails) == 0 for fails in self.fails.values())
 
-        self.assertTrue(is_good, errors)
+            errors = ""
+            if not is_good:
+                self.log("-"*50)
+                self.log("Fails:")
+                self.log("-"*50)
+
+                errors = "\n\nSomething went wrong. Please check output below:\n\n"
+                for name, fails in self.fails.items():
+                    for fail in fails:
+                        self.log("FAILED:%s:%s" % (name, fail))
+                        errors += "FAILED:%s:%s\n" % (name, fail)
+
+            self.log("="*50)
+
+            self.assertTrue(is_good, errors)
 
     def extract_no_cpu_replies(self, arr):
       """
@@ -806,6 +835,10 @@ class ReloadTest(BaseTest):
         if stderr != []:
             self.log("stderr from %s: %s" % (self.reboot_type, str(stderr)))
         self.log("return code from %s: %s" % (self.reboot_type, str(return_code)))
+
+        # Note: a timeout reboot in ssh session will return a 255 code
+        if return_code not in [0, 255]:
+            thread.interrupt_main()
 
         return
 
