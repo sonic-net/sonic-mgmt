@@ -70,4 +70,4 @@
         ptf_test_params:
         - vxlan_enabled=True
         - config_file='/tmp/vxlan_decap.json'
-        - repetitions=1
+        - count=1

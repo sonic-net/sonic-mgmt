@@ -9,6 +9,7 @@
 # The test has two parameters:
 # 1. 'config_file' is a filename of a file which contains all necessary information to run the test. The file is populated by ansible. This parameter is mandatory.
 # 2. 'vxlan_enabled' is a boolean parameter. When the parameter is true the test will fail if vxlan test failing. When the parameter is false the test will not fail. By default this parameter is false.
+# 3. 'count' is a integer parameter. It defines how many packets are sent for each combination of ingress/egress interfaces. By default the parameter equal to 1
 
 import sys
 import os.path
@@ -68,8 +69,8 @@ class Vxlan(BaseTest):
         if 'vxlan_enabled' in self.test_params and self.test_params['vxlan_enabled']:
             self.vxlan_enabled = True
 
-        if 'repetitions' in self.test_params:
-            self.nr = int(self.test_params['repetitions'])
+        if 'count' in self.test_params:
+            self.nr = int(self.test_params['count'])
 
         if 'config_file' not in self.test_params:
             raise Exception("required parameter 'config_file' is not present")
