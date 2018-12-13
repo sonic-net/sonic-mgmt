@@ -31,6 +31,10 @@ testcases:
           ptf_host:
           testbed_type:
 
+    config:
+        filename: config.yml
+        topologies: [t1-lag, t1-64-lag, t0, t0-64]
+
     continuous_reboot:
       filename: continuous_reboot.yml
       topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
