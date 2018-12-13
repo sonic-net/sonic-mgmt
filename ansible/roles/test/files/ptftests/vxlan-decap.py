@@ -2,14 +2,14 @@
 
 # The test checks vxlan decapsulation for the dataplane.
 # The test runs three tests for each vlan on the DUT:
-# 1. 'Vxlan' : Sends encapsulated packets to PortChannel interfaces and expects to see the decapsulated inner packets on the corresponding vlan interface.
-# 2. 'FromPC': Sends regular packets to PortChannel interfaces and expects to see the packets on the corresponding vlan interface.
-# 3. 'ToPC'  : Sends regular packets to Vlan member interfaces and expects to see the packets on the one of PortChannel interfaces.
+# 1. 'Vxlan'            : Sends encapsulated packets to PortChannel interfaces and expects to see the decapsulated inner packets on the corresponding vlan interface.
+# 2. 'RegularLAGtoVLAN' : Sends regular packets to PortChannel interfaces and expects to see the packets on the corresponding vlan interface.
+# 3. 'RegularVLANtoLAG' : Sends regular packets to Vlan member interfaces and expects to see the packets on the one of PortChannel interfaces.
 #
 # The test has two parameters:
 # 1. 'config_file' is a filename of a file which contains all necessary information to run the test. The file is populated by ansible. This parameter is mandatory.
 # 2. 'vxlan_enabled' is a boolean parameter. When the parameter is true the test will fail if vxlan test failing. When the parameter is false the test will not fail. By default this parameter is false.
-# 3. 'count' is a integer parameter. It defines how many packets are sent for each combination of ingress/egress interfaces. By default the parameter equal to 1
+# 3. 'count' is an integer parameter. It defines how many packets are sent for each combination of ingress/egress interfaces. By default the parameter equal to 1
 
 import sys
 import os.path
@@ -164,18 +164,18 @@ class Vxlan(BaseTest):
         for test in self.tests:
             print test['name']
             res_v = self.Vxlan(test)
-            print "  Vxlan  = ", res_v
-            res_f = self.FromPC(test)
-            print "  FromPC = ", res_f
-            res_t = self.ToPC(test)
-            print "  ToPC   = ", res_t
+            print "  Vxlan            = ", res_v
+            res_f = self.RegularLAGtoVLAN(test)
+            print "  RegularLAGtoVLAN = ", res_f
+            res_t = self.RegularVLANtoLAG(test)
+            print "  RegularVLANtoLAG = ", res_t
             print
             if self.vxlan_enabled:
                 self.assertTrue(res_v, "VxlanTest failed")
             else:
                 self.assertFalse(res_v, "VxlanTest must be disabled")
-            self.assertTrue(res_f, "FromPC test failed")
-            self.assertTrue(res_t, "ToPC test failed")
+            self.assertTrue(res_f, "RegularLAGtoVLAN test failed")
+            self.assertTrue(res_t, "RegularVLANtoLAG test failed")
 
     def Vxlan(self, test):
         rv = True
@@ -186,23 +186,23 @@ class Vxlan(BaseTest):
 
         return rv
 
-    def FromPC(self, test):
+    def RegularLAGtoVLAN(self, test):
         rv = True
         for n in self.net_ports:
             for a in test['acc_ports']:
-                res = self.checkRegularFromPC(a, n, test)
+                res = self.checkRegularRegularLAGtoVLAN(a, n, test)
                 rv = rv and res
         return rv
 
-    def ToPC(self, test):
+    def RegularVLANtoLAG(self, test):
         rv = True
         for dst, ports in self.pc_info:
             for a in test['acc_ports']:
-                res = self.checkRegularToPC(a, ports, dst, test)
+                res = self.checkRegularRegularVLANtoLAG(a, ports, dst, test)
                 rv = rv and res
         return rv
 
-    def checkRegularToPC(self, acc_port, pc_ports, dst_ip, test):
+    def checkRegularRegularVLANtoLAG(self, acc_port, pc_ports, dst_ip, test):
         rv = True
         src_mac = self.ptf_mac_addrs['eth%d' % acc_port]
         dst_mac = self.dut_mac
@@ -232,7 +232,7 @@ class Vxlan(BaseTest):
         return rv
 
 
-    def checkRegularFromPC(self, acc_port, net_port, test):
+    def checkRegularRegularLAGtoVLAN(self, acc_port, net_port, test):
         rv = True
         src_mac = self.random_mac
         dst_mac = self.dut_mac
