@@ -68,6 +68,9 @@ class Vxlan(BaseTest):
         if 'vxlan_enabled' in self.test_params and self.test_params['vxlan_enabled']:
             self.vxlan_enabled = True
 
+        if 'repetitions' in self.test_params:
+            self.nr = int(self.test_params['repetitions'])
+
         if 'config_file' not in self.test_params:
             raise Exception("required parameter 'config_file' is not present")
 
@@ -219,7 +222,7 @@ class Vxlan(BaseTest):
                        )
 
         exp_packet = Mask(exp_packet)
-        exp_packet.set_do_not_care(0, 6*8)
+        exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
 
         for i in xrange(self.nr):
             testutils.send_packet(self, acc_port, packet)

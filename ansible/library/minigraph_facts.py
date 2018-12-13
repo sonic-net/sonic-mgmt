@@ -223,9 +223,9 @@ def parse_dpg(dpg, hname):
             vlanid = vintf.find(str(QName(ns, "VlanID"))).text
             vintfmbr = vintf.find(str(QName(ns, "AttachTo"))).text
             vmbr_list = vintfmbr.split(';')
-            if vintf.find(str(QName(ns, "DhcpRelays"))) is not None and
-               vintf.find(str(QName(ns, "DhcpRelays"))).text is not None:
-                vlandhcpservers = vintf.find(str(QName(ns, "DhcpRelays"))).text
+            vintf_node = vintf.find(str(QName(ns, "DhcpRelays")))
+            if vintf_node is not None and vintf_node.text is not None:
+                vlandhcpservers = vintf_node.text
             else:
                 vlandhcpservers = ""
             dhcp_servers = vlandhcpservers.split(";")

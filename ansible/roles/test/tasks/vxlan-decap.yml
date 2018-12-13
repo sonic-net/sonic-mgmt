@@ -53,6 +53,7 @@
         ptf_test_params:
         - vxlan_enabled=False
         - config_file='/tmp/vxlan_decap.json'
+        - repetitions=1
 
     - name: Configure vxlan decap for {{ item }}
       shell: sonic-cfggen -j /tmp/vxlan_db.{{ item }}.json --write-to-db
@@ -69,5 +70,4 @@
         ptf_test_params:
         - vxlan_enabled=True
         - config_file='/tmp/vxlan_decap.json'
-
-
+        - repetitions=1
