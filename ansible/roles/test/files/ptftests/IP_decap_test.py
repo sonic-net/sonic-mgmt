@@ -272,9 +272,9 @@ class DecapPacketTest(BaseTest):
         """
 
         if inner_pkt_type == 'ipv4':
-            ip_ranges = self.fib.ipv4_ranges()[:20]
+            ip_ranges = self.fib.ipv4_ranges()
         elif inner_pkt_type == 'ipv6':
-            ip_ranges = self.fib.ipv6_ranges()[:20]
+            ip_ranges = self.fib.ipv6_ranges()
         else:
             raise Exception('ERROR: Invalid inner packet type passed: ', inner_pkt_type)
 
@@ -321,8 +321,8 @@ class DecapPacketTest(BaseTest):
         for outer_pkt_type in outer_pkt_types:
             for inner_pkt_type in inner_pkt_types:
 
-                encap_combination = "{}in{}".format(outer_pkt_type.replace('ip', 'IP'),
-                                                    inner_pkt_type.replace('ip', 'IP'))
+                encap_combination = "{}in{}".format(inner_pkt_type.replace('ip', 'IP'),
+                                                    outer_pkt_type.replace('ip', 'IP'))
 
                 logging.info('----------------------------------------------------------------------')
                 logging.info("{} test started".format(encap_combination))

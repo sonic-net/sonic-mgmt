@@ -80,6 +80,7 @@
 
 - name: Set polling interval {{ pfc_wd_poll_time }}.
   shell: "pfcwd interval {{ pfc_wd_poll_time }}"
+  become: yes
 
 - name: Set timers 2
   set_fact:
@@ -144,6 +145,7 @@
 
     - name: Apply drop config to port {{ pfc_wd_test_port }}.
       shell: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time_large }} {{ ports }} {{ pfc_wd_detect_time }}"
+      become: yes
 
     - name: Let PFC storm happen for a while / Let Watchdog start
       pause:
