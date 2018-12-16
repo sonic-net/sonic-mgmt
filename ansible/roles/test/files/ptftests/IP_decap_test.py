@@ -64,6 +64,9 @@ class DecapPacketTest(BaseTest):
     DEFAULT_INNER2_V4_PKT_DST_IP = '3.3.3.3'
     DEFAULT_INNER2_V6_PKT_DST_IP = '3::3'
 
+    IP_RANGE_MANDATORY_ENTRIES = 10
+    IP_RANGE_SAMPLE_SIZE = 100
+
     def __init__(self):
         '''
         @summary: constructor
@@ -110,7 +113,7 @@ class DecapPacketTest(BaseTest):
 
         sys.stdout.flush()
 
-    def create_ipv4_inner_pkt_only(self, src_ip, dst_ip, tos, encap=False):
+    def create_ipv4_inner_pkt_only(self, src_ip, dst_ip, tos, encap=False, ttl=64):
         """Creates an IP only packet for the test
         @param src_ip: source ip
         @param dst_ip: destination ip
@@ -118,24 +121,25 @@ class DecapPacketTest(BaseTest):
         @param encap: build encapsulated packet.
                       If @encap is True the return packet would be:
                       IP(@src_ip, @dst_ip, @tos) / IP(dst_ip=4.4.4.4, src_ip=3.3.3.3) / TCP()
+        @param ttl: ttl field
         """
-
-        inner_pkt = simple_ip_only_packet(ip_dst=dst_ip, ip_src=src_ip, ip_ttl=64, ip_tos=tos)
+            
+        inner_pkt = simple_ip_only_packet(ip_dst=dst_ip, ip_src=src_ip, ip_ttl=ttl, ip_tos=tos)
         if encap:
             inner_pkt2 = self.create_ipv4_inner_pkt_only(self.DEFAULT_INNER2_V4_PKT_SRC_IP,
-                                                         self.DEFAULT_INNER2_V4_PKT_DST_IP,
+                                                         self.DEFAULT_INNER2_V4_PKT_DST_IP,                                                         
                                                          0)
             inner_pkt = simple_ipv4ip_packet(ip_src=src_ip,
                                              ip_dst=dst_ip,
                                              ip_tos=tos,
-                                             ip_ttl=64,
+                                             ip_ttl=ttl,
                                              inner_frame=inner_pkt2).getlayer(scapy.IP) # get only the IP layer
 
         return inner_pkt
 
     #-----------------------------------------------------------------
 
-    def create_ipv6_inner_pkt_only(self, src_ip, dst_ip, tc, encap=False):
+    def create_ipv6_inner_pkt_only(self, src_ip, dst_ip, tc, encap=False, hlim=64):
         """Creates an IPv6 only packet for the test
         @param src_ip: source ip
         @param dst_ip: destination ip
@@ -148,7 +152,8 @@ class DecapPacketTest(BaseTest):
         # no ptf function to build simple ipv6 only packet
         # so use simple_tcpv6_packet function which builds the same packet
         # with TCP header as simple_ip_only_packet but extract away Ethernet
-        inner_pkt = simple_tcpv6_packet(ipv6_dst=dst_ip, ipv6_src=src_ip, ipv6_hlim=64, ipv6_tc=tc).getlayer(scapy.IPv6)
+
+        inner_pkt = simple_tcpv6_packet(ipv6_dst=dst_ip, ipv6_src=src_ip, ipv6_hlim=hlim, ipv6_tc=tc).getlayer(scapy.IPv6)
         if encap:
             inner_pkt2 = self.create_ipv6_inner_pkt_only(self.DEFAULT_INNER2_V6_PKT_SRC_IP,
                                                          self.DEFAULT_INNER2_V6_PKT_DST_IP,
@@ -156,19 +161,22 @@ class DecapPacketTest(BaseTest):
             inner_pkt = simple_ipv6ip_packet(ipv6_src=src_ip,
                                              ipv6_dst=dst_ip,
                                              ipv6_tc=tc,
-                                             ipv6_hlim=64,
+                                             ipv6_hlim=hlim,
                                              inner_frame=inner_pkt2).getlayer(scapy.IPv6) # get only the IP layer
 
         return inner_pkt
 
     #-----------------------------------------------------------------
 
-    def create_encap_packet(self, dst_ip, outer_pkt='ipv4', triple_encap=False):
+    def create_encap_packet(self, dst_ip, outer_pkt='ipv4', triple_encap=False, outer_ttl=None, inner_ttl=None):
         """Creates an IPv4/IPv6 encapsulated packet in @outer_pkt packet
         @param dst_ip: Destination IP for inner packet. Depending @dst_ip IPv4 or IPv6 packet will be created
         @param outer_pkt: Outer packet type to encapsulate inner packet in (ipv4/ipv6)
         @param triple_encap: Whether to build triple encapsulated packet
-        @return: built packet and expected packet to match after decapsulation"""
+        @outer_ttl: TTL for the outer layer
+        @inner_ttl: TTL for the inner layer
+        @return: built packet and expected packet to match after decapsulation
+        """
 
         src_mac =  self.dataplane.get_mac(0, 0)
         dst_mac = '00:11:22:33:44:55'
@@ -178,18 +186,30 @@ class DecapPacketTest(BaseTest):
         tc_in = tos_in = dscp_in << 2
         dscp_out = random.randint(0, 32)
         tc_out = tos_out = dscp_out << 2
-        if ("pipe" == self.test_params['dscp_mode']):
+        if "pipe" == self.test_params['dscp_mode']:
             exp_tc = exp_tos = tc_in
-        elif("uniform" == self.test_params['dscp_mode']):
+        elif "uniform" == self.test_params['dscp_mode']:
             exp_tc = exp_tos = tc_out
         else:
             print("ERROR: no dscp is configured")
             exit()
 
+        if outer_ttl is None:
+            outer_ttl = random.randint(2, 63)
+        if inner_ttl is None:
+            inner_ttl = 64
+        if "pipe" == self.test_params['ttl_mode']:
+            exp_ttl = inner_ttl - 1
+        elif "uniform" == self.test_params["ttl_mode"]:
+            exp_ttl = outer_ttl - 1
+        else:
+            print("ERROR: unexpected ttl_mode is configured")
+            exit()
+
         if ipaddress.ip_address(unicode(dst_ip)).version == 6:
             inner_src_ip = self.DEFAULT_INNER_V6_PKT_SRC_IP
-            # build inner packet, if triple_encap is True inner_pkt would be double encapsulated
-            inner_pkt = self.create_ipv6_inner_pkt_only(inner_src_ip, dst_ip, tos_in, triple_encap)
+            # build inner packet, if triple_encap is True inner_pkt would be double encapsulated            
+            inner_pkt = self.create_ipv6_inner_pkt_only(inner_src_ip, dst_ip, tos_in, triple_encap, hlim=inner_ttl)
 
             # build expected packet based on inner packet
             # set the correct L2 fields
@@ -198,11 +218,11 @@ class DecapPacketTest(BaseTest):
             # set expected TC value
             exp_pkt['IPv6'].tc = exp_tc
             # decrement TTL
-            exp_pkt['IPv6'].hlim -= 1
+            exp_pkt['IPv6'].hlim = exp_ttl
         else:
             inner_src_ip = self.DEFAULT_INNER_V4_PKT_SRC_IP
             # build inner packet, if triple_encap is True inner_pkt would be double encapsulated
-            inner_pkt = self.create_ipv4_inner_pkt_only(inner_src_ip, dst_ip, tos_in, triple_encap)
+            inner_pkt = self.create_ipv4_inner_pkt_only(inner_src_ip, dst_ip, tos_in, triple_encap, ttl=inner_ttl)
 
             # build expected packet based on inner packet
             # set the correct L2 fields
@@ -211,7 +231,7 @@ class DecapPacketTest(BaseTest):
             # set expected ToS value
             exp_pkt['IP'].tos = exp_tos
             # decrement TTL
-            exp_pkt['IP'].ttl -= 1
+            exp_pkt['IP'].ttl = exp_ttl
 
 
         if outer_pkt == 'ipv4':
@@ -221,7 +241,7 @@ class DecapPacketTest(BaseTest):
                                 ip_src='1.1.1.1',
                                 ip_dst=self.test_params['lo_ip'],
                                 ip_tos=tos_out,
-                                ip_ttl=random.randint(2, 63),
+                                ip_ttl=outer_ttl,
                                 inner_frame=inner_pkt)
         elif outer_pkt == 'ipv6':
             pkt = simple_ipv6ip_packet(
@@ -230,7 +250,7 @@ class DecapPacketTest(BaseTest):
                                 ipv6_src='1::1',
                                 ipv6_dst=self.test_params['lo_ipv6'],
                                 ipv6_tc=tc_out,
-                                ipv6_hlim=random.randint(2, 63),
+                                ipv6_hlim=outer_ttl,
                                 inner_frame=inner_pkt)
         else:
             raise Exception("ERROR: invalid outer packet type ", outer_pkt)
@@ -240,17 +260,19 @@ class DecapPacketTest(BaseTest):
 
     #-----------------------------------------------------------------
 
-    def send_and_verify(self, dst_ip, expected_ports, src_port, outer_pkt='ipv4', triple_encap=False):
+    def send_and_verify(self, dst_ip, expected_ports, src_port, outer_pkt='ipv4', triple_encap=False,
+                        outer_ttl=None, inner_ttl=None):
         '''
         @summary: This function builds encap packet, send and verify their arrival.
         @dst_ip: the destination ip for the inner IP header
         @expected_ports: list of ports that a packet can arrived from
         @src_port: the physical port that the packet will be sent from
         @triple_encap: True to send triple encapsulated packet
+        @outer_ttl: TTL for the outer layer
+        @inner_ttl: TTL for the inner layer
         '''
 
-        pkt, exp_pkt = self.create_encap_packet(dst_ip, outer_pkt, triple_encap)
-        
+        pkt, exp_pkt = self.create_encap_packet(dst_ip, outer_pkt, triple_encap, outer_ttl, inner_ttl)
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
@@ -263,7 +285,29 @@ class DecapPacketTest(BaseTest):
         assert received
         return matched, received
 
-    #-----------------------------------------------------------------
+    def send_and_verify_all(self, dst_ip, expected_ports, src_port, outer_pkt_type):
+        """
+        @summary: This method builds different encap packets, send and verify their arrival
+        @dest_ip: The destination ip for the inner IP header
+        @expected_ports: List of ports that a packet can arrive from
+        @src_port: The physical port that the packet will be sent from
+        @outer_pkt_type: Indicates whether the outer packet is ipv4 or ipv6
+        """
+
+        self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type)
+        self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, outer_ttl=64, inner_ttl=2)
+        self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, outer_ttl=1, inner_ttl=64)
+
+        self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, True)
+        self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, True, outer_ttl=64, inner_ttl=2)
+        self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, True, outer_ttl=1, inner_ttl=64)
+
+    def _limit_ip_ranges(self, ip_ranges):
+        must_covered = self.IP_RANGE_MANDATORY_ENTRIES
+        if len(ip_ranges) <= must_covered:
+            return ip_ranges[:]
+        sample_size = min(len(ip_ranges[must_covered:]), self.IP_RANGE_SAMPLE_SIZE)
+        return ip_ranges[:must_covered] + random.sample(ip_ranges[must_covered:], sample_size)
 
     def run_encap_combination_test(self, outer_pkt_type, inner_pkt_type):
         """
@@ -278,7 +322,7 @@ class DecapPacketTest(BaseTest):
         else:
             raise Exception('ERROR: Invalid inner packet type passed: ', inner_pkt_type)
 
-        for ip_range in ip_ranges:
+        for ip_range in self._limit_ip_ranges(ip_ranges):
             # Get the expected list of ports that would receive the packets
             exp_port_list = self.fib[ip_range.get_first_ip()].get_next_hop_list()
             # Choose random one source port from all ports excluding the expected ones
@@ -290,16 +334,15 @@ class DecapPacketTest(BaseTest):
             logging.info("Check " + outer_pkt_type.replace('ip', 'IP') + " tunneled traffic on IP range:" +
                          str(ip_range) + " on " + str(exp_port_list) + "...")
             # Send a packet with the first IP in the range
-            self.send_and_verify(ip_range.get_first_ip(), exp_port_list, src_port, outer_pkt_type)
-            self.send_and_verify(ip_range.get_first_ip(), exp_port_list, src_port, outer_pkt_type, True)
+            self.send_and_verify_all(ip_range.get_first_ip(), exp_port_list, src_port, outer_pkt_type)
+
             # Send a packet with the last IP in the range
             if ip_range.length() > 1:
-                self.send_and_verify(ip_range.get_last_ip(), exp_port_list, src_port, outer_pkt_type)
-                self.send_and_verify(ip_range.get_last_ip(), exp_port_list, src_port, outer_pkt_type, True)
+                self.send_and_verify_all(ip_range.get_last_ip(), exp_port_list, src_port, outer_pkt_type)
+                
             # Send a packet with a random IP in the range
             if ip_range.length() > 2:
-                self.send_and_verify(ip_range.get_random_ip(), exp_port_list, src_port, outer_pkt_type)
-                self.send_and_verify(ip_range.get_random_ip(), exp_port_list, src_port, outer_pkt_type, True)
+                self.send_and_verify_all(ip_range.get_random_ip(), exp_port_list, src_port, outer_pkt_type)
 
     def runTest(self):
         """
