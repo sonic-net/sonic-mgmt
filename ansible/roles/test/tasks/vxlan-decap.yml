@@ -1,0 +1,73 @@
+# example
+
+- block:
+    - fail: msg="Please set ptf_host variable"
+      when: ptf_host is not defined
+
+    - name: Remove existing ip from ptf host
+      script: roles/test/files/helpers/remove_ip.sh
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Make all mac addresses in ptf unique - should be done in vm_set
+      script: roles/test/files/helpers/change_mac.sh
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Copy tests to the PTF container
+      copy: src=roles/test/files/ptftests dest=/root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Copy arp responder to the PTF container
+      copy: src=roles/test/files/helpers/arp_responder.py dest=/opt
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Copy arp responder supervisor configuration to the PTF container
+      template: src=arp_responder.conf.j2 dest=/etc/supervisor/conf.d/arp_responder.conf
+      vars:
+        - arp_responder_args: '--conf /tmp/vxlan_arpresponder.conf'
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Reread supervisor configuration
+      shell: supervisorctl reread
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Update supervisor configuration
+      shell: supervisorctl update
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Render DUT parameters to json file for the test
+      template: src=vxlan_decap.json.j2 dest=/tmp/vxlan_decap.json
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Render DUT vxlan configuration
+      template: src=vxlan_db.json.j2 dest=/tmp/vxlan_db.{{ item }}.json
+      with_items: minigraph_vlans
+
+    - include: ptf_runner.yml
+      vars:
+        ptf_test_name: Vxlan decap test
+        ptf_test_dir: ptftests
+        ptf_test_path: vxlan-decap.Vxlan
+        ptf_platform: remote
+        ptf_platform_dir: ptftests
+        ptf_qlen: 1000
+        ptf_test_params:
+        - vxlan_enabled=False
+        - config_file='/tmp/vxlan_decap.json'
+        - repetitions=1
+
+    - name: Configure vxlan decap for {{ item }}
+      shell: sonic-cfggen -j /tmp/vxlan_db.{{ item }}.json --write-to-db
+      with_items: minigraph_vlans
+
+    - include: ptf_runner.yml
+      vars:
+        ptf_test_name: Vxlan decap test
+        ptf_test_dir: ptftests
+        ptf_test_path: vxlan-decap.Vxlan
+        ptf_platform: remote
+        ptf_platform_dir: ptftests
+        ptf_qlen: 1000
+        ptf_test_params:
+        - vxlan_enabled=True
+        - config_file='/tmp/vxlan_decap.json'
+        - count=1

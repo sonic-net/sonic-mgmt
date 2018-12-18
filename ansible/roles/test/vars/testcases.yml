@@ -217,6 +217,14 @@ testcases:
       required_vars:
           ptf_host:
           testbed_type:
+          
+    vxlan_decap:
+      filename: vxlan-decap.yml
+      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116]
+      required_vars:
+          ptf_host:
+
     pfc_asym:
       filename: pfc_asym.yml
       topologies: [t0]
+
