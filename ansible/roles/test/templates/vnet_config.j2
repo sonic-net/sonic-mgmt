@@ -1,0 +1,38 @@
+
+{% set vlan_id_list = [ 2001, 2002 ] %}
+{% set topo_vlan = minigraph_vlans.keys()[0] %}
+vlan_intf_list:
+{% for vlan in vlan_id_list %}
+  - vlan_id: '{{ (vlan|int) }}'
+    ifname: 'Vlan{{ vlan }}'
+    ip: '{{ loop.index }}.{{ loop.index }}.10.1/24'
+    port: '{{ minigraph_vlans[topo_vlan].members[loop.index0%2] }}'
+{% endfor %}
+
+vnet_id_list:
+  - Vnet1
+  - Vnet2
+
+vnet_intf_list:
+  - ifname: Vlan2001
+    vnet: Vnet1
+  - ifname: Vlan2002
+    vnet: Vnet2
+
+vnet_nbr_list:
+  - ifname: Vlan2001
+    ip: '1.1.10.101'
+  - ifname: Vlan2002
+    ip: '2.2.10.101'
+
+vnet_route_list:
+  - Vnet1_route_list:
+      - pfx: '1.1.1.10/32'
+        end: '100.1.1.10'
+      - pfx: '1.1.1.11/32'
+        end: '100.1.1.11'
+        mac: '00:00:00:00:01:02'
+  - Vnet2_route_list:
+      - pfx: '2.2.2.10/32'
+        end: '100.1.1.20'
+        mac: '00:00:00:00:02:05'
