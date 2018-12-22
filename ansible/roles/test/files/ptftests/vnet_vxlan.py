@@ -1,0 +1,277 @@
+# ptf -t "config_file='/tmp/vnet_vxlan.json';vxlan_enabled=True" --platform-dir ptftests --test-dir ptftests --platform remote vnet-vxlan
+
+# The test checks vxlan encapsulation/decapsulation for the dataplane.
+# The test runs three tests for each vlan on the DUT:
+# 1. 'FromVM'   : Sends encapsulated packets to PortChannel interfaces and expects to see the decapsulated inner packets on the vlan interface.
+# 2. 'FromServ' : Sends regular packets to Vlan member interface and expects to see the encapsulated packets on the corresponding PortChannel interface.
+# 3. 'Serv2Serv': Sends regular packets to Vlan member interfaces and expects to see the regular packets on the one of Vlan interfaces.
+#
+# The test has the following parameters:
+# 1. 'config_file' is a filename of a file which contains all necessary information to run the test. The file is populated by ansible. This parameter is mandatory.
+
+import sys
+import os.path
+import json
+import ptf
+import ptf.packet as scapy
+from ptf.base_tests import BaseTest
+from ptf import config
+import ptf.testutils as testutils
+from ptf.testutils import *
+from ptf.dataplane import match_exp_pkt
+from ptf.mask import Mask
+import datetime
+import subprocess
+from pprint import pprint
+
+class VNET(BaseTest):
+    def __init__(self):
+        BaseTest.__init__(self)
+
+        self.vxlan_enabled = False
+        self.random_mac = '00:01:02:03:04:05'
+        self.vxlan_router_mac = '00:aa:bb:cc:78:9a'
+
+    def cmd(self, cmds):
+        process = subprocess.Popen(cmds,
+                                   shell=False,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        return_code = process.returncode
+
+        return stdout, stderr, return_code
+
+    def readMacs(self):
+        addrs = {}
+        for intf in os.listdir('/sys/class/net'):
+            with open('/sys/class/net/%s/address' % intf) as fp:
+                addrs[intf] = fp.read().strip()
+
+        return addrs
+
+    def generate_ArpResponderConfig(self):
+        config = {}
+        for nbr in self.nbr_info:
+            config['eth%d@%d' % (nbr[2],nbr[1])] = [nbr[0]]
+
+        with open('/tmp/vnet_arpresponder.conf', 'w') as fp:
+            json.dump(config, fp)
+
+        return
+
+    def getSrvInfo(self, vnet, ifname=''):
+        for item in self.serv_info[vnet]:
+            if ifname == '' or item['ifname'] == ifname:
+                return item['ip'], item['port'], item['vlan_id'], item['vni']
+
+        return None
+
+    def setUp(self):
+        self.dataplane = ptf.dataplane_instance
+
+        self.test_params = testutils.test_params_get()
+
+        if 'config_file' not in self.test_params:
+            raise Exception("required parameter 'config_file' is not present")
+
+        config = self.test_params['config_file']
+
+        if not os.path.isfile(config):
+            raise Exception("the config file %s doesn't exist" % config)
+
+        with open(config) as fp:
+            graph = json.load(fp)
+
+        self.pc_info = []
+        self.net_ports = []
+        for name, val in graph['minigraph_portchannels'].items():
+            members = [graph['minigraph_port_indices'][member] for member in val['members']]
+            self.net_ports.extend(members)
+            ip = None
+
+            for d in graph['minigraph_portchannel_interfaces']:
+                if d['attachto'] == name:
+                    ip = d['peer_addr']
+                    break
+            else:
+                raise Exception("Portchannel '%s' ip address is not found" % name)
+
+            self.pc_info.append((ip, members))
+
+        self.acc_ports = []
+        for name, data in graph['minigraph_vlans'].items():
+            ports = [graph['minigraph_port_indices'][member] for member in data['members']]
+            self.acc_ports.extend(ports)
+
+        vni_base = 10000
+        self.serv_info = {}
+        self.nbr_info = []
+        for idx, data in enumerate(graph['vnet_interfaces']):
+            if data['vnet'] not in self.serv_info:
+                self.serv_info[data['vnet']] = []
+            serv_info = {}
+            ports = self.acc_ports[idx]
+            for nbr in graph['vnet_neighbors']:
+                if nbr['ifname'] == data['ifname']:
+                    vlan_id = int(data['ifname'].replace('Vlan', ''))
+                    ip = nbr['ip']
+                    self.nbr_info.append((ip, vlan_id, ports))
+            serv_info['ifname'] = data['ifname']
+            serv_info['vlan_id'] = vlan_id
+            serv_info['ip'] = ip
+            serv_info['port'] = ports
+            serv_info['vni'] = vni_base + int(data['vnet'].replace('Vnet',''))
+            self.serv_info[data['vnet']].extend([serv_info])
+
+        self.tests = []
+        for routes in graph['vnet_routes']:
+            for name, rt_list in routes.items():
+                for entry in rt_list:
+                    test = {}
+                    test['name'] = name.split('_')[0]
+                    test['dst'] = entry['pfx'].split('/')[0]
+                    test['host'] = entry['end']
+                    if 'mac' in entry:
+                        test['mac'] = entry['mac']
+                    else:
+                        test['mac'] = self.vxlan_router_mac
+                    test['src'], test['port'], test['vlan'], test['vni'] = self.getSrvInfo(test['name'])
+                    self.tests.append(test)
+
+        print self.tests
+
+        self.dut_mac = graph['dut_mac']
+
+        ip = None
+        for data in graph['minigraph_lo_interfaces']:
+            if data['prefixlen'] == 32:
+                ip = data['addr']
+                break
+        else:
+            raise Exception("ipv4 lo interface not found")
+
+        self.loopback_ip = ip
+
+        self.ptf_mac_addrs = self.readMacs()
+
+        self.generate_ArpResponderConfig()
+
+        self.cmd(["supervisorctl", "start", "arp_responder"])
+
+        self.dataplane.flush()
+
+        return
+
+    def tearDown(self):
+        self.cmd(["supervisorctl", "stop", "arp_responder"])
+
+        return
+
+    def runTest(self):
+        print
+        for test in self.tests:
+            print test['name']
+            self.FromServer(test)
+            print "  FromServer passed"
+            self.FromVM(test)
+            print "  FromVM  passed"
+            self.Serv2Serv(test)
+            print "  Serv2Serv passed"
+            print
+
+    def FromVM(self, test):
+        rv = True
+        for n in self.net_ports:
+            pkt = simple_tcp_packet(
+                eth_dst=self.dut_mac,
+                eth_src=self.random_mac,
+                ip_dst=test['src'],
+                ip_src=test['dst'],
+                ip_id=108,
+                ip_ttl=64)
+            udp_sport = 11638 # Use entropy_hash(pkt)
+            vxlan_pkt = simple_vxlan_packet(
+                eth_dst=self.dut_mac,
+                eth_src=self.random_mac,
+                ip_id=0,
+                ip_src=test['host'],
+                ip_dst=self.loopback_ip,
+                ip_ttl=64,
+                udp_sport=udp_sport,
+                vxlan_vni=test['vni'],
+                with_udp_chksum=False,
+                inner_frame=pkt)
+            exp_pkt = simple_tcp_packet(
+                eth_src=self.dut_mac,
+                eth_dst=self.ptf_mac_addrs['eth%d' % test['port']],
+                dl_vlan_enable=True,
+                vlan_vid=test['vlan'],
+                ip_dst=test['src'],
+                ip_src=test['dst'],
+                ip_id=108,
+                ip_ttl=63)
+            send_packet(self, n, str(vxlan_pkt))
+
+            log_str = "Sending packet from port " + str(n) + " to " + test['src']
+            logging.info(log_str)
+            print log_str
+
+            log_str = "Expecing packet on " + str("eth%d" % test['port']) + " from " + test['dst']
+            logging.info(log_str)
+            print log_str
+
+            verify_packet(self, exp_pkt, test['port'])
+
+
+    def FromServer(self, test):
+        rv = True
+        try:
+            pkt = simple_tcp_packet(
+                eth_dst=self.dut_mac,
+                eth_src=self.ptf_mac_addrs['eth%d' % test['port']],
+                dl_vlan_enable=True,
+                vlan_vid=test['vlan'],
+                ip_dst=test['dst'],
+                ip_src=test['src'],
+                ip_id=105,
+                ip_ttl=64)
+            exp_pkt = simple_tcp_packet(
+                eth_dst=test['mac'],
+                eth_src=self.ptf_mac_addrs['eth%d' % test['port']],
+                ip_dst=test['dst'],
+                ip_src=test['src'],
+                ip_id=105,
+                ip_ttl=63)
+            udp_sport = 11638 # Use entropy_hash(pkt)
+            encap_pkt = simple_vxlan_packet(
+                eth_src=self.dut_mac,
+                eth_dst=self.random_mac,
+                ip_id=0,
+                ip_src=self.loopback_ip,
+                ip_dst=test['host'],
+                ip_ttl=64,
+                udp_sport=udp_sport,
+                with_udp_chksum=False,
+                vxlan_vni=test['vni'],
+                inner_frame=exp_pkt)
+            send_packet(self, test['port'], str(pkt))
+
+            masked_exp_pkt = Mask(encap_pkt)
+            masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+
+            log_str = "Sending packet from port " + str('eth%d' % test['port']) + " to " + test['dst']
+            logging.info(log_str)
+            print log_str
+
+            verify_any_packet_any_port(self, [masked_exp_pkt], self.net_ports)
+
+        finally:
+            print
+
+
+    def Serv2Serv(self, test):
+        #TBD
+        rv = True
+        return rv
