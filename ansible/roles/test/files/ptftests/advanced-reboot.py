@@ -121,11 +121,11 @@ class Arista(object):
 
     def run(self):
         data = {}
+        samples = {}
         debug_data = {}
         run_once = False
         log_first_line = None
         quit_enabled = False
-        routing_works = True
         self.connect()
 
         cur_time = time.time()
@@ -160,6 +160,11 @@ class Arista(object):
             portchannel_output = self.do_cmd("show interfaces po1 | json")
             portchannel_output = "\n".join(portchannel_output.split("\r\n")[1:-1])
             sample["po_changetime"] = json.loads(portchannel_output, strict=False)['interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
+
+            # Expect the routes remains during BGP graceful restart
+            po_ip_route_output = self.do_cmd("show ip route bgp | grep Port-Channel1 | wc -l")
+            po_route = int(po_ip_route_output)
+            info["po_route"] = po_route
 
             if not run_once:
                 self.ipv4_gr_enabled, self.ipv6_gr_enabled, self.gr_timeout = self.parse_bgp_neighbor_once(bgp_neig_output)
@@ -208,6 +213,7 @@ class Arista(object):
         cli_data['lacp']   = self.check_series_status(data, "lacp",         "LACP session")
         cli_data['bgp_v4'] = self.check_series_status(data, "bgp_route_v4", "BGP v4 routes")
         cli_data['bgp_v6'] = self.check_series_status(data, "bgp_route_v6", "BGP v6 routes")
+        cli_data['po_route'] = self.check_series_status(data, "po_route", "PortChannel learned routes")
         cli_data['po']     = self.check_change_time(samples, "po_changetime", "PortChannel interface")
 
         return self.fails, self.info, cli_data, log_data
@@ -772,11 +778,12 @@ class ReloadTest(BaseTest):
             self.log("LACP/BGP were down for (extracted from cli):")
             self.log("-"*50)
             for ip in sorted(self.cli_info.keys()):
-                self.log("    %s - lacp: %7.3f (%d) po_events: (%d) bgp v4: %7.3f (%d) bgp v6: %7.3f (%d)" \
-                         % (ip, self.cli_info[ip]['lacp'][1],   self.cli_info[ip]['lacp'][0], \
-                                self.cli_info[ip]['po'][1], \
-                                self.cli_info[ip]['bgp_v4'][1], self.cli_info[ip]['bgp_v4'][0],\
-                                self.cli_info[ip]['bgp_v6'][1], self.cli_info[ip]['bgp_v6'][0]))
+                self.log("    %s - lacp: %7.3f (%d) po_events: (%d) po_routes: (%d) bgp v4: %7.3f (%d) bgp v6: %7.3f (%d)"
+                         % (ip, self.cli_info[ip]['lacp'][1], self.cli_info[ip]['lacp'][0],
+                            self.cli_info[ip]['po'][1],
+                            self.cli_info[ip]['po_routes'][1],
+                            self.cli_info[ip]['bgp_v4'][1], self.cli_info[ip]['bgp_v4'][0],
+                            self.cli_info[ip]['bgp_v6'][1], self.cli_info[ip]['bgp_v6'][0]))
 
             self.log("-"*50)
             self.log("Extracted from VM logs:")
