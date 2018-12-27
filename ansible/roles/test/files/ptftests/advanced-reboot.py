@@ -163,6 +163,7 @@ class Arista(object):
 
             # Expect the routes remains during BGP graceful restart
             po_ip_route_output = self.do_cmd("show ip route bgp | grep Port-Channel1 | wc -l")
+            po_ip_route_output = "\n".join(po_ip_route_output.split("\r\n")[1:-1])
             po_route = int(po_ip_route_output)
             info["po_route"] = po_route
 
