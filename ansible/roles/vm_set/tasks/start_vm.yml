@@ -1,3 +1,20 @@
+# Define respin_vm to override the test for VM existence.
+# Any VM defined in the list will be destroyed and restarted.
+# This provides a manual method to respin some VMs when they
+# are down.
+#
+# I encountered VM down when deploying topology. Without a
+# method to respin these VMs, the other way is to reboot/cleanup
+# server and restart all VMs. The later method disrupts all
+# topologies on the server.
+#
+# After respining individual VMs, the affected topology needs to
+# be removed and deployed again.
+
+- set_fact:
+    respin_vms: []
+  when: respin_vms is not defined
+
 - name: Device debug output
   debug: msg="hostname = {{ hostname }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }}"
 
@@ -16,11 +33,17 @@
         uri=qemu:///system
   when: vm_name not in vm_list_defined.list_vms
 
+- name: Destroy vm {{ vm_name }} if it requires fix
+  virt: name={{ vm_name }}
+        command=destroy
+        uri=qemu:///system
+  when: vm_name in respin_vms
+
 - name: Start vm {{ vm_name }}
   virt: name={{ vm_name }}
         state=running
         uri=qemu:///system
-  when: vm_name not in vm_list_running.list_vms
+  when: vm_name not in vm_list_running.list_vms or vm_name in respin_vms
 
 - name: Wait until vm {{ vm_name }} is loaded
   kickstart: telnet_port={{ serial_port }}
@@ -33,7 +56,7 @@
              new_password={{ new_password }}
              new_root_password={{ new_root_password }}
   register: kickstart_output
-  when: vm_name not in vm_list_running.list_vms
+  when: vm_name not in vm_list_running.list_vms or vm_name in respin_vms
 
 - name: Destroy vm {{ vm_name }} if it hangs
   virt: name={{ vm_name }}
