@@ -782,7 +782,7 @@ class ReloadTest(BaseTest):
                 self.log("    %s - lacp: %7.3f (%d) po_events: (%d) po_routes: (%d) bgp v4: %7.3f (%d) bgp v6: %7.3f (%d)"
                          % (ip, self.cli_info[ip]['lacp'][1], self.cli_info[ip]['lacp'][0],
                             self.cli_info[ip]['po'][1],
-                            self.cli_info[ip]['po_routes'][1],
+                            self.cli_info[ip]['po_route'][1],
                             self.cli_info[ip]['bgp_v4'][1], self.cli_info[ip]['bgp_v4'][0],
                             self.cli_info[ip]['bgp_v6'][1], self.cli_info[ip]['bgp_v6'][0]))
 
