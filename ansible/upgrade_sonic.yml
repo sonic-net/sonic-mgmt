@@ -63,7 +63,7 @@
 
         - name: Reboot the switch {{ inventory_hostname }}
           become: true
-          shell: shutdown -r now "Reboot"
+          shell: reboot
           async: 1
           poll: 0
           ignore_errors: true
@@ -77,7 +77,7 @@
         port: 22
         state: started
         search_regex: "OpenSSH"
-        delay: 30
+        delay: 180
         timeout: 600
       changed_when: false
 
