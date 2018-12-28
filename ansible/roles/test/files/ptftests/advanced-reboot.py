@@ -44,6 +44,7 @@ import socket
 import ptf.packet as scapy
 import thread
 import threading
+from multiprocessing.pool import ThreadPool, TimeoutError
 import os
 import signal
 import random
@@ -407,6 +408,7 @@ class ReloadTest(BaseTest):
         self.cli_info = {}
         self.logs_info = {}
         self.log_fp = open('/tmp/reboot.log', 'w')
+        self.log_lock = threading.RLock()
         self.test_params = testutils.test_params_get()
         self.check_param('verbose', False,   required = False)
         self.check_param('dut_username', '', required = True)
@@ -492,9 +494,10 @@ class ReloadTest(BaseTest):
 
     def log(self, message, verbose=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        if verbose and self.test_params['verbose'] or not verbose:
-            print "%s : %s" % (current_time, message)
-        self.log_fp.write("%s : %s\n" % (current_time, message))
+        with self.log_lock:
+            if verbose and self.test_params['verbose'] or not verbose:
+                print "%s : %s" % (current_time, message)
+            self.log_fp.write("%s : %s\n" % (current_time, message))
 
     def timeout(self, seconds, message):
         def timeout_exception(self, message):
@@ -720,19 +723,31 @@ class ReloadTest(BaseTest):
             self.assertTrue(self.check_alive(), 'DUT is not stable')
 
             self.log("Wait until VLAN and CPU port up")
-            self.timeout(self.task_timeout, "DUT hasn't bootup in %d seconds" % self.task_timeout)
-            self.wait_until_vlan_cpu_port_up()
-            self.cancel_timeout()
+            pool = ThreadPool(processes=10)
+            async_vlan_up = pool.apply_async(self.wait_until_vlan_cpu_port_up)
 
             self.log("Wait until ASIC stops")
-            self.timeout(self.task_timeout, "DUT hasn't stopped in %d seconds" % self.task_timeout)
-            no_routing_start, upper_replies = self.check_forwarding_stop()
-            self.cancel_timeout()
+            async_forward_stop = pool.apply_async(self.check_forwarding_stop)
 
-            self.log("ASIC was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
-            self.timeout(self.task_timeout, "DUT hasn't started to work for %d seconds" % self.task_timeout)
-            no_routing_stop, _ = self.check_forwarding_resume()
-            self.cancel_timeout()
+            try:
+                async_vlan_up.get(timeout=self.task_timeout)
+            except TimeoutError as e:
+                self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
+                raise
+
+            try:
+                no_routing_start, upper_replies = async_forward_stop.get(timeout=self.task_timeout)
+                self.log("ASIC was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
+            except TimeoutError:
+                self.log("ASIC never stop")
+                no_routing_start = datetime.min
+
+            if no_routing_start is not None:
+                self.timeout(self.task_timeout, "DUT hasn't started to work for %d seconds" % self.task_timeout)
+                no_routing_stop, _ = self.check_forwarding_resume()
+                self.cancel_timeout()
+            else:
+                no_routing_stop = datetime.min
 
             # wait until all bgp session are established
             self.log("Wait until bgp routing is up on all devices")
