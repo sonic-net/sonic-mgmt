@@ -531,7 +531,7 @@ class ReloadTest(BaseTest):
         #
         self.generate_from_t1()
         self.generate_from_vlan()
-        self.generate_ping_dut_vlan_intf()
+        self.generate_ping_dut_lo()
 
         self.log("Test params:")
         self.log("DUT ssh: %s" % self.dut_ssh)
@@ -661,13 +661,14 @@ class ReloadTest(BaseTest):
 
         return
 
-    def generate_ping_dut_vlan_intf(self):
+    def generate_ping_dut_lo(self):
+        dut_lo_ipv4 = self.test_params['lo_prefix'].split('/')[0]
         packet = simple_icmp_packet(eth_dst=self.dut_mac,
                                     ip_src=self.from_server_src_addr,
-                                    ip_dst=self.test_params['dut_vlan_ip'])
+                                    ip_dst=dut_lo_ipv4)
 
         exp_packet = simple_icmp_packet(eth_src=self.dut_mac,
-                                        ip_src=self.test_params['dut_vlan_ip'],
+                                        ip_src=dut_lo_ipv4,
                                         ip_dst=self.from_server_src_addr,
                                         icmp_type='echo-reply')
 
@@ -711,9 +712,9 @@ class ReloadTest(BaseTest):
             self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
             thr.start()
 
-            self.log("Wait until VLAN and CPU port down")
+            self.log("Wait until CPU port down")
             self.timeout(self.task_timeout, "DUT hasn't shutdown in %d seconds" % self.task_timeout)
-            self.wait_until_vlan_cpu_port_down()
+            self.wait_until_cpu_port_down()
             self.cancel_timeout()
 
             self.reboot_start = datetime.datetime.now()
@@ -722,9 +723,9 @@ class ReloadTest(BaseTest):
             self.log("Check that device is still forwarding Data plane traffic")
             self.assertTrue(self.check_alive(), 'DUT is not stable')
 
-            self.log("Wait until VLAN and CPU port up")
+            self.log("Wait until CPU port up")
             pool = ThreadPool(processes=10)
-            async_vlan_up = pool.apply_async(self.wait_until_vlan_cpu_port_up)
+            async_vlan_up = pool.apply_async(self.wait_until_cpu_port_up)
 
             self.log("Wait until ASIC stops")
             async_forward_stop = pool.apply_async(self.check_forwarding_stop)
@@ -885,13 +886,13 @@ class ReloadTest(BaseTest):
         ssh = Arista(ip, queue, self.test_params)
         self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip] = ssh.run()
 
-    def wait_until_vlan_cpu_port_down(self):
+    def wait_until_cpu_port_down(self):
         while True:
             total_rcv_pkt_cnt = self.pingDut()
             if total_rcv_pkt_cnt < self.ping_dut_pkts:
                 break
 
-    def wait_until_vlan_cpu_port_up(self):
+    def wait_until_cpu_port_up(self):
         while True:
             total_rcv_pkt_cnt = self.pingDut()
             if total_rcv_pkt_cnt >= self.ping_dut_pkts / 2:
