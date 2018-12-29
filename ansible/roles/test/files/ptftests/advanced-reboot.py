@@ -725,13 +725,13 @@ class ReloadTest(BaseTest):
 
             self.log("Wait until CPU port up")
             pool = ThreadPool(processes=10)
-            async_vlan_up = pool.apply_async(self.wait_until_cpu_port_up)
+            async_cpu_up = pool.apply_async(self.wait_until_cpu_port_up)
 
             self.log("Wait until ASIC stops")
             async_forward_stop = pool.apply_async(self.check_forwarding_stop)
 
             try:
-                async_vlan_up.get(timeout=self.task_timeout)
+                async_cpu_up.get(timeout=self.task_timeout)
             except TimeoutError as e:
                 self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
                 raise
