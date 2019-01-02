@@ -61,15 +61,18 @@
             disk_used_pcent: '{{disk_used_pcent}}'
             new_image_url: '{{ image_url }}'
 
+        # Reboot may need some time to update firmware firstly.
+        # Increasing the async time to 300 seconds to avoid reboot being interrupted.
         - name: Reboot the switch {{ inventory_hostname }}
           become: true
           shell: reboot
-          async: 1
+          async: 300
           poll: 0
           ignore_errors: true
 
       when: upgrade_type == "sonic"
 
+    # Delay 180 seconds to wait for firmware updating before reboot, then start polling switch
     - name: Wait for switch {{ inventory_hostname }} to come back (to SONiC)
       local_action: wait_for
       args:
