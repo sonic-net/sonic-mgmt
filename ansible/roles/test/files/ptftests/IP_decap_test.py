@@ -324,11 +324,17 @@ class DecapPacketTest(BaseTest):
 
         self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type)
         self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, outer_ttl=64, inner_ttl=2)
-        self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, outer_ttl=1, inner_ttl=64)
+        if self.test_params["ttl_mode"] == "pipe":
+            self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, outer_ttl=1, inner_ttl=64)
+        elif self.test_params["ttl_mode"] == "uniform":
+            self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, outer_ttl=2, inner_ttl=64)
 
         self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, True)
         self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, True, outer_ttl=64, inner_ttl=2)
-        self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, True, outer_ttl=1, inner_ttl=64)
+        if self.test_params["ttl_mode"] == "pipe":
+            self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, True, outer_ttl=1, inner_ttl=64)
+        elif self.test_params["ttl_mode"] == "uniform":
+            self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, True, outer_ttl=2, inner_ttl=64)
 
     def run_encap_combination_test(self, outer_pkt_type, inner_pkt_type):
         """
