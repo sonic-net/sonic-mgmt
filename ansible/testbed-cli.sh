@@ -68,18 +68,22 @@ function start_vms
 {
   server=$1
   passwd=$2
+  shift
+  shift
   echo "Starting VMs on server '${server}'"
-  shift
-  shift
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_start_VMs.yml --vault-password-file="${passwd}" -l "${server}" $@
 }
 
 function stop_vms
 {
-  echo "Stopping VMs on server '$1'"
+  server=$1
+  passwd=$2
+  shift
+  shift
+  echo "Stopping VMs on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_stop_VMs.yml --vault-password-file="$2" -l "$1"
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" $@
 }
 
 function add_topo
