@@ -88,37 +88,49 @@ function stop_vms
 
 function add_topo
 {
-  echo "Deploying topology '$1'"
+  topology=$1
+  passwd=$2
+  shift
+  shift
+  echo "Deploying topology '${topology}'"
 
-  read_file $1
+  read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_add_vm_topology.yml --vault-password-file="$2" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename"
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" $@
 
-  ansible-playbook fanout_connect.yml -i veos --limit "$server" --vault-password-file="$2" -e "dut=$dut"
+  ansible-playbook fanout_connect.yml -i veos --limit "$server" --vault-password-file="${passwd}" -e "dut=$dut" $@
 
   echo Done
 }
 
 function remove_topo
 {
-  echo "Removing topology '$1'"
+  topology=$1
+  passwd=$2
+  shift
+  shift
+  echo "Removing topology '${topology}'"
 
-  read_file $1
+  read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_remove_vm_topology.yml --vault-password-file="$2" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename"
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" $@
 
   echo Done
 }
 
 function renumber_topo
 {
-  echo "Renumbering topology '$1'"
+  topology=$1
+  passwd=$2
+  shift
+  shift
+  echo "Renumbering topology '${topology}'"
 
-  read_file $1
+  read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_renumber_vm_topology.yml --vault-password-file="$2" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename"
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" $@
 
-  ansible-playbook fanout_connect.yml -i veos --limit "$server" --vault-password-file="$2" -e "dut=$dut"
+  ansible-playbook fanout_connect.yml -i veos --limit "$server" --vault-password-file="${passwd}" -e "dut=$dut" $@
 
   echo Done
 }
