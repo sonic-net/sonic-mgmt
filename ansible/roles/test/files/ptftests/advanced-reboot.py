@@ -440,6 +440,20 @@ class ReloadTest(BaseTest):
                                   # But ptf is not fast enough + swss is slow for FDB and ARP entries insertions
         self.timeout_thr = None
 
+        # State watcher attributes
+        self.cpu_state_lock      = threading.RLock()
+        self.asic_state_lock     = threading.RLock()
+        self.watching            = False
+        self.cpu_state           = None
+        self.asic_state          = None
+        self.cpu_state_time      = {} # Recording last cpu  state entering time
+        self.asic_state_time     = {} # Recording last asic state entering time
+        self.asic_vlan_reach     = [] # Recording asic vlan reachability
+        self.recording           = False # Knob for recording asic_vlan_reach
+        self.set_asic_state('init')
+        self.set_cpu_state('init')
+        self.asic_flooding       = False
+
         return
 
     def read_json(self, name):
@@ -958,7 +972,7 @@ class ReloadTest(BaseTest):
 
         was_alive = False
         for counter in range(self.nr_tests * 2):
-            success, _ = self.ping_alive()
+            success, _, _ = self.ping_alive()
             if success:
               was_alive = True
             else:
@@ -972,14 +986,125 @@ class ReloadTest(BaseTest):
 
         return False                        # we still see extra replies
 
+
+    def get_asic_state(self):
+        with self.asic_state_lock:
+            state = self.asic_state
+        return state
+
+
+    def get_asic_state_time(self, state):
+        with self.asic_state_lock:
+            time = self.asic_state_time[state]
+        return time
+
+
+    def set_asic_state(self, state, reachability=0):
+        with self.asic_state_lock:
+            self.asic_state             = state
+            self.asic_state_time[state] = datetime.datetime.now()
+
+
+    def get_asic_vlan_reachability(self):
+        return self.asic_vlan_reach
+
+
+    def asic_start_recording_vlan_reachability(self):
+        with self.asic_state_lock:
+            self.asic_vlan_reach = []
+            self.recording       = True
+
+
+    def asic_stop_recording_vlan_reachability(self):
+        with self.asic_state_lock:
+            self.recording = False
+
+
+    def try_record_asic_vlan_recachability(self, t1_to_vlan):
+        with self.asic_state_lock:
+            if self.recording:
+                self.asic_vlan_reach.append(t1_to_vlan)
+
+    def get_cpu_state(self):
+        with self.cpu_state_lock:
+            state = self.cpu_state
+        return state
+
+
+    def get_cpu_state_time(self, state):
+        with self.cpu_state_lock:
+            time = self.cpu_state_time[state]
+        return time
+
+
+    def set_cpu_state(self, state):
+        with self.cpu_state_lock:
+            self.cpu_state             = state
+            self.cpu_state_time[state] = datetime.datetime.now()
+
+
+    def log_asic_state_change(self, reachable, partial=False, t1_to_vlan=0):
+        old = self.get_asic_state()
+
+        if reachable:
+            state = 'up' if not partial else 'partial'
+        else:
+            state = 'down'
+
+        self.try_record_asic_vlan_recachability(t1_to_vlan)
+
+        if old != state:
+            self.log("ASIC state transition from %s to %s (%d)" % (old, state, t1_to_vlan))
+            self.set_asic_state(state)
+
+
+    def log_cpu_state_change(self, reachable, partial=False):
+        old = self.get_cpu_state()
+
+        if reachable:
+            state = 'up' if not partial else 'partial'
+        else:
+            state = 'down'
+
+        if old != state:
+            self.log("CPU state transition from %s to %s" % (old, state))
+            self.set_cpu_state(state)
+
+
+    def reachability_watcher(self):
+        # This function watches the reachability of the CPU port, and ASIC. It logs the state
+        # changes for future analysis
+
+        while self.watching:
+            vlan_to_t1, t1_to_vlan = self.ping_data_plane(True)
+            reachable              = (t1_to_vlan  > 0 and vlan_to_t1 > 0  and
+                                      t1_to_vlan  > self.nr_vl_pkts * 0.7 and
+                                      vlan_to_t1  > self.nr_pc_pkts * 0.7)
+            partial                = (t1_to_vlan  > 0 and vlan_to_t1 > 0  and
+                                      (t1_to_vlan < self.nr_vl_pkts or
+                                       vlan_to_t1 < self.nr_pc_pkts))
+            self.asic_flooding     = (reachable and
+                                      (t1_to_vlan  > self.nr_vl_pkts or
+                                      vlan_to_t1  > self.nr_pc_pkts))
+            self.log_asic_state_change(reachable, partial, t1_to_vlan)
+            total_rcv_pkt_cnt      = self.pingDut()
+            reachable              = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.ping_dut_pkts * 0.7
+            partial                = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.ping_dut_pkts
+            self.log_cpu_state_change(reachable, partial)
+
+
     def ping_alive(self):
         nr_from_s, nr_from_l = self.ping_data_plane(True)
 
-        is_alive      = nr_from_s > self.nr_pc_pkts * 0.7 and nr_from_l > self.nr_vl_pkts * 0.7
-        is_asic_weird = nr_from_s > self.nr_pc_pkts        or nr_from_l > self.nr_vl_pkts
+        is_alive      = (nr_from_s > 0 and nr_from_l > 0 and
+                         nr_from_s > self.nr_pc_pkts * 0.7 and nr_from_l > self.nr_vl_pkts * 0.7)
+        is_asic_weird =  nr_from_s > self.nr_pc_pkts        or nr_from_l > self.nr_vl_pkts
         # we receive more, then sent. not populated FDB table
 
-        return is_alive, is_asic_weird
+        # Didn't recieve all responses, but received some
+        partial = nr_from_s > 0 and nr_from_l > 0 and (nr_from_s < self.nr_pc_pkts or nr_from_l < self.nr_vl_pkts)
+
+        return is_alive, is_asic_weird, partial
 
     def pingFromServers(self):
         for i in xrange(self.nr_pc_pkts):
