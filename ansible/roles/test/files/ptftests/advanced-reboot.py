@@ -556,7 +556,7 @@ class ReloadTest(BaseTest):
             self.dataplane.start_pcap(filename)
 
         self.log("Enabling arp_responder")
-        self.cmd(["supervisorctl", "start", "arp_responder"])
+        self.cmd(["supervisorctl", "restart", "arp_responder"])
 
         return
 
