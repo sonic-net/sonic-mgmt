@@ -709,6 +709,7 @@ class ReloadTest(BaseTest):
         self.assertTrue(self.check_alive(), 'DUT is not stable')
 
         try:
+            pool = ThreadPool(processes=10)
             self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
             thr.start()
 
@@ -724,7 +725,6 @@ class ReloadTest(BaseTest):
             self.assertTrue(self.check_alive(), 'DUT is not stable')
 
             self.log("Wait until CPU port up")
-            pool = ThreadPool(processes=10)
             async_cpu_up = pool.apply_async(self.wait_until_cpu_port_up)
 
             self.log("Wait until ASIC stops")
