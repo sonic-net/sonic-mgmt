@@ -703,7 +703,7 @@ class ReloadTest(BaseTest):
             self.ssh_jobs.append((thr, q))
             thr.start()
 
-        thr = threading.Thread(target=self.background)
+        thr = threading.Thread(target=self.reboot_dut)
         thr.setDaemon(True)
         self.log("Check that device is alive and pinging")
         self.assertTrue(self.check_alive(), 'DUT is not stable')
@@ -855,7 +855,7 @@ class ReloadTest(BaseTest):
       else:
           return non_zero[-1]
 
-    def background(self):
+    def reboot_dut(self):
         time.sleep(self.reboot_delay)
 
         self.log("Rebooting remote side")
