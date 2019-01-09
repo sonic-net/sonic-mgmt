@@ -126,6 +126,8 @@ class Arista(object):
         run_once = False
         log_first_line = None
         quit_enabled = False
+        v4_routing_ok = False
+        v6_routing_ok = False
         routing_works = True
         self.connect()
 
@@ -684,6 +686,7 @@ class ReloadTest(BaseTest):
         self.reboot_start = None
         no_routing_start = None
         no_routing_stop = None
+        no_cp_replies = None
 
         arista_vms = self.test_params['arista_vms'][1:-1].split(",")
         ssh_targets = []
