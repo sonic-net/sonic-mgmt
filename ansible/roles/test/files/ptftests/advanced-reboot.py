@@ -722,11 +722,19 @@ class ReloadTest(BaseTest):
 
         thr = threading.Thread(target=self.reboot_dut)
         thr.setDaemon(True)
-        self.log("Check that device is alive and pinging")
-        self.assertTrue(self.check_alive(), 'DUT is not stable')
 
         try:
             pool = ThreadPool(processes=10)
+            self.log("Starting reachability state watch thread...")
+            self.watching = True
+            watcher = pool.apply_async(self.reachability_watcher)
+
+            # Give watch thread some time to wind up
+            time.sleep(5)
+
+            self.log("Check that device is alive and pinging")
+            self.assertTrue(self.check_alive(), 'DUT is not stable')
+
             self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
             thr.start()
 
@@ -766,6 +774,9 @@ class ReloadTest(BaseTest):
                 self.cancel_timeout()
             else:
                 no_routing_stop = datetime.min
+
+            # Stop watching DUT
+            self.watching = False
 
             # wait until all bgp session are established
             self.log("Wait until bgp routing is up on all devices")
@@ -905,21 +916,43 @@ class ReloadTest(BaseTest):
 
     def wait_until_cpu_port_down(self):
         while True:
-            total_rcv_pkt_cnt = self.pingDut()
-            if total_rcv_pkt_cnt < self.ping_dut_pkts:
+            for _, q in self.ssh_jobs:
+                q.put('go')
+            if self.get_cpu_state() == 'down':
                 break
+            time.sleep(self.TIMEOUT)
 
     def wait_until_cpu_port_up(self):
         while True:
-            total_rcv_pkt_cnt = self.pingDut()
-            if total_rcv_pkt_cnt >= self.ping_dut_pkts / 2:
+            for _, q in self.ssh_jobs:
+                q.put('go')
+            if self.get_cpu_state() == 'up':
                 break
+            time.sleep(self.TIMEOUT)
 
     def check_forwarding_stop(self):
-        return self.iteration(True)
+        self.asic_start_recording_vlan_reachability()
+
+        while True:
+            state = self.get_asic_state()
+            for _, q in self.ssh_jobs:
+                q.put('go')
+            if state == 'down':
+                break
+            time.sleep(self.TIMEOUT)
+
+
+        self.asic_stop_recording_vlan_reachability()
+        return self.get_asic_state_time(state), self.get_asic_vlan_reachability()
 
     def check_forwarding_resume(self):
-        return self.iteration(False)
+        while True:
+            state = self.get_asic_state()
+            if state != 'down':
+                break
+            time.sleep(self.TIMEOUT)
+
+        return self.get_asic_state_time(state), self.get_asic_vlan_reachability()
 
     def iteration(self, is_stop):
         recorded_time = None
@@ -970,19 +1003,22 @@ class ReloadTest(BaseTest):
         # I think this is because of not populated FDB table
         # The function waits while it's done
 
-        was_alive = False
+        uptime = None
         for counter in range(self.nr_tests * 2):
-            success, _, _ = self.ping_alive()
-            if success:
-              was_alive = True
+            state = self.get_asic_state()
+            if state == 'up':
+                if not uptime:
+                    uptime = self.get_asic_state_time(state)
             else:
-              if was_alive:
-                return False    # Stopped working after it working for sometime?
+                if uptime:
+                    return False # Stopped working after it working for sometime?
+            time.sleep(2)
 
         # wait, until FDB entries are populated
         for _ in range(self.nr_tests * 10): # wait for some time
-            if not self.ping_alive()[1]:    # until we see that there're no extra replies
+            if not self.asic_flooding:
                 return True
+            time.sleep(2)
 
         return False                        # we still see extra replies
 
