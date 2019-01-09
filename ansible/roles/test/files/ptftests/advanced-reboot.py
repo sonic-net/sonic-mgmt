@@ -927,12 +927,18 @@ class ReloadTest(BaseTest):
 
         return recorded_time, nr_from_upper_array
 
-    def ping_iteration(self):
+    def ping_data_plane(self, force=False):
         replies_from_servers = self.pingFromServers()
-        if replies_from_servers > 0:
+        if replies_from_servers > 0 or force:
             replies_from_upper = self.pingFromUpperTier()
         else:
             replies_from_upper = 0
+
+        return replies_from_servers, replies_from_upper
+
+    def ping_iteration(self):
+        replies_from_servers, replies_from_upper = self.ping_data_plane()
+
         return replies_from_servers > 0 and replies_from_upper > 0, replies_from_upper
 
     def check_alive(self):
@@ -964,8 +970,7 @@ class ReloadTest(BaseTest):
         return False                        # we still see extra replies
 
     def ping_alive(self):
-        nr_from_s = self.pingFromServers()
-        nr_from_l = self.pingFromUpperTier()
+        nr_from_s, nr_from_l = self.ping_data_plane(True)
 
         is_alive      = nr_from_s > self.nr_pc_pkts * 0.7 and nr_from_l > self.nr_vl_pkts * 0.7
         is_asic_weird = nr_from_s > self.nr_pc_pkts        or nr_from_l > self.nr_vl_pkts
