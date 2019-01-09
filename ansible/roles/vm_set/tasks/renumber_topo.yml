@@ -19,8 +19,8 @@
     cap_add: NET_ADMIN
   become: yes
 
-- name: Setup front panel/mgmt port for dut
-  include: setup_dut_port.yml
+- name: Set front panel/mgmt port for dut
+  include: set_dut_port.yml
 
 - name: Renumber topology {{ topo }} to VMs. base vm = {{ VM_base }}
   vm_topology:
