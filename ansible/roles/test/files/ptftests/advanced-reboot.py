@@ -734,6 +734,7 @@ class ReloadTest(BaseTest):
 
             self.log("Check that device is alive and pinging")
             self.assertTrue(self.check_alive(), 'DUT is not stable')
+            self.assertTrue(self.get_cpu_state() == 'up' and self.get_asic_state() == 'up', 'DUT is not ready for test')
 
             self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
             thr.start()
