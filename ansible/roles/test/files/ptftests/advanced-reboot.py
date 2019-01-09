@@ -955,29 +955,6 @@ class ReloadTest(BaseTest):
 
         return self.get_asic_state_time(state), self.get_asic_vlan_reachability()
 
-    def iteration(self, is_stop):
-        recorded_time = None
-        counter = self.nr_tests
-        nr_from_upper_array = []
-        while True:
-            success, nr_from_upper = self.ping_iteration()
-            nr_from_upper_array.append(nr_from_upper)
-            for _, q in self.ssh_jobs:
-                q.put('go')
-            if success and is_stop or not success and not is_stop:
-                self.log("Base state", True)
-                recorded_time = None
-            else:
-                self.log("Changed state", True)
-                if recorded_time is None:
-                    recorded_time = datetime.datetime.now()
-                if counter == 0:
-                    break
-                else:
-                    counter -= 1
-
-        return recorded_time, nr_from_upper_array
-
     def ping_data_plane(self, force=False):
         replies_from_servers = self.pingFromServers()
         if replies_from_servers > 0 or force:
@@ -986,11 +963,6 @@ class ReloadTest(BaseTest):
             replies_from_upper = 0
 
         return replies_from_servers, replies_from_upper
-
-    def ping_iteration(self):
-        replies_from_servers, replies_from_upper = self.ping_data_plane()
-
-        return replies_from_servers > 0 and replies_from_upper > 0, replies_from_upper
 
     def check_alive(self):
         # This function checks that DUT routes the packets in the both directions.
@@ -1129,19 +1101,6 @@ class ReloadTest(BaseTest):
             partial                = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.ping_dut_pkts
             self.log_cpu_state_change(reachable, partial)
 
-
-    def ping_alive(self):
-        nr_from_s, nr_from_l = self.ping_data_plane(True)
-
-        is_alive      = (nr_from_s > 0 and nr_from_l > 0 and
-                         nr_from_s > self.nr_pc_pkts * 0.7 and nr_from_l > self.nr_vl_pkts * 0.7)
-        is_asic_weird =  nr_from_s > self.nr_pc_pkts        or nr_from_l > self.nr_vl_pkts
-        # we receive more, then sent. not populated FDB table
-
-        # Didn't recieve all responses, but received some
-        partial = nr_from_s > 0 and nr_from_l > 0 and (nr_from_s < self.nr_pc_pkts or nr_from_l < self.nr_vl_pkts)
-
-        return is_alive, is_asic_weird, partial
 
     def pingFromServers(self):
         for i in xrange(self.nr_pc_pkts):
