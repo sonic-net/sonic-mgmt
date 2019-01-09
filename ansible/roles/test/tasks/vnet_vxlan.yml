@@ -48,15 +48,22 @@
     - debug: var=vlan_intf_list
     - debug: var=vnet_route_list
     - debug: var=vnet_nbr_list
+    - debug: var=vnet_peer_list
 
     - name: Render DUT VNet Switch configuration
       template: src=vnet_switch.j2 dest=/tmp/vnet.switch.json
+
+    - name: Delete Vlan membership from config DB
+      shell: docker exec -i database redis-cli -n 4 del "VLAN_MEMBER|{{ minigraph_vlan_interfaces[0]['attachto'] }}|{{ item.1 }}"
+      with_indexed_items: "{{ minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'] }}"
+      when: item.0 < 1
+      become: true
 
     - block:
         - name: Copy configuration to swss container
           shell: docker cp /tmp/vnet.switch.json swss:/vnet.switch.json
 
-        - name: Apply route json configuration
+        - name: Apply switch json configuration
           shell: docker exec swss sh -c "swssconfig /vnet.switch.json"
 
     - name: Render DUT VNet Vxlan configuration

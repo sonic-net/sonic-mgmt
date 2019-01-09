@@ -53,7 +53,14 @@ class VNET(BaseTest):
     def generate_ArpResponderConfig(self):
         config = {}
         for nbr in self.nbr_info:
-            config['eth%d@%d' % (nbr[2],nbr[1])] = [nbr[0]]
+            if nbr[1] != 0:
+                key = 'eth%d@%d' % (nbr[2],nbr[1])
+            else:
+                key = 'eth%d' % (nbr[2])
+            if key in config:
+                config[key].append(nbr[0])
+            else:
+                config[key] = [nbr[0]]
 
         with open('/tmp/vnet_arpresponder.conf', 'w') as fp:
             json.dump(config, fp)
@@ -66,6 +73,14 @@ class VNET(BaseTest):
                 return item['ip'], item['port'], item['vlan_id'], item['vni']
 
         return None
+
+    def checkPeer(self, test):
+        for peers in self.peering:
+            for key, peer in peers.items():
+                if test['name'] == key:
+                    test['name'] = peer
+                    test['src'], test['port'], test['vlan'], test['vni'] = self.getSrvInfo(test['name'])
+                    self.tests.append(test)
 
     def setUp(self):
         self.dataplane = ptf.dataplane_instance
@@ -101,7 +116,7 @@ class VNET(BaseTest):
 
         self.acc_ports = []
         for name, data in graph['minigraph_vlans'].items():
-            ports = [graph['minigraph_port_indices'][member] for member in data['members']]
+            ports = [graph['minigraph_port_indices'][member] for member in data['members'][1:]]
             self.acc_ports.extend(ports)
 
         vni_base = 10000
@@ -114,7 +129,10 @@ class VNET(BaseTest):
             ports = self.acc_ports[idx]
             for nbr in graph['vnet_neighbors']:
                 if nbr['ifname'] == data['ifname']:
-                    vlan_id = int(data['ifname'].replace('Vlan', ''))
+                    if 'Vlan' in data['ifname']:
+                        vlan_id = int(data['ifname'].replace('Vlan', ''))
+                    else:
+                        vlan_id = 0
                     ip = nbr['ip']
                     self.nbr_info.append((ip, vlan_id, ports))
             serv_info['ifname'] = data['ifname']
@@ -123,6 +141,8 @@ class VNET(BaseTest):
             serv_info['port'] = ports
             serv_info['vni'] = vni_base + int(data['vnet'].replace('Vnet',''))
             self.serv_info[data['vnet']].extend([serv_info])
+
+        self.peering = graph['vnet_peers']
 
         self.tests = []
         for routes in graph['vnet_routes']:
@@ -138,6 +158,7 @@ class VNET(BaseTest):
                         test['mac'] = self.vxlan_router_mac
                     test['src'], test['port'], test['vlan'], test['vni'] = self.getSrvInfo(test['name'])
                     self.tests.append(test)
+                    self.checkPeer(test)
 
         print self.tests
 
@@ -182,6 +203,10 @@ class VNET(BaseTest):
 
     def FromVM(self, test):
         rv = True
+        if test['vlan'] != 0:
+            tagged = True
+        else:
+            tagged = False
         for n in self.net_ports:
             pkt = simple_tcp_packet(
                 eth_dst=self.dut_mac,
@@ -190,7 +215,7 @@ class VNET(BaseTest):
                 ip_src=test['dst'],
                 ip_id=108,
                 ip_ttl=64)
-            udp_sport = 11638 # Use entropy_hash(pkt)
+            udp_sport = 1234 # Use entropy_hash(pkt)
             vxlan_pkt = simple_vxlan_packet(
                 eth_dst=self.dut_mac,
                 eth_src=self.random_mac,
@@ -205,7 +230,7 @@ class VNET(BaseTest):
             exp_pkt = simple_tcp_packet(
                 eth_src=self.dut_mac,
                 eth_dst=self.ptf_mac_addrs['eth%d' % test['port']],
-                dl_vlan_enable=True,
+                dl_vlan_enable=tagged,
                 vlan_vid=test['vlan'],
                 ip_dst=test['src'],
                 ip_src=test['dst'],
@@ -227,10 +252,14 @@ class VNET(BaseTest):
     def FromServer(self, test):
         rv = True
         try:
+            if test['vlan'] != 0:
+                tagged = True
+            else:
+                tagged = False
             pkt = simple_tcp_packet(
                 eth_dst=self.dut_mac,
                 eth_src=self.ptf_mac_addrs['eth%d' % test['port']],
-                dl_vlan_enable=True,
+                dl_vlan_enable=tagged,
                 vlan_vid=test['vlan'],
                 ip_dst=test['dst'],
                 ip_src=test['src'],
@@ -238,12 +267,12 @@ class VNET(BaseTest):
                 ip_ttl=64)
             exp_pkt = simple_tcp_packet(
                 eth_dst=test['mac'],
-                eth_src=self.ptf_mac_addrs['eth%d' % test['port']],
+                eth_src=self.dut_mac,
                 ip_dst=test['dst'],
                 ip_src=test['src'],
                 ip_id=105,
                 ip_ttl=63)
-            udp_sport = 11638 # Use entropy_hash(pkt)
+            udp_sport = 1234 # Use entropy_hash(pkt)
             encap_pkt = simple_vxlan_packet(
                 eth_src=self.dut_mac,
                 eth_dst=self.random_mac,
@@ -260,12 +289,13 @@ class VNET(BaseTest):
             masked_exp_pkt = Mask(encap_pkt)
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.UDP, "sport")
 
             log_str = "Sending packet from port " + str('eth%d' % test['port']) + " to " + test['dst']
             logging.info(log_str)
             print log_str
 
-            verify_any_packet_any_port(self, [masked_exp_pkt], self.net_ports)
+            verify_packets(self, masked_exp_pkt, self.net_ports)
 
         finally:
             print

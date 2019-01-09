@@ -17,16 +17,59 @@
         },
         "OP": "{{ op }}"
     },
+{% for peers in vnet_peer_list %}
+{% for key,peer in peers.items() %}
+{% if key == vnet %}
+    {
+        "VNET_ROUTE_TUNNEL_TABLE:{{ peer }}:{{ route.pfx }}" : {
+{% if routes.vni is defined %}
+            "vni": "{{ route.vni }}",
+{% endif %}
+{% if routes.mac is defined %}
+            "mac_address": "{{ route.mac }}",
+{% endif %}
+            "endpoint": "{{ route.end }}"
+        },
+        "OP": "{{ op }}"
+    },
+{% endif %}
+{% endfor %}
+{% endfor %}
 {% endfor %}
 {% endfor %}
 {% endif %}
 {% endfor %}
 {% endfor %}
 
+{% for intf in intf_list %}
+{% set outloop = loop %}
+{% for vnet_intf in vnet_intf_list %}
+{% if vnet_intf.ifname == intf.ifname %}
+    {
+       "VNET_ROUTE_TABLE:{{ vnet_intf.vnet }}:10.10.10.0/24": {
+           "ifname": "{{ intf.ifname  }}"
+       },
+       "OP": "{{ op }}"
+    },
+{% endif %}
+{% endfor %}
+{% endfor %}
 {% for vlan_intf in vlan_intf_list %}
 {% set outloop = loop %}
 {% for vnet_intf in vnet_intf_list %}
 {% if vnet_intf.ifname == vlan_intf.ifname %}
+{% for peers in vnet_peer_list %}
+{% for key,peer in peers.items() %}
+{% if key == vnet_intf.vnet %}
+    {
+       "VNET_ROUTE_TABLE:{{ peer }}:{{ outloop.index }}.{{ outloop.index }}.10.0/24": {
+           "ifname": "Vlan{{ vlan_intf.vlan_id  }}"
+       },
+       "OP": "{{ op }}"
+    },
+{% endif %}
+{% endfor %}
+{% endfor %}
     {
        "VNET_ROUTE_TABLE:{{ vnet_intf.vnet }}:{{ outloop.index }}.{{ outloop.index }}.10.0/24": {
            "ifname": "Vlan{{ vlan_intf.vlan_id  }}"
