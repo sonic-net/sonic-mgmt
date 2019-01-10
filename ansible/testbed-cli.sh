@@ -6,6 +6,10 @@ function usage
 {
   echo "testbed-cli. Interface to testbeds"
   echo "Usage : $0 { start-vms | stop-vms    } server-name vault-password-file"
+  echo "        to fix a subset of VMs:"
+  echo "        $0 start-vms server-name vault-password-fix -e respin_vms=[vm list]"
+  echo "             vm list is separated by comma and shouldn't have space in the list."
+  echo "                 e.g. respin_vms=[VM0310,VM0330]"
   echo "Usage : $0 { add-topo  | remove-topo | renumber-topo | connect-topo } topo-name vault-password-file"
   echo "Usage : $0 { connect-vms  | disconnect-vms } topo-name vault-password-file"
   echo "Usage : $0 { config-vm } topo-name vm-name vault-password-file"
@@ -62,51 +66,71 @@ function read_file
 
 function start_vms
 {
-  echo "Starting VMs on server '$1'"
+  server=$1
+  passwd=$2
+  shift
+  shift
+  echo "Starting VMs on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_start_VMs.yml --vault-password-file="$2" -l "$1"
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_start_VMs.yml --vault-password-file="${passwd}" -l "${server}" $@
 }
 
 function stop_vms
 {
-  echo "Stopping VMs on server '$1'"
+  server=$1
+  passwd=$2
+  shift
+  shift
+  echo "Stopping VMs on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_stop_VMs.yml --vault-password-file="$2" -l "$1"
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" $@
 }
 
 function add_topo
 {
-  echo "Deploying topology '$1'"
+  topology=$1
+  passwd=$2
+  shift
+  shift
+  echo "Deploying topology '${topology}'"
 
-  read_file $1
+  read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_add_vm_topology.yml --vault-password-file="$2" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename"
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" $@
 
-  ansible-playbook fanout_connect.yml -i veos --limit "$server" --vault-password-file="$2" -e "dut=$dut"
+  ansible-playbook fanout_connect.yml -i veos --limit "$server" --vault-password-file="${passwd}" -e "dut=$dut" $@
 
   echo Done
 }
 
 function remove_topo
 {
-  echo "Removing topology '$1'"
+  topology=$1
+  passwd=$2
+  shift
+  shift
+  echo "Removing topology '${topology}'"
 
-  read_file $1
+  read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_remove_vm_topology.yml --vault-password-file="$2" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename"
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" $@
 
   echo Done
 }
 
 function renumber_topo
 {
-  echo "Renumbering topology '$1'"
+  topology=$1
+  passwd=$2
+  shift
+  shift
+  echo "Renumbering topology '${topology}'"
 
-  read_file $1
+  read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_renumber_vm_topology.yml --vault-password-file="$2" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename"
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" $@
 
-  ansible-playbook fanout_connect.yml -i veos --limit "$server" --vault-password-file="$2" -e "dut=$dut"
+  ansible-playbook fanout_connect.yml -i veos --limit "$server" --vault-password-file="${passwd}" -e "dut=$dut" $@
 
   echo Done
 }
@@ -192,30 +216,32 @@ then
  usage
 fi
 
-case "$1" in
-  start-vms)   start_vms $2 $3
+subcmd=$1
+shift
+case "${subcmd}" in
+  start-vms)   start_vms $@
                ;;
-  stop-vms)    stop_vms $2 $3
+  stop-vms)    stop_vms $@
                ;;
-  add-topo)    add_topo $2 $3
+  add-topo)    add_topo $@
                ;;
-  remove-topo) remove_topo $2 $3
+  remove-topo) remove_topo $@
                ;;
-  renumber-topo) renumber_topo $2 $3
+  renumber-topo) renumber_topo $@
                ;;
-  connect-topo) connect_topo $2 $3
+  connect-topo) connect_topo $@
                ;;
-  connect-vms) connect_vms $2 $3
+  connect-vms) connect_vms $@
                ;;
-  disconnect-vms) disconnect_vms $2 $3
+  disconnect-vms) disconnect_vms $@
                ;;
-  config-vm)   config_vm $2 $3 $4
+  config-vm)   config_vm $@
                ;;
-  gen-mg)      generate_minigraph $2 $3 $4
+  gen-mg)      generate_minigraph $@
                ;;
-  deploy-mg)   deploy_minigraph $2 $3 $4
+  deploy-mg)   deploy_minigraph $@
                ;;
-  test-mg)     test_minigraph $2 $3 $4
+  test-mg)     test_minigraph $@
                ;;
   *)           usage
                ;;
