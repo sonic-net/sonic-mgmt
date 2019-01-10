@@ -453,6 +453,10 @@ class ReloadTest(BaseTest):
         self.set_asic_state('init')
         self.set_cpu_state('init')
         self.asic_flooding       = False
+        # light_probe:
+        #    True : when one direction probe fails, don't probe another.
+        #    False: when one direction probe fails, continue probe another.
+        self.light_probe         = False
 
         return
 
@@ -730,7 +734,8 @@ class ReloadTest(BaseTest):
         try:
             pool = ThreadPool(processes=3)
             self.log("Starting reachability state watch thread...")
-            self.watching = True
+            self.watching    = True
+            self.light_probe = False
             watcher = pool.apply_async(self.reachability_watcher)
 
             # Give watch thread some time to wind up
@@ -747,6 +752,9 @@ class ReloadTest(BaseTest):
             self.timeout(self.task_timeout, "DUT hasn't shutdown in %d seconds" % self.task_timeout)
             self.wait_until_cpu_port_down()
             self.cancel_timeout()
+
+            if self.reboot_type == 'fast-reboot':
+                self.light_probe = True
 
             self.reboot_start = datetime.datetime.now()
             self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
@@ -962,9 +970,9 @@ class ReloadTest(BaseTest):
 
         return self.get_asic_state_time(state), self.get_asic_vlan_reachability()
 
-    def ping_data_plane(self, force=False):
+    def ping_data_plane(self, light_probe=True):
         replies_from_servers = self.pingFromServers()
-        if replies_from_servers > 0 or force:
+        if replies_from_servers > 0 or not light_probe:
             replies_from_upper = self.pingFromUpperTier()
         else:
             replies_from_upper = 0
@@ -1092,7 +1100,7 @@ class ReloadTest(BaseTest):
         # changes for future analysis
 
         while self.watching:
-            vlan_to_t1, t1_to_vlan = self.ping_data_plane(True)
+            vlan_to_t1, t1_to_vlan = self.ping_data_plane(self.light_probe)
             reachable              = (t1_to_vlan  > self.nr_vl_pkts * 0.7 and
                                       vlan_to_t1  > self.nr_pc_pkts * 0.7)
             partial                = (reachable and
