@@ -2,9 +2,9 @@
   template: src=external_port.j2
             dest=/etc/network/interfaces.d/external_port
   become: yes
-  register: external_port
+  register: external_port_cfg
 
 - name: bring up external port
   shell: /sbin/ifup {{ external_port }} --force
   become: yes
-  when: external_port.changed
+  when: external_port_cfg.changed
