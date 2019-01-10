@@ -1085,7 +1085,7 @@ class ReloadTest(BaseTest):
         # changes for future analysis
 
         while self.watching:
-            vlan_to_t1, t1_to_vlan = self.ping_data_plane(self.light_ping)
+            vlan_to_t1, t1_to_vlan = self.ping_data_plane(True)
             reachable              = (t1_to_vlan  > 0 and vlan_to_t1 > 0  and
                                       t1_to_vlan  > self.nr_vl_pkts * 0.7 and
                                       vlan_to_t1  > self.nr_pc_pkts * 0.7)
