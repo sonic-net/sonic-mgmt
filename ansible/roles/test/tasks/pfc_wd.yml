@@ -100,11 +100,6 @@
   become: yes
   when: minigraph_vlans | length >0
 
-- name: "Update ARP entry on DUT"
-  shell: ping {{minigraph_vlan_interfaces[0]['addr']}} -c 5
-  delegate_to: "{{ptf_host}}"
-  when: minigraph_vlans | length >0
-
 - debug: msg="{{test_ports}}"
 
 - set_fact:
@@ -119,6 +114,16 @@
  #****************************************#
 
 - block:
+    - name: Vlan members initial value
+      set_fact:
+        vlan_members: []
+      when: vlan_members is undefined
+
+    - name: Vlan interfaces initial value
+      set_fact:
+        minigraph_vlan_interfaces: []
+      when: minigraph_vlan_interfaces is undefined
+
     - name: Test PFC WD configuration validation.
       vars:
         pfc_wd_template: roles/test/templates/pfc_wd_config.j2
@@ -134,15 +139,10 @@
     - name: Test PFC WD extreme case when all ports have storm
       include: roles/test/tasks/pfc_wd/functional_test/storm_all_test.yml
 
-    - name: Vlan members initial value
-      set_fact:
-        vlan_members: []
-
     - name: Set vlan members
       set_fact:
         vlan_members: "{{ minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members']}}"
       when:
-        - minigraph_vlan_interfaces
         - pfc_asym is defined
 
     - name: Enable asymmetric PFC on all server interfaces
