@@ -724,7 +724,7 @@ class ReloadTest(BaseTest):
         thr.setDaemon(True)
 
         try:
-            pool = ThreadPool(processes=5)
+            pool = ThreadPool(processes=3)
             self.log("Starting reachability state watch thread...")
             self.watching = True
             watcher = pool.apply_async(self.reachability_watcher)
