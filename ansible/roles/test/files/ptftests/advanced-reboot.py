@@ -126,6 +126,8 @@ class Arista(object):
         run_once = False
         log_first_line = None
         quit_enabled = False
+        v4_routing_ok = False
+        v6_routing_ok = False
         routing_works = True
         self.connect()
 
@@ -438,6 +440,24 @@ class ReloadTest(BaseTest):
                                   # But ptf is not fast enough + swss is slow for FDB and ARP entries insertions
         self.timeout_thr = None
 
+        # State watcher attributes
+        self.cpu_state_lock      = threading.RLock()
+        self.asic_state_lock     = threading.RLock()
+        self.watching            = False
+        self.cpu_state           = None
+        self.asic_state          = None
+        self.cpu_state_time      = {} # Recording last cpu  state entering time
+        self.asic_state_time     = {} # Recording last asic state entering time
+        self.asic_vlan_reach     = [] # Recording asic vlan reachability
+        self.recording           = False # Knob for recording asic_vlan_reach
+        self.set_asic_state('init')
+        self.set_cpu_state('init')
+        self.asic_flooding       = False
+        # light_probe:
+        #    True : when one direction probe fails, don't probe another.
+        #    False: when one direction probe fails, continue probe another.
+        self.light_probe         = False
+
         return
 
     def read_json(self, name):
@@ -556,13 +576,17 @@ class ReloadTest(BaseTest):
             self.dataplane.start_pcap(filename)
 
         self.log("Enabling arp_responder")
-        self.cmd(["supervisorctl", "start", "arp_responder"])
+        self.cmd(["supervisorctl", "restart", "arp_responder"])
 
         return
 
     def tearDown(self):
         self.log("Disabling arp_responder")
         self.cmd(["supervisorctl", "stop", "arp_responder"])
+
+        # Stop watching DUT
+        self.watching = False
+
         if config["log_dir"] != None:
             self.dataplane.stop_pcap()
         self.log_fp.close()
@@ -684,6 +708,7 @@ class ReloadTest(BaseTest):
         self.reboot_start = None
         no_routing_start = None
         no_routing_stop = None
+        no_cp_replies = None
 
         arista_vms = self.test_params['arista_vms'][1:-1].split(",")
         ssh_targets = []
@@ -703,31 +728,44 @@ class ReloadTest(BaseTest):
             self.ssh_jobs.append((thr, q))
             thr.start()
 
-        thr = threading.Thread(target=self.background)
+        thr = threading.Thread(target=self.reboot_dut)
         thr.setDaemon(True)
-        self.log("Check that device is alive and pinging")
-        self.assertTrue(self.check_alive(), 'DUT is not stable')
 
         try:
+            pool = ThreadPool(processes=3)
+            self.log("Starting reachability state watch thread...")
+            self.watching    = True
+            self.light_probe = False
+            watcher = pool.apply_async(self.reachability_watcher)
+
+            # Give watch thread some time to wind up
+            time.sleep(5)
+
+            self.log("Check that device is alive and pinging")
+            self.assertTrue(self.check_alive(), 'DUT is not stable')
+            self.assertTrue(self.get_cpu_state() == 'up' and self.get_asic_state() == 'up', 'DUT is not ready for test')
+
             self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
             thr.start()
 
-            self.log("Wait until CPU port down")
+            self.log("Wait until Control plane down")
             self.timeout(self.task_timeout, "DUT hasn't shutdown in %d seconds" % self.task_timeout)
             self.wait_until_cpu_port_down()
             self.cancel_timeout()
 
+            if self.reboot_type == 'fast-reboot':
+                self.light_probe = True
+
             self.reboot_start = datetime.datetime.now()
             self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
 
-            self.log("Check that device is still forwarding Data plane traffic")
+            self.log("Check that device is still forwarding data plane traffic")
             self.assertTrue(self.check_alive(), 'DUT is not stable')
 
-            self.log("Wait until CPU port up")
-            pool = ThreadPool(processes=10)
+            self.log("Wait until control plane up")
             async_cpu_up = pool.apply_async(self.wait_until_cpu_port_up)
 
-            self.log("Wait until ASIC stops")
+            self.log("Wait until data plane stops")
             async_forward_stop = pool.apply_async(self.check_forwarding_stop)
 
             try:
@@ -738,9 +776,9 @@ class ReloadTest(BaseTest):
 
             try:
                 no_routing_start, upper_replies = async_forward_stop.get(timeout=self.task_timeout)
-                self.log("ASIC was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
+                self.log("Data plane was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
             except TimeoutError:
-                self.log("ASIC never stop")
+                self.log("Data plane never stop")
                 no_routing_start = datetime.min
 
             if no_routing_start is not None:
@@ -749,6 +787,9 @@ class ReloadTest(BaseTest):
                 self.cancel_timeout()
             else:
                 no_routing_stop = datetime.min
+
+            # Stop watching DUT
+            self.watching = False
 
             # wait until all bgp session are established
             self.log("Wait until bgp routing is up on all devices")
@@ -765,7 +806,7 @@ class ReloadTest(BaseTest):
                 thr.join()
             self.cancel_timeout()
 
-            self.log("ASIC works again. Start time: %s" % str(no_routing_stop))
+            self.log("Data plane works again. Start time: %s" % str(no_routing_stop))
             self.log("")
 
             no_cp_replies = self.extract_no_cpu_replies(upper_replies)
@@ -775,11 +816,14 @@ class ReloadTest(BaseTest):
                 self.fails['dut'].add("Downtime must be less then %s seconds. It was %s" \
                         % (self.test_params['reboot_limit_in_seconds'], str(no_routing_stop - no_routing_start)))
             if no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
-                self.fails['dut'].add("Fast-reboot cycle must be less than graceful limit %s seconds" % self.test_params['graceful_limit'])
+                self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
             if no_cp_replies < 0.95 * self.nr_vl_pkts:
                 self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (no_cp_replies, self.nr_vl_pkts))
 
         finally:
+            # Stop watching DUT
+            self.watching = False
+
             # Generating report
             self.log("="*50)
             self.log("Report:")
@@ -855,7 +899,7 @@ class ReloadTest(BaseTest):
       else:
           return non_zero[-1]
 
-    def background(self):
+    def reboot_dut(self):
         time.sleep(self.reboot_delay)
 
         self.log("Rebooting remote side")
@@ -888,52 +932,52 @@ class ReloadTest(BaseTest):
 
     def wait_until_cpu_port_down(self):
         while True:
-            total_rcv_pkt_cnt = self.pingDut()
-            if total_rcv_pkt_cnt < self.ping_dut_pkts:
+            for _, q in self.ssh_jobs:
+                q.put('go')
+            if self.get_cpu_state() == 'down':
                 break
+            time.sleep(self.TIMEOUT)
 
     def wait_until_cpu_port_up(self):
         while True:
-            total_rcv_pkt_cnt = self.pingDut()
-            if total_rcv_pkt_cnt >= self.ping_dut_pkts / 2:
-                break
-
-    def check_forwarding_stop(self):
-        return self.iteration(True)
-
-    def check_forwarding_resume(self):
-        return self.iteration(False)
-
-    def iteration(self, is_stop):
-        recorded_time = None
-        counter = self.nr_tests
-        nr_from_upper_array = []
-        while True:
-            success, nr_from_upper = self.ping_iteration()
-            nr_from_upper_array.append(nr_from_upper)
             for _, q in self.ssh_jobs:
                 q.put('go')
-            if success and is_stop or not success and not is_stop:
-                self.log("Base state", True)
-                recorded_time = None
-            else:
-                self.log("Changed state", True)
-                if recorded_time is None:
-                    recorded_time = datetime.datetime.now()
-                if counter == 0:
-                    break
-                else:
-                    counter -= 1
+            if self.get_cpu_state() == 'up':
+                break
+            time.sleep(self.TIMEOUT)
 
-        return recorded_time, nr_from_upper_array
+    def check_forwarding_stop(self):
+        self.asic_start_recording_vlan_reachability()
 
-    def ping_iteration(self):
+        while True:
+            state = self.get_asic_state()
+            for _, q in self.ssh_jobs:
+                q.put('go')
+            if state == 'down':
+                break
+            time.sleep(self.TIMEOUT)
+
+
+        self.asic_stop_recording_vlan_reachability()
+        return self.get_asic_state_time(state), self.get_asic_vlan_reachability()
+
+    def check_forwarding_resume(self):
+        while True:
+            state = self.get_asic_state()
+            if state != 'down':
+                break
+            time.sleep(self.TIMEOUT)
+
+        return self.get_asic_state_time(state), self.get_asic_vlan_reachability()
+
+    def ping_data_plane(self, light_probe=True):
         replies_from_servers = self.pingFromServers()
-        if replies_from_servers > 0:
+        if replies_from_servers > 0 or not light_probe:
             replies_from_upper = self.pingFromUpperTier()
         else:
             replies_from_upper = 0
-        return replies_from_servers > 0 and replies_from_upper > 0, replies_from_upper
+
+        return replies_from_servers, replies_from_upper
 
     def check_alive(self):
         # This function checks that DUT routes the packets in the both directions.
@@ -947,31 +991,130 @@ class ReloadTest(BaseTest):
         # I think this is because of not populated FDB table
         # The function waits while it's done
 
-        was_alive = False
+        uptime = None
         for counter in range(self.nr_tests * 2):
-            success, _ = self.ping_alive()
-            if success:
-              was_alive = True
+            state = self.get_asic_state()
+            if state == 'up':
+                if not uptime:
+                    uptime = self.get_asic_state_time(state)
             else:
-              if was_alive:
-                return False    # Stopped working after it working for sometime?
+                if uptime:
+                    return False # Stopped working after it working for sometime?
+            time.sleep(2)
 
         # wait, until FDB entries are populated
         for _ in range(self.nr_tests * 10): # wait for some time
-            if not self.ping_alive()[1]:    # until we see that there're no extra replies
+            if not self.asic_flooding:
                 return True
+            time.sleep(2)
 
         return False                        # we still see extra replies
 
-    def ping_alive(self):
-        nr_from_s = self.pingFromServers()
-        nr_from_l = self.pingFromUpperTier()
 
-        is_alive      = nr_from_s > self.nr_pc_pkts * 0.7 and nr_from_l > self.nr_vl_pkts * 0.7
-        is_asic_weird = nr_from_s > self.nr_pc_pkts        or nr_from_l > self.nr_vl_pkts
-        # we receive more, then sent. not populated FDB table
+    def get_asic_state(self):
+        with self.asic_state_lock:
+            state = self.asic_state
+        return state
 
-        return is_alive, is_asic_weird
+
+    def get_asic_state_time(self, state):
+        with self.asic_state_lock:
+            time = self.asic_state_time[state]
+        return time
+
+
+    def set_asic_state(self, state, reachability=0):
+        with self.asic_state_lock:
+            self.asic_state             = state
+            self.asic_state_time[state] = datetime.datetime.now()
+
+
+    def get_asic_vlan_reachability(self):
+        return self.asic_vlan_reach
+
+
+    def asic_start_recording_vlan_reachability(self):
+        with self.asic_state_lock:
+            self.asic_vlan_reach = []
+            self.recording       = True
+
+
+    def asic_stop_recording_vlan_reachability(self):
+        with self.asic_state_lock:
+            self.recording = False
+
+
+    def try_record_asic_vlan_recachability(self, t1_to_vlan):
+        with self.asic_state_lock:
+            if self.recording:
+                self.asic_vlan_reach.append(t1_to_vlan)
+
+    def get_cpu_state(self):
+        with self.cpu_state_lock:
+            state = self.cpu_state
+        return state
+
+
+    def get_cpu_state_time(self, state):
+        with self.cpu_state_lock:
+            time = self.cpu_state_time[state]
+        return time
+
+
+    def set_cpu_state(self, state):
+        with self.cpu_state_lock:
+            self.cpu_state             = state
+            self.cpu_state_time[state] = datetime.datetime.now()
+
+
+    def log_asic_state_change(self, reachable, partial=False, t1_to_vlan=0):
+        old = self.get_asic_state()
+
+        if reachable:
+            state = 'up' if not partial else 'partial'
+        else:
+            state = 'down'
+
+        self.try_record_asic_vlan_recachability(t1_to_vlan)
+
+        if old != state:
+            self.log("Data plane state transition from %s to %s (%d)" % (old, state, t1_to_vlan))
+            self.set_asic_state(state)
+
+
+    def log_cpu_state_change(self, reachable, partial=False):
+        old = self.get_cpu_state()
+
+        if reachable:
+            state = 'up' if not partial else 'partial'
+        else:
+            state = 'down'
+
+        if old != state:
+            self.log("Control plane state transition from %s to %s" % (old, state))
+            self.set_cpu_state(state)
+
+
+    def reachability_watcher(self):
+        # This function watches the reachability of the CPU port, and ASIC. It logs the state
+        # changes for future analysis
+
+        while self.watching:
+            vlan_to_t1, t1_to_vlan = self.ping_data_plane(self.light_probe)
+            reachable              = (t1_to_vlan  > self.nr_vl_pkts * 0.7 and
+                                      vlan_to_t1  > self.nr_pc_pkts * 0.7)
+            partial                = (reachable and
+                                      (t1_to_vlan < self.nr_vl_pkts or
+                                       vlan_to_t1 < self.nr_pc_pkts))
+            self.asic_flooding     = (reachable and
+                                      (t1_to_vlan  > self.nr_vl_pkts or
+                                       vlan_to_t1  > self.nr_pc_pkts))
+            self.log_asic_state_change(reachable, partial, t1_to_vlan)
+            total_rcv_pkt_cnt      = self.pingDut()
+            reachable              = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.ping_dut_pkts * 0.7
+            partial                = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.ping_dut_pkts
+            self.log_cpu_state_change(reachable, partial)
+
 
     def pingFromServers(self):
         for i in xrange(self.nr_pc_pkts):
