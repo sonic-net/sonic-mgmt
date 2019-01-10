@@ -75,10 +75,10 @@
 
 - include: docker.yml
 
-- name: Ensure {{ ansible_user }} in libvirt and docker group
+- name: Ensure {{ ansible_user }} in libvirt,docker,sudo group
   user:
     name: "{{ ansible_user }}"
-    groups: libvirt,docker
+    groups: libvirt,docker,sudo
   become: yes
 
 - name: Install br_netfilter kernel module
