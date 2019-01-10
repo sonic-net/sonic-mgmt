@@ -7,10 +7,10 @@
 {% for route in entries %}
     {
         "VNET_ROUTE_TUNNEL_TABLE:{{ vnet }}:{{ route.pfx }}" : {
-{% if routes.vni is defined %}
+{% if route.vni is defined %}
             "vni": "{{ route.vni }}",
 {% endif %}
-{% if routes.mac is defined %}
+{% if route.mac is defined %}
             "mac_address": "{{ route.mac }}",
 {% endif %}
             "endpoint": "{{ route.end }}"
@@ -22,10 +22,10 @@
 {% if key == vnet %}
     {
         "VNET_ROUTE_TUNNEL_TABLE:{{ peer }}:{{ route.pfx }}" : {
-{% if routes.vni is defined %}
+{% if route.vni is defined %}
             "vni": "{{ route.vni }}",
 {% endif %}
-{% if routes.mac is defined %}
+{% if route.mac is defined %}
             "mac_address": "{{ route.mac }}",
 {% endif %}
             "endpoint": "{{ route.end }}"

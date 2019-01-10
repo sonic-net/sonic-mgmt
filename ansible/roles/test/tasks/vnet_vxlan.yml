@@ -50,6 +50,23 @@
     - debug: var=vnet_nbr_list
     - debug: var=vnet_peer_list
 
+    - name: Render DUT VNet parameters to json file for the test
+      template: src=vnet.j2 dest=/tmp/vnet.json
+      delegate_to: "{{ ptf_host }}"
+
+      #Execute the test with Vxlan enabled false
+    - include: ptf_runner.yml
+      vars:
+        ptf_test_name: Vnet vxlan test
+        ptf_test_dir: ptftests
+        ptf_test_path: vnet_vxlan.VNET
+        ptf_platform: remote
+        ptf_platform_dir: ptftests
+        ptf_qlen: 1000
+        ptf_test_params:
+        - vxlan_enabled=False
+        - config_file='/tmp/vnet.json'
+
     - name: Render DUT VNet Switch configuration
       template: src=vnet_switch.j2 dest=/tmp/vnet.switch.json
 
@@ -79,10 +96,6 @@
 
     - name: Render DUT VNet route configuration
       template: src=vnet_routes.j2 dest=/tmp/vnet.route.json
-
-    - name: Render DUT VNet parameters to json file for the test
-      template: src=vnet.j2 dest=/tmp/vnet.json
-      delegate_to: "{{ ptf_host }}"
 
     - name: Apply VNet Vxlan configuration
       shell: sonic-cfggen -j /tmp/vnet.conf.json --write-to-db
@@ -120,3 +133,4 @@
         ptf_test_params:
         - vxlan_enabled=True
         - config_file='/tmp/vnet.json'
+        ptf_extra_options: "--relax --debug info --log-file /tmp/vnet_test.log"

@@ -90,6 +90,9 @@ class VNET(BaseTest):
         if 'config_file' not in self.test_params:
             raise Exception("required parameter 'config_file' is not present")
 
+        if 'vxlan_enabled' in self.test_params and self.test_params['vxlan_enabled']:
+            self.vxlan_enabled = True
+
         config = self.test_params['config_file']
 
         if not os.path.isfile(config):
@@ -160,8 +163,6 @@ class VNET(BaseTest):
                     self.tests.append(test)
                     self.checkPeer(test)
 
-        print self.tests
-
         self.dut_mac = graph['dut_mac']
 
         ip = None
@@ -185,12 +186,15 @@ class VNET(BaseTest):
         return
 
     def tearDown(self):
-        self.cmd(["supervisorctl", "stop", "arp_responder"])
+        if self.vxlan_enabled:
+            self.cmd(["supervisorctl", "stop", "arp_responder"])
 
         return
 
     def runTest(self):
-        print
+        if not self.vxlan_enabled:
+            return
+
         for test in self.tests:
             print test['name']
             self.FromServer(test)
