@@ -1,11 +1,8 @@
-- name: Extracting vlan_range
-  set_fact: vlan_base={{ device_vlan_list | min }}
-  when: external_port is defined
-
 - name: Setup front panel port for vlan tunnel
   vlan_port:
     external_port: "{{ external_port }}"
-    vlan_base: "{{ vlan_base }}"
+    vlan_ids: "{{ device_vlan_list }}"
+    cmd: "create"
   become: yes
   when: external_port is defined
 
