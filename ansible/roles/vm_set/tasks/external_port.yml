@@ -5,6 +5,6 @@
   register: external_port
 
 - name: bring up external port
-  shell: /sbin/ifup {{ external_iface }} --force
+  shell: /sbin/ifup {{ external_port }} --force
   become: yes
   when: external_port.changed

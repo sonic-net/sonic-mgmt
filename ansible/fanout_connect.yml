@@ -10,7 +10,7 @@
       - block:
         - set_fact:
             server: "{{ inventory_hostname|lower }}"
-            server_port: "{{ external_iface }}"
+            server_port: "{{ external_port }}"
 
         - debug: msg="Connect {{ server }}:{{ server_port }} to {{ dut }}"
 
@@ -26,4 +26,4 @@
         - set_fact: connect_leaf=false
 
         - include: roles/fanout/tasks/rootfanout_connect.yml
-        when: external_iface is defined
+        when: external_port is defined

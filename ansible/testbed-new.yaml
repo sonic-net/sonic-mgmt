@@ -218,7 +218,7 @@ host_vars:
         mgmt_bridge: br1                # source: sonic-mgmt/host_vars
         mgmt_prefixlen: 24              # source: sonic-mgmt/host_vars
         mgmt_gw: 10.250.0.1             # source: sonic-mgmt/host_vars
-        external_iface: ens3f0          # source: sonic-mgmt/host_vars
+        external_port: ens3f0           # source: sonic-mgmt/host_vars
 
 # veos_groups is a dictionary that contains all veos groups
 # veos_groups is used to generate the veos file

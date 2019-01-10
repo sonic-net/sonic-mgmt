@@ -1,6 +1,6 @@
 - name: Extracting vlan_range
   set_fact: vlan_base={{ device_vlan_list | min }}
-  when: external_iface is defined
+  when: external_port is defined
 
 - name: Setup front panel port for vlan tunnel
   vlan_port:

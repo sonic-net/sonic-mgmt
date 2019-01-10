@@ -2,7 +2,7 @@
 # Input parameters for the role:
 # - action: 'start', 'stop' or 'renumber' for creating, removeing, or renumbering vm set respectively
 # - id: sequence number for vm set on the host.
-# - external_iface: interface which will be used as parent for vlan interface creation
+# - external_port: interface which will be used as parent for vlan interface creation
 # - vlan_base: first vlan id for the VMs
 # - VMs: a dictionary which contains hostnames of VMs as a key and a dictionary with parameters (num, memory, mgmt_ip) for every VM.
 # - topology: a dictionary which contains hostnames of VMs as a key and vlans value which define a topology (numbers of connected ports for every VM)
