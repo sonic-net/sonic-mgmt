@@ -739,7 +739,7 @@ class ReloadTest(BaseTest):
             self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
             thr.start()
 
-            self.log("Wait until CPU port down")
+            self.log("Wait until Control plane down")
             self.timeout(self.task_timeout, "DUT hasn't shutdown in %d seconds" % self.task_timeout)
             self.wait_until_cpu_port_down()
             self.cancel_timeout()
@@ -747,13 +747,13 @@ class ReloadTest(BaseTest):
             self.reboot_start = datetime.datetime.now()
             self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
 
-            self.log("Check that device is still forwarding Data plane traffic")
+            self.log("Check that device is still forwarding data plane traffic")
             self.assertTrue(self.check_alive(), 'DUT is not stable')
 
-            self.log("Wait until CPU port up")
+            self.log("Wait until control plane up")
             async_cpu_up = pool.apply_async(self.wait_until_cpu_port_up)
 
-            self.log("Wait until ASIC stops")
+            self.log("Wait until data plane stops")
             async_forward_stop = pool.apply_async(self.check_forwarding_stop)
 
             try:
@@ -764,9 +764,9 @@ class ReloadTest(BaseTest):
 
             try:
                 no_routing_start, upper_replies = async_forward_stop.get(timeout=self.task_timeout)
-                self.log("ASIC was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
+                self.log("Data plane was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
             except TimeoutError:
-                self.log("ASIC never stop")
+                self.log("Data plane never stop")
                 no_routing_start = datetime.min
 
             if no_routing_start is not None:
@@ -794,7 +794,7 @@ class ReloadTest(BaseTest):
                 thr.join()
             self.cancel_timeout()
 
-            self.log("ASIC works again. Start time: %s" % str(no_routing_stop))
+            self.log("Data plane works again. Start time: %s" % str(no_routing_stop))
             self.log("")
 
             no_cp_replies = self.extract_no_cpu_replies(upper_replies)
@@ -1063,7 +1063,7 @@ class ReloadTest(BaseTest):
         self.try_record_asic_vlan_recachability(t1_to_vlan)
 
         if old != state:
-            self.log("ASIC state transition from %s to %s (%d)" % (old, state, t1_to_vlan))
+            self.log("Data plane state transition from %s to %s (%d)" % (old, state, t1_to_vlan))
             self.set_asic_state(state)
 
 
@@ -1076,7 +1076,7 @@ class ReloadTest(BaseTest):
             state = 'down'
 
         if old != state:
-            self.log("CPU state transition from %s to %s" % (old, state))
+            self.log("Control plane state transition from %s to %s" % (old, state))
             self.set_cpu_state(state)
 
 
