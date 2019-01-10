@@ -1085,16 +1085,16 @@ class ReloadTest(BaseTest):
         # changes for future analysis
 
         while self.watching:
-            vlan_to_t1, t1_to_vlan = self.ping_data_plane(True)
+            vlan_to_t1, t1_to_vlan = self.ping_data_plane(self.light_ping)
             reachable              = (t1_to_vlan  > 0 and vlan_to_t1 > 0  and
                                       t1_to_vlan  > self.nr_vl_pkts * 0.7 and
                                       vlan_to_t1  > self.nr_pc_pkts * 0.7)
-            partial                = (t1_to_vlan  > 0 and vlan_to_t1 > 0  and
+            partial                = (reachable and
                                       (t1_to_vlan < self.nr_vl_pkts or
                                        vlan_to_t1 < self.nr_pc_pkts))
             self.asic_flooding     = (reachable and
                                       (t1_to_vlan  > self.nr_vl_pkts or
-                                      vlan_to_t1  > self.nr_pc_pkts))
+                                       vlan_to_t1  > self.nr_pc_pkts))
             self.log_asic_state_change(reachable, partial, t1_to_vlan)
             total_rcv_pkt_cnt      = self.pingDut()
             reachable              = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.ping_dut_pkts * 0.7
