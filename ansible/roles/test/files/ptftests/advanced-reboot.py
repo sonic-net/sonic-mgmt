@@ -579,6 +579,10 @@ class ReloadTest(BaseTest):
     def tearDown(self):
         self.log("Disabling arp_responder")
         self.cmd(["supervisorctl", "stop", "arp_responder"])
+
+        # Stop watching DUT
+        self.watching = False
+
         if config["log_dir"] != None:
             self.dataplane.stop_pcap()
         self.log_fp.close()
@@ -809,6 +813,9 @@ class ReloadTest(BaseTest):
                 self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (no_cp_replies, self.nr_vl_pkts))
 
         finally:
+            # Stop watching DUT
+            self.watching = False
+
             # Generating report
             self.log("="*50)
             self.log("Report:")
