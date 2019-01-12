@@ -38,7 +38,7 @@ class BcastTest(BaseTest):
     # Class variables
     #---------------------------------------------------------------------
     BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
-    TEST_SRC_IP = "10.0.0.100"  # Some src IP
+    TEST_SRC_IP = "1.1.1.1"  # Some src IP
 
     def __init__(self):
         '''
