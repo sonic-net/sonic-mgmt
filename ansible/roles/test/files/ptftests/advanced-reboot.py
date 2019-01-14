@@ -861,11 +861,13 @@ class ReloadTest(BaseTest):
 
             self.log("Summary:")
             self.log("-"*50)
-            self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
-            self.log("Reboot time was %s" % str(no_routing_stop - self.reboot_start))
+            if no_routing_stop:
+                self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
+                self.log("Reboot time was %s" % str(no_routing_stop - self.reboot_start))
 
 
-            self.log("How many packets were received back when control plane was down: %d Expected: %d" % (no_cp_replies, self.nr_vl_pkts))
+            if no_cp_replies:
+                self.log("How many packets were received back when control plane was down: %d Expected: %d" % (no_cp_replies, self.nr_vl_pkts))
 
             has_info = any(len(info) > 0 for info in self.info.values())
             if has_info:
