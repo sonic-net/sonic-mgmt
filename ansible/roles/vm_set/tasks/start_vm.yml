@@ -32,18 +32,21 @@
         xml="{{ lookup('template', 'templates/arista.xml.j2') }}"
         uri=qemu:///system
   when: vm_name not in vm_list_defined.list_vms
+  become: yes
 
 - name: Destroy vm {{ vm_name }} if it requires fix
   virt: name={{ vm_name }}
         command=destroy
         uri=qemu:///system
   when: vm_name in respin_vms
+  become: yes
 
 - name: Start vm {{ vm_name }}
   virt: name={{ vm_name }}
         state=running
         uri=qemu:///system
   when: vm_name not in vm_list_running.list_vms or vm_name in respin_vms
+  become: yes
 
 - name: Wait until vm {{ vm_name }} is loaded
   kickstart: telnet_port={{ serial_port }}
@@ -63,12 +66,14 @@
         command=destroy
         uri=qemu:///system
   when: vm_name not in vm_list_running.list_vms and kickstart_output.kickstart_code != 0
+  become: yes
 
 - name: Start vm again {{ vm_name }}
   virt: name={{ vm_name }}
         state=running
         uri=qemu:///system
   when: vm_name not in vm_list_running.list_vms and kickstart_output.kickstart_code != 0
+  become: yes
 
 - name: Wait until vm {{ vm_name }} is loaded
   kickstart: telnet_port={{ serial_port }}
