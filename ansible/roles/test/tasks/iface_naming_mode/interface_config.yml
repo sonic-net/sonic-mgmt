@@ -4,7 +4,7 @@
     intf: "{{interface_alias if (mode=='alias') else interface}}"
 
 - set_fact:
-    native_speed: "{{port_speed[interface_alias]}}"
+    native_speed: "{{port_speed[interface_alias] if (port_speed | length != 0) else iface_speed}}"
 
 - block: 
 
@@ -29,6 +29,7 @@
       failed_when: out.rc != 0
     
     - pause: seconds=3
+
     - name:  Get interface status
       show_interface: command="status"  interfaces="{{intf}}"
       
