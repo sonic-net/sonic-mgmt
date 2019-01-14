@@ -755,7 +755,7 @@ class ReloadTest(BaseTest):
             self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
             thr.start()
 
-            self.log("Wait until Control plane down")
+            self.log("Wait until Control plane is down")
             self.timeout(self.task_timeout, "DUT hasn't shutdown in %d seconds" % self.task_timeout)
             self.wait_until_cpu_port_down()
             self.cancel_timeout()
@@ -771,7 +771,7 @@ class ReloadTest(BaseTest):
             self.assertTrue(self.check_alive(), 'DUT is not stable')
             self.fails['dut'].clear()
 
-            self.log("Wait until control plane up")
+            self.log("Wait until control plane is up")
             async_cpu_up = pool.apply_async(self.wait_until_cpu_port_up)
 
             self.log("Wait until data plane stops")
