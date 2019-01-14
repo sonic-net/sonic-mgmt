@@ -429,6 +429,8 @@ class ReloadTest(BaseTest):
         self.check_param('lo_v6_prefix', 'fc00:1::/64', required = False)
         self.check_param('arista_vms', [], required = True)
         self.check_param('min_bgp_gr_timeout', 15, required = False)
+        self.check_param('warm_up_timeout_secs', 180, required = False)
+        self.check_param('dut_stablize_secs', 20, required = False)
 
         # Default settings
         self.ping_dut_pkts = 10
@@ -742,8 +744,7 @@ class ReloadTest(BaseTest):
             time.sleep(5)
 
             self.log("Check that device is alive and pinging")
-            self.assertTrue(self.check_alive(), 'DUT is not stable')
-            self.assertTrue(self.get_cpu_state() == 'up' and self.get_asic_state() == 'up', 'DUT is not ready for test')
+            self.assertTrue(self.wait_dut_to_warm_up(), 'DUT is not stable')
 
             self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
             thr.start()
@@ -979,6 +980,58 @@ class ReloadTest(BaseTest):
 
         return replies_from_servers, replies_from_upper
 
+    def wait_dut_to_warm_up(self):
+        # When the DUT is freshly rebooted, it appears that it needs to warm
+        # up towards PTF docker. In practice, I've seen this warm up taking
+        # up to ~70 seconds.
+
+        dut_stablize_secs    = int(self.test_params['dut_stablize_secs'])
+        warm_up_timeout_secs = int(self.test_params['warm_up_timeout_secs'])
+
+        start_time = datetime.datetime.now()
+
+        # First wait until DUT data/control planes are up
+        while True:
+            dataplane = self.get_asic_state()
+            ctrlplane = self.get_cpu_state()
+            elapsed   = (datetime.datetime.now() - start_time).total_seconds()
+            if dataplane == 'up' and ctrlplane == 'up' and elapsed > dut_stablize_secs:
+                break;
+            if elapsed > warm_up_timeout_secs:
+                # Control plane didn't come up within warm up timeout
+                return False
+            time.sleep(1)
+
+        # check until flooding is over. Flooding happens when FDB entry of
+        # certain host is not yet learnt by the ASIC, therefore it sends
+        # packet to all vlan ports.
+        uptime = datetime.datetime.now()
+        while True:
+            elapsed = (datetime.datetime.now() - start_time).total_seconds()
+            if not self.asic_flooding and elapsed > dut_stablize_secs:
+                break
+            if elapsed > warm_up_timeout_secs:
+                # Control plane didn't stop flooding within warm up timeout
+                return False
+            time.sleep(1)
+
+        dataplane = self.get_asic_state()
+        ctrlplane = self.get_cpu_state()
+        if not dataplane == 'up' or not ctrlplane == 'up':
+            # Either contorl or data plane went down while we are waiting
+            # for the flooding to stop.
+            return False
+
+        if (self.get_asic_state_time('up') > uptime or
+            self.get_cpu_state_time('up')  > uptime):
+           # Either control plane or data plane flapped while we were
+           # waiting for the warm up.
+           return False
+
+        # Everything is good
+        return True
+
+
     def check_alive(self):
         # This function checks that DUT routes the packets in the both directions.
         #
@@ -1113,6 +1166,7 @@ class ReloadTest(BaseTest):
             total_rcv_pkt_cnt      = self.pingDut()
             reachable              = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.ping_dut_pkts * 0.7
             partial                = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.ping_dut_pkts
+            self.cpu_flooding      = reachable and total_rcv_pkt_cnt > self.ping_dut_pkts
             self.log_cpu_state_change(reachable, partial)
 
 
