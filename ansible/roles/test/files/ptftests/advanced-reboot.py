@@ -736,6 +736,8 @@ class ReloadTest(BaseTest):
         thr.setDaemon(True)
 
         try:
+            self.fails['dut'] = set()
+
             pool = ThreadPool(processes=3)
             self.log("Starting reachability state watch thread...")
             self.watching    = True
@@ -746,7 +748,9 @@ class ReloadTest(BaseTest):
             time.sleep(5)
 
             self.log("Check that device is alive and pinging")
+            self.fails['dut'].add('DUT is not ready for test')
             self.assertTrue(self.wait_dut_to_warm_up(), 'DUT is not stable')
+            self.fails['dut'].clear()
 
             self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
             thr.start()
@@ -763,7 +767,9 @@ class ReloadTest(BaseTest):
             self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
 
             self.log("Check that device is still forwarding data plane traffic")
+            self.fails['dut'].add('Data plane has forwarding problem')
             self.assertTrue(self.check_alive(), 'DUT is not stable')
+            self.fails['dut'].clear()
 
             self.log("Wait until control plane up")
             async_cpu_up = pool.apply_async(self.wait_until_cpu_port_up)
@@ -775,6 +781,7 @@ class ReloadTest(BaseTest):
                 async_cpu_up.get(timeout=self.task_timeout)
             except TimeoutError as e:
                 self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
+                self.fails['dut'].add("DUT hasn't bootup in %d seconds" % self.task_timeout)
                 raise
 
             try:
@@ -814,7 +821,6 @@ class ReloadTest(BaseTest):
 
             no_cp_replies = self.extract_no_cpu_replies(upper_replies)
 
-            self.fails['dut'] = set()
             if no_routing_stop - no_routing_start > self.limit:
                 self.fails['dut'].add("Downtime must be less then %s seconds. It was %s" \
                         % (self.test_params['reboot_limit_in_seconds'], str(no_routing_stop - no_routing_start)))
