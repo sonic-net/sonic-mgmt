@@ -486,7 +486,7 @@ class ReloadTest(BaseTest):
     def read_vlan_ports(self):
         content = self.read_json('vlan_ports_file')
         if len(content) > 1:
-            raise "Too many vlans"
+            raise Exception("Too many vlans")
         return [self.port_indices[ifname] for ifname in content.values()[0]['members']]
 
     def check_param(self, param, default, required = False):
