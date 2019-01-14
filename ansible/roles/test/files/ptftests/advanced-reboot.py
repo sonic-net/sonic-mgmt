@@ -409,7 +409,6 @@ class ReloadTest(BaseTest):
         self.info = {}
         self.cli_info = {}
         self.logs_info = {}
-        self.log_fp = open('/tmp/reboot.log', 'w')
         self.log_lock = threading.RLock()
         self.test_params = testutils.test_params_get()
         self.check_param('verbose', False,   required = False)
@@ -431,6 +430,9 @@ class ReloadTest(BaseTest):
         self.check_param('min_bgp_gr_timeout', 15, required = False)
         self.check_param('warm_up_timeout_secs', 180, required = False)
         self.check_param('dut_stablize_secs', 20, required = False)
+
+        self.log_file_name = '/tmp/%s.log' % self.test_params['reboot_type']
+        self.log_fp = open(self.log_file_name, 'w')
 
         # Default settings
         self.ping_dut_pkts = 10
