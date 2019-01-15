@@ -158,8 +158,8 @@
         - arista_vms=\"['{{ vm_hosts | list | join("','") }}']\"
 
   always:
-    - name: Copy test results from ptf to the local box /tmp/reboot.log
-      fetch: src='/tmp/reboot.log' dest='/tmp/' flat=true fail_on_missing=false
+    - name: Copy test results from ptf to the local box /tmp/*-reboot.log
+      fetch: src='/tmp/{{reboot_type}}.log' dest='/tmp/' flat=true fail_on_missing=false
       delegate_to: "{{ ptf_host }}"
 
     - name: Remove existing ip from ptf host
