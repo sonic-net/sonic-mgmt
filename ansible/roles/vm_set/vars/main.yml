@@ -5,10 +5,7 @@ new_password: 123456
 new_root_password: 123456
 
 sonic_login: "admin"
-sonic_passwords:
- - "YourPaSsWoRd"
- - "password"
-sonic_new_password: "password"
+sonic_password: "YourPaSsWoRd"
 
 tor_memory: 1572864
 spine_memory: 2097152
