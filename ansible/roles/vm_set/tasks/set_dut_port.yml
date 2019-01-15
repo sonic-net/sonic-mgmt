@@ -8,7 +8,7 @@
 
 - name: Setup mgmt port for physical dut
   set_fact:
-    dut_mgmt_port: None
+    dut_mgmt_port: ""
   when: external_port is defined
 
 - name: Get front panel and mgmt port for kvm vm
