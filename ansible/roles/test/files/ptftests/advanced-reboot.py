@@ -767,7 +767,7 @@ class ReloadTest(BaseTest):
             self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
 
             self.log("Check that device is still forwarding data plane traffic")
-            self.fails['dut'].add('Data plane has forwarding problem')
+            self.fails['dut'].add('Data plane has a forwarding problem')
             self.assertTrue(self.check_alive(), 'DUT is not stable')
             self.fails['dut'].clear()
 
@@ -780,8 +780,8 @@ class ReloadTest(BaseTest):
             try:
                 async_cpu_up.get(timeout=self.task_timeout)
             except TimeoutError as e:
-                self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
-                self.fails['dut'].add("DUT hasn't bootup in %d seconds" % self.task_timeout)
+                self.log("DUT hasn't booted up in %d seconds" % self.task_timeout)
+                self.fails['dut'].add("DUT hasn't booted up in %d seconds" % self.task_timeout)
                 raise
 
             try:
@@ -1028,7 +1028,7 @@ class ReloadTest(BaseTest):
         dataplane = self.get_asic_state()
         ctrlplane = self.get_cpu_state()
         if not dataplane == 'up' or not ctrlplane == 'up':
-            # Either contorl or data plane went down while we are waiting
+            # Either control or data plane went down while we were waiting
             # for the flooding to stop.
             return False
 
