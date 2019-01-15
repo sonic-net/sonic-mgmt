@@ -429,7 +429,7 @@ class ReloadTest(BaseTest):
         self.check_param('arista_vms', [], required = True)
         self.check_param('min_bgp_gr_timeout', 15, required = False)
         self.check_param('warm_up_timeout_secs', 180, required = False)
-        self.check_param('dut_stablize_secs', 20, required = False)
+        self.check_param('dut_stabilize_secs', 20, required = False)
 
         self.log_file_name = '/tmp/%s.log' % self.test_params['reboot_type']
         self.log_fp = open(self.log_file_name, 'w')
@@ -995,7 +995,7 @@ class ReloadTest(BaseTest):
         # up towards PTF docker. In practice, I've seen this warm up taking
         # up to ~70 seconds.
 
-        dut_stablize_secs    = int(self.test_params['dut_stablize_secs'])
+        dut_stabilize_secs   = int(self.test_params['dut_stabilize_secs'])
         warm_up_timeout_secs = int(self.test_params['warm_up_timeout_secs'])
 
         start_time = datetime.datetime.now()
@@ -1005,7 +1005,7 @@ class ReloadTest(BaseTest):
             dataplane = self.get_asic_state()
             ctrlplane = self.get_cpu_state()
             elapsed   = (datetime.datetime.now() - start_time).total_seconds()
-            if dataplane == 'up' and ctrlplane == 'up' and elapsed > dut_stablize_secs:
+            if dataplane == 'up' and ctrlplane == 'up' and elapsed > dut_stabilize_secs:
                 break;
             if elapsed > warm_up_timeout_secs:
                 # Control plane didn't come up within warm up timeout
@@ -1018,7 +1018,7 @@ class ReloadTest(BaseTest):
         uptime = datetime.datetime.now()
         while True:
             elapsed = (datetime.datetime.now() - start_time).total_seconds()
-            if not self.asic_flooding and elapsed > dut_stablize_secs:
+            if not self.asic_flooding and elapsed > dut_stabilize_secs:
                 break
             if elapsed > warm_up_timeout_secs:
                 # Control plane didn't stop flooding within warm up timeout
