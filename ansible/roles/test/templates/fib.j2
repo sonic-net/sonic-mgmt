@@ -11,8 +11,9 @@
 {% endif %}
 
 {#routes to uplink#}
-{% for podset in range(0, props.podset_number) %}
-{% for tor in range(0, props.tor_number) %}
+{#Limit the number of podsets and subnets to be covered to limit script execution time#}
+{% for podset in range(0, [props.podset_number, 10]|min) %}
+{% for tor in range(0, [props.tor_number, 10]|min) %}
 {% for subnet in range(0, props.tor_subnet_number) %}
 {% if testbed_type == 't1' %}
 192.168.{{ podset }}.{{ tor * 16 + subnet }}/32 {% for ifname, v in minigraph_neighbors.iteritems() %}{% if "T2" in v.name %}{{ '[%d]' % minigraph_port_indices[ifname]}}{% if not loop.last %} {% endif %}{% endif %}{% endfor %}
