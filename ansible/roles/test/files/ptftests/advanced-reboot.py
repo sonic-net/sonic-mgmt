@@ -61,6 +61,7 @@ import paramiko
 import Queue
 import pickle
 from operator import itemgetter
+import scapy.all as scapyall
 
 
 class Arista(object):
@@ -440,6 +441,10 @@ class ReloadTest(BaseTest):
                                   # But ptf is not fast enough + swss is slow for FDB and ARP entries insertions
         self.timeout_thr = None
 
+        self.time_to_listen = 180.0     # Listen for more then 180 seconds in sniff_in_background method.
+        self.send_interval = 0.002      # 2ms interpacket interval in send_in_background method.
+        self.packets_to_send = min(int(self.time_to_listen / (self.send_interval + 0.0015)), 45000) # 0.0015 - time at which scapy sends each packet.
+
         # State watcher attributes
         self.cpu_state_lock      = threading.RLock()
         self.asic_state_lock     = threading.RLock()
@@ -564,6 +569,16 @@ class ReloadTest(BaseTest):
         self.log("From server dst ports: %s" % self.from_server_dst_ports)
         self.log("From upper layer number of packets: %d" % self.nr_vl_pkts)
         self.log("VMs: %s" % str(self.test_params['arista_vms']))
+
+        self.log("Reboot type is %s" % self.reboot_type)
+        self.log("Reboot time limit is %s" % self.limit)
+
+        if self.reboot_type == 'warm-reboot':
+            # Pre-generate list of packets to be sent.
+            generate_start = datetime.datetime.now()
+            self.log("Generating packets list started at: %s" % str(generate_start))
+            self.generate_bidirectional()
+            self.log("%s packets are ready after: %s" % (len(self.packets_list), str(datetime.datetime.now() - generate_start)))
 
         self.dataplane = ptf.dataplane_instance
         for p in self.dataplane.ports.values():
@@ -704,6 +719,52 @@ class ReloadTest(BaseTest):
 
         self.ping_dut_packet = str(packet)
 
+    def generate_bidirectional(self, packets_to_send = None):
+        """
+        This method is used to pre-generate packets to be sent in background thread.
+        Packets are composed into a list, and present a bidirectional flow as next:
+        five packet from T1, one packet from vlan.
+        Each packet has sequential UDP Payload - to be identified later.
+        """
+        if packets_to_send:
+            self.packets_to_send = packets_to_send
+            self.send_interval = self.time_to_listen / self.packets_to_send
+        else:
+            packets_to_send = self.packets_to_send
+        vlan_ip_range = self.test_params['vlan_ip_range']
+        _, mask = vlan_ip_range.split('/')
+        n_hosts = min(2**(32 - int(mask)) - 3, self.max_nr_vl_pkts)
+        counter = 0
+        self.packets_list = list()
+        for i in xrange(packets_to_send):
+            payload = '0' * 6 + str(i)
+            if (i % 5) == 0 :   # From vlan to T1.
+                packet = simple_udp_packet(\
+                    eth_dst = self.dut_mac,\
+                    ip_src = self.from_server_src_addr,\
+                    ip_dst = self.from_server_dst_addr,\
+                    udp_sport = 1234,\
+                    udp_dport = 5000,\
+                    udp_payload = payload)
+                from_port = self.from_server_src_port
+            else:   # From T1 to vlan.
+                from_t1_src_addr = self.random_ip(self.test_params['default_ip_range'])
+                from_t1_src_port = self.random_port(self.portchannel_ports)
+                from_t1_dst_addr = self.host_ip(vlan_ip_range, (counter%(n_hosts-2))+2)
+                lag_mac_hex = '5c010203%04x' % counter
+                mac_addr = ':'.join(lag_mac_hex[i:i+2] for i in range(0, len(lag_mac_hex), 2))
+                counter += 1
+                packet = simple_udp_packet(
+                        eth_src = mac_addr,
+                        eth_dst = self.dut_mac,
+                        ip_src = from_t1_src_addr,
+                        ip_dst = from_t1_dst_addr,
+                        ip_ttl = 255,
+                        udp_dport = 5000,
+                        udp_payload = payload)
+                from_port = from_t1_src_port
+            self.packets_list.append((from_port, str(packet)))
+
     def runTest(self):
         self.reboot_start = None
         no_routing_start = None
@@ -759,37 +820,53 @@ class ReloadTest(BaseTest):
             self.reboot_start = datetime.datetime.now()
             self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
 
-            self.log("Check that device is still forwarding data plane traffic")
-            self.assertTrue(self.check_alive(), 'DUT is not stable')
+            if self.reboot_type == 'fast-reboot':
+                self.log("Check that device is still forwarding data plane traffic")
+                self.assertTrue(self.check_alive(), 'DUT is not stable')
 
-            self.log("Wait until control plane up")
-            async_cpu_up = pool.apply_async(self.wait_until_cpu_port_up)
+                self.log("Wait until control plane up")
+                async_cpu_up = pool.apply_async(self.wait_until_cpu_port_up)
 
-            self.log("Wait until data plane stops")
-            async_forward_stop = pool.apply_async(self.check_forwarding_stop)
+                self.log("Wait until data plane stops")
+                async_forward_stop = pool.apply_async(self.check_forwarding_stop)
 
-            try:
-                async_cpu_up.get(timeout=self.task_timeout)
-            except TimeoutError as e:
-                self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
-                raise
+                try:
+                    async_cpu_up.get(timeout=self.task_timeout)
+                except TimeoutError as e:
+                    self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
+                    raise
 
-            try:
-                no_routing_start, upper_replies = async_forward_stop.get(timeout=self.task_timeout)
-                self.log("Data plane was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
-            except TimeoutError:
-                self.log("Data plane never stop")
-                no_routing_start = datetime.min
+                try:
+                    no_routing_start, upper_replies = async_forward_stop.get(timeout=self.task_timeout)
+                    self.log("Data plane was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
+                except TimeoutError:
+                    self.log("Data plane never stop")
+                    no_routing_start = datetime.min
 
-            if no_routing_start is not None:
-                self.timeout(self.task_timeout, "DUT hasn't started to work for %d seconds" % self.task_timeout)
-                no_routing_stop, _ = self.check_forwarding_resume()
-                self.cancel_timeout()
-            else:
-                no_routing_stop = datetime.min
+                if no_routing_start is not None:
+                    self.timeout(self.task_timeout, "DUT hasn't started to work for %d seconds" % self.task_timeout)
+                    no_routing_stop, _ = self.check_forwarding_resume()
+                    self.cancel_timeout()
+                else:
+                    no_routing_stop = datetime.min
 
-            # Stop watching DUT
-            self.watching = False
+                # Stop watching DUT
+                self.watching = False
+
+            if self.reboot_type == 'warm-reboot':
+                self.send_and_sniff()
+
+                self.log("Packet flow examine started %s after the reboot" % str(datetime.datetime.now() - self.reboot_start))
+                self.examine_flow()
+                self.log("Packet flow examine finished %s after the reboot" % str(datetime.datetime.now() - self.reboot_start))
+
+                if self.lost_packets:
+                    no_routing_stop, no_routing_start = datetime.datetime.fromtimestamp(self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
+                    self.log("The longest disruption lasted %s seconds. %s packets were lost." % (self.max_disrupt_time, self.max_lost_id))
+                    self.log("Total disruptions count is %s. All disruptions lasted %s seconds. Total %s packets were lost" % \
+                        (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
+                else:
+                    no_routing_stop, no_routing_start = 0, 0
 
             # wait until all bgp session are established
             self.log("Wait until bgp routing is up on all devices")
@@ -809,7 +886,8 @@ class ReloadTest(BaseTest):
             self.log("Data plane works again. Start time: %s" % str(no_routing_stop))
             self.log("")
 
-            no_cp_replies = self.extract_no_cpu_replies(upper_replies)
+            if self.reboot_type == 'fast-reboot':
+                no_cp_replies = self.extract_no_cpu_replies(upper_replies)
 
             self.fails['dut'] = set()
             if no_routing_stop - no_routing_start > self.limit:
@@ -817,7 +895,7 @@ class ReloadTest(BaseTest):
                         % (self.test_params['reboot_limit_in_seconds'], str(no_routing_stop - no_routing_start)))
             if no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
                 self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
-            if no_cp_replies < 0.95 * self.nr_vl_pkts:
+            if self.reboot_type == 'fast-reboot' and no_cp_replies < 0.95 * self.nr_vl_pkts:
                 self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (no_cp_replies, self.nr_vl_pkts))
 
         finally:
@@ -855,8 +933,8 @@ class ReloadTest(BaseTest):
             self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
             self.log("Reboot time was %s" % str(no_routing_stop - self.reboot_start))
 
-
-            self.log("How many packets were received back when control plane was down: %d Expected: %d" % (no_cp_replies, self.nr_vl_pkts))
+            if self.reboot_type == 'fast-reboot':
+                self.log("How many packets were received back when control plane was down: %d Expected: %d" % (no_cp_replies, self.nr_vl_pkts))
 
             has_info = any(len(info) > 0 for info in self.info.values())
             if has_info:
@@ -945,6 +1023,163 @@ class ReloadTest(BaseTest):
             if self.get_cpu_state() == 'up':
                 break
             time.sleep(self.TIMEOUT)
+
+    def send_in_background(self, packets_list = None, interval = None):
+        """
+        This method sends predefined list of packets with predefined interval.
+        """
+        if not interval:
+            interval = self.send_interval
+        if not packets_list:
+            packets_list = self.packets_list
+        sender_start = datetime.datetime.now()
+        self.log("Sender started %s after the reboot" % str(sender_start - self.reboot_start))
+        for entry in packets_list:
+            time.sleep(interval)
+            testutils.send_packet(self, *entry)
+        self.log("Sender has been running for %s" % str(datetime.datetime.now() - sender_start))
+
+    def sniff_in_background(self, wait = None):
+        """
+        This function listens on all ports, in both directions, for the UDP src=1234 dst=5000 packets, until timeout.
+        Once found, all packets are dumped to local pcap file,
+        and all packets are saved to self.packets as scapy type.
+        """
+        if not wait:
+            wait = self.time_to_listen + 45
+        sniffer_start = datetime.datetime.now()
+        self.log("Sniffer started %s after the reboot" % str(sniffer_start - self.reboot_start))
+        filename = '/tmp/capture.pcap'
+        sniff_filter = "udp and udp dst port 5000 and udp src port 1234 and not icmp"
+        self.packets = scapyall.sniff(timeout = wait, filter = sniff_filter)
+        self.log("Sniffer has been running for %s" % str(datetime.datetime.now() - sniffer_start))
+        if self.packets:
+            scapyall.wrpcap(filename, self.packets)
+            self.log("Pcap file dumped to %s" % filename)
+        else:
+            self.log("Pcap file is empty.")
+
+    def send_and_sniff(self):
+        """
+        This method starts two background threads in parallel:
+        one for sending, another for collecting the sent packets.
+        """
+        self.sender_thr = threading.Thread(target = self.send_in_background)
+        self.sniff_thr = threading.Thread(target = self.sniff_in_background)
+        self.sniff_thr.start()
+        time.sleep(1)           # Let the listener initialize completely.
+        self.sender_thr.start()
+        self.sniff_thr.join()
+        self.sender_thr.join()
+
+    def check_udp_payload(self, packet):
+        """
+        This method is used by examine_flow() method.
+        It returns True if a packet is not corrupted and has a valid UDP sequential UDP Payload, as created by generate_bidirectional() method'.
+        """
+        try:
+            int(str(packet[scapyall.UDP].payload)) in range(self.packets_to_send)
+            return True
+        except Exception as err:
+            return False
+
+    def no_flood(self, packet):
+        """
+        This method filters packets which are unique (i.e. no floods).
+        """
+        if (not int(str(packet[scapyall.UDP].payload)) in self.unique_id) and (packet[scapyall.Ether].src == self.dut_mac):
+            # This is a unique (no flooded) received packet.
+            self.unique_id.append(int(str(packet[scapyall.UDP].payload)))
+            return True
+        elif packet[scapyall.Ether].dst == self.dut_mac:
+            # This is a sent packet.
+            return True
+        else:
+            return False
+
+    def examine_flow(self, filename = None):
+        """
+        This method examines pcap file (if given), or self.packets scapy file.
+        The method compares UDP payloads of the packets one by one (assuming all payloads are consecutive integers),
+        and the losses if found - are treated as disruptions in Dataplane forwarding.
+        All disruptions are saved to self.lost_packets dictionary, in format:
+        disrupt_start_id = (missing_packets_count, disrupt_time, disrupt_start_timestamp, disrupt_stop_timestamp)
+        """
+        if filename:
+            all_packets = scapyall.rdpcap(filename)
+        elif self.packets:
+            all_packets = self.packets
+        else:
+            self.log("Filename and self.packets are not defined.")
+            return None
+        # Filter out packets and remove floods:
+        self.unique_id = list()     # This list will contain all unique Payload ID, to filter out received floods.
+        filtered_packets = [ pkt for pkt in all_packets if \
+            scapyall.UDP in pkt and \
+            not scapyall.ICMP in pkt and \
+            pkt[scapyall.UDP].sport == 1234 and \
+            pkt[scapyall.UDP].dport == 5000 and \
+            self.check_udp_payload(pkt) and \
+            self.no_flood(pkt)
+            ]
+        # Re-arrange packets, if delayed, by Payload ID and Timestamp:
+        packets = sorted(filtered_packets, key = lambda packet: (int(str(packet[scapyall.UDP].payload)), packet.time ))
+        self.lost_packets = dict()
+        self.max_disrupt, self.total_disruption = 0, 0
+        sent_packets = dict()
+        if packets:
+            prev_payload, prev_time = 0, 0
+            sent_payload, sent_time = 0, 0
+            self.disruption_start, self.disruption_stop = None, None
+            for packet in packets:
+                if packet[scapyall.Ether].dst == self.dut_mac:
+                    # this is a sent packet - keep track of it as payload_id:timestamp.
+                    sent_payload = int(str(packet[scapyall.UDP].payload))
+                    sent_packets[sent_payload] = packet.time
+                    continue
+                if packet[scapyall.Ether].src == self.dut_mac:
+                    # This is a received packet.
+                    received_time = packet.time
+                    received_payload = int(str(packet[scapyall.UDP].payload))
+                if not (received_payload and received_time):
+                    # This is the first valid received packet.
+                    prev_payload = received_payload
+                    prev_time = received_time
+                    continue
+                if received_payload - prev_payload > 1:
+                    # Packets in a row are missing - disruption.
+                    lost_id = received_payload - prev_payload - 1
+                    sent_time = sent_packets[prev_payload]
+                    disrupt = (received_time - prev_time) - (sent_packets[received_payload] - sent_packets[received_payload - 1])
+                    self.lost_packets[prev_payload] = (lost_id, disrupt, sent_time, received_time)
+                    self.log("Disruption between %s and %s. For %s " % (prev_payload, received_payload, disrupt))
+                    if not self.disruption_start:
+                        self.disruption_start = datetime.datetime.fromtimestamp(prev_time)
+                    self.disruption_stop = datetime.datetime.fromtimestamp(received_time)
+                prev_payload = received_payload
+                prev_time = received_time
+        else:
+            self.log("Packets list is empty")
+        if self.lost_packets:
+            self.disrupts_count = len(self.lost_packets)    # Total disrupt counter.
+            max_disrupt_from_id, (self.max_lost_id, self.max_disrupt_time, self.no_routing_start, self.no_routing_stop) = \
+                max(self.lost_packets.items(), key = lambda item:item[1][0:2])  # Find the longest loss with the longest time.
+            self.total_disrupt_packets = sum([item[0] for item in self.lost_packets.values()])
+            self.total_disrupt_time = sum([item[1] for item in self.lost_packets.values()])
+            self.log("The longest loss found at %s. %s packets are missing in a row. Disruption lasted %s" % \
+                (max_disrupt_from_id, self.max_lost_id, self.max_disrupt_time))
+            self.log("Total disruptions count %s." % self.disrupts_count)
+            self.log("Disruptions started %s after reboot, and stopped %s after reboot." % \
+                (str(self.disruption_start - self.reboot_start), str(self.disruption_stop - self.reboot_start)))
+        else:
+            self.log("Gaps in forwarding not found.")
+        self.log("Total packets sniffed (incoming and outgoing) %s" % str(len(packets)))
+        if packets:
+            filename = '/tmp/capture_filtered.pcap'
+            scapyall.wrpcap(filename, packets)
+            self.log("Filtered pcap dumped to %s" % filename)
+        else:
+            self.log("Filtered Pcap file is empty.")
 
     def check_forwarding_stop(self):
         self.asic_start_recording_vlan_reachability()

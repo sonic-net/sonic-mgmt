@@ -1,5 +1,10 @@
+- name: set default reboot_limit in seconds
+  set_fact:
+      reboot_limit: 0
+  when: reboot_limit is not defined
+
 - name: Warm-reboot test
   include: advanced-reboot.yml
   vars:
       reboot_type: warm-reboot
-
+      reboot_limit: reboot_limit
