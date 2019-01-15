@@ -1,8 +1,8 @@
-- name: Setup front panel port for vlan tunnel
+- name: Set front panel port for vlan tunnel
   vlan_port:
     external_port: "{{ external_port }}"
     vlan_ids: "{{ device_vlan_list }}"
-    cmd: "create"
+    cmd: "list"
   become: yes
   when: external_port is defined
 

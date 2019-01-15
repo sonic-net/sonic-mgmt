@@ -20,6 +20,14 @@
 - name: Set front panel/mgmt port for dut
   include: set_dut_port.yml
 
+- name: Setup vlan port for vlan tunnel
+  vlan_port:
+    external_port: "{{ external_port }}"
+    vlan_ids: "{{ device_vlan_list }}"
+    cmd: "create"
+  become: yes
+  when: external_port is defined
+
 - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
   vm_topology:
     cmd: "bind"
