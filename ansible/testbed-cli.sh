@@ -8,6 +8,7 @@ function usage
   echo "Usage :"
   echo "    $0 [options] { start-vms | stop-vms } server-name vault-password-file"
   echo "    $0 [options] { add-topo | remove-topo | renumber-topo | connect-topo } topo-name vault-password-file"
+  echo "    $0 [options] { refresh-dut } topo-name vault-password-file"
   echo "    $0 [options] { connect-vms  | disconnect-vms } topo-name vault-password-file"
   echo "    $0 [options] { config-vm } topo-name vm-name vault-password-file"
   echo "    $0 [options] { gen-mg | deploy-mg | test-mg } topo-name inventory vault-password-file"
@@ -26,6 +27,7 @@ function usage
   echo "To remove a topology on a server: $0 remove-topo 'topo-name' ~/.password"
   echo "To renumber a topology on a server: $0 renumber-topo 'topo-name' ~/.password" , where topo-name is target topology
   echo "To connect a topology: $0 connect-topo 'topo-name' ~/.password"
+  echo "To refresh DUT in a topology: $0 refresh-dut 'topo-name' ~/.password"
   echo "To configure a VM on a server: $0 config-vm 'topo-name' 'vm-name' ~/.password"
   echo "To generate minigraph for DUT in a topology: $0 gen-mg 'topo-name' ~/.password"
   echo "To deploy minigraph to DUT in a topology: $0 deploy-mg 'topo-name' ~/.password"
@@ -136,6 +138,21 @@ function renumber_topo
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" $@
 
   ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$dut" $@
+
+  echo Done
+}
+
+function refresh_dut
+{
+  topology=$1
+  passwd=$2
+  shift
+  shift
+  echo "Refresh $dut in  '${topology}'"
+
+  read_file ${topology}
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_refresh_dut.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" $@
 
   echo Done
 }
@@ -253,6 +270,18 @@ case "${subcmd}" in
   renumber-topo) renumber_topo $@
                ;;
   connect-topo) connect_topo $@
+               ;;
+  refresh-dut) refresh_dut $@
+               ;;
+  connect-vms) connect_vms $@
+               ;;
+  disconnect-vms) disconnect_vms $@
+               ;;
+  config-vm)   config_vm $@
+               ;;
+  gen-mg)      generate_minigraph $@
+               ;;
+  deploy-mg)   deploy_minigraph $@
                ;;
   connect-vms) connect_vms $@
                ;;
