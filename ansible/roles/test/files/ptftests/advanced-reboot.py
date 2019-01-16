@@ -1038,7 +1038,7 @@ class ReloadTest(BaseTest):
         if not packets_list:
             packets_list = self.packets_list
         sender_start = datetime.datetime.now()
-        self.log("Sender started %s at" % str(sender_start))
+        self.log("Sender started at %s" % str(sender_start))
         for entry in packets_list:
             time.sleep(interval)
             testutils.send_packet(self, *entry)
@@ -1053,7 +1053,7 @@ class ReloadTest(BaseTest):
         if not wait:
             wait = self.time_to_listen + 30
         sniffer_start = datetime.datetime.now()
-        self.log("Sniffer started %s at" % str(sniffer_start))
+        self.log("Sniffer started at %s" % str(sniffer_start))
         filename = '/tmp/capture.pcap'
         sniff_filter = "udp and udp dst port 5000 and udp src port 1234 and not icmp"
         self.packets = scapyall.sniff(timeout = wait, filter = sniff_filter)
