@@ -441,9 +441,11 @@ class ReloadTest(BaseTest):
                                   # But ptf is not fast enough + swss is slow for FDB and ARP entries insertions
         self.timeout_thr = None
 
-        self.time_to_listen = 180.0     # Listen for more then 180 seconds in sniff_in_background method.
-        self.send_interval = 0.002      # 2ms interpacket interval in send_in_background method.
-        self.packets_to_send = min(int(self.time_to_listen / (self.send_interval + 0.0015)), 45000) # 0.0015 - time at which scapy sends each packet.
+        self.time_to_listen = 180.0     # Listen for more then 180 seconds, to be used in sniff_in_background method.
+        #   Inter-packet interval, to be used in send_in_background method.
+        #   Improve this interval to gain more precision of disruptions.
+        self.send_interval = 0.0035
+        self.packets_to_send = min(int(self.time_to_listen / (self.send_interval + 0.0015)), 45000) # How many packets to be sent in send_in_background method 
 
         # State watcher attributes
         self.cpu_state_lock      = threading.RLock()
@@ -571,12 +573,10 @@ class ReloadTest(BaseTest):
         self.log("VMs: %s" % str(self.test_params['arista_vms']))
 
         self.log("Reboot type is %s" % self.reboot_type)
-        self.log("Reboot time limit is %s" % self.limit)
 
         if self.reboot_type == 'warm-reboot':
-            # Pre-generate list of packets to be sent.
+            # Pre-generate list of packets to be sent in send_in_background method.
             generate_start = datetime.datetime.now()
-            self.log("Generating packets list started at: %s" % str(generate_start))
             self.generate_bidirectional()
             self.log("%s packets are ready after: %s" % (len(self.packets_list), str(datetime.datetime.now() - generate_start)))
 
@@ -737,7 +737,7 @@ class ReloadTest(BaseTest):
         counter = 0
         self.packets_list = list()
         for i in xrange(packets_to_send):
-            payload = '0' * 6 + str(i)
+            payload = '0' * 60 + str(i)
             if (i % 5) == 0 :   # From vlan to T1.
                 packet = simple_udp_packet(\
                     eth_dst = self.dut_mac,\
@@ -854,16 +854,20 @@ class ReloadTest(BaseTest):
                 self.watching = False
 
             if self.reboot_type == 'warm-reboot':
+                # Stop watching DUT
+                self.watching = False
+                self.log("Stopping reachability state watch thread.")
                 self.send_and_sniff()
 
-                self.log("Packet flow examine started %s after the reboot" % str(datetime.datetime.now() - self.reboot_start))
+                examine_start = datetime.datetime.now()
+                self.log("Packet flow examine started %s after the reboot" % str(examine_start - self.reboot_start))
                 self.examine_flow()
-                self.log("Packet flow examine finished %s after the reboot" % str(datetime.datetime.now() - self.reboot_start))
+                self.log("Packet flow examine finished %s after" % str(datetime.datetime.now() - examine_start))
 
                 if self.lost_packets:
                     no_routing_stop, no_routing_start = datetime.datetime.fromtimestamp(self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
-                    self.log("The longest disruption lasted %s seconds. %s packets were lost." % (self.max_disrupt_time, self.max_lost_id))
-                    self.log("Total disruptions count is %s. All disruptions lasted %s seconds. Total %s packets were lost" % \
+                    self.log("The longest disruption lasted %s seconds. %s packet(s) lost." % (self.max_disrupt_time, self.max_lost_id))
+                    self.log("Total disruptions count is %s. All disruptions lasted %s seconds. Total %s packet(s) lost" % \
                         (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
                 else:
                     no_routing_stop, no_routing_start = 0, 0
@@ -931,6 +935,7 @@ class ReloadTest(BaseTest):
             self.log("Summary:")
             self.log("-"*50)
             self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
+            self.log("Expected downtime is less then %s" % self.limit)
             self.log("Reboot time was %s" % str(no_routing_stop - self.reboot_start))
 
             if self.reboot_type == 'fast-reboot':
@@ -1033,7 +1038,7 @@ class ReloadTest(BaseTest):
         if not packets_list:
             packets_list = self.packets_list
         sender_start = datetime.datetime.now()
-        self.log("Sender started %s after the reboot" % str(sender_start - self.reboot_start))
+        self.log("Sender started %s at" % str(sender_start))
         for entry in packets_list:
             time.sleep(interval)
             testutils.send_packet(self, *entry)
@@ -1046,9 +1051,9 @@ class ReloadTest(BaseTest):
         and all packets are saved to self.packets as scapy type.
         """
         if not wait:
-            wait = self.time_to_listen + 45
+            wait = self.time_to_listen + 30
         sniffer_start = datetime.datetime.now()
-        self.log("Sniffer started %s after the reboot" % str(sniffer_start - self.reboot_start))
+        self.log("Sniffer started %s at" % str(sniffer_start))
         filename = '/tmp/capture.pcap'
         sniff_filter = "udp and udp dst port 5000 and udp src port 1234 and not icmp"
         self.packets = scapyall.sniff(timeout = wait, filter = sniff_filter)
@@ -1129,11 +1134,12 @@ class ReloadTest(BaseTest):
         sent_packets = dict()
         if packets:
             prev_payload, prev_time = 0, 0
-            sent_payload, sent_time = 0, 0
+            sent_payload = 0
+            received_counter = 0
             self.disruption_start, self.disruption_stop = None, None
             for packet in packets:
                 if packet[scapyall.Ether].dst == self.dut_mac:
-                    # this is a sent packet - keep track of it as payload_id:timestamp.
+                    # This is a sent packet - keep track of it as payload_id:timestamp.
                     sent_payload = int(str(packet[scapyall.UDP].payload))
                     sent_packets[sent_payload] = packet.time
                     continue
@@ -1141,18 +1147,19 @@ class ReloadTest(BaseTest):
                     # This is a received packet.
                     received_time = packet.time
                     received_payload = int(str(packet[scapyall.UDP].payload))
+                    received_counter += 1
                 if not (received_payload and received_time):
                     # This is the first valid received packet.
                     prev_payload = received_payload
                     prev_time = received_time
                     continue
                 if received_payload - prev_payload > 1:
-                    # Packets in a row are missing - disruption.
-                    lost_id = received_payload - prev_payload - 1
-                    sent_time = sent_packets[prev_payload]
-                    disrupt = (received_time - prev_time) - (sent_packets[received_payload] - sent_packets[received_payload - 1])
-                    self.lost_packets[prev_payload] = (lost_id, disrupt, sent_time, received_time)
-                    self.log("Disruption between %s and %s. For %s " % (prev_payload, received_payload, disrupt))
+                    # Packets in a row are missing, a disruption.
+                    lost_id = (received_payload -1) - prev_payload # How many packets lost in a row.
+                    disrupt = (sent_packets[received_payload] - sent_packets[prev_payload + 1]) # How long disrupt lasted.
+                    # Add disrupt to the dict:
+                    self.lost_packets[prev_payload] = (lost_id, disrupt, received_time - disrupt, received_time)
+                    self.log("Disruption between packet ID %s and %s. For %s " % (prev_payload, received_payload, disrupt))
                     if not self.disruption_start:
                         self.disruption_start = datetime.datetime.fromtimestamp(prev_time)
                     self.disruption_stop = datetime.datetime.fromtimestamp(received_time)
@@ -1161,19 +1168,17 @@ class ReloadTest(BaseTest):
         else:
             self.log("Packets list is empty")
         if self.lost_packets:
-            self.disrupts_count = len(self.lost_packets)    # Total disrupt counter.
+            self.disrupts_count = len(self.lost_packets) # Total disrupt counter.
+            # Find the longest loss with the longest time:
             max_disrupt_from_id, (self.max_lost_id, self.max_disrupt_time, self.no_routing_start, self.no_routing_stop) = \
-                max(self.lost_packets.items(), key = lambda item:item[1][0:2])  # Find the longest loss with the longest time.
+                max(self.lost_packets.items(), key = lambda item:item[1][0:2])
             self.total_disrupt_packets = sum([item[0] for item in self.lost_packets.values()])
             self.total_disrupt_time = sum([item[1] for item in self.lost_packets.values()])
-            self.log("The longest loss found at %s. %s packets are missing in a row. Disruption lasted %s" % \
-                (max_disrupt_from_id, self.max_lost_id, self.max_disrupt_time))
-            self.log("Total disruptions count %s." % self.disrupts_count)
-            self.log("Disruptions started %s after reboot, and stopped %s after reboot." % \
+            self.log("Disruptions happen between %s and %s after the reboot." % \
                 (str(self.disruption_start - self.reboot_start), str(self.disruption_stop - self.reboot_start)))
         else:
             self.log("Gaps in forwarding not found.")
-        self.log("Total packets sniffed (incoming and outgoing) %s" % str(len(packets)))
+        self.log("Total incoming packets captured %s" % str(received_counter))
         if packets:
             filename = '/tmp/capture_filtered.pcap'
             scapyall.wrpcap(filename, packets)
