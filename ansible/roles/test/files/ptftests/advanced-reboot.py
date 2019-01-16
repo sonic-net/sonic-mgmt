@@ -862,7 +862,7 @@ class ReloadTest(BaseTest):
                 examine_start = datetime.datetime.now()
                 self.log("Packet flow examine started %s after the reboot" % str(examine_start - self.reboot_start))
                 self.examine_flow()
-                self.log("Packet flow examine finished %s after" % str(datetime.datetime.now() - examine_start))
+                self.log("Packet flow examine finished after %s" % str(datetime.datetime.now() - examine_start))
 
                 if self.lost_packets:
                     no_routing_stop, no_routing_start = datetime.datetime.fromtimestamp(self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
