@@ -410,7 +410,6 @@ class ReloadTest(BaseTest):
         self.info = {}
         self.cli_info = {}
         self.logs_info = {}
-        self.log_fp = open('/tmp/reboot.log', 'w')
         self.log_lock = threading.RLock()
         self.test_params = testutils.test_params_get()
         self.check_param('verbose', False,   required = False)
@@ -430,6 +429,11 @@ class ReloadTest(BaseTest):
         self.check_param('lo_v6_prefix', 'fc00:1::/64', required = False)
         self.check_param('arista_vms', [], required = True)
         self.check_param('min_bgp_gr_timeout', 15, required = False)
+        self.check_param('warm_up_timeout_secs', 180, required = False)
+        self.check_param('dut_stabilize_secs', 20, required = False)
+
+        self.log_file_name = '/tmp/%s.log' % self.test_params['reboot_type']
+        self.log_fp = open(self.log_file_name, 'w')
 
         # Default settings
         self.ping_dut_pkts = 10
@@ -489,7 +493,7 @@ class ReloadTest(BaseTest):
     def read_vlan_ports(self):
         content = self.read_json('vlan_ports_file')
         if len(content) > 1:
-            raise "Too many vlans"
+            raise Exception("Too many vlans")
         return [self.port_indices[ifname] for ifname in content.values()[0]['members']]
 
     def check_param(self, param, default, required = False):
@@ -793,6 +797,8 @@ class ReloadTest(BaseTest):
         thr.setDaemon(True)
 
         try:
+            self.fails['dut'] = set()
+
             pool = ThreadPool(processes=3)
             self.log("Starting reachability state watch thread...")
             self.watching    = True
@@ -803,13 +809,14 @@ class ReloadTest(BaseTest):
             time.sleep(5)
 
             self.log("Check that device is alive and pinging")
-            self.assertTrue(self.check_alive(), 'DUT is not stable')
-            self.assertTrue(self.get_cpu_state() == 'up' and self.get_asic_state() == 'up', 'DUT is not ready for test')
+            self.fails['dut'].add('DUT is not ready for test')
+            self.assertTrue(self.wait_dut_to_warm_up(), 'DUT is not stable')
+            self.fails['dut'].clear()
 
             self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
             thr.start()
 
-            self.log("Wait until Control plane down")
+            self.log("Wait until Control plane is down")
             self.timeout(self.task_timeout, "DUT hasn't shutdown in %d seconds" % self.task_timeout)
             self.wait_until_cpu_port_down()
             self.cancel_timeout()
@@ -822,7 +829,9 @@ class ReloadTest(BaseTest):
 
             if self.reboot_type == 'fast-reboot':
                 self.log("Check that device is still forwarding data plane traffic")
+                self.fails['dut'].add('Data plane has a forwarding problem')
                 self.assertTrue(self.check_alive(), 'DUT is not stable')
+                self.fails['dut'].clear()
 
                 self.log("Wait until control plane up")
                 async_cpu_up = pool.apply_async(self.wait_until_cpu_port_up)
@@ -834,6 +843,7 @@ class ReloadTest(BaseTest):
                     async_cpu_up.get(timeout=self.task_timeout)
                 except TimeoutError as e:
                     self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
+                    self.fails['dut'].add("DUT hasn't booted up in %d seconds" % self.task_timeout)
                     raise
 
                 try:
@@ -872,6 +882,9 @@ class ReloadTest(BaseTest):
                 else:
                     no_routing_stop, no_routing_start = 0, 0
 
+            # Stop watching DUT
+            self.watching = False
+
             # wait until all bgp session are established
             self.log("Wait until bgp routing is up on all devices")
             for _, q in self.ssh_jobs:
@@ -893,7 +906,6 @@ class ReloadTest(BaseTest):
             if self.reboot_type == 'fast-reboot':
                 no_cp_replies = self.extract_no_cpu_replies(upper_replies)
 
-            self.fails['dut'] = set()
             if no_routing_stop - no_routing_start > self.limit:
                 self.fails['dut'].add("Downtime must be less then %s seconds. It was %s" \
                         % (self.test_params['reboot_limit_in_seconds'], str(no_routing_stop - no_routing_start)))
@@ -934,11 +946,13 @@ class ReloadTest(BaseTest):
 
             self.log("Summary:")
             self.log("-"*50)
-            self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
-            self.log("Expected downtime is less then %s" % self.limit)
-            self.log("Reboot time was %s" % str(no_routing_stop - self.reboot_start))
 
-            if self.reboot_type == 'fast-reboot':
+            if no_routing_stop:
+                self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
+                self.log("Reboot time was %s" % str(no_routing_stop - self.reboot_start))
+                self.log("Expected downtime is less then %s" % self.limit)
+
+            if self.reboot_type == 'fast-reboot' and no_cp_replies:
                 self.log("How many packets were received back when control plane was down: %d Expected: %d" % (no_cp_replies, self.nr_vl_pkts))
 
             has_info = any(len(info) > 0 for info in self.info.values())
@@ -1219,6 +1233,58 @@ class ReloadTest(BaseTest):
 
         return replies_from_servers, replies_from_upper
 
+    def wait_dut_to_warm_up(self):
+        # When the DUT is freshly rebooted, it appears that it needs to warm
+        # up towards PTF docker. In practice, I've seen this warm up taking
+        # up to ~70 seconds.
+
+        dut_stabilize_secs   = int(self.test_params['dut_stabilize_secs'])
+        warm_up_timeout_secs = int(self.test_params['warm_up_timeout_secs'])
+
+        start_time = datetime.datetime.now()
+
+        # First wait until DUT data/control planes are up
+        while True:
+            dataplane = self.get_asic_state()
+            ctrlplane = self.get_cpu_state()
+            elapsed   = (datetime.datetime.now() - start_time).total_seconds()
+            if dataplane == 'up' and ctrlplane == 'up' and elapsed > dut_stabilize_secs:
+                break;
+            if elapsed > warm_up_timeout_secs:
+                # Control plane didn't come up within warm up timeout
+                return False
+            time.sleep(1)
+
+        # check until flooding is over. Flooding happens when FDB entry of
+        # certain host is not yet learnt by the ASIC, therefore it sends
+        # packet to all vlan ports.
+        uptime = datetime.datetime.now()
+        while True:
+            elapsed = (datetime.datetime.now() - start_time).total_seconds()
+            if not self.asic_flooding and elapsed > dut_stabilize_secs:
+                break
+            if elapsed > warm_up_timeout_secs:
+                # Control plane didn't stop flooding within warm up timeout
+                return False
+            time.sleep(1)
+
+        dataplane = self.get_asic_state()
+        ctrlplane = self.get_cpu_state()
+        if not dataplane == 'up' or not ctrlplane == 'up':
+            # Either control or data plane went down while we were waiting
+            # for the flooding to stop.
+            return False
+
+        if (self.get_asic_state_time('up') > uptime or
+            self.get_cpu_state_time('up')  > uptime):
+           # Either control plane or data plane flapped while we were
+           # waiting for the warm up.
+           return False
+
+        # Everything is good
+        return True
+
+
     def check_alive(self):
         # This function checks that DUT routes the packets in the both directions.
         #
@@ -1353,6 +1419,7 @@ class ReloadTest(BaseTest):
             total_rcv_pkt_cnt      = self.pingDut()
             reachable              = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.ping_dut_pkts * 0.7
             partial                = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.ping_dut_pkts
+            self.cpu_flooding      = reachable and total_rcv_pkt_cnt > self.ping_dut_pkts
             self.log_cpu_state_change(reachable, partial)
 
 

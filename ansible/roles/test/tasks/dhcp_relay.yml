@@ -48,6 +48,13 @@
       - relay_iface_netmask=\"{{ minigraph_vlan_interfaces[0]['mask'] }}\"
     ptf_extra_options: "--relax"
 
+
+# FIXME: don't run teamd service restart tests until teamd supports restart
+- debug: msg="end play here until SONiC supports teamd restart."
+
+- action: skip
+
+
 # Service restart and service stop -> start exhibited different behaviors.
 # Therefore testing them separately.
 - name: Restart teamd on DUT
