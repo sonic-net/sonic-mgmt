@@ -17,18 +17,29 @@
   command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.conf.all.disable_ipv6=0
   become: yes
 
-- name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }} base vlan = {{ vlan_base }}
+- name: Set front panel/mgmt port for dut
+  include: set_dut_port.yml
+
+- name: Setup vlan port for vlan tunnel
+  vlan_port:
+    external_port: "{{ external_port }}"
+    vlan_ids: "{{ device_vlan_list }}"
+    cmd: "create"
+  become: yes
+  when: external_port is defined
+
+- name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
   vm_topology:
     cmd: "bind"
     vm_set_name: "{{ vm_set_name }}"
     topo: "{{ topology }}"
     vm_names: "{{ VM_hosts }}"
     vm_base: "{{ VM_base }}"
-    vlan_base: "{{ vlan_base }}"
-    mgmt_ip_addr: "{{ ptf_ip }}"
-    mgmt_ip_gw: "{{ mgmt_gw }}"
+    ptf_mgmt_ip_addr: "{{ ptf_ip }}"
+    ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
     mgmt_bridge: "{{ mgmt_bridge }}"
-    ext_iface: "{{ external_iface }}"
+    dut_fp_ports: "{{ dut_fp_ports }}"
+    dut_mgmt_port: "{{ dut_mgmt_port }}"
     fp_mtu: "{{ fp_mtu_size }}"
     max_fp_num: "{{ max_fp_num }}"
   become: yes

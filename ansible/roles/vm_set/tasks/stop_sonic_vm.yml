@@ -1,0 +1,19 @@
+- set_fact:
+    disk_image: "{{ home_path }}/sonic-vm/disks/sonic_{{ dut_name }}.img"
+
+- name: Destroy vm {{ dut_name }}
+  virt: name={{ dut_name }}
+        state=destroyed
+        uri=qemu:///system
+  when: dut_name in vm_list_running.list_vms
+  become: yes
+
+- name: Undefine vm {{ dut_name }}
+  virt: name={{ dut_name }}
+        command=undefine
+        uri=qemu:///system
+  when: dut_name in vm_list_defined.list_vms
+  become: yes
+
+- name: Copy sonic disk image for {{ dut_name }}
+  file: path={{ disk_image }} state=absent

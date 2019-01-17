@@ -4,8 +4,11 @@ new_login: admin
 new_password: 123456
 new_root_password: 123456
 
-src_disk_image: "{{ root_path }}/images/{{ hdd_image_filename }}"
-cdrom_image: "{{ root_path }}/images/{{ cd_image_filename }}"
+sonic_login: "admin"
+sonic_passwords:
+ - "YourPaSsWoRd"
+ - "password"
+sonic_new_password: "password"
 
 tor_memory: 1572864
 spine_memory: 2097152

@@ -81,7 +81,7 @@ Once you are in the docker, you need to modify the testbed configuration files t
   - Update server management IP in [```ansible/veos```](../veos).
   - Update testbed server credentials in [```ansible/group_vars/vm_host/creds.yml```](../group_vars/vm_host/creds.yml).
   - Update server network configuration for VM and PTF management interface in [```ansible/host_vars/STR-ACS-SERV-01.yml```](../host_vars/STR-ACS-SERV-01.yml).
-    - ```external_iface```: server trunk port name (connected to the fanout switch)
+    - ```external_port```: server trunk port name (connected to the fanout switch)
     - ```mgmt_gw```: ip of gateway for VM mgmt interfaces
     - ```mgmt_prefixlen```: prefixlen for management interfaces
   - Check that ansible could reach this device by command ```ansible -m ping -i veos vm_host_1```.

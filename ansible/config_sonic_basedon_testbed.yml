@@ -36,7 +36,7 @@
 
   - block:
     - name: Gathering testbed information
-      test_facts: testbed_name="{{ testbed_name }}"
+      test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
       connection: local
 
     - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
@@ -91,11 +91,6 @@
     set_fact:
       intf_names: "{{ intf_names | default({}) | combine({item.key: port_alias[item.value[0]|int:item.value[-1]|int+1] }) }}"
     with_dict: interface_to_vms
-
-  - name: create minigraph file in ansible minigraph folder
-    template: src=templates/minigraph_template.j2
-              dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
-    connection: local
 
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)
