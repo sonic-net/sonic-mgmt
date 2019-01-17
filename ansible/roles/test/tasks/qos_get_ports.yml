@@ -140,11 +140,7 @@
 - block:
   - name: Determine the targe queue of the WRED profile
     set_fact:
-      target_q_wred: '0-1'
-
-  - set_fact:
-      target_q_wred: '3-4'
-    when: minigraph_hwsku is defined and minigraph_hwsku != 'Mellanox-SN2700' and minigraph_hwsku != 'Arista-7060CX-32S-C32'
+      target_q_wred: '3'
 
   - debug: var=target_q_wred
 
