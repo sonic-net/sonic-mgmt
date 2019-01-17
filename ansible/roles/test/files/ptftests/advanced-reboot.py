@@ -582,7 +582,7 @@ class ReloadTest(BaseTest):
             # Pre-generate list of packets to be sent in send_in_background method.
             generate_start = datetime.datetime.now()
             self.generate_bidirectional()
-            self.log("%s packets are ready after: %s" % (len(self.packets_list), str(datetime.datetime.now() - generate_start)))
+            self.log("%d packets are ready after: %s" % (len(self.packets_list), str(datetime.datetime.now() - generate_start)))
 
         self.dataplane = ptf.dataplane_instance
         for p in self.dataplane.ports.values():
@@ -743,12 +743,12 @@ class ReloadTest(BaseTest):
         for i in xrange(packets_to_send):
             payload = '0' * 60 + str(i)
             if (i % 5) == 0 :   # From vlan to T1.
-                packet = simple_udp_packet(\
-                    eth_dst = self.dut_mac,\
-                    ip_src = self.from_server_src_addr,\
-                    ip_dst = self.from_server_dst_addr,\
-                    udp_sport = 1234,\
-                    udp_dport = 5000,\
+                packet = simple_udp_packet(
+                    eth_dst = self.dut_mac,
+                    ip_src = self.from_server_src_addr,
+                    ip_dst = self.from_server_dst_addr,
+                    udp_sport = 1234,
+                    udp_dport = 5000,
                     udp_payload = payload)
                 from_port = self.from_server_src_port
             else:   # From T1 to vlan.
@@ -876,14 +876,11 @@ class ReloadTest(BaseTest):
 
                 if self.lost_packets:
                     no_routing_stop, no_routing_start = datetime.datetime.fromtimestamp(self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
-                    self.log("The longest disruption lasted %s seconds. %s packet(s) lost." % (self.max_disrupt_time, self.max_lost_id))
-                    self.log("Total disruptions count is %s. All disruptions lasted %s seconds. Total %s packet(s) lost" % \
+                    self.log("The longest disruption lasted %.3f seconds. %d packet(s) lost." % (self.max_disrupt_time, self.max_lost_id))
+                    self.log("Total disruptions count is %d. All disruptions lasted %.3f seconds. Total %d packet(s) lost" % \
                         (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
                 else:
                     no_routing_stop, no_routing_start = 0, 0
-
-            # Stop watching DUT
-            self.watching = False
 
             # wait until all bgp session are established
             self.log("Wait until bgp routing is up on all devices")
@@ -1130,15 +1127,16 @@ class ReloadTest(BaseTest):
             all_packets = self.packets
         else:
             self.log("Filename and self.packets are not defined.")
+            self.fails['dut'].add("Filename and self.packets are not defined")
             return None
         # Filter out packets and remove floods:
         self.unique_id = list()     # This list will contain all unique Payload ID, to filter out received floods.
-        filtered_packets = [ pkt for pkt in all_packets if \
-            scapyall.UDP in pkt and \
-            not scapyall.ICMP in pkt and \
-            pkt[scapyall.UDP].sport == 1234 and \
-            pkt[scapyall.UDP].dport == 5000 and \
-            self.check_udp_payload(pkt) and \
+        filtered_packets = [ pkt for pkt in all_packets if
+            scapyall.UDP in pkt and
+            not scapyall.ICMP in pkt and
+            pkt[scapyall.UDP].sport == 1234 and
+            pkt[scapyall.UDP].dport == 5000 and
+            self.check_udp_payload(pkt) and
             self.no_flood(pkt)
             ]
         # Re-arrange packets, if delayed, by Payload ID and Timestamp:
@@ -1146,10 +1144,13 @@ class ReloadTest(BaseTest):
         self.lost_packets = dict()
         self.max_disrupt, self.total_disruption = 0, 0
         sent_packets = dict()
+        self.fails['dut'].add("Sniffer failed to capture any traffic")
+        self.assertTrue(packets, "Sniffer failed to capture any traffic")
+        self.fails['dut'].clear()
         if packets:
             prev_payload, prev_time = 0, 0
             sent_payload = 0
-            received_counter = 0
+            received_counter = 0    # Counts packets from dut.
             self.disruption_start, self.disruption_stop = None, None
             for packet in packets:
                 if packet[scapyall.Ether].dst == self.dut_mac:
@@ -1173,14 +1174,15 @@ class ReloadTest(BaseTest):
                     disrupt = (sent_packets[received_payload] - sent_packets[prev_payload + 1]) # How long disrupt lasted.
                     # Add disrupt to the dict:
                     self.lost_packets[prev_payload] = (lost_id, disrupt, received_time - disrupt, received_time)
-                    self.log("Disruption between packet ID %s and %s. For %s " % (prev_payload, received_payload, disrupt))
+                    self.log("Disruption between packet ID %d and %d. For %.4f " % (prev_payload, received_payload, disrupt))
                     if not self.disruption_start:
                         self.disruption_start = datetime.datetime.fromtimestamp(prev_time)
                     self.disruption_stop = datetime.datetime.fromtimestamp(received_time)
                 prev_payload = received_payload
                 prev_time = received_time
-        else:
-            self.log("Packets list is empty")
+        self.fails['dut'].add("Sniffer failed to filter any traffic from DUT")
+        self.assertTrue(received_counter, "Sniffer failed to filter any traffic from DUT")
+        self.fails['dut'].clear()
         if self.lost_packets:
             self.disrupts_count = len(self.lost_packets) # Total disrupt counter.
             # Find the longest loss with the longest time:
@@ -1192,13 +1194,11 @@ class ReloadTest(BaseTest):
                 (str(self.disruption_start - self.reboot_start), str(self.disruption_stop - self.reboot_start)))
         else:
             self.log("Gaps in forwarding not found.")
-        self.log("Total incoming packets captured %s" % str(received_counter))
+        self.log("Total incoming packets captured %d" % received_counter)
         if packets:
             filename = '/tmp/capture_filtered.pcap'
             scapyall.wrpcap(filename, packets)
             self.log("Filtered pcap dumped to %s" % filename)
-        else:
-            self.log("Filtered Pcap file is empty.")
 
     def check_forwarding_stop(self):
         self.asic_start_recording_vlan_reachability()
