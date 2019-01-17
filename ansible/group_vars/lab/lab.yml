@@ -34,6 +34,9 @@ dhcp_servers: ['192.0.0.1', '192.0.0.2', '192.0.0.3', '192.0.0.4']
 snmp_rocommunity: public
 snmp_location: testlab
 
+# bgp slb passive range
+bgp_slb_passive_range: ['10.255.0.0/25']
+
 #For Arista fanout switch deployment only
 fanout_admin_user: "fanoutadminuser"
 fanout_admin_password: "fanoutadminpassword"
