@@ -208,7 +208,7 @@ function test_minigraph
 
   read_file $1
 
-  ansible-playbook -i "$2" --diff --connection=local --check config_sonic_basedon_testbed.yml --vault-password-file="$3" -l "$dut" -e testbed_name="$1"
+  ansible-playbook -i "$2" --diff --connection=local --check config_sonic_basedon_testbed.yml --vault-password-file="$3" -l "$dut" -e testbed_name="$1" -e testbed_file=$tbfile -e local_minigraph=true
 
   echo Done
 }

@@ -92,6 +92,12 @@
       intf_names: "{{ intf_names | default({}) | combine({item.key: port_alias[item.value[0]|int:item.value[-1]|int+1] }) }}"
     with_dict: interface_to_vms
 
+  - name: create minigraph file in ansible minigraph folder
+    template: src=templates/minigraph_template.j2
+              dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
+    connection: local
+    when: local_minigraph is defined and local_minigraph|bool == true
+
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
