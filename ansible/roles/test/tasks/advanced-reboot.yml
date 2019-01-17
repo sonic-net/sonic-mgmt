@@ -170,7 +170,7 @@
       extract_log:
         directory: '/var/log'
         file_prefix: 'syslog'
-        start_string: 'Initializing cgroup subsys cpuset'
+        start_string: 'Linux version'
         target_filename: '/tmp/syslog'
       become: yes
 
