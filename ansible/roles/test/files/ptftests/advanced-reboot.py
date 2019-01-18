@@ -804,7 +804,10 @@ class ReloadTest(BaseTest):
             self.watching    = True
             self.light_probe = False
             watcher = pool.apply_async(self.reachability_watcher)
-
+            self.watcher_is_stopped = threading.Event() # Waiter Event for the Watcher state is stopped.
+            self.watcher_is_running = threading.Event() # Waiter Event for the Watcher state is running.
+            self.watcher_is_stopped.set()               # By default the Watcher is not running.
+            self.watcher_is_running.clear()             # By default its required to wait for the Watcher started.
             # Give watch thread some time to wind up
             time.sleep(5)
 
@@ -867,6 +870,7 @@ class ReloadTest(BaseTest):
                 # Stop watching DUT
                 self.watching = False
                 self.log("Stopping reachability state watch thread.")
+                self.watcher_is_stopped.wait(timeout = 10)  # Wait for the Watcher stopped.
                 self.send_and_sniff()
 
                 examine_start = datetime.datetime.now()
@@ -1404,7 +1408,7 @@ class ReloadTest(BaseTest):
     def reachability_watcher(self):
         # This function watches the reachability of the CPU port, and ASIC. It logs the state
         # changes for future analysis
-
+        self.watcher_is_stopped.clear() # Watcher is running.
         while self.watching:
             vlan_to_t1, t1_to_vlan = self.ping_data_plane(self.light_probe)
             reachable              = (t1_to_vlan  > self.nr_vl_pkts * 0.7 and
@@ -1421,6 +1425,9 @@ class ReloadTest(BaseTest):
             partial                = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.ping_dut_pkts
             self.cpu_flooding      = reachable and total_rcv_pkt_cnt > self.ping_dut_pkts
             self.log_cpu_state_change(reachable, partial)
+            self.watcher_is_running.set()   # Watcher is running.
+        self.watcher_is_stopped.set()       # Watcher has stopped.
+        self.watcher_is_running.clear()     # Watcher has stopped.
 
 
     def pingFromServers(self):
