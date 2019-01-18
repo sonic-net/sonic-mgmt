@@ -1052,6 +1052,7 @@ class ReloadTest(BaseTest):
             interval = self.send_interval
         if not packets_list:
             packets_list = self.packets_list
+        self.sniffer_started.wait(timeout=10)
         sender_start = datetime.datetime.now()
         self.log("Sender started at %s" % str(sender_start))
         for entry in packets_list:
@@ -1064,6 +1065,7 @@ class ReloadTest(BaseTest):
         This function listens on all ports, in both directions, for the UDP src=1234 dst=5000 packets, until timeout.
         Once found, all packets are dumped to local pcap file,
         and all packets are saved to self.packets as scapy type.
+        The native scapy.snif() is used as a background thread, to allow delayed start for the send_in_background().
         """
         if not wait:
             wait = self.time_to_listen + 30
@@ -1071,13 +1073,24 @@ class ReloadTest(BaseTest):
         self.log("Sniffer started at %s" % str(sniffer_start))
         filename = '/tmp/capture.pcap'
         sniff_filter = "udp and udp dst port 5000 and udp src port 1234 and not icmp"
-        self.packets = scapyall.sniff(timeout = wait, filter = sniff_filter)
+        scapy_sniffer = threading.Thread(target=self.scapy_sniff, kwargs={'wait': wait, 'sniff_filter': sniff_filter})
+        scapy_sniffer.start()
+        time.sleep(2)               # Let the scapy sniff initialize completely.
+        self.sniffer_started.set()  # Unblock waiter for the send_in_background.
+        scapy_sniffer.join()
         self.log("Sniffer has been running for %s" % str(datetime.datetime.now() - sniffer_start))
+        self.sniffer_started.clear()
         if self.packets:
             scapyall.wrpcap(filename, self.packets)
             self.log("Pcap file dumped to %s" % filename)
         else:
             self.log("Pcap file is empty.")
+
+    def scapy_sniff(self, wait = 180, sniff_filter = ''):
+        """
+        This method exploits native scapy sniff() method.
+        """
+        self.packets = scapyall.sniff(timeout = wait, filter = sniff_filter)
 
     def send_and_sniff(self):
         """
@@ -1086,8 +1099,8 @@ class ReloadTest(BaseTest):
         """
         self.sender_thr = threading.Thread(target = self.send_in_background)
         self.sniff_thr = threading.Thread(target = self.sniff_in_background)
+        self.sniffer_started = threading.Event()    # Event for the sniff_in_background status.
         self.sniff_thr.start()
-        time.sleep(1)           # Let the listener initialize completely.
         self.sender_thr.start()
         self.sniff_thr.join()
         self.sender_thr.join()
