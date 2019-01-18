@@ -61,3 +61,7 @@
       - vlan_ip='{{minigraph_vlan_interfaces[0]['addr']}}'
     ptf_extra_options: "--relax --debug info --log-file /tmp/fdb_test.FdbTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
   
+- block:
+    - name: Include fdb_mac_expire.yml
+      include: fdb_mac_expire.yml
+  when: "run_fdb_mac_expire|bool == True"

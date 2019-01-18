@@ -1,0 +1,68 @@
+- name: clear fdb all
+  shell: clear fdb all
+
+- name: set dummy mac prefix to look for in mac table
+  set_fact: dummy_mac_prefix="00:11:22:33:44"
+
+- name: check entries in mac table before adding dummy mac
+  shell: show mac | grep {{dummy_mac_prefix}} | wc -l
+  register: show_mac_output
+  failed_when: "show_mac_output.stdout|int > 0"
+
+- debug: msg="{{show_mac_output.stdout}}"
+
+- name: "Start PTF runner"
+  include: ptf_runner.yml
+  vars:
+    ptf_test_name: FDB Mac Expire test
+    ptf_test_dir: ptftests
+    ptf_test_path: fdb_mac_expire_test.FdbMacExpireTest
+    ptf_platform: remote
+    ptf_platform_dir: ptftests
+    ptf_test_params:
+      - testbed_type='{{testbed_type}}'
+      - router_mac='{{ansible_Ethernet0['macaddress']}}'
+      - fdb_info='/root/fdb_info.txt'
+      - dummy_mac_prefix='{{dummy_mac_prefix}}'
+    ptf_extra_options: "--relax --debug info --log-file /tmp/fdb_mac_expire_test.FdbMacExpireTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
+
+- name: check entries in mac table after adding dummy mac
+  shell: show mac | grep {{dummy_mac_prefix}} | wc -l
+  register: show_mac_output
+  failed_when: "show_mac_output.stdout|int == 0"
+
+- debug: msg="{{show_mac_output}}"
+
+- name: wait for 300 secs
+  pause: seconds=300
+
+# check mac table after > 300 secs wait
+- name: check entries in mac table after wait
+  shell: show mac | grep {{dummy_mac_prefix}} | wc -l
+  register: show_mac_after_300s
+
+- debug: msg="{{show_mac_after_300s}}"
+
+# wait in slot of 15 secs (after 300 secs) to find when MAC expires
+- block:
+    - name: check in mac table after 300 secs to find exact time (300-600 secs)
+      shell: show mac | grep {{dummy_mac_prefix}} | wc -l
+      register: show_mac_300_600s
+      until: "show_mac_300_600s.stdout|int == 0"
+      retries: 20
+      delay: 15
+
+    - fail:
+        msg: "MAC Entires are not cleaned even after 600+ secs"
+      when: "show_mac_300_600s.stdout|int > 0"
+
+    - debug: msg="MAC Entires are Cleared within 300-600 secs."
+  when: "show_mac_after_300s|int > 0"
+
+- debug: msg="MAC Entires are Cleared around 300secs."
+  when: "show_mac_after_300s|int == 0"
+
+- always:
+    - name: clear fdb all
+      shell: clear fdb all
+
