@@ -35,6 +35,7 @@ sonic_a7260
 [ptf]
 ptf_ptf1    ansible_host=10.255.0.188 ansible_ssh_user=root ansible_ssh_pass=root
 ptf_vms1-1  ansible_host=10.255.0.178 ansible_ssh_user=root ansible_ssh_pass=root
+ptf_vms6-1  ansible_host=10.250.0.102 ansible_ssh_user=root ansible_ssh_pass=root
 
 [lab:children]
 sonic
