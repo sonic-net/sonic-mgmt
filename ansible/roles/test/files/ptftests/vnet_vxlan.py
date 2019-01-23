@@ -31,6 +31,7 @@ class VNET(BaseTest):
         self.vxlan_enabled = False
         self.random_mac = '00:01:02:03:04:05'
         self.vxlan_router_mac = '00:aa:bb:cc:78:9a'
+        self.DEFAULT_PKT_LEN = 100
 
     def cmd(self, cmds):
         process = subprocess.Popen(cmds,
@@ -77,10 +78,28 @@ class VNET(BaseTest):
     def checkPeer(self, test):
         for peers in self.peering:
             for key, peer in peers.items():
+                ptest = dict(test)
+                if ptest['name'] == key:
+                    ptest['name'] = peer
+                    ptest['src'], ptest['port'], ptest['vlan'], ptest['vni'] = self.getSrvInfo(ptest['name'])
+                    if 'dst_vni' in test:
+                        ptest['dst_vni'] = test['dst_vni']
+                    self.tests.append(ptest)
+
+    def getPeerTest(self, test):
+        peer_vnets = []
+        peer_tests = []
+        for peers in self.peering:
+            for key, peer in peers.items():
                 if test['name'] == key:
-                    test['name'] = peer
-                    test['src'], test['port'], test['vlan'], test['vni'] = self.getSrvInfo(test['name'])
-                    self.tests.append(test)
+                    peer_vnets.append(peer)
+
+        for peer_test in self.tests:
+            if peer_test['name'] not in peer_vnets:
+                continue
+            peer_tests.append(peer_test)
+
+        return peer_tests
 
     def setUp(self):
         self.dataplane = ptf.dataplane_instance
@@ -160,6 +179,8 @@ class VNET(BaseTest):
                     else:
                         test['mac'] = self.vxlan_router_mac
                     test['src'], test['port'], test['vlan'], test['vni'] = self.getSrvInfo(test['name'])
+                    if 'vni' in entry:
+                        test['dst_vni'] = entry['vni']
                     self.tests.append(test)
                     self.checkPeer(test)
 
@@ -195,6 +216,7 @@ class VNET(BaseTest):
         if not self.vxlan_enabled:
             return
 
+        print
         for test in self.tests:
             print test['name']
             self.FromServer(test)
@@ -202,16 +224,18 @@ class VNET(BaseTest):
             self.FromVM(test)
             print "  FromVM  passed"
             self.Serv2Serv(test)
-            print "  Serv2Serv passed"
             print
 
     def FromVM(self, test):
         rv = True
+        pkt_len = self.DEFAULT_PKT_LEN
         if test['vlan'] != 0:
             tagged = True
+            pkt_len += 4
         else:
             tagged = False
-        for n in self.net_ports:
+
+        for net_port in self.net_ports:
             pkt = simple_tcp_packet(
                 eth_dst=self.dut_mac,
                 eth_src=self.random_mac,
@@ -228,10 +252,11 @@ class VNET(BaseTest):
                 ip_dst=self.loopback_ip,
                 ip_ttl=64,
                 udp_sport=udp_sport,
-                vxlan_vni=test['vni'],
+                vxlan_vni=int(test['vni']),
                 with_udp_chksum=False,
                 inner_frame=pkt)
             exp_pkt = simple_tcp_packet(
+                pktlen=pkt_len,
                 eth_src=self.dut_mac,
                 eth_dst=self.ptf_mac_addrs['eth%d' % test['port']],
                 dl_vlan_enable=tagged,
@@ -240,15 +265,14 @@ class VNET(BaseTest):
                 ip_src=test['dst'],
                 ip_id=108,
                 ip_ttl=63)
-            send_packet(self, n, str(vxlan_pkt))
+            send_packet(self, net_port, str(vxlan_pkt))
 
-            log_str = "Sending packet from port " + str(n) + " to " + test['src']
+            log_str = "Sending packet from port " + str(net_port) + " to " + test['src']
             logging.info(log_str)
             print log_str
 
             log_str = "Expecing packet on " + str("eth%d" % test['port']) + " from " + test['dst']
             logging.info(log_str)
-            print log_str
 
             verify_packet(self, exp_pkt, test['port'])
 
@@ -256,11 +280,19 @@ class VNET(BaseTest):
     def FromServer(self, test):
         rv = True
         try:
+            pkt_len = self.DEFAULT_PKT_LEN
             if test['vlan'] != 0:
                 tagged = True
+                pkt_len += 4
             else:
                 tagged = False
+
+            vni = int(test['vni'])
+            if 'dst_vni' in test:
+                vni = int(test['dst_vni'])
+
             pkt = simple_tcp_packet(
+                pktlen=pkt_len,
                 eth_dst=self.dut_mac,
                 eth_src=self.ptf_mac_addrs['eth%d' % test['port']],
                 dl_vlan_enable=tagged,
@@ -286,8 +318,9 @@ class VNET(BaseTest):
                 ip_ttl=64,
                 udp_sport=udp_sport,
                 with_udp_chksum=False,
-                vxlan_vni=test['vni'],
+                vxlan_vni=vni,
                 inner_frame=exp_pkt)
+            encap_pkt[IP].flags = 0x2
             send_packet(self, test['port'], str(pkt))
 
             masked_exp_pkt = Mask(encap_pkt)
@@ -299,13 +332,53 @@ class VNET(BaseTest):
             logging.info(log_str)
             print log_str
 
-            verify_packets(self, masked_exp_pkt, self.net_ports)
+            verify_packet_any_port(self, masked_exp_pkt, self.net_ports)
 
         finally:
             print
 
 
     def Serv2Serv(self, test):
-        #TBD
-        rv = True
-        return rv
+        try:
+            pkt_len = self.DEFAULT_PKT_LEN
+            if test['vlan'] != 0:
+                tagged = True
+                pkt_len += 4
+            else:
+                tagged = False
+
+            peer_tests = self.getPeerTest(test)
+
+            for serv in peer_tests:
+                print "  Testing Serv2Serv "
+                pkt = simple_tcp_packet(
+                    pktlen=pkt_len,
+                    eth_dst=self.dut_mac,
+                    eth_src=self.ptf_mac_addrs['eth%d' % test['port']],
+                    dl_vlan_enable=tagged,
+                    vlan_vid=test['vlan'],
+                    ip_dst=serv['src'],
+                    ip_src=test['src'],
+                    ip_id=205,
+                    ip_ttl=2)
+
+                exp_pkt = simple_tcp_packet(
+                    pktlen=pkt_len,
+                    eth_src=self.dut_mac,
+                    eth_dst=self.ptf_mac_addrs['eth%d' % serv['port']],
+                    dl_vlan_enable=tagged,
+                    vlan_vid=serv['vlan'],
+                    ip_dst=serv['src'],
+                    ip_src=test['src'],
+                    ip_id=205,
+                    ip_ttl=1)
+
+                send_packet(self, test['port'], str(pkt))
+
+                log_str = "Sending packet from port " + str('eth%d' % test['port']) + " to " + serv['src']
+                logging.info(log_str)
+
+                verify_packet(self, exp_pkt, serv['port'])
+
+        finally:
+            print
