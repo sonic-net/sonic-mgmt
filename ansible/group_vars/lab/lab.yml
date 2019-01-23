@@ -12,7 +12,7 @@ syslog_servers: ['10.0.0.5', '10.0.0.6']
 dns_servers: ['10.0.0.5', '10.0.0.6']
 
 # forced_mgmt_routes
-forced_mgmt_routes: ['10.0.0.100/31', '10.250.0.8', '10.255.0.0/28']
+forced_mgmt_routes: []
 
 # ErspanDestinationIpv4
 erspan_dest: ['10.0.0.7']
@@ -33,6 +33,9 @@ dhcp_servers: ['192.0.0.1', '192.0.0.2', '192.0.0.3', '192.0.0.4']
 # snmp variables
 snmp_rocommunity: public
 snmp_location: testlab
+
+# bgp slb passive range
+bgp_slb_passive_range: 10.255.0.0/25
 
 #For Arista fanout switch deployment only
 fanout_admin_user: "fanoutadminuser"
