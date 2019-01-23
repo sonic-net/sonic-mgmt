@@ -7,4 +7,3 @@
   include: advanced-reboot.yml
   vars:
       reboot_type: fast-reboot
-      reboot_limit: reboot_limit
