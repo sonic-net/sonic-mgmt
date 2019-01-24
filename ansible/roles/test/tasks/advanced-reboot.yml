@@ -145,7 +145,7 @@
         - verbose=False
         - dut_username=\"{{ ansible_ssh_user }}\"
         - dut_hostname=\"{{ ansible_host }}\"
-        - reboot_limit_in_seconds=30
+        - reboot_limit_in_seconds={{ reboot_limit }}
         - reboot_type=\"{{ reboot_type }}\"
         - portchannel_ports_file=\"/tmp/portchannel_interfaces.json\"
         - vlan_ports_file=\"/tmp/vlan_interfaces.json\"
@@ -161,6 +161,13 @@
     - name: Copy test results from ptf to the local box /tmp/*-reboot.log
       fetch: src='/tmp/{{reboot_type}}.log' dest='/tmp/' flat=true fail_on_missing=false
       delegate_to: "{{ ptf_host }}"
+
+    - name: Copy pcap files from ptf to the local box /tmp/
+      fetch: src={{ item }} dest='/tmp/' flat=true fail_on_missing=false
+      delegate_to: "{{ ptf_host }}"
+      with_items:
+        - "/tmp/capture.pcap"
+        - "/tmp/capture_filtered.pcap"
 
     - name: Remove existing ip from ptf host
       script: roles/test/files/helpers/remove_ip.sh

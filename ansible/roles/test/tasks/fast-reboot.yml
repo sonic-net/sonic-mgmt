@@ -1,5 +1,9 @@
+- name: set default reboot_limit in seconds
+  set_fact:
+      reboot_limit: 30
+  when: reboot_limit is not defined
+
 - name: Fast-reboot test
   include: advanced-reboot.yml
   vars:
       reboot_type: fast-reboot
-
