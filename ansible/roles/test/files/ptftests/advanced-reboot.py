@@ -884,7 +884,7 @@ class ReloadTest(BaseTest):
                     self.log("Total disruptions count is %d. All disruptions lasted %.3f seconds. Total %d packet(s) lost" % \
                         (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
                 else:
-                    no_routing_stop, no_routing_start = 0, 0
+                    no_routing_stop, no_routing_start = self.reboot_start, self.reboot_start
 
             # wait until all bgp session are established
             self.log("Wait until bgp routing is up on all devices")
