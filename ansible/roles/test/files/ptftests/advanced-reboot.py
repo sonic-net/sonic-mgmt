@@ -854,14 +854,14 @@ class ReloadTest(BaseTest):
                     self.log("Data plane was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
                 except TimeoutError:
                     self.log("Data plane never stop")
-                    no_routing_start = datetime.min
+                    no_routing_start = datetime.datetime.min
 
                 if no_routing_start is not None:
                     self.timeout(self.task_timeout, "DUT hasn't started to work for %d seconds" % self.task_timeout)
                     no_routing_stop, _ = self.check_forwarding_resume()
                     self.cancel_timeout()
                 else:
-                    no_routing_stop = datetime.min
+                    no_routing_stop = datetime.datetime.min
 
                 # Stop watching DUT
                 self.watching = False
@@ -884,7 +884,8 @@ class ReloadTest(BaseTest):
                     self.log("Total disruptions count is %d. All disruptions lasted %.3f seconds. Total %d packet(s) lost" % \
                         (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
                 else:
-                    no_routing_stop, no_routing_start = 0, 0
+                    no_routing_start = self.reboot_start
+                    no_routing_stop  = self.reboot_start
 
             # wait until all bgp session are established
             self.log("Wait until bgp routing is up on all devices")
