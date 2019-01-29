@@ -71,7 +71,7 @@ class Connection(ConnectionBase):
                 self._display.vvv("SSH: EXEC {0}".format(' '.join(cmd)),
                               host=self.host)
                 last_user = user
-                client = pexpect.spawn(' '.join(cmd), env={'TERM': 'dumb'})
+                client = pexpect.spawn(' '.join(cmd), env={'TERM': 'dumb'}, timeout=60)
                 i = client.expect(['[Pp]assword:', pexpect.EOF])
                 if i == 1:
                     self._display.vvv("Server closed the connection, retry in %d seconds" % self.connection_retry_interval, host=self.host)
