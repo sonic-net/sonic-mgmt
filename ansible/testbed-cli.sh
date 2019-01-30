@@ -5,34 +5,40 @@ set -e
 function usage
 {
   echo "testbed-cli. Interface to testbeds"
-  echo "Usage :"
-  echo "    $0 [options] { start-vms | stop-vms } server-name vault-password-file"
-  echo "    $0 [options] { add-topo | remove-topo | renumber-topo | connect-topo } topo-name vault-password-file"
-  echo "    $0 [options] { refresh-dut } topo-name vault-password-file"
-  echo "    $0 [options] { connect-vms  | disconnect-vms } topo-name vault-password-file"
-  echo "    $0 [options] { config-vm } topo-name vm-name vault-password-file"
-  echo "    $0 [options] { gen-mg | deploy-mg | test-mg } topo-name inventory vault-password-file"
+  echo "Usage:"
+  echo "    $0 [options] (start-vms | stop-vms) <server-name> <vault-password-file>"
+  echo "    $0 [options] (add-topo | remove-topo | renumber-topo | connect-topo) <topo-name> <vault-password-file>"
+  echo "    $0 [options] refresh-dut <topo-name> <vault-password-file>"
+  echo "    $0 [options] (connect-vms | disconnect-vms) <topo-name> <vault-password-file>"
+  echo "    $0 [options] config-vm <topo-name> <vm-name> <vault-password-file>"
+  echo "    $0 [options] (gen-mg | deploy-mg | test-mg) <topo-name> <inventory> <vault-password-file>"
   echo
-  echo "Options :"
-  echo "    -t tbfile     : testbed csv file name (default testbed.csv)"
-  echo "    -m vmfile     : virtual machine file name (default veos)"
+  echo "Options:"
+  echo "    -t <tbfile> : testbed CSV file name (default: 'testbed.csv')"
+  echo "    -m <vmfile> : virtual machine file name (default: 'veos')"
+  echo
+  echo "Positional Arguments:"
+  echo "    <server-name>         : Hostname of server on which to start VMs"
+  echo "    <vault-password-file> : Path to file containing Ansible Vault password"
+  echo "    <topo-name>           : Name of the target topology"
+  echo "    <inventory>           : Name of the Ansible inventory containing the DUT"
   echo
   echo "To start VMs on a server: $0 start-vms 'server-name' ~/.password"
   echo "To restart a subset of VMs:"
-  echo "        $0 start-vms server-name vault-password-fix -e respin_vms=[vm list]"
-  echo "             vm list is separated by comma and shouldn't have space in the list."
-  echo "                 e.g. respin_vms=[VM0310,VM0330]"
+  echo "        $0 start-vms server-name vault-password-file -e respin_vms=[vm_list]"
+  echo "             vm_list is separated by comma and shouldn't have space in the list."
+  echo "                 e.g., respin_vms=[VM0310,VM0330]"
   echo "To stop VMs on a server:  $0 stop-vms 'server-name' ~/.password"
   echo "To deploy a topology on a server: $0 add-topo 'topo-name' ~/.password"
   echo "To remove a topology on a server: $0 remove-topo 'topo-name' ~/.password"
-  echo "To renumber a topology on a server: $0 renumber-topo 'topo-name' ~/.password" , where topo-name is target topology
+  echo "To renumber a topology on a server: $0 renumber-topo 'topo-name' ~/.password"
   echo "To connect a topology: $0 connect-topo 'topo-name' ~/.password"
   echo "To refresh DUT in a topology: $0 refresh-dut 'topo-name' ~/.password"
   echo "To configure a VM on a server: $0 config-vm 'topo-name' 'vm-name' ~/.password"
-  echo "To generate minigraph for DUT in a topology: $0 gen-mg 'topo-name' ~/.password"
-  echo "To deploy minigraph to DUT in a topology: $0 deploy-mg 'topo-name' ~/.password"
+  echo "To generate minigraph for DUT in a topology: $0 gen-mg 'topo-name' 'inventory' ~/.password"
+  echo "To deploy minigraph to DUT in a topology: $0 deploy-mg 'topo-name' 'inventory' ~/.password"
   echo
-  echo "You should define your topology in testbed csv file"
+  echo "You should define your topology in testbed CSV file"
   echo
   exit
 }
