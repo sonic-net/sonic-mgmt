@@ -5,10 +5,10 @@ eos_password: 123456
 eos_root_password: 123456
 
 sonic_login: "admin"
-sonic_passwords:
+sonic_default_passwords:
  - "YourPaSsWoRd"
  - "password"
-sonic_new_password: "password"
+sonic_password: "password"
 
 tor_memory: 1572864
 spine_memory: 2097152
