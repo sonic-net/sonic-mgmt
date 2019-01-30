@@ -43,11 +43,11 @@
 - name: Wait until vm {{ dut_name }} is loaded
   sonic_kickstart: telnet_port={{ serial_port }}
              login={{ sonic_login }}
-             passwords={{ sonic_passwords }}
+             passwords={{ sonic_default_passwords }}
              hostname={{ dut_name }}
              mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
              mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
-             new_password={{ sonic_new_password }}
+             new_password={{ sonic_password }}
   register: kickstart_output
 
 - name: Fail if kickstart gives error for {{ dut_name }}

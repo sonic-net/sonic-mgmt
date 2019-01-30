@@ -50,14 +50,14 @@
 
 - name: Wait until vm {{ vm_name }} is loaded
   kickstart: telnet_port={{ serial_port }}
-             login={{ login }}
-             password={{ password }}
+             login={{ eos_default_login }}
+             password={{ eos_default_password }}
              hostname={{ hostname }}
              mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
              mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
-             new_login={{ new_login }}
-             new_password={{ new_password }}
-             new_root_password={{ new_root_password }}
+             new_login={{ eos_login }}
+             new_password={{ eos_password }}
+             new_root_password={{ eos_root_password }}
   register: kickstart_output
   when: vm_name not in vm_list_running.list_vms or vm_name in respin_vms
 
@@ -77,14 +77,14 @@
 
 - name: Wait until vm {{ vm_name }} is loaded
   kickstart: telnet_port={{ serial_port }}
-             login={{ login }}
-             password={{ password }}
+             login={{ eos_default_login }}
+             password={{ eos_default_password }}
              hostname={{ hostname }}
              mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
              mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
-             new_login={{ new_login }}
-             new_password={{ new_password }}
-             new_root_password={{ new_root_password }}
+             new_login={{ eos_login }}
+             new_password={{ eos_password }}
+             new_root_password={{ eos_root_password }}
   register: kickstart_output_final
   when: vm_name not in vm_list_running.list_vms and kickstart_output.kickstart_code != 0
 
