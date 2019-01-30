@@ -5,12 +5,16 @@ This document describes the steps to setup the virtual switch based testbed and 
 ## Prepare testbed server
 
 - Install Ubuntu 18.04 amd64 server. To setup a T0 topology, the server needs to have 10GB free memory.
+- Install bridge utils
+```
+$ sudo apt-get install bridge-utils
+```
 - Setup internal management network.
 
 ```
-brctl addbr br1
-ifconfig br1 10.250.0.1/24
-ifconfig br1 up
+$ sudo brctl addbr br1
+$ sudo ifconfig br1 10.250.0.1/24
+$ sudo ifconfig br1 up
 ```
 
 - Download vEOS image from [arista](https://www.arista.com/en/support/software-download).
@@ -24,12 +28,20 @@ PTF docker is used to send and receive packets to test data plane.
 
 - Build PTF docker
 ```
-git clone --recursive https://github.com/Azure/sonic-buildimage.git
-make configure PLATFORM=generic
-make target/docker-ptf.gz
+$ git clone --recursive https://github.com/Azure/sonic-buildimage.git
+$ make configure PLATFORM=generic
+$ make target/docker-ptf.gz
 ```
 
-- Setup [docker registry](https://docs.docker.com/registry/) and upload *docker-ptf* to the docker registry.
+- Download pre-built *docker-ptf* image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/broadcom/job/buildimage-brcm-all/lastSuccessfulBuild/artifact/target/docker-ptf-brcm.gz)
+```
+$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/broadcom/job/buildimage-brcm-all/lastSuccessfulBuild/artifact/target/docker-ptf-brcm.gz
+```
+
+- Load *docker-ptf* image
+```
+$ docker load -i docker-ptf-brcm.gz
+```
 
 ## Build or download *sonic-mgmt* docker image
 
@@ -39,28 +51,42 @@ the docker and run ansible playbook inside the docker.
 
 - Build *sonic-mgmt* docker
 ```
-git clone --recursive https://github.com/Azure/sonic-buildimage.git
-make configure PLATFORM=generic
-make target/docker-sonic-mgmt.gz
+$ git clone --recursive https://github.com/Azure/sonic-buildimage.git
+$ make configure PLATFORM=generic
+$ make target/docker-sonic-mgmt.gz
 ```
 
-Pre-built *sonic-mgmt* can also be downloaded from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/target/docker-sonic-mgmt.gz).
+- Download pre-built *sonic-mgmt* image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/target/docker-sonic-mgmt.gz).
+```
+$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/target/docker-sonic-mgmt.gz
+```
+
+- Load *sonic-mgmt* image
+```
+$ docker load -i docker-sonic-mgmt.gz
+```
 
 ## Download sonic-vs image
 
 - Download sonic-vs image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz)
+```
+$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz
+```
+
 - unzip the image and move it into ```~/sonic-vm/images/```
+```
+$ gzip -d sonic-vs.img.gz
+$ mkdir -p ~/sonic-vm/images
+$ mv sonic-vs.img ~/sonic-vm/images
+```
 
 ## Clone sonic-mgmt repo
 
 ```
-git clone https://github.com/Azure/sonic-mgmt
+$ git clone https://github.com/Azure/sonic-mgmt
 ```
 
-- Modify veos.vtb to use the user name to login linux host. Add public key authorized\_keys for your user. 
-Put the private key inside the sonic-mgmt docker container. Make sure you can login into box using 
-```ssh yourusername@172.17.0.1``` without any password prompt inside the docker container.
-
+### Modify login user name
 ```
 lgh@gulv-vm2:/data/sonic/sonic-mgmt/ansible$ git diff
 diff --git a/ansible/veos.vtb b/ansible/veos.vtb
@@ -79,30 +105,59 @@ vm_host_1
 ## Run sonic-mgmt docker
 
 ```
-docker run -v $PWD:/data -it docker-sonic-mgmt bash
+$ docker run -v $PWD:/data -it docker-sonic-mgmt bash
 ```
 
 From now on, all steps are running inside the *sonic-mgmt* docker.
 
+### Setup public key to login into the linux host from sonic-mgmt docker
+
+- Modify veos.vtb to use the user name to login linux host. Add public key to authorized\_keys for your user. 
+Put the private key inside the sonic-mgmt docker container. Make sure you can login into box using 
+```ssh yourusername@172.17.0.1``` without any password prompt inside the docker container.
+
 ## Setup Arista VMs in the server
 
 ```
-./testbed-cli.sh -m veos.vtb start-vms server_1 password.txt
+$ ./testbed-cli.sh -m veos.vtb start-vms server_1 password.txt
 ```
   - please note: Here "password.txt" is the ansible vault password file name/path. Ansible allows user use ansible vault to encrypt password files. By default, this shell script require a password file. If you are not using ansible vault, just create an empty file and pass the filename to the command line. The file name and location is created and maintained by user. 
-
-Check that all VMs are up and running: ```ansible -m ping -i veos server_1```
 
 ## Deploy T0 topology
 
 ```
-./testbed-cli.sh -t vtestbed.csv -m veos.vtb add-topo vms-kvm-t0 password.txt
+$ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb add-topo vms-kvm-t0 password.txt
+```
+
+Check that all VMs are up and running: 
+```
+$ ansible -m ping -i veos.vtb server_1
+VM0102 | SUCCESS => {
+        "changed": false, 
+                "ping": "pong"
+}
+VM0101 | SUCCESS => {
+        "changed": false, 
+                "ping": "pong"
+}
+STR-ACS-VSERV-01 | SUCCESS => {
+        "changed": false, 
+                "ping": "pong"
+}
+VM0103 | SUCCESS => {
+        "changed": false, 
+                "ping": "pong"
+}
+VM0100 | SUCCESS => {
+        "changed": false, 
+                "ping": "pong"
+}
 ```
 
 ## Deploy minigraph on the DUT
 
 ```
-./testbed-cli.sh -t vtestbed.csv -m veos.vtb deploy-mg vms-kvm-t0 lab password.txt
+$ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb deploy-mg vms-kvm-t0 lab password.txt
 ```
 
 You should be login into the sonic kvm using IP: 10.250.0.101 using admin:password.
