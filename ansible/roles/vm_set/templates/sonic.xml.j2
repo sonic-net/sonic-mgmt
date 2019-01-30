@@ -2,7 +2,7 @@
   <name>{{ dut_name }}</name>
   <memory unit='KiB'>2048000</memory>
   <currentMemory unit='KiB'>2048000</currentMemory>
-  <vcpu placement='static'>1</vcpu>
+  <vcpu placement='static'>2</vcpu>
   <resource>
     <partition>/machine</partition>
   </resource>
@@ -33,102 +33,11 @@
     <interface type='ethernet'>
         <model type='e1000' />
     </interface>
+{% for i in range(port_alias|length) %}
     <interface type='ethernet' >
         <model type='e1000' />
     </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
-    <interface type='ethernet' >
-        <model type='e1000' />
-    </interface>
+{% endfor %}
     <controller type='usb' index='0'/>
     <memballoon model='virtio'>
       <alias name='balloon0'/>

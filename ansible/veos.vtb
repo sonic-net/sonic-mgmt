@@ -29,4 +29,5 @@ server_1
 topologies=['t1', 't1-lag', 't1-64-lag', 't0', 't0-16', 't0-56', 't0-52', 'ptf32', 'ptf64', 't0-64', 't0-64-32', 't0-116']
 
 [sonic]
-vlab-01 ansible_host=10.250.0.101 type=kvm
+vlab-01 ansible_host=10.250.0.101 type=kvm hwsku=Force10-S6000
+vlab-02 ansible_host=10.250.0.102 type=kvm hwsku=Force10-S6100
