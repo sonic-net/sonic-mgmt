@@ -1,3 +1,6 @@
+- name: Set ansible login user name and password
+  set_fact: ansible_user="root" ansible_password={{ eos_root_password }}
+
 - name: Load topo variables
   include_vars: "vars/topo_{{ topo }}.yml"
 
