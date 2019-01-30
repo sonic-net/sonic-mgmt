@@ -21,6 +21,10 @@
   copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
   when: not file_stat.stat.exists
 
+- name: Get DUT port alias
+  port_alias: hwsku={{ hostvars[dut_name].hwsku }}
+  connection: local
+
 - name: Define vm {{ dut_name }}
   virt: name={{ dut_name }}
         command=define
