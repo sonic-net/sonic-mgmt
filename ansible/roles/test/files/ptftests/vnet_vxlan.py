@@ -31,6 +31,7 @@ class VNET(BaseTest):
         self.vxlan_enabled = False
         self.random_mac = '00:01:02:03:04:05'
         self.vxlan_router_mac = '00:aa:bb:cc:78:9a'
+        self.vxlan_port = 13330
         self.DEFAULT_PKT_LEN = 100
 
     def cmd(self, cmds):
@@ -244,6 +245,7 @@ class VNET(BaseTest):
                 ip_id=108,
                 ip_ttl=64)
             udp_sport = 1234 # Use entropy_hash(pkt)
+            udp_dport = self.vxlan_port
             vxlan_pkt = simple_vxlan_packet(
                 eth_dst=self.dut_mac,
                 eth_src=self.random_mac,
@@ -252,6 +254,7 @@ class VNET(BaseTest):
                 ip_dst=self.loopback_ip,
                 ip_ttl=64,
                 udp_sport=udp_sport,
+                udp_dport=udp_dport,
                 vxlan_vni=int(test['vni']),
                 with_udp_chksum=False,
                 inner_frame=pkt)
@@ -269,7 +272,6 @@ class VNET(BaseTest):
 
             log_str = "Sending packet from port " + str(net_port) + " to " + test['src']
             logging.info(log_str)
-            print log_str
 
             log_str = "Expecing packet on " + str("eth%d" % test['port']) + " from " + test['dst']
             logging.info(log_str)
@@ -309,6 +311,7 @@ class VNET(BaseTest):
                 ip_id=105,
                 ip_ttl=63)
             udp_sport = 1234 # Use entropy_hash(pkt)
+            udp_dport = self.vxlan_port
             encap_pkt = simple_vxlan_packet(
                 eth_src=self.dut_mac,
                 eth_dst=self.random_mac,
@@ -317,6 +320,7 @@ class VNET(BaseTest):
                 ip_dst=test['host'],
                 ip_ttl=64,
                 udp_sport=udp_sport,
+                udp_dport=udp_dport,
                 with_udp_chksum=False,
                 vxlan_vni=vni,
                 inner_frame=exp_pkt)
@@ -330,7 +334,6 @@ class VNET(BaseTest):
 
             log_str = "Sending packet from port " + str('eth%d' % test['port']) + " to " + test['dst']
             logging.info(log_str)
-            print log_str
 
             verify_packet_any_port(self, masked_exp_pkt, self.net_ports)
 
