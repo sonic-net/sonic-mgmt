@@ -201,6 +201,36 @@
                                         "source-ip-address": "10.0.0.2/32"
                                     }
                                 }
+                            },
+                            "14": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 27
+                                },
+                                "transport": {
+                                    "config": {
+                                        "source-port": "179"
+                                    }
+                                }
+                            },
+                            "15": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 28
+                                },
+                                "transport": {
+                                    "config": {
+                                        "destination-port": "179"
+                                    }
+                                }
                             }
                         }
                     }
