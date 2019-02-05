@@ -15,6 +15,7 @@ import sys
 import os.path
 import json
 import ptf
+import ptf.packet as scapy
 from ptf.base_tests import BaseTest
 from ptf import config
 import ptf.testutils as testutils
