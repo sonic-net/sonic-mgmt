@@ -123,9 +123,9 @@ $ ./testbed-cli.sh -m veos.vtb start-vms server_1 password.txt
 ```
   - please note: Here "password.txt" is the ansible vault password file name/path. Ansible allows user use ansible vault to encrypt password files. By default, this shell script require a password file. If you are not using ansible vault, just create an empty file and pass the filename to the command line. The file name and location is created and maintained by user. 
 
-Check that all VMs are up and running: 
+Check that all VMs are up and running, and the passwd is ```123456```
 ```
-$ ansible -m ping -i veos.vtb server_1
+$ ansible -m ping -i veos.vtb server_1 -u root -k
 VM0102 | SUCCESS => {
         "changed": false, 
                 "ping": "pong"
