@@ -94,13 +94,13 @@
       delay: 15
 
     - fail:
-        msg: "MAC Entires are not cleaned even after 2*"{{fdb_aging_time}}" secs"
+        msg: "MAC Entires are not cleaned even after {{2*fdb_aging_time|int}} secs"
       when: "show_mac_after_more_wait.stdout|int > 0"
 
-    - debug: msg="MAC Entires are Cleared within 2*"{{fdb_aging_time}}" secs."
+    - debug: msg="MAC Entires are Cleared within {{2*fdb_aging_time|int}} secs."
   when: "show_mac_after_wait|int > 0"
 
-- debug: msg="MAC Entires are Cleared "{{fdb_aging_time}}" secs."
+- debug: msg="MAC Entires are Cleared {{fdb_aging_time}} secs."
   when: "show_mac_after_more_wait|int == 0"
 
 - always:
