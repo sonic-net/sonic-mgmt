@@ -33,7 +33,7 @@
     replace: '"fdb_aging_time": "{{fdb_aging_time}}"'
   become: true
 
-- name: copy current switch.json from docker to host
+- name: copy current switch.json from host to docker
   shell: docker cp switch.json swss:/etc/swss/config.d/switch.json
 
 - name: run swssconfig switch.json command in container swss
@@ -94,7 +94,7 @@
       delay: 15
 
     - fail:
-        msg: "MAC Entires are not cleaned even after 600+ secs"
+        msg: "MAC Entires are not cleaned even after 2*"{{fdb_aging_time}}" secs"
       when: "show_mac_after_more_wait.stdout|int > 0"
 
     - debug: msg="MAC Entires are Cleared within 2*"{{fdb_aging_time}}" secs."
