@@ -330,6 +330,7 @@ class VNET(BaseTest):
             masked_exp_pkt = Mask(encap_pkt)
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
             masked_exp_pkt.set_do_not_care_scapy(scapy.UDP, "sport")
 
             log_str = "Sending packet from port " + str('eth%d' % test['port']) + " to " + test['dst']

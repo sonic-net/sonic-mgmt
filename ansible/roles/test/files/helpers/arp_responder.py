@@ -86,7 +86,7 @@ class ARPResponder(object):
 
     def action(self, interface):
         data = interface.recv()
-        if len(data) >= self.ARP_PKT_LEN:
+        if len(data) > self.ARP_PKT_LEN:
             return
 
         remote_mac, remote_ip, request_ip = self.extract_arp_info(data)
