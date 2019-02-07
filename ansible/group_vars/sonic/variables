@@ -22,7 +22,7 @@ barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C", "newport", "Arista
 marvell_hwskus: [ "et6448m" ]
 
 ## Note:
-## Dokcer volumes should be list instead of dict. However, if we want to keep code DRY, we
+## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we
 ## need to merge dictionaries, and convert them to list
 ## Ref:
 ## 1. http://stackoverflow.com/questions/9254178/is-there-yaml-syntax-for-sharing-part-of-a-list-or-map
