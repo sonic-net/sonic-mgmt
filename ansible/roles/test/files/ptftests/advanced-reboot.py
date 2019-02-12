@@ -214,6 +214,15 @@ class Arista(object):
         cli_data['bgp_v6'] = self.check_series_status(data, "bgp_route_v6", "BGP v6 routes")
         cli_data['po']     = self.check_change_time(samples, "po_changetime", "PortChannel interface")
 
+        route_timeout             = log_data['route_timeout']
+        cli_data['route_timeout'] = route_timeout
+
+        # {'10.0.0.38': [(0, '4200065100)')], 'fc00::2d': [(0, '4200065100)')]}
+        for nei in route_timeout.keys():
+            asn = route_timeout[nei][0][-1]
+            msg = 'BGP route GR timeout: neighbor %s (ASN %s' % (nei, asn)
+            self.fails.add(msg)
+
         return self.fails, self.info, cli_data, log_data
 
     def extract_from_logs(self, regexp, data):
@@ -241,6 +250,11 @@ class Arista(object):
         result_bgp, initial_time_bgp = self.extract_from_logs(bgp_r, data)
         if_r = r'^(\S+\s+\d+\s+\S+) \S+ Ebra: %LINEPROTO-5-UPDOWN: Line protocol on Interface (\S+), changed state to (\S+)$'
         result_if, initial_time_if = self.extract_from_logs(if_r, data)
+
+        route_r = r'^(\S+\s+\d+\s+\S+) \S+ Rib: %BGP-5-BGP_GRACEFUL_RESTART_TIMEOUT: Deleting stale routes from peer (\S+) .+ (\S+)$'
+        result_rt, initial_time_rt = self.extract_from_logs(route_r, data)
+
+        result['route_timeout'] = result_rt
 
         if initial_time_bgp == -1 or initial_time_if == -1:
             return result
@@ -940,7 +954,7 @@ class ReloadTest(BaseTest):
             for ip in sorted(self.logs_info.keys()):
                 self.log("Extracted log info from %s" % ip)
                 for msg in sorted(self.logs_info[ip].keys()):
-                    if msg != 'error':
+                    if not msg in [ 'error', 'route_timeout' ]:
                         self.log("    %s : %d" % (msg, self.logs_info[ip][msg]))
                     else:
                         self.log("    %s" % self.logs_info[ip][msg])
