@@ -219,8 +219,8 @@ class Arista(object):
 
         # {'10.0.0.38': [(0, '4200065100)')], 'fc00::2d': [(0, '4200065100)')]}
         for nei in route_timeout.keys():
-            asn = route_timeout[nei][0]
-            msg = 'BGP route GR timeout: neighbor %s ASN %s' % (nei, asn)
+            asn = route_timeout[nei][0][-1]
+            msg = 'BGP route GR timeout: neighbor %s (ASN %s' % (nei, asn)
             self.fails.add(msg)
 
         return self.fails, self.info, cli_data, log_data
