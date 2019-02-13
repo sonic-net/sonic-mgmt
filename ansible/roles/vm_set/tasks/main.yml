@@ -130,6 +130,7 @@
         uri=qemu:///system
         state=running
   register: vm_list_running
+  become: yes
 
 - name: Find current server group
   set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
