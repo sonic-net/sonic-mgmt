@@ -123,12 +123,14 @@
   virt: command=list_vms
         uri=qemu:///system
   register: vm_list_defined
+  become: yes
 
 - name: Retrieve a list of the running VMs
   virt: command=list_vms
         uri=qemu:///system
         state=running
   register: vm_list_running
+  become: yes
 
 - name: Find current server group
   set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
