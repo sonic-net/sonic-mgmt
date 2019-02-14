@@ -1,8 +1,5 @@
 - debug: msg="Configuration Test"
 
-- fail: msg="testbed_type {{testbed_type}} is not supported"
-  when: testbed_type not in ['t1-lag', 't1-64-lag']
-
 - name: Gather minigraph facts
   minigraph_facts: host={{inventory_hostname}}
 
