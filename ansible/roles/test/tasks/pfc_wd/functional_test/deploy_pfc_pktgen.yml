@@ -2,10 +2,23 @@
   file: path=/mnt/flash/{{pfc_gen_file}} state=touch
   delegate_to: "{{peer_mgmt}}"
   become: true
-  when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
+  when: "'arista' in peer_hwsku | lower"
 
 - name: Deploy PFC generator to the fanout switch
   copy: src=roles/test/files/helpers/{{pfc_gen_file}} dest=/mnt/flash
   delegate_to: "{{peer_mgmt}}"
   become: true
-  when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")
+  when: "'arista' in peer_hwsku | lower"
+
+
+- name: Create pfc generater file in case it doesn't exist.
+  file: path=/tmp/{{pfc_gen_file}} state=touch
+  delegate_to: "{{peer_mgmt}}"
+  become: true
+  when: "'sonic' in peer_type | lower"
+
+- name: Deploy PFC generator to the fanout switch
+  copy: src=roles/test/files/helpers/{{pfc_gen_file}} dest=/tmp
+  delegate_to: "{{peer_mgmt}}"
+  become: true
+  when: "'sonic' in peer_type | lower"
