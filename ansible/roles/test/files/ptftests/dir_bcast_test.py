@@ -38,6 +38,7 @@ class BcastTest(BaseTest):
     # Class variables
     #---------------------------------------------------------------------
     BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
+    DHCP_SERVER_PORT = 67
     TEST_SRC_IP = "1.1.1.1"  # Some src IP
 
     def __init__(self):
@@ -83,12 +84,13 @@ class BcastTest(BaseTest):
             bcast_ip = str(ip_network(vlan_pfx).broadcast_address)
             dst_port_list = self._vlan_dict[vlan_pfx]
             self.check_ip_dir_bcast(bcast_ip, dst_port_list)
+            self.check_bootp_dir_bcast(bcast_ip, dst_port_list)
 
     #---------------------------------------------------------------------
 
     def check_ip_dir_bcast(self, dst_bcast_ip, dst_port_list):
         '''
-        @summary: Check unicast IP forwarding and receiving on all member ports.
+        @summary: Check directed broadcast IP forwarding and receiving on all member ports.
         '''
         ip_src = self.TEST_SRC_IP
         ip_dst = dst_bcast_ip
@@ -118,6 +120,49 @@ class BcastTest(BaseTest):
         Check if broadcast packet is received on all member ports of vlan
         '''
         logging.info("Received " + str(pkt_count) + " broadcast packets, expecting " + str(len(dst_port_list)))
+        assert (pkt_count == len(dst_port_list))
+
+        return
+
+    #---------------------------------------------------------------------
+
+    def check_bootp_dir_bcast(self, dst_bcast_ip, dst_port_list):
+        '''
+        @summary: Check directed broadcast BOOTP packet forwarding and receiving on all member ports.
+        '''
+        ip_src = self.TEST_SRC_IP
+        ip_dst = dst_bcast_ip
+        src_mac = self.dataplane.get_mac(0, 0)
+        bcast_mac = self.BROADCAST_MAC
+        udp_port = self.DHCP_SERVER_PORT
+
+        pkt = simple_udp_packet(eth_dst=self.router_mac,
+                                eth_src=src_mac,
+                                ip_src=ip_src,
+                                ip_dst=ip_dst,
+                                udp_sport=udp_port,
+                                udp_dport=udp_port)
+
+        exp_pkt = simple_udp_packet(eth_dst=bcast_mac,
+                                    eth_src=self.router_mac,
+                                    ip_src=ip_src,
+                                    ip_dst=ip_dst,
+                                    udp_sport=udp_port,
+                                    udp_dport=udp_port)
+
+        masked_exp_pkt = Mask(exp_pkt)
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+
+        src_port = random.choice([port for port in self.src_ports if port not in dst_port_list])
+        send_packet(self, src_port, pkt)
+        logging.info("Sending BOOTP packet from port " + str(src_port) + " to " + ip_dst)
+
+        pkt_count = count_matched_packets_all_ports(self, masked_exp_pkt, dst_port_list)
+        ''' 
+        Check if broadcast BOOTP packet is received on all member ports of vlan
+        '''
+        logging.info("Received " + str(pkt_count) + " broadcast BOOTP packets, expecting " + str(len(dst_port_list)))
         assert (pkt_count == len(dst_port_list))
 
         return
