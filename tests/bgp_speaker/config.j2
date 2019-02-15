@@ -1,0 +1,24 @@
+group exabgp {
+    process dump {
+        encoder json;
+        receive {
+            parsed;
+            update;
+        }
+        run /usr/bin/python {{ helper_dir }}/dump.py;
+    }
+
+    process http-api {
+        run /usr/bin/python {{ helper_dir }}/http_api.py {{ port_num[cidx] }};
+    }
+
+    neighbor {{ lo_addr }} {
+        router-id {{ speaker_ip }};
+        local-address {{ speaker_ip }};
+        peer-as {{ peer_asn }};
+        local-as {{ my_asn }};
+        auto-flush false;
+        group-updates true;
+    }
+
+}
