@@ -4,60 +4,49 @@
 - fail: msg="testbed_type {{test_type}} is invalid"
   when: testbed_type not in ['t0', 't0-64', 't0-116']
 
-- include_vars: "vars/topo_{{testbed_type}}.yml"
-
-- name: Expand properties into props
-  set_fact: props="{{configuration_properties['common']}}"
-
 - name: Gather minigraph facts about the device
   minigraph_facts: host={{inventory_hostname}}
 
-- name: Remove existing IPs from PTF host
-  script: roles/test/files/helpers/remove_ip.sh
-  delegate_to: "{{ptf_host}}"
+- block:
+  - name: Remove existing IPs from PTF host
+    script: roles/test/files/helpers/remove_ip.sh
+    delegate_to: "{{ptf_host}}"
 
-- name: Set unique MACs to PTF interfaces
-  script: roles/test/files/helpers/change_mac.sh
-  delegate_to: "{{ptf_host}}"
+  - name: Set unique MACs to PTF interfaces
+    script: roles/test/files/helpers/change_mac.sh
+    delegate_to: "{{ptf_host}}"
 
-- name: Copy tests to PTF
-  copy: src=roles/test/files/ptftests dest=/root
-  delegate_to: "{{ptf_host}}"
+  - name: Copy tests to PTF
+    copy: src=roles/test/files/ptftests dest=/root
+    delegate_to: "{{ptf_host}}"
 
-- name: Copy ARP responder to PTF
-  copy: src=roles/test/files/helpers/arp_responder.py dest=/opt
-  delegate_to: "{{ptf_host}}"
+  - name: Copy FDB information file to PTF
+    template: src=roles/test/templates/fdb.j2 dest=/root/fdb_info.txt
+    delegate_to: "{{ ptf_host }}"
 
-- name: Copy arp responder supervisor configuration to the PTF container
-  template: src=arp_responder.conf.j2 dest=/etc/supervisor/conf.d/arp_responder.conf
-  vars:
-    - arp_responder_args: ''
-  delegate_to: "{{ ptf_host }}"
+  - name: clear FDB table
+    command: sonic-clear fdb all
 
-- name: Reread supervisor configuration
-  shell: supervisorctl reread
-  delegate_to: "{{ptf_host}}"
+  - name: Define dummy MAC prefix
+    set_fact:
+      dummy_mac_prefix: "02:11:22:33"
 
-- name: Update supervisor configuration
-  shell: supervisorctl update
-  delegate_to: "{{ ptf_host }}"
+  - name: "Start PTF runner"
+    include: ptf_runner.yml
+    vars:
+      ptf_test_name: FDB test
+      ptf_test_dir: ptftests
+      ptf_test_path: fdb_test.FdbTest
+      ptf_platform: remote
+      ptf_platform_dir: ptftests
+      ptf_test_params:
+        - testbed_type='{{testbed_type}}'
+        - router_mac='{{ansible_Ethernet0['macaddress']}}'
+        - fdb_info='/root/fdb_info.txt'
+        - vlan_ip='{{minigraph_vlan_interfaces[0]['addr']}}'
+        - dummy_mac_prefix='{{ dummy_mac_prefix }}'
+      ptf_extra_options: "--relax --debug info --log-file /tmp/fdb_test.FdbTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
-- name: Copy FDB information file to PTF
-  template: src=roles/test/templates/fdb.j2 dest=/root/fdb_info.txt
-  delegate_to: "{{ ptf_host }}"
-
-- name: "Start PTF runner"
-  include: ptf_runner.yml
-  vars:
-    ptf_test_name: FDB test
-    ptf_test_dir: ptftests
-    ptf_test_path: fdb_test.FdbTest
-    ptf_platform: remote
-    ptf_platform_dir: ptftests
-    ptf_test_params:
-      - testbed_type='{{testbed_type}}'
-      - router_mac='{{ansible_Ethernet0['macaddress']}}'
-      - fdb_info='/root/fdb_info.txt'
-      - vlan_ip='{{minigraph_vlan_interfaces[0]['addr']}}'
-    ptf_extra_options: "--relax --debug info --log-file /tmp/fdb_test.FdbTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
-  
+  always:
+    - name: clear FDB table
+      command: sonic-clear fdb all

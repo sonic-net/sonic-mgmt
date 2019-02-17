@@ -15,6 +15,9 @@ from ptf.base_tests import BaseTest
 from ptf.testutils import *
 
 class FdbTest(BaseTest):
+
+    DUMMY_MAC_NUMBER = 10
+
     def __init__(self):
         BaseTest.__init__(self)
         self.test_params = test_params_get()
@@ -36,16 +39,10 @@ class FdbTest(BaseTest):
         self.dataplane = ptf.dataplane_instance
         self.fdb = fdb.Fdb(self.test_params['fdb_info'])
         self.vlan_ip = ip_address(unicode(self.test_params['vlan_ip']))
+        self.dummy_mac_prefix = self.test_params["dummy_mac_prefix"]
+        self.dummy_mac_table = {}
 
         self.setUpFdb()
-
-        self.log("Start arp_responder")
-        self.shell(["supervisorctl", "start", "arp_responder"])
-    #--------------------------------------------------------------------------
-
-    def tearDown(self):
-        self.log("Stop arp_responder")
-        self.shell(["supervisorctl", "stop", "arp_responder"])
     #--------------------------------------------------------------------------
 
     def setUpFdb(self):
@@ -55,27 +52,22 @@ class FdbTest(BaseTest):
                 mac = self.dataplane.get_mac(0, member)
                 self.fdb.insert(mac, member)
 
-                # Send a packet to switch to populate the layer 2 table
+                # Send a packet to switch to populate the layer 2 table with MAC of PTF interface
                 pkt = simple_eth_packet(eth_dst=self.test_params['router_mac'],
                                         eth_src=mac,
                                         eth_type=0x1234)
                 send(self, member, pkt)
-    #--------------------------------------------------------------------------
 
-    def setUpArpResponder(self):
-        vlan_table = self.fdb.get_vlan_table()
-        arp_table = self.fdb.get_arp_table()
-        d = defaultdict(list)
-        for vlan in vlan_table:
-            network = ip_network(vlan)
-            length = int(network[-1]) - int(network[0])
-            index = 1
-            for member in vlan_table[vlan]:
-                iface = "eth%d" % member
-                index = index + 1 if network[index + 1] != self.vlan_ip else index + 2
-                d[iface].append(str(network[index]))
-        with open('/tmp/from_t1.json', 'w') as file:
-            json.dump(d, file)
+                # Send packets to switch to populate the layer 2 table with dummy MACs for each port
+                # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
+                dummy_macs = [self.dummy_mac_prefix + ":{:02x}:{:02x}".format(member, i)
+                              for i in range(self.DUMMY_MAC_NUMBER)]
+                self.dummy_mac_table[member] = dummy_macs
+                for dummy_mac in dummy_macs:
+                    pkt = simple_eth_packet(eth_dst=self.test_params['router_mac'],
+                                            eth_src=dummy_mac,
+                                            eth_type=0x1234)
+                    send(self, member, pkt)
     #--------------------------------------------------------------------------
 
     def check_route(self, src_mac, dst_mac, src_port, dst_port):
@@ -94,4 +86,7 @@ class FdbTest(BaseTest):
             for src in vlan_table[vlan]:
                 for dst in [i for i in vlan_table[vlan] if i != src]:
                     self.check_route(arp_table[src], arp_table[dst], src, dst)
+
+                    for dummy_mac in self.dummy_mac_table[dst]:
+                        self.check_route(arp_table[src], dummy_mac, src, dst)
     #--------------------------------------------------------------------------
