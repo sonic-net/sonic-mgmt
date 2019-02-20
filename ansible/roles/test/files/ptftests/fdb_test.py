@@ -10,8 +10,6 @@ from ptf.testutils import *
 
 class FdbTest(BaseTest):
 
-    DUMMY_MAC_NUMBER = 10
-
     def __init__(self):
         BaseTest.__init__(self)
         self.test_params = test_params_get()
@@ -34,6 +32,7 @@ class FdbTest(BaseTest):
         self.fdb = fdb.Fdb(self.test_params['fdb_info'])
         self.vlan_ip = ip_address(unicode(self.test_params['vlan_ip']))
         self.dummy_mac_prefix = self.test_params["dummy_mac_prefix"]
+        self.dummy_mac_number = int(self.test_params["dummy_mac_number"])
         self.dummy_mac_table = {}
 
         self.setUpFdb()
@@ -55,7 +54,7 @@ class FdbTest(BaseTest):
                 # Send packets to switch to populate the layer 2 table with dummy MACs for each port
                 # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
                 dummy_macs = [self.dummy_mac_prefix + ":{:02x}:{:02x}".format(member, i)
-                              for i in range(self.DUMMY_MAC_NUMBER)]
+                              for i in range(self.dummy_mac_number)]
                 self.dummy_mac_table[member] = dummy_macs
                 for dummy_mac in dummy_macs:
                     pkt = simple_eth_packet(eth_dst=self.test_params['router_mac'],

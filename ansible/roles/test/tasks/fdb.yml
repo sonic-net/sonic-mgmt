@@ -27,9 +27,11 @@
   - name: clear FDB table
     command: sonic-clear fdb all
 
-  - name: Define dummy MAC prefix
+  - name: Initialize variables
     set_fact:
       dummy_mac_prefix: "02:11:22:33"
+      dummy_mac_number: "10"
+      vlan_member_count: 0
 
   - name: "Start PTF runner"
     include: ptf_runner.yml
@@ -45,7 +47,28 @@
         - fdb_info='/root/fdb_info.txt'
         - vlan_ip='{{minigraph_vlan_interfaces[0]['addr']}}'
         - dummy_mac_prefix='{{ dummy_mac_prefix }}'
+        - dummy_mac_number='{{ dummy_mac_number }}'
       ptf_extra_options: "--relax --debug info --log-file /tmp/fdb_test.FdbTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
+
+  - name: Get the output of 'show mac'
+    command: "show mac"
+    register: show_mac_output
+
+  - name: Count the total number of members of all VLANs
+    set_fact:
+      vlan_member_count: "{{ vlan_member_count|int + minigraph_vlans[item.key]['members']|length }}"
+    with_dict: "{{ minigraph_vlans }}"
+
+  - name: Set variables for expected number of MAC entries
+    set_fact:
+      expected_dummy_mac_number: "{{ dummy_mac_number|int * vlan_member_count|int }}"
+      expected_total_mac_number: "{{ dummy_mac_number|int * vlan_member_count|int + vlan_member_count|int }}"
+
+  - name: Verify that the number of dummy MAC entries is expected
+    assert: { that: "{{ show_mac_output.stdout_lines|select('search', dummy_mac_prefix)|list|length == expected_dummy_mac_number|int }}"}
+
+  - name: Verify that total number of MAC entries is expected
+    assert: { that: "{{ show_mac_output.stdout_lines|select('search', 'Dynamic')|list|length == expected_total_mac_number|int }}"}
 
   always:
     - name: clear FDB table
