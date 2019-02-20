@@ -1,16 +1,10 @@
 import fdb
-import json
-import logging
 import subprocess
 
-from collections import defaultdict
-from ipaddress import ip_address, ip_network
+from ipaddress import ip_address
 
 import ptf
-import ptf.packet as scapy
-import ptf.dataplane as dataplane
 
-from ptf import config
 from ptf.base_tests import BaseTest
 from ptf.testutils import *
 
@@ -70,7 +64,7 @@ class FdbTest(BaseTest):
                     send(self, member, pkt)
     #--------------------------------------------------------------------------
 
-    def check_route(self, src_mac, dst_mac, src_port, dst_port):
+    def test_l2_forwarding(self, src_mac, dst_mac, src_port, dst_port):
         pkt = simple_eth_packet(eth_dst=dst_mac,
                                 eth_src=src_mac,
                                 eth_type=0x1234)
@@ -85,8 +79,8 @@ class FdbTest(BaseTest):
         for vlan in vlan_table:
             for src in vlan_table[vlan]:
                 for dst in [i for i in vlan_table[vlan] if i != src]:
-                    self.check_route(arp_table[src], arp_table[dst], src, dst)
+                    self.test_l2_forwarding(arp_table[src], arp_table[dst], src, dst)
 
                     for dummy_mac in self.dummy_mac_table[dst]:
-                        self.check_route(arp_table[src], dummy_mac, src, dst)
+                        self.test_l2_forwarding(arp_table[src], dummy_mac, src, dst)
     #--------------------------------------------------------------------------
