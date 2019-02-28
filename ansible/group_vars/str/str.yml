@@ -43,11 +43,6 @@ snmp_location: str
 # NetworkDeviceManager SLB VIP
 ndm_vip: 25.71.6.196
 
-# HTTP/HTTPS proxy environment variables
-proxy_env:
-  http_proxy: http://10.3.145.99:3128
-  https_proxy: http://10.3.145.99:3128
-
 #Active Directory Integration
 ad_integration_enabled: True
 
