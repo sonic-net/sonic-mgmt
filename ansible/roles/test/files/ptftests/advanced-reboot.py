@@ -817,13 +817,19 @@ class ReloadTest(BaseTest):
             self.log("Starting reachability state watch thread...")
             self.watching    = True
             self.light_probe = False
+            self.watch_dataplane = True # Flag for reachability_watcher.
+            self.watch_controlplane = True # Flag for reachability_watcher.
+            self.watcher_dp_is_stopped = threading.Event() # Waiter Event for the Watcher of dataplane state is stopped.
+            self.watcher_dp_is_running = threading.Event() # Waiter Event for the Watcher of dataplane state is running.
+            self.watcher_cp_is_stopped = threading.Event() # Waiter Event for the Watcher of controlplane state is stopped.
+            self.watcher_cp_is_running = threading.Event() # Waiter Event for the Watcher of control state is running.
+            self.watcher_dp_is_stopped.set()               # By default the Watchers are not running.
+            self.watcher_cp_is_stopped.set()
+            self.watcher_dp_is_running.clear()             # By default its required to wait for the Watchers started.
+            self.watcher_cp_is_running.clear()
             watcher = pool.apply_async(self.reachability_watcher)
-            self.watcher_is_stopped = threading.Event() # Waiter Event for the Watcher state is stopped.
-            self.watcher_is_running = threading.Event() # Waiter Event for the Watcher state is running.
-            self.watcher_is_stopped.set()               # By default the Watcher is not running.
-            self.watcher_is_running.clear()             # By default its required to wait for the Watcher started.
-            # Give watch thread some time to wind up
-            time.sleep(5)
+            self.watcher_dp_is_running.wait(5)
+            self.watcher_cp_is_running.wait(5)
 
             self.log("Check that device is alive and pinging")
             self.fails['dut'].add('DUT is not ready for test')
@@ -881,17 +887,38 @@ class ReloadTest(BaseTest):
                 self.watching = False
 
             if self.reboot_type == 'warm-reboot':
+                # Pause data/control plane watchers while the test is running
+                self.log("Pause watching DUT")
+                self.watch_dataplane = False
+                self.watch_controlplane = False
+                self.watcher_dp_is_stopped.wait(timeout = 5)  # Wait for the dataplane Watcher stopped.
+                self.watcher_cp_is_stopped.wait(timeout = 5)  # Wait for the dataplane Watcher stopped.
+
+                # Define send_and_sniff thread, start them and wait until finished.
+                self.send_and_sniff_thr = threading.Thread(target = self.send_and_sniff)
+                self.send_and_sniff_finished = threading.Event() # Event for the finished state of send_and_sniff() thread.
+                self.send_and_sniff_thr.start() # Start send_and_sniff in background, do not join current thread.
+                self.send_and_sniff_finished.wait(timeout = 500)
+
+                # Wait untill Control Plane is up
+                self.log("Resume control plane watcher")
+                self.watch_controlplane = True
+                self.watcher_cp_is_running.wait(timeout = 5)  # Wait for the control Watcher starts.
+                self.log("Wait until control plane up")
+                async_cpu_up = pool.apply_async(self.wait_until_cpu_port_up)
+                try:
+                    async_cpu_up.get(timeout=self.task_timeout)
+                except TimeoutError as e:
+                    self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
+                    self.fails['dut'].add("DUT hasn't booted up in %d seconds" % self.task_timeout)
+                    raise
+
                 # Stop watching DUT
                 self.watching = False
-                self.log("Stopping reachability state watch thread.")
-                self.watcher_is_stopped.wait(timeout = 10)  # Wait for the Watcher stopped.
-                self.send_and_sniff()
+                self.watcher_cp_is_stopped.wait(timeout = 5)  # Wait for the control plane Watcher stopped.
+                self.watcher_dp_is_stopped.wait(timeout = 5)  # Wait for the data plane Watcher stopped.
 
-                examine_start = datetime.datetime.now()
-                self.log("Packet flow examine started %s after the reboot" % str(examine_start - self.reboot_start))
                 self.examine_flow()
-                self.log("Packet flow examine finished after %s" % str(datetime.datetime.now() - examine_start))
-
                 if self.lost_packets:
                     no_routing_stop, no_routing_start = datetime.datetime.fromtimestamp(self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
                     self.log("The longest disruption lasted %.3f seconds. %d packet(s) lost." % (self.max_disrupt_time, self.max_lost_id))
@@ -1119,6 +1146,7 @@ class ReloadTest(BaseTest):
         self.sender_thr.start()
         self.sniff_thr.join()
         self.sender_thr.join()
+        self.send_and_sniff_finished.set() # Unblock waiter for send_and_sniff is finished.
 
     def check_udp_payload(self, packet):
         """
@@ -1153,6 +1181,8 @@ class ReloadTest(BaseTest):
         All disruptions are saved to self.lost_packets dictionary, in format:
         disrupt_start_id = (missing_packets_count, disrupt_time, disrupt_start_timestamp, disrupt_stop_timestamp)
         """
+        examine_start = datetime.datetime.now()
+        self.log("Packet flow examine started %s after the reboot" % str(examine_start - self.reboot_start))
         if filename:
             all_packets = scapyall.rdpcap(filename)
         elif self.packets:
@@ -1231,6 +1261,7 @@ class ReloadTest(BaseTest):
             filename = '/tmp/capture_filtered.pcap'
             scapyall.wrpcap(filename, packets)
             self.log("Filtered pcap dumped to %s" % filename)
+        self.log("Packet flow examine finished after %s" % str(datetime.datetime.now() - examine_start))
 
     def check_forwarding_stop(self):
         self.asic_start_recording_vlan_reachability()
@@ -1436,27 +1467,36 @@ class ReloadTest(BaseTest):
     def reachability_watcher(self):
         # This function watches the reachability of the CPU port, and ASIC. It logs the state
         # changes for future analysis
-        self.watcher_is_stopped.clear() # Watcher is running.
         while self.watching:
-            vlan_to_t1, t1_to_vlan = self.ping_data_plane(self.light_probe)
-            reachable              = (t1_to_vlan  > self.nr_vl_pkts * 0.7 and
+            # Data plane watcher:
+            if self.watch_dataplane:
+                self.watcher_dp_is_stopped.clear() # Dataplane Watcher is not stopped.
+                vlan_to_t1, t1_to_vlan = self.ping_data_plane(self.light_probe)
+                reachable              = (t1_to_vlan  > self.nr_vl_pkts * 0.7 and
                                       vlan_to_t1  > self.nr_pc_pkts * 0.7)
-            partial                = (reachable and
+                partial                = (reachable and
                                       (t1_to_vlan < self.nr_vl_pkts or
                                        vlan_to_t1 < self.nr_pc_pkts))
-            self.asic_flooding     = (reachable and
+                self.asic_flooding     = (reachable and
                                       (t1_to_vlan  > self.nr_vl_pkts or
                                        vlan_to_t1  > self.nr_pc_pkts))
-            self.log_asic_state_change(reachable, partial, t1_to_vlan)
-            total_rcv_pkt_cnt      = self.pingDut()
-            reachable              = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.ping_dut_pkts * 0.7
-            partial                = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.ping_dut_pkts
-            self.cpu_flooding      = reachable and total_rcv_pkt_cnt > self.ping_dut_pkts
-            self.log_cpu_state_change(reachable, partial)
-            self.watcher_is_running.set()   # Watcher is running.
-        self.watcher_is_stopped.set()       # Watcher has stopped.
-        self.watcher_is_running.clear()     # Watcher has stopped.
-
+                self.log_asic_state_change(reachable, partial, t1_to_vlan)
+                self.watcher_dp_is_running.set()  # Dataplane Watcher is already started.
+            else:
+                self.watcher_dp_is_stopped.set() # Dataplane Watcher has stopped.
+                self.watcher_dp_is_running.clear() # Dataplane Watcher is not running.
+            # Control plane watcher:
+            if self.watch_controlplane:
+                self.watcher_cp_is_stopped.clear() # Controlplane Watcher is not stopped.
+                total_rcv_pkt_cnt      = self.pingDut()
+                reachable              = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.ping_dut_pkts * 0.7
+                partial                = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.ping_dut_pkts
+                self.cpu_flooding      = reachable and total_rcv_pkt_cnt > self.ping_dut_pkts
+                self.log_cpu_state_change(reachable, partial)
+                self.watcher_cp_is_running.set()   # Controlplane Watcher is already started.
+            else:
+                self.watcher_cp_is_stopped.set() # Controlplane Watcher has stopped.
+                self.watcher_cp_is_running.clear() # Controlplane Watcher is not running.
 
     def pingFromServers(self):
         for i in xrange(self.nr_pc_pkts):
