@@ -15,7 +15,7 @@
   vars: 
      recover: "{{ allow_recover }}"
 
-- name: validate all interfaces is up
+- name: validate all interfaces are up
   include: interface.yml
   vars:
      recover: "{{ allow_recover }}"

@@ -49,7 +49,7 @@
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>
             <a:Name>BGPSLBPassive</a:Name>
-            <a:PeersRange>10.255.0.0/25</a:PeersRange>
+            <a:PeersRange>{{ bgp_slb_passive_range }}</a:PeersRange>
           </BGPPeer>
           <BGPPeer i:type="a:BGPPeerPassive">
             <ElementType>BGPPeer</ElementType>

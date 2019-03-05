@@ -142,7 +142,7 @@ class EverflowTest(BaseTest):
 
         payload = str(scapy_pkt[scapy.GRE].payload)
 
-        if self.hwsku in ["ACS-MSN2700", "ACS-MSN2100", "ACS-MSN2410", "ACS-MSN2740", "Mellanox-SN2700"]:
+        if self.asic_type in ["mellanox"]:
             payload = str(scapy_pkt[scapy.GRE].payload)[22:]
         if self.asic_type in ["barefoot"]:
             payload = str(scapy_pkt[scapy.GRE].payload)[12:]

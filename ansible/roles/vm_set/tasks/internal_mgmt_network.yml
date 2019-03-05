@@ -1,0 +1,8 @@
+- name: create management bridge
+  shell: brctl add {{ mgmt_bridge }}
+  become: yes
+  ignore_errors: yes
+
+- name: bring up external port
+  shell: /sbin/ifconfig {{ mgmt_bridge }} up
+  become: yes

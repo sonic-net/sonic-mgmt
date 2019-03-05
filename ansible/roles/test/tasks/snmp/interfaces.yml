@@ -23,6 +23,10 @@
     mg_intf: "{{ mg_intf + [item.key] }}"
   with_dict: "{{ minigraph_portchannels }}"
 
+- name: Add management port into minigraph interfaces list
+  set_fact:
+    mg_intf: "{{ mg_intf + [minigraph_mgmt_interface.alias] }}"
+
 - debug: var=minigraph_map_sonic_to_ngs
 - debug: var=snmp_intf
 - debug: var=mg_intf

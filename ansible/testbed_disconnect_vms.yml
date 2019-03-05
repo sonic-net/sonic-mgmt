@@ -45,8 +45,5 @@
     conn_graph_facts: host={{ dut_name }}
     connection: local
 
-  - name: Extracting vlan_range
-    set_fact: vlan_base={{ device_vlan_list | min }}
-
   roles:
     - { role: vm_set, action: 'disconnect_vms' }

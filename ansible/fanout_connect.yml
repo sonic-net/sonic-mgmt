@@ -7,21 +7,23 @@
         when: 
             - dut is not defined
 
-      - set_fact:
-          server: "{{ inventory_hostname|lower }}"
-          server_port: "{{ external_iface }}"
+      - block:
+        - set_fact:
+            server: "{{ inventory_hostname|lower }}"
+            server_port: "{{ external_port }}"
 
-      - debug: msg="Connect {{ server }}:{{ server_port }} to {{ dut }}"
+        - debug: msg="Connect {{ server }}:{{ server_port }} to {{ dut }}"
 
-      - name: get the username running the deploy
-        command: whoami
-        connection: local
-        become: no
-        register: calling_username
-        changed_when: false
+        - name: get the username running the deploy
+          command: whoami
+          connection: local
+          become: no
+          register: calling_username
+          changed_when: false
 
-      - set_fact: userid={{ calling_username.stdout }}
+        - set_fact: userid={{ calling_username.stdout }}
 
-      - set_fact: connect_leaf=false
+        - set_fact: connect_leaf=false
 
-      - include: roles/fanout/tasks/rootfanout_connect.yml
+        - include: roles/fanout/tasks/rootfanout_connect.yml
+        when: external_port is defined

@@ -12,7 +12,7 @@
 
 - name: Change DUT interface IP to test IP address
   become: yes
-  command: /sbin/ifconfig {{ dut_if }} {{ dut_ip }} netmask 255.255.255.0
+  command: config interface {{ dut_if }} ip add {{ dut_ip }}/24
 
 - name: Change host interface IP to test IP address
   become: yes

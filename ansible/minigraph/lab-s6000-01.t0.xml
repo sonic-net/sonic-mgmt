@@ -334,6 +334,174 @@
         <StartDevice>lab-s6000-01</StartDevice>
         <StartPort>fortyGigE0/124</StartPort>
       </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/4</EndPort>
+        <StartDevice>Servers0</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/8</EndPort>
+        <StartDevice>Servers1</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/12</EndPort>
+        <StartDevice>Servers2</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/16</EndPort>
+        <StartDevice>Servers3</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/20</EndPort>
+        <StartDevice>Servers4</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/24</EndPort>
+        <StartDevice>Servers5</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/28</EndPort>
+        <StartDevice>Servers6</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/32</EndPort>
+        <StartDevice>Servers7</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/36</EndPort>
+        <StartDevice>Servers8</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/40</EndPort>
+        <StartDevice>Servers9</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/44</EndPort>
+        <StartDevice>Servers10</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/48</EndPort>
+        <StartDevice>Servers11</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/52</EndPort>
+        <StartDevice>Servers12</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/56</EndPort>
+        <StartDevice>Servers13</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/60</EndPort>
+        <StartDevice>Servers14</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/64</EndPort>
+        <StartDevice>Servers15</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/68</EndPort>
+        <StartDevice>Servers16</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/72</EndPort>
+        <StartDevice>Servers17</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/76</EndPort>
+        <StartDevice>Servers18</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/80</EndPort>
+        <StartDevice>Servers19</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/84</EndPort>
+        <StartDevice>Servers20</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/88</EndPort>
+        <StartDevice>Servers21</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/92</EndPort>
+        <StartDevice>Servers22</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>lab-s6000-01</EndDevice>
+        <EndPort>fortyGigE0/96</EndPort>
+        <StartDevice>Servers23</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
     </DeviceInterfaceLinks>
     <Devices>
       <Device i:type="ToRRouter">
@@ -372,7 +540,8 @@
          <HwSku>Arista-VM</HwSku>
       </Device>
     </Devices>
-  </PngDec>  <DeviceInfos>
+  </PngDec>
+  <DeviceInfos>
     <DeviceInfo>
       <AutoNegotiation>true</AutoNegotiation>
       <EthernetInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
@@ -843,11 +1012,6 @@
             <a:Name>TacacsServer</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>10.0.0.9;10.0.0.8</a:Value>
-          </a:DeviceProperty>
-          <a:DeviceProperty>
-            <a:Name>ForcedMgmtRoutes</a:Name>
-            <a:Reference i:nil="true"/>
-            <a:Value>10.0.0.100/31;10.250.0.8;10.255.0.0/28</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
             <a:Name>ErspanDestinationIpv4</a:Name>

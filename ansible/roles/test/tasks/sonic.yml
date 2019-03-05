@@ -43,12 +43,17 @@
     - testbed_name is defined
     - testcase_name is not defined
 
+- name: set default testbed file
+  set_fact:
+    testbed_file: testbed.csv
+  when: testbed_file is not defined
+
 ###############################################
 ############# test by test case name  #########
 ###############################################
 - block:
     - name: Gathering testbed information
-      test_facts: testbed_name="{{ testbed_name }}"
+      test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
       connection: local
 
     - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
