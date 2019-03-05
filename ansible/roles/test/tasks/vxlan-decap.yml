@@ -54,6 +54,7 @@
         - vxlan_enabled=False
         - config_file='/tmp/vxlan_decap.json'
         - repetitions=1
+        ptf_extra_options: "--relax"
 
     - name: Configure vxlan decap for {{ item }}
       shell: sonic-cfggen -j /tmp/vxlan_db.{{ item }}.json --write-to-db
@@ -71,3 +72,4 @@
         - vxlan_enabled=True
         - config_file='/tmp/vxlan_decap.json'
         - count=1
+        ptf_extra_options: "--relax"

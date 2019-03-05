@@ -56,6 +56,8 @@ class Vxlan(BaseTest):
         config = {}
         for test in self.tests:
             for port in test['acc_ports']:
+                if port == 0 or port == 1:
+                    continue
                 config['eth%d' % port] = [test['vlan_ip_prefix'] % port]
 
         with open('/tmp/vxlan_arpresponder.conf', 'w') as fp:
@@ -166,10 +168,13 @@ class Vxlan(BaseTest):
             print test['name']
             res_v = self.Vxlan(test)
             print "  Vxlan            = ", res_v
+
             res_f = self.RegularLAGtoVLAN(test)
             print "  RegularLAGtoVLAN = ", res_f
+
             res_t = self.RegularVLANtoLAG(test)
             print "  RegularVLANtoLAG = ", res_t
+
             print
             if self.vxlan_enabled:
                 self.assertTrue(res_v, "VxlanTest failed")
@@ -179,29 +184,34 @@ class Vxlan(BaseTest):
             self.assertTrue(res_t, "RegularVLANtoLAG test failed")
 
     def Vxlan(self, test):
-        rv = True
         for n in self.net_ports:
             for a in test['acc_ports']:
+                if a == 0 or a == 1:
+                    continue
                 res = self.checkVxlan(a, n, test)
-                rv = rv and res
+                if not res: return False
 
-        return rv
+        return True
 
     def RegularLAGtoVLAN(self, test):
-        rv = True
         for n in self.net_ports:
             for a in test['acc_ports']:
+                if a == 0 or a == 1:
+                    continue
                 res = self.checkRegularRegularLAGtoVLAN(a, n, test)
-                rv = rv and res
-        return rv
+                if not res: return False
+
+        return True
 
     def RegularVLANtoLAG(self, test):
-        rv = True
         for dst, ports in self.pc_info:
             for a in test['acc_ports']:
+                if a == 0 or a == 1:
+                    continue
                 res = self.checkRegularRegularVLANtoLAG(a, ports, dst, test)
-                rv = rv and res
-        return rv
+                if not res: return False
+
+        return True
 
     def checkRegularRegularVLANtoLAG(self, acc_port, pc_ports, dst_ip, test):
         rv = True
@@ -228,8 +238,10 @@ class Vxlan(BaseTest):
 
         for i in xrange(self.nr):
             testutils.send_packet(self, acc_port, packet)
-        nr_rcvd = testutils.count_matched_packets_all_ports(self, exp_packet, pc_ports, timeout=0.1)
-        rv = rv and (nr_rcvd == self.nr)
+        if self.nr == 1:
+            rv = rv and verify_packet_any_port(self, exp_packet, pc_ports)
+        else:
+            rv = rv and self.nr == testutils.count_matched_packets_all_ports(self, exp_packet, pc_ports, timeout=0.1)
         return rv
 
 
@@ -257,8 +269,10 @@ class Vxlan(BaseTest):
 
         for i in xrange(self.nr):
             testutils.send_packet(self, net_port, packet)
-        nr_rcvd = testutils.count_matched_packets(self, exp_packet, acc_port, timeout=0.1)
-        rv = rv and (nr_rcvd == self.nr)
+        if self.nr == 1:
+            rv = rv and verify_packet_any_port(self, exp_packet, [acc_port])
+        else:
+            rv = rv and self.nr == testutils.count_matched_packets(self, exp_packet, acc_port, timeout=0.1)
         return rv
 
     def checkVxlan(self, acc_port, net_port, test):
