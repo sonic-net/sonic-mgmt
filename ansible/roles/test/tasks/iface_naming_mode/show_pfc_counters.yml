@@ -23,7 +23,7 @@
       assert:
         that:
           - "'{{item}}' in pfc_rx.stdout and '{{item}}' in pfc_tx.stdout "
-          - "'Ethernet' not in pfc_rx.stdout and 'Ethernet' not in  pfc_tx.stdout "
+          - "'{{port_alias_map[item]}}' not in pfc_rx.stdout and '{{port_alias_map[item]}}' not in  pfc_tx.stdout "
       with_items: port_alias
       when: mode=='alias'
 # As the ansible work in non interactive mode, it doesnt read the environmental varaiable set in bashrc file. Hence as a workaround,the variable is  extracted through check_userifmode.yml and manually set the variable 'SONIC_CLI_IFACE_MODE' to take effect.
