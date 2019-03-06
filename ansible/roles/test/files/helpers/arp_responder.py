@@ -89,7 +89,11 @@ class ARPResponder(object):
         if len(data) > self.ARP_PKT_LEN:
             return
 
-        remote_mac, remote_ip, request_ip = self.extract_arp_info(data)
+        remote_mac, remote_ip, request_ip, op_type = self.extract_arp_info(data)
+
+        # Don't send ARP response if the ARP op code is response
+        if op_type == 2:
+            return
 
         request_ip_str = socket.inet_ntoa(request_ip)
         if request_ip_str not in self.ip_sets[interface.name()]:
@@ -106,7 +110,8 @@ class ARPResponder(object):
         return
         
     def extract_arp_info(self, data):
-        return data[6:12], data[28:32], data[38:42] # remote_mac, remote_ip, request_ip
+        # remote_mac, remote_ip, request_ip, op_type
+        return data[6:12], data[28:32], data[38:42], (ord(data[20]) * 256 + ord(data[21]))
 
     def generate_arp_reply(self, local_mac, remote_mac, local_ip, remote_ip, vlan_id):
         eth_hdr = remote_mac + local_mac
