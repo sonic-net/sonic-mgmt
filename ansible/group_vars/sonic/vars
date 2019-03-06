@@ -2,13 +2,13 @@ ansible_ssh_user: admin
 
 sonic_version: "v2"
 
-broadcom_hwskus: [ "Force10-S6000", "Accton-AS7712-32X" ]
+broadcom_hwskus: [ "Force10-S6000", "Accton-AS7712-32X", "Celestica-DX010-C32", "Seastone-DX010" ]
 
-mellanox_hwskus: [ 'ACS-MSN2700', 'Mellanox-SN2700', 'ACS-MSN2740', 'ACS-MSN2100', 'ACS-MSN2410' ]
+mellanox_hwskus: [ 'ACS-MSN2700', 'Mellanox-SN2700', 'ACS-MSN2740', 'ACS-MSN2100', 'ACS-MSN2410', 'ACS-MSN2010' ]
 
 cavium_hwskus: [ "AS7512", "XP-SIM" ]
 
-barefoot_hwskus: [ "montara", "mavericks" ]
+barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C" ]
 
 ## Note:
 ## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we

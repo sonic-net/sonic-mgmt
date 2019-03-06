@@ -31,6 +31,10 @@ testcases:
           ptf_host:
           testbed_type:
 
+    config:
+        filename: config.yml
+        topologies: [t1-lag, t1-64-lag, t0, t0-64, t0-116]
+
     continuous_reboot:
       filename: continuous_reboot.yml
       topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
@@ -73,8 +77,22 @@ testcases:
           ptf_host:
           vm_hosts:
 
+    warm-reboot:
+      filename: warm-reboot.yml
+      topologies: [t0, t0-64, t0-64-32, t0-116]
+      required_vars:
+          ptf_host:
+          vm_hosts:
+
     fib:
-      filename: fib.yml
+      filename: simple-fib.yml
+      topologies: [t0, t0-16, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
+      required_vars:
+          ptf_host:
+          testbed_type:
+
+    warm-reboot-fib:
+      filename: warm-reboot-fib.yml
       topologies: [t0, t0-16, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
       required_vars:
           ptf_host:
@@ -199,6 +217,22 @@ testcases:
       required_vars:
           ptf_host:
           testbed_type:
+
+    vxlan_decap:
+      filename: vxlan-decap.yml
+      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116]
+      required_vars:
+          ptf_host:
+
+    vnet_vxlan:
+      filename: vnet_vxlan.yml
+      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116]
+      required_vars:
+          ptf_host:
+
+    pfc_asym:
+      filename: pfc_asym.yml
+      topologies: [t0]
 
     iface_mode:
       filename: iface_naming_mode.yml

@@ -296,7 +296,29 @@ class LLDPTest(NoPolicyTest):
                        eth_src=src_mac,
                        eth_type=0x88cc
                  )
+        return packet
 
+# SONIC configuration has no policer limiting for UDLD
+class UDLDTest(NoPolicyTest):
+    def __init__(self):
+        NoPolicyTest.__init__(self)
+
+    def runTest(self):
+        self.log("UDLDTest")
+        self.run_suite()
+
+    # UDLD uses Ethernet multicast address 01-00-0c-cc-cc-cc
+    # as its destination MAC address. eth_type is to indicate
+    # the length of the data in Ethernet 802.3 frame. pktlen
+    # = 117 = 103 (0x67) + 6 (dst MAC) + 6 (dst MAC) + 2 (len)
+    def contruct_packet(self, port_number):
+        src_mac = self.my_mac[port_number]
+        packet = simple_eth_packet(
+                       pktlen=117,
+                       eth_dst='01:00:0c:cc:cc:cc',
+                       eth_src=src_mac,
+                       eth_type=0x0067
+                 )
         return packet
 
 # SONIC configuration has no policer limiting for BGP

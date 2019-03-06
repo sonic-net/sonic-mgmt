@@ -74,7 +74,7 @@ For each host device that you add; define or verify the:
 - mgmt_bridge
 - mgmt_prefixlen (this should match with the mgmt_subnet_mask_length)
 - mgmt_gw
-- external_iface
+- external_port
 
 ### veos_groups section:
 **USAGE**: veos

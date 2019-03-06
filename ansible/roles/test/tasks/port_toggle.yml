@@ -1,8 +1,8 @@
 - name: build shell command string
-  debug: msg="PORTS={{minigraph_ports.keys() | join(' ')}}; for port in $PORTS; do config interface shutdown $port; done"
+  debug: msg="PORTS={{minigraph_ports.keys() | join(' ')}}; for port in $PORTS; do config interface $port shutdown; done"
 
 - name: turn off all ports on device
-  shell: PORTS="{{minigraph_ports.keys() | join(' ')}}"; for port in $PORTS; do config interface shutdown $port; done
+  shell: PORTS="{{minigraph_ports.keys() | join(' ')}}"; for port in $PORTS; do config interface $port shutdown; done
   become: yes
 
 - name: Get interface facts
@@ -13,10 +13,10 @@
 
 - always:
   - name: build shell command string
-    debug: msg="PORTS={{minigraph_ports.keys() | join(' ')}}; for port in $PORTS; do config interface startup $port; done"
+    debug: msg="PORTS={{minigraph_ports.keys() | join(' ')}}; for port in $PORTS; do config interface $port startup; done"
 
-  - name: turn off all ports on device
-    shell: PORTS="{{minigraph_ports.keys() | join(' ')}}"; for port in $PORTS; do config interface startup $port; done
+  - name: turn on all ports on device
+    shell: PORTS="{{minigraph_ports.keys() | join(' ')}}"; for port in $PORTS; do config interface $port startup; done
     become: yes
 
   - name: wait 1 minute for ports to come up

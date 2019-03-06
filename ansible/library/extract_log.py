@@ -188,6 +188,9 @@ def extract_latest_line_with_string(directory, filenames, start_string):
         if comparator(line, target) > 0:
             target = line
 
+    if target is None:
+        raise Exception("{} was not found in {}".format(start_string, directory))
+
     return target
 
 

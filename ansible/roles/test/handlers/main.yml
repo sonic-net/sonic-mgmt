@@ -60,3 +60,10 @@
 - name: Clean up apt
   become: true
   shell: apt-get autoremove -y; apt-get autoclean -y; apt-get clean -y
+
+- name: restore current image
+  shell: 'sonic_installer set_default {{ current_sonic_image.stdout }}'
+  become: true
+
+- name: reboot sonic
+  include: roles/test/tasks/common_tasks/reboot_sonic.yml

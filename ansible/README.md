@@ -64,7 +64,6 @@ roles/
 
     sonic_test/           # same kind of structure as above, but for the integration test role, 
                           #        see http://github.com/Azure/sonic-integrationtest
-    sonic_vm/             # for a future, vm based deployment of sonic
     sonic_s6000/          # place Dell s6000 specific tasks here
     sonic_msn2700/        # place Mellanox msn2700 specific tasks here
 ```
