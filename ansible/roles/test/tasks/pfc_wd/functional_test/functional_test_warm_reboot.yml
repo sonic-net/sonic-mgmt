@@ -1,0 +1,23 @@
+# Test case 1:
+# PFC storm detected and restored before warm-reboot
+# no on-going storm before warm-reboot emission
+# PFC storm detect and restore functional after warm-reboot
+- block:
+    - name: Test PFC WD storm function
+      include: roles/test/tasks/pfc_wd/functional_test/functional_test_storm.yml
+      with_dict: "{{select_test_ports}}"
+
+    - name: Test PFC WD restore function
+      include: roles/test/tasks/pfc_wd/functional_test/functional_test_restore.yml
+      with_dict: "{{select_test_ports}}"
+
+    - name: Issue warm reboot on the device
+      include: roles/test/tasks/common_tasks/reboot_sonic.yml
+
+    - name: Test PFC WD storm function
+      include: roles/test/tasks/pfc_wd/functional_test/functional_test_storm.yml
+      with_dict: "{{select_test_ports}}"
+
+    - name: Test PFC WD restore function
+      include: roles/test/tasks/pfc_wd/functional_test/functional_test_restore.yml
+      with_dict: "{{select_test_ports}}"
