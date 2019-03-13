@@ -96,9 +96,7 @@
         host: "{{peer_mgmt}}"
         login: "{{peer_login}}"
       connection: switch
-      register: pid
-
-    - debug: msg="{{pid}}"
+      when: start_storm is not defined or start_storm == true
 
     - name: Let PFC storm happen for a while
       pause:
