@@ -87,6 +87,8 @@
 
     - name: Initialize loganalyzer
       include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      vars:
+        testname_unique_gen: true
 
     - name: Generate PFC storm on fanout switch
       action: apswitch template="{{pfc_wd_storm_template}}"
