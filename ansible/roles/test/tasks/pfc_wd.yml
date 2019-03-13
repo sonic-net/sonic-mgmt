@@ -109,7 +109,7 @@
 
 - debug: msg="{{select_test_ports}}"
 
-- name: Set reboot type if user has specified
+- name: Set default reboot type if user has not specified
   set_fact:
     reboot_type: "reboot"
   when: reboot_type is not defined
