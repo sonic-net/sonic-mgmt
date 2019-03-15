@@ -13,6 +13,10 @@
     - name: Get NH IP
       command: ip -4 neigh show dev {{crm_intf}} nud reachable nud stale
       register: out
+
+    - fail: msg="Get Next Hop IP failed. Neighbour not found"
+      when: out.stdout == ""
+
     - set_fact: nh_ip="{{out.stdout.split()[0]}}"
 
     - name: Add IPv4 route

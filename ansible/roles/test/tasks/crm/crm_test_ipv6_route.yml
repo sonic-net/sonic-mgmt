@@ -11,8 +11,17 @@
     - set_fact: crm_stats_ipv6_route_available={{out.stdout}}
 
     - name: Get NH IP
-      shell: ip -6 neigh show dev {{crm_intf}} nud reachable nud stale | grep -v fe80
+      shell: ip -6 neigh show dev {{crm_intf}} nud reachable nud stale
       register: out
+
+    - name: Grep NH IP
+      shell: echo {{ out.stdout }} | grep -v fe80
+      register: out
+      ignore_errors: yes
+
+    - fail: msg="Get Next Hop IP failed. Neighbour not found"
+      when: out.stdout == ""
+
     - set_fact: nh_ip="{{out.stdout.split()[0]}}"
 
     - name: Add IPv6 route
