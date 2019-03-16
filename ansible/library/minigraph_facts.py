@@ -566,6 +566,8 @@ def parse_xml(filename, hostname):
     port_index_map = {}
     for idx, val in enumerate(port_alias_list_sorted):
         port_index_map[val] = idx
+        if port_index_map.has_key(inverted_port_alias_map[val]):
+            continue
         port_index_map[inverted_port_alias_map[val]] = idx
 
     # Create maps:
