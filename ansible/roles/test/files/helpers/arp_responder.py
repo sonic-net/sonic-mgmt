@@ -76,6 +76,7 @@ class Poller(object):
 
 class ARPResponder(object):
     ARP_PKT_LEN = 60
+    ARP_OP_REQUEST = 1
     def __init__(self, ip_sets):
         self.arp_chunk = binascii.unhexlify('08060001080006040002') # defines a part of the packet for ARP Reply
         self.arp_pad = binascii.unhexlify('00' * 18)
@@ -91,8 +92,8 @@ class ARPResponder(object):
 
         remote_mac, remote_ip, request_ip, op_type = self.extract_arp_info(data)
 
-        # Don't send ARP response if the ARP op code is response
-        if op_type == 2:
+        # Don't send ARP response if the ARP op code is not request
+        if op_type != self.ARP_OP_REQUEST:
             return
 
         request_ip_str = socket.inet_ntoa(request_ip)
