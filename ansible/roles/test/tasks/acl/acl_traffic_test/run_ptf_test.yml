@@ -2,6 +2,9 @@
 # Send some TCP packets.
 #-----------------------------------------
 
+- name: Get an unique timestamp to feed to testname_unique
+  set_fact:
+    unique_timestamp: "{{ lookup('pipe','date +%Y-%m-%d-%H:%M:%S') }}"
 - include_vars: "vars/run_ptf_test_vars.yml"
 
 - block:

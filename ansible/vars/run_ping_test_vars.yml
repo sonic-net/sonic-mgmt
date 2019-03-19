@@ -1,6 +1,6 @@
 ---
 
-testname_unique: "{{ testname }}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}"
+testname_unique: "{{ testname }}.{{ unique_timestamp }}"
 
 test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
 summary_file: "summary.loganalysis.{{ testname_unique }}.log"
