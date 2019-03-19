@@ -7,15 +7,15 @@
       include: roles/test/tasks/pfc_wd/functional_test/functional_test_storm.yml
       with_dict: "{{select_test_ports}}"
 
-    - name: Test PFC WD restore function
-      include: roles/test/tasks/pfc_wd/functional_test/functional_test_restore.yml
-      with_dict: "{{select_test_ports}}"
-
     - name: Issue warm reboot on the device
       include: roles/test/tasks/common_tasks/reboot_sonic.yml
 
     - name: Test PFC WD storm function
       include: roles/test/tasks/pfc_wd/functional_test/functional_test_storm.yml
+      vars:
+        start_storm: false
+        start_marker: "NOTICE swss#orchagent: :- setWarmStartState: orchagent warm start state changed to initialized"
+        expected_matches_target: "{{select_test_ports | length}}"
       with_dict: "{{select_test_ports}}"
 
     - name: Test PFC WD restore function
