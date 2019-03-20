@@ -416,6 +416,46 @@ class Arista(object):
         # Note: the first item is a placeholder
         return 0, change_count
 
+
+class StateMachine():
+    def __init__(self, init_state='init'):
+        self.state_lock = threading.RLock()
+        self.state_time = {} # Recording last time when entering a state
+        self.state      = None
+        self.flooding   = False
+        self.set(init_state)
+
+
+    def set(self, state):
+        with self.state_lock:
+            self.state             = state
+            self.state_time[state] = datetime.datetime.now()
+
+
+    def get(self):
+        with self.state_lock:
+            cur_state = self.state
+        return cur_state
+
+
+    def get_state_time(self, state):
+        with self.state_lock:
+            time = self.state_time[state]
+        return time
+
+
+    def set_flooding(self, flooding):
+        with self.state_lock:
+            self.flooding = flooding
+
+
+    def is_flooding(self):
+        with self.state_lock:
+            flooding = self.flooding
+
+        return flooding
+
+
 class ReloadTest(BaseTest):
     TIMEOUT = 0.5
     def __init__(self):
@@ -467,18 +507,14 @@ class ReloadTest(BaseTest):
         self.packets_to_send = min(int(self.time_to_listen / (self.send_interval + 0.0015)), 45000) # How many packets to be sent in send_in_background method 
 
         # State watcher attributes
-        self.cpu_state_lock      = threading.RLock()
-        self.asic_state_lock     = threading.RLock()
         self.watching            = False
-        self.cpu_state           = None
-        self.asic_state          = None
-        self.cpu_state_time      = {} # Recording last cpu  state entering time
+        self.cpu_state           = StateMachine('init')
+        self.asic_state          = StateMachine('init')
+        self.vlan_state          = StateMachine('init')
+        self.vlan_lock           = threading.RLock()
         self.asic_state_time     = {} # Recording last asic state entering time
         self.asic_vlan_reach     = [] # Recording asic vlan reachability
         self.recording           = False # Knob for recording asic_vlan_reach
-        self.set_asic_state('init')
-        self.set_cpu_state('init')
-        self.asic_flooding       = False
         # light_probe:
         #    True : when one direction probe fails, don't probe another.
         #    False: when one direction probe fails, continue probe another.
@@ -1074,7 +1110,7 @@ class ReloadTest(BaseTest):
         while True:
             for _, q in self.ssh_jobs:
                 q.put('go')
-            if self.get_cpu_state() == 'down':
+            if self.cpu_state.get() == 'down':
                 break
             time.sleep(self.TIMEOUT)
 
@@ -1082,7 +1118,7 @@ class ReloadTest(BaseTest):
         while True:
             for _, q in self.ssh_jobs:
                 q.put('go')
-            if self.get_cpu_state() == 'up':
+            if self.cpu_state.get() == 'up':
                 break
             time.sleep(self.TIMEOUT)
 
@@ -1263,7 +1299,7 @@ class ReloadTest(BaseTest):
         self.asic_start_recording_vlan_reachability()
 
         while True:
-            state = self.get_asic_state()
+            state = self.asic_state.get()
             for _, q in self.ssh_jobs:
                 q.put('go')
             if state == 'down':
@@ -1272,16 +1308,16 @@ class ReloadTest(BaseTest):
 
 
         self.asic_stop_recording_vlan_reachability()
-        return self.get_asic_state_time(state), self.get_asic_vlan_reachability()
+        return self.asic_state.get_state_time(state), self.get_asic_vlan_reachability()
 
     def check_forwarding_resume(self):
         while True:
-            state = self.get_asic_state()
+            state = self.asic_state.get()
             if state != 'down':
                 break
             time.sleep(self.TIMEOUT)
 
-        return self.get_asic_state_time(state), self.get_asic_vlan_reachability()
+        return self.asic_state.get_state_time(state), self.get_asic_vlan_reachability()
 
     def ping_data_plane(self, light_probe=True):
         replies_from_servers = self.pingFromServers()
@@ -1304,8 +1340,8 @@ class ReloadTest(BaseTest):
 
         # First wait until DUT data/control planes are up
         while True:
-            dataplane = self.get_asic_state()
-            ctrlplane = self.get_cpu_state()
+            dataplane = self.asic_state.get()
+            ctrlplane = self.cpu_state.get()
             elapsed   = (datetime.datetime.now() - start_time).total_seconds()
             if dataplane == 'up' and ctrlplane == 'up' and elapsed > dut_stabilize_secs:
                 break;
@@ -1320,22 +1356,22 @@ class ReloadTest(BaseTest):
         uptime = datetime.datetime.now()
         while True:
             elapsed = (datetime.datetime.now() - start_time).total_seconds()
-            if not self.asic_flooding and elapsed > dut_stabilize_secs:
+            if not self.asic_state.is_flooding() and elapsed > dut_stabilize_secs:
                 break
             if elapsed > warm_up_timeout_secs:
                 # Control plane didn't stop flooding within warm up timeout
                 return False
             time.sleep(1)
 
-        dataplane = self.get_asic_state()
-        ctrlplane = self.get_cpu_state()
+        dataplane = self.asic_state.get()
+        ctrlplane = self.cpu_state.get()
         if not dataplane == 'up' or not ctrlplane == 'up':
             # Either control or data plane went down while we were waiting
             # for the flooding to stop.
             return False
 
-        if (self.get_asic_state_time('up') > uptime or
-            self.get_cpu_state_time('up')  > uptime):
+        if (self.asic_state.get_state_time('up') > uptime or
+            self.cpu_state.get_state_time('up')  > uptime):
            # Either control plane or data plane flapped while we were
            # waiting for the warm up.
            return False
@@ -1358,10 +1394,10 @@ class ReloadTest(BaseTest):
 
         uptime = None
         for counter in range(self.nr_tests * 2):
-            state = self.get_asic_state()
+            state = self.asic_state.get()
             if state == 'up':
                 if not uptime:
-                    uptime = self.get_asic_state_time(state)
+                    uptime = self.asic_state.get_state_time(state)
             else:
                 if uptime:
                     return False # Stopped working after it working for sometime?
@@ -1369,29 +1405,11 @@ class ReloadTest(BaseTest):
 
         # wait, until FDB entries are populated
         for _ in range(self.nr_tests * 10): # wait for some time
-            if not self.asic_flooding:
+            if not self.asic_state.is_flooding():
                 return True
             time.sleep(2)
 
         return False                        # we still see extra replies
-
-
-    def get_asic_state(self):
-        with self.asic_state_lock:
-            state = self.asic_state
-        return state
-
-
-    def get_asic_state_time(self, state):
-        with self.asic_state_lock:
-            time = self.asic_state_time[state]
-        return time
-
-
-    def set_asic_state(self, state, reachability=0):
-        with self.asic_state_lock:
-            self.asic_state             = state
-            self.asic_state_time[state] = datetime.datetime.now()
 
 
     def get_asic_vlan_reachability(self):
@@ -1399,41 +1417,24 @@ class ReloadTest(BaseTest):
 
 
     def asic_start_recording_vlan_reachability(self):
-        with self.asic_state_lock:
+        with self.vlan_lock:
             self.asic_vlan_reach = []
             self.recording       = True
 
 
     def asic_stop_recording_vlan_reachability(self):
-        with self.asic_state_lock:
+        with self.vlan_lock:
             self.recording = False
 
 
     def try_record_asic_vlan_recachability(self, t1_to_vlan):
-        with self.asic_state_lock:
+        with self.vlan_lock:
             if self.recording:
                 self.asic_vlan_reach.append(t1_to_vlan)
 
-    def get_cpu_state(self):
-        with self.cpu_state_lock:
-            state = self.cpu_state
-        return state
 
-
-    def get_cpu_state_time(self, state):
-        with self.cpu_state_lock:
-            time = self.cpu_state_time[state]
-        return time
-
-
-    def set_cpu_state(self, state):
-        with self.cpu_state_lock:
-            self.cpu_state             = state
-            self.cpu_state_time[state] = datetime.datetime.now()
-
-
-    def log_asic_state_change(self, reachable, partial=False, t1_to_vlan=0):
-        old = self.get_asic_state()
+    def log_asic_state_change(self, reachable, partial=False, t1_to_vlan=0, flooding=False):
+        old = self.asic_state.get()
 
         if reachable:
             state = 'up' if not partial else 'partial'
@@ -1442,22 +1443,39 @@ class ReloadTest(BaseTest):
 
         self.try_record_asic_vlan_recachability(t1_to_vlan)
 
+        self.asic_state.set_flooding(flooding)
+
         if old != state:
             self.log("Data plane state transition from %s to %s (%d)" % (old, state, t1_to_vlan))
-            self.set_asic_state(state)
+            self.asic_state.set(state)
 
 
-    def log_cpu_state_change(self, reachable, partial=False):
-        old = self.get_cpu_state()
+    def log_cpu_state_change(self, reachable, partial=False, flooding=False):
+        old = self.cpu_state.get()
 
         if reachable:
             state = 'up' if not partial else 'partial'
         else:
             state = 'down'
 
+        self.cpu_state.set_flooding(flooding)
+
         if old != state:
             self.log("Control plane state transition from %s to %s" % (old, state))
-            self.set_cpu_state(state)
+            self.cpu_state.set(state)
+
+
+    def log_vlan_state_change(self, reachable):
+        old = self.vlan_state.get()
+
+        if reachable:
+            state = 'up'
+        else:
+            state = 'down'
+
+        if old != state:
+            self.log("VLAN ARP state transition from %s to %s" % (old, state))
+            self.vlan_state.set(state)
 
 
     def reachability_watcher(self):
@@ -1471,16 +1489,18 @@ class ReloadTest(BaseTest):
             partial                = (reachable and
                                       (t1_to_vlan < self.nr_vl_pkts or
                                        vlan_to_t1 < self.nr_pc_pkts))
-            self.asic_flooding     = (reachable and
+            flooding               = (reachable and
                                       (t1_to_vlan  > self.nr_vl_pkts or
                                        vlan_to_t1  > self.nr_pc_pkts))
-            self.log_asic_state_change(reachable, partial, t1_to_vlan)
+            self.log_asic_state_change(reachable, partial, t1_to_vlan, flooding)
             total_rcv_pkt_cnt      = self.pingDut()
             reachable              = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.ping_dut_pkts * 0.7
             partial                = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.ping_dut_pkts
-            self.cpu_flooding      = reachable and total_rcv_pkt_cnt > self.ping_dut_pkts
-            self.log_cpu_state_change(reachable, partial)
+            flooding                = reachable and total_rcv_pkt_cnt > self.ping_dut_pkts
+            self.log_cpu_state_change(reachable, partial, flooding)
             total_rcv_pkt_cnt      = self.arpPing()
+            reachable              = total_rcv_pkt_cnt >= self.arp_ping_pkts
+            self.log_vlan_state_change(reachable)
             self.watcher_is_running.set()   # Watcher is running.
         self.watcher_is_stopped.set()       # Watcher has stopped.
         self.watcher_is_running.clear()     # Watcher has stopped.
