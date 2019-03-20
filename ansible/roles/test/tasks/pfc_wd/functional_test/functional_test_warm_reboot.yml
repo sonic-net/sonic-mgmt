@@ -7,6 +7,31 @@
       include: roles/test/tasks/pfc_wd/functional_test/functional_test_storm.yml
       with_dict: "{{select_test_ports}}"
 
+    - name: Test PFC WD restore function
+      include: roles/test/tasks/pfc_wd/functional_test/functional_test_restore.yml
+      with_dict: "{{select_test_ports}}"
+
+    - name: Issue warm reboot on the device
+      include: roles/test/tasks/common_tasks/reboot_sonic.yml
+
+    - name: Test PFC WD storm function
+      include: roles/test/tasks/pfc_wd/functional_test/functional_test_storm.yml
+      with_dict: "{{select_test_ports}}"
+
+    - name: Test PFC WD restore function
+      include: roles/test/tasks/pfc_wd/functional_test/functional_test_restore.yml
+      with_dict: "{{select_test_ports}}"
+
+
+# Test case 2:
+# PFC storm started and detected before warm-reboot
+# On-going storm on warm-reboot emission, and lasts past the warm-reboot finish
+# PFC storm stopped and restored after warm-reboot
+- block:
+    - name: Test PFC WD storm function
+      include: roles/test/tasks/pfc_wd/functional_test/functional_test_storm.yml
+      with_dict: "{{select_test_ports}}"
+
     - name: Issue warm reboot on the device
       include: roles/test/tasks/common_tasks/reboot_sonic.yml
 
@@ -15,7 +40,7 @@
       vars:
         start_storm: false
         start_marker: "NOTICE swss#orchagent: :- setWarmStartState: orchagent warm start state changed to initialized"
-        expected_matches_target: "{{select_test_ports | length}}"
+        total_test_ports_num: "{{select_test_ports | length}}"
       with_dict: "{{select_test_ports}}"
 
     - name: Test PFC WD restore function

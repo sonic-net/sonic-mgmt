@@ -73,4 +73,5 @@
   vars:
     pfc_queue_index: "{{item}}"
     class_enable: "{{(1).__lshift__(item)}}"
+    expected_matches_target: "{% if total_test_ports_num is defined %}{{(total_test_ports_num | int) * (pfc_queue_indices | length)}}{% endif %}"
   with_items: "{{pfc_queue_indices}}"

@@ -25,17 +25,18 @@
 - name: Check if loganalyzer gets the exact number of expected messages
   shell: grep "TOTAL EXPECTED MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL EXPECTED MATCHES:[[:space:]]*//p"
   register: expected_matches
-  when: expected_matches_target is defined
+  when: expected_matches_target is defined and expected_matches_target != ""
 
 - debug: msg={{expected_matches}}
+  when: expected_matches_target is defined and expected_matches_target != ""
 
 - set_fact:
     fail_in_logs: "{{ errors_found.stdout  != \"0\" or expected_missing_matches.stdout != \"0\" }}"
-  when: expected_matches_target is not defined
+  when: expected_matches_target is not defined or expected_matches_target == ""
 
 - set_fact:
     fail_in_logs: "{{ errors_found.stdout  != \"0\" or expected_missing_matches.stdout != \"0\" or expected_matches.stdout != expected_matches_target|string }}"
-  when: expected_matches_target is defined
+  when: expected_matches_target is defined and expected_matches_target != ""
 
 - name: Generate system dump
   command: generate_dump
