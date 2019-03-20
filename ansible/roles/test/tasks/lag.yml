@@ -33,7 +33,7 @@
 
 # Separate set_fact is required to be able to use 'testname' fact.
 - set_fact:
-    testname_unique: "{{ testname }}.{{ ansible_date_time.date}}.{{ ansible_date_time.hour}}-{{ ansible_date_time.minute}}-{{ ansible_date_time.second}}"
+    testname_unique: "{{ testname }}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}"
 
 # Separate set_fact is required to be able to use 'testname_unique' fact.
 - set_fact:

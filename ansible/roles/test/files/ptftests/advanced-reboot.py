@@ -451,6 +451,7 @@ class ReloadTest(BaseTest):
 
         # Default settings
         self.ping_dut_pkts = 10
+        self.arp_ping_pkts = 1
         self.nr_pc_pkts = 100
         self.nr_tests = 3
         self.reboot_delay = 10
@@ -577,6 +578,7 @@ class ReloadTest(BaseTest):
         self.generate_from_t1()
         self.generate_from_vlan()
         self.generate_ping_dut_lo()
+        self.generate_arp_ping_packet()
 
         self.log("Test params:")
         self.log("DUT ssh: %s" % self.dut_ssh)
@@ -736,6 +738,31 @@ class ReloadTest(BaseTest):
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
 
         self.ping_dut_packet = str(packet)
+
+    def generate_arp_ping_packet(self):
+        vlan_ip_range = self.test_params['vlan_ip_range']
+
+        vlan_port_canadiates = range(len(self.vlan_ports))
+        vlan_port_canadiates.remove(0) # subnet prefix
+        vlan_port_canadiates.remove(1) # subnet IP on dut
+        src_idx  = random.choice(vlan_port_canadiates)
+        vlan_port_canadiates.remove(src_idx)
+        dst_idx  = random.choice(vlan_port_canadiates)
+        src_port = self.vlan_ports[src_idx]
+        dst_port = self.vlan_ports[dst_idx]
+        src_mac  = self.get_mac('eth%d' % src_port)
+        src_addr = self.host_ip(vlan_ip_range, src_idx)
+        dst_addr = self.host_ip(vlan_ip_range, dst_idx)
+        packet   = simple_arp_packet(eth_src=src_mac, arp_op=1, ip_snd=src_addr, ip_tgt=dst_addr, hw_snd=src_mac)
+        expect   = simple_arp_packet(eth_dst=src_mac, arp_op=2, ip_snd=dst_addr, ip_tgt=src_addr, hw_tgt=src_mac)
+        self.log("ARP ping: src idx %d port %d mac %s addr %s" % (src_idx, src_port, src_mac, src_addr))
+        self.log("ARP ping: dst idx %d port %d addr %s" % (dst_idx, dst_port, dst_addr))
+        self.arp_ping = str(packet)
+        self.arp_resp = Mask(expect)
+        self.arp_resp.set_do_not_care_scapy(scapy.Ether, 'src')
+        self.arp_resp.set_do_not_care_scapy(scapy.ARP,   'hwtype')
+        self.arp_resp.set_do_not_care_scapy(scapy.ARP,   'hwsrc')
+        self.arp_src_port = src_port
 
     def generate_bidirectional(self, packets_to_send = None):
         """
@@ -1453,6 +1480,7 @@ class ReloadTest(BaseTest):
             partial                = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.ping_dut_pkts
             self.cpu_flooding      = reachable and total_rcv_pkt_cnt > self.ping_dut_pkts
             self.log_cpu_state_change(reachable, partial)
+            total_rcv_pkt_cnt      = self.arpPing()
             self.watcher_is_running.set()   # Watcher is running.
         self.watcher_is_stopped.set()       # Watcher has stopped.
         self.watcher_is_running.clear()     # Watcher has stopped.
@@ -1486,4 +1514,11 @@ class ReloadTest(BaseTest):
 
         self.log("Send %5d Received %5d ping DUT" % (self.ping_dut_pkts, total_rcv_pkt_cnt), True)
 
+        return total_rcv_pkt_cnt
+
+    def arpPing(self):
+        for i in xrange(self.arp_ping_pkts):
+            testutils.send_packet(self, self.arp_src_port, self.arp_ping)
+        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.arp_resp, [self.arp_src_port], timeout=self.TIMEOUT)
+        self.log("Send %5d Received %5d arp ping" % (self.arp_ping_pkts, total_rcv_pkt_cnt), True)
         return total_rcv_pkt_cnt
