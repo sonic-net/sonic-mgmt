@@ -52,4 +52,13 @@
   become: true
 
 - name: sleep for some time
+  pause: seconds=30
+
+- name: Bring up LAGs
+  shell: ifconfig {{ item.attachto }} up
+  with_items:
+    - "{{ minigraph_portchannel_interfaces }}"
+  become: true
+
+- name: sleep for some time
   pause: seconds=10
