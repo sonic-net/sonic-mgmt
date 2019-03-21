@@ -1,0 +1,79 @@
+
+#set the test interface according to default or alias mode 
+- set_fact: 
+    intf: "{{interface_alias if (mode=='alias') else interface}}"
+
+- set_fact:
+    native_speed: "{{port_speed[interface_alias] if (port_speed | length != 0) else iface_speed}}"
+
+- block: 
+
+    - name: shutdown the interface {{intf}} in {{mode}} mode 
+      shell: sudo config interface {{intf}} shutdown
+      register: out
+      failed_when: out.rc != 0
+
+    - pause: seconds=3
+
+    - name:  Get interface status
+      show_interface: command="status"  interfaces={{intf}}
+
+    - pause: seconds=3
+
+    - name: Check  whether the status  is down
+      assert: {that: "'{{int_status[intf]['admin_state']}}' == 'down'"}
+
+    - name: Bringup the interface  {{intf}} in {{mode}} mode
+      shell: sudo config interface {{intf}} startup
+      register: out
+      failed_when: out.rc != 0
+    
+    - pause: seconds=3
+
+    - name:  Get interface status
+      show_interface: command="status"  interfaces="{{intf}}"
+      
+    - name: Check  whether the status  is up
+      assert: {that: "'{{int_status[intf]['admin_state']}}' == 'up'"}
+
+# check the  config interface speed
+
+    - name: configure interface speed to 10G in {{mode}} mode
+      shell: sudo config interface {{intf}} speed 10000
+      register: out
+      failed_when: out.rc != 0
+
+    - name: get the interface speed
+      shell: sudo redis-cli -n 4 HGET "PORT|{{interface}}" 'speed'
+      register: speed
+
+    - debug: var=speed
+
+    - name: Check  whether the speed is set to 10G
+      assert: {that: "'{{speed.stdout}}' == '10000'"}
+
+    - name: chamge interface speed to native speed and check
+      shell: sudo config interface {{intf}} speed {{native_speed}}
+      register: out
+      failed_when: out.rc != 0
+
+    - name: get the interface speed
+      shell: sudo  redis-cli -n 4 HGET "PORT|{{interface}}" 'speed'
+      register: speed
+
+    - name: Check  whether the speed is set to native speed
+      assert: {that: "'{{speed.stdout}}' == '{{native_speed}}'"}
+
+# As the ansible work in non interactive mode, it doesnt read the environmental varaiable set in bashrc file. Hence as a workaround , the variable is  extracted through check_userifmode.yml and manually set the variable 'SONIC_CLI_IFACE_MODE' to take effect.
+
+  environment:
+      SONIC_CLI_IFACE_MODE: "{{ifmode}}"
+
+  always:
+
+    - name: set the interface up 
+      shell:  sudo config interface {{intf}}  startup
+
+    - name: change interface speed to native speed and check
+      shell: sudo config interface {{intf}} speed {{native_speed}}
+
