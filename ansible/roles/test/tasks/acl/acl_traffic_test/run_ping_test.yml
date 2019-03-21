@@ -2,6 +2,9 @@
 # Execute ping and check the log.
 #-----------------------------------------
 
+- name: Get an unique timestamp to feed to testname_unique
+  set_fact:
+    unique_timestamp: "{{ lookup('pipe','date +%Y-%m-%d-%H:%M:%S') }}"
 - include_vars: "vars/run_ping_test_vars.yml"
 
 - name: Start log analyser

@@ -18,7 +18,7 @@
   when: expect_file is not defined
 
 - set_fact:
-    testname_unique: "{{ testname }}.{{ ansible_date_time.date }}.{{ ansible_date_time.time }}"
+    testname_unique: "{{ testname }}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}"
   when: testname_unique is not defined
 
 - set_fact:

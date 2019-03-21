@@ -3,6 +3,9 @@
 # or analyze-phase of loganalyzer.
 #-----------------------------------------
 
+- name: Get an unique timestamp to feed to testname_unique
+  set_fact:
+    unique_timestamp: "{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}"
 - include_vars: "vars/run_loganalyzer_vars.yml"
 
 - name: Initialize loganalizer. Put start marker to log file.
