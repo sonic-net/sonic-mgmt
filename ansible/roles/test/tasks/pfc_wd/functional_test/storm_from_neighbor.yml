@@ -9,7 +9,6 @@
 
 - name: Prepare parameters required for PFC storming
   set_fact:
-    pfc_queue_index: 4
     pfc_queue_indices: [4]
     pfc_frames_number: 100000000
     pfc_fanout_interface: "{{neighbors[pfc_wd_test_port]['peerport']}}"
@@ -32,23 +31,27 @@
     pfc_gen_file: pfc_gen.py
 
 - block:
-    - name: Generate PFC storm on fanout switch
+    - name: Generate PFC storm on fanout switch with defer time {{pfc_storm_defer_time}}s
       action: apswitch template="{{pfc_wd_storm_template}}"
       args:
         host: "{{peer_mgmt}}"
         login: "{{peer_login}}"
       connection: switch
+      vars:
+        pfc_storm_defer_time: 30
+        pfc_queue_index: "{{item}}"
+      with_items: "{{pfc_queue_indices}}"
 
-    - name: Continue PFC storm on fanout switch
-      pause:
-        seconds: 30
-
-    - name: Stop PFC storm on fanout switch
+    - name: Stop PFC storm on fanout switch with defer time {{pfc_storm_stop_defer_time}}s
       action: apswitch template="{{pfc_wd_storm_stop_template}}"
       args:
         host: "{{peer_mgmt}}"
         login: "{{peer_login}}"
       connection: switch
+      vars:
+        pfc_storm_stop_defer_time: 60
+        pfc_queue_index: "{{item}}"
+      with_items: "{{pfc_queue_indices}}"
 
   rescue:
     - name: Stop PFC storm on fanout switch
@@ -57,3 +60,6 @@
         host: "{{peer_mgmt}}"
         login: "{{peer_login}}"
       connection: switch
+      vars:
+        pfc_queue_index: "{{item}}"
+      with_items: "{{pfc_queue_indices}}"

@@ -54,20 +54,8 @@
 # Verify PFC storm detection and restoration functional
 - block:
     - name: PFC storming from fanout switch
-      async: 300
-      poll: 0
       include: roles/test/tasks/pfc_wd/functional_test/storm_from_neighbor.yml
-      register: async_storm
       with_dict: "{{select_test_ports}}"
 
-    - name: Issue warm reboot on the device
-      include: roles/test/tasks/common_tasks/reboot_sonic.yml
-
-    - name: Check the PFC storming job status
-      async_status:
-        jid: "{{ item.ansible_job_id }}"
-      with_items: "{{ async_storm.results }}"
-      register: async_storm_status
-      until: async_storm_status.finished
-      retries: 30
-      delay: 10
+#    - name: Issue warm reboot on the device
+#      include: roles/test/tasks/common_tasks/reboot_sonic.yml
