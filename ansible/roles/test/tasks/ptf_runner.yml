@@ -74,13 +74,13 @@
     - "{{ ptf_log_file }}"
     - "{{ ptf_pcap_file }}"
   delegate_to: "{{ ptf_host }}"
-  when: out.rc != 0
+  when: out.rc != 0 and save_ptf_log is defined and save_ptf_log|bool == true
 
 - debug: msg="File {{ item }} saved to test/{{ inventory_hostname }}/ptf/"
   with_items:
     - "{{ptf_log_file}}"
     - "{{ptf_pcap_file}}"
-  when: out.rc != 0
+  when: out.rc != 0 and save_ptf_log is defined and save_ptf_log|bool == true
 
 - fail: msg="Failed test '{{ ptf_test_name }}'"
   when: out.rc != 0
