@@ -1,0 +1,32 @@
+- block:
+    - name: get pfc Rx counter values 
+      shell:  sudo show  pfc  counters | sed   -n '/Port Rx/,/^$/p' 
+      register: pfc_rx
+
+    - debug: var=pfc_rx.stdout_lines
+
+    - name: get pfc Tx counter values
+      shell:  sudo show  pfc  counters | sed   -n '/Port Tx/,/^$/p'
+      register: pfc_tx
+
+    - debug: var=pfc_tx.stdout_lines
+
+    - name: check if the output shows default interface names in default mode 
+      assert:
+        that:
+          - "'{{item}}' in pfc_rx.stdout and '{{item}}' in pfc_tx.stdout "
+          - "'{{port_name_map[item]}}' not in pfc_rx.stdout  and  '{{port_name_map[item]}}' not in  pfc_tx.stdout"
+      with_items: default_interfaces
+      when: mode=='default'
+
+    - name: check if the output shows alias interface names in alias mode 
+      assert:
+        that:
+          - "'{{item}}' in pfc_rx.stdout and '{{item}}' in pfc_tx.stdout "
+          - "'{{port_alias_map[item]}}' not in pfc_rx.stdout and '{{port_alias_map[item]}}' not in  pfc_tx.stdout "
+      with_items: port_alias
+      when: mode=='alias'
+# As the ansible work in non interactive mode, it doesnt read the environmental varaiable set in bashrc file. Hence as a workaround,the variable is  extracted through check_userifmode.yml and manually set the variable 'SONIC_CLI_IFACE_MODE' to take effect.
+
+  environment:
+      SONIC_CLI_IFACE_MODE: "{{ifmode}}"

@@ -1,0 +1,45 @@
+- block:
+
+  # show interface status 
+  - name: show interface status in {{mode}} mode 
+    show_interface:  interfaces={{intf}} command='status'
+
+  - debug: var=int_status
+
+  - name: check proper output is displayed for the given Interface
+    assert:
+      that:
+        - "'{{int_status[intf]['name']}}'=='{{interface}}' and '{{int_status[intf]['alias']}}'=='{{interface_alias}}'"
+
+  #show interface counters 
+  - name: Test interface counters in  {{mode}}  mode
+    show_interface: command='counter'
+
+  - name: check counter output in alias mode
+    assert: {that: item in port_alias}
+    with_items: int_counter
+    when: mode=="alias"
+
+  - name: check counter output in default mode
+    assert: {that: item in default_interfaces}
+    with_items: int_counter
+    when: mode=="default"
+
+  #  show interface description 
+
+  - name: show interface description {{intf}} in {{mode}} mode
+    shell:  show interface description {{intf}} | sed -n '/^ *Eth/ p'
+    register: int_description
+
+  - debug: var=int_description.stdout_lines
+
+  - name: check the description command shows proper output
+    assert:
+      that:
+        - int_description.stdout | search("{{interface}}.*{{interface_alias}}")
+
+
+# As the ansible work in non interactive mode, it doesnt read the environmental varaiable set in bashrc file. Hence as a workaround, the variable is  extracted through check_userifmode.yml and manually set the variable 'SONIC_CLI_IFACE_MODE' to take effect.
+
+  environment:
+    SONIC_CLI_IFACE_MODE: "{{ifmode}}"

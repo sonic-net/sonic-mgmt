@@ -1,0 +1,28 @@
+- name: get arp facts
+  switch_arptable:
+
+- debug: var=arptable['v4']
+
+# As the ansible work in non interactive mode, it doesnt read the environmental varaiable set in bashrc file. Hence as a workaround, the variable is  extracted through check_userifmode.yml and manually set the variable 'SONIC_CLI_IFACE_MODE' to take effect.
+
+- name: Get the output of show arp command in {{mode}} mode
+  shell: show arp 
+  register: arp_output 
+  environment:
+    SONIC_CLI_IFACE_MODE: "{{ifmode}}"
+
+- debug: var=arp_output
+
+- name: Check the output shows default interface  names corresponding to the arp
+  assert:
+    that:
+    - arp_output.stdout | search("{{item}}.*\s+{{arptable['v4'][item]['interface']}}")
+  with_items: arptable['v4']
+  when: arptable['v4'][item]['interface']!='eth0' and mode=='default'
+
+- name: Check the output shows alias interface  names corresponding to the arp
+  assert:
+    that:
+    - arp_output.stdout | search("{{item}}.*\s+{{port_name_map[arptable['v4'][item]['interface']]}}")
+  with_items: arptable['v4']
+  when: arptable['v4'][item]['interface']!='eth0' and mode =='alias'
