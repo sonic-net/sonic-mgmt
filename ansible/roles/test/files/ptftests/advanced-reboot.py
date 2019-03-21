@@ -1513,9 +1513,9 @@ class ReloadTest(BaseTest):
         # This function watches the reachability of the CPU port, and ASIC. It logs the state
         # changes for future analysis
         while self.watching:
-		    # Data plane watcher:
-		    if self.watch_dataplane:
-			    self.watcher_dp_is_stopped.clear() # Dataplane Watcher is not stopped.
+            # Data plane watcher:
+            if self.watch_dataplane:
+                self.watcher_dp_is_stopped.clear() # Dataplane Watcher is not stopped.
                 vlan_to_t1, t1_to_vlan = self.ping_data_plane(self.light_probe)
                 reachable              = (t1_to_vlan  > self.nr_vl_pkts * 0.7 and
                                          vlan_to_t1  > self.nr_pc_pkts * 0.7)
@@ -1526,14 +1526,14 @@ class ReloadTest(BaseTest):
                                           (t1_to_vlan  > self.nr_vl_pkts or
                                            vlan_to_t1  > self.nr_pc_pkts))
                 self.log_asic_state_change(reachable, partial, t1_to_vlan, flooding)
-				self.watcher_dp_is_running.set()  # Dataplane Watcher is already started.
-			else:
-			    self.watcher_dp_is_stopped.set() # Dataplane Watcher has stopped.
+                self.watcher_dp_is_running.set()  # Dataplane Watcher is already started.
+            else:
+                self.watcher_dp_is_stopped.set() # Dataplane Watcher has stopped.
                 self.watcher_dp_is_running.clear() # Dataplane Watcher is not running.
             # Control plane watcher:
             if self.watch_controlplane:
-			    self.watcher_cp_is_stopped.clear() # Controlplane Watcher is not stopped.
-			    total_rcv_pkt_cnt      = self.pingDut()
+                self.watcher_cp_is_stopped.clear() # Controlplane Watcher is not stopped.
+                total_rcv_pkt_cnt      = self.pingDut()
                 reachable              = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.ping_dut_pkts * 0.7
                 partial                = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.ping_dut_pkts
                 flooding                = reachable and total_rcv_pkt_cnt > self.ping_dut_pkts
@@ -1541,8 +1541,8 @@ class ReloadTest(BaseTest):
                 total_rcv_pkt_cnt      = self.arpPing()
                 reachable              = total_rcv_pkt_cnt >= self.arp_ping_pkts
                 self.log_vlan_state_change(reachable)
-				self.watcher_cp_is_running.set()   # Controlplane Watcher is already started.
-			else:
+                self.watcher_cp_is_running.set()   # Controlplane Watcher is already started.
+            else:
                 self.watcher_cp_is_stopped.set() # Controlplane Watcher has stopped.
                 self.watcher_cp_is_running.clear() # Controlplane Watcher is not running.
 
