@@ -1,0 +1,59 @@
+- name: Set fact for item values
+  set_fact:
+    peer_device: "{{item.value.peer_device}}"
+    pfc_wd_test_port: "{{item.key}}"
+
+- conn_graph_facts: host={{ peer_device }}
+  connection: local
+  become: no
+
+- name: Prepare parameters required for PFC storming
+  set_fact:
+    pfc_queue_index: 4
+    pfc_queue_indices: [4]
+    pfc_frames_number: 100000000
+    pfc_fanout_interface: "{{neighbors[pfc_wd_test_port]['peerport']}}"
+    peer_hwsku: "{{device_info['HwSku']}}"
+    peer_mgmt: "{{device_info['mgmtip']}}"
+#    testname: functional_test
+
+- name: Add queue index 3 to pfc_queue_indices when seed is an odd number
+  set_fact:
+    pfc_queue_indices: "{{pfc_queue_indices + [3]}}"
+  when: seed | int is odd
+
+- set_fact:
+    peer_login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+
+- name: set pfc storm templates based on fanout platform sku
+  include: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
+
+- set_fact:
+    pfc_gen_file: pfc_gen.py
+
+- block:
+    - name: Generate PFC storm on fanout switch
+      action: apswitch template="{{pfc_wd_storm_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch
+
+    - name: Continue PFC storm on fanout switch
+      pause:
+        seconds: 30
+
+    - name: Stop PFC storm on fanout switch
+      action: apswitch template="{{pfc_wd_storm_stop_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch
+
+  rescue:
+    - name: Stop PFC storm on fanout switch
+      action: apswitch template="{{pfc_wd_storm_stop_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch
