@@ -14,14 +14,11 @@
     pfc_fanout_interface: "{{neighbors[pfc_wd_test_port]['peerport']}}"
     peer_hwsku: "{{device_info['HwSku']}}"
     peer_mgmt: "{{device_info['mgmtip']}}"
-#    testname: functional_test
 
 - name: Add queue index 3 to pfc_queue_indices when seed is an odd number
   set_fact:
     pfc_queue_indices: "{{pfc_queue_indices + [3]}}"
   when: seed | int is odd
-
-- debug: msg="{{pfc_queue_indices}}"
 
 - set_fact:
     pfc_gen_file: pfc_gen.py
