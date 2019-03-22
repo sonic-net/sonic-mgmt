@@ -103,9 +103,9 @@ class Connection(ConnectionBase):
             self.sku = 'eos'
         elif 'Cisco' in client.before:
             self.sku = 'nxos'
-        if 'MLNX-OS' in client.before:
+        elif ('MLNX-OS' in client.before) or ('Onyx' in client.before):
             self.sku = 'mlnx_os'
-        if 'Dell' in client.before:
+        elif 'Dell' in client.before:
             self.sku = 'dell'
 
         if self.sku == 'mlnx_os':
