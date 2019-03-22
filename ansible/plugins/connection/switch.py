@@ -53,7 +53,7 @@ class Connection(ConnectionBase):
 
         self._ssh_command += ['-o', 'GSSAPIAuthentication=no',
                               '-o', 'PubkeyAuthentication=no']
-        self._ssh_command += ['-o', 'ConnectTimeout=60']
+        self._ssh_command += ['-o', 'ConnectTimeout=' + str(self.timeout)]
 
     def _spawn_connect(self):
         last_user = None
