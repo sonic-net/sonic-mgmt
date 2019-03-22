@@ -57,5 +57,5 @@
       include: roles/test/tasks/pfc_wd/functional_test/storm_from_neighbor.yml
       with_dict: "{{select_test_ports}}"
 
-#    - name: Issue warm reboot on the device
-#      include: roles/test/tasks/common_tasks/reboot_sonic.yml
+    - name: Issue warm reboot on the device
+      include: roles/test/tasks/common_tasks/reboot_sonic.yml
