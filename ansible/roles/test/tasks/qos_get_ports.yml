@@ -10,33 +10,37 @@
   minigraph_facts: host={{ inventory_hostname }}
   become: no
 
+# Index stored in ptf_interfaces list is the index
+# to its corresponding connected dut port name in dut_switch_ports list
 - name: Get PTF interfaces from map
   set_fact:
-    ptf_interfaces: "{{ ptf_interfaces + [item.split('@')[0]] }}"
+    ptf_interfaces: "{{ptf_interfaces + [item.split('@')[0]]}}"
   with_lines: cat 'roles/test/files/mlnx/default_interface_to_front_map.ini'
   when: "'#' not in item"
 
 - name: Get switch ports from map
   set_fact:
-    dut_switch_ports: "{{ dut_switch_ports + [item.split('@')[1]] }}"
+    dut_switch_ports: "{{dut_switch_ports + [item.split('@')[1]]}}"
   with_lines: cat 'roles/test/files/mlnx/default_interface_to_front_map.ini'
   when: "'#' not in item"
 
 - name: Print switch ports and PTF interfaces
-  debug: msg="ptf_interfaces={{ ptf_interfaces }} dut_switch_ports={{ dut_switch_ports }} total_ports={{ dut_switch_ports|length }}"
+  debug: msg="ptf_interfaces={{ptf_interfaces}} dut_switch_ports={{dut_switch_ports}} total_ports={{dut_switch_ports|length}}"
+
 
 - name: Set ptf LAG interfaces
   set_fact:
-    ptf_lag_interfaces: "{{ ptf_lag_interfaces + [ (item|replace(\"PortChannel\", \"\")|int / 4)|int ] }}"
-  with_items: "{{ minigraph_portchannels.keys() }}"
+    ptf_lag_interfaces: "{{ptf_lag_interfaces + [ (item|replace(\"PortChannel\", \"\")|int / 4)|int ]}}"
+  with_items: "{{minigraph_portchannels.keys()}}"
 
 - name: Get switch LAG members
   set_fact:
-    dut_switch_lag_members: "{{ dut_switch_lag_members + item['members'] }}"
-  with_items: "{{ minigraph_portchannels.values() }}"
+    dut_switch_lag_members: "{{dut_switch_lag_members + item['members']}}"
+  with_items: "{{minigraph_portchannels.values()}}"
 
 - name: Print LAG members
-  debug: msg="ptf_lag_interfaces={{ ptf_lag_interfaces }} dut_switch_lag_members={{ dut_switch_lag_members }}"
+  debug: msg="ptf_lag_interfaces={{ptf_lag_interfaces}} dut_switch_lag_members={{dut_switch_lag_members}}"
+
 
 - name: Init testing port count
   set_fact:
@@ -45,34 +49,36 @@
 
 - name: Find the not lag ports for testing
   set_fact:
-    testing_ports_id: "{{ testing_ports_id + [item] }}"
-  with_items: "{{ ptf_interfaces }}"
+    testing_ports_id: "{{testing_ports_id + [item]}}"
+  with_items: "{{ptf_interfaces}}"
   when:
     - dut_switch_ports[item|int] not in dut_switch_lag_members
     - item != '31' # Only for Mellanox testbed. The last port is used for up link from DUT switch
 
+# TODO: make port selection random
 - name: Set DST port ID
   set_fact:
-    dst_port_id: "{{ testing_ports_id[0] }}"
+    dst_port_id: "{{testing_ports_id[0]}}"
 
 - name: Set DST port 2 ID
   set_fact:
-    dst_port_2_id: "{{ testing_ports_id[1] }}"
+    dst_port_2_id: "{{testing_ports_id[1]}}"
 
 - name: Set SRC port ID
   set_fact:
-    src_port_id: "{{ testing_ports_id[2] }}"
+    src_port_id: "{{testing_ports_id[2]}}"
 
 - name: Set DST port 3 ID
   set_fact:
-    dst_port_3_id: "{{ testing_ports_id[3] }}"
+    dst_port_3_id: "{{testing_ports_id[3]}}"
 
-- name: Get testing port IPs
+
+- name: Get IPs for non-vlan testing ports
   testing_port_ip_facts:
-    testing_ports_id: "{{ testing_ports_id }}"
-    dut_switch_ports: "{{ dut_switch_ports }}"
-    minigraph_bgp: "{{ minigraph_bgp }}"
-    minigraph_neighbors: "{{ minigraph_neighbors }}"
+    testing_ports_id: "{{testing_ports_id}}"
+    dut_switch_ports: "{{dut_switch_ports}}"
+    minigraph_bgp: "{{minigraph_bgp}}"
+    minigraph_neighbors: "{{minigraph_neighbors}}"
   connection: local
 
 - debug:
