@@ -13,11 +13,19 @@
     - name: Get NH IP 1
       command: ip -4 neigh show dev {{crm_intf}} nud reachable nud stale
       register: out
+
+    - fail: msg="Get Next Hop IP failed. Neighbour not found"
+      when: out.stdout == ""
+
     - set_fact: nh_ip1="{{out.stdout.split()[0]}}"
 
     - name: Get NH IP 2
       command: ip -4 neigh show dev {{crm_intf1}} nud reachable nud stale
       register: out
+
+    - fail: msg="Get Next Hop IP failed. Neighbour not found"
+      when: out.stdout == ""
+
     - set_fact: nh_ip2="{{out.stdout.split()[0]}}"
 
     - name: Add nexthop group members
