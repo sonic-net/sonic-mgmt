@@ -86,60 +86,63 @@
 
 - name: Set DST port 1 IP
   set_fact:
-    dst_port_ip: "{{ testing_ports_ip[dst_port_id] }}"
+    dst_port_ip: "{{testing_ports_ip[dst_port_id]}}"
 
 - name: Set DST port 2 IP
   set_fact:
-    dst_port_2_ip: "{{ testing_ports_ip[dst_port_2_id] }}"
+    dst_port_2_ip: "{{testing_ports_ip[dst_port_2_id]}}"
 
 - name: Set SRC port IP
   set_fact:
-    src_port_ip: "{{ testing_ports_ip[src_port_id] }}"
+    src_port_ip: "{{testing_ports_ip[src_port_id]}}"
 
 - name: Set DST port 3 IP
   set_fact:
-    dst_port_3_ip: "{{ testing_ports_ip[dst_port_3_id] }}"
+    dst_port_3_ip: "{{testing_ports_ip[dst_port_3_id]}}"
+
 
 # Get buffers size
 # Ingress lossless
 - include: roles/test/tasks/qos_get_max_buff_size.yml
   vars:
     target_table: 'BUFFER_PG'
-    target_port_name: "{{ dut_switch_ports[src_port_id|int] }}"
+    target_port_name: "{{dut_switch_ports[src_port_id|int]}}"
     target_pg: '3-4'
     target_buffer_profile_type: 'ingress lossless'
 
 - name: Set lossless MAX buffer size
   set_fact:
-    lossless_buffer_max_size: "{{ buffer_headroom.stdout|int }}"
+    lossless_buffer_max_size: "{{buffer_headroom.stdout|int}}"
+
 
 # Ingress lossy
 - include: roles/test/tasks/qos_get_max_buff_size.yml
   vars:
     target_table: 'BUFFER_PG'
-    target_port_name: "***{{ dut_switch_ports[src_port_id|int] }}***"
-    target_pg: '0-1'
+    target_port_name: "***{{dut_switch_ports[src_port_id|int]}}***"
+    target_pg: '0'
     target_buffer_profile_type: 'ingress lossy'
 
 - name: Set lossy MAX buffer size
   set_fact:
-    lossy_buffer_max_size: "{{ buffer_max_size }}"
+    lossy_buffer_max_size: "{{buffer_max_size}}"
 
 - name: Set lossy headroom size
   set_fact:
-    lossy_headroom_size: "{{ buffer_headroom.stdout|int }}"
+    lossy_headroom_size: "{{buffer_headroom.stdout|int}}"
+
 
 # Egress lossless
 - include: roles/test/tasks/qos_get_max_buff_size.yml
   vars:
     target_table: 'BUFFER_QUEUE'
-    target_port_name: "***{{ dut_switch_ports[src_port_id|int] }}***"
+    target_port_name: "***{{dut_switch_ports[src_port_id|int]}}***"
     target_pg: '3-4'
     target_buffer_profile_type: 'egress lossless'
 
-- name: Set MAX queue size for {{ dut_switch_ports[src_port_id|int] }}
+- name: Set MAX queue size for {{dut_switch_ports[src_port_id|int]}}
   set_fact:
-    lossless_queue_max_size: "{{ buffer_max_size }}"
+    lossless_queue_max_size: "{{buffer_max_size}}"
 
 
 # ECN/WRED
@@ -160,10 +163,10 @@
 
 - name: Parse WRED profile key
   set_fact:
-    wred_profile_name="{{ wred_profile_name.stdout|replace('[','')|replace(']','') }}"
+    wred_profile_name="{{wred_profile_name.stdout|replace('[','')|replace(']','')}}"
 
-- name: Get the WRED profile for "{{ dut_switch_ports[dst_port_id|int] }}"
-  shell: redis-cli -n 4 HGET "{{ wred_profile_name }}" wred_profile
+- name: Get the WRED profile for "{{dut_switch_ports[dst_port_id|int]}}"
+  shell: redis-cli -n 4 HGET "{{wred_profile_name}}" wred_profile
   register: wred_profile
 
 - fail:
