@@ -36,9 +36,11 @@ TRANSMITTED_OCTETS = 10
 TRANSMITTED_PKTS = 11
 QUEUE_0 = 0
 QUEUE_1 = 1
+QUEUE_2 = 2
 QUEUE_3 = 3
 QUEUE_4 = 4
 QUEUE_5 = 5
+QUEUE_6 = 6
 
 # Constants
 STOP_PORT_MAX_RATE = 1
@@ -74,10 +76,13 @@ class ReleaseAllPorts(sai_base_test.ThriftInterfaceDataPlane):
             sched_prof_id=sai_thrift_create_scheduler_profile(self.client, RELEASE_PORT_MAX_RATE)
             attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-            for port in sai_port_list:
-                self.client.sai_thrift_set_port_attribute(port, attr)
         else:
-            print >> sys.stderr, "Not supported asic. Skipped port release."
+            # Pause egress of dut xmit port
+            attr_value = sai_thrift_attribute_value_t(booldata=0)
+            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
+
+        for port in sai_port_list:
+            self.client.sai_thrift_set_port_attribute(port, attr)
 
 class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
@@ -778,14 +783,18 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
+        print >> sys.stderr, "dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (dst_port_mac, src_port_mac, src_port_ip, dst_port_ip)
         asic_type = self.test_params['sonic_asic_type']
         default_packet_length = 1500
         exp_ip_id = 110
         queue_0_num_of_pkts = int(self.test_params['q0_num_of_pkts'])
         queue_1_num_of_pkts = int(self.test_params['q1_num_of_pkts'])
+        queue_2_num_of_pkts = int(self.test_params['q2_num_of_pkts'])
         queue_3_num_of_pkts = int(self.test_params['q3_num_of_pkts'])
         queue_4_num_of_pkts = int(self.test_params['q4_num_of_pkts'])
         queue_5_num_of_pkts = int(self.test_params['q5_num_of_pkts'])
+        queue_6_num_of_pkts = int(self.test_params['q6_num_of_pkts'])
         limit = int(self.test_params['limit'])
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
 
@@ -802,7 +811,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 
         # Send packets to leak out
         pkt = simple_tcp_packet(pktlen=64,
-                    eth_dst=router_mac,
+                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
                     eth_src=src_port_mac,
                     ip_src=src_port_ip,
                     ip_dst=dst_port_ip,
@@ -813,11 +822,11 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         port_counters_base, queue_counters_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
         # Send packets to each queue based on dscp field
-        dscp = 0
+        dscp = 8
         tos = dscp << 2
         tos |= ecn
         pkt = simple_tcp_packet(pktlen=default_packet_length,
-                    eth_dst=router_mac,
+                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
                     eth_src=src_port_mac,
                     ip_src=src_port_ip,
                     ip_dst=dst_port_ip,
@@ -826,11 +835,11 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     ip_ttl=64)
         send_packet(self, src_port_id, pkt, queue_0_num_of_pkts)
 
-        dscp = 8
+        dscp = 0
         tos = dscp << 2
         tos |= ecn
         pkt = simple_tcp_packet(pktlen=default_packet_length,
-                    eth_dst=router_mac,
+                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
                     eth_src=src_port_mac,
                     ip_src=src_port_ip,
                     ip_dst=dst_port_ip,
@@ -839,11 +848,24 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     ip_ttl=64)
         send_packet(self, src_port_id, pkt, queue_1_num_of_pkts)
 
+        dscp = 5
+        tos = dscp << 2
+        tos |= ecn
+        pkt = simple_tcp_packet(pktlen=default_packet_length,
+                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                    eth_src=src_port_mac,
+                    ip_src=src_port_ip,
+                    ip_dst=dst_port_ip,
+                    ip_tos=tos,
+                    ip_id=exp_ip_id,
+                    ip_ttl=64)
+        send_packet(self, src_port_id, pkt, queue_2_num_of_pkts)
+
         dscp = 3
         tos = dscp << 2
         tos |= ecn
         pkt = simple_tcp_packet(pktlen=default_packet_length,
-                    eth_dst=router_mac,
+                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
                     eth_src=src_port_mac,
                     ip_src=src_port_ip,
                     ip_dst=dst_port_ip,
@@ -856,7 +878,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         tos = dscp << 2
         tos |= ecn
         pkt = simple_tcp_packet(pktlen=default_packet_length,
-                    eth_dst=router_mac,
+                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
                     eth_src=src_port_mac,
                     ip_src=src_port_ip,
                     ip_dst=dst_port_ip,
@@ -869,7 +891,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         tos = dscp << 2
         tos |= ecn
         pkt = simple_tcp_packet(pktlen=default_packet_length,
-                    eth_dst=router_mac,
+                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
                     eth_src=src_port_mac,
                     ip_src=src_port_ip,
                     ip_dst=dst_port_ip,
@@ -877,6 +899,19 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     ip_id=exp_ip_id,
                     ip_ttl=64)
         send_packet(self, src_port_id, pkt, queue_5_num_of_pkts)
+
+        dscp = 48
+        tos = dscp << 2
+        tos |= ecn
+        pkt = simple_tcp_packet(pktlen=default_packet_length,
+                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                    eth_src=src_port_mac,
+                    ip_src=src_port_ip,
+                    ip_dst=dst_port_ip,
+                    ip_tos=tos,
+                    ip_id=exp_ip_id,
+                    ip_ttl=64)
+        send_packet(self, src_port_id, pkt, queue_6_num_of_pkts)
 
         # Set receiving socket buffers to some big value
         for p in self.dataplane.ports.values():
@@ -912,13 +947,15 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             except AttributeError:
                 continue
 
-        queue_pkt_counters = [0] * 47
-        queue_num_of_pkts  = [0] * 47
-        queue_num_of_pkts[0]  = queue_0_num_of_pkts
+        queue_pkt_counters = [0] * 49
+        queue_num_of_pkts  = [0] * 49
+        queue_num_of_pkts[8]  = queue_0_num_of_pkts
+        queue_num_of_pkts[0]  = queue_1_num_of_pkts
+        queue_num_of_pkts[5]  = queue_2_num_of_pkts
         queue_num_of_pkts[3]  = queue_3_num_of_pkts
         queue_num_of_pkts[4]  = queue_4_num_of_pkts
-        queue_num_of_pkts[8]  = queue_1_num_of_pkts
         queue_num_of_pkts[46] = queue_5_num_of_pkts
+        queue_num_of_pkts[48] = queue_6_num_of_pkts
         total_pkts = 0
 
         for pkt_to_inspect in pkts:
@@ -929,7 +966,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 
             queue_pkt_counters[dscp_of_pkt] += 1
             if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
-                 assert((queue_0_num_of_pkts + queue_1_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts + queue_5_num_of_pkts) - total_pkts < limit)
+                 assert((queue_0_num_of_pkts + queue_1_num_of_pkts + queue_2_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts + queue_5_num_of_pkts + queue_6_num_of_pkts) - total_pkts < limit)
 
             print >> sys.stderr, queue_pkt_counters
 
@@ -939,7 +976,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         print >> sys.stderr, map(operator.sub, queue_counters, queue_counters_base)
 
         # All packets sent should be received intact
-        assert(queue_0_num_of_pkts + queue_1_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts + queue_5_num_of_pkts == total_pkts)
+        assert(queue_0_num_of_pkts + queue_1_num_of_pkts + queue_2_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts + queue_5_num_of_pkts + queue_6_num_of_pkts == total_pkts)
 
 class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
