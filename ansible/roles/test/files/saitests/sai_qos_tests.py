@@ -180,7 +180,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         ttl = 64
         default_packet_length = 64
         pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                eth_dst=router_mac,
+                                eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                 eth_src=src_port_mac,
                                 ip_src=src_port_ip,
                                 ip_dst=dst_port_ip,
