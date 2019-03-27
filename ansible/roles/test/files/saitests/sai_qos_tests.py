@@ -328,6 +328,10 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         xmit_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
         xmit_2_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
         xmit_3_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_3_id])
+        # The number of packets that will trek into the headroom space;
+        # We observe in test that if the packets are sent to multiple destination ports,
+        # the ingress may not trigger PFC sharp at its boundary
+        margin = 1
 
         if asic_type == 'mellanox':
             # Stop function of dst xmit ports
@@ -348,7 +352,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         try:
             # send packets to dst port 0
             pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                    eth_dst=router_mac,
+                                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                     eth_src=src_port_mac,
                                     ip_src=src_port_ip,
                                     ip_dst=dst_port_ip,
@@ -357,16 +361,16 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc)
             # send packets to dst port 1
             pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                    eth_dst=router_mac,
+                                    eth_dst=router_mac if router_mac != '' else dst_port_2_mac,
                                     eth_src=src_port_mac,
                                     ip_src=src_port_ip,
                                     ip_dst=dst_port_2_ip,
                                     ip_tos=tos,
                                     ip_ttl=ttl)
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_dismiss_pfc - 1)
+            send_packet(self, src_port_id, pkt, pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1)
             # send 1 packet to dst port 2
             pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                    eth_dst=router_mac,
+                                    eth_dst=router_mac if router_mac != '' else dst_port_3_mac,
                                     eth_src=src_port_mac,
                                     ip_src=src_port_ip,
                                     ip_dst=dst_port_3_ip,
