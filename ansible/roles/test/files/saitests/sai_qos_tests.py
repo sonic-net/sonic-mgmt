@@ -77,8 +77,8 @@ class ReleaseAllPorts(sai_base_test.ThriftInterfaceDataPlane):
             attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
         else:
-            # Pause egress of dut xmit port
-            attr_value = sai_thrift_attribute_value_t(booldata=0)
+            # Resume egress of dut xmit port
+            attr_value = sai_thrift_attribute_value_t(booldata=1)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
 
         for port in sai_port_list:
@@ -316,6 +316,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         router_mac = self.test_params['router_mac']
         max_buffer_size = int(self.test_params['buffer_max_size'])
         pg = int(self.test_params['pg']) + 2 # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
+
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
