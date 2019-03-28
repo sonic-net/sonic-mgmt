@@ -5,12 +5,14 @@ import select
 import json
 import argparse
 import os.path
+import sys
 from fcntl import ioctl
 from pprint import pprint
 
 
 def hexdump(data):
     print " ".join("%02x" % ord(d) for d in data)
+    sys.stdout.flush()
 
 def get_if(iff, cmd):
     s = socket.socket()
@@ -90,7 +92,7 @@ class ARPResponder(object):
         if len(data) > self.ARP_PKT_LEN:
             return
 
-        remote_mac, remote_ip, request_ip, op_type = self.extract_arp_info(data)
+        remote_mac, remote_ip, request_ip, op_type, vlan_id = self.extract_arp_info(data)
 
         # Don't send ARP response if the ARP op code is not request
         if op_type != self.ARP_OP_REQUEST:
@@ -100,19 +102,17 @@ class ARPResponder(object):
         if request_ip_str not in self.ip_sets[interface.name()]:
             return
 
-        if 'vlan' in self.ip_sets[interface.name()]:
-            vlan_id = self.ip_sets[interface.name()]['vlan']
-        else:
-            vlan_id = None
-
         arp_reply = self.generate_arp_reply(self.ip_sets[interface.name()][request_ip_str], remote_mac, request_ip, remote_ip, vlan_id)
         interface.send(arp_reply)
 
         return
         
     def extract_arp_info(self, data):
-        # remote_mac, remote_ip, request_ip, op_type
-        return data[6:12], data[28:32], data[38:42], (ord(data[20]) * 256 + ord(data[21]))
+        # remote_mac, remote_ip, request_ip, op_type, vlani_id
+        if (ord(data[12]) * 256 + ord(data[13])) == 0x8100:
+            return data[6:12], data[32:36], data[42:46], (ord(data[24]) * 256 + ord(data[25])), data[14:15]
+        else:
+            return data[6:12], data[28:32], data[38:42], (ord(data[20]) * 256 + ord(data[21])), None
 
     def generate_arp_reply(self, local_mac, remote_mac, local_ip, remote_ip, vlan_id):
         eth_hdr = remote_mac + local_mac
@@ -135,6 +135,7 @@ def main():
 
     if not os.path.exists(args.conf):
         print "Can't find file %s" % args.conf
+        sys.stdout.flush()
         return
 
     with open(args.conf) as fp:
@@ -145,18 +146,21 @@ def main():
     counter = 0
     for iface, ip_dict in data.items():
         vlan = None
-        if iface.find('@') != -1:
-            iface, vlan = iface.split('@')
+        if iface.find('.') != -1:
+            tmp_iface, vlan = iface.split('.')
             vlan_tag = format(int(vlan), 'x')
             vlan_tag = vlan_tag.zfill(4)
-        ip_sets[str(iface)] = {}
+        if iface not in ip_sets.keys():
+            ip_sets[str(iface)] = {}
         if args.extended:
             for ip, mac in ip_dict.items():
-                ip_sets[str(iface)][str(ip)] = binascii.unhexlify(str(mac))
+                if ip not in ip_sets[str(iface)]:
+                    ip_sets[str(iface)][str(ip)] = binascii.unhexlify(str(mac))
                 counter += 1
         else:
             for ip in ip_dict:
-                ip_sets[str(iface)][str(ip)] = get_mac(str(iface))
+                if ip not in ip_sets[str(iface)]:
+                    ip_sets[str(iface)][str(ip)] = get_mac(str(iface))
         if vlan is not None:
             ip_sets[str(iface)]['vlan'] = binascii.unhexlify(vlan_tag)
 
