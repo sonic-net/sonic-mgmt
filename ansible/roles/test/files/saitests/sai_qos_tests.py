@@ -95,8 +95,14 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
+        print >> sys.stderr, "dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (dst_port_mac, src_port_mac, src_port_ip, dst_port_ip)
         exp_ip_id = 101
         exp_ttl = 63
+
+        # Set receiving socket buffers to some big value
+        for p in self.dataplane.ports.values():
+            p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
 
         # Get a snapshot of counter values
         # port_results is not of our interest here
@@ -104,48 +110,59 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
 
         # DSCP Mapping test
         try:
-            for dscp in range(0,64):
-                tos = dscp << 2
-                pkt = simple_tcp_packet(eth_dst=router_mac,
+            for dscp in range(0, 64):
+                tos = (dscp << 2)
+                tos |= 1
+                pkt = simple_tcp_packet(pktlen=64,
+                                        eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                         eth_src=src_port_mac,
                                         ip_src=src_port_ip,
                                         ip_dst=dst_port_ip,
                                         ip_tos=tos,
                                         ip_id=exp_ip_id,
-                                        ip_ttl=64)
+                                        ip_ttl=exp_ttl + 1 if router_mac != '' else exp_ttl)
+                send_packet(self, src_port_id, pkt, 1)
+                print >> sys.stderr, "dscp: %d, calling send_packet()" % (tos >> 2)
 
-                send_packet(self, src_port_id, pkt)
-
+                cnt = 0
                 dscp_received = False
-
                 while not dscp_received:
                     result = self.dataplane.poll(device_number=0, port_number=dst_port_id, timeout=3)
                     if isinstance(result, self.dataplane.PollFailure):
-                        self.fail("Expected packet was not received on port %d.\n%s"
-                            % (dst_port_id, result.format()))
+                        self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (dst_port_id, cnt, result.format()))
                     recv_pkt = scapy.Ether(result.packet)
+                    cnt += 1
 
                     # Verify dscp flag
                     try:
-                        dscp_received = recv_pkt.payload.tos == tos and recv_pkt.payload.src == src_port_ip and recv_pkt.payload.dst == dst_port_ip and \
-                            recv_pkt.payload.ttl == exp_ttl and recv_pkt.payload.id == exp_ip_id
+                        if (recv_pkt.payload.tos == tos) and (recv_pkt.payload.src == src_port_ip) and (recv_pkt.payload.dst == dst_port_ip) and \
+                           (recv_pkt.payload.ttl == exp_ttl) and (recv_pkt.payload.id == exp_ip_id):
+                            dscp_received = True
+                            print >> sys.stderr, "dscp: %d, total received: %d" % (tos >> 2, cnt)
                     except AttributeError:
+                        print >> sys.stderr, "dscp: %d, total received: %d, attribute error!" % (tos >> 2, cnt)
                         continue
 
             # Read Counters
             port_results, queue_results = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
+            print >> sys.stderr, map(operator.sub, queue_results, queue_results_base)
             # According to SONiC configuration all dscp are classified to queue 0 except:
-            # dscp 3 -> queue 3
-            # dscp 4 -> queue 4
-            # dscp 8 -> queue 1
-            # So for the 64 pkts sent the mapping should be -> 61 queue 0, and 1 for queue1, queue3 and queue4
+            # dscp  8 -> queue 0
+            # dscp  5 -> queue 2
+            # dscp  3 -> queue 3
+            # dscp  4 -> queue 4
+            # dscp 46 -> queue 5
+            # dscp 48 -> queue 6
+            # So for the 64 pkts sent the mapping should be -> 58 queue 1, and 1 for queue0, queue2, queue3, queue4, queue5, and queue6
             # Check results
-            assert(queue_results[QUEUE_0] == 60 + queue_results_base[QUEUE_0])
-            assert(queue_results[QUEUE_1] == 1 + queue_results_base[QUEUE_1])
+            assert(queue_results[QUEUE_0] == 1 + queue_results_base[QUEUE_0])
+            assert(queue_results[QUEUE_1] == 58 + queue_results_base[QUEUE_1])
+            assert(queue_results[QUEUE_2] == 1 + queue_results_base[QUEUE_2])
             assert(queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
             assert(queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
             assert(queue_results[QUEUE_5] == 1 + queue_results_base[QUEUE_5])
+            assert(queue_results[QUEUE_6] == 1 + queue_results_base[QUEUE_6])
 
         finally:
             print "END OF TEST"
