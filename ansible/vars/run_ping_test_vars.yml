@@ -1,7 +1,0 @@
----
-
-testname_unique: "{{ testname }}.{{ unique_timestamp }}"
-
-test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
-summary_file: "summary.loganalysis.{{ testname_unique }}.log"
-result_file: "result.loganalysis.{{ testname_unique }}.log"

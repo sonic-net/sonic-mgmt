@@ -2,10 +2,13 @@
 # Send some TCP packets.
 #-----------------------------------------
 
-- name: Get an unique timestamp to feed to testname_unique
+- name: Initialize some variables for loganalyzer
   set_fact:
-    unique_timestamp: "{{ lookup('pipe','date +%Y-%m-%d-%H:%M:%S') }}"
-- include_vars: "vars/run_ptf_test_vars.yml"
+    testname_unique: "{{ testname }}.{{ lookup('pipe','date +%Y-%m-%d-%H:%M:%S') }}"
+- set_fact:
+    test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
+    summary_file: "summary.loganalysis.{{ testname_unique }}.log"
+    result_file: "result.loganalysis.{{ testname_unique }}.log"
 
 - block:
     - name: Execute ping from host to switch to validate link
