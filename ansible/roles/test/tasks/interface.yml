@@ -32,26 +32,12 @@
 - debug: msg="Found link down ports {{ansible_interface_link_down_ports}}"
   when: ansible_interface_link_down_ports | length > 0
 
-- block:
-  - name: Verify interfaces are up correctly
-    assert: { that: "{{ ansible_interface_link_down_ports | length }} == 0" }
-  rescue:
-  - include: check_testbed_interfaces.yml
-    vars:
-      check_fanout: true
-  - fail: msg="Not all Interfaces are up"
+- name: Verify interfaces are up correctly
+  assert: { that: "{{ ansible_interface_link_down_ports | length }} == 0" }
 
-- block:
-  - name: Verify port channel interfaces are up correctly
-    assert: { that: "'{{ ansible_interface_facts[item]['active'] }}' == 'True'" }
-    with_items: "{{ minigraph_portchannels.keys() }}"
-
-  rescue:
-  - include: check_testbed_interfaces.yml
-    vars:
-      check_vms: true
-  - fail: msg="Not all PortChannels are up '{{ portchannel_status['stdout_lines'] }}' "
-    when: portchannel_status is defined
+- name: Verify port channel interfaces are up correctly
+  assert: { that: "'{{ ansible_interface_facts[item]['active'] }}' == 'True'" }
+  with_items: "{{ minigraph_portchannels.keys() }}"
 
 - name: Verify VLAN interfaces are up correctly
   assert: { that: "'{{ ansible_interface_facts[item]['active'] }}' == 'True'" }
