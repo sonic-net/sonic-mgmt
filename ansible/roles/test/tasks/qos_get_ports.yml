@@ -52,6 +52,7 @@
     testing_ports_id: "{{testing_ports_id + [item]}}"
   with_items: "{{ptf_interfaces}}"
   when:
+    - dut_switch_ports[item|int] in minigraph_ports.keys()
     - dut_switch_ports[item|int] not in dut_switch_lag_members
     - item != '31' # Only for Mellanox testbed. The last port is used for up link from DUT switch
 
@@ -83,6 +84,38 @@
 
 - debug:
     var: testing_ports_ip
+
+
+- name: Set unique MACs to PTF interfaces
+  script: roles/test/files/helpers/change_mac.sh
+  delegate_to: "{{ptf_host}}"
+  when: minigraph_vlans | length >0
+
+
+- set_fact:
+    vlan_members: "{{minigraph_vlans[minigraph_vlans.keys()[0]]['members']}}"
+  when: minigraph_vlans | length >0
+
+- name: Generate IPs in VLAN range
+  get_ip_in_range: num="{{dut_switch_ports|length}}" prefix="{{minigraph_vlan_interfaces[0]['addr']}}/{{minigraph_vlan_interfaces[0]['prefixlen']}}" exclude_ips="{{minigraph_vlan_interfaces[0]['addr']}}"
+  become: no
+  connection: local
+  failed_when: False
+  when: minigraph_vlans | length > 0
+
+- debug:
+    var: generated_ips
+
+- name: Assign IPs to vlan testing ports
+  set_fact:
+    testing_ports_ip: "{{testing_ports_ip | combine({item: generated_ips[item|int].split('/')[0]})}}"
+  when:
+    testing_ports_ip[item] is not defined and dut_switch_ports[item|int] in vlan_members
+  with_items: "{{testing_ports_id}}"
+
+- debug:
+    var: testing_ports_ip
+
 
 - name: Set DST port 1 IP
   set_fact:
@@ -153,8 +186,8 @@
 
   - debug: var=target_q_wred
 
-- name: Get the WRED profile key for "{{ dut_switch_ports[dst_port_id|int] }}"
-  shell: redis-cli -n 4 KEYS "QUEUE|*{{ dut_switch_ports[dst_port_id|int] }}*|{{ target_q_wred }}"
+- name: Get the WRED profile key for "{{dut_switch_ports[dst_port_id|int]}}"
+  shell: redis-cli -n 4 KEYS "QUEUE|{{dut_switch_ports[dst_port_id|int]}}|{{target_q_wred}}"
   register: wred_profile_name
 
 - fail:

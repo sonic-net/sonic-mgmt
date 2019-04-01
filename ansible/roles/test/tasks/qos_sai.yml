@@ -61,12 +61,12 @@
       delegate_to: "{{ptf_host}}"
       when: minigraph_hwsku is defined and
             (minigraph_hwsku in mellanox_hwskus or minigraph_hwsku == 'Arista-7050-QX-32S'
-             or minigraph_hwsku == 'Arista-7060CX-32S-C32')
+             or minigraph_hwsku == 'Arista-7060CX-32S-C32' or minigraph_hwsku == 'Celestica-DX010-C32')
 
     - name: Init PTF base test parameters
       set_fact: 
         ptf_base_params:
-        - router_mac='{{ansible_Ethernet0['macaddress']}}'
+        - router_mac={% if testbed_type not in ['t0'] %}'{{ansible_Ethernet0['macaddress']}}'{% else %}''{% endif %}
         - server='{{ansible_host}}'
         - port_map_file='/root/{{ptf_portmap | basename}}'
         - sonic_asic_type='{{sonic_asic_type}}'
