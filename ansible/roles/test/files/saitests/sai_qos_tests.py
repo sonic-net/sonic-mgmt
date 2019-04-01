@@ -549,7 +549,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             # send packets to leak out
             sidx = 0
             pkt = simple_tcp_packet(pktlen=64,
-                        eth_dst=router_mac,
+                        eth_dst=router_mac if router_mac != '' else dst_port_mac,
                         eth_src=src_port_macs[sidx],
                         ip_src=src_port_ips[sidx],
                         ip_dst=dst_port_ip,
@@ -565,7 +565,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 ttl = 64
                 default_packet_length = 64
                 pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                        eth_dst=router_mac,
+                                        eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                         eth_src=src_port_macs[sidx_dscp_pg_tuples[i][0]],
                                         ip_src=src_port_ips[sidx_dscp_pg_tuples[i][0]],
                                         ip_dst=dst_port_ip,
@@ -584,7 +584,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 ttl = 64
                 default_packet_length = 64
                 pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                        eth_dst=router_mac,
+                                        eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                         eth_src=src_port_macs[sidx_dscp_pg_tuples[i][0]],
                                         ip_src=src_port_ips[sidx_dscp_pg_tuples[i][0]],
                                         ip_dst=dst_port_ip,
@@ -618,7 +618,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 ttl = 64
                 default_packet_length = 64
                 pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                        eth_dst=router_mac,
+                                        eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                         eth_src=src_port_macs[sidx_dscp_pg_tuples[i][0]],
                                         ip_src=src_port_ips[sidx_dscp_pg_tuples[i][0]],
                                         ip_dst=dst_port_ip,
@@ -1031,7 +1031,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_trig_egr_drp = int(self.test_params['pkts_num_trig_egr_drp'])
         default_packet_length = 64
         pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                eth_dst=router_mac,
+                                eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                 eth_src=src_port_mac,
                                 ip_src=src_port_ip,
                                 ip_dst=dst_port_ip,
