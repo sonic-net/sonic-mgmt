@@ -13,11 +13,11 @@
 # Example output of "aclshow -a":
 #
 # root@mtbc-sonic-03-2700:/home/admin# aclshow -a
-# RULE NAME     TABLE NAME    TYPE      PRIO  ACTION      PACKETS COUNT    BYTES COUNT
-# ------------  ------------  ------  ------  --------  ---------------  -------------
-# RULE_1        DATAACL       L3        9999  FORWARD                 0              0
-# RULE_2        DATAACL       L3        9998  FORWARD                 0              0
-# DEFAULT_RULE  DATAACL       L3           1  DROP                 9216        1019489
+# RULE NAME     TABLE NAME      PRIO    PACKETS COUNT    BYTES COUNT
+# ------------  ------------  ------  ---------------  -------------
+# RULE_1        DATAACL         9999                0              0
+# RULE_2        DATAACL         9998                0              0
+# DEFAULT_RULE  DATAACL            1             9216        1019489
 #
 # Example of module output:
 # {
@@ -170,20 +170,18 @@ def get_acl_rule_counters(module):
     output_lines = stdout.splitlines()[2:]  # Skip the header lines in output
     for line in output_lines:
         line_expanded = line.split()
-        if len(line_expanded) == 7:
+        if len(line_expanded) == 5:
             try:
-                packets_count = int(line_expanded[5])
+                packets_count = int(line_expanded[3])
             except ValueError:
                 packets_count = 0
             try:
-                bytes_count = int(line_expanded[6])
+                bytes_count = int(line_expanded[4])
             except ValueError:
                 bytes_count = 0
             counter = dict(rule_name=line_expanded[0],
                            table_name=line_expanded[1],
-                           rule_type=line_expanded[2],
-                           priority=line_expanded[3],
-                           action=line_expanded[4],
+                           priority=line_expanded[2],
                            packets_count=packets_count,
                            bytes_count=bytes_count)
             counters.append(counter)
