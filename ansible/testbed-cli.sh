@@ -289,16 +289,6 @@ case "${subcmd}" in
                ;;
   deploy-mg)   deploy_minigraph $@
                ;;
-  connect-vms) connect_vms $@
-               ;;
-  disconnect-vms) disconnect_vms $@
-               ;;
-  config-vm)   config_vm $@
-               ;;
-  gen-mg)      generate_minigraph $@
-               ;;
-  deploy-mg)   deploy_minigraph $@
-               ;;
   test-mg)     test_minigraph $@
                ;;
   *)           usage
