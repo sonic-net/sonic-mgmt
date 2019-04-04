@@ -1,0 +1,74 @@
+
+{% set vlan_id_list = [ 2001, 2002, 3001, 3002 ] %}
+{% set topo_vlan = minigraph_vlans.keys()[0] %}
+{% set index = 10 %}
+vlan_intf_list:
+{% for vlan in vlan_id_list %}
+  - vlan_id: '{{ (vlan|int) }}'
+    ifname: 'Vlan{{ vlan }}'
+    ip: '{{ loop.index }}.{{ loop.index }}.10.1/24'
+    port: '{{ minigraph_vlans[topo_vlan].members[loop.index] }}'
+{% endfor %}
+
+intf_list:
+  - ifname: {{ minigraph_vlans[topo_vlan].members[0] }}
+    ip: '{{ index }}.{{ index }}.10.1/24'
+
+vnet_id_list:
+  - Vnet1
+  - Vnet2
+  - Vnet3
+  - Vnet4
+
+vnet_peer_list:
+  - Vnet3: Vnet4
+  - Vnet4: Vnet3
+
+vnet_intf_list:
+  - ifname: Vlan2001
+    vnet: Vnet1
+  - ifname: Vlan2002
+    vnet: Vnet2
+  - ifname: Vlan3001
+    vnet: Vnet3
+  - ifname: Vlan3002
+    vnet: Vnet4
+
+vnet_nbr_list:
+  - ifname: Vlan2001
+    ip: '1.1.10.101'
+  - ifname: Vlan2001
+    ip: '1.1.10.102'
+  - ifname: Vlan2002
+    ip: '2.2.10.101'
+  - ifname: Vlan2002
+    ip: '2.2.10.102'
+  - ifname: Vlan3001
+    ip: '3.3.10.101'
+  - ifname: Vlan3002
+    ip: '4.4.10.101'
+  - ifname: {{ minigraph_vlans[topo_vlan].members[0] }}
+    ip: '10.10.10.102'
+
+vnet_route_list:
+  - Vnet1_route_list:
+      - pfx: '1.1.1.10/32'
+        end: '100.1.1.10'
+      - pfx: '1.1.1.11/32'
+        end: '100.1.1.11'
+        mac: '00:00:00:00:01:02'
+  - Vnet2_route_list:
+      - pfx: '2.2.2.10/32'
+        end: '100.1.1.20'
+        mac: '00:00:00:00:02:05'
+  - Vnet3_route_list:
+      - pfx: '1.1.1.10/32'
+        end: '100.1.1.10'
+        vni: '12345'
+      - pfx: '1.1.1.11/32'
+        end: '100.1.1.11'
+        mac: '00:00:00:00:01:02'
+  - Vnet4_route_list:
+      - pfx: '4.4.4.10/32'
+        end: '100.1.1.40'
+        mac: '00:00:00:00:02:05'

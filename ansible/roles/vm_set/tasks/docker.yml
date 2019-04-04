@@ -1,0 +1,35 @@
+- name: Add docker repository for 16.04
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable
+    state: present
+  become: yes
+  when: host_distribution_version.stdout == "16.04"
+
+- name: Add docker repository for 17.04
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu zesty stable
+    state: present
+  become: yes
+  when: host_distribution_version == "17.04"
+
+- name: Add docker repository for 18.04
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable
+    state: present
+  become: yes
+  when: host_distribution_version.stdout == "18.04"
+
+- name: Add docker official GPG key
+  shell: "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -"
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+
+- name: Install docker-ce
+  apt: pkg=docker-ce update_cache=yes
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+
+- name: Install python packages
+  pip: name=docker-py state=present version=1.7.2
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"

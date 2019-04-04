@@ -1,0 +1,41 @@
+# Tests for interface_naming_mode  feature
+- include_vars: roles/test/tasks/iface_naming_mode/vars/iface_naming_vars.yml
+
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{inventory_hostname}}
+
+- name: find interface name mapping
+  port_alias:  hwsku="{{hwsku}}"
+
+# Get the default interface names list 
+- set_fact:
+    default_interfaces: "{{port_name_map | list}}"
+
+#Get the configured ports which are up from minigraph facts and get its alias name
+- set_fact: 
+    up_ports: "{{minigraph_ports | list}}"
+
+- set_fact:
+    upport_alias_list: "{{minigraph_ports.values()| map(attribute='alias') | list }}"
+
+#Sample Test interface name and its alias 
+- set_fact: 
+   interface: "{{minigraph_ports | sort | first}}"
+- set_fact:
+   interface_alias: "{{port_name_map[interface]}}"
+
+#############################################################
+######################## START OF TESTS #####################
+#############################################################
+
+# All tests run for user guest in alias mode as well as in default mode 
+
+- name: Test Interface naming mode feature in alias mode
+  include: "roles/test/tasks/iface_naming_mode/iface_naming_mode_tests.yml"
+  vars:
+    mode: alias
+
+- name: Test Interface naming mode  feature in default mode 
+  include: "roles/test/tasks/iface_naming_mode/iface_naming_mode_tests.yml"
+  vars:
+    mode: default

@@ -1,0 +1,9 @@
+- name: create user 
+  user:
+    name: "{{uname1}}"
+    groups: sudo
+    state: present
+    shell: /bin/bash
+
+- name: Set password for user
+  shell: "echo {{uname1}}:{{upasswd1}} | sudo chpasswd"

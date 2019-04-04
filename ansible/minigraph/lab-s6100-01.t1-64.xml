@@ -3558,7 +3558,8 @@
          <HwSku>Arista-VM</HwSku>
       </Device>
     </Devices>
-  </PngDec>  <DeviceInfos>
+  </PngDec>
+  <DeviceInfos>
     <DeviceInfo>
       <AutoNegotiation>true</AutoNegotiation>
       <EthernetInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
@@ -4445,11 +4446,6 @@
             <a:Name>TacacsServer</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>10.0.0.9;10.0.0.8</a:Value>
-          </a:DeviceProperty>
-          <a:DeviceProperty>
-            <a:Name>ForcedMgmtRoutes</a:Name>
-            <a:Reference i:nil="true"/>
-            <a:Value>10.0.0.100/31;10.250.0.8;10.255.0.0/28</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
             <a:Name>ErspanDestinationIpv4</a:Name>

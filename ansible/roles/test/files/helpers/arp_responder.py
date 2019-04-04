@@ -76,6 +76,7 @@ class Poller(object):
 
 class ARPResponder(object):
     ARP_PKT_LEN = 60
+    ARP_OP_REQUEST = 1
     def __init__(self, ip_sets):
         self.arp_chunk = binascii.unhexlify('08060001080006040002') # defines a part of the packet for ARP Reply
         self.arp_pad = binascii.unhexlify('00' * 18)
@@ -86,25 +87,40 @@ class ARPResponder(object):
 
     def action(self, interface):
         data = interface.recv()
-        if len(data) != self.ARP_PKT_LEN:
+        if len(data) > self.ARP_PKT_LEN:
             return
 
-        remote_mac, remote_ip, request_ip = self.extract_arp_info(data)
+        remote_mac, remote_ip, request_ip, op_type = self.extract_arp_info(data)
+
+        # Don't send ARP response if the ARP op code is not request
+        if op_type != self.ARP_OP_REQUEST:
+            return
 
         request_ip_str = socket.inet_ntoa(request_ip)
         if request_ip_str not in self.ip_sets[interface.name()]:
             return
 
-        arp_reply = self.generate_arp_reply(self.ip_sets[interface.name()][request_ip_str], remote_mac, request_ip, remote_ip)
+        if 'vlan' in self.ip_sets[interface.name()]:
+            vlan_id = self.ip_sets[interface.name()]['vlan']
+        else:
+            vlan_id = None
+
+        arp_reply = self.generate_arp_reply(self.ip_sets[interface.name()][request_ip_str], remote_mac, request_ip, remote_ip, vlan_id)
         interface.send(arp_reply)
 
         return
         
     def extract_arp_info(self, data):
-        return data[6:12], data[28:32], data[38:42] # remote_mac, remote_ip, request_ip
+        # remote_mac, remote_ip, request_ip, op_type
+        return data[6:12], data[28:32], data[38:42], (ord(data[20]) * 256 + ord(data[21]))
 
-    def generate_arp_reply(self, local_mac, remote_mac, local_ip, remote_ip):
-        return remote_mac + local_mac + self.arp_chunk + local_mac + local_ip + remote_mac + remote_ip + self.arp_pad
+    def generate_arp_reply(self, local_mac, remote_mac, local_ip, remote_ip, vlan_id):
+        eth_hdr = remote_mac + local_mac
+        if vlan_id is not None:
+            eth_type = binascii.unhexlify('8100')
+            eth_hdr += eth_type + vlan_id
+
+        return eth_hdr + self.arp_chunk + local_mac + local_ip + remote_mac + remote_ip + self.arp_pad
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ARP autoresponder')
@@ -128,6 +144,11 @@ def main():
     ip_sets = {}
     counter = 0
     for iface, ip_dict in data.items():
+        vlan = None
+        if iface.find('@') != -1:
+            iface, vlan = iface.split('@')
+            vlan_tag = format(int(vlan), 'x')
+            vlan_tag = vlan_tag.zfill(4)
         ip_sets[str(iface)] = {}
         if args.extended:
             for ip, mac in ip_dict.items():
@@ -136,6 +157,8 @@ def main():
         else:
             for ip in ip_dict:
                 ip_sets[str(iface)][str(ip)] = get_mac(str(iface))
+        if vlan is not None:
+            ip_sets[str(iface)]['vlan'] = binascii.unhexlify(vlan_tag)
 
     ifaces = []
     for iface_name in ip_sets.keys():

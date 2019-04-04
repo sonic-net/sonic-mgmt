@@ -2,7 +2,7 @@
 # Input parameters for the role:
 # - action: 'start', 'stop' or 'renumber' for creating, removeing, or renumbering vm set respectively
 # - id: sequence number for vm set on the host.
-# - external_iface: interface which will be used as parent for vlan interface creation
+# - external_port: interface which will be used as parent for vlan interface creation
 # - vlan_base: first vlan id for the VMs
 # - VMs: a dictionary which contains hostnames of VMs as a key and a dictionary with parameters (num, memory, mgmt_ip) for every VM.
 # - topology: a dictionary which contains hostnames of VMs as a key and vlans value which define a topology (numbers of connected ports for every VM)
@@ -18,14 +18,17 @@
 - name: get host distribution
   shell: grep ^NAME /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
   register: host_distribution
+  changed_when: False
 
 - name: get host distribution version
   shell: grep ^VERSION_ID /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
   register: host_distribution_version
+  changed_when: False
 
 - name: get host kernel version
   shell: uname -r
   register: host_kernel
+  changed_when: False
 
 - name: Check if kernel upgrade needed
   set_fact:
@@ -51,20 +54,6 @@
         msg: "Kernel upgraded, need to reboot!"
   when: kernel_upgrade_needed is defined
 
-- name: Add docker repository for 17.04
-  apt_repository:
-    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu zesty stable
-    state: present
-  become: yes
-  when: host_distribution_version == "17.04"
-
-- name: Add docker repository for 16.04
-  apt_repository:
-    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable
-    state: present
-  become: yes
-  when: host_distribution_version == "16.04"
-
 - name: Install necessary packages
   apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
   become: yes
@@ -83,27 +72,53 @@
     - ca-certificates
     - curl
     - software-properties-common
-    - docker-ce
 
-- name: Install python packages
-  pip: name=docker-py state=present version=1.7.2
+- include: docker.yml
+
+- name: Ensure {{ ansible_user }} in docker,sudo group
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker,sudo
   become: yes
-  environment: "{{ proxy_env | default({}) }}"
 
 - name: Install br_netfilter kernel module
   become: yes
   modprobe: name=br_netfilter state=present
 
-- name: setup trunk port
-  template: src=trunk_port.j2
-            dest=/etc/network/interfaces.d/trunk_port
+- name: Set sysctl bridge parameters for testbed
+  sysctl:
+    name: "{{ item }}"
+    value: 0
+    sysctl_set: yes
   become: yes
-  register: trunk_port
+  with_items:
+   - net.bridge.bridge-nf-call-arptables
+   - net.bridge.bridge-nf-call-ip6tables
+   - net.bridge.bridge-nf-call-iptables
 
-- name: bring up trunk port
-  shell: /sbin/ifup {{ external_iface }} --force
+- name: Set sysctl RCVBUF parameter for testbed
+  sysctl:
+    name: "net.core.rmem_max"
+    value: 509430500
+    sysctl_set: yes
   become: yes
-  when: trunk_port.changed
+
+- name: Setup external front port
+  include: external_port.yml
+  when: external_port is defined
+
+- name: Setup internal management network
+  include: internal_mgmt_network.yml
+  when: internal_mgmt_network is defined and internal_mgmt_network == True
+
+- block:
+    - getent:
+        database: passwd
+        key: "{{ ansible_user }}"
+        split: ":"
+    - set_fact:
+        home_path: "{{ getent_passwd[ansible_user][4] }}"
+    - debug: msg="{{ home_path }}"
 
 - name: Ensure {{ root_path }} exists
   file: path={{ root_path }} state=directory
@@ -123,12 +138,14 @@
   virt: command=list_vms
         uri=qemu:///system
   register: vm_list_defined
+  become: true
 
 - name: Retrieve a list of the running VMs
   virt: command=list_vms
         uri=qemu:///system
         state=running
   register: vm_list_running
+  become: true
 
 - name: Find current server group
   set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
@@ -163,3 +180,11 @@
 - name: Disconnect VMs
   include: disconnect_vms.yml
   when: action == 'disconnect_vms'
+
+- name: Start SONiC VM
+  include: start_sonic_vm.yml
+  when: action == 'start_sonic_vm' and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == 'kvm'
+
+- name: Stop SONiC VM
+  include: stop_sonic_vm.yml
+  when: action == 'stop_sonic_vm' and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == 'kvm'

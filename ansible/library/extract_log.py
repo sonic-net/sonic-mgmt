@@ -188,6 +188,9 @@ def extract_latest_line_with_string(directory, filenames, start_string):
         if comparator(line, target) > 0:
             target = line
 
+    if target is None:
+        raise Exception("{} was not found in {}".format(start_string, directory))
+
     return target
 
 
@@ -199,7 +202,7 @@ def calculate_files_to_copy(filenames, file_with_latest_line):
 def combine_logs_and_save(directory, filenames, start_string, target_filename):
     do_copy = False
     with open(target_filename, 'w') as fp:
-        for filename in filenames:
+        for filename in reversed(filenames):
             path = os.path.join(directory, filename)
             file = None
             if 'gz' in path:
