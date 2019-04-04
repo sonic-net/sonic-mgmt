@@ -15,7 +15,7 @@
       register: out
 
     - name: Grep NH IP
-      shell: echo {{ out.stdout }} | grep -v fe80
+      shell: echo "{{ out.stdout }}" | grep -v fe80
       register: out
       ignore_errors: yes
 
