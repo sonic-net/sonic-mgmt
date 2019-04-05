@@ -13,19 +13,25 @@
 
     - name: inlcude snmp physical table test
       include: roles/test/tasks/snmp/phys_table.yml
+      when: sonic_asic_type != "barefoot"
 
     - name: include snmp interfaces test
       include: roles/test/tasks/snmp/interfaces.yml
 
     - name: include snmp pfc counter test
       include: roles/test/tasks/snmp/pfc_counters.yml
+      when: sonic_asic_type != "barefoot"
 
     - name: include snmp queues test
       include: roles/test/tasks/snmp/queues.yml
+      when: sonic_asic_type != "barefoot"
 
     - name: include snmp PSU test
       include: roles/test/tasks/snmp/psu.yml
+      when: sonic_asic_type != "barefoot"
 
     - name: include snmp lldp test
       include: roles/test/tasks/snmp/lldp.yml
+      when: sonic_asic_type != "barefoot"
+
   when: testcase_name is defined
