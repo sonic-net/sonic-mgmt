@@ -1,11 +1,13 @@
+from ansible_host import ansible_host
+
 def test_lldp(localhost, ansible_adhoc):
     hostname = 'vlab-01'
-    host = ansible_adhoc()[hostname]
+    ans_host = ansible_host(ansible_adhoc, hostname)
 
-    mg_facts  = host.minigraph_facts(host=hostname)[hostname]['ansible_facts']
-    host_facts  = host.setup()[hostname]['ansible_facts']
-    lldp_facts = host.lldp()[hostname]['ansible_facts']
-    res = host.shell("docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")[hostname]
+    mg_facts  = ans_host.minigraph_facts(host=hostname)['ansible_facts']
+    host_facts  = ans_host.setup()['ansible_facts']
+    lldp_facts = ans_host.lldp()['ansible_facts']
+    res = ans_host.shell("docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")
     dut_system_description = res['stdout']
 
     minigraph_lldp_nei = {}
@@ -24,11 +26,11 @@ def test_lldp(localhost, ansible_adhoc):
         # Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port)
         assert v['port']['ifname'] == mg_facts['minigraph_neighbors'][k]['port']
 
-    lhost = ansible_adhoc(inventory='localhost', connection='local').localhost
+    lhost = ansible_host(ansible_adhoc, 'localhost', True)
 
     for k, v in lldp_facts['lldp'].items():
         hostip = v['chassis']['mgmt-ip']
-        nei_lldp_facts = lhost.lldp_facts(host=hostip, version='v2c', community='strcommunity')['localhost']['ansible_facts']
+        nei_lldp_facts = lhost.lldp_facts(host=hostip, version='v2c', community='strcommunity')['ansible_facts']
         print nei_lldp_facts
         neighbor_interface = v['port']['ifname']
         # Verify the published DUT system name field is correct

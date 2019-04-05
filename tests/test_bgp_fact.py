@@ -1,9 +1,11 @@
+from ansible_host import ansible_host
+
 def test_bgp_facts(ansible_adhoc):
     hostname = 'vlab-01'
-    host = ansible_adhoc()[hostname]
+    ans_host = ansible_host(ansible_adhoc, hostname)
 
-    bgp_facts = host.bgp_facts()[hostname]['ansible_facts']
-    mg_facts  = host.minigraph_facts(host=hostname)[hostname]['ansible_facts']
+    bgp_facts = ans_host.bgp_facts()['ansible_facts']
+    mg_facts  = ans_host.minigraph_facts(host=hostname)['ansible_facts']
 
     for k, v in bgp_facts['bgp_neighbors'].items():
         # Verify bgp sessions are established
