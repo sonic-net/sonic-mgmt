@@ -10,7 +10,7 @@
 
 - name: Read port reverse alias mapping
   set_fact:
-    alias_reverse_map: "{{ minigraph_map_ngs_to_sonic }}"
+    alias_reverse_map: "{{ minigraph_port_alias_to_name_map }}"
     podset_number: 200
 
 # Copy ACL config to the switch

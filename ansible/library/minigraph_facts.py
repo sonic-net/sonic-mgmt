@@ -73,12 +73,12 @@ def parse_png(png, hname):
                 startport = link.find(str(QName(ns, "StartPort"))).text
 
                 if enddevice == hname:
-                    if port_alias_map.has_key(endport):
-                        endport = port_alias_map[endport]
+                    if port_alias_to_name_map.has_key(endport):
+                        endport = port_alias_to_name_map[endport]
                     neighbors[endport] = {'name': startdevice, 'port': startport}
                 else:
-                    if port_alias_map.has_key(startport):
-                        startport = port_alias_map[startport]
+                    if port_alias_to_name_map.has_key(startport):
+                        startport = port_alias_to_name_map[startport]
                     neighbors[startport] = {'name': enddevice, 'port': endport}
 
         if child.tag == str(QName(ns, "Devices")):
@@ -133,8 +133,8 @@ def parse_dpg(dpg, hname):
         intfs = []
         for ipintf in ipintfs.findall(str(QName(ns, "IPInterface"))):
             intfalias = ipintf.find(str(QName(ns, "AttachTo"))).text
-            if port_alias_map.has_key(intfalias):
-                intfname = port_alias_map[intfalias]
+            if port_alias_to_name_map.has_key(intfalias):
+                intfname = port_alias_to_name_map[intfalias]
             else:
                 intfname = intfalias
             ipprefix = ipintf.find(str(QName(ns, "Prefix"))).text
@@ -210,8 +210,8 @@ def parse_dpg(dpg, hname):
             pcintfmbr = pcintf.find(str(QName(ns, "AttachTo"))).text
             pcmbr_list = pcintfmbr.split(';', 1)
             for i, member in enumerate(pcmbr_list):
-                pcmbr_list[i] = port_alias_map[member]
-                ports[port_alias_map[member]] = {'name': port_alias_map[member], 'alias': member}
+                pcmbr_list[i] = port_alias_to_name_map[member]
+                ports[port_alias_to_name_map[member]] = {'name': port_alias_to_name_map[member], 'alias': member}
             pcs[pcintfname] = {'name': pcintfname, 'members': pcmbr_list}
             ports.pop(pcintfname)
 
@@ -231,8 +231,8 @@ def parse_dpg(dpg, hname):
                 vlandhcpservers = ""
             dhcp_servers = vlandhcpservers.split(";")
             for i, member in enumerate(vmbr_list):
-                vmbr_list[i] = port_alias_map[member]
-                ports[port_alias_map[member]] = {'name': port_alias_map[member], 'alias': member}
+                vmbr_list[i] = port_alias_to_name_map[member]
+                ports[port_alias_to_name_map[member]] = {'name': port_alias_to_name_map[member], 'alias': member}
             vlan_attributes = {'name': vintfname, 'members': vmbr_list, 'vlanid': vlanid}
             vlans[vintfname] = vlan_attributes
             ports.pop(vintfname)
@@ -249,8 +249,8 @@ def parse_dpg(dpg, hname):
                     acl_intfs.extend(pcs[member]['members'])  # For ACL attaching to port channels, we break them into port channel members
                 elif vlans.has_key(member):
                     print >> sys.stderr, "Warning: ACL " + aclname + " is attached to a Vlan interface, which is currently not supported"
-                elif port_alias_map.has_key(member):
-                    acl_intfs.append(port_alias_map[member])
+                elif port_alias_to_name_map.has_key(member):
+                    acl_intfs.append(port_alias_to_name_map[member])
             if acl_intfs:
                 acls[aclname] = acl_intfs
 
@@ -379,7 +379,7 @@ def reconcile_mini_graph_locations(filename, hostname):
     3. .ansible/minigraph/ folder (<24 hrs old)
     4. Network Graph Service
 
-    post-NGS download, cache to the user folder:
+    post-download, cache to the user folder:
     ~/.ansible/minigraph/HOSTNAME_minigraph.xml
 
     :param filename: the filename to load (may be None)
@@ -396,18 +396,18 @@ def reconcile_mini_graph_locations(filename, hostname):
     root = ET.parse(mini_graph_path).getroot()
     return mini_graph_path, root
 
-def port_alias_map_50G(all_ports, s100G_ports):
+def port_alias_to_name_map_50G(all_ports, s100G_ports):
     # 50G ports
     s50G_ports = list(set(all_ports) - set(s100G_ports))
 
     for i in s50G_ports:
-        port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-        port_alias_map["Ethernet%d/3" % i] = "Ethernet%d" % ((i - 1) * 4 + 2)
+        port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+        port_alias_to_name_map["Ethernet%d/3" % i] = "Ethernet%d" % ((i - 1) * 4 + 2)
 
     for i in s100G_ports:
-        port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+        port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
 
-    return port_alias_map
+    return port_alias_to_name_map
 
 def parse_xml(filename, hostname):
     mini_graph_path, root = reconcile_mini_graph_locations(filename, hostname)
@@ -442,34 +442,34 @@ def parse_xml(filename, hostname):
         if child.tag == str(hostname_qn):
             hostname = child.text
 
-    global port_alias_map
-    # port_alias_map maps ngs port name to sonic port name
+    global port_alias_to_name_map
+
     if hwsku == "Force10-S6000":
         for i in range(0, 128, 4):
-            port_alias_map["fortyGigE0/%d" % i] = "Ethernet%d" % i
+            port_alias_to_name_map["fortyGigE0/%d" % i] = "Ethernet%d" % i
     elif hwsku == "Force10-S6100":
         for i in range(0, 4):
             for j in range(0, 16):
-                port_alias_map["fortyGigE1/%d/%d" % (i+1, j+1)] = "Ethernet%d" % (i * 16 + j)
+                port_alias_to_name_map["fortyGigE1/%d/%d" % (i+1, j+1)] = "Ethernet%d" % (i * 16 + j)
     elif hwsku == "Force10-Z9100":
         for i in range(0, 128, 4):
-            port_alias_map["hundredGigE1/%d" % (i/4 + 1)] = "Ethernet%d" % i
+            port_alias_to_name_map["hundredGigE1/%d" % (i/4 + 1)] = "Ethernet%d" % i
     elif hwsku == "Arista-7050-QX32":
         for i in range(1, 25):
-            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
         for i in range(25, 33):
-            port_alias_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "Arista-7050-QX-32S":
         for i in range(5, 29):
-            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 5) * 4)
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 5) * 4)
         for i in range(29, 37):
-            port_alias_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 5) * 4)
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 5) * 4)
     elif hwsku == "Arista-7260CX3-C64" or hwsku == "Arista-7170-64C":
         for i in range(1, 65):
-            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "Arista-7060CX-32S-C32" or hwsku == "Arista-7060CX-32S-C32-T1":
         for i in range(1, 33):
-            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "Mellanox-SN2700-D48C8":
         # 50G ports
         s50G_ports = [x for x in range(0, 24, 2)] + [x for x in range(40, 88, 2)] + [x for x in range(104, 128, 2)]
@@ -479,13 +479,13 @@ def parse_xml(filename, hostname):
 
         for i in s50G_ports:
             alias = "etp%d" % (i / 4 + 1) + ("a" if i % 4 == 0 else "b")
-            port_alias_map[alias] = "Ethernet%d" % i
+            port_alias_to_name_map[alias] = "Ethernet%d" % i
         for i in s100G_ports:
             alias = "etp%d" % (i / 4 + 1)
-            port_alias_map[alias] = "Ethernet%d" % i
+            port_alias_to_name_map[alias] = "Ethernet%d" % i
     elif hwsku == "Mellanox-SN2700" or hwsku == "ACS-MSN2700":
         for i in range(1, 33):
-            port_alias_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+            port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "Arista-7060CX-32S-D48C8":
         # All possible breakout 50G port numbers:
         all_ports = [ x for x in range(1, 33)]
@@ -494,7 +494,7 @@ def parse_xml(filename, hostname):
         s100G_ports = [ x for x in range(7, 11) ]
         s100G_ports += [ x for x in range(23, 27) ]
 
-        port_alias_map = port_alias_map_50G(all_ports, s100G_ports)
+        port_alias_to_name_map = port_alias_to_name_map_50G(all_ports, s100G_ports)
     elif hwsku == "Arista-7260CX3-D108C8":
         # All possible breakout 50G port numbers:
         all_ports = [ x for x in range(1, 65)]
@@ -502,38 +502,38 @@ def parse_xml(filename, hostname):
         # 100G ports
         s100G_ports = [ x for x in range(13, 21) ]
 
-        port_alias_map = port_alias_map_50G(all_ports, s100G_ports)
+        port_alias_to_name_map = port_alias_to_name_map_50G(all_ports, s100G_ports)
     elif hwsku == "INGRASYS-S9100-C32":
         for i in range(1, 33):
-            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "INGRASYS-S9100-C32" or hwsku == "INGRASYS-S9130-32X" or hwsku == "INGRASYS-S8810-32Q":
         for i in range(1, 33):
-            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "INGRASYS-S8900-54XC":
         for i in range(1, 49):
-            port_alias_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
         for i in range(49, 55):
-            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 49) * 4 + 48)
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 49) * 4 + 48)
     elif hwsku == "INGRASYS-S8900-64XC":
         for i in range(1, 49):
-            port_alias_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
         for i in range(49, 65):
-            port_alias_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 49) * 4 + 48)
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 49) * 4 + 48)
     elif hwsku == "Accton-AS7712-32X":
         for i in range(1, 33):
-            port_alias_map["hundredGigE%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+            port_alias_to_name_map["hundredGigE%d" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "Celestica-DX010-C32":
         for i in range(1, 33):
-            port_alias_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+            port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "Seastone-DX010":
         for i in range(1, 33):
-            port_alias_map["Eth%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+            port_alias_to_name_map["Eth%d" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "Celestica-E1031-T48S4":
         for i in range(1, 53):
-            port_alias_map["etp%d" % i] = "Ethernet%d" % ((i - 1))
+            port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1))
     else:
         for i in range(0, 128, 4):
-            port_alias_map["Ethernet%d" % i] = "Ethernet%d" % i
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
 
     for child in root:
         if child.tag == str(QName(ns, "DpgDec")):
@@ -547,41 +547,24 @@ def parse_xml(filename, hostname):
         elif child.tag == str(QName(ns, "MetadataDeclaration")):
             (syslog_servers, ntp_servers, mgmt_routes, deployment_id) = parse_meta(child, hostname)
 
-    # Create port index map. Since we currently output a mix of NGS names
-    # and SONiC mapped names, we include both in this map.
-    # SONiC aliases, when sorted in natural sort order, match the phyical port
-    # index order, so we sort by SONiC port alias, and map
-    # back to NGS names after sorting using this inverted map
-    #
     # TODO: Move all alias-related code out of minigraph_facts.py and into
     # its own module to be used as another layer after parsing the minigraph.
-    inverted_port_alias_map = {v: k for k, v in port_alias_map.iteritems()}
 
-    # Start by creating a list of all port aliases
-    port_alias_list = []
-    for k, v in port_alias_map.iteritems():
-        port_alias_list.append(v)
+    # Create inverse mapping between port name and alias
+    port_name_to_alias_map = {v: k for k, v in port_alias_to_name_map.iteritems()}
 
-    # Sort the list in natural order
-    port_alias_list_sorted = natsorted(port_alias_list)
+    # Create a map of SONiC port name to physical port index
+    # Start by creating a list of all port names
+    port_name_list = port_name_to_alias_map.keys()
 
-    # Create map from SONiC alias to physical index and NGS name to physical index
+    # Sort the list in natural order, because SONiC port names, when
+    # sorted in natural sort order, match the phyical port index order
+    port_name_list_sorted = natsorted(port_name_list)
+
+    # Create mapping between port alias and physical index
     port_index_map = {}
-    for idx, val in enumerate(port_alias_list_sorted):
+    for idx, val in enumerate(port_name_list_sorted):
         port_index_map[val] = idx
-        port_index_map[inverted_port_alias_map[val]] = idx
-
-    # Create maps:
-    #  from SONiC phy iface name to NGS phy iface name
-    #  from NGS phy iface name to SONiC phy iface name
-    # These maps include mappings from original name to original name too
-    iface_map_sonic_to_ngs = {}
-    iface_map_ngs_to_sonic = {}
-    for val in port_alias_list_sorted:
-        iface_map_sonic_to_ngs[val] = inverted_port_alias_map[val]
-        iface_map_sonic_to_ngs[inverted_port_alias_map[val]] = inverted_port_alias_map[val]
-        iface_map_ngs_to_sonic[inverted_port_alias_map[val]] = val
-        iface_map_ngs_to_sonic[val] = val
 
     # Generate results
     Tree = lambda: defaultdict(Tree)
@@ -622,8 +605,8 @@ def parse_xml(filename, hostname):
     results['minigraph_underlay_neighbors'] = u_neighbors
     results['minigraph_underlay_devices'] = u_devices
     results['minigraph_port_indices'] = port_index_map
-    results['minigraph_map_sonic_to_ngs'] = iface_map_sonic_to_ngs
-    results['minigraph_map_ngs_to_sonic'] = iface_map_ngs_to_sonic
+    results['minigraph_port_name_to_alias_map'] = port_name_to_alias_map
+    results['minigraph_port_alias_to_name_map'] = port_alias_to_name_map
     results['minigraph_as_xml'] = mini_graph_path
     if devices != None:
         results['minigraph_console'] = get_console_info(devices, console_dev, console_port)
@@ -638,7 +621,7 @@ def parse_xml(filename, hostname):
     return results
 
 ports = {}
-port_alias_map = {}
+port_alias_to_name_map = {}
 
 def main():
     module = AnsibleModule(
