@@ -28,13 +28,10 @@
         - arp_responder_args: '--conf /tmp/vnet_arpresponder.conf'
       delegate_to: "{{ ptf_host }}"
 
-    - name: Reread supervisor configuration
-      shell: supervisorctl reread
-      delegate_to: "{{ ptf_host }}"
-
     - name: Update supervisor configuration
-      shell: supervisorctl update
-      delegate_to: "{{ ptf_host }}"
+      include: "roles/test/tasks/common_tasks/update_supervisor.yml"
+      vars:
+        supervisor_host: "{{ ptf_host }}"
 
     - name: Generate VNet configuration
       template: src=roles/test/templates/vnet_config.j2

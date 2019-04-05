@@ -261,11 +261,9 @@
   always:
     # Recover DUT interface IP Address before entering this test case
     - name: restore dut original state
-      command: config reload -y
-      become: yes
-
-    - name: wait 60 seconds for ports to be up
-      pause: seconds=60
+      include: "roles/test/tasks/common_tasks/reload_config.yml"
+      vars:
+        config_source: "config_db"
 
     - name: check port status
       interface_facts: up_ports={{ minigraph_ports }}
