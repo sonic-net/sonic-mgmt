@@ -46,9 +46,10 @@ def ptf_runner(host, testdir, testname, platform_dir, params={}, \
 
     res = host.shell(cmd, chdir="/root")
 
-def test_bgp_speaker(localhost, ansible_adhoc):
-    hostname = 'vlab-01'
-    ptf_hostname = 'ptf-01'
+def test_bgp_speaker(localhost, ansible_adhoc, testbed):
+    assert testbed
+    hostname = testbed['dut']
+    ptf_hostname = testbed['ptf']
     host = ansible_host(ansible_adhoc, hostname)
     ptfhost = ansible_host(ansible_adhoc, ptf_hostname)
 

@@ -1,7 +1,7 @@
 from ansible_host import ansible_host
 
-def test_lldp(localhost, ansible_adhoc):
-    hostname = 'vlab-01'
+def test_lldp(localhost, ansible_adhoc, testbed):
+    hostname = testbed['dut']
     ans_host = ansible_host(ansible_adhoc, hostname)
 
     mg_facts  = ans_host.minigraph_facts(host=hostname)['ansible_facts']
