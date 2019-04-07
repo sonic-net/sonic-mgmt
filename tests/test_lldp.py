@@ -1,6 +1,8 @@
 from ansible_host import ansible_host
 
 def test_lldp(localhost, ansible_adhoc, testbed):
+    """verify the lldp message on DUT and neighbors"""
+
     hostname = testbed['dut']
     ans_host = ansible_host(ansible_adhoc, hostname)
 

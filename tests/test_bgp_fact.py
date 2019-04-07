@@ -1,6 +1,8 @@
 from ansible_host import ansible_host
 
 def test_bgp_facts(ansible_adhoc, testbed):
+    """compare the bgp facts between observed states and target state"""
+
     hostname = testbed['dut']
     ans_host = ansible_host(ansible_adhoc, hostname)
 

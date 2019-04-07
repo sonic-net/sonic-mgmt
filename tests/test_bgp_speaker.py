@@ -47,7 +47,10 @@ def ptf_runner(host, testdir, testname, platform_dir, params={}, \
     res = host.shell(cmd, chdir="/root")
 
 def test_bgp_speaker(localhost, ansible_adhoc, testbed):
-    assert testbed
+    """setup bgp speaker on T0 topology and verify routes advertised
+    by bgp speaker is received by T0 TOR
+    """
+
     hostname = testbed['dut']
     ptf_hostname = testbed['ptf']
     host = ansible_host(ansible_adhoc, hostname)
