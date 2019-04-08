@@ -1287,10 +1287,10 @@ sensors_checks:
       - pmbus-i2c-4-58/fan1/fan1_alarm
       - pmbus-i2c-3-58/fan1/fan1_fault
       - pmbus-i2c-4-58/fan1/fan1_fault
-      - rook_cpld-i2c-85-60/fan1/fan1_fault
-      - rook_cpld-i2c-85-60/fan2/fan2_fault
-      - rook_cpld-i2c-85-60/fan3/fan3_fault
-      - rook_cpld-i2c-85-60/fan4/fan4_fault
+      - la_cpld-i2c-85-60/fan1/fan1_fault
+      - la_cpld-i2c-85-60/fan2/fan2_fault
+      - la_cpld-i2c-85-60/fan3/fan3_fault
+      - la_cpld-i2c-85-60/fan4/fan4_fault
       power:
       - pmbus-i2c-3-58/iin/curr1_max_alarm
       - pmbus-i2c-3-58/iout1/curr2_max_alarm
@@ -1360,10 +1360,10 @@ sensors_checks:
       fan:
       - pmbus-i2c-3-58/fan1/fan1_input
       - pmbus-i2c-4-58/fan1/fan1_input
-      - rook_cpld-i2c-85-60/fan1/fan1_input
-      - rook_cpld-i2c-85-60/fan2/fan2_input
-      - rook_cpld-i2c-85-60/fan3/fan3_input
-      - rook_cpld-i2c-85-60/fan4/fan4_input
+      - la_cpld-i2c-85-60/fan1/fan1_input
+      - la_cpld-i2c-85-60/fan2/fan2_input
+      - la_cpld-i2c-85-60/fan3/fan3_input
+      - la_cpld-i2c-85-60/fan4/fan4_input
       power: []
       temp: []
 
@@ -2062,9 +2062,13 @@ sensors_checks:
 
   Arista-7170-64C:
     alarms:
-      fan: 
+      fan:
       - dps1900-i2c-6-58/fan1/fan1_alarm
       - dps1900-i2c-7-58/fan1/fan1_alarm
+      - la_cpld-i2c-93-60/fan1/fan1_fault
+      - la_cpld-i2c-93-60/fan2/fan2_fault
+      - la_cpld-i2c-93-60/fan3/fan3_fault
+      - la_cpld-i2c-93-60/fan4/fan4_fault
       power:
       - dps1900-i2c-6-58/iin/curr1_max_alarm
       - dps1900-i2c-6-58/iout1/curr2_crit_alarm
@@ -2127,10 +2131,10 @@ sensors_checks:
 
     non_zero:
       fan:
-      - rook_cpld-i2c-93-60/fan1/fan1_input
-      - rook_cpld-i2c-93-60/fan2/fan2_input
-      - rook_cpld-i2c-93-60/fan3/fan3_input
-      - rook_cpld-i2c-93-60/fan4/fan4_input
+      - la_cpld-i2c-93-60/fan1/fan1_input
+      - la_cpld-i2c-93-60/fan2/fan2_input
+      - la_cpld-i2c-93-60/fan3/fan3_input
+      - la_cpld-i2c-93-60/fan4/fan4_input
       power: []
       temp: []
 
