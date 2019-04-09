@@ -42,7 +42,7 @@
         remove_portchannel_members: true
 
     - name: Step 2 Remove {{ portchannel_ip }} from {{ portchannel }}
-      shell: config interface {{ portchannel }} ip remove {{ portchannel_ip }}/31
+      shell: config interface ip remove {{ portchannel }} {{ portchannel_ip }}/31
       become: yes
     - set_fact:
         remove_portchannel_ip: true
@@ -73,7 +73,7 @@
         add_tmp_portchannel_members: true
 
     - name: Step 5 Add {{ portchannel_ip }} to {{ tmp_portchannel }}
-      shell: config interface {{ tmp_portchannel }} ip add {{ portchannel_ip }}/31
+      shell: config interface ip add {{ tmp_portchannel }} {{ portchannel_ip }}/31
       become: yes
     - set_fact:
         add_tmp_portchannel_ip: true
@@ -97,7 +97,7 @@
 
   always:
     - name: Remove {{ portchannel_ip }} from {{ tmp_portchannel }}
-      shell: config interface {{ tmp_portchannel }} ip remove {{ portchannel_ip }}/31
+      shell: config interface ip remove {{ tmp_portchannel }} {{ portchannel_ip }}/31
       become: yes
       when: add_tmp_portchannel_ip
 
@@ -113,7 +113,7 @@
       when: create_tmp_portchannel
 
     - name: Add {{ portchannel_ip }} to {{ portchannel }}
-      shell: config interface {{ portchannel }} ip add {{ portchannel_ip }}/31
+      shell: config interface ip add {{ portchannel }} {{ portchannel_ip }}/31
       become: yes
       when: remove_portchannel_ip
 

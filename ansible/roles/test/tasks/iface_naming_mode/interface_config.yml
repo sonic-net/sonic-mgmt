@@ -9,7 +9,7 @@
 - block: 
 
     - name: shutdown the interface {{intf}} in {{mode}} mode 
-      shell: sudo config interface {{intf}} shutdown
+      shell: sudo config interface shutdown {{intf}}
       register: out
       failed_when: out.rc != 0
 
@@ -24,7 +24,7 @@
       assert: {that: "'{{int_status[intf]['admin_state']}}' == 'down'"}
 
     - name: Bringup the interface  {{intf}} in {{mode}} mode
-      shell: sudo config interface {{intf}} startup
+      shell: sudo config interface startup {{intf}}
       register: out
       failed_when: out.rc != 0
     
@@ -39,7 +39,7 @@
 # check the  config interface speed
 
     - name: configure interface speed to 10G in {{mode}} mode
-      shell: sudo config interface {{intf}} speed 10000
+      shell: sudo config interface speed {{intf}} 10000
       register: out
       failed_when: out.rc != 0
 
@@ -53,7 +53,7 @@
       assert: {that: "'{{speed.stdout}}' == '10000'"}
 
     - name: chamge interface speed to native speed and check
-      shell: sudo config interface {{intf}} speed {{native_speed}}
+      shell: sudo config interface speed {{intf}} {{native_speed}}
       register: out
       failed_when: out.rc != 0
 
@@ -72,8 +72,8 @@
   always:
 
     - name: set the interface up 
-      shell:  sudo config interface {{intf}}  startup
+      shell:  sudo config interface startup {{intf}}
 
     - name: change interface speed to native speed and check
-      shell: sudo config interface {{intf}} speed {{native_speed}}
+      shell: sudo config interface speed {{intf}} {{native_speed}}
 
