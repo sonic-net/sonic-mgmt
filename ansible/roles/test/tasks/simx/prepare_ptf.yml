@@ -1,0 +1,108 @@
+- name: "Set default action (topo_action=add) if no arguments provided"
+  set_fact:
+    topo_action: "add"
+  when: "topo_action is not defined"
+
+- fail: msg="topo_action is provided with invalid value"
+  when: "topo_action not in [ 'add', 'remove' ]"
+
+- name: "Set LLDP daemon facts"
+  set_fact:
+    lldp_daemon: "/opt/lldp.py"
+
+- block:
+  - name: "Gathering minigraph facts about the device"
+    minigraph_facts: host={{ inventory_hostname }}
+
+  - name: "Remove existing IPs from the PTF host"
+    script: "roles/test/files/helpers/remove_ip.sh"
+    delegate_to: "{{ ptf_host }}"
+
+  - name: "Set unique MACs to the PTF interfaces"
+    script: "roles/test/files/helpers/change_mac.sh"
+    delegate_to: "{{ ptf_host }}"
+
+  - name: "Delete macvlan devices on the PTF host"
+    shell: "ip link del et{{ item }}"
+    delegate_to: "{{ ptf_host }}"
+    with_items: "{{ range(32) | list }}"
+    ignore_errors: "yes"
+
+  - name: "Generate macvlan devices on the PTF host"
+    shell: "ip link add et{{ item }} link eth{{ item }} type macvlan mode bridge"
+    delegate_to: "{{ ptf_host }}"
+    with_items: "{{ range(32) | list }}"
+
+  - name: "Bring macvlan devices up on the PTF host"
+    shell: "ip link set dev et{{ item }} up"
+    delegate_to: "{{ ptf_host }}"
+    with_items: "{{ range(32) | list }}"
+
+  - name: "Add IPv4 addresses on macvlan devices on the PTF host"
+    shell: "ip addr add 10.0.0.{{ item | int * 2 + 1 }}/31 dev et{{ item }}"
+    delegate_to: "{{ ptf_host }}"
+    with_items: "{{ range(32) | list }}"
+
+  - name: "Add IPv6 addresses on macvlan devices on the PTF host"
+    shell: "ip addr add fc00::{{ '%x' | format(item | int * 4 + 2) }}/126 dev et{{ item }}"
+    delegate_to: "{{ ptf_host }}"
+    with_items: "{{ range(32) | list }}"
+
+  - name: "Copy LLDP supervisor configuration to the PTF container"
+    template:
+      src: "roles/test/templates/simx/lldp.conf.j2"
+      dest: "/etc/supervisor/conf.d/lldp.conf"
+    delegate_to: "{{ ptf_host }}"
+
+  - name: "Copy LLDP daemon to the PTF container"
+    copy:
+      src: "roles/test/files/helpers/simx/lldp.py"
+      dest: "{{ lldp_daemon }}"
+    delegate_to: "{{ ptf_host }}"
+
+  - name: "Update supervisor configuration"
+    include: "roles/test/tasks/common_tasks/update_supervisor.yml"
+    vars:
+      supervisor_host: "{{ ptf_host }}"
+
+  - name: "Run LLDP daemon"
+    shell: "supervisorctl start lldp"
+    delegate_to: "{{ ptf_host }}"
+
+  - name: "Set MTU to 9100 on PTF eth ifaces"
+    shell: "ip link set dev eth{{ item }} mtu 9100"
+    delegate_to: "{{ ptf_host }}"
+    with_items: "{{ range(32)| list }}"
+
+  - name: "Set MTU to 9100 on created PTF et ifaces"
+    shell: "ip link set dev et{{ item }} mtu 9100"
+    delegate_to: "{{ ptf_host }}"
+    with_items: "{{ range(32)| list }}"
+
+  when: "topo_action is defined and topo_action == 'add'"
+
+- block:
+  - name: "Stop LLDP daemon"
+    shell: "supervisorctl stop lldp"
+    delegate_to: "{{ ptf_host }}"
+    ignore_errors: "yes"
+
+  - name: "Clean up supervisor configuration"
+    shell: "{{ item }}"
+    delegate_to: "{{ ptf_host }}"
+    with_items:
+      - "rm -f /etc/supervisor/conf.d/lldp.conf"
+      - "rm -f {{ lldp_daemon }}"
+
+  - name: "Update supervisor configuration"
+    include: "roles/test/tasks/common_tasks/update_supervisor.yml"
+    vars:
+      supervisor_host: "{{ ptf_host }}"
+
+  - name: "Delete macvlan devices on the PTF host"
+    shell: "ip link del et{{ item }}"
+    delegate_to: "{{ ptf_host }}"
+    with_items: "{{ range(32) | list }}"
+    ignore_errors: "yes"
+
+  when: "topo_action is defined and topo_action == 'remove'"

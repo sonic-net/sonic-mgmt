@@ -1,0 +1,11 @@
+{% for prefix in fib %}
+{% for nexthop in fib[prefix] %}
+{% if prefix | ipv4 %}
+ip route {{ prefix | ipv4 }} {{ nexthop | ipv4 }}
+{% endif %}
+{% if prefix | ipv6 %}
+ipv6 route {{ prefix | ipv6 }} {{ nexthop | ipv6 }}
+{% endif %}
+!
+{% endfor %}
+{% endfor %}

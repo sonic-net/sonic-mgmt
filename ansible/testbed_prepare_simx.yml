@@ -1,0 +1,4 @@
+- hosts: sonic
+  tasks:
+    - include: roles/test/tasks/simx/prepare_ptf.yml
+    - include: roles/test/tasks/simx/prepare_sonic.yml

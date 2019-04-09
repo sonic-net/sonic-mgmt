@@ -1,0 +1,10 @@
+[program:lldp]
+command=/usr/bin/python {{ lldp_daemon }}
+process_name=lldp
+stdout_logfile=/tmp/lldp.out.log
+stderr_logfile=/tmp/lldp.err.log
+redirect_stderr=false
+autostart=false
+autorestart=true
+startsecs=1
+numprocs=1
