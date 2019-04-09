@@ -35,7 +35,7 @@
       when: po1 is defined
 
     - name: bring {{ intf1 }} up
-      shell: config interface {{ intf1 }} startup
+      shell: config interface startup {{ intf1 }}
       become: yes
       when: po1 is defined
 
@@ -51,16 +51,16 @@
       when: po2 is defined
 
     - name: bring {{ intf2 }} up
-      shell: config interface {{ intf2 }} startup
+      shell: config interface startup {{ intf2 }}
       become: yes
       when: po2 is defined
 
     - name: change SONiC DUT interface IP to test IP address
-      command: config interface {{ intf1 }} ip add 10.10.1.2/28
+      command: config interface ip add {{ intf1 }} 10.10.1.2/28
       become: yes
 
     - name: change SONiC DUT interface IP to test IP address
-      command: config interface {{ intf2 }} ip add 10.10.1.20/28
+      command: config interface ip add {{ intf2 }} 10.10.1.20/28
       become: yes
 
     - name: wait for interfaces to be up after removed from portchannel
