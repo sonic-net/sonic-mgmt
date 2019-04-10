@@ -1,0 +1,66 @@
+- name: Init variables.
+  set_fact:
+      spine_ports: []
+      spine_port_alias: []
+
+- name: Get spine ports
+  set_fact:
+      spine_ports: "{{ spine_ports + [item.key]}}"
+  with_dict: "{{ minigraph_neighbors }}"
+  when: "'T2' in item.value.name"
+
+- name: Get spine ports alias
+  set_fact:
+      spine_port_alias: "{{ spine_port_alias + [port_name_map[item.key]]}}"
+  with_dict: "{{ minigraph_neighbors }}"
+  when: "'T2' in item.value.name"
+
+# Test IPv4 routes
+# As the ansible work in non interactive mode, it doesnt read the environmental varaiable set in bashrc file. Hence as a workaround, the variable is  extracted through check_userifmode.yml and manually set the variable 'SONIC_CLI_IFACE_MODE' to take effect.
+
+- name: get the show ip route for 192.168.1.1
+  shell: show ip route 192.168.1.1
+  register: route
+  environment:
+    SONIC_CLI_IFACE_MODE: "{{ifmode}}"
+
+- debug: var=route
+
+- name: check the output shows interface alias names in alias mode 
+  assert:
+    that:
+    - route.stdout | search("via {{item}}")
+  with_items: spine_port_alias
+  when: mode=='alias'
+
+- name: check the output shows default interface names in default mdoe 
+  assert:
+    that:
+    - route.stdout | search(" via {{item}}")
+  with_items: spine_ports
+  when: mode=='default'
+
+# Test ipv6 routes 
+# As the ansible work in non interactive mode, it doesnt read the environmental varaiable set in bashrc file. Hence as a workaround, the variable is  extracted through check_userifmode.yml and manually set the variable 'SONIC_CLI_IFACE_MODE' to take effect.
+
+- name: get the show ipv6 route for 20c0:a800::/64
+  shell: show ipv6 route 20c0:a800::/64
+  register: route
+  environment:
+    SONIC_CLI_IFACE_MODE: "{{ifmode}}"
+
+- debug: var=route
+
+- name: check the output shows interface alias names in alias mode
+  assert:
+    that:
+    - route.stdout | search("via {{item}}")
+  with_items: spine_port_alias
+  when: mode =='alias'
+
+- name: check the output shows default interface names in default mdoe
+  assert:
+    that:
+    - route.stdout | search(" via {{item}}")
+  with_items: spine_ports
+  when: mode =='default'

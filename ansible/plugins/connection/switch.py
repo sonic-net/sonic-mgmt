@@ -53,7 +53,7 @@ class Connection(ConnectionBase):
 
         self._ssh_command += ['-o', 'GSSAPIAuthentication=no',
                               '-o', 'PubkeyAuthentication=no']
-        self._ssh_command += ['-o', 'ConnectTimeout=60']
+        self._ssh_command += ['-o', 'ConnectTimeout=' + str(self.timeout)]
 
     def _spawn_connect(self):
         last_user = None
@@ -71,7 +71,7 @@ class Connection(ConnectionBase):
                 self._display.vvv("SSH: EXEC {0}".format(' '.join(cmd)),
                               host=self.host)
                 last_user = user
-                client = pexpect.spawn(' '.join(cmd), env={'TERM': 'dumb'}, timeout=60)
+                client = pexpect.spawn(' '.join(cmd), env={'TERM': 'dumb'}, timeout=self.timeout)
                 i = client.expect(['[Pp]assword:', pexpect.EOF])
                 if i == 1:
                     self._display.vvv("Server closed the connection, retry in %d seconds" % self.connection_retry_interval, host=self.host)
@@ -81,7 +81,6 @@ class Connection(ConnectionBase):
 
             self._display.vvv("Try password %s..." % login_passwd[0:4], host=self.host)
             client.sendline(login_passwd)
-            client.timeout = 60
             i = client.expect(['>', '#', '[Pp]assword:', pexpect.EOF])
             if i < 2:
                 break
@@ -103,9 +102,9 @@ class Connection(ConnectionBase):
             self.sku = 'eos'
         elif 'Cisco' in client.before:
             self.sku = 'nxos'
-        if 'MLNX-OS' in client.before:
+        elif ('MLNX-OS' in client.before) or ('Onyx' in client.before):
             self.sku = 'mlnx_os'
-        if 'Dell' in client.before:
+        elif 'Dell' in client.before:
             self.sku = 'dell'
 
         if self.sku == 'mlnx_os':
@@ -184,13 +183,13 @@ class Connection(ConnectionBase):
         self.reboot   = kwargs['reboot']
         if kwargs['root']:
             self.login['user'] = 'root'
+        if kwargs['timeout']:
+            self.timeout = int(kwargs['timeout'])
+        else:
+            self.timeout = 60
         self._build_command()
 
         client = self._spawn_connect()
-
-        # Set command timeout after connection is spawned
-        if kwargs['timeout']:
-            client.timeout = int(kwargs['timeout'])
 
         # "%s>": non privileged prompt
         # "%s(\([a-z\-]+\))?#": privileged prompt including configure mode

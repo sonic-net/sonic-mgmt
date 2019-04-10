@@ -1,0 +1,36 @@
+- block:
+    - name: show queue counters {{intf}}
+      shell: sudo  show queue counters {{intf}} | grep "UC\|MC"
+      register: queue_counter
+
+    - debug: var=queue_counter.stdout_lines
+
+    - name: Check the {{mode}}  interface name is present in output when mode is set to {{mode}}
+      assert:
+        that:
+        - queue_counter.stdout |  search("{{intf}}\s+[U|M]C{{item}}\s+\d+\s+\d+\s+\d+\s+\d+")
+      with_sequence: start=0 end=9
+
+    - name: show queue counters for all interfaces
+      shell: sudo  show queue counters | grep "UC\|MC"
+      register: queue_counter
+
+    - debug: var=queue_counter.stdout_lines
+
+    - name: Check default interface name is present in output when mode is  is set to default 
+      assert:
+        that:
+        - queue_counter.stdout |  search("{{item}}\s+[UC|MC\d]+\s+\d+\s+\d+\s+\d+\s+\d+") and '{{port_name_map[item]}}' not in queue_counter.stdout
+      with_items: default_interfaces 
+      when: mode=='default'
+
+    - name: Check alias interface name is present in output when mode is set to alias
+      assert:
+        that:
+        - queue_counter.stdout |  search("{{item}}\s+[UC|MC\d]+\s+\d+\s+\d+\s+\d+\s+\d+") and '{{port_alias_map[item]}}'  not in queue_counter.stdout
+      with_items: port_alias
+      when: mode=='alias'
+# As the ansible work in non interactive mode, it doesnt read the environmental varaiable set in bashrc file. Hence as a workaround, the variable is  extracted through check_userifmode.yml and manually set the variable 'SONIC_CLI_IFACE_MODE' to take effect.
+
+  environment:
+      SONIC_CLI_IFACE_MODE: "{{ifmode}}"

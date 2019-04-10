@@ -238,7 +238,7 @@ class VNET(BaseTest):
 
         for net_port in self.net_ports:
             pkt = simple_tcp_packet(
-                eth_dst=self.dut_mac,
+                eth_dst=self.vxlan_router_mac,
                 eth_src=self.random_mac,
                 ip_dst=test['src'],
                 ip_src=test['dst'],

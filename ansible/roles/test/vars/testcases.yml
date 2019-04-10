@@ -33,7 +33,7 @@ testcases:
 
     config:
         filename: config.yml
-        topologies: [t1-lag, t1-64-lag, t0, t0-64]
+        topologies: [t1-lag, t1-64-lag, t0, t0-64, t0-116]
 
     continuous_reboot:
       filename: continuous_reboot.yml
@@ -217,7 +217,7 @@ testcases:
       required_vars:
           ptf_host:
           testbed_type:
-          
+
     vxlan_decap:
       filename: vxlan-decap.yml
       topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116]
@@ -233,4 +233,10 @@ testcases:
     pfc_asym:
       filename: pfc_asym.yml
       topologies: [t0]
+
+    iface_mode:
+      filename: iface_naming_mode.yml
+      topologies: [t0, t0-16, t0-64, t0-64-32, t0-116, t1, ptf32, ptf64]
+      required_vars:
+          testbed_type:
 
