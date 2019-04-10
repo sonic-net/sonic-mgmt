@@ -51,5 +51,36 @@
 
 - debug: var=out.stdout_lines
 
+- name: Set default PTF log filename
+  set_fact:
+    ptf_log_file: "/root/ptf.log"
+    ptf_log_file_param_index: "{{ out.cmd.find('--log-file') }}"
+
+- name: Parse custom log filename specified in PTF command
+  set_fact:
+    ptf_log_file: "{{ out.cmd[ptf_log_file_param_index|int:].split(' ')[1] }}"
+  when: ptf_log_file_param_index|int >= 0
+
+- name: Set PTF pcap filename
+  set_fact:
+    ptf_pcap_file: "{{ ptf_log_file | replace('.log', '.pcap') }}"
+
+- name : Fetch result files from switch to ansible machine
+  fetch:
+    src: "{{ item }}"
+    dest: "test/{{ inventory_hostname }}/ptf/{{ item | basename }}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}"
+    flat: yes
+  with_items:
+    - "{{ ptf_log_file }}"
+    - "{{ ptf_pcap_file }}"
+  delegate_to: "{{ ptf_host }}"
+  when: out.rc != 0 and save_ptf_log is defined and save_ptf_log|bool == true
+
+- debug: msg="File {{ item }} saved to test/{{ inventory_hostname }}/ptf/"
+  with_items:
+    - "{{ptf_log_file}}"
+    - "{{ptf_pcap_file}}"
+  when: out.rc != 0 and save_ptf_log is defined and save_ptf_log|bool == true
+
 - fail: msg="Failed test '{{ ptf_test_name }}'"
   when: out.rc != 0
