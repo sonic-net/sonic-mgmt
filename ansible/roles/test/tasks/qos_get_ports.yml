@@ -7,7 +7,7 @@
       testing_ptf_interfaces: []
 
 - name: Getting minigraph facts
-  minigraph_facts: host={{ inventory_hostname }}
+  minigraph_facts: host={{inventory_hostname}}
   become: no
 
 # Index stored in ptf_interfaces list is the index
@@ -15,13 +15,13 @@
 - name: Get PTF interfaces from map
   set_fact:
     ptf_interfaces: "{{ptf_interfaces + [item.split('@')[0]]}}"
-  with_lines: cat 'roles/test/files/mlnx/default_interface_to_front_map.ini'
+  with_lines: cat {{ptf_portmap}}
   when: "'#' not in item"
 
 - name: Get switch ports from map
   set_fact:
     dut_switch_ports: "{{dut_switch_ports + [item.split('@')[1]]}}"
-  with_lines: cat 'roles/test/files/mlnx/default_interface_to_front_map.ini'
+  with_lines: cat {{ptf_portmap}}
   when: "'#' not in item"
 
 - name: Print switch ports and PTF interfaces

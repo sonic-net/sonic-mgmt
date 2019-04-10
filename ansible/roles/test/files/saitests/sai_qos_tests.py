@@ -509,6 +509,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_ids = self.test_params['src_port_ids']
         src_port_ips = self.test_params['src_port_ips']
         print >> sys.stderr, src_port_ips
+        sys.stderr.flush()
 
         dst_port_id = self.test_params['dst_port_id']
         dst_port_ip = self.test_params['dst_port_ip']
@@ -519,6 +520,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_hdrm_full = self.test_params['pkts_num_hdrm_full']
         pkts_num_hdrm_partial = self.test_params['pkts_num_hdrm_partial']
         print >> sys.stderr, ("pkts num: leak_out: %d, trig_pfc: %d, hdrm_full: %d, hdrm_partial: %d" % (pkts_num_leak_out, pkts_num_trig_pfc, pkts_num_hdrm_full, pkts_num_hdrm_partial))
+        sys.stderr.flush()
 
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
         src_port_macs = [self.dataplane.get_mac(0, ptid) for ptid in src_port_ids]
@@ -526,6 +528,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         sidx_dscp_pg_tuples = [(sidx, dscp, pgs[pgidx]) for sidx, sid in enumerate(src_port_ids) for pgidx, dscp in enumerate(dscps)]
         assert(len(sidx_dscp_pg_tuples) >= pgs_num)
         print >> sys.stderr, sidx_dscp_pg_tuples
+        sys.stderr.flush()
 
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
@@ -574,6 +577,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkts_num_trig_pfc)
 
             print >> sys.stderr, "Service pool almost filled"
+            sys.stderr.flush()
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
 
@@ -607,8 +611,10 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     sys.exit("Too many pkts needed to trigger pfc: %d" % (pkt_cnt))
                 assert(recv_counters[sidx_dscp_pg_tuples[i][2]] > recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
                 print >> sys.stderr, "%d packets for sid: %d, pg: %d to trigger pfc" % (pkt_cnt, src_port_ids[sidx_dscp_pg_tuples[i][0]], sidx_dscp_pg_tuples[i][2] - 2)
+                sys.stderr.flush()
 
             print >> sys.stderr, "PFC triggered"
+            sys.stderr.flush()
 
             # send packets to all pgs to fill the headroom pool
             for i in range(0, pgs_num):
@@ -634,6 +640,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 assert(recv_counters[INGRESS_DROP] == recv_counters_bases[sidx_dscp_pg_tuples[i][0]][INGRESS_DROP])
 
             print >> sys.stderr, "all but the last pg hdrms filled"
+            sys.stderr.flush()
 
             # last pg
             i = pgs_num - 1
@@ -650,6 +657,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
 
             print >> sys.stderr, "pg hdrm filled"
+            sys.stderr.flush()
 
         finally:
             if asic_type == 'mellanox':

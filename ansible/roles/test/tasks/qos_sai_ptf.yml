@@ -2,7 +2,7 @@
   set_fact: ptf_qos_params="{{ptf_base_params + test_params}}"
 
 - name: "{{test_name}}"
-  shell: ptf --test-dir saitests {{test_path}} --platform remote -t "{{ptf_qos_params|join(';')}}" --disable-ipv6 --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre {{extra_options | default("")}} 2>&1
+  shell: ptf --test-dir saitests {{test_path}} --platform-dir ptftests --platform remote -t "{{ptf_qos_params|join(';')}}" --disable-ipv6 --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre {{extra_options | default("")}} 2>&1
   args:
     chdir: /root
   delegate_to: "{{ptf_host}}"
