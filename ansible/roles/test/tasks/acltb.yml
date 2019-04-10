@@ -1,8 +1,49 @@
+# This script is for testing the ACL feature on SONiC switch. It covers ingress ACL and egress ACL testing.
+# For each type of ACL testing, it supports 3 scenarios:
+# * Basic ACL testing
+# * Toggle all ports and then test ACL
+# * Reboot DUT and then test ACL to verify that ACL configuration persists through reboot
+#
+# This script supports selecting which type of ACL and which scenarios to run by specifying different ansible variables.
+# * run_ingress: Specify whether to run the ingress ACL testing. Values: yes, no. Default: yes
+# * run_egress: Specify whether to run the egress ACL testing. Values: yes, no. Default: no
+# * test_basic: Specify whether to run the basic ACL testing scenario. Values: yes, no. Default: yes
+# * test_port_toggle: Specify whether to run the port toggle scenario. Values: yes, no. Default: no
+# * test_reboot: Specify whether to run the reboot scenario. Values: yes, no. Default: no
+#
+#                 +---------------------+---------------------+---------------------+
+#                 | Basic Acl Testing   |    Port Toggle      |       Reboot        |
+#                 |-- -------+----------+----------+----------+----------+----------+
+#                 |    Yes   |    No    |    Yes   |    No    |    Yes   |    No    |
+# +---------+-----+----------+----------+----------+----------+----------+----------+
+# |         | Yes |    Y     |    N     |    Y     |    N     |    Y     |    N     |
+# | Ingress +-----+----------+----------+----------+----------+----------+----------+
+# |         | No  |    N     |    N     |    N     |    N     |    N     |    N     |
+# +---------+-----+----------+----------+----------+----------+----------+----------+
+# |         | Yes |    Y     |    N     |    Y     |    N     |    Y     |    N     |
+# | Egress  +-----+----------+----------+----------+----------+----------+----------+
+# |         | No  |    N     |    N     |    N     |    N     |    N     |    N     |
+# +---------+-----+----------+----------+----------+----------+----------+----------+
+#
+# Example:
+# $ ansible-playbook test_sonic -i inventory -l dut-switch-t1 -e testbed_name=dut-switch-t1 -e testbed_type=t1
+#       -e testcase_name=acl -vvvv
+# This command will only run basic ACL testing for ingress ACL.
+#
+# $ ansible-playbook test_sonic -i inventory -l dut-switch-t1 -e testbed_name=dut-switch-t1 -e testbed_type=t1
+#       -e testcase_name=acl -e run_ingress=yes -e run_egress=yes -e test_basic=yes -e test_port_toggle=yes
+#       -e test_reboot=no -vvvv
+# This command will run ingress and egress ACL testing. The basic and port toggle scenarios will be tested.
+#
+# $ ansible-playbook test_sonic -i inventory -l dut-switch-t1 -e testbed_name=dut-switch-t1 -e testbed_type=t1
+#       -e testcase_name=acl -e run_egress=yes -e test_port_toggle=yes -e test_reboot=yes -vvvv
+# This command will run everything, including ingress&egress, and all the 3 scenarios.
+
 # Set facts for the loganalizer
 - set_fact:
     out_dir: /tmp/loganalizer
     testname: acl
-    run_dir: /tmp/
+    run_dir: /tmp
     tests_location: "roles/test/tasks"
     test_match_file: "acltb_match_messages.txt"
     test_ignore_file: "acltb_ignore_messages.txt"
@@ -18,22 +59,28 @@
         dut_tmp_dir: "/home/admin/acl"
         config_db_backup_filename: /etc/sonic/config_db.json.bak.{{ lookup('pipe','date +%Y%m%d-%H%M%S') }}
 
+    - name: When run_ingress is not specified, set default true
+      set_fact:
+        run_ingress: true
+      when: run_ingress is not defined
+
     - name: Backup config_db.json
       command: cp /etc/sonic/config_db.json {{ config_db_backup_filename }}
       become: yes
 
-    - include: "roles/test/tasks/acl/acltb_config.yml"
+    - include: "roles/test/tasks/acl/acltb/acltb_config.yml"
 
     - name: Test ingress ACL
-      include: "roles/test/tasks/acl/acltb_run_test.yml"
+      include: "roles/test/tasks/acl/acltb/acltb_run_test.yml"
       vars:
         acl_stage: ingress
+      when: run_ingress is defined and run_ingress|bool == true
 
     - name: Test egress ACL
-      include: "roles/test/tasks/acl/acltb_run_test.yml"
+      include: "roles/test/tasks/acl/acltb/acltb_run_test.yml"
       vars:
         acl_stage: egress
-      when: support_egress_acl is defined and support_egress_acl|bool == true
+      when: run_egress is defined and run_egress|bool == true
 
   always:
 

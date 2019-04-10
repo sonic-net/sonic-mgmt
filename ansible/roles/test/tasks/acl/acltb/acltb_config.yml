@@ -55,7 +55,7 @@
 - name: Initialize data of ACL tables, egress
   set_fact:
     acl_tables: "{{ acl_tables + [{'name': 'DATAEGRESS', 'ports': acl_table_ports, 'stage': 'egress', 'type': 'L3'}] }}"
-  when: support_egress_acl is defined and support_egress_acl|bool == true
+  when: run_egress is defined and run_egress|bool == true
 
 - name: Create dut_tmp_dir on DUT
   file:
@@ -63,7 +63,7 @@
     state: directory
 
 - name: Generate config files for acl tables and rules
-  include: "roles/test/tasks/acl/acltb_config_generate.yml"
+  include: "roles/test/tasks/acl/acltb/acltb_config_generate.yml"
   with_items: acl_tables
 
 - name: copy acsbase files
