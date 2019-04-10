@@ -11,6 +11,26 @@
     msg: "Reboot type {{ reboot_type }} is invalid. Must be one of {{ reboot_types }}"
   when: reboot_type not in reboot_types
 
+- name: "SimX workaround: Set zebra template config facts"
+  set_fact:
+    zebra_orig_config: "/usr/share/sonic/templates/zebra.conf.j2_orig"
+    zebra_simx_config: "/usr/share/sonic/templates/zebra.conf.j2_simx"
+    zebra_config: "/usr/share/sonic/templates/zebra.conf.j2"
+
+- block:
+  - name: "SimX workaround: Check for backuped original zebra template config"
+    shell: "docker exec bgp bash -c '[ -f {{ zebra_orig_config }} ] && echo 'yes' || echo 'no''"
+    register: "stat_result"
+
+  - name: "SimX workaround: Restore default BGP config to speed up system boot"
+    shell: "{{ item }}"
+    become: "yes"
+    with_items:
+      - "docker exec bgp bash -c 'cp -f {{ zebra_orig_config }} {{ zebra_config }}'"
+    when: "stat_result.stdout == 'yes'"
+
+  when: "simx is defined and simx == 'yes'"
+
 - name: "rebooting {{ inventory_hostname }} : {{ ansible_host }} with {{ reboot_type }}..."
   command: "{{ reboot_type }}"
   async: 300
@@ -59,3 +79,22 @@
 
 - name: wait for 2 minute for prcesses and interfaces to be stable
   pause: seconds=120
+
+- block:
+  - name: "SimX workaround: Check for backuped SimX zebra template config"
+    shell: "docker exec bgp bash -c '[ -f {{ zebra_simx_config }} ] && echo 'yes' || echo 'no''"
+    register: "stat_result"
+
+  - name: "SimX workaround: Apply BGP static routes"
+    shell: "{{ item }}"
+    become: "yes"
+    with_items:
+      - "docker exec bgp bash -c 'cp -f {{ zebra_simx_config }} {{ zebra_config }}'"
+      - "service bgp restart"
+    when: "stat_result.stdout == 'yes'"
+
+  - name: "SimX workaround: Wait for 1 minute for BGP to be stable"
+    pause: minutes=1
+    when: "stat_result.stdout == 'yes'"
+
+  when: "simx is defined and simx == 'yes'"
