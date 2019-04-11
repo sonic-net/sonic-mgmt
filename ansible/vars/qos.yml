@@ -206,28 +206,28 @@ qos_params:
             ecn: 1
             pg: 3
             pkts_num_leak_out: 48
-            pkts_num_trig_pfc: 5396
-            pkts_num_trig_ingr_drp: 5592
+            pkts_num_trig_pfc: 4898
+            pkts_num_trig_ingr_drp: 5164
         xoff_2:
             dscp: 4
             ecn: 1
             pg: 4
             pkts_num_leak_out: 48
-            pkts_num_trig_pfc: 5396
-            pkts_num_trig_ingr_drp: 5592
+            pkts_num_trig_pfc: 4898
+            pkts_num_trig_ingr_drp: 5164
         xon_1:
             dscp: 3
             ecn: 1
             pg: 3
             pkts_num_leak_out: 48
-            pkts_num_trig_pfc: 5396
+            pkts_num_trig_pfc: 4898
             pkts_num_dismiss_pfc: 12
         xon_2:
             dscp: 4
             ecn: 1
             pg: 4
             pkts_num_leak_out: 48
-            pkts_num_trig_pfc: 5396
+            pkts_num_trig_pfc: 4898
             pkts_num_dismiss_pfc: 12
         ecn_1:
             dscp: 8
@@ -262,26 +262,16 @@ qos_params:
             ecn: 1
             pg: 1
             pkts_num_leak_out: 48
-            pkts_num_trig_egr_drp: 34507
-        lossy_queue_2:
-            dscp: 0
-            ecn: 1
-            pg: 0
-            pkts_num_leak_out: 48
-            pkts_num_trig_egr_drp: 34507
-        lossy_queue_3:
-            dscp: 46
-            ecn: 1
-            pg: 5
-            pkts_num_leak_out: 48
-            pkts_num_trig_egr_drp: 34507
+            pkts_num_trig_egr_drp: 31322
         wrr:
             ecn: 1
-            q0_num_of_pkts: 200
-            q1_num_of_pkts: 200
-            q3_num_of_pkts: 200
-            q4_num_of_pkts: 200
-            q5_num_of_pkts: 200
+            q0_num_of_pkts: 140
+            q1_num_of_pkts: 140
+            q2_num_of_pkts: 140
+            q3_num_of_pkts: 150
+            q4_num_of_pkts: 150
+            q5_num_of_pkts: 140
+            q6_num_of_pkts: 140
             limit: 80
             pkts_num_leak_out: 48
     Arista-7060CX-32S-C32:
