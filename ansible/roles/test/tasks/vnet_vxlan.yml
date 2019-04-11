@@ -70,6 +70,9 @@
     - name: Render DUT VNet Switch configuration
       template: src=vnet_switch.j2 dest=/tmp/vnet.switch.json
 
+    - name: clear FDB table
+      command: sonic-clear fdb all
+
     - name: Delete Vlan membership from config DB
       shell: docker exec -i database redis-cli -n 4 del "VLAN_MEMBER|{{ minigraph_vlan_interfaces[0]['attachto'] }}|{{ item.1 }}"
       with_indexed_items: "{{ minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'] }}"
