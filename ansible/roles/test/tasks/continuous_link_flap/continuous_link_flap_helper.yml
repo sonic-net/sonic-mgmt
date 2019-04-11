@@ -3,7 +3,7 @@
 
     - name: Shutting down interface
       become: true
-      shell: ifconfig {{interface}} down
+      shell: ifdown {{interface}}
 
     - pause:
         seconds: 1
@@ -29,4 +29,4 @@
   always:
     - name: Bring up interface {{interface}}
       become: true
-      shell: ifconfig {{interface}} up
+      shell: ifup {{interface}}
