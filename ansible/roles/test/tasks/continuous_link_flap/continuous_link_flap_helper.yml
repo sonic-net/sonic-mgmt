@@ -3,7 +3,7 @@
 
     - name: Shutting down interface
       become: true
-      shell: ifdown {{interface}}
+      shell: config interface shutdown {{interface}}
 
     - pause:
         seconds: 1
@@ -29,4 +29,4 @@
   always:
     - name: Bring up interface {{interface}}
       become: true
-      shell: ifup {{interface}}
+      shell: config interface startup {{interface}}
