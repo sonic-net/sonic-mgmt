@@ -109,6 +109,7 @@ testcases:
       filename: fdb_mac_expire.yml
       topologies: [t0, t0-64, t0-64-32, t0-116]
       required_vars:
+          fdb_aging_time:
           ptf_host:
           testbed_type:
 
