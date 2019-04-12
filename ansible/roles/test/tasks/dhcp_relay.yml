@@ -28,6 +28,10 @@
   copy: src=roles/test/files/ptftests dest=/root
   delegate_to: "{{ ptf_host }}"
 
+- name: Set hostname for 'dhcp_relay' container
+  become: true
+  shell: "docker exec -t dhcp_relay bash -c \"hostname {{ inventory_hostname }}\""
+
 # Run the DHCP relay PTF test
 - include: ptf_runner.yml
   vars:
