@@ -44,6 +44,8 @@
 - hosts: eos
   gather_facts: no
   tasks:
+    - name: Set ansible login user name and password
+      set_fact: ansible_user="root" ansible_password={{ eos_root_password }}
     - name: Check list of processes
       command: ps ax
       changed_when: False
