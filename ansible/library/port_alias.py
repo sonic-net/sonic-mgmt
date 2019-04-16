@@ -42,30 +42,47 @@ FILE_PATH = '/usr/share/sonic/device'
 PORTMAP_FILE = 'port_config.ini'
 ALLOWED_HEADER = ['name', 'lanes', 'alias', 'index', 'speed']
 
+MACHINE_CONF = '/host/machine.conf'
+ONIE_PLATFORM = 'onie_platform'
+ABOOT_PLATFORM = 'aboot_platform'
+
 class SonicPortAliasMap():
     """
     Retrieve SONiC device interface port alias mapping and port speed if they are definded
 
     """
     def __init__(self, hwsku):
-        self.filename = ''
         self.hwsku = hwsku
         return
 
-    def findfile(self):
-        for (rootdir, dirnames, filenames) in os.walk(FILE_PATH, followlinks=True):
-            if self.hwsku == rootdir.split('/')[-1] and len(dirnames) == 0 and PORTMAP_FILE in filenames:
-                self.filename = rootdir + '/' + PORTMAP_FILE
+    def get_platform_type(self):
+        with open(MACHINE_CONF) as machine_conf:
+            for line in machine_conf:
+                tokens = line.split('=')
+                key = tokens[0].strip()
+                value = tokens[1].strip()
+                if key == ONIE_PLATFORM or key == ABOOT_PLATFORM:
+                    return value
+        return None
+
+    def get_portconfig_path(self):
+        platform = self.get_platform_type()
+        if platform is None:
+            return None
+        portconfig = os.path.join(FILE_PATH, platform, self.hwsku, PORTMAP_FILE)
+        if os.path.exists(portconfig):
+            return portconfig
+        return None
 
     def get_portmap(self):
         aliases = []
         portmap = {}
         aliasmap = {}
         portspeed = {}
-        self.findfile()
-        if self.filename == '':
+        filename = self.get_portconfig_path()
+        if filename is None:
             raise Exception("Something wrong when trying to find the portmap file, either the hwsku is not available or file location is not correct")
-        with open(self.filename) as f:
+        with open(filename) as f:
             lines = f.readlines()
         alias_index = -1
         speed_index = -1
