@@ -106,6 +106,9 @@
         dest: /tmp/ports.json
       delegate_to: "{{ ptf_host }}"
 
+    - debug: msg="Defined new sonic image url is {{ new_sonic_image }}"
+      when: new_sonic_image is defined
+
     - block:
 
         - name: Save image version
@@ -114,7 +117,7 @@
           become: true
 
         - set_fact:
-            new_image_location: '/tmp/new_sonic_image.bin'
+            new_image_location: '/tmp/new_sonic_image.img'
 
         - name: Download SONiC image.
           local_action: get_url url={{ new_sonic_image }} dest={{ new_image_location }}
@@ -131,7 +134,7 @@
             - restore current image
             - reboot sonic
 
-      when: new_sonic_image is defined
+      when: new_sonic_image is defined and new_sonic_image|length > 0
 
     - include: ptf_runner.yml
       vars:
