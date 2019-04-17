@@ -45,7 +45,7 @@
       connection: switch
     
     - pause:
-        seconds: 20
+        seconds: 35
     
     - lag_facts: host={{ inventory_hostname }}
     

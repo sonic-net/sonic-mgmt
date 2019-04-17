@@ -31,9 +31,9 @@
 - name: test fanout interface (physical) flap and lacp keep correct po status follow minimum links requirement
   include: lag_minlink.yml
   vars:
-    wait_down_time: 20
+    wait_down_time: 35
 
-### Now figure out remote VM and interface info for the falpping lag member and run minlink test 
+### Now figure out remote VM and interface info for the flapping lag member and run minlink test
 - set_fact:
     peer_device: "{{vm_neighbors[flap_intf]['name']}}"
     neighbor_interface: "{{vm_neighbors[flap_intf]['port']}}"
