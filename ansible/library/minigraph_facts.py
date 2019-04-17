@@ -478,7 +478,7 @@ def parse_xml(filename, hostname):
         s100G_ports = [x for x in range(24, 40, 4)] + [x for x in range(88, 104, 4)]
 
         for i in s50G_ports:
-            alias = "etp%d" % (i / 4 + 1) + "a" if i % 4 == 0 else "b"
+            alias = "etp%d" % (i / 4 + 1) + ("a" if i % 4 == 0 else "b")
             port_alias_to_name_map[alias] = "Ethernet%d" % i
         for i in s100G_ports:
             alias = "etp%d" % (i / 4 + 1)
