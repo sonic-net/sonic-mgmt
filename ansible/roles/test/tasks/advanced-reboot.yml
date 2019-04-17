@@ -109,15 +109,26 @@
     - debug: msg="Defined new sonic image url is {{ new_sonic_image }}"
       when: new_sonic_image is defined
 
+    - set_fact:
+        stay_in_target_image: false
+      when: stay_in_target_image is not defined
+
     - block:
 
         - name: Save image version
           shell: 'sonic_installer list | grep Current | cut -f2 -d " "'
           register: current_sonic_image
           become: true
+          when: not stay_in_target_image
+
+        - name: Generate temp file name on target device
+          shell: mktemp
+          register: tempfile
+
+        - debug: msg='Setting image file name to {{ tempfile.stdout }}'
 
         - set_fact:
-            new_image_location: '/tmp/new_sonic_image.img'
+            new_image_location: tempfile.stdout
 
         - name: Download SONiC image.
           local_action: get_url url={{ new_sonic_image }} dest={{ new_image_location }}
@@ -127,14 +138,18 @@
             src: "{{ new_image_location }}"
             dest: "{{ new_image_location }}"
 
+        - name: Schedule to restore current image
+          shell: show version
+          notify:
+          - restore current image
+          - reboot sonic
+          when: not stay_in_target_image
+
         - name: Install a new SONiC image if requested
           shell: sonic_installer install -y {{ new_image_location }}
           become: true
-          notify:
-            - restore current image
-            - reboot sonic
 
-      when: new_sonic_image is defined and new_sonic_image|length > 0
+      when: new_sonic_image | default('') | length > 0
 
     - include: ptf_runner.yml
       vars:
