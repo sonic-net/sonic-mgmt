@@ -113,6 +113,10 @@
         stay_in_target_image: false
       when: stay_in_target_image is not defined
 
+    - set_fact:
+        cleanup_old_sonic_images: false
+      when: cleanup_old_sonic_images is not defined
+
     - block:
 
         - name: Save image version
@@ -137,6 +141,11 @@
           copy:
             src: "{{ new_image_location }}"
             dest: "{{ new_image_location }}"
+
+        - name: Cleanup sonic images that is not current and/or next
+          shell: sonic_installer cleanup -y
+          become: true
+          when: cleanup_old_sonic_images|bool
 
         - name: 'Setup restoring initial image {{ current_sonic_image }}'
           shell: /bin/true
