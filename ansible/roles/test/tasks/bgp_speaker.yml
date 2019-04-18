@@ -138,7 +138,7 @@
       delegate_to: "{{ptf_host}}"
 
     - pause:
-        seconds: 5
+        seconds: 15
         prompt: "make sure dynamic bgp neighbors appear"
 
     - name: Announce the routes
