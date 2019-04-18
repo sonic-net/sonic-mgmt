@@ -16,7 +16,7 @@ class ansible_host():
     def _run(self, *module_args, **complex_args):
    
         res = self.module(*module_args, **complex_args)[self.hostname]
-        if res.has_key('failed') and res['failed']:
+        if res.is_failed:
             raise Exception("run module {} failed, errmsg {}".format(self.module_name, res))
 
         return res
