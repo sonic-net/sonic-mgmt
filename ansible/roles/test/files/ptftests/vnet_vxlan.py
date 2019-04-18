@@ -23,6 +23,7 @@ from ptf.mask import Mask
 import datetime
 import subprocess
 from pprint import pprint
+from ipaddress import ip_address, ip_network
 
 class VNET(BaseTest):
     def __init__(self):
@@ -86,6 +87,17 @@ class VNET(BaseTest):
                     if 'dst_vni' in test:
                         ptest['dst_vni'] = test['dst_vni']
                     self.tests.append(ptest)
+
+    def checklocal(self, graph, test):
+        for routes in graph['vnet_local_routes']:
+            for name, rt_list in routes.items():
+                for entry in rt_list:
+                    nhtest = dict(test)
+                    if nhtest['name'] == name.split('_')[0]:
+                        nhtest['src'], nhtest['port'], nhtest['vlan'], nhtest['vni'] = self.getSrvInfo(nhtest['name'], entry['ifname'])
+                        prefix = ip_network(unicode(entry['pfx']))
+                        nhtest['src'] = str(list(prefix.hosts())[0])
+                        self.tests.append(nhtest)
 
     def getPeerTest(self, test):
         peer_vnets = []
@@ -184,6 +196,7 @@ class VNET(BaseTest):
                         test['dst_vni'] = entry['vni']
                     self.tests.append(test)
                     self.checkPeer(test)
+                    self.checklocal(graph, test)
 
         self.dut_mac = graph['dut_mac']
 

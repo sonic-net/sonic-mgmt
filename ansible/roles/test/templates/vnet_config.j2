@@ -50,6 +50,19 @@ vnet_nbr_list:
   - ifname: {{ minigraph_vlans[topo_vlan].members[0] }}
     ip: '10.10.10.102'
 
+vnet_local_routes:
+  - Vnet1_route_list:
+      - pfx: '50.1.1.0/24'
+        nh: '1.1.10.101'
+        ifname: 'Vlan2001'
+      - pfx: '50.2.2.0/24'
+        nh: '1.1.10.102'
+        ifname: 'Vlan2001'
+  - Vnet2_route_list:
+      - pfx: '60.1.1.0/24'
+        nh: '2.2.10.101'
+        ifname: 'Vlan2002'
+
 vnet_route_list:
   - Vnet1_route_list:
       - pfx: '1.1.1.10/32'
