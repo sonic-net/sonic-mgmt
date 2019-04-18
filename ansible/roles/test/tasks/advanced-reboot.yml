@@ -110,12 +110,8 @@
       when: new_sonic_image is defined
 
     - set_fact:
-        stay_in_target_image: false
-      when: stay_in_target_image is not defined
-
-    - set_fact:
-        cleanup_old_sonic_images: false
-      when: cleanup_old_sonic_images is not defined
+        stay_in_target_image:     "{{ stay_in_target_image     | default('false') | bool }}"
+        cleanup_old_sonic_images: "{{ cleanup_old_sonic_images | default('false') | bool }}"
 
     - block:
 
@@ -123,7 +119,7 @@
           shell: 'sonic_installer list | grep Current | cut -f2 -d " "'
           register: current_sonic_image
           become: true
-          when: not stay_in_target_image|bool
+          when: not stay_in_target_image
 
         - name: Generate temp file name on target device
           shell: mktemp
@@ -145,7 +141,7 @@
         - name: Cleanup sonic images that is not current and/or next
           shell: sonic_installer cleanup -y
           become: true
-          when: cleanup_old_sonic_images|bool
+          when: cleanup_old_sonic_images
 
         - name: 'Setup restoring initial image {{ current_sonic_image }}'
           shell: /bin/true
@@ -153,7 +149,7 @@
           notify:
           - restore current image
           - reboot sonic
-          when: not stay_in_target_image|bool
+          when: not stay_in_target_image
 
         - name: Installing new SONiC image
           shell: sonic_installer install -y {{ new_image_location }}
