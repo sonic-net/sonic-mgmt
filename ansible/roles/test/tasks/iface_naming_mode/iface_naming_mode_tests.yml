@@ -30,9 +30,6 @@
     - name: Test show interface status, counter,description,summary output  in {{mode}}  mode
       include: "roles/test/tasks/iface_naming_mode/show_interface.yml"
 
-    - name: Test config interface <Interface> in {{mode}} mode 
-      include: "roles/test/tasks/iface_naming_mode/interface_config.yml"
-
   become_user: '{{uname1}}'
   become: yes
 
@@ -46,6 +43,19 @@
 
   - name: Test show ip/ipv6 route in {{mode}}  mode
     include: "roles/test/tasks/iface_naming_mode/show_ip_route.yml"
+
+  - name: Test config interface <Interface> in {{mode}} mode
+    include: "roles/test/tasks/iface_naming_mode/interface_config.yml"
+
+  - name: Test show lldp in {{mode}}  mode
+    include: "roles/test/tasks/iface_naming_mode/show_lldp.yml"
+
+  - name: show ndp in {{mode}} mode
+    include: "roles/test/tasks/iface_naming_mode/show_ndp.yml"
+
+  - name: show ndp in {{mode}} mode
+    include: "roles/test/tasks/iface_naming_mode/show_priority_group.yml"
+
 
   when: testbed_type in ['t1']
   become_user: '{{uname1}}'

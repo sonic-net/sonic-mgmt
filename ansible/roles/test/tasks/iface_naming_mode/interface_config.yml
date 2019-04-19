@@ -8,6 +8,40 @@
 
 - block: 
 
+    - name: config  interface {{intf}}  ip  remove in  {{mode}} mode
+      shell: sudo config interface ip remove  {{intf}} 10.0.0.0/31
+      failed_when: out.rc != 0
+
+    - pause: seconds=3
+
+    - name:  Get  show ip interface after rmeoving ip address
+      shell: show ip interface
+      register: show_ip_intf
+
+    - debug: var=show_ip_intf.stdout_lines
+
+    - name: Check  whether the ip is removed in {{mode}} mode
+      assert:
+        that:
+          - not ( show_ip_intf.stdout | search("{{intf}}\s+10.0.0.0/31"))
+
+    - name: config  interface {{intf}}  ip  add in  {{mode}} mode
+      shell: sudo config interface ip add  {{intf}} 10.0.0.0/31
+      failed_when: out.rc != 0
+
+    - pause: seconds=3
+
+    - name:  Get  show ip interface in after adding ip address
+      shell: show ip interface
+      register: show_ip_intf
+
+    - debug: var=show_ip_intf.stdout_lines
+
+    - name: Check  whether the ip is removed in {{mode}} mode
+      assert:
+        that:
+          -  show_ip_intf.stdout | search("{{intf}}\s+10.0.0.0/31")
+
     - name: shutdown the interface {{intf}} in {{mode}} mode 
       shell: sudo config interface shutdown {{intf}}
       register: out
