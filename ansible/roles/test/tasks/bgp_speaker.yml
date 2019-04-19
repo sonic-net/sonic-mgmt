@@ -118,6 +118,7 @@
       template: src=roles/test/templates/exabgp/start.j2 dest={{exabgp_dir}}/{{item.file_name}} mode=u+rwx
       with_items:
         - {file_name: 'start.sh',
+           addr_family: '{{addr_family}}',
            config_file_1: 'config_1.ini',
            config_file_2: 'config_2.ini',
            config_file_3: 'config_3.ini',
