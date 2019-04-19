@@ -54,8 +54,7 @@
   when: warm_restart_docker is defined
 
 - name: reboot dut
-  shell: reboot
-  become: true
+  include: common_tasks/reboot_sonic.yml
   when: warm_restart_docker is not defined
 
 - name: check async_ptf status
