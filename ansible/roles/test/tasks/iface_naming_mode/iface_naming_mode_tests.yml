@@ -27,8 +27,6 @@
     - name: Test show queue counters output in {{mode}} mode 
       include: "roles/test/tasks/iface_naming_mode/show_queue_counters.yml"
 
-    - name: Test show interface status, counter,description,summary output  in {{mode}}  mode
-      include: "roles/test/tasks/iface_naming_mode/show_interface.yml"
 
   become_user: '{{uname1}}'
   become: yes
@@ -46,6 +44,9 @@
 
   - name: Test config interface <Interface> in {{mode}} mode
     include: "roles/test/tasks/iface_naming_mode/interface_config.yml"
+
+  - name: Test show interface status, counter,description,summary output  in {{mode}}  mode
+    include: "roles/test/tasks/iface_naming_mode/show_interface.yml"
 
   - name: Test show lldp in {{mode}}  mode
     include: "roles/test/tasks/iface_naming_mode/show_lldp.yml"

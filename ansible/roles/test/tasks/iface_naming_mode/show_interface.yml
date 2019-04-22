@@ -1,5 +1,46 @@
 - block:
 
+  - name:  Get  show ip interface
+    shell: show ip interface
+    register: show_ip_intf
+
+  - debug: var=show_ip_intf
+
+  - name: Check intf name and ip address in show ip interface output in alias  mode
+    assert:
+      that:
+        -  show_ip_intf.stdout | search("{{port_name_map[item['attachto']]}}\s+{{item['addr']}}")
+    with_items: minigraph_interfaces
+    when:  item.addr|ipv4 and mode=='alias'
+
+  - name: Check intf name and ip address in show ip interface output in  default  mode
+    assert:
+      that:
+        -  show_ip_intf.stdout | search("{{item['attachto']}}\s+{{item['addr']}}")
+    with_items: minigraph_interfaces
+    when:  item.addr|ipv4 and mode=='default'
+
+  - name:  Get  show ipv6 interface output
+    shell: show ipv6 interface
+    register: show_ipv6_intf
+
+  - debug: var=show_ipv6_intf
+
+  - name: Check intf name and ipv6 address in show ip interface output in alias  mode
+    assert:
+      that:
+        -  show_ipv6_intf.stdout | search("{{port_name_map[item['attachto']]}}\s+{{item['addr']}}")
+    with_items: minigraph_interfaces
+    when:  item.addr|ipv6 and mode=='alias'
+
+  - name: Check intf name and ip address in show ip interface output in default  mode
+    assert:
+      that:
+        -  show_ipv6_intf.stdout | search("{{item['attachto']}}\s+{{item['addr']}}")
+    with_items: minigraph_interfaces
+    when:  item.addr|ipv6 and mode=='default'
+
+
   # show interface status 
   - name: show interface status in {{mode}} mode 
     show_interface:  interfaces={{intf}} command='status'
