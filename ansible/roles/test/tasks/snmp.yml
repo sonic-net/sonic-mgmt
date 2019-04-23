@@ -10,11 +10,9 @@
 - block:
     - name: include snmp cpu test
       include: roles/test/tasks/snmp/cpu.yml
-      when: sonic_asic_type != "barefoot"
 
     - name: inlcude snmp physical table test
       include: roles/test/tasks/snmp/phys_table.yml
-      when: sonic_asic_type != "barefoot"
 
     - name: include snmp interfaces test
       include: roles/test/tasks/snmp/interfaces.yml
@@ -28,7 +26,6 @@
 
     - name: include snmp PSU test
       include: roles/test/tasks/snmp/psu.yml
-      when: sonic_asic_type != "barefoot"
 
     - name: include snmp lldp test
       include: roles/test/tasks/snmp/lldp.yml
