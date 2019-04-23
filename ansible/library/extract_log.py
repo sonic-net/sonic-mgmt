@@ -215,6 +215,7 @@ def combine_logs_and_save(directory, filenames, start_string, target_filename):
                         do_copy = True
                     if do_copy:
                         fp.write(line)
+        fp.flush()
 
 
 def extract_log(directory, prefixname, target_string, target_filename):
