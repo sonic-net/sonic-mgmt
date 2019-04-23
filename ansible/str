@@ -32,14 +32,19 @@ str-s6100-acs-5   ansible_host=10.64.246.66
 hwsku="Force10-S6100"
 iface_speed='40000'
 
-[sonic_nexus_3132_40]
+[sonic_nexus_3132GX_40]
 str-n3132-acs-1   ansible_host=10.3.147.204
+
+[sonic_nexus_3132GX_40:vars]
+hwsku="Nexus-3132-GX-Q32"
+iface_speed='40000'
+
+[sonic_nexus_3132GE_40]
 str-n3132-acs-2   ansible_host=10.3.147.247
 str-n3132-acs-3   ansible_host=10.3.147.251
-str-n3132-acs-4   ansible_host=10.3.147.160
 
-[sonic_nexus_3132_40:vars]
-hwsku="Nexus-3132-Q32"
+[sonic_nexus_3132GE_40:vars]
+hwsku="Nexus-3132-GE-Q32"
 iface_speed='40000'
 
 [sonic_nexus_9232_40]
@@ -156,7 +161,8 @@ sonic_mlnx_40
 sonic_dell32_40
 sonic_dell64_40
 sonic_arista_40
-sonic_nexus_3132_40
+sonic_nexus_3132GE_40
+sonic_nexus_3132GX_40
 sonic_nexus_9232_40
 sonic_arista64_100
 sonic_dell32_100
@@ -192,6 +198,7 @@ vms1-3  ansible_host=10.64.246.69
 vms1-4  ansible_host=10.64.246.70
 vms1-8  ansible_host=10.64.246.43
 vms1-9  ansible_host=10.64.246.15
+vms1-10 ansible_host=10.64.246.82
 vms2-1  ansible_host=10.64.246.24
 vms2-2  ansible_host=10.64.246.27
 vms2-3  ansible_host=10.64.246.29

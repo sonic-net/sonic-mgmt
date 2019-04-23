@@ -1048,7 +1048,7 @@
     <Devices>
       <Device i:type="LeafRouter">
         <Hostname>str-n3132-acs-3</Hostname>
-        <HwSku>Nexus-3132-Q32</HwSku>
+        <HwSku>Nexus-3132-GE-Q32</HwSku>
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
           <a:IPPrefix>10.3.147.19</a:IPPrefix>
         </ManagementAddress>
@@ -1071,5 +1071,5 @@
     <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
   </MetadataDeclaration>  
   <Hostname>str-n3132-acs-3</Hostname>
-  <HwSku>Nexus-3132-Q32</HwSku>
+  <HwSku>Nexus-3132-GE-Q32</HwSku>
 </DeviceMiniGraph>

@@ -1071,5 +1071,5 @@
     <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
   </MetadataDeclaration>  
   <Hostname>str-n3132-acs-1</Hostname>
-  <HwSku>Nexus-3132-Q32</HwSku>
+  <HwSku>Nexus-3132-GX-Q32</HwSku>
 </DeviceMiniGraph>

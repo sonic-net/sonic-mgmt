@@ -21,9 +21,9 @@
       <Device Hostname="str-a7050-acs-1" HwSku="Arista-7050QX-32S" Type="DevSonic"/>
       <Device Hostname="str-a7050-acs-2" HwSku="Arista-7050-QX32" Type="DevSonic"/>
       <Device Hostname="str-a7050-acs-3" HwSku="Arista-7050QX-32S" Type="DevSonic"/>
-      <Device Hostname="str-n3132-acs-1" HwSku="Nexus-3132-Q32" Type="DevSonic"/>
-      <Device Hostname="str-n3132-acs-2" HwSku="Nexus-3132-Q32" Type="DevSonic"/>
-      <Device Hostname="str-n3132-acs-3" HwSku="Nexus-3132-Q32" Type="DevSonic"/>
+      <Device Hostname="str-n3132-acs-1" HwSku="Nexus-3132-GX-Q32" Type="DevSonic"/>
+      <Device Hostname="str-n3132-acs-2" HwSku="Nexus-3132-GE-Q32" Type="DevSonic"/>
+      <Device Hostname="str-n3132-acs-3" HwSku="Nexus-3132-GE-Q32" Type="DevSonic"/>
       <Device Hostname="str-n9232-acs-1" HwSku="Nexus-9232-Q32" Type="DevSonic"/>
       <Device Hostname="str-n9232-acs-2" HwSku="Nexus-9232-Q32" Type="DevSonic"/>
       <Device Hostname="str-n9232-acs-3" HwSku="Nexus-9232-Q32" Type="DevSonic"/>
