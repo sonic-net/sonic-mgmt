@@ -110,6 +110,7 @@ class ReloadTest(BaseTest):
     TIMEOUT = 0.5
     VLAN_BASE_MAC_PATTERN = '72060001{:04}'
     LAG_BASE_MAC_PATTERN = '5c010203{:04}'
+    SOCKET_RECV_BUFFER_SIZE = 10 * 1024 * 1024
 
     def __init__(self):
         BaseTest.__init__(self)
@@ -338,7 +339,7 @@ class ReloadTest(BaseTest):
         self.dataplane = ptf.dataplane_instance
         for p in self.dataplane.ports.values():
             port = p.get_packet_source()
-            port.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1000000)
+            port.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self.SOCKET_RECV_BUFFER_SIZE)
 
         self.dataplane.flush()
         if config["log_dir"] != None:
@@ -609,6 +610,8 @@ class ReloadTest(BaseTest):
                 self.log("Stopping reachability state watch thread.")
                 self.watcher_is_stopped.wait(timeout = 10)  # Wait for the Watcher stopped.
 
+                self.save_sniffed_packets()
+
                 examine_start = datetime.datetime.now()
                 self.log("Packet flow examine started %s after the reboot" % str(examine_start - self.reboot_start))
                 self.examine_flow()
@@ -781,6 +784,11 @@ class ReloadTest(BaseTest):
                 break
             time.sleep(self.TIMEOUT)
 
+    def apply_filter_all_ports(self, filter_expression):
+        for p in self.dataplane.ports.values():
+            port = p.get_packet_source()
+            scapyall.attach_filter(port.socket, filter_expression)
+
     def send_in_background(self, packets_list = None, interval = None):
         """
         This method sends predefined list of packets with predefined interval.
@@ -791,12 +799,19 @@ class ReloadTest(BaseTest):
             packets_list = self.packets_list
         self.sniffer_started.wait(timeout=10)
         with self.dataplane_io_lock:
+            # While running fast data plane sender thread there are two reasons for filter to be applied
+            #  1. filter out data plane traffic which is tcp to free up the load on PTF socket (sniffer thread is using a different one)
+            #  2. during warm neighbor restoration DUT will send a lot of ARP requests which we are not interested in
+            # This is essential to get stable results
+            self.apply_filter_all_ports('not (arp and ether src {}) and not tcp'.format(self.test_params['dut_mac']))
             sender_start = datetime.datetime.now()
             self.log("Sender started at %s" % str(sender_start))
             for entry in packets_list:
                 time.sleep(interval)
                 testutils.send_packet(self, *entry)
             self.log("Sender has been running for %s" % str(datetime.datetime.now() - sender_start))
+            # Remove filter
+            self.apply_filter_all_ports('')
 
     def sniff_in_background(self, wait = None):
         """
@@ -809,7 +824,6 @@ class ReloadTest(BaseTest):
             wait = self.time_to_listen + 30
         sniffer_start = datetime.datetime.now()
         self.log("Sniffer started at %s" % str(sniffer_start))
-        filename = '/tmp/capture.pcap'
         sniff_filter = "tcp and tcp dst port 5000 and tcp src port 1234 and not icmp"
         scapy_sniffer = threading.Thread(target=self.scapy_sniff, kwargs={'wait': wait, 'sniff_filter': sniff_filter})
         scapy_sniffer.start()
@@ -818,6 +832,9 @@ class ReloadTest(BaseTest):
         scapy_sniffer.join()
         self.log("Sniffer has been running for %s" % str(datetime.datetime.now() - sniffer_start))
         self.sniffer_started.clear()
+
+    def save_sniffed_packets(self):
+        filename = '/tmp/capture.pcap'
         if self.packets:
             scapyall.wrpcap(filename, self.packets)
             self.log("Pcap file dumped to %s" % filename)
