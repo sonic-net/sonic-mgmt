@@ -94,6 +94,7 @@ class FibTest(BaseTest):
         self.balancing_range = self.test_params.get('balancing_range', self.DEFAULT_BALANCING_RANGE)
         self.balancing_test_ratio = self.test_params.get('balancing_test_ratio', self.DEFAULT_BALANCING_TEST_RATIO)
 
+        # Provide the list of all UP interfaces with index in sequence order starting from 0
         if self.test_params['testbed_type'] == 't1' or self.test_params['testbed_type'] == 't1-lag':
             self.src_ports = range(0, 32)
         if self.test_params['testbed_type'] == 't1-64-lag':
