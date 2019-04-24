@@ -633,6 +633,7 @@ def sai_thrift_read_port_counters(client,port):
     port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_UCAST_PKTS)
     counters_results=[]
     counters_results = client.sai_thrift_get_port_stats(port,port_cnt_ids,len(port_cnt_ids))
+
     queue_list=[]
     port_attr_list = client.sai_thrift_get_port_attribute(port)
     attr_list = port_attr_list.attr_list
@@ -651,6 +652,43 @@ def sai_thrift_read_port_counters(client,port):
             queue_counters_results.append(thrift_results[0])
             queue1+=1
     return (counters_results, queue_counters_results)
+
+def sai_thrift_read_port_watermarks(client,port):
+    q_wm_ids=[]
+    q_wm_ids.append(SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES)
+
+    pg_wm_ids=[]
+    pg_wm_ids.append(SAI_INGRESS_PRIORITY_GROUP_STAT_XOFF_ROOM_WATERMARK_BYTES)
+    pg_wm_ids.append(SAI_INGRESS_PRIORITY_GROUP_STAT_SHARED_WATERMARK_BYTES)
+
+    queue_list=[]
+    pg_list=[]
+    port_attr_list = client.sai_thrift_get_port_attribute(port)
+    attr_list = port_attr_list.attr_list
+    for attribute in attr_list:
+        if attribute.id == SAI_PORT_ATTR_QOS_QUEUE_LIST:
+            for queue_id in attribute.value.objlist.object_id_list:
+                queue_list.append(queue_id)
+        elif attribute.id == SAI_PORT_ATTR_INGRESS_PRIORITY_GROUP_LIST:
+            for pg_id in attribute.value.objlist.object_id_list:
+                pg_list.append(pg_id)
+
+    thrift_results=[]
+    queue_res=[]
+    pg_shared_res=[]
+    pg_headroom_res=[]
+
+    # Only use the first 8 queues (unicast) - multicast queues are not used
+    for queue in queue_list[:8]:
+        thrift_results=client.sai_thrift_get_queue_stats(queue,q_wm_ids,len(q_wm_ids))
+        queue_res.append(thrift_results[0])
+
+    for pg in pg_list:
+        thrift_results=client.sai_thrift_get_pg_stats(pg,pg_wm_ids,len(pg_wm_ids))
+        pg_headroom_res.append(thrift_results[0])
+        pg_shared_res.append(thrift_results[1])
+
+    return (queue_res, pg_shared_res, pg_headroom_res)
 
 def sai_thrift_create_vlan_member(client, vlan_id, port_id, tagging_mode):
     vlan_member_attr_list = []

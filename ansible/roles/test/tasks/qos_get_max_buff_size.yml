@@ -113,3 +113,12 @@
 - fail:
     msg: "Unable to get the XOFF for {{target_port_name}}"
   when: "'pg_lossless' in buffer_profile and buffer_xoff.stdout == ''"
+
+
+# Get watermark polling status
+- debug:
+    msg="Get watermark counter status before the test"
+
+- name: Get watermark polling status before the test
+  shell: redis-cli -n 4 HGET "FLEX_COUNTER_TABLE|QUEUE_WATERMARK" FLEX_COUNTER_STATUS
+  register: watermark_status
