@@ -1138,28 +1138,6 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_fill_shared = int(self.test_params['pkts_num_fill_shared'])
         cell_size = int(self.test_params['cell_size'])
 
-#        buffer_headroom = int(self.test_params['buffer_headroom'])
-#        buffer_alpha = float(self.test_params['buffer_alpha'])
-#        buffer_pool_size = int(self.test_params['buffer_pool_size'])
-#        buffer_xon = 192*96*1000  #int(self.test_params['buffer_xon'])
-#        cell_size = int(self.test_params['cell_size'])
-#        num_of_pkts = int(self.test_params['num_of_pkts'])
-#        default_port_mtu = int(self.test_params['default_port_mtu'])
-#
-#        cell_size = float(cell_size)
-#        mtu_cells = math.ceil(default_port_mtu / cell_size)
-#        headroom_cells = math.ceil(buffer_headroom / cell_size)
-#        xon_cells = math.ceil(buffer_xon / cell_size)
-#        pool_cells = math.ceil(math.ceil(buffer_pool_size / cell_size) * (buffer_alpha / (buffer_alpha + 1)))
-#        buffer_max_pkts_capacity = (headroom_cells - mtu_cells + pool_cells)
-#
-#        logging.info('Cell size: %d' % cell_size)
-#        logging.info('Buffer alpha: %d' % buffer_alpha)
-#        logging.info('MTU cells: {} / {}'.format(mtu_cells, mtu_cells*cell_size))
-#        logging.info('Headroom cells: {} / {}'.format(headroom_cells, headroom_cells*cell_size))
-#        logging.info('Pool cells: {} / {}'.format(pool_cells, pool_cells*cell_size))
-#        logging.info('Buffer max cap: {} / {}'.format(buffer_max_pkts_capacity,  buffer_max_pkts_capacity*cell_size))
-
         # Prepare TCP packet data
         tos = dscp << 2
         tos |= ecn
@@ -1183,16 +1161,11 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
-            # Close DST port
-#            sai_thrift_set_port_shaper(self.client, port_list[dst_port_id], STOP_PORT_MAX_RATE)
         else:
             # Pause egress of dut xmit port
             attr_value = sai_thrift_attribute_value_t(booldata=0)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
-
-        # Clear Counters
-#        sai_thrift_clear_all_counters(self.client)
 
         # send packets
         try:
@@ -1242,8 +1215,6 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
                 attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
-                # RELEASE PORTS
-#                sai_thrift_set_port_shaper(self.client, port_list[dst_port_id], RELEASE_PORT_MAX_RATE)
             else:
                 # Resume egress of dut xmit port
                 attr_value = sai_thrift_attribute_value_t(booldata=1)
