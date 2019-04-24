@@ -153,3 +153,5 @@
   always:
     - name: clear FDB table
       command: sonic-clear fdb all
+
+  when: sonic_asic_type == 'mellanox'
