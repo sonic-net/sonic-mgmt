@@ -172,6 +172,10 @@ class ReloadTest(BaseTest):
         #    True : when one direction probe fails, don't probe another.
         #    False: when one direction probe fails, continue probe another.
         self.light_probe         = False
+        # We have two data plane traffic generators which are mutualy exclusive
+        # one is the reachability_watcher thread
+        # second is the fast send_in_background
+        self.dataplane_io_lock   = threading.Lock()
 
         return
 
@@ -598,11 +602,12 @@ class ReloadTest(BaseTest):
                 self.watching = False
 
             if self.reboot_type == 'warm-reboot':
+                self.send_and_sniff()
+
                 # Stop watching DUT
                 self.watching = False
                 self.log("Stopping reachability state watch thread.")
                 self.watcher_is_stopped.wait(timeout = 10)  # Wait for the Watcher stopped.
-                self.send_and_sniff()
 
                 examine_start = datetime.datetime.now()
                 self.log("Packet flow examine started %s after the reboot" % str(examine_start - self.reboot_start))
@@ -785,12 +790,13 @@ class ReloadTest(BaseTest):
         if not packets_list:
             packets_list = self.packets_list
         self.sniffer_started.wait(timeout=10)
-        sender_start = datetime.datetime.now()
-        self.log("Sender started at %s" % str(sender_start))
-        for entry in packets_list:
-            time.sleep(interval)
-            testutils.send_packet(self, *entry)
-        self.log("Sender has been running for %s" % str(datetime.datetime.now() - sender_start))
+        with self.dataplane_io_lock:
+            sender_start = datetime.datetime.now()
+            self.log("Sender started at %s" % str(sender_start))
+            for entry in packets_list:
+                time.sleep(interval)
+                testutils.send_packet(self, *entry)
+            self.log("Sender has been running for %s" % str(datetime.datetime.now() - sender_start))
 
     def sniff_in_background(self, wait = None):
         """
@@ -1137,16 +1143,18 @@ class ReloadTest(BaseTest):
         # changes for future analysis
         self.watcher_is_stopped.clear() # Watcher is running.
         while self.watching:
-            vlan_to_t1, t1_to_vlan = self.ping_data_plane(self.light_probe)
-            reachable              = (t1_to_vlan  > self.nr_vl_pkts * 0.7 and
-                                      vlan_to_t1  > self.nr_pc_pkts * 0.7)
-            partial                = (reachable and
-                                      (t1_to_vlan < self.nr_vl_pkts or
-                                       vlan_to_t1 < self.nr_pc_pkts))
-            flooding               = (reachable and
-                                      (t1_to_vlan  > self.nr_vl_pkts or
-                                       vlan_to_t1  > self.nr_pc_pkts))
-            self.log_asic_state_change(reachable, partial, t1_to_vlan, flooding)
+            if self.dataplane_io_lock.acquire(False):
+                vlan_to_t1, t1_to_vlan = self.ping_data_plane(self.light_probe)
+                reachable              = (t1_to_vlan  > self.nr_vl_pkts * 0.7 and
+                                        vlan_to_t1  > self.nr_pc_pkts * 0.7)
+                partial                = (reachable and
+                                        (t1_to_vlan < self.nr_vl_pkts or
+                                        vlan_to_t1 < self.nr_pc_pkts))
+                flooding               = (reachable and
+                                        (t1_to_vlan  > self.nr_vl_pkts or
+                                        vlan_to_t1  > self.nr_pc_pkts))
+                self.log_asic_state_change(reachable, partial, t1_to_vlan, flooding)
+                self.dataplane_io_lock.release()
             total_rcv_pkt_cnt      = self.pingDut()
             reachable              = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.ping_dut_pkts * 0.7
             partial                = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.ping_dut_pkts
