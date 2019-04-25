@@ -123,14 +123,14 @@
     command: config reload -y
     become: yes
 
-  - name: Wait until the PTF script completed execution
-    shell: "ps -ef | grep /usr/bin/ptf | grep -v grep"
-    register: ptf_script_state
-    retries: 60
-    until: ptf_script_state.rc == 1
-    delay: 5
+  - name: Get PID of the PTF script
+    shell: "ps -ef | grep /usr/bin/ptf | grep -v grep | awk '{print $2}'"
+    register: ptf_script_pid
     delegate_to: "{{ ptf_host }}"
-    ignore_errors: yes
+
+  - name: Wait until the PTF script completed execution
+    shell: "tail --pid={{ ptf_script_pid.stdout }} -f /dev/null"
+    delegate_to: "{{ ptf_host }}"
 
   - name: Wait some extra time to ensure that all FDB entries are in DB
     pause: seconds=10
@@ -147,11 +147,11 @@
 
   - debug: msg="{{ show_mac_output.stdout_lines }}"
 
+  - name: clear FDB table when test case pass
+    command: sonic-clear fdb all
+    when: sdk_fdb_count.stdout == show_mac_output.stdout
+
   - fail: msg="In consistent number MAC entries between SDK and DB"
     when: sdk_fdb_count.stdout != show_mac_output.stdout
-
-  always:
-    - name: clear FDB table
-      command: sonic-clear fdb all
 
   when: sonic_asic_type == 'mellanox'
