@@ -85,6 +85,7 @@ class ReleaseAllPorts(sai_base_test.ThriftInterfaceDataPlane):
         for port in sai_port_list:
             self.client.sai_thrift_set_port_attribute(port, attr)
 
+# DSCP to queue mapping
 class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)
@@ -100,10 +101,6 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         print >> sys.stderr, "dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (dst_port_mac, src_port_mac, src_port_ip, dst_port_ip)
         exp_ip_id = 101
         exp_ttl = 63
-
-        # Set receiving socket buffers to some big value
-        for p in self.dataplane.ports.values():
-            p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
 
         # Get a snapshot of counter values
         # port_results is not of our interest here
@@ -148,7 +145,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             port_results, queue_results = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
             print >> sys.stderr, map(operator.sub, queue_results, queue_results_base)
-            # According to SONiC configuration all dscp are classified to queue 0 except:
+            # According to SONiC configuration all dscp are classified to queue 1 except:
             # dscp  8 -> queue 0
             # dscp  5 -> queue 2
             # dscp  3 -> queue 3
@@ -297,7 +294,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
             else:
-                # Resume egress of dur xmit port
+                # Resume egress of dut xmit port
                 attr_value = sai_thrift_attribute_value_t(booldata=1)
                 attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
