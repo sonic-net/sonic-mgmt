@@ -1153,7 +1153,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
-        margin = 0
+        margin = 2
 
         if asic_type == 'mellanox':
             # Close DST port
@@ -1176,7 +1176,16 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             time.sleep(8)
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[src_port_id])
             print >> sys.stderr, "Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % ((pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, pg_shared_wm_res[pg])
-            assert(pg_shared_wm_res[pg] == (0 if pkts_num_fill_min else (1 * cell_size)))
+            if pkts_num_fill_min:
+                assert(pg_shared_wm_res[pg] == 0)
+            else:
+                # on t1-lag, we found vm will keep sending control
+                # packets, this will cause the watermark to be 2 * 208 bytes
+                # as all lossy packets are now mapped to single pg 0
+                # so we remove the strict equity check, and use upper bound
+                # check instead
+                assert(1 * cell_size <= pg_shared_wm_res[pg])
+                assert(pg_shared_wm_res[pg] <= margin * cell_size)
 
             # send packet batch of fixed packet numbers to fill pg shared
             # first round sends only 1 packet
@@ -1194,9 +1203,9 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt, pkts_num)
                 time.sleep(8)
                 q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[src_port_id])
-                print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size, pg_shared_wm_res[pg], (expected_wm * cell_size))
-                assert(pg_shared_wm_res[pg] <= (expected_wm * cell_size))
-                assert((expected_wm - margin) * cell_size <= pg_shared_wm_res[pg])
+                print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % (expected_wm * cell_size, pg_shared_wm_res[pg], (expected_wm + margin) * cell_size)
+                assert(pg_shared_wm_res[pg] <= (expected_wm + margin) * cell_size)
+                assert(expected_wm * cell_size <= pg_shared_wm_res[pg])
 
                 pkts_num = pkts_inc
 
@@ -1204,9 +1213,10 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             send_packet(self, src_port_id, pkt, pkts_num)
             time.sleep(8)
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[src_port_id])
-            print >> sys.stderr, "exceeded pkts num sent: %d, actual value: %d, expected watermark: %d" % (pkts_num, pg_shared_wm_res[pg], (expected_wm * cell_size))
+            print >> sys.stderr, "exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (pkts_num, (expected_wm * cell_size), pg_shared_wm_res[pg])
             assert(expected_wm == total_shared)
-            assert(pg_shared_wm_res[pg] == (expected_wm * cell_size))
+            assert(expected_wm * cell_size <= pg_shared_wm_res[pg])
+            assert(pg_shared_wm_res[pg] <= (expected_wm + margin) * cell_size)
 
         finally:
             if asic_type == 'mellanox':
@@ -1300,7 +1310,7 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 time.sleep(8)
                 q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[src_port_id])
                 print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size, pg_headroom_wm_res[pg], (expected_wm * cell_size))
-                assert(pg_headroom_wm_res[pg] <= (expected_wm * cell_size))
+                assert(pg_headroom_wm_res[pg] <= expected_wm * cell_size)
                 assert((expected_wm - margin) * cell_size <= pg_headroom_wm_res[pg])
 
                 pkts_num = pkts_inc
@@ -1311,7 +1321,7 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[src_port_id])
             print >> sys.stderr, "exceeded pkts num sent: %d, actual value: %d, expected watermark: %d" % (pkts_num, pg_headroom_wm_res[pg], (expected_wm * cell_size))
             assert(expected_wm == total_hdrm)
-            assert(pg_headroom_wm_res[pg] == (expected_wm * cell_size))
+            assert(pg_headroom_wm_res[pg] == expected_wm * cell_size)
 
         finally:
             if asic_type == 'mellanox':
@@ -1406,7 +1416,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 time.sleep(8)
                 q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
                 print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size, q_wm_res[queue], (expected_wm * cell_size))
-                assert(q_wm_res[queue] <= (expected_wm * cell_size))
+                assert(q_wm_res[queue] <= expected_wm * cell_size)
                 assert((expected_wm - margin) * cell_size <= q_wm_res[queue])
 
                 pkts_num = pkts_inc
@@ -1417,7 +1427,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
             print >> sys.stderr, "exceeded pkts num sent: %d, actual value: %d, expected watermark: %d" % (pkts_num, q_wm_res[queue], (expected_wm * cell_size))
             assert(expected_wm == total_shared)
-            assert(q_wm_res[queue] == (expected_wm * cell_size))
+            assert(q_wm_res[queue] == expected_wm * cell_size)
 
         finally:
             if asic_type == 'mellanox':

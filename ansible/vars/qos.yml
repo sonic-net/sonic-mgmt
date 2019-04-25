@@ -274,6 +274,46 @@ qos_params:
             q6_num_of_pkts: 140
             limit: 80
             pkts_num_leak_out: 48
+        wm_pg_shared_lossless:
+            dscp: 3
+            ecn: 1
+            pg: 3
+            pkts_num_leak_out: 48
+            pkts_num_fill_min: 6
+            pkts_num_trig_pfc: 4898
+            cell_size: 208
+        wm_pg_shared_lossy:
+            dscp: 1
+            ecn: 1
+            pg: 0
+            pkts_num_leak_out: 48
+            pkts_num_fill_min: 0
+            pkts_num_trig_egr_drp: 31322
+            cell_size: 208
+        wm_pg_headroom:
+            dscp: 3
+            ecn: 1
+            pg: 3
+            pkts_num_leak_out: 48
+            pkts_num_trig_pfc: 4898
+            pkts_num_trig_ingr_drp: 5164
+            cell_size: 208
+        wm_q_shared_lossless:
+            dscp: 3
+            ecn: 1
+            queue: 3
+            pkts_num_leak_out: 48
+            pkts_num_fill_min: 0
+            pkts_num_trig_ingr_drp: 5164
+            cell_size: 208
+        wm_q_shared_lossy:
+            dscp: 1
+            ecn: 1
+            queue: 1
+            pkts_num_leak_out: 48
+            pkts_num_fill_min: 8
+            pkts_num_trig_egr_drp: 31322
+            cell_size: 208
     Force10-S6100:
         xoff_1:
             dscp: 3
