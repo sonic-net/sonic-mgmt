@@ -39,13 +39,13 @@
   become: true
   when: warm_restart_docker is defined
 
-- name: set config warm_restart enable system
-  shell: config warm_restart enable system
-  become: true
+- name: set restart type
+  set_fact:
+    reboot_type: "warm-reboot"
   when: warm_restart_docker is not defined
 
 - name: wait for 10 secs
-  pause: 
+  pause:
     seconds: 10
 
 - name: restart {{ warm_restart_docker}}
@@ -54,8 +54,7 @@
   when: warm_restart_docker is defined
 
 - name: reboot dut
-  shell: reboot
-  become: true
+  include: common_tasks/reboot_sonic.yml
   when: warm_restart_docker is not defined
 
 - name: check async_ptf status
