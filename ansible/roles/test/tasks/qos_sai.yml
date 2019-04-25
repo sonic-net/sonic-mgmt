@@ -237,7 +237,7 @@
         test_params:
         - dscp='{{qp.wm_q_shared_lossless.dscp}}'
         - ecn='{{qp.wm_q_shared_lossless.ecn}}'
-        - pg='{{qp.wm_q_shared_lossless.pg}}'
+        - queue='{{qp.wm_q_shared_lossless.queue}}'
         - dst_port_id='{{dst_port_id}}'
         - dst_port_ip='{{dst_port_ip}}'
         - src_port_id='{{src_port_id}}'
@@ -262,7 +262,7 @@
         test_params:
         - dscp='{{qp.wm_q_shared_lossy.dscp}}'
         - ecn='{{qp.wm_q_shared_lossy.ecn}}'
-        - pg='{{qp.wm_q_shared_lossy.pg}}'
+        - queue='{{qp.wm_q_shared_lossy.queue}}'
         - dst_port_id='{{dst_port_id}}'
         - dst_port_ip='{{dst_port_ip}}'
         - src_port_id='{{src_port_id}}'

@@ -1336,7 +1336,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         ecn = int(self.test_params['ecn'])
         router_mac = self.test_params['router_mac']
         print >> sys.stderr, "router_mac: %s" % (router_mac)
-        pg = int(self.test_params['pg'])
+        queue = int(self.test_params['queue'])
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
@@ -1386,8 +1386,8 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_fill_min)
             time.sleep(8)
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
-            print >> sys.stderr, "Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % ((pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, q_wm_res[pg])
-            assert(q_wm_res[pg] == (0 if pkts_num_fill_min else (1 * cell_size)))
+            print >> sys.stderr, "Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % ((pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, q_wm_res[queue])
+            assert(q_wm_res[queue] == (0 if pkts_num_fill_min else (1 * cell_size)))
 
             # send packet batch of fixed packet numbers to fill queue shared
             # first round sends only 1 packet
@@ -1405,9 +1405,9 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt, pkts_num)
                 time.sleep(8)
                 q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
-                print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size, q_wm_res[pg], (expected_wm * cell_size))
-                assert(q_wm_res[pg] <= (expected_wm * cell_size))
-                assert((expected_wm - margin) * cell_size <= q_wm_res[pg])
+                print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size, q_wm_res[queue], (expected_wm * cell_size))
+                assert(q_wm_res[queue] <= (expected_wm * cell_size))
+                assert((expected_wm - margin) * cell_size <= q_wm_res[queue])
 
                 pkts_num = pkts_inc
 
@@ -1415,9 +1415,9 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             send_packet(self, src_port_id, pkt, pkts_num)
             time.sleep(8)
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
-            print >> sys.stderr, "exceeded pkts num sent: %d, actual value: %d, expected watermark: %d" % (pkts_num, q_wm_res[pg], (expected_wm * cell_size))
+            print >> sys.stderr, "exceeded pkts num sent: %d, actual value: %d, expected watermark: %d" % (pkts_num, q_wm_res[queue], (expected_wm * cell_size))
             assert(expected_wm == total_shared)
-            assert(q_wm_res[pg] == (expected_wm * cell_size))
+            assert(q_wm_res[queue] == (expected_wm * cell_size))
 
         finally:
             if asic_type == 'mellanox':
