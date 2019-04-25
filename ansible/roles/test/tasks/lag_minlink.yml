@@ -5,7 +5,7 @@
 ### Port channel interface is up after peer port is back
 
 - block:
-    - name: Shut down neighbor interface {{ neighbor_interface }} on {{ peer_device }}
+    - name: Shut down neighbor interface {{ neighbor_interface }} on {{ peer_device }} ({{ peer_host }})
       action: apswitch template=neighbor_interface_shut_single.j2
       args:
         host: "{{peer_host}}"
@@ -37,7 +37,7 @@
 
   ### always bring back port in case test error and left testbed in unknow stage
   always:
-    - name: Bring up neighbor interface {{ neighbor_interface }} on {{ peer_host }}
+    - name: Bring up neighbor interface {{ neighbor_interface }} on {{ peer_device }} ({{ peer_host }})
       action: apswitch template=neighbor_interface_no_shut_single.j2
       args:
         host: "{{peer_host}}"
