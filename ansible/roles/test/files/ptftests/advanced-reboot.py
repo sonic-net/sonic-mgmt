@@ -62,8 +62,10 @@ import Queue
 import pickle
 from operator import itemgetter
 import scapy.all as scapyall
+import itertools
 
 from arista import Arista
+
 
 class StateMachine():
     def __init__(self, init_state='init'):
@@ -106,6 +108,9 @@ class StateMachine():
 
 class ReloadTest(BaseTest):
     TIMEOUT = 0.5
+    VLAN_BASE_MAC_PATTERN = '72060001{:04}'
+    LAG_BASE_MAC_PATTERN = '5c010203{:04}'
+
     def __init__(self):
         BaseTest.__init__(self)
         self.fails = {}
@@ -114,36 +119,36 @@ class ReloadTest(BaseTest):
         self.logs_info = {}
         self.log_lock = threading.RLock()
         self.test_params = testutils.test_params_get()
-        self.check_param('verbose', False,   required = False)
-        self.check_param('dut_username', '', required = True)
-        self.check_param('dut_hostname', '', required = True)
-        self.check_param('reboot_limit_in_seconds', 30, required = False)
-        self.check_param('reboot_type', 'fast-reboot', required = False)
-        self.check_param('graceful_limit', 180, required = False)
-        self.check_param('portchannel_ports_file', '', required = True)
-        self.check_param('vlan_ports_file', '', required = True)
-        self.check_param('ports_file', '', required = True)
-        self.check_param('dut_mac', '', required = True)
-        self.check_param('dut_vlan_ip', '', required = True)
-        self.check_param('default_ip_range', '', required = True)
-        self.check_param('vlan_ip_range', '', required = True)
-        self.check_param('lo_prefix', '10.1.0.32/32', required = False)
-        self.check_param('lo_v6_prefix', 'fc00:1::/64', required = False)
-        self.check_param('arista_vms', [], required = True)
-        self.check_param('min_bgp_gr_timeout', 15, required = False)
-        self.check_param('warm_up_timeout_secs', 180, required = False)
-        self.check_param('dut_stabilize_secs', 20, required = False)
+        self.check_param('verbose', False, required=False)
+        self.check_param('dut_username', '', required=True)
+        self.check_param('dut_hostname', '', required=True)
+        self.check_param('reboot_limit_in_seconds', 30, required=False)
+        self.check_param('reboot_type', 'fast-reboot', required=False)
+        self.check_param('graceful_limit', 180, required=False)
+        self.check_param('portchannel_ports_file', '', required=True)
+        self.check_param('vlan_ports_file', '', required=True)
+        self.check_param('ports_file', '', required=True)
+        self.check_param('dut_mac', '', required=True)
+        self.check_param('dut_vlan_ip', '', required=True)
+        self.check_param('default_ip_range', '', required=True)
+        self.check_param('vlan_ip_range', '', required=True)
+        self.check_param('lo_prefix', '10.1.0.32/32', required=False)
+        self.check_param('lo_v6_prefix', 'fc00:1::/64', required=False)
+        self.check_param('arista_vms', [], required=True)
+        self.check_param('min_bgp_gr_timeout', 15, required=False)
+        self.check_param('warm_up_timeout_secs', 180, required=False)
+        self.check_param('dut_stabilize_secs', 20, required=False)
 
         self.log_file_name = '/tmp/%s.log' % self.test_params['reboot_type']
         self.log_fp = open(self.log_file_name, 'w')
 
         # Default settings
-        self.ping_dut_pkts = 10
-        self.arp_ping_pkts = 1
-        self.nr_pc_pkts = 100
-        self.nr_tests = 3
-        self.reboot_delay = 10
-        self.task_timeout = 300   # Wait up to 5 minutes for tasks to complete
+        self.ping_dut_pkts  = 10
+        self.arp_ping_pkts  = 1
+        self.nr_pc_pkts     = 100
+        self.nr_tests       = 3
+        self.reboot_delay   = 10
+        self.task_timeout   = 300   # Wait up to 5 minutes for tasks to complete
         self.max_nr_vl_pkts = 500 # FIXME: should be 1000.
                                   # But ptf is not fast enough + swss is slow for FDB and ARP entries insertions
         self.timeout_thr = None
@@ -177,9 +182,9 @@ class ReloadTest(BaseTest):
         return content
 
     def read_port_indices(self):
-        self.port_indices = self.read_json('ports_file')
+        port_indices = self.read_json('ports_file')
 
-        return
+        return port_indices
 
     def read_portchannel_ports(self):
         content = self.read_json('portchannel_ports_file')
@@ -246,11 +251,43 @@ class ReloadTest(BaseTest):
             self.timeout_thr.cancel()
             self.timeout_thr = None
 
-    def setUp(self):
-        self.read_port_indices()
-        self.portchannel_ports = self.read_portchannel_ports()
+    def generate_vlan_servers(self):
+        vlan_host_map = defaultdict(dict)
         vlan_ip_range = self.test_params['vlan_ip_range']
+
+        _, mask = vlan_ip_range.split('/')
+        n_hosts = min(2**(32 - int(mask)) - 3, self.max_nr_vl_pkts)
+
+        for counter, i in enumerate(xrange(2, n_hosts + 2)):
+            mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
+            port = self.vlan_ports[i % len(self.vlan_ports)]
+            addr = self.host_ip(vlan_ip_range, i)
+
+            vlan_host_map[port][addr] = mac
+
+        self.nr_vl_pkts = n_hosts
+
+        return vlan_host_map
+
+    def generate_arp_responder_conf(self, vlan_host_map):
+        arp_responder_conf = {}
+        for port in vlan_host_map:
+            arp_responder_conf['eth{}'.format(port)] = vlan_host_map[port]
+
+        return arp_responder_conf
+
+    def dump_arp_responder_config(self, dump):
+        # save data for arp_replay process
+        with open("/tmp/from_t1.json", "w") as fp:
+            json.dump(dump, fp)
+
+    def setUp(self):
+        self.port_indices = self.read_port_indices()
+        self.portchannel_ports = self.read_portchannel_ports()
         self.vlan_ports = self.read_vlan_ports()
+
+        self.vlan_ip_range = self.test_params['vlan_ip_range']
+        self.default_ip_range = self.test_params['default_ip_range']
 
         self.limit = datetime.timedelta(seconds=self.test_params['reboot_limit_in_seconds'])
         self.reboot_type = self.test_params['reboot_type']
@@ -258,11 +295,16 @@ class ReloadTest(BaseTest):
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
         self.dut_ssh = self.test_params['dut_username'] + '@' + self.test_params['dut_hostname']
         self.dut_mac = self.test_params['dut_mac']
-        #
-        self.generate_from_t1()
-        self.generate_from_vlan()
-        self.generate_ping_dut_lo()
-        self.generate_arp_ping_packet()
+
+        self.vlan_host_map = self.generate_vlan_servers()
+        arp_responder_conf = self.generate_arp_responder_conf(self.vlan_host_map)
+        self.dump_arp_responder_config(arp_responder_conf)
+
+        self.random_vlan           = random.choice(self.vlan_ports)
+        self.from_server_src_port  = self.random_vlan
+        self.from_server_src_addr  = random.choice(self.vlan_host_map[self.random_vlan].keys())
+        self.from_server_dst_addr  = self.random_ip(self.test_params['default_ip_range'])
+        self.from_server_dst_ports = self.portchannel_ports
 
         self.log("Test params:")
         self.log("DUT ssh: %s" % self.dut_ssh)
@@ -277,6 +319,11 @@ class ReloadTest(BaseTest):
         self.log("VMs: %s" % str(self.test_params['arista_vms']))
 
         self.log("Reboot type is %s" % self.reboot_type)
+
+        self.generate_from_t1()
+        self.generate_from_vlan()
+        self.generate_ping_dut_lo()
+        self.generate_arp_ping_packet()
 
         if self.reboot_type == 'warm-reboot':
             # Pre-generate list of packets to be sent in send_in_background method.
@@ -321,38 +368,34 @@ class ReloadTest(BaseTest):
         SIOCGIFHWADDR = 0x8927          # Get hardware address
         return ':'.join(['%02x' % ord(char) for char in self.get_if(iff, SIOCGIFHWADDR)[18:24]])
 
+    @staticmethod
+    def hex_to_mac(hex_mac):
+        return ':'.join(hex_mac[i:i+2] for i in range(0, len(hex_mac), 2))
+
     def generate_from_t1(self):
         self.from_t1 = []
 
-        vlan_ip_range = self.test_params['vlan_ip_range']
+        # for each server host create a packet destinating server IP
+        for counter, host_port in enumerate(self.vlan_host_map):
+            src_addr = self.random_ip(self.default_ip_range)
+            src_port = self.random_port(self.portchannel_ports)
 
-        _, mask = vlan_ip_range.split('/')
-        n_hosts = min(2**(32 - int(mask)) - 3, self.max_nr_vl_pkts)
+            for server_ip in self.vlan_host_map[host_port]:
+                dst_addr = server_ip
 
-        dump = defaultdict(dict)
-        counter = 0
-        for i in xrange(2, n_hosts + 2):
-            from_t1_src_addr = self.random_ip(self.test_params['default_ip_range'])
-            from_t1_src_port = self.random_port(self.portchannel_ports)
-            from_t1_dst_addr = self.host_ip(vlan_ip_range, i)
-            from_t1_dst_port = self.vlan_ports[i % len(self.vlan_ports)]
-            from_t1_if_name = "eth%d" % from_t1_dst_port
-            from_t1_if_addr = "%s/%s" % (from_t1_dst_addr, vlan_ip_range.split('/')[1])
-            vlan_mac_hex = '72060001%04x' % counter
-            lag_mac_hex = '5c010203%04x' % counter
-            mac_addr = ':'.join(lag_mac_hex[i:i+2] for i in range(0, len(lag_mac_hex), 2))
-            packet = simple_tcp_packet(
-                      eth_src=mac_addr,
-                      eth_dst=self.dut_mac,
-                      ip_src=from_t1_src_addr,
-                      ip_dst=from_t1_dst_addr,
-                      ip_ttl=255,
-                      tcp_dport=5000
-            )
-            self.from_t1.append((from_t1_src_port, str(packet)))
-            dump[from_t1_if_name][from_t1_dst_addr] = vlan_mac_hex
-            counter += 1
+                # generate source MAC address for traffic based on LAG_BASE_MAC_PATTERN
+                mac_addr = self.hex_to_mac(self.LAG_BASE_MAC_PATTERN.format(counter)) 
 
+                packet = simple_tcp_packet(eth_src=mac_addr,
+                                           eth_dst=self.dut_mac,
+                                           ip_src=src_addr,
+                                           ip_dst=dst_addr,
+                                           ip_ttl=255,
+                                           tcp_dport=5000)
+
+                self.from_t1.append((src_port, str(packet)))
+
+        # expect any packet with dport 5000
         exp_packet = simple_tcp_packet(
                       ip_src="0.0.0.0",
                       ip_dst="0.0.0.0",
@@ -365,22 +408,8 @@ class ReloadTest(BaseTest):
         self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "src")
         self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "dst")
         self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
-        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.TCP, "chksum")
+        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.TCP,"chksum")
         self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "ttl")
-
-        # save data for arp_replay process
-        with open("/tmp/from_t1.json", "w") as fp:
-            json.dump(dump, fp)
-
-        random_vlan_iface = random.choice(dump.keys())
-        self.from_server_src_port = int(random_vlan_iface.replace('eth',''))
-        self.from_server_src_addr = random.choice(dump[random_vlan_iface].keys())
-        self.from_server_dst_addr = self.random_ip(self.test_params['default_ip_range'])
-        self.from_server_dst_ports = self.portchannel_ports
-
-        self.nr_vl_pkts = n_hosts
-
-        return
 
     def generate_from_vlan(self):
         packet = simple_tcp_packet(
@@ -397,12 +426,10 @@ class ReloadTest(BaseTest):
                      )
 
         self.from_vlan_exp_packet = Mask(exp_packet)
-        self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.Ether,"src")
-        self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.Ether,"dst")
+        self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
+        self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
 
         self.from_vlan_packet = str(packet)
-
-        return
 
     def generate_ping_dut_lo(self):
         dut_lo_ipv4 = self.test_params['lo_prefix'].split('/')[0]
@@ -448,50 +475,29 @@ class ReloadTest(BaseTest):
         self.arp_resp.set_do_not_care_scapy(scapy.ARP,   'hwsrc')
         self.arp_src_port = src_port
 
-    def generate_bidirectional(self, packets_to_send = None):
+    def generate_bidirectional(self):
         """
         This method is used to pre-generate packets to be sent in background thread.
         Packets are composed into a list, and present a bidirectional flow as next:
         five packet from T1, one packet from vlan.
-        Each packet has sequential UDP Payload - to be identified later.
+        Each packet has sequential TCP Payload - to be identified later.
         """
-        if packets_to_send:
-            self.packets_to_send = packets_to_send
-            self.send_interval = self.time_to_listen / self.packets_to_send
-        else:
-            packets_to_send = self.packets_to_send
-        vlan_ip_range = self.test_params['vlan_ip_range']
-        _, mask = vlan_ip_range.split('/')
-        n_hosts = min(2**(32 - int(mask)) - 3, self.max_nr_vl_pkts)
-        counter = 0
-        self.packets_list = list()
-        for i in xrange(packets_to_send):
+
+        self.send_interval = self.time_to_listen / self.packets_to_send
+        self.packets_list = []
+        from_t1_iter = itertools.cycle(self.from_t1)
+
+        for i in xrange(self.packets_to_send):
             payload = '0' * 60 + str(i)
             if (i % 5) == 0 :   # From vlan to T1.
-                packet = simple_udp_packet(
-                    eth_dst = self.dut_mac,
-                    ip_src = self.from_server_src_addr,
-                    ip_dst = self.from_server_dst_addr,
-                    udp_sport = 1234,
-                    udp_dport = 5000,
-                    udp_payload = payload)
+                packet = scapyall.Ether(self.from_vlan_packet)
+                packet.load = payload
                 from_port = self.from_server_src_port
             else:   # From T1 to vlan.
-                from_t1_src_addr = self.random_ip(self.test_params['default_ip_range'])
-                from_t1_src_port = self.random_port(self.portchannel_ports)
-                from_t1_dst_addr = self.host_ip(vlan_ip_range, (counter%(n_hosts-2))+2)
-                lag_mac_hex = '5c010203%04x' % counter
-                mac_addr = ':'.join(lag_mac_hex[i:i+2] for i in range(0, len(lag_mac_hex), 2))
-                counter += 1
-                packet = simple_udp_packet(
-                        eth_src = mac_addr,
-                        eth_dst = self.dut_mac,
-                        ip_src = from_t1_src_addr,
-                        ip_dst = from_t1_dst_addr,
-                        ip_ttl = 255,
-                        udp_dport = 5000,
-                        udp_payload = payload)
-                from_port = from_t1_src_port
+                src_port, packet = next(from_t1_iter)
+                packet = scapyall.Ether(packet)
+                packet.load = payload
+                from_port = src_port
             self.packets_list.append((from_port, str(packet)))
 
     def runTest(self):
@@ -788,7 +794,7 @@ class ReloadTest(BaseTest):
 
     def sniff_in_background(self, wait = None):
         """
-        This function listens on all ports, in both directions, for the UDP src=1234 dst=5000 packets, until timeout.
+        This function listens on all ports, in both directions, for the TCP src=1234 dst=5000 packets, until timeout.
         Once found, all packets are dumped to local pcap file,
         and all packets are saved to self.packets as scapy type.
         The native scapy.snif() is used as a background thread, to allow delayed start for the send_in_background().
@@ -798,7 +804,7 @@ class ReloadTest(BaseTest):
         sniffer_start = datetime.datetime.now()
         self.log("Sniffer started at %s" % str(sniffer_start))
         filename = '/tmp/capture.pcap'
-        sniff_filter = "udp and udp dst port 5000 and udp src port 1234 and not icmp"
+        sniff_filter = "tcp and tcp dst port 5000 and tcp src port 1234 and not icmp"
         scapy_sniffer = threading.Thread(target=self.scapy_sniff, kwargs={'wait': wait, 'sniff_filter': sniff_filter})
         scapy_sniffer.start()
         time.sleep(2)               # Let the scapy sniff initialize completely.
@@ -831,13 +837,13 @@ class ReloadTest(BaseTest):
         self.sniff_thr.join()
         self.sender_thr.join()
 
-    def check_udp_payload(self, packet):
+    def check_tcp_payload(self, packet):
         """
         This method is used by examine_flow() method.
-        It returns True if a packet is not corrupted and has a valid UDP sequential UDP Payload, as created by generate_bidirectional() method'.
+        It returns True if a packet is not corrupted and has a valid TCP sequential TCP Payload, as created by generate_bidirectional() method'.
         """
         try:
-            int(str(packet[scapyall.UDP].payload)) in range(self.packets_to_send)
+            int(str(packet[scapyall.TCP].payload)) in range(self.packets_to_send)
             return True
         except Exception as err:
             return False
@@ -846,9 +852,9 @@ class ReloadTest(BaseTest):
         """
         This method filters packets which are unique (i.e. no floods).
         """
-        if (not int(str(packet[scapyall.UDP].payload)) in self.unique_id) and (packet[scapyall.Ether].src == self.dut_mac):
+        if (not int(str(packet[scapyall.TCP].payload)) in self.unique_id) and (packet[scapyall.Ether].src == self.dut_mac):
             # This is a unique (no flooded) received packet.
-            self.unique_id.append(int(str(packet[scapyall.UDP].payload)))
+            self.unique_id.append(int(str(packet[scapyall.TCP].payload)))
             return True
         elif packet[scapyall.Ether].dst == self.dut_mac:
             # This is a sent packet.
@@ -859,7 +865,7 @@ class ReloadTest(BaseTest):
     def examine_flow(self, filename = None):
         """
         This method examines pcap file (if given), or self.packets scapy file.
-        The method compares UDP payloads of the packets one by one (assuming all payloads are consecutive integers),
+        The method compares TCP payloads of the packets one by one (assuming all payloads are consecutive integers),
         and the losses if found - are treated as disruptions in Dataplane forwarding.
         All disruptions are saved to self.lost_packets dictionary, in format:
         disrupt_start_id = (missing_packets_count, disrupt_time, disrupt_start_timestamp, disrupt_stop_timestamp)
@@ -875,15 +881,15 @@ class ReloadTest(BaseTest):
         # Filter out packets and remove floods:
         self.unique_id = list()     # This list will contain all unique Payload ID, to filter out received floods.
         filtered_packets = [ pkt for pkt in all_packets if
-            scapyall.UDP in pkt and
+            scapyall.TCP in pkt and
             not scapyall.ICMP in pkt and
-            pkt[scapyall.UDP].sport == 1234 and
-            pkt[scapyall.UDP].dport == 5000 and
-            self.check_udp_payload(pkt) and
+            pkt[scapyall.TCP].sport == 1234 and
+            pkt[scapyall.TCP].dport == 5000 and
+            self.check_tcp_payload(pkt) and
             self.no_flood(pkt)
             ]
         # Re-arrange packets, if delayed, by Payload ID and Timestamp:
-        packets = sorted(filtered_packets, key = lambda packet: (int(str(packet[scapyall.UDP].payload)), packet.time ))
+        packets = sorted(filtered_packets, key = lambda packet: (int(str(packet[scapyall.TCP].payload)), packet.time ))
         self.lost_packets = dict()
         self.max_disrupt, self.total_disruption = 0, 0
         sent_packets = dict()
@@ -898,13 +904,13 @@ class ReloadTest(BaseTest):
             for packet in packets:
                 if packet[scapyall.Ether].dst == self.dut_mac:
                     # This is a sent packet - keep track of it as payload_id:timestamp.
-                    sent_payload = int(str(packet[scapyall.UDP].payload))
+                    sent_payload = int(str(packet[scapyall.TCP].payload))
                     sent_packets[sent_payload] = packet.time
                     continue
                 if packet[scapyall.Ether].src == self.dut_mac:
                     # This is a received packet.
                     received_time = packet.time
-                    received_payload = int(str(packet[scapyall.UDP].payload))
+                    received_payload = int(str(packet[scapyall.TCP].payload))
                     received_counter += 1
                 if not (received_payload and received_time):
                     # This is the first valid received packet.
