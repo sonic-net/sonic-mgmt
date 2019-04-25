@@ -3,10 +3,15 @@
 # flapped.
 
 - block:
-    - set_fact:
-        interface: "{{item}}"
+    - name: Set interface name and default link timeout
+      set_fact:
+        interface: "{{ item }}"
+        link_timeout: 20
 
-    - debug: msg={{interface}}
+    - name: Set Mellanox SPC-2 custom link timeout
+      set_fact:
+        link_timeout: 30
+      when: sonic_hwsku is defined and sonic_hwsku in mellanox_spc2_hwskus
 
     - set_fact:
         peer_device: "{{neighbors[interface]['peerdevice']}}"
@@ -43,7 +48,7 @@
       when: peer_type == "FanoutLeafSonic"
 
     - pause:
-        seconds: 20
+        seconds: "{{ link_timeout }}"
 
     - interface_facts: up_ports={{minigraph_ports | difference(intfs_to_exclude)}}
 
@@ -72,7 +77,7 @@
       when: peer_type == "FanoutLeafSonic"
 
     - pause:
-        seconds: 20
+        seconds: "{{ link_timeout }}"
 
     - interface_facts: up_ports={{minigraph_ports}}
 

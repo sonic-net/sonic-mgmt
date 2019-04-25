@@ -4,7 +4,9 @@ sonic_version: "v2"
 
 broadcom_hwskus: [ "Force10-S6000", "Accton-AS7712-32X", "Celestica-DX010-C32", "Seastone-DX010" ]
 
-mellanox_hwskus: [ 'ACS-MSN2700', 'Mellanox-SN2700', 'ACS-MSN2740', 'ACS-MSN2100', 'ACS-MSN2410', 'ACS-MSN2010' ]
+mellanox_spc1_hwskus: [ 'ACS-MSN2700', 'Mellanox-SN2700', 'ACS-MSN2740', 'ACS-MSN2100', 'ACS-MSN2410', 'ACS-MSN2010' ]
+mellanox_spc2_hwskus: [ 'ACS-MSN3700', 'ACS-MSN3700C' ]
+mellanox_hwskus: "{{ mellanox_spc1_hwskus + mellanox_spc2_hwskus }}"
 
 cavium_hwskus: [ "AS7512", "XP-SIM" ]
 
