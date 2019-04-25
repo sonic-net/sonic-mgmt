@@ -1350,11 +1350,6 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_trig_drp = int(self.test_params['pkts_num_trig_drp'])
         cell_size = int(self.test_params['cell_size'])
 
-#        buffer_headroom = int(self.test_params['buffer_headroom'])
-#        buffer_alpha = float(self.test_params['buffer_alpha'])
-#        buffer_pool_size = int(self.test_params['buffer_pool_size'])
-#        num_of_pkts = int(self.test_params['num_of_pkts'])
-
         # Prepare TCP packet data
         tos = dscp << 2
         tos |= ecn
@@ -1378,16 +1373,11 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
-            # Close DST port
-#            sai_thrift_set_port_shaper(self.client, port_list[dst_port_id], STOP_PORT_MAX_RATE)
         else:
             # Pause egress of dut xmit port
             attr_value = sai_thrift_attribute_value_t(booldata=0)
             attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
             self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
-
-        # Clear Counters
-#        sai_thrift_clear_all_counters(self.client)
 
         # send packets
         try:
@@ -1436,8 +1426,6 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
                 attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
-                # RELEASE PORTS
-#                sai_thrift_set_port_shaper(self.client, port_list[dst_port_id], RELEASE_PORT_MAX_RATE)
             else:
                 # Resume egress of dut xmit port
                 attr_value = sai_thrift_attribute_value_t(booldata=1)
