@@ -124,7 +124,7 @@
     become: yes
 
   - name: Get PID of the PTF script
-    shell: "ps -ef | grep /usr/bin/ptf | grep -v grep | awk '{print $2}'"
+    command: "pgrep -f '/usr/bin/python /usr/bin/ptf'"
     register: ptf_script_pid
     delegate_to: "{{ ptf_host }}"
 
