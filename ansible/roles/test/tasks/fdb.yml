@@ -136,13 +136,13 @@
     pause: seconds=10
 
   - name: Count FDB entries from SDK
-    shell: "docker exec syncd sx_api_fdb_dump.py | grep {{ dummy_mac_prefix }} | wc -l"
+    shell: "docker exec syncd sx_api_fdb_dump.py | grep AGEABLE | wc -l"
     register: sdk_fdb_count
 
   - debug: msg="{{ sdk_fdb_count.stdout_lines }}"
 
   - name: Count FDB entries from 'show mac'
-    shell: "show mac | grep {{ dummy_mac_prefix }} | wc -l"
+    shell: "show mac | grep Dynamic | wc -l"
     register: show_mac_output
 
   - debug: msg="{{ show_mac_output.stdout_lines }}"
