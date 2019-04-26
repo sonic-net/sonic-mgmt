@@ -413,7 +413,7 @@ class ReloadTest(BaseTest):
         self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "src")
         self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "dst")
         self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
-        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.TCP,"chksum")
+        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.TCP, "chksum")
         self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "ttl")
 
     def generate_from_vlan(self):
