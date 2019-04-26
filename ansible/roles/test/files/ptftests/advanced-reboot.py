@@ -510,6 +510,7 @@ class ReloadTest(BaseTest):
         no_routing_start = None
         no_routing_stop = None
         no_cp_replies = None
+        upper_replies = []
 
         arista_vms = self.test_params['arista_vms'][1:-1].split(",")
         ssh_targets = []
@@ -591,8 +592,9 @@ class ReloadTest(BaseTest):
                 except TimeoutError:
                     self.log("Data plane never stop")
                     no_routing_start = datetime.datetime.min
+                    upper_replies = [self.nr_vl_pkts]
 
-                if no_routing_start is not None:
+                if no_routing_start is not None and no_routing_start != datetime.datetime.min:
                     self.timeout(self.task_timeout, "DUT hasn't started to work for %d seconds" % self.task_timeout)
                     no_routing_stop, _ = self.check_forwarding_resume()
                     self.cancel_timeout()
@@ -690,7 +692,10 @@ class ReloadTest(BaseTest):
 
             if no_routing_stop:
                 self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
-                self.log("Reboot time was %s" % str(no_routing_stop - self.reboot_start))
+                if no_routing_stop != datetime.datetime.min:
+                    self.log("Reboot time was %s" % str(no_routing_stop - self.reboot_start))
+                else:
+                    self.log("Reboot time was minimal")
                 self.log("Expected downtime is less then %s" % self.limit)
 
             if self.reboot_type == 'fast-reboot' and no_cp_replies:
@@ -1188,6 +1193,7 @@ class ReloadTest(BaseTest):
     def pingFromServers(self):
         for i in xrange(self.nr_pc_pkts):
             testutils.send_packet(self, self.from_server_src_port, self.from_vlan_packet)
+            time.sleep(.001)
 
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.from_vlan_exp_packet, self.from_server_dst_ports, timeout=self.TIMEOUT)
 
@@ -1198,6 +1204,7 @@ class ReloadTest(BaseTest):
     def pingFromUpperTier(self):
         for entry in self.from_t1:
             testutils.send_packet(self, *entry)
+            time.sleep(.001)
 
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.from_t1_exp_packet, self.vlan_ports, timeout=self.TIMEOUT)
 
