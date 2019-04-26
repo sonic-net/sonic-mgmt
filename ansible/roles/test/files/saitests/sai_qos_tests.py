@@ -21,7 +21,8 @@ from switch import (switch_init,
                     sai_thrift_read_port_counters,
                     sai_port_list,
                     port_list,
-                    sai_thrift_read_port_watermarks)
+                    sai_thrift_read_port_watermarks,
+                    sai_thrift_read_pg_counters)
 from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
                                       sai_thrift_attribute_t)
 from switch_sai_thrift.sai_headers import (SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID,
@@ -193,15 +194,15 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         lossy_dscps = range(0, 64)
         lossy_dscps.remove(3)
         lossy_dscps.remove(4)
-        dscp_pg_map = {
-            lossy_dscps: 0,
-            [3]        : 3,
-            [4]        : 4
+        pg_dscp_map = {
+            3 : [3],
+            4 : [4],
+            0 : lossy_dscps
         }
-        print >> sys.stderr, dscp_pg_map
+        print >> sys.stderr, pg_dscp_map
 
         try:
-            for dscps, pg in dscp_pg_map.items():
+            for pg, dscps in pg_dscp_map.items():
                 pg_cntrs_base = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
 
                 # send pkts with dscps that map to the same pg
@@ -220,15 +221,16 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     print >> sys.stderr, "dscp: %d, calling send_packet" % (tos >> 2)
 
                 # validate pg counters increment by the correct pkt num
+                time.sleep(8)
                 pg_cntrs = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
+                print >> sys.stderr, pg_cntrs_base
+                print >> sys.stderr, pg_cntrs
                 print >> sys.stderr, map(operator.sub, pg_cntrs, pg_cntrs_base)
                 assert(pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
 
                 # confirm that dscp pkts are received
                 total_recv_cnt = 0
                 dscp_recv_cnt = 0
-                tos = dscps[dscp_recv_cnt] << 2
-                tos |= 1
                 while dscp_recv_cnt < len(dscps):
                     result = self.dataplane.poll(device_number=0, port_number=dst_port_id, timeout=3)
                     if isinstance(result, self.dataplane.PollFailure):
@@ -237,15 +239,14 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     total_recv_cnt += 1
 
                     # verify dscp flag
+                    tos = dscps[dscp_recv_cnt] << 2
+                    tos |= 1
                     try:
                         if (recv_pkt.payload.tos == tos) and (recv_pkt.payload.src == src_port_ip) and (recv_pkt.payload.dst == dst_port_ip) and \
                            (recv_pkt.payload.ttl == exp_ttl) and (recv_pkt.payload.id == exp_ip_id):
 
                             dscp_recv_cnt += 1
                             print >> sys.stderr, "dscp: %d, total received: %d" % (tos >> 2, total_recv_cnt)
-
-                            tos = dscps[dscp_recv_cnt] << 2
-                            tos |= 1
 
                     except AttributeError:
                         print >> sys.stderr, "dscp: %d, total received: %d, attribute error!" % (tos >> 2, total_recv_cnt)
