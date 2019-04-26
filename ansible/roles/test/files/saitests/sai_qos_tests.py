@@ -163,7 +163,96 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             assert(queue_results[QUEUE_6] == 1 + queue_results_base[QUEUE_6])
 
         finally:
-            print "END OF TEST"
+            print >> sys.stderr, "END OF TEST"
+
+# DSCP to pg mapping
+class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        switch_init(self.client)
+
+        # Parse input parameters
+        router_mac = self.test_params['router_mac']
+        print >> sys.stderr, "router_mac: %s" % (router_mac)
+
+        dst_port_id = int(self.test_params['dst_port_id'])
+        dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        src_port_id = int(self.test_params['src_port_id'])
+        src_port_ip = self.test_params['src_port_ip']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
+        print >> sys.stderr, "dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (dst_port_mac, src_port_mac, src_port_ip, dst_port_ip)
+
+        exp_ip_id = 100
+        exp_ttl = 63
+
+        # According to SONiC configuration all dscps are classified to pg 0 except:
+        # dscp  3 -> pg 3
+        # dscp  4 -> pg 4
+        # So for the 64 pkts sent the mapping should be -> 62 pg 0, 1 for pg 3, and 1 for pg 4
+        lossy_dscps = range(0, 64)
+        lossy_dscps.remove(3)
+        lossy_dscps.remove(4)
+        dscp_pg_map = {
+            lossy_dscps: 0,
+            [3]        : 3,
+            [4]        : 4
+        }
+        print >> sys.stderr, dscp_pg_map
+
+        try:
+            for dscps, pg in dscp_pg_map.items():
+                pg_cntrs_base = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
+
+                # send pkts with dscps that map to the same pg
+                for dscp in dscps:
+                    tos = (dscp << 2)
+                    tos |= 1
+                    pkt = simple_tcp_packet(pktlen=64,
+                                            eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                                            eth_src=src_port_mac,
+                                            ip_src=src_port_ip,
+                                            ip_dst=dst_port_ip,
+                                            ip_tos=tos,
+                                            ip_id=exp_ip_id,
+                                            ip_ttl=exp_ttl + 1 if router_mac != '' else exp_ttl)
+                    send_packet(self, src_port_id, pkt, 1)
+                    print >> sys.stderr, "dscp: %d, calling send_packet" % (tos >> 2)
+
+                # validate pg counters increment by the correct pkt num
+                pg_cntrs = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
+                print >> sys.stderr, map(operator.sub, pg_cntrs, pg_cntrs_base)
+                assert(pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
+
+                # confirm that dscp pkts are received
+                total_recv_cnt = 0
+                dscp_recv_cnt = 0
+                tos = dscps[dscp_recv_cnt] << 2
+                tos |= 1
+                while dscp_recv_cnt < len(dscps):
+                    result = self.dataplane.poll(device_number=0, port_number=dst_port_id, timeout=3)
+                    if isinstance(result, self.dataplane.PollFailure):
+                        self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (dst_port_id, total_recv_cnt, result.format()))
+                    recv_pkt = scapy.Ether(result.packet)
+                    total_recv_cnt += 1
+
+                    # verify dscp flag
+                    try:
+                        if (recv_pkt.payload.tos == tos) and (recv_pkt.payload.src == src_port_ip) and (recv_pkt.payload.dst == dst_port_ip) and \
+                           (recv_pkt.payload.ttl == exp_ttl) and (recv_pkt.payload.id == exp_ip_id):
+
+                            dscp_recv_cnt += 1
+                            print >> sys.stderr, "dscp: %d, total received: %d" % (tos >> 2, total_recv_cnt)
+
+                            tos = dscps[dscp_recv_cnt] << 2
+                            tos |= 1
+
+                    except AttributeError:
+                        print >> sys.stderr, "dscp: %d, total received: %d, attribute error!" % (tos >> 2, total_recv_cnt)
+                        continue
+
+        finally:
+            print >> sys.stderr, "END OF TEST"
 
 # This test is to measure the Xoff threshold, and buffer limit
 class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
