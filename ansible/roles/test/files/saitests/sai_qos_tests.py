@@ -43,6 +43,7 @@ QUEUE_3 = 3
 QUEUE_4 = 4
 QUEUE_5 = 5
 QUEUE_6 = 6
+PG_NUM  = 8
 
 # Constants
 STOP_PORT_MAX_RATE = 1
@@ -226,7 +227,11 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 print >> sys.stderr, pg_cntrs_base
                 print >> sys.stderr, pg_cntrs
                 print >> sys.stderr, map(operator.sub, pg_cntrs, pg_cntrs_base)
-                assert(pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
+                for i in range(0, PG_NUM):
+                    if i == pg:
+                        assert(pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
+                    else:
+                        assert(pg_cntrs[i] == pg_cntrs_base[i])
 
                 # confirm that dscp pkts are received
                 total_recv_cnt = 0
