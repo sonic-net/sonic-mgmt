@@ -7,7 +7,7 @@
       when: (testbed_type is not defined or ptf_host is not defined)
 
     - fail: msg="Invalid testbed_type value '{{testbed_type}}'"
-      when: testbed_type not in ['t0', 't0-64', 't0-116']
+      when: testbed_type not in testcases['bgp_speaker']['topologies']
 
     - name: Gather minigraph facts about the device
       minigraph_facts: host={{inventory_hostname}}
