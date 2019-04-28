@@ -22,7 +22,8 @@ from switch import (switch_init,
                     sai_port_list,
                     port_list,
                     sai_thrift_read_port_watermarks,
-                    sai_thrift_read_pg_counters)
+                    sai_thrift_read_pg_counters,
+                    sai_thrift_read_buffer_pool_watermark)
 from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
                                       sai_thrift_attribute_t)
 from switch_sai_thrift.sai_headers import (SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID,
@@ -1123,7 +1124,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         asic_type = self.test_params['sonic_asic_type']
 
-        # prepare tcp packet date
+        # prepare tcp packet data
         tos = dscp << 2
         tos |= ecn
         ttl = 64

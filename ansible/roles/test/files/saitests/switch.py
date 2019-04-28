@@ -712,6 +712,18 @@ def sai_thrift_read_pg_counters(client, port_id):
 
     return pg_cntrs
 
+def sai_thrift_read_buffer_pool_watermark(client, buffer_pool_id):
+    buffer_pool_wm_ids = [
+        SAI_BUFFER_POOL_STAT_WATERMARK_BYTES
+    ]
+
+    wm_vals = client.sai_thrift_get_buffer_pool_stats(buffer_pool_id, buffer_pool_wm_ids)
+    print >> sys.stderr, wm_vals
+    if not wm_vals:
+        print >> sys.stderr, "sai_thrift_read_buffer_pool_watermark returns empty list"
+        return None
+    return wm_vals[0]
+
 def sai_thrift_create_vlan_member(client, vlan_id, port_id, tagging_mode):
     vlan_member_attr_list = []
     attribute_value = sai_thrift_attribute_value_t(s32=vlan_id)
