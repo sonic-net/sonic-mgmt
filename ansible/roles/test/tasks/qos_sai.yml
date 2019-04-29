@@ -422,8 +422,8 @@
         ansible_python_interpreter: docker exec -i bgp python
 
     - name: Restore original watermark polling status
-      shell: counterpoll watermark {{watermark_status}}
-      when: watermark_status == "enable" or watermark_status == "disable"
+      shell: counterpoll watermark {{watermark_status.stdout}}
+      when: watermark_status.stdout == "enable" or watermark_status.stdout == "disable"
 
     - name: Enable Mellanox packet aging
       shell: python /root/packets_aging.py enable
