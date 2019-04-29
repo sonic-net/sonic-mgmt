@@ -178,6 +178,19 @@
     lossless_queue_max_size: "{{buffer_max_size}}"
 
 
+# Egress lossy
+- include: roles/test/tasks/qos_get_max_buff_size.yml
+  vars:
+    target_table: 'BUFFER_QUEUE'
+    target_port_name: "***{{dut_switch_ports[src_port_id|int]}}***"
+    target_pg: '0-2'
+    target_buffer_profile_type: 'egress lossy'
+
+- name: Set MAX queue size for {{dut_switch_ports[src_port_id|int]}}
+  set_fact:
+    lossy_queue_max_size: "{{buffer_max_size}}"
+
+
 # ECN/WRED
 - block:
   - name: Determine the targe queue of the WRED profile
@@ -244,4 +257,16 @@
 
 - name: Parse WRED red_max_threshold
   set_fact:
-    red_max_threshold="{{ red_max_threshold.stdout|int }}"
+    red_max_threshold="{{red_max_threshold.stdout|int}}"
+
+
+# Get watermark polling status
+- debug:
+    msg="Get watermark counter status before the test"
+
+- name: Get watermark polling status before the test
+  shell: redis-cli -n 4 HGET "FLEX_COUNTER_TABLE|QUEUE_WATERMARK" FLEX_COUNTER_STATUS
+  register: watermark_status
+
+- debug:
+    msg="Watermark polling status {{watermark_status.stdout}}"
