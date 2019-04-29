@@ -3,13 +3,10 @@
 #-----------------------------------------
 
 - block:
-  - name: Set dscp_mode for decap test for broadcom
+  - name: Set dscp_mode for decap test
     set_fact:
        dscp_mode: pipe
        ecn_mode: copy_from_outer
-    when:
-       - sonic_hwsku in broadcom_hwskus
-       - dscp_mode is not defined
 
   - name: Set dscp_mode var for decap test for mellanox
     set_fact:
@@ -17,7 +14,6 @@
        ecn_mode: standard
     when:
        - sonic_hwsku in mellanox_hwskus
-       - dscp_mode is not defined
 
   - name: Set ttl_mode var
     set_fact:
