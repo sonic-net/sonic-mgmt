@@ -1534,3 +1534,132 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 attr_value = sai_thrift_attribute_value_t(booldata=1)
                 attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
                 self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+
+# TODO: buffer pool roid should be obtained via rpc calls
+# based on the pg or queue index
+# rather than fed in as test parameters due to the lack in SAI implement
+class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        time.sleep(5)
+        switch_init(self.client)
+
+        # Parse input parameters
+        dscp = int(self.test_params['dscp'])
+        ecn = int(self.test_params['ecn'])
+        router_mac = self.test_params['router_mac']
+        print >> sys.stderr, "router_mac: %s" % (router_mac)
+        pg = self.test_params['pg']
+        queue = self.test_params['queue']
+        print >> sys.stderr, "pg: %s, queue: %s, buffer pool type: %s" % (pg, queue, 'egress' if not pg else 'ingress')
+        dst_port_id = int(self.test_params['dst_port_id'])
+        dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        src_port_id = int(self.test_params['src_port_id'])
+        src_port_ip = self.test_params['src_port_ip']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+
+        asic_type = self.test_params['sonic_asic_type']
+        pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
+        pkts_num_fill_min = int(self.test_params['pkts_num_fill_min'])
+        pkts_num_fill_shared = int(self.test_params['pkts_num_fill_shared'])
+        cell_size = int(self.test_params['cell_size'])
+
+        print >> sys.stderr, "buf_pool_roid: %s" % (self.test_params['buf_pool_roid'])
+        buf_pool_roid=int(self.test_params['buf_pool_roid'], 0)
+        print >> sys.stderr, "buf_pool_roid: 0x%lx" % (buf_pool_roid)
+
+        # Prepare TCP packet data
+        tos = dscp << 2
+        tos |= ecn
+        ttl = 64
+        default_packet_length = 64
+        pkt = simple_tcp_packet(pktlen=default_packet_length,
+                                eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                                eth_src=src_port_mac,
+                                ip_src=src_port_ip,
+                                ip_dst=dst_port_ip,
+                                ip_tos=tos,
+                                ip_ttl=ttl)
+        # Add slight tolerance in threshold characterization to consider
+        # the case that cpu puts packets in the egress queue after we pause the egress
+        # or the leak out is simply less than expected as we have occasionally observed
+        margin = 2
+
+        if asic_type == 'mellanox':
+            # Close DST port
+            sched_prof_id = sai_thrift_create_scheduler_profile(self.client, STOP_PORT_MAX_RATE)
+            attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+            self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+        else:
+            # Pause egress of dut xmit port
+            attr_value = sai_thrift_attribute_value_t(booldata=0)
+            attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
+            self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+
+        # send packets
+        try:
+            # send packets to fill min but not trek into shared pool
+            # so if min is zero, it directly treks into shared pool by 1
+            # this is the case for lossy traffic at ingress and lossless traffic at egress (on td2)
+            # Because lossy and lossless traffic use the same pool at ingress, even if
+            # lossless traffic has pg min not equal to zero, we still need to consider
+            # the impact caused by lossy traffic
+            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_fill_min)
+            time.sleep(8)
+            buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(self.client, buf_pool_roid)
+            print >> sys.stderr, "Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % ((pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, buffer_pool_wm)
+            if pkts_num_fill_min:
+                assert(buffer_pool_wm <= margin * cell_size)
+            else:
+                # on t1-lag, we found vm will keep sending control
+                # packets, this will cause the watermark to be 2 * 208 bytes
+                # as all lossy packets are now mapped to single pg 0
+                # so we remove the strict equity check, and use upper bound
+                # check instead
+                assert(1 * cell_size <= buffer_pool_wm)
+                assert(buffer_pool_wm <= margin * cell_size)
+
+            # send packet batch of fixed packet numbers to fill shared
+            # first round sends only 1 packet
+            expected_wm = 0
+            total_shared = pkts_num_fill_shared - pkts_num_fill_min
+            pkts_inc = total_shared >> 2
+            pkts_num = 1 + margin
+            while (expected_wm < total_shared):
+                expected_wm += pkts_num
+                if (expected_wm > total_shared):
+                    pkts_num -= (expected_wm - total_shared)
+                    expected_wm = total_shared
+                print >> sys.stderr, "pkts num to send: %d, total pkts: %d, shared: %d" % (pkts_num, expected_wm, total_shared)
+
+                send_packet(self, src_port_id, pkt, pkts_num)
+                time.sleep(8)
+                buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(self.client, buf_pool_roid)
+                print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % (expected_wm * cell_size, buffer_pool_wm, (expected_wm + margin) * cell_size)
+                assert(buffer_pool_wm <= (expected_wm + margin) * cell_size)
+                assert(expected_wm * cell_size <= buffer_pool_wm)
+
+                pkts_num = pkts_inc
+
+            # overflow the shared pool
+            send_packet(self, src_port_id, pkt, pkts_num)
+            time.sleep(8)
+            buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(self.client, buf_pool_roid)
+            print >> sys.stderr, "exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (pkts_num, (expected_wm * cell_size), buffer_pool_wm)
+            assert(expected_wm == total_shared)
+            assert(expected_wm * cell_size <= buffer_pool_wm)
+            assert(buffer_pool_wm <= (expected_wm + margin) * cell_size)
+
+        finally:
+            if asic_type == 'mellanox':
+                # Release port
+                sched_prof_id = sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
+                attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
+            else:
+                # Resume egress of dut xmit port
+                attr_value = sai_thrift_attribute_value_t(booldata=1)
+                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
+                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)

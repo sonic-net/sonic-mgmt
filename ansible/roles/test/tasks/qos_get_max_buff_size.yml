@@ -40,6 +40,14 @@
   when: buffer_headroom.stdout == ""
 
 
+- name: Get {{target_buffer_profile_type}} buffer pool profile for {{target_port_name}} port
+  shell: redis-cli -n 4 HGET "{{buffer_profile}}" pool
+  register: buffer_pool_id
+
+- name: Parse {{target_buffer_profile_type}} buffer pool profile name
+  set_fact:
+    buffer_pool_id="{{buffer_pool_id.stdout|replace('[','')|replace(']','')}}"
+
 - name: Get {{target_buffer_profile_type}} buffer alpha ID for {{target_port_name}} port
   shell: redis-cli -n 4 HGET "{{buffer_profile}}" dynamic_th
   register: buffer_alpha_raw
@@ -68,14 +76,6 @@
   - name: Calculate the {{target_buffer_profile_type}} alpha
     set_fact:
       buffer_alpha="{{2|pow(buffer_alpha_raw.stdout|int)}}"
-
-  - name: Get {{target_buffer_profile_type}} buffer pool profile for {{target_port_name}} port
-    shell: redis-cli -n 4 HGET "{{buffer_profile}}" pool
-    register: buffer_pool_id
-
-  - name: Parse {{target_buffer_profile_type}} buffer pool profile name
-    set_fact:
-      buffer_pool_id="{{buffer_pool_id.stdout|replace('[','')|replace(']','')}}"
 
   - name: Get {{target_buffer_profile_type}} buffer pool size for {{target_port_name}} port
     shell: redis-cli -n 4 HGET "{{buffer_pool_id}}" size
@@ -111,3 +111,36 @@
 - fail:
     msg: "Unable to get XOFF for {{target_port_name}}"
   when: "'pg_lossless' in buffer_profile and buffer_xoff.stdout == ''"
+
+
+# Get buffer pool ROID
+# This is perhaps the only useful section in this yaml play
+- set_fact:
+    buffer_pool_name="{{buffer_pool_id|replace('BUFFER_POOL|','')}}"
+
+- name: Get {{buffer_pool_name}} VOID
+  shell: redis-cli -n 2 HGET COUNTERS_BUFFER_POOL_NAME_MAP "{{buffer_pool_name}}"
+  register: buffer_pool_void
+
+- fail:
+    msg: "Unable to get VOID for {{buffer_pool_name}}"
+  when: buffer_pool_void.stdout == ""
+
+- name: Parse buffer pool VOID
+  set_fact:
+    buffer_pool_void="{{buffer_pool_void.stdout}}"
+
+- name: Get {{buffer_pool_name}} ROID
+  shell: redis-cli -n 1 HGET VIDTORID "{{buffer_pool_void}}"
+  register: buffer_pool_roid
+
+- fail:
+    msg: "Unable to get ROID for {{buffer_pool_name}}"
+  when: buffer_pool_roid.stdout == ""
+
+- name: Parse buffer pool ROID, remove 'oid:' prefix
+  set_fact:
+    buffer_pool_roid="{{buffer_pool_roid.stdout|replace('oid:','')}}"
+
+- debug:
+    msg="{{buffer_pool_name}} roid {{buffer_pool_roid}}"

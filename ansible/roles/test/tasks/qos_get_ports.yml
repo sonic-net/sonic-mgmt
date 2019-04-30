@@ -147,6 +147,10 @@
   set_fact:
     lossless_buffer_max_size: "{{buffer_headroom.stdout|int}}"
 
+- name: Set lossless ingress buffer pool ROID
+  set_fact:
+    lossless_ingr_buf_pool_roid: "{{buffer_pool_roid}}"
+
 
 # Ingress lossy
 - include: roles/test/tasks/qos_get_max_buff_size.yml
@@ -164,6 +168,10 @@
   set_fact:
     lossy_headroom_size: "{{buffer_headroom.stdout|int}}"
 
+- name: Set lossy ingress buffer pool ROID
+  set_fact:
+    lossy_ingr_buf_pool_roid: "{{buffer_pool_roid}}"
+
 
 # Egress lossless
 - include: roles/test/tasks/qos_get_max_buff_size.yml
@@ -177,6 +185,10 @@
   set_fact:
     lossless_queue_max_size: "{{buffer_max_size}}"
 
+- name: Set lossless egress buffer pool ROID
+  set_fact:
+    lossless_egr_buf_pool_roid: "{{buffer_pool_roid}}"
+
 
 # Egress lossy
 - include: roles/test/tasks/qos_get_max_buff_size.yml
@@ -189,6 +201,10 @@
 - name: Set MAX queue size for {{dut_switch_ports[src_port_id|int]}}
   set_fact:
     lossy_queue_max_size: "{{buffer_max_size}}"
+
+- name: Set lossy egress buffer pool ROID
+  set_fact:
+    lossy_egr_buf_pool_roid: "{{buffer_pool_roid}}"
 
 
 # ECN/WRED

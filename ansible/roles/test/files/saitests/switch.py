@@ -718,7 +718,6 @@ def sai_thrift_read_buffer_pool_watermark(client, buffer_pool_id):
     ]
 
     wm_vals = client.sai_thrift_get_buffer_pool_stats(buffer_pool_id, buffer_pool_wm_ids)
-    print >> sys.stderr, wm_vals
     if not wm_vals:
         print >> sys.stderr, "sai_thrift_read_buffer_pool_watermark returns empty list"
         return None
