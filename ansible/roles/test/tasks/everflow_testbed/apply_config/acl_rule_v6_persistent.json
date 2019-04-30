@@ -1,0 +1,44 @@
+{
+    "acl": {
+        "acl-sets": {
+            "acl-set": {
+                "everflowv6": {
+                    "acl-entries": {
+                        "acl-entry": {
+                            "11": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 11
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "2001:0db8:85a3:0000:0000:8a2e:0370:7334/128"
+                                    }
+                                }
+                            },
+                            "12": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 12
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "3001:0db8:85a3:0000:0000:8a2e:0370:7334/128"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

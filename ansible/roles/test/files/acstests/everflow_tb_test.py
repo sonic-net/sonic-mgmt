@@ -90,6 +90,16 @@ class EverflowTest(BaseTest):
                 ip_ttl = 64
                 )
 
+        self.base_v6_pkt = testutils.simple_tcpv6_packet(
+                eth_dst = self.router_mac,
+                eth_src = self.dataplane.get_mac(0, 0),
+                ipv6_src = "2001:0db8:85a3:0000:0000:8a2e:0370:7333/128",
+                ipv6_dst = "3001:0db8:85a3:0000:0000:8a2e:0370:7333/128",
+                tcp_sport = 0x1234,
+                tcp_dport = 0x50,
+                ipv6_hlim = 64
+                )
+
 
     def receivePacketOnPorts(self, ports=[], device_number=0):
         '''
@@ -222,6 +232,20 @@ class EverflowTest(BaseTest):
         return self.runSendReceiveTest(pkt, self.src_port, self.dst_ports)
 
 
+    @reportResults("Verify SRC IPv6 match")
+    def verifySrcIpv6(self):
+        pkt = self.base_v6_pkt.copy()
+        pkt['IPv6'].src = "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
+        return self.runSendReceiveTest(pkt, self.src_port, self.dst_ports)
+
+
+    @reportResults("Verify DST IPv6 match")
+    def verifyDstIpv6(self):
+        pkt = self.base_v6_pkt.copy()
+        pkt['IPv6'].dst = "3001:0db8:85a3:0000:0000:8a2e:0370:7334"
+        return self.runSendReceiveTest(pkt, self.src_port, self.dst_ports)
+
+
     def runEverflowTests(self):
         """
         @summary: Crete and send packet to verify each ACL rule
@@ -235,6 +259,12 @@ class EverflowTest(BaseTest):
             tests_passed += 1
 
         if self.verifyDstIp():
+            tests_passed += 1
+
+        if self.verifySrcIpv6():
+            tests_passed += 1
+
+        if self.verifyDstIpv6():
             tests_passed += 1
 
         if self.verifyL4SrcPort():

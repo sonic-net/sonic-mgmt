@@ -14,5 +14,9 @@
 - command: "config mirror_session add {{session_name}} {{session_src_ip}} {{session_dst_ip}} {{session_dscp}} {{session_ttl}} {{session_gre}} {{session_queue}}"
   become: yes
 
-- command: "acl-loader update full {{ run_dir }}/acl_rule_persistent.json --session_name={{ session_name }}"
-  become: yes
+- command: "acl-loader update full {{ run_dir  }}/acl_rule_v6_persistent.json --session_name={{ session_name  }} --table_name=EVERFLOWV6"
+    become: yes
+
+- command: "acl-loader update full {{ run_dir  }}/acl_rule_persistent.json --session_name={{ session_name  }} --table_name=EVERFLOW"
+    become: yes
+
