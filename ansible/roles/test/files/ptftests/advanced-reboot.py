@@ -539,12 +539,12 @@ class ReloadTest(BaseTest):
             self.log("Starting reachability state watch thread...")
             self.watching    = True
             self.light_probe = False
-            watcher = pool.apply_async(self.reachability_watcher)
             self.watcher_is_stopped = threading.Event() # Waiter Event for the Watcher state is stopped.
             self.watcher_is_running = threading.Event() # Waiter Event for the Watcher state is running.
             self.watcher_is_stopped.set()               # By default the Watcher is not running.
             self.watcher_is_running.clear()             # By default its required to wait for the Watcher started.
             # Give watch thread some time to wind up
+            watcher = pool.apply_async(self.reachability_watcher)
             time.sleep(5)
 
             self.log("Check that device is alive and pinging")
