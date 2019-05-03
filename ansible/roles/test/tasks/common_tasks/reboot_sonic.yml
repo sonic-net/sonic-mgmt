@@ -59,3 +59,13 @@
 
 - name: wait for 2 minute for prcesses and interfaces to be stable
   pause: seconds=120
+
+- name: Wait for warmboot-finalizer service to finish
+  become: true
+  ignore_errors: true
+  shell: systemctl is-active warmboot-finalizer.service
+  register: status
+  until: status.stdout.find('inactive') != -1
+  delay: 10
+  retries: 30
+  when: reboot_type == 'warm-reboot'
