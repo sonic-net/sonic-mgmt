@@ -558,6 +558,19 @@ qos_params:
             q6_num_of_pkts: 140
             limit: 80
             pkts_num_leak_out: 36
+        wrr_chg:
+            ecn: 1
+            q0_num_of_pkts: 80
+            q1_num_of_pkts: 80
+            q2_num_of_pkts: 80
+            q3_num_of_pkts: 300
+            q4_num_of_pkts: 300
+            q5_num_of_pkts: 80
+            q6_num_of_pkts: 80
+            limit: 80
+            pkts_num_leak_out: 36
+            lossy_weight: 8
+            lossless_weight: 30
         hdrm_pool_size:
             dscps: [3, 4]
             ecn: 1

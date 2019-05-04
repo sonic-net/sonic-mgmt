@@ -946,6 +946,32 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         port_counters_base, queue_counters_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
         # Send packets to each queue based on dscp field
+        dscp = 3
+        tos = dscp << 2
+        tos |= ecn
+        pkt = simple_tcp_packet(pktlen=default_packet_length,
+                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                    eth_src=src_port_mac,
+                    ip_src=src_port_ip,
+                    ip_dst=dst_port_ip,
+                    ip_tos=tos,
+                    ip_id=exp_ip_id,
+                    ip_ttl=64)
+        send_packet(self, src_port_id, pkt, queue_3_num_of_pkts)
+
+        dscp = 4
+        tos = dscp << 2
+        tos |= ecn
+        pkt = simple_tcp_packet(pktlen=default_packet_length,
+                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                    eth_src=src_port_mac,
+                    ip_src=src_port_ip,
+                    ip_dst=dst_port_ip,
+                    ip_tos=tos,
+                    ip_id=exp_ip_id,
+                    ip_ttl=64)
+        send_packet(self, src_port_id, pkt, queue_4_num_of_pkts)
+
         dscp = 8
         tos = dscp << 2
         tos |= ecn
@@ -984,32 +1010,6 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     ip_id=exp_ip_id,
                     ip_ttl=64)
         send_packet(self, src_port_id, pkt, queue_2_num_of_pkts)
-
-        dscp = 3
-        tos = dscp << 2
-        tos |= ecn
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
-                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
-                    eth_src=src_port_mac,
-                    ip_src=src_port_ip,
-                    ip_dst=dst_port_ip,
-                    ip_tos=tos,
-                    ip_id=exp_ip_id,
-                    ip_ttl=64)
-        send_packet(self, src_port_id, pkt, queue_3_num_of_pkts)
-
-        dscp = 4
-        tos = dscp << 2
-        tos |= ecn
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
-                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
-                    eth_src=src_port_mac,
-                    ip_src=src_port_ip,
-                    ip_dst=dst_port_ip,
-                    ip_tos=tos,
-                    ip_id=exp_ip_id,
-                    ip_ttl=64)
-        send_packet(self, src_port_id, pkt, queue_4_num_of_pkts)
 
         dscp = 46
         tos = dscp << 2

@@ -209,7 +209,7 @@
 
 # ECN/WRED
 - block:
-  - name: Determine the targe queue of the WRED profile
+  - name: Determine the target queue of the WRED profile
     set_fact:
       target_q_wred: '3'
 
@@ -286,3 +286,58 @@
 
 - debug:
     msg="Watermark polling status {{watermark_status.stdout}}"
+
+
+# Get scheduler weight
+- name: Set target lossy queue to query the lossy scheduler profile
+  set_fact:
+    target_q_sched: '0'
+
+- debug: var=target_q_sched
+
+- name: Get lossy scheduler profile for "{{dut_switch_ports[dst_port_id|int]}}"
+  shell: redis-cli -n 4 HGET "QUEUE|{{dut_switch_ports[dst_port_id|int]}}|{{target_q_sched}}" scheduler
+  register: lossy_sched_profile
+
+- fail:
+    msg: "Unable to get the lossy scheduler profile for {{dut_switch_ports[dst_port_id|int]}}"
+  when: lossy_sched_profile.stdout == ""
+
+- name: Process lossy scheduler profile name
+  set_fact:
+    lossy_sched_profile="{{lossy_sched_profile.stdout|replace('[','')|replace(']','')}}"
+
+- name: Get lossy scheduler weight for "{{dut_switch_ports[dst_port_id|int]}}"
+  shell: redis-cli -n 4 HGET "{{lossy_sched_profile}}" weight
+  register: lossy_sched_weight
+
+- fail:
+    msg: "Unable to get lossy scheduler weight for {{dut_switch_ports[dst_port_id|int]}}"
+  when: lossy_sched_weight.stdout == ""
+
+
+- name: Set target lossless queue to query the lossless scheduler profile
+  set_fact:
+    target_q_sched: '3'
+
+- debug: var=target_q_sched
+
+- name: Get lossless scheduler profile "{{dut_switch_ports[dst_port_id|int]}}"
+  shell: redis-cli -n 4 HGET "QUEUE|{{dut_switch_ports[dst_port_id|int]}}|{{target_q_sched}}" scheduler
+  register: lossless_sched_profile
+
+- fail:
+    msg: "Unable to get the lossless scheduler profile for {{dut_switch_ports[dst_port_id|int]}}"
+  when: lossless_sched_profile.stdout == ""
+
+- name: Process lossless scheduler profile name
+  set_fact:
+    lossless_sched_profile="{{lossless_sched_profile.stdout|replace('[','')|replace(']','')}}"
+
+- name: Get lossless scheduler weight for "{{dut_switch_ports[dst_port_id|int]}}"
+  shell: redis-cli -n 4 HGET "{{lossless_sched_profile}}" weight
+  register: lossless_sched_weight
+
+- fail:
+    msg: "Unable to get lossless scheduler weight for {{dut_switch_ports[dst_port_id|int]}}"
+  when: lossless_sched_weight.stdout == ""

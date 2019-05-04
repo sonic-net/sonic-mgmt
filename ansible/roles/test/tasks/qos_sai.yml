@@ -243,7 +243,7 @@
     # WRR test
     - include: qos_sai_ptf.yml
       vars:
-        test_name: WRR
+        test_name: DWRR
         test_path: sai_qos_tests.WRRtest
         test_params:
         - ecn='{{qp.wrr.ecn}}'
@@ -525,6 +525,43 @@
     - debug:
         var: out.stdout_lines
 
+    # Change lossy and lossless scheduler weights
+    - name: Change lossy scheduler weight to {{qp.wrr_chg.lossy_weight}}
+      command: redis-cli -n 4 HSET "{{lossy_sched_profile}}" weight {{qp.wrr_chg.lossy_weight}}
+
+    - name: Change lossless scheduler weight to {{qp.wrr_chg.lossless_weight}}
+      command: redis-cli -n 4 HSET "{{lossless_sched_profile}}" weight {{qp.wrr_chg.lossless_weight}}
+
+    # WRR test
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: DWRR runtime weight change
+        test_path: sai_qos_tests.WRRtest
+        test_params:
+        - ecn='{{qp.wrr_chg.ecn}}'
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - q0_num_of_pkts='{{qp.wrr_chg.q0_num_of_pkts}}'
+        - q1_num_of_pkts='{{qp.wrr_chg.q1_num_of_pkts}}'
+        - q2_num_of_pkts='{{qp.wrr_chg.q2_num_of_pkts}}'
+        - q3_num_of_pkts='{{qp.wrr_chg.q3_num_of_pkts}}'
+        - q4_num_of_pkts='{{qp.wrr_chg.q4_num_of_pkts}}'
+        - q5_num_of_pkts='{{qp.wrr_chg.q5_num_of_pkts}}'
+        - q6_num_of_pkts='{{qp.wrr_chg.q6_num_of_pkts}}'
+        - limit='{{qp.wrr_chg.limit}}'
+        - pkts_num_leak_out='{{qp.wrr_chg.pkts_num_leak_out}}'
+    - debug:
+        var: out.stdout_lines
+
+    # Restore lossy and lossless scheduler weights
+    - name: Restore lossy scheduler weight to {{lossy_sched_weight}}
+      command: redis-cli -n 4 HSET "{{lossy_sched_profile}}" weight "{{lossy_sched_weight.stdout}}"
+
+    - name: Restore lossless scheduler weight to {{lossless_sched_weight}}
+      command: redis-cli -n 4 HSET "{{lossless_sched_profile}}" weight "{{lossless_sched_weight.stdout}}"
+
   always:
     - name: Restore LLDP Daemon
       become: yes
@@ -550,6 +587,12 @@
     - name: Restore original watermark polling status
       shell: counterpoll watermark {{watermark_status.stdout}}
       when: watermark_status.stdout == "enable" or watermark_status.stdout == "disable"
+
+    - name: Restore lossy scheduler weight to {{lossy_sched_weight}}
+      command: redis-cli -n 4 HSET "{{lossy_sched_profile}}" weight "{{lossy_sched_weight.stdout}}"
+
+    - name: Restore lossless scheduler weight to {{lossless_sched_weight}}
+      command: redis-cli -n 4 HSET "{{lossless_sched_profile}}" weight "{{lossless_sched_weight.stdout}}"
 
     - name: Enable Mellanox packet aging
       shell: python /root/packets_aging.py enable
