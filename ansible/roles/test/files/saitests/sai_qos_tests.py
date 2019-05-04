@@ -13,7 +13,8 @@ import sys
 from ptf.testutils import (ptf_ports,
                            simple_arp_packet,
                            send_packet,
-                           simple_tcp_packet)
+                           simple_tcp_packet,
+                           simple_qinq_tcp_packet)
 from ptf.mask import Mask
 from switch import (switch_init,
                     sai_thrift_create_scheduler_profile,
@@ -188,7 +189,7 @@ class Dot1pToQueueMapping(sai_base_test.ThriftInterfaceDataPlane):
         print >> sys.stderr, "dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (dst_port_mac, src_port_mac, src_port_ip, dst_port_ip)
         vlan_id = int(self.test_params['vlan_id'])
 
-        exp_ip_id = 1000
+        exp_ip_id = 102
         exp_ttl = 63
 
         # According to SONiC configuration dot1ps are classified as follows:
@@ -219,20 +220,26 @@ class Dot1pToQueueMapping(sai_base_test.ThriftInterfaceDataPlane):
                 for dot1p in dot1ps:
                     # ecn marked
                     tos = 1
-                    # Note that vlan header can be stripped by the switch
-                    # To embrace this situation, write the dot1p info into the
-                    # ip_id field. An equivalent, alternative technique we can
-                    # use is to assemble a q-in-q packet
-                    pkt = simple_tcp_packet(pktlen=64,
+                    # Note that vlan tag can be stripped by a switch.
+                    # To embrace this situation, we assemble a q-in-q double-tagged packet,
+                    # and write the dot1p info into both vlan tags so that
+                    # when we receive the packet we do not need to make any assumption
+                    # on whether the outer tag is stripped by the switch or not, or
+                    # more importantly, we do not need to care about, as in the single-tagged
+                    # case, whether the payload is the vlan tag or the ip
+                    # header to determine the valid fields for receive validation
+                    # purpose. With a q-in-q packet, we are sure that the next layer of
+                    # header in either switching behavior case is still a vlan tag
+                    pkt = simple_qinq_tcp_packet(pktlen=64,
                                             eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                             eth_src=src_port_mac,
-                                            dl_vlan_enable=True,
+                                            dl_vlan_outer=vlan_id,
+                                            dl_vlan_pcp_outer=dot1p,
                                             vlan_vid=vlan_id,
                                             vlan_pcp=dot1p,
                                             ip_src=src_port_ip,
                                             ip_dst=dst_port_ip,
                                             ip_tos=tos,
-                                            ip_id=exp_ip_id + dot1p,
                                             ip_ttl=exp_ttl + 1 if router_mac != '' else exp_ttl)
                     send_packet(self, src_port_id, pkt, 1)
                     print >> sys.stderr, "dot1p: %d, calling send_packet" % (dot1p)
@@ -262,8 +269,7 @@ class Dot1pToQueueMapping(sai_base_test.ThriftInterfaceDataPlane):
                     # verify dot1p priority
                     dot1p = dot1ps[dot1p_recv_cnt]
                     try:
-                        if (recv_pkt.payload.tos == tos) and (recv_pkt.payload.src == src_port_ip) and (recv_pkt.payload.dst == dst_port_ip) and \
-                           (recv_pkt.payload.ttl == exp_ttl) and (recv_pkt.payload.id == exp_ip_id + dot1p):
+                        if (recv_pkt.payload.prio == dot1p) and (recv_pkt.payload.vlan == vlan_id):
 
                             dot1p_recv_cnt += 1
                             print >> sys.stderr, "dot1p: %d, total received: %d" % (dot1p, total_recv_cnt)
