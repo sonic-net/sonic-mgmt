@@ -226,7 +226,7 @@ class Dot1pToQueueMapping(sai_base_test.ThriftInterfaceDataPlane):
                     # when we receive the packet we do not need to make any assumption
                     # on whether the outer tag is stripped by the switch or not, or
                     # more importantly, we do not need to care about, as in the single-tagged
-                    # case, whether the payload is the vlan tag or the ip
+                    # case, whether the immediate payload is the vlan tag or the ip
                     # header to determine the valid fields for receive validation
                     # purpose. With a q-in-q packet, we are sure that the next layer of
                     # header in either switching behavior case is still a vlan tag
@@ -369,6 +369,113 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
 
                     except AttributeError:
                         print >> sys.stderr, "dscp: %d, total received: %d, attribute error!" % (tos >> 2, total_recv_cnt)
+                        continue
+
+        finally:
+            print >> sys.stderr, "END OF TEST"
+
+# DOT1P to pg mapping
+class Dot1pToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        switch_init(self.client)
+
+        # Parse input parameters
+        router_mac = self.test_params['router_mac']
+        print >> sys.stderr, "router_mac: %s" % (router_mac)
+
+        dst_port_id = int(self.test_params['dst_port_id'])
+        dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        src_port_id = int(self.test_params['src_port_id'])
+        src_port_ip = self.test_params['src_port_ip']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
+        print >> sys.stderr, "dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (dst_port_mac, src_port_mac, src_port_ip, dst_port_ip)
+        vlan_id = int(self.test_params['vlan_id'])
+
+        exp_ip_id = 103
+        exp_ttl = 63
+
+        # According to SONiC configuration dot1ps are classified as follows:
+        # dot1p 0 -> pg 0
+        # dot1p 1 -> pg 0
+        # dot1p 2 -> pg 0
+        # dot1p 3 -> pg 3
+        # dot1p 4 -> pg 4
+        # dot1p 5 -> pg 0
+        # dot1p 6 -> pg 0
+        # dot1p 7 -> pg 0
+        pg_dot1p_map = {
+            0 : [0, 1, 2, 5, 6, 7],
+            3 : [3],
+            4 : [4]
+        }
+        print >> sys.stderr, pg_dot1p_map
+
+        try:
+            for pg, dot1ps in pg_dot1p_map.items():
+                pg_cntrs_base = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
+
+                # send pkts with dot1ps that map to the same pg
+                for dot1p in dot1ps:
+                    # ecn marked
+                    tos = 1
+                    # Note that vlan tag can be stripped by a switch.
+                    # To embrace this situation, we assemble a q-in-q double-tagged packet,
+                    # and write the dot1p info into both vlan tags so that
+                    # when we receive the packet we do not need to make any assumption
+                    # on whether the outer tag is stripped by the switch or not, or
+                    # more importantly, we do not need to care about, as in the single-tagged
+                    # case, whether the immediate payload is the vlan tag or the ip
+                    # header to determine the valid fields for receive validation
+                    # purpose. With a q-in-q packet, we are sure that the next layer of
+                    # header in either switching behavior case is still a vlan tag
+                    pkt = simple_qinq_tcp_packet(pktlen=64,
+                                            eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                                            eth_src=src_port_mac,
+                                            dl_vlan_outer=vlan_id,
+                                            dl_vlan_pcp_outer=dot1p,
+                                            vlan_vid=vlan_id,
+                                            vlan_pcp=dot1p,
+                                            ip_src=src_port_ip,
+                                            ip_dst=dst_port_ip,
+                                            ip_tos=tos,
+                                            ip_ttl=exp_ttl + 1 if router_mac != '' else exp_ttl)
+                    send_packet(self, src_port_id, pkt, 1)
+                    print >> sys.stderr, "dot1p: %d, calling send_packet" % (dot1p)
+
+                # validate pg counters increment by the correct pkt num
+                time.sleep(8)
+                pg_cntrs = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
+                print >> sys.stderr, pg_cntrs_base
+                print >> sys.stderr, pg_cntrs
+                print >> sys.stderr, map(operator.sub, pg_cntrs, pg_cntrs_base)
+                for i in range(0, PG_NUM):
+                    if i == pg:
+                        assert(pg_cntrs[pg] == pg_cntrs_base[pg] + len(dot1ps))
+                    else:
+                        assert(pg_cntrs[i] == pg_cntrs_base[i])
+
+                # confirm that dot1p pkts sent are received
+                total_recv_cnt = 0
+                dot1p_recv_cnt = 0
+                while dot1p_recv_cnt < len(dot1ps):
+                    result = self.dataplane.poll(device_number=0, port_number=dst_port_id, timeout=3)
+                    if isinstance(result, self.dataplane.PollFailure):
+                        self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (dst_port_id, total_recv_cnt, result.format()))
+                    recv_pkt = scapy.Ether(result.packet)
+                    total_recv_cnt += 1
+
+                    # verify dot1p priority
+                    dot1p = dot1ps[dot1p_recv_cnt]
+                    try:
+                        if (recv_pkt.payload.prio == dot1p) and (recv_pkt.payload.vlan == vlan_id):
+
+                            dot1p_recv_cnt += 1
+                            print >> sys.stderr, "dot1p: %d, total received: %d" % (dot1p, total_recv_cnt)
+
+                    except AttributeError:
+                        print >> sys.stderr, "dot1p: %d, total received: %d, attribute error!" % (dot1p, total_recv_cnt)
                         continue
 
         finally:
