@@ -694,7 +694,7 @@ class ReloadTest(BaseTest):
 
             if no_routing_stop:
                 self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
-                if no_routing_stop != datetime.datetime.min:
+                if not routing_always:
                     self.log("Reboot time was %s" % str(no_routing_stop - self.reboot_start))
                 else:
                     self.log("Reboot time was minimal")
