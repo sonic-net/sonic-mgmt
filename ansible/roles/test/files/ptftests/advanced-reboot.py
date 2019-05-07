@@ -511,6 +511,7 @@ class ReloadTest(BaseTest):
         no_routing_stop = None
         no_cp_replies = None
         upper_replies = []
+        routing_always = False
 
         arista_vms = self.test_params['arista_vms'][1:-1].split(",")
         ssh_targets = []
@@ -591,15 +592,16 @@ class ReloadTest(BaseTest):
                     self.log("Data plane was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
                 except TimeoutError:
                     self.log("Data plane never stop")
-                    no_routing_start = datetime.datetime.min
+                    routing_always = True
                     upper_replies = [self.nr_vl_pkts]
 
-                if no_routing_start is not None and no_routing_start != datetime.datetime.min:
+                if no_routing_start is not None:
                     self.timeout(self.task_timeout, "DUT hasn't started to work for %d seconds" % self.task_timeout)
                     no_routing_stop, _ = self.check_forwarding_resume()
                     self.cancel_timeout()
                 else:
                     no_routing_stop = datetime.datetime.min
+                    no_routing_start = datetime.datetime.min
 
                 # Stop watching DUT
                 self.watching = False
