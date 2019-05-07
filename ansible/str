@@ -106,6 +106,7 @@ str-cavium-acs-01 ansible_host=10.3.147.10
 str-7260cx3-acs-1   ansible_host=10.64.247.224 hwsku="Arista-7260CX3-D108C8"
 str-7260cx3-acs-2   ansible_host=10.64.247.10  hwsku="Arista-7260CX3-D108C8"
 str-a7170-acs-1     ansible_host=10.64.246.73 hwsku="Arista-7170-64C"
+str-7260cx3-acs-7   ansible_host=10.64.246.78 hwsku="Arista-7260CX3-C64"
 
 [sonic_arista64_100:vars]
 iface_speed='100000'
@@ -282,6 +283,7 @@ str-7060cx-32s-22  ansible_host=10.64.246.34
 str-7260cx3-fan-03  ansible_host=10.64.246.47
 str-7260cx3-fan-04  ansible_host=10.64.246.74
 str-e1031-acs-2     ansible_host=10.64.247.25 os=sonic
+str-7260cx3-acs-fan-05 ansible_host=10.64.246.76
 
 [docker_registry]
 acs-devrepo.corp.microsoft.com

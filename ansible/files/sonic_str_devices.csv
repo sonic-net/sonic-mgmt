@@ -45,6 +45,7 @@ str-a7060cx-acs-10,10.64.247.240/23,Arista-7060CX-32S-C32,DevSonic
 str-a7060cx-acs-1,10.64.247.14/23,Arista-7060CX-32S-D48C8,DevSonic
 str-7260cx3-acs-1,10.64.247.224/23,Arista-7260CX3-D108C8,DevSonic
 str-7260cx3-acs-2,10.64.247.10/23,Arista-7260CX3-D108C8,DevSonic
+str-7260cx3-acs-7,10.64.246.78/23,Arista-7260CX3-C64,DevSonic
 str-msn2700-20,10.64.247.235/23,Mellanox-SN2700-D48C8,DevSonic
 str-msn2700-22,10.64.247.236/23,Mellanox-SN2700,DevSonic
 str-z9100-acs-2,10.64.246.237/23,Force10-Z9100,DevSonic
@@ -90,6 +91,7 @@ str-7060cx-32s-21,10.64.246.32/23,Arista-7060CX-32S,FanoutLeaf
 str-7060cx-32s-22,10.64.246.34/23,Arista-7060CX-32S,FanoutLeaf
 str-7260cx3-fan-03,10.64.246.47/23,Arista-7260CX3,FanoutLeaf
 str-7260cx3-fan-04,10.64.246.74/23,Arista-7260CX3,FanoutLeaf
+str-7260cx3-acs-fan-05,10.64.246.76/23,Arista-7260CX3,FanoutLeaf
 str-acs-serv-01,10.3.147.245/23,TestServ,Server
 str-acs-serv-02,10.3.147.246/23,TestServ,Server
 str-acs-serv-03,10.3.147.244/23,TestServ,Server
