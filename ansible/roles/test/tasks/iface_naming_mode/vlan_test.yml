@@ -1,0 +1,54 @@
+- block:
+  - set_fact:
+     vlan_interface: "{{minigraph_vlans[minigraph_vlans.keys()[0]]['members'][0]}}"
+  - set_fact:
+     vlan_interface_alias: "{{port_name_map[vlan_interface]}}"
+
+  - set_fact:
+      v_intf: "{{vlan_interface_alias if (mode=='alias') else vlan_interface}}"
+
+  # show vlan
+  - name: show vlan brief output
+    shell: sudo show vlan brief
+    register: show_vlan_brief
+
+  - debug: var=show_vlan_brief
+
+  - name: check interface names of minigraph vlan 1000  are shown  as alias names
+    assert:
+      that:
+        - show_vlan_brief.stdout | search("{{port_name_map[item]}}.*untagged")
+    with_items: minigraph_vlans['Vlan1000']['members']
+    when: mode=="alias"
+
+  - name: check interface names of minigraph vlan 1000  are shown  as default names
+    assert:
+      that:
+        - show_vlan_brief.stdout | search("{{item}}.*untagged")
+    with_items: minigraph_vlans['Vlan1000']['members']
+    when: mode=="default"
+  # add vlan 
+
+  - name:  create vlan 100
+    shell: sudo config vlan add 100
+
+  - name:  Add member {{v_intf}} to vlan 100
+    shell: sudo config vlan member add 100 {{v_intf}}
+  
+  - name: show vlan config
+    shell:  sudo show vlan config | grep -w "Vlan100"
+    register: show_vlan
+
+  - debug: var=show_vlan
+
+  - name: check whether {{v_intf}} is part of vlan
+    assert: {that: "'{{v_intf}}' in '{{show_vlan.stdout}}'"}
+
+# As the ansible work in non interactive mode, it doesnt read the environmental varaiable set in bashrc file. Hence as a workaround, the variable is  extracted through check_userifmode.yml and manually set the variable 'SONIC_CLI_IFACE_MODE' to take effect.
+
+  environment:
+      SONIC_CLI_IFACE_MODE: "{{ifmode}}"
+
+  always:
+    - name: General cleanup.
+      shell: sudo config vlan del 100

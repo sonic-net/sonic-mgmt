@@ -68,6 +68,9 @@
   - name: verify show portchannel interface output in {{mode}}  mode
     include: "roles/test/tasks/iface_naming_mode/show_portchannel.yml"
 
+  - name: verify config and show vlan  output in {{mode}}  mode
+    include: "roles/test/tasks/iface_naming_mode/vlan_test.yml"
+
   become_user: '{{uname1}}'
   become: yes
   when: testbed_type in ['t0', 't0-64',  't0-64-32', 't0-116', ]
