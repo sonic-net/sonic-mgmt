@@ -43,8 +43,10 @@ PORTMAP_FILE = 'port_config.ini'
 ALLOWED_HEADER = ['name', 'lanes', 'alias', 'index', 'speed']
 
 MACHINE_CONF = '/host/machine.conf'
-ONIE_PLATFORM = 'onie_platform'
-ABOOT_PLATFORM = 'aboot_platform'
+ONIE_PLATFORM_KEY = 'onie_platform'
+ABOOT_PLATFORM_KEY = 'aboot_platform'
+
+KVM_PLATFORM = 'x86_64-kvm_x86_64-r0'
 
 class SonicPortAliasMap():
     """
@@ -56,12 +58,14 @@ class SonicPortAliasMap():
         return
 
     def get_platform_type(self):
+        if not os.path.exists(MACHINE_CONF):
+            return KVM_PLATFORM
         with open(MACHINE_CONF) as machine_conf:
             for line in machine_conf:
                 tokens = line.split('=')
                 key = tokens[0].strip()
                 value = tokens[1].strip()
-                if key == ONIE_PLATFORM or key == ABOOT_PLATFORM:
+                if key == ONIE_PLATFORM_KEY or key == ABOOT_PLATFORM_KEY:
                     return value
         return None
 
