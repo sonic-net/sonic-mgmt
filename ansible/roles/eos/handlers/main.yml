@@ -1,3 +1,12 @@
 - name: Restart the box
   command: /sbin/shutdown -r now "Ansible updates triggered"
 
+- name: Pause for reboot
+  pause: seconds=30
+
+- name: Wait for VM to come up
+  local_action: shell ansible -m ping -i veos {{ inventory_hostname }}
+  register: wait_result
+  until: wait_result.rc == 0
+  retries: 30
+  delay: 30

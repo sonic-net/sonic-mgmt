@@ -53,6 +53,8 @@
 - name: build a startup config
   template: src="{{ topo }}-{{ props.swrole }}.j2"
             dest=/mnt/flash/startup-config
-  when: configuration is defined
+  when: hostname in configuration
   notify:
     - Restart the box
+    - Pause for reboot
+    - Wait for VM to come up
