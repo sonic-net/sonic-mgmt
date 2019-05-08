@@ -51,12 +51,12 @@ sensors_checks:
       power:
       - - SMF_S6100_ON-isa-0000/PSU1 Input  Power/power1_input
           - SMF_S6100_ON-isa-0000/PSU1 Input  Power/power1_max
-        - - SMF_S6100_ON-isa-0000/PSU1 Output Power/power2_input
-          - SMF_S6100_ON-isa-0000/PSU1 Output Power/power2_max
-        - - SMF_S6100_ON-isa-0000/PSU2 Input  Power/power3_input
-          - SMF_S6100_ON-isa-0000/PSU2 Input  Power/power3_max
-        - - SMF_S6100_ON-isa-0000/PSU2 Output Power/power4_input
-          - SMF_S6100_ON-isa-0000/PSU2 Output Power/power4_max
+      - - SMF_S6100_ON-isa-0000/PSU1 Output Power/power2_input
+        - SMF_S6100_ON-isa-0000/PSU1 Output Power/power2_max
+      - - SMF_S6100_ON-isa-0000/PSU2 Input  Power/power3_input
+        - SMF_S6100_ON-isa-0000/PSU2 Input  Power/power3_max
+      - - SMF_S6100_ON-isa-0000/PSU2 Output Power/power4_input
+        - SMF_S6100_ON-isa-0000/PSU2 Output Power/power4_max
       temp:
       - - coretemp-isa-0000/Core 0/temp2_input
         - coretemp-isa-0000/Core 0/temp2_crit
