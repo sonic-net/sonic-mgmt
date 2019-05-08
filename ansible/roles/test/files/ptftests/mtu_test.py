@@ -27,16 +27,14 @@ class MtuTest(BaseTest):
     back. It also sends a jumbo frame to a route destination for verifying the 
     forwarding functionality
     
-    For the device configured with IP-MTU=9100, PHY-MTU=9114,
+    By default.For the device configured with IP-MTU=9100, PHY-MTU=9114,
      - ICMP/IP frame, the packet-len is 9114 (This includes the 14 bytes Layer 2 Ethernet header)
     '''
 
     #---------------------------------------------------------------------
     # Class variables
     #---------------------------------------------------------------------
-    DEFAULT_PACKET_LEN = 9114
     ICMP_HDR_LEN = 8
-    pktlen = DEFAULT_PACKET_LEN
 
     def __init__(self):
         '''
@@ -62,7 +60,6 @@ class MtuTest(BaseTest):
         ip_src = "10.0.0.1"
         ip_dst = "10.0.0.0"
         src_mac = self.dataplane.get_mac(0, 0)
-
         pktlen = self.pktlen
 
         pkt = simple_icmp_packet(pktlen=pktlen,
@@ -150,8 +147,6 @@ class MtuTest(BaseTest):
         @summary: Send packet(Max MTU) to test on Ping request/response and unicast IP destination.
         Expect the packet to be received from one of the expected ports
         """
-        if self.testbed_mtu != 0 :
-           self.pktlen = self.testbed_mtu          
-
+        self.pktlen = self.testbed_mtu          
         self.check_icmp_mtu()
         self.check_ip_mtu()
