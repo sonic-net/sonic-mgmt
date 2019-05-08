@@ -694,10 +694,8 @@ class ReloadTest(BaseTest):
 
             if no_routing_stop:
                 self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
-                if not routing_always:
-                    self.log("Reboot time was %s" % str(no_routing_stop - self.reboot_start))
-                else:
-                    self.log("Reboot time was minimal")
+                reboot_time = "0:00:00" if routing_always else str(no_routing_stop - self.reboot_start)
+                self.log("Reboot time was %s" % reboot_time)
                 self.log("Expected downtime is less then %s" % self.limit)
 
             if self.reboot_type == 'fast-reboot' and no_cp_replies:
