@@ -160,6 +160,9 @@ class ReloadTest(BaseTest):
         self.send_interval = 0.0035
         self.packets_to_send = min(int(self.time_to_listen / (self.send_interval + 0.0015)), 45000) # How many packets to be sent in send_in_background method 
 
+        # Thread pool for background watching operations
+        self.pool = ThreadPool(processes=3)
+
         # State watcher attributes
         self.watching            = False
         self.cpu_state           = StateMachine('init')
@@ -239,22 +242,15 @@ class ReloadTest(BaseTest):
                 print "%s : %s" % (current_time, message)
             self.log_fp.write("%s : %s\n" % (current_time, message))
 
-    def timeout(self, seconds, message):
-        def timeout_exception(self, message):
-            self.log('Timeout is reached: %s' % message)
-            self.tearDown()
-            os.kill(os.getpid(), signal.SIGINT)
-
-        if self.timeout_thr is None:
-            self.timeout_thr = threading.Timer(seconds, timeout_exception, args=(self, message))
-            self.timeout_thr.start()
-        else:
-            raise Exception("Timeout already set")
-
-    def cancel_timeout(self):
-        if self.timeout_thr is not None:
-            self.timeout_thr.cancel()
-            self.timeout_thr = None
+    def timeout(self, func, seconds, message):
+        async_res = self.pool.apply_async(func)
+        try:
+            res = async_res.get(timeout=seconds)
+        except Exception as err:
+            # TimeoutError and Exception's from func
+            # captured here
+            raise type(err)(message)
+        return res
 
     def generate_vlan_servers(self):
         vlan_host_map = defaultdict(dict)
@@ -535,30 +531,27 @@ class ReloadTest(BaseTest):
         try:
             self.fails['dut'] = set()
 
-            pool = ThreadPool(processes=3)
             self.log("Starting reachability state watch thread...")
             self.watching    = True
             self.light_probe = False
-            watcher = pool.apply_async(self.reachability_watcher)
             self.watcher_is_stopped = threading.Event() # Waiter Event for the Watcher state is stopped.
             self.watcher_is_running = threading.Event() # Waiter Event for the Watcher state is running.
             self.watcher_is_stopped.set()               # By default the Watcher is not running.
             self.watcher_is_running.clear()             # By default its required to wait for the Watcher started.
             # Give watch thread some time to wind up
+            watcher = self.pool.apply_async(self.reachability_watcher)
             time.sleep(5)
 
             self.log("Check that device is alive and pinging")
-            self.fails['dut'].add('DUT is not ready for test')
-            self.assertTrue(self.wait_dut_to_warm_up(), 'DUT is not stable')
+            self.fails['dut'].add("DUT is not ready for test")
+            self.wait_dut_to_warm_up()
             self.fails['dut'].clear()
 
             self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
             thr.start()
 
             self.log("Wait until Control plane is down")
-            self.timeout(self.task_timeout, "DUT hasn't shutdown in %d seconds" % self.task_timeout)
-            self.wait_until_cpu_port_down()
-            self.cancel_timeout()
+            self.timeout(self.wait_until_cpu_port_down, self.task_timeout, "DUT hasn't shutdown in {} seconds".format(self.task_timeout))
 
             if self.reboot_type == 'fast-reboot':
                 self.light_probe = True
@@ -568,15 +561,15 @@ class ReloadTest(BaseTest):
 
             if self.reboot_type == 'fast-reboot':
                 self.log("Check that device is still forwarding data plane traffic")
-                self.fails['dut'].add('Data plane has a forwarding problem')
-                self.assertTrue(self.check_alive(), 'DUT is not stable')
+                self.fails['dut'].add("Data plane has a forwarding problem after CPU went down")
+                self.check_alive()
                 self.fails['dut'].clear()
 
                 self.log("Wait until control plane up")
-                async_cpu_up = pool.apply_async(self.wait_until_cpu_port_up)
+                async_cpu_up = self.pool.apply_async(self.wait_until_cpu_port_up)
 
                 self.log("Wait until data plane stops")
-                async_forward_stop = pool.apply_async(self.check_forwarding_stop)
+                async_forward_stop = self.pool.apply_async(self.check_forwarding_stop)
 
                 try:
                     async_cpu_up.get(timeout=self.task_timeout)
@@ -593,9 +586,9 @@ class ReloadTest(BaseTest):
                     no_routing_start = datetime.datetime.min
 
                 if no_routing_start is not None:
-                    self.timeout(self.task_timeout, "DUT hasn't started to work for %d seconds" % self.task_timeout)
-                    no_routing_stop, _ = self.check_forwarding_resume()
-                    self.cancel_timeout()
+                    no_routing_stop, _ = self.timeout(self.check_forwarding_resume,
+                            self.task_timeout,
+                            "DUT hasn't started to work for %d seconds" % self.task_timeout)
                 else:
                     no_routing_stop = datetime.datetime.min
 
@@ -631,15 +624,16 @@ class ReloadTest(BaseTest):
             for _, q in self.ssh_jobs:
                 q.put('quit')
 
-            self.timeout(self.task_timeout, "SSH threads haven't finished for %d seconds" % self.task_timeout)
-            while any(thr.is_alive() for thr, _ in self.ssh_jobs):
-                for _, q in self.ssh_jobs:
-                    q.put('go')
-                time.sleep(self.TIMEOUT)
+            def wait_for_ssh_threads():
+                while any(thr.is_alive() for thr, _ in self.ssh_jobs):
+                    for _, q in self.ssh_jobs:
+                        q.put('go')
+                    time.sleep(self.TIMEOUT)
 
-            for thr, _ in self.ssh_jobs:
-                thr.join()
-            self.cancel_timeout()
+                for thr, _ in self.ssh_jobs:
+                    thr.join()
+
+            self.timeout(wait_for_ssh_threads, self.task_timeout, "SSH threads haven't finished for %d seconds" % self.task_timeout)
 
             self.log("Data plane works again. Start time: %s" % str(no_routing_stop))
             self.log("")
@@ -654,7 +648,8 @@ class ReloadTest(BaseTest):
                 self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
             if self.reboot_type == 'fast-reboot' and no_cp_replies < 0.95 * self.nr_vl_pkts:
                 self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (no_cp_replies, self.nr_vl_pkts))
-
+        except Exception as e:
+            self.fails['dut'].add(e)
         finally:
             # Stop watching DUT
             self.watching = False
@@ -1010,6 +1005,8 @@ class ReloadTest(BaseTest):
         # up towards PTF docker. In practice, I've seen this warm up taking
         # up to ~70 seconds.
 
+        fail = None
+
         dut_stabilize_secs   = int(self.test_params['dut_stabilize_secs'])
         warm_up_timeout_secs = int(self.test_params['warm_up_timeout_secs'])
 
@@ -1023,8 +1020,7 @@ class ReloadTest(BaseTest):
             if dataplane == 'up' and ctrlplane == 'up' and elapsed > dut_stabilize_secs:
                 break;
             if elapsed > warm_up_timeout_secs:
-                # Control plane didn't come up within warm up timeout
-                return False
+                raise Exception("Control plane didn't come up within warm up timeout")
             time.sleep(1)
 
         # check until flooding is over. Flooding happens when FDB entry of
@@ -1036,26 +1032,28 @@ class ReloadTest(BaseTest):
             if not self.asic_state.is_flooding() and elapsed > dut_stabilize_secs:
                 break
             if elapsed > warm_up_timeout_secs:
-                # Control plane didn't stop flooding within warm up timeout
-                return False
+                raise Exception("Data plane didn't stop flooding within warm up timeout")
             time.sleep(1)
 
         dataplane = self.asic_state.get()
         ctrlplane = self.cpu_state.get()
-        if not dataplane == 'up' or not ctrlplane == 'up':
-            # Either control or data plane went down while we were waiting
-            # for the flooding to stop.
-            return False
+        if not dataplane == 'up':
+            fail = "Data plane"
+        elif not ctrlplane == 'up':
+            fail = "Control plane"
 
-        if (self.asic_state.get_state_time('up') > uptime or
-            self.cpu_state.get_state_time('up')  > uptime):
-           # Either control plane or data plane flapped while we were
-           # waiting for the warm up.
-           return False
+        if fail is not None:
+            raise Exception("{} went down while waiting for flooding to stop".format(fail))
+
+        if self.asic_state.get_state_time('up') > uptime:
+            fail = "Data plane"
+        elif self.cpu_state.get_state_time('up')  > uptime:
+            fail = "Control plane"
+
+        if fail is not None:
+           raise Exception("{} flapped while waiting for the warm up".format(fail))
 
         # Everything is good
-        return True
-
 
     def check_alive(self):
         # This function checks that DUT routes the packets in the both directions.
@@ -1077,16 +1075,17 @@ class ReloadTest(BaseTest):
                     uptime = self.asic_state.get_state_time(state)
             else:
                 if uptime:
-                    return False # Stopped working after it working for sometime?
+                    raise Exception("Data plane stopped working")
             time.sleep(2)
 
         # wait, until FDB entries are populated
         for _ in range(self.nr_tests * 10): # wait for some time
-            if not self.asic_state.is_flooding():
-                return True
-            time.sleep(2)
+            if self.asic_state.is_flooding():
+                time.sleep(2)
+            else:
+                break
 
-        return False                        # we still see extra replies
+        raise Exception("DUT is flooding")
 
 
     def get_asic_vlan_reachability(self):
