@@ -5,6 +5,7 @@ import ptf.testutils as testutils
 from ptf.testutils import *
 from ptf.dataplane import match_exp_pkt
 import datetime
+import _strptime  # workaround python bug ref: https://stackoverflow.com/a/22476843/2514803
 import time
 import subprocess
 from ptf.mask import Mask
