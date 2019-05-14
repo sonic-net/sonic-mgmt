@@ -1,5 +1,29 @@
 - block:
 
+  # show interface neighbor expectd
+
+  - name:    show  interface  neighbor exepcted in {{mode}} mode
+    shell:  show interfaces neighbor expected
+    register: show_int_neighbor
+
+  - debug: var=show_int_neighbor
+
+  - name: Check  show interfaces neighbor expected in alias  mode
+    assert:
+      that:
+        -  show_int_neighbor.stdout | search("{{port_name_map[item]}}\s+{{minigraph_neighbors[item]['name']}}")
+    with_items: minigraph_neighbors
+    when:  mode=='alias'
+
+  - name: Check  show interfaces neighbor expected in default  mode
+    assert:
+      that:
+        -  show_int_neighbor.stdout | search("{{item}}\s+{{minigraph_neighbors[item]['name']}}")
+    with_items: minigraph_neighbors
+    when:  mode=='default'
+
+  # show ip interfaces
+
   - name:  Get  show ip interface
     shell: show ip interface
     register: show_ip_intf
