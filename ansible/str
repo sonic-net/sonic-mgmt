@@ -214,6 +214,7 @@ vms6-1  ansible_host=10.64.247.6
 vms6-2  ansible_host=10.64.247.18
 vms6-3  ansible_host=10.64.247.19
 vms6-4  ansible_host=10.64.247.20
+vms7-1  ansible_host=10.64.246.80
 vms7-5  ansible_host=10.64.247.16
 vms7-6  ansible_host=10.64.247.8
 vms7-7  ansible_host=10.64.247.17
