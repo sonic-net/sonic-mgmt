@@ -228,7 +228,7 @@ class Vxlan(BaseTest):
 
         for i in xrange(self.nr):
             testutils.send_packet(self, acc_port, packet)
-        nr_rcvd = testutils.count_matched_packets_all_ports(self, exp_packet, pc_ports, timeout=0.1)
+        nr_rcvd = testutils.count_matched_packets_all_ports(self, exp_packet, pc_ports, timeout=0.2)
         rv = rv and (nr_rcvd == self.nr)
         return rv
 
@@ -257,7 +257,7 @@ class Vxlan(BaseTest):
 
         for i in xrange(self.nr):
             testutils.send_packet(self, net_port, packet)
-        nr_rcvd = testutils.count_matched_packets(self, exp_packet, acc_port, timeout=0.1)
+        nr_rcvd = testutils.count_matched_packets(self, exp_packet, acc_port, timeout=0.2)
         rv = rv and (nr_rcvd == self.nr)
         return rv
 
@@ -291,7 +291,7 @@ class Vxlan(BaseTest):
                  )
         for i in xrange(self.nr):
             testutils.send_packet(self, net_port, packet)
-        nr_rcvd = testutils.count_matched_packets(self, inpacket, acc_port, timeout=0.1)
+        nr_rcvd = testutils.count_matched_packets(self, inpacket, acc_port, timeout=0.2)
         rv = rv and (nr_rcvd == self.nr)
         return rv
 

@@ -44,7 +44,7 @@
 
     - include: ptf_runner.yml
       vars:
-        ptf_test_name: Vxlan decap test
+        ptf_test_name: Vxlan decap test - No vxlan configuration
         ptf_test_dir: ptftests
         ptf_test_path: vxlan-decap.Vxlan
         ptf_platform: remote
@@ -61,7 +61,7 @@
 
     - include: ptf_runner.yml
       vars:
-        ptf_test_name: Vxlan decap test
+        ptf_test_name: Vxlan decap test - vxlan configuration applied
         ptf_test_dir: ptftests
         ptf_test_path: vxlan-decap.Vxlan
         ptf_platform: remote
@@ -71,3 +71,24 @@
         - vxlan_enabled=True
         - config_file='/tmp/vxlan_decap.json'
         - count=1
+
+    - name: Remove vxlan tunnel map configuration for {{ item }}
+      shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnel{{ item }}|map1"
+      with_items: minigraph_vlans
+
+    - name: Remove vxlan tunnel configuration for {{ item }}
+      shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tunnel{{ item }}"
+      with_items: minigraph_vlans
+
+    - include: ptf_runner.yml
+      vars:
+        ptf_test_name: Vxlan decap test - vxlan configuration removed
+        ptf_test_dir: ptftests
+        ptf_test_path: vxlan-decap.Vxlan
+        ptf_platform: remote
+        ptf_platform_dir: ptftests
+        ptf_qlen: 1000
+        ptf_test_params:
+        - vxlan_enabled=False
+        - config_file='/tmp/vxlan_decap.json'
+        - repetitions=1
