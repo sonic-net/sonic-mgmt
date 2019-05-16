@@ -73,11 +73,11 @@
         - count=1
 
     - name: Remove vxlan tunnel map configuration for {{ item }}
-      shell: redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnel{{ item }}|map1"
+      shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnel{{ item }}|map1"
       with_items: minigraph_vlans
 
     - name: Remove vxlan tunnel configuration for {{ item }}
-      shell: redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tunnel{{ item }}"
+      shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tunnel{{ item }}"
       with_items: minigraph_vlans
 
     - include: ptf_runner.yml
