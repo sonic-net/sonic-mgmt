@@ -1,9 +1,11 @@
 
-{% set vlan_id_list = [ 2001, 2002, 3001, 3002 ] %}
+{% set num_vnet = 8 %}
+{% set vnet_v6_base = 5 %}
+{% set vlan_id_base = 3001 %}
 {% set topo_vlan = minigraph_vlans.keys()[0] %}
 {% set index = 10 %}
 vlan_intf_list:
-{% for vlan in vlan_id_list %}
+{% for vlan in range (vlan_id_base, vlan_id_base + num_vnet) %}
   - vlan_id: '{{ (vlan|int) }}'
     ifname: 'Vlan{{ vlan }}'
     ip: '{{ loop.index }}.{{ loop.index }}.10.1/24'
@@ -15,38 +17,43 @@ intf_list:
     ip: '{{ index }}.{{ index }}.10.1/24'
 
 vnet_id_list:
-  - Vnet1
-  - Vnet2
-  - Vnet3
-  - Vnet4
+{% for vnet in range (1, 1 + num_vnet) %}
+  - Vnet{{ vnet }}
+{% endfor %}
+
+vnet_id_v4_list:
+{% for vnet_v4 in range (1, vnet_v6_base) %}
+  - Vnet{{ vnet_v4 }}
+{% endfor %}
+
+vnet_id_v6_list:
+{% for vnet_v6 in range (vnet_v6_base, 1 + num_vnet) %}
+  - Vnet{{ vnet_v6 }}
+{% endfor %}
+
 
 vnet_peer_list:
   - Vnet3: Vnet4
   - Vnet4: Vnet3
+  - Vnet7: Vnet8
+  - Vnet8: Vnet7
 
 vnet_intf_list:
-  - ifname: Vlan2001
-    vnet: Vnet1
-  - ifname: Vlan2002
-    vnet: Vnet2
-  - ifname: Vlan3001
-    vnet: Vnet3
-  - ifname: Vlan3002
-    vnet: Vnet4
+{% for vlan in range (vlan_id_base, vlan_id_base + num_vnet) %}
+  - ifname: Vlan{{ vlan }}
+    vnet: Vnet{{ loop.index }}
+{% endfor %}
 
 vnet_nbr_list:
-  - ifname: Vlan2001
-    ip: '1.1.10.101'
-  - ifname: Vlan2001
-    ip: '1.1.10.102'
-  - ifname: Vlan2002
-    ip: '2.2.10.101'
-  - ifname: Vlan2002
-    ip: '2.2.10.102'
-  - ifname: Vlan3001
-    ip: '3.3.10.101'
-  - ifname: Vlan3002
-    ip: '4.4.10.101'
+{% for vlan in range (vlan_id_base, vlan_id_base + num_vnet) %}
+  - ifname: Vlan{{ vlan }}
+    ip: '{{ loop.index }}.{{ loop.index }}.10.101'
+{% if (vlan == vlan_id_base) or (vlan == vlan_id_base + 1) 
+or (vlan == vlan_id_base + vnet_v6_base - 1) or (vlan == vlan_id_base + vnet_v6_base) %}
+  - ifname: Vlan{{ vlan }}
+    ip: '{{ loop.index }}.{{ loop.index }}.10.102'
+{% endif %}
+{% endfor %}
   - ifname: {{ minigraph_vlans[topo_vlan].members[0] }}
     ip: '10.10.10.102'
 
@@ -54,14 +61,25 @@ vnet_local_routes:
   - Vnet1_route_list:
       - pfx: '50.1.1.0/24'
         nh: '1.1.10.101'
-        ifname: 'Vlan2001'
+        ifname: 'Vlan{{ vlan_id_base }}'
       - pfx: '50.2.2.0/24'
         nh: '1.1.10.102'
-        ifname: 'Vlan2001'
+        ifname: 'Vlan{{ vlan_id_base }}'
   - Vnet2_route_list:
       - pfx: '60.1.1.0/24'
         nh: '2.2.10.101'
-        ifname: 'Vlan2002'
+        ifname: 'Vlan{{ vlan_id_base + 1}}'
+  - Vnet5_route_list:
+      - pfx: '50.1.1.0/24'
+        nh: '5.5.10.101'
+        ifname: 'Vlan{{ vlan_id_base + vnet_v6_base - 1 }}'
+      - pfx: '50.2.2.0/24'
+        nh: '5.5.10.102'
+        ifname: 'Vlan{{ vlan_id_base + vnet_v6_base - 1 }}'
+  - Vnet6_route_list:
+      - pfx: '60.1.1.0/24'
+        nh: '6.6.10.101'
+        ifname: 'Vlan{{ vlan_id_base + vnet_v6_base }}'
 
 vnet_route_list:
   - Vnet1_route_list:
@@ -84,4 +102,25 @@ vnet_route_list:
   - Vnet4_route_list:
       - pfx: '4.4.4.10/32'
         end: '100.1.1.40'
+        mac: '00:00:00:00:02:05'
+  - Vnet5_route_list:
+      - pfx: '1.1.1.10/32'
+        end: 'FC00:1::33'
+      - pfx: '1.1.1.11/32'
+        end: 'FC00:1::34'
+        mac: '00:00:00:00:01:02'
+  - Vnet6_route_list:
+      - pfx: '2.2.2.10/32'
+        end: 'FC00:1::35'
+        mac: '00:00:00:00:02:05'
+  - Vnet7_route_list:
+      - pfx: '1.1.1.10/32'
+        end: 'FC00:1::33'
+        vni: '12345'
+      - pfx: '1.1.1.11/32'
+        end: 'FC00:1::34'
+        mac: '00:00:00:00:01:02'
+  - Vnet8_route_list:
+      - pfx: '4.4.4.10/32'
+        end: 'FC00:1::36'
         mac: '00:00:00:00:02:05'

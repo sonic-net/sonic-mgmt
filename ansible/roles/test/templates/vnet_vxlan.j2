@@ -1,14 +1,24 @@
 {
     "VXLAN_TUNNEL": {
-        "tunnel1": {
+        "tunnel_v4": {
             "src_ip": "{{ minigraph_lo_interfaces[0]['addr'] }}"
+        },
+        "tunnel_v6": {
+            "src_ip": "{{ minigraph_lo_interfaces[1]['addr'] }}"
         }
     },
 
     "VNET": {
-{% for vnet in vnet_id_list %}
+{% for vnet in vnet_id_v4_list %}
         "{{ vnet  }}": {
-            "vxlan_tunnel": "tunnel1",
+            "vxlan_tunnel": "tunnel_v4",
+            "vni": "{{ vnet | replace("Vnet", "") |int + 10000}}",
+            "peer_list": ""
+        },
+{% endfor %}
+{% for vnet in vnet_id_v6_list %}
+        "{{ vnet  }}": {
+            "vxlan_tunnel": "tunnel_v6",
             "vni": "{{ vnet | replace("Vnet", "") |int + 10000}}",
             "peer_list": ""
         }{{ "," if not loop.last else "" }}
