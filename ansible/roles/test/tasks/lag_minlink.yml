@@ -6,11 +6,18 @@
 
 - block:
     - name: Shut down neighbor interface {{ neighbor_interface }} on {{ peer_device }} ({{ peer_host }})
+      become: true
+      shell: ip link set {{ neighbor_interface }} down
+      delegate_to: "{{peer_host}}"
+      when: peer_type == "FanoutLeafSonic"
+
+    - name: Shut down neighbor interface {{ neighbor_interface }} on {{ peer_device }} ({{ peer_host }})
       action: apswitch template=neighbor_interface_shut_single.j2
       args:
         host: "{{peer_host}}"
         login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
       connection: switch
+      when: peer_type != "FanoutLeafSonic"
     
     - pause:
         seconds: "{{ wait_down_time }}"
@@ -37,12 +44,19 @@
 
   ### always bring back port in case test error and left testbed in unknow stage
   always:
+    - name: Bring up neighbor interface {{ neighbor_interface }} on {{ peer_device}} ({{ peer_host }})
+      become: true
+      shell: ip link set {{ neighbor_interface }} up
+      delegate_to: "{{peer_host}}"
+      when: peer_type == "FanoutLeafSonic"
+  
     - name: Bring up neighbor interface {{ neighbor_interface }} on {{ peer_device }} ({{ peer_host }})
       action: apswitch template=neighbor_interface_no_shut_single.j2
       args:
         host: "{{peer_host}}"
         login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
       connection: switch
+      when: peer_type != "FanoutLeafSonic"
     
     - pause:
         seconds: 35
