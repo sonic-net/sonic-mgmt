@@ -5,8 +5,10 @@
   pause: seconds=30
 
 - name: Wait for VM to come up
-  local_action: shell ansible -m ping -i veos {{ inventory_hostname }}
-  register: wait_result
-  until: wait_result.rc == 0
-  retries: 30
-  delay: 30
+  wait_for:
+    host: "{{ ansible_ssh_host }}"
+    port: 22
+    state: started
+    delay: 30
+    timeout: 900
+  connection: local
