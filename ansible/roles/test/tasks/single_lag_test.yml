@@ -27,6 +27,7 @@
 - set_fact:
     peer_host: "{{ device_info['mgmtip'] }}"
     peer_hwsku: "{{ device_info['HwSku'] }}"
+    peer_type: "{{ device_info['Type']}}"
 
 - name: test fanout interface (physical) flap and lacp keep correct po status follow minimum links requirement
   include: lag_minlink.yml
@@ -38,6 +39,7 @@
     peer_device: "{{vm_neighbors[flap_intf]['name']}}"
     neighbor_interface: "{{vm_neighbors[flap_intf]['port']}}"
     peer_hwsku: 'Arista-VM'
+    peer_type: 'Arista'
 
 - set_fact:
     peer_host: "{{ minigraph_devices[peer_device]['mgmt_addr'] }}"
