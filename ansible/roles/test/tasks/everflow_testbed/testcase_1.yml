@@ -2,7 +2,7 @@
 # Verify that session with resolved route has active state.
 
 - name: Create route with next hop {{ dst_port_1 }}.
-  shell: ip route add {{ session_prefix_1 }} via {{ neighbor_info_1['addr'] }}
+  shell: vtysh -e "conf t" -e "ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}"
   become: yes
 
 - block:
@@ -15,5 +15,5 @@
 
   always:
     - name: Remove route
-      shell: ip route del {{ session_prefix_1 }}
+      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}"
       become: yes
