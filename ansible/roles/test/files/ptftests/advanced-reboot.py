@@ -1193,7 +1193,6 @@ class ReloadTest(BaseTest):
     def pingFromServers(self):
         for i in xrange(self.nr_pc_pkts):
             testutils.send_packet(self, self.from_server_src_port, self.from_vlan_packet)
-            time.sleep(.001)
 
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.from_vlan_exp_packet, self.from_server_dst_ports, timeout=self.TIMEOUT)
 
@@ -1204,7 +1203,6 @@ class ReloadTest(BaseTest):
     def pingFromUpperTier(self):
         for entry in self.from_t1:
             testutils.send_packet(self, *entry)
-            time.sleep(.001)
 
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.from_t1_exp_packet, self.vlan_ports, timeout=self.TIMEOUT)
 
