@@ -139,8 +139,6 @@ sensors_checks:
        - SMF_S6100_ON-isa-0000/U2 Switch board?/temp9_input
        - SMF_S6100_ON-isa-0000/Front GE/temp10_input
        - SMF_S6100_ON-isa-0000/Front SFP+/temp11_input
-       - SMF_S6100_ON-isa-0000/BCM Internal/temp12_input
-       - SMF_S6100_ON-isa-0000/CPU Internal/temp13_input
        - SMF_S6100_ON-isa-0000/PSU1 Temp/temp14_input
        - SMF_S6100_ON-isa-0000/PSU2 Temp/temp15_input
 
