@@ -13,7 +13,7 @@
     session_gre: "0x8949"
   when: sonic_hwsku in mellanox_hwskus
 
-- debug: msg="session name {{ session_name }}"
+- debug: msg=session name {{ session_name }}
 
 - set_fact:
     addr_1: "{{ session_dst_ip }}/24"

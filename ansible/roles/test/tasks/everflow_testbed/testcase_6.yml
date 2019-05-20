@@ -1,9 +1,9 @@
-# Test case 6 - ECMP route change (add next hop).
-# Verify that insertion of additional next hop to ECMP group doesn't affects session DST MAC and port.
+# Test case 8 -  ECMP route change (remove next hop not used by session).
+# Verify that after removal of next hop that was used by session from ECMP route session state is active.
 
 - block:
     - name: Create ECMP route with next hops on {{ dst_port_1 }} and {{ dst_port_2 }}.
-      shell: ip route add {{ session_prefix_1 }} nexthop via {{ neighbor_info_1['addr'] }} via {{ neighbor_info_2['addr'] }}
+      shell: vtysh -e "conf t" -e "ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}" -e "ip route {{ session_prefix_1 }} {{ neighbor_info_2['addr'] }}"
 
     - name: Send traffic and verify that packets with correct Everflow header are received on {{ dst_port_1 }} or {{ dst_port_2 }}.
       shell: ptf --test-dir acstests everflow_tb_test.EverflowTest --platform-dir ptftests --platform remote -t 'asic_type="{{ sonic_asic_type }}";hwsku="{{ sonic_hwsku }}";router_mac="{{ ansible_Ethernet0['macaddress'] }}";src_port="{{ src_port_ptf_id }}";dst_ports="{{ dst_port_1_ptf_id }}, {{ dst_port_2_ptf_id }}";session_src_ip="{{ session_src_ip }}";session_dst_ip="{{ session_dst_ip }}";session_ttl="{{ session_ttl }}";session_dscp="{{ session_dscp }}";verbose=True'
@@ -12,8 +12,26 @@
       delegate_to: "{{ ptf_host }}"
       register: out
 
-    - name: Add next hop on {{ dst_port_3 }} to ECMP route.
-      shell: ip route change {{ session_prefix_1 }} nexthop via {{ neighbor_info_1['addr'] }} via {{ neighbor_info_2['addr'] }} via {{ neighbor_info_3['addr'] }}
+    - name: Add next hop to ECMP route.
+      shell: vtysh -e "conf t" -e "ip route {{ session_prefix_1 }} {{ neighbor_info_3['addr'] }}"
+
+    - name: Send traffic and verify that packets with correct Everflow header are received on {{ dst_port_1 }} or {{ dst_port_2 }}.
+      shell: ptf --test-dir acstests everflow_tb_test.EverflowTest --platform-dir ptftests --platform remote -t 'asic_type="{{ sonic_asic_type }}";hwsku="{{ sonic_hwsku }}";router_mac="{{ ansible_Ethernet0['macaddress'] }}";src_port="{{ src_port_ptf_id }}";dst_ports="{{ dst_port_1_ptf_id }}, {{ dst_port_2_ptf_id }}";session_src_ip="{{ session_src_ip }}";session_dst_ip="{{ session_dst_ip }}";session_ttl="{{ session_ttl }}";session_dscp="{{ session_dscp }}";verbose=True'
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+      register: out
+
+    - name: Send traffic and verify that packets are not received on {{ dst_port_3 }}.
+      shell: ptf --test-dir acstests everflow_tb_test.EverflowTest --platform-dir ptftests --platform remote -t 'asic_type="{{ sonic_asic_type }}";hwsku="{{ sonic_hwsku }}";router_mac="{{ ansible_Ethernet0['macaddress'] }}";src_port="{{ src_port_ptf_id }}";dst_ports="{{ dst_port_3_ptf_id }}";session_src_ip="{{ session_src_ip }}";session_dst_ip="{{ session_dst_ip }}";session_ttl="{{ session_ttl }}";session_dscp="{{ session_dscp }}";verbose=True'
+      args:
+        chdir: /root
+      delegate_to: "{{ ptf_host }}"
+      register: out
+      failed_when: out.rc == 0
+
+    - name: Delete next hop from ECMP route.
+      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_3['addr'] }}"
 
     - name: Send traffic and verify that packets with correct Everflow header are received on {{ dst_port_1 }} or {{ dst_port_2 }}.
       shell: ptf --test-dir acstests everflow_tb_test.EverflowTest --platform-dir ptftests --platform remote -t 'asic_type="{{ sonic_asic_type }}";hwsku="{{ sonic_hwsku }}";router_mac="{{ ansible_Ethernet0['macaddress'] }}";src_port="{{ src_port_ptf_id }}";dst_ports="{{ dst_port_1_ptf_id }}, {{ dst_port_2_ptf_id }}";session_src_ip="{{ session_src_ip }}";session_dst_ip="{{ session_dst_ip }}";session_ttl="{{ session_ttl }}";session_dscp="{{ session_dscp }}";verbose=True'
@@ -33,5 +51,6 @@
 
   always:
     - name: Remove route
-      shell: ip route del {{ session_prefix_1 }}
-  become: yes
+      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_2['addr'] }}" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_3['addr'] }}"
+      ignore_errors: yes
+      become: yes
