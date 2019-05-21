@@ -1,137 +1,111 @@
+# This script is for testing the ACL feature on SONiC switch. It covers ingress ACL and egress ACL testing.
+# For each type of ACL testing, it supports 3 scenarios:
+# * Basic ACL testing
+# * Toggle all ports and then test ACL
+# * Reboot DUT and then test ACL to verify that ACL configuration persists through reboot
+#
+# This script supports selecting which type of ACL and which scenarios to run by specifying different ansible variables.
+# * run_ingress: Specify whether to run the ingress ACL testing. Values: yes, no. Default: yes
+# * run_egress: Specify whether to run the egress ACL testing. Values: yes, no. Default: no
+# * test_basic: Specify whether to run the basic ACL testing scenario. Values: yes, no. Default: yes
+# * test_port_toggle: Specify whether to run the port toggle scenario. Values: yes, no. Default: no
+# * test_reboot: Specify whether to run the reboot scenario. Values: yes, no. Default: no
+#
+#                 +---------------------+---------------------+---------------------+
+#                 | Basic Acl Testing   |    Port Toggle      |       Reboot        |
+#                 |-- -------+----------+----------+----------+----------+----------+
+#                 |    Yes   |    No    |    Yes   |    No    |    Yes   |    No    |
+# +---------+-----+----------+----------+----------+----------+----------+----------+
+# |         | Yes |    Y     |    N     |    Y     |    N     |    Y     |    N     |
+# | Ingress +-----+----------+----------+----------+----------+----------+----------+
+# |         | No  |    N     |    N     |    N     |    N     |    N     |    N     |
+# +---------+-----+----------+----------+----------+----------+----------+----------+
+# |         | Yes |    Y     |    N     |    Y     |    N     |    Y     |    N     |
+# | Egress  +-----+----------+----------+----------+----------+----------+----------+
+# |         | No  |    N     |    N     |    N     |    N     |    N     |    N     |
+# +---------+-----+----------+----------+----------+----------+----------+----------+
+#
+# Example:
+# $ ansible-playbook test_sonic -i inventory -l dut-switch-t1 -e testbed_name=dut-switch-t1 -e testbed_type=t1
+#       -e testcase_name=acl -vvvv
+# This command will only run basic ACL testing for ingress ACL.
+#
+# $ ansible-playbook test_sonic -i inventory -l dut-switch-t1 -e testbed_name=dut-switch-t1 -e testbed_type=t1
+#       -e testcase_name=acl -e run_ingress=yes -e run_egress=yes -e test_basic=yes -e test_port_toggle=yes
+#       -e test_reboot=no -vvvv
+# This command will run ingress and egress ACL testing. The basic and port toggle scenarios will be tested.
+#
+# $ ansible-playbook test_sonic -i inventory -l dut-switch-t1 -e testbed_name=dut-switch-t1 -e testbed_type=t1
+#       -e testcase_name=acl -e run_egress=yes -e test_port_toggle=yes -e test_reboot=yes -vvvv
+# This command will run everything, including ingress&egress, and all the 3 scenarios.
+
 # Set facts for the loganalizer
 - set_fact:
-    out_dir: /tmp/
+    out_dir: /tmp/loganalizer
     testname: acl
-    run_dir: /tmp/
+    run_dir: /tmp
+    tests_location: "roles/test/tasks"
+    test_match_file: "acltb_match_messages.txt"
+    test_ignore_file: "acltb_ignore_messages.txt"
+    test_expect_file: "acltb_expect_messages.txt"
 
-# Gather minigraph facts
-- name: Gathering minigraph facts about the device
-  minigraph_facts: host={{ inventory_hostname }}
-
-- name: Read port reverse alias mapping
-  set_fact:
-    alias_reverse_map: "{{ minigraph_port_alias_to_name_map }}"
-    podset_number: 200
-
-# Copy ACL config to the switch
-- name: Copy ACL config file to the DUT
-  copy: src="roles/test/tasks/acl/{{ item }}" dest="/tmp/"
-  with_items:
-    - "acltb_test_rules.json"
-    - "acltb_test_rules_allow_all.json"
-    - "acltb_test_rules-del.json"
-    - "acltb_test_rules_part_1.json"
-    - "acltb_test_rules_part_2.json"
-
-# Generate file with switch information
-- template: src=acltb.j2 dest=/tmp/acltb_switch_info.txt
-  connection: local
-
-- name: Copy switch info file to the PTF host
-  copy: src=/tmp/acltb_switch_info.txt dest=/tmp/acltb_switch_info.txt
-  delegate_to: "{{ ptf_host }}"
+- name: Check supported topology
+  fail: msg="Invalid testbed_type value '{{testbed_type}}'"
+  when: testbed_type not in ['t1', 't1-lag', 't1-64-lag']
 
 - block:
-    - name: Apply allow all rule
+    - name: Prepare variables for ACL configuration
+      set_fact:
+        dut_tmp_dir: "/home/admin/acl"
+        config_db_backup_filename: /etc/sonic/config_db.json.bak.{{ lookup('pipe','date +%Y%m%d-%H%M%S') }}
+
+    - name: When run_ingress is not specified, set default true
+      set_fact:
+        run_ingress: true
+      when: run_ingress is not defined
+
+    - name: Backup config_db.json
+      command: cp /etc/sonic/config_db.json {{ config_db_backup_filename }}
+      become: yes
+
+    - include: "roles/test/tasks/acl/acltb/acltb_config.yml"
+
+    - name: Test ingress ACL
+      include: "roles/test/tasks/acl/acltb/acltb_run_test.yml"
       vars:
-        command_to_run: "acl-loader update full /tmp/acltb_test_rules_allow_all.json"
-        errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+        acl_stage: ingress
+      when: run_ingress is defined and run_ingress|bool == true
 
-    - name: Apply test rules
+    - name: Test egress ACL
+      include: "roles/test/tasks/acl/acltb/acltb_run_test.yml"
       vars:
-        command_to_run: "acl-loader update full /tmp/acltb_test_rules.json"
-        errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
-
-    - name: copy acsbase files
-      copy: src=roles/test/files/acstests
-            dest=/root
-      delegate_to: "{{ ptf_host }}"
-
-    - name: copy ptftests
-      copy: src=roles/test/files/ptftests
-            dest=/root
-      delegate_to: "{{ ptf_host }}"
-
-    - name: Run the test
-      include: ptf_runner.yml
-      vars:
-          ptf_test_name: ACL Test
-          ptf_test_dir: acstests
-          ptf_test_path: acltb_test.AclTest
-          ptf_platform_dir: ptftests
-          ptf_platform: remote
-          ptf_test_params:
-            - verbose=True
-            - router_mac=\"{{ ansible_Ethernet0['macaddress'] }}\"
-            - switch_info=\"/tmp/acltb_switch_info.txt\"
-            - testbed_type=\"{{ testbed_type }}\"
-
-    - name: Clean up ACL rules.
-      vars:
-        command_to_run: "acl-loader update full /tmp/acltb_test_rules-del.json"
-        errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
-
-    - name: Apply part 1 of ACL rules.
-      vars:
-        command_to_run: "acl-loader update incremental /tmp/acltb_test_rules_part_1.json"
-        errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
-
-    - name: Apply part 2 of ACL rules.
-      vars:
-        command_to_run: "acl-loader update incremental /tmp/acltb_test_rules_part_2.json"
-        errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
-
-    - name: Run the test
-      include: ptf_runner.yml
-      vars:
-          ptf_test_name: ACL Test
-          ptf_test_dir: acstests
-          ptf_test_path: acltb_test.AclTest
-          ptf_platform_dir: ptftests
-          ptf_platform: remote
-          ptf_test_params:
-            - verbose=True
-            - router_mac=\"{{ ansible_Ethernet0['macaddress'] }}\"
-            - switch_info=\"/tmp/acltb_switch_info.txt\"
-            - testbed_type=\"{{ testbed_type }}\"
-
-    - name: Save the applied ACL in ConfigDB
-      command: config save -y
-      become: true
-
-    - name: Reboot the switch
-      include: common_tasks/reboot_sonic.yml
-
-    - name: Run the test
-      include: ptf_runner.yml
-      vars:
-          ptf_test_name: ACL Test
-          ptf_test_dir: acstests
-          ptf_test_path: acltb_test.AclTest
-          ptf_platform_dir: ptftests
-          ptf_platform: remote
-          ptf_test_params:
-            - verbose=True
-            - router_mac=\"{{ ansible_Ethernet0['macaddress'] }}\"
-            - switch_info=\"/tmp/acltb_switch_info.txt\"
-            - testbed_type=\"{{ testbed_type }}\"
+        acl_stage: egress
+      when: run_egress is defined and run_egress|bool == true
 
   always:
-    # Copy ACL config to the switch
-    - name: Copy ACL config file to the DUT
-      copy: src="roles/test/tasks/acl/acltb_test_rules-del.json" dest="/tmp/"
 
-    - name: Clean up ACL rules.
-      vars:
-        command_to_run: "acl-loader update full /tmp/acltb_test_rules-del.json"
-        errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+    - name: Check existence of config_db.json backup file
+      stat:
+        path: "{{ config_db_backup_filename }}"
+      register: config_db_backup_file
 
-    - name: Ensure ConfigDB is cleaned up
-      command: config save -y
-      become: true
+    - name: Recover config_db.json from backup
+      command: mv {{ config_db_backup_filename }} /etc/sonic/config_db.json
+      become: yes
+      when: config_db_backup_file.stat.exists
+
+    - name: Reload config to cleanup
+      command: config reload -y
+      become: yes
+
+    - name: wait 60 seconds for ports to be up
+      pause: seconds=60
+
+    - name: Wait for ports to be up
+      interface_facts: up_ports={{ all_ports }}
+      until: ansible_interface_link_down_ports | length == 0
+      retries: 10
+      delay: 20
+
+    - name: wait 60 seconds for processes and interfaces to be stable
+      pause: seconds=60
