@@ -156,11 +156,9 @@
 
   always:
     - name: reset all changes
-      shell: "config load_minigraph -y"
-      become: yes
-
-    - name: wait 60 seconds for ports to be up
-      pause: seconds=60
+      include: "roles/test/tasks/common_tasks/reload_config.yml"
+      vars:
+        config_source: "minigraph"
 
     - name: check port status
       interface_facts: up_ports={{ minigraph_ports }}

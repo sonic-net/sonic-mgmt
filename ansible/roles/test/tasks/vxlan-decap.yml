@@ -26,13 +26,10 @@
         - arp_responder_args: '--conf /tmp/vxlan_arpresponder.conf'
       delegate_to: "{{ ptf_host }}"
 
-    - name: Reread supervisor configuration
-      shell: supervisorctl reread
-      delegate_to: "{{ ptf_host }}"
-
     - name: Update supervisor configuration
-      shell: supervisorctl update
-      delegate_to: "{{ ptf_host }}"
+      include: "roles/test/tasks/common_tasks/update_supervisor.yml"
+      vars:
+        supervisor_host: "{{ ptf_host }}"
 
     - name: Render DUT parameters to json file for the test
       template: src=vxlan_decap.json.j2 dest=/tmp/vxlan_decap.json

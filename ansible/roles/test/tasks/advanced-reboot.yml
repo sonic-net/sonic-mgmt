@@ -42,13 +42,10 @@
         - arp_responder_args: '-e'
       delegate_to: "{{ ptf_host }}"
 
-    - name: Reread supervisor configuration
-      shell: supervisorctl reread
-      delegate_to: "{{ ptf_host }}"
-
     - name: Update supervisor configuration
-      shell: supervisorctl update
-      delegate_to: "{{ ptf_host }}"
+      include: "roles/test/tasks/common_tasks/update_supervisor.yml"
+      vars:
+        supervisor_host: "{{ ptf_host }}"
 
     - name: Remove old keys
       file:
