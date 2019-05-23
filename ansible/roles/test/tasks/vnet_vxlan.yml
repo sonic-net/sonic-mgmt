@@ -156,8 +156,13 @@
         - name: sleep for some time
           pause: seconds=3
 
-    - name: Remove VNET interfaces
+    - name: Remove VNET interfaces addresses
       command: docker exec -i database redis-cli -n 4 del "VLAN_INTERFACE|{{ item['ifname'] }}|{{ item['ip'] }}"
+      with_list: vlan_intf_list
+      become: true
+
+    - name: Remove VNET interfaces
+      command: docker exec -i database redis-cli -n 4 del "VLAN_INTERFACE|{{ item['ifname'] }}"
       with_list: vlan_intf_list
       become: true
 
