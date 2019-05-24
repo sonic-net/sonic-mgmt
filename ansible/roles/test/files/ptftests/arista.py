@@ -296,15 +296,15 @@ class Arista(object):
             asn = None
             for line in output.split('\n'):
                 if 'BGP neighbor is' in line:
-                   dut_bgp = re.findall('BGP neighbor is (.*?),', line)[0]
+                    dut_bgp = re.findall('BGP neighbor is (.*?),', line)[0]
                 elif 'Local AS is' in line and get_asn:
-                   asn = re.findall('Local AS is (\d+?),', line)[0]
+                    asn = re.findall('Local AS is (\d+?),', line)[0]
                 elif 'Local TCP address is' in line:
-                   neigh_bgp = re.findall('Local TCP address is (.*?),', line)[0]
-                   break
+                    neigh_bgp = re.findall('Local TCP address is (.*?),', line)[0]
+                    break
 
             if get_asn:
-               return neigh_bgp, dut_bgp, asn
+                return neigh_bgp, dut_bgp, asn
             return neigh_bgp, dut_bgp
 
         gr_active = None
@@ -359,19 +359,19 @@ class Arista(object):
             obj = json.loads(data)
 
             if state != 'Active':
-               if 'vrfs' in obj:
-                   bgp_state[ver] = not obj['vrfs']
-               else:
-                  self.fails.add("Verify BGP %s neighbor: Object missing in output" % ver)
+                if 'vrfs' in obj:
+                    bgp_state[ver] = not obj['vrfs']
+                else:
+                    self.fails.add("Verify BGP %s neighbor: Object missing in output" % ver)
             else:
-               if "vrfs" in obj and "default" in obj["vrfs"]:
-                  obj = obj["vrfs"]["default"]
-                  if "peers" in obj:
-                     bgp_state[ver] = (obj['peers'][dut[ver]]['peerState'] == state)
-                  else:
-                     self.fails.add("Verify BGP %S neighbor: Peer attribute missing in output" % ver)
-               else:
-                  self.fails.add("Verify BGP %s neighbor: Object missing in output" % ver)
+                if "vrfs" in obj and "default" in obj["vrfs"]:
+                    obj = obj["vrfs"]["default"]
+                    if "peers" in obj:
+                        bgp_state[ver] = (obj['peers'][dut[ver]]['peerState'] == state)
+                    else:
+                        self.fails.add("Verify BGP %S neighbor: Peer attribute missing in output" % ver)
+                else:
+                    self.fails.add("Verify BGP %s neighbor: Object missing in output" % ver)
         return self.fails, bgp_state
 
     def check_gr_peer_status(self, output):
