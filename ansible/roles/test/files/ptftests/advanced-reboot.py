@@ -579,10 +579,14 @@ class ReloadTest(BaseTest):
             if self.vm_dut_map[key]['mgmt_addr'] == self.neigh_down_vm:
                 return key
 
+    def select_vm(self):
+        # use the day of the month to select a VM from the list for the sad pass operation
+        vm_index = datetime.datetime.now().day % len(self.ssh_targets)
+        return self.ssh_targets.pop(vm_index)
+
     def prebootOper(self):
         # select a VM
-        vm_index = datetime.datetime.now().day % len(self.ssh_targets)
-        self.neigh_down_vm = self.ssh_targets.pop(vm_index)
+        self.neigh_down_vm = self.select_vm()
         self.neigh_down_name = self.get_neigh_info()
         # extract the ptf port associated with the selected VM
         self.vm_down_port = self.vm_dut_map[self.neigh_down_name]['ptf_port']
