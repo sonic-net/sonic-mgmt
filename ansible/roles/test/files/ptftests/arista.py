@@ -289,25 +289,22 @@ class Arista(object):
 
         return is_gr_ipv4_enabled, is_gr_ipv6_enabled, restart_time
 
-    def parse_bgp_neighbor(self, output, get_neigh=False, get_asn=False):
-        # ASN info is always retrieved along with neighbor info
-        if get_neigh or get_asn:
-            neigh_bgp = None
-            dut_bgp = None
-            asn = None
-            for line in output.split('\n'):
-                if 'BGP neighbor is' in line:
-                    dut_bgp = re.findall('BGP neighbor is (.*?),', line)[0]
-                elif 'Local AS is' in line and get_asn:
-                    asn = re.findall('Local AS is (\d+?),', line)[0]
-                elif 'Local TCP address is' in line:
-                    neigh_bgp = re.findall('Local TCP address is (.*?),', line)[0]
-                    break
+    def parse_bgp_info(self, output):
+        neigh_bgp = None
+        dut_bgp = None
+        asn = None
+        for line in output.split('\n'):
+            if 'BGP neighbor is' in line:
+                dut_bgp = re.findall('BGP neighbor is (.*?),', line)[0]
+            elif 'Local AS is' in line:
+                asn = re.findall('Local AS is (\d+?),', line)[0]
+            elif 'Local TCP address is' in line:
+                neigh_bgp = re.findall('Local TCP address is (.*?),', line)[0]
+                break
 
-            if get_asn:
-                return neigh_bgp, dut_bgp, asn
-            return neigh_bgp, dut_bgp
+        return neigh_bgp, dut_bgp, asn
 
+    def parse_bgp_neighbor(self, output):
         gr_active = None
         gr_timer = None
         for line in output.split('\n'):
@@ -332,15 +329,16 @@ class Arista(object):
 
         return set(expects) == prefixes
 
-    def get_bgp_neighbors(self):
+    def get_bgp_info(self):
+        # Retreive BGP info (peer addr, AS) for the dut and neighbor
         neigh_bgp = {}
         dut_bgp = {}
         for cmd, ver in [('show ip bgp neighbors', 'v4'), ('show ipv6 bgp neighbors', 'v6')]:
             output = self.do_cmd(cmd)
             if ver == 'v6':
-                neigh_bgp[ver], dut_bgp[ver], neigh_bgp['asn'] = self.parse_bgp_neighbor(output, get_neigh=True, get_asn=True)
+                neigh_bgp[ver], dut_bgp[ver], neigh_bgp['asn'] = self.parse_bgp_info(output)
             else:
-                neigh_bgp[ver], dut_bgp[ver] = self.parse_bgp_neighbor(output, get_neigh=True)
+                neigh_bgp[ver], dut_bgp[ver], neigh_bgp['asn'] = self.parse_bgp_info(output)
 
         return neigh_bgp, dut_bgp
 

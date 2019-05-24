@@ -595,7 +595,7 @@ class ReloadTest(BaseTest):
             self.log("BGP state change will be for %s" % (self.neigh_down_vm))
             self.vm_handle = Arista(self.neigh_down_vm, None, self.test_params)
             self.vm_handle.connect()
-            self.neigh_bgp, self.dut_bgp = self.vm_handle.get_bgp_neighbors()
+            self.neigh_bgp, self.dut_bgp = self.vm_handle.get_bgp_info()
             self.log("Neighbor AS: %s" % self.neigh_bgp['asn'])
             self.log("BGP v4 neighbor: %s" % self.neigh_bgp['v4'])
             self.log("BGP v6 neighbor: %s" % self.neigh_bgp['v6'])
