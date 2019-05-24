@@ -68,6 +68,7 @@ class Arista(object):
     def get_arista_prompt(self, first_prompt):
         lines = first_prompt.split('\n')
         prompt = lines[-1]
+        # match all modes - A#, A(config)#, A(config-if)#
         return prompt.strip().replace('>', '.*#')
 
     def do_cmd(self, cmd, prompt = None):
@@ -345,8 +346,8 @@ class Arista(object):
 
     def change_bgp_neigh_state(self, asn, state="no shut"):
         self.do_cmd('configure')
-        self.do_cmd("router bgp %s" % asn)
-        self.do_cmd("%s" % state)
+        self.do_cmd('router bgp %s' % asn)
+        self.do_cmd('%s' % state)
         self.do_cmd('exit')
         self.do_cmd('exit')
 
@@ -355,23 +356,24 @@ class Arista(object):
         bgp_state['v4'] = bgp_state['v6'] = False
         for cmd, ver in [('show ip bgp summary | json', 'v4'), ('show ipv6 bgp summary | json', 'v6')]:
             output = self.do_cmd(cmd)
-            data = "\n".join(output.split("\r\n")[1:-1])
+            data = '\n'.join(output.split('\r\n')[1:-1])
             obj = json.loads(data)
 
             if state != 'Active':
                 if 'vrfs' in obj:
+                    # return True when obj['vrfs'] is empty which is the case when the bgp state is 'down'
                     bgp_state[ver] = not obj['vrfs']
                 else:
-                    self.fails.add("Verify BGP %s neighbor: Object missing in output" % ver)
+                    self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
             else:
-                if "vrfs" in obj and "default" in obj["vrfs"]:
-                    obj = obj["vrfs"]["default"]
-                    if "peers" in obj:
+                if 'vrfs' in obj and 'default' in obj['vrfs']:
+                    obj = obj['vrfs']['default']
+                    if 'peers' in obj:
                         bgp_state[ver] = (obj['peers'][dut[ver]]['peerState'] == state)
                     else:
-                        self.fails.add("Verify BGP %S neighbor: Peer attribute missing in output" % ver)
+                        self.fails.add('Verify BGP %S neighbor: Peer attribute missing in output' % ver)
                 else:
-                    self.fails.add("Verify BGP %s neighbor: Object missing in output" % ver)
+                    self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
         return self.fails, bgp_state
 
     def check_gr_peer_status(self, output):
