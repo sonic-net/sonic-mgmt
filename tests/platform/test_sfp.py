@@ -93,7 +93,7 @@ def test_check_sfp_status_and_configure_sfp(localhost, ansible_adhoc, testbed):
     for intf in conn_graph_facts["device_conn"]:
         reset_result = ans_host.command("sudo sfputil reset " + intf)
         assert reset_result["rc"] == 0, "'sudo sfputil reset %s failed" % intf
-    time.sleep(10)  # Wait some time for SFP to fully recover after reset
+    time.sleep(120)  # Wait some time for SFP to fully recover after reset
 
     logging.info("Check sfp presence again after reset")
     sfp_presence = ans_host.command("sudo sfputil show presence")

@@ -43,7 +43,7 @@ def parse_transceiver_dom_sensor(output_lines):
 
 def test_xcvr_info_in_db(localhost, ansible_adhoc, testbed):
     """
-    @summary: This test case is to verify that xcvrd works as expected by checking transcever information in DB
+    @summary: This test case is to verify that xcvrd works as expected by checking transceiver information in DB
     """
     hostname = testbed['dut']
     ans_host = ansible_host(ansible_adhoc, hostname)

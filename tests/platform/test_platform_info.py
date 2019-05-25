@@ -56,7 +56,7 @@ def test_turn_on_off_psu_and_check_psustatus(localhost, ansible_adhoc, testbed, 
     ans_host = ansible_host(ansible_adhoc, hostname)
     platform_info = parse_platform_summary(ans_host.command("show platform summary")["stdout_lines"])
 
-    psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK)")
+    psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
 
     logging.info("Check whether the DUT has enough PSUs for this testing")
     psu_num_out = ans_host.command("sudo psuutil numpsus")
@@ -105,7 +105,7 @@ def test_turn_on_off_psu_and_check_psustatus(localhost, ansible_adhoc, testbed, 
         for line in cli_psu_status["stdout_lines"][2:]:
             assert psu_line_pattern.match(line), "Unexpected PSU status output"
             fields = line.split()
-            if " ".join(fields[2:]) == "NOT OK":
+            if fields[2] != "OK":
                 psu_under_test = fields[1]
         assert psu_under_test is not None, "No PSU is turned off"
 
