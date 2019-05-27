@@ -62,6 +62,8 @@ class FdbTest(BaseTest):
                                             eth_src=dummy_mac,
                                             eth_type=0x1234)
                     send(self, member, pkt)
+
+        time.sleep(2)
     #--------------------------------------------------------------------------
 
     def test_l2_forwarding(self, src_mac, dst_mac, src_port, dst_port):
