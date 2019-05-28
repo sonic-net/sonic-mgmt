@@ -297,13 +297,17 @@ class ReloadTest(BaseTest):
             if 'ARISTA' in key:
                 self.vm_dut_map[key] = dict()
                 self.vm_dut_map[key]['mgmt_addr'] = content[key]['mgmt_addr']
+                # initialize all the port mapping
+                self.vm_dut_map[key]['dut_ports'] = []
+                self.vm_dut_map[key]['neigh_ports'] = []
+                self.vm_dut_map[key]['ptf_ports'] = []
 
     def get_portchannel_info(self):
         content = self.read_json('portchannel_ports_file')
         for key in content.keys():
             for member in content[key]['members']:
                 for vm_key in self.vm_dut_map.keys():
-                    if member == self.vm_dut_map[vm_key]['dut_port']:
+                    if member in self.vm_dut_map[vm_key]['dut_ports']:
                         self.vm_dut_map[vm_key]['dut_portchannel'] = key
                         self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel 1'
                         break
@@ -312,9 +316,9 @@ class ReloadTest(BaseTest):
         content = self.read_json('neigh_port_info')
         for key in content.keys():
             if content[key]['name'] in self.vm_dut_map.keys():
-                self.vm_dut_map[content[key]['name']]['dut_port'] = key
-                self.vm_dut_map[content[key]['name']]['neigh_port'] = content[key]['port']
-                self.vm_dut_map[content[key]['name']]['ptf_port'] = self.port_indices[key]
+                self.vm_dut_map[content[key]['name']]['dut_ports'].append(key)
+                self.vm_dut_map[content[key]['name']]['neigh_ports'].append(content[key]['port'])
+                self.vm_dut_map[content[key]['name']]['ptf_ports'].append(self.port_indices[key])
 
     def build_peer_mapping(self):
         '''
@@ -322,9 +326,9 @@ class ReloadTest(BaseTest):
                     'ARISTA01T1': {'mgmt_addr':
                                    'neigh_portchannel'
                                    'dut_portchannel'
-                                   'neigh_port'
-                                   'dut_port'
-                                   'ptf_port'
+                                   'neigh_ports'
+                                   'dut_ports'
+                                   'ptf_ports'
                                     }
         '''
         self.vm_dut_map = {}
@@ -588,14 +592,14 @@ class ReloadTest(BaseTest):
         # select a VM
         self.neigh_down_vm = self.select_vm()
         self.neigh_down_name = self.get_neigh_info()
-        # extract the ptf port associated with the selected VM
-        self.vm_down_port = self.vm_dut_map[self.neigh_down_name]['ptf_port']
+        # extract the ptf ports associated with the selected VM and mark them down
+        for port in self.vm_dut_map[self.neigh_down_name]['ptf_ports']:
+            self.portchannel_ports.remove(port)
         self.fails[self.neigh_down_vm] = set()
 
         if 'bgp' in self.preboot_type:
             fails_dut = set()
             fails_vm = set()
-            self.portchannel_ports.remove(self.vm_down_port)
             self.log("BGP state change will be for %s" % (self.neigh_down_vm))
             self.vm_handle = Arista(self.neigh_down_vm, None, self.test_params)
             self.vm_handle.connect()
