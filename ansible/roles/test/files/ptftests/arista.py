@@ -342,10 +342,11 @@ class Arista(object):
 
         return neigh_bgp, dut_bgp
 
-    def change_bgp_neigh_state(self, asn, state="no shut"):
+    def change_bgp_neigh_state(self, asn, is_Up=True):
+        state = ['shut', 'no shut']
         self.do_cmd('configure')
         self.do_cmd('router bgp %s' % asn)
-        self.do_cmd('%s' % state)
+        self.do_cmd('%s' % state[is_Up])
         self.do_cmd('exit')
         self.do_cmd('exit')
 
