@@ -65,6 +65,7 @@ import scapy.all as scapyall
 import itertools
 
 from arista import Arista
+import sad_pass_oper as sp
 
 
 class StateMachine():
@@ -120,6 +121,7 @@ class ReloadTest(BaseTest):
         self.logs_info = {}
         self.log_lock = threading.RLock()
         self.vm_handle = None
+        self.pre_handle = None
         self.test_params = testutils.test_params_get()
         self.check_param('verbose', False, required=False)
         self.check_param('dut_username', '', required=True)
@@ -141,12 +143,12 @@ class ReloadTest(BaseTest):
         self.check_param('warm_up_timeout_secs', 180, required=False)
         self.check_param('dut_stabilize_secs', 20, required=False)
         self.check_param('preboot_files', None, required = False)
-        self.check_param('preboot_type', None, required = False)
-        if not self.test_params['preboot_type'] or self.test_params['preboot_type'] == 'None':
-            self.test_params['preboot_type'] = None
+        self.check_param('preboot_oper', None, required = False)
+        if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
+            self.test_params['preboot_oper'] = None
 
-        if self.test_params['preboot_type'] is not None:
-           self.log_file_name = '/tmp/%s-%s.log' % (self.test_params['reboot_type'], self.test_params['preboot_type'])
+        if self.test_params['preboot_oper'] is not None:
+           self.log_file_name = '/tmp/%s-%s.log' % (self.test_params['reboot_type'], self.test_params['preboot_oper'])
         else:
            self.log_file_name = '/tmp/%s.log' % self.test_params['reboot_type']
         self.log_fp = open(self.log_file_name, 'w')
@@ -287,7 +289,7 @@ class ReloadTest(BaseTest):
 
     def dump_arp_responder_config(self, dump):
         # save data for arp_replay process
-        filename = "/tmp/from_t1.json" if self.preboot_type is None else "/tmp/from_t1_%s.json" % self.preboot_type
+        filename = "/tmp/from_t1.json" if self.preboot_oper is None else "/tmp/from_t1_%s.json" % self.preboot_oper
         with open(filename, "w") as fp:
             json.dump(dump, fp)
 
@@ -343,7 +345,7 @@ class ReloadTest(BaseTest):
         self.port_indices = self.read_port_indices()
         self.portchannel_ports = self.read_portchannel_ports()
         self.vlan_ports = self.read_vlan_ports()
-        if self.test_params['preboot_type'] is not None:
+        if self.test_params['preboot_oper'] is not None:
             self.build_peer_mapping()
 
         self.vlan_ip_range = self.test_params['vlan_ip_range']
@@ -351,7 +353,7 @@ class ReloadTest(BaseTest):
 
         self.limit = datetime.timedelta(seconds=self.test_params['reboot_limit_in_seconds'])
         self.reboot_type = self.test_params['reboot_type']
-        self.preboot_type = self.test_params['preboot_type']
+        self.preboot_oper = self.test_params['preboot_oper']
         if self.reboot_type not in ['fast-reboot', 'warm-reboot']:
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
         self.dut_ssh = self.test_params['dut_username'] + '@' + self.test_params['dut_hostname']
@@ -366,12 +368,21 @@ class ReloadTest(BaseTest):
             else:
                 self.ssh_targets.append(vm)
 
-        self.ssh_targets.sort()
         self.log("Converted addresses VMs: %s" % str(self.ssh_targets))
-        if self.preboot_type is not None:
-           self.log("Preboot Operations:")
-           self.prebootOper()
-           self.log(" ")
+        if self.preboot_oper is not None:
+            self.log("Preboot Operations:")
+            self.pre_handle = sp.PrebootTest(self.preboot_oper, self.ssh_targets, self.portchannel_ports, self.vm_dut_map, self.test_params, self.dut_ssh)
+            (self.ssh_targets, self.portchannel_ports, self.neigh_vm), (log_info, fails_dut, fails_vm) = self.pre_handle.setup()
+            self.fails['dut'] |= fails_dut
+            self.fails[self.neigh_vm] = fails_vm
+            for log in log_info:
+                self.log(log)
+            log_info, fails_dut, fails_vm = self.pre_handle.verify()
+            self.fails['dut'] |= fails_dut
+            self.fails[self.neigh_vm] |= fails_vm
+            for log in log_info:
+                self.log(log)
+            self.log(" ")
 
         self.vlan_host_map = self.generate_vlan_servers()
         arp_responder_conf = self.generate_arp_responder_conf(self.vlan_host_map)
@@ -403,7 +414,7 @@ class ReloadTest(BaseTest):
         self.generate_arp_ping_packet()
 
         if self.reboot_type == 'warm-reboot':
-            self.log("Preboot-type: %s" % self.preboot_type)
+            self.log("Preboot Oper: %s" % self.preboot_oper)
             # Pre-generate list of packets to be sent in send_in_background method.
             generate_start = datetime.datetime.now()
             self.generate_bidirectional()
@@ -578,89 +589,6 @@ class ReloadTest(BaseTest):
                 from_port = src_port
             self.packets_list.append((from_port, str(packet)))
 
-    def get_neigh_info(self):
-        for key in self.vm_dut_map.keys():
-            if self.vm_dut_map[key]['mgmt_addr'] == self.neigh_down_vm:
-                return key
-
-    def select_vm(self):
-        # use the day of the month to select a VM from the list for the sad pass operation
-        vm_index = datetime.datetime.now().day % len(self.ssh_targets)
-        return self.ssh_targets.pop(vm_index)
-
-    def prebootOper(self):
-        # select a VM
-        self.neigh_down_vm = self.select_vm()
-        self.neigh_down_name = self.get_neigh_info()
-        # extract the ptf ports associated with the selected VM and mark them down
-        for port in self.vm_dut_map[self.neigh_down_name]['ptf_ports']:
-            self.portchannel_ports.remove(port)
-        self.fails[self.neigh_down_vm] = set()
-
-        if 'bgp' in self.preboot_type:
-            fails_dut = set()
-            fails_vm = set()
-            self.log("BGP state change will be for %s" % (self.neigh_down_vm))
-            self.vm_handle = Arista(self.neigh_down_vm, None, self.test_params)
-            self.vm_handle.connect()
-            self.neigh_bgp, self.dut_bgp = self.vm_handle.get_bgp_info()
-            self.log("Neighbor AS: %s" % self.neigh_bgp['asn'])
-            self.log("BGP v4 neighbor: %s" % self.neigh_bgp['v4'])
-            self.log("BGP v6 neighbor: %s" % self.neigh_bgp['v6'])
-            self.log("DUT BGP v4: %s" % self.dut_bgp['v4'])
-            self.log("DUT BGP v6: %s" % self.dut_bgp['v6'])
-            if self.preboot_type == 'neigh_bgp_down':
-                self.log("Changing state of AS %s to shut" % self.neigh_bgp['asn'])
-                self.vm_handle.change_bgp_neigh_state(self.neigh_bgp['asn'], state="shut")
-                self.neigh_bgp['changed_state'] = 'down'
-                self.dut_bgp['changed_state'] = 'Active'
-                self.dut_needed = None
-            elif self.preboot_type == 'dut_bgp_down':
-                fails_dut = self.change_bgp_dut_state(self.neigh_bgp, state="shutdown")
-                self.fails['dut'] |= fails_dut
-                self.neigh_bgp['changed_state'] = 'Active'
-                self.dut_bgp['changed_state'] = 'Idle'
-                self.dut_needed = self.dut_bgp
-
-            # wait for BGP state change
-            time.sleep(30)
-            fails_vm, bgp_state = self.vm_handle.verify_bgp_neigh_state(dut=self.dut_needed, state=self.neigh_bgp['changed_state'])
-            self.fails[self.neigh_down_vm] |= fails_vm
-            self.assertTrue(bgp_state['v4'] and bgp_state['v6'], "Attr error or Neighbor BGP is not down")
-            fails_dut, bgp_state = self.verify_bgp_dut_state(self.neigh_bgp, state=self.dut_bgp['changed_state'])
-            self.fails['dut'] |= fails_dut
-            self.assertTrue(bgp_state['v4'] and bgp_state['v6'], "DUT BGP is not down")
-
-    def postbootOper(self):
-        if 'bgp' in self.preboot_type:
-            fails_dut = set()
-            fails_vm = set()
-            fails_vm, bgp_state = self.vm_handle.verify_bgp_neigh_state(dut=self.dut_needed, state=self.neigh_bgp['changed_state'])
-            self.fails[self.neigh_down_vm] |= fails_vm
-            if bgp_state['v4'] and bgp_state['v6']:
-               self.log("BGP state down as expected for %s" % self.neigh_down_vm)
-            else:
-               self.fails[self.neigh_down_vm].add("BGP state not down for %s" % self.neigh_down_vm)
-            fails_dut, bgp_state = self.verify_bgp_dut_state(self.neigh_bgp, state=self.dut_bgp['changed_state'])
-            if fails_dut:
-                self.fails['dut'] |= fails_dut
-            if bgp_state['v4'] and bgp_state['v6']:
-               self.log("BGP state down as expected on DUT")
-            else:
-               self.fails['dut'].add("BGP state not down on DUT")
-
-    def revert_state(self):
-        if self.preboot_type == 'neigh_bgp_down':
-            if self.vm_handle:
-                self.log("BGP state change to be done on %s" % (self.neigh_down_vm))
-                self.log("Changing state of AS %s to no shut" % self.neigh_bgp['asn'])
-                self.vm_handle.change_bgp_neigh_state(self.neigh_bgp['asn'], state="no shut")
-                self.vm_handle.disconnect()
-        else:
-            fails_dut = set()
-            fails_dut = self.change_bgp_dut_state(self.neigh_bgp, state="startup")
-            self.fails['dut'] |= fails_dut
-
     def runTest(self):
         self.reboot_start = None
         no_routing_start = None
@@ -797,11 +725,15 @@ class ReloadTest(BaseTest):
             if self.reboot_type == 'fast-reboot' and no_cp_replies < 0.95 * self.nr_vl_pkts:
                 self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (no_cp_replies, self.nr_vl_pkts))
 
-            if self.reboot_type == 'warm-reboot':
-                if self.preboot_type is not None:
-                   self.log("Postboot checks:")
-                   self.postbootOper()
-                   self.log(" ")
+            if self.reboot_type == 'warm-reboot' and self.preboot_oper is not None:
+                if self.pre_handle is not None:
+                    self.log("Postboot checks:")
+                    log_info, fails_dut, fails_vm = self.pre_handle.verify()
+                    self.fails[self.neigh_vm] |= fails_vm
+                    self.fails['dut'] |= fails_dut
+                    for log in log_info:
+                        self.log(log)
+                    self.log(" ")
 
         except Exception as e:
             self.fails['dut'].add(e)
@@ -810,10 +742,10 @@ class ReloadTest(BaseTest):
             self.watching = False
 
             # revert to pretest state
-            if self.preboot_type is not None:
-               self.log("Revert to preboot state:")
-               self.revert_state()
-               self.log(" ")
+            if self.preboot_oper is not None and self.pre_handle is not None:
+                self.log("Revert to preboot state:")
+                self.pre_handle.revert()
+                self.log(" ")
 
             # Generating report
             self.log("="*50)
@@ -910,41 +842,6 @@ class ReloadTest(BaseTest):
 
         return
 
-    def verify_bgp_dut_state(self, neigh, state='Idle'):
-        fails = set()
-        bgp_state = {}
-        bgp_state['v4'] = bgp_state['v6'] = False
-        for key in neigh.keys():
-            if key not in ['v4', 'v6']:
-                continue
-            self.log("Verifying if the DUT side BGP peer %s is %s" % (neigh[key], state))
-            stdout, stderr, return_code = self.cmd(["ssh", "-oStrictHostKeyChecking=no", self.dut_ssh, "show ip bgp neighbor %s" % neigh[key]])
-            if return_code == 0:
-                for line in stdout.split('\n'):
-                    if 'BGP state' in line:
-                        curr_state = re.findall('BGP state = (\w+)', line)[0]
-                        bgp_state[key] = (curr_state == state)
-                        break
-            else:
-                fails.add("Retreiving BGP info for peer %s from DUT side failed" % neigh[key])
-                fails.add("Return code: %d" % return_code)
-                fails.add("Stderr: %s" % stderr)
-        return fails, bgp_state
-
-    def change_bgp_dut_state(self, neigh, state="startup"):
-        fails = set()
-        for key in neigh.keys():
-            if key not in ['v4', 'v6']:
-                continue
-            self.log("Changing state of BGP peer %s from DUT side to %s" % (neigh[key], state))
-            stdout, stderr, return_code = self.cmd(["ssh", "-oStrictHostKeyChecking=no", self.dut_ssh, "sudo config bgp %s neighbor %s" % (state, neigh[key])])
-            if return_code != 0:
-                fails.add("State change not successful from DUT side for peer %s" % neigh[key])
-                fails.add("Return code: %d" % return_code)
-                fails.add("Stderr: %s" % stderr)
-
-        return fails
-
     def cmd(self, cmds):
         process = subprocess.Popen(cmds,
                                    shell=False,
@@ -1025,7 +922,7 @@ class ReloadTest(BaseTest):
         self.sniffer_started.clear()
 
     def save_sniffed_packets(self):
-        filename = "/tmp/capture_%s.pcap" % self.preboot_type if self.preboot_type is not None else "/tmp/capture.pcap"
+        filename = "/tmp/capture_%s.pcap" % self.preboot_oper if self.preboot_oper is not None else "/tmp/capture.pcap"
         if self.packets:
             scapyall.wrpcap(filename, self.packets)
             self.log("Pcap file dumped to %s" % filename)
@@ -1159,7 +1056,7 @@ class ReloadTest(BaseTest):
             self.log("Gaps in forwarding not found.")
         self.log("Total incoming packets captured %d" % received_counter)
         if packets:
-            filename = '/tmp/capture_filtered.pcap' if self.preboot_type is None else "/tmp/capture_filtered_%s.pcap" % self.preboot_type
+            filename = '/tmp/capture_filtered.pcap' if self.preboot_oper is None else "/tmp/capture_filtered_%s.pcap" % self.preboot_oper
             scapyall.wrpcap(filename, packets)
             self.log("Filtered pcap dumped to %s" % filename)
 

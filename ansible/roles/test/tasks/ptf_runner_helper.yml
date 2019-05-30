@@ -23,7 +23,7 @@
         - lo_v6_prefix='{{ lo_v6_prefix }}'
         - arista_vms=\"['{{ vm_hosts | list | join("','") }}']\"
         - preboot_files='{{ preboot_files }}'
-        - preboot_type='{{ item }}'
+        - preboot_oper='{{ item }}'
 
   always:
 
