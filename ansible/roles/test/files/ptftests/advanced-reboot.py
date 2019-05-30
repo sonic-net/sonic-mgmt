@@ -134,7 +134,7 @@ class ReloadTest(BaseTest):
         self.check_param('default_ip_range', '', required=True)
         self.check_param('vlan_ip_range', '', required=True)
         self.check_param('lo_prefix', '10.1.0.32/32', required=False)
-        self.check_param('lo_v6_prefix', 'fc00:1::/64', required=False)
+        self.check_param('lo_v6_prefix', 'fc00:1::32/128', required=False)
         self.check_param('arista_vms', [], required=True)
         self.check_param('min_bgp_gr_timeout', 15, required=False)
         self.check_param('warm_up_timeout_secs', 180, required=False)
@@ -158,7 +158,7 @@ class ReloadTest(BaseTest):
         #   Inter-packet interval, to be used in send_in_background method.
         #   Improve this interval to gain more precision of disruptions.
         self.send_interval = 0.0035
-        self.packets_to_send = min(int(self.time_to_listen / (self.send_interval + 0.0015)), 45000) # How many packets to be sent in send_in_background method 
+        self.packets_to_send = min(int(self.time_to_listen / (self.send_interval + 0.0015)), 45000) # How many packets to be sent in send_in_background method
 
         # Thread pool for background watching operations
         self.pool = ThreadPool(processes=3)
@@ -385,7 +385,7 @@ class ReloadTest(BaseTest):
                 dst_addr = server_ip
 
                 # generate source MAC address for traffic based on LAG_BASE_MAC_PATTERN
-                mac_addr = self.hex_to_mac(self.LAG_BASE_MAC_PATTERN.format(counter)) 
+                mac_addr = self.hex_to_mac(self.LAG_BASE_MAC_PATTERN.format(counter))
 
                 packet = simple_tcp_packet(eth_src=mac_addr,
                                            eth_dst=self.dut_mac,
@@ -1018,7 +1018,7 @@ class ReloadTest(BaseTest):
             ctrlplane = self.cpu_state.get()
             elapsed   = (datetime.datetime.now() - start_time).total_seconds()
             if dataplane == 'up' and ctrlplane == 'up' and elapsed > dut_stabilize_secs:
-                break;
+                break
             if elapsed > warm_up_timeout_secs:
                 raise Exception("Control plane didn't come up within warm up timeout")
             time.sleep(1)

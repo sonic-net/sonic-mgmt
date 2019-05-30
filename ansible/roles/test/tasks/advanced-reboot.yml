@@ -175,7 +175,7 @@
         - dut_vlan_ip='192.168.0.1'
         - default_ip_range='192.168.0.0/16'
         - vlan_ip_range=\"{{ minigraph_vlan_interfaces[0]['subnet'] }}\"
-        - lo_v6_prefix=\"{{ minigraph_lo_interfaces | map(attribute='addr') | ipv6 | first | ipsubnet(64) }}\"
+        - lo_v6_prefix=\"{% for intf in minigraph_lo_interfaces if intf.addr | ipv6 %}{{intf.addr}}/{{intf.mask}}{% endfor %}\"
         - arista_vms=\"['{{ vm_hosts | list | join("','") }}']\"
 
   always:
