@@ -33,7 +33,7 @@ class PrebootTest(object):
         return self.shandle.retreive_logs()
 
 
-class SadPass(object):
+class SadPath(object):
     def __init__(self, oper_type, vm_list, portchannel_ports, vm_dut_map, test_args):
         self.oper_type = oper_type
         self.vm_list = vm_list
@@ -106,7 +106,7 @@ class SadPass(object):
         return self.log, self.fails['dut'], self.fails[self.neigh_vm]
 
 
-class SadOper(SadPass):
+class SadOper(SadPath):
     def __init__(self, oper_type, vm_list, portchannel_ports, vm_dut_map, test_args, dut_ssh):
         super(SadOper, self).__init__(oper_type, vm_list, portchannel_ports, vm_dut_map, test_args)
         self.dut_ssh = dut_ssh

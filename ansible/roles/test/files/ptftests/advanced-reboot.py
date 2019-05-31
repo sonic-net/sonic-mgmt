@@ -65,7 +65,7 @@ import scapy.all as scapyall
 import itertools
 
 from arista import Arista
-import sad_pass_oper as sp
+import sad_path as sp
 
 
 class StateMachine():
