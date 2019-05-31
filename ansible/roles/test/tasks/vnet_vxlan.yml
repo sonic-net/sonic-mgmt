@@ -138,46 +138,64 @@
         - config_file='/tmp/vnet.json'
         ptf_extra_options: "--relax --debug info --log-file /tmp/vnet_test.log"
 
-    - set_fact: op="DEL"
+    - name: Set cleanup to True if not set
+      set_fact:
+          cleanup: True
+      when:
+          - cleanup is not defined
 
-    - name: Render DUT VNet route configuration
-      template: src=vnet_routes.j2 dest=/tmp/vnet.route.json
+    - debug: msg="cleanup is {{ cleanup|bool }}"
 
     - block:
-        - name: Copy configuration to swss container
-          shell: docker cp /tmp/vnet.route.json swss:/vnet.route.json
 
-        - name: Apply route json configuration
-          shell: docker exec swss sh -c "swssconfig /vnet.route.json"
+        - debug: msg='Running cleanup test for VNet'
 
-        - name: sleep for some time
-          pause: seconds=3
+        - set_fact: op="DEL"
 
-    - name: Remove VNET interfaces addresses
-      command: docker exec -i database redis-cli -n 4 del "VLAN_INTERFACE|{{ item['ifname'] }}|{{ item['ip'] }}"
-      with_list: vlan_intf_list
-      become: true
+        - name: Render DUT VNet route configuration
+          template: src=vnet_routes.j2 dest=/tmp/vnet.route.json
 
-    - name: Remove VNET interfaces
-      command: docker exec -i database redis-cli -n 4 del "VLAN_INTERFACE|{{ item['ifname'] }}"
-      with_list: vlan_intf_list
-      become: true
+        - block:
+            - name: Copy configuration to swss container
+              shell: docker cp /tmp/vnet.route.json swss:/vnet.route.json
 
-    - name: Remove VNETs
-      command: docker exec -i database redis-cli -n 4 del "VNET|{{ item }}"
-      with_list: vnet_id_list
-      become: true
+            - name: Apply route json configuration
+              shell: docker exec swss sh -c "swssconfig /vnet.route.json"
 
-    - include: ptf_runner.yml
-      vars:
-        ptf_test_name: Vnet vxlan test
-        ptf_test_dir: ptftests
-        ptf_test_path: vnet_vxlan.VNET
-        ptf_platform: remote
-        ptf_platform_dir: ptftests
-        ptf_qlen: 1000
-        ptf_test_params:
-        - vxlan_enabled=True
-        - routes_removed=True
-        - config_file='/tmp/vnet.json'
-        ptf_extra_options: "--relax --debug info --log-file /tmp/vnet_test.log"
+            - name: sleep for some time
+              pause: seconds=3
+
+        - name: Remove VNET interfaces addresses
+          command: docker exec -i database redis-cli -n 4 del "VLAN_INTERFACE|{{ item['ifname'] }}|{{ item['ip'] }}"
+          with_list: vlan_intf_list
+          become: true
+          when: cleanup|bool
+
+        - name: Remove VNET interfaces
+          command: docker exec -i database redis-cli -n 4 del "VLAN_INTERFACE|{{ item['ifname'] }}"
+          with_list: vlan_intf_list
+          become: true
+          when: cleanup|bool
+
+        - name: Remove VNETs
+          command: docker exec -i database redis-cli -n 4 del "VNET|{{ item }}"
+          with_list: vnet_id_list
+          become: true
+          when: cleanup|bool
+
+        - include: ptf_runner.yml
+          vars:
+            ptf_test_name: Vnet vxlan test
+            ptf_test_dir: ptftests
+            ptf_test_path: vnet_vxlan.VNET
+            ptf_platform: remote
+            ptf_platform_dir: ptftests
+            ptf_qlen: 1000
+            ptf_test_params:
+            - vxlan_enabled=True
+            - routes_removed=True
+            - config_file='/tmp/vnet.json'
+            ptf_extra_options: "--relax --debug info --log-file /tmp/vnet_test.log"
+          when: cleanup|bool
+
+      when: cleanup|bool
