@@ -31,6 +31,7 @@ class VNET(BaseTest):
         BaseTest.__init__(self)
 
         self.vxlan_enabled = False
+        self.routes_removed = False
         self.random_mac = '00:01:02:03:04:05'
         self.vxlan_router_mac = '00:aa:bb:cc:78:9a'
         self.vxlan_port = 13330
@@ -125,6 +126,9 @@ class VNET(BaseTest):
 
         if 'vxlan_enabled' in self.test_params and self.test_params['vxlan_enabled']:
             self.vxlan_enabled = True
+
+        if 'routes_removed' in self.test_params and self.test_params['routes_removed']:
+            self.routes_removed = True
 
         config = self.test_params['config_file']
 
@@ -309,7 +313,10 @@ class VNET(BaseTest):
             log_str = "Expecing packet on " + str("eth%d" % test['port']) + " from " + test['dst']
             logging.info(log_str)
 
-            verify_packet(self, exp_pkt, test['port'])
+            if not self.routes_removed:
+                verify_packet(self, exp_pkt, test['port'])
+            else:
+                verify_no_packet(self, exp_pkt, test['port'])
 
 
     def FromServer(self, test):
@@ -386,7 +393,10 @@ class VNET(BaseTest):
             log_str = "Sending packet from port " + str('eth%d' % test['port']) + " to " + test['dst']
             logging.info(log_str)
 
-            verify_packet_any_port(self, masked_exp_pkt, self.net_ports)
+            if not self.routes_removed:
+                verify_packet_any_port(self, masked_exp_pkt, self.net_ports)
+            else:
+                verify_no_packet_any(self, masked_exp_pkt, self.net_ports)
 
         finally:
             print
@@ -432,7 +442,10 @@ class VNET(BaseTest):
                 log_str = "Sending packet from port " + str('eth%d' % test['port']) + " to " + serv['src']
                 logging.info(log_str)
 
-                verify_packet(self, exp_pkt, serv['port'])
+                if not self.routes_removed:
+                    verify_packet(self, exp_pkt, serv['port'])
+                else:
+                    verify_no_packet(self, exp_pkt, serv['port'])
 
         finally:
             print

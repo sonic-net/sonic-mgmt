@@ -12,7 +12,7 @@
   minigraph_facts: host={{ inventory_hostname }}
 
 - name: Print neighbors in minigraph
-  debug: msg="{{ minigraph_neighbors }}"
+  debug: msg={{ minigraph_neighbors }}
 
 - set_fact:
     testname: everflow_testbed
@@ -44,7 +44,7 @@
       delegate_to: "{{ ptf_host }}"
 
     - name: Add route to unresolved next hop.
-      shell: ip route add {{ unresolved_nexthop_prefix }} dev {{ dst_port_2 }}
+      shell: vtysh -e "conf t" -e "ip route {{ unresolved_nexthop_prefix }} {{ dst_port_2 }}"
       become: yes
 
     - name: Run testcase 1 - Resolved route
@@ -69,12 +69,9 @@
     - name: Run testcase 7 - ECMP route change (remove next hop used by session).
       include: roles/test/tasks/everflow_testbed/testcase_7.yml
 
-    - name: Run testcase 8 - ECMP route change (remove next hop not used by session).
-      include: roles/test/tasks/everflow_testbed/testcase_8.yml
-
   always:
     - name: Remove route to unresolved next hop.
-      shell: ip route del {{ unresolved_nexthop_prefix }}
+      shell: vtysh -e "conf t" -e "no ip route {{ unresolved_nexthop_prefix }} {{ dst_port_2 }}"
       become: yes
 
     - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml

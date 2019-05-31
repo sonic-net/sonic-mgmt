@@ -1,0 +1,54 @@
+##############################################################################################
+### sub-playbook to deploy the docker images needed for the pfcwd test to fanout swtich
+### to run separately:
+### ansible-playbook -i lab fanout.yml -l ${FANOUT} --become --tags pfcwd_config -vvvv
+### Optionally "-e pfcwd_dockers_url=<www_path>" can be specified to fetch dockers without
+### building them. This is useful to save time or run task in sonic-mgmt docker.
+### E.g.
+### ansible-playbook -i lab fanout.yml -l ${FANOUT} -e pfcwd_dockers_url=http://arc-build-server/sonic/ --become --tags pfcwd_config -vvvv
+################################################################################################
+
+- set_fact:
+    fanout_addr: "{{device_info['mgmtip']}}"
+    ansible_ssh_user: "{{fanout_root_user}}"
+    ansible_ssh_pass: "{{fanout_root_pass}}"
+    pfcwd_dockers: "['roles/test/files/mlnx/docker-tests-pfcgen/pfc_storm.tgz', 'roles/test/files/mlnx/docker-tests-saveargs/storm_args.tgz']"
+    fanout_img_path: "/var/opt/tms/images/"
+
+- name: Build containers to save storm arguments and to run storm
+  command: make
+  args:
+    chdir: "{{item | dirname}}"
+  with_items: pfcwd_dockers
+  delegate_to: localhost
+  when: pfcwd_dockers_url is not defined
+
+- name: Copy test match and ignore files to switch
+  copy:
+      src: "{{ item }}"
+      dest: "{{fanout_img_path}}"
+  with_items: pfcwd_dockers
+  when: pfcwd_dockers_url is not defined
+
+- name: Download pre-built pfcwd dockers if path specified
+  get_url: url={{pfcwd_dockers_url}}{{item | basename}} dest={{fanout_img_path}}/{{item | basename}}
+  with_items: pfcwd_dockers
+  when: pfcwd_dockers_url is defined
+
+- block:
+    - name: Mount FS to read-write
+      command: mount -o remount, rw /
+
+    - name: Update storage driver for Docker
+      command: 'sed -i s/\"storage-driver\":\ \"vfs\",/\"storage-driver\":\ \"devicemapper\",\\n\ \ \ \ \"storage-opts\":\ [\\n\ \ \ \ \ \ \ \ \"dm.fs=ext4\"\\n\ \ \ \ ],\/g /opt/tms/bin/docker_config.json'
+
+  always:
+    - name: Remount FS back to read-only
+      command: mount -r -o remount /
+
+- name: Load and start dockers
+  action: apswitch template=mlnx_deploy_pfcwd_fanout.j2
+  connection: switch
+  args:
+    timeout: 600
+    login: "{{ switch_login['MLNX-OS'] }}"

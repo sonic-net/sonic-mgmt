@@ -53,6 +53,22 @@
 - name: build a startup config
   template: src="{{ topo }}-{{ props.swrole }}.j2"
             dest=/mnt/flash/startup-config
-  when: configuration is defined
-  notify:
-    - Restart the box
+  when: hostname in configuration
+
+- name: Restart the box
+  command: /sbin/shutdown -r now "Ansible updates triggered"
+  when: hostname in configuration
+
+- name: Pause for reboot
+  pause: seconds=30
+  when: hostname in configuration
+
+- name: Wait for VM to come up
+  wait_for:
+    host: "{{ ansible_ssh_host }}"
+    port: 22
+    state: started
+    delay: 10
+    timeout: 600
+  connection: local
+  when: hostname in configuration

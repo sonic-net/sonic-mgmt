@@ -20,10 +20,6 @@
   with_dict: "{{ minigraph_neighbors }}"
   when: "'T0' in item.value.name"
 
-- name: Sort tor ports by name.
-  set_fact:
-      tor_port: "{{ tor_ports|sort }}"
-
 - name: Print tor ports
   debug: msg="{{ tor_ports }}"
 
@@ -32,10 +28,6 @@
       spine_ports: "{{ spine_ports + [item.key]  }}"
   with_dict: "{{ minigraph_neighbors }}"
   when: "'T2' in item.value.name"
-
-- name: Sort tor ports by name.
-  set_fact:
-      tor_port: "{{ spine_ports|sort }}"
 
 - name: Print spine ports
   debug: msg="{{ spine_ports }}"

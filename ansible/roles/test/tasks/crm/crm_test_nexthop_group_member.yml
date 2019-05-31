@@ -49,7 +49,7 @@
       assert: {that: "{{new_crm_stats_nexthop_group_member_used|int - crm_stats_nexthop_group_member_used|int == 2}}"}
 
     - name: Verify "crm_stats_nexthop_group_member_available" counter was decremented
-      assert: {that: "{{crm_stats_nexthop_group_member_available|int - new_crm_stats_nexthop_group_member_available|int == 2}}"}
+      assert: {that: "{{crm_stats_nexthop_group_member_available|int - new_crm_stats_nexthop_group_member_available|int >= 2}}"}
 
     - name: Remove nexthop group members
       command: ip route del 2.2.2.0/24 nexthop via {{nh_ip1}} nexthop via {{nh_ip2}}

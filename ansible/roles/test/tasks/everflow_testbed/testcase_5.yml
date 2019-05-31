@@ -1,7 +1,7 @@
 # Test case 5 - Resolved ECMP route.
 
 - name: Create ECMP route with next hops on {{ dst_port_1 }} and {{ dst_port_2 }}.
-  shell: ip route add {{ session_prefix_1 }} nexthop via {{ neighbor_info_1['addr'] }} via {{ neighbor_info_2['addr'] }}
+  shell: vtysh -e "conf t" -e "ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}" -e "ip route {{ session_prefix_1 }} {{ neighbor_info_2['addr'] }}"
   become: yes
 
 - block:
@@ -14,5 +14,5 @@
 
   always:
     - name: Remove route
-      shell: ip route del {{ session_prefix_1 }}
+      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_2['addr'] }}"
       become: yes

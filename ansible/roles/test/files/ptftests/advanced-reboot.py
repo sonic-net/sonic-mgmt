@@ -1084,8 +1084,8 @@ class ReloadTest(BaseTest):
                 time.sleep(2)
             else:
                 break
-
-        raise Exception("DUT is flooding")
+        else:
+            raise Exception("DUT is flooding")
 
 
     def get_asic_vlan_reachability(self):
