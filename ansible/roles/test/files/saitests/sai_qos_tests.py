@@ -1516,7 +1516,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt, pkts_num)
                 time.sleep(8)
                 q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[src_port_id])
-                print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % (expected_wm * cell_size, pg_shared_wm_res[pg], (expected_wm + margin) * cell_size)
+                print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound (+%d): %d" % (expected_wm * cell_size, pg_shared_wm_res[pg], margin, (expected_wm + margin) * cell_size)
                 assert(pg_shared_wm_res[pg] <= (expected_wm + margin) * cell_size)
                 assert(expected_wm * cell_size <= pg_shared_wm_res[pg])
 
