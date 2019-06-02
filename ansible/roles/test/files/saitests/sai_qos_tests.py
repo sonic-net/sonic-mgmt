@@ -1690,6 +1690,10 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
+        #
+        # On TH2 using scheduler-based TX enable, we find the Q min being inflated
+        # to have 0x10 = 16 cells. This effect is captured in lossy traffic queue
+        # shared test, so the margin here actually means extra capacity margin
         margin = 8
 
         if asic_type == 'mellanox':
@@ -1811,7 +1815,15 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
-        margin = 10
+        upper_bound_margin = 2
+        # On TD2, we found the watermark value is always short of the expected
+        # value by 1
+        lower_bound_margin = 1
+        # On TH2 using scheduler-based TX enable, we find the Q min being inflated
+        # to have 0x10 = 16 cells. This effect is captured in lossy traffic ingress
+        # buffer pool test and lossy traffic egress buffer pool test to illusively
+        # have extra capacity in the buffer pool space
+        extra_cap_margin = 8
 
         sai_thrift_port_tx_disable(self.client, asic_type, dst_port_id)
         # send packets
@@ -1829,24 +1841,21 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(self.client, buf_pool_roid)
             print >> sys.stderr, "Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % ((pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, buffer_pool_wm)
             if pkts_num_fill_min:
-                assert(buffer_pool_wm <= margin * cell_size)
+                assert(buffer_pool_wm <= upper_bound_margin * cell_size)
             else:
                 # on t1-lag, we found vm will keep sending control
                 # packets, this will cause the watermark to be 2 * 208 bytes
                 # as all lossy packets are now mapped to single pg 0
                 # so we remove the strict equity check, and use upper bound
                 # check instead
-                assert(buffer_pool_wm <= margin * cell_size)
+                assert(buffer_pool_wm <= upper_bound_margin * cell_size)
 
             # send packet batch of fixed packet numbers to fill shared
             # first round sends only 1 packet
             expected_wm = 0
             total_shared = pkts_num_fill_shared - pkts_num_fill_min
             pkts_inc = total_shared >> 2
-            pkts_num = 1 + margin
-            # On TD2, we found the watermark value is always short of the expected
-            # value by 1
-            lower_bound_margin = 1
+            pkts_num = 1 + upper_bound_margin
             while (expected_wm < total_shared):
                 expected_wm += pkts_num
                 if (expected_wm > total_shared):
@@ -1857,8 +1866,8 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt, pkts_num)
                 time.sleep(8)
                 buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(self.client, buf_pool_roid)
-                print >> sys.stderr, "lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (lower_bound_margin, (expected_wm - lower_bound_margin)* cell_size, buffer_pool_wm, margin, (expected_wm + margin) * cell_size)
-                assert(buffer_pool_wm <= (expected_wm + margin) * cell_size)
+                print >> sys.stderr, "lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (lower_bound_margin, (expected_wm - lower_bound_margin)* cell_size, buffer_pool_wm, upper_bound_margin, (expected_wm + upper_bound_margin) * cell_size)
+                assert(buffer_pool_wm <= (expected_wm + upper_bound_margin) * cell_size)
                 assert((expected_wm - lower_bound_margin)* cell_size <= buffer_pool_wm)
 
                 pkts_num = pkts_inc
@@ -1870,7 +1879,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             print >> sys.stderr, "exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (pkts_num, (expected_wm * cell_size), buffer_pool_wm)
             assert(expected_wm == total_shared)
             assert((expected_wm - lower_bound_margin)* cell_size <= buffer_pool_wm)
-            assert(buffer_pool_wm <= (expected_wm + margin) * cell_size)
+            assert(buffer_pool_wm <= (expected_wm + extra_cap_margin) * cell_size)
 
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, dst_port_id)
