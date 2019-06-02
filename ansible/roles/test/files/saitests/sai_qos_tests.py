@@ -24,7 +24,9 @@ from switch import (switch_init,
                     port_list,
                     sai_thrift_read_port_watermarks,
                     sai_thrift_read_pg_counters,
-                    sai_thrift_read_buffer_pool_watermark)
+                    sai_thrift_read_buffer_pool_watermark,
+                    sai_thrift_port_tx_disable,
+                    sai_thrift_port_tx_enable)
 from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
                                       sai_thrift_attribute_t)
 from switch_sai_thrift.sai_headers import (SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID,
@@ -1811,6 +1813,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # or the leak out is simply less than expected as we have occasionally observed
         margin = 10
 
+        sai_thrift_port_tx_disable(self.client, asic_type, dst_port_id)
         # send packets
         try:
             # send packets to fill min but not trek into shared pool
@@ -1819,6 +1822,8 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # Because lossy and lossless traffic use the same pool at ingress, even if
             # lossless traffic has pg min not equal to zero, we still need to consider
             # the impact caused by lossy traffic
+            #
+            # TH2 uses scheduler-based TX enable, this does not require sending packets to leak out
             send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_fill_min)
             time.sleep(8)
             buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(self.client, buf_pool_roid)
@@ -1868,14 +1873,4 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             assert(buffer_pool_wm <= (expected_wm + margin) * cell_size)
 
         finally:
-            if asic_type == 'mellanox':
-                # Release port
-                sched_prof_id = sai_thrift_create_scheduler_profile(self.client,RELEASE_PORT_MAX_RATE)
-                attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id],attr)
-            else:
-                # Resume egress of dut xmit port
-                attr_value = sai_thrift_attribute_value_t(booldata=1)
-                attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
-                self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+            sai_thrift_port_tx_enable(self.client, asic_type, dst_port_id)
