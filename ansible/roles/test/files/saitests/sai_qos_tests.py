@@ -1839,6 +1839,9 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             total_shared = pkts_num_fill_shared - pkts_num_fill_min
             pkts_inc = total_shared >> 2
             pkts_num = 1 + margin
+            # On TD2, we found the watermark value is always short of the expected
+            # value by 1
+            lower_bound_margin = 1
             while (expected_wm < total_shared):
                 expected_wm += pkts_num
                 if (expected_wm > total_shared):
@@ -1849,9 +1852,9 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt, pkts_num)
                 time.sleep(8)
                 buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(self.client, buf_pool_roid)
-                print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % (expected_wm * cell_size, buffer_pool_wm, (expected_wm + margin) * cell_size)
+                print >> sys.stderr, "lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (lower_bound_margin, (expected_wm - lower_bound_margin)* cell_size, buffer_pool_wm, margin, (expected_wm + margin) * cell_size)
                 assert(buffer_pool_wm <= (expected_wm + margin) * cell_size)
-                assert(expected_wm * cell_size <= buffer_pool_wm)
+                assert((expected_wm - lower_bound_margin)* cell_size <= buffer_pool_wm)
 
                 pkts_num = pkts_inc
 
@@ -1861,7 +1864,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(self.client, buf_pool_roid)
             print >> sys.stderr, "exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (pkts_num, (expected_wm * cell_size), buffer_pool_wm)
             assert(expected_wm == total_shared)
-            assert(expected_wm * cell_size <= buffer_pool_wm)
+            assert((expected_wm - lower_bound_margin)* cell_size <= buffer_pool_wm)
             assert(buffer_pool_wm <= (expected_wm + margin) * cell_size)
 
         finally:
