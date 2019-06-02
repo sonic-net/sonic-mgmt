@@ -1825,7 +1825,10 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # have extra capacity in the buffer pool space
         extra_cap_margin = 8
 
-        sai_thrift_port_tx_disable(self.client, asic_type, dst_port_id)
+        # Adjust the methodology to enable TX for each incremental watermark value test
+        # To this end, send the total # of packets instead of the incremental amount
+        # to refill the buffer to the exepected level
+        pkts_num_to_send = 0
         # send packets
         try:
             # send packets to fill min but not trek into shared pool
@@ -1836,7 +1839,10 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # the impact caused by lossy traffic
             #
             # TH2 uses scheduler-based TX enable, this does not require sending packets to leak out
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_fill_min)
+            sai_thrift_port_tx_disable(self.client, asic_type, dst_port_id)
+            pkts_num_to_send += (pkts_num_leak_out + pkts_num_fill_min)
+            send_packet(self, src_port_id, pkt, pkts_num_to_send)
+            sai_thrift_port_tx_enable(self.client, asic_type, dst_port_id)
             time.sleep(8)
             buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(self.client, buf_pool_roid)
             print >> sys.stderr, "Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % ((pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, buffer_pool_wm)
@@ -1863,7 +1869,10 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     expected_wm = total_shared
                 print >> sys.stderr, "pkts num to send: %d, total pkts: %d, shared: %d" % (pkts_num, expected_wm, total_shared)
 
-                send_packet(self, src_port_id, pkt, pkts_num)
+                sai_thrift_port_tx_disable(self.client, asic_type, dst_port_id)
+                pkts_num_to_send += pkts_num
+                send_packet(self, src_port_id, pkt, pkts_num_to_send)
+                sai_thrift_port_tx_enable(self.client, asic_type, dst_port_id)
                 time.sleep(8)
                 buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(self.client, buf_pool_roid)
                 print >> sys.stderr, "lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (lower_bound_margin, (expected_wm - lower_bound_margin)* cell_size, buffer_pool_wm, upper_bound_margin, (expected_wm + upper_bound_margin) * cell_size)
@@ -1873,7 +1882,10 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 pkts_num = pkts_inc
 
             # overflow the shared pool
-            send_packet(self, src_port_id, pkt, pkts_num)
+            sai_thrift_port_tx_disable(self.client, asic_type, dst_port_id)
+            pkts_num_to_send += pkts_num
+            send_packet(self, src_port_id, pkt, pkts_num_to_send)
+            sai_thrift_port_tx_enable(self.client, asic_type, dst_port_id)
             time.sleep(8)
             buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(self.client, buf_pool_roid)
             print >> sys.stderr, "exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (pkts_num, (expected_wm * cell_size), buffer_pool_wm)
