@@ -66,7 +66,8 @@
       when: minigraph_hwsku is defined and
             (minigraph_hwsku in mellanox_hwskus or minigraph_hwsku == 'Arista-7050-QX-32S'
              or minigraph_hwsku == 'Arista-7060CX-32S-C32' or minigraph_hwsku == 'Celestica-DX010-C32'
-             or minigraph_hwsku == 'Arista-7260CX3-D108C8' or minigraph_hwsku == 'Force10-S6100')
+             or minigraph_hwsku == 'Arista-7260CX3-D108C8' or minigraph_hwsku == 'Force10-S6100'
+             or minigraph_hwsku == 'Arista-7260CX3-Q64')
 
     - name: Init PTF base test parameters
       set_fact: 
@@ -287,6 +288,8 @@
         - cell_size='{{qp.wm_pg_shared_lossless.cell_size}}'
     - debug:
         var: out.stdout_lines
+      when: minigraph_hwsku is defined and
+            (minigraph_hwsku != 'Arista-7260CX3-Q64' and minigraph_hwsku != 'Arista-7260CX3-D108C8')
 
     # Clear all watermarks before each watermark test
     # because of the clear on read polling mode
@@ -312,6 +315,8 @@
         - cell_size='{{qp.wm_pg_shared_lossy.cell_size}}'
     - debug:
         var: out.stdout_lines
+      when: minigraph_hwsku is defined and
+            (minigraph_hwsku != 'Arista-7260CX3-Q64' and minigraph_hwsku != 'Arista-7260CX3-D108C8')
 
     # Clear all watermarks before each watermark test
     # because of the clear on read polling mode
