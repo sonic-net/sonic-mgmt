@@ -83,6 +83,8 @@
 
     - name: Generate public key for ptf host
       shell: ssh-keygen -b 2048 -t rsa -f /root/.ssh/id_rsa -q -N ""
+      args:
+        creates: /root/.ssh/id_rsa
       delegate_to: "{{ ptf_host }}"
 
     - name: read authorized key from ptf host
@@ -142,7 +144,7 @@
     - include: advanced_reboot/reboot-image-handle.yml
       when: new_sonic_image is defined
 
-    - include: ptf_runner_helper.yml
+    - include: ptf_runner_reboot.yml
       with_items: "{{ preboot_list }}"
 
   always:
