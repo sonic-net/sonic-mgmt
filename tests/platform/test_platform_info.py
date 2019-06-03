@@ -14,6 +14,11 @@ from ansible_host import ansible_host
 from psu_controller import psu_controller
 
 
+CMD_PLATFORM_SUMMARY = "show platform summary"
+CMD_PLATFORM_PSUSTATUS = "show platform psustatus"
+CMD_PLATFORM_SYSEEPROM = "show platform syseeprom"
+
+
 def test_show_platform_summary(localhost, ansible_adhoc, testbed):
     """
     @summary: Check output of 'show platform summary'
@@ -21,8 +26,8 @@ def test_show_platform_summary(localhost, ansible_adhoc, testbed):
     hostname = testbed['dut']
     ans_host = ansible_host(ansible_adhoc, hostname)
 
-    logging.info("Check output of 'show platform summary'")
-    platform_summary = ans_host.command("show platform summary")
+    logging.info("Check output of '%s'" % CMD_PLATFORM_SUMMARY)
+    platform_summary = ans_host.command(CMD_PLATFORM_SUMMARY)
     expected_fields = set(["Platform", "HwSKU", "ASIC"])
     actual_fields = set()
     for line in platform_summary["stdout_lines"]:
@@ -41,8 +46,8 @@ def test_show_platform_psustatus(localhost, ansible_adhoc, testbed):
     hostname = testbed['dut']
     ans_host = ansible_host(ansible_adhoc, hostname)
 
-    logging.info("Check PSU status using 'show platform psustatus', hostname: " + hostname)
-    psu_status = ans_host.command("show platform psustatus")
+    logging.info("Check PSU status using '%s', hostname: %s" % (CMD_PLATFORM_PSUSTATUS, hostname))
+    psu_status = ans_host.command(CMD_PLATFORM_PSUSTATUS)
     psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK)")
     for line in psu_status["stdout_lines"][2:]:
         assert psu_line_pattern.match(line), "Unexpected PSU status output"
@@ -54,17 +59,18 @@ def test_turn_on_off_psu_and_check_psustatus(localhost, ansible_adhoc, testbed, 
     """
     hostname = testbed['dut']
     ans_host = ansible_host(ansible_adhoc, hostname)
-    platform_info = parse_platform_summary(ans_host.command("show platform summary")["stdout_lines"])
+    platform_info = parse_platform_summary(ans_host.command(CMD_PLATFORM_SUMMARY)["stdout_lines"])
 
     psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
+    cmd_num_psu = "sudo psuutil numpsus"
 
     logging.info("Check whether the DUT has enough PSUs for this testing")
-    psu_num_out = ans_host.command("sudo psuutil numpsus")
+    psu_num_out = ans_host.command(cmd_num_psu)
     psu_num = 0
     try:
         psu_num = int(psu_num_out["stdout"])
     except:
-        assert False, "Unable to get the number of PSUs using command 'psuutil numpsus'"
+        assert False, "Unable to get the number of PSUs using command '%s'" % cmd_num_psu
     if psu_num < 2:
         pytest.skip("At least 2 PSUs required for rest of the testing in this case")
 
@@ -82,7 +88,7 @@ def test_turn_on_off_psu_and_check_psustatus(localhost, ansible_adhoc, testbed, 
                 time.sleep(5)
 
     logging.info("Initialize test results")
-    cli_psu_status = ans_host.command("show platform psustatus")
+    cli_psu_status = ans_host.command(CMD_PLATFORM_PSUSTATUS)
     psu_test_results = {}
     for line in cli_psu_status["stdout_lines"][2:]:
         fields = line.split()
@@ -90,7 +96,7 @@ def test_turn_on_off_psu_and_check_psustatus(localhost, ansible_adhoc, testbed, 
         if " ".join(fields[2:]) == "NOT OK":
             pytest.skip("Some PSUs are still not powered, it is not safe to proceed, skip testing")
     assert len(psu_test_results.keys()) == psu_num, \
-        "In consistent PSU number output by 'show platform psustatus' and 'psuutil numpsus'"
+        "In consistent PSU number output by '%s' and '%s'" % (CMD_PLATFORM_PSUSTATUS, cmd_num_psu)
 
     logging.info("Start testing turn off/on PSUs")
     all_psu_status = psu_ctrl.get_psu_status()
@@ -101,7 +107,7 @@ def test_turn_on_off_psu_and_check_psustatus(localhost, ansible_adhoc, testbed, 
         psu_ctrl.turn_off_psu(psu["psu_id"])
         time.sleep(5)
 
-        cli_psu_status = ans_host.command("show platform psustatus")
+        cli_psu_status = ans_host.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
             assert psu_line_pattern.match(line), "Unexpected PSU status output"
             fields = line.split()
@@ -113,7 +119,7 @@ def test_turn_on_off_psu_and_check_psustatus(localhost, ansible_adhoc, testbed, 
         psu_ctrl.turn_on_psu(psu["psu_id"])
         time.sleep(5)
 
-        cli_psu_status = ans_host.command("show platform psustatus")
+        cli_psu_status = ans_host.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
             assert psu_line_pattern.match(line), "Unexpected PSU status output"
             fields = line.split()
@@ -148,9 +154,9 @@ def test_show_platform_syseeprom(localhost, ansible_adhoc, testbed):
     ans_host = ansible_host(ansible_adhoc, hostname)
 
     logging.info("Check output of 'show platform syseeprom'")
-    platform_info = parse_platform_summary(ans_host.command("show platform summary")["stdout_lines"])
-    show_output = ans_host.command("show platform syseeprom")
-    assert show_output["rc"] == 0, "Run command 'show platform syseeprom' failed"
+    platform_info = parse_platform_summary(ans_host.command(CMD_PLATFORM_SUMMARY)["stdout_lines"])
+    show_output = ans_host.command(CMD_PLATFORM_SYSEEPROM)
+    assert show_output["rc"] == 0, "Run command '%s' failed" % CMD_PLATFORM_SYSEEPROM
     if platform_info["asic"] in ["mellanox"]:
         expected_fields = [
             "Product Name",
@@ -174,4 +180,4 @@ def test_show_platform_syseeprom(localhost, ansible_adhoc, testbed):
             assert utility_cmd_output["stdout"].find(field) >= 0, "Expected field %s is not found" % field
 
         assert show_output["stdout"].find(utility_cmd_output["stdout"]) >= 0, \
-            "Output of 'show platform syseeprom' is inconsistent with output of eeprom.py utility"
+            "Output of '%s' is inconsistent with output of eeprom.py utility" % CMD_PLATFORM_SYSEEPROM
