@@ -1,0 +1,11 @@
+- name: set default reboot_limit in seconds
+  set_fact:
+      reboot_limit: 1
+  when: reboot_limit is not defined
+
+- name: Warm-reboot test
+  include: advanced-reboot.yml
+  vars:
+      reboot_type: warm-reboot
+      preboot_list: ['neigh_bgp_down', 'dut_bgp_down']
+      preboot_files: "peer_dev_info,neigh_port_info"

@@ -41,7 +41,7 @@ class Arista(object):
         self.login = login
         self.password = password
         self.conn = None
-        self.hostname = None
+        self.arista_prompt = None
         self.v4_routes = [test_params['vlan_ip_range'], test_params['lo_prefix']]
         self.v6_routes = [test_params['lo_v6_prefix']]
         self.fails = set()
@@ -58,27 +58,28 @@ class Arista(object):
         self.shell = self.conn.invoke_shell()
 
         first_prompt = self.do_cmd(None, prompt = '>')
-        self.hostname = self.extract_hostname(first_prompt)
+        self.arista_prompt = self.get_arista_prompt(first_prompt)
 
         self.do_cmd('enable')
         self.do_cmd('terminal length 0')
 
         return self.shell
 
-    def extract_hostname(self, first_prompt):
+    def get_arista_prompt(self, first_prompt):
         lines = first_prompt.split('\n')
         prompt = lines[-1]
-        return prompt.strip().replace('>', '#')
+        # match all modes - A#, A(config)#, A(config-if)#
+        return prompt.strip().replace('>', '.*#')
 
     def do_cmd(self, cmd, prompt = None):
         if prompt == None:
-            prompt = self.hostname
+            prompt = self.arista_prompt
 
         if cmd is not None:
             self.shell.send(cmd + '\n')
 
         input_buffer = ''
-        while prompt not in input_buffer:
+        while re.search(prompt, input_buffer) is None:
             input_buffer += self.shell.recv(16384)
 
         return input_buffer
@@ -288,6 +289,21 @@ class Arista(object):
 
         return is_gr_ipv4_enabled, is_gr_ipv6_enabled, restart_time
 
+    def parse_bgp_info(self, output):
+        neigh_bgp = None
+        dut_bgp = None
+        asn = None
+        for line in output.split('\n'):
+            if 'BGP neighbor is' in line:
+                dut_bgp = re.findall('BGP neighbor is (.*?),', line)[0]
+            elif 'Local AS is' in line:
+                asn = re.findall('Local AS is (\d+?),', line)[0]
+            elif 'Local TCP address is' in line:
+                neigh_bgp = re.findall('Local TCP address is (.*?),', line)[0]
+                break
+
+        return neigh_bgp, dut_bgp, asn
+
     def parse_bgp_neighbor(self, output):
         gr_active = None
         gr_timer = None
@@ -312,6 +328,52 @@ class Arista(object):
                 prefixes.add(prefix)
 
         return set(expects) == prefixes
+
+    def get_bgp_info(self):
+        # Retreive BGP info (peer addr, AS) for the dut and neighbor
+        neigh_bgp = {}
+        dut_bgp = {}
+        for cmd, ver in [('show ip bgp neighbors', 'v4'), ('show ipv6 bgp neighbors', 'v6')]:
+            output = self.do_cmd(cmd)
+            if ver == 'v6':
+                neigh_bgp[ver], dut_bgp[ver], neigh_bgp['asn'] = self.parse_bgp_info(output)
+            else:
+                neigh_bgp[ver], dut_bgp[ver], neigh_bgp['asn'] = self.parse_bgp_info(output)
+
+        return neigh_bgp, dut_bgp
+
+    def change_bgp_neigh_state(self, asn, is_up=True):
+        state = ['shut', 'no shut']
+        self.do_cmd('configure')
+        self.do_cmd('router bgp %s' % asn)
+        self.do_cmd('%s' % state[is_up])
+        self.do_cmd('exit')
+        self.do_cmd('exit')
+
+    def verify_bgp_neigh_state(self, dut=None, state="Active"):
+        bgp_state = {}
+        bgp_state['v4'] = bgp_state['v6'] = False
+        for cmd, ver in [('show ip bgp summary | json', 'v4'), ('show ipv6 bgp summary | json', 'v6')]:
+            output = self.do_cmd(cmd)
+            data = '\n'.join(output.split('\r\n')[1:-1])
+            obj = json.loads(data)
+
+            if state != 'Active':
+                if 'vrfs' in obj:
+                    # return True when obj['vrfs'] is empty which is the case when the bgp state is 'down'
+                    bgp_state[ver] = not obj['vrfs']
+                else:
+                    self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
+            else:
+                if 'vrfs' in obj and 'default' in obj['vrfs']:
+                    obj = obj['vrfs']['default']
+                    if 'peers' in obj:
+                        bgp_state[ver] = (obj['peers'][dut[ver]]['peerState'] == state)
+                    else:
+                        self.fails.add('Verify BGP %S neighbor: Peer attribute missing in output' % ver)
+                else:
+                    self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
+        return self.fails, bgp_state
 
     def check_gr_peer_status(self, output):
         # [0] True 'ipv4_gr_enabled', [1] doesn't matter 'ipv6_enabled', [2] should be >= 120

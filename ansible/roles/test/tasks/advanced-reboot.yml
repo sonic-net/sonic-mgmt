@@ -20,6 +20,21 @@
     - fail: msg="Please set vm_hosts variable with a list of VMs"
       when: vm_hosts is not defined
 
+    - name: Preboot-list initialization
+      set_fact: preboot_list={% if preboot_list is not defined %}[None]{% else %}{{ preboot_list }}{% endif %}
+
+    - name: Preboot files initialization
+      set_fact: preboot_files={% if preboot_files is not defined %}None{% else %}{{ preboot_files }}{% endif %}
+
+    - debug:
+        msg: "Preboot-list: {{ preboot_list }} Preboot-files: {{ preboot_files }}"
+
+    - name: Set PTF test params
+      set_fact:
+        dut_mac: "{{ ansible_Ethernet0['macaddress'] }}"
+        vlan_ip_range: "{{ minigraph_vlan_interfaces[0]['subnet'] }}"
+        lo_v6_prefix: "{{ minigraph_lo_interfaces | map(attribute='addr') | ipv6 | first | ipsubnet(64) }}"
+
     - name: Remove existing ip from ptf host
       script: roles/test/files/helpers/remove_ip.sh
       delegate_to: "{{ ptf_host }}"
@@ -103,6 +118,22 @@
         dest: /tmp/ports.json
       delegate_to: "{{ ptf_host }}"
 
+    - block:
+
+        - name: Copy peer device info to ptf host
+          copy:
+            content: "{{ minigraph_devices | to_nice_json }}"
+            dest: /tmp/peer_dev_info.json
+          delegate_to: "{{ ptf_host }}"
+
+        - name: Copy neighbor port info to ptf host
+          copy:
+            content: "{{ minigraph_neighbors | to_nice_json }}"
+            dest: /tmp/neigh_port_info.json
+          delegate_to: "{{ ptf_host }}"
+
+      when: preboot_list|length > 1
+
     - debug: msg="Defined new sonic image url is {{ new_sonic_image }}"
       when: new_sonic_image is defined
 
@@ -113,85 +144,13 @@
     - include: advanced_reboot/reboot-image-handle.yml
       when: new_sonic_image is defined
 
-    - include: ptf_runner.yml
-      vars:
-        ptf_test_name: Advanced-reboot test
-        ptf_test_dir: ptftests
-        ptf_test_path: advanced-reboot.ReloadTest
-        ptf_platform: remote
-        ptf_platform_dir: ptftests
-        ptf_qlen: 1000
-        ptf_test_params:
-        - verbose=False
-        - dut_username=\"{{ ansible_ssh_user }}\"
-        - dut_hostname=\"{{ ansible_host }}\"
-        - reboot_limit_in_seconds={{ reboot_limit }}
-        - reboot_type=\"{{ reboot_type }}\"
-        - portchannel_ports_file=\"/tmp/portchannel_interfaces.json\"
-        - vlan_ports_file=\"/tmp/vlan_interfaces.json\"
-        - ports_file=\"/tmp/ports.json\"
-        - dut_mac='{{ ansible_Ethernet0['macaddress'] }}'
-        - dut_vlan_ip='192.168.0.1'
-        - default_ip_range='192.168.0.0/16'
-        - vlan_ip_range=\"{{ minigraph_vlan_interfaces[0]['subnet'] }}\"
-        - lo_v6_prefix=\"{{ minigraph_lo_interfaces | map(attribute='addr') | ipv6 | first | ipsubnet(64) }}\"
-        - arista_vms=\"['{{ vm_hosts | list | join("','") }}']\"
+    - include: ptf_runner_reboot.yml
+      with_items: "{{ preboot_list }}"
 
   always:
-    - name: Copy test results from ptf to the local box /tmp/*-reboot.log
-      fetch: src='/tmp/{{reboot_type}}.log' dest='/tmp/' flat=true fail_on_missing=false
-      delegate_to: "{{ ptf_host }}"
-
-    - name: Copy pcap files from ptf to the local box /tmp/
-      fetch: src={{ item }} dest='/tmp/' flat=true fail_on_missing=false
-      delegate_to: "{{ ptf_host }}"
-      with_items:
-        - "/tmp/capture.pcap"
-        - "/tmp/capture_filtered.pcap"
-
     - name: Remove existing ip from ptf host
       script: roles/test/files/helpers/remove_ip.sh
       delegate_to: "{{ ptf_host }}"
-
-    - name: Extract all syslog entries since the last reboot
-      extract_log:
-        directory: '/var/log'
-        file_prefix: 'syslog'
-        start_string: 'Linux version'
-        target_filename: '/tmp/syslog'
-      become: yes
-
-    - name: Copy the exctracted syslog entries to the local machine
-      fetch:
-        src: '/tmp/syslog'
-        dest: '/tmp/'
-        flat: yes
-
-    - name: Extract all sairedis.rec entries since the last reboot
-      extract_log:
-        directory: '/var/log/swss'
-        file_prefix: 'sairedis.rec'
-        start_string: 'recording on:'
-        target_filename: '/tmp/sairedis.rec'
-
-    - name: Copy the exctracted sairedis.rec entries to the local machine
-      fetch:
-        src: '/tmp/sairedis.rec'
-        dest: '/tmp/'
-        flat: yes
-
-    - name: Extract all swss.rec entries since the last reboot
-      extract_log:
-        directory: '/var/log/swss'
-        file_prefix: 'swss.rec'
-        start_string: 'recording started'
-        target_filename: '/tmp/swss.rec'
-
-    - name: Copy the exctracted swss.rec entries to the local machine
-      fetch:
-        src: '/tmp/swss.rec'
-        dest: '/tmp/'
-        flat: yes
 
     - name: make sure all handlers run
       meta: flush_handlers
