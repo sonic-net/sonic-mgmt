@@ -9,7 +9,7 @@
       become: true
       shell: ip link set {{ neighbor_interface }} down
       delegate_to: "{{peer_host}}"
-      when: peer_type == "FanoutLeafSonic"
+      when: ((peer_hwsku | lower) | search("arista")) == False
 
     - name: Shut down neighbor interface {{ neighbor_interface }} on {{ peer_device }} ({{ peer_host }})
       action: apswitch template=neighbor_interface_shut_single.j2
@@ -17,7 +17,7 @@
         host: "{{peer_host}}"
         login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
       connection: switch
-      when: peer_type != "FanoutLeafSonic"
+      when: ((peer_hwsku | lower) | search("arista")) == True
     
     - pause:
         seconds: "{{ wait_down_time }}"
@@ -48,7 +48,7 @@
       become: true
       shell: ip link set {{ neighbor_interface }} up
       delegate_to: "{{peer_host}}"
-      when: peer_type == "FanoutLeafSonic"
+      when: ((peer_hwsku | lower) | search("arista")) == False
   
     - name: Bring up neighbor interface {{ neighbor_interface }} on {{ peer_device }} ({{ peer_host }})
       action: apswitch template=neighbor_interface_no_shut_single.j2
@@ -56,7 +56,7 @@
         host: "{{peer_host}}"
         login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
       connection: switch
-      when: peer_type != "FanoutLeafSonic"
+      when: ((peer_hwsku | lower) | search("arista")) == True
     
     - pause:
         seconds: 35
