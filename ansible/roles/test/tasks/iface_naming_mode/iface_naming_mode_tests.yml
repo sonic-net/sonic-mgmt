@@ -84,3 +84,4 @@
       state: absent
       shell: /bin/bash
       remove: yes
+    become: yes
