@@ -379,7 +379,7 @@ class Arista(object):
         state = ['shut', 'no shut']
         self.do_cmd('configure')
         self.do_cmd('interface %s' % lag)
-        self.do_cmd('%s' % state[is_up])
+        self.do_cmd(state[is_up])
         self.do_cmd('exit')
         self.do_cmd('exit')
 
