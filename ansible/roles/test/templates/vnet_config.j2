@@ -21,21 +21,17 @@ vnet_id_list:
   - Vnet{{ vnet }}
 {% endfor %}
 
-vnet_id_v4_list:
-{% for vnet_v4 in range (1, vnet_v6_base) %}
-  - Vnet{{ vnet_v4 }}
-{% endfor %}
-
-vnet_id_v6_list:
-{% for vnet_v6 in range (vnet_v6_base, 1 + num_vnet) %}
-  - Vnet{{ vnet_v6 }}
-{% endfor %}
+{% if ipv6_vxlan_test == "true" %}
+vnet_v6_base: {{ vnet_v6_base }}
+{% endif %}
 
 vnet_peer_list:
   - Vnet3: Vnet4
   - Vnet4: Vnet3
+{% if ipv6_vxlan_test == "true" %}
   - Vnet7: Vnet8
   - Vnet8: Vnet7
+{% endif %}
 
 vnet_intf_list:
 {% for vlan in range (vlan_id_base, vlan_id_base + num_vnet) %}
@@ -52,10 +48,12 @@ vnet_nbr_list:
     ip: '1.1.10.102'
   - ifname: Vlan3002
     ip: '2.2.10.102'
+{% if ipv6_vxlan_test == "true" %}
   - ifname: Vlan3005
     ip: '5.5.10.102'
   - ifname: Vlan3006
     ip: '6.6.10.102'
+{% endif %}
   - ifname: {{ minigraph_vlans[topo_vlan].members[0] }}
     ip: '10.10.10.102'
 
@@ -71,17 +69,19 @@ vnet_local_routes:
       - pfx: '60.1.1.0/24'
         nh: '2.2.10.101'
         ifname: 'Vlan3002'
+{% if ipv6_vxlan_test == "true" %}
   - Vnet5_route_list:
       - pfx: '50.1.1.0/24'
         nh: '5.5.10.101'
-        ifname: 'Vlan{{ vlan_id_base + vnet_v6_base - 1 }}'
+        ifname: 'Vlan3005'
       - pfx: '50.2.2.0/24'
         nh: '5.5.10.102'
-        ifname: 'Vlan{{ vlan_id_base + vnet_v6_base - 1 }}'
+        ifname: 'Vlan3005'
   - Vnet6_route_list:
       - pfx: '60.1.1.0/24'
         nh: '6.6.10.101'
-        ifname: 'Vlan{{ vlan_id_base + vnet_v6_base }}'
+        ifname: 'Vlan3006'
+{% endif %}
 
 vnet_route_list:
   - Vnet1_route_list:
@@ -105,6 +105,7 @@ vnet_route_list:
       - pfx: '4.4.4.10/32'
         end: '100.1.1.40'
         mac: '00:00:00:00:02:05'
+{% if ipv6_vxlan_test == "true" %}
   - Vnet5_route_list:
       - pfx: '1.1.1.10/32'
         end: 'FC00:1::33'
@@ -126,3 +127,4 @@ vnet_route_list:
       - pfx: '4.4.4.10/32'
         end: 'FC00:1::36'
         mac: '00:00:00:00:02:05'
+{% endif %}
