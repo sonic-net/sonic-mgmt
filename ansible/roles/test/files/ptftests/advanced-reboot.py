@@ -594,6 +594,8 @@ class ReloadTest(BaseTest):
         no_routing_start = None
         no_routing_stop = None
         no_cp_replies = None
+        upper_replies = []
+        routing_always = False
 
         self.ssh_jobs = []
         for addr in self.ssh_targets:
@@ -659,7 +661,8 @@ class ReloadTest(BaseTest):
                     self.log("Data plane was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
                 except TimeoutError:
                     self.log("Data plane never stop")
-                    no_routing_start = datetime.datetime.min
+                    routing_always = True
+                    upper_replies = [self.nr_vl_pkts]
 
                 if no_routing_start is not None:
                     no_routing_stop, _ = self.timeout(self.check_forwarding_resume,
@@ -667,6 +670,7 @@ class ReloadTest(BaseTest):
                             "DUT hasn't started to work for %d seconds" % self.task_timeout)
                 else:
                     no_routing_stop = datetime.datetime.min
+                    no_routing_start = datetime.datetime.min
 
                 # Stop watching DUT
                 self.watching = False
@@ -778,7 +782,8 @@ class ReloadTest(BaseTest):
 
             if no_routing_stop:
                 self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
-                self.log("Reboot time was %s" % str(no_routing_stop - self.reboot_start))
+                reboot_time = "0:00:00" if routing_always else str(no_routing_stop - self.reboot_start)
+                self.log("Reboot time was %s" % reboot_time)
                 self.log("Expected downtime is less then %s" % self.limit)
 
             if self.reboot_type == 'fast-reboot' and no_cp_replies:
