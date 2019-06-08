@@ -108,13 +108,13 @@ vnet_route_list:
 {% if ipv6_vxlan_test == "true" %}
   - Vnet5_route_list:
       - pfx: '1.1.1.10/32'
-        end: 'FC00:1::33'
+        end: '2000:1::33'
       - pfx: '1.1.1.11/32'
-        end: 'FC00:1::34'
+        end: '2000:1::34'
         mac: '00:00:00:00:01:02'
   - Vnet6_route_list:
       - pfx: '2.2.2.10/32'
-        end: 'FC00:1::35'
+        end: '2000:1::35'
         mac: '00:00:00:00:02:05'
   - Vnet7_route_list:
       - pfx: '1.1.1.10/32'
