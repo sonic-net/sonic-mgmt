@@ -176,19 +176,19 @@ class SadOper(SadPath):
                 self.fails['dut'].add('Stderr: %s' % stderr)
 
     def verify_bgp_dut_state(self, state='Idle'):
-        state = state.split(',')
+        states = state.split(',')
         bgp_state = {}
         bgp_state['v4'] = bgp_state['v6'] = False
         for key in self.neigh_bgp.keys():
             if key not in ['v4', 'v6']:
                 continue
-            self.log.append('Verifying if the DUT side BGP peer %s is %s' % (self.neigh_bgp[key], state))
+            self.log.append('Verifying if the DUT side BGP peer %s is %s' % (self.neigh_bgp[key], states))
             stdout, stderr, return_code = self.cmd(['ssh', '-oStrictHostKeyChecking=no', self.dut_ssh, 'show ip bgp neighbor %s' % self.neigh_bgp[key]])
             if return_code == 0:
                 for line in stdout.split('\n'):
                     if 'BGP state' in line:
                         curr_state = re.findall('BGP state = (\w+)', line)[0]
-                        bgp_state[key] = (curr_state in state)
+                        bgp_state[key] = (curr_state in states)
                         break
             else:
                 self.fails['dut'].add('Retreiving BGP info for peer %s from DUT side failed' % self.neigh_bgp[key])
@@ -220,17 +220,19 @@ class SadOper(SadPath):
 
     def change_dut_lag_state(self, is_up=True):
         state = ['shutdown', 'startup']
-        self.log.append('Changing state of %s from DUT side to %s' % (self.vm_dut_map[self.neigh_name]['dut_portchannel'], state[is_up]))
-        stdout, stderr, return_code = self.cmd(['ssh', '-oStrictHostKeyChecking=no', self.dut_ssh, 'sudo config interface %s %s' % (state[is_up], self.vm_dut_map[self.neigh_name]['dut_portchannel'])])
+        dut_portchannel = self.vm_dut_map[self.neigh_name]['dut_portchannel']
+        if not re.match('(PortChannel|Ethernet)\d+', dut_portchannel): return
+        self.log.append('Changing state of %s from DUT side to %s' % (dut_portchannel, state[is_up]))
+        stdout, stderr, return_code = self.cmd(['ssh', '-oStrictHostKeyChecking=no', self.dut_ssh, 'sudo config interface %s %s' % (state[is_up], dut_portchannel)])
         if return_code != 0:
-            self.fails['dut'].add('%s: State change not successful from DUT side for %s' % (self.msg_prefix[1 - is_up], self.vm_dut_map[self.neigh_name]['dut_portchannel']))
+            self.fails['dut'].add('%s: State change not successful from DUT side for %s' % (self.msg_prefix[1 - is_up], dut_portchannel))
             self.fails['dut'].add('%s: Return code: %d' % (self.msg_prefix[1 - is_up], return_code))
             self.fails['dut'].add('%s: Stderr: %s' % (self.msg_prefix[1 - is_up], stderr))
         else:
             self.log.append('State change successful on DUT')
 
     def verify_dut_lag_member_state(self, lag_memb_output, pre_check=True):
-        fails = False
+        success = True
         for member in self.vm_dut_map[self.neigh_name]['dut_ports']:
             if self.lag_members_down is not None and member in self.lag_members_down:
                 search_str = '%s(D)' % member
@@ -240,9 +242,9 @@ class SadOper(SadPath):
             if lag_memb_output.find(search_str) != -1:
                 self.log.append('Lag member %s state as expected' % member)
             else:
-                fails = True
+                success = False
                 self.fails['dut'].add('%s: Lag member %s state not as expected' % (self.msg_prefix[pre_check], member))
-        return fails
+        return success
 
     def verify_dut_lag_state(self, pre_check=True):
         pat = re.compile(".*%s\s+LACP\(A\)\(Dw\)\s+(.*)" % self.vm_dut_map[self.neigh_name]['dut_portchannel'])
@@ -251,7 +253,7 @@ class SadOper(SadPath):
             for line in stdout.split('\n'):
                 if self.vm_dut_map[self.neigh_name]['dut_portchannel'] in line:
                     is_match = pat.match(line)
-                    if is_match and not self.verify_dut_lag_member_state(is_match.group(1), pre_check=pre_check):
+                    if is_match and self.verify_dut_lag_member_state(is_match.group(1), pre_check=pre_check):
                         self.log.append('Lag state is down as expected on the DUT')
                         self.log.append('Pattern check: %s' % line)
                     else:
