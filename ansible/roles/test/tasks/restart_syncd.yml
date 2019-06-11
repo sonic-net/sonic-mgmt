@@ -15,7 +15,7 @@
     seconds: 10
 
 - name: Look for syncd process
-  shell: pgrep "\<syncd\>" -a
+  shell: docker exec -i syncd pgrep "\<syncd\>" -a
   register: syncd_out
   ignore_errors: yes
 
