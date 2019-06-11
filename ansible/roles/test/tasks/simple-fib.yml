@@ -6,6 +6,9 @@
 
 - debug : msg="Start FIB Test"
 
+- set_fact: mtu=9114
+  when: mtu is not defined
+
 - name: "Start PTF runner"
   include: ptf_runner.yml
   vars:
@@ -20,4 +23,5 @@
       - fib_info='/root/fib_info.txt'
       - ipv4={{ipv4}}
       - ipv6={{ipv6}}
-    ptf_extra_options: "--relax --debug info --log-file /tmp/fib_test.FibTest.ipv4.{{ipv4}}.ipv6.{{ipv6}}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
+      - testbed_mtu={{mtu}}
+    ptf_extra_options: "--relax --debug info --log-file /tmp/fib_test.FibTest.ipv4.{{ipv4}}.ipv6.{{ipv6}}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log --socket-recv-size 16384"
