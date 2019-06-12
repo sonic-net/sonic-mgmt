@@ -1,17 +1,13 @@
 {
     "VXLAN_TUNNEL": {
-{% if ipv6_vxlan_test == "true" %}
-        "tunnel_v4": {
-            "src_ip": "{{ minigraph_lo_interfaces[0]['addr'] }}"
-        },
+{% if ipv6_vxlan_test == true %}
         "tunnel_v6": {
             "src_ip": "{{ minigraph_lo_interfaces[1]['addr'] }}"
-        }
-{% else %}
+        },
+{% endif %}
         "tunnel_v4": {
             "src_ip": "{{ minigraph_lo_interfaces[0]['addr'] }}"
         }
-{% endif %}
     },
 
     "VNET": {
