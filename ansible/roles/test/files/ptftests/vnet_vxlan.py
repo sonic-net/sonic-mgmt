@@ -22,6 +22,7 @@ from ptf.dataplane import match_exp_pkt
 from ptf.mask import Mask
 import datetime
 import subprocess
+import ipaddress
 from pprint import pprint
 from ipaddress import ip_address, ip_network
 
@@ -204,15 +205,20 @@ class VNET(BaseTest):
 
         self.dut_mac = graph['dut_mac']
 
-        ip = None
+        ipv4 = None
+        ipv6 = None
         for data in graph['minigraph_lo_interfaces']:
             if data['prefixlen'] == 32:
-                ip = data['addr']
-                break
-        else:
+                ipv4 = data['addr']
+            elif data['prefixlen'] == 128:
+                ipv6 = data['addr']
+        if ipv4 is None:
             raise Exception("ipv4 lo interface not found")
+        if ipv6 is None:
+            raise Exception("ipv6 lo interface not found")
 
-        self.loopback_ip = ip
+        self.loopback_ipv4 = ipv4
+        self.loopback_ipv6 = ipv6
 
         self.ptf_mac_addrs = self.readMacs()
 
@@ -263,18 +269,32 @@ class VNET(BaseTest):
                 ip_ttl=64)
             udp_sport = 1234 # Use entropy_hash(pkt)
             udp_dport = self.vxlan_port
-            vxlan_pkt = simple_vxlan_packet(
-                eth_dst=self.dut_mac,
-                eth_src=self.random_mac,
-                ip_id=0,
-                ip_src=test['host'],
-                ip_dst=self.loopback_ip,
-                ip_ttl=64,
-                udp_sport=udp_sport,
-                udp_dport=udp_dport,
-                vxlan_vni=int(test['vni']),
-                with_udp_chksum=False,
-                inner_frame=pkt)
+            if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
+                vxlan_pkt = simple_vxlan_packet(
+                    eth_dst=self.dut_mac,
+                    eth_src=self.random_mac,
+                    ip_id=0,
+                    ip_src=test['host'],
+                    ip_dst=self.loopback_ipv4,
+                    ip_ttl=64,
+                    udp_sport=udp_sport,
+                    udp_dport=udp_dport,
+                    vxlan_vni=int(test['vni']),
+                    with_udp_chksum=False,
+                    inner_frame=pkt)
+            elif isinstance(ip_address(test['host']), ipaddress.IPv6Address):
+                vxlan_pkt = simple_vxlanv6_packet(
+                    eth_dst=self.dut_mac,
+                    eth_src=self.random_mac,
+                    ipv6_src=test['host'],
+                    ipv6_dst=self.loopback_ipv6,
+                    udp_sport=udp_sport,
+                    udp_dport=udp_dport,
+                    vxlan_vni=int(test['vni']),
+                    with_udp_chksum=False,
+                    inner_frame=pkt)
+            else:
+                raise Exception("Found invalid IP address in test")
             exp_pkt = simple_tcp_packet(
                 pktlen=pkt_len,
                 eth_src=self.dut_mac,
@@ -332,25 +352,42 @@ class VNET(BaseTest):
                 ip_ttl=63)
             udp_sport = 1234 # Use entropy_hash(pkt)
             udp_dport = self.vxlan_port
-            encap_pkt = simple_vxlan_packet(
-                eth_src=self.dut_mac,
-                eth_dst=self.random_mac,
-                ip_id=0,
-                ip_src=self.loopback_ip,
-                ip_dst=test['host'],
-                ip_ttl=64,
-                udp_sport=udp_sport,
-                udp_dport=udp_dport,
-                with_udp_chksum=False,
-                vxlan_vni=vni,
-                inner_frame=exp_pkt)
-            encap_pkt[IP].flags = 0x2
+            if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
+                encap_pkt = simple_vxlan_packet(
+                    eth_src=self.dut_mac,
+                    eth_dst=self.random_mac,
+                    ip_id=0,
+                    ip_src=self.loopback_ipv4,
+                    ip_dst=test['host'],
+                    ip_ttl=64,
+                    udp_sport=udp_sport,
+                    udp_dport=udp_dport,
+                    with_udp_chksum=False,
+                    vxlan_vni=vni,
+                    inner_frame=exp_pkt)
+                encap_pkt[IP].flags = 0x2
+            elif isinstance(ip_address(test['host']), ipaddress.IPv6Address):
+                encap_pkt = simple_vxlanv6_packet(
+                    eth_src=self.dut_mac,
+                    eth_dst=self.random_mac,
+                    ipv6_src=self.loopback_ipv6,
+                    ipv6_dst=test['host'],
+                    udp_sport=udp_sport,
+                    udp_dport=udp_dport,
+                    with_udp_chksum=False,
+                    vxlan_vni=vni,
+                    inner_frame=exp_pkt)
+            else:
+                raise Exception("Found invalid IP address in test")
             send_packet(self, test['port'], str(pkt))
 
             masked_exp_pkt = Mask(encap_pkt)
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            else:
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
             masked_exp_pkt.set_do_not_care_scapy(scapy.UDP, "sport")
 
             log_str = "Sending packet from port " + str('eth%d' % test['port']) + " to " + test['dst']
