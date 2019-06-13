@@ -9,4 +9,4 @@
 
 - name: Wait for orchagent initialization
   pause:
-    seconds: 35
+    seconds: 120
