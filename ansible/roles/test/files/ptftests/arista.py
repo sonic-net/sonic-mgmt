@@ -358,7 +358,7 @@ class Arista(object):
             data = '\n'.join(output.split('\r\n')[1:-1])
             obj = json.loads(data)
 
-            if state != 'Active':
+            if state == 'down':
                 if 'vrfs' in obj:
                     # return True when obj['vrfs'] is empty which is the case when the bgp state is 'down'
                     bgp_state[ver] = not obj['vrfs']
@@ -374,6 +374,36 @@ class Arista(object):
                 else:
                     self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
         return self.fails, bgp_state
+
+    def change_neigh_lag_state(self, lag, is_up=True):
+        state = ['shut', 'no shut']
+        self.do_cmd('configure')
+        is_match = re.match('(Port-Channel|Ethernet)\d+', lag)
+        if is_match:
+            output = self.do_cmd('interface %s' % lag)
+            if 'Invalid' not in output:
+                self.do_cmd(state[is_up])
+                self.do_cmd('exit')
+            self.do_cmd('exit')
+
+    def verify_neigh_lag_state(self, lag, state="connected", pre_check=True):
+        lag_state = False
+        msg_prefix = ['Postboot', 'Preboot']
+        is_match = re.match('(Port-Channel|Ethernet)\d+', lag)
+        if is_match:
+            output = self.do_cmd('show interfaces %s | json' % lag)
+            if 'Invalid' not in output:
+                data = '\n'.join(output.split('\r\n')[1:-1])
+                obj = json.loads(data)
+
+                if 'interfaces' in obj and lag in obj['interfaces']:
+                    lag_state = (obj['interfaces'][lag]['interfaceStatus'] == state)
+                else:
+                    self.fails.add('%s: Verify LAG %s: Object missing in output' % (msg_prefix[pre_check], lag))
+                return self.fails, lag_state
+
+        self.fails.add('%s: Invalid interface name' % msg_prefix[pre_check])
+        return self.fails, lag_state
 
     def check_gr_peer_status(self, output):
         # [0] True 'ipv4_gr_enabled', [1] doesn't matter 'ipv6_enabled', [2] should be >= 120

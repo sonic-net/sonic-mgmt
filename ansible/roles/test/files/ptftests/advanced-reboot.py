@@ -311,7 +311,7 @@ class ReloadTest(BaseTest):
                 for vm_key in self.vm_dut_map.keys():
                     if member in self.vm_dut_map[vm_key]['dut_ports']:
                         self.vm_dut_map[vm_key]['dut_portchannel'] = key
-                        self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel 1'
+                        self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
                         break
 
     def get_neigh_port_info(self):
@@ -732,7 +732,7 @@ class ReloadTest(BaseTest):
             if self.reboot_type == 'warm-reboot' and self.preboot_oper is not None:
                 if self.pre_handle is not None:
                     self.log("Postboot checks:")
-                    log_info, fails_dut, fails_vm = self.pre_handle.verify()
+                    log_info, fails_dut, fails_vm = self.pre_handle.verify(pre_check=False)
                     self.fails[self.neigh_vm] |= fails_vm
                     self.fails['dut'] |= fails_dut
                     for log in log_info:
