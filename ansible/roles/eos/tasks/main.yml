@@ -1,8 +1,12 @@
 - name: Set ansible login user name and password
   set_fact: ansible_user="root" ansible_password={{ eos_root_password }}
 
+- name: Check that variable topo_file is defined
+  fail: msg="Define topo_file variable with -e topo_file=something"
+  when: topo_file is not defined
+
 - name: Load topo variables
-  include_vars: "vars/topo_{{ topo }}.yml"
+  include_vars: "{{ topo_file }}"
 
 - name: Include server vars
   include_vars: "{{ host_var_file }}"
