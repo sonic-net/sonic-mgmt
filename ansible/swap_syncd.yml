@@ -58,8 +58,10 @@
       set_fact:
         sonic_image_version: "{{ result.stdout }}"
 
+    # Note: no_log requires passlib python library
     - name: Pull syncd-rpc docker from registry
       shell: docker login -u {{docker_registry_username}} -p {{docker_registry_password}} {{docker_registry_host}}; docker pull {{docker_registry_host}}/{{docker_rpc_image_name}}:{{sonic_image_version}}
+      no_log: true
 
     - name: Tag pulled images as syncd
       shell: docker tag {{docker_registry_host}}/{{docker_rpc_image_name}}:{{sonic_image_version}} {{docker_syncd_name}}

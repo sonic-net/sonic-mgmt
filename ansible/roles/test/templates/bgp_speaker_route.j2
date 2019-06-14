@@ -1,5 +1,5 @@
 {% if addr_family == 'ipv6' %}
-{{announce_prefix}} [{% for member in minigraph_portchannels[portchannel_name].members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}
+{{announce_prefix}} {% for portchannel, v in minigraph_portchannels.iteritems() %}[{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}
 
 {% elif addr_family == 'ipv4' %}
 0.0.0.0/0 {% for portchannel, v in minigraph_portchannels.iteritems() %}[{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}

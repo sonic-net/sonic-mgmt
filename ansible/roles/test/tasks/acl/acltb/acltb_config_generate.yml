@@ -1,0 +1,26 @@
+- name: Init variables
+  set_fact:
+    acl_table_name: "{{ item['name'] }}"
+    acl_table_ports: "{{ item['ports'] }}"
+    acl_table_stage: "{{ item['stage'] }}"
+    acl_table_type: "{{ item['type'] }}"
+
+- name: Generate config for ACL table
+  template:
+    src: "roles/test/templates/acltb_table.j2"
+    dest: "{{ dut_tmp_dir }}/acl_table_{{ acl_table_name }}.json"
+
+- name: Generate config for ACL rule
+  template:
+    src: "roles/test/templates/acltb_test_rules.j2"
+    dest: "{{ dut_tmp_dir }}/acl_rules_{{ acl_table_name }}.json"
+
+- name: Generate config for ACL rule part1
+  template:
+    src: "roles/test/templates/acltb_test_rules_part_1.j2"
+    dest: "{{ dut_tmp_dir }}/acl_rules_{{ acl_table_name }}_part_1.json"
+
+- name: Generate config for ACL rule part2
+  template:
+    src: "roles/test/templates/acltb_test_rules_part_2.j2"
+    dest: "{{ dut_tmp_dir }}/acl_rules_{{ acl_table_name }}_part_2.json"

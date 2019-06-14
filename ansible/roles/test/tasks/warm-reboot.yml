@@ -1,6 +1,6 @@
 - name: set default reboot_limit in seconds
   set_fact:
-      reboot_limit: 0
+      reboot_limit: 1
   when: reboot_limit is not defined
 
 - name: Warm-reboot test

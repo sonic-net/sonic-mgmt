@@ -7,7 +7,7 @@
       when: (testbed_type is not defined or ptf_host is not defined)
 
     - fail: msg="Invalid testbed_type value '{{testbed_type}}'"
-      when: testbed_type not in ['t0', 't0-64', 't0-116']
+      when: testbed_type not in testcases['bgp_speaker']['topologies']
 
     - name: Gather minigraph facts about the device
       minigraph_facts: host={{inventory_hostname}}
@@ -118,6 +118,7 @@
       template: src=roles/test/templates/exabgp/start.j2 dest={{exabgp_dir}}/{{item.file_name}} mode=u+rwx
       with_items:
         - {file_name: 'start.sh',
+           addr_family: '{{addr_family}}',
            config_file_1: 'config_1.ini',
            config_file_2: 'config_2.ini',
            config_file_3: 'config_3.ini',
@@ -138,7 +139,7 @@
       delegate_to: "{{ptf_host}}"
 
     - pause:
-        seconds: 5
+        seconds: 15
         prompt: "make sure dynamic bgp neighbors appear"
 
     - name: Announce the routes

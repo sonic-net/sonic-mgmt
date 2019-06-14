@@ -214,6 +214,46 @@ class DHCPTest(DataplaneBaseTest):
                     dhcp_lease=self.LEASE_TIME,
                     padding_bytes=0)
 
+    def create_dhcp_offer_relayed_packet(self):
+        my_chaddr = ''.join([chr(int(octet, 16)) for octet in self.client_mac.split(':')])
+
+        # Relay modifies the DHCPOFFER message in the following ways:
+        #  1.) Replaces the source MAC with the MAC of the interface it received it on
+        #  2.) Replaces the destination MAC with boradcast (ff:ff:ff:ff:ff:ff)
+        #  3.) Replaces the source IP with the IP of the interface which the relay
+        #      received it on
+        #  4.) Replaces the destination IP with broadcast (255.255.255.255)
+        #  5.) Replaces the destination port with the DHCP client port (68)
+        ether = scapy.Ether(dst=self.BROADCAST_MAC, src=self.relay_iface_mac, type=0x0800)
+        ip = scapy.IP(src=self.relay_iface_ip, dst=self.BROADCAST_IP, len=290, ttl=64)
+        udp = scapy.UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_CLIENT_PORT, len=262)
+        bootp = scapy.BOOTP(op=2,
+                    htype=1,
+                    hlen=6,
+                    hops=0,
+                    xid=0,
+                    secs=0,
+                    flags=0,
+                    ciaddr=self.DEFAULT_ROUTE_IP,
+                    yiaddr=self.client_ip,
+                    siaddr=self.server_ip,
+                    giaddr=self.relay_iface_ip,
+                    chaddr=my_chaddr)
+        bootp /= scapy.DHCP(options=[('message-type', 'offer'),
+                    ('server_id', self.server_ip),
+                    ('lease_time', self.LEASE_TIME),
+                    ('subnet_mask', self.client_subnet),
+                    ('end')])
+
+        # TODO: Need to add this to the packet creation functions in PTF code first!
+        # If our bootp layer is too small, pad it
+        #pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
+        #if pad_bytes > 0:
+        #    bootp /= scapy.PADDING('\x00' * pad_bytes)
+
+        pkt = ether / ip / udp / bootp
+        return pkt
+
     def create_dhcp_request_packet(self):
         return testutils.dhcp_request_packet(eth_client=self.client_mac,
                     ip_server=self.server_ip,
@@ -272,6 +312,47 @@ class DHCPTest(DataplaneBaseTest):
                     dhcp_lease=self.LEASE_TIME,
                     padding_bytes=0)
 
+    def create_dhcp_ack_relayed_packet(self):
+        my_chaddr = ''.join([chr(int(octet, 16)) for octet in self.client_mac.split(':')])
+
+        # Relay modifies the DHCPACK message in the following ways:
+        #  1.) Replaces the source MAC with the MAC of the interface it received it on
+        #  2.) Replaces the destination MAC with boradcast (ff:ff:ff:ff:ff:ff)
+        #  3.) Replaces the source IP with the IP of the interface which the relay
+        #      received it on
+        #  4.) Replaces the destination IP with broadcast (255.255.255.255)
+        #  5.) Replaces the destination port with the DHCP client port (68)
+        ether = scapy.Ether(dst=self.BROADCAST_MAC, src=self.relay_iface_mac, type=0x0800)
+        ip = scapy.IP(src=self.relay_iface_ip, dst=self.BROADCAST_IP, len=290, ttl=64)
+        udp = scapy.UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_CLIENT_PORT, len=262)
+        bootp = scapy.BOOTP(op=2,
+                    htype=1,
+                    hlen=6,
+                    hops=0,
+                    xid=0,
+                    secs=0,
+                    flags=0,
+                    ciaddr=self.DEFAULT_ROUTE_IP,
+                    yiaddr=self.client_ip,
+                    siaddr=self.server_ip,
+                    giaddr=self.relay_iface_ip,
+                    chaddr=my_chaddr)
+        bootp /= scapy.DHCP(options=[('message-type', 'ack'),
+                    ('server_id', self.server_ip),
+                    ('lease_time', self.LEASE_TIME),
+                    ('subnet_mask', self.client_subnet),
+                    ('end')])
+
+        # TODO: Need to add this to the packet creation functions in PTF code first!
+        # If our bootp layer is too small, pad it
+        #pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
+        #if pad_bytes > 0:
+        #    bootp /= scapy.PADDING('\x00' * pad_bytes)
+
+        pkt = ether / ip / udp / bootp
+        return pkt
+
+
 
     """
      Send/receive functions
@@ -318,9 +399,10 @@ class DHCPTest(DataplaneBaseTest):
         masked_discover.set_do_not_care_scapy(scapy.PADDING, "load")
 
         # Count the number of these packets received on the ports connected to our leaves
+        num_expected_packets = self.num_dhcp_servers
         discover_count = testutils.count_matched_packets_all_ports(self, masked_discover, self.server_port_indices)
-        self.assertTrue(discover_count == self.num_dhcp_servers,
-                "Failed: Discover count of %d != %d (num_dhcp_servers)" % (discover_count, self.num_dhcp_servers))
+        self.assertTrue(discover_count == num_expected_packets,
+                "Failed: Discover count of %d != %d" % (discover_count, num_expected_packets))
 
     # Simulate a DHCP server sending a DHCPOFFER message to client.
     # We do this by injecting a DHCPOFFER message on the link connected to one
@@ -331,24 +413,31 @@ class DHCPTest(DataplaneBaseTest):
 
     # Verify that the DHCPOFFER would be received by our simulated client
     def verify_offer_received(self):
-        dhcp_offer = self.create_dhcp_offer_packet()
+        dhcp_offer = self.create_dhcp_offer_relayed_packet()
 
         masked_offer = Mask(dhcp_offer)
-        masked_offer.set_do_not_care_scapy(scapy.Ether, "src")
-        masked_offer.set_do_not_care_scapy(scapy.Ether, "dst")
 
+        masked_offer.set_do_not_care_scapy(scapy.IP, "version")
+        masked_offer.set_do_not_care_scapy(scapy.IP, "ihl")
+        masked_offer.set_do_not_care_scapy(scapy.IP, "tos")
+        masked_offer.set_do_not_care_scapy(scapy.IP, "len")
+        masked_offer.set_do_not_care_scapy(scapy.IP, "id")
+        masked_offer.set_do_not_care_scapy(scapy.IP, "flags")
+        masked_offer.set_do_not_care_scapy(scapy.IP, "frag")
+        masked_offer.set_do_not_care_scapy(scapy.IP, "ttl")
+        masked_offer.set_do_not_care_scapy(scapy.IP, "proto")
         masked_offer.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_offer.set_do_not_care_scapy(scapy.IP, "src")
-        masked_offer.set_do_not_care_scapy(scapy.IP, "dst")
+        masked_offer.set_do_not_care_scapy(scapy.IP, "options")
 
+        masked_offer.set_do_not_care_scapy(scapy.UDP, "len")
         masked_offer.set_do_not_care_scapy(scapy.UDP, "chksum")
-        masked_offer.set_do_not_care_scapy(scapy.UDP, "dport")
 
-        # Mask out lease time since it can change depending on when the server receives the request
-        # Lease time in ack can be slightly different than in offer, since lease time varies slightly
-        # We also want to ignore the checksums since they will vary a bit depending on the timestamp
-        # Offset is byte 292, 6 byte field, set_do_not_care() expects values in bits
-        masked_offer.set_do_not_care((self.DHCP_LEASE_TIME_OFFSET * 8), (self.DHCP_LEASE_TIME_LEN * 8))
+        masked_offer.set_do_not_care_scapy(scapy.BOOTP, "sname")
+        masked_offer.set_do_not_care_scapy(scapy.BOOTP, "file")
+
+        masked_offer.set_do_not_care_scapy(scapy.DHCP, "lease_time")
+
+        #masked_offer.set_do_not_care_scapy(scapy.PADDING, "load")
 
         # NOTE: verify_packet() will fail for us via an assert, so no need to check a return value here
         testutils.verify_packet(self, masked_offer, self.client_port_index)
@@ -390,9 +479,10 @@ class DHCPTest(DataplaneBaseTest):
         masked_request.set_do_not_care_scapy(scapy.BOOTP, "file")
 
         # Count the number of these packets received on the ports connected to our leaves
+        num_expected_packets = self.num_dhcp_servers
         request_count = testutils.count_matched_packets_all_ports(self, masked_request, self.server_port_indices)
-        self.assertTrue(request_count == self.num_dhcp_servers,
-                "Failed: Request count of %d != %d (num_dhcp_servers)" % (request_count, self.num_dhcp_servers))
+        self.assertTrue(request_count == num_expected_packets,
+                "Failed: Request count of %d != %d" % (request_count, num_expected_packets))
 
     # Simulate a DHCP server sending a DHCPOFFER message to client from one of our leaves
     def server_send_ack(self):
@@ -401,23 +491,29 @@ class DHCPTest(DataplaneBaseTest):
 
     # Verify that the DHCPACK would be received by our simulated client
     def verify_ack_received(self):
-        dhcp_ack = self.create_dhcp_ack_packet()
+        dhcp_ack = self.create_dhcp_ack_relayed_packet()
 
-        # Mask out lease time, ip checksum, udp checksum (explanation above)
         masked_ack = Mask(dhcp_ack)
 
-        masked_ack.set_do_not_care_scapy(scapy.Ether, "src")
-        masked_ack.set_do_not_care_scapy(scapy.Ether, "dst")
-
+        masked_ack.set_do_not_care_scapy(scapy.IP, "version")
+        masked_ack.set_do_not_care_scapy(scapy.IP, "ihl")
+        masked_ack.set_do_not_care_scapy(scapy.IP, "tos")
+        masked_ack.set_do_not_care_scapy(scapy.IP, "len")
+        masked_ack.set_do_not_care_scapy(scapy.IP, "id")
+        masked_ack.set_do_not_care_scapy(scapy.IP, "flags")
+        masked_ack.set_do_not_care_scapy(scapy.IP, "frag")
+        masked_ack.set_do_not_care_scapy(scapy.IP, "ttl")
+        masked_ack.set_do_not_care_scapy(scapy.IP, "proto")
         masked_ack.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_ack.set_do_not_care_scapy(scapy.IP, "src")
-        masked_ack.set_do_not_care_scapy(scapy.IP, "dst")
+        masked_ack.set_do_not_care_scapy(scapy.IP, "options")
 
+        masked_ack.set_do_not_care_scapy(scapy.UDP, "len")
         masked_ack.set_do_not_care_scapy(scapy.UDP, "chksum")
-        masked_ack.set_do_not_care_scapy(scapy.UDP, "dport")
 
-        # Also mask out lease time (see comment in verify_offer_received() above)
-        masked_ack.set_do_not_care((self.DHCP_LEASE_TIME_OFFSET * 8), (self.DHCP_LEASE_TIME_LEN * 8))
+        masked_ack.set_do_not_care_scapy(scapy.BOOTP, "sname")
+        masked_ack.set_do_not_care_scapy(scapy.BOOTP, "file")
+
+        masked_ack.set_do_not_care_scapy(scapy.DHCP, "lease_time")
 
         # NOTE: verify_packet() will fail for us via an assert, so no need to check a return value here
         testutils.verify_packet(self, masked_ack, self.client_port_index)

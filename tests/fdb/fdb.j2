@@ -1,0 +1,3 @@
+{% for vlan in mg_facts['minigraph_vlan_interfaces'] %}
+{{ vlan['subnet'] }} {% for ifname in mg_facts['minigraph_vlans'][vlan['attachto']]['members'] %} {{ mg_facts['minigraph_port_indices'][ifname] }} {% endfor %}
+{% endfor %}

@@ -1,7 +1,7 @@
 # We choose client port index to be index of first port on Vlan
 - name: Obtain client interface alias
   set_fact:
-    client_iface_alias: "{{ minigraph_map_sonic_to_ngs[minigraph_vlans[minigraph_vlans.keys()[0]]['members'][0]] }}"
+    client_iface_alias: "{{ minigraph_vlans[minigraph_vlans.keys()[0]]['members'][0] }}"
 
 - name: Obtain client port index
   set_fact:

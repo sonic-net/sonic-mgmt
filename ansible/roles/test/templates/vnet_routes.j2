@@ -41,6 +41,25 @@
 {% endfor %}
 {% endfor %}
 
+{% for vnet in vnet_id_list %}
+{% for routes in vnet_local_routes %}
+{% set route_list = vnet + '_route_list' %}
+{% if routes.keys()[0] == route_list %}
+{% for key,entries in routes.items() %}
+{% for route in entries %}
+    {
+        "VNET_ROUTE_TABLE:{{ vnet }}:{{ route.pfx }}" : {
+            "nexthop": "{{ route.nh }}",
+            "ifname": "{{ route.ifname }}"
+        },
+        "OP": "{{ op }}"
+    },
+{% endfor %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+
 {% for intf in intf_list %}
 {% set outloop = loop %}
 {% for vnet_intf in vnet_intf_list %}

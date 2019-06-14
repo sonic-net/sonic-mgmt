@@ -1,0 +1,44 @@
+- name: Get the output of show lldp table command in {{mode}} mode
+  shell: show lldp table
+  register:  lldp_table
+  environment:
+    SONIC_CLI_IFACE_MODE: "{{ifmode}}"
+
+- debug: var=lldp_table
+
+- name: Check the output shows alias names in alias mode 
+  assert:
+    that:
+    - lldp_table.stdout | search("{{item}}.*\s+{{minigraph_neighbors[port_alias_map[item]]["name"]}}")
+  with_items: "{{upport_alias_list}}"
+  when: mode =='alias'
+
+- name: Check the output shows default interface names in default mode 
+  assert:
+    that:
+    - lldp_table.stdout | search("{{item}}.*\s+{{minigraph_neighbors[item]["name"]}}")
+  with_items: "{{up_ports}}"
+  when: mode =='default'
+
+- name: Get the output of show lldp neighbor {{intf}} command in {{mode}} mode
+  shell: show lldp neighbor {{intf}}
+  register:  lldp_neighbor
+  environment:
+    SONIC_CLI_IFACE_MODE: "{{ifmode}}"
+
+- debug: var=lldp_neighbor
+
+- name:  Check the output shows alias names of interface  in alias mode
+  assert:
+    that:
+    - lldp_neighbor.stdout | search("Interface:\s+{{intf}},\svia:\sLLDP,")
+    - lldp_neighbor.stdout | search("SysName:\s+{{minigraph_neighbors[port_alias_map[intf]]["name"]}}")
+  when: mode =='alias'
+
+- name: Check the output shows default interface names in default mode
+  assert:
+    that:
+    - lldp_neighbor.stdout | search("Interface:\s+{{intf}},\svia:\sLLDP,")
+    - lldp_neighbor.stdout | search("SysName:\s+{{minigraph_neighbors[intf]["name"]}}")
+  when: mode =='default'
+

@@ -1,6 +1,11 @@
 {
     "VXLAN_TUNNEL": {
-        "tunnel1": {
+{% if ipv6_vxlan_test == true %}
+        "tunnel_v6": {
+            "src_ip": "{{ minigraph_lo_interfaces[1]['addr'] }}"
+        },
+{% endif %}
+        "tunnel_v4": {
             "src_ip": "{{ minigraph_lo_interfaces[0]['addr'] }}"
         }
     },
@@ -8,7 +13,11 @@
     "VNET": {
 {% for vnet in vnet_id_list %}
         "{{ vnet  }}": {
-            "vxlan_tunnel": "tunnel1",
+{% if (ipv6_vxlan_test == false) or (loop.index < vnet_v6_base) %}
+            "vxlan_tunnel": "tunnel_v4",
+{% else %}
+            "vxlan_tunnel": "tunnel_v6",
+{% endif %}
             "vni": "{{ vnet | replace("Vnet", "") |int + 10000}}",
             "peer_list": ""
         }{{ "," if not loop.last else "" }}
