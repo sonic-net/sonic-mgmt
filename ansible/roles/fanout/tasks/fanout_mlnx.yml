@@ -27,7 +27,7 @@
 - block:
   - debug: msg={{ inventory_hostname }}
   - name: build fanout startup config for fanout mlnx-os-switch
-    action: apswitch template=mlnx_test.j2
+    action: apswitch template=mlnx_fanout.j2
     connection: switch
     args:
       login: "{{ switch_login['MLNX-OS'] }}"
