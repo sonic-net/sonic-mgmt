@@ -167,6 +167,7 @@
 
             - name: Apply route json configuration
               shell: docker exec swss sh -c "swssconfig /vnet.route.json"
+              when: cleanup|bool
 
             - name: sleep for some time
               pause: seconds=3
