@@ -1,0 +1,73 @@
+- name: Remove acl rules
+  command: config acl update full {{ dut_tmp_dir }}/acltb_test_rules-del.json
+  become: yes
+
+- name: Run config acl to add ACL rules
+  command: config acl update full {{ dut_tmp_dir }}/acl_rules_{{ acl_table_name }}.json
+  become: yes
+
+# Verify that the ACL configurations persist after reboot
+- name: Save the applied ACL in ConfigDB
+  command: config save -y
+  become: true
+
+- name: Reboot the switch
+  include: roles/test/tasks/common_tasks/reboot_sonic.yml
+
+- name: Wait 3 minutes for everything to be ready
+  pause: seconds=180
+
+- include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+- name: Gather acl_facts
+  acl_facts:
+
+- name: Store ACL facts before test
+  set_fact:
+    acl_rules_facts_before: "{{ ansible_acl_facts[acl_table_name]['rules'] }}"
+
+- name: Run the test
+  include: roles/test/tasks/ptf_runner.yml
+  vars:
+    ptf_test_name: ACL Test
+    ptf_test_dir: acstests
+    ptf_test_path: acltb_test.AclTest
+    ptf_platform_dir: ptftests
+    ptf_platform: remote
+    ptf_test_params:
+      - router_mac='{{ router_mac }}'
+      - testbed_type='{{ testbed_type }}'
+      - tor_ports='{{ tor_ports_id | join(',') }}'
+      - spine_ports='{{ spine_ports_id | join(',') }}'
+      - dst_ip_tor='{{ dst_ip_addr_tor }}'
+      - dst_ip_tor_forwarded='{{ dst_ip_addr_tor_forwarded }}'
+      - dst_ip_tor_blocked='{{ dst_ip_addr_tor_blocked }}'
+      - dst_ip_spine='{{ dst_ip_addr_spine }}'
+      - dst_ip_spine_forwarded='{{ dst_ip_addr_spine_forwarded }}'
+      - dst_ip_spine_blocked='{{ dst_ip_addr_spine_blocked }}'
+    ptf_extra_options:  "--log-file /tmp/acltb_test.AclTest.{{ acl_stage }}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log"
+
+- name: Pause a moment for counters to refresh
+  pause: seconds=10
+
+- name: Gather acl_facts
+  acl_facts:
+
+- name: Store ACL rules facts after test
+  set_fact:
+    acl_rules_facts_after: "{{ ansible_acl_facts[acl_table_name]['rules'] }}"
+
+- name: Check ACL rule counters
+  assert:
+    that:
+      - "{{ acl_rules_facts_after[item.key]['packets_count'] }} > {{ acl_rules_facts_before[item.key]['packets_count'] }}"
+      - "{{ acl_rules_facts_after[item.key]['bytes_count'] }} > {{ acl_rules_facts_before[item.key]['bytes_count'] }}"
+  with_dict: acl_rules_facts_after
+  when: item.key not in acl_rules_skip_counters_check
+
+- name: Remove ACL rules from config
+  command: config acl update full {{ dut_tmp_dir }}/acltb_test_rules-del.json
+  become: yes
+
+- include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+- include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml

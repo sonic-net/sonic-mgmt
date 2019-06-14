@@ -9,6 +9,12 @@
 - fail: msg="testbed_type {{testbed_type}} is invalid."
   when: testbed_type not in ['t1-lag', 't1', 't1-64-lag']
 
+- set_fact: mtu=9114   #using the default mtu,The value includes the 14 bytes Layer 2 Ethernet header
+  when: mtu is not defined
+
+- name: Print testbed mtu
+  debug: msg="{{mtu}}"
+  
 - include_vars: "vars/topo_{{testbed_type}}.yml"
 
 - name: Expand properties into props
@@ -37,4 +43,5 @@
     ptf_test_params:
       - testbed_type='{{testbed_type}}'
       - router_mac='{{ansible_Ethernet0['macaddress']}}'
+      - testbed_mtu={{mtu}} 
     ptf_extra_options: "--relax --debug info --log-file /tmp/mtu_test.MtuTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log --socket-recv-size 16384"

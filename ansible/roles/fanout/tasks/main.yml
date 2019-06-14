@@ -30,3 +30,17 @@
   - include: rootfanout_connect.yml
       deploy_leaf=true
   when: sw_type == 'FanoutLeaf'
+
+ ###################################################################
+ # build, deploy and start docker images for the PFC WD test       #
+ ###################################################################
+- include: mlnx/deploy_pfcwd_fanout.yml
+  when: peer_hwsku == "MLNX-OS"
+  tags: deploy,pfcwd_config
+
+ ###################################################################
+ # check and recover docker images for the PFC WD test             #
+ ###################################################################
+- include: mlnx/check_pfcwd_fanout.yml
+  when: peer_hwsku == "MLNX-OS"
+  tags: check_pfcwd_config

@@ -12,7 +12,7 @@
 
 - name: Change DUT interface IP to test IP address
   become: yes
-  command: config interface {{ dut_if }} ip add {{ dut_ip }}/24
+  command: config interface ip add {{ dut_if }} {{ dut_ip }}/24
 
 - name: Change host interface IP to test IP address
   become: yes

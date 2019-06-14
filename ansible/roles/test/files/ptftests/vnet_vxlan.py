@@ -22,13 +22,16 @@ from ptf.dataplane import match_exp_pkt
 from ptf.mask import Mask
 import datetime
 import subprocess
+import ipaddress
 from pprint import pprint
+from ipaddress import ip_address, ip_network
 
 class VNET(BaseTest):
     def __init__(self):
         BaseTest.__init__(self)
 
         self.vxlan_enabled = False
+        self.routes_removed = False
         self.random_mac = '00:01:02:03:04:05'
         self.vxlan_router_mac = '00:aa:bb:cc:78:9a'
         self.vxlan_port = 13330
@@ -87,6 +90,17 @@ class VNET(BaseTest):
                         ptest['dst_vni'] = test['dst_vni']
                     self.tests.append(ptest)
 
+    def checklocal(self, graph, test):
+        for routes in graph['vnet_local_routes']:
+            for name, rt_list in routes.items():
+                for entry in rt_list:
+                    nhtest = dict(test)
+                    if nhtest['name'] == name.split('_')[0]:
+                        nhtest['src'], nhtest['port'], nhtest['vlan'], nhtest['vni'] = self.getSrvInfo(nhtest['name'], entry['ifname'])
+                        prefix = ip_network(unicode(entry['pfx']))
+                        nhtest['src'] = str(list(prefix.hosts())[0])
+                        self.tests.append(nhtest)
+
     def getPeerTest(self, test):
         peer_vnets = []
         peer_tests = []
@@ -112,6 +126,9 @@ class VNET(BaseTest):
 
         if 'vxlan_enabled' in self.test_params and self.test_params['vxlan_enabled']:
             self.vxlan_enabled = True
+
+        if 'routes_removed' in self.test_params and self.test_params['routes_removed']:
+            self.routes_removed = True
 
         config = self.test_params['config_file']
 
@@ -184,18 +201,24 @@ class VNET(BaseTest):
                         test['dst_vni'] = entry['vni']
                     self.tests.append(test)
                     self.checkPeer(test)
+                    self.checklocal(graph, test)
 
         self.dut_mac = graph['dut_mac']
 
-        ip = None
+        ipv4 = None
+        ipv6 = None
         for data in graph['minigraph_lo_interfaces']:
             if data['prefixlen'] == 32:
-                ip = data['addr']
-                break
-        else:
+                ipv4 = data['addr']
+            elif data['prefixlen'] == 128:
+                ipv6 = data['addr']
+        if ipv4 is None:
             raise Exception("ipv4 lo interface not found")
+        if ipv6 is None:
+            raise Exception("ipv6 lo interface not found")
 
-        self.loopback_ip = ip
+        self.loopback_ipv4 = ipv4
+        self.loopback_ipv6 = ipv6
 
         self.ptf_mac_addrs = self.readMacs()
 
@@ -246,18 +269,32 @@ class VNET(BaseTest):
                 ip_ttl=64)
             udp_sport = 1234 # Use entropy_hash(pkt)
             udp_dport = self.vxlan_port
-            vxlan_pkt = simple_vxlan_packet(
-                eth_dst=self.dut_mac,
-                eth_src=self.random_mac,
-                ip_id=0,
-                ip_src=test['host'],
-                ip_dst=self.loopback_ip,
-                ip_ttl=64,
-                udp_sport=udp_sport,
-                udp_dport=udp_dport,
-                vxlan_vni=int(test['vni']),
-                with_udp_chksum=False,
-                inner_frame=pkt)
+            if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
+                vxlan_pkt = simple_vxlan_packet(
+                    eth_dst=self.dut_mac,
+                    eth_src=self.random_mac,
+                    ip_id=0,
+                    ip_src=test['host'],
+                    ip_dst=self.loopback_ipv4,
+                    ip_ttl=64,
+                    udp_sport=udp_sport,
+                    udp_dport=udp_dport,
+                    vxlan_vni=int(test['vni']),
+                    with_udp_chksum=False,
+                    inner_frame=pkt)
+            elif isinstance(ip_address(test['host']), ipaddress.IPv6Address):
+                vxlan_pkt = simple_vxlanv6_packet(
+                    eth_dst=self.dut_mac,
+                    eth_src=self.random_mac,
+                    ipv6_src=test['host'],
+                    ipv6_dst=self.loopback_ipv6,
+                    udp_sport=udp_sport,
+                    udp_dport=udp_dport,
+                    vxlan_vni=int(test['vni']),
+                    with_udp_chksum=False,
+                    inner_frame=pkt)
+            else:
+                raise Exception("Found invalid IP address in test")
             exp_pkt = simple_tcp_packet(
                 pktlen=pkt_len,
                 eth_src=self.dut_mac,
@@ -276,7 +313,10 @@ class VNET(BaseTest):
             log_str = "Expecing packet on " + str("eth%d" % test['port']) + " from " + test['dst']
             logging.info(log_str)
 
-            verify_packet(self, exp_pkt, test['port'])
+            if not self.routes_removed:
+                verify_packet(self, exp_pkt, test['port'])
+            else:
+                verify_no_packet(self, exp_pkt, test['port'])
 
 
     def FromServer(self, test):
@@ -312,31 +352,51 @@ class VNET(BaseTest):
                 ip_ttl=63)
             udp_sport = 1234 # Use entropy_hash(pkt)
             udp_dport = self.vxlan_port
-            encap_pkt = simple_vxlan_packet(
-                eth_src=self.dut_mac,
-                eth_dst=self.random_mac,
-                ip_id=0,
-                ip_src=self.loopback_ip,
-                ip_dst=test['host'],
-                ip_ttl=64,
-                udp_sport=udp_sport,
-                udp_dport=udp_dport,
-                with_udp_chksum=False,
-                vxlan_vni=vni,
-                inner_frame=exp_pkt)
-            encap_pkt[IP].flags = 0x2
+            if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
+                encap_pkt = simple_vxlan_packet(
+                    eth_src=self.dut_mac,
+                    eth_dst=self.random_mac,
+                    ip_id=0,
+                    ip_src=self.loopback_ipv4,
+                    ip_dst=test['host'],
+                    ip_ttl=64,
+                    udp_sport=udp_sport,
+                    udp_dport=udp_dport,
+                    with_udp_chksum=False,
+                    vxlan_vni=vni,
+                    inner_frame=exp_pkt)
+                encap_pkt[IP].flags = 0x2
+            elif isinstance(ip_address(test['host']), ipaddress.IPv6Address):
+                encap_pkt = simple_vxlanv6_packet(
+                    eth_src=self.dut_mac,
+                    eth_dst=self.random_mac,
+                    ipv6_src=self.loopback_ipv6,
+                    ipv6_dst=test['host'],
+                    udp_sport=udp_sport,
+                    udp_dport=udp_dport,
+                    with_udp_chksum=False,
+                    vxlan_vni=vni,
+                    inner_frame=exp_pkt)
+            else:
+                raise Exception("Found invalid IP address in test")
             send_packet(self, test['port'], str(pkt))
 
             masked_exp_pkt = Mask(encap_pkt)
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            else:
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
             masked_exp_pkt.set_do_not_care_scapy(scapy.UDP, "sport")
 
             log_str = "Sending packet from port " + str('eth%d' % test['port']) + " to " + test['dst']
             logging.info(log_str)
 
-            verify_packet_any_port(self, masked_exp_pkt, self.net_ports)
+            if not self.routes_removed:
+                verify_packet_any_port(self, masked_exp_pkt, self.net_ports)
+            else:
+                verify_no_packet_any(self, masked_exp_pkt, self.net_ports)
 
         finally:
             print
@@ -382,7 +442,10 @@ class VNET(BaseTest):
                 log_str = "Sending packet from port " + str('eth%d' % test['port']) + " to " + serv['src']
                 logging.info(log_str)
 
-                verify_packet(self, exp_pkt, serv['port'])
+                if not self.routes_removed:
+                    verify_packet(self, exp_pkt, serv['port'])
+                else:
+                    verify_no_packet(self, exp_pkt, serv['port'])
 
         finally:
             print

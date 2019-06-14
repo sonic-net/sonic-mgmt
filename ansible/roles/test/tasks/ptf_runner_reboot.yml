@@ -1,0 +1,104 @@
+- block:
+    - include: ptf_runner.yml
+      vars:
+        ptf_test_name: Advanced-reboot test
+        ptf_test_dir: ptftests
+        ptf_test_path: advanced-reboot.ReloadTest
+        ptf_platform: remote
+        ptf_platform_dir: ptftests
+        ptf_qlen: 1000
+        ptf_test_params:
+        - verbose=False
+        - dut_username=\"{{ ansible_ssh_user }}\"
+        - dut_hostname=\"{{ ansible_host }}\"
+        - reboot_limit_in_seconds={{ reboot_limit }}
+        - reboot_type=\"{{ reboot_type }}\"
+        - portchannel_ports_file=\"/tmp/portchannel_interfaces.json\"
+        - vlan_ports_file=\"/tmp/vlan_interfaces.json\"
+        - ports_file=\"/tmp/ports.json\"
+        - dut_mac='{{ dut_mac }}'
+        - dut_vlan_ip='192.168.0.1'
+        - default_ip_range='192.168.0.0/16'
+        - vlan_ip_range='{{ vlan_ip_range }}'
+        - lo_v6_prefix='{{ lo_v6_prefix }}'
+        - arista_vms=\"['{{ vm_hosts | list | join("','") }}']\"
+        - preboot_files='{{ preboot_files }}'
+        - preboot_oper='{{ item }}'
+
+  always:
+
+    - name: Set all the filename vars when there is no preboot type
+      set_fact:
+        reboot_log: '/tmp/{{reboot_type}}.log'
+        capture_pcap: '/tmp/capture.pcap'
+        filter_pcap: '/tmp/capture_filtered.pcap'
+        syslog_file: '/tmp/syslog'
+        sairedis_rec: '/tmp/sairedis.rec'
+        swss_rec: '/tmp/swss.rec'
+      when: not item or item == 'None'
+
+    - name: Set all the filename vars when there is a preboot type
+      set_fact:
+        reboot_log: '/tmp/{{reboot_type}}-{{item}}.log'
+        capture_pcap: '/tmp/capture_{{item}}.pcap'
+        filter_pcap: '/tmp/capture_filtered_{{item}}.pcap'
+        syslog_file: '/tmp/syslog_{{item}}'
+        sairedis_rec: '/tmp/sairedis.rec.{{item}}'
+        swss_rec: '/tmp/swss.rec.{{item}}'
+      when: item and item != 'None'
+
+    - name: Copy test results from ptf to the local box /tmp/*-reboot*.log
+      fetch: src="{{ reboot_log }}" dest='/tmp/' flat=true fail_on_missing=false
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Copy pcap files from ptf to the local box /tmp/
+      fetch: src={{ item }} dest='/tmp/' flat=true fail_on_missing=false
+      delegate_to: "{{ ptf_host }}"
+      with_items:
+        - "{{ capture_pcap }}"
+        - "{{ filter_pcap }}"
+
+    - name: Extract all syslog entries since the last reboot
+      extract_log:
+        directory: '/var/log'
+        file_prefix: 'syslog'
+        start_string: 'Linux version'
+        target_filename: "{{ syslog_file }}"
+      become: yes
+
+    - name: Copy the exctracted syslog entries to the local machine
+      fetch:
+        src: "{{ syslog_file }}"
+        dest: '/tmp/'
+        flat: yes
+
+    - name: Extract all sairedis.rec entries since the last reboot
+      extract_log:
+        directory: '/var/log/swss'
+        file_prefix: 'sairedis.rec'
+        start_string: 'recording on:'
+        target_filename: "{{ sairedis_rec }}"
+
+    - name: Copy the exctracted sairedis.rec entries to the local machine
+      fetch:
+        src: "{{ sairedis_rec }}"
+        dest: '/tmp/'
+        flat: yes
+
+    - name: Extract all swss.rec entries since the last reboot
+      extract_log:
+        directory: '/var/log/swss'
+        file_prefix: 'swss.rec'
+        start_string: 'recording started'
+        target_filename: "{{ swss_rec }}"
+
+    - name: Copy the exctracted swss.rec entries to the local machine
+      fetch:
+        src: "{{ swss_rec }}"
+        dest: '/tmp/'
+        flat: yes
+
+
+- name: Wait for the DUT to be ready for the next test
+  pause: seconds=420
+  when: preboot_list|length > 1

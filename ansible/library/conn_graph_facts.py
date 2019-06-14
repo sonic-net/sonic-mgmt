@@ -12,7 +12,7 @@ from collections import defaultdict
 DOCUMENTATION='''
 module: conn_graph_facts.py
 version_added:  2.0
-short_description: Retrive lab fanout switches physical and vlan connections 
+short_description: Retrive lab fanout switches physical and vlan connections
 Description:
     Retrive lab fanout switches physical and vlan connections
     add to Ansible facts
@@ -23,7 +23,7 @@ options:
 Ansible_facts:
     device_info: The device(host) type and hwsku
     device_conn: each physical connection of the device(host)
-    device_vlan_range: all configured vlan range for the device(host) 
+    device_vlan_range: all configured vlan range for the device(host)
     device_port_vlans: detailed vlanids for each physical port and switchport mode
     server_links: each server port vlan ids
 
@@ -34,35 +34,35 @@ EXAMPLES='''
 
     return:
           "device_info": {
-              "ManagementIp": "10.251.0.76/24", 
-              "HwSku": "Arista-7260QX-64", 
+              "ManagementIp": "10.251.0.76/24",
+              "HwSku": "Arista-7260QX-64",
               "Type": "FanoutLeaf"
             },
           "device_conn": [
           {
-             "StartPort": "Ethernet0", 
-             "EndPort": "Ethernet33", 
-             "StartDevice": "str-s6000-on-1", 
-             "VlanID": "233", 
-             "BandWidth": "40000", 
-             "VlanMode": "Access", 
+             "StartPort": "Ethernet0",
+             "EndPort": "Ethernet33",
+             "StartDevice": "str-s6000-on-1",
+             "VlanID": "233",
+             "BandWidth": "40000",
+             "VlanMode": "Access",
              "EndDevice": "str-7260-01"
            },
            {...}
            ],
            "device_vlan_range": {
               "VlanRange": "201-980,1041-1100"
-            }, 
+            },
            "device_vlan_port:=: {
                 ...
               "Ethernet44": {
-                "vlanids": "801-860", 
+                "vlanids": "801-860",
                 "mode": "Trunk"
-              }, 
+              },
               "Ethernet42": {
-                "vlanids": "861-920", 
+                "vlanids": "861-920",
                 "mode": "Trunk"
-               },...... 
+               },......
             }
 
 
@@ -240,7 +240,11 @@ def main():
     m_args = module.params
     hostname = m_args['host']
     try:
-        lab_graph = Parse_Lab_Graph(LAB_GRAPHFILE_PATH+LAB_CONNECTION_GRAPH_FILE)
+        if m_args['filename']:
+            filename = m_args['filename']
+        else:
+            filename = LAB_GRAPHFILE_PATH + LAB_CONNECTION_GRAPH_FILE
+        lab_graph = Parse_Lab_Graph(filename)
         lab_graph.parse_graph()
         dev = lab_graph.get_host_device_info(hostname)
         if dev is None:

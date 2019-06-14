@@ -8,13 +8,11 @@
 - name: Get session info.
   include: roles/test/tasks/everflow_testbed/get_session_info.yml
 
-- name: Copy python script for session configuration.
-  copy: src=roles/test/files/helpers/mirror_session.py dest={{ run_dir }}/
-
 - name: Copy ACL rules configuration file.
   copy: src={{ tests_location }}/{{ testname}}/acl_rule_persistent.json dest={{ run_dir }}/
 
-- command: "python {{ run_dir }}/mirror_session.py create {{ session_name }} {{ session_src_ip }} {{ session_dst_ip }} {{ session_gre }} {{ session_dscp }} {{ session_ttl }} {{ session_queue }}"
+- command: "config mirror_session add {{session_name}} {{session_src_ip}} {{session_dst_ip}} {{session_dscp}} {{session_ttl}} {{session_gre}} {{session_queue}}"
+  become: yes
 
 - command: "acl-loader update full {{ run_dir }}/acl_rule_persistent.json --session_name={{ session_name }}"
   become: yes

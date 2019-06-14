@@ -4,6 +4,7 @@
     groups: sudo
     state: present
     shell: /bin/bash
+  become: yes
 
 - name: Set password for user
   shell: "echo {{uname1}}:{{upasswd1}} | sudo chpasswd"
