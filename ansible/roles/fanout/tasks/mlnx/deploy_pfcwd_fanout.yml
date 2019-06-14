@@ -20,13 +20,11 @@
   args:
     chdir: "{{item | dirname}}"
   with_items: pfcwd_dockers
-  delegate_to: localhost
+  delegate_to: 127.0.0.1
   when: pfcwd_dockers_url is not defined
 
 - name: Copy test match and ignore files to switch
-  copy:
-      src: "{{ item }}"
-      dest: "{{fanout_img_path}}"
+  copy: src="{{ item }}" dest={{fanout_img_path}}
   with_items: pfcwd_dockers
   when: pfcwd_dockers_url is not defined
 
@@ -35,16 +33,14 @@
   with_items: pfcwd_dockers
   when: pfcwd_dockers_url is defined
 
-- block:
-    - name: Mount FS to read-write
-      command: mount -o remount, rw /
+- name: Run the command if the specified file does not exist.
+  command: mount -o remount, rw /
 
-    - name: Update storage driver for Docker
-      command: 'sed -i s/\"storage-driver\":\ \"vfs\",/\"storage-driver\":\ \"devicemapper\",\\n\ \ \ \ \"storage-opts\":\ [\\n\ \ \ \ \ \ \ \ \"dm.fs=ext4\"\\n\ \ \ \ ],\/g /opt/tms/bin/docker_config.json'
+- name: Update storage driver for Docker
+  command: 'sed -i s/\"storage-driver\":\ \"vfs\",/\"storage-driver\":\ \"devicemapper\",\\n\ \ \ \ \"storage-opts\":\ [\\n\ \ \ \ \ \ \ \ \"dm.fs=ext4\"\\n\ \ \ \ ],\/g /opt/tms/bin/docker_config.json'
 
-  always:
-    - name: Remount FS back to read-only
-      command: mount -r -o remount /
+- name: Remount FS back to ro
+  command: mount -r -o remount /
 
 - name: Load and start dockers
   action: apswitch template=mlnx_deploy_pfcwd_fanout.j2
