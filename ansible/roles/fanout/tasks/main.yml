@@ -13,9 +13,6 @@
 
 - set_fact: sw_type="{{ device_info['Type'] }}"
 
-- block:
-  - debug: msg="{{ sw_type }}"
-
 - set_fact: os='eos'
   when: os is not defined
 
