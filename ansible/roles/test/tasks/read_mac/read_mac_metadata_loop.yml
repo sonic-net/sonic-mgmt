@@ -1,0 +1,100 @@
+- block:
+    - set_fact:
+        current_image: "{{ image1 }}"
+      when: "{{ item|int % 2 == 0 }}"
+
+    - set_fact:
+        current_image: "{{ image2 }}"
+      when: "{{ item|int % 2 != 0 }}"
+
+    - set_fact:
+        image_to_remove: ""
+    - set_fact:
+        testname_unique: "{{ testname }}.{{ lookup('pipe','date +%Y-%m-%d-%H:%M:%S') }}"
+    - set_fact:
+        # Set custom match instead of default match
+        test_match_file: read_mac_meta_match_messages.txt
+        summary_file: summary.loganalysis.{{ testname_unique }}.log
+        result_file: result.loganalysis.{{ testname_unique }}.log
+        errors_expected: false
+        skip_common_match: true
+
+    - debug: msg="Iteration {{ item }}. Selected current image {{ current_image }}"
+
+    # Copy image to device
+    - set_fact: timestamp="{{lookup('pipe','date +%Y%m%d%H%M%S')}}"
+
+    - set_fact: filename="/tmp/update_image_{{ timestamp }}"
+    - debug: var=filename
+
+    - name: Download SONiC image.
+      local_action: get_url url={{ current_image }} dest="{{ filename }}"
+
+    - name: Upload SONiC image to device.
+      copy:
+        src: "{{ filename }}"
+        dest: "/tmp/sonic-mellanox.bin"
+
+    # Init loganalyzer
+    - name: Initialize loganalizer. Put start marker to log file.
+      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+    - name: Installing new SONiC image
+      shell: sonic_installer install -y /tmp/sonic-mellanox.bin
+      become: true
+
+    - name: Remove temporary image
+      become: true
+      shell: rm -rf /tmp/sonic-mellanox.bin
+
+    - name: reboot
+      include: roles/test/tasks/common_tasks/reboot_sonic.yml
+
+    - name: Verify that MAC address fits template XX:XX:XX:XX:XX:XX
+      shell: redis-cli -n 4 hget "DEVICE_METADATA|localhost" mac| grep -io '[0-9a-fA-F:]\{17\}'
+      register: mac_value
+      failed_when: mac_value.rc != 0
+
+    - name: "Get image facts"
+      image_facts:
+
+    - set_fact:
+        image_to_remove: "{{ ansible_image_facts['available'][0] }}"
+      when: "{{ ansible_image_facts['current'] != ansible_image_facts['available'][0] }}"
+
+    - set_fact:
+        image_to_remove: "{{ ansible_image_facts['available'][1] }}"
+      when:
+        - "{{ ansible_image_facts['available']|length == 2 }}"
+        - "{{ ansible_image_facts['current'] != ansible_image_facts['available'][1] }}"
+
+    - debug: msg="Current image {{ ansible_image_facts['current'] }}"
+    - debug: msg="Going to remove image {{ image_to_remove }}"
+
+    - name: Remove available image
+      shell: sonic_installer remove -y {{ image_to_remove }}
+      become: true
+      register: remove_res
+      failed_when: remove_res.rc != 0
+      when: image_to_remove != ""
+
+  # Loganalyzer analyze
+  always:
+    - name: Use loganalyzer to check for the error messages {{ testname }} iteration {{ item }}.
+      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+
+    - name: Read loganalyzer summary file.
+      shell: cat "{{ test_out_dir }}/{{ summary_file }}"
+      register: log_summary
+
+    - name: Print loganalyzer summary file.
+      debug:
+        var: log_summary.stdout_lines
+
+    - name: Get the total number of error messages.
+      shell: grep "TOTAL MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL MATCHES:[[:space:]]*//p"
+      register: errors_found
+
+    - name: Check the number of error messages (positive tests only).
+      fail: msg="{{ errors_found.stdout }} errors found while running {{ testname }} / iteration {{ item }}."
+      when: errors_expected == false and errors_found.stdout != "0"

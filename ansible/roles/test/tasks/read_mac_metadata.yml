@@ -1,0 +1,24 @@
+# Input Parameters:
+# -e image1=http://IP_ADDR/SERVER_URL/IMAGE_NAME.bin
+# -e image2=http://IP_ADDR/SERVER_URL/IMAGE_NAME.bin
+# -e iterations=INT_NUMBER
+
+- block:
+  - fail: msg="Please speify URL to the image1"
+    when: image1 is not defined
+
+  - fail: msg="Please speify URL to the image2"
+    when: image2 is not defined
+
+  - fail: msg="Please speify 'iterations' variable"
+    when: iterations is not defined
+
+  - set_fact:
+      out_dir: /tmp
+      run_dir: /tmp
+      testname: read_mac
+      tests_location: roles/test/tasks
+
+  - name: Verify MAC in image reinstall loop
+    include: roles/test/tasks/read_mac/read_mac_metadata_loop.yml
+    with_sequence: count={{ iterations }}
