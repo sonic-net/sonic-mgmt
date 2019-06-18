@@ -19,6 +19,7 @@
       - fib_info='/root/fib_info.txt'
       - ipv4={{ipv4}}
       - ipv6={{ipv6}}
+      - testbed_mtu={{ mtu|default(9114) }}
     ptf_extra_options: "--relax --debug info --log-file /tmp/fib_test.FibTest.ipv4.{{ipv4}}.ipv6.{{ipv6}}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
 - name: "Show ptf params PTF Test - {{ ptf_test_name }}"
