@@ -27,15 +27,15 @@
 {% set num_vnet_batch = 8 %}
 num_vnet_batch: {{ num_vnet_batch }}
 
-{# A single vnet batch has total 24 routes if ipv6_vxlan_test == true.
-   There will be only 12 routes if ipv6_vxlan_test == false #} 
+{# A single vnet batch has total 18 routes including peers if ipv6_vxlan_test == true.
+   There will be only 9 routes if ipv6_vxlan_test == false #} 
 {% if ipv6_vxlan_test == true %}
-  {% set num_routes_batch = 24 %}
+  {% set num_routes_batch = 18 %}
 {% else %}
-  {% set num_routes_batch = 12 %}
+  {% set num_routes_batch = 9 %}
 {% endif %}
 
-{#  Normal testing - 8 Vnets, 24 routes #}
+{#  Normal testing - 8 Vnets #}
 {% if num_vnet is undefined or not num_vnet %}
   {% set num_vnet = 8 %}
   {% set num_routes_iterations = 1 %}
