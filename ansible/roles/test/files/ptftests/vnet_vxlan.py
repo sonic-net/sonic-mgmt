@@ -37,6 +37,7 @@ class VNET(BaseTest):
         self.vxlan_port = 13330
         self.DEFAULT_PKT_LEN = 100
         self.max_routes_wo_scaling = 1000
+        self.vnet_batch = 8
 
     def cmd(self, cmds):
         process = subprocess.Popen(cmds,
@@ -99,7 +100,9 @@ class VNET(BaseTest):
                         for entry in rt_list:
                             self.addLocalTest(test, entry)
                     else:
-                        entry = rt_list[-1]
+                        vnet_id = int(name.split('_')[0][4:])
+                        rt_idx = ((vnet_id-1)//4)%len(rt_list)
+                        entry = rt_list[rt_idx]
                         self.addLocalTest(test, entry)
 
     def getPeerTest(self, test):
@@ -231,8 +234,14 @@ class VNET(BaseTest):
                     for entry in rt_list:
                         self.addTest(graph, name, entry)
                 else:
-                    vni = name.split('_')[0][4:]
-                    entry = rt_list[(int(vni) % len(rt_list))-1]
+                    vnet_id = int(name.split('_')[0][4:])
+                    len_rt = len(rt_list)
+                    group_8 = (vnet_id-1)//self.vnet_batch
+                    rt_idx = (group_8//2)%len_rt
+                    if group_8%2:
+                        rt_idx = (len_rt-1)-rt_idx
+
+                    entry = rt_list[rt_idx]
                     self.addTest(graph, name, entry)
 
         self.dut_mac = graph['dut_mac']
