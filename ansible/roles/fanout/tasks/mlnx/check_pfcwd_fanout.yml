@@ -15,9 +15,8 @@
     dockers_running: "{{output.stdout|search(\"args *storm_args\")|bool}}"
     dockers_installed: "{{output.stdout|search(\"pfc_storm\") and output.stdout|search(\"storm_args\")|bool}}"
 
-- debug: msg="Dockers installed{{':'}} {{dockers_installed}}"
-- debug: msg="Dockers running  {{':'}} {{dockers_running}}"
+- debug:
+    msg: "Dockers installed{{':'}} {{dockers_installed}}"
 
-# Attempt to restore dockers on fanout
-- include: deploy_pfcwd_fanout.yml
-  when: not dockers_installed or not dockers_running
+- debug:
+    msg: "Dockers running  {{':'}} {{dockers_running}}"
