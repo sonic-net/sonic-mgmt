@@ -19,7 +19,8 @@
       - fib_info='/root/fib_info.txt'
       - ipv4={{ipv4}}
       - ipv6={{ipv6}}
-    ptf_extra_options: "--relax --debug info --log-file /tmp/fib_test.FibTest.ipv4.{{ipv4}}.ipv6.{{ipv6}}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
+      - testbed_mtu={{ mtu|default(9114) }}
+    ptf_extra_options: "--relax --debug info --log-file /tmp/fib_test.FibTest.ipv4.{{ipv4}}.ipv6.{{ipv6}}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log --socket-recv-size 16384"
 
 - name: "Show ptf params PTF Test - {{ ptf_test_name }}"
   debug: msg="ptf --test-dir {{ ptf_test_dir }} {{ ptf_test_path }} {% if ptf_qlen is defined %} --qlen={{ ptf_qlen }} {% endif %} {% if ptf_platform_dir is defined %} --platform-dir {{ ptf_platform_dir }} {% endif %} --platform {{ ptf_platform }} {% if ptf_test_params is defined %} -t \"{{ ptf_test_params | default([]) | join(';') }}\" {% endif %} {{ ptf_extra_options | default(\"\")}} --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre 2>&1"
