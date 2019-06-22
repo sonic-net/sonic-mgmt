@@ -153,7 +153,7 @@ def test_show_platform_syseeprom(localhost, ansible_adhoc, testbed):
     hostname = testbed['dut']
     ans_host = ansible_host(ansible_adhoc, hostname)
 
-    logging.info("Check output of 'show platform syseeprom'")
+    logging.info("Check output of '%s'" % CMD_PLATFORM_SYSEEPROM)
     platform_info = parse_platform_summary(ans_host.command(CMD_PLATFORM_SUMMARY)["stdout_lines"])
     show_output = ans_host.command(CMD_PLATFORM_SYSEEPROM)
     assert show_output["rc"] == 0, "Run command '%s' failed" % CMD_PLATFORM_SYSEEPROM
@@ -179,5 +179,6 @@ def test_show_platform_syseeprom(localhost, ansible_adhoc, testbed):
             assert show_output["stdout"].find(field) >= 0, "Expected field %s is not found" % field
             assert utility_cmd_output["stdout"].find(field) >= 0, "Expected field %s is not found" % field
 
-        assert show_output["stdout"].find(utility_cmd_output["stdout"]) >= 0, \
-            "Output of '%s' is inconsistent with output of eeprom.py utility" % CMD_PLATFORM_SYSEEPROM
+        for line in utility_cmd_output["stdout_lines"]:
+            assert line in show_output["stdout"], \
+                "Line %s is not found in output of '%s'" % (line, CMD_PLATFORM_SYSEEPROM)
