@@ -140,8 +140,8 @@ class ReloadTest(BaseTest):
         self.check_param('lo_v6_prefix', 'fc00:1::/64', required=False)
         self.check_param('arista_vms', [], required=True)
         self.check_param('min_bgp_gr_timeout', 15, required=False)
-        self.check_param('warm_up_timeout_secs', 180, required=False)
-        self.check_param('dut_stabilize_secs', 20, required=False)
+        self.check_param('warm_up_timeout_secs', 300, required=False)
+        self.check_param('dut_stabilize_secs', 30, required=False)
         self.check_param('preboot_files', None, required = False)
         self.check_param('preboot_oper', None, required = False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
@@ -1109,14 +1109,23 @@ class ReloadTest(BaseTest):
         warm_up_timeout_secs = int(self.test_params['warm_up_timeout_secs'])
 
         start_time = datetime.datetime.now()
+        up_time    = None
 
         # First wait until DUT data/control planes are up
         while True:
             dataplane = self.asic_state.get()
             ctrlplane = self.cpu_state.get()
             elapsed   = (datetime.datetime.now() - start_time).total_seconds()
-            if dataplane == 'up' and ctrlplane == 'up' and elapsed > dut_stabilize_secs:
-                break;
+            if dataplane == 'up' and ctrlplane == 'up':
+                if not up_time:
+                    up_time = datetime.datetime.now()
+                up_secs = (datetime.datetime.now() - up_time).total_seconds()
+                if up_secs > dut_stabilize_secs:
+                    break;
+            else:
+                # reset up_time
+                up_time = None
+
             if elapsed > warm_up_timeout_secs:
                 raise Exception("Control plane didn't come up within warm up timeout")
             time.sleep(1)
