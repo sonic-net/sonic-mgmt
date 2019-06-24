@@ -158,6 +158,7 @@ class Arista(object):
             log_output = self.do_cmd("show log | begin %s" % log_first_line)
             log_lines = log_output.split("\r\n")[1:-1]
             log_data = self.parse_logs(log_lines)
+            # log_data will always have 1 key (route_timeout)
             if len(log_data) > 1:
                 break
             time.sleep(1) # wait until logs are populated
@@ -227,6 +228,7 @@ class Arista(object):
 
         result['route_timeout'] = result_rt
 
+        # for fast-reboot, we expect to have both the bgp and portchannel events in the logs. for warm-reboot, portchannel events might not be present in the logs all the time.
         if self.reboot_type == 'fast-reboot' and (initial_time_bgp == -1 or initial_time_if == -1):
             return result
         elif self.reboot_type == 'warm-reboot' and (initial_time_bgp == -1 and initial_time_if == -1):
@@ -242,6 +244,7 @@ class Arista(object):
                 assert(events[0][1] != 'Established')
 
             assert(events[-1][1] == 'Established')
+            # TODO assert if the peer down to established time is more than 165s
 
         # verify establishment time between v4 and v6 peer is not more than 20s
         if self.reboot_type == 'warm-reboot':
