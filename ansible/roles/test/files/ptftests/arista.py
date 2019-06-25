@@ -154,16 +154,19 @@ class Arista(object):
                 }
 
         attempts = 60
+        log_present = False
         for _ in range(attempts):
             log_output = self.do_cmd("show log | begin %s" % log_first_line)
             log_lines = log_output.split("\r\n")[1:-1]
             log_data = self.parse_logs(log_lines)
-            # log_data will always have 1 key (route_timeout)
-            if len(log_data) > 1:
+            if (self.reboot_type == 'fast-reboot' and\
+                any(k.startswith('BGP') for k in log_data) and any(k.startswith('PortChannel') for k in log_data))\
+                    or (self.reboot_type == 'warm-reboot' and any(k.startswith('BGP') for k in log_data)):
+                log_present = True
                 break
             time.sleep(1) # wait until logs are populated
 
-        if len(log_data) < 2:
+        if not log_present:
             log_data['error'] = 'Incomplete output'
 
         self.disconnect()
@@ -244,17 +247,6 @@ class Arista(object):
                 assert(events[0][1] != 'Established')
 
             assert(events[-1][1] == 'Established')
-            # TODO assert if the peer down to established time is more than 165s
-
-        # verify establishment time between v4 and v6 peer is not more than 20s
-        if self.reboot_type == 'warm-reboot':
-            estab_time = 0
-            for ip in result_bgp:
-                if estab_time > 0:
-                    diff = abs(result_bgp[ip][-1][0] - estab_time)
-                    assert(diff < 20)
-                    break
-                estab_time = result_bgp[ip][-1][0]
 
         # first state is down, last state is up
         for events in result_if.values():
