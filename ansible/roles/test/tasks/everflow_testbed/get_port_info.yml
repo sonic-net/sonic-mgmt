@@ -5,6 +5,7 @@
   set_fact:
       tor_ports: []
       spine_ports: []
+      spine_ptf_ports: []
       dst_port_1_is_lag_member: ""
       dst_port_1_ptf_id: ""
       dst_port_2: ""
@@ -21,7 +22,7 @@
   when: "'T0' in item.value.name"
 
 - name: Print tor ports
-  debug: msg="{{ tor_ports }}"
+  debug: msg={{ tor_ports }}
 
 - name: Get spine ports
   set_fact:
@@ -30,7 +31,12 @@
   when: "'T2' in item.value.name"
 
 - name: Print spine ports
-  debug: msg="{{ spine_ports }}"
+  debug: msg={{ spine_ports }}
+
+- name: Define spine PTF ports
+  set_fact:
+      spine_ptf_ports: "{{ spine_ptf_ports + [minigraph_port_indices[item] | string] }}"
+  with_items: "{{ spine_ports }}"
 
 - name: Define SRC port variables.
   set_fact:
