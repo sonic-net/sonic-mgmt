@@ -18,6 +18,8 @@
 
   # Prepare variables for loganalyzer
   - set_fact:
+      testname: read_mac
+  - set_fact:
       testname_unique: "{{ testname }}.{{ lookup('pipe','date +%Y-%m-%d-%H:%M:%S') }}"
   - set_fact:
       # Set custom match instead of default match
@@ -26,11 +28,8 @@
       result_file: result.loganalysis.{{ testname_unique }}.log
       errors_expected: false
       skip_common_match: true
-
-  - set_fact:
       out_dir: /tmp
       run_dir: /tmp
-      testname: read_mac
       tests_location: roles/test/tasks
       current_image: ""
       temp_minigraph: ""
