@@ -22,7 +22,7 @@
   template: src=roles/test/templates/fdb.j2 dest=/root/fdb_info.txt
   delegate_to: "{{ ptf_host }}"
 
-- name: sonic-clear fdb all
+- name: Clear FDB table
   shell: sonic-clear fdb all
 
   # Change the config, populate fdb and observe expire time
@@ -110,6 +110,6 @@
       when: "show_mac_after_wait|int == 0"
 
   always:
-    - name: sonic-clear fdb all
+    - name: Clear FDB table
       shell: sonic-clear fdb all
 
