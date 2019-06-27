@@ -24,6 +24,7 @@
         - arista_vms=\"['{{ vm_hosts | list | join("','") }}']\"
         - preboot_files='{{ preboot_files }}'
         - preboot_oper='{{ item }}'
+        - allow_vlan_flooding='{{ allow_vlan_flooding }}'
 
   always:
 

@@ -144,6 +144,7 @@ class ReloadTest(BaseTest):
         self.check_param('dut_stabilize_secs', 30, required=False)
         self.check_param('preboot_files', None, required = False)
         self.check_param('preboot_oper', None, required = False)
+        self.check_param('allow_vlan_flooding', False, required = False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
 
@@ -190,6 +191,8 @@ class ReloadTest(BaseTest):
         # one is the reachability_watcher thread
         # second is the fast send_in_background
         self.dataplane_io_lock   = threading.Lock()
+
+        self.allow_vlan_flooding = bool(self.test_params['allow_vlan_flooding'])
 
         return
 
@@ -1139,6 +1142,8 @@ class ReloadTest(BaseTest):
             if not self.asic_state.is_flooding() and elapsed > dut_stabilize_secs:
                 break
             if elapsed > warm_up_timeout_secs:
+                if self.allow_vlan_flooding:
+                    break
                 raise Exception("Data plane didn't stop flooding within warm up timeout")
             time.sleep(1)
 
