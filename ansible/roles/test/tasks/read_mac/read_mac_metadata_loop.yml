@@ -51,8 +51,11 @@
       become: true
       shell: rm -rf /tmp/sonic-mellanox.bin
 
+    # Reboot device and wait 300 seconds for device to come back
     - name: reboot
       include: roles/test/tasks/common_tasks/reboot_sonic.yml
+      vars:
+        timeout: 300
 
     # Load minigraph
     - name: Execute cli "config load_minigraph -y" to apply new minigraph
