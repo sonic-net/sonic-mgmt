@@ -27,7 +27,6 @@
         chdir: /root
       delegate_to: "{{ ptf_host }}"
       register: out
-  become: yes
 
   always:
     - name: Remove neighbor MAC.
