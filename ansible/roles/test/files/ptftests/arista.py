@@ -159,8 +159,8 @@ class Arista(object):
             log_output = self.do_cmd("show log | begin %s" % log_first_line)
             log_lines = log_output.split("\r\n")[1:-1]
             log_data = self.parse_logs(log_lines)
-            if (self.reboot_type == 'fast-reboot' and\
-                any(k.startswith('BGP') for k in log_data) and any(k.startswith('PortChannel') for k in log_data))\
+            if (self.reboot_type == 'fast-reboot' and \
+                any(k.startswith('BGP') for k in log_data) and any(k.startswith('PortChannel') for k in log_data)) \
                     or (self.reboot_type == 'warm-reboot' and any(k.startswith('BGP') for k in log_data)):
                 log_present = True
                 break
