@@ -255,3 +255,6 @@ testcases:
       required_vars:
           testbed_type:
 
+    read_mac:
+      filename: read_mac_metadata.yml
+      topologies: [t0, t1, t1-lag]
