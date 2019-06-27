@@ -138,8 +138,17 @@
       when: new_sonic_image is defined
 
     - set_fact:
-        stay_in_target_image:     "{{ stay_in_target_image     | default('false') | bool }}"
-        cleanup_old_sonic_images: "{{ cleanup_old_sonic_images | default('false') | bool }}"
+        stay_in_target_image:       "{{ stay_in_target_image       | default('false') | bool }}"
+        cleanup_old_sonic_images:   "{{ cleanup_old_sonic_images   | default('false') | bool }}"
+        replace_fast_reboot_script: "{{ replace_fast_reboot_script | default('false') | bool }}"
+        allow_vlan_flooding:        "{{ allow_vlan_flooding        | default('false') | bool }}"
+
+    - name: msg="Replace fast-reboot script on the DUT" 
+      copy:
+        src:  roles/test/files/reboot/fast-reboot
+        dest: /usr/bin/fast-reboot
+      become: yes
+      when: new_sonic_image is defined and replace_fast_reboot_script
 
     - include: advanced_reboot/reboot-image-handle.yml
       when: new_sonic_image is defined
