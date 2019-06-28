@@ -234,7 +234,7 @@ class Arista(object):
         # for fast-reboot, we expect to have both the bgp and portchannel events in the logs. for warm-reboot, portchannel events might not be present in the logs all the time.
         if self.reboot_type == 'fast-reboot' and (initial_time_bgp == -1 or initial_time_if == -1):
             return result
-        elif self.reboot_type == 'warm-reboot' and (initial_time_bgp == -1 and initial_time_if == -1):
+        elif self.reboot_type == 'warm-reboot' and initial_time_bgp == -1:
             return result
 
         for events in result_bgp.values():
