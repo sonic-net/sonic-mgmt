@@ -47,6 +47,7 @@ class Arista(object):
         self.fails = set()
         self.info = set()
         self.min_bgp_gr_timeout = int(test_params['min_bgp_gr_timeout'])
+        self.reboot_type = test_params['reboot_type']
 
     def __del__(self):
         self.disconnect()
@@ -153,15 +154,19 @@ class Arista(object):
                 }
 
         attempts = 60
+        log_present = False
         for _ in range(attempts):
             log_output = self.do_cmd("show log | begin %s" % log_first_line)
             log_lines = log_output.split("\r\n")[1:-1]
             log_data = self.parse_logs(log_lines)
-            if len(log_data) != 0:
+            if (self.reboot_type == 'fast-reboot' and \
+                any(k.startswith('BGP') for k in log_data) and any(k.startswith('PortChannel') for k in log_data)) \
+                    or (self.reboot_type == 'warm-reboot' and any(k.startswith('BGP') for k in log_data)):
+                log_present = True
                 break
             time.sleep(1) # wait until logs are populated
 
-        if len(log_data) == 0:
+        if not log_present:
             log_data['error'] = 'Incomplete output'
 
         self.disconnect()
@@ -226,7 +231,10 @@ class Arista(object):
 
         result['route_timeout'] = result_rt
 
-        if initial_time_bgp == -1 or initial_time_if == -1:
+        # for fast-reboot, we expect to have both the bgp and portchannel events in the logs. for warm-reboot, portchannel events might not be present in the logs all the time.
+        if self.reboot_type == 'fast-reboot' and (initial_time_bgp == -1 or initial_time_if == -1):
+            return result
+        elif self.reboot_type == 'warm-reboot' and initial_time_bgp == -1:
             return result
 
         for events in result_bgp.values():
@@ -245,13 +253,7 @@ class Arista(object):
             assert(events[0][1] == 'down')
             assert(events[-1][1] == 'up')
 
-        po_name = [ifname for ifname in result_if.keys() if 'Port-Channel' in ifname][0]
         neigh_ipv4 = [neig_ip for neig_ip in result_bgp.keys() if '.' in neig_ip][0]
-
-        result['PortChannel was down (seconds)'] = result_if[po_name][-1][0] - result_if[po_name][0][0]
-        for if_name in sorted(result_if.keys()):
-            result['Interface %s was down (times)' % if_name] = map(itemgetter(1), result_if[if_name]).count("down")
-
         for neig_ip in result_bgp.keys():
             key = "BGP IPv6 was down (seconds)" if ':' in neig_ip else "BGP IPv4 was down (seconds)"
             result[key] = result_bgp[neig_ip][-1][0] - result_bgp[neig_ip][0][0]
@@ -260,12 +262,18 @@ class Arista(object):
             key = "BGP IPv6 was down (times)" if ':' in neig_ip else "BGP IPv4 was down (times)"
             result[key] = map(itemgetter(1), result_bgp[neig_ip]).count("Idle")
 
-        bgp_po_offset = (initial_time_if - initial_time_bgp if initial_time_if > initial_time_bgp else initial_time_bgp - initial_time_if).seconds
-        result['PortChannel went down after bgp session was down (seconds)'] = bgp_po_offset + result_if[po_name][0][0]
+        if initial_time_if != -1:
+            po_name = [ifname for ifname in result_if.keys() if 'Port-Channel' in ifname][0]
+            result['PortChannel was down (seconds)'] = result_if[po_name][-1][0] - result_if[po_name][0][0]
+            for if_name in sorted(result_if.keys()):
+                result['Interface %s was down (times)' % if_name] = map(itemgetter(1), result_if[if_name]).count("down")
 
-        for neig_ip in result_bgp.keys():
-            key = "BGP IPv6 was gotten up after Po was up (seconds)" if ':' in neig_ip else "BGP IPv4 was gotten up after Po was up (seconds)"
-            result[key] = result_bgp[neig_ip][-1][0] - bgp_po_offset - result_if[po_name][-1][0]
+            bgp_po_offset = (initial_time_if - initial_time_bgp if initial_time_if > initial_time_bgp else initial_time_bgp - initial_time_if).seconds
+            result['PortChannel went down after bgp session was down (seconds)'] = bgp_po_offset + result_if[po_name][0][0]
+
+            for neig_ip in result_bgp.keys():
+                key = "BGP IPv6 was gotten up after Po was up (seconds)" if ':' in neig_ip else "BGP IPv4 was gotten up after Po was up (seconds)"
+                result[key] = result_bgp[neig_ip][-1][0] - bgp_po_offset - result_if[po_name][-1][0]
 
         return result
 
