@@ -1,0 +1,51 @@
+##############################################################################################
+### playbook to deploy the fanout swtich
+### Use this playbook to deploy the VLAN configurations of fanout leaf switch in SONiC testbed
+### This playbook will run based on hardware flatform. Each fanout switch hardware type has its
+### own unique feature and configuration command or format. Unless you use the hardware swtich
+### specified in this playbook, you would need to come up with your own fanout switch deployment
+### playbook
+################################################################################################
+  # Gather minigraph facts
+- name: Gathering lab graph facts about the device
+  conn_graph_facts: host={{ inventory_hostname }}
+  connection: local
+  tags: always
+
+- name: prepare fanout switch admin login info
+  set_fact: ansible_ssh_user={{ fanout_admin_user }} ansible_ssh_pass={{ fanout_admin_password }} peer_hwsku={{device_info['HwSku']}}
+  tags: always
+
+- set_fact:
+    fanout_root_user: "user"
+    fanout_root_pass: "password"
+  tags: deploy,pfcwd_config,check_pfcwd_config
+
+ ##########################################################
+ # deploy tasks to deploy default configuration on fanout #
+ ##########################################################
+- block:
+  - debug: msg={{ inventory_hostname }}
+  - name: build fanout startup config for fanout mlnx-os-switch
+    action: apswitch template=mlnx_fanout.j2
+    connection: switch
+    args:
+      login: "{{ switch_login['MLNX-OS'] }}"
+    vars:
+      action_variable: "deploy"
+    when: peer_hwsku == "MLNX-OS"
+    tags: deploy
+
+ ###################################################################
+ # build, deploy and start docker images for the PFC WD test       #
+ ###################################################################
+- include: mlnx/deploy_pfcwd_fanout.yml
+  when: peer_hwsku == "MLNX-OS"
+  tags: deploy,pfcwd_config
+
+ ###################################################################
+ # check and recover docker images for the PFC WD test             #
+ ###################################################################
+- include: mlnx/check_pfcwd_fanout.yml
+  when: peer_hwsku == "MLNX-OS"
+  tags: check_pfcwd_config
