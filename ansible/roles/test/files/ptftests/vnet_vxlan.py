@@ -36,6 +36,8 @@ class VNET(BaseTest):
         self.vxlan_router_mac = '00:aa:bb:cc:78:9a'
         self.vxlan_port = 13330
         self.DEFAULT_PKT_LEN = 100
+        self.max_routes_wo_scaling = 1000
+        self.vnet_batch = 8
 
     def cmd(self, cmds):
         process = subprocess.Popen(cmds,
@@ -82,8 +84,8 @@ class VNET(BaseTest):
     def checkPeer(self, test):
         for peers in self.peering:
             for key, peer in peers.items():
-                ptest = dict(test)
-                if ptest['name'] == key:
+                if test['name'] == key:
+                    ptest = dict(test)
                     ptest['name'] = peer
                     ptest['src'], ptest['port'], ptest['vlan'], ptest['vni'] = self.getSrvInfo(ptest['name'])
                     if 'dst_vni' in test:
@@ -93,13 +95,15 @@ class VNET(BaseTest):
     def checklocal(self, graph, test):
         for routes in graph['vnet_local_routes']:
             for name, rt_list in routes.items():
-                for entry in rt_list:
-                    nhtest = dict(test)
-                    if nhtest['name'] == name.split('_')[0]:
-                        nhtest['src'], nhtest['port'], nhtest['vlan'], nhtest['vni'] = self.getSrvInfo(nhtest['name'], entry['ifname'])
-                        prefix = ip_network(unicode(entry['pfx']))
-                        nhtest['src'] = str(list(prefix.hosts())[0])
-                        self.tests.append(nhtest)
+                if test['name'] == name.split('_')[0]:
+                    if self.total_routes <= self.max_routes_wo_scaling: 
+                        for entry in rt_list:
+                            self.addLocalTest(test, entry)
+                    else:
+                        vnet_id = int(name.split('_')[0][4:])
+                        rt_idx = ((vnet_id-1)//4)%len(rt_list)
+                        entry = rt_list[rt_idx]
+                        self.addLocalTest(test, entry)
 
     def getPeerTest(self, test):
         peer_vnets = []
@@ -115,6 +119,43 @@ class VNET(BaseTest):
             peer_tests.append(peer_test)
 
         return peer_tests
+
+    def addTest(self, graph, name, entry):
+        test = {}
+        test['name'] = name.split('_')[0]
+        test['dst'] = entry['pfx'].split('/')[0]
+        test['host'] = entry['end']
+        if 'mac' in entry:
+            test['mac'] = entry['mac']
+        else:
+            test['mac'] = self.vxlan_router_mac
+        test['src'], test['port'], test['vlan'], test['vni'] = self.getSrvInfo(test['name'])
+        if 'vni' in entry:
+            test['dst_vni'] = entry['vni']
+        self.tests.append(test)
+        self.checkPeer(test)
+        self.checklocal(graph, test)
+
+    def addLocalTest(self, test, entry):
+        nhtest = dict(test)
+        nhtest['src'], nhtest['port'], nhtest['vlan'], nhtest['vni'] = self.getSrvInfo(nhtest['name'], entry['ifname'])
+        prefix = ip_network(unicode(entry['pfx']))
+        nhtest['src'] = str(list(prefix.hosts())[0])
+        self.tests.append(nhtest)
+
+    def calculateTotalRoutes(self, graph):
+        self.total_routes = 0 
+        for routes in graph['vnet_routes']:
+            for name, rt_list in routes.items():
+                self.total_routes += len(rt_list)
+                for peers in graph['vnet_peers']:
+                    for key, peer in peers.items():
+                        if name.split('_')[0] == key:
+                            self.total_routes += len(rt_list)
+                for l_routes in graph['vnet_local_routes']:
+                    for l_name, l_rt_list in l_routes.items():
+                        if name == l_name:
+                            self.total_routes += len(l_rt_list)
 
     def setUp(self):
         self.dataplane = ptf.dataplane_instance
@@ -162,11 +203,12 @@ class VNET(BaseTest):
         vni_base = 10000
         self.serv_info = {}
         self.nbr_info = []
+        acc_ports_size = len(self.acc_ports)
         for idx, data in enumerate(graph['vnet_interfaces']):
             if data['vnet'] not in self.serv_info:
                 self.serv_info[data['vnet']] = []
             serv_info = {}
-            ports = self.acc_ports[idx]
+            ports = self.acc_ports[idx % acc_ports_size]
             for nbr in graph['vnet_neighbors']:
                 if nbr['ifname'] == data['ifname']:
                     if 'Vlan' in data['ifname']:
@@ -183,25 +225,24 @@ class VNET(BaseTest):
             self.serv_info[data['vnet']].extend([serv_info])
 
         self.peering = graph['vnet_peers']
+        self.calculateTotalRoutes(graph)
 
         self.tests = []
         for routes in graph['vnet_routes']:
             for name, rt_list in routes.items():
-                for entry in rt_list:
-                    test = {}
-                    test['name'] = name.split('_')[0]
-                    test['dst'] = entry['pfx'].split('/')[0]
-                    test['host'] = entry['end']
-                    if 'mac' in entry:
-                        test['mac'] = entry['mac']
-                    else:
-                        test['mac'] = self.vxlan_router_mac
-                    test['src'], test['port'], test['vlan'], test['vni'] = self.getSrvInfo(test['name'])
-                    if 'vni' in entry:
-                        test['dst_vni'] = entry['vni']
-                    self.tests.append(test)
-                    self.checkPeer(test)
-                    self.checklocal(graph, test)
+                if self.total_routes <= self.max_routes_wo_scaling:
+                    for entry in rt_list:
+                        self.addTest(graph, name, entry)
+                else:
+                    vnet_id = int(name.split('_')[0][4:])
+                    len_rt = len(rt_list)
+                    group_8 = (vnet_id-1)//self.vnet_batch
+                    rt_idx = (group_8//2)%len_rt
+                    if group_8%2:
+                        rt_idx = (len_rt-1)-rt_idx
+
+                    entry = rt_list[rt_idx]
+                    self.addTest(graph, name, entry)
 
         self.dut_mac = graph['dut_mac']
 
