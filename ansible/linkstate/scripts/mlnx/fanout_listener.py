@@ -133,14 +133,26 @@ class IntfMonitor():
             log("Failed to get SX ports information, rc %d." % rc)
             exit(rc)
 
+        name = None
         port_cnt = uint32_t_p_value(port_cnt_p)
-
         for i in range(0, port_cnt):
             port_attributes = sx_port_attributes_t_arr_getitem(port_attributes_list, i)
-            if port_attributes.log_port == sxLogPort:
-                return 'Ethernet{0}'.format(port_attributes.port_mapping.module_port + 1)
+            if port_attributes.log_port != sxLogPort:
+                continue
+            name = 'ethernet 1/{0}'.format(port_attributes.port_mapping.module_port + 1)
+            lanes = port_attributes.port_mapping.lane_bmap
+            width = port_attributes.port_mapping.width
+            if width == 2:
+                name = '{}/{}'.format(name, 1 if lanes % 2 else 2)
+            elif width == 1:
+                idx = 1
+                while lanes:
+                    lanes <<= 2
+                    idx += 1
+                name = '{}/{}'.format(name, idx)
+            break
 
-        return None
+        return name
 
     def sendLinkChangeToPtfHost(self, intf, linkStatus):
         conn = PtfHostConn()
