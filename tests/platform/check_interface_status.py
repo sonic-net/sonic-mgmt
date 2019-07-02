@@ -3,6 +3,7 @@ Helper script for checking status of interfaces
 
 This script contains re-usable functions for checking status of interfaces on SONiC.
 """
+import logging
 
 
 def parse_intf_status(lines):
@@ -37,6 +38,7 @@ def check_interface_status(dut, interfaces):
     @param hostname:
     @param interfaces: List of interfaces that need to be checked.
     """
+    logging.info("Check interface status using cmd 'intfutil'")
     mg_ports  = dut.minigraph_facts(host=dut.hostname)["ansible_facts"]["minigraph_ports"]
     output = dut.command("intfutil description")
     intf_status = parse_intf_status(output["stdout_lines"][2:])
@@ -48,3 +50,8 @@ def check_interface_status(dut, interfaces):
             "Oper status of interface %s is %s, expected '%s'" % (intf, intf_status[intf]["oper"], expected_oper)
         assert intf_status[intf]["admin"] == expected_oper, \
             "Admin status of interface %s is %s, expected '%s'" % (intf, intf_status[intf]["admin"], expected_admin)
+
+    logging.info("Check interface status using the interface_facts module")
+    intf_facts = dut.interface_facts(up_ports=mg_ports)["ansible_facts"]
+    down_ports = intf_facts["ansible_interface_link_down_ports"]
+    assert len(down_ports) == 0, "Some interfaces are down: %s" % str(down_ports)
