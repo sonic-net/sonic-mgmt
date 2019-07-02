@@ -75,4 +75,7 @@
       assert: {that: "{{new_crm_stats_acl_counter_used|int - crm_stats_acl_counter_used|int == 0}}"}
 
     - name: Verify "crm_stats_acl_counter_available" counter was incremented
-      assert: {that: "{{new_crm_stats_acl_counter_available|int - crm_stats_acl_counter_available|int == 0}}"}
+      assert: {that: "{{new_crm_stats_acl_counter_available|int - crm_stats_acl_counter_available|int >= 0}}"}
+
+    - name: Verify "crm_stats_acl_counter_available" counter was equal to original value
+      assert: {that: "{{original_crm_stats_acl_counter_available|int - new_crm_stats_acl_counter_available|int == 0}}"}
