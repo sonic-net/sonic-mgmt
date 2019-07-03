@@ -7,7 +7,7 @@
   when: testbed_type is not defined
 
 - fail: msg="testbed_type {{testbed_type}} is invalid."
-  when: testbed_type not in ['t0', 't0-64', 't0-64-32', 't0-116']
+  when: testbed_type not in ['t0', 't0-16', 't0-56', 't0-64', 't0-64-32', 't0-116']
 
 - include_vars: "vars/topo_{{testbed_type}}.yml"
 
