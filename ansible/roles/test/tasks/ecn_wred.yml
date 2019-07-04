@@ -11,6 +11,16 @@
     test_wred_values="[ '491520', '516096', '430080' ]"
   tags: always
 
+- name: Copy JSON config to switch.
+  copy: src=roles/test/tasks/ecn.json dest=/tmp
+
+- name: Add config
+  shell: config load /tmp/ecn.json -y
+  become: yes
+
+- name: Make sure config updated
+  pause: seconds=2
+
   # Read and store original rmin value for AZURE_LOSSY
 - name: Get red_min_threshold
   shell: ecnconfig -l | grep -A20 AZURE_LOSSY | grep red_min_threshold | awk '{print $2}'
