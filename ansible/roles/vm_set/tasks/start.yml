@@ -36,6 +36,21 @@
     fp_mtu:       "{{ fp_mtu_size }}"
     max_fp_num:   "{{ max_fp_num }}"
 
+- name: Default autostart to no when it is not defined
+  set_fact:
+    autostart: no
+  when: autostart is not defined
+
+- name: Default batch_size to 1 when it is not defined
+  set_fact:
+    batch_size: "{{ VM_hosts|length }}"
+  when: batch_size is not defined
+
+- name: Default wait interval to 0 if it is not defined
+  set_fact:
+    interval: 0
+  when: interval is not defined
+
 - name: Start VMs
   include: start_vm.yml
   vars:

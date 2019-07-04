@@ -57,11 +57,12 @@
     when: kickstart_output.kickstart_code != 0
 
   - name: Fail if kickstart gives error again vm {{ vm_name }}
-    fail: msg="Two attempts to start vm weren't succesfull"
+    fail: msg="Two attempts to start vm weren't successful"
     when: '"kickstart_code" in kickstart_output_final and kickstart_output_final.kickstart_code != 0'
 
   - name: Set VM to autostart
     command: "virsh autostart {{ vm_name }}"
     become: yes
+    when: autostart|bool == true
 
   when: not skip_this_vm
