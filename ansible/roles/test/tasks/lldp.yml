@@ -59,3 +59,41 @@
   with_items: "{{ lldp.keys() }}"
   when: item != "eth0"
 
+- block:
+  - name: Disable LLDP from DUT
+    shell: "docker exec -i lldp lldpcli  configure lldp status disabled"
+
+  - name: Wait 120s to clear LLDP info (TTL  120s)
+    pause:
+      seconds: 120
+
+  - name: Print LLDP information and Check neigbour item.
+    shell: "lldpctl -f json"
+    register: lldptest
+    failed_when: '"Ethernet" in lldptest.stdout'
+
+  - name: Enable LLDP tx and rx
+    shell: "docker exec -i lldp lldpcli  configure lldp status rx-and-tx"
+
+  - name: Wait 30s to get LLDP info
+    pause:
+      seconds: 30
+
+  - name: Print LLDP information
+    debug: msg="{{ lldp }}"
+
+  - name: Verify LLDP information is available on most interfaces
+    assert: { that: "{{ lldp|length }} > {{ minigraph_lldp_nei|length * 0.8 }}"}
+
+    assert: { that: "'{{ lldp[item]['chassis']['name'] }}' == '{{ minigraph_lldp_nei[item]['name'] }}'" }
+    with_items: "{{ lldp.keys() }}"
+    when: item != "eth0"
+
+  - name: Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port)
+    assert: { that: "'{{ lldp[item]['port']['ifname'] }}' == '{{ minigraph_neighbors[item]['port'] }}'" }
+    with_items: "{{ lldp.keys() }}"
+    when: item != "eth0"
+
+  rescue:
+    - name: Restart LLDP if Failed
+      shell: "docker exec -i lldp lldpcli  configure lldp status rx-and-tx"
