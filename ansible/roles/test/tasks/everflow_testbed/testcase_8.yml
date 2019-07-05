@@ -52,25 +52,26 @@
       ignore_errors: yes
       become: yes
 
-    - name: Create a policer
+    - name: Remove the rule with DSCP value and mask
       shell: |
-        redis-cli -n 4 del "POLICER|{{policer_name}}"
+        redis-cli -n 4 del "ACL_RULE|{{dscp_table_name}}|RULE_1"
       ignore_errors: yes
       become: yes
 
-    - name: Create a policer enforced mirror session
+    - name: Remove the ACL table with MIRROR_DSCP type
+      shell: config acl remove table {{dscp_table_name}}
+      ignore_errors: yes
+      become: yes
+
+    - name: Remove the policer enforced mirror session
       shell: |
         config mirror_session remove {{policer_session_name}}
       ignore_errors: yes
       become: yes
 
-    - name: Create an ACL table with MIRROR_DSCP type
-      shell: config acl remove table {{dscp_table_name}}
+    - name: Remove policer
+      shell: |
+        redis-cli -n 4 del "POLICER|{{policer_name}}"
       ignore_errors: yes
       become: yes
 
-    - name: Create a rule with DSCP value and mask
-      shell: |
-        redis-cli -n 4 del "ACL_RULE|{{dscp_table_name}}|RULE_1"
-      ignore_errors: yes
-      become: yes
