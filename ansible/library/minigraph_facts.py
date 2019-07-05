@@ -269,17 +269,30 @@ def parse_cpg(cpg, hname):
                 start_peer = session.find(str(QName(ns, "StartPeer"))).text
                 end_router = session.find(str(QName(ns, "EndRouter"))).text
                 end_peer = session.find(str(QName(ns, "EndPeer"))).text
+                if session.find(str(QName(ns, "HoldTime"))) is not None:
+                    holdtime = session.find(str(QName(ns, "HoldTime"))).text
+                else:
+                    holdtime = 180
+                if session.find(str(QName(ns, "KeepAliveTime"))) is not None:
+                    keepalive = session.find(str(QName(ns, "KeepAliveTime"))).text
+                else:
+                    keepalive = 60
+
                 if end_router == hname:
                     bgp_sessions.append({
                         'name': start_router,
                         'addr': start_peer,
-                        'peer_addr': end_peer
+                        'peer_addr': end_peer,
+                        'holdtime': hold_time,
+                        'keepalive': keepalive
                     })
                 else:
                     bgp_sessions.append({
                         'name': end_router,
                         'addr': end_peer,
-                        'peer_addr': start_peer
+                        'peer_addr': start_peer,
+                        'holdtime': holdtime,
+                        'keepalive': keepalive
                     })
         elif child.tag == str(QName(ns, "Routers")):
             for router in child.findall(str(QName(ns1, "BGPRouterDeclaration"))):
