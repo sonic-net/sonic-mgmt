@@ -22,6 +22,10 @@
 - name: Print neighbor info
   debug: msg="{{ip_neighbors.stdout_lines}}"
 
+- name: Compare the local address value
+  assert: { that: "'{{ item['peer_addr'].lower() }}' == '{{ bgp_neighbors[item['addr'].lower()]['Local host'].lower() }}'" }
+  with_items: "{{ minigraph_bgp }}"
+
 - name: Verify bgp sessions are established
   assert: { that: "'{{ bgp_neighbors[item]['state'] }}' == 'established'" }
   with_items: "{{ bgp_neighbors.keys() }}"
@@ -38,3 +42,8 @@
   assert: { that: "'{{ item['asn'] }}' == '{{ bgp_neighbors[item['addr'].lower()]['remote AS'] }}'" }
   with_items: "{{ minigraph_bgp }}"
 
+- name: Verify the peer hold time value
+  assert: { that: "('{{ item['holdtime'] }}' == '{{ bgp_neighbors[item['addr'].lower()]['Configured hold time'] }}') and
+                   ('{{ item['keepalive'] }}' == '{{ bgp_neighbors[item['addr'].lower()]['Configured keepalive interval'] }}') and
+                   ('{{ item['holdtime'] }}' >= '{{ bgp_neighbors[item['addr'].lower()]['Hold time'] }}')" }
+  with_items: "{{ minigraph_bgp }}"
