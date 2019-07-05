@@ -35,12 +35,12 @@
 
 - name: Add common match file
   set_fact:
-      match_file_option: "{{ match_file_option }}{{ match_file }},"
+      match_file_option: "{{ match_file_option }}{{ match_file }}"
   when: skip_common_match is not defined
 
 - name: Add test specific match file
   set_fact:
-      match_file_option: "{{ match_file_option }}{{ test_match_file }}"
+      match_file_option: "{{ match_file_option }},{{ test_match_file }}"
   when: test_match_file is defined
 
 - name: Add test specific ignore file
