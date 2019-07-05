@@ -99,6 +99,9 @@ class BgpModule(object):
         regex_admin_down = re.compile(r'.*Administratively shut down')
         regex_routerid = re.compile(r'.*remote router ID (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
         regex_state = re.compile(r'.*BGP state = (\w+)')
+        regex_holdtime = re.compile(r'.*Hold time is (\d+)')
+        regex_conf_holdtime = re.compile(r'.*Configured hold time is (\d+)')
+        regex_conf_keepalive = re.compile(r'.*Configured hold.*keepalive interval is (\d+)')
         regex_stats = re.compile(r'.*(Opens|Notifications|Updates|Keepalives|Route Refresh|Capability|Total):.*')
         regex_mrai = re.compile(r'.*Minimum time between advertisement runs is (\d{1,4})')
         regex_accepted = re.compile(r'.*(\d+) accepted prefixes')
@@ -106,7 +109,9 @@ class BgpModule(object):
         regex_conn_dropped = re.compile(r'.*Connections established \d+; dropped (\d+)')
         regex_peer_group = re.compile(r'.*Member of peer-group (.*) for session parameters')
         regex_subnet =  re.compile(r'.*subnet range group: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2})')
-
+        regex_local_ipv4 = re.compile(r'^Local host: \*?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
+        regex_local_ipv6 = re.compile(r'^Local host: \*?([0-9a-fA-F:]+)')
+        
         neighbors = {}
 
         try:
@@ -122,7 +127,8 @@ class BgpModule(object):
                     lines = n.splitlines()
                     neighbor['admin'] = 'up'
                     neighbor['accepted prefixes'] = 0
-
+                    conf_timers = 0
+                    
                     for line in lines:
                         if regex_ipv4.match(line):
                             neighbor_ip = regex_ipv4.match(line).group(1)
@@ -136,12 +142,22 @@ class BgpModule(object):
                         if regex_admin_down.match(line): neighbor['admin'] = 'down'
                         if regex_routerid.match(line): neighbor['remote routerid'] = regex_routerid.match(line).group(1)
                         if regex_state.match(line): neighbor['state'] = regex_state.match(line).group(1).lower()
+                        if regex_holdtime.match(line): neighbor['Hold time'] = int(regex_holdtime.match(line).group(1))
+                        if regex_conf_holdtime.match(line):
+                            neighbor['Configured hold time'] = int(regex_conf_holdtime.match(line).group(1))
+                            conf_timers = 1
+                        if regex_conf_keepalive.match(line):
+                            neighbor['Configured keepalive interval'] = int(regex_conf_keepalive.match(line).group(1))
                         if regex_mrai.match(line): neighbor['mrai'] = int(regex_mrai.match(line).group(1))
                         if regex_accepted.match(line): neighbor['accepted prefixes'] += int(regex_accepted.match(line).group(1))
                         if regex_conn_est.match(line): neighbor['connections established'] = int(regex_conn_est.match(line).group(1))
                         if regex_conn_dropped.match(line): neighbor['connections dropped'] = int(regex_conn_dropped.match(line).group(1))
                         if regex_peer_group.match(line): neighbor['peer group'] = regex_peer_group.match(line).group(1)
                         if regex_subnet.match(line): neighbor['subnet'] = regex_subnet.match(line).group(1)
+                        if regex_local_ipv4.match(line):
+                            neighbor['Local host'] = regex_local_ipv4.match(line).group(1)
+                        elif regex_local_ipv6.match(line):
+                            neighbor['Local host'] = regex_local_ipv6.match(line).group(1)
 
                         if regex_stats.match(line):
                             try:
@@ -157,7 +173,9 @@ class BgpModule(object):
 
                         if message_stats:
                             neighbor['message statistics'] = message_stats
-
+                    if conf_timers == 0:
+                        neighbor['Configured hold time'] = 180
+                        neighbor['Configured keepalive interval'] = 60
                     neighbors[neighbor_ip] = neighbor
 
         except Exception as e:
