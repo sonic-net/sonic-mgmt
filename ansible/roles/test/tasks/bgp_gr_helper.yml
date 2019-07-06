@@ -6,7 +6,7 @@
   when: testbed_type is not defined
 
 - fail: msg="testbed_type {{testbed_type}} is invalid."
-  when: testbed_type not in ['t1-lag', 't1']
+  when: testbed_type not in ['t1', 't1-lag', 't1-64-lag']
 
 - name: Get VM info.
   include: "roles/test/tasks/bgp_gr_helper/get_vm_info.yml"
@@ -98,7 +98,7 @@
       delegate_to: "{{ vm_ip }}"
 
     - name: Wait for the VM to go down
-      pause: 
+      pause:
         seconds: 90
 
     - local_action: wait_for port=22 host="{{ vm_ip }}" delay=20 timeout="{{ bgp_gr_timer|int - 90 }}" state=started
@@ -121,7 +121,7 @@
         test_expect_file: routes_update_expect.txt
 
     - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
-  
+
   always:
     - name: Set log level back to NOTICE
       command: "swssloglevel -l NOTICE -c orchagent"
