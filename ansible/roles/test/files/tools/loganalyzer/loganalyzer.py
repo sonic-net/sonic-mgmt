@@ -616,9 +616,9 @@ def main(argv):
         analyzer.place_marker(log_file_list, analyzer.create_start_marker())
         return 0
     elif (action == "analyze"):
-        match_file_list = match_files_in.split(tokenizer);
-        ignore_file_list = ignore_files_in.split(tokenizer);
-        expect_file_list = expect_files_in.split(tokenizer);
+        match_file_list = match_files_in.split(tokenizer)
+        ignore_file_list = ignore_files_in.split(tokenizer)
+        expect_file_list = expect_files_in.split(tokenizer)
 
         analyzer.place_marker(log_file_list, analyzer.create_end_marker())
 
