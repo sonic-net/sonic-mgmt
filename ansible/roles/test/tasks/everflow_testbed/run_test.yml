@@ -69,6 +69,9 @@
     - name: Run testcase 7 - ECMP route change (remove next hop used by session).
       include: roles/test/tasks/everflow_testbed/testcase_7.yml
 
+    - name: Run testcase 8 - Policer enforced with DSCP value/mask
+      include: roles/test/tasks/everflow_testbed/testcase_8.yml
+
   always:
     - name: Remove route to unresolved next hop.
       shell: vtysh -e "conf t" -e "no ip route {{ unresolved_nexthop_prefix }} {{ dst_port_2 }}"

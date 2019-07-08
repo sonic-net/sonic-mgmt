@@ -4,15 +4,43 @@
 
 - debug: msg="starting loganalyzer analysis phase"
 
+- set_fact:
+    loganalyzer_location: "{{ 'roles/test/files/tools/loganalyzer' }}"
+
+- set_fact:
+    match_file: loganalyzer_common_match.txt
+  when: match_file is not defined
+
+- set_fact:
+    ignore_file: loganalyzer_common_ignore.txt
+  when: ignore_file is not defined
+
+- set_fact:
+    expect_file: "loganalyzer_common_expect.txt"
+  when: expect_file is not defined
+
+- set_fact:
+    testname_unique: "{{ testname }}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}"
+  when: testname_unique is not defined
+
+- set_fact:
+    test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
+  when: test_out_dir is not defined
+
 - name: Init variables
   set_fact:
-    match_file_option: "-m {{ match_file }}"
+    match_file_option: "-m "
     ignore_file_option: "-i {{ ignore_file }}"
     expect_file_option: "-e {{ expect_file }}"
 
+- name: Add common match file
+  set_fact:
+      match_file_option: "{{ match_file_option }}{{ match_file }},"
+  when: skip_common_match is not defined
+
 - name: Add test specific match file
   set_fact:
-      match_file_option: "{{ match_file_option }},{{ test_match_file }} "
+      match_file_option: "{{ match_file_option }}{{ test_match_file }}"
   when: test_match_file is defined
 
 - name: Add test specific ignore file
@@ -28,6 +56,40 @@
 - name: Set temporary file location for accumulated syslog
   set_fact:
       tmp_log_file: '/tmp/syslog'
+
+#----------------------------------------------------------------------------------
+# Copy all loganalyzer related file to DUT, and invoke loganalyzer with init phase
+#----------------------------------------------------------------------------------
+
+- name: Copy loganalyzer common match and ignore files to switch
+  copy: src="{{ loganalyzer_location }}/{{ item }}"  dest="{{ run_dir }}/{{ item }}"
+  with_items:
+        - "{{ match_file }}"
+        - "{{ ignore_file }}"
+        - "{{ expect_file }}"
+
+- name: Copy test specific file match-files to switch
+  copy: src="{{ tests_location }}/{{ testname }}/{{ test_match_file }}"  dest="{{ run_dir }}/{{ test_match_file }}"
+  when: test_match_file is defined
+
+- name: Copy test specific ignore-files to switch
+  copy: src="{{ tests_location }}/{{ testname }}/{{ test_ignore_file }}"  dest="{{ run_dir }}/{{ test_ignore_file }}"
+  when: test_ignore_file is defined
+
+- name: Copy test specific expect-files to switch
+  copy: src="{{ tests_location }}/{{ testname }}/{{ test_expect_file }}"  dest="{{ run_dir }}/{{ test_expect_file }}"
+  when: test_expect_file is defined
+
+- name: Copy loganalyzer.py to run directory
+  copy: src="{{ loganalyzer_location }}/loganalyzer.py" dest="{{ run_dir }}"
+
+# Create directory to hold results for different runs of loganalyzer
+- name: create output directory
+  file: path="{{ out_dir }}" state=directory
+
+# Create directory where loganalyzer will write output files for current run.
+- name: create output directory for current test run
+  file: path="{{ test_out_dir }}" state=directory
 
 - block:
     - name: Disable logrotate cron task

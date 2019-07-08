@@ -3,6 +3,12 @@
 #-----------------------------------------
 
 - block:
+    - name: set ipv6 test mode for vxlan
+      set_fact:
+              ipv6_vxlan_test: false
+      when:
+         - ipv6_vxlan_test is not defined
+
     - fail: msg="Please set ptf_host variable"
       when: ptf_host is not defined
 
@@ -161,6 +167,7 @@
 
             - name: Apply route json configuration
               shell: docker exec swss sh -c "swssconfig /vnet.route.json"
+              when: cleanup|bool
 
             - name: sleep for some time
               pause: seconds=3

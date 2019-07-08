@@ -1,8 +1,8 @@
 ##############################################################################################
-### playbook to deploy the fanout swtich 
+### playbook to deploy the fanout switch 
 ### Use this playbook to deploy the VLAN configurations of fanout switch in SONiC testbed
-### This playbook will run based on hardware flatform. Each fanout switch hardware type has its
-### own unique feature and configuration command or format. Unless you use the hardware swtich
+### This playbook will run based on hardware platform. Each fanout switch hardware type has its
+### own unique feature and configuration command or format. Unless you use the hardware switch
 ### specified in this playbook, you would need to come up with your own fanout switch deployment 
 ### playbook
 ################################################################################################
@@ -22,6 +22,9 @@
 - include: fanout_sonic.yml
   when: os == 'sonic'
 
+- include: fanout_mlnx.yml
+  when: os == 'mellanox'
+
 - block:
   - set_fact:
       leaf_name: "{{ inventory_hostname }}"
@@ -31,16 +34,3 @@
       deploy_leaf=true
   when: sw_type == 'FanoutLeaf'
 
- ###################################################################
- # build, deploy and start docker images for the PFC WD test       #
- ###################################################################
-- include: mlnx/deploy_pfcwd_fanout.yml
-  when: peer_hwsku == "MLNX-OS"
-  tags: deploy,pfcwd_config
-
- ###################################################################
- # check and recover docker images for the PFC WD test             #
- ###################################################################
-- include: mlnx/check_pfcwd_fanout.yml
-  when: peer_hwsku == "MLNX-OS"
-  tags: check_pfcwd_config

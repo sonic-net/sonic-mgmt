@@ -37,7 +37,7 @@ def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def testbed(request):
     tbname = request.config.getoption("--testbed")
     tbfile = request.config.getoption("--testbed_file")

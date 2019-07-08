@@ -44,18 +44,21 @@
       - ('Ethernet' in item.value['interface']) or ('PortChannel' in item.value['interface'])
       - arptable.v4 | length != 0
 
-  - name: select Ethernet0 if cannot find an v4 neighbor for test
-    set_fact:
-      v4_intf: "Ethernet0"
-      v4_nei: "{{ v4_intf_nei }}"
-    when: v4_nei is not defined
+  - block:
+    - name: select Ethernet0 if cannot find a v4 neighbor for test
+      set_fact:
+        v4_intf: "Ethernet0"
+        v4_nei: "{{ v4_intf_nei }}"
 
-  - name: add an ip entry for Ethernet0
-    command: "/sbin/ifconfig Ethernet0 {{ v4_intf_ip }}"
-    when: v4_nei is not defined
+    - name: startup Ethernet0
+      command: "config interface startup Ethernet0"
 
-  - name: add neighbor of Ethernet0
-    command: "/sbin/ip neigh add {{ v4_intf_nei }} lladdr {{ v4_mac1 }} dev Ethernet0"
+    - name: add an ip entry for Ethernet0
+      command: "config interface ip add Ethernet0 {{ v4_intf_ip }}"
+
+    - name: add neighbor of Ethernet0
+      command: "/sbin/ip neigh add {{ v4_intf_nei }} lladdr {{ v4_mac1 }} dev Ethernet0"
+
     when: v4_nei is not defined
 
   - name: change v4 neighbor mac address 1st time
@@ -87,7 +90,7 @@
   - name: Check if mac changed in DUT ASIC DB. Should be {{ v4_mac2 }}
     shell: docker exec database redis-cli -n 1 HGETALL '{{ neighbour_key.stdout }}' | grep "_ATTR_DST_MAC_ADDRESS" -A 1 | tail -1
     register: neighbour_mac
-        
+
   - assert: { that: "neighbour_mac.stdout | lower == v4_mac2" }
 
   ############## Test V6 mac change   ##################
@@ -101,18 +104,21 @@
        - ('Ethernet' in item.value['interface']) or ('PortChannel' in item.value['interface'])
        - arptable.v6 | length != 0
 
-  - name: pick Ethernet0 as test interface if cannot fine v6 neighbor to test
-    set_fact:
-      v6_intf: "Ethernet0"
-      v6_nei: "{{ v6_intf_nei }}"
-    when: v6_nei is not defined
+  - block:
+    - name: pick Ethernet0 as test interface if cannot find v6 neighbor to test
+      set_fact:
+        v6_intf: "Ethernet0"
+        v6_nei: "{{ v6_intf_nei }}"
 
-  - name: add an ipv6 entry for Ethernet0 if not find v6 neighbor
-    command: "/sbin/ifconfig Ethernet0 inet6 add {{ v6_intf_ip }}"
-    when: v6_nei is not defined
+    - name: startup Ethernet0
+      command: "config interface startup Ethernet0"
 
-  - name: add an ipv6 neighbor of Ethernet0 if not find v6 neighbor to test
-    command: "/sbin/ip neigh add {{ v6_intf_nei }} lladdr {{ v6_mac1 }} dev Ethernet0"
+    - name: add an ipv6 entry for Ethernet0 if no v6 neighbor was found
+      command: "config interface ip add Ethernet0 {{ v6_intf_ip }}"
+
+    - name: add an ipv6 neighbor for Ethernet0 if no v6 neighbor was found
+      command: "/sbin/ip neigh add {{ v6_intf_nei }} lladdr {{ v6_mac1 }} dev Ethernet0"
+
     when: v6_nei is not defined
 
   - name: change v6 neighbor mac address 1st time

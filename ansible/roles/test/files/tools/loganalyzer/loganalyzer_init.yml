@@ -1,59 +1,15 @@
 #----------------------------------------------------------------------------------
-# Copy all loganalyzer related file to DUT, and invoke loganalyzer with init phase
+# Invoke loganalyzer with init phase
 #----------------------------------------------------------------------------------
-
 - set_fact:
     loganalyzer_location: "{{ 'roles/test/files/tools/loganalyzer' }}"
-
-- set_fact:
-    match_file: loganalyzer_common_match.txt
-  when: match_file is not defined
-
-- set_fact:
-    ignore_file: loganalyzer_common_ignore.txt
-  when: ignore_file is not defined
-
-- set_fact:
-    expect_file: "loganalyzer_common_expect.txt"
-  when: expect_file is not defined
-
-- set_fact:
-    testname_unique: "{{ testname }}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}"
-  when: testname_unique is not defined
-
-- set_fact:
-    test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
-  when: test_out_dir is not defined
-
-- name: Copy loganalyzer common match and ignore files to switch
-  copy: src="{{ loganalyzer_location }}/{{ item }}"  dest="{{ run_dir }}/{{ item }}"
-  with_items:
-        - "{{ match_file }}"
-        - "{{ ignore_file }}"
-        - "{{ expect_file }}"
-
-- name: Copy test specific file match-files to switch
-  copy: src="{{ tests_location }}/{{ testname }}/{{ test_match_file }}"  dest="{{ run_dir }}/{{ test_match_file }}"
-  when: test_match_file is defined
-
-- name: Copy test specific ignore-files to switch
-  copy: src="{{ tests_location }}/{{ testname }}/{{ test_ignore_file }}"  dest="{{ run_dir }}/{{ test_ignore_file }}"
-  when: test_ignore_file is defined
-
-- name: Copy test specific expect-files to switch
-  copy: src="{{ tests_location }}/{{ testname }}/{{ test_expect_file }}"  dest="{{ run_dir }}/{{ test_expect_file }}"
-  when: test_expect_file is defined
 
 - name: Copy loganalyzer.py to run directory
   copy: src="{{ loganalyzer_location }}/loganalyzer.py" dest="{{ run_dir }}"
 
-# Create directory to hold results for different runs of loganalyzer
-- name: create output directory
-  file: path="{{ out_dir }}" state=directory
-
-# Create directory where loganalyzer will write output files for current run.
-- name: create output directory for current test run
-  file: path="{{ test_out_dir }}" state=directory
+- set_fact:
+    testname_unique: "{{ testname }}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}"
+  when: testname_unique is not defined
 
 - debug: msg="starting loganalyzer_init.py"
 - debug: msg="python {{ run_dir }}/loganalyzer.py --action init --run_id {{ testname_unique }}"

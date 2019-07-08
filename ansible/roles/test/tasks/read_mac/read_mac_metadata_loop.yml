@@ -1,0 +1,84 @@
+- block:
+    - set_fact:
+        current_image: "{{ image1 }}"
+      when: "{{ item|int % 2 != 0 }}"
+
+    - set_fact:
+        current_image: "{{ image2 }}"
+      when: "{{ item|int % 2 == 0 }}"
+
+    - set_fact:
+        temp_minigraph: "{{ minigraph1 }}"
+      when: (current_image is search("{{ image1 }}")) and (minigraph1 is defined)
+
+    - set_fact:
+        temp_minigraph: "{{ minigraph2 }}"
+      when: (current_image is search("{{ image2 }}")) and (minigraph2 is defined)
+
+    - name: Copy specified minigraph to the /etc/sonic folder
+      copy:
+        src: "{{ temp_minigraph }}"
+        dest: "/etc/sonic/minigraph.xml"
+      when: temp_minigraph != ""
+
+    - debug: msg="Iteration {{ item }}. Selected current image {{ current_image }}"
+
+    # Copy image to device
+    - set_fact: timestamp="{{lookup('pipe','date +%Y%m%d%H%M%S')}}"
+
+    - set_fact: filename="/tmp/update_image_{{ timestamp }}"
+    - debug: var=filename
+
+    - name: Download SONiC image.
+      local_action: get_url url={{ current_image }} dest="{{ filename }}"
+
+    - set_fact: current_image=""
+
+    - name: Upload SONiC image to device.
+      copy:
+        src: "{{ filename }}"
+        dest: "/tmp/sonic-mellanox.bin"
+
+    # Init loganalyzer
+    - name: Initialize loganalizer. Put start marker to log file.
+      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+    - name: Installing new SONiC image
+      shell: sonic_installer install -y /tmp/sonic-mellanox.bin
+      become: true
+
+    - name: Remove temporary image
+      become: true
+      shell: rm -rf /tmp/sonic-mellanox.bin
+
+    # Reboot device and wait 300 seconds for device to come back
+    - name: reboot
+      include: roles/test/tasks/common_tasks/reboot_sonic.yml
+      vars:
+        timeout: 300
+
+    # Load minigraph
+    - name: Execute cli "config load_minigraph -y" to apply new minigraph
+      become: true
+      shell: config load_minigraph -y
+      when: temp_minigraph != ""
+
+    - set_fact: temp_minigraph=""
+
+    - name: Verify that MAC address fits template XX:XX:XX:XX:XX:XX
+      shell: redis-cli -n 4 hget "DEVICE_METADATA|localhost" mac| grep -io '[0-9a-fA-F:]\{17\}'
+      register: mac_value
+      failed_when: mac_value.rc != 0
+
+    - name: Remove old (not current) sonic image
+      reduce_and_add_sonic_images:
+      become: true
+      args:
+        disk_used_pcent: 1
+
+    - name: Verify interfaces are UP and MTU == 9100
+      include: roles/test/tasks/read_mac/check_interfaces_and_mtu.yml
+
+    # Run lognalyzer
+    - name: Run loganalyzer
+      include: roles/test/tasks/read_mac/loganalyzer_analyze_mac.yml

@@ -112,6 +112,14 @@ testcases:
           ptf_host:
           testbed_type:
 
+    fdb_mac_expire:
+      filename: fdb_mac_expire.yml
+      topologies: [t0, t0-64, t0-64-32, t0-116]
+      required_vars:
+          fdb_aging_time:
+          ptf_host:
+          testbed_type:
+
     dir_bcast:
       filename: dir_bcast.yml
       topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116]
@@ -247,3 +255,6 @@ testcases:
       required_vars:
           testbed_type:
 
+    read_mac:
+      filename: read_mac_metadata.yml
+      topologies: [t0, t1, t1-lag]

@@ -140,10 +140,11 @@ class ReloadTest(BaseTest):
         self.check_param('lo_v6_prefix', 'fc00:1::/64', required=False)
         self.check_param('arista_vms', [], required=True)
         self.check_param('min_bgp_gr_timeout', 15, required=False)
-        self.check_param('warm_up_timeout_secs', 180, required=False)
-        self.check_param('dut_stabilize_secs', 20, required=False)
+        self.check_param('warm_up_timeout_secs', 300, required=False)
+        self.check_param('dut_stabilize_secs', 30, required=False)
         self.check_param('preboot_files', None, required = False)
         self.check_param('preboot_oper', None, required = False)
+        self.check_param('allow_vlan_flooding', False, required = False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
 
@@ -190,6 +191,8 @@ class ReloadTest(BaseTest):
         # one is the reachability_watcher thread
         # second is the fast send_in_background
         self.dataplane_io_lock   = threading.Lock()
+
+        self.allow_vlan_flooding = bool(self.test_params['allow_vlan_flooding'])
 
         return
 
@@ -311,7 +314,7 @@ class ReloadTest(BaseTest):
                 for vm_key in self.vm_dut_map.keys():
                     if member in self.vm_dut_map[vm_key]['dut_ports']:
                         self.vm_dut_map[vm_key]['dut_portchannel'] = key
-                        self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel 1'
+                        self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
                         break
 
     def get_neigh_port_info(self):
@@ -732,7 +735,7 @@ class ReloadTest(BaseTest):
             if self.reboot_type == 'warm-reboot' and self.preboot_oper is not None:
                 if self.pre_handle is not None:
                     self.log("Postboot checks:")
-                    log_info, fails_dut, fails_vm = self.pre_handle.verify()
+                    log_info, fails_dut, fails_vm = self.pre_handle.verify(pre_check=False)
                     self.fails[self.neigh_vm] |= fails_vm
                     self.fails['dut'] |= fails_dut
                     for log in log_info:
@@ -1109,14 +1112,23 @@ class ReloadTest(BaseTest):
         warm_up_timeout_secs = int(self.test_params['warm_up_timeout_secs'])
 
         start_time = datetime.datetime.now()
+        up_time    = None
 
         # First wait until DUT data/control planes are up
         while True:
             dataplane = self.asic_state.get()
             ctrlplane = self.cpu_state.get()
             elapsed   = (datetime.datetime.now() - start_time).total_seconds()
-            if dataplane == 'up' and ctrlplane == 'up' and elapsed > dut_stabilize_secs:
-                break;
+            if dataplane == 'up' and ctrlplane == 'up':
+                if not up_time:
+                    up_time = datetime.datetime.now()
+                up_secs = (datetime.datetime.now() - up_time).total_seconds()
+                if up_secs > dut_stabilize_secs:
+                    break;
+            else:
+                # reset up_time
+                up_time = None
+
             if elapsed > warm_up_timeout_secs:
                 raise Exception("Control plane didn't come up within warm up timeout")
             time.sleep(1)
@@ -1130,6 +1142,8 @@ class ReloadTest(BaseTest):
             if not self.asic_state.is_flooding() and elapsed > dut_stabilize_secs:
                 break
             if elapsed > warm_up_timeout_secs:
+                if self.allow_vlan_flooding:
+                    break
                 raise Exception("Data plane didn't stop flooding within warm up timeout")
             time.sleep(1)
 
