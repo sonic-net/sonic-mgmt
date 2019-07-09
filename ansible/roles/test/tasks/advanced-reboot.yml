@@ -145,6 +145,8 @@
     - include: advanced_reboot/reboot-image-handle.yml
       when: new_sonic_image is defined
 
+    - include: advanced_reboot/upgrade_mlnx_fw.yml
+
     - include: ptf_runner_reboot.yml
       with_items: "{{ preboot_list }}"
 
