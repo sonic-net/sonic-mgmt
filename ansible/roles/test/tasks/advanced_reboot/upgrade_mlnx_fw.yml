@@ -21,8 +21,5 @@
       become: true
 
   when:
-    - new_sonic_image is defined
-    - reboot_type == "fast-reboot"
-    - minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
     - current_sonic_image | search('SONiC-OS-201803')
     - next_sonic_image | search('SONiC-OS-201811')
