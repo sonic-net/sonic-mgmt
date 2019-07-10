@@ -145,6 +145,12 @@
     - include: advanced_reboot/reboot-image-handle.yml
       when: new_sonic_image is defined
 
+    - include: advanced_reboot/upgrade_mlnx_fw.yml
+      when:
+        - new_sonic_image is defined
+        - reboot_type == "fast-reboot"
+        - minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
+
     - include: ptf_runner_reboot.yml
       with_items: "{{ preboot_list }}"
 
