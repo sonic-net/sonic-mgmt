@@ -21,10 +21,14 @@
   register: expected_missing_matches
 
 - set_fact:
-    fail_in_logs: "{{ errors_found.stdout  != \"0\" or expected_missing_matches.stdout != \"0\" }}" 
+    fail_in_logs: "{{ errors_found.stdout  != \"0\" or expected_missing_matches.stdout != \"0\" }}"
+
+- set_fact:
+    dump_since: '1 hour ago'
+  when: dump_since is not defined
 
 - name: Generate system dump
-  command: generate_dump
+  command: "generate_dump -s '{{ dump_since }}'"
   become: true
   register: generate_dump
   when: fail_in_logs
