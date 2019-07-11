@@ -154,6 +154,18 @@
     - include: ptf_runner_reboot.yml
       with_items: "{{ preboot_list }}"
 
+    # When new image is defined, test removed /host/config_db.json
+    # before warm rebooting. So after the device boots up, it will
+    # miss /etc/sonic/config_db.json. It is not an issue for the
+    # device to stay up. But it will be an issue when device reboot
+    # again (cold or fast).
+    - name: Save configuration when warm rebooting into new image
+      shell: config save -y
+      become: yes
+      when:
+        - new_sonic_image is defined
+        - reboot_type == "warm-reboot"
+
     - name: check /etc/sonic/config_db.json existence
       stat:
         path: /etc/sonic/config_db.json
