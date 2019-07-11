@@ -344,6 +344,12 @@ class ReloadTest(BaseTest):
         self.get_neigh_port_info()
         self.get_portchannel_info()
 
+    def populate_fail_info(self, fails):
+        for key in fails:
+            if key not in self.fails:
+                self.fails[key] = set()
+            self.fails[key] |= fails[key]
+
     def setUp(self):
         self.fails['dut'] = set()
         self.port_indices = self.read_port_indices()
@@ -376,14 +382,12 @@ class ReloadTest(BaseTest):
         if self.preboot_oper is not None:
             self.log("Preboot Operations:")
             self.pre_handle = sp.PrebootTest(self.preboot_oper, self.ssh_targets, self.portchannel_ports, self.vm_dut_map, self.test_params, self.dut_ssh)
-            (self.ssh_targets, self.portchannel_ports, self.neigh_vm), (log_info, fails_dut, fails_vm) = self.pre_handle.setup()
-            self.fails['dut'] |= fails_dut
-            self.fails[self.neigh_vm] = fails_vm
+            (self.ssh_targets, self.portchannel_ports, self.neigh_vm), (log_info, fails) = self.pre_handle.setup()
+            self.populate_fail_info(fails)
             for log in log_info:
                 self.log(log)
-            log_info, fails_dut, fails_vm = self.pre_handle.verify()
-            self.fails['dut'] |= fails_dut
-            self.fails[self.neigh_vm] |= fails_vm
+            log_info, fails = self.pre_handle.verify()
+            self.populate_fail_info(fails)
             for log in log_info:
                 self.log(log)
             self.log(" ")
@@ -418,7 +422,9 @@ class ReloadTest(BaseTest):
         self.generate_arp_ping_packet()
 
         if self.reboot_type == 'warm-reboot':
-            self.log("Preboot Oper: %s" % self.preboot_oper)
+            (oper_type, cnt) = self.preboot_oper.split(':') if self.preboot_oper and ':' in self.preboot_oper else (self.preboot_oper, 1)
+            if self.preboot_oper:
+                self.log("Preboot Oper: %s Number down: %s" % (oper_type, cnt))
             # Pre-generate list of packets to be sent in send_in_background method.
             generate_start = datetime.datetime.now()
             self.generate_bidirectional()
@@ -736,9 +742,8 @@ class ReloadTest(BaseTest):
             if self.reboot_type == 'warm-reboot' and self.preboot_oper is not None:
                 if self.pre_handle is not None:
                     self.log("Postboot checks:")
-                    log_info, fails_dut, fails_vm = self.pre_handle.verify(pre_check=False)
-                    self.fails[self.neigh_vm] |= fails_vm
-                    self.fails['dut'] |= fails_dut
+                    log_info, fails = self.pre_handle.verify(pre_check=False)
+                    self.populate_fail_info(fails)
                     for log in log_info:
                         self.log(log)
                     self.log(" ")
