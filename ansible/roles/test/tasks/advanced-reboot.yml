@@ -154,6 +154,14 @@
     - include: ptf_runner_reboot.yml
       with_items: "{{ preboot_list }}"
 
+    - name: check /etc/sonic/config_db.json existence
+      stat:
+        path: /etc/sonic/config_db.json
+      register: stat_result
+
+    - fail: msg="/etc/sonic/config_db.json is missing"
+      when: stat_result.stat.exists == False
+
   always:
     - name: Remove existing ip from ptf host
       script: roles/test/files/helpers/remove_ip.sh
