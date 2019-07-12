@@ -1,3 +1,9 @@
+from ansible.plugins import callback_loader
+
+def dump_ansible_results(results, stdout_callback='yamll'):
+    cb = callback_loader.get(stdout_callback)
+    return cb._dump_results(results) if cb else results
+
 class ansible_host():
     
     def __init__(self, ansible_adhoc, hostname, is_local = False):
@@ -17,6 +23,6 @@ class ansible_host():
    
         res = self.module(*module_args, **complex_args)[self.hostname]
         if res.is_failed:
-            raise Exception("run module {} failed, errmsg {}".format(self.module_name, res))
+            raise Exception("run module {} failed, errmsg {}".format(self.module_name, dump_ansible_results(res)))
 
         return res
