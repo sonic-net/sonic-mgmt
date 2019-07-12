@@ -21,8 +21,10 @@ class ansible_host():
 
     def _run(self, *module_args, **complex_args):
    
+        ignore_errors = complex_args.pop('ignore_errors', False)
+
         res = self.module(*module_args, **complex_args)[self.hostname]
-        if res.is_failed:
+        if res.is_failed and not ignore_errors:
             raise Exception("run module {} failed, errmsg {}".format(self.module_name, dump_ansible_results(res)))
 
         return res
