@@ -9,23 +9,23 @@ Steps before working/using Godiva based test scripts and libraries
 
 Steps for installing cafyKit libraries on ubuntu:
 ================================================
-export GIT_REPO=/home/venkat/cafykit
-export PYTHONPATH="$GIT_REPO/lib"
-pip3 install --upgrade pip
-sudo apt-get install build-essential libssl-dev libffi-dev python-dev
-sudo apt-get install libxml2-dev libxslt-dev
-sudo apt-get install libmysqlclient-dev 
-pip3 install wheel
-pip3 install setuptools --upgrade
-sudo apt-get install openssh-server
-sudo apt-get install python3-dev
-sudo apt install libssl1.0
-pip3 install -r $GIT_REPO/requirements.txt
+1. export GIT_REPO=/home/venkat/cafykit
+2. export PYTHONPATH="$GIT_REPO/lib"
+3. pip3 install --upgrade pip
+4. sudo apt-get install build-essential libssl-dev libffi-dev python-dev
+5. sudo apt-get install libxml2-dev libxslt-dev
+6. sudo apt-get install libmysqlclient-dev 
+7. pip3 install wheel
+8. pip3 install setuptools --upgrade
+9. sudo apt-get install openssh-server
+10. sudo apt-get install python3-dev
+11. sudo apt install libssl1.0
+12. pip3 install -r $GIT_REPO/requirements.txt
 
 4. Install Godiva test specific requirements.txt
 
 Steps to run cmal script
 ========================
-Modify cmal-topo.json to match your testbed.
-Modify gd_input_file.json to match your test requirements
-pytest -rapP -vs cmal_ap.py --mail-to your-email-id@cisco.com --topology-file cmal_topo.json --test-input-file=gd_input_file.json
+1. Modify cmal-topo.json to match your testbed.
+2. Modify gd_input_file.json to match your test requirements
+3. pytest -rapP -vs cmal_ap.py --mail-to your-email-id@cisco.com --topology-file cmal_topo.json --test-input-file=gd_input_file.json
