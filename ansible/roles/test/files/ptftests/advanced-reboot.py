@@ -428,7 +428,7 @@ class ReloadTest(BaseTest):
                     oper_type, cnt = self.preboot_oper.split(':')
                 else:
                     oper_type, cnt = self.preboot_oper, 1
-                 self.log("Preboot Oper: %s Number down: %s" % (oper_type, cnt))
+                self.log("Preboot Oper: %s Number down: %s" % (oper_type, cnt))
 
             # Pre-generate list of packets to be sent in send_in_background method.
             generate_start = datetime.datetime.now()
