@@ -141,6 +141,7 @@
         stay_in_target_image:       "{{ stay_in_target_image       | default('false') | bool }}"
         cleanup_old_sonic_images:   "{{ cleanup_old_sonic_images   | default('false') | bool }}"
         allow_vlan_flooding:        "{{ allow_vlan_flooding        | default('false') | bool }}"
+        sniff_time_incr:            "{{ sniff_time_incr            | default(60)       | int }}"
 
     - include: advanced_reboot/reboot-image-handle.yml
       when: new_sonic_image is defined

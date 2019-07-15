@@ -25,6 +25,7 @@
         - preboot_files='{{ preboot_files }}'
         - preboot_oper='{{ item }}'
         - allow_vlan_flooding='{{ allow_vlan_flooding }}'
+        - sniff_time_incr={{ sniff_time_incr }}
 
   always:
 

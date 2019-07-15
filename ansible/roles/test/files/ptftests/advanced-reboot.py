@@ -145,6 +145,7 @@ class ReloadTest(BaseTest):
         self.check_param('preboot_files', None, required = False)
         self.check_param('preboot_oper', None, required = False)
         self.check_param('allow_vlan_flooding', False, required = False)
+        self.check_param('sniff_time_incr', 60, required = False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
 
@@ -917,7 +918,7 @@ class ReloadTest(BaseTest):
         The native scapy.snif() is used as a background thread, to allow delayed start for the send_in_background().
         """
         if not wait:
-            wait = self.time_to_listen + 60
+            wait = self.time_to_listen + self.test_params['sniff_time_incr']
         sniffer_start = datetime.datetime.now()
         self.log("Sniffer started at %s" % str(sniffer_start))
         sniff_filter = "tcp and tcp dst port 5000 and tcp src port 1234 and not icmp"
