@@ -23,7 +23,7 @@ log = CafyLog(name='CMAL Sanity script')
 
 @pytest.fixture(scope="session", autouse=True)
 def stub():
-    channel = grpc.insecure_channel('172.17.0.2:50051')
+    channel = grpc.insecure_channel(ApData.svr_addr+":"+ApData.port_addr)
     stub = mal_pb2_grpc.MalConfigServiceStub(channel)
     return stub
 

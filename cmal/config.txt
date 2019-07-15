@@ -1,0 +1,37 @@
+system_config {
+  chassis_id {
+    name: "df1y022.mtv25.net.google.com"
+  }
+  ntp_config {
+    ntp_servers {
+      name: "216.239.35.0"
+    }
+    ntp_servers {
+      name: "216.239.35.4"
+    }
+    ntp_servers {
+      name: "216.239.35.8"
+    }
+    ntp_servers {
+      name: "216.239.35.12"
+    }
+    apply_config: true
+  }
+  system_id: 2313941415434
+  node_id {
+    name: "df1y022s1i22.mtv25.net.google.com"
+  }
+  sshd_config {
+    apply_config: true
+    accounts {
+      account_name: "root"
+      keys: "ssh-dss AAAAB3NzaC1kc3MAAACBALqexOIqoHsmxPwkbFJDEK75y68DT0mVgcQDQAUStfWnzCnq4lQqr2oIcAezurEyVgYQYC6O6cvuvYwiKa0znBD9fXY6Uld1r7RCVCl18w6W3cNH/Ue5xDdPeXEMG+zPZjQs4QTupKa6hJM1dmBQVs0rCwmqM5KdhaK331acNIdRAAAAFQCAlZ+aFuhKbVEasazoD4irF4mZfwAAAIALpsGdxWo/YZmyE01lRnTa6PlcZN8rFanZT27thhEbZqLH/DqF5u+4oXX4kHLm7qk7lCAsJEafTEwCABLsY6kJVs/3KP+E/VJDZ3AbF8o49ekiDNoO9y1LQWl5n+ufyj7sG2A1LmaOv3ULqhJd4mrHgel1tUmawPr+8kUsaTFyIgAAAIBHMKTRY4YU/AMjdAmVYh8UbEBnfgVQ9nVzXxhDO0yju9B65sa3hSadD1VpnmEkEKppzsukNJqOCF3oYtNVi6Lk/nU8A2MIuuhCTWlIJ8VtdqpMgSZfxjLSmNSLmO6i/Wx0PhekXmD+xqr7vcLgBRDQOgtYgz3gh04xW/XTN5J1TQ== firehose team development key"
+      keys: "ssh-dss AAAAB3NzaC1kc3MAAACBAMpqnXID1NVvQxFmbl4Zt2UjJfmEF7hw3V3AvojpJVtF5l6B9J7Zqsp5iXgOnYkjVPOwEIsrKNidnCJ/S6NYSApie2EkoWQ9kv09em/8dd4dLWXtMmJIlCy/baqDmvK1YLu/27pwWB/yB741BIKoTTdJV9UdTD70SP+iNvR0kEwxAAAAFQDHNAwGvxA8l3BCUs2t8tuxKe/b5wAAAIBYKc5faYrOafANKeITWwfazxif4bPdvxztWQJXFqzemZI24tCkhQNzmY0H+rvYqL/3SX51uKssR4eJYLBIE7TncPYKCjyi6ViIELVzP+AZ+yYtB+67+iabHItFRGjgI+Lmgxx2xNCUi3N0rIxjLb6+MgbpgNV2IAD1zQH8b/aQAwAAAIEArJ9uGiVLudjfEJCaBlxuYOdNM5nK4m4DkVwIgK/0b2BTnPSeS5ffZofxlYVwrR0UruF0HRmWXvhfn6Rfnigwd0yMrFvImm4ayEJb2X/2fQkoLJlrbOwIJxP32+fIqEbnuWPcUwEYABaBIX4di+GvbHtTzMGFy1OAJE2HGMqIu2U= netsec_p2_20130313"
+      keys: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDD6WKJtrJtGsIUb5pJS+nz82eucZrEwmf3w1uRFcag0XRRFtEKtNdeuZ+YeDqSJ5uFIEPa1yy7lHujKIWW0CXcMyqT0YW9kQ/lkM9FF/sbA872Jvv/fqTI1eE3dHDz9yUWrepOOK0ZG5c3Os9rD0UX82mQcBr9ln7F4uQrz830WzypCOVdanPFuXA+HOSuu1MCzFVluTCh7uyWShmsauFiro4FMYAIgUmEjFMRmOTkPCCnGJjHkthSqgZmvVtpgQR4N9KUZOyQY0J6bskSNCN8lKOFAbJrzcDo6DnwDwK02mo+6arjN9dJeIwnkaiCJNTIWYvZqAMswEWPmJvuWaiquBZjVOmSgG8ScOOCfALriP7+rcJzLpMhAc8inWEWbvXYlM0LTD+DrxyfYR9S3bJXM8EUxrzLjRiUw53agGKk5SwJz5NjKqWNm92bp+5aGXkJRdKfRL6d7mq0SL6UX1m3m8mkylfwALQrp+uIIn1OQxmCmfyGihgQSbdqa0CJSTSOhpXhHcfLkJrfsBVdgRo7rQtVezmlQJ2/aLJ4fc5rXBBCrwjF6i1ouJANYYWXWkR+QJjV1o4MJA+wf9/ARdJWqED20Z6tXsc+ftQr/BZt9+YcaooK0S9vinDCWhcTgqWCuSmp0m6n1rkDqrYptoHZOe+ODAfZKAbSoFHrDAI8wQ== gnetch_20180424"
+      keys: "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAtWj9AMDfQmCDHkndgMqg+s5iTBGzPaOs5CP3wxioHhGMIjf/Id+u9H9JPvPDFdU9bNKH2oA2iqEcYXbR4oX/R9ONIZnzkLXXsCHFQpkSQ94yiQagK6QkidLMtXjWteLFCSzPB17RJY3/eftvNyIyEvqATtHo+M0tlJmo9vwDT1Vxd9nnZ8go0qIYencp2wKiHcqrFvKk4JYWesphG0A1Qxy2kagtozAMQFgJR+dFI7xnNnXyN3zNOYFslYGoVSVGBKDXhdYA2E+suJ0uddyQgc5z3Thh556m1nfaRzp97paBOSg8a4s32jvvya2qrj1lIF3519AeQWWT4Q0ffE6yKw== i2_key_20110128"
+    }
+    ca_certificates: "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA7m2uldBI05DpCdxXw2Ix0mOVJ0aLByyokvETf5pi7NGhX45fsfhhSTJmXqiObaH8yBkoln4XhxfrUnVT/wER4QIiLQt9aZlFRhr+XeVMF8XzpCNxYrOjUZ3xcZEF8JfOA+idJkPSZ8FLeeakwC5+GoR03PubZqE+zWfkRJBwyrgyRngGMPQZiIvOaNRZYTuYAb0i7E1ux9Zc/K7mR9dRz4Vi9/31cGPjKtNlS0Bv6ORVHLCx4rpDWOgFCiPbva+ryDdX983d1HRGoEbF3DefkU6HFAQyKMs9HBVPMW3TyAAzaUYvRgNW36mMLwrcq8QCZgYWMUKICBA3UAPl0WRlow== Production SSH user CA"
+    ca_certificates: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCjDaqrFtpCUaDG8JiKahEIUvbUBzForuH/vu+KJGQvp2Sow0iPIhYJqJUfVmwaqzOwsxS3tJKY4Mk7RW8+LAHAY4SqJEWL0dmltq3i8wIBQ7ZW8VSjKtXlQPEnubeV85uErQfKrpty1D8WotJMiW4NU0UVu8wV6sm7W6NLqlaq+TInRcoCt8Ph1hE+fMeFTlj2YPcnMZGMn8Py4d2ReonaE4ETpzsVHrm1xwpr2um/y6t0dP/yrGJJ811bqf9cRGF5xZsK5rAwlekJB8+qTirdY8hMlsIXJLMMy9/k0ySAMByCtbeW2jJ5IPmDJxKAImbE/wHQEAelNRFChYNHynaz Production SSH user CA"
+  }
+  ssl_common_name_verification_regex: "^platforms-planet-ssl-qa-b4-nca.*"
+}
