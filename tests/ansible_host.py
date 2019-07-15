@@ -1,6 +1,6 @@
 from ansible.plugins import callback_loader
 
-def dump_ansible_results(results, stdout_callback='yamll'):
+def dump_ansible_results(results, stdout_callback='yaml'):
     cb = callback_loader.get(stdout_callback)
     return cb._dump_results(results) if cb else results
 
