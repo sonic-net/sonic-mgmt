@@ -66,7 +66,7 @@ class SadPath(object):
         vm_len = len(self.vm_list)
         # use the day of the month to select start VM from the list for the sad pass operation
         # neigh_vms list will contain cnt number of VMs starting from the start VM. vm_list will have the rest of the VMs
-        vm_index = datetime.datetime.now().day % vm_len
+        vm_index = datetime.datetime.now().day % vm_len if vm_len > 0 else 0
         exceed_len = vm_index + self.cnt - vm_len
         if exceed_len <= 0:
             self.neigh_vms.extend(self.vm_list[vm_index:vm_index+self.cnt])
@@ -278,6 +278,7 @@ class SadOper(SadPath):
         return success
 
     def verify_dut_lag_state(self, pre_check=True):
+        # pattern match eg: '0001  PortChannel0001  LACP(A)(Up)  Ethernet0(S) Ethernet4(S)'. extract the portchannel name and members
         pat = re.compile("\s+\d+\s+(\w+\d+)\s+LACP\(A\)\(Dw\)\s+(.*)")
 
         # get list of down portchannels and build portchannel to neigh mapping

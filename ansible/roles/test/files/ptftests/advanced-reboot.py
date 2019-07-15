@@ -143,7 +143,7 @@ class ReloadTest(BaseTest):
         self.check_param('warm_up_timeout_secs', 300, required=False)
         self.check_param('dut_stabilize_secs', 30, required=False)
         self.check_param('preboot_files', None, required = False)
-        self.check_param('preboot_oper', None, required = False)
+        self.check_param('preboot_oper', None, required = False) # preboot sad path to inject before warm-reboot
         self.check_param('allow_vlan_flooding', False, required = False)
         self.check_param('sniff_time_incr', 60, required = False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
@@ -422,9 +422,14 @@ class ReloadTest(BaseTest):
         self.generate_arp_ping_packet()
 
         if self.reboot_type == 'warm-reboot':
-            (oper_type, cnt) = self.preboot_oper.split(':') if self.preboot_oper and ':' in self.preboot_oper else (self.preboot_oper, 1)
+            # get the number of members down for sad path
             if self.preboot_oper:
-                self.log("Preboot Oper: %s Number down: %s" % (oper_type, cnt))
+                if ':' in self.preboot_oper:
+                    oper_type, cnt = self.preboot_oper.split(':')
+                else:
+                    oper_type, cnt = self.preboot_oper, 1
+                 self.log("Preboot Oper: %s Number down: %s" % (oper_type, cnt))
+
             # Pre-generate list of packets to be sent in send_in_background method.
             generate_start = datetime.datetime.now()
             self.generate_bidirectional()
