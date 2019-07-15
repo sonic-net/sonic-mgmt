@@ -171,3 +171,11 @@ ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} -e "testbed_name
 ### CRM test
 ```
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} --become --tags crm
+```
+
+##### MAC read test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} -e testbed_name={TESTBED_NAME} -e testbed_type={TESTBED_TYPE} -e testcase_name=read_mac -e iterations={ITERATIONS} -e image1={IMAGE1} -e image2={IMAGE2}
+```
+- Replace {ITERATIONS} with the integer number of image flipping iterations.
+- Replace {IMAGE1} and {IMAGE2} with URLs to the specific SONiC binary images.
