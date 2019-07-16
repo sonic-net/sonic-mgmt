@@ -158,6 +158,7 @@
     - include: ptf_runner_reboot.yml
       with_items: "{{ preboot_list }}"
 
+  always:
     # When new image is defined, test removed /host/config_db.json
     # before warm rebooting. So after the device boots up, it will
     # miss /etc/sonic/config_db.json. It is not an issue for the
@@ -178,7 +179,6 @@
     - fail: msg="/etc/sonic/config_db.json is missing"
       when: not stat_result.stat.exists
 
-  always:
     - name: Remove existing ip from ptf host
       script: roles/test/files/helpers/remove_ip.sh
       delegate_to: "{{ ptf_host }}"
