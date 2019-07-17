@@ -3,8 +3,8 @@
 
 # Set value...
 - name: Set WRED value {{ item }}
+  shell: ecnconfig -p AZURE_LOSSLESS -rmin {{ item }}
   become: yes
-  shell: ecnconfig -p AZURE_LOSSY -rmin {{ item }}
   register: rc
   failed_when: rc.rc != 0
 
