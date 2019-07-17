@@ -8,6 +8,8 @@ mellanox_hwskus: [ 'ACS-MSN2700', 'Mellanox-SN2700', 'ACS-MSN2740', 'ACS-MSN2100
 
 cavium_hwskus: [ "AS7512", "XP-SIM" ]
 
+marvell_hwskus: [ "et6448m" ]
+
 barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C" ]
 
 ## Note:
