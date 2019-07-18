@@ -77,4 +77,5 @@
   delegate_to: "{{ ptf_host }}"
 
 - name: Copy empty ACL config file to the DUT
+  become: true
   copy: src="roles/test/tasks/acl/acltb_test_rules-del.json" dest="{{ dut_tmp_dir }}"
