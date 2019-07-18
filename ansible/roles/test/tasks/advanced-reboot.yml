@@ -75,7 +75,7 @@
       delegate_to: "{{ ptf_host }}"
 
     - name: Check that file /root/.ssh/known_hosts exists
-      stat: path=/etc/shorewall/rules
+      stat: path=/root/.ssh/known_hosts
       delegate_to: "{{ ptf_host }}"
       register: known_hosts
 
