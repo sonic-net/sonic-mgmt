@@ -5,7 +5,7 @@
 - fail: msg="testbed_type is not defined."
   when: testbed_type is not defined
 
-- fail: msg="testbed_type {{testbed_type}} is invalid."
+- fail: msg="testbed_type {{testbed_type}} is unsupported."
   when: testbed_type not in ['t1', 't1-lag', 't1-64-lag']
 
 - name: Get VM info.
