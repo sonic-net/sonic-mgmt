@@ -359,7 +359,7 @@ class VNET(BaseTest):
                     ip_id=0,
                     ip_src=self.loopback_ipv4,
                     ip_dst=test['host'],
-                    ip_ttl=64,
+                    ip_ttl=128,
                     udp_sport=udp_sport,
                     udp_dport=udp_dport,
                     with_udp_chksum=False,
