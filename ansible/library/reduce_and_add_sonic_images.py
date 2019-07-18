@@ -33,24 +33,6 @@ def exec_command(module, cmd, ignore_error=False, msg="executing command"):
     return out
 
 
-def get_sonic_image_removal_candidates(module):
-    keep   = set()
-    images = set()
-
-    out = exec_command(module, cmd="sonic_installer list",
-                       msg="listing sonic images")
-
-    lines = out.split('\n')
-    for line in lines:
-        line = line.strip()
-        if line.startswith("Current:") or line.startswith("Next:"):
-            keep.add(line.split()[1].strip())
-        elif line != "Available:" and len(line) > 0:
-            images.add(line)
-
-    return (images - keep)
-
-
 def get_disk_free_size(module, partition):
     out   = exec_command(module, cmd="df -BM --output=avail %s" % partition,
                          msg="checking disk available size")
@@ -59,27 +41,8 @@ def get_disk_free_size(module, partition):
     return avail
 
 
-def get_disk_used_percent(module, partition):
-    out   = exec_command(module, cmd="df -BM --output=pcent %s" % partition,
-                         msg="checking disk available percent")
-    pcent = int(out.split('\n')[1][:-1])
-
-    return pcent
-
-
 def reduce_installed_sonic_images(module, disk_used_pcent):
-    images = get_sonic_image_removal_candidates(module)
-
-    while len(images) > 0:
-        pcent = get_disk_used_percent(module, "/host")
-        if pcent < disk_used_pcent:
-            break
-        # Randomly choose an old image to remove. On a system with
-        # developer built images and offical build images mix-installed
-        # it is hard to compare image tag to find 'oldest' image.
-        img = images.pop()
-        exec_command(module, cmd="sonic_installer remove %s -y" % img,
-                     ignore_error=True)
+    exec_command(module, cmd="sonic_installer cleanup -y", ignore_error=True)
 
 
 def install_new_sonic_image(module, new_image_url):
