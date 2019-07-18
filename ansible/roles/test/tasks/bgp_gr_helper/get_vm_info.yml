@@ -8,20 +8,27 @@
       vm_name: ""
       vm_intf: ""
       vm_ip: ""
-      peer_ip: ""
+      peer_ipv4: ""
+      peer_ipv6: ""
 
 - name: Get neighbor VM info.
   set_fact:
       vm_name: "{{ item.value.name }}"
       vm_intf: "{{ item.key }}"
   with_dict: "{{ minigraph_neighbors }}"
-  when: "testbed_type in ['t1-lag', 't1'] and 'T0' in item.value.name and not vm_name"
+  when: "testbed_type in ['t1', 't1-lag', 't1-64-lag'] and 'T0' in item.value.name and not vm_name"
 
-- name: Get neighbor IP address.
+- name: Get neighbor IPv4 address.
   set_fact:
-      peer_ip: "{{ item.addr }}"
+      peer_ipv4: "{{ item.addr }}"
   with_items: "{{ minigraph_bgp }}"
   when: "item.name == vm_name and item.addr|ipv4"
+
+- name: Get neighbor IPv6 address.
+  set_fact:
+      peer_ipv6: "{{ item.addr|lower }}"
+  with_items: "{{ minigraph_bgp }}"
+  when: "item.name == vm_name and item.addr|ipv6"
 
 - name: Gather information from LLDP
   lldp:
@@ -43,4 +50,6 @@
 - debug:
     var: vm_intf
 - debug:
-    var: vm_ip
+    var: vm_ipv4
+- debug:
+    var: vm_ipv6

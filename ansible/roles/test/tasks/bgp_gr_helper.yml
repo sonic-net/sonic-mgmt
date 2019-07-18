@@ -16,7 +16,7 @@
 
 - name: Get VM GR timer.
   set_fact:
-      bgp_gr_timer: "{{ bgp_neighbors[peer_ip]['capabilities']['peer restart timer'] }}"
+      bgp_gr_timer: "{{ bgp_neighbors[peer_ipv4]['capabilities']['peer restart timer'] }}"
 
 - name: Set default value for GR simulation time in seconds.
   set_fact:
@@ -71,11 +71,17 @@
     - name: Gather facts from bgp container.
       bgp_facts:
 
-    - name: Verify bgp session is established
-      assert: { that: "'{{ bgp_neighbors[peer_ip]['state'] }}' == 'established'" }
+    - name: Verify IPv4 bgp session is established
+      assert: { that: "'{{ bgp_neighbors[peer_ipv4]['state'] }}' == 'established'" }
+
+    - name: Verify IPv6 bgp session is established
+      assert: { that: "'{{ bgp_neighbors[peer_ipv6]['state'] }}' == 'established'" }
 
     - name: Verify that IPv4 unicast routes were preserved during GR.
-      assert: { that: "'{{ bgp_neighbors[peer_ip]['capabilities']['peer af ipv4 unicast'] }}' == 'preserved'" }
+      assert: { that: "'{{ bgp_neighbors[peer_ipv4]['capabilities']['peer af ipv4 unicast'] }}' == 'preserved'" }
+
+    - name: Verify that IPv6 unicast routes were preserved during GR.
+      assert: { that: "'{{ bgp_neighbors[peer_ipv6]['capabilities']['peer af ipv6 unicast'] }}' == 'preserved'" }
 
     - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
       vars:
@@ -110,11 +116,17 @@
     - name: Gather facts from bgp container.
       bgp_facts:
 
-    - name: Verify bgp session is established
-      assert: { that: "'{{ bgp_neighbors[peer_ip]['state'] }}' == 'established'" }
+    - name: Verify IPv4 bgp session is established
+      assert: { that: "'{{ bgp_neighbors[peer_ipv4]['state'] }}' == 'established'" }
+
+    - name: Verify IPv6 bgp session is established
+      assert: { that: "'{{ bgp_neighbors[peer_ipv6]['state'] }}' == 'established'" }
 
     - name: Verify that IPv4 unicast routes were not preserved during GR. FIB should be updated.
-      assert: { that: "'{{ bgp_neighbors[peer_ip]['capabilities']['peer af ipv4 unicast'] }}' == 'not preserved'" }
+      assert: { that: "'{{ bgp_neighbors[peer_ipv4]['capabilities']['peer af ipv4 unicast'] }}' == 'not preserved'" }
+
+    - name: Verify that IPv6 unicast routes were not preserved during GR. FIB should be updated.
+      assert: { that: "'{{ bgp_neighbors[peer_ipv6]['capabilities']['peer af ipv6 unicast'] }}' == 'not preserved'" }
 
     - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
       vars:
