@@ -43,6 +43,7 @@ def test_reload_configuration(localhost, ansible_adhoc, testbed):
         "Not all transceivers are detected in 300 seconds"
 
     logging.info("Check interface status")
+    time.sleep(60)
     check_interface_status(ans_host, interfaces)
 
     logging.info("Check transceiver status")

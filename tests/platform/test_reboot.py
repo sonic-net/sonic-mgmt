@@ -37,20 +37,23 @@ def reboot_and_check(localhost, dut, reboot_type="cold"):
 
     logging.info("Run %s reboot on DUT" % reboot_type)
     if reboot_type == "cold":
-        reboot_cmd = "sudo reboot"
+        reboot_cmd = "sudo reboot &"
+        reboot_timeout = 300
     elif reboot_type == "fast":
         reboot_cmd = "sudo fast-reboot &"
+        reboot_timeout = 180
     elif reboot_type == "warm":
         reboot_cmd = "sudo warm-reboot &"
+        reboot_timeout = 180
     else:
         assert False, "Reboot type %s is not supported" % reboot_type
     dut.shell(reboot_cmd)
 
     logging.info("Wait for DUT to go down")
-    localhost.wait_for(host=dut.hostname, port=22, state="stopped", delay=10, timeout=300)
+    localhost.wait_for(host=dut.hostname, port=22, state="stopped", delay=10, timeout=120)
 
     logging.info("Wait for DUT to come back")
-    localhost.wait_for(host=dut.hostname, port=22, state="started", delay=10, timeout=300)
+    localhost.wait_for(host=dut.hostname, port=22, state="started", delay=10, timeout=reboot_timeout)
 
     logging.info("Wait until all critical services are fully started")
     check_critical_services(dut)

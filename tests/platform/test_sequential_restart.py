@@ -41,6 +41,7 @@ def restart_service_and_check(localhost, dut, service):
         "Not all transceivers are detected in 300 seconds"
 
     logging.info("Check interface status")
+    time.sleep(60)
     check_interface_status(dut, interfaces)
 
     logging.info("Check transceiver status")
