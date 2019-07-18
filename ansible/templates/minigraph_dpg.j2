@@ -122,7 +122,7 @@
           <InAcl>ssh-only</InAcl>
           <Type>SSH</Type>
         </AclInterface>
-{%- if enable_data_plane_acl is defined and enable_data_plane_acl|bool %}
+{%- if enable_data_plane_acl|default('true')|bool %}
         <AclInterface>
           <AttachTo>
 {%- for index in range(vms_number) %}

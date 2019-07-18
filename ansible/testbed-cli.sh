@@ -41,9 +41,10 @@ function usage
   echo "To configure a VM on a server: $0 config-vm 'topo-name' 'vm-name' ~/.password"
   echo "To generate minigraph for DUT in a topology: $0 gen-mg 'topo-name' 'inventory' ~/.password"
   echo "To deploy minigraph to DUT in a topology: $0 deploy-mg 'topo-name' 'inventory' ~/.password"
-  echo "    gen-mg, deploy-mg, test-mg supports enabling data ACL with parameter"
+  echo "    gen-mg, deploy-mg, test-mg supports enabling/disabling data ACL with parameter"
   echo "        -e enable_data_plane_acl=true"
-  echo "        by default, data acl is not enabled"
+  echo "        -e enable_data_plane_acl=false"
+  echo "        by default, data acl is enabled"
   echo
   echo "You should define your topology in testbed CSV file"
   echo
