@@ -16,6 +16,9 @@ testcases:
       filename: bgp_fact.yml
       topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
 
+    bgp_gr_helper:
+      filename: bgp_gr_helper.yml
+      topologies: [t1, t1-lag, t1-64-lag]
 
     bgp_multipath_relax:
       filename: bgp_multipath_relax.yml
