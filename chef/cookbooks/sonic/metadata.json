@@ -1,0 +1,92 @@
+{
+  "description": "Implements an SONiC specific provider for sonic resources",
+  "recipes": {
+    "vlan": "Creates/deletes VLANs and adds (tagged or untagged)/delete port participation on SONiC devices.",
+    "interface": "Sets the interface properties like admin status and speed on SONiC devices.",
+    "lag": "Creates/deletes Port channel interfaces and set its properties like minimum number of links, addition and deletion of members and fallback on SONiC devices.",
+    "fdb": "Creates and deletes static FDB entries on SONiC devices."
+  },
+  "groupings": {
+  },
+  "providing": {
+  },
+  "maintainer_email": "support@broadcom.com",
+  "attributes": {
+
+    "sonic/providers/vlan": {
+      "description": "Creates/deletes VLANs and adds (tagged or untagged)/delete port participation on SONiC devices.",
+      "recipes": [
+        "sonic::vlan"
+      ],
+      "display_name": "Provider for sonic_vlan LWRP",
+      "type": "string",
+      "required": "required",
+      "default": "sonic_vlan",
+      "calculated": false,
+      "choice": [
+
+      ]
+    },
+    "sonic/providers/interface": {
+      "description": "Sets the interface properties like admin status and speed on SONiC devices.",
+      "recipes": [
+        "sonic::interface"
+      ],
+      "display_name": "Provider for sonic_interface LWRP",
+      "type": "string",
+      "required": "required",
+      "default": "sonic_interface",
+      "calculated": false,
+      "choice": [
+
+      ]
+    },
+    "sonic/providers/lag": {
+      "description": "Creates/deletes Port channel interfaces and set its properties like minimum number of links, addition and deletion of members and fallback on SONiC devices.",
+      "recipes": [
+        "sonic::lag"
+      ],
+      "display_name": "Provider for sonic_lag LWRP",
+      "type": "string",
+      "required": "required",
+      "default": "sonic_lag",
+      "calculated": false,
+      "choice": [
+
+      ]
+    },
+    "sonic/providers/fdb": {
+      "description": "Creates and deletes static FDB entries on SONiC devices.",
+      "recipes": [
+        "sonic::fdb"
+      ],
+      "display_name": "Provider for sonic_fdb LWRP",
+      "type": "string",
+      "required": "required",
+      "default": "sonic_fdb",
+      "calculated": false,
+      "choice": [
+
+      ]
+    }
+  },
+  "replacing": {
+  },
+  "recommendations": {
+  },
+  "dependencies": {
+    "sonic": ">= 0.0.0"
+  },
+  "platforms": {
+  },
+  "maintainer": "Broadcom",
+  "long_description": "sonic Cookbook\n ============\n \n This cookbook provides a set of examples for configuring a switch running SONiC.\n \n Requirements\n ------------\n \n Chef 11.4.0\n \n Attributes\n ----------\n See the attributes/default.rb for default values. \n \n default[:sonic][:providers][:vlan] = "sonic_vlan" - Provider for vlan\n default[:sonic][:providers][:interface] = "sonic_interface" - Provider for interface\n default[:sonic][:providers][:lag] = "sonic_lag" - Provider for lag\n default[:sonic][:providers][:fdb] = "sonic_fdb" - Provider for fdb\n \n Usage\n -----\n This is sample implementation of sonic provider for SONiC devices. Use this to configure basic switch functionality.  \n e.g.\n Just include `sonic` in your node's `run_list`:\n \n ```json\n {\n \"name\":\"my_node\",\n \"run_list\": [\n \"recipe[sonic::vlan]\",\n \"recipe[sonic::interface]\",\n \"recipe[sonic::lag]\",\n \"recipe[sonic::fdb]\"\n ]\n }\n ```\n \n License and Authors\n -------------------\n Author:: Broadcom (support@broadcom.com)\n Copyright:: 2019, Broadcom, Inc support@broadcom.com\n Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at\n \n http://www.apache.org/licenses/LICENSE-2.0\n \n Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.\n",
+  "suggestions": {
+  },
+  "conflicting": {
+  },
+  "license": "Apache v2.0",
+  "name": "sonic",
+  "version": "0.1.0"
+}
+
