@@ -31,6 +31,17 @@
   - name: init loganalyzer for later syslog analysis
     include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
+  - name: gather DUT interface table
+    show_interface: command='status'
+
+  - name: select A routing interface for futher use
+    set_fact:
+      routing_interface: "{{ item.key }}"
+    with_dict: "{{int_status}}"
+    when:
+      - ('routed' in item.value['vlan'])
+      - int_status | length != 0
+
   - name: gather DUT arp table
     switch_arptable:
 
@@ -44,22 +55,24 @@
       - ('Ethernet' in item.value['interface']) or ('PortChannel' in item.value['interface'])
       - arptable.v4 | length != 0
 
-  - block:
-    - name: select Ethernet0 if cannot find a v4 neighbor for test
-      set_fact:
-        v4_intf: "Ethernet0"
-        v4_nei: "{{ v4_intf_nei }}"
-
-    - name: startup Ethernet0
-      command: "config interface startup Ethernet0"
-
-    - name: add an ip entry for Ethernet0
-      command: "config interface ip add Ethernet0 {{ v4_intf_ip }}"
-
-    - name: add neighbor of Ethernet0
-      command: "/sbin/ip neigh add {{ v4_intf_nei }} lladdr {{ v4_mac1 }} dev Ethernet0"
-
+  - name: make use of {{routing_interface}} if no ipv4 neighbor was found for testing
+    set_fact:
+      v4_intf: "{{routing_interface}}"
+      v4_nei: "{{ v4_intf_nei }}"
+      need_add_ip: True
     when: v4_nei is not defined
+
+  - name: startup {{routing_interface}}
+    command: "config interface startup {{ v4_intf }}"
+    when: need_add_ip is defined and need_add_ip == True
+
+  - name: add an ip entry for {{routing_interface}}
+    command: "config interface ip add {{ v4_intf }} {{ v4_intf_ip }}"
+    when: need_add_ip is defined and need_add_ip == True
+
+  - name: add neighbor of {{routing_interface}}
+    command: "/sbin/ip neigh add {{ v4_intf_nei }} lladdr {{ v4_mac1 }} dev {{ v4_intf }}"
+    when: need_add_ip is defined and need_add_ip == True
 
   - name: change v4 neighbor mac address 1st time
     command: "ip neigh change {{ v4_nei }} lladdr {{ v4_mac1 }} dev {{ v4_intf }}"
@@ -104,22 +117,24 @@
        - ('Ethernet' in item.value['interface']) or ('PortChannel' in item.value['interface'])
        - arptable.v6 | length != 0
 
-  - block:
-    - name: pick Ethernet0 as test interface if cannot find v6 neighbor to test
-      set_fact:
-        v6_intf: "Ethernet0"
-        v6_nei: "{{ v6_intf_nei }}"
-
-    - name: startup Ethernet0
-      command: "config interface startup Ethernet0"
-
-    - name: add an ipv6 entry for Ethernet0 if no v6 neighbor was found
-      command: "config interface ip add Ethernet0 {{ v6_intf_ip }}"
-
-    - name: add an ipv6 neighbor for Ethernet0 if no v6 neighbor was found
-      command: "/sbin/ip neigh add {{ v6_intf_nei }} lladdr {{ v6_mac1 }} dev Ethernet0"
-
+  - name: pick {{routing_interface}} as test interface if no ipv6 neighbor was found for testing
+    set_fact:
+      v6_intf: "{{routing_interface}}"
+      v6_nei: "{{ v6_intf_nei }}"
+      need_add_ipv6: True
     when: v6_nei is not defined
+
+  - name: startup {{routing_interface}}
+    command: "config interface startup {{routing_interface}}"
+    when: need_add_ipv6 is defined and need_add_ipv6 == True
+
+  - name: add an ipv6 entry for {{routing_interface}}
+    command: "config interface ip add {{routing_interface}} {{ v6_intf_ip }}"
+    when: need_add_ipv6 is defined and need_add_ipv6 == True
+
+  - name: add an ipv6 neighbor for {{routing_interface}}
+    command: "/sbin/ip neigh add {{ v6_intf_nei }} lladdr {{ v6_mac1 }} dev {{routing_interface}}"
+    when: need_add_ipv6 is defined and need_add_ipv6 == True
 
   - name: change v6 neighbor mac address 1st time
     command: "ip -6 neigh change {{ v6_nei }} lladdr {{ v6_mac1 }} dev {{ v6_intf }}"
