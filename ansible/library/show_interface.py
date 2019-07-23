@@ -40,6 +40,7 @@ RETURN = '''
                 "name": "Ethernet0"
                 "speed": "40G"
                 "alias": "fortyGigE1/1/1"
+                "vlan": "routed"
                 "oper_state": "down"
                 "admin_state": "up"
                 }
@@ -82,7 +83,7 @@ class ShowInterfaceModule(object):
         self.module.exit_json(ansible_facts=self.facts)
 
     def collect_interface_status(self):
-        regex_int = re.compile(r'(\S+)\s+[\d,]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)')
+        regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         self.int_status = {}
         if self.m_args['interfaces'] is not None:
             for interface in self.m_args['interfaces']:
@@ -96,8 +97,9 @@ class ShowInterfaceModule(object):
                             self.int_status[interface]['name'] = regex_int.match(line).group(1)
                             self.int_status[interface]['speed'] = regex_int.match(line).group(2)
                             self.int_status[interface]['alias'] = regex_int.match(line).group(4)
-                            self.int_status[interface]['oper_state'] = regex_int.match(line).group(5)
-                            self.int_status[interface]['admin_state'] = regex_int.match(line).group(6)
+                            self.int_status[interface]['vlan'] = regex_int.match(line).group(5)
+                            self.int_status[interface]['oper_state'] = regex_int.match(line).group(6)
+                            self.int_status[interface]['admin_state'] = regex_int.match(line).group(7)
                     self.facts['int_status'] = self.int_status
                 except Exception as e:
                     self.module.fail_json(msg=str(e))
@@ -114,8 +116,9 @@ class ShowInterfaceModule(object):
                         self.int_status[interface]['name'] = interface
                         self.int_status[interface]['speed'] = regex_int.match(line).group(2)
                         self.int_status[interface]['alias'] = regex_int.match(line).group(4)
-                        self.int_status[interface]['oper_state'] = regex_int.match(line).group(5)
-                        self.int_status[interface]['admin_state'] = regex_int.match(line).group(6)
+                        self.int_status[interface]['vlan'] = regex_int.match(line).group(5)
+                        self.int_status[interface]['oper_state'] = regex_int.match(line).group(6)
+                        self.int_status[interface]['admin_state'] = regex_int.match(line).group(7)
                 self.facts['int_status'] = self.int_status
             except Exception as e:
                 self.module.fail_json(msg=str(e))
