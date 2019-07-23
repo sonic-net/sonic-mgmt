@@ -248,6 +248,16 @@ class Arista(object):
 
             assert(events[-1][1] == 'Established')
 
+        # verify BGP establishment time between v4 and v6 peer is not more than 20s
+        if self.reboot_type == 'warm-reboot':
+            estab_time = 0
+            for ip in result_bgp:
+                if estab_time > 0:
+                    diff = abs(result_bgp[ip][-1][0] - estab_time)
+                    assert(diff <= 20)
+                    break
+                estab_time = result_bgp[ip][-1][0]
+
         # first state is down, last state is up
         for events in result_if.values():
             assert(events[0][1] == 'down')
