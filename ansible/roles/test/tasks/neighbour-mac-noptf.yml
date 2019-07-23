@@ -39,7 +39,7 @@
       routing_interface: "{{ item.key }}"
     with_dict: "{{int_status}}"
     when:
-      - ('routed' in item.value['vlan'])
+      - ('routed' in item.value['vlan'] and 'up' in item.value['oper_state'])
       - int_status | length != 0
 
   ########## Test V4 mac address change #################
@@ -47,9 +47,6 @@
     set_fact:
       v4_intf: "{{routing_interface}}"
       v4_nei: "{{ v4_intf_nei }}"
-
-  - name: startup {{v4_intf}}
-    command: "config interface startup {{ v4_intf }}"
 
   - name: add an ip entry for {{v4_intf}}
     command: "config interface ip add {{ v4_intf }} {{ v4_intf_ip }}"
@@ -94,9 +91,6 @@
     set_fact:
       v6_intf: "{{routing_interface}}"
       v6_nei: "{{ v6_intf_nei }}"
-
-  - name: startup {{v6_intf}}
-    command: "config interface startup {{v6_intf}}"
 
   - name: add an ipv6 entry for {{v6_intf}}
     command: "config interface ip add {{v6_intf}} {{ v6_intf_ip }}"
