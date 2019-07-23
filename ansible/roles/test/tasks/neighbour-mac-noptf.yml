@@ -31,16 +31,19 @@
   - name: init loganalyzer for later syslog analysis
     include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
-  - name: gather DUT interface table
-    show_interface: command='status'
-
-  - name: select A routing interface for testing
+  - name: select Ethernet0 for testing on t1 and t0
     set_fact:
-      routing_interface: "{{ item.key }}"
-    with_dict: "{{int_status}}"
-    when:
-      - ('routed' in item.value['vlan'] and 'up' in item.value['oper_state'])
-      - int_status | length != 0
+      routing_interface: "Ethernet0"
+    when: testbed_type in ['t1', 't0']
+
+  - name: Startup {{routing_interface}} for t0
+    command: "config interface startup {{routing_interface}}"
+    when: testbed_type in ['t0']
+
+  - name: select PortChannel0002 for testing on t1-lag
+    set_fact:
+      routing_interface: "PortChannel0002"
+    when: testbed_type in ['t1-lag']
 
   ########## Test V4 mac address change #################
   - name: pick {{routing_interface}} to test change mac behavior
