@@ -3,6 +3,9 @@ import csv
 import ipaddr as ipaddress
 
 
+pytest_plugins = ('ptf_fixtures',)
+
+
 class TestbedInfo(object):
     """
     Parse the CSV file used to describe whole testbed info
