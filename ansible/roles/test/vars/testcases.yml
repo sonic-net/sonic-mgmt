@@ -94,6 +94,13 @@ testcases:
           ptf_host:
           vm_hosts:
 
+    warm-reboot-multi-sad:
+      filename: warm-reboot-multi-sad.yml
+      topologies: [t0, t0-64, t0-64-32, t0-116]
+      required_vars:
+          ptf_host:
+          vm_hosts:
+
     fib:
       filename: simple-fib.yml
       topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
