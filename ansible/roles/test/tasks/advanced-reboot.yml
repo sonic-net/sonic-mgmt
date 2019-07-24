@@ -23,6 +23,11 @@
     - name: Preboot-list initialization
       set_fact: preboot_list={% if preboot_list is not defined %}[None]{% else %}{{ preboot_list }}{% endif %}
 
+    - name: Validate preboot list
+      include: roles/test/tasks/advanced_reboot/validate_preboot_list.yml
+      with_items: "{{ preboot_list }}"
+      when: item and ':' in item
+
     - name: Preboot files initialization
       set_fact: preboot_files={% if preboot_files is not defined %}None{% else %}{{ preboot_files }}{% endif %}
 
