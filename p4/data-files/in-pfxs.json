@@ -1,0 +1,29 @@
+{
+  "target": "bmv2",
+  "p4info": "build/basic.p4.p4info.txt",
+  "bmv2_json": "build/basic.json",
+  "table_entries": [
+    {
+      "table": "ingress.vrf.vrf_classifier_table",
+      "match": {
+        "hdr.ethernet.ether_type": [99, 65535]
+      },
+      "action_name": "ingress.vrf.set_vrf",
+      "action_params": {
+        "vrf_id": 1
+      },
+      "priority": 1
+    },
+    {
+      "table": "ingress.vrf.vrf_classifier_table",
+      "match": {
+        "hdr.ethernet.ether_type": [12388, 65535]
+      },
+      "action_name": "ingress.vrf.set_vrf",
+      "action_params": {
+        "vrf_id": 1
+      },
+      "priority": 2
+    }
+  ]
+}
