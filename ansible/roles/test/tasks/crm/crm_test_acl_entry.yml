@@ -11,15 +11,15 @@
       become: yes
 
     - name: Make sure CRM counters updated
-      pause: seconds=2
+      pause: seconds={{ crm_update_time }}
 
     - name: Get ACL entry keys
-      command: bash -c "docker exec -i database redis-cli --raw -n 1 KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*"
+      command: redis-cli --raw -n 1 KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*
       register: out
     - set_fact: acl_tbl_keys={{out.stdout.split()}}
 
     - name: Get ethertype for ACL entry in order to match ACL which was configured
-      command: bash -c "docker exec -i database redis-cli -n 1 HGET {{item}} SAI_ACL_ENTRY_ATTR_FIELD_ETHER_TYPE"
+      command: redis-cli -n 1 HGET {{item}} SAI_ACL_ENTRY_ATTR_FIELD_ETHER_TYPE
       with_items: "{{acl_tbl_keys}}"
       register: out
 
@@ -29,22 +29,19 @@
       when: item.stdout|search("2048")
 
     - name: Get ACL table key
-      command: bash -c "docker exec -i database redis-cli -n 1 HGET {{key}} SAI_ACL_ENTRY_ATTR_TABLE_ID"
+      command: redis-cli -n 1 HGET {{key}} SAI_ACL_ENTRY_ATTR_TABLE_ID
       register: out
     - set_fact: acl_tbl_key={{"CRM:ACL_TABLE_STATS:{0}".format(out.stdout|replace("oid:", ""))}}
 
     - name: Make sure CRM counters updated
-      pause: seconds=2
+      pause: seconds={{ crm_update_time }}
 
-    - name: Get new "crm_stats_acl_entry_used" counter value
-      command: docker exec -i database redis-cli -n 2 HGET {{acl_tbl_key}} crm_stats_acl_entry_used
+    - name: Get new "crm_stats_acl_entry" used and available counter value
+      command: redis-cli --raw -n 2 HMGET {{acl_tbl_key}} crm_stats_acl_entry_used crm_stats_acl_entry_available
       register: out
-    - set_fact: new_crm_stats_acl_entry_used={{out.stdout}}
-
-    - name: Get new "crm_stats_acl_entry_available" counter value
-      command: docker exec -i database redis-cli -n 2 HGET {{acl_tbl_key}} crm_stats_acl_entry_available
-      register: out
-    - set_fact: new_crm_stats_acl_entry_available={{out.stdout}}
+    - set_fact:
+        new_crm_stats_acl_entry_used: "{{ out.stdout_lines[0] }}"
+        new_crm_stats_acl_entry_available: "{{ out.stdout_lines[1] }}"
 
     - name: Verify "crm_stats_acl_entry_used" counter was incremented
       assert: {that: "{{new_crm_stats_acl_entry_used|int - crm_stats_acl_entry_used|int == 2}}"}
@@ -63,17 +60,14 @@
       become: yes
 
     - name: Make sure CRM counters updated
-      pause: seconds=2
+      pause: seconds={{ crm_update_time }}
 
-    - name: Get new "crm_stats_acl_entry_used" counter value
-      command: docker exec -i database redis-cli -n 2 HGET {{acl_tbl_key}} crm_stats_acl_entry_used
+    - name: Get new "crm_stats_acl_entry" used and available counter value
+      command: redis-cli --raw -n 2 HMGET {{acl_tbl_key}} crm_stats_acl_entry_used crm_stats_acl_entry_available
       register: out
-    - set_fact: new_crm_stats_acl_entry_used={{out.stdout}}
-
-    - name: Get new "crm_stats_acl_entry_available" counter value
-      command: docker exec -i database redis-cli -n 2 HGET {{acl_tbl_key}} crm_stats_acl_entry_available
-      register: out
-    - set_fact: new_crm_stats_acl_entry_available={{out.stdout}}
+    - set_fact:
+        new_crm_stats_acl_entry_used: "{{ out.stdout_lines[0] }}"
+        new_crm_stats_acl_entry_available: "{{ out.stdout_lines[1] }}"
 
     - name: Verify "crm_stats_acl_entry_used" counter was decremented
       assert: {that: "{{new_crm_stats_acl_entry_used|int - crm_stats_acl_entry_used|int == 0}}"}
