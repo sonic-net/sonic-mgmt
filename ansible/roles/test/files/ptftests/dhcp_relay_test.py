@@ -212,7 +212,8 @@ class DHCPTest(DataplaneBaseTest):
                     ip_gateway=self.relay_iface_ip,
                     netmask_client=self.client_subnet,
                     dhcp_lease=self.LEASE_TIME,
-                    padding_bytes=0)
+                    padding_bytes=0,
+                    set_broadcast_bit=True)
 
     def create_dhcp_offer_relayed_packet(self):
         my_chaddr = ''.join([chr(int(octet, 16)) for octet in self.client_mac.split(':')])
@@ -233,7 +234,7 @@ class DHCPTest(DataplaneBaseTest):
                     hops=0,
                     xid=0,
                     secs=0,
-                    flags=0,
+                    flags=0x8000,
                     ciaddr=self.DEFAULT_ROUTE_IP,
                     yiaddr=self.client_ip,
                     siaddr=self.server_ip,
@@ -310,7 +311,8 @@ class DHCPTest(DataplaneBaseTest):
                     ip_gateway=self.relay_iface_ip,
                     netmask_client=self.client_subnet,
                     dhcp_lease=self.LEASE_TIME,
-                    padding_bytes=0)
+                    padding_bytes=0,
+                    set_broadcast_bit=True)
 
     def create_dhcp_ack_relayed_packet(self):
         my_chaddr = ''.join([chr(int(octet, 16)) for octet in self.client_mac.split(':')])
@@ -331,7 +333,7 @@ class DHCPTest(DataplaneBaseTest):
                     hops=0,
                     xid=0,
                     secs=0,
-                    flags=0,
+                    flags=0x8000,
                     ciaddr=self.DEFAULT_ROUTE_IP,
                     yiaddr=self.client_ip,
                     siaddr=self.server_ip,
