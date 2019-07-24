@@ -17,7 +17,6 @@ TP_DIR = "/home/gd1/godiva-test/lib/"
 tp_dirs = os.listdir(TP_DIR)
 for tp_dir in tp_dirs:
     sys.path.append(os.path.join(TP_DIR,tp_dir))
-    print(sys.path)
 
 import p4_switch
 from p4_error_utils import printGrpcError
@@ -119,7 +118,7 @@ def main():
                     sleep(1)
                     print ("READING TABLE ENTRIES")
                     #readTableRules(p4info_helper, s1)
-                    sleep(20)
+                    sleep(1)
 
             if 'table_entries' in input_conf:
                 print (input_conf)
