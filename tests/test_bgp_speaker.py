@@ -3,7 +3,7 @@ import sys
 import time
 import ipaddress
 from ansible_host import ansible_host
-from ptf import ptf_runner
+from ptf_runner import ptf_runner
 
 def generate_ips(num, prefix, exclude_ips):
     """
