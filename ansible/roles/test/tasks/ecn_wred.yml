@@ -28,6 +28,7 @@
 
 - name: Make sure config updated
   pause: seconds=2
+  when: wred_value.stdout == ""
 
 - set_fact:
     red_min_threshold=4095
