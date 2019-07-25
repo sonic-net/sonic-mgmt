@@ -16,6 +16,14 @@ logger = logging.getLogger(__name__)
 
 
 def send_eth(ptfadapter, source_port, source_mac, dest_mac):
+    """
+    send ethernet packet
+    :param ptfadapter: PTF adapter object
+    :param source_port: source port
+    :param source_mac: source MAC
+    :param dest_mac: destination MAC
+    :return:
+    """
     pkt = testutils.simple_eth_packet(
         eth_dst=dest_mac,
         eth_src=source_mac,
@@ -26,6 +34,15 @@ def send_eth(ptfadapter, source_port, source_mac, dest_mac):
 
 
 def send_recv_eth(ptfadapter, source_port, source_mac, dest_port, dest_mac):
+    """
+    send ethernet packet and verify it on dest_port
+    :param ptfadapter: PTF adapter object
+    :param source_port: source port
+    :param source_mac: source MAC
+    :param dest_port: destination port to receive packet on
+    :param dest_mac: destination MAC
+    :return:
+    """
     pkt = testutils.simple_eth_packet(
         eth_dst=dest_mac,
         eth_src=source_mac,
@@ -39,9 +56,9 @@ def send_recv_eth(ptfadapter, source_port, source_mac, dest_port, dest_mac):
 
 def setup_fdb(ptfadapter, vlan_table, router_mac):
     """
-    :param ptfadapter:
-    :param vlan_table:
-    :return:
+    :param ptfadapter: PTF adapter object
+    :param vlan_table: VLAN table map: VLAN subnet -> list of VLAN members
+    :return: FDB table map : VLAN member -> MAC addresses set
     """
 
     fdb = {}
@@ -52,7 +69,8 @@ def setup_fdb(ptfadapter, vlan_table, router_mac):
             # send a packet to switch to populate layer 2 table with MAC of PTF interface
             send_eth(ptfadapter, member, mac, router_mac)
 
-            fdb[member] = [mac]
+            # put in learned MAC
+            fdb[member] = { mac }
 
             # Send packets to switch to populate the layer 2 table with dummy MACs for each port
             # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
@@ -62,7 +80,8 @@ def setup_fdb(ptfadapter, vlan_table, router_mac):
             for dummy_mac in dummy_macs:
                 send_eth(ptfadapter, member, dummy_mac, router_mac)
 
-            fdb[member] += dummy_macs
+            # put in set learned dummy MACs
+            fdb[member].update(dummy_macs)
 
     time.sleep(FDB_POPULATE_SLEEP_TIMEOUT)
 
@@ -71,6 +90,7 @@ def setup_fdb(ptfadapter, vlan_table, router_mac):
 
 @pytest.fixture
 def fdb_cleanup(ansible_adhoc, testbed):
+    """ cleanup FDB before and after test run """
     duthost = AnsibleHost(ansible_adhoc, testbed['dut'])
     try:
         duthost.command('sonic-clear fdb all')
@@ -88,7 +108,7 @@ def test_fdb(ansible_adhoc, testbed, ptfadapter):
     """
 
     if testbed['topo'] not in ['t0', 't0-64', 't0-116']:
-        pytest.skip("unsupported testbed type")
+        pytest.skip('unsupported testbed type')
 
     duthost = AnsibleHost(ansible_adhoc, testbed['dut'])
     ptfhost = AnsibleHost(ansible_adhoc, testbed['ptf'])
@@ -97,10 +117,10 @@ def test_fdb(ansible_adhoc, testbed, ptfadapter):
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 
     # remove existing IPs from PTF host 
-    ptfhost.script("scripts/remove_ip.sh")
+    ptfhost.script('scripts/remove_ip.sh')
     # set unique MACs to PTF interfaces
-    ptfhost.script("scripts/change_mac.sh")
-    # reinit data plane due to above changes on PTF interfaces
+    ptfhost.script('scripts/change_mac.sh')
+    # reinitialize data plane due to above changes on PTF interfaces
     ptfadapter.reinit()
 
     router_mac = host_facts['ansible_Ethernet0']['macaddress']
@@ -119,7 +139,7 @@ def test_fdb(ansible_adhoc, testbed, ptfadapter):
             for src_mac, dst_mac in itertools.product(fdb[src], fdb[dst]):
                 send_recv_eth(ptfadapter, src, src_mac, dst, dst_mac)
 
-    res = duthost.command("show mac")
+    res = duthost.command('show mac')
     logger.debug('"show mac" output on DUT')
     for line in res['stdout_lines']:
         logger.debug('    {}'.format(line))
