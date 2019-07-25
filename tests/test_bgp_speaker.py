@@ -2,7 +2,7 @@ from netaddr import *
 import sys
 import time
 import ipaddress
-from ansible_host import ansible_host
+from ansible_host import AnsibleHost
 from ptf_runner import ptf_runner
 
 def generate_ips(num, prefix, exclude_ips):
@@ -33,8 +33,8 @@ def test_bgp_speaker(localhost, ansible_adhoc, testbed):
 
     hostname = testbed['dut']
     ptf_hostname = testbed['ptf']
-    host = ansible_host(ansible_adhoc, hostname)
-    ptfhost = ansible_host(ansible_adhoc, ptf_hostname)
+    host = AnsibleHost(ansible_adhoc, hostname)
+    ptfhost = AnsibleHost(ansible_adhoc, ptf_hostname)
 
     mg_facts = host.minigraph_facts(host=hostname)['ansible_facts']
     host_facts  = host.setup()['ansible_facts']

@@ -3,7 +3,7 @@
 import pytest
 
 from ptfadapter import PtfTestAdapter
-from ansible_host import ansible_host
+from ansible_host import AnsibleHost
 
 DEFAULT_PTF_NN_PORT = 10900
 DEFAULT_DEVICE_NUM = 0
@@ -43,7 +43,7 @@ def ptfadapter(ansible_adhoc, testbed):
     to restart PTF before proceeding running other test modules
     """
 
-    ptfhost = ansible_host(ansible_adhoc, testbed['ptf'])
+    ptfhost = AnsibleHost(ansible_adhoc, testbed['ptf'])
     # get the eth interfaces from PTF and initialize ifaces_map
     res = ptfhost.command('cat /proc/net/dev')
     ifaces = get_ifaces(res['stdout'])

@@ -1,10 +1,10 @@
-from ansible_host import ansible_host
+from ansible_host import AnsibleHost
 
 def test_lldp(localhost, ansible_adhoc, testbed):
     """verify the lldp message on DUT and neighbors"""
 
     hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = AnsibleHost(ansible_adhoc, hostname)
 
     mg_facts  = ans_host.minigraph_facts(host=hostname)['ansible_facts']
     host_facts  = ans_host.setup()['ansible_facts']
@@ -28,7 +28,7 @@ def test_lldp(localhost, ansible_adhoc, testbed):
         # Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port)
         assert v['port']['ifname'] == mg_facts['minigraph_neighbors'][k]['port']
 
-    lhost = ansible_host(ansible_adhoc, 'localhost', True)
+    lhost = AnsibleHost(ansible_adhoc, 'localhost', True)
 
     for k, v in lldp_facts['lldp'].items():
         hostip = v['chassis']['mgmt-ip']
