@@ -1,4 +1,4 @@
-from ansible_host import ansible_host
+from ansible_host import AnsibleHost
 
 import pytest
 import ptf.testutils as testutils
@@ -71,7 +71,7 @@ def setup_fdb(ptfadapter, vlan_table, router_mac):
 
 @pytest.fixture
 def fdb_cleanup(ansible_adhoc, testbed):
-    duthost = ansible_host(ansible_adhoc, testbed['dut'])
+    duthost = AnsibleHost(ansible_adhoc, testbed['dut'])
     try:
         duthost.command('sonic-clear fdb all')
         yield
@@ -90,8 +90,8 @@ def test_fdb(ansible_adhoc, testbed, ptfadapter):
     if testbed['topo'] not in ['t0', 't0-64', 't0-116']:
         pytest.skip("unsupported testbed type")
 
-    duthost = ansible_host(ansible_adhoc, testbed['dut'])
-    ptfhost = ansible_host(ansible_adhoc, testbed['ptf'])
+    duthost = AnsibleHost(ansible_adhoc, testbed['dut'])
+    ptfhost = AnsibleHost(ansible_adhoc, testbed['ptf'])
 
     host_facts  = duthost.setup()['ansible_facts']
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
