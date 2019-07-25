@@ -1,11 +1,11 @@
 import ptf
-import ptf.base_tests as base_tests
+from ptf.base_tests import BaseTest
+from ptf.dataplane import DataPlane
 import ptf.platforms.nn as nn
-import ptf.dataplane as dataplane
 import ptf.ptfutils as ptfutils
 
 
-class PtfTestAdapter(base_tests.BaseTest):
+class PtfTestAdapter(BaseTest):
     """PtfTestAdapater class provides interface for pytest to use ptf.testutils functions """
 
     DEFAULT_PTF_TIMEOUT = 2
@@ -50,19 +50,19 @@ class PtfTestAdapter(base_tests.BaseTest):
 
         ptfutils.default_timeout = self.DEFAULT_PTF_TIMEOUT
         ptfutils.default_negative_timeout = self.DEFAULT_PTF_NEG_TIMEOUT
-        ptf.config = {
+
+        ptf.config.update({
             'platform': 'nn',
             'device_sockets': [
                 (device_num, range(ptf_ports_num), 'tcp://{}:{}'.format(ptf_ip, ptf_nn_port))
             ],
-            'relax': True,
-        }
+        })
         if ptf_config is not None:
             ptf.config.update(ptf_config)
 
         # update ptf.config based on NN platform and create dataplane instance
         nn.platform_config_update(ptf.config)
-        ptf.dataplane_instance = dataplane.DataPlane(config=ptf.config)
+        ptf.dataplane_instance = DataPlane(config=ptf.config)
 
         # TODO: in case of multi PTF hosts topologies we'll have to manually call port_add on
         # ptf.dataplane_instance to specify mapping between tcp://<host>:<port> and port tuple (device_id, port_id)
