@@ -8,6 +8,7 @@ import ptf.ptfutils as ptfutils
 class PtfTestAdapter(BaseTest):
     """PtfTestAdapater class provides interface for pytest to use ptf.testutils functions """
 
+    DEFAULT_PTF_QUEUE_LEN = 100000
     DEFAULT_PTF_TIMEOUT = 2
     DEFAULT_PTF_NEG_TIMEOUT = 0.1
 
@@ -56,6 +57,8 @@ class PtfTestAdapter(BaseTest):
             'device_sockets': [
                 (device_num, range(ptf_ports_num), 'tcp://{}:{}'.format(ptf_ip, ptf_nn_port))
             ],
+            'qlen': self.DEFAULT_PTF_QUEUE_LEN,
+            'relax': True,
         })
         if ptf_config is not None:
             ptf.config.update(ptf_config)
