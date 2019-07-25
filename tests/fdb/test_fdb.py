@@ -120,9 +120,9 @@ def test_fdb(ansible_adhoc, testbed, ptfadapter):
                 send_recv_eth(ptfadapter, src, src_mac, dst, dst_mac)
 
     res = duthost.command("show mac")
-    logger.info('"show mac" output on DUT')
+    logger.debug('"show mac" output on DUT')
     for line in res['stdout_lines']:
-        logger.info('    {}'.format(line))
+        logger.debug('    {}'.format(line))
 
     dummy_mac_count = 0
     total_mac_count = 0
