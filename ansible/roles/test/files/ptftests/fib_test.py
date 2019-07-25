@@ -87,6 +87,7 @@ class FibTest(BaseTest):
         self.dataplane = ptf.dataplane_instance
         self.fib = fib.Fib(self.test_params['fib_info'])
         self.router_mac = self.test_params['router_mac']
+        self.pktlen = self.test_params['testbed_mtu']
 
         self.test_ipv4 = self.test_params.get('ipv4', True)
         self.test_ipv6 = self.test_params.get('ipv6', True)
@@ -173,6 +174,7 @@ class FibTest(BaseTest):
         src_mac = self.dataplane.get_mac(0, 0)
 
         pkt = simple_tcp_packet(
+                            pktlen=self.pktlen,
                             eth_dst=self.router_mac,
                             eth_src=src_mac,
                             ip_src=ip_src,
@@ -181,6 +183,7 @@ class FibTest(BaseTest):
                             tcp_dport=dport,
                             ip_ttl=64)
         exp_pkt = simple_tcp_packet(
+                            self.pktlen,
                             eth_src=self.router_mac,
                             ip_src=ip_src,
                             ip_dst=ip_dst,
@@ -211,6 +214,7 @@ class FibTest(BaseTest):
         src_mac = self.dataplane.get_mac(0, 0)
 
         pkt = simple_tcpv6_packet(
+                                pktlen=self.pktlen,
                                 eth_dst=self.router_mac,
                                 eth_src=src_mac,
                                 ipv6_dst=ip_dst,
@@ -219,6 +223,7 @@ class FibTest(BaseTest):
                                 tcp_dport=dport,
                                 ipv6_hlim=64)
         exp_pkt = simple_tcpv6_packet(
+                                pktlen=self.pktlen,
                                 eth_src=self.router_mac,
                                 ipv6_dst=ip_dst,
                                 ipv6_src=ip_src,

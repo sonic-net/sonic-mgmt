@@ -1,0 +1,20 @@
+- name: Reboot the VM
+  command: /sbin/shutdown -r now "Ansible updates triggered"
+
+- name: Wait for VM to shutdown
+  wait_for:
+    host: "{{ ansible_ssh_host }}"
+    port: 22
+    state: stopped
+    delay: 10
+    timeout: 300
+  connection: local
+
+- name: Wait for VM to startup
+  wait_for:
+    host: "{{ ansible_ssh_host }}"
+    port: 22
+    state: started
+    delay: 10
+    timeout: 1200
+  connection: local

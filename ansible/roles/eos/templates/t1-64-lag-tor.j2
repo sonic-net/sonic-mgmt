@@ -100,6 +100,9 @@ interface {{ bp_ifname }}
 router bgp {{ host['bgp']['asn'] }}
  router-id {{ host['interfaces']['Loopback0']['ipv4'] |  ipaddr('address') }}
  !
+ graceful-restart restart-time {{ bgp_gr_timer }}
+ graceful-restart
+ !
 {% for asn, remote_ips in host['bgp']['peers'].items() %}
 {% for remote_ip in remote_ips %}
  neighbor {{ remote_ip }} remote-as {{ asn }}

@@ -113,10 +113,16 @@
           <Type>Everflow</Type>
         </AclInterface>
         <AclInterface>
+          <AttachTo>ERSPANV6</AttachTo>
+          <InAcl>EverflowV6</InAcl>
+          <Type>EverflowV6</Type>
+        </AclInterface>
+        <AclInterface>
           <AttachTo>VTY_LINE</AttachTo>
           <InAcl>ssh-only</InAcl>
           <Type>SSH</Type>
         </AclInterface>
+{%- if enable_data_plane_acl|default('true')|bool %}
         <AclInterface>
           <AttachTo>
 {%- for index in range(vms_number) %}
@@ -133,6 +139,7 @@ PortChannel{{ ((index+1) |string).zfill(4) }}{% if not loop.last %};{% endif %}
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
         </AclInterface>
+{% endif -%}
       </AclInterfaces>
       <DownstreamSummaries/>
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>

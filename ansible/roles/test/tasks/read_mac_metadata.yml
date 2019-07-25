@@ -1,0 +1,52 @@
+# Input Parameters:
+# -e image1=http://IP_ADDR/SERVER_URL/IMAGE_NAME.bin
+# -e image2=http://IP_ADDR/SERVER_URL/IMAGE_NAME.bin
+# -e iterations=INT_NUMBER
+# Optional:
+# -e minigraph1=/path/to/the/minigraph.xml
+# -e minigraph2=/path/to/the/minigraph.xml
+
+- block:
+  - fail: msg="Please specify URL to the image1"
+    when: image1 is not defined
+
+  - fail: msg="Please specify URL to the image2"
+    when: image2 is not defined
+
+  - fail: msg="Please specify 'iterations' variable"
+    when: iterations is not defined
+
+  # Prepare variables for loganalyzer
+  - set_fact:
+      testname: read_mac
+  - set_fact:
+      testname_unique: "{{ testname }}.{{ lookup('pipe','date +%Y-%m-%d-%H:%M:%S') }}"
+  - set_fact:
+      # Set custom match instead of default match
+      test_match_file: read_mac_meta_match_messages.txt
+      summary_file: summary.loganalysis.{{ testname_unique }}.log
+      result_file: result.loganalysis.{{ testname_unique }}.log
+      errors_expected: false
+      skip_common_match: true
+      out_dir: /tmp
+      run_dir: /tmp
+      tests_location: roles/test/tasks
+      current_image: ""
+      temp_minigraph: ""
+
+  - name: Check minigraph exists
+    stat:
+      path: /etc/sonic/minigraph.xml
+    register: output
+
+  - set_fact: store_original_minigraph=true
+    when: output.stat.exists
+
+  # Store current minigraph for debug purpose
+  - shell: cp /etc/sonic/minigraph.xml /home/
+    become: true
+    when: (minigraph1 is defined) or (minigraph2 is defined) and (store_original_minigraph is defined)
+
+  - name: Verify MAC in image reinstall loop
+    include: roles/test/tasks/read_mac/read_mac_metadata_loop.yml
+    with_sequence: count={{ iterations }}

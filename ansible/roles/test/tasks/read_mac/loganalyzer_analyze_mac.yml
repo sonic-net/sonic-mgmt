@@ -1,0 +1,20 @@
+- block:
+  # Loganalyzer analyze
+  - name: Use loganalyzer to check for the error messages - {{ testname }}.
+    include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+
+  - name: Read loganalyzer summary file.
+    shell: cat "{{ test_out_dir }}/{{ summary_file }}"
+    register: log_summary
+
+  - name: Print loganalyzer summary file.
+    debug:
+      var: log_summary.stdout_lines
+
+  - name: Get the total number of error messages.
+    shell: grep "TOTAL MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL MATCHES:[[:space:]]*//p"
+    register: errors_found
+
+  - name: Check the number of error messages (positive tests only).
+    fail: msg="{{ errors_found.stdout }} errors found while running {{ testname }}."
+    when: errors_expected == false and errors_found.stdout != "0"

@@ -47,3 +47,7 @@
     - name: Installing new SONiC image
       shell: sonic_installer install -y {{ new_image_location }}
       become: true
+
+    - name: Remove config_db.json so the new image will reload minigraph
+      file: path=/host/old_config/config_db.json state=absent
+      become: true

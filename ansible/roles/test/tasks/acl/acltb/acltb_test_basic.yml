@@ -1,10 +1,6 @@
 - include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
 - name: Run config acl to add ACL rules
-  command: config acl update full {{ dut_tmp_dir }}/acltb_test_rules_allow_all.json
-  become: yes
-
-- name: Run config acl to add ACL rules
   command: config acl update full {{ dut_tmp_dir }}/acl_rules_{{ acl_table_name }}.json
   become: yes
 

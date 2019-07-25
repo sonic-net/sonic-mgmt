@@ -41,12 +41,13 @@ class Arista(object):
         self.login = login
         self.password = password
         self.conn = None
-        self.hostname = None
+        self.arista_prompt = None
         self.v4_routes = [test_params['vlan_ip_range'], test_params['lo_prefix']]
         self.v6_routes = [test_params['lo_v6_prefix']]
         self.fails = set()
         self.info = set()
         self.min_bgp_gr_timeout = int(test_params['min_bgp_gr_timeout'])
+        self.reboot_type = test_params['reboot_type']
 
     def __del__(self):
         self.disconnect()
@@ -58,27 +59,28 @@ class Arista(object):
         self.shell = self.conn.invoke_shell()
 
         first_prompt = self.do_cmd(None, prompt = '>')
-        self.hostname = self.extract_hostname(first_prompt)
+        self.arista_prompt = self.get_arista_prompt(first_prompt)
 
         self.do_cmd('enable')
         self.do_cmd('terminal length 0')
 
         return self.shell
 
-    def extract_hostname(self, first_prompt):
+    def get_arista_prompt(self, first_prompt):
         lines = first_prompt.split('\n')
         prompt = lines[-1]
-        return prompt.strip().replace('>', '#')
+        # match all modes - A#, A(config)#, A(config-if)#
+        return prompt.strip().replace('>', '.*#')
 
     def do_cmd(self, cmd, prompt = None):
         if prompt == None:
-            prompt = self.hostname
+            prompt = self.arista_prompt
 
         if cmd is not None:
             self.shell.send(cmd + '\n')
 
         input_buffer = ''
-        while prompt not in input_buffer:
+        while re.search(prompt, input_buffer) is None:
             input_buffer += self.shell.recv(16384)
 
         return input_buffer
@@ -152,15 +154,19 @@ class Arista(object):
                 }
 
         attempts = 60
+        log_present = False
         for _ in range(attempts):
             log_output = self.do_cmd("show log | begin %s" % log_first_line)
             log_lines = log_output.split("\r\n")[1:-1]
             log_data = self.parse_logs(log_lines)
-            if len(log_data) != 0:
+            if (self.reboot_type == 'fast-reboot' and \
+                any(k.startswith('BGP') for k in log_data) and any(k.startswith('PortChannel') for k in log_data)) \
+                    or (self.reboot_type == 'warm-reboot' and any(k.startswith('BGP') for k in log_data)):
+                log_present = True
                 break
             time.sleep(1) # wait until logs are populated
 
-        if len(log_data) == 0:
+        if not log_present:
             log_data['error'] = 'Incomplete output'
 
         self.disconnect()
@@ -225,7 +231,10 @@ class Arista(object):
 
         result['route_timeout'] = result_rt
 
-        if initial_time_bgp == -1 or initial_time_if == -1:
+        # for fast-reboot, we expect to have both the bgp and portchannel events in the logs. for warm-reboot, portchannel events might not be present in the logs all the time.
+        if self.reboot_type == 'fast-reboot' and (initial_time_bgp == -1 or initial_time_if == -1):
+            return result
+        elif self.reboot_type == 'warm-reboot' and initial_time_bgp == -1:
             return result
 
         for events in result_bgp.values():
@@ -239,18 +248,22 @@ class Arista(object):
 
             assert(events[-1][1] == 'Established')
 
+        # verify BGP establishment time between v4 and v6 peer is not more than 20s
+        if self.reboot_type == 'warm-reboot':
+            estab_time = 0
+            for ip in result_bgp:
+                if estab_time > 0:
+                    diff = abs(result_bgp[ip][-1][0] - estab_time)
+                    assert(diff <= 20)
+                    break
+                estab_time = result_bgp[ip][-1][0]
+
         # first state is down, last state is up
         for events in result_if.values():
             assert(events[0][1] == 'down')
             assert(events[-1][1] == 'up')
 
-        po_name = [ifname for ifname in result_if.keys() if 'Port-Channel' in ifname][0]
         neigh_ipv4 = [neig_ip for neig_ip in result_bgp.keys() if '.' in neig_ip][0]
-
-        result['PortChannel was down (seconds)'] = result_if[po_name][-1][0] - result_if[po_name][0][0]
-        for if_name in sorted(result_if.keys()):
-            result['Interface %s was down (times)' % if_name] = map(itemgetter(1), result_if[if_name]).count("down")
-
         for neig_ip in result_bgp.keys():
             key = "BGP IPv6 was down (seconds)" if ':' in neig_ip else "BGP IPv4 was down (seconds)"
             result[key] = result_bgp[neig_ip][-1][0] - result_bgp[neig_ip][0][0]
@@ -259,12 +272,18 @@ class Arista(object):
             key = "BGP IPv6 was down (times)" if ':' in neig_ip else "BGP IPv4 was down (times)"
             result[key] = map(itemgetter(1), result_bgp[neig_ip]).count("Idle")
 
-        bgp_po_offset = (initial_time_if - initial_time_bgp if initial_time_if > initial_time_bgp else initial_time_bgp - initial_time_if).seconds
-        result['PortChannel went down after bgp session was down (seconds)'] = bgp_po_offset + result_if[po_name][0][0]
+        if initial_time_if != -1:
+            po_name = [ifname for ifname in result_if.keys() if 'Port-Channel' in ifname][0]
+            result['PortChannel was down (seconds)'] = result_if[po_name][-1][0] - result_if[po_name][0][0]
+            for if_name in sorted(result_if.keys()):
+                result['Interface %s was down (times)' % if_name] = map(itemgetter(1), result_if[if_name]).count("down")
 
-        for neig_ip in result_bgp.keys():
-            key = "BGP IPv6 was gotten up after Po was up (seconds)" if ':' in neig_ip else "BGP IPv4 was gotten up after Po was up (seconds)"
-            result[key] = result_bgp[neig_ip][-1][0] - bgp_po_offset - result_if[po_name][-1][0]
+            bgp_po_offset = (initial_time_if - initial_time_bgp if initial_time_if > initial_time_bgp else initial_time_bgp - initial_time_if).seconds
+            result['PortChannel went down after bgp session was down (seconds)'] = bgp_po_offset + result_if[po_name][0][0]
+
+            for neig_ip in result_bgp.keys():
+                key = "BGP IPv6 was gotten up after Po was up (seconds)" if ':' in neig_ip else "BGP IPv4 was gotten up after Po was up (seconds)"
+                result[key] = result_bgp[neig_ip][-1][0] - bgp_po_offset - result_if[po_name][-1][0]
 
         return result
 
@@ -287,6 +306,21 @@ class Arista(object):
                     is_gr_ipv4_enabled = True
 
         return is_gr_ipv4_enabled, is_gr_ipv6_enabled, restart_time
+
+    def parse_bgp_info(self, output):
+        neigh_bgp = None
+        dut_bgp = None
+        asn = None
+        for line in output.split('\n'):
+            if 'BGP neighbor is' in line:
+                dut_bgp = re.findall('BGP neighbor is (.*?),', line)[0]
+            elif 'Local AS is' in line:
+                asn = re.findall('Local AS is (\d+?),', line)[0]
+            elif 'Local TCP address is' in line:
+                neigh_bgp = re.findall('Local TCP address is (.*?),', line)[0]
+                break
+
+        return neigh_bgp, dut_bgp, asn
 
     def parse_bgp_neighbor(self, output):
         gr_active = None
@@ -312,6 +346,82 @@ class Arista(object):
                 prefixes.add(prefix)
 
         return set(expects) == prefixes
+
+    def get_bgp_info(self):
+        # Retreive BGP info (peer addr, AS) for the dut and neighbor
+        neigh_bgp = {}
+        dut_bgp = {}
+        for cmd, ver in [('show ip bgp neighbors', 'v4'), ('show ipv6 bgp neighbors', 'v6')]:
+            output = self.do_cmd(cmd)
+            if ver == 'v6':
+                neigh_bgp[ver], dut_bgp[ver], neigh_bgp['asn'] = self.parse_bgp_info(output)
+            else:
+                neigh_bgp[ver], dut_bgp[ver], neigh_bgp['asn'] = self.parse_bgp_info(output)
+
+        return neigh_bgp, dut_bgp
+
+    def change_bgp_neigh_state(self, asn, is_up=True):
+        state = ['shut', 'no shut']
+        self.do_cmd('configure')
+        self.do_cmd('router bgp %s' % asn)
+        self.do_cmd('%s' % state[is_up])
+        self.do_cmd('exit')
+        self.do_cmd('exit')
+
+    def verify_bgp_neigh_state(self, dut=None, state="Active"):
+        bgp_state = {}
+        bgp_state['v4'] = bgp_state['v6'] = False
+        for cmd, ver in [('show ip bgp summary | json', 'v4'), ('show ipv6 bgp summary | json', 'v6')]:
+            output = self.do_cmd(cmd)
+            data = '\n'.join(output.split('\r\n')[1:-1])
+            obj = json.loads(data)
+
+            if state == 'down':
+                if 'vrfs' in obj:
+                    # return True when obj['vrfs'] is empty which is the case when the bgp state is 'down'
+                    bgp_state[ver] = not obj['vrfs']
+                else:
+                    self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
+            else:
+                if 'vrfs' in obj and 'default' in obj['vrfs']:
+                    obj = obj['vrfs']['default']
+                    if 'peers' in obj:
+                        bgp_state[ver] = (obj['peers'][dut[ver]]['peerState'] == state)
+                    else:
+                        self.fails.add('Verify BGP %S neighbor: Peer attribute missing in output' % ver)
+                else:
+                    self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
+        return self.fails, bgp_state
+
+    def change_neigh_lag_state(self, lag, is_up=True):
+        state = ['shut', 'no shut']
+        self.do_cmd('configure')
+        is_match = re.match('(Port-Channel|Ethernet)\d+', lag)
+        if is_match:
+            output = self.do_cmd('interface %s' % lag)
+            if 'Invalid' not in output:
+                self.do_cmd(state[is_up])
+                self.do_cmd('exit')
+            self.do_cmd('exit')
+
+    def verify_neigh_lag_state(self, lag, state="connected", pre_check=True):
+        lag_state = False
+        msg_prefix = ['Postboot', 'Preboot']
+        is_match = re.match('(Port-Channel|Ethernet)\d+', lag)
+        if is_match:
+            output = self.do_cmd('show interfaces %s | json' % lag)
+            if 'Invalid' not in output:
+                data = '\n'.join(output.split('\r\n')[1:-1])
+                obj = json.loads(data)
+
+                if 'interfaces' in obj and lag in obj['interfaces']:
+                    lag_state = (obj['interfaces'][lag]['interfaceStatus'] == state)
+                else:
+                    self.fails.add('%s: Verify LAG %s: Object missing in output' % (msg_prefix[pre_check], lag))
+                return self.fails, lag_state
+
+        self.fails.add('%s: Invalid interface name' % msg_prefix[pre_check])
+        return self.fails, lag_state
 
     def check_gr_peer_status(self, output):
         # [0] True 'ipv4_gr_enabled', [1] doesn't matter 'ipv6_enabled', [2] should be >= 120

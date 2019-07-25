@@ -6,6 +6,11 @@
     - name: Copy ACL JSON config to switch.
       copy: src=roles/test/tasks/crm/acl.json dest=/tmp
 
+    - name: Get original "crm_stats_acl_counter_available" counter value
+      command: docker exec -i database redis-cli -n 2 HGET {{acl_tbl_key}} crm_stats_acl_counter_available
+      register: out
+    - set_fact: original_crm_stats_acl_counter_available={{out.stdout}}
+
     - name: Add ACL
       command: acl-loader update full /tmp/acl.json
       become: yes
@@ -76,4 +81,7 @@
       assert: {that: "{{new_crm_stats_acl_counter_used|int - crm_stats_acl_counter_used|int == 0}}"}
 
     - name: Verify "crm_stats_acl_counter_available" counter was incremented
-      assert: {that: "{{new_crm_stats_acl_counter_available|int - crm_stats_acl_counter_available|int == 0}}"}
+      assert: {that: "{{new_crm_stats_acl_counter_available|int - crm_stats_acl_counter_available|int >= 0}}"}
+
+    - name: Verify "crm_stats_acl_counter_available" counter was equal to original value
+      assert: {that: "{{original_crm_stats_acl_counter_available|int - new_crm_stats_acl_counter_available|int == 0}}"}
