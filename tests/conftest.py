@@ -56,5 +56,3 @@ def testbed(request):
 
     tbinfo = TestbedInfo(tbfile)
     return tbinfo.testbed_topo[tbname]
-
-
