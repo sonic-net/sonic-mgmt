@@ -1,3 +1,4 @@
+import pytest
 from netaddr import *
 import sys
 import time
@@ -26,6 +27,7 @@ def generate_ips(num, prefix, exclude_ips):
 
     return generated_ips
 
+@pytest.mark.skip(reason='test is broken')
 def test_bgp_speaker(localhost, ansible_adhoc, testbed):
     """setup bgp speaker on T0 topology and verify routes advertised
     by bgp speaker is received by T0 TOR
