@@ -26,6 +26,7 @@
         - preboot_oper='{{ item }}'
         - allow_vlan_flooding='{{ allow_vlan_flooding }}'
         - sniff_time_incr={{ sniff_time_incr }}
+        - setup_fdb_before_test=True
 
   always:
 

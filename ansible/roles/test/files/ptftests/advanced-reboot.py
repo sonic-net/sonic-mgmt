@@ -155,6 +155,11 @@ class ReloadTest(BaseTest):
            self.log_file_name = '/tmp/%s.log' % self.test_params['reboot_type']
         self.log_fp = open(self.log_file_name, 'w')
 
+        # a flag whether to populate FDB by sending traffic from simulated servers
+        # usually ARP responder will make switch populate its FDB table, but Mellanox on 201803 has
+        # no L3 ARP support, so this flag is used to W/A this issue
+        self.setup_fdb_before_test = self.test_params.get('setup_fdb_before_test', False)
+
         # Default settings
         self.ping_dut_pkts  = 10
         self.arp_ping_pkts  = 1
@@ -450,7 +455,30 @@ class ReloadTest(BaseTest):
 
         return
 
+    def setup_fdb(self):
+        """ simulate traffic generated from servers to help populate FDB """
+
+        vlan_map = self.vlan_host_map
+
+        from_servers_pkt = testutils.simple_tcp_packet(
+            eth_dst=self.dut_mac,
+            ip_dst=self.from_server_dst_addr,
+        )
+
+        for port in vlan_map:
+            for addr in vlan_map[port]:
+                mac = vlan_map[port][addr]
+
+                from_servers_pkt[scapy.Ether].src = self.hex_to_mac(mac)
+                from_servers_pkt[scapy.IP].src = addr
+
+                testutils.send(self, port, from_servers_pkt)
+
+        # make sure orchagent processed new FDBs
+        time.sleep(1)
+
     def tearDown(self):
+
         self.log("Disabling arp_responder")
         self.cmd(["supervisorctl", "stop", "arp_responder"])
 
@@ -624,6 +652,11 @@ class ReloadTest(BaseTest):
         thr.setDaemon(True)
 
         try:
+            if self.setup_fdb_before_test:
+                self.log("Run some server traffic to populate FDB table...")
+                self.setup_fdb()
+
+
             self.log("Starting reachability state watch thread...")
             self.watching    = True
             self.light_probe = False
