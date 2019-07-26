@@ -319,7 +319,7 @@ class ReloadTest(BaseTest):
             for member in content[key]['members']:
                 for vm_key in self.vm_dut_map.keys():
                     if member in self.vm_dut_map[vm_key]['dut_ports']:
-                        self.vm_dut_map[vm_key]['dut_portchannel'] = key
+                        self.vm_dut_map[vm_key]['dut_portchannel'] = str(key)
                         self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
                         break
 
@@ -327,8 +327,8 @@ class ReloadTest(BaseTest):
         content = self.read_json('neigh_port_info')
         for key in content.keys():
             if content[key]['name'] in self.vm_dut_map.keys():
-                self.vm_dut_map[content[key]['name']]['dut_ports'].append(key)
-                self.vm_dut_map[content[key]['name']]['neigh_ports'].append(content[key]['port'])
+                self.vm_dut_map[content[key]['name']]['dut_ports'].append(str(key))
+                self.vm_dut_map[content[key]['name']]['neigh_ports'].append(str(content[key]['port']))
                 self.vm_dut_map[content[key]['name']]['ptf_ports'].append(self.port_indices[key])
 
     def build_peer_mapping(self):
@@ -354,6 +354,18 @@ class ReloadTest(BaseTest):
             if key not in self.fails:
                 self.fails[key] = set()
             self.fails[key] |= fails[key]
+
+    def get_preboot_info(self):
+        msg = 'Preboot oper: %s ' % self.preboot_oper
+        if ':' in self.preboot_oper:
+            temp = self.preboot_oper.split(':')
+            msg = 'Preboot oper: %s ' % temp[0]
+            if len(temp) > 2:
+                msg += 'Number of sad path VMs: %s Lag member down in a portchannel: %s' % (temp[-2], temp[-1])
+            else:
+                msg += 'Number of sad path VMs: %s' % temp[-1]
+
+        return msg
 
     def setUp(self):
         self.fails['dut'] = set()
@@ -427,13 +439,8 @@ class ReloadTest(BaseTest):
         self.generate_arp_ping_packet()
 
         if self.reboot_type == 'warm-reboot':
-            # get the number of members down for sad path
             if self.preboot_oper:
-                if ':' in self.preboot_oper:
-                    oper_type, cnt = self.preboot_oper.split(':')
-                else:
-                    oper_type, cnt = self.preboot_oper, 1
-                self.log("Preboot Oper: %s Number down: %s" % (oper_type, cnt))
+                self.log(self.get_preboot_info())
 
             # Pre-generate list of packets to be sent in send_in_background method.
             generate_start = datetime.datetime.now()

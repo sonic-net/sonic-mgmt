@@ -396,16 +396,17 @@ class Arista(object):
                     self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
         return self.fails, bgp_state
 
-    def change_neigh_lag_state(self, lag, is_up=True):
+    def change_neigh_lag_state(self, intfs, is_up=True):
         state = ['shut', 'no shut']
         self.do_cmd('configure')
-        is_match = re.match('(Port-Channel|Ethernet)\d+', lag)
-        if is_match:
-            output = self.do_cmd('interface %s' % lag)
-            if 'Invalid' not in output:
-                self.do_cmd(state[is_up])
-                self.do_cmd('exit')
-            self.do_cmd('exit')
+        for intf in intfs:
+            is_match = re.match('(Port-Channel|Ethernet)\d+', intf)
+            if is_match:
+                output = self.do_cmd('interface %s' % intf)
+                if 'Invalid' not in output:
+                    self.do_cmd(state[is_up])
+                    self.do_cmd('exit')
+        self.do_cmd('exit')
 
     def verify_neigh_lag_state(self, lag, state="connected", pre_check=True):
         lag_state = False
