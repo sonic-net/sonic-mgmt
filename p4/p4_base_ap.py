@@ -1,0 +1,46 @@
+# Cafy based Godiva Test
+import pytest
+import os
+from framework.ap_base import ApBase
+from logger.cafylog import CafyLog
+from topology.topo_mgr.topo_mgr import Topology
+from framework.pytest.cafy import Cafy
+from topology.zap.zap import Zap
+
+log = CafyLog("Godiva P4 AP")
+
+class ApData:
+    
+    """
+    Definition of ApData Class
+    """
+
+    testbed = None
+    prefix = os.path.dirname(os.path.abspath(__file__))
+    if CafyLog.topology_file:
+        test_bed = CafyLog.topology_file
+    else:
+        test_bed = os.path.join(prefix,"gd_ap_topo.json")
+
+    if CafyLog.test_input_file:
+        input_file = CafyLog.test_input_file
+    else:
+        input_file = os.path.join(prefix,"gd_ap_input_file.json")
+    testbed = Topology(topo_file=test_bed)
+    zap = Zap(test_input_file=input_file,topo_file=test_bed)
+    p4_feature_dict = zap.get_feature_configuration("p4")  
+    
+class P4ApBase(ApBase):
+    # P4 Base Variables
+    ApData.p4info = ApData.p4_feature_dict['p4info']
+    ApData.p4json = ApData.p4_feature_dict['p4json']
+    ApData.input_conf_file = ApData.p4_feature_dict['input_conf_file']
+    ApData.svr_addr = ApData.p4_feature_dict['R1']['svr_addr']
+    ApData.port_addr = ApData.p4_feature_dict['R1']['svr_port']
+    ApData.proto_dump_file = ApData.p4_feature_dict['R1']['proto_dump_file']
+    ApData.device_id = ApData.p4_feature_dict['R1']['device_id']
+    ApData.sw_name = ApData.p4_feature_dict['R1']['name']
+
+    # Port Configuration Variables
+    
+

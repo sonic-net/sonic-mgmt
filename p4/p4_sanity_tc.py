@@ -5,6 +5,16 @@ import os
 import sys
 import json
 from time import sleep
+from topology.topo_mgr.topo_mgr import Topology
+from framework.pytest.cafy import Cafy
+import pytest
+from logger.cafylog import CafyLog
+from topology.zap.zap import Zap
+from utils.helper import Helper
+from utils.cafyexception import CafyException
+from p4_base_ap import ApData, P4ApBase
+import marshal
+
 
 # Import P4Runtime lib from parent utils dir
 # Probably there's a better way of doing this.
@@ -26,52 +36,24 @@ import p4_test_lib as p4TestLib
 SWITCH_TO_HOST_PORT = 1
 SWITCH_TO_SWITCH_PORT = 2
 
-def main():
-    parser = argparse.ArgumentParser(description='P4Runtime Client')
+def _test_p4_sanity():
 
-    parser.add_argument('--p4info', help='p4info proto in text format from p4c',
-                        type=str, action="store", required=False,
-                        default='../../thirdparty/google/p4/b4-gen.txt')
-    parser.add_argument('--p4json', help='JSON file from p4c',
-                        type=str, action="store", required=False,
-                        # default='../../thirdparty/google/p4/b4-gen.json'
-                        default = None)
-    parser.add_argument("-i", '--input_conf_file',
-                        help="path to input runtime configuration file (JSON)",
-                        type=str, action="store", required=True)
-
-    args = parser.parse_args()
-
-    if args.p4info and not os.path.exists(args.p4info):
-        parser.print_help()
-        print(("p4info file not found: {}".format(args.p4info)))
-        parser.exit(1)
-    if args.p4json and not os.path.exists(args.p4json):
-        parser.print_help()
-        print(("JSON file not found: {}".format(args.p4json)))
-        parser.exit(1)
-    if not os.path.exists(args.input_conf_file):
-        parser.print_help()
-        print(("Input Config file not found: {}".format(args.input_conf_file)))
-        parser.exit(1)
-
-    #workdir = os.path.dirname(os.path.abspath(args.input_conf_file))
-    with open(args.input_conf_file, 'r') as ip_conf_file:
+    with open(ApData.input_conf_file, 'r') as ip_conf_file:
         input_conf = p4TestLib.json_load_byteified(ip_conf_file)
 
     # Instantiate a P4Runtime helper from the p4info file
-    p4info_helper = p4_info_helper.P4InfoHelper(args.p4info) \
-                    if args.p4info!=None else None
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    p4_json_file_path = ApData.p4json
 
     try:
         # Create a switch connection object for s1 (switch 1)
         # this is backed by a P4Runtime gRPC connection.
         # Also, dump all P4Runtime messages sent to switch to given txt files.
         s1 = p4_switch.SwitchConnection(
-            name='s1',
-            address='172.17.0.2:50051',
-            device_id=0,
-            proto_dump_file='s1-p4runtime-requests-log.txt')
+            name=ApData.sw_name,
+            address=ApData.svr_addr+":"+ApData.port_addr,
+            device_id=int(ApData.device_id),
+            proto_dump_file=ApData.proto_dump_file)
 
         # XXX Does not look like this is setting the role field in
         # message MasterArbitrationUpdate proto/p4/v1/p4runtime.proto
@@ -91,7 +73,7 @@ def main():
         if p4info_helper != None: 
             # Install the P4 program on the switches
             s1.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,
-                                           p4_json_file_path=args.p4json)
+                                        p4_json_file_path=p4_json_file_path)
             print("Installed P4 Program using SetForwardingPipelineConfig on s1")
 
             print("Getting ForwardingPipelineConfig on s1")
@@ -153,6 +135,3 @@ def main():
         printGrpcError(e)
 
     p4_switch.ShutdownAllSwitchConnections()
-
-if __name__ == '__main__':
-    main()
