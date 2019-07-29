@@ -1,5 +1,6 @@
 import pytest
 import csv
+import yaml
 import ipaddr as ipaddress
 
 from ansible_host import AnsibleHost
@@ -78,3 +79,11 @@ def ptfhost(ansible_adhoc, testbed):
 
     hostname = testbed['ptf']
     return AnsibleHost(ansible_adhoc, hostname)
+
+
+@pytest.fixture(scope='session')
+def eos():
+    """ read and yield eos configuration """
+    with open('eos/eos.yml') as stream:
+        eos = yaml.safe_load(stream)
+        return eos

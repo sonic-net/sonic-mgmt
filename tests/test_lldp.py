@@ -27,7 +27,7 @@ def test_lldp(localhost, ansible_adhoc, testbed):
         assert v['port']['ifname'] == mg_facts['minigraph_neighbors'][k]['port']
 
 
-def test_lldp_neighbor(localhost, ansible_adhoc, testbed):
+def test_lldp_neighbor(localhost, ansible_adhoc, testbed, eos):
     """ verify LLDP information on neighbors """
 
     hostname = testbed['dut']
@@ -45,8 +45,7 @@ def test_lldp_neighbor(localhost, ansible_adhoc, testbed):
             continue
 
         hostip = v['chassis']['mgmt-ip']
-        # TODO: Need to read eos.yml to get SNMP version and community string
-        nei_lldp_facts = lhost.lldp_facts(host=hostip, version='v2c', community='strcommunity')['ansible_facts']
+        nei_lldp_facts = lhost.lldp_facts(host=hostip, version='v2c', community=eos['snmp_rocommunity'])['ansible_facts']
         print nei_lldp_facts
         neighbor_interface = v['port']['ifname']
         # Verify the published DUT system name field is correct
