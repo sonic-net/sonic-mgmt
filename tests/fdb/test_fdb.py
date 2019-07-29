@@ -6,6 +6,7 @@ import ptf.testutils as testutils
 import time
 import itertools
 import logging
+import pprint
 
 DEFAULT_FDB_ETHERNET_TYPE = 0x1234
 DUMMY_MAC_PREFIX = "02:11:22:33"
@@ -139,10 +140,9 @@ def test_fdb(ansible_adhoc, testbed, ptfadapter):
             for src_mac, dst_mac in itertools.product(fdb[src], fdb[dst]):
                 send_recv_eth(ptfadapter, src, src_mac, dst, dst_mac)
 
+    # Should we have fdb_facts ansible module for this test?
     res = duthost.command('show mac')
-    logger.debug('"show mac" output on DUT')
-    for line in res['stdout_lines']:
-        logger.debug('    {}'.format(line))
+    logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
 
     dummy_mac_count = 0
     total_mac_count = 0
