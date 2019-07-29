@@ -2,6 +2,8 @@ import pytest
 import csv
 import ipaddr as ipaddress
 
+from ansible_host import AnsibleHost
+
 
 pytest_plugins = ('ptf_fixtures', 'ansible_fixtures')
 
@@ -56,3 +58,23 @@ def testbed(request):
 
     tbinfo = TestbedInfo(tbfile)
     return tbinfo.testbed_topo[tbname]
+
+
+@pytest.fixture(scope="module")
+def duthost(ansible_adhoc, testbed):
+    """
+    Shortcut fixture for getting DUT host
+    """
+
+    hostname = testbed['dut']
+    return AnsibleHost(ansible_adhoc, hostname)
+
+
+@pytest.fixture(scope="module")
+def ptfhost(ansible_adhoc, testbed):
+    """
+    Shortcut fixture for getting PTF host
+    """
+
+    hostname = testbed['ptf']
+    return AnsibleHost(ansible_adhoc, hostname)
