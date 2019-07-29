@@ -286,6 +286,7 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 - Replace {VALUE1} and {VALUE2} with true/false. Default: false
 - stay_in_target_image parameter decides if the DUT should be reverted back to the old image after warm-reboot
 - cleanup_old_sonic_images parameter will decide if all the images on the DUT should be cleaned up except for the current and the next images
+- parameters 'new_sonic_image', 'stay_in_target_image', 'cleanup_old_sonic_images' are optional
 
 ##### Warm reboot FIB test
 ```
