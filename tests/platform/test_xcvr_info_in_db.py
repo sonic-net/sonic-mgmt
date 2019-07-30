@@ -9,6 +9,7 @@ import re
 import os
 
 from ansible_host import ansible_host
+from check_transceiver_status import check_transceiver_status
 
 
 def parse_transceiver_info(output_lines):
@@ -52,32 +53,7 @@ def test_xcvr_info_in_db(localhost, ansible_adhoc, testbed):
         "../../ansible/files/lab_connection_graph.xml")
     conn_graph_facts = localhost.conn_graph_facts(host=hostname, filename=lab_conn_graph_file).\
         contacted['localhost']['ansible_facts']
+    interfaces = conn_graph_facts["device_conn"]
 
-    logging.info("Check whether transceiver information of all ports are in redis")
-    xcvr_info = ans_host.command("redis-cli -n 6 keys TRANSCEIVER_INFO*")
-    parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
-    for intf in conn_graph_facts["device_conn"]:
-        assert intf in parsed_xcvr_info, "TRANSCEIVER INFO of %s is not found in DB" % intf
-
-    logging.info("Check detailed transceiver information of each connected port")
-    expected_fields = ["type", "hardwarerev", "serialnum", "manufacturename", "modelname"]
-    for intf in conn_graph_facts["device_conn"]:
-        port_xcvr_info = ans_host.command('redis-cli -n 6 hgetall "TRANSCEIVER_INFO|%s"' % intf)
-        for field in expected_fields:
-            assert port_xcvr_info["stdout"].find(field) >= 0, \
-                "Expected field %s is not found in %s while checking %s" % (field, port_xcvr_info["stdout"], intf)
-
-    logging.info("Check whether TRANSCEIVER_DOM_SENSOR of all ports in redis")
-    xcvr_dom_senspor = ans_host.command("redis-cli -n 6 keys TRANSCEIVER_DOM_SENSOR*")
-    parsed_xcvr_dom_senspor = parse_transceiver_dom_sensor(xcvr_dom_senspor["stdout_lines"])
-    for intf in conn_graph_facts["device_conn"]:
-        assert intf in parsed_xcvr_dom_senspor, "TRANSCEIVER_DOM_SENSOR of %s is not found in DB" % intf
-
-    logging.info("Check detailed TRANSCEIVER_DOM_SENSOR information of each connected ports")
-    expected_fields = ["temperature", "voltage", "rx1power", "rx2power", "rx3power", "rx4power", "tx1bias",
-                       "tx2bias", "tx3bias", "tx4bias", "tx1power", "tx2power", "tx3power", "tx4power"]
-    for intf in conn_graph_facts["device_conn"]:
-        port_xcvr_dom_sensor = ans_host.command('redis-cli -n 6 hgetall "TRANSCEIVER_DOM_SENSOR|%s"' % intf)
-        for field in expected_fields:
-            assert port_xcvr_dom_sensor["stdout"].find(field) >= 0, \
-                "Expected field %s is not found in %s while checking %s" % (field, port_xcvr_dom_sensor["stdout"], intf)
+    logging.info("Check transceiver status")
+    check_transceiver_status(ans_host, interfaces)

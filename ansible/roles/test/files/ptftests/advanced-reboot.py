@@ -143,8 +143,9 @@ class ReloadTest(BaseTest):
         self.check_param('warm_up_timeout_secs', 300, required=False)
         self.check_param('dut_stabilize_secs', 30, required=False)
         self.check_param('preboot_files', None, required = False)
-        self.check_param('preboot_oper', None, required = False)
+        self.check_param('preboot_oper', None, required = False) # preboot sad path to inject before warm-reboot
         self.check_param('allow_vlan_flooding', False, required = False)
+        self.check_param('sniff_time_incr', 60, required = False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
 
@@ -153,6 +154,11 @@ class ReloadTest(BaseTest):
         else:
            self.log_file_name = '/tmp/%s.log' % self.test_params['reboot_type']
         self.log_fp = open(self.log_file_name, 'w')
+
+        # a flag whether to populate FDB by sending traffic from simulated servers
+        # usually ARP responder will make switch populate its FDB table, but Mellanox on 201803 has
+        # no L3 ARP support, so this flag is used to W/A this issue
+        self.setup_fdb_before_test = self.test_params.get('setup_fdb_before_test', False)
 
         # Default settings
         self.ping_dut_pkts  = 10
@@ -343,6 +349,12 @@ class ReloadTest(BaseTest):
         self.get_neigh_port_info()
         self.get_portchannel_info()
 
+    def populate_fail_info(self, fails):
+        for key in fails:
+            if key not in self.fails:
+                self.fails[key] = set()
+            self.fails[key] |= fails[key]
+
     def setUp(self):
         self.fails['dut'] = set()
         self.port_indices = self.read_port_indices()
@@ -375,14 +387,12 @@ class ReloadTest(BaseTest):
         if self.preboot_oper is not None:
             self.log("Preboot Operations:")
             self.pre_handle = sp.PrebootTest(self.preboot_oper, self.ssh_targets, self.portchannel_ports, self.vm_dut_map, self.test_params, self.dut_ssh)
-            (self.ssh_targets, self.portchannel_ports, self.neigh_vm), (log_info, fails_dut, fails_vm) = self.pre_handle.setup()
-            self.fails['dut'] |= fails_dut
-            self.fails[self.neigh_vm] = fails_vm
+            (self.ssh_targets, self.portchannel_ports, self.neigh_vm), (log_info, fails) = self.pre_handle.setup()
+            self.populate_fail_info(fails)
             for log in log_info:
                 self.log(log)
-            log_info, fails_dut, fails_vm = self.pre_handle.verify()
-            self.fails['dut'] |= fails_dut
-            self.fails[self.neigh_vm] |= fails_vm
+            log_info, fails = self.pre_handle.verify()
+            self.populate_fail_info(fails)
             for log in log_info:
                 self.log(log)
             self.log(" ")
@@ -417,7 +427,14 @@ class ReloadTest(BaseTest):
         self.generate_arp_ping_packet()
 
         if self.reboot_type == 'warm-reboot':
-            self.log("Preboot Oper: %s" % self.preboot_oper)
+            # get the number of members down for sad path
+            if self.preboot_oper:
+                if ':' in self.preboot_oper:
+                    oper_type, cnt = self.preboot_oper.split(':')
+                else:
+                    oper_type, cnt = self.preboot_oper, 1
+                self.log("Preboot Oper: %s Number down: %s" % (oper_type, cnt))
+
             # Pre-generate list of packets to be sent in send_in_background method.
             generate_start = datetime.datetime.now()
             self.generate_bidirectional()
@@ -438,7 +455,30 @@ class ReloadTest(BaseTest):
 
         return
 
+    def setup_fdb(self):
+        """ simulate traffic generated from servers to help populate FDB """
+
+        vlan_map = self.vlan_host_map
+
+        from_servers_pkt = testutils.simple_tcp_packet(
+            eth_dst=self.dut_mac,
+            ip_dst=self.from_server_dst_addr,
+        )
+
+        for port in vlan_map:
+            for addr in vlan_map[port]:
+                mac = vlan_map[port][addr]
+
+                from_servers_pkt[scapy.Ether].src = self.hex_to_mac(mac)
+                from_servers_pkt[scapy.IP].src = addr
+
+                testutils.send(self, port, from_servers_pkt)
+
+        # make sure orchagent processed new FDBs
+        time.sleep(1)
+
     def tearDown(self):
+
         self.log("Disabling arp_responder")
         self.cmd(["supervisorctl", "stop", "arp_responder"])
 
@@ -612,6 +652,11 @@ class ReloadTest(BaseTest):
         thr.setDaemon(True)
 
         try:
+            if self.setup_fdb_before_test:
+                self.log("Run some server traffic to populate FDB table...")
+                self.setup_fdb()
+
+
             self.log("Starting reachability state watch thread...")
             self.watching    = True
             self.light_probe = False
@@ -735,9 +780,8 @@ class ReloadTest(BaseTest):
             if self.reboot_type == 'warm-reboot' and self.preboot_oper is not None:
                 if self.pre_handle is not None:
                     self.log("Postboot checks:")
-                    log_info, fails_dut, fails_vm = self.pre_handle.verify(pre_check=False)
-                    self.fails[self.neigh_vm] |= fails_vm
-                    self.fails['dut'] |= fails_dut
+                    log_info, fails = self.pre_handle.verify(pre_check=False)
+                    self.populate_fail_info(fails)
                     for log in log_info:
                         self.log(log)
                     self.log(" ")
@@ -917,7 +961,7 @@ class ReloadTest(BaseTest):
         The native scapy.snif() is used as a background thread, to allow delayed start for the send_in_background().
         """
         if not wait:
-            wait = self.time_to_listen + 60
+            wait = self.time_to_listen + self.test_params['sniff_time_incr']
         sniffer_start = datetime.datetime.now()
         self.log("Sniffer started at %s" % str(sniffer_start))
         sniff_filter = "tcp and tcp dst port 5000 and tcp src port 1234 and not icmp"
