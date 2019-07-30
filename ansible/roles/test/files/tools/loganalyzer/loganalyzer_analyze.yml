@@ -44,7 +44,7 @@
       match_file_list: "{{ match_file_list + [test_match_file] }}"
   when: test_match_file is defined
 
-- name: Add mmatch file option
+- name: Add match file option
   set_fact:
       match_file_option: "{{ match_file_option }}{{ match_file_list | join(',') }}"
 
