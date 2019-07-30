@@ -6,21 +6,25 @@
     acl_table_type: "{{ item['type'] }}"
 
 - name: Generate config for ACL table
+  become: true
   template:
     src: "roles/test/templates/acltb_table.j2"
     dest: "{{ dut_tmp_dir }}/acl_table_{{ acl_table_name }}.json"
 
 - name: Generate config for ACL rule
+  become: true
   template:
     src: "roles/test/templates/acltb_test_rules.j2"
     dest: "{{ dut_tmp_dir }}/acl_rules_{{ acl_table_name }}.json"
 
 - name: Generate config for ACL rule part1
+  become: true
   template:
     src: "roles/test/templates/acltb_test_rules_part_1.j2"
     dest: "{{ dut_tmp_dir }}/acl_rules_{{ acl_table_name }}_part_1.json"
 
 - name: Generate config for ACL rule part2
+  become: true
   template:
     src: "roles/test/templates/acltb_test_rules_part_2.j2"
     dest: "{{ dut_tmp_dir }}/acl_rules_{{ acl_table_name }}_part_2.json"
