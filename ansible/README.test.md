@@ -279,13 +279,14 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 
 ##### Warm reboot test
 ```
-ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=warm-reboot -e testbed_name={TESTBED_NAME} -e new_sonic_image={IMAGE_URL} --stay_in_target_image={VALUE1} --cleanup_old_sonic_images={VALUE2}
+ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=warm-reboot -e testbed_name={TESTBED_NAME} -e new_sonic_image={IMAGE_URL} -e stay_in_target_image={VALUE1} -e cleanup_old_sonic_images={VALUE2}
 ```
 - Requires switch connected to PTF testbed
 - Replace {IMAGE_URL} with the link pointing to the next image to warm-reboot into
 - Replace {VALUE1} and {VALUE2} with true/false. Default: false
 - stay_in_target_image parameter decides if the DUT should be reverted back to the old image after warm-reboot
 - cleanup_old_sonic_images parameter will decide if all the images on the DUT should be cleaned up except for the current and the next images
+- parameters 'new_sonic_image', 'stay_in_target_image', 'cleanup_old_sonic_images' are optional
 
 ##### Warm reboot FIB test
 ```
