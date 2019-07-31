@@ -98,6 +98,12 @@ protocol openflow
 
 {% for i in range(1, eth_ports|length) %}
 interface ethernet {{ eth_ports[i] }} openflow mode hybrid
+
+# Disable mac learning to avoid issue when VM MAC address appears on DUT port during SONiC port flap or restart and also issue in FDB reload test for which rules matching 0x1234 ethertype were introduces.
+# The idea is that forwarding is controlled by openflow rules.
+# For normal openflow rule since there are only two ports in same vlan (one access port connected to DUT, one trunk port connected to server)
+# - one is always a source port and one is always a destination port, so no flooding actually occurs.
+interface ethernet {{ eth_ports[i] }} mac-learning disable
 {% endfor %}
 
 {% set of_counter = 0 -%}
@@ -149,7 +155,10 @@ openflow add-flows {{ of_counter + i }} table={{ open_flow_tableid }},priority={
 openflow add-flows {{ of_counter + i }} table={{ open_flow_tableid }},priority={{ dut_to_server_flow_priority }},dl_type={{ eth_typ_test }},in_port={{ of_ports[i] }},actions=output:{{ of_ports[uplink_port_id] }}
 {% endfor %}
 
-openflow add-flows {{ last_flowid }} table={{ open_flow_tableid }},priority={{ low_priority }},actions=normal
+{% set of_counter = of_counter + eth_ports|length-2 -%}
+
+# apply normal openflow rule
+openflow add-flows {{ of_counter + 1 }} table={{ open_flow_tableid }},priority={{ low_priority }},actions=normal
 
 docker
 no shutdown
