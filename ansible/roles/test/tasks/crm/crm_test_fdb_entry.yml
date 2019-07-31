@@ -80,6 +80,7 @@
       command: fdbclear
 
     - name: Remove FDB JSON config from switch.
+      become: yes
       command: rm /tmp/fdb.json
 
     - name: Remove FDB JSON config from SWSS container
