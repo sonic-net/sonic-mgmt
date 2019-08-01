@@ -34,6 +34,10 @@
   - name: gather DUT interface table
     show_interface: command='status'
 
+  # To pick an interface which is up and a routing interface for the test.
+  # For a routing interface, the item.value['vlan'] contains string 'routed'.
+  # The key name 'vlan' aligns with the title of column where its data comes.
+  # It doesn't mean to use a 'vlan' interface for the test.
   - name: select A routing interface for testing
     set_fact:
       routing_interface: "{{ item.key }}"
