@@ -154,7 +154,7 @@ class DHCPTest(DataplaneBaseTest):
     """
 
     def create_dhcp_discover_packet(self):
-        return testutils.dhcp_discover_packet(eth_client=self.client_mac)
+        return testutils.dhcp_discover_packet(eth_client=self.client_mac, set_broadcast_bit=True)
 
     def create_dhcp_discover_relayed_packet(self):
         my_chaddr = ''.join([chr(int(octet, 16)) for octet in self.client_mac.split(':')])
@@ -183,7 +183,7 @@ class DHCPTest(DataplaneBaseTest):
                     hops=1,
                     xid=0,
                     secs=0,
-                    flags=0,
+                    flags=0x8000,
                     ciaddr=self.DEFAULT_ROUTE_IP,
                     yiaddr=self.DEFAULT_ROUTE_IP,
                     siaddr=self.DEFAULT_ROUTE_IP,
@@ -258,7 +258,8 @@ class DHCPTest(DataplaneBaseTest):
     def create_dhcp_request_packet(self):
         return testutils.dhcp_request_packet(eth_client=self.client_mac,
                     ip_server=self.server_ip,
-                    ip_requested=self.client_ip)
+                    ip_requested=self.client_ip,
+                    set_broadcast_bit=True)
 
     def create_dhcp_request_relayed_packet(self):
         my_chaddr = ''.join([chr(int(octet, 16)) for octet in self.client_mac.split(':')])
@@ -280,7 +281,7 @@ class DHCPTest(DataplaneBaseTest):
                     hops=1,
                     xid=0,
                     secs=0,
-                    flags=0,
+                    flags=0x8000,
                     ciaddr=self.DEFAULT_ROUTE_IP,
                     yiaddr=self.DEFAULT_ROUTE_IP,
                     siaddr=self.DEFAULT_ROUTE_IP,
