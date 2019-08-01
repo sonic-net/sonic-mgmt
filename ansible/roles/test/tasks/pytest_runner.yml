@@ -33,14 +33,13 @@
   set_fact:
     pytest_cmd: '{{ pytest_cmd }} --testbed={{ testbed_name }}'
 
-# We could use ansible_inventory_sources magic variable but it is available in ansible >=2.5
 - name: append inventory file
   set_fact:
-    pytest_cmd: '{{ pytest_cmd }} --inventory=../ansible/inventory'
+    pytest_cmd: '{{ pytest_cmd }} --inventory=../ansible/{{ inventory_file }}'
 
 - name: append testbed file
   set_fact:
-    pytest_cmd: '{{ pytest_cmd }} --testbed_file=../ansible/testbed.csv'
+    pytest_cmd: '{{ pytest_cmd }} --testbed_file=../ansible/{{ testbed_file }}'
 
 - name: append host pattern
   set_fact:
