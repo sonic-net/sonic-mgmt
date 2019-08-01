@@ -3,6 +3,7 @@ import csv
 import yaml
 import ipaddr as ipaddress
 
+from loganalyzer.loganalyzer import LogAnalyzer
 from ansible_host import AnsibleHost
 
 
@@ -45,6 +46,7 @@ class TestbedInfo(object):
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
+    parser.addoption("--disable_loganalyzer", action="store_true", default=False, help="disable loganalyzer analysis for 'loganalyzer' fixture")
 
 
 @pytest.fixture(scope="session")
@@ -87,3 +89,19 @@ def eos():
     with open('eos/eos.yml') as stream:
         eos = yaml.safe_load(stream)
         return eos
+
+@pytest.fixture(autouse=True)
+def loganalyzer(duthost, request):
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name)
+    # Add start marker into DUT syslog
+    marker = loganalyzer.init()
+    yield loganalyzer
+    if not request.config.getoption("--disable_loganalyzer") and "disable_loganalyzer" not in request.keywords:
+        # Read existed common regular expressions located with legacy loganalyzer module
+        loganalyzer.load_common_config()
+        # Parse syslog and process result. Raise "LogAnalyzerError" exception if: total match or expected missing match is not equal to zero
+        loganalyzer.analyze(marker)
+    else:
+        # Add end marker into DUT syslog
+        loganalyzer._add_end_marker(marker)
+
