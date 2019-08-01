@@ -1,10 +1,24 @@
+
+# The PTF image built from different branches may be incompatible. The ptf_imagetag variable added here is to
+# support using different PTF images for different branches. When the ptf_imagetag variable is not specified,
+# the PTF image with default "201811" tag will be used in this sonic-mgmt 201811 branch. When a different PTF
+# image version is required, we can specify a different value for the ptf_imagetag variable somewhere to
+# override the default value, for example, specify from command line:
+#    ./testbed-cli.sh add-topo <testbed_name>-<topo> vault -e ptf_imagetag=myversion
+# By using this practice, we suggest to add different tags for different PTF image versions in docker registry.
+# And we suggest to add tag "201811" for PTF image built from the 201811 branch.
+- name: Set default value for ptf_imagetag
+  set_fact:
+    ptf_imagetag: "201811"
+  when: ptf_imagetag is not defined
+
 - name: Create a docker container ptf_{{ vm_set_name }}
   docker:
     registry: "{{ docker_registry_host }}"
     username: "{{ docker_registry_username }}"
     password: "{{ docker_registry_password }}"
     name: ptf_{{ vm_set_name }}
-    image: "{{ docker_registry_host }}/{{ ptf_imagename }}"
+    image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
     pull: always
     state: reloaded
     net: none
