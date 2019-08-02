@@ -5,12 +5,13 @@ import pprint
 logger = logging.getLogger(__name__)
 
 
-def port_toggle(duthost, ports=None, wait=60):
+def port_toggle(duthost, ports=None, wait=60, wait_after_ports_up=60):
     """
     Toggle ports on DUT
     :param duthost: DUT host object
     :param ports: specify list of ports, None if toggle all ports
     :param wait: time to wait for interface to become up
+    :param wait_after_ports_up: time to wait after interfaces become up
     :return:
     """
 
@@ -42,3 +43,6 @@ def port_toggle(duthost, ports=None, wait=60):
             break
 
     assert len(ports_down) == 0
+
+    logger.info('wait {} seconds for system to startup'.format(wait_after_ports_up))
+    time.sleep(wait_after_ports_up)

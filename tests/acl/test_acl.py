@@ -1,10 +1,12 @@
-import pytest
+import os
 import time
 import random
 import logging
 import pprint
 
 from abc import ABCMeta, abstractmethod
+
+import pytest
 
 import ptf.testutils as testutils
 import ptf.mask as mask
@@ -15,6 +17,16 @@ from common import reboot, port_toggle
 logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.acl
+
+BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
+FILES_DIR = os.path.join(BASE_DIR, 'files')
+TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
+
+ACL_TABLE_TEMPLATE = 'acltb_table.j2'
+ACL_RULES_FULL_TEMPLATE = 'acltb_test_rules.j2'
+ACL_RULES_PART_TEMPLATES = tuple('acltb_test_rules_part_{}.j2'.format(i) for i in xrange(1, 3))
+ACL_REMOVE_RULES_FILE = 'acl_rules_del.json'
 
 DST_IP_TOR = '172.16.1.0'
 DST_IP_TOR_FORWARDED = '172.16.2.0'
@@ -67,16 +79,14 @@ def setup(duthost, testbed):
     else:
         acl_table_ports += spine_ports
 
-    tmp_dir = '/tmp/acl/'
-
-    logger.info('creating temporary folder for test {}'.format(tmp_dir))
-    duthost.command("mkdir -p {}".format(tmp_dir))
+    logger.info('creating temporary folder for test {}'.format(DUT_TMP_DIR))
+    duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
 
     host_facts = duthost.setup()['ansible_facts']
 
     setup_information = {
         'router_mac': host_facts['ansible_Ethernet0']['macaddress'],
-        'dut_tmp_dir': tmp_dir,
+        'dut_tmp_dir': DUT_TMP_DIR,
         'tor_ports': tor_ports,
         'spine_ports': spine_ports,
         'tor_ports_ids': tor_ports_ids,
@@ -95,8 +105,8 @@ def setup(duthost, testbed):
 
     yield setup_information
 
-    logger.info('removing {}'.format(tmp_dir))
-    duthost.command('rm -rf {}'.format(tmp_dir))
+    logger.info('removing {}'.format(DUT_TMP_DIR))
+    duthost.command('rm -rf {}'.format(DUT_TMP_DIR))
 
 
 @pytest.fixture(scope='module', params=['ingress', 'egress'])
@@ -128,26 +138,26 @@ def acl_table_config(duthost, setup, stage):
     }
 
     acl_table_name = tables_map[stage]
-    tmp = setup['dut_tmp_dir']
+    tmp_dir = setup['dut_tmp_dir']
 
-    extra_vars = {
+    acl_table_vars = {
         'acl_table_name':  acl_table_name,
         'acl_table_ports': setup['acl_table_ports'],
         'acl_table_stage': stage,
         'acl_table_type': 'L3',
     }
 
-    logger.info('extra variables for configuration template rendering:\n{}'.format(pprint.pformat(extra_vars)))
-    duthost.host.options['variable_manager'].extra_vars = extra_vars
+    logger.info('extra variables for ACL table:\n{}'.format(pprint.pformat(acl_table_vars)))
+    duthost.host.options['variable_manager'].extra_vars = acl_table_vars
 
-    logger.info('generate config for ACL table {table_name}'.format(table_name=acl_table_name))
-    dest_file = '{dir}/acl_table_{name}.json'.format(dir=tmp, name=acl_table_name)
-    duthost.template(src='acl/templates/acltb_table.j2',
-                     dest=dest_file)
+    logger.info('generate config for ACL table {}'.format(acl_table_name))
+    acl_config = 'acl_table_{}.json'.format(acl_table_name)
+    acl_config_path = os.path.join(tmp_dir, acl_config)
+    duthost.template(src=os.path.join(TEMPLATE_DIR, ACL_TABLE_TEMPLATE), dest=acl_config_path)
 
     yield {
-        'acl_table_name': acl_table_name,
-        'acl_config_file': dest_file,
+        'name': acl_table_name,
+        'config_file': acl_config_path,
     }
 
 
@@ -160,15 +170,16 @@ def acl_table(duthost, acl_table_config):
     :return: forwards acl_table_config
     """
 
-    conf = acl_table_config['acl_config_file']
+    name = acl_table_config['name']
+    conf = acl_table_config['config_file']
 
-    logger.info('creating ACL tables: applying {conf}'.format(conf=conf))
-    duthost.command('sonic-cfggen -j {conf} --write-to-db'.format(conf=conf))
+    logger.info('creating ACL table: applying {}'.format(conf))
+    duthost.command('sonic-cfggen -j {} --write-to-db'.format(conf))
 
     yield acl_table_config
 
-    logger.info('removing ACL table {}'.format(acl_table_config['acl_table_name']))
-    duthost.command('config acl remove table {}'.format(acl_table_config['acl_table_name']))
+    logger.info('removing ACL table {}'.format(name))
+    duthost.command('config acl remove table {}'.format(name))
 
     # save cleaned configuration
     duthost.command('config save -y')
@@ -206,13 +217,13 @@ class BaseAclTest(object):
         :return:
         """
 
-        logger.debug('removing ACL rules')
-
+        logger.info('removing all ACL rules')
         # copy rules remove configuration
-        dut.copy(src='acl/files/acl_rules_del.json',
-                 dest='{dir}/'.format(dir=setup['dut_tmp_dir']))
-
-        dut.command('config acl update full {dir}/acl_rules_del.json'.format(dir=setup['dut_tmp_dir']))
+        dut.copy(src=os.path.join(FILES_DIR, ACL_REMOVE_RULES_FILE), dest=setup['dut_tmp_dir'])
+        remove_rules_dut_path = os.path.join(setup['dut_tmp_dir'], ACL_REMOVE_RULES_FILE)
+        # remove rules
+        logger.info('applying {}'.format(remove_rules_dut_path))
+        dut.command('config acl update full {}'.format(remove_rules_dut_path))
 
     @pytest.fixture(scope='class', autouse=True)
     def acl_rules(self, duthost, localhost, setup, acl_table):
@@ -245,7 +256,7 @@ class BaseAclTest(object):
         :return:
         """
 
-        table_name = acl_table['acl_table_name']
+        table_name = acl_table['name']
         acl_facts_before_traffic = duthost.acl_facts()['ansible_facts']['ansible_acl_facts'][table_name]['rules']
         rule_list = []
         yield rule_list
@@ -634,17 +645,15 @@ class TestBasicAcl(BaseAclTest):
         :param acl_table: acl table creating fixture
         :return:
         """
+        name = acl_table['name']
+        dut_conf_file_path = os.path.join(setup['dut_tmp_dir'], 'acl_rules_{}.json'.format(name))
 
-        name = acl_table['acl_table_name']
-        dir = setup['dut_tmp_dir']
+        logger.info('generating config for ACL rules, ACL table {}'.format(name))
+        dut.template(src=os.path.join(TEMPLATE_DIR, ACL_RULES_FULL_TEMPLATE),
+                     dest=dut_conf_file_path)
 
-        logger.info('generate config for ACL rule ACL table {table_name}'.format(table_name=name))
-        dut.template(src='acl/templates/acltb_test_rules.j2',
-                     dest='{dir}/acl_rules_{name}.json'.format(dir=dir,
-                                                               name=name)
-        )
-
-        dut.command('config acl update full {}/acl_rules_{}.json'.format(dir, name))
+        logger.info('applying {}'.format(dut_conf_file_path))
+        dut.command('config acl update full {}'.format(dut_conf_file_path))
 
 
 class TestIncrementalAcl(BaseAclTest):
@@ -662,17 +671,13 @@ class TestIncrementalAcl(BaseAclTest):
         :param acl_table: acl table creating fixture
         :return:
         """
-
-        name = acl_table['acl_table_name']
-        dir = setup['dut_tmp_dir']
-
+        name = acl_table['name']
         logger.info('generate incremental config for ACL rule ACL table {table_name}'.format(table_name=name))
-        for i in xrange(2):
-            dut.template(src='acl/templates/acltb_test_rules_part_{}.j2'.format(i + 1),
-                         dest='{}/acl_rules_{}_part_{}.json'.format(dir, name, i + 1))
-
-        for i in xrange(2):
-            dut.command('config acl update incremental {}/acl_rules_{}_part_{}.json'.format(dir, name, i + 1))
+        for i, conf in enumerate(ACL_RULES_PART_TEMPLATES):
+            dut_conf_file_path = os.path.join(setup['dut_tmp_dir'], 'acl_rules_{}_part_{}.json'.format(name, i))
+            dut.template(src=os.path.join(TEMPLATE_DIR, conf), dest=dut_conf_file_path)
+            logger.info('applying {}'.format(dut_conf_file_path))
+            dut.command('config acl update incremental {}'.format(dut_conf_file_path))
 
 
 @pytest.mark.reboot
@@ -716,5 +721,3 @@ class TestAclWithPortToggle(TestBasicAcl):
 
         super(TestAclWithPortToggle, self).setup_rules(dut, localhost, setup, acl_table)
         port_toggle(dut)
-        logger.info('wait 1 minute for BGP sessions to startup')
-        time.sleep(60)  # wait for BGP sessions to startup
