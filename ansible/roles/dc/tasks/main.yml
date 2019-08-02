@@ -1,0 +1,36 @@
+---
+
+- name: Backup config_db.json from "{{ ansible_nodename }}({{inventory_hostname}})"
+  become: true
+  fetch:
+    src: /etc/sonic/config_db.json
+    dest: "roles/dc/files/{{ansible_nodename}}_config_db.json"
+    flat: yes
+  when: config_backup is defined
+
+- name: Backup frr.conf from "{{ ansible_nodename }}({{inventory_hostname}})"
+  become: true
+  fetch:
+    src: /etc/sonic/frr/frr.conf
+    dest: "roles/dc/files/{{ansible_nodename}}_frr.conf"
+    flat: yes
+  when: config_backup is defined
+
+
+
+- name: copy config_db.json to "{{ ansible_nodename }}"
+  become: true
+  copy:
+    src: "{{ansible_nodename}}_config_db.json"
+    dest: /etc/sonic/config_db.json
+  notify: reload SONiC config
+  when: config_apply is defined
+
+- name: copy frr.conf to "{{ ansible_nodename }}"
+  become: true
+  copy:
+    src: "{{ansible_nodename}}_frr.conf"
+    dest: /etc/sonic/frr/frr.conf
+  notify: reload SONiC config
+  when: config_apply is defined
+
