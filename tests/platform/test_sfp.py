@@ -10,7 +10,7 @@ import os
 import time
 import copy
 
-from ansible_host import ansible_host
+from ansible_host import AnsibleHost
 
 
 def parse_output(output_lines):
@@ -55,7 +55,7 @@ def test_check_sfp_status_and_configure_sfp(localhost, ansible_adhoc, testbed):
     * sfputil reset <interface name>
     """
     hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = AnsibleHost(ansible_adhoc, hostname)
     localhost.command("who")
     lab_conn_graph_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
         "../../ansible/files/lab_connection_graph.xml")
@@ -120,7 +120,7 @@ def test_check_sfp_low_power_mode(localhost, ansible_adhoc, testbed):
     * sfputil lpmode on
     """
     hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = AnsibleHost(ansible_adhoc, hostname)
     localhost.command("who")
     lab_conn_graph_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
         "../../ansible/files/lab_connection_graph.xml")

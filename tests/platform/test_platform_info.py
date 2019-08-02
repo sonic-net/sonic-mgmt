@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from ansible_host import ansible_host
+from ansible_host import AnsibleHost
 from psu_controller import psu_controller
 
 
@@ -24,7 +24,7 @@ def test_show_platform_summary(localhost, ansible_adhoc, testbed):
     @summary: Check output of 'show platform summary'
     """
     hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = AnsibleHost(ansible_adhoc, hostname)
 
     logging.info("Check output of '%s'" % CMD_PLATFORM_SUMMARY)
     platform_summary = ans_host.command(CMD_PLATFORM_SUMMARY)
@@ -44,7 +44,7 @@ def test_show_platform_psustatus(localhost, ansible_adhoc, testbed):
     @summary: Check output of 'show platform psustatus'
     """
     hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = AnsibleHost(ansible_adhoc, hostname)
 
     logging.info("Check PSU status using '%s', hostname: %s" % (CMD_PLATFORM_PSUSTATUS, hostname))
     psu_status = ans_host.command(CMD_PLATFORM_PSUSTATUS)
@@ -58,7 +58,7 @@ def test_turn_on_off_psu_and_check_psustatus(localhost, ansible_adhoc, testbed, 
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
     hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = AnsibleHost(ansible_adhoc, hostname)
     platform_info = parse_platform_summary(ans_host.command(CMD_PLATFORM_SUMMARY)["stdout_lines"])
 
     psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
@@ -151,7 +151,7 @@ def test_show_platform_syseeprom(localhost, ansible_adhoc, testbed):
     @summary: Check output of 'show platform syseeprom'
     """
     hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = AnsibleHost(ansible_adhoc, hostname)
 
     logging.info("Check output of '%s'" % CMD_PLATFORM_SYSEEPROM)
     platform_info = parse_platform_summary(ans_host.command(CMD_PLATFORM_SUMMARY)["stdout_lines"])

@@ -1,16 +1,14 @@
-from ansible_host import ansible_host
+from ansible_host import AnsibleHost
+
 
 def test_lldp(localhost, ansible_adhoc, testbed):
-    """verify the lldp message on DUT and neighbors"""
+    """ verify the LLDP message on DUT """
 
     hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = AnsibleHost(ansible_adhoc, hostname)
 
     mg_facts  = ans_host.minigraph_facts(host=hostname)['ansible_facts']
-    host_facts  = ans_host.setup()['ansible_facts']
     lldp_facts = ans_host.lldp()['ansible_facts']
-    res = ans_host.shell("docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")
-    dut_system_description = res['stdout']
 
     minigraph_lldp_nei = {}
     for k, v in mg_facts['minigraph_neighbors'].items():
@@ -28,11 +26,26 @@ def test_lldp(localhost, ansible_adhoc, testbed):
         # Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port)
         assert v['port']['ifname'] == mg_facts['minigraph_neighbors'][k]['port']
 
-    lhost = ansible_host(ansible_adhoc, 'localhost', True)
+
+def test_lldp_neighbor(localhost, ansible_adhoc, testbed, eos):
+    """ verify LLDP information on neighbors """
+
+    hostname = testbed['dut']
+    ans_host = AnsibleHost(ansible_adhoc, hostname)
+    mg_facts  = ans_host.minigraph_facts(host=hostname)['ansible_facts']
+    res = ans_host.shell("docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")
+    dut_system_description = res['stdout']
+    lldp_facts = ans_host.lldp()['ansible_facts']
+    host_facts  = ans_host.setup()['ansible_facts']
+    lhost = AnsibleHost(ansible_adhoc, 'localhost', True)
 
     for k, v in lldp_facts['lldp'].items():
+        if k == 'eth0':
+            # skip test on management interface
+            continue
+
         hostip = v['chassis']['mgmt-ip']
-        nei_lldp_facts = lhost.lldp_facts(host=hostip, version='v2c', community='strcommunity')['ansible_facts']
+        nei_lldp_facts = lhost.lldp_facts(host=hostip, version='v2c', community=eos['snmp_rocommunity'])['ansible_facts']
         print nei_lldp_facts
         neighbor_interface = v['port']['ifname']
         # Verify the published DUT system name field is correct

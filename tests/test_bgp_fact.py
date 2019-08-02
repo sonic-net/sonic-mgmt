@@ -1,10 +1,10 @@
-from ansible_host import ansible_host
+from ansible_host import AnsibleHost
 
 def test_bgp_facts(ansible_adhoc, testbed):
     """compare the bgp facts between observed states and target state"""
 
     hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = AnsibleHost(ansible_adhoc, hostname)
 
     bgp_facts = ans_host.bgp_facts()['ansible_facts']
     mg_facts  = ans_host.minigraph_facts(host=hostname)['ansible_facts']

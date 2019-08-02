@@ -16,9 +16,10 @@ class AnsibleModuleException(AnsibleError):
     def __str__(self):
         return "{}\nAnsible Results => {}".format(self.message, dump_ansible_results(self.results))
 
-class ansible_host():
-    
-    def __init__(self, ansible_adhoc, hostname, is_local = False):
+class AnsibleHost(object):
+    """ wrapper for ansible host object """
+
+    def __init__(self, ansible_adhoc, hostname, is_local=False):
         if is_local:
             self.host = ansible_adhoc(inventory='localhost', connection='local')[hostname]
         else:
@@ -28,11 +29,11 @@ class ansible_host():
     def __getattr__(self, item):
         self.module_name = item
         self.module = getattr(self.host, item)
- 
+
         return self._run
 
     def _run(self, *module_args, **complex_args):
-   
+
         module_ignore_errors = complex_args.pop('module_ignore_errors', False)
 
         res = self.module(*module_args, **complex_args)[self.hostname]
