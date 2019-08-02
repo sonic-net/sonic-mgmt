@@ -34,6 +34,8 @@ function usage
   echo "        $0 start-vms server-name vault-password-file -e autostart=yes"
   echo "To stop VMs on a server:  $0 stop-vms 'server-name' ~/.password"
   echo "To deploy a topology on a server: $0 add-topo 'topo-name' ~/.password"
+  echo "    Optional argument for add-topo:"
+  echo "        -e ptf_imagetag=<tag>    # Use PTF image with specified tag for creating PTF container"
   echo "To remove a topology on a server: $0 remove-topo 'topo-name' ~/.password"
   echo "To renumber a topology on a server: $0 renumber-topo 'topo-name' ~/.password"
   echo "To connect a topology: $0 connect-topo 'topo-name' ~/.password"
