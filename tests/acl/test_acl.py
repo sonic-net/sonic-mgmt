@@ -13,6 +13,7 @@ import ptf.mask as mask
 import ptf.packet as packet
 
 from common import reboot, port_toggle
+from loganalyzer import LogAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,11 @@ DST_IP_TOR_BLOCKED = '172.16.3.0'
 DST_IP_SPINE = '192.168.0.0'
 DST_IP_SPINE_FORWARDED = '192.168.0.16'
 DST_IP_SPINE_BLOCKED = '192.168.0.17'
+
+LOG_EXPECT_ACL_TABLE_CREATE_RE = '.*Created ACL table.*'
+LOG_EXPECT_ACL_TABLE_REMOVE_RE = '.*Successfully deleted ACL table.*'
+LOG_EXPECT_ACL_RULE_CREATE_RE = '.*Successfully created ACL rule.*'
+LOG_EXPECT_ACL_RULE_REMOVE_RE = '.*Successfully deleted ACL rule.*'
 
 
 @pytest.fixture(scope='module')
@@ -173,16 +179,26 @@ def acl_table(duthost, acl_table_config):
     name = acl_table_config['name']
     conf = acl_table_config['config_file']
 
-    logger.info('creating ACL table: applying {}'.format(conf))
-    duthost.command('sonic-cfggen -j {} --write-to-db'.format(conf))
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl')
+    loganalyzer.load_common_config()
 
-    yield acl_table_config
+    try:
+        loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
 
-    logger.info('removing ACL table {}'.format(name))
-    duthost.command('config acl remove table {}'.format(name))
+        with loganalyzer:
+            logger.info('creating ACL table: applying {}'.format(conf))
+            duthost.command('sonic-cfggen -j {} --write-to-db'.format(conf))
 
-    # save cleaned configuration
-    duthost.command('config save -y')
+        yield acl_table_config
+    finally:
+        loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
+
+        with loganalyzer:
+            logger.info('removing ACL table {}'.format(name))
+            duthost.command('config acl remove table {}'.format(name))
+
+        # save cleaned configuration
+        duthost.command('config save -y')
 
 
 class BaseAclTest(object):
@@ -197,13 +213,22 @@ class BaseAclTest(object):
     ACL_COUNTERS_UPDATE_INTERVAL = 10  # seconds
 
     @abstractmethod
-    def setup_rules(self, dut, localhost, setup, acl_table):
+    def setup_rules(self, dut, setup, acl_table):
         """
         setup rules for test
         :param dut: dut host
-        :param localhost: localhost object
         :param setup: setup information
         :param acl_table: acl table creating fixture
+        :return:
+        """
+
+        pass
+
+    def post_setup_hook(self, dut, localhost):
+        """
+        perform actions after rules are applied
+        :param dut: DUT host object
+        :param localhost: localhost object
         :return:
         """
 
@@ -236,11 +261,19 @@ class BaseAclTest(object):
         :return:
         """
 
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl_rules')
+        loganalyzer.load_common_config()
+
         try:
-            self.setup_rules(duthost, localhost, setup, acl_table)
+            loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+            with loganalyzer:
+                self.setup_rules(duthost, setup, acl_table)
+            self.post_setup_hook(duthost, localhost)
             yield
         finally:
-            self.teardown_rules(duthost, setup)
+            loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
+            with loganalyzer:
+                self.teardown_rules(duthost, setup)
 
     @pytest.yield_fixture(scope='class', autouse=True)
     def counters_sanity_check(self, duthost, acl_rules, acl_table):
@@ -636,11 +669,10 @@ class TestBasicAcl(BaseAclTest):
     Setup rules using full update, run traffic tests cases.
     """
 
-    def setup_rules(self, dut, localhost, setup, acl_table):
+    def setup_rules(self, dut, setup, acl_table):
         """
         setup rules on DUT
         :param dut: dut host
-        :param localhost: localhost object
         :param setup: setup information
         :param acl_table: acl table creating fixture
         :return:
@@ -662,11 +694,10 @@ class TestIncrementalAcl(BaseAclTest):
     Setup rules using incremental update in two parts, run traffic tests cases.
     """
 
-    def setup_rules(self, dut, localhost, setup, acl_table):
+    def setup_rules(self, dut, setup, acl_table):
         """
         setup rules on DUT for incremental test
         :param dut: dut host
-        :param localhost: localhost object
         :param setup: setup information
         :param acl_table: acl table creating fixture
         :return:
@@ -687,17 +718,13 @@ class TestAclWithReboot(TestBasicAcl):
     Verify that the ACL configurations persist after reboot
     """
 
-    def setup_rules(self, dut, localhost, setup, acl_table):
+    def post_setup_hook(self, dut, localhost):
         """
-        setup rules on DUT, save configuration and perform reboot
+        save configuration and execute reboot after rules are applied
         :param dut: dut host
         :param localhost: localhost object
-        :param setup: setup information
-        :param acl_table: acl table creating fixture
         :return:
         """
-
-        super(TestAclWithReboot, self).setup_rules(dut, localhost, setup, acl_table)
         dut.command('config save -y')
         reboot(dut, localhost)
 
@@ -709,15 +736,11 @@ class TestAclWithPortToggle(TestBasicAcl):
     Toggles ports before traffic tests.
     """
 
-    def setup_rules(self, dut, localhost, setup, acl_table):
+    def post_setup_hook(self, dut, localhost):
         """
-        setup rules on DUT and toggle all ports
+        toggle ports after rules are applied
         :param dut: dut host
         :param localhost: localhost object
-        :param setup: setup information
-        :param acl_table: acl table creating fixture
         :return:
         """
-
-        super(TestAclWithPortToggle, self).setup_rules(dut, localhost, setup, acl_table)
         port_toggle(dut)
