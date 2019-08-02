@@ -19,7 +19,7 @@
   shell: ntpstat
   register: ntpstat_result
   until: ntpstat_result.rc == 0
-  retries: 8
-  delay: 10
+  retries: 10
+  delay: 30
 
 - debug: msg="NTP Status {{ ntpstat_result.stdout }}"
