@@ -39,73 +39,62 @@
 #       -e testcase_name=acl -e run_egress=yes -e test_port_toggle=yes -e test_reboot=yes -vvvv
 # This command will run everything, including ingress&egress, and all the 3 scenarios.
 
-# Set facts for the loganalizer
-- set_fact:
-    out_dir: /tmp/loganalizer
-    testname: acl
-    run_dir: /tmp
-    tests_location: "roles/test/tasks"
-    test_match_file: "acltb_match_messages.txt"
-    test_ignore_file: "acltb_ignore_messages.txt"
-    test_expect_file: "acltb_expect_messages.txt"
+- name: set ingress test flag
+  set_fact:
+    run_ingress: yes
+  when: run_ingress is not defined
 
-- name: Check supported topology
-  fail: msg="Invalid testbed_type value '{{testbed_type}}'"
-  when: testbed_type not in ['t1', 't1-lag', 't1-64-lag']
+- name: set egress test flag
+  set_fact:
+    run_egress: no
+  when: run_egress is not defined
 
-- block:
-    - name: Prepare variables for ACL configuration
-      set_fact:
-        dut_tmp_dir: "/home/admin/acl"
-        config_db_backup_filename: /etc/sonic/config_db.json.bak.{{ lookup('pipe','date +%Y%m%d-%H%M%S') }}
+- name: set basic test flag
+  set_fact:
+    test_basic: yes
+  when: test_basic is not defined
 
-    - name: When run_ingress is not specified, set default true
-      set_fact:
-        run_ingress: true
-      when: run_ingress is not defined
+- name: set reboot test flag
+  set_fact:
+    test_reboot: no
+  when: test_reboot is not defined
 
-    - name: Backup config_db.json
-      command: cp /etc/sonic/config_db.json {{ config_db_backup_filename }}
-      become: yes
+- name: set port toggle test flag
+  set_fact:
+    test_port_toggle: no
+  when: test_port_toggle is not defined
 
-    - include: "roles/test/tasks/acl/acltb/acltb_config.yml"
+- name: set test filter expression
+  set_fact:
+    filter_expr: 'acl'
 
-    - name: Test ingress ACL
-      include: "roles/test/tasks/acl/acltb/acltb_run_test.yml"
-      vars:
-        acl_stage: ingress
-      when: run_ingress is defined and run_ingress|bool == true
+- name: append filter on ingress
+  set_fact:
+    filter_expr: '{{ filter_expr }} and not ingress'
+  when: not run_ingress
 
-    - name: Test egress ACL
-      include: "roles/test/tasks/acl/acltb/acltb_run_test.yml"
-      vars:
-        acl_stage: egress
-      when: run_egress is defined and run_egress|bool == true
+- name: append filter on egress
+  set_fact:
+    filter_expr: '{{ filter_expr }} and not egress'
+  when: not run_egress
 
-  always:
+- name: append filter on basic
+  set_fact:
+    filter_expr: '{{ filter_expr }} and not TestBasicAcl and not TestIncrementalAcl'
+  when: not test_basic == True
 
-    - name: Check existence of config_db.json backup file
-      stat:
-        path: "{{ config_db_backup_filename }}"
-      register: config_db_backup_file
+- name: append filter on reboot
+  set_fact:
+    filter_expr: '{{ filter_expr }} and not reboot'
+  when: not test_reboot
 
-    - name: Recover config_db.json from backup
-      command: mv {{ config_db_backup_filename }} /etc/sonic/config_db.json
-      become: yes
-      when: config_db_backup_file.stat.exists
+- name: append filter on port toggle
+  set_fact:
+    filter_expr: '{{ filter_expr }} and not port_toggle'
+  when: not test_port_toggle
 
-    - name: Reload config to cleanup
-      command: config reload -y
-      become: yes
-
-    - name: wait 60 seconds for ports to be up
-      pause: seconds=60
-
-    - name: Wait for ports to be up
-      interface_facts: up_ports={{ all_ports }}
-      until: ansible_interface_link_down_ports | length == 0
-      retries: 10
-      delay: 20
-
-    - name: wait 60 seconds for processes and interfaces to be stable
-      pause: seconds=60
+- name: run test
+  include: roles/test/tasks/pytest_runner.yml
+  vars:
+    test_node: acl
+    test_filter: '{{ filter_expr }}'
