@@ -13,7 +13,7 @@ import ptf.mask as mask
 import ptf.packet as packet
 
 from common import reboot, port_toggle
-from loganalyzer import LogAnalyzer
+from loganalyzer import LogAnalyzer, LogAnalyzerError
 
 logger = logging.getLogger(__name__)
 
@@ -184,15 +184,18 @@ def acl_table(duthost, acl_table_config):
 
     try:
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
-
         with loganalyzer:
             logger.info('creating ACL table: applying {}'.format(conf))
             duthost.command('sonic-cfggen -j {} --write-to-db'.format(conf))
+    except LogAnalyzerError as err:
+        # cleanup config DB if create failed
+        duthost.command('config acl remove table {}'.format(name))
+        raise err
 
+    try:
         yield acl_table_config
     finally:
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
-
         with loganalyzer:
             logger.info('removing ACL table {}'.format(name))
             duthost.command('config acl remove table {}'.format(name))
@@ -269,6 +272,12 @@ class BaseAclTest(object):
             with loganalyzer:
                 self.setup_rules(duthost, setup, acl_table)
             self.post_setup_hook(duthost, localhost)
+        except LogAnalyzerError as err:
+            # cleanup config DB in case of log analysis error
+            self.teardown_rules(duthost, setup)
+            raise err
+
+        try:
             yield
         finally:
             loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
