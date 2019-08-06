@@ -288,7 +288,7 @@ class SadOper(SadPath):
 
     def populate_lag_state(self):
         if 'neigh_lag' in self.oper_type:
-            self.neigh_lag_state = 'disabled'
+            self.neigh_lag_state = 'disabled,notconnect'
         elif 'dut_lag' in self.oper_type:
             self.neigh_lag_state = 'notconnect'
 

@@ -409,6 +409,7 @@ class Arista(object):
         self.do_cmd('exit')
 
     def verify_neigh_lag_state(self, lag, state="connected", pre_check=True):
+        states = state.split(',')
         lag_state = False
         msg_prefix = ['Postboot', 'Preboot']
         is_match = re.match('(Port-Channel|Ethernet)\d+', lag)
@@ -419,7 +420,7 @@ class Arista(object):
                 obj = json.loads(data)
 
                 if 'interfaces' in obj and lag in obj['interfaces']:
-                    lag_state = (obj['interfaces'][lag]['interfaceStatus'] == state)
+                    lag_state = (obj['interfaces'][lag]['interfaceStatus'] in states)
                 else:
                     self.fails.add('%s: Verify LAG %s: Object missing in output' % (msg_prefix[pre_check], lag))
                 return self.fails, lag_state
