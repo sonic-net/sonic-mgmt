@@ -1,17 +1,17 @@
 - name: Restore all IP addresses on the LAGs
-  shell: ip addr add {{ (item.addr ~ "/" ~ item.mask)|ipaddr() }} dev {{ item.attachto }}
+  shell: config interface ip add {{ item.attachto }} {{ (item.addr ~ "/" ~ item.mask)|ipaddr()|upper }}
   with_items:
     - "{{ minigraph_portchannel_interfaces }}"
   become: true
 
 - name: Bring up LAGs
-  shell: ifconfig {{ item.attachto }} up
+  shell: config interface startup {{ item.attachto }}
   with_items:
     - "{{ minigraph_portchannel_interfaces }}"
   become: true
 
 - name: Remove configuration for test
-  file: 
+  file:
     state: absent
     path: /etc/sonic/vlan_configuration.json
   become: true
