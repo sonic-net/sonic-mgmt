@@ -1,6 +1,6 @@
 # Gather facts with SNMP version 2
 - name: Gathering basic snmp facts about the device
-  snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
+  snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }} lldp_test={{ add_lldp }}
   connection: local
 
 # Check PFC counters

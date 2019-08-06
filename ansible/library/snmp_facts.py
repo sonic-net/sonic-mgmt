@@ -73,6 +73,10 @@ options:
         description:
             - Encryption key, required if version is authPriv
         required: false
+    lldp_test:
+        description:
+            - add lldp test or not
+        required: false
 '''
 
 EXAMPLES = '''
@@ -295,6 +299,7 @@ def main():
             authkey=dict(required=False),
             privkey=dict(required=False),
             is_dell=dict(required=False, default=False, type='bool'),
+            lldp_test=dict(required=False, default=True, type='bool'),
             removeplaceholder=dict(required=False)),
             required_together = ( ['username','level','integrity','authkey'],['privacy','privkey'],),
         supports_check_mode=False)
@@ -620,194 +625,195 @@ def main():
             if current_oid == v.ChStackUnitCpuUtil5sec:
                 results['ansible_ChStackUnitCpuUtil5sec'] = decode_type(module, current_oid, val)
 
-    errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
-        snmp_auth,
-        cmdgen.UdpTransportTarget((m_args['host'], 161)),
-        cmdgen.MibVariable(p.lldpLocChassisIdSubtype,),
-        cmdgen.MibVariable(p.lldpLocChassisId,),
-        cmdgen.MibVariable(p.lldpLocSysName,),
-        cmdgen.MibVariable(p.lldpLocSysDesc,),
-    )
+    if m_args['lldp_test']:
+        errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
+            snmp_auth,
+            cmdgen.UdpTransportTarget((m_args['host'], 161)),
+            cmdgen.MibVariable(p.lldpLocChassisIdSubtype,),
+            cmdgen.MibVariable(p.lldpLocChassisId,),
+            cmdgen.MibVariable(p.lldpLocSysName,),
+            cmdgen.MibVariable(p.lldpLocSysDesc,),
+        )
 
-    if errorIndication:
-        module.fail_json(msg=str(errorIndication) + ' querying  lldp local system infomation.')
+        if errorIndication:
+            module.fail_json(msg=str(errorIndication) + ' querying  lldp local system infomation.')
 
-    for oid, val in varBinds:
-        current_oid = oid.prettyPrint()
-        current_val = val.prettyPrint()
-        if current_oid == v.lldpLocChassisIdSubtype:
-            results['snmp_lldp']['lldpLocChassisIdSubtype'] = current_val
-        elif current_oid == v.lldpLocChassisId:
-            results['snmp_lldp']['lldpLocChassisId'] = current_val
-        elif current_oid == v.lldpLocSysName:
-            results['snmp_lldp']['lldpLocSysName'] = current_val
-        elif current_oid == v.lldpLocSysDesc:
-            results['snmp_lldp']['lldpLocSysDesc'] = current_val
-
-    errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
-        snmp_auth,
-        cmdgen.UdpTransportTarget((m_args['host'], 161)),
-        cmdgen.MibVariable(p.lldpLocPortNum,),
-        cmdgen.MibVariable(p.lldpLocPortIdSubtype,),
-        cmdgen.MibVariable(p.lldpLocPortId,),
-        cmdgen.MibVariable(p.lldpLocPortDesc,),
-    )
-
-    if errorIndication:
-        module.fail_json(msg=str(errorIndication) + ' querying lldpLocPortTable counters')
-
-    for varBinds in varTable:
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
-            if v.lldpLocPortNum in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['lldpLocPortNum'] = current_val
-            if v.lldpLocPortIdSubtype in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['lldpLocPortIdSubtype'] = current_val
-            if v.lldpLocPortId in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['lldpLocPortId'] = current_val
-            if v.lldpLocPortDesc in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['lldpLocPortDesc'] = current_val
+            if current_oid == v.lldpLocChassisIdSubtype:
+                results['snmp_lldp']['lldpLocChassisIdSubtype'] = current_val
+            elif current_oid == v.lldpLocChassisId:
+                results['snmp_lldp']['lldpLocChassisId'] = current_val
+            elif current_oid == v.lldpLocSysName:
+                results['snmp_lldp']['lldpLocSysName'] = current_val
+            elif current_oid == v.lldpLocSysDesc:
+                results['snmp_lldp']['lldpLocSysDesc'] = current_val
 
-    errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
-        snmp_auth,
-        cmdgen.UdpTransportTarget((m_args['host'], 161)),
-        cmdgen.MibVariable(p.lldpLocManAddrSubtype,),
-        cmdgen.MibVariable(p.lldpLocManAddr,),
-        cmdgen.MibVariable(p.lldpLocManAddrLen,),
-        cmdgen.MibVariable(p.lldpLocManAddrIfSubtype,),
-        cmdgen.MibVariable(p.lldpLocManAddrIfId,),
-        cmdgen.MibVariable(p.lldpLocManAddrOID,),
-    )
+        errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+            snmp_auth,
+            cmdgen.UdpTransportTarget((m_args['host'], 161)),
+            cmdgen.MibVariable(p.lldpLocPortNum,),
+            cmdgen.MibVariable(p.lldpLocPortIdSubtype,),
+            cmdgen.MibVariable(p.lldpLocPortId,),
+            cmdgen.MibVariable(p.lldpLocPortDesc,),
+        )
 
-    if errorIndication:
-        module.fail_json(msg=str(errorIndication) + ' querying lldpLocPortTable counters')
+        if errorIndication:
+            module.fail_json(msg=str(errorIndication) + ' querying lldpLocPortTable counters')
 
-    for varBinds in varTable:
-        for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if v.lldpLocManAddrSubtype in current_oid:
-                address = '.'.join(current_oid.split('.')[13:])
-                results['snmp_lldp']['lldpLocManAddrSubtype'] = current_val
-            if v.lldpLocManAddr in current_oid:
-                address = '.'.join(current_oid.split('.')[13:])
-                results['snmp_lldp']['lldpLocManAddr'] = current_val
-            if v.lldpLocManAddrLen in current_oid:
-                address = '.'.join(current_oid.split('.')[13:])
-                results['snmp_lldp']['lldpLocManAddrLen'] = current_val
-            if v.lldpLocManAddrIfSubtype in current_oid:
-                address = '.'.join(current_oid.split('.')[13:])
-                results['snmp_lldp']['lldpLocManAddrIfSubtype'] = current_val
-            if v.lldpLocManAddrIfId in current_oid:
-                address = '.'.join(current_oid.split('.')[13:])
-                results['snmp_lldp']['lldpLocManAddrIfId'] = current_val
-            if v.lldpLocManAddrOID in current_oid:
-                address = '.'.join(current_oid.split('.')[13:])
-                results['snmp_lldp']['lldpLocManAddrOID'] = current_val
+        for varBinds in varTable:
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+                if v.lldpLocPortNum in current_oid:
+                    ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                    results['snmp_interfaces'][ifIndex]['lldpLocPortNum'] = current_val
+                if v.lldpLocPortIdSubtype in current_oid:
+                    ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                    results['snmp_interfaces'][ifIndex]['lldpLocPortIdSubtype'] = current_val
+                if v.lldpLocPortId in current_oid:
+                    ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                    results['snmp_interfaces'][ifIndex]['lldpLocPortId'] = current_val
+                if v.lldpLocPortDesc in current_oid:
+                    ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                    results['snmp_interfaces'][ifIndex]['lldpLocPortDesc'] = current_val
 
-    errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
-        snmp_auth,
-        cmdgen.UdpTransportTarget((m_args['host'], 161)),
-        cmdgen.MibVariable(p.lldpRemTimeMark,),
-        cmdgen.MibVariable(p.lldpRemLocalPortNum,),
-        cmdgen.MibVariable(p.lldpRemIndex,),
-        cmdgen.MibVariable(p.lldpRemChassisIdSubtype,),
-        cmdgen.MibVariable(p.lldpRemChassisId,),
-        cmdgen.MibVariable(p.lldpRemPortIdSubtype,),
-        cmdgen.MibVariable(p.lldpRemPortId,),
-        cmdgen.MibVariable(p.lldpRemPortDesc,),
-        cmdgen.MibVariable(p.lldpRemSysName,),
-        cmdgen.MibVariable(p.lldpRemSysDesc,),
-        cmdgen.MibVariable(p.lldpRemSysCapSupported,),
-        cmdgen.MibVariable(p.lldpRemSysCapEnabled,),
-    )
+        errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+            snmp_auth,
+            cmdgen.UdpTransportTarget((m_args['host'], 161)),
+            cmdgen.MibVariable(p.lldpLocManAddrSubtype,),
+            cmdgen.MibVariable(p.lldpLocManAddr,),
+            cmdgen.MibVariable(p.lldpLocManAddrLen,),
+            cmdgen.MibVariable(p.lldpLocManAddrIfSubtype,),
+            cmdgen.MibVariable(p.lldpLocManAddrIfId,),
+            cmdgen.MibVariable(p.lldpLocManAddrOID,),
+        )
 
-    if errorIndication:
-        module.fail_json(msg=str(errorIndication) + ' querying lldpLocPortTable counters')
+        if errorIndication:
+            module.fail_json(msg=str(errorIndication) + ' querying lldpLocPortTable counters')
 
-    for varBinds in varTable:
-        for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if v.lldpRemTimeMark in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemTimeMark'] = current_val
-            if v.lldpRemLocalPortNum in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemLocalPortNum'] = current_val
-            if v.lldpRemIndex in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemIndex'] = current_val
-            if v.lldpRemChassisIdSubtype in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemChassisIdSubtype'] = current_val
-            if v.lldpRemChassisId in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemChassisId'] = current_val
-            if v.lldpRemPortIdSubtype in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemPortIdSubtype'] = current_val
-            if v.lldpRemPortId in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemPortId'] = current_val
-            if v.lldpRemPortDesc in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemPortDesc'] = current_val
-            if v.lldpRemSysName in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemSysName'] = current_val
-            if v.lldpRemSysDesc in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemSysDesc'] = current_val
-            if v.lldpRemSysCapSupported in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemSysCapSupported'] = current_val
-            if v.lldpRemSysCapEnabled in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemSysCapEnabled'] = current_val
+        for varBinds in varTable:
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+                if v.lldpLocManAddrSubtype in current_oid:
+                    address = '.'.join(current_oid.split('.')[13:])
+                    results['snmp_lldp']['lldpLocManAddrSubtype'] = current_val
+                if v.lldpLocManAddr in current_oid:
+                    address = '.'.join(current_oid.split('.')[13:])
+                    results['snmp_lldp']['lldpLocManAddr'] = current_val
+                if v.lldpLocManAddrLen in current_oid:
+                    address = '.'.join(current_oid.split('.')[13:])
+                    results['snmp_lldp']['lldpLocManAddrLen'] = current_val
+                if v.lldpLocManAddrIfSubtype in current_oid:
+                    address = '.'.join(current_oid.split('.')[13:])
+                    results['snmp_lldp']['lldpLocManAddrIfSubtype'] = current_val
+                if v.lldpLocManAddrIfId in current_oid:
+                    address = '.'.join(current_oid.split('.')[13:])
+                    results['snmp_lldp']['lldpLocManAddrIfId'] = current_val
+                if v.lldpLocManAddrOID in current_oid:
+                    address = '.'.join(current_oid.split('.')[13:])
+                    results['snmp_lldp']['lldpLocManAddrOID'] = current_val
 
-    errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
-        snmp_auth,
-        cmdgen.UdpTransportTarget((m_args['host'], 161)),
-        cmdgen.MibVariable(p.lldpRemManAddrSubtype,),
-        cmdgen.MibVariable(p.lldpRemManAddr,),
-        cmdgen.MibVariable(p.lldpRemManAddrIfSubtype,),
-        cmdgen.MibVariable(p.lldpRemManAddrIfId,),
-        cmdgen.MibVariable(p.lldpRemManAddrOID,),
-    )
+        errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+            snmp_auth,
+            cmdgen.UdpTransportTarget((m_args['host'], 161)),
+            cmdgen.MibVariable(p.lldpRemTimeMark,),
+            cmdgen.MibVariable(p.lldpRemLocalPortNum,),
+            cmdgen.MibVariable(p.lldpRemIndex,),
+            cmdgen.MibVariable(p.lldpRemChassisIdSubtype,),
+            cmdgen.MibVariable(p.lldpRemChassisId,),
+            cmdgen.MibVariable(p.lldpRemPortIdSubtype,),
+            cmdgen.MibVariable(p.lldpRemPortId,),
+            cmdgen.MibVariable(p.lldpRemPortDesc,),
+            cmdgen.MibVariable(p.lldpRemSysName,),
+            cmdgen.MibVariable(p.lldpRemSysDesc,),
+            cmdgen.MibVariable(p.lldpRemSysCapSupported,),
+            cmdgen.MibVariable(p.lldpRemSysCapEnabled,),
+        )
 
-    if errorIndication:
-        module.fail_json(msg=str(errorIndication) + ' querying lldpLocPortTable counters')
+        if errorIndication:
+            module.fail_json(msg=str(errorIndication) + ' querying lldpLocPortTable counters')
 
-    for varBinds in varTable:
-        for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if v.lldpRemManAddrSubtype in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                address = '.'.join(current_oid.split('.')[16:])
-                results['snmp_interfaces'][ifIndex]['lldpRemManAddrSubtype'] = current_val
-            if v.lldpRemManAddr in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                address = '.'.join(current_oid.split('.')[16:])
-                results['snmp_interfaces'][ifIndex]['lldpRemManAddr'] = current_val
-            if v.lldpRemManAddrIfSubtype in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                address = '.'.join(current_oid.split('.')[16:])
-                results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfSubtype'] = current_val
-            if v.lldpRemManAddrIfId in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                address = '.'.join(current_oid.split('.')[16:])
-                results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfId'] = current_val
-            if v.lldpRemManAddrOID in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                address = '.'.join(current_oid.split('.')[16:])
-                results['snmp_interfaces'][ifIndex]['lldpRemManAddrOID'] = current_val
+        for varBinds in varTable:
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+                if v.lldpRemTimeMark in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    results['snmp_interfaces'][ifIndex]['lldpRemTimeMark'] = current_val
+                if v.lldpRemLocalPortNum in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    results['snmp_interfaces'][ifIndex]['lldpRemLocalPortNum'] = current_val
+                if v.lldpRemIndex in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    results['snmp_interfaces'][ifIndex]['lldpRemIndex'] = current_val
+                if v.lldpRemChassisIdSubtype in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    results['snmp_interfaces'][ifIndex]['lldpRemChassisIdSubtype'] = current_val
+                if v.lldpRemChassisId in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    results['snmp_interfaces'][ifIndex]['lldpRemChassisId'] = current_val
+                if v.lldpRemPortIdSubtype in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    results['snmp_interfaces'][ifIndex]['lldpRemPortIdSubtype'] = current_val
+                if v.lldpRemPortId in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    results['snmp_interfaces'][ifIndex]['lldpRemPortId'] = current_val
+                if v.lldpRemPortDesc in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    results['snmp_interfaces'][ifIndex]['lldpRemPortDesc'] = current_val
+                if v.lldpRemSysName in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    results['snmp_interfaces'][ifIndex]['lldpRemSysName'] = current_val
+                if v.lldpRemSysDesc in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    results['snmp_interfaces'][ifIndex]['lldpRemSysDesc'] = current_val
+                if v.lldpRemSysCapSupported in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    results['snmp_interfaces'][ifIndex]['lldpRemSysCapSupported'] = current_val
+                if v.lldpRemSysCapEnabled in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    results['snmp_interfaces'][ifIndex]['lldpRemSysCapEnabled'] = current_val
+
+        errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+            snmp_auth,
+            cmdgen.UdpTransportTarget((m_args['host'], 161)),
+            cmdgen.MibVariable(p.lldpRemManAddrSubtype,),
+            cmdgen.MibVariable(p.lldpRemManAddr,),
+            cmdgen.MibVariable(p.lldpRemManAddrIfSubtype,),
+            cmdgen.MibVariable(p.lldpRemManAddrIfId,),
+            cmdgen.MibVariable(p.lldpRemManAddrOID,),
+        )
+
+        if errorIndication:
+            module.fail_json(msg=str(errorIndication) + ' querying lldpLocPortTable counters')
+
+        for varBinds in varTable:
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+                if v.lldpRemManAddrSubtype in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    address = '.'.join(current_oid.split('.')[16:])
+                    results['snmp_interfaces'][ifIndex]['lldpRemManAddrSubtype'] = current_val
+                if v.lldpRemManAddr in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    address = '.'.join(current_oid.split('.')[16:])
+                    results['snmp_interfaces'][ifIndex]['lldpRemManAddr'] = current_val
+                if v.lldpRemManAddrIfSubtype in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    address = '.'.join(current_oid.split('.')[16:])
+                    results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfSubtype'] = current_val
+                if v.lldpRemManAddrIfId in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    address = '.'.join(current_oid.split('.')[16:])
+                    results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfId'] = current_val
+                if v.lldpRemManAddrOID in current_oid:
+                    ifIndex = int(current_oid.split('.')[12])
+                    address = '.'.join(current_oid.split('.')[16:])
+                    results['snmp_interfaces'][ifIndex]['lldpRemManAddrOID'] = current_val
 
     errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
         snmp_auth,
