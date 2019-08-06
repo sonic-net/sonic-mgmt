@@ -212,7 +212,7 @@ class SadOper(SadPath):
                         down_intfs = [self.vm_dut_map[self.neigh_names[vm]]['neigh_portchannel']]
 
                     self.log.append('Changing state of LAG %s %s to shut' % (self.memb_str, ", ".join(down_intfs)))
-                    self.vm_handles[vm].change_neigh_lag_state(down_intfs, is_up=is_up)
+                    self.vm_handles[vm].change_neigh_intfs_state(down_intfs, is_up=is_up)
 
             elif 'dut_lag' in self.oper_type:
                 self.change_dut_lag_state(is_up=is_up)

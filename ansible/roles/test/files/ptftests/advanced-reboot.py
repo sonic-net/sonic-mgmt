@@ -356,14 +356,26 @@ class ReloadTest(BaseTest):
             self.fails[key] |= fails[key]
 
     def get_preboot_info(self):
-        msg = 'Preboot oper: %s ' % self.preboot_oper
-        if ':' in self.preboot_oper:
-            temp = self.preboot_oper.split(':')
-            msg = 'Preboot oper: %s ' % temp[0]
-            if len(temp) > 2:
-                msg += 'Number of sad path VMs: %s Lag member down in a portchannel: %s' % (temp[-2], temp[-1])
-            else:
-                msg += 'Number of sad path VMs: %s' % temp[-1]
+        '''
+        Prepares the msg string to log when a preboot_oper is defined.
+        preboot_oper can be represented in the following ways
+           eg. 'preboot_oper' - a single VM will be selected and preboot_oper will be applied to it
+               'neigh_bgp_down:2' - 2 VMs will be selected and preboot_oper will be applied to the selected 2 VMs
+               'neigh_lag_member_down:3:1' - this case is used for lag member down operation only. This indicates that
+                                             3 VMs will be selected and 1 of the lag members in the porchannel will be brought down
+        '''
+        msg = ''
+        if self.preboot_oper:
+            msg = 'Preboot oper: %s ' % self.preboot_oper
+            if ':' in self.preboot_oper:
+                oper_list = self.preboot_oper.split(':')
+                msg = 'Preboot oper: %s ' % oper_list[0] # extract the preboot oper_type
+                if len(oper_list) > 2:
+                    # extract the number of VMs and the number of LAG members. preboot_oper will be of the form oper:no of VMS:no of lag members
+                    msg += 'Number of sad path VMs: %s Lag member down in a portchannel: %s' % (oper_list[-2], oper_list[-1])
+                else:
+                    # extract the number of VMs. preboot_oper will be of the form oper:no of VMS
+                    msg += 'Number of sad path VMs: %s' % oper_list[-1]
 
         return msg
 
@@ -439,8 +451,7 @@ class ReloadTest(BaseTest):
         self.generate_arp_ping_packet()
 
         if self.reboot_type == 'warm-reboot':
-            if self.preboot_oper:
-                self.log(self.get_preboot_info())
+            self.log(self.get_preboot_info())
 
             # Pre-generate list of packets to be sent in send_in_background method.
             generate_start = datetime.datetime.now()
