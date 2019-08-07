@@ -36,6 +36,26 @@ import p4_test_lib as p4TestLib
 SWITCH_TO_HOST_PORT = 1
 SWITCH_TO_SWITCH_PORT = 2
 
+def Establish_Switch_Conn():
+    try:
+        # Create a switch connection object for s1 (switch 1)
+        # this is backed by a P4Runtime gRPC connection.
+        # Also, dump all P4Runtime messages sent to switch to given txt files.
+        s1 = p4_switch.SwitchConnection(
+            name=ApData.sw_name,
+            address=ApData.svr_addr+":"+ApData.port_addr,
+            device_id=int(ApData.device_id),
+            proto_dump_file=ApData.proto_dump_file)
+
+        return s1
+
+    except KeyboardInterrupt:
+        print("Shutting down.")        
+    except grpc.RpcError as e:
+        print(e)
+        printGrpcError(e)
+
+
 def _test_p4_sanity():
 
     with open(ApData.input_conf_file, 'r') as ip_conf_file:
@@ -135,3 +155,48 @@ def _test_p4_sanity():
         printGrpcError(e)
 
     p4_switch.ShutdownAllSwitchConnections()
+
+
+def _test_P4TEST_1():
+    print("P4TEST_1: Sending Different Election ID Values & Verify")
+    ns1=Establish_Switch_Conn()
+    try:
+        print("Sending Election ID High=22 & Low=333")
+        reply=ns1.MasterArbitrationUpdate(election_id_high=22, election_id_low=333)
+        if ((str(reply).find('low: 333') != -1) and (str(reply).find('message: "Is master"') != -1)):
+            print("P4TEST_1:PASSED - received correct error message on sending Non-zero Device-ID")
+        else:
+            print("P4TEST_1:FAILED - Did not receive expected error message on sending Non-zero Device-ID")
+    except KeyboardInterrupt:
+        print("Shutting down.")
+    except grpc.RpcError as e:
+        print("### GRPC ERROR RECEIVED:: ###")
+        print(e)
+        printGrpcError(e)
+
+    p4_switch.ShutdownAllSwitchConnections()
+
+
+def _test_P4TEST_2():
+    print("P4TEST_2: Send a Non-Zero Device-ID & Verify")
+    try:
+        s1 = p4_switch.SwitchConnection(
+            name=ApData.sw_name,
+            address=ApData.svr_addr+":"+ApData.port_addr,
+            device_id=200,
+            proto_dump_file=ApData.proto_dump_file)
+
+        s1.MasterArbitrationUpdate()
+        print("P4TEST_2:FAILED - Switch Connection should not be established with Non-zero Device-ID")
+
+    except KeyboardInterrupt:
+        print("Shutting down.")
+    except grpc.RpcError as e:
+        print("### GRPC ERROR RECEIVED:: ###")
+        print(e)
+        printGrpcError(e)
+        if (str(e).find('details = "Invalid device id"') != -1):
+            print("P4TEST_2:PASSED - received correct error message on sending Non-zero Device-ID")
+        else:
+            print("P4TEST_2:FAILED - Did not receive expected error message on sending Non-zero Device-ID")
+

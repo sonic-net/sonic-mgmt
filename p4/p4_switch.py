@@ -15,6 +15,7 @@
 import sys
 from queue import Queue
 from datetime import datetime
+from time import sleep
 
 import grpc
 from p4.v1 import p4runtime_pb2
@@ -67,8 +68,13 @@ class SwitchConnection(object):
     def MasterArbitrationUpdate(self, dry_run=False, **kwargs):
         request = p4runtime_pb2.StreamMessageRequest()
         request.arbitration.device_id = self.device_id
-        request.arbitration.election_id.high = 0
-        request.arbitration.election_id.low = 1
+
+        request.arbitration.election_id.high = kwargs.pop('election_id_high', 0)
+        request.arbitration.election_id.low = kwargs.pop('election_id_low', 1)
+
+        print("using the following ELECTION-ID for MasterArbitration - ", 
+                    request.arbitration.election_id.high, request.arbitration.election_id.low)
+        sleep(5)
         #request.arbitration.role.id = 333
 
         print("P4Runtime MasterArbitrationUpdate: ", request)

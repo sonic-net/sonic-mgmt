@@ -41,3 +41,9 @@ class TestP4(P4ApBase):
 
     def test_p4_sanity(self):
         p4_san_tc._test_p4_sanity()
+
+    def test_P4TEST_1(self):
+        p4_san_tc._test_P4TEST_1()
+
+    def test_P4TEST_2(self):
+        p4_san_tc._test_P4TEST_2()
