@@ -1,0 +1,9 @@
+{
+    "VXLAN_TUNNEL_MAP": {
+        "tunnelVxlan|map1": {
+            "vni": "{{ item | replace("Vlan", "") | int + 336 }}",
+            "vlan": "{{ item }}"
+        }
+    }
+}
+

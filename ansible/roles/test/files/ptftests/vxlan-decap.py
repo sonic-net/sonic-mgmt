@@ -104,14 +104,13 @@ class Vxlan(BaseTest):
 
         self.tests = []
         vni_base = 336
-        src_ip = "8.8.%d.%d"
         for name, data in graph['minigraph_vlans'].items():
             test = {}
             test['name'] = name
             test['acc_ports'] = [graph['minigraph_port_indices'][member] for member in data['members']]
             vlan_id = int(name.replace('Vlan', ''))
             test['vni'] = vni_base + vlan_id
-            test['src_ip'] = src_ip % (vlan_id / 256, vlan_id % 254 + 1)
+            test['src_ip'] = "8.8.8.8"
 
             gw = None
             prefixlen = None
@@ -151,15 +150,11 @@ class Vxlan(BaseTest):
 
         self.generate_ArpResponderConfig()
 
-        self.cmd(["supervisorctl", "start", "arp_responder"])
-
         self.dataplane.flush()
 
         return
 
     def tearDown(self):
-        self.cmd(["supervisorctl", "stop", "arp_responder"])
-
         return
 
     def runTest(self):
