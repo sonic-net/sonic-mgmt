@@ -104,6 +104,13 @@
 
 
 - always:
+    - name: Remove vxlan tunnel map configuration for {{ item }}
+      shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnelVxlan|map{{ item }}"
+      with_items: minigraph_vlans
+
+    - name: Remove vxlan tunnel configuration
+      shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tunnelVxlan"
+
     - name: Stop arpresponder
       supervisorctl: state=stopped name=arp_responder
       delegate_to: "{{ ptf_host }}"
