@@ -88,7 +88,6 @@
 
     - name: Remove vxlan tunnel configuration
       shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tunnelVxlan"
-      with_items: minigraph_vlans
 
     - include: ptf_runner.yml
       vars:
