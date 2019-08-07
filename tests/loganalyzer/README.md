@@ -10,81 +10,128 @@ Fixture main flow:
 - if loganalyzer analysis is not disabled for current test case it will analyze DUT syslog and display results.
 If loganalyzer find specified messages which corresponds to defined regular expressions, it will display found messages and pytest will generate 'error'.
 
-##### To skip loganalyzer analysis for:
+#### To skip loganalyzer analysis for:
 - all test cases - use pytest command line option ```--disable_loganalyzer```
-- specific test case: mark test case with ```@disable_loganalyzer``` decorator. Example is shown below.
+- specific test case: mark test case with ```@pytest.mark.disable_loganalyzer``` decorator. Example is shown below.
 
+
+#### Notes:
+loganalyzer.init() - can be called several times without calling "loganalyzer.analyze(marker)" between calls. Each call return its unique marker, which is used for "analyze" phase - loganalyzer.analyze(marker).
+
+
+### Loganalyzer usage example
+
+#### Example calling loganalyzer init/analyze methods automatically by using with statement
 ```python
-import pytest
-import time
-import os
-import sys
-import logging
-
-from ansible_host import ansible_host
-sys.path.append(os.path.join(os.path.split(__file__)[0], "loganalyzer"))
-from loganalyzer.loganalyzer import LogAnalyzer
-from loganalyzer.loganalyzer import COMMON_MATCH
-from lib.helpers import disable_loganalyzer
-
-
-def adder(x, y=10, z=0):
-    """
-    Syslog on the DUT will be verified during this callback execution. Expected that this callback will do some stuff on the DUT side.
-    """
-    return x + y
-
-def test_loganalyzer_functionality(localhost, ansible_adhoc, testbed):
-    """
-    @summary: Example of loganalyzer usage
-    """
-    hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
-
-    log = LogAnalyzer(ansible_host=ans_host, marker_prefix="test_loganalyzer")
     # Read existed common regular expressions located with legacy loganalyzer module
-    log.load_common_config()
+    loganalyzer.load_common_config()
+    # Analyze syslog for code executed inside with statement
+    with loganalyzer as analyzer:
+        logging.debug("============== Test steps ===================")
+        # Add test code here ...
+        time.sleep(1)
+
+    # Separately analyze syslog for code executed inside each with statement
+    with loganalyzer as analyzer:
+        # Clear current regexp match list if there is a need to have clear configuration
+        loganalyzer.match_regex = []
+        # Load regular expressions from the specified file
+        reg_exp = loganalyzer.parse_regexp_file(src=COMMON_MATCH)
+        # Extend currently configured match criteria (regular expressions) with data read from "COMMON_MATCH" file
+        loganalyzer.match_regex.extend(reg_exp)
+        # Add test code here ...
+        # Here will be executed syslog analysis on context manager __exit__
+        time.sleep(1)
+        with loganalyzer as analyzer:
+            # Clear current regexp match list if there is a need to have clear configuration
+            loganalyzer.match_regex = []
+            # Set match criteria (regular expression) to custom regexp - "test:.*Error"
+            loganalyzer.match_regex.extend(["test:.*Error"])
+            # Add test code here ...
+            # Here will be executed syslog analysis on context manager __exit__
+            time.sleep(1)
+            with loganalyzer as analyzer:
+                # Add test code here ...
+                # Here will be executed syslog analysis on context manager __exit__
+                time.sleep(1)
+```
+
+#### Example calling loganalyzer init/analyze methods directly in test case
+    # Example 1
+    # Read existed common regular expressions located with legacy loganalyzer module
+    loganalyzer.load_common_config()
     # Add start marker to the DUT syslog
-    marker = log.init()
-    # Emulate that new error messages appears in the syslog
-    time.sleep(1)
-    ans_host.command("echo '---------- ERR: text 1 error --------------' >> /var/log/syslog")
-    ans_host.command("echo '---------- THRESHOLD_CLEAR test1 xyz test2 --------------' >> /var/log/syslog")
-    time.sleep(2)
-    ans_host.command("echo '---------- kernel: says Oops --------------' >> /var/log/syslog")
+    marker = loganalyzer.init()
+    # PERFORM TEST CASE STEPS ...
+    # Verify that error messages were not found in DUT syslog. Exception will be raised if in DUT syslog will be found messages which fits regexp defined in COMMON_MATCH
+    loganalyzer.analyze(marker)
 
-    # Perform syslog analysis based on added messages
-    result = log.analyze(marker)
-    if not result:
-        pytest.fail("Log analyzer failed.")
-    assert result["total"]["match"] == 2, "Found errors: {}".format(result)
+    # Example 2
+    # Read existed common regular expressions located with legacy loganalyzer module
+    loganalyzer.load_common_config()
+    # Add start marker to the DUT syslog
+    marker = loganalyzer.init()
+    # PERFORM TEST CASE STEPS ...
+    # Get summary of analyzed DUT syslog
+    result = loganalyzer.analyze(marker, fail=False)
+    # Verify that specific amount of error messages found in syslog # Negative test case
+    assert result["total"]["match"] == 2, "Not found expected errors: {}".format(result)
+
+    # Example 3
     # Download extracted syslog file from DUT to the local host
-    log.save_extracted_log(dest="/tmp/log/syslog")
+    loganalyzer.save_extracted_log(dest="/tmp/log/syslog")
 
-    # Example: update previously configured marker
-    # Now start marker will have new prefix
-    log.update_marker_prefix("test_bgp")
+    # Example 4
+    # Update previously configured marker
+    # Now start marker will have new prefix - test_bgp
+    loganalyzer.update_marker_prefix("test_bgp")
 
-    # Execute function and analyze logs during function execution
-    # Return tuple of (FUNCTION_RESULT, LOGANALYZER_RESULT)
-    run_cmd_result = log.run_cmd(adder, 5, y=5, z=11)
+    def get_platform_info(dut):
+        """
+        Example callback which gets DUT platform information and returns obtained string
+        """
+        return dut.command("show platform summary")
 
+    # Example 5
+    # Execute specific function and analyze logs during function execution
+    run_cmd_result = loganalyzer.run_cmd(get_platform_info, ans_host)
+    # Process result of "get_platform_info" callback
+    assert all(item in run_cmd_result["stdout"] for item in ["Platform", "HwSKU", "ASIC"]) is True, "Unexpected output returned after command execution: {}".format(run_cmd_result)
+
+    # Example 6
     # Clear current regexp match list
-    log.match_regex = []
-    # Load regular expressions from the specified file
-    reg_exp = log.parse_regexp_file(src=COMMON_MATCH)
-    # Extend existed match regular expresiions with previously read
-    log.match_regex.extend(reg_exp)
+    loganalyzer.match_regex = []
+    # Load regular expressions from the specified file defined in COMMON_MATCH variable
+    reg_exp = loganalyzer.parse_regexp_file(src=COMMON_MATCH)
+    # Extend currently configured match criteria (regular expressions) with data read from "COMMON_MATCH" file
+    loganalyzer.match_regex.extend(reg_exp)
+    marker = loganalyzer.init()
+    # PERFORM TEST CASE STEPS ...
+    # Verify that error messages were not found in DUT syslog. Exception will be raised if in DUT syslog will be found messages which fits regexp defined in COMMON_MATCH
+    loganalyzer.analyze(marker)
 
-    # Verify that new regular expressions are found by log analyzer. Again add new error message to the syslog.
-    marker = log.init()
-    ans_host.command("echo '---------- kernel: says Oops --------------' >> /var/log/syslog")
-    result = log.analyze(marker)
-    if not result:
-        pytest.fail("Log analyzer failed.")
-    assert result["total"]["match"] == 1, "Found errors: {}".format(result)
+    # Example 7
+    loganalyzer.expect_regex = []
+    # Add specific EXPECTED regular expression
+    # Means that in the DUT syslog loganalyzer will search for message which matches with "kernel:.*Oops" regular expression
+    # If such message will not be present in DUT syslog, it will raise exception
+    loganalyzer.expect_regex.append("kernel:.*Oops")
+    # Add start marker to the DUT syslog
+    marker = loganalyzer.init()
+    # PERFORM TEST CASE STEPS ...
+    # Verify that expected error messages WERE FOUND in DUT syslog. Exception will be raised if in DUT syslog will NOT be found messages which fits to "kernel:.*Oops" regular expression
+    loganalyzer.analyze(marker)
 
-@disable_loganalyzer
-def test_skipped_test(localhost, ansible_adhoc, testbed):
-    pass
+    # Example 8
+    loganalyzer.expect_regex = []
+    # Add specific EXPECTED regular expression
+    # Means that in the DUT syslog loganalyzer will search for message which matches with "kernel:.*Oops" regular expression
+    # If such message will not be present in DUT syslog, it will raise exception
+    loganalyzer.expect_regex.append("kernel:.*Oops")
+    # Add start marker to the DUT syslog
+    marker = loganalyzer.init()
+    # PERFORM TEST CASE STEPS ...
+    # Verify that expected error messages WERE FOUND in DUT syslog. Exception will be raised if in DUT syslog will NOT be found messages which fits to "kernel:.*Oops" regular expression
+    loganalyzer.run_cmd(ans_host.command, "echo '---------- kernel: says Oops --------------' >> /var/log/syslog")
+
 ```
