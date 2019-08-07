@@ -57,6 +57,7 @@ loganalyzer.init() - can be called several times without calling "loganalyzer.an
 ```
 
 #### Example calling loganalyzer init/analyze methods directly in test case
+```python
     # Example 1
     # Read existed common regular expressions located with legacy loganalyzer module
     loganalyzer.load_common_config()
@@ -133,5 +134,4 @@ loganalyzer.init() - can be called several times without calling "loganalyzer.an
     # PERFORM TEST CASE STEPS ...
     # Verify that expected error messages WERE FOUND in DUT syslog. Exception will be raised if in DUT syslog will NOT be found messages which fits to "kernel:.*Oops" regular expression
     loganalyzer.run_cmd(ans_host.command, "echo '---------- kernel: says Oops --------------' >> /var/log/syslog")
-
 ```
