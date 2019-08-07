@@ -2,19 +2,25 @@ import sys
 import logging
 import os
 import re
-
 import time
+import pprint
+import system_msg_handler
+
+from system_msg_handler import AnsibleLogAnalyzer as ansible_loganalyzer
 from os.path import join, split
 from os.path import normpath
 
-import system_msg_handler
 ANSIBLE_LOGANALYZER_MODULE = system_msg_handler.__file__.replace(r".pyc", ".py")
-
-from system_msg_handler import AnsibleLogAnalyzer as ansible_loganalyzer
 COMMON_MATCH = join(split(__file__)[0], "loganalyzer_common_match.txt")
 COMMON_IGNORE = join(split(__file__)[0], "loganalyzer_common_ignore.txt")
 COMMON_EXPECT = join(split(__file__)[0], "loganalyzer_common_expect.txt")
 SYSLOG_TMP_FOLDER = "/tmp/pytest-run/syslog"
+
+
+class LogAnalyzerError(Exception):
+    """Raised when loganalyzer found matches during analysis phase."""
+    def __repr__(self):
+        return pprint.pformat(self.message)
 
 
 class LogAnalyzer:
@@ -28,6 +34,7 @@ class LogAnalyzer:
         self.match_regex = []
         self.expect_regex = []
         self.ignore_regex = []
+        self._markers = []
 
     def _add_end_marker(self, marker):
         """
@@ -41,6 +48,32 @@ class LogAnalyzer:
 
         logging.debug("Adding end marker '{}'".format(marker))
         self.ansible_host.command(cmd)
+
+    def __enter__(self):
+        """
+        Store start markers which are used in analyze phase.
+        """
+        self._markers.append(self.init())
+
+    def __exit__(self, *args):
+        """
+        Analyze syslog messages.
+        """
+        self.analyze(self._markers.pop())
+
+    def _verify_log(self, result):
+        """
+        Verify that total match and expected missing match equals to zero or raise exception otherwise.
+        Verify that expected_match is not equal to zero when there is configured expected regexp in self.expect_regex list
+        """
+        if not result:
+            raise LogAnalyzerError("Log analyzer failed - no result.")
+        if result["total"]["match"] != 0 or result["total"]["expected_missing_match"] != 0:
+            raise LogAnalyzerError(result)
+
+        # Check for negative case
+        if self.expect_regex and result["total"]["expected_match"] == 0:
+            raise LogAnalyzerError(result)
 
     def update_marker_prefix(self, marker_prefix):
         """
@@ -69,19 +102,20 @@ class LogAnalyzer:
 
         @param callback: Python callable or function to be executed.
         @param args: Input arguments for callback function.
-        @param kwargs: Input arguments for callback function.
+        @param kwargs: Input key value arguments for callback function.
 
-        @return: Tuple of two items: (callback(*args, **kwargs) -> VALUE, self.analyze() -> dict)
+        @return: Callback execution result
         """
         marker = self.init()
         try:
             call_result = callback(*args, **kwargs)
         except Exception as err:
             logging.error("Error during callback execution:\n{}".format(err))
-            logging.debug("Log alaysis result\n".format(self.analyze()))
+            logging.debug("Log analysis result\n".format(self.analyze(marker)))
             raise err
-        analysis_result = self.analyze(marker)
-        return call_result, analysis_result
+        self.analyze(marker)
+
+        return call_result
 
     def init(self):
         """
@@ -100,11 +134,14 @@ class LogAnalyzer:
         self.ansible_host.command(cmd)
         return start_marker
 
-    def analyze(self, marker):
+    def analyze(self, marker, fail=True):
         """
         @summary: Extract syslog logs based on the start/stop markers and compose one file. Download composed file, analyze file based on defined regular expressions.
 
-        @return: For successfull analysis phase return filled in analyzer_summary dictionary. Otherwise return empty dictionary - {}.
+        @param marker: Marker obtained from "init" method.
+        @param fail: Flag to enable/disable raising exception when loganalyzer find error messages.
+
+        @return: If "fail" is False - return dictionary of parsed syslog summary, if dictionary can't be parsed - return empty dictionary. If "fail" is True and if found match messages - raise exception.
         """
         logging.debug("Loganalyzer analyze")
         analyzer_summary = {"total": {"match": 0, "expected_match": 0, "expected_missing_match": 0},
@@ -181,7 +218,10 @@ class LogAnalyzer:
         analyzer_summary["total"]["expected_missing_match"] = len(unused_regex_messages)
         analyzer_summary["unused_expected_regexp"] = unused_regex_messages
 
-        return analyzer_summary
+        if fail:
+            self._verify_log(analyzer_summary)
+        else:
+            return analyzer_summary
 
     def save_extracted_log(self, dest):
         """
@@ -190,4 +230,3 @@ class LogAnalyzer:
         @param dest: File path to store downloaded log file.
         """
         self.ansible_host.fetch(dest=dest, src=self.extracted_syslog, flat="yes")
-

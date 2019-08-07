@@ -3,9 +3,8 @@ import csv
 import yaml
 import ipaddr as ipaddress
 
-from loganalyzer.loganalyzer import LogAnalyzer
 from ansible_host import AnsibleHost
-
+from loganalyzer import LogAnalyzer
 
 pytest_plugins = ('ptf_fixtures', 'ansible_fixtures')
 
