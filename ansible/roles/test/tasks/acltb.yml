@@ -81,7 +81,7 @@
 - name: append filter on basic
   set_fact:
     filter_expr: '{{ filter_expr }} and not TestBasicAcl and not TestIncrementalAcl'
-  when: not test_basic == True
+  when: not test_basic
 
 - name: append filter on reboot
   set_fact:

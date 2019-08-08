@@ -78,8 +78,7 @@ def setup(duthost, testbed):
             spine_ports_ids.append(port_id)
 
     # get the list of port channels
-    for port_channel in mg_facts['minigraph_portchannels']:
-        port_channels.append(port_channel)
+    port_channels = mg_facts['minigraph_portchannels']
 
     # get the list of port to be combined to ACL tables
     acl_table_ports += tor_ports
