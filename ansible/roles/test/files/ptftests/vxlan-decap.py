@@ -104,14 +104,13 @@ class Vxlan(BaseTest):
 
         self.tests = []
         vni_base = 336
-        src_ip = "8.8.%d.%d"
         for name, data in graph['minigraph_vlans'].items():
             test = {}
             test['name'] = name
             test['acc_ports'] = [graph['minigraph_port_indices'][member] for member in data['members']]
             vlan_id = int(name.replace('Vlan', ''))
             test['vni'] = vni_base + vlan_id
-            test['src_ip'] = src_ip % (vlan_id / 256, vlan_id % 254 + 1)
+            test['src_ip'] = "8.8.8.8"
 
             gw = None
             prefixlen = None
@@ -151,15 +150,11 @@ class Vxlan(BaseTest):
 
         self.generate_ArpResponderConfig()
 
-        self.cmd(["supervisorctl", "start", "arp_responder"])
-
         self.dataplane.flush()
 
         return
 
     def tearDown(self):
-        self.cmd(["supervisorctl", "stop", "arp_responder"])
-
         return
 
     def runTest(self):
@@ -247,7 +242,7 @@ class Vxlan(BaseTest):
 
         for i in xrange(self.nr):
             testutils.send_packet(self, acc_port, packet)
-        nr_rcvd = testutils.count_matched_packets_all_ports(self, exp_packet, pc_ports, timeout=0.5)
+        nr_rcvd = testutils.count_matched_packets_all_ports(self, exp_packet, pc_ports, timeout=0.2)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
@@ -279,7 +274,7 @@ class Vxlan(BaseTest):
 
         for i in xrange(self.nr):
             testutils.send_packet(self, net_port, packet)
-        nr_rcvd = testutils.count_matched_packets(self, exp_packet, acc_port, timeout=0.5)
+        nr_rcvd = testutils.count_matched_packets(self, exp_packet, acc_port, timeout=0.2)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
@@ -316,7 +311,7 @@ class Vxlan(BaseTest):
                  )
         for i in xrange(self.nr):
             testutils.send_packet(self, net_port, packet)
-        nr_rcvd = testutils.count_matched_packets(self, inpacket, acc_port, timeout=0.5)
+        nr_rcvd = testutils.count_matched_packets(self, inpacket, acc_port, timeout=0.2)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
