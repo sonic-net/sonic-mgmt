@@ -54,12 +54,14 @@ class BcastTest(BaseTest):
         self.dataplane = ptf.dataplane_instance
         self.router_mac = self.test_params['router_mac']
         self.setUpVlan(self.test_params['vlan_info'])
-        if self.test_params['testbed_type'] == 't0' or self.test_params['testbed_type'] == 't0-64-32':
+        if self.test_params['testbed_type'] == 't0':
             self.src_ports = range(1, 25) + range(28, 32)
         if self.test_params['testbed_type'] == 't0-64':
             self.src_ports = range(0, 2) + range(4, 18) + range(20, 33) + range(36, 43) + range(48, 49) + range(52, 59)
         if self.test_params['testbed_type'] == 't0-116':
             self.src_ports = range(24, 32)
+        if self.test_params['testbed_type'] == 't0-64-32':
+            self.src_ports = range(0, 32)
         if self.test_params['testbed_type'] == 't0-56':
             self.src_ports = [0, 1, 4, 5, 8, 9] + range(12, 18) + [20, 21, 24, 25, 28, 29, 32, 33, 36, 37] + range(40, 46) + [48, 49, 52, 53]
 
