@@ -182,7 +182,7 @@ class LogAnalyzer:
             self.ansible_host.command("sed -i 's/^#//g' /etc/cron.d/logrotate")
 
         # Download extracted logs from the DUT to the temporal folder defined in SYSLOG_TMP_FOLDER
-        self.ansible_host.fetch(dest=tmp_folder, src=self.extracted_syslog, flat="yes")
+        self.save_extracted_log(dest=tmp_folder)
 
         match_messages_regex = re.compile('|'.join(self.match_regex)) if len(self.match_regex) else None
         ignore_messages_regex = re.compile('|'.join(self.ignore_regex)) if len(self.ignore_regex) else None
