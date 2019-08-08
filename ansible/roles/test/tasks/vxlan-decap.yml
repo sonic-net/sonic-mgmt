@@ -32,7 +32,7 @@
         supervisor_host: "{{ ptf_host }}"
 
     - name: Start arpresponder
-      supervisorctl: state=started name=arp_responder
+      supervisorctl: state=restarted name=arp_responder
       delegate_to: "{{ ptf_host }}"
 
     - name: Render DUT parameters to json file for the test
