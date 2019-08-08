@@ -14,7 +14,7 @@ from utils.helper import Helper
 from utils.cafyexception import CafyException
 from p4_base_ap import ApData, P4ApBase
 import marshal
-
+log = CafyLog(name='P4 Sanity script')
 
 # Import P4Runtime lib from parent utils dir
 # Probably there's a better way of doing this.
@@ -50,9 +50,9 @@ def Establish_Switch_Conn():
         return s1
 
     except KeyboardInterrupt:
-        print("Shutting down.")        
+        log.info("Shutting down.")        
     except grpc.RpcError as e:
-        print(e)
+        log.error(e)
         printGrpcError(e)
 
 
@@ -94,43 +94,43 @@ def _test_p4_sanity():
             # Install the P4 program on the switches
             s1.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,
                                         p4_json_file_path=p4_json_file_path)
-            print("Installed P4 Program using SetForwardingPipelineConfig on s1")
+            log.info("Installed P4 Program using SetForwardingPipelineConfig on s1")
 
-            print("Getting ForwardingPipelineConfig on s1")
+            log.info("Getting ForwardingPipelineConfig on s1")
             response = s1.GetForwardingPipelineConfig(resp_typ=0)
-            print (response)
+            log.info(response)
             sleep(2)
 
             if 'table_entries' in input_conf:
-                print (input_conf)
+                log.info(input_conf)
                 table_entries = input_conf['table_entries']
-                print("Inserting %d table entries..." % len(table_entries))
+                log.info("Inserting %d table entries..." % len(table_entries))
                 for entry in table_entries:
-                    print(p4TestLib.tableEntryToString(entry))
+                    log.info(p4TestLib.tableEntryToString(entry))
                     #insertTableEntry(s1, entry, p4info_helper)
-                    print ("INSERTING TABLE ENTRIES")
+                    log.info("INSERTING TABLE ENTRIES")
                     p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'INSERT')
                     sleep(1)
                     #removeTableEntry(s1, entry, p4info_helper)
-                    print ("REMOVING TABLE ENTRIES")
+                    log.info("REMOVING TABLE ENTRIES")
                     p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'DELETE')
                     sleep(1)
-                    print ("RE-INSERTING TABLE ENTRIES")
+                    log.info("RE-INSERTING TABLE ENTRIES")
                     p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'INSERT')
                     sleep(1)
-                    print ("READING TABLE ENTRIES")
+                    log.info("READING TABLE ENTRIES")
                     #readTableRules(p4info_helper, s1)
                     sleep(1)
 
             if 'table_entries' in input_conf:
-                print (input_conf)
+                log.info(input_conf)
                 table_entries = input_conf['table_entries']
-                print("Inserting %d table entries..." % len(table_entries))
+                log.info("Inserting %d table entries..." % len(table_entries))
                 for entry in table_entries:
-                    print(p4TestLib.tableEntryToString(entry))
+                    log.info(p4TestLib.tableEntryToString(entry))
                     #insertTableEntry(s1, entry, p4info_helper)
                     #removeTableEntry(s1, entry, p4info_helper)
-                    print ("REMOVING TABLE ENTRIES")
+                    log.info("REMOVING TABLE ENTRIES")
                     p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'DELETE')
                     sleep(1)
 
@@ -144,41 +144,41 @@ def _test_p4_sanity():
             # Print the tunnel counters every 2 seconds
             #while True:
             #    sleep(2)
-            #    print ('\n----- Reading tunnel counters -----')
+            #    log.info('\n----- Reading tunnel counters -----')
             #    printCounter(p4info_helper, s1, "MyIngress.ingressTunnelCounter", 100)
             #    printCounter(p4info_helper, s1, "MyIngress.egressTunnelCounter", 200)
 
     except KeyboardInterrupt:
-        print("Shutting down.")
+        log.info("Shutting down.")
     except grpc.RpcError as e:
-        print(e)
+        log.error(e)
         printGrpcError(e)
 
     p4_switch.ShutdownAllSwitchConnections()
 
 
-def _test_P4TEST_1():
-    print("P4TEST_1: Sending Different Election ID Values & Verify")
+def _test_ElectionID():
+    log.info("P4TEST_1: Sending Different Election ID Values & Verify")
     ns1=Establish_Switch_Conn()
     try:
-        print("Sending Election ID High=22 & Low=333")
+        log.info("Sending Election ID High=22 & Low=333")
         reply=ns1.MasterArbitrationUpdate(election_id_high=22, election_id_low=333)
         if ((str(reply).find('low: 333') != -1) and (str(reply).find('message: "Is master"') != -1)):
-            print("P4TEST_1:PASSED - received correct error message on sending Non-zero Device-ID")
+            log.info("P4TEST_1:PASSED - received correct error message on sending Non-zero Device-ID")
         else:
-            print("P4TEST_1:FAILED - Did not receive expected error message on sending Non-zero Device-ID")
+            log.info("P4TEST_1:FAILED - Did not receive expected error message on sending Non-zero Device-ID")
     except KeyboardInterrupt:
-        print("Shutting down.")
+        log.info("Shutting down.")
     except grpc.RpcError as e:
-        print("### GRPC ERROR RECEIVED:: ###")
-        print(e)
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
         printGrpcError(e)
 
     p4_switch.ShutdownAllSwitchConnections()
 
 
-def _test_P4TEST_2():
-    print("P4TEST_2: Send a Non-Zero Device-ID & Verify")
+def _test_nonZero_DeviceID():
+    log.info("P4TEST_2: Send a Non-Zero Device-ID & Verify")
     try:
         s1 = p4_switch.SwitchConnection(
             name=ApData.sw_name,
@@ -187,16 +187,16 @@ def _test_P4TEST_2():
             proto_dump_file=ApData.proto_dump_file)
 
         s1.MasterArbitrationUpdate()
-        print("P4TEST_2:FAILED - Switch Connection should not be established with Non-zero Device-ID")
+        log.info("P4TEST_2:FAILED - Switch Connection should not be established with Non-zero Device-ID")
 
     except KeyboardInterrupt:
-        print("Shutting down.")
+        log.info("Shutting down.")
     except grpc.RpcError as e:
-        print("### GRPC ERROR RECEIVED:: ###")
-        print(e)
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
         printGrpcError(e)
         if (str(e).find('details = "Invalid device id"') != -1):
-            print("P4TEST_2:PASSED - received correct error message on sending Non-zero Device-ID")
+            log.info("P4TEST_2:PASSED - received correct error message on sending Non-zero Device-ID")
         else:
-            print("P4TEST_2:FAILED - Did not receive expected error message on sending Non-zero Device-ID")
+            log.error("P4TEST_2:FAILED - Did not receive expected error message on sending Non-zero Device-ID")
 
