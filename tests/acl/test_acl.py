@@ -17,7 +17,10 @@ from loganalyzer import LogAnalyzer, LogAnalyzerError
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.acl
+pytestmark = [
+    pytest.mark.acl,
+    pytest.mark.disable_loganalyzer  # disable automatic loganalyzer
+]
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
