@@ -188,6 +188,7 @@ def acl_table(duthost, acl_table_config):
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
         with loganalyzer:
             logger.info('creating ACL table: applying {}'.format(conf))
+            # TODO: use sonic config CLI
             duthost.command('sonic-cfggen -j {} --write-to-db'.format(conf))
     except LogAnalyzerError as err:
         # cleanup config DB if create failed
