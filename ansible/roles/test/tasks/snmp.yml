@@ -28,4 +28,5 @@
 
     - name: include snmp lldp test
       include: roles/test/tasks/snmp/lldp.yml
+      when: testbed_type not in ['ptf32', 'ptf64']
   when: testcase_name is defined
