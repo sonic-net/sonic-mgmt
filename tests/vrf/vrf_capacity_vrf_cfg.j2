@@ -1,0 +1,12 @@
+{
+    "VRF": {
+{% for vrf_idx in range(1, 1+vrf_count) %}
+{% set vrf_name = vrf_name_tpl.format(loop.index) %}
+{% if op_code == 'add' %}
+        "{{vrf_name}}": {}{{ ',' if not loop.last else '' }}
+{% else %}
+        "{{vrf_name}}": null{{ ',' if not loop.last else '' }}
+{% endif %}
+{% endfor %}
+    }
+}
