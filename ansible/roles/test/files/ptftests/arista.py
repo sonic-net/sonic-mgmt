@@ -427,8 +427,7 @@ class Arista(object):
         return self.fails, lag_state
 
     def verify_neigh_lag_no_flap(self):
-        is_flap = True
-        flap_cnt = -1
+        flap_cnt = sys.maxint
         output = self.do_cmd('show interfaces Po1 | json')
         if 'Invalid' not in output:
             data = '\n'.join(output.split('\r\n')[1:-1])
@@ -437,13 +436,12 @@ class Arista(object):
             if 'interfaces' in obj and 'Port-Channel1' in obj['interfaces']:
                 intf_cnt_info = obj['interfaces']['Port-Channel1']['interfaceCounters']
                 flap_cnt = intf_cnt_info['linkStatusChanges']
-                is_flap = (flap_cnt != 0)
             else:
                 self.fails.add('Object missing in output for Port-Channel1')
-            return self.fails, is_flap, flap_cnt
+            return self.fails, flap_cnt
 
         self.fails.add('Invalid interface name - Po1')
-        return self.fails, is_flap, flap_cnt
+        return self.fails, flap_cnt
 
     def check_gr_peer_status(self, output):
         # [0] True 'ipv4_gr_enabled', [1] doesn't matter 'ipv6_enabled', [2] should be >= 120

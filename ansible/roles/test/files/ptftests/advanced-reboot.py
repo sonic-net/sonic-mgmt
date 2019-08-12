@@ -875,10 +875,10 @@ class ReloadTest(BaseTest):
         for neigh in self.ssh_targets:
             self.neigh_handle = Arista(neigh, None, self.test_params)
             self.neigh_handle.connect()
-            fails, is_flap, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
+            fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
             self.neigh_handle.disconnect()
             self.fails[neigh] |= fails
-            if not is_flap:
+            if not flap_cnt:
                 self.log("No LAG flaps seen on %s after warm boot" % neigh)
             else:
                 self.fails[neigh].add("LAG flapped %s times on %s after warm boot" % (flap_cnt, neigh))
