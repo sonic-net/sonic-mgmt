@@ -38,7 +38,7 @@
 # otherwise PortChannel RIFs are still referenced and won't be removed
 # cause below vlan_configuration.json fail to apply
 - name: sleep for some time
-  pause: seconds=10
+  pause: seconds=90
 
 # TODO: convert VLAN configuration into CLI commands
 - name: Generate nessesary configuration for test
