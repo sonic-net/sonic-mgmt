@@ -27,6 +27,10 @@ testcases:
           ptf_host:
           testbed_type:
 
+    bgp_neighbor:
+      filename: bgp_neighbor.yml
+      topologies: [t0, t0-16, t0-56, t0-64, t1]
+
     bgp_speaker:
       filename: bgp_speaker.yml
       topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116]

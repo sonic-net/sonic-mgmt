@@ -48,6 +48,13 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 ```
 - Requires switch connected to a VM set testbed
 
+#### BGP neighbor test
+```
+ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=bgp_neighbor -e testbed_name={TESTBED_NAME}
+```
+- Test requires that BGP neighbors be established
+
+
 ##### BGP Multipath Relax test
 ```
 ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=bgp_multipath_relax -e testbed_name={TESTBED_NAME}

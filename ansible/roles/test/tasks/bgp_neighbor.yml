@@ -1,0 +1,44 @@
+# Test file to determine BGP neighbor status
+
+# Verify ipv4 operation
+- name: Execute Show Command
+  shell: show bgp ipv4 summary json
+  register: output
+
+- name: convert output to json and extract ipv4 bgp neighbors
+  set_fact:
+    bgp_neighbors: "{{ (output.stdout|from_json).ipv4Unicast.peers }}"
+
+- name: create a list of all the ipv4 bgp neighbors 
+  set_fact:
+    bgp_neighbor_list: "{{ bgp_neighbors.keys() | list }}"
+
+- name: verify ipv4 bgp neighbors are 'Established' or 'Active'
+  assert: { that: "bgp_neighbors[item].state in ['Established', 'Active']" }
+  with_items: "{{ bgp_neighbor_list }}"
+
+- name: call subtask to test each ipv4 neighbor
+  include: roles/test/tasks/bgp_neighbor/bgp_neighbor_test_ipv4_bounce_neighbor.yml neighbor={{ item }}
+  with_items: "{{ bgp_neighbor_list }}"
+
+# Verify ipv6 operation
+- name: Execute Show Command
+  shell: show bgp ipv6 summary json
+  register: output
+
+- name: convert output to json and extract ipv6 bgp neighbors
+  set_fact:
+    bgp_neighbors: "{{ (output.stdout|from_json).ipv6Unicast.peers }}"
+
+- name: create a list of all the ipv6 bgp neighbors
+  set_fact:
+    bgp_neighbor_list: "{{ bgp_neighbors.keys() | list }}"
+
+- name: verify bgp ipv6 neighbors are 'Established' or 'Active'
+  assert: { that: "bgp_neighbors[item].state in ['Established', 'Active']" }
+  with_items: "{{ bgp_neighbor_list }}"
+
+- name: call subtask to test each ipv6 neighbor
+  include: roles/test/tasks/bgp_neighbor/bgp_neighbor_test_ipv6_bounce_neighbor.yml neighbor={{ item }}
+  with_items: "{{ bgp_neighbor_list }}"
+
