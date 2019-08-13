@@ -29,6 +29,8 @@ from ptf_runner import ptf_runner
 """
 
 # global variables
+REBOOT_SLEEP_TIME = 90
+
 g_vars = {}
 
 # helper functions
@@ -219,7 +221,7 @@ def setup_vrf_cfg(duthost, cfg_facts):
 
     # FIXME use a better way to load config
     duthost.shell("reboot")
-    time.sleep(60)
+    time.sleep(REBOOT_SLEEP_TIME)
 
 def cleanup_vrf_cfg(duthost):
     '''
@@ -231,7 +233,7 @@ def cleanup_vrf_cfg(duthost):
 
     # FIXME use a better way to load config
     duthost.shell("reboot")
-    time.sleep(60)
+    time.sleep(REBOOT_SLEEP_TIME)
 
 def setup_vlan_peer(duthost, ptfhost, cfg_facts):
     '''
@@ -328,7 +330,7 @@ def setup_vrf(testbed, duthost, ptfhost, host_facts):
     ## Setup dut
     cfg_t0 = get_cfg_facts(duthost)  # generate cfg_facts for t0 topo
 
-    # setup_vrf_cfg(duthost, cfg_t0)
+    setup_vrf_cfg(duthost, cfg_t0)
 
     cfg_facts = get_cfg_facts(duthost)  # generate cfg_facts for t0-vrf topo, should not use cfg_facts fixture here.
 
@@ -358,7 +360,7 @@ def setup_vrf(testbed, duthost, ptfhost, host_facts):
 
     cleanup_vlan_peer(ptfhost, g_vars['vlan_peer_vrf2ns_map'])
 
-    # cleanup_vrf_cfg(duthost)
+    cleanup_vrf_cfg(duthost)
 
 
 # tests
@@ -1124,7 +1126,7 @@ class TestVrfCapacity():
         # remove cfg on dut
         if self.cleanup_method == 'reboot':
             duthost.shell("nohup reboot &")
-            time.sleep(60)
+            time.sleep(REBOOT_SLEEP_TIME)
 
         else:
             duthost.shell("config interface shutdown {}".format(dut_port1))
