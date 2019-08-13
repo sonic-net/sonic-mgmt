@@ -178,6 +178,8 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME},lldp_neighbors
 ```
 - Requires switch connected to a VM set testbed
 
+
+
 ##### MAC read test
 ```
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} -e testbed_name={TESTBED_NAME} -e testbed_type={TESTBED_TYPE} -e testcase_name=read_mac -e iterations={ITERATIONS} -e image1={IMAGE1} -e image2={IMAGE2}
@@ -197,6 +199,14 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=mtu -e testbed_name={TESTBED_NAME}
 ```
 - Requires switch connected to PTF testbed
+
+##### Log flood test
+```
+ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=log_flood -e testbed_name={TESTBED_NAME} 
+ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=log_flood -e testbed_name={TESTBED_NAME} -e qty_flood_messages=100
+```
+- Can set optional parameter to adjust the number of log messages to send
+- Default is 10,000 messages
 
 ##### Neighbor Mac test
 ```
