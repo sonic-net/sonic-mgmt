@@ -203,8 +203,11 @@ class AnsibleLogAnalyzer:
                     self.print_diagnostic_message('[diagnostic]:processing row:%d' % index)
                     self.print_diagnostic_message('row:%s'% row)
                     try:
-                        #-- Ignore commented Lines and Empty Lines
-                        if (not row or row[0].startswith(comment_key)):
+                        #-- Ignore Empty Lines
+                        if not row:
+                            continue
+                        #-- Ignore commented Lines
+                        if row[0].startswith(comment_key):
                             self.print_diagnostic_message('[diagnostic]:skipping row[0]:%s' % row[0])
                             continue
 

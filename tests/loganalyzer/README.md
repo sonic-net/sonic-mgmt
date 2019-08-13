@@ -129,8 +129,6 @@ loganalyzer.init() - can be called several times without calling "loganalyzer.an
     # Means that in the DUT syslog loganalyzer will search for message which matches with "kernel:.*Oops" regular expression
     # If such message will not be present in DUT syslog, it will raise exception
     loganalyzer.expect_regex.append("kernel:.*Oops")
-    # Add start marker to the DUT syslog
-    marker = loganalyzer.init()
     # PERFORM TEST CASE STEPS ...
     # Verify that expected error messages WERE FOUND in DUT syslog. Exception will be raised if in DUT syslog will NOT be found messages which fits to "kernel:.*Oops" regular expression
     loganalyzer.run_cmd(ans_host.command, "echo '---------- kernel: says Oops --------------' >> /var/log/syslog")
