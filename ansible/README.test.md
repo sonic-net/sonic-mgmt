@@ -178,8 +178,6 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME},lldp_neighbors
 ```
 - Requires switch connected to a VM set testbed
 
-
-
 ##### MAC read test
 ```
 ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} -e testbed_name={TESTBED_NAME} -e testbed_type={TESTBED_TYPE} -e testcase_name=read_mac -e iterations={ITERATIONS} -e image1={IMAGE1} -e image2={IMAGE2}
