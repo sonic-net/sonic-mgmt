@@ -32,18 +32,19 @@
     match_file_option: "-m "
     ignore_file_option: "-i {{ ignore_file }}"
     expect_file_option: "-e {{ expect_file }}"
+    match_file_list: []
 
 - name: Collect list of match files - common_match
   set_fact:
-      match_file_list: "{{ match_file_list | default([]) }} + {{ [match_file] }}"
+      match_file_list: "{{ match_file_list + [match_file] }}"
   when: skip_common_match is not defined
 
 - name: Collect list of match files - test_match
   set_fact:
-      match_file_list: "{{ match_file_list | default([]) }} + {{ [test_match_file] }}"
+      match_file_list: "{{ match_file_list + [test_match_file] }}"
   when: test_match_file is defined
 
-- name: Add mmatch file option
+- name: Add match file option
   set_fact:
       match_file_option: "{{ match_file_option }}{{ match_file_list | join(',') }}"
 

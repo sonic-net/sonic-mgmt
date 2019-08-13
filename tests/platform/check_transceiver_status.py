@@ -53,7 +53,7 @@ def all_transceivers_detected(dut, interfaces):
 def check_transceiver_basic(dut, interfaces):
     """
     @summary: Check whether all the specified interface are in TRANSCEIVER_INFO redis DB.
-    @param dut: The ansible_host object of DUT. For interacting with DUT.
+    @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     @param interfaces: List of interfaces that need to be checked.
     """
     logging.info("Check whether transceiver information of all ports are in redis")
@@ -66,7 +66,7 @@ def check_transceiver_basic(dut, interfaces):
 def check_transceiver_details(dut, interfaces):
     """
     @summary: Check the detailed TRANSCEIVER_INFO content of all the specified interfaces.
-    @param dut: The ansible_host object of DUT. For interacting with DUT.
+    @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     @param interfaces: List of interfaces that need to be checked.
     """
     logging.info("Check detailed transceiver information of each connected port")
@@ -81,7 +81,7 @@ def check_transceiver_details(dut, interfaces):
 def check_transceiver_dom_sensor_basic(dut, interfaces):
     """
     @summary: Check whether all the specified interface are in TRANSCEIVER_DOM_SENSOR redis DB.
-    @param dut: The ansible_host object of DUT. For interacting with DUT.
+    @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     @param interfaces: List of interfaces that need to be checked.
     """
     logging.info("Check whether TRANSCEIVER_DOM_SENSOR of all ports in redis")
@@ -94,7 +94,7 @@ def check_transceiver_dom_sensor_basic(dut, interfaces):
 def check_transceiver_dom_sensor_details(dut, interfaces):
     """
     @summary: Check the detailed TRANSCEIVER_DOM_SENSOR content of all the specified interfaces.
-    @param dut: The ansible_host object of DUT. For interacting with DUT.
+    @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     @param interfaces: List of interfaces that need to be checked.
     """
     logging.info("Check detailed TRANSCEIVER_DOM_SENSOR information of each connected ports")
@@ -110,7 +110,7 @@ def check_transceiver_dom_sensor_details(dut, interfaces):
 def check_transceiver_status(dut, interfaces):
     """
     @summary: Check transceiver information of all the specified interfaces in redis DB.
-    @param dut: The ansible_host object of DUT. For interacting with DUT.
+    @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     @param interfaces: List of interfaces that need to be checked.
     """
     check_transceiver_basic(dut, interfaces)

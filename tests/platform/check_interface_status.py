@@ -34,7 +34,7 @@ def parse_intf_status(lines):
 def check_interface_status(dut, interfaces):
     """
     @summary: Check the admin and oper status of the specified interfaces on DUT.
-    @param dut: The ansible_host object of DUT. For interacting with DUT.
+    @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     @param hostname:
     @param interfaces: List of interfaces that need to be checked.
     """

@@ -16,12 +16,13 @@
 
    - set_fact:
         ansible_date_time: "{{ansible_date_time}}"
+        crm_update_time: 4
 
    - name: Set polling interval
      command: crm config polling interval 1
 
    - name: Make sure CRM counters updated
-     pause: seconds=300
+     pause: seconds=30
 
    - name: Run test case "CRM IPv4 route resource"
      include: roles/test/tasks/crm/crm_test_ipv4_route.yml

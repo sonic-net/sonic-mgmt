@@ -1,31 +1,25 @@
 - block:
 
-    - name: Get "crm_stats_ipv4_nexthop_used" counter value
-      command: docker exec -i database redis-cli -n 2 HGET CRM:STATS crm_stats_ipv4_nexthop_used
+    - name: Get "crm_stats_ipv4_nexthop" used and available counter value
+      command: redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_ipv4_nexthop_used crm_stats_ipv4_nexthop_available
       register: out
-    - set_fact: crm_stats_ipv4_nexthop_used={{out.stdout}}
-
-    - name: Get "crm_stats_ipv4_nexthop_available" counter value
-      command: docker exec -i database redis-cli -n 2 HGET CRM:STATS crm_stats_ipv4_nexthop_available
-      register: out
-    - set_fact: crm_stats_ipv4_nexthop_available={{out.stdout}}
+    - set_fact:
+        crm_stats_ipv4_nexthop_used: "{{ out.stdout_lines[0] }}"
+        crm_stats_ipv4_nexthop_available: "{{ out.stdout_lines[1] }}"
 
     - name: Add IPv4 nexthop
       command: ip neigh replace 2.2.2.2 lladdr 11:22:33:44:55:66 dev {{crm_intf}}
       become: yes
 
     - name: Make sure CRM counters updated
-      pause: seconds=2
+      pause: seconds={{ crm_update_time }}
 
-    - name: Get new "crm_stats_ipv4_nexthop_used" counter value
-      command: docker exec -i database redis-cli -n 2 HGET CRM:STATS crm_stats_ipv4_nexthop_used
+    - name: Get new "crm_stats_ipv4_nexthop" used and available counter value
+      command: redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_ipv4_nexthop_used crm_stats_ipv4_nexthop_available
       register: out
-    - set_fact: new_crm_stats_ipv4_nexthop_used={{out.stdout}}
-
-    - name: Get new "crm_stats_ipv4_nexthop_available" counter value
-      command: docker exec -i database redis-cli -n 2 HGET CRM:STATS crm_stats_ipv4_nexthop_available
-      register: out
-    - set_fact: new_crm_stats_ipv4_nexthop_available={{out.stdout}}
+    - set_fact:
+        new_crm_stats_ipv4_nexthop_used: "{{ out.stdout_lines[0] }}"
+        new_crm_stats_ipv4_nexthop_available: "{{ out.stdout_lines[1] }}"
 
     - name: Verify "crm_stats_ipv4_nexthop_used" counter was incremented
       assert: {that: "{{new_crm_stats_ipv4_nexthop_used|int - crm_stats_ipv4_nexthop_used|int >= 1}}"}
@@ -38,17 +32,14 @@
       become: yes
 
     - name: Make sure CRM counters updated
-      pause: seconds=2
+      pause: seconds={{ crm_update_time }}
 
-    - name: Get new "crm_stats_ipv4_nexthop_used" counter value
-      command: docker exec -i database redis-cli -n 2 HGET CRM:STATS crm_stats_ipv4_nexthop_used
+    - name: Get new "crm_stats_ipv4_nexthop" used and available counter value
+      command: redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_ipv4_nexthop_used crm_stats_ipv4_nexthop_available
       register: out
-    - set_fact: new_crm_stats_ipv4_nexthop_used={{out.stdout}}
-
-    - name: Get new "crm_stats_ipv4_nexthop_available" counter value
-      command: docker exec -i database redis-cli -n 2 HGET CRM:STATS crm_stats_ipv4_nexthop_available
-      register: out
-    - set_fact: new_crm_stats_ipv4_nexthop_available={{out.stdout}}
+    - set_fact:
+        new_crm_stats_ipv4_nexthop_used: "{{ out.stdout_lines[0] }}"
+        new_crm_stats_ipv4_nexthop_available: "{{ out.stdout_lines[1] }}"
 
     - name: Verify "crm_stats_ipv4_nexthop_used" counter was decremented
       assert: {that: "{{new_crm_stats_ipv4_nexthop_used|int - crm_stats_ipv4_nexthop_used|int == 0}}"}

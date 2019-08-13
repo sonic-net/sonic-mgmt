@@ -10,7 +10,7 @@ import os
 import time
 import sys
 
-from ansible_host import ansible_host
+from ansible_host import AnsibleHost
 from utilities import wait_until
 from check_critical_services import check_critical_services
 from check_interface_status import check_interface_status
@@ -23,7 +23,7 @@ def test_reload_configuration(localhost, ansible_adhoc, testbed):
     @summary: This test case is to reload the configuration and check platform status
     """
     hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = AnsibleHost(ansible_adhoc, hostname)
     ans_host.command("show platform summary")
     lab_conn_graph_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
         "../../ansible/files/lab_connection_graph.xml")

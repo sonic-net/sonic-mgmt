@@ -1,10 +1,22 @@
+
+# The PTF image built from different branches may be incompatible. The ptf_imagetag variable added here is to
+# support using different PTF images for different branches. When the ptf_imagetag variable is not specified,
+# the PTF image with default "latest" tag will be used. When a specific PTF image version is required, we can
+# specify a value for the ptf_imagetag variable somewhere, for example, specify from command line:
+#    ./testbed-cli.sh add-topo <testbed_name>-<topo> vault -e ptf_imagetag=201811
+# By using this practice, we suggest to add different tags for different PTF image versions in docker registry.
+- name: Set default value for ptf_imagetag
+  set_fact:
+    ptf_imagetag: "latest"
+  when: ptf_imagetag is not defined
+
 - name: Create a docker container ptf_{{ vm_set_name }}
   docker:
     registry: "{{ docker_registry_host }}"
     username: "{{ docker_registry_username }}"
     password: "{{ docker_registry_password }}"
     name: ptf_{{ vm_set_name }}
-    image: "{{ docker_registry_host }}/{{ ptf_imagename }}"
+    image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
     pull: always
     state: reloaded
     net: none

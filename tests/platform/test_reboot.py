@@ -15,7 +15,7 @@ import sys
 
 import pytest
 
-from ansible_host import ansible_host
+from ansible_host import AnsibleHost
 from utilities import wait_until
 from check_critical_services import check_critical_services
 from check_interface_status import check_interface_status
@@ -93,7 +93,7 @@ def test_cold_reboot(localhost, ansible_adhoc, testbed):
     @summary: This test case is to perform cold reboot and check platform status
     """
     hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = AnsibleHost(ansible_adhoc, hostname)
 
     reboot_and_check(localhost, ans_host, reboot_type="cold")
 
@@ -103,7 +103,7 @@ def test_fast_reboot(localhost, ansible_adhoc, testbed):
     @summary: This test case is to perform cold reboot and check platform status
     """
     hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = AnsibleHost(ansible_adhoc, hostname)
 
     reboot_and_check(localhost, ans_host, reboot_type="fast")
 
@@ -113,7 +113,7 @@ def test_warm_reboot(localhost, ansible_adhoc, testbed):
     @summary: This test case is to perform cold reboot and check platform status
     """
     hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = AnsibleHost(ansible_adhoc, hostname)
     asic_type = ans_host.shell("show platform summary | awk '/ASIC: / {print$2}'")["stdout"].strip()
 
     if asic_type in ["mellanox"]:

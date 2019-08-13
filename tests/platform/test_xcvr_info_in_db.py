@@ -8,7 +8,7 @@ import logging
 import re
 import os
 
-from ansible_host import ansible_host
+from ansible_host import AnsibleHost
 from check_transceiver_status import check_transceiver_status
 
 
@@ -47,7 +47,7 @@ def test_xcvr_info_in_db(localhost, ansible_adhoc, testbed):
     @summary: This test case is to verify that xcvrd works as expected by checking transceiver information in DB
     """
     hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = AnsibleHost(ansible_adhoc, hostname)
     localhost.command("who")
     lab_conn_graph_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
         "../../ansible/files/lab_connection_graph.xml")
