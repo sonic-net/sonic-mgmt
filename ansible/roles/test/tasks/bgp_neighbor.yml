@@ -1,4 +1,13 @@
-# Test file to determine BGP neighbor status
+# Test file to verify that the bgp cli commands accurately work
+# Does the following
+#  - Determines all the BGP ipv4 and ipv6 neighbors
+#  - For each neighbor the test does the following
+#     - Shuts down the neighbor
+#     - Confirms the neighbor is down
+#     - Brings up the neighbor
+#     - Confirms the neighbor comes back up
+#
+# Test fails if any neighbors don't go down or come up as expected
 
 # Verify ipv4 operation
 - name: Execute Show Command

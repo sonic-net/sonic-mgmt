@@ -2,7 +2,7 @@
 - block:
   - name: output variables
     debug:
-      msg: "Exercizing BGP neighbor link: {{ neighbor }}"
+      msg: "Exercising BGP neighbor link: {{ neighbor }}"
 
   - name: shut down neighbor link {{ neighbor }} 
     shell: config bgp shutdown neighbor {{ neighbor }}
