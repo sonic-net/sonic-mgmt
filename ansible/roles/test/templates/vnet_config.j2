@@ -65,6 +65,13 @@ num_vnet_batch: {{ num_vnet_batch }}
 {% endif %}
 {% set topo_vlan = minigraph_vlans.keys()[0] %}
 
+{# Max RIFs support currently is 128 #}
+{% if num_vnet > 128 %}
+  {% set max_rif = 128 %}
+{% else %}
+  {% set max_rif = num_vnet %}
+{% endif %}
+
 {# Vlan Configurations 
  Vlan IP - A.B.10.1/24; starts 30.1.10.1/24 (A,B derived from vlan id)
 #}
@@ -100,14 +107,22 @@ vnet_v6_base: {{ vnet_v6_base }}
 
 {# Vnet - Peer Configurations #}
 vnet_peer_list:
-{% for vnet_batch in range (1, 1 + num_vnet)|batch(4) %}
+{% for vnet_batch in range (1, 1 + max_rif)|batch(4) %}
   - Vnet{{ vnet_batch[2] }}: Vnet{{ vnet_batch[3] }}
   - Vnet{{ vnet_batch[3] }}: Vnet{{ vnet_batch[2] }}
 {% endfor %}
+{% if num_vnet > max_rif %}
+  {% set peering_vnets = num_vnet - max_rif %}
+  {% for vnet_id in range (max_rif + 1, num_vnet + 1) %}
+    {% set peer_vnet = (loop.index0 % max_rif) + 1 %}
+  - Vnet{{ vnet_id }}: Vnet{{ peer_vnet }}
+  - Vnet{{ peer_vnet }}: Vnet{{ vnet_id }}
+  {% endfor %}
+{% endif %}
 
 {# Vnet - Interface Configurations #}
 vnet_intf_list:
-{% for vlan in range (vlan_id_base, vlan_id_base + num_vnet) %}
+{% for vlan in range (vlan_id_base, vlan_id_base + max_rif) %}
   - ifname: Vlan{{ vlan }}
     vnet: Vnet{{ loop.index }}
 {% endfor %}
@@ -134,7 +149,7 @@ vnet_nbr_list:
 
 {# Vnet - Local Routes #}
 vnet_local_routes:
-{% for vlan_batch in range (vlan_id_base, vlan_id_base + num_vnet)|batch(4) %}
+{% for vlan_batch in range (vlan_id_base, vlan_id_base + max_rif)|batch(4) %}
   - Vnet{{ vlan_batch[0]-vlan_id_base+1 }}_route_list:
     {% set vlan_str = vlan_batch[0]|string %}
     {% set ip_a, ip_b = vlan_str[:2]|int, vlan_str[2:]|int %}
