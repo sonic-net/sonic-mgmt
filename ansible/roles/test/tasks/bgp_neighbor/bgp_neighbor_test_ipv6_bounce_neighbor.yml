@@ -2,7 +2,7 @@
 - block:
   - name: output variables
     debug:
-      msg: "Exercising BGP neighbor link: {{ neighbor }}"
+      msg: "Exercizing BGP neighbor link: {{ neighbor }}"
 
   - name: shut down neighbor link {{ neighbor }}
     shell: config bgp shutdown neighbor {{ neighbor }}
@@ -36,9 +36,9 @@
       subtask_bgp_neighbor: "{{ (output.stdout|from_json).ipv6Unicast.peers }}"
 
   - name: verify bgp neighbor is 'Established'
-    assert: { that: "subtask_bgp_neighbor[neighbor].state in ['Established', 'Active']" }
+    assert: { that: "subtask_bgp_neighbor[neighbor].state == 'Established'" }
 
-- rescue:
+  rescue:
   - name: start up neighbor link due to failed test
     shell: config bgp startup neighbor {{ neighbor }}
     become: yes

@@ -1,13 +1,4 @@
-# Test file to verify that the bgp cli commands accurately work
-# Does the following
-#  - Determines all the BGP ipv4 and ipv6 neighbors
-#  - For each neighbor the test does the following
-#     - Shuts down the neighbor
-#     - Confirms the neighbor is down
-#     - Brings up the neighbor
-#     - Confirms the neighbor comes back up
-#
-# Test fails if any neighbors don't go down or come up as expected
+# Test file to determine BGP neighbor status
 
 # Verify ipv4 operation
 - name: Execute Show Command
@@ -22,9 +13,17 @@
   set_fact:
     bgp_neighbor_list: "{{ bgp_neighbors.keys() | list }}"
 
-- name: verify ipv4 bgp neighbors are 'Established' or 'Active'
-  assert: { that: "bgp_neighbors[item].state in ['Established', 'Active']" }
-  with_items: "{{ bgp_neighbor_list }}"
+- block:
+    - name: verify ipv4 bgp neighbors are 'Established' 
+      assert: { that: "bgp_neighbors[item].state == 'Established'" }
+      with_items: "{{ bgp_neighbor_list }}"
+  rescue:
+    - name: Note reason for failure
+      debug:
+        msg: "The state of all the ipv4 bgp neighbors is not 'Established'.  Fix that before running this test"
+    - name: Stop the test here due to pre-condition failure
+      assert:
+        that: False
 
 - name: call subtask to test each ipv4 neighbor
   include: roles/test/tasks/bgp_neighbor/bgp_neighbor_test_ipv4_bounce_neighbor.yml neighbor={{ item }}
@@ -43,9 +42,17 @@
   set_fact:
     bgp_neighbor_list: "{{ bgp_neighbors.keys() | list }}"
 
-- name: verify bgp ipv6 neighbors are 'Established' or 'Active'
-  assert: { that: "bgp_neighbors[item].state in ['Established', 'Active']" }
-  with_items: "{{ bgp_neighbor_list }}"
+- block:
+    - name: verify ipv4 bgp neighbors are 'Established' 
+      assert: { that: "bgp_neighbors[item].state == 'Established'" }
+      with_items: "{{ bgp_neighbor_list }}"
+  rescue:
+    - name: Note reason for failure
+      debug:
+        msg: "The state of all the ipv6 bgp neighbors is not 'Established'.  Fix that before running this test"
+    - name: Stop the test here due to pre-condition failure
+      assert:
+        that: False
 
 - name: call subtask to test each ipv6 neighbor
   include: roles/test/tasks/bgp_neighbor/bgp_neighbor_test_ipv6_bounce_neighbor.yml neighbor={{ item }}
