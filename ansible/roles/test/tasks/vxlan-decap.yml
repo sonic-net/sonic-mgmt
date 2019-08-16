@@ -35,6 +35,11 @@
       supervisorctl: state=restarted name=arp_responder
       delegate_to: "{{ ptf_host }}"
 
+    - name: Restart DUT. Wait 240 seconds after SONiC started ssh
+      include: reboot.yml
+      vars:
+        ready_timeout: 240
+
     - name: Render DUT parameters to json file for the test
       template: src=vxlan_decap.json.j2 dest=/tmp/vxlan_decap.json
       delegate_to: "{{ ptf_host }}"
@@ -60,7 +65,7 @@
         ptf_test_params:
         - vxlan_enabled=False
         - config_file='/tmp/vxlan_decap.json'
-        - repetitions=1
+        - count=10
 
     - name: Configure vxlan decap tunnel
       shell: sonic-cfggen -j /tmp/vxlan_db.tunnel.json --write-to-db
@@ -80,7 +85,7 @@
         ptf_test_params:
         - vxlan_enabled=True
         - config_file='/tmp/vxlan_decap.json'
-        - count=1
+        - count=10
 
     - name: Remove vxlan tunnel map configuration for {{ item }}
       shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnelVxlan|map{{ item }}"
@@ -100,8 +105,7 @@
         ptf_test_params:
         - vxlan_enabled=False
         - config_file='/tmp/vxlan_decap.json'
-        - repetitions=1
-
+        - count=10
 
 - always:
     - name: Remove vxlan tunnel map configuration for {{ item }}
