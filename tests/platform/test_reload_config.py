@@ -10,27 +10,21 @@ import os
 import time
 import sys
 
-from ansible_host import AnsibleHost
-from utilities import wait_until
+from platform_fixtures import conn_graph_facts
+from common.utilities import wait_until
 from check_critical_services import check_critical_services
 from check_interface_status import check_interface_status
 from check_transceiver_status import check_transceiver_basic
 from check_transceiver_status import all_transceivers_detected
 
 
-def test_reload_configuration(localhost, ansible_adhoc, testbed):
+def test_reload_configuration(testbed_devices, conn_graph_facts):
     """
     @summary: This test case is to reload the configuration and check platform status
     """
-    hostname = testbed['dut']
-    ans_host = AnsibleHost(ansible_adhoc, hostname)
-    ans_host.command("show platform summary")
-    lab_conn_graph_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
-        "../../ansible/files/lab_connection_graph.xml")
-    conn_graph_facts = localhost.conn_graph_facts(host=hostname, filename=lab_conn_graph_file).\
-        contacted['localhost']['ansible_facts']
+    ans_host = testbed_devices["dut"]
     interfaces = conn_graph_facts["device_conn"]
-    asic_type = ans_host.shell("show platform summary | awk '/ASIC: / {print$2}'")["stdout"].strip()
+    asic_type = ans_host.facts["asic_type"]
 
     logging.info("Reload configuration")
     ans_host.command("sudo config reload -y")

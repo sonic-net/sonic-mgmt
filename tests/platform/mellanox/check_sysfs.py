@@ -5,6 +5,7 @@ This script contains re-usable functions for checking status of hw-management re
 """
 import logging
 
+from check_hw_mgmt_service import wait_until_fan_speed_set_to_default
 
 def check_sysfs(dut):
     """
@@ -17,11 +18,11 @@ def check_sysfs(dut):
 
     logging.info("Check content of some key files")
 
+    assert not wait_until_fan_speed_set_to_default(dut, timeout=120), \
+        "Content of /var/run/hw-management/thermal/pwm1 should be 153"
+
     file_suspend = dut.command("cat /var/run/hw-management/config/suspend")
     assert file_suspend["stdout"] == "1", "Content of /var/run/hw-management/config/suspend should be 1"
-
-    file_pwm1 = dut.command("cat /var/run/hw-management/thermal/pwm1")
-    assert file_pwm1["stdout"] == "153", "Content of /var/run/hw-management/thermal/pwm1 should be 153"
 
     file_asic = dut.command("cat /var/run/hw-management/thermal/asic")
     try:
@@ -30,18 +31,22 @@ def check_sysfs(dut):
     except:
         assert "Bad content in /var/run/hw-management/thermal/asic: %s" % file_asic["stdout"]
 
-    fan_status_list = dut.command("find /var/run/hw-management/thermal -name fan*_status")
-    for fan_status in fan_status_list["stdout_lines"]:
+    dut_hwsku = dut.command("sonic-cfggen -d -v 'DEVICE_METADATA[\"localhost\"][\"hwsku\"]'")["stdout"]
+    from common.mellanox_data import SWITCH_MODELS
+    fan_count = SWITCH_MODELS[dut_hwsku]["fans"]["number"]
+
+    fan_status_list = ["/var/run/hw-management/thermal/fan%d_status" % fan_id for fan_id in range(1, fan_count + 1)]
+    for fan_status in fan_status_list:
         fan_status_content = dut.command("cat %s" % fan_status)
         assert fan_status_content["stdout"] == "1", "Content of %s is not 1" % fan_status
 
-    fan_fault_list = dut.command("find /var/run/hw-management/thermal -name fan*_fault")
-    for fan_fault in fan_fault_list["stdout_lines"]:
+    fan_fault_list = ["/var/run/hw-management/thermal/fan%d_fault" % fan_id for fan_id in range(1, fan_count + 1)]
+    for fan_fault in fan_fault_list:
         fan_fault_content = dut.command("cat %s" % fan_fault)
         assert fan_fault_content["stdout"] == "0", "Content of %s is not 0" % fan_fault
 
-    fan_min_list = dut.command("find /var/run/hw-management/thermal -name fan*_min")
-    for fan_min in fan_min_list["stdout_lines"]:
+    fan_min_list = ["/var/run/hw-management/thermal/fan%d_min" % fan_id for fan_id in range(1, fan_count + 1)]
+    for fan_min in fan_min_list:
         try:
             fan_min_content = dut.command("cat %s" % fan_min)
             fan_min_speed = int(fan_min_content["stdout"])
@@ -49,8 +54,8 @@ def check_sysfs(dut):
         except Exception as e:
             assert "Get content from %s failed, exception: %s" % (fan_min, repr(e))
 
-    fan_max_list = dut.command("find /var/run/hw-management/thermal -name fan*_max")
-    for fan_max in fan_max_list["stdout_lines"]:
+    fan_max_list = ["/var/run/hw-management/thermal/fan%d_max" % fan_id for fan_id in range(1, fan_count + 1)]
+    for fan_max in fan_max_list:
         try:
             fan_max_content = dut.command("cat %s" % fan_max)
             fan_max_speed = int(fan_max_content["stdout"])
@@ -58,8 +63,8 @@ def check_sysfs(dut):
         except Exception as e:
             assert "Get content from %s failed, exception: %s" % (fan_max, repr(e))
 
-    fan_speed_get_list = dut.command("find /var/run/hw-management/thermal -name fan*_speed_get")
-    for fan_speed_get in fan_speed_get_list["stdout_lines"]:
+    fan_speed_get_list = ["/var/run/hw-management/thermal/fan%d_speed_get" % fan_id for fan_id in range(1, fan_count + 1)]
+    for fan_speed_get in fan_speed_get_list:
         try:
             fan_speed_get_content = dut.command("cat %s" % fan_speed_get)
             fan_speed = int(fan_speed_get_content["stdout"])
@@ -67,7 +72,7 @@ def check_sysfs(dut):
         except Exception as e:
             assert "Get content from %s failed, exception: %s" % (fan_speed_get, repr(e))
 
-    fan_speed_set_list = dut.command("find /var/run/hw-management/thermal -name fan*_speed_set")
-    for fan_speed_set in fan_speed_set_list["stdout_lines"]:
+    fan_speed_set_list = ["/var/run/hw-management/thermal/fan%d_speed_set" % fan_id for fan_id in range(1, fan_count + 1)]
+    for fan_speed_set in fan_speed_set_list:
         fan_speed_set_content = dut.command("cat %s" % fan_speed_set)
         assert fan_speed_set_content["stdout"] == "153", "Fan speed should be set to 60%, 153/255"

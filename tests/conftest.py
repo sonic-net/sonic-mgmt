@@ -1,3 +1,6 @@
+import sys
+import os
+
 import pytest
 import csv
 import yaml
@@ -5,8 +8,12 @@ import ipaddr as ipaddress
 
 from ansible_host import AnsibleHost
 
-
 pytest_plugins = ('ptf_fixtures', 'ansible_fixtures')
+
+# Add the tests folder to sys.path, for importing the lib package
+_current_file_dir = os.path.dirname(os.path.realpath(__file__))
+if _current_file_dir not in sys.path:
+    sys.path.append(current_file_dir)
 
 
 class TestbedInfo(object):
@@ -59,6 +66,33 @@ def testbed(request):
 
     tbinfo = TestbedInfo(tbfile)
     return tbinfo.testbed_topo[tbname]
+
+
+@pytest.fixture(scope="module")
+def testbed_devices(ansible_adhoc, testbed):
+    """
+    @summary: Fixture for creating dut, localhost and other necessary objects for testing. These objects provide
+        interfaces for interacting with the devices used in testing.
+    @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
+        mandatory argument for the class constructors.
+    @param testbed: Fixture for parsing testbed configuration file.
+    @return: Return the created device objects in a dictionary
+    """
+    from common.devices import SonicHost, Localhost
+
+    devices = {}
+    devices["localhost"] = Localhost(ansible_adhoc)
+    devices["dut"] = SonicHost(ansible_adhoc, testbed["dut"], gather_facts=True)
+    if "ptf" in testbed:
+        devices["ptf"] = PTFHost(ansible_adhoc, testbed["ptf"])
+
+    # In the future, we can implement more classes for interacting with other testbed devices in the lib.devices
+    # module. Then, in this fixture, we can initialize more instance of the classes and store the objects in the
+    # devices dict here. For example, we could have
+    #       from common.devices import FanoutHost
+    #       devices["fanout"] = FanoutHost(ansible_adhoc, testbed["dut"])
+
+    return devices
 
 
 @pytest.fixture(scope="module")
