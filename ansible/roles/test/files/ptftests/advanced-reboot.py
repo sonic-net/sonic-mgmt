@@ -777,14 +777,18 @@ class ReloadTest(BaseTest):
             if self.reboot_type == 'fast-reboot' and no_cp_replies < 0.95 * self.nr_vl_pkts:
                 self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (no_cp_replies, self.nr_vl_pkts))
 
-            if self.reboot_type == 'warm-reboot' and self.preboot_oper is not None:
-                if self.pre_handle is not None:
+            if self.reboot_type == 'warm-reboot':
+                if self.preboot_oper is not None and self.pre_handle is not None:
                     self.log("Postboot checks:")
                     log_info, fails = self.pre_handle.verify(pre_check=False)
                     self.populate_fail_info(fails)
                     for log in log_info:
                         self.log(log)
                     self.log(" ")
+
+                else:
+                    # verify there are no interface flaps after warm boot
+                    self.neigh_lag_status_check()
 
         except Exception as e:
             self.fails['dut'].add(e)
@@ -863,6 +867,21 @@ class ReloadTest(BaseTest):
             self.log("="*50)
 
             self.assertTrue(is_good, errors)
+
+    def neigh_lag_status_check(self):
+        """
+        Ensure there are no interface flaps after warm-boot
+        """
+        for neigh in self.ssh_targets:
+            self.neigh_handle = Arista(neigh, None, self.test_params)
+            self.neigh_handle.connect()
+            fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
+            self.neigh_handle.disconnect()
+            self.fails[neigh] |= fails
+            if not flap_cnt:
+                self.log("No LAG flaps seen on %s after warm boot" % neigh)
+            else:
+                self.fails[neigh].add("LAG flapped %s times on %s after warm boot" % (flap_cnt, neigh))
 
     def extract_no_cpu_replies(self, arr):
       """
