@@ -157,8 +157,36 @@ class Vxlan(BaseTest):
     def tearDown(self):
         return
 
-    def runTest(self):
-        print
+    def warmup(self):
+        print "Warming up"
+        err = ''
+        trace = ''
+        ret = 0
+        try:
+            for test in self.tests:
+                if self.vxlan_enabled:
+                    self.Vxlan(test, True)
+                self.RegularLAGtoVLAN(test, True)
+                self.RegularVLANtoLAG(test, True)
+
+        except Exception as e:
+            err = str(e)
+            trace = traceback.format_exc()
+            ret = -1
+        if ret != 0:
+            print "The warmup failed"
+            print
+            print "Error: %s" % err
+            print
+            print trace
+        else:
+            print "Warmup successful\n"
+        sys.stdout.flush()
+        if ret != 0:
+            raise AssertionError("Warmup failed")
+
+    def work_test(self):
+        print "Testing"
         err = ''
         trace = ''
         ret = 0
@@ -194,27 +222,36 @@ class Vxlan(BaseTest):
         if ret != 0:
             raise AssertionError(err)
 
-    def Vxlan(self, test):
+
+    def runTest(self):
+        print
+        # Warm-up first
+        self.warmup()
+        # test itself
+        self.work_test()
+
+
+    def Vxlan(self, test, wu = False):
         for i, n in enumerate(self.net_ports):
             for j, a in enumerate(test['acc_ports']):
                 res, out = self.checkVxlan(a, n, test)
-                if not res:
+                if not res and not wu:
                     return False, out + " | net_port_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
 
-    def RegularLAGtoVLAN(self, test):
+    def RegularLAGtoVLAN(self, test, wu = False):
         for i, n in enumerate(self.net_ports):
             for j, a in enumerate(test['acc_ports']):
                 res, out = self.checkRegularRegularLAGtoVLAN(a, n, test)
-                if not res:
+                if not res and not wu:
                     return False, out + " | net_port_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
 
-    def RegularVLANtoLAG(self, test):
+    def RegularVLANtoLAG(self, test, wu = False):
         for i, (dst, ports) in enumerate(self.pc_info):
             for j, a in enumerate(test['acc_ports']):
                 res, out = self.checkRegularRegularVLANtoLAG(a, ports, dst, test)
-                if not res:
+                if not res and not wu:
                     return False, out + " | pc_info_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
 
