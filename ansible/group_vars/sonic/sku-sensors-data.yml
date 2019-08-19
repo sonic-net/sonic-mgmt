@@ -2279,3 +2279,99 @@ sensors_checks:
       temp: []
 
     psu_skips: {}
+
+  Arista-7260CX3-Q64:
+    alarms:
+      fan:
+      - pmbus-i2c-3-58/fan1/fan1_alarm
+      - pmbus-i2c-4-58/fan1/fan1_alarm
+      - pmbus-i2c-3-58/fan1/fan1_fault
+      - pmbus-i2c-4-58/fan1/fan1_fault
+      - la_cpld-i2c-85-60/fan1/fan1_fault
+      - la_cpld-i2c-85-60/fan2/fan2_fault
+      - la_cpld-i2c-85-60/fan3/fan3_fault
+      - la_cpld-i2c-85-60/fan4/fan4_fault
+      power:
+      - pmbus-i2c-3-58/iin/curr1_max_alarm
+      - pmbus-i2c-3-58/iout1/curr2_max_alarm
+      - pmbus-i2c-3-58/iout1/curr2_crit_alarm
+      - pmbus-i2c-3-58/iout2/curr3_crit_alarm
+      - pmbus-i2c-3-58/vin/in1_alarm
+      - pmbus-i2c-3-58/vout1/in2_lcrit_alarm
+      - pmbus-i2c-3-58/vout1/in2_crit_alarm
+      - pmbus-i2c-4-58/iin/curr1_max_alarm
+      - pmbus-i2c-4-58/iout1/curr2_max_alarm
+      - pmbus-i2c-4-58/iout1/curr2_crit_alarm
+      - pmbus-i2c-4-58/iout2/curr3_crit_alarm
+      - pmbus-i2c-4-58/vin/in1_alarm
+      - pmbus-i2c-4-58/vout1/in2_lcrit_alarm
+      - pmbus-i2c-4-58/vout1/in2_crit_alarm
+      temp:
+      - coretemp-isa-0000/Physical id 0/temp1_crit_alarm
+      - coretemp-isa-0000/Core 0/temp2_crit_alarm
+      - coretemp-isa-0000/Core 1/temp3_crit_alarm
+      - lm73-i2c-88-48/Front panel temp sensor/temp1_min_alarm
+      - lm73-i2c-88-48/Front panel temp sensor/temp1_max_alarm
+      - max6658-i2c-1-4c/Asic temp sensor/temp1_min_alarm
+      - max6658-i2c-1-4c/Asic temp sensor/temp1_max_alarm
+      - max6658-i2c-1-4c/Asic temp sensor/temp1_crit_alarm
+      - max6658-i2c-73-4c/Back panel temp sensor 1/temp1_min_alarm
+      - max6658-i2c-73-4c/Back panel temp sensor 1/temp1_max_alarm
+      - max6658-i2c-73-4c/Back panel temp sensor 1/temp1_crit_alarm
+      - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_min_alarm
+      - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_max_alarm
+      - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_crit_alarm
+      - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_fault
+      - pmbus-i2c-3-58/Power supply 1 exhaust temp sensor/temp3_alarm
+      - pmbus-i2c-3-58/Power supply 1 inlet temp sensor/temp2_alarm
+      - pmbus-i2c-3-58/Power supply 1 hotspot sensor/temp1_alarm
+      - pmbus-i2c-4-58/Power supply 2 exhaust temp sensor/temp3_alarm
+      - pmbus-i2c-4-58/Power supply 2 inlet temp sensor/temp2_alarm
+      - pmbus-i2c-4-58/Power supply 2 hotspot sensor/temp1_alarm
+
+    compares:
+      fan: []
+      power:
+      - - pmbus-i2c-3-58/iin/curr1_input
+        - pmbus-i2c-3-58/iin/curr1_max
+      - - pmbus-i2c-3-58/iout1/curr2_input
+        - pmbus-i2c-3-58/iout1/curr2_max
+      - - pmbus-i2c-4-58/iin/curr1_input
+        - pmbus-i2c-4-58/iin/curr1_max
+      - - pmbus-i2c-4-58/iout1/curr2_input
+        - pmbus-i2c-4-58/iout1/curr2_max
+      temp:
+      - - coretemp-isa-0000/Physical id 0/temp1_input
+        - coretemp-isa-0000/Physical id 0/temp1_max
+      - - coretemp-isa-0000/Core 0/temp2_input
+        - coretemp-isa-0000/Core 0/temp2_max
+      - - coretemp-isa-0000/Core 1/temp3_input
+        - coretemp-isa-0000/Core 1/temp3_max
+      - - lm73-i2c-88-48/Front panel temp sensor/temp1_input
+        - lm73-i2c-88-48/Front panel temp sensor/temp1_max
+      - - max6658-i2c-1-4c/Asic temp sensor/temp1_input
+        - max6658-i2c-1-4c/Asic temp sensor/temp1_max
+      - - max6658-i2c-73-4c/Back panel temp sensor 1/temp1_input
+        - max6658-i2c-73-4c/Back panel temp sensor 1/temp1_max
+      - - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_input
+        - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_max
+
+    non_zero:
+      fan:
+      - pmbus-i2c-3-58/fan1/fan1_input
+      - pmbus-i2c-4-58/fan1/fan1_input
+      - la_cpld-i2c-85-60/fan1/fan1_input
+      - la_cpld-i2c-85-60/fan2/fan2_input
+      - la_cpld-i2c-85-60/fan3/fan3_input
+      - la_cpld-i2c-85-60/fan4/fan4_input
+      power:
+      - pmbus-i2c-4-58/pin/power1_input
+      - pmbus-i2c-4-58/pout1/power2_input
+      - pmbus-i2c-4-58/pout2/power3_input
+      - pmbus-i2c-3-58/pin/power1_input
+      - pmbus-i2c-3-58/pout1/power2_input
+      - pmbus-i2c-3-58/pout2/power3_input
+      temp:
+      - pch_haswell-virtual-0/temp1/temp1_input
+
+    psu_skips: {}
