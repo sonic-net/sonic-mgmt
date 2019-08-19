@@ -195,27 +195,27 @@ class Vxlan(BaseTest):
             raise AssertionError(err)
 
     def Vxlan(self, test):
-        for n in self.net_ports:
-            for a in test['acc_ports']:
+        for i, n in enumerate(self.net_ports):
+            for j, a in enumerate(test['acc_ports']):
                 res, out = self.checkVxlan(a, n, test)
                 if not res:
-                    return False, out
+                    return False, out + " | net_port_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
 
     def RegularLAGtoVLAN(self, test):
-        for n in self.net_ports:
-            for a in test['acc_ports']:
+        for i, n in enumerate(self.net_ports):
+            for j, a in enumerate(test['acc_ports']):
                 res, out = self.checkRegularRegularLAGtoVLAN(a, n, test)
                 if not res:
-                    return False, out
+                    return False, out + " | net_port_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
 
     def RegularVLANtoLAG(self, test):
-        for dst, ports in self.pc_info:
-            for a in test['acc_ports']:
+        for i, (dst, ports) in enumerate(self.pc_info):
+            for j, a in enumerate(test['acc_ports']):
                 res, out = self.checkRegularRegularVLANtoLAG(a, ports, dst, test)
                 if not res:
-                    return False, out
+                    return False, out + " | pc_info_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
 
     def checkRegularRegularVLANtoLAG(self, acc_port, pc_ports, dst_ip, test):
