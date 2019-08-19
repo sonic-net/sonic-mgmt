@@ -323,10 +323,15 @@ class SadOper(SadPath):
         lag_memb_output = match.group(2)
         neigh_name = self.po_neigh_map[po_name]
         for member in self.vm_dut_map[neigh_name]['dut_ports']:
-            if po_name in self.lag_members_down and member in self.lag_members_down[po_name]:
-                search_str = '%s(D)' % member
-            else:
-                search_str = '%s(S)' % member
+            # default state for the lag member
+            search_str = '%s(S)' % member
+
+            if po_name in self.lag_members_down:
+                 if member in self.lag_members_down[po_name]:
+                     search_str = '%s(D)' % member
+                 # single member case. state of non down member of the down portchannel
+                 elif self.tot_memb_cnt != self.memb_cnt:
+                     search_str = '%s(S*)' % member
 
             if lag_memb_output.find(search_str) != -1:
                 self.log.append('Lag member %s state as expected' % member)
