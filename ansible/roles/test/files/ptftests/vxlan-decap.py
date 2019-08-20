@@ -25,6 +25,8 @@ from ptf.mask import Mask
 import datetime
 import subprocess
 import traceback
+import socket
+import struct
 from pprint import pprint
 from pprint import pformat
 
@@ -57,13 +59,39 @@ class Vxlan(BaseTest):
     def generate_ArpResponderConfig(self):
         config = {}
         for test in self.tests:
-            for port in test['acc_ports']:
-                config['eth%d' % port] = [test['vlan_ip_prefix'] % port]
+            for port, ip in test['vlan_ip_prefixes'].items():
+                config['eth%d' % port] = [ip]
 
         with open('/tmp/vxlan_arpresponder.conf', 'w') as fp:
             json.dump(config, fp)
 
         return
+
+    def generate_VlanPrefixes(self, gw, prefixlen, acc_ports):
+        res = {}
+        n_hosts = 2**(32 - prefixlen) - 3
+        nr_of_dataplane_ports = len(self.dataplane.ports)
+
+        if nr_of_dataplane_ports > n_hosts:
+            raise Exception("The prefix len size is too small for the test")
+
+        gw_addr_n = struct.unpack(">I", socket.inet_aton(gw))[0]
+        mask = (2**32 - 1) ^ (2**(32 - prefixlen) - 1)
+        net_addr_n = gw_addr_n & mask
+
+        addr = 1
+        for port in acc_ports:
+            while True:
+                host_addr_n = net_addr_n + addr
+                host_ip = socket.inet_ntoa(struct.pack(">I", host_addr_n))
+                if host_ip != gw:
+                    break
+                else:
+                    addr += 1 # skip gw
+            res[port] = host_ip
+            addr += 1
+
+        return res
 
     def setUp(self):
         self.dataplane = ptf.dataplane_instance
@@ -117,20 +145,13 @@ class Vxlan(BaseTest):
             for d in graph['minigraph_vlan_interfaces']:
                 if d['attachto'] == name:
                     gw = d['addr']
-                    prefixlen = d['prefixlen']
+                    prefixlen = int(d['prefixlen'])
                     break
             else:
                 raise Exception("Vlan '%s' is not found" % name)
 
             test['vlan_gw'] = gw
-
-            number_of_dataplane_ports = len(self.dataplane.ports)
-            if number_of_dataplane_ports > 256:
-                raise Exception("Too much dataplane ports for the test")
-            if prefixlen > 24:
-                raise Exception("The prefix len size is too small for the test")
-
-            test['vlan_ip_prefix'] = '.'.join(gw.split('.')[0:3])+".%d"
+            test['vlan_ip_prefixes'] = self.generate_VlanPrefixes(gw, prefixlen, test['acc_ports'])
 
             self.tests.append(test)
 
@@ -150,11 +171,14 @@ class Vxlan(BaseTest):
 
         self.generate_ArpResponderConfig()
 
+        self.cmd(["supervisorctl", "restart", "arp_responder"])
+
         self.dataplane.flush()
 
         return
 
     def tearDown(self):
+        self.cmd(["supervisorctl", "stop", "arp_responder"])
         return
 
     def warmup(self):
@@ -258,7 +282,7 @@ class Vxlan(BaseTest):
     def checkRegularRegularVLANtoLAG(self, acc_port, pc_ports, dst_ip, test):
         src_mac = self.ptf_mac_addrs['eth%d' % acc_port]
         dst_mac = self.dut_mac
-        src_ip = test['vlan_ip_prefix'] % acc_port
+        src_ip = test['vlan_ip_prefixes'][acc_port]
 
         packet = simple_tcp_packet(
                          eth_dst=dst_mac,
@@ -279,7 +303,7 @@ class Vxlan(BaseTest):
 
         for i in xrange(self.nr):
             testutils.send_packet(self, acc_port, packet)
-        nr_rcvd = testutils.count_matched_packets_all_ports(self, exp_packet, pc_ports, timeout=0.5)
+        nr_rcvd = testutils.count_matched_packets_all_ports(self, exp_packet, pc_ports, timeout=0.2)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
@@ -292,7 +316,7 @@ class Vxlan(BaseTest):
         src_mac = self.random_mac
         dst_mac = self.dut_mac
         src_ip = test['src_ip']
-        dst_ip = test['vlan_ip_prefix'] % acc_port
+        dst_ip = test['vlan_ip_prefixes'][acc_port]
 
         packet = simple_tcp_packet(
                          eth_dst=dst_mac,
@@ -311,7 +335,7 @@ class Vxlan(BaseTest):
 
         for i in xrange(self.nr):
             testutils.send_packet(self, net_port, packet)
-        nr_rcvd = testutils.count_matched_packets(self, exp_packet, acc_port, timeout=0.5)
+        nr_rcvd = testutils.count_matched_packets(self, exp_packet, acc_port, timeout=0.2)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
@@ -323,7 +347,7 @@ class Vxlan(BaseTest):
         inner_dst_mac = self.ptf_mac_addrs['eth%d' % acc_port]
         inner_src_mac = self.dut_mac
         inner_src_ip = test['vlan_gw']
-        inner_dst_ip = test['vlan_ip_prefix'] % acc_port
+        inner_dst_ip = test['vlan_ip_prefixes'][acc_port]
         dst_mac = self.dut_mac
         src_mac = self.random_mac
         ip_dst = self.loopback_ip
@@ -348,7 +372,7 @@ class Vxlan(BaseTest):
                  )
         for i in xrange(self.nr):
             testutils.send_packet(self, net_port, packet)
-        nr_rcvd = testutils.count_matched_packets(self, inpacket, acc_port, timeout=0.5)
+        nr_rcvd = testutils.count_matched_packets(self, inpacket, acc_port, timeout=0.2)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:

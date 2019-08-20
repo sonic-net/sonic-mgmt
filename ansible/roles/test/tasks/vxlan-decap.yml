@@ -31,10 +31,6 @@
       vars:
         supervisor_host: "{{ ptf_host }}"
 
-    - name: Start arpresponder
-      supervisorctl: state=restarted name=arp_responder
-      delegate_to: "{{ ptf_host }}"
-
     - name: Restart DUT. Wait 240 seconds after SONiC started ssh
       include: reboot.yml
       vars:
@@ -50,9 +46,6 @@
     - name: Render DUT vxlan configuration. Tunnel Maps
       template: src=vxlan_db.maps.json.j2 dest=/tmp/vxlan_db.maps.{{ item }}.json
       with_items: minigraph_vlans
-
-    - name: Wait for some time until arp cache is ready
-      pause: seconds=50
 
     - include: ptf_runner.yml
       vars:
@@ -114,7 +107,3 @@
 
     - name: Remove vxlan tunnel configuration
       shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tunnelVxlan"
-
-    - name: Stop arpresponder
-      supervisorctl: state=stopped name=arp_responder
-      delegate_to: "{{ ptf_host }}"
