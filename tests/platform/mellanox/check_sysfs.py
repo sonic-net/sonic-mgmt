@@ -35,10 +35,11 @@ def check_sysfs(dut):
     from common.mellanox_data import SWITCH_MODELS
     fan_count = SWITCH_MODELS[dut_hwsku]["fans"]["number"]
 
-    fan_status_list = ["/var/run/hw-management/thermal/fan%d_status" % fan_id for fan_id in range(1, fan_count + 1)]
-    for fan_status in fan_status_list:
-        fan_status_content = dut.command("cat %s" % fan_status)
-        assert fan_status_content["stdout"] == "1", "Content of %s is not 1" % fan_status
+    if SWITCH_MODELS[dut_hwsku]["fans"]["hot_swappable"]:
+        fan_status_list = ["/var/run/hw-management/thermal/fan%d_status" % fan_id for fan_id in range(1, fan_count + 1)]
+        for fan_status in fan_status_list:
+            fan_status_content = dut.command("cat %s" % fan_status)
+            assert fan_status_content["stdout"] == "1", "Content of %s is not 1" % fan_status
 
     fan_fault_list = ["/var/run/hw-management/thermal/fan%d_fault" % fan_id for fan_id in range(1, fan_count + 1)]
     for fan_fault in fan_fault_list:
