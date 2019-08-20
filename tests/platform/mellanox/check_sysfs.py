@@ -29,7 +29,7 @@ def check_sysfs(dut):
         asic_temp = float(file_asic["stdout"]) / 1000
         assert asic_temp > 0 and asic_temp < 85, "Abnormal ASIC temperature: %s" % file_asic["stdout"]
     except:
-        assert "Bad content in /var/run/hw-management/thermal/asic: %s" % file_asic["stdout"]
+        assert False, "Bad content in /var/run/hw-management/thermal/asic: %s" % file_asic["stdout"]
 
     dut_hwsku = dut.command("sonic-cfggen -d -v 'DEVICE_METADATA[\"localhost\"][\"hwsku\"]'")["stdout"]
     from common.mellanox_data import SWITCH_MODELS
@@ -52,7 +52,7 @@ def check_sysfs(dut):
             fan_min_speed = int(fan_min_content["stdout"])
             assert fan_min_speed > 0, "Bad fan minimum speed: %s" % str(fan_min_speed)
         except Exception as e:
-            assert "Get content from %s failed, exception: %s" % (fan_min, repr(e))
+            assert False, "Get content from %s failed, exception: %s" % (fan_min, repr(e))
 
     fan_max_list = ["/var/run/hw-management/thermal/fan%d_max" % fan_id for fan_id in range(1, fan_count + 1)]
     for fan_max in fan_max_list:
@@ -61,7 +61,7 @@ def check_sysfs(dut):
             fan_max_speed = int(fan_max_content["stdout"])
             assert fan_max_speed > 10000, "Bad fan maximum speed: %s" % str(fan_max_speed)
         except Exception as e:
-            assert "Get content from %s failed, exception: %s" % (fan_max, repr(e))
+            assert False, "Get content from %s failed, exception: %s" % (fan_max, repr(e))
 
     fan_speed_get_list = ["/var/run/hw-management/thermal/fan%d_speed_get" % fan_id for fan_id in range(1, fan_count + 1)]
     for fan_speed_get in fan_speed_get_list:
@@ -70,7 +70,7 @@ def check_sysfs(dut):
             fan_speed = int(fan_speed_get_content["stdout"])
             assert fan_speed > 1000, "Bad fan speed: %s" % str(fan_speed)
         except Exception as e:
-            assert "Get content from %s failed, exception: %s" % (fan_speed_get, repr(e))
+            assert False, "Get content from %s failed, exception: %s" % (fan_speed_get, repr(e))
 
     fan_speed_set_list = ["/var/run/hw-management/thermal/fan%d_speed_set" % fan_id for fan_id in range(1, fan_count + 1)]
     for fan_speed_set in fan_speed_set_list:
