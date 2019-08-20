@@ -70,7 +70,7 @@
     - name: Configure vxlan decap tunnel
       shell: sonic-cfggen -j /tmp/vxlan_db.tunnel.json --write-to-db
 
-    - name: Configure vxlan decap tunnel map for {{ item }}
+    - name: Configure vxlan decap tunnel maps
       shell: sonic-cfggen -j /tmp/vxlan_db.maps.{{ item }}.json --write-to-db
       with_items: minigraph_vlans
 
@@ -87,9 +87,9 @@
         - config_file='/tmp/vxlan_decap.json'
         - count=10
 
-    - name: Remove vxlan tunnel map configuration for {{ item }}
+    - name: Remove vxlan tunnel maps configuration
       shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnelVxlan|map{{ item }}"
-      with_items: minigraph_vlans
+      with_items: "{{ minigraph_vlans }}"
 
     - name: Remove vxlan tunnel configuration
       shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tunnelVxlan"
@@ -108,9 +108,9 @@
         - count=10
 
 - always:
-    - name: Remove vxlan tunnel map configuration for {{ item }}
+    - name: Remove vxlan tunnel maps configuration
       shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnelVxlan|map{{ item }}"
-      with_items: minigraph_vlans
+      with_items: "{{ minigraph_vlans }}"
 
     - name: Remove vxlan tunnel configuration
       shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tunnelVxlan"
