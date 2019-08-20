@@ -157,8 +157,36 @@ class Vxlan(BaseTest):
     def tearDown(self):
         return
 
-    def runTest(self):
-        print
+    def warmup(self):
+        print "Warming up"
+        err = ''
+        trace = ''
+        ret = 0
+        try:
+            for test in self.tests:
+                if self.vxlan_enabled:
+                    self.Vxlan(test, True)
+                self.RegularLAGtoVLAN(test, True)
+                self.RegularVLANtoLAG(test, True)
+
+        except Exception as e:
+            err = str(e)
+            trace = traceback.format_exc()
+            ret = -1
+        if ret != 0:
+            print "The warmup failed"
+            print
+            print "Error: %s" % err
+            print
+            print trace
+        else:
+            print "Warmup successful\n"
+        sys.stdout.flush()
+        if ret != 0:
+            raise AssertionError("Warmup failed")
+
+    def work_test(self):
+        print "Testing"
         err = ''
         trace = ''
         ret = 0
@@ -194,28 +222,37 @@ class Vxlan(BaseTest):
         if ret != 0:
             raise AssertionError(err)
 
-    def Vxlan(self, test):
-        for n in self.net_ports:
-            for a in test['acc_ports']:
+
+    def runTest(self):
+        print
+        # Warm-up first
+        self.warmup()
+        # test itself
+        self.work_test()
+
+
+    def Vxlan(self, test, wu = False):
+        for i, n in enumerate(self.net_ports):
+            for j, a in enumerate(test['acc_ports']):
                 res, out = self.checkVxlan(a, n, test)
-                if not res:
-                    return False, out
+                if not res and not wu:
+                    return False, out + " | net_port_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
 
-    def RegularLAGtoVLAN(self, test):
-        for n in self.net_ports:
-            for a in test['acc_ports']:
+    def RegularLAGtoVLAN(self, test, wu = False):
+        for i, n in enumerate(self.net_ports):
+            for j, a in enumerate(test['acc_ports']):
                 res, out = self.checkRegularRegularLAGtoVLAN(a, n, test)
-                if not res:
-                    return False, out
+                if not res and not wu:
+                    return False, out + " | net_port_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
 
-    def RegularVLANtoLAG(self, test):
-        for dst, ports in self.pc_info:
-            for a in test['acc_ports']:
+    def RegularVLANtoLAG(self, test, wu = False):
+        for i, (dst, ports) in enumerate(self.pc_info):
+            for j, a in enumerate(test['acc_ports']):
                 res, out = self.checkRegularRegularVLANtoLAG(a, ports, dst, test)
-                if not res:
-                    return False, out
+                if not res and not wu:
+                    return False, out + " | pc_info_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
 
     def checkRegularRegularVLANtoLAG(self, acc_port, pc_ports, dst_ip, test):
@@ -242,7 +279,7 @@ class Vxlan(BaseTest):
 
         for i in xrange(self.nr):
             testutils.send_packet(self, acc_port, packet)
-        nr_rcvd = testutils.count_matched_packets_all_ports(self, exp_packet, pc_ports, timeout=0.2)
+        nr_rcvd = testutils.count_matched_packets_all_ports(self, exp_packet, pc_ports, timeout=0.5)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
@@ -274,7 +311,7 @@ class Vxlan(BaseTest):
 
         for i in xrange(self.nr):
             testutils.send_packet(self, net_port, packet)
-        nr_rcvd = testutils.count_matched_packets(self, exp_packet, acc_port, timeout=0.2)
+        nr_rcvd = testutils.count_matched_packets(self, exp_packet, acc_port, timeout=0.5)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
@@ -311,7 +348,7 @@ class Vxlan(BaseTest):
                  )
         for i in xrange(self.nr):
             testutils.send_packet(self, net_port, packet)
-        nr_rcvd = testutils.count_matched_packets(self, inpacket, acc_port, timeout=0.2)
+        nr_rcvd = testutils.count_matched_packets(self, inpacket, acc_port, timeout=0.5)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
