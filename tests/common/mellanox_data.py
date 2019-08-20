@@ -49,7 +49,7 @@ SWITCH_MODELS = {
             "hot_swappable": True
         }
     },
-    "ACS-MSN2100": {
+    "ACS-MSN2010": {
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": True,
@@ -87,11 +87,11 @@ SWITCH_MODELS = {
         },
         "fans": {
             "number": 3,
-            "hot_swappable": False
+            "hot_swappable": True
         },
         "psus": {
             "number": 2,
-            "hot_swappable": False
+            "hot_swappable": True
         }
     },
     "ACS-MSN3700": {
@@ -102,11 +102,11 @@ SWITCH_MODELS = {
         },
         "fans": {
             "number": 6,
-            "hot_swappable": False
+            "hot_swappable": True
         },
         "psus": {
             "number": 2,
-            "hot_swappable": False
+            "hot_swappable": True
         }
     },
     "ACS-MSN3700C": {
@@ -117,11 +117,11 @@ SWITCH_MODELS = {
         },
         "fans": {
             "number": 4,
-            "hot_swappable": False
+            "hot_swappable": True
         },
         "psus": {
             "number": 2,
-            "hot_swappable": False
+            "hot_swappable": True
         }
     },
     "ACS-MSN3510": {
@@ -132,11 +132,11 @@ SWITCH_MODELS = {
         },
         "fans": {
             "number": 6,
-            "hot_swappable": False
+            "hot_swappable": True
         },
         "psus": {
             "number": 2,
-            "hot_swappable": False
+            "hot_swappable": True
         }
     }
 }
