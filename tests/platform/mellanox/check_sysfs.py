@@ -31,7 +31,7 @@ def check_sysfs(dut):
     except:
         assert False, "Bad content in /var/run/hw-management/thermal/asic: %s" % file_asic["stdout"]
 
-    dut_hwsku = dut.command("sonic-cfggen -d -v 'DEVICE_METADATA[\"localhost\"][\"hwsku\"]'")["stdout"]
+    dut_hwsku = dut.facts["hwsku"]
     from common.mellanox_data import SWITCH_MODELS
     fan_count = SWITCH_MODELS[dut_hwsku]["fans"]["number"]
 
