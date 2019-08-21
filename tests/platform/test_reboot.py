@@ -22,6 +22,8 @@ from check_interface_status import check_interface_status
 from check_transceiver_status import check_transceiver_basic
 from check_transceiver_status import all_transceivers_detected
 
+pytestmark = [pytest.mark.disable_loganalyzer]
+
 
 def reboot_and_check(localhost, dut, reboot_type="cold"):
     """
