@@ -1,0 +1,20 @@
+#!/bin/bash -ex
+
+ifconfig eth{{ '%d' % (vlan_ports[0]) }} {{ vlan_ips[0] }}
+ifconfig eth{{ '%d' % (vlan_ports[0]) }}:0 {{ speaker_ips[0] }}
+ifconfig eth{{ '%d' % (vlan_ports[0]) }}:1 {{ speaker_ips[1] }}
+
+{% set intf = 'eth%d' % (vlan_ports[1]) %}
+ifconfig {{intf}} {{ vlan_ips[1] }}
+# i=0; until [ $i -eq 10 ] || ping {{ vlan_addr }} -I {{intf}} -c 1 >/dev/null 2>&1; do i=`expr $i + 1`; done &
+
+{% set intf = 'eth%d' % (vlan_ports[2]) %}
+ifconfig {{intf}} {{ vlan_ips[2] }}
+# i=0; until [ $i -eq 10 ] || ping {{ vlan_addr }} -I {{intf}} -c 1 >/dev/null 2>&1; do i=`expr $i + 1`; done &
+
+ip route flush {{ lo_addr }}/{{ lo_addr_prefixlen }}
+ip route add {{ lo_addr }}/{{ lo_addr_prefixlen }} via {{ vlan_addr }}
+
+env exabgp.daemon.user=root nohup exabgp {{ exabgp_dir }}/{{ cfnames[0] }} >/dev/null 2>&1 &
+env exabgp.daemon.user=root nohup exabgp {{ exabgp_dir }}/{{ cfnames[1] }} >/dev/null 2>&1 &
+env exabgp.daemon.user=root nohup exabgp {{ exabgp_dir }}/{{ cfnames[2] }} >/dev/null 2>&1 &
