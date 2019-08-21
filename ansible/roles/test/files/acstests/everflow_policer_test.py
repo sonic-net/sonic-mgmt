@@ -100,7 +100,16 @@ class EverflowPolicerTest(BaseTest):
         """
         @summary: Send traffic & check how many mirrored packets are received
         @return: count: number of mirrored packets received
+
+        Note:
+        Mellanox crafts the GRE packets with extra information:
+        That is: 22 bytes extra information after the GRE header
         """
+        payload = self.base_pkt
+        if self.asic_type in ["mellanox"]:
+            import binascii
+            payload = binascii.unhexlify("0"*44) + str(payload) # Add the padding
+
         exp_pkt = testutils.simple_gre_packet(
                 eth_src = self.router_mac,
                 ip_src = self.session_src_ip,
@@ -109,14 +118,20 @@ class EverflowPolicerTest(BaseTest):
                 ip_id = 0,
                 #ip_flags = 0x10, # need to upgrade ptf version to support it
                 ip_ttl = self.session_ttl,
-                inner_frame = self.base_pkt)
+                inner_frame = payload)
 
-        exp_pkt['GRE'].proto = 0x88be
+        if self.asic_type in ["mellanox"]:
+            exp_pkt['GRE'].proto = 0x8949 # Mellanox specific
+        else:
+            exp_pkt['GRE'].proto = 0x88be
 
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "flags")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+
+        if self.asic_type in ["mellanox"]:
+            masked_exp_pkt.set_do_not_care(304, 176) # Mask the Mellanox specific inner header
 
         self.dataplane.flush()
 
