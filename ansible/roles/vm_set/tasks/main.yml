@@ -106,7 +106,7 @@
 - name: Set sysctl RCVBUF default parameter for testbed
   sysctl:
     name: "net.core.rmem_default"
-    value: 509430500
+    value: 31457280
     sysctl_set: yes
   become: yes
 
