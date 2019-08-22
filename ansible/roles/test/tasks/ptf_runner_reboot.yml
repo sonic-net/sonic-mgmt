@@ -27,6 +27,8 @@
         - allow_vlan_flooding='{{ allow_vlan_flooding }}'
         - sniff_time_incr={{ sniff_time_incr }}
         - setup_fdb_before_test=True
+        - vnet='{{ vnet }}'
+        - vnet_pkts='{{ vnet_pkts }}'
 
   always:
 

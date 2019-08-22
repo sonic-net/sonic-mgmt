@@ -38,6 +38,7 @@ class VNET(BaseTest):
         self.DEFAULT_PKT_LEN = 100
         self.max_routes_wo_scaling = 1000
         self.vnet_batch = 8
+        self.packets = []
 
     def cmd(self, cmds):
         process = subprocess.Popen(cmds,
@@ -275,6 +276,8 @@ class VNET(BaseTest):
         if self.vxlan_enabled:
             self.cmd(["supervisorctl", "stop", "arp_responder"])
 
+        json.dump(self.packets, open("/tmp/vnet_pkts.json", 'w'))
+
         return
 
     def runTest(self):
@@ -307,7 +310,9 @@ class VNET(BaseTest):
                 ip_dst=test['src'],
                 ip_src=test['dst'],
                 ip_id=108,
-                ip_ttl=64)
+                ip_ttl=64,
+                tcp_sport=1234,
+                tcp_dport=5000)
             udp_sport = 1234 # Use entropy_hash(pkt)
             udp_dport = self.vxlan_port
             if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
@@ -345,7 +350,9 @@ class VNET(BaseTest):
                 ip_dst=test['src'],
                 ip_src=test['dst'],
                 ip_id=108,
-                ip_ttl=63)
+                ip_ttl=63,
+                tcp_sport=1234,
+                tcp_dport=5000)
             send_packet(self, net_port, str(vxlan_pkt))
 
             log_str = "Sending packet from port " + str(net_port) + " to " + test['src']
@@ -359,6 +366,8 @@ class VNET(BaseTest):
             else:
                 verify_no_packet(self, exp_pkt, test['port'])
 
+            vxlan_pkt.load = '0' * 60 + str(len(self.packets))
+            self.packets.append((net_port, str(vxlan_pkt).encode("base64")))
 
     def FromServer(self, test):
         rv = True
@@ -383,14 +392,18 @@ class VNET(BaseTest):
                 ip_dst=test['dst'],
                 ip_src=test['src'],
                 ip_id=105,
-                ip_ttl=64)
+                ip_ttl=64,
+                tcp_sport=1234,
+                tcp_dport=5000)
             exp_pkt = simple_tcp_packet(
                 eth_dst=test['mac'],
                 eth_src=self.dut_mac,
                 ip_dst=test['dst'],
                 ip_src=test['src'],
                 ip_id=105,
-                ip_ttl=63)
+                ip_ttl=63,
+                tcp_sport=1234,
+                tcp_dport=5000)
             udp_sport = 1234 # Use entropy_hash(pkt)
             udp_dport = self.vxlan_port
             if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
@@ -439,6 +452,9 @@ class VNET(BaseTest):
             else:
                 verify_no_packet_any(self, masked_exp_pkt, self.net_ports)
 
+            pkt.load = '0' * 60 + str(len(self.packets))
+            self.packets.append((test['port'], str(pkt).encode("base64")))
+
         finally:
             print
 
@@ -465,7 +481,9 @@ class VNET(BaseTest):
                     ip_dst=serv['src'],
                     ip_src=test['src'],
                     ip_id=205,
-                    ip_ttl=2)
+                    ip_ttl=2,
+                    tcp_sport=1234,
+                    tcp_dport=5000)
 
                 exp_pkt = simple_tcp_packet(
                     pktlen=pkt_len,
@@ -476,7 +494,9 @@ class VNET(BaseTest):
                     ip_dst=serv['src'],
                     ip_src=test['src'],
                     ip_id=205,
-                    ip_ttl=1)
+                    ip_ttl=1,
+                    tcp_sport=1234,
+                    tcp_dport=5000)
 
                 send_packet(self, test['port'], str(pkt))
 
@@ -487,6 +507,9 @@ class VNET(BaseTest):
                     verify_packet(self, exp_pkt, serv['port'])
                 else:
                     verify_no_packet(self, exp_pkt, serv['port'])
+
+                pkt.load = '0' * 60 + str(len(self.packets))
+                self.packets.append((test['port'], str(pkt).encode("base64")))
 
         finally:
             print
