@@ -10,7 +10,9 @@ import os
 import time
 import copy
 
-from ansible_host import AnsibleHost
+import pytest
+
+from platform_fixtures import conn_graph_facts
 
 
 def parse_output(output_lines):
@@ -42,7 +44,7 @@ def parse_eeprom(output_lines):
     return res
 
 
-def test_check_sfp_status_and_configure_sfp(localhost, ansible_adhoc, testbed):
+def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
     """
     @summary: Check SFP status and configure SFP
 
@@ -54,13 +56,8 @@ def test_check_sfp_status_and_configure_sfp(localhost, ansible_adhoc, testbed):
     * show interface transceiver eeprom
     * sfputil reset <interface name>
     """
-    hostname = testbed['dut']
-    ans_host = AnsibleHost(ansible_adhoc, hostname)
-    localhost.command("who")
-    lab_conn_graph_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
-        "../../ansible/files/lab_connection_graph.xml")
-    conn_graph_facts = localhost.conn_graph_facts(host=hostname, filename=lab_conn_graph_file).\
-        contacted['localhost']['ansible_facts']
+
+    ans_host = testbed_devices["dut"]
 
     cmd_sfp_presence = "sudo sfputil show presence"
     cmd_sfp_eeprom = "sudo sfputil show eeprom"
@@ -110,7 +107,7 @@ def test_check_sfp_status_and_configure_sfp(localhost, ansible_adhoc, testbed):
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
 
-def test_check_sfp_low_power_mode(localhost, ansible_adhoc, testbed):
+def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
     """
     @summary: Check SFP low power mode
 
@@ -119,13 +116,7 @@ def test_check_sfp_low_power_mode(localhost, ansible_adhoc, testbed):
     * sfputil lpmode off
     * sfputil lpmode on
     """
-    hostname = testbed['dut']
-    ans_host = AnsibleHost(ansible_adhoc, hostname)
-    localhost.command("who")
-    lab_conn_graph_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
-        "../../ansible/files/lab_connection_graph.xml")
-    conn_graph_facts = localhost.conn_graph_facts(host=hostname, filename=lab_conn_graph_file).\
-        contacted['localhost']['ansible_facts']
+    ans_host = testbed_devices["dut"]
 
     cmd_sfp_presence = "sudo sfputil show presence"
     cmd_sfp_show_lpmode = "sudo sfputil show lpmode"
