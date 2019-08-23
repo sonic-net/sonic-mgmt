@@ -129,7 +129,7 @@ def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller):
             fields = line.split()
             if fields[2] != "OK":
                 psu_under_test = fields[1]
-                check_vendor_specific_psustatus(ans_host, line)
+            check_vendor_specific_psustatus(ans_host, line)
         assert psu_under_test is not None, "No PSU is turned off"
 
         logging.info("Turn on PSU %s" % str(psu["psu_id"]))
