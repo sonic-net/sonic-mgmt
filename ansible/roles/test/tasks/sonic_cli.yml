@@ -1,0 +1,340 @@
+
+- block:
+  - name: Test show (Top Level)
+    shell: show {{item}}
+    with_items:
+      - "--help"
+      - "-h"
+      - "-?"
+      - " "
+      - "?"
+      - aaa
+      - acl
+      - arp
+      - bgp
+      - clock
+      - ecn
+      - environment
+      - interfaces
+      - ip
+      - ipv6
+      - line
+      - lldp
+      - logging
+      - mac
+      - mirror_session
+      - mmu
+      - ndp
+      - ntp
+      - pfc
+      - platform
+      - priority-group
+      - processes
+      - queue
+      - reboot-cause
+      - route-map
+      - runningconfiguration
+      - services
+      - startupconfiguration
+      - system-memory
+      - tacacs
+      - techsupport
+      - uptime
+      - users
+      - version
+      - vlan
+      - warm_restart
+      - watermark
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name: Test show acl
+    shell: show acl {{item}}
+    with_items:
+      - "--help"
+      - "-h"
+      - "-?"
+      - "?"
+      - rule
+      - table
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name: Test show bgp incomplete commands
+    shell: show bgp {{item}}
+    with_items:
+      - community-list
+      - dampening
+      - filter-list
+      - large-community-list
+      - prefix-list
+      - route-map
+    register: command_results
+    failed_when: "'Command incomplete' not in command_results.stdout"
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name: Test show bgp
+    shell: show bgp {{item}}
+    with_items:
+      - "--help"
+      - "-h"
+      - "-?"
+      - "?"
+      - attribute-info
+      - cidr-only
+      - community
+      - community-info
+      - detail
+      - ipv4
+      - ipv6
+      - json
+      - large-community
+      - memory
+      - neighbors
+      - nexthop
+      - paths
+      - peer-group
+      - "regexp /*/"
+      - route-leak
+      - statistics
+      - summary
+      - update-groups
+      - view
+      - views
+      - vrf
+      - vrfs
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name: Test show interfaces
+    shell: show interfaces {{item}}
+    with_items:
+      - "--help"
+      - "-h"
+      - "-?"
+      - "?"
+      - counters
+      - description
+      - naming_mode
+      - neighbor
+      - portchannel
+      - status
+      - transceiver
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name: Test show ip
+    shell: show ip {{item}}
+    with_items:
+      - "--help"
+      - "-h"
+      - "-?"
+      - interfaces
+      - prefix-list
+      - protocol
+      - route
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name: Test show ipv6
+    shell: show ipv6 {{item}}
+    with_items: 
+      - "--help"
+      - "-h"
+      - "-?"
+      - "?"
+      - interfaces
+      - protocol
+      - route
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name: Test show lldp
+    shell: show lldp {{item}}
+    with_items:
+      - "--help"
+      - "-h"
+      - "-?"
+      - "?"
+      - neighbors
+      - table
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name: Test show pfc
+    shell: show pfc {{item}}
+    with_items:
+      - "--help"
+      - "-h"
+      - "-?"
+      - "?"
+      - counters
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name: Test show platform
+    shell: show platform {{item}}
+    with_items:
+      - "--help"
+      - "-h"
+      - "-?"
+      - "?"
+      - psustatus
+      - summary
+      - syseeprom
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name:  Test show priority-group
+    shell: show priority-group {{item}}
+    with_items:
+      - "--help"
+      - "-h"
+      - "-?"
+      - "?"
+      - persistent-watermark
+      - watermark
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name: Test show processes
+    shell: show processes {{item}}
+    with_items:
+      - "--help"
+      - "-h"
+      - "-?"
+      - "?"
+      - cpu
+      - memory
+      - summary
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name: Test show queue
+    shell: show queue {{item}}
+    with_items:
+      - "--help"
+      - "-h"
+      - "-?"
+      - "?"
+      - counters
+      - persistent-watermark
+      - watermark
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name: Test show runningconfiguration
+    shell: show runningconfiguration {{item}}
+    with_items:
+      - "--help"
+      - "-h"
+      - "-?"
+      - "?"
+      - all
+      - bgp
+      - interfaces
+      - ntp
+      - snmp
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name: Test show startupconfiguration
+    shell: show startupconfiguration {{item}}
+    with_items:
+      - "--help"
+      - "-h"
+      - "-?"
+      - "?"
+      - bgp
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name: Test show vlan
+    shell: show vlan {{item}}
+    with_items:
+      - "--help"
+      - "-h"
+      - "-?"
+      - "?"
+      - brief
+      - config
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name: Test show warm_restart
+    shell: show warm_restart {{item}}
+    with_items:
+      - "--help"
+      - "-h"
+      - "-?"
+      - "?"
+      - config
+      - state
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
+- block:
+  - name: Test show watermark
+    shell: show watermark {{item}}
+    with_items:
+      - "--help"
+      - "-h"
+      - "-?"
+      - "?"
+      - telemetry
+  rescue:
+    - name: Failed item
+      debug:
+        msg: "A command has failed"
+
