@@ -77,3 +77,21 @@ def check_sysfs(dut):
     for fan_speed_set in fan_speed_set_list:
         fan_speed_set_content = dut.command("cat %s" % fan_speed_set)
         assert fan_speed_set_content["stdout"] == "153", "Fan speed should be set to 60%, 153/255"
+
+def check_psu_sysfs(dut, psu_id, psu_state):
+    """
+    @summary: Check psu related sysfs under /var/run/hw-management/thermal against psu_state
+    """
+    psu_exist = "/var/run/hw-management/thermal/psu%s_status" % psu_id
+    if psu_state == "NOT PRESENT":
+        psu_exist_content = dut.command("cat %s" % psu_exist)
+        logging.info("state %s file %s read %s" % (psu_state, psu_exist, psu_exist_content["stdout"]))
+        assert psu_exist_content["stdout"] == "0", "cli return NOT PRESENT while %s contains %s" %  \
+                    (psu_exist, psu_exist_content["stdout"])
+    else:
+        psu_pwr_state = "/var/run/hw-management/thermal/psu%s_pwr_status" % psu_id
+        psu_pwr_state_content = dut.command("cat %s" % psu_pwr_state)
+        logging.info("state %s file %s read %s" % (psu_state, psu_pwr_state, psu_pwr_state_content["stdout"]))
+        assert psu_pwr_state_content["stdout"] == "1" and psu_state == "OK" \
+                or psu_pwr_state_content["stdout"] == "0" and psu_state == "NOT OK",\
+            "sysfs content %s mismatch with psu_state %s" % (psu_pwr_state_content["stdout"], psu_state)
