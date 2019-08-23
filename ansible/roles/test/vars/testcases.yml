@@ -221,6 +221,10 @@ testcases:
       filename: service_acl.yml
       topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
+    sonic_cli_tab:
+      filename: sonic_cli_tab.yml
+      topologies: [t0, t0-16, t0-56, t0-64, t0-116, t1]
+
     snmp:
       filename: snmp.yml
       topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]

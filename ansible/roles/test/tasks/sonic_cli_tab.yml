@@ -1,0 +1,63 @@
+# Enter all commands to be tab completed in the dictionary in this step.
+#
+# Commands in this list have been found to have tab completions.  
+
+- name: set commands to try and expected results
+  set_fact:
+    sonic_show_commands:
+      - show
+      - show acl
+      - show bgp  # This test fails as of the writing of this test
+      - show interfaces
+      - show ip
+      - show ipv6
+      - show lldp
+      - show pfc
+      - show platform
+      - show priority-group
+      - show processes
+      - show queue
+      - show runningconfiguration
+      - show startupconfiguration
+      - show vlan
+      - show warm_restart
+      - show watermark
+      - show interfaces counters
+      - show interfaces neighbor
+      - show interfaces transceiver
+      - show priority-group watermark
+      - show queue persistent-watermark
+      - show queue watermark
+      - show watermark telemetry
+
+    sonic_clear_commands:
+      - sonic-clear
+      - sonic-clear bgp   # This test fails as of the writing of this test
+      - sonic-clear fdb
+      - sonic-clear priority-group
+      - sonic-clear ip
+      - sonic-clear queue
+      - sonic-clear queue persistent-watermark
+      - sonic-clear queue watermark
+
+- block:
+  - name: create a file to use in verification of the commands
+    copy:
+      content: ""
+      dest: ~/testfile.deleteme
+      force: no
+
+  - name: test the show commands
+    include: roles/test/tasks/sonic_cli_tab/sonic_cli_tab_compare.yml command={{ item }}
+    with_items: sonic_show_commands
+
+  - name: test the clear commands
+    include: roles/test/tasks/sonic_cli_tab/sonic_cli_tab_compare.yml command={{ item }}
+    with_items: sonic_clear_commands
+
+  always:
+  - name: delete the verification file 
+    file:
+      state: absent
+      path: ~/testfile.deleteme
+

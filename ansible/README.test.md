@@ -252,6 +252,11 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 ```
 - Requires switch connected to a VM set or PTF testbed
 
+#### Sonic CLI Tab test
+```
+ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=sonic_cli_tab -e testbed_name={TESTBED_NAME}
+```
+
 ##### Syslog test
 ```
 ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=syslog -e testbed_name={TESTBED_NAME}
