@@ -1,0 +1,23 @@
+- block:
+  # This test runs the delete all command 
+  # This test fails as of the writing of this test
+
+  # Makes sure all tags are cleared out
+  - name: Clear out all tags
+    shell: portstat -D
+    ignore_errors: True
+
+  - name: Clear out all tags using the command '{{ command }}'  #This test fails
+    shell: "{{ command }}"
+    register: out
+
+  rescue:
+  - name: Display output on failure
+    debug:
+      var: out
+
+  always:
+  - name: Clear out all tags
+    shell: portstat -D
+    ignore_errors: True
+

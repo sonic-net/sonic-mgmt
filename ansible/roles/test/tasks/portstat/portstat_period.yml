@@ -1,0 +1,39 @@
+- block:
+  # Makes sure all tags are cleared out
+  - name: Clear out all tags
+    shell: portstat -D
+    ignore_errors: True
+
+  - name: set the string to look for
+    set_fact:
+      to_find: The rates are calculated within 1 seconds period
+
+  - name: run the command
+    shell: "{{ command }}"
+    register: out
+
+  - name: output to verify
+    set_fact:
+      found: "{{ out.stdout_lines[0] }}"
+
+  - name: Verify the contents of the first line match the expected string
+    assert:
+      that: found == to_find
+
+  rescue:
+  - debug:
+      msg: "A failure occured"
+
+  - name: expected output
+    debug:
+      var: to_find
+
+  - name: actual output
+    debug:
+      var: found 
+
+  always:
+  - name: reset portstat command
+    shell: portstat -D
+    ignore_errors: True
+
