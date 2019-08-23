@@ -65,7 +65,7 @@ def test_show_platform_psustatus(testbed_devices):
 
     logging.info("Check PSU status using '%s', hostname: %s" % (CMD_PLATFORM_PSUSTATUS, ans_host.hostname))
     psu_status = ans_host.command(CMD_PLATFORM_PSUSTATUS)
-    psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK)")
+    psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
     for line in psu_status["stdout_lines"][2:]:
         assert psu_line_pattern.match(line), "Unexpected PSU status output"
         check_vendor_specific_psustatus(ans_host, line)
