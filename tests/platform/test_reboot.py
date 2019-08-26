@@ -209,6 +209,11 @@ def test_watchdog_reboot(testbed_devices, conn_graph_facts):
     localhost = testbed_devices["localhost"]
 
     watchdog_reboot_command = "python -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog().arm(5); exit()\""
+    test_watchdog_supported = "python -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog(); exit()\""
+
+    watchdog_supported = ans_host.command(test_watchdog_supported)["stderr"]
+    if "" != watchdog_supported:
+        pytest.skip("Watchdog is not supported on this DUT, skip this test case")
 
     watchdog_reboot_argu = {}
     watchdog_reboot_argu["dut"] = ans_host
