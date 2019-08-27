@@ -2,6 +2,12 @@
 ### This playbook test one single port channel minimum link feature of one member interface shutdown 
 ### and portchannel member interfaces sending ACP DU rate
 
+# Set maximum value of "smart" timeout to be the same as before,
+# user can now set own value outside the test, for example by passing '-e wait_timeout=5' 
+- set_fact: 
+    wait_timeout: 30
+  when: "wait_timeout is not defined"
+
 # Gather information of port channel ports, minimum links and total interface member numbers
 - set_fact: 
     po: "{{ item }}"
@@ -31,7 +37,8 @@
 - name: test fanout interface (physical) flap and lacp keep correct po status follow minimum links requirement
   include: lag_minlink.yml
   vars:
-    wait_down_time: 35
+    deselect_time: 5
+    wait_down_time: "{{ wait_timeout | int }}"
 
 ### Now figure out remote VM and interface info for the flapping lag member and run minlink test
 - set_fact:
@@ -45,4 +52,5 @@
 - name: test vm interface flap (no physical port down, more like remote port lock) that lag interface can change to correct po status follow minimum links requirement
   include: lag_minlink.yml
   vars: 
-    wait_down_time: 120
+    deselect_time: 95
+    wait_down_time: "{{ wait_timeout | int }}"
