@@ -53,13 +53,6 @@
        - portstat -r          #This test fails
        - portstat --raw       #This test fails
 
-       #- portstat -a                                # Display all stat counters
-       #- portstat -p 30                             # Display stats for a 30 second period
-       #- portstat -c -t test                        # Clear counters and tag the file as test
-       #- portstat -a -t test                        # Output all data and tag as test
-       #- portstat -p 30 -t test                     # Output for 30 seconds and tag as test
-       #- portstat -d -t test                        # Clear the stats for the sepecified tag
-
   - name: Run the commands 
     shell: "{{ item }}"
     with_items: portstat_commands
