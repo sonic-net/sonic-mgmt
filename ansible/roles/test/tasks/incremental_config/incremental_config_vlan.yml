@@ -1,0 +1,60 @@
+- debug: msg="Starting vlan incremental config test"
+
+# Add and remove a vlan, add and remove a member
+- block:
+    - name: add vlan
+      shell: config vlan add {{ vlan }}
+      become: yes
+    
+    - name: confirm vlan was added 
+      shell: show vlan brief 
+      register: out
+
+    - name: verify that the vlan was added 
+      assert:
+        that: out.stdout | search(test_vlan | string)
+
+    - name: add the vlan to an interface
+      shell: config vlan member add {{ vlan }} {{ interface }}
+      become: yes
+
+    - name: confirm vlan was member was added to the vlan
+      shell: show vlan config
+      register: out
+
+    - name: verify that the member was added 
+      assert:
+        that: out.stdout | search(test_vlan | string)
+        that: out.stdout | search(test_vlan_iface)
+
+    - name: remove the vlan from the interface
+      shell: config vlan member del {{ vlan }} {{ interface }}
+      become: yes
+
+    - name: confirm vlan was member was removed from the vlan
+      shell: show vlan config
+      register: out
+
+    - name: verify that the member was removed 
+      assert:
+        that: not out.stdout | search(test_vlan | string)
+        that: not out.stdout | search(test_vlan_iface)
+
+    - name: remove vlan 
+      shell: config vlan del {{ vlan }}
+      become: yes
+    
+    - name: confirm vlan was deleted 
+      shell: show vlan brief 
+      register: out
+
+    - name: verify that the vlan does not show up in the output 
+      assert:
+        that:  not out.stdout | search(test_vlan | string) 
+
+  rescue:
+    - name: remove vlan and member from the interface on failure
+      shell: config vlan del {{ vlan }}
+      become: yes
+
+

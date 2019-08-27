@@ -1,0 +1,48 @@
+- debug: msg="Starting ip incremental config test"
+
+- name: fail if environment is not set
+  fail: msg="the ip_type variables is not set"
+  when: ip_type | default('') not in ['ipv4', 'ipv6']
+
+- name: set show command for ipv4
+  set_fact:
+    show_command: "ip"
+  when: ip_type == "ipv4"
+
+- name: set show command for ipv6
+  set_fact:
+    show_command: "ipv6"
+  when: ip_type == "ipv6" 
+
+
+# Add and remove an ip address from an interface
+- block:
+    - name: add IP to interface
+      shell: config interface ip add {{ interface }} {{ address }}
+      become: yes
+    
+    - name: confirm IP was added to the interface
+      shell: show {{ show_command }} interfaces | grep {{ address }} 
+      register: out
+
+    - name: verify that the IP shows up in the output 
+      assert:
+        that:  out.stdout | search(address)
+
+    - name: remove IP from the interface
+      shell: config interface ip remove {{ interface }} {{ address }}
+      become: yes
+    
+    - name: confirm IP was removed from the interface
+      shell: show {{ show_command }} interfaces | grep {{ address }} || true
+      register: out
+
+    - name: verify that the IP does not show up in the output 
+      assert:
+        that:  not out.stdout
+
+  rescue:
+    - name: remove IP from the interface on failure
+      shell: config interface ip remove {{ interface }} {{ address }}
+      become: yes
+

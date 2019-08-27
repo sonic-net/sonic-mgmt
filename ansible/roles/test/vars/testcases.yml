@@ -80,6 +80,10 @@ testcases:
           ptf_host:
           vm_hosts:
 
+    incremental_config:
+      filename: incremental_config.yml
+      topologies: [t0, t0-16, t0-56, t0-64, t0-116, t1]
+
     warm-reboot:
       filename: warm-reboot.yml
       topologies: [t0, t0-64, t0-64-32, t0-116]

@@ -1,0 +1,65 @@
+- block:
+    - name: create destination directory
+      file:
+        path: ~/incremental_config
+        state: directory
+
+    - name: copy test files
+      copy:
+        src: "{{ item }}"
+        dest: ~/incremental_config/
+      with_fileglob:
+        - roles/test/tasks/incremental_config/*.json
+
+    - name: get the current state of the roles
+      shell: show acl rule
+      register: out
+
+    - name: verify no entries
+      assert:
+        that: out.stdout_lines | length == 2
+
+    - name: add initial role to the device
+      shell: config acl update incremental incremental_config/ic_test_rules.json
+      become: yes
+
+    - name: get the current state of the roles
+      shell: show acl rule
+      register: out
+
+    - name: verify the entry was added as expected
+      assert:
+        that: 
+          - "'DATAACL' in out.stdout"
+          - "'DEFAULT_RULE' in out.stdout"
+          - out.stdout_lines | length == 20
+
+    - name: update the role to allow everything
+      shell: config acl update incremental incremental_config/ic_test_rules_allow_all.json
+      become: yes
+
+    - name: get the current state of the roles
+      shell: show acl rule
+      register: out
+
+    - name: verify the entry was added as expected
+      assert:
+        that: 
+          - "'DATAACL' in out.stdout"
+          - "'DEFAULT_RULE' in out.stdout"
+          - out.stdout_lines | length == 4
+
+  rescue:
+    - name: A failure occured
+      debug:
+        msg: A failure occured while trying to run the commands, examine the debug logs
+
+  always:
+    - name: delete the acl
+      shell: config acl update incremental incremental_config/ic_test_rules_del.json
+      become: yes
+
+    - name: Delete the files
+      file:
+        state: absent
+        path: ~/incremental_config
