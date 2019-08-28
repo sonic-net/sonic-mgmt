@@ -1,5 +1,5 @@
 - set_fact:
-    item_cnt: "{{ item.split(':')[1]|int }}"
+    item_cnt: "{{ item.split(':')[-1]|int }}"
     host_max_len: "{{ vm_hosts|length - 1 }}"
     member_max_cnt: "{{ minigraph_portchannels.values()[0]['members']|length }}"
 

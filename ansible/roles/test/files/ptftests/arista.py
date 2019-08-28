@@ -396,18 +396,23 @@ class Arista(object):
                     self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
         return self.fails, bgp_state
 
-    def change_neigh_lag_state(self, lag, is_up=True):
+    def change_neigh_lag_state(self, intf, is_up=True):
         state = ['shut', 'no shut']
         self.do_cmd('configure')
-        is_match = re.match('(Port-Channel|Ethernet)\d+', lag)
+        is_match = re.match('(Port-Channel|Ethernet)\d+', intf)
         if is_match:
-            output = self.do_cmd('interface %s' % lag)
+            output = self.do_cmd('interface %s' % intf)
             if 'Invalid' not in output:
                 self.do_cmd(state[is_up])
                 self.do_cmd('exit')
-            self.do_cmd('exit')
+        self.do_cmd('exit')
+
+    def change_neigh_intfs_state(self, intfs, is_up=True):
+        for intf in intfs:
+            self.change_neigh_lag_state(intf, is_up=is_up)
 
     def verify_neigh_lag_state(self, lag, state="connected", pre_check=True):
+        states = state.split(',')
         lag_state = False
         msg_prefix = ['Postboot', 'Preboot']
         is_match = re.match('(Port-Channel|Ethernet)\d+', lag)
@@ -418,7 +423,7 @@ class Arista(object):
                 obj = json.loads(data)
 
                 if 'interfaces' in obj and lag in obj['interfaces']:
-                    lag_state = (obj['interfaces'][lag]['interfaceStatus'] == state)
+                    lag_state = (obj['interfaces'][lag]['interfaceStatus'] in states)
                 else:
                     self.fails.add('%s: Verify LAG %s: Object missing in output' % (msg_prefix[pre_check], lag))
                 return self.fails, lag_state
