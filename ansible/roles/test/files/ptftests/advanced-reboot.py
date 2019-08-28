@@ -319,7 +319,7 @@ class ReloadTest(BaseTest):
             for member in content[key]['members']:
                 for vm_key in self.vm_dut_map.keys():
                     if member in self.vm_dut_map[vm_key]['dut_ports']:
-                        self.vm_dut_map[vm_key]['dut_portchannel'] = key
+                        self.vm_dut_map[vm_key]['dut_portchannel'] = str(key)
                         self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
                         break
 
@@ -327,8 +327,8 @@ class ReloadTest(BaseTest):
         content = self.read_json('neigh_port_info')
         for key in content.keys():
             if content[key]['name'] in self.vm_dut_map.keys():
-                self.vm_dut_map[content[key]['name']]['dut_ports'].append(key)
-                self.vm_dut_map[content[key]['name']]['neigh_ports'].append(content[key]['port'])
+                self.vm_dut_map[content[key]['name']]['dut_ports'].append(str(key))
+                self.vm_dut_map[content[key]['name']]['neigh_ports'].append(str(content[key]['port']))
                 self.vm_dut_map[content[key]['name']]['ptf_ports'].append(self.port_indices[key])
 
     def build_peer_mapping(self):
@@ -354,6 +354,30 @@ class ReloadTest(BaseTest):
             if key not in self.fails:
                 self.fails[key] = set()
             self.fails[key] |= fails[key]
+
+    def get_preboot_info(self):
+        '''
+        Prepares the msg string to log when a preboot_oper is defined.
+        preboot_oper can be represented in the following ways
+           eg. 'preboot_oper' - a single VM will be selected and preboot_oper will be applied to it
+               'neigh_bgp_down:2' - 2 VMs will be selected and preboot_oper will be applied to the selected 2 VMs
+               'neigh_lag_member_down:3:1' - this case is used for lag member down operation only. This indicates that
+                                             3 VMs will be selected and 1 of the lag members in the porchannel will be brought down
+        '''
+        msg = ''
+        if self.preboot_oper:
+            msg = 'Preboot oper: %s ' % self.preboot_oper
+            if ':' in self.preboot_oper:
+                oper_list = self.preboot_oper.split(':')
+                msg = 'Preboot oper: %s ' % oper_list[0] # extract the preboot oper_type
+                if len(oper_list) > 2:
+                    # extract the number of VMs and the number of LAG members. preboot_oper will be of the form oper:no of VMS:no of lag members
+                    msg += 'Number of sad path VMs: %s Lag member down in a portchannel: %s' % (oper_list[-2], oper_list[-1])
+                else:
+                    # extract the number of VMs. preboot_oper will be of the form oper:no of VMS
+                    msg += 'Number of sad path VMs: %s' % oper_list[-1]
+
+        return msg
 
     def setUp(self):
         self.fails['dut'] = set()
@@ -427,13 +451,7 @@ class ReloadTest(BaseTest):
         self.generate_arp_ping_packet()
 
         if self.reboot_type == 'warm-reboot':
-            # get the number of members down for sad path
-            if self.preboot_oper:
-                if ':' in self.preboot_oper:
-                    oper_type, cnt = self.preboot_oper.split(':')
-                else:
-                    oper_type, cnt = self.preboot_oper, 1
-                self.log("Preboot Oper: %s Number down: %s" % (oper_type, cnt))
+            self.log(self.get_preboot_info())
 
             # Pre-generate list of packets to be sent in send_in_background method.
             generate_start = datetime.datetime.now()
@@ -777,14 +795,18 @@ class ReloadTest(BaseTest):
             if self.reboot_type == 'fast-reboot' and no_cp_replies < 0.95 * self.nr_vl_pkts:
                 self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (no_cp_replies, self.nr_vl_pkts))
 
-            if self.reboot_type == 'warm-reboot' and self.preboot_oper is not None:
-                if self.pre_handle is not None:
+            if self.reboot_type == 'warm-reboot':
+                if self.preboot_oper is not None and self.pre_handle is not None:
                     self.log("Postboot checks:")
                     log_info, fails = self.pre_handle.verify(pre_check=False)
                     self.populate_fail_info(fails)
                     for log in log_info:
                         self.log(log)
                     self.log(" ")
+
+                else:
+                    # verify there are no interface flaps after warm boot
+                    self.neigh_lag_status_check()
 
         except Exception as e:
             self.fails['dut'].add(e)
@@ -863,6 +885,21 @@ class ReloadTest(BaseTest):
             self.log("="*50)
 
             self.assertTrue(is_good, errors)
+
+    def neigh_lag_status_check(self):
+        """
+        Ensure there are no interface flaps after warm-boot
+        """
+        for neigh in self.ssh_targets:
+            self.neigh_handle = Arista(neigh, None, self.test_params)
+            self.neigh_handle.connect()
+            fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
+            self.neigh_handle.disconnect()
+            self.fails[neigh] |= fails
+            if not flap_cnt:
+                self.log("No LAG flaps seen on %s after warm boot" % neigh)
+            else:
+                self.fails[neigh].add("LAG flapped %s times on %s after warm boot" % (flap_cnt, neigh))
 
     def extract_no_cpu_replies(self, arr):
       """

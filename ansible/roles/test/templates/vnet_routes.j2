@@ -77,11 +77,12 @@
 {% set outloop = loop %}
 {% for vnet_intf in vnet_intf_list %}
 {% if vnet_intf.ifname == vlan_intf.ifname %}
+{% set vlan_intf_ip =  vlan_intf.ip[:-5] %}
 {% for peers in vnet_peer_list %}
 {% for key,peer in peers.items() %}
 {% if key == vnet_intf.vnet %}
     {
-       "VNET_ROUTE_TABLE:{{ peer }}:{{ outloop.index }}.{{ outloop.index }}.10.0/24": {
+       "VNET_ROUTE_TABLE:{{ peer }}:{{ vlan_intf_ip }}.0/24": {
            "ifname": "Vlan{{ vlan_intf.vlan_id  }}"
        },
        "OP": "{{ op }}"
@@ -90,7 +91,7 @@
 {% endfor %}
 {% endfor %}
     {
-       "VNET_ROUTE_TABLE:{{ vnet_intf.vnet }}:{{ outloop.index }}.{{ outloop.index }}.10.0/24": {
+       "VNET_ROUTE_TABLE:{{ vnet_intf.vnet }}:{{ vlan_intf_ip }}.0/24": {
            "ifname": "Vlan{{ vlan_intf.vlan_id  }}"
        },
        "OP": "{{ op }}"

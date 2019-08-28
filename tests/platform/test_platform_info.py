@@ -10,7 +10,6 @@ import time
 
 import pytest
 
-from ansible_host import AnsibleHost
 from psu_controller import psu_controller
 
 
@@ -19,12 +18,11 @@ CMD_PLATFORM_PSUSTATUS = "show platform psustatus"
 CMD_PLATFORM_SYSEEPROM = "show platform syseeprom"
 
 
-def test_show_platform_summary(localhost, ansible_adhoc, testbed):
+def test_show_platform_summary(testbed_devices):
     """
     @summary: Check output of 'show platform summary'
     """
-    hostname = testbed['dut']
-    ans_host = AnsibleHost(ansible_adhoc, hostname)
+    ans_host = testbed_devices["dut"]
 
     logging.info("Check output of '%s'" % CMD_PLATFORM_SUMMARY)
     platform_summary = ans_host.command(CMD_PLATFORM_SUMMARY)
@@ -39,27 +37,24 @@ def test_show_platform_summary(localhost, ansible_adhoc, testbed):
         "Unexpected output fields, actual=%s, expected=%s" % (str(actual_fields), str(expected_fields))
 
 
-def test_show_platform_psustatus(localhost, ansible_adhoc, testbed):
+def test_show_platform_psustatus(testbed_devices):
     """
     @summary: Check output of 'show platform psustatus'
     """
-    hostname = testbed['dut']
-    ans_host = AnsibleHost(ansible_adhoc, hostname)
+    ans_host = testbed_devices["dut"]
 
-    logging.info("Check PSU status using '%s', hostname: %s" % (CMD_PLATFORM_PSUSTATUS, hostname))
+    logging.info("Check PSU status using '%s', hostname: %s" % (CMD_PLATFORM_PSUSTATUS, ans_host.hostname))
     psu_status = ans_host.command(CMD_PLATFORM_PSUSTATUS)
     psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK)")
     for line in psu_status["stdout_lines"][2:]:
         assert psu_line_pattern.match(line), "Unexpected PSU status output"
 
 
-def test_turn_on_off_psu_and_check_psustatus(localhost, ansible_adhoc, testbed, psu_controller):
+def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
-    hostname = testbed['dut']
-    ans_host = AnsibleHost(ansible_adhoc, hostname)
-    platform_info = parse_platform_summary(ans_host.command(CMD_PLATFORM_SUMMARY)["stdout_lines"])
+    ans_host = testbed_devices["dut"]
 
     psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
     cmd_num_psu = "sudo psuutil numpsus"
@@ -75,9 +70,9 @@ def test_turn_on_off_psu_and_check_psustatus(localhost, ansible_adhoc, testbed, 
         pytest.skip("At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PSU controller for testing")
-    psu_ctrl = psu_controller(hostname, platform_info["asic"])
+    psu_ctrl = psu_controller(ans_host.hostname, ans_host.facts["asic_type"])
     if psu_ctrl is None:
-        pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % hostname)
+        pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % ans_host.hostname)
 
     logging.info("To avoid DUT losing power, need to turn on PSUs that are not powered")
     all_psu_status = psu_ctrl.get_psu_status()
@@ -146,18 +141,16 @@ def parse_platform_summary(raw_input_lines):
     return res
 
 
-def test_show_platform_syseeprom(localhost, ansible_adhoc, testbed):
+def test_show_platform_syseeprom(testbed_devices):
     """
     @summary: Check output of 'show platform syseeprom'
     """
-    hostname = testbed['dut']
-    ans_host = AnsibleHost(ansible_adhoc, hostname)
+    ans_host = testbed_devices["dut"]
 
     logging.info("Check output of '%s'" % CMD_PLATFORM_SYSEEPROM)
-    platform_info = parse_platform_summary(ans_host.command(CMD_PLATFORM_SUMMARY)["stdout_lines"])
     show_output = ans_host.command(CMD_PLATFORM_SYSEEPROM)
     assert show_output["rc"] == 0, "Run command '%s' failed" % CMD_PLATFORM_SYSEEPROM
-    if platform_info["asic"] in ["mellanox"]:
+    if ans_host.facts["asic_type"] in ["mellanox"]:
         expected_fields = [
             "Product Name",
             "Part Number",
@@ -172,7 +165,7 @@ def test_show_platform_syseeprom(localhost, ansible_adhoc, testbed):
             "CRC-32"]
         utility_cmd = "sudo python -c \"import imp; \
             m = imp.load_source('eeprom', '/usr/share/sonic/device/%s/plugins/eeprom.py'); \
-            t = m.board('board', '', '', ''); e = t.read_eeprom(); t.decode_eeprom(e)\"" % platform_info["platform"]
+            t = m.board('board', '', '', ''); e = t.read_eeprom(); t.decode_eeprom(e)\"" % ans_host.facts["platform"]
         utility_cmd_output = ans_host.command(utility_cmd)
 
         for field in expected_fields:

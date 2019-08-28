@@ -4,6 +4,17 @@ Utility functions can re-used in testing scripts.
 import time
 import logging
 
+
+def wait(seconds, msg=""):
+    """
+    @summary: Pause specified number of seconds
+    @param seconds: Number of seconds to pause
+    @param msg: Optional extra message for pause reason
+    """
+    logging.debug("Pause %d seconds, reason: %s" % (seconds, msg))
+    time.sleep(seconds)
+
+
 def wait_until(timeout, interval, condition, *args, **kwargs):
     """
     @summary: Wait until the specified condition is True or timeout.

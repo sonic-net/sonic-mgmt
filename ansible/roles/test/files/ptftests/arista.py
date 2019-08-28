@@ -137,6 +137,9 @@ class Arista(object):
             sample["po_changetime"] = json.loads(portchannel_output, strict=False)['interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
 
             if not run_once:
+                # clear Portchannel counters
+                self.do_cmd("clear counters Port-Channel 1")
+
                 self.ipv4_gr_enabled, self.ipv6_gr_enabled, self.gr_timeout = self.parse_bgp_neighbor_once(bgp_neig_output)
                 if self.gr_timeout is not None:
                     log_first_line = "session_begins_%f" % cur_time
@@ -393,18 +396,23 @@ class Arista(object):
                     self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
         return self.fails, bgp_state
 
-    def change_neigh_lag_state(self, lag, is_up=True):
+    def change_neigh_lag_state(self, intf, is_up=True):
         state = ['shut', 'no shut']
         self.do_cmd('configure')
-        is_match = re.match('(Port-Channel|Ethernet)\d+', lag)
+        is_match = re.match('(Port-Channel|Ethernet)\d+', intf)
         if is_match:
-            output = self.do_cmd('interface %s' % lag)
+            output = self.do_cmd('interface %s' % intf)
             if 'Invalid' not in output:
                 self.do_cmd(state[is_up])
                 self.do_cmd('exit')
-            self.do_cmd('exit')
+        self.do_cmd('exit')
+
+    def change_neigh_intfs_state(self, intfs, is_up=True):
+        for intf in intfs:
+            self.change_neigh_lag_state(intf, is_up=is_up)
 
     def verify_neigh_lag_state(self, lag, state="connected", pre_check=True):
+        states = state.split(',')
         lag_state = False
         msg_prefix = ['Postboot', 'Preboot']
         is_match = re.match('(Port-Channel|Ethernet)\d+', lag)
@@ -415,13 +423,30 @@ class Arista(object):
                 obj = json.loads(data)
 
                 if 'interfaces' in obj and lag in obj['interfaces']:
-                    lag_state = (obj['interfaces'][lag]['interfaceStatus'] == state)
+                    lag_state = (obj['interfaces'][lag]['interfaceStatus'] in states)
                 else:
                     self.fails.add('%s: Verify LAG %s: Object missing in output' % (msg_prefix[pre_check], lag))
                 return self.fails, lag_state
 
         self.fails.add('%s: Invalid interface name' % msg_prefix[pre_check])
         return self.fails, lag_state
+
+    def verify_neigh_lag_no_flap(self):
+        flap_cnt = sys.maxint
+        output = self.do_cmd('show interfaces Po1 | json')
+        if 'Invalid' not in output:
+            data = '\n'.join(output.split('\r\n')[1:-1])
+            obj = json.loads(data)
+
+            if 'interfaces' in obj and 'Port-Channel1' in obj['interfaces']:
+                intf_cnt_info = obj['interfaces']['Port-Channel1']['interfaceCounters']
+                flap_cnt = intf_cnt_info['linkStatusChanges']
+            else:
+                self.fails.add('Object missing in output for Port-Channel1')
+            return self.fails, flap_cnt
+
+        self.fails.add('Invalid interface name - Po1')
+        return self.fails, flap_cnt
 
     def check_gr_peer_status(self, output):
         # [0] True 'ipv4_gr_enabled', [1] doesn't matter 'ipv6_enabled', [2] should be >= 120
