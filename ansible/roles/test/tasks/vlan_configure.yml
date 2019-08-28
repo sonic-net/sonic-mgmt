@@ -1,7 +1,8 @@
 - fail: msg="Please set ptf_host variable"
   when: ptf_host is not defined
 
-- fail: msg="Invalid testbed_type value '{{testbed_type}}'"
+- fail:
+    msg: "Invalid testbed_type value '{{testbed_type}}'"
   when: testbed_type not in [ 't0', 't0-116' ]
 
 - debug: var=minigraph_portchannels
@@ -21,27 +22,25 @@
 - debug: var=vlan_ports_list
 - debug: var=vlan_intf_list
 
-- name: Flush all IP addresses on the LAGs
-  shell: ip addr flush {{ item.attachto }}
-  with_items:
-    - "{{ minigraph_portchannel_interfaces }}"
-  become: true
-
-- name: Delete all IP addresses on the LAGs in config DB
-  shell: docker exec -i database redis-cli -n 4 del "PORTCHANNEL_INTERFACE|{{ item.attachto }}|{{ (item.addr ~ '/' ~ item.mask)|ipaddr()|upper() }}"
-  with_items:
-    - "{{ minigraph_portchannel_interfaces }}"
-  become: true
-
 - name: Shutdown LAGs
-  shell: ifconfig {{ item.attachto }} down
+  shell: config interface shutdown {{ item.attachto }}
   with_items:
     - "{{ minigraph_portchannel_interfaces }}"
   become: true
 
-- name: sleep for some time
-  pause: seconds=10
+- name: Flush all IP addresses on the LAGs
+  shell: config interface ip remove {{ item.attachto }} {{ (item.addr ~ "/" ~ item.mask)|ipaddr()|upper }}
+  with_items:
+    - "{{ minigraph_portchannel_interfaces }}"
+  become: true
 
+# wait some time for route, neighbor, next hop groups to be removed,
+# otherwise PortChannel RIFs are still referenced and won't be removed
+# cause below vlan_configuration.json fail to apply
+- name: sleep for some time
+  pause: seconds=90
+
+# TODO: convert VLAN configuration into CLI commands
 - name: Generate nessesary configuration for test
   template: src=roles/test/templates/vlan_configuration.j2
             dest=/etc/sonic/vlan_configuration.json
@@ -52,10 +51,10 @@
   become: true
 
 - name: sleep for some time
-  pause: seconds=30
+  pause: seconds=10
 
 - name: Bring up LAGs
-  shell: ifconfig {{ item.attachto }} up
+  shell: config interface startup {{ item.attachto }}
   with_items:
     - "{{ minigraph_portchannel_interfaces }}"
   become: true

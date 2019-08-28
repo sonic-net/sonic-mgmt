@@ -7,6 +7,11 @@
     reboot_type: "reboot"
   when: reboot_type is not defined
 
+- name: set default value for sonic ready timeout
+  set_fact:
+    ready_timeout: 180
+  when: ready_timeout is not defined
+
 - fail:
     msg: "Reboot type {{ reboot_type }} is invalid. Must be one of {{ reboot_types }}"
   when: reboot_type not in reboot_types
@@ -57,8 +62,8 @@
     timeout: 180
   changed_when: false
 
-- name: wait for 2 minute for prcesses and interfaces to be stable
-  pause: seconds=120
+- name: wait for {{ ready_timeout }} seconds for prcesses and interfaces to be stable
+  pause: seconds={{ ready_timeout }}
 
 - name: Wait for warmboot-finalizer service to finish
   become: true

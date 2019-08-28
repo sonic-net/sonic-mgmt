@@ -47,11 +47,6 @@
       ptf_extra_options: "--relax --debug info"
 
   always:
-    - name: Remove route
-      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}"
-      ignore_errors: yes
-      become: yes
-
     - name: Remove the rule with DSCP value and mask
       shell: |
         redis-cli -n 4 del "ACL_RULE|{{dscp_table_name}}|RULE_1"
@@ -72,6 +67,11 @@
     - name: Remove policer
       shell: |
         redis-cli -n 4 del "POLICER|{{policer_name}}"
+      ignore_errors: yes
+      become: yes
+
+    - name: Remove route
+      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}"
       ignore_errors: yes
       become: yes
 
