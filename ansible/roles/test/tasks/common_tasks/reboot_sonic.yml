@@ -59,11 +59,14 @@
     state: started
     search_regex: "OpenSSH_[\\w\\.]+ Debian"
     delay: 10
-    timeout: 180
+    timeout: 600
   changed_when: false
 
 - name: wait for {{ ready_timeout }} seconds for prcesses and interfaces to be stable
   pause: seconds={{ ready_timeout }}
+
+- name: wait for 2 minute for prcesses and interfaces to be stable
+  pause: seconds=180
 
 - name: Wait for warmboot-finalizer service to finish
   become: true
