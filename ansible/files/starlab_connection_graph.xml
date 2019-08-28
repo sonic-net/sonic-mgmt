@@ -54,7 +54,7 @@
       <Device Hostname="str-dx010-acs-1" HwSku="Celestica-DX010-C32" Type="DevSonic"/>
       <Device Hostname="str-agc7648-acs-1" HwSku="Delta-AGC7648" Type="DevSonic"/>
       <Device Hostname="str-e1031-acs-1" HwSku="Celestica-E1031-T48S4" Type="DevSonic"/>
-      <Device Hostname="str-e1031-acs-2" HwSku="Celestica-E1031-T48S4" Type="FanoutLeaf"/>
+      <Device Hostname="str-e1031-acs-2" HwSku="Celestica-E1031-T48S4" Type="FanoutLeafSonic"/>
       <Device Hostname="str-7260-02" HwSku="Arista-7260QX-64" Type="FanoutLeaf"/>
       <Device Hostname="str-7260-03" HwSku="Arista-7260QX-64" Type="FanoutLeaf"/>
       <Device Hostname="str-7260-04" HwSku="Arista-7260QX-64" Type="FanoutLeaf"/>
@@ -2190,7 +2190,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.25/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-e1031-acs-2">
-      <InterfaceVlan mode="Trunk" portname="etp49" vlanids="1897-1944"/>
+      <InterfaceVlan mode="Trunk" portname="etp49" vlanids="1897-1948"/>
       <InterfaceVlan mode="Access" portname="etp1" vlanids="1897"/>
       <InterfaceVlan mode="Access" portname="etp2" vlanids="1898"/>
       <InterfaceVlan mode="Access" portname="etp3" vlanids="1899"/>
@@ -2938,7 +2938,7 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet62/1" vlanids="229-232,777-808,841-864"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet63/1" vlanids="1225-1284"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="201-228,297-328"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet65" vlanids="1897-1944"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet65" vlanids="1897-1948"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-13">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.196/23"/>
