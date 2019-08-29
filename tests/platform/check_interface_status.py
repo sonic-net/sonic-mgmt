@@ -45,13 +45,21 @@ def check_interface_status(dut, interfaces):
     for intf in interfaces:
         expected_oper = "up" if intf in mg_ports else "down"
         expected_admin = "up" if intf in mg_ports else "down"
-        assert intf in intf_status, "Missing status for interface %s" % intf
-        assert intf_status[intf]["oper"] == expected_oper, \
-            "Oper status of interface %s is %s, expected '%s'" % (intf, intf_status[intf]["oper"], expected_oper)
-        assert intf_status[intf]["admin"] == expected_oper, \
-            "Admin status of interface %s is %s, expected '%s'" % (intf, intf_status[intf]["admin"], expected_admin)
+        if not intf in intf_status:
+            logging.info("Missing status for interface %s" % intf)
+            return False
+        if intf_status[intf]["oper"] != expected_oper:
+            logging.info("Oper status of interface %s is %s, expected '%s'" % (intf, intf_status[intf]["oper"], expected_oper))
+            return False
+        if intf_status[intf]["admin"] != expected_admin:
+            logging.info("Admin status of interface %s is %s, expected '%s'" % (intf, intf_status[intf]["admin"], expected_admin))
+            return False
 
     logging.info("Check interface status using the interface_facts module")
     intf_facts = dut.interface_facts(up_ports=mg_ports)["ansible_facts"]
     down_ports = intf_facts["ansible_interface_link_down_ports"]
-    assert len(down_ports) == 0, "Some interfaces are down: %s" % str(down_ports)
+    if len(down_ports) != 0:
+        logging.info("Some interfaces are down: %s" % str(down_ports))
+        return False
+
+    return True
