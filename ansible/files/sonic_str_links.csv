@@ -52,7 +52,7 @@ str-7260cx3-11,Ethernet61/1,str-7260-21,Ethernet64,40000,1285-1344,Trunk
 str-7260cx3-11,Ethernet62/1,str-7260-05,Ethernet64,40000,"229-232,777-808,841-864",Trunk
 str-7260cx3-11,Ethernet63/1,str-7260-20,Ethernet64,40000,1225-1284,Trunk
 str-7260cx3-11,Ethernet64/1,str-7260-01,Ethernet64,40000,"201-228,297-328",Trunk
-str-7260cx3-11,Ethernet65,str-e1031-acs-2,etp49,10000,1897-1948,Trunk
+str-7260cx3-11,Ethernet65,str-e1031-acs-2,etp49,10000,1897-1944,Trunk
 
 str-s6000-on-1,Ethernet0,str-7260-01,Ethernet33,40000,201,Access
 str-s6000-on-1,Ethernet4,str-7260-01,Ethernet34,40000,202,Access
