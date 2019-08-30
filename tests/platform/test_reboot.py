@@ -21,7 +21,7 @@ from check_critical_services import check_critical_services
 from check_interface_status import check_interface_status
 from check_transceiver_status import check_transceiver_basic
 from check_transceiver_status import all_transceivers_detected
-
+from check_daemon_status import check_pmon_daemon_status
 pytestmark = [pytest.mark.disable_loganalyzer]
 
 
@@ -68,6 +68,9 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type="cold"):
 
     logging.info("Check transceiver status")
     check_transceiver_basic(dut, interfaces)
+    
+    logging.info("check pmon daemon status")
+    check_pmon_daemon_status(dut)
 
     if dut.facts["asic_type"] in ["mellanox"]:
 
