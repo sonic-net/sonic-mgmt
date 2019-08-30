@@ -42,10 +42,7 @@
         src: "{{ item }}"
         dest: /root
       with_items:
-        - ../files/sonic_str_links.csv
-        - ../files/sonic_str_devices.csv
-        - ../files/sonic_lab_links.csv
-        - ../files/sonic_lab_devices.csv
+        - ../files/lab_connection_graph.xml
         - ../veos
         - scripts/ptf_proxy.py
         - ../vars/topo_{{ topo }}.yml

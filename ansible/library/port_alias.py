@@ -112,7 +112,7 @@ class SonicPortAliasMap():
                     aliases.append(alias)
                     portmap[name] = alias
                     aliasmap[alias] = name
-                    if speed_index != -1:
+                    if (speed_index != -1) and (len(mapping) > speed_index):
                         portspeed[alias] = mapping[speed_index]
 
         return (aliases, portmap, aliasmap, portspeed)

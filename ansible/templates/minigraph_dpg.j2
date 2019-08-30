@@ -122,6 +122,7 @@
           <InAcl>ssh-only</InAcl>
           <Type>SSH</Type>
         </AclInterface>
+{%- if enable_data_plane_acl|default('true')|bool %}
         <AclInterface>
           <AttachTo>
 {%- for index in range(vms_number) %}
@@ -138,6 +139,7 @@ PortChannel{{ ((index+1) |string).zfill(4) }}{% if not loop.last %};{% endif %}
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
         </AclInterface>
+{% endif -%}
       </AclInterfaces>
       <DownstreamSummaries/>
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>

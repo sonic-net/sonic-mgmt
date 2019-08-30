@@ -1,0 +1,8 @@
+#!/bin/sh
+
+echo '# Disable IPv6 DAD' >> /etc/sysctl.conf
+
+echo 'net.ipv6.conf.all.accept_dad = 0' >> /etc/sysctl.conf
+echo 'net.ipv6.conf.default.accept_dad = 0' >> /etc/sysctl.conf
+
+/sbin/sysctl -p

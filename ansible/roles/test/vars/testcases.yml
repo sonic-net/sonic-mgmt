@@ -16,6 +16,9 @@ testcases:
       filename: bgp_fact.yml
       topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
 
+    bgp_gr_helper:
+      filename: bgp_gr_helper.yml
+      topologies: [t1, t1-lag, t1-64-lag]
 
     bgp_multipath_relax:
       filename: bgp_multipath_relax.yml
@@ -91,6 +94,13 @@ testcases:
           ptf_host:
           vm_hosts:
 
+    warm-reboot-multi-sad:
+      filename: warm-reboot-multi-sad.yml
+      topologies: [t0, t0-64, t0-64-32, t0-116]
+      required_vars:
+          ptf_host:
+          vm_hosts:
+
     fib:
       filename: simple-fib.yml
       topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
@@ -109,6 +119,14 @@ testcases:
       filename: fdb.yml
       topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116]
       required_vars:
+          ptf_host:
+          testbed_type:
+
+    fdb_mac_expire:
+      filename: fdb_mac_expire.yml
+      topologies: [t0, t0-64, t0-64-32, t0-116]
+      required_vars:
+          fdb_aging_time:
           ptf_host:
           testbed_type:
 
@@ -133,6 +151,10 @@ testcases:
     link_flap:
       filename: link_flap.yml
       topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+
+    continuous_link_flap:
+      filename: continuous_link_flap.yml
+      topologies: [t0, t0-16, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
 
     mem_check:
       filename: mem_check.yml
@@ -247,3 +269,6 @@ testcases:
       required_vars:
           testbed_type:
 
+    read_mac:
+      filename: read_mac_metadata.yml
+      topologies: [t0, t1, t1-lag]

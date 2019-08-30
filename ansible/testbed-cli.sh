@@ -28,8 +28,14 @@ function usage
   echo "        $0 start-vms server-name vault-password-file -e respin_vms=[vm_list]"
   echo "             vm_list is separated by comma and shouldn't have space in the list."
   echo "                 e.g., respin_vms=[VM0310,VM0330]"
+  echo "To pause some time after triggered starting of a batch of VMs:"
+  echo "        $0 start-vms server-name vault-password-file -e batch_size=2 -e interval=60"
+  echo "To enable autostart of VMs:"
+  echo "        $0 start-vms server-name vault-password-file -e autostart=yes"
   echo "To stop VMs on a server:  $0 stop-vms 'server-name' ~/.password"
   echo "To deploy a topology on a server: $0 add-topo 'topo-name' ~/.password"
+  echo "    Optional argument for add-topo:"
+  echo "        -e ptf_imagetag=<tag>    # Use PTF image with specified tag for creating PTF container"
   echo "To remove a topology on a server: $0 remove-topo 'topo-name' ~/.password"
   echo "To renumber a topology on a server: $0 renumber-topo 'topo-name' ~/.password"
   echo "To connect a topology: $0 connect-topo 'topo-name' ~/.password"
@@ -37,6 +43,10 @@ function usage
   echo "To configure a VM on a server: $0 config-vm 'topo-name' 'vm-name' ~/.password"
   echo "To generate minigraph for DUT in a topology: $0 gen-mg 'topo-name' 'inventory' ~/.password"
   echo "To deploy minigraph to DUT in a topology: $0 deploy-mg 'topo-name' 'inventory' ~/.password"
+  echo "    gen-mg, deploy-mg, test-mg supports enabling/disabling data ACL with parameter"
+  echo "        -e enable_data_plane_acl=true"
+  echo "        -e enable_data_plane_acl=false"
+  echo "        by default, data acl is enabled"
   echo
   echo "You should define your topology in testbed CSV file"
   echo
@@ -191,33 +201,54 @@ function disconnect_vms
 
 function generate_minigraph
 {
-  echo "Generating minigraph '$1'"
+  topology=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
 
-  read_file $1
+  echo "Generating minigraph '$topology'"
 
-  ansible-playbook -i "$2" config_sonic_basedon_testbed.yml --vault-password-file="$3" -l "$dut" -e testbed_name="$1" -e testbed_file=$tbfile -v
+  read_file $topology
+
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$dut" -e testbed_name="$topology" -e testbed_file=$tbfile -e local_minigraph=true $@
 
   echo Done
 }
 
 function deploy_minigraph
 {
-  echo "Deploying minigraph '$1'"
+  topology=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
 
-  read_file $1
+  echo "Deploying minigraph '$topology'"
 
-  ansible-playbook -i "$2" config_sonic_basedon_testbed.yml --vault-password-file="$3" -l "$dut" -e testbed_name="$1" -e testbed_file=$tbfile -e deploy=true -e save=true
+  read_file $topology
+
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$dut" -e testbed_name="$topology" -e testbed_file=$tbfile -e deploy=true -e save=true $@
 
   echo Done
 }
 
 function test_minigraph
 {
-  echo "Test minigraph generation '$1'"
+  topology=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
 
-  read_file $1
+  echo "Test minigraph generation '$topology'"
 
-  ansible-playbook -i "$2" --diff --connection=local --check config_sonic_basedon_testbed.yml --vault-password-file="$3" -l "$dut" -e testbed_name="$1" -e testbed_file=$tbfile -e local_minigraph=true
+  read_file $topology
+
+  ansible-playbook -i "$inventory" --diff --connection=local --check config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$dut" -e testbed_name="$topology" -e testbed_file=$tbfile -e local_minigraph=true $@
 
   echo Done
 }

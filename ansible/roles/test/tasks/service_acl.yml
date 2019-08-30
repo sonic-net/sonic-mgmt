@@ -57,6 +57,10 @@
     search_regex: "OpenSSH"
     timeout: 90
 
+- name: Pause for 20s to prevent timeout error which may happen when deleting config_service_acls.sh
+  pause:
+    seconds: 20
+
 - name: Delete config_service_acls.sh from the DuT
   become: true
   file:

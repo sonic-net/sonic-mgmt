@@ -24,7 +24,11 @@ from ptf.dataplane import match_exp_pkt
 from ptf.mask import Mask
 import datetime
 import subprocess
+import traceback
+import socket
+import struct
 from pprint import pprint
+from pprint import pformat
 
 class Vxlan(BaseTest):
     def __init__(self):
@@ -55,13 +59,39 @@ class Vxlan(BaseTest):
     def generate_ArpResponderConfig(self):
         config = {}
         for test in self.tests:
-            for port in test['acc_ports']:
-                config['eth%d' % port] = [test['vlan_ip_prefix'] % port]
+            for port, ip in test['vlan_ip_prefixes'].items():
+                config['eth%d' % port] = [ip]
 
         with open('/tmp/vxlan_arpresponder.conf', 'w') as fp:
             json.dump(config, fp)
 
         return
+
+    def generate_VlanPrefixes(self, gw, prefixlen, acc_ports):
+        res = {}
+        n_hosts = 2**(32 - prefixlen) - 3
+        nr_of_dataplane_ports = len(self.dataplane.ports)
+
+        if nr_of_dataplane_ports > n_hosts:
+            raise Exception("The prefix len size is too small for the test")
+
+        gw_addr_n = struct.unpack(">I", socket.inet_aton(gw))[0]
+        mask = (2**32 - 1) ^ (2**(32 - prefixlen) - 1)
+        net_addr_n = gw_addr_n & mask
+
+        addr = 1
+        for port in acc_ports:
+            while True:
+                host_addr_n = net_addr_n + addr
+                host_ip = socket.inet_ntoa(struct.pack(">I", host_addr_n))
+                if host_ip != gw:
+                    break
+                else:
+                    addr += 1 # skip gw
+            res[port] = host_ip
+            addr += 1
+
+        return res
 
     def setUp(self):
         self.dataplane = ptf.dataplane_instance
@@ -102,34 +132,26 @@ class Vxlan(BaseTest):
 
         self.tests = []
         vni_base = 336
-        src_ip = "8.8.%d.%d"
         for name, data in graph['minigraph_vlans'].items():
             test = {}
             test['name'] = name
             test['acc_ports'] = [graph['minigraph_port_indices'][member] for member in data['members']]
             vlan_id = int(name.replace('Vlan', ''))
             test['vni'] = vni_base + vlan_id
-            test['src_ip'] = src_ip % (vlan_id / 256, vlan_id % 254 + 1)
+            test['src_ip'] = "8.8.8.8"
 
             gw = None
             prefixlen = None
             for d in graph['minigraph_vlan_interfaces']:
                 if d['attachto'] == name:
                     gw = d['addr']
-                    prefixlen = d['prefixlen']
+                    prefixlen = int(d['prefixlen'])
                     break
             else:
                 raise Exception("Vlan '%s' is not found" % name)
 
             test['vlan_gw'] = gw
-
-            number_of_dataplane_ports = len(self.dataplane.ports)
-            if number_of_dataplane_ports > 256:
-                raise Exception("Too much dataplane ports for the test")
-            if prefixlen > 24:
-                raise Exception("The prefix len size is too small for the test")
-
-            test['vlan_ip_prefix'] = '.'.join(gw.split('.')[0:3])+".%d"
+            test['vlan_ip_prefixes'] = self.generate_VlanPrefixes(gw, prefixlen, test['acc_ports'])
 
             self.tests.append(test)
 
@@ -149,7 +171,7 @@ class Vxlan(BaseTest):
 
         self.generate_ArpResponderConfig()
 
-        self.cmd(["supervisorctl", "start", "arp_responder"])
+        self.cmd(["supervisorctl", "restart", "arp_responder"])
 
         self.dataplane.flush()
 
@@ -157,57 +179,110 @@ class Vxlan(BaseTest):
 
     def tearDown(self):
         self.cmd(["supervisorctl", "stop", "arp_responder"])
-
         return
+
+    def warmup(self):
+        print "Warming up"
+        err = ''
+        trace = ''
+        ret = 0
+        try:
+            for test in self.tests:
+                if self.vxlan_enabled:
+                    self.Vxlan(test, True)
+                self.RegularLAGtoVLAN(test, True)
+                self.RegularVLANtoLAG(test, True)
+
+        except Exception as e:
+            err = str(e)
+            trace = traceback.format_exc()
+            ret = -1
+        if ret != 0:
+            print "The warmup failed"
+            print
+            print "Error: %s" % err
+            print
+            print trace
+        else:
+            print "Warmup successful\n"
+        sys.stdout.flush()
+        if ret != 0:
+            raise AssertionError("Warmup failed")
+
+    def work_test(self):
+        print "Testing"
+        err = ''
+        trace = ''
+        ret = 0
+        try:
+            for test in self.tests:
+                print test['name']
+                res_v, out_v = self.Vxlan(test)
+                print "  Vxlan            = ", res_v
+                res_f, out_f = self.RegularLAGtoVLAN(test)
+                print "  RegularLAGtoVLAN = ", res_f
+                res_t, out_t = self.RegularVLANtoLAG(test)
+                print "  RegularVLANtoLAG = ", res_t
+                print
+                if self.vxlan_enabled:
+                    self.assertTrue(res_v, "VxlanTest failed:\n  %s\n\ntest:\n%s"  % (out_v, pformat(test)))
+                else:
+                    self.assertFalse(res_v, "VxlanTest: vxlan works, but it must have been disabled!\n\ntest:%s" % pformat(test))
+                self.assertTrue(res_f, "RegularLAGtoVLAN test failed:\n  %s\n\ntest:\n%s" % (out_f, pformat(test)))
+                self.assertTrue(res_t, "RegularVLANtoLAG test failed:\n  %s\n\ntest:\n%s" % (out_t, pformat(test)))
+        except AssertionError as e:
+            err = str(e)
+            trace = traceback.format_exc()
+            ret = -1
+        if ret != 0:
+            print "The test failed"
+            print
+            print "Error: %s" % err
+            print
+            print trace
+        else:
+            print "The test was successful"
+        sys.stdout.flush()
+        if ret != 0:
+            raise AssertionError(err)
+
 
     def runTest(self):
         print
-        for test in self.tests:
-            print test['name']
-            res_v = self.Vxlan(test)
-            print "  Vxlan            = ", res_v
-            res_f = self.RegularLAGtoVLAN(test)
-            print "  RegularLAGtoVLAN = ", res_f
-            res_t = self.RegularVLANtoLAG(test)
-            print "  RegularVLANtoLAG = ", res_t
-            print
-            if self.vxlan_enabled:
-                self.assertTrue(res_v, "VxlanTest failed")
-            else:
-                self.assertFalse(res_v, "VxlanTest must be disabled")
-            self.assertTrue(res_f, "RegularLAGtoVLAN test failed")
-            self.assertTrue(res_t, "RegularVLANtoLAG test failed")
+        # Warm-up first
+        self.warmup()
+        # test itself
+        self.work_test()
 
-    def Vxlan(self, test):
-        rv = True
-        for n in self.net_ports:
-            for a in test['acc_ports']:
-                res = self.checkVxlan(a, n, test)
-                rv = rv and res
 
-        return rv
+    def Vxlan(self, test, wu = False):
+        for i, n in enumerate(self.net_ports):
+            for j, a in enumerate(test['acc_ports']):
+                res, out = self.checkVxlan(a, n, test)
+                if not res and not wu:
+                    return False, out + " | net_port_rel=%d acc_port_rel=%d" % (i, j)
+        return True, ""
 
-    def RegularLAGtoVLAN(self, test):
-        rv = True
-        for n in self.net_ports:
-            for a in test['acc_ports']:
-                res = self.checkRegularRegularLAGtoVLAN(a, n, test)
-                rv = rv and res
-        return rv
+    def RegularLAGtoVLAN(self, test, wu = False):
+        for i, n in enumerate(self.net_ports):
+            for j, a in enumerate(test['acc_ports']):
+                res, out = self.checkRegularRegularLAGtoVLAN(a, n, test)
+                if not res and not wu:
+                    return False, out + " | net_port_rel=%d acc_port_rel=%d" % (i, j)
+        return True, ""
 
-    def RegularVLANtoLAG(self, test):
-        rv = True
-        for dst, ports in self.pc_info:
-            for a in test['acc_ports']:
-                res = self.checkRegularRegularVLANtoLAG(a, ports, dst, test)
-                rv = rv and res
-        return rv
+    def RegularVLANtoLAG(self, test, wu = False):
+        for i, (dst, ports) in enumerate(self.pc_info):
+            for j, a in enumerate(test['acc_ports']):
+                res, out = self.checkRegularRegularVLANtoLAG(a, ports, dst, test)
+                if not res and not wu:
+                    return False, out + " | pc_info_rel=%d acc_port_rel=%d" % (i, j)
+        return True, ""
 
     def checkRegularRegularVLANtoLAG(self, acc_port, pc_ports, dst_ip, test):
-        rv = True
         src_mac = self.ptf_mac_addrs['eth%d' % acc_port]
         dst_mac = self.dut_mac
-        src_ip = test['vlan_ip_prefix'] % acc_port
+        src_ip = test['vlan_ip_prefixes'][acc_port]
 
         packet = simple_tcp_packet(
                          eth_dst=dst_mac,
@@ -229,16 +304,19 @@ class Vxlan(BaseTest):
         for i in xrange(self.nr):
             testutils.send_packet(self, acc_port, packet)
         nr_rcvd = testutils.count_matched_packets_all_ports(self, exp_packet, pc_ports, timeout=0.2)
-        rv = rv and (nr_rcvd == self.nr)
-        return rv
+        rv = nr_rcvd == self.nr
+        out = ""
+        if not rv:
+            arg = self.nr, nr_rcvd, str(acc_port), str(pc_ports), src_mac, dst_mac, src_ip, dst_ip
+            out = "sent = %d rcvd = %d | src_port=%s dst_ports=%s | src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s" % arg
+        return rv, out
 
 
     def checkRegularRegularLAGtoVLAN(self, acc_port, net_port, test):
-        rv = True
         src_mac = self.random_mac
         dst_mac = self.dut_mac
         src_ip = test['src_ip']
-        dst_ip = test['vlan_ip_prefix'] % acc_port
+        dst_ip = test['vlan_ip_prefixes'][acc_port]
 
         packet = simple_tcp_packet(
                          eth_dst=dst_mac,
@@ -258,15 +336,18 @@ class Vxlan(BaseTest):
         for i in xrange(self.nr):
             testutils.send_packet(self, net_port, packet)
         nr_rcvd = testutils.count_matched_packets(self, exp_packet, acc_port, timeout=0.2)
-        rv = rv and (nr_rcvd == self.nr)
-        return rv
+        rv = nr_rcvd == self.nr
+        out = ""
+        if not rv:
+            arg = self.nr, nr_rcvd, str(net_port), str(acc_port), src_mac, dst_mac, src_ip, dst_ip
+            out = "sent = %d rcvd = %d | src_port=%s dst_port=%s | src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s" % arg
+        return rv, out
 
     def checkVxlan(self, acc_port, net_port, test):
-        rv = True
         inner_dst_mac = self.ptf_mac_addrs['eth%d' % acc_port]
         inner_src_mac = self.dut_mac
         inner_src_ip = test['vlan_gw']
-        inner_dst_ip = test['vlan_ip_prefix'] % acc_port
+        inner_dst_ip = test['vlan_ip_prefixes'][acc_port]
         dst_mac = self.dut_mac
         src_mac = self.random_mac
         ip_dst = self.loopback_ip
@@ -292,7 +373,11 @@ class Vxlan(BaseTest):
         for i in xrange(self.nr):
             testutils.send_packet(self, net_port, packet)
         nr_rcvd = testutils.count_matched_packets(self, inpacket, acc_port, timeout=0.2)
-        rv = rv and (nr_rcvd == self.nr)
-        return rv
+        rv = nr_rcvd == self.nr
+        out = ""
+        if not rv:
+            arg = self.nr, nr_rcvd, str(net_port), str(acc_port), src_mac, dst_mac, test['src_ip'], ip_dst, inner_src_mac, inner_dst_mac, inner_src_ip, inner_dst_ip, test['vni']
+            out = "sent = %d rcvd = %d | src_port=%s dst_port=%s | src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s | Inner: src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s vni=%s" % arg
+        return rv, out
 
 

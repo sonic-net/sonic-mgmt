@@ -47,6 +47,7 @@ class Arista(object):
         self.fails = set()
         self.info = set()
         self.min_bgp_gr_timeout = int(test_params['min_bgp_gr_timeout'])
+        self.reboot_type = test_params['reboot_type']
 
     def __del__(self):
         self.disconnect()
@@ -136,6 +137,9 @@ class Arista(object):
             sample["po_changetime"] = json.loads(portchannel_output, strict=False)['interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
 
             if not run_once:
+                # clear Portchannel counters
+                self.do_cmd("clear counters Port-Channel 1")
+
                 self.ipv4_gr_enabled, self.ipv6_gr_enabled, self.gr_timeout = self.parse_bgp_neighbor_once(bgp_neig_output)
                 if self.gr_timeout is not None:
                     log_first_line = "session_begins_%f" % cur_time
@@ -153,15 +157,19 @@ class Arista(object):
                 }
 
         attempts = 60
+        log_present = False
         for _ in range(attempts):
             log_output = self.do_cmd("show log | begin %s" % log_first_line)
             log_lines = log_output.split("\r\n")[1:-1]
             log_data = self.parse_logs(log_lines)
-            if len(log_data) != 0:
+            if (self.reboot_type == 'fast-reboot' and \
+                any(k.startswith('BGP') for k in log_data) and any(k.startswith('PortChannel') for k in log_data)) \
+                    or (self.reboot_type == 'warm-reboot' and any(k.startswith('BGP') for k in log_data)):
+                log_present = True
                 break
             time.sleep(1) # wait until logs are populated
 
-        if len(log_data) == 0:
+        if not log_present:
             log_data['error'] = 'Incomplete output'
 
         self.disconnect()
@@ -226,7 +234,10 @@ class Arista(object):
 
         result['route_timeout'] = result_rt
 
-        if initial_time_bgp == -1 or initial_time_if == -1:
+        # for fast-reboot, we expect to have both the bgp and portchannel events in the logs. for warm-reboot, portchannel events might not be present in the logs all the time.
+        if self.reboot_type == 'fast-reboot' and (initial_time_bgp == -1 or initial_time_if == -1):
+            return result
+        elif self.reboot_type == 'warm-reboot' and initial_time_bgp == -1:
             return result
 
         for events in result_bgp.values():
@@ -240,18 +251,22 @@ class Arista(object):
 
             assert(events[-1][1] == 'Established')
 
+        # verify BGP establishment time between v4 and v6 peer is not more than 20s
+        if self.reboot_type == 'warm-reboot':
+            estab_time = 0
+            for ip in result_bgp:
+                if estab_time > 0:
+                    diff = abs(result_bgp[ip][-1][0] - estab_time)
+                    assert(diff <= 20)
+                    break
+                estab_time = result_bgp[ip][-1][0]
+
         # first state is down, last state is up
         for events in result_if.values():
             assert(events[0][1] == 'down')
             assert(events[-1][1] == 'up')
 
-        po_name = [ifname for ifname in result_if.keys() if 'Port-Channel' in ifname][0]
         neigh_ipv4 = [neig_ip for neig_ip in result_bgp.keys() if '.' in neig_ip][0]
-
-        result['PortChannel was down (seconds)'] = result_if[po_name][-1][0] - result_if[po_name][0][0]
-        for if_name in sorted(result_if.keys()):
-            result['Interface %s was down (times)' % if_name] = map(itemgetter(1), result_if[if_name]).count("down")
-
         for neig_ip in result_bgp.keys():
             key = "BGP IPv6 was down (seconds)" if ':' in neig_ip else "BGP IPv4 was down (seconds)"
             result[key] = result_bgp[neig_ip][-1][0] - result_bgp[neig_ip][0][0]
@@ -260,12 +275,18 @@ class Arista(object):
             key = "BGP IPv6 was down (times)" if ':' in neig_ip else "BGP IPv4 was down (times)"
             result[key] = map(itemgetter(1), result_bgp[neig_ip]).count("Idle")
 
-        bgp_po_offset = (initial_time_if - initial_time_bgp if initial_time_if > initial_time_bgp else initial_time_bgp - initial_time_if).seconds
-        result['PortChannel went down after bgp session was down (seconds)'] = bgp_po_offset + result_if[po_name][0][0]
+        if initial_time_if != -1:
+            po_name = [ifname for ifname in result_if.keys() if 'Port-Channel' in ifname][0]
+            result['PortChannel was down (seconds)'] = result_if[po_name][-1][0] - result_if[po_name][0][0]
+            for if_name in sorted(result_if.keys()):
+                result['Interface %s was down (times)' % if_name] = map(itemgetter(1), result_if[if_name]).count("down")
 
-        for neig_ip in result_bgp.keys():
-            key = "BGP IPv6 was gotten up after Po was up (seconds)" if ':' in neig_ip else "BGP IPv4 was gotten up after Po was up (seconds)"
-            result[key] = result_bgp[neig_ip][-1][0] - bgp_po_offset - result_if[po_name][-1][0]
+            bgp_po_offset = (initial_time_if - initial_time_bgp if initial_time_if > initial_time_bgp else initial_time_bgp - initial_time_if).seconds
+            result['PortChannel went down after bgp session was down (seconds)'] = bgp_po_offset + result_if[po_name][0][0]
+
+            for neig_ip in result_bgp.keys():
+                key = "BGP IPv6 was gotten up after Po was up (seconds)" if ':' in neig_ip else "BGP IPv4 was gotten up after Po was up (seconds)"
+                result[key] = result_bgp[neig_ip][-1][0] - bgp_po_offset - result_if[po_name][-1][0]
 
         return result
 
@@ -375,18 +396,23 @@ class Arista(object):
                     self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
         return self.fails, bgp_state
 
-    def change_neigh_lag_state(self, lag, is_up=True):
+    def change_neigh_lag_state(self, intf, is_up=True):
         state = ['shut', 'no shut']
         self.do_cmd('configure')
-        is_match = re.match('(Port-Channel|Ethernet)\d+', lag)
+        is_match = re.match('(Port-Channel|Ethernet)\d+', intf)
         if is_match:
-            output = self.do_cmd('interface %s' % lag)
+            output = self.do_cmd('interface %s' % intf)
             if 'Invalid' not in output:
                 self.do_cmd(state[is_up])
                 self.do_cmd('exit')
-            self.do_cmd('exit')
+        self.do_cmd('exit')
+
+    def change_neigh_intfs_state(self, intfs, is_up=True):
+        for intf in intfs:
+            self.change_neigh_lag_state(intf, is_up=is_up)
 
     def verify_neigh_lag_state(self, lag, state="connected", pre_check=True):
+        states = state.split(',')
         lag_state = False
         msg_prefix = ['Postboot', 'Preboot']
         is_match = re.match('(Port-Channel|Ethernet)\d+', lag)
@@ -397,13 +423,30 @@ class Arista(object):
                 obj = json.loads(data)
 
                 if 'interfaces' in obj and lag in obj['interfaces']:
-                    lag_state = (obj['interfaces'][lag]['interfaceStatus'] == state)
+                    lag_state = (obj['interfaces'][lag]['interfaceStatus'] in states)
                 else:
                     self.fails.add('%s: Verify LAG %s: Object missing in output' % (msg_prefix[pre_check], lag))
                 return self.fails, lag_state
 
         self.fails.add('%s: Invalid interface name' % msg_prefix[pre_check])
         return self.fails, lag_state
+
+    def verify_neigh_lag_no_flap(self):
+        flap_cnt = sys.maxint
+        output = self.do_cmd('show interfaces Po1 | json')
+        if 'Invalid' not in output:
+            data = '\n'.join(output.split('\r\n')[1:-1])
+            obj = json.loads(data)
+
+            if 'interfaces' in obj and 'Port-Channel1' in obj['interfaces']:
+                intf_cnt_info = obj['interfaces']['Port-Channel1']['interfaceCounters']
+                flap_cnt = intf_cnt_info['linkStatusChanges']
+            else:
+                self.fails.add('Object missing in output for Port-Channel1')
+            return self.fails, flap_cnt
+
+        self.fails.add('Invalid interface name - Po1')
+        return self.fails, flap_cnt
 
     def check_gr_peer_status(self, output):
         # [0] True 'ipv4_gr_enabled', [1] doesn't matter 'ipv6_enabled', [2] should be >= 120

@@ -41,34 +41,28 @@
   set_fact: properties_list="{{ configuration[hostname]['properties'] }}"
   when: configuration and configuration[hostname] and configuration[hostname]['properties'] is defined
 
-- name: copy boot-config
-  copy: src=boot-config
-        dest=/mnt/flash/boot-config
-
 - name: Expand {{ hostname }} properties into props
   set_fact: props="{{ configuration_properties[item] | combine(props | default({})) }}"
   with_items: properties_list
   when: hostname in configuration and configuration_properties[item] is defined
 
-- name: build a startup config
+- name: copy rc.eos
+  copy: src=rc.eos
+        dest=/mnt/flash/rc.eos
+  when: hostname in configuration
+  notify:
+    - Update VM state
+
+- name: copy boot-config
+  copy: src=boot-config
+        dest=/mnt/flash/boot-config
+  when: hostname in configuration
+  notify:
+    - Update VM state
+
+- name: update startup-config
   template: src="{{ topo }}-{{ props.swrole }}.j2"
             dest=/mnt/flash/startup-config
   when: hostname in configuration
-
-- name: Restart the box
-  command: /sbin/shutdown -r now "Ansible updates triggered"
-  when: hostname in configuration
-
-- name: Pause for reboot
-  pause: seconds=30
-  when: hostname in configuration
-
-- name: Wait for VM to come up
-  wait_for:
-    host: "{{ ansible_ssh_host }}"
-    port: 22
-    state: started
-    delay: 10
-    timeout: 600
-  connection: local
-  when: hostname in configuration
+  notify:
+    - Update VM state

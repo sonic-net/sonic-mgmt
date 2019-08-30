@@ -3,10 +3,14 @@
 # flapped.
 
 - block:
-    - set_fact:
-        interface: "{{item}}"
+    - name: Set interface name
+      set_fact:
+        interface: "{{ item }}"
 
-    - debug: msg={{interface}}
+    - name: Set default link timeout
+      set_fact:
+        link_timeout: 20
+        link_delay: 5
 
     - set_fact:
         peer_device: "{{neighbors[interface]['peerdevice']}}"
@@ -42,8 +46,13 @@
       delegate_to: "{{peer_host}}"
       when: peer_type == "FanoutLeafSonic"
 
-    - pause:
-        seconds: 20
+    - name: Wait until interface {{ interface }} on {{ inventory_hostname }} is down
+      interface_facts: up_ports="[ '{{ interface }}' ]"
+      register: out
+      until: out.ansible_facts.ansible_interface_link_down_ports | length > 0
+      retries: "{{ (link_timeout / link_delay) | round(0, 'ceil') | int }}"
+      delay: "{{ link_delay }}"
+      when: "interface in minigraph_ports.keys()"
 
     - interface_facts: up_ports={{minigraph_ports | difference(intfs_to_exclude)}}
 
@@ -71,8 +80,13 @@
       delegate_to: "{{peer_host}}"
       when: peer_type == "FanoutLeafSonic"
 
-    - pause:
-        seconds: 20
+    - name: Wait until interface {{ interface }} on {{ inventory_hostname }} is up
+      interface_facts: up_ports="[ '{{ interface }}' ]"
+      register: out
+      until: out.ansible_facts.ansible_interface_link_down_ports | length == 0
+      retries: "{{ (link_timeout / link_delay) | round(0, 'ceil') | int }}"
+      delay: "{{ link_delay }}"
+      when: "interface in minigraph_ports.keys()"
 
     - interface_facts: up_ports={{minigraph_ports}}
 

@@ -199,7 +199,8 @@
           - fib_info='/root/bgp_speaker_route.txt'
           - ipv4={{ ipv4|default(false) }}
           - ipv6={{ ipv6|default(false) }}
-        ptf_extra_options: "--relax --debug info --log-file /tmp/bgp_speaker_test.FibTest.log"
+          - testbed_mtu={{ mtu|default(9114) }}
+        ptf_extra_options: "--relax --debug info --log-file /tmp/bgp_speaker_test.FibTest.log --socket-recv-size 16384"
   always:
     - name: Kill exabgp instances
       shell: pkill exabgp

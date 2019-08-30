@@ -31,12 +31,20 @@
       vars:
         supervisor_host: "{{ ptf_host }}"
 
+    - name: Restart DUT. Wait 240 seconds after SONiC started ssh
+      include: reboot.yml
+      vars:
+        ready_timeout: 240
+
     - name: Render DUT parameters to json file for the test
       template: src=vxlan_decap.json.j2 dest=/tmp/vxlan_decap.json
       delegate_to: "{{ ptf_host }}"
 
-    - name: Render DUT vxlan configuration
-      template: src=vxlan_db.json.j2 dest=/tmp/vxlan_db.{{ item }}.json
+    - name: Render DUT vxlan configuration. Tunnel
+      template: src=vxlan_db.tunnel.json.j2 dest=/tmp/vxlan_db.tunnel.json
+
+    - name: Render DUT vxlan configuration. Tunnel Maps
+      template: src=vxlan_db.maps.json.j2 dest=/tmp/vxlan_db.maps.{{ item }}.json
       with_items: minigraph_vlans
 
     - include: ptf_runner.yml
@@ -50,10 +58,13 @@
         ptf_test_params:
         - vxlan_enabled=False
         - config_file='/tmp/vxlan_decap.json'
-        - repetitions=1
+        - count=10
 
-    - name: Configure vxlan decap for {{ item }}
-      shell: sonic-cfggen -j /tmp/vxlan_db.{{ item }}.json --write-to-db
+    - name: Configure vxlan decap tunnel
+      shell: sonic-cfggen -j /tmp/vxlan_db.tunnel.json --write-to-db
+
+    - name: Configure vxlan decap tunnel maps
+      shell: sonic-cfggen -j /tmp/vxlan_db.maps.{{ item }}.json --write-to-db
       with_items: minigraph_vlans
 
     - include: ptf_runner.yml
@@ -67,15 +78,14 @@
         ptf_test_params:
         - vxlan_enabled=True
         - config_file='/tmp/vxlan_decap.json'
-        - count=1
+        - count=10
 
-    - name: Remove vxlan tunnel map configuration for {{ item }}
-      shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnel{{ item }}|map1"
+    - name: Remove vxlan tunnel maps configuration
+      shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnelVxlan|map{{ item }}"
       with_items: minigraph_vlans
 
-    - name: Remove vxlan tunnel configuration for {{ item }}
-      shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tunnel{{ item }}"
-      with_items: minigraph_vlans
+    - name: Remove vxlan tunnel configuration
+      shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tunnelVxlan"
 
     - include: ptf_runner.yml
       vars:
@@ -88,4 +98,12 @@
         ptf_test_params:
         - vxlan_enabled=False
         - config_file='/tmp/vxlan_decap.json'
-        - repetitions=1
+        - count=10
+
+- always:
+    - name: Remove vxlan tunnel maps configuration
+      shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnelVxlan|map{{ item }}"
+      with_items: minigraph_vlans
+
+    - name: Remove vxlan tunnel configuration
+      shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tunnelVxlan"
