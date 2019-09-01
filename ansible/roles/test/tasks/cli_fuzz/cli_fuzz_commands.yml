@@ -1,0 +1,17 @@
+- block:
+  - name: Send fuzz script to the remote device with a single fuzz subcommand
+    script: roles/test/tasks/cli_fuzz/cli_fuzz.py --sonic_cmd {{ command }} --sub_cmds 1 --qty {{ quantity_of_tests }} --length {{ length }} 
+
+  - name: Send fuzz script to the remote device with two fuzz subcommands
+    script: roles/test/tasks/cli_fuzz/cli_fuzz.py --sonic_cmd {{ command }} --sub_cmds 2 --qty {{ quantity_of_tests }} --length {{ length }} 
+
+  - name: Send fuzz script to the remote device with three fuzz subcommands
+    script: roles/test/tasks/cli_fuzz/cli_fuzz.py --sonic_cmd {{ command }} --sub_cmds 3 --qty {{ quantity_of_tests }} --length {{ length }} 
+
+  - name: Send fuzz script to the remote device with four fuzz subcommands
+    script: roles/test/tasks/cli_fuzz/cli_fuzz.py --sonic_cmd {{ command }} --sub_cmds 4 --qty {{ quantity_of_tests }} --length {{ length }} 
+
+  - name: Send fuzz script to the remote device with five fuzz subcommands
+    script: roles/test/tasks/cli_fuzz/cli_fuzz.py --sonic_cmd {{ command }} --sub_cmds 5 --qty {{ quantity_of_tests }} --length {{ length }} 
+
+

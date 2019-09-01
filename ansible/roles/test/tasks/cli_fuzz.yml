@@ -1,0 +1,61 @@
+- block:
+  - name: configure the settings for the test
+    set_fact:
+      sonic_show_commands:
+        - show
+        - show aaa
+        - show acl
+        - show arp
+        - show bgp
+        - show clock
+        - show ecn
+        - show environment
+        - show interfaces
+        - show ip
+        - show ipv6
+        - show line
+        - show lldp
+        - show logging
+        - show mac
+        - show mirror_session
+        - show mmu
+        - show ndp
+        - show ntp
+        - show pfc
+        - show platform
+        - show priority-group
+        - show processes
+        - show queue
+        - show reboot-cause
+        - show route-map
+        - show runningconfiguration
+        - show services
+        - show startupconfiguration
+        - show system-memory
+        - show tacacs
+        - show techsupport
+        - show uptime
+        - show users
+        - show version
+        - show vlan
+        - show warm_restart
+        - show watermark
+      sonic_crm_commands:
+        - crm
+        - crm resources
+        - crm summary
+        - crm thresholds
+      quantity_of_tests: 1
+      length: 5-10
+
+- name: run tests for the show command
+  include: cli_fuzz/cli_fuzz_commands.yml  command={{item}}
+  with_items: sonic_show_commands
+
+- name: run tests for the show command
+  include: cli_fuzz/cli_fuzz_commands.yml  command={{item}}
+  with_items: sonic_crm_commands
+
+- name: Verify the system is still operational
+  include: roles/test/tasks/base_sanity.yml
+

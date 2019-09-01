@@ -57,6 +57,12 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 - You might need to redeploy your VMs before you run this test due to the change for ToR VM router configuration changes
    `./testbed-cli.sh config-vm your-topo-name(vms1-1) your-vm-name(VM0108)` will do this for you
 
+##### CLI Fuzz test
+```
+ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=cli_fuzz -e testbed_name={TESTBED_NAME}
+```
+- Requires python to be installed on the DUT
+
 ##### Config test
 ```
 ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=config -e testbed_name={TESTBED_NAME}
