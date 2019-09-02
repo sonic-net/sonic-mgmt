@@ -28,6 +28,7 @@
       vars:
         dst_port: "{{ dst_port_2 }}, {{ dst_port_3 }}"
         dst_port_ptf_id: "{{ dst_port_2_ptf_id }}, {{ dst_port_3_ptf_id }}"
+        expect_received: False
 
     - name: Delete one next hop from ECMP route.
       shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}"
