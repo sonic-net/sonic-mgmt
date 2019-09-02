@@ -10,7 +10,7 @@ short_description: Parse a text table and convert it to a dict or list of dicts
 description: |
     Expects a text table with with fixed-width columns and '-' 
     characters as separators between the column headers and the data. It will
-    product a list of dicts corresponding to each row of data. It will also
+    produce a list of dicts corresponding to each row of data. It will also
     create a dictionary keyed by the value of the first column, so you can
     choose the most convenient return value type to process the result. 
     
