@@ -27,7 +27,7 @@
     - include: roles/test/tasks/everflow_testbed/everflow_ptf.yml
       vars:
         dst_port: "{{ dst_port_3 }}"
-        dst_port_ptf_id: "{{ dst_port_3 }}"
+        dst_port_ptf_id: "{{ dst_port_3_ptf_id }}"
         expect_received: False
 
     - name: Delete next hop from ECMP route.
@@ -44,7 +44,7 @@
     - include: roles/test/tasks/everflow_testbed/everflow_ptf.yml
       vars:
         dst_port: "{{ dst_port_3 }}"
-        dst_port_ptf_id: "{{ dst_port_3 }}"
+        dst_port_ptf_id: "{{ dst_port_3_ptf_id }}"
         expect_received: False
   become: yes
 
