@@ -1,5 +1,5 @@
-# Test case 2 - Longer prefix route with resolved next hop.
-# Verify that session destination port and MAC address are changed after best match route insertion.
+# Test case 2 - Change neighbor MAC address.
+# Verify that session destination MAC address is changed after neighbor MAC address update.
 
 - block:
     - name: Create route with next hop on {{ dst_port_1 }}.
@@ -8,50 +8,32 @@
     - pause:
         seconds: 3
 
-    - name: Send traffic and verify that packets with correct Everflow header are received on destination port {{ dst_port_1 }}.
-      shell: ptf --test-dir acstests everflow_tb_test.EverflowTest  --platform-dir ptftests --platform remote -t 'asic_type="{{ sonic_asic_type }}";hwsku="{{ sonic_hwsku }}";router_mac="{{ ansible_Ethernet0['macaddress'] }}";src_port="{{ src_port_ptf_id }}";dst_ports="{{ dst_port_1_ptf_id }}";session_src_ip="{{ session_src_ip }}";session_dst_ip="{{ session_dst_ip }}";session_ttl="{{ session_ttl }}";session_dscp="{{ session_dscp }}";verbose=True'
-      args:
-        chdir: /root
-      delegate_to: "{{ ptf_host }}"
-      register: out
+    - include: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+      vars:
+        dst_port: "{{ dst_port_1 }}"
+        dst_port_ptf_id: "{{ dst_port_1_ptf_id }}"
 
-    - name: Create route with best match and unresolved next hop.
-      shell: vtysh -e "conf t" -e "ip route {{ session_prefix_2 }} {{ unresolved_nexthop }}"
+    - name: Change neighbor MAC address.
+      shell: ip neigh replace {{ neighbor_info_1['addr'] }} lladdr "00:11:22:33:44:55" nud permanent dev {{ dst_port_1 }}
 
     - pause:
         seconds: 3
 
-    - name: Send traffic and verify that packets with correct Everflow header are received on destination port {{ dst_port_1 }}.
-      shell: ptf --test-dir acstests everflow_tb_test.EverflowTest  --platform-dir ptftests --platform remote -t 'asic_type="{{ sonic_asic_type }}";hwsku="{{ sonic_hwsku }}";router_mac="{{ ansible_Ethernet0['macaddress'] }}";src_port="{{ src_port_ptf_id }}";dst_ports="{{ dst_port_1_ptf_id }}";session_src_ip="{{ session_src_ip }}";session_dst_ip="{{ session_dst_ip }}";session_ttl="{{ session_ttl }}";session_dscp="{{ session_dscp }}";verbose=True'
-      args:
-        chdir: /root
-      delegate_to: "{{ ptf_host }}"
-      register: out
+    - include: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+      vars:
+        dst_port: "{{ dst_port_1 }}"
+        dst_port_ptf_id: "{{ dst_port_1_ptf_id }}"
 
-    - name: Create route with best match prefix and resolved next hop on destination port {{ dst_port_2 }}.
-      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_2 }} {{ unresolved_nexthop }}" -e "ip route {{ session_prefix_2 }} {{ neighbor_info_2['addr'] }}"
-
-    - pause:
-        seconds: 3
-
-    - name: Send traffic and verify that packets with correct Everflow header are received on destination port {{ dst_port_2 }}.
-      shell: ptf --test-dir acstests everflow_tb_test.EverflowTest  --platform-dir ptftests --platform remote -t 'asic_type="{{ sonic_asic_type }}";hwsku="{{ sonic_hwsku }}";router_mac="{{ ansible_Ethernet0['macaddress'] }}";src_port="{{ src_port_ptf_id }}";dst_ports="{{ dst_port_2_ptf_id }}";session_src_ip="{{ session_src_ip }}";session_dst_ip="{{ session_dst_ip }}";session_ttl="{{ session_ttl }}";session_dscp="{{ session_dscp }}";verbose=True'
-      args:
-        chdir: /root
-      delegate_to: "{{ ptf_host }}"
-      register: out
   become: yes
 
   always:
+    - name: Remove neighbor MAC.
+      shell: ip neigh del {{ neighbor_info_1['addr'] }} dev {{ dst_port_1 }}
+
+    - name: Recover neighbor MAC address.
+      shell: ping {{ neighbor_info_1['addr'] }} -c3
+
     - name: Remove route.
       shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}"
-      ignore_errors: yes
-
-    - name: Remove best match route.
-      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_2 }} {{ unresolved_nexthop }}"
-      ignore_errors: yes
-
-    - name: Remove best match route.
-      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_2 }} {{ neighbor_info_2['addr'] }}"
       ignore_errors: yes
   become: yes
