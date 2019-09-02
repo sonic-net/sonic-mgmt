@@ -210,6 +210,12 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 ```
 - Requires switch connected to a VM set or PTF testbed
 
+##### Network fuzz test
+```
+ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=network_fuzz -e testbed_name={TESTBED_NAME}
+```
+- Requires the switch connected to a PTF testbed
+
 ##### NTP test
 ```
 ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=ntp -e testbed_name={TESTBED_NAME}
