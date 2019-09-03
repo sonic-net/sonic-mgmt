@@ -54,10 +54,10 @@
       include: roles/test/tasks/everflow_testbed/testcase_2.yml
       when: testbed_type == "t1"
 
-    - name: Run testcase 3 - Resolved ECMP route.
+    - name: Run testcase 3 - ECMP route change (remove next hop not used by session).
       include: roles/test/tasks/everflow_testbed/testcase_3.yml
 
-    - name: Run testcase 4 - ECMP route change (add next hop).
+    - name: Run testcase 4 - ECMP route change (remove next hop used by session).
       include: roles/test/tasks/everflow_testbed/testcase_4.yml
 
     - name: Run testcase 5 - Policer enforced with DSCP value/mask
@@ -74,5 +74,5 @@
     - shell: cat {{ test_out_dir }}/*
       register: out
     - debug: var=out.stdout_lines
-    
+
     - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
