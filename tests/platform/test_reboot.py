@@ -70,7 +70,7 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type="cold"):
     check_transceiver_basic(dut, interfaces)
     
     logging.info("check pmon daemon status")
-    check_pmon_daemon_status(dut)
+    assert check_pmon_daemon_status(dut), "Not all pmon daemons running."
 
     if dut.facts["asic_type"] in ["mellanox"]:
 
