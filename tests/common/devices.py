@@ -9,6 +9,7 @@ We can consider using netmiko for interacting with the VMs used in testing.
 """
 import json
 import logging
+import os
 from multiprocessing import Process, Queue
 
 from errors import RunAnsibleModuleFail
@@ -202,7 +203,7 @@ class SonicHost(AnsibleHostBase):
         full_daemon_tup = ('xcvrd', 'ledd', 'psud', 'syseepromd')
         daemon_ctl_key_prefix = 'skip_'
         daemon_list = []
-        daemon_config_file_path = "/".join(['/usr/share/sonic/device', self.facts["platform"], 'pmon_daemon_control.json'])
+        daemon_config_file_path = os.path.join('/usr/share/sonic/device', self.facts["platform"], 'pmon_daemon_control.json')
         
         try:
             output = self.shell('cat %s' % daemon_config_file_path)
