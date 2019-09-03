@@ -73,10 +73,10 @@ def check_sysfs(dut):
             
         except Exception as e:
             assert "Get content from %s failed, exception: %s" % (fan_speed_get, repr(e))
-        assert fan_speed > fan_min_speed and fan_speed < fan_max_speed, "Bad fan speed: %s" % str(fan_speed)
+        assert fan_min_speed < fan_speed < fan_max_speed, "Bad fan speed: %s" % str(fan_speed)
         max_tolerence_speed = ((float(fan_set_speed)/256)*fan_max_speed)*(1 + 0.3)
         min_tolerence_speed = ((float(fan_set_speed)/256)*fan_max_speed)*(1 - 0.3)
-        assert fan_speed > min_tolerence_speed and fan_speed < max_tolerence_speed, "Speed out of tolerence speed range (%d, %d)" % (min_tolerence_speed, max_tolerence_speed)
+        assert min_tolerence_speed < fan_speed < max_tolerence_speed, "Speed out of tolerence speed range (%d, %d)" % (min_tolerence_speed, max_tolerence_speed)
         
     cpu_pack_count = SWITCH_MODELS[dut_hwsku]["cpu_pack"]["number"]
     if cpu_pack_count != 0:
@@ -92,7 +92,7 @@ def check_sysfs(dut):
         cpu_pack_crit_temp_file_output = dut.command("cat %s" % cpu_pack_crit_temp_file)
         cpu_pack_crit_temp = float(cpu_pack_crit_temp_file_output["stdout"])/1000
         
-        assert cpu_pack_max_temp < cpu_pack_crit_temp, "Bad cpu pack max temp or crit temp, %s, %s " % (str(cpu_pack_max_temp), str(cpu_pack_crit_temp))
+        assert cpu_pack_max_temp <= cpu_pack_crit_temp, "Bad cpu pack max temp or crit temp, %s, %s " % (str(cpu_pack_max_temp), str(cpu_pack_crit_temp))
         assert cpu_pack_temp < cpu_pack_max_temp, "CPU pack overheated, temp: %s" % (str(cpu_pack_temp))
         
     cpu_core_count = SWITCH_MODELS[dut_hwsku]["cpu_cores"]["number"]
@@ -109,33 +109,34 @@ def check_sysfs(dut):
         cpu_core_crit_temp_file_output = dut.command("cat %s" % cpu_core_crit_temp_file)
         cpu_core_crit_temp = float(cpu_core_crit_temp_file_output["stdout"])/1000
         
-        assert cpu_core_max_temp < cpu_core_crit_temp, "Bad cpu core%d max temp or crit temp, %s, %s " % (str(core_id), str(cpu_pack_max_temp), str(cpu_pack_crit_temp))
+        assert cpu_core_max_temp <= cpu_core_crit_temp, "Bad cpu core%s max temp or crit temp, %s, %s " % (str(core_id), str(cpu_core_max_temp), str(cpu_core_crit_temp))
         assert cpu_core_temp < cpu_core_max_temp, "CPU core%d overheated, temp: %s" % (str(core_id), str(cpu_core_temp))
         
     psu_count = SWITCH_MODELS[dut_hwsku]["psus"]["number"]
     for psu_id in range(1, psu_count + 1):
-        psu_temp_file = "/var/run/hw-management/thermal/psu{}_temp".format(psu_id)
-        psu_temp_file_output = dut.command("cat %s" % psu_temp_file)
-        psu_temp = float(psu_temp_file_output["stdout"])/1000
+        if SWITCH_MODELS[dut_hwsku]["psus"]["hot_swappable"]:
+            psu_temp_file = "/var/run/hw-management/thermal/psu{}_temp".format(psu_id)
+            psu_temp_file_output = dut.command("cat %s" % psu_temp_file)
+            psu_temp = float(psu_temp_file_output["stdout"])/1000
         
-        psu_max_temp_file = "/var/run/hw-management/thermal/psu{}_temp_max".format(psu_id)
-        psu_max_temp_file_output = dut.command("cat %s" % psu_max_temp_file)
-        psu_max_temp = float(psu_max_temp_file_output["stdout"])/1000
+            psu_max_temp_file = "/var/run/hw-management/thermal/psu{}_temp_max".format(psu_id)
+            psu_max_temp_file_output = dut.command("cat %s" % psu_max_temp_file)
+            psu_max_temp = float(psu_max_temp_file_output["stdout"])/1000
         
-        assert psu_temp < psu_max_temp, "PSU%d overheated, temp: %s" % (str(psu_id), str(psu_temp))
-        
-        psu_max_temp_alarm_file = "/var/run/hw-management/thermal/psu{}_temp_max_alarm".format(psu_id)
-        psu_max_temp_alarm_file_output = dut.command("cat %s" % psu_max_temp_alarm_file)
-        assert psu_max_temp_alarm_file_output["stdout"] == '0', "PSU{} temp alarm set".format(psu_id)
-        
-        psu_fan_speed_get = "/var/run/hw-management/thermal/psu{}_fan1_speed_get".format(psu_id)
-        try:
-            psu_fan_speed_get_content = dut.command("cat %s" % psu_fan_speed_get)
-            psu_fan_speed = int(psu_fan_speed_get_content["stdout"])
+            assert psu_temp < psu_max_temp, "PSU%d overheated, temp: %s" % (str(psu_id), str(psu_temp))
             
-        except Exception as e:
-            assert "Get content from %s failed, exception: %s" % (psu_fan_speed_get, repr(e))
-        assert psu_fan_speed > 1000, "Bad fan speed: %s" % str(psu_fan_speed)
+            psu_max_temp_alarm_file = "/var/run/hw-management/thermal/psu{}_temp_max_alarm".format(psu_id)
+            psu_max_temp_alarm_file_output = dut.command("cat %s" % psu_max_temp_alarm_file)
+            assert psu_max_temp_alarm_file_output["stdout"] == '0', "PSU{} temp alarm set".format(psu_id)
+            
+            psu_fan_speed_get = "/var/run/hw-management/thermal/psu{}_fan1_speed_get".format(psu_id)
+            try:
+                psu_fan_speed_get_content = dut.command("cat %s" % psu_fan_speed_get)
+                psu_fan_speed = int(psu_fan_speed_get_content["stdout"])
+                
+            except Exception as e:
+                assert "Get content from %s failed, exception: %s" % (psu_fan_speed_get, repr(e))
+            assert psu_fan_speed > 1000, "Bad fan speed: %s" % str(psu_fan_speed)
     
     sfp_count = SWITCH_MODELS[dut_hwsku]["ports"]["number"]
     for sfp_id in range(1, sfp_count + 1):

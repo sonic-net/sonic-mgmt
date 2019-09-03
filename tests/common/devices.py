@@ -200,7 +200,7 @@ class SonicHost(AnsibleHostBase):
                   if some daemon is disabled in the config file, then remove it from the daemon list.
         """
         full_daemon_tup = ('xcvrd', 'ledd', 'psud', 'syseepromd')
-        daemon_ctl_ley_prefix = 'skip_'
+        daemon_ctl_key_prefix = 'skip_'
         daemon_list = []
         daemon_config_file_path = "/".join(['/usr/share/sonic/device', self.facts["platform"], 'pmon_daemon_control.json'])
         
@@ -209,10 +209,10 @@ class SonicHost(AnsibleHostBase):
             json_data = json.loads(output["stdout"])
             logging.debug("original file content is %s" % str(json_data))
             for key in full_daemon_tup:
-                if (daemon_ctl_ley_prefix + key) not in json_data:
+                if (daemon_ctl_key_prefix + key) not in json_data:
                     daemon_list.append(key)
                     logging.debug("daemon %s is enabled." % key)
-                elif not json_data[daemon_ctl_ley_prefix + key]:
+                elif not json_data[daemon_ctl_key_prefix + key]:
                     daemon_list.append(key)
                     logging.debug("daemon %s is enabled." % key)
                 else:
