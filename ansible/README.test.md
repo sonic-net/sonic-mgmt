@@ -206,7 +206,7 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 
 ##### NDP Clear test
 ```
-ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=ndp_clearz -e testbed_name={TESTBED_NAME}
+ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=ndp_clear -e testbed_name={TESTBED_NAME}
 ```
 
 ##### Neighbor Mac test
