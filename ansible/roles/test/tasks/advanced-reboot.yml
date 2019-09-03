@@ -52,21 +52,6 @@
       copy: src=roles/test/files/ptftests dest=/root
       delegate_to: "{{ ptf_host }}"
 
-    - name: Copy arp responder to the PTF container
-      copy: src=roles/test/files/helpers/arp_responder.py dest=/opt
-      delegate_to: "{{ ptf_host }}"
-
-    - name: Copy arp responder supervisor configuration to the PTF container
-      template: src=arp_responder.conf.j2 dest=/etc/supervisor/conf.d/arp_responder.conf
-      vars:
-        - arp_responder_args: '-e'
-      delegate_to: "{{ ptf_host }}"
-
-    - name: Update supervisor configuration
-      include: "roles/test/tasks/common_tasks/update_supervisor.yml"
-      vars:
-        supervisor_host: "{{ ptf_host }}"
-
     - name: Remove old keys
       file:
         path: "{{ item }}"
