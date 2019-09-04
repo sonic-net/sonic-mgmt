@@ -229,6 +229,10 @@ testcases:
       filename: syslog.yml
       topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
+    sonic_install:
+      filename: sonic_install.yml
+      topologies: [t0, t0-16, t0-56, t0-64, t0-116, t1]
+
     vlan:
       filename: vlantb.yml
       topologies: [t0, t0-16, t0-116]

@@ -252,6 +252,15 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 ```
 - Requires switch connected to a VM set or PTF testbed
 
+##### Sonic Install test
+```
+ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=sonic_install -e testbed_name={TESTBED_NAME} -e image_url='http://xxx.xxx.xxx.xxx/sonic-broadcom.bin'
+```
+- Requires an HTTP or HTTPS server that ONIE can reach with the firware file loaded
+- Requires that the DUT can obtain an IP address via DHCP
+- Bypasses the auto-discovery in ONIE to load the image
+- Will save the minigraph and reload the minigraph when the test is completed
+
 ##### Syslog test
 ```
 ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=syslog -e testbed_name={TESTBED_NAME}

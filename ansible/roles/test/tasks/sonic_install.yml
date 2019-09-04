@@ -1,0 +1,131 @@
+################################################################################
+# Test to reinstall the Sonic software and verify the reinstall recreates the sonic partition
+################################################################################
+- block:
+  - name: set some facts for the reload
+    set_fact:
+      upgrade_type: onie
+
+  - name: verify required variables exist
+    assert:
+      that:
+        - image_url is defined
+        - "'http' in image_url"
+
+  - name: get the loaded minigraph.xml file
+    fetch:
+      src: /etc/sonic/minigraph.xml
+      dest: /tmp/
+      fail_on_missing: yes
+      flat: yes
+
+  - name: pull `blkid` command from the device
+    shell: blkid
+    become: yes
+    register: before_out
+
+  - name: parse the output
+    blkid:
+      text: "{{ before_out.stdout }}"
+  
+  - name: register original partition info
+    set_fact:
+      before_uuid: "{{ item.value['UUID'] }}"
+      before_partuuid: "{{ item.value['PARTUUID'] }}"
+    with_dict: blkid_dict
+    when: item.value.get('LABEL') == "SONiC-OS"
+
+  - name: verify the variables are defined and not empty
+    assert:
+      that: 
+        - "{{ item }} is defined"
+        - "{{ item | length }} > 0"
+    with_items:
+      - before_uuid
+      - before_partuuid
+
+  - name: confirm that this will only run against one host
+    assert: 
+      that: play_hosts | length == 1
+      msg: Only run this test against a single host.  Use the -l flag to limit the number of hosts if necessary
+
+  - name: reinstall the software
+    include: sonic_install/sonic_install_fw.yml
+
+  - name: pull `blkid` command from the device
+    shell: blkid
+    become: yes
+    register: after_out
+
+  - name: parse the output
+    blkid:
+      text: "{{ after_out.stdout }}"
+ 
+  - name: register updated partition info
+    set_fact:
+      after_uuid: "{{ item.value['UUID'] }}"
+      after_partuuid: "{{ item.value['PARTUUID'] }}"
+    with_dict: blkid_dict
+    when: item.value.get('LABEL') == "SONiC-OS"
+
+  - name: verify the variables are defined
+    assert:
+      that: 
+        - "{{ item }} is defined"
+        - "{{ item | length }} > 0"
+    with_items:
+      - after_uuid
+      - after_partuuid
+
+  - name: verify that the UUID and the Partition UUID have changed
+    assert:
+      that:
+        - "before_uuid != after_uuid"
+        - "before_partuuid != after_partuuid"
+
+  always:
+  - name: restore the minigraph.xml file
+    copy:
+      src: /tmp/minigraph.xml
+      dest: /etc/sonic
+    become: yes
+
+  - name: disable automatic minigraph update if we are deploying new minigraph into SONiC
+    lineinfile:
+        name: /etc/sonic/updategraph.conf
+        regexp: '^enabled='
+        line: 'enabled=false'
+    become: true
+
+  - name: restart automatic minigraph update service
+    become: true
+    service:
+      name: updategraph
+      state: restarted
+
+  - name: execute cli "config load_minigraph -y" to apply new minigraph
+    become: true
+    shell: config load_minigraph -y
+
+  - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
+    become: true
+    shell: config bgp startup all
+
+  - name: execute cli "config save -y" to save current minigraph as startup-config
+    become: true
+    shell: config save -y
+
+  - name: wait for the system to stabilize
+    pause:
+      seconds: 30
+
+  - name: run base sanity reset anything that's not working
+    include: base_sanity.yml
+    ignore_errors: true
+
+  - name: cleanup minigraph file from the container
+    file:
+      path: /tmp/minigraph.xml
+      state: absent
+    delegate_to: 127.0.0.1
+
