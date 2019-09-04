@@ -6,6 +6,7 @@ Usage:          Examples of how to use:
 '''
 
 
+import time
 import ptf
 import ptf.packet as scapy
 import ptf.dataplane as dataplane
@@ -156,6 +157,10 @@ class EverflowPolicerTest(BaseTest):
         # Send traffic and verify the original traffic is not rate limited
         count = self.checkOriginalFlow()
         assert count == self.NUM_OF_TOTAL_PACKETS
+
+        # Sleep for t=CBS/CIR=(100packets)/(100packets/s)=1s to refill CBS capacity after checkOriginalFlow()
+        # otherwise we can have first mirrored packet dropped by policer in checkMirroredFlow()
+        time.sleep(1)
 
         testutils.add_filter(self.greFilter)
 
