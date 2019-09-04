@@ -17,7 +17,7 @@ from ptf.mask import Mask
 class EverflowPolicerTest(BaseTest):
 
     GRE_PROTOCOL_NUMBER = 47
-    NUM_OF_TOTAL_PACKETS = 200
+    NUM_OF_TOTAL_PACKETS = 500
 
 
     def __init__(self):
