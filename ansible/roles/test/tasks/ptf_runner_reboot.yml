@@ -16,6 +16,7 @@
         - portchannel_ports_file=\"/tmp/portchannel_interfaces.json\"
         - vlan_ports_file=\"/tmp/vlan_interfaces.json\"
         - ports_file=\"/tmp/ports.json\"
+        - ports_mmp_file=\"/tmp/ptf_ports_mmp.json\"
         - dut_mac='{{ dut_mac }}'
         - dut_vlan_ip='192.168.0.1'
         - default_ip_range='192.168.0.0/16'
