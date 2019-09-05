@@ -1,5 +1,5 @@
 #
-#ptf --test-dir ptftests fast-reboot --qlen=1000 --platform remote -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;portchannel_ports_file="/tmp/portchannel_interfaces.json";vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";dut_mac="4c:76:25:f5:48:80";default_ip_range="192.168.0.0/16";vlan_ip_range="172.0.0.0/22";arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' --platform-dir ptftests --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
+#ptf --test-dir ptftests fast-reboot --qlen=1000 --platform remote -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;portchannel_ports_file="/tmp/portchannel_interfaces.json";vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";ports_mmp_file="/tmp/ptf_ports_mmp.json";dut_mac="4c:76:25:f5:48:80";default_ip_range="192.168.0.0/16";vlan_ip_range="172.0.0.0/22";arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' --platform-dir ptftests --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
 #
 #
 # This test checks that DUT is able to make FastReboot procedure
@@ -132,6 +132,7 @@ class ReloadTest(BaseTest):
         self.check_param('portchannel_ports_file', '', required=True)
         self.check_param('vlan_ports_file', '', required=True)
         self.check_param('ports_file', '', required=True)
+        self.check_param('ports_mmp_file', '', required=True)
         self.check_param('dut_mac', '', required=True)
         self.check_param('dut_vlan_ip', '', required=True)
         self.check_param('default_ip_range', '', required=True)
@@ -227,6 +228,11 @@ class ReloadTest(BaseTest):
             raise Exception("Too many vlans")
         return [self.port_indices[ifname] for ifname in content.values()[0]['members']]
 
+    def read_ptf_ports_mmp(self):
+        content = self.read_json('ports_mmp_file')
+        
+        return content
+    
     def check_param(self, param, default, required = False):
         if param not in self.test_params:
             if required:
@@ -384,6 +390,7 @@ class ReloadTest(BaseTest):
         self.port_indices = self.read_port_indices()
         self.portchannel_ports = self.read_portchannel_ports()
         self.vlan_ports = self.read_vlan_ports()
+        self.ports_mmp = self.read_ptf_ports_mmp()
         if self.test_params['preboot_oper'] is not None:
             self.build_peer_mapping()
 
@@ -598,7 +605,7 @@ class ReloadTest(BaseTest):
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "id")
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
 
-        self.ping_dut_packet = str(packet)
+        self.ping_dut_packet = packet
 
     def generate_arp_ping_packet(self):
         vlan_ip_range = self.test_params['vlan_ip_range']
@@ -1399,7 +1406,9 @@ class ReloadTest(BaseTest):
 
     def pingDut(self):
         for i in xrange(self.ping_dut_pkts):
-            testutils.send_packet(self, self.random_port(self.vlan_ports), self.ping_dut_packet)
+            tport_id = self.random_port(self.vlan_ports)
+            self.ping_dut_packet[Ether].src = self.ports_mmp[str(tport_id)]
+            testutils.send_packet(self, tport_id, str(self.ping_dut_packet))
 
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.ping_dut_exp_packet, self.vlan_ports, timeout=self.TIMEOUT)
 
