@@ -6,7 +6,7 @@
 
 - debug : msg="Start FIB Test"
 
-- set_fact: mtu=9114
+- set_fact: mtu=1500
   when: mtu is not defined
 
 - name: "Start PTF runner"
