@@ -17,7 +17,7 @@
 
     - name: verify that the portchannel shows up in the output 
       assert:
-        that:  out.stdout | search( name )
+        that: out.stdout | search(name)
 
     - name: add members to the portchannel
       shell: config portchannel member add {{ name }} {{ item }}
@@ -30,7 +30,7 @@
     
     - name: verify that the members show up in the output 
       assert:
-        that:  out.stdout | search( item )
+        that: out.stdout | search(item)
       with_items: members 
 
     - name: pull out lines from output for the portchannel ports
@@ -85,4 +85,3 @@
       shell: config portchannel del {{ name }} 
       become: yes
       when: name in out.stdout
-

@@ -27,7 +27,7 @@
 
     - name: verify that the IP shows up in the output 
       assert:
-        that:  out.stdout | search(address)
+        that: out.stdout | search(address)
 
     - name: remove IP from the interface
       shell: config interface ip remove {{ interface }} {{ address }}
@@ -39,10 +39,9 @@
 
     - name: verify that the IP does not show up in the output 
       assert:
-        that:  not out.stdout
+        that: not out.stdout | search(address)
 
   rescue:
     - name: remove IP from the interface on failure
       shell: config interface ip remove {{ interface }} {{ address }}
       become: yes
-

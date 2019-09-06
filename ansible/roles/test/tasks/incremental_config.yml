@@ -5,56 +5,56 @@
 
 - name: set initial variables
   set_fact:
-    inactive_eth_iface_list: []
-    ethernet_portchannel_interfaces: []
     test_ipv4_address: 10.200.4.5/24
     test_ipv6_address: fc00::aa07/126
     test_port_channel_name: PortChannel0999
     test_vlan: 999
 
-- name: create inactive interface list
+- name: Get a list of active Ethernet interface names
   set_fact:
-    inactive_eth_iface_list: "{{ inactive_eth_iface_list }} + ['{{ item.device }}']"
-  when: item.active == false and "Ethernet" in item.device 
+    test_interfaces: "{{ test_interfaces|default([]) }} + ['{{ item.device }}']"
+  when: item.active == True and "Ethernet" in item.device
   with_items: "{{ ansible_interface_facts.values() }}"
 
-- name: verify that there are at least 4 inactive interfaces
+- name: verify that there are at least 2 interfaces that we can test with
   assert:
-    that: (inactive_eth_iface_list | length) >= 4
-    msg: This test requires at least four inactive Ethernet interfaces
+    that: (test_interfaces | length) >= 2
+    msg: This test requires at least two active Ethernet interfaces
 
-- name: set test interface variable
-  set_fact:
-    test_ip_iface: "{{ inactive_eth_iface_list[0] }}"
-    test_vlan_iface: "{{ inactive_eth_iface_list[-1] }}" 
-    test_portchannel_members: ["{{ inactive_eth_iface_list[-2] }}","{{ inactive_eth_iface_list[-3] }}"]
+- name: Add and remove an IPv4 address from an interface
+  include: incremental_config/incremental_config_ip.yml
+  vars:
+    ip_type: 'ipv4'
+    address: "{{ test_ipv4_address }}"
+    interface: "{{ test_interfaces[0] }}"
 
-- name: "Ansible | List all known variables and facts"
-  debug:
-    var: "{{ item }}"
-  with_items:
-    - inactive_eth_iface_list 
-    - test_ip_iface
-    - test_vlan_iface
-    - test_portchannel_members
+- name: Add and remove an IPv6 address from an interface
+  include: incremental_config/incremental_config_ip.yml
+  vars:
+    ip_type: 'ipv6'
+    address: "{{ test_ipv6_address }}"
+    interface: "{{ test_interfaces[0] }}"
 
-# Add and remove an ipv4 address from an interface
-- name: run ipv4 tests
-  include: incremental_config/incremental_config_ip.yml address={{test_ipv4_address}} interface={{test_ip_iface}} ip_type='ipv4' 
+- name: Add and remove VLAN membership from an interface
+  include: incremental_config/incremental_config_vlan.yml
+  vars:
+    interface: "{{ test_interfaces[0] }}"
 
-# Add and remove an ipv6 address from an interface
-- name: run ipv6 tests
-  include: incremental_config/incremental_config_ip.yml address={{test_ipv6_address}} interface={{test_ip_iface}} ip_type='ipv6' 
+- name: Add and remove a portchannel interface
+  include: incremental_config/incremental_config_portchannel.yml
+  vars:
+    name: "{{ test_port_channel_name }}"
+    members: "{{ test_interfaces[:2] }}"
 
-# Add and remove a vlan from an interface
-- name: run vlan tests
-  include: incremental_config/incremental_config_vlan.yml vlan={{test_vlan}} interface={{test_vlan_iface}}
-
-# Add and remove a portchannel to the switch
-- name: run portchannel tests
-  include: incremental_config/incremental_config_portchannel.yml name={{test_port_channel_name}} members={{test_portchannel_members}}
-
-# Add and remove some acl rules via the incremental updated command
-- name: run acl update tests
+- name: Add and remove some acl rules via the incremental updated command
   include: incremental_config/incremental_config_acl_incremental_update.yml
 
+- name: Do basic sanity check and allow recovery
+  include: base_sanity.yml
+  vars:
+    recover: "{{ allow_recover }}"
+
+- name: Validate all interfaces are up and allow recovery
+  include: interface.yml
+  vars:
+    recover: "{{ allow_recover }}"
