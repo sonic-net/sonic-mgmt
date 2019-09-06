@@ -277,7 +277,7 @@ class FibTest(BaseTest):
                               % ("LAG", str(member), total_entry_hit_cnt/len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
                 result &= r
 
-        assert result
+        assert result, "dest port list {}, port hit count {}".format(dest_port_list, port_hit_cnt)
 
     #---------------------------------------------------------------------
 
