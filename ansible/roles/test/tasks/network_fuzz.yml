@@ -7,14 +7,10 @@
     shell: show interfaces status | head
     register: show_interface_status
 
-  - name: Extract the interfaces table from a previous command's output
-    parse_text_table:
-      text: "{{ show_interface_status.stdout }}"
-
   - name: Store the indices for the ports that operationally 'up'
-    set_fact: candidate_ports="{{ candidate_ports|default([]) + [minigraph_port_indices[item]] }}"
-    with_items: "{{ minigraph_ports }}"
-    when: parsed_table_dict[item]['Oper'] == "up"
+    set_fact: candidate_ports="{{ candidate_ports|default([]) + [minigraph_port_indices[item.device]] }}"
+    with_items: ansible_interface_facts.values()
+    when: item.active and (item.device | search('Ethernet'))
 
   - name: Get the interface name that is connect to the first BGP neighbor
     set_fact:
