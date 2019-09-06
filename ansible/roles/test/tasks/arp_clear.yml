@@ -20,26 +20,15 @@
       interface_facts:
       when: ansible_interface_facts is not defined
 
-    - name: Read the current interfaces status
-      shell: show interfaces status | head
-      register: show_interface_status
+    - name: Store the indices for the ports that operationally 'up'
+      set_fact: candidate_ifaces="{{ candidate_ifaces|default([]) + [item.device] }}"
+      with_items: ansible_interface_facts.values()
+      when: item.active and (item.device | search('Ethernet'))
 
-    - name: Extract the interfaces table from a previous command's output
-      parse_text_table:
-        text: "{{ show_interface_status.stdout }}"
-
-    - name: Find non-trunk interfaces
-      set_fact: candidate_ports="{{ candidate_ports|default([]) + [item] }}"
-      with_items: "{{ minigraph_ports }}"
-      when: parsed_table_dict[item]['Vlan'] != "trunk"
-
-    - name: Choose the first candidate port for testing
+    - name: Choose the first candidate interface for testing
       set_fact:
-        test_interface: "{{ candidate_ports[0] }}"
-
-    - name: figure out selected interface index
-      set_fact:
-        test_interface_index: "{{ minigraph_port_indices[test_interface] }}"
+        test_interface: "{{ candidate_ifaces[0] }}"
+        test_interface_index: "{{ minigraph_port_indices[candidate_ifaces[0]] }}"
 
     - name: find if interface1 in portchannel
       set_fact:
