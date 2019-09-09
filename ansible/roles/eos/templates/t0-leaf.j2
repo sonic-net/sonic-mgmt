@@ -39,7 +39,7 @@ route-map DEFAULT_ROUTES permit
 {# us to overflow the 192.168.0.0/16 private address space here. #}
 {# This should be fine for internal use, but may pose an issue if used otherwise #}
 {# #}
-{% for podset in range(0, (props.podset_number // 10) | int) %}
+{% for podset in range(0, props.podset_number) %}
 {% for tor in range(0, props.tor_number) %}
 {% for subnet in range(0, props.tor_subnet_number) %}
 {# Skip tor 0 podset 0 #}
@@ -60,7 +60,7 @@ ipv6 route {{ '20%02x' % octet1 }}:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02
 {% endfor %}
 {% endfor %}
 !
-{% for podset in range(0, (props.podset_number // 10) | int) %}
+{% for podset in range(0, (props.podset_number) %}
 {% for tor in range(0, props.tor_number) %}
 {# Skip tor 0 podset 0 #}
 {% if podset != 0 or tor != 0 %}
