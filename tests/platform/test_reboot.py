@@ -13,6 +13,8 @@ import os
 import time
 import sys
 
+from datetime import datetime
+
 import pytest
 
 from platform_fixtures import conn_graph_facts
@@ -41,20 +43,28 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type="cold"):
         reboot_timeout = 180
     else:
         assert False, "Reboot type %s is not supported" % reboot_type
-    process, queue = dut.command(reboot_cmd, module_async=True)
+
+    dut_datetime = datetime.strptime(dut.command('date -u +"%Y-%m-%d %H:%M:%S"')["stdout"], "%Y-%m-%d %H:%M:%S")
+    reboot_task, reboot_res = dut.command(reboot_cmd, module_ignore_errors=True, module_async=True)
 
     logging.info("Wait for DUT to go down")
-    res = localhost.wait_for(host=dut.hostname, port=22, state="stopped", delay=10, timeout=120,
-        module_ignore_errors=True)
+    res = localhost.wait_for(host=dut.hostname, port=22, state="stopped", timeout=180, module_ignore_errors=True)
     if "failed" in res:
-        if process.is_alive():
-            logging.error("Command '%s' is not completed" % reboot_cmd)
-            process.terminate()
-        logging.error("reboot result %s" % str(queue.get()))
-        assert False, "DUT did not go down"
+        try:
+            logging.error("Wait for switch down failed, try to kill any possible stucking reboot task")
+            pid = dut.command("pgrep -f '%s'" % reboot_cmd)["stdout"]
+            dut.command("kill -9 %s" % pid)
+            reboot_task.terminate()
+            logging.error("Result of command '%s': " + str(reboot_res.get(timeout=0)))
+        except Exception as e:
+            logging.error("Exception raised while cleanup reboot task and get result: " + repr(e))
 
     logging.info("Wait for DUT to come back")
     localhost.wait_for(host=dut.hostname, port=22, state="started", delay=10, timeout=reboot_timeout)
+
+    logging.info("Check the uptime to verify whether reboot was performed")
+    dut_uptime = datetime.strptime(dut.command("uptime -s")["stdout"], "%Y-%m-%d %H:%M:%S")
+    assert float(dut_uptime.strftime("%s")) - float(dut_datetime.strftime("%s")) > 10, "Device did not reboot"
 
     logging.info("Wait until all critical services are fully started")
     check_critical_services(dut)
