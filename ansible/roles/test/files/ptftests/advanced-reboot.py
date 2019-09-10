@@ -349,6 +349,12 @@ class ReloadTest(BaseTest):
         self.get_neigh_port_info()
         self.get_portchannel_info()
 
+    def build_vlan_if_port_mapping(self):
+        content = self.read_json('vlan_ports_file')
+        if len(content) > 1:
+            raise Exception("Too many vlans")
+        return [(ifname, self.port_indices[ifname]) for ifname in content.values()[0]['members']]
+
     def populate_fail_info(self, fails):
         for key in fails:
             if key not in self.fails:
@@ -386,6 +392,7 @@ class ReloadTest(BaseTest):
         self.vlan_ports = self.read_vlan_ports()
         if self.test_params['preboot_oper'] is not None:
             self.build_peer_mapping()
+            self.test_params['vlan_if_port'] = self.build_vlan_if_port_mapping()
 
         self.vlan_ip_range = self.test_params['vlan_ip_range']
         self.default_ip_range = self.test_params['default_ip_range']
@@ -410,8 +417,8 @@ class ReloadTest(BaseTest):
         self.log("Converted addresses VMs: %s" % str(self.ssh_targets))
         if self.preboot_oper is not None:
             self.log("Preboot Operations:")
-            self.pre_handle = sp.PrebootTest(self.preboot_oper, self.ssh_targets, self.portchannel_ports, self.vm_dut_map, self.test_params, self.dut_ssh)
-            (self.ssh_targets, self.portchannel_ports, self.neigh_vm), (log_info, fails) = self.pre_handle.setup()
+            self.pre_handle = sp.PrebootTest(self.preboot_oper, self.ssh_targets, self.portchannel_ports, self.vm_dut_map, self.test_params, self.dut_ssh, self.vlan_ports)
+            (self.ssh_targets, self.portchannel_ports, self.neigh_vm, self.vlan_ports), (log_info, fails) = self.pre_handle.setup()
             self.populate_fail_info(fails)
             for log in log_info:
                 self.log(log)
