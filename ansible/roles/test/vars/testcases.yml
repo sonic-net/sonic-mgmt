@@ -14,7 +14,7 @@ testcases:
 
     bgp_fact:
       filename: bgp_fact.yml
-      topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
+      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
 
     bgp_gr_helper:
       filename: bgp_gr_helper.yml
@@ -50,7 +50,7 @@ testcases:
 
     decap:
       filename: decap.yml
-      topologies: [t1, t1-lag, t1-64-lag, t0, t0-56, t0-64, t0-116]
+      topologies: [t1, t1-lag, t1-64-lag, t0, t0-52, t0-56, t0-64, t0-116]
       required_vars:
           ptf_host:
           testbed_type:
@@ -58,7 +58,7 @@ testcases:
 
     dhcp_relay:
       filename: dhcp_relay.yml
-      topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116]
+      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116]
       required_vars:
           ptf_host:
 
@@ -103,7 +103,7 @@ testcases:
 
     fib:
       filename: simple-fib.yml
-      topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
+      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
       required_vars:
           ptf_host:
           testbed_type:
@@ -117,7 +117,7 @@ testcases:
 
     fdb:
       filename: fdb.yml
-      topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116]
+      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116]
       required_vars:
           ptf_host:
           testbed_type:
@@ -139,18 +139,18 @@ testcases:
 
     lag_2:
       filename: lag_2.yml
-      topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t1-lag, t1-64-lag]
+      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1-lag, t1-64-lag]
       required_vars:
           ptf_host:
           testbed_type:
 
     lldp:
       filename: lldp.yml
-      topologies: [t0, t0-16, t0-56, t0-64, t0-116, t0-64-32, t1, t1-lag, t1-64-lag]
+      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-116, t0-64-32, t1, t1-lag, t1-64-lag]
 
     link_flap:
       filename: link_flap.yml
-      topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
     mem_check:
       filename: mem_check.yml
@@ -234,7 +234,7 @@ testcases:
 
     crm:
       filename: crm.yml
-      topologies: [t1, t1-lag, t0, t0-56, t0-64, t0-116]
+      topologies: [t1, t1-lag, t0, t0-52, t0-56, t0-64, t0-116]
 
     dip_sip:
       filename: dip_sip.yml
