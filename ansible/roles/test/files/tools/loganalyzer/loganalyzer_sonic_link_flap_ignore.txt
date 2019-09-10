@@ -1,0 +1,2 @@
+r, ".* ERR ntpd.*routing socket reports: No buffer space available.*"
+r, ".*ERR dhcp_relay.*receive_packet failed on Ethernet.*: Network is down.*"

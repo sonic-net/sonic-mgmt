@@ -1,0 +1,85 @@
+- block:
+  - name: set initial values if it's not set from commandline
+    set_fact:
+      seconds_to_run: 600 
+    when: seconds_to_run is not defined
+
+  - name: Get a list of active Ethernet interface names
+    set_fact:
+      test_interfaces: "{{ test_interfaces|default([]) }} + ['{{ item.device }}']"
+    when: item.active == True and "Ethernet" in item.device
+    with_items: "{{ ansible_interface_facts.values() }}"
+
+  - name: verify we have an active interface
+    assert:
+      that:
+        - test_interfaces is defined
+        - (test_interfaces | length) >= 1
+      msg: This test requires at least one active interface
+
+  - name: pick a test interface
+    set_fact:
+      test_interface: "{{ test_interfaces[0] }}"
+
+  - name: pull CPU utilization via shell
+    # Explanation: Run top command with 2 iterations, 5sec delay. Discard the first iteration, then grap the CPU line from the second,
+    # subtract 100% - idle, and round down to integer.
+    shell: top -bn2 -d5 | awk '/^top -/ { p=!p } { if (!p) print }' | awk '/Cpu/ { cpu = 100 - $8 };END   { print cpu }' | awk '{printf "%.0f",$1}'
+    register: shell_cpu_usage_before
+    become: yes
+
+  - name: get used memory info
+    shell: "show system-memory | grep Mem: | while read name total used everything_else; do echo $used; done"
+    register: used_memory_before
+
+  - name: pre test memory values
+    debug:
+      var: used_memory_before.stdout
+
+  - name: pre test cpu values
+    debug:
+      var: shell_cpu_usage_before.stdout
+
+  - name: "run linkflap script on interface {{ test_interface }} for {{ seconds_to_run }} seconds and verify no errors"
+    vars:
+      script_to_run: "sonic_link_flap/sonic_link_flap.sh {{ seconds_to_run }} {{ test_interface }}"
+      testname: sonic_link_flap
+      out_dir: /tmp
+      run_dir: /tmp
+      errors_expected: false
+      ignore_file: "loganalyzer_sonic_link_flap_ignore.txt"
+    include: roles/test/tasks/run_script_with_log_analyzer.yml
+
+  - name: wait 30 seconds for the cpu to calm down
+    pause:
+      seconds: 30
+
+  - name: pull CPU utilization via shell
+    # Explanation: Run top command with 2 iterations, 5sec delay. Discard the first iteration, then grap the CPU line from the second,
+    # subtract 100% - idle, and round down to integer.
+    shell: top -bn2 -d5 | awk '/^top -/ { p=!p } { if (!p) print }' | awk '/Cpu/ { cpu = 100 - $8 };END   { print cpu }' | awk '{printf "%.0f",$1}'
+    register: shell_cpu_usage_after
+    become: yes
+
+  - name: get used memory info before
+    shell: "show system-memory | grep Mem: | while read name total used everything_else; do echo $used; done"
+    register: used_memory_after
+
+  - name: post test memory values
+    debug:
+      var: used_memory_after.stdout
+
+  - name: post test cpu values
+    debug:
+      var: shell_cpu_usage_after.stdout
+
+  # If the CPU has 10% more utilization 30 seconds after the test is done, should fail
+  - name: verify cpu usage is not significantly higher than it was before it started
+    assert:
+      that: ({{shell_cpu_usage_after.stdout}} - {{shell_cpu_usage_before.stdout}}) < 10
+
+  # Make sure the memory usage doesn't go up too much
+  - name: verify memory usage is not significantly higher than it was before it started
+    assert:
+      that: ({{used_memory_after.stdout}} - {{used_memory_before.stdout}}) < 10
+
