@@ -1,7 +1,11 @@
 #!/bin/bash
 
 set -e
+set -o pipefail
 
-for i in `cat /proc/net/dev | grep eth | awk -F'eth|:' '{print $2}'`; do
-  ip address flush dev eth$i
+INTF_LIST=$(ip -br link show | grep 'eth' | awk '{sub(/@.*/,"",$1); print $1}')
+
+for INTF in ${INTF_LIST}; do
+    echo "Flush ${INTF} IP address"
+    ip addr flush dev ${INTF}
 done
