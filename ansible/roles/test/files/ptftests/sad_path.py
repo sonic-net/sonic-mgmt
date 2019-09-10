@@ -354,14 +354,15 @@ class SadOper(SadPath):
         stdout, stderr, return_code = self.cmd(['ssh', '-oStrictHostKeyChecking=no', self.dut_ssh, 'show interfaces portchannel'])
         if return_code == 0:
             for line in stdout.split('\n'):
-                if any(po_name in line for po_name in po_list):
-                    is_match = pat.match(line)
-                    if is_match and self.verify_dut_lag_member_state(is_match, pre_check=pre_check):
-                        self.log.append('Lag state is down as expected on the DUT for %s' % is_match.group(1))
-                        self.log.append('Pattern check: %s' % line)
-                    else:
-                        self.fails['dut'].add('%s: Lag state is not down on the DUT for %s' % (self.msg_prefix[pre_check], is_match.group(1)))
-                        self.fails['dut'].add('%s: Obtained: %s' % (self.msg_prefix[pre_check], line))
+                for po_name in po_list:
+                    if po_name in line:
+                        is_match = pat.match(line)
+                        if is_match and self.verify_dut_lag_member_state(is_match, pre_check=pre_check):
+                            self.log.append('Lag state is down as expected on the DUT for %s' % po_name)
+                            self.log.append('Pattern check: %s' % line)
+                        else:
+                            self.fails['dut'].add('%s: Lag state is not down on the DUT for %s' % (self.msg_prefix[pre_check], po_name))
+                            self.fails['dut'].add('%s: Obtained: %s' % (self.msg_prefix[pre_check], line))
         else:
             self.fails['dut'].add('%s: Retreiving LAG info from DUT side failed' % self.msg_prefix[pre_check])
             self.fails['dut'].add('%s: Return code: %d' % (self.msg_prefix[pre_check], return_code))
