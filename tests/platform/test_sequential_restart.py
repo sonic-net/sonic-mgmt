@@ -15,10 +15,8 @@ import pytest
 from platform_fixtures import conn_graph_facts
 from common.utilities import wait_until
 from check_critical_services import check_critical_services
-from check_interface_status import check_interface_status
 from check_transceiver_status import check_transceiver_basic
-from check_transceiver_status import all_transceivers_detected
-
+from check_all_interface_info import check_interface_information
 
 def restart_service_and_check(localhost, dut, service, interfaces):
     """
@@ -32,12 +30,8 @@ def restart_service_and_check(localhost, dut, service, interfaces):
     check_critical_services(dut)
 
     logging.info("Wait some time for all the transceivers to be detected")
-    assert wait_until(300, 20, all_transceivers_detected, dut, interfaces), \
-        "Not all transceivers are detected in 300 seconds"
-
-    logging.info("Check interface status")
-    time.sleep(60)
-    check_interface_status(dut, interfaces)
+    assert wait_until(300, 20, check_interface_information, dut, interfaces), \
+        "Not all interface information are detected within 300 seconds"
 
     logging.info("Check transceiver status")
     check_transceiver_basic(dut, interfaces)
