@@ -1,7 +1,6 @@
 #!/bin/bash
 
-set -e
-set -o pipefail
+set -euo pipefail
 
 INTF_LIST=$(ip -br link show | grep 'eth' | awk '{sub(/@.*/,"",$1); print $1}')
 
