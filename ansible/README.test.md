@@ -224,7 +224,7 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 
 ##### Portstat test
 ```
-ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=portstat -e testbed_name={TESTBED_NAME}
+ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=portstat -e testbed_name={TESTBED_NAME}
 ```
 
 ##### Port Toggle test
