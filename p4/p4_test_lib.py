@@ -5,6 +5,7 @@ import os
 import sys
 import json
 from time import sleep
+from logger.cafylog import CafyLog
 
 # Import P4Runtime lib from parent utils dir
 # Probably there's a better way of doing this.
@@ -13,7 +14,7 @@ from time import sleep
 #                 '../../utils/'))
 
 # Add 3rd party python packages' paths (instead of setting PYTHONPATH)
-TP_DIR = "/usr/local/python/"
+TP_DIR = "./../../godiva-test/lib"
 tp_dirs = os.listdir(TP_DIR)
 for tp_dir in tp_dirs:
     sys.path.append(os.path.join(TP_DIR,tp_dir))
@@ -21,13 +22,23 @@ for tp_dir in tp_dirs:
 import p4_switch
 from p4_error_utils import printGrpcError
 import p4_info_helper
+log = CafyLog(name='P4 Switch Lib')
 
 SWITCH_TO_HOST_PORT = 1
 SWITCH_TO_SWITCH_PORT = 2
 
 
 
-def tableEntryActions(sw, flow, p4info_helper, action):
+def tableEntryActions(sw, flow, p4info_helper, action, **kwargs):
+    try:
+        election_id_low = kwargs["election_id_low"]
+    except KeyError:
+        election_id_low = 1
+    try:
+        election_id_high = kwargs["election_id_high"]
+    except KeyError:
+        election_id_high = 0
+    
     table_name = flow['table']
     match_fields = flow.get('match') # None if not found
     action_name = flow['action_name']
@@ -48,9 +59,11 @@ def tableEntryActions(sw, flow, p4info_helper, action):
         priority=priority)
 
     if oper.upper() == 'INSERT':
-        sw.WriteTableEntry(table_entry)
+        sw.WriteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high)
     elif oper.upper() == 'DELETE':
-        sw.DeleteTableEntry(table_entry)
+        sw.DeleteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high)
+
+    return
 
 
 def printCounter(p4info_helper, sw, counter_name, index):

@@ -1,0 +1,10 @@
+p4_ap.py::TestP4::()::test_p4_sanity
+#p4_ap.py::TestP4::()::test_ElectionID
+#p4_ap.py::TestP4::()::test_existing_ElectionID
+#p4_ap.py::TestP4::()::test_Master_change
+#p4_ap.py::TestP4::()::test_max_connections
+#p4_ap.py::TestP4::()::test_nonZero_DeviceID
+#p4_ap.py::TestP4::()::test_deviceID_ACC
+#p4_ap.py::TestP4::()::test_nonZero_DeviceID
+#p4_ap.py::TestP4::()::test_multicontrollers_blocking_tableEdit
+#p4_ap.py::TestP4::()::test_multicontrollers_non_blocking_tableEdit

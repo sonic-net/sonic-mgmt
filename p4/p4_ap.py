@@ -45,5 +45,23 @@ class TestP4(P4ApBase):
     def test_ElectionID(self):
         p4_san_tc._test_ElectionID()
 
+    def test_existing_ElectionID(self):
+        p4_san_tc._test_existing_ElectionID()
+    
+    def test_Master_change(self):
+        p4_san_tc._test_Master_change()
+
+    def test_max_connections(self):
+        p4_san_tc._test_max_connections()    
+
     def test_nonZero_DeviceID(self):
         p4_san_tc._test_nonZero_DeviceID()
+
+    def test_deviceID_ACC(self):
+        p4_san_tc._test_deviceID_ACC()
+
+    def test_multicontrollers_blocking_tableEdit(self):
+        p4_san_tc._test_multicontrollers_blocking_tableEdit()
+
+    def test_multicontrollers_non_blocking_tableEdit(self):
+        p4_san_tc._test_multicontrollers_non_blocking_tableEdit()

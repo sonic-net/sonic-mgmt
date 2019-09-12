@@ -16,15 +16,18 @@ import sys
 from queue import Queue
 from datetime import datetime
 from time import sleep
+from logger.cafylog import CafyLog
 
 import grpc
 from p4.v1 import p4runtime_pb2
 from p4.v1 import p4runtime_pb2_grpc
 from p4_error_utils import printGrpcError
+
 # XXX This is in PI proto/p4/tmp/p4config.proto
 # from p4.tmp import p4config_pb2
 
 MSG_LOG_MAX_LEN = 1024
+log = CafyLog(name='P4 Switch Lib')
 
 # List of all active connections
 connections = []
@@ -65,32 +68,44 @@ class SwitchConnection(object):
         self.requests_stream.close()
         self.stream_msg_resp.cancel()
 
-    def MasterArbitrationUpdate(self, dry_run=False, **kwargs):
+    def MasterArbitrationUpdate(self, dry_run=False, device_id = None, **kwargs):
         request = p4runtime_pb2.StreamMessageRequest()
-        request.arbitration.device_id = self.device_id
+        if device_id == None:
+            request.arbitration.device_id = self.device_id
+        else:
+            request.arbitration.device_id = device_id
 
         request.arbitration.election_id.high = kwargs.pop('election_id_high', 0)
         request.arbitration.election_id.low = kwargs.pop('election_id_low', 1)
 
-        print("using the following ELECTION-ID for MasterArbitration - ", 
-                    request.arbitration.election_id.high, request.arbitration.election_id.low)
+        log.info("using the following ELECTION-ID for MasterArbitration - {high} and {low}".\
+            format(high = request.arbitration.election_id.high, low =request.arbitration.election_id.low))
         sleep(5)
         #request.arbitration.role.id = 333
 
-        print("P4Runtime MasterArbitrationUpdate: ", request)
+        log.info("P4Runtime MasterArbitrationUpdate: {resp}".format(resp = request))
         if dry_run:
-            print("P4Runtime MasterArbitrationUpdate: ", request)
+            log.info("P4Runtime MasterArbitrationUpdate: {resp}".format(resp = request))
         else:
             self.requests_stream.put(request)
-            print("Sent")
+            log.info("Sent")
             for item in self.stream_msg_resp:
-                print("P4Runtime Answer: ", item)
+                log.info("P4Runtime Answer: {item}".format(item=item))
                 return item # just one
 
     def SetForwardingPipelineConfig(self, p4info, dry_run=False, **kwargs):
         #device_config = self.buildDeviceConfig(**kwargs)
         request = p4runtime_pb2.SetForwardingPipelineConfigRequest()
-        request.election_id.low = 1
+        try:
+            request.election_id.low = kwargs["election_id_low"]
+        except KeyError:
+            request.election_id.low = 1
+        try:
+            request.election_id.high = kwargs["election_id_high"]
+        except KeyError:
+            request.election_id.high = 0
+        
+        log.info(request.election_id.low)
         request.device_id = self.device_id
         #request.role_id = 333
         config = request.config
@@ -100,7 +115,7 @@ class SwitchConnection(object):
 
         request.action = p4runtime_pb2.SetForwardingPipelineConfigRequest.VERIFY_AND_COMMIT
         if dry_run:
-            print("P4Runtime SetForwardingPipelineConfig:", request)
+            log.info("P4Runtime SetForwardingPipelineConfig:", request)
         else:
             self.client_stub.SetForwardingPipelineConfig(request)
 
@@ -117,10 +132,17 @@ class SwitchConnection(object):
             return response
 
 
-    def WriteTableEntry(self, table_entry, dry_run=False):
+    def WriteTableEntry(self, table_entry, dry_run=False, **kwargs):
         request = p4runtime_pb2.WriteRequest()
         request.device_id = self.device_id
-        request.election_id.low = 1
+        try:
+            request.election_id.low = kwargs["election_id_low"]
+        except KeyError:
+            request.election_id.low = 1
+        try:
+            request.election_id.high = kwargs["election_id_high"]
+        except KeyError:
+            request.election_id.high = 0
         request.role_id = 555
         update = request.updates.add()
         if table_entry.is_default_action:
@@ -128,15 +150,25 @@ class SwitchConnection(object):
         else:
             update.type = p4runtime_pb2.Update.INSERT
         update.entity.table_entry.CopyFrom(table_entry)
+
         if dry_run:
-            print("P4Runtime Write:", request)
+            log.info("P4Runtime Write:", request)
         else:
             self.client_stub.Write(request)
+        
+        return
 
-    def DeleteTableEntry(self, table_entry, dry_run=False):
+    def DeleteTableEntry(self, table_entry, dry_run=False, **kwargs):
         request = p4runtime_pb2.WriteRequest()
         request.device_id = self.device_id
-        request.election_id.low = 1
+        try:
+            request.election_id.low = kwargs["election_id_low"]
+        except KeyError:
+            request.election_id.low = 1
+        try:
+            request.election_id.high = kwargs["election_id_high"]
+        except KeyError:
+            request.election_id.high = 0
         update = request.updates.add()
         update.type = p4runtime_pb2.Update.DELETE
         update.entity.table_entry.CopyFrom(table_entry)
@@ -144,9 +176,10 @@ class SwitchConnection(object):
             print ("P4Runtime Write:", request)
         else:
             self.client_stub.Write(request)
+        return
 
 
-    def ReadTableEntries(self, table_id=None, dry_run=False):
+    def ReadTableEntries(self, table_id=None, dry_run=False, **kwargs):
         request = p4runtime_pb2.ReadRequest()
         request.device_id = self.device_id
         entity = request.entities.add()
@@ -156,12 +189,13 @@ class SwitchConnection(object):
         else:
             table_entry.table_id = 0
         if dry_run:
-            print("P4Runtime Read:", request)
+            log.info("P4Runtime Read:", request)
         else:
+            log.info("P4Runtime Read for Table ID: %d" % table_id)
             for response in self.client_stub.Read(request):
                 yield response
 
-    def ReadCounters(self, counter_id=None, index=None, dry_run=False):
+    def ReadCounters(self, counter_id=None, index=None, dry_run=False, **kwargs):
         request = p4runtime_pb2.ReadRequest()
         request.device_id = self.device_id
         entity = request.entities.add()
@@ -173,7 +207,7 @@ class SwitchConnection(object):
         if index is not None:
             counter_entry.index.index = index
         if dry_run:
-            print("P4Runtime Read:", request)
+            log.info("P4Runtime Read:", request)
         else:
             for response in self.client_stub.Read(request):
                 yield response
