@@ -9,7 +9,8 @@ import ipaddr as ipaddress
 from ansible_host import AnsibleHost
 from loganalyzer import LogAnalyzer
 
-pytest_plugins = ('ptf_fixtures', 'ansible_fixtures')
+
+pytest_plugins = ('ptf_fixtures', 'ansible_fixtures', 'plugins.dut_monitor.pytest_dut_monitor')
 
 # Add the tests folder to sys.path, for importing the lib package
 _current_file_dir = os.path.dirname(os.path.realpath(__file__))
@@ -139,3 +140,9 @@ def loganalyzer(duthost, request):
         # Add end marker into DUT syslog
         loganalyzer._add_end_marker(marker)
 
+@pytest.fixture(scope="session")
+def creds():
+    """ read and yield eos configuration """
+    with open("../ansible/group_vars/lab/secrets.yml") as stream:
+        creds = yaml.safe_load(stream)
+        return creds
