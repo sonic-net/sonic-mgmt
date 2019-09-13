@@ -200,8 +200,8 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 
 ##### Log flood test
 ```
-ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=log_flood -e testbed_name={TESTBED_NAME} 
-ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=log_flood -e testbed_name={TESTBED_NAME} -e qty_flood_messages=100
+ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=log_flood -e testbed_name={TESTBED_NAME} 
+ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=log_flood -e testbed_name={TESTBED_NAME} -e qty_flood_messages=100
 ```
 - Can set optional parameter to adjust the number of log messages to send
 - Default is 10,000 messages
