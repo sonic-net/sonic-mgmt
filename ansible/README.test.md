@@ -59,7 +59,7 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 
 ##### CLI Fuzz test
 ```
-ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=cli_fuzz -e testbed_name={TESTBED_NAME}
+ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=cli_fuzz -e testbed_name={TESTBED_NAME}
 ```
 - Requires python to be installed on the DUT
 
