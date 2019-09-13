@@ -50,7 +50,7 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 
 #### BGP neighbor test
 ```
-ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=bgp_neighbor -e testbed_name={TESTBED_NAME}
+ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=bgp_neighbor -e testbed_name={TESTBED_NAME}
 ```
 - Test requires that BGP neighbors be established
 
