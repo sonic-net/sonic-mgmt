@@ -162,7 +162,7 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 
 ##### Incremental Config Test
 ```
-ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=incremental_config -e testbed_name={TESTBED_NAME}
+ansible-playbook test_sonic.yml -i {INVENTORY}  --limit {DUT_NAME} -e testcase_name=incremental_config -e testbed_name={TESTBED_NAME}
 ```
 - Requires 2 active Ethernet interfaces on the DUT
 
