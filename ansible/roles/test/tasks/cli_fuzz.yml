@@ -52,7 +52,7 @@
   include: cli_fuzz/cli_fuzz_commands.yml  command={{item}}
   with_items: sonic_show_commands
 
-- name: run tests for the show command
+- name: run tests for the crm command
   include: cli_fuzz/cli_fuzz_commands.yml  command={{item}}
   with_items: sonic_crm_commands
 
