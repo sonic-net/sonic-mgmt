@@ -44,7 +44,7 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 
 ##### ARP Clear test
 ```
-ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=arp_clear -e testbed_name={TESTBED_NAME}
+ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=arp_clear -e testbed_name={TESTBED_NAME}
 ```
 - Requires a PTF on the testbed
 - Does not work with any topo with portchannels
