@@ -254,8 +254,8 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 
 ##### Sonic Link Flap 
 ```
-ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=sonic_link_flap -e testbed_name={TESTBED_NAME}
-ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=sonic_link_flap -e testbed_name={TESTBED_NAME} -e seconds_to_run=10
+ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=sonic_link_flap -e testbed_name={TESTBED_NAME}
+ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=sonic_link_flap -e testbed_name={TESTBED_NAME} -e seconds_to_run=10
 ```
 - Defaults to 10 minutes but is configurable
 - Can specify a different length to run using the optional command line parameter
