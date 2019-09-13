@@ -254,7 +254,7 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 
 ##### Sonic Install test
 ```
-ansible-playbook test_sonic.yml -i {INVENTORY} -e testcase_name=sonic_install -e testbed_name={TESTBED_NAME} -e image_url='http://xxx.xxx.xxx.xxx/sonic-broadcom.bin'
+ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=sonic_install -e testbed_name={TESTBED_NAME} -e image_url='http://xxx.xxx.xxx.xxx/sonic-broadcom.bin'
 ```
 - Requires an HTTP or HTTPS server that ONIE can reach with the firmware file loaded
 - Requires that the DUT can obtain an IP address via DHCP
