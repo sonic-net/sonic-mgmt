@@ -40,7 +40,7 @@ testcases:
 
     continuous_reboot:
       filename: continuous_reboot.yml
-      topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
+      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
 
     copp:
       filename: copp.yml
@@ -165,7 +165,7 @@ testcases:
 
     mem_check:
       filename: mem_check.yml
-      topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
     mtu:
       filename: mtu.yml
@@ -186,7 +186,7 @@ testcases:
 
     ntp:
       filename: ntp.yml
-      topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
     pfc_wd:
       filename: pfc_wd.yml
@@ -210,7 +210,7 @@ testcases:
 
     reboot:
       filename: reboot.yml
-      topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
     repeat_harness:
       filename: repeat_harness.yml
@@ -230,15 +230,15 @@ testcases:
 
     sensors:
       filename: sensors_check.yml
-      topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
     service_acl:
       filename: service_acl.yml
-      topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
     snmp:
       filename: snmp.yml
-      topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
+      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
     syslog:
       filename: syslog.yml
