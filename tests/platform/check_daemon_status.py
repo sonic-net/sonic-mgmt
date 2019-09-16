@@ -1,20 +1,17 @@
 """
 Helper script for checking status of platform daemon status
 
-This script contains re-usable functions for checking status of critical services.
+This script contains re-usable functions for checking status of platform daemon status.
 """
-import time
 import logging
-
-from common.utilities import wait_until
 
 
 def check_pmon_daemon_status(dut):
     """
-    @summary: check a daemon running status inside pmon docker.
-    
+    @summary: check daemon running status inside pmon docker.
+
     This function use command "supervisorctl status" inside the container and check the status from the command output.
-    If the status of the daemon is "RUNNING" then return True, if daemon not exist or status is not "RUNNING", return false.
+    If the daemon status is "RUNNING" then return True, if daemon not exist or status is not "RUNNING", return false.
     """
     daemon_list = dut.get_pmon_daemon_list()
     daemon_status = {}
@@ -28,9 +25,7 @@ def check_pmon_daemon_status(dut):
                 logging.debug("daemon %s status is %s" % (daemon, str(daemon_status[daemon])))
             else:
                 logging.debug("daemon %s is not exist" % daemon)
-                #daemon_status[daemon] = False
                 return False
         return all(daemon_status.values())
     except:
         return False
-

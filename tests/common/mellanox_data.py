@@ -24,7 +24,7 @@ SWITCH_MODELS = {
         "cpu_cores": {
             "number": 2
         },
-        "ports":{
+        "ports": {
             "number": 32
         }
     },
@@ -48,7 +48,7 @@ SWITCH_MODELS = {
         "cpu_cores": {
             "number": 4
         },
-        "ports":{
+        "ports": {
             "number": 32
         }
     },
@@ -72,7 +72,7 @@ SWITCH_MODELS = {
         "cpu_cores": {
             "number": 2
         },
-        "ports":{
+        "ports": {
             "number": 56
         }
     },
@@ -96,7 +96,7 @@ SWITCH_MODELS = {
         "cpu_cores": {
             "number": 4
         },
-        "ports":{
+        "ports": {
             "number": 22
         }
     },
@@ -120,8 +120,8 @@ SWITCH_MODELS = {
         "cpu_cores": {
             "number": 4
         },
-        "ports":{
-            "number": 32
+        "ports": {
+            "number": 16
         }
     },
     "ACS-MSN3800": {
@@ -144,7 +144,7 @@ SWITCH_MODELS = {
         "cpu_cores": {
             "number": 4
         },
-        "ports":{
+        "ports": {
             "number": 64
         }
     },
@@ -168,7 +168,7 @@ SWITCH_MODELS = {
         "cpu_cores": {
             "number": 4
         },
-        "ports":{
+        "ports": {
             "number": 32
         }
     },
@@ -192,31 +192,7 @@ SWITCH_MODELS = {
         "cpu_cores": {
             "number": 2
         },
-        "ports":{
-            "number": 32
-        }
-    },
-    "ACS-MSN3510": {
-        "reboot": {
-            "cold_reboot": True,
-            "fast_reboot": True,
-            "warm_reboot": False
-        },
-        "fans": {
-            "number": 6,
-            "hot_swappable": True
-        },
-        "psus": {
-            "number": 2,
-            "hot_swappable": True
-        },
-        "cpu_pack": {
-            "number": 0
-        },
-        "cpu_cores": {
-            "number": 0
-        },
-        "ports":{
+        "ports": {
             "number": 32
         }
     }

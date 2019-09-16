@@ -204,7 +204,7 @@ class SonicHost(AnsibleHostBase):
         daemon_ctl_key_prefix = 'skip_'
         daemon_list = []
         daemon_config_file_path = os.path.join('/usr/share/sonic/device', self.facts["platform"], 'pmon_daemon_control.json')
-        
+
         try:
             output = self.shell('cat %s' % daemon_config_file_path)
             json_data = json.loads(output["stdout"])
@@ -212,14 +212,15 @@ class SonicHost(AnsibleHostBase):
             for key in full_daemon_tup:
                 if (daemon_ctl_key_prefix + key) not in json_data:
                     daemon_list.append(key)
-                    logging.debug("daemon %s is enabled." % key)
+                    logging.debug("daemon %s is enabled" % key)
                 elif not json_data[daemon_ctl_key_prefix + key]:
                     daemon_list.append(key)
-                    logging.debug("daemon %s is enabled." % key)
+                    logging.debug("daemon %s is enabled" % key)
                 else:
-                    logging.debug("daemon %s is disabled." % key)
+                    logging.debug("daemon %s is disabled" % key)
         except:
-            # if pmon_daemon_control.json not exist, by default support all the daemons
+            # if pmon_daemon_control.json not exist, then it's using default setting,
+            # all the pmon daemons expected to be running after boot up.
             daemon_list = list(full_daemon_tup)
 
         logging.info("pmon daemon list for this platform is %s" % str(daemon_list))

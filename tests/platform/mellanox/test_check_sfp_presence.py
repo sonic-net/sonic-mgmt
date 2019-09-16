@@ -25,11 +25,10 @@ def test_check_sfp_presence(testbed_devices, conn_graph_facts):
         logging.info(str(check_presence_output["stdout_lines"][2]))
         presence_list = check_presence_output["stdout_lines"][2].split()
         logging.info(str(presence_list))
-        assert intf in presence_list, "Wrong interface name in the output %s" % str(presence_list) 
+        assert intf in presence_list, "Wrong interface name in the output %s" % str(presence_list)
         assert 'Present' in presence_list, "Status is not expected, output %s" % str(presence_list)
-        
+
         check_sysfs_output = ans_host.command(check_qsfp_sysfs_command.format(str(sfp_id)))
-        logging.info('out_put of check sysfs %s' % (str(check_sysfs_output)))
+        logging.info('output of check sysfs %s' % (str(check_sysfs_output)))
         assert check_sysfs_output["rc"] == 0, "Failed to read qsfp_status of sfp%s." % str(sfp_id)
         assert check_sysfs_output["stdout"] == '1', "content of qsfp_status of sfp%s is not correct" % str(sfp_id)
-

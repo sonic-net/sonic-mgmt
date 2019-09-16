@@ -45,7 +45,7 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type="cold"):
 
     logging.info("Wait for DUT to go down")
     res = localhost.wait_for(host=dut.hostname, port=22, state="stopped", delay=10, timeout=120,
-        module_ignore_errors=True)
+                             module_ignore_errors=True)
     if "failed" in res:
         if process.is_alive():
             logging.error("Command '%s' is not completed" % reboot_cmd)
@@ -68,7 +68,7 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type="cold"):
 
     logging.info("Check transceiver status")
     check_transceiver_basic(dut, interfaces)
-    
+
     logging.info("check pmon daemon status")
     assert check_pmon_daemon_status(dut), "Not all pmon daemons running."
 
