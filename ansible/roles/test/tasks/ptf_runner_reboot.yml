@@ -22,9 +22,6 @@
       vars:
         supervisor_host: "{{ ptf_host }}"
 
-    - name: Clear FDB entries on the DUT
-      command: sonic-clear fdb all
-
     - include: ptf_runner.yml
       vars:
         ptf_test_name: Advanced-reboot test
