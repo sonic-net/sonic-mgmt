@@ -1,8 +1,10 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
-for INTF in $(ip -br link show | grep 'eth' | awk '{sub(/@.*/,"",$1); print $1}'); do
+INTF_LIST=$(ip -br link show | grep 'eth' | awk '{sub(/@.*/,"",$1); print $1}')
+
+for INTF in ${INTF_LIST}; do
     ADDR="$(ip -br link show dev ${INTF} | awk '{print $3}')"
     PREFIX="$(cut -c1-15 <<< ${ADDR})"
     SUFFIX="$(printf "%02x" ${INTF##eth})"
