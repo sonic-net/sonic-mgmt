@@ -98,7 +98,8 @@ def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
         reset_result = ans_host.command("%s %s" % (cmd_sfp_reset, intf))
         assert reset_result["rc"] == 0, "'%s %s' failed" % (cmd_sfp_reset, intf)
         time.sleep(5)
-    time.sleep(60)  # Wait some time for SFP to fully recover after reset
+    logging.info("Wait some time for SFP to fully recover after reset")
+    time.sleep(60)
 
     logging.info("Check sfp presence again after reset")
     sfp_presence = ans_host.command(cmd_sfp_presence)
