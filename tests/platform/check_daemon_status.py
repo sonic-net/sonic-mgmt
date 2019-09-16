@@ -22,9 +22,9 @@ def check_pmon_daemon_status(dut):
                 expected_line = output["stdout_lines"][0]
                 expected_line_list = expected_line.split()
                 daemon_status[daemon] = (daemon in expected_line_list and 'RUNNING' in expected_line_list)
-                logging.debug("daemon %s status is %s" % (daemon, str(daemon_status[daemon])))
+                logging.debug("Daemon %s status is %s" % (daemon, str(daemon_status[daemon])))
             else:
-                logging.debug("daemon %s is not exist" % daemon)
+                logging.debug("Daemon %s is not exist" % daemon)
                 return False
         return all(daemon_status.values())
     except:

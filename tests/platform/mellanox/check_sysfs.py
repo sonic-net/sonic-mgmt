@@ -174,6 +174,6 @@ def check_sysfs(dut):
 
         if sfp_temp_crit != 0:
             assert sfp_temp < sfp_temp_crit, "SFP%d overheated, temp%s" % (sfp_id, str(sfp_temp))
-            assert sfp_temp_crit < sfp_temp_emergency, "wrong SFP critical temp or emergency temp, " \
+            assert sfp_temp_crit < sfp_temp_emergency, "Wrong SFP critical temp or emergency temp, " \
                                                        "critical temp: %s emergency temp: %s" \
                                                        % (str(sfp_temp_crit), str(sfp_temp_emergency))

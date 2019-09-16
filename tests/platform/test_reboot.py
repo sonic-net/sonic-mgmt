@@ -50,7 +50,7 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type="cold"):
         if process.is_alive():
             logging.error("Command '%s' is not completed" % reboot_cmd)
             process.terminate()
-        logging.error("reboot result %s" % str(queue.get()))
+        logging.error("Reboot result %s" % str(queue.get()))
         assert False, "DUT did not go down"
 
     logging.info("Wait for DUT to come back")
@@ -69,7 +69,7 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type="cold"):
     logging.info("Check transceiver status")
     check_transceiver_basic(dut, interfaces)
 
-    logging.info("check pmon daemon status")
+    logging.info("Check pmon daemon status")
     assert check_pmon_daemon_status(dut), "Not all pmon daemons running."
 
     if dut.facts["asic_type"] in ["mellanox"]:
