@@ -97,7 +97,9 @@ def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
     for intf in conn_graph_facts["device_conn"]:
         reset_result = ans_host.command("%s %s" % (cmd_sfp_reset, intf))
         assert reset_result["rc"] == 0, "'%s %s' failed" % (cmd_sfp_reset, intf)
-    time.sleep(120)  # Wait some time for SFP to fully recover after reset
+        time.sleep(5)
+    logging.info("Wait some time for SFP to fully recover after reset")
+    time.sleep(60)
 
     logging.info("Check sfp presence again after reset")
     sfp_presence = ans_host.command(cmd_sfp_presence)
@@ -105,6 +107,12 @@ def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
     for intf in conn_graph_facts["device_conn"]:
         assert intf in parsed_presence, "Interface is not in output of '%s'" % cmd_sfp_presence
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
+
+    logging.info("Check interface status")
+    mg_facts = ans_host.minigraph_facts(host=ans_host.hostname)["ansible_facts"]
+    intf_facts = ans_host.interface_facts(up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
+    assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
+        "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
 
 
 def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
@@ -164,3 +172,9 @@ def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
     for intf in conn_graph_facts["device_conn"]:
         assert intf in parsed_presence, "Interface is not in output of '%s'" % cmd_sfp_presence
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
+
+    logging.info("Check interface status")
+    mg_facts = ans_host.minigraph_facts(host=ans_host.hostname)["ansible_facts"]
+    intf_facts = ans_host.interface_facts(up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
+    assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
+        "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
