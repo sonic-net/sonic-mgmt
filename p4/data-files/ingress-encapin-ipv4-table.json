@@ -1,0 +1,19 @@
+{
+  "target": "bmv2",
+  "p4info": "build/basic.p4.p4info.txt",
+  "bmv2_json": "build/basic.json",
+  "table_entries": [
+    {
+      "table": "ingress.encap.encap_in_ipv4_table",
+      "match": {
+        "local_metadata.encap_id": 1
+      },
+      "action_name": "ingress.encap.encap_ip_in_ip",
+      "action_params": {
+        "src_addr": "100.1.1.100",
+        "dst_addr": "200.1.1.200"
+      },
+      "priority": 0
+    }
+  ]
+}

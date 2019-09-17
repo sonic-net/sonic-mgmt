@@ -86,7 +86,7 @@
             "p4": {
                 "p4info": "./data-files/b4-gen.txt",
                 "p4json": "../../thirdparty/google/p4/b4-gen.json",
-                "input_conf_file": "./data-files/in-pfxs.json",
+                "input_conf_file": "./data-files/ingress-encapin-ipv4-table.json",
                 "R1": {
                     "name": "s1",
                     "svr_addr": "172.17.0.2",
