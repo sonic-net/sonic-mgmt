@@ -13,9 +13,8 @@ import sys
 from platform_fixtures import conn_graph_facts
 from common.utilities import wait_until
 from check_critical_services import check_critical_services
-from check_interface_status import check_interface_status
 from check_transceiver_status import check_transceiver_basic
-from check_transceiver_status import all_transceivers_detected
+from check_all_interface_info import check_interface_information
 
 
 def test_reload_configuration(testbed_devices, conn_graph_facts):
@@ -33,12 +32,8 @@ def test_reload_configuration(testbed_devices, conn_graph_facts):
     check_critical_services(ans_host)
 
     logging.info("Wait some time for all the transceivers to be detected")
-    assert wait_until(300, 20, all_transceivers_detected, ans_host, interfaces), \
+    assert wait_until(300, 20, check_interface_information, ans_host, interfaces), \
         "Not all transceivers are detected in 300 seconds"
-
-    logging.info("Check interface status")
-    time.sleep(60)
-    check_interface_status(ans_host, interfaces)
 
     logging.info("Check transceiver status")
     check_transceiver_basic(ans_host, interfaces)

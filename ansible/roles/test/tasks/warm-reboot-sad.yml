@@ -7,5 +7,5 @@
   include: advanced-reboot.yml
   vars:
       reboot_type: warm-reboot
-      preboot_list: ['neigh_bgp_down', 'dut_bgp_down', 'dut_lag_down', 'neigh_lag_down']
+      preboot_list: ['neigh_bgp_down', 'dut_bgp_down', 'dut_lag_down', 'neigh_lag_down', 'dut_lag_member_down:1:1', 'neigh_lag_member_down:1:1', 'vlan_port_down']
       preboot_files: "peer_dev_info,neigh_port_info"

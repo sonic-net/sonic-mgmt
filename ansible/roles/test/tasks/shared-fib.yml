@@ -18,7 +18,7 @@
 
 - name: Expand properties into props
   set_fact: props="{{configuration_properties['common']}}"
-  when: testbed_type in ['t0', 't0-56', 't0-64', 't0-64-32', 't0-116']
+  when: testbed_type in ['t0',  't0-52', 't0-56', 't0-64', 't0-64-32', 't0-116']
 
 - name: Expand ToR properties into props
   set_fact: props_tor="{{configuration_properties['tor']}}"
