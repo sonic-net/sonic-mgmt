@@ -17,6 +17,15 @@ SWITCH_MODELS = {
         "psus": {
             "number": 2,
             "hot_swappable": True
+        },
+        "cpu_pack": {
+            "number": 1
+        },
+        "cpu_cores": {
+            "number": 2
+        },
+        "ports": {
+            "number": 32
         }
     },
     "ACS-MSN2740": {
@@ -32,6 +41,15 @@ SWITCH_MODELS = {
         "psus": {
             "number": 2,
             "hot_swappable": True
+        },
+        "cpu_pack": {
+            "number": 0
+        },
+        "cpu_cores": {
+            "number": 4
+        },
+        "ports": {
+            "number": 32
         }
     },
     "ACS-MSN2410": {
@@ -47,6 +65,15 @@ SWITCH_MODELS = {
         "psus": {
             "number": 2,
             "hot_swappable": True
+        },
+        "cpu_pack": {
+            "number": 1
+        },
+        "cpu_cores": {
+            "number": 2
+        },
+        "ports": {
+            "number": 56
         }
     },
     "ACS-MSN2010": {
@@ -62,6 +89,15 @@ SWITCH_MODELS = {
         "psus": {
             "number": 2,
             "hot_swappable": False
+        },
+        "cpu_pack": {
+            "number": 0
+        },
+        "cpu_cores": {
+            "number": 4
+        },
+        "ports": {
+            "number": 22
         }
     },
     "ACS-MSN2100": {
@@ -77,6 +113,15 @@ SWITCH_MODELS = {
         "psus": {
             "number": 2,
             "hot_swappable": False
+        },
+        "cpu_pack": {
+            "number": 0
+        },
+        "cpu_cores": {
+            "number": 4
+        },
+        "ports": {
+            "number": 16
         }
     },
     "ACS-MSN3800": {
@@ -92,6 +137,15 @@ SWITCH_MODELS = {
         "psus": {
             "number": 2,
             "hot_swappable": True
+        },
+        "cpu_pack": {
+            "number": 1
+        },
+        "cpu_cores": {
+            "number": 4
+        },
+        "ports": {
+            "number": 64
         }
     },
     "ACS-MSN3700": {
@@ -107,6 +161,15 @@ SWITCH_MODELS = {
         "psus": {
             "number": 2,
             "hot_swappable": True
+        },
+        "cpu_pack": {
+            "number": 1
+        },
+        "cpu_cores": {
+            "number": 4
+        },
+        "ports": {
+            "number": 32
         }
     },
     "ACS-MSN3700C": {
@@ -122,21 +185,15 @@ SWITCH_MODELS = {
         "psus": {
             "number": 2,
             "hot_swappable": True
-        }
-    },
-    "ACS-MSN3510": {
-        "reboot": {
-            "cold_reboot": True,
-            "fast_reboot": True,
-            "warm_reboot": False
         },
-        "fans": {
-            "number": 6,
-            "hot_swappable": True
+        "cpu_pack": {
+            "number": 1
         },
-        "psus": {
-            "number": 2,
-            "hot_swappable": True
+        "cpu_cores": {
+            "number": 2
+        },
+        "ports": {
+            "number": 32
         }
     }
 }

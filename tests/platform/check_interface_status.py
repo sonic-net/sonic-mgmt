@@ -42,6 +42,7 @@ def check_interface_status(dut, interfaces):
     mg_ports  = dut.minigraph_facts(host=dut.hostname)["ansible_facts"]["minigraph_ports"]
     output = dut.command("intfutil description")
     intf_status = parse_intf_status(output["stdout_lines"][2:])
+    check_intf_presence_command = 'show interface transceiver presence {}'
     for intf in interfaces:
         expected_oper = "up" if intf in mg_ports else "down"
         expected_admin = "up" if intf in mg_ports else "down"
@@ -54,6 +55,15 @@ def check_interface_status(dut, interfaces):
         if intf_status[intf]["admin"] != expected_admin:
             logging.info("Admin status of interface %s is %s, expected '%s'" % (intf, intf_status[intf]["admin"], expected_admin))
             return False
+
+        # Cross check the interface SFP presence status
+        check_presence_output = dut.command(check_intf_presence_command.format(intf))
+        assert check_presence_output["rc"] == 0, "Failed to read interface %s transceiver presence" % intf
+        logging.info(str(check_presence_output["stdout_lines"][2]))
+        presence_list = check_presence_output["stdout_lines"][2].split()
+        logging.info(str(presence_list))
+        assert intf in presence_list, "Wrong interface name in the output %s" % str(presence_list) 
+        assert 'Present' in presence_list, "Status is not expected, output %s" % str(presence_list)
 
     logging.info("Check interface status using the interface_facts module")
     intf_facts = dut.interface_facts(up_ports=mg_ports)["ansible_facts"]
