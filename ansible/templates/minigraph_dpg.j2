@@ -59,7 +59,7 @@
 {% set vlan_intf_str=';'.join(vlan_intfs) %}
         <VlanInterface>
           <Name>Vlan1000</Name>
-           <AttachTo>{{ vlan_intf_str }}</AttachTo>
+          <AttachTo>{{ vlan_intf_str }}</AttachTo>
           <NoDhcpRelay>False</NoDhcpRelay>
           <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
           <Type i:nil="true"/>
@@ -122,7 +122,7 @@
           <InAcl>ssh-only</InAcl>
           <Type>SSH</Type>
         </AclInterface>
-{%- if enable_data_plane_acl|default('true')|bool %}
+{% if enable_data_plane_acl|default('true')|bool %}
         <AclInterface>
           <AttachTo>
 {%- for index in range(vms_number) %}
@@ -130,7 +130,7 @@
 PortChannel{{ ((index+1) |string).zfill(4) }}{% if not loop.last %};{% endif %}
 {% endif %}
 {% endfor %}
-{%- for index in range(vms_number) %}
+{% for index in range(vms_number) %}
 {% if 'port-channel' not in vm_topo_config['vm'][vms[index]]['ip_intf']|lower %}
 {{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][0]] }}{% if not loop.last %};{% endif %}
 {% endif %}
@@ -139,7 +139,7 @@ PortChannel{{ ((index+1) |string).zfill(4) }}{% if not loop.last %};{% endif %}
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
         </AclInterface>
-{% endif -%}
+{% endif %}
       </AclInterfaces>
       <DownstreamSummaries/>
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
