@@ -23,41 +23,36 @@ from check_transceiver_status import check_transceiver_basic
 from check_transceiver_status import all_transceivers_detected
 from psu_controller import psu_controller
 
-REBOOT_COMMAND = "command"
-REBOOT_CAUSE = "cause"
-REBOOT_TIMEOUT = "timeout"
-REBOOT_HELPER = "helper"
-
-REBOOT_TYPE_WARMREBOOT = "warm"
-REBOOT_TYPE_COLDREBOOT = "cold"
-REBOOT_TYPE_FASTREBOOT = "fast"
-REBOOT_TYPE_REBOOT_BY_POWEROFF = "power off"
-REBOOT_TYPE_REBOOT_BY_WATCHDOG = "watchdog"
+REBOOT_TYPE_WARM = "warm"
+REBOOT_TYPE_COLD = "cold"
+REBOOT_TYPE_FAST = "fast"
+REBOOT_TYPE_POWEROFF = "power off"
+REBOOT_TYPE_WATCHDOG = "watchdog"
 
 reboot_ctrl_dict = {
-    REBOOT_TYPE_REBOOT_BY_POWEROFF : {
-        REBOOT_TIMEOUT : 300,
-        REBOOT_CAUSE : "Power Loss"
+    REBOOT_TYPE_POWEROFF : {
+        "timeout" : 300,
+        "cause" : "Power Loss"
     },
-    REBOOT_TYPE_COLDREBOOT : {
-        REBOOT_COMMAND : "reboot",
-        REBOOT_TIMEOUT : 300,
-        REBOOT_CAUSE : "reboot"
+    REBOOT_TYPE_COLD : {
+        "command" : "reboot",
+        "timeout" : 300,
+        "cause" : "reboot"
     },
-    REBOOT_TYPE_FASTREBOOT : {
-        REBOOT_COMMAND : "fast-reboot",
-        REBOOT_TIMEOUT : 180,
-        REBOOT_CAUSE : "fast-reboot"
+    REBOOT_TYPE_FAST : {
+        "command" : "fast-reboot",
+        "timeout" : 180,
+        "cause" : "fast-reboot"
     },
-    REBOOT_TYPE_WARMREBOOT : {
-        REBOOT_COMMAND : "warm-reboot",
-        REBOOT_TIMEOUT : 180,
-        REBOOT_CAUSE : "warm-reboot"
+    REBOOT_TYPE_WARM : {
+        "command" : "warm-reboot",
+        "timeout" : 180,
+        "cause" : "warm-reboot"
     },
-    REBOOT_TYPE_REBOOT_BY_WATCHDOG : {
-        REBOOT_COMMAND : "python -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog().arm(5); exit()\"",
-        REBOOT_TIMEOUT : 300,
-        REBOOT_CAUSE : "Watchdog"
+    REBOOT_TYPE_WATCHDOG : {
+        "command" : "python -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog().arm(5); exit()\"",
+        "timeout" : 300,
+        "cause" : "Watchdog"
     }
 }
 
@@ -75,33 +70,29 @@ def check_reboot_cause(dut, reboot_cause_expected):
     assert m is not None, "got reboot-cause %s after rebooted by %s" % (reboot_cause_got, reboot_cause_expected)
 
 
-def reboot_and_check(localhost, dut, interfaces, reboot_type="cold", reboot_helper=None, reboot_argu=None):
+def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, reboot_helper=None, reboot_kwargs=None):
     """
     Perform the specified type of reboot and check platform status.
     @param dut: The AnsibleHost object of DUT.
     @param interfaces: DUT's interfaces defined by minigraph
     @param reboot_type: The reboot type, pre-defined const that has name convention of REBOOT_TYPE_XXX.
     @param reboot_helper: The helper function used only by power off reboot
-    @param reboot_argu: The argument used by reboot_helper
+    @param reboot_kwargs: The argument used by reboot_helper
     """
     logging.info("Run %s reboot on DUT" % reboot_type)
 
-    reboot_ctrl_element = reboot_ctrl_dict.get(reboot_type)
-    if reboot_ctrl_element is None:
-        assert False, "Unknown reboot type %s" % reboot_type
+    assert reboot_type in reboot_ctrl_dict.keys(), "Unknown reboot type %s" % reboot_type
 
-    reboot_timeout = reboot_ctrl_element[REBOOT_TIMEOUT]
-    reboot_cause = reboot_ctrl_element[REBOOT_CAUSE]
-    if reboot_type == REBOOT_TYPE_REBOOT_BY_POWEROFF:
+    reboot_timeout = reboot_ctrl_dict[reboot_type]["timeout"]
+    reboot_cause = reboot_ctrl_dict[reboot_type]["cause"]
+    if reboot_type == REBOOT_TYPE_POWEROFF:
         assert reboot_helper is not None, "A reboot function must be provided for power off reboot"
-        if reboot_helper is None:
-            assert False, "reboot_helper must be provided for power off reboot"
 
-        reboot_helper(reboot_argu)
+        reboot_helper(reboot_kwargs)
 
         localhost.wait_for(host=dut.hostname, port=22, state="stopped", delay=10, timeout=120)
     else:
-        reboot_cmd = reboot_ctrl_element[REBOOT_COMMAND]
+        reboot_cmd = reboot_ctrl_dict[reboot_type]["command"]
 
         process, queue = dut.command(reboot_cmd, module_async=True)
 
@@ -157,7 +148,7 @@ def test_cold_reboot(testbed_devices, conn_graph_facts):
     ans_host = testbed_devices["dut"]
     localhost = testbed_devices["localhost"]
 
-    reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_COLDREBOOT)
+    reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_COLD)
 
 
 def test_fast_reboot(testbed_devices, conn_graph_facts):
@@ -167,7 +158,7 @@ def test_fast_reboot(testbed_devices, conn_graph_facts):
     ans_host = testbed_devices["dut"]
     localhost = testbed_devices["localhost"]
 
-    reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_FASTREBOOT)
+    reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_FAST)
 
 
 def test_warm_reboot(testbed_devices, conn_graph_facts):
@@ -183,7 +174,7 @@ def test_warm_reboot(testbed_devices, conn_graph_facts):
         if "disabled" in issu_capability:
             pytest.skip("ISSU is not supported on this DUT, skip this test case")
 
-    reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_WARMREBOOT)
+    reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_WARM)
 
 
 @pytest.fixture(params=[15, 5])
@@ -237,15 +228,15 @@ def test_power_off_reboot(testbed_devices, conn_graph_facts, psu_controller, pow
     logging.info("Got all power on sequences {}".format(power_on_seq_list))
 
     delay_time_list = [15, 5]
-    poweroff_reboot_argu = {}
-    poweroff_reboot_argu["dut"] = ans_host
+    poweroff_reboot_kwargs = {}
+    poweroff_reboot_kwargs["dut"] = ans_host
 
     for power_on_seq in power_on_seq_list:
-        poweroff_reboot_argu["psu_ctrl"] = psu_ctrl
-        poweroff_reboot_argu["all_psu"] = all_psu
-        poweroff_reboot_argu["power_on_seq"] = power_on_seq
-        poweroff_reboot_argu["delay_time"] = power_off_delay
-        reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], REBOOT_TYPE_REBOOT_BY_POWEROFF, _power_off_reboot_helper, poweroff_reboot_argu)
+        poweroff_reboot_kwargs["psu_ctrl"] = psu_ctrl
+        poweroff_reboot_kwargs["all_psu"] = all_psu
+        poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
+        poweroff_reboot_kwargs["delay_time"] = power_off_delay
+        reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], REBOOT_TYPE_POWEROFF, _power_off_reboot_helper, poweroff_reboot_kwargs)
 
 
 def test_watchdog_reboot(testbed_devices, conn_graph_facts):
@@ -262,8 +253,4 @@ def test_watchdog_reboot(testbed_devices, conn_graph_facts):
     if "" != watchdog_supported:
         pytest.skip("Watchdog is not supported on this DUT, skip this test case")
 
-    watchdog_reboot_argu = {}
-    watchdog_reboot_argu["dut"] = ans_host
-    watchdog_reboot_argu["cause"] = "Watchdog"
-    watchdog_reboot_argu["command"] = watchdog_reboot_command
-    reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], REBOOT_TYPE_REBOOT_BY_WATCHDOG)
+    reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], REBOOT_TYPE_WATCHDOG)
