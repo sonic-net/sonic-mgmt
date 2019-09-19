@@ -5,16 +5,18 @@ This script is to cover the test case 'Reload configuration' in the SONiC platfo
 https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import logging
-import re
 import os
-import time
 import sys
+
+import pytest
 
 from platform_fixtures import conn_graph_facts
 from common.utilities import wait_until
 from check_critical_services import check_critical_services
 from check_transceiver_status import check_transceiver_basic
 from check_all_interface_info import check_interface_information
+
+pytestmark = [pytest.mark.disable_loganalyzer]
 
 
 def test_reload_configuration(testbed_devices, conn_graph_facts):
