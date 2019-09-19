@@ -386,3 +386,102 @@ def _test_multicontrollers_non_blocking_tableEdit():
         printGrpcError(e)
     p4_switch.ShutdownAllSwitchConnections()
 
+
+def _test_setForwarding_pipeline_config():
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    p4_json_file_path = ApData.p4json
+
+    try:
+
+        s1=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        s1.MasterArbitrationUpdate()
+
+        if p4info_helper != None:
+            # Install the P4 program on the switches
+            log.info("Setting ForwardingPipelineConfig on s1")
+            s1.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,
+                                        p4_json_file_path=p4_json_file_path)
+            log.info("Installed P4 Program using SetForwardingPipelineConfig on s1")
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error(e)
+        printGrpcError(e)
+
+    p4_switch.ShutdownAllSwitchConnections()
+
+
+
+def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    tbl_input_file = ApData.zap.get_testcase_configuration("test_ingress_encapIn_ipv4_table_crudTests/input_conf_file")
+    with open(tbl_input_file, 'r') as conf_file:
+        input_conf = p4TestLib.json_load_byteified(conf_file)
+
+    s1=TchLib.Establish_Switch_Conn(ApData.sw_name)
+
+    if tbl_ops == "INSERT":
+        try:
+            s1.MasterArbitrationUpdate()
+            if 'table_entries' in input_conf:
+                log.info(input_conf)
+                table_entries = input_conf['table_entries']
+                insrt_entrs = [x for x in table_entries if x['entry_oper'] == "INSERT"]
+                #print (insrt_entrs)
+                log.info("Inserting %d table entries..." % len(insrt_entrs))
+                for entry in insrt_entrs:
+                    log.info(p4TestLib.tableEntryToString(entry))
+                    log.info("INSERTING ENTRIES FOR TABLE - ingress_encap_in_ipv4_table")
+                    p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'INSERT')
+                    sleep(1)
+
+        except KeyboardInterrupt:
+            log.info("Shutting down.")
+        except grpc.RpcError as e:
+            log.error(e)
+            printGrpcError(e)
+
+    elif tbl_ops == "MODIFY":
+        try:
+            s1.MasterArbitrationUpdate()
+            if 'table_entries' in input_conf:
+                log.info(input_conf)
+                table_entries = input_conf['table_entries']
+                mod_entrs = [x for x in table_entries if x['entry_oper'] == "MODIFY"]
+                #print (mod_entrs)
+                log.info("Modifying %d table entries..." % len(table_entries))
+                for entry in mod_entrs:
+                    log.info(p4TestLib.tableEntryToString(entry))
+                    log.info("MODIFYING ENTRIES FOR TABLE - ingress_encap_in_ipv4_table")
+                    p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'MODIFY')
+                    sleep(1)
+
+        except KeyboardInterrupt:
+            log.info("Shutting down.")
+        except grpc.RpcError as e:
+            log.error(e)
+            printGrpcError(e)
+
+    elif tbl_ops == "DELETE":
+        try:
+            s1.MasterArbitrationUpdate()
+            if 'table_entries' in input_conf:
+                log.info(input_conf)
+                table_entries = input_conf['table_entries']
+                del_entrs = [x for x in table_entries if x['entry_oper'] == "INSERT"]
+                log.info("Deleting %d table entries..." % len(del_entrs))
+                for entry in del_entrs:
+                    log.info(p4TestLib.tableEntryToString(entry))
+                    log.info("DELETING ENTRIES FOR TABLE - ingress_encap_in_ipv4_table")
+                    p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'DELETE')
+                    sleep(1)
+
+        except KeyboardInterrupt:
+            log.info("Shutting down.")
+        except grpc.RpcError as e:
+            log.error(e)
+            printGrpcError(e)
+
+    p4_switch.ShutdownAllSwitchConnections()
+

@@ -68,6 +68,11 @@
                 ]
             }
         },
+        "testcase_configuration": {
+            "test_ingress_encapIn_ipv4_table_crudTests": {
+                "input_conf_file": "./data-files/ingress-encapin-ipv4-table.json"
+            }
+        },
         "feature_configuration": {
             "cmal": {
                 "R1": {

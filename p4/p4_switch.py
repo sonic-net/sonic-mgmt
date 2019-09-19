@@ -143,9 +143,14 @@ class SwitchConnection(object):
             request.election_id.high = kwargs["election_id_high"]
         except KeyError:
             request.election_id.high = 0
+        try:
+            upd_type = kwargs["oper"]
+        except KeyError:
+            upd_type = "INSERT"
+
         request.role_id = 555
         update = request.updates.add()
-        if table_entry.is_default_action:
+        if upd_type.upper() == "MODIFY":
             update.type = p4runtime_pb2.Update.MODIFY
         else:
             update.type = p4runtime_pb2.Update.INSERT

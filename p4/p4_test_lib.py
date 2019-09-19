@@ -60,6 +60,8 @@ def tableEntryActions(sw, flow, p4info_helper, action, **kwargs):
 
     if oper.upper() == 'INSERT':
         sw.WriteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high)
+    elif oper.upper() == 'MODIFY':
+        sw.WriteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high,oper='MODIFY')
     elif oper.upper() == 'DELETE':
         sw.DeleteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high)
 

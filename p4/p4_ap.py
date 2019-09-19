@@ -39,6 +39,13 @@ SWITCH_TO_SWITCH_PORT = 2
 
 class TestP4(P4ApBase):
 
+    def test_setForwarding_pipeline_config(self):
+        p4_san_tc._test_setForwarding_pipeline_config()
+
+    @pytest.mark.parametrize("tbl_ops", ["INSERT", "MODIFY"])
+    def test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
+        p4_san_tc._test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops)
+
     def test_p4_sanity(self):
         p4_san_tc._test_p4_sanity()
 
@@ -65,3 +72,4 @@ class TestP4(P4ApBase):
 
     def test_multicontrollers_non_blocking_tableEdit(self):
         p4_san_tc._test_multicontrollers_non_blocking_tableEdit()
+
