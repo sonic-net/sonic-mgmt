@@ -134,9 +134,9 @@ Werkzeug==0.12.2
 wrapt==1.10.11
 wrapt-timeout-decorator==1.3.0
 xmltodict==0.11.0
-ydk==0.5.5a0
-ydk-models-cisco-ios-xr==7.1.1
-ydk-models-cisco-thinxr-install==6.5.1
+https://s3-us-west-1.amazonaws.com/cafykit-packages/pip/ydk/models/651/5I/ydk-0.5.5a0.tar.gz
+https://s3-us-west-1.amazonaws.com/cafykit-packages/pip/ydk/models/651/5I/ydk-models-cisco-ios-xr-6.5.1.tar.gz
+https://s3-us-west-1.amazonaws.com/cafykit-packages/pip/ydk/models/651/5I/ydk-models-openconfig-network-instance-0.1.4.tar.gz
+https://s3-us-west-1.amazonaws.com/cafykit-packages/pip/ydk/models/651/5I/ydk-models-cisco-thinxr-install-6.5.1.tar.gz
 ydk-models-ietf==0.1.5.post2
 ydk-models-openconfig==0.1.2
-ydk-models-openconfig-network-instance==0.1.4
