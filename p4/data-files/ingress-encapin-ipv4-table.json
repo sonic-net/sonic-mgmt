@@ -1,7 +1,7 @@
 {
-  "target": "bmv2",
+  "target": "th3",
   "p4info": "build/basic.p4.p4info.txt",
-  "bmv2_json": "build/basic.json",
+  "th3_json": "build/basic.json",
   "table_entries": [
     {
       "table": "ingress.encap.encap_in_ipv4_table",
@@ -33,7 +33,7 @@
       "table": "ingress.encap.encap_in_ipv4_table",
       "entry_oper": "MODIFY",
       "match": {
-        "local_metadata.encap_id": 33
+        "local_metadata.encap_id": 22
       },
       "action_name": "ingress.encap.encap_ip_in_ip",
       "action_params": {

@@ -106,6 +106,7 @@ def _test_p4_sanity():
                     log.info("READING TABLE ENTRIES")
                     table_name = entry['table']
                     table_id = p4info_helper.get_id("tables", name=table_name)
+                    #table_id = 0
                     reply = s1.ReadTableEntries(table_id=table_id)
                     for rep in reply:
                         log.info("Reply: %s" % rep)  
@@ -122,20 +123,6 @@ def _test_p4_sanity():
                     log.info("REMOVING TABLE ENTRIES")
                     p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'DELETE')
                     sleep(1)
-
-            # Write the rules that tunnel traffic from h1 to h2
-            #writeTunnelRules(p4info_helper, ingress_sw=s1, egress_sw=s1, tunnel_id=100,
-            #                 dst_eth_addr="00:00:00:00:02:02", dst_ip_addr="10.0.2.2")
-
-            # TODO Read table entries
-            # readTableRules(p4info_helper, s1)
-
-            # Print the tunnel counters every 2 seconds
-            #while True:
-            #    sleep(2)
-            #    log.info('\n----- Reading tunnel counters -----')
-            #    printCounter(p4info_helper, s1, "MyIngress.ingressTunnelCounter", 100)
-            #    printCounter(p4info_helper, s1, "MyIngress.egressTunnelCounter", 200)
 
     except KeyboardInterrupt:
         log.info("Shutting down.")
