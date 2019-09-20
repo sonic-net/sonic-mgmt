@@ -405,6 +405,8 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
     tbl_input_file = ApData.zap.get_testcase_configuration("test_ingress_encapIn_ipv4_table_crudTests/input_conf_file")
     with open(tbl_input_file, 'r') as conf_file:
         input_conf = p4TestLib.json_load_byteified(conf_file)
+    table_name = input_conf['table_name']
+    table_id = p4info_helper.get_id("tables", name=table_name)
 
     s1=TchLib.Establish_Switch_Conn(ApData.sw_name)
 
@@ -432,8 +434,6 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
     elif tbl_ops == "READ":
         log.info("READING TABLE ENTRIES")
         try:
-            table_name = input_conf['table_name']
-            table_id = p4info_helper.get_id("tables", name=table_name)
             reply = s1.ReadTableEntries(table_id=table_id)
             for rep in reply:
                 #log.info("Reply: %s" % rep)
@@ -463,6 +463,12 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
                     p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'MODIFY')
                     sleep(1)
 
+                log.info("Subtest: Verify Table Entries after MODIFY table - %s", table_name)
+                reply = s1.ReadTableEntries(table_id=table_id)
+                for rep in reply:
+                    log.info(" READ Reply from DUT")
+                    log.info(p4TestLib.repr_pretty_p4runtime(rep))
+
         except KeyboardInterrupt:
             log.info("Shutting down.")
         except grpc.RpcError as e:
@@ -483,6 +489,13 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
                     p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'DELETE')
                     sleep(1)
 
+                log.info("Subtest: Verify Table Entries after DELETE table entries - %s", table_name)
+                reply = s1.ReadTableEntries(table_id=table_id)
+                for rep in reply:
+                    log.info(" READ Reply from DUT")
+                    log.info(p4TestLib.repr_pretty_p4runtime(rep))
+
+
         except KeyboardInterrupt:
             log.info("Shutting down.")
         except grpc.RpcError as e:
@@ -490,4 +503,49 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
             printGrpcError(e)
 
     p4_switch.ShutdownAllSwitchConnections()
+
+
+def _test_Read_wTableId_Zero():
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    tbl_input_file = ApData.zap.get_testcase_configuration("test_ingress_encapIn_ipv4_table_crudTests/input_conf_file")
+    with open(tbl_input_file, 'r') as conf_file:
+        input_conf = p4TestLib.json_load_byteified(conf_file)
+    table_name = input_conf['table_name']
+    table_id = 0
+
+    s1=TchLib.Establish_Switch_Conn(ApData.sw_name)
+    try:
+        s1.MasterArbitrationUpdate()
+        if 'table_entries' in input_conf:
+            log.info(input_conf)
+            table_entries = input_conf['table_entries']
+            insrt_entrs = [x for x in table_entries if x['entry_oper'] == "INSERT"]
+            log.info("Inserting %d table entries..." % len(insrt_entrs))
+            for entry in insrt_entrs:
+                log.info(p4TestLib.tableEntryToString(entry))
+                log.info("INSERTING ENTRIES FOR TABLE - ingress_encap_in_ipv4_table")
+                p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'INSERT')
+                sleep(1)
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error(e)
+        printGrpcError(e)
+
+    log.info("READING TABLE ENTRIES with TABLE-ID ZERO")
+    try:
+        reply = s1.ReadTableEntries(table_id=table_id)
+        for rep in reply:
+            log.info(" READ Reply from DUT")
+            log.info(p4TestLib.repr_pretty_p4runtime(rep))
+        sleep(1)
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError(e)
 

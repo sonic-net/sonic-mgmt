@@ -42,11 +42,13 @@ class TestP4(P4ApBase):
     def test_setForwarding_pipeline_config(self):
         p4_san_tc._test_setForwarding_pipeline_config()
 
+    def test_Read_wTableId_Zero(self):
+        p4_san_tc._test_Read_wTableId_Zero()
+
+'''
     @pytest.mark.parametrize("tbl_ops", ["INSERT", "READ", "MODIFY"])
     def test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
         p4_san_tc._test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops)
-
-'''
 
     def test_p4_sanity(self):
         p4_san_tc._test_p4_sanity()
