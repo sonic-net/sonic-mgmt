@@ -187,15 +187,15 @@ def power_off_delay(request):
     return request.param
 
 
-def _power_off_reboot_helper(args):
+def _power_off_reboot_helper(kwargs):
     """
     @summary: used to parametrized test cases on power_off_delay
-    @param args: the delay time between turning off and on the PSU
+    @param kwargs: the delay time between turning off and on the PSU
     """
-    psu_ctrl = args["psu_ctrl"]
-    all_psu = args["all_psu"]
-    power_on_seq = args["power_on_seq"]
-    delay_time = args["delay_time"]
+    psu_ctrl = kwargs["psu_ctrl"]
+    all_psu = kwargs["all_psu"]
+    power_on_seq = kwargs["power_on_seq"]
+    delay_time = kwargs["delay_time"]
 
     for psu in all_psu:
         logging.debug("turning off {}".format(psu))
@@ -246,7 +246,6 @@ def test_watchdog_reboot(testbed_devices, conn_graph_facts):
     ans_host = testbed_devices["dut"]
     localhost = testbed_devices["localhost"]
 
-    watchdog_reboot_command = "python -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog().arm(5); exit()\""
     test_watchdog_supported = "python -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog(); exit()\""
 
     watchdog_supported = ans_host.command(test_watchdog_supported)["stderr"]
