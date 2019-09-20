@@ -429,6 +429,25 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
             log.error(e)
             printGrpcError(e)
 
+    elif tbl_ops == "READ":
+        log.info("READING TABLE ENTRIES")
+        try:
+            table_name = input_conf['table_name']
+            table_id = p4info_helper.get_id("tables", name=table_name)
+            reply = s1.ReadTableEntries(table_id=table_id)
+            for rep in reply:
+                #log.info("Reply: %s" % rep)
+                log.info(" READ Reply from DUT")
+                log.info(p4TestLib.repr_pretty_p4runtime(rep))
+            sleep(1)
+
+        except KeyboardInterrupt:
+            log.info("Shutting down.")
+        except grpc.RpcError as e:
+            log.error(e)
+            printGrpcError(e)
+
+
     elif tbl_ops == "MODIFY":
         try:
             s1.MasterArbitrationUpdate()

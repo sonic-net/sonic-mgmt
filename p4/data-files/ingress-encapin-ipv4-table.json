@@ -2,6 +2,7 @@
   "target": "th3",
   "p4info": "build/basic.p4.p4info.txt",
   "th3_json": "build/basic.json",
+  "table_name": "ingress.encap.encap_in_ipv4_table",
   "table_entries": [
     {
       "table": "ingress.encap.encap_in_ipv4_table",

@@ -6,6 +6,9 @@ import sys
 import json
 from time import sleep
 from logger.cafylog import CafyLog
+import google.protobuf.text_format
+from google.protobuf import descriptor
+from p4_base_ap import ApData, P4ApBase
 
 # Import P4Runtime lib from parent utils dir
 # Probably there's a better way of doing this.
@@ -19,6 +22,9 @@ tp_dirs = os.listdir(TP_DIR)
 for tp_dir in tp_dirs:
     sys.path.append(os.path.join(TP_DIR,tp_dir))
 
+from context import P4RuntimeEntity, P4Type, Context
+from p4.v1 import p4runtime_pb2
+from p4.config.v1 import p4info_pb2
 import p4_switch
 from p4_error_utils import printGrpcError
 import p4_info_helper
@@ -27,6 +33,136 @@ log = CafyLog(name='P4 Switch Lib')
 SWITCH_TO_HOST_PORT = 1
 SWITCH_TO_SWITCH_PORT = 2
 
+
+p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+p4info=p4info_helper.p4info
+context = Context()
+context.set_p4info(p4info)
+
+
+class _PrintContext:
+    def __init__(self):
+        self.skip_one = False
+        self.stack = []
+
+    def find_table(self):
+        for msg in reversed(self.stack):
+            if msg.DESCRIPTOR.name == "TableEntry":
+                try:
+                    return context.get_name_from_id(msg.table_id)
+                except KeyError:
+                    return None
+        return None
+
+    def find_action(self):
+        for msg in reversed(self.stack):
+            if msg.DESCRIPTOR.name == "Action":
+                try:
+                    return context.get_name_from_id(msg.action_id)
+                except KeyError:
+                    return None
+        return None
+
+def _sub_object(field, value, pcontext):
+    id_ = value
+    try:
+        return context.get_name_from_id(id_)
+    except KeyError:
+        logging.error("Unknown object id {}".format(id_))
+
+
+def _sub_mf(field, value, pcontext):
+    id_ = value
+    table_name = pcontext.find_table()
+    if table_name is None:
+        logging.error("Cannot find any table in context")
+        return
+    return context.get_mf_name(table_name, id_)
+
+
+def _sub_ap(field, value, pcontext):
+    id_ = value
+    action_name = pcontext.find_table()
+    if action_name is None:
+        logging.error("Cannot find any action in context")
+        return
+    return context.get_param_name(action_name, id_)
+
+
+def _gen_pretty_print_proto_field(substitutions, pcontext):
+    def myPrintField(self, field, value):
+        self._PrintFieldName(field)
+        self.out.write(' ')
+        if field.type == descriptor.FieldDescriptor.TYPE_BYTES:
+            # TODO(antonin): any kind of checks required?
+            self.out.write('\"')
+            self.out.write(''.join('\\\\x{:02x}'.format(b) for b in value))
+            self.out.write('\"')
+        else:
+            self.PrintFieldValue(field, value)
+        subs = None
+        if field.containing_type is not None:
+            subs = substitutions.get(field.containing_type.name, None)
+        if subs and field.name in subs and value != 0:
+            name = subs[field.name](field, value, pcontext)
+            self.out.write(' ("{}")'.format(name))
+        self.out.write(' ' if self.as_one_line else '\n')
+
+    return myPrintField
+
+
+def repr_pretty_proto(msg, substitutions):
+    """A custom version of google.protobuf.text_format.MessageToString which represents Protobuf
+    messages with a more user-friendly string. In particular, P4Runtime ids are supplemented with
+    the P4 name and binary strings are displayed in hexadecimal format."""
+
+    pcontext = _PrintContext()
+
+    def message_formatter(message, indent, as_one_line):
+        # For each messages we do 2 passes: the first one updates the _PrintContext instance and
+        # calls MessageToString again. The second pass returns None immediately (default handling by
+        # text_format).
+        if pcontext.skip_one:
+            pcontext.skip_one = False
+            return
+        pcontext.stack.append(message)
+        pcontext.skip_one = True
+        s = google.protobuf.text_format.MessageToString(
+            message, indent=indent, as_one_line=as_one_line, message_formatter=message_formatter)
+        s = s[indent:-1]
+        pcontext.stack.pop()
+        return s
+
+    # We modify the "internals" of the text_format module which is not great as it may break in the
+    # future, but this enables us to keep the code fairly small.
+    saved_printer = google.protobuf.text_format._Printer.PrintField
+    google.protobuf.text_format._Printer.PrintField = _gen_pretty_print_proto_field(
+        substitutions, pcontext)
+
+    s = google.protobuf.text_format.MessageToString(msg, message_formatter=message_formatter)
+
+    google.protobuf.text_format._Printer.PrintField = saved_printer
+
+    return s
+
+
+def repr_pretty_p4runtime(msg):
+    substitutions = {
+        "TableEntry": {"table_id": _sub_object},
+        "FieldMatch": {"field_id": _sub_mf},
+        "Action": {"action_id": _sub_object},
+        "Param": {"param_id": _sub_ap},
+        "ActionProfileMember": {"action_profile_id": _sub_object},
+        "ActionProfileGroup": {"action_profile_id": _sub_object},
+        "MeterEntry": {"meter_id": _sub_object},
+        "CounterEntry": {"counter_id": _sub_object},
+        "ValueSetEntry": {"value_set_id": _sub_object},
+        "RegisterEntry": {"register_id": _sub_object},
+        "DigestEntry": {"digest_id": _sub_object},
+        "DigestListAck": {"digest_id": _sub_object},
+        "DigestList": {"digest_id": _sub_object},
+    }
+    return repr_pretty_proto(msg, substitutions)
 
 
 def tableEntryActions(sw, flow, p4info_helper, action, **kwargs):
@@ -126,5 +262,6 @@ def tableEntryToString(flow):
     params = ', '.join(params)
     return "%s: %s => %s(%s)" % (
         flow['table'], match_str, flow['action_name'], params)
+
 
 
