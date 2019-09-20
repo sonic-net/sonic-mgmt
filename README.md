@@ -21,7 +21,7 @@ Steps for installing cafyKit libraries on ubuntu:
 10. sudo apt-get install python3-dev
 11. sudo apt install libssl1.0
 
-4. pip install current-req.txt
+4. pip3 install current-req.txt
 
 Steps to run cmal script
 ========================
