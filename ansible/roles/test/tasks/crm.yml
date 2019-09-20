@@ -58,6 +58,11 @@
      include: roles/test/tasks/crm/crm_test_fdb_entry.yml
      when: testbed_type == "t0"
 
+   - name: Run test case "CRM VNET resources"
+     include: roles/test/tasks/crm/crm_test_vnet_bitmap.yml
+     when: testbed_type == "t0"
+
+
   always:
 
     - name: Restore polling interval
