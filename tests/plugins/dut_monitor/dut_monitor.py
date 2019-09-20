@@ -71,16 +71,14 @@ def main():
     hdd_log = open("/tmp/hdd.log", "w")
 
     print "Started resources monitoring ..."
-    counter = 0
     while True:
         process_cpu(cpu_log)
         process_ram(ram_log)
         process_hdd(hdd_log)
         time.sleep(MEASURE_DELAY)
-        if counter % 10 == 0:
-            cpu_log.flush()
-            ram_log.flush()
-            hdd_log.flush()
+        cpu_log.flush()
+        ram_log.flush()
+        hdd_log.flush()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
