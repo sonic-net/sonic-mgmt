@@ -18,10 +18,10 @@ import pytest
 from platform_fixtures import conn_graph_facts
 from common.utilities import wait_until
 from check_critical_services import check_critical_services
-from check_interface_status import check_interface_status
 from check_transceiver_status import check_transceiver_basic
-from check_transceiver_status import all_transceivers_detected
-from psu_controller import psu_controller
+from check_daemon_status import check_pmon_daemon_status
+from check_all_interface_info import check_interface_information
+pytestmark = [pytest.mark.disable_loganalyzer]
 
 REBOOT_TYPE_WARM = "warm"
 REBOOT_TYPE_COLD = "cold"
@@ -116,14 +116,14 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
     check_reboot_cause(dut, reboot_cause)
 
     logging.info("Wait some time for all the transceivers to be detected")
-    assert wait_until(300, 20, all_transceivers_detected, dut, interfaces), \
-        "Not all transceivers are detected in 300 seconds"
-
-    logging.info("Check interface status")
-    check_interface_status(dut, interfaces)
+    assert wait_until(300, 20, check_interface_information, dut, interfaces), \
+        "Not all transceivers are detected or interfaces are up in 300 seconds"
 
     logging.info("Check transceiver status")
     check_transceiver_basic(dut, interfaces)
+
+    logging.info("Check pmon daemon status")
+    assert check_pmon_daemon_status(dut), "Not all pmon daemons running."
 
     if dut.facts["asic_type"] in ["mellanox"]:
 

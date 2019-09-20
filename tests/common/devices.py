@@ -9,6 +9,7 @@ We can consider using netmiko for interacting with the VMs used in testing.
 """
 import json
 import logging
+import os
 from multiprocessing import Process, Queue
 
 from errors import RunAnsibleModuleFail
@@ -193,3 +194,35 @@ class SonicHost(AnsibleHostBase):
                         "used_count": int(fields[2]), "available_count": int(fields[3])})
 
         return result
+
+    def get_pmon_daemon_list(self):
+        """
+        @summary: get pmon daemon list from the config file (/usr/share/sonic/device/{platform}/{hwsku}/pmon_daemon_control.json)
+                  if some daemon is disabled in the config file, then remove it from the daemon list.
+        """
+        full_daemon_tup = ('xcvrd', 'ledd', 'psud', 'syseepromd')
+        daemon_ctl_key_prefix = 'skip_'
+        daemon_list = []
+        daemon_config_file_path = os.path.join('/usr/share/sonic/device', self.facts["platform"], 'pmon_daemon_control.json')
+
+        try:
+            output = self.shell('cat %s' % daemon_config_file_path)
+            json_data = json.loads(output["stdout"])
+            logging.debug("Original file content is %s" % str(json_data))
+            for key in full_daemon_tup:
+                if (daemon_ctl_key_prefix + key) not in json_data:
+                    daemon_list.append(key)
+                    logging.debug("Daemon %s is enabled" % key)
+                elif not json_data[daemon_ctl_key_prefix + key]:
+                    daemon_list.append(key)
+                    logging.debug("Daemon %s is enabled" % key)
+                else:
+                    logging.debug("Daemon %s is disabled" % key)
+        except:
+            # if pmon_daemon_control.json not exist, then it's using default setting,
+            # all the pmon daemons expected to be running after boot up.
+            daemon_list = list(full_daemon_tup)
+
+        logging.info("Pmon daemon list for this platform is %s" % str(daemon_list))
+        return daemon_list
+

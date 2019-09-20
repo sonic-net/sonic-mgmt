@@ -319,7 +319,7 @@ class ReloadTest(BaseTest):
             for member in content[key]['members']:
                 for vm_key in self.vm_dut_map.keys():
                     if member in self.vm_dut_map[vm_key]['dut_ports']:
-                        self.vm_dut_map[vm_key]['dut_portchannel'] = key
+                        self.vm_dut_map[vm_key]['dut_portchannel'] = str(key)
                         self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
                         break
 
@@ -327,8 +327,8 @@ class ReloadTest(BaseTest):
         content = self.read_json('neigh_port_info')
         for key in content.keys():
             if content[key]['name'] in self.vm_dut_map.keys():
-                self.vm_dut_map[content[key]['name']]['dut_ports'].append(key)
-                self.vm_dut_map[content[key]['name']]['neigh_ports'].append(content[key]['port'])
+                self.vm_dut_map[content[key]['name']]['dut_ports'].append(str(key))
+                self.vm_dut_map[content[key]['name']]['neigh_ports'].append(str(content[key]['port']))
                 self.vm_dut_map[content[key]['name']]['ptf_ports'].append(self.port_indices[key])
 
     def build_peer_mapping(self):
@@ -349,11 +349,41 @@ class ReloadTest(BaseTest):
         self.get_neigh_port_info()
         self.get_portchannel_info()
 
+    def build_vlan_if_port_mapping(self):
+        content = self.read_json('vlan_ports_file')
+        if len(content) > 1:
+            raise Exception("Too many vlans")
+        return [(ifname, self.port_indices[ifname]) for ifname in content.values()[0]['members']]
+
     def populate_fail_info(self, fails):
         for key in fails:
             if key not in self.fails:
                 self.fails[key] = set()
             self.fails[key] |= fails[key]
+
+    def get_preboot_info(self):
+        '''
+        Prepares the msg string to log when a preboot_oper is defined.
+        preboot_oper can be represented in the following ways
+           eg. 'preboot_oper' - a single VM will be selected and preboot_oper will be applied to it
+               'neigh_bgp_down:2' - 2 VMs will be selected and preboot_oper will be applied to the selected 2 VMs
+               'neigh_lag_member_down:3:1' - this case is used for lag member down operation only. This indicates that
+                                             3 VMs will be selected and 1 of the lag members in the porchannel will be brought down
+        '''
+        msg = ''
+        if self.preboot_oper:
+            msg = 'Preboot oper: %s ' % self.preboot_oper
+            if ':' in self.preboot_oper:
+                oper_list = self.preboot_oper.split(':')
+                msg = 'Preboot oper: %s ' % oper_list[0] # extract the preboot oper_type
+                if len(oper_list) > 2:
+                    # extract the number of VMs and the number of LAG members. preboot_oper will be of the form oper:no of VMS:no of lag members
+                    msg += 'Number of sad path VMs: %s Lag member down in a portchannel: %s' % (oper_list[-2], oper_list[-1])
+                else:
+                    # extract the number of VMs. preboot_oper will be of the form oper:no of VMS
+                    msg += 'Number of sad path VMs: %s' % oper_list[-1]
+
+        return msg
 
     def setUp(self):
         self.fails['dut'] = set()
@@ -362,6 +392,7 @@ class ReloadTest(BaseTest):
         self.vlan_ports = self.read_vlan_ports()
         if self.test_params['preboot_oper'] is not None:
             self.build_peer_mapping()
+            self.test_params['vlan_if_port'] = self.build_vlan_if_port_mapping()
 
         self.vlan_ip_range = self.test_params['vlan_ip_range']
         self.default_ip_range = self.test_params['default_ip_range']
@@ -386,8 +417,8 @@ class ReloadTest(BaseTest):
         self.log("Converted addresses VMs: %s" % str(self.ssh_targets))
         if self.preboot_oper is not None:
             self.log("Preboot Operations:")
-            self.pre_handle = sp.PrebootTest(self.preboot_oper, self.ssh_targets, self.portchannel_ports, self.vm_dut_map, self.test_params, self.dut_ssh)
-            (self.ssh_targets, self.portchannel_ports, self.neigh_vm), (log_info, fails) = self.pre_handle.setup()
+            self.pre_handle = sp.PrebootTest(self.preboot_oper, self.ssh_targets, self.portchannel_ports, self.vm_dut_map, self.test_params, self.dut_ssh, self.vlan_ports)
+            (self.ssh_targets, self.portchannel_ports, self.neigh_vm, self.vlan_ports), (log_info, fails) = self.pre_handle.setup()
             self.populate_fail_info(fails)
             for log in log_info:
                 self.log(log)
@@ -427,13 +458,7 @@ class ReloadTest(BaseTest):
         self.generate_arp_ping_packet()
 
         if self.reboot_type == 'warm-reboot':
-            # get the number of members down for sad path
-            if self.preboot_oper:
-                if ':' in self.preboot_oper:
-                    oper_type, cnt = self.preboot_oper.split(':')
-                else:
-                    oper_type, cnt = self.preboot_oper, 1
-                self.log("Preboot Oper: %s Number down: %s" % (oper_type, cnt))
+            self.log(self.get_preboot_info())
 
             # Pre-generate list of packets to be sent in send_in_background method.
             generate_start = datetime.datetime.now()

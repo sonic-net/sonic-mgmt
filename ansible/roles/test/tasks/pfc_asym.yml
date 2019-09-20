@@ -211,7 +211,7 @@
     connection: switch
 
   - name: Enable asymmetric PFC on all server interfaces
-    command: config interface {{ item.dut_name }} pfc asymmetric on
+    command: config interface pfc asymmetric {{ item.dut_name }} on
     become: yes
     with_items: '{{ server_ports }}'
 
@@ -263,7 +263,7 @@
   always:
 
     - name: Disable asymmetric PFC on all server interfaces
-      command: config interface {{ item.dut_name }} pfc asymmetric off
+      command: config interface pfc asymmetric {{ item.dut_name }} off
       become: yes
       with_items: '{{ server_ports }}'
 

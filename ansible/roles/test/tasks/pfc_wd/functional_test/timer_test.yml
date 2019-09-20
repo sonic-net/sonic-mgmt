@@ -6,7 +6,6 @@
   pause:
     seconds: 1
 
-
 - name: Generate PFC storm on fanout switch
   action: apswitch template="{{pfc_wd_storm_template}}"
   args:
@@ -19,7 +18,7 @@
     seconds: 5
 
 - name: Find PFC storm start marker
-  shell: grep "PFC_STORM_START" /var/log/syslog
+  shell: grep "[P]FC_STORM_START" /var/log/syslog
   register: storm_start
   become: true
 
@@ -28,7 +27,7 @@
   register: storm_start_millis
 
 - name: Find PFC storm detect message
-  shell: grep "detected PFC storm" /var/log/syslog
+  shell: grep "[d]etected PFC storm" /var/log/syslog
   register: storm_detect
   become: true
 
@@ -37,7 +36,7 @@
   register: storm_detect_millis
 
 - name: Find PFC storm end marker
-  shell: grep "PFC_STORM_END" /var/log/syslog
+  shell: grep "[P]FC_STORM_END" /var/log/syslog
   register: storm_end
   become: true
 
@@ -46,7 +45,7 @@
   register: storm_end_millis
 
 - name: Find PFC storm restore message
-  shell: grep "storm restored" /var/log/syslog
+  shell: grep "[s]torm restored" /var/log/syslog
   register: storm_restore
   become: true
 
