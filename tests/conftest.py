@@ -31,7 +31,6 @@ class TestbedInfo(object):
                 name = ''
                 for key in line:
                     if ('uniq-name' in key or 'conf-name' in key) and '#' in line[key]:
-                        # skip comment line
                         continue
                     elif 'uniq-name' in key or 'conf-name' in key:
                         name = line[key]
