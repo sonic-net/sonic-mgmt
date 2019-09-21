@@ -69,6 +69,19 @@ class Context:
     def get_obj(self, obj_type, name):
         key = (obj_type, name)
         return self.p4info_obj_map.get(key, None)
+        '''
+        if (obj_type == P4Type.action):
+            gg = list(self.p4info_obj_map.keys())
+            for el in gg:
+                if name in el:
+                    rep = self.p4info_obj_map.get(el, None)
+                    break
+                else:
+                    rep = "None"
+        else:
+            rep = self.p4info_obj_map.get(key, None)
+        return rep
+        '''
 
     def get_obj_id(self, obj_type, name):
         obj = self.get_obj(obj_type, name)

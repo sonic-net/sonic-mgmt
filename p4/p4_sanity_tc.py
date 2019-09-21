@@ -436,7 +436,6 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
         try:
             reply = s1.ReadTableEntries(table_id=table_id)
             for rep in reply:
-                #log.info("Reply: %s" % rep)
                 log.info(" READ Reply from DUT")
                 log.info(p4TestLib.repr_pretty_p4runtime(rep))
             sleep(1)

@@ -82,7 +82,7 @@ def _sub_mf(field, value, pcontext):
 
 def _sub_ap(field, value, pcontext):
     id_ = value
-    action_name = pcontext.find_table()
+    action_name = pcontext.find_action()
     if action_name is None:
         logging.error("Cannot find any action in context")
         return
