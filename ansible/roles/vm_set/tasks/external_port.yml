@@ -4,7 +4,10 @@
   become: yes
   register: external_port_cfg
 
+- name: Set temp var to the {{ external_port }} configure file
+  set_fact: conf_file="/etc/network/interfaces.d/external_port"
+
 - name: bring up external port
-  shell: /sbin/ifup {{ external_port }} --force
+  shell: /sbin/ifup {{ external_port }} --force -i {{ conf_file }}
   become: yes
   when: external_port_cfg.changed
