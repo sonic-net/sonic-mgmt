@@ -10,7 +10,7 @@ We can consider using netmiko for interacting with the VMs used in testing.
 import json
 import logging
 import os
-from multiprocessing import Process, Queue
+from multiprocessing.pool import ThreadPool
 
 from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
@@ -45,13 +45,11 @@ class AnsibleHostBase(object):
         module_async = complex_args.pop('module_async', False)
 
         if module_async:
-            q = Queue()
-            def run_module(queue, module_args, complex_args):
-                res = self.module(*module_args, **complex_args)
-                q.put(res[self.hostname])
-            p = Process(target=run_module, args=(q, module_args, complex_args))
-            p.start()
-            return p, q
+            def run_module(module_args, complex_args):
+                return self.module(*module_args, **complex_args)[self.hostname]
+            pool = ThreadPool()
+            result = pool.apply_async(run_module, (module_args, complex_args))
+            return pool, result
 
         res = self.module(*module_args, **complex_args)[self.hostname]
         if res.is_failed and not module_ignore_errors:
@@ -225,4 +223,3 @@ class SonicHost(AnsibleHostBase):
 
         logging.info("Pmon daemon list for this platform is %s" % str(daemon_list))
         return daemon_list
-
