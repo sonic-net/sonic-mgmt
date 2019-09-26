@@ -161,3 +161,7 @@
     when: sdk_fdb_count.stdout != show_mac_output.stdout
 
   when: sonic_asic_type == 'mellanox'
+
+  always:
+    - name: clear FDB table
+      command: sonic-clear fdb all
