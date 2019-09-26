@@ -5,14 +5,12 @@
     session_name: session1
     session_ip_prefix_1: 2.2.2.0/24
     session_ip_prefix_2: 2.2.2.0/30
-    config_files:
-      - config_valid.json
 
 - fail: msg="Please set sw_if variable (interface that switch is connected to host)"
   when: sw_if is not defined
 
-- name: Initialize config test.
-  include: roles/test/tasks/init_config_test.yml
+# - name: Initialize config test.
+#   include: roles/test/tasks/init_config_test.yml
 
 - name: Get IP address of one switch interface
   shell: ifconfig {{ sw_if }} | grep "inet addr:" | awk '{print $2}' | sed "s/addr://"
@@ -33,24 +31,31 @@
 - block:
     - name: Create session entry.
       vars:
-        config_file: config_valid.json
+        option: "create"
+        src_ip: "1.1.1.1"
+        dst_ip: "2.2.2.2"
+        gre_type: "25944"
+        dscp: "50"
+        ttl: "10"
+        queue: "0"
         test_expect_file: create_session_expect_file
         errors_expected: false
         run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
+      include: roles/test/tasks/run_configdb_test.yml
 
     - name: Create route with prefix that matches session DST IP and unresolved next hop.
-      command: ip route add {{ session_ip_prefix_1 }} via {{ neigh_ip }}
+      command: ip route add {{ session_ip_prefix_1 }} via {{ neigh_ip }}  
       
     - name: Resolve session route.
       command: ip neigh replace {{ neigh_ip }} lladdr {{ neigh_mac_1 }} nud permanent dev {{ sw_if }}
+      #ip neigh replace 10.0.0.5 lladdr 00:11:22:33:44:55 nud permanent dev Ethernet8
 
     - name: Wait for route initialization.
       pause:
         seconds: 10
 
     - name: Verify session state is active.
-      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
+      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION:{{ session_name }} status
       register: session_status
       failed_when: session_status.stdout != "active"
 
@@ -62,7 +67,7 @@
         seconds: 10
 
     - name: Verify session state is active
-      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
+      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION:{{ session_name }} status
       register: session_status
       failed_when: session_status.stdout != "active"
 
@@ -74,7 +79,7 @@
         seconds: 10
 
     - name: Verify session state is active
-      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
+      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION:{{ session_name }} status
       register: session_status
       failed_when: session_status.stdout != "active"
 
@@ -86,7 +91,7 @@
         seconds: 10
 
     - name: Verify session state is active
-      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
+      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION:{{ session_name }} status
       register: session_status
       failed_when: session_status.stdout != "active"
 
@@ -98,7 +103,7 @@
         seconds: 10
 
     - name: Verify session state is inactive.
-      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
+      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION:{{ session_name }} status
       register: session_status
       failed_when: session_status.stdout != "inactive"
 
@@ -116,8 +121,5 @@
       ignore_errors: yes
 
     - name: Clear session configuration
-      include: roles/test/tasks/run_config_cleanup.yml
-
-    - name: Remove all the temporary files created by the test.
-      include: roles/test/tasks/deinit_config_test.yml
+      command: "python /home/admin/everflow_tests/mirror_session.py delete {{ session_name }}"
 

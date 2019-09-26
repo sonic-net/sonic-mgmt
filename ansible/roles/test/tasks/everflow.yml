@@ -11,6 +11,9 @@
 - name: Create run_dir
   file: path="{{ run_dir }}" state=directory
 
+- name: Copy python script for session configuration.
+  copy: src=roles/test/files/helpers/mirror_session.py dest={{ run_dir }}/
+
  #****************************************#
  #           Start tests                  #
  #****************************************#
@@ -27,3 +30,4 @@
       file: path="{{ item }}" state=absent
       with_items:
         - "{{ run_dir }}/loganalyzer.py"
+        - "{{ run_dir }}/mirror_session.py"

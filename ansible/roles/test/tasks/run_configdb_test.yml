@@ -1,0 +1,25 @@
+#-----------------------------------------
+# Test configDB configuration:
+#   1) Check log through the loganalyzer.
+#   2) Run cleanup if needed.
+#-----------------------------------------
+
+
+- block:
+
+    - name: Run command.
+      vars:
+        command_to_run: "python /home/admin/everflow_tests/mirror_session.py create {{ session_name }} {{ src_ip }} {{ dst_ip }} {{ gre_type }} {{ dscp }} {{ ttl }} {{ queue }}"
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      when: option == "create"
+
+    - name: Run command.
+      vars:
+        command_to_run: "python /home/admin/everflow_tests/mirror_session.py delete {{ session_name }}"
+      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      when: option == "delete"
+
+  always:
+    - name: Do configuration cleanup after {{ testname }}
+      include: roles/test/tasks/run_config_cleanup.yml
+      when: run_cleanup == true
