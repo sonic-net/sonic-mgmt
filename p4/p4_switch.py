@@ -27,7 +27,7 @@ from p4_error_utils import printGrpcError
 # from p4.tmp import p4config_pb2
 
 MSG_LOG_MAX_LEN = 1024
-log = CafyLog(name='P4 Switch Lib')
+log = CafyLog(name='P4 Switch')
 
 # List of all active connections
 connections = []
@@ -162,6 +162,134 @@ class SwitchConnection(object):
             self.client_stub.Write(request)
         
         return
+    
+    def WriteActionProfileGroup(self, group_entry, dry_run=False, **kwargs):
+        
+        request = p4runtime_pb2.WriteRequest()
+        request.device_id = self.device_id
+        try:
+            request.election_id.low = kwargs["election_id_low"]
+        except KeyError:
+            request.election_id.low = 1
+        try:
+            request.election_id.high = kwargs["election_id_high"]
+        except KeyError:
+            request.election_id.high = 0
+        try:
+            update_type = kwargs["update_type"]
+        except KeyError:
+            update_type = "INSERT"
+
+        request.role_id = 555
+        update = request.updates.add()
+
+        if "INSERT" in update_type:
+            update.type = p4runtime_pb2.Update.INSERT
+        elif "MODIFY" in update_type:
+            update.type = p4runtime_pb2.Update.MODIFY
+        elif "DELETE" in update_type:
+            update.type = p4runtime_pb2.Update.DELETE
+
+        update.entity.action_profile_group.CopyFrom(group_entry)
+        log.info("After CopyFrom : {req}".format(req=request))
+
+        if dry_run:
+            log.info("P4Runtime Write - Action Profile Group:", request)
+        else:
+            log.info("P4Runtime Write - Action Profile Group:", request)
+            self.client_stub.Write(request)
+        
+        return
+
+    def ReadActionProfileGroup(self, group_id=None, dry_run=False, **kwargs):
+        request = p4runtime_pb2.ReadRequest()
+        request.device_id = self.device_id
+        entity = request.entities.add()
+        group = entity.action_profile_group
+        if group_id is not None:
+            group.group_id = group_id
+        else:
+            group.group_id = 0
+        if dry_run:
+            log.info("P4Runtime Read:", request)
+        else:
+            log.info("P4Runtime Read for Group ID: %d" % group_id)
+            for response in self.client_stub.Read(request):
+                yield response
+
+    def WriteActionProfileMember(self, member_entry, dry_run=False, **kwargs):
+        
+        request = p4runtime_pb2.WriteRequest()
+        request.device_id = self.device_id
+        try:
+            request.election_id.low = kwargs["election_id_low"]
+        except KeyError:
+            request.election_id.low = 1
+        try:
+            request.election_id.high = kwargs["election_id_high"]
+        except KeyError:
+            request.election_id.high = 0
+        try:
+            update_type = kwargs["update_type"]
+        except KeyError:
+            request.update_type = "INSERT"
+
+        request.role_id = 555
+        update = request.updates.add()
+
+        if "INSERT" in update_type:
+            update.type = p4runtime_pb2.Update.INSERT
+        elif "MODIFY" in update_type:
+            update.type = p4runtime_pb2.Update.MODIFY
+        elif "DELETE" in update_type:
+            update_type = p4runtime_pb2.Update.DELETE
+
+        update.entity.action_profile_member.CopyFrom(member_entry)
+        log.info("After CopyFrom : {req}".format(req=request))
+
+        if dry_run:
+            log.info("P4Runtime Write - Action Profile Member:", request)
+        else:
+            self.client_stub.Write(request)
+        
+        return
+
+    def ReadActionProfileMember(self, member_id=None, dry_run=False, **kwargs):
+        request = p4runtime_pb2.ReadRequest()
+        request.device_id = self.device_id
+        entity = request.entities.add()
+        member = entity.action_profile_member
+        if member_id is not None:
+            member.member_id = member_id
+        else:
+            member.member_id = 0
+        if dry_run:
+            log.info("P4Runtime Read:", request)
+        else:
+            log.info("P4Runtime Read for Member ID: %d" % member_id)
+            for response in self.client_stub.Read(request):
+                yield response
+
+    def DeleteActionProfileMember(self, member_entry, dry_run=False, **kwargs):
+        request = p4runtime_pb2.WriteRequest()
+        request.device_id = self.device_id
+        try:
+            request.election_id.low = kwargs["election_id_low"]
+        except KeyError:
+            request.election_id.low = 1
+        try:
+            request.election_id.high = kwargs["election_id_high"]
+        except KeyError:
+            request.election_id.high = 0
+        update = request.updates.add()
+        update.type = p4runtime_pb2.Update.DELETE
+        update.entity.action_profile_member.CopyFrom(member_entry)
+        if dry_run:
+            print ("P4Runtime Write:", request)
+        else:
+            self.client_stub.Write(request)
+        return
+
 
     def DeleteTableEntry(self, table_entry, dry_run=False, **kwargs):
         request = p4runtime_pb2.WriteRequest()

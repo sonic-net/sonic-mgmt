@@ -39,50 +39,18 @@ import tc_helper_lib as TchLib
 SWITCH_TO_HOST_PORT = 1
 SWITCH_TO_SWITCH_PORT = 2
 
-def _test_p4_sanity():
+def _test_p4_sanity(sw_conn):
 
     with open(ApData.input_conf_file, 'r') as ip_conf_file:
         input_conf = p4TestLib.json_load_byteified(ip_conf_file)
 
     # Instantiate a P4Runtime helper from the p4info file
     p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
-    p4_json_file_path = ApData.p4json
 
     try:
-        
-        # Create a switch connection object for s1 (switch 1)
-        # this is backed by a P4Runtime gRPC connection.
-        # Also, dump all P4Runtime messages sent to switch to given txt files.
-        s1 = p4_switch.SwitchConnection(
-            name=ApData.sw_name,
-            address=ApData.svr_addr+":"+ApData.port_addr,
-            device_id=int(ApData.device_id),
-            proto_dump_file=ApData.proto_dump_file)
-
-        # XXX Does not look like this is setting the role field in
-        # message MasterArbitrationUpdate proto/p4/v1/p4runtime.proto
-
-        # Send master arbitration update message to establish this controller as
-        # master (required by P4Runtime before performing any other write operation)
-        s1.MasterArbitrationUpdate()
-
-        # XXX We need to test several messages simulatenously. Python
-        # can only invoke one RPC from one thread (GIL Lock).
-        #
-        # For example simulatenous stream + Config/Read/Write/etc.
-        #
-        # Investigate IterableQueue? Also used in p4_switch.py
-        #
-
         if p4info_helper != None: 
-            # Install the P4 program on the switches
-            log.info("Setting ForwardingPipelineConfig on s1")
-            s1.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,
-                                        p4_json_file_path=p4_json_file_path)
-            log.info("Installed P4 Program using SetForwardingPipelineConfig on s1")
-
-            log.info("Getting ForwardingPipelineConfig on s1")
-            response = s1.GetForwardingPipelineConfig(resp_typ=0)
+            log.info("Getting ForwardingPipelineConfig on switch")
+            response = sw_conn.GetForwardingPipelineConfig(resp_typ=0)
             log.info(response)
             sleep(2)
 
@@ -92,22 +60,22 @@ def _test_p4_sanity():
                 log.info("Inserting %d table entries..." % len(table_entries))
                 for entry in table_entries:
                     log.info(p4TestLib.tableEntryToString(entry))
-                    #insertTableEntry(s1, entry, p4info_helper)
+                    #insertTableEntry(sw_conn, entry, p4info_helper)
                     log.info("INSERTING TABLE ENTRIES")
-                    p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'INSERT')
+                    p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'INSERT')
                     sleep(1)
-                    #removeTableEntry(s1, entry, p4info_helper)
+                    #removeTableEntry(sw_conn, entry, p4info_helper)
                     log.info("REMOVING TABLE ENTRIES")
-                    p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'DELETE')
+                    p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'DELETE')
                     sleep(1)
                     log.info("RE-INSERTING TABLE ENTRIES")
-                    p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'INSERT')
+                    p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'INSERT')
                     sleep(1)
                     log.info("READING TABLE ENTRIES")
                     table_name = entry['table']
                     table_id = p4info_helper.get_id("tables", name=table_name)
                     #table_id = 0
-                    reply = s1.ReadTableEntries(table_id=table_id)
+                    reply = sw_conn.ReadTableEntries(table_id=table_id)
                     for rep in reply:
                         log.info("Reply: %s" % rep)  
                     sleep(1)
@@ -118,10 +86,10 @@ def _test_p4_sanity():
                 log.info("Inserting %d table entries..." % len(table_entries))
                 for entry in table_entries:
                     log.info(p4TestLib.tableEntryToString(entry))
-                    #insertTableEntry(s1, entry, p4info_helper)
-                    #removeTableEntry(s1, entry, p4info_helper)
+                    #insertTableEntry(sw_conn, entry, p4info_helper)
+                    #removeTableEntry(sw_conn, entry, p4info_helper)
                     log.info("REMOVING TABLE ENTRIES")
-                    p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'DELETE')
+                    p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'DELETE')
                     sleep(1)
 
     except KeyboardInterrupt:
@@ -130,7 +98,88 @@ def _test_p4_sanity():
         log.error(e)
         printGrpcError(e)
 
-    p4_switch.ShutdownAllSwitchConnections()
+def _test_action_profile_members(mode,sw_conn):
+    log.info("Test: Action profile Members")
+    tData = ApData.zap.get_testcase_configuration("test_action_profile_groups")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    with open(tData["input_conf_file"], 'r') as ip_conf_file:
+        input_conf = p4TestLib.json_load_byteified(ip_conf_file)
+
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    try:        
+        # Create Members
+        if 'member_entries' in input_conf:
+            members = input_conf['member_entries']
+            log.info("{mode} {num} members ...".format(num=len(members),mode=mode.upper()))
+            for entry in members:
+                log.info("{mode} a member ".format(mode=mode.upper()))
+                p4TestLib.memberActions(sw_conn,entry,p4info_helper, mode)
+                member_id = entry["member_id"]
+                if ('DELETE' not in mode):
+                    reply = sw_conn.ReadActionProfileMember(member_id=member_id)
+                    for rep in reply:
+                        log.info(p4TestLib.repr_pretty_p4runtime(rep))
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test failed due to Grpc Error {err}".format(err=e.details()))
+
+def _test_action_profile_groups(mode,sw_conn):
+    log.info("Test: Action profile Groups")
+    tData = ApData.zap.get_testcase_configuration("test_action_profile_groups")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    with open(tData["input_conf_file"], 'r') as ip_conf_file:
+        input_conf = p4TestLib.json_load_byteified(ip_conf_file)
+
+    try:
+        # Create Members
+        if 'INSERT' in mode:
+            if 'member_entries' in input_conf:
+                members = input_conf['member_entries']
+                log.info("{mode} {num} members ...".format(num=len(members),mode=mode.upper()))
+                for entry in members:
+                    log.info("{mode} a member ".format(mode=mode.upper()))
+                    p4TestLib.memberActions(sw_conn,entry,p4info_helper, mode)
+                    member_id = entry["member_id"]
+                    reply = sw_conn.ReadActionProfileMember(member_id=member_id)
+                    for rep in reply:
+                        log.info(p4TestLib.repr_pretty_p4runtime(rep))
+
+        # Create Groups.
+        if 'group_entries' in input_conf:
+            group_entries = input_conf['group_entries']
+            insrt_entrs = [x for x in group_entries if x['entry_oper'] == mode]
+            log.info("{mode} {num} group entries...".format(num=len(insrt_entrs),mode=mode.upper()))
+            for entry in insrt_entrs:
+                log.info("{mode} a Group ".format(mode=mode.upper()))
+                p4TestLib.groupActions(sw_conn,entry,p4info_helper, mode)
+                group_id = entry["group_id"]
+                if ('DELETE' not in mode):
+                    reply = sw_conn.ReadActionProfileGroup(group_id=group_id)
+                    for rep in reply:
+                        log.info("Reply from DUT: %s" % rep)
+                        log.info(p4TestLib.repr_pretty_p4runtime(rep))
+
+        if 'DELETE' in mode:
+            log.info("Delete members after group is deleted")            
+            if 'member_entries' in input_conf:
+                members = input_conf['member_entries']
+                log.info("{mode} {num} members ...".format(num=len(members),mode=mode.upper()))
+                for entry in members:
+                    log.info("{mode} a member ".format(mode=mode.upper()))
+                    p4TestLib.memberActions(sw_conn,entry,p4info_helper, mode)
+
+                            
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test failed due to Grpc Error {err}".format(err=e.details()))
+            
 
 def _test_ElectionID():
     log.info("Test: Sending Different Election ID Values & Verify")
@@ -149,8 +198,9 @@ def _test_ElectionID():
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-
-    p4_switch.ShutdownAllSwitchConnections()
+        raise CafyException.VerificationError("Test failed due to Grpc Error {err}".format(err=e.details()))
+    finally:
+        ns1.shutdown()
 
 def _test_deviceID_ACC():
     log.info("Test: Verify changed deviceID on already connected controller")
@@ -169,12 +219,12 @@ def _test_deviceID_ACC():
         log.info("Shutting down.")
     except grpc.RpcError as e:
         log.error("### GRPC ERROR RECEIVED:: ###")
-        log.error(e)
+        log.error(printGrpcError(e))
         if ('status = StatusCode.FAILED_PRECONDITION' in str(e)):
             log.info("Test:Passed - received correct error message on changing the device id on an already connected controller")
-        #else:
-            #raise CafyException.VerificationError("Test:Failed - received incorrect error message on changing the device id on an already connected \
-                #controller")
+        else:
+            raise CafyException.VerificationError("Test:Failed - received incorrect error message on changing the device id on an already connected \
+                controller")
     
     try:
         log.info("Check if the stream channel is still up")
@@ -185,76 +235,61 @@ def _test_deviceID_ACC():
     except grpc.RpcError as f:
         log.error("### GRPC ERROR RECEIVED: f : ###")
         log.error(f)
+        raise CafyException.VerificationError("Test failed due to Grpc Error {err}".format(err=f.details()))
+    finally:
+        ns1.shutdown()
 
-    p4_switch.ShutdownAllSwitchConnections()
-
-def _test_existing_ElectionID():
-    ns1=TchLib.Establish_Switch_Conn(ApData.sw_name)
+def _test_existing_ElectionID(sw_conn):
     try:
-        log.info("Sending Election ID High=22 & Low=333")
-        reply=ns1.MasterArbitrationUpdate(election_id_high=22, election_id_low=333)
-        if ((str(reply).find('low: 333') != -1) and (str(reply).find('message: "Is master"') != -1)):
-            log.info("Sending same Election ID High=22 & Low=333 for a different switch connection")
-            try:
-                ns2=TchLib.Establish_Switch_Conn("s2")
-                log.info("Sending Election ID High=22 & Low=333")
-                reply=ns2.MasterArbitrationUpdate(election_id_high=22, election_id_low=333)
-                log.info(str(reply))
-            except KeyboardInterrupt:
-                log.info("Shutting down.")
-            except grpc.RpcError as e:
-                log.error("### GRPC ERROR RECEIVED:: ###")
-                log.error(e)
-                if ('details = "Election id already exists"' in str(e)):
-                    log.info("Test:Passed - received correct error message on sending another switch connection with same Election ID")
-                else:
-                    raise CafyException.VerificationError("Test:Failed - received incorrect message on sending another \
-                    switch connection with same Election ID")
-        else:
-            log.info("P4TEST_1:Failed - Did not receive expected message on sending different Election ID")
+        log.info("Sending same Election ID High=0 & Low=1 for a different switch connection")
+        try:
+            ns1=TchLib.Establish_Switch_Conn("s2")
+            log.info("Sending Election ID High=0 & Low=1")
+            reply=ns1.MasterArbitrationUpdate()
+            log.info(str(reply))
+        except KeyboardInterrupt:
+            log.info("Shutting down.")
+        except grpc.RpcError as e:
+            log.error("### GRPC ERROR RECEIVED:: ###")
+            if ('details = "Election id already exists"' in str(e)):
+                log.info("Test:Passed - received correct error message on sending another switch connection with same Election ID")
+            else:
+                raise CafyException.VerificationError("Test:Failed - received incorrect message on sending another \
+                switch connection with same Election ID")
+        finally:
+            ns1.shutdown()
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
         log.error("### GRPC ERROR RECEIVED:: ###")
-        log.error(e)
         printGrpcError(e)
-    p4_switch.ShutdownAllSwitchConnections()
+    finally:
+        ns1.shutdown()
+    
 
-def _test_Master_change():
-    ns1=TchLib.Establish_Switch_Conn(ApData.sw_name)
+def _test_Master_change(sw_conn):
     try:
-        log.info("Sending Election ID High=22 & Low=333")
-        reply=ns1.MasterArbitrationUpdate(election_id_high=22, election_id_low=333)
-        if ((str(reply).find('low: 333') != -1) and (str(reply).find('message: "Is master"') != -1)):
-            try:
-                log.info("Creating a new switch connection")
-                ns2=TchLib.Establish_Switch_Conn("s2")
-                log.info("Sending with Election ID High=44 & Low=555 for new switch connection")
-                reply=ns2.MasterArbitrationUpdate(election_id_high=44, election_id_low=555)
-                log.info(str(reply))
-                if ('message: "Is master"' in str(reply)):
-                    log.info("Test Passed as Master has changed")
-                else:
-                    raise CafyException.VerificationError("Test Failed as Master has not changed")
-            except KeyboardInterrupt:
-                log.info("Shutting down.")
-            except grpc.RpcError as e:
-                log.error("### GRPC ERROR RECEIVED:: ###")
-                log.error(e)
-                raise CafyException.VerificationError(e)
+        log.info("Creating a new switch connection")
+        ns1=TchLib.Establish_Switch_Conn("s2")
+        log.info("Sending with Election ID High=44 & Low=555 for new switch connection")
+        reply=ns1.MasterArbitrationUpdate(election_id_high=44, election_id_low=555)
+        log.info(str(reply))
+        if ('message: "Is master"' in str(reply)):
+            log.info("Test Passed as Master has changed")
         else:
-            raise CafyException.VerificationError("Test Failed, due to : {reply} ".format(reply=str(reply)))
-
+            raise CafyException.VerificationError("Test Failed as Master has not changed")
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
         log.error("### GRPC ERROR RECEIVED:: ###")
-        log.error(e)
         printGrpcError(e)
-    p4_switch.ShutdownAllSwitchConnections()
+        raise CafyException.VerificationError(e)
+    finally:
+        ns1.shutdown()
 
 def _test_max_connections():
-    for i in range(1,17):
+    sw_conn = list()
+    for i in range(2,17):
         try:
             sw_name = "s" + str(i)
             ns=TchLib.Establish_Switch_Conn(sw_name)
@@ -262,11 +297,15 @@ def _test_max_connections():
             election_id_high = i + 100
             reply=ns.MasterArbitrationUpdate(election_id_high=election_id_high, election_id_low=election_id_low)
             log.info(reply)
+            sw_conn.append(ns)
         except KeyboardInterrupt:
                 log.info("Shutting down.")
         except grpc.RpcError as e:
             log.error("### GRPC ERROR RECEIVED:: ###")
             log.error(e)
+            for sconn in sw_conn:
+                sconn.shutdown()
+
             raise CafyException.VerificationError(e)
 
     i = i + 1
@@ -287,9 +326,9 @@ def _test_max_connections():
             log.info("Test:Passed - received correct error message on exceeding the max connection limit")
         else:
             raise CafyException.VerificationError("Test:Failed - received incorrect message on exceeding the max connection limit")
-
-    p4_switch.ShutdownAllSwitchConnections()
-
+    finally:
+        for sconn in sw_conn:
+            sconn.shutdown()
 
 def _test_nonZero_DeviceID():
     log.info("Test: Send a Non-Zero Device-ID & Verify")
@@ -313,7 +352,8 @@ def _test_nonZero_DeviceID():
             log.info("Test:Passed - received correct error message on sending Non-zero Device-ID")
         else:
             log.error("Test:Failed - Did not receive expected error message on sending Non-zero Device-ID")
-
+    finally:
+        s1.shutdown()
 
 def _test_multicontrollers_blocking_tableEdit():
     pool = Pool(processes=2)
@@ -342,13 +382,12 @@ def _test_multicontrollers_blocking_tableEdit():
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-    p4_switch.ShutdownAllSwitchConnections()
 
 def _test_multicontrollers_non_blocking_tableEdit():
     pool = Pool(processes=2)
 
     try:
-        results = pool.map(TchLib.non_blocking_table_play,['s1','s2'])
+        results = pool.map(TchLib.non_blocking_table_play,['sw1','sw2'])
         for result in results:
             name = result['sw_name']
             status = result['status']
@@ -371,7 +410,6 @@ def _test_multicontrollers_non_blocking_tableEdit():
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-    p4_switch.ShutdownAllSwitchConnections()
 
 
 def _test_setForwarding_pipeline_config():
@@ -381,7 +419,7 @@ def _test_setForwarding_pipeline_config():
     try:
 
         s1=TchLib.Establish_Switch_Conn(ApData.sw_name)
-        s1.MasterArbitrationUpdate()
+        s1.MasterArbitrationUpdate(election_id_high=22, election_id_low=333)
 
         if p4info_helper != None:
             # Install the P4 program on the switches
@@ -395,12 +433,10 @@ def _test_setForwarding_pipeline_config():
     except grpc.RpcError as e:
         log.error(e)
         printGrpcError(e)
+    finally:
+        s1.shutdown()
 
-    p4_switch.ShutdownAllSwitchConnections()
-
-
-
-def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
+def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops,sw_conn):
     p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
     tbl_input_file = ApData.zap.get_testcase_configuration("test_ingress_encapIn_ipv4_table_crudTests/input_conf_file")
     with open(tbl_input_file, 'r') as conf_file:
@@ -408,11 +444,9 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
     table_name = input_conf['table_name']
     table_id = p4info_helper.get_id("tables", name=table_name)
 
-    s1=TchLib.Establish_Switch_Conn(ApData.sw_name)
 
     if tbl_ops == "INSERT":
         try:
-            s1.MasterArbitrationUpdate()
             if 'table_entries' in input_conf:
                 log.info(input_conf)
                 table_entries = input_conf['table_entries']
@@ -422,7 +456,7 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
                 for entry in insrt_entrs:
                     log.info(p4TestLib.tableEntryToString(entry))
                     log.info("INSERTING ENTRIES FOR TABLE - ingress_encap_in_ipv4_table")
-                    p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'INSERT')
+                    p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'INSERT')
                     sleep(1)
 
         except KeyboardInterrupt:
@@ -434,7 +468,7 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
     elif tbl_ops == "READ":
         log.info("READING TABLE ENTRIES")
         try:
-            reply = s1.ReadTableEntries(table_id=table_id)
+            reply = sw_conn.ReadTableEntries(table_id=table_id)
             for rep in reply:
                 log.info(" READ Reply from DUT")
                 log.info(p4TestLib.repr_pretty_p4runtime(rep))
@@ -449,7 +483,7 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
 
     elif tbl_ops == "MODIFY":
         try:
-            s1.MasterArbitrationUpdate()
+            sw_conn.MasterArbitrationUpdate()
             if 'table_entries' in input_conf:
                 log.info(input_conf)
                 table_entries = input_conf['table_entries']
@@ -459,11 +493,11 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
                 for entry in mod_entrs:
                     log.info(p4TestLib.tableEntryToString(entry))
                     log.info("MODIFYING ENTRIES FOR TABLE - ingress_encap_in_ipv4_table")
-                    p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'MODIFY')
+                    p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'MODIFY')
                     sleep(1)
 
                 log.info("Subtest: Verify Table Entries after MODIFY table - %s", table_name)
-                reply = s1.ReadTableEntries(table_id=table_id)
+                reply = sw_conn.ReadTableEntries(table_id=table_id)
                 for rep in reply:
                     log.info(" READ Reply from DUT")
                     log.info(p4TestLib.repr_pretty_p4runtime(rep))
@@ -476,7 +510,7 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
 
     elif tbl_ops == "DELETE":
         try:
-            s1.MasterArbitrationUpdate()
+            sw_conn.MasterArbitrationUpdate()
             if 'table_entries' in input_conf:
                 log.info(input_conf)
                 table_entries = input_conf['table_entries']
@@ -485,11 +519,11 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
                 for entry in del_entrs:
                     log.info(p4TestLib.tableEntryToString(entry))
                     log.info("DELETING ENTRIES FOR TABLE - ingress_encap_in_ipv4_table")
-                    p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'DELETE')
+                    p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'DELETE')
                     sleep(1)
 
                 log.info("Subtest: Verify Table Entries after DELETE table entries - %s", table_name)
-                reply = s1.ReadTableEntries(table_id=table_id)
+                reply = sw_conn.ReadTableEntries(table_id=table_id)
                 for rep in reply:
                     log.info(" READ Reply from DUT")
                     log.info(p4TestLib.repr_pretty_p4runtime(rep))
@@ -501,10 +535,8 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops):
             log.error(e)
             printGrpcError(e)
 
-    p4_switch.ShutdownAllSwitchConnections()
 
-
-def _test_Read_wTableId_Zero():
+def _test_Read_wTableId_Zero(sw_conn):
     p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
     tbl_input_file = ApData.zap.get_testcase_configuration("test_ingress_encapIn_ipv4_table_crudTests/input_conf_file")
     with open(tbl_input_file, 'r') as conf_file:
@@ -512,9 +544,7 @@ def _test_Read_wTableId_Zero():
     table_name = input_conf['table_name']
     table_id = 0
 
-    s1=TchLib.Establish_Switch_Conn(ApData.sw_name)
     try:
-        s1.MasterArbitrationUpdate()
         if 'table_entries' in input_conf:
             log.info(input_conf)
             table_entries = input_conf['table_entries']
@@ -523,7 +553,7 @@ def _test_Read_wTableId_Zero():
             for entry in insrt_entrs:
                 log.info(p4TestLib.tableEntryToString(entry))
                 log.info("INSERTING ENTRIES FOR TABLE - ingress_encap_in_ipv4_table")
-                p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'INSERT')
+                p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'INSERT')
                 sleep(1)
 
     except KeyboardInterrupt:
@@ -534,7 +564,7 @@ def _test_Read_wTableId_Zero():
 
     log.info("READING TABLE ENTRIES with TABLE-ID ZERO")
     try:
-        reply = s1.ReadTableEntries(table_id=table_id)
+        reply = sw_conn.ReadTableEntries(table_id=table_id)
         for rep in reply:
             log.info(" READ Reply from DUT")
             log.info(p4TestLib.repr_pretty_p4runtime(rep))
@@ -548,3 +578,7 @@ def _test_Read_wTableId_Zero():
         printGrpcError(e)
         raise CafyException.VerificationError(e)
 
+
+def teardown_class(self):
+    log.info("Teardown class")
+    p4_switch.ShutdownAllSwitchConnections()

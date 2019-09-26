@@ -120,9 +120,9 @@ def blocking_table_play(name):
     result["status"] = True
     return result
 
-
 def non_blocking_table_play(name):
-    with open(ApData.input_conf_file, 'r') as ip_conf_file:
+    tData = ApData.zap.get_testcase_configuration("test_multicontrollers_non_blocking_tableEdit")
+    with open(tData["input_conf_file"], 'r') as ip_conf_file:
         input_conf = p4TestLib.json_load_byteified(ip_conf_file)
     
     p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
@@ -132,14 +132,13 @@ def non_blocking_table_play(name):
     try:
         ns1=Establish_Switch_Conn(name)
         sw_name = ns1
-        if "s1" in name:
-            log.info("Controller s1: Sending Election ID High=22 & Low=333")
-            ns1.MasterArbitrationUpdate(election_id_high=22, election_id_low=333)
-            election_id_low=333
-            election_id_high=22
+        if "sw1" in name:
+            log.info("Controller sw1: Sending Election ID High=20 & Low=303")
+            ns1.MasterArbitrationUpdate(election_id_high=20, election_id_low=303)
+            election_id_low=303
+            election_id_high=20
 
             if 'table_entries' in input_conf:
-                log.info(input_conf)
                 table_entries = input_conf['table_entries']
                 log.info("Inserting {entries} table entries - Switch {name}".format(entries = len(table_entries), name=name))
                 for entry in table_entries:
@@ -170,10 +169,10 @@ def non_blocking_table_play(name):
                     p4TestLib.tableEntryActions(sw_name, entry, p4info_helper, 'DELETE',election_id_low=election_id_low,election_id_high=election_id_high)
                     sleep(1)
         else:
-            log.info("Controller s2: Sending Election ID High=11 & Low=222")
-            ns1.MasterArbitrationUpdate(election_id_high=11, election_id_low=222)
-            election_id_low=222
-            election_id_high=11
+            log.info("Controller sw2: Sending Election ID High=10 & Low=201")
+            ns1.MasterArbitrationUpdate(election_id_high=10, election_id_low=201)
+            election_id_low=201
+            election_id_high=10
 
             for i in range(8):
                 if 'table_entries' in input_conf:

@@ -68,14 +68,14 @@ def _sub_object(field, value, pcontext):
     try:
         return context.get_name_from_id(id_)
     except KeyError:
-        logging.error("Unknown object id {}".format(id_))
+        log.error("Unknown object id {}".format(id_))
 
 
 def _sub_mf(field, value, pcontext):
     id_ = value
     table_name = pcontext.find_table()
     if table_name is None:
-        logging.error("Cannot find any table in context")
+        log.error("Cannot find any table in context")
         return
     return context.get_mf_name(table_name, id_)
 
@@ -84,7 +84,7 @@ def _sub_ap(field, value, pcontext):
     id_ = value
     action_name = pcontext.find_action()
     if action_name is None:
-        logging.error("Cannot find any action in context")
+        log.error("Cannot find any action in context")
         return
     return context.get_param_name(action_name, id_)
 
@@ -196,13 +196,65 @@ def tableEntryActions(sw, flow, p4info_helper, action, **kwargs):
 
     if oper.upper() == 'INSERT':
         sw.WriteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high)
-    elif oper.upper() == 'MODIFY':
-        sw.WriteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high,oper='MODIFY')
     elif oper.upper() == 'DELETE':
         sw.DeleteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high)
 
     return
 
+def memberActions(sw, flow, p4info_helper, mode, **kwargs):
+    try:
+        election_id_low = kwargs["election_id_low"]
+    except KeyError:
+        election_id_low = 1
+    try:
+        election_id_high = kwargs["election_id_high"]
+    except KeyError:
+        election_id_high = 0
+    
+    member_id = flow['member_id']
+    action_profile_id = flow['action_profile_id']
+    action_name = flow['action_name']
+    action_params = flow['action_params']
+    
+    apmember = p4info_helper.buildActionProfileMember(
+        member_id=member_id,
+        action_profile_id=action_profile_id,
+        action_name=action_name,
+        action_params=action_params)
+
+    mode = mode.upper()
+    if mode == 'INSERT':
+        sw.WriteActionProfileMember(apmember,election_id_low=election_id_low,election_id_high=election_id_high,update_type=mode)
+    elif mode == 'DELETE':
+        sw.DeleteActionProfileMember(apmember,election_id_low=election_id_low,election_id_high=election_id_high,update_type=mode)
+
+    return
+
+def groupActions(sw, flow, p4info_helper, mode, **kwargs):
+    try:
+        election_id_low = kwargs["election_id_low"]
+    except KeyError:
+        election_id_low = 1
+    try:
+        election_id_high = kwargs["election_id_high"]
+    except KeyError:
+        election_id_high = 0
+    
+    group_id = flow['group_id']
+    action_profile_id = flow['action_profile_id']
+    members = flow.get('members')
+    max_size = flow.get('max_size')
+
+    apgroup = p4info_helper.buildActionProfileGroup(
+        group_id=group_id,
+        action_profile_id=action_profile_id,
+        members=members,
+        max_size=max_size)
+
+    mode = mode.upper()
+    sw.WriteActionProfileGroup(apgroup,election_id_low=election_id_low,election_id_high=election_id_high,update_type=mode)
+
+    return
 
 def printCounter(p4info_helper, sw, counter_name, index):
     """

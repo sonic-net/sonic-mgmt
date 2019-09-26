@@ -17,7 +17,8 @@ import re
 import google.protobuf.text_format
 from p4.v1 import p4runtime_pb2
 from p4.config.v1 import p4info_pb2
-
+from logger.cafylog import CafyLog
+log = CafyLog(name='P4 INFO HELPER')
 from convert import encode
 
 class P4InfoHelper(object):
@@ -188,3 +189,48 @@ class P4InfoHelper(object):
                     for field_name, value in action_params.items()
                 ])
         return table_entry
+
+    def get_group_member_info(self, mbr):
+        member = p4runtime_pb2.ActionProfileGroup.Member()
+        member.member_id = mbr["id"]
+        if mbr.get('weight') is not None:
+                member.weight = mbr["weight"]
+        if mbr.get('watch') is not None:
+            member.watch = mbr["watch"]
+        return member
+
+    def buildActionProfileGroup(self,
+                        action_profile_id,
+                        group_id,
+                        members,
+                        max_size=None):
+        apg = p4runtime_pb2.ActionProfileGroup()
+        apg.action_profile_id = action_profile_id
+        apg.group_id = group_id
+        
+        if members is not None:
+            apg.members.extend(self.get_group_member_info(mbr) for mbr in members)
+
+        if max_size is not None:
+            apg.max_size = max_size
+
+        return apg
+
+    def buildActionProfileMember(self,
+                        action_profile_id,
+                        member_id,
+                        action_name,
+                        action_params):
+        apm = p4runtime_pb2.ActionProfileMember()
+        apm.action_profile_id = action_profile_id
+        apm.member_id = member_id
+
+        action = apm.action
+        action.action_id = self.get_actions_id(action_name)
+        if action_params:
+            action.params.extend([
+                self.get_action_param_pb(action_name, field_name, value)
+                for field_name, value in action_params.items()
+            ])        
+
+        return apm
