@@ -237,6 +237,12 @@ def test_power_off_reboot(testbed_devices, conn_graph_facts, psu_controller, pow
         pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % ans_host.hostname)
 
     all_psu = psu_ctrl.get_psu_status()
+
+    # Purpose of this list is to control sequence of turning on PSUs in power off testing.
+    # If there are 2 PSUs, then 3 scenarios would be covered:
+    # 1. Turn off all PSUs, turn on PSU1, then check.
+    # 2. Turn off all PSUs, turn on PSU2, then check.
+    # 3. Turn off all PSUs, turn on one of the PSU, then turn on the other PSU, then check.
     power_on_seq_list = []
     if all_psu:
         power_on_seq_list = [[item] for item in all_psu]
