@@ -1,4 +1,5 @@
 import pytest
+import os
 
 @pytest.fixture(scope="module")
 def conn_graph_facts(testbed_devices):

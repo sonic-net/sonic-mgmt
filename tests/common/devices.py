@@ -9,6 +9,7 @@ We can consider using netmiko for interacting with the VMs used in testing.
 """
 import json
 import logging
+import os
 from multiprocessing import Process, Queue
 
 from errors import RunAnsibleModuleFail
@@ -193,3 +194,24 @@ class SonicHost(AnsibleHostBase):
                         "used_count": int(fields[2]), "available_count": int(fields[3])})
 
         return result
+
+    def get_pmon_daemon_list(self):
+        """
+        @summary: in 201811 use different way to get the pmon daemon list since 
+                  config file (/usr/share/sonic/device/{platform}/{hwsku}/pmon_daemon_control.json) is not avalaible.
+                  check the avalaibility of two plugins led_control.py and sfputil.py, they are for ledd and xcvrd.
+                  if one of them not exist, then the related daemon are not expected to be running on this platform.
+        """
+        daemon_list = []
+
+        led_plugin_path = os.path.join('/usr/share/sonic/device', self.facts["platform"], 'plugins/led_control.py')
+        sfp_plugin_path = os.path.join('/usr/share/sonic/device', self.facts["platform"], 'plugins/sfputil.py') 
+
+        if os.path.isfile(led_plugin_path):
+            daemon_list.append('ledd')
+        if os.path.isfile(sfp_plugin_path):
+            daemon_list.append('xcvrd')
+
+        logging.info("Pmon daemon list for this platform is %s" % str(daemon_list))
+        return daemon_list
+

@@ -18,9 +18,10 @@ import pytest
 from platform_fixtures import conn_graph_facts
 from common.utilities import wait_until
 from check_critical_services import check_critical_services
-from check_interface_status import check_interface_status
 from check_transceiver_status import check_transceiver_basic
-from check_transceiver_status import all_transceivers_detected
+from check_daemon_status import check_pmon_daemon_status
+from check_all_interface_info import check_interface_information
+pytestmark = [pytest.mark.disable_loganalyzer]
 
 
 def reboot_and_check(localhost, dut, interfaces, reboot_type="cold"):
@@ -43,12 +44,12 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type="cold"):
 
     logging.info("Wait for DUT to go down")
     res = localhost.wait_for(host=dut.hostname, port=22, state="stopped", delay=10, timeout=120,
-        module_ignore_errors=True)
+                             module_ignore_errors=True)
     if "failed" in res:
         if process.is_alive():
             logging.error("Command '%s' is not completed" % reboot_cmd)
             process.terminate()
-        logging.error("reboot result %s" % str(queue.get()))
+        logging.error("Reboot result %s" % str(queue.get()))
         assert False, "DUT did not go down"
 
     logging.info("Wait for DUT to come back")
@@ -58,14 +59,14 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type="cold"):
     check_critical_services(dut)
 
     logging.info("Wait some time for all the transceivers to be detected")
-    assert wait_until(300, 20, all_transceivers_detected, dut, interfaces), \
-        "Not all transceivers are detected in 300 seconds"
-
-    logging.info("Check interface status")
-    check_interface_status(dut, interfaces)
+    assert wait_until(300, 20, check_interface_information, dut, interfaces), \
+        "Not all transceivers are detected or interfaces are up in 300 seconds"
 
     logging.info("Check transceiver status")
     check_transceiver_basic(dut, interfaces)
+
+    logging.info("Check pmon daemon status")
+    assert check_pmon_daemon_status(dut), "Not all pmon daemons running."
 
     if dut.facts["asic_type"] in ["mellanox"]:
 
