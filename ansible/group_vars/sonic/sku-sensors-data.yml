@@ -2375,3 +2375,28 @@ sensors_checks:
       - pch_haswell-virtual-0/temp1/temp1_input
 
     psu_skips: {}
+    
+  Celestica-E1031-T48S4:
+    alarms:
+      fan: []
+      power: []
+      temp:
+      - coretemp-isa-0000/Core 0/temp2_crit_alarm
+      - coretemp-isa-0000/Core 1/temp3_crit_alarm
+    compares:
+      fan: []
+      power: []
+      temp:
+      - - coretemp-isa-0000/Core 0/temp2_input
+        - coretemp-isa-0000/Core 0/temp2_crit
+      - - coretemp-isa-0000/Core 0/temp2_input
+        - coretemp-isa-0000/Core 0/temp2_max
+      - - coretemp-isa-0000/Core 1/temp3_input
+        - coretemp-isa-0000/Core 1/temp3_crit
+      - - coretemp-isa-0000/Core 1/temp3_input
+        - coretemp-isa-0000/Core 1/temp3_max
+    non_zero:
+      fan: []
+      power: []
+      temp: []
+    psu_skips: {}

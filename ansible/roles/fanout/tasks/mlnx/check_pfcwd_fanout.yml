@@ -15,8 +15,8 @@
     dockers_running: "{{output.stdout|search(\"args *storm_args\")|bool}}"
     dockers_installed: "{{output.stdout|search(\"pfc_storm\") and output.stdout|search(\"storm_args\")|bool}}"
 
-- debug:
-    msg: "Dockers installed{{':'}} {{dockers_installed}}"
+- fail: msg="PFCWD dockers not installed"
+  when: not dockers_installed
 
-- debug:
-    msg: "Dockers running  {{':'}} {{dockers_running}}"
+- fail: msg="PFCWD dockers are not running"
+  when: not dockers_running

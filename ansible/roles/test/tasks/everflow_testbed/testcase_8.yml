@@ -29,6 +29,9 @@
       redis-cli -n 4 hmset "ACL_RULE|{{dscp_table_name}}|RULE_1" "PRIORITY" "9999" "MIRROR_ACTION" "{{policer_session_name}}" "DSCP" "8/56"
     become: yes
 
+  - name: Pause to sync the rule
+    pause: seconds=3
+
   - name: "Start PTF runner"
     include: roles/test/tasks/ptf_runner.yml
     vars:

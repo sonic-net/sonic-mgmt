@@ -2,7 +2,7 @@
   when: testbed_type is not defined
 
 - fail: msg="testbed_type {{test_type}} is invalid"
-  when: testbed_type not in ['t0', 't0-64', 't0-116']
+  when: testbed_type not in ['t0', 't0-64', 't0-116', 't0-52']
 
 - name: Gather minigraph facts about the device
   minigraph_facts: host={{inventory_hostname}}
