@@ -2,8 +2,9 @@
 
 set -euo pipefail
 
-INTF_IDX_LIST=$(cat /proc/net/dev | grep eth | awk -F'eth|:' '{print $2}')
+INTF_LIST=$(ls /sys/class/net | grep eth)
 
-for i in $INTF_IDX_LIST; do
-  ip address flush dev eth$i
+for INTF in ${INTF_LIST}; do
+    echo "Flush ${INTF} IP address"
+    ip addr flush dev ${INTF}
 done
