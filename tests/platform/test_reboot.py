@@ -108,7 +108,7 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
         res = localhost.wait_for(host=dut.hostname, port=22, state="stopped", timeout=180, module_ignore_errors=True)
         if "failed" in res:
             try:
-                logging.error("Wait for switch down failed, try to kill any possible stucking reboot task")
+                logging.error("Wait for switch down failed, try to kill any possible stuck reboot task")
                 pid = dut.command("pgrep -f '%s'" % reboot_cmd)["stdout"]
                 dut.command("kill -9 %s" % pid)
                 reboot_task.terminate()
