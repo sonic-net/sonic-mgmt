@@ -185,6 +185,10 @@ testcases:
       filename: pfc_wd.yml
       topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
+    portstat:
+      filename: portstat.yml
+      topologies: [t0, t0-16, t0-56, t0-64, t0-116, t1]
+
     port_toggle:
       filename: port_toggle.yml
       topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]

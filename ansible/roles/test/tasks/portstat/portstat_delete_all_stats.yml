@@ -1,0 +1,50 @@
+- block:
+  # This command adds some tags, verifies they exist, then deletes them all
+
+  # Makes sure all tags are cleared out
+  - name: Clear out all tags
+    shell: portstat -D
+    ignore_errors: True
+
+  - name: create the test file names
+    set_fact:
+      file_names:
+       - test_1
+       - test_2
+       - test_test
+
+  - name: create several test stats files
+    shell: portstat -c -t {{ item }}
+    with_items: "{{ file_names }}"
+
+  - name: pull the list of objects out of the directory
+    shell: ls -R /tmp
+    register: ls_out_before
+
+  - name: verify that the file names are in the directory
+    assert:
+      that: ("1000-" + item) in ls_out_before.stdout
+    with_items: "{{ file_names }}"
+
+  - name: run the command to be tested '{{ command }}'
+    shell: "{{ command }}"
+
+  - name: pull the list of objects out of the directory
+    shell: ls -R /tmp
+    register: ls_out_after
+
+  - name: verify that the file names are not the directory
+    assert:
+      that: ("1000-" + item) not in ls_out_after.stdout
+    with_items: "{{ file_names }}"
+
+  rescue:
+  - name: An error occured
+    debug:
+      msg: An error occured
+    
+  always:
+  - name: Clear out all tags
+    shell: portstat -D
+    ignore_errors: True
+

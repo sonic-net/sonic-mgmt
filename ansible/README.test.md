@@ -222,6 +222,11 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 ```
 - Requires switch connected to a PTF testbed
 
+##### Portstat test
+```
+ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=portstat -e testbed_name={TESTBED_NAME}
+```
+
 ##### Port Toggle test
 ```
 ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=port_toggle -e testbed_name={TESTBED_NAME}
