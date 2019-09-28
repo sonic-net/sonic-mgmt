@@ -27,14 +27,13 @@ class MtuTest(BaseTest):
     back. It also sends a jumbo frame to a route destination for verifying the 
     forwarding functionality
     
-    For the device configured with IP-MTU=9100, PHY-MTU=9114,
+    By default.For the device configured with IP-MTU=9100, PHY-MTU=9114,
      - ICMP/IP frame, the packet-len is 9114 (This includes the 14 bytes Layer 2 Ethernet header)
     '''
 
     #---------------------------------------------------------------------
     # Class variables
     #---------------------------------------------------------------------
-    DEFAULT_PACKET_LEN = 9114
     ICMP_HDR_LEN = 8
 
     def __init__(self):
@@ -50,6 +49,7 @@ class MtuTest(BaseTest):
         self.dataplane = ptf.dataplane_instance
         self.router_mac = self.test_params['router_mac']
         self.testbed_type = self.test_params['testbed_type']
+        self.testbed_mtu = self.test_params['testbed_mtu']
     
     #---------------------------------------------------------------------
 
@@ -60,8 +60,7 @@ class MtuTest(BaseTest):
         ip_src = "10.0.0.1"
         ip_dst = "10.0.0.0"
         src_mac = self.dataplane.get_mac(0, 0)
-
-        pktlen = self.DEFAULT_PACKET_LEN
+        pktlen = self.pktlen
 
         pkt = simple_icmp_packet(pktlen=pktlen,
                             eth_dst=self.router_mac,
@@ -107,14 +106,14 @@ class MtuTest(BaseTest):
         ip_dst = "10.0.0.63"
         src_mac = self.dataplane.get_mac(0, 0)
 
-        pkt = simple_ip_packet(pktlen=self.DEFAULT_PACKET_LEN,
+        pkt = simple_ip_packet(pktlen=self.pktlen,
                             eth_dst=self.router_mac,
                             eth_src=src_mac,
                             ip_src=ip_src,
                             ip_dst=ip_dst,
                             ip_ttl=64)
 
-        exp_pkt = simple_ip_packet(pktlen=self.DEFAULT_PACKET_LEN,
+        exp_pkt = simple_ip_packet(pktlen=self.pktlen,
                             eth_src=self.router_mac,
                             ip_src=ip_src,
                             ip_dst=ip_dst,
@@ -148,5 +147,6 @@ class MtuTest(BaseTest):
         @summary: Send packet(Max MTU) to test on Ping request/response and unicast IP destination.
         Expect the packet to be received from one of the expected ports
         """
+        self.pktlen = self.testbed_mtu          
         self.check_icmp_mtu()
         self.check_ip_mtu()

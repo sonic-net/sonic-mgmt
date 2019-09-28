@@ -7,8 +7,9 @@
   connection: local
   tags: always
 
-- set_fact:
-    neighbors: "{{device_conn}}"
+- name: Set neighbor facts
+  set_fact:
+    neighbors: "{{ device_conn }}"
 
 - include: link_flap/link_flap_helper.yml
   with_items: "{{ device_conn.keys() }}"

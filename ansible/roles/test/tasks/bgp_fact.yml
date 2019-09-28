@@ -14,6 +14,14 @@
 - name: Print bgp facts
   debug: msg="{{ bgp_neighbors }}"
 
+- name: Prepare neighbor info
+  shell: ip neigh show
+  register: ip_neighbors
+  ignore_errors: yes
+
+- name: Print neighbor info
+  debug: msg="{{ip_neighbors.stdout_lines}}"
+
 - name: Verify bgp sessions are established
   assert: { that: "'{{ bgp_neighbors[item]['state'] }}' == 'established'" }
   with_items: "{{ bgp_neighbors.keys() }}"

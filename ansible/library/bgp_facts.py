@@ -106,6 +106,10 @@ class BgpModule(object):
         regex_conn_dropped = re.compile(r'.*Connections established \d+; dropped (\d+)')
         regex_peer_group = re.compile(r'.*Member of peer-group (.*) for session parameters')
         regex_subnet =  re.compile(r'.*subnet range group: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2})')
+        regex_cap_gr = re.compile(r'.*Graceful Restart Capabilty: (\w+)')
+        regex_cap_gr_peer_restart_time = re.compile(r'.*Remote Restart timer is (\d+)')
+        regex_cap_gr_peer_af_ip4 = re.compile(r'.*IPv4 Unicast\((.*)\)')
+        regex_cap_gr_peer_af_ip6 = re.compile(r'.*IPv6 Unicast\((.*)\)')
 
         neighbors = {}
 
@@ -117,6 +121,7 @@ class BgpModule(object):
                 # ignore empty rows
                 if 'BGP' in n:
                     neighbor = {}
+                    capabilities = {}
                     message_stats = {}
                     n = "BGP neighbor is" + n
                     lines = n.splitlines()
@@ -143,6 +148,11 @@ class BgpModule(object):
                         if regex_peer_group.match(line): neighbor['peer group'] = regex_peer_group.match(line).group(1)
                         if regex_subnet.match(line): neighbor['subnet'] = regex_subnet.match(line).group(1)
 
+                        if regex_cap_gr.match(line): capabilities['graceful restart'] = regex_cap_gr.match(line).group(1).lower()
+                        if regex_cap_gr_peer_restart_time.match(line): capabilities['peer restart timer'] = int(regex_cap_gr_peer_restart_time.match(line).group(1))
+                        if regex_cap_gr_peer_af_ip4.match(line): capabilities['peer af ipv4 unicast'] = regex_cap_gr_peer_af_ip4.match(line).group(1).lower()
+                        if regex_cap_gr_peer_af_ip6.match(line): capabilities['peer af ipv6 unicast'] = regex_cap_gr_peer_af_ip6.match(line).group(1).lower()
+
                         if regex_stats.match(line):
                             try:
                                 key, values = line.split(':')
@@ -154,6 +164,9 @@ class BgpModule(object):
                                 message_stats[key] = value_dict
                             except Exception as e:
                                 print"NonFatal: line:'{}' should not have matched for sent/rcvd count".format(line)
+
+                        if capabilities:
+                            neighbor['capabilities'] = capabilities
 
                         if message_stats:
                             neighbor['message statistics'] = message_stats

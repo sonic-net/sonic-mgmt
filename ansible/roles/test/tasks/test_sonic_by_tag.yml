@@ -110,6 +110,10 @@
   include: fib.yml
   tags: fib
 
+- name: Hash test
+  include: hash.yml
+  tags: hash
+
 - name: MTU test
   include: mtu.yml
   tags: mtu

@@ -87,6 +87,7 @@ class FibTest(BaseTest):
         self.dataplane = ptf.dataplane_instance
         self.fib = fib.Fib(self.test_params['fib_info'])
         self.router_mac = self.test_params['router_mac']
+        self.pktlen = self.test_params['testbed_mtu']
 
         self.test_ipv4 = self.test_params.get('ipv4', True)
         self.test_ipv6 = self.test_params.get('ipv6', True)
@@ -94,12 +95,17 @@ class FibTest(BaseTest):
         self.balancing_range = self.test_params.get('balancing_range', self.DEFAULT_BALANCING_RANGE)
         self.balancing_test_ratio = self.test_params.get('balancing_test_ratio', self.DEFAULT_BALANCING_TEST_RATIO)
 
+        # Provide the list of all UP interfaces with index in sequence order starting from 0
         if self.test_params['testbed_type'] == 't1' or self.test_params['testbed_type'] == 't1-lag':
             self.src_ports = range(0, 32)
         if self.test_params['testbed_type'] == 't1-64-lag':
             self.src_ports = [0, 1, 4, 5, 16, 17, 20, 21, 34, 36, 37, 38, 39, 42, 44, 45, 46, 47, 50, 52, 53, 54, 55, 58, 60, 61, 62, 63]
         if self.test_params['testbed_type'] == 't0':
             self.src_ports = range(1, 25) + range(28, 32)
+        if self.test_params['testbed_type'] == 't0-52':
+            self.src_ports = range(0, 52)
+        if self.test_params['testbed_type'] == 't0-56':
+            self.src_ports = [0, 1, 4, 5, 8, 9] + range(12, 18) + [20, 21, 24, 25, 28, 29, 32, 33, 36, 37] + range(40, 46) + [48, 49, 52, 53]
         if self.test_params['testbed_type'] == 't0-64':
             self.src_ports = range(0, 2) + range(4, 18) + range(20, 33) + range(36, 43) + range(48, 49) + range(52, 59)
         if self.test_params['testbed_type'] == 't0-116':
@@ -170,6 +176,7 @@ class FibTest(BaseTest):
         src_mac = self.dataplane.get_mac(0, 0)
 
         pkt = simple_tcp_packet(
+                            pktlen=self.pktlen,
                             eth_dst=self.router_mac,
                             eth_src=src_mac,
                             ip_src=ip_src,
@@ -178,6 +185,7 @@ class FibTest(BaseTest):
                             tcp_dport=dport,
                             ip_ttl=64)
         exp_pkt = simple_tcp_packet(
+                            self.pktlen,
                             eth_src=self.router_mac,
                             ip_src=ip_src,
                             ip_dst=ip_dst,
@@ -208,6 +216,7 @@ class FibTest(BaseTest):
         src_mac = self.dataplane.get_mac(0, 0)
 
         pkt = simple_tcpv6_packet(
+                                pktlen=self.pktlen,
                                 eth_dst=self.router_mac,
                                 eth_src=src_mac,
                                 ipv6_dst=ip_dst,
@@ -216,6 +225,7 @@ class FibTest(BaseTest):
                                 tcp_dport=dport,
                                 ipv6_hlim=64)
         exp_pkt = simple_tcpv6_packet(
+                                pktlen=self.pktlen,
                                 eth_src=self.router_mac,
                                 ipv6_dst=ip_dst,
                                 ipv6_src=ip_src,

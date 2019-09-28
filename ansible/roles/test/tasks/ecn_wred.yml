@@ -11,9 +11,9 @@
     test_wred_values="[ '491520', '516096', '430080' ]"
   tags: always
 
-  # Read and store original rmin value for AZURE_LOSSY
+  # Read and store original rmin value for AZURE_LOSSLESS
 - name: Get red_min_threshold
-  shell: ecnconfig -l | grep -A20 AZURE_LOSSY | grep red_min_threshold | awk '{print $2}'
+  shell: ecnconfig -l | grep -A20 AZURE_LOSSLESS | grep red_min_threshold | awk '{print $2}'
   register: wred_value
   failed_when: wred_value.rc != 0
 
@@ -42,8 +42,7 @@
 
   always:
     - name: Restore original value
+      shell: ecnconfig -p AZURE_LOSSLESS -rmin {{ red_min_threshold }}
       become: yes
-      shell: ecnconfig -p AZURE_LOSSY -rmin {{ red_min_threshold }}
       register: ecn_restore
       failed_when: ecn_restore.rc != 0
-

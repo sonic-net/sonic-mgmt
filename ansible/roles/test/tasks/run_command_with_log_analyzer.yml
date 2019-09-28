@@ -5,7 +5,17 @@
 #   3) Run cleanup if needed.
 #-----------------------------------------
 
-- include_vars: "vars/run_config_test_vars.yml"
+- name: Initialize some variables for loganalyzer
+  set_fact:
+    testname_unique: "{{ testname }}.{{ lookup('pipe','date +%Y-%m-%d-%H:%M:%S') }}"
+- set_fact:
+    test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
+    loganalyzer_init: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+    loganalyzer_analyze: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+    match_file: loganalyzer_common_match.txt
+    ignore_file: loganalyzer_common_ignore.txt
+    summary_file: summary.loganalysis.{{ testname_unique }}.log
+    result_file: result.loganalysis.{{ testname_unique }}.log
 
 - block:
     - name: Initialize loganalizer. Put start marker to log file.
@@ -31,21 +41,24 @@
       register: expects_found
       when: errors_expected == true
 
-    - name: Check that expected error messages are found (negative tests only).
-      fail: msg="Expected error messages are not found while running {{ testname }} / {{ command_to_run }}"
-      when: errors_expected == true and expects_found.stdout == "0"
-
     - name: Get the total number of error messages.
       shell: grep "TOTAL MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL MATCHES:[[:space:]]*//p"
       register: errors_found
 
-    - name: Check the number of error messages (positive tests only).
-      fail: msg="{{ errors_found.stdout }} errors found while running {{ testname }} / {{ command_to_run }}."
-      when: errors_expected == false and errors_found.stdout != "0"
-
     - name: Copy test data to host.
-      fetch: src={{ test_out_dir }}/{{ item }} dest=failed-test-data/{{ testname_unique }}/{{ item }}
+      fetch:
+        src: "{{ test_out_dir }}/{{ item }}"
+        dest: "test/{{ inventory_hostname }}/{{ item | basename }}"
+        flat: yes
       with_items:
           - "{{ summary_file }}"
           - "{{ result_file }}"
       when: (errors_expected == true and expects_found.stdout == "0") or (errors_expected == false and errors_found.stdout != "0")
+
+    - name: Check that expected error messages are found (negative tests only).
+      fail: msg="Expected error messages are not found while running {{ testname }} / {{ command_to_run }}"
+      when: errors_expected == true and expects_found.stdout == "0"
+
+    - name: Check the number of error messages (positive tests only).
+      fail: msg="{{ errors_found.stdout }} errors found while running {{ testname }} / {{ command_to_run }}."
+      when: errors_expected == false and errors_found.stdout != "0"
