@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-INTF_LIST=$(ls /sys/class/net | grep eth)
+INTF_LIST=$(ls /sys/class/net | grep -E "^eth[0-9]+$")
 
 for INTF in ${INTF_LIST}; do
     ADDR="$(ip link show ${INTF} | grep ether | awk '{print $2}')"
