@@ -10,10 +10,11 @@ We can consider using netmiko for interacting with the VMs used in testing.
 import json
 import logging
 import os
-from multiprocessing import Process, Queue
+from multiprocessing.pool import ThreadPool
 
 from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
+
 
 class AnsibleHostBase(object):
     """
@@ -45,13 +46,11 @@ class AnsibleHostBase(object):
         module_async = complex_args.pop('module_async', False)
 
         if module_async:
-            q = Queue()
-            def run_module(queue, module_args, complex_args):
-                res = self.module(*module_args, **complex_args)
-                q.put(res[self.hostname])
-            p = Process(target=run_module, args=(q, module_args, complex_args))
-            p.start()
-            return p, q
+            def run_module(module_args, complex_args):
+                return self.module(*module_args, **complex_args)[self.hostname]
+            pool = ThreadPool()
+            result = pool.apply_async(run_module, (module_args, complex_args))
+            return pool, result
 
         res = self.module(*module_args, **complex_args)[self.hostname]
         if res.is_failed and not module_ignore_errors:
@@ -150,7 +149,8 @@ class SonicHost(AnsibleHostBase):
                 return True
             else:
                 return False
-        except:
+        except Exception as e:
+            logging.error("Failed to get service status, exception: %s" % repr(e))
             return False
 
     def critical_services_fully_started(self):
@@ -163,7 +163,6 @@ class SonicHost(AnsibleHostBase):
 
         logging.debug("Status of critical services: %s" % str(result))
         return all(result.values())
-
 
     def get_crm_resources(self):
         """
@@ -186,26 +185,27 @@ class SonicHost(AnsibleHostBase):
                 fields = line.split()
                 if len(fields) == 5:
                     result["acl_resources"].append({"stage": fields[0], "bind_point": fields[1],
-                        "resource_name": fields[2], "used_count": int(fields[3]), "available_count": int(fields[4])})
+                                                    "resource_name": fields[2], "used_count": int(fields[3]),
+                                                    "available_count": int(fields[4])})
             if current_table == 3:      # content of the third table, table resources
                 fields = line.split()
                 if len(fields) == 4:
                     result["table_resources"].append({"table_id": fields[0], "resource_name": fields[1],
-                        "used_count": int(fields[2]), "available_count": int(fields[3])})
+                                                      "used_count": int(fields[2]), "available_count": int(fields[3])})
 
         return result
 
     def get_pmon_daemon_list(self):
         """
-        @summary: in 201811 use different way to get the pmon daemon list since 
-                  config file (/usr/share/sonic/device/{platform}/{hwsku}/pmon_daemon_control.json) is not avalaible.
-                  check the avalaibility of two plugins led_control.py and sfputil.py, they are for ledd and xcvrd.
-                  if one of them not exist, then the related daemon are not expected to be running on this platform.
+        @summary: in 201811 use different way to get the pmon daemon list since
+                  config file (/usr/share/sonic/device/{platform}/{hwsku}/pmon_daemon_control.json) is not available.
+                  Check the availability of two plugins led_control.py and sfputil.py, they are for ledd and xcvrd.
+                  If one of them does not exist, then the related daemon is not expected to be running on this platform.
         """
         daemon_list = []
 
         led_plugin_path = os.path.join('/usr/share/sonic/device', self.facts["platform"], 'plugins/led_control.py')
-        sfp_plugin_path = os.path.join('/usr/share/sonic/device', self.facts["platform"], 'plugins/sfputil.py') 
+        sfp_plugin_path = os.path.join('/usr/share/sonic/device', self.facts["platform"], 'plugins/sfputil.py')
 
         if os.path.isfile(led_plugin_path):
             daemon_list.append('ledd')
@@ -214,4 +214,3 @@ class SonicHost(AnsibleHostBase):
 
         logging.info("Pmon daemon list for this platform is %s" % str(daemon_list))
         return daemon_list
-

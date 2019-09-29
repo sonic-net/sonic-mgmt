@@ -7,6 +7,7 @@ import json
 
 from platform_fixtures import conn_graph_facts
 
+
 def test_check_sfp_presence(testbed_devices, conn_graph_facts):
     """This test case is to check SFP presence status with CLI and sysfs.
     """

@@ -22,14 +22,15 @@ def check_sysfs_broken_symbolinks(dut):
     assert len(broken_symbolinks) == 0, \
         "Found some broken symbolinks: %s" % str(broken_symbolinks)
 
+
 def check_sysfs_thermal(dut):
     logging.info("Check thermal")
     file_asic = dut.command("cat /bsp/thermal/asic")
     try:
         asic_temp = float(file_asic["stdout"]) / 1000
-        assert asic_temp > 0 and asic_temp < 85, "Abnormal ASIC temperature: %s" % file_asic["stdout"]
-    except:
-        assert False, "Bad content in /bsp/thermal/asic: %s" % file_asic["stdout"]
+        assert 0 < asic_temp < 85, "Abnormal ASIC temperature: %s" % file_asic["stdout"]
+    except Exception as e:
+        assert False, "Bad content in /bsp/thermal/asic: %s, exception: %s" % (file_asic["stdout"], repr(e))
 
 
 def check_sysfs_fan(dut):
@@ -41,6 +42,7 @@ def check_sysfs_fan(dut):
     fan_speed = 0
     fan_min_speed = 0
     fan_max_speed = 0
+    fan_set_speed = 0
     for fan_id in range(1, fan_count + 1):
         if SWITCH_MODELS[dut.facts["hwsku"]]["fans"]["hot_swappable"]:
             fan_status = "/bsp/module/fan{}_status".format(fan_id)
@@ -49,7 +51,7 @@ def check_sysfs_fan(dut):
                 assert fan_status_content["stdout"] == "1", "Content of %s is not 1" % fan_status
             except Exception as e:
                 assert False, "Get content from %s failed, exception: %s" % (fan_status, repr(e))
-            
+
         fan_min = "/bsp/fan/fan{}_min".format(fan_id)
         try:
             fan_min_content = dut.command("cat %s" % fan_min)
@@ -74,12 +76,22 @@ def check_sysfs_fan(dut):
         except Exception as e:
             assert False, "Get content from %s failed, exception: %s" % (fan_speed_get, repr(e))
 
+        assert fan_min_speed < fan_speed < fan_max_speed, \
+            "Fan speed out of range: min speed: %d, speed: %d, max speed: %d" \
+            % (fan_min_speed, fan_speed, fan_max_speed)
+
         fan_speed_set = "/bsp/fan/fan{}_speed_set".format(fan_id)
         try:
             fan_speed_set_content = dut.command("cat %s" % fan_speed_set)
             assert fan_speed_set_content["stdout"] == "153", "Fan speed should be set to 60%, 153/255"
+            fan_set_speed = int(fan_speed_set_content["stdout"])
         except Exception as e:
             assert False, "Get content from %s failed, exception: %s" % (fan_speed_set, repr(e))
+
+        max_tolerance_speed = ((float(fan_set_speed) / 256) * fan_max_speed) * (1 + 0.3)
+        min_tolerance_speed = ((float(fan_set_speed) / 256) * fan_max_speed) * (1 - 0.3)
+        assert min_tolerance_speed < fan_speed < max_tolerance_speed, "Speed out of tolerance speed range (%d, %d)" \
+                                                                      % (min_tolerance_speed, max_tolerance_speed)
 
 
 def check_sysfs_cpu(dut):
@@ -156,7 +168,7 @@ def check_sysfs(dut, interfaces):
     check_sysfs_thermal(dut)
 
     check_sysfs_fan(dut)
-    
+
     check_sysfs_cpu(dut)
 
     check_sysfs_psu(dut)

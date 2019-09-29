@@ -17,6 +17,8 @@ from common.utilities import wait_until
 from check_critical_services import check_critical_services
 from check_transceiver_status import check_transceiver_basic
 from check_all_interface_info import check_interface_information
+pytestmark = [pytest.mark.disable_loganalyzer]
+
 
 def restart_service_and_check(localhost, dut, service, interfaces):
     """

@@ -11,11 +11,6 @@ from loganalyzer import LogAnalyzer
 
 pytest_plugins = ('ptf_fixtures', 'ansible_fixtures')
 
-# Add the tests folder to sys.path, for importing the lib package
-_current_file_dir = os.path.dirname(os.path.realpath(__file__))
-if _current_file_dir not in sys.path:
-    sys.path.append(current_file_dir)
-
 
 class TestbedInfo(object):
     """
@@ -36,7 +31,6 @@ class TestbedInfo(object):
                 name = ''
                 for key in line:
                     if ('uniq-name' in key or 'conf-name' in key) and '#' in line[key]:
-                        ### skip comment line
                         continue
                     elif 'uniq-name' in key or 'conf-name' in key:
                         name = line[key]
@@ -53,7 +47,8 @@ class TestbedInfo(object):
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
-    parser.addoption("--disable_loganalyzer", action="store_true", default=False, help="disable loganalyzer analysis for 'loganalyzer' fixture")
+    parser.addoption("--disable_loganalyzer", action="store_true", default=False,
+                     help="disable loganalyzer analysis for 'loganalyzer' fixture")
 
 
 @pytest.fixture(scope="session")
@@ -80,11 +75,12 @@ def testbed_devices(ansible_adhoc, testbed):
     @param testbed: Fixture for parsing testbed configuration file.
     @return: Return the created device objects in a dictionary
     """
-    from common.devices import SonicHost, Localhost
+    from common.devices import SonicHost, Localhost, PTFHost
 
-    devices = {}
-    devices["localhost"] = Localhost(ansible_adhoc)
-    devices["dut"] = SonicHost(ansible_adhoc, testbed["dut"], gather_facts=True)
+    devices = {
+        "localhost": Localhost(ansible_adhoc),
+        "dut": SonicHost(ansible_adhoc, testbed["dut"], gather_facts=True)}
+
     if "ptf" in testbed:
         devices["ptf"] = PTFHost(ansible_adhoc, testbed["ptf"])
 
@@ -124,6 +120,7 @@ def eos():
         eos = yaml.safe_load(stream)
         return eos
 
+
 @pytest.fixture(autouse=True)
 def loganalyzer(duthost, request):
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name)
@@ -133,7 +130,8 @@ def loganalyzer(duthost, request):
     if not request.config.getoption("--disable_loganalyzer") and "disable_loganalyzer" not in request.keywords:
         # Read existed common regular expressions located with legacy loganalyzer module
         loganalyzer.load_common_config()
-        # Parse syslog and process result. Raise "LogAnalyzerError" exception if: total match or expected missing match is not equal to zero
+        # Parse syslog and process result. Raise "LogAnalyzerError" exception if: total match or expected missing
+        # match is not equal to zero
         loganalyzer.analyze(marker)
     else:
         # Add end marker into DUT syslog
