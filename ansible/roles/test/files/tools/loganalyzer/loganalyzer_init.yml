@@ -8,7 +8,7 @@
   copy: src="{{ loganalyzer_location }}/loganalyzer.py" dest="{{ run_dir }}"
 
 - set_fact:
-    testname_unique: "{{ testname }}.{{ ansible_date_time.date }}.{{ lookup('pipe', 'date +%H:%M:%S') }}"
+    testname_unique: "{{ testname }}.{{ lookup('pipe', 'date +%Y-%m-%d.%H:%M:%S') }}"
   when: testname_unique is not defined or (testname_unique_gen is defined and testname_unique_gen == true)
 
 - debug: msg="starting loganalyzer_init.py"
