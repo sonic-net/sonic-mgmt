@@ -72,6 +72,16 @@
             "test_ingress_encapIn_ipv4_table_crudTests": {
                 "input_conf_file": "./data-files/ingress-encapin-ipv4-table.json"
             },
+            "direct_table_tests": {
+                "ingress.encap.encap_in_ipv4_table": {
+                    "input_conf_file": "./data-files/ingress-encapin-ipv4-table.json"
+                }
+            },
+            "indirect_table_tests": {
+                "ingress.l3_fwd.l3_ipv4_vrf_table": {
+                    "input_conf_file": "./data-files/ingress-l3-fwd-l3-ipv4-vrf-table.json"
+                }
+            },
             "test_action_profile_groups": {
                 "input_conf_file": "./data-files/groups.json"
             },

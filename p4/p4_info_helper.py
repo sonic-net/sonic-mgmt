@@ -155,6 +155,7 @@ class P4InfoHelper(object):
         p4info_param = self.get_action_param(action_name, param_name)
         p4runtime_param = p4runtime_pb2.Action.Param()
         p4runtime_param.param_id = p4info_param.id
+        log.info(param_name)
         p4runtime_param.value = encode(value, p4info_param.bitwidth)
         return p4runtime_param
 

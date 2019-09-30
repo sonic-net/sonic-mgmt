@@ -42,7 +42,7 @@ SWITCH_TO_SWITCH_PORT = 2
 
 @pytest.fixture(scope="session", autouse=True)
 def sw_conn():
-    #sw_conn = None
+    sw_conn = None
     p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
     p4_json_file_path = ApData.p4json
 
@@ -65,25 +65,28 @@ def sw_conn():
     except grpc.RpcError as e:
         log.error(e)
         printGrpcError(e)
-
-    return sw_conn
+    finally:
+        p4_switch.ShutdownAllSwitchConnections()
+    #return sw_conn
 
 class TestP4(P4ApBase):
 
     def test_setForwarding_pipeline_config(self):
         p4_san_tc._test_setForwarding_pipeline_config()
 
-    def test_Read_wTableId_Zero(self,sw_conn):
-        p4_san_tc._test_Read_wTableId_Zero(sw_conn)
-
     @pytest.mark.parametrize("tbl_ops", ["INSERT", "READ", "MODIFY"])
     def test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops,sw_conn):
         p4_san_tc._test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops,sw_conn)
 
+    @pytest.mark.parametrize("tbl_ops", ["INSERT", "READ", "MODIFY", "DELETE"])
+    @pytest.mark.parametrize("tbl_name", ["ingress.encap.encap_in_ipv4_table"])
+    def test_direct_table_crudTests(self, tbl_name, tbl_ops,sw_conn):
+        p4_san_tc._test_direct_table_crudTests(self, tbl_name, tbl_ops,sw_conn)
+
     def test_p4_sanity(self,sw_conn):
         p4_san_tc._test_p4_sanity(sw_conn)
 
-    def test_ElectionID(self):
+    def test_ElectionID(self,sw_conn):
         p4_san_tc._test_ElectionID()
 
     def test_existing_ElectionID(self,sw_conn):
@@ -92,26 +95,31 @@ class TestP4(P4ApBase):
     def test_Master_change(self,sw_conn):
         p4_san_tc._test_Master_change(sw_conn)
 
-    def test_max_connections(self):
-        p4_san_tc._test_max_connections()    
-
     def test_nonZero_DeviceID(self,sw_conn):
         p4_san_tc._test_nonZero_DeviceID()
 
     def test_deviceID_ACC(self,sw_conn):
         p4_san_tc._test_deviceID_ACC()
 
-    def test_multicontrollers_blocking_tableEdit(self):
-        p4_san_tc._test_multicontrollers_blocking_tableEdit()
-
-    def test_multicontrollers_non_blocking_tableEdit(self):
-        p4_san_tc._test_multicontrollers_non_blocking_tableEdit()
-
     @pytest.mark.parametrize("mode", ["INSERT", "DELETE"])
     def test_action_profile_members(self,mode,sw_conn):
         p4_san_tc._test_action_profile_members(mode,sw_conn)
 
-    #@pytest.mark.parametrize("mode", ["INSERT", "DELETE"])
     @pytest.mark.parametrize("mode", ["INSERT", "DELETE"])
     def test_action_profile_groups(self,mode,sw_conn):
         p4_san_tc._test_action_profile_groups(mode,sw_conn)
+
+    def test_Read_wTableId_Zero(self,sw_conn):
+        p4_san_tc._test_Read_wTableId_Zero(sw_conn)
+
+    def test_multicontrollers_blocking_tableEdit(self,sw_conn):
+        p4_san_tc._test_multicontrollers_blocking_tableEdit()
+
+    def test_multicontrollers_non_blocking_tableEdit(self,sw_conn):
+        p4_san_tc._test_multicontrollers_non_blocking_tableEdit()
+
+    @pytest.mark.last
+    def test_max_connections(self,sw_conn):
+        p4_san_tc._test_max_connections()    
+
+

@@ -154,7 +154,11 @@ def non_blocking_table_play(name):
                     p4TestLib.tableEntryActions(sw_name, entry, p4info_helper, 'INSERT',election_id_low=election_id_low,election_id_high=election_id_high)
                     sleep(1)
                     log.info("READING TABLE ENTRIES - Switch {name}".format(name=name))
-                    ns1.ReadTableEntries(p4info_helper, sw_name)
+                    table_name = entry['table']
+                    table_id = p4info_helper.get_id("tables", name=table_name)
+                    reply = ns1.ReadTableEntries(table_id=table_id)
+                    for rep in reply:
+                        log.info("Reply: %s" % rep)
                     sleep(1)
 
             if 'table_entries' in input_conf:
@@ -180,7 +184,11 @@ def non_blocking_table_play(name):
                     table_entries = input_conf['table_entries']
                     for entry in table_entries:
                         log.info("READING TABLE ENTRIES - Switch {name}".format(name=name))
-                        ns1.ReadTableEntries(p4info_helper, sw_name)
+                        table_name = entry['table']
+                        table_id = p4info_helper.get_id("tables", name=table_name)
+                        reply = ns1.ReadTableEntries(table_id=table_id)
+                        for rep in reply:
+                            log.info("Reply: %s" % rep)
                         sleep(2)
 
     except KeyboardInterrupt:
