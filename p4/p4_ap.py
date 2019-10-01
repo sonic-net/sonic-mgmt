@@ -71,17 +71,42 @@ def sw_conn():
 
 class TestP4(P4ApBase):
 
+
+    @pytest.mark.parametrize("tbl_ops", ["INSERT", "READ"])
+    def test_ingress_l3Fwd_ipv4Vrf_table_crudTests(self, tbl_ops):
+        p4_san_tc._test_ingress_l3Fwd_ipv4Vrf_table_crudTests(self, tbl_ops)
+
+'''
+
     def test_setForwarding_pipeline_config(self):
         p4_san_tc._test_setForwarding_pipeline_config()
 
+<<<<<<< Updated upstream
+=======
+
+    @pytest.mark.parametrize("tbl_ops", ["INSERT"])
+    def test_ingress_l3Fwd_ipv4Vrf_table_crudTests(self, tbl_ops):
+        p4_san_tc._test_ingress_l3Fwd_ipv4Vrf_table_crudTests(self, tbl_ops)
+
+
+>>>>>>> Stashed changes
     @pytest.mark.parametrize("tbl_ops", ["INSERT", "READ", "MODIFY"])
     def test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops,sw_conn):
         p4_san_tc._test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops,sw_conn)
 
+<<<<<<< Updated upstream
     @pytest.mark.parametrize("tbl_ops", ["INSERT", "READ", "MODIFY", "DELETE"])
     @pytest.mark.parametrize("tbl_name", ["ingress.encap.encap_in_ipv4_table"])
     def test_direct_table_crudTests(self, tbl_name, tbl_ops,sw_conn):
         p4_san_tc._test_direct_table_crudTests(self, tbl_name, tbl_ops,sw_conn)
+=======
+
+    def test_Read_wTableId_Zero(self):
+        p4_san_tc._test_Read_wTableId_Zero()
+
+    def test_p4_sanity(self):
+        p4_san_tc._test_p4_sanity()
+>>>>>>> Stashed changes
 
     def test_p4_sanity(self,sw_conn):
         p4_san_tc._test_p4_sanity(sw_conn)
