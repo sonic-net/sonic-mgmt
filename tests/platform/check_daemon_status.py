@@ -17,14 +17,14 @@ def check_pmon_daemon_status(dut):
     daemon_status = {}
     try:
         for daemon in daemon_list:
-            output = dut.shell('docker exec -it pmon supervisorctl status | grep %s' % daemon, module_ignore_errors=True)
+            output = dut.shell('docker exec pmon supervisorctl status | grep %s' % daemon, module_ignore_errors=True)
             if bool(output["stdout_lines"]):
                 expected_line = output["stdout_lines"][0]
                 expected_line_list = expected_line.split()
                 daemon_status[daemon] = (daemon in expected_line_list and 'RUNNING' in expected_line_list)
                 logging.debug("Daemon %s status is %s" % (daemon, str(daemon_status[daemon])))
             else:
-                logging.debug("Daemon %s is not exist" % daemon)
+                logging.debug("Daemon %s does not exist" % daemon)
                 return False
         return all(daemon_status.values())
     except:

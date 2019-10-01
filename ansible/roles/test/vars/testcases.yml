@@ -108,6 +108,13 @@ testcases:
           ptf_host:
           testbed_type:
 
+    hash:
+      filename: hash.yml
+      topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
+      required_vars:
+          ptf_host:
+          testbed_type:
+
     warm-reboot-fib:
       filename: warm-reboot-fib.yml
       topologies: [t0, t0-16, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
@@ -185,6 +192,10 @@ testcases:
       filename: pfc_wd.yml
       topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
+    portstat:
+      filename: portstat.yml
+      topologies: [t0, t0-16, t0-56, t0-64, t0-116, t1]
+
     port_toggle:
       filename: port_toggle.yml
       topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
@@ -192,6 +203,10 @@ testcases:
     qos:
       filename: qos.yml
       topologies: [ptf32, ptf64]
+    
+    qos_sai:
+      filename: qos_sai.yml
+      topologies: [ptf32, ptf64, t1, t1-lag, t0, t0-64, t0-116]
 
     reboot:
       filename: reboot.yml

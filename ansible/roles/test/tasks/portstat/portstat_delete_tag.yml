@@ -1,0 +1,69 @@
+- block:
+  # This command adds some tags, deletes one, verify it's gone but the others exist
+
+  # Makes sure all tags are cleared out
+  - name: Clear out all tags
+    shell: portstat -D
+    ignore_errors: True
+
+  - name: create the test file names
+    set_fact:
+      file_names:
+       - test_1
+       - test_2
+       - test_delete_me
+
+  - name: create the file to be deleted
+    set_fact:
+      file_to_delete: "{{ file_names[2] }}"
+
+  - name: set the list of files to delete to a default value
+    set_fact:
+      files_not_deleted: []
+  
+  - name: create the list of files to not be deleted
+    set_fact:    
+      files_not_deleted: "{{files_not_deleted}}  + ['{{item}}']"
+    with_items: file_names
+    when: file_to_delete != item
+ 
+  - name: create several test stats files
+    shell: portstat -c -t {{ item }}
+    with_items: "{{ file_names }}"
+
+  - name: pull the list of objects out of the directory
+    shell: ls -R /tmp
+    register: ls_out_before
+
+  - name: verify that the file names are in the directory
+    assert:
+      that: ("1000-" + item) in ls_out_before.stdout
+    with_items: "{{ file_names }}"
+
+  - name: run the command to be tested '{{ command }}'
+    shell: "{{ command }} {{ file_to_delete }}"
+
+  - name: pull the list of objects out of the directory
+    shell: ls -R /tmp
+    register: ls_out_after
+
+  - name: verify that the deleted file name is not in the directory
+    assert:
+      that: ("1000-" + file_to_delete) not in ls_out_after.stdout
+  
+  - name: verify that the remaining file names are in the directory
+    assert:
+      that: ("1000-" + item) in ls_out_after.stdout
+    with_items: "{{ files_not_deleted }}"
+
+  rescue:
+  - name: An error occured
+    debug:
+      msg: An error occured
+    
+  always:
+  - name: Clear out all tags
+    shell: portstat -D
+    ignore_errors: True
+
+  
