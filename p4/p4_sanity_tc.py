@@ -494,8 +494,14 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops,sw_conn):
             reply = sw_conn.ReadTableEntries(table_id=table_id)
             for rep in reply:
                 log.info(" READ Reply from DUT")
-                log.info(p4TestLib.repr_pretty_p4runtime(rep))
+                t_entries = p4TestLib.repr_pretty_p4runtime(rep)
+                log.info(t_entries)
             sleep(1)
+
+            print ("Printing Read Entries")
+            vr_lst = t_entries.split("entities")
+            print(vr_lst[1])
+            sleep(2)
 
         except KeyboardInterrupt:
             log.info("Shutting down.")
@@ -655,6 +661,56 @@ def _test_direct_table_crudTests(self, tbl_name, tbl_ops, sw_conn):
                     log.info(" READ Reply from DUT")
                     log.info(p4TestLib.repr_pretty_p4runtime(rep))
 
+
+
+def _test_ingress_l3Fwd_ipv4Vrf_table_crudTests(self, tbl_ops):
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    tbl_input_file = ApData.zap.get_testcase_configuration("test_ingress_l3Fwd_ipv4Vrf_table_crudTests/input_conf_file")
+    with open(tbl_input_file, 'r') as conf_file:
+        input_conf = p4TestLib.json_load_byteified(conf_file)
+    table_name = input_conf['table_name']
+    #action_profile_name = input_conf['action_profile_name']
+    table_id = p4info_helper.get_id("tables", name=table_name)
+    #action_profile_id = p4info_helper.get_id("action_profiles", name=action_profile_name)
+    #print ("AP-ID: ", action_profile_id)
+
+    s1=TchLib.Establish_Switch_Conn(ApData.sw_name)
+
+    if tbl_ops == "INSERT":
+        try:
+            s1.MasterArbitrationUpdate()
+            if 'table_entries' in input_conf:
+                log.info(input_conf)
+                table_entries = input_conf['table_entries']
+                insrt_entrs = [x for x in table_entries if x['entry_oper'] == "INSERT"]
+                log.info("Inserting %d table entries..." % len(insrt_entrs))
+                for entry in insrt_entrs:
+                    #log.info(p4TestLib.tableEntryToString(entry))
+                    log.info("INSERTING ENTRIES FOR TABLE - ingress_l3Fwd_ipv4Vrf_table")
+                    p4TestLib.tableEntryActions(s1, entry, p4info_helper, 'INSERT')
+                    sleep(1)
+
+        except KeyboardInterrupt:
+            log.info("Shutting down.")
+        except grpc.RpcError as e:
+            log.error(e)
+            printGrpcError(e)
+
+
+    elif tbl_ops == "READ":
+        log.info("READING TABLE ENTRIES")
+        try:
+            reply = s1.ReadTableEntries(table_id=table_id)
+            for rep in reply:
+                log.info(" READ Reply from DUT")
+                t_entries = p4TestLib.repr_pretty_p4runtime(rep)
+                log.info(t_entries)
+            sleep(1)
+
+            print ("Printing Read Entries")
+            vr_lst = t_entries.split("entities")
+            print(*vr_lst, sep = "\n")
+            sleep(2)
 
         except KeyboardInterrupt:
             log.info("Shutting down.")
