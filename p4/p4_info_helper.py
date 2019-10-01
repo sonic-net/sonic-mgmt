@@ -165,6 +165,8 @@ class P4InfoHelper(object):
                         default_action=False,
                         action_name=None,
                         action_params=None,
+                        action_member=None,
+                        action_group=None,
                         priority=None):
         table_entry = p4runtime_pb2.TableEntry()
         table_entry.table_id = self.get_tables_id(table_name)
@@ -189,6 +191,11 @@ class P4InfoHelper(object):
                     self.get_action_param_pb(action_name, field_name, value)
                     for field_name, value in action_params.items()
                 ])
+        elif action_member:
+            table_entry.action.action_profile_member_id = action_member
+        elif action_group:
+            table_entry.action.action_profile_group_id = action_group
+
         return table_entry
 
     def get_group_member_info(self, mbr):
