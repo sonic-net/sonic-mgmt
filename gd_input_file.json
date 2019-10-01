@@ -93,6 +93,9 @@
             },
             "test_multicontrollers_non_blocking_tableEdit": {
                 "input_conf_file": "./data-files/ingress-encapin-ipv4-table.json"
+            },
+            "test_ingress_l3Fwd_ipv4Vrf_table_crudTests": {
+                "input_conf_file": "./data-files/ingress-l3fwd-ipv4vrf-table.json"
             }
         },
         "feature_configuration": {
