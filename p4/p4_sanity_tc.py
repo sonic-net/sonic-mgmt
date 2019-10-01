@@ -557,7 +557,6 @@ def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops,sw_conn):
                     log.info(" READ Reply from DUT")
                     log.info(p4TestLib.repr_pretty_p4runtime(rep))
 
-
         except KeyboardInterrupt:
             log.info("Shutting down.")
         except grpc.RpcError as e:
@@ -661,6 +660,14 @@ def _test_direct_table_crudTests(self, tbl_name, tbl_ops, sw_conn):
                     log.info(" READ Reply from DUT")
                     log.info(p4TestLib.repr_pretty_p4runtime(rep))
 
+        except KeyboardInterrupt:
+            log.info("Shutting down.")
+        except grpc.RpcError as e:
+            log.error(e)
+            printGrpcError(e)
+            sw_conn.shutdown()
+    sw_conn.shutdown()
+
 
 
 def _test_ingress_l3Fwd_ipv4Vrf_table_crudTests(self, tbl_ops):
@@ -717,9 +724,7 @@ def _test_ingress_l3Fwd_ipv4Vrf_table_crudTests(self, tbl_ops):
         except grpc.RpcError as e:
             log.error(e)
             printGrpcError(e)
-            sw_conn.shutdown()
-        
-    sw_conn.shutdown()
+
 
 
 def _test_Read_wTableId_Zero(sw_conn):
