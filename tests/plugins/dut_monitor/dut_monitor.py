@@ -30,17 +30,20 @@ def process_cpu(log_file):
         process_consumed = float(line.split()[0])
         total += process_consumed
         if top_consumer_counter:
-            top_consumer_list.append(per_process_template.format(cpu_utilization=process_consumed, process=line.split()[1]))
+            top_consumer_list.append(per_process_template.format(cpu_utilization=process_consumed,
+                                     process=" ".join(line.split()[1:])))
             top_consumer_counter -= 1
 
-    result = general_template.format(timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), total=total) + "\n".join(top_consumer_list)
+    result = general_template.format(timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), total=total) \
+                + "\n".join(top_consumer_list)
     log_file.write(result)
 
 
 def process_ram(log_file):
     """
-    @summary: Fetch RAM utilization and write it to the file. Use 'MemTotal' and 'MemAvailable' from '/proc/meminfo' to obtain used RAM amount.
-    @param log_file: Opened file object to store fetched CPU utilization.
+    @summary: Fetch RAM utilization and write it to the file.
+              Use 'MemTotal' and 'MemAvailable' from '/proc/meminfo' to obtain used RAM amount.
+    @param log_file: Opened file object to store fetched RAM utilization.
     """
     with open('/proc/meminfo') as stream:
         for line in stream:
@@ -51,18 +54,20 @@ def process_ram(log_file):
 
     used = total_mem_in_kb - available_mem_in_kb
     used_percent = used * 100 / total_mem_in_kb
-    log_file.write("\"{date}\": {used_ram}\n".format(date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), used_ram=used_percent))
+    log_file.write("\"{date}\": {used_ram}\n".format(date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                   used_ram=used_percent))
 
 
 def process_hdd(log_file):
     """
     @summary: Fetch used amount of HDD and write it to the file. Execute command defined in FETCH_HDD_CMD.
-    @param log_file: Opened file object to store fetched CPU utilization.
+    @param log_file: Opened file object to store fetched HDD utilization.
     """
     output_line_id = 1
     use_value_id = 4
     hdd_usage = os.popen(FETCH_HDD_CMD).read().split("\n")[output_line_id].split()[use_value_id].rstrip("%")
-    log_file.write("\"{date}\": {used_ram}\n".format(date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), used_ram=hdd_usage))
+    log_file.write("\"{date}\": {used_ram}\n".format(date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                   used_ram=hdd_usage))
 
 
 def main():

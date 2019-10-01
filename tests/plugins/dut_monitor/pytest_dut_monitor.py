@@ -21,7 +21,8 @@ THRESHOLDS = os.path.join(os.path.split(__file__)[0], "thresholds.yml")
 
 def pytest_addoption(parser):
     """Describe plugin specified options"""
-    parser.addoption("--dut_monitor", action="store_true", default=False, help="Enable DUT hardware resources monitoring")
+    parser.addoption("--dut_monitor", action="store_true", default=False,
+                     help="Enable DUT hardware resources monitoring")
     parser.addoption("--thresholds_file", action="store", default=None, help="Path to the custom thresholds file")
 
 
@@ -44,13 +45,15 @@ class DUTMonitorPlugin(object):
     """
     Pytest plugin which defines:
         - pytest fixtures: 'dut_ssh' and 'dut_monitor'
-        - handlers to verify that measured CPU, RAM and HDD values during each test item execution does not exceed defined threshold
+        - handlers to verify that measured CPU, RAM and HDD values during each test item execution
+          does not exceed defined threshold
     """
 
     @pytest.fixture(autouse=True, scope="session")
     def dut_ssh(self, testbed, creds):
         """Establish SSH connection with DUT"""
-        ssh = DUTMonitorClient(host=testbed["dut"], user=creds["sonicadmin_user"], password=creds["sonicadmin_password"])
+        ssh = DUTMonitorClient(host=testbed["dut"], user=creds["sonicadmin_user"],
+                               password=creds["sonicadmin_password"])
         yield ssh
 
     @pytest.fixture(autouse=True, scope="function")
@@ -123,13 +126,14 @@ class DUTMonitorPlugin(object):
         """
         failed = False
         peak_overused = []
-        fail_msg = "RAM thresholds: peak - {}; before/after test difference - {}%\n".format(thresholds["ram_peak"], thresholds["ram_delta"])
+        fail_msg = "\nRAM thresholds: peak - {}; before/after test difference - {}%\n".format(thresholds["ram_peak"],
+                                                                                            thresholds["ram_delta"])
 
         for timestamp, used_ram in ram_meas.items():
             if used_ram > thresholds["ram_peak"]:
                 peak_overused.append((timestamp, used_ram))
         if peak_overused:
-            fail_msg = fail_msg + "\nRAM overuse:\n{}\n".format("\n".join(str(item) for item in peak_overused))
+            fail_msg = fail_msg + "RAM overuse:\n{}\n".format("\n".join(str(item) for item in peak_overused))
             failed = True
 
         # Take first and last RAM measurements
@@ -155,16 +159,25 @@ class DUTMonitorPlugin(object):
         failed = False
         total_overused = []
         process_overused = {}
-        cpu_thresholds = "CPU thresholds: total - {}; per process - {}; average - {}\n".format(thresholds["cpu_total"], thresholds["cpu_process"], thresholds["cpu_total_average"])
+        cpu_thresholds = "CPU thresholds: total - {}; per process - {}; average - {}\n".format(thresholds["cpu_total"],
+                                                            thresholds["cpu_process"],
+                                                            thresholds["cpu_total_average"])
+        average_cpu = "\n> Average CPU consumption during test run {}; Threshold - {}\n"
         fail_msg = ""
         total_sum = 0
         t_format = "%Y-%m-%d %H:%M:%S"
 
         def handle_process_measurements(p_name, t_first, t_last, p_average):
             """Compose fail message if process overuse CPU durig 'cpu_measure_duration' interval."""
+            msg_template = "> Process '{}'\nAverage CPU overuse {} during {} seconds\n{}"
             duration = (t_last - t_first).total_seconds()
+
             if duration >= thresholds["cpu_measure_duration"]:
-                return "> Process '{}'. Average CPU overuse {} during {} seconds\n{}".format(process_name, p_average, duration, "{} - {}\n".format(t_first.strftime(t_format), t_last.strftime(t_format)))
+                return msg_template.format(process_name,
+                                           p_average,
+                                           duration,
+                                           "{} - {}\n".format(t_first.strftime(t_format),
+                                                              t_last.strftime(t_format)))
             return ""
 
         def handle_total_measurements(overused_list):
@@ -174,7 +187,9 @@ class DUTMonitorPlugin(object):
             end = datetime.strptime(overused_list[-1][0], t_format)
 
             if (end - start).total_seconds() >= thresholds["cpu_measure_duration"]:
-                fail_msg = "Total CPU overuse during {} seconds.\n{}\n\n".format((end - start).total_seconds(), "\n".join([str(item) for item in overused_list]))
+                fail_msg = "Total CPU overuse during {} seconds.\n{}\n\n".format((end - start).total_seconds(),
+                "\n".join([str(item) for item in overused_list])
+                )
             del overused_list[0:]
             return fail_msg
 
@@ -212,15 +227,21 @@ class DUTMonitorPlugin(object):
                     if (2 <= (t_stamp - timestamps[-1]).total_seconds() <= 3):
                             timestamps.append(t_stamp)
                             if m_id == (len(process_consumption) - 1):
-                                fail_msg += handle_process_measurements(p_name=process_name, t_first=timestamps[0], t_last=timestamps[-1], p_average=process_sum / len(timestamps))
+                                fail_msg += handle_process_measurements(p_name=process_name,
+                                                                        t_first=timestamps[0],
+                                                                        t_last=timestamps[-1],
+                                                                        p_average=process_sum / len(timestamps))
                     else:
-                        fail_msg += handle_process_measurements(p_name=process_name, t_first=timestamps[0], t_last=timestamps[-1], p_average=process_sum / len(timestamps))
+                        fail_msg += handle_process_measurements(p_name=process_name,
+                                                                t_first=timestamps[0],
+                                                                t_last=timestamps[-1],
+                                                                p_average=process_sum / len(timestamps))
                         timestamps = []
                         process_sum = 0
 
         # Calculate average CPU utilization
         if (total_sum / len(cpu_meas)) > thresholds["cpu_total_average"]:
-            fail_msg += "\n> Average CPU consumption during test run {}; Threshold - {}\n".format(total_sum / len(cpu_meas), thresholds["cpu_total_average"])
+            fail_msg += average_cpu.format(total_sum / len(cpu_meas), thresholds["cpu_total_average"])
 
         if fail_msg:
             raise CPUThresholdExceeded(cpu_thresholds + fail_msg)
@@ -250,9 +271,9 @@ class DUTMonitorClient(object):
         """
         while True:
             try:
-                self.ssh.exec_command("ls", timeout=5)
+                self.ssh.exec_command("true", timeout=5)
             except (paramiko.SSHException, AttributeError):
-                logger.warning("SSH connection droped")
+                logger.warning("SSH connection dropped")
                 logger.debug("Trying to reconnect...")
                 self.close()
                 try:
@@ -291,7 +312,8 @@ class DUTMonitorClient(object):
 
     def exec_command(self, cmd, timeout=None):
         """
-        @summary: Execute a command on the DUT and track possible connectivity issues. A new Channel is opened and the requested command is executed
+        @summary: Execute a command on the DUT and track possible connectivity issues.
+                  A new Channel is opened and the requested command is executed
         """
         try:
             return self.ssh.exec_command(cmd, timeout=timeout, get_pty=True)
@@ -302,11 +324,12 @@ class DUTMonitorClient(object):
 
     def start(self):
         """
-        @summary: Start HW resources monitoring on the DUT. Write obtained values to the following files on the DUT: DUT_CPU_LOG, DUT_RAM_LOG, DUT_HDD_LOG
+        @summary: Start HW resources monitoring on the DUT.
+                  Write obtained values to the following files on the DUT: DUT_CPU_LOG, DUT_RAM_LOG, DUT_HDD_LOG
         """
         self.running = True
         self._upload_to_dut()
-        logger.debug("Start HW resuorces monitoring on the DUT...")
+        logger.debug("Start HW resources monitoring on the DUT...")
 
         self.run_channel = self.ssh.get_transport().open_session()
         self.run_channel.get_pty()
