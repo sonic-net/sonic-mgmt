@@ -1,6 +1,8 @@
 #------------------------------------
 # Test the PFC restore action
 # Iterate the test over a list of lossless queues
+# 1. Verify restore is detected via syslog entry analysis on the dut
+# 2. Verity the forward action on both ingress and egress via ptf dataplane traffic test
 #------------------------------------
 
 - name: Set fact for item values
