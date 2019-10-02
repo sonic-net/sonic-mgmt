@@ -268,6 +268,12 @@ testcases:
       required_vars:
           ptf_host:
 
+    wr_arp:
+      filename: wr_arp.yml
+      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116]
+      required_vars:
+          ptf_host:
+
     vnet_vxlan:
       filename: vnet_vxlan.yml
       topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116]
