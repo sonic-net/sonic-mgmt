@@ -7,6 +7,8 @@ https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 import logging
 import re
 import time
+import os
+import sys
 
 import pytest
 
@@ -37,6 +39,24 @@ def test_show_platform_summary(testbed_devices):
         "Unexpected output fields, actual=%s, expected=%s" % (str(actual_fields), str(expected_fields))
 
 
+def check_vendor_specific_psustatus(dut, psu_status_line):
+    """
+    @summary: Vendor specific psu status check
+    """
+    if dut.facts["asic_type"] in ["mellanox"]:
+        current_file_dir = os.path.dirname(os.path.realpath(__file__))
+        sub_folder_dir = os.path.join(current_file_dir, "mellanox")
+        if sub_folder_dir not in sys.path:
+            sys.path.append(sub_folder_dir)
+        from check_sysfs import check_psu_sysfs
+
+        psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
+        psu_match = psu_line_pattern.match(psu_status_line)
+        psu_id = psu_match.group(1)
+        psu_status = psu_match.group(2)
+
+        check_psu_sysfs(dut, psu_id, psu_status)
+
 def test_show_platform_psustatus(testbed_devices):
     """
     @summary: Check output of 'show platform psustatus'
@@ -45,9 +65,10 @@ def test_show_platform_psustatus(testbed_devices):
 
     logging.info("Check PSU status using '%s', hostname: %s" % (CMD_PLATFORM_PSUSTATUS, ans_host.hostname))
     psu_status = ans_host.command(CMD_PLATFORM_PSUSTATUS)
-    psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK)")
+    psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
     for line in psu_status["stdout_lines"][2:]:
         assert psu_line_pattern.match(line), "Unexpected PSU status output"
+        check_vendor_specific_psustatus(ans_host, line)
 
 
 def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller):
@@ -108,6 +129,7 @@ def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller):
             fields = line.split()
             if fields[2] != "OK":
                 psu_under_test = fields[1]
+            check_vendor_specific_psustatus(ans_host, line)
         assert psu_under_test is not None, "No PSU is turned off"
 
         logging.info("Turn on PSU %s" % str(psu["psu_id"]))
@@ -120,6 +142,7 @@ def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller):
             fields = line.split()
             if fields[1] == psu_under_test:
                 assert fields[2] == "OK", "Unexpected PSU status after turned it on"
+            check_vendor_specific_psustatus(ans_host, line)
 
         psu_test_results[psu_under_test] = True
 

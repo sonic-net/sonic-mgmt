@@ -177,3 +177,30 @@ def check_sysfs(dut):
             assert sfp_temp_crit < sfp_temp_emergency, "Wrong SFP critical temp or emergency temp, " \
                                                        "critical temp: %s emergency temp: %s" \
                                                        % (str(sfp_temp_crit), str(sfp_temp_emergency))
+
+def check_psu_sysfs(dut, psu_id, psu_state):
+    """
+    @summary: Check psu related sysfs under /var/run/hw-management/thermal against psu_state
+    """
+    psu_exist = "/var/run/hw-management/thermal/psu%s_status" % psu_id
+    if psu_state == "NOT PRESENT":
+        psu_exist_content = dut.command("cat %s" % psu_exist)
+        logging.info("PSU state %s file %s read %s" % (psu_state, psu_exist, psu_exist_content["stdout"]))
+        assert psu_exist_content["stdout"] == "0", "CLI returns NOT PRESENT while %s contains %s" %  \
+                    (psu_exist, psu_exist_content["stdout"])
+    else:
+        from common.mellanox_data import SWITCH_MODELS
+        dut_hwsku = dut.facts["hwsku"]
+        hot_swappabe = SWITCH_MODELS[dut_hwsku]["psus"]["hot_swappable"]
+        if hot_swappabe:
+            psu_exist_content = dut.command("cat %s" % psu_exist)
+            logging.info("PSU state %s file %s read %s" % (psu_state, psu_exist, psu_exist_content["stdout"]))
+            assert psu_exist_content["stdout"] == "1", "CLI returns %s while %s contains %s" %  \
+                        (psu_state, psu_exist, psu_exist_content["stdout"])
+
+        psu_pwr_state = "/var/run/hw-management/thermal/psu%s_pwr_status" % psu_id
+        psu_pwr_state_content = dut.command("cat %s" % psu_pwr_state)
+        logging.info("PSU state %s file %s read %s" % (psu_state, psu_pwr_state, psu_pwr_state_content["stdout"]))
+        assert (psu_pwr_state_content["stdout"] == "1" and psu_state == "OK") \
+                or (psu_pwr_state_content["stdout"] == "0" and psu_state == "NOT OK"),\
+            "sysfs content %s mismatches with psu_state %s" % (psu_pwr_state_content["stdout"], psu_state)
