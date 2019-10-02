@@ -12,10 +12,6 @@
         - lldp-syncd
         - lldpd
 
-    - name: Disable Mellanox copp rate limiting
-      script: roles/test/files/mlnx/disable_copp_rate_limiting.sh
-      when: minigraph_hwsku is defined and minigraph_hwsku == 'ACS-MSN2700'
-
     - name: Remove existing ip from ptf host
       script: roles/test/files/helpers/remove_ip.sh
       delegate_to: "{{ ptf_host }}"

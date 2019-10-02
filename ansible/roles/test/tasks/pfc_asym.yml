@@ -46,13 +46,10 @@
       - arp_responder_args: '-c /tmp/arp_responder_pfc_asym.json'
     delegate_to: "{{ ptf_host }}"
 
-  - name: Reread supervisor configuration
-    shell: /usr/local/bin/supervisorctl reread
-    delegate_to: "{{ptf_host}}"
-
   - name: Update supervisor configuration
-    shell: /usr/local/bin/supervisorctl update
-    delegate_to: "{{ ptf_host }}"
+    include: "roles/test/tasks/common_tasks/update_supervisor.yml"
+    vars:
+      supervisor_host: "{{ ptf_host }}"
 
   # Copy tests to PTF host
 
@@ -214,7 +211,7 @@
     connection: switch
 
   - name: Enable asymmetric PFC on all server interfaces
-    command: config interface {{ item.dut_name }} pfc asymmetric on
+    command: config interface pfc asymmetric {{ item.dut_name }} on
     become: yes
     with_items: '{{ server_ports }}'
 
@@ -266,7 +263,7 @@
   always:
 
     - name: Disable asymmetric PFC on all server interfaces
-      command: config interface {{ item.dut_name }} pfc asymmetric off
+      command: config interface pfc asymmetric {{ item.dut_name }} off
       become: yes
       with_items: '{{ server_ports }}'
 

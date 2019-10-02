@@ -1,0 +1,87 @@
+- block:
+
+    - name:  show priority-group persistent-watermark shared  in {{mode}} mode
+      shell:  show priority-group persistent-watermark shared
+      register: show_pg
+
+    - debug: var=show_pg.stdout_lines
+
+    - name: Check "show priority-group persistent-watermark shared" in alias  mode
+      assert:
+        that:
+          - show_pg.stdout | search("{{item}}.*")
+      with_items: upport_alias_list
+      when:  mode=='alias'
+
+    - name: Check "show priority-group persistent-watermark shared" in default mode
+      assert:
+        that:
+          - show_pg.stdout | search("{{item}}.*")
+      with_items: up_ports
+      when:  mode=='default'
+
+    - name:  show priority-group persistent-watermark headroom in {{mode}} mode
+      shell:  show priority-group persistent-watermark headroom
+      register: show_pg
+
+    - debug: var=show_pg.stdout_lines
+
+    - name: Check "show priority-group persistent-watermark headroom" in alias  mode
+      assert:
+        that:
+          - show_pg.stdout | search("{{item}}.*")
+      with_items: upport_alias_list
+      when:  mode=='alias'
+
+    - name: Check "show priority-group persistent-watermark headroom" in default mode
+      assert:
+        that:
+          - show_pg.stdout | search("{{item}}.*")
+      with_items: up_ports
+      when:  mode=='default'
+
+
+    - name:  show priority-group watermark shared  in {{mode}} mode
+      shell:  show priority-group watermark shared
+      register: show_pg
+
+    - debug: var=show_pg.stdout_lines
+
+    - name: Check "show priority-group watermark shared" in alias  mode
+      assert:
+        that:
+          - show_pg.stdout | search("{{item}}.*")
+      with_items: upport_alias_list
+      when:  mode=='alias'
+
+    - name: Check "show priority-group watermark shared" in default mode
+      assert:
+        that:
+          - show_pg.stdout | search("{{item}}.*")
+      with_items: up_ports
+      when:  mode=='default'
+
+    - name:  show priority-group watermark headroom in {{mode}} mode
+      shell:  show priority-group watermark headroom
+      register: show_pg
+
+    - debug: var=show_pg.stdout_lines
+
+    - name: Check "show priority-group watermark headroom" in alias  mode
+      assert:
+        that:
+          - show_pg.stdout | search("{{item}}.*")
+      with_items: upport_alias_list
+      when:  mode=='alias'
+
+    - name: Check "show priority-group watermark headroom" in default mode
+      assert:
+        that:
+          - show_pg.stdout | search("{{item}}.*")
+      with_items: up_ports
+      when:  mode=='default'
+
+# As the ansible work in non interactive mode, it doesnt read the environmental varaiable set in bashrc file. Hence as a workaround, the variable is  extracted through check_userifmode.yml and manually set the variable 'SONIC_CLI_IFACE_MODE' to take effect.
+
+  environment:
+      SONIC_CLI_IFACE_MODE: "{{ifmode}}"

@@ -19,13 +19,10 @@
     - arp_responder_args: ''
   delegate_to: "{{ ptf_host }}"
 
-- name: Reread supervisor configuration
-  shell: /usr/local/bin/supervisorctl reread
-  delegate_to: "{{ptf_host}}"
-
 - name: Update supervisor configuration
-  shell: /usr/local/bin/supervisorctl update
-  delegate_to: "{{ ptf_host }}"
+  include: "roles/test/tasks/common_tasks/update_supervisor.yml"
+  vars:
+    supervisor_host: "{{ ptf_host }}"
 
 - name: Copy tests to the PTF container
   copy: src=roles/test/files/ptftests dest=/root
@@ -42,6 +39,6 @@
           - vlan_ports_list = \"{{ vlan_ports_list }}\"
           - vlan_intf_list = \"{{ vlan_intf_list }}\"
           - router_mac = \"{{ ansible_Ethernet0['macaddress'] }}\"
-        ptf_extra_options: "--relax --debug info --log-file /tmp/vlan_test.log" 
+        ptf_extra_options: "--relax --debug info --log-file /tmp/vlan_test.log"
   rescue:
     - debug: msg="PTF test raise error"

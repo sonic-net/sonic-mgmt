@@ -1,0 +1,29 @@
+- name: get arp , ndp facts
+  switch_arptable:
+
+- debug: var=arptable['v6']
+
+# As the ansible work in non interactive mode, it doesnt read the environmental varaiable set in bashrc file. Hence as a workaround, the variable is  extracted through check_userifmode.yml and manually set the variable 'SONIC_CLI_IFACE_MODE' to take effect.
+
+- name: Get the output of show ndp command in {{mode}} mode
+  shell: show ndp
+  register: ndp_output
+  environment:
+    SONIC_CLI_IFACE_MODE: "{{ifmode}}"
+
+- debug: var=ndp_output
+
+- name: Check the output shows default interface  names corresponding to the neighbor
+  assert:
+    that:
+    - ndp_output.stdout | search("{{item}}.*\s+{{arptable['v6'][item]['interface']}}")
+  with_items: arptable['v6']
+  when: arptable['v6'][item]['interface']!='eth0' and mode=='default'
+
+- name: Check the output shows alias interface  names corresponding to the neighbor
+  assert:
+    that:
+    - ndp_output.stdout | search("{{item}}.*\s+{{port_name_map[arptable['v6'][item]['interface']]}}")
+  with_items: arptable['v6']
+  when: arptable['v6'][item]['interface']!='eth0' and mode =='alias'
+

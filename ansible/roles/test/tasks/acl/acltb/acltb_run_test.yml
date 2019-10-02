@@ -1,0 +1,28 @@
+
+- set_fact:
+    test_basic: true
+  when: test_basic is not defined
+
+- set_fact:
+    acl_table_name: DATAINGRESS
+  when: acl_stage == 'ingress'
+
+- set_fact:
+    acl_table_name: DATAEGRESS
+  when: acl_stage == 'egress'
+
+- set_fact:
+    acl_rules_skip_counters_check: ['RULE_8', 'RULE_21', 'RULE_27', 'RULE_28', 'DEFAULT_RULE']
+
+- name: Run sonic-cfggen to add ACL table
+  command: sonic-cfggen -j {{ dut_tmp_dir }}/acl_table_{{ acl_table_name }}.json --write-to-db
+  become: yes
+
+- include: "roles/test/tasks/acl/acltb/acltb_test_basic.yml"
+  when: test_basic is defined and test_basic|bool == true
+
+- include: "roles/test/tasks/acl/acltb/acltb_test_port_toggle.yml"
+  when: test_port_toggle is defined and test_port_toggle|bool == true
+
+- include: "roles/test/tasks/acl/acltb/acltb_test_reboot.yml"
+  when: test_reboot is defined and test_reboot|bool == true

@@ -43,7 +43,7 @@
 
 - name: Expand properties into props
   set_fact: props="{{configuration_properties['common']}}"
-  when: testbed_type in ['t0', 't0-64', 't0-116']
+  when: testbed_type in ['t0', 't0-52', 't0-64', 't0-116']
 
 - name: Expand properties into props
   set_fact: props_tor="{{configuration_properties['tor']}}"
@@ -65,12 +65,7 @@
   debug: msg="Loopback IPs {{ lo_ip }}, {{ lo_ipv6 }}"
 
 # Generate file with BGP routes information
-- template: src=roles/test/templates/fib.j2 dest=/tmp/fib_info.txt
-  connection: local
-
-# Copy the fib_info to ptf container
-- template: src=/tmp/fib_info.txt dest=/root
-  connection: local
+- template: src=roles/test/templates/fib.j2 dest=/root/fib_info.txt
   delegate_to: "{{ ptf_host }}"
 
 - set_fact: outer_ipv4=True

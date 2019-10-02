@@ -1,3 +1,5 @@
-- name: Restart the box
-  command: /sbin/shutdown -r now "Ansible updates triggered"
+# Notify handlers are always run in the same order they are defined, not in the order listed in the notify-statement.
+# This is also the case for handlers using listen.
 
+- name: Update VM state
+  include: roles/eos/handlers/common_handlers/update_state.yml

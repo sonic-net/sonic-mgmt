@@ -48,48 +48,17 @@
   when: vm_name not in vm_list_running.list_vms or vm_name in respin_vms
   become: yes
 
-- name: Wait until vm {{ vm_name }} is loaded
-  kickstart: telnet_port={{ serial_port }}
-             login={{ eos_default_login }}
-             password={{ eos_default_password }}
-             hostname={{ hostname }}
-             mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
-             mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
-             new_login={{ eos_login }}
-             new_password={{ eos_password }}
-             new_root_password={{ eos_root_password }}
-  register: kickstart_output
-  when: vm_name not in vm_list_running.list_vms or vm_name in respin_vms
+# Some testbed may have issue of starting multiple VMs in parallel, this pause is a workaround for this issue
+# A better solution should have been used. But the current used ansible v2.0 has issue with nested loops:
+# https://github.com/ansible/ansible/issues/14146 So, we can only use this simple workaround for the parallel
+# VM starting issue.
 
-- name: Destroy vm {{ vm_name }} if it hangs
-  virt: name={{ vm_name }}
-        command=destroy
-        uri=qemu:///system
-  when: vm_name not in vm_list_running.list_vms and kickstart_output.kickstart_code != 0
-  become: yes
+- name: Find out VM index
+  set_fact:
+    vm_index: "{{ VM_hosts.index(vm_name)|int + 1 }}"
 
-- name: Start vm again {{ vm_name }}
-  virt: name={{ vm_name }}
-        state=running
-        uri=qemu:///system
-  when: vm_name not in vm_list_running.list_vms and kickstart_output.kickstart_code != 0
-  become: yes
-
-- name: Wait until vm {{ vm_name }} is loaded
-  kickstart: telnet_port={{ serial_port }}
-             login={{ eos_default_login }}
-             password={{ eos_default_password }}
-             hostname={{ hostname }}
-             mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
-             mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
-             new_login={{ eos_login }}
-             new_password={{ eos_password }}
-             new_root_password={{ eos_root_password }}
-  register: kickstart_output_final
-  when: vm_name not in vm_list_running.list_vms and kickstart_output.kickstart_code != 0
-
-- name: Fail if kickstart gives error again vm {{ vm_name }}
-  fail: msg="Two attempts to start vm weren't succesfull"
-  when: '"skipped" in kickstart_output_final and "kickstart_code" in kickstart_output_final and kickstart_output_final.kickstart_code != 0'
-
-
+- name: "Pause after started every {{ batch_size }} VMs"
+  pause: seconds="{{ interval }}"
+  when:
+    - "{{ vm_index }} % {{ batch_size }} == 0"
+    - "{{ interval }} > 0"

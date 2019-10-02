@@ -1,1 +1,1 @@
-r, ".* ERR ntpd.*: routing socket reports: No buffer space available"
+r, ".* ERR ntpd.*routing socket reports: No buffer space available.*"
