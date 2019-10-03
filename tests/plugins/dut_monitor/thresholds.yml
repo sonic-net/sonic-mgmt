@@ -1,4 +1,12 @@
-# Required field. Used when test run performed on setup which is not defined below.
+# Thresholds example per platform or HWSKU
+# [ONIE platform]:
+#   hwsku:
+#     [HWSKU]:
+#       [THRESHOLD_FIELD]: [VALUE]
+#   default:
+#     [THRESHOLD_FIELD]: [VALUE]
+
+# Defaults. Required field.
 default:
   cpu_total: 90
   cpu_process: 60
@@ -7,10 +15,3 @@ default:
   ram_peak: 80
   ram_delta: 1
   hdd_used: 80
-
-x86_64-mlnx_msn2011-r0:
-  hwsku:
-    ACS-MSN2010:
-      ram_peak: 85
-  default:
-    cpu_total_average: 85
