@@ -8,7 +8,7 @@
     test_fetch_dir: test/{{ inventory_hostname }}
 
 # Output content of result files to ansible console
-- shell: cat {{ test_out_dir }}/*
+- shell: cat {{ test_out_dir }}/{{ result_file }} {{ test_out_dir }}/{{ summary_file }}
   register: out
 - debug: var=out.stdout_lines
 
