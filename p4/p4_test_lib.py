@@ -180,7 +180,7 @@ def tableEntryActions(sw, flow, p4info_helper, action, **kwargs):
     action_name = flow.get('action_name') # None if not found
     default_action = flow.get('default_action') # None if not found
     action_params = flow.get('action_params') # None if not found
-    action_member = flow['action_member'] # None if not found
+    action_member = flow.get('action_member') # None if not found
     action_group = flow.get('action_group') # None if not found
     priority = flow.get('priority')  # None if not found
     oper = flow.get('operation') # None if not found

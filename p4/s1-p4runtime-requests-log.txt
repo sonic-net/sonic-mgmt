@@ -1,0 +1,132 @@
+
+[2019-10-03 02:12:56.885] /p4.v1.P4Runtime/Write
+---
+election_id {
+  low: 1
+}
+updates {
+  type: DELETE
+  entity {
+    table_entry {
+      table_id: 33554436
+      match {
+        field_id: 1
+        exact {
+          value: "\000\001"
+        }
+      }
+      match {
+        field_id: 2
+        lpm {
+          value: "\n\001\001\013"
+          prefix_len: 32
+        }
+      }
+      action {
+        action_profile_member_id: 1
+      }
+    }
+  }
+}
+---
+
+[2019-10-03 02:12:57.895] /p4.v1.P4Runtime/Write
+---
+election_id {
+  low: 1
+}
+updates {
+  type: DELETE
+  entity {
+    table_entry {
+      table_id: 33554436
+      match {
+        field_id: 1
+        exact {
+          value: "\000\002"
+        }
+      }
+      match {
+        field_id: 2
+        lpm {
+          value: "\n\002\002\002"
+          prefix_len: 32
+        }
+      }
+      action {
+        action_profile_member_id: 2
+      }
+    }
+  }
+}
+---
+
+[2019-10-03 02:12:58.904] /p4.v1.P4Runtime/Write
+---
+election_id {
+  low: 1
+}
+updates {
+  type: DELETE
+  entity {
+    action_profile_member {
+      action_profile_id: 285212673
+      member_id: 1
+      action {
+        action_id: 16777222
+        params {
+          param_id: 1
+          value: "\000\001"
+        }
+        params {
+          param_id: 2
+          value: "\016\205\220\225(;"
+        }
+        params {
+          param_id: 3
+          value: "\016\205\220\225(K"
+        }
+        params {
+          param_id: 4
+          value: "\n"
+        }
+      }
+    }
+  }
+}
+---
+
+[2019-10-03 02:12:58.917] /p4.v1.P4Runtime/Write
+---
+election_id {
+  low: 1
+}
+updates {
+  type: DELETE
+  entity {
+    action_profile_member {
+      action_profile_id: 285212673
+      member_id: 2
+      action {
+        action_id: 16777222
+        params {
+          param_id: 1
+          value: "\000\002"
+        }
+        params {
+          param_id: 2
+          value: "\016\205\220\225(+"
+        }
+        params {
+          param_id: 3
+          value: "\016\205\220\225(\033"
+        }
+        params {
+          param_id: 4
+          value: "\n"
+        }
+      }
+    }
+  }
+}
+---

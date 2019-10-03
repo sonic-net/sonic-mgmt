@@ -35,6 +35,7 @@ import p4_info_helper
 import p4_test_lib as p4TestLib
 
 def Establish_Switch_Conn(sw_name):
+    log.info("Establish Switch Connection : %s " % sw_name)
     try:
         # Create a switch connection object for s1 (switch 1)
         # this is backed by a P4Runtime gRPC connection.
@@ -64,14 +65,14 @@ def blocking_table_play(name):
     try:
         ns1=Establish_Switch_Conn(name)
         sw_name = ns1
-        if "s1" in name:
-            log.info("Controller s1: Sending Election ID High=22 & Low=333")
+        if "sw1" in name:
+            log.info("Controller sw1: Sending Election ID High=22 & Low=333")
             ns1.MasterArbitrationUpdate(election_id_high=22, election_id_low=333)
             election_id_low=333
             election_id_high=22
         else:
             #sleep(10)
-            log.info("Controller s2: Sending Election ID High=11 & Low=222")
+            log.info("Controller sw2: Sending Election ID High=11 & Low=222")
             ns1.MasterArbitrationUpdate(election_id_high=11, election_id_low=222)
             election_id_low=222
             election_id_high=11
@@ -202,3 +203,28 @@ def non_blocking_table_play(name):
 
     result["status"] = True
     return result
+
+def action_profile_members(mode, sw_conn, input_conf, p4info_helper):
+    log.info("Proc: Action profile Members")
+    
+    try:       
+        # Create Members
+        if 'member_entries' in input_conf:
+            members = input_conf['member_entries']
+            entrs = [x for x in members if x['entry_oper'] == mode]
+            log.info("{mode} {num} members ...".format(num=len(entrs),mode=mode.upper()))
+            for entry in entrs:
+                log.info("{mode} a member ".format(mode=mode.upper()))
+                p4TestLib.memberActions(sw_conn,entry,p4info_helper, mode)
+                member_id = entry["member_id"]
+                if ('DELETE' not in mode):
+                    reply = sw_conn.ReadActionProfileMember(member_id=member_id)
+                    for rep in reply:
+                        log.info(p4TestLib.repr_pretty_p4runtime(rep))
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test failed due to Grpc Error {err}".format(err=e.details()))

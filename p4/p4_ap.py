@@ -40,7 +40,7 @@ import tc_helper_lib as TchLib
 SWITCH_TO_HOST_PORT = 1
 SWITCH_TO_SWITCH_PORT = 2
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def sw_conn():
     sw_conn = None
     p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
@@ -72,20 +72,8 @@ def sw_conn():
 class TestP4(P4ApBase):
 
 
-    @pytest.mark.parametrize("tbl_ops", ["INSERT", "READ"])
-    def test_ingress_l3Fwd_ipv4Vrf_table_crudTests(self, tbl_ops):
-        p4_san_tc._test_ingress_l3Fwd_ipv4Vrf_table_crudTests(self, tbl_ops)
-
-'''
-
     def test_setForwarding_pipeline_config(self):
         p4_san_tc._test_setForwarding_pipeline_config()
-
-
-    @pytest.mark.parametrize("tbl_ops", ["INSERT"])
-    def test_ingress_l3Fwd_ipv4Vrf_table_crudTests(self, tbl_ops):
-        p4_san_tc._test_ingress_l3Fwd_ipv4Vrf_table_crudTests(self, tbl_ops)
-
 
     @pytest.mark.parametrize("tbl_ops", ["INSERT", "READ", "MODIFY"])
     def test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops,sw_conn):
@@ -95,6 +83,11 @@ class TestP4(P4ApBase):
     @pytest.mark.parametrize("tbl_name", ["ingress.encap.encap_in_ipv4_table"])
     def test_direct_table_crudTests(self, tbl_name, tbl_ops,sw_conn):
         p4_san_tc._test_direct_table_crudTests(self, tbl_name, tbl_ops,sw_conn)
+
+    @pytest.mark.parametrize("tbl_ops", ["INSERT", "READ", "MODIFY", "DELETE"])
+    @pytest.mark.parametrize("tbl_name", ["ingress.l3_fwd.l3_ipv4_vrf_table"])
+    def test_indirect_table_crudTests(self, tbl_name, tbl_ops, sw_conn):
+        p4_san_tc._test_indirect_table_crudTests(self, tbl_name, tbl_ops,sw_conn)
 
     def test_p4_sanity(self,sw_conn):
         p4_san_tc._test_p4_sanity(sw_conn)
@@ -122,10 +115,11 @@ class TestP4(P4ApBase):
     def test_action_profile_groups(self,mode,sw_conn):
         p4_san_tc._test_action_profile_groups(mode,sw_conn)
 
+    
     def test_Read_wTableId_Zero(self,sw_conn):
         p4_san_tc._test_Read_wTableId_Zero(sw_conn)
 
-    def test_multicontrollers_blocking_tableEdit(self,sw_conn):
+    def test_multicontrollers_blocking_tableEdit(self):
         p4_san_tc._test_multicontrollers_blocking_tableEdit()
 
     def test_multicontrollers_non_blocking_tableEdit(self,sw_conn):

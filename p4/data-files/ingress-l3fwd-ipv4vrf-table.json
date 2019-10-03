@@ -34,12 +34,33 @@
       },
       "action_member": 3,
       "priority": 0
+    },
+    {
+      "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+      "entry_oper": "DELETE",
+      "match": {
+        "local_metadata.vrf_id": 1,
+        "hdr.ipv4_base.dst_addr": ["10.1.1.11", 32]
+      },
+      "action_member": 1,
+      "priority": 0
+    },
+    {
+      "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+      "entry_oper": "DELETE",
+      "match": {
+        "local_metadata.vrf_id": 2,
+        "hdr.ipv4_base.dst_addr": ["10.2.2.2", 32]
+      },
+      "action_member": 2,
+      "priority": 0
     }
   ],
   "member_entries": [
         {
             "member_id": 1,
             "entry_oper": "INSERT",
+            "action_profile_id": 285212673,
             "action_profile_name": "ingress.l3_fwd.l3_action_profile",
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": 
@@ -53,6 +74,7 @@
         {
             "member_id": 2,
             "entry_oper": "INSERT",
+            "action_profile_id": 285212673,
             "action_profile_name": "ingress.l3_fwd.l3_action_profile",
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": 
@@ -62,6 +84,34 @@
                     "dmac": "0e:85:90:95:28:1b",
                     "l3_class_id": 10
                 }
-        }
+        },
+        {
+          "member_id": 1,
+          "entry_oper": "DELETE",
+          "action_profile_id": 285212673,
+          "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+          "action_name": "ingress.l3_fwd.set_nexthop",
+          "action_params": 
+              {
+                  "port": 1,
+                  "smac": "0e:85:90:95:28:3b",
+                  "dmac": "0e:85:90:95:28:4b",
+                  "l3_class_id": 10
+              }
+      },
+      {
+          "member_id": 2,
+          "entry_oper": "DELETE",
+          "action_profile_id": 285212673,
+          "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+          "action_name": "ingress.l3_fwd.set_nexthop",
+          "action_params": 
+              {
+                  "port": 2,
+                  "smac": "0e:85:90:95:28:2b",
+                  "dmac": "0e:85:90:95:28:1b",
+                  "l3_class_id": 10
+              }
+      }
     ]
 }
