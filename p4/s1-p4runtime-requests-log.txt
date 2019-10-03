@@ -1,5 +1,5 @@
 
-[2019-10-03 02:12:56.885] /p4.v1.P4Runtime/Write
+[2019-10-03 02:26:38.393] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -30,7 +30,7 @@ updates {
 }
 ---
 
-[2019-10-03 02:12:57.895] /p4.v1.P4Runtime/Write
+[2019-10-03 02:26:39.404] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -61,7 +61,7 @@ updates {
 }
 ---
 
-[2019-10-03 02:12:58.904] /p4.v1.P4Runtime/Write
+[2019-10-03 02:26:40.414] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -96,7 +96,7 @@ updates {
 }
 ---
 
-[2019-10-03 02:12:58.917] /p4.v1.P4Runtime/Write
+[2019-10-03 02:26:40.424] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1

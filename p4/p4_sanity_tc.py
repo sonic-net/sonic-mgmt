@@ -678,7 +678,8 @@ def _test_indirect_table_crudTests(self, tbl_name,tbl_ops,sw_conn):
     sw_conn.MasterArbitrationUpdate()
 
     p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
-    tbl_input_file = ApData.zap.get_testcase_configuration("test_ingress_l3Fwd_ipv4Vrf_table_crudTests/input_conf_file")
+    conf_file = "indirect_table_tests/" + tbl_name + "/input_conf_file"
+    tbl_input_file = ApData.zap.get_testcase_configuration(conf_file)
     with open(tbl_input_file, 'r') as conf_file:
         input_conf = p4TestLib.json_load_byteified(conf_file)
     table_id = p4info_helper.get_id("tables", name=tbl_name)
