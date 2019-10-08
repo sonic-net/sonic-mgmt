@@ -168,9 +168,8 @@ def check_sysfs_psu(dut):
     from common.mellanox_data import SWITCH_MODELS
     psu_count = SWITCH_MODELS[dut.facts["hwsku"]]["psus"]["number"]
 
-    if SWITCH_MODELS[dut.facts["hwsku"]]["psus"]["hot_swappable"]:
-        for psu_id in range(1, psu_count + 1):
-            check_psu_status_sysfs_consistency(dut, psu_id, 'OK')
+    for psu_id in range(1, psu_count + 1):
+        check_psu_status_sysfs_consistency(dut, psu_id, 'OK')
 
 
 def check_sysfs_qsfp(dut, interfaces):
