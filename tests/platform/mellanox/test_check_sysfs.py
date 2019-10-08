@@ -5,6 +5,7 @@ This script covers the test case 'Check SYSFS' in the SONiC platform test plan:
 https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import logging
+import os
 
 try:
     from platform_fixtures import conn_graph_facts

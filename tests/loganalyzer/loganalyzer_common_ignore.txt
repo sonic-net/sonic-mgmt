@@ -1,0 +1,2 @@
+r, ".* ERR ntpd.*routing socket reports: No buffer space available.*"
+r, ".* ERR snmp.*ERROR: MIBUpdater.*"
