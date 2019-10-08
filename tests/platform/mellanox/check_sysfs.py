@@ -134,17 +134,42 @@ def check_sysfs_cpu(dut):
         assert cpu_core_temp < cpu_core_max_temp, "CPU core%d overheated, temp: %s" % (core_id, str(cpu_core_temp))
 
 
+def check_psu_status_sysfs_consistency(dut, psu_id, psu_state):
+    """
+    @summary: Check psu related sysfs under /bsp/module against psu_state
+    """
+    psu_exist = "/bsp/module/psu%s_status" % psu_id
+    if psu_state == "NOT PRESENT":
+        psu_exist_content = dut.command("cat %s" % psu_exist)
+        logging.info("PSU state %s file %s read %s" % (psu_state, psu_exist, psu_exist_content["stdout"]))
+        assert psu_exist_content["stdout"] == "0", "CLI returns NOT PRESENT while %s contains %s" %  \
+                    (psu_exist, psu_exist_content["stdout"])
+    else:
+        from common.mellanox_data import SWITCH_MODELS
+        dut_hwsku = dut.facts["hwsku"]
+        hot_swappabe = SWITCH_MODELS[dut_hwsku]["psus"]["hot_swappable"]
+        if hot_swappabe:
+            psu_exist_content = dut.command("cat %s" % psu_exist)
+            logging.info("PSU state %s file %s read %s" % (psu_state, psu_exist, psu_exist_content["stdout"]))
+            assert psu_exist_content["stdout"] == "1", "CLI returns %s while %s contains %s" %  \
+                        (psu_state, psu_exist, psu_exist_content["stdout"])
+
+        psu_pwr_state = "/bsp/module/psu%s_pwr_status" % psu_id
+        psu_pwr_state_content = dut.command("cat %s" % psu_pwr_state)
+        logging.info("PSU state %s file %s read %s" % (psu_state, psu_pwr_state, psu_pwr_state_content["stdout"]))
+        assert (psu_pwr_state_content["stdout"] == "1" and psu_state == "OK") \
+                or (psu_pwr_state_content["stdout"] == "0" and psu_state == "NOT OK"),\
+            "sysfs content %s mismatches with psu_state %s" % (psu_pwr_state_content["stdout"], psu_state)
+
+
 def check_sysfs_psu(dut):
     logging.info("Check psu")
 
     from common.mellanox_data import SWITCH_MODELS
     psu_count = SWITCH_MODELS[dut.facts["hwsku"]]["psus"]["number"]
 
-    if SWITCH_MODELS[dut.facts["hwsku"]]["psus"]["hot_swappable"]:
-        psu_status_list = ["/bsp/module/psu%d_status" % psu_id for psu_id in range(1, psu_count + 1)]
-        for psu_status in psu_status_list:
-            psu_status_content = dut.command("cat %s" % psu_status)
-            assert psu_status_content["stdout"] == "1", "Content of %s is not 1" % psu_status
+    for psu_id in range(1, psu_count + 1):
+        check_psu_status_sysfs_consistency(dut, psu_id, 'OK')
 
 
 def check_sysfs_qsfp(dut, interfaces):
