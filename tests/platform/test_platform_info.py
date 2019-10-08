@@ -48,14 +48,14 @@ def check_vendor_specific_psustatus(dut, psu_status_line):
         sub_folder_dir = os.path.join(current_file_dir, "mellanox")
         if sub_folder_dir not in sys.path:
             sys.path.append(sub_folder_dir)
-        from check_sysfs import check_psu_sysfs
+        from check_sysfs import check_psu_status_sysfs_consistency
 
         psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
         psu_match = psu_line_pattern.match(psu_status_line)
         psu_id = psu_match.group(1)
         psu_status = psu_match.group(2)
 
-        check_psu_sysfs(dut, psu_id, psu_status)
+        check_psu_status_sysfs_consistency(dut, psu_id, psu_status)
 
 def test_show_platform_psustatus(testbed_devices):
     """
