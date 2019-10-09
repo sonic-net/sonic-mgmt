@@ -363,6 +363,12 @@ class Arista(object):
 
         return neigh_bgp, dut_bgp
 
+    def change_bgp_route(self, cfg_map):
+        self.do_cmd('configure')
+        for item in cfg_map:
+            self.do_cmd(item)
+        self.do_cmd('exit')
+
     def change_bgp_neigh_state(self, asn, is_up=True):
         state = ['shut', 'no shut']
         self.do_cmd('configure')
@@ -520,3 +526,21 @@ class Arista(object):
         # Note: the first item is a placeholder
         return 0, change_count
 
+    def get_bp_ip(self, v4=True):
+        if v4:
+           cmd = 'show ip route | grep \'S\' | grep \'Ethernet5\' | head -n 1'
+        else:
+           cmd = 'show ipv6 route | grep \'Ethernet5\' | head -n 1'
+
+        # find the backplane ip to be used as next hop for new ip/ipv6 prefixes
+        output = self.do_cmd(cmd)
+        if 'via' in output:
+            match = re.search('via\s+(.*),', output)
+            if match:
+                bp_ip = match.group(1)
+            else:
+                self.fails.add('Unable to retreive backplane ip')
+        else:
+            self.fails.add('No valid output obtained for backplane ip: %s' % output)
+
+        return self.fails, bp_ip
