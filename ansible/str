@@ -114,6 +114,7 @@ iface_speed='100000'
 [sonic_arista32_100]
 str-a7060cx-acs-10   ansible_host=10.64.247.240 hwsku="Arista-7060CX-32S-C32"
 str-a7060cx-acs-1    ansible_host=10.64.247.14  hwsku="Arista-7060CX-32S-D48C8"
+str-a7280cr3-1       ansible_host=10.3.146.218  hwsku="Arista-7280CR3-C40"
 
 [sonic_arista32_100:vars]
 iface_speed='100000'
@@ -123,7 +124,7 @@ str-z9100-acs-1   ansible_host=10.3.146.191
 str-z9100-acs-2   ansible_host=10.64.247.237
 
 [sonic_dell32_100:vars]
-hwsku='Force10-Z9100'
+hwsku='Force10-Z9100-C32'
 iface_speed='100000'
 
 [sonic_e1031]
@@ -214,6 +215,8 @@ vms6-1  ansible_host=10.64.247.6
 vms6-2  ansible_host=10.64.247.18
 vms6-3  ansible_host=10.64.247.19
 vms6-4  ansible_host=10.64.247.20
+vms6-5  ansible_host=10.64.247.7
+vms6-6  ansible_host=10.64.247.7
 vms7-1  ansible_host=10.64.246.80
 vms7-5  ansible_host=10.64.247.16
 vms7-6  ansible_host=10.64.247.8
@@ -286,6 +289,7 @@ str-7260cx3-fan-03  ansible_host=10.64.246.47
 str-7260cx3-fan-04  ansible_host=10.64.246.74
 str-e1031-acs-2     ansible_host=10.64.247.25 os=sonic
 str-7260cx3-acs-fan-05 ansible_host=10.64.246.76
+str-7260cx3-64-20   ansible_host=10.3.146.151
 
 [docker_registry]
 acs-devrepo.corp.microsoft.com
