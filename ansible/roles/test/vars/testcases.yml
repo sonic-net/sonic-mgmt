@@ -259,9 +259,9 @@ testcases:
       required_vars:
           ptf_host:
 
-    warm-reboot-vnet:
+    warm_reboot_vnet:
       filename: warm-reboot-vnet.yml
-      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116]
+      topologies: [t0, t0-64, t0-64-32, t0-116]
       required_vars:
           ptf_host:
 
