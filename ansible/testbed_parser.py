@@ -10,16 +10,6 @@ from collections import defaultdict
 from operator import itemgetter
 
 TOPO_PATH = 'vars/'
-TOPO_VM_CNT = { 't0' : 4,
-                't0-16': 4,
-                't0-64': 4,
-                't0-116': 4,
-                't0-52': 4,
-                't0-56': 4,
-                't0-64-32': 4,
-                't1': 32,
-                't1-lag': 24,
-                't1-64-lag': 24 }
         
 
 def build_topo_vmcnt():
