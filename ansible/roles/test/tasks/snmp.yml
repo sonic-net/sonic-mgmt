@@ -8,12 +8,6 @@
   assert: { that: "ansible_sysname == '{{ inventory_hostname }}'" }
 
 - block:
-    - name: include snmp cpu test
-      include: roles/test/tasks/snmp/cpu.yml
-
-    - name: inlcude snmp physical table test
-      include: roles/test/tasks/snmp/phys_table.yml
-
     - name: include snmp interfaces test
       include: roles/test/tasks/snmp/interfaces.yml
 
@@ -21,11 +15,21 @@
       include: roles/test/tasks/snmp/pfc_counters.yml
 
     - name: include snmp queues test
-      include: roles/test/tasks/snmp/queues.yml
-
-    - name: include snmp PSU test
-      include: roles/test/tasks/snmp/psu.yml
+      include: roles/test/tasks/snmp/queues.yml 
 
     - name: include snmp lldp test
       include: roles/test/tasks/snmp/lldp.yml
   when: testcase_name is defined
+
+- block:
+    - name: include snmp cpu test
+      include: roles/test/tasks/snmp/cpu.yml 
+
+    - name: inlcude snmp physical table test
+      include: roles/test/tasks/snmp/phys_table.yml
+
+    - name: include snmp PSU test
+      include: roles/test/tasks/snmp/psu.yml 
+  when:
+   - testcase_name is defined
+   - hostvars[ansible_hostname]['type'] != 'simx' 
