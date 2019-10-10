@@ -9,6 +9,23 @@ import yaml
 from collections import defaultdict
 from operator import itemgetter
 
+'''
+Testbed parser
+
+Usage:
+   python testbed_parser.py -t <topo_name>
+
+Arguments:
+   -t <topo_name>
+
+Optional args:
+   -i <testbed file to parser>  default: testbed.csv
+   -v <vm info file>            default: veos
+
+Return:
+   available base_vm and server where it resides
+'''
+
 TOPO_PATH = 'vars/'
         
 
