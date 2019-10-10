@@ -73,6 +73,7 @@
 
   roles:
     - { role: vm_set, action: 'start_sonic_vm' }
+    - { role: vm_set, action: 'start_sid' }
     - { role: vm_set, action: 'add_topo' }
 
 - hosts: servers:&eos
