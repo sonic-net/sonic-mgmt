@@ -2,12 +2,14 @@
 
 set -euo pipefail
 
-INTF_LIST=$(ifconfig | grep eth | cut -f 1 -d ' ')
+INTF_LIST=$(ls /sys/class/net | grep -E "^eth[0-9]+$")
 
-for i in ${INTF_LIST}; do
-  prefix=$(ifconfig $i | grep HWaddr | cut -c39-53)
-  suffix=$( printf "%02x" ${i##eth})
-  mac=$prefix$suffix
-  echo $i $mac
-  ifconfig $i hw ether $mac
+for INTF in ${INTF_LIST}; do
+    ADDR="$(cat /sys/class/net/${INTF}/address)"
+    PREFIX="$(cut -c1-15 <<< ${ADDR})"
+    SUFFIX="$(printf "%02x" ${INTF##eth})"
+    MAC="${PREFIX}${SUFFIX}"
+
+    echo "Update ${INTF} MAC address: ${ADDR}->$MAC"
+    ip link set dev ${INTF} address ${MAC}
 done
