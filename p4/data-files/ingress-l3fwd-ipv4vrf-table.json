@@ -113,5 +113,52 @@
                   "l3_class_id": 10
               }
       }
+    ],
+    "group_entries": [
+        {
+            "action_profile_id": 285212673,
+            "entry_oper": "INSERT",
+            "group_id": 1,
+            "members" : [
+                {
+                    "id" : 1,
+                    "weight": 1
+                },
+                {
+                    "id" : 2,
+                    "weight": 1
+                }
+            ]
+        },
+        {
+            "action_profile_id": 285212673,
+            "entry_oper": "MODIFY",
+            "group_id": 1,
+            "members" : [
+                {
+                    "id" : 1,
+                    "weight": 2
+                },
+                {
+                    "id" : 2,
+                    "weight": 4
+                }
+            ]
+        },
+        {
+            "action_profile_id": 285212673,
+            "entry_oper": "DELETE",
+            "group_id": 1,
+            "members" : [
+                {
+                    "id" : 1,
+                    "weight": 1
+                },
+                {
+                    "id" : 2,
+                    "weight": 1
+                }
+            ]
+        }
     ]
 }

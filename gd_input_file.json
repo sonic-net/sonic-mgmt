@@ -124,6 +124,19 @@
                     "proto_dump_file": "s1-p4runtime-requests-log.txt",
                     "device_id": "0"
                 }
+            },
+            "bsp": {
+                "R1": {
+                    "name": "godiva",
+                    "svr_addr": "172.26.228.14",
+                    "svr_port": "65122",
+                    "username": "cisco",
+                    "password": "lab",
+                    "platform": "spitfire_f-dev",
+                    "os_type": "godiva",
+                    "image": "/auto/vxr1/images/onie-server/onie-x86_64-cisco_8000-r0.iso",
+                    "onie-image": "http://172.29.93.10/sonic-images/godiva-cisco-pacific.bin"
+                }
             }
         }
     }
