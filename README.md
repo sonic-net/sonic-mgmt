@@ -35,3 +35,8 @@ Steps to run P4 script
 2. Modify gd_input_file.json to match your test requirements
 3. Modify p4-job.sh
 4. Execute p4-job.sh
+
+Steps to test BSP
+=================
+1. /auto/vxr/pyvxr/pyvxr-0.4.5/vxr.py --cmd ports godiva.yaml -- Will launch the spitfire sim and install godiva image
+2. ./bsp_job.sh
