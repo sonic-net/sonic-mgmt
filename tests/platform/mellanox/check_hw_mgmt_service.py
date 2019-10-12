@@ -3,6 +3,7 @@ Helper function for checking the hw-management service
 """
 import logging
 import re
+import time
 
 from common.utilities import wait_until
 
@@ -20,7 +21,9 @@ def check_hw_management_service(dut):
     """This function is to check the hw management service and related settings.
     """
     logging.info("Check fan speed setting")
-    assert not wait_until_fan_speed_set_to_default(dut), \
+    # Wait for 300 secs to make sure fan speed is set to default value 
+    time.sleep(300)
+    assert fan_speed_set_to_default(dut), \
         "Fan speed is not default to 60 percent in 5 minutes. 153/255=60%"
 
     logging.info("Check service status using systemctl")
