@@ -10,6 +10,8 @@ cavium_hwskus: [ "AS7512", "XP-SIM" ]
 
 barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C" ]
 
+marvell_hwskus: [ "et6448m" ]
+
 ## Note:
 ## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we
 ## need to merge dictionaries, and convert them to list

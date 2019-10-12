@@ -13,14 +13,18 @@ import os
 import time
 import sys
 
+from datetime import datetime
+
 import pytest
 
 from platform_fixtures import conn_graph_facts
+from psu_controller import psu_controller
 from common.utilities import wait_until
 from check_critical_services import check_critical_services
 from check_transceiver_status import check_transceiver_basic
 from check_daemon_status import check_pmon_daemon_status
 from check_all_interface_info import check_interface_information
+
 pytestmark = [pytest.mark.disable_loganalyzer]
 
 REBOOT_TYPE_WARM = "warm"
@@ -30,31 +34,32 @@ REBOOT_TYPE_POWEROFF = "power off"
 REBOOT_TYPE_WATCHDOG = "watchdog"
 
 reboot_ctrl_dict = {
-    REBOOT_TYPE_POWEROFF : {
-        "timeout" : 300,
-        "cause" : "Power Loss"
+    REBOOT_TYPE_POWEROFF: {
+        "timeout": 300,
+        "cause": "Power Loss"
     },
-    REBOOT_TYPE_COLD : {
-        "command" : "reboot",
-        "timeout" : 300,
-        "cause" : "reboot"
+    REBOOT_TYPE_COLD: {
+        "command": "reboot",
+        "timeout": 300,
+        "cause": "reboot"
     },
-    REBOOT_TYPE_FAST : {
-        "command" : "fast-reboot",
-        "timeout" : 180,
-        "cause" : "fast-reboot"
+    REBOOT_TYPE_FAST: {
+        "command": "fast-reboot",
+        "timeout": 180,
+        "cause": "fast-reboot"
     },
-    REBOOT_TYPE_WARM : {
-        "command" : "warm-reboot",
-        "timeout" : 180,
-        "cause" : "warm-reboot"
+    REBOOT_TYPE_WARM: {
+        "command": "warm-reboot",
+        "timeout": 180,
+        "cause": "warm-reboot"
     },
-    REBOOT_TYPE_WATCHDOG : {
-        "command" : "python -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog().arm(5); exit()\"",
-        "timeout" : 300,
-        "cause" : "Watchdog"
+    REBOOT_TYPE_WATCHDOG: {
+        "command": "python -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog().arm(5); exit()\"",
+        "timeout": 300,
+        "cause": "Watchdog"
     }
 }
+
 
 def check_reboot_cause(dut, reboot_cause_expected):
     """
@@ -73,6 +78,7 @@ def check_reboot_cause(dut, reboot_cause_expected):
 def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, reboot_helper=None, reboot_kwargs=None):
     """
     Perform the specified type of reboot and check platform status.
+    @param localhost: The Localhost object.
     @param dut: The AnsibleHost object of DUT.
     @param interfaces: DUT's interfaces defined by minigraph
     @param reboot_type: The reboot type, pre-defined const that has name convention of REBOOT_TYPE_XXX.
@@ -85,6 +91,9 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
 
     reboot_timeout = reboot_ctrl_dict[reboot_type]["timeout"]
     reboot_cause = reboot_ctrl_dict[reboot_type]["cause"]
+
+    dut_datetime = datetime.strptime(dut.command('date -u +"%Y-%m-%d %H:%M:%S"')["stdout"], "%Y-%m-%d %H:%M:%S")
+
     if reboot_type == REBOOT_TYPE_POWEROFF:
         assert reboot_helper is not None, "A reboot function must be provided for power off reboot"
 
@@ -93,21 +102,26 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
         localhost.wait_for(host=dut.hostname, port=22, state="stopped", delay=10, timeout=120)
     else:
         reboot_cmd = reboot_ctrl_dict[reboot_type]["command"]
-
-        process, queue = dut.command(reboot_cmd, module_async=True)
+        reboot_task, reboot_res = dut.command(reboot_cmd, module_ignore_errors=True, module_async=True)
 
         logging.info("Wait for DUT to go down")
-        res = localhost.wait_for(host=dut.hostname, port=22, state="stopped", delay=10, timeout=120,
-            module_ignore_errors=True)
+        res = localhost.wait_for(host=dut.hostname, port=22, state="stopped", timeout=180, module_ignore_errors=True)
         if "failed" in res:
-            if process.is_alive():
-                logging.error("Command '%s' is not completed" % reboot_cmd)
-                process.terminate()
-            logging.error("reboot result %s" % str(queue.get()))
-            assert False, "DUT did not go down"
+            try:
+                logging.error("Wait for switch down failed, try to kill any possible stuck reboot task")
+                pid = dut.command("pgrep -f '%s'" % reboot_cmd)["stdout"]
+                dut.command("kill -9 %s" % pid)
+                reboot_task.terminate()
+                logging.error("Result of command '%s': " + str(reboot_res.get(timeout=0)))
+            except Exception as e:
+                logging.error("Exception raised while cleanup reboot task and get result: " + repr(e))
 
     logging.info("Wait for DUT to come back")
     localhost.wait_for(host=dut.hostname, port=22, state="started", delay=10, timeout=reboot_timeout)
+
+    logging.info("Check the uptime to verify whether reboot was performed")
+    dut_uptime = datetime.strptime(dut.command("uptime -s")["stdout"], "%Y-%m-%d %H:%M:%S")
+    assert float(dut_uptime.strftime("%s")) - float(dut_datetime.strftime("%s")) > 10, "Device did not reboot"
 
     logging.info("Wait until all critical services are fully started")
     check_critical_services(dut)
@@ -210,6 +224,8 @@ def _power_off_reboot_helper(kwargs):
 def test_power_off_reboot(testbed_devices, conn_graph_facts, psu_controller, power_off_delay):
     """
     @summary: This test case is to perform reboot via powercycle and check platform status
+    @param testbed_devices: Fixture initialize devices in testbed
+    @param conn_graph_facts: Fixture parse and return lab connection graph
     @param psu_controller: The python object of psu controller
     @param power_off_delay: Pytest fixture. The delay between turning off and on the PSU
     """
@@ -221,22 +237,28 @@ def test_power_off_reboot(testbed_devices, conn_graph_facts, psu_controller, pow
         pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % ans_host.hostname)
 
     all_psu = psu_ctrl.get_psu_status()
+
+    # Purpose of this list is to control sequence of turning on PSUs in power off testing.
+    # If there are 2 PSUs, then 3 scenarios would be covered:
+    # 1. Turn off all PSUs, turn on PSU1, then check.
+    # 2. Turn off all PSUs, turn on PSU2, then check.
+    # 3. Turn off all PSUs, turn on one of the PSU, then turn on the other PSU, then check.
+    power_on_seq_list = []
     if all_psu:
         power_on_seq_list = [[item] for item in all_psu]
         power_on_seq_list.append(all_psu)
 
     logging.info("Got all power on sequences {}".format(power_on_seq_list))
 
-    delay_time_list = [15, 5]
-    poweroff_reboot_kwargs = {}
-    poweroff_reboot_kwargs["dut"] = ans_host
+    poweroff_reboot_kwargs = {"dut": ans_host}
 
     for power_on_seq in power_on_seq_list:
         poweroff_reboot_kwargs["psu_ctrl"] = psu_ctrl
         poweroff_reboot_kwargs["all_psu"] = all_psu
         poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
         poweroff_reboot_kwargs["delay_time"] = power_off_delay
-        reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], REBOOT_TYPE_POWEROFF, _power_off_reboot_helper, poweroff_reboot_kwargs)
+        reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], REBOOT_TYPE_POWEROFF,
+                         _power_off_reboot_helper, poweroff_reboot_kwargs)
 
 
 def test_watchdog_reboot(testbed_devices, conn_graph_facts):

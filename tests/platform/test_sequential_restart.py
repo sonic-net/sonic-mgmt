@@ -5,9 +5,7 @@ This script is to cover the test case 'Sequential syncd/swss restart' in the SON
 https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import logging
-import re
 import os
-import time
 import sys
 
 import pytest
@@ -17,6 +15,9 @@ from common.utilities import wait_until
 from check_critical_services import check_critical_services
 from check_transceiver_status import check_transceiver_basic
 from check_all_interface_info import check_interface_information
+
+pytestmark = [pytest.mark.disable_loganalyzer]
+
 
 def restart_service_and_check(localhost, dut, service, interfaces):
     """

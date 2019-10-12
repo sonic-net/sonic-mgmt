@@ -1,6 +1,10 @@
+{% set container_name = "storm" ~ "_" ~ (1).__lshift__(pfc_queue_index) ~ "_" ~ pfc_frames_number ~ "_" ~ pfc_fanout_interface | replace("ernet 1/", "") | replace("/", "_") ~ "_" ~ ansible_eth0_ipv4_addr | replace(".", "_") %}
+
 enable
 configure terminal
-docker no start storm
+
+docker no start {{ container_name }}
 ping -c 7 127.0.0.1
+
 exit
 exit
