@@ -79,9 +79,10 @@ class AnsibleLogAnalyzer:
         return logger
     #---------------------------------------------------------------------
 
-    def __init__(self, run_id, verbose):
+    def __init__(self, run_id, verbose, start_marker = None):
         self.run_id = run_id
         self.verbose = verbose
+        self.start_marker = start_marker
     #---------------------------------------------------------------------
 
     def print_diagnostic_message(self, message):
@@ -92,7 +93,10 @@ class AnsibleLogAnalyzer:
     #---------------------------------------------------------------------
 
     def create_start_marker(self):
-        return self.start_marker_prefix + "-" + self.run_id
+        if (self.start_marker is None) or (len(self.start_marker) == 0):
+            return self.start_marker_prefix + "-" + self.run_id
+        else:
+            return self.start_marker
 
     #---------------------------------------------------------------------
 
@@ -576,6 +580,7 @@ def main(argv):
 
     action = None
     run_id = None
+    start_marker = None
     log_files_in = ""
     out_dir = None
     match_files_in = None
@@ -584,7 +589,7 @@ def main(argv):
     verbose = False
 
     try:
-        opts, args = getopt.getopt(argv, "a:r:l:o:m:i:e:vh", ["action=", "run_id=", "logs=", "out_dir=", "match_files_in=", "ignore_files_in=", "expect_files_in=", "verbose", "help"])
+        opts, args = getopt.getopt(argv, "a:r:s:l:o:m:i:e:vh", ["action=", "run_id=", "start_marker=", "logs=", "out_dir=", "match_files_in=", "ignore_files_in=", "expect_files_in=", "verbose", "help"])
 
     except getopt.GetoptError:
         print "Invalid option specified"
@@ -601,6 +606,9 @@ def main(argv):
 
         elif (opt in ("-r", "--run_id")):
             run_id = arg
+
+        elif (opt in ("-s", "--start_marker")):
+            start_marker = arg
 
         elif (opt in ("-l", "--logs")):
             log_files_in = arg
@@ -624,7 +632,7 @@ def main(argv):
         usage()
         sys.exit(err_invalid_input)
 
-    analyzer = AnsibleLogAnalyzer(run_id, verbose)
+    analyzer = AnsibleLogAnalyzer(run_id, verbose, start_marker)
 
     log_file_list = filter(None, log_files_in.split(tokenizer))
 

@@ -120,8 +120,9 @@
     poll: 0
 
   - name: Reload config
-    command: config reload -y
-    become: yes
+    include: "roles/test/tasks/common_tasks/reload_config.yml"
+    vars:
+      config_source: "config_db"
 
   - name: Get PID of the PTF script
     command: "pgrep -f '/usr/bin/python /usr/bin/ptf'"
@@ -153,7 +154,14 @@
     command: sonic-clear fdb all
     when: sdk_fdb_count.stdout == show_mac_output.stdout
 
+  - fail: msg="No FDB is learned, something wrong with the switch"
+    when: sdk_fdb_count.stdout | int == 0 or show_mac_output.stdout | int == 0
+
   - fail: msg="In consistent number MAC entries between SDK and DB"
     when: sdk_fdb_count.stdout != show_mac_output.stdout
 
   when: sonic_asic_type == 'mellanox'
+
+  always:
+    - name: clear FDB table
+      command: sonic-clear fdb all

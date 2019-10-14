@@ -59,5 +59,10 @@
   environment:
     ANSIBLE_LIBRARY: ../ansible/library/
   register: out
+  ignore_errors: True
 
 - debug: msg='{{ out.stdout_lines }}'
+
+- fail:
+    msg: 'py.test run failed'
+  when: out.rc != 0

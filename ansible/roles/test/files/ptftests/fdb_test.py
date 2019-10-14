@@ -106,7 +106,7 @@ class FdbConfigReloadTest(BaseTest):
     #--------------------------------------------------------------------------
 
     def runTest(self):
-        max_time = 200  # seconds
+        max_time = 300  # seconds
         i = 0
         start_time = time.time()
         while i < 0xffff - 128 and time.time() - start_time < max_time:
