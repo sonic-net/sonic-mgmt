@@ -13,6 +13,8 @@
 
     - name: Issue warm reboot on the device
       include: roles/test/tasks/common_tasks/reboot_sonic.yml
+      vars:
+        reboot_type: warm-reboot
 
     - name: Test PFC WD storm function
       include: roles/test/tasks/pfc_wd/functional_test/functional_test_storm.yml
@@ -34,6 +36,8 @@
 
     - name: Issue warm reboot on the device
       include: roles/test/tasks/common_tasks/reboot_sonic.yml
+      vars:
+        reboot_type: warm-reboot
 
     - name: Test PFC WD storm function
       include: roles/test/tasks/pfc_wd/functional_test/functional_test_storm.yml

@@ -1,0 +1,64 @@
+- block:
+  # Makes sure all tags are cleared out
+  - name: Clear out all tags
+    shell: portstat -D
+    ignore_errors: True
+
+  # This test verifies if the portstat -c command works as expected
+  - name: pull current portstat
+    shell: portstat | grep Ethernet0
+    register: before_out
+
+  - name: Find ethernet0
+    set_fact:
+      portstat_eth0: "{{ item }}"
+    with_items: before_out.stdout_lines
+    when: "'Ethernet0' in item"
+
+  - name: Pull out RX and TX OK counters
+    set_fact:
+      before_rx_ok: "{{ portstat_eth0.split()[2].replace(',','') }}"
+      before_tx_ok: "{{ portstat_eth0.split()[9].replace(',','') }}"
+
+  # This is the test command
+  - name: Testing '{{ command }}'
+    shell: "{{ command }}"
+
+  - name: wait a few seconds for data to repopulate
+    pause:
+      seconds: 5
+
+  - name: pull current portstat
+    shell: portstat | grep Ethernet0
+    register: after_out
+
+  - name: Find ethernet0
+    set_fact:
+      portstat_eth0: "{{ item }}"
+    with_items: after_out.stdout_lines
+    when: "'Ethernet0' in item"
+
+  - name: Pull out RX and TX OK counters
+    set_fact:
+      after_rx_ok: "{{ portstat_eth0.split()[2].replace(',','') }}"
+      after_tx_ok: "{{ portstat_eth0.split()[9].replace(',','') }}"
+
+  - name: Assert that the cleared rx counter is less than the current counter
+    assert:
+      that: "{{ before_rx_ok|int }}  > {{ after_rx_ok|int }}"
+      msg: "'before_rx_ok: {{ before_rx_ok }}' is not greater than 'after_rx_ok: {{ after_rx_ok }}'"
+  
+  - name: Assert that the cleared tx counter is less than the current counter
+    assert:
+      that: "{{ before_tx_ok|int }} > {{ after_tx_ok|int }}"
+      msg: "'before_tx_ok: {{ before_tx_ok }}' is not greater than 'after_tx_ok: {{ after_tx_ok }}'"
+
+  rescue:
+  - debug:
+      msg: "A failure occured"
+
+  always:
+  - name: reset portstat command
+    shell: portstat -D
+    ignore_errors: True
+

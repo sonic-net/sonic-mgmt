@@ -27,11 +27,11 @@
   set_fact:
     mg_intf: "{{ mg_intf + [minigraph_mgmt_interface.alias] }}"
 
-- debug: var=minigraph_map_sonic_to_ngs
+- debug: var=minigraph_port_name_to_alias_map
 - debug: var=snmp_intf
 - debug: var=mg_intf
 
 - name: Check for missing interfaces in SNMP
-  fail: msg="Minigraph interface {{ minigraph_map_sonic_to_ngs[item] if item in minigraph_map_sonic_to_ngs else item }} not in SNMP interfaces"
-  when: "{{ (item in minigraph_map_sonic_to_ngs and minigraph_map_sonic_to_ngs[item] not in snmp_intf) or (item not in minigraph_map_sonic_to_ngs and item not in snmp_intf) }}"
+  fail: msg="Minigraph interface {{ minigraph_port_name_to_alias_map[item] if item in minigraph_port_name_to_alias_map else item }} not in SNMP interfaces"
+  when: "{{ (item in minigraph_port_name_to_alias_map and minigraph_port_name_to_alias_map[item] not in snmp_intf) or (item not in minigraph_port_name_to_alias_map and item not in snmp_intf) }}"
   with_items: "{{ mg_intf }}"

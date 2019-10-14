@@ -1,8 +1,8 @@
 ### this is the Lag_2 lag test that tests each Lag interface minimum link and rate of sending LACP DU packets
 ### this test could be consider as an additional/alternative lag test from existing lagall.yml.
 ### Due to some labs are using two layer fanout switches, and one DUT might connects to multiple fanoutleaf switches
-### so for minimum link test of lag member flaps, it requires to use lab connection facts to determine the fanout neighbor ports, 
-### Also, most of the traffic load balancing tests of LAG interface are covered in new FIB tests. so we are ignoring traffic test 
+### so for minimum link test of lag member flaps, it requires to use lab connection facts to determine the fanout neighbor ports,
+### Also, most of the traffic load balancing tests of LAG interface are covered in new FIB tests. so we are ignoring traffic test
 ### for lag member flaps for now, will consider add traffic back if required
 
 - fail: msg="Please define ptf_host"
@@ -15,7 +15,7 @@
   lag_facts: host={{ inventory_hostname }}
 
 - fail: msg="No lag configuration found in {{ inventory_hostname }}"
-  when: lag_facts.names == [] 
+  when: lag_facts.names == []
 
 - set_fact: test_minlink=true
   when: test_minlink is not defined
@@ -37,10 +37,10 @@
   connection: local
 
 - set_fact:
-    fanout_neighbors: "{{device_conn}}"   
+    fanout_neighbors: "{{device_conn}}"
 
 - set_fact:
-    vm_neighbors: "{{ minigraph_neighbors }}"   
+    vm_neighbors: "{{ minigraph_neighbors }}"
 
 - name: Copy PTF test into PTF-docker for test LACP DU.
   copy: src=roles/test/files/acstests/{{ item }} dest=/tmp/{{ item }}
@@ -48,6 +48,10 @@
     - lag_test.py
     - acs_base_test.py
     - router_utils.py
+  delegate_to: "{{ ptf_host }}"
+
+- name: Copy tests to the PTF container
+  copy: src=roles/test/files/ptftests dest=/root
   delegate_to: "{{ ptf_host }}"
 
 - name: Include testbed topology configuration (to get LAG IP and PTF docker interfaces, that are behind LAG VMs).
@@ -65,12 +69,12 @@
 - set_fact:
     dut_mac: "{{ ansible_Ethernet0['macaddress'] }}"
 
-- name: test each lag interface minimum links and rate 
+- name: test each lag interface minimum links and rate
   include: single_lag_test.yml
   with_items: lag_facts.names
   when: test_minlink|bool == true
 
-- name: test each lag interface LACP DU rate 
+- name: test each lag interface LACP DU rate
   include: single_lag_lacp_rate_test.yml
   with_items: lag_facts.names
   when: test_rate|bool == true

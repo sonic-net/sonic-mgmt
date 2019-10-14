@@ -1,12 +1,11 @@
 ##############################################################################################
-### playbook to deploy the fanout swtich 
+### playbook to deploy the fanout switch
 ### Use this playbook to deploy the VLAN configurations of fanout switch in SONiC testbed
-### This playbook will run based on hardware flatform. Each fanout switch hardware type has its
-### own unique feature and configuration command or format. Unless you use the hardware swtich
-### specified in this playbook, you would need to come up with your own fanout switch deployment 
+### This playbook will run based on hardware platform. Each fanout switch hardware type has its
+### own unique feature and configuration command or format. Unless you use the hardware switch
+### specified in this playbook, you would need to come up with your own fanout switch deployment
 ### playbook
 ################################################################################################
-# Deploy fanout switch
 - name: Gathering lab graph facts about the device
   conn_graph_facts: host={{ inventory_hostname }}
   connection: local
@@ -21,6 +20,9 @@
 
 - include: fanout_sonic.yml
   when: os == 'sonic'
+
+- include: fanout_mlnx.yml
+  when: os == 'mellanox'
 
 - block:
   - set_fact:

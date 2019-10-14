@@ -109,10 +109,10 @@
 
 - debug: msg="{{select_test_ports}}"
 
-- name: Set default reboot type if user has not specified
+- name: Run default test if user has not specified warm reboot test
   set_fact:
-    reboot_type: "reboot"
-  when: reboot_type is not defined
+    warm_reboot_test: false
+  when: warm_reboot_test is not defined
 
  #****************************************#
  #           Start tests                  #
@@ -165,12 +165,12 @@
           when:
             - pfc_asym is defined
             - testbed_type in ['t0']
-      when: reboot_type == "reboot"
+      when: warm_reboot_test | bool == false
 
     - block:
         - name: Test PFC WD function against warm reboot
           include: roles/test/tasks/pfc_wd/functional_test/functional_test_warm_reboot.yml
-      when: reboot_type == "warm-reboot"
+      when: warm_reboot_test | bool == true
 
   always:
     - name: General cleanup.

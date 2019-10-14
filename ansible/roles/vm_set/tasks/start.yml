@@ -36,6 +36,21 @@
     fp_mtu:       "{{ fp_mtu_size }}"
     max_fp_num:   "{{ max_fp_num }}"
 
+- name: Default autostart to no when it is not defined
+  set_fact:
+    autostart: no
+  when: autostart is not defined
+
+- name: Default batch_size to 1 when it is not defined
+  set_fact:
+    batch_size: "{{ VM_hosts|length }}"
+  when: batch_size is not defined
+
+- name: Default wait interval to 0 if it is not defined
+  set_fact:
+    interval: 0
+  when: interval is not defined
+
 - name: Start VMs
   include: start_vm.yml
   vars:
@@ -46,6 +61,21 @@
     src_disk_image: "{{ root_path }}/images/{{ hdd_image_filename }}"
     disk_image: "{{ home_path }}/{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
     cdrom_image: "{{ home_path }}/{{ root_path }}/images/{{ cd_image_filename }}"
+    mgmt_tap:  "{{ vm_name }}-m"
+    port1_bridge: "br-{{ vm_name }}-back"
+    port1_tap: "{{ vm_name }}-back"
+  with_items: "{{ VM_hosts }}"
+
+- name: Kickstart VMs
+  include: kickstart_vm.yml
+  vars:
+    vm_name: "{{ item }}"
+    hostname: "{{ vm_name }}"
+    mgmt_ip_address: "{{ hostvars[vm_name]['ansible_host'] }}"
+    serial_port: "{{ vm_console_base|int + vm_name[4:]|int }}"
+    src_disk_image: "{{ root_path }}/images/{{ hdd_image_filename }}"
+    disk_image: "{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
+    cdrom_image: "{{ root_path }}/images/{{ cd_image_filename }}"
     mgmt_tap:  "{{ vm_name }}-m"
     port1_bridge: "br-{{ vm_name }}-back"
     port1_tap: "{{ vm_name }}-back"

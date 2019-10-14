@@ -23,6 +23,11 @@
     sonic_asic_type: barefoot
   when: sonic_hwsku in barefoot_hwskus
 
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: marvell
+  when: sonic_hwsku in marvell_hwskus
+
 ###########################################################################
 ##### run test using ansible tag when no testbedname specified       ######
 ###########################################################################
