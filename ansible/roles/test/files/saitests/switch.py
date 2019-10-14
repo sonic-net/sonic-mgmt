@@ -617,6 +617,32 @@ def sai_thrift_clear_all_counters(client):
         for queue in queue_list:
             client.sai_thrift_clear_queue_stats(queue,cnt_ids,len(cnt_ids))
 
+def sai_thrift_port_tx_disable(client, asic_type, port_id):
+    if asic_type == 'mellanox':
+        # Close DST port
+        sched_prof_id = sai_thrift_create_scheduler_profile(client, STOP_PORT_MAX_RATE)
+        attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+        client.sai_thrift_set_port_attribute(port_list[port_id], attr)
+    else:
+        # Pause egress of dut xmit port
+        attr_value = sai_thrift_attribute_value_t(booldata=0)
+        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
+        client.sai_thrift_set_port_attribute(port_list[port_id], attr)
+
+def sai_thrift_port_tx_enable(client, asic_type, port_id):
+    if asic_type == 'mellanox':
+        # Release port
+        sched_prof_id = sai_thrift_create_scheduler_profile(client, RELEASE_PORT_MAX_RATE)
+        attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+        client.sai_thrift_set_port_attribute(port_list[port_id], attr)
+    else:
+        # Resume egress of dut xmit port
+        attr_value = sai_thrift_attribute_value_t(booldata=1)
+        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
+        client.sai_thrift_set_port_attribute(port_list[port_id], attr)
+
 def sai_thrift_read_port_counters(client,port):
     port_cnt_ids=[]
     port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_DISCARDS)
