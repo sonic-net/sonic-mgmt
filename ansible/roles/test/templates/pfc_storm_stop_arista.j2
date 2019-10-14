@@ -1,5 +1,5 @@
 bash
 cd /mnt/flash
-sudo pkill -f "sudo python {{pfc_gen_file}} -p {{(1).__lshift__(pfc_queue_index)}} -t 65535 -n {{pfc_frames_number}} -i {{pfc_fanout_interface | replace("Ethernet", "et") | replace("/", "_")}} -r {{ansible_eth0_ipv4_addr}}"
+{% if pfc_storm_stop_defer_time is defined %} sleep {{pfc_storm_stop_defer_time}} &&{% endif %} sudo pkill -f "sudo python {{pfc_gen_file}} -p {{(1).__lshift__(pfc_queue_index)}} -t 65535 -n {{pfc_frames_number}} -i {{pfc_fanout_interface | replace("Ethernet", "et") | replace("/", "_")}} -r {{ansible_eth0_ipv4_addr}}" {% if pfc_storm_stop_defer_time is defined %}&{% endif %}
 exit
 exit
