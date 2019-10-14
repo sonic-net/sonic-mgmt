@@ -34,14 +34,21 @@ def is_port_admin_status_up(logic_port):
     oper_state_p = new_sx_port_oper_state_t_p()
     admin_state_p = new_sx_port_admin_state_t_p()
     module_state_p = new_sx_port_module_state_t_p()
+
     rc = sx_api_port_state_get(handle, logic_port, oper_state_p, admin_state_p, module_state_p)
-    assert rc == SXD_STATUS_SUCCESS, "sx_api_port_state_get failed, rc = %d" % rc
+    if rc != SXD_STATUS_SUCCESS:
+        delete_sx_port_oper_state_t_p(oper_state_p)
+        delete_sx_port_admin_state_t_p(admin_state_p)
+        delete_sx_port_module_state_t_p(module_state_p)
+        assert False, "sx_api_port_state_get failed, rc = %d" % rc
 
     admin_state = sx_port_admin_state_t_p_value(admin_state_p)
-    if admin_state == SX_PORT_ADMIN_STATUS_UP:
-        return True
-    else:
-        return False
+    
+    delete_sx_port_oper_state_t_p(oper_state_p)
+    delete_sx_port_admin_state_t_p(admin_state_p)
+    delete_sx_port_module_state_t_p(module_state_p)
+    
+    return admin_state == SX_PORT_ADMIN_STATUS_UP 
 
 
 def set_port_admin_status_by_log_port(sdk_handle, logic_port, admin_status):
@@ -56,7 +63,10 @@ def get_log_ports(sdk_handle, sfp_module):
     uint32_t_p_assign(port_cnt_p, SX_PORT_ATTR_ARR_SIZE)
 
     rc = sx_api_port_device_get(sdk_handle, DEVICE_ID, SWITCH_ID, port_attributes_list,  port_cnt_p)
-    assert rc == SX_STATUS_SUCCESS, "sx_api_port_device_get failed, rc = %d" % rc
+    if rc != SX_STATUS_SUCCESS:
+        delete_sx_port_attributes_t_arr(port_attributes_list)
+        delete_uint32_t_p(port_cnt_p)
+        assert False, "sx_api_port_device_get failed, rc = %d" % rc
 
     port_cnt = uint32_t_p_value(port_cnt_p)
     log_port_list = []
@@ -65,7 +75,9 @@ def get_log_ports(sdk_handle, sfp_module):
         if not is_nve(int(port_attributes.log_port)) \
            and port_attributes.port_mapping.module_port == sfp_module:
             log_port_list.append(port_attributes.log_port)
-
+    
+    delete_sx_port_attributes_t_arr(port_attributes_list)
+    delete_uint32_t_p(port_cnt_p)
     return log_port_list
 
 
