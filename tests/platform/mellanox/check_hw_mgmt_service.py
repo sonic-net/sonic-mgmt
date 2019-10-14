@@ -21,7 +21,13 @@ def check_hw_management_service(dut):
     """This function is to check the hw management service and related settings.
     """
     logging.info("Check fan speed setting")
-    # Wait for 300 secs to make sure fan speed is set to default value 
+    # In current hw-mgmt implementation, it set the fan speed to default
+    # value when suspending thermal control algorithm, but it takes some time
+    # to take effect. During this period, algorithm could change speed value
+    # back and hw-mgmt will set it to default again, so it's possible that
+    # although at some point the speed value is default but it could be changed
+    # after some time. So we just wait for 300 secs to make sure fan speed is
+    # set to default value instead of check every 10s.
     time.sleep(300)
     assert fan_speed_set_to_default(dut), \
         "Fan speed is not default to 60 percent in 5 minutes. 153/255=60%"
