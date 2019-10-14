@@ -9,11 +9,19 @@ import time
 from platform_fixtures import conn_graph_facts
 from check_interface_status import parse_intf_status
 
+ans_host = None
 
-def verfy_interface_status(dut, mg_ports, intf, status_up_expected):
+
+def teardown_module():
+    logging.info("remove script to simulate sfp plug in/out from the DUT")
+    file_path = os.path.join('/usr/share/sonic/device', ans_host.facts['platform'], 'plugins/sfpadminset.py')
+    ans_host.file(path=file_path, state='absent')
+
+
+def verify_interface_status(dut, mg_ports, intf, status_up_expected):
     shutdown_intf_command = 'config interface shutdown {}'
     startup_intf_command = 'config interface startup {}'
-    
+
     if intf not in mg_ports:
         dut.command(startup_intf_command.format(intf))
         dut.command(shutdown_intf_command.format(intf))
@@ -59,9 +67,10 @@ def verify_sfp_presence_sysfs_status(dut, sfp_id, presence_expected):
 
 
 def test_check_sfp_plug_in_out_sim(testbed_devices, conn_graph_facts):
-    """This test case is to check SFP presence, sysfs status 
-       and interface staus by simulating SFP plug in/out via PMAOS
+    """This test case is to check SFP presence, sysfs status
+       and interface status by simulating SFP plug in/out via PMAOS
     """
+    global ans_host
     ans_host = testbed_devices["dut"]
     logging.debug('platform : %s, hwsku : %s, ASIC %s' % (ans_host.facts['platform'], ans_host.facts['hwsku'],
                                                           ans_host.facts['asic_type']))
@@ -69,15 +78,15 @@ def test_check_sfp_plug_in_out_sim(testbed_devices, conn_graph_facts):
     src_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'files/sfpadminset.py')
     logging.debug('src = %s, dest = %s' % (src_path, dest_path))
     ans_host.copy(src=src_path, dest=dest_path)
-    
+
     mg_ports = ans_host.minigraph_facts(host=ans_host.hostname)["ansible_facts"]["minigraph_ports"]
 
     ports_config = json.loads(ans_host.command("sudo sonic-cfggen -d --var-json PORT")["stdout"])
 
     sfp_disconnect_command = \
-        'docker exec -it syncd python /usr/share/sonic/platform/plugins/sfpadminset.py {} "disconnect"'
+        'docker exec syncd python /usr/share/sonic/platform/plugins/sfpadminset.py {} "disconnect"'
     sfp_connect_command = \
-        'docker exec -it syncd python /usr/share/sonic/platform/plugins/sfpadminset.py {} "connect"'
+        'docker exec syncd python /usr/share/sonic/platform/plugins/sfpadminset.py {} "connect"'
 
     logging.info("Use show interface status information")
     for intf in mg_ports:
@@ -88,7 +97,7 @@ def test_check_sfp_plug_in_out_sim(testbed_devices, conn_graph_facts):
         # Init check, expect port is up, SFP is presence
         verify_sfp_presence_sysfs_status(ans_host, sfp_id, True)
         verify_sfp_presence_status(ans_host, intf, True)
-        verfy_interface_status(ans_host, mg_ports, intf, True)
+        verify_interface_status(ans_host, mg_ports, intf, True)
 
         # Disconnect SFP to simulate SFP plug out
         ans_host.command(sfp_disconnect_command.format(sdk_port_id))
@@ -96,7 +105,7 @@ def test_check_sfp_plug_in_out_sim(testbed_devices, conn_graph_facts):
         # Expecting port is down, SFP not presence
         verify_sfp_presence_status(ans_host, intf, False)
         verify_sfp_presence_sysfs_status(ans_host, sfp_id, False)
-        verfy_interface_status(ans_host, mg_ports, intf, False)
+        verify_interface_status(ans_host, mg_ports, intf, False)
 
         # Connect SFP to simulate SFP plug in
         ans_host.command(sfp_connect_command.format(sdk_port_id))
@@ -106,4 +115,4 @@ def test_check_sfp_plug_in_out_sim(testbed_devices, conn_graph_facts):
         # Check again, expect SFP restored, and port become up again
         verify_sfp_presence_status(ans_host, intf, True)
         verify_sfp_presence_sysfs_status(ans_host, sfp_id, True)
-        verfy_interface_status(ans_host, mg_ports, intf, True)
+        verify_interface_status(ans_host, mg_ports, intf, True)
