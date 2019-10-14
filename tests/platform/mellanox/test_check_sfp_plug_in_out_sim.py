@@ -44,7 +44,6 @@ def verify_interface_status(dut, mg_ports, intf, status_up_expected):
 def verify_sfp_presence_status(dut, intf, presence_expected):
     check_intf_presence_command = 'show interface transceiver presence {}'
     check_presence_output = dut.command(check_intf_presence_command.format(intf))
-    assert check_presence_output["rc"] == 0, "Failed to read interface %s transceiver presence" % intf
     logging.info(str(check_presence_output["stdout_lines"][2]))
     presence_list = check_presence_output["stdout_lines"][2].split()
     logging.info(str(presence_list))
@@ -59,7 +58,6 @@ def verify_sfp_presence_sysfs_status(dut, sfp_id, presence_expected):
     check_qsfp_sysfs_command = 'cat /var/run/hw-management/qsfp/qsfp{}_status'
     check_sysfs_output = dut.command(check_qsfp_sysfs_command.format(str(sfp_id)))
     logging.info('output of check sysfs %s' % (str(check_sysfs_output)))
-    assert check_sysfs_output["rc"] == 0, "Failed to read qsfp_status of sfp%s." % str(sfp_id)
     if presence_expected:
         assert check_sysfs_output["stdout"] == '1', "Content of qsfp_status of sfp%s is not correct" % str(sfp_id)
     else:
