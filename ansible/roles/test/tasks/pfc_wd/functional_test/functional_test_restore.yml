@@ -70,7 +70,7 @@
   include: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
 
 
-- name: Test PFC restore function per queue
+- name: Test PFC restore function per pg/queue
   include: roles/test/tasks/pfc_wd/functional_test/functional_test_restore_perq.yml
   vars:
     pfc_queue_index: "{{item}}"

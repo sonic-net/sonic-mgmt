@@ -50,3 +50,26 @@
     - name: Test PFC WD restore function
       include: roles/test/tasks/pfc_wd/functional_test/functional_test_restore.yml
       with_dict: "{{select_test_ports}}"
+
+# Test case 3:
+# PFC storm asynchronously starts at a random time and lasts a random period at fanout
+# Warm-reboot emission
+# Wait for all the PFC storms to finish
+# Verify PFC storm detection and restoration functional
+- block:
+    - name: PFC storming from fanout switch
+      include: roles/test/tasks/pfc_wd/functional_test/storm_from_neighbor.yml
+      with_dict: "{{select_test_ports}}"
+
+    - name: Issue warm reboot on the device
+      include: roles/test/tasks/common_tasks/reboot_sonic.yml
+      vars:
+        reboot_type: warm-reboot
+
+    - name: Test PFC WD storm function
+      include: roles/test/tasks/pfc_wd/functional_test/functional_test_storm.yml
+      with_dict: "{{select_test_ports}}"
+
+    - name: Test PFC WD restore function
+      include: roles/test/tasks/pfc_wd/functional_test/functional_test_restore.yml
+      with_dict: "{{select_test_ports}}"
