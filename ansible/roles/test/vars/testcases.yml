@@ -103,7 +103,7 @@ testcases:
 
     warm-reboot-multi-sad-inboot:
       filename: warm-reboot-multi-sad-inboot.yml
-      topologies: [t0, t0-64, t0-64-32, t0-116]
+      topologies: [t0, t0-64, t0-64-32, t0-116, t0-56]
       required_vars:
           ptf_host:
           vm_hosts:
