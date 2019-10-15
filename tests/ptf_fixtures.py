@@ -34,7 +34,7 @@ def get_ifaces(netdev_output):
 
 
 @pytest.fixture(scope='module')
-def ptfadapter(ansible_adhoc, testbed):
+def ptfadapter(ptfhost, testbed):
     """return ptf test adapter object.
     The fixture is module scope, because usually there is not need to
     restart PTF nn agent and reinitialize data plane thread on every
@@ -43,7 +43,6 @@ def ptfadapter(ansible_adhoc, testbed):
     to restart PTF before proceeding running other test modules
     """
 
-    ptfhost = AnsibleHost(ansible_adhoc, testbed['ptf'])
     # get the eth interfaces from PTF and initialize ifaces_map
     res = ptfhost.command('cat /proc/net/dev')
     ifaces = get_ifaces(res['stdout'])
