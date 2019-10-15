@@ -256,6 +256,12 @@ class Vxlan(BaseTest):
 
 
     def Vxlan(self, test, wu = False):
+        for i, n in enumerate(test['acc_ports']):
+            for j, a in enumerate(test['acc_ports']):
+                res, out = self.checkVxlan(a, n, test)
+                if not res and not wu:
+                    return False, out + " | net_port_rel(acc)=%d acc_port_rel=%d" % (i, j)
+
         for i, n in enumerate(self.net_ports):
             for j, a in enumerate(test['acc_ports']):
                 res, out = self.checkVxlan(a, n, test)
