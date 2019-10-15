@@ -18,7 +18,7 @@
   become: yes
 
 - name: Get front panel and mgmt port for SID
-  simx_port:
+  mellanox_simx_port:
     vmname: "{{ dut_name }}"
   when: external_port is not defined and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == 'simx'
   become: yes

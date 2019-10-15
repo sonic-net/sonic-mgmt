@@ -3,7 +3,7 @@
 from ansible.module_utils.basic import *
 
 DOCUMENTATION = '''
-module: simx_port
+module: mellanox_simx_port
 version_added: "0.1"
 author: Mykola Faryma (mykolaf@mellanox.com)
 short_description: Gather management and front panel ports from simx-based DUT
@@ -12,7 +12,7 @@ This is a stub, currently returns hardcoded values
 
 EXAMPLES = '''
 - name: Get front panel and mgmt port for SimX in Docker
-  simx_port:
+  mellanox_simx_port:
     vmname: "{{ dut_name }}"
 '''
 

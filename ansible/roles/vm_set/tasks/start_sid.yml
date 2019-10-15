@@ -6,7 +6,6 @@
 
 - include_vars: group_vars/sonic/vars
 
-# TODO: handle serial port
 - set_fact:
     src_disk_image: "{{ home_path }}/sid/images/sonic_spc.img"
     disk_image: "{{ home_path }}/sid/disks/{{ dut_name }}.img"
@@ -56,7 +55,6 @@
   pause:
     seconds: 60
 
-# Annoying linux bridges will be gone in later SimX versions
 - name: get rid of linux bridges
   shell: brctl delif v000_port{{ item }} tap{{ item }}
   with_sequence: start=1 end=32
