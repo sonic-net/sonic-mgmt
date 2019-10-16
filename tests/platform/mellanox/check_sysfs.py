@@ -123,7 +123,7 @@ def check_sysfs(dut):
     for psu_id in range(1, psu_count + 1):
         if SWITCH_MODELS[dut_hwsku]["psus"]["hot_swappable"]:
 
-            # if the PSU if poweroff, all thermal related sensors of the PSU is removed.
+            # If the PSU is poweroff, all PSU thermal related sensors are not available.
             # In that case, just skip the following tests
             psu_status_file = "/var/run/hw-management/thermal/psu{}_status".format(psu_id)
             psu_status_output = dut.command("cat %s" % psu_status_file)
