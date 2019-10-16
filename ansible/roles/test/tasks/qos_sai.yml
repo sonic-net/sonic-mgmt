@@ -208,7 +208,7 @@
         - pkts_num_hdrm_partial={{qp.hdrm_pool_size.pkts_num_hdrm_partial}}
       when: minigraph_hwsku is defined and
             (minigraph_hwsku == 'Arista-7060CX-32S-C32' or minigraph_hwsku == 'Celestica-DX010-C32' or minigraph_hwsku == 'Arista-7260CX3-D108C8'
-             or minigraph_hwsku == 'Force10-S6100')
+             or minigraph_hwsku == 'Force10-S6100' or minigraph_hwsku == 'Arista-7260CX3-Q64')
 
     # Lossy queue
     - include: qos_sai_ptf.yml
