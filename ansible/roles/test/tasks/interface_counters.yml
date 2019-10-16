@@ -11,7 +11,7 @@
 
 - name: Get interfaces counters
   counter_facts:
-    interfaces_counters: 
+    interfaces_counters:
 
 - name: Verify interface counters do not contain "N/A"
   assert:

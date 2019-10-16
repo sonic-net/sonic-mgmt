@@ -10,9 +10,9 @@ DOCUMENTATION = '''
 ---
 module: counter_facts
 version_added: "1.0"
-short_description: Retrive DUT counters.
+short_description: Retrieve DUT counters.
 description:
-    - Retrieve DUT counters by parsing specific CLI commands output. Module can be extendent
+    - Retrieve DUT counters by parsing specific CLI commands output. Module can be extended
       to support more counters.
 options:
     flex_counters:
