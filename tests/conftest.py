@@ -9,6 +9,8 @@ import ipaddr as ipaddress
 from ansible_host import AnsibleHost
 from loganalyzer import LogAnalyzer
 
+from common.devices import SonicHost, Localhost, PTFHost
+
 
 pytest_plugins = ('ptf_fixtures', 'ansible_fixtures', 'plugins.dut_monitor.pytest_dut_monitor')
 
@@ -76,7 +78,6 @@ def testbed_devices(ansible_adhoc, testbed):
     @param testbed: Fixture for parsing testbed configuration file.
     @return: Return the created device objects in a dictionary
     """
-    from common.devices import SonicHost, Localhost, PTFHost
 
     devices = {
         "localhost": Localhost(ansible_adhoc),
@@ -84,6 +85,12 @@ def testbed_devices(ansible_adhoc, testbed):
 
     if "ptf" in testbed:
         devices["ptf"] = PTFHost(ansible_adhoc, testbed["ptf"])
+    else:
+        # when no ptf defined in testbed.csv
+        # try to parse it from inventory
+        dut = devices["dut"]
+        ptf_host = dut.host.options["inventory_manager"].get_vars(dut.hostname)["ptf_host"]
+        devices["ptf"] = PTFHost(ansible_adhoc, ptf_host)
 
     # In the future, we can implement more classes for interacting with other testbed devices in the lib.devices
     # module. Then, in this fixture, we can initialize more instance of the classes and store the objects in the
@@ -95,23 +102,21 @@ def testbed_devices(ansible_adhoc, testbed):
 
 
 @pytest.fixture(scope="module")
-def duthost(ansible_adhoc, testbed):
+def duthost(testbed_devices):
     """
     Shortcut fixture for getting DUT host
     """
 
-    hostname = testbed['dut']
-    return AnsibleHost(ansible_adhoc, hostname)
+    return testbed_devices["dut"]
 
 
 @pytest.fixture(scope="module")
-def ptfhost(ansible_adhoc, testbed):
+def ptfhost(testbed_devices):
     """
     Shortcut fixture for getting PTF host
     """
 
-    hostname = testbed['ptf']
-    return AnsibleHost(ansible_adhoc, hostname)
+    return testbed_devices["ptf"]
 
 
 @pytest.fixture(scope='session')
