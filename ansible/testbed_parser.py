@@ -117,7 +117,7 @@ def get_base_vm(server_info, vms, need_vm_cnt=4):
             if index == 0:
                 if server in vms and vms[server]['start_vm'] != item[0]:
                     server_start_vm = int(vms[server]['start_vm'][2:])
-                    if server_start_vm + need_vm_cnt < curr_vm:
+                    if server_start_vm + need_vm_cnt <= curr_vm:
                         return server, server_start_vm
             if prev_vm:
                 # handle vm reuse case between diff topologies
@@ -126,7 +126,7 @@ def get_base_vm(server_info, vms, need_vm_cnt=4):
                         curr_vm_cnt = prev_vm_cnt
 
                 # there might be a free block in between 
-                elif (block_start_vm < curr_vm) and (block_start_vm + need_vm_cnt < curr_vm):
+                elif (block_start_vm < curr_vm) and (block_start_vm + need_vm_cnt <= curr_vm):
                    return server, block_start_vm 
                
             prev_vm = curr_vm
@@ -135,7 +135,7 @@ def get_base_vm(server_info, vms, need_vm_cnt=4):
 
         # get free block at the end
         server_end_vm = int(vms[server]['end_vm'][2:])
-        if block_start_vm + need_vm_cnt < server_end_vm:
+        if block_start_vm + need_vm_cnt <= server_end_vm:
             return server, block_start_vm
 
     # pick up unused servers from vms file if any
