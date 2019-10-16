@@ -145,6 +145,7 @@ class ReloadTest(BaseTest):
         self.check_param('preboot_files', None, required = False)
         self.check_param('preboot_oper', None, required = False) # preboot sad path to inject before warm-reboot
         self.check_param('inboot_oper', None, required = False) # sad path to inject during warm-reboot
+        self.check_param('nexthop_ips', [], required = False) # nexthops for the routes that will be added during warm-reboot
         self.check_param('allow_vlan_flooding', False, required = False)
         self.check_param('sniff_time_incr', 60, required = False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':

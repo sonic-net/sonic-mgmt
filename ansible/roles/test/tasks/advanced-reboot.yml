@@ -24,7 +24,18 @@
       set_fact: preboot_list={% if preboot_list is not defined %}[None]{% else %}{{ preboot_list }}{% endif %}
 
     - name: Inboot-list initialization
-      set_fact: inboot_list={% if inboot_list is not defined %}[None]{% else %}{{ inboot_list }}{% endif %}
+      set_fact:
+          inboot_list: {% if inboot_list is not defined %}[None]{% else %}{{ inboot_list }}{% endif %}
+          nexthop_ips: None
+
+    - include_vars: "vars/topo_{{testbed_type}}.yml"
+
+    - name: Set nexthop parameters for inboot operation
+      set_fact:
+        nexthop_ips:
+          - "{{ configuration_properties['common']['nhipv4'] }}"
+          - "{{ configuration_properties['common']['nhipv6'] }}"
+      when: None not in inboot_list
 
     - name: Validate preboot and inboot list
       include: roles/test/tasks/advanced_reboot/validate_sad_list.yml

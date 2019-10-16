@@ -67,6 +67,7 @@
         - preboot_files='{{ preboot_files }}'
         - preboot_oper='{{ preboot_oper }}'
         - inboot_oper='{{ inboot_oper }}'
+        - nexthop_ips={{ nexthop_ips }}
         - allow_vlan_flooding='{{ allow_vlan_flooding }}'
         - sniff_time_incr={{ sniff_time_incr }}
         - setup_fdb_before_test=True

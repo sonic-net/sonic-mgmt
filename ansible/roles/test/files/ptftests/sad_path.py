@@ -69,7 +69,15 @@ class SadPath(object):
         self.memb_index = 0
         self.if_port = []
         self.down_vlan_info = []
+        self.bp_ip = None
+        self.bp_ip6 = None
         self.extract_oper_info(oper_type)
+        self.extract_nexthops()
+
+    def extract_nexthops(self):
+        if self.test_args['nexthop_ips']:
+            self.bp_ip = str(self.test_args['nexthop_ips'][0])
+            self.bp_ip6 = str(self.test_args['nexthop_ips'][1])
 
     def extract_oper_info(self, oper_type):
         if oper_type and ':' in oper_type:
@@ -237,12 +245,6 @@ class SadOper(SadPath):
                     self.populate_lag_state()
 
                 elif 'routing' in self.oper_type:
-                    # extract the v4 and v6 next hop ips which will be used for adding new routes
-                    self.bp_ip = self.bp_ip6 = None
-                    fails_vm, self.bp_ip = self.vm_handles[self.neigh_vms[-1]].get_bp_ip()
-                    self.fails[self.neigh_vms[-1]] |= fails_vm
-                    fails_vm, self.bp_ip6 = self.vm_handles[self.neigh_vms[-1]].get_bp_ip(v4=False)
-                    self.fails[self.neigh_vms[-1]] |= fails_vm
                     if self.bp_ip and self.bp_ip6:
                         self.generate_ips()
                         self.build_route_config()
