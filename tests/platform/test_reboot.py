@@ -135,7 +135,7 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
     check_reboot_cause(dut, reboot_cause)
 
     if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
-        logging.info("Other checking skipped for %s test which intends to verify reboot-cause only".format(reboot_type))
+        logging.info("Further checking skipped for %s test which intends to verify reboot-cause only".format(reboot_type))
         return
 
     logging.info("Wait some time for all the transceivers to be detected")
