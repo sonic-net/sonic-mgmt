@@ -1,4 +1,5 @@
 import datetime
+import ipaddress
 import re
 import subprocess
 import time
@@ -6,7 +7,7 @@ import time
 from arista import Arista
 
 
-class PrebootTest(object):
+class SadTest(object):
     def __init__(self, oper_type, vm_list, portchannel_ports, vm_dut_map, test_args, dut_ssh, vlan_ports):
         self.oper_type = oper_type
         self.vm_list = vm_list
@@ -24,9 +25,15 @@ class PrebootTest(object):
         self.shandle.sad_setup(is_up=False)
         return self.shandle.retreive_test_info(), self.shandle.retreive_logs()
 
-    def verify(self, pre_check=True):
+    def route_setup(self):
+        self.shandle.modify_routes()
+        return self.shandle.retreive_logs()
+
+    def verify(self, pre_check=True, inboot=False):
         if 'vlan' in self.oper_type:
             self.shandle.verify_vlan_port_state(pre_check=pre_check)
+        elif 'routing' in self.oper_type:
+            self.shandle.verify_route_add(pre_check=pre_check, inboot=inboot)
         else:
             self.shandle.sad_bgp_verify()
             if 'lag' in self.oper_type:
@@ -41,8 +48,9 @@ class PrebootTest(object):
 class SadPath(object):
     def __init__(self, oper_type, vm_list, portchannel_ports, vm_dut_map, test_args, vlan_ports):
         self.oper_type = ''
-        self.cnt = 1
         self.memb_cnt = 0
+        self.cnt = 1 if 'routing' not in oper_type else len(vm_list)
+        self.ip_cnt = 1
         self.vm_list = vm_list
         self.portchannel_ports = portchannel_ports
         self.vm_dut_map = vm_dut_map
@@ -61,18 +69,31 @@ class SadPath(object):
         self.memb_index = 0
         self.if_port = []
         self.down_vlan_info = []
+        self.bp_ip = None
+        self.bp_ip6 = None
         self.extract_oper_info(oper_type)
+        self.extract_nexthops()
+
+    def extract_nexthops(self):
+        if self.test_args['nexthop_ips']:
+            self.bp_ip = str(self.test_args['nexthop_ips'][0])
+            self.bp_ip6 = str(self.test_args['nexthop_ips'][1])
 
     def extract_oper_info(self, oper_type):
         if oper_type and ':' in oper_type:
             temp = oper_type.split(':')
             self.oper_type = temp[0]
-            # get number of VMs where the sad pass oper needs to be done. For vlan_member case,
+            # get number of VMs where the preboot sad pass oper needs to be done. For vlan_member case,
             # this will be the number of down vlan ports
-            self.cnt = int(temp[1])
-            if len(temp) > 2:
-                # get the number of lag members in a portchannel that should be brought down
-                self.memb_cnt = int(temp[-1])
+            if 'routing' not in oper_type:
+                self.cnt = int(temp[1])
+                if len(temp) > 2:
+                    # get the number of lag members in a portchannel that should be brought down
+                    self.memb_cnt = int(temp[-1])
+            else:
+                # for sad operation during reboot, all VMs should be included in the cnt
+                self.cnt = len(self.vm_list)
+                self.ip_cnt = int(temp[-1])
         else:
             self.oper_type = oper_type
 
@@ -152,8 +173,10 @@ class SadPath(object):
     def setup(self):
         self.select_vm()
         self.get_neigh_name()
-        self.down_neigh_port()
         self.vm_connect()
+        # bring down the VM PTF ports only for preboot sad oper
+        if 'routing' not in self.oper_type:
+            self.down_neigh_port()
 
         # decide if its all member down or few members down for lag member oper type
         if 'member' in self.oper_type:
@@ -221,7 +244,28 @@ class SadOper(SadPath):
                 if 'lag' in self.oper_type:
                     self.populate_lag_state()
 
-        if 'bgp' in self.oper_type:
+                elif 'routing' in self.oper_type:
+                    if self.bp_ip and self.bp_ip6:
+                        self.generate_ips()
+                        self.build_route_config()
+                        neigh_rt_v4_info, ret = self.get_bgp_route_cnt(is_up=is_up)
+                        neigh_rt_v6_info, ret1 = self.get_bgp_route_cnt(is_up=is_up, v4=False)
+                        if not ret and not ret1:
+                            self.build_neigh_rt_map(neigh_rt_v4_info + neigh_rt_v6_info)
+
+        if 'routing' in self.oper_type:
+            if self.bp_ip:
+                for vm in self.neigh_vms:
+                    if not is_up:
+                        # Need to add the routes which will be removed during the the boot
+                        if 'routing_del' in self.oper_type:
+                            self.log.append('Adding %d routes from VM %s' % (2 * self.ip_cnt, vm))
+                            self.vm_handles[vm].change_bgp_route(self.route_cfg)
+                    else:
+                        self.log.append('Removing %d routes from VM %s' % (2 * self.ip_cnt, vm))
+                        self.vm_handles[vm].change_bgp_route(self.no_route_cfg)
+
+        elif 'bgp' in self.oper_type:
             self.log.append('BGP state change will be for %s' % ", ".join(self.neigh_vms))
             if self.oper_type == 'neigh_bgp_down':
                 for vm in self.neigh_vms:
@@ -253,6 +297,88 @@ class SadOper(SadPath):
 
         elif 'vlan' in self.oper_type:
             self.change_vlan_port_state(is_up=is_up)
+
+    def generate_ips(self):
+        '''
+        Generates the prefixes that will be added to the neighbor
+        '''
+        self.start_ip_pfx = '123.45.67.0/25'
+        self.start_ip6_pfx = '20d0:a808:0:80::/120'
+        self.ip_pfx_list = list(ipaddress.ip_network(u'%s' % self.start_ip_pfx).hosts())[0:self.ip_cnt]
+        self.ip_pfx_list = [str(ip) for ip in self.ip_pfx_list]
+        self.ip6_pfx_list = list(ipaddress.IPv6Network(u'%s' % self.start_ip6_pfx).hosts())[0:self.ip_cnt]
+        self.ip6_pfx_list = [str(ip) for ip in self.ip6_pfx_list]
+
+    def build_route_config(self):
+        # cmds for adding routes
+        self.route_cfg = []
+        # cmds for deleting routes
+        self.no_route_cfg = []
+        for cnt, ip in enumerate(zip(self.ip_pfx_list, self.ip6_pfx_list)):
+            # add route cfg
+            self.route_cfg.append('ip route %s/32 %s' % (ip[0], self.bp_ip))
+            self.route_cfg.append('ipv6 route %s/128 %s' % (ip[1], self.bp_ip6))
+            # remove route cfg
+            self.no_route_cfg.append('no ip route %s/32 %s' % (ip[0], self.bp_ip))
+            self.no_route_cfg.append('no ipv6 route %s/128 %s' % (ip[1], self.bp_ip6))
+        self.route_cfg.append('router bgp %s' % self.neigh_bgps[self.neigh_vms[-1]]['asn'])
+        self.route_cfg.append('redistribute static')
+        self.route_cfg.append('exit')
+        self.no_route_cfg.append('router bgp %s' % self.neigh_bgps[self.neigh_vms[-1]]['asn'])
+        self.no_route_cfg.append('redistribute static route-map PREPENDAS')
+        self.no_route_cfg.append('exit')
+
+    def get_bgp_route_cnt(self, is_up=True, v4=True):
+        # extract the neigh ip and current number of routes
+        if v4:
+            cmd = 'show ip bgp summary | sed \'1,/Neighbor/d;/^$/,$d\' | sed \'s/\s\s*/ /g\' | cut -d\' \' -f 1,10'
+        else:
+            cmd = 'show ipv6 bgp summary | sed \'1,/Neighbor/d;/^$/,$d\' | sed \'s/\s\s*/ /g\' | cut -d\' \' -f 1,10'
+
+        stdout, stderr, return_code = self.cmd(['ssh', '-oStrictHostKeyChecking=no', self.dut_ssh, cmd])
+        if return_code != 0:
+            self.fails['dut'].add('%s: Failed to retreive BGP route info from DUT' % self.msg_prefix[1 - is_up])
+            self.fails['dut'].add('%s: Return code: %d' % (self.msg_prefix[1 - is_up], return_code))
+            self.fails['dut'].add('%s: Stderr: %s' % (self.msg_prefix[1 - is_up], stderr))
+        return stdout, return_code
+
+    def build_neigh_rt_map(self, neigh_rt_info):
+        # construct neigh to route cnt map
+        self.neigh_rt_map = dict()
+        for line in neigh_rt_info.strip().split('\n'):
+            key, value = line.split(' ')
+            self.neigh_rt_map.update({key:value})
+
+    def verify_route_cnt(self, rt_incr, is_up=True, v4=True):
+        neigh_rt_info, ret = self.get_bgp_route_cnt(is_up=is_up, v4=v4)
+        if not ret:
+            for line in neigh_rt_info.strip().split('\n'):
+                neigh_ip, rt_cnt = line.split(' ')
+                exp_cnt = int(self.neigh_rt_map[neigh_ip]) + rt_incr
+                if int(rt_cnt) != exp_cnt:
+                    self.fails['dut'].add('%s: Route cnt incorrect for neighbor %s Expected: %d Obtained: %d' % (self.msg_prefix[is_up], neigh_ip, exp_cnt, int(rt_cnt)))
+                else:
+                    self.log.append('Route cnt as expected for neighbor %s: %d' % (neigh_ip, exp_cnt))
+
+    def verify_route_add(self, pre_check=True, inboot=True):
+        self.log = []
+        rt_incr = 0
+        if (pre_check and 'routing_del' in self.oper_type) or (inboot and 'routing_add' in self.oper_type):
+            rt_incr = self.ip_cnt
+        # verify ipv4 and ipv6 route cnts
+        self.verify_route_cnt(rt_incr, is_up=pre_check)
+        self.verify_route_cnt(rt_incr, is_up=pre_check, v4=False)
+
+    def modify_routes(self):
+        self.log = []
+        if self.bp_ip:
+            for vm in self.neigh_vms:
+                if 'routing_add' in self.oper_type:
+                    self.log.append('Adding %d routes from VM %s' % (2 * self.ip_cnt, vm))
+                    self.vm_handles[vm].change_bgp_route(self.route_cfg)
+                else:
+                    self.log.append('Removing %d routes from VM %s' % (2 * self.ip_cnt, vm))
+                    self.vm_handles[vm].change_bgp_route(self.no_route_cfg)
 
     def change_vlan_port_state(self, is_up=True):
         state = ['shutdown', 'startup']
