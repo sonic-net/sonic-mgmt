@@ -23,16 +23,30 @@
     - name: Preboot-list initialization
       set_fact: preboot_list={% if preboot_list is not defined %}[None]{% else %}{{ preboot_list }}{% endif %}
 
-    - name: Validate preboot list
-      include: roles/test/tasks/advanced_reboot/validate_preboot_list.yml
-      with_items: "{{ preboot_list }}"
+    - name: Inboot-list initialization
+      set_fact:
+          inboot_list: {% if inboot_list is not defined %}[None]{% else %}{{ inboot_list }}{% endif %}
+          nexthop_ips: None
+
+    - include_vars: "vars/topo_{{testbed_type}}.yml"
+
+    - name: Set nexthop parameters for inboot operation
+      set_fact:
+        nexthop_ips:
+          - "{{ configuration_properties['common']['nhipv4'] }}"
+          - "{{ configuration_properties['common']['nhipv6'] }}"
+      when: None not in inboot_list
+
+    - name: Validate preboot and inboot list
+      include: roles/test/tasks/advanced_reboot/validate_sad_list.yml
+      with_items: "{{ preboot_list + inboot_list }}"
       when: item and ':' in item
 
     - name: Preboot files initialization
       set_fact: preboot_files={% if preboot_files is not defined %}None{% else %}{{ preboot_files }}{% endif %}
 
     - debug:
-        msg: "Preboot-list: {{ preboot_list }} Preboot-files: {{ preboot_files }}"
+        msg: "Preboot-list: {{ preboot_list }} Preboot-files: {{ preboot_files }} Inboot-list: {{ inboot_list }}"
 
     - name: Set PTF test params
       set_fact:
@@ -122,7 +136,8 @@
             dest: /tmp/neigh_port_info.json
           delegate_to: "{{ ptf_host }}"
 
-      when: preboot_list|length > 1
+      when: (preboot_list|length > 1) or
+            (inboot_list|length > 0 and 'None' not in inboot_list)
 
     - debug: msg="Defined new sonic image url is {{ new_sonic_image }}"
       when: new_sonic_image is defined
@@ -142,8 +157,20 @@
         - reboot_type == "fast-reboot"
         - minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
+    - name: populate sad list with inboot list
+      set_fact: sad_list="{{ inboot_list }}"
+      when: (inboot_list|length > 0) and (None not in inboot_list)
+
+    - name: populate sad list with preboot list
+      set_fact: sad_list="{{ preboot_list }}"
+      when: (preboot_list|length > 0) and (None not in preboot_list)
+
+    - name: populate sad list with preboot list
+      set_fact: sad_list="{{ preboot_list }}"
+      when: (None in preboot_list) and (None in inboot_list)
+
     - include: ptf_runner_reboot.yml
-      with_items: "{{ preboot_list }}"
+      with_items: "{{ sad_list }}"
 
   always:
     # When new image is defined, test removed /host/config_db.json

@@ -363,6 +363,12 @@ class Arista(object):
 
         return neigh_bgp, dut_bgp
 
+    def change_bgp_route(self, cfg_map):
+        self.do_cmd('configure')
+        for item in cfg_map:
+            self.do_cmd(item)
+        self.do_cmd('exit')
+
     def change_bgp_neigh_state(self, asn, is_up=True):
         state = ['shut', 'no shut']
         self.do_cmd('configure')
@@ -519,4 +525,3 @@ class Arista(object):
 
         # Note: the first item is a placeholder
         return 0, change_count
-

@@ -3,6 +3,7 @@
     host_max_len: "{{ vm_hosts|length - 1 }}"
     member_max_cnt: "{{ minigraph_portchannels.values()[0]['members']|length }}"
     vlan_max_cnt: "{{ minigraph_vlans.values()[0]['members']|length - 1 }}"
+    host_max_cnt: 126
 
 - fail: msg="Bgp neigh down count is greater than or equal to number of VM hosts. Current val = {{ item_cnt }} Max val = {{ host_max_len }}"
   when: "{{ 'bgp_down' in item and item_cnt > host_max_len }}"
@@ -15,3 +16,6 @@
 
 - fail: msg="Vlan count is greater than or equal to number of Vlan interfaces. Current val = {{ item_cnt }} Max val = {{ vlan_max_cnt }}"
   when: "{{ 'vlan_port_down' in item and item_cnt|int > vlan_max_cnt|int }}"
+
+- fail: msg="Number of prefixes is greater than allowed max. Current val = {{ item_cnt }} Max val = {{ host_max_cnt }}"
+  when: "{{ 'routing' in item and item_cnt|int > host_max_cnt }}"
