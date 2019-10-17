@@ -211,7 +211,12 @@ def action_profile_members(mode, sw_conn, input_conf, p4info_helper):
         # Create Members
         if 'member_entries' in input_conf:
             members = input_conf['member_entries']
-            entrs = [x for x in members if x['entry_oper'] == mode]
+            if 'NOT-SUP' in mode:
+                return
+            elif 'DELETE' in mode:
+                entrs = [x for x in members if x['entry_oper'] == 'INSERT']
+            elif 'INSERT' in mode:
+                entrs = [x for x in members if x['entry_oper'] == mode]
             log.info("{mode} {num} members ...".format(num=len(entrs),mode=mode.upper()))
             for entry in entrs:
                 log.info("{mode} a member ".format(mode=mode.upper()))
@@ -227,4 +232,32 @@ def action_profile_members(mode, sw_conn, input_conf, p4info_helper):
     except grpc.RpcError as e:
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test failed due to Grpc Error {err}".format(err=e.details()))
+
+def action_profile_groups(mode, sw_conn, input_conf, p4info_helper):
+    log.info("Proc: Action profile Groups")
+    
+    try:       
+        # Create Groups
+        if 'group_entries' in input_conf:
+            groups = input_conf['group_entries']
+            if 'NOT-SUP' in mode:
+                return
+            elif 'DELETE' in mode:
+                entrs = [x for x in groups if x['entry_oper'] == 'INSERT']
+            elif 'INSERT' in mode:
+                entrs = [x for x in groups if x['entry_oper'] == mode]
+            log.info("{mode} {num} groups ...".format(num=len(entrs),mode=mode.upper()))
+            for entry in entrs:
+                log.info("{mode} a group ".format(mode=mode.upper()))
+                p4TestLib.groupActions(sw_conn,entry,p4info_helper, mode)
+                group_id = entry["group_id"]
+                if ('DELETE' not in mode):
+                    reply = sw_conn.ReadActionProfileGroup(group_id=group_id)
+                    for rep in reply:
+                        log.info(p4TestLib.repr_pretty_p4runtime(rep))
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error(e)
+        printGrpcError(e)

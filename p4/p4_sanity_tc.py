@@ -686,6 +686,7 @@ def _test_indirect_table_crudTests(self, tbl_name,tbl_ops,sw_conn):
 
     if tbl_ops == "INSERT":
         TchLib.action_profile_members("INSERT",sw_conn,input_conf,p4info_helper)
+        TchLib.action_profile_groups("INSERT",sw_conn,input_conf,p4info_helper)
         try:
             if 'table_entries' in input_conf:
                 log.info(input_conf)
@@ -749,7 +750,8 @@ def _test_indirect_table_crudTests(self, tbl_name,tbl_ops,sw_conn):
             log.error(e)
             printGrpcError(e)
         finally:
-            TchLib.action_profile_members("DELETE",sw_conn,input_conf,p4info_helper)
+            TchLib.action_profile_groups("DELETE",sw_conn,input_conf,p4info_helper)
+            TchLib.action_profile_members("DELETE",sw_conn,input_conf,p4info_helper)            
             sw_conn.shutdown()
 
     

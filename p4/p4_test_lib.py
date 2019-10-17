@@ -216,9 +216,9 @@ def memberActions(sw, flow, p4info_helper, mode, **kwargs):
         election_id_high = 0
     
     member_id = flow['member_id']
-    action_profile_id = flow['action_profile_id']
-    action_name = flow['action_name']
-    action_params = flow['action_params']
+    action_profile_id = flow.get('action_profile_id')
+    action_name = flow.get('action_name')
+    action_params = flow.get('action_params')
     
     apmember = p4info_helper.buildActionProfileMember(
         member_id=member_id,
