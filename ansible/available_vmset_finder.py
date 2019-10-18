@@ -13,7 +13,7 @@ from operator import itemgetter
 Testbed parser
 
 Usage:
-   python testbed_parser.py -t <topo_name>
+   python available_vmset_finder.py -t <topo_name>
 
 Arguments:
    -t <topo_name>
