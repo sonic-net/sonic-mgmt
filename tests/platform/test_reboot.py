@@ -36,27 +36,32 @@ REBOOT_TYPE_WATCHDOG = "watchdog"
 reboot_ctrl_dict = {
     REBOOT_TYPE_POWEROFF: {
         "timeout": 300,
-        "cause": "Power Loss"
+        "cause": "Power Loss",
+        "test_reboot_cause_only": True
     },
     REBOOT_TYPE_COLD: {
         "command": "reboot",
         "timeout": 300,
-        "cause": "reboot"
+        "cause": "reboot",
+        "test_reboot_cause_only": False
     },
     REBOOT_TYPE_FAST: {
         "command": "fast-reboot",
         "timeout": 180,
-        "cause": "fast-reboot"
+        "cause": "fast-reboot",
+        "test_reboot_cause_only": False
     },
     REBOOT_TYPE_WARM: {
         "command": "warm-reboot",
         "timeout": 180,
-        "cause": "warm-reboot"
+        "cause": "warm-reboot",
+        "test_reboot_cause_only": False
     },
     REBOOT_TYPE_WATCHDOG: {
         "command": "python -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog().arm(5); exit()\"",
         "timeout": 300,
-        "cause": "Watchdog"
+        "cause": "Watchdog",
+        "test_reboot_cause_only": True
     }
 }
 
@@ -128,6 +133,10 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
 
     logging.info("Check reboot cause")
     check_reboot_cause(dut, reboot_cause)
+
+    if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
+        logging.info("Further checking skipped for %s test which intends to verify reboot-cause only".format(reboot_type))
+        return
 
     logging.info("Wait some time for all the transceivers to be detected")
     assert wait_until(300, 20, check_interface_information, dut, interfaces), \
