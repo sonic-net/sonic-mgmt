@@ -14,6 +14,10 @@
       vars:
         testname_unique_gen: true
 
+    - name: Allow enough time for the start marker to flow into the syslog
+      pause:
+        seconds: 5
+
     - name: Stop PFC storm on fanout switch
       action: apswitch template="{{pfc_wd_storm_stop_template}}"
       args:
@@ -23,7 +27,7 @@
 
     - name: Allow enough time for the PFC storm restoration to flow into the syslog
       pause:
-        seconds: 1
+        seconds: 15
 
     - name: Check if logs contain message that PFC WD restored from deadlock
       include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml

@@ -41,7 +41,7 @@
 
     - name: Allow enough time for the PFC storm detection to flow into the syslog
       pause:
-        seconds: 5
+        seconds: 15
 
     - name: Check if logs contain message that PFC WD detected storm
       include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
