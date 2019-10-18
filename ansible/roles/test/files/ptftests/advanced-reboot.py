@@ -148,6 +148,8 @@ class ReloadTest(BaseTest):
         self.check_param('nexthop_ips', [], required = False) # nexthops for the routes that will be added during warm-reboot
         self.check_param('allow_vlan_flooding', False, required = False)
         self.check_param('sniff_time_incr', 60, required = False)
+        self.check_param('vnet', False, required = False)
+        self.check_param('vnet_pkts', None, required = False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
@@ -164,6 +166,11 @@ class ReloadTest(BaseTest):
         else:
            self.log_file_name = '/tmp/%s.log' % self.test_params['reboot_type']
         self.log_fp = open(self.log_file_name, 'w')
+
+        self.packets_list = []
+        self.vnet = self.test_params['vnet']
+        if (self.vnet):
+            self.packets_list = json.load(open(self.test_params['vnet_pkts']))
 
         # a flag whether to populate FDB by sending traffic from simulated servers
         # usually ARP responder will make switch populate its FDB table, but Mellanox on 201803 has
@@ -522,7 +529,8 @@ class ReloadTest(BaseTest):
 
             # Pre-generate list of packets to be sent in send_in_background method.
             generate_start = datetime.datetime.now()
-            self.generate_bidirectional()
+            if not self.vnet:
+                self.generate_bidirectional()
             self.log("%d packets are ready after: %s" % (len(self.packets_list), str(datetime.datetime.now() - generate_start)))
 
         self.dataplane = ptf.dataplane_instance
@@ -1056,7 +1064,10 @@ class ReloadTest(BaseTest):
             self.log("Sender started at %s" % str(sender_start))
             for entry in packets_list:
                 time.sleep(interval)
-                testutils.send_packet(self, *entry)
+                if self.vnet:
+                    testutils.send_packet(self, entry[0], entry[1].decode("base64"))
+                else:
+                    testutils.send_packet(self, *entry)
             self.log("Sender has been running for %s" % str(datetime.datetime.now() - sender_start))
             # Remove filter
             self.apply_filter_all_ports('')
@@ -1159,6 +1170,22 @@ class ReloadTest(BaseTest):
             self.check_tcp_payload(pkt) and
             self.no_flood(pkt)
             ]
+
+        if self.vnet:
+            decap_packets = [ scapyall.Ether(str(pkt.payload.payload.payload)[8:]) for pkt in all_packets if
+                scapyall.UDP in pkt and
+                pkt[scapyall.UDP].sport == 1234
+                ]
+            filtered_decap_packets = [ pkt for pkt in decap_packets if
+                scapyall.TCP in pkt and
+                not scapyall.ICMP in pkt and
+                pkt[scapyall.TCP].sport == 1234 and
+                pkt[scapyall.TCP].dport == 5000 and
+                self.check_tcp_payload(pkt) and
+                self.no_flood(pkt)
+                ]
+            filtered_packets = filtered_packets + filtered_decap_packets
+
         # Re-arrange packets, if delayed, by Payload ID and Timestamp:
         packets = sorted(filtered_packets, key = lambda packet: (int(str(packet[scapyall.TCP].payload)), packet.time ))
         self.lost_packets = dict()
