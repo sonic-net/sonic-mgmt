@@ -19,7 +19,7 @@ Arguments:
    -t <topo_name>
 
 Optional args:
-   -i <testbed file to parser>  default: testbed.csv
+   -i <testbed file to parse>  default: testbed.csv
    -v <vm info file>            default: veos
 
 Return:
