@@ -628,11 +628,8 @@ def sai_thrift_port_tx_disable(client, asic_type, port_ids):
         attr_value = sai_thrift_attribute_value_t(booldata=0)
         attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
 
-    if isinstance(port_ids, list):
-        for port_id in port_ids:
-            client.sai_thrift_set_port_attribute(port_list[port_id], attr)
-    else:
-        client.sai_thrift_set_port_attribute(port_list[port_ids], attr)
+    for port_id in port_ids:
+        client.sai_thrift_set_port_attribute(port_list[port_id], attr)
 
 def sai_thrift_port_tx_enable(client, asic_type, port_ids):
     if asic_type == 'mellanox':
@@ -645,11 +642,8 @@ def sai_thrift_port_tx_enable(client, asic_type, port_ids):
         attr_value = sai_thrift_attribute_value_t(booldata=1)
         attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
 
-    if isinstance(port_ids, list):
-        for port_id in port_ids:
-            client.sai_thrift_set_port_attribute(port_list[port_id], attr)
-    else:
-        client.sai_thrift_set_port_attribute(port_list[port_ids], attr)
+    for port_id in port_ids:
+        client.sai_thrift_set_port_attribute(port_list[port_id], attr)
 
 def sai_thrift_read_port_counters(client,port):
     port_cnt_ids=[]
