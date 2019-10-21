@@ -54,6 +54,8 @@ str-agc7648-acs-1,10.64.246.40/23,Delta-AGC7648,DevSonic
 str-a7280cr3-1,10.3.146.218/23,Arista-7280CR3-C40,DevSonic
 str-e1031-acs-1,10.64.247.24/23,Celestica-E1031-T48S4,DevSonic
 str-e1031-acs-2,10.64.247.25/23,Celestica-E1031-T48S4,FanoutLeafSonic
+str-marvell-acs-1,10.3.146.154/23,et6448m,DevSonic
+str-marvell-acs-2,10.3.146.155/23,et6448m,FanoutLeafSonic
 str-7260-02,10.3.147.154/23,Arista-7260QX-64,FanoutLeaf
 str-7260-03,10.3.147.169/23,Arista-7260QX-64,FanoutLeaf
 str-7260-04,10.3.147.164/23,Arista-7260QX-64,FanoutLeaf

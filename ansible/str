@@ -134,6 +134,13 @@ str-e1031-acs-1   ansible_host=10.64.247.24    hwsku='Celestica-E1031-T48S4'
 hwsku='Celestica-E1031-T48S4'
 iface_speed='1000'
 
+[sonic_marvell]
+str-marvell-acs-1 ansible_host=10.3.146.154 hwsku='et6448m'
+
+[sonic_marvell:vars]
+hwsku='et6448m'
+iface_speed='1000'
+
 [sonic_wedge100b65_100]
 str-wedge100b65-acs-1 ansible_host=10.64.247.4
 str-wedge100b65-acs-2 ansible_host=10.64.247.5
@@ -176,6 +183,7 @@ sonic_dx010_100
 sonic_agc7648
 sonic_nexus_9232_100
 sonic_nexus_92304_40
+sonic_marvell
 
 [sonic:vars]
 mgmt_subnet_mask_length='23'
@@ -288,8 +296,10 @@ str-7060cx-32s-22  ansible_host=10.64.246.34
 str-7260cx3-fan-03  ansible_host=10.64.246.47
 str-7260cx3-fan-04  ansible_host=10.64.246.74
 str-e1031-acs-2     ansible_host=10.64.247.25 os=sonic
+str-marvell-acs-2   ansible_host=10.3.146.155 os=sonic
 str-7260cx3-acs-fan-05 ansible_host=10.64.246.76
 str-7260cx3-64-20   ansible_host=10.3.146.151
+str-7260cx3-64-19   ansible_host=10.3.146.150	
 
 [docker_registry]
 acs-devrepo.corp.microsoft.com
