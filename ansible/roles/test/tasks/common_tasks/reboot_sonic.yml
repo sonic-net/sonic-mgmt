@@ -7,6 +7,11 @@
     reboot_type: "reboot"
   when: reboot_type is not defined
 
+- name: set default value for Marvell M0 sonic ready timeout
+  set_fact:
+    ready_timeout: 240
+  when: hwsku == 'et6448m'
+
 - name: set default value for sonic ready timeout
   set_fact:
     ready_timeout: 180

@@ -14,6 +14,11 @@
   pause:
     seconds: 10
 
+- name: Wait for additional 20 seconds for Marvell M0 sonic syncd to quit
+  pause:
+    seconds: 20
+  when: hwsku == 'et6448m'
+
 - name: Look for syncd process
   shell: pgrep "\<syncd\>" -a
   register: syncd_out
@@ -47,6 +52,11 @@
 - name: wait for 2 minutes for swss service to recover
   pause:
     seconds: 120
+
+- name: Wait for additional 120 seconds for Marvell M0 sonic swss service to recover
+  pause:
+    seconds: 120
+  when: hwsku == 'et6448m'
 
 - name: check basic sanity of the device
   include: base_sanity.yml

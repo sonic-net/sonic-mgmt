@@ -8,6 +8,11 @@
   pause:
     seconds: 120
 
+- name: Wait for additional 120 seconds for Marvell M0 sonic swss service to recover
+  pause:
+    seconds: 120
+  when: hwsku == 'et6448m'
+
 - name: check basic sanity of the device
   include: base_sanity.yml
   vars:
