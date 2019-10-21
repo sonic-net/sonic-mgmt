@@ -5,6 +5,53 @@ pkg_info {
 }
 tables {
   preamble {
+    id: 33554491
+    name: "ingress.outer_drop_martians.outer_drop_martians_table"
+    alias: "outer_drop_martians_table"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ethernet.ether_type"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 2
+    name: "hdr.ipv4_base.src_addr"
+    bitwidth: 32
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 3
+    name: "hdr.ipv4_base.dst_addr"
+    bitwidth: 32
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 4
+    name: "hdr.ipv6_base.src_addr"
+    bitwidth: 128
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 5
+    name: "hdr.ipv6_base.dst_addr"
+    bitwidth: 128
+    match_type: TERNARY
+  }
+  action_refs {
+    id: 16777283
+  }
+  action_refs {
+    id: 16800567
+    annotations: "@defaultonly"
+    scope: DEFAULT_ONLY
+  }
+  size: 1024
+  is_const_table: true
+}
+tables {
+  preamble {
     id: 33554444
     name: "ingress.decap.decap_table"
     alias: "decap_table"
@@ -66,6 +113,7 @@ tables {
     annotations: "@defaultonly"
     scope: DEFAULT_ONLY
   }
+  direct_resource_ids: 318767109
   size: 13
 }
 tables {
@@ -107,7 +155,7 @@ tables {
     id: 5
     name: "standard_metadata.ingress_port"
     annotations: "@proto_tag(5)"
-    bitwidth: 9
+    bitwidth: 32
     match_type: TERNARY
   }
   match_fields {
@@ -131,11 +179,26 @@ tables {
     bitwidth: 32
     match_type: TERNARY
   }
+  match_fields {
+    id: 9
+    name: "local_metadata.dscp"
+    annotations: "@proto_tag(9)"
+    bitwidth: 6
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 10
+    name: "local_metadata.is_ip_packet"
+    annotations: "@proto_tag(10)"
+    bitwidth: 1
+    match_type: TERNARY
+  }
   action_refs {
     id: 16777232
     annotations: "@proto_tag(1)"
   }
   const_default_action_id: 16777232
+  direct_resource_ids: 318767112
   size: 256
 }
 tables {
@@ -198,11 +261,26 @@ tables {
     bitwidth: 2
     match_type: EXACT
   }
+  match_fields {
+    id: 2
+    name: "hdr.ipv4_base.protocol"
+    bitwidth: 8
+    match_type: EXACT
+  }
+  match_fields {
+    id: 3
+    name: "hdr.gre_base.protocol"
+    bitwidth: 16
+    match_type: TERNARY
+  }
   action_refs {
     id: 16777251
   }
   action_refs {
     id: 16777252
+  }
+  action_refs {
+    id: 16777286
   }
   action_refs {
     id: 16800567
@@ -708,6 +786,20 @@ tables {
     bitwidth: 10
     match_type: EXACT
   }
+  match_fields {
+    id: 4
+    name: "hdr.ethernet.ether_type"
+    annotations: "@proto_tag(4)"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 5
+    name: "local_metadata.dscp"
+    annotations: "@proto_tag(5)"
+    bitwidth: 6
+    match_type: TERNARY
+  }
   action_refs {
     id: 16777230
     annotations: "@proto_tag(1)"
@@ -722,176 +814,8 @@ tables {
     scope: DEFAULT_ONLY
   }
   implementation_id: 285212674
+  direct_resource_ids: 318767113
   size: 1024
-}
-tables {
-  preamble {
-    id: 33554483
-    name: "ingress.encap.encap_in_ipv4_table"
-    alias: "encap_in_ipv4_table"
-    annotations: "@proto_package(\"encap\")"
-    annotations: "@entry_pool(\"encap_entry_pool\")"
-  }
-  match_fields {
-    id: 1
-    name: "local_metadata.encap_id"
-    annotations: "@proto_tag(1)"
-    bitwidth: 11
-    match_type: EXACT
-  }
-  action_refs {
-    id: 16777276
-    annotations: "@proto_tag(1)"
-  }
-  action_refs {
-    id: 16777277
-    annotations: "@proto_tag(2)"
-  }
-  action_refs {
-    id: 16800567
-    annotations: "@defaultonly"
-    scope: DEFAULT_ONLY
-  }
-  size: 512
-}
-tables {
-  preamble {
-    id: 33554487
-    name: "ingress.encap.encap_in_ipv6_table"
-    alias: "encap_in_ipv6_table"
-    annotations: "@proto_package(\"encap\")"
-    annotations: "@entry_pool(\"encap_entry_pool\")"
-    annotations: "@entry_size(2)"
-  }
-  match_fields {
-    id: 1
-    name: "local_metadata.encap_id"
-    annotations: "@proto_tag(1)"
-    bitwidth: 11
-    match_type: EXACT
-  }
-  action_refs {
-    id: 16777278
-    annotations: "@proto_tag(1)"
-  }
-  action_refs {
-    id: 16800567
-    annotations: "@defaultonly"
-    scope: DEFAULT_ONLY
-  }
-  size: 512
-}
-tables {
-  preamble {
-    id: 33554449
-    name: "ingress.effingo.effingo_ipv4_table"
-    alias: "effingo_ipv4_table"
-  }
-  match_fields {
-    id: 1
-    name: "hdr.ethernet.ether_type"
-    bitwidth: 16
-    match_type: EXACT
-  }
-  match_fields {
-    id: 2
-    name: "hdr.ipv4_base.dscp"
-    bitwidth: 6
-    match_type: TERNARY
-  }
-  match_fields {
-    id: 3
-    name: "hdr.ipv4_base.protocol"
-    bitwidth: 8
-    match_type: TERNARY
-  }
-  match_fields {
-    id: 4
-    name: "hdr.ipv4_base.total_len"
-    bitwidth: 16
-    match_type: TERNARY
-  }
-  match_fields {
-    id: 5
-    name: "hdr.inner.ipv4.protocol"
-    bitwidth: 8
-    match_type: TERNARY
-  }
-  match_fields {
-    id: 6
-    name: "hdr.inner.ipv6.next_header"
-    bitwidth: 8
-    match_type: TERNARY
-  }
-  match_fields {
-    id: 7
-    name: "hdr.inner.ipv4.total_len"
-    bitwidth: 16
-    match_type: TERNARY
-  }
-  match_fields {
-    id: 8
-    name: "hdr.inner.ipv6.payload_length"
-    bitwidth: 16
-    match_type: TERNARY
-  }
-  action_refs {
-    id: 16777255
-  }
-  action_refs {
-    id: 16777233
-  }
-  action_refs {
-    id: 16800567
-    annotations: "@defaultonly"
-    scope: DEFAULT_ONLY
-  }
-  size: 1024
-  is_const_table: true
-}
-tables {
-  preamble {
-    id: 33554450
-    name: "ingress.effingo.effingo_ipv6_table"
-    alias: "effingo_ipv6_table"
-  }
-  match_fields {
-    id: 1
-    name: "hdr.ethernet.ether_type"
-    bitwidth: 16
-    match_type: EXACT
-  }
-  match_fields {
-    id: 2
-    name: "hdr.ipv6_base.dscp"
-    bitwidth: 6
-    match_type: TERNARY
-  }
-  match_fields {
-    id: 3
-    name: "hdr.ipv6_base.next_header"
-    bitwidth: 8
-    match_type: TERNARY
-  }
-  match_fields {
-    id: 4
-    name: "hdr.ipv6_base.payload_length"
-    bitwidth: 16
-    match_type: TERNARY
-  }
-  action_refs {
-    id: 16777255
-  }
-  action_refs {
-    id: 16777233
-  }
-  action_refs {
-    id: 16800567
-    annotations: "@defaultonly"
-    scope: DEFAULT_ONLY
-  }
-  size: 1024
-  is_const_table: true
 }
 tables {
   preamble {
@@ -904,14 +828,14 @@ tables {
     id: 1
     name: "standard_metadata.ingress_port"
     annotations: "@proto_tag(1)"
-    bitwidth: 9
+    bitwidth: 32
     match_type: TERNARY
   }
   match_fields {
     id: 2
     name: "standard_metadata.egress_spec"
     annotations: "@proto_tag(2)"
-    bitwidth: 9
+    bitwidth: 32
     match_type: TERNARY
   }
   match_fields {
@@ -1040,6 +964,27 @@ tables {
     bitwidth: 10
     match_type: TERNARY
   }
+  match_fields {
+    id: 21
+    name: "local_metadata.dscp"
+    annotations: "@proto_tag(21)"
+    bitwidth: 6
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 22
+    name: "local_metadata.hop_limit"
+    annotations: "@proto_tag(22)"
+    bitwidth: 8
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 23
+    name: "local_metadata.next_header"
+    annotations: "@proto_tag(23)"
+    bitwidth: 8
+    match_type: TERNARY
+  }
   action_refs {
     id: 16777228
     annotations: "@proto_tag(1)"
@@ -1055,7 +1000,180 @@ tables {
   }
   direct_resource_ids: 318767105
   direct_resource_ids: 352321537
-  size: 25
+  size: 129
+}
+tables {
+  preamble {
+    id: 33554483
+    name: "ingress.encap.encap_in_ipv4_table"
+    alias: "encap_in_ipv4_table"
+    annotations: "@proto_package(\"encap\")"
+    annotations: "@entry_pool(\"encap_entry_pool\")"
+  }
+  match_fields {
+    id: 1
+    name: "local_metadata.encap_id"
+    annotations: "@proto_tag(1)"
+    bitwidth: 11
+    match_type: EXACT
+  }
+  action_refs {
+    id: 16777276
+    annotations: "@proto_tag(1)"
+  }
+  action_refs {
+    id: 16777277
+    annotations: "@proto_tag(2)"
+  }
+  action_refs {
+    id: 16800567
+    annotations: "@defaultonly"
+    scope: DEFAULT_ONLY
+  }
+  direct_resource_ids: 318767107
+  size: 512
+}
+tables {
+  preamble {
+    id: 33554487
+    name: "ingress.encap.encap_in_ipv6_table"
+    alias: "encap_in_ipv6_table"
+    annotations: "@proto_package(\"encap\")"
+    annotations: "@entry_pool(\"encap_entry_pool\")"
+    annotations: "@entry_size(2)"
+  }
+  match_fields {
+    id: 1
+    name: "local_metadata.encap_id"
+    annotations: "@proto_tag(1)"
+    bitwidth: 11
+    match_type: EXACT
+  }
+  action_refs {
+    id: 16777278
+    annotations: "@proto_tag(1)"
+  }
+  action_refs {
+    id: 16800567
+    annotations: "@defaultonly"
+    scope: DEFAULT_ONLY
+  }
+  direct_resource_ids: 318767108
+  size: 512
+}
+tables {
+  preamble {
+    id: 33554449
+    name: "ingress.effingo.effingo_ipv4_table"
+    alias: "effingo_ipv4_table"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ethernet.ether_type"
+    bitwidth: 16
+    match_type: EXACT
+  }
+  match_fields {
+    id: 2
+    name: "hdr.ipv4_base.dscp"
+    bitwidth: 6
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 3
+    name: "hdr.ipv4_base.protocol"
+    bitwidth: 8
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 4
+    name: "hdr.ipv4_base.total_len"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 5
+    name: "hdr.ipv4_inner.protocol"
+    bitwidth: 8
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 6
+    name: "hdr.ipv6_inner.next_header"
+    bitwidth: 8
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 7
+    name: "hdr.ipv4_inner.total_len"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 8
+    name: "hdr.ipv6_inner.payload_length"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  action_refs {
+    id: 16777284
+  }
+  action_refs {
+    id: 16777233
+  }
+  action_refs {
+    id: 16800567
+    annotations: "@defaultonly"
+    scope: DEFAULT_ONLY
+  }
+  direct_resource_ids: 318767110
+  size: 1024
+  is_const_table: true
+}
+tables {
+  preamble {
+    id: 33554450
+    name: "ingress.effingo.effingo_ipv6_table"
+    alias: "effingo_ipv6_table"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ethernet.ether_type"
+    bitwidth: 16
+    match_type: EXACT
+  }
+  match_fields {
+    id: 2
+    name: "hdr.ipv6_base.dscp"
+    bitwidth: 6
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 3
+    name: "hdr.ipv6_base.next_header"
+    bitwidth: 8
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 4
+    name: "hdr.ipv6_base.payload_length"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  action_refs {
+    id: 16777285
+  }
+  action_refs {
+    id: 16777233
+  }
+  action_refs {
+    id: 16800567
+    annotations: "@defaultonly"
+    scope: DEFAULT_ONLY
+  }
+  direct_resource_ids: 318767111
+  size: 1024
+  is_const_table: true
 }
 tables {
   preamble {
@@ -1138,7 +1256,7 @@ tables {
   }
   match_fields {
     id: 1
-    name: "hdr.gre.protocol"
+    name: "hdr.gre_base.protocol"
     annotations: "@proto_tag(1)"
     bitwidth: 16
     match_type: EXACT
@@ -1176,6 +1294,65 @@ tables {
   }
   action_refs {
     id: 16800567
+  }
+  size: 1024
+  is_const_table: true
+}
+tables {
+  preamble {
+    id: 33554490
+    name: "ingress.drop_martians.drop_martians_table"
+    alias: "drop_martians_table"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ethernet.ether_type"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 2
+    name: "hdr.ipv4_base.src_addr"
+    bitwidth: 32
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 3
+    name: "hdr.ipv4_base.dst_addr"
+    bitwidth: 32
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 4
+    name: "hdr.ipv6_base.src_addr"
+    bitwidth: 128
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 5
+    name: "hdr.ipv6_base.dst_addr"
+    bitwidth: 128
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 6
+    name: "hdr.ethernet.src_addr"
+    bitwidth: 48
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 7
+    name: "hdr.ethernet.dst_addr"
+    bitwidth: 48
+    match_type: TERNARY
+  }
+  action_refs {
+    id: 16777282
+  }
+  action_refs {
+    id: 16800567
+    annotations: "@defaultonly"
+    scope: DEFAULT_ONLY
   }
   size: 1024
   is_const_table: true
@@ -1230,7 +1407,7 @@ tables {
   match_fields {
     id: 1
     name: "standard_metadata.egress_port"
-    bitwidth: 9
+    bitwidth: 32
     match_type: EXACT
   }
   action_refs {
@@ -1253,7 +1430,7 @@ tables {
   match_fields {
     id: 1
     name: "standard_metadata.ingress_port"
-    bitwidth: 9
+    bitwidth: 32
     match_type: EXACT
   }
   action_refs {
@@ -1410,6 +1587,14 @@ actions {
 }
 actions {
   preamble {
+    id: 16777283
+    name: "ingress.outer_drop_martians.drop_packet"
+    alias: "outer_drop_martians.drop_packet"
+    annotations: "@proto_package(\"drop_martians\")"
+  }
+}
+actions {
+  preamble {
     id: 16777219
     name: "ingress.decap.gre_decap"
     alias: "gre_decap"
@@ -1484,8 +1669,15 @@ actions {
 actions {
   preamble {
     id: 16777252
-    name: "ingress.pop_header.pop_ip"
-    alias: "pop_ip"
+    name: "ingress.pop_header.pop_ipv4_in_ipv4"
+    alias: "pop_ipv4_in_ipv4"
+  }
+}
+actions {
+  preamble {
+    id: 16777286
+    name: "ingress.pop_header.pop_ipv6_in_ipv4"
+    alias: "pop_ipv6_in_ipv4"
   }
 }
 actions {
@@ -1499,7 +1691,7 @@ actions {
     id: 1
     name: "port"
     annotations: "@proto_tag(1)"
-    bitwidth: 9
+    bitwidth: 32
   }
   params {
     id: 2
@@ -1531,7 +1723,7 @@ actions {
     id: 1
     name: "port"
     annotations: "@proto_tag(1)"
-    bitwidth: 9
+    bitwidth: 32
   }
   params {
     id: 2
@@ -1569,7 +1761,7 @@ actions {
     id: 1
     name: "port"
     annotations: "@proto_tag(1)"
-    bitwidth: 9
+    bitwidth: 32
   }
   params {
     id: 2
@@ -1615,7 +1807,7 @@ actions {
     id: 1
     name: "port"
     annotations: "@proto_tag(1)"
-    bitwidth: 9
+    bitwidth: 32
   }
   params {
     id: 2
@@ -1653,7 +1845,7 @@ actions {
     id: 1
     name: "port"
     annotations: "@proto_tag(1)"
-    bitwidth: 9
+    bitwidth: 32
   }
   params {
     id: 2
@@ -1697,7 +1889,7 @@ actions {
     id: 1
     name: "port"
     annotations: "@proto_tag(1)"
-    bitwidth: 9
+    bitwidth: 32
   }
   params {
     id: 2
@@ -1741,7 +1933,7 @@ actions {
     id: 1
     name: "port"
     annotations: "@proto_tag(1)"
-    bitwidth: 9
+    bitwidth: 32
   }
   params {
     id: 2
@@ -1773,7 +1965,7 @@ actions {
     id: 1
     name: "port"
     annotations: "@proto_tag(1)"
-    bitwidth: 9
+    bitwidth: 32
   }
   params {
     id: 2
@@ -1798,6 +1990,34 @@ actions {
     name: "dst_addr"
     annotations: "@proto_tag(5)"
     bitwidth: 32
+  }
+}
+actions {
+  preamble {
+    id: 16777228
+    name: "ingress.punt.set_queue_and_clone_to_cpu"
+    alias: "set_queue_and_clone_to_cpu"
+    annotations: "@proto_package(\"punt\")"
+  }
+  params {
+    id: 1
+    name: "queue_id"
+    annotations: "@proto_tag(1)"
+    bitwidth: 5
+  }
+}
+actions {
+  preamble {
+    id: 16777229
+    name: "ingress.punt.set_queue_and_send_to_cpu"
+    alias: "set_queue_and_send_to_cpu"
+    annotations: "@proto_package(\"punt\")"
+  }
+  params {
+    id: 1
+    name: "queue_id"
+    annotations: "@proto_tag(1)"
+    bitwidth: 5
   }
 }
 actions {
@@ -1862,37 +2082,16 @@ actions {
 }
 actions {
   preamble {
-    id: 16777255
-    name: "ingress.effingo.set_effingo_cos"
-    alias: "set_effingo_cos"
+    id: 16777284
+    name: "ingress.effingo.set_effingo_ipv4_cos"
+    alias: "set_effingo_ipv4_cos"
   }
 }
 actions {
   preamble {
-    id: 16777228
-    name: "ingress.punt.set_queue_and_clone_to_cpu"
-    alias: "set_queue_and_clone_to_cpu"
-    annotations: "@proto_package(\"punt\")"
-  }
-  params {
-    id: 1
-    name: "queue_id"
-    annotations: "@proto_tag(1)"
-    bitwidth: 5
-  }
-}
-actions {
-  preamble {
-    id: 16777229
-    name: "ingress.punt.set_queue_and_send_to_cpu"
-    alias: "set_queue_and_send_to_cpu"
-    annotations: "@proto_package(\"punt\")"
-  }
-  params {
-    id: 1
-    name: "queue_id"
-    annotations: "@proto_tag(1)"
-    bitwidth: 5
+    id: 16777285
+    name: "ingress.effingo.set_effingo_ipv6_cos"
+    alias: "set_effingo_ipv6_cos"
   }
 }
 actions {
@@ -2005,6 +2204,14 @@ actions {
 }
 actions {
   preamble {
+    id: 16777282
+    name: "ingress.drop_martians.drop_packet"
+    alias: "drop_martians.drop_packet"
+    annotations: "@proto_package(\"drop_martians\")"
+  }
+}
+actions {
+  preamble {
     id: 16777265
     name: "ingress.clone_to_cpu.dummy_clone"
     alias: "dummy_clone"
@@ -2019,7 +2226,7 @@ actions {
   params {
     id: 1
     name: "port"
-    bitwidth: 9
+    bitwidth: 32
   }
 }
 actions {
@@ -2038,7 +2245,7 @@ actions {
   params {
     id: 1
     name: "ingress_lag_port"
-    bitwidth: 9
+    bitwidth: 32
   }
 }
 actions {
@@ -2140,6 +2347,42 @@ action_profiles {
 }
 direct_counters {
   preamble {
+    id: 318767109
+    name: "ingress.decap.decap_counter"
+    alias: "decap_counter"
+    annotations: "@proto_package(\"decap\")"
+  }
+  spec {
+    unit: BOTH
+  }
+  direct_table_id: 33554444
+}
+direct_counters {
+  preamble {
+    id: 318767112
+    name: "ingress.vrf.vrf_counter"
+    alias: "vrf_counter"
+    annotations: "@proto_package(\"vrf\")"
+  }
+  spec {
+    unit: BOTH
+  }
+  direct_table_id: 33554443
+}
+direct_counters {
+  preamble {
+    id: 318767113
+    name: "ingress.reroute.reroute_counter"
+    alias: "reroute_counter"
+    annotations: "@proto_package(\"reroute\")"
+  }
+  spec {
+    unit: BOTH
+  }
+  direct_table_id: 33554445
+}
+direct_counters {
+  preamble {
     id: 318767105
     name: "ingress.punt.punt_counter"
     alias: "punt_counter"
@@ -2149,6 +2392,52 @@ direct_counters {
     unit: BOTH
   }
   direct_table_id: 33554441
+}
+direct_counters {
+  preamble {
+    id: 318767107
+    name: "ingress.encap.encap_in_ipv4_counter"
+    alias: "encap_in_ipv4_counter"
+    annotations: "@proto_package(\"encap\")"
+  }
+  spec {
+    unit: BOTH
+  }
+  direct_table_id: 33554483
+}
+direct_counters {
+  preamble {
+    id: 318767108
+    name: "ingress.encap.encap_in_ipv6_counter"
+    alias: "encap_in_ipv6_counter"
+    annotations: "@proto_package(\"encap\")"
+  }
+  spec {
+    unit: BOTH
+  }
+  direct_table_id: 33554487
+}
+direct_counters {
+  preamble {
+    id: 318767110
+    name: "ingress.effingo.effingo_ipv4_counter"
+    alias: "effingo_ipv4_counter"
+  }
+  spec {
+    unit: BOTH
+  }
+  direct_table_id: 33554449
+}
+direct_counters {
+  preamble {
+    id: 318767111
+    name: "ingress.effingo.effingo_ipv6_counter"
+    alias: "effingo_ipv6_counter"
+  }
+  spec {
+    unit: BOTH
+  }
+  direct_table_id: 33554450
 }
 direct_meters {
   preamble {
@@ -2185,19 +2474,19 @@ controller_packet_metadata {
     id: 1
     name: "ingress_singleton_port"
     annotations: "@proto_tag(1)"
-    bitwidth: 9
+    bitwidth: 32
   }
   metadata {
     id: 2
     name: "ingress_lag_port"
     annotations: "@proto_tag(2)"
-    bitwidth: 9
+    bitwidth: 32
   }
   metadata {
     id: 3
     name: "target_egress_port"
     annotations: "@proto_tag(3)"
-    bitwidth: 9
+    bitwidth: 32
   }
 }
 controller_packet_metadata {
@@ -2211,13 +2500,18 @@ controller_packet_metadata {
     id: 1
     name: "egress_singleton_port"
     annotations: "@proto_tag(1)"
-    bitwidth: 9
+    bitwidth: 32
   }
   metadata {
     id: 2
     name: "submit_to_ingress"
     annotations: "@proto_tag(2)"
     bitwidth: 1
+  }
+  metadata {
+    id: 3
+    name: "unused_pad"
+    bitwidth: 7
   }
 }
 type_info {

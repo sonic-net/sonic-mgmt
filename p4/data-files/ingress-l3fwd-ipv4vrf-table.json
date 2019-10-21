@@ -77,7 +77,7 @@
     },
     {
       "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
-      "entry_oper": "INSERT",
+      "entry_oper": "NOT-SUP",
       "match": {
         "local_metadata.vrf_id": 6,
         "hdr.ipv4_base.dst_addr": ["10.6.6.66", 32]
@@ -270,7 +270,7 @@
         },
         {
           "member_id": 7,
-          "entry_oper": "INSERT",
+          "entry_oper": "NOT-SUP",
           "action_profile_id": 285212673,
           "action_profile_name": "ingress.l3_fwd.l3_action_profile",
           "action_name": "NoAction"
@@ -331,15 +331,11 @@
         },
         {
           "action_profile_id": 285212673,
-          "entry_oper": "INSERT",
+          "entry_oper": "NOT-SUP",
           "group_id": 4,
           "members" : [
               {
                   "id" : 7,
-                  "weight": 1
-              },
-              {
-                  "id" : 8,
                   "weight": 1
               }
           ]

@@ -9,6 +9,59 @@
  "tables": [
   {
    "preamble": {
+    "id": 33554491,
+    "name": "ingress.outer_drop_martians.outer_drop_martians_table",
+    "alias": "outer_drop_martians_table"
+   },
+   "matchFields": [
+    {
+     "id": 1,
+     "name": "hdr.ethernet.ether_type",
+     "bitwidth": 16,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 2,
+     "name": "hdr.ipv4_base.src_addr",
+     "bitwidth": 32,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 3,
+     "name": "hdr.ipv4_base.dst_addr",
+     "bitwidth": 32,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 4,
+     "name": "hdr.ipv6_base.src_addr",
+     "bitwidth": 128,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 5,
+     "name": "hdr.ipv6_base.dst_addr",
+     "bitwidth": 128,
+     "matchType": "TERNARY"
+    }
+   ],
+   "actionRefs": [
+    {
+     "id": 16777283
+    },
+    {
+     "id": 16800567,
+     "annotations": [
+      "@defaultonly"
+     ],
+     "scope": "DEFAULT_ONLY"
+    }
+   ],
+   "size": "1024",
+   "isConstTable": true
+  },
+  {
+   "preamble": {
     "id": 33554444,
     "name": "ingress.decap.decap_table",
     "alias": "decap_table",
@@ -96,6 +149,9 @@
      "scope": "DEFAULT_ONLY"
     }
    ],
+   "directResourceIds": [
+    318767109
+   ],
    "size": "13"
   },
   {
@@ -179,6 +235,24 @@
      ],
      "bitwidth": 32,
      "matchType": "TERNARY"
+    },
+    {
+     "id": 9,
+     "name": "local_metadata.dscp",
+     "annotations": [
+      "@proto_tag(9)"
+     ],
+     "bitwidth": 6,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 10,
+     "name": "local_metadata.is_ip_packet",
+     "annotations": [
+      "@proto_tag(10)"
+     ],
+     "bitwidth": 1,
+     "matchType": "TERNARY"
     }
    ],
    "actionRefs": [
@@ -190,6 +264,9 @@
     }
    ],
    "constDefaultActionId": 16777232,
+   "directResourceIds": [
+    318767112
+   ],
    "size": "256"
   },
   {
@@ -270,6 +347,18 @@
      "name": "local_metadata.decap_type",
      "bitwidth": 2,
      "matchType": "EXACT"
+    },
+    {
+     "id": 2,
+     "name": "hdr.ipv4_base.protocol",
+     "bitwidth": 8,
+     "matchType": "EXACT"
+    },
+    {
+     "id": 3,
+     "name": "hdr.gre_base.protocol",
+     "bitwidth": 16,
+     "matchType": "TERNARY"
     }
    ],
    "actionRefs": [
@@ -278,6 +367,9 @@
     },
     {
      "id": 16777252
+    },
+    {
+     "id": 16777286
     },
     {
      "id": 16800567,
@@ -1004,6 +1096,24 @@
      ],
      "bitwidth": 10,
      "matchType": "EXACT"
+    },
+    {
+     "id": 4,
+     "name": "hdr.ethernet.ether_type",
+     "annotations": [
+      "@proto_tag(4)"
+     ],
+     "bitwidth": 16,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 5,
+     "name": "local_metadata.dscp",
+     "annotations": [
+      "@proto_tag(5)"
+     ],
+     "bitwidth": 6,
+     "matchType": "TERNARY"
     }
    ],
    "actionRefs": [
@@ -1028,214 +1138,10 @@
     }
    ],
    "implementationId": 285212674,
+   "directResourceIds": [
+    318767113
+   ],
    "size": "1024"
-  },
-  {
-   "preamble": {
-    "id": 33554483,
-    "name": "ingress.encap.encap_in_ipv4_table",
-    "alias": "encap_in_ipv4_table",
-    "annotations": [
-     "@proto_package(\"encap\")",
-     "@entry_pool(\"encap_entry_pool\")"
-    ]
-   },
-   "matchFields": [
-    {
-     "id": 1,
-     "name": "local_metadata.encap_id",
-     "annotations": [
-      "@proto_tag(1)"
-     ],
-     "bitwidth": 11,
-     "matchType": "EXACT"
-    }
-   ],
-   "actionRefs": [
-    {
-     "id": 16777276,
-     "annotations": [
-      "@proto_tag(1)"
-     ]
-    },
-    {
-     "id": 16777277,
-     "annotations": [
-      "@proto_tag(2)"
-     ]
-    },
-    {
-     "id": 16800567,
-     "annotations": [
-      "@defaultonly"
-     ],
-     "scope": "DEFAULT_ONLY"
-    }
-   ],
-   "size": "512"
-  },
-  {
-   "preamble": {
-    "id": 33554487,
-    "name": "ingress.encap.encap_in_ipv6_table",
-    "alias": "encap_in_ipv6_table",
-    "annotations": [
-     "@proto_package(\"encap\")",
-     "@entry_pool(\"encap_entry_pool\")",
-     "@entry_size(2)"
-    ]
-   },
-   "matchFields": [
-    {
-     "id": 1,
-     "name": "local_metadata.encap_id",
-     "annotations": [
-      "@proto_tag(1)"
-     ],
-     "bitwidth": 11,
-     "matchType": "EXACT"
-    }
-   ],
-   "actionRefs": [
-    {
-     "id": 16777278,
-     "annotations": [
-      "@proto_tag(1)"
-     ]
-    },
-    {
-     "id": 16800567,
-     "annotations": [
-      "@defaultonly"
-     ],
-     "scope": "DEFAULT_ONLY"
-    }
-   ],
-   "size": "512"
-  },
-  {
-   "preamble": {
-    "id": 33554449,
-    "name": "ingress.effingo.effingo_ipv4_table",
-    "alias": "effingo_ipv4_table"
-   },
-   "matchFields": [
-    {
-     "id": 1,
-     "name": "hdr.ethernet.ether_type",
-     "bitwidth": 16,
-     "matchType": "EXACT"
-    },
-    {
-     "id": 2,
-     "name": "hdr.ipv4_base.dscp",
-     "bitwidth": 6,
-     "matchType": "TERNARY"
-    },
-    {
-     "id": 3,
-     "name": "hdr.ipv4_base.protocol",
-     "bitwidth": 8,
-     "matchType": "TERNARY"
-    },
-    {
-     "id": 4,
-     "name": "hdr.ipv4_base.total_len",
-     "bitwidth": 16,
-     "matchType": "TERNARY"
-    },
-    {
-     "id": 5,
-     "name": "hdr.inner.ipv4.protocol",
-     "bitwidth": 8,
-     "matchType": "TERNARY"
-    },
-    {
-     "id": 6,
-     "name": "hdr.inner.ipv6.next_header",
-     "bitwidth": 8,
-     "matchType": "TERNARY"
-    },
-    {
-     "id": 7,
-     "name": "hdr.inner.ipv4.total_len",
-     "bitwidth": 16,
-     "matchType": "TERNARY"
-    },
-    {
-     "id": 8,
-     "name": "hdr.inner.ipv6.payload_length",
-     "bitwidth": 16,
-     "matchType": "TERNARY"
-    }
-   ],
-   "actionRefs": [
-    {
-     "id": 16777255
-    },
-    {
-     "id": 16777233
-    },
-    {
-     "id": 16800567,
-     "annotations": [
-      "@defaultonly"
-     ],
-     "scope": "DEFAULT_ONLY"
-    }
-   ],
-   "size": "1024",
-   "isConstTable": true
-  },
-  {
-   "preamble": {
-    "id": 33554450,
-    "name": "ingress.effingo.effingo_ipv6_table",
-    "alias": "effingo_ipv6_table"
-   },
-   "matchFields": [
-    {
-     "id": 1,
-     "name": "hdr.ethernet.ether_type",
-     "bitwidth": 16,
-     "matchType": "EXACT"
-    },
-    {
-     "id": 2,
-     "name": "hdr.ipv6_base.dscp",
-     "bitwidth": 6,
-     "matchType": "TERNARY"
-    },
-    {
-     "id": 3,
-     "name": "hdr.ipv6_base.next_header",
-     "bitwidth": 8,
-     "matchType": "TERNARY"
-    },
-    {
-     "id": 4,
-     "name": "hdr.ipv6_base.payload_length",
-     "bitwidth": 16,
-     "matchType": "TERNARY"
-    }
-   ],
-   "actionRefs": [
-    {
-     "id": 16777255
-    },
-    {
-     "id": 16777233
-    },
-    {
-     "id": 16800567,
-     "annotations": [
-      "@defaultonly"
-     ],
-     "scope": "DEFAULT_ONLY"
-    }
-   ],
-   "size": "1024",
-   "isConstTable": true
   },
   {
    "preamble": {
@@ -1426,6 +1332,33 @@
      ],
      "bitwidth": 10,
      "matchType": "TERNARY"
+    },
+    {
+     "id": 21,
+     "name": "local_metadata.dscp",
+     "annotations": [
+      "@proto_tag(21)"
+     ],
+     "bitwidth": 6,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 22,
+     "name": "local_metadata.hop_limit",
+     "annotations": [
+      "@proto_tag(22)"
+     ],
+     "bitwidth": 8,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 23,
+     "name": "local_metadata.next_header",
+     "annotations": [
+      "@proto_tag(23)"
+     ],
+     "bitwidth": 8,
+     "matchType": "TERNARY"
     }
    ],
    "actionRefs": [
@@ -1453,7 +1386,226 @@
     318767105,
     352321537
    ],
-   "size": "25"
+   "size": "129"
+  },
+  {
+   "preamble": {
+    "id": 33554483,
+    "name": "ingress.encap.encap_in_ipv4_table",
+    "alias": "encap_in_ipv4_table",
+    "annotations": [
+     "@proto_package(\"encap\")",
+     "@entry_pool(\"encap_entry_pool\")"
+    ]
+   },
+   "matchFields": [
+    {
+     "id": 1,
+     "name": "local_metadata.encap_id",
+     "annotations": [
+      "@proto_tag(1)"
+     ],
+     "bitwidth": 11,
+     "matchType": "EXACT"
+    }
+   ],
+   "actionRefs": [
+    {
+     "id": 16777276,
+     "annotations": [
+      "@proto_tag(1)"
+     ]
+    },
+    {
+     "id": 16777277,
+     "annotations": [
+      "@proto_tag(2)"
+     ]
+    },
+    {
+     "id": 16800567,
+     "annotations": [
+      "@defaultonly"
+     ],
+     "scope": "DEFAULT_ONLY"
+    }
+   ],
+   "directResourceIds": [
+    318767107
+   ],
+   "size": "512"
+  },
+  {
+   "preamble": {
+    "id": 33554487,
+    "name": "ingress.encap.encap_in_ipv6_table",
+    "alias": "encap_in_ipv6_table",
+    "annotations": [
+     "@proto_package(\"encap\")",
+     "@entry_pool(\"encap_entry_pool\")",
+     "@entry_size(2)"
+    ]
+   },
+   "matchFields": [
+    {
+     "id": 1,
+     "name": "local_metadata.encap_id",
+     "annotations": [
+      "@proto_tag(1)"
+     ],
+     "bitwidth": 11,
+     "matchType": "EXACT"
+    }
+   ],
+   "actionRefs": [
+    {
+     "id": 16777278,
+     "annotations": [
+      "@proto_tag(1)"
+     ]
+    },
+    {
+     "id": 16800567,
+     "annotations": [
+      "@defaultonly"
+     ],
+     "scope": "DEFAULT_ONLY"
+    }
+   ],
+   "directResourceIds": [
+    318767108
+   ],
+   "size": "512"
+  },
+  {
+   "preamble": {
+    "id": 33554449,
+    "name": "ingress.effingo.effingo_ipv4_table",
+    "alias": "effingo_ipv4_table"
+   },
+   "matchFields": [
+    {
+     "id": 1,
+     "name": "hdr.ethernet.ether_type",
+     "bitwidth": 16,
+     "matchType": "EXACT"
+    },
+    {
+     "id": 2,
+     "name": "hdr.ipv4_base.dscp",
+     "bitwidth": 6,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 3,
+     "name": "hdr.ipv4_base.protocol",
+     "bitwidth": 8,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 4,
+     "name": "hdr.ipv4_base.total_len",
+     "bitwidth": 16,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 5,
+     "name": "hdr.ipv4_inner.protocol",
+     "bitwidth": 8,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 6,
+     "name": "hdr.ipv6_inner.next_header",
+     "bitwidth": 8,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 7,
+     "name": "hdr.ipv4_inner.total_len",
+     "bitwidth": 16,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 8,
+     "name": "hdr.ipv6_inner.payload_length",
+     "bitwidth": 16,
+     "matchType": "TERNARY"
+    }
+   ],
+   "actionRefs": [
+    {
+     "id": 16777284
+    },
+    {
+     "id": 16777233
+    },
+    {
+     "id": 16800567,
+     "annotations": [
+      "@defaultonly"
+     ],
+     "scope": "DEFAULT_ONLY"
+    }
+   ],
+   "directResourceIds": [
+    318767110
+   ],
+   "size": "1024",
+   "isConstTable": true
+  },
+  {
+   "preamble": {
+    "id": 33554450,
+    "name": "ingress.effingo.effingo_ipv6_table",
+    "alias": "effingo_ipv6_table"
+   },
+   "matchFields": [
+    {
+     "id": 1,
+     "name": "hdr.ethernet.ether_type",
+     "bitwidth": 16,
+     "matchType": "EXACT"
+    },
+    {
+     "id": 2,
+     "name": "hdr.ipv6_base.dscp",
+     "bitwidth": 6,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 3,
+     "name": "hdr.ipv6_base.next_header",
+     "bitwidth": 8,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 4,
+     "name": "hdr.ipv6_base.payload_length",
+     "bitwidth": 16,
+     "matchType": "TERNARY"
+    }
+   ],
+   "actionRefs": [
+    {
+     "id": 16777285
+    },
+    {
+     "id": 16777233
+    },
+    {
+     "id": 16800567,
+     "annotations": [
+      "@defaultonly"
+     ],
+     "scope": "DEFAULT_ONLY"
+    }
+   ],
+   "directResourceIds": [
+    318767111
+   ],
+   "size": "1024",
+   "isConstTable": true
   },
   {
    "preamble": {
@@ -1571,7 +1723,7 @@
    "matchFields": [
     {
      "id": 1,
-     "name": "hdr.gre.protocol",
+     "name": "hdr.gre_base.protocol",
      "annotations": [
       "@proto_tag(1)"
      ],
@@ -1625,6 +1777,71 @@
    "actionRefs": [
     {
      "id": 16800567
+    }
+   ],
+   "size": "1024",
+   "isConstTable": true
+  },
+  {
+   "preamble": {
+    "id": 33554490,
+    "name": "ingress.drop_martians.drop_martians_table",
+    "alias": "drop_martians_table"
+   },
+   "matchFields": [
+    {
+     "id": 1,
+     "name": "hdr.ethernet.ether_type",
+     "bitwidth": 16,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 2,
+     "name": "hdr.ipv4_base.src_addr",
+     "bitwidth": 32,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 3,
+     "name": "hdr.ipv4_base.dst_addr",
+     "bitwidth": 32,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 4,
+     "name": "hdr.ipv6_base.src_addr",
+     "bitwidth": 128,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 5,
+     "name": "hdr.ipv6_base.dst_addr",
+     "bitwidth": 128,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 6,
+     "name": "hdr.ethernet.src_addr",
+     "bitwidth": 48,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 7,
+     "name": "hdr.ethernet.dst_addr",
+     "bitwidth": 48,
+     "matchType": "TERNARY"
+    }
+   ],
+   "actionRefs": [
+    {
+     "id": 16777282
+    },
+    {
+     "id": 16800567,
+     "annotations": [
+      "@defaultonly"
+     ],
+     "scope": "DEFAULT_ONLY"
     }
    ],
    "size": "1024",
@@ -1912,6 +2129,16 @@
   },
   {
    "preamble": {
+    "id": 16777283,
+    "name": "ingress.outer_drop_martians.drop_packet",
+    "alias": "outer_drop_martians.drop_packet",
+    "annotations": [
+     "@proto_package(\"drop_martians\")"
+    ]
+   }
+  },
+  {
+   "preamble": {
     "id": 16777219,
     "name": "ingress.decap.gre_decap",
     "alias": "gre_decap",
@@ -2010,8 +2237,15 @@
   {
    "preamble": {
     "id": 16777252,
-    "name": "ingress.pop_header.pop_ip",
-    "alias": "pop_ip"
+    "name": "ingress.pop_header.pop_ipv4_in_ipv4",
+    "alias": "pop_ipv4_in_ipv4"
+   }
+  },
+  {
+   "preamble": {
+    "id": 16777286,
+    "name": "ingress.pop_header.pop_ipv6_in_ipv4",
+    "alias": "pop_ipv6_in_ipv4"
    }
   },
   {
@@ -2442,6 +2676,46 @@
   },
   {
    "preamble": {
+    "id": 16777228,
+    "name": "ingress.punt.set_queue_and_clone_to_cpu",
+    "alias": "set_queue_and_clone_to_cpu",
+    "annotations": [
+     "@proto_package(\"punt\")"
+    ]
+   },
+   "params": [
+    {
+     "id": 1,
+     "name": "queue_id",
+     "annotations": [
+      "@proto_tag(1)"
+     ],
+     "bitwidth": 5
+    }
+   ]
+  },
+  {
+   "preamble": {
+    "id": 16777229,
+    "name": "ingress.punt.set_queue_and_send_to_cpu",
+    "alias": "set_queue_and_send_to_cpu",
+    "annotations": [
+     "@proto_package(\"punt\")"
+    ]
+   },
+   "params": [
+    {
+     "id": 1,
+     "name": "queue_id",
+     "annotations": [
+      "@proto_tag(1)"
+     ],
+     "bitwidth": 5
+    }
+   ]
+  },
+  {
+   "preamble": {
     "id": 16777276,
     "name": "ingress.encap.encap_ip_in_ip",
     "alias": "encap_ip_in_ip",
@@ -2526,50 +2800,17 @@
   },
   {
    "preamble": {
-    "id": 16777255,
-    "name": "ingress.effingo.set_effingo_cos",
-    "alias": "set_effingo_cos"
+    "id": 16777284,
+    "name": "ingress.effingo.set_effingo_ipv4_cos",
+    "alias": "set_effingo_ipv4_cos"
    }
   },
   {
    "preamble": {
-    "id": 16777228,
-    "name": "ingress.punt.set_queue_and_clone_to_cpu",
-    "alias": "set_queue_and_clone_to_cpu",
-    "annotations": [
-     "@proto_package(\"punt\")"
-    ]
-   },
-   "params": [
-    {
-     "id": 1,
-     "name": "queue_id",
-     "annotations": [
-      "@proto_tag(1)"
-     ],
-     "bitwidth": 5
-    }
-   ]
-  },
-  {
-   "preamble": {
-    "id": 16777229,
-    "name": "ingress.punt.set_queue_and_send_to_cpu",
-    "alias": "set_queue_and_send_to_cpu",
-    "annotations": [
-     "@proto_package(\"punt\")"
-    ]
-   },
-   "params": [
-    {
-     "id": 1,
-     "name": "queue_id",
-     "annotations": [
-      "@proto_tag(1)"
-     ],
-     "bitwidth": 5
-    }
-   ]
+    "id": 16777285,
+    "name": "ingress.effingo.set_effingo_ipv6_cos",
+    "alias": "set_effingo_ipv6_cos"
+   }
   },
   {
    "preamble": {
@@ -2714,6 +2955,16 @@
     "alias": "set_postcard_color",
     "annotations": [
      "@proto_package(\"postcard_color\")"
+    ]
+   }
+  },
+  {
+   "preamble": {
+    "id": 16777282,
+    "name": "ingress.drop_martians.drop_packet",
+    "alias": "drop_martians.drop_packet",
+    "annotations": [
+     "@proto_package(\"drop_martians\")"
     ]
    }
   },
@@ -2870,6 +3121,48 @@
  "directCounters": [
   {
    "preamble": {
+    "id": 318767109,
+    "name": "ingress.decap.decap_counter",
+    "alias": "decap_counter",
+    "annotations": [
+     "@proto_package(\"decap\")"
+    ]
+   },
+   "spec": {
+    "unit": "BOTH"
+   },
+   "directTableId": 33554444
+  },
+  {
+   "preamble": {
+    "id": 318767112,
+    "name": "ingress.vrf.vrf_counter",
+    "alias": "vrf_counter",
+    "annotations": [
+     "@proto_package(\"vrf\")"
+    ]
+   },
+   "spec": {
+    "unit": "BOTH"
+   },
+   "directTableId": 33554443
+  },
+  {
+   "preamble": {
+    "id": 318767113,
+    "name": "ingress.reroute.reroute_counter",
+    "alias": "reroute_counter",
+    "annotations": [
+     "@proto_package(\"reroute\")"
+    ]
+   },
+   "spec": {
+    "unit": "BOTH"
+   },
+   "directTableId": 33554445
+  },
+  {
+   "preamble": {
     "id": 318767105,
     "name": "ingress.punt.punt_counter",
     "alias": "punt_counter",
@@ -2881,6 +3174,56 @@
     "unit": "BOTH"
    },
    "directTableId": 33554441
+  },
+  {
+   "preamble": {
+    "id": 318767107,
+    "name": "ingress.encap.encap_in_ipv4_counter",
+    "alias": "encap_in_ipv4_counter",
+    "annotations": [
+     "@proto_package(\"encap\")"
+    ]
+   },
+   "spec": {
+    "unit": "BOTH"
+   },
+   "directTableId": 33554483
+  },
+  {
+   "preamble": {
+    "id": 318767108,
+    "name": "ingress.encap.encap_in_ipv6_counter",
+    "alias": "encap_in_ipv6_counter",
+    "annotations": [
+     "@proto_package(\"encap\")"
+    ]
+   },
+   "spec": {
+    "unit": "BOTH"
+   },
+   "directTableId": 33554487
+  },
+  {
+   "preamble": {
+    "id": 318767110,
+    "name": "ingress.effingo.effingo_ipv4_counter",
+    "alias": "effingo_ipv4_counter"
+   },
+   "spec": {
+    "unit": "BOTH"
+   },
+   "directTableId": 33554449
+  },
+  {
+   "preamble": {
+    "id": 318767111,
+    "name": "ingress.effingo.effingo_ipv6_counter",
+    "alias": "effingo_ipv6_counter"
+   },
+   "spec": {
+    "unit": "BOTH"
+   },
+   "directTableId": 33554450
   }
  ],
  "directMeters": [
@@ -2975,6 +3318,11 @@
       "@proto_tag(2)"
      ],
      "bitwidth": 1
+    },
+    {
+     "id": 3,
+     "name": "unused_pad",
+     "bitwidth": 7
     }
    ]
   }
