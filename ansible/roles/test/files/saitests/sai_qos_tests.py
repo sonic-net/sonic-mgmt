@@ -139,6 +139,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                         continue
 
             # Read Counters
+            time.sleep(10)
             port_results, queue_results = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
             print >> sys.stderr, map(operator.sub, queue_results, queue_results_base)
