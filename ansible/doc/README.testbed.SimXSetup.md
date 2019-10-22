@@ -20,9 +20,11 @@ SimX is a functional simulation of Mellanox PCI devices
 
 - Install Ubuntu 18.04 amd64 server. To setup a T0 topology, the server needs to have 10GB free memory.
 - Install bridge utils
+
 ```
 $ sudo apt-get install bridge-utils
 ```
+
 - Setup internal management network.
 
 ```
@@ -48,8 +50,8 @@ Instructions to set up sonic-mgmt docker [here](https://github.com/Azure/sonic-m
 
 - Download the SimX in Docker archive. Mellanox only provides it to it's customers. You need to contact the support team to get it.
 
-```
 - unzip the archive into ```~/sid/images/```
+
 ```
 $ mkdir -p ~/sid/images
 $ unzip simxindocker.gz
@@ -67,12 +69,14 @@ You should get something like:
 ```
 
 ```settings.ini``` file 
+
 ```
 [vlab-simx-01]
 chip = spectrum
 vm_image = ~/sid/disks/vlab-simx-01.img
 ip =  10.250.0.103, 255.255.255.0, 10.250.0.1
 ```
+
 You can execute ```./start.py``` to start one docker container, without applying a topology.
 
 ## Load the docker image
