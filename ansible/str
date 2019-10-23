@@ -163,6 +163,13 @@ str-agc7648-acs-1 ansible_host=10.64.246.40
 hwsku="Delta-AGC7648"
 iface_speed='10000'
 
+[sonic_nexus_3164]
+str-n3164-acs-2    ansible_host=10.3.147.150
+
+[sonic_nexus_3164:vars]
+hwsku="Nexus-3164"
+iface_speed='40000'
+
 [sonic:children]
 sonic_stable
 sonic_latest
@@ -184,6 +191,7 @@ sonic_agc7648
 sonic_nexus_9232_100
 sonic_nexus_92304_40
 sonic_marvell
+sonic_nexus_3164
 
 [sonic:vars]
 mgmt_subnet_mask_length='23'
@@ -244,6 +252,7 @@ vms13-1 ansible_host=10.64.247.29
 vms13-2 ansible_host=10.64.247.28
 vms13-3 ansible_host=10.64.246.49
 vms13-4 ansible_host=10.64.246.75
+vms13-5 ansible_host=10.64.246.54
 v13-41  ansible_host=10.64.246.17
 v13-51  ansible_host=10.64.246.19
 
@@ -300,6 +309,7 @@ str-marvell-acs-2   ansible_host=10.3.146.155 os=sonic
 str-7260cx3-acs-fan-05 ansible_host=10.64.246.76
 str-7260cx3-64-20   ansible_host=10.3.146.151
 str-7260cx3-64-19   ansible_host=10.3.146.150	
+str-7260-25         ansible_host=10.3.146.234
 
 [docker_registry]
 acs-devrepo.corp.microsoft.com
