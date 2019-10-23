@@ -25,7 +25,7 @@
 
     - name: Inboot-list initialization
       set_fact:
-          inboot_list: {% if inboot_list is not defined %}[None]{% else %}{{ inboot_list }}{% endif %}
+          inboot_list: "{% if inboot_list is not defined %}[None]{% else %}{{ inboot_list }}{% endif %}"
           nexthop_ips: None
 
     - include_vars: "vars/topo_{{testbed_type}}.yml"
