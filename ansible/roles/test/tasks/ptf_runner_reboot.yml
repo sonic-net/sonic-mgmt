@@ -149,5 +149,5 @@
 
 - name: Wait for the DUT to be ready for the next test
   pause: seconds=420
-  when: (preboot_list|length > 1) or
-        (inboot_list|length > 0 and 'None' not in inboot_list)
+  when: (preboot_list|length > 0 and None not in preboot_list) or
+          (inboot_list|length > 0 and None not in inboot_list)
