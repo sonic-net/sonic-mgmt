@@ -50,7 +50,6 @@
 
 - name: Prepare variables required for PFC test
   set_fact:
-    pfc_queue_indices: [4]
     pfc_frames_number: 100000000
     pfc_wd_test_pkt_count: 100
     pfc_fanout_interface: "{{neighbors[pfc_wd_test_port]['peerport']}}"
@@ -58,21 +57,149 @@
     peer_mgmt: "{{device_info['mgmtip']}}"
     testname: functional_test
 
-- name: Add queue index 3 to pfc_queue_indices when seed is an odd number
-  set_fact:
-    pfc_queue_indices: "{{pfc_queue_indices + [3]}}"
-  when: seed | int is odd
-
 - set_fact:
       peer_login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
 
 - name: set pfc storm templates based on fanout platform sku
   include: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
 
+#------------------------------------
+# Test the PFC restore action
+# 1. Verify restore is detected via syslog entry analysis on the dut
+# 2. Verity the forward action on both ingress and egress via ptf dataplane traffic test
+#------------------------------------
 
-- name: Test PFC restore function per pg/queue
-  include: roles/test/tasks/pfc_wd/functional_test/functional_test_restore_perq.yml
-  vars:
-    pfc_queue_index: "{{item}}"
-    class_enable: "{{(1).__lshift__(item)}}"
-  with_items: "{{pfc_queue_indices}}"
+- block:
+    - name: Test PFC restore function on pg/queue 3
+      set_fact:
+        pfc_queue_index: 3
+        class_enable: "{{(1).__lshift__(pfc_queue_index)}}"
+
+    - name: Stop PFC storm on fanout switch
+      action: apswitch template="{{pfc_wd_storm_stop_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch
+
+    - name: Allow enough time for the PFC storm restoration to occur
+      pause:
+        seconds: 5
+
+    # Verify the forward action on both ingress and egress via ptf dataplane traffic test
+    - name: "Send packets via {{pfc_wd_test_port}}"
+      include: roles/test/tasks/ptf_runner.yml
+      vars:
+        ptf_test_name: PFC WD test
+        ptf_test_dir: ptftests
+        ptf_test_path: pfc_wd.PfcWdTest
+        ptf_platform: remote
+        ptf_platform_dir: ptftests
+        ptf_test_params:
+          - testbed_type='{{testbed_type}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
+          - queue_index='{{pfc_queue_index}}'
+          - pkt_count='{{pfc_wd_test_pkt_count}}'
+          - port_src='{{pfc_wd_rx_port_id[0]}}'
+          - port_dst='{{pfc_wd_test_port_ids}}'
+          - ip_dst='{{pfc_wd_test_neighbor_addr}}'
+          - port_type='{{port_type}}'
+          - wd_action='forward'
+        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
+
+    - name: "Send packets to {{pfc_wd_test_port}}"
+      include: roles/test/tasks/ptf_runner.yml
+      vars:
+        ptf_test_name: PFC WD test
+        ptf_test_dir: ptftests
+        ptf_test_path: pfc_wd.PfcWdTest
+        ptf_platform: remote
+        ptf_platform_dir: ptftests
+        ptf_test_params:
+          - testbed_type='{{testbed_type}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
+          - queue_index='{{pfc_queue_index}}'
+          - pkt_count='{{pfc_wd_test_pkt_count}}'
+          - port_src='{{pfc_wd_test_port_id}}'
+          - port_dst='[{{pfc_wd_rx_port_id | join(' ')}}]'
+          - ip_dst='{{pfc_wd_rx_neighbor_addr}}'
+          - port_type='{{port_type}}'
+          - wd_action='forward'
+        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
+
+  rescue:
+    - name: Stop PFC storm on fanout switch
+      action: apswitch template="{{pfc_wd_storm_stop_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch
+
+
+- block:
+    - name: Test PFC restore function on pg/queue 4
+      set_fact:
+        pfc_queue_index: 4
+        class_enable: "{{(1).__lshift__(pfc_queue_index)}}"
+
+    - name: Stop PFC storm on fanout switch
+      action: apswitch template="{{pfc_wd_storm_stop_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch
+
+    - name: Allow enough time for the PFC storm restoration to occur
+      pause:
+        seconds: 5
+
+    # Verify the forward action on both ingress and egress via ptf dataplane traffic test
+    - name: "Send packets via {{pfc_wd_test_port}}"
+      include: roles/test/tasks/ptf_runner.yml
+      vars:
+        ptf_test_name: PFC WD test
+        ptf_test_dir: ptftests
+        ptf_test_path: pfc_wd.PfcWdTest
+        ptf_platform: remote
+        ptf_platform_dir: ptftests
+        ptf_test_params:
+          - testbed_type='{{testbed_type}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
+          - queue_index='{{pfc_queue_index}}'
+          - pkt_count='{{pfc_wd_test_pkt_count}}'
+          - port_src='{{pfc_wd_rx_port_id[0]}}'
+          - port_dst='{{pfc_wd_test_port_ids}}'
+          - ip_dst='{{pfc_wd_test_neighbor_addr}}'
+          - port_type='{{port_type}}'
+          - wd_action='forward'
+        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
+
+    - name: "Send packets to {{pfc_wd_test_port}}"
+      include: roles/test/tasks/ptf_runner.yml
+      vars:
+        ptf_test_name: PFC WD test
+        ptf_test_dir: ptftests
+        ptf_test_path: pfc_wd.PfcWdTest
+        ptf_platform: remote
+        ptf_platform_dir: ptftests
+        ptf_test_params:
+          - testbed_type='{{testbed_type}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
+          - queue_index='{{pfc_queue_index}}'
+          - pkt_count='{{pfc_wd_test_pkt_count}}'
+          - port_src='{{pfc_wd_test_port_id}}'
+          - port_dst='[{{pfc_wd_rx_port_id | join(' ')}}]'
+          - ip_dst='{{pfc_wd_rx_neighbor_addr}}'
+          - port_type='{{port_type}}'
+          - wd_action='forward'
+        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
+
+  rescue:
+    - name: Stop PFC storm on fanout switch
+      action: apswitch template="{{pfc_wd_storm_stop_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch
+
+  when: seed | int is even

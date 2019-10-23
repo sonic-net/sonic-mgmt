@@ -9,16 +9,16 @@
 
 - name: Prepare parameters required for PFC storming
   set_fact:
-    pfc_queue_indices: [4]
+    pfc_queue_indices: [3]
     pfc_frames_number: 100000000
     pfc_fanout_interface: "{{neighbors[pfc_wd_test_port]['peerport']}}"
     peer_hwsku: "{{device_info['HwSku']}}"
     peer_mgmt: "{{device_info['mgmtip']}}"
 
-- name: Add queue index 3 to pfc_queue_indices when seed is an odd number
+- name: Add queue index 4 to pfc_queue_indices when seed is an even number
   set_fact:
-    pfc_queue_indices: "{{pfc_queue_indices + [3]}}"
-  when: seed | int is odd
+    pfc_queue_indices: "{{pfc_queue_indices + [4]}}"
+  when: seed | int is even
 
 - set_fact:
     pfc_gen_file: pfc_gen.py
