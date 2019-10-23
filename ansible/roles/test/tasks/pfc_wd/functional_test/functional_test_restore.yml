@@ -73,6 +73,8 @@
     - name: Test PFC restore function on pg/queue 3
       set_fact:
         pfc_queue_index: 3
+
+    - set_fact:
         class_enable: "{{(1).__lshift__(pfc_queue_index)}}"
 
     - name: Stop PFC storm on fanout switch
@@ -140,6 +142,8 @@
     - name: Test PFC restore function on pg/queue 4
       set_fact:
         pfc_queue_index: 4
+
+    - set_fact:
         class_enable: "{{(1).__lshift__(pfc_queue_index)}}"
 
     - name: Stop PFC storm on fanout switch
