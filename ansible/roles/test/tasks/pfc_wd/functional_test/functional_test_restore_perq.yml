@@ -6,14 +6,6 @@
 
 - block:
     # 1. Verify restore is detected via syslog entry analysis on the dut
-    - set_fact:
-        test_expect_file: "expect_pfc_wd_restore"
-
-    - name: Initialize loganalyzer
-      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
-      vars:
-        testname_unique_gen: true
-
     - name: Allow enough time for the start marker to flow into the syslog
       pause:
         seconds: 5
@@ -28,12 +20,6 @@
     - name: Allow enough time for the PFC storm restoration to flow into the syslog
       pause:
         seconds: 15
-
-    - name: Check if logs contain message that PFC WD restored from deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
-
-    - name: Check if logs contain message that PFC WD restored from deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     # 2. Verity the forward action on both ingress and egress via ptf dataplane traffic test
     - name: "Send packets via {{pfc_wd_test_port}}"
