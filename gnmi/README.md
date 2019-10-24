@@ -119,9 +119,3 @@ python py_gnmicli.py -t target1.example.com -p 443 -m get -x /access-points/acce
 * Use the debug flag (-d) when troubleshooting/reporting gRPC errors.
 * If the target isn't using TLS tunnels with its gRPC comms, use the notls (-n) option. This sends gRPC Metadata in clear-text, and should only be used for testing purposes.
 
-## Docker
-Docker image with Python3; based on version py_gnmicli version 0.4:
-```
-docker run --rm -it mike909/py_gnmicli:v0.4 python /gnxi/gnmi_cli_py/py_gnmicli.py -t <target_ip> -p <target_port> -x <xpath> -m get -user <user> -pass <password>
-```
-Or use the included Dockerfile to build your own.
