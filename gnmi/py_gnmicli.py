@@ -25,9 +25,11 @@ Current supported gNMI features:
 - Auto-loads Target cert from Target if not specified
 - User/password based authentication
 - Certifificate based authentication
+- Capabilities
+- Subscribe: On-Change
 
 Current unsupported gNMI features:
-- Subscribe
+- 
 """
 
 from __future__ import absolute_import
