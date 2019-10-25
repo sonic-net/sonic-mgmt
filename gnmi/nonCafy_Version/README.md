@@ -1,6 +1,7 @@
 # gNMI CLI
 
-A simple Python script that performs interactions with gNMI Targets.
+A simple Python script that performs interactions with gNMI Targets. This is the non-Cafy version which can
+be used during Manual testing and for quick verification
 
 ## Dependencies
 
