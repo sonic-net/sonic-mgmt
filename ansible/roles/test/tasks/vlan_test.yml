@@ -35,6 +35,7 @@
         ptf_test_dir: ptftests
         ptf_test_path: vlan_test.VlanTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - vlan_ports_list = \"{{ vlan_ports_list }}\"
           - vlan_intf_list = \"{{ vlan_intf_list }}\"
