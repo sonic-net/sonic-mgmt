@@ -1,17 +1,16 @@
-{% set container_name = "storm" ~ "_" ~ (1).__lshift__(pfc_queue_index) ~ "_" ~ pfc_frames_number ~ "_" ~ pfc_fanout_interface | replace("ernet 1/", "") | replace("/", "_") ~ "_" ~ ansible_eth0_ipv4_addr | replace(".", "_") %}
+{% set container_name = "storm" %}
 
 enable
 configure terminal
-docker no start {{ container_name }}
-{% if (pfc_asym  is defined) and (pfc_asym == True) %}
-docker exec args "/root/save_args.sh -p {{pfc_queue_index}} -t 65535 -n {{pfc_frames_number}} -i {{pfc_fanout_interface | replace("ernet 1/", "") | replace("/", "_")}}"
-{% else %}
-docker exec args "/root/save_args.sh -p {{(1).__lshift__(pfc_queue_index)}} -t 65535 -n {{pfc_frames_number}} -i {{pfc_fanout_interface | replace("ernet 1/", "") | replace("/", "_")}} -r {{ansible_eth0_ipv4_addr}}"
-{% endif %}
 
-ping -c 3 127.0.0.1
-docker start pfc_storm latest {{ container_name }} now label storm privileged sdk network
-ping -c 7 127.0.0.1
+docker exec {{ container_name }} /bin/bash
+cd /root/
+{% if (pfc_asym  is defined) and (pfc_asym == True) %}
+{% if pfc_storm_defer_time is defined %} sleep {{pfc_storm_defer_time}} &&{% endif %} python {{pfc_gen_file}} -p {{pfc_queue_index}} -t 65535 -n {{pfc_frames_number}} -i {{pfc_fanout_interface | replace("ernet 1/", "") | replace("/", "_")}} &
+{% else %}
+{% if pfc_storm_defer_time is defined %} sleep {{pfc_storm_defer_time}} &&{% endif %} python {{pfc_gen_file}} -p {{(1).__lshift__(pfc_queue_index)}} -t 65535 -n {{pfc_frames_number}} -i {{pfc_fanout_interface | replace("ernet 1/", "") | replace("/", "_")}} -r {{ansible_eth0_ipv4_addr}} &
+{% endif %}
+exit
 
 exit
 exit

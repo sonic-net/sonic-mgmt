@@ -12,7 +12,7 @@
     fanout_addr: "{{device_info['mgmtip']}}"
     ansible_ssh_user: "{{fanout_root_user}}"
     ansible_ssh_pass: "{{fanout_root_pass}}"
-    pfcwd_dockers: "['roles/test/files/mlnx/docker-tests-pfcgen/pfc_storm.tgz', 'roles/test/files/mlnx/docker-tests-saveargs/storm_args.tgz']"
+    pfcwd_dockers: "['roles/test/files/mlnx/docker-tests-pfcgen/pfc_storm.tgz']"
     fanout_img_path: "/var/opt/tms/images/"
 
 - name: Build containers to save storm arguments and to run storm
