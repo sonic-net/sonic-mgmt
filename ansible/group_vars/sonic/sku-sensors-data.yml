@@ -1501,6 +1501,7 @@ sensors_checks:
         side: left
         skip_list:
         - ym2651-i2c-11-5b
+
   Seastone-DX010:
     alarms:
       fan:
@@ -1532,66 +1533,30 @@ sensors_checks:
       - dps460-i2c-10-5a/iin/curr1_crit_alarm
       - dps460-i2c-10-5a/iin/curr1_max_alarm
       - dps460-i2c-10-5a/iout1/curr2_crit_alarm
-      - dps460-i2c-10-5a/iout1/curr2_lcrit_alarm
       - dps460-i2c-10-5a/iout1/curr2_max_alarm
       - dps460-i2c-10-5a/pin/power1_alarm
       - dps460-i2c-10-5a/pout1/power2_cap_alarm
       - dps460-i2c-10-5a/pout1/power2_crit_alarm
       - dps460-i2c-10-5a/pout1/power2_max_alarm
-      - dps460-i2c-10-5a/vin/in1_crit_alarm
-      - dps460-i2c-10-5a/vin/in1_lcrit_alarm
-      - dps460-i2c-10-5a/vin/in1_max_alarm
-      - dps460-i2c-10-5a/vin/in1_min_alarm
-      - dps460-i2c-10-5a/vout1/in3_crit_alarm
-      - dps460-i2c-10-5a/vout1/in3_lcrit_alarm
-      - dps460-i2c-10-5a/vout1/in3_max_alarm
-      - dps460-i2c-10-5a/vout1/in3_min_alarm
       - dps460-i2c-11-5b/iin/curr1_crit_alarm
       - dps460-i2c-11-5b/iin/curr1_max_alarm
       - dps460-i2c-11-5b/iout1/curr2_crit_alarm
-      - dps460-i2c-11-5b/iout1/curr2_lcrit_alarm
       - dps460-i2c-11-5b/iout1/curr2_max_alarm
       - dps460-i2c-11-5b/pin/power1_alarm
-      - dps460-i2c-11-5b/pout1/power2_cap_alarm
-      - dps460-i2c-11-5b/pout1/power2_crit_alarm
       - dps460-i2c-11-5b/pout1/power2_max_alarm
-      - dps460-i2c-11-5b/vin/in1_crit_alarm
-      - dps460-i2c-11-5b/vin/in1_lcrit_alarm
-      - dps460-i2c-11-5b/vin/in1_max_alarm
-      - dps460-i2c-11-5b/vin/in1_min_alarm
       - dps460-i2c-11-5b/vout1/in3_crit_alarm
       - dps460-i2c-11-5b/vout1/in3_lcrit_alarm
-      - dps460-i2c-11-5b/vout1/in3_max_alarm
-      - dps460-i2c-11-5b/vout1/in3_min_alarm
       temp:
       - coretemp-isa-0000/Core 0/temp2_crit_alarm
       - coretemp-isa-0000/Core 1/temp3_crit_alarm
       - coretemp-isa-0000/Core 2/temp4_crit_alarm
       - coretemp-isa-0000/Core 3/temp5_crit_alarm
-      - dps460-i2c-10-5a/Power Supply 1 temp sensor 1/temp1_crit_alarm
-      - dps460-i2c-10-5a/Power Supply 1 temp sensor 1/temp1_lcrit_alarm
       - dps460-i2c-10-5a/Power Supply 1 temp sensor 1/temp1_max_alarm
-      - dps460-i2c-10-5a/Power Supply 1 temp sensor 1/temp1_min_alarm
-      - dps460-i2c-10-5a/Power Supply 1 temp sensor 2/temp2_crit_alarm
-      - dps460-i2c-10-5a/Power Supply 1 temp sensor 2/temp2_lcrit_alarm
       - dps460-i2c-10-5a/Power Supply 1 temp sensor 2/temp2_max_alarm
-      - dps460-i2c-10-5a/Power Supply 1 temp sensor 2/temp2_min_alarm
-      - dps460-i2c-10-5a/Power Supply 1 temp sensor 3/temp3_crit_alarm
-      - dps460-i2c-10-5a/Power Supply 1 temp sensor 3/temp3_lcrit_alarm
       - dps460-i2c-10-5a/Power Supply 1 temp sensor 3/temp3_max_alarm
-      - dps460-i2c-10-5a/Power Supply 1 temp sensor 3/temp3_min_alarm
-      - dps460-i2c-11-5b/Power Supply 2 temp sensor 1/temp1_crit_alarm
-      - dps460-i2c-11-5b/Power Supply 2 temp sensor 1/temp1_lcrit_alarm
       - dps460-i2c-11-5b/Power Supply 2 temp sensor 1/temp1_max_alarm
-      - dps460-i2c-11-5b/Power Supply 2 temp sensor 1/temp1_min_alarm
-      - dps460-i2c-11-5b/Power Supply 2 temp sensor 2/temp2_crit_alarm
-      - dps460-i2c-11-5b/Power Supply 2 temp sensor 2/temp2_lcrit_alarm
       - dps460-i2c-11-5b/Power Supply 2 temp sensor 2/temp2_max_alarm
-      - dps460-i2c-11-5b/Power Supply 2 temp sensor 2/temp2_min_alarm
-      - dps460-i2c-11-5b/Power Supply 2 temp sensor 3/temp3_crit_alarm
-      - dps460-i2c-11-5b/Power Supply 2 temp sensor 3/temp3_lcrit_alarm
       - dps460-i2c-11-5b/Power Supply 2 temp sensor 3/temp3_max_alarm
-      - dps460-i2c-11-5b/Power Supply 2 temp sensor 3/temp3_min_alarm
     compares:
       fan: []
       power:
@@ -1601,8 +1566,6 @@ sensors_checks:
         - dps460-i2c-10-5a/iin/curr1_max
       - - dps460-i2c-10-5a/iout1/curr2_input
         - dps460-i2c-10-5a/iout1/curr2_crit
-      - - dps460-i2c-10-5a/iout1/curr2_lcrit
-        - dps460-i2c-10-5a/iout1/curr2_input
       - - dps460-i2c-10-5a/iout1/curr2_input
         - dps460-i2c-10-5a/iout1/curr2_max
       - - dps460-i2c-10-5a/pin/power1_input
@@ -1611,30 +1574,12 @@ sensors_checks:
         - dps460-i2c-10-5a/pout1/power2_crit
       - - dps460-i2c-10-5a/pout1/power2_input
         - dps460-i2c-10-5a/pout1/power2_max
-      - - dps460-i2c-10-5a/vin/in1_input
-        - dps460-i2c-10-5a/vin/in1_crit
-      - - dps460-i2c-10-5a/vin/in1_lcrit
-        - dps460-i2c-10-5a/vin/in1_input
-      - - dps460-i2c-10-5a/vin/in1_input
-        - dps460-i2c-10-5a/vin/in1_max
-      - - dps460-i2c-10-5a/vin/in1_min
-        - dps460-i2c-10-5a/vin/in1_input
-      - - dps460-i2c-10-5a/vout1/in3_input
-        - dps460-i2c-10-5a/vout1/in3_crit
-      - - dps460-i2c-10-5a/vout1/in3_lcrit
-        - dps460-i2c-10-5a/vout1/in3_input
-      - - dps460-i2c-10-5a/vout1/in3_input
-        - dps460-i2c-10-5a/vout1/in3_max
-      - - dps460-i2c-10-5a/vout1/in3_min
-        - dps460-i2c-10-5a/vout1/in3_input
       - - dps460-i2c-11-5b/iin/curr1_input
         - dps460-i2c-11-5b/iin/curr1_crit
       - - dps460-i2c-11-5b/iin/curr1_input
         - dps460-i2c-11-5b/iin/curr1_max
       - - dps460-i2c-11-5b/iout1/curr2_input
         - dps460-i2c-11-5b/iout1/curr2_crit
-      - - dps460-i2c-11-5b/iout1/curr2_lcrit
-        - dps460-i2c-11-5b/iout1/curr2_input
       - - dps460-i2c-11-5b/iout1/curr2_input
         - dps460-i2c-11-5b/iout1/curr2_max
       - - dps460-i2c-11-5b/pin/power1_input
@@ -1643,22 +1588,6 @@ sensors_checks:
         - dps460-i2c-11-5b/pout1/power2_crit
       - - dps460-i2c-11-5b/pout1/power2_input
         - dps460-i2c-11-5b/pout1/power2_max
-      - - dps460-i2c-11-5b/vin/in1_input
-        - dps460-i2c-11-5b/vin/in1_crit
-      - - dps460-i2c-11-5b/vin/in1_lcrit
-        - dps460-i2c-11-5b/vin/in1_input
-      - - dps460-i2c-11-5b/vin/in1_input
-        - dps460-i2c-11-5b/vin/in1_max
-      - - dps460-i2c-11-5b/vin/in1_min
-        - dps460-i2c-11-5b/vin/in1_input
-      - - dps460-i2c-11-5b/vout1/in3_input
-        - dps460-i2c-11-5b/vout1/in3_crit
-      - - dps460-i2c-11-5b/vout1/in3_lcrit
-        - dps460-i2c-11-5b/vout1/in3_input
-      - - dps460-i2c-11-5b/vout1/in3_input
-        - dps460-i2c-11-5b/vout1/in3_max
-      - - dps460-i2c-11-5b/vout1/in3_min
-        - dps460-i2c-11-5b/vout1/in3_input
       temp:
       - - coretemp-isa-0000/Core 0/temp2_input
         - coretemp-isa-0000/Core 0/temp2_crit
@@ -1677,73 +1606,37 @@ sensors_checks:
       - - coretemp-isa-0000/Core 3/temp5_input
         - coretemp-isa-0000/Core 3/temp5_max
       - - dps460-i2c-10-5a/Power Supply 1 temp sensor 1/temp1_input
-        - dps460-i2c-10-5a/Power Supply 1 temp sensor 1/temp1_crit
-      - - dps460-i2c-10-5a/Power Supply 1 temp sensor 1/temp1_lcrit
-        - dps460-i2c-10-5a/Power Supply 1 temp sensor 1/temp1_input
-      - - dps460-i2c-10-5a/Power Supply 1 temp sensor 1/temp1_input
         - dps460-i2c-10-5a/Power Supply 1 temp sensor 1/temp1_max
-      - - dps460-i2c-10-5a/Power Supply 1 temp sensor 1/temp1_min
-        - dps460-i2c-10-5a/Power Supply 1 temp sensor 1/temp1_input
-      - - dps460-i2c-10-5a/Power Supply 1 temp sensor 2/temp2_input
-        - dps460-i2c-10-5a/Power Supply 1 temp sensor 2/temp2_crit
-      - - dps460-i2c-10-5a/Power Supply 1 temp sensor 2/temp2_lcrit
-        - dps460-i2c-10-5a/Power Supply 1 temp sensor 2/temp2_input
       - - dps460-i2c-10-5a/Power Supply 1 temp sensor 2/temp2_input
         - dps460-i2c-10-5a/Power Supply 1 temp sensor 2/temp2_max
-      - - dps460-i2c-10-5a/Power Supply 1 temp sensor 2/temp2_min
-        - dps460-i2c-10-5a/Power Supply 1 temp sensor 2/temp2_input
-      - - dps460-i2c-10-5a/Power Supply 1 temp sensor 3/temp3_input
-        - dps460-i2c-10-5a/Power Supply 1 temp sensor 3/temp3_crit
-      - - dps460-i2c-10-5a/Power Supply 1 temp sensor 3/temp3_lcrit
-        - dps460-i2c-10-5a/Power Supply 1 temp sensor 3/temp3_input
       - - dps460-i2c-10-5a/Power Supply 1 temp sensor 3/temp3_input
         - dps460-i2c-10-5a/Power Supply 1 temp sensor 3/temp3_max
-      - - dps460-i2c-10-5a/Power Supply 1 temp sensor 3/temp3_min
-        - dps460-i2c-10-5a/Power Supply 1 temp sensor 3/temp3_input
-      - - dps460-i2c-11-5b/Power Supply 2 temp sensor 1/temp1_input
-        - dps460-i2c-11-5b/Power Supply 2 temp sensor 1/temp1_crit
-      - - dps460-i2c-11-5b/Power Supply 2 temp sensor 1/temp1_lcrit
-        - dps460-i2c-11-5b/Power Supply 2 temp sensor 1/temp1_input
       - - dps460-i2c-11-5b/Power Supply 2 temp sensor 1/temp1_input
         - dps460-i2c-11-5b/Power Supply 2 temp sensor 1/temp1_max
-      - - dps460-i2c-11-5b/Power Supply 2 temp sensor 1/temp1_min
-        - dps460-i2c-11-5b/Power Supply 2 temp sensor 1/temp1_input
-      - - dps460-i2c-11-5b/Power Supply 2 temp sensor 2/temp2_input
-        - dps460-i2c-11-5b/Power Supply 2 temp sensor 2/temp2_crit
-      - - dps460-i2c-11-5b/Power Supply 2 temp sensor 2/temp2_lcrit
-        - dps460-i2c-11-5b/Power Supply 2 temp sensor 2/temp2_input
       - - dps460-i2c-11-5b/Power Supply 2 temp sensor 2/temp2_input
         - dps460-i2c-11-5b/Power Supply 2 temp sensor 2/temp2_max
-      - - dps460-i2c-11-5b/Power Supply 2 temp sensor 2/temp2_min
-        - dps460-i2c-11-5b/Power Supply 2 temp sensor 2/temp2_input
-      - - dps460-i2c-11-5b/Power Supply 2 temp sensor 3/temp3_input
-        - dps460-i2c-11-5b/Power Supply 2 temp sensor 3/temp3_crit
-      - - dps460-i2c-11-5b/Power Supply 2 temp sensor 3/temp3_lcrit
-        - dps460-i2c-11-5b/Power Supply 2 temp sensor 3/temp3_input
       - - dps460-i2c-11-5b/Power Supply 2 temp sensor 3/temp3_input
         - dps460-i2c-11-5b/Power Supply 2 temp sensor 3/temp3_max
-      - - dps460-i2c-11-5b/Power Supply 2 temp sensor 3/temp3_min
-        - dps460-i2c-11-5b/Power Supply 2 temp sensor 3/temp3_input
-      - - dx010_lm75b-i2c-14-48/Rear-panel temp sensor 1/temp1_input
-        - dx010_lm75b-i2c-14-48/Rear-panel temp sensor 1/temp1_max
-      - - dx010_lm75b-i2c-14-48/Rear-panel temp sensor 1/temp1_input
-        - dx010_lm75b-i2c-14-48/Rear-panel temp sensor 1/temp1_max_hyst
-      - - dx010_lm75b-i2c-15-4e/Rear-panel temp sensor 2/temp1_input
-        - dx010_lm75b-i2c-15-4e/Rear-panel temp sensor 2/temp1_max
-      - - dx010_lm75b-i2c-15-4e/Rear-panel temp sensor 2/temp1_input
-        - dx010_lm75b-i2c-15-4e/Rear-panel temp sensor 2/temp1_max_hyst
-      - - dx010_lm75b-i2c-5-48/Rear-panel temp sensor 1/temp1_input
-        - dx010_lm75b-i2c-5-48/Rear-panel temp sensor 1/temp1_max
-      - - dx010_lm75b-i2c-5-48/Rear-panel temp sensor 1/temp1_input
-        - dx010_lm75b-i2c-5-48/Rear-panel temp sensor 1/temp1_max_hyst
-      - - dx010_lm75b-i2c-6-49/Front-panel temp sensor 2/temp1_input
-        - dx010_lm75b-i2c-6-49/Front-panel temp sensor 2/temp1_max
-      - - dx010_lm75b-i2c-6-49/Front-panel temp sensor 2/temp1_input
-        - dx010_lm75b-i2c-6-49/Front-panel temp sensor 2/temp1_max_hyst
-      - - dx010_lm75b-i2c-7-4a/ASIC temp sensor/temp1_input
-        - dx010_lm75b-i2c-7-4a/ASIC temp sensor/temp1_max
-      - - dx010_lm75b-i2c-7-4a/ASIC temp sensor/temp1_input
-        - dx010_lm75b-i2c-7-4a/ASIC temp sensor/temp1_max_hyst
+      - - lm75b-i2c-14-48/Rear-panel temp sensor 1/temp1_input
+        - lm75b-i2c-14-48/Rear-panel temp sensor 1/temp1_max
+      - - lm75b-i2c-14-48/Rear-panel temp sensor 1/temp1_input
+        - lm75b-i2c-14-48/Rear-panel temp sensor 1/temp1_max_hyst
+      - - lm75b-i2c-15-4e/Rear-panel temp sensor 2/temp1_input
+        - lm75b-i2c-15-4e/Rear-panel temp sensor 2/temp1_max
+      - - lm75b-i2c-15-4e/Rear-panel temp sensor 2/temp1_input
+        - lm75b-i2c-15-4e/Rear-panel temp sensor 2/temp1_max_hyst
+      - - lm75b-i2c-5-48/Rear-panel temp sensor 1/temp1_input
+        - lm75b-i2c-5-48/Rear-panel temp sensor 1/temp1_max
+      - - lm75b-i2c-5-48/Rear-panel temp sensor 1/temp1_input
+        - lm75b-i2c-5-48/Rear-panel temp sensor 1/temp1_max_hyst
+      - - lm75b-i2c-6-49/Front-panel temp sensor 2/temp1_input
+        - lm75b-i2c-6-49/Front-panel temp sensor 2/temp1_max
+      - - lm75b-i2c-6-49/Front-panel temp sensor 2/temp1_input
+        - lm75b-i2c-6-49/Front-panel temp sensor 2/temp1_max_hyst
+      - - lm75b-i2c-7-4a/ASIC temp sensor/temp1_input
+        - lm75b-i2c-7-4a/ASIC temp sensor/temp1_max
+      - - lm75b-i2c-7-4a/ASIC temp sensor/temp1_input
+        - lm75b-i2c-7-4a/ASIC temp sensor/temp1_max_hyst
     non_zero:
       fan:
       - dps460-i2c-10-5a/fan1/fan1_input
@@ -1764,7 +1657,6 @@ sensors_checks:
       - dps460-i2c-10-5a/pin/power1_input
       - dps460-i2c-10-5a/pout1/power2_input
       - dps460-i2c-10-5a/vin/in1_input
-      - dps460-i2c-10-5a/vout1/in3_input
       - dps460-i2c-11-5b/iin/curr1_input
       - dps460-i2c-11-5b/iout1/curr2_input
       - dps460-i2c-11-5b/pin/power1_input
@@ -1782,11 +1674,11 @@ sensors_checks:
       - dps460-i2c-11-5b/Power Supply 2 temp sensor 1/temp1_input
       - dps460-i2c-11-5b/Power Supply 2 temp sensor 2/temp2_input
       - dps460-i2c-11-5b/Power Supply 2 temp sensor 3/temp3_input
-      - dx010_lm75b-i2c-14-48/Rear-panel temp sensor 1/temp1_input
-      - dx010_lm75b-i2c-15-4e/Rear-panel temp sensor 2/temp1_input
-      - dx010_lm75b-i2c-5-48/Rear-panel temp sensor 1/temp1_input
-      - dx010_lm75b-i2c-6-49/Front-panel temp sensor 2/temp1_input
-      - dx010_lm75b-i2c-7-4a/ASIC temp sensor/temp1_input
+      - lm75b-i2c-14-48/Rear-panel temp sensor 1/temp1_input
+      - lm75b-i2c-15-4e/Rear-panel temp sensor 2/temp1_input
+      - lm75b-i2c-5-48/Rear-panel temp sensor 1/temp1_input
+      - lm75b-i2c-6-49/Front-panel temp sensor 2/temp1_input
+      - lm75b-i2c-7-4a/ASIC temp sensor/temp1_input
     psu_skips: {}
 
   Arista-7170-64C:
