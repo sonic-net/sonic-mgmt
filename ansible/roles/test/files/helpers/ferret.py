@@ -170,16 +170,29 @@ class Responder(object):
         ext_eth_type = data[0x0c:0x0e]
         if ext_eth_type != binascii.unhexlify('0800'):
             print "Not 0x800 eth type"
+            self.hexdump(data)
+            print
             return
         src_ip = data[0x001a:0x001e]
         dst_ip = data[0x1e:0x22]
         gre_flags = data[0x22:0x24]
         gre_type  = data[0x24:0x26]
-        # FIXME: check gre type and gre_flags
 
-        arp_request = data[0x26:]
+        gre_type_r = struct.unpack('!H', gre_type)[0]
+        if gre_type_r == 0x88be:   # Broadcom
+            arp_request = data[0x26:]
+        elif gre_type_r == 0x8849: # Mellanox
+            arp_request = data[0x3c:]
+        else:
+            print "GRE type 0x%x is not supported" % gre_type_r
+            self.hexdump(data)
+            print
+            return
+
         if len(arp_request) > self.ARP_PKT_LEN:
             print "Too long packet"
+            self.hexdump(data)
+            print
             return
 
         remote_mac, remote_ip, request_ip, op_type = self.extract_arp_info(arp_request)
