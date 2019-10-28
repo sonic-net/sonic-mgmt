@@ -313,6 +313,7 @@ class SwitchConnection(object):
 
 
     def ReadTableEntries(self, table_id=None, dry_run=False, **kwargs):
+        log.info("Inside ReadTableEntries ...")
         request = p4runtime_pb2.ReadRequest()
         request.device_id = self.device_id
         entity = request.entities.add()
@@ -325,6 +326,21 @@ class SwitchConnection(object):
             log.info("P4Runtime Read:", request)
         else:
             log.info("P4Runtime Read for Table ID: %d" % table_id)
+            for response in self.client_stub.Read(request):
+                yield response
+
+    def ReadTableEntriesWc(self, table_id, tbl_entry, dry_run=False, **kwargs):
+        request = p4runtime_pb2.ReadRequest()
+        request.device_id = self.device_id
+        entity = request.entities.add()
+        if table_id is not None:
+            entity.table_entry.CopyFrom(tbl_entry)
+            entity.table_entry.table_id = table_id
+        else:
+            entity.table_entry.table_id = 0
+        if dry_run:
+            log.info("P4Runtime Read:", request)
+        else:
             for response in self.client_stub.Read(request):
                 yield response
 

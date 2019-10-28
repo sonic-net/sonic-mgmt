@@ -205,6 +205,30 @@ def tableEntryActions(sw, flow, p4info_helper, action, **kwargs):
 
     return
 
+def tableWCRead(sw, flow, p4info_helper):
+    table_name = flow['table']
+    match_fields = flow.get('match') # None if not found
+    action_name = flow.get('action_name') # None if not found
+    default_action = flow.get('default_action') # None if not found
+    action_params = flow.get('action_params') # None if not found
+    action_member = flow.get('action_member') # None if not found
+    action_group = flow.get('action_group') # None if not found
+    priority = flow.get('priority')  # None if not found
+
+    tbl_entry = p4info_helper.buildTableEntry(
+        table_name=table_name,
+        match_fields=match_fields,
+        default_action=default_action,
+        action_name=action_name,
+        action_params=action_params,
+        action_member=action_member,
+        action_group=action_group,
+        priority=priority)
+
+    table_id = p4info_helper.get_id("tables", name=table_name)
+    return sw.ReadTableEntriesWc(table_id, tbl_entry)
+    #return sw.ReadTableEntries(table_id=table_id)
+
 def memberActions(sw, flow, p4info_helper, mode, **kwargs):
     try:
         election_id_low = kwargs["election_id_low"]
@@ -313,11 +337,16 @@ def tableEntryToString(flow):
         match_str = '(default action)'
     else:
         match_str = '(any)'
-    params = ['%s=%s' % (param_name, str(flow['action_params'][param_name])) for param_name in
-              flow['action_params']]
-    params = ', '.join(params)
+    params = ""
+    if 'action_params' in flow:
+        params = ['%s=%s' % (param_name, str(flow['action_params'][param_name])) for param_name in
+                  flow['action_params']]
+        params = ', '.join(params)
+    act_name = ""
+    if 'action_name' in flow:
+        act_name = flow['action_name']
     return "%s: %s => %s(%s)" % (
-        flow['table'], match_str, flow['action_name'], params)
+        flow['table'], match_str, act_name, params)
 
 
 
