@@ -30,34 +30,15 @@ for tp_dir in tp_dirs:
     sys.path.append(os.path.join(TP_DIR,tp_dir))
 
 import gnmi_test_lib as gnmiTestLib
-import gnmi_sanity_tc as gnmi_san_tc
+
 
 SWITCH_TO_HOST_PORT = 1
 SWITCH_TO_SWITCH_PORT = 2
-#os.environ['GRPC_TRACE'] = 'all'
-#os.environ['GRPC_VERBOSITY'] = 'DEBUG'
-os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python'
 
-
-@pytest.fixture(scope="session")
-def stub():
-    host_override = None
-    target = ApData.svr_addr
-    port = ApData.port_addr
-    notls = True
-    get_cert = None
-    certs = None
-    creds = gnmiTestLib._build_creds(target, port, get_cert, certs, notls)
-    return gnmiTestLib._create_stub(creds,target,port,host_override)
-
-class TestGnmi(GnmiApBase):
-
-    def test_gnmi_Capability(self,stub):
-        gnmi_san_tc._test_gnmi_Capability(stub)
-
-
-    #@pytest.mark.last
-    #def test_max_connections(self,stub):
-    #    gnmi_san_tc._test_max_connections(stub)    
-
-
+def _test_gnmi_Capability(stub):
+    user = None
+    password = None
+    log.info('Performing CapabilitiesRequest to target \n')
+    response = gnmiTestLib._cap(stub, user, password)
+    log.info('The CapabilitiesRequest response is below\n' + '-'*25 + '\n', response)
+    log.info(response)

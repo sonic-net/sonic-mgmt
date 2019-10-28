@@ -28,7 +28,7 @@ class ApData:
         input_file = os.path.join(prefix,"gd_ap_input_file.json")
     testbed = Topology(topo_file=test_bed)
     zap = Zap(test_input_file=input_file,topo_file=test_bed)
-    gnmi_feature_dict = zap.get_feature_configuration("p4")  
+    gnmi_feature_dict = zap.get_feature_configuration("gnmi")  
     
 class GnmiApBase(ApBase):
     # GNMI Base Variables

@@ -472,7 +472,7 @@ def _open_certs(**kwargs):
       kwargs[key] = six.moves.builtins.open(value, 'rb').read()
   return kwargs
 
-
+"""
 def main():
   argparser = _create_parser()
   args = vars(argparser.parse_args())
@@ -561,3 +561,4 @@ def main():
 
 if __name__ == '__main__':
   main()
+  """

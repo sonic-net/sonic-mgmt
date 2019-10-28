@@ -1,0 +1,1 @@
+gnmi_ap.py::TestGnmi::()::test_gnmi_Capability
