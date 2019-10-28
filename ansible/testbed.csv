@@ -40,7 +40,6 @@ vms3-t1-dx010-1,vms3-5,t1-lag,docker-ptf-brcm,10.64.247.15/23,server_3,VM0300,st
 vms3-t0-dx010-1,vms3-6,t0,docker-ptf-brcm,10.64.247.15/23,server_3,VM0300,str-dx010-acs-1,wenda
 vms6-1,vms6-1,t1-lag,docker-ptf-brcm,10.64.247.6/23,server_6,VM0600,str-a7050-acs-2,gulv
 vms6-t0-7648,vms6-5,t0-16,docker-ptf-brcm,10.64.247.7/23,server_6,VM0624,str-agc7648-acs-1,prsunny
-vms6-t0-7280,vms6-6,t0,docker-ptf-brcm,10.64.247.7/23,server_6,VM0624,str-a7280cr3-1,prsunny
 vms6-t0-z91,vms6-2,t0,docker-ptf-brcm,10.64.247.18/23,server_6,VM0632,str-z9100-acs-2,prsunny
 vms6-t0-7060,vms6-4,t0,docker-ptf-brcm,10.64.247.20/23,server_6,VM0636,str-a7060cx-acs-1,prsunny
 vms6-t1-7060,vms6-3,t1-lag,docker-ptf-brcm,10.64.247.19/23,server_6,VM0640,str-a7060cx-acs-10,prsunny
@@ -61,6 +60,7 @@ vms12-t1-2,v12-22,t1,docker-ptf-mlnx,10.64.246.25/23,server_12,VM1232,str-msn270
 vms12-3-t0-e1031,v12-31,t0-52,docker-ptf-brcm,10.64.246.42/23,server_12,VM1264,str-e1031-acs-1,gulv
 vms12-t0-s6000,v12-4,t0,docker-ptf-brcm,10.64.246.84/23,server_12,VM1272,str-s6000-on-5,stumkurv
 vms12-4-t0-marvell,v12-41,t0-52,docker-ptf-brcm,10.64.246.85/23,server_12,VM1268,str-marvell-acs-1,stumkurv
+vms12-t0-7280,vms12-6,t0,docker-ptf-brcm,10.64.247.7/23,server_12,VM1272,str-a7280cr3-1,prsunny
 vms13-t0-n9232-1,vms13-1,t0,docker-ptf-brcm,10.64.247.29/23,server_13,VM1300,str-n9232-acs-1,Jenkins
 vms13-t0-a7170,vms13-4,t0-64,docker-ptf-brcm,10.64.246.75/23,server_13,VM1304,str-a7170-acs-1,prsunny
 vms13-t1-n3164-2,vms13-5,t1-64-lag,docker-ptf-brcm,10.64.246.54/23,server_13,VM1308,str-n3164-acs-2,sumeenak
