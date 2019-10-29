@@ -12,8 +12,8 @@
     login: "{{ switch_login['MLNX-OS'] }}"
 
 - set_fact:
-    dockers_running: "{{output.stdout|search(\"args *storm_args\")|bool}}"
-    dockers_installed: "{{output.stdout|search(\"pfc_storm\") and output.stdout|search(\"storm_args\")|bool}}"
+    dockers_installed: "{{output.stdout|search(\"pfc_storm\")}}"
+    dockers_running: "{{output.stdout|search(\"storm\")|bool}}"
 
 - fail: msg="PFCWD dockers not installed"
   when: not dockers_installed
