@@ -168,6 +168,9 @@
       when: warm_reboot_test | bool == false
 
     - block:
+        - name: Set to default PFC WD config for warm-reboot test
+          shell: bash -c 'redis-cli -n 4 hset "DEVICE_METADATA|localhost" default_pfcwd_status enable; sudo pfcwd stop; sleep 5; sudo pfcwd start_default'
+
         - name: Test PFC WD function against warm reboot
           include: roles/test/tasks/pfc_wd/functional_test/functional_test_warm_reboot.yml
       when: warm_reboot_test | bool == true
