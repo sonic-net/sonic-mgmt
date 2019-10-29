@@ -609,6 +609,45 @@ def _test_table_wildcard_read_test(self, tbl_name, sw_conn):
     finally:
         sw_conn.shutdown()
 
+def _test_table_batched_write_test(self, tbl_name, sw_conn):
+    sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+    sw_conn.MasterArbitrationUpdate()
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    conf_file = "table_batched_write_tests/" + tbl_name + "/input_conf_file"
+    tbl_input_file = ApData.zap.get_testcase_configuration(conf_file)
+    with open(tbl_input_file, 'r') as conf_file:
+        input_conf = p4TestLib.json_load_byteified(conf_file)
+    table_id = p4info_helper.get_id("tables", name=tbl_name)
+
+    log.info("BATCHED WRITE TEST FOR TABLE ENTRIES")
+    try:
+        if 'table_entries' in input_conf:
+            log.info(input_conf)
+            table_entries = input_conf['table_entries']
+            insrt_entrs = [x for x in table_entries if x['entry_oper'] == 'INSERT']
+            for ents in insrt_entrs:
+                ents['operation'] = 'INSERT'
+
+            p4TestLib.tableEntryActionsBatched(sw_conn, insrt_entrs, p4info_helper)
+            reply = sw_conn.ReadTableEntries(table_id=table_id)
+            for rep in reply:
+                log.info(" READ Reply from DUT")
+                log.info(p4TestLib.repr_pretty_p4runtime(rep))
+            sleep(1)
+            log.info("Deleting p4/p4_sanity_tc.py%d table entries..." % len(insrt_entrs))
+            # Delete all the added entries
+            for ents in insrt_entrs:
+                ents['operation'] = 'DELETE'
+            p4TestLib.tableEntryActionsBatched(sw_conn, insrt_entrs, p4info_helper)
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error(e)
+        printGrpcError(e)
+    finally:
+        sw_conn.shutdown()
+
 def _test_direct_table_crudTests(self, tbl_name, tbl_ops, sw_conn):
     sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
     sw_conn.MasterArbitrationUpdate()

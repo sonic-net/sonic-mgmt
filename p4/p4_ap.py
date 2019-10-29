@@ -88,6 +88,10 @@ class TestP4(P4ApBase):
     def test_direct_table_wc_readTest(self, tbl_name, sw_conn):
         p4_san_tc._test_table_wildcard_read_test(self, tbl_name, sw_conn)
 
+    @pytest.mark.parametrize("tbl_name", ["ingress.encap.encap_in_ipv4_table"])
+    def test_table_batched_write_test(self, tbl_name, sw_conn):
+        p4_san_tc._test_table_batched_write_test(self, tbl_name, sw_conn)
+
     @pytest.mark.parametrize("tbl_ops", ["INSERT", "READ", "MODIFY", "DELETE"])
     @pytest.mark.parametrize("tbl_name", ["ingress.l3_fwd.l3_ipv4_vrf_table"])
     def test_indirect_table_crudTests(self, tbl_name, tbl_ops, sw_conn):

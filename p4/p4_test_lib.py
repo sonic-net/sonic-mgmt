@@ -205,6 +205,45 @@ def tableEntryActions(sw, flow, p4info_helper, action, **kwargs):
 
     return
 
+def tableEntryActionsBatched(sw, entryarr, p4info_helper, **kwargs):
+    try:
+        election_id_low = kwargs["election_id_low"]
+    except KeyError:
+        election_id_low = 1
+    try:
+        election_id_high = kwargs["election_id_high"]
+    except KeyError:
+        election_id_high = 0
+    
+    table_entries = []
+    for flow in entryarr:
+        table_name = flow['table']
+        match_fields = flow.get('match') # None if not found
+        action_name = flow.get('action_name') # None if not found
+        default_action = flow.get('default_action') # None if not found
+        action_params = flow.get('action_params') # None if not found
+        action_member = flow.get('action_member') # None if not found
+        action_group = flow.get('action_group') # None if not found
+        priority = flow.get('priority')  # None if not found
+        oper = flow.get('operation') # None if not found
+        #priority = 1
+        if oper is None:
+            oper = 'INSERT'
+
+        table_entry = p4info_helper.buildTableEntry(
+            table_name=table_name,
+            match_fields=match_fields,
+            default_action=default_action,
+            action_name=action_name,
+            action_params=action_params,
+            action_member=action_member,
+            action_group=action_group,
+            priority=priority)
+        table_entries.append({'te':table_entry, 'op':oper})
+
+    sw.ProcessBatchedTableEntries(table_entries)
+    return
+
 def tableWCRead(sw, flow, p4info_helper):
     table_name = flow['table']
     match_fields = flow.get('match') # None if not found
@@ -227,7 +266,6 @@ def tableWCRead(sw, flow, p4info_helper):
 
     table_id = p4info_helper.get_id("tables", name=table_name)
     return sw.ReadTableEntriesWc(table_id, tbl_entry)
-    #return sw.ReadTableEntries(table_id=table_id)
 
 def memberActions(sw, flow, p4info_helper, mode, **kwargs):
     try:

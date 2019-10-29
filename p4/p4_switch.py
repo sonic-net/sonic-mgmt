@@ -163,6 +163,37 @@ class SwitchConnection(object):
         
         return
     
+    def ProcessBatchedTableEntries(self, table_entries, dry_run=False, **kwargs):
+        request = p4runtime_pb2.WriteRequest()
+        request.device_id = self.device_id
+        try:
+            request.election_id.low = kwargs["election_id_low"]
+        except KeyError:
+            request.election_id.low = 1
+        try:
+            request.election_id.high = kwargs["election_id_high"]
+        except KeyError:
+            request.election_id.high = 0
+
+        request.role_id = 555
+        for tbl_entry in table_entries:
+            update = request.updates.add()
+            upd_type = tbl_entry['op']
+            if upd_type.upper() == "MODIFY":
+                update.type = p4runtime_pb2.Update.MODIFY
+            elif upd_type.upper() == "INSERT":
+                update.type = p4runtime_pb2.Update.INSERT
+            else:
+                update.type = p4runtime_pb2.Update.DELETE
+            update.entity.table_entry.CopyFrom(tbl_entry['te'])
+
+        if dry_run:
+            log.info("P4Runtime Write:", request)
+        else:
+            self.client_stub.Write(request)
+
+        return
+
     def WriteActionProfileGroup(self, group_entry, dry_run=False, **kwargs):
         
         request = p4runtime_pb2.WriteRequest()
@@ -313,7 +344,6 @@ class SwitchConnection(object):
 
 
     def ReadTableEntries(self, table_id=None, dry_run=False, **kwargs):
-        log.info("Inside ReadTableEntries ...")
         request = p4runtime_pb2.ReadRequest()
         request.device_id = self.device_id
         entity = request.entities.add()
