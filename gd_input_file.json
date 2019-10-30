@@ -84,7 +84,7 @@
             },
             "table_batched_write_tests": {
                 "ingress.encap.encap_in_ipv4_table": {
-                    "input_conf_file": "./data-files/ingress-encapin-ipv4-wcread-table.json"
+                    "input_conf_file": "./data-files/ingress-encapin-ipv4-scale-table.json"
                 }
             },
             "indirect_table_tests": {
