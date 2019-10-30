@@ -3,7 +3,14 @@
       reboot_limit: 30
   when: reboot_limit is not defined
 
+- name: set default values vnet variables
+  set_fact:
+      vnet: False
+      vnet_pkts: ''
+  when: (vnet is not defined) or (vnet_pkts is not defined)
+
 - name: Fast-reboot test
   include: advanced-reboot.yml
   vars:
       reboot_type: fast-reboot
+
