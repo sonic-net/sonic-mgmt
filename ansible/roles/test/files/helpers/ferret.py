@@ -181,7 +181,7 @@ class Responder(object):
         gre_type_r = struct.unpack('!H', gre_type)[0]
         if gre_type_r == 0x88be:   # Broadcom
             arp_request = data[0x26:]
-        elif gre_type_r == 0x8849: # Mellanox
+        elif gre_type_r == 0x8949: # Mellanox
             arp_request = data[0x3c:]
         else:
             print "GRE type 0x%x is not supported" % gre_type_r
