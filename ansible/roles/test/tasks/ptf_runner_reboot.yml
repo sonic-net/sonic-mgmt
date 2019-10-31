@@ -147,6 +147,12 @@
         dest: '/tmp/'
         flat: yes
 
+    - name: Clear ARP table
+      command: sonic-clear arp
+
+    - name: Clear FDB table
+      command: sonic-clear fdb all
+
 - name: Wait for the DUT to be ready for the next test
   pause: seconds=420
   when: (preboot_list|length > 0 and None not in preboot_list) or
