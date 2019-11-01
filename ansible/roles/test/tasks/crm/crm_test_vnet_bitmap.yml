@@ -46,6 +46,8 @@
       shell: grep "Vlan" /tmp/vnet.intf.json | wc -l
       register: out
     - set_fact:
+        # Only regular routes are counted here since there is no CRM counter for BITMAP VNET routes.
+        # There is one such route per each interface so it is equal to number of VNET interfaces.
         ipv4_route_num: "{{ out.stdout_lines[0] }}"
         fdb_entry_num: "{{ out.stdout_lines[0] }}"
 
