@@ -14,6 +14,15 @@
   - name: Initialize variables
     set_fact:
       server_ports: []
+      server_ports_names: "{{minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members']|join(' ')}}"
+      pfc_mask: 0
+      pfc_rx_mask: 0
+      pfc_tx_mask: 0
+
+  - name: Get server ports OIDs
+    command: docker exec -i database redis-cli --raw -n 2 HMGET COUNTERS_PORT_NAME_MAP {{server_ports_names}}
+    register: out
+  - set_fact: server_ports_oids={{out.stdout.split()}}
 
   - name: Generate IP address in VLAN range for each server port
     get_ip_in_range: num={{minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members']|length}} prefix="{{minigraph_vlan_interfaces[0]['addr']}}/{{minigraph_vlan_interfaces[0]['prefixlen']}}" exclude_ips="{{minigraph_vlan_interfaces[0]['addr']}}"
@@ -92,6 +101,20 @@
     with_items: "{{out.results}}"
     when: item.stdout|search("lossy")
 
+  - block:
+
+    - name: Set bitmask for the PFC value
+      set_fact: pfc_mask={{(pfc_mask|int).__or__((1).__lshift__(item|int))}}
+      with_items: lossless_priorities
+
+    - name: Set bitmask for the asymmetric PFC Tx value
+      set_fact: pfc_tx_mask={{pfc_mask}}
+
+    - name: Set bitmask for the asymmetric PFC Rx value
+      set_fact: pfc_rx_mask={{(pfc_rx_mask|int).__or__((1).__lshift__(item))}}
+      with_items: [0,1,2,3,4,5,6,7] # Asymmetric PFC sets Rx bitmask for all priorities
+
+
   # Get PFC to DSCP mapping
 
   - set_fact:
@@ -156,6 +179,17 @@
   - name: Deploy PFC packet generator to fanout switch
     include: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
 
+  - block:
+
+    - name: Get default PFC value
+      command: docker exec -i database redis-cli --raw -n 1 HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{{ item }} SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL
+      register: out
+      with_items: '{{ server_ports_oids }}'
+
+    - name: Verify default PFC value
+      assert: {that: "{{item.stdout|int == pfc_mask|int}}"}
+      with_items: '{{ out.results }}'
+
   # Run test cases
 
   - name: Start PTF runner
@@ -215,6 +249,35 @@
     become: yes
     with_items: '{{ server_ports }}'
 
+  - block:
+
+    - name: Get PFC mode
+      command: docker exec -i database redis-cli --raw -n 1 HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{{ item }} SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_MODE
+      register: out
+      with_items: '{{ server_ports_oids }}'
+
+    - name: Verify asymetric PFC mode
+      assert: {that: "{{item.stdout == 'SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_SEPARATE'}}"}
+      with_items: '{{ out.results }}'
+
+    - name: Get asymmetric PFC Rx value
+      command: docker exec -i database redis-cli --raw -n 1 HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{{ item }} SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_RX
+      register: out
+      with_items: '{{ server_ports_oids }}'
+
+    - name: Verify asymmetric PFC Rx value
+      assert: {that: "{{item.stdout|int == pfc_rx_mask|int}}"}
+      with_items: '{{ out.results }}'
+
+    - name: Get asymmetric PFC Tx value
+      command: docker exec -i database redis-cli --raw -n 1 HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{{ item }} SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_TX
+      register: out
+      with_items: '{{ server_ports_oids }}'
+
+    - name: Verify asymmetric PFC Tx value
+      assert: {that: "{{item.stdout|int == pfc_tx_mask|int}}"}
+      with_items: '{{ out.results }}'
+
   - name: Start PTF runner
     include: ptf_runner.yml
     vars:
@@ -266,6 +329,17 @@
       command: config interface pfc asymmetric {{ item.dut_name }} off
       become: yes
       with_items: '{{ server_ports }}'
+
+    - block:
+
+      - name: Get PFC value
+        command: docker exec -i database redis-cli --raw -n 1 HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{{ item }} SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL
+        register: out
+        with_items: '{{ server_ports_oids }}'
+
+      - name: Verify PFC value is restored to default
+        assert: {that: "{{item.stdout|int == pfc_mask|int}}"}
+        with_items: '{{ out.results }}'
 
     - name: Remove SAI tests from PTF container
       file: path=/root/saitests state=absent
