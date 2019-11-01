@@ -58,7 +58,7 @@
       delegate_to: "{{ ptf_host }}"
 
       #Execute the test with Vxlan enabled false
-    - include: ptf_runner.yml
+    - include: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: Vnet vxlan test
         ptf_test_dir: ptftests
@@ -82,12 +82,19 @@
       when: item.0 < 1
       become: true
 
+    - name: Set config to True if not set
+      set_fact:
+          config: True
+      when: config is not defined
+    - debug: msg="config is {{ config|bool }}"
+
     - block:
         - name: Copy configuration to swss container
           shell: docker cp /tmp/vnet.switch.json swss:/vnet.switch.json
 
         - name: Apply switch json configuration
           shell: docker exec swss sh -c "swssconfig /vnet.switch.json"
+          when: config|bool
 
     - name: Render DUT VNet Vxlan configuration
       template: src=vnet_vxlan.j2 dest=/tmp/vnet.conf.json
@@ -105,18 +112,21 @@
 
     - name: Apply VNet Vxlan configuration
       shell: sonic-cfggen -j /tmp/vnet.conf.json --write-to-db
+      when: config|bool
 
     - name: sleep for some time
       pause: seconds=3
 
     - name: Apply VNet interface config
       shell: sonic-cfggen -j /tmp/vnet.intf.json --write-to-db
+      when: config|bool
 
     - name: sleep for some time
       pause: seconds=3
 
     - name: Apply VNet neighbor config
       shell: sonic-cfggen -j /tmp/vnet.nbr.json --write-to-db
+      when: config|bool
 
     - name: sleep for some time
       pause: seconds=3
@@ -127,11 +137,12 @@
 
         - name: Apply route json configuration
           shell: docker exec swss sh -c "swssconfig /vnet.route.json"
+          when: config|bool
 
         - name: sleep for some time
           pause: seconds=3
 
-    - include: ptf_runner.yml
+    - include: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: Vnet vxlan test
         ptf_test_dir: ptftests
@@ -190,7 +201,7 @@
           become: true
           when: cleanup|bool
 
-        - include: ptf_runner.yml
+        - include: roles/test/tasks/ptf_runner.yml
           vars:
             ptf_test_name: Vnet vxlan test
             ptf_test_dir: ptftests
