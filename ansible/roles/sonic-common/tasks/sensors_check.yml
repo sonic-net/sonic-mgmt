@@ -2,15 +2,15 @@
   shell: docker ps -a --format '{{'{{'}}.Image{{'}} {{'}}.Names{{'}}'}}' | grep 'platform' | awk '{print $2}'
   register: pmon_ps
 
+- name: Get platform name
+  shell: show platform summary | grep Platform | awk '{print $2}'
+  register: platform
+
 - set_fact: 
     ansible_python_interpreter: "docker exec -i {{ pmon_ps.stdout }} python"
 
-- set_fact:
-    minigraph_hwsku: "Mellanox-SN2700"
-  when: minigraph_hwsku == 'ACS-MSN2700'
-
 - name: Gather sensors
-  sensors_facts: checks={{ sensors_checks[minigraph_hwsku] }}
+  sensors_facts: checks={{ sensors_checks[platform.stdout] }}
   vars:
     ansible_shell_type: docker
 
