@@ -106,6 +106,15 @@
             },
             "test_ingress_l3Fwd_ipv4Vrf_table_crudTests": {
                 "input_conf_file": "./data-files/ingress-l3fwd-ipv4vrf-table.json"
+            },
+            "test_actionMem_Neg1": {
+                "input_conf_file": "./data-files/groups.json"
+            },
+            "test_actionMem_Neg2": {
+                "input_conf_file": "./data-files/groups.json"
+            },
+            "test_actionMem_Neg3": {
+                "input_conf_file": "./data-files/groups.json"
             }
         },
         "feature_configuration": {
@@ -133,6 +142,14 @@
                     "svr_port": "50054",
                     "proto_dump_file": "s1-p4runtime-requests-log.txt",
                     "device_id": "0"
+                }
+            },
+            "gnmi": {
+                "R1": {
+                    "name": "s1",
+                    "svr_addr": "172.17.0.2",
+                    "svr_port": "5555",
+                    "proto_dump_file": "s1-gnmi-requests-log.txt"
                 }
             },
             "bsp": {

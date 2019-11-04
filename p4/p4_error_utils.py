@@ -90,3 +90,30 @@ def printGrpcError(grpc_error):
             p4_error.canonical_code].name
         print("\t* At index {}: {}, '{}'\n".format(
             idx, code_name, p4_error.message))
+
+
+
+#This function returns the details of encountered P4 error. It returns
+#the Error name by converting the error code and the corresponding Error message
+def parseGrpcError(grpc_error):
+    status_details = grpc_error.details()
+    status_code = grpc_error.code()
+    if status_code != grpc.StatusCode.UNKNOWN:
+        return None
+    p4_errors = parseGrpcErrorBinaryDetails(grpc_error)
+    if p4_errors is None:
+        return None
+
+    indexed_p4_errors = []
+    for idx, p4_error in p4_errors:
+        p4e = {}
+        code_name = code_pb2._CODE.values_by_number[
+            p4_error.canonical_code].name
+        p4e['index'] = idx
+        p4e['code'] = code_name
+        p4e['message'] = p4_error.message
+        indexed_p4_errors.append(p4e)
+
+    return indexed_p4_errors
+
+

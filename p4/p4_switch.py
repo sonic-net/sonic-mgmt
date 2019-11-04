@@ -227,7 +227,7 @@ class SwitchConnection(object):
         if dry_run:
             log.info("P4Runtime Write - Action Profile Group:", request)
         else:
-            log.info("P4Runtime Write - Action Profile Group:", request)
+            #log.info("P4Runtime Write - Action Profile Group:", request)
             self.client_stub.Write(request)
         
         return
@@ -282,7 +282,6 @@ class SwitchConnection(object):
             log.info("P4Runtime Write - Action Profile Member:", request)
         else:
             self.client_stub.Write(request)
-        
         return
 
     def ReadActionProfileMember(self, member_id=None, dry_run=False, **kwargs):

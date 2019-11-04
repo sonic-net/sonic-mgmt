@@ -135,6 +135,14 @@ class TestP4(P4ApBase):
 
     @pytest.mark.last
     def test_max_connections(self,sw_conn):
-        p4_san_tc._test_max_connections()    
+        p4_san_tc._test_max_connections()
 
+    def test_actionMem_Neg1(self,sw_conn):
+        p4_san_tc._test_actionMem_Neg1(sw_conn)
+
+    def test_actionMem_Neg2(self,sw_conn):
+        p4_san_tc._test_actionMem_Neg2(sw_conn)
+
+    def test_actionMem_Neg3(self,sw_conn):
+        p4_san_tc._test_actionMem_Neg3(sw_conn)
 
