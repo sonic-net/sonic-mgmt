@@ -40,5 +40,5 @@ def _test_gnmi_Capability(stub):
     password = None
     log.info('Performing CapabilitiesRequest to target \n')
     response = gnmiTestLib._cap(stub, user, password)
-    log.info('The CapabilitiesRequest response is below\n' + '-'*25 + '\n', response)
+    #log.info('The CapabilitiesRequest response is below\n' + '-'*25 + '\n', response)
     log.info(response)

@@ -229,6 +229,8 @@ def memberActions(sw, flow, p4info_helper, mode, **kwargs):
     mode = mode.upper()
     if mode == 'INSERT':
         sw.WriteActionProfileMember(apmember,election_id_low=election_id_low,election_id_high=election_id_high,update_type=mode)
+    elif mode == 'MODIFY':
+        sw.WriteActionProfileMember(apmember,election_id_low=election_id_low,election_id_high=election_id_high,update_type=mode)
     elif mode == 'DELETE':
         sw.DeleteActionProfileMember(apmember,election_id_low=election_id_low,election_id_high=election_id_high,update_type=mode)
 
