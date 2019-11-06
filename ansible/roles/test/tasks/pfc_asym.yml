@@ -67,16 +67,6 @@
 
   # Get lossless and lossy priorities
 
-  - name: Get port QOS map key
-    command: docker exec -i database redis-cli --raw -n 4 KEYS *PORT_QOS_MAP*
-    register: out
-  - set_fact: port_qos_key={{out.stdout}}
-
-  - name: Get lossless priorities
-    command: docker exec -i database redis-cli -n 4 HGET "{{port_qos_key}}" "pfc_enable"
-    register: out
-  - set_fact: lossless_priorities={{out.stdout.split(",")}}
-
   - name: Get buffer PG keys
     command: docker exec -i database redis-cli --raw -n 4 KEYS *BUFFER_PG*
     register: out
@@ -86,6 +76,11 @@
     command: docker exec -i database redis-cli -n 4 HGET {{item}} "profile"
     with_items: "{{buf_pg_keys}}"
     register: out
+
+  - name: Get lossless priorities
+    set_fact: lossless_priorities={{item.item.split("|")[-1].split("-")}}
+    with_items: "{{out.results}}"
+    when: item.stdout|search("lossless")
 
   - name: Get lossy priorities
     set_fact: lossy_priorities={{item.item.split("|")[-1].split("-")}}
