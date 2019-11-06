@@ -794,13 +794,13 @@ def _test_actionMem_Neg1():
                 log.error("Test NEG_ActMem_1.2:Failed - received incorrect message on Member Insert without Action")
                 rslt = False
     finally:
+        mode = "DELETE"
+        p4TestLib.memberActions(sw_conn,entry_ins,p4info_helper, mode)
+        sw_conn.shutdown()        
         if rslt:
             log.info("Test NEG_ActMem_1:Passed - Error conditions for Action Profile Member with INSERT")
         else:
             raise CafyException.VerificationError("Test NEG_ActMem_1:Failed - One or More subtests Failed")
-        mode = "DELETE"
-        p4TestLib.memberActions(sw_conn,entry_ins,p4info_helper, mode)
-        sw_conn.shutdown()
 
 
 def _test_actionMem_Neg2():
@@ -1083,6 +1083,82 @@ def _test_writeRPC_Neg3():
             raise CafyException.VerificationError("Test NEG_WriteRPC_3:Failed - rcvd incorrect error message on WRITE RPC without SetForwardingPipelineConfig")
     finally:
         sw_conn.shutdown()        
+
+
+def _test_writeInsert_Neg1():
+    log.info("Test: Verify Insert into a table with Duplicate Entry")
+    tData = ApData.zap.get_testcase_configuration("test_writeRPC_Neg1")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    with open(tData["input_conf_file"], 'r') as ip_conf_file:
+        input_conf = p4TestLib.json_load_byteified(ip_conf_file)
+    rslt = True
+
+    if 'NEG_WriteRPC_1' in input_conf:
+        tbl_info = input_conf['NEG_WriteRPC_1']
+        for entry in tbl_info:
+            if "table" in entry:
+                tbl_ins = entry
+
+    try:       
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info ("NEG_WriteInsert_1: Verifying Insert into a table with Duplicate Entry")
+        log.info(p4TestLib.tableEntryToString(tbl_ins))
+        p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'INSERT')
+        sleep(2)
+        log.info("Inserting the Duplicate Entry")
+        p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'INSERT')
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        e_det = parseGrpcError(e)
+        print("ERROR DETAILS::")
+        print(e_det)
+        p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'DELETE')
+        sw_conn.shutdown()
+        for item in e_det:
+            if (item['code'] == "ALREADY_EXISTS") and (item['message'] == "Match entry exists, use MODIFY if you wish to change action"):
+                log.info("Test NEG_WriteInsert_1:Passed - received correct error message on Insert into a table with Duplicate Entry")
+            else:
+                log.error("Test NEG_WriteInsert_1:Failed - rcvd incorrect error message on Insert into a table with Duplicate Entry")
+                rslt = False
+
+
+def _test_writeInsert_Neg2():
+    log.info("Test: Verify Insert into a table with Malformed Entry")
+    tData = ApData.zap.get_testcase_configuration("test_writeRPC_Neg1")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    with open(tData["input_conf_file"], 'r') as ip_conf_file:
+        input_conf = p4TestLib.json_load_byteified(ip_conf_file)
+    rslt = True
+
+    if 'NEG_WriteInsert_2' in input_conf:
+        tbl_info = input_conf['NEG_WriteInsert_2']
+        for entry in tbl_info:
+            if "table" in entry:
+                tbl_ins = entry
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info ("NEG_WriteInsert_2: Verifying Insert into a table with Malformed Entry")
+        log.info(p4TestLib.tableEntryToString(tbl_ins))
+        p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'INSERT')
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        e_det = parseGrpcError(e)
+        print("ERROR DETAILS::")
+        print(e_det)
+        sw_conn.shutdown()
+        for item in e_det:
+            if (item['code'] == "INVALID_ARGUMENT") and (item['message'] == "Non-zero priority for non-ternary match"):
+                log.info("Test NEG_WriteInsert_2:Passed - received correct error message on Insert into a table with Malformed Entry")
+            else:
+                log.error("Test NEG_WriteInsert_2:Failed - rcvd incorrect error message on Insert into a table with Malformed Entry")
+                rslt = False
 
 
 def teardown_class(self):
