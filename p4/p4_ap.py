@@ -72,6 +72,14 @@ def sw_conn():
 class TestP4(P4ApBase):
 
 
+    def test_writeRPC_Neg3(self):
+        p4_san_tc._test_writeRPC_Neg3()
+
+
+'''
+    def test_writeRPC_Neg3(self):
+        p4_san_tc._test_writeRPC_Neg3()
+
     def test_setForwarding_pipeline_config(self):
         p4_san_tc._test_setForwarding_pipeline_config()
 
@@ -130,11 +138,17 @@ class TestP4(P4ApBase):
         p4_san_tc._test_max_connections()
 
     def test_actionMem_Neg1(self,sw_conn):
-        p4_san_tc._test_actionMem_Neg1(sw_conn)
+        p4_san_tc._test_actionMem_Neg1()
 
     def test_actionMem_Neg2(self,sw_conn):
-        p4_san_tc._test_actionMem_Neg2(sw_conn)
+        p4_san_tc._test_actionMem_Neg2()
 
     def test_actionMem_Neg3(self,sw_conn):
-        p4_san_tc._test_actionMem_Neg3(sw_conn)
+        p4_san_tc._test_actionMem_Neg3()
 
+    def test_writeRPC_Neg1(self,sw_conn):
+        p4_san_tc._test_writeRPC_Neg1()
+
+    def test_writeRPC_Neg2(self,sw_conn):
+        p4_san_tc._test_writeRPC_Neg2()
+'''

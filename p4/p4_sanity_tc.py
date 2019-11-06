@@ -807,7 +807,7 @@ def _test_Read_wTableId_Zero(sw_conn):
     sw_conn.shutdown()
 
 
-def _test_actionMem_Neg1(sw_conn):
+def _test_actionMem_Neg1():
     log.info("Test: Negative Test:1 for Action profile Members with INSERT operation")
     tData = ApData.zap.get_testcase_configuration("test_actionMem_Neg1")
     p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
@@ -886,7 +886,7 @@ def _test_actionMem_Neg1(sw_conn):
         sw_conn.shutdown()
 
 
-def _test_actionMem_Neg2(sw_conn):
+def _test_actionMem_Neg2():
     log.info("Test: Negative Test:2 for Action profile Members with MODIFY Operation")
     tData = ApData.zap.get_testcase_configuration("test_actionMem_Neg2")
     p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
@@ -965,14 +965,13 @@ def _test_actionMem_Neg2(sw_conn):
         sw_conn.shutdown()
 
 
-def _test_actionMem_Neg3(sw_conn):
+def _test_actionMem_Neg3():
     log.info("Test: Negative Test:3 for Action profile Members with DELETE Operation")
     tData = ApData.zap.get_testcase_configuration("test_actionMem_Neg3")
     p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
     with open(tData["input_conf_file"], 'r') as ip_conf_file:
         input_conf = p4TestLib.json_load_byteified(ip_conf_file)
 
-    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
     rslt = True 
 
     if 'NEG_ActMem_3' in input_conf:
@@ -1044,6 +1043,129 @@ def _test_actionMem_Neg3(sw_conn):
         else:
             raise CafyException.VerificationError("Test NEG_ActMem_3:Failed - One or More subtests Failed")
 
+
+def _test_writeRPC_Neg1():
+    log.info("Test: Verify sending unknown deviceID & roldID with WRITE RPC")
+    tData = ApData.zap.get_testcase_configuration("test_writeRPC_Neg1")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    with open(tData["input_conf_file"], 'r') as ip_conf_file:
+        input_conf = p4TestLib.json_load_byteified(ip_conf_file)
+    rslt = True
+
+    if 'NEG_WriteRPC_1' in input_conf:
+        tbl_info = input_conf['NEG_WriteRPC_1']
+        for entry in tbl_info:
+            if "table" in entry:
+                tbl_ins = entry
+                tbl_name = entry["table"]
+                table_id = p4info_helper.get_id("tables", name=tbl_name)
+
+    try:       
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info ("NEG_WriteRPC_1.1: Verifying sending unknown deviceID in WRITE RPC ")
+        log.info(p4TestLib.tableEntryToString(tbl_ins))
+        p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'INSERT',device_id=100)
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        print("ERROR DETAILS::")
+        log.error(e)
+        printGrpcError(e)
+        if ('StatusCode.NOT_FOUND' in str(e) and 'Invalid device id' in str(e)):
+            log.info("Test NEG_WriteRPC_1.1:Passed - received correct error message on sending unknown deviceID in WRITE RPC")
+        else:
+            rslt = False
+            raise CafyException.VerificationError("Test NEG_WriteRPC_1.1:Failed - received incorrect error message on sending unknown deviceID")
+    finally:
+        sw_conn.shutdown()
+
+def _test_writeRPC_Neg2():
+    log.info("Test: Verify WRITE RPC from a Non-Master Controller")
+    tData = ApData.zap.get_testcase_configuration("test_writeRPC_Neg1")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    with open(tData["input_conf_file"], 'r') as ip_conf_file:
+        input_conf = p4TestLib.json_load_byteified(ip_conf_file)
+    rslt = True
+
+    if 'NEG_WriteRPC_1' in input_conf:
+        tbl_info = input_conf['NEG_WriteRPC_1']
+        for entry in tbl_info:
+            if "table" in entry:
+                tbl_ins = entry
+                tbl_name = entry["table"]
+                table_id = p4info_helper.get_id("tables", name=tbl_name)
+
+    try:       
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info ("NEG_WriteRPC_2: WRITE RPC from a Non-Master Controller")
+        log.info("Creating a new switch connection which will be Master")
+        ns1=TchLib.Establish_Switch_Conn("s2")
+        log.info("Sending with Election ID High=44 & Low=555 for new switch connection")
+        reply=ns1.MasterArbitrationUpdate(election_id_high=44, election_id_low=555)
+        log.info(str(reply))
+        if ('message: "Is master"' in str(reply)):
+            log.info("2nd switch connection is Master")
+        else:
+            raise CafyException.VerificationError("NEG_WriteRPC_2: Failed as setup with Master & 2nd controller are not present")
+        log.info ("NEG_WriteRPC_2: Verifying sending WRITE RPC from Non-Master")
+        log.info(p4TestLib.tableEntryToString(tbl_ins))
+        p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'INSERT')
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        print("ERROR DETAILS::")
+        log.error(e)
+        printGrpcError(e)
+        if ('StatusCode.PERMISSION_DENIED' in str(e) and 'Not master' in str(e)):
+            log.info("Test NEG_WriteRPC_2:Passed - received correct error message on sending WRITE RPC from Non-Master")
+        else:
+            rslt = False
+            raise CafyException.VerificationError("Test NEG_WriteRPC_2:Failed - rcvd incorrect error message on sending WRITE RPC from Non-Master")
+    finally:
+        sw_conn.shutdown()
+        ns1.shutdown()
+
+
+def _test_writeRPC_Neg3():
+    log.info("Test: Verify WRITE RPC without setting Forwarding Pipeline")
+    tData = ApData.zap.get_testcase_configuration("test_writeRPC_Neg1")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    with open(tData["input_conf_file"], 'r') as ip_conf_file:
+        input_conf = p4TestLib.json_load_byteified(ip_conf_file)
+    rslt = True
+
+    if 'NEG_WriteRPC_1' in input_conf:
+        tbl_info = input_conf['NEG_WriteRPC_1']
+        for entry in tbl_info:
+            if "table" in entry:
+                tbl_ins = entry
+                tbl_name = entry["table"]
+                table_id = p4info_helper.get_id("tables", name=tbl_name)
+
+    try:       
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info ("NEG_WriteRPC_3: Verifying sending WRITE RPC without SetForwardingPipelineConfig")
+        log.info(p4TestLib.tableEntryToString(tbl_ins))
+        p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'INSERT')
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        print("ERROR DETAILS::")
+        log.error(e)
+        printGrpcError(e)
+        if ('StatusCode.FAILED_PRECONDITION' in str(e) and 'No forwarding pipeline config set' in str(e)):
+            log.info("Test NEG_WriteRPC_3:Passed - received correct error message on WRITE RPC without SetForwardingPipelineConfig")
+        else:
+            rslt = False
+            raise CafyException.VerificationError("Test NEG_WriteRPC_3:Failed - rcvd incorrect error message on WRITE RPC without SetForwardingPipelineConfig")
+    finally:
+        sw_conn.shutdown()        
 
 
 def teardown_class(self):

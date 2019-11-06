@@ -105,6 +105,9 @@
             },
             "test_actionMem_Neg3": {
                 "input_conf_file": "./data-files/groups.json"
+            },
+            "test_writeRPC_Neg1": {
+                "input_conf_file": "./data-files/negative-tests-1.json"
             }
         },
         "feature_configuration": {

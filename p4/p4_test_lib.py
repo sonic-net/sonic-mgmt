@@ -174,6 +174,15 @@ def tableEntryActions(sw, flow, p4info_helper, action, **kwargs):
         election_id_high = kwargs["election_id_high"]
     except KeyError:
         election_id_high = 0
+    try:
+        device_id = kwargs["device_id"]
+    except KeyError:
+        device_id = 0
+    try:
+        role_id = kwargs["role_id"]
+    except KeyError:
+        role_id = 1
+
     
     table_name = flow['table']
     match_fields = flow.get('match') # None if not found
@@ -199,7 +208,7 @@ def tableEntryActions(sw, flow, p4info_helper, action, **kwargs):
         priority=priority)
 
     if oper.upper() == 'INSERT':
-        sw.WriteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high)
+        sw.WriteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high,device_id=device_id)
     elif oper.upper() == 'DELETE':
         sw.DeleteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high)
 

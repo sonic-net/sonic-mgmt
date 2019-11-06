@@ -134,7 +134,7 @@ class SwitchConnection(object):
 
     def WriteTableEntry(self, table_entry, dry_run=False, **kwargs):
         request = p4runtime_pb2.WriteRequest()
-        request.device_id = self.device_id
+        #request.device_id = self.device_id
         try:
             request.election_id.low = kwargs["election_id_low"]
         except KeyError:
@@ -147,6 +147,11 @@ class SwitchConnection(object):
             upd_type = kwargs["oper"]
         except KeyError:
             upd_type = "INSERT"
+        try:
+            request.device_id = kwargs["device_id"]
+        except KeyError:
+            request.device_id = self.device_id
+
 
         request.role_id = 555
         update = request.updates.add()
