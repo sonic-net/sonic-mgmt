@@ -4,11 +4,15 @@ import grpc
 import os
 import sys
 import json
+import re
 from time import sleep
 from logger.cafylog import CafyLog
 import google.protobuf.text_format
+import google.protobuf.json_format
 from google.protobuf import descriptor
 from p4_base_ap import ApData, P4ApBase
+from collections import abc
+
 
 # Import P4Runtime lib from parent utils dir
 # Probably there's a better way of doing this.
@@ -140,7 +144,7 @@ def repr_pretty_proto(msg, substitutions):
         substitutions, pcontext)
 
     s = google.protobuf.text_format.MessageToString(msg, message_formatter=message_formatter)
-
+   
     google.protobuf.text_format._Printer.PrintField = saved_printer
 
     return s
@@ -163,6 +167,260 @@ def repr_pretty_p4runtime(msg):
         "DigestList": {"digest_id": _sub_object},
     }
     return repr_pretty_proto(msg, substitutions)
+
+def table_entry_to_dict(resp):
+    lines = resp.splitlines()
+    entries = list()
+    entity_list = list()
+    entry_list = list()
+    first = True
+
+    for line in lines:
+        if 'entities' in line:
+            if not first:
+                entity_list.append(entry_list)
+            entry_list = list()
+            first = False
+            continue
+        entry_list.append(line)
+
+    entity_list.append(entry_list)
+    
+    for entry_list in entity_list:
+        if 'table_entry' in entry_list[0]:
+            table_dict = _get_table_entry_dict(entry_list)
+            entries.append(table_dict)
+    
+    return entries
+
+def _get_table_entry_dict(table_entry_list):
+    table_dict = dict()
+    match_section = False
+    action_section = False
+    first = True
+    match_list = list()
+    action_list = list()
+
+    for entry in table_entry_list:
+        if ':' in entry and first:
+            entry = entry.strip()
+            x = entry.split(':')
+            match = re.search(r'\w*', x[0])
+            table_id = match.group()
+            y = x[1].lstrip(' ')
+            y = y.split(' ')
+            table_id = y[0]
+            y = y[1].strip("(\"")
+            table_name = y.strip("\")")
+            first = False
+        elif 'match' in entry and ':' not in entry:
+            match_section = True
+            continue
+        elif 'action' in entry and ':' not in entry:
+            action_section = True
+            match_section = False
+            continue
+        
+        if match_section:
+            match_list.append(entry)
+
+        if action_section:
+            action_list.append(entry)
+
+    match_dict = _get_match_dict(match_list)
+    action_dict = _get_action_dict(action_list)
+    table_dict['table_id'] = table_id
+    table_dict['table_name'] = table_name
+    table_dict['match_dict'] = match_dict
+    table_dict['action_dict'] = action_dict
+    return table_dict
+
+def _get_match_dict(match_list):
+    field_list = list()
+    entry_list = list()
+    first = True
+    match_dict = dict()
+
+    for line in match_list:
+        if 'field' in line:
+            if not first:
+                field_list.append(entry_list)
+            entry_list = list()
+            entry_list.append(line)
+            first = False
+            continue
+        else:
+            entry_list.append(line)
+
+    field_list.append(entry_list)
+    for entry_list in field_list:
+        match_dict = _parse_field_list(entry_list)
+
+    return match_dict
+        
+def _parse_field_list(field_list):
+    match_dict = dict()
+    
+    entry = field_list[0]
+    entry = entry.strip()
+    x = entry.split(':')
+    y = x[1].lstrip(' ')
+    y = y.split(' ')
+    field_id = y[0]
+    y = y[1].strip("(\"")
+    field_name = y.strip("\")")
+    field_list.pop(0)
+    match_dict['field_id'] = field_id
+    match_dict['field_name'] = field_name
+
+    entry = field_list[0]
+    if 'exact' in entry:
+        match_dict['match_type'] = 'exact'
+        for entry in field_list:
+            if 'value' in entry:
+                p_list = list()
+                entry = entry.strip()
+                x = entry.split(':')
+                y = x[1].lstrip(' ')
+                value = y.strip("\"")
+                value = value.split('\\\\x')
+                for z in value:
+                    if z == "":
+                        continue
+                    else:
+                        z1 = int(z, 16)
+                        z1 = str(z1)
+                        p_list.append(z1)
+        
+                if len(p_list) == 4:
+                    value = '.'.join(p_list[0:4])
+                else:
+                    value = ''.join(p_list[0:len(p_list)])
+                    value = value.lstrip('0')
+                match_dict['value'] = value
+    else:
+        entry = entry.strip()
+        match = re.search(r'\w*', entry)
+        sub_field = match.group()
+        sub_field_list = list()
+        match_dict['match_type'] = match.group()
+        for entry in field_list:
+            if ':' in entry:
+                p_list = list()
+                sub_field_dict = dict()
+                entry = entry.strip()
+                x = entry.split(':')
+                match = re.search(r'\w*', x[0])
+                sub_field_dict['id'] = match.group()
+                y = x[1].lstrip(' ')
+                value = y.strip("\"")
+                if '\\\\x' in value:
+                    value = value.split('\\\\x')
+                    for z in value:
+                        if z == "":
+                            continue
+                        else:
+                            z1 = int(z, 16)
+                            z1 = str(z1)
+                            p_list.append(z1)
+            
+                    if len(p_list) == 4:
+                        value = '.'.join(p_list[0:4])
+                    else:
+                        value = ''.join(p_list[0:len(p_list)])
+                        value = value.lstrip('0')
+
+                sub_field_dict['value'] = value
+                sub_field_list.append(sub_field_dict)
+        
+        match_dict[sub_field] = sub_field_list 
+
+    return match_dict
+
+def _get_action_dict(actions_list):
+    param_list = list()
+    entry_list = list()
+    first = True
+    indirect_table = True
+    action_name = None
+    action_id = None
+    action_dict = dict()
+
+    for line in actions_list:
+        if 'params' in line:
+            if not first:
+                param_list.append(entry_list)
+            entry_list = list()
+            first = False
+            indirect_table = False
+            continue
+        elif ':' in line and indirect_table:
+            entry = line.strip()
+            x = entry.split(':')
+            match = re.search(r'\w*', x[0])
+            action_name = match.group()
+            x = x[1].strip()
+            match = re.search(r'\d*', x)
+            action_id = match.group()
+            
+        if not indirect_table:
+            entry_list.append(line)
+    
+    if not indirect_table:
+        param_list.append(entry_list)
+        params_list = list()
+        for entry_list in param_list:
+            params_list.append(_parse_param_list(entry_list))
+        
+        action_dict['params_list'] = params_list
+
+    if indirect_table:
+        action_dict['action_name'] = action_name
+        action_dict['action_id'] = action_id
+
+    return action_dict
+
+def _parse_param_list(param_list):
+    action_dict = dict()
+    param_id = None
+
+    for entry in param_list:
+        if 'param_id:' in entry:            
+            entry = entry.strip()
+            x = entry.split(':')
+            y = x[1].lstrip(' ')
+            y = y.split(' ')
+            param_id = y[0]
+            y = y[1].strip("(\"")
+            param_name = y.strip("\")")
+        elif 'value' in entry:
+            p_list = list()
+            entry = entry.strip()
+            x = entry.split(':')
+            y = x[1].lstrip(' ')
+            value = y.strip("\"")
+            if '\\\\x' in value:
+                value = value.split('\\\\x')
+                for z in value:
+                    if z == "":
+                        continue
+                    else:
+                        z1 = int(z, 16)
+                        z1 = str(z1)
+                        p_list.append(z1)
+        
+                if len(p_list) == 4:
+                    value = '.'.join(p_list[0:4])
+                else:
+                    value = ''.join(p_list[0:len(p_list)])
+                    value = value.lstrip('0')
+
+    if param_id is not None:
+        action_dict['param_id'] = param_id
+        action_dict['param_name'] = param_name
+        action_dict['value'] = value
+
+    return action_dict
 
 
 def tableEntryActions(sw, flow, p4info_helper, action, **kwargs):

@@ -53,10 +53,11 @@ def sw_conn():
         if ((str(reply).find('low: 1') != -1) and (str(reply).find('message: "Is master"') != -1)):
             if p4info_helper != None:
                 # Install the P4 program on the switches
-                log.info("Setting ForwardingPipelineConfig on s1")
-                sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,
-                                            p4_json_file_path=p4_json_file_path)
-                log.info("Installed P4 Program using SetForwardingPipelineConfig on sw_conn")
+                if not ApData.skip_set_pipeline:
+                    log.info("Setting ForwardingPipelineConfig on s1")
+                    sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,
+                                                p4_json_file_path=p4_json_file_path)
+                    log.info("Installed P4 Program using SetForwardingPipelineConfig on sw_conn")
         else:
             raise CafyException.VerificationError("Test failed due to Election issues")
 
@@ -75,17 +76,13 @@ class TestP4(P4ApBase):
     def test_writeRPC_Neg3(self):
         p4_san_tc._test_writeRPC_Neg3()
 
-
-'''
+    """
     def test_writeRPC_Neg3(self):
         p4_san_tc._test_writeRPC_Neg3()
-
+    """
+    
     def test_setForwarding_pipeline_config(self):
         p4_san_tc._test_setForwarding_pipeline_config()
-
-    @pytest.mark.parametrize("tbl_ops", ["INSERT", "READ", "MODIFY"])
-    def test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops,sw_conn):
-        p4_san_tc._test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops,sw_conn)
 
     @pytest.mark.parametrize("tbl_ops", ["INSERT", "READ", "MODIFY", "DELETE"])
     @pytest.mark.parametrize("tbl_name", ["ingress.encap.encap_in_ipv4_table"])
@@ -151,4 +148,4 @@ class TestP4(P4ApBase):
 
     def test_writeRPC_Neg2(self,sw_conn):
         p4_san_tc._test_writeRPC_Neg2()
-'''
+

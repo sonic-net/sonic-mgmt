@@ -133,7 +133,7 @@ def _create_parser():
                       'Target when establishing secure gRPC channel.',
                       required=False, action='store_true')
   parser.add_argument('-x', '--xpath', type=str, help='The gNMI path utilized'
-                      'in the GetRequest or Subscirbe', required=True)
+                      'in the GetRequest or Subscirbe', required=False)
   parser.add_argument('-o', '--host_override', type=str, help='Use this as '
                       'Targets hostname/peername when checking it\'s'
                       'certificate CN. You can check the cert with:\nopenssl '

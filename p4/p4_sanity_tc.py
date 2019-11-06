@@ -16,6 +16,8 @@ from utils.helper import Helper
 from utils.cafyexception import CafyException
 from p4_base_ap import ApData, P4ApBase
 import marshal
+import google.protobuf.json_format
+
 log = CafyLog(name='P4 Sanity script')
 
 # Import P4Runtime lib from parent utils dir
@@ -54,9 +56,9 @@ def _test_p4_sanity(sw_conn):
 
         if p4info_helper != None: 
             log.info("Getting ForwardingPipelineConfig on switch")
-            response = sw_conn.GetForwardingPipelineConfig(resp_typ=0)
-            log.info(response)
-            sleep(2)
+            #response = sw_conn.GetForwardingPipelineConfig(resp_typ=0)
+            #log.info(response)
+            #sleep(2)
 
             if 'table_entries' in input_conf:
                 log.info(input_conf)
@@ -81,8 +83,13 @@ def _test_p4_sanity(sw_conn):
                     #table_id = 0
                     reply = sw_conn.ReadTableEntries(table_id=table_id)
                     for rep in reply:
-                        log.info("Reply: %s" % rep)  
+                        #log.info("Reply: %s" % rep)
+                        log.info(p4TestLib.repr_pretty_p4runtime(rep))
+                        resp = p4TestLib.repr_pretty_p4runtime(rep)
+                        entries = p4TestLib.table_entry_to_dict(resp)
+                        log.info(entries)
                     sleep(1)
+                
 
             if 'table_entries' in input_conf:
                 log.info(input_conf)
@@ -309,7 +316,7 @@ def _test_Master_change(sw_conn):
 
 def _test_max_connections():
     sw_conn = list()
-    for i in range(2,17):
+    for i in range(1,17):
         try:
             sw_name = "s" + str(i)
             ns=TchLib.Establish_Switch_Conn(sw_name)
@@ -458,114 +465,6 @@ def _test_setForwarding_pipeline_config():
     finally:
         s1.shutdown()
 
-def _test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops,sw_conn):
-    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
-    tbl_input_file = ApData.zap.get_testcase_configuration("test_ingress_encapIn_ipv4_table_crudTests/input_conf_file")
-    with open(tbl_input_file, 'r') as conf_file:
-        input_conf = p4TestLib.json_load_byteified(conf_file)
-    table_name = input_conf['table_name']
-    table_id = p4info_helper.get_id("tables", name=table_name)
-    sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
-    sw_conn.MasterArbitrationUpdate()
-
-    if tbl_ops == "INSERT":
-        try:
-            if 'table_entries' in input_conf:
-                log.info(input_conf)
-                table_entries = input_conf['table_entries']
-                insrt_entrs = [x for x in table_entries if x['entry_oper'] == "INSERT"]
-                #print (insrt_entrs)
-                log.info("Inserting %d table entries..." % len(insrt_entrs))
-                for entry in insrt_entrs:
-                    log.info(p4TestLib.tableEntryToString(entry))
-                    log.info("INSERTING ENTRIES FOR TABLE - ingress_encap_in_ipv4_table")
-                    p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'INSERT')
-                    sleep(1)
-
-        except KeyboardInterrupt:
-            log.info("Shutting down.")
-        except grpc.RpcError as e:
-            log.error(e)
-            printGrpcError(e)
-            sw_conn.shutdown()
-
-    elif tbl_ops == "READ":
-        log.info("READING TABLE ENTRIES")
-        try:
-            reply = sw_conn.ReadTableEntries(table_id=table_id)
-            for rep in reply:
-                log.info(" READ Reply from DUT")
-                t_entries = p4TestLib.repr_pretty_p4runtime(rep)
-                log.info(t_entries)
-            sleep(1)
-
-            print ("Printing Read Entries")
-            vr_lst = t_entries.split("entities")
-            print(vr_lst[1])
-            sleep(2)
-
-        except KeyboardInterrupt:
-            log.info("Shutting down.")
-        except grpc.RpcError as e:
-            log.error(e)
-            printGrpcError(e)
-            sw_conn.shutdown()
-
-
-    elif tbl_ops == "MODIFY":
-        try:
-            if 'table_entries' in input_conf:
-                log.info(input_conf)
-                table_entries = input_conf['table_entries']
-                mod_entrs = [x for x in table_entries if x['entry_oper'] == "MODIFY"]
-                #print (mod_entrs)
-                log.info("Modifying %d table entries..." % len(table_entries))
-                for entry in mod_entrs:
-                    log.info(p4TestLib.tableEntryToString(entry))
-                    log.info("MODIFYING ENTRIES FOR TABLE - ingress_encap_in_ipv4_table")
-                    p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'MODIFY')
-                    sleep(1)
-
-                log.info("Subtest: Verify Table Entries after MODIFY table - %s", table_name)
-                reply = sw_conn.ReadTableEntries(table_id=table_id)
-                for rep in reply:
-                    log.info(" READ Reply from DUT")
-                    log.info(p4TestLib.repr_pretty_p4runtime(rep))
-
-        except KeyboardInterrupt:
-            log.info("Shutting down.")
-        except grpc.RpcError as e:
-            log.error(e)
-            printGrpcError(e)
-            sw_conn.shutdown()
-
-    elif tbl_ops == "DELETE":
-        try:
-            if 'table_entries' in input_conf:
-                log.info(input_conf)
-                table_entries = input_conf['table_entries']
-                del_entrs = [x for x in table_entries if x['entry_oper'] == "INSERT"]
-                log.info("Deleting %d table entries..." % len(del_entrs))
-                for entry in del_entrs:
-                    log.info(p4TestLib.tableEntryToString(entry))
-                    log.info("DELETING ENTRIES FOR TABLE - ingress_encap_in_ipv4_table")
-                    p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'DELETE')
-                    sleep(1)
-
-                log.info("Subtest: Verify Table Entries after DELETE table entries - %s", table_name)
-                reply = sw_conn.ReadTableEntries(table_id=table_id)
-                for rep in reply:
-                    log.info(" READ Reply from DUT")
-                    log.info(p4TestLib.repr_pretty_p4runtime(rep))
-
-        except KeyboardInterrupt:
-            log.info("Shutting down.")
-        except grpc.RpcError as e:
-            log.error(e)
-            printGrpcError(e)
-            sw_conn.shutdown()
-    sw_conn.shutdown()
-
 
 def _test_direct_table_crudTests(self, tbl_name, tbl_ops, sw_conn):
     sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
@@ -605,7 +504,12 @@ def _test_direct_table_crudTests(self, tbl_name, tbl_ops, sw_conn):
             reply = sw_conn.ReadTableEntries(table_id=table_id)
             for rep in reply:
                 log.info(" READ Reply from DUT")
-                log.info(p4TestLib.repr_pretty_p4runtime(rep))
+                resp = p4TestLib.repr_pretty_p4runtime(rep)
+                log.info(resp)
+                entries = p4TestLib.table_entry_to_dict(resp)
+                for entry in entries:
+                    for key,value in entry.items():
+                        log.info("{}:{}".format(key,value))
             sleep(1)
 
         except KeyboardInterrupt:
@@ -635,7 +539,13 @@ def _test_direct_table_crudTests(self, tbl_name, tbl_ops, sw_conn):
                 reply = sw_conn.ReadTableEntries(table_id=table_id)
                 for rep in reply:
                     log.info(" READ Reply from DUT")
-                    log.info(p4TestLib.repr_pretty_p4runtime(rep))
+                    resp = p4TestLib.repr_pretty_p4runtime(rep)
+                    log.info(resp)
+                    entries = p4TestLib.table_entry_to_dict(resp)
+                    for entry in entries:
+                        for key,value in entry.items():
+                            log.info("{}:{}".format(key,value))
+                    
 
         except KeyboardInterrupt:
             log.info("Shutting down.")
@@ -662,7 +572,13 @@ def _test_direct_table_crudTests(self, tbl_name, tbl_ops, sw_conn):
                 reply = sw_conn.ReadTableEntries(table_id=table_id)
                 for rep in reply:
                     log.info(" READ Reply from DUT")
-                    log.info(p4TestLib.repr_pretty_p4runtime(rep))
+                    resp = p4TestLib.repr_pretty_p4runtime(rep)
+                    log.info(resp)
+                    entries = p4TestLib.table_entry_to_dict(resp)
+                    for entry in entries:
+                        for key,value in entry.items():
+                            log.info("{}:{}".format(key,value))
+
 
         except KeyboardInterrupt:
             log.info("Shutting down.")
@@ -714,14 +630,15 @@ def _test_indirect_table_crudTests(self, tbl_name,tbl_ops,sw_conn):
             reply = sw_conn.ReadTableEntries(table_id=table_id)
             for rep in reply:
                 log.info(" READ Reply from DUT")
-                t_entries = p4TestLib.repr_pretty_p4runtime(rep)
-                log.info(t_entries)
+                resp = p4TestLib.repr_pretty_p4runtime(rep)
+                log.info(resp)
+                entries = p4TestLib.table_entry_to_dict(resp)
+                for entry in entries:
+                    for key,value in entry.items():
+                        log.info("{}:{}".format(key,value))
+                
             sleep(1)
 
-            print ("Printing Read Entries")
-            vr_lst = t_entries.split("entities")
-            print(*vr_lst, sep = "\n")
-            sleep(2)
 
         except KeyboardInterrupt:
             log.info("Shutting down.")

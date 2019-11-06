@@ -40,7 +40,7 @@ class P4ApBase(ApBase):
     ApData.proto_dump_file = ApData.p4_feature_dict['R1']['proto_dump_file']
     ApData.device_id = ApData.p4_feature_dict['R1']['device_id']
     ApData.sw_name = ApData.p4_feature_dict['R1']['name']
-
+    ApData.skip_set_pipeline = 0
     # Port Configuration Variables
     
 
