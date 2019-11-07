@@ -72,9 +72,14 @@
 - name: test each lag interface minimum links and rate
   include: single_lag_test.yml
   with_items: lag_facts.names
-  when: test_minlink|bool == true
+  when: lag_facts.lags[item]['po_config']['runner']['min_ports'] is defined and test_minlink|bool == true
 
 - name: test each lag interface LACP DU rate
   include: single_lag_lacp_rate_test.yml
   with_items: lag_facts.names
-  when: test_rate|bool == true
+  when: lag_facts.lags[item]['po_config']['runner']['min_ports'] is defined and test_rate|bool == true
+
+- name: test each lag interface with fallback config
+  include: lag_fallback.yml
+  with_items: lag_facts.names
+  when: lag_facts.lags[item]['po_config']['runner']['fallback'] is defined

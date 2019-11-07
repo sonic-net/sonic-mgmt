@@ -213,6 +213,9 @@ def parse_dpg(dpg, hname):
                 pcmbr_list[i] = port_alias_to_name_map[member]
                 ports[port_alias_to_name_map[member]] = {'name': port_alias_to_name_map[member], 'alias': member}
             pcs[pcintfname] = {'name': pcintfname, 'members': pcmbr_list}
+            fallback_node = pcintf.find(str(QName(ns, "Fallback")))
+            if  fallback_node is not None:
+                pcs[pcintfname]['fallback'] = fallback_node.text
             ports.pop(pcintfname)
 
         vlanintfs = child.find(str(QName(ns, "VlanInterfaces")))
