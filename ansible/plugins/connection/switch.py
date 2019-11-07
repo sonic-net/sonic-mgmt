@@ -59,25 +59,29 @@ class Connection(ConnectionBase):
         last_user = None
         client = None
         attempt = 0
+        max_retries = 3
 
         self._display.vvv("%s" % self.login)
 
         while attempt < len(self.login['user']):
             (user, login_passwd) = self.login['user'][attempt]
             if user != last_user:
-                if client:
-                    client.close()
                 cmd = self._ssh_command + ['-l', user, self.host]
                 self._display.vvv("SSH: EXEC {0}".format(' '.join(cmd)),
                               host=self.host)
                 last_user = user
-                client = pexpect.spawn(' '.join(cmd), env={'TERM': 'dumb'}, timeout=self.timeout)
-                i = client.expect(['[Pp]assword:', pexpect.EOF])
-                if i == 1:
-                    self._display.vvv("Server closed the connection, retry in %d seconds" % self.connection_retry_interval, host=self.host)
-                    time.sleep(self.connection_retry_interval)
-                    last_user = None
-                    continue
+                for conn_attempt in range(max_retries):
+                    if client:
+                        client.close()
+                    client = pexpect.spawn(' '.join(cmd), env={'TERM': 'dumb'}, timeout=self.timeout)
+                    i = client.expect(['[Pp]assword:', pexpect.EOF])
+                    if i == 0:
+                        break
+                    else:
+                        if conn_attempt == (max_retries - 1):
+                            raise AnsibleError("Establish connection to server failed after tried %d times." % (conn_attempt + 1))
+                        self._display.vvv("Server closed the connection, retry in %d seconds" % self.connection_retry_interval, host=self.host)
+                        time.sleep(self.connection_retry_interval)
 
             self._display.vvv("Try password %s..." % login_passwd[0:4], host=self.host)
             client.sendline(login_passwd)
