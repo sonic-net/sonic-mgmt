@@ -101,11 +101,15 @@
       become: yes
       when: add_tmp_portchannel_ip
 
+    - pause: seconds=5
+
     - name: Remove {{ portchannel_members }} from {{ tmp_portchannel }}
       shell: config portchannel member del {{ tmp_portchannel }} {{ item }}
       become: yes
       when: add_tmp_portchannel_members
       with_items: "{{portchannel_members}}"
+
+    - pause: seconds=5
 
     - name: Remove {{ tmp_portchannel }}
       shell: config portchannel del {{ tmp_portchannel }}

@@ -10,6 +10,10 @@
     - name: Set default link timeout
       set_fact:
         link_timeout: 20
+      when: link_timeout is not defined
+
+    - name: Set default link delay
+      set_fact:
         link_delay: 5
 
     - set_fact:
@@ -50,7 +54,7 @@
       interface_facts: up_ports="[ '{{ interface }}' ]"
       register: out
       until: out.ansible_facts.ansible_interface_link_down_ports | length > 0
-      retries: "{{ (link_timeout / link_delay) | round(0, 'ceil') | int }}"
+      retries: "{{ ((link_timeout | int) / link_delay) | round(0, 'ceil') | int }}"
       delay: "{{ link_delay }}"
       when: "interface in minigraph_ports.keys()"
 
@@ -84,7 +88,7 @@
       interface_facts: up_ports="[ '{{ interface }}' ]"
       register: out
       until: out.ansible_facts.ansible_interface_link_down_ports | length == 0
-      retries: "{{ (link_timeout / link_delay) | round(0, 'ceil') | int }}"
+      retries: "{{ ((link_timeout | int) / link_delay) | round(0, 'ceil') | int }}"
       delay: "{{ link_delay }}"
       when: "interface in minigraph_ports.keys()"
 

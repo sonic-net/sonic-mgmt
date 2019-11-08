@@ -47,30 +47,21 @@
       shell: vtysh -e "conf t" -e "ip route {{ unresolved_nexthop_prefix }} {{ dst_port_2 }}"
       become: yes
 
-    - name: Run testcase 1 - Resolved route
+    - name: Run testcase 1 - Resolved route, unresolved route, best prefix match route creation and removal flows
       include: roles/test/tasks/everflow_testbed/testcase_1.yml
 
-    - name: Run testcase 2 - Longer prefix route with resolved next hop.
+    - name: Run testcase 2 - Change neighbor MAC address.
       include: roles/test/tasks/everflow_testbed/testcase_2.yml
-
-    - name: Run testcase 3 - Remove longer prefix route.
-      include: roles/test/tasks/everflow_testbed/testcase_3.yml
-
-    - name: Run testcase 4 - Change neighbor MAC address.
-      include: roles/test/tasks/everflow_testbed/testcase_4.yml
       when: testbed_type == "t1"
 
-    - name: Run testcase 5 - Resolved ECMP route.
+    - name: Run testcase 3 - ECMP route change (remove next hop not used by session).
+      include: roles/test/tasks/everflow_testbed/testcase_3.yml
+
+    - name: Run testcase 4 - ECMP route change (remove next hop used by session).
+      include: roles/test/tasks/everflow_testbed/testcase_4.yml
+
+    - name: Run testcase 5 - Policer enforced with DSCP value/mask
       include: roles/test/tasks/everflow_testbed/testcase_5.yml
-
-    - name: Run testcase 6 - ECMP route change (add next hop).
-      include: roles/test/tasks/everflow_testbed/testcase_6.yml
-
-    - name: Run testcase 7 - ECMP route change (remove next hop used by session).
-      include: roles/test/tasks/everflow_testbed/testcase_7.yml
-
-    - name: Run testcase 8 - Policer enforced with DSCP value/mask
-      include: roles/test/tasks/everflow_testbed/testcase_8.yml
 
   always:
     - name: Remove route to unresolved next hop.
@@ -83,5 +74,5 @@
     - shell: cat {{ test_out_dir }}/*
       register: out
     - debug: var=out.stdout_lines
-    
+
     - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml

@@ -1,8 +1,10 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
-for INTF in $(ip -br link show | grep 'eth' | awk '{sub(/@.*/,"",$1); print $1}'); do
+INTF_LIST=$(ls /sys/class/net | grep -E "^eth[0-9]+$")
+
+for INTF in ${INTF_LIST}; do
     echo "Flush ${INTF} IP address"
     ip addr flush dev ${INTF}
 done

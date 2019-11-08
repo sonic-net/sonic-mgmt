@@ -1,4 +1,46 @@
 - block:
+    - name: Default values for preboot and inboot type
+      set_fact:
+        preboot_oper: None
+        inboot_oper: None
+
+    - name: Populate inboot var when it is of inboot type
+      set_fact:
+        inboot_oper: "{{ item }}"
+      when:
+        - item and item != 'None'
+        - "{{ 'routing' in item }}"
+
+    - name: Populate preboot var when it is of preboot type
+      set_fact:
+        preboot_oper: "{{ item }}"
+      when:
+        - item and item != 'None'
+        - "{{ 'routing' not in item }}"
+
+    - name: Copy arp responder to the PTF container
+      copy: src=roles/test/files/helpers/arp_responder.py dest=/opt
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Copy arp responder supervisor configuration to the PTF container. No args when there is no preboot type
+      template: src=arp_responder.conf.j2 dest=/etc/supervisor/conf.d/arp_responder.conf
+      vars:
+        - arp_responder_args: '-e'
+      delegate_to: "{{ ptf_host }}"
+      when: not item or item == 'None'
+
+    - name: Copy arp responder supervisor configuration to the PTF container. Specifying args when there is a preboot type
+      template: src=arp_responder.conf.j2 dest=/etc/supervisor/conf.d/arp_responder.conf
+      vars:
+        - arp_responder_args: '-e -c /tmp/from_t1_{{ item }}.json'
+      delegate_to: "{{ ptf_host }}"
+      when: item and item != 'None'
+
+    - name: Update supervisor configuration
+      include: "roles/test/tasks/common_tasks/update_supervisor.yml"
+      vars:
+        supervisor_host: "{{ ptf_host }}"
+
     - include: ptf_runner.yml
       vars:
         ptf_test_name: Advanced-reboot test
@@ -23,14 +65,18 @@
         - lo_v6_prefix='{{ lo_v6_prefix }}'
         - arista_vms=\"['{{ vm_hosts | list | join("','") }}']\"
         - preboot_files='{{ preboot_files }}'
-        - preboot_oper='{{ item }}'
+        - preboot_oper='{{ preboot_oper }}'
+        - inboot_oper='{{ inboot_oper }}'
+        - nexthop_ips={{ nexthop_ips }}
         - allow_vlan_flooding='{{ allow_vlan_flooding }}'
         - sniff_time_incr={{ sniff_time_incr }}
         - setup_fdb_before_test=True
+        - vnet={{ vnet }}
+        - vnet_pkts='{{ vnet_pkts }}'
 
   always:
 
-    - name: Set all the filename vars when there is no preboot type
+    - name: Set all the filename vars when there is no preboot/inboot type
       set_fact:
         reboot_log: '/tmp/{{reboot_type}}.log'
         capture_pcap: '/tmp/capture.pcap'
@@ -40,7 +86,7 @@
         swss_rec: '/tmp/swss.rec'
       when: not item or item == 'None'
 
-    - name: Set all the filename vars when there is a preboot type
+    - name: Set all the filename vars when there is a preboot/inboot type
       set_fact:
         reboot_log: '/tmp/{{reboot_type}}-{{item}}.log'
         capture_pcap: '/tmp/capture_{{item}}.pcap'
@@ -101,7 +147,7 @@
         dest: '/tmp/'
         flat: yes
 
-
 - name: Wait for the DUT to be ready for the next test
   pause: seconds=420
-  when: preboot_list|length > 1
+  when: (preboot_list|length > 0 and None not in preboot_list) or
+          (inboot_list|length > 0 and None not in inboot_list)

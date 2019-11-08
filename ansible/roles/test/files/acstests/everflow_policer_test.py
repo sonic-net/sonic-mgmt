@@ -6,6 +6,7 @@ Usage:          Examples of how to use:
 '''
 
 
+import time
 import ptf
 import ptf.packet as scapy
 import ptf.dataplane as dataplane
@@ -16,7 +17,7 @@ from ptf.mask import Mask
 class EverflowPolicerTest(BaseTest):
 
     GRE_PROTOCOL_NUMBER = 47
-    NUM_OF_TOTAL_PACKETS = 200
+    NUM_OF_TOTAL_PACKETS = 500
 
 
     def __init__(self):
@@ -52,6 +53,7 @@ class EverflowPolicerTest(BaseTest):
         self.hwsku = self.test_params['hwsku']
         self.asic_type = self.test_params['asic_type']
         self.router_mac = self.test_params['router_mac']
+        self.mirror_stage = self.test_params['mirror_stage']
         self.session_src_ip = "1.1.1.1"
         self.session_dst_ip = "2.2.2.2"
         self.session_ttl = 1
@@ -100,7 +102,24 @@ class EverflowPolicerTest(BaseTest):
         """
         @summary: Send traffic & check how many mirrored packets are received
         @return: count: number of mirrored packets received
+
+        Note:
+        Mellanox crafts the GRE packets with extra information:
+        That is: 22 bytes extra information after the GRE header
         """
+        payload = self.base_pkt.copy()
+        payload_mask = Mask(payload)
+
+        if self.mirror_stage == "egress":
+            payload['Ethernet'].src = self.router_mac
+            payload['IP'].ttl -= 1
+            payload_mask.set_do_not_care_scapy(scapy.Ether, "dst")
+            payload_mask.set_do_not_care_scapy(scapy.IP, "chksum")
+
+        if self.asic_type in ["mellanox"]:
+            import binascii
+            payload = binascii.unhexlify("0"*44) + str(payload) # Add the padding
+
         exp_pkt = testutils.simple_gre_packet(
                 eth_src = self.router_mac,
                 ip_src = self.session_src_ip,
@@ -109,14 +128,26 @@ class EverflowPolicerTest(BaseTest):
                 ip_id = 0,
                 #ip_flags = 0x10, # need to upgrade ptf version to support it
                 ip_ttl = self.session_ttl,
-                inner_frame = self.base_pkt)
+                inner_frame = payload)
 
-        exp_pkt['GRE'].proto = 0x88be
+        if self.asic_type in ["mellanox"]:
+            exp_pkt['GRE'].proto = 0x8949 # Mellanox specific
+        else:
+            exp_pkt['GRE'].proto = 0x88be
 
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "flags")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+        masked_exp_pkt.set_do_not_care(38*8, len(payload)*8)  # don't match payload, payload will be matched by match_payload(pkt)
+
+        def match_payload(pkt):
+            pkt = scapy.Ether(pkt).load
+            if self.asic_type in ["mellanox"]:
+                pkt = pkt[22:] # Mask the Mellanox specific inner header
+            pkt = scapy.Ether(pkt)
+
+            return dataplane.match_exp_pkt(payload_mask, pkt)
 
         self.dataplane.flush()
 
@@ -124,7 +155,7 @@ class EverflowPolicerTest(BaseTest):
         for i in range(0,self.NUM_OF_TOTAL_PACKETS):
             testutils.send_packet(self, self.src_port, self.base_pkt)
             (rcv_device, rcv_port, rcv_pkt, pkt_time) = testutils.dp_poll(self, timeout=0.1, exp_pkt=masked_exp_pkt)
-            if rcv_pkt is not None:
+            if rcv_pkt is not None and match_payload(rcv_pkt):
                 count += 1
             elif count == 0:
                 print "The first mirrored packet is not recieved"
@@ -141,6 +172,10 @@ class EverflowPolicerTest(BaseTest):
         # Send traffic and verify the original traffic is not rate limited
         count = self.checkOriginalFlow()
         assert count == self.NUM_OF_TOTAL_PACKETS
+
+        # Sleep for t=CBS/CIR=(100packets)/(100packets/s)=1s to refill CBS capacity after checkOriginalFlow()
+        # otherwise we can have first mirrored packet dropped by policer in checkMirroredFlow()
+        time.sleep(1)
 
         testutils.add_filter(self.greFilter)
 

@@ -1,0 +1,602 @@
+# To run ecn test the host system where ptf container resides should have
+# optimized sysctl parameter "net.core.rmem_max". Now it's set to 4194304
+# Also the NICs supposed to have maximum buffer size of RX queue
+# See: ethtool -g
+#      ethtool -G p4p1 rx 8192
+
+- include_vars: vars/qos.yml
+
+- block:
+    - name: Getting minigraph facts
+      minigraph_facts: host={{inventory_hostname}}
+      become: no
+
+    - name: check if the device has configured qos parameters
+      fail: msg="device doesn't have configured qos parameters"
+      when: minigraph_hwsku is not defined or qos_params[minigraph_hwsku] is not defined
+
+    - name: set qos parameters for the device
+      set_fact: qp={{qos_params[minigraph_hwsku]}}
+
+    - name: Ensure LLDP Daemon stopped
+      become: yes
+      supervisorctl: state=stopped name={{item}}
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i lldp python
+      with_items:
+        - lldpd
+        - lldp-syncd
+
+    - name: Disable bgpd
+      become: yes
+      lineinfile: dest=/etc/quagga/daemons
+                  regexp=^bgpd=.*$
+                  line='bgpd=no'
+      notify:
+        - Restart Quagga Daemon
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i bgp python
+
+    - meta: flush_handlers
+
+    - block:
+        - name: Deploy script to DUT/syncd
+          copy: src=roles/test/files/mlnx/packets_aging.py dest=/root/packets_aging.py
+
+        - name: Disable Mellanox packet aging
+          shell: python /root/packets_aging.py disable
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i syncd python
+      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
+
+    - name: copy ptf tests
+      copy: src=roles/test/files/ptftests dest=/root
+      delegate_to: "{{ptf_host}}"
+
+    - name: copy sai tests
+      copy: src=roles/test/files/saitests dest=/root
+      delegate_to: "{{ptf_host}}"
+
+    - name: copy portmap
+      copy: src={{ptf_portmap}} dest=/root
+      delegate_to: "{{ptf_host}}"
+      when: minigraph_hwsku is defined and
+            (minigraph_hwsku in mellanox_hwskus or minigraph_hwsku in
+            ['Arista-7050-QX-32S', 'Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64'])
+
+    - name: Init PTF base test parameters
+      set_fact: 
+        ptf_base_params:
+        - router_mac={% if testbed_type not in ['t0', 't0-64', 't0-116'] %}'{{ansible_Ethernet0['macaddress']}}'{% else %}''{% endif %}
+        - server='{{ansible_host}}'
+        - port_map_file='/root/{{ptf_portmap | basename}}'
+        - sonic_asic_type='{{sonic_asic_type}}'
+
+    - name: Get ports info.
+      include: roles/test/tasks/qos_get_ports.yml
+
+    # Unpause all paused port
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: release all paused ports
+        test_path: sai_qos_tests.ReleaseAllPorts
+        test_params: []
+
+    # Populate arps
+    - name: Check if DUT has ARP aging issue or not
+      command: arp -n
+      become: yes
+      register: arp_entries
+
+    - debug:
+        var: arp_entries
+
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: populate arp on all ports
+        test_path: sai_qos_tests.ARPpopulate
+        test_params: []
+      when: testbed_type in ['t0', 't0-64', 't0-116'] or arp_entries.stdout.find('incomplete') == -1
+
+    - name: Manually add an ARP entry for dst port
+      command: ip neigh replace {{dst_port_ip}} lladdr 7c:fe:90:5e:6b:a6 dev {{dut_switch_ports[dst_port_id|int]}}
+      become: yes
+      when: testbed_type not in ['t0', 't0-64', 't0-116'] and arp_entries.stdout.find('incomplete') != -1
+
+    # XOFF limit
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: xoff limit ptf test dscp = {{qp.xoff_1.dscp}}, ecn = {{qp.xoff_1.ecn}}
+        test_path: sai_qos_tests.PFCtest
+        test_params:
+        - dscp='{{qp.xoff_1.dscp}}'
+        - ecn='{{qp.xoff_1.ecn}}'
+        - pg='{{qp.xoff_1.pg}}'
+        - buffer_max_size='{{lossless_buffer_max_size|int}}'
+        - queue_max_size='{{lossless_queue_max_size|int}}'
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - pkts_num_leak_out='{{qp.xoff_1.pkts_num_leak_out}}'
+        - pkts_num_trig_pfc='{{qp.xoff_1.pkts_num_trig_pfc}}'
+        - pkts_num_trig_ingr_drp='{{qp.xoff_1.pkts_num_trig_ingr_drp}}'
+
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: xoff limit ptf test dscp = {{qp.xoff_2.dscp}}, ecn = {{qp.xoff_2.ecn}}
+        test_path: sai_qos_tests.PFCtest
+        test_params:
+        - dscp='{{qp.xoff_2.dscp}}'
+        - ecn='{{qp.xoff_2.ecn}}'
+        - pg='{{qp.xoff_2.pg}}'
+        - buffer_max_size='{{lossless_buffer_max_size|int}}'
+        - queue_max_size='{{lossless_queue_max_size|int}}'
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - pkts_num_leak_out='{{qp.xoff_2.pkts_num_leak_out}}'
+        - pkts_num_trig_pfc='{{qp.xoff_2.pkts_num_trig_pfc}}'
+        - pkts_num_trig_ingr_drp='{{qp.xoff_2.pkts_num_trig_ingr_drp}}'
+
+    # XON limit
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: xon limit ptf test dscp = {{qp.xon_1.dscp}}, ecn = {{qp.xon_1.ecn}}
+        test_path: sai_qos_tests.PFCXonTest
+        test_params:
+        - dscp='{{qp.xon_1.dscp}}'
+        - ecn='{{qp.xon_1.ecn}}'
+        - pg='{{qp.xon_1.pg}}'
+        - buffer_max_size='{{lossless_buffer_max_size|int}}'
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - dst_port_2_id='{{dst_port_2_id}}'
+        - dst_port_2_ip='{{dst_port_2_ip}}'
+        - dst_port_3_id='{{dst_port_3_id}}'
+        - dst_port_3_ip='{{dst_port_3_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - pkts_num_leak_out='{{qp.xon_1.pkts_num_leak_out}}'
+        - pkts_num_trig_pfc='{{qp.xon_1.pkts_num_trig_pfc}}'
+        - pkts_num_dismiss_pfc='{{qp.xon_1.pkts_num_dismiss_pfc}}'
+
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: xon limit ptf test dscp = {{qp.xon_2.dscp}}, ecn = {{qp.xon_2.ecn}}
+        test_path: sai_qos_tests.PFCXonTest
+        test_params:
+        - dscp='{{qp.xon_2.dscp}}'
+        - ecn='{{qp.xon_2.ecn}}'
+        - pg='{{qp.xon_2.pg}}'
+        - buffer_max_size='{{lossless_buffer_max_size|int}}'
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - dst_port_2_id='{{dst_port_2_id}}'
+        - dst_port_2_ip='{{dst_port_2_ip}}'
+        - dst_port_3_id='{{dst_port_3_id}}'
+        - dst_port_3_ip='{{dst_port_3_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - pkts_num_leak_out='{{qp.xon_2.pkts_num_leak_out}}'
+        - pkts_num_trig_pfc='{{qp.xon_2.pkts_num_trig_pfc}}'
+        - pkts_num_dismiss_pfc='{{qp.xon_2.pkts_num_dismiss_pfc}}'
+
+    # Headroom pool size
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: headroom pool size ptf test ecn = {{qp.hdrm_pool_size.ecn}}
+        test_path: sai_qos_tests.HdrmPoolSizeTest
+        test_params:
+        - dscps={{qp.hdrm_pool_size.dscps}}
+        - ecn={{qp.hdrm_pool_size.ecn}}
+        - pgs={{qp.hdrm_pool_size.pgs}}
+        - src_port_ids={{qp.hdrm_pool_size.src_port_ids}}
+        - src_port_ips=[{% for pid in qp.hdrm_pool_size.src_port_ids %}{% if not loop.last %}'{{testing_ports_ip[pid|string]}}', {% else %}'{{testing_ports_ip[pid|string]}}'{% endif %}{% endfor %}]
+        - dst_port_id={{qp.hdrm_pool_size.dst_port_id}}
+        - dst_port_ip='{{testing_ports_ip[qp.hdrm_pool_size.dst_port_id|string]}}'
+        - pgs_num={{qp.hdrm_pool_size.pgs_num }}
+        - pkts_num_leak_out={{qp.hdrm_pool_size.pkts_num_leak_out}}
+        - pkts_num_trig_pfc={{qp.hdrm_pool_size.pkts_num_trig_pfc}}
+        - pkts_num_hdrm_full={{qp.hdrm_pool_size.pkts_num_hdrm_full}}
+        - pkts_num_hdrm_partial={{qp.hdrm_pool_size.pkts_num_hdrm_partial}}
+      when: minigraph_hwsku is defined and
+            minigraph_hwsku in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64']
+
+    # Lossy queue
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: Lossy queue, shared buffer dynamic allocation. dscp = {{qp.lossy_queue_1.dscp}}, ecn = {{qp.lossy_queue_1.ecn}}
+        test_path: sai_qos_tests.LossyQueueTest
+        test_params:
+        - dscp='{{qp.lossy_queue_1.dscp}}'
+        - ecn='{{qp.lossy_queue_1.ecn}}'
+        - pg='{{qp.lossy_queue_1.pg}}'
+        - buffer_max_size='{{lossy_buffer_max_size|int}}'
+        - headroom_size='{{lossy_headroom_size}}'
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - dst_port_2_id='{{dst_port_2_id}}'
+        - dst_port_2_ip='{{dst_port_2_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - pkts_num_leak_out='{{qp.lossy_queue_1.pkts_num_leak_out}}'
+        - pkts_num_trig_egr_drp='{{qp.lossy_queue_1.pkts_num_trig_egr_drp}}'
+
+    # DSCP to queue mapping
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: dscp to queue mapping ptf test
+        test_path: sai_qos_tests.DscpMappingPB
+        test_params:
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+
+    # WRR test
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: DWRR
+        test_path: sai_qos_tests.WRRtest
+        test_params:
+        - ecn='{{qp.wrr.ecn}}'
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - q0_num_of_pkts='{{qp.wrr.q0_num_of_pkts}}'
+        - q1_num_of_pkts='{{qp.wrr.q1_num_of_pkts}}'
+        - q2_num_of_pkts='{{qp.wrr.q2_num_of_pkts}}'
+        - q3_num_of_pkts='{{qp.wrr.q3_num_of_pkts}}'
+        - q4_num_of_pkts='{{qp.wrr.q4_num_of_pkts}}'
+        - q5_num_of_pkts='{{qp.wrr.q5_num_of_pkts}}'
+        - q6_num_of_pkts='{{qp.wrr.q6_num_of_pkts}}'
+        - limit='{{qp.wrr.limit}}'
+        - pkts_num_leak_out='{{qp.wrr.pkts_num_leak_out}}'
+    - debug:
+        var: out.stdout_lines
+
+    # Clear all watermarks before each watermark test
+    # because of the clear on read polling mode
+    - name: Toggle watermark polling
+      shell: bash -c 'counterpoll watermark enable; sleep 20; counterpoll watermark disable'
+
+    # PG shared watermark test
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: PG shared watermark test, lossless traffic
+        test_path: sai_qos_tests.PGSharedWatermarkTest
+        test_params:
+        - dscp='{{qp.wm_pg_shared_lossless.dscp}}'
+        - ecn='{{qp.wm_pg_shared_lossless.ecn}}'
+        - pg='{{qp.wm_pg_shared_lossless.pg}}'
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - pkts_num_leak_out='{{qp.wm_pg_shared_lossless.pkts_num_leak_out}}'
+        - pkts_num_fill_min='{{qp.wm_pg_shared_lossless.pkts_num_fill_min}}'
+        - pkts_num_fill_shared='{{qp.wm_pg_shared_lossless.pkts_num_trig_pfc}}'
+        - cell_size='{{qp.wm_pg_shared_lossless.cell_size}}'
+      when: minigraph_hwsku is defined and
+            (minigraph_hwsku not in ['Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8'])
+    - debug:
+        var: out.stdout_lines
+      when: minigraph_hwsku is defined and
+            (minigraph_hwsku not in ['Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8'])
+
+    # Clear all watermarks before each watermark test
+    # because of the clear on read polling mode
+    - name: Toggle watermark polling
+      shell: bash -c 'counterpoll watermark enable; sleep 20; counterpoll watermark disable'
+
+    # PG shared watermark test
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: PG shared watermark test, lossy traffic
+        test_path: sai_qos_tests.PGSharedWatermarkTest
+        test_params:
+        - dscp='{{qp.wm_pg_shared_lossy.dscp}}'
+        - ecn='{{qp.wm_pg_shared_lossy.ecn}}'
+        - pg='{{qp.wm_pg_shared_lossy.pg}}'
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - pkts_num_leak_out='{{qp.wm_pg_shared_lossy.pkts_num_leak_out}}'
+        - pkts_num_fill_min='{{qp.wm_pg_shared_lossy.pkts_num_fill_min}}'
+        - pkts_num_fill_shared='{{qp.wm_pg_shared_lossy.pkts_num_trig_egr_drp|int - 1}}'
+        - cell_size='{{qp.wm_pg_shared_lossy.cell_size}}'
+      when: minigraph_hwsku is defined and
+            minigraph_hwsku not in ['Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8']
+    - debug:
+        var: out.stdout_lines
+      when: minigraph_hwsku is defined and
+            minigraph_hwsku not in ['Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8']
+
+    # Clear all watermarks before each watermark test
+    # because of the clear on read polling mode
+    - name: Toggle watermark polling
+      shell: bash -c 'counterpoll watermark enable; sleep 20; counterpoll watermark disable'
+
+    # PG headroom watermark test
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: PG headroom watermark test
+        test_path: sai_qos_tests.PGHeadroomWatermarkTest
+        test_params:
+        - dscp='{{qp.wm_pg_headroom.dscp}}'
+        - ecn='{{qp.wm_pg_headroom.ecn}}'
+        - pg='{{qp.wm_pg_headroom.pg}}'
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - pkts_num_leak_out='{{qp.wm_pg_headroom.pkts_num_leak_out}}'
+        - pkts_num_trig_pfc='{{qp.wm_pg_headroom.pkts_num_trig_pfc}}'
+        - pkts_num_trig_ingr_drp='{{qp.wm_pg_headroom.pkts_num_trig_ingr_drp}}'
+        - cell_size='{{qp.wm_pg_headroom.cell_size}}'
+    - debug:
+        var: out.stdout_lines
+
+    # Clear all watermarks before each watermark test
+    # because of the clear on read polling mode
+    - name: Toggle watermark polling
+      shell: bash -c 'counterpoll watermark enable; sleep 20; counterpoll watermark disable'
+
+    # Queue shared watermark test
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: Queue shared watermark test, lossless traffic
+        test_path: sai_qos_tests.QSharedWatermarkTest
+        test_params:
+        - dscp='{{qp.wm_q_shared_lossless.dscp}}'
+        - ecn='{{qp.wm_q_shared_lossless.ecn}}'
+        - queue='{{qp.wm_q_shared_lossless.queue}}'
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - pkts_num_leak_out='{{qp.wm_q_shared_lossless.pkts_num_leak_out}}'
+        - pkts_num_fill_min='{{qp.wm_q_shared_lossless.pkts_num_fill_min}}'
+        - pkts_num_trig_drp='{{qp.wm_q_shared_lossless.pkts_num_trig_ingr_drp}}'
+        - cell_size='{{qp.wm_q_shared_lossless.cell_size}}'
+    - debug:
+        var: out.stdout_lines
+
+    # Clear all watermarks before each watermark test
+    # because of the clear on read polling mode
+    - name: Toggle watermark polling
+      shell: bash -c 'counterpoll watermark enable; sleep 20; counterpoll watermark disable'
+
+    # Queue shared watermark test
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: Queue shared watermark test, lossy traffic
+        test_path: sai_qos_tests.QSharedWatermarkTest
+        test_params:
+        - dscp='{{qp.wm_q_shared_lossy.dscp}}'
+        - ecn='{{qp.wm_q_shared_lossy.ecn}}'
+        - queue='{{qp.wm_q_shared_lossy.queue}}'
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - pkts_num_leak_out='{{qp.wm_q_shared_lossy.pkts_num_leak_out}}'
+        - pkts_num_fill_min='{{qp.wm_q_shared_lossy.pkts_num_fill_min}}'
+        - pkts_num_trig_drp='{{qp.wm_q_shared_lossy.pkts_num_trig_egr_drp}}'
+        - cell_size='{{qp.wm_q_shared_lossy.cell_size}}'
+    - debug:
+        var: out.stdout_lines
+
+    # Clear all watermarks before each watermark test
+    # because of the clear on read polling mode
+    - name: Toggle watermark polling
+      shell: bash -c 'counterpoll watermark enable; sleep 20; counterpoll watermark disable'
+
+    # buffer pool watermark test
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: Ingress buffer pool watermark test, lossless traffic
+        test_path: sai_qos_tests.BufferPoolWatermarkTest
+        test_params:
+        - dscp='{{qp.wm_buf_pool_lossless.dscp}}'
+        - ecn='{{qp.wm_buf_pool_lossless.ecn}}'
+        - pg='{{qp.wm_buf_pool_lossless.pg}}'
+        - queue=''
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - pkts_num_leak_out='{{qp.wm_buf_pool_lossless.pkts_num_leak_out}}'
+        - pkts_num_fill_min='{{qp.wm_buf_pool_lossless.pkts_num_fill_ingr_min}}'
+        - pkts_num_fill_shared='{{qp.wm_buf_pool_lossless.pkts_num_trig_pfc}}'
+        - cell_size='{{qp.wm_buf_pool_lossless.cell_size}}'
+        - buf_pool_roid='{{lossless_ingr_buf_pool_roid}}'
+      when: minigraph_hwsku is defined and
+            (minigraph_hwsku != 'Arista-7050-QX-32S')
+    - debug:
+        var: out.stdout_lines
+      when: minigraph_hwsku is defined and
+            (minigraph_hwsku != 'Arista-7050-QX-32S')
+
+    # Clear all watermarks before each watermark test
+    # because of the clear on read polling mode
+    - name: Toggle watermark polling
+      shell: bash -c 'counterpoll watermark enable; sleep 20; counterpoll watermark disable'
+
+    # buffer pool watermark test
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: Egress buffer pool watermark test, lossless traffic
+        test_path: sai_qos_tests.BufferPoolWatermarkTest
+        test_params:
+        - dscp='{{qp.wm_buf_pool_lossless.dscp}}'
+        - ecn='{{qp.wm_buf_pool_lossless.ecn}}'
+        - pg=''
+        - queue='{{qp.wm_buf_pool_lossless.queue}}'
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - pkts_num_leak_out='{{qp.wm_buf_pool_lossless.pkts_num_leak_out}}'
+        - pkts_num_fill_min='{{qp.wm_buf_pool_lossless.pkts_num_fill_egr_min}}'
+        - pkts_num_fill_shared='{{qp.wm_buf_pool_lossless.pkts_num_trig_ingr_drp|int - 1}}'
+        - cell_size='{{qp.wm_buf_pool_lossless.cell_size}}'
+        - buf_pool_roid='{{lossless_egr_buf_pool_roid}}'
+    - debug:
+        var: out.stdout_lines
+
+    # Clear all watermarks before each watermark test
+    # because of the clear on read polling mode
+    - name: Toggle watermark polling
+      shell: bash -c 'counterpoll watermark enable; sleep 20; counterpoll watermark disable'
+
+    # buffer pool watermark test
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: Ingress buffer pool watermark test, lossy traffic
+        test_path: sai_qos_tests.BufferPoolWatermarkTest
+        test_params:
+        - dscp='{{qp.wm_buf_pool_lossy.dscp}}'
+        - ecn='{{qp.wm_buf_pool_lossy.ecn}}'
+        - pg='{{qp.wm_buf_pool_lossy.pg}}'
+        - queue=''
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - pkts_num_leak_out='{{qp.wm_buf_pool_lossy.pkts_num_leak_out}}'
+        - pkts_num_fill_min='{{qp.wm_buf_pool_lossy.pkts_num_fill_ingr_min}}'
+        - pkts_num_fill_shared='{{qp.wm_buf_pool_lossy.pkts_num_trig_egr_drp|int - 1}}'
+        - cell_size='{{qp.wm_buf_pool_lossy.cell_size}}'
+        - buf_pool_roid='{{lossy_ingr_buf_pool_roid}}'
+      when: minigraph_hwsku is defined and
+            (minigraph_hwsku != 'Arista-7050-QX-32S')
+    - debug:
+        var: out.stdout_lines
+      when: minigraph_hwsku is defined and
+            (minigraph_hwsku != 'Arista-7050-QX-32S')
+
+    # Clear all watermarks before each watermark test
+    # because of the clear on read polling mode
+    - name: Toggle watermark polling
+      shell: bash -c 'counterpoll watermark enable; sleep 20; counterpoll watermark disable'
+
+    # buffer pool watermark test
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: Egress buffer pool watermark test, lossy traffic
+        test_path: sai_qos_tests.BufferPoolWatermarkTest
+        test_params:
+        - dscp='{{qp.wm_buf_pool_lossy.dscp}}'
+        - ecn='{{qp.wm_buf_pool_lossy.ecn}}'
+        - pg=''
+        - queue='{{qp.wm_buf_pool_lossy.queue}}'
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - pkts_num_leak_out='{{qp.wm_buf_pool_lossy.pkts_num_leak_out}}'
+        - pkts_num_fill_min='{{qp.wm_buf_pool_lossy.pkts_num_fill_egr_min}}'
+        - pkts_num_fill_shared='{{qp.wm_buf_pool_lossy.pkts_num_trig_egr_drp|int - 1}}'
+        - cell_size='{{qp.wm_buf_pool_lossy.cell_size}}'
+        - buf_pool_roid='{{lossy_egr_buf_pool_roid}}'
+    - debug:
+        var: out.stdout_lines
+
+    # DSCP to pg mapping
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: dscp to pg mapping ptf test
+        test_path: sai_qos_tests.DscpToPgMapping
+        test_params:
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+    - debug:
+        var: out.stdout_lines
+
+    # Change lossy and lossless scheduler weights
+    - name: Change lossy scheduler weight to {{qp.wrr_chg.lossy_weight}}
+      command: redis-cli -n 4 HSET "{{lossy_sched_profile}}" weight {{qp.wrr_chg.lossy_weight}}
+
+    - name: Change lossless scheduler weight to {{qp.wrr_chg.lossless_weight}}
+      command: redis-cli -n 4 HSET "{{lossless_sched_profile}}" weight {{qp.wrr_chg.lossless_weight}}
+
+    # WRR test
+    - include: qos_sai_ptf.yml
+      vars:
+        test_name: DWRR runtime weight change
+        test_path: sai_qos_tests.WRRtest
+        test_params:
+        - ecn='{{qp.wrr_chg.ecn}}'
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+        - q0_num_of_pkts='{{qp.wrr_chg.q0_num_of_pkts}}'
+        - q1_num_of_pkts='{{qp.wrr_chg.q1_num_of_pkts}}'
+        - q2_num_of_pkts='{{qp.wrr_chg.q2_num_of_pkts}}'
+        - q3_num_of_pkts='{{qp.wrr_chg.q3_num_of_pkts}}'
+        - q4_num_of_pkts='{{qp.wrr_chg.q4_num_of_pkts}}'
+        - q5_num_of_pkts='{{qp.wrr_chg.q5_num_of_pkts}}'
+        - q6_num_of_pkts='{{qp.wrr_chg.q6_num_of_pkts}}'
+        - limit='{{qp.wrr_chg.limit}}'
+        - pkts_num_leak_out='{{qp.wrr_chg.pkts_num_leak_out}}'
+    - debug:
+        var: out.stdout_lines
+
+    # Restore lossy and lossless scheduler weights
+    - name: Restore lossy scheduler weight to {{lossy_sched_weight}}
+      command: redis-cli -n 4 HSET "{{lossy_sched_profile}}" weight "{{lossy_sched_weight.stdout}}"
+
+    - name: Restore lossless scheduler weight to {{lossless_sched_weight}}
+      command: redis-cli -n 4 HSET "{{lossless_sched_profile}}" weight "{{lossless_sched_weight.stdout}}"
+
+  always:
+    - name: Restore LLDP Daemon
+      become: yes
+      supervisorctl: state=started name={{item}}
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i lldp python
+      with_items:
+        - lldpd
+        - lldp-syncd
+
+    - name: Enable bgpd
+      become: yes
+      lineinfile: dest=/etc/quagga/daemons
+                  regexp=^bgpd=.*$
+                  line='bgpd=yes'
+      notify:
+        - Restart Quagga Daemon
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i bgp python
+
+    - name: Restore original watermark polling status
+      shell: counterpoll watermark {{watermark_status.stdout}}
+      when: watermark_status.stdout == "enable" or watermark_status.stdout == "disable"
+
+    - name: Restore lossy scheduler weight to {{lossy_sched_weight}}
+      command: redis-cli -n 4 HSET "{{lossy_sched_profile}}" weight "{{lossy_sched_weight.stdout}}"
+
+    - name: Restore lossless scheduler weight to {{lossless_sched_weight}}
+      command: redis-cli -n 4 HSET "{{lossless_sched_profile}}" weight "{{lossless_sched_weight.stdout}}"
+
+    - name: Enable Mellanox packet aging
+      shell: python /root/packets_aging.py enable
+      vars:
+        ansible_shell_type: docker
+        ansible_python_interpreter: docker exec -i syncd python
+      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
+
+    - meta: flush_handlers

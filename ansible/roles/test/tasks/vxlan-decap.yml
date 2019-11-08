@@ -31,9 +31,10 @@
       vars:
         supervisor_host: "{{ ptf_host }}"
 
-    - name: Start arpresponder
-      supervisorctl: state=restarted name=arp_responder
-      delegate_to: "{{ ptf_host }}"
+    - name: Restart DUT. Wait 240 seconds after SONiC started ssh
+      include: reboot.yml
+      vars:
+        ready_timeout: 240
 
     - name: Render DUT parameters to json file for the test
       template: src=vxlan_decap.json.j2 dest=/tmp/vxlan_decap.json
@@ -46,9 +47,6 @@
       template: src=vxlan_db.maps.json.j2 dest=/tmp/vxlan_db.maps.{{ item }}.json
       with_items: minigraph_vlans
 
-    - name: Wait for some time until arp cache is ready
-      pause: seconds=50
-
     - include: ptf_runner.yml
       vars:
         ptf_test_name: Vxlan decap test - No vxlan configuration
@@ -60,12 +58,12 @@
         ptf_test_params:
         - vxlan_enabled=False
         - config_file='/tmp/vxlan_decap.json'
-        - repetitions=1
+        - count=10
 
     - name: Configure vxlan decap tunnel
       shell: sonic-cfggen -j /tmp/vxlan_db.tunnel.json --write-to-db
 
-    - name: Configure vxlan decap tunnel map for {{ item }}
+    - name: Configure vxlan decap tunnel maps
       shell: sonic-cfggen -j /tmp/vxlan_db.maps.{{ item }}.json --write-to-db
       with_items: minigraph_vlans
 
@@ -80,9 +78,9 @@
         ptf_test_params:
         - vxlan_enabled=True
         - config_file='/tmp/vxlan_decap.json'
-        - count=1
+        - count=10
 
-    - name: Remove vxlan tunnel map configuration for {{ item }}
+    - name: Remove vxlan tunnel maps configuration
       shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnelVxlan|map{{ item }}"
       with_items: minigraph_vlans
 
@@ -100,17 +98,12 @@
         ptf_test_params:
         - vxlan_enabled=False
         - config_file='/tmp/vxlan_decap.json'
-        - repetitions=1
-
+        - count=10
 
 - always:
-    - name: Remove vxlan tunnel map configuration for {{ item }}
+    - name: Remove vxlan tunnel maps configuration
       shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnelVxlan|map{{ item }}"
       with_items: minigraph_vlans
 
     - name: Remove vxlan tunnel configuration
       shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tunnelVxlan"
-
-    - name: Stop arpresponder
-      supervisorctl: state=stopped name=arp_responder
-      delegate_to: "{{ ptf_host }}"

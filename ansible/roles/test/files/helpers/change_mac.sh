@@ -1,9 +1,11 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
-for INTF in $(ip -br link show | grep 'eth' | awk '{sub(/@.*/,"",$1); print $1}'); do
-    ADDR="$(ip -br link show dev ${INTF} | awk '{print $3}')"
+INTF_LIST=$(ls /sys/class/net | grep -E "^eth[0-9]+$")
+
+for INTF in ${INTF_LIST}; do
+    ADDR="$(cat /sys/class/net/${INTF}/address)"
     PREFIX="$(cut -c1-15 <<< ${ADDR})"
     SUFFIX="$(printf "%02x" ${INTF##eth})"
     MAC="${PREFIX}${SUFFIX}"

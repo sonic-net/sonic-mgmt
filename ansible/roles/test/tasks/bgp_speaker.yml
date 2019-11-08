@@ -213,5 +213,5 @@
       with_items: "{{vlan_ips}}"
 
     - name: Remove Assigned IPs
-      shell: ip addr flush dev eth{{ '%d' % (minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'][0] | replace("Ethernet", "") | int / 4)}}
+      shell: ip addr flush dev eth{{ '%d' % (minigraph_port_indices[minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'][0]])}}
       delegate_to: "{{ptf_host}}"

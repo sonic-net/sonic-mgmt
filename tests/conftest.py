@@ -1,12 +1,18 @@
+import sys
+import os
+
 import pytest
 import csv
 import yaml
 import ipaddr as ipaddress
 
 from ansible_host import AnsibleHost
+from loganalyzer import LogAnalyzer
+
+from common.devices import SonicHost, Localhost, PTFHost
 
 
-pytest_plugins = ('ptf_fixtures', 'ansible_fixtures')
+pytest_plugins = ('ptf_fixtures', 'ansible_fixtures', 'plugins.dut_monitor.pytest_dut_monitor')
 
 
 class TestbedInfo(object):
@@ -28,7 +34,6 @@ class TestbedInfo(object):
                 name = ''
                 for key in line:
                     if ('uniq-name' in key or 'conf-name' in key) and '#' in line[key]:
-                        ### skip comment line
                         continue
                     elif 'uniq-name' in key or 'conf-name' in key:
                         name = line[key]
@@ -45,6 +50,8 @@ class TestbedInfo(object):
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
+    parser.addoption("--disable_loganalyzer", action="store_true", default=False,
+                     help="disable loganalyzer analysis for 'loganalyzer' fixture")
 
     # test_vrf options
     parser.addoption("--vrf_capacity", action="store", default=None, type=int, help="vrf capacity of dut (4-1000)")
@@ -65,23 +72,54 @@ def testbed(request):
 
 
 @pytest.fixture(scope="module")
-def duthost(ansible_adhoc, testbed):
+def testbed_devices(ansible_adhoc, testbed):
+    """
+    @summary: Fixture for creating dut, localhost and other necessary objects for testing. These objects provide
+        interfaces for interacting with the devices used in testing.
+    @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
+        mandatory argument for the class constructors.
+    @param testbed: Fixture for parsing testbed configuration file.
+    @return: Return the created device objects in a dictionary
+    """
+
+    devices = {
+        "localhost": Localhost(ansible_adhoc),
+        "dut": SonicHost(ansible_adhoc, testbed["dut"], gather_facts=True)}
+
+    if "ptf" in testbed:
+        devices["ptf"] = PTFHost(ansible_adhoc, testbed["ptf"])
+    else:
+        # when no ptf defined in testbed.csv
+        # try to parse it from inventory
+        dut = devices["dut"]
+        ptf_host = dut.host.options["inventory_manager"].get_vars(dut.hostname)["ptf_host"]
+        devices["ptf"] = PTFHost(ansible_adhoc, ptf_host)
+
+    # In the future, we can implement more classes for interacting with other testbed devices in the lib.devices
+    # module. Then, in this fixture, we can initialize more instance of the classes and store the objects in the
+    # devices dict here. For example, we could have
+    #       from common.devices import FanoutHost
+    #       devices["fanout"] = FanoutHost(ansible_adhoc, testbed["dut"])
+
+    return devices
+
+
+@pytest.fixture(scope="module")
+def duthost(testbed_devices):
     """
     Shortcut fixture for getting DUT host
     """
 
-    hostname = testbed['dut']
-    return AnsibleHost(ansible_adhoc, hostname)
+    return testbed_devices["dut"]
 
 
 @pytest.fixture(scope="module")
-def ptfhost(ansible_adhoc, testbed):
+def ptfhost(testbed_devices):
     """
     Shortcut fixture for getting PTF host
     """
 
-    hostname = testbed['ptf']
-    return AnsibleHost(ansible_adhoc, hostname)
+    return testbed_devices["ptf"]
 
 
 @pytest.fixture(scope='session')
@@ -90,3 +128,27 @@ def eos():
     with open('eos/eos.yml') as stream:
         eos = yaml.safe_load(stream)
         return eos
+
+
+@pytest.fixture(autouse=True)
+def loganalyzer(duthost, request):
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name)
+    # Add start marker into DUT syslog
+    marker = loganalyzer.init()
+    yield loganalyzer
+    if not request.config.getoption("--disable_loganalyzer") and "disable_loganalyzer" not in request.keywords:
+        # Read existed common regular expressions located with legacy loganalyzer module
+        loganalyzer.load_common_config()
+        # Parse syslog and process result. Raise "LogAnalyzerError" exception if: total match or expected missing
+        # match is not equal to zero
+        loganalyzer.analyze(marker)
+    else:
+        # Add end marker into DUT syslog
+        loganalyzer._add_end_marker(marker)
+
+@pytest.fixture(scope="session")
+def creds():
+    """ read and yield eos configuration """
+    with open("../ansible/group_vars/lab/secrets.yml") as stream:
+        creds = yaml.safe_load(stream)
+        return creds

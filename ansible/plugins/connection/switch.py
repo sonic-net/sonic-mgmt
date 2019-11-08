@@ -203,6 +203,10 @@ class Connection(ConnectionBase):
             elif self.sku == 'eos':
                 prompts = ['\$ ']
 
+        if self.sku in ('mlnx_os',):
+            # extend with default \u@\h:\w# for docker container prompts
+            prompts.extend(['%s@.*:.*#' % 'root'])
+
         prompts.append(pexpect.EOF)
 
         stdout = ""
