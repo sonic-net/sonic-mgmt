@@ -102,10 +102,14 @@ class SerialSession(object):
 
 def session(new_params):
     seq = [
+        ('while true; do if [ $(systemctl is-active bgp) == "active" ]; then break; fi; echo $(systemctl is-active bgp); sleep 1; done', [r'#']),
+        ('pkill dhclient', [r'#']),
         ('hostname %s' % str(new_params['hostname']), [r'#']),
         ('sed -i s:sonic:%s: /etc/hosts' % str(new_params['hostname']), [r'#']),
         ('ifconfig eth0 %s' % str(new_params['mgmt_ip']), [r'#']),
+        ('ifconfig eth0', [r'#']),
         ('ip route add 0.0.0.0/0 via %s table default' % str(new_params['mgmt_gw']), [r'#']),
+        ('ip route', [r'#']),
         ('echo %s:%s | chpasswd' % (str(new_params['login']), str(new_params['new_password'])), [r'#']),
     ]
 
