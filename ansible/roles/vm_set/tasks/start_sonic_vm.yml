@@ -8,10 +8,11 @@
     src_disk_image: "{{ home_path }}/sonic-vm/images/sonic-vs.img"
     disk_image: "{{ home_path }}/sonic-vm/disks/sonic_{{ dut_name }}.img"
     mgmt_ip_address: " {{ hostvars[dut_name]['ansible_host'] }}"
+    mgmt_gw: "{{ vm_mgmt_gw | default(mgmt_gw) }}"
     serial_port: 9000
 
 - name: Device debug output
-  debug: msg="hostname = {{ dut_name }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }}"
+  debug: msg="hostname = {{ dut_name }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }}/{{ mgmt_prefixlen }} mgmt_gw = {{ mgmt_gw }}"
 
 - name: Check destination file existance
   stat: path={{ disk_image }}
