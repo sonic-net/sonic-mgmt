@@ -1,8 +1,8 @@
 {
     "VLAN_INTERFACE": {
 {% for vrf_idx in range(1, 1+vrf_count) %}
-{% set vid = base_vid + vrf_idx %}
-{% set vid2 = vid + 1000 %}
+{% set vid = src_base_vid + vrf_idx %}
+{% set vid2 = dst_base_vid + vrf_idx %}
 {% set vlan_ip1 = ip1.next(vrf_idx -1) %}
 {% set vlan_ip2 = ip2.next(vrf_idx -1) %}
 

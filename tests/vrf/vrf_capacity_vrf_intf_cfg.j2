@@ -2,8 +2,8 @@
     "VLAN_INTERFACE": {
 {% for vrf_idx in range(1, 1+vrf_count) %}
 {% set vrf_name = vrf_name_tpl.format(loop.index) %}
-{% set vid = base_vid + vrf_idx %}
-{% set vid2 = vid + 1000 %}
+{% set vid = src_base_vid + vrf_idx %}
+{% set vid2 = dst_base_vid + vrf_idx %}
 
 {% if op_code == 'add' %}
         "Vlan{{vid}}": {"vrf_name": "{{vrf_name}}"},

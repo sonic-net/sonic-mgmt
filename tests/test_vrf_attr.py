@@ -1,7 +1,14 @@
 import pytest
 
-from test_vrf import g_vars, setup_vrf, host_facts, cfg_facts, gen_vrf_neigh_file
-from ptf_runner import ptf_runner
+from test_vrf import (
+    g_vars, 
+    setup_vrf, 
+    host_facts, 
+    cfg_facts, 
+    gen_vrf_neigh_file, 
+    partial_ptf_runner
+)
+from ptf_runner import ptf_runner                     
 
 
 # tests
@@ -17,9 +24,9 @@ class TestVrfAttrSrcMac():
 
         duthost.shell("config load -y /tmp/vrf_attr_src_mac.json")
 
-        gen_vrf_neigh_file('Vrf1', ptfhost, dst_file="/tmp/vrf1_neigh.txt")
+        gen_vrf_neigh_file('Vrf1', ptfhost, render_file="/tmp/vrf1_neigh.txt")
 
-        gen_vrf_neigh_file('Vrf2', ptfhost, dst_file="/tmp/vrf2_neigh.txt")
+        gen_vrf_neigh_file('Vrf2', ptfhost, render_file="/tmp/vrf2_neigh.txt")
 
         # -------- Testing ----------
         yield
@@ -36,18 +43,14 @@ class TestVrfAttrSrcMac():
         vrf1_mac = duthost.shell("redis-cli -n 4 hget 'VRF|Vrf1' 'src_mac'")['stdout']
         assert vrf1_mac == self.new_vrf1_router_mac
 
-    def test_vrf1_neigh_with_default_router_mac(self, ptfhost, host_facts, testbed):
+    def test_vrf1_neigh_with_default_router_mac(self, partial_ptf_runner):
         # send packets with default router_mac
-        ptf_runner(ptfhost,
-                "ptftests",
-                "vrf_test.FwdTest",
-                platform_dir='ptftests',
-                params={'testbed_type': testbed['topo'],
-                        'router_mac': host_facts['ansible_Ethernet0']['macaddress'],
-                        'fwd_info': "/tmp/vrf1_neigh.txt",
-                        'pkt_action': 'drop',
-                        'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']},
-                log_file="/tmp/vrf_attr_src_mac_test.FwdTest1.log")
+        partial_ptf_runner(
+            testname='vrf_test.FwdTest',
+            pkt_action='drop',
+            fwd_info='/tmp/vrf1_neigh.txt',
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+        )
 
     def test_vrf1_neigh_with_new_router_mac(self, ptfhost, host_facts, testbed):
         # send packets with new router_mac
@@ -61,18 +64,13 @@ class TestVrfAttrSrcMac():
                         'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']},
                 log_file="/tmp/vrf_attr_src_mac_test.FwdTest2.log")
 
-    def test_vrf2_neigh_with_default_router_mac(self, ptfhost, host_facts, testbed):
+    def test_vrf2_neigh_with_default_router_mac(self, partial_ptf_runner):
         # verify router_mac of Vrf2 keep to be default router_mac
-        ptf_runner(ptfhost,
-                "ptftests",
-                "vrf_test.FwdTest",
-                platform_dir='ptftests',
-                params={'testbed_type': testbed['topo'],
-                        'router_mac': host_facts['ansible_Ethernet0']['macaddress'],
-                        'fwd_info': "/tmp/vrf2_neigh.txt",
-                        'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']},
-                log_file="/tmp/vrf_attr_src_mac_test.FwdTest3.log")
-
+        partial_ptf_runner(
+            testname='vrf_test.FwdTest',
+            fwd_info='/tmp/vrf2_neigh.txt',
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
+        )
 
 
 class TestVrfAttrTTL():
@@ -84,9 +82,9 @@ class TestVrfAttrTTL():
 
         duthost.shell("config load -y /tmp/vrf_attr_ttl_action.json")
 
-        gen_vrf_neigh_file('Vrf1', ptfhost, dst_file="/tmp/vrf1_neigh.txt")
+        gen_vrf_neigh_file('Vrf1', ptfhost, render_file="/tmp/vrf1_neigh.txt")
 
-        gen_vrf_neigh_file('Vrf2', ptfhost, dst_file="/tmp/vrf2_neigh.txt")
+        gen_vrf_neigh_file('Vrf2', ptfhost, render_file="/tmp/vrf2_neigh.txt")
 
         # -------- Testing ----------
         yield
@@ -94,45 +92,33 @@ class TestVrfAttrTTL():
         # -------- Teardown ----------
         duthost.shell("config load -y /tmp/vrf_restore.json")
 
-    def test_vrf1_drop_pkts_with_ttl_1(self, ptfhost, host_facts, testbed):
+    def test_vrf1_drop_pkts_with_ttl_1(self, partial_ptf_runner):
         # verify packets in Vrf1 with ttl=1 should be drop
-        ptf_runner(ptfhost,
-                "ptftests",
-                "vrf_test.FwdTest",
-                platform_dir='ptftests',
-                params={'testbed_type': testbed['topo'],
-                        'router_mac': host_facts['ansible_Ethernet0']['macaddress'],
-                        'fwd_info': "/tmp/vrf1_neigh.txt",
-                        'pkt_action': 'drop',
-                        'ttl': 1,
-                        'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']},
-                log_file="/tmp/vrf_TtlAction_1_test.FwdTest.log")
+        partial_ptf_runner(
+            testname='vrf_test.FwdTest',
+            pkt_action='drop',
+            fwd_info='/tmp/vrf1_neigh.txt',
+            ttl=1,
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+        )
 
-    def test_vrf1_fwd_pkts_with_ttl_2(self, ptfhost, host_facts, testbed):
+    def test_vrf1_fwd_pkts_with_ttl_2(self, partial_ptf_runner):
         # verify packets in Vrf1 with ttl=2 should be forward
-        ptf_runner(ptfhost,
-                "ptftests",
-                "vrf_test.FwdTest",
-                platform_dir='ptftests',
-                params={'testbed_type': testbed['topo'],
-                        'router_mac': host_facts['ansible_Ethernet0']['macaddress'],
-                        'fwd_info': "/tmp/vrf1_neigh.txt",
-                        'ttl': 2,
-                        'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']},
-                log_file="/tmp/vrf_TtlAction_2_test.FwdTest.log")
+        partial_ptf_runner(
+            testname='vrf_test.FwdTest',
+            fwd_info='/tmp/vrf1_neigh.txt',
+            ttl=2,
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+        )
 
-    def test_vrf2_fwd_pkts_with_ttl_1(self, ptfhost, host_facts, testbed):
+    def test_vrf2_fwd_pkts_with_ttl_1(self, partial_ptf_runner):
         # verify packets in Vrf2 with ttl=1 should be forward
-        ptf_runner(ptfhost,
-                "ptftests",
-                "vrf_test.FwdTest",
-                platform_dir='ptftests',
-                params={'testbed_type': testbed['topo'],
-                        'router_mac': host_facts['ansible_Ethernet0']['macaddress'],
-                        'fwd_info': "/tmp/vrf2_neigh.txt",
-                        'ttl': 1,
-                        'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']},
-                log_file="/tmp/vrf_TtlAction_3_test.FwdTest.log")
+        partial_ptf_runner(
+            testname='vrf_test.FwdTest',
+            fwd_info='/tmp/vrf2_neigh.txt',
+            ttl=1,
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
+        )
 
 
 class TestVrfAttrIpAction():
@@ -144,9 +130,9 @@ class TestVrfAttrIpAction():
 
         duthost.shell("config load -y /tmp/vrf_attr_ip_opt_action.json")
 
-        gen_vrf_neigh_file('Vrf1', ptfhost, dst_file="/tmp/vrf1_neigh.txt")
+        gen_vrf_neigh_file('Vrf1', ptfhost, render_file="/tmp/vrf1_neigh.txt")
 
-        gen_vrf_neigh_file('Vrf2', ptfhost, dst_file="/tmp/vrf2_neigh.txt")
+        gen_vrf_neigh_file('Vrf2', ptfhost, render_file="/tmp/vrf2_neigh.txt")
 
         # -------- Testing ----------
         yield
@@ -154,53 +140,39 @@ class TestVrfAttrIpAction():
         # -------- Teardown ----------
         duthost.shell("config load -y /tmp/vrf_restore.json")
 
-    def test_vrf1_drop_pkts_with_ip_opt(self, ptfhost, host_facts, testbed):
+    def test_vrf1_drop_pkts_with_ip_opt(self, partial_ptf_runner):
         # verify packets in Vrf1 with ip_option should be drop
-        ptf_runner(ptfhost,
-                "ptftests",
-                "vrf_test.FwdTest",
-                platform_dir='ptftests',
-                params={'testbed_type': testbed['topo'],
-                        'router_mac': host_facts['ansible_Ethernet0']['macaddress'],
-                        'fwd_info': "/tmp/vrf1_neigh.txt",
-                        'pkt_action': 'drop',
-                        'ip_option': True,
-                        'ipv4': True,
-                        'ipv6': False,
-                        'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']},
-                log_file="/tmp/vrf_IpOptAction_1_test.FwdTest.log")
+        partial_ptf_runner(
+            testname='vrf_test.FwdTest',
+            pkt_action='drop',
+            fwd_info='/tmp/vrf1_neigh.txt',
+            ip_option=True,
+            ipv4=True,
+            ipv6=False,
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+        )
 
-    def test_vrf1_fwd_pkts_without_ip_opt(self, ptfhost, host_facts, testbed):
+    def test_vrf1_fwd_pkts_without_ip_opt(self, partial_ptf_runner):
         # verify packets in Vrf1 without ip_option should be forward
-        ptf_runner(ptfhost,
-                "ptftests",
-                "vrf_test.FwdTest",
-                platform_dir='ptftests',
-                params={'testbed_type': testbed['topo'],
-                        'router_mac': host_facts['ansible_Ethernet0']['macaddress'],
-                        'fwd_info': "/tmp/vrf1_neigh.txt",
-                        'ip_option': False,
-                        'ipv4': True,
-                        'ipv6': False,
-                        'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']},
-                log_file="/tmp/vrf_IpOptAction_2_test.FwdTest.log")
+        partial_ptf_runner(
+            testname='vrf_test.FwdTest',
+            fwd_info='/tmp/vrf1_neigh.txt',
+            ip_option=False,
+            ipv4=True,
+            ipv6=False,
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+        )
 
-
-    def test_vrf2_fwd_pkts_with_ip_opt(self, ptfhost, host_facts, testbed):
+    def test_vrf2_fwd_pkts_with_ip_opt(self, partial_ptf_runner):
         # verify packets in Vrf2 with ip_option should be forward
-        ptf_runner(ptfhost,
-                "ptftests",
-                "vrf_test.FwdTest",
-                platform_dir='ptftests',
-                params={'testbed_type': testbed['topo'],
-                        'router_mac': host_facts['ansible_Ethernet0']['macaddress'],
-                        'fwd_info': "/tmp/vrf2_neigh.txt",
-                        'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000'],
-                        'ip_option': True,
-                        'ipv4': True,
-                        'ipv6': False },
-                log_file="/tmp/vrf_IpOptAction_3_test.FwdTest.log")
-
+        partial_ptf_runner(
+            testname='vrf_test.FwdTest',
+            fwd_info='/tmp/vrf2_neigh.txt',
+            ip_option=True,
+            ipv4=True,
+            ipv6=False,
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
+        )
 
 
 class TestVrfAttrIpState():
@@ -212,9 +184,9 @@ class TestVrfAttrIpState():
 
         duthost.shell("config load -y /tmp/vrf_attr_ip_state.json")
 
-        gen_vrf_neigh_file('Vrf1', ptfhost, dst_file="/tmp/vrf1_neigh.txt")
+        gen_vrf_neigh_file('Vrf1', ptfhost, render_file="/tmp/vrf1_neigh.txt")
 
-        gen_vrf_neigh_file('Vrf2', ptfhost, dst_file="/tmp/vrf2_neigh.txt")
+        gen_vrf_neigh_file('Vrf2', ptfhost, render_file="/tmp/vrf2_neigh.txt")
 
         # -------- Testing ----------
         yield
@@ -222,64 +194,44 @@ class TestVrfAttrIpState():
         # -------- Teardown ----------
         duthost.shell("config load -y /tmp/vrf_restore.json")
 
-    def test_vrf1_drop_v4(self, ptfhost, host_facts, testbed):
+    def test_vrf1_drop_v4(self, partial_ptf_runner):
         # verify ipv4 L3 traffic is dropped in vrf1
-        ptf_runner(ptfhost,
-                "ptftests",
-                "vrf_test.FwdTest",
-                platform_dir='ptftests',
-                params={'testbed_type': testbed['topo'],
-                        'router_mac': host_facts['ansible_Ethernet0']['macaddress'],
-                        'fwd_info': "/tmp/vrf1_neigh.txt",
-                        'pkt_action': 'drop',
-                        'ipv4': True,
-                        'ipv6': False,
-                        'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'] },
-                log_file="/tmp/vrf_V4V6State_1_test.FwdTest.log")
+        partial_ptf_runner(
+            testname='vrf_test.FwdTest',
+            fwd_info='/tmp/vrf1_neigh.txt',
+            pkt_action='drop',
+            ipv4=True,
+            ipv6=False,
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+        )
 
-
-    def test_vrf1_forward_v6(self, ptfhost, host_facts, testbed):
+    def test_vrf1_forward_v6(self, partial_ptf_runner):
         # verify ipv6 L3 traffic is forwarded in vrf1
-        ptf_runner(ptfhost,
-                "ptftests",
-                "vrf_test.FwdTest",
-                platform_dir='ptftests',
-                params={'testbed_type': testbed['topo'],
-                        'router_mac': host_facts['ansible_Ethernet0']['macaddress'],
-                        'fwd_info': "/tmp/vrf1_neigh.txt",
-                        'ipv4': False,
-                        'ipv6': True,
-                        'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'] },
-                log_file="/tmp/vrf_V4V6State_2_test.FwdTest.log")
+        partial_ptf_runner(
+            testname='vrf_test.FwdTest',
+            fwd_info='/tmp/vrf1_neigh.txt',
+            ipv4=False,
+            ipv6=True,
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+        )
 
-
-    def test_vrf2_forward_v4(self, ptfhost, host_facts, testbed):
+    def test_vrf2_forward_v4(self, partial_ptf_runner):
         # verify ipv4 L3 traffic is forwarded in vrf2
-        ptf_runner(ptfhost,
-                "ptftests",
-                "vrf_test.FwdTest",
-                platform_dir='ptftests',
-                params={'testbed_type': testbed['topo'],
-                        'router_mac': host_facts['ansible_Ethernet0']['macaddress'],
-                        'fwd_info': "/tmp/vrf2_neigh.txt",
-                        'ipv4': True,
-                        'ipv6': False,
-                        'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000'] },
-                log_file="/tmp/vrf_V4V6State_3_test.FwdTest.log")
+        partial_ptf_runner(
+            testname='vrf_test.FwdTest',
+            fwd_info='/tmp/vrf2_neigh.txt',
+            ipv4=True,
+            ipv6=False,
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
+        )
 
-    def test_vrf2_drop_v6(self, ptfhost, host_facts, testbed):
+    def test_vrf2_drop_v6(self, partial_ptf_runner):
         # verify ipv6 L3 traffic is dropped in vrf2
-        ptf_runner(ptfhost,
-                "ptftests",
-                "vrf_test.FwdTest",
-                platform_dir='ptftests',
-                params={'testbed_type': testbed['topo'],
-                        'router_mac': host_facts['ansible_Ethernet0']['macaddress'],
-                        'fwd_info': "/tmp/vrf2_neigh.txt",
-                        'pkt_action': 'drop',
-                        'ipv4': False,
-                        'ipv6': True,
-                        'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000'] },
-                log_file="/tmp/vrf_V4V6State_4_test.FwdTest.log")
-
-
+        partial_ptf_runner(
+            testname='vrf_test.FwdTest',
+            pkt_action='drop',
+            fwd_info='/tmp/vrf2_neigh.txt',
+            ipv4=False,
+            ipv6=True,
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
+        )

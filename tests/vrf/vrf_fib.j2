@@ -7,6 +7,7 @@
 {# defualt route#}
 {% if testbed_type == 't0' %}
 0.0.0.0/0 {{ gen_dst_ports(dst_intfs) }}
+::/0 {{ gen_dst_ports(dst_intfs) }}
 
 {#routes to uplink#}
 {#Limit the number of podsets and subnets to be covered to limit script execution time#}
