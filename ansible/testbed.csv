@@ -59,6 +59,7 @@ vms12-t0-2,v12-21,t0,docker-ptf-mlnx,10.64.246.26/23,server_12,VM1228,str-msn270
 vms12-t1-2,v12-22,t1,docker-ptf-mlnx,10.64.246.25/23,server_12,VM1232,str-msn2700-05,Jenkins
 vms12-3-t0-e1031,v12-31,t0-52,docker-ptf-brcm,10.64.246.42/23,server_12,VM1264,str-e1031-acs-1,gulv
 vms12-t0-s6000,v12-4,t0,docker-ptf-brcm,10.64.246.84/23,server_12,VM1272,str-s6000-on-5,stumkurv
+vms12-t0-s6000-1,vms12-t0,t0,docker-ptf-brcm,10.64.246.55/23,server_12,VM1280,str-S6000-acs-14,taahme
 vms12-4-t0-marvell,v12-41,t0-52,docker-ptf-brcm,10.64.246.85/23,server_12,VM1268,str-marvell-acs-1,stumkurv
 vms12-t0-7280,vms12-6,t0,docker-ptf-brcm,10.64.247.7/23,server_12,VM1272,str-a7280cr3-1,prsunny
 vms13-t0-n9232-1,vms13-1,t0,docker-ptf-brcm,10.64.247.29/23,server_13,VM1300,str-n9232-acs-1,Jenkins

@@ -37,7 +37,7 @@ def build_topo_vmcnt():
         for tfile in topo_files:
             topo = re.findall('topo_(.*)\.yml', tfile)[0]
             with open(TOPO_PATH + tfile) as f:
-                vmtopo = yaml.load(f)
+                vmtopo = yaml.load(f, Loader=yaml.FullLoader)
                 topo_vm_cnt[topo] = len(vmtopo['topology']['VMs'])
     except EnvironmentError as e:
         print 'Error while trying to open/read topo files: {}'.format(str(e))
