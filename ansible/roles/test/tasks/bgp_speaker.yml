@@ -16,7 +16,7 @@
       debug: msg="{{deployment_id}}"
 
     - name: fetch bgp speaker asn number from DUT
-      shell: sonic-cfggen -m -d -y /etc/sonic/deployment_id_asn_map.yml -v "deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]"
+      shell: sonic-cfggen -m -d -y /etc/sonic/constants.yml -v "constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]"
       register: cfggen_out
 
     - name: set bgp speaker asn number
