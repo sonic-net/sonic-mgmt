@@ -62,11 +62,12 @@ def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
     """
     ans_host = testbed_devices["dut"]
 
-    loganalyzer = LogAnalyzer(ansible_host=ans_host, marker_prefix='sfp_cfg')
-    loganalyzer.load_common_config()
+    if ans_host.facts["asic_type"] in ["mellanox"]:
+        loganalyzer = LogAnalyzer(ansible_host=ans_host, marker_prefix='sfp_cfg')
+        loganalyzer.load_common_config()
 
-    loganalyzer.ignore_regex.append("kernel.*Eeprom query failed*")
-    marker = loganalyzer.init()
+        loganalyzer.ignore_regex.append("kernel.*Eeprom query failed*")
+        marker = loganalyzer.init()
 
     cmd_sfp_presence = "sudo sfputil show presence"
     cmd_sfp_eeprom = "sudo sfputil show eeprom"
@@ -123,7 +124,8 @@ def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
     assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
         "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
 
-    loganalyzer.analyze(marker)
+    if ans_host.facts["asic_type"] in ["mellanox"]:
+        loganalyzer.analyze(marker)
 
 
 def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
@@ -137,11 +139,12 @@ def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
     """
     ans_host = testbed_devices["dut"]
 
-    loganalyzer = LogAnalyzer(ansible_host=ans_host, marker_prefix='sfp_lpm')
-    loganalyzer.load_common_config()
+    if ans_host.facts["asic_type"] in ["mellanox"]:
+        loganalyzer = LogAnalyzer(ansible_host=ans_host, marker_prefix='sfp_lpm')
+        loganalyzer.load_common_config()
 
-    loganalyzer.ignore_regex.append("Eeprom query failed")
-    marker = loganalyzer.init()
+        loganalyzer.ignore_regex.append("Eeprom query failed")
+        marker = loganalyzer.init()
 
     cmd_sfp_presence = "sudo sfputil show presence"
     cmd_sfp_show_lpmode = "sudo sfputil show lpmode"
@@ -196,4 +199,5 @@ def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
     assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
         "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
 
-    loganalyzer.analyze(marker)
+    if ans_host.facts["asic_type"] in ["mellanox"]:
+        loganalyzer.analyze(marker)
