@@ -115,6 +115,7 @@ iface_speed='100000'
 str-a7060cx-acs-10   ansible_host=10.64.247.240 hwsku="Arista-7060CX-32S-C32"
 str-a7060cx-acs-1    ansible_host=10.64.247.14  hwsku="Arista-7060CX-32S-D48C8"
 str-a7280cr3-1       ansible_host=10.3.146.218  hwsku="Arista-7280CR3-C40"
+str-a7280cr3-2       ansible_host=10.3.146.28  hwsku="Arista-7280CR3-C40"
 
 [sonic_arista32_100:vars]
 iface_speed='100000'
@@ -227,6 +228,7 @@ vms3-4  ansible_host=10.64.246.11
 vms3-5  ansible_host=10.64.247.15
 vms3-61 ansible_host=10.64.246.21
 vms3-60 ansible_host=10.64.246.12
+vms3-7  ansible_host=10.64.246.87
 vms6-1  ansible_host=10.64.247.6
 vms6-2  ansible_host=10.64.247.18
 vms6-3  ansible_host=10.64.247.19
@@ -304,6 +306,7 @@ str-7060cx-32s-21  ansible_host=10.64.246.32
 str-7060cx-32s-22  ansible_host=10.64.246.34
 str-7260cx3-fan-03  ansible_host=10.64.246.47
 str-7260cx3-fan-04  ansible_host=10.64.246.74
+str-7260cx3-fan-06  ansible_host=10.3.146.25
 str-e1031-acs-2     ansible_host=10.64.247.25 os=sonic
 str-marvell-acs-2   ansible_host=10.3.146.155 os=sonic
 str-7260cx3-acs-fan-05 ansible_host=10.64.246.76
