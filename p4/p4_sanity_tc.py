@@ -143,63 +143,6 @@ def _test_action_profile_members(mode,sw_conn):
         raise CafyException.VerificationError("Test failed due to Grpc Error {err}".format(err=e.details()))
     finally:
         sw_conn.shutdown()
-
-def _test_action_profile_groups(mode,sw_conn):
-    log.info("Test: Action profile Groups")
-    tData = ApData.zap.get_testcase_configuration("test_action_profile_groups")
-    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
-    with open(tData["input_conf_file"], 'r') as ip_conf_file:
-        input_conf = p4TestLib.json_load_byteified(ip_conf_file)
-
-    try:
-        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
-        sw_conn.MasterArbitrationUpdate()
-        # Create Members
-        if 'INSERT' in mode:
-            if 'member_entries' in input_conf:
-                members = input_conf['member_entries']
-                log.info("{mode} {num} members ...".format(num=len(members),mode=mode.upper()))
-                for entry in members:
-                    log.info("{mode} a member ".format(mode=mode.upper()))
-                    p4TestLib.memberActions(sw_conn,entry,p4info_helper, mode)
-                    member_id = entry["member_id"]
-                    reply = sw_conn.ReadActionProfileMember(member_id=member_id)
-                    for rep in reply:
-                        log.info(p4TestLib.repr_pretty_p4runtime(rep))
-
-        # Create Groups.
-        if 'group_entries' in input_conf:
-            group_entries = input_conf['group_entries']
-            insrt_entrs = [x for x in group_entries if x['entry_oper'] == mode]
-            log.info("{mode} {num} group entries...".format(num=len(insrt_entrs),mode=mode.upper()))
-            for entry in insrt_entrs:
-                log.info("{mode} a Group ".format(mode=mode.upper()))
-                p4TestLib.groupActions(sw_conn,entry,p4info_helper, mode)
-                group_id = entry["group_id"]
-                if ('DELETE' not in mode):
-                    reply = sw_conn.ReadActionProfileGroup(group_id=group_id)
-                    for rep in reply:
-                        log.info("Reply from DUT: %s" % rep)
-                        log.info(p4TestLib.repr_pretty_p4runtime(rep))
-
-        if 'DELETE' in mode:
-            log.info("Delete members after group is deleted")            
-            if 'member_entries' in input_conf:
-                members = input_conf['member_entries']
-                log.info("{mode} {num} members ...".format(num=len(members),mode=mode.upper()))
-                for entry in members:
-                    log.info("{mode} a member ".format(mode=mode.upper()))
-                    p4TestLib.memberActions(sw_conn,entry,p4info_helper, mode)
-
-                            
-    except KeyboardInterrupt:
-        log.info("Shutting down.")
-    except grpc.RpcError as e:
-        log.error(e)
-        printGrpcError(e)
-        raise CafyException.VerificationError("Test failed due to Grpc Error {err}".format(err=e.details()))
-    finally:
-        sw_conn.shutdown()
             
 
 def _test_ElectionID():
@@ -313,6 +256,80 @@ def _test_Master_change(sw_conn):
     finally:
         ns1.shutdown()
         sw_conn.shutdown()
+
+def _test_Master_down(sw_conn):
+    err_msg = list()
+    result = True
+    try:
+        ns1=TchLib.Establish_Switch_Conn("s2")
+        log.info("Sending with Election ID High=444 & Low=555 for new switch connection")
+        reply=ns1.MasterArbitrationUpdate(election_id_high=444, election_id_low=555)
+        log.info(str(reply))
+        
+        if not ('message: "Is master"' in str(reply)):
+            err_msg.append("Test Failed as expected controller is not a Master")
+            result = False
+        
+        if not result:
+            ns1.shutdown()
+            pytest.fail("Test failed due to {}".format(err_msg))
+            
+        ns2=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        reply=ns2.MasterArbitrationUpdate()
+        if not ('message: "Is slave"' in str(reply)):
+            err_msg.append("Test Failed as expected controller is not a slave")
+            result = False
+        
+        if not result:
+            ns2.shutdown()
+            pytest.fail("Test failed due to {}".format(err_msg))
+        
+
+        ns1.shutdown()
+        
+        reply=ns2.MasterArbitrationUpdate()
+        if not ('message: "Is master"' in str(reply)):
+            err_msg.append("Part1 of the Test Failed as expected controller is not a master")
+            result = False
+        else:
+            log.info("Slave became a master, once master died, Part1 of test case passed")
+        
+        if not result:
+            ns2.shutdown()
+            pytest.fail("Test failed due to {}".format(err_msg))
+        
+        ns1=TchLib.Establish_Switch_Conn("s2")
+        log.info("Sending with Election ID High=444 & Low=555 for Master connection")
+        reply=ns1.MasterArbitrationUpdate(election_id_high=444, election_id_low=555)
+        if not ('message: "Is master"' in str(reply) and not 'code' in str(reply)):
+            err_msg.append("Part2 of the Test Failed as expected controller is not a Master")
+            result = False
+        
+        if not result:
+            ns1.shutdown()
+            pytest.fail("Test failed due to {}".format(err_msg))
+            
+        log.info("Verifying the state of old Master controller")
+        reply=ns2.MasterArbitrationUpdate()
+        if not ('message: "Is slave"' in str(reply) and 'code: 6' in str(reply)):
+            err_msg.append("Part2 of the Test Failed as expected controller is not a slave")
+            result = False
+        
+        if not result:
+            ns2.shutdown()
+            pytest.fail("Part2 of the Test failed due to {}".format(err_msg))
+        else:
+            log.info("Part2 of the Test case passed")
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        printGrpcError(e)
+        raise CafyException.VerificationError(e)
+    finally:
+        ns1.shutdown()
+        ns2.shutdown()
 
 def _test_max_connections():
     sw_conn = list()
@@ -1846,8 +1863,6 @@ def _test_getFwd_Resp1():
     finally:
         sw_conn.shutdown()
         
-
-
 def teardown_class(self):
     log.info("Teardown class")
     p4_switch.ShutdownAllSwitchConnections()

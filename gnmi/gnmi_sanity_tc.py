@@ -16,7 +16,6 @@ from gnmi_base_ap import ApData, GnmiApBase
 import marshal
 log = CafyLog("GNMI AP")
 
-
 # Import the required Proto files from lib dir
 # Probably there's a better way of doing this.
 # sys.path.append(
@@ -31,14 +30,9 @@ for tp_dir in tp_dirs:
 
 import gnmi_test_lib as gnmiTestLib
 
-
-SWITCH_TO_HOST_PORT = 1
-SWITCH_TO_SWITCH_PORT = 2
-
 def _test_gnmi_Capability(stub):
     user = None
     password = None
     log.info('Performing CapabilitiesRequest to target \n')
     response = gnmiTestLib._cap(stub, user, password)
-    #log.info('The CapabilitiesRequest response is below\n' + '-'*25 + '\n', response)
     log.info(response)
