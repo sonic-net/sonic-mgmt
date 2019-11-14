@@ -108,6 +108,9 @@
             },
             "test_writeRPC_Neg1": {
                 "input_conf_file": "./data-files/negative-tests-1.json"
+            },
+            "test_setFwd_Opt1": {
+                "input_conf_file": "./data-files/part-tbl.txt"
             }
         },
         "feature_configuration": {

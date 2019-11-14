@@ -72,11 +72,7 @@ def sw_conn():
 
 class TestP4(P4ApBase):
 
-
-    def test_writeInsert_Neg2(self,sw_conn):
-        p4_san_tc._test_writeInsert_Neg2()
-
-    """
+    
     def test_writeRPC_Neg3(self):
         p4_san_tc._test_writeRPC_Neg3()
     
@@ -154,4 +150,32 @@ class TestP4(P4ApBase):
     def test_writeInsert_Neg2(self,sw_conn):
         p4_san_tc._test_writeInsert_Neg2()
 
-'''
+    def test_writeModify_Neg1(self,sw_conn):
+        p4_san_tc._test_writeModify_Neg1()
+
+    def test_writeUpdnDel_Neg1(self,sw_conn):
+        p4_san_tc._test_writeModify_Neg2()
+
+    def test_setFrwding_Neg1(self):
+        p4_san_tc._test_setFrwding_Neg1()
+
+    def test_setFrwding_Act1(self):
+        p4_san_tc._test_setFrwding_Act1()
+
+    def test_setFwd_Opt1(self):
+        p4_san_tc._test_setFwd_Opt1()
+
+    def test_setFwd_Opt2(self):
+        p4_san_tc._test_setFwd_Opt2()
+
+    def test_setFwd_Opt3(self):
+        p4_san_tc._test_setFwd_Opt3()
+
+    def test_setFwd_Opt4(self):
+        p4_san_tc._test_setFwd_Opt4()
+
+    def test_getFwd_Neg1(self):
+        p4_san_tc._test_getFwd_Neg1()
+
+    def test_getFwd_Resp1(self):
+        p4_san_tc._test_getFwd_Resp1()

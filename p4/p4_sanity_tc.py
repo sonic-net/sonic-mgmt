@@ -962,7 +962,7 @@ def _test_actionMem_Neg3():
 
 
 def _test_writeRPC_Neg1():
-    log.info("Test: Verify sending unknown deviceID & roldID with WRITE RPC")
+    log.info("Test: Verify sending unknown deviceID & roleID with WRITE RPC")
     tData = ApData.zap.get_testcase_configuration("test_writeRPC_Neg1")
     p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
     with open(tData["input_conf_file"], 'r') as ip_conf_file:
@@ -990,13 +990,46 @@ def _test_writeRPC_Neg1():
         print("ERROR DETAILS::")
         log.error(e)
         printGrpcError(e)
+        sw_conn.shutdown()
         if ('StatusCode.NOT_FOUND' in str(e) and 'Invalid device id' in str(e)):
             log.info("Test NEG_WriteRPC_1.1:Passed - received correct error message on sending unknown deviceID in WRITE RPC")
         else:
             rslt = False
-            raise CafyException.VerificationError("Test NEG_WriteRPC_1.1:Failed - received incorrect error message on sending unknown deviceID")
+            log.error("Test NEG_WriteRPC_1.1:Failed - received incorrect error message on sending unknown deviceID")
+
+    try:       
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info ("NEG_WriteRPC_1.2: Verifying sending unknown deviceID in READ RPC ")
+        log.info(p4TestLib.tableEntryToString(tbl_ins))
+        #p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'INSERT')
+        reply = sw_conn.ReadTableEntries(table_id=table_id,device_id=100)
+        for rep in reply:
+            log.info(" READ Reply from DUT for unknown deviceID")
+            log.info(p4TestLib.repr_pretty_p4runtime(rep))
+            rslt = False
+            log.error("Test NEG_WriteRPC_1.2:Failed - READ RPC should not return data on sending unknown deviceID")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        print("ERROR DETAILS::")
+        log.error(e)
+        printGrpcError(e)
+        if ('StatusCode.NOT_FOUND' in str(e) and 'Invalid device id' in str(e)):
+            log.info("Test NEG_WriteRPC_1.2:Passed - received correct error message on sending unknown deviceID in READ RPC")
+        else:
+            rslt = False
+            log.error("Test NEG_WriteRPC_1.2:Failed - received incorrect error message on sending unknown deviceID in READ RPC")
+
     finally:
         sw_conn.shutdown()
+        if rslt:
+            log.info("Test NEG_WriteRPC_1:Passed - Error Scenarios for Write & Read RPC with unknown deviceID Passed")
+        else:
+            raise CafyException.VerificationError("Test NEG_WriteRPC_1:Failed - One or More Error Scenarios for Write/Read RPC with unknown deviceID")
+ 
+
 
 def _test_writeRPC_Neg2():
     log.info("Test: Verify WRITE RPC from a Non-Master Controller")
@@ -1159,6 +1192,660 @@ def _test_writeInsert_Neg2():
             else:
                 log.error("Test NEG_WriteInsert_2:Failed - rcvd incorrect error message on Insert into a table with Malformed Entry")
                 rslt = False
+
+def _test_writeModify_Neg1():
+    log.info("Test: Verify Modify of table with Malformed Entry")
+    tData = ApData.zap.get_testcase_configuration("test_writeRPC_Neg1")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    with open(tData["input_conf_file"], 'r') as ip_conf_file:
+        input_conf = p4TestLib.json_load_byteified(ip_conf_file)
+    rslt = True
+
+    if 'NEG_WriteInsert_2' in input_conf:
+        tbl_info = input_conf['NEG_WriteInsert_2']
+        for entry in tbl_info:
+            if "table" in entry:
+                tbl_ins = entry
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info ("NEG_WriteModify_1: Verifying Modify of a table with Malformed Entry")
+        log.info(p4TestLib.tableEntryToString(tbl_ins))
+        p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'INSERT',priority=0)
+        sleep(2)
+        p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'MODIFY')
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        e_det = parseGrpcError(e)
+        print("ERROR DETAILS::")
+        print(e_det)
+        sw_conn.shutdown()
+        for item in e_det:
+            if (item['code'] == "INVALID_ARGUMENT") and (item['message'] == "Non-zero priority for non-ternary match"):
+                log.info("Test NEG_WriteModify_1:Passed - received correct error message on Modify of a table with Malformed Entry")
+            else:
+                log.error("Test NEG_WriteModify_1:Failed - rcvd incorrect error message on Modify of a table with Malformed Entry")
+                rslt = False
+
+def _test_writeUpdnDel_Neg1():
+    log.info("Test: Verify Modify of table with Non-existant Entry")
+    tData = ApData.zap.get_testcase_configuration("test_writeRPC_Neg1")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    with open(tData["input_conf_file"], 'r') as ip_conf_file:
+        input_conf = p4TestLib.json_load_byteified(ip_conf_file)
+    rslt = True
+
+    if 'NEG_WriteInsert_2' in input_conf:
+        tbl_info = input_conf['NEG_WriteInsert_2']
+        for entry in tbl_info:
+            if "table" in entry:
+                tbl_ins = entry
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info ("NEG_WriteModify_2: Verifying Modify of a table with Non-existant Entry")
+        log.info(p4TestLib.tableEntryToString(tbl_ins))
+        p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'MODIFY',priority=0)
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        e_det = parseGrpcError(e)
+        print("ERROR DETAILS::")
+        print(e_det)
+        sw_conn.shutdown()
+        for item in e_det:
+            if (item['code'] == "NOT_FOUND") and (item['message'] == "Cannot find match entry"):
+                log.info("Test NEG_WriteModify_2:Passed - received correct error message on Modify of a table with Non-existant Entry")
+            else:
+                log.error("Test NEG_WriteModify_2:Failed - rcvd incorrect error message on Modify of a table with Non-existant Entry")
+                rslt = False
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info ("NEG_WriteDelete_1: Verifying Delete of a table with Non-existant Entry")
+        log.info(p4TestLib.tableEntryToString(tbl_ins))
+        p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'DELETE',priority=0)
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        e_det = parseGrpcError(e)
+        print("ERROR DETAILS::")
+        print(e_det)
+        sw_conn.shutdown()
+        for item in e_det:
+            if (item['code'] == "NOT_FOUND") and (item['message'] == "Cannot find match entry"):
+                log.info("Test NEG_WriteDelete_1:Passed - received correct error message on Delete of a table with Non-existant Entry")
+            else:
+                log.error("Test NEG_WriteDelete_1:Failed - rcvd incorrect error message on Delete of a table with Non-existant Entry")
+                rslt = False
+
+    finally:
+        if rslt:
+            log.info("Test NEG_WriteUpdDel_1:Passed - Error Scenarios for Write RPC with Update+Delete Passed")
+        else:
+            raise CafyException.VerificationError("Test NEG_WriteUpdDel_1:Failed - One or More Error Scenarios for Write RPC with Update+Delete")
+
+
+def _test_setFrwding_Neg1():
+    log.info("Test: Verify SetForwardingPipelineConfig with Unknown deviceID & Non-Master")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    p4_json_file_path = ApData.p4json
+    rslt = True
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info("Setting ForwardingPipelineConfig on s1")
+        sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,
+                                            p4_json_file_path=p4_json_file_path,device_id=100)
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        print("ERROR DETAILS::")
+        log.error(e)
+        printGrpcError(e)
+        if ('StatusCode.NOT_FOUND' in str(e) and 'Invalid device id' in str(e)):
+            log.info("Test NEG_SetFwding_1.1:Passed - rcvd correct error message on sending unknown deviceID in SetForwardingPipelineConfig")
+        else:
+            rslt = False
+            log.error("Test NEG_SetFwding_1.1:Failed - rcvd incorrect error message on sending unknown deviceID")
+    finally:
+        sw_conn.shutdown()
+
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info ("NEG_SetFwding_1.2: SetForwardingPipelineConfig from a Non-Master Controller")
+        log.info("Creating a new switch connection which will be Master")
+        ns1=TchLib.Establish_Switch_Conn("s2")
+        log.info("Sending with Election ID High=44 & Low=555 for new switch connection")
+        reply=ns1.MasterArbitrationUpdate(election_id_high=44, election_id_low=555)
+        log.info(str(reply))
+        if ('message: "Is master"' in str(reply)):
+            log.info("2nd switch connection is Master")
+        else:
+            rslt = False
+            log.error("NEG_SetFwding_1.2: Failed as setup with Master & 2nd controller are not present")
+        log.info ("NEG_SetFwding_1.2: Verifying SetFwding from Non-Master")
+        sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,
+                                            p4_json_file_path=p4_json_file_path)
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        print("ERROR DETAILS::")
+        log.error(e)
+        printGrpcError(e)
+        if ('StatusCode.PERMISSION_DENIED' in str(e) and 'Not master' in str(e)):
+            log.info("Test NEG_SetFwding_1.2:Passed - received correct error message on SetForwardingPipelineConfig from Non-Master")
+        else:
+            rslt = False
+            raise CafyException.VerificationError("Test NEG_SetFwding_1.2:Failed - rcvd incorrect error message on SetFwding from Non-Master")
+    finally:
+        sw_conn.shutdown()
+        ns1.shutdown()
+
+
+def _test_setFrwding_Act1():
+    log.info("Test: Verify SetForwardingPipelineConfig Action Types")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    p4_json_file_path = ApData.p4json
+    rslt = True
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info("Setting ForwardingPipelineConfig on s1")
+        sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,
+                                            p4_json_file_path=p4_json_file_path)
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        print("ERROR DETAILS::")
+        log.error(e)
+        printGrpcError(e)
+        if ('StatusCode.NOT_FOUND' in str(e) and 'Invalid device id' in str(e)):
+            log.info("Test NEG_SetFwding_1.1:Passed - rcvd correct error message on sending unknown deviceID in SetForwardingPipelineConfig")
+        else:
+            rslt = False
+            log.error("Test NEG_SetFwding_1.1:Failed - rcvd incorrect error message on sending unknown deviceID")
+    finally:
+        sw_conn.shutdown()
+
+
+def _test_setFwd_Opt1():
+    log.info("Test: Verify SetForwardingPipelineConfig with VERIFY Action")
+    tData = ApData.zap.get_testcase_configuration("test_setFwd_Opt1")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    p4_json_file_path = ApData.p4json
+    input_conf = p4_info_helper.P4InfoHelper(tData["input_conf_file"])
+    rslt = True
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()    
+        log.info("Setting ForwardingPipelineConfig on s1")
+        sw_conn.SetForwardingPipelineConfig(p4info=input_conf.p4info,config=True,
+                                            p4_json_file_path=p4_json_file_path,action="VERIFY")
+        response = sw_conn.GetForwardingPipelineConfig()
+        #log.info(response)
+        #Sending SetFwingPipelineCfg with 'VERIFY' option
+        foo = p4TestLib.repr_pretty_p4runtime(response)
+        for line in foo.splitlines():
+            if re.search(r'^.*name:.*encap_in_ipv4_table\"$', line):
+                log.error("SFwd_Act_1.1:Failed - This table should not be present in the Set Config")
+                log.info(line)
+                rslt = False
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        log.error("Test SFwd_Act_1.1:Failed - GRPC error should not be received on SetFwding with VERIFY")
+    finally:
+        sw_conn.shutdown()
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()    
+        log.info("Setting ForwardingPipelineConfig on s1")
+        sw_conn.SetForwardingPipelineConfig(p4info=input_conf.p4info,config=False,
+                                            p4_json_file_path=p4_json_file_path,action="VERIFY")
+        response = sw_conn.GetForwardingPipelineConfig()
+        log.error("Test SFwd_Act_1.2:Failed - GRPC error should be received on SetFwding with VERIFY & No Config")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        e_det = parseGrpcError(e)
+        print("ERROR DETAILS::")
+        print(e_det)
+        sw_conn.shutdown()
+        for item in e_det:
+            if (item['code'] == "INVALID_ARGUMENT") and (item['message'] == "No Config provided for SetFwding"):
+                log.info("Test SFwd_Act_1.2:Passed - received correct error message on SetFwding with No config")
+            else:
+                log.error("Test SFwd_Act_1.2:Failed - rcvd incorrect error message on SetFwding with No config")
+                rslt = False
+    finally:
+        if rslt:
+            log.info("Test SFwd_Act_1:Passed - SetFwding with VERIFY action behavior")
+        else:
+            log.error("Test SFwd_Act_1:Failed - SetFwding with VERIFY action behavior")
+        sw_conn.shutdown()
+        
+
+def _test_setFwd_Opt2():
+    log.info("Test: Verify SetForwardingPipelineConfig with VERIFY_AND_SAVE Action")
+    tData = ApData.zap.get_testcase_configuration("test_setFwd_Opt1")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    p4_json_file_path = ApData.p4json
+    input_conf = p4_info_helper.P4InfoHelper(tData["input_conf_file"])
+    rslt = True
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()    
+        log.info("Test SFwd_Act_2.1 - Setting ForwardingPipelineConfig on s1")
+        sw_conn.SetForwardingPipelineConfig(p4info=input_conf.p4info,config=False,
+                                            p4_json_file_path=p4_json_file_path,action="VERIFY_AND_SAVE")
+        response = sw_conn.GetForwardingPipelineConfig()
+        log.error("Test SFwd_Act_2.1:Failed - GRPC error should be received on SetFwding with VERIFY_AND_SAVE & No Config")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        e_det = parseGrpcError(e)
+        print("ERROR DETAILS::")
+        print(e_det)
+        sw_conn.shutdown()
+        for item in e_det:
+            if (item['code'] == "INVALID_ARGUMENT") and (item['message'] == "No Config provided for SetFwding"):
+                log.info("Test SFwd_Act_2.1:Passed - received correct error message on SetFwding with No config")
+            else:
+                log.error("Test SFwd_Act_2.1:Failed - rcvd incorrect error message on SetFwding with No config")
+                rslt = False
+    finally:
+        sw_conn.shutdown()
+
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()    
+        log.info("Test SFwd_Act_2.2 - Setting ForwardingPipelineConfig on s1")
+        sw_conn.SetForwardingPipelineConfig(p4info=input_conf.p4info,config=True,
+                                            p4_json_file_path=p4_json_file_path,action="VERIFY_AND_SAVE")
+        response = sw_conn.GetForwardingPipelineConfig()
+        #log.info(response)
+        #Sending SetFwingPipelineCfg with 'VERIFY_AND_SAVE' option without v4 table
+        foo = p4TestLib.repr_pretty_p4runtime(response)
+        rchk_v4 = True
+        for line in foo.splitlines():
+            if re.search(r'^.*name:.*encap_in_ipv6_table\"$', line):
+                log.info(line)
+                rchk_v6 = True
+            if re.search(r'^.*name:.*encap_in_ipv4_table\"$', line):
+                log.error("SFwd_Act_2.2:Failed - This table should not be present in the Set Config")
+                log.info(line)
+                rchk_v4 = False
+                rslt = False
+        if rchk_v4 and rchk_v6:
+            log.info("SFwd_Act_2.2:Passed - SetFwding with VERIFY_AND_SAVE input is OK")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        log.error("Test SFwd_Act_2.2:Failed - GRPC error should not be received on SetFwding with VERIFY_AND_SAVE")
+    finally:
+        sw_conn.shutdown()
+
+    try:
+        tData = ApData.zap.get_testcase_configuration("test_writeRPC_Neg1")
+        with open(tData["input_conf_file"], 'r') as ip_conf_file:
+            input_conf = p4TestLib.json_load_byteified(ip_conf_file)
+
+        if 'NEG_WriteRPC_1' in input_conf:
+            tbl_info = input_conf['NEG_WriteRPC_1']
+            for entry in tbl_info:
+                if "table" in entry:
+                    tbl_ins = entry
+                    tbl_name = entry['table']
+                    table_id = p4info_helper.get_id("tables", name=tbl_name)
+
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()    
+        log.info("Test SFwd_Act_2.3 - Setting ForwardingPipelineConfig on s1")
+        sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,config=True,
+                                            p4_json_file_path=p4_json_file_path,action="VERIFY_AND_SAVE")
+        response = sw_conn.GetForwardingPipelineConfig()
+        #log.info(response)
+        #Sending SetFwingPipelineCfg with 'VERIFY_AND_SAVE' option with v4 table config now
+        foo = p4TestLib.repr_pretty_p4runtime(response)
+        rchk_v4 = False
+        for line in foo.splitlines():
+            if re.search(r'^.*name:.*encap_in_ipv4_table\"$', line):
+                rchk_v4 = True
+                log.info(line)
+        if rchk_v4:
+            log.info("SFwd_Act_2.3.1:Passed - encap+in_ipv4 table got correctly saved with SetFwding")
+            #Now we will try to insertan entry to the new table
+            log.info(p4TestLib.tableEntryToString(tbl_ins))
+            p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'INSERT')
+            sleep(1)
+            #Read the table to verify if entry was inserted
+            reply = sw_conn.ReadTableEntries(table_id=table_id)
+            for rep in reply:
+                log.info("SFwd_Act_2.3.1 - READ Reply from DUT")
+                resp = p4TestLib.repr_pretty_p4runtime(rep)
+                log.info(resp)
+                entries = p4TestLib.table_entry_to_dict(resp)
+                if len(entries) == 1:
+                    for entry in entries:
+                        for key,value in entry.items():
+                            log.info("{}:{}".format(key,value))
+                    log.info("SFwd_Act_2.3.2:Passed - entry inserted to encap+in_ipv4 table with VERIFY_AND_SAVE")
+                else:
+                    log.error("SFwd_Act_2.3.2:Failed - entry inserted to encap+in_ipv4 table with VERIFY_AND_SAVE")
+        else:
+            log.error("SFwd_Act_2.3.1:Failed - encap+in_ipv4 table did not get saved with SetFwding")
+            rslt = False
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        log.error("Test SFwd_Act_2.3:Failed - GRPC error should not be received on SetFwding with VERIFY_AND_SAVE")
+    finally:
+        sw_conn.shutdown()
+
+    #Setting the Forwarding Pipeline so that no stale config in saved mode is left behind
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info("Setting ForwardingPipelineConfig")
+        sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,
+                                            p4_json_file_path=p4_json_file_path)    
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        log.error("Test SFwd_Act_2.4:Failed - GRPC error should not be received on SetFwding")
+    finally:
+        sw_conn.shutdown()
+
+
+def _test_setFwd_Opt3():
+    log.info("Test: Verify SetForwardingPipelineConfig with COMMIT Action")
+    tData = ApData.zap.get_testcase_configuration("test_setFwd_Opt1")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    p4_json_file_path = ApData.p4json
+    input_conf = p4_info_helper.P4InfoHelper(tData["input_conf_file"])
+    rslt = True
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()    
+        log.info("Test SFwd_Act_3.1 - Setting ForwardingPipelineConfig on s1")
+        sw_conn.SetForwardingPipelineConfig(p4info=input_conf.p4info,
+                                            p4_json_file_path=p4_json_file_path)
+        response = sw_conn.GetForwardingPipelineConfig()
+        #Checking if FwdingPipeline with v4 table config is present
+        foo = p4TestLib.repr_pretty_p4runtime(response)
+        rchk_v4 = False
+        for line in foo.splitlines():
+            if re.search(r'^.*name:.*encap_in_ipv6_table\"$', line):
+                rchk_v4 = True
+                log.info(line)
+        if rchk_v4:
+            log.info("SFwd_Act_3.1.1:Passed - encap+in_ipv6 table got correctly set with SetFwding")
+        else:
+            log.error("SFwd_Act_3.1.1:Failed - encap+in_ipv6 table did not get set, Fail and skip rest of test")
+        #Now try to SetFwding with COMMIT without saved config
+        sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,config=False,
+                                            p4_json_file_path=p4_json_file_path,action="COMMIT")        
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        e_det = parseGrpcError(e)
+        print("ERROR DETAILS::")
+        print(e_det)
+        sw_conn.shutdown()
+        for item in e_det:
+            if (item['code'] == "NOT_FOUND") and (item['message'] == "No Verify_and_save action preceeded"):
+                log.info("Test SFwd_Act_3.1.2:Passed - received correct error message on SetFwding with COMMIT with no save")
+            else:
+                log.error("Test SFwd_Act_3.1.2:Failed - rcvd incorrect error message on SetFwding with COMMIT with no save")
+                rslt = False
+    finally:
+        sw_conn.shutdown()
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,config=True,
+                                            p4_json_file_path=p4_json_file_path,action="VERIFY_AND_SAVE")
+        #Now try to SetFwding with COMMIT with config being provided
+        sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,config=True,
+                                            p4_json_file_path=p4_json_file_path,action="COMMIT")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        e_det = parseGrpcError(e)
+        print("ERROR DETAILS::")
+        print(e_det)
+        sw_conn.shutdown()
+        for item in e_det:
+            if (item['code'] == "INVALID_ARGUMENT") and (item['message'] == "Config should not be provided"):
+                log.info("Test SFwd_Act_3.2:Passed - received correct error message on SetFwding with COMMIT with no save")
+            else:
+                log.error("Test SFwd_Act_3.2:Failed - rcvd incorrect error message on SetFwding with COMMIT with no save")
+                rslt = False
+    finally:
+        sw_conn.shutdown()
+
+
+
+def _test_setFwd_Opt4():
+    log.info("Test: Verify SetForwardingPipelineConfig with COMMIT Action")
+    tData = ApData.zap.get_testcase_configuration("test_setFwd_Opt1")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    p4_json_file_path = ApData.p4json
+    input_conf = p4_info_helper.P4InfoHelper(tData["input_conf_file"])
+    rslt = True
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        sw_conn.SetForwardingPipelineConfig(p4info=input_conf.p4info,
+                                            p4_json_file_path=p4_json_file_path)
+        sleep(3)
+
+        tData2 = ApData.zap.get_testcase_configuration("test_writeRPC_Neg1")
+        with open(tData2["input_conf_file"], 'r') as ip_conf_file:
+            input_conf2 = p4TestLib.json_load_byteified(ip_conf_file)
+
+        if 'NEG_WriteRPC_1' in input_conf2:
+            tbl_info = input_conf2['NEG_WriteRPC_1']
+            for entry in tbl_info:
+                if "table" in entry:
+                    tbl_ins = entry
+                    tbl_name = entry['table']
+                    table_id = p4info_helper.get_id("tables", name=tbl_name)
+
+        sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,config=True,
+                                            p4_json_file_path=p4_json_file_path,action="VERIFY_AND_SAVE")
+        sleep(3)
+        p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'INSERT')
+        sleep(5)
+        #Now try to SetFwding with COMMIT
+        sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,config=False,
+                                            p4_json_file_path=p4_json_file_path,action="COMMIT")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        e_det = parseGrpcError(e)
+        print("ERROR DETAILS::")
+        print(e_det)
+        sw_conn.shutdown()
+        for item in e_det:
+            if (item['code'] == "INVALID_ARGUMENT") and (item['message'] == "Config should not be provided"):
+                log.info("Test SFwd_Act_4.1:Passed - received correct error message on SetFwding with COMMIT with no save")
+            else:
+                log.error("Test SFwd_Act_4.1:Failed - rcvd incorrect error message on SetFwding with COMMIT with no save")
+                rslt = False
+    finally:
+        sw_conn.shutdown()
+
+
+def _test_getFwd_Neg1():
+    log.info("Test: Verify GetForwardingPipelineConfig with Unknown Device-ID")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    p4_json_file_path = ApData.p4json
+    rslt = True
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info("Get ForwardingPipelineConfig on s1")
+        response = sw_conn.GetForwardingPipelineConfig(device_id=100)
+        log.info(response)
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        print("ERROR DETAILS::")
+        log.error(e)
+        printGrpcError(e)
+        if ('StatusCode.NOT_FOUND' in str(e) and 'Invalid device id' in str(e)):
+            log.info("Test NEG_GetFwding_1.1:Passed - rcvd correct error message on sending unknown deviceID in GetForwardingPipelineConfig")
+        else:
+            rslt = False
+            log.error("Test NEG_GetFwding_1.1:Failed - rcvd incorrect error message on sending unknown deviceID")
+    finally:
+        sw_conn.shutdown()
+
+
+def _test_getFwd_Resp1():
+    log.info("Test: Verify GetForwardingPipelineConfig with various Response Types")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    p4_json_file_path = ApData.p4json
+    rslt = True
+
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info("Setting ForwardingPipelineConfig with Cookie of 333444")
+        sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,
+                                            p4_json_file_path=p4_json_file_path,cookie=333444)
+        log.info("Get ForwardingPipelineConfig with ResponeType = COOKIE_ONLY")
+        response = sw_conn.GetForwardingPipelineConfig(resp_typ="COOKIE_ONLY")
+        log.info(response)
+        if ('cookie: 333444' in str(response)):
+            log.info("Test GtFwd_Resp_1.1:Passed - GetFwding with COOKIE_ONLY works correctly")
+        else:
+            log.error("Test GtFwd_Resp_1.1:Failed - GetFwding with COOKIE_ONLY does not return correct COOKIE")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        print("ERROR DETAILS::")
+        log.error(e)
+        printGrpcError(e)
+        rslt = False
+        log.error("Test GtFwd_Resp_1.1:Failed - GetFwding with COOKIE_ONLY should not give error")
+    finally:
+        sw_conn.shutdown()    
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info("Setting ForwardingPipelineConfig with Cookie of 333444 is already set in GtFwd_Resp_1.1")
+        log.info("Get ForwardingPipelineConfig with ResponeType = P4INFO_AND_COOKIE")
+        resp = sw_conn.GetForwardingPipelineConfig(resp_typ="P4INFO_AND_COOKIE")
+        log.info(resp)
+        if ('cookie: 333444' in str(resp) and 'tables' in str(resp)):
+            log.info("Test GtFwd_Resp_1.2:Passed - GetFwding with P4INFO_AND_COOKIE works correctly")
+        else:
+            log.error("Test GtFwd_Resp_1.2:Failed - GetFwding with P4INFO_AND_COOKIE does not return correct COOKIE")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        print("ERROR DETAILS::")
+        log.error(e)
+        printGrpcError(e)
+        rslt = False
+        log.error("Test GtFwd_Resp_1.2:Failed - GetFwding with P4INFO_AND_COOKIE should not give error")
+    finally:
+        sw_conn.shutdown() 
+
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info("Setting ForwardingPipelineConfig with Cookie of 333444 is already set in GtFwd_Resp_1.1")
+        log.info("Get ForwardingPipelineConfig with ResponeType = DEVICE_CONFIG_AND_COOKIE")
+        resp = sw_conn.GetForwardingPipelineConfig(resp_typ="DEVICE_CONFIG_AND_COOKIE")
+        log.info(resp)
+        if ('cookie: 333444' in str(resp) and 'tables' not in str(resp)):
+            log.info("Test GtFwd_Resp_1.3:Passed - GetFwding with DEVICE_CONFIG_AND_COOKIE works correctly")
+        else:
+            log.error("Test GtFwd_Resp_1.3:Failed - GetFwding with DEVICE_CONFIG_AND_COOKIE does not return correct COOKIE")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        print("ERROR DETAILS::")
+        log.error(e)
+        printGrpcError(e)
+        rslt = False
+        log.error("Test GtFwd_Resp_1.3:Failed - GetFwding with DEVICE_CONFIG_AND_COOKIE should not give error")
+    finally:
+        sw_conn.shutdown()
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        log.info("Setting ForwardingPipelineConfig with Cookie of 333444 is already set in GtFwd_Resp_1.1")
+        log.info("Get ForwardingPipelineConfig with ResponeType = ALL")
+        resp = sw_conn.GetForwardingPipelineConfig(resp_typ="ALL")
+        log.info(resp)
+        if ('cookie: 333444' in str(resp) and 'tables' in str(resp)):
+            log.info("Test GtFwd_Resp_1.4:Passed - GetFwding with ALL works correctly")
+        else:
+            log.error("Test GtFwd_Resp_1.4:Failed - GetFwding with ALL does not return correct COOKIE")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        print("ERROR DETAILS::")
+        log.error(e)
+        printGrpcError(e)
+        rslt = False
+        log.error("Test GtFwd_Resp_1.4:Failed - GetFwding with ALL should not give error")
+    finally:
+        sw_conn.shutdown()
+        
 
 
 def teardown_class(self):

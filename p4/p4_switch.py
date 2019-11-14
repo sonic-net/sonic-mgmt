@@ -104,16 +104,41 @@ class SwitchConnection(object):
             request.election_id.high = kwargs["election_id_high"]
         except KeyError:
             request.election_id.high = 0
-        
-        log.info(request.election_id.low)
-        request.device_id = self.device_id
-        #request.role_id = 333
-        config = request.config
+        try:
+            request.device_id = kwargs["device_id"]
+        except KeyError:
+            request.device_id = self.device_id
+        try:
+            cfg_reqd = kwargs["config"]
+        except KeyError:
+            cfg_reqd = True
+        try:
+            ckie = kwargs["cookie"]
+        except KeyError:
+            ckie = False
 
-        config.p4info.CopyFrom(p4info)
+        log.info(request.election_id.low)
+        #request.device_id = self.device_id
+        #request.role_id = 333
+        if cfg_reqd:
+            config = request.config
+            config.p4info.CopyFrom(p4info)
+            if ckie:
+                config.cookie.cookie = ckie
+            print("Sending Config: ")
+        else:
+            print("Sending NO Config: ", request.config)
         #config.p4_device_config = device_config.SerializeToString()
 
-        request.action = p4runtime_pb2.SetForwardingPipelineConfigRequest.VERIFY_AND_COMMIT
+        try:
+            req_act = kwargs["action"]
+        except KeyError:
+            #Using default Action for 'SetForwardingPipeline' as VERIFY_AND_COMMIT(3)
+            req_act = "VERIFY_AND_COMMIT"
+
+        #request.action = p4runtime_pb2.SetForwardingPipelineConfigRequest.VERIFY_AND_SAVE
+        req_nam = request.Action.Value(req_act)
+        setattr(request, 'action', req_nam)
         if dry_run:
             log.info("P4Runtime SetForwardingPipelineConfig:", request)
         else:
@@ -122,9 +147,21 @@ class SwitchConnection(object):
 
     def GetForwardingPipelineConfig(self, resp_typ=0, dry_run=False):
         request = p4runtime_pb2.GetForwardingPipelineConfigRequest()
-        request.device_id = self.device_id
-        if resp_typ == 0:
-            request.response_type = p4runtime_pb2.GetForwardingPipelineConfigRequest.ALL
+        try:
+            request.device_id = kwargs["device_id"]
+        except KeyError:
+            request.device_id = self.device_id
+
+        try:
+            req_type = kwargs["resp_typ"]
+        except KeyError:
+            req_type = "ALL"
+
+        req_nam = request.ResponseType.Value(req_type)
+        setattr(request, 'response_type', req_nam)
+
+        #if request.response_type == 0:
+        #    request.response_type = p4runtime_pb2.GetForwardingPipelineConfigRequest.ALL
         if dry_run:
             print ("P4Runtime GetForwardingPipelineConfig:", request)
         else:
@@ -318,7 +355,12 @@ class SwitchConnection(object):
 
     def ReadTableEntries(self, table_id=None, dry_run=False, **kwargs):
         request = p4runtime_pb2.ReadRequest()
-        request.device_id = self.device_id
+        #request.device_id = self.device_id
+        try:
+            request.device_id = kwargs["device_id"]
+        except KeyError:
+            request.device_id = self.device_id        
+
         entity = request.entities.add()
         table_entry = entity.table_entry
         if table_id is not None:
