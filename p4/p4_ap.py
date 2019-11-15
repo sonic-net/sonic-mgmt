@@ -113,7 +113,16 @@ class TestP4(P4ApBase):
 
     @pytest.mark.parametrize("mode", ["INSERT", "DELETE"])
     def test_action_profile_members(self,mode,sw_conn):
-        p4_san_tc._test_action_profile_members(mode,sw_conn)
+        p4_apg_apm._test_action_profile_members(mode,sw_conn)
+    
+    def test_actionMem_Neg1(self,sw_conn):
+        p4_apg_apm._test_actionMem_Neg1()
+
+    def test_actionMem_Neg2(self,sw_conn):
+        p4_apg_apm._test_actionMem_Neg2()
+
+    def test_actionMem_Neg3(self,sw_conn):
+        p4_apg_apm._test_actionMem_Neg3()
 
     @pytest.mark.parametrize("mode", ["INSERT", "MODIFY", "DELETE"])
     def test_action_profile_groups(self,mode,sw_conn):
@@ -158,15 +167,6 @@ class TestP4(P4ApBase):
     @pytest.mark.last
     def test_max_connections(self,sw_conn):
         p4_san_tc._test_max_connections()
-
-    def test_actionMem_Neg1(self,sw_conn):
-        p4_san_tc._test_actionMem_Neg1()
-
-    def test_actionMem_Neg2(self,sw_conn):
-        p4_san_tc._test_actionMem_Neg2()
-
-    def test_actionMem_Neg3(self,sw_conn):
-        p4_san_tc._test_actionMem_Neg3()
 
     def test_writeRPC_Neg1(self,sw_conn):
         p4_san_tc._test_writeRPC_Neg1()
