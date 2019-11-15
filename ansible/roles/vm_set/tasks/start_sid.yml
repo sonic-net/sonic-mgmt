@@ -7,7 +7,7 @@
 - include_vars: group_vars/sonic/vars
 
 - set_fact:
-    src_disk_image: "{{ home_path }}/sid/images/sonic_spc.img"
+    src_disk_image: "{{ home_path }}/sid/images/sonic.img"
     disk_image: "{{ home_path }}/sid/disks/{{ dut_name }}.img"
     simx_image: "{{ home_path }}/sid/images/simx:latest.tar"
     mgmt_ip_address: " {{ hostvars[dut_name]['ansible_host'] }}/{{ mgmt_prefixlen }}"
@@ -54,18 +54,3 @@
 - name: Wait for SID to start
   pause:
     seconds: 60
-
-- name: get rid of linux bridges
-  shell: brctl delif v000_port{{ item }} tap{{ item }}
-  with_sequence: start=1 end=32
-  ignore_errors: true
-
-- name: get rid of linux bridges
-  shell: ifconfig v000_port{{ item }} down
-  with_sequence: start=1 end=32
-  ignore_errors: true
-  
-- name: get rid of linux bridges
-  shell: brctl delbr v000_port{{ item }}
-  with_sequence: start=1 end=32
-  ignore_errors: true
