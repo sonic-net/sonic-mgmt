@@ -195,3 +195,11 @@
 - name: Stop SONiC VM
   include: stop_sonic_vm.yml
   when: action == 'stop_sonic_vm' and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == 'kvm'
+
+- name: Start SID
+  include: start_sid.yml
+  when: action == 'start_sid' and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == 'simx'
+
+- name: Stop SID
+  include: stop_sid.yml
+  when: action == 'stop_sid' and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == 'simx'
