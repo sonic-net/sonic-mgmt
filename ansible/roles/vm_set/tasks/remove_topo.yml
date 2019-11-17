@@ -22,8 +22,7 @@
   when: external_port is defined
 
 - name: Remove ptf docker container ptf_{{ vm_set_name }}
-  docker:
+  docker_container:
     name: ptf_{{ vm_set_name }}
-    image: "{{ docker_registry_host }}/{{ ptf_imagename }}"
     state: absent
   become: yes

@@ -28,8 +28,3 @@
   apt: pkg=docker-ce update_cache=yes
   become: yes
   environment: "{{ proxy_env | default({}) }}"
-
-- name: Install python packages
-  pip: name=docker-py state=present version=1.7.2
-  become: yes
-  environment: "{{ proxy_env | default({}) }}"
