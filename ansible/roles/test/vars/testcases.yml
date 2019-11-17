@@ -40,6 +40,7 @@ testcases:
 
     continuous_reboot:
       filename: continuous_reboot.yml
+      vtestbed_compatible: no
       topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
 
     copp:
@@ -75,6 +76,7 @@ testcases:
 
     fast-reboot:
       filename: fast-reboot.yml
+      vtestbed_compatible: no
       topologies: [t0, t0-56, t0-64, t0-64-32, t0-116]
       required_vars:
           ptf_host:
@@ -82,6 +84,7 @@ testcases:
 
     warm-reboot:
       filename: warm-reboot.yml
+      vtestbed_compatible: no
       topologies: [t0, t0-64, t0-64-32, t0-116]
       required_vars:
           ptf_host:
@@ -89,6 +92,7 @@ testcases:
 
     warm-reboot-sad:
       filename: warm-reboot-sad.yml
+      vtestbed_compatible: no
       topologies: [t0, t0-64, t0-64-32, t0-116]
       required_vars:
           ptf_host:
@@ -96,6 +100,7 @@ testcases:
 
     warm-reboot-multi-sad:
       filename: warm-reboot-multi-sad.yml
+      vtestbed_compatible: no
       topologies: [t0, t0-64, t0-64-32, t0-116]
       required_vars:
           ptf_host:
@@ -124,6 +129,7 @@ testcases:
 
     warm-reboot-fib:
       filename: warm-reboot-fib.yml
+      vtestbed_compatible: no
       topologies: [t0, t0-16, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
       required_vars:
           ptf_host:
@@ -164,10 +170,12 @@ testcases:
 
     link_flap:
       filename: link_flap.yml
+      vtestbed_compatible: no
       topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
     continuous_link_flap:
       filename: continuous_link_flap.yml
+      vtestbed_compatible: no
       topologies: [t0, t0-16, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag]
 
     mem_check:
@@ -197,6 +205,7 @@ testcases:
 
     pfc_wd:
       filename: pfc_wd.yml
+      vtestbed_compatible: no
       topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
     portstat:
@@ -205,6 +214,7 @@ testcases:
 
     port_toggle:
       filename: port_toggle.yml
+      vtestbed_compatible: no
       topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
     qos:
@@ -237,6 +247,7 @@ testcases:
 
     sensors:
       filename: sensors_check.yml
+      vtestbed_compatible: no
       topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
     service_acl:
@@ -271,18 +282,21 @@ testcases:
 
     vxlan_decap:
       filename: vxlan-decap.yml
+      vtestbed_compatible: no
       topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116]
       required_vars:
           ptf_host:
 
     wr_arp:
       filename: wr_arp.yml
+      vtestbed_compatible: no
       topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116]
       required_vars:
           ptf_host:
 
     vnet_vxlan:
       filename: vnet_vxlan.yml
+      vtestbed_compatible: no
       topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116]
       required_vars:
           ptf_host:
