@@ -33,6 +33,12 @@
       dummy_mac_number: "10"
       vlan_member_count: 0
 
+  - name: Set dummy mac number for SimX virtual testbed
+    set_fact:
+      dummy_mac_number: "1"
+    when:
+      - hostvars[ansible_hostname]['type'] == 'simx'
+
   - name: "Start PTF runner"
     include: ptf_runner.yml
     vars:
