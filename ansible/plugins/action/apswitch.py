@@ -2,8 +2,8 @@ from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
 
 from ansible.plugins.action import ActionBase
-from ansible.utils.boolean import boolean
-from ansible.utils.unicode import to_unicode
+from ansible.module_utils.parsing.convert_bool import boolean
+from ansible.module_utils._text import to_text
 
 import ast
 
@@ -44,7 +44,7 @@ class ActionModule(ActionBase):
                 _template = self._loader.path_dwim_relative(self._loader.get_basedir(), 'templates', _template)
 
             f = open(_template, 'r')
-            template_data = to_unicode(f.read())
+            template_data = to_text(f.read())
             f.close()
 
             _template = self._templar.template(template_data)
