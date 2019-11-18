@@ -17,7 +17,7 @@
   - set_fact: neighbors="{{device_conn}}"
 
   - include: resume_fanout_ports.yml
-    with_items: ansible_interface_link_down_ports
+    with_items: "{{ ansible_interface_link_down_ports }}"
 
   - name: pause and wait interface to be up
     pause: seconds=30

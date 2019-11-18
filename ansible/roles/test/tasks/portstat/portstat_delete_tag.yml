@@ -24,7 +24,7 @@
   - name: create the list of files to not be deleted
     set_fact:    
       files_not_deleted: "{{files_not_deleted}}  + ['{{item}}']"
-    with_items: file_names
+    with_items: "{{ file_names }}"
     when: file_to_delete != item
  
   - name: create several test stats files

@@ -21,14 +21,14 @@
       assert:
         that:
         - queue_counter.stdout |  search("{{item}}\s+[UC|MC\d]+\s+\S+\s+\S+\s+\S+\s+\S+") and '{{port_name_map[item]}}' not in queue_counter.stdout
-      with_items: default_interfaces 
+      with_items: "{{ default_interfaces }}"
       when: mode=='default'
 
     - name: Check alias interface name is present in output when mode is set to alias
       assert:
         that:
         - queue_counter.stdout |  search("{{item}}\s+[UC|MC\d]+\s+\S+\s+\S+\s+\S+\s+\S+") and '{{port_alias_map[item]}}'  not in queue_counter.stdout
-      with_items: port_alias
+      with_items: "{{ port_alias }}"
       when: mode=='alias'
 
     - name:    show queue watermark in {{mode}} mode
@@ -41,14 +41,14 @@
       assert:
         that:
           - show_queue_wm_mcast.stdout | search("{{item}}")
-      with_items: port_alias
+      with_items: "{{ port_alias }}"
       when:  mode=='alias'
 
     - name: Check show queue watermark multicast in default mode
       assert:
         that:
           - show_queue_wm_mcast.stdout | search("{{item}}")
-      with_items: default_interfaces
+      with_items: "{{ default_interfaces }}"
       when:  mode=='default'
 
     - name:    show queue watermark unicast in {{mode}} mode
@@ -61,14 +61,14 @@
       assert:
         that:
           - show_queue_wm_ucast.stdout | search("{{item}}")
-      with_items: port_alias
+      with_items: "{{ port_alias }}"
       when:  mode=='alias'
 
     - name: Check show queue watermark multicast in default  mode
       assert:
         that:
           - show_queue_wm_ucast.stdout | search("{{item}}")
-      with_items: default_interfaces
+      with_items: "{{ default_interfaces }}"
       when:  mode=='default'
 
     - name:    show queue persistent-watermark in {{mode}} mode
@@ -81,14 +81,14 @@
       assert:
         that:
           - show_queue_wm_mcast.stdout | search("{{item}}")
-      with_items: port_alias
+      with_items: "{{ port_alias }}"
       when:  mode=='alias'
 
     - name: Check show queue persistent-watermark multicast in default mode
       assert:
         that:
           - show_queue_wm_mcast.stdout | search("{{item}}")
-      with_items: default_interfaces
+      with_items: "{{ default_interfaces }}"
       when:  mode=='default'
 
     - name:    show queue persistent-watermark unicast in {{mode}} mode
@@ -101,14 +101,14 @@
       assert:
         that:
           - show_queue_wm_ucast.stdout | search("{{item}}")
-      with_items: port_alias
+      with_items: "{{ port_alias }}"
       when:  mode=='alias'
 
     - name: Check show queue persistent-watermark multicast in default  mode
       assert:
         that:
           - show_queue_wm_ucast.stdout | search("{{item}}")
-      with_items: default_interfaces
+      with_items: "{{ default_interfaces }}"
       when:  mode=='default'
 
 

@@ -65,7 +65,7 @@
   set_fact:
     minigraph_lldp_nei:  "{{ minigraph_lldp_nei|default({}) | combine({ item.key : item.value}) }}"
   when: "'server' not in item.value['name'] | lower"
-  with_dict: minigraph_neighbors
+  with_dict: "{{ minigraph_neighbors }}"
 
 - name: Check if lldpRemTable is present on port {{ item.value.name }}
   when: "{{ item.value['lldpRemTimeMark'] is defined }}

@@ -75,7 +75,7 @@
 
 - name: Add VMs information to in-memory inventory.
   add_host: name={{ lag_vms[item][0] }} ansible_ssh_user={{ switch_login['Arista']['user'] }} ansible_ssh_pass={{ switch_login['Arista']['passwd'][0] }}
-  with_items: lag_vms.keys()
+  with_items: "{{ lag_vms.keys() }}"
 
 #-----------------------------------
 # Start tests
@@ -100,7 +100,7 @@
     lag_member_1: "{{ lag_vms[item][2] }}"
     vm_ip: "{{ lag_vms[item][0] }}"
     vm_name: "{{ item }}"
-  with_items: lag_vms.keys()
+  with_items: "{{ lag_vms.keys() }}"
 
 # Get a list of LAGs on DUT.
 - set_fact:

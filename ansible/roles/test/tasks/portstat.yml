@@ -55,7 +55,7 @@
 
   - name: Run the commands 
     shell: "{{ item }}"
-    with_items: portstat_commands
+    with_items: "{{ portstat_commands }}"
    
   always:
   - name: Clear and reset counters
