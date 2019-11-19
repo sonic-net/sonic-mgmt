@@ -143,7 +143,7 @@ class SonicHost(AnsibleHostBase):
         @param service: Name of the SONiC service
         """
         try:
-            output = self.command("docker inspect -f '{{.State.Running}}' %s" % service)
+            output = self.command("docker inspect -f \{\{.State.Running\}\} %s" % service)
             if output["stdout"].strip() == "true":
                 return True
             else:
