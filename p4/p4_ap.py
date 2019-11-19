@@ -74,9 +74,6 @@ def sw_conn():
 
 class TestP4(P4ApBase):
 
-    def test_writeRPC_Neg3(self):
-        p4_san_tc._test_writeRPC_Neg3()
-    
     def test_setForwarding_pipeline_config(self):
         p4_san_tc._test_setForwarding_pipeline_config()
 
@@ -177,7 +174,9 @@ class TestP4(P4ApBase):
     def test_writeInsert_Neg1(self,sw_conn):
         p4_san_tc._test_writeInsert_Neg1()
 
-"""
+    def test_writeRPC_Neg3(self):
+        p4_san_tc._test_writeRPC_Neg3()
+    
     def test_writeInsert_Neg2(self,sw_conn):
         p4_san_tc._test_writeInsert_Neg2()
 
@@ -185,7 +184,7 @@ class TestP4(P4ApBase):
         p4_san_tc._test_writeModify_Neg1()
 
     def test_writeUpdnDel_Neg1(self,sw_conn):
-        p4_san_tc._test_writeModify_Neg2()
+        p4_san_tc._test_writeUpdnDel_Neg1()
 
     def test_setFrwding_Neg1(self):
         p4_san_tc._test_setFrwding_Neg1()
@@ -210,4 +209,3 @@ class TestP4(P4ApBase):
 
     def test_getFwd_Resp1(self):
         p4_san_tc._test_getFwd_Resp1()
-"""
