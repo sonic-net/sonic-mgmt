@@ -39,7 +39,7 @@
 
 - name: Expand properties into props
   set_fact: props="{{configuration_properties['spine']}}"
-  when: testbed_type in ['t1', 't1-lag', 't1-64-lag']
+  when: testbed_type in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet']
 
 - name: Expand properties into props
   set_fact: props="{{configuration_properties['common']}}"
@@ -47,7 +47,7 @@
 
 - name: Expand properties into props
   set_fact: props_tor="{{configuration_properties['tor']}}"
-  when: testbed_type in ['t1', 't1-lag', 't1-64-lag']
+  when: testbed_type in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet']
 
 # Gather minigraph facts
 - name: Gathering minigraph facts about the device
