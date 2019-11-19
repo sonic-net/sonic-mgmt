@@ -67,6 +67,12 @@ class SwitchConnection(object):
     def shutdown(self):
         self.requests_stream.close()
         self.stream_msg_resp.cancel()
+        self.channel.close()
+
+    def listen(self):
+        for item in self.stream_msg_resp:
+            log.info("P4Runtime Answer: {item}".format(item=item))
+            return item # just one
 
     def MasterArbitrationUpdate(self, dry_run=False, device_id = None, **kwargs):
         request = p4runtime_pb2.StreamMessageRequest()

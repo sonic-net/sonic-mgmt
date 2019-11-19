@@ -223,79 +223,6 @@ def _test_Master_change(sw_conn):
         ns1.shutdown()
         sw_conn.shutdown()
 
-def _test_Master_down(sw_conn):
-    err_msg = list()
-    result = True
-    try:
-        ns1=TchLib.Establish_Switch_Conn("s2")
-        log.info("Sending with Election ID High=444 & Low=555 for new switch connection")
-        reply=ns1.MasterArbitrationUpdate(election_id_high=444, election_id_low=555)
-        log.info(str(reply))
-        
-        if not ('message: "Is master"' in str(reply)):
-            err_msg.append("Test Failed as expected controller is not a Master")
-            result = False
-        
-        if not result:
-            ns1.shutdown()
-            pytest.fail("Test failed due to {}".format(err_msg))
-            
-        ns2=TchLib.Establish_Switch_Conn(ApData.sw_name)
-        reply=ns2.MasterArbitrationUpdate()
-        if not ('message: "Is slave"' in str(reply)):
-            err_msg.append("Test Failed as expected controller is not a slave")
-            result = False
-        
-        if not result:
-            ns2.shutdown()
-            pytest.fail("Test failed due to {}".format(err_msg))
-        
-
-        ns1.shutdown()
-        
-        reply=ns2.MasterArbitrationUpdate()
-        if not ('message: "Is master"' in str(reply)):
-            err_msg.append("Part1 of the Test Failed as expected controller is not a master")
-            result = False
-        else:
-            log.info("Slave became a master, once master died, Part1 of test case passed")
-        
-        if not result:
-            ns2.shutdown()
-            pytest.fail("Test failed due to {}".format(err_msg))
-        
-        ns1=TchLib.Establish_Switch_Conn("s2")
-        log.info("Sending with Election ID High=444 & Low=555 for Master connection")
-        reply=ns1.MasterArbitrationUpdate(election_id_high=444, election_id_low=555)
-        if not ('message: "Is master"' in str(reply) and not 'code' in str(reply)):
-            err_msg.append("Part2 of the Test Failed as expected controller is not a Master")
-            result = False
-        
-        if not result:
-            ns1.shutdown()
-            pytest.fail("Test failed due to {}".format(err_msg))
-            
-        log.info("Verifying the state of old Master controller")
-        reply=ns2.MasterArbitrationUpdate()
-        if not ('message: "Is slave"' in str(reply) and 'code: 6' in str(reply)):
-            err_msg.append("Part2 of the Test Failed as expected controller is not a slave")
-            result = False
-        
-        if not result:
-            ns2.shutdown()
-            pytest.fail("Part2 of the Test failed due to {}".format(err_msg))
-        else:
-            log.info("Part2 of the Test case passed")
-
-    except KeyboardInterrupt:
-        log.info("Shutting down.")
-    except grpc.RpcError as e:
-        log.error("### GRPC ERROR RECEIVED:: ###")
-        printGrpcError(e)
-        raise CafyException.VerificationError(e)
-    finally:
-        ns1.shutdown()
-        ns2.shutdown()
 
 def _test_max_connections():
     sw_conn = list()
@@ -364,6 +291,23 @@ def _test_nonZero_DeviceID():
             log.error("Test:Failed - Did not receive expected error message on sending Non-zero Device-ID")
     finally:
         s1.shutdown()
+
+def _test_new_master_down():
+    p4_switch.ShutdownAllSwitchConnections()
+    pool = Pool(processes=2)
+
+    try:
+        results = pool.map(TchLib._master_toggle,['sw1','sw2'])
+        if results:
+            log.info("Test Master down passed")
+        else:
+            pytest.fail("Test Master down failed")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
 
 def _test_multicontrollers_blocking_tableEdit():
     p4_switch.ShutdownAllSwitchConnections()
@@ -705,9 +649,6 @@ def _test_Read_wTableId_Zero(sw_conn):
         sw_conn.shutdown()
         raise CafyException.VerificationError(e)
     sw_conn.shutdown()
-
-
-
 
 def _test_writeRPC_Neg1():
     log.info("Test: Verify sending unknown deviceID & roleID with WRITE RPC")

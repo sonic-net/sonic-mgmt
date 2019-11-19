@@ -54,6 +54,52 @@ def Establish_Switch_Conn(sw_name):
         log.error(e)
         printGrpcError(e)
 
+def _master_toggle(name):
+    result = False
+    try:
+        if "sw1" in name:
+            ns1=Establish_Switch_Conn(name)
+            log.info("Controller sw1: Sending Election ID High=22 & Low=333")
+            ns1.MasterArbitrationUpdate(election_id_high=22, election_id_low=333)
+            sleep(30)
+            log.info("Master Shutting down now")
+            ns1.shutdown()
+            sleep(30)
+            log.info("Master coming up now")
+            ns1=Establish_Switch_Conn(name)
+            log.info("Controller sw1: Sending Election ID High=22 & Low=333")
+            reply = ns1.MasterArbitrationUpdate(election_id_high=22, election_id_low=333)
+            log.info("Reply received for sw1: {}".format(reply))
+        else:
+            ns1=Establish_Switch_Conn(name)
+            log.info("Controller sw2: Sending Election ID High=11 & Low=222")
+            sleep(5)
+            ns1.MasterArbitrationUpdate(election_id_high=11, election_id_low=222)
+            reply = ns1.listen()
+            if ((str(reply).find('low: 222') != -1) and (str(reply).find('message: "Is master"') != -1)):
+                log.info("Slave has become the master")
+                result = True
+            else:
+                log.error("No message received from the server : {}".format(str(reply)))
+
+            reply = ns1.listen()
+            log.info("Reply received for sw2: {}".format(reply))
+            if ((str(reply).find('low: 333') != -1) and (str(reply).find('message: "Is slave"') != -1)):
+                log.info("Master became a slave")
+                result = True
+            else:
+                log.error("No message received from the server : {}".format(str(reply)))
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error(e)
+        printGrpcError(e)
+
+    ns1.shutdown()
+    return result
+
+
 def blocking_table_play(name):
     with open(ApData.input_conf_file, 'r') as ip_conf_file:
         input_conf = p4TestLib.json_load_byteified(ip_conf_file)

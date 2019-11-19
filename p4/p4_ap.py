@@ -103,7 +103,7 @@ class TestP4(P4ApBase):
         p4_san_tc._test_Master_change(sw_conn)
     
     def test_Master_down(self,sw_conn):
-        p4_san_tc._test_Master_down(sw_conn)
+        p4_san_tc._test_new_master_down()
 
     def test_nonZero_DeviceID(self,sw_conn):
         p4_san_tc._test_nonZero_DeviceID()
