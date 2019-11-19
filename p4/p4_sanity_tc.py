@@ -4,6 +4,7 @@ import grpc
 import os
 import sys
 import json
+import re
 import multiprocessing
 from multiprocessing import Pool, TimeoutError
 from time import sleep
