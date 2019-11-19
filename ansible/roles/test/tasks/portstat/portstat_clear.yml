@@ -18,7 +18,7 @@
   - name: Pull out RX and TX OK counters
     set_fact:
       before_rx_ok: "{{ portstat_eth0.split()[2].replace(',','') }}"
-      before_tx_ok: "{{ portstat_eth0.split()[9].replace(',','') }}"
+      before_tx_ok: "{{ portstat_eth0.split()[8].replace(',','') }}"
 
   # This is the test command
   - name: Testing '{{ command }}'
@@ -41,7 +41,7 @@
   - name: Pull out RX and TX OK counters
     set_fact:
       after_rx_ok: "{{ portstat_eth0.split()[2].replace(',','') }}"
-      after_tx_ok: "{{ portstat_eth0.split()[9].replace(',','') }}"
+      after_tx_ok: "{{ portstat_eth0.split()[8].replace(',','') }}"
 
   - name: Assert that the cleared rx counter is less than the current counter
     assert:
