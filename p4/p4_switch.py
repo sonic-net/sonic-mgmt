@@ -151,7 +151,7 @@ class SwitchConnection(object):
             self.client_stub.SetForwardingPipelineConfig(request)
 
 
-    def GetForwardingPipelineConfig(self, resp_typ=0, dry_run=False):
+    def GetForwardingPipelineConfig(self, dry_run=False, **kwargs):
         request = p4runtime_pb2.GetForwardingPipelineConfigRequest()
         try:
             request.device_id = kwargs["device_id"]
