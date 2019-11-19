@@ -1,4 +1,4 @@
-from ansible.plugins import callback_loader
+from ansible.plugins.loader import callback_loader
 from ansible.errors import AnsibleError
 
 def dump_ansible_results(results, stdout_callback='yaml'):
