@@ -1,8 +1,8 @@
 - name: Create directory for SimX in docker(SID) images and disk images 
   file: path={{ item }} state=directory mode=0755
   with_items:
-    - "sid/images"
-    - "sid/disks"
+    - "{{ home_path }}/sid/images"
+    - "{{ home_path }}/sid/disks"
 
 - include_vars: group_vars/sonic/vars
 
