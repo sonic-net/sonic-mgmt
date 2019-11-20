@@ -56,5 +56,6 @@
 
   roles:
     - { role: vm_set, action: 'remove_topo' }
+    - { role: vm_set, action: 'stop_sid' }
     - { role: vm_set, action: 'stop_sonic_vm' }
 

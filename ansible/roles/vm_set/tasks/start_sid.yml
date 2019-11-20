@@ -1,0 +1,56 @@
+- name: Create directory for SimX in docker(SID) images and disk images 
+  file: path={{ item }} state=directory mode=0755
+  with_items:
+    - "sid/images"
+    - "sid/disks"
+
+- include_vars: group_vars/sonic/vars
+
+- set_fact:
+    src_disk_image: "{{ home_path }}/sid/images/sonic.img"
+    disk_image: "{{ home_path }}/sid/disks/{{ dut_name }}.img"
+    simx_image: "{{ home_path }}/sid/images/simx:latest.tar"
+    mgmt_ip_address: " {{ hostvars[dut_name]['ansible_host'] }}/{{ mgmt_prefixlen }}"
+
+- name: Device debug output
+  debug: msg="hostname = {{ dut_name }} ip = {{ mgmt_ip_address }}"
+
+- name: Check destination file existance
+  stat: path={{ disk_image }}
+  register: file_stat
+
+- name: Copy sonic disk image for {{ dut_name }}
+  copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
+  when: not file_stat.stat.exists
+
+- set_fact:
+    sonic_hwsku: "{{ hostvars[dut_name]['hwsku'] }}"
+
+- fail: msg="sonic_hwsku is not defined"
+  when: "sonic_hwsku is not defined"
+
+- fail: msg="{{ item }} is not defined"
+  when: "{{ item }} is not defined"
+  with_items:
+    - mellanox_spc1_hwskus
+    - mellanox_spc2_hwskus
+
+- set_fact:
+    chip: "spectrum"
+  when: hostvars[dut_name]['hwsku'] in mellanox_spc1_hwskus
+
+- set_fact:
+    chip: "spectrum2"
+  when: hostvars[dut_name]['hwsku'] in mellanox_spc2_hwskus
+
+- name: Create SID startup config
+  template:
+    src: settings.ini.j2
+    dest: "{{ home_path }}/sid/images/settings.ini"
+
+- name: start SimX in docker container
+  shell: /usr/bin/env python {{ home_path }}/sid/images/start.py
+
+- name: Wait for SID to start
+  pause:
+    seconds: 60
