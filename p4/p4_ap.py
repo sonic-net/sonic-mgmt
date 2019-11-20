@@ -54,8 +54,11 @@ def sw_conn():
         reply = sw_conn.MasterArbitrationUpdate()
         if ((str(reply).find('low: 1') != -1) and (str(reply).find('message: "Is master"') != -1)):
             if p4info_helper != None:
-                # Install the P4 program on the switches
-                if not ApData.skip_set_pipeline:
+                try:
+                    sw_conn.GetForwardingPipelineConfig()
+                except KeyboardInterrupt:
+                    log.info("Shutting down.")
+                except grpc.RpcError as e:
                     log.info("Setting ForwardingPipelineConfig on s1")
                     sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,
                                                 p4_json_file_path=p4_json_file_path)
