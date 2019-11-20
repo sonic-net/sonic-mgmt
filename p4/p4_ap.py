@@ -72,6 +72,10 @@ def sw_conn():
         p4_switch.ShutdownAllSwitchConnections()
     #return sw_conn
 
+@pytest.fixture(autouse=True)
+def clean_sw_connection():
+    p4_switch.ShutdownAllSwitchConnections()
+
 class TestP4(P4ApBase):
 
     def test_setForwarding_pipeline_config(self):
