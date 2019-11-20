@@ -32,6 +32,8 @@ def check_sensord_status(ans_host):
         if "/usr/sbin/sensord" in key_value:
             running_status = True
             sensord_pid = int(key_value[0])
+            break
+
     return running_status, sensord_pid
 
 
@@ -45,7 +47,7 @@ def stop_pmon_sensord_task(ans_host):
 
     sensord_running_status, sensord_pid = check_sensord_status(ans_host)
     if sensord_running_status:
-        logging.info("failed to stop sensord task")
+        assert False, "Failed to stop sensord task before test."
     else:
         logging.info("sensord stopped successfully")
 
@@ -72,7 +74,7 @@ def psu_test_setup_teardown(testbed_devices):
         if sensord_running_status:
             logging.info("sensord task restarted, pid = {}".format(sensord_pid))
         else:
-            logging.info("sensord task not restarted")
+            assert False, "Failed to restart sensord task after test."
     else:
         logging.info("sensord is running, pid = {}".format(sensord_pid))
 
