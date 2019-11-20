@@ -32,4 +32,4 @@
       include: roles/test/tasks/snmp/psu.yml 
   when:
    - testcase_name is defined
-   - hostvars[ansible_hostname]['type'] != 'simx' 
+   - (hostvars[ansible_hostname]['type'] is not defined) or (hostvars[ansible_hostname]['type'] != 'simx')

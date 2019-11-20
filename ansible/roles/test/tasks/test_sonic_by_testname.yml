@@ -38,20 +38,26 @@
 - set_fact:
     skip_test: true
   when: 
+    - hostvars[ansible_hostname]['type'] is defined
     - testcases[testcase_name]['vtestbed_compatible'] is defined
     - hostvars[ansible_hostname]['type'] == 'kvm' or hostvars[ansible_hostname]['type'] == 'simx'
     - not testcases[testcase_name]['vtestbed_compatible'] | bool
 
-- name: run test case {{ testcases[testcase_name]['filename'] }} file
-  include: "{{ testcases[testcase_name]['filename'] }}"
-  when: not skip_test
+- block:
+    - name: run test case {{ testcases[testcase_name]['filename'] }} file
+      include: "{{ testcases[testcase_name]['filename'] }}"
+  
+    - name: do basic sanity check after each test
+      include: base_sanity.yml
 
-- name: do basic sanity check after each test
-  include: base_sanity.yml
-  when: not skip_test
+    - name: validate all interfaces are up after test
+      include: interface.yml
 
-- name: validate all interfaces are up after test
-  include: interface.yml
+    - debug:
+        msg:
+          - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+          - "!!!!!!!!!!!!!!!!!!!! end running test {{ testcase_name }} !!!!!!!!!!!!!!!!!!!!!!"
+          - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
   when: not skip_test
 
 - debug:
@@ -60,10 +66,3 @@
       - "!!!!!!!!!!!!!!!!!!!! test {{ testcase_name }} was skipped !!!!!!!!!!!!!!!!!!!!!!"
       - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
   when: skip_test
-
-- debug:
-    msg:
-      - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-      - "!!!!!!!!!!!!!!!!!!!! end running test {{ testcase_name }} !!!!!!!!!!!!!!!!!!!!!!"
-      - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-  when: not skip_test
