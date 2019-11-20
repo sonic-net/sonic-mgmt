@@ -12,14 +12,14 @@
     assert:
       that:
         -  show_int_neighbor.stdout | search("{{port_name_map[item]}}\s+{{minigraph_neighbors[item]['name']}}")
-    with_items: minigraph_neighbors
+    with_items: "{{ minigraph_neighbors }}"
     when:  mode=='alias'
 
   - name: Check  show interfaces neighbor expected in default  mode
     assert:
       that:
         -  show_int_neighbor.stdout | search("{{item}}\s+{{minigraph_neighbors[item]['name']}}")
-    with_items: minigraph_neighbors
+    with_items: "{{ minigraph_neighbors }}"
     when:  mode=='default'
 
   # show ip interfaces
@@ -34,14 +34,14 @@
     assert:
       that:
         -  show_ip_intf.stdout | search("{{port_name_map[item['attachto']]}}\s+{{item['addr']}}")
-    with_items: minigraph_interfaces
+    with_items: "{{ minigraph_interfaces }}"
     when:  item.addr|ipv4 and mode=='alias'
 
   - name: Check intf name and ip address in show ip interface output in  default  mode
     assert:
       that:
         -  show_ip_intf.stdout | search("{{item['attachto']}}\s+{{item['addr']}}")
-    with_items: minigraph_interfaces
+    with_items: "{{ minigraph_interfaces }}"
     when:  item.addr|ipv4 and mode=='default'
 
   - name:  Get  show ipv6 interface output
@@ -54,14 +54,14 @@
     assert:
       that:
         -  show_ipv6_intf.stdout | search("{{port_name_map[item['attachto']]}}\s+{{item['addr']}}")
-    with_items: minigraph_interfaces
+    with_items: "{{ minigraph_interfaces }}"
     when:  item.addr|ipv6 and mode=='alias'
 
   - name: Check intf name and ip address in show ip interface output in default  mode
     assert:
       that:
         -  show_ipv6_intf.stdout | search("{{item['attachto']}}\s+{{item['addr']}}")
-    with_items: minigraph_interfaces
+    with_items: "{{ minigraph_interfaces }}"
     when:  item.addr|ipv6 and mode=='default'
 
 
@@ -82,12 +82,12 @@
 
   - name: check counter output in alias mode
     assert: {that: item in port_alias}
-    with_items: int_counter
+    with_items: "{{ int_counter }}"
     when: mode=="alias"
 
   - name: check counter output in default mode
     assert: {that: item in default_interfaces}
-    with_items: int_counter
+    with_items: "{{ int_counter }}"
     when: mode=="default"
 
   #  show interface description 

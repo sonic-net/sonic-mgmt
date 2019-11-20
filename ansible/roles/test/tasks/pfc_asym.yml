@@ -208,7 +208,7 @@
   - name: Enable asymmetric PFC on all server interfaces
     command: config interface pfc asymmetric {{ item.dut_name }} on
     become: yes
-    with_items: '{{ server_ports }}'
+    with_items: "{{ server_ports }}"
 
   - name: Start PTF runner
     include: ptf_runner.yml
@@ -260,7 +260,7 @@
     - name: Disable asymmetric PFC on all server interfaces
       command: config interface pfc asymmetric {{ item.dut_name }} off
       become: yes
-      with_items: '{{ server_ports }}'
+      with_items: "{{ server_ports }}"
 
     - name: Remove SAI tests from PTF container
       file: path=/root/saitests state=absent

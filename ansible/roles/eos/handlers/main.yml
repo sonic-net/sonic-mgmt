@@ -1,5 +1,29 @@
 # Notify handlers are always run in the same order they are defined, not in the order listed in the notify-statement.
 # This is also the case for handlers using listen.
 
-- name: Update VM state
-  include: roles/eos/handlers/common_handlers/update_state.yml
+- name: Reboot the VM
+  command: /sbin/shutdown -r now "Ansible updates triggered"
+  async: 300
+  poll: 0
+  ignore_errors: true
+  listen: "Update VM state"
+
+- name: Wait for VM to shutdown
+  wait_for:
+    host: "{{ ansible_ssh_host }}"
+    port: 22
+    state: stopped
+    delay: 10
+    timeout: 300
+  connection: local
+  listen: "Update VM state"
+
+- name: Wait for VM to startup
+  wait_for:
+    host: "{{ ansible_ssh_host }}"
+    port: 22
+    state: started
+    delay: 10
+    timeout: 1200
+  connection: local
+  listen: "Update VM state"

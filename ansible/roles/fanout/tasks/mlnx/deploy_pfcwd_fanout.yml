@@ -17,7 +17,7 @@
   command: make
   args:
     chdir: "{{item | dirname}}"
-  with_items: pfcwd_dockers
+  with_items: "{{ pfcwd_dockers }}"
   delegate_to: localhost
   when: pfcwd_dockers_url is not defined
 
@@ -26,12 +26,12 @@
   vars:
     src: "{{ item }}"
     dest: "{{ fanout_img_path }}"
-  with_items: pfcwd_dockers
+  with_items: "{{ pfcwd_dockers }}"
   when: pfcwd_dockers_url is not defined
 
 - name: Download pre-built pfcwd dockers if path specified
   include: download_copy_pfcwd_fanout.yml
-  with_items: pfcwd_dockers
+  with_items: "{{ pfcwd_dockers }}"
   delegate_to: localhost
   when: pfcwd_dockers_url is defined
 

@@ -41,7 +41,7 @@
 
 - name: verify all local interfaces are up 
   assert: { that: "ansible_{{ item }}['active']  == true" }
-  with_items: ansible_interfaces
+  with_items: "{{ ansible_interfaces }}"
   when:
     - item | match("Ethernet.*")
 
@@ -63,7 +63,7 @@
      login: "{{ switch_login[ansible_interface_up_down_data_struct_facts[item]['nei_device_type']] }}"
      skip_default_user:   "yes"
   connection: cisco
-  with_items: ansible_interface_up_down_data_struct_facts.keys()
+  with_items: "{{ ansible_interface_up_down_data_struct_facts.keys() }}"
   
 - name: sleep for some time
   pause: seconds=5
@@ -73,7 +73,7 @@
 
 - name: verify all local interfaces are down 
   assert: { that: "ansible_{{ item }}['active']  == false" }
-  with_items: ansible_interfaces
+  with_items: "{{ ansible_interfaces }}"
   when:
     - item | match("Ethernet.*")
 
@@ -84,7 +84,7 @@
         login: "{{ switch_login[ansible_interface_up_down_data_struct_facts[item]['nei_device_type']] }}"
         skip_default_user:   "yes"
   connection: cisco
-  with_items: ansible_interface_up_down_data_struct_facts.keys()
+  with_items: "{{ ansible_interface_up_down_data_struct_facts.keys() }}"
 
 - name: sleep for some time
   pause: seconds=5
@@ -94,6 +94,6 @@
 
 - name: verify all local interfaces are up 
   assert: { that: "ansible_{{ item }}['active']  == true" }
-  with_items: ansible_interfaces
+  with_items: "{{ ansible_interfaces }}"
   when:
     - item | match("Ethernet.*")

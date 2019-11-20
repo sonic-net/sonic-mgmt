@@ -38,7 +38,7 @@
 
     - debug:
         var: "{{item}}"
-      with_items: 
+      with_items:
         - detect_time_list
         - restore_time_list
 
