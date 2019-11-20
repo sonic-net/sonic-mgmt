@@ -81,7 +81,6 @@ def test_show_platform_summary(testbed_devices):
     """
     @summary: Check output of 'show platform summary'
     """
-    # global ans_host
     ans_host = testbed_devices["dut"]
 
     logging.info("Check output of '%s'" % CMD_PLATFORM_SUMMARY)
