@@ -23,6 +23,8 @@ CMD_PLATFORM_SYSEEPROM = "show platform syseeprom"
 def check_sensord_status(ans_host):
     """
     @summary: Check sensord running status by analyzing the output of "ps -x" and return the PID if it's running
+    @return: first return value will be a bool, True to indicate task is running.
+             second return value is int PID, a none -1 value for a valid PID of sensord task
     """
     running_status = False
     sensord_pid = -1
