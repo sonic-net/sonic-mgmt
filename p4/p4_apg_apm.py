@@ -385,15 +385,12 @@ def _test_negative_action_profile_groups_4(self,sw_conn):
         print(e_det)
         for item in e_det:
             log.error(item)
-            if (item['code'] == "INVALID_ARGUMENT") and (item['message'] == "Cannot change group max_size after group creation"):
-                log.info("Test test_negative_action_profile_groups_4.2:Passed - received correct error message on trying to change max_size on group modify")
-                result = True
-            else:
-                err_msg.append("Test test_negative_action_profile_groups_4.2:Failed - received incorrect message on trying to change max_size on group modify")
+            err_msg.append(item)
 
     finally:
         if not result:
             insrt_entrs = [x for x in entries if x['entry_type'] == 'GROUP']
+            insrt_entrs = [x for x in insrt_entrs if x['entry_oper'] == 'DELETE']
             for entry in insrt_entrs:
                 p4TestLib.groupActions(sw_conn,entry,p4info_helper, 'DELETE')
 

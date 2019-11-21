@@ -210,6 +210,32 @@
                     "weight": 1
                 }
             ]
+        },
+        {
+            "action_profile_id": 285212673,
+            "entry_type": "GROUP",
+            "entry_oper": "DELETE",
+            "group_id": 1,
+            "max_size": 2,
+            "members" : [
+                {
+                    "id" : 1,
+                    "weight": 1
+                }
+            ]
+        },
+        {
+            "action_profile_id": 285212673,
+            "entry_type": "GROUP",
+            "entry_oper": "DELETE",
+            "group_id": 2,
+            "max_size": 0,
+            "members" : [
+                {
+                    "id" : 1,
+                    "weight": 1
+                }
+            ]
         }
     ],
     "NEG_APG_5": [

@@ -114,6 +114,9 @@ class TestP4(P4ApBase):
 
     def test_deviceID_ACC(self,sw_conn):
         p4_san_tc._test_deviceID_ACC()
+    
+    def test_Read_wTableId_Zero(self,sw_conn):
+        p4_san_tc._test_Read_wTableId_Zero(sw_conn)
 
     @pytest.mark.parametrize("mode", ["INSERT", "DELETE"])
     def test_action_profile_members(self,mode,sw_conn):
@@ -159,19 +162,6 @@ class TestP4(P4ApBase):
     def test_negative_action_profile_groups_9(self,sw_conn):
         p4_apg_apm._test_negative_action_profile_groups_9(self,sw_conn)
         
-    def test_Read_wTableId_Zero(self,sw_conn):
-        p4_san_tc._test_Read_wTableId_Zero(sw_conn)
-
-    def test_multicontrollers_blocking_tableEdit(self):
-        p4_san_tc._test_multicontrollers_blocking_tableEdit()
-
-    def test_multicontrollers_non_blocking_tableEdit(self,sw_conn):
-        p4_san_tc._test_multicontrollers_non_blocking_tableEdit()
-
-    @pytest.mark.last
-    def test_max_connections(self,sw_conn):
-        p4_san_tc._test_max_connections()
-
     def test_writeRPC_Neg1(self,sw_conn):
         p4_san_tc._test_writeRPC_Neg1()
 
@@ -216,3 +206,13 @@ class TestP4(P4ApBase):
 
     def test_getFwd_Resp1(self):
         p4_san_tc._test_getFwd_Resp1()
+
+    def test_multicontrollers_blocking_tableEdit(self):
+        p4_san_tc._test_multicontrollers_blocking_tableEdit()
+
+    def test_multicontrollers_non_blocking_tableEdit(self,sw_conn):
+        p4_san_tc._test_multicontrollers_non_blocking_tableEdit()
+
+    @pytest.mark.last
+    def test_max_connections(self,sw_conn):
+        p4_san_tc._test_max_connections()
