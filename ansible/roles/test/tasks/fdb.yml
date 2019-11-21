@@ -37,6 +37,7 @@
     set_fact:
       dummy_mac_number: "1"
     when:
+      - hostvars[ansible_hostname]['type'] is defined
       - hostvars[ansible_hostname]['type'] == 'simx'
 
   - name: "Start PTF runner"
