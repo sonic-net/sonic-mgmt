@@ -168,7 +168,8 @@ def main():
             iface, vlan = iface.split('@')
             vlan_tag = format(int(vlan), 'x')
             vlan_tag = vlan_tag.zfill(4)
-        ip_sets[str(iface)] = {}
+        if str(iface) not in ip_sets:
+            ip_sets[str(iface)] = {}
         if args.extended:
             for ip, mac in ip_dict.items():
                 ip_sets[str(iface)][str(ip)] = binascii.unhexlify(str(mac))
