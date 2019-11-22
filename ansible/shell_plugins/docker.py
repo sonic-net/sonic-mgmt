@@ -9,7 +9,7 @@ import time
 import random
 import shlex
 import getopt
-from ansible.compat.six import text_type
+from ansible.module_utils.six import text_type
 from ansible.plugins.shell.sh import ShellModule as sh
 from ansible.errors import AnsibleError, AnsibleConnectionFailure, AnsibleFileNotFound
 
