@@ -16,6 +16,7 @@ import sys
 from queue import Queue
 from datetime import datetime
 from time import sleep
+from pathlib import Path
 from logger.cafylog import CafyLog
 
 import grpc
@@ -142,7 +143,8 @@ class SwitchConnection(object):
         if cfg_reqd:
             config = request.config
             config.p4info.CopyFrom(p4info)
-            if pjson:
+            tgt_bin = Path(pjson)
+            if tgt_bin.is_file():
                 with open(pjson, 'rb') as f2:
                     request.config.p4_device_config = f2.read()
             if ckie:
