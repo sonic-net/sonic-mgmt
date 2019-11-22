@@ -108,7 +108,7 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             ip_path=dict(required=False, default="/sbin/ip"),
-            up_ports=dict(default={}),
+            up_ports=dict(type='dict', default={}),
         ),
         supports_check_mode=False)
 
