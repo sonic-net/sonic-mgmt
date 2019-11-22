@@ -20,7 +20,7 @@
   when: host_distribution_version.stdout == "18.04"
 
 - name: Add docker official GPG key
-  shell: "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -"
+  apt_key: url=https://download.docker.com/linux/ubuntu/gpg state=present
   become: yes
   environment: "{{ proxy_env | default({}) }}"
 
