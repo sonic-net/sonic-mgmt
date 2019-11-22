@@ -27,8 +27,11 @@ def generate_ips(num, prefix, exclude_ips):
 
     return generated_ips
 
-@pytest.mark.skip(reason='test is broken')
-def test_bgp_speaker(localhost, ansible_adhoc, testbed):
+@pytest.mark.parametrize(
+    "ipv4, ipv6, mtu",
+    [	pytest.param(True, False, 1514),	],
+    )
+def test_bgp_speaker(localhost, ansible_adhoc, testbed, ipv4, ipv6, mtu):
     """setup bgp speaker on T0 topology and verify routes advertised
     by bgp speaker is received by T0 TOR
     """
@@ -41,7 +44,7 @@ def test_bgp_speaker(localhost, ansible_adhoc, testbed):
     mg_facts = host.minigraph_facts(host=hostname)['ansible_facts']
     host_facts  = host.setup()['ansible_facts']
 
-    res = host.shell("sonic-cfggen -m -d -y /etc/sonic/deployment_id_asn_map.yml -v \"deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
+    res = host.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
     bgp_speaker_asn = res['stdout']
 
     vlan_ips = generate_ips(3, \
@@ -95,7 +98,7 @@ def test_bgp_speaker(localhost, ansible_adhoc, testbed):
     for i in range(0, 3):
         extra_vars.update({ 'cidx':i })
         extra_vars.update({ 'speaker_ip': str(speaker_ips[i].ip) })
-        ptfhost.host.options['variable_manager'].extra_vars = extra_vars
+        ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
         ptfhost.template(src="bgp_speaker/config.j2", dest="%s/%s" % (exabgp_dir, cfnames[i]))
 
     # deploy routes
@@ -144,13 +147,15 @@ def test_bgp_speaker(localhost, ansible_adhoc, testbed):
                params={"testbed_type": "t0",
                       "router_mac": host_facts['ansible_Ethernet0']['macaddress'],
                       "fib_info": "/root/bgp_speaker_route.txt",
-                      "ipv4": True,
-                      "ipv6": False },
-               log_file="/tmp/bgp_speaker_test.FibTest.log")
+                      "ipv4": ipv4,
+                      "ipv6": ipv6,
+                      "testbed_mtu": mtu },
+               log_file="/tmp/bgp_speaker_test.FibTest.log",
+               socket_recv_size=16384)
 
     res = ptfhost.shell("pkill exabgp || true")
 
     for ip in vlan_ips:
         host.command("ip route flush %s/32" % ip.ip)
 
-    # ptfhost.shell("ip addr flush dev eth{{ '%d' % (minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'][0] | replace("Ethernet", "") | int / 4)}}
+    ptfhost.shell("ip addr flush dev eth{}".format(mg_facts['minigraph_port_indices'][mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][0]['attachto']]['members'][0]]))
