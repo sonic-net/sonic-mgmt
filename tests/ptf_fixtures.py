@@ -49,11 +49,11 @@ def ptfadapter(ptfhost, testbed):
     ifaces_map = {int(ifname.replace(ETH_PFX, '')): ifname for ifname in ifaces}
 
     # generate supervisor configuration for ptf_nn_agent
-    ptfhost.host.options['variable_manager'].extra_vars = {
+    ptfhost.host.options['variable_manager'].extra_vars.update({
         'device_num': DEFAULT_DEVICE_NUM,
         'ptf_nn_port': DEFAULT_PTF_NN_PORT,
         'ifaces_map': ifaces_map,
-    }
+    })
     ptfhost.template(src='ptfadapter/templates/ptf_nn_agent.conf.ptf.j2',
                      dest='/etc/supervisor/conf.d/ptf_nn_agent.conf')
 
