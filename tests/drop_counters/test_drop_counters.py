@@ -1,5 +1,7 @@
 import pytest
 import ptf.testutils as testutils
+import ptf.mask as mask
+import ptf.packet as packet
 import logging
 import pprint
 import random
@@ -10,16 +12,9 @@ import re
 import os
 import json
 
-pytestmark = [
-    pytest.mark.disable_loganalyzer  # disable automatic loganalyzer
-]
 
 logger = logging.getLogger(__name__)
 
-IP_DST = "10.0.0.59"
-IP_SRC = "1.1.1.1"
-TCP_SPORT = 1234
-TCP_DPORT = 4321
 PKT_NUMBER = 1000
 
 # Discard key from 'portstat -j' CLI command output
@@ -28,6 +23,20 @@ L3_DISCARD_KEY = "RX_ERR"
 # CLI commands to obtain drop counters
 GET_L2_COUNTERS = "portstat -j"
 GET_L3_COUNTERS = "intfstat -j"
+
+
+@pytest.fixture(scope="module")
+def pkt_fields(duthost):
+    # Gather ansible facts
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+
+    test_pkt_data = {
+        "ip_dst": mg_facts["minigraph_bgp"][0]["addr"],
+        "ip_src": "1.1.1.1",
+        "tcp_sport": 1234,
+        "tcp_dport": 4321
+        }
+    return test_pkt_data
 
 
 @pytest.fixture(scope="module")
@@ -44,6 +53,9 @@ def setup(duthost, testbed):
     vlan_members = {}
     rif_members = []
     combined_drop_counter = False
+
+    if testbed["topo"] == "ptf32":
+        pytest.skip("Unsupported topology {}".format(testbed["topo"]))
 
     # Gather ansible facts
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
@@ -68,12 +80,18 @@ def setup(duthost, testbed):
                     combined_drop_counter = True
                     break
 
+    # Compose list of sniff ports
+    neighbor_sniff_ports = []
+    for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
+        neighbor_sniff_ports.append(mg_facts['minigraph_port_indices'][dut_port])
+
     setup_information = {
         "port_channel_members": port_channel_members,
         "vlan_members": vlan_members,
         "rif_members": rif_members,
         "dut_to_ptf_port_map": mg_facts["minigraph_port_indices"],
-        "combined_drop_counter": combined_drop_counter
+        "combined_drop_counter": combined_drop_counter,
+        "neighbor_sniff_ports": neighbor_sniff_ports
     }
 
     return setup_information
@@ -90,9 +108,17 @@ def enable_counters(duthost):
     """ Fixture which enables RIF and L2 counters """
     cmd_list = ["intfstat -D", "counterpoll port enable", "counterpoll rif enable", "sonic-clear counters",
                 "sonic-clear rifcounters"]
+    cmd_get_cnt_status = "redis-cli -n 4 HGET \"FLEX_COUNTER_TABLE|{}\" \"FLEX_COUNTER_STATUS\""
+
+    previous_cnt_status = {item: duthost.command(cmd_get_cnt_status.format(item.upper()))["stdout"] for item in ["port", "rif"]}
+
     for cmd in cmd_list:
         duthost.command(cmd)
-
+    yield
+    for port, status in previous_cnt_status.items():
+        if status == "disable":
+            logger.info("Restoring counter '{}' state to disable".format(port))
+            duthost.command("counterpoll {} disable".format(port))
 
 def get_pkt_drops(duthost, cli_cmd):
     """
@@ -138,88 +164,16 @@ def get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports):
     return dut_iface, ptf_tx_port_id, dst_mac, src_mac
 
 
-def is_arp_req(pkt, dst_ip):
-    """ Check whether packet is ARP request """
-    arp_request = 1
-    scapy_pkt = scapy.layers.l2.Ether(pkt)
+def expected_packet_mask(pkt):
+    """ Return mask for sniffing packet """
 
-    if scapy_pkt.haslayer(scapy.layers.l2.ARP):
-        if scapy_pkt[scapy.layers.l2.ARP].op == arp_request:
-            if scapy_pkt[scapy.layers.l2.ARP].pdst == dst_ip:
-                return True
-    return False
-
-
-def match_packet_fields(pkt, eth_dst=None, eth_src=None, eth_type=None, ip_dst=None, ip_src=None, tcp_sport=None,
-                        tcp_dport=None):
-    """
-    Verify whether packet fields matches specified fields. Return True for match of all fields, false vise versa
-
-    @param eth_dst - String representation of Ethernet destination MAC address. Template example - "xx:xx:xx:xx:xx:xx"
-    @param eth_src - String representation of Ethernet source MAC address. Template example - "xx:xx:xx:xx:xx:xx"
-    @param eth_type - Hex representation of Ethernet type. Example - '0x800'
-    @param ip_dst - String representation of IP destenation address. Template example - "xxx.xxx.xxx.xxx"
-    @param ip_src - String representation of IP source address. Template example - "xxx.xxx.xxx.xxx"
-    @param tcp_sport - TCP source port (int)
-    @param tcp_dport - TCP destination port (int)
-    """
-    scapy_pkt = scapy.layers.l2.Ether(pkt)
-    match_list = []
-
-    # Check Ethernet layer fields
-    if scapy_pkt.haslayer(scapy.layers.l2.Ether):
-        if eth_dst and scapy_pkt[scapy.layers.l2.Ether].dst != eth_dst:
-            match_list.append(False)
-        if eth_src and scapy_pkt[scapy.layers.l2.Ether].src != eth_src:
-            match_list.append(False)
-        if eth_type and scapy_pkt[scapy.layers.l2.Ether].type != eth_type:
-            match_list.append(False)
-    # Check IP layer fields
-    if scapy_pkt.haslayer(scapy.layers.inet.IP):
-        if ip_dst and scapy_pkt[scapy.layers.inet.IP].dst != ip_dst:
-            match_list.append(False)
-        if ip_src and scapy_pkt[scapy.layers.inet.IP].src != ip_src:
-            match_list.append(False)
-    # Check TCP layer fields
-    if scapy_pkt.haslayer(scapy.layers.inet.TCP):
-        if tcp_sport and scapy_pkt[scapy.layers.inet.TCP].sport != tcp_sport:
-            match_list.append(False)
-        if tcp_dport and scapy_pkt[scapy.layers.inet.TCP].dport != tcp_dport:
-            match_list.append(False)
-
-    if match_list:
-        if all(match_list):
-            return True
-    return False
-
-
-def verify_no_packet_egressed(ptfadapter, eth_dst=None, eth_src=None, ip_dst=None, ip_src=None, eth_type=None, tcp_sport=None,
-                                tcp_dport=None):
-    """ Checks whether packet with specified fields was egressed from DUT """
-    pkts = {}
-    arp_observed = False
-    msg = ""
-
-    for port, pkt, timestamp in ptfadapter.dataplane.packets(0):
-        if match_packet_fields(pkt=pkt, eth_dst=eth_dst, eth_src=eth_src, ip_dst=ip_dst, ip_src=ip_src, eth_type=eth_type,
-                                tcp_sport=tcp_sport, tcp_dport=tcp_dport):
-            if port not in pkts:
-                pkts[port] = {"count": 0, "pkt": pkt} # Add packet in readable format
-            pkts[port]["count"] += 1
-        if is_arp_req(pkt=pkt, dst_ip=ip_dst):
-            arp_observed = True
-
-    if pkts:
-        msg_template = "Port - {}; Captured packets - {}; Packet - {}\n" # Write dict info here
-        for port, value in pkts.items():
-            scapy_pkt = scapy.layers.l2.Ether(value["pkt"])
-            msg += msg_template.format(port, value["count"], scapy_pkt.sprintf("eth_dst=%dst% eth_src=%src% ip_dst=%IP.dst% ip_src=%IP.src%"))
-
-    if arp_observed:
-        msg += "\nFound ARP request for packet which must be dropped with DST IP == {}\n".format(ip_dst)
-
-    if msg:
-        pytest.fail("Found packets which must be dropped by DUT:\n{}".format(msg))
+    exp_pkt = pkt.copy()
+    exp_pkt = mask.Mask(exp_pkt)
+    exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
+    exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
+    exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
+    exp_pkt.set_do_not_care_scapy(packet.IP, 'chksum')
+    return exp_pkt
 
 
 def log_pkt_params(dut_iface, mac_dst, mac_src, ip_dst, ip_src):
@@ -293,91 +247,95 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, combined_counter,
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2' or 'L3'")
 
 
-def test_equal_smac_dmac_drop(ptfadapter, duthost, setup, tx_dut_ports):
+def test_equal_smac_dmac_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
     """
     @summary: Verify that packet with equal SMAC and DMAC is dropped and L2 drop cunter incremented
     """
     dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
 
-    log_pkt_params(dut_iface, dst_mac, dst_mac, IP_DST, IP_SRC)
+    log_pkt_params(dut_iface, dst_mac, dst_mac, pkt_fields["ip_dst"], pkt_fields["ip_src"])
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=dst_mac, # DUT port
         eth_src=dst_mac, # PTF port
-        ip_src=IP_SRC, # PTF source
-        ip_dst=IP_DST, # DUT source
-        tcp_sport=TCP_SPORT,
-        tcp_dport=TCP_DPORT)
+        ip_src=pkt_fields["ip_src"], # PTF source
+        ip_dst=pkt_fields["ip_dst"], # DUT source
+        tcp_sport=pkt_fields["tcp_sport"],
+        tcp_dport=pkt_fields["tcp_dport"])
 
     base_verification("L2", pkt, ptfadapter, duthost, setup["combined_drop_counter"], ptf_tx_port_id, dut_iface)
 
     # Verify packets were not egresed the DUT
-    verify_no_packet_egressed(ptfadapter, ip_dst=IP_DST, ip_src=IP_SRC, tcp_sport=TCP_SPORT, tcp_dport=TCP_DPORT)
+    exp_pkt = expected_packet_mask(pkt)
+    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
 
 
-def test_dst_ip_is_loopback_addr(ptfadapter, duthost, setup, tx_dut_ports):
+def test_dst_ip_is_loopback_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
     """
     @summary: Verify that packet with loopback destination IP adress is dropped and L3 drop cunter incremented
     """
     dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
     ip_dst = "127.0.0.1"
 
-    log_pkt_params(dut_iface, dst_mac, src_mac, ip_dst, IP_SRC)
+    log_pkt_params(dut_iface, dst_mac, src_mac, ip_dst, pkt_fields["ip_src"])
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=dst_mac, # DUT port
         eth_src=src_mac, # PTF port
-        ip_src=IP_SRC, # PTF source
+        ip_src=pkt_fields["ip_src"], # PTF source
         ip_dst=ip_dst, # DUT source
-        tcp_sport=TCP_SPORT,
-        tcp_dport=TCP_DPORT)
+        tcp_sport=pkt_fields["tcp_sport"],
+        tcp_dport=pkt_fields["tcp_dport"])
 
-    base_verification("L3", pkt, ptfadapter, duthost, setup["combined_drop_counter"], ptf_tx_port_id, dut_iface)
+    base_verification("L3", pkt, ptfadapter, duthost, setup["combined_drop_counter"], ptf_tx_port_id, tx_dut_ports[dut_iface])
 
     # Verify packets were not egresed the DUT
-    verify_no_packet_egressed(ptfadapter, ip_dst=ip_dst, ip_src=IP_SRC, tcp_sport=TCP_SPORT, tcp_dport=TCP_DPORT)
+    exp_pkt = expected_packet_mask(pkt)
+    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
 
 
-def test_src_ip_is_loopback_addr(ptfadapter, duthost, setup, tx_dut_ports):
+def test_src_ip_is_loopback_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
     """
     @summary: Verify that packet with loopback source IP adress is dropped and L3 drop cunter incremented
     """
     dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
     ip_src = "127.0.0.1"
 
-    log_pkt_params(dut_iface, dst_mac, src_mac, IP_DST, ip_src)
+    log_pkt_params(dut_iface, dst_mac, src_mac, pkt_fields["ip_dst"], ip_src)
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=dst_mac, # DUT port
         eth_src=src_mac, # PTF port
         ip_src=ip_src, # PTF source
-        ip_dst=IP_DST, # DUT source
-        tcp_sport=TCP_SPORT,
-        tcp_dport=TCP_DPORT)
+        ip_dst=pkt_fields["ip_dst"], # DUT source
+        tcp_sport=pkt_fields["tcp_sport"],
+        tcp_dport=pkt_fields["tcp_dport"])
 
-    base_verification("L3", pkt, ptfadapter, duthost, setup["combined_drop_counter"], ptf_tx_port_id, dut_iface)
+    base_verification("L3", pkt, ptfadapter, duthost, setup["combined_drop_counter"], ptf_tx_port_id, tx_dut_ports[dut_iface])
 
     # Verify packets were not egresed the DUT
-    verify_no_packet_egressed(ptfadapter, ip_dst=IP_DST, ip_src=ip_src, tcp_sport=TCP_SPORT, tcp_dport=TCP_DPORT)
+    exp_pkt = expected_packet_mask(pkt)
+    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
 
 
-def test_dst_ip_absent(ptfadapter, duthost, setup, tx_dut_ports):
+def test_dst_ip_absent(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
     """
     @summary: Verify that packet with absent destination IP address is dropped and L3 drop cunter incremented
     """
     dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
 
-    log_pkt_params(dut_iface, dst_mac, src_mac, "", IP_SRC)
+    log_pkt_params(dut_iface, dst_mac, src_mac, "", pkt_fields["ip_src"])
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=dst_mac, # DUT port
         eth_src=src_mac, # PTF port
-        ip_src=IP_SRC, # PTF source
+        ip_src=pkt_fields["ip_src"], # PTF source
         ip_dst="", # DUT source
-        tcp_sport=TCP_SPORT,
-        tcp_dport=TCP_DPORT)
+        tcp_sport=pkt_fields["tcp_sport"],
+        tcp_dport=pkt_fields["tcp_dport"])
 
-    base_verification("L3", pkt, ptfadapter, duthost, setup["combined_drop_counter"], ptf_tx_port_id, dut_iface)
+    base_verification("L3", pkt, ptfadapter, duthost, setup["combined_drop_counter"], ptf_tx_port_id, tx_dut_ports[dut_iface])
 
     # Verify packets were not egresed the DUT
-    verify_no_packet_egressed(ptfadapter, ip_dst="", ip_src=IP_SRC, tcp_sport=TCP_SPORT, tcp_dport=TCP_DPORT)
+    exp_pkt = expected_packet_mask(pkt)
+    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
