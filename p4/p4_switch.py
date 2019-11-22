@@ -21,7 +21,11 @@ from logger.cafylog import CafyLog
 import grpc
 from p4.v1 import p4runtime_pb2
 from p4.v1 import p4runtime_pb2_grpc
+#from p4.tmp import p4config_pb2
+#import p4config_pb2
 from p4_error_utils import printGrpcError
+import p4_test_lib as p4TestLib
+from p4_base_ap import ApData
 
 # XXX This is in PI proto/p4/tmp/p4config.proto
 # from p4.tmp import p4config_pb2
@@ -38,7 +42,7 @@ def ShutdownAllSwitchConnections():
 
 class SwitchConnection(object):
 
-    def __init__(self, name=None, address='127.0.0.1:50051', device_id=0,
+    def __init__(self, name=None, address='127.0.0.1:50051', device_id=ApData.device_id,
                  proto_dump_file=None):
         self.name = name
         self.address = address
@@ -60,8 +64,10 @@ class SwitchConnection(object):
         #"Builds the device specific config for passed JSON"
         #device_config = p4config_pb2.P4DeviceConfig()
         #device_config.reassign = True
-        #with open(p4_json_file_path) as f:
-        #    device_config.device_data = f.read()
+        #print(p4_json_file_path)
+        #device_config.device_data = p4_json_file_path
+        #with open(p4_json_file_path, 'r') as f:
+        #    device_config.device_data = p4TestLib.json_load_byteified(f)
         #return device_config
 
     def shutdown(self):
@@ -122,6 +128,13 @@ class SwitchConnection(object):
             ckie = kwargs["cookie"]
         except KeyError:
             ckie = False
+        try:
+            pjson = kwargs["p4_json_file_path"]
+        except KeyError:
+            pjson = None
+
+        #device_config = self.buildDeviceConfig(pjson)
+
 
         log.info(request.election_id.low)
         #request.device_id = self.device_id
@@ -129,6 +142,9 @@ class SwitchConnection(object):
         if cfg_reqd:
             config = request.config
             config.p4info.CopyFrom(p4info)
+            if pjson:
+                with open(pjson, 'rb') as f2:
+                    request.config.p4_device_config = f2.read()
             if ckie:
                 config.cookie.cookie = ckie
             print("Sending Config: ")

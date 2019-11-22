@@ -129,15 +129,15 @@
                 }
             },
             "p4": {
-                "p4info": "./data-files/b4-gen.txt",
-                "p4json": "../../thirdparty/google/p4/b4-gen.json",
+                "p4info": "./data-files/bmv2/bmv2-b4.p4info.txt",
+                "p4json": "./data-files/bmv2/bmv2-b4.json",
                 "input_conf_file": "./data-files/ingress-encapin-ipv4-table.json",
                 "R1": {
                     "name": "s1",
-                    "svr_addr": "172.17.0.2",
-                    "svr_port": "50051",
+                    "svr_addr": "172.17.0.1",
+                    "svr_port": "50001",
                     "proto_dump_file": "s1-p4runtime-requests-log.txt",
-                    "device_id": "0"
+                    "device_id": "1"
                 }
             },
             "gnmi": {

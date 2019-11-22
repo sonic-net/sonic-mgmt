@@ -67,11 +67,9 @@ def _test_p4_sanity(sw_conn):
                 log.info("Inserting %d table entries..." % len(table_entries))
                 for entry in table_entries:
                     log.info(p4TestLib.tableEntryToString(entry))
-                    #insertTableEntry(sw_conn, entry, p4info_helper)
                     log.info("INSERTING TABLE ENTRIES")
                     p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'INSERT')
                     sleep(1)
-                    #removeTableEntry(sw_conn, entry, p4info_helper)
                     log.info("REMOVING TABLE ENTRIES")
                     p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'DELETE')
                     sleep(1)
@@ -376,7 +374,8 @@ def _test_setForwarding_pipeline_config():
     try:
 
         s1=TchLib.Establish_Switch_Conn(ApData.sw_name)
-        s1.MasterArbitrationUpdate(election_id_high=22, election_id_low=333)
+        #s1.MasterArbitrationUpdate(election_id_high=22, election_id_low=333)
+        s1.MasterArbitrationUpdate(election_id_high=0, election_id_low=1)
 
         if p4info_helper != None:
             # Install the P4 program on the switches

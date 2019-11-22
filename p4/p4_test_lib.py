@@ -433,10 +433,6 @@ def tableEntryActions(sw, flow, p4info_helper, action, **kwargs):
     except KeyError:
         election_id_high = 0
     try:
-        device_id = kwargs["device_id"]
-    except KeyError:
-        device_id = 0
-    try:
         role_id = kwargs["role_id"]
     except KeyError:
         role_id = 1
@@ -444,6 +440,10 @@ def tableEntryActions(sw, flow, p4info_helper, action, **kwargs):
         priority = kwargs["priority"]
     except KeyError:
         priority = flow.get('priority')  # None if not found
+    #try:
+    #    device_id = kwargs["device_id"]
+    #except KeyError:
+    #    device_id = 0
 
     
     table_name = flow['table']
@@ -469,7 +469,7 @@ def tableEntryActions(sw, flow, p4info_helper, action, **kwargs):
         priority=priority)
 
     if oper.upper() == 'INSERT':
-        sw.WriteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high,device_id=device_id)
+        sw.WriteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high)
     elif oper.upper() == 'MODIFY':
         sw.WriteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high,oper="MODIFY")
     elif oper.upper() == 'DELETE':
