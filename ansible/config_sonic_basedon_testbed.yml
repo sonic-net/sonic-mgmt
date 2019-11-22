@@ -114,6 +114,12 @@
                   dest=/etc/sonic/minigraph.xml
         become: true
 
+      - name: Copy corresponding configlet files if apply_configlet=true
+        copy: src=vars/configlet/{{ topo }}/
+              dest=/etc/sonic/
+        become: true
+        when: apply_configlet is defined and apply_configlet|bool == true
+
       - name: disable automatic minigraph update if we are deploying new minigraph into SONiC
         lineinfile:
             name: /etc/sonic/updategraph.conf
@@ -134,6 +140,11 @@
       - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
         become: true
         shell: config bgp startup all
+
+      - name: execute configlet application script, which applies configlets in strict order.
+        become: true
+        shell: bash -c "/etc/sonic/apply_clet.sh"
+        when: apply_configlet is defined and apply_configlet|bool == true
 
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true
