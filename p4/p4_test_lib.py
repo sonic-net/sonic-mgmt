@@ -4,6 +4,7 @@ import grpc
 import os
 import sys
 import json
+import time
 from time import sleep
 from logger.cafylog import CafyLog
 import google.protobuf.text_format
@@ -241,7 +242,10 @@ def tableEntryActionsBatched(sw, entryarr, p4info_helper, **kwargs):
             priority=priority)
         table_entries.append({'te':table_entry, 'op':oper})
 
+    t1 = time.time()
     sw.ProcessBatchedTableEntries(table_entries)
+    t2 = time.time()
+    log.info("[Time taken] Time for entries %s is %f" % (oper, t2-t1))
     return
 
 def tableWCRead(sw, flow, p4info_helper):

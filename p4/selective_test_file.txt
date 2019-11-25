@@ -13,5 +13,6 @@
 #p4_ap.py::TestP4::()::test_multicontrollers_non_blocking_tableEdit
 #p4_ap.py::TestP4::()::test_max_connections
 #p4_ap.py::TestP4::()::test_indirect_table_crudTests
-p4_ap.py::TestP4::()::test_direct_table_wc_readTest
-p4_ap.py::TestP4::()::test_table_batched_write_test
+#p4_ap.py::TestP4::()::test_direct_table_wc_readTest
+#p4_ap.py::TestP4::()::test_direct_table_batched_write_test
+p4_ap.py::TestP4::()::test_indirect_table_batched_write_test
