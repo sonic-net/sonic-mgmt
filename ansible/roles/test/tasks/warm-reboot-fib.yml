@@ -2,7 +2,7 @@
 # Run FIB Warm Reboot test and Perform log analysis.
 #--------------------------------------------------
 # Perform prechecks
-- include: shared-fib.yml
+- include_tasks: shared-fib.yml
 
 - debug : msg="Start FIB_WARM Test"
 
@@ -55,7 +55,7 @@
   when: warm_restart_docker is defined
 
 - name: reboot dut
-  include: common_tasks/reboot_sonic.yml
+  include_tasks: common_tasks/reboot_sonic.yml
   when: warm_restart_docker is not defined
 
 - name: check async_ptf status

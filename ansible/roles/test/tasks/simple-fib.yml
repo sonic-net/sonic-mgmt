@@ -2,7 +2,7 @@
 # Run FIB test and Perform log analysis.
 #-----------------------------------------
 # Perform prechecks
-- include: shared-fib.yml
+- include_tasks: shared-fib.yml
 
 - debug : msg="Start FIB Test"
 
@@ -10,7 +10,7 @@
   when: mtu is not defined
 
 - name: "Start PTF runner"
-  include: ptf_runner.yml
+  include_tasks: ptf_runner.yml
   vars:
     ptf_test_name: FIB test
     ptf_test_dir: ptftests

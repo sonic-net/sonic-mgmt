@@ -28,7 +28,7 @@
   delegate_to: "{{ptf_host}}"
 
 - name: "Start PTF runner"
-  include: ptf_runner.yml
+  include_tasks: ptf_runner.yml
   vars:
     ptf_test_name: dir_bcast test
     ptf_test_dir: ptftests

@@ -66,4 +66,4 @@
   become: true
 
 - name: reboot sonic
-  include: roles/test/tasks/common_tasks/reboot_sonic.yml
+  include_tasks: roles/test/tasks/common_tasks/reboot_sonic.yml

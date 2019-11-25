@@ -41,7 +41,7 @@
     pause: seconds=3
 
   - name: "Start PTF runner"
-    include: roles/test/tasks/ptf_runner.yml
+    include_tasks: roles/test/tasks/ptf_runner.yml
     vars:
       ptf_test_name: EVERFLOW Policer Test
       ptf_test_dir: acstests

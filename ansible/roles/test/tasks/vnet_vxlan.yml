@@ -35,7 +35,7 @@
       delegate_to: "{{ ptf_host }}"
 
     - name: Update supervisor configuration
-      include: "roles/test/tasks/common_tasks/update_supervisor.yml"
+      include_tasks: "roles/test/tasks/common_tasks/update_supervisor.yml"
       vars:
         supervisor_host: "{{ ptf_host }}"
 
@@ -58,7 +58,7 @@
       delegate_to: "{{ ptf_host }}"
 
       #Execute the test with Vxlan enabled false
-    - include: roles/test/tasks/ptf_runner.yml
+    - include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: Vnet vxlan test
         ptf_test_dir: ptftests
@@ -142,7 +142,7 @@
         - name: sleep for some time
           pause: seconds=3
 
-    - include: roles/test/tasks/ptf_runner.yml
+    - include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: Vnet vxlan test
         ptf_test_dir: ptftests
@@ -201,7 +201,7 @@
           become: true
           when: cleanup|bool
 
-        - include: roles/test/tasks/ptf_runner.yml
+        - include_tasks: roles/test/tasks/ptf_runner.yml
           vars:
             ptf_test_name: Vnet vxlan test
             ptf_test_dir: ptftests

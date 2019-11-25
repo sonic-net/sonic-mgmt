@@ -20,7 +20,7 @@
   delegate_to: "{{ ptf_host }}"
 
 - name: Update supervisor configuration
-  include: "roles/test/tasks/common_tasks/update_supervisor.yml"
+  include_tasks: "roles/test/tasks/common_tasks/update_supervisor.yml"
   vars:
     supervisor_host: "{{ ptf_host }}"
 
@@ -29,7 +29,7 @@
   delegate_to: "{{ ptf_host }}"
 
 - block:
-    - include: ptf_runner.yml
+    - include_tasks: ptf_runner.yml
       vars:
         ptf_test_name: VLAN test
         ptf_test_dir: ptftests

@@ -1,4 +1,4 @@
 - name: run test
-  include: roles/test/tasks/pytest_runner.yml
+  include_tasks: roles/test/tasks/pytest_runner.yml
   vars:
     test_node: test_lldp.py

@@ -10,7 +10,7 @@
       get_url: url={{ pfcwd_dockers_url }}/{{ item | basename }} dest={{ filename }}
 
     - name: Copy the downloaded pfcwd docker image to switch
-      include: scp_copy.yml
+      include_tasks: scp_copy.yml
       vars:
         src: "{{ filename }}"
         dest: "{{ fanout_img_path }}"

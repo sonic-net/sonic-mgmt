@@ -29,7 +29,7 @@
       v6_intf_nei: "fe00::2"
 
   - name: init loganalyzer for later syslog analysis
-    include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+    include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
   - name: gather DUT interface table
     show_interface: command='status'
@@ -135,15 +135,15 @@
   - assert: { that: "neighbour_mac.stdout | lower == v6_mac2" }
 
   - name: analyze the syslog to make sure no syncd errors
-    include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+    include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
   - name: close out the loganalyzer
-    include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+    include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
   become: yes
 
   always:
     - name: reset all changes
-      include: "roles/test/tasks/common_tasks/reload_config.yml"
+      include_tasks: "roles/test/tasks/common_tasks/reload_config.yml"
       vars:
         config_source: "minigraph"
 

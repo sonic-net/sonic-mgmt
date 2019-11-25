@@ -64,7 +64,7 @@
       peer_login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
 
 - name: set pfc storm templates based on fanout platform sku
-  include: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
 
 - name: Set timers
   set_fact:
@@ -89,8 +89,8 @@
 - set_fact:
       pfc_gen_file: pfc_gen.py
 
-- name: Deploy pfc packet generater file to fanout switch
-  include: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
+#- name: Deploy pfc packet generater file to fanout switch
+#  include_tasks: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
 
 - name: copy the test to ptf container
   copy: src=roles/test/files/ptftests dest=/root
@@ -117,7 +117,7 @@
         seconds: 5
 
     - name: "Buffer up the queue in {{pfc_wd_test_port}}"
-      include: roles/test/tasks/ptf_runner.yml
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
@@ -141,7 +141,7 @@
         test_ignore_file: "ignore_pfc_wd_messages"
 
     - name: Initialize loganalyzer
-      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Apply drop config to port {{ pfc_wd_test_port }}.
       shell: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time_large }} {{ ports }} {{ pfc_wd_detect_time }}"
@@ -152,10 +152,10 @@
         seconds: 5
 
     - name: Check if logs contain message that PFC WD detected deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     - name: Check if logs contain message that PFC WD detected deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS before test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
@@ -166,7 +166,7 @@
       register: pfc_wd_rx_drop_before
 
     - name: "check egress drop, tx port {{pfc_wd_test_port}}"
-      include: roles/test/tasks/ptf_runner.yml
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
@@ -186,7 +186,7 @@
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: "Check ingress drop, rx port {{pfc_wd_test_port}}"
-      include: roles/test/tasks/ptf_runner.yml
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
@@ -206,7 +206,7 @@
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: "Send packets via {{pfc_wd_test_port}} to verify that other queue is not affected"
-      include: roles/test/tasks/ptf_runner.yml
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
@@ -226,7 +226,7 @@
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: "Send packets to {{pfc_wd_test_port}} to verify that other pg is not affected"
-      include: roles/test/tasks/ptf_runner.yml
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
@@ -249,7 +249,7 @@
         test_expect_file: "expect_pfc_wd_restore"
 
     - name: Initialize loganalyzer
-      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Stop PFC storm on fanout switch
       action: apswitch template="{{pfc_wd_storm_stop_template}}"
@@ -263,10 +263,10 @@
         seconds: "{{ pfc_wait_for_restore_time }}"
 
     - name: Check if logs contain message that PFC WD restored from deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     - name: Check if logs contain message that PFC WD restored from deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS after test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
@@ -316,7 +316,7 @@
       vars:
         command_to_run: "pfcwd stop"
         errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
 # Verify proper function of drop action
 - block:
@@ -324,7 +324,7 @@
       vars:
         command_to_run: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time_large }} {{ ports }} {{ pfc_wd_detect_time }}"
         errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS before test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
@@ -341,7 +341,7 @@
         pfc_frames_number: 100000000
 
     - name: Initialize loganalyzer
-      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Generate PFC storm on fanout switch
       action: apswitch template="{{pfc_wd_storm_template}}"
@@ -355,13 +355,13 @@
         seconds: 5
 
     - name: Check if logs contain message that PFC WD detected deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     - name: Check if logs contain message that PFC WD detected deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     - name: "Send packets via {{pfc_wd_test_port}}"
-      include: roles/test/tasks/ptf_runner.yml
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
@@ -381,7 +381,7 @@
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: "Send packets to {{pfc_wd_test_port}}"
-      include: roles/test/tasks/ptf_runner.yml
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
@@ -401,7 +401,7 @@
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: "Send packets via {{pfc_wd_test_port}} to verify that other queue is not affected"
-      include: roles/test/tasks/ptf_runner.yml
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
@@ -421,7 +421,7 @@
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: "Send packets to {{pfc_wd_test_port}} to verify that other pg is not affected"
-      include: roles/test/tasks/ptf_runner.yml
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
@@ -444,7 +444,7 @@
         test_expect_file: "expect_pfc_wd_restore"
 
     - name: Initialize loganalyzer
-      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Stop PFC storm on fanout switch
       action: apswitch template="{{pfc_wd_storm_stop_template}}"
@@ -458,10 +458,10 @@
         seconds: "{{ pfc_wait_for_restore_time }}"
 
     - name: Check if logs contain message that PFC WD restored from deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     - name: Check if logs contain message that PFC WD restored from deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS after test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
@@ -515,7 +515,7 @@
       vars:
         command_to_run: "pfcwd stop"
         errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
 # Verify proper function of forward action
 - block:
@@ -523,7 +523,7 @@
       vars:
         command_to_run: "pfcwd start --action forward --restoration-time {{ pfc_wd_restore_time_large }} {{ ports }} {{ pfc_wd_detect_time }}"
         errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_PACKETS before test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS"
@@ -540,7 +540,7 @@
         pfc_frames_number: 100000000
 
     - name: Initialize loganalyzer
-      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Generate PFC storm on fanout switch
       action: apswitch template="{{pfc_wd_storm_template}}"
@@ -554,13 +554,13 @@
         seconds: 1
 
     - name: Check if logs contain message that PFC WD detected deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     - name: Check if logs contain message that PFC WD detected deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     - name: "Send packets via {{pfc_wd_test_port}}"
-      include: roles/test/tasks/ptf_runner.yml
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
@@ -580,7 +580,7 @@
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: "Send packets to {{pfc_wd_test_port}}"
-      include: roles/test/tasks/ptf_runner.yml
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
@@ -603,7 +603,7 @@
         test_expect_file: "expect_pfc_wd_restore"
 
     - name: Initialize loganalyzer
-      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Stop PFC storm on fanout switch
       action: apswitch template="{{pfc_wd_storm_stop_template}}"
@@ -617,10 +617,10 @@
         seconds: "{{ pfc_wait_for_restore_time }}"
 
     - name: Check if logs contain message that PFC WD restored from deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     - name: Check if logs contain message that PFC WD restored from deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_PACKETS after test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS"
@@ -679,5 +679,5 @@
       vars:
         command_to_run: "pfcwd stop"
         errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 

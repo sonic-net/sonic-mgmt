@@ -54,7 +54,7 @@
     - debug: msg="{{show_mac_output.stdout}}"
 
     - name: "Start PTF runner"
-      include: ptf_runner.yml
+      include_tasks: ptf_runner.yml
       vars:
         ptf_test_name: FDB Mac Expire test
         ptf_test_dir: ptftests

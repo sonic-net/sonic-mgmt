@@ -25,41 +25,41 @@
      pause: seconds=30
 
    - name: Run test case "CRM IPv4 route resource"
-     include: roles/test/tasks/crm/crm_test_ipv4_route.yml
+     include_tasks: roles/test/tasks/crm/crm_test_ipv4_route.yml
 
    - name: Run test case "CRM IPv6 route resource"
-     include: roles/test/tasks/crm/crm_test_ipv6_route.yml
+     include_tasks: roles/test/tasks/crm/crm_test_ipv6_route.yml
 
    - name: Run test case "CRM IPv4 nexthop resource"
-     include: roles/test/tasks/crm/crm_test_ipv4_nexthop.yml
+     include_tasks: roles/test/tasks/crm/crm_test_ipv4_nexthop.yml
 
    - name: Run test case "CRM IPv6 nexthop resource"
-     include: roles/test/tasks/crm/crm_test_ipv6_nexthop.yml
+     include_tasks: roles/test/tasks/crm/crm_test_ipv6_nexthop.yml
 
    - name: Run test case "CRM IPv4 neighbor resource"
-     include: roles/test/tasks/crm/crm_test_ipv4_neighbor.yml
+     include_tasks: roles/test/tasks/crm/crm_test_ipv4_neighbor.yml
 
    - name: Run test case "CRM IPv6 neighbor resource"
-     include: roles/test/tasks/crm/crm_test_ipv6_neighbor.yml
+     include_tasks: roles/test/tasks/crm/crm_test_ipv6_neighbor.yml
 
    - name: Run test case "CRM nexthop group resource"
-     include: roles/test/tasks/crm/crm_test_nexthop_group.yml
+     include_tasks: roles/test/tasks/crm/crm_test_nexthop_group.yml
 
    - name: Run test case "CRM nexthop group member resource"
-     include: roles/test/tasks/crm/crm_test_nexthop_group_member.yml
+     include_tasks: roles/test/tasks/crm/crm_test_nexthop_group_member.yml
 
    - name: Run test case "CRM ACL entry resources"
-     include: roles/test/tasks/crm/crm_test_acl_entry.yml
+     include_tasks: roles/test/tasks/crm/crm_test_acl_entry.yml
 
    - name: Run test case "CRM ACL counter resources"
-     include: roles/test/tasks/crm/crm_test_acl_counter.yml
+     include_tasks: roles/test/tasks/crm/crm_test_acl_counter.yml
 
    - name: Run test case "CRM FDB entry resource"
-     include: roles/test/tasks/crm/crm_test_fdb_entry.yml
+     include_tasks: roles/test/tasks/crm/crm_test_fdb_entry.yml
      when: testbed_type == "t0"
 
    - name: Run test case "CRM VNET resources"
-     include: roles/test/tasks/crm/crm_test_vnet_bitmap.yml
+     include_tasks: roles/test/tasks/crm/crm_test_vnet_bitmap.yml
      when: testbed_type == "t0"
 
 

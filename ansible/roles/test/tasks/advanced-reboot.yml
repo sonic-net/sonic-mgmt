@@ -38,7 +38,7 @@
       when: None not in inboot_list
 
     - name: Validate preboot and inboot list
-      include: roles/test/tasks/advanced_reboot/validate_sad_list.yml
+      include_tasks: roles/test/tasks/advanced_reboot/validate_sad_list.yml
       with_items: "{{ preboot_list + inboot_list }}"
       when: item and ':' in item
 
@@ -148,10 +148,10 @@
         allow_vlan_flooding:        "{{ allow_vlan_flooding        | default('false') | bool }}"
         sniff_time_incr:            "{{ sniff_time_incr            | default(60)       | int }}"
 
-    - include: advanced_reboot/reboot-image-handle.yml
+    - include_tasks: advanced_reboot/reboot-image-handle.yml
       when: new_sonic_image is defined
 
-    - include: advanced_reboot/upgrade_mlnx_fw.yml
+    - include_tasks: advanced_reboot/upgrade_mlnx_fw.yml
       when:
         - new_sonic_image is defined
         - reboot_type == "fast-reboot"
@@ -169,7 +169,7 @@
       set_fact: sad_list="{{ preboot_list }}"
       when: (None in preboot_list) and (None in inboot_list)
 
-    - include: ptf_runner_reboot.yml
+    - include_tasks: ptf_runner_reboot.yml
       with_items: "{{ sad_list }}"
 
   always:

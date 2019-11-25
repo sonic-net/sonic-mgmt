@@ -52,7 +52,7 @@
       copy: src=roles/test/files/ptftests dest=/root
       delegate_to: "{{ ptf_host }}"
 
-    - include: ptf_runner.yml
+    - include_tasks: ptf_runner.yml
       vars:
         ptf_test_name: COPP test - {{ item }}
         ptf_test_dir: ptftests

@@ -52,7 +52,7 @@
   when: interval is not defined
 
 - name: Start VMs
-  include: start_vm.yml
+  include_tasks: start_vm.yml
   vars:
     vm_name: "{{ item }}"
     hostname: "{{ vm_name }}"
@@ -67,7 +67,7 @@
   with_items: "{{ VM_hosts }}"
 
 - name: Kickstart VMs
-  include: kickstart_vm.yml
+  include_tasks: kickstart_vm.yml
   vars:
     vm_name: "{{ item }}"
     hostname: "{{ vm_name }}"

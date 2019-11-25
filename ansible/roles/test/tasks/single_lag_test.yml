@@ -35,7 +35,7 @@
     peer_hwsku: "{{ device_info['HwSku'] }}"
 
 - name: test fanout interface (physical) flap and lacp keep correct po status follow minimum links requirement
-  include: lag_minlink.yml
+  include_tasks: lag_minlink.yml
   vars:
     deselect_time: 5
     wait_down_time: "{{ wait_timeout | int }}"
@@ -50,7 +50,7 @@
     peer_host: "{{ minigraph_devices[peer_device]['mgmt_addr'] }}"
 
 - name: test vm interface flap (no physical port down, more like remote port lock) that lag interface can change to correct po status follow minimum links requirement
-  include: lag_minlink.yml
+  include_tasks: lag_minlink.yml
   vars: 
     deselect_time: 95
     wait_down_time: "{{ wait_timeout | int }}"

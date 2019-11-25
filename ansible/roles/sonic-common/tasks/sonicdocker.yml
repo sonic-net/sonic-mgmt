@@ -96,7 +96,7 @@
 - block:
   ## Clean up images before pulling
   - name: "{{docker_container}} - Clean up images before pulling"
-    include: sonicdocker_clean.yml
+    include_tasks: sonicdocker_clean.yml
 
   ## Pull docker image from registry
   - name: "{{docker_container}} - Pull docker image from registry"
@@ -177,7 +177,7 @@
 
 ## Clean up images after pulled and running
 - name: "{{docker_container}} - Clean up images after pulled and running"
-  include: sonicdocker_clean.yml
+  include_tasks: sonicdocker_clean.yml
   when: "(docker_state == 'reloaded' and 'Status: Downloaded newer image' in pull_result.stdout) or  \
         docker_state == 'absent'"
 

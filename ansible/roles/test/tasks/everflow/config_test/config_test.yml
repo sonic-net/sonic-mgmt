@@ -21,7 +21,7 @@
         - config_delete.json
 
 - name: Initialize config test
-  include: roles/test/tasks/init_config_test.yml
+  include_tasks: roles/test/tasks/init_config_test.yml
 
 - block:
     - name: Config tests - invalid SRC IP address.
@@ -30,7 +30,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: true
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - invalid DST IP address.
       vars:
@@ -38,7 +38,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: true
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - invalid GRE type (non integer value).
       vars:
@@ -46,7 +46,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: true
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - invalid GRE type (value < that min bound).
       vars:
@@ -54,7 +54,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: true
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - invalid GRE type (value > that min bound).
       vars:
@@ -62,7 +62,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: true
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - invalid DSCP (non integer value).
       vars:
@@ -70,7 +70,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: true
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - invalid DSCP (value < that min bound).
       vars:
@@ -78,7 +78,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: true
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - invalid DSCP (value > that min bound).
       vars:
@@ -86,7 +86,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: true
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - invalid TTL (non integer value).
       vars:
@@ -94,7 +94,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: true
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - invalid TTL (value < that min bound).
       vars:
@@ -102,7 +102,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: true
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - invalid TTL (value > that min bound).
       vars:
@@ -110,7 +110,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: true
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - invalid queue (non integer value).
       vars:
@@ -118,7 +118,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: true
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - invalid queue (value < that min bound).
       vars:
@@ -126,7 +126,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: true
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - invalid queue (value > that max bound).
       vars:
@@ -134,7 +134,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: true
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - valid config (all integers are in 10 base).
       vars:
@@ -142,7 +142,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: false
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - valid config (all integers are in hex).
       vars:
@@ -150,7 +150,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: false
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - delete configuration part 1 (apply config).
       vars:
@@ -158,7 +158,7 @@
         test_expect_file: config_test_expect_file
         errors_expected: false
         run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Config tests - delete configuration part 2 (delete config).
       vars:
@@ -166,8 +166,8 @@
         test_expect_file: config_test_expect_file
         errors_expected: false
         run_cleanup: true
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
   always:
     - name: Remove all the temporary files created by the test.
-      include: roles/test/tasks/deinit_config_test.yml
+      include_tasks: roles/test/tasks/deinit_config_test.yml
