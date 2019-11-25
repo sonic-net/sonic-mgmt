@@ -35,6 +35,7 @@ import p4_info_helper
 import p4_test_lib as p4TestLib
 import p4_sanity_tc as p4_san_tc
 import tc_helper_lib as TchLib
+import p4_apg_apm
 
 
 SWITCH_TO_HOST_PORT = 1
@@ -42,6 +43,7 @@ SWITCH_TO_SWITCH_PORT = 2
 
 @pytest.fixture(scope="session")
 def sw_conn():
+    
     sw_conn = None
     p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
     p4_json_file_path = ApData.p4json
@@ -52,11 +54,15 @@ def sw_conn():
         reply = sw_conn.MasterArbitrationUpdate()
         if ((str(reply).find('low: 1') != -1) and (str(reply).find('message: "Is master"') != -1)):
             if p4info_helper != None:
-                # Install the P4 program on the switches
-                log.info("Setting ForwardingPipelineConfig on s1")
-                sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,
-                                            p4_json_file_path=p4_json_file_path)
-                log.info("Installed P4 Program using SetForwardingPipelineConfig on sw_conn")
+                try:
+                    sw_conn.GetForwardingPipelineConfig()
+                except KeyboardInterrupt:
+                    log.info("Shutting down.")
+                except grpc.RpcError as e:
+                    log.info("Setting ForwardingPipelineConfig on s1")
+                    sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,
+                                                p4_json_file_path=p4_json_file_path)
+                    log.info("Installed P4 Program using SetForwardingPipelineConfig on sw_conn")
         else:
             raise CafyException.VerificationError("Test failed due to Election issues")
 
@@ -69,15 +75,14 @@ def sw_conn():
         p4_switch.ShutdownAllSwitchConnections()
     #return sw_conn
 
-class TestP4(P4ApBase):
+@pytest.fixture(autouse=True)
+def clean_sw_connection():
+    p4_switch.ShutdownAllSwitchConnections()
 
+class TestP4(P4ApBase):
 
     def test_setForwarding_pipeline_config(self):
         p4_san_tc._test_setForwarding_pipeline_config()
-
-    @pytest.mark.parametrize("tbl_ops", ["INSERT", "READ", "MODIFY"])
-    def test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops,sw_conn):
-        p4_san_tc._test_ingress_encapIn_ipv4_table_crudTests(self, tbl_ops,sw_conn)
 
     @pytest.mark.parametrize("tbl_ops", ["INSERT", "READ", "MODIFY", "DELETE"])
     @pytest.mark.parametrize("tbl_name", ["ingress.encap.encap_in_ipv4_table"])
@@ -108,24 +113,107 @@ class TestP4(P4ApBase):
     
     def test_Master_change(self,sw_conn):
         p4_san_tc._test_Master_change(sw_conn)
+    
+    def test_Master_down(self,sw_conn):
+        p4_san_tc._test_new_master_down()
 
     def test_nonZero_DeviceID(self,sw_conn):
         p4_san_tc._test_nonZero_DeviceID()
 
     def test_deviceID_ACC(self,sw_conn):
         p4_san_tc._test_deviceID_ACC()
-
-    @pytest.mark.parametrize("mode", ["INSERT", "DELETE"])
-    def test_action_profile_members(self,mode,sw_conn):
-        p4_san_tc._test_action_profile_members(mode,sw_conn)
-
-    @pytest.mark.parametrize("mode", ["INSERT", "DELETE"])
-    def test_action_profile_groups(self,mode,sw_conn):
-        p4_san_tc._test_action_profile_groups(mode,sw_conn)
-
     
     def test_Read_wTableId_Zero(self,sw_conn):
         p4_san_tc._test_Read_wTableId_Zero(sw_conn)
+
+    @pytest.mark.parametrize("mode", ["INSERT", "DELETE"])
+    def test_action_profile_members(self,mode,sw_conn):
+        p4_apg_apm._test_action_profile_members(mode,sw_conn)
+    
+    def test_actionMem_Neg1(self,sw_conn):
+        p4_apg_apm._test_actionMem_Neg1()
+
+    def test_actionMem_Neg2(self,sw_conn):
+        p4_apg_apm._test_actionMem_Neg2()
+
+    def test_actionMem_Neg3(self,sw_conn):
+        p4_apg_apm._test_actionMem_Neg3()
+
+    @pytest.mark.parametrize("mode", ["INSERT", "MODIFY", "DELETE"])
+    def test_action_profile_groups(self,mode,sw_conn):
+        p4_apg_apm._test_action_profile_groups(self,mode,sw_conn)
+
+    def test_negative_action_profile_groups_1(self,sw_conn):
+        p4_apg_apm._test_negative_action_profile_groups_1(self,sw_conn)
+    
+    def test_negative_action_profile_groups_2(self,sw_conn):
+        p4_apg_apm._test_negative_action_profile_groups_2(self,sw_conn)
+
+    def test_negative_action_profile_groups_3(self,sw_conn):
+        p4_apg_apm._test_negative_action_profile_groups_3(self,sw_conn)
+    
+    def test_negative_action_profile_groups_4(self,sw_conn):
+        p4_apg_apm._test_negative_action_profile_groups_4(self,sw_conn)
+
+    def test_negative_action_profile_groups_5(self,sw_conn):
+        p4_apg_apm._test_negative_action_profile_groups_5(self,sw_conn)
+    
+    def test_negative_action_profile_groups_6(self,sw_conn):
+        p4_apg_apm._test_negative_action_profile_groups_6(self,sw_conn)
+    
+    def test_negative_action_profile_groups_7(self,sw_conn):
+        p4_apg_apm._test_negative_action_profile_groups_7(self,sw_conn)
+    
+    def test_negative_action_profile_groups_8(self,sw_conn):
+        p4_apg_apm._test_negative_action_profile_groups_8(self,sw_conn)
+
+    def test_negative_action_profile_groups_9(self,sw_conn):
+        p4_apg_apm._test_negative_action_profile_groups_9(self,sw_conn)
+        
+    def test_writeRPC_Neg1(self,sw_conn):
+        p4_san_tc._test_writeRPC_Neg1()
+
+    def test_writeRPC_Neg2(self,sw_conn):
+        p4_san_tc._test_writeRPC_Neg2()
+
+    def test_writeInsert_Neg1(self,sw_conn):
+        p4_san_tc._test_writeInsert_Neg1()
+
+    def test_writeRPC_Neg3(self):
+        p4_san_tc._test_writeRPC_Neg3()
+    
+    def test_writeInsert_Neg2(self,sw_conn):
+        p4_san_tc._test_writeInsert_Neg2()
+
+    def test_writeModify_Neg1(self,sw_conn):
+        p4_san_tc._test_writeModify_Neg1()
+
+    def test_writeUpdnDel_Neg1(self,sw_conn):
+        p4_san_tc._test_writeUpdnDel_Neg1()
+
+    def test_setFrwding_Neg1(self):
+        p4_san_tc._test_setFrwding_Neg1()
+
+    def test_setFrwding_Act1(self):
+        p4_san_tc._test_setFrwding_Act1()
+
+    def test_setFwd_Opt1(self):
+        p4_san_tc._test_setFwd_Opt1()
+
+    def test_setFwd_Opt2(self):
+        p4_san_tc._test_setFwd_Opt2()
+
+    def test_setFwd_Opt3(self):
+        p4_san_tc._test_setFwd_Opt3()
+
+    def test_setFwd_Opt4(self):
+        p4_san_tc._test_setFwd_Opt4()
+
+    def test_getFwd_Neg1(self):
+        p4_san_tc._test_getFwd_Neg1()
+
+    def test_getFwd_Resp1(self):
+        p4_san_tc._test_getFwd_Resp1()
 
     def test_multicontrollers_blocking_tableEdit(self):
         p4_san_tc._test_multicontrollers_blocking_tableEdit()
@@ -136,13 +224,3 @@ class TestP4(P4ApBase):
     @pytest.mark.last
     def test_max_connections(self,sw_conn):
         p4_san_tc._test_max_connections()
-
-    def test_actionMem_Neg1(self,sw_conn):
-        p4_san_tc._test_actionMem_Neg1(sw_conn)
-
-    def test_actionMem_Neg2(self,sw_conn):
-        p4_san_tc._test_actionMem_Neg2(sw_conn)
-
-    def test_actionMem_Neg3(self,sw_conn):
-        p4_san_tc._test_actionMem_Neg3(sw_conn)
-

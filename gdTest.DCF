@@ -8,18 +8,19 @@ RUN apt-get update && apt-get install \
 RUN apt-get update && apt-get install \
   -y libssl1.0
 
+WORKDIR /root/gd_test 
+
 # Install dependencies:
 COPY current-req.txt .
+COPY docker_startup_env .
 RUN pip3 install --upgrade pip
 RUN pip3 install wheel
 RUN pip3 install setuptools --upgrade
 RUN pip3 install -r current-req.txt
 
 # Run the application:
-ENV https_proxy = 
-ENV HTTPS_PROXY =
-ENV http_proxy =
-ENV HTTP_PROXY =
-ENV no_proxy =
-ENV NO_PROXY =
+ENV https_proxy = http://proxy.esl.cisco.com:80
+ENV HTTPS_PROXY = http://proxy.esl.cisco.com:80
+ENV no_proxy = .cisco.com
 ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION='python'
+

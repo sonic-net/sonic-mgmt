@@ -16,12 +16,17 @@ import sys
 from queue import Queue
 from datetime import datetime
 from time import sleep
+from pathlib import Path
 from logger.cafylog import CafyLog
 
 import grpc
 from p4.v1 import p4runtime_pb2
 from p4.v1 import p4runtime_pb2_grpc
+#from p4.tmp import p4config_pb2
+#import p4config_pb2
 from p4_error_utils import printGrpcError
+import p4_test_lib as p4TestLib
+from p4_base_ap import ApData
 
 # XXX This is in PI proto/p4/tmp/p4config.proto
 # from p4.tmp import p4config_pb2
@@ -38,7 +43,7 @@ def ShutdownAllSwitchConnections():
 
 class SwitchConnection(object):
 
-    def __init__(self, name=None, address='127.0.0.1:50051', device_id=0,
+    def __init__(self, name=None, address='127.0.0.1:50051', device_id=ApData.device_id,
                  proto_dump_file=None):
         self.name = name
         self.address = address
@@ -60,13 +65,21 @@ class SwitchConnection(object):
         #"Builds the device specific config for passed JSON"
         #device_config = p4config_pb2.P4DeviceConfig()
         #device_config.reassign = True
-        #with open(p4_json_file_path) as f:
-        #    device_config.device_data = f.read()
+        #print(p4_json_file_path)
+        #device_config.device_data = p4_json_file_path
+        #with open(p4_json_file_path, 'r') as f:
+        #    device_config.device_data = p4TestLib.json_load_byteified(f)
         #return device_config
 
     def shutdown(self):
         self.requests_stream.close()
         self.stream_msg_resp.cancel()
+        self.channel.close()
+
+    def listen(self):
+        for item in self.stream_msg_resp:
+            log.info("P4Runtime Answer: {item}".format(item=item))
+            return item # just one
 
     def MasterArbitrationUpdate(self, dry_run=False, device_id = None, **kwargs):
         request = p4runtime_pb2.StreamMessageRequest()
@@ -104,27 +117,75 @@ class SwitchConnection(object):
             request.election_id.high = kwargs["election_id_high"]
         except KeyError:
             request.election_id.high = 0
-        
-        log.info(request.election_id.low)
-        request.device_id = self.device_id
-        #request.role_id = 333
-        config = request.config
+        try:
+            request.device_id = kwargs["device_id"]
+        except KeyError:
+            request.device_id = self.device_id
+        try:
+            cfg_reqd = kwargs["config"]
+        except KeyError:
+            cfg_reqd = True
+        try:
+            ckie = kwargs["cookie"]
+        except KeyError:
+            ckie = False
+        try:
+            pjson = kwargs["p4_json_file_path"]
+        except KeyError:
+            pjson = None
 
-        config.p4info.CopyFrom(p4info)
+        #device_config = self.buildDeviceConfig(pjson)
+
+
+        log.info(request.election_id.low)
+        #request.device_id = self.device_id
+        #request.role_id = 333
+        if cfg_reqd:
+            config = request.config
+            config.p4info.CopyFrom(p4info)
+            tgt_bin = Path(pjson)
+            if tgt_bin.is_file():
+                with open(pjson, 'rb') as f2:
+                    request.config.p4_device_config = f2.read()
+            if ckie:
+                config.cookie.cookie = ckie
+            print("Sending Config: ")
+        else:
+            print("Sending NO Config: ", request.config)
         #config.p4_device_config = device_config.SerializeToString()
 
-        request.action = p4runtime_pb2.SetForwardingPipelineConfigRequest.VERIFY_AND_COMMIT
+        try:
+            req_act = kwargs["action"]
+        except KeyError:
+            #Using default Action for 'SetForwardingPipeline' as VERIFY_AND_COMMIT(3)
+            req_act = "VERIFY_AND_COMMIT"
+
+        #request.action = p4runtime_pb2.SetForwardingPipelineConfigRequest.VERIFY_AND_SAVE
+        req_nam = request.Action.Value(req_act)
+        setattr(request, 'action', req_nam)
         if dry_run:
             log.info("P4Runtime SetForwardingPipelineConfig:", request)
         else:
             self.client_stub.SetForwardingPipelineConfig(request)
 
 
-    def GetForwardingPipelineConfig(self, resp_typ=0, dry_run=False):
+    def GetForwardingPipelineConfig(self, dry_run=False, **kwargs):
         request = p4runtime_pb2.GetForwardingPipelineConfigRequest()
-        request.device_id = self.device_id
-        if resp_typ == 0:
-            request.response_type = p4runtime_pb2.GetForwardingPipelineConfigRequest.ALL
+        try:
+            request.device_id = kwargs["device_id"]
+        except KeyError:
+            request.device_id = self.device_id
+
+        try:
+            req_type = kwargs["resp_typ"]
+        except KeyError:
+            req_type = "ALL"
+
+        req_nam = request.ResponseType.Value(req_type)
+        setattr(request, 'response_type', req_nam)
+
+        #if request.response_type == 0:
+        #    request.response_type = p4runtime_pb2.GetForwardingPipelineConfigRequest.ALL
         if dry_run:
             print ("P4Runtime GetForwardingPipelineConfig:", request)
         else:
@@ -134,7 +195,7 @@ class SwitchConnection(object):
 
     def WriteTableEntry(self, table_entry, dry_run=False, **kwargs):
         request = p4runtime_pb2.WriteRequest()
-        request.device_id = self.device_id
+        #request.device_id = self.device_id
         try:
             request.election_id.low = kwargs["election_id_low"]
         except KeyError:
@@ -147,6 +208,11 @@ class SwitchConnection(object):
             upd_type = kwargs["oper"]
         except KeyError:
             upd_type = "INSERT"
+        try:
+            request.device_id = kwargs["device_id"]
+        except KeyError:
+            request.device_id = self.device_id
+
 
         request.role_id = 555
         update = request.updates.add()
@@ -344,7 +410,12 @@ class SwitchConnection(object):
 
     def ReadTableEntries(self, table_id=None, dry_run=False, **kwargs):
         request = p4runtime_pb2.ReadRequest()
-        request.device_id = self.device_id
+        #request.device_id = self.device_id
+        try:
+            request.device_id = kwargs["device_id"]
+        except KeyError:
+            request.device_id = self.device_id        
+
         entity = request.entities.add()
         table_entry = entity.table_entry
         if table_id is not None:

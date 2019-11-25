@@ -77,16 +77,6 @@
                     "input_conf_file": "./data-files/ingress-encapin-ipv4-table.json"
                 }
             },
-            "table_wc_read_tests": {
-                "ingress.encap.encap_in_ipv4_table": {
-                    "input_conf_file": "./data-files/ingress-encapin-ipv4-wcread-table.json"
-                }
-            },
-            "table_batched_write_tests": {
-                "ingress.encap.encap_in_ipv4_table": {
-                    "input_conf_file": "./data-files/ingress-encapin-ipv4-scale-table.json"
-                }
-            },
             "indirect_table_tests": {
                 "ingress.l3_fwd.l3_ipv4_vrf_table": {
                     "input_conf_file": "./data-files/ingress-l3fwd-ipv4vrf-table.json"
@@ -139,15 +129,15 @@
                 }
             },
             "p4": {
-                "p4info": "./data-files/b4-gen.txt",
-                "p4json": "../../thirdparty/google/p4/b4-gen.json",
+                "p4info": "./data-files/bmv2/bmv2-b4.p4info.txt",
+                "p4json": "./data-files/bmv2/bmv2-b4.json",
                 "input_conf_file": "./data-files/ingress-encapin-ipv4-table.json",
                 "R1": {
                     "name": "s1",
-                    "svr_addr": "172.29.105.102",
-                    "svr_port": "50054",
+                    "svr_addr": "172.17.0.1",
+                    "svr_port": "50001",
                     "proto_dump_file": "s1-p4runtime-requests-log.txt",
-                    "device_id": "0"
+                    "device_id": "1"
                 }
             },
             "gnmi": {
