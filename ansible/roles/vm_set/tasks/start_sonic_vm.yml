@@ -26,7 +26,7 @@
   port_alias: hwsku={{ hostvars[dut_name].hwsku }}
   delegate_to: localhost
 
-- name: Define vm {{ dut_name }}
+- name: Define SONiC vm {{ dut_name }}
   virt: name={{ dut_name }}
         command=define
         xml="{{ lookup('template', 'templates/sonic.xml.j2') }}"
@@ -34,12 +34,13 @@
   when: dut_name not in vm_list_defined.list_vms
   become: yes
 
-- name: Start vm {{ dut_name }}
+- name: Start SONiC vm {{ dut_name }}
   virt: name={{ dut_name }}
         state=running
         uri=qemu:///system
   when: dut_name not in vm_list_running.list_vms
   become: yes
+  register: sonic_vm_start
 
 - name: Wait until vm {{ dut_name }} is loaded
   sonic_kickstart: telnet_port={{ serial_port }}

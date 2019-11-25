@@ -91,13 +91,12 @@ router bgp {{ host['bgp']['asn'] }}
 {% endif %}
 {% endfor %}
 {% endfor %}
-{% exabgp %}
- neighbor {{ nhipv4 }} remote-as {{ host['bgp']['asn'] }}
- neighbor {{ nhipv4 }} description exabgp_v4
- neighbor {{ nhipv6 }} remote-as {{ host['bgp']['asn'] }}
- neighbor {{ nhipv6 }} description exabgp_v6
+ neighbor {{ props.nhipv4 }} remote-as {{ host['bgp']['asn'] }}
+ neighbor {{ props.nhipv4 }} description exabgp_v4
+ neighbor {{ props.nhipv6 }} remote-as {{ host['bgp']['asn'] }}
+ neighbor {{ props.nhipv6 }} description exabgp_v6
  address-familty ipv6
-   neighbor {{ nhipv6 }} activate
+   neighbor {{ props.nhipv6 }} activate
  !
 {% for name, iface in host['interfaces'].items() if name.startswith('Loopback') %}
 {% if iface['ipv4'] is defined %}
