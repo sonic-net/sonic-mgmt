@@ -5,6 +5,7 @@ import os
 import sys
 import json
 import re
+import time
 import multiprocessing
 from multiprocessing import Pool, TimeoutError
 from time import sleep
@@ -436,11 +437,11 @@ def _test_table_wildcard_read_test(self, tbl_name, sw_conn):
     finally:
         sw_conn.shutdown()
 
-def _test_table_batched_write_test(self, tbl_name, sw_conn):
+def _test_direct_table_batched_write_test(self, tbl_name, sw_conn):
     sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
     sw_conn.MasterArbitrationUpdate()
     p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
-    conf_file = "table_batched_write_tests/" + tbl_name + "/input_conf_file"
+    conf_file = "dir_table_batched_write_tests/" + tbl_name + "/input_conf_file"
     tbl_input_file = ApData.zap.get_testcase_configuration(conf_file)
     with open(tbl_input_file, 'r') as conf_file:
         input_conf = p4TestLib.json_load_byteified(conf_file)
@@ -466,6 +467,67 @@ def _test_table_batched_write_test(self, tbl_name, sw_conn):
             for ents in insrt_entrs:
                 ents['operation'] = 'DELETE'
             p4TestLib.tableEntryActionsBatched(sw_conn, insrt_entrs, p4info_helper)
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error(e)
+        printGrpcError(e)
+    finally:
+        sw_conn.shutdown()
+
+def _test_indirect_table_batched_write_test(self, tbl_name, sw_conn):
+    sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+    sw_conn.MasterArbitrationUpdate()
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    conf_file = "indir_table_batched_write_tests/" + tbl_name + "/input_conf_file"
+    tbl_input_file = ApData.zap.get_testcase_configuration(conf_file)
+    with open(tbl_input_file, 'r') as conf_file:
+        input_conf = p4TestLib.json_load_byteified(conf_file)
+    table_id = p4info_helper.get_id("tables", name=tbl_name)
+
+    log.info("BATCHED WRITE TEST FOR TABLE ENTRIES")
+    try:
+        if 'member_entries' in input_conf:
+            members = input_conf['member_entries']
+            for entry in members:
+                p4TestLib.memberActions(sw_conn,entry,p4info_helper, 'INSERT')
+                member_id = entry["member_id"]
+
+        if 'table_entries' in input_conf:
+            log.info(input_conf)
+            table_entries = input_conf['table_entries']
+            insrt_entrs = [x for x in table_entries if x['entry_oper'] == 'INSERT']
+            for ents in insrt_entrs:
+                ents['operation'] = 'INSERT'
+
+            tblInsertStart = time.time()
+            p4TestLib.tableEntryActionsBatched(sw_conn, insrt_entrs, p4info_helper)
+            tblInsertEnd = time.time()
+            sleep(2)
+            tblReadStart = time.time()
+            #reply = sw_conn.ReadTableEntries(table_id=table_id)
+            reply = {}
+            tblReadEnd = time.time()
+            for rep in reply:
+                log.info(" READ Reply from DUT")
+                log.info(p4TestLib.repr_pretty_p4runtime(rep))
+            log.info("Deleting %d table entries..." % len(insrt_entrs))
+            # Delete all the added entries
+            for ents in insrt_entrs:
+                ents['operation'] = 'DELETE'
+            tblDeleteStart = time.time()
+            p4TestLib.tableEntryActionsBatched(sw_conn, insrt_entrs, p4info_helper)
+            tblDeleteEnd = time.time()
+            log.info("[Time taken] Insert time = %f, read time = %f, delete " \
+                "time = %f" % (tblInsertEnd-tblInsertStart, \
+                tblReadEnd - tblReadStart, tblDeleteEnd - tblDeleteStart));
+
+        if 'member_entries' in input_conf:
+            members = input_conf['member_entries']
+            for entry in members:
+                p4TestLib.memberActions(sw_conn,entry,p4info_helper, 'DELETE')
+                member_id = entry["member_id"]
 
     except KeyboardInterrupt:
         log.info("Shutting down.")
@@ -539,7 +601,7 @@ def _test_direct_table_crudTests(self, tbl_name, tbl_ops, sw_conn):
                 #print (mod_entrs)
                 log.info("Modifying %d table entries..." % len(table_entries))
                 for entry in mod_entrs:
-                    log.info(p4TestLib.tableEntryToString(entry))
+                    #log.info(p4TestLib.tableEntryToString(entry))
                     log.info("MODIFYING ENTRIES FOR TABLE - ingress_encap_in_ipv4_table")
                     p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'MODIFY')
                     sleep(1)
@@ -666,7 +728,7 @@ def _test_indirect_table_crudTests(self, tbl_name,tbl_ops,sw_conn):
                 del_entrs = [x for x in table_entries if x['entry_oper'] == "DELETE"]
                 log.info("Deleting %d table entries..." % len(del_entrs))
                 for entry in del_entrs:
-                    #log.info(p4TestLib.tableEntryToString(entry))
+                    log.info(p4TestLib.tableEntryToString(entry))
                     log.info("DELETING ENTRIES FOR TABLE - {tbl_name}".format(tbl_name=tbl_name))
                     p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'DELETE')
                     sleep(1)

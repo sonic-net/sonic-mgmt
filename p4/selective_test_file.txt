@@ -22,3 +22,6 @@ p4_ap.py::TestP4::()::test_writeRPC_Neg3
 p4_ap.py::TestP4::()::test_multicontrollers_blocking_tableEdit
 p4_ap.py::TestP4::()::test_multicontrollers_non_blocking_tableEdit
 p4_ap.py::TestP4::()::test_max_connections
+p4_ap.py::TestP4::()::test_direct_table_wc_readTest
+p4_ap.py::TestP4::()::test_direct_table_batched_write_test
+p4_ap.py::TestP4::()::test_indirect_table_batched_write_test
