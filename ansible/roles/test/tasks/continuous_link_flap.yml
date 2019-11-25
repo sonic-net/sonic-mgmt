@@ -214,6 +214,3 @@
     - name: perform config reload
       shell: config reload -y
       become: true
-
-    - name: wait 30 secs for all ports up
-      pause: seconds=30
