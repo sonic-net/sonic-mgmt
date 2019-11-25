@@ -136,7 +136,7 @@
 
 # Get buffers size
 # Ingress lossless
-- include: roles/test/tasks/qos_get_max_buff_size.yml
+- include_tasks: roles/test/tasks/qos_get_max_buff_size.yml
   vars:
     target_table: 'BUFFER_PG'
     target_port_name: "{{dut_switch_ports[src_port_id|int]}}"
@@ -153,7 +153,7 @@
 
 
 # Ingress lossy
-- include: roles/test/tasks/qos_get_max_buff_size.yml
+- include_tasks: roles/test/tasks/qos_get_max_buff_size.yml
   vars:
     target_table: 'BUFFER_PG'
     target_port_name: "***{{dut_switch_ports[src_port_id|int]}}***"
@@ -174,7 +174,7 @@
 
 
 # Egress lossless
-- include: roles/test/tasks/qos_get_max_buff_size.yml
+- include_tasks: roles/test/tasks/qos_get_max_buff_size.yml
   vars:
     target_table: 'BUFFER_QUEUE'
     target_port_name: "***{{dut_switch_ports[src_port_id|int]}}***"
@@ -191,7 +191,7 @@
 
 
 # Egress lossy
-- include: roles/test/tasks/qos_get_max_buff_size.yml
+- include_tasks: roles/test/tasks/qos_get_max_buff_size.yml
   vars:
     target_table: 'BUFFER_QUEUE'
     target_port_name: "***{{dut_switch_ports[src_port_id|int]}}***"

@@ -10,7 +10,7 @@
   when: (vnet is not defined) or (vnet_pkts is not defined)
 
 - name: Warm-reboot test
-  include: advanced-reboot.yml
+  include_tasks: advanced-reboot.yml
   vars:
       reboot_type: warm-reboot
       preboot_list: ['neigh_bgp_down', 'dut_bgp_down', 'dut_lag_down', 'neigh_lag_down', 'dut_lag_member_down:1:1', 'neigh_lag_member_down:1:1', 'vlan_port_down']

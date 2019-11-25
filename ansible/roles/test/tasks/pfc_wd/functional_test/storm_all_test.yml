@@ -45,7 +45,7 @@
         test_expect_file: "expect_pfc_wd_detect"
         test_ignore_file: "ignore_pfc_wd_messages"
         storm_action: "start"
-      include: roles/test/tasks/pfc_wd/functional_test/storm_all_action.yml
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/storm_all_action.yml
       with_dict: "{{combined_dict}}" 
 
     - name: Stop PFC packets from all peers
@@ -53,7 +53,7 @@
         test_expect_file: "expect_pfc_wd_restore"
         test_ignore_file: "ignore_pfc_wd_messages"
         storm_action: "stop"
-      include: roles/test/tasks/pfc_wd/functional_test/storm_all_action.yml
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/storm_all_action.yml
       with_dict: "{{combined_dict}}" 
   always:
 
@@ -61,4 +61,4 @@
       vars:
         command_to_run: "pfcwd stop"
         errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml

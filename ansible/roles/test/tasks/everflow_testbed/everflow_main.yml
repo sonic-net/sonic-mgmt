@@ -11,27 +11,27 @@
     recover_from_cfgdb_file: False
 
 - name: Apply Everflow configuration.
-  include: "roles/test/tasks/everflow_testbed/apply_config.yml"
+  include_tasks: "roles/test/tasks/everflow_testbed/apply_config.yml"
   tags: everflow_tb_configure
 
 - name: Run Everflow tests [tor].
-  include: "roles/test/tasks/everflow_testbed/run_test.yml"
+  include_tasks: "roles/test/tasks/everflow_testbed/run_test.yml"
   vars:
     dst_port_type: "tor"
   tags: everflow_tb_test
 
 - name: Run Everflow tests [spine].
-  include: "roles/test/tasks/everflow_testbed/run_test.yml"
+  include_tasks: "roles/test/tasks/everflow_testbed/run_test.yml"
   vars:
     dst_port_type: "spine"
   tags: everflow_tb_test
 
 - name: Clear Everflow configuration.
-  include: "roles/test/tasks/everflow_testbed/del_config.yml"
+  include_tasks: "roles/test/tasks/everflow_testbed/del_config.yml"
   tags: everflow_tb_cleanup
 
 - name: Reload config
-  include: "roles/test/tasks/common_tasks/reload_config.yml"
+  include_tasks: "roles/test/tasks/common_tasks/reload_config.yml"
   vars:
     config_source: "config_db"
   when: recover_from_cfgdb_file

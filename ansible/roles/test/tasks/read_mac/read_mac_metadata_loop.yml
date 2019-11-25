@@ -41,7 +41,7 @@
 
     # Init loganalyzer
     - name: Initialize loganalizer. Put start marker to log file.
-      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Installing new SONiC image
       shell: sonic_installer install -y /tmp/sonic-mellanox.bin
@@ -53,7 +53,7 @@
 
     # Reboot device and wait 300 seconds for device to come back
     - name: reboot
-      include: roles/test/tasks/common_tasks/reboot_sonic.yml
+      include_tasks: roles/test/tasks/common_tasks/reboot_sonic.yml
       vars:
         timeout: 300
 
@@ -77,8 +77,8 @@
         disk_used_pcent: 1
 
     - name: Verify interfaces are UP and MTU == 9100
-      include: roles/test/tasks/read_mac/check_interfaces_and_mtu.yml
+      include_tasks: roles/test/tasks/read_mac/check_interfaces_and_mtu.yml
 
     # Run lognalyzer
     - name: Run loganalyzer
-      include: roles/test/tasks/read_mac/loganalyzer_analyze_mac.yml
+      include_tasks: roles/test/tasks/read_mac/loganalyzer_analyze_mac.yml

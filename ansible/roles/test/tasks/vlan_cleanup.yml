@@ -17,6 +17,6 @@
   become: true
 
 - name: Reload configuration
-  include: "roles/test/tasks/common_tasks/reload_config.yml"
+  include_tasks: "roles/test/tasks/common_tasks/reload_config.yml"
   vars:
     config_source: "config_db"

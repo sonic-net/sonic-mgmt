@@ -11,12 +11,12 @@
   when: allow_recover is not defined
 
 - name: do basic sanity check before each test
-  include: base_sanity.yml
+  include_tasks: base_sanity.yml
   vars: 
      recover: "{{ allow_recover }}"
 
 - name: validate all interfaces are up
-  include: interface.yml
+  include_tasks: interface.yml
   vars:
      recover: "{{ allow_recover }}"
 
@@ -45,13 +45,13 @@
 
 - block:
     - name: run test case {{ testcases[testcase_name]['filename'] }} file
-      include: "{{ testcases[testcase_name]['filename'] }}"
+      include_tasks: "{{ testcases[testcase_name]['filename'] }}"
   
     - name: do basic sanity check after each test
-      include: base_sanity.yml
+      include_tasks: base_sanity.yml
 
     - name: validate all interfaces are up after test
-      include: interface.yml
+      include_tasks: interface.yml
 
     - debug:
         msg:

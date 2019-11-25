@@ -38,7 +38,7 @@
         rule_name_check: "{{ rule_name }}"
         expect_data: true
         expected_counter_value: 0
-      include: "{{ acl_check_db }}"
+      include_tasks: "{{ acl_check_db }}"
 
     - name: Read initial counters value (before ping).
       shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_name }}" Packets
@@ -91,7 +91,7 @@
         rule_name_check: "{{ rule_name }}"
         expect_data: false
         expected_counter_value: 0
-      include: "{{ acl_check_db }}"
+      include_tasks: "{{ acl_check_db }}"
 
 #--------------------
 # MIRROR TRAFFIC TESTING.
@@ -118,7 +118,7 @@
         rule_name_check: "{{ mirror_rule_name }}"
         expect_data: true
         expected_counter_value: 0
-      include: "{{ acl_check_db }}"
+      include_tasks: "{{ acl_check_db }}"
 
     - name: Read initial counters value (before ping).
       shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ mirror_table_name }}:{{ mirror_rule_name }}" Packets
@@ -150,11 +150,11 @@
         rule_name_check: "{{ mirror_rule_name }}"
         expect_data: false
         expected_counter_value: 0
-      include: "{{ acl_check_db }}"
+      include_tasks: "{{ acl_check_db }}"
 
       # CLEANUP.
     - name: Run config cleanup after {{ testname}}
-      include: "{{ run_config_cleanup }}"
+      include_tasks: "{{ run_config_cleanup }}"
 
 - always:
     - name: Delete neighbor.

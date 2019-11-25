@@ -1,28 +1,28 @@
 - name: Get switch capabilities
-  include: "roles/test/tasks/everflow_testbed/get_capabilities_info.yml"
+  include_tasks: "roles/test/tasks/everflow_testbed/get_capabilities_info.yml"
 
 - name: Get general port information
-  include: "roles/test/tasks/everflow_testbed/get_general_port_info.yml"
+  include_tasks: "roles/test/tasks/everflow_testbed/get_general_port_info.yml"
 
-- include: "roles/test/tasks/everflow_testbed/everflow_main.yml"
+- include_tasks: "roles/test/tasks/everflow_testbed/everflow_main.yml"
   vars:
     mirror_stage: "ingress"
     acl_stage: "ingress"
   when: test_ingress_mirror_on_ingress_acl == true
 
-- include: "roles/test/tasks/everflow_testbed/everflow_main.yml"
+- include_tasks: "roles/test/tasks/everflow_testbed/everflow_main.yml"
   vars:
     mirror_stage: "egress"
     acl_stage: "ingress"
   when: test_egress_mirror_on_ingress_acl == true
 
-- include: "roles/test/tasks/everflow_testbed/everflow_main.yml"
+- include_tasks: "roles/test/tasks/everflow_testbed/everflow_main.yml"
   vars:
     mirror_stage: "ingress"
     acl_stage: "egress"
   when: test_ingress_mirror_on_egress_acl == true
 
-- include: "roles/test/tasks/everflow_testbed/everflow_main.yml"
+- include_tasks: "roles/test/tasks/everflow_testbed/everflow_main.yml"
   vars:
     mirror_stage: "egress"
     acl_stage: "egress"

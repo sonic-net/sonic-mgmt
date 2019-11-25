@@ -109,7 +109,7 @@
     delegate_to: "{{ ptf_host }}"
 
   - name: "Running test {{ testname }}"
-    include: ptf_runner.yml
+    include_tasks: ptf_runner.yml
     vars:
       ptf_test_name: '{{ testname_unique }}'
       ptf_test_dir: ptftests

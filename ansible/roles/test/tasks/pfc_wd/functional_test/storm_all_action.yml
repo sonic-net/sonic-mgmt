@@ -12,20 +12,20 @@
     pfc_fanout_interface: "{{item.value | list | join(',')}}"
 
 - name: set pfc storm templates based on fanout platform sku
-  include: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
   
 - set_fact: 
     storm_action_template: "{%if storm_action=='start'%}{{pfc_wd_storm_template}}{%else%}{{pfc_wd_storm_stop_template}}{%endif%}"
 
 - name: Deploy pfc packet generater file to fanout switch
-  include: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
 
 - name: copy the test to ptf container
   copy: src=roles/test/files/ptftests dest=/root
   delegate_to: "{{ ptf_host }}"
 
 - name: Initialize loganalyzer
-  include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+  include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
 - name: Take action on fanout switch
   action: apswitch template="{{storm_action_template}}"
@@ -39,7 +39,7 @@
     seconds: 5
 
 - name: Check if logs contain message that PFC WD detected deadlock
-  include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+  include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
 - name: Check if logs contain message that PFC WD detected deadlock
-  include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+  include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml

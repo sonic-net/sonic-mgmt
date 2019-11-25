@@ -25,5 +25,5 @@
 
         - set_fact: connect_leaf=false
 
-        - include: roles/fanout/tasks/rootfanout_connect.yml
+        - include_tasks: roles/fanout/tasks/rootfanout_connect.yml
         when: external_port is defined

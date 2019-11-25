@@ -23,7 +23,7 @@
 
 - block:
     - name: Put down {{ portmap_dut_fn[dut_lag_member] }} on Fanout.
-      include: run_cisco_script.yml
+      include_tasks: run_cisco_script.yml
       vars:
         template: roles/fanout/templates/lag_fn_ports.j2
         host: "{{ fanout_mgmt_ip }}"
@@ -37,7 +37,7 @@
     - pause:
         seconds: 60
 
-    - include: lag_run_ptf.yml
+    - include_tasks: lag_run_ptf.yml
       vars:
         lag_ptf_test_name: LagMembersTrafficTest
         params: "dst_addr='{{ lag_ip }}';src_iface={{ not_behind_lag_iface }};check_pkts_iface={{ ifaces_behind_lag_member[iface_behind_lag_member_index] }};num_of_pkts={{ num_of_pkts }};dut_mac='{{ dut_mac }}'"
@@ -45,7 +45,7 @@
 
   always:
     - name: Put up {{ portmap_dut_fn[dut_lag_member] }} on Fanout.
-      include: run_cisco_script.yml
+      include_tasks: run_cisco_script.yml
       vars:
         template: roles/fanout/templates/lag_fn_ports.j2
         host: "{{ fanout_mgmt_ip }}"

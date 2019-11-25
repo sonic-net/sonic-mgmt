@@ -43,7 +43,7 @@
       src_port: "{{ minigraph_interfaces[2].attachto }}"
 
   - name: "Start PTF runner: '{{ testbed_type }}' designated"
-    include: ptf_runner.yml
+    include_tasks: ptf_runner.yml
     vars:
       ptf_test_name: DipSip test
       ptf_test_dir: ptftests
@@ -102,7 +102,7 @@
       src_port_ids: "{{ src_port_ids_result.results | map(attribute='ansible_facts.src_port_ids') | list }}"
 
   - name: "Start PTF runner: '{{ testbed_type }}' designated"
-    include: ptf_runner.yml
+    include_tasks: ptf_runner.yml
     vars:
       ptf_test_name: DipSip test
       ptf_test_dir: ptftests

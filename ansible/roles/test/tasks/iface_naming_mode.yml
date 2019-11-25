@@ -31,11 +31,11 @@
 # All tests run for user guest in alias mode as well as in default mode 
 
 - name: Test Interface naming mode feature in alias mode
-  include: "roles/test/tasks/iface_naming_mode/iface_naming_mode_tests.yml"
+  include_tasks: "roles/test/tasks/iface_naming_mode/iface_naming_mode_tests.yml"
   vars:
     mode: alias
 
 - name: Test Interface naming mode  feature in default mode 
-  include: "roles/test/tasks/iface_naming_mode/iface_naming_mode_tests.yml"
+  include_tasks: "roles/test/tasks/iface_naming_mode/iface_naming_mode_tests.yml"
   vars:
     mode: default

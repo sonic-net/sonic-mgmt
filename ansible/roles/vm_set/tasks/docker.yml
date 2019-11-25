@@ -28,3 +28,13 @@
   apt: pkg=docker-ce update_cache=yes
   become: yes
   environment: "{{ proxy_env | default({}) }}"
+
+- name: remove old python packages
+  pip: name=docker-py state=absent
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+
+- name: Install python packages
+  pip: name=docker version=4.1.0 state=forcereinstall
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"

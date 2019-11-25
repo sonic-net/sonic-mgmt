@@ -11,5 +11,5 @@
   set_fact:
     neighbors: "{{ device_conn }}"
 
-- include: link_flap/link_flap_helper.yml
+- include_tasks: link_flap/link_flap_helper.yml
   with_items: "{{ device_conn.keys() }}"

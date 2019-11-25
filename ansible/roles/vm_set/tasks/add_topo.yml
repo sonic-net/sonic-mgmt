@@ -36,7 +36,7 @@
   become: yes
 
 - name: Set front panel/mgmt port for dut
-  include: set_dut_port.yml
+  include_tasks: set_dut_port.yml
 
 - name: Setup vlan port for vlan tunnel
   vlan_port:

@@ -1,7 +1,7 @@
 - block:
   # Loganalyzer analyze
   - name: Use loganalyzer to check for the error messages - {{ testname }}.
-    include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+    include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
   - name: Read loganalyzer summary file.
     shell: cat "{{ test_out_dir }}/{{ summary_file }}"

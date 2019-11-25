@@ -35,7 +35,7 @@
         crm_stats_fdb_entry_available: "{{ out.stdout_lines[1] }}"
 
     - name: Apply VNET config
-      include: roles/test/tasks/vnet_vxlan.yml
+      include_tasks: roles/test/tasks/vnet_vxlan.yml
       vars:
         config: True
         cleanup: False
@@ -114,7 +114,7 @@
       assert: {that: "{{crm_stats_fdb_entry_available|int - new_crm_stats_fdb_entry_available|int >= fdb_entry_num|int}}"}
 
     - name: Clean VNET config
-      include: roles/test/tasks/vnet_vxlan.yml
+      include_tasks: roles/test/tasks/vnet_vxlan.yml
       vars:
         config: False
         cleanup: True
@@ -179,7 +179,7 @@
   always:
 
     - name: Clean VNET config
-      include: roles/test/tasks/vnet_vxlan.yml
+      include_tasks: roles/test/tasks/vnet_vxlan.yml
       vars:
         config: False
         cleanup: True

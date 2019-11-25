@@ -9,27 +9,27 @@
 
 - block:
     - name: include snmp interfaces test
-      include: roles/test/tasks/snmp/interfaces.yml
+      include_tasks: roles/test/tasks/snmp/interfaces.yml
 
     - name: include snmp pfc counter test
-      include: roles/test/tasks/snmp/pfc_counters.yml
+      include_tasks: roles/test/tasks/snmp/pfc_counters.yml
 
     - name: include snmp queues test
-      include: roles/test/tasks/snmp/queues.yml 
+      include_tasks: roles/test/tasks/snmp/queues.yml 
 
     - name: include snmp lldp test
-      include: roles/test/tasks/snmp/lldp.yml
+      include_tasks: roles/test/tasks/snmp/lldp.yml
   when: testcase_name is defined
 
 - block:
     - name: include snmp cpu test
-      include: roles/test/tasks/snmp/cpu.yml 
+      include_tasks: roles/test/tasks/snmp/cpu.yml 
 
     - name: inlcude snmp physical table test
-      include: roles/test/tasks/snmp/phys_table.yml
+      include_tasks: roles/test/tasks/snmp/phys_table.yml
 
     - name: include snmp PSU test
-      include: roles/test/tasks/snmp/psu.yml 
+      include_tasks: roles/test/tasks/snmp/psu.yml 
   when:
    - testcase_name is defined
    - (hostvars[ansible_hostname]['type'] is not defined) or (hostvars[ansible_hostname]['type'] != 'simx')

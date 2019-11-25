@@ -22,7 +22,7 @@
   when: pfcwd_dockers_url is not defined
 
 - name: Copy pfcwd docker images to switch
-  include: scp_copy.yml
+  include_tasks: scp_copy.yml
   vars:
     src: "{{ item }}"
     dest: "{{ fanout_img_path }}"
@@ -30,7 +30,7 @@
   when: pfcwd_dockers_url is not defined
 
 - name: Download pre-built pfcwd dockers if path specified
-  include: download_copy_pfcwd_fanout.yml
+  include_tasks: download_copy_pfcwd_fanout.yml
   with_items: "{{ pfcwd_dockers }}"
   delegate_to: localhost
   when: pfcwd_dockers_url is defined

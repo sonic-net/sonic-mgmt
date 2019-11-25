@@ -34,7 +34,7 @@
       delegate_to: "{{ ptf_host2 }}"
 
     - name: Start log analyser
-      include: "{{ loganalyzer_init }}"
+      include_tasks: "{{ loganalyzer_init }}"
 
     - name: Set ACL rules.
       command: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_file }}
@@ -53,7 +53,7 @@
 
   always:
     - name: Stop log analyser
-      include: "{{ loganalyzer_analyze }}"
+      include_tasks: "{{ loganalyzer_analyze }}"
 
     - name: Get the total number of error messages.
       shell: grep "TOTAL MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL MATCHES:[[:space:]]*//p"
@@ -64,5 +64,5 @@
       when: errors_found.stdout != "0"
 
     - name: Do configuration cleanup.
-      include: "{{ run_config_cleanup }}"
+      include_tasks: "{{ run_config_cleanup }}"
       when: run_cleanup == true

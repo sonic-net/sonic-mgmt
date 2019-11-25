@@ -9,12 +9,12 @@
     seconds: 120
 
 - name: check basic sanity of the device
-  include: base_sanity.yml
+  include_tasks: base_sanity.yml
   vars:
      recover: false
 
 - name: validate all interfaces are up
-  include: interface.yml
+  include_tasks: interface.yml
   vars:
      recover: false
 

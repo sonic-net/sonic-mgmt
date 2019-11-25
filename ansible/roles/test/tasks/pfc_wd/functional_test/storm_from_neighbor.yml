@@ -24,14 +24,14 @@
     pfc_gen_file: pfc_gen.py
 
 - name: Deploy pfc packet generater file to fanout switch
-  include: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
 
 - set_fact:
     peer_login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
 
 
 - name: PFC storming from fanout switch per queue
-  include: roles/test/tasks/pfc_wd/functional_test/storm_from_neighbor_perq.yml
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/storm_from_neighbor_perq.yml
   vars:
     pfc_queue_index: "{{item}}"
   with_items: "{{pfc_queue_indices}}"

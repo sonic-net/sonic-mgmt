@@ -7,7 +7,7 @@
       vars:
         command_to_run: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time }} {{ ports }} {{ pfc_wd_detect_time }}"
         errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Enable routing from mgmt interface to localhost
       sysctl:
@@ -29,7 +29,7 @@
         pfc_frames_number: 300000
 
     - name: Calculate detection and restoration timings
-      include: roles/test/tasks/pfc_wd/functional_test/timer_test.yml
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/timer_test.yml
       with_sequence: start=1 end=19
 
     - set_fact:
@@ -67,4 +67,4 @@
       vars:
         command_to_run: "pfcwd stop"
         errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml

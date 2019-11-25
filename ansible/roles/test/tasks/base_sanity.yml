@@ -14,7 +14,7 @@
 
    - block:
      - name: reboot
-       include: common_tasks/reboot_sonic.yml
+       include_tasks: common_tasks/reboot_sonic.yml
 
      - name: Get process information in syncd docker
        shell: docker exec -i syncd ps aux | grep /usr/bin/syncd

@@ -48,7 +48,7 @@
     key: "{{ lookup('file', '/tmp/id_rsa.pub') }}"
 
 - name: Restart DUT. Wait 240 seconds after SONiC started ssh
-  include: reboot.yml
+  include_tasks: reboot.yml
   vars:
     ready_timeout: 240
 
@@ -78,7 +78,7 @@
   when: "'PortChannel' in route_output.stdout"
 
 - name: Update supervisor configuration
-  include: "roles/test/tasks/common_tasks/update_supervisor.yml"
+  include_tasks: "roles/test/tasks/common_tasks/update_supervisor.yml"
   vars:
     supervisor_host: "{{ ptf_host }}"
 
@@ -109,7 +109,7 @@
 - name: Dump debug info. DIP
   debug: var=dip_output.stdout
 
-- include: ptf_runner.yml
+- include_tasks: ptf_runner.yml
   vars:
     ptf_test_name: Warm-Reboot Control-Plane assist feature
     ptf_test_dir: ptftests

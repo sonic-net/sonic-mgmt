@@ -15,7 +15,7 @@
   when: (vnet is not defined) or (vnet_pkts is not defined)
 
 - name: Warm-reboot test
-  include: advanced-reboot.yml
+  include_tasks: advanced-reboot.yml
   vars:
       reboot_type: warm-reboot
       inboot_list: "{{ in_list }}"

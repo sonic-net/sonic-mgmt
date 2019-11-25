@@ -1,5 +1,5 @@
 - name: clean up old container
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: docker-database
     docker_image: "{{ image_id_database }}"
@@ -7,7 +7,7 @@
 
 
 - name: Start the database docker container (redis-server)
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: database
     docker_image: "{{ image_id_database }}"

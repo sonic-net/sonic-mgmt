@@ -41,7 +41,7 @@
       - hostvars[ansible_hostname]['type'] == 'simx'
 
   - name: "Start PTF runner"
-    include: ptf_runner.yml
+    include_tasks: ptf_runner.yml
     vars:
       ptf_test_name: FDB test
       ptf_test_dir: ptftests
@@ -127,7 +127,7 @@
     poll: 0
 
   - name: Reload config
-    include: "roles/test/tasks/common_tasks/reload_config.yml"
+    include_tasks: "roles/test/tasks/common_tasks/reload_config.yml"
     vars:
       config_source: "config_db"
 

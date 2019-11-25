@@ -63,7 +63,7 @@
         seconds: 5
 
     - name: test lacp packet sending rate is 1 seconds
-      include: lag_lacp_timing_test.yml
+      include_tasks: lag_lacp_timing_test.yml
       vars:
         vm_name: "{{ peer_device }}"
         lacp_timer: 1
@@ -83,7 +83,7 @@
         seconds: 5
 
     - name: test lacp packet sending rate is 30 seconds
-      include: lag_lacp_timing_test.yml
+      include_tasks: lag_lacp_timing_test.yml
       vars:
         vm_name: "{{ peer_device }}"
         lacp_timer: 30

@@ -10,7 +10,7 @@
         test_expect_file: "expect_pfc_wd_restore"
 
     - name: Initialize loganalyzer
-      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
       vars:
         testname_unique_gen: true
 
@@ -30,14 +30,14 @@
         seconds: 15
 
     - name: Check if logs contain message that PFC WD restored from deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     - name: Check if logs contain message that PFC WD restored from deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     # 2. Verity the forward action on both ingress and egress via ptf dataplane traffic test
     - name: "Send packets via {{pfc_wd_test_port}}"
-      include: roles/test/tasks/ptf_runner.yml
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
@@ -57,7 +57,7 @@
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: "Send packets to {{pfc_wd_test_port}}"
-      include: roles/test/tasks/ptf_runner.yml
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
