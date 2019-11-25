@@ -26,7 +26,7 @@ oct2 = 1
 oct3 = 1
 oct4 = 1
 idx = 1
-for x in range(2500):
+for x in range(1024):
     tbl_entries.append(
     {
       "table": "ingress.encap.encap_in_ipv4_table",
