@@ -1,0 +1,33 @@
+{#ports, ip and mac relationship#}
+{% set server_count = port_server_count|default(100) %}
+{% set base_address = 3 %}
+{
+{%  for id in mclag_port_channel_id_list %}
+    "eth{{ id-1 }}": {
+{%      for count in range(0,server_count) %}
+{%          if test_scenario == "l2" %}
+        "172.{{ ((id+(dut1_link_server_interfaces|length/2-1))//(dut1_link_server_interfaces|length/2))|int +15 }}.{{ id }}.{{ base_address+count }}": "000300{{ '%02x'%(id-1) }}00{{ '%02x'%count }}"{{ ',' if not loop.last else '' }}
+{%          elif test_scenario == "vxlan" or test_scenario == "l3" %}
+        "172.16.{{ id }}.{{ 3+count }}": "000300{{ '%02x'%(id-1) }}00{{ '%02x'%count }}"{{ ',' if not loop.last else '' }}
+{%          endif %}
+{%      endfor %}
+    },
+    "eth{{ id-1+dut1_all_interfaces|length }}": {
+{%      for count in range(0,server_count) %}
+{%          if test_scenario == "l2" %}
+{%              if 1 <= id%(dut1_all_interfaces|length) <= ((mclag_port_channel_id_list|length)/2|int - 2) or ((mclag_port_channel_id_list|length)/2|int + 1) <= id%(dut1_all_interfaces|length) <= (mclag_port_channel_id_list|length - 2) %}
+        "172.{{ ((id+(dut1_link_server_interfaces|length/2-1))//(dut1_link_server_interfaces|length/2))|int +15 }}.{{ id%(dut1_all_interfaces|length) }}.{{ 3+count }}": "000300{{ '%02x'%(id-1) }}00{{ '%02x'%count }}"{{ ',' if not loop.last else '' }}
+{%              else %}
+        "172.{{ ((id%(dut1_all_interfaces|length)+(dut1_link_server_interfaces|length/2-1))//(dut1_link_server_interfaces|length/2))|int +15 }}.{{ id+dut1_all_interfaces|length }}.{{ base_address+count }}": "000300{{ '%02x'%(id-1+dut1_all_interfaces|length) }}00{{ '%02x'%count }}"{{ ',' if not loop.last else '' }}
+{%              endif %}
+{%          elif test_scenario == "vxlan" or test_scenario == "l3" %}
+{%              if id%(dut1_all_interfaces|length) <= (mclag_port_channel_id_list|length - 2) %}
+        "172.16.{{ id }}.{{ 3+count }}": "000300{{ '%02x'%(id-1) }}00{{ '%02x'%count }}"{{ ',' if not loop.last else '' }}
+{%              else %}
+        "172.16.{{ id+dut1_all_interfaces|length }}.{{ 3+count }}": "000300{{ '%02x'%(id-1+dut1_all_interfaces|length) }}00{{ '%02x'%count }}"{{ ',' if not loop.last else '' }}
+{%              endif %}
+{%          endif %}
+{%      endfor %}
+    }{{ ',' if not loop.last else '' }}
+{%  endfor %}
+}

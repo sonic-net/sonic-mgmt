@@ -1,0 +1,148 @@
+#!/bin/bash
+
+{% set all_port_count = dut1_all_interfaces|length %}
+{% set dut1_link_server_port_count = dut1_link_server_interfaces|length %}
+
+function startup_portchannel_l3
+{
+  echo "Startup portchannel on ptf for l3 scenario"
+
+  for((i=1;i<={{ dut1_link_server_port_count }};i++));
+  do
+  if ([ $i -ge 1 ]&&[ $i -le {{ dut1_link_server_port_count - 2 }} ]);then
+    ip netns add ns$i
+    ip link set eth$(($i-1)) down
+    ip link set eth$(($i+{{ all_port_count }}-1)) down
+    teamd -f /tmp/mclag/PortChannel$i.conf -d
+    sleep 1
+    ip link set PortChannel$i up
+    ip link add link PortChannel$i name ivp$i type ipvlan mode l2
+    ip link set dev ivp$i netns ns$i
+    ip netns exec ns$i ip link set ivp$i up
+    ip netns exec ns$i ip addr add 172.16.$i.2/24 dev ivp$i
+  else
+    ip netns add ns$i
+    ip link add link eth$(($i-1)) name ivp$i type ipvlan mode l2
+    ip link set dev ivp$i netns ns$i
+    ip netns exec ns$i ip link set ivp$i up
+    ip netns exec ns$i ip addr add 172.16.$i.2/24 dev ivp$i
+    ip netns add ns$(($i+{{ all_port_count }}))
+    ip link add link eth$(($i+{{ all_port_count }}-1)) name ivp$(($i+{{ all_port_count }})) type ipvlan mode l2
+    ip link set dev ivp$(($i+{{ all_port_count }})) netns ns$(($i+{{ all_port_count }}))
+    ip netns exec ns$(($i+{{ all_port_count }})) ip link set ivp$(($i+{{ all_port_count }})) up
+    ip netns exec ns$(($i+{{ all_port_count }})) ip addr add 172.16.$(($i+{{ all_port_count }})).2/24 dev ivp$(($i+{{ all_port_count }}))
+  fi
+  done
+}
+
+function startup_portchannel_vxlan
+{
+  echo "Startup portchannel on ptf for vxlan scenario"
+
+  for((i=1;i<={{ dut1_link_server_port_count }};i++));
+  do
+  if ([ $i -ge 1 ]&&[ $i -le {{ dut1_link_server_port_count - 2 }} ]);then
+    ip netns add ns$i
+    ip link set eth$(($i-1)) down
+    ip link set eth$(($i+{{ all_port_count }}-1)) down
+    teamd -f /tmp/mclag/PortChannel$i.conf -d
+    sleep 1
+    ip link set PortChannel$i up
+    ip link add link PortChannel$i name ivp$i type ipvlan mode l2
+    ip link set dev ivp$i netns ns$i
+    ip netns exec ns$i ip link set ivp$i up
+    ip netns exec ns$i ip addr add 172.16.$i.2/16 dev ivp$i
+  else
+    ip link add link eth$(($i-1)) name ivp$i type ipvlan mode l2
+    ip link set dev ivp$i netns ns$i
+    ip netns exec ns$i ip link set ivp$i up
+    ip netns exec ns$i ip addr add 172.16.$i.2/16 dev ivp$i
+    ip netns add ns$(($i+{{ all_port_count }}))
+    ip link add link eth$(($i+{{ all_port_count }}-1)) name ivp$(($i+{{ all_port_count }})) type ipvlan mode l2
+    ip link set dev ivp$(($i+{{ all_port_count }})) netns ns$(($i+{{ all_port_count }}))
+    ip netns exec ns$(($i+{{ all_port_count }})) ip link set ivp$(($i+{{ all_port_count }})) up
+    ip netns exec ns$(($i+{{ all_port_count }})) ip addr add 172.16.$(($i+{{ all_port_count }})).2/16 dev ivp$(($i+{{ all_port_count }}))
+  fi
+  done
+}
+
+function startup_portchannel_l2
+{
+  echo "Startup portchannel on ptf for l2 scenario"
+
+  for((i=1;i<={{ dut1_link_server_port_count }};i++));
+  do
+  if ([ $i -ge 1 ]&&[ $i -le {{ (dut1_link_server_port_count/2)|int - 2 }} ])||([ $i -ge {{ (dut1_link_server_port_count/2)|int + 1 }} ]&&[ $i -le {{ dut1_link_server_port_count|int - 2 }} ]);then
+    ip netns add ns$i
+    ip link set eth$(($i-1)) down
+    ip link set eth$(($i+{{ all_port_count }}-1)) down
+    teamd -f /tmp/mclag/PortChannel$i.conf -d
+    sleep 1
+    ip link set PortChannel$i up
+    ip link add link PortChannel$i name ivp$i type ipvlan mode l2
+    ip link set dev ivp$i netns ns$i
+    ip netns exec ns$i ip link set ivp$i up
+    ip netns exec ns$i ip addr add 172.$(($(($i+{{ (dut1_link_server_port_count/2)|int }}-1))/{{ (dut1_link_server_port_count/2)|int }}+15)).$i.2/16 dev ivp$i
+  else
+    ip netns add ns$i
+    ip link add link eth$(($i-1)) name ivp$i type ipvlan mode l2
+    ip link set dev ivp$i netns ns$i
+    ip netns exec ns$i ip link set ivp$i up
+    ip netns exec ns$i ip addr add 172.$(($(($i+{{ (dut1_link_server_port_count/2)|int }}-1))/{{ (dut1_link_server_port_count/2)|int }}+15)).$i.2/16 dev ivp$i
+    ip netns add ns$(($i+{{ all_port_count }}))
+    ip link add link eth$(($i+{{ all_port_count }}-1)) name ivp$(($i+{{ all_port_count }})) type ipvlan mode l2
+    ip link set dev ivp$(($i+{{ all_port_count }})) netns ns$(($i+{{ all_port_count }}))
+    ip netns exec ns$(($i+{{ all_port_count }})) ip link set ivp$(($i+{{ all_port_count }})) up
+    ip netns exec ns$(($i+{{ all_port_count }})) ip addr add 172.$(($(($i+{{ (dut1_link_server_port_count/2)|int }}-1))/{{ (dut1_link_server_port_count/2)|int }}+15)).$(($i+{{ all_port_count }})).2/16 dev ivp$(($i+{{ all_port_count }}))
+  fi
+  done
+}
+
+function delete_portchannel
+{
+  echo "Delete portchannel on ptf for l3 and vxlan scenario"
+
+  for((i=1;i<={{ dut1_link_server_port_count }};i++));
+  do
+  if ([ $i -ge 1 ]&&[ $i -le {{ dut1_link_server_port_count - 2 }} ]);then
+    ip netns del ns$i
+    teamd -f /tmp/mclag/PortChannel$i.conf -k
+    ip link set eth$(($i-1)) up
+    ip link set eth$(($i+{{ all_port_count }}-1)) up
+  else
+    ip netns del ns$i
+    ip netns del ns$(($i+{{ all_port_count }}))
+  fi
+  done
+}
+
+function delete_portchannel_l2
+{
+  echo "Delete portchannel on ptf for l2 scenario"
+
+  for((i=1;i<={{ dut1_link_server_port_count }};i++));
+  do
+  if ([ $i -ge 1 ]&&[ $i -le {{ (dut1_link_server_port_count/2)|int - 2 }} ])||([ $i -ge {{ (dut1_link_server_port_count/2)|int + 1 }} ]&&[ $i -le {{ dut1_link_server_port_count|int - 2 }} ]);then
+    ip netns del ns$i
+    teamd -f /tmp/mclag/PortChannel$i.conf -k
+    ip link set eth$(($i-1)) up
+    ip link set eth$(($i+{{ all_port_count }}-1)) up
+  else
+    ip netns del ns$i
+    ip netns del ns$(($i+{{ all_port_count }}))
+  fi
+  done
+}
+
+case "$1" in
+  startup_portchannel_l3)   startup_portchannel_l3
+               ;;
+  startup_portchannel_l2)   startup_portchannel_l2
+               ;;
+  startup_portchannel_vxlan)   startup_portchannel_vxlan
+               ;;
+  delete_portchannel)    delete_portchannel
+               ;;
+  delete_portchannel_l2)    delete_portchannel_l2
+               ;;
+esac

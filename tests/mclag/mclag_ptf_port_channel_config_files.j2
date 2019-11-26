@@ -1,0 +1,17 @@
+{
+    "device": "PortChannel{{ item }}",
+    "hwaddr": "{{ ptf_mac_prefix + '%02X' % (item-1) }}",
+    "runner": {
+        "name": "lacp",
+        "active": true,
+        "agg_select_policy": "lacp_prio_stable",
+        "tx_hash": ["eth", "ipv4", "ipv6"]
+    },
+    "link_watch": {"name": "ethtool"},
+    "ports": {
+        "eth{{ item-1 }}": {
+        },
+        "eth{{ item+dut1_all_interfaces|length-1 }}": {
+        }
+    }
+}
