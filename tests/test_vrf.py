@@ -241,12 +241,12 @@ def reboot(duthost, localhost, timeout=120, basic_check=True):
         raise Exception('DUT did not shutdown in {}s'.format(timeout))
 
     logging.info('waiting for dut to startup')
-    localhost.wait_for(host=dut_ip, 
-                       port=22, 
-                       state="started", 
-                       delay=10, 
-                       timeout=timeout,
-                       module_ignore_errors=True)
+    res = localhost.wait_for(host=dut_ip, 
+                             port=22, 
+                             state="started", 
+                             delay=10, 
+                             timeout=timeout,
+                             module_ignore_errors=True)
     if res.is_failed:
         raise Exception('DUT did not startup in {}s'.format(timeout))
 
