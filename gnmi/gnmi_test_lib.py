@@ -151,6 +151,31 @@ def _create_parser():
   return parser
 
 
+def json_load_byteified(file_handle):
+    return _byteify(json.load(file_handle, object_hook=_byteify),
+                    ignore_dicts=True)
+
+
+def _byteify(data, ignore_dicts=False):
+    # if this is a unicode string, return its string representation
+    #if isinstance(data, unicode):
+    if isinstance(data, str):
+        return data
+        # For Python2 - return data.encode('utf-8')
+    # if this is a list of values, return list of byteified values
+    if isinstance(data, list):
+        return [_byteify(item, ignore_dicts=True) for item in data]
+    # if this is a dictionary, return dictionary of byteified keys and values
+    # but only if we haven't already byteified it
+    if isinstance(data, dict) and not ignore_dicts:
+        return {
+            _byteify(key, ignore_dicts=True): _byteify(value, ignore_dicts=True)
+            for key, value in data.items()
+        }
+    # if it's anything else, return it in its original form
+    return data
+
+
 def _path_names(xpath):
   """Parses the xpath names.
 
@@ -241,6 +266,7 @@ def _format_type(json_value):
   return json_value  # The value is a string.
 
 
+
 def _get_val(json_value):
   """Get the gNMI val for path definition.
 
@@ -264,6 +290,25 @@ def _get_val(json_value):
                    str: 'string_val'}
   if type_to_value.get(type(coerced_val)):
     setattr(val, type_to_value.get(type(coerced_val)), coerced_val)
+  return val
+
+
+
+
+def _get_val_in(json_value):
+  """Get the gNMI val for path definition.
+
+  Args:
+    json_value: (str) JSON_IETF or file.
+
+  Returns:
+    gnmi_pb2.TypedValue()
+  """
+  val = gnmi_pb2.TypedValue()
+  #print(type(json_value))
+  set_json = json.dumps(json_value).encode()
+  #print(set_json)
+  val.json_ietf_val = set_json
   return val
 
 
@@ -320,7 +365,8 @@ def _set(stub, paths, set_type, username, password, json_value):
     a gnmi_pb2.SetResponse object representing a gNMI SetResponse.
   """
   if json_value:  # Specifying ONLY a path is possible (eg delete).
-    val = _get_val(json_value)
+    #val = _get_val(json_value)
+    val = _get_val_in(json_value)
     path_val = gnmi_pb2.Update(path=paths, val=val,)
 
   kwargs = {}

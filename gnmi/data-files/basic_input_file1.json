@@ -1,0 +1,25 @@
+{
+  "GETSET_Sanity1_1": {
+      "ietf-interfaces:interfaces": {
+        "interface": [
+          {
+            "name": "Loopback123",
+            "description": "For GetSet_Sanity1_1 TC",
+            "type": "iana-if-type:ethernetCsmacd"
+          }
+        ]
+      }
+  },
+  "GETSET_Sanity1_2": {
+      "ietf-interfaces:interfaces": {
+        "interface": [
+          {
+            "name": "Loopback456",
+            "description": "For GetSet_Sanity1_2 TC",
+            "type": "iana-if-type:ethernetCsmacd"
+          }
+        ]
+      }
+  }
+}
+

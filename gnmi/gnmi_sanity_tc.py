@@ -14,6 +14,7 @@ from utils.helper import Helper
 from utils.cafyexception import CafyException
 from gnmi_base_ap import ApData, GnmiApBase
 import marshal
+import six
 log = CafyLog("GNMI AP")
 
 # Import the required Proto files from lib dir
@@ -36,3 +37,55 @@ def _test_gnmi_Capability(stub):
     log.info('Performing CapabilitiesRequest to target \n')
     response = gnmiTestLib._cap(stub, user, password)
     log.info(response)
+
+
+def _test_GetSet_Sanity1(stub):
+    user = None
+    password = None
+    #with open(ApData.input_conf_file, 'r') as ip_conf_file:
+    #    input_conf = gnmiTestLib.json_load_byteified(ip_conf_file)
+
+    input_conf = json.loads(six.moves.builtins.open(ApData.input_conf_file, 'r').read())
+    print(input_conf)
+
+    log.info('Performing SET Request to target \n')
+    try:
+        if 'GETSET_Sanity1_1' in input_conf:
+            set_info = input_conf['GETSET_Sanity1_1']
+            print(type(set_info))
+            print(set_info)
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info)
+            print("LLLLLL")
+            log.info(str(reply))
+            if ('response' in str(reply) and 'op: REPLACE' in str(reply)):
+                log.info("GETSET_Sanity1_1:Passed - was able to do SET-REPLACE with input json")
+            else:
+                log.info("GETSET_Sanity1_1:Failed - was unable to do SET-REPLACE with input json")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test GETSET_Sanity1_1 failed due to Grpc Error {err}".format(err=e.details()))
+
+
+'''
+def _test_GetSet_Sanity2(stub):
+    user = None
+    password = None
+    log.info('Performing SET Request to target \n')
+    xpath = "/"
+    paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+    set_info = '@' + ApData.input_conf_file
+    print("HDHDHDHD")
+    print(set_info)
+    response = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info)
+    log.info(response)
+'''
+
+
+
+

@@ -35,6 +35,7 @@ class GnmiApBase(ApBase):
     ApData.svr_addr = ApData.gnmi_feature_dict['R1']['svr_addr']
     ApData.port_addr = ApData.gnmi_feature_dict['R1']['svr_port']
     ApData.proto_dump_file = ApData.gnmi_feature_dict['R1']['proto_dump_file']
+    ApData.input_conf_file = ApData.gnmi_feature_dict['input_conf_file']
     ApData.sw_name = ApData.gnmi_feature_dict['R1']['name']
 
     # Port Configuration Variables
