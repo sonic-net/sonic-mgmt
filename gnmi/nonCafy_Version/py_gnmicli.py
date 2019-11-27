@@ -133,7 +133,7 @@ def _create_parser():
                       'Target when establishing secure gRPC channel.',
                       required=False, action='store_true')
   parser.add_argument('-x', '--xpath', type=str, help='The gNMI path utilized'
-                      'in the GetRequest or Subscirbe', required=False)
+                      'in the GetRequest or Subscirbe', required=True)
   parser.add_argument('-o', '--host_override', type=str, help='Use this as '
                       'Targets hostname/peername when checking it\'s'
                       'certificate CN. You can check the cert with:\nopenssl '
@@ -254,7 +254,7 @@ def _get_val(json_value):
   if '@' in json_value:
     try:
       set_json = json.loads(six.moves.builtins.open(
-          json_value.strip('@'), 'rb').read())
+          json_value.strip('@'), 'r').read())
     except (IOError, ValueError) as e:
       raise JsonReadError('Error while loading JSON: %s' % str(e))
     val.json_ietf_val = json.dumps(set_json).encode()
@@ -506,17 +506,20 @@ def main():
     print('Performing GetRequest, encoding=JSON_IETF', 'to', target,
           ' with the following gNMI Path\n', '-'*25, '\n', paths)
     response = _get(stub, paths, user, password)
-    print('The GetResponse is below\n' + '-'*25 + '\n')
-    if form == 'protobuff':
-      print(response)
-    elif response.notification[0].update[0].val.json_ietf_val:
-      print(json.dumps(json.loads(response.notification[0].update[0].val.
-                                  json_ietf_val), indent=2))
-    elif response.notification[0].update[0].val.string_val:
-      print(response.notification[0].update[0].val.string_val)
-    else:
-      print('JSON Format specified, but gNMI Response was not json_ietf_val')
-      print(response)
+    print_msg(response, "REQUEST")
+    #resp = stub.Get(req)
+    #print_msg(resp, "RESPONSE")
+    #print('The GetResponse is below\n' + '-'*25 + '\n')
+    #if form == 'protobuff':
+    #  print(response)
+    #elif response.notification[0].update[0].val.json_ietf_val:
+    #  print(json.dumps(json.loads(response.notification[0].update[0].val.
+    #                              json_ietf_val), indent=2))
+    #elif response.notification[0].update[0].val.string_val:
+    #  print(response.notification[0].update[0].val.string_val)
+    #else:
+    #  print('JSON Format specified, but gNMI Response was not json_ietf_val')
+    #  print(response)
   elif mode == 'capabilities':
     print('Performing CapabilitiesRequest to target \n')
     response = _cap(stub, user, password)
