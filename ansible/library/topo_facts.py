@@ -46,6 +46,7 @@ class ParseTestbedTopoinfo():
             vm_topo_config['dut_asn'] = dut_asn
             vm_topo_config['dut_type'] = topo_definition['configuration_properties']['common']['dut_type']
             vmconfig = dict()
+            vm_topo_config['link_vm_interfaces'] = []
             for vm in topo_definition['topology']['VMs']:
                 vmconfig[vm] = dict()
                 vmconfig[vm]['intfs'] = []
@@ -67,6 +68,7 @@ class ParseTestbedTopoinfo():
                         vmconfig[vm]['bgp_ipv4'] = ip.upper()
                     if ip[0:5].upper() in vmconfig[vm]['peer_ipv6'].upper():
                         vmconfig[vm]['bgp_ipv6'] = ip.upper()
+                vm_topo_config['link_vm_interfaces'] += topo_definition['topology']['VMs'][vm]['vlans']
             vm_topo_config['vm'] = vmconfig
 
         if 'host_interfaces' in topo_definition['topology']:
@@ -83,6 +85,11 @@ class ParseTestbedTopoinfo():
             vm_topo_config['DUT'] = topo_definition['topology']['DUT']
         else:
             vm_topo_config['DUT'] = {}
+
+        if 'devices_interconnect_interfaces' in topo_definition['topology']:
+            vm_topo_config['devices_interconnect_interfaces'] = topo_definition['topology']['devices_interconnect_interfaces']
+        else:
+            vm_topo_config['devices_interconnect_interfaces'] = []
 
         self.vm_topo_config = vm_topo_config
         return vm_topo_config

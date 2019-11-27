@@ -68,7 +68,9 @@
     include_vars: "vars/topo_{{ topo }}.yml"
 
   - name: Read dut minigraph
-    conn_graph_facts: host={{ dut_name }}
+    conn_graph_facts: 
+      host={{ dut_name }}
+      helper_device={{ helper_device }}
     delegate_to: localhost
 
   roles:

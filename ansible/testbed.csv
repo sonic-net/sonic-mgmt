@@ -1,4 +1,4 @@
-# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,server,vm_base,dut,comment
+# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,server,vm_base,dut,comment,helper_device
 ptf1-m,ptf1,ptf32,docker-ptf-sai-mlnx,ptf-unknown,10.255.0.188/24,server_1,,str-msn2700-01,Test ptf Mellanox
 ptf2-b,ptf2,ptf64,docker-ptf-sai-brcm,ptf-unknown,10.255.0.189/24,server_1,,lab-s6100-01,Test ptf Broadcom
 vms-sn2700-t1,vms1-1,t1,docker-ptf-sai-mlnx,ptf-unknown,10.255.0.178/24,server_1,VM0100,str-msn2700-01,Tests Mellanox SN2700 vms
@@ -9,3 +9,7 @@ vms-a7260-t0,vms3-1,t0-116,docker-ptf-sai-brcm,ptf-unknown,10.255.0.180/24,serve
 vms-s6100-t0,vms4-1,t0-64,docker-ptf-sai-brcm,ptf-unknown,10.255.0.181/24,server_1,VM0100,lab-s6100-01,Tests Dell S6100 vms
 vms-s6100-t1,vms4-1,t1-64,docker-ptf-sai-brcm,ptf-unknown,10.255.0.182/24,server_1,VM0100,lab-s6100-01,Tests Dell S6100 vms
 vms-s6100-t1-lag,vms5-1,t1-64-lag,docker-ptf-sai-brcm,ptf-unknown,10.255.0.183/24,server_1,VM0100,lab-s6100-01,Tests Dell S6100 vms
+vms-t0-mclag,vms6-1,t0-mclag,docker-ptf-team,ptf-unknown,10.255.0.198/24,server_1,VM0100,sonic-dut-01,Tests vms,sonic-dut-02
+vms-t0-mclag-dut2,vms6-1,t0-mclag,docker-ptf-team,ptf-unknown,10.255.0.198/24,server_1,VM0100,sonic-dut-02,Tests vms
+vms-t0-mclag-16,vms6-1,t0-mclag-16,docker-ptf-team,ptf-unknown,10.255.0.198/24,server_1,VM0100,sonic-dut-01,Tests vms,sonic-dut-02
+vms-t0-mclag-16-dut2,vms6-1,t0-mclag-16,docker-ptf-team,ptf-unknown,10.255.0.198/24,server_1,VM0100,sonic-dut-02,Tests vms
