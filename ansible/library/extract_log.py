@@ -118,9 +118,9 @@ def convert_date(s):
     if len(re_result) > 0:
         str_date = re_result[0]
         try:
-            dt = datetime.strptime(str_date, '%b %d %X.%f')
+            dt = datetime.datetime.strptime(str_date, '%b %d %X.%f')
         except ValueError:
-            dt = datetime.strptime(str_date, '%b %d %X')
+            dt = datetime.datetime.strptime(str_date, '%b %d %X')
     else:
         re_result = re.findall(r'^\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d{6}', s)
         str_date = re_result[0]

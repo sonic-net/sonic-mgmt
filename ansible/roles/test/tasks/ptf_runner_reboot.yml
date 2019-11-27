@@ -37,11 +37,11 @@
       when: item and item != 'None'
 
     - name: Update supervisor configuration
-      include: "roles/test/tasks/common_tasks/update_supervisor.yml"
+      include_tasks: "roles/test/tasks/common_tasks/update_supervisor.yml"
       vars:
         supervisor_host: "{{ ptf_host }}"
 
-    - include: ptf_runner.yml
+    - include_tasks: ptf_runner.yml
       vars:
         ptf_test_name: Advanced-reboot test
         ptf_test_dir: ptftests
@@ -146,6 +146,12 @@
         src: "{{ swss_rec }}"
         dest: '/tmp/'
         flat: yes
+
+    - name: Clear ARP table
+      command: sonic-clear arp
+
+    - name: Clear FDB table
+      command: sonic-clear fdb all
 
 - name: Wait for the DUT to be ready for the next test
   pause: seconds=420

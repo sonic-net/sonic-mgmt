@@ -20,7 +20,7 @@
   when: host_distribution_version.stdout == "18.04"
 
 - name: Add docker official GPG key
-  shell: "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -"
+  apt_key: url=https://download.docker.com/linux/ubuntu/gpg state=present
   become: yes
   environment: "{{ proxy_env | default({}) }}"
 
@@ -29,7 +29,12 @@
   become: yes
   environment: "{{ proxy_env | default({}) }}"
 
+- name: remove old python packages
+  pip: name=docker-py state=absent
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+
 - name: Install python packages
-  pip: name=docker-py state=present version=1.7.2
+  pip: name=docker version=4.1.0 state=forcereinstall
   become: yes
   environment: "{{ proxy_env | default({}) }}"

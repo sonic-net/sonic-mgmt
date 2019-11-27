@@ -1,24 +1,24 @@
 - name: Verify the portstat clear command works
   # roles/test/tasks/portstat
-  include: portstat/portstat_clear.yml  command={{ item }}
+  include_tasks: portstat/portstat_clear.yml  command={{ item }}
   with_items:
     - portstat -c
     - portstat --clear
 
 - name: Test portstat delete all when no saved data # This command fails
-  include: portstat/portstat_delete_all_no_saved_stats.yml  command={{ item }}
+  include_tasks: portstat/portstat_delete_all_no_saved_stats.yml  command={{ item }}
   with_items:
     - portstat -D
     - portstat --delete-all
 
 - name: Test portstat delete all with saved tags
-  include: portstat/portstat_delete_all_stats.yml  command={{ item }}
+  include_tasks: portstat/portstat_delete_all_stats.yml  command={{ item }}
   with_items:
     - portstat -D
     - portstat --delete-all
 
 - name: Test deleting a tag
-  include: portstat/portstat_delete_tag.yml  command={{ item }}
+  include_tasks: portstat/portstat_delete_tag.yml  command={{ item }}
   with_items:
     - portstat -d -t
     - portstat -d --tag 
@@ -26,13 +26,13 @@
     - portstat --delete --tag
 
 - name: Test display all
-  include: portstat/portstat_all_fields.yml  command={{ item }}
+  include_tasks: portstat/portstat_all_fields.yml  command={{ item }}
   with_items:
     - portstat -a
     - portstat --all
 
 - name: Test display period
-  include: portstat/portstat_period.yml command={{ item }}
+  include_tasks: portstat/portstat_period.yml command={{ item }}
   with_items:
     - portstat -p 1
     - portstat --period 1
@@ -55,7 +55,7 @@
 
   - name: Run the commands 
     shell: "{{ item }}"
-    with_items: portstat_commands
+    with_items: "{{ portstat_commands }}"
    
   always:
   - name: Clear and reset counters

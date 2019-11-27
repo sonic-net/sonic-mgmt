@@ -44,7 +44,7 @@
 - debug: msg="output directory for current test run {{ test_out_dir }}"
 - debug: msg="generated run id:{{testname_unique}}"
 
-- include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+- include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
 - block:
 
@@ -66,10 +66,10 @@
       debug: msg="{{ minigraph_portchannel_interfaces }}"
       
     - name: "Run {{ testname }} with changing member port state to up and down"
-      include: per_lag_test.yml
-      with_items: minigraph_portchannel_interfaces
+      include_tasks: per_lag_test.yml
+      with_items: "{{ minigraph_portchannel_interfaces }}"
 
   always:
-    - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
-    - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml

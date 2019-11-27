@@ -11,12 +11,12 @@
   when: allow_recover is not defined
 
 - name: do basic sanity check before each test
-  include: base_sanity.yml
+  include_tasks: base_sanity.yml
   vars: 
      recover: "{{ allow_recover }}"
 
 - name: validate all interfaces are up
-  include: interface.yml
+  include_tasks: interface.yml
   vars:
      recover: "{{ allow_recover }}"
 
@@ -32,17 +32,37 @@
 - name: print system versions
   debug: var=versions.stdout_lines
 
-- name: run test case {{ testcases[testcase_name]['filename'] }} file
-  include: "{{ testcases[testcase_name]['filename'] }}"
+- set_fact:
+    skip_test: false
 
-- name: do basic sanity check after each test
-  include: base_sanity.yml
+- set_fact:
+    skip_test: true
+  when: 
+    - hostvars[ansible_hostname]['type'] is defined
+    - testcases[testcase_name]['vtestbed_compatible'] is defined
+    - hostvars[ansible_hostname]['type'] == 'kvm' or hostvars[ansible_hostname]['type'] == 'simx'
+    - not testcases[testcase_name]['vtestbed_compatible'] | bool
 
-- name: validate all interfaces are up after test
-  include: interface.yml
+- block:
+    - name: run test case {{ testcases[testcase_name]['filename'] }} file
+      include_tasks: "{{ testcases[testcase_name]['filename'] }}"
+  
+    - name: do basic sanity check after each test
+      include_tasks: base_sanity.yml
+
+    - name: validate all interfaces are up after test
+      include_tasks: interface.yml
+
+    - debug:
+        msg:
+          - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+          - "!!!!!!!!!!!!!!!!!!!! end running test {{ testcase_name }} !!!!!!!!!!!!!!!!!!!!!!"
+          - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  when: not skip_test
 
 - debug:
     msg:
       - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-      - "!!!!!!!!!!!!!!!!!!!! end running test {{ testcase_name }} !!!!!!!!!!!!!!!!!!!!!!"
+      - "!!!!!!!!!!!!!!!!!!!! test {{ testcase_name }} was skipped !!!!!!!!!!!!!!!!!!!!!!"
       - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  when: skip_test

@@ -27,7 +27,7 @@
   set_fact:
     sonic_asic_type: marvell
   when: sonic_hwsku in marvell_hwskus
-
+  
 ###########################################################################
 ##### run test using ansible tag when no testbedname specified       ######
 ###########################################################################
@@ -35,7 +35,7 @@
     - fail: msg="You didn't provide testbed_name=yourtestbedname, so will run by test by tag. Please specify tests you want to run using --tags"
       when: tags is not defined
 
-    - include: test_sonic_by_tag.yml
+    - include_tasks: test_sonic_by_tag.yml
   when:
     - testbed_name is not defined
 
@@ -78,7 +78,7 @@
     - fail: msg="cannot find {{ testcase_name }} in available testcases or is not supported topology of this testbed {{ testbed_name }}"
       when: (testcase_name is not defined) or (testbed_type not in testcases[testcase_name]['topologies'])
 
-    - include: test_sonic_by_testname.yml
+    - include_tasks: test_sonic_by_testname.yml
   when:
     - testbed_name is defined
     - testcase_name is defined

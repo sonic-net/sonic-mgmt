@@ -57,7 +57,7 @@
     test_ports: {}
 
 - name: Iterate all interfaces to get all interface ports info if exists
-  include: roles/test/tasks/pfc_wd/iterate_interfaces.yml
+  include_tasks: roles/test/tasks/pfc_wd/iterate_interfaces.yml
   with_items: "{{minigraph_interfaces}}"
   when: item['addr'] | ipv4
 
@@ -66,7 +66,7 @@
   when: minigraph_portchannels| length > 0
 
 - name: Iterate all the portchannels to get all portchanel member ports info if exists.
-  include: roles/test/tasks/pfc_wd/iterate_portchannels.yml
+  include_tasks: roles/test/tasks/pfc_wd/iterate_portchannels.yml
   with_dict: "{{minigraph_portchannels}}"
 
 - name: Generate ips in VLAN range
@@ -86,7 +86,7 @@
   when: minigraph_vlans | length >0
 
 - name: Iterate all vlan members to get all vlan member ports info if exists.
-  include: roles/test/tasks/pfc_wd/iterate_vlans.yml
+  include_tasks: roles/test/tasks/pfc_wd/iterate_vlans.yml
   with_items: "{{vlan_members | default([])}}"
   when: minigraph_vlans | length >0
 
@@ -133,17 +133,17 @@
         - name: Test PFC WD configuration validation.
           vars:
             pfc_wd_template: roles/test/templates/pfc_wd_config.j2
-          include: roles/test/tasks/pfc_wd/config_test/config_test.yml
+          include_tasks: roles/test/tasks/pfc_wd/config_test/config_test.yml
 
         - name: Test PFC WD Functional tests.
-          include: roles/test/tasks/pfc_wd/functional_test/functional_test.yml
+          include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test.yml
           with_dict: "{{select_test_ports}}"
 
         - name: Test PFC WD Timer accuracy.
-          include: roles/test/tasks/pfc_wd/functional_test/check_timer_accuracy_test.yml
+          include_tasks: roles/test/tasks/pfc_wd/functional_test/check_timer_accuracy_test.yml
 
         - name: Test PFC WD extreme case when all ports have storm
-          include: roles/test/tasks/pfc_wd/functional_test/storm_all_test.yml
+          include_tasks: roles/test/tasks/pfc_wd/functional_test/storm_all_test.yml
 
         - name: Set vlan members
           set_fact:
@@ -160,7 +160,7 @@
             - testbed_type in ['t0']
 
         - name: Test PFC WD Functional tests.
-          include: roles/test/tasks/pfc_wd/functional_test/functional_test.yml
+          include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test.yml
           with_dict: "{{select_test_ports}}"
           when:
             - pfc_asym is defined
@@ -172,7 +172,7 @@
           shell: bash -c 'redis-cli -n 4 hset "DEVICE_METADATA|localhost" default_pfcwd_status enable; sudo pfcwd stop; sleep 5; sudo pfcwd start_default'
 
         - name: Test PFC WD function against warm reboot
-          include: roles/test/tasks/pfc_wd/functional_test/functional_test_warm_reboot.yml
+          include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test_warm_reboot.yml
       when: warm_reboot_test | bool == true
 
   always:

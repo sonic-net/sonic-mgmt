@@ -47,7 +47,7 @@
     connection: switch
     ignore_errors: yes
     when: vms["{{ item }}"]['hwsku'] == 'Arista-VM'
-    with_items: vms
+    with_items: "{{ vms }}"
     register: vm_portchannel_status
 
   - name: Debug Port-Channel on VMs

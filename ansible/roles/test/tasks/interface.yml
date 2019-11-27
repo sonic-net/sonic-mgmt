@@ -8,7 +8,7 @@
   - debug: msg="Found link down ports {{ansible_interface_link_down_ports}}, reload SONiC and reenable down ports"
 
   - name: reboot
-    include: common_tasks/reboot_sonic.yml
+    include_tasks: common_tasks/reboot_sonic.yml
 
   - name: figure out fanout switch port in case it was down
     conn_graph_facts: host={{ inventory_hostname }}
@@ -16,8 +16,8 @@
 
   - set_fact: neighbors="{{device_conn}}"
 
-  - include: resume_fanout_ports.yml
-    with_items: ansible_interface_link_down_ports
+  - include_tasks: resume_fanout_ports.yml
+    with_items: "{{ ansible_interface_link_down_ports }}"
 
   - name: pause and wait interface to be up
     pause: seconds=30
@@ -36,7 +36,7 @@
   - name: Verify interfaces are up correctly
     assert: { that: "{{ ansible_interface_link_down_ports | length }} == 0" }
   rescue:
-  - include: check_fanout_interfaces.yml
+  - include_tasks: check_fanout_interfaces.yml
     vars:
       check_fanout: true
   - debug: msg="Not all Interfaces are up"
@@ -47,7 +47,7 @@
     with_items: "{{ minigraph_portchannels.keys() }}"
 
   rescue:
-  - include: check_sw_vm_interfaces.yml
+  - include_tasks: check_sw_vm_interfaces.yml
     vars:
       check_vms: true
   - debug: msg="Not all PortChannels are up '{{ portchannel_status['stdout_lines'] }}' "

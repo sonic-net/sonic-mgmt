@@ -24,7 +24,7 @@ from ansible.plugins.callback import CallbackBase, strip_internal_keys
 from ansible.plugins.callback.default import CallbackModule as Default
 
 # simple workaroud for using yaml callback plugin
-from ansible.vars.unsafe_proxy import AnsibleUnsafeText
+from ansible.utils.unsafe_proxy import AnsibleUnsafeText
 represent_unicode = yaml.representer.SafeRepresenter.represent_unicode
 from ansible.parsing.yaml.dumper import AnsibleDumper
 AnsibleDumper.add_representer(

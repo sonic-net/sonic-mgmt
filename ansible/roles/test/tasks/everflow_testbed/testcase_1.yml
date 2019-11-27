@@ -8,7 +8,7 @@
     - pause:
         seconds: 3
 
-    - include: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+    - include_tasks: roles/test/tasks/everflow_testbed/everflow_ptf.yml
       vars:
         dst_port: "{{ dst_port_1 }}"
         dst_port_ptf_id: "{{ dst_port_1_ptf_id }}"
@@ -19,7 +19,7 @@
     - pause:
         seconds: 3
 
-    - include: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+    - include_tasks: roles/test/tasks/everflow_testbed/everflow_ptf.yml
       vars:
         dst_port: "{{ dst_port_1 }}"
         dst_port_ptf_id: "{{ dst_port_1_ptf_id }}"
@@ -30,7 +30,7 @@
     - pause:
         seconds: 3
 
-    - include: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+    - include_tasks: roles/test/tasks/everflow_testbed/everflow_ptf.yml
       vars:
         dst_port: "{{ dst_port_2 }}"
         dst_port_ptf_id: "{{ dst_port_2_ptf_id }}"
@@ -41,7 +41,7 @@
     - pause:
         seconds: 3
 
-    - include: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+    - include_tasks: roles/test/tasks/everflow_testbed/everflow_ptf.yml
       vars:
         dst_port: "{{ dst_port_1 }}"
         dst_port_ptf_id: "{{ dst_port_1_ptf_id }}"

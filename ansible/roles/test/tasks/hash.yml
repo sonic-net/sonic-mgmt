@@ -1,8 +1,8 @@
 #
-- include: shared-fib.yml
+- include_tasks: shared-fib.yml
 
 - name: "Start hash test"
-  include: ptf_runner.yml
+  include_tasks: ptf_runner.yml
   vars:
     ptf_test_name: Hash test
     ptf_test_dir: ptftests

@@ -9,7 +9,7 @@
   command: "mkdir -p {{ run_dir }}"
 
 - name: Get session info.
-  include: roles/test/tasks/everflow_testbed/get_session_info.yml
+  include_tasks: roles/test/tasks/everflow_testbed/get_session_info.yml
 
 - name: Set Everflow table name
   set_fact:

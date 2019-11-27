@@ -1,5 +1,5 @@
 - name: Clean up old container
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: docker-lldp
     docker_image: "{{ image_id_lldp }}"
@@ -12,7 +12,7 @@
   when: sonic_version == "v2"
 
 - name: Ensure LLDP container started
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: lldp
     docker_image: "{{ image_id_lldp }}"

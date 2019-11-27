@@ -37,7 +37,7 @@
       failed_when: grep_queue.rc != 0
 
     # Run test with different values
-    - include: ecn_wred_worker.yml
+    - include_tasks: ecn_wred_worker.yml
       with_items: "{{ test_wred_values }}"
 
   always:

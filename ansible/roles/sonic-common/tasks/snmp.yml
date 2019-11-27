@@ -1,5 +1,5 @@
 - name: Clean up old container
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: docker-snmp
     docker_image: "{{ image_id_snmp }}"
@@ -12,7 +12,7 @@
   when: sonic_version == "v2"
 
 - name: Ensure SNMP container started
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: snmp
     docker_image: "{{ image_id_snmp }}"

@@ -43,7 +43,7 @@
 
 - name: Expand {{ hostname }} properties into props
   set_fact: props="{{ configuration_properties[item] | combine(props | default({})) }}"
-  with_items: properties_list
+  with_items: "{{ properties_list }}"
   when: hostname in configuration and configuration_properties[item] is defined
 
 - name: copy rc.eos

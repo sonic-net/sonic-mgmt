@@ -89,8 +89,13 @@ class SerialSession(object):
 
     def configure(self, seq):
         self.pair('sudo bash', [r'#'], 10)
-        for action, wait_for in seq:
-            self.pair(action, wait_for, 10)
+        for cmd in seq:
+            if len(cmd) == 2:
+                (action, wait_for) = cmd
+                self.pair(action, wait_for, 10)
+            else:
+                (action, wait_for, timeout) = cmd
+                self.pair(action, wait_for, timeout)
         self.pair('exit', [r'\$'], 10)
 
         return
@@ -102,10 +107,14 @@ class SerialSession(object):
 
 def session(new_params):
     seq = [
+        ('while true; do if [ $(systemctl is-active bgp) == "active" ]; then break; fi; echo $(systemctl is-active bgp); sleep 1; done', [r'#'], 60),
+        ('pkill dhclient', [r'#']),
         ('hostname %s' % str(new_params['hostname']), [r'#']),
         ('sed -i s:sonic:%s: /etc/hosts' % str(new_params['hostname']), [r'#']),
         ('ifconfig eth0 %s' % str(new_params['mgmt_ip']), [r'#']),
+        ('ifconfig eth0', [r'#']),
         ('ip route add 0.0.0.0/0 via %s table default' % str(new_params['mgmt_gw']), [r'#']),
+        ('ip route', [r'#']),
         ('echo %s:%s | chpasswd' % (str(new_params['login']), str(new_params['new_password'])), [r'#']),
     ]
 

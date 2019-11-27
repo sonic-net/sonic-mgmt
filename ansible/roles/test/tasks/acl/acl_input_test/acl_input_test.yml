@@ -36,7 +36,7 @@
       when: invalid_config_upload.rc == 0
 
     - name: Do configuration cleanup.
-      include: "{{ run_config_cleanup }}"
+      include_tasks: "{{ run_config_cleanup }}"
 
     - name: Remove all the files created by test.
       file: path="{{ run_dir }}/{{ item }}" state=absent

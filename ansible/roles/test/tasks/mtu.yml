@@ -7,7 +7,7 @@
   when: testbed_type is not defined
 
 - fail: msg="testbed_type {{testbed_type}} is invalid."
-  when: testbed_type not in ['t1-lag', 't1', 't1-64-lag']
+  when: testbed_type not in ['t1-lag', 't1', 't1-64-lag', 't1-64-lag-clet']
 
 - set_fact: mtu=9114   #using the default mtu,The value includes the 14 bytes Layer 2 Ethernet header
   when: mtu is not defined
@@ -33,7 +33,7 @@
   delegate_to: "{{ ptf_host }}"
 
 - name: "Start PTF runner"
-  include: ptf_runner.yml
+  include_tasks: ptf_runner.yml
   vars:
     ptf_test_name: MTU test
     ptf_test_dir: ptftests

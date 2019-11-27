@@ -3,7 +3,7 @@
   when: expect_received is not defined
 
 - name: Send traffic and verify that packets with correct Everflow header are {{ expect_received | ternary('', 'not') }} received on destination port {{ dst_port }}
-  include: roles/test/tasks/ptf_runner.yml
+  include_tasks: roles/test/tasks/ptf_runner.yml
   vars:
     ptf_test_name: Everflow Test
     ptf_test_dir: acstests

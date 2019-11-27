@@ -1,0 +1,15 @@
+# In this file should be defined regular expressions to match specific device platform which has combined L2 and L3 drop counters.
+# If platform have separate drop counters, those platforms must not be in the list.
+# File content is a list of regular expressions defined in yaml format
+#
+# Platform name can be obtained by calling CLI command: show platform summary
+#
+# Example:
+# root@sonic:/home/admin# show platform summary
+# Platform: x86_64-mlnx_msn2740-r0
+# HwSKU: ACS-MSN2740
+# ASIC: mellanox
+
+# File content example:
+# - "x86_64-mlnx"
+# - "x86_64-dell.*"

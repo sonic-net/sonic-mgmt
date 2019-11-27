@@ -1,5 +1,5 @@
 - name: Create normal guest user
-  include: "roles/test/tasks/iface_naming_mode/add_user.yml"
+  include_tasks: "roles/test/tasks/iface_naming_mode/add_user.yml"
 
 - name: set interface naming mode to {{mode}} mode
   shell : sudo  config interface_naming_mode {{mode}}
@@ -9,7 +9,7 @@
   become: yes
 
 # Check whether the interface mode is set properly in bashrc file
-- include: roles/test/tasks/iface_naming_mode/check_userifmode.yml
+- include_tasks: roles/test/tasks/iface_naming_mode/check_userifmode.yml
 
 - set_fact:
     intf: "{{interface_alias if (mode=='alias') else interface}}"
@@ -22,10 +22,10 @@
 #Below set of testcases will run for all topologies
 - block: 
     - name:  Test show pfc counters output in {{mode}}  mode
-      include: "roles/test/tasks/iface_naming_mode/show_pfc_counters.yml"
+      include_tasks: "roles/test/tasks/iface_naming_mode/show_pfc_counters.yml"
 
     - name: Test show queue counters output in {{mode}} mode 
-      include: "roles/test/tasks/iface_naming_mode/show_queue_counters.yml"
+      include_tasks: "roles/test/tasks/iface_naming_mode/show_queue_counters.yml"
 
 
   become_user: '{{uname1}}'
@@ -34,28 +34,28 @@
 #Test to be run in T1 topology
 - block:
   - name: Test show arp output in {{mode}} mode 
-    include: "roles/test/tasks/iface_naming_mode/show_arp.yml"
+    include_tasks: "roles/test/tasks/iface_naming_mode/show_arp.yml"
 
   - name: Test show acl output in {{mode}}  mode 
-    include: "roles/test/tasks/iface_naming_mode/show_acl.yml"
+    include_tasks: "roles/test/tasks/iface_naming_mode/show_acl.yml"
 
   - name: Test show ip/ipv6 route in {{mode}}  mode
-    include: "roles/test/tasks/iface_naming_mode/show_ip_route.yml"
+    include_tasks: "roles/test/tasks/iface_naming_mode/show_ip_route.yml"
 
   - name: Test config interface <Interface> in {{mode}} mode
-    include: "roles/test/tasks/iface_naming_mode/interface_config.yml"
+    include_tasks: "roles/test/tasks/iface_naming_mode/interface_config.yml"
 
   - name: Test show interface status, counter,description,summary output  in {{mode}}  mode
-    include: "roles/test/tasks/iface_naming_mode/show_interface.yml"
+    include_tasks: "roles/test/tasks/iface_naming_mode/show_interface.yml"
 
   - name: Test show lldp in {{mode}}  mode
-    include: "roles/test/tasks/iface_naming_mode/show_lldp.yml"
+    include_tasks: "roles/test/tasks/iface_naming_mode/show_lldp.yml"
 
   - name: show ndp in {{mode}} mode
-    include: "roles/test/tasks/iface_naming_mode/show_ndp.yml"
+    include_tasks: "roles/test/tasks/iface_naming_mode/show_ndp.yml"
 
   - name: show ndp in {{mode}} mode
-    include: "roles/test/tasks/iface_naming_mode/show_priority_group.yml"
+    include_tasks: "roles/test/tasks/iface_naming_mode/show_priority_group.yml"
 
 
   when: testbed_type in ['t1']
@@ -66,10 +66,10 @@
 - block: 
 
   - name: verify show portchannel interface output in {{mode}}  mode
-    include: "roles/test/tasks/iface_naming_mode/show_portchannel.yml"
+    include_tasks: "roles/test/tasks/iface_naming_mode/show_portchannel.yml"
 
   - name: verify config and show vlan  output in {{mode}}  mode
-    include: "roles/test/tasks/iface_naming_mode/vlan_test.yml"
+    include_tasks: "roles/test/tasks/iface_naming_mode/vlan_test.yml"
 
   become_user: '{{uname1}}'
   become: yes

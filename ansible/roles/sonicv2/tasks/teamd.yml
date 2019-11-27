@@ -1,5 +1,5 @@
 - name: Start the teamd docker container
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: teamd
     docker_image: "{{ image_id_teamd }}"
@@ -10,5 +10,5 @@
     docker_volumes_from:
     - database
 
-- include: teamd_interface.yml
+- include_tasks: teamd_interface.yml
   with_items: "{{ minigraph_portchannel_interfaces }}"

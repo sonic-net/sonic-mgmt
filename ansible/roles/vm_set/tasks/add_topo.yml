@@ -10,18 +10,24 @@
     ptf_imagetag: "latest"
   when: ptf_imagetag is not defined
 
-- name: Create a docker container ptf_{{ vm_set_name }}
-  docker:
+- name: Login into docker registry
+  docker_login:
     registry: "{{ docker_registry_host }}"
     username: "{{ docker_registry_username }}"
     password: "{{ docker_registry_password }}"
+  become: yes
+
+- name: Create ptf container ptf_{{ vm_set_name }}
+  docker_container:
     name: ptf_{{ vm_set_name }}
     image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
-    pull: always
-    state: reloaded
-    net: none
+    pull: yes
+    state: started
+    restart: yes
+    network_mode: none
     detach: True
-    cap_add: NET_ADMIN
+    capabilities:
+      - net_admin
     privileged: yes
   become: yes
 
@@ -30,7 +36,7 @@
   become: yes
 
 - name: Set front panel/mgmt port for dut
-  include: set_dut_port.yml
+  include_tasks: set_dut_port.yml
 
 - name: Setup vlan port for vlan tunnel
   vlan_port:

@@ -45,7 +45,7 @@
   set_fact:
     alias_reverse_map: "{{ lookup('file', 'roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_reverse_map.json') | from_json }}"
 
-- include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+- include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
   vars:
     tests_location: "{{ 'roles/test/tasks' }}"
 
@@ -82,7 +82,7 @@
       ansible_python_interpreter: docker exec -i swss python
 
   always:
-    - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
       vars:
         tests_location: "{{ 'roles/test/tasks' }}"
 
@@ -99,6 +99,6 @@
       fail: msg="{{ errors_found.stdout }} errors found while running {{ testname }} test. Please see {{ test_out_dir }}/{{ result_file }}"
       when: errors_found.stdout != "0"
 
-    - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
       vars:
         tests_location: "{{ 'roles/test/tasks' }}"

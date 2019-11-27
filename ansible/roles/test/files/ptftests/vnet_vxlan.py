@@ -442,6 +442,7 @@ class VNET(BaseTest):
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
             else:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             masked_exp_pkt.set_do_not_care_scapy(scapy.UDP, "sport")
 
             log_str = "Sending packet from port " + str('eth%d' % test['port']) + " to " + test['dst']

@@ -2,7 +2,7 @@
   when: testbed_type is not defined
 
 - fail: msg="testbed_type {{ test_type }} is invalid"
-  when: testbed_type not in ['t0', 't0-16', 't0-56', 't0-64', 't0-64-32', 't0-116', 't1', 't1-lag', 't1-64-lag']
+  when: testbed_type not in ['t0', 't0-16', 't0-56', 't0-64', 't0-64-32', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-64-lag-clet']
 
 - include_vars: "vars/topo_{{ testbed_type }}.yml"
 
@@ -43,7 +43,7 @@
       src_port: "{{ minigraph_interfaces[2].attachto }}"
 
   - name: "Start PTF runner: '{{ testbed_type }}' designated"
-    include: ptf_runner.yml
+    include_tasks: ptf_runner.yml
     vars:
       ptf_test_name: DipSip test
       ptf_test_dir: ptftests
@@ -102,7 +102,7 @@
       src_port_ids: "{{ src_port_ids_result.results | map(attribute='ansible_facts.src_port_ids') | list }}"
 
   - name: "Start PTF runner: '{{ testbed_type }}' designated"
-    include: ptf_runner.yml
+    include_tasks: ptf_runner.yml
     vars:
       ptf_test_name: DipSip test
       ptf_test_dir: ptftests
@@ -126,4 +126,4 @@
   vars:
     dst_lag: "default('')"
     src_lag: "default('')"
-  when: testbed_type in ['t0', 't0-16', 't0-56', 't0-64', 't0-64-32', 't0-116', 't1-lag', 't1-64-lag']
+  when: testbed_type in ['t0', 't0-16', 't0-56', 't0-64', 't0-64-32', 't0-116', 't1-lag', 't1-64-lag', 't1-64-lag-clet']

@@ -85,17 +85,17 @@
   - name: find all interface indexes mapping connecting to VM
     set_fact:
       interface_to_vms: "{{ interface_to_vms|default({}) | combine({ item.key: item.value['interface_indexes'] }) }}"
-    with_dict: vm_topo_config['vm']
+    with_dict: "{{ vm_topo_config['vm'] }}"
 
   - name: find all interface indexes connecting to VM
     set_fact:
       ifindex_to_vms: "{{ ifindex_to_vms|default([]) }} + {{ item.value['interface_indexes']}}"
-    with_dict: vm_topo_config['vm']
+    with_dict: "{{ vm_topo_config['vm'] }}"
 
   - name: find all interface names
     set_fact:
       intf_names: "{{ intf_names | default({}) | combine({item.key: port_alias[item.value[0]|int:item.value[-1]|int+1] }) }}"
-    with_dict: interface_to_vms
+    with_dict: "{{ interface_to_vms }}"
 
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
@@ -113,6 +113,12 @@
         template: src=templates/minigraph_template.j2
                   dest=/etc/sonic/minigraph.xml
         become: true
+
+      - name: Copy corresponding configlet files if apply_configlet=true
+        copy: src=vars/configlet/{{ topo }}/
+              dest=/etc/sonic/
+        become: true
+        when: apply_configlet is defined and apply_configlet|bool == true
 
       - name: disable automatic minigraph update if we are deploying new minigraph into SONiC
         lineinfile:
@@ -134,6 +140,11 @@
       - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
         become: true
         shell: config bgp startup all
+
+      - name: execute configlet application script, which applies configlets in strict order.
+        become: true
+        shell: bash -c "/etc/sonic/apply_clet.sh"
+        when: apply_configlet is defined and apply_configlet|bool == true
 
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true

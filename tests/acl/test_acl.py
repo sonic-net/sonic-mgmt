@@ -61,7 +61,7 @@ def setup(duthost, testbed):
     port_channels = []
     acl_table_ports = []
 
-    if testbed['topo'] not in ('t1', 't1-lag', 't1-64-lag'):
+    if testbed['topo'] not in ('t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet'):
         pytest.skip('Unsupported topology')
 
     # gather ansible facts
@@ -82,7 +82,7 @@ def setup(duthost, testbed):
 
     # get the list of port to be combined to ACL tables
     acl_table_ports += tor_ports
-    if testbed['topo'] in ('t1-lag', 't1-64-lag'):
+    if testbed['topo'] in ('t1-lag', 't1-64-lag', 't1-64-lag-clet'):
         acl_table_ports += port_channels
     else:
         acl_table_ports += spine_ports

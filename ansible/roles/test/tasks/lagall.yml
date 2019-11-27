@@ -75,7 +75,7 @@
 
 - name: Add VMs information to in-memory inventory.
   add_host: name={{ lag_vms[item][0] }} ansible_ssh_user={{ switch_login['Arista']['user'] }} ansible_ssh_pass={{ switch_login['Arista']['passwd'][0] }}
-  with_items: lag_vms.keys()
+  with_items: "{{ lag_vms.keys() }}"
 
 #-----------------------------------
 # Start tests
@@ -93,14 +93,14 @@
   include_vars: vars/topo_t1-lag.yml
 
 - name: --TEST-- LACP verification on all VMs.
-  include: lag_vm_lacp_test.yml
+  include_tasks: lag_vm_lacp_test.yml
   vars:
     login_creds: "{{ switch_login['Arista'] }}"
     lag_member_0: "{{ lag_vms[item][1] }}"
     lag_member_1: "{{ lag_vms[item][2] }}"
     vm_ip: "{{ lag_vms[item][0] }}"
     vm_name: "{{ item }}"
-  with_items: lag_vms.keys()
+  with_items: "{{ lag_vms.keys() }}"
 
 # Get a list of LAGs on DUT.
 - set_fact:
@@ -112,7 +112,7 @@
   with_indexed_items: "{{ minigraph_portchannel_interfaces }}"
 
 - name: --TEST-- LACP verification on DUT LAGs.
-  include: lag_dut_lacp_test.yml
+  include_tasks: lag_dut_lacp_test.yml
   vars:
     lag_iface: "{{ dut_lags[1] }}"
   when: dut_lags is defined
@@ -121,7 +121,7 @@
     iface_behind_lag_member_index: 0
 
 - name: --TEST-- Fanout ports test.
-  include: lag_fanout_ports_test.yml
+  include_tasks: lag_fanout_ports_test.yml
   vars:
     fanout_mgmt_ip: "{{ hostvars[fanout_switch]['ansible_host'] }}"
     fanout_user: "{{ hostvars[fanout_switch]['ansible_ssh_user'] }}"

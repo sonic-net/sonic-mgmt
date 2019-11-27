@@ -6,7 +6,7 @@
   when: testbed_type is not defined
 
 - fail: msg="testbed_type {{testbed_type}} is invalid."
-  when: testbed_type not in ['t1-lag', 't1', 't1-64-lag']
+  when: testbed_type not in ['t1-lag', 't1', 't1-64-lag', 't1-64-lag-clet']
 
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
@@ -21,15 +21,15 @@
     tests_location: "{{ 'roles/test/tasks' }}"
 
 - name: Get port info.
-  include: roles/test/tasks/everflow_testbed/get_port_info.yml
+  include_tasks: roles/test/tasks/everflow_testbed/get_port_info.yml
 
 - name: Get session info.
-  include: roles/test/tasks/everflow_testbed/get_session_info.yml
+  include_tasks: roles/test/tasks/everflow_testbed/get_session_info.yml
 
 - name: Get neighbor info.
-  include: roles/test/tasks/everflow_testbed/get_neighbor_info.yml
+  include_tasks: roles/test/tasks/everflow_testbed/get_neighbor_info.yml
 
-- include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+- include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
 - set_fact:
     test_out_dir: "{{ out_dir }}/{{testname_unique}}"
@@ -48,31 +48,31 @@
       become: yes
 
     - name: Run testcase 1 - Resolved route, unresolved route, best prefix match route creation and removal flows
-      include: roles/test/tasks/everflow_testbed/testcase_1.yml
+      include_tasks: roles/test/tasks/everflow_testbed/testcase_1.yml
 
     - name: Run testcase 2 - Change neighbor MAC address.
-      include: roles/test/tasks/everflow_testbed/testcase_2.yml
+      include_tasks: roles/test/tasks/everflow_testbed/testcase_2.yml
       when: testbed_type == "t1"
 
     - name: Run testcase 3 - ECMP route change (remove next hop not used by session).
-      include: roles/test/tasks/everflow_testbed/testcase_3.yml
+      include_tasks: roles/test/tasks/everflow_testbed/testcase_3.yml
 
     - name: Run testcase 4 - ECMP route change (remove next hop used by session).
-      include: roles/test/tasks/everflow_testbed/testcase_4.yml
+      include_tasks: roles/test/tasks/everflow_testbed/testcase_4.yml
 
     - name: Run testcase 5 - Policer enforced with DSCP value/mask
-      include: roles/test/tasks/everflow_testbed/testcase_5.yml
+      include_tasks: roles/test/tasks/everflow_testbed/testcase_5.yml
 
   always:
     - name: Remove route to unresolved next hop.
       shell: vtysh -e "conf t" -e "no ip route {{ unresolved_nexthop_prefix }} {{ dst_port_2 }}"
       become: yes
 
-    - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     # Output content of result files to ansible console
     - shell: cat {{ test_out_dir }}/*
       register: out
     - debug: var=out.stdout_lines
 
-    - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml

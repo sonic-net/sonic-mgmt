@@ -5,7 +5,7 @@ import re
 import os
 import os.path
 import re
-from docker import Client
+import docker
 from ansible.module_utils.basic import *
 import traceback
 from pprint import pprint
@@ -550,13 +550,13 @@ class VMTopology(object):
 
     @staticmethod
     def get_pid(ptf_name):
-        cli = Client(base_url='unix://var/run/docker.sock')
+        cli = docker.from_env()
         try:
-            result = cli.inspect_container(ptf_name)
+            ctn = cli.containers.get(ptf_name)
         except:
             return None
 
-        return result['State']['Pid']
+        return ctn.attrs['State']['Pid']
 
     @staticmethod
     def brctl(cmdline):

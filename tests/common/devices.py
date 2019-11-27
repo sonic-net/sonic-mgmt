@@ -136,15 +136,15 @@ class SonicHost(AnsibleHostBase):
         """
         @summary: Check whether a SONiC specific service is fully started.
 
-        The last step in the starting script of all SONiC services is to run "docker wait <service_name>". This command
-        will not exit unless the docker container of the service is stopped. We use this trick to determine whether
-        a SONiC service has completed starting.
+        This function assumes that the final step of all services checked by this function is to spawn a Docker
+        container with the same name as the service. We determine that the service has fully started if the
+        Docker container is running.
 
         @param service: Name of the SONiC service
         """
         try:
-            output = self.command('pgrep -f "docker wait %s"' % service)
-            if output["stdout_lines"]:
+            output = self.command("docker inspect -f \{\{.State.Running\}\} %s" % service)
+            if output["stdout"].strip() == "true":
                 return True
             else:
                 return False
