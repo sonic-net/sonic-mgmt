@@ -30,6 +30,9 @@ for tp_dir in tp_dirs:
     sys.path.append(os.path.join(TP_DIR,tp_dir))
 
 import gnmi_test_lib as gnmiTestLib
+sys.path.append('../p4/')
+from p4_error_utils import printGrpcError
+from p4_error_utils import parseGrpcError
 
 def _test_gnmi_Capability(stub):
     user = None
@@ -51,12 +54,12 @@ def _test_GetSet_Sanity1(stub):
     log.info('Performing SET-REPLACE Request to target \n')
     try:
         if 'GETSET_Sanity1_1' in input_conf:
-            set_info = input_conf['GETSET_Sanity1_1']
-            print(type(set_info))
-            print(set_info)
+            set_info1 = input_conf['GETSET_Sanity1_1']
+            print(type(set_info1))
+            print(set_info1)
             xpath = "/"
             paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
-            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info)
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1)
             log.info(str(reply))
             if ('response' in str(reply) and 'op: REPLACE' in str(reply)):
                 log.info("GETSET_Sanity1_1:Passed - was able to do SET-REPLACE with input json")
@@ -74,12 +77,10 @@ def _test_GetSet_Sanity1(stub):
     log.info('Performing SET-UPDATE Request to target \n')
     try:
         if 'GETSET_Sanity1_2' in input_conf:
-            set_info = input_conf['GETSET_Sanity1_2']
-            print(type(set_info))
-            print(set_info)
+            set_info2 = input_conf['GETSET_Sanity1_2']
             xpath = "/"
             paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
-            reply = gnmiTestLib._set(stub, paths, 'update', user, password, set_info)
+            reply = gnmiTestLib._set(stub, paths, 'update', user, password, set_info2)
             log.info(str(reply))
             if ('response' in str(reply) and 'op: UPDATE' in str(reply)):
                 log.info("GETSET_Sanity1_2:Passed - was able to do SET-UPDATE with input json")
@@ -92,6 +93,46 @@ def _test_GetSet_Sanity1(stub):
         log.error(e)
         printGrpcError(e)
         raise CafyException.VerificationError("Test GETSET_Sanity1_2 failed due to Grpc Error {err}".format(err=e.details()))
+
+
+    log.info('Performing SET-REPLACE after UPDATE on target \n')
+    try:
+        reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1)
+        log.info(str(reply))
+        if ('response' in str(reply) and 'op: REPLACE' in str(reply)):
+            log.info("GETSET_Sanity1_3:Passed - was able to do SET-REPLACE after UPDATE on target")
+        else:
+            log.info("GETSET_Sanity1_3:Failed - was unable to do SET-REPLACE after UPDATE on target")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test GETSET_Sanity1_3 failed due to Grpc Error {err}".format(err=e.details()))
+
+
+
+    log.info('Performing SET-DELETE Request on target \n')
+    sleep(15)
+    try:
+        xpath = "/if:interfaces"
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info1)
+        log.info(str(reply))
+        if ('response' in str(reply) and 'op: DELETE' in str(reply)):
+            log.info("GETSET_Sanity1_4:Passed - was able to do SET-DELETE on target")
+        else:
+            log.info("GETSET_Sanity1_4:Failed - was unable to do SET-DELETE on target")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test GETSET_Sanity1_4 failed due to Grpc Error {err}".format(err=e.details()))
+
+
 
 '''
 def _test_GetSet_Sanity2(stub):
