@@ -205,5 +205,5 @@
       include_tasks: stop_sid.yml
       when: action == 'stop_sid' and hostvars[dut_name]['type'] == 'simx'
   when:
-    - hostvars.dut_name is defined
+    - hostvars[dut_name] is defined
     - hostvars[dut_name].type is defined
