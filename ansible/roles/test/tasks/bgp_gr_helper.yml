@@ -6,7 +6,7 @@
   when: testbed_type is not defined
 
 - fail: msg="testbed_type {{testbed_type}} is unsupported."
-  when: testbed_type not in ['t1', 't1-lag', 't1-64-lag']
+  when: testbed_type not in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet']
 
 - name: Get VM info.
   include: "roles/test/tasks/bgp_gr_helper/get_vm_info.yml"
