@@ -47,20 +47,21 @@ def verify_ip_address(host_facts, intfs):
 
         ip = IPAddress(intf['addr'])
         if ip.version == 4:
-            addrs = host_facts[ans_ifname]['ipv4']
+            addrs = []
+            addrs.append(host_facts[ans_ifname]['ipv4'])
+            if host_facts[ans_ifname].has_key('ipv4_secondaries'):
+                for addr in host_facts[ans_ifname]['ipv4_secondaries']:
+                    addrs.append(addr)
         else:
             addrs = host_facts[ans_ifname]['ipv6']
 
-        if isinstance(addrs, dict):
-            assert IPAddress(addrs['address']) == ip
-        elif isinstance(addrs, list):
-            found = False
-            ips_found = []
-            for addr in addrs:
-                ips_found.append(addr['address'])
-                print addr
-                if IPAddress(addr['address']) == ip:
-                    found = True
-                    break
-            if not found:
-                pytest.fail("%s not found in the list %s" % (ip, ips_found))
+        found = False
+        ips_found = []
+        for addr in addrs:
+            ips_found.append(addr['address'])
+            print addr
+            if IPAddress(addr['address']) == ip:
+                found = True
+                break
+        if not found:
+            pytest.fail("%s not found in the list %s" % (ip, ips_found))
