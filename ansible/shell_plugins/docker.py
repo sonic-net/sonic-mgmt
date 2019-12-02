@@ -1,6 +1,17 @@
 from __future__ import (absolute_import, division)
 __metaclass__ = type
 
+DOCUMENTATION = '''
+name: sh
+plugin_type: shell
+short_description: "docker shell plugin"
+version_added: historical
+description:
+  - This module allows you to execute commands directly in docker on the remote host
+extends_documentation_fragment:
+  - shell_common
+'''
+
 import os
 import re
 import pipes
@@ -29,7 +40,7 @@ class ShellModule(sh):
 
         return super(ShellModule, self).join_path(*args)
 
-    def build_module_command(self, env_string, shebang, cmd, arg_path=None, rm_tmp=None):
+    def build_module_command(self, env_string, shebang, cmd, arg_path=None):
         # assert(self.container_name)
         argv = shlex.split(shebang.replace("#!", ""))
         assert(argv[0] == 'docker')
@@ -51,13 +62,7 @@ class ShellModule(sh):
         pre = ''.join('docker exec {1} mkdir -p {0}; docker cp {0}/. {1}:{0}; '
             .format(dtemp, self.container_name) for dtemp in self.dtemps)
 
-        if rm_tmp:
-            post = ''.join('docker exec {1} rm -rf {0}; '
-                .format(dtemp, self.container_name) for dtemp in self.dtemps)
-        else:
-            post = ''
-
-        return pre + super(ShellModule, self).build_module_command('', shebang_env, cmd, arg_path, rm_tmp) + '; ' + post
+        return pre + super(ShellModule, self).build_module_command('', shebang_env, cmd, arg_path)
 
     def checksum(self, path, python_interp):
         """
