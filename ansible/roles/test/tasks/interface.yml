@@ -35,11 +35,13 @@
 - block:
   - name: Verify interfaces are up correctly
     assert: { that: "{{ ansible_interface_link_down_ports | length }} == 0" }
+
   rescue:
   - include_tasks: check_fanout_interfaces.yml
     vars:
       check_fanout: true
-  - debug: msg="Not all Interfaces are up"
+
+  - fail: msg="Not all interfaces are up"
 
 - block:
   - name: Verify port channel interfaces are up correctly
@@ -50,8 +52,11 @@
   - include_tasks: check_sw_vm_interfaces.yml
     vars:
       check_vms: true
-  - debug: msg="Not all PortChannels are up '{{ portchannel_status['stdout_lines'] }}' "
+
+  - debug: msg="PortChannel status '{{ portchannel_status['stdout_lines'] }}'"
     when: portchannel_status is defined
+
+  - fail: msg="Not all PortChannels are up"
 
 - name: Verify VLAN interfaces are up correctly
   assert: { that: "'{{ ansible_interface_facts[item]['active'] }}' == 'True'" }
