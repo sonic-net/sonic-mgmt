@@ -129,21 +129,40 @@
         minigraph_vlan_interfaces: []
       when: minigraph_vlan_interfaces is undefined
 
+    - name: Set timers
+      set_fact:
+        pfc_wd_detect_time: 400
+        pfc_wd_restore_time: 400
+        pfc_wd_restore_time_large: 3000
+        pfc_wd_poll_time: 400
+
+    - name: Set polling interval {{ pfc_wd_poll_time }}.
+      shell: "pfcwd interval {{ pfc_wd_poll_time }}"
+      become: yes
+
     - block:
+        - name: Clean up config
+          command: pfcwd stop
+          become: yes
+
         - name: Test PFC WD configuration validation.
           vars:
             pfc_wd_template: roles/test/templates/pfc_wd_config.j2
           include_tasks: roles/test/tasks/pfc_wd/config_test/config_test.yml
+          when: subtest is undefined or (subtest is defined and 'pfc_config' in subtest)
 
         - name: Test PFC WD Functional tests.
           include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test.yml
           with_dict: "{{select_test_ports}}"
+          when: subtest is undefined or (subtest is defined and 'pfc_functional' in subtest)
 
         - name: Test PFC WD Timer accuracy.
           include_tasks: roles/test/tasks/pfc_wd/functional_test/check_timer_accuracy_test.yml
+          when: subtest is undefined or (subtest is defined and 'pfc_timer' in subtest)
 
         - name: Test PFC WD extreme case when all ports have storm
           include_tasks: roles/test/tasks/pfc_wd/functional_test/storm_all_test.yml
+          when: subtest is undefined or (subtest is defined and 'pfc_all_port_storm' in subtest)
 
         - name: Set vlan members
           set_fact:
