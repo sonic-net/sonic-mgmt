@@ -2,7 +2,7 @@ from __future__ import (absolute_import, division)
 __metaclass__ = type
 
 DOCUMENTATION = '''
-name: sh
+name: docker
 plugin_type: shell
 short_description: "docker shell plugin"
 version_added: historical
@@ -30,7 +30,6 @@ class ShellModule(sh):
         super(ShellModule, self).__init__(*args, **kwargs)
         self.dtemps = []
         self.container = None
-
 
     def join_path(self, *args):
         ## HACK! HACK! HACK!
