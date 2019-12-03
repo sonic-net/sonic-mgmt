@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import datetime
 from telnetlib import Telnet
 
 
@@ -163,7 +164,8 @@ def session(new_params):
         ('aaa root secret 0 %s' % str(new_params['new_root_password']), [r'\(config\)#']),
     ]
 
-    debug = MyDebug('/tmp/debug.%s.txt' % new_params['hostname'], enabled=True)
+    curtime = datetime().datetime().now().isoformat()
+    debug = MyDebug('/tmp/debug.%s.%s.txt' % (new_params['hostname'], curtime), enabled=True)
     ss = SerialSession(new_params['telnet_port'], debug)
     ss.login(new_params['login'], new_params['password'])
     ss.enable()

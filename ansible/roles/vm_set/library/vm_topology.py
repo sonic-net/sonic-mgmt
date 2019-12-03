@@ -86,8 +86,8 @@ DEFAULT_MTU = 0
 NUM_FP_VLANS_PER_FP = 4
 VM_SET_NAME_MAX_LEN = 8  # used in interface names. So restricted
 MGMT_BR_NAME = 'mgmt'
-CMD_DEBUG_FNAME = '/tmp/vmtopology.cmds.txt'
-EXCEPTION_DEBUG_FNAME = '/tmp/vmtopology.exception.txt'
+CMD_DEBUG_FNAME = "/tmp/vmtopology.cmds.%s.txt"
+EXCEPTION_DEBUG_FNAME = "/tmp/vmtopology.exception.%s.txt"
 
 OVS_FP_BRIDGE_REGEX = 'br-%s-\d+'
 OVS_FP_BRIDGE_TEMPLATE = 'br-%s-%d'
@@ -102,6 +102,7 @@ BACK_ROOT_END_IF_TEMPLATE = 'veth-bb-%s'
 BACK_VM_END_IF_TEMPLATE = 'veth-bv-%s'
 RETRIES = 3
 
+cmd_debug_fname = None
 
 class VMTopology(object):
 
@@ -149,12 +150,23 @@ class VMTopology(object):
         return
 
     def update(self):
-        self.host_br_to_ifs, self.host_if_to_br = VMTopology.brctl('brctl show')
-        self.host_ifaces = VMTopology.ifconfig('ifconfig -a')
-        if self.pid is not None:
-            self.cntr_ifaces = VMTopology.ifconfig('nsenter -t %s -n ifconfig -a' % self.pid)
-        else:
-            self.cntr_ifaces = []
+        errmsg = []
+        i = 0
+        while i < 3:
+            try:
+                self.host_br_to_ifs, self.host_if_to_br = VMTopology.brctl('brctl show')
+                self.host_ifaces = VMTopology.ifconfig('ifconfig -a')
+                if self.pid is not None:
+                    self.cntr_ifaces = VMTopology.ifconfig('nsenter -t %s -n ifconfig -a' % self.pid)
+                else:
+                    self.cntr_ifaces = []
+                break
+            except Exception as error:
+                errmsg.append(str(error))
+                i += 1
+
+        if i == 3:
+            raise Exception("update failed for %d times. %s" % (i, "|".join(errmsg)))
 
         return
 
@@ -488,7 +500,7 @@ class VMTopology(object):
 
     @staticmethod
     def cmd(cmdline):
-        with open(CMD_DEBUG_FNAME, 'a') as fp:
+        with open(cmd_debug_fname, 'a') as fp:
             pprint("CMD: %s" % cmdline, fp)
         cmd = cmdline.split(' ')
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -498,7 +510,7 @@ class VMTopology(object):
         if ret_code != 0:
             raise Exception("ret_code=%d, error message=%s. cmd=%s" % (ret_code, stderr, cmdline))
 
-        with open(CMD_DEBUG_FNAME, 'a') as fp:
+        with open(cmd_debug_fname, 'a') as fp:
             pprint("OUTPUT: %s" % stdout, fp)
         return stdout
 
@@ -660,9 +672,15 @@ def main():
     max_fp_num = module.params['max_fp_num']
     dut_mgmt_port = None
 
+    curtime = datetime.datetime.now().isoformat()
+
+    global cmd_debug_fname
+    cmd_debug_fname = CMD_DEBUG_FNAME % curtime
+    exception_debug_fname = EXCEPTION_DEBUG_FNAME % curtime
+
     try:
-        if os.path.exists(CMD_DEBUG_FNAME) and os.path.isfile(CMD_DEBUG_FNAME):
-            os.remove(CMD_DEBUG_FNAME)
+        if os.path.exists(cmd_debug_fname) and os.path.isfile(cmd_debug_fname):
+            os.remove(cmd_debug_fname)
 
         net = VMTopology(vm_names, fp_mtu, max_fp_num)
 
@@ -808,7 +826,7 @@ def main():
             raise Exception("Got wrong cmd: %s. Ansible bug?" % cmd)
 
     except Exception as error:
-        with open(EXCEPTION_DEBUG_FNAME, 'w') as fp:
+        with open(exception_debug_fname, 'w') as fp:
             traceback.print_exc(file=fp)
         module.fail_json(msg=str(error))
 
