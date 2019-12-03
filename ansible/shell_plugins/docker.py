@@ -29,6 +29,8 @@ class ShellModule(sh):
     def __init__(self, *args, **kwargs):
         super(ShellModule, self).__init__(*args, **kwargs)
         self.dtemps = []
+        self.container = None
+
 
     def join_path(self, *args):
         ## HACK! HACK! HACK!
@@ -39,6 +41,21 @@ class ShellModule(sh):
             self.dtemps.append(args[0])
 
         return super(ShellModule, self).join_path(*args)
+
+    def remove(self, path, recurse=False):
+        if not self.container:
+            self.container = self.get_option('ansible_python_interpreter').split()[3]
+
+        remove_files_on_host_cmd = super(ShellModule, self).remove(path, recurse)
+
+        cmd = remove_files_on_host_cmd + "; docker exec -i "
+        cmd += self.container + " "
+        cmd += 'rm -f '
+        if recurse:
+            cmd += '-r '
+        cmd += " ".join(self.dtemps)
+
+        return cmd
 
     def build_module_command(self, env_string, shebang, cmd, arg_path=None):
         # assert(self.container_name)
