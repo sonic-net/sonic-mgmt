@@ -3,6 +3,7 @@ import argparse
 import grpc
 import os
 import sys
+import re
 import json
 from time import sleep
 from topology.topo_mgr.topo_mgr import Topology
@@ -14,6 +15,7 @@ from utils.helper import Helper
 from utils.cafyexception import CafyException
 from gnmi_base_ap import ApData, GnmiApBase
 import marshal
+from datetime import datetime
 import six
 log = CafyLog("GNMI AP")
 
@@ -40,6 +42,33 @@ def _test_gnmi_Capability(stub):
     log.info('Performing CapabilitiesRequest to target \n')
     response = gnmiTestLib._cap(stub, user, password)
     log.info(response)
+
+
+def _test_gnmi_GetTimestamp(stub):
+    user = None
+    password = None
+    log.info('Performing Get Timestamp format from target \n')
+    try:
+        xpath = "/oc-if:interfaces"
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        reply = gnmiTestLib._get(stub, paths, user, password)
+        log.info(str(reply))
+        opt = re.search(r'timestamp: (.+)', str(reply), re.MULTILINE)
+        rtime = datetime.fromtimestamp(int(opt.group(1)) // 1000000000)
+        log.info("TIMESTAMP rcvd in Epoch: %d", int(opt.group(1)))
+        print("Converted TIMESTAMP rcvd: ", rtime.strftime('%Y-%m-%d %H:%M:%S'))
+        ctime = datetime.now()
+        if((rtime.year == ctime.year) and (rtime.month == ctime.month) and (rtime.day == ctime.day)):
+            log.info("gnmi_GetTimestamp: PASSED - Timestamp rcvd as Epoch timestamp")
+        else:
+            log.info("gnmi_GetTimestamp: FAILED - Timestamp not rcvd as Epoch timestamp")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test gnmi_GetTimestamp failed due to Grpc Error {err}".format(err=e.details()))    
 
 
 def _test_GetSet_Sanity1(stub):
@@ -114,7 +143,7 @@ def _test_GetSet_Sanity1(stub):
 
 
     log.info('Performing SET-DELETE Request on target \n')
-    sleep(15)
+    sleep(2)
     try:
         xpath = "/if:interfaces"
         paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
