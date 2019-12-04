@@ -352,7 +352,7 @@ def _get(stub, paths, username, password):
   return stub.Get(gnmi_pb2.GetRequest(path=[paths], encoding='PROTO'))
 
 
-def _set(stub, paths, set_type, username, password, json_value):
+def _set(stub, paths, set_type, username, password, json_value, pfx_paths=None):
   """Create a gNMI SetRequest.
 
   Args:
@@ -366,6 +366,12 @@ def _set(stub, paths, set_type, username, password, json_value):
   Returns:
     a gnmi_pb2.SetResponse object representing a gNMI SetResponse.
   """
+  request = gnmi_pb2.SetRequest()
+
+  if (pfx_paths is not None):
+      request.prefix.CopyFrom(pfx_paths)
+      print(request)
+
   if json_value:  # Specifying ONLY a path is possible (eg delete).
     #val = _get_val(json_value)
     val = _get_val_in(json_value)
@@ -374,12 +380,30 @@ def _set(stub, paths, set_type, username, password, json_value):
   kwargs = {}
   if username:
     kwargs = {'metadata': [('username', username), ('password', password)]}
+
+  if set_type == 'delete':
+    request.delete.extend([paths])
+  elif set_type == 'update':
+    request.update.extend([path_val])
+  elif set_type == 'replace':
+    request.replace.extend([path_val])
+
+  print("=== Below SET REQUEST Sent===")
+  print(request)
+  reply = stub.Set(request, **kwargs)
+
+  return reply
+
+"""
+  kwargs = {}
+  if username:
+    kwargs = {'metadata': [('username', username), ('password', password)]}
   if set_type == 'delete':
     return stub.Set(gnmi_pb2.SetRequest(delete=[paths]), **kwargs)
   elif set_type == 'update':
     return stub.Set(gnmi_pb2.SetRequest(update=[path_val]), **kwargs)
   return stub.Set(gnmi_pb2.SetRequest(replace=[path_val]), **kwargs)
-
+"""
 
 def print_msg(msg, prompt):
     print("***************************")

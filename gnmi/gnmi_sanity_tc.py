@@ -289,19 +289,49 @@ def _test_GetSet_Sanity1(stub):
     else:
         log.info("Test_GetSet_Sanity1 - All sections passed")
 
-'''
-def _test_GetSet_Sanity2(stub):
+
+def _test_gnmi_SetPfxPath(stub):
     user = None
     password = None
-    log.info('Performing SET Request to target \n')
-    xpath = "/"
-    paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
-    set_info = '@' + ApData.input_conf_file
-    print("HDHDHDHD")
-    print(set_info)
-    response = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info)
-    log.info(response)
-'''
+    err_msg = list()
+
+    tData = ApData.zap.get_testcase_configuration("test_gnmi_SetPfxPath")
+    input_conf = json.loads(six.moves.builtins.open(tData["input_conf_file"], 'r').read())
+    print(input_conf)
+
+    log.info('Performing SET-REPLACE Request w/Prefix-Path to target \n')
+    try:
+        if 'SETPfxPath1_1' in input_conf:
+            set_info1 = input_conf['SETPfxPath1_1']
+            print(set_info1['prefix-path'])
+            print(set_info1['Updates'])
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            pfx_path = gnmiTestLib._parse_path(gnmiTestLib._path_names(set_info1['prefix-path']))
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1['Updates'], pfx_path)
+            resp = str(reply)
+            log.info(resp)
+            sresp = "".join(resp.split('\n'))
+            log.info (sresp)
+            mt1 = 'prefix {  elem {    name: "ietf-interfaces:interfaces"  }'
+            mt2 = 'response {  path {  }'
+            if (mt1 in sresp and mt2 in sresp):
+                log.info("SETPfxPath1_1:Passed - was able to do SET-REPLACE Request w/Prefix-Path")
+            else:
+                log.info("SETPfxPath1_1:Failed - was unable to do SET-REPLACE Request w/Prefix-Path")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test SETPfxPath1_1 failed due to Grpc Error {err}".format(err=e.details()))
+
+
+
+
+
+
 
 
 
