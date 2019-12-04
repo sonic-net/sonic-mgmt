@@ -1,0 +1,105 @@
+{
+{% for k in cfg_t0 %}
+{%     if k == 'BGP_NEIGHBOR' %}
+    "BGP_NEIGHBOR": {
+{%         for neigh in cfg_t0['BGP_NEIGHBOR'] | sort %}
+{%             if cfg_t0['BGP_NEIGHBOR'][neigh]['name'] in ['ARISTA01T1', 'ARISTA02T1'] %}
+        "Vrf1|{{ neigh }}": {{ cfg_t0['BGP_NEIGHBOR'][neigh] | to_nice_json | indent(width=8) }}
+{%-            else %}
+        "Vrf2|{{ neigh }}": {{ cfg_t0['BGP_NEIGHBOR'][neigh] | to_nice_json | indent(width=8) }}
+{%-            endif %}
+{%-            if not loop.last %},{%endif %}
+
+{%         endfor %}
+    },
+{%     elif k == 'BGP_PEER_RANGE' %}
+    "BGP_PEER_RANGE": {
+        "BGPSLBPassive": {
+            "vrf_name": "Vrf1",
+            "ip_range": [
+                "10.255.0.0/25"
+            ],
+            "name": "BGPSLBPassive"
+        },
+        "BGPVac": {
+            "vrf_name": "Vrf1",
+            "ip_range": [
+                "192.168.0.0/21"
+            ],
+            "name": "BGPVac"
+        },
+        "BGPSLBPassive2": {
+            "vrf_name": "Vrf2",
+            "ip_range": [
+                "10.255.0.0/25"
+            ],
+            "name": "BGPSLBPassive2"
+        },
+        "BGPVac2": {
+            "vrf_name": "Vrf2",
+            "ip_range": [
+                "192.168.0.0/21"
+            ],
+            "name": "BGPVac2"
+        }
+    },
+{%     elif k == 'LOOPBACK_INTERFACE' %}
+    "LOOPBACK_INTERFACE": {
+        "Loopback0": {"vrf_name": "Vrf1"},
+        "Loopback2": {"vrf_name": "Vrf2"},
+        "Loopback0|10.1.0.32/32": {},
+        "Loopback0|FC00:1::32/128": {},
+        "Loopback2|10.1.0.32/32": {},
+        "Loopback2|FC00:1::32/128": {}
+    },
+{%     elif k == 'PORTCHANNEL_INTERFACE' %}
+    "PORTCHANNEL_INTERFACE": {
+{%        for pc in cfg_t0['PORTCHANNEL_INTERFACE'] | sort %}
+{%             if pc in ['PortChannel0001', 'PortChannel0002'] %}
+        "{{ pc }}": {"vrf_name": "Vrf1"}
+{%-            elif pc in ['PortChannel0003', 'PortChannel0004'] %}
+        "{{ pc }}": {"vrf_name": "Vrf2"}
+{%-            else %}
+        "{{ pc }}": {{ cfg_t0['PORTCHANNEL_INTERFACE'][pc] }}
+{%-            endif %}
+{%-            if not loop.last %},{% endif %}
+
+{%        endfor %}
+    },
+{%     elif k == 'VLAN' %}
+    "VLAN": {
+        "Vlan1000": {"vlanid": "1000"},
+        "Vlan2000": {"vlanid": "2000"}
+    },
+{%     elif k == 'VLAN_INTERFACE' %}
+    "VLAN_INTERFACE": {
+        "Vlan1000": {"vrf_name": "Vrf1"},
+        "Vlan2000": {"vrf_name": "Vrf2"},
+        "Vlan1000|192.168.0.1/21": {},
+        "Vlan1000|FC00:168::1/117": {},
+        "Vlan2000|192.168.0.1/21": {},
+        "Vlan2000|FC00:168::1/117": {}
+    },
+{%     elif k == 'VLAN_MEMBER' %}
+    "VLAN_MEMBER": {
+{%         for port in vlan_ports['Vlan1000'] %}
+        "Vlan1000|{{ port }}": {
+            "tagging_mode": "untagged"
+        },
+{%         endfor %}
+{%         for port in vlan_ports['Vlan2000'] %}
+        "Vlan2000|{{ port }}": {
+            "tagging_mode": "untagged"
+        }{%             if not loop.last %},{% endif %}
+
+{%         endfor %}
+    },
+{%     else %}
+    "{{ k }}": {{ cfg_t0[k] | to_nice_json | indent}},
+{%     endif %}
+{% endfor %}
+    "VRF": {
+        "Vrf1": {},
+        "Vrf2": {}
+    }
+}
