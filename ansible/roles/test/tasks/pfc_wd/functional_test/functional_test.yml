@@ -66,21 +66,10 @@
 - name: set pfc storm templates based on fanout platform sku
   include: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
 
-- name: Set timers
-  set_fact:
-      pfc_wd_detect_time: 400
-      pfc_wd_restore_time: 400
-      pfc_wd_restore_time_large: 3000
-      pfc_wd_poll_time: 400
-
 - name: Set timers if user has specified
   set_fact:
       pfc_wd_restore_time_large: "{{restore_time}}"
   when: restore_time is defined
-
-- name: Set polling interval {{ pfc_wd_poll_time }}.
-  shell: "pfcwd interval {{ pfc_wd_poll_time }}"
-  become: yes
 
 - name: Set timers 2
   set_fact:

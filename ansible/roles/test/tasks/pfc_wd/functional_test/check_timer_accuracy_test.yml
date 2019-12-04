@@ -1,6 +1,28 @@
 # Verify timers
 - set_fact:
     pfc_wd_test_port: "{{test_ports.keys()[0]}}"
+    testname: functional_test
+
+- conn_graph_facts: host={{test_ports[pfc_wd_test_port]['peer_device']}}
+  connection: local
+  become: no
+
+- name: Prepare variables required for PFC test
+  set_fact:
+    pfc_gen_file: pfc_gen.py
+    pfc_queue_index: 4
+    pfc_frames_number: 100000
+    pfc_wd_test_pkt_count: 100
+    pfc_fanout_interface: "{{neighbors[pfc_wd_test_port]['peerport']}}"
+    peer_hwsku: "{{device_info['HwSku']}}"
+    peer_mgmt: "{{device_info['mgmtip']}}"
+    peer_login: "{{switch_login[hwsku_map[device_info['HwSku']]]}}"
+
+- name: set pfc storm templates based on fanout platform sku
+  include: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
+
+- name: Deploy pfc packet generater file to fanout switch
+  include: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
 
 - block:
     - name: Apply config with proper timers to {{ pfc_wd_test_port }}.
