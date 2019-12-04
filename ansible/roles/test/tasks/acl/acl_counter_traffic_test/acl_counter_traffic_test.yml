@@ -156,7 +156,7 @@
     - name: Run config cleanup after {{ testname}}
       include_tasks: "{{ run_config_cleanup }}"
 
-- always:
+- block:
     - name: Delete neighbor.
       shell: ip neigh del {{ neighbor2_ip }} dev Ethernet0
       ignore_errors: yes
@@ -164,8 +164,10 @@
     - name: Delete route.
       shell: ip route del {{ dst_mirror_subnet }}
       ignore_errors: yes
-    
+
     - name: Remove all the temporary files created by the test.
       file: path="{{ run_dir }}/{{ item }}" state=absent
       with_items:
           - "{{ config_files }}"
+  tags:
+  - always
