@@ -10,6 +10,10 @@
         ]
       }
   },
+  "VERIFY_GETSET_Sanity1_1": {
+    "filter": "/if:interfaces/if:interface",
+    "config": [{"section":"GETSET_Sanity1_1","name":"Loopback123"}]
+  },
   "GETSET_Sanity1_2": {
       "ietf-interfaces:interfaces": {
         "interface": [
@@ -20,6 +24,17 @@
           }
         ]
       }
+  },
+  "VERIFY_GETSET_Sanity1_2": {
+    "filter": "/if:interfaces/if:interface",
+    "config": [{"section":"GETSET_Sanity1_1","name":"Loopback123"},{"section":"GETSET_Sanity1_2","name":"Loopback456"}]
+  },
+  "VERIFY_GETSET_Sanity1_3": {
+    "filter": "/if:interfaces/if:interface",
+    "config": [{"section":"GETSET_Sanity1_1","name":"Loopback123"}]
+  },
+  "VERIFY_GETSET_Sanity1_4": {
+    "filter": "/if:interfaces/if:interface"
   }
 }
 

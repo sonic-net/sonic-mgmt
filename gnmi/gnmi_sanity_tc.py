@@ -17,6 +17,7 @@ from gnmi_base_ap import ApData, GnmiApBase
 import marshal
 from datetime import datetime
 import six
+import google.protobuf.json_format
 log = CafyLog("GNMI AP")
 
 # Import the required Proto files from lib dir
@@ -43,6 +44,26 @@ def _test_gnmi_Capability(stub):
     response = gnmiTestLib._cap(stub, user, password)
     log.info(response)
 
+def _test_gnmi_get(stub):
+    user = None
+    password = None
+    log.info('Performing CapabilitiesRequest to target \n')
+    xpath = "/oc-if:interfaces/oc-if:interface[name=\"eth0\"]/oc-if:config"
+    paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+    response = gnmiTestLib._get(stub, paths, user, password)
+    #log.info(response)
+    msg_dict = google.protobuf.json_format.MessageToDict(response)
+    log.info(msg_dict)
+    msg_json = google.protobuf.json_format.MessageToJson(response)
+    log.info(msg_json)
+    xpath = "/oc-if:interfaces/oc-if:interface[name=\"eth0\"]/oc-if:state"
+    paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+    response = gnmiTestLib._get(stub, paths, user, password)
+    #log.info(response)
+    msg_dict = google.protobuf.json_format.MessageToDict(response)
+    log.info(msg_dict)
+    msg_json = google.protobuf.json_format.MessageToJson(response)
+    log.info(msg_json)
 
 def _test_gnmi_GetTimestamp(stub):
     user = None
@@ -70,10 +91,11 @@ def _test_gnmi_GetTimestamp(stub):
         printGrpcError(e)
         raise CafyException.VerificationError("Test gnmi_GetTimestamp failed due to Grpc Error {err}".format(err=e.details()))    
 
-
+    
 def _test_GetSet_Sanity1(stub):
     user = None
     password = None
+    err_msg = list()
     #with open(ApData.input_conf_file, 'r') as ip_conf_file:
     #    input_conf = gnmiTestLib.json_load_byteified(ip_conf_file)
 
@@ -94,6 +116,24 @@ def _test_GetSet_Sanity1(stub):
                 log.info("GETSET_Sanity1_1:Passed - was able to do SET-REPLACE with input json")
             else:
                 log.info("GETSET_Sanity1_1:Failed - was unable to do SET-REPLACE with input json")
+            
+            #xpath = "/if:interfaces/if:interface"
+            xpath = input_conf['VERIFY_GETSET_Sanity1_1']['filter']
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            response = gnmiTestLib._get(stub, paths, user, password)
+            #log.info(response)
+            msg_dict = google.protobuf.json_format.MessageToDict(response)
+            log.info(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+            for resp_key in resp_dict['key_list']:
+                if set_info1['ietf-interfaces:interfaces']['interface'][0]['name'] != resp_dict[resp_key + ',name']:
+                    err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',name'], set_info1['ietf-interfaces:interfaces']['interface'][0]['name']))
+                if set_info1['ietf-interfaces:interfaces']['interface'][0]['description'] != resp_dict[resp_key + ',description']:
+                    err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',description'], set_info1['ietf-interfaces:interfaces']['interface'][0]['description']))
+                if resp_dict[resp_key + ',type'] not in set_info1['ietf-interfaces:interfaces']['interface'][0]['type']:
+                    err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',type'], set_info1['ietf-interfaces:interfaces']['interface'][0]['type']))
+                if not resp_dict[resp_key + ',enabled']:
+                    err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',name'], resp_dict[resp_key + ',enabled']))
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
@@ -102,6 +142,10 @@ def _test_GetSet_Sanity1(stub):
         printGrpcError(e)
         raise CafyException.VerificationError("Test GETSET_Sanity1_1 failed due to Grpc Error {err}".format(err=e.details()))
 
+    if len(err_msg) != 0:
+        log.error("Test GETSET_Sanity1_1 failed due to : {}".format(*err_msg))
+    else:
+        log.info("Test GETSET_Sanity1_1 - Set and Get Passed")
 
     log.info('Performing SET-UPDATE Request to target \n')
     try:
@@ -114,7 +158,39 @@ def _test_GetSet_Sanity1(stub):
             if ('response' in str(reply) and 'op: UPDATE' in str(reply)):
                 log.info("GETSET_Sanity1_2:Passed - was able to do SET-UPDATE with input json")
             else:
-                log.info("GETSET_Sanity1_2:Failed - was unable to do SET-UPDATE with input json")
+                log.error("GETSET_Sanity1_2:Failed - was unable to do SET-UPDATE with input json")
+                err_msg.append("GETSET_Sanity1_2:Failed - was unable to do SET-UPDATE with input json")
+            
+            xpath = input_conf['VERIFY_GETSET_Sanity1_2']['filter']
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            response = gnmiTestLib._get(stub, paths, user, password)
+            #log.info(response)
+            msg_dict = google.protobuf.json_format.MessageToDict(response)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+            log.info(resp_dict)
+            
+            for cfg in input_conf['VERIFY_GETSET_Sanity1_2']['config']:
+                cfg_section = cfg['section']
+                set_info = input_conf[cfg_section]
+                resp_key = cfg['name']
+                if resp_key in resp_dict['key_list']:
+                    if set_info['ietf-interfaces:interfaces']['interface'][0]['name'] != resp_dict[resp_key + ',name']:
+                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',name'], set_info['ietf-interfaces:interfaces']['interface'][0]['name']))
+                    if set_info['ietf-interfaces:interfaces']['interface'][0]['description'] != resp_dict[resp_key + ',description']:
+                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',description'], set_info['ietf-interfaces:interfaces']['interface'][0]['description']))
+                    if resp_dict[resp_key + ',type'] not in set_info['ietf-interfaces:interfaces']['interface'][0]['type']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',type'], set_info['ietf-interfaces:interfaces']['interface'][0]['type']))
+                    if not resp_dict[resp_key + ',enabled']:
+                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',name'], resp_dict[resp_key + ',enabled']))
+                else:
+                    err_msg.append("Interface {} missing from the GET response".format(resp_key))
+
+        if len(err_msg) != 0:
+            log.error("Test GETSET_Sanity1_2 failed due to : {}".format(*err_msg))
+        else:
+            log.info("Test GETSET_Sanity1_2 - Set and Get Passed")
+
+
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
@@ -123,15 +199,47 @@ def _test_GetSet_Sanity1(stub):
         printGrpcError(e)
         raise CafyException.VerificationError("Test GETSET_Sanity1_2 failed due to Grpc Error {err}".format(err=e.details()))
 
-
     log.info('Performing SET-REPLACE after UPDATE on target \n')
     try:
+        xpath = "/"
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
         reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1)
         log.info(str(reply))
         if ('response' in str(reply) and 'op: REPLACE' in str(reply)):
             log.info("GETSET_Sanity1_3:Passed - was able to do SET-REPLACE after UPDATE on target")
         else:
-            log.info("GETSET_Sanity1_3:Failed - was unable to do SET-REPLACE after UPDATE on target")
+            log.error("GETSET_Sanity1_3:Failed - was unable to do SET-REPLACE after UPDATE on target")
+            err_msg.append("GETSET_Sanity1_3:Failed - was unable to do SET-REPLACE after UPDATE on target")
+        
+        xpath = input_conf['VERIFY_GETSET_Sanity1_3']['filter']
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        response = gnmiTestLib._get(stub, paths, user, password)
+        #log.info(response)
+        msg_dict = google.protobuf.json_format.MessageToDict(response)
+        resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+        log.info(resp_dict)
+
+        for cfg in input_conf['VERIFY_GETSET_Sanity1_3']['config']:
+                cfg_section = cfg['section']
+                set_info = input_conf[cfg_section]
+                resp_key = cfg['name']
+                if resp_key in resp_dict['key_list']:
+                    if set_info['ietf-interfaces:interfaces']['interface'][0]['name'] != resp_dict[resp_key + ',name']:
+                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',name'], set_info['ietf-interfaces:interfaces']['interface'][0]['name']))
+                    if set_info['ietf-interfaces:interfaces']['interface'][0]['description'] != resp_dict[resp_key + ',description']:
+                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',description'], set_info['ietf-interfaces:interfaces']['interface'][0]['description']))
+                    if resp_dict[resp_key + ',type'] not in set_info['ietf-interfaces:interfaces']['interface'][0]['type']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',type'], set_info['ietf-interfaces:interfaces']['interface'][0]['type']))
+                    if not resp_dict[resp_key + ',enabled']:
+                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',name'], resp_dict[resp_key + ',enabled']))
+                else:
+                    err_msg.append("Interface {} missing from the GET response".format(resp_key))
+
+        if len(err_msg) != 0:
+            log.error("Test GETSET_Sanity1_3 failed due to : {}".format(*err_msg))
+        else:
+            log.info("Test GETSET_Sanity1_3 - Set and Get Passed")
+
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
@@ -139,8 +247,6 @@ def _test_GetSet_Sanity1(stub):
         log.error(e)
         printGrpcError(e)
         raise CafyException.VerificationError("Test GETSET_Sanity1_3 failed due to Grpc Error {err}".format(err=e.details()))
-
-
 
     log.info('Performing SET-DELETE Request on target \n')
     sleep(2)
@@ -152,7 +258,23 @@ def _test_GetSet_Sanity1(stub):
         if ('response' in str(reply) and 'op: DELETE' in str(reply)):
             log.info("GETSET_Sanity1_4:Passed - was able to do SET-DELETE on target")
         else:
-            log.info("GETSET_Sanity1_4:Failed - was unable to do SET-DELETE on target")
+            log.error("GETSET_Sanity1_4:Failed - was unable to do SET-DELETE on target")
+            err_msg.append("GETSET_Sanity1_4:Failed - was unable to do SET-DELETE on target")
+        
+        xpath = input_conf['VERIFY_GETSET_Sanity1_4']['filter']
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        response = gnmiTestLib._get(stub, paths, user, password)
+        #log.info(response)
+        msg_dict = google.protobuf.json_format.MessageToDict(response)
+        log.info(msg_dict)
+        resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+        if resp_dict != None:
+            err_msg.append(resp_dict)
+
+        if len(err_msg) != 0:
+            log.error("Test GETSET_Sanity1_4 failed due to : {}".format(*err_msg))
+        else:
+            log.info("Test GETSET_Sanity1_4 - Set and Get Passed")
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
@@ -161,7 +283,11 @@ def _test_GetSet_Sanity1(stub):
         printGrpcError(e)
         raise CafyException.VerificationError("Test GETSET_Sanity1_4 failed due to Grpc Error {err}".format(err=e.details()))
 
-
+    if len(err_msg) != 0:
+        log.error("Test_GetSet_Sanity1 failed due to : {}".format(*err_msg))
+        pytest.fail("Test_GetSet_Sanity1 failed due to : {}".format(*err_msg))
+    else:
+        log.info("Test_GetSet_Sanity1 - All sections passed")
 
 '''
 def _test_GetSet_Sanity2(stub):

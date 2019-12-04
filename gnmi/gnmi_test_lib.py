@@ -46,7 +46,9 @@ import six
 from time import sleep
 import threading
 from queue import Queue
+from logger.cafylog import CafyLog
 import grpc
+log = CafyLog("GNMI Test Lib")
 try:
   import gnmi_pb2
 except ImportError:
@@ -518,6 +520,44 @@ def _open_certs(**kwargs):
       kwargs[key] = six.moves.builtins.open(value, 'rb').read()
   return kwargs
 
+
+def get_response_dict(get_value):
+  response_dict = dict()
+  key_list = list()
+  ctr = 0
+  try:
+    value_dict = get_value['notification'][0]['update']
+  except KeyError:
+    response_dict = None
+    return response_dict
+
+  for value in value_dict:
+    log.info(value)
+    keys = list(value['val'].keys())
+    i = 0
+    if len(value['path']['elem']) > 1:
+      name = value['path']['elem'][1]['name']
+      key = value['path']['elem'][0]['key']['name']
+      if key not in key_list:
+        key_list.append(key)
+    else:
+      name = value['path']['elem'][0]['name']
+      
+    val =  value['val'][keys[i]]
+    if ctr == 0 and len(value['path']['elem']) == 1:
+      key = val
+      key_list.append(val)
+    
+    full_key = key+","+name
+    response_dict[full_key] = val
+    log.info("{}:{}".format(full_key,val))
+    i += 1
+    ctr += 1
+
+  response_dict['key_list'] = key_list
+  return response_dict
+ 
+
 """
 def main():
   argparser = _create_parser()
@@ -529,7 +569,7 @@ def main():
     os.environ['GRPC_TRACE'] = 'all'
     os.environ['GRPC_VERBOSITY'] = 'DEBUG'
   mode = args['mode']
-  target = args['target']
+  tar.get = args['target']
   port = args['port']
   notls = args['notls']
   get_cert = args['get_cert']

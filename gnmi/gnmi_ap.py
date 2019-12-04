@@ -52,12 +52,12 @@ def stub():
 
 class TestGnmi(GnmiApBase):
 
-
     def test_gnmi_GetTimestamp(self,stub):
         gnmi_san_tc._test_gnmi_GetTimestamp(stub)
 
+    def test_gnmi_get(self,stub):
+        gnmi_san_tc._test_gnmi_get(stub)
 
-'''
     def test_gnmi_Capability(self,stub):
         gnmi_san_tc._test_gnmi_Capability(stub)
 
@@ -66,6 +66,4 @@ class TestGnmi(GnmiApBase):
 
     def test_GetSet_Sanity1(self,stub):
         gnmi_san_tc._test_GetSet_Sanity1(stub)
-   
-'''
 
