@@ -52,8 +52,8 @@ def stub():
 
 class TestGnmi(GnmiApBase):
 
-    def test_gnmi_SetPfxPath(self,stub):
-        gnmi_san_tc._test_gnmi_SetPfxPath(stub)
+    def test_SetReq_Del1(self,stub):
+        gnmi_san_tc._test_SetReq_Del1(stub)
 
 '''
 
@@ -68,5 +68,9 @@ class TestGnmi(GnmiApBase):
 
     def test_GetSet_Sanity1(self,stub):
         gnmi_san_tc._test_GetSet_Sanity1(stub)
+
+    def test_gnmi_SetPfxPath(self,stub):
+        gnmi_san_tc._test_gnmi_SetPfxPath(stub)
+
 
 '''

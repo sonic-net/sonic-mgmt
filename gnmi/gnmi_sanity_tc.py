@@ -329,10 +329,83 @@ def _test_gnmi_SetPfxPath(stub):
 
 
 
+def _test_SetReq_Del1(stub):
+    user = None
+    password = None
+    err_msg = list()
 
+    input_conf = json.loads(six.moves.builtins.open(ApData.input_conf_file, 'r').read())
+    print(input_conf)
 
+    log.info('Performing Test Set-Delete of Node with Children on target \n')
+    try:
+        if 'GETSET_Sanity1_1' in input_conf:
+            set_info1 = input_conf['GETSET_Sanity1_1']
+            print(type(set_info1))
+            print(set_info1)
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1)
+        if 'GETSET_Sanity1_2' in input_conf:
+            set_info2 = input_conf['GETSET_Sanity1_2']
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'update', user, password, set_info2)
+        log.info('Send SET-DELETE Request to Element w/Child nodes \n')
+        xpath = "/if:interfaces"
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info1)
+        log.info(str(reply))
+        if ('response' in str(reply) and 'op: DELETE' in str(reply)):
+            log.info("SETReq_Del1_1:Passed - was able to do SET-DELETE on target")
+        else:
+            log.error("SETReq_Del1_1:Failed - was unable to do SET-DELETE on target")
+            err_msg.append("SETReq_Del1_1:Failed - was unable to do SET-DELETE on target")
+        
+        xpath = input_conf['VERIFY_GETSET_Sanity1_4']['filter']
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        response = gnmiTestLib._get(stub, paths, user, password)
+        #log.info(response)
+        msg_dict = google.protobuf.json_format.MessageToDict(response)
+        log.info(msg_dict)
+        resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+        if resp_dict != None:
+            err_msg.append(resp_dict)
 
+        if len(err_msg) != 0:
+            log.error("Test SETReq_Del1_2 failed due to : {}".format(*err_msg))
+        else:
+            log.info("Test SETReq_Del1_2 - Set and Get Passed")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test SETReq_Del1_2 failed due to Grpc Error {err}".format(err=e.details()))
 
+    log.info('Performing Test Set-Delete of Non-Existant Path on target \n')
+    try:
+        xpath = "/if:interfaces/interface[name='Loopback123']"
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info1)
+        log.info(str(reply))
+        if ('response' in str(reply) and 'op: DELETE' in str(reply)):
+            log.info("SETReq_Del1_2:Failed - Target should silently ignore the Delete Request")
+            err_msg.append("SETReq_Del1_2:Failed - Target should silently ignore the Delete Request")
+        else:
+            log.error("SETReq_Del1_2:Passed - Target silently ignored Deletion of Non-existant Path")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test SETReq_Del1_2:Failed failed due to Grpc Error {err}".format(err=e.details()))
 
-
+    if len(err_msg) != 0:
+        log.error("Test_SETReq_Del1 failed due to : {}".format(*err_msg))
+        pytest.fail("Test_SETReq_Del1 failed due to : {}".format(*err_msg))
+    else:
+        log.info("Test_SETReq_Del1 - All sections passed")
 
