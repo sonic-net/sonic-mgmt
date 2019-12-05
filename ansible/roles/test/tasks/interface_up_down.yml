@@ -10,13 +10,13 @@
            enabled=yes
   vars:
     ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i lldp python
+    container_name: lldp
 
 - name: Gather information from lldp
   lldp:
   vars:
     ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i lldp python
+    container_name: lldp
 
 - name: If underlay exists, use underlay to replace it.
   set_fact:
@@ -49,7 +49,7 @@
   lldp:
   vars:
     ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i lldp python
+    container_name: lldp
 
 - name: rearrange lldp received data structure for interface up down test
   interface_up_down_data_struct_facts: data="{{ lldp }}"

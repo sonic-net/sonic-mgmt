@@ -110,4 +110,4 @@
 
   vars:
     ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i snmp python
+    container_name: snmp

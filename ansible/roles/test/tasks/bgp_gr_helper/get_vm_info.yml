@@ -34,7 +34,7 @@
   lldp:
   vars:
     ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i lldp python
+    container_name: lldp
 
 - name: Get VM IP address.
   set_fact:

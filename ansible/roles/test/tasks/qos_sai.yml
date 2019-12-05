@@ -23,7 +23,7 @@
       supervisorctl: state=stopped name={{item}}
       vars:
         ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i lldp python
+        container_name: lldp
       with_items:
         - lldpd
         - lldp-syncd
@@ -37,7 +37,7 @@
         - Restart Quagga Daemon
       vars:
         ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i bgp python
+        container_name: bgp
 
     - meta: flush_handlers
 
@@ -49,7 +49,7 @@
           shell: python /root/packets_aging.py disable
       vars:
         ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i syncd python
+        container_name: syncd
       when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
     - name: copy ptf tests
@@ -566,7 +566,7 @@
       supervisorctl: state=started name={{item}}
       vars:
         ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i lldp python
+        container_name: lldp
       with_items:
         - lldpd
         - lldp-syncd
@@ -580,7 +580,7 @@
         - Restart Quagga Daemon
       vars:
         ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i bgp python
+        container_name: bgp python
 
     - name: Restore original watermark polling status
       shell: counterpoll watermark {{watermark_status.stdout}}
@@ -596,7 +596,7 @@
       shell: python /root/packets_aging.py enable
       vars:
         ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i syncd python
+        container_name: syncd
       when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
     - meta: flush_handlers

@@ -46,7 +46,7 @@
   lldp:
   vars:
       ansible_shell_type: docker
-      ansible_python_interpreter: docker exec -i lldp python
+      container_name: lldp
 
 - debug:
     msg: "{{ dut_lag_members }}"

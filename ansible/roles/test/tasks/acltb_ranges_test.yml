@@ -79,7 +79,7 @@
 
     vars:
       ansible_shell_type: docker
-      ansible_python_interpreter: docker exec -i swss python
+      container_name: swss
 
   always:
     - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml

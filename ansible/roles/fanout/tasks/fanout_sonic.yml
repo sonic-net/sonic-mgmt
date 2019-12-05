@@ -17,7 +17,7 @@
   become: yes
   vars:
     ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i swss python
+    container_name: swss
 
 - name: generate config_db.json
   shell: sonic-cfggen -H -j /etc/sonic/vlan.json -j /etc/sonic/init_cfg.json --print-data > /etc/sonic/config_db.json

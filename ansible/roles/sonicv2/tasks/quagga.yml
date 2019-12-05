@@ -80,7 +80,7 @@
 
   vars:
     ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i bgp python
+    container_name: bgp
 
 - name: Copy vtysh helper script
   become: true

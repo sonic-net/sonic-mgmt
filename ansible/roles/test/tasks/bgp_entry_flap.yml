@@ -15,11 +15,11 @@
   become: yes
   vars:
     ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i sswsyncd python
+    container_name: sswsyncd
 
 - block:
   - name: Assert the particular entry is in nexthopgroup table
-    assert: 
+    assert:
       that: nexthop[addr] in nexthopgroup[item]
     with_items: "{{ nexthopgroup }}"
 
@@ -46,8 +46,8 @@
     become: yes
     vars:
       ansible_shell_type: docker
-      ansible_python_interpreter: docker exec -i sswsyncd python
-  
+      container_name: sswsyncd
+
   - name: Poll for updated tables until peer is not in nexthop groups
     switch_tables: asic="{{asic}}" nexthop=yes nexthopgroup=yes
     become: yes
@@ -58,7 +58,7 @@
     with_items: "{{ nexthopgroup }}"
     vars:
       ansible_shell_type: docker
-      ansible_python_interpreter: docker exec -i sswsyncd python
+      container_name: sswsyncd
 
   - name: Restart BGP session from neighbor
     action: cisco template=bgp_neighbor_noshut.j2
@@ -75,7 +75,7 @@
     become: yes
     vars:
       ansible_shell_type: docker
-      ansible_python_interpreter: docker exec -i sswsyncd python
+      container_name: sswsyncd
 
   - name: Poll for updated tables until peer is in nexthop groups
     switch_tables: asic="{{asic}}" nexthop=yes nexthopgroup=yes
@@ -87,6 +87,6 @@
     with_items: "{{ nexthopgroup }}"
     vars:
       ansible_shell_type: docker
-      ansible_python_interpreter: docker exec -i sswsyncd python
+      container_name: sswsyncd
 
   when: "'T2' in name"

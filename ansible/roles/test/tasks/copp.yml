@@ -7,7 +7,7 @@
       supervisorctl: state=stopped name={{ item }}
       vars:
         ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i lldp python
+        container_name: lldp
       with_items:
         - lldp-syncd
         - lldpd
@@ -40,13 +40,13 @@
       template: src=ptf_nn_agent.conf.dut.j2 dest=/etc/supervisor/conf.d/ptf_nn_agent.conf
       vars:
         ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i syncd python
+        container_name: syncd
 
     - name: Restart ptf_nn_agent inside dut
       supervisorctl: state=restarted name=ptf_nn_agent
       vars:
         ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i syncd python
+        container_name: syncd
 
     - name: copy the test to ptf container
       copy: src=roles/test/files/ptftests dest=/root
@@ -98,20 +98,20 @@
       template: src=ptf_nn_agent.conf.dut.j2 dest=/etc/supervisor/conf.d/ptf_nn_agent.conf
       vars:
         ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i syncd python
+        container_name: syncd
 
     - name: Restart ptf_nn_agent inside dut
       supervisorctl: state=restarted name=ptf_nn_agent
       vars:
         ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i syncd python
+        container_name: syncd
 
     - name: Restore LLDP Daemon
       become: yes
       supervisorctl: state=started name={{ item }}
       vars:
         ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i lldp python
+        container_name: lldp
       with_items:
         - lldpd
         - lldp-syncd
