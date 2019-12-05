@@ -16,6 +16,15 @@
   set_fact: ansible_ssh_user={{ fanout_mlnx_user }} ansible_ssh_pass={{ fanout_mlnx_password }} peer_hwsku={{device_info['HwSku']}}
   tags: always
 
+##########################################
+# upgrade ONYX OS image on fanout switch #
+##########################################
+- block:
+  - name: upgrade ONYX OS
+    include: mlnx/upgrade_onyx.yml
+    when: peer_hwsku == "MLNX-OS" and image_url is defined
+    tags: upgrade
+
 ##########################################################
 # deploy tasks to deploy default configuration on fanout #
 ##########################################################
