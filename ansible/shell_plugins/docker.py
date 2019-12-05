@@ -8,6 +8,13 @@ short_description: "docker shell plugin"
 version_added: historical
 description:
   - This module allows you to execute commands directly in docker on the remote host
+options:
+  container_name:
+    description:
+    - Container name
+    required: yes
+    vars:
+      - name: container_name
 extends_documentation_fragment:
   - shell_common
 '''
@@ -41,12 +48,7 @@ class ShellModule(sh):
         return super(ShellModule, self).join_path(*args)
 
     def remove(self, path, recurse=False):
-        argv = self.get_option('ansible_python_interpreter').split()
-        assert(argv[0] == 'docker')
-        assert(argv[1] == 'exec')
-        opts, args = getopt.getopt(argv[2:], 'i')
-        self.container_name = args[0]
-
+        self.container_name = self.get_option('container_name')
         remove_files_on_host_cmd = super(ShellModule, self).remove(path, recurse)
 
         cmd = remove_files_on_host_cmd + "; docker exec -i "
@@ -58,18 +60,7 @@ class ShellModule(sh):
         return cmd
 
     def build_module_command(self, env_string, shebang, cmd, arg_path=None):
-        # assert(self.container_name)
-        argv = shlex.split(shebang.replace("#!", ""))
-        assert(argv[0] == 'docker')
-        assert(argv[1] == 'exec')
-        opts, args = getopt.getopt(argv[2:], 'i')
-        self.container_name = args[0]
-
-        # Inject environment variable before python in the shebang string
-        assert(args[1].endswith('python'))
-        args[1] = 'env {0} {1}'.format(env_string, args[1])
-        argv_env = argv[0:2] + [o for opt in opts for o in opt] + args
-        shebang_env = ' '.join(argv_env)
+        self.container_name = self.get_option('container_name')
 
         ## Note: Docker cp behavior
         ##   DEST_PATH exists and is a directory
@@ -79,7 +70,9 @@ class ShellModule(sh):
         pre = ''.join('docker exec {1} mkdir -p {0}; docker cp {0}/. {1}:{0}; '
             .format(dtemp, self.container_name) for dtemp in self.dtemps)
 
-        return pre + super(ShellModule, self).build_module_command('', shebang_env, cmd, arg_path)
+        pre += "docker exec -i {} ".format(self.container_name)
+
+        return pre + super(ShellModule, self).build_module_command('', shebang, cmd, arg_path)
 
     def checksum(self, path, python_interp):
         """

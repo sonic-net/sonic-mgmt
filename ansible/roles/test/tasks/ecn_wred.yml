@@ -27,7 +27,7 @@
          - "{{ test_files_dir }}/*"
   vars:
     ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i database python
+    container_name: database
 
 - block:
     # Test case #3(MA): Check configuration applied
