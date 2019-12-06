@@ -52,7 +52,7 @@
 
   - name: Read dut minigraph
     conn_graph_facts: host={{ dut_name }}
-    connection: local
+    delegate_to: localhost
 
   roles:
     - { role: vm_set, action: 'remove_topo' }

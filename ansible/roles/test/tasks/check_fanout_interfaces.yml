@@ -1,7 +1,7 @@
 - block:
   - name: Gathering lab graph facts about the device
     conn_graph_facts: host={{ inventory_hostname }}
-    connection: local
+    delegate_to: localhost
 
   - name: Fanout hostname
     set_fact: fanout_switch={{ device_conn['Ethernet0']['peerdevice'] }}

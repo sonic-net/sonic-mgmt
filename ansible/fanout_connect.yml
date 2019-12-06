@@ -4,7 +4,7 @@
   gather_facts: no
   tasks:
       - fail: msg="Please provide VM server name and server port name, see comment line in playbook"
-        when: 
+        when:
             - dut is not defined
 
       - block:
@@ -16,7 +16,7 @@
 
         - name: get the username running the deploy
           command: whoami
-          connection: local
+          delegate_to: localhost
           become: no
           register: calling_username
           changed_when: false

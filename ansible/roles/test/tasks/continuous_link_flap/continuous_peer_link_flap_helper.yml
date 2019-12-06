@@ -6,7 +6,7 @@
         neighbor_interface: "{{neighbors[interface]['peerport']}}"
 
     - conn_graph_facts: host={{ peer_device }}
-      connection: local
+      delegate_to: localhost
 
     - set_fact:
         peer_host: "{{device_info['mgmtip']}}"

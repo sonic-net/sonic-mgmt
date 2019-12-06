@@ -93,7 +93,7 @@ def testbed_devices(ansible_adhoc, testbed):
         # when no ptf defined in testbed.csv
         # try to parse it from inventory
         dut = devices["dut"]
-        ptf_host = dut.host.options["inventory_manager"].get_vars(dut.hostname)["ptf_host"]
+        ptf_host = dut.host.options["inventory_manager"].get_host(dut.hostname).get_vars()["ptf_host"]
         devices["ptf"] = PTFHost(ansible_adhoc, ptf_host)
 
     # In the future, we can implement more classes for interacting with other testbed devices in the lib.devices

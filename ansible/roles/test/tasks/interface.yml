@@ -12,7 +12,7 @@
 
   - name: figure out fanout switch port in case it was down
     conn_graph_facts: host={{ inventory_hostname }}
-    connection: local
+    delegate_to: localhost
 
   - set_fact: neighbors="{{device_conn}}"
 

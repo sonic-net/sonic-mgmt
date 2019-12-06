@@ -4,7 +4,7 @@
 - block:
     - name: figure out vm hosts
       testbed_vm_info: base_vm={{ vm }} topo={{ testbed_type }}
-      connection: local
+      delegate_to: localhost
 
     - set_fact:
         vm_hosts: "{{ neighbor_eosvm_mgmt.values() }}"

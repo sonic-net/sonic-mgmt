@@ -4,7 +4,7 @@
     pfc_wd_test_port: "{{item.key}}"
 
 - conn_graph_facts: host={{ peer_device }}
-  connection: local
+  delegate_to: localhost
   become: no
 
 - name: Prepare parameters required for PFC storming

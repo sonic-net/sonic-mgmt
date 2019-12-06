@@ -60,8 +60,8 @@
 - debug:
     var: "{{item}}"
   with_items:
-    - real_detect_time
-    - real_restore_time
+    - "{{ real_detect_time }}"
+    - "{{ real_restore_time }}"
 
 - name: Append detect and restore time to lists
   set_fact:

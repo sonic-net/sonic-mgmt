@@ -80,7 +80,7 @@
     dut_switch_ports: "{{dut_switch_ports}}"
     minigraph_bgp: "{{minigraph_bgp}}"
     minigraph_neighbors: "{{minigraph_neighbors}}"
-  connection: local
+  delegate_to: localhost
 
 - debug:
     var: testing_ports_ip
@@ -99,7 +99,7 @@
 - name: Generate IPs in VLAN range
   get_ip_in_range: num="{{dut_switch_ports|length}}" prefix="{{minigraph_vlan_interfaces[0]['addr']}}/{{minigraph_vlan_interfaces[0]['prefixlen']}}" exclude_ips="{{minigraph_vlan_interfaces[0]['addr']}}"
   become: no
-  connection: local
+  delegate_to: localhost
   failed_when: False
   when: minigraph_vlans | length > 0
 

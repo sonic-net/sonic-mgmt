@@ -38,7 +38,7 @@
 
     - name: 'Setup restoring initial image {{ current_sonic_image }}'
       shell: /bin/true
-      connection: local
+      delegate_to: localhost
       notify:
       - restore current image
       - reboot sonic

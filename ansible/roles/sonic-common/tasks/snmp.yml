@@ -42,13 +42,13 @@
   template: src=snmp.yml.j2
             dest=/etc/sonic/snmp.yml
             mode=0644
-    
+
 - name: Setup sonic_version file (for oneimage snmp dockers)
   become: true
   template: src=sonic_version.yml.j2
             dest=/etc/sonic/sonic_version.yml
             mode=0644
-    
+
 - name: Setup sysDescription file (for legacy snmp dockers)
   become: true
   template: src=sysDescription.j2
@@ -60,7 +60,7 @@
 - name: Determine if alias mappings are required
   stat: path="roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_map.json"
   become: false
-  connection: local
+  delegate_to: localhost
   register: snmp_remap
 
 - block:

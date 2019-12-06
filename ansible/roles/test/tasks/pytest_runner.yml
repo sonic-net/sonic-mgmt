@@ -35,7 +35,7 @@
 
 - name: append inventory file
   set_fact:
-    pytest_cmd: '{{ pytest_cmd }} --inventory=../ansible/{{ inventory_file }}'
+    pytest_cmd: '{{ pytest_cmd }} --inventory={{ inventory_file }}'
 
 - name: append testbed file
   set_fact:
@@ -52,7 +52,7 @@
 - debug: var=pytest_cmd
 
 - name: run py.test
-  connection: local
+  delegate_to: localhost
   shell: '{{ pytest_cmd }}'
   args:
     chdir: ../tests/

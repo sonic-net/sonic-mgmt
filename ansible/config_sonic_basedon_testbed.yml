@@ -42,7 +42,7 @@
 
     - name: Gathering testbed information
       test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
-      connection: local
+      delegate_to: localhost
 
     - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
       when: testbed_facts['dut'] != inventory_hostname
@@ -58,7 +58,7 @@
     when: testbed_name is defined
 
   - topo_facts: topo={{ topo }}
-    connection: local
+    delegate_to: localhost
 
   - set_fact:
       VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
@@ -66,7 +66,7 @@
 
   - name: gather testbed VM informations
     testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }}
-    connection: local
+    delegate_to: localhost
     when: "VM_topo | bool"
 
   - name: find interface name mapping and individual interface speed if defined
@@ -100,7 +100,7 @@
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
               dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
-    connection: local
+    delegate_to: localhost
     when: local_minigraph is defined and local_minigraph|bool == true
 
   - block:

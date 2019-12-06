@@ -1,5 +1,5 @@
 - conn_graph_facts: host={{item.key}}
-  connection: local
+  delegate_to: localhost
   become: no
 
 - set_fact:
@@ -13,8 +13,8 @@
 
 - name: set pfc storm templates based on fanout platform sku
   include_tasks: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
-  
-- set_fact: 
+
+- set_fact:
     storm_action_template: "{%if storm_action=='start'%}{{pfc_wd_storm_template}}{%else%}{{pfc_wd_storm_stop_template}}{%endif%}"
 
 - name: Deploy pfc packet generater file to fanout switch

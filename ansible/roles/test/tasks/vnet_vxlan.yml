@@ -42,7 +42,7 @@
     - name: Generate VNet configuration
       template: src=roles/test/templates/vnet_config.j2
                 dest=/tmp/vnet_config.yml
-      connection: local
+      delegate_to: localhost
 
     - name: Load VNet info from file
       include_vars: '/tmp/vnet_config.yml'

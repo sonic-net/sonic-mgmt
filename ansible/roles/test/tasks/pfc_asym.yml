@@ -27,7 +27,7 @@
   - name: Generate IP address in VLAN range for each server port
     get_ip_in_range: num={{minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members']|length}} prefix="{{minigraph_vlan_interfaces[0]['addr']}}/{{minigraph_vlan_interfaces[0]['prefixlen']}}" exclude_ips="{{minigraph_vlan_interfaces[0]['addr']}}"
     become: no
-    connection: local
+    delegate_to: localhost
     failed_when: False
 
   - name: Get server ports info
@@ -139,7 +139,7 @@
 
   - name: Gathering lab graph facts about the device
     conn_graph_facts: host={{ ansible_host }}
-    connection: local
+    delegate_to: localhost
     tags: always
 
   - set_fact:
@@ -153,7 +153,7 @@
     with_items: "{{ minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'] }}"
 
   - conn_graph_facts: host={{ peer_device }}
-    connection: local
+    delegate_to: localhost
 
   - set_fact:
       peer_host: "{{device_info['mgmtip']}}"

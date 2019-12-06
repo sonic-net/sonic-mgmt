@@ -8,6 +8,7 @@
 
     - name: Download pre-built pfcwd docker image
       get_url: url={{ pfcwd_dockers_url }}/{{ item | basename }} dest={{ filename }}
+      delegate_to: localhost
 
     - name: Copy the downloaded pfcwd docker image to switch
       include_tasks: scp_copy.yml
@@ -19,3 +20,4 @@
 
     - name: Remove the downloaded pfcwd docker image
       file: path={{ filename }} state=absent
+      delegate_to: localhost
