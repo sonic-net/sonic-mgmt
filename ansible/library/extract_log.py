@@ -124,7 +124,7 @@ def convert_date(s):
     else:
         re_result = re.findall(r'^\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d{6}', s)
         str_date = re_result[0]
-        dt = datetime.strptime(str_date, '%Y-%m-%d.%X.%f')
+        dt = datetime.datetime.strptime(str_date, '%Y-%m-%d.%X.%f')
     locale.setlocale(locale.LC_ALL, loc)
 
     return dt
