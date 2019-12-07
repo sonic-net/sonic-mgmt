@@ -108,7 +108,7 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             ip_path=dict(required=False, default="/sbin/ip"),
-            up_ports=dict(type='dict', default={}),
+            up_ports=dict(type='raw', default={}),
         ),
         supports_check_mode=False)
 
@@ -301,7 +301,7 @@ def main():
                 down_ports += [name]
         except:
             down_ports += [name]
-            pass 
+            pass
 
     results['ansible_interface_facts'] = interfaces
     results['ansible_interface_ips'] = ips
