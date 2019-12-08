@@ -1,5 +1,6 @@
 import sys
 import os
+import glob
 
 import pytest
 import csv
@@ -148,7 +149,10 @@ def loganalyzer(duthost, request):
 
 @pytest.fixture(scope="session")
 def creds():
-    """ read and yield eos configuration """
-    with open("../ansible/group_vars/lab/secrets.yml") as stream:
-        creds = yaml.safe_load(stream)
-        return creds
+    """ read and yield lab configuration """
+    files = glob.glob("../ansible/group_vars/lab/*.yml")
+    creds = {}
+    for f in files:
+        with open(f) as stream:
+            creds.update(yaml.safe_load(stream))
+    return creds
