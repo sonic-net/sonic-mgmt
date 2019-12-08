@@ -17,9 +17,10 @@ def test_snmp_cpu(ansible_adhoc, testbed, creds):
     hostname = testbed['dut']
     ans_host = AnsibleHost(ansible_adhoc, hostname)
     lhost = AnsibleHost(ansible_adhoc, 'localhost', True)
+    hostip = ans_host.host.options['inventory_manager'].get_host(hostname).vars['ansible_host']
 
     # Gather facts with SNMP version 2
-    snmp_facts = lhost.snmp_facts(host=hostname, version="v2c", community=creds["snmp_rocommunity"], is_dell=True)['ansible_facts']
+    snmp_facts = lhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"], is_dell=True)['ansible_facts']
 
     assert int(snmp_facts['ansible_ChStackUnitCpuUtil5sec'])
 
@@ -30,7 +31,7 @@ def test_snmp_cpu(ansible_adhoc, testbed, creds):
         time.sleep(20)
 
         # Gather facts with SNMP version 2
-        snmp_facts = lhost.snmp_facts(host=hostname, version="v2c", community=creds["snmp_rocommunity"], is_dell=True)['ansible_facts']
+        snmp_facts = lhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"], is_dell=True)['ansible_facts']
 
         # Pull CPU utilization via shell
         # Explanation: Run top command with 2 iterations, 5sec delay. 

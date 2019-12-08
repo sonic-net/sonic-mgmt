@@ -7,7 +7,9 @@ def test_snmp_interfaces(ansible_adhoc, testbed, creds):
     ans_host = AnsibleHost(ansible_adhoc, hostname)
     lhost = AnsibleHost(ansible_adhoc, 'localhost', True)
 
-    snmp_facts = lhost.snmp_facts(host=hostname, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
+    hostip = ans_host.host.options['inventory_manager'].get_host(hostname).vars['ansible_host']
+
+    snmp_facts = lhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
     mg_facts   = ans_host.minigraph_facts(host=hostname)['ansible_facts']
 
     snmp_ifnames = [ v['name'] for k, v in snmp_facts['snmp_interfaces'].items() ]
