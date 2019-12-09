@@ -6,6 +6,7 @@ import csv
 from operator import itemgetter
 from itertools import groupby
 import yaml
+import json
 
 DOCUMENTATION = '''
 module: topo_facts.py
@@ -18,6 +19,14 @@ options:
       required: True
 '''
 
+def get_vm_type(ngs_type):
+    if ngs_type == "ToRRouter":
+        return "tor"
+    if ngs_type == "LeafRouter":
+        return "leaf"
+    if ngs_type == "SpineRouter":
+        return "spine"
+
 class ParseTestbedTopoinfo():
     '''
     Parse topology yml file
@@ -25,12 +34,75 @@ class ParseTestbedTopoinfo():
     def __init__(self):
         self.vm_topo_config = {}
 
+    def parse_clet(self, lst, cfg, fpath):
+        # Get the neighbors list
+        for e in lst:
+            if e.has_key('DEVICE_NEIGHBOR_METADATA'):
+                for vm in e['DEVICE_NEIGHBOR_METADATA']:
+                    cfg[vm] = dict()
+                    cfg[vm]['intfs'] = []
+                    cfg[vm]['properties'] = ["common"]
+                    cfg[vm]['properties'].append(get_vm_type(e['DEVICE_NEIGHBOR_METADATA'][vm]["type"]))
+
+        # fill data for each VM
+        for e in lst:
+            if e.has_key('DEVICE_NEIGHBOR'):
+                for intf in e['DEVICE_NEIGHBOR']:
+                    vm = e['DEVICE_NEIGHBOR'][intf]['name']
+                    cfg[vm]['interface_indexes'] = [int(intf[-2:]), ]
+
+            elif e.has_key('BGP_NEIGHBOR'):
+                for b in e['BGP_NEIGHBOR']:
+                    vm = e['BGP_NEIGHBOR'][b]['name']
+                    cfg[vm]['bgp_asn'] = int(e['BGP_NEIGHBOR'][b]['asn'])
+                    if b.find(".") != -1:
+                        cfg[vm]['peer_ipv4'] = b
+                        cfg[vm]['bgp_ipv4'] = e['BGP_NEIGHBOR'][b]['local_addr']
+
+                    elif b.find(":") != -1:
+                        cfg[vm]['peer_ipv6'] = b.upper()
+                        cfg[vm]['bgp_ipv6'] = e['BGP_NEIGHBOR'][b]['local_addr'].upper()
+
+                    else:
+                        raise Exception("BGP_NEIGHBOR address {} neither v4 nor v6 {} file!".format(b, fpath))
+
+
+        for e in lst:
+            if e.has_key('PORTCHANNEL_INTERFACE'):
+                for p in e['PORTCHANNEL_INTERFACE']:
+                    found = False
+                    (pc, ipm) = p.split('|')
+                    (ip, mask) = ipm.split('/')
+                    for v in cfg:
+                        if cfg[v]['bgp_ipv4'] == ip:
+                            cfg[v]['ipv4mask'] = mask
+                            found = True
+
+                        elif cfg[v]['bgp_ipv6'] == ip.upper():
+                            cfg[v]['ipv6mask'] = mask
+                            found = True
+
+                        if found:
+                            cfg[v]['ip_intf'] = "Port-Channel1"
+                            break
+
+            if e.has_key('DEVICE_NEIGHBOR'):
+                for p in e['DEVICE_NEIGHBOR']:
+                    vm = e['DEVICE_NEIGHBOR'][p]['name']
+                    if cfg.has_key(vm):
+                        cfg[vm]['intfs'].append(e['DEVICE_NEIGHBOR'][p]['port'])
+                    else:
+                        raise Exception("DEVICE_NEIGHBOR {} is missing {}".format(vm, fpath))
+
+
+
     def get_topo_config(self, topo_name):
         if 'ptf32' in topo_name:
             topo_name = 't1'
         if 'ptf64' in topo_name:
             topo_name = 't1-64'
         topo_filename = 'vars/topo_' + topo_name + '.yml'
+        topo_cletname = 'vars/configlet/' + topo_name + '/clet-add.json'
         vm_topo_config = dict()
 
         ### read topology definition
@@ -67,6 +139,12 @@ class ParseTestbedTopoinfo():
                         vmconfig[vm]['bgp_ipv4'] = ip.upper()
                     if ip[0:5].upper() in vmconfig[vm]['peer_ipv6'].upper():
                         vmconfig[vm]['bgp_ipv6'] = ip.upper()
+
+            if os.path.isfile(topo_cletname):
+                with open(topo_cletname) as f:
+                    clet_definition = json.load(f)
+                    self.parse_clet(clet_definition, vmconfig, topo_cletname)
+
             vm_topo_config['vm'] = vmconfig
 
         if 'host_interfaces' in topo_definition['topology']:
