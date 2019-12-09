@@ -27,12 +27,14 @@
 {% set num_vnet_batch = 8 %}
 num_vnet_batch: {{ num_vnet_batch }}
 
-{# A single vnet batch has total 18 routes including peers if ipv6_vxlan_test == true.
-   There will be only 9 routes if ipv6_vxlan_test == false #} 
+{# A single vnet batch has total 18 routes and 8 endpoints including peers if ipv6_vxlan_test == true.
+   There will be only 9 routes and 4 endpoints if ipv6_vxlan_test == false #} 
 {% if ipv6_vxlan_test == true %}
   {% set num_routes_batch = 18 %}
+  {% set num_endpoints_batch = 8 %}
 {% else %}
   {% set num_routes_batch = 9 %}
+  {% set num_endpoints_batch = 4 %}
 {% endif %}
 
 {#  Normal testing - 8 Vnets #}
@@ -78,11 +80,8 @@ num_vnet_batch: {{ num_vnet_batch }}
 vlan_intf_list:
 {% set ports = minigraph_vlans[topo_vlan].members[1:] %}
 {% for vlan in range (vlan_id_base, vlan_id_base + num_vnet) %}
-  {% set vlan_str = vlan|string %}
-  {% set ip_a, ip_b = vlan_str[:2]|int, vlan_str[2:]|int %}
-  {% if ip_b == 0 %}
-    {% set ip_a, ip_b = ip_a-1, 100 %}
-  {% endif %}
+  {% set vlan_str = (vlan-1)|string %}
+  {% set ip_a, ip_b = vlan_str[:2]|int, (vlan_str[2:]|int)+1 %}
   - vlan_id: '{{ (vlan|int) }}'
     ifname: 'Vlan{{ vlan }}'
     ip: '{{ ip_a }}.{{ ip_b }}.10.1/24'
@@ -131,11 +130,8 @@ vnet_intf_list:
 vnet_nbr_list:
 {% for vlan_batch in range (vlan_id_base, vlan_id_base + num_vnet)|batch(4) %}
   {% for vlan in vlan_batch %}
-    {% set vlan_str = vlan|string %}
-    {% set ip_a, ip_b = vlan_str[:2]|int, vlan_str[2:]|int %}
-    {% if ip_b == 0 %}
-      {% set ip_a, ip_b = ip_a-1, 100 %}
-    {% endif %}
+    {% set vlan_str = (vlan-1)|string %}
+    {% set ip_a, ip_b = vlan_str[:2]|int, (vlan_str[2:]|int)+1 %}
   - ifname: Vlan{{ vlan }}
     ip: '{{ ip_a }}.{{ ip_b }}.10.101'
     {% if (loop.index0 == 0) or (loop.index0 == 1) %}
@@ -151,11 +147,8 @@ vnet_nbr_list:
 vnet_local_routes:
 {% for vlan_batch in range (vlan_id_base, vlan_id_base + max_rif)|batch(4) %}
   - Vnet{{ vlan_batch[0]-vlan_id_base+1 }}_route_list:
-    {% set vlan_str = vlan_batch[0]|string %}
-    {% set ip_a, ip_b = vlan_str[:2]|int, vlan_str[2:]|int %}
-    {% if ip_b == 0 %}
-      {% set ip_a, ip_b = ip_a-1, 100 %}
-    {% endif %}
+    {% set vlan_str = (vlan_batch[0]-1)|string %}
+    {% set ip_a, ip_b = vlan_str[:2]|int, (vlan_str[2:]|int)+1 %}
       - pfx: '50.1.1.0/24'
         nh: '{{ ip_a }}.{{ ip_b }}.10.101'
         ifname: 'Vlan{{ vlan_batch[0] }}'
@@ -163,11 +156,8 @@ vnet_local_routes:
         nh: '{{ ip_a }}.{{ ip_b }}.10.102'
         ifname: 'Vlan{{ vlan_batch[0] }}'
   - Vnet{{ vlan_batch[1]-vlan_id_base+1 }}_route_list:
-    {% set vlan_str = vlan_batch[1]|string %}
-    {% set ip_a, ip_b = vlan_str[:2]|int, vlan_str[2:]|int %}
-    {% if ip_b == 0 %}
-      {% set ip_a, ip_b = ip_a-1, 100 %}
-    {% endif %}
+    {% set vlan_str = (vlan_batch[1]-1)|string %}
+    {% set ip_a, ip_b = vlan_str[:2]|int, (vlan_str[2:]|int)+1 %}
       - pfx: '60.1.1.0/24'
         nh: '{{ ip_a }}.{{ ip_b }}.10.101'
         ifname: 'Vlan{{ vlan_batch[1] }}'
@@ -178,96 +168,110 @@ vnet_local_routes:
             (A,B derived from 100+vnet_id; C,D derived from number of routes per vnet)
  Route endpoint - A.B.C.D; starts from 200.1.1.1 (C,D derived from number of endpoints)
 #}
+{% set endpoints_iters = (num_endpoints//(num_routes_iterations*num_endpoints_batch))|int %}
+{% if (num_endpoints%(num_routes_iterations*num_endpoints_batch))|int > 0 %}
+  {% set endpoints_iters = endpoints_iters + 1 %}
+{% endif %}
+
 vnet_route_list:
-{% set endpoints_iters = (num_endpoints//(num_routes_iterations*num_vnet_batch))|int %}
-{% if endpoints_iters == 0 %} {% set endpoints_iters = 1 %} {% endif %}
 {% for vnet_batch in range (1, 1 + num_vnet)|batch(8) %}
-  {% set endpoints_idx = (loop.index0%endpoints_iters)*num_routes_iterations*num_vnet_batch+1 %}
-  {% set ip_r_a, ip_r_b = (vnet_batch[0]//100)|int+100, (vnet_batch[0]%100)|int  %}
-  {% if ip_r_b == 0 %} {% set ip_r_a, ip_r_b = ip_r_a-1, 100 %} {% endif %}
-  {% set ip_e_a, ip_e_b = ((endpoints_idx//100)|int)+1, (endpoints_idx%100)|int  %}
-  {% if ip_e_b == 0 %} {% set ip_e_a, ip_e_b = ip_e_a-1, 100 %} {% endif %}
+  {% set temp = (vnet_batch[0]-1)|int %}
+  {% set ip_r_a, ip_r_b = ((temp//100)|int)+100, ((temp%100)|int)+1  %}
+  {% set endpoints_batch_idx = (loop.index0%endpoints_iters)*num_routes_iterations*num_endpoints_batch %}
+  {% set temp_routes_iterations = num_routes_iterations %}
+  {% if ( (endpoints_batch_idx+(num_routes_iterations*num_endpoints_batch)) > num_endpoints ) %}
+    {% set temp_routes_iterations = ((num_endpoints-endpoints_batch_idx)//num_endpoints_batch)|int %}
+  {% endif %}
+ 
   - Vnet{{ vnet_batch[0] }}_route_list:
-    {% for idx in range (num_routes_iterations) %}
-      {% set temp = loop.index0*2+1 %}
-      {% set idx_a, idx_b = ((temp//100)|int)+1, (temp%100)|int  %}
+    {% for idx in range (0, num_routes_iterations*2, 2) %}
+      {% set idx_a, idx_b = ((idx//100)|int)+1, ((idx%100)|int)+1  %}
+      {% set e_idx = endpoints_batch_idx+(idx%(temp_routes_iterations*2)) %}
+      {% set e_idx_a, e_idx_b = ((e_idx//100)|int)+1, ((e_idx%100)|int)+1  %}
+
       - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b }}/32'
-        end: '200.1.{{ ip_e_a }}.{{ (loop.index0*2)+ip_e_b }}'
+        end: '200.1.{{ e_idx_a }}.{{ e_idx_b }}'
       - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b+1 }}/32'
-        end: '200.1.{{ ip_e_a }}.{{ (loop.index0*2)+ip_e_b+1 }}'
+        end: '200.1.{{ e_idx_a }}.{{ e_idx_b+1 }}'
         mac: '00:00:00:00:01:02'
     {% endfor %}
   - Vnet{{ vnet_batch[1] }}_route_list:
     {% for idx in range (num_routes_iterations) %}
-      {% set idx_a, idx_b = ((loop.index//100)|int)+1, (loop.index%100)|int  %}
-      {% if idx_b == 0 %}
-        {% set idx_a, idx_b = idx_a-1, 100 %}
-      {% endif %}
+      {% set idx_a, idx_b = ((idx//100)|int)+1, (idx%100)|int+1  %}
+      {% set e_idx = endpoints_batch_idx+(idx%temp_routes_iterations) %}
+      {% set e_idx_a, e_idx_b = ((e_idx//100)|int)+1, ((e_idx%100)|int)+1  %}
+
       - pfx: '{{ ip_r_a }}.{{ ip_r_b+1 }}.{{ idx_a }}.{{ idx_b }}/32'
-        end: '200.2.{{ ip_e_a }}.{{ loop.index0+ip_e_b }}'
+        end: '200.2.{{ e_idx_a }}.{{ e_idx_b }}'
         mac: '00:00:00:00:02:05'
     {% endfor %}
   - Vnet{{ vnet_batch[2] }}_route_list:
-    {% for idx in range (num_routes_iterations) %}
-      {% set temp = loop.index0*2+1 %}
-      {% set idx_a, idx_b = ((temp//100)|int)+1, (temp%100)|int  %}
+    {% for idx in range (0, num_routes_iterations*2, 2) %}
+      {% set idx_a, idx_b = ((idx//100)|int)+1, ((idx%100)|int)+1  %}
+      {% set e_idx = endpoints_batch_idx+(idx%(temp_routes_iterations*2)) %}
+      {% set e_idx_a, e_idx_b = ((e_idx//100)|int)+1, ((e_idx%100)|int)+1  %}
+
       - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b }}/32'
-        end: '200.1.{{ ip_e_a }}.{{ (loop.index0*2)+ip_e_b }}'
+        end: '200.1.{{ e_idx_a }}.{{ e_idx_b }}'
         vni: '12345'
       - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b+1 }}/32'
-        end: '200.1.{{ ip_e_a }}.{{ (loop.index0*2)+ip_e_b+1 }}'
+        end: '200.1.{{ e_idx_a }}.{{ e_idx_b+1 }}'
         mac: '00:00:00:00:01:02'
     {% endfor %}
   - Vnet{{ vnet_batch[3] }}_route_list:
     {% for idx in range (num_routes_iterations) %}
-      {% set idx_a, idx_b = ((loop.index//100)|int)+1, (loop.index%100)|int  %}
-      {% if idx_b == 0 %}
-        {% set idx_a, idx_b = idx_a-1, 100 %}
-      {% endif %}
+      {% set idx_a, idx_b = ((idx//100)|int)+1, (idx%100)|int+1  %}
+      {% set e_idx = endpoints_batch_idx+(idx%temp_routes_iterations) %}
+      {% set e_idx_a, e_idx_b = ((e_idx//100)|int)+1, ((e_idx%100)|int)+1  %}
+
       - pfx: '{{ ip_r_a }}.{{ ip_r_b+3 }}.{{ idx_a }}.{{ idx_b }}/32'
-        end: '200.4.{{ ip_e_a }}.{{ loop.index0+ip_e_b }}'
+        end: '200.4.{{ e_idx_a }}.{{ e_idx_b }}'
         mac: '00:00:00:00:02:05'
     {% endfor %}
 {% if ipv6_vxlan_test == true %}
   - Vnet{{ vnet_batch[4] }}_route_list:
-    {% for idx in range (num_routes_iterations) %}
-      {% set temp = loop.index0*2+1 %}
-      {% set idx_a, idx_b = ((temp//100)|int)+1, (temp%100)|int  %}
+    {% for idx in range (0, num_routes_iterations*2, 2) %}
+      {% set idx_a, idx_b = ((idx//100)|int)+1, ((idx%100)|int)+1  %}
+      {% set e_idx = endpoints_batch_idx+(idx%(temp_routes_iterations*2)) %}
+      {% set e_idx_a, e_idx_b = ((e_idx//100)|int)+1, ((e_idx%100)|int)+1  %}
+
       - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b }}/32'
-        end: 'FC00:1::{{ ip_e_a }}:{{ (loop.index0*2)+ip_e_b }}'
+        end: 'FC00:1::{{ e_idx_a }}:{{ e_idx_b }}'
       - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b+1 }}/32'
-        end: 'FC00:1::{{ ip_e_a }}:{{ (loop.index0*2)+ip_e_b+1 }}'
+        end: 'FC00:1::{{ e_idx_a }}:{{ e_idx_b+1 }}'
         mac: '00:00:00:00:01:02'
     {% endfor %}
   - Vnet{{ vnet_batch[5] }}_route_list:
     {% for idx in range (num_routes_iterations) %}
-      {% set idx_a, idx_b = ((loop.index//100)|int)+1, (loop.index%100)|int  %}
-      {% if idx_b == 0 %}
-        {% set idx_a, idx_b = idx_a-1, 100 %}
-      {% endif %}
+      {% set idx_a, idx_b = ((idx//100)|int)+1, (idx%100)|int+1  %}
+      {% set e_idx = endpoints_batch_idx+(idx%temp_routes_iterations) %}
+      {% set e_idx_a, e_idx_b = ((e_idx//100)|int)+1, ((e_idx%100)|int)+1  %}
+
       - pfx: '{{ ip_r_a }}.{{ ip_r_b+1 }}.{{ idx_a }}.{{ idx_b }}/32'
-        end: 'FC00:2::{{ ip_e_a }}:{{ loop.index0+ip_e_b }}'
+        end: 'FC00:2::{{ e_idx_a }}:{{ e_idx_b }}'
         mac: '00:00:00:00:02:05'
     {% endfor %}
   - Vnet{{ vnet_batch[6] }}_route_list:
-    {% for idx in range (num_routes_iterations) %}
-      {% set temp = loop.index0*2+1 %}
-      {% set idx_a, idx_b = ((temp//100)|int)+1, (temp%100)|int  %}
+    {% for idx in range (0, num_routes_iterations*2, 2) %}
+      {% set idx_a, idx_b = ((idx//100)|int)+1, ((idx%100)|int)+1  %}
+      {% set e_idx = endpoints_batch_idx+(idx%(temp_routes_iterations*2)) %}
+      {% set e_idx_a, e_idx_b = ((e_idx//100)|int)+1, ((e_idx%100)|int)+1  %}
+
       - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b }}/32'
-        end: 'FC00:1::{{ ip_e_a }}:{{ (loop.index0*2)+ip_e_b }}'
+        end: 'FC00:1::{{ e_idx_a }}:{{ e_idx_b }}'
         vni: '12345'
       - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b+1 }}/32'
-        end: 'FC00:1::{{ ip_e_a }}:{{ (loop.index0*2)+ip_e_b+1 }}'
+        end: 'FC00:1::{{ e_idx_a }}:{{ e_idx_b+1 }}'
         mac: '00:00:00:00:01:02'
     {% endfor %}
   - Vnet{{ vnet_batch[7] }}_route_list:
     {% for idx in range (num_routes_iterations) %}
-      {% set idx_a, idx_b = ((loop.index//100)|int)+1, (loop.index%100)|int  %}
-      {% if idx_b == 0 %}
-        {% set idx_a, idx_b = idx_a-1, 100 %}
-      {% endif %}
+      {% set idx_a, idx_b = ((idx//100)|int)+1, (idx%100)|int+1  %}
+      {% set e_idx = endpoints_batch_idx+(idx%temp_routes_iterations) %}
+      {% set e_idx_a, e_idx_b = ((e_idx//100)|int)+1, ((e_idx%100)|int)+1  %}
+
       - pfx: '{{ ip_r_a }}.{{ ip_r_b+3 }}.{{ idx_a }}.{{ idx_b }}/32'
-        end: 'FC00:4::{{ ip_e_a }}:{{ loop.index0+ip_e_b }}'
+        end: 'FC00:4::{{ e_idx_a }}:{{ e_idx_b }}'
         mac: '00:00:00:00:02:05'
     {% endfor %}
 {% endif %}

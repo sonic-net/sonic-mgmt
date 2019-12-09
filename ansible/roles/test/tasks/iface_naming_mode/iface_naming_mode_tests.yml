@@ -18,13 +18,13 @@
 ######################## START OF TESTS #####################
 #############################################################
 
-# All tests run for user guest in alias mode as well as in default mode 
+# All tests run for user guest in alias mode as well as in default mode
 #Below set of testcases will run for all topologies
-- block: 
+- block:
     - name:  Test show pfc counters output in {{mode}}  mode
       include_tasks: "roles/test/tasks/iface_naming_mode/show_pfc_counters.yml"
 
-    - name: Test show queue counters output in {{mode}} mode 
+    - name: Test show queue counters output in {{mode}} mode
       include_tasks: "roles/test/tasks/iface_naming_mode/show_queue_counters.yml"
 
 
@@ -33,10 +33,10 @@
 
 #Test to be run in T1 topology
 - block:
-  - name: Test show arp output in {{mode}} mode 
+  - name: Test show arp output in {{mode}} mode
     include_tasks: "roles/test/tasks/iface_naming_mode/show_arp.yml"
 
-  - name: Test show acl output in {{mode}}  mode 
+  - name: Test show acl output in {{mode}}  mode
     include_tasks: "roles/test/tasks/iface_naming_mode/show_acl.yml"
 
   - name: Test show ip/ipv6 route in {{mode}}  mode
@@ -60,10 +60,10 @@
 
   when: testbed_type in ['t1']
   become_user: '{{uname1}}'
-  become: yes 
+  become: yes
 
 # Test to be run in t0 topology
-- block: 
+- block:
 
   - name: verify show portchannel interface output in {{mode}}  mode
     include_tasks: "roles/test/tasks/iface_naming_mode/show_portchannel.yml"
@@ -75,13 +75,13 @@
   become: yes
   when: testbed_type in ['t0', 't0-64',  't0-64-32', 't0-116', ]
 
-- always:
-
-  - name: Remove the user
-    user:
-      name: "{{uname1}}"
-      groups: sudo
-      state: absent
-      shell: /bin/bash
-      remove: yes
-    become: yes
+- name: Remove the user
+  user:
+    name: "{{uname1}}"
+    groups: sudo
+    state: absent
+    shell: /bin/bash
+    remove: yes
+  become: yes
+  tags:
+  - always

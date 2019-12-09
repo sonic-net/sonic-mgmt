@@ -1,5 +1,6 @@
 import sys
 import os
+import glob
 
 import pytest
 import csv
@@ -53,6 +54,9 @@ def pytest_addoption(parser):
     parser.addoption("--disable_loganalyzer", action="store_true", default=False,
                      help="disable loganalyzer analysis for 'loganalyzer' fixture")
 
+    # test_vrf options
+    parser.addoption("--vrf_capacity", action="store", default=None, type=int, help="vrf capacity of dut (4-1000)")
+    parser.addoption("--vrf_test_count", action="store", default=None, type=int, help="number of vrf to be tested (1-997)")
 
 @pytest.fixture(scope="session")
 def testbed(request):
@@ -145,7 +149,10 @@ def loganalyzer(duthost, request):
 
 @pytest.fixture(scope="session")
 def creds():
-    """ read and yield eos configuration """
-    with open("../ansible/group_vars/lab/secrets.yml") as stream:
-        creds = yaml.safe_load(stream)
-        return creds
+    """ read and yield lab configuration """
+    files = glob.glob("../ansible/group_vars/lab/*.yml")
+    creds = {}
+    for f in files:
+        with open(f) as stream:
+            creds.update(yaml.safe_load(stream))
+    return creds

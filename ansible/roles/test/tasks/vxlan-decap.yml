@@ -100,10 +100,12 @@
         - config_file='/tmp/vxlan_decap.json'
         - count=10
 
-- always:
+- block:
     - name: Remove vxlan tunnel maps configuration
       shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnelVxlan|map{{ item }}"
       with_items: "{{ minigraph_vlans }}"
 
     - name: Remove vxlan tunnel configuration
       shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tunnelVxlan"
+  tags:
+  - always

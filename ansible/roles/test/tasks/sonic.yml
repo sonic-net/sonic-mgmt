@@ -75,8 +75,11 @@
         vm: "{{ testbed_facts['vm_base'] }}"
       when: "testbed_facts['vm_base'] != ''"
 
-    - fail: msg="cannot find {{ testcase_name }} in available testcases or is not supported topology of this testbed {{ testbed_name }}"
-      when: (testcase_name is not defined) or (testbed_type not in testcases[testcase_name]['topologies'])
+    - fail: msg="cannot find {{ testcase_name }} in available testcases"
+      when: testcases[testcase_name] is not defined
+
+    - fail: msg="{{ testbed_type }} is not supported topology of this testbed {{ testbed_name }}"
+      when: testbed_type not in testcases[testcase_name]['topologies']
 
     - include_tasks: test_sonic_by_testname.yml
   when:
