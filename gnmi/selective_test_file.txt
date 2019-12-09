@@ -1,3 +1,7 @@
 #gnmi_ap.py::TestGnmi::()::test_gnmi_Capability
 #gnmi_ap.py::TestGnmi::()::test_gnmi_get
-gnmi_ap.py::TestGnmi::()::test_GetSet_Sanity1
+#gnmi_ap.py::TestGnmi::()::test_GetSet_Sanity1
+#gnmi_ap.py::TestGnmi::()::test_Get_with_prefix
+#gnmi_ap.py::TestGnmi::()::test_Get_with_wrong_path
+#gnmi_ap.py::TestGnmi::()::test_Get_with_wrong_encoding
+gnmi_ap.py::TestGnmi::()::test_Get_with_type

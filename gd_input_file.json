@@ -111,6 +111,12 @@
             },
             "test_setFwd_Opt1": {
                 "input_conf_file": "./data-files/part-tbl.txt"
+            },
+            "test_GetSet_Sanity1": {
+                "input_conf_file": "./data-files/basic_input_file1.json"
+            },
+            "test_Get_with_prefix": {
+                "input_conf_file": "./data-files/get_tc_inp_file.json"
             }
         },
         "feature_configuration": {

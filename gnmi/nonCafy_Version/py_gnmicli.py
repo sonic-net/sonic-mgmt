@@ -298,11 +298,13 @@ def _get(stub, paths, username, password):
   Returns:
     a gnmi_pb2.GetResponse object representing a gNMI GetResponse.
   """
+  pfx = "/"
+  pfx = _parse_path(_path_names("/"))
   if username:  # User/pass supplied for Authentication.
     return stub.Get(
         gnmi_pb2.GetRequest(path=[paths], encoding='PROTO'),
         metadata=[('username', username), ('password', password)])
-  return stub.Get(gnmi_pb2.GetRequest(path=[paths], encoding='PROTO'))
+  return stub.Get(gnmi_pb2.GetRequest(path=[paths], prefix=pfx, type='ALL', encoding='PROTO'))
 
 
 def _set(stub, paths, set_type, username, password, json_value):
