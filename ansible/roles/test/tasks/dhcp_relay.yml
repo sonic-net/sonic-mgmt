@@ -51,3 +51,102 @@
       - relay_iface_mac=\"{{ relay_iface_mac }}\"
       - relay_iface_netmask=\"{{ minigraph_vlan_interfaces[0]['mask'] }}\"
     ptf_extra_options: "--relax"
+
+- name: Bring all uplink interfaces down
+  shell: ifconfig {{ item.key }} down
+  with_dict: minigraph_portchannels
+  become: true
+
+- name: Pause to ensure uplinks are down
+  pause:
+    seconds: 10
+
+- name: Bring all uplink interfaces up
+  shell: ifconfig {{ item.key }} up
+  with_dict: minigraph_portchannels
+  become: true
+
+- name: Pause to ensure uplinks are up
+  pause:
+    seconds: 10
+
+# Run the DHCP relay PTF test
+- include: ptf_runner.yml
+  vars:
+    ptf_test_name: DHCP Relay Test
+    ptf_test_dir: ptftests
+    ptf_test_path: dhcp_relay_test.DHCPTest
+    ptf_platform: remote
+    ptf_platform_dir: ptftests
+    ptf_test_params:
+      - hostname=\"{{ inventory_hostname }}\"
+      - client_port_index=\"{{ client_port_index }}\"
+      - client_iface_alias=\"{{ client_iface_alias }}\"
+      - leaf_port_indices=\"{{ leaf_port_indices }}\"
+      - num_dhcp_servers=\"{{ dhcp_servers | length }}\"
+      - server_ip=\"{{ dhcp_servers[0] }}\"
+      - relay_iface_ip=\"{{ minigraph_vlan_interfaces[0]['addr'] }}\"
+      - relay_iface_mac=\"{{ relay_iface_mac }}\"
+      - relay_iface_netmask=\"{{ minigraph_vlan_interfaces[0]['mask'] }}\"
+    ptf_extra_options: "--relax"
+
+- name: Stop DHCP relay service
+  become: true
+  service:
+    name: dhcp_relay
+    state: stopped
+
+- name: Bring all uplink interfaces down
+  shell: ifconfig {{ item.key }} down
+  with_dict: minigraph_portchannels
+  become: true
+
+- name: Pause to ensure uplinks are down
+  pause:
+    seconds: 10
+
+- name: Start DHCP relay service with uplinks down
+  become: true
+  service:
+    name: dhcp_relay
+    state: restarted
+
+- name: Give the DHCP relay container time to start up
+  pause:
+    seconds: 30
+
+- name: Bring all uplink interfaces up
+  shell: ifconfig {{ item.key }} up
+  with_dict: minigraph_portchannels
+  become: true
+
+- name: Pause to ensure uplinks are up
+  pause:
+    seconds: 10
+
+# Run the DHCP relay PTF test
+- include: ptf_runner.yml
+  vars:
+    ptf_test_name: DHCP Relay Test
+    ptf_test_dir: ptftests
+    ptf_test_path: dhcp_relay_test.DHCPTest
+    ptf_platform: remote
+    ptf_platform_dir: ptftests
+    ptf_test_params:
+      - hostname=\"{{ inventory_hostname }}\"
+      - client_port_index=\"{{ client_port_index }}\"
+      - client_iface_alias=\"{{ client_iface_alias }}\"
+      - leaf_port_indices=\"{{ leaf_port_indices }}\"
+      - num_dhcp_servers=\"{{ dhcp_servers | length }}\"
+      - server_ip=\"{{ dhcp_servers[0] }}\"
+      - relay_iface_ip=\"{{ minigraph_vlan_interfaces[0]['addr'] }}\"
+      - relay_iface_mac=\"{{ relay_iface_mac }}\"
+      - relay_iface_netmask=\"{{ minigraph_vlan_interfaces[0]['mask'] }}\"
+    ptf_extra_options: "--relax"
+
+- name: Restart DHCP relay service to ensure it is in a healthy state
+  become: true
+  service:
+    name: dhcp_relay
+    state: restarted
+  tags: always
