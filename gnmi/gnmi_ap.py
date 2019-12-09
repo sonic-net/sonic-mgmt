@@ -52,8 +52,8 @@ def stub():
 
 class TestGnmi(GnmiApBase):
 
-    def test_gnmi_GetTimestamp(self,stub):
-        gnmi_san_tc._test_gnmi_GetTimestamp(stub)
+    def test_SetReq_Del1(self,stub):
+        gnmi_san_tc._test_SetReq_Del1(stub)
 
     def test_GetSet_Sanity1(self,stub):
         gnmi_san_tc._test_GetSet_Sanity1(stub)
@@ -76,3 +76,6 @@ class TestGnmi(GnmiApBase):
     def test_Get_with_wrong_encoding(self,stub):
         gnmi_san_tc._test_Get_with_wrong_encoding(stub)
     
+    def test_gnmi_SetPfxPath(self,stub):
+        gnmi_san_tc._test_gnmi_SetPfxPath(stub)
+

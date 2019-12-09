@@ -117,6 +117,9 @@
             },
             "test_Get_with_prefix": {
                 "input_conf_file": "./data-files/get_tc_inp_file.json"
+            },
+            "test_gnmi_SetPfxPath": {
+                "input_conf_file": "./data-files/pfxpath-tests1.json"
             }
         },
         "feature_configuration": {
@@ -151,7 +154,7 @@
                 "R1": {
                     "name": "s1",
                     "svr_addr": "172.17.0.2",
-                    "svr_port": "5140",
+                    "svr_port": "5555",
                     "proto_dump_file": "s1-gnmi-requests-log.txt"
                 }
             },
