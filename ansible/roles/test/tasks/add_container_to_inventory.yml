@@ -1,0 +1,13 @@
+
+- name: Set authorized key
+  authorized_key:
+    user: "{{ ansible_ssh_user }}"
+    state: present
+    key: "{{ lookup('file', lookup('env','HOME') + '/.ssh/id_rsa.pub') }}"
+
+- name: Add {{ container_name }} container to inventory
+  add_host:
+    name: "{{ container_name }}"
+    ansible_connection: docker
+    ansible_docker_extra_args: "-H=ssh://{{ ansible_ssh_user }}@{{ansible_host}}"
+    ansible_user: root
