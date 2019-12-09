@@ -20,14 +20,24 @@
 - set_fact:
     red_min_threshold={{ wred_value.stdout }}
 
-- block:
-    - name: Copy test files to DUT
-      copy: src={{ item }} dest={{ tmp_dir }}
-      with_fileglob:
-         - "{{ test_files_dir }}/*"
-  vars:
-    ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i database python
+- name: Set authorized key
+  authorized_key:
+    user: "{{ ansible_ssh_user }}"
+    state: present
+    key: "{{ lookup('file', lookup('env','HOME') + '/.ssh/id_rsa.pub') }}"
+
+- name: Add lldp container to inventory
+  add_host:
+    name: lldp
+    ansible_connection: docker
+    ansible_docker_extra_args: "-H=ssh://{{ ansible_ssh_user }}@{{ansible_host}}"
+    ansible_user: root
+
+- name: Copy test files to DUT
+  copy: src={{ item }} dest={{ tmp_dir }}i
+  delegate_to: lldp
+  with_fileglob:
+    - "{{ test_files_dir }}/*"
 
 - block:
     # Test case #3(MA): Check configuration applied
