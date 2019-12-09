@@ -213,14 +213,12 @@ def makeTestbed(data, outfile):
                 server = groupDetails.get("server")
                 vm_base = groupDetails.get("vm_base")
                 dut = groupDetails.get("dut")
-                ptf = ""
+                ptf = groupDetails.get("ptf")
                 comment = groupDetails.get("comment")
 
                 # catch empty types
                 if not groupName:
                     groupName = ""
-                else:
-                    ptf = "ptf_" + groupName
                 if not topo:
                     topo = ""
                 if not ptf_image_name:
@@ -233,6 +231,8 @@ def makeTestbed(data, outfile):
                     vm_base = ""
                 if not dut:
                     dut = ""
+                if not ptf:
+                    ptf = ""
                 if not comment:
                     comment = ""
 
@@ -574,4 +574,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
+
