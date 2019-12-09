@@ -75,8 +75,9 @@ def sw_conn():
         p4_switch.ShutdownAllSwitchConnections()
     #return sw_conn
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="session",autouse=True)
 def clean_sw_connection():
+    log.info("Clean all P4 Switch connections")
     p4_switch.ShutdownAllSwitchConnections()
 
 class TestP4(P4ApBase):
