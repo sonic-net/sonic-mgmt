@@ -206,15 +206,19 @@ def _test_negative_action_profile_groups_2(self,sw_conn):
         log.error("### GRPC ERROR RECEIVED:: ###")
         e_det = parseGrpcError(e)
         print("ERROR DETAILS::")
-        print(e_det)
-        for item in e_det:
-            log.error(item)
-            if (item['code'] == "INVALID_ARGUMENT") and (item['message'] == "Invalid P4 id"):
-                log.info("Test test_negative_action_profile_groups_2:Passed - received correct error message on trying to Insert a group with Invalid Group Id")
-                result = True
-            else:
-                err_msg.append("Test test_negative_action_profile_groups_2:Failed - received incorrect message on trying to o Insert a group with Invalid Group Id")
-                
+        if ('details = "Error when reading action profile entries from target"' in str(e)):
+            log.error("Test:Failed - received error message while reading a group with group id = 0. Creation of group with id = 0 should not be allowed")
+            err_msg.append("Test:Failed - received error message while reading a group with group id = 0. Creation of group with id = 0 should not be allowed")
+        else:
+            print(e_det)
+            for item in e_det:
+                log.error(item)
+                if (item['code'] == "INVALID_ARGUMENT") and (item['message'] == "Invalid group id"):
+                    log.info("Test test_negative_action_profile_groups_2:Passed - received correct error message on trying to Insert a group with Invalid Group Id")
+                    result = True
+                else:
+                    err_msg.append("Test test_negative_action_profile_groups_2:Failed - received incorrect message on trying to o Insert a group with Invalid Group Id")
+                    
     finally:
         if not result:
             insrt_entrs = [x for x in entries if x['entry_type'] == 'GROUP']
