@@ -1,37 +1,4 @@
-# Gather facts with SNMP version 2
-- name: Gathering basic snmp facts about the device
-  snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
-  delegate_to: localhost
-
-- set_fact:
-    snmp_intf: []
-    mg_intf: []
-
-- name: Create snmp interfaces list
-  set_fact:
-    snmp_intf: "{{ snmp_intf + [item.value.name] }}"
-  with_dict: "{{ snmp_interfaces }}"
-  when: "{{item.value.name is defined}}"
-
-- name: Create minigraph interfaces list
-  set_fact:
-    mg_intf: "{{ mg_intf + [item.value.alias] }}"
-  with_dict: "{{ minigraph_ports }}"
-
-- name: Add port channel interfaces into minigraph interfaces list
-  set_fact:
-    mg_intf: "{{ mg_intf + [item.key] }}"
-  with_dict: "{{ minigraph_portchannels }}"
-
-- name: Add management port into minigraph interfaces list
-  set_fact:
-    mg_intf: "{{ mg_intf + [minigraph_mgmt_interface.alias] }}"
-
-- debug: var=minigraph_port_name_to_alias_map
-- debug: var=snmp_intf
-- debug: var=mg_intf
-
-- name: Check for missing interfaces in SNMP
-  fail: msg="Minigraph interface {{ minigraph_port_name_to_alias_map[item] if item in minigraph_port_name_to_alias_map else item }} not in SNMP interfaces"
-  when: "{{ (item in minigraph_port_name_to_alias_map and minigraph_port_name_to_alias_map[item] not in snmp_intf) or (item not in minigraph_port_name_to_alias_map and item not in snmp_intf) }}"
-  with_items: "{{ mg_intf }}"
+- name: run test
+  include_tasks: roles/test/tasks/pytest_runner.yml
+  vars:
+    test_node: snmp/test_snmp_interfaces.py

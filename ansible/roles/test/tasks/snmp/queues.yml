@@ -1,9 +1,4 @@
-# Gather facts with SNMP version 2
-- name: Gathering basic snmp facts about the device
-  snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
-  delegate_to: localhost
-
-- fail:
-    msg: "Port {{ item.key }} does not have queue counters"
-  when: "{{ item.value.description | match('^Ethernet') }} and {{ item.value['queues'] is not defined }}"
-  with_dict: "{{ snmp_interfaces }}"
+- name: run test
+  include_tasks: roles/test/tasks/pytest_runner.yml
+  vars:
+    test_node: snmp/test_snmp_queue.py

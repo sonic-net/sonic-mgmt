@@ -1,15 +1,4 @@
-# Gather facts with SNMP version 2
-- name: Gathering basic snmp facts about the device
-  snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
-  delegate_to: localhost
-
-# Check PFC counters
-# Ignore management ports, assuming the names starting with 'eth', eg. eth0
-- fail:
-    msg: "Port {{ item.key }} does not have PFC counters"
-  when: "{{ (not item.value.name.startswith('eth')) and
-            ('cpfcIfRequests' not in item.value.keys() or
-             'cpfcIfIndications' not in item.value.keys() or
-             'requestsPerPriority' not in item.value.keys() or
-             'indicationsPerPriority' not in item.value.keys()) }}"
-  with_dict: "{{ snmp_interfaces }}"
+- name: run test
+  include_tasks: roles/test/tasks/pytest_runner.yml
+  vars:
+    test_node: snmp/test_snmp_pfc_counters.py
