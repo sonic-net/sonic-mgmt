@@ -108,7 +108,7 @@ class SerialSession(object):
 
 def session(new_params):
     seq = [
-        ('while true; do if [ $(systemctl is-active bgp) == "active" ]; then break; fi; echo $(systemctl is-active bgp); sleep 1; done', [r'#'], 60),
+        ('while true; do if [ $(systemctl is-active swss) == "active" ]; then break; fi; echo $(systemctl is-active swss); sleep 1; done', [r'#'], 180),
         ('pkill dhclient', [r'#']),
         ('hostname %s' % str(new_params['hostname']), [r'#']),
         ('sed -i s:sonic:%s: /etc/hosts' % str(new_params['hostname']), [r'#']),
