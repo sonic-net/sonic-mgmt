@@ -4,7 +4,7 @@
     testname: functional_test
 
 - conn_graph_facts: host={{test_ports[pfc_wd_test_port]['peer_device']}}
-  connection: local
+  delegate_to: localhost
   become: no
 
 - name: Prepare variables required for PFC test
@@ -61,8 +61,8 @@
     - debug:
         var: "{{item}}"
       with_items:
-        - detect_time_list
-        - restore_time_list
+        - "{{ detect_time_list }}"
+        - "{{ restore_time_list }}"
 
     - name: Verify that real detection time is not greater than configured
       fail:

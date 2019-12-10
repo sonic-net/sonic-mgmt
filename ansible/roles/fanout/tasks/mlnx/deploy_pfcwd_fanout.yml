@@ -32,7 +32,6 @@
 - name: Download pre-built pfcwd dockers if path specified
   include_tasks: download_copy_pfcwd_fanout.yml
   with_items: "{{ pfcwd_dockers }}"
-  delegate_to: localhost
   when: pfcwd_dockers_url is defined
 
 - name: Load and start dockers

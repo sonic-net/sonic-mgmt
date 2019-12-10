@@ -45,7 +45,7 @@
   when: port_type == "vlan"
 
 - conn_graph_facts: host={{ peer_device }}
-  connection: local
+  delegate_to: localhost
   become: no
 
 - name: Prepare variables required for PFC test

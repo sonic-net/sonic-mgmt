@@ -12,23 +12,19 @@
 
 - name: Apply Everflow configuration.
   include_tasks: "roles/test/tasks/everflow_testbed/apply_config.yml"
-  tags: everflow_tb_configure
 
 - name: Run Everflow tests [tor].
   include_tasks: "roles/test/tasks/everflow_testbed/run_test.yml"
   vars:
     dst_port_type: "tor"
-  tags: everflow_tb_test
 
 - name: Run Everflow tests [spine].
   include_tasks: "roles/test/tasks/everflow_testbed/run_test.yml"
   vars:
     dst_port_type: "spine"
-  tags: everflow_tb_test
 
 - name: Clear Everflow configuration.
   include_tasks: "roles/test/tasks/everflow_testbed/del_config.yml"
-  tags: everflow_tb_cleanup
 
 - name: Reload config
   include_tasks: "roles/test/tasks/common_tasks/reload_config.yml"

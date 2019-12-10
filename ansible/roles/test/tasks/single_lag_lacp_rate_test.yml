@@ -21,7 +21,7 @@
     neighbor_interface: "{{ fanout_neighbors[flap_intf]['peerport'] }}"
 
 - conn_graph_facts: host={{ peer_device }}
-  connection: local
+  delegate_to: localhost
 
 ### Now figure out remote VM and interface info for the falpping lag member and run minlink test
 - set_fact:

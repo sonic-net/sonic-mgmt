@@ -23,7 +23,7 @@
 
   - name: Gathering testbed information
     test_facts: testbed_name="{{ testbed_name }}"
-    connection: local
+    delegate_to: localhost
     ignore_errors: yes
 
   - name: Gather vm list from Testbed server

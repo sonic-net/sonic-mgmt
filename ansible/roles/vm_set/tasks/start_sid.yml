@@ -1,4 +1,4 @@
-- name: Create directory for SimX in docker(SID) images and disk images 
+- name: Create directory for SimX in docker(SID) images and disk images
   file: path={{ item }} state=directory mode=0755
   with_items:
     - "{{ home_path }}/sid/images"
@@ -32,8 +32,8 @@
 - fail: msg="{{ item }} is not defined"
   when: "{{ item }} is not defined"
   with_items:
-    - mellanox_spc1_hwskus
-    - mellanox_spc2_hwskus
+    - "{{ mellanox_spc1_hwskus }}"
+    - "{{ mellanox_spc2_hwskus }}"
 
 - set_fact:
     chip: "spectrum"

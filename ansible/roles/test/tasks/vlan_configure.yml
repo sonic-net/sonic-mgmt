@@ -14,7 +14,7 @@
 - name: Generate VLAN ports information
   template: src=roles/test/templates/vlan_info.j2
             dest=/tmp/vlan_info.yml
-  connection: local
+  delegate_to: localhost
 
 - name: Load VLAN ports info from file
   include_vars: '/tmp/vlan_info.yml'

@@ -24,7 +24,7 @@
 
 - name: Get DUT port alias
   port_alias: hwsku={{ hostvars[dut_name].hwsku }}
-  connection: local
+  delegate_to: localhost
 
 - name: Define vm {{ dut_name }}
   virt: name={{ dut_name }}

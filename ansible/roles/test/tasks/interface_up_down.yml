@@ -37,9 +37,9 @@
   pause: seconds=5
 
 - name: gather interface facts
-  setup: 
+  setup:
 
-- name: verify all local interfaces are up 
+- name: verify all local interfaces are up
   assert: { that: "ansible_{{ item }}['active']  == true" }
   with_items: "{{ ansible_interfaces }}"
   when:
@@ -53,7 +53,7 @@
 
 - name: rearrange lldp received data structure for interface up down test
   interface_up_down_data_struct_facts: data="{{ lldp }}"
-  connection: local
+  delegate_to: localhost
   become: no
 
 - name:  shutdown neighbor interfaces
@@ -64,14 +64,14 @@
      skip_default_user:   "yes"
   connection: cisco
   with_items: "{{ ansible_interface_up_down_data_struct_facts.keys() }}"
-  
+
 - name: sleep for some time
   pause: seconds=5
 
 - name: gather interface facts
-  setup: 
+  setup:
 
-- name: verify all local interfaces are down 
+- name: verify all local interfaces are down
   assert: { that: "ansible_{{ item }}['active']  == false" }
   with_items: "{{ ansible_interfaces }}"
   when:
@@ -90,9 +90,9 @@
   pause: seconds=5
 
 - name: gather interface facts
-  setup: 
+  setup:
 
-- name: verify all local interfaces are up 
+- name: verify all local interfaces are up
   assert: { that: "ansible_{{ item }}['active']  == true" }
   with_items: "{{ ansible_interfaces }}"
   when:

@@ -38,10 +38,10 @@
   when: port_type == "vlan"
 
 - conn_graph_facts: host={{ peer_device }}
-  connection: local
+  delegate_to: localhost
   become: no
 
-# pfc_frames_number intends to be large enough so that PFC storm keeps happenning until runs pfc_storm_stop command. 
+# pfc_frames_number intends to be large enough so that PFC storm keeps happenning until runs pfc_storm_stop command.
 - name: Prepare variables required for PFC test
   set_fact:
     pfc_queue_index: 4
@@ -653,7 +653,7 @@
         name: "{{ tests_location }}/functional_test/{{ item }}"
         state: absent
       with_items: "{{ config_files }}"
-      connection: local
+      delegate_to: localhost
       become: false
 
   always:

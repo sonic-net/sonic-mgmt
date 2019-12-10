@@ -26,7 +26,7 @@
 
 - name: Gathering lab graph facts about the device
   conn_graph_facts: host={{ inventory_hostname }}
-  connection: local
+  delegate_to: localhost
   tags: always
 
 - name: Gather minigraph facts about the device
@@ -72,7 +72,7 @@
 - name: Generate ips in VLAN range
   get_ip_in_range: num=1 prefix="{{minigraph_vlan_interfaces[0]['addr']}}/{{minigraph_vlan_interfaces[0]['prefixlen']}}" exclude_ips="{{minigraph_vlan_interfaces[0]['addr']}}"
   become: no
-  connection: local
+  delegate_to: localhost
   failed_when: False
   when: minigraph_vlans | length >0
 
@@ -199,7 +199,7 @@
       file:
         path: "{{ run_dir }}"
         state: absent
-        
+
     - name: Disable asymmetric PFC on all server interfaces
       command: config interface pfc asymmetric on {{ item.dut_name }}
       become: yes

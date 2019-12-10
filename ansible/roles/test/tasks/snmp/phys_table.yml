@@ -1,7 +1,7 @@
 # Gather facts with SNMP version 2
 - name: Gathering basic snmp facts about the device
   snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
-  connection: local
+  delegate_to: localhost
 
 - set_fact:
     chassis_id: "1"

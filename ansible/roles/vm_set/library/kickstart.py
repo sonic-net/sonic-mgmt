@@ -164,7 +164,7 @@ def session(new_params):
         ('aaa root secret 0 %s' % str(new_params['new_root_password']), [r'\(config\)#']),
     ]
 
-    curtime = datetime().datetime().now().isoformat()
+    curtime = datetime.datetime.now().isoformat()
     debug = MyDebug('/tmp/debug.%s.%s.txt' % (new_params['hostname'], curtime), enabled=True)
     ss = SerialSession(new_params['telnet_port'], debug)
     ss.login(new_params['login'], new_params['password'])

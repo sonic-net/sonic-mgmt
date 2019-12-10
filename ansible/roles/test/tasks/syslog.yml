@@ -19,7 +19,7 @@
 # Fetch the source IP of the ansible server
 - name: Get localhost facts
   setup:
-  connection: local
+  delegate_to: localhost
   register: local_facts
 
 #- debug: var=local_facts.ansible_facts.ansible_eth0.ipv4.address
@@ -49,7 +49,7 @@
 # Start local ryslog Server
 
 - name: Load imudp module in local syslog
-  connection: local
+  delegate_to: localhost
   become: true
   lineinfile:
     line: "module(load=\"imudp\")"
@@ -57,7 +57,7 @@
     state: present
 
 - name: Remove imudp ports
-  connection: local
+  delegate_to: localhost
   become: true
   lineinfile:
     regexp: "input\\(type=\"imudp\" port=\"\\d+\"\\)"
@@ -65,7 +65,7 @@
     state: absent
 
 - name: Add imudp port {{ syslog_port }}
-  connection: local
+  delegate_to: localhost
   become: true
   lineinfile:
     line: "input(type=\"imudp\" port=\"{{ syslog_port }}\")"
@@ -73,20 +73,20 @@
     state: present
 
 - name: Stop Syslog Daemon
-  connection: local
+  delegate_to: localhost
   become: true
   shell: killall rsyslogd
   ignore_errors: true
 
 - name: Remove local /var/log/syslog
   become: true
-  connection: local
+  delegate_to: localhost
   file:
     path: /var/log/syslog
     state: absent
 
 - name: Start Syslog Daemon
-  connection: local
+  delegate_to: localhost
   become: true
   service: name=rsyslog state=started
 
@@ -112,7 +112,7 @@
 
 # Check Messages
 - name: Check syslog messages for the test message
-  connection: local
+  delegate_to: localhost
   become: true
   shell: grep {{ inventory_hostname }} /var/log/syslog | grep "{{ test_message }}" | grep -v ansible
   register: grep_result

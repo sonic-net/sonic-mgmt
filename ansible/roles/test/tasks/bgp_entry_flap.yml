@@ -19,13 +19,13 @@
 
 - block:
   - name: Assert the particular entry is in nexthopgroup table
-    assert: 
+    assert:
       that: nexthop[addr] in nexthopgroup[item]
     with_items: "{{ nexthopgroup }}"
 
   - name: Gathering minigraph facts about neighbor
     minigraph_facts: host={{ name }} filename="{{ vmhost_num }}-{{ name }}.xml"
-    connection: local
+    delegate_to: localhost
     become: no
 
   - name: Shut down BGP session from neighbor
@@ -47,7 +47,7 @@
     vars:
       ansible_shell_type: docker
       ansible_python_interpreter: docker exec -i sswsyncd python
-  
+
   - name: Poll for updated tables until peer is not in nexthop groups
     switch_tables: asic="{{asic}}" nexthop=yes nexthopgroup=yes
     become: yes

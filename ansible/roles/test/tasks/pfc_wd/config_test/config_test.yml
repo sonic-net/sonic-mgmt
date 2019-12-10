@@ -10,7 +10,7 @@
   template:
       src: "{{ pfc_wd_template }}"
       dest: "{{ tests_location }}/config_test/pfc_wd_fwd_action.json"
-  connection: local
+  delegate_to: localhost
   become: false
 
 - name: Generate config file for invalid action test.
@@ -22,7 +22,7 @@
   template:
       src: "{{ pfc_wd_template }}"
       dest: "{{ tests_location }}/config_test/pfc_wd_invalid_action.json"
-  connection: local
+  delegate_to: localhost
   become: false
 
 - name: Generate config file for invalid detection time test.
@@ -34,10 +34,10 @@
   template:
       src: "{{ pfc_wd_template }}"
       dest: "{{ tests_location }}/config_test/pfc_wd_invalid_detect_time.json"
-  connection: local
+  delegate_to: localhost
   become: false
 
-- name: Generate config file for invalid detection time < lower bound test 
+- name: Generate config file for invalid detection time < lower bound test
   vars:
       pfc_wd_interface_list: "{{ pfc_wd_test_port }}"
       pfc_wd_action: forward
@@ -46,10 +46,10 @@
   template:
       src: "{{ pfc_wd_template }}"
       dest: "{{ tests_location }}/config_test/pfc_wd_low_detect_time.json"
-  connection: local
+  delegate_to: localhost
   become: false
 
-- name: Generate config file for invalid detection time > higher bound test 
+- name: Generate config file for invalid detection time > higher bound test
   vars:
       pfc_wd_interface_list: "{{ pfc_wd_test_port }}"
       pfc_wd_action: forward
@@ -58,7 +58,7 @@
   template:
       src: "{{ pfc_wd_template }}"
       dest: "{{ tests_location }}/config_test/pfc_wd_high_detect_time.json"
-  connection: local
+  delegate_to: localhost
   become: false
 
 - name: Generate config file for invalid restoration time test.
@@ -70,7 +70,7 @@
   template:
       src: "{{ pfc_wd_template }}"
       dest: "{{ tests_location }}/config_test/pfc_wd_invalid_restore_time.json"
-  connection: local
+  delegate_to: localhost
   become: false
 
 - name: Generate config file for invalid restoration time < lower bound test.
@@ -82,7 +82,7 @@
   template:
       src: "{{ pfc_wd_template }}"
       dest: "{{ tests_location }}/config_test/pfc_wd_low_restore_time.json"
-  connection: local
+  delegate_to: localhost
   become: false
 
 - name: Generate config file for invalid restoration time > higher bound test.
@@ -94,7 +94,7 @@
   template:
       src: "{{ pfc_wd_template }}"
       dest: "{{ tests_location }}/config_test/pfc_wd_high_restore_time.json"
-  connection: local
+  delegate_to: localhost
   become: false
 
 - name: Define variables for test
@@ -187,5 +187,5 @@
         name: "{{ tests_location }}/config_test/{{ item }}"
         state: absent
       with_items: "{{ config_files }}"
-      connection: local
+      delegate_to: localhost
       become: false

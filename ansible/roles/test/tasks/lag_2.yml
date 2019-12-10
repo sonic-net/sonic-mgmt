@@ -34,7 +34,7 @@
 
 - name: Gathering lab graph facts about the device
   conn_graph_facts: host={{ inventory_hostname }}
-  connection: local
+  delegate_to: localhost
 
 - set_fact:
     fanout_neighbors: "{{device_conn}}"

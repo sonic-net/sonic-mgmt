@@ -1,6 +1,6 @@
 - name: Gathering lab graph facts about the device
   conn_graph_facts: host={{ ansible_host }}
-  connection: local
+  delegate_to: localhost
   tags: always
 
 - name: Init variables.

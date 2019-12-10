@@ -1,7 +1,7 @@
 # Gather facts with SNMP version 2
 - name: Gathering basic snmp facts about the device
   snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
-  connection: local
+  delegate_to: localhost
 
 # We assume that all the PSUs tested should be in good status, otherwise, fix the PSU manually
 - fail:

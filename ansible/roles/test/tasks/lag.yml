@@ -18,7 +18,7 @@
 
 # Generate file with BGP routes information
 - template: src=lag.j2 dest=/tmp/lag.txt
-  connection: local
+  delegate_to: localhost
 
 - set_fact:
     testname: lag
@@ -28,7 +28,7 @@
     test_ignore_file: lag_ignore_messages.txt
     test_expect_file: lag_expect_messages.txt
     match_file: loganalyzer_common_match.txt
-    ignore_file: loganalyzer_common_ignore.txt    
+    ignore_file: loganalyzer_common_ignore.txt
     tests_location: "{{ 'roles/test/tasks' }}"
 
 # Separate set_fact is required to be able to use 'testname' fact.
@@ -51,20 +51,20 @@
     - name: copy the test to ptf container
       copy: src=roles/test/files/acstests dest=/root
       delegate_to: "{{ ptf_host }}"
-      
+
     - name: "Running test {{ testname }}"
       shell: ptf --test-dir acstests lag_test.LagAllRoutes  --platform remote -t "verbose=True;router_mac='{{ ansible_Ethernet0['macaddress'] }}';lag_info='/tmp/lag.txt'"
       args:
         chdir: /root
       delegate_to: "{{ ptf_host }}"
       register: out
-      
+
     - debug: var=out.stdout_lines
       when: out.rc != 0
 
     - name: PortChannel structure
       debug: msg="{{ minigraph_portchannel_interfaces }}"
-      
+
     - name: "Run {{ testname }} with changing member port state to up and down"
       include_tasks: per_lag_test.yml
       with_items: "{{ minigraph_portchannel_interfaces }}"

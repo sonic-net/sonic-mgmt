@@ -27,7 +27,7 @@
   set_fact:
     sonic_asic_type: marvell
   when: sonic_hwsku in marvell_hwskus
-  
+
 ###########################################################################
 ##### run test using ansible tag when no testbedname specified       ######
 ###########################################################################
@@ -59,7 +59,7 @@
 - block:
     - name: Gathering testbed information
       test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
-      connection: local
+      delegate_to: localhost
 
     - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
       when: testbed_facts['dut'] != inventory_hostname

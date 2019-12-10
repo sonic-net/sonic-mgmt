@@ -56,7 +56,7 @@
 - debug: var=pytest_cmd
 
 - name: run py.test
-  connection: local
+  delegate_to: localhost
   shell: '{{ pytest_cmd }}'
   args:
     chdir: ../tests/
