@@ -6,6 +6,7 @@
     state: "present"
 
 - name: Generate an OpenSSH keypair
+  delegate_to: localhost
   openssh_keypair:
     path: "{{ lookup('env','HOME') + '/.ssh/id_rsa' }}"
 
