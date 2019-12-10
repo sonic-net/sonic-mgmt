@@ -52,12 +52,25 @@ def stub():
 
 class TestGnmi(GnmiApBase):
 
+    def test_SetReq_Del1(self,stub):
+        gnmi_san_tc._test_SetReq_Del1(stub)
+
+'''
+
+    def test_gnmi_get(self,stub):
+        gnmi_san_tc._test_gnmi_get(stub)
+
     def test_gnmi_Capability(self,stub):
         gnmi_san_tc._test_gnmi_Capability(stub)
 
+    def test_gnmi_GetTimestamp(self,stub):
+        gnmi_san_tc._test_gnmi_GetTimestamp(stub)
 
-    #@pytest.mark.last
-    #def test_max_connections(self,stub):
-    #    gnmi_san_tc._test_max_connections(stub)    
+    def test_GetSet_Sanity1(self,stub):
+        gnmi_san_tc._test_GetSet_Sanity1(stub)
+
+    def test_gnmi_SetPfxPath(self,stub):
+        gnmi_san_tc._test_gnmi_SetPfxPath(stub)
 
 
+'''

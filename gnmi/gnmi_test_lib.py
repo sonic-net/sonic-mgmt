@@ -46,7 +46,9 @@ import six
 from time import sleep
 import threading
 from queue import Queue
+from logger.cafylog import CafyLog
 import grpc
+log = CafyLog("GNMI Test Lib")
 try:
   import gnmi_pb2
 except ImportError:
@@ -151,6 +153,31 @@ def _create_parser():
   return parser
 
 
+def json_load_byteified(file_handle):
+    return _byteify(json.load(file_handle, object_hook=_byteify),
+                    ignore_dicts=True)
+
+
+def _byteify(data, ignore_dicts=False):
+    # if this is a unicode string, return its string representation
+    #if isinstance(data, unicode):
+    if isinstance(data, str):
+        return data
+        # For Python2 - return data.encode('utf-8')
+    # if this is a list of values, return list of byteified values
+    if isinstance(data, list):
+        return [_byteify(item, ignore_dicts=True) for item in data]
+    # if this is a dictionary, return dictionary of byteified keys and values
+    # but only if we haven't already byteified it
+    if isinstance(data, dict) and not ignore_dicts:
+        return {
+            _byteify(key, ignore_dicts=True): _byteify(value, ignore_dicts=True)
+            for key, value in data.items()
+        }
+    # if it's anything else, return it in its original form
+    return data
+
+
 def _path_names(xpath):
   """Parses the xpath names.
 
@@ -241,6 +268,7 @@ def _format_type(json_value):
   return json_value  # The value is a string.
 
 
+
 def _get_val(json_value):
   """Get the gNMI val for path definition.
 
@@ -254,7 +282,7 @@ def _get_val(json_value):
   if '@' in json_value:
     try:
       set_json = json.loads(six.moves.builtins.open(
-          json_value.strip('@'), 'rb').read())
+          json_value.strip('@'), 'r').read())
     except (IOError, ValueError) as e:
       raise JsonReadError('Error while loading JSON: %s' % str(e))
     val.json_ietf_val = json.dumps(set_json).encode()
@@ -264,6 +292,25 @@ def _get_val(json_value):
                    str: 'string_val'}
   if type_to_value.get(type(coerced_val)):
     setattr(val, type_to_value.get(type(coerced_val)), coerced_val)
+  return val
+
+
+
+
+def _get_val_in(json_value):
+  """Get the gNMI val for path definition.
+
+  Args:
+    json_value: (str) JSON_IETF or file.
+
+  Returns:
+    gnmi_pb2.TypedValue()
+  """
+  val = gnmi_pb2.TypedValue()
+  #print(type(json_value))
+  set_json = json.dumps(json_value).encode()
+  #print(set_json)
+  val.json_ietf_val = set_json
   return val
 
 
@@ -305,7 +352,7 @@ def _get(stub, paths, username, password):
   return stub.Get(gnmi_pb2.GetRequest(path=[paths], encoding='PROTO'))
 
 
-def _set(stub, paths, set_type, username, password, json_value):
+def _set(stub, paths, set_type, username, password, json_value, pfx_paths=None):
   """Create a gNMI SetRequest.
 
   Args:
@@ -319,10 +366,35 @@ def _set(stub, paths, set_type, username, password, json_value):
   Returns:
     a gnmi_pb2.SetResponse object representing a gNMI SetResponse.
   """
+  request = gnmi_pb2.SetRequest()
+
+  if (pfx_paths is not None):
+      request.prefix.CopyFrom(pfx_paths)
+      print(request)
+
   if json_value:  # Specifying ONLY a path is possible (eg delete).
-    val = _get_val(json_value)
+    #val = _get_val(json_value)
+    val = _get_val_in(json_value)
     path_val = gnmi_pb2.Update(path=paths, val=val,)
 
+  kwargs = {}
+  if username:
+    kwargs = {'metadata': [('username', username), ('password', password)]}
+
+  if set_type == 'delete':
+    request.delete.extend([paths])
+  elif set_type == 'update':
+    request.update.extend([path_val])
+  elif set_type == 'replace':
+    request.replace.extend([path_val])
+
+  print("=== Below SET REQUEST Sent===")
+  print(request)
+  reply = stub.Set(request, **kwargs)
+
+  return reply
+
+"""
   kwargs = {}
   if username:
     kwargs = {'metadata': [('username', username), ('password', password)]}
@@ -331,7 +403,7 @@ def _set(stub, paths, set_type, username, password, json_value):
   elif set_type == 'update':
     return stub.Set(gnmi_pb2.SetRequest(update=[path_val]), **kwargs)
   return stub.Set(gnmi_pb2.SetRequest(replace=[path_val]), **kwargs)
-
+"""
 
 def print_msg(msg, prompt):
     print("***************************")
@@ -472,6 +544,44 @@ def _open_certs(**kwargs):
       kwargs[key] = six.moves.builtins.open(value, 'rb').read()
   return kwargs
 
+
+def get_response_dict(get_value):
+  response_dict = dict()
+  key_list = list()
+  ctr = 0
+  try:
+    value_dict = get_value['notification'][0]['update']
+  except KeyError:
+    response_dict = None
+    return response_dict
+
+  for value in value_dict:
+    log.info(value)
+    keys = list(value['val'].keys())
+    i = 0
+    if len(value['path']['elem']) > 1:
+      name = value['path']['elem'][1]['name']
+      key = value['path']['elem'][0]['key']['name']
+      if key not in key_list:
+        key_list.append(key)
+    else:
+      name = value['path']['elem'][0]['name']
+      
+    val =  value['val'][keys[i]]
+    if ctr == 0 and len(value['path']['elem']) == 1:
+      key = val
+      key_list.append(val)
+    
+    full_key = key+","+name
+    response_dict[full_key] = val
+    log.info("{}:{}".format(full_key,val))
+    i += 1
+    ctr += 1
+
+  response_dict['key_list'] = key_list
+  return response_dict
+ 
+
 """
 def main():
   argparser = _create_parser()
@@ -483,7 +593,7 @@ def main():
     os.environ['GRPC_TRACE'] = 'all'
     os.environ['GRPC_VERBOSITY'] = 'DEBUG'
   mode = args['mode']
-  target = args['target']
+  tar.get = args['target']
   port = args['port']
   notls = args['notls']
   get_cert = args['get_cert']
@@ -506,17 +616,20 @@ def main():
     print('Performing GetRequest, encoding=JSON_IETF', 'to', target,
           ' with the following gNMI Path\n', '-'*25, '\n', paths)
     response = _get(stub, paths, user, password)
-    print('The GetResponse is below\n' + '-'*25 + '\n')
-    if form == 'protobuff':
-      print(response)
-    elif response.notification[0].update[0].val.json_ietf_val:
-      print(json.dumps(json.loads(response.notification[0].update[0].val.
-                                  json_ietf_val), indent=2))
-    elif response.notification[0].update[0].val.string_val:
-      print(response.notification[0].update[0].val.string_val)
-    else:
-      print('JSON Format specified, but gNMI Response was not json_ietf_val')
-      print(response)
+    print_msg(response, "REQUEST")
+    #resp = stub.Get(req)
+    #print_msg(resp, "RESPONSE")
+    #print('The GetResponse is below\n' + '-'*25 + '\n')
+    #if form == 'protobuff':
+    #  print(response)
+    #elif response.notification[0].update[0].val.json_ietf_val:
+    #  print(json.dumps(json.loads(response.notification[0].update[0].val.
+    #                              json_ietf_val), indent=2))
+    #elif response.notification[0].update[0].val.string_val:
+    #  print(response.notification[0].update[0].val.string_val)
+    #else:
+    #  print('JSON Format specified, but gNMI Response was not json_ietf_val')
+    #  print(response)
   elif mode == 'capabilities':
     print('Performing CapabilitiesRequest to target \n')
     response = _cap(stub, user, password)

@@ -1,0 +1,14 @@
+{
+  "SETPfxPath1_1": {
+    "prefix-path": "ietf-interfaces:interfaces",
+    "Updates" : {
+    "interface": [
+        {
+          "name": "Loopback777",
+          "description": "For SETPfxPath1_1'",
+          "type": "iana-if-type:ethernetCsmacd"
+        }
+      ]
+    }
+  }
+}

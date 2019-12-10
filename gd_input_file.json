@@ -126,6 +126,9 @@
             },
             "test_setFwd_Opt1": {
                 "input_conf_file": "./data-files/part-tbl.txt"
+            },
+            "test_gnmi_SetPfxPath": {
+                "input_conf_file": "./data-files/pfxpath-tests1.json"
             }
         },
         "feature_configuration": {
@@ -156,6 +159,7 @@
                 }
             },
             "gnmi": {
+                "input_conf_file": "../gnmi/data-files/basic_input_file1.json",
                 "R1": {
                     "name": "s1",
                     "svr_addr": "172.17.0.2",
