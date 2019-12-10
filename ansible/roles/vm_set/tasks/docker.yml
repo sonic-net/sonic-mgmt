@@ -31,7 +31,7 @@
 
 - name: Get default pip_executable
   set_fact:
-    pip_executable: /usr/bin/pip
+    pip_executable: pip
   when: pip_executable is not defined
 
 - name: remove old python packages
