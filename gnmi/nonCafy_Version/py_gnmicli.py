@@ -286,7 +286,7 @@ def _cap(stub, username, password):
   return stub.Capabilities(gnmi_pb2.CapabilityRequest())
 
 
-def _get(stub, paths, username, password):
+def _get(stub, paths, username, password,type='CONFIG'):
   """Create a gNMI GetRequest.
 
   Args:
@@ -302,9 +302,9 @@ def _get(stub, paths, username, password):
   pfx = _parse_path(_path_names("/"))
   if username:  # User/pass supplied for Authentication.
     return stub.Get(
-        gnmi_pb2.GetRequest(path=[paths], encoding='PROTO'),
+        gnmi_pb2.GetRequest(path=[paths], encoding='PROTO',type=type),
         metadata=[('username', username), ('password', password)])
-  return stub.Get(gnmi_pb2.GetRequest(path=[paths], prefix=pfx, type='ALL', encoding='PROTO'))
+  return stub.Get(gnmi_pb2.GetRequest(path=[paths], prefix=pfx, type=type, encoding='PROTO'))
 
 
 def _set(stub, paths, set_type, username, password, json_value):
