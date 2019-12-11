@@ -15,7 +15,7 @@
   authorized_key:
     user: "{{ ansible_ssh_user }}"
     state: present
-    key: "{{ lookup('file', out.filename + '.pub' }}"
+    key: "{{ lookup('file', out.filename + '.pub') }}"
 
 - name: Add {{ container_name }} container to inventory
   add_host:
