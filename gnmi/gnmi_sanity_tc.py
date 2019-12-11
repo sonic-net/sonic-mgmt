@@ -435,7 +435,7 @@ def _test_Get_OC_Components(stub):
             path = input_conf['VERIFY_GET_WITH_OC_COMP']['path']
             path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
             log.info("Verify Get for OC Components ")
-            response = gnmiTestLib._get(stub, path, user, password,prefix,type='ALL')
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG')
             msg_json = google.protobuf.json_format.MessageToJson(response)
             log.info(msg_json)
     except KeyboardInterrupt:
