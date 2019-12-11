@@ -652,6 +652,39 @@ def get_oc_response_dict(get_value):
 
   response_dict['key_list'] = key_list
   return response_dict
+
+def new_get_oc_response_dict(get_value):
+  response_dict = dict()
+  key_list = list()
+  ctr = 0
+  try:
+    value_dict = get_value['notification'][0]['update']
+  except KeyError:
+    response_dict = None
+    return response_dict
+
+  for value in value_dict:
+    log.info(value)
+    keys = list(value['val'].keys())
+    i = 0
+    for key_val in value['path']['elem']:
+      if i==0:
+        full_key = key_val['name']
+        i += 1
+        continue 
+      if type(key_val['name']) != bool:
+        full_key = full_key + "," + key_val['name']
+    if full_key not in key_list:
+      key_list.append(full_key)
+
+    val =  value['val'][keys[i]]
+    response_dict[full_key] = val
+    log.info("{}:{}".format(full_key,val))
+    i += 1
+    ctr += 1
+
+  response_dict['key_list'] = key_list
+  return response_dict
  
 
 """

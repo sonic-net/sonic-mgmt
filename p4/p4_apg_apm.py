@@ -845,7 +845,7 @@ def _test_negative_action_profile_groups_8(self,sw_conn):
         for item in e_det:
             log.error(item)
             result = True
-            if (item['code'] == "FAILED_PRECONDITION") and (item['message'] == "Member weight must be a positive integer value"):
+            if (item['code'] == "FAILED_PRECONDITION") and (item['message'] == ""):
                 log.info("Test test_negative_action_profile_groups_8:Passed - received correct error message - FAILED_PRECONDITION case verified")
             else:
                 err_msg.append("Test test_negative_action_profile_groups_8: Failed - received incorrect message - FAILED_PRECONDITION case not verified")

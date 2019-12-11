@@ -52,6 +52,9 @@ def stub():
 
 class TestGnmi(GnmiApBase):
 
+    def test_GetSet_OC_Components(self,stub):
+        gnmi_san_tc._test_GetSet_OC_Components(stub)
+
     def test_SetReq_Del1(self,stub):
         gnmi_san_tc._test_SetReq_Del1(stub)
 

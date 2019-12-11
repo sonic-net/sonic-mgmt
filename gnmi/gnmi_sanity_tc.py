@@ -368,6 +368,53 @@ def _test_Get_with_prefix(stub):
         printGrpcError(e)
         pytest.fail("test_Get_with_prefix - Delete Config during cleanup failed due to Grpc Error {err}".format(err=e.details()))
 
+def _test_GetSet_OC_Components(stub):
+    user = None
+    password = None
+    err_msg = list()
+    #with open(ApData.input_conf_file, 'r') as ip_conf_file:
+    #    input_conf = gnmiTestLib.json_load_byteified(ip_conf_file)
+
+    input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_Get_with_prefix/input_conf_file"), 'r').read())
+
+    log.info('Performing SET-REPLACE Request to target \n')
+    try:
+        if 'GET_WITH_OC_COMP' in input_conf:
+            set_info1 = input_conf['GET_WITH_OC_COMP']
+            print(type(set_info1))
+            print(set_info1)
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1)
+            log.info(str(reply))
+            if ('response' in str(reply) and 'op: REPLACE' in str(reply)):
+                log.info("GET_WITH_OC_COMP:Passed - was able to do SET-REPLACE with input json")
+            else:
+                log.info("GET_WITH_OC_COMP:Failed - was unable to do SET-REPLACE with input json")
+            
+            #xpath = "/if:interfaces/if:interface"
+            xpath = input_conf['VERIFY_GETSET_Sanity1_1']['filter']
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            response = gnmiTestLib._get(stub, paths, user, password)
+            #log.info(response)
+            msg_dict = google.protobuf.json_format.MessageToDict(response)
+            log.info(msg_dict)
+            resp_dict = gnmiTestLib.new_get_oc_response_dict(msg_dict)
+            log.info(resp_dict)
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        pytest.fail("Test GETSET_Sanity1_1 failed due to Grpc Error {err}".format(err=e.details()))
+
+    if len(err_msg) != 0:
+        log.error("Test GET_WITH_OC_COMP failed due to : {}".format(*err_msg))
+    else:
+        log.info("Test GET_WITH_OC_COMP - Set and Get Passed")
+
+
 def _test_Get_with_type(stub):
     user = None
     password = None
