@@ -6,7 +6,6 @@ import csv
 from operator import itemgetter
 from itertools import groupby
 import yaml
-import json
 import topofilename
 
 DOCUMENTATION = '''
@@ -19,14 +18,6 @@ options:
       Default: None
       required: True
 '''
-
-def get_vm_type(ngs_type):
-    if ngs_type == "ToRRouter":
-        return "tor"
-    if ngs_type == "LeafRouter":
-        return "leaf"
-    if ngs_type == "SpineRouter":
-        return "spine"
 
 class ParseTestbedTopoinfo():
     '''
