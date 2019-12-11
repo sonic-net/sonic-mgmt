@@ -64,8 +64,12 @@
     fail: msg="Define ptf_imagename variable with -e ptf_imagename=something"
     when: ptf_imagename is not defined
 
+  - name: Check that variable topo_file is defined
+    fail: msg="Define topo_file variable with -e topo_file=something"
+    when: topo_file is not defined
+
   - name: Load topo variables
-    include_vars: "vars/topo_{{ topo }}.yml"
+    include_vars: "{{ topo_file }}"
 
   - name: Read dut minigraph
     conn_graph_facts: host={{ dut_name }}
@@ -91,8 +95,12 @@
     fail: msg="Define VM_base variable with -e VM_base=something"
     when: VM_base is not defined
 
+  - name: Check that variable topo_file is defined
+    fail: msg="Define topo_file variable with -e topo_file=something"
+    when: topo_file is not defined
+
   - name: Load topo variables
-    include_vars: "vars/topo_{{ topo }}.yml"
+    include_vars: "{{ topo_file }}"
 
   - name: Find current server group
     set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
