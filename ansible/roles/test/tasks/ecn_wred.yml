@@ -22,11 +22,11 @@
 
 - include_tasks: add_container_to_inventory.yml
   vars:
-    container_name: lldp
+    container_name: database
 
-- name: Copy test files to DUT
-  copy: src={{ item }} dest={{ tmp_dir }}i
-  delegate_to: lldp
+- name: Copy test files to DUT database
+  copy: src={{ item }} dest={{ tmp_dir }}
+  delegate_to: database
   with_fileglob:
     - "{{ test_files_dir }}/*"
 
