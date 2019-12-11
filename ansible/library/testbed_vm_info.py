@@ -9,6 +9,7 @@ import ipaddr as ipaddress
 from operator import itemgetter
 from itertools import groupby
 from collections import defaultdict
+import topofilename
 
 DOCUMENTATION = '''
 module: testbed_vm_info.py
@@ -43,7 +44,7 @@ class TestbedVMFacts():
     """
 
     def __init__(self, toponame, vmbase):
-        self.topofile = TOPO_PATH+'topo_'+toponame +'.yml'
+        self.topofile = TOPO_PATH + topofilename.get_filename(toponame)
         self.start_index = int(re.findall('VM(\d+)', vmbase)[0])
         self.vmhosts = {}
         return
