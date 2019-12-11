@@ -1,0 +1,18 @@
+{
+"openconfig-platform:components": {
+    "component": [
+      {
+        "name": "eth-1/1/1",
+        "config": {
+          "name": "eth-1/1/1",
+          "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
+        },
+        "port": {
+            "config": {
+                "openconfig-hercules-platform:port-id": "1"
+            }
+        }
+      }
+    ]
+  }
+}
