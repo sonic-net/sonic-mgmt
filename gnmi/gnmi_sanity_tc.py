@@ -398,11 +398,13 @@ def _test_GetSet_OC_Components(stub):
             path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
             log.info("Verify Get for OC Components ")
             response = gnmiTestLib._get(stub, path, user, password,prefix,type='ALL')
-            #log.info(response)
+            log.info(response)
+            """
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
             resp_dict = gnmiTestLib.new_get_oc_response_dict(msg_dict)
             log.info(resp_dict)
+            """
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
@@ -434,8 +436,8 @@ def _test_Get_OC_Components(stub):
             path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
             log.info("Verify Get for OC Components ")
             response = gnmiTestLib._get(stub, path, user, password,prefix,type='ALL')
-            msg_dict = google.protobuf.json_format.MessageToJson(response)
-            log.info(msg_dict)
+            msg_json = google.protobuf.json_format.MessageToJson(response)
+            log.info(msg_json)
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
