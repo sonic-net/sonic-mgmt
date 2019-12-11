@@ -10,10 +10,5 @@
     docker_volumes_from:
     - database
 
-- include_tasks: add_container_to_inventory.yml
-  vars:
-    container_name: teamd
-
 - include_tasks: teamd_interface.yml
   with_items: "{{ minigraph_portchannel_interfaces }}"
-  delegate_to: teamd

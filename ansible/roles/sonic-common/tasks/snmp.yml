@@ -112,4 +112,4 @@
   # Force handler flush to trigger daemon restarts
   - meta: flush_handlers
 
-   delegate_to: snmp
+  delegate_to: snmp
