@@ -6,7 +6,7 @@
 - name: Obtain client interface alias
   set_fact:
     client_iface_alias: "{{ minigraph_port_name_to_alias_map[client_iface_name] }}"
- 
+
 - name: Obtain client port index
   set_fact:
     client_port_index: "{{ minigraph_port_indices[client_iface_name] }}"
@@ -54,7 +54,7 @@
 
 - name: Bring all uplink interfaces down
   shell: ifconfig {{ item.key }} down
-  with_dict: minigraph_portchannels
+  with_dict: "{{ minigraph_portchannels }}"
   become: true
 
 - name: Pause to ensure uplinks are down
@@ -63,7 +63,7 @@
 
 - name: Bring all uplink interfaces up
   shell: ifconfig {{ item.key }} up
-  with_dict: minigraph_portchannels
+  with_dict: "{{ minigraph_portchannels }}"
   become: true
 
 - name: Pause to ensure uplinks are up
@@ -98,7 +98,7 @@
 
 - name: Bring all uplink interfaces down
   shell: ifconfig {{ item.key }} down
-  with_dict: minigraph_portchannels
+  with_dict: "{{ minigraph_portchannels }}"
   become: true
 
 - name: Pause to ensure uplinks are down
@@ -117,7 +117,7 @@
 
 - name: Bring all uplink interfaces up
   shell: ifconfig {{ item.key }} up
-  with_dict: minigraph_portchannels
+  with_dict: "{{ minigraph_portchannels }}"
   become: true
 
 - name: Pause to ensure uplinks are up
