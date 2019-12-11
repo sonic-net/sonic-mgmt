@@ -393,9 +393,11 @@ def _test_GetSet_OC_Components(stub):
                 log.info("GET_WITH_OC_COMP:Failed - was unable to do SET-REPLACE with input json")
             
             #xpath = "/if:interfaces/if:interface"
-            xpath = input_conf['VERIFY_GET_WITH_OC_COMP']['filter']
-            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
-            response = gnmiTestLib._get(stub, paths, user, password)
+            prefix = input_conf['VERIFY_GET_WITH_OC_COMP']['prefix']
+            path = input_conf['VERIFY_GET_WITH_OC_COMP']['path']
+            path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
+            log.info("Verify Get for OC Components ")
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='ALL')
             #log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
@@ -426,10 +428,12 @@ def _test_Get_OC_Components(stub):
     log.info('Performing SET-REPLACE Request to target \n')
     try:
         if 'GET_WITH_OC_COMP' in input_conf:
-            xpath = input_conf['VERIFY_GET_WITH_OC_COMP']['filter']
-            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
-            response = gnmiTestLib._get(stub, paths, user, password)
-            #log.info(response)
+            prefix = input_conf['VERIFY_GET_WITH_OC_COMP']['prefix']
+            #prefix = gnmiTestLib._parse_path(gnmiTestLib._path_names(prefix))
+            path = input_conf['VERIFY_GET_WITH_OC_COMP']['path']
+            path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
+            log.info("Verify Get for OC Components ")
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='ALL')
             msg_dict = google.protobuf.json_format.MessageToJson(response)
             log.info(msg_dict)
     except KeyboardInterrupt:
