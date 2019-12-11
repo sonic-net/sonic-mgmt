@@ -393,7 +393,7 @@ def _test_GetSet_OC_Components(stub):
                 log.info("GET_WITH_OC_COMP:Failed - was unable to do SET-REPLACE with input json")
             
             #xpath = "/if:interfaces/if:interface"
-            xpath = input_conf['VERIFY_GETSET_Sanity1_1']['filter']
+            xpath = input_conf['VERIFY_GET_WITH_OC_COMP']['filter']
             paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
             response = gnmiTestLib._get(stub, paths, user, password)
             #log.info(response)
@@ -414,6 +414,36 @@ def _test_GetSet_OC_Components(stub):
     else:
         log.info("Test GET_WITH_OC_COMP - Set and Get Passed")
 
+def _test_Get_OC_Components(stub):
+    user = None
+    password = None
+    err_msg = list()
+    #with open(ApData.input_conf_file, 'r') as ip_conf_file:
+    #    input_conf = gnmiTestLib.json_load_byteified(ip_conf_file)
+
+    input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_Get_with_prefix/input_conf_file"), 'r').read())
+
+    log.info('Performing SET-REPLACE Request to target \n')
+    try:
+        if 'GET_WITH_OC_COMP' in input_conf:
+            xpath = input_conf['VERIFY_GET_WITH_OC_COMP']['filter']
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            response = gnmiTestLib._get(stub, paths, user, password)
+            #log.info(response)
+            msg_dict = google.protobuf.json_format.MessageToJson(response)
+            log.info(msg_dict)
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        pytest.fail("Test GETSET_Sanity1_1 failed due to Grpc Error {err}".format(err=e.details()))
+
+    if len(err_msg) != 0:
+        log.error("Test GET_WITH_OC_COMP failed due to : {}".format(*err_msg))
+    else:
+        log.info("Test GET_WITH_OC_COMP - Set and Get Passed")
 
 def _test_Get_with_type(stub):
     user = None

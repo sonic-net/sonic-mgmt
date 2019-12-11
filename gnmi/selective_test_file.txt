@@ -8,3 +8,4 @@ gnmi_ap.py::TestGnmi::()::test_Get_with_type
 gnmi_ap.py::TestGnmi::()::test_gnmi_SetPfxPath
 gnmi_ap.py::TestGnmi::()::test_SetReq_Del1
 gnmi_ap.py::TestGnmi::()::test_GetSet_OC_Components
+gnmi_ap.py::TestGnmi::()::test_Get_OC_Components
