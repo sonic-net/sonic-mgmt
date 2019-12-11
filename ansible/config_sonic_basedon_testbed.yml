@@ -120,6 +120,13 @@
         become: true
         when: apply_configlet is defined and apply_configlet|bool == true
 
+      - name: Replace snmp community string
+        lineinfile:
+            name: /etc/sonic/snmp.yml
+            regexp: '^snmp_rocommunity:'
+            line: 'snmp_rocommunity: {{ snmp_rocommunity }}'
+        become: true
+
       - name: disable automatic minigraph update if we are deploying new minigraph into SONiC
         lineinfile:
             name: /etc/sonic/updategraph.conf
