@@ -21,7 +21,11 @@
 ##########################################
 - block:
   - name: upgrade ONYX OS
-    include: mlnx/upgrade_onyx.yml
+    include_tasks:
+      file: mlnx/upgrade_onyx.yml
+      apply:
+        tags:
+          - upgrade
     when: peer_hwsku == "MLNX-OS" and image_url is defined
     tags: upgrade
 
