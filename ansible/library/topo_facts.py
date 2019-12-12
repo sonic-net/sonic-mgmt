@@ -6,7 +6,7 @@ import csv
 from operator import itemgetter
 from itertools import groupby
 import yaml
-import topofilename
+import re
 
 DOCUMENTATION = '''
 module: topo_facts.py
@@ -26,13 +26,15 @@ class ParseTestbedTopoinfo():
     def __init__(self):
         self.vm_topo_config = {}
 
-
     def get_topo_config(self, topo_name):
+        CLET_SUFFIX = "-clet"
+
         if 'ptf32' in topo_name:
             topo_name = 't1'
         if 'ptf64' in topo_name:
             topo_name = 't1-64'
-        topo_filename = 'vars/' + topofilename.get_filename(topo_name)
+        topo_name = re.sub(CLET_SUFFIX + "$", "", topo_name)
+        topo_filename = 'vars/topo_' + topo_name + '.yml'
         vm_topo_config = dict()
 
         ### read topology definition
@@ -69,7 +71,6 @@ class ParseTestbedTopoinfo():
                         vmconfig[vm]['bgp_ipv4'] = ip.upper()
                     if ip[0:5].upper() in vmconfig[vm]['peer_ipv6'].upper():
                         vmconfig[vm]['bgp_ipv6'] = ip.upper()
-
             vm_topo_config['vm'] = vmconfig
 
         if 'host_interfaces' in topo_definition['topology']:

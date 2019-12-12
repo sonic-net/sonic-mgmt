@@ -290,7 +290,7 @@ class AclTest(BaseTest):
         test_result = False
 
         self.switch_info = open(self.test_params["switch_info"], 'r').readlines()
-        if self.testbed_type in [ 't1', 't1-lag', 't1-64-lag' ]:
+        if self.testbed_type in [ 't1', 't1-lag', 't1-64-lag', 't1-64-lag-clet' ]:
             self.tor_ports = map(int, self.switch_info[0].rstrip(",\n").split(","))
             self.spine_ports = map(int, self.switch_info[1].rstrip(",\n").split(","))
             self.dest_ip_addr_spine = self.switch_info[2].strip()
