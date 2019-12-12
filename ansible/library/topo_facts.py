@@ -6,6 +6,7 @@ import csv
 from operator import itemgetter
 from itertools import groupby
 import yaml
+import re
 
 DOCUMENTATION = '''
 module: topo_facts.py
@@ -26,10 +27,13 @@ class ParseTestbedTopoinfo():
         self.vm_topo_config = {}
 
     def get_topo_config(self, topo_name):
+        CLET_SUFFIX = "-clet"
+
         if 'ptf32' in topo_name:
             topo_name = 't1'
         if 'ptf64' in topo_name:
             topo_name = 't1-64'
+        topo_name = re.sub(CLET_SUFFIX + "$", "", topo_name)
         topo_filename = 'vars/topo_' + topo_name + '.yml'
         vm_topo_config = dict()
 
