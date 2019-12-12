@@ -19,7 +19,7 @@ class TestVrfAttrSrcMac():
     def setup_vrf_attr_src_mac(self, duthost, ptfhost, host_facts):
         # -------- Setup ----------
         extra_vars = { 'router_mac': self.new_vrf1_router_mac }
-        duthost.options['variable_manager'].extra_vars = extra_vars
+        duthost.options['variable_manager'].extra_vars.update(extra_vars)
         duthost.template(src="vrf/vrf_attr_src_mac.j2", dest="/tmp/vrf_attr_src_mac.json")
 
         duthost.shell("config load -y /tmp/vrf_attr_src_mac.json")
@@ -33,7 +33,7 @@ class TestVrfAttrSrcMac():
 
         # -------- Teardown ----------
         extra_vars = { 'router_mac': host_facts['ansible_Ethernet0']['macaddress'] }
-        duthost.host.options['variable_manager'].extra_vars = extra_vars
+        duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
         duthost.template(src="vrf/vrf_attr_src_mac.j2", dest="/tmp/vrf_attr_src_mac.json")
 
         duthost.shell("config load -y /tmp/vrf_attr_src_mac.json")
