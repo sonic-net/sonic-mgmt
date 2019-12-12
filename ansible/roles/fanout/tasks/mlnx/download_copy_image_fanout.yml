@@ -8,6 +8,7 @@
         url: "{{ url }}"
         dest: "{{ filename }}"
         force: yes
+      delegate_to: localhost
 
     - name: Copy the downloaded image to fanout
       include_tasks: scp_copy.yml
@@ -19,3 +20,4 @@
       file:
         path: "{{ filename }}"
         state: absent
+      delegate_to: localhost
