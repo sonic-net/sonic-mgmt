@@ -282,7 +282,7 @@ def setup_vrf_cfg(duthost, localhost, cfg_facts):
     extra_vars = {'cfg_t0': cfg_t0,
                   'vlan_ports': vlan_ports}
 
-    duthost.host.options['variable_manager'].extra_vars = extra_vars
+    duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
 
     # backup config_db.json
     duthost.shell("mv /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
@@ -367,7 +367,7 @@ def gen_vrf_fib_file(vrf, testbed, ptfhost, dst_intfs, \
         'limited_tor_number': limited_tor_number
     }
 
-    ptfhost.host.options['variable_manager'].extra_vars = extra_vars
+    ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
 
     ptfhost.template(src="vrf/vrf_fib.j2", dest=render_file)
 
@@ -377,7 +377,7 @@ def gen_vrf_neigh_file(vrf, ptfhost, render_file):
         'intf_ips': g_vars['vrf_intfs'][vrf]
     }
 
-    ptfhost.host.options['variable_manager'].extra_vars = extra_vars
+    ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
 
     ptfhost.template(src="vrf/vrf_neigh.j2", dest=render_file)
 
@@ -668,7 +668,7 @@ class TestVrfAclRedirect():
             'redirect_dst_ips': redirect_dst_ips,
             'redirect_dst_ipv6s': redirect_dst_ipv6s
         }
-        duthost.host.options['variable_manager'].extra_vars = extra_vars
+        duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
         duthost.template(src="vrf/vrf_acl_redirect.j2", dest="/tmp/vrf_acl_redirect.json")
         duthost.shell("config load -y /tmp/vrf_acl_redirect.json")
 
@@ -839,7 +839,7 @@ class TestVrfLoopbackIntf():
             'namespace' : g_vars['vlan_peer_vrf2ns_map'].values(),
             'lo_addr'   : get_intf_ips('Loopback0', cfg_facts)['ipv4'][0].ip
         }
-        ptfhost.host.options['variable_manager'].extra_vars = extra_vars
+        ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
         ptfhost.template(src="vrf/bgp_speaker/config.j2", dest="%s/%s" % (exabgp_dir, 'config.ini'))
 
         # deploy start script
@@ -1078,7 +1078,7 @@ class TestVrfCapacity():
             'route_prefix': self.route_prefix,
             'op_code':      'add'
         }
-        duthost.host.options['variable_manager'].extra_vars = dut_extra_vars
+        duthost.host.options['variable_manager'].extra_vars.update(dut_extra_vars)
 
         cfg_attrs_map = OrderedDict()
         # In wrost case(1k vrfs, 2k rifs), remove a vlan could take 60~80ms
@@ -1122,7 +1122,7 @@ class TestVrfCapacity():
             'ptf_port2':        ptf_port2,
             'random_vrf_list':  random_vrf_list
         }
-        ptfhost.host.options['variable_manager'].extra_vars = ptf_extra_vars
+        ptfhost.host.options['variable_manager'].extra_vars.update(ptf_extra_vars)
         ptfhost.template(src='vrf/vrf_capacity_ptf_cfg.j2', dest='/tmp/vrf_capacity_ptf_cfg.sh', mode="0755")
         ptfhost.shell('/tmp/vrf_capacity_ptf_cfg.sh')
 
@@ -1132,7 +1132,7 @@ class TestVrfCapacity():
             'count':            1,
             'timeout':          1
         })
-        duthost.host.options['variable_manager'].extra_vars = dut_extra_vars
+        duthost.host.options['variable_manager'].extra_vars.update(dut_extra_vars)
         duthost.template(src='vrf/vrf_capacity_ping.j2', dest='/tmp/vrf_capacity_neigh_learning.sh', mode="0755")
         duthost.shell('/tmp/vrf_capacity_neigh_learning.sh', module_ignore_errors=True)
 
@@ -1167,7 +1167,7 @@ class TestVrfCapacity():
 
             # remove static routes
             dut_extra_vars['op_code'] = 'del'
-            duthost.host.options['variable_manager'].extra_vars = dut_extra_vars
+            duthost.host.options['variable_manager'].extra_vars.update(dut_extra_vars)
             duthost.template(src='vrf/vrf_capacity_route_cfg.j2', dest='/tmp/vrf_capacity_route_cfg.sh', mode="0755")
             duthost.shell('/tmp/vrf_capacity_route_cfg.sh')
 
@@ -1189,7 +1189,7 @@ class TestVrfCapacity():
             'ip1':              self.ipnet1,
             'ip2':              self.ipnet2
         }
-        duthost.host.options['variable_manager'].extra_vars = dut_extra_vars
+        duthost.host.options['variable_manager'].extra_vars.update(dut_extra_vars)
         duthost.template(src='vrf/vrf_capacity_ping.j2', dest='/tmp/vrf_capacity_ping.sh', mode="0755")
 
         duthost.shell('/tmp/vrf_capacity_ping.sh')

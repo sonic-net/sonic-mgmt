@@ -134,9 +134,9 @@
 
     - name: include continuous_peer_link_flap_helper.yml
       include_tasks: continuous_link_flap/continuous_peer_link_flap_helper.yml
-      # vars:
-      #   interface: "{{item}}"
-      # with_items: "{{ device_conn.keys() }}"
+      vars:
+        interface: "{{item}}"
+      with_items: "{{ device_conn.keys() }}"
 
     - name: wait 60 secs so that BGP routes are relearned
       pause: seconds=60
@@ -226,3 +226,6 @@
     - name: perform config reload
       shell: config reload -y
       become: true
+
+    - name: "Wait for 2 minutes for prcesses and interfaces to be stable"
+      pause: minutes=2

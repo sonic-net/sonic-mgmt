@@ -156,7 +156,7 @@ def acl_table_config(duthost, setup, stage):
     }
 
     logger.info('extra variables for ACL table:\n{}'.format(pprint.pformat(acl_table_vars)))
-    duthost.host.options['variable_manager'].extra_vars = acl_table_vars
+    duthost.host.options['variable_manager'].extra_vars.update(acl_table_vars)
 
     logger.info('generate config for ACL table {}'.format(acl_table_name))
     acl_config = 'acl_table_{}.json'.format(acl_table_name)
