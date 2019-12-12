@@ -23,6 +23,10 @@
     docker_volumes:
       - /etc/sonic/:/etc/sonic/:ro
 
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: lldp
+
 - block:
   - name: Setup LLDPD Daemon Config File
     become: true
@@ -43,9 +47,7 @@
   # Force handler flush to trigger daemon restarts
   - meta: flush_handlers
 
-  vars:
-    ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i lldp python
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - name: Copy lldpctl helper script
   become: true

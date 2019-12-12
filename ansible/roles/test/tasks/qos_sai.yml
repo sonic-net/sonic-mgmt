@@ -6,6 +6,14 @@
 
 - include_vars: vars/qos.yml
 
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: "{{ item }}"
+  with_items:
+    - "lldp"
+    - "bgp"
+    - "syncd"
+
 - block:
     - name: Getting minigraph facts
       minigraph_facts: host={{inventory_hostname}}
@@ -21,9 +29,7 @@
     - name: Ensure LLDP Daemon stopped
       become: yes
       supervisorctl: state=stopped name={{item}}
-      vars:
-        ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i lldp python
+      delegate_to: "{{ ansible_host }}_lldp"
       with_items:
         - lldpd
         - lldp-syncd
@@ -35,9 +41,7 @@
                   line='bgpd=no'
       notify:
         - Restart Quagga Daemon
-      vars:
-        ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i bgp python
+      delegate_to: "{{ ansible_host }}_bgp"
 
     - meta: flush_handlers
 
@@ -47,9 +51,7 @@
 
         - name: Disable Mellanox packet aging
           shell: python /root/packets_aging.py disable
-      vars:
-        ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i syncd python
+      delegate_to: "{{ ansible_host }}_syncd"
       when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
     - name: copy ptf tests
@@ -68,7 +70,7 @@
             ['Arista-7050-QX-32S', 'Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64'])
 
     - name: Init PTF base test parameters
-      set_fact: 
+      set_fact:
         ptf_base_params:
         - router_mac={% if testbed_type not in ['t0', 't0-64', 't0-116'] %}'{{ansible_Ethernet0['macaddress']}}'{% else %}''{% endif %}
         - server='{{ansible_host}}'
@@ -564,9 +566,7 @@
     - name: Restore LLDP Daemon
       become: yes
       supervisorctl: state=started name={{item}}
-      vars:
-        ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i lldp python
+      delegate_to: "{{ ansible_host }}_lldp"
       with_items:
         - lldpd
         - lldp-syncd
@@ -578,9 +578,7 @@
                   line='bgpd=yes'
       notify:
         - Restart Quagga Daemon
-      vars:
-        ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i bgp python
+      delegate_to: "{{ ansible_host }}_bgp"
 
     - name: Restore original watermark polling status
       shell: counterpoll watermark {{watermark_status.stdout}}
@@ -594,9 +592,7 @@
 
     - name: Enable Mellanox packet aging
       shell: python /root/packets_aging.py enable
-      vars:
-        ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i syncd python
+      delegate_to: "{{ ansible_host }}_syncd"
       when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
     - meta: flush_handlers

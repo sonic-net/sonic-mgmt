@@ -1,5 +1,9 @@
 # This playbook tests neighbor interface flap and ACS interface status work properly
 #
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: lldp
+
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
 
@@ -8,15 +12,11 @@
   service: name=lldpd
            state=started
            enabled=yes
-  vars:
-    ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i lldp python
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - name: Gather information from lldp
   lldp:
-  vars:
-    ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i lldp python
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - name: If underlay exists, use underlay to replace it.
   set_fact:
@@ -47,9 +47,7 @@
 
 - name: Gather information from lldp again after ports are enabled
   lldp:
-  vars:
-    ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i lldp python
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - name: rearrange lldp received data structure for interface up down test
   interface_up_down_data_struct_facts: data="{{ lldp }}"

@@ -63,6 +63,10 @@
   delegate_to: localhost
   register: snmp_remap
 
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: snmp
+
 - block:
   - name: Check version of snmpd
     shell: dpkg-query -W --showformat='${Version}' snmpd
@@ -108,6 +112,4 @@
   # Force handler flush to trigger daemon restarts
   - meta: flush_handlers
 
-  vars:
-    ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i snmp python
+  delegate_to: "{{ ansible_host }}_snmp"

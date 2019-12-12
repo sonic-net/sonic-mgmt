@@ -10,12 +10,14 @@
     hwsku: "{{ acs_devices[name]['hwsku'] }}"
     cred: "{{ switch_login[acs_devices[name]['hwsku']] }}"
 
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: sswsyncd
+
 - name: Get ASIC tables
   switch_tables: asic="{{asic}}" nexthop=yes nexthopgroup=yes
   become: yes
-  vars:
-    ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i sswsyncd python
+  delegate_to: "{{ ansible_host }}_sswsyncd"
 
 - block:
   - name: Assert the particular entry is in nexthopgroup table
@@ -44,9 +46,7 @@
   - name: Update list of current nexthop group(s)
     switch_tables: asic="{{asic}}" nexthop=yes nexthopgroup=yes
     become: yes
-    vars:
-      ansible_shell_type: docker
-      ansible_python_interpreter: docker exec -i sswsyncd python
+    delegate_to: "{{ ansible_host }}_sswsyncd"
 
   - name: Poll for updated tables until peer is not in nexthop groups
     switch_tables: asic="{{asic}}" nexthop=yes nexthopgroup=yes
@@ -56,9 +56,7 @@
     retries: 6
     delay: 10
     with_items: "{{ nexthopgroup }}"
-    vars:
-      ansible_shell_type: docker
-      ansible_python_interpreter: docker exec -i sswsyncd python
+    delegate_to: "{{ ansible_host }}_sswsyncd"
 
   - name: Restart BGP session from neighbor
     action: cisco template=bgp_neighbor_noshut.j2
@@ -73,9 +71,7 @@
   - name: Update list of current nexthop group(s)
     switch_tables: asic="{{asic}}" nexthop=yes nexthopgroup=yes
     become: yes
-    vars:
-      ansible_shell_type: docker
-      ansible_python_interpreter: docker exec -i sswsyncd python
+    delegate_to: "{{ ansible_host }}_sswsyncd"
 
   - name: Poll for updated tables until peer is in nexthop groups
     switch_tables: asic="{{asic}}" nexthop=yes nexthopgroup=yes
@@ -85,8 +81,6 @@
     retries: 6
     delay: 10
     with_items: "{{ nexthopgroup }}"
-    vars:
-      ansible_shell_type: docker
-      ansible_python_interpreter: docker exec -i sswsyncd python
+    delegate_to: "{{ ansible_host }}_sswsyncd"
 
   when: "'T2' in name"

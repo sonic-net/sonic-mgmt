@@ -23,11 +23,13 @@
 - set_fact: test_rate=true
   when: test_rate is not defined
 
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: lldp
+
 - name: Gathering peer VM information from lldp
   lldp:
-  vars:
-    ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i lldp python
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - name: gathering minigraph of the device configuration
   minigraph_facts: host={{ inventory_hostname }}

@@ -20,11 +20,13 @@
   script: roles/test/files/helpers/change_mac.sh
   delegate_to: "{{ ptf_host }}"
 
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: lldp
+
 - name: "Gather information from LLDP"
   lldp:
-  vars:
-    ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i lldp python
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - name: "Copy tests to PTF"
   copy: src=roles/test/files/ptftests dest=/root

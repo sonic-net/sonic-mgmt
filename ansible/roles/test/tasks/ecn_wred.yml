@@ -20,14 +20,15 @@
 - set_fact:
     red_min_threshold={{ wred_value.stdout }}
 
-- block:
-    - name: Copy test files to DUT
-      copy: src={{ item }} dest={{ tmp_dir }}
-      with_fileglob:
-         - "{{ test_files_dir }}/*"
+- include_tasks: add_container_to_inventory.yml
   vars:
-    ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i database python
+    container_name: database
+
+- name: Copy test files to DUT database
+  copy: src={{ item }} dest={{ tmp_dir }}
+  delegate_to: "{{ ansible_host }}_database"
+  with_fileglob:
+    - "{{ test_files_dir }}/*"
 
 - block:
     # Test case #3(MA): Check configuration applied

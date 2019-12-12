@@ -52,6 +52,11 @@
 # Outer block to execute laganalizer in always block
 - block:
   # Perform the test: generate and apply acl jsons
+
+  - include_tasks: add_container_to_inventory.yml
+    vars:
+      container_name: swss
+
   - block:
     - name: Copy JSON configs into docker filesystem
       template: src={{ item }}.j2 dest=/tmp/{{ item }}.json
@@ -77,9 +82,7 @@
       with_items:
         - "{{ acltb_configs[::-1] }}"
 
-    vars:
-      ansible_shell_type: docker
-      ansible_python_interpreter: docker exec -i swss python
+    delegate_to: "{{ ansible_host }}_swss"
 
   always:
     - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml

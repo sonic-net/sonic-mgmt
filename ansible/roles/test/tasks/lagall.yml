@@ -42,11 +42,13 @@
     dut_lag_members: "{{ dut_lag_members }} + [ '{{ item.1['members'][0] }}' ] + [ '{{ item.1['members'][1] }}' ]"
   with_indexed_items: "{{ minigraph_portchannel_interfaces }}"
 
+- include_tasks: add_container_to_inventory.yml
+  vars:
+      container_name: lldp
+
 - name: Gather information from LLDP.
   lldp:
-  vars:
-      ansible_shell_type: docker
-      ansible_python_interpreter: docker exec -i lldp python
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - debug:
     msg: "{{ dut_lag_members }}"

@@ -30,11 +30,13 @@
   with_items: "{{ minigraph_bgp }}"
   when: "item.name == vm_name and item.addr|ipv6"
 
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: lldp
+
 - name: Gather information from LLDP
   lldp:
-  vars:
-    ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i lldp python
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - name: Get VM IP address.
   set_fact:
