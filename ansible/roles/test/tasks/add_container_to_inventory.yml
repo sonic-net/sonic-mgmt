@@ -19,7 +19,8 @@
 
 - name: Add {{ container_name }} container to inventory
   add_host:
-    name: "{{ container_name }}"
+    name: "{{ ansible_host }}_{{ container_name }}"
     ansible_connection: docker
+    ansible_host: "{{ container_name }}"
     ansible_docker_extra_args: "-H=ssh://{{ ansible_ssh_user }}@{{ ansible_host }}"
     ansible_user: root

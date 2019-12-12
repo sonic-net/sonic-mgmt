@@ -82,7 +82,7 @@
       with_items:
         - "{{ acltb_configs[::-1] }}"
 
-    delegate_to: swss
+    delegate_to: "{{ ansible_host }}_swss"
 
   always:
     - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml

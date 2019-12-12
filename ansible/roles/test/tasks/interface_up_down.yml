@@ -12,11 +12,11 @@
   service: name=lldpd
            state=started
            enabled=yes
-  delegate_to: lldp
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - name: Gather information from lldp
   lldp:
-  delegate_to: lldp
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - name: If underlay exists, use underlay to replace it.
   set_fact:
@@ -47,7 +47,7 @@
 
 - name: Gather information from lldp again after ports are enabled
   lldp:
-  delegate_to: lldp
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - name: rearrange lldp received data structure for interface up down test
   interface_up_down_data_struct_facts: data="{{ lldp }}"

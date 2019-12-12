@@ -47,7 +47,7 @@
   # Force handler flush to trigger daemon restarts
   - meta: flush_handlers
 
-  delegate_to: lldp
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - name: Copy lldpctl helper script
   become: true

@@ -48,7 +48,7 @@
 
 - name: Gather information from LLDP.
   lldp:
-  delegate_to: lldp
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - debug:
     msg: "{{ dut_lag_members }}"

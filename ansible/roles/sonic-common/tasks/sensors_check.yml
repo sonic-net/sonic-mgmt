@@ -12,7 +12,7 @@
 
 - name: Gather sensors
   sensors_facts: checks={{ sensors_checks[platform.stdout] }}
-  delegate_to: "{{ pmon_ps.stdout }}"
+  delegate_to: "{{ ansible_host }}_{{ pmon_ps.stdout }}"
 
 - name: Output of sensors information
   debug: var=vars['sensors']

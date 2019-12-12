@@ -29,7 +29,7 @@
     - name: Ensure LLDP Daemon stopped
       become: yes
       supervisorctl: state=stopped name={{item}}
-      delegate_to: lldp
+      delegate_to: "{{ ansible_host }}_lldp"
       with_items:
         - lldpd
         - lldp-syncd
@@ -41,7 +41,7 @@
                   line='bgpd=no'
       notify:
         - Restart Quagga Daemon
-      delegate_to: bgp
+      delegate_to: "{{ ansible_host }}_bgp"
 
     - meta: flush_handlers
 
@@ -51,7 +51,7 @@
 
         - name: Disable Mellanox packet aging
           shell: python /root/packets_aging.py disable
-      delegate_to: syncd
+      delegate_to: "{{ ansible_host }}_syncd"
       when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
     - name: copy ptf tests
@@ -566,7 +566,7 @@
     - name: Restore LLDP Daemon
       become: yes
       supervisorctl: state=started name={{item}}
-      delegate_to: lldp
+      delegate_to: "{{ ansible_host }}_lldp"
       with_items:
         - lldpd
         - lldp-syncd
@@ -578,7 +578,7 @@
                   line='bgpd=yes'
       notify:
         - Restart Quagga Daemon
-      delegate_to: bgp
+      delegate_to: "{{ ansible_host }}_bgp"
 
     - name: Restore original watermark polling status
       shell: counterpoll watermark {{watermark_status.stdout}}
@@ -592,7 +592,7 @@
 
     - name: Enable Mellanox packet aging
       shell: python /root/packets_aging.py enable
-      delegate_to: syncd
+      delegate_to: "{{ ansible_host }}_syncd"
       when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
     - meta: flush_handlers

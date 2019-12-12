@@ -82,7 +82,7 @@
     - isolate
     - unisolate
 
-  delegate_to: bgp
+  delegate_to: "{{ ansible_host }}_bgp"
 
 - name: Copy vtysh helper script
   become: true

@@ -12,7 +12,7 @@
     - name: Ensure LLDP Daemon stopped
       become: yes
       supervisorctl: state=stopped name={{ item }}
-      delegate_to: lldp
+      delegate_to: "{{ ansible_host }}_lldp"
       with_items:
         - lldp-syncd
         - lldpd
@@ -43,11 +43,11 @@
 
     - name: Update ptf_nn_agent configuration inside dut
       template: src=ptf_nn_agent.conf.dut.j2 dest=/etc/supervisor/conf.d/ptf_nn_agent.conf
-      delegate_to: syncd
+      delegate_to: "{{ ansible_host }}_syncd"
 
     - name: Restart ptf_nn_agent inside dut
       supervisorctl: state=restarted name=ptf_nn_agent
-      delegate_to: syncd
+      delegate_to: "{{ ansible_host }}_syncd"
 
     - name: copy the test to ptf container
       copy: src=roles/test/files/ptftests dest=/root
@@ -97,16 +97,16 @@
 
     - name: Update ptf_nn_agent configuration inside dut
       template: src=ptf_nn_agent.conf.dut.j2 dest=/etc/supervisor/conf.d/ptf_nn_agent.conf
-      delegate_to: syncd
+      delegate_to: "{{ ansible_host }}_syncd"
 
     - name: Restart ptf_nn_agent inside dut
       supervisorctl: state=restarted name=ptf_nn_agent
-      delegate_to: syncd
+      delegate_to: "{{ ansible_host }}_syncd"
 
     - name: Restore LLDP Daemon
       become: yes
       supervisorctl: state=started name={{ item }}
-      delegate_to: lldp
+      delegate_to: "{{ ansible_host }}_lldp"
       with_items:
         - lldpd
         - lldp-syncd
