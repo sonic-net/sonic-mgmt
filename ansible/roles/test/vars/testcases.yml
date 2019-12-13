@@ -113,6 +113,38 @@ testcases:
           ptf_host:
           vm_hosts:
 
+    warm-reboot-sad-bgp:
+      filename: warm-reboot-sad-bgp.yml
+      vtestbed_compatible: no
+      topologies: [t0, t0-64, t0-64-32, t0-116, t0-56]
+      required_vars:
+          ptf_host:
+          vm_hosts:
+
+    warm-reboot-sad-lag:
+      filename: warm-reboot-sad-lag.yml
+      vtestbed_compatible: no
+      topologies: [t0, t0-64, t0-64-32, t0-116, t0-56]
+      required_vars:
+          ptf_host:
+          vm_hosts:
+
+    warm-reboot-sad-lag-member:
+      filename: warm-reboot-sad-lag-member.yml
+      vtestbed_compatible: no
+      topologies: [t0, t0-64, t0-64-32, t0-116, t0-56]
+      required_vars:
+          ptf_host:
+          vm_hosts:
+
+    warm-reboot-sad-vlan-port:
+      filename: warm-reboot-sad-vlan-port.yml
+      vtestbed_compatible: no
+      topologies: [t0, t0-64, t0-64-32, t0-116, t0-56]
+      required_vars:
+          ptf_host:
+          vm_hosts:
+
     fib:
       filename: simple-fib.yml
       topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, t1-64-lag-clet]
