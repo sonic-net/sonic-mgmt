@@ -1,3 +1,0 @@
-neighbor {{ lo_addr }} announce route {{ announce_prefix }} next-hop {{ vlan_ips[1].split('/')[0] }};{{ port_num[0] }}
-neighbor {{ lo_addr }} announce route {{ announce_prefix }} next-hop {{ vlan_ips[2].split('/')[0] }};{{ port_num[1] }}
-neighbor {{ lo_addr }} announce route {{ peer_range }} next-hop {{ vlan_ips[0].split('/')[0] }};{{ port_num[2] }}
