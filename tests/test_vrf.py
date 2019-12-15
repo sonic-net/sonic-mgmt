@@ -359,7 +359,7 @@ def cleanup_vlan_peer(ptfhost, vlan_peer_vrf2ns_map):
 def gen_vrf_fib_file(vrf, testbed, ptfhost, dst_intfs, \
                      render_file, limited_podset_number=10, limited_tor_number=10):
     extra_vars = {
-        'testbed_type': testbed['topo'],
+        'testbed_type': testbed['topo']['name'],
         'props': g_vars['props'],
         'intf_member_indices': g_vars['vrf_intf_member_port_indices'][vrf],
         'dst_intfs': dst_intfs,
@@ -416,7 +416,7 @@ def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
     ## Setup global variables
     global g_vars
 
-    with open("../ansible/vars/topo_{}.yml".format(testbed['topo']), 'r') as fh:
+    with open("../ansible/vars/topo_{}.yml".format(testbed['topo']['name']), 'r') as fh:
         g_vars['topo_properties'] = yaml.safe_load(fh)
 
     g_vars['props'] = g_vars['topo_properties']['configuration_properties']['common']
@@ -441,7 +441,7 @@ def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
 @pytest.fixture
 def partial_ptf_runner(request, ptfhost, testbed, host_facts):
     def _partial_ptf_runner(testname, **kwargs):
-        params = {'testbed_type': testbed['topo'],
+        params = {'testbed_type': testbed['topo']['name'],
                   'router_mac': host_facts['ansible_Ethernet0']['macaddress']}
         params.update(kwargs)
         ptf_runner(host=ptfhost,

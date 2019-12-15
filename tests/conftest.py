@@ -42,8 +42,14 @@ class TestbedInfo(object):
                         ptfaddress = ipaddress.IPNetwork(line[key])
                         tb_prop['ptf_ip'] = str(ptfaddress.ip)
                         tb_prop['ptf_netmask'] = str(ptfaddress.netmask)
+                    elif key == 'topo':
+                        tb_prop['topo'] = {}
+                        tb_prop['topo']['name'] = line[key]
+                        with open("../ansible/vars/topo_{}.yml".format(tb_prop['topo']['name']), 'r') as fh:
+                            tb_prop['topo']['properties'] = yaml.safe_load(fh)
                     else:
                         tb_prop[key] = line[key]
+
                 if name:
                     self.testbed_topo[name] = tb_prop
 
