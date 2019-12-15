@@ -58,7 +58,7 @@ class TestVrfAttrSrcMac():
                 "ptftests",
                 "vrf_test.FwdTest",
                 platform_dir='ptftests',
-                params={'testbed_type': testbed['topo'],
+                params={'testbed_type': testbed['topo']['name'],
                         'router_mac': self.new_vrf1_router_mac,
                         'fwd_info': "/tmp/vrf1_neigh.txt",
                         'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']},
