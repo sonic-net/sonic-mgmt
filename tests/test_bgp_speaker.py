@@ -3,6 +3,7 @@ from netaddr import *
 import sys
 import time
 import ipaddress
+import requests
 from ansible_host import AnsibleHost
 from ptf_runner import ptf_runner
 
@@ -27,11 +28,17 @@ def generate_ips(num, prefix, exclude_ips):
 
     return generated_ips
 
+def announce_route(ptfip, neighbor, route, nexthop, port):
+    url  = "http://%s:%d" % (ptfip, port)
+    data = { "command": "neighbor %s announce route %s next-hop %s" % (neighbor, route, nexthop) }
+    r = requests.post(url, data=data)
+    assert r.status_code == 200
+
 @pytest.mark.parametrize(
     "ipv4, ipv6, mtu",
     [	pytest.param(True, False, 1514),	],
     )
-def test_bgp_speaker(localhost, ansible_adhoc, testbed, ipv4, ipv6, mtu):
+def test_bgp(localhost, ansible_adhoc, testbed, ipv4, ipv6, mtu):
     """setup bgp speaker on T0 topology and verify routes advertised
     by bgp speaker is received by T0 TOR
     """
@@ -40,6 +47,7 @@ def test_bgp_speaker(localhost, ansible_adhoc, testbed, ipv4, ipv6, mtu):
     ptf_hostname = testbed['ptf']
     host = AnsibleHost(ansible_adhoc, hostname)
     ptfhost = AnsibleHost(ansible_adhoc, ptf_hostname)
+    ptfip = ptfhost.host.options['inventory_manager'].get_host(ptf_hostname).vars['ansible_host']
 
     mg_facts = host.minigraph_facts(host=hostname)['ansible_facts']
     host_facts  = host.setup()['ansible_facts']
@@ -60,65 +68,49 @@ def test_bgp_speaker(localhost, ansible_adhoc, testbed, ipv4, ipv6, mtu):
         host.command("ip route add %s/32 dev %s" % (ip.ip, mg_facts['minigraph_vlan_interfaces'][0]['attachto']))
 
     root_dir   = "/root"
-    exabgp_dir = "/root/exabgp"
-    helper_dir = "/root/helpers"
     port_num = [5000, 6000, 7000]
-    cfnames = ["config_1.ini", "config_2.ini", "config_3.ini"]
+
+    lo_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
+    lo_addr_prefixlen = int(mg_facts['minigraph_lo_interfaces'][0]['prefixlen'])
+
+    vlan_addr = mg_facts['minigraph_vlan_interfaces'][0]['addr']
+
     vlan_ports = []
     for i in range(0, 3):
         vlan_ports.append(mg_facts['minigraph_port_indices'][mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][0]['attachto']]['members'][i]])
 
-    ptfhost.file(path=exabgp_dir, state="directory")
-    ptfhost.file(path=helper_dir, state="directory")
-    ptfhost.copy(src="bgp_speaker/dump.py", dest=helper_dir)
-    ptfhost.copy(src="bgp_speaker/http_api.py", dest=helper_dir)
-    ptfhost.copy(src="bgp_speaker/announce_routes.py", dest=helper_dir)
+    # setup ip/routes in ptf
+    ptfhost.shell("ifconfig eth%d %s" % (vlan_ports[0], vlan_ips[0]))
+    ptfhost.shell("ifconfig eth%d:0 %s" % (vlan_ports[0], speaker_ips[0]))
+    ptfhost.shell("ifconfig eth%d:1 %s" % (vlan_ports[0], speaker_ips[1]))
 
-    # deploy config file
-    extra_vars = \
-                { 'helper_dir': helper_dir,
-                  'exabgp_dir': exabgp_dir,
-                  'lo_addr'   : mg_facts['minigraph_lo_interfaces'][0]['addr'],
-                  'lo_addr_prefixlen' : mg_facts['minigraph_lo_interfaces'][0]['prefixlen'],
-                  'vlan_addr' : mg_facts['minigraph_vlan_interfaces'][0]['addr'],
-                  'peer_range': mg_facts['minigraph_bgp_peers_with_range'][0]['ip_range'][0],
-                  'announce_prefix': '10.10.10.0/26',
-                  'minigraph_portchannels'  : mg_facts['minigraph_portchannels'],
-                  'minigraph_vlans'  : mg_facts['minigraph_vlans'],
-                  'minigraph_port_indices'  : mg_facts['minigraph_port_indices'],
-                  'peer_asn'  : mg_facts['minigraph_bgp_asn'],
-                  'peer_asn'  : mg_facts['minigraph_bgp_asn'],
-                  'my_asn'    : bgp_speaker_asn,
-                  'vlan_ports' : vlan_ports,
-                  'port_num'  : port_num,
-                  'speaker_ips': [str(ip) for ip in speaker_ips],
-                  'vlan_ips': [str(ip) for ip in vlan_ips],
-                  'cfnames': cfnames }
+    ptfhost.shell("ifconfig eth%d %s" % (vlan_ports[1], vlan_ips[1]))
+    ptfhost.shell("ifconfig eth%d %s" % (vlan_ports[2], vlan_ips[2]))
 
+    ptfhost.shell("ip route flush %s/%d" % (lo_addr, lo_addr_prefixlen))
+    ptfhost.shell("ip route add %s/%d via %s" % (lo_addr, lo_addr_prefixlen, vlan_addr))
+
+    lo_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
     for i in range(0, 3):
-        extra_vars.update({ 'cidx':i })
-        extra_vars.update({ 'speaker_ip': str(speaker_ips[i].ip) })
-        ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
-        ptfhost.template(src="bgp_speaker/config.j2", dest="%s/%s" % (exabgp_dir, cfnames[i]))
-
-    # deploy routes
-    ptfhost.template(src="bgp_speaker/routes.j2", dest="%s/%s" % (exabgp_dir, "routes"))
-
-    # deploy start script
-    ptfhost.template(src="bgp_speaker/start.j2", dest="%s/%s" % (exabgp_dir, "start.sh"), mode="u+rwx")
-    # kill exabgp
-    res = ptfhost.shell("pkill exabgp || true")
-    print res
-
-    # start exabgp instance
-    res = ptfhost.shell("bash %s/start.sh" % exabgp_dir)
-    print res
+        local_ip = str(speaker_ips[i].ip)
+        ptfhost.exabgp(name="bgps%d" % i, \
+                       state="started", \
+                       local_ip=local_ip,
+                       router_id=local_ip,
+                       peer_ip=lo_addr,
+                       local_asn=bgp_speaker_asn,
+                       peer_asn=mg_facts['minigraph_bgp_asn'],
+                       port=str(port_num[i]))
 
     time.sleep(10)
 
+    peer_range = mg_facts['minigraph_bgp_peers_with_range'][0]['ip_range'][0]
+    prefix = '10.10.10.0/26'
+
     # announce route
-    res = ptfhost.shell("nohup python %s/announce_routes.py %s/routes >/dev/null 2>&1 &" % (helper_dir, exabgp_dir))
-    print res
+    announce_route(ptfip, lo_addr, prefix, vlan_ips[1].ip, port_num[0])
+    announce_route(ptfip, lo_addr, prefix, vlan_ips[2].ip, port_num[1])
+    announce_route(ptfip, lo_addr, peer_range, vlan_ips[0].ip, port_num[2])
 
     # make sure routes announced to dynamic bgp neighbors
     time.sleep(60)
@@ -134,8 +126,15 @@ def test_bgp_speaker(localhost, ansible_adhoc, testbed, ipv4, ipv6, mtu):
         assert bgp_facts['bgp_neighbors'][str(ip.ip)]['accepted prefixes'] == 1
     assert bgp_facts['bgp_neighbors'][str(vlan_ips[0].ip)]['accepted prefixes'] == 1
 
-
+    ## Run ptf test
     # Generate route-port map information
+    extra_vars = \
+                { 'announce_prefix': '10.10.10.0/26',
+                  'minigraph_portchannels'  : mg_facts['minigraph_portchannels'],
+                  'minigraph_vlans'  : mg_facts['minigraph_vlans'],
+                  'minigraph_port_indices'  : mg_facts['minigraph_port_indices']}
+    ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
+
     ptfhost.template(src="bgp_speaker/bgp_speaker_route.j2", dest="/root/bgp_speaker_route.txt")
 
     ptfhost.copy(src="ptftests", dest=root_dir)
@@ -153,7 +152,8 @@ def test_bgp_speaker(localhost, ansible_adhoc, testbed, ipv4, ipv6, mtu):
                log_file="/tmp/bgp_speaker_test.FibTest.log",
                socket_recv_size=16384)
 
-    res = ptfhost.shell("pkill exabgp || true")
+    for i in range(0, 3):
+        ptfhost.exabgp(name="bgps%d" % i, state="absent")
 
     for ip in vlan_ips:
         host.command("ip route flush %s/32" % ip.ip)
