@@ -133,6 +133,11 @@ def stop_exabgp(module, name):
     exec_command(module, cmd="supervisorctl stop exabgp-%s" % name, ignore_error=True)
 
 def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, auto_flush=True, group_updates=True):
+    try:
+        os.mkdir("/etc/exabgp", 0755)
+    except OSError:
+        pass
+
     t = jinja2.Template(exabgp_conf_tmpl)
     data = t.render(name=name, \
                     router_id=router_id, \
@@ -166,15 +171,15 @@ def remove_exabgp_supervisord_conf(name):
         pass
 
 def setup_exabgp_processor():
-	try:
-		os.mkdir("/usr/share/exabgp", 0755)
-	except OSError:
-		pass
+    try:
+        os.mkdir("/usr/share/exabgp", 0755)
+    except OSError:
+        pass
 
-	with open("/usr/share/exabgp/dump.py", 'w') as out_file:
-		out_file.write(dump_py)
-	with open("/usr/share/exabgp/http_api.py", 'w') as out_file:
-		out_file.write(http_api_py)
+    with open("/usr/share/exabgp/dump.py", 'w') as out_file:
+        out_file.write(dump_py)
+    with open("/usr/share/exabgp/http_api.py", 'w') as out_file:
+        out_file.write(http_api_py)
 
 def main():
     module = AnsibleModule(
