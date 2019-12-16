@@ -13,7 +13,7 @@ from loganalyzer import LogAnalyzer
 from common.devices import SonicHost, Localhost, PTFHost
 
 
-pytest_plugins = ('ptf_fixtures', 'ansible_fixtures', 'plugins.dut_monitor.pytest_dut_monitor')
+pytest_plugins = ('ptf_fixtures', 'ansible_fixtures', 'plugins.dut_monitor.pytest_dut_monitor', 'fib')
 
 
 class TestbedInfo(object):
