@@ -7,6 +7,14 @@
     snmp_intf: []
     mg_intf: []
 
+- name: check snmp_interfaces if ready
+  snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
+  connection: local
+  until: snmp_interfaces is defined
+  retries: 3
+  delay: 90
+  when: snmp_interfaces is not defined
+
 - name: Create snmp interfaces list
   set_fact: 
     snmp_intf: "{{ snmp_intf + [item.value.name] }}"
