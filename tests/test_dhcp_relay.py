@@ -87,7 +87,8 @@ def dut_dhcp_relay_data(duthost, ptfhost, testbed):
 
 def test_dhcp_relay_default(duthost, ptfhost, dut_dhcp_relay_data):
     """Test DHCP relay functionality on T0 topology.
-       Verify DHCP packets are relayed properly.
+
+       For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
     for dhcp_relay in dut_dhcp_relay_data:
         # Run the DHCP relay test on the PTF host
@@ -108,8 +109,10 @@ def test_dhcp_relay_default(duthost, ptfhost, dut_dhcp_relay_data):
 
 
 def test_dhcp_relay_after_link_flap(duthost, ptfhost, dut_dhcp_relay_data):
-    """Test DHCP relay functionality on T0 topology.
-       Verify DHCP packets are relayed properly.
+    """Test DHCP relay functionality on T0 topology after uplinks flap
+
+       For each DHCP relay agent running on the DuT, with relay agent running, flap the uplinks,
+       then test whether the DHCP relay agent relays packets properly.
     """
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
@@ -144,8 +147,11 @@ def test_dhcp_relay_after_link_flap(duthost, ptfhost, dut_dhcp_relay_data):
 
 
 def test_dhcp_relay_start_with_uplinks_down(duthost, ptfhost, dut_dhcp_relay_data):
-    """Test DHCP relay functionality on T0 topology.
-       Verify DHCP packets are relayed properly.
+    """Test DHCP relay functionality on T0 topology when relay agent starts with uplinks down
+
+       For each DHCP relay agent running on the DuT, bring the uplinks down, then restart the
+       relay agent while the uplinks are still down. Then test whether the DHCP relay agent
+       relays packets properly.
     """
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
