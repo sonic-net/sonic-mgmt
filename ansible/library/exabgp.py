@@ -67,8 +67,12 @@ app = Flask(__name__)
 # Setup a command route to listen for prefix advertisements
 @app.route('/', methods=['POST'])
 def run_command():
-    command = request.form['command']
-    sys.stdout.write("%s\\n" % command)
+    if request.form.has_key('commands'):
+        cmds = request.form['commands'].split(';')
+    else:
+        cmds = [ request.form['command'] ]
+    for cmd in cmds:
+        sys.stdout.write("%s\\n" % cmd)
     sys.stdout.flush()
     return "OK\\n"
 
@@ -129,6 +133,10 @@ def start_exabgp(module, name):
     refresh_supervisord(module)
     exec_command(module, cmd="supervisorctl start exabgp-%s" % name)
 
+def restart_exabgp(module, name):
+    refresh_supervisord(module)
+    exec_command(module, cmd="supervisorctl restart exabgp-%s" % name)
+
 def stop_exabgp(module, name):
     exec_command(module, cmd="supervisorctl stop exabgp-%s" % name, ignore_error=True)
 
@@ -185,7 +193,7 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             name=dict(required=True, type='str'),
-            state=dict(required=True, choices=['started', 'stopped', 'present', 'absent'], type='str'),
+            state=dict(required=True, choices=['started', 'restarted', 'stopped', 'present', 'absent'], type='str'),
             router_id=dict(required=False, type='str'),
             local_ip=dict(required=False, type='str'),
             peer_ip=dict(required=False, type='str'),
@@ -211,6 +219,10 @@ def main():
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port)
             setup_exabgp_supervisord_conf(name)
             start_exabgp(module, name)
+        elif state == 'restarted':
+            setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port)
+            setup_exabgp_supervisord_conf(name)
+            restart_exabgp(module, name)
         elif state == 'present':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port)
             setup_exabgp_supervisord_conf(name)
