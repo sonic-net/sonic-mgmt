@@ -120,14 +120,14 @@ def test_dhcp_relay_after_link_flap(duthost, ptfhost, dut_dhcp_relay_data):
             duthost.shell('ifconfig {} down'.format(iface))
 
         # Sleep a bit to ensure uplinks are down
-        time.sleep(10)
+        time.sleep(20)
 
         # Bring all uplink interfaces back up
         for iface in dhcp_relay['uplink_interfaces']:
             duthost.shell('ifconfig {} up'.format(iface))
 
         # Sleep a bit to ensure uplinks are up
-        time.sleep(10)
+        time.sleep(20)
 
         # Run the DHCP relay test on the PTF host
         ptf_runner(ptfhost,
@@ -159,20 +159,21 @@ def test_dhcp_relay_start_with_uplinks_down(duthost, ptfhost, dut_dhcp_relay_dat
             duthost.shell('ifconfig {} down'.format(iface))
 
         # Sleep a bit to ensure uplinks are down
-        time.sleep(10)
+        time.sleep(20)
 
         # Restart DHCP relay service on DUT
         duthost.shell('systemctl restart dhcp_relay.service')
 
-        # Sleep to give the DHCP relay container time to start up
-        time.sleep(30)
+        # Sleep to give the DHCP relay container time to start up and
+        # allow the relay agent to begin listening on the down interfaces
+        time.sleep(40)
 
         # Bring all uplink interfaces back up
         for iface in dhcp_relay['uplink_interfaces']:
             duthost.shell('ifconfig {} up'.format(iface))
 
         # Sleep a bit to ensure uplinks are up
-        time.sleep(10)
+        time.sleep(20)
 
         # Run the DHCP relay test on the PTF host
         ptf_runner(ptfhost,
