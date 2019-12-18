@@ -114,11 +114,21 @@
                   dest=/etc/sonic/minigraph.xml
         become: true
 
-      - name: Copy corresponding configlet files if apply_configlet=true
+      - name: Test if configlet script exist
+        stat:
+            path: vars/configlet/{{ topo }}/apply_clet.sh
+        register: stat_result
+        delegate_to: localhost
+
+      - name: debug print stat_result
+        debug: 
+            msg: Stat result is {{ stat_result }}
+
+      - name: Copy corresponding configlet files if exist
         copy: src=vars/configlet/{{ topo }}/
               dest=/etc/sonic/
         become: true
-        when: apply_configlet is defined and apply_configlet|bool == true
+        when: stat_result.stat.exists is defined and stat_result.stat.exists
 
       - name: Replace snmp community string
         lineinfile:
@@ -151,7 +161,7 @@
       - name: execute configlet application script, which applies configlets in strict order.
         become: true
         shell: bash "/etc/sonic/apply_clet.sh"
-        when: apply_configlet is defined and apply_configlet|bool == true
+        when: stat_result.stat.exists is defined and stat_result.stat.exists
 
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true
