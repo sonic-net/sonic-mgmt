@@ -154,7 +154,7 @@
                 "R1": {
                     "name": "s1",
                     "svr_addr": "172.17.0.2",
-                    "svr_port": "5555",
+                    "svr_port": "5140",
                     "proto_dump_file": "s1-gnmi-requests-log.txt"
                 }
             },

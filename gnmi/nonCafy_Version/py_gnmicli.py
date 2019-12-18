@@ -45,6 +45,7 @@ import sys
 import six
 from time import sleep
 import threading
+import google.protobuf.json_format
 from queue import Queue
 import grpc
 try:
@@ -305,7 +306,6 @@ def _get(stub, paths, username, password,type='CONFIG'):
         gnmi_pb2.GetRequest(path=[paths], encoding='PROTO',type=type),
         metadata=[('username', username), ('password', password)])
   return stub.Get(gnmi_pb2.GetRequest(path=[paths], prefix=pfx, type=type, encoding='PROTO'))
-
 
 def _set(stub, paths, set_type, username, password, json_value):
   """Create a gNMI SetRequest.

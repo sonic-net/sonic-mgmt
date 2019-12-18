@@ -295,6 +295,21 @@ def _get_val(json_value):
   return val
 
 
+def _get_val_neg_payload(json_value):
+  """Get the gNMI val for path definition.
+
+  Args:
+    json_value: (str) JSON_IETF or file.
+
+  Returns:
+    gnmi_pb2.TypedValue()
+  """
+  val = gnmi_pb2.TypedValue()
+  #print(type(json_value))
+  set_json = json.dumps(json_value).encode()
+  #print(set_json)
+  val.proto_bytes = set_json
+  return val
 
 
 def _get_val_in(json_value):
@@ -372,7 +387,7 @@ def _get_wo_encoding(stub, paths,username, password,prefix="/",type='ALL',use_mo
   return stub.Get(gnmi_pb2.GetRequest(path=[paths], prefix=prefix, type=type))
 
 
-def _set(stub, paths, set_type, username, password, json_value, pfx_paths=None):
+def _set(stub, paths, set_type, username, password, json_value, pfx_paths=None,neg_payload=None):
   """Create a gNMI SetRequest.
 
   Args:
@@ -396,6 +411,11 @@ def _set(stub, paths, set_type, username, password, json_value, pfx_paths=None):
     #val = _get_val(json_value)
     val = _get_val_in(json_value)
     path_val = gnmi_pb2.Update(path=paths, val=val,)
+  
+  if neg_payload:
+    val = _get_val_neg_payload(json_value)
+    path_val = gnmi_pb2.Update(path=paths, val=val,)
+
 
   kwargs = {}
   if username:
@@ -663,25 +683,54 @@ def new_get_oc_response_dict(get_value):
     response_dict = None
     return response_dict
 
+  if len(get_value['notification'][0]['prefix']['elem']) == 2:
+    main_key = get_value['notification'][0]['prefix']['elem'][1]['key']['name']
+    multi_intf = False
+  else:
+    main_key = None
+    
   for value in value_dict:
-    log.info(value)
-    keys = list(value['val'].keys())
+    first_val = True
+    full_key = None
     i = 0
+    keys = list(value['val'].keys())
+
+    """
+    # Set the main key
+    if len(value['path']['elem']) == 1:
+        main_key = value['val'][keys[i]]
+        log.info("Main Key:{}".format(main_key))
+        multi_intf = False
+    """
+
+    if main_key == None:
+      multi_intf = True
+    
+    if multi_intf and len(value['path']['elem']) == 2:
+      main_key = value['val'][keys[i]]
+
+    if main_key == None:
+      # Looks like the get contains only state information
+      main_key = value['path']['elem'][0]['key']['name']
+
     for key_val in value['path']['elem']:
-      if i==0:
+      if first_val:
         full_key = key_val['name']
-        i += 1
+        first_val = False
         continue 
       if type(key_val['name']) != bool:
         full_key = full_key + "," + key_val['name']
+
+    full_key = main_key+ "," + full_key
     if full_key not in key_list:
       key_list.append(full_key)
-
+    
     val =  value['val'][keys[i]]
     response_dict[full_key] = val
     log.info("{}:{}".format(full_key,val))
     i += 1
     ctr += 1
+    
 
   response_dict['key_list'] = key_list
   return response_dict

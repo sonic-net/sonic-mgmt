@@ -317,14 +317,14 @@ def _test_multicontrollers_blocking_tableEdit():
         for result in results:
             name = result['sw_name']
             status = result['status']
-            if "s1" in name:
+            if "sw1" in name:
                 if status:
                     log.info("Test Passed: Expected Controller 1 to succeed in editing the table")
                 else:
                     raise CafyException.VerificationError("Test:Failed - Expected Controller 1 to succeed in editing the table but failed due to : \
                     {msg}".format(msg=result['msg']))
 
-            if "s2" in name:
+            if "sw2" in name:
                 if not status and 'status = StatusCode.PERMISSION_DENIED' in result['msg'] and 'details = "Not master"' in result['msg']:
                     log.info("Test Passed: Expected Controller 2 to fail in editing the table due to : {msg}".format(msg=result['msg']))
                 else:
@@ -346,14 +346,14 @@ def _test_multicontrollers_non_blocking_tableEdit():
         for result in results:
             name = result['sw_name']
             status = result['status']
-            if "s1" in name:
+            if "sw1" in name:
                 if status:
                     log.info("Test Passed: Expected Controller 1 to succeed in editing the table")
                 else:
                     raise CafyException.VerificationError("Test:Failed - Expected Controller 1 to succeed in editing the table but failed due to : \
                     {msg}".format(msg=result['msg']))
 
-            if "s2" in name:
+            if "sw2" in name:
                 if status:
                     log.info("Test Passed: Expected Controller 2 to read the table")
                 else:

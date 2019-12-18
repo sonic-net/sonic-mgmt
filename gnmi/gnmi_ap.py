@@ -82,6 +82,9 @@ class TestGnmi(GnmiApBase):
     def test_Get_with_wrong_encoding(self,stub):
         gnmi_san_tc._test_Get_with_wrong_encoding(stub)
     
+    def test_set_unsup_payload(self,stub):
+        gnmi_san_tc._test_set_unsup_payload(stub)
+    
     def test_gnmi_SetPfxPath(self,stub):
         gnmi_san_tc._test_gnmi_SetPfxPath(stub)
 
