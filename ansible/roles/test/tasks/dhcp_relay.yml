@@ -59,7 +59,7 @@
 
 - name: Pause to ensure uplinks are down
   pause:
-    seconds: 10
+    seconds: 20
 
 - name: Bring all uplink interfaces up
   shell: ifconfig {{ item.key }} up
@@ -68,7 +68,7 @@
 
 - name: Pause to ensure uplinks are up
   pause:
-    seconds: 10
+    seconds: 20
 
 # Run the DHCP relay PTF test
 - include: ptf_runner.yml
@@ -103,7 +103,7 @@
 
 - name: Pause to ensure uplinks are down
   pause:
-    seconds: 10
+    seconds: 20
 
 - name: Start DHCP relay service with uplinks down
   become: true
@@ -113,7 +113,7 @@
 
 - name: Give the DHCP relay container time to start up
   pause:
-    seconds: 30
+    seconds: 40
 
 - name: Bring all uplink interfaces up
   shell: ifconfig {{ item.key }} up
@@ -122,7 +122,7 @@
 
 - name: Pause to ensure uplinks are up
   pause:
-    seconds: 10
+    seconds: 20
 
 # Run the DHCP relay PTF test
 - include: ptf_runner.yml
