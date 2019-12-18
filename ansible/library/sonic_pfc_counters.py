@@ -31,7 +31,7 @@ def parse_pfc_counters(output):
 	    direction = tx_direction
 	    continue
 		
-	if line.startswith('---'):
+	elif line.startswith('---'):
 	    continue
 					
 	words = line.split()
@@ -42,7 +42,7 @@ def parse_pfc_counters(output):
 	port = words[0]
 	if port not in counters:
 	    counters[port] = dict()
-            counters[port][direction] = [x for x in words[1:]]
+        counters[port][direction] = [x for x in words[1:]]
 		
     return counters	
 
