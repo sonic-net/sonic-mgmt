@@ -57,6 +57,7 @@
     - set_fact:
         detect_time_list: "{{detect_time_list | sort}}"
         restore_time_list: "{{restore_time_list | sort}}"
+        pfc_wd_wait_delta: 100
 
     - debug:
         var: "{{item}}"
@@ -67,7 +68,7 @@
     - name: Verify that real detection time is not greater than configured
       fail:
         msg: Real detection time is greater than configured
-      when: "{{(detect_time_list[9]) > pfc_wd_detect_time + pfc_wd_poll_time}}"
+      when: "{{(detect_time_list[9]) > pfc_wd_detect_time + pfc_wd_poll_time + pfc_wd_wait_delta}}"
 
     - name: Verify that real detection time is not less than configured
       fail:
@@ -82,7 +83,7 @@
     - name: Verify that real restoration time is less than configured
       fail:
           msg: Real restoration time is greater than configured
-      when: "{{(restore_time_list[9]) > pfc_wd_restore_time + pfc_wd_poll_time}}"
+      when: "{{(restore_time_list[9]) > pfc_wd_restore_time + pfc_wd_poll_time + pfc_wd_wait_delta}}"
 
   always:
     - name: Clean up config
