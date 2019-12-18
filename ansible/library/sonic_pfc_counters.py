@@ -22,27 +22,27 @@ def parse_pfc_counters(output):
     direction = '' # TX or RX
 
     for line in lines:
-	line = line.strip()
-	if 'Port Rx' in line:
-	    direction = rx_direction
-	    continue
-		
-	elif 'Port Tx' in line:
-	    direction = tx_direction
-	    continue
-		
-	elif line.startswith('---'):
-	    continue
-					
-	words = line.split()
-	# port_name, counter0, counter1, .... counter7
-	if len(words) != 9:
-	    continue
-		
-	port = words[0]
-	if port not in counters:
-        counters[port] = dict()
-        counters[port][direction] = [x for x in words[1:]]
+        line = line.strip()
+        if 'Port Rx' in line:
+            direction = rx_direction
+            continue
+ 
+        elif 'Port Tx' in line:
+	        direction = tx_direction
+	        continue
+
+        elif line.startswith('---'):
+	        continue
+ 			
+        words = line.split()
+        # port_name, counter0, counter1, .... counter7
+        if len(words) != 9:
+	        continue
+ 
+        port = words[0]
+        if port not in counters:
+            counters[port] = dict()
+            counters[port][direction] = [x for x in words[1:]]
 		
     return counters	
 
