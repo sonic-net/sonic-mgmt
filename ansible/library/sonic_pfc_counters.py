@@ -41,7 +41,7 @@ def parse_pfc_counters(output):
 		
 	port = words[0]
 	if port not in counters:
-	    counters[port] = dict()
+        counters[port] = dict()
         counters[port][direction] = [x for x in words[1:]]
 		
     return counters	
