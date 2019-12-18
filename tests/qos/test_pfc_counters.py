@@ -26,7 +26,7 @@ def setup_testbed(ansible_adhoc, testbed, conn_graph_facts):
     @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
     mandatory argument for the class constructors.
     @param testbed: Testbed information
-    @conn_graph_facts: Testbed topology connectivity information
+    @param conn_graph_facts: Testbed topology connectivity information
     """
     dut_hostname = testbed['dut']
     dut_ans = AnsibleHost(ansible_adhoc, dut_hostname)
@@ -90,8 +90,8 @@ def run_fc(ansible_adhoc, testbed, conn_graph_facts, pause_time):
     @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
     mandatory argument for the class constructors.
     @param testbed: Testbed information
-    @conn_graph_facts: Testbed topology connectivity information
-    @pause_time: Pause time quanta (0-65535) in the frame. 0 means unpause.
+    @param conn_graph_facts: Testbed topology connectivity information
+    @param pause_time: Pause time quanta (0-65535) in the frame. 0 means unpause.
     """
     setup_testbed(ansible_adhoc, testbed, conn_graph_facts)
     conn_facts = conn_graph_facts['device_conn']
