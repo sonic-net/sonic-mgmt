@@ -57,10 +57,10 @@
     - set_fact:
         detect_time_list: "{{detect_time_list | sort}}"
         restore_time_list: "{{restore_time_list | sort}}"
-        pfc_wd_wait_delta: 100
+        pfc_wd_wait_delta: 150
 
     - debug:
-        var: "{{item}}"
+        msg: "{{item}}"
       with_items:
         - "{{ detect_time_list }}"
         - "{{ restore_time_list }}"
