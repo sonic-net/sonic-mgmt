@@ -52,10 +52,17 @@ def stub():
 
 class TestGnmi(GnmiApBase):
 
+    def test_GetSet_OC_Components(self,stub):
+        gnmi_san_tc._test_GetSet_OC_Components(stub)
+
+    def test_Get_OC_Components(self,stub):
+        gnmi_san_tc._test_Get_OC_Components(stub)
+
     def test_SetReq_Del1(self,stub):
         gnmi_san_tc._test_SetReq_Del1(stub)
 
-'''
+    def test_GetSet_Sanity1(self,stub):
+        gnmi_san_tc._test_GetSet_Sanity1(stub)
 
     def test_gnmi_get(self,stub):
         gnmi_san_tc._test_gnmi_get(stub)
@@ -63,14 +70,21 @@ class TestGnmi(GnmiApBase):
     def test_gnmi_Capability(self,stub):
         gnmi_san_tc._test_gnmi_Capability(stub)
 
-    def test_gnmi_GetTimestamp(self,stub):
-        gnmi_san_tc._test_gnmi_GetTimestamp(stub)
+    def test_Get_with_prefix(self,stub):
+        gnmi_san_tc._test_Get_with_prefix(stub)
 
-    def test_GetSet_Sanity1(self,stub):
-        gnmi_san_tc._test_GetSet_Sanity1(stub)
+    def test_Get_with_type(self,stub):
+        gnmi_san_tc._test_Get_with_type(stub)
 
+    def test_Get_with_wrong_path(self,stub):
+        gnmi_san_tc._test_Get_with_wrong_path(stub)
+
+    def test_Get_with_wrong_encoding(self,stub):
+        gnmi_san_tc._test_Get_with_wrong_encoding(stub)
+    
+    def test_set_unsup_payload(self,stub):
+        gnmi_san_tc._test_set_unsup_payload(stub)
+    
     def test_gnmi_SetPfxPath(self,stub):
         gnmi_san_tc._test_gnmi_SetPfxPath(stub)
 
-
-'''

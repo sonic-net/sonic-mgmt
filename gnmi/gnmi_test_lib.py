@@ -295,6 +295,21 @@ def _get_val(json_value):
   return val
 
 
+def _get_val_neg_payload(json_value):
+  """Get the gNMI val for path definition.
+
+  Args:
+    json_value: (str) JSON_IETF or file.
+
+  Returns:
+    gnmi_pb2.TypedValue()
+  """
+  val = gnmi_pb2.TypedValue()
+  #print(type(json_value))
+  set_json = json.dumps(json_value).encode()
+  #print(set_json)
+  val.proto_bytes = set_json
+  return val
 
 
 def _get_val_in(json_value):
@@ -333,7 +348,7 @@ def _cap(stub, username, password):
   return stub.Capabilities(gnmi_pb2.CapabilityRequest())
 
 
-def _get(stub, paths, username, password):
+def _get(stub, paths,username, password,prefix="/",type='ALL',encoding='PROTO',use_models=None,extension=None):
   """Create a gNMI GetRequest.
 
   Args:
@@ -345,14 +360,34 @@ def _get(stub, paths, username, password):
   Returns:
     a gnmi_pb2.GetResponse object representing a gNMI GetResponse.
   """
+  prefix = _parse_path(_path_names(prefix))
   if username:  # User/pass supplied for Authentication.
     return stub.Get(
-        gnmi_pb2.GetRequest(path=[paths], encoding='PROTO'),
+        gnmi_pb2.GetRequest(path=[paths], prefix=prefix, type=type, encoding=encoding),
         metadata=[('username', username), ('password', password)])
-  return stub.Get(gnmi_pb2.GetRequest(path=[paths], encoding='PROTO'))
+  return stub.Get(gnmi_pb2.GetRequest(path=[paths], prefix=prefix, type=type, encoding=encoding))
+
+def _get_wo_encoding(stub, paths,username, password,prefix="/",type='ALL',use_models=None,extension=None):
+  """Create a gNMI GetRequest.
+
+  Args:
+    stub: (class) gNMI Stub used to build the secure channel.
+    paths: gNMI Path
+    username: (str) Username used when building the channel.
+    password: (str) Password used when building the channel.
+
+  Returns:
+    a gnmi_pb2.GetResponse object representing a gNMI GetResponse.
+  """
+  prefix = _parse_path(_path_names(prefix))
+  if username:  # User/pass supplied for Authentication.
+    return stub.Get(
+        gnmi_pb2.GetRequest(path=[paths], prefix=prefix, type=type),
+        metadata=[('username', username), ('password', password)])
+  return stub.Get(gnmi_pb2.GetRequest(path=[paths], prefix=prefix, type=type))
 
 
-def _set(stub, paths, set_type, username, password, json_value, pfx_paths=None):
+def _set(stub, paths, set_type, username, password, json_value, pfx_paths=None,neg_payload=None):
   """Create a gNMI SetRequest.
 
   Args:
@@ -376,6 +411,11 @@ def _set(stub, paths, set_type, username, password, json_value, pfx_paths=None):
     #val = _get_val(json_value)
     val = _get_val_in(json_value)
     path_val = gnmi_pb2.Update(path=paths, val=val,)
+  
+  if neg_payload:
+    val = _get_val_neg_payload(json_value)
+    path_val = gnmi_pb2.Update(path=paths, val=val,)
+
 
   kwargs = {}
   if username:
@@ -577,6 +617,120 @@ def get_response_dict(get_value):
     log.info("{}:{}".format(full_key,val))
     i += 1
     ctr += 1
+
+  response_dict['key_list'] = key_list
+  return response_dict
+
+def get_oc_response_dict(get_value):
+  response_dict = dict()
+  key_list = list()
+  ctr = 0
+  try:
+    value_dict = get_value['notification'][0]['update']
+  except KeyError:
+    response_dict = None
+    return response_dict
+
+  for value in value_dict:
+    log.info(value)
+    keys = list(value['val'].keys())
+    i = 0
+    if len(value['path']['elem']) > 3:
+      ct_name = value['path']['elem'][1]['name'] + "," + value['path']['elem'][2]['name']
+      name = value['path']['elem'][3]['name']
+      key = value['path']['elem'][0]['key']['name']
+      if key not in key_list:
+        key_list.append(key)
+    elif len(value['path']['elem']) > 2:
+      ct_name = value['path']['elem'][1]['name']
+      name = value['path']['elem'][2]['name']
+      key = value['path']['elem'][0]['key']['name']
+      if key not in key_list:
+        key_list.append(key)
+    elif len(value['path']['elem']) >= 1:
+      val =  value['val'][keys[i]]
+      key = val
+      if key not in key_list:
+        key_list.append(val)
+      ct_name = "interface"
+      if len(value['path']['elem']) > 1:
+        name = value['path']['elem'][1]['name']
+      else:
+        name = value['path']['elem'][0]['name']
+
+    val =  value['val'][keys[i]]
+    """     
+    if ctr == 0 and len(value['path']['elem']) == 2:
+      key = val
+      key_list.append(val)
+    """    
+    full_key = key+","+ct_name+","+name
+    response_dict[full_key] = val
+    log.info("{}:{}".format(full_key,val))
+    i += 1
+    ctr += 1
+
+  response_dict['key_list'] = key_list
+  return response_dict
+
+def new_get_oc_response_dict(get_value):
+  response_dict = dict()
+  key_list = list()
+  ctr = 0
+  try:
+    value_dict = get_value['notification'][0]['update']
+  except KeyError:
+    response_dict = None
+    return response_dict
+
+  if len(get_value['notification'][0]['prefix']['elem']) == 2:
+    main_key = get_value['notification'][0]['prefix']['elem'][1]['key']['name']
+    multi_intf = False
+  else:
+    main_key = None
+    
+  for value in value_dict:
+    first_val = True
+    full_key = None
+    i = 0
+    keys = list(value['val'].keys())
+
+    """
+    # Set the main key
+    if len(value['path']['elem']) == 1:
+        main_key = value['val'][keys[i]]
+        log.info("Main Key:{}".format(main_key))
+        multi_intf = False
+    """
+
+    if main_key == None:
+      multi_intf = True
+    
+    if multi_intf and len(value['path']['elem']) == 2:
+      main_key = value['val'][keys[i]]
+
+    if main_key == None:
+      # Looks like the get contains only state information
+      main_key = value['path']['elem'][0]['key']['name']
+
+    for key_val in value['path']['elem']:
+      if first_val:
+        full_key = key_val['name']
+        first_val = False
+        continue 
+      if type(key_val['name']) != bool:
+        full_key = full_key + "," + key_val['name']
+
+    full_key = main_key+ "," + full_key
+    if full_key not in key_list:
+      key_list.append(full_key)
+    
+    val =  value['val'][keys[i]]
+    response_dict[full_key] = val
+    log.info("{}:{}".format(full_key,val))
+    i += 1
+    ctr += 1
+    
 
   response_dict['key_list'] = key_list
   return response_dict

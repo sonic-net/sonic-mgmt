@@ -154,18 +154,89 @@ def blocking_table_play(name):
                 log.info("REMOVING TABLE ENTRIES - Switch {name}".format(name=name))
                 p4TestLib.tableEntryActions(sw_name, entry, p4info_helper, 'DELETE',election_id_low=election_id_low,election_id_high=election_id_high)
                 sleep(1)
-    
+        ns1.shutdown()
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
         log.error(e)
-        printGrpcError(e)
+        ns1.shutdown()
         result["msg"] = str(e)
         result["status"] = False
         return result
 
     result["status"] = True
     return result
+
+
+def blocking_apg_play(name):
+    tData = ApData.zap.get_testcase_configuration("test_action_profile_groups")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    with open(tData["input_conf_file"], 'r') as ip_conf_file:
+        input_conf = p4TestLib.json_load_byteified(ip_conf_file)
+
+    
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    result = dict()
+    result['sw_name'] = name
+
+    try:
+        ns1=Establish_Switch_Conn(name)
+        if "sw1" in name:
+            log.info("Controller sw1: Sending Election ID High=44 & Low=33")
+            ns1.MasterArbitrationUpdate(election_id_high=44, election_id_low=33)
+            election_id_low=33
+            election_id_high=44
+        else:
+            log.info("Controller sw2: Sending Election ID High=24 & Low=14")
+            ns1.MasterArbitrationUpdate(election_id_high=24, election_id_low=14)
+            election_id_low=14
+            election_id_high=24
+
+    
+        # Create Groups.
+        mode = 'INSERT'
+        if 'group_entries' in input_conf:
+            group_entries = input_conf['group_entries']
+            insrt_entrs = [x for x in group_entries if x['entry_oper'] == mode]
+            log.info("{mode} {num} group entries...".format(num=len(insrt_entrs),mode=mode.upper()))
+            for entry in insrt_entrs:
+                log.info("{mode} a Group ".format(mode=mode.upper()))
+                p4TestLib.groupActions(ns1,entry,p4info_helper, mode,election_id_low=election_id_low,election_id_high=election_id_high)
+                group_id = entry["group_id"]
+                if ('DELETE' not in mode):
+                    reply = ns1.ReadActionProfileGroup(group_id=group_id)
+                    for rep in reply:
+                        log.info("Reply from DUT: %s" % rep)
+                        log.info(p4TestLib.repr_pretty_p4runtime(rep))
+
+        mode = 'DELETE'
+        if 'DELETE' in mode:
+            for entry in insrt_entrs:
+                log.info("{mode} a Group ".format(mode=mode.upper()))
+                p4TestLib.groupActions(ns1,entry,p4info_helper, mode,election_id_low=election_id_low,election_id_high=election_id_high)
+                group_id = entry["group_id"]
+    
+            log.info("Delete members after group is deleted")            
+            if 'member_entries' in input_conf:
+                members = input_conf['member_entries']
+                log.info("{mode} {num} members ...".format(num=len(members),mode=mode.upper()))
+                for entry in members:
+                    log.info("{mode} a member ".format(mode=mode.upper()))
+                    p4TestLib.memberActions(ns1,entry,p4info_helper, mode,election_id_low=election_id_low,election_id_high=election_id_high)    
+
+        ns1.shutdown()
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        ns1.shutdown()
+        log.error("GRPC Error hit for switch {} and the error is :{}".format(name,e))
+        result["msg"] = str(e)
+        result["status"] = False
+        return result
+
+    result["status"] = True
+    return result
+
 
 def non_blocking_table_play(name):
     tData = ApData.zap.get_testcase_configuration("test_multicontrollers_non_blocking_tableEdit")

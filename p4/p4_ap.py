@@ -65,7 +65,7 @@ def sw_conn():
                     log.info("Installed P4 Program using SetForwardingPipelineConfig on sw_conn")
         else:
             raise CafyException.VerificationError("Test failed due to Election issues")
-
+        sw_conn.shutdown()
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
@@ -75,11 +75,12 @@ def sw_conn():
         p4_switch.ShutdownAllSwitchConnections()
     #return sw_conn
 
-@pytest.fixture(autouse=True)
-def clean_sw_connection():
-    p4_switch.ShutdownAllSwitchConnections()
 
 class TestP4(P4ApBase):
+
+    def setup_method(self):
+        log.info("Clean all P4 Switch connections")
+        p4_switch.ShutdownAllSwitchConnections()
 
     def test_setForwarding_pipeline_config(self):
         p4_san_tc._test_setForwarding_pipeline_config()
@@ -173,7 +174,10 @@ class TestP4(P4ApBase):
 
     def test_negative_action_profile_groups_9(self,sw_conn):
         p4_apg_apm._test_negative_action_profile_groups_9(self,sw_conn)
-        
+    
+    def test_negative_action_profile_groups_10(self,sw_conn):
+        p4_apg_apm._test_negative_action_profile_groups_10(self)
+
     def test_writeRPC_Neg1(self,sw_conn):
         p4_san_tc._test_writeRPC_Neg1()
 

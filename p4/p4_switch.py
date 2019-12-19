@@ -39,6 +39,7 @@ connections = []
 
 def ShutdownAllSwitchConnections():
     for c in connections:
+        log.info("Shutting down connection: {}".format(c))
         c.shutdown()
 
 class SwitchConnection(object):
@@ -359,6 +360,7 @@ class SwitchConnection(object):
             member.member_id = member_id
         else:
             member.member_id = 0
+        
         if dry_run:
             log.info("P4Runtime Read:", request)
         else:

@@ -206,15 +206,19 @@ def _test_negative_action_profile_groups_2(self,sw_conn):
         log.error("### GRPC ERROR RECEIVED:: ###")
         e_det = parseGrpcError(e)
         print("ERROR DETAILS::")
-        print(e_det)
-        for item in e_det:
-            log.error(item)
-            if (item['code'] == "INVALID_ARGUMENT") and (item['message'] == "Invalid P4 id"):
-                log.info("Test test_negative_action_profile_groups_2:Passed - received correct error message on trying to Insert a group with Invalid Group Id")
-                result = True
-            else:
-                err_msg.append("Test test_negative_action_profile_groups_2:Failed - received incorrect message on trying to o Insert a group with Invalid Group Id")
-                
+        if ('details = "Error when reading action profile entries from target"' in str(e)):
+            log.error("Test:Failed - received error message while reading a group with group id = 0. Creation of group with id = 0 should not be allowed")
+            err_msg.append("Test:Failed - received error message while reading a group with group id = 0. Creation of group with id = 0 should not be allowed")
+        else:
+            print(e_det)
+            for item in e_det:
+                log.error(item)
+                if (item['code'] == "INVALID_ARGUMENT") and (item['message'] == "Invalid group id"):
+                    log.info("Test test_negative_action_profile_groups_2:Passed - received correct error message on trying to Insert a group with Invalid Group Id")
+                    result = True
+                else:
+                    err_msg.append("Test test_negative_action_profile_groups_2:Failed - received incorrect message on trying to o Insert a group with Invalid Group Id")
+                    
     finally:
         if not result:
             insrt_entrs = [x for x in entries if x['entry_type'] == 'GROUP']
@@ -841,7 +845,7 @@ def _test_negative_action_profile_groups_8(self,sw_conn):
         for item in e_det:
             log.error(item)
             result = True
-            if (item['code'] == "FAILED_PRECONDITION") and (item['message'] == "Member weight must be a positive integer value"):
+            if (item['code'] == "FAILED_PRECONDITION") and (item['message'] == ""):
                 log.info("Test test_negative_action_profile_groups_8:Passed - received correct error message - FAILED_PRECONDITION case verified")
             else:
                 err_msg.append("Test test_negative_action_profile_groups_8: Failed - received incorrect message - FAILED_PRECONDITION case not verified")
@@ -1014,7 +1018,64 @@ def _test_negative_action_profile_groups_9(self,sw_conn):
     if not len(err_msg) == 0:
         pytest.fail("test_negative_action_profile_groups_9 failed due to {}".format(err_msg))
         
+def _test_negative_action_profile_groups_10(self):
+    p4_switch.ShutdownAllSwitchConnections()
+    err_msg = list()
+    log.info("Negative Test-10: Action profile Groups - Multiple controllers - Permission Denied Testcase")
+
+    pool = Pool(processes=2)
+    tData = ApData.zap.get_testcase_configuration("test_action_profile_groups")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    with open(tData["input_conf_file"], 'r') as ip_conf_file:
+        input_conf = p4TestLib.json_load_byteified(ip_conf_file)
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+
+        mode = "INSERT"
+        if 'member_entries' in input_conf:
+            members = input_conf['member_entries']
+            log.info("{mode} {num} members ...".format(num=len(members),mode=mode.upper()))
+            for entry in members:
+                log.info("{mode} a member ".format(mode=mode.upper()))
+                p4TestLib.memberActions(sw_conn,entry,p4info_helper, mode)
+                member_id = entry["member_id"]
+                reply = sw_conn.ReadActionProfileMember(member_id=member_id)
+                for rep in reply:
+                    log.info(p4TestLib.repr_pretty_p4runtime(rep))
+        sw_conn.shutdown()
+
+        results = pool.map(TchLib.blocking_apg_play,['sw1','sw2'])
+        for result in results:
+            name = result['sw_name']
+            status = result['status']
+            if "sw1" in name:
+                if status:
+                    log.info("Test subsection Passed: Expected Controller 1 to succeed in editing the table")
+                else:
+                    item = result['msg']
+                    log.error(item)
+                    err_msg.append("Test:Failed - Expected Controller 1 to succeed in editing the table but failed due to : \
+                    {}".format(item))
+
+            if "sw2" in name:
+                status = result['status']
+                if not status and 'status = StatusCode.PERMISSION_DENIED' in result['msg'] and 'details = "Not master"' in result['msg']:
+                    log.info("Test test_negative_action_profile_groups_10 Passed: Expected Controller 2 to fail in adding a group due to : {msg}".format(msg=result['msg']))
+                else:
+                    err_msg.append("Test test_negative_action_profile_groups_10: Failed - received incorrect message - PERMISSION_DENIED case not verified")
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
     
+    if not len(err_msg) == 0:
+        pytest.fail("test_negative_action_profile_groups_10 failed due to {}".format(err_msg))
+
 def _test_action_profile_members(mode,sw_conn):
     err_msg = list()
     log.info("Test: Action profile Members")
