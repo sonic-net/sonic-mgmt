@@ -13,15 +13,15 @@ class TestWatchdogAPI(object):
     ''' Hardware watchdog platform API test cases '''
 
     @pytest.fixture(scope='function', autouse=True)
-    def watchdog_not_running(self, duthost, start_platform_api_service):
+    def watchdog_not_running(self, platform_api_conn):
         # assert watchdog is not running before test case
-        assert not watchdog.is_armed(duthost)
+        assert not watchdog.is_armed(platform_api_conn)
 
         try:
             yield
         finally:
             # disarm watchdog after test case
-            watchdog.disarm(duthost)
+            watchdog.disarm(platform_api_conn)
 
     @pytest.fixture(scope='function')
     def conf(self, request, duthost):
@@ -41,7 +41,7 @@ class TestWatchdogAPI(object):
         return test_config
 
 
-    def test_arm_disarm_states(self, testbed_devices, conf):
+    def test_arm_disarm_states(self, testbed_devices, platform_api_conn, conf):
         ''' arm watchdog with a valid timeout value, verify it is in armed state,
         disarm watchdog and verify it is in disarmed state
         '''
@@ -50,14 +50,14 @@ class TestWatchdogAPI(object):
         localhost = testbed_devices['localhost']
 
         test_timeout = conf['valid_timeout']
-        actual_timeout = watchdog.arm(duthost, test_timeout)
+        actual_timeout = watchdog.arm(platform_api_conn, test_timeout)
 
         assert actual_timeout != -1
         assert actual_timeout >= test_timeout
-        assert watchdog.is_armed(duthost)
+        assert watchdog.is_armed(platform_api_conn)
 
-        assert watchdog.disarm(duthost)
-        assert not watchdog.is_armed(duthost)
+        assert watchdog.disarm(platform_api_conn)
+        assert not watchdog.is_armed(platform_api_conn)
 
         res = localhost.wait_for(host=duthost.hostname,
                 port=22, state="stopped", delay=5, timeout=test_timeout,
@@ -65,36 +65,36 @@ class TestWatchdogAPI(object):
 
         assert 'exception' in res
 
-    def test_remaining_time(self, duthost, conf):
+    def test_remaining_time(self, duthost, platform_api_conn, conf):
         ''' arm watchdog with a valid timeout and verify that remaining time API works correctly '''
 
         test_timeout = conf['valid_timeout']
 
-        assert watchdog.get_remaining_time(duthost) == -1
+        assert watchdog.get_remaining_time(platform_api_conn) == -1
 
-        actual_timeout = watchdog.arm(duthost, test_timeout)
-        remaining_time = watchdog.get_remaining_time(duthost)
+        actual_timeout = watchdog.arm(platform_api_conn, test_timeout)
+        remaining_time = watchdog.get_remaining_time(platform_api_conn)
 
         assert remaining_time > 0
         assert remaining_time <= actual_timeout
 
-        remaining_time = watchdog.get_remaining_time(duthost)
+        remaining_time = watchdog.get_remaining_time(platform_api_conn)
         time.sleep(1)
-        assert watchdog.get_remaining_time(duthost) < remaining_time
+        assert watchdog.get_remaining_time(platform_api_conn) < remaining_time
 
-    def test_periodic_arm(self, duthost, conf):
+    def test_periodic_arm(self, duthost, platform_api_conn, conf):
         ''' arm watchdog several times as watchdog deamon would and verify API behaves correctly '''
 
         test_timeout = conf['valid_timeout']
-        actual_timeout = watchdog.arm(duthost, test_timeout)
+        actual_timeout = watchdog.arm(platform_api_conn, test_timeout)
         time.sleep(1)
-        remaining_time = watchdog.get_remaining_time(duthost)
-        actual_timeout_second = watchdog.arm(duthost, test_timeout)
+        remaining_time = watchdog.get_remaining_time(platform_api_conn)
+        actual_timeout_second = watchdog.arm(platform_api_conn, test_timeout)
 
         assert actual_timeout == actual_timeout_second
-        assert watchdog.get_remaining_time(duthost) > remaining_time
+        assert watchdog.get_remaining_time(platform_api_conn) > remaining_time
 
-    def test_arm_different_timeout_greater(self, duthost, conf):
+    def test_arm_different_timeout_greater(self, duthost, platform_api_conn, conf):
         ''' arm the watchdog with greater timeout value and verify new timeout was accepted;
         If platform accepts only single valid timeout value, @greater_timeout should be None.
         '''
@@ -103,14 +103,14 @@ class TestWatchdogAPI(object):
         test_timeout_second = conf.get('greater_timeout', None)
         if test_timeout_second is None:
             pytest.skip('"greater_timeout" parameter is required for this test case')
-        actual_timeout = watchdog.arm(duthost, test_timeout)
-        remaining_time = watchdog.get_remaining_time(duthost)
-        actual_timeout_second = watchdog.arm(duthost, test_timeout_second)
+        actual_timeout = watchdog.arm(platform_api_conn, test_timeout)
+        remaining_time = watchdog.get_remaining_time(platform_api_conn)
+        actual_timeout_second = watchdog.arm(platform_api_conn, test_timeout_second)
 
         assert actual_timeout < actual_timeout_second
-        assert watchdog.get_remaining_time(duthost) > remaining_time
+        assert watchdog.get_remaining_time(platform_api_conn) > remaining_time
 
-    def test_arm_different_timeout_smaller(self, duthost, conf):
+    def test_arm_different_timeout_smaller(self, duthost, platform_api_conn, conf):
         ''' arm the watchdog with smaller timeout value and verify new timeout was accepted;
         If platform accepts only single valid timeout value, @greater_timeout should be None.
         '''
@@ -120,14 +120,14 @@ class TestWatchdogAPI(object):
         if test_timeout is None:
             pytest.skip('"greater_timeout" parameter is required for this test case')
         test_timeout_second = conf['valid_timeout']
-        actual_timeout = watchdog.arm(duthost, test_timeout)
-        remaining_time = watchdog.get_remaining_time(duthost)
-        actual_timeout_second = watchdog.arm(duthost, test_timeout_second)
+        actual_timeout = watchdog.arm(platform_api_conn, test_timeout)
+        remaining_time = watchdog.get_remaining_time(platform_api_conn)
+        actual_timeout_second = watchdog.arm(platform_api_conn, test_timeout_second)
 
         assert actual_timeout > actual_timeout_second
-        assert watchdog.get_remaining_time(duthost) < remaining_time
+        assert watchdog.get_remaining_time(platform_api_conn) < remaining_time
 
-    def test_arm_too_big_timeout(self, duthost, conf):
+    def test_arm_too_big_timeout(self, duthost, platform_api_conn, conf):
         ''' try to arm the watchdog with timeout that is too big for hardware watchdog;
         If no such limitation exist, @too_big_timeout should be None for such platform.
         '''
@@ -135,27 +135,27 @@ class TestWatchdogAPI(object):
         test_timeout = conf.get('too_big_timeout', None)
         if test_timeout is None:
             pytest.skip('"too_big_timeout" parameter is required for this test case')
-        actual_timeout = watchdog.arm(duthost, test_timeout)
+        actual_timeout = watchdog.arm(platform_api_conn, test_timeout)
 
         assert actual_timeout == -1
 
-    def test_arm_negative_timeout(self, duthost):
+    def test_arm_negative_timeout(self, duthost, platform_api_conn):
         ''' try to arm the watchdog with negative value '''
 
         test_timeout = -1
-        actual_timeout = watchdog.arm(duthost, test_timeout)
+        actual_timeout = watchdog.arm(platform_api_conn, test_timeout)
 
         assert actual_timeout == -1
 
     @pytest.mark.disable_loganalyzer
-    def test_reboot(self, testbed_devices, conf):
+    def test_reboot(self, testbed_devices, platform_api_conn, conf):
         ''' arm the watchdog and verify it did its job after timeout expiration '''
 
         duthost = testbed_devices['dut']
         localhost = testbed_devices['localhost']
 
         test_timeout = conf['valid_timeout']
-        actual_timeout = watchdog.arm(duthost, test_timeout)
+        actual_timeout = watchdog.arm(platform_api_conn, test_timeout)
 
         assert actual_timeout != -1
 

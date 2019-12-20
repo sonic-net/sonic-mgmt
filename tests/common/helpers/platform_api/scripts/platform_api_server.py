@@ -1,11 +1,10 @@
 import json
+import argparse
 import inspect
 import sonic_platform
 
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from io import BytesIO
-
-PLATFORM_TEST_SERVICE_PORT = 8000
 
 platform = sonic_platform.platform.Platform()
 
@@ -53,6 +52,9 @@ class PlatformAPITestService(BaseHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    httpd = HTTPServer(('', PLATFORM_TEST_SERVICE_PORT), PlatformAPITestService)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-p', '--port', type=int, help='port to listent to', required=True)
+    args = parser.parse_args()
+    httpd = HTTPServer(('', args.port), PlatformAPITestService)
     httpd.serve_forever()
 
