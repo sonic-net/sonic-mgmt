@@ -185,19 +185,19 @@
 
         - name: Remove VNET interfaces addresses
           command: docker exec -i database redis-cli -n 4 del "VLAN_INTERFACE|{{ item['ifname'] }}|{{ item['ip'] }}"
-          with_list: vlan_intf_list
+          with_list: "{{ vlan_intf_list }}"
           become: true
           when: cleanup|bool
 
         - name: Remove VNET interfaces
           command: docker exec -i database redis-cli -n 4 del "VLAN_INTERFACE|{{ item['ifname'] }}"
-          with_list: vlan_intf_list
+          with_list: "{{ vlan_intf_list }}"
           become: true
           when: cleanup|bool
 
         - name: Remove VNETs
           command: docker exec -i database redis-cli -n 4 del "VNET|{{ item }}"
-          with_list: vnet_id_list
+          with_list: "{{ vnet_id_list }}"
           become: true
           when: cleanup|bool
 
