@@ -54,4 +54,7 @@ def stop_platform_api_service(duthost):
 @pytest.fixture(scope='function')
 def platform_api_conn(duthost, start_platform_api_service):
     conn = httplib.HTTPConnection(duthost.hostname, SERVER_PORT)
-    return conn
+    try:
+        yield conn
+    finally:
+        conn.close()

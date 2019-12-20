@@ -14,17 +14,22 @@ class TestWatchdogAPI(object):
 
     @pytest.fixture(scope='function', autouse=True)
     def watchdog_not_running(self, platform_api_conn):
-        # assert watchdog is not running before test case
+        ''' Fixture that automatically runs on each test case and
+        verifies that watchdog is not running before the test begins
+        and disables it after the test ends'''
+
         assert not watchdog.is_armed(platform_api_conn)
 
         try:
             yield
         finally:
-            # disarm watchdog after test case
             watchdog.disarm(platform_api_conn)
 
-    @pytest.fixture(scope='function')
+    @pytest.fixture(scope='module')
     def conf(self, request, duthost):
+        ''' Reads the watchdog test configuration file @TEST_CONFIG_FILE and
+        results in a dictionary which holds parameters for test '''
+
         test_config = None
         with open(TEST_CONFIG_FILE) as stream:
             test_config = yaml.safe_load(stream)['default']
@@ -79,7 +84,7 @@ class TestWatchdogAPI(object):
         assert remaining_time <= actual_timeout
 
         remaining_time = watchdog.get_remaining_time(platform_api_conn)
-        time.sleep(1)
+        time.sleep(2)
         assert watchdog.get_remaining_time(platform_api_conn) < remaining_time
 
     def test_periodic_arm(self, duthost, platform_api_conn, conf):
@@ -87,11 +92,11 @@ class TestWatchdogAPI(object):
 
         test_timeout = conf['valid_timeout']
         actual_timeout = watchdog.arm(platform_api_conn, test_timeout)
-        time.sleep(1)
+        time.sleep(2)
         remaining_time = watchdog.get_remaining_time(platform_api_conn)
-        actual_timeout_second = watchdog.arm(platform_api_conn, test_timeout)
+        actual_timeout_new = watchdog.arm(platform_api_conn, test_timeout)
 
-        assert actual_timeout == actual_timeout_second
+        assert actual_timeout == actual_timeout_new
         assert watchdog.get_remaining_time(platform_api_conn) > remaining_time
 
     def test_arm_different_timeout_greater(self, duthost, platform_api_conn, conf):
@@ -100,14 +105,14 @@ class TestWatchdogAPI(object):
         '''
 
         test_timeout = conf['valid_timeout']
-        test_timeout_second = conf.get('greater_timeout', None)
-        if test_timeout_second is None:
+        test_timeout_greater = conf.get('greater_timeout', None)
+        if test_timeout_greater is None:
             pytest.skip('"greater_timeout" parameter is required for this test case')
-        actual_timeout = watchdog.arm(platform_api_conn, test_timeout)
+        actual_timeout_second = watchdog.arm(platform_api_conn, test_timeout)
         remaining_time = watchdog.get_remaining_time(platform_api_conn)
-        actual_timeout_second = watchdog.arm(platform_api_conn, test_timeout_second)
+        actual_timeout_second_second = watchdog.arm(platform_api_conn, test_timeout_greater)
 
-        assert actual_timeout < actual_timeout_second
+        assert actual_timeout_second < actual_timeout_second_second
         assert watchdog.get_remaining_time(platform_api_conn) > remaining_time
 
     def test_arm_different_timeout_smaller(self, duthost, platform_api_conn, conf):
@@ -119,12 +124,12 @@ class TestWatchdogAPI(object):
         test_timeout = conf.get('greater_timeout', None)
         if test_timeout is None:
             pytest.skip('"greater_timeout" parameter is required for this test case')
-        test_timeout_second = conf['valid_timeout']
+        test_timeout_smaller = conf['valid_timeout']
         actual_timeout = watchdog.arm(platform_api_conn, test_timeout)
         remaining_time = watchdog.get_remaining_time(platform_api_conn)
-        actual_timeout_second = watchdog.arm(platform_api_conn, test_timeout_second)
+        actual_timeout_smaller = watchdog.arm(platform_api_conn, test_timeout_smaller)
 
-        assert actual_timeout > actual_timeout_second
+        assert actual_timeout > actual_timeout_smaller
         assert watchdog.get_remaining_time(platform_api_conn) < remaining_time
 
     def test_arm_too_big_timeout(self, duthost, platform_api_conn, conf):
