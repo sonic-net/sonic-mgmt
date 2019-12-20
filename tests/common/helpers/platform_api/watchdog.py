@@ -5,9 +5,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-PLATFORM_TEST_SERVICE_PORT = 8000
-
-
 def watchdog_api(conn, name, args=None):
     if args is None:
         args = []
@@ -32,3 +29,4 @@ def disarm(conn):
 
 def get_remaining_time(conn):
     return watchdog_api(conn, 'get_remaining_time')
+
