@@ -10,5 +10,48 @@
         }
       ]
     }
+  },
+  "SETPfxPath2_1": {
+    "prefix-path": "ietf-interfaces:interfaces",
+    "Updates" : {
+    "interface": [
+        {
+          "name": "Loopback881",
+          "description": "For SETPfxPath2_11'",
+          "type": "iana-if-type:ethernetCsmacd"
+        },
+        {
+          "name": "Loopback882",
+          "description": "For SETPfxPath2_12'",
+          "type": "iana-if-type:ethernetCsmacd"
+        }
+      ]
+    }
+  },
+  "PFXPath_MSet_1": {
+    "prefix-path": "ietf-interfaces:interfaces",
+    "Updates" : {
+      "set-type": "multiple",
+      "set-lst": {
+        "set-replace": {
+            "interface": [
+              {
+                "name": "Loopback883",
+                "description": "For PFXPath_MSet1_11 TC",
+                "type": "iana-if-type:ethernetCsmacd"
+              }
+            ]
+       },
+        "set-update": {
+            "interface": [
+              {
+                "name": "Loopback884",
+                "description": "For PFXPath_MSet1_22 TC",
+                "type": "iana-if-type:ethernetCsmacd"
+              }
+            ]
+        }
+      }
+    }
   }
 }

@@ -35,6 +35,33 @@
   },
   "VERIFY_GETSET_Sanity1_4": {
     "filter": "/if:interfaces/if:interface"
+  },
+  "MULTISET_Sanity1_1": {
+    "set-type": "multiple",
+    "set-lst": {
+      "set-replace": {
+        "ietf-interfaces:interfaces": {
+          "interface": [
+            {
+              "name": "Loopback234",
+              "description": "For MULTISET_Sanity1_1",
+              "type": "iana-if-type:ethernetCsmacd"
+            }
+          ]
+        }
+     },
+      "set-update": {
+        "ietf-interfaces:interfaces": {
+          "interface": [
+            {
+              "name": "Loopback567",
+              "description": "For MULTISET_Sanity1_2",
+              "type": "iana-if-type:ethernetCsmacd"
+            }
+          ]
+        }
+     }
+   }
   }
-}
 
+}

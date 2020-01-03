@@ -838,6 +838,107 @@ def _test_gnmi_SetPfxPath(stub):
         raise CafyException.VerificationError("Test SETPfxPath1_1 failed due to Grpc Error {err}".format(err=e.details()))
 
 
+def _test_SetPfxPath_2node(stub):
+    user = None
+    password = None
+    err_msg = list()
+
+    tData = ApData.zap.get_testcase_configuration("test_gnmi_SetPfxPath")
+    input_conf = json.loads(six.moves.builtins.open(tData["input_conf_file"], 'r').read())
+    print(input_conf)
+
+    log.info('Performing SET-REPLACE Request w/Prefix-Path for Multiple nodes - TC_2.4.1 \n')
+    try:
+        if 'SETPfxPath2_1' in input_conf:
+            set_info1 = input_conf['SETPfxPath2_1']
+            print(set_info1['prefix-path'])
+            print(set_info1['Updates'])
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            pfx_path = gnmiTestLib._parse_path(gnmiTestLib._path_names(set_info1['prefix-path']))
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1['Updates'], pfx_path)
+            resp = str(reply)
+            log.info(resp)
+            sresp = "".join(resp.split('\n'))
+            log.info (sresp)
+            mt1 = 'prefix {  elem {    name: "ietf-interfaces:interfaces"  }'
+            mt2 = 'response {  path {  }'
+            if (mt1 in sresp and mt2 in sresp):
+                log.info("SETPfxPath_2node_1:Passed - was able to do SET-REPLACE Request w/Prefix-Path for Multiple Nodes")
+            else:
+                log.info("SETPfxPath_2node_1:Failed - was unable to do SET-REPLACE Request w/Prefix-Path for Multiple Nodes")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test SETPfx_2node_1 failed due to Grpc Error {err}".format(err=e.details()))
+
+
+def _test_MultiSet_Sanity1(stub):
+    user = None
+    password = None
+    err_msg = list()
+
+    input_conf = json.loads(six.moves.builtins.open(ApData.input_conf_file, 'r').read())
+    print(input_conf)
+
+    log.info('Performing SET Request w/Multiple Ops(REPLACE+UPDATE) \n')
+    try:
+        if 'MULTISET_Sanity1_1' in input_conf:
+            set_info1 = input_conf['MULTISET_Sanity1_1']
+            print(set_info1)
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            if set_info1['set-type'] == 'multiple':
+                reply = gnmiTestLib._set(stub, paths, 'multiple', user, password, set_info1)
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test SETReq_Del1_2 failed due to Grpc Error {err}".format(err=e.details()))            
+
+
+def _test_PfxPath_MSet1(stub):
+    user = None
+    password = None
+    err_msg = list()
+
+    tData = ApData.zap.get_testcase_configuration("test_gnmi_SetPfxPath")
+    input_conf = json.loads(six.moves.builtins.open(tData["input_conf_file"], 'r').read())
+    print(input_conf)
+
+    log.info('Performing SET w/Multiple Ops(REPLACE+UPDATE) & Prefix-Path \n')
+    try:
+        if 'PFXPath_MSet_1' in input_conf:
+            set_info1 = input_conf['PFXPath_MSet_1']
+            print(set_info1['prefix-path'])
+            print(set_info1['Updates'])
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            pfx_path = gnmiTestLib._parse_path(gnmiTestLib._path_names(set_info1['prefix-path']))
+            reply = gnmiTestLib._set(stub, paths, 'multiple', user, password, set_info1['Updates'], pfx_path)
+            resp = str(reply)
+            log.info(resp)
+            sresp = "".join(resp.split('\n'))
+            log.info (sresp)
+            mt1 = 'prefix {  elem {    name: "ietf-interfaces:interfaces"  }'
+            mt2 = 'response {  path {  }'
+            if (mt1 in sresp and mt2 in sresp):
+                log.info("PFXPath_MSet_1:Passed - was able to do SET w/Multiple Ops(REPLACE+UPDATE) & Prefix-Path ")
+            else:
+                log.info("PFXPath_MSet_1:Failed - was unable to do SET w/Multiple Ops(REPLACE+UPDATE) & Prefix-Path ")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test PFXPath_MSet_1 failed due to Grpc Error {err}".format(err=e.details()))
+
 
 def _test_SetReq_Del1(stub):
     user = None

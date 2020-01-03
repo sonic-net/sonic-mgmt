@@ -417,6 +417,24 @@ def _set(stub, paths, set_type, username, password, json_value, pfx_paths=None,n
     path_val = gnmi_pb2.Update(path=paths, val=val,)
 
 
+  if set_type == 'multiple':
+    print(json_value)
+    print("############")
+    if json_value['set-lst']['set-replace']:
+      set_json = json_value['set-lst']['set-replace']
+      print(set_json)
+      val = _get_val_in(set_json)
+      path_val = gnmi_pb2.Update(path=paths, val=val,)
+      request.replace.extend([path_val])
+
+    if json_value['set-lst']['set-update']:
+      set_json = json_value['set-lst']['set-update']
+      print(set_json)
+      val = _get_val_in(set_json)
+      path_val = gnmi_pb2.Update(path=paths, val=val,)
+      request.update.extend([path_val]) 
+
+
   kwargs = {}
   if username:
     kwargs = {'metadata': [('username', username), ('password', password)]}
