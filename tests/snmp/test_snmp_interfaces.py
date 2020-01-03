@@ -1,9 +1,9 @@
 from ansible_host import AnsibleHost
 
-def test_snmp_interfaces(ansible_adhoc, duthost, creds):
+def test_snmp_interfaces(testbed_devices, duthost, creds):
     """compare the bgp facts between observed states and target state"""
 
-    lhost = AnsibleHost(ansible_adhoc, 'localhost', True)
+    lhost = testbed_devices['localhost']
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
