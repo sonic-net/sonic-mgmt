@@ -8,22 +8,46 @@ NOT_AVAILABLE = 'N/A'
 
 
 class SysfsNotExistError(Exception):
+    """
+    Exception when sys fs not exist.
+    """
     pass
 
 
 class MockerHelper:
+    """
+    Mellanox specified mocker helper.
+    """
+
+    # Thermal related sys fs folder path.
     THERMAL_PATH = '/var/run/hw-management/thermal/'
+
+    # LED related sys fs folder path.
     LED_PATH = '/var/run/hw-management/led/'
+
+    # FAN number of DUT.
     FAN_NUM = 0
+
+    # FAN number for each FAN drawer of DUT.
     FAN_NUM_IN_DRAWER = 0
+
+    # Flag indicate if FAN number has been initialize.
     INIT_FAN_NUM = False
 
     def __init__(self, dut):
+        """
+        Constructor of mocker helper.
+        :param dut: DUT object representing a SONiC switch under test.
+        """
         self.dut = dut
         self.unlink_file_list = {}
         self._extract_num_of_fans_and_fan_drawers()
 
     def _extract_num_of_fans_and_fan_drawers(self):
+        """
+        Get FAN number and Fan number for each FAN drawer of this DUT.
+        :return:
+        """
         if MockerHelper.INIT_FAN_NUM:
             return
 
@@ -47,28 +71,61 @@ class MockerHelper:
             MockerHelper.FAN_NUM_IN_DRAWER = 1
 
     def mock_thermal_value(self, file_path, value):
+        """
+        Mock thermal related value whose sys fs folder is at '/var/run/hw-management/thermal/'
+        :param file_path: Sys fs file name.
+        :param value: Value to write to sys fs file.
+        :return:
+        """
         file_path = os.path.join(MockerHelper.THERMAL_PATH, file_path)
-        return self.mock_value(file_path, value)
+        self.mock_value(file_path, value)
 
     def mock_led_value(self, file_path, value):
+        """
+        Mock led related value whose sys fs folder is at '/var/run/hw-management/led/'
+        :param file_path: Sys fs file name.
+        :param value: Value to write to sys fs file.
+        :return:
+        """
         file_path = os.path.join(MockerHelper.LED_PATH, file_path)
-        return self.mock_value(file_path, value)
+        self.mock_value(file_path, value)
 
     def mock_value(self, file_path, value):
+        """
+        Unlink existing sys fs file and replace it with a new one. Write given value to the new file.
+        :param file_path: Sys fs file path.
+        :param value: Value to write to sys fs file.
+        :return:
+        """
         if not self._file_exist(file_path):
             raise SysfsNotExistError('{} not exist'.format(file_path))
         self._unlink(file_path)
         self.dut.shell('echo \'{}\' > {}'.format(value, file_path))
 
     def read_thermal_value(self, file_path):
+        """
+        Read thermal related sys fs file content.
+        :param file_path: Sys fs file name.
+        :return: Content of sys fs file.
+        """
         file_path = os.path.join(MockerHelper.THERMAL_PATH, file_path)
         return self.read_value(file_path)
 
     def read_led_value(self, file_path):
+        """
+        Read led related sys fs file content.
+        :param file_path: Sys fs file name.
+        :return: Content of sys fs file.
+        """
         file_path = os.path.join(MockerHelper.LED_PATH, file_path)
         return self.read_value(file_path)
 
     def read_value(self, file_path):
+        """
+        Read sys fs file content.
+        :param file_path: Sys fs file path.
+        :return: Content of sys fs file.
+        """
         if not self._file_exist(file_path):
             raise SysfsNotExistError('{} not exist'.format(file_path))
         try:
@@ -79,6 +136,11 @@ class MockerHelper:
             assert 0, "Get content from %s failed, exception: %s" % (file_path, repr(e))
 
     def _unlink(self, file_path):
+        """
+        Unlink given sys fs file, record its soft link target.
+        :param file_path: Sys fs file path.
+        :return:
+        """
         if file_path not in self.unlink_file_list:
             readlink_output = self.dut.command('readlink {}'.format(file_path))
             self.unlink_file_list[file_path] = readlink_output["stdout"]
@@ -87,6 +149,11 @@ class MockerHelper:
             self.dut.command('chown admin {}'.format(file_path))
 
     def _file_exist(self, file_path):
+        """
+        Check if the file path exists on DUT or not.
+        :param file_path: Sys fs file path.
+        :return: True if sys fs exists.
+        """
         file_dir = os.path.dirname(file_path)
         file_name = os.path.basename(file_path)
         cmd = 'find {} -name {}'.format(file_dir, file_name)
@@ -94,13 +161,26 @@ class MockerHelper:
         return output['stdout'] and output['stdout'].strip() == file_path
 
     def deinit(self):
+        """
+        Destructor of MockerHelper. Re-link all sys fs files.
+        :return:
+        """
         for file_path, link_target in self.unlink_file_list.items():
             self.dut.command('rm -f {}'.format(file_path))
             self.dut.command('ln -s {} {}'.format(link_target, file_path))
 
 
 class FanDrawerData:
+    """
+    Data mocker of a FAN drawer.
+    """
     def __init__(self, mock_helper, naming_rule, index):
+        """
+        Constructor of FAN drawer data.
+        :param mock_helper: Instance of MockHelper.
+        :param naming_rule: Naming rule of this kind of Fan drawer.
+        :param index: Fan drawer index.
+        """
         self.index = index
         self.helper = mock_helper
         self.mocked_presence = None
@@ -130,6 +210,11 @@ class FanDrawerData:
             self.led_orange_file = None
 
     def mock_presence(self, presence):
+        """
+        Mock presence status of this FAN drawer.
+        :param presence: Given presence value. 1 means present, 0 means not present.
+        :return:
+        """
         if self.presence_file:
             self.helper.mock_thermal_value(self.presence_file, str(presence))
             self.mocked_presence = 'Present' if presence == 1 else 'Not Present'
@@ -137,6 +222,10 @@ class FanDrawerData:
             self.mocked_presence = 'Present'
 
     def get_status_led(self):
+        """
+        Get led status from sys fs.
+        :return: Led status read from sys fs.
+        """
         led_capability = self.helper.read_led_value(self.led_capability_file)
         led_capability = led_capability.split()
         real_red_file = self.led_red_file if 'red' in led_capability else self.led_orange_file
@@ -147,14 +236,28 @@ class FanDrawerData:
         elif green_led_value == '0' and red_led_value == '255':
             return 'red'
         else:
-            assert 0, 'Invalid FAN led color for FAN: {}, green={}, red={}'.format(self.name, green_led_value, red_led_value)
+            assert 0, 'Invalid FAN led color for FAN: {}, green={}, red={}'.format(self.name, green_led_value,
+                                                                                   red_led_value)
 
 
 class FanData:
+    """
+    Data mocker of a FAN.
+    """
+
+    # MAX PWM value.
     PWM_MAX = 255
+
+    # FAN direction sys fs path.
     FAN_DIR_PATH = '/run/hw-management/system/fan_dir'
 
     def __init__(self, mock_helper, naming_rule, index):
+        """
+        Constructor of FAN data.
+        :param mock_helper: Instance of MockHelper.
+        :param naming_rule: Naming rule of this kind of Fan.
+        :param index: Fan index.
+        """
         self.index = index
         self.helper = mock_helper
         self.name = naming_rule['name'].format(index)
@@ -178,8 +281,13 @@ class FanData:
             self.status_file = naming_rule['status'].format(index)
         else:
             self.status_file = None
-        
+
     def mock_speed(self, speed):
+        """
+        Mock speed value of this FAN with given speed value.
+        :param speed: Speed value in percentage.
+        :return:
+        """
         max_speed = self.get_max_speed()
         if max_speed > 0:
             speed_in_rpm = max_speed * speed / 100
@@ -189,6 +297,11 @@ class FanData:
         self.mocked_speed = speed
 
     def mock_target_speed(self, target_speed):
+        """
+        Mock target speed value of this FAN with given target speed value.
+        :param target_speed: Target speed value in percentage.
+        :return:
+        """
         if self.target_speed_file:
             pwm = int(round(FanData.PWM_MAX * target_speed / 100.0))
             self.helper.mock_thermal_value(self.target_speed_file, str(pwm))
@@ -197,6 +310,11 @@ class FanData:
             self.mocked_target_speed = self.helper.read_thermal_value(self.speed_file)
 
     def mock_status(self, status):
+        """
+        Mock status of this FAN with given status value.
+        :param status: Status value. 1 means OK, 0 means Not OK.
+        :return:
+        """
         if self.status_file:
             self.helper.mock_thermal_value(self.status_file, str(status))
             self.mocked_status = 'OK' if status == 1 else 'Not OK'
@@ -204,22 +322,31 @@ class FanData:
             self.mocked_status = 'OK'
 
     def mock_fan_direction(self, direction):
+        """
+        Mock direction of this FAN with given direction value.
+        :param direction: Direction value. 1 means intake, 0 means exhaust.
+        :return:
+        """
         try:
             fan_dir_bits = int(self.helper.read_value(FanData.FAN_DIR_PATH))
         except SysfsNotExistError as e:
             self.mocked_direction = NOT_AVAILABLE
             return
-        
+
         if direction:
             fan_dir_bits = fan_dir_bits | (1 << (self.index - 1))
             self.mocked_direction = 'intake'
         else:
             fan_dir_bits = fan_dir_bits & ~(1 << (self.index - 1))
             self.mocked_direction = 'exhaust'
-        
+
         self.helper.mock_value(FanData.FAN_DIR_PATH, fan_dir_bits)
 
     def get_max_speed(self):
+        """
+        Get max speed of this FAN.
+        :return: Max speed of this FAN or -1 if max speed is not available.
+        """
         if self.max_speed_file:
             max_speed = self.helper.read_thermal_value(self.max_speed_file)
             return int(max_speed)
@@ -227,6 +354,10 @@ class FanData:
             return -1
 
     def get_target_speed(self):
+        """
+        Get target speed of this FAN.
+        :return: Target speed in percentage.
+        """
         pwm = self.helper.read_thermal_value(self.target_speed_file)
         pwm = int(pwm)
         target_speed = int(round(pwm * 100.0 / FanData.PWM_MAX))
@@ -234,14 +365,26 @@ class FanData:
 
 
 class TemperatureData:
+    """
+    Data mocker of a thermal.
+    """
+
+    # Default high threshold value for generating mocked value.
     DEFAULT_HIGH_THRESHOLD = 80
 
-    def __init__(self, mock_helper, naming_rules, index):
+    def __init__(self, mock_helper, naming_rule, index):
+        """
+        Constructor of FAN data.
+        :param mock_helper: Instance of MockHelper.
+        :param naming_rule: Naming rule of this kind of thermal.
+        :param index: Thermal index.
+        """
         self.helper = mock_helper
-        self.name = naming_rules['name']
-        self.temperature_file = naming_rules['temperature']
-        self.high_threshold_file = naming_rules['high_threshold'] if 'high_threshold' in naming_rules else None
-        self.high_critical_threshold_file = naming_rules['high_critical_threshold'] if 'high_critical_threshold' in naming_rules else None
+        self.name = naming_rule['name']
+        self.temperature_file = naming_rule['temperature']
+        self.high_threshold_file = naming_rule['high_threshold'] if 'high_threshold' in naming_rule else None
+        self.high_critical_threshold_file = naming_rule[
+            'high_critical_threshold'] if 'high_critical_threshold' in naming_rule else None
         if index is not None:
             self.name = self.name.format(index)
             self.temperature_file = self.temperature_file.format(index)
@@ -254,10 +397,19 @@ class TemperatureData:
         self.mocked_high_critical_threshold = None
 
     def mock_temperature(self, temperature):
+        """
+        Mock temperature value of this thermal with given value.
+        :param temperature: Temperature value.
+        :return:
+        """
         self.helper.mock_thermal_value(self.temperature_file, str(temperature))
         self.mocked_temperature = temperature
 
     def get_high_threshold(self):
+        """
+        Get high threshold value of this thermal.
+        :return: High threshold value of this thermal.
+        """
         if self.high_threshold_file:
             high_threshold = self.helper.read_thermal_value(self.high_threshold_file)
             return int(high_threshold) / 1000
@@ -265,6 +417,11 @@ class TemperatureData:
             return TemperatureData.DEFAULT_HIGH_THRESHOLD
 
     def mock_high_threshold(self, high_threshold):
+        """
+        Mock temperature high threshold value of this thermal with given value.
+        :param high_threshold: High threshold value.
+        :return:
+        """
         if self.high_threshold_file:
             self.helper.mock_thermal_value(self.high_threshold_file, str(high_threshold))
             self.mocked_high_threshold = high_threshold
@@ -272,6 +429,11 @@ class TemperatureData:
             self.mocked_high_threshold = NOT_AVAILABLE
 
     def mock_high_critical_threshold(self, high_critical_threshold):
+        """
+        Mock temperature high critical threshold value of this thermal with given value.
+        :param high_critical_threshold: High critical threshold value.
+        :return:
+        """
         if self.high_critical_threshold_file:
             self.helper.mock_thermal_value(self.high_critical_threshold_file, str(high_critical_threshold))
             self.mocked_high_critical_threshold = high_critical_threshold
@@ -281,17 +443,34 @@ class TemperatureData:
 
 @mocker('FanStatusMocker')
 class RandomFanStatusMocker(FanStatusMocker):
-    PSU_FAN_MAX_SPEED = 10000 # only for generate random data
+    """
+    Mocker class to help generate random FAN status and check it with actual data.
+    """
+
+    # Max PSU FAN speed for generate random data only.
+    PSU_FAN_MAX_SPEED = 10000
 
     def __init__(self, dut):
-        super().__init__()
+        """
+        Constructor of RandomFanStatusMocker.
+        :param dut: DUT object representing a SONiC switch under test.
+        """
+        FanStatusMocker.__init__(self, dut)
         self.mock_helper = MockerHelper(dut)
         self.expected_data = {}
 
     def deinit(self):
+        """
+        Destructor of RandomFanStatusMocker.
+        :return:
+        """
         self.mock_helper.deinit()
 
     def mock_data(self):
+        """
+        Mock random data for all FANs in this DUT.
+        :return:
+        """
         fan_index = 1
         drawer_index = 1
         drawer_data = None
@@ -302,7 +481,7 @@ class RandomFanStatusMocker(FanStatusMocker):
                     drawer_data = FanDrawerData(self.mock_helper, naming_rule, drawer_index)
                     drawer_index += 1
                     drawer_data.mock_presence(random.randint(0, 1))
-                    
+
                 fan_data = FanData(self.helper, naming_rule, fan_index)
                 fan_index += 1
                 fan_data.mock_status(random.randint(0, 1))
@@ -326,9 +505,9 @@ class RandomFanStatusMocker(FanStatusMocker):
             try:
                 fan_data = FanData(self.helper, naming_rule, index)
                 speed = random.randint(0, RandomFanStatusMocker.PSU_FAN_MAX_SPEED)
-                mock_data.mock_speed(speed)
+                fan_data.mock_speed(speed)
 
-                self.expected_data[fan_data.name, ] = [
+                self.expected_data[fan_data.name,] = [
                     fan_data.name,
                     '{}RPM'.format(fan_data.mocked_speed),
                     NOT_AVAILABLE,
@@ -336,10 +515,16 @@ class RandomFanStatusMocker(FanStatusMocker):
                     'OK'
                 ]
             except SysfsNotExistError as e:
-                logging.info('Failed to mock fan data for {} - {}'.format(mock_data.name, e))
+                logging.info('Failed to mock fan data for {} - {}'.format(fan_data.name, e))
                 continue
 
     def check_result(self, actual_data):
+        """
+        Check actual data with mocked data.
+        :param actual_data: A dictionary contains actual command line data. Key of the dictionary  is FAN name. Value
+                            of the dictionary is a list of field values for a line of FAN data.
+        :return: True if match else False.
+        """
         for name, fields in self.expected_data.items():
             if name in actual_data:
                 actual_fields = actual_data[name]
@@ -353,28 +538,53 @@ class RandomFanStatusMocker(FanStatusMocker):
         return True
 
     def check_all_fan_speed(self, expected_speed):
+        """
+        Check all FAN speed match the given expect speed.
+        :param expected_speed: Expect speed in percentage.
+        :return: True if match else False.
+        """
         for fan_data in self.expected_data.values():
             if fan_data.target_speed_file:
                 target_speed = fan_data.get_target_speed()
                 if expected_speed != target_speed:
-                    logging.error('{} expected speed={}, actual speed={}'.format(fan_data.name, expected_speed, target_speed))
+                    logging.error(
+                        '{} expected speed={}, actual speed={}'.format(fan_data.name, expected_speed, target_speed))
                     return False
         return True
 
 
 class RandomThermalStatusMocker(ThermalStatusMocker):
+    """
+    RMocker class to help generate random thermal status and check it with actual data.
+    """
+
+    # Thermal algorithm status sys fs path.
     THERMAL_ALGO_STATUS_FILE_PATH = '/run/hw-management/config/suspend'
+
+    # Default threshold diff between high threshold and critical threshold
     DEFAULT_THRESHOLD_DIFF = 5
 
     def __init__(self, dut):
-        super().__init__()
+        """
+        Constructor of RandomThermalStatusMocker.
+        :param dut: DUT object representing a SONiC switch under test.
+        """
+        RandomThermalStatusMocker.__init__(self, dut)
         self.mock_helper = MockerHelper(dut)
         self.expected_data = {}
 
     def deinit(self):
+        """
+        Destructor of RandomThermalStatusMocker.
+        :return:
+        """
         self.mock_helper.deinit()
 
     def mock_data(self):
+        """
+        Mock random data for all Thermals in this DUT.
+        :return:
+        """
         dut_hwsku = self.helper.dut.facts["hwsku"]
         thermal_dict = SWITCH_MODELS[dut_hwsku]["thermals"]
         for category, content in thermal_dict.items():
@@ -385,12 +595,16 @@ class RandomThermalStatusMocker(ThermalStatusMocker):
                 for index in range(start, start + number):
                     mock_data = TemperatureData(self.helper, naming_rule, index)
                     self._do_mock(mock_data)
-            else: # non index-able thermal
+            else:  # non index-able thermal
                 mock_data = TemperatureData(self.helper, naming_rule, None)
                 self._do_mock(mock_data)
 
     def _do_mock(self, mock_data):
-        DEFAULT_THRESHOLD_DIFF = 5
+        """
+        Mock random data for a thermal in the DUT.
+        :param mock_data: An instance of TemperatureData.
+        :return:
+        """
         try:
             high_threshold = mock_data.get_high_threshold()
             if high_threshold != 0:
@@ -420,6 +634,12 @@ class RandomThermalStatusMocker(ThermalStatusMocker):
             logging.info('Failed to mock thermal data for {} - {}'.format(mock_data.name, e))
 
     def check_result(self, actual_data):
+        """
+        Check actual data with mocked data.
+        :param actual_data: A dictionary contains actual command line data. Key of the dictionary is thermal name. Value
+                            of the dictionary is a list of field values for a line of thermal data.
+        :return: True if match else False.
+        """
         for name, fields in self.expected_data.items():
             if name in actual_data:
                 actual_fields = actual_data[name]
@@ -433,59 +653,112 @@ class RandomThermalStatusMocker(ThermalStatusMocker):
         return True
 
     def check_thermal_algorithm_status(self, expected_status):
+        """
+        Check if actual thermal algorithm status match given expected value.
+        :param expected_status: True if enable else False.
+        :return: True if match else False
+        """
         expected_value = '0' if expected_status else '1'
         return expected_value == self.helper.read_value(RandomThermalStatusMocker.THERMAL_ALGO_STATUS_FILE_PATH)
 
 
 @mocker('SingleFanMocker')
 class AbnormalFanMocker(SingleFanMocker):
+    """
+    Mocker to generate abnormal FAN status.
+    """
+
+    # Speed tolerance value
     SPEED_TOLERANCE = 20
+
+    # Speed value
     SPEED_VALUE = 50
 
     def __init__(self, dut):
-        super().__init__()
-        self.mock_helper = MockerHelper(dut)
+        """
+        Constructor of AbnormalFanMocker
+        :param dut: DUT object representing a SONiC switch under test.
+        """
+        AbnormalFanMocker.__init__(self, dut)
+        self.helper = MockerHelper(dut)
         naming_rule = FAN_NAMING_RULE['fan']
+        self.fan_drawer_data = FanDrawerData(self.helper, naming_rule, 1)
         self.fan_data = FanData(self.helper, naming_rule, 1)
         self.expect_led_color = None
         self.mock_normal()
 
     def deinit(self):
+        """
+        Destructor of AbnormalFanMocker.
+        :return:
+        """
         self.mock_helper.deinit()
 
     def check_result(self, actual_data):
+        """
+        Check actual data with mocked data.
+        :param actual_data: A dictionary contains actual command line data. Key of the dictionary is FAN name. Value
+                            of the dictionary is a list of field values for a line of FAN data.
+        :return: True if a match line is found.
+        """
         for name, fields in actual_data.items():
             if name == self.fan_data.name:
-                actual_color = self.fan_data.get_status_led()
-                assert actual_color == self.expect_led_color, 'FAN {} color is {}, expect: {}'.format(name, actual_color, self.expect_led_color)
+                actual_color = self.fan_drawer_data.get_status_led()
+                assert actual_color == self.expect_led_color, 'FAN {} color is {}, expect: {}'.format(name,
+                                                                                                      actual_color,
+                                                                                                      self.expect_led_color)
                 return
-        
+
         assert 0, 'Expected data not found'
 
     def mock_normal(self):
+        """
+        Change the mocked FAN status to 'Present' and normal speed.
+        :return:
+        """
         self.mock_presence()
         self.mock_normal_speed()
         self.expect_led_color = 'green'
 
     def mock_absence(self):
-        self.fan_data.mock_presence(0)
+        """
+        Change the mocked FAN status to 'Not Present'.
+        :return:
+        """
+        self.fan_drawer_data.mock_presence(0)
         self.expect_led_color = 'red'
 
     def mock_presence(self):
-        self.fan_data.mock_presence(1)
+        """
+        Change the mocked FAN status to 'Present'
+        :return:
+        """
+        self.fan_drawer_data.mock_presence(1)
         self.expect_led_color = 'green'
 
     def mock_over_speed(self):
+        """
+        Change the mocked FAN speed to faster than target speed and exceed speed tolerance.
+        :return:
+        """
         self.fan_data.mock_speed(AbnormalFanMocker.SPEED_VALUE)
         self.fan_data.mock_target_speed(AbnormalFanMocker.SPEED_VALUE + AbnormalFanMocker.SPEED_TOLERANCE + 5)
         self.expect_led_color = 'red'
 
     def mock_under_speed(self):
+        """
+        Change the mocked FAN speed to slower than target speed and exceed speed tolerance.
+        :return:
+        """
         self.fan_data.mock_speed(AbnormalFanMocker.SPEED_VALUE)
         self.fan_data.mock_target_speed(AbnormalFanMocker.SPEED_VALUE - AbnormalFanMocker.SPEED_TOLERANCE - 5)
         self.expect_led_color = 'red'
 
     def mock_normal_speed(self):
+        """
+        Change the mocked FAN speed to a normal value.
+        :return:
+        """
         self.fan_data.mock_speed(AbnormalFanMocker.SPEED_VALUE)
         self.fan_data.mock_target_speed(AbnormalFanMocker.SPEED_VALUE)
         self.expect_led_color = 'green'

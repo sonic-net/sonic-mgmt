@@ -13,9 +13,9 @@ import sys
 import pytest
 
 from loganalyzer import LogAnalyzer, LogAnalyzerError
+from common.utilities import wait_until
 from psu_controller import psu_controller
 from .thermal_control_test_helper import *
-
 
 CMD_PLATFORM_SUMMARY = "show platform summary"
 CMD_PLATFORM_PSUSTATUS = "show platform psustatus"
@@ -137,6 +137,7 @@ def check_vendor_specific_psustatus(dut, psu_status_line):
 
         check_psu_sysfs(dut, psu_id, psu_status)
 
+
 def test_show_platform_psustatus(testbed_devices):
     """
     @summary: Check output of 'show platform psustatus'
@@ -207,7 +208,7 @@ def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller):
     psu_test_results = {}
     if not check_all_psu_on(ans_host, psu_test_results):
         pytest.skip("Some PSU are still down, skip rest of the testing in this case")
-    
+
     assert len(psu_test_results.keys()) == psu_num, \
         "In consistent PSU number output by '%s' and '%s'" % (CMD_PLATFORM_PSUSTATUS, cmd_num_psu)
 
@@ -308,13 +309,13 @@ def test_show_platform_fanstatus(testbed_devices, mocker_factory):
     assert cli_fan_status["rc"] == 0, "Run command '%s' failed" % CMD_PLATFORM_FANSTATUS
 
     # Mock data and check
-    mocker = mocker_factory(dut.facts['asic_type'], 'FanStatusMocker')
+    mocker = mocker_factory(dut, 'FanStatusMocker')
     if mocker is None:
         pytest.skip("No FanStatusMocker for %s, skip rest of the testing in this case" % dut.facts['asic_type'])
-    
+
     mocker.mock_data()
     result = check_cli_output_with_mocker(dut, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
-    
+
     assert result, 'FAN mock data mismatch'
 
 
@@ -329,27 +330,39 @@ def test_show_platform_temperature(testbed_devices, mocker_factory):
     assert cli_thermal_status["rc"] == 0, "Run command '%s' failed" % CMD_PLATFORM_TEMPER
 
     # Mock data and check
-    mocker = mocker_factory(dut.facts['asic_type'], 'ThermalStatusMocker')
+    mocker = mocker_factory(dut, 'ThermalStatusMocker')
     if mocker is None:
         pytest.skip("No ThermalStatusMocker for %s, skip rest of the testing in this case" % dut.facts['asic_type'])
 
     mocker.mock_data()
     result = check_cli_output_with_mocker(dut, mocker, CMD_PLATFORM_TEMPER, THERMAL_CONTROL_TEST_WAIT_TIME)
-    
+
     assert result, 'Thermal mock data mismatch'
 
 
 @pytest.mark.disable_loganalyzer
 def test_thermal_control_load_invalid_format_json(testbed_devices):
+    """
+    @summary: Load a thermal policy file with invalid format, check thermal 
+              control daemon is up and there is an error log printed
+    """
     check_thermal_control_load_invalid_file(testbed_devices, THERMAL_POLICY_INVALID_VALUE_FILE)
 
 
 @pytest.mark.disable_loganalyzer
 def test_thermal_control_load_invalid_value_json(testbed_devices):
+    """
+    @summary: Load a thermal policy file with invalid value, check thermal 
+              control daemon is up and there is an error log printed
+    """
     check_thermal_control_load_invalid_file(testbed_devices, THERMAL_POLICY_INVALID_VALUE_FILE)
 
 
 def check_thermal_control_load_invalid_file(testbed_devices, file_name):
+    """
+    @summary: Load an invalid thermal policy file check thermal 
+              control daemon is up and there is an error log printed
+    """
     dut = testbed_devices["dut"]
     loganalyzer = LogAnalyzer(ansible_host=dut, marker_prefix='thermal_control')
     with ThermalPolicyFileContext(dut, file_name):
@@ -359,6 +372,9 @@ def check_thermal_control_load_invalid_file(testbed_devices, file_name):
 
 
 def test_thermal_control_psu_absence(testbed_devices, psu_controller, mocker_factory):
+    """
+    @summary: Turn off/on PSUs, check thermal control is working as expect.
+    """
     dut = testbed_devices["dut"]
     psu_num = get_psu_num(dut)
     if psu_num < 2:
@@ -378,33 +394,39 @@ def test_thermal_control_psu_absence(testbed_devices, psu_controller, mocker_fac
         pytest.skip("Some PSU are still down, skip rest of the testing in this case")
 
     with ThermalPolicyFileContext(dut, THERMAL_POLICY_VALID_FILE):
-        fan_mocker = mocker_factory(dut.facts['asic_type'], 'FanStatusMocker')
+        fan_mocker = mocker_factory(dut, 'FanStatusMocker')
         if fan_mocker is None:
             pytest.skip("No FanStatusMocker for %s, skip rest of the testing in this case" % dut.facts['asic_type'])
 
         fan_mocker.mock_data()  # make data random
         restart_thermal_control_daemon(dut)
-        wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, mocker.check_all_fan_speed, 60)
+        wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, fan_mocker.check_all_fan_speed,
+                   60)
 
         check_thermal_algorithm_status(dut, mocker_factory, False)
 
         all_psu_status = psu_ctrl.get_psu_status()
         psu = all_psu_status[0]
-        turn_off_psu_and_check_thermal_control(dut, psu_ctrl, psu)
+        turn_off_psu_and_check_thermal_control(dut, psu_ctrl, psu, fan_mocker)
         psu_test_results.clear()
         if not check_all_psu_on(dut, psu_test_results):
             pytest.skip("Some PSU are still down, skip rest of the testing in this case")
 
         psu = all_psu_status[1]
-        turn_off_psu_and_check_thermal_control(dut, psu_ctrl, psu)
+        turn_off_psu_and_check_thermal_control(dut, psu_ctrl, psu, fan_mocker)
         psu_test_results.clear()
         if not check_all_psu_on(dut, psu_test_results):
             pytest.skip("Some PSU are still down, skip rest of the testing in this case")
-        
-        wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, mocker.check_all_fan_speed, 65)
+
+        wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, fan_mocker.check_all_fan_speed,
+                   65)
 
 
-def turn_off_psu_and_check_thermal_control(dut, psu_ctrl, psu):
+def turn_off_psu_and_check_thermal_control(dut, psu_ctrl, psu, mocker):
+    """
+    @summary: Turn off PSUs, check all FAN speed are set to 100% according to thermal
+              control policy file.
+    """
     logging.info("Turn off PSU %s" % str(psu["psu_id"]))
     psu_ctrl.turn_off_psu(psu["psu_id"])
     time.sleep(5)
@@ -425,50 +447,52 @@ def turn_off_psu_and_check_thermal_control(dut, psu_ctrl, psu):
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_fan_status(testbed_devices):
+def test_thermal_control_fan_status(testbed_devices, mocker_factory):
+    """
+    @summary: Make FAN absence, over speed and under speed, check logs and LED color.
+    """
     dut = testbed_devices["dut"]
     loganalyzer = LogAnalyzer(ansible_host=dut, marker_prefix='thermal_control')
     loganalyzer.load_common_config()
 
     with ThermalPolicyFileContext(dut, THERMAL_POLICY_VALID_FILE):
-        fan_mocker = mocker_factory(dut.facts['asic_type'], 'FanStatusMocker')
+        fan_mocker = mocker_factory(dut, 'FanStatusMocker')
         if fan_mocker is None:
             pytest.skip("No FanStatusMocker for %s, skip rest of the testing in this case" % dut.facts['asic_type'])
 
         fan_mocker.mock_data()  # make data random
         restart_thermal_control_daemon(dut)
-        wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, mocker.check_all_fan_speed, 60)
+        wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, fan_mocker.check_all_fan_speed,
+                   60)
         check_thermal_algorithm_status(dut, mocker_factory, False)
 
-        single_fan_mocker = mocker_factory(dut.facts['asic_type'], 'SingleFanMocker')
+        single_fan_mocker = mocker_factory(dut, 'SingleFanMocker')
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_REMOVE_RE]
-        with loganalyzer:  
+        with loganalyzer:
             single_fan_mocker.mock_absence()
-            check_cli_output_with_mocker(dut, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
+            check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_REMOVE_CLEAR_RE]
-        with loganalyzer:  
+        with loganalyzer:
             single_fan_mocker.mock_presence()
-            check_cli_output_with_mocker(dut, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
+            check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_OVER_SPEED_RE]
-        with loganalyzer:  
+        with loganalyzer:
             single_fan_mocker.mock_over_speed()
-            check_cli_output_with_mocker(dut, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
+            check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_OVER_SPEED_CLEAR_RE]
-        with loganalyzer:  
+        with loganalyzer:
             single_fan_mocker.mock_normal_speed()
-            check_cli_output_with_mocker(dut, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
+            check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_UNDER_SPEED_RE]
-        with loganalyzer:  
+        with loganalyzer:
             single_fan_mocker.mock_under_speed()
-            check_cli_output_with_mocker(dut, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
+            check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_UNDER_SPEED_CLEAR_RE]
-        with loganalyzer:  
+        with loganalyzer:
             single_fan_mocker.mock_normal_speed()
-            check_cli_output_with_mocker(dut, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
-
-
+            check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
