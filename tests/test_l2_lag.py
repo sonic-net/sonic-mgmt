@@ -73,7 +73,7 @@ def mg_facts(duthost, testbed):
 @pytest.fixture(scope="module", autouse=True)
 def setup_lag(duthost, ptfhost, mg_facts, testbed):
     # only support on t0 topology now
-    if "t0" not in testbed["topo"]:
+    if "t0" not in testbed["topo"]["name"]:
         pytest.skip("Unsupported topology, only support on t0 now")
 
     # vars
