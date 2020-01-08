@@ -1,11 +1,10 @@
 import pytest
 from netaddr import *
-import sys
 import time
-import ipaddress
+import logging
 import requests
-from ansible_host import AnsibleHost
 from ptf_runner import ptf_runner
+
 
 def generate_ips(num, prefix, exclude_ips):
     """
@@ -28,46 +27,48 @@ def generate_ips(num, prefix, exclude_ips):
 
     return generated_ips
 
+
 def announce_route(ptfip, neighbor, route, nexthop, port):
-    url  = "http://%s:%d" % (ptfip, port)
-    data = { "command": "neighbor %s announce route %s next-hop %s" % (neighbor, route, nexthop) }
+    url = "http://%s:%d" % (ptfip, port)
+    data = {"command": "neighbor %s announce route %s next-hop %s" % (neighbor, route, nexthop)}
     r = requests.post(url, data=data)
     assert r.status_code == 200
 
-@pytest.mark.parametrize(
-    "ipv4, ipv6, mtu",
-    [	pytest.param(True, False, 1514),	],
-    )
-def test_bgp(localhost, ansible_adhoc, testbed, ipv4, ipv6, mtu):
+
+@pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 1514)])
+def test_bgp(duthost, ptfhost, ipv4, ipv6, mtu):
     """setup bgp speaker on T0 topology and verify routes advertised
     by bgp speaker is received by T0 TOR
     """
 
-    hostname = testbed['dut']
-    ptf_hostname = testbed['ptf']
-    host = AnsibleHost(ansible_adhoc, hostname)
-    ptfhost = AnsibleHost(ansible_adhoc, ptf_hostname)
-    ptfip = ptfhost.host.options['inventory_manager'].get_host(ptf_hostname).vars['ansible_host']
+    ptfip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
+    logging.info("ptfip=%s" % ptfip)
 
-    mg_facts = host.minigraph_facts(host=hostname)['ansible_facts']
-    host_facts  = host.setup()['ansible_facts']
+    ptfhost.script("./scripts/remove_ip.sh")
+    ptfhost.script("./scripts/change_mac.sh")
 
-    res = host.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    host_facts = duthost.setup()['ansible_facts']
+
+    res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
     bgp_speaker_asn = res['stdout']
 
-    vlan_ips = generate_ips(3, \
-            "%s/%s" % (mg_facts['minigraph_vlan_interfaces'][0]['addr'], mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']),
-            [IPAddress(mg_facts['minigraph_vlan_interfaces'][0]['addr'])])
+    vlan_ips = generate_ips(3,
+                            "%s/%s" % (mg_facts['minigraph_vlan_interfaces'][0]['addr'],
+                                       mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']),
+                            [IPAddress(mg_facts['minigraph_vlan_interfaces'][0]['addr'])])
+    logging.info("Generated vlan_ips: %s" % str(vlan_ips))
 
     # three speaker ips, two from peer range, another is vlan ip [0]
     speaker_ips = generate_ips(2, mg_facts['minigraph_bgp_peers_with_range'][0]['ip_range'][0], [])
     speaker_ips.append(vlan_ips[0])
+    logging.info("speaker_ips: %s" % str(speaker_ips))
 
     for ip in vlan_ips:
-        host.command("ip route flush %s/32" % ip.ip)
-        host.command("ip route add %s/32 dev %s" % (ip.ip, mg_facts['minigraph_vlan_interfaces'][0]['attachto']))
+        duthost.command("ip route flush %s/32" % ip.ip)
+        duthost.command("ip route add %s/32 dev %s" % (ip.ip, mg_facts['minigraph_vlan_interfaces'][0]['attachto']))
 
-    root_dir   = "/root"
+    root_dir = "/root"
     port_num = [5000, 6000, 7000]
 
     lo_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
@@ -78,8 +79,9 @@ def test_bgp(localhost, ansible_adhoc, testbed, ipv4, ipv6, mtu):
     vlan_ports = []
     for i in range(0, 3):
         vlan_ports.append(mg_facts['minigraph_port_indices'][mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][0]['attachto']]['members'][i]])
+    logging.info("vlan_ports: %s" % str(vlan_ports))
 
-    # setup ip/routes in ptf
+    logging.info("setup ip/routes in ptf")
     ptfhost.shell("ifconfig eth%d %s" % (vlan_ports[0], vlan_ips[0]))
     ptfhost.shell("ifconfig eth%d:0 %s" % (vlan_ports[0], speaker_ips[0]))
     ptfhost.shell("ifconfig eth%d:1 %s" % (vlan_ports[0], speaker_ips[1]))
@@ -93,8 +95,8 @@ def test_bgp(localhost, ansible_adhoc, testbed, ipv4, ipv6, mtu):
     lo_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
     for i in range(0, 3):
         local_ip = str(speaker_ips[i].ip)
-        ptfhost.exabgp(name="bgps%d" % i, \
-                       state="started", \
+        ptfhost.exabgp(name="bgps%d" % i,
+                       state="started",
                        local_ip=local_ip,
                        router_id=local_ip,
                        peer_ip=lo_addr,
@@ -107,55 +109,69 @@ def test_bgp(localhost, ansible_adhoc, testbed, ipv4, ipv6, mtu):
     peer_range = mg_facts['minigraph_bgp_peers_with_range'][0]['ip_range'][0]
     prefix = '10.10.10.0/26'
 
-    # announce route
+    logging.info("announce route")
     announce_route(ptfip, lo_addr, prefix, vlan_ips[1].ip, port_num[0])
     announce_route(ptfip, lo_addr, prefix, vlan_ips[2].ip, port_num[1])
     announce_route(ptfip, lo_addr, peer_range, vlan_ips[0].ip, port_num[2])
 
-    # make sure routes announced to dynamic bgp neighbors
+    logging.info("Wait some time to make sure routes announced to dynamic bgp neighbors")
     time.sleep(60)
 
-    bgp_facts = host.bgp_facts()['ansible_facts']
+    # The ping here is workaround for known issue:
+    #     https://github.com/Azure/SONiC/issues/387 Pre-ARP support for static route config
+    # When there is no arp entry for next hop, routes learnt from exabgp will not be set down to ASIC
+    # Traffic to prefix 10.10.10.0 will be routed to vEOS VMs via default gateway.
+    duthost.shell("ping %s -c 3" % vlan_ips[1].ip)
+    duthost.shell("ping %s -c 3" % vlan_ips[2].ip)
+    time.sleep(5)
 
-    # Verify bgp sessions are established
+    bgp_facts = duthost.bgp_facts()['ansible_facts']
+
+    logging.info("Verify bgp sessions are established")
     for k, v in bgp_facts['bgp_neighbors'].items():
         assert v['state'] == 'established'
 
-    # Verify accepted prefixes of the dynamic neighbors are correct
+    logging.info("Verify accepted prefixes of the dynamic neighbors are correct")
     for ip in speaker_ips:
         assert bgp_facts['bgp_neighbors'][str(ip.ip)]['accepted prefixes'] == 1
     assert bgp_facts['bgp_neighbors'][str(vlan_ips[0].ip)]['accepted prefixes'] == 1
 
-    ## Run ptf test
-    # Generate route-port map information
-    extra_vars = \
-                { 'announce_prefix': '10.10.10.0/26',
-                  'minigraph_portchannels'  : mg_facts['minigraph_portchannels'],
-                  'minigraph_vlans'  : mg_facts['minigraph_vlans'],
-                  'minigraph_port_indices'  : mg_facts['minigraph_port_indices']}
+    logging.info("Generate route-port map information")
+    extra_vars = {'announce_prefix': '10.10.10.0/26',
+                  'minigraph_portchannels': mg_facts['minigraph_portchannels'],
+                  'minigraph_vlans': mg_facts['minigraph_vlans'],
+                  'minigraph_port_indices': mg_facts['minigraph_port_indices']}
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    logging.info("extra_vars: %s" % str(ptfhost.host.options['variable_manager'].extra_vars))
 
     ptfhost.template(src="bgp_speaker/bgp_speaker_route.j2", dest="/root/bgp_speaker_route.txt")
 
     ptfhost.copy(src="ptftests", dest=root_dir)
 
-    ptf_runner(ptfhost, \
-               "ptftests",
-               "fib_test.FibTest",
-               platform_dir="ptftests",
-               params={"testbed_type": "t0",
-                      "router_mac": host_facts['ansible_Ethernet0']['macaddress'],
-                      "fib_info": "/root/bgp_speaker_route.txt",
-                      "ipv4": ipv4,
-                      "ipv6": ipv6,
-                      "testbed_mtu": mtu },
-               log_file="/tmp/bgp_speaker_test.FibTest.log",
-               socket_recv_size=16384)
+    logging.info("run ptf test")
+    try:
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "fib_test.FibTest",
+                   platform_dir="ptftests",
+                   params={"testbed_type": "t0",
+                           "router_mac": host_facts['ansible_Ethernet0']['macaddress'],
+                           "fib_info": "/root/bgp_speaker_route.txt",
+                           "ipv4": ipv4,
+                           "ipv6": ipv6,
+                           "testbed_mtu": mtu },
+                   log_file="/tmp/bgp_speaker_test.FibTest.log",
+                   socket_recv_size=16384)
+    except Exception as e:
+        logging.error("Run ptf test exception: %s" % repr(e))
+        assert False, "PTF test for bgp_speaker failed"
 
-    for i in range(0, 3):
-        ptfhost.exabgp(name="bgps%d" % i, state="absent")
+    finally:
+        logging.info("cleanup")
+        for i in range(0, 3):
+            ptfhost.exabgp(name="bgps%d" % i, state="absent")
 
-    for ip in vlan_ips:
-        host.command("ip route flush %s/32" % ip.ip)
+        for ip in vlan_ips:
+            duthost.command("ip route flush %s/32" % ip.ip)
 
-    ptfhost.shell("ip addr flush dev eth{}".format(mg_facts['minigraph_port_indices'][mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][0]['attachto']]['members'][0]]))
+        ptfhost.shell("ip addr flush dev eth{}".format(mg_facts['minigraph_port_indices'][mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][0]['attachto']]['members'][0]]))
