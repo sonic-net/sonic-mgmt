@@ -36,6 +36,40 @@
   "VERIFY_GETSET_Sanity1_4": {
     "filter": "/if:interfaces/if:interface"
   },
+  "SET_InvldPath_1": {
+      "ietf-interfaces:interfaces": {
+        "interfac": [
+          {
+            "name": "SetInvldPath1",
+            "description": "ForSETInvalid Path-1 ",
+            "type": "iana-if-type:ethernetCsmacd"
+          }
+        ]
+      }
+  },
+  "SET_RplOmit_1": {
+      "set-replace": {
+        "ietf-interfaces:interfaces": {
+          "interface": [
+            {
+              "name": "SetRplOmt1",
+              "description": "For SETOMIT Path-1",
+              "type": "iana-if-type:ethernetCsmacd"
+            }
+          ]
+        }
+     },
+      "set-omit": {
+        "ietf-interfaces:interfaces": {
+          "interface": [
+            {
+              "name": "SetRplOmt1",
+              "type": "iana-if-type:ethernetCsmacd"
+            }
+          ]
+        }
+     }
+},
   "MULTISET_Sanity1_1": {
     "set-type": "multiple",
     "set-lst": {

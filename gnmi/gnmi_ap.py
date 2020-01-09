@@ -53,12 +53,6 @@ def stub():
 class TestGnmi(GnmiApBase):
 
 
-    def test_PfxPath_MSet1(self,stub):
-        gnmi_san_tc._test_PfxPath_MSet1(stub)
-
-
-'''
-
     def test_GetSet_OC_Components(self,stub):
         gnmi_san_tc._test_GetSet_OC_Components(stub)
 
@@ -101,5 +95,13 @@ class TestGnmi(GnmiApBase):
     def test_MultiSet_Sanity1(self,stub):
         gnmi_san_tc._test_MultiSet_Sanity1(stub)
 
-'''
+    def test_PfxPath_MSet1(self,stub):
+        gnmi_san_tc._test_PfxPath_MSet1(stub)
+
+    def test_Set_InvldPath1(self,stub):
+        gnmi_san_tc._test_Set_InvldPath1(stub)
+
+    def test_SetRpl_Omit1(self,stub):
+        gnmi_san_tc._test_SetRpl_Omit1(stub)
+
 

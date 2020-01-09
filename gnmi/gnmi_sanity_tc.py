@@ -796,9 +796,7 @@ def _test_set_unsup_payload(stub):
         log.info("Test test_set_unsup_payload - Passed")
 
 
-'''
-def _test_GetSet_Sanity2(stub):
-'''
+
 
 def _test_gnmi_SetPfxPath(stub):
     user = None
@@ -1020,3 +1018,145 @@ def _test_SetReq_Del1(stub):
     else:
         log.info("Test_SETReq_Del1 - All sections passed")
 
+
+def _test_Set_InvldPath1(stub):
+    user = None
+    password = None
+    err_msg = list()
+    rslt = True
+    #with open(ApData.input_conf_file, 'r') as ip_conf_file:
+    #    input_conf = gnmiTestLib.json_load_byteified(ip_conf_file)
+
+    input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_GetSet_Sanity1/input_conf_file"), 'r').read())
+
+    log.info('Performing SET-REPLACE w/Invalid Path to target \n')
+    try:
+        if 'SET_InvldPath_1' in input_conf:
+            set_info1 = input_conf['SET_InvldPath_1']
+            print(set_info1)
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1)
+            log.info(str(reply))
+            if ('response' in str(reply) and 'op: REPLACE' in str(reply)):
+                log.error("SET_InvldPath1_1:FAILED - should not be able to do SET-REPLACE with Invalid Path")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        if ('StatusCode.NOT_FOUND' in str(e) and 'unknown element' in str(e)):
+            log.info("Test SET_InvldPath1_1::Passed - received correct error message on SET-REPLACE with Invalid Path")
+        else:
+            rslt = False
+            log.error("Test SET_InvldPath1_1::Failed - rcvd incorrect error message on SET-REPLACE with Invalid Path")
+
+    log.info('Performing SET-UPDATE w/Invalid Path to target \n')
+    try:
+        if 'SET_InvldPath_1' in input_conf:
+            set_info1 = input_conf['SET_InvldPath_1']
+            print(set_info1)
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'update', user, password, set_info1)
+            log.info(str(reply))
+            if ('response' in str(reply) and 'op: UPDATE' in str(reply)):
+                log.error("SET_InvldPath1_2:FAILED - should not be able to do SET-UPDATE with Invalid Path")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        if ('StatusCode.NOT_FOUND' in str(e) and 'unknown element' in str(e)):
+            log.info("Test SET_InvldPath1_2::Passed - received correct error message on SET-UPDATE with Invalid Path")
+        else:
+            rslt = False
+            log.error("Test SET_InvldPath1_2::Failed - rcvd incorrect error message on SET-UPDATE with Invalid Path")
+
+
+    finally:
+        if rslt:
+            log.info("Test SET_InvldPath1:Passed - Error Scenarios for SET w/Invalid Path Passed")
+        else:
+            raise CafyException.VerificationError("Test SET_InvldPath1:Failed - One or More Error Scenarios for SET w/Invalid Path FAILED")
+
+
+
+def _test_SetRpl_Omit1(stub):
+    user = None
+    password = None
+    err_msg = list()
+    rslt = True
+    #with open(ApData.input_conf_file, 'r') as ip_conf_file:
+    #    input_conf = gnmiTestLib.json_load_byteified(ip_conf_file)
+
+    input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_GetSet_Sanity1/input_conf_file"), 'r').read())
+
+    log.info('Performing SET-REPLACE w/Omitting Options to target \n')
+    try:
+        if 'SET_RplOmit_1' in input_conf:
+            set_info1 = input_conf['SET_RplOmit_1']
+            print(set_info1['set-replace'])
+            print("###############")
+            print(set_info1['set-omit'])
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1['set-replace'])
+            log.info(str(reply))
+            if ('response' in str(reply) and 'op: REPLACE' in str(reply)):
+                log.info("SET_RplOmit1_1:Passed - was able to do SET-REPLACE with input json")
+            else:
+                log.info("SET_RplOmit1_1:Failed - was unable to do SET-REPLACE with input json")
+                rslt = False
+            
+        if rslt:
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1['set-omit'])
+            log.info(str(reply))
+            if ('response' in str(reply) and 'op: REPLACE' in str(reply)):
+                log.info("SET_RplOmit1_2:Passed - was able to do SET-REPLACE Omitting data elements")
+            else:
+                log.info("SET_RplOmit1_2:Failed - was unable to do SET-REPLACE Omitting data elements")
+                rslt = False
+
+            #xpath = "/if:interfaces/if:interface"
+            xpath = input_conf['VERIFY_GETSET_Sanity1_1']['filter']
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            response = gnmiTestLib._get(stub, paths, user, password)
+            log.info(response)
+            msg_dict = google.protobuf.json_format.MessageToDict(response)
+            log.info(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+            print("################")
+            print(resp_dict.keys())
+            print(resp_dict.values())
+            print(set_info1['set-omit'])
+            print("################")
+            if resp_dict.get('SetRplOmt1,description') != None:
+                err_msg.append("{} 'description' key should not be present in config as it was not sent in SET-REPLACE")
+            for resp_key in resp_dict['key_list']:
+                if set_info1['set-omit']['ietf-interfaces:interfaces']['interface'][0]['name'] != resp_dict[resp_key + ',name']:
+                    err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',name'], set_info1['ietf-interfaces:interfaces']['interface'][0]['name']))
+                #if set_info1['set-omit']['ietf-interfaces:interfaces']['interface'][0]['description'] != resp_dict[resp_key + ',description']:
+                #    err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',description'], set_info1['ietf-interfaces:interfaces']['interface'][0]['description']))
+                if resp_dict[resp_key + ',type'] not in set_info1['set-omit']['ietf-interfaces:interfaces']['interface'][0]['type']:
+                    err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',type'], set_info1['ietf-interfaces:interfaces']['interface'][0]['type']))
+            if resp_dict.get('SetRplOmt1,enabled') !=None:
+               log.info("SET_RplOmit1_3:Passed - Default values created even though they are not sent in SET-REPLACE")
+               def_val = "SET_RplOmit1_3:Passed - Default value for Interface 'enabled' created = " + str(resp_dict.get('SetRplOmt1,enabled'))
+               log.info(def_val)
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test SET_RplOmit1_1 failed due to Grpc Error {err}".format(err=e.details()))
+
+    if len(err_msg) != 0:
+        log.error("Test SET_RplOmit1 failed due to : {}".format(*err_msg))
+    else:
+        log.info("Test SET_RplOmit1 - PASSED")
