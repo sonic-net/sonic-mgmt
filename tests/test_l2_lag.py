@@ -74,7 +74,8 @@ def mg_facts(duthost, testbed):
 def setup_lag(duthost, ptfhost, mg_facts, testbed):
     # only support on t0 topology now
     if "t0" not in testbed["topo"]["name"]:
-        pytest.skip("Unsupported topology, only support on t0 now")
+        logging.warning("Unsupported topology, only support topology t0 now.")
+        pytest.skip("Unsupported topology")
 
     # vars
     global g_vars
