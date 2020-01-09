@@ -63,6 +63,9 @@
     - name: Run testcase 5 - Policer enforced with DSCP value/mask
       include_tasks: roles/test/tasks/everflow_testbed/testcase_5.yml
 
+    - name: Run testcase 6 - ARP/ND packet mirroring
+      include: roles/test/tasks/everflow_testbed/testcase_6.yml
+
   always:
     - name: Remove route to unresolved next hop.
       shell: vtysh -e "conf t" -e "no ip route {{ unresolved_nexthop_prefix }} {{ dst_port_2 }}"
