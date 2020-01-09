@@ -1,7 +1,7 @@
 # exec
 skip=false
 if $skip ; then
-pytest p4_ap.py \
+pytest -s p4_ap.py \
     --selective-test-file=selective_test_file.txt \
     --topology-file p4_topo.json \
     --tb=short \
@@ -12,7 +12,7 @@ pytest p4_ap.py \
     -m 'not Future' \
     -p no:cacheprovider
 
-pytest p4_ap.py \
+pytest -s p4_ap.py \
     --selective-test-file=p4_negative_tc.txt \
     --topology-file p4_topo.json \
     --tb=short \
@@ -24,7 +24,7 @@ pytest p4_ap.py \
     -p no:cacheprovider
 fi
 
-pytest p4_ap.py \
+pytest -s p4_ap.py \
     --selective-test-file=failed_test_file.txt \
     --topology-file p4_topo.json \
     --tb=short \

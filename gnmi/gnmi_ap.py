@@ -53,6 +53,19 @@ def stub():
 class TestGnmi(GnmiApBase):
 
 
+    def test_Neg_set_with_vld_del_inv_upd(self,stub):
+        gnmi_san_tc._test_Neg_set_with_vld_del_inv_upd(stub)
+
+    def test_set_with_mul_attr_val(self,stub):
+        gnmi_san_tc._test_set_with_mul_attr_val(stub)
+
+    def test_Path_with_keys(self,stub):
+        gnmi_san_tc._test_Path_with_keys(stub)
+
+    def test_Set_with_partial_val(self,stub):
+        gnmi_san_tc._test_Set_with_partial_val(stub)
+
+
     def test_GetSet_OC_Components(self,stub):
         gnmi_san_tc._test_GetSet_OC_Components(stub)
 
@@ -86,6 +99,9 @@ class TestGnmi(GnmiApBase):
     def test_set_unsup_payload(self,stub):
         gnmi_san_tc._test_set_unsup_payload(stub)
     
+    def test_set_unsup_payload_schema(self,stub):
+        gnmi_san_tc._test_set_unsup_payload_schema(stub)
+
     def test_gnmi_SetPfxPath(self,stub):
         gnmi_san_tc._test_gnmi_SetPfxPath(stub)
 

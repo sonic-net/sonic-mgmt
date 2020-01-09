@@ -7,7 +7,8 @@
             "config": {
               "name": "Loopback123",
               "description": "For GET_WITH_PFX TC",
-              "type": "iana-if-type:ethernetCsmacd"
+              "type": "iana-if-type:ethernetCsmacd",
+              "mtu": "1500"
             }
           },
           {
@@ -15,7 +16,8 @@
             "config": {
               "name": "Ethernet0",
               "description": "For GET_WITH_PFX TC",
-              "type": "iana-if-type:ethernetCsmacd"
+              "type": "iana-if-type:ethernetCsmacd",
+              "mtu": "1500"
             }
           }
         ]
@@ -76,6 +78,110 @@
   "VERIFY_GET_WITH_OC_COMP": {
     "prefix": "/oc-platform:components",
     "path":"/oc-platform:component"
+  },
+  "Inv_Upd_Neg_1": {
+    "Updates" : {
+      "set-type": "multiple",
+      "set-lst": {
+        "set-delete": {
+          "path": "/oc-if:interfaces/oc-if:interface[name=Loopback123]"
+        },
+        "set-update": {
+          "openconfig-interfaces:interfaces": {
+            "interface": [
+              {
+                "name": "Ethernet0",
+                "config": {
+                  "name": "Ethernet0",
+                  "descriptions": "For GET_WITH_PFX TC",
+                  "type": "iana-if-type:ethernetCsmacd"
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "Mult_Set_Rep_1": {
+    "openconfig-interfaces:interfaces": {
+      "interface": [
+        {
+          "name": "Loopback123",
+          "config": {
+            "name": "Loopback123",
+            "description": "For Mult_Set_Rep_1 TC",
+            "type": "iana-if-type:ethernetCsmacd",
+            "mtu": "1400"
+          }
+        },
+        {
+          "name": "Ethernet0",
+          "config": {
+            "name": "Ethernet0",
+            "description": "For Mult_Set_Rep_1 TC",
+            "type": "iana-if-type:ethernetCsmacd",
+            "mtu": "1000"
+          }
+        }
+      ]
+    }
+  },
+  "Neg_Set_Partial_1": {
+    "openconfig-interfaces:interfaces": {
+      "interface": [
+        {
+          "name": "Loopback123",
+          "config": {
+            "name": "Loopback123",
+            "description": "For Mult_Set_Rep_1 TC"
+          }
+        },
+        {
+          "name": "Ethernet0",
+          "config": {
+            "name": "Ethernet0",
+            "description": "For Mult_Set_Rep_1 TC"
+          }
+        }
+      ]
+    }
+  },
+  "Neg_Set_Payload_Schema_1": {
+    "openconfig-interfaces:interfaces": {
+      "interface": [
+        {
+          "name": "Loopback123",
+          "config": {
+            "name": "Loopback123",
+            "description": "For Mult_Set_Rep_1 TC",
+            "type": "iana-if-type:ethernetCsmacd",
+            "mtu": "fourteenHundred"
+          }
+        },
+        {
+          "name": "Ethernet0",
+          "config": {
+            "name": "Ethernet0",
+            "description": "For Mult_Set_Rep_1 TC",
+            "type": "iana-if-type:ethernetCsmacd",
+            "mtu": "Thousand"
+          }
+        }
+      ]
+    }
+  },
+  "PATH_CHECK": {
+    "config": {
+      "name": "Loopback123",
+      "description": "For path check TC",
+      "type": "iana-if-type:ethernetCsmacd",
+      "enabled": "true"
+    }
+  },
+  "VERIFY_GET_WITH_PATH_CHECK": {
+    "prefix": "/oc-if:interfaces",
+    "path":"/oc-if:interface[name=Loopback123]"
   }
 }
 

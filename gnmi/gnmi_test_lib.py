@@ -361,6 +361,8 @@ def _get(stub, paths,username, password,prefix="/",type='ALL',encoding='PROTO',u
     a gnmi_pb2.GetResponse object representing a gNMI GetResponse.
   """
   prefix = _parse_path(_path_names(prefix))
+  print(prefix)
+  print([paths])
   if username:  # User/pass supplied for Authentication.
     return stub.Get(
         gnmi_pb2.GetRequest(path=[paths], prefix=prefix, type=type, encoding=encoding),
@@ -420,19 +422,25 @@ def _set(stub, paths, set_type, username, password, json_value, pfx_paths=None,n
   if set_type == 'multiple':
     print(json_value)
     print("############")
-    if json_value['set-lst']['set-replace']:
+    if 'set-replace' in json_value['set-lst'].keys():
       set_json = json_value['set-lst']['set-replace']
       print(set_json)
       val = _get_val_in(set_json)
       path_val = gnmi_pb2.Update(path=paths, val=val,)
       request.replace.extend([path_val])
 
-    if json_value['set-lst']['set-update']:
+    if 'set-update' in json_value['set-lst'].keys():
       set_json = json_value['set-lst']['set-update']
       print(set_json)
       val = _get_val_in(set_json)
       path_val = gnmi_pb2.Update(path=paths, val=val,)
-      request.update.extend([path_val]) 
+      request.update.extend([path_val])
+
+    if 'set-delete' in json_value['set-lst'].keys():
+      set_path = json_value['set-lst']['set-delete']['path']
+      log.info(set_path)
+      paths = _parse_path(_path_names(set_path))
+      request.delete.extend([paths]) 
 
 
   kwargs = {}
@@ -639,6 +647,7 @@ def get_response_dict(get_value):
   response_dict['key_list'] = key_list
   return response_dict
 
+"""
 def get_oc_response_dict(get_value):
   response_dict = dict()
   key_list = list()
@@ -677,11 +686,11 @@ def get_oc_response_dict(get_value):
         name = value['path']['elem'][0]['name']
 
     val =  value['val'][keys[i]]
-    """     
-    if ctr == 0 and len(value['path']['elem']) == 2:
-      key = val
-      key_list.append(val)
-    """    
+         
+    #if ctr == 0 and len(value['path']['elem']) == 2:
+    #  key = val
+    #  key_list.append(val)
+        
     full_key = key+","+ct_name+","+name
     response_dict[full_key] = val
     log.info("{}:{}".format(full_key,val))
@@ -690,8 +699,9 @@ def get_oc_response_dict(get_value):
 
   response_dict['key_list'] = key_list
   return response_dict
+"""
 
-def new_get_oc_response_dict(get_value):
+def get_oc_response_dict(get_value):
   response_dict = dict()
   key_list = list()
   ctr = 0

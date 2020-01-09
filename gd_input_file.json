@@ -158,8 +158,8 @@
                 "input_conf_file": "./data-files/ingress-encapin-ipv4-table.json",
                 "R1": {
                     "name": "s1",
-                    "svr_addr": "172.29.105.102",
-                    "svr_port": "50055",
+                    "svr_addr": "172.17.0.2",
+                    "svr_port": "50051",
                     "proto_dump_file": "s1-p4runtime-requests-log.txt",
                     "device_id": "0"
                 }

@@ -139,26 +139,13 @@ def blocking_table_play(name):
                     log.info("RE-INSERTING TABLE ENTRIES - Switch {name}".format(name=name))
                     p4TestLib.tableEntryActions(sw_name, entry, p4info_helper, 'INSERT',election_id_low=election_id_low,election_id_high=election_id_high)
                     sleep(1)
-                    log.info("READING TABLE ENTRIES - Switch {name}".format(name=name))
-                    #readTableRules(p4info_helper, sw_name)
-                    sleep(1)
 
-        if 'table_entries' in input_conf:
-            log.info(input_conf)
-            table_entries = input_conf['table_entries']
-            log.info("Inserting {entries} table entries - Switch {name}".format(entries = len(table_entries), name=name))
-            for entry in table_entries:
-                log.info(p4TestLib.tableEntryToString(entry))
-                #insertTableEntry(sw_name, entry, p4info_helper)
-                #removeTableEntry(sw_name, entry, p4info_helper)
-                log.info("REMOVING TABLE ENTRIES - Switch {name}".format(name=name))
-                p4TestLib.tableEntryActions(sw_name, entry, p4info_helper, 'DELETE',election_id_low=election_id_low,election_id_high=election_id_high)
-                sleep(1)
         ns1.shutdown()
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
         log.error(e)
+        printGrpcError(e)
         ns1.shutdown()
         result["msg"] = str(e)
         result["status"] = False
