@@ -59,7 +59,7 @@ class SerialSession(object):
 
         return
 
-    def pair(self, action, wait_for, timeout):
+    def pair(self, action, wait_for, timeout=60):
         self.d.debug('output: %s' % action)
         self.d.debug('match: %s' % ",".join(wait_for))
         self.tn.write("%s\n" % action)
@@ -80,29 +80,29 @@ class SerialSession(object):
                 break
 
         for password in passwords:
-            index = self.pair(user, [r'assword:', r'\$'], 20)
+            index = self.pair(user, [r'assword:', r'\$'])
             if index == 0:
-                index = self.pair(password, [r'login:', r'\$'], 10)
+                index = self.pair(password, [r'login:', r'\$'])
                 if index == 1:
                     break
 
         return
 
     def configure(self, seq):
-        self.pair('sudo bash', [r'#'], 10)
+        self.pair('sudo bash', [r'#'])
         for cmd in seq:
             if len(cmd) == 2:
                 (action, wait_for) = cmd
-                self.pair(action, wait_for, 10)
+                self.pair(action, wait_for)
             else:
                 (action, wait_for, timeout) = cmd
                 self.pair(action, wait_for, timeout)
-        self.pair('exit', [r'\$'], 10)
+        self.pair('exit', [r'\$'])
 
         return
 
     def logout(self):
-        self.pair('exit', [r'login:'], 10)
+        self.pair('exit', [r'login:'])
 
         return
 
