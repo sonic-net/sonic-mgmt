@@ -152,6 +152,12 @@
           state: restarted
         when: updategraph_conf.changed
 
+      - name: docker status
+        shell: docker ps
+        register: docker_status
+
+      - debug: msg={{ docker_status.stdout_lines }}
+
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
         shell: config load_minigraph -y
