@@ -2,10 +2,79 @@ import os
 import random
 import logging
 from thermal_control_test_helper import *
-from common.mellanox_data import SWITCH_MODELS, FAN_NAMING_RULE, THERMAL_NAMING_RULE
+from common.mellanox_data import SWITCH_MODELS
 
 NOT_AVAILABLE = 'N/A'
 
+THERMAL_NAMING_RULE = {
+    "cpu_core": {
+        "name": "CPU Core {} Temp",
+        "temperature": "cpu_core{}",
+        "high_threshold": "cpu_core{}_max",
+        "high_critical_threshold": "cpu_core{}_crit"
+    },
+    "module": {
+        "name": "xSFP module {} Temp",
+        "temperature": "module{}_temp_input",
+        "high_threshold": "module{}_temp_crit",
+        "high_critical_threshold": "module{}_temp_emergency"
+    },
+    "psu": {
+        "name": "PSU-{} Temp",
+        "temperature": "psu{}_temp",
+        "high_threshold": "psu{}_temp_max"
+    },
+    "cpu_pack": {
+        "name": "CPU Pack Temp",
+        "temperature": "cpu_pack",
+        "high_threshold": "cpu_pack_max",
+        "high_critical_threshold": "cpu_pack_crit"
+    },
+    "gearbox": {
+        "name": "CPU Pack Temp",
+        "temperature": "temp_input_gearbox{}"
+    },
+    "asic_ambient": {
+        "name": "Ambient ASIC Temp",
+        "temperature": "asic"
+    },
+    "port_ambient": {
+        "name": "Ambient Port Side Temp",
+        "temperature": "port_amb"
+    },
+    "fan_ambient": {
+        "name": "Ambient Fan Side Temp",
+        "temperature": "fan_amb"
+    },
+    "comex_ambient": {
+        "name": "Ambient COMEX Temp",
+        "temperature": "comex_amb"
+    },
+    "board_ambient": {
+        "name": "Ambient Board Temp",
+        "temperature": "board_amb"
+    }
+}
+
+FAN_NAMING_RULE = {
+    "fan": {
+        "name": "fan{}",
+        "speed": "fan{}_speed_get",
+        "presence": "fan{}_status",
+        "target_speed": "fan{}_speed_set",
+        "max_speed": "fan{}_max",
+        "status": "fan{}_fault",
+        "led_capability": "led_fan{}_capability",
+        "led_green": "led_fan{}_green",
+        "led_red": "led_fan{}_red",
+        "led_orange": "led_fan{}_orange"
+    },
+    "psu_fan": {
+        "name": "psu_{}_fan_1",
+        "speed": "psu{}_fan1_speed_get",
+        "power_status": "psu{}_pwr_status"
+    }
+}
 
 class SysfsNotExistError(Exception):
     """
@@ -34,13 +103,15 @@ class MockerHelper:
     # Flag indicate if FAN number has been initialize.
     INIT_FAN_NUM = False
 
+    unlink_file_list = {}
+
     def __init__(self, dut):
         """
         Constructor of mocker helper.
         :param dut: DUT object representing a SONiC switch under test.
         """
         self.dut = dut
-        self.unlink_file_list = {}
+        #self.unlink_file_list = {}
         self._extract_num_of_fans_and_fan_drawers()
 
     def _extract_num_of_fans_and_fan_drawers(self):
@@ -65,7 +136,7 @@ class MockerHelper:
         if not content:
             return
         MockerHelper.FAN_NUM = int(content)
-        if MockerHelper.FAN_NUM < fan_drawer_num:
+        if MockerHelper.FAN_NUM > fan_drawer_num:
             MockerHelper.FAN_NUM_IN_DRAWER = 2
         else:
             MockerHelper.FAN_NUM_IN_DRAWER = 1
@@ -403,7 +474,7 @@ class TemperatureData:
         :return:
         """
         self.helper.mock_thermal_value(self.temperature_file, str(temperature))
-        self.mocked_temperature = temperature
+        self.mocked_temperature = temperature / 1000.0
 
     def get_high_threshold(self):
         """
@@ -412,7 +483,7 @@ class TemperatureData:
         """
         if self.high_threshold_file:
             high_threshold = self.helper.read_thermal_value(self.high_threshold_file)
-            return int(high_threshold) / 1000
+            return int(high_threshold) / 1000.0
         else:
             return TemperatureData.DEFAULT_HIGH_THRESHOLD
 
@@ -424,7 +495,7 @@ class TemperatureData:
         """
         if self.high_threshold_file:
             self.helper.mock_thermal_value(self.high_threshold_file, str(high_threshold))
-            self.mocked_high_threshold = high_threshold
+            self.mocked_high_threshold = high_threshold / 1000.0
         else:
             self.mocked_high_threshold = NOT_AVAILABLE
 
@@ -436,7 +507,7 @@ class TemperatureData:
         """
         if self.high_critical_threshold_file:
             self.helper.mock_thermal_value(self.high_critical_threshold_file, str(high_critical_threshold))
-            self.mocked_high_critical_threshold = high_critical_threshold
+            self.mocked_high_critical_threshold = high_critical_threshold / 1000.0
         else:
             self.mocked_high_critical_threshold = NOT_AVAILABLE
 
@@ -477,12 +548,12 @@ class RandomFanStatusMocker(FanStatusMocker):
         naming_rule = FAN_NAMING_RULE['fan']
         while fan_index <= MockerHelper.FAN_NUM:
             try:
-                if fan_index == drawer_index * MockerHelper.FAN_NUM_IN_DRAWER - 1:
+                if (fan_index - 1) % MockerHelper.FAN_NUM_IN_DRAWER == 0:
                     drawer_data = FanDrawerData(self.mock_helper, naming_rule, drawer_index)
                     drawer_index += 1
                     drawer_data.mock_presence(random.randint(0, 1))
 
-                fan_data = FanData(self.helper, naming_rule, fan_index)
+                fan_data = FanData(self.mock_helper, naming_rule, fan_index)
                 fan_index += 1
                 fan_data.mock_status(random.randint(0, 1))
                 fan_data.mock_speed(random.randint(0, 100))
@@ -498,16 +569,16 @@ class RandomFanStatusMocker(FanStatusMocker):
                 logging.info('Failed to mock fan data for {}'.format(fan_data.name))
                 continue
 
-        dut_hwsku = self.helper.dut.facts["hwsku"]
+        dut_hwsku = self.mock_helper.dut.facts["hwsku"]
         psu_count = SWITCH_MODELS[dut_hwsku]["psus"]["number"]
         naming_rule = FAN_NAMING_RULE['psu_fan']
         for index in range(1, psu_count + 1):
             try:
-                fan_data = FanData(self.helper, naming_rule, index)
+                fan_data = FanData(self.mock_helper, naming_rule, index)
                 speed = random.randint(0, RandomFanStatusMocker.PSU_FAN_MAX_SPEED)
                 fan_data.mock_speed(speed)
 
-                self.expected_data[fan_data.name,] = [
+                self.expected_data[fan_data.name] = [
                     fan_data.name,
                     '{}RPM'.format(fan_data.mocked_speed),
                     NOT_AVAILABLE,
@@ -530,10 +601,11 @@ class RandomFanStatusMocker(FanStatusMocker):
                 actual_fields = actual_data[name]
                 for i, expected_field in enumerate(fields):
                     if expected_field != actual_fields[i]:
-                        logging.info('Check fan status for {} failed, ' \
+                        logging.error('Check fan status for {} failed, ' \
                                      'expected: {}, actual: {}'.format(name, expected_field, actual_fields[i]))
                         return False
             else:
+                logging.error('Expected FAN data {} not found in actual data {}'.format(fields, actual_data))
                 return False
         return True
 
@@ -553,9 +625,10 @@ class RandomFanStatusMocker(FanStatusMocker):
         return True
 
 
+@mocker('ThermalStatusMocker')
 class RandomThermalStatusMocker(ThermalStatusMocker):
     """
-    RMocker class to help generate random thermal status and check it with actual data.
+    RandomThermalStatusMocker class to help generate random thermal status and check it with actual data.
     """
 
     # Thermal algorithm status sys fs path.
@@ -569,7 +642,7 @@ class RandomThermalStatusMocker(ThermalStatusMocker):
         Constructor of RandomThermalStatusMocker.
         :param dut: DUT object representing a SONiC switch under test.
         """
-        RandomThermalStatusMocker.__init__(self, dut)
+        ThermalStatusMocker.__init__(self, dut)
         self.mock_helper = MockerHelper(dut)
         self.expected_data = {}
 
@@ -585,7 +658,7 @@ class RandomThermalStatusMocker(ThermalStatusMocker):
         Mock random data for all Thermals in this DUT.
         :return:
         """
-        dut_hwsku = self.helper.dut.facts["hwsku"]
+        dut_hwsku = self.mock_helper.dut.facts["hwsku"]
         thermal_dict = SWITCH_MODELS[dut_hwsku]["thermals"]
         for category, content in thermal_dict.items():
             number = int(content['number'])
@@ -593,10 +666,10 @@ class RandomThermalStatusMocker(ThermalStatusMocker):
             if 'start' in content:
                 start = int(content['start'])
                 for index in range(start, start + number):
-                    mock_data = TemperatureData(self.helper, naming_rule, index)
+                    mock_data = TemperatureData(self.mock_helper, naming_rule, index)
                     self._do_mock(mock_data)
             else:  # non index-able thermal
-                mock_data = TemperatureData(self.helper, naming_rule, None)
+                mock_data = TemperatureData(self.mock_helper, naming_rule, None)
                 self._do_mock(mock_data)
 
     def _do_mock(self, mock_data):
@@ -659,7 +732,7 @@ class RandomThermalStatusMocker(ThermalStatusMocker):
         :return: True if match else False
         """
         expected_value = '0' if expected_status else '1'
-        return expected_value == self.helper.read_value(RandomThermalStatusMocker.THERMAL_ALGO_STATUS_FILE_PATH)
+        return expected_value == self.mock_helper.read_value(RandomThermalStatusMocker.THERMAL_ALGO_STATUS_FILE_PATH)
 
 
 @mocker('SingleFanMocker')
@@ -679,11 +752,11 @@ class AbnormalFanMocker(SingleFanMocker):
         Constructor of AbnormalFanMocker
         :param dut: DUT object representing a SONiC switch under test.
         """
-        AbnormalFanMocker.__init__(self, dut)
-        self.helper = MockerHelper(dut)
+        SingleFanMocker.__init__(self, dut)
+        self.mock_helper = MockerHelper(dut)
         naming_rule = FAN_NAMING_RULE['fan']
-        self.fan_drawer_data = FanDrawerData(self.helper, naming_rule, 1)
-        self.fan_data = FanData(self.helper, naming_rule, 1)
+        self.fan_drawer_data = FanDrawerData(self.mock_helper, naming_rule, 1)
+        self.fan_data = FanData(self.mock_helper, naming_rule, 1)
         self.expect_led_color = None
         self.mock_normal()
 

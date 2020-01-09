@@ -40,7 +40,7 @@ class BaseMocker:
         """
         Check actual data with mocked data.
         :param actual_data: A dictionary contains actual command line data. Key of the dictionary is the unique id
-                            of a line of command line data. For 'show platform fanstatus', the key is FAN name. Value
+                            of a line of command line data. For 'show platform fan', the key is FAN name. Value
                             of the dictionary is a list of field values for a line.
         :return: True if actual data match mocked data else False
         """
@@ -239,7 +239,7 @@ def get_fields(line, field_ranges):
     """
     fields = []
     for field_range in field_ranges:
-        field = line[field_range[0]:field_range[1]]
+        field = line[field_range[0]:field_range[1]].encode('utf-8')
         fields.append(field.strip())
 
     return fields
@@ -250,23 +250,23 @@ def check_cli_output_with_mocker(dut, mocker_object, command, max_wait_time):
     Check the command line output matches the mocked data.
     :param dut: DUT object representing a SONiC switch under test. 
     :param mocker_object: A mocker instance.
-    :param command: The command to be executed. E.g, 'show platform fanstatus'
+    :param command: The command to be executed. E.g, 'show platform fan'
     :param max_wait_time: Max wait time.
     :return: True if the actual data matches the mocked data.
     """
     time.sleep(max_wait_time)
 
-    cli_thermal_status = dut.command(command)
-    assert cli_thermal_status["rc"] == 0, "Run command '%s' failed" % command
-    second_line = cli_thermal_status["stdout_lines"][1]
+    output = dut.command(command)
+    assert output["rc"] == 0, "Run command '%s' failed" % command
+    second_line = output["stdout_lines"][1]
     field_ranges = get_field_range(second_line)
 
     actual_data = {}
-    for line in cli_thermal_status["stdout_lines"][2:]:
+    for line in output["stdout_lines"][2:]:
         fields = get_fields(line, field_ranges)
         actual_data[fields[0]] = fields
     
-    return mocker_object.check(actual_data)
+    return mocker_object.check_result(actual_data)
 
 
 def check_thermal_algorithm_status(dut, mocker_factory, expected_status):
