@@ -8,6 +8,7 @@
         url: "{{ image_url }}"
         dest: "{{ filename }}"
         force: yes
+      run_once: True
       delegate_to: localhost
 
     - name: Copy the downloaded image to fanout
