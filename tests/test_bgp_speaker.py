@@ -161,7 +161,6 @@ def test_bgp_speaker_announce_routes(common_setup_teardown, duthost, ptfhost, ip
     bgp_facts = duthost.bgp_facts()['ansible_facts']
     for ip in speaker_ips:
         assert bgp_facts['bgp_neighbors'][str(ip.ip)]['accepted prefixes'] == 1
-    assert bgp_facts['bgp_neighbors'][str(vlan_ips[0].ip)]['accepted prefixes'] == 1
 
     logging.info("Generate route-port map information")
     extra_vars = {'announce_prefix': '10.10.10.0/26',
