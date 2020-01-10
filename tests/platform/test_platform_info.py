@@ -15,7 +15,7 @@ import pytest
 from loganalyzer import LogAnalyzer, LogAnalyzerError
 from common.utilities import wait_until
 from psu_controller import psu_controller
-from .thermal_control_test_helper import *
+from thermal_control_test_helper import *
 
 CMD_PLATFORM_SUMMARY = "show platform summary"
 CMD_PLATFORM_PSUSTATUS = "show platform psustatus"
@@ -518,32 +518,39 @@ def test_thermal_control_fan_status(testbed_devices, mocker_factory):
         check_thermal_algorithm_status(dut, mocker_factory, False)
 
         single_fan_mocker = mocker_factory(dut, 'SingleFanMocker')
+        time.sleep(THERMAL_CONTROL_TEST_WAIT_TIME)
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_REMOVE_RE]
         with loganalyzer:
+            logging.info('Mocking an absence FAN...')
             single_fan_mocker.mock_absence()
             check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_REMOVE_CLEAR_RE]
         with loganalyzer:
+            logging.info('Make the absence FAN back to presence...')
             single_fan_mocker.mock_presence()
             check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_OVER_SPEED_RE]
         with loganalyzer:
+            logging.info('Mocking an over speed FAN...')
             single_fan_mocker.mock_over_speed()
             check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_OVER_SPEED_CLEAR_RE]
         with loganalyzer:
+            logging.info('Make the over speed FAN back to normal...')
             single_fan_mocker.mock_normal_speed()
             check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_UNDER_SPEED_RE]
         with loganalyzer:
+            logging.info('Mocking an under speed FAN...')
             single_fan_mocker.mock_under_speed()
             check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_UNDER_SPEED_CLEAR_RE]
         with loganalyzer:
+            logging.info('Make the under speed FAN back to normal...')
             single_fan_mocker.mock_normal_speed()
             check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)

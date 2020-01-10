@@ -239,6 +239,7 @@ class MockerHelper:
         for file_path, link_target in self.unlink_file_list.items():
             self.dut.command('rm -f {}'.format(file_path))
             self.dut.command('ln -s {} {}'.format(link_target, file_path))
+        self.unlink_file_list.clear()
 
 
 class FanDrawerData:
@@ -474,7 +475,7 @@ class TemperatureData:
         :return:
         """
         self.helper.mock_thermal_value(self.temperature_file, str(temperature))
-        self.mocked_temperature = temperature / 1000.0
+        self.mocked_temperature = str(temperature / 1000.0)
 
     def get_high_threshold(self):
         """
@@ -495,7 +496,7 @@ class TemperatureData:
         """
         if self.high_threshold_file:
             self.helper.mock_thermal_value(self.high_threshold_file, str(high_threshold))
-            self.mocked_high_threshold = high_threshold / 1000.0
+            self.mocked_high_threshold = str(high_threshold / 1000.0)
         else:
             self.mocked_high_threshold = NOT_AVAILABLE
 
@@ -507,7 +508,7 @@ class TemperatureData:
         """
         if self.high_critical_threshold_file:
             self.helper.mock_thermal_value(self.high_critical_threshold_file, str(high_critical_threshold))
-            self.mocked_high_critical_threshold = high_critical_threshold / 1000.0
+            self.mocked_high_critical_threshold = str(high_critical_threshold / 1000.0)
         else:
             self.mocked_high_critical_threshold = NOT_AVAILABLE
 
@@ -603,9 +604,13 @@ class RandomFanStatusMocker(FanStatusMocker):
                     if expected_field != actual_fields[i]:
                         logging.error('Check fan status for {} failed, ' \
                                      'expected: {}, actual: {}'.format(name, expected_field, actual_fields[i]))
+                        logging.error('Expect data set: {}'.format(self.expected_data))
+                        logging.error('Actual data set: {}'.format(actual_data))
                         return False
             else:
-                logging.error('Expected FAN data {} not found in actual data {}'.format(fields, actual_data))
+                logging.error('Expected FAN data {} not found'.format(fields))
+                logging.error('Expect data set: {}'.format(self.expected_data))
+                logging.error('Actual data set: {}'.format(actual_data))
                 return False
         return True
 
@@ -720,8 +725,13 @@ class RandomThermalStatusMocker(ThermalStatusMocker):
                     if expected_field != actual_fields[i]:
                         logging.info('Check thermal status for {} failed, ' \
                                      'expected: {}, actual: {}'.format(name, expected_field, actual_fields[i]))
+                        logging.error('Expect data set: {}'.format(self.expected_data))
+                        logging.error('Actual data set: {}'.format(actual_data))
                         return False
             else:
+                logging.error('Expected thermal data {} not found'.format(fields))
+                logging.error('Expect data set: {}'.format(self.expected_data))
+                logging.error('Actual data set: {}'.format(actual_data))
                 return False
         return True
 
@@ -745,7 +755,7 @@ class AbnormalFanMocker(SingleFanMocker):
     SPEED_TOLERANCE = 20
 
     # Speed value
-    SPEED_VALUE = 50
+    TARGET_SPEED_VALUE = 60
 
     def __init__(self, dut):
         """
@@ -814,8 +824,8 @@ class AbnormalFanMocker(SingleFanMocker):
         Change the mocked FAN speed to faster than target speed and exceed speed tolerance.
         :return:
         """
-        self.fan_data.mock_speed(AbnormalFanMocker.SPEED_VALUE)
-        self.fan_data.mock_target_speed(AbnormalFanMocker.SPEED_VALUE + AbnormalFanMocker.SPEED_TOLERANCE + 5)
+        self.fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE + AbnormalFanMocker.SPEED_TOLERANCE + 5)
+        self.fan_data.mock_target_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
         self.expect_led_color = 'red'
 
     def mock_under_speed(self):
@@ -823,8 +833,8 @@ class AbnormalFanMocker(SingleFanMocker):
         Change the mocked FAN speed to slower than target speed and exceed speed tolerance.
         :return:
         """
-        self.fan_data.mock_speed(AbnormalFanMocker.SPEED_VALUE)
-        self.fan_data.mock_target_speed(AbnormalFanMocker.SPEED_VALUE - AbnormalFanMocker.SPEED_TOLERANCE - 5)
+        self.fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE - AbnormalFanMocker.SPEED_TOLERANCE - 5)
+        self.fan_data.mock_target_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
         self.expect_led_color = 'red'
 
     def mock_normal_speed(self):
@@ -832,6 +842,6 @@ class AbnormalFanMocker(SingleFanMocker):
         Change the mocked FAN speed to a normal value.
         :return:
         """
-        self.fan_data.mock_speed(AbnormalFanMocker.SPEED_VALUE)
-        self.fan_data.mock_target_speed(AbnormalFanMocker.SPEED_VALUE)
+        self.fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
+        self.fan_data.mock_target_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
         self.expect_led_color = 'green'
