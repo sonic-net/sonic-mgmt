@@ -35,11 +35,10 @@ def announce_route(ptfip, neighbor, route, nexthop, port):
     assert r.status_code == 200
 
 
-@pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 1514)])
-def test_bgp(duthost, ptfhost, ipv4, ipv6, mtu):
-    """setup bgp speaker on T0 topology and verify routes advertised
-    by bgp speaker is received by T0 TOR
-    """
+@pytest.fixture(scope="module")
+def common_setup_teardown(duthost, ptfhost):
+
+    logging.info("########### Setup for bgp speaker testing ###########")
 
     ptfip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
     logging.info("ptfip=%s" % ptfip)
@@ -48,18 +47,16 @@ def test_bgp(duthost, ptfhost, ipv4, ipv6, mtu):
     ptfhost.script("./scripts/change_mac.sh")
 
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    host_facts = duthost.setup()['ansible_facts']
+    interface_facts = duthost.interface_facts()['ansible_facts']
 
     res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
     bgp_speaker_asn = res['stdout']
 
-    vlan_ips = generate_ips(3,
-                            "%s/%s" % (mg_facts['minigraph_vlan_interfaces'][0]['addr'],
-                                       mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']),
+    vlan_ips = generate_ips(3, "%s/%s" % (mg_facts['minigraph_vlan_interfaces'][0]['addr'],
+                                          mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']),
                             [IPAddress(mg_facts['minigraph_vlan_interfaces'][0]['addr'])])
     logging.info("Generated vlan_ips: %s" % str(vlan_ips))
 
-    # three speaker ips, two from peer range, another is vlan ip [0]
     speaker_ips = generate_ips(2, mg_facts['minigraph_bgp_peers_with_range'][0]['ip_range'][0], [])
     speaker_ips.append(vlan_ips[0])
     logging.info("speaker_ips: %s" % str(speaker_ips))
@@ -68,7 +65,6 @@ def test_bgp(duthost, ptfhost, ipv4, ipv6, mtu):
         duthost.command("ip route flush %s/32" % ip.ip)
         duthost.command("ip route add %s/32 dev %s" % (ip.ip, mg_facts['minigraph_vlan_interfaces'][0]['attachto']))
 
-    root_dir = "/root"
     port_num = [5000, 6000, 7000]
 
     lo_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
@@ -92,7 +88,7 @@ def test_bgp(duthost, ptfhost, ipv4, ipv6, mtu):
     ptfhost.shell("ip route flush %s/%d" % (lo_addr, lo_addr_prefixlen))
     ptfhost.shell("ip route add %s/%d via %s" % (lo_addr, lo_addr_prefixlen, vlan_addr))
 
-    lo_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
+    logging.info("Start exabgp on ptf")
     for i in range(0, 3):
         local_ip = str(speaker_ips[i].ip)
         ptfhost.exabgp(name="bgps%d" % i,
@@ -104,18 +100,54 @@ def test_bgp(duthost, ptfhost, ipv4, ipv6, mtu):
                        peer_asn=mg_facts['minigraph_bgp_asn'],
                        port=str(port_num[i]))
 
-    time.sleep(10)
+    logging.info("########### Done setup for bgp speaker testing ###########")
 
-    peer_range = mg_facts['minigraph_bgp_peers_with_range'][0]['ip_range'][0]
-    prefix = '10.10.10.0/26'
+    yield ptfip, mg_facts, interface_facts, vlan_ips, speaker_ips, port_num
+
+    logging.info("########### Teardown for bgp speaker testing ###########")
+
+    for i in range(0, 3):
+        ptfhost.exabgp(name="bgps%d" % i, state="absent")
+
+    for ip in vlan_ips:
+        duthost.command("ip route flush %s/32" % ip.ip, module_ignore_errors=True)
+
+    ptfhost.script("./scripts/remove_ip.sh")
+
+    logging.info("########### Done teardown for bgp speaker testing ###########")
+
+
+def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthost, ptfhost):
+    """Setup bgp speaker on T0 topology and verify bgp sessions are established
+    """
+    ptfip, mg_facts, interface_facts, vlan_ips, speaker_ips, port_num = common_setup_teardown
+
+    logging.info("Wait some time to verify that bgp sessions are established")
+    time.sleep(20)
+    bgp_facts = duthost.bgp_facts()['ansible_facts']
+    assert all([v["state"] == "established" for _, v in bgp_facts["bgp_neighbors"].items()]), \
+        "Not all bgp sessions are established"
+    assert str(speaker_ips[2].ip) in bgp_facts["bgp_neighbors"], "No bgp session with PTF"
+
+
+@pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 1514)])
+def test_bgp_speaker_announce_routes(common_setup_teardown, duthost, ptfhost, ipv4, ipv6, mtu):
+    """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
+
+    """
+    ptfip, mg_facts, interface_facts, vlan_ips, speaker_ips, port_num = common_setup_teardown
 
     logging.info("announce route")
+    peer_range = mg_facts['minigraph_bgp_peers_with_range'][0]['ip_range'][0]
+    lo_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
+    lo_addr_prefixlen = int(mg_facts['minigraph_lo_interfaces'][0]['prefixlen'])
+    prefix = '10.10.10.0/26'
     announce_route(ptfip, lo_addr, prefix, vlan_ips[1].ip, port_num[0])
     announce_route(ptfip, lo_addr, prefix, vlan_ips[2].ip, port_num[1])
     announce_route(ptfip, lo_addr, peer_range, vlan_ips[0].ip, port_num[2])
 
     logging.info("Wait some time to make sure routes announced to dynamic bgp neighbors")
-    time.sleep(60)
+    time.sleep(30)
 
     # The ping here is workaround for known issue:
     #     https://github.com/Azure/SONiC/issues/387 Pre-ARP support for static route config
@@ -125,13 +157,8 @@ def test_bgp(duthost, ptfhost, ipv4, ipv6, mtu):
     duthost.shell("ping %s -c 3" % vlan_ips[2].ip)
     time.sleep(5)
 
-    bgp_facts = duthost.bgp_facts()['ansible_facts']
-
-    logging.info("Verify bgp sessions are established")
-    for k, v in bgp_facts['bgp_neighbors'].items():
-        assert v['state'] == 'established'
-
     logging.info("Verify accepted prefixes of the dynamic neighbors are correct")
+    bgp_facts = duthost.bgp_facts()['ansible_facts']
     for ip in speaker_ips:
         assert bgp_facts['bgp_neighbors'][str(ip.ip)]['accepted prefixes'] == 1
     assert bgp_facts['bgp_neighbors'][str(vlan_ips[0].ip)]['accepted prefixes'] == 1
@@ -146,32 +173,19 @@ def test_bgp(duthost, ptfhost, ipv4, ipv6, mtu):
 
     ptfhost.template(src="bgp_speaker/bgp_speaker_route.j2", dest="/root/bgp_speaker_route.txt")
 
-    ptfhost.copy(src="ptftests", dest=root_dir)
+    ptfhost.copy(src="ptftests", dest="/root")
 
     logging.info("run ptf test")
-    try:
-        ptf_runner(ptfhost,
-                   "ptftests",
-                   "fib_test.FibTest",
-                   platform_dir="ptftests",
-                   params={"testbed_type": "t0",
-                           "router_mac": host_facts['ansible_Ethernet0']['macaddress'],
-                           "fib_info": "/root/bgp_speaker_route.txt",
-                           "ipv4": ipv4,
-                           "ipv6": ipv6,
-                           "testbed_mtu": mtu },
-                   log_file="/tmp/bgp_speaker_test.FibTest.log",
-                   socket_recv_size=16384)
-    except Exception as e:
-        logging.error("Run ptf test exception: %s" % repr(e))
-        assert False, "PTF test for bgp_speaker failed"
 
-    finally:
-        logging.info("cleanup")
-        for i in range(0, 3):
-            ptfhost.exabgp(name="bgps%d" % i, state="absent")
-
-        for ip in vlan_ips:
-            duthost.command("ip route flush %s/32" % ip.ip)
-
-        ptfhost.shell("ip addr flush dev eth{}".format(mg_facts['minigraph_port_indices'][mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][0]['attachto']]['members'][0]]))
+    ptf_runner(ptfhost,
+                "ptftests",
+                "fib_test.FibTest",
+                platform_dir="ptftests",
+                params={"testbed_type": "t0",
+                        "router_mac": interface_facts['ansible_interface_facts']['Ethernet0']['macaddress'],
+                        "fib_info": "/root/bgp_speaker_route.txt",
+                        "ipv4": ipv4,
+                        "ipv6": ipv6,
+                        "testbed_mtu": mtu },
+                log_file="/tmp/bgp_speaker_test.FibTest.log",
+                socket_recv_size=16384)
