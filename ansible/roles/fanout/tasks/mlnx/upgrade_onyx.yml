@@ -16,7 +16,8 @@
 - name: Get current running Onyx OS version
   include_tasks: get_onyx_os_version.yml
 
-- debug:
+- name: Print currnetly running Onyx OS version
+  debug:
     msg: "Currently running Onyx OS version is \"{{ onyx_version }}\""
 
 - name: Download Onyx OS image on fanout switch
