@@ -48,7 +48,6 @@
     search_regex: "OpenSSH_[\\w\\.]+"
     delay: 10
     timeout: 180
-  changed_when: false
 
 - name: Wait for fanout to come back
   become: false
@@ -60,7 +59,6 @@
     search_regex: "OpenSSH_[\\w\\.]+"
     delay: 10
     timeout: 180
-  changed_when: false
 
 # After SSH is started, system is not ready to function
 - name: Pause for two more minutes till Onyx OS modules get configured
