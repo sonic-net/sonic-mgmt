@@ -22,7 +22,7 @@
 - name: Download Onyx OS image on fanout switch
   include_tasks: download_copy_image_fanout.yml
   vars:
-    url: "{{ image_url }}"
+    image_url: "{{ image_url }}"
     fanout_dest: "{{ fanout_img_path }}/{{ image_url | basename }}"
 
 - name: Upgrade Onyx OS on fanout switch
