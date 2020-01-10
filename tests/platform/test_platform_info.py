@@ -54,7 +54,7 @@ def stop_pmon_sensord_task(ans_host):
         logging.info("sensord stopped successfully")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def psu_test_setup_teardown(testbed_devices):
     """
     @summary: Sensord task will print out error msg when detect PSU offline,
@@ -100,7 +100,7 @@ def test_show_platform_summary(testbed_devices):
         "Unexpected output fields, actual=%s, expected=%s" % (str(actual_fields), str(expected_fields))
 
 
-def check_vendor_specific_psustatus(dut, psu_status_line):
+def check_vendor_specific_psustatus(dut):
     """
     @summary: Vendor specific psu status check
     """
@@ -109,14 +109,10 @@ def check_vendor_specific_psustatus(dut, psu_status_line):
         sub_folder_dir = os.path.join(current_file_dir, "mellanox")
         if sub_folder_dir not in sys.path:
             sys.path.append(sub_folder_dir)
-        from check_sysfs import check_psu_status_sysfs_consistency
+        from check_sysfs import check_sysfs_psu
 
-        psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
-        psu_match = psu_line_pattern.match(psu_status_line)
-        psu_id = psu_match.group(1)
-        psu_status = psu_match.group(2)
+        check_sysfs_psu(dut)
 
-        check_psu_status_sysfs_consistency(dut, psu_id, psu_status)
 
 def test_show_platform_psustatus(testbed_devices):
     """
@@ -129,7 +125,8 @@ def test_show_platform_psustatus(testbed_devices):
     psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
     for line in psu_status["stdout_lines"][2:]:
         assert psu_line_pattern.match(line), "Unexpected PSU status output"
-        check_vendor_specific_psustatus(ans_host, line)
+
+    check_vendor_specific_psustatus(ans_host)
 
 
 def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller, psu_test_setup_teardown):
@@ -190,7 +187,8 @@ def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller, ps
             fields = line.split()
             if fields[2] != "OK":
                 psu_under_test = fields[1]
-            check_vendor_specific_psustatus(ans_host, line)
+
+        check_vendor_specific_psustatus(ans_host)
         assert psu_under_test is not None, "No PSU is turned off"
 
         logging.info("Turn on PSU %s" % str(psu["psu_id"]))
@@ -203,8 +201,8 @@ def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller, ps
             fields = line.split()
             if fields[1] == psu_under_test:
                 assert fields[2] == "OK", "Unexpected PSU status after turned it on"
-            check_vendor_specific_psustatus(ans_host, line)
 
+        check_vendor_specific_psustatus(ans_host)
         psu_test_results[psu_under_test] = True
 
     for psu in psu_test_results:
