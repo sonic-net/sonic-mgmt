@@ -11,6 +11,7 @@
   register: onyx_version
   connection: local
 
-- set_fact:
+- name: Set Onyx OS version
+  set_fact:
     onyx_version: "{{ onyx_version.stdout }}"
 

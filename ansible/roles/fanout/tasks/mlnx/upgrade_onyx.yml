@@ -4,14 +4,14 @@
 ### E.g.
 ### ansible-playbook -i lab fanout.yml -l ${FANOUT} -e image_url=http://some-http-server/onyx_os_image --become --tags upgrade -vvvv
 ################################################################################################
-- name: Define fanout image location
-  set_fact:
-    fanout_img_path: "/var/opt/tms/images"
-
 - name: Check if image_url is defined
   fail:
       msg: "please pass 'image_url' variable"
   when: image_url is not defined
+
+- name: Define fanout image location
+  set_fact:
+    fanout_img_path: "/var/opt/tms/images"
 
 - name: Get current running Onyx OS version
   include_tasks: get_onyx_os_version.yml
@@ -33,7 +33,8 @@
     login: "{{ switch_login['MLNX-OS'] }}"
     timeout: 10000
 
-- debug:
+- name: Print installation output for later debugging installation failures
+  debug:
     var: installation_output
 
 - name: Wait for fanout to shutdown
@@ -65,13 +66,15 @@
   pause:
     minutes: 2
 
-- set_fact:
+- name: Save old Onyx OS version
+  set_fact:
     old_onyx_verison: "{{ onyx_version }}"
 
 - name: Get current running Onyx OS version
   include_tasks: get_onyx_os_version.yml
 
-- debug:
+- name: Report currently running Onyx OS version
+  debug:
     msg: "Currently running Onyx OS version is \"{{ onyx_version }}\""
 
 # Basic sanity check to verify that Onyx hasn't rolled back to previous image.
