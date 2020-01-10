@@ -402,8 +402,8 @@ def _test_GetSet_OC_Components(stub):
             
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
-            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
-            log.info(resp_dict)
+            #resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            #log.info(resp_dict)
             
     except KeyboardInterrupt:
         log.info("Shutting down.")
@@ -1081,7 +1081,7 @@ def _test_SetReq_Del1(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test SETReq_Del1_2 failed due to Grpc Error {err}".format(err=e.details()))
+        err_msg.append("Test SETReq_Del1_2 failed due to Grpc Error {err}".format(err=e.details()))
 
     log.info('Performing Test Set-Delete of Non-Existant Path on target \n')
     try:
@@ -1090,17 +1090,17 @@ def _test_SetReq_Del1(stub):
         reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info1)
         log.info(str(reply))
         if ('response' in str(reply) and 'op: DELETE' in str(reply)):
-            log.info("SETReq_Del1_2:Failed - Target should silently ignore the Delete Request")
+            log.error("SETReq_Del1_2:Failed - Target should silently ignore the Delete Request")
             err_msg.append("SETReq_Del1_2:Failed - Target should silently ignore the Delete Request")
         else:
-            log.error("SETReq_Del1_2:Passed - Target silently ignored Deletion of Non-existant Path")
+            log.info("SETReq_Del1_2:Passed - Target silently ignored Deletion of Non-existant Path")
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test SETReq_Del1_2:Failed failed due to Grpc Error {err}".format(err=e.details()))
+        err_msg.append("Test SETReq_Del1_2:Failed failed due to Grpc Error {err}".format(err=e.details()))
 
     if len(err_msg) != 0:
         log.error("Test_SETReq_Del1 failed due to : {}".format(*err_msg))
@@ -1926,7 +1926,7 @@ def _test_Set_InvldPath1(stub):
         if rslt:
             log.info("Test SET_InvldPath1:Passed - Error Scenarios for SET w/Invalid Path Passed")
         else:
-            raise CafyException.VerificationError("Test SET_InvldPath1:Failed - One or More Error Scenarios for SET w/Invalid Path FAILED")
+            pytest.fail("Test SET_InvldPath1:Failed - One or More Error Scenarios for SET w/Invalid Path FAILED")
 
 
 def _test_SetRpl_Omit1(stub):
