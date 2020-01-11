@@ -706,7 +706,7 @@ class RandomThermalStatusMocker(ThermalStatusMocker):
                 NOT_AVAILABLE,
                 mock_data.mocked_high_critical_threshold,
                 NOT_AVAILABLE,
-                False
+                'False'
             ]
         except SysfsNotExistError as e:
             logging.info('Failed to mock thermal data for {} - {}'.format(mock_data.name, e))
@@ -766,7 +766,12 @@ class AbnormalFanMocker(SingleFanMocker):
         self.mock_helper = MockerHelper(dut)
         naming_rule = FAN_NAMING_RULE['fan']
         self.fan_drawer_data = FanDrawerData(self.mock_helper, naming_rule, 1)
-        self.fan_data = FanData(self.mock_helper, naming_rule, 1)
+        self.fan_data_list = []
+        index = 0
+        while index < MockerHelper.FAN_NUM_IN_DRAWER:
+            self.fan_data_list.append(FanData(self.mock_helper, naming_rule, index + 1))
+            index += 1
+        self.fan_data = self.fan_data_list[0]
         self.expect_led_color = None
         self.mock_normal()
 
@@ -800,7 +805,9 @@ class AbnormalFanMocker(SingleFanMocker):
         :return:
         """
         self.mock_presence()
-        self.mock_normal_speed()
+        for fan_data in self.fan_data_list:
+            fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
+            fan_data.mock_target_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
         self.expect_led_color = 'green'
 
     def mock_absence(self):
