@@ -475,7 +475,10 @@ class TemperatureData:
         :return:
         """
         self.helper.mock_thermal_value(self.temperature_file, str(temperature))
-        self.mocked_temperature = str(temperature / 1000.0)
+        temperature = temperature / 1000.0
+        if temperature == 0.0:
+            temperature = NOT_AVAILABLE # Now mellanox API treat 0.0 as an invalid value of temperature
+        self.mocked_temperature = str(temperature)
 
     def get_high_threshold(self):
         """
