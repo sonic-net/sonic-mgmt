@@ -765,15 +765,20 @@ class AbnormalFanMocker(SingleFanMocker):
         SingleFanMocker.__init__(self, dut)
         self.mock_helper = MockerHelper(dut)
         naming_rule = FAN_NAMING_RULE['fan']
-        self.fan_drawer_data = FanDrawerData(self.mock_helper, naming_rule, 1)
         self.fan_data_list = []
-        index = 0
-        while index < MockerHelper.FAN_NUM_IN_DRAWER:
-            self.fan_data_list.append(FanData(self.mock_helper, naming_rule, index + 1))
-            index += 1
+        self.fan_drawer_data_list = []
+        fan_index = 1
+        drawer_index = 1
+        while fan_index <= MockerHelper.FAN_NUM:
+            if (fan_index - 1) % MockerHelper.FAN_NUM_IN_DRAWER == 0:
+                self.fan_drawer_data_list.append(FanDrawerData(self.mock_helper, naming_rule, drawer_index))
+                drawer_index += 1
+            self.fan_data_list.append(FanData(self.mock_helper, naming_rule, fan_index))
+            fan_index += 1
         self.fan_data = self.fan_data_list[0]
+        self.fan_drawer_data = self.fan_drawer_data_list[0]
         self.expect_led_color = None
-        self.mock_normal()
+        self.mock_all_normal()
 
     def deinit(self):
         """
@@ -799,16 +804,31 @@ class AbnormalFanMocker(SingleFanMocker):
 
         assert 0, 'Expected data not found'
 
+    def mock_all_normal(self):
+        """
+        Change all the mocked FANs status to normal.
+        :return:
+        """
+        for drawer_data in self.fan_drawer_data_list:
+            try:
+                drawer_data.mock_presence(1)
+            except SysfsNotExistError as e:
+                logging.info('Failed to mock drawer data')
+
+        for fan_data in self.fan_data_list:
+            try:
+                fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
+                fan_data.mock_target_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
+            except SysfsNotExistError as e:
+                logging.info('Failed to mock fan data for {}'.format(fan_data.name))
+
     def mock_normal(self):
         """
         Change the mocked FAN status to 'Present' and normal speed.
         :return:
         """
         self.mock_presence()
-        for fan_data in self.fan_data_list:
-            fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
-            fan_data.mock_target_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
-        self.expect_led_color = 'green'
+        self.mock_normal_speed()
 
     def mock_absence(self):
         """
