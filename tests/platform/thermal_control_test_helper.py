@@ -5,6 +5,7 @@ import sys
 import pytest
 
 from common.utilities import wait_until
+from common.config_reload import config_reload
 
 DUT_THERMAL_POLICY_FILE = '/usr/share/sonic/device/{}/thermal_policy.json'
 DUT_THERMAL_POLICY_BACKUP_FILE = '/usr/share/sonic/device/{}/thermal_policy.json.bak'
@@ -115,6 +116,8 @@ def mocker_factory():
             if mocker_type:
                 mocker_object = mocker_type(dut)
                 mockers.append(mocker_object)
+        else:
+            pytest.skip("No mocker defined for this platform %s")
         return mocker_object
 
     yield _create_mocker
@@ -326,6 +329,8 @@ def restart_thermal_control_daemon(dut):
             logging.info('New pid of thermal control daemon is {}'.format(parent_pid))
             return
 
+    # try restore by config reload...
+    config_reload(dut)
     assert 0, 'Wait thermal control daemon restart failed'
 
 
