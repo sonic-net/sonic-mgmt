@@ -82,7 +82,7 @@ def _test_action_profile_groups(self,mode,sw_conn):
                     for rep in reply:
                         log.info("Reply from DUT: %s" % rep)
                         log.info(p4TestLib.repr_pretty_p4runtime(rep))
-
+        
         if 'DELETE' in mode:
             log.info("Delete members after group is deleted")            
             if 'member_entries' in input_conf:
@@ -103,8 +103,122 @@ def _test_action_profile_groups(self,mode,sw_conn):
         if not len(err_msg) == 0:
             pytest.fail("Test_action_profile_groups failed due to {}".format(err_msg))
 
+def _test_batched_read_apg_apm(self,sw_conn):
+    log.info("Test: batched read of Action profile Groups and Action profile group members")
+    err_msg = list()
+    tData = ApData.zap.get_testcase_configuration("test_action_profile_groups")
+    p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
+    with open(tData["input_conf_file"], 'r') as ip_conf_file:
+        input_conf = p4TestLib.json_load_byteified(ip_conf_file)
+
+    try:
+        sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
+        sw_conn.MasterArbitrationUpdate()
+        mode = "INSERT"
+        # Create Members
+        if 'INSERT' in mode:
+            if 'member_entries' in input_conf:
+                members = input_conf['member_entries']
+                log.info("{mode} {num} members ...".format(num=len(members),mode=mode.upper()))
+                for entry in members:
+                    log.info("{mode} a member ".format(mode=mode.upper()))
+                    p4TestLib.memberActions(sw_conn,entry,p4info_helper, mode)
+                    member_id = entry["member_id"]
+                    reply = sw_conn.ReadActionProfileMember(member_id=member_id)
+                    for rep in reply:
+                        log.info(p4TestLib.repr_pretty_p4runtime(rep))
+
+        # Create Groups.
+        if 'group_entries' in input_conf:
+            group_entries = input_conf['group_entries']
+            insrt_entrs = [x for x in group_entries if x['entry_oper'] == mode]
+            log.info("{mode} {num} group entries...".format(num=len(insrt_entrs),mode=mode.upper()))
+            for entry in insrt_entrs:
+                log.info("{mode} a Group ".format(mode=mode.upper()))
+                p4TestLib.groupActions(sw_conn,entry,p4info_helper, mode)
+                group_id = entry["group_id"]
+                if ('DELETE' not in mode):
+                    reply = sw_conn.ReadActionProfileGroup(group_id=group_id)
+                    for rep in reply:
+                        log.info("Reply from DUT: %s" % rep)
+                        log.info(p4TestLib.repr_pretty_p4runtime(rep))
+        
+        reply = sw_conn.BatchedReadMemberGroup(member_id=member_id,group_id=group_id)
+        for rep in reply:
+            #log.info("Reply from DUT: %s" % rep)
+            resp = p4TestLib.repr_pretty_p4runtime(rep)
+            log.info(resp)
+            if 'member_id: {}'.format(member_id) in resp and 'group_id: {}'.format(group_id) in resp:
+                log.info("Batched read is successful")
+            else:
+                log.error("Either group or member is missing from Batched read")
+                err_msg.append("Either group or member is missing from Batched read")
+
+        #sleep(5)
+        #reply = sw_conn.listen()
+        #log.info(reply)
+
+        # Incorrect member id 
+        reply = sw_conn.BatchedReadMemberGroup(member_id=1001,group_id=group_id)
+        for rep in reply:
+            #log.info("Reply from DUT: %s" % rep)
+            resp = p4TestLib.repr_pretty_p4runtime(rep)
+            log.info(resp)
+            if 'member_id: {}'.format(member_id) not in resp and 'group_id: {}'.format(group_id) in resp:
+                log.info("Test test_batched_read_apg_apm - Neg TC 1: Batched read is successful")
+            else:
+                log.error("Test test_batched_read_apg_apm - Neg TC 1: group  is missing from Batched read")
+                err_msg.append("Test test_batched_read_apg_apm - Neg TC 1: group  is missing from Batched read")
+
+        # Incorrect group id
+        reply = sw_conn.BatchedReadMemberGroup(member_id=member_id,group_id=1001)
+        for rep in reply:
+            #log.info("Reply from DUT: %s" % rep)
+            resp = p4TestLib.repr_pretty_p4runtime(rep)
+            log.info(resp)
+            if 'member_id: {}'.format(member_id) in resp and 'group_id: {}'.format(group_id) not in resp:
+                log.info("Test test_batched_read_apg_apm - Neg TC 2: Batched read is successful")
+            else:
+                log.error("Test test_batched_read_apg_apm - Neg TC 2: member is missing from Batched read")
+                err_msg.append("Test test_batched_read_apg_apm - Neg TC 2: member is missing from Batched read")
+
+        try:
+            reply = sw_conn.InvlBatchedReadMemberGroup(member_id=member_id,group_id=1001)
+            for rep in reply:
+                #log.info("Reply from DUT: %s" % rep)
+                resp = p4TestLib.repr_pretty_p4runtime(rep)
+                log.info(resp)
+        except grpc.RpcError as e_det:
+            log.error("### GRPC ERROR RECEIVED:: ###")
+            log.error(e_det)
+            if ("StatusCode.UNKNOWN" in str(e_det)) and ("Incorrect entity type" in str(e_det)):
+                log.info("Test test_batched_read_apg_apm - Neg TC 3 :Passed - received correct error message on trying to read with an invalid request")
+            else:
+                err_msg.append("Test test_batched_read_apg_apm - Neg TC 3 :Passed - received correct error message on trying to read with an invalid request")
+
+        mode = 'DELETE'
+        if 'DELETE' in mode:
+            log.info("Delete members after group is deleted")            
+            if 'member_entries' in input_conf:
+                members = input_conf['member_entries']
+                log.info("{mode} {num} members ...".format(num=len(members),mode=mode.upper()))
+                for entry in members:
+                    log.info("{mode} a member ".format(mode=mode.upper()))
+                    p4TestLib.memberActions(sw_conn,entry,p4info_helper, mode)
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error(e)
+        printGrpcError(e)
+        err_msg.append("Test failed due to Grpc Error {err}".format(err=e.details()))
+    finally:
+        sw_conn.shutdown()
+        if not len(err_msg) == 0:
+            pytest.fail("Test_action_profile_groups failed due to {}".format(err_msg))
+
+
 def _test_negative_action_profile_groups_1(self,sw_conn):
-    result = False
     err_msg = list()
     log.info("Negative Test-1: Action profile Groups - Groups with Invalid Action Profile Id")
     tData = ApData.zap.get_testcase_configuration("test_action_profile_groups")

@@ -147,6 +147,9 @@ class TestP4(P4ApBase):
     @pytest.mark.parametrize("mode", ["INSERT", "MODIFY", "DELETE"])
     def test_action_profile_groups(self,mode,sw_conn):
         p4_apg_apm._test_action_profile_groups(self,mode,sw_conn)
+    
+    def test_batched_read_apg_apm(self,sw_conn):
+        p4_apg_apm._test_batched_read_apg_apm(self,sw_conn)
 
     def test_negative_action_profile_groups_1(self,sw_conn):
         p4_apg_apm._test_negative_action_profile_groups_1(self,sw_conn)
@@ -228,6 +231,7 @@ class TestP4(P4ApBase):
 
     def test_multicontrollers_non_blocking_tableEdit(self,sw_conn):
         p4_san_tc._test_multicontrollers_non_blocking_tableEdit()
+
 
     @pytest.mark.last
     def test_max_connections(self,sw_conn):

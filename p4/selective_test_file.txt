@@ -25,3 +25,4 @@ p4_ap.py::TestP4::()::test_max_connections
 p4_ap.py::TestP4::()::test_direct_table_wc_readTest
 p4_ap.py::TestP4::()::test_direct_table_batched_write_test
 p4_ap.py::TestP4::()::test_indirect_table_batched_write_test
+p4_ap.py::TestP4::()::test_batched_read_apg_apm

@@ -371,19 +371,46 @@ class SwitchConnection(object):
     def BatchedReadMemberGroup(self,member_id=None, group_id=None, dry_run=False, **kwargs):
         request = p4runtime_pb2.ReadRequest()
         request.device_id = self.device_id
-        entity = request.entities.add()
-        member = entity.action_profile_member
+        entity1 = request.entities.add()
+        member = entity1.action_profile_member
         if member_id is not None:
             member.member_id = member_id
         else:
             member.member_id = 0
         
-        group = entity.action_profile_group
+        entity2 = request.entities.add()
+        group = entity2.action_profile_group
+        if group_id is not None:
+            group.group_id = group_id
+        else:
+            group.group_id = 0
+    
+        if dry_run:
+            log.info("P4Runtime Read:", request)
+        else:
+            log.info("P4Runtime BatchedRead for Member ID: {} and Group ID: {}".format(member_id,group_id))
+            for response in self.client_stub.Read(request):
+                yield response
+            
+    def InvlBatchedReadMemberGroup(self,member_id=None, group_id=None, dry_run=False, **kwargs):
+        request = p4runtime_pb2.ReadRequest()
+        request.device_id = self.device_id
+        entity1 = request.entities.add()
+        member = entity1.action_profile_member
+        if member_id is not None:
+            member.member_id = member_id
+        else:
+            member.member_id = 0
+        
+        entity2 = request.entities.add()
+        group = entity2.action_profile_group
         if group_id is not None:
             group.group_id = group_id
         else:
             group.group_id = 0
 
+        entity3 = request.entities.add()
+    
         if dry_run:
             log.info("P4Runtime Read:", request)
         else:
