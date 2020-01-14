@@ -32,7 +32,7 @@ THERMAL_NAMING_RULE = {
     },
     "gearbox": {
         "name": "CPU Pack Temp",
-        "temperature": "temp_input_gearbox{}"
+        "temperature": "gearbox{}_temp_input"
     },
     "asic_ambient": {
         "name": "Ambient ASIC Temp",
@@ -49,10 +49,6 @@ THERMAL_NAMING_RULE = {
     "comex_ambient": {
         "name": "Ambient COMEX Temp",
         "temperature": "comex_amb"
-    },
-    "board_ambient": {
-        "name": "Ambient Board Temp",
-        "temperature": "board_amb"
     }
 }
 
@@ -98,7 +94,7 @@ class MockerHelper:
     FAN_NUM = 0
 
     # FAN number for each FAN drawer of DUT.
-    FAN_NUM_IN_DRAWER = 0
+    FAN_NUM_PER_DRAWER = 0
 
     # Flag indicate if FAN number has been initialize.
     INIT_FAN_NUM = False
@@ -137,9 +133,9 @@ class MockerHelper:
             return
         MockerHelper.FAN_NUM = int(content)
         if MockerHelper.FAN_NUM > fan_drawer_num:
-            MockerHelper.FAN_NUM_IN_DRAWER = 2
+            MockerHelper.FAN_NUM_PER_DRAWER = 2
         else:
-            MockerHelper.FAN_NUM_IN_DRAWER = 1
+            MockerHelper.FAN_NUM_PER_DRAWER = 1
 
     def mock_thermal_value(self, file_path, value):
         """
@@ -475,7 +471,7 @@ class TemperatureData:
         :return:
         """
         self.helper.mock_thermal_value(self.temperature_file, str(temperature))
-        temperature = temperature / 1000.0
+        temperature = temperature / float(1000)
         if temperature == 0.0:
             temperature = NOT_AVAILABLE # Now mellanox API treat 0.0 as an invalid value of temperature
         self.mocked_temperature = str(temperature)
@@ -487,7 +483,7 @@ class TemperatureData:
         """
         if self.high_threshold_file:
             high_threshold = self.helper.read_thermal_value(self.high_threshold_file)
-            return int(high_threshold) / 1000.0
+            return int(high_threshold) / float(1000)
         else:
             return TemperatureData.DEFAULT_HIGH_THRESHOLD
 
@@ -499,7 +495,7 @@ class TemperatureData:
         """
         if self.high_threshold_file:
             self.helper.mock_thermal_value(self.high_threshold_file, str(high_threshold))
-            self.mocked_high_threshold = str(high_threshold / 1000.0)
+            self.mocked_high_threshold = str(high_threshold / float(1000))
         else:
             self.mocked_high_threshold = NOT_AVAILABLE
 
@@ -511,7 +507,7 @@ class TemperatureData:
         """
         if self.high_critical_threshold_file:
             self.helper.mock_thermal_value(self.high_critical_threshold_file, str(high_critical_threshold))
-            self.mocked_high_critical_threshold = str(high_critical_threshold / 1000.0)
+            self.mocked_high_critical_threshold = str(high_critical_threshold / float(1000))
         else:
             self.mocked_high_critical_threshold = NOT_AVAILABLE
 
@@ -552,7 +548,7 @@ class RandomFanStatusMocker(FanStatusMocker):
         naming_rule = FAN_NAMING_RULE['fan']
         while fan_index <= MockerHelper.FAN_NUM:
             try:
-                if (fan_index - 1) % MockerHelper.FAN_NUM_IN_DRAWER == 0:
+                if (fan_index - 1) % MockerHelper.FAN_NUM_PER_DRAWER == 0:
                     drawer_data = FanDrawerData(self.mock_helper, naming_rule, drawer_index)
                     drawer_index += 1
                     drawer_data.mock_presence(random.randint(0, 1))
@@ -773,7 +769,7 @@ class AbnormalFanMocker(SingleFanMocker):
         fan_index = 1
         drawer_index = 1
         while fan_index <= MockerHelper.FAN_NUM:
-            if (fan_index - 1) % MockerHelper.FAN_NUM_IN_DRAWER == 0:
+            if (fan_index - 1) % MockerHelper.FAN_NUM_PER_DRAWER == 0:
                 self.fan_drawer_data_list.append(FanDrawerData(self.mock_helper, naming_rule, drawer_index))
                 drawer_index += 1
             self.fan_data_list.append(FanData(self.mock_helper, naming_rule, fan_index))
