@@ -101,10 +101,10 @@ def mocker_factory():
         :param mocker_name: Name of a mocker type.
         :return: Created mocker instance.
         """
-        asic_type = dut.facts['asic_type']
+        platform = dut.facts['platform']
         mocker_object = None
 
-        if asic_type == "mellanox":
+        if 'mlnx' in platform:
             current_file_dir = os.path.dirname(os.path.realpath(__file__))
             if current_file_dir not in sys.path:
                 sys.path.append(current_file_dir)
