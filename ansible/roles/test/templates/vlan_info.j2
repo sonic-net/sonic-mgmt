@@ -1,22 +1,34 @@
---- 
+---
 
 {% set vlan_id_list = [ 100, 200 ] %}
-vlan_ports_list: 
+vlan_ports_list:
 {% for portchannel in minigraph_portchannels.keys()[:2] %}
 {% set members = minigraph_portchannels[portchannel].members %}
+{% set member_port_index_list = [] %}
   - dev: {{ portchannel }}
-    port_index: {{ minigraph_port_indices[members[0]] }}
+{% for member in members %}
+{% set tmp = member_port_index_list.append(minigraph_port_indices[member]) %}
+{% endfor %}
+    port_indices: {{ member_port_index_list }}
+    is_lag: 'True'
     pvid: '{{ vlan_id_list[loop.index0%2] }}'
-    permit_vlanid: 
+    permit_vlanid:
 {% for vlan in vlan_id_list %}
       '{{ vlan }}':
         peer_ip: '192.168.{{ vlan }}.{{ 2 + minigraph_port_indices.keys().index(members[0]) }}'
         remote_ip: '{{vlan}}.1.1.{{ 2 + minigraph_port_indices.keys().index(members[0]) }}'
 {% endfor %}
 {% endfor %}
-{% for port in minigraph_ports.keys()[:2] %}
+{% set normal_ports = minigraph_ports.keys() %}
+{% for portchannel in minigraph_portchannels.keys() %}
+{% for port in minigraph_portchannels[portchannel].members %}
+{% set tmp = normal_ports.remove(port) %}
+{% endfor %}
+{% endfor %}
+{% for port in normal_ports[:2] %}
   - dev: {{ port }}
-    port_index: '{{ minigraph_port_indices[port]}}'
+    port_index: {{ minigraph_port_indices[port]}}
+    is_lag: 'False'
     pvid: '{{ vlan_id_list[loop.index0%2] }}'
     permit_vlanid:
 {% for vlan in vlan_id_list %}
