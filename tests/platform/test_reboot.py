@@ -95,7 +95,7 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
     assert reboot_type in reboot_ctrl_dict.keys(), "Unknown reboot type %s" % reboot_type
 
     reboot_timeout = reboot_ctrl_dict[reboot_type]["timeout"]
-    reboot_cause = reboot_ctrl_dict[reboot_type]["cause"]
+    ansible_host = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
 
     dut_datetime = datetime.strptime(dut.command('date -u +"%Y-%m-%d %H:%M:%S"')["stdout"], "%Y-%m-%d %H:%M:%S")
 
@@ -104,13 +104,13 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
 
         reboot_helper(reboot_kwargs)
 
-        localhost.wait_for(host=dut.hostname, port=22, state="stopped", delay=10, timeout=120)
+        localhost.wait_for(host=ansible_host, port=22, state="stopped", search_regex="OpenSSH_[\\w\\.]+ Debian", delay=10, timeout=120)
     else:
         reboot_cmd = reboot_ctrl_dict[reboot_type]["command"]
         reboot_task, reboot_res = dut.command(reboot_cmd, module_ignore_errors=True, module_async=True)
 
         logging.info("Wait for DUT to go down")
-        res = localhost.wait_for(host=dut.hostname, port=22, state="stopped", timeout=180, module_ignore_errors=True)
+        res = localhost.wait_for(host=ansible_host, port=22, state="stopped", search_regex="OpenSSH_[\\w\\.]+ Debian", timeout=180, module_ignore_errors=True)
         if "failed" in res:
             try:
                 logging.error("Wait for switch down failed, try to kill any possible stuck reboot task")
@@ -122,7 +122,8 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
                 logging.error("Exception raised while cleanup reboot task and get result: " + repr(e))
 
     logging.info("Wait for DUT to come back")
-    localhost.wait_for(host=dut.hostname, port=22, state="started", delay=10, timeout=reboot_timeout)
+    localhost.wait_for(host=ansible_host, port=22, state="started", search_regex="OpenSSH_[\\w\\.]+ Debian",  delay=10, timeout=reboot_timeout)
+
 
     logging.info("Check the uptime to verify whether reboot was performed")
     dut_uptime = datetime.strptime(dut.command("uptime -s")["stdout"], "%Y-%m-%d %H:%M:%S")
