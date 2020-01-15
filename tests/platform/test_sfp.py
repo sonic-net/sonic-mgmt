@@ -9,6 +9,7 @@ import re
 import os
 import time
 import copy
+import json
 
 import pytest
 
@@ -44,6 +45,25 @@ def parse_eeprom(output_lines):
     return res
 
 
+def get_port_map(testbed_devices):
+    """
+    @summary: Get the port mapping info from the DUT
+    @return: a dictionary containing the port map
+    """
+    # copy the helper to DUT
+    ans_host = testbed_devices["dut"]
+    src_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'files/getportmap.py')
+    dest_path = os.path.join('/usr/share/sonic/device', ans_host.facts['platform'], 'plugins/getportmap.py')
+    ans_host.copy(src=src_path, dest=dest_path)
+
+    # execute command on the DUT to get portmap
+    get_portmap_cmd = 'docker exec pmon python /usr/share/sonic/platform/plugins/getportmap.py'
+    portmap_json_string = ans_host.command(get_portmap_cmd)["stdout"]
+
+    # parse the json
+    return json.loads(portmap_json_string)
+
+
 def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
     """
     @summary: Check SFP status and configure SFP
@@ -64,6 +84,9 @@ def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
     cmd_sfp_reset = "sudo sfputil reset"
     cmd_xcvr_presence = "show interface transceiver presence"
     cmd_xcvr_eeprom = "show interface transceiver eeprom"
+
+    portmap = get_port_map(testbed_devices)
+    logging.info("Got portmap {}".format(portmap))
 
     logging.info("Check output of '%s'" % cmd_sfp_presence)
     sfp_presence = ans_host.command(cmd_sfp_presence)
@@ -94,7 +117,14 @@ def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
         assert parsed_eeprom[intf] == "SFP EEPROM detected"
 
     logging.info("Test '%s <interface name>'" % cmd_sfp_reset)
+    reseted_physical_ports = set()
     for intf in conn_graph_facts["device_conn"]:
+        phy_intf = portmap[intf][0]
+        if phy_intf in reseted_physical_ports:
+            logging.info("skip reset {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
+            continue
+        reseted_physical_ports.add(phy_intf)
+        logging.info("resetting {} physical interface {}".format(intf, phy_intf))
         reset_result = ans_host.command("%s %s" % (cmd_sfp_reset, intf))
         assert reset_result["rc"] == 0, "'%s %s' failed" % (cmd_sfp_reset, intf)
         time.sleep(5)
@@ -130,6 +160,9 @@ def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
     cmd_sfp_show_lpmode = "sudo sfputil show lpmode"
     cmd_sfp_set_lpmode = "sudo sfputil lpmode"
 
+    portmap = get_port_map(testbed_devices)
+    logging.info("Got portmap {}".format(portmap))
+
     logging.info("Check output of '%s'" % cmd_sfp_show_lpmode)
     lpmode_show = ans_host.command(cmd_sfp_show_lpmode)
     parsed_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
@@ -139,7 +172,14 @@ def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
         assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", "Unexpected SFP lpmode"
 
     logging.info("Try to change SFP lpmode")
+    changed_physical_ports = set()
     for intf in conn_graph_facts["device_conn"]:
+        phy_intf = portmap[intf][0]
+        if phy_intf in changed_physical_ports:
+            logging.info("skip set {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
+            continue
+        changed_physical_ports.add(phy_intf)
+        logging.info("setting {} physical interface {}".format(intf, phy_intf))
         new_lpmode = "off" if original_lpmode[intf].lower() == "on" else "on"
         lpmode_set_result = ans_host.command("%s %s %s" % (cmd_sfp_set_lpmode, new_lpmode, intf))
         assert lpmode_set_result["rc"] == 0, "'%s %s %s' failed" % (cmd_sfp_set_lpmode, new_lpmode, intf)
@@ -153,7 +193,14 @@ def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
         assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", "Unexpected SFP lpmode"
 
     logging.info("Try to change SFP lpmode")
+    changed_physical_ports = set()
     for intf in conn_graph_facts["device_conn"]:
+        phy_intf = portmap[intf][0]
+        if phy_intf in changed_physical_ports:
+            logging.info("skip restore {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
+            continue
+        changed_physical_ports.add(phy_intf)
+        logging.info("restoring {} physical interface {}".format(intf, phy_intf))
         new_lpmode = original_lpmode[intf].lower()
         lpmode_set_result = ans_host.command("%s %s %s" % (cmd_sfp_set_lpmode, new_lpmode, intf))
         assert lpmode_set_result["rc"] == 0, "'%s %s %s' failed" % (cmd_sfp_set_lpmode, new_lpmode, intf)
