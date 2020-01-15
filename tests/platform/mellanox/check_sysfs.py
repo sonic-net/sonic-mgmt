@@ -5,6 +5,7 @@ This script contains re-usable functions for checking status of hw-management re
 """
 import logging
 import json
+import re
 
 
 def check_sysfs_broken_symbolinks(dut):
@@ -168,8 +169,17 @@ def check_sysfs_psu(dut):
     from common.mellanox_data import SWITCH_MODELS
     psu_count = SWITCH_MODELS[dut.facts["hwsku"]]["psus"]["number"]
 
+    CMD_PLATFORM_PSUSTATUS = "show platform psustatus"
+    logging.info("Get PSU status using '%s', hostname: %s" % (CMD_PLATFORM_PSUSTATUS, dut.hostname))
+    psu_status = dut.command(CMD_PLATFORM_PSUSTATUS)
+    psu_status_lines = psu_status["stdout_lines"][2:]
+    assert len(psu_status_lines) == psu_count, "PSU status output does not match PSU count"
+
+    psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
     for psu_id in range(1, psu_count + 1):
-        check_psu_status_sysfs_consistency(dut, psu_id, 'OK')
+        psu_status_line = psu_status_lines[psu_id - 1]
+        psu_state = psu_line_pattern.match(psu_status_line).group(1)
+        check_psu_status_sysfs_consistency(dut, psu_id, psu_state)
 
 
 def check_sysfs_qsfp(dut, interfaces):
