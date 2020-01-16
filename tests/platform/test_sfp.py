@@ -15,6 +15,15 @@ import pytest
 
 from platform_fixtures import conn_graph_facts
 
+ans_host = None
+port_mapping = None
+
+
+def teardown_module():
+    logging.info("remove script to retrieve port mapping")
+    file_path = os.path.join('/usr/share/sonic/device', ans_host.facts['platform'], 'plugins/getportmap.py')
+    ans_host.file(path=file_path, state='absent')
+
 
 def parse_output(output_lines):
     """
@@ -50,6 +59,16 @@ def get_port_map(testbed_devices):
     @summary: Get the port mapping info from the DUT
     @return: a dictionary containing the port map
     """
+    global port_mapping
+    global ans_host
+
+    # we've already retrieve port mapping for the DUT, just return it
+    if not port_mapping is None:
+        logging.info("Return the previously retrievd port mapping")
+        return port_mapping
+
+    # this is the first running
+    logging.info("Retrieving port mapping from DUT")
     # copy the helper to DUT
     ans_host = testbed_devices["dut"]
     src_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'files/getportmap.py')
@@ -61,7 +80,10 @@ def get_port_map(testbed_devices):
     portmap_json_string = ans_host.command(get_portmap_cmd)["stdout"]
 
     # parse the json
-    return json.loads(portmap_json_string)
+    port_mapping = json.loads(portmap_json_string)
+    assert port_mapping, "Retrieve port mapping from DUT failed"
+
+    return port_mapping
 
 
 def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
