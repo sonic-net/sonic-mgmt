@@ -22,27 +22,6 @@ $ sudo ifconfig br1 up
    - ```Aboot-veos-serial-8.0.0.iso```
    - ```vEOS-lab-4.20.15M.vmdk```
 
-## Setup docker registry for *PTF* docker
-
-PTF docker is used to send and receive packets to test data plane. 
-
-- Build PTF docker
-```
-$ git clone --recursive https://github.com/Azure/sonic-buildimage.git
-$ make configure PLATFORM=generic
-$ make target/docker-ptf.gz
-```
-
-- Download pre-built *docker-ptf* image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/broadcom/job/buildimage-brcm-all/lastSuccessfulBuild/artifact/target/docker-ptf-brcm.gz)
-```
-$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/broadcom/job/buildimage-brcm-all/lastSuccessfulBuild/artifact/target/docker-ptf-brcm.gz
-```
-
-- Load *docker-ptf* image
-```
-$ docker load -i docker-ptf-brcm.gz
-```
-
 ## Build or download *sonic-mgmt* docker image
 
 ansible playbook in *sonic-mgmt* repo requires to setup ansible and various dependencies.
