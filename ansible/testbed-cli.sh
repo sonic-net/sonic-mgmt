@@ -81,10 +81,11 @@ function read_file
  testbed_name=${line_arr[1]}
  topo=${line_arr[2]}
  ptf_imagename=${line_arr[3]}
- ptf_ip=${line_arr[4]}
- server=${line_arr[5]}
- vm_base=${line_arr[6]}
- dut=${line_arr[7]}
+ ptf=${line_arr[4]}
+ ptf_ip=${line_arr[5]}
+ server=${line_arr[6]}
+ vm_base=${line_arr[7]}
+ dut=${line_arr[8]}
 }
 
 function start_vms
