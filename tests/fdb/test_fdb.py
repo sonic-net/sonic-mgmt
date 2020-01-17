@@ -176,20 +176,20 @@ def test_fdb(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost, pkt_type):
 
     router_mac = host_facts['ansible_Ethernet0']['macaddress']
 
-    port_index_to_name = { v: k for k, v in conf_facts['config_port_indices'].items() }
+    port_index_to_name = { v: k for k, v in conf_facts['port_index_map'].items() }
 
     # Only take interfaces that are in ptf topology
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
     available_ports_idx = [ idx for idx, name in ptf_ports_available_in_topo.items()
-    if conf_facts['config_ports'][port_index_to_name[idx]].get('admin_status', 'down') == 'up' ]
+    if conf_facts['PORT'][port_index_to_name[idx]].get('admin_status', 'down') == 'up' ]
 
     vlan_table = {}
 
-    for name, vlan in conf_facts['config_vlans'].items():
+    for name, vlan in conf_facts['VLAN'].items():
         vlan_table[name] = []
-        ifnames = vlan['members']
-        vlan_table[name] = [ conf_facts['config_port_indices'][ifname] for ifname in ifnames
-        if conf_facts['config_port_indices'][ifname] in available_ports_idx ]
+        ifnames = conf_facts['VLAN_MEMBER'][name].keys()
+        vlan_table[name] = [ conf_facts['port_index_map'][ifname] for ifname in ifnames
+        if conf_facts['port_index_map'][ifname] in available_ports_idx ]
 
     vlan_member_count = sum([ len(members) for name, members in vlan_table.items() ])
 
