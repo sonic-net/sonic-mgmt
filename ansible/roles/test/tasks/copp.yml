@@ -4,6 +4,7 @@
   with_items:
     - "lldp"
     - "syncd"
+    - "swss"
 
 - block:
     - fail: msg="Please set ptf_host variable"
@@ -53,6 +54,14 @@
       copy: src=roles/test/files/ptftests dest=/root
       delegate_to: "{{ ptf_host }}"
 
+    - name: copy copp configuration file
+      copy: src=roles/test/tasks/copp/ip2me_600.json dest=/root
+      delegate_to: "{{ ansible_host }}_swss"
+
+    - name: update copp configuration
+      shell: "swssconfig /root/ip2me_600.json"
+      delegate_to: "{{ ansible_host }}_swss"
+
     - include_tasks: ptf_runner.yml
       vars:
         ptf_test_name: COPP test - {{ item }}
@@ -77,6 +86,14 @@
         - IP2METest
 
   always:
+    - name: copy copp configuration file
+      copy: src=roles/test/tasks/copp/ip2me_6000.json dest=/root
+      delegate_to: "{{ ansible_host }}_swss"
+
+    - name: restore copp configuration
+      shell: "swssconfig /root/ip2me_6000.json"
+      delegate_to: "{{ ansible_host }}_swss"
+
     - name: Remove existing ip from ptf host
       script: roles/test/files/helpers/remove_ip.sh
       delegate_to: "{{ ptf_host }}"
