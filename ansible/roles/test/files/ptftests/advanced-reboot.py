@@ -866,7 +866,7 @@ class ReloadTest(BaseTest):
                 no_cp_replies = self.extract_no_cpu_replies(upper_replies)
 
             if no_routing_stop - no_routing_start > self.limit:
-                self.fails['dut'].add("Downtime must be less then %s seconds. It was %s" \
+                self.fails['dut'].add("Longest downtime period must be less then %s seconds. It was %s" \
                         % (self.test_params['reboot_limit_in_seconds'], str(no_routing_stop - no_routing_start)))
             if no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
                 self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
@@ -874,6 +874,10 @@ class ReloadTest(BaseTest):
                 self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (no_cp_replies, self.nr_vl_pkts))
 
             if self.reboot_type == 'warm-reboot':
+                if self.total_disrupt_time > self.limit.total_seconds():
+                    self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s" \
+                        % (str(self.limit), str(self.total_disrupt_time)))
+
                 # after the data plane is up, check for routing changes
                 if self.test_params['inboot_oper'] and self.sad_handle:
                     self.check_inboot_sad_status()
@@ -929,7 +933,7 @@ class ReloadTest(BaseTest):
             self.log("-"*50)
 
             if no_routing_stop:
-                self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
+                self.log("Longest downtime period was %s" % str(no_routing_stop - no_routing_start))
                 reboot_time = "0:00:00" if routing_always else str(no_routing_stop - self.reboot_start)
                 self.log("Reboot time was %s" % reboot_time)
                 self.log("Expected downtime is less then %s" % self.limit)
@@ -1230,13 +1234,13 @@ class ReloadTest(BaseTest):
         self.fails['dut'].add("Sniffer failed to filter any traffic from DUT")
         self.assertTrue(received_counter, "Sniffer failed to filter any traffic from DUT")
         self.fails['dut'].clear()
+        self.disrupts_count = len(self.lost_packets) # Total disrupt counter.
+        # Find the longest loss with the longest time:
+        max_disrupt_from_id, (self.max_lost_id, self.max_disrupt_time, self.no_routing_start, self.no_routing_stop) = \
+            max(self.lost_packets.items(), key = lambda item:item[1][0:2])
+        self.total_disrupt_packets = sum([item[0] for item in self.lost_packets.values()])
+        self.total_disrupt_time = sum([item[1] for item in self.lost_packets.values()])
         if self.lost_packets:
-            self.disrupts_count = len(self.lost_packets) # Total disrupt counter.
-            # Find the longest loss with the longest time:
-            max_disrupt_from_id, (self.max_lost_id, self.max_disrupt_time, self.no_routing_start, self.no_routing_stop) = \
-                max(self.lost_packets.items(), key = lambda item:item[1][0:2])
-            self.total_disrupt_packets = sum([item[0] for item in self.lost_packets.values()])
-            self.total_disrupt_time = sum([item[1] for item in self.lost_packets.values()])
             self.log("Disruptions happen between %s and %s after the reboot." % \
                 (str(self.disruption_start - self.reboot_start), str(self.disruption_stop - self.reboot_start)))
         else:
