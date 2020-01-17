@@ -139,13 +139,13 @@ def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
         assert parsed_eeprom[intf] == "SFP EEPROM detected"
 
     logging.info("Test '%s <interface name>'" % cmd_sfp_reset)
-    reseted_physical_ports = set()
+    tested_physical_ports = set()
     for intf in conn_graph_facts["device_conn"]:
         phy_intf = portmap[intf][0]
-        if phy_intf in reseted_physical_ports:
-            logging.info("skip reset {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
+        if phy_intf in tested_physical_ports:
+            logging.info("skip tested SFPs {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
             continue
-        reseted_physical_ports.add(phy_intf)
+        tested_physical_ports.add(phy_intf)
         logging.info("resetting {} physical interface {}".format(intf, phy_intf))
         reset_result = ans_host.command("%s %s" % (cmd_sfp_reset, intf))
         assert reset_result["rc"] == 0, "'%s %s' failed" % (cmd_sfp_reset, intf)
@@ -194,13 +194,13 @@ def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
         assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", "Unexpected SFP lpmode"
 
     logging.info("Try to change SFP lpmode")
-    changed_physical_ports = set()
+    tested_physical_ports = set()
     for intf in conn_graph_facts["device_conn"]:
         phy_intf = portmap[intf][0]
-        if phy_intf in changed_physical_ports:
-            logging.info("skip set {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
+        if phy_intf in tested_physical_ports:
+            logging.info("skip tested SFPs {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
             continue
-        changed_physical_ports.add(phy_intf)
+        tested_physical_ports.add(phy_intf)
         logging.info("setting {} physical interface {}".format(intf, phy_intf))
         new_lpmode = "off" if original_lpmode[intf].lower() == "on" else "on"
         lpmode_set_result = ans_host.command("%s %s %s" % (cmd_sfp_set_lpmode, new_lpmode, intf))
@@ -215,13 +215,13 @@ def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
         assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", "Unexpected SFP lpmode"
 
     logging.info("Try to change SFP lpmode")
-    changed_physical_ports = set()
+    tested_physical_ports = set()
     for intf in conn_graph_facts["device_conn"]:
         phy_intf = portmap[intf][0]
-        if phy_intf in changed_physical_ports:
-            logging.info("skip restore {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
+        if phy_intf in tested_physical_ports:
+            logging.info("skip tested SFPs {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
             continue
-        changed_physical_ports.add(phy_intf)
+        tested_physical_ports.add(phy_intf)
         logging.info("restoring {} physical interface {}".format(intf, phy_intf))
         new_lpmode = original_lpmode[intf].lower()
         lpmode_set_result = ans_host.command("%s %s %s" % (cmd_sfp_set_lpmode, new_lpmode, intf))
