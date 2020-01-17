@@ -166,6 +166,7 @@ iface_speed='10000'
 
 [sonic_nexus_3164]
 str-n3164-acs-2    ansible_host=10.3.147.150
+str-n3164-acs-1    ansible_host=10.3.147.149
 
 [sonic_nexus_3164:vars]
 hwsku="Nexus-3164"
@@ -314,6 +315,7 @@ str-7260cx3-acs-fan-05 ansible_host=10.64.246.76
 str-7260cx3-64-20   ansible_host=10.3.146.151
 str-7260cx3-64-19   ansible_host=10.3.146.150	
 str-7260-25         ansible_host=10.3.146.234
+str-7260-26         ansible_host=10.3.146.160
 
 [docker_registry]
 acs-devrepo.corp.microsoft.com
