@@ -43,7 +43,10 @@ def verify_ip_address(host_facts, intfs):
         if intf.has_key('attachto'):
             ans_ifname = "ansible_%s" % intf['attachto']
         else:
-            ans_ifname = "ansible_%s" % intf['name']
+            if  intf['name'] == 'Loopback0':
+                ans_ifname = "ansible_lo"
+            else:
+                ans_ifname = "ansible_%s" % intf['name']
 
         ip = IPAddress(intf['addr'])
         if ip.version == 4:
