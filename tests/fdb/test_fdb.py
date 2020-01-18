@@ -158,20 +158,14 @@ def fdb_cleanup(ansible_adhoc, testbed):
 
 @pytest.mark.usefixtures('fdb_cleanup')
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
-def test_fdb(ansible_adhoc, testbed, ptfadapter, pkt_type, testbed_devices):
+def test_fdb(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost, pkt_type):
     """
-    1. verify fdb forwarding in T0 topology.
+    1. verify fdb forwarding.
     2. verify show mac command on DUT for learned mac.
     """
 
-    if testbed['topo']['name'] not in ['t0', 't0-64', 't0-116']:
-        pytest.skip('unsupported testbed type')
-
-    duthost = testbed_devices["dut"]
-    ptfhost = testbed_devices["ptf"]
-
     host_facts  = duthost.setup()['ansible_facts']
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
     # remove existing IPs from PTF host 
     ptfhost.script('scripts/remove_ip.sh')
@@ -181,13 +175,23 @@ def test_fdb(ansible_adhoc, testbed, ptfadapter, pkt_type, testbed_devices):
     ptfadapter.reinit()
 
     router_mac = host_facts['ansible_Ethernet0']['macaddress']
-    vlan_member_count = sum([len(v['members']) for k, v in mg_facts['minigraph_vlans'].items()])
+
+    port_index_to_name = { v: k for k, v in conf_facts['port_index_map'].items() }
+
+    # Only take interfaces that are in ptf topology
+    ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
+    available_ports_idx = [ idx for idx, name in ptf_ports_available_in_topo.items()
+    if conf_facts['PORT'][port_index_to_name[idx]].get('admin_status', 'down') == 'up' ]
 
     vlan_table = {}
-    for vlan in mg_facts['minigraph_vlan_interfaces']:
-        vlan_table[vlan['subnet']] = []
-        for ifname in mg_facts['minigraph_vlans'][vlan['attachto']]['members']:
-            vlan_table[vlan['subnet']].append(mg_facts['minigraph_port_indices'][ifname])
+
+    for name, vlan in conf_facts['VLAN'].items():
+        vlan_table[name] = []
+        ifnames = conf_facts['VLAN_MEMBER'][name].keys()
+        vlan_table[name] = [ conf_facts['port_index_map'][ifname] for ifname in ifnames
+        if conf_facts['port_index_map'][ifname] in available_ports_idx ]
+
+    vlan_member_count = sum([ len(members) for name, members in vlan_table.items() ])
 
     fdb = setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type)
     for vlan in vlan_table:
@@ -208,5 +212,8 @@ def test_fdb(ansible_adhoc, testbed, ptfadapter, pkt_type, testbed_devices):
             total_mac_count += 1
 
     print res
+
+    assert vlan_member_count > 0
+
     # Verify that the number of dummy MAC entries is expected
     assert dummy_mac_count == DUMMY_MAC_COUNT * vlan_member_count
