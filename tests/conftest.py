@@ -9,6 +9,7 @@ import ipaddr as ipaddress
 
 from ansible_host import AnsibleHost
 from loganalyzer import LogAnalyzer
+from common.sanity_check import check_critical_services, check_links_up
 
 from common.devices import SonicHost, Localhost, PTFHost
 
@@ -162,3 +163,15 @@ def creds():
         with open(f) as stream:
             creds.update(yaml.safe_load(stream))
     return creds
+
+@pytest.fixture(scope="module", autouse=True)
+def base_sanity(duthost):
+    """perform base sanity checks before and after each test"""
+
+    check_critical_services(duthost)
+    check_links_up(duthost)
+
+    yield base_sanity
+
+    check_critical_services(duthost)
+    check_links_up(duthost)
