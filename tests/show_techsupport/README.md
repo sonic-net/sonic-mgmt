@@ -27,15 +27,16 @@ Additional configurations available: **ACL** , **Mirroring**
 
 
 ### Testbed
-The test will run on testbeds with all possible topologies. 
+With ACL configurations - The test will run on testbeds with all possible topologies.
 
+With Mirroring configurations  The test will run on testbed with all topologies except ptf32.
 
 ## Setup configurations
 
 In order to setup additional configurations, the user will insert the wanted configuration name via command line.
 The test will configure and clean all additional configurations after test ends. 
 
-A configuration fixture will call the suitable fixture in order to setup the configurations.
+A configuration fixture will call the suitable fixtures in order to setup the configurations.
 
 
 Using a parametrized fixture, for each supported configuration named in test execution, the fixture will generate the configuration on the DUT. 
@@ -66,7 +67,7 @@ from sonic-mgmt, docker container, tests folder:
 $  py.test --inventory ../ansible/inventory --host-pattern <host> --module-path ../ansible/library/
 --testbed <host>-<topology> --testbed_file ../ansible/testbed.csv --show-capture=no --capture=no
  --log-cli-level debug -ra -vvvvv techsupport/test_techsupport.py 
- --loop_num=5 --loop_delay=8 --logs_since=3 --mirror_stage=ingress
+ --loop_num=5 --loop_delay=8 --logs_since=3
  -k test_techsupport[acl]
  ```
  
@@ -82,6 +83,5 @@ _user parameters:_
 **logs_since** - number of minutes to pass to 'show techsupport' command.
 If nothing specified, a random number of minutes will be raffled between 1 and 60. 
 
-**mirror_stage** - ingress/egress. If not mentioned, default is ingress.
 
 
