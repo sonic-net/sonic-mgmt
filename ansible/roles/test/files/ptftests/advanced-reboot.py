@@ -1235,15 +1235,19 @@ class ReloadTest(BaseTest):
         self.assertTrue(received_counter, "Sniffer failed to filter any traffic from DUT")
         self.fails['dut'].clear()
         self.disrupts_count = len(self.lost_packets) # Total disrupt counter.
-        # Find the longest loss with the longest time:
-        max_disrupt_from_id, (self.max_lost_id, self.max_disrupt_time, self.no_routing_start, self.no_routing_stop) = \
-            max(self.lost_packets.items(), key = lambda item:item[1][0:2])
-        self.total_disrupt_packets = sum([item[0] for item in self.lost_packets.values()])
-        self.total_disrupt_time = sum([item[1] for item in self.lost_packets.values()])
         if self.lost_packets:
+            # Find the longest loss with the longest time:
+            max_disrupt_from_id, (self.max_lost_id, self.max_disrupt_time, self.no_routing_start, self.no_routing_stop) = \
+                max(self.lost_packets.items(), key = lambda item:item[1][0:2])
+            self.total_disrupt_packets = sum([item[0] for item in self.lost_packets.values()])
+            self.total_disrupt_time = sum([item[1] for item in self.lost_packets.values()])
             self.log("Disruptions happen between %s and %s after the reboot." % \
                 (str(self.disruption_start - self.reboot_start), str(self.disruption_stop - self.reboot_start)))
         else:
+            self.max_lost_id = 0
+            self.max_disrupt_time = 0
+            self.total_disrupt_packets = 0
+            self.total_disrupt_time = 0
             self.log("Gaps in forwarding not found.")
         self.log("Total incoming packets captured %d" % received_counter)
         if packets:
