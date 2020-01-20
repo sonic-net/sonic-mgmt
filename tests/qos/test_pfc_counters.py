@@ -58,18 +58,14 @@ def run_test(is_pfc, ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, pau
     dut_ans = AnsibleHost(ansible_adhoc, dut_hostname)
     int_status = dut_ans.show_interface(command = "status")['ansible_facts']['int_status']
     
-    """ We only test active interfaces """
-    active_intfs = []
-    for intf in int_status:
-        if int_status[intf]['admin_state'] == 'up' and \
-           int_status[intf]['oper_state'] == 'up':
-            active_intfs.append(intf)
-        
-    """ Generate PFC or FC packets for active interfaces """
-    for intf in active_intfs:
-        if intf not in conn_facts:
-            continue
-        
+    """ We only test active physical interfaces """
+    active_phy_intfs = [intf for intf in int_status if \
+        intf.startswith('Ethernet') and \
+        int_status[intf]['admin_state'] == 'up' and \
+        int_status[intf]['oper_state'] == 'up']
+    
+    """ Generate PFC or FC packets for active physical interfaces """
+    for intf in active_phy_intfs:        
         peer_device = conn_facts[intf]['peerdevice']
         peer_port = conn_facts[intf]['peerport']
         peer_port_name = eos_to_linux_intf(peer_port)
@@ -89,10 +85,7 @@ def run_test(is_pfc, ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, pau
     """ Check results """
     counter_facts = dut_ans.sonic_pfc_counters(method = "get")['ansible_facts']
 
-    for intf in active_intfs:
-        assert intf in counter_facts
-        assert 'Rx' in counter_facts[intf]
-        
+    for intf in active_phy_intfs:    
         if is_pfc:
             assert counter_facts[intf]['Rx'] == [str(PKT_COUNT)] * PRIO_COUNT
         else:
@@ -101,7 +94,7 @@ def run_test(is_pfc, ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, pau
 def test_pfc_pause(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts):
     """ @Summary: Run PFC pause frame (pause time quanta > 0) tests """
     run_test(True, ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, 65535)
-	
+
 def test_pfc_unpause(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts):
     """ @Summary: Run PFC unpause frame (pause time quanta = 0) tests """
     run_test(True, ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, 0)        
