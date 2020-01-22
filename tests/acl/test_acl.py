@@ -258,7 +258,7 @@ class BaseAclTest(object):
         dut.command('config acl update full {}'.format(remove_rules_dut_path))
 
     @pytest.fixture(scope='class', autouse=True)
-    def acl_rules(self, duthost, ansible_adhoc, setup, acl_table):
+    def acl_rules(self, duthost, testbed_devices, setup, acl_table):
         """
         setup/teardown ACL rules based on test class requirements
         :param duthost: DUT host object
@@ -267,7 +267,7 @@ class BaseAclTest(object):
         :param acl_table: table creating fixture
         :return:
         """
-        localhost = Localhost(ansible_adhoc)
+        localhost = testbed_devices['localhost']
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl_rules')
         loganalyzer.load_common_config()
 
