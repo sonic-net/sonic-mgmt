@@ -154,6 +154,13 @@
   register: vm_list_running
   become: true
 
+- name: Retrieve a list of the paused VMs
+  virt: command=list_vms
+        uri=qemu:///system
+        state=pause
+  register: vm_list_paused
+  become: true
+
 - name: Find current server group
   set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
 
