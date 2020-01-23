@@ -1,0 +1,150 @@
+{%  set port_count = topology['host_interfaces']|length %}
+{%  set ip_base = base|default(0) %}
+{
+{%  for k in cfg_origin.keys() %}
+{%      if k == 'SYSLOG_SERVER' %}
+    "SYSLOG_SERVER": {},
+{%      elif k == 'PORT' %}
+    "PORT": {
+{%          for port in cfg_origin['PORT'].keys() | sort %}
+{%              if port_alias.index(port_name_map[port]) in dut_interconnection_interfaces %}
+        "{{ port }}": {
+            "admin_status": "up",
+{%                  if port_alias.index(port_name_map[port]) == dut_interconnection_interfaces[0] and test_scenario == "l2" %}
+            "mtu": "{{ mtu }}",
+{%                  endif %}
+{%                  for port_k in cfg_origin['PORT'][port].keys() | sort %}
+{%                      if port_k.lower() not in ['mtu', 'admin_status'] %}
+            "{{ port_k }}": "{{ cfg_origin['PORT'][port][port_k] }}"{{ ',' if not loop.last else '' }}
+{%                      endif %}
+{%                  endfor %}
+        }{{ ',' if not loop.last else '' }}
+{%              else %}
+        "{{ port }}": {{ cfg_origin['PORT'][port] | to_nice_json | indent }}{{ ',' if not loop.last else '' }}
+{%              endif %}
+{%          endfor %}
+    },
+{%      elif k == 'INTERFACE' %}
+    "INTERFACE": {
+        "{{ port_alias_map[port_alias[dut_interconnection_interfaces[0]]] }}": {},
+        "{{ port_alias_map[port_alias[dut_interconnection_interfaces[0]]] }}|{{ mclag_local_ip }}/30": {},
+{%          if test_scenario == "l3" %}
+{%              for index in mclag_port_channel_id_list %}
+{%                  if index > port_count-2 %}
+        "Ethernet{{ index-1 }}": {},
+        "Ethernet{{ index-1 }}|172.16.{{ index+ip_base }}.1/24": {},
+{%                  endif %}
+{%              endfor %}
+{%          endif %}
+{%          for intf in cfg_origin['INTERFACE'].keys() | sort %}
+        "{{ intf }}": {{ cfg_origin['INTERFACE'][intf] }}{{ ',' if not loop.last else '' }}
+{%          endfor %}
+    },
+{%      elif k == 'VLAN' %}
+{%          if test_scenario == "l3" %}
+    "VLAN": {},
+{%          elif test_scenario == "l2" %}
+    "VLAN": {
+        "Vlan1000": {
+            "vlanid": "1000"
+        },
+        "Vlan1001": {
+            "vlanid": "1001"
+        }
+    },
+{%          endif %}
+{%      elif k == 'VLAN_INTERFACE' %}
+{%          if test_scenario == "l3" %}
+    "VLAN_INTERFACE": {},
+{%          elif test_scenario == "l2" %}
+    "VLAN_INTERFACE": {
+        "Vlan1000": {},
+        "Vlan1001": {},
+        "Vlan1000|172.16.1.1/16": {},
+        "Vlan1001|172.17.1.1/16": {}
+    },
+{%          endif %}
+{%      elif k == 'VLAN_MEMBER' %}
+{%          if test_scenario == "l3" %}
+    "VLAN_MEMBER": {},
+{%          elif test_scenario == "l2" %}
+    "VLAN_MEMBER": {
+{%              for index in mclag_port_channel_id_list %}
+{%                  if (index-1)%(port_count/2) < port_count/2-2 %}
+        "Vlan100{{ ((index-1)|float/port_count|float)|round|int }}|PortChannel{{ (index |string).zfill(4) }}": {
+            "tagging_mode": "untagged"
+        },
+{%                  else %}
+        "Vlan100{{ ((index-1)|float/port_count|float)|round|int }}|Ethernet{{ index-1 }}": {
+            "tagging_mode": "untagged"
+        },
+{%                  endif %}
+{%              endfor %}
+        "Vlan1000|PortChannel0100": {
+            "tagging_mode": "tagged"
+        },
+        "Vlan1001|PortChannel0100": {
+            "tagging_mode": "tagged"
+        }
+    },
+{%          endif %}
+{%      else %}
+    "{{ k }}": {{ cfg_origin[k] | to_nice_json | indent }},
+{%      endif %}
+{%  endfor %}
+    "PORTCHANNEL": {
+{%  if test_scenario == "l2" %}
+{%      for index in mclag_port_channel_id_list %}
+{%          if (index-1)%(port_count/2) < port_count/2-2 %}
+        "PortChannel{{ (index |string).zfill(4) }}": {
+            "admin_status": "up"
+        },
+{%          endif %}
+{%      endfor %}
+        "PortChannel0100": {
+            "admin_status": "up"
+        }
+    },
+{%  elif test_scenario == "l3" %}
+{%      for index in range(1, port_count-1) %}
+        "PortChannel{{ (index |string).zfill(4) }}": {
+            "admin_status": "up"
+        }{{ ',' if not loop.last else '' }}
+{%      endfor %}
+    },
+    "PORTCHANNEL_INTERFACE": {
+{%      for index in range(1, port_count-1) %}
+        "PortChannel{{ (index |string).zfill(4) }}": {},
+        "PortChannel{{ (index |string).zfill(4) }}|172.16.{{ index }}.1/24": {}{{ ',' if not loop.last else '' }}
+{%      endfor %}
+    },
+{%  endif %}
+    "PORTCHANNEL_MEMBER": {
+{%  if test_scenario == "l2" %}
+{%      for index in range(1, port_count-1) %}
+{%          if (index-1)%(port_count/2) < port_count/2-2 %}
+        "PortChannel{{ (index |string).zfill(4) }}|{{ port_alias_map[port_alias[index - 1]] }}": {},
+{%          endif %}
+{%      endfor %}
+        "PortChannel0100|{{ port_alias_map[port_alias[dut_interconnection_interfaces[1]]] }}": {}
+{%  elif test_scenario == "l3" %}
+{%      for index in range(1, port_count-1) %}
+{%          if index <= port_count-2 %}
+        "PortChannel{{ (index |string).zfill(4) }}|{{ port_alias_map[port_alias[index - 1]] }}": {}{{ ',' if not loop.last else '' }}
+{%          endif %}
+{%      endfor %}
+{%  endif %}
+    },
+    "MC_LAG": {
+        "100": {
+            "local_ip": "{{ mclag_local_ip }}",
+{%  if test_scenario == "l3" %}
+            "mclag_interface": "{%  for index in range(1, port_count-1) %}PortChannel{{ (index |string).zfill(4) }}{{ ',' if not loop.last else '' }}{%  endfor %}",
+{%  elif test_scenario == "l2" %}
+            "mclag_interface": "{%  for index in range(1, port_count-1) %}{%  if (index-1)%(port_count/2) < port_count/2-2 %}PortChannel{{ (index |string).zfill(4) }}{{ ',' if not loop.last else '' }}{%  endif %}{%  endfor %}",
+            "peer_link": "PortChannel0100",
+{%  endif %}
+            "peer_ip": "{{ mclag_peer_ip }}"
+        }
+    }
+}
