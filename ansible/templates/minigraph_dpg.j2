@@ -95,11 +95,13 @@
         </IPInterface>
 {% endfor %}
 {% if 'tor' in vm_topo_config['dut_type'] | lower %}
+{% for vlan, vlan_cfg in vlan_cfgs.items() %}
         <IPInterface>
           <Name i:nil="true"/>
-          <AttachTo>Vlan1000</AttachTo>
-          <Prefix>192.168.0.1/21</Prefix>
+          <AttachTo>{{ vlan }}</AttachTo>
+          <Prefix>{{ vlan_cfg['subnets'] }}</Prefix>
         </IPInterface>
+{% endfor %}
 {% endif %}
       </IPInterfaces>
       <DataAcls/>
