@@ -13,7 +13,7 @@ Description:
  arguments:
     vm_topo_config: Topology file; required: True
     port_alias: Port aliases of TOR SONiC; required: True
-    vlan_file:  File containing host vlan configurationl required: False
+    vlan_file:  File containing host vlan configuration; required: False
 
 Ansible_facts:
     'vlan_cfgs': all Vlans Configuration 
@@ -22,7 +22,10 @@ Ansible_facts:
 
 EXAMPLES = '''
     - name: find all vlan configurations for T0 topology
-      droplet_vlan_cfg: vm_topo_config={{ vm_topo_config }} port_alias={{ port_alias }} vlan_file={{ vlan_file|default(None) }}
+      droplet_vlan_cfg: 
+        vm_topo_config: "{{ vm_topo_config }}"
+        port_alias: "{{ port_alias }}"
+        vlan_file: "{{ vlan_file|default(None) }}"
 '''
 
 def get_vlan_info(vlan_file):
