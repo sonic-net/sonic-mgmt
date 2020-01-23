@@ -60,7 +60,6 @@ def _test_p4_sanity(sw_conn):
             log.info("Getting ForwardingPipelineConfig on switch")
             #response = sw_conn.GetForwardingPipelineConfig(resp_typ=0)
             #log.info(response)
-            #sleep(2)
 
             if 'table_entries' in input_conf:
                 log.info(input_conf)
@@ -70,13 +69,10 @@ def _test_p4_sanity(sw_conn):
                     log.info(p4TestLib.tableEntryToString(entry))
                     log.info("INSERTING TABLE ENTRIES")
                     p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'INSERT')
-                    sleep(1)
                     log.info("REMOVING TABLE ENTRIES")
                     p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'DELETE')
-                    sleep(1)
                     log.info("RE-INSERTING TABLE ENTRIES")
                     p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'INSERT')
-                    sleep(1)
                     log.info("READING TABLE ENTRIES")
                     table_name = entry['table']
                     table_id = p4info_helper.get_id("tables", name=table_name)
@@ -88,7 +84,6 @@ def _test_p4_sanity(sw_conn):
                         resp = p4TestLib.repr_pretty_p4runtime(rep)
                         entries = p4TestLib.table_entry_to_dict(resp)
                         log.info(entries)
-                    sleep(1)
                 
 
             if 'table_entries' in input_conf:
@@ -101,7 +96,6 @@ def _test_p4_sanity(sw_conn):
                     #removeTableEntry(sw_conn, entry, p4info_helper)
                     log.info("REMOVING TABLE ENTRIES")
                     p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'DELETE')
-                    sleep(1)
 
     except KeyboardInterrupt:
         log.info("Shutting down.")
@@ -413,7 +407,6 @@ def _test_table_wildcard_read_test(self, tbl_name, sw_conn):
             log.info("Inserting %d table entries..." % len(insrt_entrs))
             for entry in insrt_entrs:
                 p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'INSERT')
-                sleep(1)
             log.info("Wildcard read for %d table entries..." % len(insrt_entrs))
             wc_read_ents = [x for x in table_entries if x['entry_oper'] == "WCREAD"]
             for entry in wc_read_ents:
@@ -427,7 +420,6 @@ def _test_table_wildcard_read_test(self, tbl_name, sw_conn):
             log.info("Deleting p4/p4_sanity_tc.py%d table entries..." % len(insrt_entrs))
             for entry in insrt_entrs:
                 p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'DELETE')
-                sleep(1)
 
     except KeyboardInterrupt:
         log.info("Shutting down.")
@@ -461,7 +453,7 @@ def _test_direct_table_batched_write_test(self, tbl_name, sw_conn):
             for rep in reply:
                 log.info(" READ Reply from DUT")
                 log.info(p4TestLib.repr_pretty_p4runtime(rep))
-            sleep(1)
+            #sleep(1)
             log.info("Deleting p4/p4_sanity_tc.py%d table entries..." % len(insrt_entrs))
             # Delete all the added entries
             for ents in insrt_entrs:
@@ -504,7 +496,7 @@ def _test_indirect_table_batched_write_test(self, tbl_name, sw_conn):
             tblInsertStart = time.time()
             p4TestLib.tableEntryActionsBatched(sw_conn, insrt_entrs, p4info_helper)
             tblInsertEnd = time.time()
-            sleep(2)
+            #sleep(2)
             tblReadStart = time.time()
             #reply = sw_conn.ReadTableEntries(table_id=table_id)
             reply = {}
@@ -559,7 +551,6 @@ def _test_direct_table_crudTests(self, tbl_name, tbl_ops, sw_conn):
                     log.info(p4TestLib.tableEntryToString(entry))
                     log.info("INSERTING ENTRIES FOR TABLE - ingress_encap_in_ipv4_table")
                     p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'INSERT')
-                    sleep(1)
 
         except KeyboardInterrupt:
             log.info("Shutting down.")
@@ -581,7 +572,6 @@ def _test_direct_table_crudTests(self, tbl_name, tbl_ops, sw_conn):
                 for entry in entries:
                     for key,value in entry.items():
                         log.info("{}:{}".format(key,value))
-            sleep(1)
 
         except KeyboardInterrupt:
             log.info("Shutting down.")
@@ -604,7 +594,6 @@ def _test_direct_table_crudTests(self, tbl_name, tbl_ops, sw_conn):
                     #log.info(p4TestLib.tableEntryToString(entry))
                     log.info("MODIFYING ENTRIES FOR TABLE - ingress_encap_in_ipv4_table")
                     p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'MODIFY')
-                    sleep(1)
 
                 log.info("Subtest: Verify Table Entries after MODIFY table - %s", tbl_name)
                 reply = sw_conn.ReadTableEntries(table_id=table_id)
@@ -637,7 +626,6 @@ def _test_direct_table_crudTests(self, tbl_name, tbl_ops, sw_conn):
                     log.info(p4TestLib.tableEntryToString(entry))
                     log.info("DELETING ENTRIES FOR TABLE - ingress_encap_in_ipv4_table")
                     p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'DELETE')
-                    sleep(1)
 
                 log.info("Subtest: Verify Table Entries after DELETE table entries - %s", tbl_name)
                 reply = sw_conn.ReadTableEntries(table_id=table_id)
@@ -686,7 +674,6 @@ def _test_indirect_table_crudTests(self, tbl_name,tbl_ops,sw_conn):
                     log.info(p4TestLib.tableEntryToString(entry))
                     log.info("INSERTING ENTRIES FOR TABLE - {tbl_name}".format(tbl_name=tbl_name))
                     p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'INSERT')
-                    sleep(1)
 
         except KeyboardInterrupt:
             log.info("Shutting down.")
@@ -734,7 +721,6 @@ def _test_indirect_table_crudTests(self, tbl_name,tbl_ops,sw_conn):
                     for key,value in entry.items():
                         log.info("{}:{}".format(key,value))
                 
-            sleep(1)
 
 
         except KeyboardInterrupt:
@@ -758,7 +744,6 @@ def _test_indirect_table_crudTests(self, tbl_name,tbl_ops,sw_conn):
                     log.info(p4TestLib.tableEntryToString(entry))
                     log.info("DELETING ENTRIES FOR TABLE - {tbl_name}".format(tbl_name=tbl_name))
                     p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'DELETE')
-                    sleep(1)
 
         except KeyboardInterrupt:
             log.info("Shutting down.")
@@ -801,7 +786,6 @@ def _test_Read_wTableId_Zero(sw_conn):
                 log.info(p4TestLib.tableEntryToString(entry))
                 log.info("INSERTING ENTRIES FOR TABLE - ingress_encap_in_ipv4_table")
                 p4TestLib.tableEntryActions(sw_conn, entry, p4info_helper, 'INSERT')
-                sleep(1)
 
     except KeyboardInterrupt:
         log.info("Shutting down.")
@@ -816,7 +800,6 @@ def _test_Read_wTableId_Zero(sw_conn):
         for rep in reply:
             log.info(" READ Reply from DUT")
             log.info(p4TestLib.repr_pretty_p4runtime(rep))
-        sleep(1)
 
     except KeyboardInterrupt:
         log.info("Shutting down.")
@@ -1005,7 +988,6 @@ def _test_writeInsert_Neg1():
         log.info ("NEG_WriteInsert_1: Verifying Insert into a table with Duplicate Entry")
         log.info(p4TestLib.tableEntryToString(tbl_ins))
         p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'INSERT')
-        sleep(2)
         log.info("Inserting the Duplicate Entry")
         p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'INSERT')
     except KeyboardInterrupt:
@@ -1080,7 +1062,6 @@ def _test_writeModify_Neg1():
         log.info ("NEG_WriteModify_1: Verifying Modify of a table with Malformed Entry")
         log.info(p4TestLib.tableEntryToString(tbl_ins))
         p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'INSERT',priority=0)
-        sleep(2)
         p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'MODIFY')
     except KeyboardInterrupt:
         log.info("Shutting down.")
@@ -1411,7 +1392,6 @@ def _test_setFwd_Opt2():
             #Now we will try to insertan entry to the new table
             log.info(p4TestLib.tableEntryToString(tbl_ins))
             p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'INSERT')
-            sleep(1)
             #Read the table to verify if entry was inserted
             reply = sw_conn.ReadTableEntries(table_id=table_id)
             for rep in reply:
@@ -1543,7 +1523,6 @@ def _test_setFwd_Opt4():
         sw_conn.MasterArbitrationUpdate()
         sw_conn.SetForwardingPipelineConfig(p4info=input_conf.p4info,
                                             p4_json_file_path=p4_json_file_path)
-        sleep(3)
 
         tData2 = ApData.zap.get_testcase_configuration("test_writeRPC_Neg1")
         with open(tData2["input_conf_file"], 'r') as ip_conf_file:
@@ -1559,9 +1538,9 @@ def _test_setFwd_Opt4():
 
         sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,config=True,
                                             p4_json_file_path=p4_json_file_path,action="VERIFY_AND_SAVE")
-        sleep(3)
+        #sleep(1)
         p4TestLib.tableEntryActions(sw_conn, tbl_ins, p4info_helper,'INSERT')
-        sleep(5)
+        #sleep(1)
         #Now try to SetFwding with COMMIT
         sw_conn.SetForwardingPipelineConfig(p4info=p4info_helper.p4info,config=False,
                                             p4_json_file_path=p4_json_file_path,action="COMMIT")
