@@ -1,21 +1,15 @@
 #!/usr/bin/env python
 
-import re
 import yaml
-import os
 import traceback
-import subprocess
-import ipaddr as ipaddress
-from operator import itemgetter
-from itertools import groupby
-from collections import defaultdict
 
 DOCUMENTATION = '''
 module: droplet_vlan_cfg.py
 Ansible_version_added:  2.0.0.2
 short_description: Gather all vlan info related to droplet interfaces 
 Description:
-       When deploy testbed topology with droplet connected to TOR SONiC, gather interface aliases info for generating SONiC minigraph file
+       When deploy testbed topology with droplet connected to TOR SONiC, 
+       gather droplet vlan interfaces info for generating SONiC minigraph file
  arguments:
     vm_topo_config: Topology file; required: True
     port_alias: Port aliases of TOR SONiC; required: True
