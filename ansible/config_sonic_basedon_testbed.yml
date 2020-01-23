@@ -82,6 +82,14 @@
     with_items: "{{ host_if_indexes }}"
     when: ("'host_interfaces' in vm_topo_config") and ("'tor' in vm_topo_config['dut_type'] | lower")
 
+  - name: find all vlan configurations for T0 topology
+    vlan_config: 
+      vm_topo_config: "{{ vm_topo_config }}"
+      port_alias: "{{ port_alias }}"
+      vlan_config: "{{ vlan_config | default(None) }}"
+    delegate_to: localhost
+    when: ("'host_interfaces' in vm_topo_config") and ("'tor' in vm_topo_config['dut_type'] | lower")
+
   - name: find all interface indexes mapping connecting to VM
     set_fact:
       interface_to_vms: "{{ interface_to_vms|default({}) | combine({ item.key: item.value['interface_indexes'] }) }}"
