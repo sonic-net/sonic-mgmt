@@ -317,10 +317,8 @@ def action_profile_members(mode, sw_conn, input_conf, p4info_helper):
             members = input_conf['member_entries']
             if 'NOT-SUP' in mode:
                 return
-            elif 'DELETE' in mode:
-                entrs = [x for x in members if x['entry_oper'] == 'INSERT']
-            elif 'INSERT' in mode:
-                entrs = [x for x in members if x['entry_oper'] == mode]
+            else:
+                entrs = [x for x in members if x['entry_oper'] == mode.upper()]
             log.info("{mode} {num} members ...".format(num=len(entrs),mode=mode.upper()))
             for entry in entrs:
                 log.info("{mode} a member ".format(mode=mode.upper()))
@@ -346,10 +344,8 @@ def action_profile_groups(mode, sw_conn, input_conf, p4info_helper):
             groups = input_conf['group_entries']
             if 'NOT-SUP' in mode:
                 return
-            elif 'DELETE' in mode:
-                entrs = [x for x in groups if x['entry_oper'] == 'INSERT']
-            elif 'INSERT' in mode:
-                entrs = [x for x in groups if x['entry_oper'] == mode]
+            else:
+                entrs = [x for x in groups if x['entry_oper'] == mode.upper()]
             log.info("{mode} {num} groups ...".format(num=len(entrs),mode=mode.upper()))
             for entry in entrs:
                 log.info("{mode} a group ".format(mode=mode.upper()))

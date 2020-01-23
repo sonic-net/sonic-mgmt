@@ -6,5 +6,6 @@
 #p4_ap.py::TestP4::()::test_direct_table_wc_readTest
 #p4_ap.py::TestP4::()::test_direct_table_batched_write_test
 #p4_ap.py::TestP4::()::test_indirect_table_batched_write_test
-p4_ap.py::TestP4::()::test_action_profile_groups
-p4_ap.py::TestP4::()::test_batched_read_apg_apm
+#p4_ap.py::TestP4::()::test_action_profile_groups
+#p4_ap.py::TestP4::()::test_batched_read_apg_apm
+p4_ap.py::TestP4::()::test_indirect_table_crudTests

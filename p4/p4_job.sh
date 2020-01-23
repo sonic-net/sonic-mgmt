@@ -24,13 +24,16 @@ pytest -s p4_ap.py \
     -p no:cacheprovider
 fi
 
-pytest -s p4_ap.py \
-    --selective-test-file=failed_test_file.txt \
-    --topology-file p4_topo.json \
-    --tb=short \
-    --test-input-file="./../gd_input_file.json" \
-    --mail-to=pevenkat@cisco.com \
-    --mail-from=no-reply@cisco.com \
-    --debug-enable \
-    -m 'not Future' \
-    -p no:cacheprovider
+for value in {1..2}
+do
+    pytest -s p4_ap.py \
+        --selective-test-file=failed_test_file.txt \
+        --topology-file p4_topo.json \
+        --tb=short \
+        --test-input-file="./../gd_input_file.json" \
+        --mail-to=pevenkat@cisco.com \
+        --mail-from=no-reply@cisco.com \
+        --debug-enable \
+        -m 'not Future' \
+        -p no:cacheprovider
+done
