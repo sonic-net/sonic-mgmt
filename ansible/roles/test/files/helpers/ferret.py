@@ -179,8 +179,12 @@ class Responder(object):
         gre_type  = data[0x24:0x26]
 
         gre_type_r = struct.unpack('!H', gre_type)[0]
-        if gre_type_r == 0x88be:   # Broadcom
-            arp_request = data[0x26:]
+        if gre_type_r == 0x88be:   # ERSPAN type 2
+            # Ethernet(14) + IP(20) + GRE(4) + ERSPAN(8) = 34 = 0x2e
+            # Note: Count GRE as 4 byte, only mandatory fields.
+            # References: https://tools.ietf.org/html/rfc1701
+            #             https://tools.ietf.org/html/draft-foschiano-erspan-00
+            arp_request = data[0x2E:]
         elif gre_type_r == 0x8949: # Mellanox
             arp_request = data[0x3c:]
         else:

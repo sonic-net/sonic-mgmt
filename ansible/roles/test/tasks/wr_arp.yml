@@ -100,10 +100,6 @@
     - ferret_args: '-f /tmp/vxlan_decap.json -s {{ dip_output.stdout }}'
   delegate_to: "{{ ptf_host }}"
 
-- name: Start ferret inside ptf
-  supervisorctl: state=started name=ferret
-  delegate_to: "{{ ptf_host }}"
-
 - name: Render DUT parameters to json file for the test
   template: src=vxlan_decap.json.j2 dest=/tmp/vxlan_decap.json
   delegate_to: "{{ ptf_host }}"
