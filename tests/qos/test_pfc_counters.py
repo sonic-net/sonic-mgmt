@@ -40,7 +40,7 @@ def setup_testbed(ansible_adhoc, testbed, leaf_fanouts):
         file_src = os.path.join(os.path.dirname(__file__), PFC_GEN_FILE_RELATIVE_PATH)
         peerdev_ans.copy(src = file_src, dest = PFC_GEN_FILE_DEST, force = True)
 
-def run_test(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, is_pfc = True, pause_time = 65535):
+def run_test(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, is_pfc=True, pause_time=65535):
     """
     @Summary: Run test for Ethernet flow control (FC) or priority-based flow control (PFC)
     @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
@@ -97,12 +97,12 @@ def test_pfc_pause(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts):
 
 def test_pfc_unpause(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts):
     """ @Summary: Run PFC unpause frame (pause time quanta = 0) tests """
-    run_test(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, pause_time = 0)        
+    run_test(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, pause_time=0)        
 
 def test_fc_pause(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts):
     """ @Summary: Run FC pause frame (pause time quanta > 0) tests """
-    run_test(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, is_pfc = False)
+    run_test(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, is_pfc=False)
 
 def test_fc_unpause(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts):
     """ @Summary: Run FC pause frame (pause time quanta = 0) tests """ 
-    run_test(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, is_pfc = False, pause_time = 0)
+    run_test(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, is_pfc=False, pause_time=0)
