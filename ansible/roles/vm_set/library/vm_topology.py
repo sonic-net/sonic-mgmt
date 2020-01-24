@@ -242,6 +242,7 @@ class VMTopology(object):
     def add_bp_port_to_docker(self, mgmt_ip, mgmt_ipv6):
         self.add_br_if_to_docker(self.bp_bridge, PTF_BP_IF_TEMPLATE % self.vm_set_name, BP_PORT_NAME)
         self.add_ip_to_docker_if(BP_PORT_NAME, mgmt_ip, mgmt_ipv6)
+        VMTopology.iface_disable_txoff(BP_PORT_NAME, self.pid)
 
         return
 
@@ -485,6 +486,13 @@ class VMTopology(object):
             return VMTopology.cmd('ip link set %s %s' % (iface_name, state))
         else:
             return VMTopology.cmd('nsenter -t %s -n ip link set %s %s' % (pid, iface_name, state))
+
+    @staticmethod
+    def iface_disable_txoff(iface_name, pid=None):
+        if pid is None:
+            return VMTopology.cmd('ethtool -K %s tx off' % (iface_name))
+        else:
+            return VMTopology.cmd('nsenter -t %s -n ethtool -K %s tx off' % (pid, iface_name))
 
     @staticmethod
     def cmd(cmdline):
