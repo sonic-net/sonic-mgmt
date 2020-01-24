@@ -321,6 +321,7 @@ def _test_negative_action_profile_groups_2(self,sw_conn):
         e_det = parseGrpcError(e)
         print("ERROR DETAILS::")
         if ('details = "Error when reading action profile entries from target"' in str(e)):
+            print(e_det)
             log.error("Test:Failed - received error message while reading a group with group id = 0. Creation of group with id = 0 should not be allowed")
             err_msg.append("Test:Failed - received error message while reading a group with group id = 0. Creation of group with id = 0 should not be allowed")
         else:
