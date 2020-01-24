@@ -45,8 +45,8 @@ def parse_combined_counters(duthost):
                 if re.match(item, duthost.facts["platform"]):
                     COMBINED_L2L3_DROP_COUNTER = True
                     break
-        if regexps["acl"]:
-            for item in regexps["acl"]:
+        if regexps["acl_l2"]:
+            for item in regexps["acl_l2"]:
                 if re.match(item, duthost.facts["platform"]):
                     COMBINED_ACL_DROP_COUNTER = True
                     break
@@ -369,7 +369,7 @@ def send_packets(pkt, duthost, ptfadapter, ptf_tx_port_id):
 
 def str_to_int(value):
     """ Convert string value which can contain ',' symbols to integer value """
-    return int("".join(value.split(",")))
+    return int(value.replace(",", ""))
 
 
 def base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface):
@@ -380,11 +380,12 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, d
     send_packets(pkt, duthost, ptfadapter, ptf_tx_port_id)
     if discard_group == "L2":
         # Verify drop counter incremented on specific interface
-        intf_l2_counters = get_pkt_drops(duthost, GET_L2_COUNTERS)
-        if int(intf_l2_counters[dut_iface][RX_DRP]) != PKT_NUMBER:
+        l2_drops = get_pkt_drops(duthost, GET_L2_COUNTERS)[dut_iface][RX_DRP]
+        l2_drops = str_to_int(l2_drops)
+
+        if l2_drops != PKT_NUMBER:
             fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
-                RX_DRP, dut_iface, RX_DRP,
-                int(intf_l2_counters[dut_iface][RX_DRP]), PKT_NUMBER
+                RX_DRP, dut_iface, RX_DRP, l2_drops, PKT_NUMBER
             )
             pytest.fail(fail_msg)
 
@@ -420,6 +421,24 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, d
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2' or 'L3'")
 
 
+def do_test(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, sniff_ports):
+    """
+    Execute test - send packet, check that expected discard counters were incremented and packet was dropped
+    @param discard_group: Supported 'discard_group' values: 'L2', 'L3', 'ACL'
+    @param pkt: PTF composed packet, sent by test case
+    @param ptfadapter: fixture
+    @param duthost: fixture
+    @param ptf_tx_port_id: TX PTF port ID
+    @param dut_iface: DUT interface name expected to receive packets from PTF
+    @param sniff_ports: DUT ports to check that packets were not egressed from
+    """
+    base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface)
+
+    # Verify packets were not egresed the DUT
+    exp_pkt = expected_packet_mask(pkt)
+    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=sniff_ports)
+
+
 def test_equal_smac_dmac_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
     """
     @summary: Verify that packet with equal SMAC and DMAC is dropped and L2 drop counter incremented
@@ -436,11 +455,7 @@ def test_equal_smac_dmac_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_fiel
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    base_verification("L2", pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface)
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+    do_test("L2", pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, setup["neighbor_sniff_ports"])
 
 
 def test_multicast_smac_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
@@ -460,11 +475,7 @@ def test_multicast_smac_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_field
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    base_verification("L2", pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface)
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+    do_test("L2", pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, setup["neighbor_sniff_ports"])
 
 
 def test_reserved_dmac_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
@@ -487,11 +498,7 @@ def test_reserved_dmac_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields
             tcp_sport=pkt_fields["tcp_sport"],
             tcp_dport=pkt_fields["tcp_dport"])
 
-        base_verification("L2", pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface)
-
-        # Verify packets were not egresed the DUT
-        exp_pkt = expected_packet_mask(pkt)
-        testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+        do_test("L2", pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, setup["neighbor_sniff_ports"])
 
 
 def test_not_expected_vlan_tag_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
@@ -521,11 +528,7 @@ def test_not_expected_vlan_tag_drop(ptfadapter, duthost, setup, tx_dut_ports, pk
         vlan_vid=vlan_id,
         )
 
-    base_verification("L2", pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface)
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+    do_test("L2", pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, setup["neighbor_sniff_ports"])
 
 
 def test_dst_ip_is_loopback_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
@@ -545,11 +548,7 @@ def test_dst_ip_is_loopback_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_f
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    base_verification("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface])
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
 
 
 def test_src_ip_is_loopback_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
@@ -569,11 +568,7 @@ def test_src_ip_is_loopback_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_f
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    base_verification("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface])
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
 
 
 def test_dst_ip_absent(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
@@ -591,12 +586,7 @@ def test_dst_ip_absent(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
         ip_dst="", # VM source
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
-
-    base_verification("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface])
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
 
 
 @pytest.mark.parametrize("ip_addr", ["ipv4", "ipv6"])
@@ -631,11 +621,7 @@ def test_src_ip_is_multicast_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_
         pytest.fail("Incorrect value specified for 'ip_addr' test parameter. Supported parameters: 'ipv4' and 'ipv6'")
 
     log_pkt_params(dut_iface, dst_mac, src_mac, pkt_fields["ipv4_dst"], ip_src)
-    base_verification("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface])
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
 
 
 def test_src_ip_is_class_e(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
@@ -655,12 +641,7 @@ def test_src_ip_is_class_e(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields)
             ip_dst=pkt_fields["ipv4_dst"], # VM source
             tcp_sport=pkt_fields["tcp_sport"],
             tcp_dport=pkt_fields["tcp_dport"])
-
-        base_verification("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface])
-
-        # Verify packets were not egresed the DUT
-        exp_pkt = expected_packet_mask(pkt)
-        testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+        do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
 
 
 @pytest.mark.parametrize("addr_type, addr_direction", [("ipv4", "src"), ("ipv6", "src"), ("ipv4", "dst"),
@@ -706,11 +687,7 @@ def test_ip_is_zero_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, a
         pytest.fail("Incorrect value specified for 'addr_type' test parameter. Supported parameters: 'ipv4' or 'ipv6'")
 
     logger.info(pkt_params)
-    base_verification("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface])
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["dut_to_ptf_port_map"].values())
+    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["dut_to_ptf_port_map"].values())
 
 
 @pytest.mark.parametrize("addr_direction", ["src", "dst"])
@@ -739,11 +716,7 @@ def test_ip_link_local(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, add
     pkt = testutils.simple_tcp_packet(**pkt_params)
 
     logger.info(pkt_params)
-    base_verification("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface])
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
 
 
 def test_loopback_filter(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
@@ -772,11 +745,7 @@ def test_loopback_filter(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    base_verification("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface])
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
 
 
 def test_ip_pkt_with_exceeded_mtu(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, mtu_config):
@@ -803,7 +772,7 @@ def test_ip_pkt_with_exceeded_mtu(ptfadapter, duthost, setup, tx_dut_ports, pkt_
     send_packets(pkt, duthost, ptfadapter, ptf_tx_port_id)
 
     # Verify L2 drop counter incremented on specific interface
-    l2_drops = get_pkt_drops(duthost, "portstat -j")[dut_iface][RX_ERR]
+    l2_drops = get_pkt_drops(duthost, GET_L2_COUNTERS)[dut_iface][RX_ERR]
     l2_drops = str_to_int(l2_drops)
 
     if l2_drops != PKT_NUMBER:
@@ -838,11 +807,7 @@ def test_ip_pkt_with_expired_ttl(ptfadapter, duthost, setup, tx_dut_ports, pkt_f
         tcp_dport=pkt_fields["tcp_dport"],
         ip_ttl=0)
 
-    base_verification("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface])
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
 
 
 @pytest.mark.parametrize("igmp_version,msg_type", [("v1", "membership_query"), ("v3", "membership_query"), ("v1", "membership_report"),
@@ -903,11 +868,7 @@ def test_non_routable_igmp_pkts(ptfadapter, duthost, setup, tx_dut_ports, pkt_fi
 
     del pkt[testutils.scapy.scapy.all.Raw]
     pkt = pkt / igmp_types[igmp_version][msg_type]
-    base_verification("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface])
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["dut_to_ptf_port_map"].values())
+    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["dut_to_ptf_port_map"].values())
 
 
 def test_absent_ip_header(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
@@ -931,11 +892,7 @@ def test_absent_ip_header(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
     pkt.type = 0x800
     pkt = pkt/tcp
 
-    base_verification("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface])
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
 
 
 @pytest.mark.parametrize("pkt_field, value", [("version", 1), ("chksum", 10), ("ihl", 1)])
@@ -956,11 +913,7 @@ def test_broken_ip_header(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, 
         tcp_dport=pkt_fields["tcp_dport"]
         )
     setattr(pkt[testutils.scapy.scapy.all.IP], pkt_field, value)
-    base_verification("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface])
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
 
 
 @pytest.mark.parametrize("eth_dst", ["01:00:5e:00:01:02", "ff:ff:ff:ff:ff:ff"])
@@ -983,11 +936,7 @@ def test_unicast_ip_incorrect_eth_dst(ptfadapter, duthost, setup, tx_dut_ports, 
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
         )
-    base_verification("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface])
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
 
 
 def test_acl_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, acl_setup):
@@ -1035,8 +984,4 @@ def test_egress_drop_on_down_link(ptfadapter, duthost, setup, tx_dut_ports, pkt_
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
         )
-    base_verification("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface])
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
