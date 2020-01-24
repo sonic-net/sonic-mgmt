@@ -40,15 +40,15 @@ def setup_testbed(ansible_adhoc, testbed, leaf_fanouts):
         file_src = os.path.join(os.path.dirname(__file__), PFC_GEN_FILE_RELATIVE_PATH)
         peerdev_ans.copy(src = file_src, dest = PFC_GEN_FILE_DEST, force = True)
 
-def run_test(is_pfc, ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, pause_time):
+def run_test(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, is_pfc = True, pause_time = 65535):
     """
     @Summary: Run test for Ethernet flow control (FC) or priority-based flow control (PFC)
-    @param is_pfc: If this test is for PFC?
     @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
     mandatory argument for the class constructors.
     @param testbed: Testbed information
     @param conn_graph_facts: Testbed topology connectivity information
     @param leaf_fanouts: Leaf fanout switches
+    @param is_pfc: If this test is for PFC?
     @param pause_time: Pause time quanta (0-65535) in the frame. 0 means unpause.
     """
     setup_testbed(ansible_adhoc, testbed, leaf_fanouts)
@@ -93,16 +93,16 @@ def run_test(is_pfc, ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, pau
 
 def test_pfc_pause(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts):
     """ @Summary: Run PFC pause frame (pause time quanta > 0) tests """
-    run_test(True, ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, 65535)
+    run_test(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts)
 
 def test_pfc_unpause(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts):
     """ @Summary: Run PFC unpause frame (pause time quanta = 0) tests """
-    run_test(True, ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, 0)        
+    run_test(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, pause_time = 0)        
 
 def test_fc_pause(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts):
     """ @Summary: Run FC pause frame (pause time quanta > 0) tests """
-    run_test(False, ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, 65535)
+    run_test(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, is_pfc = False)
 
 def test_fc_unpause(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts):
     """ @Summary: Run FC pause frame (pause time quanta = 0) tests """ 
-    run_test(False, ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, 0)
+    run_test(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, is_pfc = False, pause_time = 0)
