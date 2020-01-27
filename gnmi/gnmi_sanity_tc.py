@@ -124,7 +124,7 @@ def _test_GetSet_Sanity1(stub):
             #log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
-            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
             resp_key_list.append(set_info1['ietf-interfaces:interfaces']['interface'][0]['name'])
             for resp_key in resp_key_list:
                 if resp_key + ',interfaces,interface,name' in resp_dict.keys():
@@ -168,7 +168,7 @@ def _test_GetSet_Sanity1(stub):
             response = gnmiTestLib._get(stub, paths, user, password)
             #log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
-            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
             log.info(resp_dict)
             for cfg in input_conf['VERIFY_GETSET_Sanity1_2']['config']:
                 cfg_section = cfg['section']
@@ -217,7 +217,7 @@ def _test_GetSet_Sanity1(stub):
         response = gnmiTestLib._get(stub, paths, user, password)
         #log.info(response)
         msg_dict = google.protobuf.json_format.MessageToDict(response)
-        resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+        resp_dict = gnmiTestLib.get_response_dict(msg_dict)
         log.info(resp_dict)
 
         for cfg in input_conf['VERIFY_GETSET_Sanity1_3']['config']:
@@ -268,7 +268,7 @@ def _test_GetSet_Sanity1(stub):
         #log.info(response)
         msg_dict = google.protobuf.json_format.MessageToDict(response)
         log.info(msg_dict)
-        resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+        resp_dict = gnmiTestLib.get_response_dict(msg_dict)
         if resp_dict != None:
             err_msg.append(resp_dict)
 
@@ -321,7 +321,7 @@ def _test_Get_with_prefix(stub):
             #log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
-            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][0]['name'])
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
             for resp_key in resp_key_list:
@@ -404,7 +404,7 @@ def _test_GetSet_OC_Components(stub):
             
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
-            #resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            #resp_dict = gnmiTestLib.get_response_dict(msg_dict)
             #log.info(resp_dict)
             
     except KeyboardInterrupt:
@@ -483,7 +483,7 @@ def _test_Get_with_type(stub):
             #log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
-            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
             resp_dict_keys = list(resp_dict.keys())
             state_status = False
             config_status = False
@@ -513,7 +513,7 @@ def _test_Get_with_type(stub):
         #log.info(response)
         msg_dict = google.protobuf.json_format.MessageToDict(response)
         log.info(msg_dict)
-        resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+        resp_dict = gnmiTestLib.get_response_dict(msg_dict)
         resp_dict_keys = list(resp_dict.keys())
         state_status = False
         config_status = False
@@ -543,7 +543,7 @@ def _test_Get_with_type(stub):
         #log.info(response)
         msg_dict = google.protobuf.json_format.MessageToDict(response)
         log.info(msg_dict)
-        resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+        resp_dict = gnmiTestLib.get_response_dict(msg_dict)
         resp_dict_keys = list(resp_dict.keys())
         state_status = False
         config_status = False
@@ -1069,7 +1069,7 @@ def _test_SetReq_Del1(stub):
         #log.info(response)
         msg_dict = google.protobuf.json_format.MessageToDict(response)
         log.info(msg_dict)
-        resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+        resp_dict = gnmiTestLib.get_response_dict(msg_dict)
         if resp_dict != None:
             err_msg.append(resp_dict)
 
@@ -1141,7 +1141,7 @@ def _test_Neg_set_with_vld_del_inv_upd(stub):
             #log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
-            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][0]['name'])
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
             log.info("********************")
@@ -1229,7 +1229,7 @@ def _test_Neg_set_with_vld_del_inv_upd(stub):
             #log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
-            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][0]['name'])
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
 
@@ -1317,7 +1317,7 @@ def _test_set_with_mul_attr_val(stub):
             #log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
-            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][0]['name'])
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
             
@@ -1375,7 +1375,7 @@ def _test_set_with_mul_attr_val(stub):
             #log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
-            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][0]['name'])
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
 
@@ -1435,7 +1435,7 @@ def _test_set_with_mul_attr_val(stub):
             #log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
-            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][0]['name'])
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
 
@@ -1524,7 +1524,7 @@ def _test_Set_with_partial_val(stub):
             #log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
-            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][0]['name'])
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
             
@@ -1582,7 +1582,7 @@ def _test_Set_with_partial_val(stub):
             #log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
-            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][0]['name'])
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
 
@@ -1657,7 +1657,7 @@ def _test_Set_with_partial_val(stub):
                 response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG')
                 #log.info(response)
                 msg_dict = google.protobuf.json_format.MessageToDict(response)
-                resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+                resp_dict = gnmiTestLib.get_response_dict(msg_dict)
                 resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][0]['name'])
                 resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
 
@@ -1756,7 +1756,7 @@ def _test_Path_with_keys(stub):
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             #log.info(msg_dict)
             set_info = input_conf['GET_WITH_PFX']
-            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
             resp_key = "Loopback123"
             if resp_key + ',interfaces,interface,name' in resp_dict.keys():
                 if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
@@ -1811,7 +1811,7 @@ def _test_Path_with_keys(stub):
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             #log.info(msg_dict)
             set_info = input_conf['GET_WITH_PFX']
-            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
             resp_key = "Loopback123"
             if resp_key + ',interfaces,interface,name' in resp_dict.keys():
                 if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
@@ -1976,7 +1976,7 @@ def _test_SetRpl_Omit1(stub):
             log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
-            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
             print("################")
             print(resp_dict.keys())
             print(resp_dict.values())
