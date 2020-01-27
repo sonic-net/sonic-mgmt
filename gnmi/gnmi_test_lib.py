@@ -765,64 +765,40 @@ def get_oc_response_dict(get_value):
 """
 def get_oc_response_dict(get_value):
   response_dict = dict()
-  key_list = list()
-  ctr = 0
   try:
-    value_dict = get_value['notification'][0]['update']
+    value_dict = get_value['notification']
   except KeyError:
     response_dict = None
     return response_dict
 
-  if len(get_value['notification'][0]['prefix']['elem']) == 2:
-    main_key = get_value['notification'][0]['prefix']['elem'][1]['key']['name']
-    multi_intf = False
-  else:
-    main_key = None
-    
   for value in value_dict:
     first_val = True
-    full_key = None
-    i = 0
-    keys = list(value['val'].keys())
-  
-    # Set the main key
-    #if len(value['path']['elem']) == 1:
-    #    main_key = value['val'][keys[i]]
-    #    log.info("Main Key:{}".format(main_key))
-    #    multi_intf = False
-    
-
-    if main_key == None:
-      multi_intf = True
-    
-    if multi_intf and len(value['path']['elem']) == 2:
-      main_key = value['val'][keys[i]]
-
-    if main_key == None:
-      # Looks like the get contains only state information
-      main_key = value['path']['elem'][0]['key']['name']
-
-    for key_val in value['path']['elem']:
+    for key_val in value['prefix']['elem']:
+      try:
+        main_key = key_val['key']['name']
+      except KeyError:
+        pass
       if first_val:
         full_key = key_val['name']
         first_val = False
         continue 
       if type(key_val['name']) != bool:
         full_key = full_key + "," + key_val['name']
+    prefix_key = full_key
+    values = value['update']
+    for val in values:
+      i = 0
+      #keys = val['val'].keys()
+      lkeys = list(val['val'].keys())
+      ans =  val['val'][lkeys[i]]
+      for key_val in val['path']['elem']:
+        if type(key_val['name']) != bool:
+          full_key = prefix_key + "," + key_val['name']
+      full_key = main_key + "," + full_key
+      print("{}:{}".format(full_key,ans))
+      response_dict[full_key] = ans
 
-    full_key = main_key+ "," + full_key
-    if full_key not in key_list:
-      key_list.append(full_key)
-    
-    val =  value['val'][keys[i]]
-    response_dict[full_key] = val
-    log.info("{}:{}".format(full_key,val))
-    i += 1
-    ctr += 1
-    
-
-  response_dict['key_list'] = key_list
-  return response_dict
+  return response_dict  
 
 
 """

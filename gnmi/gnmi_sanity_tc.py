@@ -96,6 +96,7 @@ def _test_GetSet_Sanity1(stub):
     user = None
     password = None
     err_msg = list()
+    resp_key_list = list()
     #with open(ApData.input_conf_file, 'r') as ip_conf_file:
     #    input_conf = gnmiTestLib.json_load_byteified(ip_conf_file)
 
@@ -123,16 +124,18 @@ def _test_GetSet_Sanity1(stub):
             #log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
-            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
-            for resp_key in resp_dict['key_list']:
-                if set_info1['ietf-interfaces:interfaces']['interface'][0]['name'] != resp_dict[resp_key + ',name']:
-                    err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',name'], set_info1['ietf-interfaces:interfaces']['interface'][0]['name']))
-                if set_info1['ietf-interfaces:interfaces']['interface'][0]['description'] != resp_dict[resp_key + ',description']:
-                    err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',description'], set_info1['ietf-interfaces:interfaces']['interface'][0]['description']))
-                if resp_dict[resp_key + ',type'] not in set_info1['ietf-interfaces:interfaces']['interface'][0]['type']:
-                    err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',type'], set_info1['ietf-interfaces:interfaces']['interface'][0]['type']))
-                if not resp_dict[resp_key + ',enabled']:
-                    err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',name'], resp_dict[resp_key + ',enabled']))
+            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
+            resp_key_list.append(set_info1['ietf-interfaces:interfaces']['interface'][0]['name'])
+            for resp_key in resp_key_list:
+                if resp_key + ',interfaces,interface,name' in resp_dict.keys():
+                    if set_info1['ietf-interfaces:interfaces']['interface'][0]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info1['ietf-interfaces:interfaces']['interface'][0]['name']))
+                    if set_info1['ietf-interfaces:interfaces']['interface'][0]['description'] != resp_dict[resp_key + ',interfaces,interface,description']:
+                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,description'], set_info1['ietf-interfaces:interfaces']['interface'][0]['description']))
+                    if resp_dict[resp_key + ',interfaces,interface,type'] not in set_info1['ietf-interfaces:interfaces']['interface'][0]['type']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,type'], set_info1['ietf-interfaces:interfaces']['interface'][0]['type']))
+                    if not resp_dict[resp_key + ',interfaces,interface,enabled']:
+                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,enabled']))
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
@@ -165,22 +168,21 @@ def _test_GetSet_Sanity1(stub):
             response = gnmiTestLib._get(stub, paths, user, password)
             #log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
-            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
             log.info(resp_dict)
-            
             for cfg in input_conf['VERIFY_GETSET_Sanity1_2']['config']:
                 cfg_section = cfg['section']
                 set_info = input_conf[cfg_section]
                 resp_key = cfg['name']
-                if resp_key in resp_dict['key_list']:
-                    if set_info['ietf-interfaces:interfaces']['interface'][0]['name'] != resp_dict[resp_key + ',name']:
-                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',name'], set_info['ietf-interfaces:interfaces']['interface'][0]['name']))
-                    if set_info['ietf-interfaces:interfaces']['interface'][0]['description'] != resp_dict[resp_key + ',description']:
-                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',description'], set_info['ietf-interfaces:interfaces']['interface'][0]['description']))
-                    if resp_dict[resp_key + ',type'] not in set_info['ietf-interfaces:interfaces']['interface'][0]['type']:
-                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',type'], set_info['ietf-interfaces:interfaces']['interface'][0]['type']))
-                    if not resp_dict[resp_key + ',enabled']:
-                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',name'], resp_dict[resp_key + ',enabled']))
+                if resp_key + ',interfaces,interface,name' in resp_dict.keys():
+                    if set_info['ietf-interfaces:interfaces']['interface'][0]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info['ietf-interfaces:interfaces']['interface'][0]['name']))
+                    if set_info['ietf-interfaces:interfaces']['interface'][0]['description'] != resp_dict[resp_key + ',interfaces,interface,description']:
+                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,description'], set_info['ietf-interfaces:interfaces']['interface'][0]['description']))
+                    if resp_dict[resp_key + ',interfaces,interface,type'] not in set_info['ietf-interfaces:interfaces']['interface'][0]['type']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,type'], set_info['ietf-interfaces:interfaces']['interface'][0]['type']))
+                    if not resp_dict[resp_key + ',interfaces,interface,enabled']:
+                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,enabled']))
                 else:
                     err_msg.append("Interface {} missing from the GET response".format(resp_key))
 
@@ -215,22 +217,22 @@ def _test_GetSet_Sanity1(stub):
         response = gnmiTestLib._get(stub, paths, user, password)
         #log.info(response)
         msg_dict = google.protobuf.json_format.MessageToDict(response)
-        resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+        resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
         log.info(resp_dict)
 
         for cfg in input_conf['VERIFY_GETSET_Sanity1_3']['config']:
                 cfg_section = cfg['section']
                 set_info = input_conf[cfg_section]
                 resp_key = cfg['name']
-                if resp_key in resp_dict['key_list']:
-                    if set_info['ietf-interfaces:interfaces']['interface'][0]['name'] != resp_dict[resp_key + ',name']:
-                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',name'], set_info['ietf-interfaces:interfaces']['interface'][0]['name']))
-                    if set_info['ietf-interfaces:interfaces']['interface'][0]['description'] != resp_dict[resp_key + ',description']:
-                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',description'], set_info['ietf-interfaces:interfaces']['interface'][0]['description']))
-                    if resp_dict[resp_key + ',type'] not in set_info['ietf-interfaces:interfaces']['interface'][0]['type']:
-                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',type'], set_info['ietf-interfaces:interfaces']['interface'][0]['type']))
-                    if not resp_dict[resp_key + ',enabled']:
-                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',name'], resp_dict[resp_key + ',enabled']))
+                if resp_key + ',interfaces,interface,name' in resp_dict.keys():
+                    if set_info['ietf-interfaces:interfaces']['interface'][0]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info['ietf-interfaces:interfaces']['interface'][0]['name']))
+                    if set_info['ietf-interfaces:interfaces']['interface'][0]['description'] != resp_dict[resp_key + ',interfaces,interface,description']:
+                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,description'], set_info['ietf-interfaces:interfaces']['interface'][0]['description']))
+                    if resp_dict[resp_key + ',interfaces,interface,type'] not in set_info['ietf-interfaces:interfaces']['interface'][0]['type']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,type'], set_info['ietf-interfaces:interfaces']['interface'][0]['type']))
+                    if not resp_dict[resp_key + ',interfaces,interface,enabled']:
+                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,enabled']))
                 else:
                     err_msg.append("Interface {} missing from the GET response".format(resp_key))
 
@@ -266,7 +268,7 @@ def _test_GetSet_Sanity1(stub):
         #log.info(response)
         msg_dict = google.protobuf.json_format.MessageToDict(response)
         log.info(msg_dict)
-        resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+        resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
         if resp_dict != None:
             err_msg.append(resp_dict)
 
@@ -323,15 +325,15 @@ def _test_Get_with_prefix(stub):
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][0]['name'])
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
             for resp_key in resp_key_list:
-                if resp_key + ',interface,name' in resp_dict['key_list']:
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interface,name']:
-                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interface,config,description']:
-                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
-                    if resp_dict[resp_key + ',interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
-                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
-                    if not resp_dict[resp_key + ',interface,config,enabled']:
-                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interface,name'], resp_dict[resp_key + ',interface,config,enabled']))
+                if resp_key + ',interfaces,interface,name' in resp_dict.keys():
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interfaces,interface,config,description']:
+                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
+                    if resp_dict[resp_key + ',interfaces,interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
+                    if not resp_dict[resp_key + ',interfaces,interface,config,enabled']:
+                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
                 else:
                     err_msg.append("Interface {} missing from the GET response".format(resp_key))
                 ctr += 1    
@@ -1067,7 +1069,7 @@ def _test_SetReq_Del1(stub):
         #log.info(response)
         msg_dict = google.protobuf.json_format.MessageToDict(response)
         log.info(msg_dict)
-        resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+        resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
         if resp_dict != None:
             err_msg.append(resp_dict)
 
@@ -1143,19 +1145,19 @@ def _test_Neg_set_with_vld_del_inv_upd(stub):
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][0]['name'])
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
             log.info("********************")
-            log.info(resp_dict['key_list'])
+            log.info(resp_dict.keys())
             log.info("********************")
 
             for resp_key in resp_key_list:
-                if resp_key + ',interface,name' in resp_dict['key_list']:
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interface,name']:
-                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interface,config,description']:
-                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
-                    if resp_dict[resp_key + ',interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
-                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
-                    if not resp_dict[resp_key + ',interface,config,enabled']:
-                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interface,name'], resp_dict[resp_key + ',interface,config,enabled']))
+                if resp_key + ',interfaces,interface,name' in resp_dict.keys():
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interfaces,interface,config,description']:
+                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
+                    if resp_dict[resp_key + ',interfaces,interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
+                    if not resp_dict[resp_key + ',interfaces,interface,config,enabled']:
+                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
                 else:
                     err_msg.append("Interface {} missing from the GET response".format(resp_key))
                 ctr += 1    
@@ -1232,16 +1234,16 @@ def _test_Neg_set_with_vld_del_inv_upd(stub):
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
 
             for resp_key in resp_key_list:
-                if resp_key + ',interface,name' in resp_dict['key_list']:
+                if resp_key + ',interfaces,interface,name' in resp_dict.keys():
                     
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interface,name']:
-                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interface,config,description']:
-                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
-                    if resp_dict[resp_key + ',interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
-                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
-                    if not resp_dict[resp_key + ',interface,config,enabled']:
-                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interface,name'], resp_dict[resp_key + ',interface,config,enabled']))
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interfaces,interface,config,description']:
+                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
+                    if resp_dict[resp_key + ',interfaces,interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
+                    if not resp_dict[resp_key + ',interfaces,interface,config,enabled']:
+                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
                 else:
                     err_msg.append("Interface {} missing from the GET response".format(resp_key))
                 ctr += 1    
@@ -1320,15 +1322,15 @@ def _test_set_with_mul_attr_val(stub):
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
             
             for resp_key in resp_key_list:
-                if resp_key + ',interface,name' in resp_dict['key_list']:
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interface,name']:
-                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interface,config,description']:
-                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
-                    if resp_dict[resp_key + ',interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
-                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
-                    if not resp_dict[resp_key + ',interface,config,enabled']:
-                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interface,name'], resp_dict[resp_key + ',interface,config,enabled']))
+                if resp_key + ',interfaces,interface,name' in resp_dict.keys():
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interfaces,interface,config,description']:
+                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
+                    if resp_dict[resp_key + ',interfaces,interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
+                    if not resp_dict[resp_key + ',interfaces,interface,config,enabled']:
+                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
                 else:
                     err_msg.append("Interface {} missing from the GET response".format(resp_key))
                 ctr += 1    
@@ -1378,17 +1380,17 @@ def _test_set_with_mul_attr_val(stub):
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
 
             for resp_key in resp_key_list:
-                if resp_key + ',interface,name' in resp_dict['key_list']:
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interface,name']:
-                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interface,config,description']:
-                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
-                    if resp_dict[resp_key + ',interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
-                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
-                    if resp_dict[resp_key + ',interface,config,mtu'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']:
-                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interface,config,mtu'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']))
-                    if not resp_dict[resp_key + ',interface,config,enabled']:
-                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interface,name'], resp_dict[resp_key + ',interface,config,enabled']))
+                if resp_key + ',interfaces,interface,name' in resp_dict.keys():
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interfaces,interface,config,description']:
+                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
+                    if resp_dict[resp_key + ',interfaces,interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
+                    if resp_dict[resp_key + ',interfaces,interface,config,mtu'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,mtu'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']))
+                    if not resp_dict[resp_key + ',interfaces,interface,config,enabled']:
+                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
                 else:
                     err_msg.append("Interface {} missing from the GET response".format(resp_key))
                 ctr += 1    
@@ -1438,17 +1440,17 @@ def _test_set_with_mul_attr_val(stub):
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
 
             for resp_key in resp_key_list:
-                if resp_key + ',interface,name' in resp_dict['key_list']:
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interface,name']:
-                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interface,config,description']:
-                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
-                    if resp_dict[resp_key + ',interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
-                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
-                    if resp_dict[resp_key + ',interface,config,mtu'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']:
-                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interface,config,mtu'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']))
-                    if not resp_dict[resp_key + ',interface,config,enabled']:
-                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interface,name'], resp_dict[resp_key + ',interface,config,enabled']))
+                if resp_key + ',interfaces,interface,name' in resp_dict.keys():
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interfaces,interface,config,description']:
+                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
+                    if resp_dict[resp_key + ',interfaces,interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
+                    if resp_dict[resp_key + ',interfaces,interface,config,mtu'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,mtu'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']))
+                    if not resp_dict[resp_key + ',interfaces,interface,config,enabled']:
+                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
                 else:
                     err_msg.append("Interface {} missing from the GET response".format(resp_key))
                 ctr += 1    
@@ -1527,15 +1529,15 @@ def _test_Set_with_partial_val(stub):
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
             
             for resp_key in resp_key_list:
-                if resp_key + ',interface,name' in resp_dict['key_list']:
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interface,name']:
-                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interface,config,description']:
-                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
-                    if resp_dict[resp_key + ',interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
-                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
-                    if not resp_dict[resp_key + ',interface,config,enabled']:
-                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interface,name'], resp_dict[resp_key + ',interface,config,enabled']))
+                if resp_key + ',interfaces,interface,name' in resp_dict.keys():
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interfaces,interface,config,description']:
+                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
+                    if resp_dict[resp_key + ',interfaces,interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
+                    if not resp_dict[resp_key + ',interfaces,interface,config,enabled']:
+                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
                 else:
                     err_msg.append("Interface {} missing from the GET response".format(resp_key))
                 ctr += 1    
@@ -1585,17 +1587,17 @@ def _test_Set_with_partial_val(stub):
             resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
 
             for resp_key in resp_key_list:
-                if resp_key + ',interface,name' in resp_dict['key_list']:
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interface,name']:
-                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interface,config,description']:
-                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
-                    if resp_dict[resp_key + ',interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
-                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
-                    if resp_dict[resp_key + ',interface,config,mtu'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']:
-                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interface,config,mtu'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']))
-                    if not resp_dict[resp_key + ',interface,config,enabled']:
-                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interface,name'], resp_dict[resp_key + ',interface,config,enabled']))
+                if resp_key + ',interfaces,interface,name' in resp_dict.keys():
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interfaces,interface,config,description']:
+                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
+                    if resp_dict[resp_key + ',interfaces,interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
+                    if resp_dict[resp_key + ',interfaces,interface,config,mtu'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,mtu'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']))
+                    if not resp_dict[resp_key + ',interfaces,interface,config,enabled']:
+                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
                 else:
                     err_msg.append("Interface {} missing from the GET response".format(resp_key))
                 ctr += 1    
@@ -1660,17 +1662,17 @@ def _test_Set_with_partial_val(stub):
                 resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][1]['name'])
 
                 for resp_key in resp_key_list:
-                    if resp_key + ',interface,name' in resp_dict['key_list']:
-                        if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interface,name']:
-                            err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
-                        if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interface,config,description']:
-                            err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
-                        if resp_dict[resp_key + ',interface,config,type'] not in set_info1['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
-                            err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
-                        if resp_dict[resp_key + ',interface,config,mtu'] not in set_info1['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']:
-                            err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interface,config,mtu'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']))
-                        if not resp_dict[resp_key + ',interface,config,enabled']:
-                            err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interface,name'], resp_dict[resp_key + ',interface,config,enabled']))
+                    if resp_key + ',interfaces,interface,name' in resp_dict.keys():
+                        if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                            err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
+                        if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interfaces,interface,config,description']:
+                            err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
+                        if resp_dict[resp_key + ',interfaces,interface,config,type'] not in set_info1['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
+                            err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
+                        if resp_dict[resp_key + ',interfaces,interface,config,mtu'] not in set_info1['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']:
+                            err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,mtu'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']))
+                        if not resp_dict[resp_key + ',interfaces,interface,config,enabled']:
+                            err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
                     else:
                         err_msg.append("Interface {} missing from the GET response".format(resp_key))
                     ctr += 1    
@@ -1756,15 +1758,15 @@ def _test_Path_with_keys(stub):
             set_info = input_conf['GET_WITH_PFX']
             resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
             resp_key = "Loopback123"
-            if resp_key + ',name' in resp_dict['key_list']:
-                if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',name']:
-                    err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
-                if "For path check TC" != resp_dict[resp_key + ',config,description']:
-                    err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
-                if resp_dict[resp_key + ',config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
-                    err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
-                if not resp_dict[resp_key + ',config,enabled']:
-                    err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',name'], resp_dict[resp_key + ',config,enabled']))
+            if resp_key + ',interfaces,interface,name' in resp_dict.keys():
+                if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                    err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
+                if "For path check TC" != resp_dict[resp_key + ',interfaces,interface,config,description']:
+                    err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
+                if resp_dict[resp_key + ',interfaces,interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
+                    err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
+                if not resp_dict[resp_key + ',interfaces,interface,config,enabled']:
+                    err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
             else:
                 err_msg.append("Interface {} missing from the GET response".format(resp_key))
     
@@ -1811,15 +1813,15 @@ def _test_Path_with_keys(stub):
             set_info = input_conf['GET_WITH_PFX']
             resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
             resp_key = "Loopback123"
-            if resp_key + ',name' in resp_dict['key_list']:
-                if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',name']:
-                    err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
-                if "For path check TC" != resp_dict[resp_key + ',config,description']:
-                    err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
-                if resp_dict[resp_key + ',config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
-                    err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
-                if not resp_dict[resp_key + ',config,enabled']:
-                    err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',name'], resp_dict[resp_key + ',config,enabled']))
+            if resp_key + ',interfaces,interface,name' in resp_dict.keys():
+                if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                    err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
+                if "For path check TC" != resp_dict[resp_key + ',interfaces,interface,config,description']:
+                    err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
+                if resp_dict[resp_key + ',interfaces,interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
+                    err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
+                if not resp_dict[resp_key + ',interfaces,interface,config,enabled']:
+                    err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
             else:
                 err_msg.append("Interface {} missing from the GET response".format(resp_key))
     
@@ -1974,24 +1976,24 @@ def _test_SetRpl_Omit1(stub):
             log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             log.info(msg_dict)
-            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+            resp_dict = gnmiTestLib.get_oc_response_dict(msg_dict)
             print("################")
             print(resp_dict.keys())
             print(resp_dict.values())
             print(set_info1['set-omit'])
             print("################")
-            if resp_dict.get('SetRplOmt1,description') != None:
+            resp_key = "SetRplOmt1"
+            if resp_dict.get(resp_key + ',interfaces,interface,description') != None:
                 err_msg.append("{} 'description' key should not be present in config as it was not sent in SET-REPLACE")
-            for resp_key in resp_dict['key_list']:
-                if set_info1['set-omit']['ietf-interfaces:interfaces']['interface'][0]['name'] != resp_dict[resp_key + ',name']:
-                    err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',name'], set_info1['ietf-interfaces:interfaces']['interface'][0]['name']))
-                #if set_info1['set-omit']['ietf-interfaces:interfaces']['interface'][0]['description'] != resp_dict[resp_key + ',description']:
-                #    err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',description'], set_info1['ietf-interfaces:interfaces']['interface'][0]['description']))
-                if resp_dict[resp_key + ',type'] not in set_info1['set-omit']['ietf-interfaces:interfaces']['interface'][0]['type']:
-                    err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',type'], set_info1['ietf-interfaces:interfaces']['interface'][0]['type']))
-            if resp_dict.get('SetRplOmt1,enabled') !=None:
+            if set_info1['set-omit']['ietf-interfaces:interfaces']['interface'][0]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info1['ietf-interfaces:interfaces']['interface'][0]['name']))
+            #if set_info1['set-omit']['ietf-interfaces:interfaces']['interface'][0]['description'] != resp_dict[resp_key + ',description']:
+            #    err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',description'], set_info1['ietf-interfaces:interfaces']['interface'][0]['description']))
+            if resp_dict[resp_key + ',interfaces,interface,type'] not in set_info1['set-omit']['ietf-interfaces:interfaces']['interface'][0]['type']:
+                err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,type'], set_info1['ietf-interfaces:interfaces']['interface'][0]['type']))
+            if resp_dict.get(resp_key + ',interfaces,interface,enabled') !=None:
                log.info("SET_RplOmit1_3:Passed - Default values created even though they are not sent in SET-REPLACE")
-               def_val = "SET_RplOmit1_3:Passed - Default value for Interface 'enabled' created = " + str(resp_dict.get('SetRplOmt1,enabled'))
+               def_val = "SET_RplOmit1_3:Passed - Default value for Interface 'enabled' created = " + str(resp_dict.get(resp_key + ',interfaces,interface,enabled'))
                log.info(def_val)
     except KeyboardInterrupt:
         log.info("Shutting down.")
