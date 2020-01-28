@@ -13,11 +13,10 @@ Description:
  arguments:
     vm_topo_config: Topology file; required: True
     port_alias: Port aliases of TOR SONiC; required: True
-    vlan_file:  File containing host vlan configuration; required: False
+    vlan_cfg:  vlan config name to use; required: False
 
 Ansible_facts:
     'vlan_cfgs': all Vlans Configuration 
-
 '''
 
 EXAMPLES = '''
@@ -25,49 +24,36 @@ EXAMPLES = '''
       droplet_vlan_cfg: 
         vm_topo_config: "{{ vm_topo_config }}"
         port_alias: "{{ port_alias }}"
-        vlan_file: "{{ vlan_file|default(None) }}"
+        vlan_cfg: "{{ vlan_cfg|default(None) }}"
 '''
-
-def get_vlan_info(vlan_file):
-    with open(vlan_file) as f:
-        vlan_info = yaml.load(f, Loader=yaml.SafeLoader)
-    return vlan_info
 
 def main():
     module = AnsibleModule(
         argument_spec=dict(
             vm_topo_config=dict(required=True),
             port_alias=dict(required=True),
-            vlan_file=dict(required=False, type='str', default=None),
+            vlan_cfg=dict(required=False, type='str', default=None),
         ),
         supports_check_mode=True
     )
     m_args = module.params
     port_alias = m_args['port_alias']
-    vlan_file = m_args['vlan_file']
+    vlan_cfg = m_args['vlan_cfg']
 
     vlan_cfgs = {}
     try:
-        if len(vlan_file) == 0:
-            # Support for legacy vlan configuration
-            vm_topo_config = m_args['vm_topo_config']
-            host_interface = set(vm_topo_config['host_interfaces']) - set(vm_topo_config['disabled_host_interfaces'])
-    
-            vlan_cfgs = {'Vlan1000' : {}}
-            vlan_cfgs['Vlan1000']['id'] = 1000
-            vlan_cfgs['Vlan1000']['tag'] = 1000
-            vlan_cfgs['Vlan1000']['subnets'] = '192.168.0.0/21'
-            vlan_cfgs['Vlan1000']['intfs'] = [port_alias[i] for i in host_interface] 
+        if len(vlan_cfg) > 0:
+            default_vlan = vlan_cfg
         else:
-            vlan_info = get_vlan_info(vlan_file)
-            for vlan, vlan_cfg in vlan_info['Vlans'].items():
-                vlan_cfgs.update({vlan : {}})
-                vlan_cfgs[vlan]['id'] = vlan_cfg['id']
-                vlan_cfgs[vlan]['tag'] = vlan_cfg['tag']
-                vlan_cfgs[vlan]['subnets'] = vlan_cfg['subnets']
-                vlan_cfgs[vlan]['intfs'] = [port_alias[i] for i in vlan_cfg['intfs']]
-    except (IOError, OSError):
-        module.fail_json(msg = "Can not find file " + vlan_file)
+            default_vlan = m_args['vm_topo_config']['DUT']['vlan_cfgs']['default_vlan_cfg']
+
+        vlan_info = m_args['vm_topo_config']['DUT']['vlan_cfgs'][default_vlan]
+        for vlan, vlan_cfg in vlan_info.items():
+            vlan_cfgs.update({vlan : {}})
+            vlan_cfgs[vlan]['id'] = vlan_cfg['id']
+            vlan_cfgs[vlan]['tag'] = vlan_cfg['tag']
+            vlan_cfgs[vlan]['subnets'] = vlan_cfg['subnets']
+            vlan_cfgs[vlan]['intfs'] = [port_alias[i] for i in vlan_cfg['intfs']]
     except Exception as e:
         module.fail_json(msg = traceback.format_exc())
     else:

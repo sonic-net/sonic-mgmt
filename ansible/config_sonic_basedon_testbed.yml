@@ -84,9 +84,9 @@
 
   - name: find all vlan configurations for T0 topology
     droplet_vlan_cfg: 
-      vm_topo_config: "{{ vm_topo_config }}" 
-      port_alias: "{{ port_alias }}" 
-      vlan_file: "{{ vlan_file|default(None) }}"
+      vm_topo_config: "{{ vm_topo_config }}"
+      port_alias: "{{ port_alias }}"
+      vlan_cfg: "{{ vlan_cfg|default(None) }}"
     delegate_to: localhost
     when: ("'host_interfaces' in vm_topo_config") and ("'tor' in vm_topo_config['dut_type'] | lower")
 
