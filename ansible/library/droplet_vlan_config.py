@@ -24,7 +24,7 @@ EXAMPLES = '''
       droplet_vlan_config: 
         vm_topo_config: "{{ vm_topo_config }}"
         port_alias: "{{ port_alias }}"
-        vlan_config: "{{ vlan_config|default(None) }}"
+        vlan_config: "{{ vlan_config | default(None) }}"
 '''
 
 def main():
@@ -42,7 +42,7 @@ def main():
 
     vlan_configs = {}
     try:
-        if len(vlan_config) == 0:
+        if vlan_config is None or len(vlan_config) == 0:
             vlan_config = m_args['vm_topo_config']['DUT']['vlan_configs']['default_vlan_config']
 
         vlans = m_args['vm_topo_config']['DUT']['vlan_configs'][vlan_config]
