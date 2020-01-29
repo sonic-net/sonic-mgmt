@@ -117,7 +117,7 @@ def common_setup_teardown(duthost, ptfhost):
     logging.info("########### Done teardown for bgp speaker testing ###########")
 
 
-def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthost, ptfhost):
+def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthost, ptfhost, collect_techsupport):
     """Setup bgp speaker on T0 topology and verify bgp sessions are established
     """
     ptfip, mg_facts, interface_facts, vlan_ips, speaker_ips, port_num = common_setup_teardown
@@ -131,7 +131,7 @@ def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthost, ptfhost):
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 1514)])
-def test_bgp_speaker_announce_routes(common_setup_teardown, duthost, ptfhost, ipv4, ipv6, mtu):
+def test_bgp_speaker_announce_routes(common_setup_teardown, duthost, ptfhost, ipv4, ipv6, mtu, collect_techsupport):
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """
