@@ -59,6 +59,7 @@ str-marvell-acs-1,10.3.146.154/23,et6448m,DevSonic
 str-n3164-acs-2,10.3.147.150/23,Nexus-3164,DevSonic
 str-n3164-acs-1,10.3.147.149/23,Nexus-3164,DevSonic
 str-marvell-acs-2,10.3.146.155/23,et6448m,FanoutLeafSonic
+str-sn3800-01,10.3.146.62/23,ACS-MSN3800,DevSonic
 str-7260-02,10.3.147.154/23,Arista-7260QX-64,FanoutLeaf
 str-7260-03,10.3.147.169/23,Arista-7260QX-64,FanoutLeaf
 str-7260-04,10.3.147.164/23,Arista-7260QX-64,FanoutLeaf
@@ -70,6 +71,8 @@ str-7260-08,10.3.147.108/23,Arista-7260QX-64,FanoutLeaf
 str-7260-09,10.3.147.12/23,Arista-7260QX-64,FanoutLeaf
 str-7260-10,10.3.147.13/23,Arista-7260QX-64,FanoutLeaf
 str-7260cx3-11,10.3.147.234/23,Arista-7260CX3-64,FanoutRoot
+str-7260cx3-64-16,10.3.146.147/23,Arista-7260CX3,FanoutLeaf
+str-7260cx3-64-17,10.3.146.148/23,Arista-7260CX3,FanoutLeaf
 str-7260-13,10.3.147.196/23,Arista-7260QX-64,FanoutLeaf
 str-7260-14,10.3.147.198/23,Arista-7260QX-64,FanoutLeaf
 str-7260-15,10.3.147.236/23,Arista-7260QX-64,FanoutLeaf

@@ -99,6 +99,13 @@ str-msn2700-22    ansible_host=10.64.247.236
 hwsku="Mellanox-SN2700"
 iface_speed='100000'
 
+[sonic_mlnx_3800]
+str-sn3800-01    ansible_host=10.3.146.62
+
+[sonic_mlnx_3800:vars]
+hwsku="ACS-MSN3800"
+iface_speed='100000'
+
 [sonic_cavium32]
 str-cavium-acs-01 ansible_host=10.3.147.10
 
@@ -194,6 +201,7 @@ sonic_nexus_9232_100
 sonic_nexus_92304_40
 sonic_marvell
 sonic_nexus_3164
+sonic_mlnx_3800
 
 [sonic:vars]
 mgmt_subnet_mask_length='23'
@@ -252,6 +260,7 @@ v12-12  ansible_host=10.64.247.26
 v12-21  ansible_host=10.64.246.26
 v12-22  ansible_host=10.64.246.25
 v12-31  ansible_host=10.64.246.42
+vms12-5 ansible_host=10.64.246.90
 vms13-1 ansible_host=10.64.247.29
 vms13-2 ansible_host=10.64.247.28
 vms13-3 ansible_host=10.64.246.49
@@ -306,6 +315,8 @@ str-7060cx-32s-17  ansible_host=10.64.247.13
 str-7060cx-32s-18  ansible_host=10.64.247.22
 str-7060cx-32s-21  ansible_host=10.64.246.32
 str-7060cx-32s-22  ansible_host=10.64.246.34
+str-7260cx3-64-16  ansible_host=10.3.146.147
+str-7260cx3-64-17  ansible_host=10.3.146.148
 str-7260cx3-fan-03  ansible_host=10.64.246.47
 str-7260cx3-fan-04  ansible_host=10.64.246.74
 str-7260cx3-fan-06  ansible_host=10.3.146.25
