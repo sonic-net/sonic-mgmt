@@ -56,19 +56,19 @@
       </PortChannelInterfaces>
       <VlanInterfaces>
 {% if 'tor' in vm_topo_config['dut_type'] | lower %}
-{% for vlan, vlan_cfg in vlan_cfgs.items() %}
+{% for vlan, vlan_param in vlan_configs.items() %}
         <VlanInterface>
           <Name>{{ vlan }}</Name>
-{% set vlan_intf_str=';'.join(vlan_cfg['intfs']) %}
+{% set vlan_intf_str=';'.join(vlan_param['intfs']) %}
           <AttachTo>{{ vlan_intf_str }}</AttachTo>
           <NoDhcpRelay>False</NoDhcpRelay>
           <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
           <Type i:nil="true"/>
 {% set dhcp_servers_str=';'.join(dhcp_servers) %}
           <DhcpRelays>{{ dhcp_servers_str }}</DhcpRelays>
-          <VlanID>{{ vlan_cfg['id'] }}</VlanID>
-          <Tag>{{ vlan_cfg['tag'] }}</Tag>
-          <Subnets>{{ vlan_cfg['subnets'] }}</Subnets>
+          <VlanID>{{ vlan_param['id'] }}</VlanID>
+          <Tag>{{ vlan_param['tag'] }}</Tag>
+          <Subnets>{{ vlan_param['prefix'] | ipaddr('network') }}/{{ vlan_param['prefix'] | ipaddr('prefix') }}</Subnets>
         </VlanInterface>
 {% endfor %}
 {% endif %}
@@ -95,11 +95,11 @@
         </IPInterface>
 {% endfor %}
 {% if 'tor' in vm_topo_config['dut_type'] | lower %}
-{% for vlan, vlan_cfg in vlan_cfgs.items() %}
+{% for vlan, vlan_param in vlan_configs.items() %}
         <IPInterface>
           <Name i:nil="true"/>
           <AttachTo>{{ vlan }}</AttachTo>
-          <Prefix>{{ vlan_cfg['subnets'] }}</Prefix>
+          <Prefix>{{ vlan_param['prefix'] }}</Prefix>
         </IPInterface>
 {% endfor %}
 {% endif %}

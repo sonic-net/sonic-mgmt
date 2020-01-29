@@ -4,7 +4,7 @@ import yaml
 import traceback
 
 DOCUMENTATION = '''
-module: droplet_vlan_cfg.py
+module: droplet_vlan_config.py
 Ansible_version_added:  2.0.0.2
 short_description: Gather all vlan info related to droplet interfaces 
 Description:
@@ -13,18 +13,18 @@ Description:
  arguments:
     vm_topo_config: Topology file; required: True
     port_alias: Port aliases of TOR SONiC; required: True
-    vlan_cfg:  vlan config name to use; required: False
+    vlan_config:  vlan config name to use; required: False
 
 Ansible_facts:
-    'vlan_cfgs': all Vlans Configuration 
+    'vlan_configs': all Vlans Configuration 
 '''
 
 EXAMPLES = '''
     - name: find all vlan configurations for T0 topology
-      droplet_vlan_cfg: 
+      droplet_vlan_config: 
         vm_topo_config: "{{ vm_topo_config }}"
         port_alias: "{{ port_alias }}"
-        vlan_cfg: "{{ vlan_cfg|default(None) }}"
+        vlan_config: "{{ vlan_config|default(None) }}"
 '''
 
 def main():
@@ -32,32 +32,30 @@ def main():
         argument_spec=dict(
             vm_topo_config=dict(required=True),
             port_alias=dict(required=True),
-            vlan_cfg=dict(required=False, type='str', default=None),
+            vlan_config=dict(required=False, type='str', default=None),
         ),
         supports_check_mode=True
     )
     m_args = module.params
     port_alias = m_args['port_alias']
-    vlan_cfg = m_args['vlan_cfg']
+    vlan_config = m_args['vlan_config']
 
-    vlan_cfgs = {}
+    vlan_configs = {}
     try:
-        if len(vlan_cfg) > 0:
-            default_vlan = vlan_cfg
-        else:
-            default_vlan = m_args['vm_topo_config']['DUT']['vlan_cfgs']['default_vlan_cfg']
+        if len(vlan_config) == 0:
+            vlan_config = m_args['vm_topo_config']['DUT']['vlan_configs']['default_vlan_config']
 
-        vlan_info = m_args['vm_topo_config']['DUT']['vlan_cfgs'][default_vlan]
-        for vlan, vlan_cfg in vlan_info.items():
-            vlan_cfgs.update({vlan : {}})
-            vlan_cfgs[vlan]['id'] = vlan_cfg['id']
-            vlan_cfgs[vlan]['tag'] = vlan_cfg['tag']
-            vlan_cfgs[vlan]['subnets'] = vlan_cfg['subnets']
-            vlan_cfgs[vlan]['intfs'] = [port_alias[i] for i in vlan_cfg['intfs']]
+        vlans = m_args['vm_topo_config']['DUT']['vlan_configs'][vlan_config]
+        for vlan, vlan_param in vlans.items():
+            vlan_configs.update({vlan : {}})
+            vlan_configs[vlan]['id'] = vlan_param['id']
+            vlan_configs[vlan]['tag'] = vlan_param['tag']
+            vlan_configs[vlan]['prefix'] = vlan_param['prefix']
+            vlan_configs[vlan]['intfs'] = [port_alias[i] for i in vlan_param['intfs']]
     except Exception as e:
         module.fail_json(msg = traceback.format_exc())
     else:
-        module.exit_json(ansible_facts={'vlan_cfgs':vlan_cfgs})
+        module.exit_json(ansible_facts={'vlan_configs' : vlan_configs})
 
 from ansible.module_utils.basic import *
 if __name__ == "__main__":

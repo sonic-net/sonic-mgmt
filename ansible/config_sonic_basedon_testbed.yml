@@ -83,10 +83,10 @@
     when: ("'host_interfaces' in vm_topo_config") and ("'tor' in vm_topo_config['dut_type'] | lower")
 
   - name: find all vlan configurations for T0 topology
-    droplet_vlan_cfg: 
+    droplet_vlan_config: 
       vm_topo_config: "{{ vm_topo_config }}"
       port_alias: "{{ port_alias }}"
-      vlan_cfg: "{{ vlan_cfg|default(None) }}"
+      vlan_config: "{{ vlan_config|default(None) }}"
     delegate_to: localhost
     when: ("'host_interfaces' in vm_topo_config") and ("'tor' in vm_topo_config['dut_type'] | lower")
 
