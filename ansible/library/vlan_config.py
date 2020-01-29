@@ -4,12 +4,12 @@ import yaml
 import traceback
 
 DOCUMENTATION = '''
-module: droplet_vlan_config.py
+module: vlan_config.py
 Ansible_version_added:  2.0.0.2
-short_description: Gather all vlan info related to droplet interfaces 
+short_description: Gather all vlan info related to servers' interfaces 
 Description:
-       When deploy testbed topology with droplet connected to TOR SONiC, 
-       gather droplet vlan interfaces info for generating SONiC minigraph file
+       When deploy testbed topology with server connected to TOR SONiC, 
+       gather server vlan interfaces info for generating SONiC minigraph file
  arguments:
     vm_topo_config: Topology file; required: True
     port_alias: Port aliases of TOR SONiC; required: True
@@ -21,7 +21,7 @@ Ansible_facts:
 
 EXAMPLES = '''
     - name: find all vlan configurations for T0 topology
-      droplet_vlan_config: 
+      vlan_config: 
         vm_topo_config: "{{ vm_topo_config }}"
         port_alias: "{{ port_alias }}"
         vlan_config: "{{ vlan_config | default(None) }}"
