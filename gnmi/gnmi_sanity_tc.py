@@ -33,6 +33,8 @@ for tp_dir in tp_dirs:
     sys.path.append(os.path.join(TP_DIR,tp_dir))
 
 import gnmi_test_lib as gnmiTestLib
+sys.path.append('./../../godiva-test/lib/')
+import common_lib as commonLib
 sys.path.append('../p4/')
 from p4_error_utils import printGrpcError
 from p4_error_utils import parseGrpcError
@@ -91,6 +93,15 @@ def _test_gnmi_GetTimestamp(stub):
         printGrpcError(e)
         raise CafyException.VerificationError("Test gnmi_GetTimestamp failed due to Grpc Error {err}".format(err=e.details()))    
 
+
+def _test_Memory_Usage(stub):
+    rconn = commonLib.node_ssh('172.17.0.2', 'cisco', 'lab')
+    rconn.send("\n")
+    rconn.send("cat /proc/meminfo\n")
+    sleep(2)
+    reply = rconn.recv(5000)
+    log.info(reply.decode())
+
     
 def _test_GetSet_Sanity1(stub):
     user = None
@@ -99,6 +110,7 @@ def _test_GetSet_Sanity1(stub):
     resp_key_list = list()
     #with open(ApData.input_conf_file, 'r') as ip_conf_file:
     #    input_conf = gnmiTestLib.json_load_byteified(ip_conf_file)
+
 
     input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_GetSet_Sanity1/input_conf_file"), 'r').read())
 

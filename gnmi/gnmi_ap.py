@@ -120,4 +120,6 @@ class TestGnmi(GnmiApBase):
     def test_SetRpl_Omit1(self,stub):
         gnmi_san_tc._test_SetRpl_Omit1(stub)
 
+    def test_Memory_Usage(self,stub):
+        gnmi_san_tc._test_Memory_Usage(stub)        
 
