@@ -95,6 +95,7 @@ def _test_gnmi_GetTimestamp(stub):
 
 
 def _test_Memory_Usage(stub):
+    #Currently sample added for getting Memory info from DUT in docker. Will update for TH3
     rconn = commonLib.node_ssh('172.17.0.2', 'cisco', 'lab')
     rconn.send("\n")
     rconn.send("cat /proc/meminfo\n")
