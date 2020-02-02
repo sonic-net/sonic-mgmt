@@ -14,7 +14,7 @@
       include_tasks: scp_copy.yml
       vars:
         src: "{{ filename }}"
-        dest: "{{ fanout_img_path }}"
+        dest: "{{ fanout_img_path }}/{{ item | basename }}"
 
   always:
 

@@ -1,0 +1,63 @@
+# Test Case 6 - ARP/ND packet mirroring
+
+- set_fact:
+    mirror_session_name: arp_nd_mirror_session
+    mirror_table_name: EVERFLOW
+    mirror_tablev6_name: EVERFLOWV6
+    mirror_acl_rule_name: RULE_ARP
+    mirror_acl_rulev6_name: RULE_ND
+
+- block:
+  - name: Create the mirror session
+    shell: |
+      config mirror_session add {{mirror_session_name}} {{session_src_ip}} {{session_dst_ip}} {{session_dscp}} {{session_ttl}}
+    become: yes
+
+  - name: Add a v4 rule for ARP packets
+    shell: |
+      redis-cli -n 4 hmset "ACL_RULE|{{mirror_table_name}}|{{mirror_acl_rule_name}}" "PRIORITY" "8888" "MIRROR_ACTION" "{{mirror_session_name}}" "ETHER_TYPE" "2054"
+    become: yes
+
+  - name: Add a v6 rule for ICMPv6 Neighbor Discovery packets
+    shell: |
+      redis-cli -n 4 hmset "ACL_RULE|{{mirror_tablev6_name}}|{{mirror_acl_rulev6_name}}" "PRIORITY" "8887" "MIRROR_ACTION" "{{mirror_session_name}}" "ICMPV6_TYPE" "135"
+    become: yes
+
+  - name: Pause to sync the rules
+    pause: seconds=2
+
+  - name: Start the PTF runner
+    include: roles/test/tasks/ptf_runner.yml
+    vars:
+      ptf_test_name: Everflow Neighbor Discovery Test
+      ptf_test_dir: acstests
+      ptf_test_path: everflow_neighbor_test.EverflowNeighborTest
+      ptf_platform: remote
+      ptf_platform_dir: ptftests
+      ptf_test_params:
+        - asic_type='{{sonic_asic_type}}'
+        - hwsku='{{sonic_hwsku}}'
+        - router_mac='{{ansible_Ethernet0['macaddress']}}'
+        - src_port='{{src_port_ptf_id}}'
+        - dst_ports='{{",".join((spine_ptf_ports))}}'
+        - dst_mirror_ports='{{dst_port_1_ptf_id}}'
+      ptf_extra_options: "--relax --debug info"
+
+  always:
+    - name: Remove the v4 rule
+      shell: |
+        redis-cli -n 4 del "ACL_RULE|{{mirror_table_name}}|{{mirror_acl_rule_name}}"
+      ignore_errors: yes
+      become: yes
+
+    - name: Remove the v6 rule
+      shell: |
+        redis-cli -n 4 del "ACL_RULE|{{mirror_tablev6_name}}|{{mirror_acl_rulev6_name}}"
+      ignore_errors: yes
+      become: yes
+
+    - name: Remove the mirror session
+      shell: |
+        config mirror_session remove {{mirror_session_name}}
+      ignore_errors: yes
+      become: yes

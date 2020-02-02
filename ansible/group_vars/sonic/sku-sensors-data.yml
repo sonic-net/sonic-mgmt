@@ -2446,3 +2446,74 @@ sensors_checks:
       - adt7473-i2c-0-2e/+3.3V/in2_input
       temp: []
     psu_skips: {}
+
+  x86_64-juniper_qfx5210-r0:
+    alarms:
+      fan:
+      - qfx5210_64x_fan-i2c-17-68/fan1/fan1_fault
+      - qfx5210_64x_fan-i2c-17-68/fan2/fan2_fault
+      - qfx5210_64x_fan-i2c-17-68/fan3/fan3_fault
+      - qfx5210_64x_fan-i2c-17-68/fan4/fan4_fault
+      - qfx5210_64x_fan-i2c-17-68/fan11/fan11_fault
+      - qfx5210_64x_fan-i2c-17-68/fan12/fan12_fault
+      - qfx5210_64x_fan-i2c-17-68/fan13/fan13_fault
+      - qfx5210_64x_fan-i2c-17-68/fan14/fan14_fault
+      power: []
+      temp:
+      - coretemp-isa-0000/Core 0/temp2_crit_alarm
+      - coretemp-isa-0000/Core 1/temp3_crit_alarm
+      - coretemp-isa-0000/Core 2/temp4_crit_alarm
+      - coretemp-isa-0000/Core 3/temp5_crit_alarm
+      - ym2851-i2c-10-5b/temp1/temp1_fault
+      - ym2851-i2c-9-58/temp1/temp1_fault
+    compares:
+      fan: []
+      power: []
+      temp:
+      - - coretemp-isa-0000/Core 0/temp2_input
+        - coretemp-isa-0000/Core 0/temp2_crit
+      - - coretemp-isa-0000/Core 1/temp3_input
+        - coretemp-isa-0000/Core 1/temp3_crit
+      - - coretemp-isa-0000/Core 2/temp4_input
+        - coretemp-isa-0000/Core 2/temp4_crit
+      - - coretemp-isa-0000/Core 3/temp5_input
+        - coretemp-isa-0000/Core 3/temp5_crit
+      - - lm75-i2c-18-48/temp1/temp1_input
+        - lm75-i2c-18-48/temp1/temp1_max
+      - - lm75-i2c-18-49/temp1/temp1_input
+        - lm75-i2c-18-49/temp1/temp1_max
+      - - lm75-i2c-18-4a/temp1/temp1_input
+        - lm75-i2c-18-4a/temp1/temp1_max
+      - - lm75-i2c-18-4b/temp1/temp1_input
+        - lm75-i2c-18-4b/temp1/temp1_max
+      - - lm75-i2c-17-4d/temp1/temp1_input
+        - lm75-i2c-17-4d/temp1/temp1_max
+      - - lm75-i2c-17-4e/temp1/temp1_input
+        - lm75-i2c-17-4e/temp1/temp1_max
+    non_zero:
+      fan:
+      - qfx5210_64x_fan-i2c-17-68/fan1/fan1_input
+      - qfx5210_64x_fan-i2c-17-68/fan2/fan2_input
+      - qfx5210_64x_fan-i2c-17-68/fan3/fan3_input
+      - qfx5210_64x_fan-i2c-17-68/fan4/fan4_input
+      - qfx5210_64x_fan-i2c-17-68/fan11/fan11_input
+      - qfx5210_64x_fan-i2c-17-68/fan12/fan12_input
+      - qfx5210_64x_fan-i2c-17-68/fan13/fan13_input
+      - qfx5210_64x_fan-i2c-17-68/fan14/fan14_input
+      - ym2851-i2c-10-5b/fan1/fan1_input
+      - ym2851-i2c-9-58/fan1/fan1_input
+      power:
+      - ym2851-i2c-10-5b/power2/power2_input
+      - ym2851-i2c-9-58/power2/power2_input
+      temp: []
+    psu_skips:
+      ym2851-i2c-10-5b:
+        number: 2
+        side: right
+        skip_list:
+        - ym2851-i2c-10-5b
+      ym2851-i2c-9-58:
+        number: 1
+        side: left
+        skip_list:
+        - ym2851-i2c-9-58

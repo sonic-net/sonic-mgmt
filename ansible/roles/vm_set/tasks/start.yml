@@ -62,8 +62,7 @@
     disk_image: "{{ home_path }}/{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
     cdrom_image: "{{ home_path }}/{{ root_path }}/images/{{ cd_image_filename }}"
     mgmt_tap:  "{{ vm_name }}-m"
-    port1_bridge: "br-{{ vm_name }}-back"
-    port1_tap: "{{ vm_name }}-back"
+    backplane_tap: "{{ vm_name }}-back"
   with_items: "{{ VM_hosts }}"
 
 - name: Kickstart VMs
@@ -77,6 +76,5 @@
     disk_image: "{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
     cdrom_image: "{{ root_path }}/images/{{ cd_image_filename }}"
     mgmt_tap:  "{{ vm_name }}-m"
-    port1_bridge: "br-{{ vm_name }}-back"
-    port1_tap: "{{ vm_name }}-back"
+    backplane_tap: "{{ vm_name }}-back"
   with_items: "{{ VM_hosts }}"

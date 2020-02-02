@@ -79,7 +79,7 @@
       pfc_gen_file: pfc_gen.py
 
 - name: Deploy pfc packet generater file to fanout switch
- include_tasks: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
 
 - name: copy the test to ptf container
   copy: src=roles/test/files/ptftests dest=/root

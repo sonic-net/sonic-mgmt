@@ -32,55 +32,6 @@ ip route vrf MGMT 0.0.0.0/0 {{ vm_mgmt_gw }}
 ip route vrf MGMT 0.0.0.0/0 {{ mgmt_gw }}
 {% endif %}
 !
-route-map DEFAULT_ROUTES permit
-!
-{# #}
-{# NOTE: Using large enough values (e.g., podset_number = 200, #}
-{# us to overflow the 192.168.0.0/16 private address space here. #}
-{# This should be fine for internal use, but may pose an issue if used otherwise #}
-{# #}
-{% for podset in range(0, props.podset_number) %}
-{% for tor in range(0, props.tor_number) %}
-{% for subnet in range(0, props.tor_subnet_number) %}
-{# Skip tor 0 podset 0 #}
-{% if podset != 0 or tor != 0 %}
-{% set suffix = ( (podset * props.tor_number * props.max_tor_subnet_number * props.tor_subnet_size) +
-                  (tor * props.max_tor_subnet_number * props.tor_subnet_size) +
-                  (subnet * props.tor_subnet_size) ) %}
-{% set octet2 = (168 + (suffix // (256 ** 2))) %}
-{% set octet1 = (192 + (octet2 // 256)) %}
-{% set octet2 = (octet2 % 256) %}
-{% set octet3 = ((suffix // 256) % 256) %}
-{% set octet4 = (suffix % 256) %}
-{% set prefixlen_v4 = (32 - ((props.tor_subnet_size | log(2))) | int) %}
-ip route {{ octet1 }}.{{ octet2 }}.{{ octet3 }}.{{ octet4 }}/{{ prefixlen_v4 }} {{ props.nhipv4 }}
-ipv6 route {{ '20%02x' % octet1 }}:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/64 {{ props.nhipv6 }}
-{% endif %}
-{% endfor %}
-{% endfor %}
-{% endfor %}
-!
-{% for podset in range(0, props.podset_number) %}
-{% for tor in range(0, props.tor_number) %}
-{# Skip tor 0 podset 0 #}
-{% if podset != 0 or tor != 0 %}
-{% set suffix = ( (podset * props.tor_number * props.max_tor_subnet_number * props.tor_subnet_size) +
-                  (tor * props.max_tor_subnet_number * props.tor_subnet_size) ) %}
-{% set octet2 = (168 + (suffix // (256 ** 2))) %}
-{% set octet1 = (192 + (octet2 // 256)) %}
-{% set octet2 = (octet2 % 256) %}
-{% set octet3 = ((suffix // 256) % 256) %}
-{% set octet4 = (suffix % 256) %}
-{% set prefixlen_v4 = (32 - (((props.max_tor_subnet_number * props.tor_subnet_size) | log(2)) | int) ) %}
-{% set prefixlen_v6 = (64 - (((props.max_tor_subnet_number * props.tor_subnet_size) | log(2)) | int) ) %}
-ip prefix-list test_ipv4_{{ podset}}_{{ tor }} seq 10 permit {{ octet1 }}.{{ octet2 }}.{{ octet3 }}.{{ octet4 }}/{{ prefixlen_v4 }} ge {{ prefixlen_v4 }}
-ipv6 prefix-list test_ipv6_{{ podset}}_{{ tor }}
- seq 10 permit {{ '20%02x' % octet1 }}:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/{{ prefixlen_v6 }} ge {{ prefixlen_v6 }}
-exit
-{% endif %}
-{% endfor %}
-{% endfor %}
-!
 interface Management 1
  description TO LAB MGMT SWITCH
  vrf forwarding MGMT
@@ -126,31 +77,6 @@ interface {{ bp_ifname }}
 {% endif %}
  no shutdown
 !
-{% for podset in range(0, props.podset_number) %}
-{% if range(0, 1000)|random() >= props.failure_rate %}
-{% for tor in range(0, props.tor_number) %}
-{% set leafasn = props.leaf_asn_start + podset %}
-{% set torasn = props.tor_asn_start + tor %}
-route-map PREPENDAS permit {{ 2 * (podset * props.tor_number + tor + 1) }}
-  match ip address prefix-list test_ipv4_{{ podset }}_{{ tor }}
-{% if podset == 0 %}
-  set as-path prepend {{ torasn }}
-{% else %}
-  set as-path prepend {{ props.spine_asn }} {{ leafasn }} {{ torasn }}
-{% endif %}
-!
-route-map PREPENDAS permit {{ 2 * (podset * props.tor_number + tor + 1) + 1 }}
-  match ipv6 address prefix-list test_ipv6_{{ podset }}_{{ tor }}
-{% if podset == 0 %}
-  set as-path prepend {{ torasn }}
-{% else %}
-  set as-path prepend {{ props.spine_asn }} {{ leafasn }} {{ torasn }}
-{% endif %}
-!
-{% endfor %}
-{% endif %}
-{% endfor %}
-!
 router bgp {{ host['bgp']['asn'] }}
  router-id {{ host['interfaces']['Loopback0']['ipv4'] |  ipaddr('address') }}
  !
@@ -158,7 +84,6 @@ router bgp {{ host['bgp']['asn'] }}
 {% for remote_ip in remote_ips %}
  neighbor {{ remote_ip }} remote-as {{ asn }}
  neighbor {{ remote_ip }} description {{ asn }}
- neighbor {{ remote_ip }} default-originate route-map DEFAULT_ROUTES
 {% if remote_ip | ipv6 %}
  address-family ipv6
   neighbor {{ remote_ip }} activate
@@ -166,6 +91,13 @@ router bgp {{ host['bgp']['asn'] }}
 {% endif %}
 {% endfor %}
 {% endfor %}
+ neighbor {{ props.nhipv4 }} remote-as {{ host['bgp']['asn'] }}
+ neighbor {{ props.nhipv4 }} description exabgp_v4
+ neighbor {{ props.nhipv6 }} remote-as {{ host['bgp']['asn'] }}
+ neighbor {{ props.nhipv6 }} description exabgp_v6
+ address-family ipv6
+  neighbor {{ props.nhipv6 }} activate
+ exit
  !
 {% for name, iface in host['interfaces'].items() if name.startswith('Loopback') %}
 {% if iface['ipv4'] is defined %}
@@ -175,7 +107,6 @@ router bgp {{ host['bgp']['asn'] }}
  network {{ iface['ipv6'] }}
 {% endif %}
 {% endfor %}
- redistribute static route-map PREPENDAS
 !
 management api http-commands
  no protocol https
@@ -183,4 +114,3 @@ management api http-commands
  no shutdown
 !
 end
-s
