@@ -80,7 +80,9 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=180, wait=1
 
     if reboot_type == 'warm':
         logger.info('waiting for warmboot-finalizer service to finish')
-        finalizer_state = 'activating'
+        res = duthost.command('systemctl is-active warmboot-finalizer.service',module_ignore_errors=True)
+        finalizer_state = res['stdout'].strip()
+        assert finalizer_state == 'activating'
         count = 0
         while finalizer_state == 'activating':
             try:
