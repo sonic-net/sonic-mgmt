@@ -11,7 +11,7 @@
     register: pgrep_out
 
   - debug: var=pgrep_out.stdout_lines
-  
+
   - name: Verify that orchagent process is running
     assert: { that: "{{ pgrep_out.stdout_lines | length }} > 0"}
 
@@ -65,7 +65,7 @@
     command: "ip neigh change {{ v4_nei }} lladdr {{ v4_mac2 }} dev {{ v4_intf }}"
 
   - name: pause a second and check
-    pause: seconds=2 
+    pause: seconds=2
 
   - name: gather orchagent pid, make sure orchagent is still running after v4 neighbor change mac
     command: "pgrep orchagent"
@@ -73,7 +73,7 @@
 
   - assert: { that: orchid.stdout != '' }
 
-  - name: check kernel arp table again 
+  - name: check kernel arp table again
     switch_arptable:
 
   - name: make sure neighbor mac address was changed on SONiC
@@ -145,7 +145,7 @@
     - name: reset all changes
       include_tasks: "roles/test/tasks/common_tasks/reload_config.yml"
       vars:
-        config_source: "minigraph"
+        config_source: "config_db"
 
     - name: check port status
       interface_facts: up_ports={{ minigraph_ports }}

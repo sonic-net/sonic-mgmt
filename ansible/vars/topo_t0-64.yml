@@ -98,6 +98,26 @@ topology:
         - 20
         - 21
       vm_offset: 3
+  DUT:
+    vlan_configs:
+      default_vlan_config: one_vlan_a
+      one_vlan_a:
+        Vlan1000:
+          id: 1000
+          intfs: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 36, 37, 38, 39, 40, 41, 42, 48, 52, 53, 54, 55, 56, 57, 58]
+          prefix: 192.168.0.1/21
+          tag: 1000
+      two_vlan_a:
+        Vlan100: 
+          id: 100
+          intfs: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 22, 23, 24, 25, 26, 27, 28, 29]
+          prefix: 192.168.100.1/21
+          tag: 100
+        Vlan200: 
+          id: 200
+          intfs: [30, 31, 32, 36, 37, 38, 39, 40, 41, 42, 48, 52, 53, 54, 55, 56, 57, 58]
+          prefix: 192.168.200.1/21
+          tag: 200
 
 configuration_properties:
   common:

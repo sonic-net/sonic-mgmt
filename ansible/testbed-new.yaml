@@ -259,7 +259,7 @@ veos:
     root_path: /home/azure/veos-vm                                  # source: sonic-mgmt/ansible/group_vars/vm_host/main.yml
     vm_images_url: https://acsbe.blob.core.windows.net/vmimages     # source: sonic-mgmt/ansible/group_vars/vm_host/main.yml
     cd_image_filename: Aboot-veos-serial-8.0.0.iso                  # source: sonic-mgmt/ansible/group_vars/vm_host/main.yml
-    hdd_image_filename: vEOS-lab-4.15.9M.vmdk                       # source: sonic-mgmt/ansible/group_vars/vm_host/main.yml
+    hdd_image_filename: vEOS-lab-4.20.15M.vmdk                      # source: sonic-mgmt/ansible/group_vars/vm_host/main.yml
     skip_image_downloading: false                                   # source: sonic-mgmt/ansible/group_vars/vm_host/main.yml
     vm_console_base: 7000                                           # source: sonic-mgmt/ansible/group_vars/vm_host/main.yml
     memory: 2097152                                                 # source: sonic-mgmt/ansible/group_vars/vm_host/main.yml

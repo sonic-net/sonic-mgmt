@@ -20,6 +20,67 @@ CMD_PLATFORM_PSUSTATUS = "show platform psustatus"
 CMD_PLATFORM_SYSEEPROM = "show platform syseeprom"
 
 
+def check_sensord_status(ans_host):
+    """
+    @summary: Check sensord running status by analyzing the output of "ps -x" and return the PID if it's running
+    @return: first return value will be a bool, True to indicate task is running.
+             second return value is int PID, a none -1 value for a valid PID of sensord task
+    """
+    running_status = False
+    sensord_pid = -1
+    pmon_ps_output = ans_host.command("docker exec pmon ps -x")
+    for line in pmon_ps_output["stdout_lines"]:
+        key_value = line.split()
+        if "/usr/sbin/sensord" in key_value:
+            running_status = True
+            sensord_pid = int(key_value[0])
+            break
+
+    return running_status, sensord_pid
+
+
+def stop_pmon_sensord_task(ans_host):
+    """
+    @summary: Stop sensord task of pmon docker if it's running.
+    """
+    sensord_running_status, sensord_pid = check_sensord_status(ans_host)
+    if sensord_running_status:
+        ans_host.command("docker exec pmon kill -SIGTERM {}".format(sensord_pid))
+
+    sensord_running_status, sensord_pid = check_sensord_status(ans_host)
+    if sensord_running_status:
+        assert False, "Failed to stop sensord task before test."
+    else:
+        logging.info("sensord stopped successfully")
+
+
+@pytest.fixture(scope="module")
+def psu_test_setup_teardown(testbed_devices):
+    """
+    @summary: Sensord task will print out error msg when detect PSU offline,
+              which can cause log analyzer fail the test. So stop sensord task
+              before test and restart it after all test finished.
+    """
+    logging.info("Starting psu test setup")
+    ans_host = testbed_devices["dut"]
+    stop_pmon_sensord_task(ans_host)
+
+    yield
+
+    logging.info("Starting psu test teardown")
+    sensord_running_status, sensord_pid = check_sensord_status(ans_host)
+    if not sensord_running_status:
+        ans_host.command("docker exec pmon supervisorctl restart lm-sensors")
+        time.sleep(3)
+        sensord_running_status, sensord_pid = check_sensord_status(ans_host)
+        if sensord_running_status:
+            logging.info("sensord task restarted, pid = {}".format(sensord_pid))
+        else:
+            assert False, "Failed to restart sensord task after test."
+    else:
+        logging.info("sensord is running, pid = {}".format(sensord_pid))
+
+
 def test_show_platform_summary(testbed_devices):
     """
     @summary: Check output of 'show platform summary'
@@ -71,7 +132,7 @@ def test_show_platform_psustatus(testbed_devices):
         check_vendor_specific_psustatus(ans_host, line)
 
 
-def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller):
+def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller, psu_test_setup_teardown):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """

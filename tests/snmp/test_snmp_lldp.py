@@ -31,14 +31,12 @@ def test_snmp_interfaces(ansible_adhoc, testbed, creds):
     # Check if lldpLocPortTable is present for all ports
     for k, v in snmp_facts['snmp_interfaces'].items():
         if "Ethernet" in v['name'] or "eth" in v['name']: 
-            for oid in ['lldpLocPortNum', 'lldpLocPortIdSubtype', 'lldpLocPortId', 'lldpLocPortDesc']:
+            for oid in ['lldpLocPortIdSubtype', 'lldpLocPortId', 'lldpLocPortDesc']:
                 assert v.has_key(oid)
                 assert "No Such Object currently exists" not in v[oid]
 
     # Check if lldpLocManAddrTable is present
-    for k in ['lldpLocManAddrSubtype', \
-               'lldpLocManAddr', \
-               'lldpLocManAddrLen', \
+    for k in ['lldpLocManAddrLen', \
                'lldpLocManAddrIfSubtype', \
                'lldpLocManAddrIfId', \
                'lldpLocManAddrOID']:
@@ -54,10 +52,7 @@ def test_snmp_interfaces(ansible_adhoc, testbed, creds):
     # Check if lldpRemTable is present
     active_intf = []
     for k, v in snmp_facts['snmp_interfaces'].items():
-        if v.has_key("lldpRemTimeMark") and \
-           v.has_key("lldpRemLocalPortNum") and \
-           v.has_key("lldpRemIndex") and \
-           v.has_key("lldpRemChassisIdSubtype") and \
+        if v.has_key("lldpRemChassisIdSubtype") and \
            v.has_key("lldpRemChassisId") and \
            v.has_key("lldpRemPortIdSubtype") and \
            v.has_key("lldpRemPortId") and \
@@ -74,9 +69,7 @@ def test_snmp_interfaces(ansible_adhoc, testbed, creds):
     # Check if lldpRemManAddrTable is present
     active_intf = []
     for k, v in snmp_facts['snmp_interfaces'].items():
-        if v.has_key("lldpRemManAddrSubtype") and \
-           v.has_key("lldpRemManAddr") and \
-           v.has_key("lldpRemManAddrIfSubtype") and \
+        if v.has_key("lldpRemManAddrIfSubtype") and \
            v.has_key("lldpRemManAddrIfId") and \
            v.has_key("lldpRemManAddrOID"):
             active_intf.append(k)

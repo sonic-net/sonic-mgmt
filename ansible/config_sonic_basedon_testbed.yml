@@ -82,6 +82,14 @@
     with_items: "{{ host_if_indexes }}"
     when: ("'host_interfaces' in vm_topo_config") and ("'tor' in vm_topo_config['dut_type'] | lower")
 
+  - name: find all vlan configurations for T0 topology
+    vlan_config: 
+      vm_topo_config: "{{ vm_topo_config }}"
+      port_alias: "{{ port_alias }}"
+      vlan_config: "{{ vlan_config | default(None) }}"
+    delegate_to: localhost
+    when: ("'host_interfaces' in vm_topo_config") and ("'tor' in vm_topo_config['dut_type'] | lower")
+
   - name: find all interface indexes mapping connecting to VM
     set_fact:
       interface_to_vms: "{{ interface_to_vms|default({}) | combine({ item.key: item.value['interface_indexes'] }) }}"
@@ -114,11 +122,21 @@
                   dest=/etc/sonic/minigraph.xml
         become: true
 
-      - name: Copy corresponding configlet files if apply_configlet=true
+      - name: Test if configlet script exist
+        stat:
+            path: vars/configlet/{{ topo }}/apply_clet.sh
+        register: stat_result
+        delegate_to: localhost
+
+      - name: debug print stat_result
+        debug: 
+            msg: Stat result is {{ stat_result }}
+
+      - name: Copy corresponding configlet files if exist
         copy: src=vars/configlet/{{ topo }}/
               dest=/etc/sonic/
         become: true
-        when: apply_configlet is defined and apply_configlet|bool == true
+        when: stat_result.stat.exists is defined and stat_result.stat.exists
 
       - name: Replace snmp community string
         lineinfile:
@@ -142,6 +160,12 @@
           state: restarted
         when: updategraph_conf.changed
 
+      - name: docker status
+        shell: docker ps
+        register: docker_status
+
+      - debug: msg={{ docker_status.stdout_lines }}
+
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
         shell: config load_minigraph -y
@@ -153,7 +177,7 @@
       - name: execute configlet application script, which applies configlets in strict order.
         become: true
         shell: bash -c "/etc/sonic/apply_clet.sh"
-        when: apply_configlet is defined and apply_configlet|bool == true
+        when: stat_result.stat.exists is defined and stat_result.stat.exists
 
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true
