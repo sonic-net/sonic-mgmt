@@ -77,7 +77,7 @@ def check_reboot_cause(dut, reboot_cause_expected):
     reboot_cause_got = output["stdout"]
     logging.debug("show reboot-cause returns {}".format(reboot_cause_got))
     m = re.search(reboot_cause_expected, reboot_cause_got)
-    assert m is not None, "got reboot-cause %s after rebooted by %s" % (reboot_cause_got, reboot_cause_expected)
+    return m is not None
 
 
 def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, reboot_helper=None, reboot_kwargs=None):
@@ -131,8 +131,14 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
     logging.info("Wait until all critical services are fully started")
     check_critical_services(dut)
 
-    logging.info("Check reboot cause")
-    check_reboot_cause(dut, reboot_cause)
+    if dut.facts["hwsku"] in sku_supporting_reboot_cause_test:
+        logging.info("Check reboot cause")
+        check_reboot_cause(dut, reboot_cause)
+        assert wait_until(120, 20, check_reboot_cause, dut, reboot_cause), \
+            "got reboot-cause failed after rebooted by %s" % reboot_cause
+    else:
+        logging.info("Reboot-cause check skipped because %s doesn't support it" % dut.facts["hwsku"])
+
 
     if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
         logging.info("Further checking skipped for %s test which intends to verify reboot-cause only".format(reboot_type))
