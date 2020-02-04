@@ -13,7 +13,6 @@ import ptf.mask as mask
 import ptf.packet as packet
 
 from common import reboot, port_toggle
-from common.devices import Localhost
 from loganalyzer import LogAnalyzer, LogAnalyzerError
 
 logger = logging.getLogger(__name__)
