@@ -132,7 +132,6 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
     check_critical_services(dut)
 
     logging.info("Check reboot cause")
-    check_reboot_cause(dut, reboot_cause)
     assert wait_until(120, 20, check_reboot_cause, dut, reboot_cause), \
         "got reboot-cause failed after rebooted by %s" % reboot_cause
 
