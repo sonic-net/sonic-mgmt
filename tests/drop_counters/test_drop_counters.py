@@ -295,7 +295,8 @@ def get_dut_iface_mac(duthost, iface_name):
             return iface_info["macaddress"]
 
 
-def get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports):
+@pytest.fixture
+def ports_info(ptfadapter, duthost, setup, tx_dut_ports):
     """
     Return:
         dut_iface - DUT interface name expected to receive packtes from PTF
@@ -303,11 +304,12 @@ def get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports):
         dst_mac - DUT interface destination MAC address
         src_mac - PTF interface source MAC address
     """
-    dut_iface = random.choice(tx_dut_ports.keys())
-    ptf_tx_port_id = setup["dut_to_ptf_port_map"][dut_iface]
-    dst_mac = get_dut_iface_mac(duthost, dut_iface)
-    src_mac = ptfadapter.dataplane.ports[(0, ptf_tx_port_id)].mac()
-    return dut_iface, ptf_tx_port_id, dst_mac, src_mac
+    data = {}
+    data["dut_iface"] = random.choice(tx_dut_ports.keys())
+    data["ptf_tx_port_id"] = setup["dut_to_ptf_port_map"][data["dut_iface"]]
+    data["dst_mac"] = get_dut_iface_mac(duthost, data["dut_iface"])
+    data["src_mac"] = ptfadapter.dataplane.ports[(0, data["ptf_tx_port_id"])].mac()
+    return data
 
 
 def expected_packet_mask(pkt):
@@ -372,7 +374,7 @@ def str_to_int(value):
     return int(value.replace(",", ""))
 
 
-def base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface):
+def base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, l2_col_key=RX_DRP, l3_col_key=RX_ERR):
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
     Supported 'discard_group' values: 'L2', 'L3', 'ACL'
@@ -380,12 +382,12 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, d
     send_packets(pkt, duthost, ptfadapter, ptf_tx_port_id)
     if discard_group == "L2":
         # Verify drop counter incremented on specific interface
-        l2_drops = get_pkt_drops(duthost, GET_L2_COUNTERS)[dut_iface][RX_DRP]
+        l2_drops = get_pkt_drops(duthost, GET_L2_COUNTERS)[dut_iface][l2_col_key]
         l2_drops = str_to_int(l2_drops)
 
         if l2_drops != PKT_NUMBER:
             fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
-                RX_DRP, dut_iface, RX_DRP, l2_drops, PKT_NUMBER
+                l2_col_key, dut_iface, l2_col_key, l2_drops, PKT_NUMBER
             )
             pytest.fail(fail_msg)
 
@@ -394,12 +396,12 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, d
             ensure_no_l3_drops(duthost)
     elif discard_group == "L3":
         # Verify L3 drop counter incremented on specific interface
-        l3_drops = get_pkt_drops(duthost, GET_L3_COUNTERS)[dut_iface][RX_ERR]
+        l3_drops = get_pkt_drops(duthost, GET_L3_COUNTERS)[dut_iface][l3_col_key]
         l3_drops = str_to_int(l3_drops)
 
         if l3_drops != PKT_NUMBER:
-            fail_msg = "RX_ERR drop counter was not incremented on iface {}. DUT RX_ERR == {}; Sent pkts == {}".format(
-                dut_iface, l3_drops, PKT_NUMBER
+            fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
+                l3_col_key, dut_iface, l3_col_key, l3_drops, PKT_NUMBER
             )
             pytest.fail(fail_msg)
 
@@ -421,7 +423,7 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, d
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2' or 'L3'")
 
 
-def do_test(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, sniff_ports):
+def do_test(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, sniff_ports, l2_col_key=RX_DRP, l3_col_key=RX_ERR):
     """
     Execute test - send packet, check that expected discard counters were incremented and packet was dropped
     @param discard_group: Supported 'discard_group' values: 'L2', 'L3', 'ACL'
@@ -432,94 +434,89 @@ def do_test(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, 
     @param dut_iface: DUT interface name expected to receive packets from PTF
     @param sniff_ports: DUT ports to check that packets were not egressed from
     """
-    base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface)
+    base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, l2_col_key, l3_col_key)
 
     # Verify packets were not egresed the DUT
     exp_pkt = expected_packet_mask(pkt)
     testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=sniff_ports)
 
 
-def test_equal_smac_dmac_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
+def test_equal_smac_dmac_drop(ptfadapter, duthost, setup, pkt_fields, ports_info):
     """
     @summary: Verify that packet with equal SMAC and DMAC is dropped and L2 drop counter incremented
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
-
-    log_pkt_params(dut_iface, dst_mac, dst_mac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["dst_mac"], pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 
     pkt = testutils.simple_tcp_packet(
-        eth_dst=dst_mac, # DUT port
-        eth_src=dst_mac, # PTF port
+        eth_dst=ports_info["dst_mac"], # DUT port
+        eth_src=ports_info["dst_mac"], # PTF port
         ip_src=pkt_fields["ipv4_src"], # PTF source
         ip_dst=pkt_fields["ipv4_dst"], # VM source
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    do_test("L2", pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, setup["neighbor_sniff_ports"])
+    do_test("L2", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], ports_info["dut_iface"], setup["neighbor_sniff_ports"])
 
 
-def test_multicast_smac_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
+def test_multicast_smac_drop(ptfadapter, duthost, setup, pkt_fields, ports_info):
     """
     @summary: Verify that packet with multicast SMAC is dropped and L2 drop counter incremented
     """
     multicast_smac = "01:00:5e:00:01:02"
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
 
-    log_pkt_params(dut_iface, dst_mac, multicast_smac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], multicast_smac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 
     pkt = testutils.simple_tcp_packet(
-        eth_dst=dst_mac, # DUT port
+        eth_dst=ports_info["dst_mac"], # DUT port
         eth_src=multicast_smac,
         ip_src=pkt_fields["ipv4_src"], # PTF source
         ip_dst=pkt_fields["ipv4_dst"], # VM source
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    do_test("L2", pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, setup["neighbor_sniff_ports"])
+    do_test("L2", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], ports_info["dut_iface"], setup["neighbor_sniff_ports"])
 
 
-def test_reserved_dmac_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
+def test_reserved_dmac_drop(ptfadapter, duthost, setup, pkt_fields, ports_info):
     """
     @summary: Verify that packet with reserved DMAC is dropped and L2 drop counter incremented
     @used_mac_address:
         01:80:C2:00:00:05 - reserved for future standardization
         01:80:C2:00:00:08 - provider Bridge group address
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
     reserved_mac_addr = ["01:80:C2:00:00:05", "01:80:C2:00:00:08"]
 
     for reserved_dmac in reserved_mac_addr:
-        log_pkt_params(dut_iface, dst_mac, reserved_dmac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
+        log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], reserved_dmac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
         pkt = testutils.simple_tcp_packet(
             eth_dst=reserved_dmac, # DUT port
-            eth_src=src_mac,
+            eth_src=ports_info["src_mac"],
             ip_src=pkt_fields["ipv4_src"], # PTF source
             ip_dst=pkt_fields["ipv4_dst"], # VM source
             tcp_sport=pkt_fields["tcp_sport"],
             tcp_dport=pkt_fields["tcp_dport"])
 
-        do_test("L2", pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, setup["neighbor_sniff_ports"])
+        do_test("L2", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], ports_info["dut_iface"], setup["neighbor_sniff_ports"])
 
 
-def test_not_expected_vlan_tag_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
+def test_not_expected_vlan_tag_drop(ptfadapter, duthost, setup, pkt_fields, ports_info):
     """
     @summary: Verify that VLAN tagged packet which VLAN ID does not match ingress port VLAN ID is dropped
               and L2 drop counter incremented
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
-
-    log_pkt_params(dut_iface, dst_mac, src_mac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
-
-    # Generate unexisted vlan value
-    vlan_id = None
-    while not vlan_id:
-        interim = random.randint(2, 1000)
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
+    max_vlan_id = 1000
+    upper_bound = max(setup["vlans"]) if setup["vlans"] else max_vlan_id
+    for interim in range(1, upper_bound):
         if interim not in setup["vlans"]:
             vlan_id = interim
+            break
+    else:
+        pytest.fail("Unable to generate unique not yet existed VLAN ID. Already configured VLANs range {}-{}".format(1, upper_bound))
 
     pkt = testutils.simple_tcp_packet(
-        eth_dst=dst_mac, # DUT port
-        eth_src=src_mac, # PTF port
+        eth_dst=ports_info["dst_mac"], # DUT port
+        eth_src=ports_info["src_mac"], # PTF port
         ip_src=pkt_fields["ipv4_src"], # PTF source
         ip_dst=pkt_fields["ipv4_dst"], # VM source
         tcp_sport=pkt_fields["tcp_sport"],
@@ -528,80 +525,75 @@ def test_not_expected_vlan_tag_drop(ptfadapter, duthost, setup, tx_dut_ports, pk
         vlan_vid=vlan_id,
         )
 
-    do_test("L2", pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, setup["neighbor_sniff_ports"])
+    do_test("L2", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], ports_info["dut_iface"], setup["neighbor_sniff_ports"])
 
 
-def test_dst_ip_is_loopback_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
+def test_dst_ip_is_loopback_addr(ptfadapter, duthost, setup, pkt_fields, tx_dut_ports, ports_info):
     """
     @summary: Verify that packet with loopback destination IP adress is dropped and L3 drop counter incremented
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
     ip_dst = "127.0.0.1"
 
-    log_pkt_params(dut_iface, dst_mac, src_mac, ip_dst, pkt_fields["ipv4_src"])
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], ip_dst, pkt_fields["ipv4_src"])
 
     pkt = testutils.simple_tcp_packet(
-        eth_dst=dst_mac, # DUT port
-        eth_src=src_mac, # PTF port
+        eth_dst=ports_info["dst_mac"], # DUT port
+        eth_src=ports_info["src_mac"], # PTF port
         ip_src=pkt_fields["ipv4_src"], # PTF source
         ip_dst=ip_dst, # VM source
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]], setup["neighbor_sniff_ports"])
 
 
-def test_src_ip_is_loopback_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
+def test_src_ip_is_loopback_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Verify that packet with loopback source IP adress is dropped and L3 drop counter incremented
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
     ip_src = "127.0.0.1"
 
-    log_pkt_params(dut_iface, dst_mac, src_mac, pkt_fields["ipv4_dst"], ip_src)
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"], ip_src)
 
     pkt = testutils.simple_tcp_packet(
-        eth_dst=dst_mac, # DUT port
-        eth_src=src_mac, # PTF port
+        eth_dst=ports_info["dst_mac"], # DUT port
+        eth_src=ports_info["src_mac"], # PTF port
         ip_src=ip_src, # PTF source
         ip_dst=pkt_fields["ipv4_dst"], # VM source
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]], setup["neighbor_sniff_ports"])
 
 
-def test_dst_ip_absent(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
+def test_dst_ip_absent(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Verify that packet with absent destination IP address is dropped and L3 drop counter incremented
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
-
-    log_pkt_params(dut_iface, dst_mac, src_mac, "", pkt_fields["ipv4_src"])
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], "", pkt_fields["ipv4_src"])
 
     pkt = testutils.simple_tcp_packet(
-        eth_dst=dst_mac, # DUT port
-        eth_src=src_mac, # PTF port
+        eth_dst=ports_info["dst_mac"], # DUT port
+        eth_src=ports_info["src_mac"], # PTF port
         ip_src=pkt_fields["ipv4_src"], # PTF source
         ip_dst="", # VM source
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
-    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]], setup["neighbor_sniff_ports"])
 
 
 @pytest.mark.parametrize("ip_addr", ["ipv4", "ipv6"])
-def test_src_ip_is_multicast_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ip_addr):
+def test_src_ip_is_multicast_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ip_addr, ports_info):
     """
     @summary: Verify that packet with multicast source IP adress is dropped and L3 drop counter incremented
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
     ip_src = None
 
     if ip_addr == "ipv4":
         ip_src = "224.0.0.5"
         pkt = testutils.simple_tcp_packet(
-            eth_dst=dst_mac, # DUT port
-            eth_src=src_mac, # PTF port
+            eth_dst=ports_info["dst_mac"], # DUT port
+            eth_src=ports_info["src_mac"], # PTF port
             ip_src=ip_src,
             ip_dst=pkt_fields["ipv4_dst"], # VM source
             tcp_sport=pkt_fields["tcp_sport"],
@@ -611,8 +603,8 @@ def test_src_ip_is_multicast_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_
             pytest.skip("BGP neighbour with IPv6 addr was not found")
         ip_src = "FF02:AAAA:FEE5::1:3"
         pkt = testutils.simple_tcpv6_packet(
-            eth_dst=dst_mac, # DUT port
-            eth_src=src_mac, # PTF port
+            eth_dst=ports_info["dst_mac"], # DUT port
+            eth_src=ports_info["src_mac"], # PTF port
             ipv6_src=ip_src,
             ipv6_dst=pkt_fields["ipv6_dst"], # VM source
             tcp_sport=pkt_fields["tcp_sport"],
@@ -620,43 +612,44 @@ def test_src_ip_is_multicast_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_
     else:
         pytest.fail("Incorrect value specified for 'ip_addr' test parameter. Supported parameters: 'ipv4' and 'ipv6'")
 
-    log_pkt_params(dut_iface, dst_mac, src_mac, pkt_fields["ipv4_dst"], ip_src)
-    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"], ip_src)
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+            setup["neighbor_sniff_ports"])
 
 
-def test_src_ip_is_class_e(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
+def test_src_ip_is_class_e(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Verify that packet with source IP address in class E is dropped and L3 drop counter incremented
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
     ip_list = ["240.0.0.1", "255.255.255.254"]
 
     for ip_class_e in ip_list:
-        log_pkt_params(dut_iface, dst_mac, src_mac, pkt_fields["ipv4_dst"], ip_class_e)
+        log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"],
+                        ip_class_e)
 
         pkt = testutils.simple_tcp_packet(
-            eth_dst=dst_mac, # DUT port
-            eth_src=src_mac, # PTF port
+            eth_dst=ports_info["dst_mac"], # DUT port
+            eth_src=ports_info["src_mac"], # PTF port
             ip_src=ip_class_e,
             ip_dst=pkt_fields["ipv4_dst"], # VM source
             tcp_sport=pkt_fields["tcp_sport"],
             tcp_dport=pkt_fields["tcp_dport"])
-        do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
+        do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+                setup["neighbor_sniff_ports"])
 
 
 @pytest.mark.parametrize("addr_type, addr_direction", [("ipv4", "src"), ("ipv6", "src"), ("ipv4", "dst"),
                                                         ("ipv6", "dst")])
-def test_ip_is_zero_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, addr_type, addr_direction):
+def test_ip_is_zero_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, addr_type, addr_direction, ports_info):
     """
     @summary: Verify that packet with "0.0.0.0" source or destination IP address is dropped and L3 drop counter incremented
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
     zero_ipv4 = "0.0.0.0"
     zero_ipv6 = "::0"
 
     pkt_params = {
-        "eth_dst": dst_mac, # DUT port
-        "eth_src": src_mac, # PTF port
+        "eth_dst": ports_info["dst_mac"], # DUT port
+        "eth_src": ports_info["src_mac"], # PTF port
         "tcp_sport": pkt_fields["tcp_sport"],
         "tcp_dport": pkt_fields["tcp_dport"]
         }
@@ -687,20 +680,20 @@ def test_ip_is_zero_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, a
         pytest.fail("Incorrect value specified for 'addr_type' test parameter. Supported parameters: 'ipv4' or 'ipv6'")
 
     logger.info(pkt_params)
-    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["dut_to_ptf_port_map"].values())
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+            setup["dut_to_ptf_port_map"].values())
 
 
 @pytest.mark.parametrize("addr_direction", ["src", "dst"])
-def test_ip_link_local(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, addr_direction):
+def test_ip_link_local(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, addr_direction, ports_info):
     """
     @summary: Verify that packet with link-local address "169.254.0.0/16" is dropped and L3 drop counter incremented
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
     link_local_ip = "169.254.10.125"
 
     pkt_params = {
-        "eth_dst": dst_mac, # DUT port
-        "eth_src": src_mac, # PTF port
+        "eth_dst": ports_info["dst_mac"], # DUT port
+        "eth_src": ports_info["src_mac"], # PTF port
         "tcp_sport": pkt_fields["tcp_sport"],
         "tcp_dport": pkt_fields["tcp_dport"]
         }
@@ -716,17 +709,17 @@ def test_ip_link_local(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, add
     pkt = testutils.simple_tcp_packet(**pkt_params)
 
     logger.info(pkt_params)
-    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+            setup["neighbor_sniff_ports"])
 
 
-def test_loopback_filter(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
+def test_loopback_filter(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Verify that packet drops by loopback-filter. Loop-back filter means that route to the host
               with DST IP of received packet exists on received interface
     """
     ip_dst = None
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
-    vm_name = setup["mg_facts"]["minigraph_neighbors"][dut_iface]["name"]
+    vm_name = setup["mg_facts"]["minigraph_neighbors"][ports_info["dut_iface"]]["name"]
 
     for item in setup["mg_facts"]["minigraph_bgp"]:
         if item["name"] == vm_name:
@@ -735,84 +728,68 @@ def test_loopback_filter(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
     if ip_dst is None:
         pytest.skip("Testcase is not supported on current interface")
 
-    log_pkt_params(dut_iface, dst_mac, src_mac, ip_dst, pkt_fields["ipv4_src"])
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], ip_dst, pkt_fields["ipv4_src"])
 
     pkt = testutils.simple_tcp_packet(
-        eth_dst=dst_mac, # DUT port
-        eth_src=src_mac, # PTF port
+        eth_dst=ports_info["dst_mac"], # DUT port
+        eth_src=ports_info["src_mac"], # PTF port
         ip_src=pkt_fields["ipv4_src"], # PTF source
         ip_dst=ip_dst,
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+            setup["neighbor_sniff_ports"])
 
 
-def test_ip_pkt_with_exceeded_mtu(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, mtu_config):
+def test_ip_pkt_with_exceeded_mtu(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, mtu_config, ports_info):
     """
     @summary: Verify that IP packet with exceeded MTU is dropped and L3 drop counter incremented
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
     tmp_port_mtu = 1500
 
-    log_pkt_params(dut_iface, dst_mac, src_mac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"],
+                    pkt_fields["ipv4_src"])
     # Set temporal MTU. This will be restored by 'mtu' fixture
-    mtu_config.set_mtu(tmp_port_mtu, tx_dut_ports[dut_iface])
+    mtu_config.set_mtu(tmp_port_mtu, tx_dut_ports[ports_info["dut_iface"]])
 
     pkt = testutils.simple_tcp_packet(
         pktlen=9100,
-        eth_dst=dst_mac, # DUT port
-        eth_src=src_mac, # PTF port
+        eth_dst=ports_info["dst_mac"], # DUT port
+        eth_src=ports_info["src_mac"], # PTF port
         ip_src=pkt_fields["ipv4_src"], # PTF source
         ip_dst=pkt_fields["ipv4_dst"], # VM IP address
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
         )
 
-    send_packets(pkt, duthost, ptfadapter, ptf_tx_port_id)
-
-    # Verify L2 drop counter incremented on specific interface
-    l2_drops = get_pkt_drops(duthost, GET_L2_COUNTERS)[dut_iface][RX_ERR]
-    l2_drops = str_to_int(l2_drops)
-
-    if l2_drops != PKT_NUMBER:
-        fail_msg = "RX_ERR drop counter was not incremented on iface {}. DUT RX_ERR == {}; Sent pkts == {}".format(
-            dut_iface, l2_drops, PKT_NUMBER
-        )
-        pytest.fail(fail_msg)
-
-    # Skip L3 discards verification for platform with linked L2 and L3 drop counters
-    if not COMBINED_L2L3_DROP_COUNTER:
-        ensure_no_l2_drops(duthost)
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
+    do_test("L2", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], ports_info["dut_iface"], setup["neighbor_sniff_ports"],
+            l2_col_key=RX_ERR)
 
 
-def test_ip_pkt_with_expired_ttl(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
+def test_ip_pkt_with_expired_ttl(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Verify that IP packet with TTL=0 is dropped and L3 drop counter incremented
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
-
-    log_pkt_params(dut_iface, dst_mac, src_mac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"],
+                    pkt_fields["ipv4_src"])
 
     pkt = testutils.simple_tcp_packet(
-        eth_dst=dst_mac, # DUT port
-        eth_src=src_mac, # PTF port
+        eth_dst=ports_info["dst_mac"], # DUT port
+        eth_src=ports_info["src_mac"], # PTF port
         ip_src=pkt_fields["ipv4_src"], # PTF source
         ip_dst=pkt_fields["ipv4_dst"], # VM IP address
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"],
         ip_ttl=0)
 
-    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+            setup["neighbor_sniff_ports"])
 
 
 @pytest.mark.parametrize("igmp_version,msg_type", [("v1", "membership_query"), ("v3", "membership_query"), ("v1", "membership_report"),
 ("v2", "membership_report"), ("v3", "membership_report"), ("v2", "leave_group")])
-def test_non_routable_igmp_pkts(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, igmp_version, msg_type):
+def test_non_routable_igmp_pkts(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, igmp_version, msg_type, ports_info):
     """
     @summary: Verify IGMP non-routable packets dropped by DUT and L3 drop counter incremented
     """
@@ -840,7 +817,6 @@ def test_non_routable_igmp_pkts(ptfadapter, duthost, setup, tx_dut_ports, pkt_fi
     # v3_membership_report = IGMPv3(type=0x22, mrcode=0, chksum=None)/scapy.contrib.igmpv3.IGMPv3mr(res2=0x00, numgrp=1,
     # records=[gr_obj]).build()
     # The rest packets are build like "simple_igmp_packet" function from PTF testutils.py
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
 
     ethernet_dst = {"membership_query": "01:00:5e:00:00:01",
                     "membership_report": "01:00:5e:02:02:04",
@@ -856,11 +832,11 @@ def test_non_routable_igmp_pkts(ptfadapter, duthost, setup, tx_dut_ports, pkt_fi
                          "membership_report": "\"\x009\xa9\x00\x00\x00\x01\x01\x00\x00\x02\xe0\x02\x02\x04\xac\x10\x0b\x01\n\x00\x00;"}
     }
 
-    log_pkt_params(dut_iface, ethernet_dst[msg_type], src_mac, ip_dst[msg_type], pkt_fields["ipv4_src"])
+    log_pkt_params(ports_info["dut_iface"], ethernet_dst[msg_type], ports_info["src_mac"], ip_dst[msg_type], pkt_fields["ipv4_src"])
 
     pkt = testutils.simple_ip_packet(
         eth_dst=ethernet_dst[msg_type], # DUT port
-        eth_src=src_mac, # PTF port
+        eth_src=ports_info["src_mac"], # PTF port
         ip_src=pkt_fields["ipv4_src"], # PTF source
         ip_dst=ip_dst[msg_type],
         ip_ttl=1,
@@ -868,20 +844,20 @@ def test_non_routable_igmp_pkts(ptfadapter, duthost, setup, tx_dut_ports, pkt_fi
 
     del pkt[testutils.scapy.scapy.all.Raw]
     pkt = pkt / igmp_types[igmp_version][msg_type]
-    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["dut_to_ptf_port_map"].values())
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+            setup["dut_to_ptf_port_map"].values())
 
 
-def test_absent_ip_header(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
+def test_absent_ip_header(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Verify that packets with absent IP header are dropped and L3 drop counter incremented
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
-
-    log_pkt_params(dut_iface, dst_mac, src_mac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"],
+                    pkt_fields["ipv4_src"])
 
     pkt = testutils.simple_tcp_packet(
-        eth_dst=dst_mac, # DUT port
-        eth_src=src_mac, # PTF port
+        eth_dst=ports_info["dst_mac"], # DUT port
+        eth_src=ports_info["src_mac"], # PTF port
         ip_src=pkt_fields["ipv4_src"], # PTF source
         ip_dst=pkt_fields["ipv4_dst"],
         tcp_sport=pkt_fields["tcp_sport"],
@@ -892,75 +868,72 @@ def test_absent_ip_header(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
     pkt.type = 0x800
     pkt = pkt/tcp
 
-    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+            setup["neighbor_sniff_ports"])
 
 
 @pytest.mark.parametrize("pkt_field, value", [("version", 1), ("chksum", 10), ("ihl", 1)])
-def test_broken_ip_header(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, pkt_field, value):
+def test_broken_ip_header(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, pkt_field, value, ports_info):
     """
     @summary: Verify that packets with broken IP header are dropped and L3 drop counter incremented
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
-
-    log_pkt_params(dut_iface, dst_mac, src_mac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], src_mac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 
     pkt = testutils.simple_tcp_packet(
-        eth_dst=dst_mac, # DUT port
-        eth_src=src_mac, # PTF port
+        eth_dst=ports_info["dst_mac"], # DUT port
+        eth_src=ports_info["src_mac"], # PTF port
         ip_src=pkt_fields["ipv4_src"], # PTF source
         ip_dst=pkt_fields["ipv4_dst"],
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
         )
     setattr(pkt[testutils.scapy.scapy.all.IP], pkt_field, value)
-    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+            setup["neighbor_sniff_ports"])
 
 
 @pytest.mark.parametrize("eth_dst", ["01:00:5e:00:01:02", "ff:ff:ff:ff:ff:ff"])
-def test_unicast_ip_incorrect_eth_dst(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, eth_dst):
+def test_unicast_ip_incorrect_eth_dst(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, eth_dst, ports_info):
     """
     @summary: Verify that packets with multicast/broadcast ethernet dst are dropped on L3 interfaces and L3 drop counter incremented
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
-
-    if  "vlan" in tx_dut_ports[dut_iface].lower():
+    if  "vlan" in tx_dut_ports[ports_info["dut_iface"]].lower():
         pytest.skip("Test case is not supported on VLAN interface")
 
-    log_pkt_params(dut_iface, eth_dst, src_mac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
+    log_pkt_params(ports_info["dut_iface"], eth_dst, ports_info["src_mac"], pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=eth_dst, # DUT port
-        eth_src=src_mac, # PTF port
+        eth_src=ports_info["src_mac"], # PTF port
         ip_src=pkt_fields["ipv4_src"], # PTF source
         ip_dst=pkt_fields["ipv4_dst"],
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
         )
-    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+            setup["neighbor_sniff_ports"])
 
 
-def test_acl_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, acl_setup):
+def test_acl_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, acl_setup, ports_info):
     """
     @summary: Verify that DUT drops packet with SRC IP 20.0.0.0/24 matched by ingress ACL and ACL drop counter incremented
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
-
-    if tx_dut_ports[dut_iface] not in duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]:
+    if tx_dut_ports[ports_info["dut_iface"]] not in duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]:
         pytest.skip("RX DUT port absent in 'DATAACL' table")
 
     ip_src = "20.0.0.5"
 
-    log_pkt_params(dut_iface, dst_mac, src_mac, pkt_fields["ipv4_dst"], ip_src)
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"], ip_src)
 
     pkt = testutils.simple_tcp_packet(
-        eth_dst=dst_mac, # DUT port
-        eth_src=src_mac, # PTF port
+        eth_dst=ports_info["dst_mac"], # DUT port
+        eth_src=ports_info["src_mac"], # PTF port
         ip_src=ip_src,
         ip_dst=pkt_fields["ipv4_dst"],
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
         )
-    base_verification("ACL", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface])
+    base_verification("ACL", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]])
 
     # Verify packets were not egresed the DUT
     exp_pkt = expected_packet_mask(pkt)
@@ -968,20 +941,20 @@ def test_acl_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, acl_setu
     testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
 
 
-def test_egress_drop_on_down_link(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, rif_port_down):
+def test_egress_drop_on_down_link(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):
     """
     @summary: Verify that packets on ingress port are dropped when egress RIF link is down and check that L3 drop counter incremented
     """
-    dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
     ip_dst = rif_port_down
-    log_pkt_params(dut_iface, dst_mac, src_mac, ip_dst, pkt_fields["ipv4_src"])
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], ip_dst, pkt_fields["ipv4_src"])
 
     pkt = testutils.simple_tcp_packet(
-        eth_dst=dst_mac, # DUT port
-        eth_src=src_mac, # PTF port
+        eth_dst=ports_info["dst_mac"], # DUT port
+        eth_src=ports_info["src_mac"], # PTF port
         ip_src=pkt_fields["ipv4_src"], # PTF source
         ip_dst=ip_dst,
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
         )
-    do_test("L3", pkt, ptfadapter, duthost, ptf_tx_port_id, tx_dut_ports[dut_iface], setup["neighbor_sniff_ports"])
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+            setup["neighbor_sniff_ports"])
