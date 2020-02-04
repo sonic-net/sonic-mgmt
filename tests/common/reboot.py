@@ -52,7 +52,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=180, wait=1
                              delay=delay,
                              timeout=timeout)
 
-    if 'failed' in res['localhost']:
+    if 'failed' in res:
         if reboot_res.ready():
             logger.error('reboot result: {}'.format(reboot_res.get()))
         raise Exception('DUT did not shutdown')
@@ -69,7 +69,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=180, wait=1
                              delay=delay,
                              timeout=timeout
     )
-    if 'failed' in res['localhost']:
+    if 'failed' in res:
         raise Exception('DUT did not startup')
 
     logger.info('ssh has started up')
