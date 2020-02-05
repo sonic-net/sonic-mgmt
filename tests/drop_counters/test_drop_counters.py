@@ -25,6 +25,7 @@ L3_DISCARD_KEY = "RX_ERR"
 GET_L2_COUNTERS = "portstat -j"
 GET_L3_COUNTERS = "intfstat -j"
 
+MELLANOX_SMAC_UPDATE_SCRIPT = os.path.join(os.path.dirname(__file__), "fanout/mellanox/mlnx_update_smac.j2")
 
 @pytest.fixture(scope="module")
 def pkt_fields(duthost):
@@ -288,8 +289,7 @@ def test_equal_smac_dmac_drop(ptfadapter, fanouthost, duthost, setup, tx_dut_por
     if "mellanox" == duthost.facts["asic_type"]:
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
-        fanouthost.update_config(template_path=os.path.join(os.path.dirname(__file__),
-                                    "fanout/mellanox/mlnx_update_smac.j2"), match_mac=src_mac, set_mac=dst_mac)
+        fanouthost.update_config(template_path=MELLANOX_SMAC_UPDATE_SCRIPT, match_mac=src_mac, set_mac=dst_mac)
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=dst_mac, # DUT port
