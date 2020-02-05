@@ -3,6 +3,7 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 import logging
+import importlib
 import pprint
 import random
 import time
@@ -24,6 +25,7 @@ L3_DISCARD_KEY = "RX_ERR"
 GET_L2_COUNTERS = "portstat -j"
 GET_L3_COUNTERS = "intfstat -j"
 
+MELLANOX_SMAC_UPDATE_SCRIPT = os.path.join(os.path.dirname(__file__), "fanout/mellanox/mlnx_update_smac.j2")
 
 @pytest.fixture(scope="module")
 def pkt_fields(duthost):
@@ -119,6 +121,34 @@ def enable_counters(duthost):
         if status == "disable":
             logger.info("Restoring counter '{}' state to disable".format(port))
             duthost.command("counterpoll {} disable".format(port))
+
+
+@pytest.fixture
+def fanouthost(request, testbed_devices):
+    """
+    Fixture that allows to update Fanout configuration if there is a need to send incorrect packets.
+    Added possibility to create vendor specific logic to handle fanout configuration.
+    If vendor need to update Fanout configuration, 'fanouthost' fixture should load and return appropriate instance.
+    This instance can be used inside test case to handle fanout configuration in vendor specific section.
+    By default 'fanouthost' fixture will not instantiate any instance so it will return None, and in such case
+    'fanouthost' instance should not be used in test case logic.
+    """
+    dut = testbed_devices["dut"]
+    fanout = None
+    # Check that class to handle fanout config is implemented
+    if "mellanox" == dut.facts["asic_type"]:
+        for file_name in os.listdir(os.path.join(os.path.dirname(__file__), "fanout")):
+            # Import fanout configuration handler based on vendor name
+            if "mellanox" in file_name:
+                module = importlib.import_module("fanout.{0}.{0}_fanout".format(file_name.strip(".py")))
+                fanout = module.FanoutHandler(testbed_devices)
+                break
+    try:
+        yield fanout
+    finally:
+        if fanout is not None:
+            fanout.restore_config()
+
 
 def get_pkt_drops(duthost, cli_cmd):
     """
@@ -247,17 +277,23 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, combined_counter,
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2' or 'L3'")
 
 
-def test_equal_smac_dmac_drop(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields):
+def test_equal_smac_dmac_drop(ptfadapter, fanouthost, duthost, setup, tx_dut_ports, pkt_fields):
     """
     @summary: Verify that packet with equal SMAC and DMAC is dropped and L2 drop cunter incremented
     """
     dut_iface, ptf_tx_port_id, dst_mac, src_mac = get_test_ports_info(ptfadapter, duthost, setup, tx_dut_ports)
+    src_mac = dst_mac
 
     log_pkt_params(dut_iface, dst_mac, dst_mac, pkt_fields["ip_dst"], pkt_fields["ip_src"])
 
+    if "mellanox" == duthost.facts["asic_type"]:
+        src_mac = "00:00:00:00:00:11"
+        # Prepare openflow rule
+        fanouthost.update_config(template_path=MELLANOX_SMAC_UPDATE_SCRIPT, match_mac=src_mac, set_mac=dst_mac)
+
     pkt = testutils.simple_tcp_packet(
         eth_dst=dst_mac, # DUT port
-        eth_src=dst_mac, # PTF port
+        eth_src=src_mac, # PTF port
         ip_src=pkt_fields["ip_src"], # PTF source
         ip_dst=pkt_fields["ip_dst"], # DUT source
         tcp_sport=pkt_fields["tcp_sport"],
