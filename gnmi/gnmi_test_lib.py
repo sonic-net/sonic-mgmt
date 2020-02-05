@@ -45,9 +45,19 @@ import sys
 import six
 from time import sleep
 import threading
+from random import seed
+from random import randint
+
+from gnmi_base_ap import ApData, GnmiApBase
 from queue import Queue
 from logger.cafylog import CafyLog
 import grpc
+
+TP_DIR = "./../../godiva-test/lib"
+tp_dirs = os.listdir(TP_DIR)
+for tp_dir in tp_dirs:
+    sys.path.append(os.path.join(TP_DIR,tp_dir))
+
 log = CafyLog("GNMI Test Lib")
 try:
   import gnmi_pb2
@@ -55,7 +65,10 @@ except ImportError:
   print('ERROR: Ensure you\'ve installed dependencies from requirements.txt\n'
         'eg, pip install -r requirements.txt')
 import gnmi_pb2_grpc
-
+sys.path.append('../p4/')
+from p4_error_utils import printGrpcError
+from p4_error_utils import parseGrpcError
+import google.protobuf.json_format
 __version__ = '0.4'
 
 _RE_PATH_COMPONENT = re.compile(r'''
@@ -86,6 +99,34 @@ class JsonReadError(Error):
 
 class FindTypeError(Error):
   """Error identifying type of provided value."""
+
+# List of all active connections
+connections = []
+
+class GnmiConnection(object):
+
+  def __init__(self, target='127.0.0.1', port=9339, notls=True, get_cert=None, certs=None, host_override=None):
+    self.target = target
+    self.port = port
+    self.creds = _build_creds(target, port, get_cert, certs, notls)
+    if self.creds:
+      if host_override:
+        self.channel = gnmi_pb2_grpc.grpc.secure_channel(target + ':' + port, self.creds, (('grpc.ssl_target_name_override', host_override,),))
+      else:
+        self.channel = gnmi_pb2_grpc.grpc.secure_channel(target + ':' + port, self.creds)
+    else:
+      self.channel = grpc.insecure_channel(target + ':' + port)
+    
+    self.stub = gnmi_pb2_grpc.gNMIStub(self.channel)
+    connections.append(self)
+
+  def shutdown(self):
+    self.channel.close()
+
+  def closeAllConnections(self):
+    for c in connections:
+      log.info("Shutting down connection: {}".format(c))
+      c.shutdown()
 
 
 def _create_parser():
@@ -642,10 +683,88 @@ def get_response_dict(get_value):
         if type(key_val['name']) != bool:
           full_key = prefix_key + "," + key_val['name']
       full_key = main_key + "," + full_key
-      print("{}:{}".format(full_key,ans))
+      #print("{}:{}".format(full_key,ans))
       response_dict[full_key] = ans
 
   return response_dict  
+
+
+def parallel_oper(oper):
+  user = None
+  password = None
+  err_msg = list()
+  result = dict()
+  result['oper'] = oper
+  seed(1)
+
+  input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_gnmi_parallel_oper/input_conf_file"), 'r').read())
+  gnmi_conn = GnmiConnection(target=ApData.svr_addr,port=ApData.port_addr)
+  stub = gnmi_conn.stub
+
+  if 'set' in oper:
+    try:
+        for num in range(1,4096):
+            intf_num = randint(1, 4095)
+            log.info("SET INTF_NUM {}".format(intf_num))
+            set_info = input_conf["SCALE_INTF_{}".format(intf_num)]
+            xpath = "/"
+            paths = _parse_path(_path_names(xpath))
+            reply = _set(stub, paths, 'update', user, password, set_info)
+            if ('response' in str(reply) and 'op: UPDATE' in str(reply)):
+                log.info("test_parallel_set_get:Passed - was able to do SET-UPDATE with input json")
+            else:
+                log.error("test_parallel_set_get:Failed - was unable to do SET-UPDATE with input json")
+                err_msg.append("test_parallel_set_get:Failed - was unable to do SET-UPDATE with input json")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        err_msg.append("Test test_parallel_set_get failed due to Grpc Error {err}".format(err=e.details()))
+    gnmi_conn.shutdown()
+  elif 'get' in oper:
+    try:
+      for num in range(1,4096):
+        intf_num = randint(1, 4095)
+        log.info("GET INTF_NUM {}".format(intf_num))
+        resp_key_list = list()
+        set_info = input_conf["SCALE_INTF_{}".format(intf_num)]
+        prefix = input_conf['GET_VERIFY_{}'.format(intf_num)]['prefix']
+        #prefix = _parse_path(_path_names(prefix))
+        path = input_conf['GET_VERIFY_{}'.format(intf_num)]['path']
+        path = _parse_path(_path_names(path))
+        response = _get(stub, path, user, password,prefix,type='CONFIG')
+        #log.info(response)
+        msg_dict = google.protobuf.json_format.MessageToDict(response)
+        resp_dict = get_response_dict(msg_dict)
+        resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][0]['name'])
+        ctr = 0
+        for resp_key in resp_key_list:
+            if resp_key + ',interfaces,interface,name' in resp_dict.keys():
+                if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                    err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
+                else:
+                    log.info("Get Successful - Interface {} has a current state of {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
+            else:
+                err_msg.append("Interface {} missing from the GET response".format(resp_key))
+            ctr += 1    
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        err_msg.append("Test test_parallel_set_get failed due to Grpc Error {err}".format(err=e.details()))
+    gnmi_conn.shutdown()
+
+  if len(err_msg) != 0:
+    result["msg"] = err_msg
+    result["status"] = False
+  else:
+    result["status"] = True
+
+  return result
 
 
 """

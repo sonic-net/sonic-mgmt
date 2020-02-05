@@ -135,7 +135,14 @@
             },
             "test_gnmi_SetPfxPath": {
                 "input_conf_file": "./data-files/pfxpath-tests1.json"
+            },
+            "test_gnmi_intf_scale": {
+                "input_conf_file": "./data-files/scale_intf_4k.json"
+            },
+            "test_gnmi_parallel_oper": {
+                "input_conf_file": "./data-files/parallel_scale_intf_4k.json"
             }
+
         },
         "feature_configuration": {
             "cmal": {
@@ -169,7 +176,7 @@
                 "R1": {
                     "name": "s1",
                     "svr_addr": "172.17.0.2",
-                    "svr_port": "5140",
+                    "svr_port": "9339",
                     "proto_dump_file": "s1-gnmi-requests-log.txt"
                 }
             },

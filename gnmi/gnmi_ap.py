@@ -50,6 +50,11 @@ def stub():
     creds = gnmiTestLib._build_creds(target, port, get_cert, certs, notls)
     return gnmiTestLib._create_stub(creds,target,port,host_override)
 
+@pytest.fixture(scope="session")
+def gnmi_conn():
+    gnmi_conn = gnmiTestLib.GnmiConnection(target=ApData.svr_addr,port=ApData.port_addr)
+    return gnmi_conn
+
 class TestGnmi(GnmiApBase):
 
 
@@ -121,5 +126,13 @@ class TestGnmi(GnmiApBase):
         gnmi_san_tc._test_SetRpl_Omit1(stub)
 
     def test_Memory_Usage(self,stub):
-        gnmi_san_tc._test_Memory_Usage(stub)        
+        gnmi_san_tc._test_Memory_Usage(stub)
+                
+    def test_gnmi_intf_scale(self,gnmi_conn):
+        gnmi_san_tc._test_gnmi_intf_scale(gnmi_conn)
+    
+    def test_parallel_set_get(self,gnmi_conn):
+        gnmi_san_tc._test_parallel_set_get(gnmi_conn)
+    
+
 

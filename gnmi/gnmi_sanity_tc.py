@@ -6,6 +6,9 @@ import sys
 import re
 import json
 from time import sleep
+import multiprocessing
+from multiprocessing import Pool, TimeoutError
+
 from topology.topo_mgr.topo_mgr import Topology
 from framework.pytest.cafy import Cafy
 import pytest
@@ -2018,5 +2021,161 @@ def _test_SetRpl_Omit1(stub):
 
     if len(err_msg) != 0:
         log.error("Test SET_RplOmit1 failed due to : {}".format(*err_msg))
+        pytest.fail("Test SET_RplOmit1 - FAILED")
     else:
         log.info("Test SET_RplOmit1 - PASSED")
+
+
+def _test_gnmi_intf_scale(conn,del_cfg=True):
+    stub = conn.stub
+    user = None
+    password = None
+    err_msg = list()
+    
+    #with open(ApData.input_conf_file, 'r') as ip_conf_file:
+    #    input_conf = gnmiTestLib.json_load_byteified(ip_conf_file)
+
+    input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_gnmi_intf_scale/input_conf_file"), 'r').read())
+
+    log.info('Performing SET-UPDATE Request to target \n')
+    try:
+        for intf_num in range(1,4096):
+            resp_key_list = list()
+            set_info = input_conf["SCALE_INTF_{}".format(intf_num)]
+            print(type(set_info))
+            print(set_info)
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'update', user, password, set_info)
+            log.info(str(reply))
+            if ('response' in str(reply) and 'op: UPDATE' in str(reply)):
+                log.info("test_gnmi_intf_scale:Passed - was able to do SET-UPDATE with input json")
+            else:
+                log.error("test_gnmi_intf_scale:Failed - was unable to do SET-UPDATE with input json")
+                err_msg.append("test_gnmi_intf_scale:Failed - was unable to do SET-UPDATE with input json")
+            
+            prefix = input_conf['GET_VERIFY_{}'.format(intf_num)]['prefix']
+            #prefix = gnmiTestLib._parse_path(gnmiTestLib._path_names(prefix))
+            path = input_conf['GET_VERIFY_{}'.format(intf_num)]['path']
+            path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG')
+            #log.info(response)
+            msg_dict = google.protobuf.json_format.MessageToDict(response)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+            resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][0]['name'])
+            ctr = 0
+            for resp_key in resp_key_list:
+                if resp_key + ',interfaces,interface,name' in resp_dict.keys():
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
+                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
+                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interfaces,interface,config,description']:
+                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
+                    if resp_dict[resp_key + ',interfaces,interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
+                    if resp_dict[resp_key + ',interfaces,interface,config,mtu'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']:
+                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,mtu'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']))
+                    if not resp_dict[resp_key + ',interfaces,interface,config,enabled']:
+                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
+                    else:
+                        log.info("Get Successful - Interface {} has a current state of {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
+                else:
+                    err_msg.append("Interface {} missing from the GET response".format(resp_key))
+                ctr += 1    
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        err_msg.append("Test test_gnmi_intf_scale failed due to Grpc Error {err}".format(err=e.details()))
+
+    if del_cfg:
+        try:
+            xpath = "/oc-if:interfaces"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info)
+            log.info(str(reply))
+            if ('response' in str(reply) and 'op: DELETE' in str(reply)):
+                log.info("test_gnmi_intf_scale:Passed - was able to do SET-DELETE on target")
+            else:
+                log.error("test_gnmi_intf_scale:Failed - was unable to do SET-DELETE on target")
+                err_msg.append("test_gnmi_intf_scale:Failed - was unable to do SET-DELETE on target")
+        except KeyboardInterrupt:
+            log.info("Shutting down.")
+        except grpc.RpcError as e:
+            log.error("### GRPC ERROR RECEIVED:: ###")
+            log.error(e)
+            printGrpcError(e)
+            err_msg.append("test_gnmi_intf_scale - Delete Config during cleanup failed due to Grpc Error {err}".format(err=e.details()))
+
+
+    if len(err_msg) != 0:
+        log.error("Test test_gnmi_intf_scale failed due to : {}".format(*err_msg))
+        pytest.fail("Test test_gnmi_intf_scale - FAILED")
+    else:
+        log.info("Test test_gnmi_intf_scale - PASSED")
+
+    conn.shutdown()
+
+def _test_parallel_set_get(gnmi_conn):
+    _test_gnmi_intf_scale(gnmi_conn,del_cfg=False)
+    gnmi_conn.closeAllConnections() 
+    pool = Pool(processes=2)
+    user = None
+    password = None
+    err_msg = list()
+
+    try:
+        results = pool.map(gnmiTestLib.parallel_oper,['set','get'])
+        for result in results:
+            oper = result['oper']
+            status = result['status']
+            if "set" in oper:
+                if status:
+                    log.info("Test Passed: Process handling SET succeeded in updating the config")
+                else:
+                    msg=result['msg']
+                    for error in msg:
+                        err_msg.append("Test:Failed - Process handling SET failed due to : {}".format(error))
+
+            if "get" in oper:
+                if status:
+                    log.info("Test Passed: Process handling GET succeeded in getting the config")
+                else:
+                    msg=result['msg']
+                    for error in msg:
+                        err_msg.append("Test:Failed - Process handling GET failed due to : {}".format(error))
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+    
+    try:
+        gnmi_conn = gnmiTestLib.GnmiConnection(target=ApData.svr_addr,port=ApData.port_addr)
+        #input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_gnmi_parallel_oper/input_conf_file"), 'r').read())
+        #set_info = input_conf["SCALE_INTF_{}".format(intf_num)]
+        xpath = "/oc-if:interfaces"
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        reply = gnmiTestLib._set(gnmi_conn.stub, paths, 'delete', user, password,None)
+        log.info(str(reply))
+        if ('response' in str(reply) and 'op: DELETE' in str(reply)):
+            log.info("test_parallel_set_get:Passed - was able to do SET-DELETE on target")
+        else:
+            log.error("test_parallel_set_get:Failed - was unable to do SET-DELETE on target")
+            err_msg.append("test_parallel_set_get:Failed - was unable to do SET-DELETE on target")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        err_msg.append("test_parallel_set_get - Delete Config during cleanup failed due to Grpc Error {err}".format(err=e.details()))
+
+    if len(err_msg) != 0:
+        log.error("Test test_parallel_set_get failed due to : {}".format(*err_msg))
+        pytest.fail("Test test_parallel_set_get FAILED")
+    else:
+        log.info("Test test_parallel_set_get - PASSED")
