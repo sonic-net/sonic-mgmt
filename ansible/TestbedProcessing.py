@@ -175,6 +175,10 @@ def makeSonicLabDevices(data, outfile):
                 hwsku = deviceDetails.get("hwsku")
                 devType = deviceDetails.get("device_type")
 
+                if devType == "PTF":
+                    # Skip PTF containers
+                    continue
+
                 # catch empty values
                 if not managementIP:
                     managementIP = ""
@@ -190,21 +194,21 @@ def makeSonicLabDevices(data, outfile):
 
 
 """
-makeTestbed(data, outfile) 
-@:parameter data - the dictionary to look through (devices dictionary)
+makeTestbed(testbed, devices, outfile)
+@:parameter testbed - the dictionary to look through (testbed dictionary)
+@:parameter devices - the dictionary to look through (devices dictionary)
 @:parameter outfile - the file to write to
-generates /testbed.csv by pulling confName, groupName, topo, ptf_image_name, ptf_ip, server, vm_base, dut, and comment
+generates /testbed.csv by pulling confName, groupName, topo, ptf_image_name, ptf_ip, ptf, server, vm_base, dut and comment
 error handling: checks if attribute values are None type or string "None"
 """
-def makeTestbed(data, outfile):
-    csv_columns = "# conf-name,group-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,ptf,comment"
-    topology = data
+def makeTestbed(testbed, devices, outfile):
+    csv_columns = "# conf-name,group-name,topo,ptf_image_name,ptf_ip,ptf,server,vm_base,dut,comment"
     csv_file = outfile
 
     try:
         with open(csv_file, "w") as f:
             f.write(csv_columns + "\n")
-            for group, groupDetails in topology.items():
+            for group, groupDetails in testbed.items():
                 confName = group
                 groupName = groupDetails.get("group-name")
                 topo = groupDetails.get("topo")
@@ -216,27 +220,48 @@ def makeTestbed(data, outfile):
                 ptf = groupDetails.get("ptf")
                 comment = groupDetails.get("comment")
 
+                if not ptf_image_name:
+                    # try to get ptf_image_name from device description
+                    ptf_image_name = devices.get(ptf,{}).get("ptf_image_name")
+
+                if not ptf_ip:
+                    # try to get ptf_ip from device description
+                    ip = devices.get(ptf,{}).get("ansible", {}).get("ansible_host")
+                    mask = devices.get(ptf,{}).get("mgmt_subnet_mask_length")
+                    ptf_ip = "{}/{}".format(ip, mask)
+                    if "None" in ptf_ip:
+                        # set empty string in case ip or mask is unknown
+                        ptf_ip = ""
+
                 # catch empty types
                 if not groupName:
+                    print("\t\t groupName for" + group + ": not found")
                     groupName = ""
                 if not topo:
+                    print("\t\t topo for" + group + ": not found")
                     topo = ""
                 if not ptf_image_name:
+                    print("\t\t ptf_image_name for" + group + ": not found")
                     ptf_image_name = ""
                 if not ptf_ip:
+                    print("\t\t ptf_ips for" + group + ": not found")
                     ptf_ip = ""
                 if not server:
+                    print("\t\t server for" + group + ": not found")
                     server = ""
                 if not vm_base:
+                    # could be empty for ptf topology
                     vm_base = ""
                 if not dut:
+                    print("\t\t dut for" + group + ": not found")
                     dut = ""
                 if not ptf:
+                    print("\t\t ptf for" + group + ": not found")
                     ptf = ""
                 if not comment:
                     comment = ""
 
-                row = confName + "," + groupName + "," + topo + "," + ptf_image_name + "," + ptf_ip + "," + server + "," + vm_base + "," + dut + "," + ptf + "," + comment
+                row = confName + "," + groupName + "," + topo + "," + ptf_image_name + "," + ptf_ip + "," + ptf + "," + server + "," + vm_base + "," + dut + "," + comment
                 f.write(row + "\n")
     except IOError:
         print("I/O error: issue creating testbed.csv")
@@ -373,44 +398,24 @@ def makeLab(data, devices, testbed, outfile):
                 for host in value.get("host"):
                     entry = host
 
-                    if "ptf" in key:
-                        try: #get ansible host
-                            ansible_host = testbed.get(host).get("ansible").get("ansible_host")
-                            entry += "\tansible_host=" + ansible_host.split("/")[0]
+                    try: #get ansible host
+                        ansible_host = devices.get(host.lower()).get("ansible").get("ansible_host")
+                        entry += "\tansible_host=" + ansible_host.split("/")[0]
+                    except:
+                        print("\t\t" + host + ": ansible_host not found")
+
+                    if ansible_host:
+                        try: # get ansible ssh username
+                            ansible_ssh_user = devices.get(host.lower()).get("ansible").get("ansible_ssh_user")
+                            entry += "\tansible_ssh_user=" + ansible_ssh_user
                         except:
-                            print("\t\t" + host + ": ansible_host not found")
+                            print("\t\t" + host + ": ansible_ssh_user not found")
 
-                        if ansible_host:
-                            try: # get ansible ssh username
-                                ansible_ssh_user = testbed.get(host.lower()).get("ansible").get("ansible_ssh_user")
-                                entry += "\tansible_ssh_user=" + ansible_ssh_user
-                            except:
-                                print("\t\t" + host + ": ansible_ssh_user not found")
-
-                            try: # get ansible ssh pass
-                                ansible_ssh_pass = testbed.get(host.lower()).get("ansible").get("ansible_ssh_pass")
-                                entry += "\tansible_ssh_pass=" + ansible_ssh_pass
-                            except:
-                                print("\t\t" + host + ": ansible_ssh_pass not found")
-                    else: #not ptf container
-                        try: #get ansible host
-                            ansible_host = devices.get(host.lower()).get("ansible").get("ansible_host")
-                            entry += "\tansible_host=" + ansible_host.split("/")[0]
+                        try: # get ansible ssh pass
+                            ansible_ssh_pass = devices.get(host.lower()).get("ansible").get("ansible_ssh_pass")
+                            entry += "\tansible_ssh_pass=" + ansible_ssh_pass
                         except:
-                            print("\t\t" + host + ": ansible_host not found")
-
-                        if ansible_host:
-                            try: # get ansible ssh username
-                                ansible_ssh_user = devices.get(host.lower()).get("ansible").get("ansible_ssh_user")
-                                entry += "\tansible_ssh_user=" + ansible_ssh_user
-                            except:
-                                print("\t\t" + host + ": ansible_ssh_user not found")
-
-                            try: # get ansible ssh pass
-                                ansible_ssh_pass = devices.get(host.lower()).get("ansible").get("ansible_ssh_pass")
-                                entry += "\tansible_ssh_pass=" + ansible_ssh_pass
-                            except:
-                                print("\t\t" + host + ": ansible_ssh_pass not found")
+                            print("\t\t" + host + ": ansible_ssh_pass not found")
 
                     toWrite.write(entry + "\n")
                 toWrite.write("\n")
@@ -549,7 +554,7 @@ def main():
     print("\tCREATING SONIC LAB DEVICES: " + args.basedir + devices_file)
     makeSonicLabDevices(devices, args.basedir + devices_file)  # Generate sonic_lab_devices.csv (DEVICES)
     print("\tCREATING TEST BED: " + args.basedir + testbed_file)
-    makeTestbed(testbed, args.basedir + testbed_file)  # Generate testbed.csv (TESTBED)
+    makeTestbed(testbed, devices, args.basedir + testbed_file)  # Generate testbed.csv (TESTBED)
     print("\tCREATING VM_HOST/CREDS: " + args.basedir + vmHostCreds_file)
     makeVMHostCreds(veos, args.basedir + vmHostCreds_file)  # Generate vm_host\creds.yml (CREDS)
     print("\tCREATING EOS/CREDS: " + args.basedir + eosCred_file)

@@ -75,7 +75,7 @@ device_groups:
     ptf:
         host: [ptf_ptf1, ptf_vms1-1]                             # source: sonic-mgmt/ansible/lab
 
-# devices is a dictionary that contains all devices and hosts but not ptfs (ptfs found under testbed)
+# devices is a dictionary that contains all devices, hosts and ptfs. 
 # devices is used to export sonic_lab_devices, fanout/secrets, lab/secrets, lab
 # there are no cross references
 devices:
@@ -209,6 +209,23 @@ devices:
             sonicadmin_user: 
             sonicadmin_password: 
             sonicadmin_initial_password: 
+
+    ptf_ptf1:
+        device_type: PTF
+        ptf_image_name: docker-ptf
+        mgmt_subnet_mask_length: "24"
+        ansible:
+            ansible_host: use_own_value
+            ansible_ssh_user: use_own_value
+            ansible_ssh_pass: use_own_value
+    ptf_vms1-1:
+        device_type: PTF
+        ptf_image_name: docker-ptf
+        mgmt_subnet_mask_length: "24"
+        ansible:
+            ansible_host: use_own_value
+            ansible_ssh_user: use_own_value
+            ansible_ssh_pass: use_own_value
 
 # host_vars is a dictionary that contains all host_var values
 # host_vars is used to export the host_vars files

@@ -95,7 +95,9 @@ def testbed_devices(ansible_adhoc, testbed):
         "localhost": Localhost(ansible_adhoc),
         "dut": SonicHost(ansible_adhoc, testbed["dut"], gather_facts=True)}
 
-    if "ptf" in testbed:
+    if "ptf" in testbed and testbed.get("ptf", None) and testbed["ptf"] != "ptf-unknown":
+        # when ptf column is present in testbed file
+        # and value for this testbed is not empty or ptf-unknown
         devices["ptf"] = PTFHost(ansible_adhoc, testbed["ptf"])
     else:
         # when no ptf defined in testbed.csv

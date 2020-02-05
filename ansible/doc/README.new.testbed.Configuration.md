@@ -45,7 +45,7 @@ The device_groups section generates the lab file which is the inventory file nec
 ### devices section
 **USAGE**: files/sonic_lab_devices, group_vars/fanout/secrets, group_vars/lab/secrets, lab
 
-The devices section is a dictionary that contains all devices and hosts. This section does not contain information on PTF containers. For more information on PTF containers, see the testbed.csv file. 
+The devices section is a dictionary that contains all devices, hosts and PTF containers.
 
 For each device that you add, add the following:
 
@@ -111,21 +111,22 @@ Define:
 
 This is where the topology configuration file for the testbed will collect information from when running TestbedProcessing.py. 
 
-| #conf-name | group-name | topo | ptf_image_name | ptf_ip | server | vm_base | dut | comment |
-| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| [ptf32 conf-name] | [ptf32 group-name] | [ptf32] | [docker-ptf] | [ip address] | [server group] | [vm_base] | [dut] | [comment] |
-| [t0 conf-name] | [t0 group-name] | [t0] | [docker-ptf] | [ip address] | [server group] | [vm_base] | [dut] | [comment] |
+| #conf-name | group-name | topo | ptf_image_name | ptf_ip | ptf | server | vm_base | dut | comment |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| [ptf32 conf-name] | [ptf32 group-name] | [ptf32] | [docker-ptf] | [ip address] | [PTF Container] | [server group] | [vm_base] | [dut] | [comment] |
+| [t0 conf-name] | [t0 group-name] | [t0] | [docker-ptf] | [ip address] | [PTF Container] | [server group] | [vm_base] | [dut] | [comment] |
 
 
 For each topology you use in your testbed environment, define the following:
 - conf-name - to address row in table
 - group-name - used in interface names, up to 8 characters. The variable can be anything but should be identifiable. 
 - topo - name of topology 
-- ptf_image_name - defines PTF image. In this guide, the docker-ptf was an image already on the local registry. However, there is a docker-ptf from the sonic-mgmt github that a user can pull from
+- ptf_image_name - Could be missed if specified ptf field. Defines PTF image. In this guide, the docker-ptf was an image already on the local registry. However, there is a docker-ptf from the sonic-mgmt github that a user can pull from
     > git clone --recursive https://github.com/Azure/sonic-buildimage.git <br/>
     > make configure PLATFORM=generic <br/>
     > make target/docker-ptf.gz
-- ptf_ip - ip address for mgmt interface of PTF container. Choose an IP address that is available
+- ptf_ip - ip address for mgmt interface of PTF container. Choose an IP address that is available. Could be missed if specified ptf field
+- ptf - name of device with type PTF. See Device section
 - server - server where the testbed resides. Choose a veos_group to use that contains both the lab server and virtual machines
 - vm_base - enter in the lowest ID value for the VMs you will be using to run the test cases. The lowest VM ID value can be found under the veos section of the testbed configuration file. IF empty, no VMs are used
 - dut - enter in the target DUT that is used in the testbed environment

@@ -67,7 +67,7 @@
     - name: set testbed_type
       set_fact:
         testbed_type: "{{ testbed_facts['topo'] }}"
-        ptf_host: "{{ testbed_facts['ptf_ip'] }}"
+        ptf_host: "{{ testbed_facts['ptf'] }}"
         topo: "topo_{{ testbed_facts['topo'] }}.yml"
 
     - name: set vm
