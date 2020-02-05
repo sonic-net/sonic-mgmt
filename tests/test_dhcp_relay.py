@@ -26,7 +26,7 @@ def ptf_configure_unique_interface_mac_addresses(ptfhost, autouse=True):
     """
     ptfhost.copy(src="scripts/change_mac.sh", dest="/tmp")
 
-    ptfhost.shell("/tmp/change_mac.sh")
+    ptfhost.shell("/bin/bash /tmp/change_mac.sh")
 
 @pytest.fixture(scope="module")
 def dut_dhcp_relay_data(duthost, ptfhost, testbed):
