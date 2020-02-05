@@ -16,10 +16,11 @@ def copy_ptftests_directory(ptfhost):
     ptfhost.copy(src="ptftests", dest="/root")
 
 @pytest.fixture(scope="module", autouse=True)
-def update_ptf_interface_mac_addresses(ptfhost, autouse=True):
+def ptf_configure_unique_interface_mac_addresses(ptfhost, autouse=True):
     """ Fixture which copies the change_mac.sh script to the PTF host. This fixture
         is scoped to the module, as it only needs to be performed once before
         the first test is run. The fixture also changes mac addresses of ptf containers
+        to have unique mac addresses.
     """
     ptfhost.copy(src="scripts/change_mac.sh", dest="/tmp")
 
