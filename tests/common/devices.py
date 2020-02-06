@@ -93,6 +93,37 @@ class SonicHost(AnsibleHostBase):
         if gather_facts:
             self.gather_facts()
 
+    def _get_critical_services_for_multi_npu():
+        """
+        Update the critical_services with the service names for multi-npu platforms
+        """
+        m_service = []
+        for service in self.CRITICAL_SERVICES:
+            for npu in self.facts["num_npu"]:
+                npu_service = service+npu
+                m_service.insert(npu, npu_service)
+        self.CRITICAL_SERVICES = m_service
+        print self.CRITICAL_SERVICES
+
+    def _get_npu_info(self):
+        """
+        Check if the DUT is multi-npu platfrom and store the number of npus in the facts
+        """
+        asic_conf_file_path = os.path.join('/usr/share/sonic/device', self.facts["platform"], 'asic.conf')
+        try:
+            output = self.shell('cat %s' % asic_conf_file_path)["stdout_lines"]
+            print output
+            for line in output:
+                num_npu=line.split("=",1)[1].strip()
+            print "num_npu = {}".format(num_npu)
+            self.facts["num_npu"] = int(num_npu)
+        except:
+            self.facts["num_npu"] =1
+
+        if self.facts["num_npu"] > 1:
+            self._get_critical_services_for_multi_npu
+
+
     def _platform_info(self):
         platform_info = self.command("show platform summary")["stdout_lines"]
         for line in platform_info:
@@ -109,6 +140,7 @@ class SonicHost(AnsibleHostBase):
         """
         self.facts = {}
         self._platform_info()
+        self._get_npu_info()
         logging.debug("SonicHost facts: %s" % json.dumps(self.facts))
 
     def get_service_props(self, service, props=["ActiveState", "SubState"]):
@@ -223,3 +255,33 @@ class SonicHost(AnsibleHostBase):
 
         logging.info("Pmon daemon list for this platform is %s" % str(daemon_list))
         return daemon_list
+
+    def num_npus(self):
+        """
+        return the number of NPUs on the DUT
+        """
+        return self.facts["num_npu"]
+    
+    def get_syncd_docker_names(self):
+        """
+        @summary: get the list of syncd dockers names for the number of NPUs present on the DUT
+        for a single NPU dut the list will have only "syncd" in it
+        """
+        syncd_docker_names = []
+        if self.facts["num_npu"] == 1:
+            syncd_docker_names.append("syncd")
+        else:
+            num_npus = int(self.facts["num_npu"])
+            for npu in range(0,num_npus):
+                syncd_docker_names.append("syncd{}".format(npu))
+        return syncd_docker_names
+    def get_swss_docker_names(self):
+        swss_docker_names = []
+        if self.facts["num_npu"] == 1:
+            swss_docker_names.append("swss")
+        else:
+            num_npus = self.facts["num_npu"]
+            for npu in range(0,num_npus):
+                swss_docker_names.append("swss{}".format(npu))
+        return swss_docker_names
+
