@@ -3,6 +3,7 @@
 import subprocess
 import re
 import time
+from collections import defaultdict
 
 # Global parameter for memory scanners
 MEMORY_SCAN_INTERVAL_USEC = int(3e5)
@@ -81,6 +82,16 @@ class BcmMemory():
         @summary: Read different memory tables using cache command. It update both cached_memory and uncached_memory
                   hash tables. For cached memory, ut aksi creat a reverse index of address to memory table name. This indez
                   is stored in memory_address hash table
+
+                  Sample output of bcmcmd 'cache' command:
+                  cache
+                  Caching is off for:
+                       COS_MAP_SEL.ipipe0
+                       CPU_COS_MAP_DATA_ONLY.ipipe0
+                       .
+                  Caching is on for:
+                       ALTERNATE_EMIRROR_BITMAP.ipipe0
+                       BCAST_BLOCK_MASK.ipipe0
         '''
         stdout, stderr = run_cmd(['bcmcmd', 'cache'])
 
@@ -100,12 +111,10 @@ class BcmMemory():
                 else:
                     self.uncached_memory.update({mem:{} for mem in memory.strip().split(" ")})
 
+        self.memory_address = defaultdict(list)
         for mem in self.cached_memory:
             self.cached_memory[mem] = self.get_memory_attributes(mem)
-            if self.cached_memory[mem]['address'] in self.memory_address:
-                self.memory_address[self.cached_memory[mem]['address']].append(mem)
-            else:
-                self.memory_address[self.cached_memory[mem]['address']] = [mem]
+            self.memory_address[self.cached_memory[mem]['address']].append(mem)
 
     def get_cached_memory(self):
         '''
@@ -180,9 +189,7 @@ class SerTest(object):
         @param interval_usec: memory scanner interval i usec
         @param rate: rate (number of entries) per interval
         '''
-        count = 0
-        while count < 3:
-            count += 1
+        for x in range(3):
             stdout, stderr = run_cmd(["bcmcmd", cmd + " interval=" + str(interval_usec) + " rate=" + str(rate)])
             lines = stdout.decode("utf-8").split("\n")
             if lines[1].find('mSCAN: Started on unit 0') > -1:
@@ -222,7 +229,6 @@ class SerTest(object):
 
         memory = self.bcmMemory.get_memory_by_address()
         if address in memory:
-            m = memory[address]
             return memory[address], entry == mem_entry
 
         return None, None
@@ -241,11 +247,11 @@ class SerTest(object):
         @param entry: index of the entry to inject SER into
         @param log: syslog log line
         '''
-        mem, f = self.verify_ser(entry, line)
+        mem, entry_found = self.verify_ser(entry, line)
         if mem is not None:
             # memory could be aliased, mark all aliased memory as passed/failed
             for m in mem:
-                if f:
+                if entry_found:
                     if m in self.mem_verified:
                         self.mem_verified[m] += 1
                     else:
