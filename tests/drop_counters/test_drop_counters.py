@@ -374,6 +374,18 @@ def str_to_int(value):
     return int(value.replace(",", ""))
 
 
+def verify_drop_counters(duthost, dut_iface, get_cnt_cli_cmd, column_key):
+    # Verify drop counter incremented on specific interface
+    drops = get_pkt_drops(duthost, get_cnt_cli_cmd)[dut_iface][column_key]
+    drops = str_to_int(drops)
+
+    if drops != PKT_NUMBER:
+        fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
+            column_key, dut_iface, column_key, drops, PKT_NUMBER
+        )
+        pytest.fail(fail_msg)
+
+
 def base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, l2_col_key=RX_DRP, l3_col_key=RX_ERR):
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
@@ -381,32 +393,14 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, d
     """
     send_packets(pkt, duthost, ptfadapter, ptf_tx_port_id)
     if discard_group == "L2":
-        # Verify drop counter incremented on specific interface
-        l2_drops = get_pkt_drops(duthost, GET_L2_COUNTERS)[dut_iface][l2_col_key]
-        l2_drops = str_to_int(l2_drops)
-
-        if l2_drops != PKT_NUMBER:
-            fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
-                l2_col_key, dut_iface, l2_col_key, l2_drops, PKT_NUMBER
-            )
-            pytest.fail(fail_msg)
-
-        # Skip L3 discards verification for platform with linked L2 and L3 drop counters
-        if not COMBINED_L2L3_DROP_COUNTER:
-            ensure_no_l3_drops(duthost)
+        verify_drop_counters(duthost, dut_iface, GET_L2_COUNTERS, l2_col_key)
+        ensure_no_l3_drops(duthost)
     elif discard_group == "L3":
-        # Verify L3 drop counter incremented on specific interface
-        l3_drops = get_pkt_drops(duthost, GET_L3_COUNTERS)[dut_iface][l3_col_key]
-        l3_drops = str_to_int(l3_drops)
-
-        if l3_drops != PKT_NUMBER:
-            fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
-                l3_col_key, dut_iface, l3_col_key, l3_drops, PKT_NUMBER
-            )
-            pytest.fail(fail_msg)
-
-        # Skip L2 discards verification for platform with linked L2 and L3 drop counters
-        if not COMBINED_L2L3_DROP_COUNTER:
+        if COMBINED_L2L3_DROP_COUNTER:
+            verify_drop_counters(duthost, dut_iface, GET_L2_COUNTERS, l2_col_key)
+            ensure_no_l3_drops(duthost)
+        else:
+            verify_drop_counters(duthost, dut_iface, GET_L3_COUNTERS, l3_col_key)
             ensure_no_l2_drops(duthost)
     elif discard_group == "ACL":
         time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
@@ -416,9 +410,8 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, d
                 dut_iface, acl_drops, PKT_NUMBER
             )
             pytest.fail(fail_msg)
-        if not COMBINED_ACL_DROP_COUNTER:
-            ensure_no_l3_drops(duthost)
-            ensure_no_l2_drops(duthost)
+        ensure_no_l3_drops(duthost)
+        ensure_no_l2_drops(duthost)
     else:
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2' or 'L3'")
 
