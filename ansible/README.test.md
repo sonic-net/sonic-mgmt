@@ -42,6 +42,13 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 ```
 - Requires switch connected to a PTF testbed
 
+##### ARP Clear test
+```
+ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=arp_clear -e testbed_name={TESTBED_NAME}
+```
+- Requires a PTF on the testbed
+- Does not work with any topo with portchannels
+
 ##### BGP facts verification test
 ```
 ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=bgp_fact -e testbed_name={TESTBED_NAME}
@@ -197,6 +204,11 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=mtu -e testbed_name={TESTBED_NAME}
 ```
 - Requires switch connected to PTF testbed
+
+##### NDP Clear test
+```
+ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=ndp_clear -e testbed_name={TESTBED_NAME}
+```
 
 ##### Neighbor Mac test
 ```

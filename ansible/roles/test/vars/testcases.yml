@@ -12,6 +12,10 @@ testcases:
       required_vars:
           ptf_host:
 
+    arp_clear:
+      filename: arp_clear.yml
+      topologies: [t1, t1-lag, t1-64-lag, ptf32, ptf64]
+
     bgp_fact:
       filename: bgp_fact.yml
       topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, t1-64-lag-clet]
@@ -220,6 +224,10 @@ testcases:
       required_vars:
           ptf_host:
           testbed_type:
+
+    ndp_clear:
+      filename: ndp_clear.yml
+      topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, ptf32, ptf64]
 
     neighbour:
       filename: neighbour-mac.yml

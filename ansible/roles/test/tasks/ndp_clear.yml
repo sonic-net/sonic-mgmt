@@ -1,0 +1,29 @@
+######################################################################
+## This playbook tests that we are able to clear NDP entries using the
+## sonic-clear utility. PTF doesn't support generating NDP packets, so
+## we rely on their being existing entries from the switch's neighbors
+######################################################################
+
+- name: Show NDP table and get the number of entries
+  shell: show ndp | grep "Total number of entries" | grep -o -E '[0-9]+'
+  register: ndp_original
+  failed_when: ndp_original.stdout|int <= 0
+
+- debug:
+    msg: "Found {{ ndp_original.stdout|int }} NDP entries"
+
+## Note: We can't check for zero entries after doing a clear since some
+## of the entries will come back too fast.
+- name: Clear all NDP entries
+  shell: sonic-clear ndp
+
+- name: Show NDP table and get the number of entries
+  shell: show ndp | grep "Total number of entries" | grep -o -E '[0-9]+'
+  register: ndp_cleared
+
+- debug:
+    msg: "Found {{ ndp_cleared.stdout|int }} NDP entries"
+
+- name: Verify that the number of entries has decreased
+  assert:
+    that: ndp_cleared.stdout|int < ndp_original.stdout|int
