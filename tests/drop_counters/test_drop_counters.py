@@ -375,7 +375,7 @@ def str_to_int(value):
 
 
 def verify_drop_counters(duthost, dut_iface, get_cnt_cli_cmd, column_key):
-    # Verify drop counter incremented on specific interface
+    """ Verify drop counter incremented on specific interface """
     drops = get_pkt_drops(duthost, get_cnt_cli_cmd)[dut_iface][column_key]
     drops = str_to_int(drops)
 
