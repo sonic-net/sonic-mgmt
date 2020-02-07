@@ -338,8 +338,13 @@ def ensure_no_l3_drops(duthost):
     intf_l3_counters = get_pkt_drops(duthost, GET_L3_COUNTERS)
     unexpected_drops = {}
     for iface, value in intf_l3_counters.items():
-        if int(value[RX_ERR]) >= PKT_NUMBER:
-            unexpected_drops[iface] = int(value[RX_ERR])
+        try:
+            rx_err_value = int(value[RX_ERR])
+        except ValueError as err:
+            logger.warning("Unable to verify L3 drops on iface {}\n{}".format(iface, err))
+            continue
+        if rx_err_value >= PKT_NUMBER:
+            unexpected_drops[iface] = rx_err_value
     if unexpected_drops:
         pytest.fail("L3 'RX_ERR' was incremented for the following interfaces:\n{}".format(unexpected_drops))
 
@@ -349,8 +354,13 @@ def ensure_no_l2_drops(duthost):
     intf_l2_counters = get_pkt_drops(duthost, GET_L2_COUNTERS)
     unexpected_drops = {}
     for iface, value in intf_l2_counters.items():
-        if int(value[RX_DRP]) >= PKT_NUMBER:
-            unexpected_drops[iface] = int(value[RX_DRP])
+        try:
+            rx_drp_value = int(value[RX_DRP])
+        except ValueError as err:
+            logger.warning("Unable to verify L2 drops on iface {}\n{}".format(iface, err))
+            continue
+        if rx_drp_value >= PKT_NUMBER:
+            unexpected_drops[iface] = rx_drp_value
     if unexpected_drops:
         pytest.fail("L2 'RX_DRP' was incremented for the following interfaces:\n{}".format(unexpected_drops))
 
