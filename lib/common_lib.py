@@ -18,7 +18,7 @@ from logger.cafylog import CafyLog
 import grpc
 
 
-def node_ssh(ip, uname, passwd):
+def node_get(ip, uname, passwd, cmd):
     # Create instance of SSHClient object
     remote_conn_pre = paramiko.SSHClient()
 
@@ -39,16 +39,16 @@ def node_ssh(ip, uname, passwd):
 
     # See what we have
     print (output)
-    return remote_conn
-    '''
-    # Now let's try to send the router a command
+    #return remote_conn
+    
+    # Now let's try to send 'cmd' to the router
     remote_conn.send("\n")
     #remote_conn.send("free -m\n")
-    remote_conn.send("cat /proc/meminfo\n")
+    remote_conn.send(cmd)
 
     # Wait for the command to complete
     sleep(2)
     
     output = remote_conn.recv(5000)
     return output
-    '''
+    

@@ -180,6 +180,16 @@
                     "proto_dump_file": "s1-gnmi-requests-log.txt"
                 }
             },
+            "infra": {
+                "input_conf_file": "../infra/data-files/basic_input_file1.json",
+                "R1": {
+                    "name": "s1",
+                    "svr_addr": "172.17.0.2",
+                    "svr_port": "22",
+                    "svr_gnmi_port": "9339",
+                    "proto_dump_file": "s1-infra-requests-log.txt"
+                }
+            },
             "bsp": {
                 "R1": {
                     "name": "godiva",
