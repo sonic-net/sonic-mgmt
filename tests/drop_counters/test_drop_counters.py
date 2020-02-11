@@ -420,8 +420,9 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, d
                 dut_iface, acl_drops, PKT_NUMBER
             )
             pytest.fail(fail_msg)
-        ensure_no_l3_drops(duthost)
-        ensure_no_l2_drops(duthost)
+        if not COMBINED_ACL_DROP_COUNTER:
+            ensure_no_l3_drops(duthost)
+            ensure_no_l2_drops(duthost)
     else:
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2' or 'L3'")
 
