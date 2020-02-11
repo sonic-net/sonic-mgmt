@@ -61,9 +61,12 @@
     timeout: 180
 
 # After SSH is started, system is not ready to function
-- name: Pause for two more minutes till Onyx OS modules get configured
-  pause:
-    minutes: 2
+- name: Pause till Onyx OS modules get configured and we get a promt
+  action: apswitch
+  connection: switch
+  args:
+    login: "{{ switch_login['MLNX-OS'] }}"
+    timeout: 300
 
 - name: Save old Onyx OS version
   set_fact:
