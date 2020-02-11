@@ -67,6 +67,9 @@ def test_ser(testbed_devices, setup):
     @summary: Broadcom SER injection test use Broadcom SER injection utility to insert SER
               into different memory tables. Before the SER injection, Broadcom mem/sram scanners 
               are started and syslog file location is marked.
+              The test is invoked using:
+              pytest platform/broadcom/test_ser.py --testbed=vms12-t0-s6000-1 --inventory=../ansible/str --testbed_file=../ansible/testbed.csv 
+                                                   --host-pattern=vms12-t0-s6000-1 --module-path=../ansible/library
     @param testbed_devices: Ansible framework testbed devices
     @param setup: module test fixture
     '''
