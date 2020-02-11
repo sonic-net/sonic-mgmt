@@ -32,6 +32,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=180, wait=1
 
     # pool for executing tasks asynchronously
     pool = ThreadPool()
+    dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
 
     try:
         reboot_command = reboot_commands[reboot_type]
@@ -45,7 +46,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=180, wait=1
     reboot_res = pool.apply_async(execute_reboot)
 
     logger.info('waiting for ssh to drop')
-    res = localhost.wait_for(host=duthost.hostname,
+    res = localhost.wait_for(host=dut_ip,
                              port=SONIC_SSH_PORT,
                              state='absent',
                              search_regex=SONIC_SSH_REGEX,
@@ -62,7 +63,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=180, wait=1
     #       testbed information
 
     logger.info('waiting for ssh to startup')
-    res = localhost.wait_for(host=duthost.hostname,
+    res = localhost.wait_for(host=dut_ip,
                              port=SONIC_SSH_PORT,
                              state='started',
                              search_regex=SONIC_SSH_REGEX,
@@ -79,9 +80,11 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=180, wait=1
 
     if reboot_type == 'warm':
         logger.info('waiting for warmboot-finalizer service to finish')
-        finalizer_state = 'active'
+        res = duthost.command('systemctl is-active warmboot-finalizer.service',module_ignore_errors=True)
+        finalizer_state = res['stdout'].strip()
+        assert finalizer_state == 'activating'
         count = 0
-        while finalizer_state == 'active':
+        while finalizer_state == 'activating':
             try:
                 res = duthost.command('systemctl is-active warmboot-finalizer.service')
             except AnsibleModuleException as err:
