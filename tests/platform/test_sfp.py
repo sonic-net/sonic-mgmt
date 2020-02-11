@@ -14,16 +14,19 @@ import json
 import pytest
 
 from platform_fixtures import conn_graph_facts
+from loganalyzer import LogAnalyzer
 
 ans_host = None
 port_mapping = None
-
 
 def teardown_module():
     logging.info("remove script to retrieve port mapping")
     file_path = os.path.join('/usr/share/sonic/device', ans_host.facts['platform'], 'plugins/getportmap.py')
     ans_host.file(path=file_path, state='absent')
 
+pytestmark = [
+    pytest.mark.disable_loganalyzer  # disable automatic loganalyzer
+]
 
 def parse_output(output_lines):
     """
@@ -98,8 +101,14 @@ def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
     * show interface transceiver eeprom
     * sfputil reset <interface name>
     """
-
     ans_host = testbed_devices["dut"]
+
+    if ans_host.facts["asic_type"] in ["mellanox"]:
+        loganalyzer = LogAnalyzer(ansible_host=ans_host, marker_prefix='sfp_cfg')
+        loganalyzer.load_common_config()
+
+        loganalyzer.ignore_regex.append("kernel.*Eeprom query failed*")
+        marker = loganalyzer.init()
 
     cmd_sfp_presence = "sudo sfputil show presence"
     cmd_sfp_eeprom = "sudo sfputil show eeprom"
@@ -166,6 +175,9 @@ def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
     assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
         "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
 
+    if ans_host.facts["asic_type"] in ["mellanox"]:
+        loganalyzer.analyze(marker)
+
 
 def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
     """
@@ -177,6 +189,13 @@ def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
     * sfputil lpmode on
     """
     ans_host = testbed_devices["dut"]
+
+    if ans_host.facts["asic_type"] in ["mellanox"]:
+        loganalyzer = LogAnalyzer(ansible_host=ans_host, marker_prefix='sfp_lpm')
+        loganalyzer.load_common_config()
+
+        loganalyzer.ignore_regex.append("Eeprom query failed")
+        marker = loganalyzer.init()
 
     cmd_sfp_presence = "sudo sfputil show presence"
     cmd_sfp_show_lpmode = "sudo sfputil show lpmode"
@@ -247,3 +266,6 @@ def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
     intf_facts = ans_host.interface_facts(up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
     assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
         "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
+
+    if ans_host.facts["asic_type"] in ["mellanox"]:
+        loganalyzer.analyze(marker)
