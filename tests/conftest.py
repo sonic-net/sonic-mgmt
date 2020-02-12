@@ -43,7 +43,7 @@ class TestbedInfo(object):
                         continue
                     elif 'uniq-name' in key or 'conf-name' in key:
                         name = line[key]
-                    elif 'ptf_ip' in key and line[key]:
+                    elif 'ptf_ip' in key:
                         ptfaddress = ipaddress.IPNetwork(line[key])
                         tb_prop['ptf_ip'] = str(ptfaddress.ip)
                         tb_prop['ptf_netmask'] = str(ptfaddress.netmask)
