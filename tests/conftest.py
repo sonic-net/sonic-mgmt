@@ -36,6 +36,9 @@ class TestbedInfo(object):
                 tb_prop = {}
                 name = ''
                 for key in line:
+                    if line[key] is None:
+                        break
+                    
                     if ('uniq-name' in key or 'conf-name' in key) and '#' in line[key]:
                         continue
                     elif 'uniq-name' in key or 'conf-name' in key:
