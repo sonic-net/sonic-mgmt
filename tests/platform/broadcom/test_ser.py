@@ -20,10 +20,11 @@ FILES_DIR = os.path.join(BASE_DIR, 'files')
 SER_INJECTOR_FILE = 'ser_injector.py'
 DUT_WORKING_DIR = '/tmp/'
 
+pause_ssh_timeout = True
+
 @pytest.mark.disable_loganalyzer
 @pytest.mark.broadcom
-@pytest.mark.usefixtures("pause_testbed_ssh_timeout")
-def test_ser(testbed_devices, pause_testbed_ssh_timeout):
+def test_ser(duthost):
     '''
     @summary: Broadcom SER injection test use Broadcom SER injection utility to insert SER
               into different memory tables. Before the SER injection, Broadcom mem/sram scanners 
@@ -31,18 +32,16 @@ def test_ser(testbed_devices, pause_testbed_ssh_timeout):
               The test is invoked using:
               pytest platform/broadcom/test_ser.py --testbed=vms12-t0-s6000-1 --inventory=../ansible/str --testbed_file=../ansible/testbed.csv 
                                                    --host-pattern=vms12-t0-s6000-1 --module-path=../ansible/library
-    @param testbed_devices: Ansible framework testbed devices
-    @param setup: module test fixture
+    @param duthost: Ansible framework testbed DUT device
     '''
-    dut = testbed_devices["dut"]
-    asic_type = dut.facts["asic_type"]
+    asic_type = duthost.facts["asic_type"]
     if "broadcom" in asic_type:
 
-        logger.info('Copying SER injector to dut: %s' % dut.hostname)
-        dut.copy(src=os.path.join(FILES_DIR, SER_INJECTOR_FILE), dest=DUT_WORKING_DIR)
+        logger.info('Copying SER injector to dut: %s' % duthost.hostname)
+        duthost.copy(src=os.path.join(FILES_DIR, SER_INJECTOR_FILE), dest=DUT_WORKING_DIR)
 
         logger.info('Running SER injector test')
-        rc = dut.command('python {}'.format(os.path.join(DUT_WORKING_DIR, SER_INJECTOR_FILE)))
+        rc = duthost.command('python {}'.format(os.path.join(DUT_WORKING_DIR, SER_INJECTOR_FILE)))
         logger.info('Test complete with %s: ' % rc)
 
     else:
