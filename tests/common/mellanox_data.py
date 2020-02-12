@@ -1,7 +1,8 @@
 
 SPC1_HWSKUS = ["ACS-MSN2700", "Mellanox-SN2700", "Mellanox-SN2700-D48C8", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410", "ACS-MSN2010"]
 SPC2_HWSKUS = ["ACS-MSN3700", "ACS-MSN3700C", "ACS-MSN3800"]
-SWITCH_HWSKUS = SPC1_HWSKUS + SPC2_HWSKUS
+SPC3_HWSKUS = ["ACS-MSN4700"]
+SWITCH_HWSKUS = SPC1_HWSKUS + SPC2_HWSKUS + SPC3_HWSKUS
 
 SWITCH_MODELS = {
     "ACS-MSN2700": {
@@ -239,6 +240,30 @@ SWITCH_MODELS = {
         },
         "cpu_cores": {
             "number": 2
+        },
+        "ports": {
+            "number": 32
+        }
+    },
+    "ACS-MSN4700": {
+        "reboot": {
+            "cold_reboot": True,
+            "fast_reboot": False,
+            "warm_reboot": False
+        },
+        "fans": {
+            "number": 6,
+            "hot_swappable": True
+        },
+        "psus": {
+            "number": 2,
+            "hot_swappable": True
+        },
+        "cpu_pack": {
+            "number": 1
+        },
+        "cpu_cores": {
+            "number": 4
         },
         "ports": {
             "number": 32

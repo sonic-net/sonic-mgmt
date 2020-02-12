@@ -79,6 +79,11 @@ class ParseTestbedTopoinfo():
         else:
             vm_topo_config['disabled_host_interfaces'] = []
 
+        if 'DUT' in topo_definition['topology']:
+            vm_topo_config['DUT'] = topo_definition['topology']['DUT']
+        else:
+            vm_topo_config['DUT'] = {}
+
         self.vm_topo_config = vm_topo_config
         return vm_topo_config
 

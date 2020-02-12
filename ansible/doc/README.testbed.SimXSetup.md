@@ -36,7 +36,7 @@ $ sudo ifconfig br0 up
 - Download vEOS image from [arista](https://www.arista.com/en/support/software-download).
 - Copy below image files to ```~/veos-vm/images``` on your testbed server.
    - ```Aboot-veos-serial-8.0.0.iso```
-   - ```vEOS-lab-4.15.9M.vmdk```
+   - ```vEOS-lab-4.20.15M.vmdk```
 
 ## Setup docker registry for *PTF* docker
 

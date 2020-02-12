@@ -1,6 +1,7 @@
 import sys
 import os
 import glob
+import tarfile
 
 import pytest
 import csv
@@ -9,6 +10,7 @@ import ipaddr as ipaddress
 
 from ansible_host import AnsibleHost
 from loganalyzer import LogAnalyzer
+from common.sanity_check import check_critical_services, check_links_up
 
 from common.devices import SonicHost, Localhost, PTFHost
 
@@ -162,3 +164,49 @@ def creds():
         with open(f) as stream:
             creds.update(yaml.safe_load(stream))
     return creds
+
+@pytest.fixture(scope="module", autouse=True)
+def base_sanity(duthost):
+    """perform base sanity checks before and after each test"""
+
+    check_critical_services(duthost)
+    check_links_up(duthost)
+
+    yield base_sanity
+
+    check_critical_services(duthost)
+    check_links_up(duthost)
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    # execute all other hooks to obtain the report object
+    outcome = yield
+    rep = outcome.get_result()
+
+    # set a report attribute for each phase of a call, which can
+    # be "setup", "call", "teardown"
+
+    setattr(item, "rep_" + rep.when, rep)
+
+def fetch_dbs(duthost, testname):
+    dbs = [[0, "appdb"], [1, "asicdb"], [2, "counterdb"], [4, "configdb"]]
+    for db in dbs:
+        duthost.shell("redis-dump -d {} --pretty -o {}.json".format(db[0], db[1]))
+        duthost.fetch(src="{}.json".format(db[1]), dest="logs/{}".format(testname))
+
+@pytest.fixture
+def collect_techsupport(request, duthost):
+    yield
+    # request.node is an "item" because we use the default
+    # "function" scope
+    testname = request.node.name
+    if request.node.rep_call.failed:
+        res = duthost.shell("generate_dump")
+        fname = res['stdout']
+        duthost.fetch(src=fname, dest="logs/{}".format(testname))
+        tar = tarfile.open("logs/{}/{}/{}".format(testname, duthost.hostname, fname))
+        for m in tar.getmembers():
+            if m.isfile():
+                tar.extract(m, path="logs/{}/{}/".format(testname, duthost.hostname))
+    
+        logging.info("########### Collected tech support for test {} ###########".format(testname))

@@ -15,6 +15,18 @@ def copy_ptftests_directory(ptfhost):
     """
     ptfhost.copy(src="ptftests", dest="/root")
 
+@pytest.fixture(scope="module", autouse=True)
+def ptf_configure_unique_interface_mac_addresses(ptfhost, autouse=True):
+    """ Fixture which copies the change_mac.sh script to the PTF host and executes
+        it there, changing the MAC addresses of the PTF host's interfaces such that
+        each interface has a unique MAC address.
+
+        This fixture is scoped to the module, as it only needs to be performed once
+        before the first test is run.
+    """
+    ptfhost.copy(src="scripts/change_mac.sh", dest="/tmp")
+
+    ptfhost.shell("/bin/bash /tmp/change_mac.sh")
 
 @pytest.fixture(scope="module")
 def dut_dhcp_relay_data(duthost, ptfhost, testbed):
