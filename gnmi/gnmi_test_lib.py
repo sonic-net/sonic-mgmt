@@ -660,6 +660,7 @@ def get_response_dict(get_value):
     return response_dict
 
   for value in value_dict:
+    print(value)
     first_val = True
     for key_val in value['prefix']['elem']:
       try:
@@ -683,7 +684,7 @@ def get_response_dict(get_value):
         if type(key_val['name']) != bool:
           full_key = prefix_key + "," + key_val['name']
       full_key = main_key + "," + full_key
-      #print("{}:{}".format(full_key,ans))
+      print("{}:{}".format(full_key,ans))
       response_dict[full_key] = ans
 
   return response_dict  

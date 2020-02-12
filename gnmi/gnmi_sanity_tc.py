@@ -266,7 +266,7 @@ def _test_GetSet_Sanity1(stub):
         raise CafyException.VerificationError("Test GETSET_Sanity1_3 failed due to Grpc Error {err}".format(err=e.details()))
 
     log.info('Performing SET-DELETE Request on target \n')
-    sleep(2)
+    #sleep(2)
     try:
         xpath = "/if:interfaces"
         paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
