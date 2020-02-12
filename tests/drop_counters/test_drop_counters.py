@@ -476,7 +476,7 @@ def do_test(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, 
     testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=sniff_ports)
 
 
-def test_equal_smac_dmac_drop(ptfadapter, duthost, setup, pkt_fields, ports_info):
+def test_equal_smac_dmac_drop(ptfadapter, duthost, setup, fanouthost, pkt_fields, ports_info):
     """
     @summary: Verify that packet with equal SMAC and DMAC is dropped and L2 drop counter incremented
     """
@@ -486,7 +486,7 @@ def test_equal_smac_dmac_drop(ptfadapter, duthost, setup, pkt_fields, ports_info
     if "mellanox" == duthost.facts["asic_type"]:
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
-        fanouthost.update_config(template_path=MELLANOX_SMAC_UPDATE_SCRIPT, match_mac=src_mac, set_mac=dst_mac)
+        fanouthost.update_config(template_path=MELLANOX_SMAC_UPDATE_SCRIPT, match_mac=src_mac, set_mac=ports_info["dst_mac"])
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"], # DUT port
