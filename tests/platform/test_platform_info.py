@@ -7,10 +7,11 @@ https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 import logging
 import re
 import time
+import os
+import sys
 
 import pytest
 
-from ansible_host import ansible_host
 from psu_controller import psu_controller
 
 
@@ -19,12 +20,72 @@ CMD_PLATFORM_PSUSTATUS = "show platform psustatus"
 CMD_PLATFORM_SYSEEPROM = "show platform syseeprom"
 
 
-def test_show_platform_summary(localhost, ansible_adhoc, testbed):
+def check_sensord_status(ans_host):
+    """
+    @summary: Check sensord running status by analyzing the output of "ps -x" and return the PID if it's running
+    @return: first return value will be a bool, True to indicate task is running.
+             second return value is int PID, a none -1 value for a valid PID of sensord task
+    """
+    running_status = False
+    sensord_pid = -1
+    pmon_ps_output = ans_host.command("docker exec pmon ps -x")
+    for line in pmon_ps_output["stdout_lines"]:
+        key_value = line.split()
+        if "/usr/sbin/sensord" in key_value:
+            running_status = True
+            sensord_pid = int(key_value[0])
+            break
+
+    return running_status, sensord_pid
+
+
+def stop_pmon_sensord_task(ans_host):
+    """
+    @summary: Stop sensord task of pmon docker if it's running.
+    """
+    sensord_running_status, sensord_pid = check_sensord_status(ans_host)
+    if sensord_running_status:
+        ans_host.command("docker exec pmon kill -SIGTERM {}".format(sensord_pid))
+
+    sensord_running_status, sensord_pid = check_sensord_status(ans_host)
+    if sensord_running_status:
+        assert False, "Failed to stop sensord task before test."
+    else:
+        logging.info("sensord stopped successfully")
+
+
+@pytest.fixture(scope="module")
+def psu_test_setup_teardown(testbed_devices):
+    """
+    @summary: Sensord task will print out error msg when detect PSU offline,
+              which can cause log analyzer fail the test. So stop sensord task
+              before test and restart it after all test finished.
+    """
+    logging.info("Starting psu test setup")
+    ans_host = testbed_devices["dut"]
+    stop_pmon_sensord_task(ans_host)
+
+    yield
+
+    logging.info("Starting psu test teardown")
+    sensord_running_status, sensord_pid = check_sensord_status(ans_host)
+    if not sensord_running_status:
+        ans_host.command("docker exec pmon supervisorctl restart lm-sensors")
+        time.sleep(3)
+        sensord_running_status, sensord_pid = check_sensord_status(ans_host)
+        if sensord_running_status:
+            logging.info("sensord task restarted, pid = {}".format(sensord_pid))
+        else:
+            assert False, "Failed to restart sensord task after test."
+    else:
+        logging.info("sensord is running, pid = {}".format(sensord_pid))
+
+
+def test_show_platform_summary(testbed_devices):
     """
     @summary: Check output of 'show platform summary'
     """
-    hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = testbed_devices["dut"]
 
     logging.info("Check output of '%s'" % CMD_PLATFORM_SUMMARY)
     platform_summary = ans_host.command(CMD_PLATFORM_SUMMARY)
@@ -39,27 +100,43 @@ def test_show_platform_summary(localhost, ansible_adhoc, testbed):
         "Unexpected output fields, actual=%s, expected=%s" % (str(actual_fields), str(expected_fields))
 
 
-def test_show_platform_psustatus(localhost, ansible_adhoc, testbed):
+def check_vendor_specific_psustatus(dut, psu_status_line):
+    """
+    @summary: Vendor specific psu status check
+    """
+    if dut.facts["asic_type"] in ["mellanox"]:
+        current_file_dir = os.path.dirname(os.path.realpath(__file__))
+        sub_folder_dir = os.path.join(current_file_dir, "mellanox")
+        if sub_folder_dir not in sys.path:
+            sys.path.append(sub_folder_dir)
+        from check_sysfs import check_psu_sysfs
+
+        psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
+        psu_match = psu_line_pattern.match(psu_status_line)
+        psu_id = psu_match.group(1)
+        psu_status = psu_match.group(2)
+
+        check_psu_sysfs(dut, psu_id, psu_status)
+
+def test_show_platform_psustatus(testbed_devices):
     """
     @summary: Check output of 'show platform psustatus'
     """
-    hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = testbed_devices["dut"]
 
-    logging.info("Check PSU status using '%s', hostname: %s" % (CMD_PLATFORM_PSUSTATUS, hostname))
+    logging.info("Check PSU status using '%s', hostname: %s" % (CMD_PLATFORM_PSUSTATUS, ans_host.hostname))
     psu_status = ans_host.command(CMD_PLATFORM_PSUSTATUS)
-    psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK)")
+    psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
     for line in psu_status["stdout_lines"][2:]:
         assert psu_line_pattern.match(line), "Unexpected PSU status output"
+        check_vendor_specific_psustatus(ans_host, line)
 
 
-def test_turn_on_off_psu_and_check_psustatus(localhost, ansible_adhoc, testbed, psu_controller):
+def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller, psu_test_setup_teardown):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
-    hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
-    platform_info = parse_platform_summary(ans_host.command(CMD_PLATFORM_SUMMARY)["stdout_lines"])
+    ans_host = testbed_devices["dut"]
 
     psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
     cmd_num_psu = "sudo psuutil numpsus"
@@ -75,9 +152,9 @@ def test_turn_on_off_psu_and_check_psustatus(localhost, ansible_adhoc, testbed, 
         pytest.skip("At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PSU controller for testing")
-    psu_ctrl = psu_controller(hostname, platform_info["asic"])
+    psu_ctrl = psu_controller(ans_host.hostname, ans_host.facts["asic_type"])
     if psu_ctrl is None:
-        pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % hostname)
+        pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % ans_host.hostname)
 
     logging.info("To avoid DUT losing power, need to turn on PSUs that are not powered")
     all_psu_status = psu_ctrl.get_psu_status()
@@ -113,6 +190,7 @@ def test_turn_on_off_psu_and_check_psustatus(localhost, ansible_adhoc, testbed, 
             fields = line.split()
             if fields[2] != "OK":
                 psu_under_test = fields[1]
+            check_vendor_specific_psustatus(ans_host, line)
         assert psu_under_test is not None, "No PSU is turned off"
 
         logging.info("Turn on PSU %s" % str(psu["psu_id"]))
@@ -125,6 +203,7 @@ def test_turn_on_off_psu_and_check_psustatus(localhost, ansible_adhoc, testbed, 
             fields = line.split()
             if fields[1] == psu_under_test:
                 assert fields[2] == "OK", "Unexpected PSU status after turned it on"
+            check_vendor_specific_psustatus(ans_host, line)
 
         psu_test_results[psu_under_test] = True
 
@@ -146,18 +225,16 @@ def parse_platform_summary(raw_input_lines):
     return res
 
 
-def test_show_platform_syseeprom(localhost, ansible_adhoc, testbed):
+def test_show_platform_syseeprom(testbed_devices):
     """
     @summary: Check output of 'show platform syseeprom'
     """
-    hostname = testbed['dut']
-    ans_host = ansible_host(ansible_adhoc, hostname)
+    ans_host = testbed_devices["dut"]
 
     logging.info("Check output of '%s'" % CMD_PLATFORM_SYSEEPROM)
-    platform_info = parse_platform_summary(ans_host.command(CMD_PLATFORM_SUMMARY)["stdout_lines"])
     show_output = ans_host.command(CMD_PLATFORM_SYSEEPROM)
     assert show_output["rc"] == 0, "Run command '%s' failed" % CMD_PLATFORM_SYSEEPROM
-    if platform_info["asic"] in ["mellanox"]:
+    if ans_host.facts["asic_type"] in ["mellanox"]:
         expected_fields = [
             "Product Name",
             "Part Number",
@@ -172,7 +249,7 @@ def test_show_platform_syseeprom(localhost, ansible_adhoc, testbed):
             "CRC-32"]
         utility_cmd = "sudo python -c \"import imp; \
             m = imp.load_source('eeprom', '/usr/share/sonic/device/%s/plugins/eeprom.py'); \
-            t = m.board('board', '', '', ''); e = t.read_eeprom(); t.decode_eeprom(e)\"" % platform_info["platform"]
+            t = m.board('board', '', '', ''); e = t.read_eeprom(); t.decode_eeprom(e)\"" % ans_host.facts["platform"]
         utility_cmd_output = ans_host.command(utility_cmd)
 
         for field in expected_fields:

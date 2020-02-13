@@ -4,12 +4,12 @@
 
 - name: Gathering lab graph facts about the device
   conn_graph_facts: host={{ inventory_hostname }}
-  connection: local
+  delegate_to: localhost
   tags: always
 
 - name: Set neighbor facts
   set_fact:
     neighbors: "{{ device_conn }}"
 
-- include: link_flap/link_flap_helper.yml
+- include_tasks: link_flap/link_flap_helper.yml
   with_items: "{{ device_conn.keys() }}"

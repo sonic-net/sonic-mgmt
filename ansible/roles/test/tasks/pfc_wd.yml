@@ -26,7 +26,7 @@
 
 - name: Gathering lab graph facts about the device
   conn_graph_facts: host={{ inventory_hostname }}
-  connection: local
+  delegate_to: localhost
   tags: always
 
 - name: Gather minigraph facts about the device
@@ -57,7 +57,7 @@
     test_ports: {}
 
 - name: Iterate all interfaces to get all interface ports info if exists
-  include: roles/test/tasks/pfc_wd/iterate_interfaces.yml
+  include_tasks: roles/test/tasks/pfc_wd/iterate_interfaces.yml
   with_items: "{{minigraph_interfaces}}"
   when: item['addr'] | ipv4
 
@@ -66,13 +66,13 @@
   when: minigraph_portchannels| length > 0
 
 - name: Iterate all the portchannels to get all portchanel member ports info if exists.
-  include: roles/test/tasks/pfc_wd/iterate_portchannels.yml
+  include_tasks: roles/test/tasks/pfc_wd/iterate_portchannels.yml
   with_dict: "{{minigraph_portchannels}}"
 
 - name: Generate ips in VLAN range
   get_ip_in_range: num=1 prefix="{{minigraph_vlan_interfaces[0]['addr']}}/{{minigraph_vlan_interfaces[0]['prefixlen']}}" exclude_ips="{{minigraph_vlan_interfaces[0]['addr']}}"
   become: no
-  connection: local
+  delegate_to: localhost
   failed_when: False
   when: minigraph_vlans | length >0
 
@@ -86,7 +86,7 @@
   when: minigraph_vlans | length >0
 
 - name: Iterate all vlan members to get all vlan member ports info if exists.
-  include: roles/test/tasks/pfc_wd/iterate_vlans.yml
+  include_tasks: roles/test/tasks/pfc_wd/iterate_vlans.yml
   with_items: "{{vlan_members | default([])}}"
   when: minigraph_vlans | length >0
 
@@ -105,9 +105,14 @@
 - set_fact:
     select_test_ports: "{{select_test_ports | default({}) | combine({item.key: item.value})}}"
   with_dict: "{{test_ports}}"
-  when: item.value.test_port_id | int % 15 == seed | int % 15
+  when: (item.value.test_port_id | int % 15) == (seed | int % 15)
 
 - debug: msg="{{select_test_ports}}"
+
+- name: Run default test if user has not specified warm reboot test
+  set_fact:
+    warm_reboot_test: false
+  when: warm_reboot_test is not defined
 
  #****************************************#
  #           Start tests                  #
@@ -124,48 +129,77 @@
         minigraph_vlan_interfaces: []
       when: minigraph_vlan_interfaces is undefined
 
-    - name: Test PFC WD configuration validation.
-      vars:
-        pfc_wd_template: roles/test/templates/pfc_wd_config.j2
-      include: roles/test/tasks/pfc_wd/config_test/config_test.yml
-
-    - name: Test PFC WD Functional tests.
-      include: roles/test/tasks/pfc_wd/functional_test/functional_test.yml
-      with_dict: "{{select_test_ports}}"
-
-    - name: Test PFC WD Timer accuracy.
-      include: roles/test/tasks/pfc_wd/functional_test/check_timer_accuracy_test.yml
-
-    - name: Test PFC WD extreme case when all ports have storm
-      include: roles/test/tasks/pfc_wd/functional_test/storm_all_test.yml
-
-    - name: Set vlan members
+    - name: Set timers
       set_fact:
-        vlan_members: "{{ minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members']}}"
-      when:
-        - pfc_asym is defined
+        pfc_wd_detect_time: 400
+        pfc_wd_restore_time: 400
+        pfc_wd_restore_time_large: 3000
+        pfc_wd_poll_time: 400
 
-    - name: Enable asymmetric PFC on all server interfaces
-      command: config interface pfc asymmetric on {{ item }}
+    - name: Set polling interval {{ pfc_wd_poll_time }}.
+      shell: "pfcwd interval {{ pfc_wd_poll_time }}"
       become: yes
-      with_items: "{{ vlan_members }}"
-      when:
-        - pfc_asym is defined
-        - testbed_type in ['t0']
 
-    - name: Test PFC WD Functional tests.
-      include: roles/test/tasks/pfc_wd/functional_test/functional_test.yml
-      with_dict: "{{select_test_ports}}"
-      when:
-        - pfc_asym is defined
-        - testbed_type in ['t0']
+    - block:
+        - name: Clean up config
+          command: pfcwd stop
+          become: yes
+
+        - name: Test PFC WD configuration validation.
+          vars:
+            pfc_wd_template: roles/test/templates/pfc_wd_config.j2
+          include_tasks: roles/test/tasks/pfc_wd/config_test/config_test.yml
+          when: subtest is undefined or (subtest is defined and 'pfc_config' in subtest)
+
+        - name: Test PFC WD Functional tests.
+          include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test.yml
+          with_dict: "{{select_test_ports}}"
+          when: subtest is undefined or (subtest is defined and 'pfc_functional' in subtest)
+
+        - name: Test PFC WD Timer accuracy.
+          include_tasks: roles/test/tasks/pfc_wd/functional_test/check_timer_accuracy_test.yml
+          when: subtest is undefined or (subtest is defined and 'pfc_timer' in subtest)
+
+        - name: Test PFC WD extreme case when all ports have storm
+          include_tasks: roles/test/tasks/pfc_wd/functional_test/storm_all_test.yml
+          when: subtest is undefined or (subtest is defined and 'pfc_all_port_storm' in subtest)
+
+        - name: Set vlan members
+          set_fact:
+            vlan_members: "{{ minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members']}}"
+          when:
+            - pfc_asym is defined
+
+        - name: Enable asymmetric PFC on all server interfaces
+          command: config interface pfc asymmetric on {{ item }}
+          become: yes
+          with_items: "{{ vlan_members }}"
+          when:
+            - pfc_asym is defined
+            - testbed_type in ['t0']
+
+        - name: Test PFC WD Functional tests.
+          include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test.yml
+          with_dict: "{{select_test_ports}}"
+          when:
+            - pfc_asym is defined
+            - testbed_type in ['t0']
+      when: warm_reboot_test | bool == false
+
+    - block:
+        - name: Set to default PFC WD config for warm-reboot test
+          shell: bash -c 'redis-cli -n 4 hset "DEVICE_METADATA|localhost" default_pfcwd_status enable; sudo pfcwd stop; sleep 5; sudo pfcwd start_default'
+
+        - name: Test PFC WD function against warm reboot
+          include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test_warm_reboot.yml
+      when: warm_reboot_test | bool == true
 
   always:
     - name: General cleanup.
       file:
         path: "{{ run_dir }}"
         state: absent
-        
+
     - name: Disable asymmetric PFC on all server interfaces
       command: config interface pfc asymmetric on {{ item.dut_name }}
       become: yes

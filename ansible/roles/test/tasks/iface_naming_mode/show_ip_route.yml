@@ -30,14 +30,14 @@
   assert:
     that:
     - route.stdout | search("via {{item}}")
-  with_items: spine_port_alias
+  with_items: "{{ spine_port_alias }}"
   when: mode=='alias'
 
 - name: check the output shows default interface names in default mdoe 
   assert:
     that:
     - route.stdout | search(" via {{item}}")
-  with_items: spine_ports
+  with_items: "{{ spine_ports }}"
   when: mode=='default'
 
 # Test ipv6 routes 
@@ -55,12 +55,12 @@
   assert:
     that:
     - route.stdout | search("via {{item}}")
-  with_items: spine_port_alias
+  with_items: "{{ spine_port_alias }}"
   when: mode =='alias'
 
 - name: check the output shows default interface names in default mdoe
   assert:
     that:
     - route.stdout | search(" via {{item}}")
-  with_items: spine_ports
+  with_items: "{{ spine_ports }}"
   when: mode =='default'

@@ -70,6 +70,8 @@ def switch_init(client):
         else:
             print "unknown switch attribute"
 
+    # TOFIX in brcm sai: This causes the following error on td2 (a7050-qx-32s)
+    # ERR syncd: brcm_sai_set_switch_attribute:842 updating switch mac addr failed with error -2.
     attr_value = sai_thrift_attribute_value_t(mac='00:77:66:55:44:33')
     attr = sai_thrift_attribute_t(id=SAI_SWITCH_ATTR_SRC_MAC_ADDRESS, value=attr_value)
     client.sai_thrift_set_switch_attribute(attr)
@@ -85,7 +87,7 @@ def switch_init(client):
     for interface,front in interface_to_front_mapping.iteritems():
         sai_port_id = client.sai_thrift_get_port_id_by_front_port(front);
         port_list[int(interface)]=sai_port_id
-           
+
     switch_inited = 1
 
 
@@ -544,7 +546,7 @@ def sai_thrift_create_scheduler_profile(client, max_rate, algorithm=0):
                                        value=attribute_value)
     scheduler_attr_list.append(attribute)
     attribute_value = sai_thrift_attribute_value_t(s32=algorithm)
-    attribute = sai_thrift_attribute_t(id=SAI_SCHEDULER_ATTR_SCHEDULING_ALGORITHM ,
+    attribute = sai_thrift_attribute_t(id=SAI_SCHEDULER_ATTR_SCHEDULING_TYPE,
                                        value=attribute_value)
     scheduler_attr_list.append(attribute)
     scheduler_profile_id = client.sai_thrift_create_scheduler_profile(scheduler_attr_list)
@@ -615,10 +617,38 @@ def sai_thrift_clear_all_counters(client):
         for queue in queue_list:
             client.sai_thrift_clear_queue_stats(queue,cnt_ids,len(cnt_ids))
 
+def sai_thrift_port_tx_disable(client, asic_type, port_ids):
+    if asic_type == 'mellanox':
+        # Close DST port
+        sched_prof_id = sai_thrift_create_scheduler_profile(client, STOP_PORT_MAX_RATE)
+        attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+    else:
+        # Pause egress of dut xmit port
+        attr_value = sai_thrift_attribute_value_t(booldata=0)
+        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
+
+    for port_id in port_ids:
+        client.sai_thrift_set_port_attribute(port_list[port_id], attr)
+
+def sai_thrift_port_tx_enable(client, asic_type, port_ids):
+    if asic_type == 'mellanox':
+        # Release port
+        sched_prof_id = sai_thrift_create_scheduler_profile(client, RELEASE_PORT_MAX_RATE)
+        attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+    else:
+        # Resume egress of dut xmit port
+        attr_value = sai_thrift_attribute_value_t(booldata=1)
+        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
+
+    for port_id in port_ids:
+        client.sai_thrift_set_port_attribute(port_list[port_id], attr)
+
 def sai_thrift_read_port_counters(client,port):
     port_cnt_ids=[]
     port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_DISCARDS)
-    port_cnt_ids.append(SAI_PORT_STAT_ETHER_STATS_DROP_EVENTS)
+    port_cnt_ids.append(SAI_PORT_STAT_IF_IN_DISCARDS)
     port_cnt_ids.append(SAI_PORT_STAT_PFC_0_TX_PKTS)
     port_cnt_ids.append(SAI_PORT_STAT_PFC_1_TX_PKTS)
     port_cnt_ids.append(SAI_PORT_STAT_PFC_2_TX_PKTS)
@@ -631,6 +661,7 @@ def sai_thrift_read_port_counters(client,port):
     port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_UCAST_PKTS)
     counters_results=[]
     counters_results = client.sai_thrift_get_port_stats(port,port_cnt_ids,len(port_cnt_ids))
+
     queue_list=[]
     port_attr_list = client.sai_thrift_get_port_attribute(port)
     attr_list = port_attr_list.attr_list
@@ -649,6 +680,76 @@ def sai_thrift_read_port_counters(client,port):
             queue_counters_results.append(thrift_results[0])
             queue1+=1
     return (counters_results, queue_counters_results)
+
+def sai_thrift_read_port_watermarks(client,port):
+    q_wm_ids=[]
+    q_wm_ids.append(SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES)
+
+    pg_wm_ids=[]
+    pg_wm_ids.append(SAI_INGRESS_PRIORITY_GROUP_STAT_XOFF_ROOM_WATERMARK_BYTES)
+    pg_wm_ids.append(SAI_INGRESS_PRIORITY_GROUP_STAT_SHARED_WATERMARK_BYTES)
+
+    queue_list=[]
+    pg_list=[]
+    port_attr_list = client.sai_thrift_get_port_attribute(port)
+    attr_list = port_attr_list.attr_list
+    for attribute in attr_list:
+        if attribute.id == SAI_PORT_ATTR_QOS_QUEUE_LIST:
+            for queue_id in attribute.value.objlist.object_id_list:
+                queue_list.append(queue_id)
+        elif attribute.id == SAI_PORT_ATTR_INGRESS_PRIORITY_GROUP_LIST:
+            for pg_id in attribute.value.objlist.object_id_list:
+                pg_list.append(pg_id)
+
+    thrift_results=[]
+    queue_res=[]
+    pg_shared_res=[]
+    pg_headroom_res=[]
+
+    # Only use the first 8 queues (unicast) - multicast queues are not used
+    for queue in queue_list[:8]:
+        thrift_results=client.sai_thrift_get_queue_stats(queue,q_wm_ids,len(q_wm_ids))
+        queue_res.append(thrift_results[0])
+
+    for pg in pg_list:
+        thrift_results=client.sai_thrift_get_pg_stats(pg,pg_wm_ids,len(pg_wm_ids))
+        pg_headroom_res.append(thrift_results[0])
+        pg_shared_res.append(thrift_results[1])
+
+    return (queue_res, pg_shared_res, pg_headroom_res)
+
+def sai_thrift_read_pg_counters(client, port_id):
+    pg_cntr_ids=[
+        SAI_INGRESS_PRIORITY_GROUP_STAT_PACKETS
+    ]
+
+    # fetch pg ids under port id
+    pg_ids = []
+    port_attrs = client.sai_thrift_get_port_attribute(port_id)
+    attrs = port_attrs.attr_list
+    for attr in attrs:
+        if attr.id == SAI_PORT_ATTR_INGRESS_PRIORITY_GROUP_LIST:
+            for pg_id in attr.value.objlist.object_id_list:
+                pg_ids.append(pg_id)
+
+    # get counter values of counter ids of interest under each pg
+    pg_cntrs=[]
+    for pg_id in pg_ids:
+        cntr_vals = client.sai_thrift_get_pg_stats(pg_id, pg_cntr_ids, len(pg_cntr_ids))
+        pg_cntrs.append(cntr_vals[0])
+
+    return pg_cntrs
+
+def sai_thrift_read_buffer_pool_watermark(client, buffer_pool_id):
+    buffer_pool_wm_ids = [
+        SAI_BUFFER_POOL_STAT_WATERMARK_BYTES
+    ]
+
+    wm_vals = client.sai_thrift_get_buffer_pool_stats(buffer_pool_id, buffer_pool_wm_ids)
+    if not wm_vals:
+        print >> sys.stderr, "sai_thrift_read_buffer_pool_watermark returns empty list"
+        return None
+    return wm_vals[0]
 
 def sai_thrift_create_vlan_member(client, vlan_id, port_id, tagging_mode):
     vlan_member_attr_list = []

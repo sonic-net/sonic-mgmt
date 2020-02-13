@@ -1,5 +1,5 @@
 - name: Clean up old docker-bgp container
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: docker-bgp
     docker_image: "docker-bgp"
@@ -7,7 +7,7 @@
     docker_state: absent
 
 - name: Clean up old bgp container
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: bgp
     docker_image: "docker-bgp"
@@ -15,7 +15,7 @@
     docker_state: absent
 
 - name: Start the BGP docker container (Quagga)
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: bgp
     docker_image: "{{ image_id_fpm }}"
@@ -25,6 +25,10 @@
     - /etc/sonic/:/etc/sonic/:ro
     docker_volumes_from:
     - database
+
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: bgp
 
 - block:
   - name: Copy Device Specific Quagga Zebra Configuration File.
@@ -78,9 +82,7 @@
     - isolate
     - unisolate
 
-  vars:
-    ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i bgp python
+  delegate_to: "{{ ansible_host }}_bgp"
 
 - name: Copy vtysh helper script
   become: true

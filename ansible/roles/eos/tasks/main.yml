@@ -43,8 +43,15 @@
 
 - name: Expand {{ hostname }} properties into props
   set_fact: props="{{ configuration_properties[item] | combine(props | default({})) }}"
-  with_items: properties_list
+  with_items: "{{ properties_list }}"
   when: hostname in configuration and configuration_properties[item] is defined
+
+- name: copy rc.eos
+  copy: src=rc.eos
+        dest=/mnt/flash/rc.eos
+  when: hostname in configuration
+  notify:
+    - Update VM state
 
 - name: copy boot-config
   copy: src=boot-config

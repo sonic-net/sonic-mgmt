@@ -31,7 +31,7 @@
         test_expect_file: "{{ config_table_type_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Table test - invalid table type.
       vars:
@@ -39,7 +39,7 @@
         test_expect_file: "{{ config_table_type_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Table test - invalid physical port.
       vars:
@@ -47,7 +47,7 @@
         test_expect_file: "{{ config_port_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Table test - invalid physical port.
       vars:
@@ -55,7 +55,7 @@
         test_expect_file: "{{ config_port_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Table test - invalid extra field.
       vars:
@@ -63,7 +63,7 @@
         test_expect_file: "{{ config_extra_field_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
       # Check return code from swssconfig
     - name: Table test - invalid operation applied for table ("OP" field).
@@ -77,7 +77,7 @@
       failed_when: invalid_oper_2.rc == 0
 
     - name: Run config cleanup after.
-      include: "{{ run_config_cleanup }}"
+      include_tasks: "{{ run_config_cleanup }}"
 
 #------------------------------------------
 # RULES TESTING
@@ -89,7 +89,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid priority value.
       vars:
@@ -97,7 +97,7 @@
         test_expect_file: "{{ config_priority_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid priority value.
       vars:
@@ -105,7 +105,7 @@
         test_expect_file: "{{ config_priority_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - max priority value.
       vars:
@@ -113,7 +113,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: true
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
 #----------------------------------------------
 # ETHER_TYPE
@@ -124,7 +124,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - valid ether type.
       vars:
@@ -132,7 +132,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - valid ether type.
       vars:
@@ -140,7 +140,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid ether type.
       vars:
@@ -148,7 +148,7 @@
         test_expect_file: "{{ config_ether_type_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid ether type.
       vars:
@@ -156,7 +156,7 @@
         test_expect_file: "{{ config_ether_type_expect }}"
         errors_expected: true
         run_cleanup: true
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
 #----------------------------------------------
 # IP TYPE
@@ -167,7 +167,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid ip type.
       vars:
@@ -175,7 +175,7 @@
         test_expect_file: "{{ config_ip_type_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid ip type.
       vars:
@@ -183,7 +183,7 @@
         test_expect_file: "{{ config_ip_type_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - valid ip type.
       vars:
@@ -191,7 +191,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - valid ip type.
       vars:
@@ -199,7 +199,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: true
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
 #----------------------------------------------
 # IP PROTO
@@ -211,7 +211,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - valid IP protocol.
       vars:
@@ -219,7 +219,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - valid IP protocol.
       vars:
@@ -227,7 +227,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid IP protocol.
       vars:
@@ -235,7 +235,7 @@
         test_expect_file: "{{ config_ip_proto_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid IP protocol.
       vars:
@@ -243,7 +243,7 @@
         test_expect_file: "{{ config_ip_proto_expect }}"
         errors_expected: true
         run_cleanup: true
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
 #----------------------------------------------
 # IP ADDRESS
@@ -254,7 +254,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - valid IP address.
       vars:
@@ -262,7 +262,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - valid IP address.
       vars:
@@ -270,7 +270,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid IP address.
       vars:
@@ -278,7 +278,7 @@
         test_expect_file: "{{ config_ip_addr_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid IP address.
       vars:
@@ -286,7 +286,7 @@
         test_expect_file: "{{ config_ip_addr_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid IP address.
       vars:
@@ -294,7 +294,7 @@
         test_expect_file: "{{ config_ip_addr_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid IP address.
       vars:
@@ -302,7 +302,7 @@
         test_expect_file: "{{ config_ip_addr_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid IP address.
       vars:
@@ -310,7 +310,7 @@
         test_expect_file: "{{ config_ip_addr_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid IP address.
       vars:
@@ -318,7 +318,7 @@
         test_expect_file: "{{ config_ip_addr_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid IP address.
       vars:
@@ -326,7 +326,7 @@
         test_expect_file: "{{ config_ip_addr_expect }}"
         errors_expected: true
         run_cleanup: true
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
 #----------------------------------------------
 # TCP FLAGS
@@ -338,7 +338,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         run_cleanup: false
         errors_expected: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - valid TCP flags.
       vars:
@@ -346,7 +346,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - valid TCP flags.
       vars:
@@ -354,7 +354,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid TCP flags.
       vars:
@@ -362,7 +362,7 @@
         test_expect_file: "{{ config_tcp_flags_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid TCP flags.
       vars:
@@ -370,7 +370,7 @@
         test_expect_file: "{{ config_tcp_flags_expect }}"
         errors_expected: true
         run_cleanup: true
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
 #----------------------------------------------
 # L4 port
@@ -382,7 +382,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - valid L4 port.
       vars:
@@ -390,7 +390,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid L4 port.
       vars:
@@ -398,7 +398,7 @@
         test_expect_file: "{{ config_l4_port_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid L4 port.
       vars:
@@ -406,7 +406,7 @@
         test_expect_file: "{{ config_l4_port_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid L4 port.
       vars:
@@ -414,7 +414,7 @@
         test_expect_file: "{{ config_l4_port_expect }}"
         errors_expected: true
         run_cleanup: true
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
 #----------------------------------------------
 # Packet action
@@ -426,7 +426,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - valid packet action.
       vars:
@@ -434,7 +434,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid packet action.
       vars:
@@ -442,7 +442,7 @@
         test_expect_file: "{{ config_packet_action_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid packet action.
       vars:
@@ -450,7 +450,7 @@
         test_expect_file: "{{ config_packet_action_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - dscp in L3 table.
       vars:
@@ -458,7 +458,7 @@
         test_expect_file: "{{ config_dscp_in_l3_table_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
 
     - name: Rule test - create rule in non-existing table.
@@ -467,7 +467,7 @@
         test_expect_file: "{{ config_rule_in_non_existing_table_expect }}"
         errors_expected: true
         run_cleanup: true
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
 #----------------------------------------------------------------------------------
 #----------------------------------------------------------------------------------
@@ -488,7 +488,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     # Prepare valid config: create ACL rule.
     - name: Create a rule inside of ACL table (which is created previously).
@@ -497,7 +497,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     # Invalid table deletion: try to delete existing table that contains rules.
     - name: Try to delete existing table with rules (errors expected).
@@ -506,7 +506,7 @@
         test_expect_file: "{{ config_del_table_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     # Valid rule deletion.
     - name: Delete an existing rule test.
@@ -515,7 +515,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     # Valid table deletion.
     - name: Delete an existing table test.
@@ -524,7 +524,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: true
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     # Prepare valid config: create ACL table.
     - name: Create L3 table.
@@ -533,7 +533,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     # Delete non-existing rule from existing table.
     - name: Delete non-existing rule test.
@@ -542,7 +542,7 @@
         test_expect_file: "{{ config_del_rule_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Delete non-existing table test.
       vars:
@@ -550,7 +550,7 @@
         test_expect_file: "{{ config_del_table_expect }}"
         errors_expected: true
         run_cleanup: true
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
 
     # Prepare valid config: create ACL table.
@@ -560,7 +560,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
       # delete table with different fields provided
     - name: Delete table with different fields provided.
@@ -569,7 +569,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: true
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
   always:
     - name: Remove all the temporary files created by the test.

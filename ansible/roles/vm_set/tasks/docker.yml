@@ -1,3 +1,8 @@
+- name: Add docker official GPG key
+  apt_key: url=https://download.docker.com/linux/ubuntu/gpg state=present
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+
 - name: Add docker repository for 16.04
   apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable
@@ -19,17 +24,22 @@
   become: yes
   when: host_distribution_version.stdout == "18.04"
 
-- name: Add docker official GPG key
-  shell: "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -"
-  become: yes
-  environment: "{{ proxy_env | default({}) }}"
-
 - name: Install docker-ce
   apt: pkg=docker-ce update_cache=yes
   become: yes
   environment: "{{ proxy_env | default({}) }}"
 
+- name: Get default pip_executable
+  set_fact:
+    pip_executable: pip
+  when: pip_executable is not defined
+
+- name: remove old python packages
+  pip: name=docker-py state=absent executable={{ pip_executable }}
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+
 - name: Install python packages
-  pip: name=docker-py state=present version=1.7.2
+  pip: name=docker version=4.1.0 state=forcereinstall executable={{ pip_executable }}
   become: yes
   environment: "{{ proxy_env | default({}) }}"

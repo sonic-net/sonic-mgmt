@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import datetime
 from telnetlib import Telnet
 
 
@@ -33,6 +34,14 @@ class MyDebug(object):
 
 
 class EMatchNotFound(Exception):
+    pass
+
+
+class ELoginPromptNotFound(Exception):
+    pass
+
+
+class EWrongDefaultPassword(Exception):
     pass
 
 
@@ -78,10 +87,22 @@ class SerialSession(object):
         return index
 
     def login(self, user, password):
-        self.pair('\r', [r'login:'], 240)
+        try:
+            self.d.debug('## Getting the login prompt')
+            self.pair('\r', [r'login:'], 240)
+        except EMatchNotFound:
+            self.d.debug('No login prompt is found')
+            raise ELoginPromptNotFound
+
+        self.d.debug('## Getting the password prompt')
         index_password = self.pair(user, [r'assword:', r'>'], 20)
         if index_password == 0:
-            self.pair(password, [r'>'], 10)
+            try:
+                self.d.debug('## Inputing password')
+                self.pair(password, [r'>'], 10)
+            except EMatchNotFound:
+                self.d.debug('The original password "%s" is not working' % password)
+                raise EWrongDefaultPassword
 
         return
 
@@ -143,7 +164,8 @@ def session(new_params):
         ('aaa root secret 0 %s' % str(new_params['new_root_password']), [r'\(config\)#']),
     ]
 
-    debug = MyDebug('/tmp/debug.%s.txt' % new_params['hostname'], enabled=True)
+    curtime = datetime.datetime.now().isoformat()
+    debug = MyDebug('/tmp/debug.%s.%s.txt' % (new_params['hostname'], curtime), enabled=True)
     ss = SerialSession(new_params['telnet_port'], debug)
     ss.login(new_params['login'], new_params['password'])
     ss.enable()
@@ -179,10 +201,14 @@ def main():
 
     try:
         result = core(module)
+    except ELoginPromptNotFound:
+        result = {'kickstart_code': -1, 'changed': False, 'msg': 'Login prompt not found'}
+    except EWrongDefaultPassword:
+        result = {'kickstart_code': 0, 'changed': False, 'msg': 'Wrong default password, kickstart of VM has been done'}
     except EOFError:
-        result = {'kickstart_code': -1, 'changed': False, 'msg': 'EOF during the chat'}
+        result = {'kickstart_code': -2, 'changed': False, 'msg': 'EOF during the chat'}
     except EMatchNotFound:
-        result = {'kickstart_code': -1, 'changed': False, 'msg': "Match for output isn't found"}
+        result = {'kickstart_code': -3, 'changed': False, 'msg': "Match for output isn't found"}
     except ENotInEnabled:
         module.fail_json(msg='Not in enabled mode')
     except Exception, e:

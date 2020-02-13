@@ -16,9 +16,9 @@
     result_file: result.loganalysis.{{ testname_unique }}.log
 
 - name: Initialize loganalizer. Put start marker to log file.
-  include: "{{ loganalyzer_init }}"
+  include_tasks: "{{ loganalyzer_init }}"
   when: loganalyzer_run_init == true
 
 - name: Run analyze-phase and check the loganalyzer output for the errors.
-  include: "{{ run_analyze_and_check }}"
+  include_tasks: "{{ run_analyze_and_check }}"
   when: loganalyzer_run_analyze == true

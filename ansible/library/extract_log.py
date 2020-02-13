@@ -80,8 +80,6 @@ import sys
 from datetime import datetime
 from ansible.module_utils.basic import *
 
-from pprint import pprint
-
 
 def extract_lines(directory, filename, target_string):
     path = os.path.join(directory, filename)
@@ -100,6 +98,7 @@ def extract_lines(directory, filename, target_string):
 
     return result
 
+
 def extract_number(s):
     """Extracts number from string, if not number found returns 0"""
     ns = re.findall(r'\d+', s)
@@ -112,16 +111,21 @@ def extract_number(s):
 def convert_date(s):
     dt = None
     re_result = re.findall(r'^\S{3}\s{1,2}\d{1,2} \d{2}:\d{2}:\d{2}\.?\d*', s)
+    # Workaround for pytest-ansible
+    loc = locale.getlocale()
+    locale.setlocale(locale.LC_ALL, (None, None))
+
     if len(re_result) > 0:
         str_date = re_result[0]
         try:
-            dt = datetime.strptime(str_date, '%b %d %X.%f')
+            dt = datetime.datetime.strptime(str_date, '%b %d %X.%f')
         except ValueError:
-            dt = datetime.strptime(str_date, '%b %d %X')
+            dt = datetime.datetime.strptime(str_date, '%b %d %X')
     else:
         re_result = re.findall(r'^\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d{6}', s)
         str_date = re_result[0]
-        dt = datetime.strptime(str_date, '%Y-%m-%d.%X.%f')
+        dt = datetime.datetime.strptime(str_date, '%Y-%m-%d.%X.%f')
+    locale.setlocale(locale.LC_ALL, loc)
 
     return dt
 

@@ -12,8 +12,27 @@
         login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
       connection: switch
     
-    - pause:
-        seconds: "{{ wait_down_time }}"
+    - name: Set delay
+      set_fact:
+        delay: 5
+
+    - name: Set retries
+      set_fact:
+        retries: "{{ (wait_down_time | int / delay | float) | round(0, 'ceil') }}"
+
+    - name: Let portchannel react to neighbor interface shutdown
+      pause:
+        seconds: "{{ deselect_time }}"
+
+    - name: "Verify PortChannel interfaces are up correctly"
+      shell: bash -c "teamdctl {{ po }} state dump" | python -c "import sys, json; print json.load(sys.stdin)['ports']['{{ item }}']['runner']['selected']"
+      register: out
+      until: out.stdout == "True"
+      with_items: "{{ po_interfaces.keys() }}"
+      when: item != "{{ flap_intf }}"
+      become: "yes"
+      retries: "{{ retries | int }}"
+      delay: "{{ delay }}"
     
     - lag_facts: host={{ inventory_hostname }}
     
@@ -44,8 +63,14 @@
         login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
       connection: switch
     
-    - pause:
-        seconds: 35
+    - name: "Verify PortChannel interfaces are up correctly"
+      shell: bash -c "teamdctl {{ po }} state dump" | python -c "import sys, json; print json.load(sys.stdin)['ports']['{{ item }}']['link']['up']"
+      register: out
+      until: out.stdout == "True"
+      with_items: "{{ po_interfaces.keys() }}"
+      become: "yes"
+      retries: "{{ retries | int }}"
+      delay: "{{ delay }}"
     
     - lag_facts: host={{ inventory_hostname }}
     

@@ -32,16 +32,21 @@
     match_file_option: "-m "
     ignore_file_option: "-i {{ ignore_file }}"
     expect_file_option: "-e {{ expect_file }}"
+    match_file_list: []
 
-- name: Add common match file
+- name: Collect list of match files - common_match
   set_fact:
-      match_file_option: "{{ match_file_option }}{{ match_file }},"
+      match_file_list: "{{ match_file_list + [match_file] }}"
   when: skip_common_match is not defined
 
-- name: Add test specific match file
+- name: Collect list of match files - test_match
   set_fact:
-      match_file_option: "{{ match_file_option }}{{ test_match_file }}"
+      match_file_list: "{{ match_file_list + [test_match_file] }}"
   when: test_match_file is defined
+
+- name: Add match file option
+  set_fact:
+      match_file_option: "{{ match_file_option }}{{ match_file_list | join(',') }}"
 
 - name: Add test specific ignore file
   set_fact:
@@ -108,7 +113,7 @@
       extract_log:
         directory: '/var/log'
         file_prefix: 'syslog'
-        start_string: 'start-LogAnalyzer-{{ testname_unique }}'
+        start_string: "{% if start_marker is defined %}{{ start_marker }}{% else %}start-LogAnalyzer-{{ testname_unique }}{% endif %}"
         target_filename: "/tmp/syslog"
       become: yes
 
@@ -117,7 +122,7 @@
       shell: sed -i 's/^#//g' /etc/cron.d/logrotate
       become: yes
 
-- set_fact: cmd="python {{ run_dir }}/loganalyzer.py --action analyze --logs {{ tmp_log_file }} --run_id {{ testname_unique }} --out_dir {{ test_out_dir }} {{ match_file_option }} {{ ignore_file_option }} {{ expect_file_option }} -v"
+- set_fact: cmd="python {{ run_dir }}/loganalyzer.py --action analyze --logs {{ tmp_log_file }} --run_id {{ testname_unique }} {% if start_marker is defined %}--start_marker '{{ start_marker }}'{% endif %} --out_dir {{ test_out_dir }} {{ match_file_option }} {{ ignore_file_option }} {{ expect_file_option }} -v"
 
 - debug: msg={{cmd}}
 

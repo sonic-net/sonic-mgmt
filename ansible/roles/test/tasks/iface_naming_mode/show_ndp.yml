@@ -17,13 +17,13 @@
   assert:
     that:
     - ndp_output.stdout | search("{{item}}.*\s+{{arptable['v6'][item]['interface']}}")
-  with_items: arptable['v6']
+  with_items: "{{ arptable['v6'] }}"
   when: arptable['v6'][item]['interface']!='eth0' and mode=='default'
 
 - name: Check the output shows alias interface  names corresponding to the neighbor
   assert:
     that:
     - ndp_output.stdout | search("{{item}}.*\s+{{port_name_map[arptable['v6'][item]['interface']]}}")
-  with_items: arptable['v6']
+  with_items: "{{ arptable['v6'] }}"
   when: arptable['v6'][item]['interface']!='eth0' and mode =='alias'
 

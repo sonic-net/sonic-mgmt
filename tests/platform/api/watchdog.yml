@@ -1,0 +1,31 @@
+---
+# Platform API test configuration example per platform or HWSKU
+# [ONIE platform]:
+#   hwsku:
+#     [HWSKU]:
+#       [PARAMETER]: [VALUE]
+#   default:
+#     [PARAMETER]: [VALUE]
+# If some parameters are not defined (None),
+# such test case will be skipped (use it when the coresponding test is trying to do something that is not supported by the platform)
+
+default:
+  valid_timeout: 10     # A valid timeout the watchdog has to accept
+  greater_timeout: 20   # A greater timeout value that watchdog has to accept, put None if single timeout value is a watchdog limitation
+  too_big_timeout: 100  # A timeout which is too big for HW watchdog, put None if there is no such limitation
+
+# Mellanox SPC-2 based systems have different hardware watchdog capabilities
+x86_64-mlnx_msn3700-r0:
+  default:
+    greater_timeout: 100
+    too_big_timeout: 300
+
+x86_64-mlnx_msn3700c-r0:
+  default:
+    greater_timeout: 100
+    too_big_timeout: 300
+
+x86_64-mlnx_msn3800-r0:
+  default:
+    greater_timeout: 100
+    too_big_timeout: 300

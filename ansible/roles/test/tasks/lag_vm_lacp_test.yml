@@ -23,7 +23,7 @@
 
         # --- TEST FIRST LAG MEMBER ---
 - name: Read first LAG member configuration to learn LACP rate.
-  include: run_cisco_script.yml
+  include_tasks: run_cisco_script.yml
   vars:
     template: roles/vm_set/templates/lag_lacp.j2
     host: "{{ vm_ip }}"
@@ -40,7 +40,7 @@
 
         # --- TEST SECOND LAG MEMBER ---
 - name: Read second LAG member configuration to learn LACP rate.
-  include: run_cisco_script.yml
+  include_tasks: run_cisco_script.yml
   vars:
     template: roles/vm_set/templates/lag_lacp.j2
     host: "{{ vm_ip }}"

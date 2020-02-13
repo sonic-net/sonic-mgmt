@@ -24,5 +24,5 @@
      minigraph_facts: host={{ inventory_hostname }}
      tags: always
 
-   - include: roles/test/tasks/interface.yml
+   - include_tasks: roles/test/tasks/interface.yml
 

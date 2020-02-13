@@ -4,7 +4,7 @@
     host: "{{ ansible_host }}"
     version: "v2c"
     community: "{{ snmp_rocommunity }}"
-  connection: local
+  delegate_to: localhost
 
 - name: Copy config_service_acls.sh to the DuT (this also ensures we can successfully SSH to the DuT)
   become: true
@@ -42,7 +42,7 @@
     host: "{{ ansible_host }}"
     version: "v2c"
     community: "{{ snmp_rocommunity }}"
-  connection: local
+  delegate_to: localhost
   register: result
   failed_when: "'No SNMP response received before timeout' not in result.msg"
 
@@ -73,4 +73,4 @@
     host: "{{ ansible_host }}"
     version: "v2c"
     community: "{{ snmp_rocommunity }}"
-  connection: local
+  delegate_to: localhost

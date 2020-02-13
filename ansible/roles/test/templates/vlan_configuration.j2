@@ -9,6 +9,9 @@
     },
     "VLAN_INTERFACE": {
 {% for vlan_intf in vlan_intf_list %}
+        "Vlan{{ vlan_intf.vlan_id }}": {},
+{% endfor %}
+{% for vlan_intf in vlan_intf_list %}
         "Vlan{{ vlan_intf.vlan_id }}|{{ vlan_intf.ip }}": {}{{ "," if not loop.last else "" }}
 {% endfor %}
     },

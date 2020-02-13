@@ -17,12 +17,12 @@
   assert:
     that:
     - arp_output.stdout | search("{{item}}.*\s+{{arptable['v4'][item]['interface']}}")
-  with_items: arptable['v4']
+  with_items: "{{ arptable['v4'] }}"
   when: arptable['v4'][item]['interface']!='eth0' and mode=='default'
 
 - name: Check the output shows alias interface  names corresponding to the arp
   assert:
     that:
     - arp_output.stdout | search("{{item}}.*\s+{{port_name_map[arptable['v4'][item]['interface']]}}")
-  with_items: arptable['v4']
+  with_items: "{{ arptable['v4'] }}"
   when: arptable['v4'][item]['interface']!='eth0' and mode =='alias'

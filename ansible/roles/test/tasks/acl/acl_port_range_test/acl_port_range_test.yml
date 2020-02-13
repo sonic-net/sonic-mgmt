@@ -50,7 +50,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - block:
         - name: See that Redis DB has got an appropriate field.
@@ -68,10 +68,10 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Run config cleanup after.
-      include: "{{ run_config_cleanup }}"
+      include_tasks: "{{ run_config_cleanup }}"
 
       #--------------------------------
       # Invalid configuration testing (valid L3 table + invalid rules).
@@ -85,7 +85,7 @@
         test_expect_file: "{{ config_l4_port_range_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - boundaries reversed.
       vars:
@@ -93,7 +93,7 @@
         test_expect_file: "{{ config_l4_port_range_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - port out of range.
       vars:
@@ -101,7 +101,7 @@
         test_expect_file: "{{ config_l4_port_range_expect }}"
         errors_expected: true
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - name: Rule test - invalid syntax used in range.
       vars:
@@ -109,7 +109,7 @@
         test_expect_file: "{{ config_l4_port_range_expect }}"
         errors_expected: true
         run_cleanup: true
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
 #--------------------------------
 # Test the configuration deleting.
@@ -126,7 +126,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - block:
         - name: See that Redis-DB has NOT got an appropriate field.
@@ -149,7 +149,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: false
-      include: "{{ run_config_test }}"
+      include_tasks: "{{ run_config_test }}"
 
     - block:
         - name: See that Redis-DB has NOT got an appropriate field.
@@ -171,7 +171,7 @@
             test_expect_file: "{{ config_empty_expect }}"
             loganalyzer_run_init: true
             loganalyzer_run_analyze: false
-          include: "{{ run_loganalyzer }}"
+          include_tasks: "{{ run_loganalyzer }}"
 
         - name: Create target directory
           file: path={{ host_testdir }} state=directory
@@ -250,7 +250,7 @@
             test_expect_file: "{{ config_empty_expect }}"
             loganalyzer_run_analyze: true
             loganalyzer_run_init: false
-          include: "{{ run_loganalyzer }}"
+          include_tasks: "{{ run_loganalyzer }}"
 
   always:
     - name: Remove all the temporary files from switch.
@@ -266,4 +266,4 @@
       delegate_to: "{{ ptf_host }}"
 
     - name: Run config cleanup after {{ testname}}
-      include: "{{ run_config_cleanup }}"
+      include_tasks: "{{ run_config_cleanup }}"

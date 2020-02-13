@@ -18,14 +18,14 @@
     assert:
       that:
         - show_vlan_brief.stdout | search("{{port_name_map[item]}}.*untagged")
-    with_items: minigraph_vlans['Vlan1000']['members']
+    with_items: "{{ minigraph_vlans['Vlan1000']['members'] }}"
     when: mode=="alias"
 
   - name: check interface names of minigraph vlan 1000  are shown  as default names
     assert:
       that:
         - show_vlan_brief.stdout | search("{{item}}.*untagged")
-    with_items: minigraph_vlans['Vlan1000']['members']
+    with_items: "{{ minigraph_vlans['Vlan1000']['members'] }}"
     when: mode=="default"
   # add vlan 
 

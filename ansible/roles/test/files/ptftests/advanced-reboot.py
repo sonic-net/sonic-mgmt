@@ -121,7 +121,7 @@ class ReloadTest(BaseTest):
         self.logs_info = {}
         self.log_lock = threading.RLock()
         self.vm_handle = None
-        self.pre_handle = None
+        self.sad_handle = None
         self.test_params = testutils.test_params_get()
         self.check_param('verbose', False, required=False)
         self.check_param('dut_username', '', required=True)
@@ -143,16 +143,39 @@ class ReloadTest(BaseTest):
         self.check_param('warm_up_timeout_secs', 300, required=False)
         self.check_param('dut_stabilize_secs', 30, required=False)
         self.check_param('preboot_files', None, required = False)
-        self.check_param('preboot_oper', None, required = False)
+        self.check_param('preboot_oper', None, required = False) # preboot sad path to inject before warm-reboot
+        self.check_param('inboot_oper', None, required = False) # sad path to inject during warm-reboot
+        self.check_param('nexthop_ips', [], required = False) # nexthops for the routes that will be added during warm-reboot
         self.check_param('allow_vlan_flooding', False, required = False)
+        self.check_param('sniff_time_incr', 60, required = False)
+        self.check_param('vnet', False, required = False)
+        self.check_param('vnet_pkts', None, required = False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
+        if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
+            self.test_params['inboot_oper'] = None
 
-        if self.test_params['preboot_oper'] is not None:
-           self.log_file_name = '/tmp/%s-%s.log' % (self.test_params['reboot_type'], self.test_params['preboot_oper'])
+        # initialize sad oper
+        if self.test_params['preboot_oper']:
+            self.sad_oper = self.test_params['preboot_oper']
+        else:
+            self.sad_oper = self.test_params['inboot_oper']
+
+        if self.sad_oper:
+           self.log_file_name = '/tmp/%s-%s.log' % (self.test_params['reboot_type'], self.sad_oper)
         else:
            self.log_file_name = '/tmp/%s.log' % self.test_params['reboot_type']
         self.log_fp = open(self.log_file_name, 'w')
+
+        self.packets_list = []
+        self.vnet = self.test_params['vnet']
+        if (self.vnet):
+            self.packets_list = json.load(open(self.test_params['vnet_pkts']))
+
+        # a flag whether to populate FDB by sending traffic from simulated servers
+        # usually ARP responder will make switch populate its FDB table, but Mellanox on 201803 has
+        # no L3 ARP support, so this flag is used to W/A this issue
+        self.setup_fdb_before_test = self.test_params.get('setup_fdb_before_test', False)
 
         # Default settings
         self.ping_dut_pkts  = 10
@@ -292,7 +315,7 @@ class ReloadTest(BaseTest):
 
     def dump_arp_responder_config(self, dump):
         # save data for arp_replay process
-        filename = "/tmp/from_t1.json" if self.preboot_oper is None else "/tmp/from_t1_%s.json" % self.preboot_oper
+        filename = "/tmp/from_t1.json" if self.sad_oper is None else "/tmp/from_t1_%s.json" % self.sad_oper
         with open(filename, "w") as fp:
             json.dump(dump, fp)
 
@@ -313,7 +336,7 @@ class ReloadTest(BaseTest):
             for member in content[key]['members']:
                 for vm_key in self.vm_dut_map.keys():
                     if member in self.vm_dut_map[vm_key]['dut_ports']:
-                        self.vm_dut_map[vm_key]['dut_portchannel'] = key
+                        self.vm_dut_map[vm_key]['dut_portchannel'] = str(key)
                         self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
                         break
 
@@ -321,8 +344,8 @@ class ReloadTest(BaseTest):
         content = self.read_json('neigh_port_info')
         for key in content.keys():
             if content[key]['name'] in self.vm_dut_map.keys():
-                self.vm_dut_map[content[key]['name']]['dut_ports'].append(key)
-                self.vm_dut_map[content[key]['name']]['neigh_ports'].append(content[key]['port'])
+                self.vm_dut_map[content[key]['name']]['dut_ports'].append(str(key))
+                self.vm_dut_map[content[key]['name']]['neigh_ports'].append(str(content[key]['port']))
                 self.vm_dut_map[content[key]['name']]['ptf_ports'].append(self.port_indices[key])
 
     def build_peer_mapping(self):
@@ -343,20 +366,118 @@ class ReloadTest(BaseTest):
         self.get_neigh_port_info()
         self.get_portchannel_info()
 
+    def build_vlan_if_port_mapping(self):
+        content = self.read_json('vlan_ports_file')
+        if len(content) > 1:
+            raise Exception("Too many vlans")
+        return [(ifname, self.port_indices[ifname]) for ifname in content.values()[0]['members']]
+
+    def populate_fail_info(self, fails):
+        for key in fails:
+            if key not in self.fails:
+                self.fails[key] = set()
+            self.fails[key] |= fails[key]
+
+    def get_sad_info(self):
+        '''
+        Prepares the msg string to log when a sad_oper is defined. Sad oper can be a preboot or inboot oper
+        sad_oper can be represented in the following ways
+           eg. 'preboot_oper' - a single VM will be selected and preboot_oper will be applied to it
+               'neigh_bgp_down:2' - 2 VMs will be selected and preboot_oper will be applied to the selected 2 VMs
+               'neigh_lag_member_down:3:1' - this case is used for lag member down operation only. This indicates that
+                                             3 VMs will be selected and 1 of the lag members in the porchannel will be brought down
+               'inboot_oper' - represents a routing change during warm boot (add or del of multiple routes)
+               'routing_add:10' - adding 10 routes during warm boot
+        '''
+        msg = ''
+        if self.sad_oper:
+            msg = 'Sad oper: %s ' % self.sad_oper
+            if ':' in self.sad_oper:
+                oper_list = self.sad_oper.split(':')
+                msg = 'Sad oper: %s ' % oper_list[0] # extract the sad oper_type
+                if len(oper_list) > 2:
+                    # extract the number of VMs and the number of LAG members. sad_oper will be of the form oper:no of VMS:no of lag members
+                    msg += 'Number of sad path VMs: %s Lag member down in a portchannel: %s' % (oper_list[-2], oper_list[-1])
+                else:
+                    # inboot oper
+                    if 'routing' in self.sad_oper:
+                        msg += 'Number of ip addresses: %s' % oper_list[-1]
+                    else:
+                        # extract the number of VMs. preboot_oper will be of the form oper:no of VMS
+                        msg += 'Number of sad path VMs: %s' % oper_list[-1]
+
+        return msg
+
+    def init_sad_oper(self):
+        if self.sad_oper:
+            self.log("Preboot/Inboot Operations:")
+            self.sad_handle = sp.SadTest(self.sad_oper, self.ssh_targets, self.portchannel_ports, self.vm_dut_map, self.test_params, self.dut_ssh, self.vlan_ports)
+            (self.ssh_targets, self.portchannel_ports, self.neigh_vm, self.vlan_ports), (log_info, fails) = self.sad_handle.setup()
+            self.populate_fail_info(fails)
+            for log in log_info:
+                self.log(log)
+
+            if self.sad_oper:
+                log_info, fails = self.sad_handle.verify()
+                self.populate_fail_info(fails)
+                for log in log_info:
+                    self.log(log)
+                self.log(" ")
+
+    def do_inboot_oper(self):
+        '''
+        Add or del routes during boot
+        '''
+        if self.sad_oper and 'routing' in self.sad_oper:
+            self.log("Performing inboot operation")
+            log_info, fails = self.sad_handle.route_setup()
+            self.populate_fail_info(fails)
+            for log in log_info:
+                self.log(log)
+            self.log(" ")
+
+    def check_inboot_sad_status(self):
+        if 'routing_add' in self.sad_oper:
+            self.log('Verify if new routes added during warm reboot are received')
+        else:
+            self.log('Verify that routes deleted during warm reboot are removed')
+
+        log_info, fails = self.sad_handle.verify(pre_check=False, inboot=True)
+        self.populate_fail_info(fails)
+        for log in log_info:
+            self.log(log)
+        self.log(" ")
+
+    def check_postboot_sad_status(self):
+        self.log("Postboot checks:")
+        log_info, fails = self.sad_handle.verify(pre_check=False, inboot=False)
+        self.populate_fail_info(fails)
+        for log in log_info:
+            self.log(log)
+        self.log(" ")
+
+    def sad_revert(self):
+        self.log("Revert to preboot state:")
+        log_info, fails = self.sad_handle.revert()
+        self.populate_fail_info(fails)
+        for log in log_info:
+            self.log(log)
+        self.log(" ")
+
     def setUp(self):
         self.fails['dut'] = set()
         self.port_indices = self.read_port_indices()
         self.portchannel_ports = self.read_portchannel_ports()
         self.vlan_ports = self.read_vlan_ports()
-        if self.test_params['preboot_oper'] is not None:
+        if self.sad_oper:
             self.build_peer_mapping()
+            self.test_params['vlan_if_port'] = self.build_vlan_if_port_mapping()
 
         self.vlan_ip_range = self.test_params['vlan_ip_range']
         self.default_ip_range = self.test_params['default_ip_range']
 
         self.limit = datetime.timedelta(seconds=self.test_params['reboot_limit_in_seconds'])
         self.reboot_type = self.test_params['reboot_type']
-        self.preboot_oper = self.test_params['preboot_oper']
         if self.reboot_type not in ['fast-reboot', 'warm-reboot']:
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
         self.dut_ssh = self.test_params['dut_username'] + '@' + self.test_params['dut_hostname']
@@ -372,20 +493,7 @@ class ReloadTest(BaseTest):
                 self.ssh_targets.append(vm)
 
         self.log("Converted addresses VMs: %s" % str(self.ssh_targets))
-        if self.preboot_oper is not None:
-            self.log("Preboot Operations:")
-            self.pre_handle = sp.PrebootTest(self.preboot_oper, self.ssh_targets, self.portchannel_ports, self.vm_dut_map, self.test_params, self.dut_ssh)
-            (self.ssh_targets, self.portchannel_ports, self.neigh_vm), (log_info, fails_dut, fails_vm) = self.pre_handle.setup()
-            self.fails['dut'] |= fails_dut
-            self.fails[self.neigh_vm] = fails_vm
-            for log in log_info:
-                self.log(log)
-            log_info, fails_dut, fails_vm = self.pre_handle.verify()
-            self.fails['dut'] |= fails_dut
-            self.fails[self.neigh_vm] |= fails_vm
-            for log in log_info:
-                self.log(log)
-            self.log(" ")
+        self.init_sad_oper()
 
         self.vlan_host_map = self.generate_vlan_servers()
         arp_responder_conf = self.generate_arp_responder_conf(self.vlan_host_map)
@@ -417,10 +525,12 @@ class ReloadTest(BaseTest):
         self.generate_arp_ping_packet()
 
         if self.reboot_type == 'warm-reboot':
-            self.log("Preboot Oper: %s" % self.preboot_oper)
+            self.log(self.get_sad_info())
+
             # Pre-generate list of packets to be sent in send_in_background method.
             generate_start = datetime.datetime.now()
-            self.generate_bidirectional()
+            if not self.vnet:
+                self.generate_bidirectional()
             self.log("%d packets are ready after: %s" % (len(self.packets_list), str(datetime.datetime.now() - generate_start)))
 
         self.dataplane = ptf.dataplane_instance
@@ -438,7 +548,30 @@ class ReloadTest(BaseTest):
 
         return
 
+    def setup_fdb(self):
+        """ simulate traffic generated from servers to help populate FDB """
+
+        vlan_map = self.vlan_host_map
+
+        from_servers_pkt = testutils.simple_tcp_packet(
+            eth_dst=self.dut_mac,
+            ip_dst=self.from_server_dst_addr,
+        )
+
+        for port in vlan_map:
+            for addr in vlan_map[port]:
+                mac = vlan_map[port][addr]
+
+                from_servers_pkt[scapy.Ether].src = self.hex_to_mac(mac)
+                from_servers_pkt[scapy.IP].src = addr
+
+                testutils.send(self, port, from_servers_pkt)
+
+        # make sure orchagent processed new FDBs
+        time.sleep(1)
+
     def tearDown(self):
+
         self.log("Disabling arp_responder")
         self.cmd(["supervisorctl", "stop", "arp_responder"])
 
@@ -612,6 +745,11 @@ class ReloadTest(BaseTest):
         thr.setDaemon(True)
 
         try:
+            if self.setup_fdb_before_test:
+                self.log("Run some server traffic to populate FDB table...")
+                self.setup_fdb()
+
+
             self.log("Starting reachability state watch thread...")
             self.watching    = True
             self.light_probe = False
@@ -636,6 +774,9 @@ class ReloadTest(BaseTest):
 
             if self.reboot_type == 'fast-reboot':
                 self.light_probe = True
+            else:
+                # add or del routes during boot
+                self.do_inboot_oper()
 
             self.reboot_start = datetime.datetime.now()
             self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
@@ -725,22 +866,29 @@ class ReloadTest(BaseTest):
                 no_cp_replies = self.extract_no_cpu_replies(upper_replies)
 
             if no_routing_stop - no_routing_start > self.limit:
-                self.fails['dut'].add("Downtime must be less then %s seconds. It was %s" \
+                self.fails['dut'].add("Longest downtime period must be less then %s seconds. It was %s" \
                         % (self.test_params['reboot_limit_in_seconds'], str(no_routing_stop - no_routing_start)))
             if no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
                 self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
             if self.reboot_type == 'fast-reboot' and no_cp_replies < 0.95 * self.nr_vl_pkts:
                 self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (no_cp_replies, self.nr_vl_pkts))
 
-            if self.reboot_type == 'warm-reboot' and self.preboot_oper is not None:
-                if self.pre_handle is not None:
-                    self.log("Postboot checks:")
-                    log_info, fails_dut, fails_vm = self.pre_handle.verify(pre_check=False)
-                    self.fails[self.neigh_vm] |= fails_vm
-                    self.fails['dut'] |= fails_dut
-                    for log in log_info:
-                        self.log(log)
-                    self.log(" ")
+            if self.reboot_type == 'warm-reboot':
+                if self.total_disrupt_time > self.limit.total_seconds():
+                    self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s" \
+                        % (str(self.limit), str(self.total_disrupt_time)))
+
+                # after the data plane is up, check for routing changes
+                if self.test_params['inboot_oper'] and self.sad_handle:
+                    self.check_inboot_sad_status()
+
+                # postboot check for all preboot operations
+                if self.test_params['preboot_oper'] and self.sad_handle:
+                    self.check_postboot_sad_status()
+
+                else:
+                    # verify there are no interface flaps after warm boot
+                    self.neigh_lag_status_check()
 
         except Exception as e:
             self.fails['dut'].add(e)
@@ -749,9 +897,10 @@ class ReloadTest(BaseTest):
             self.watching = False
 
             # revert to pretest state
-            if self.preboot_oper is not None and self.pre_handle is not None:
-                self.log("Revert to preboot state:")
-                self.pre_handle.revert()
+            if self.sad_oper and self.sad_handle:
+                self.sad_revert()
+                if self.test_params['inboot_oper']:
+                    self.check_postboot_sad_status()
                 self.log(" ")
 
             # Generating report
@@ -784,7 +933,7 @@ class ReloadTest(BaseTest):
             self.log("-"*50)
 
             if no_routing_stop:
-                self.log("Downtime was %s" % str(no_routing_stop - no_routing_start))
+                self.log("Longest downtime period was %s" % str(no_routing_stop - no_routing_start))
                 reboot_time = "0:00:00" if routing_always else str(no_routing_stop - self.reboot_start)
                 self.log("Reboot time was %s" % reboot_time)
                 self.log("Expected downtime is less then %s" % self.limit)
@@ -819,6 +968,21 @@ class ReloadTest(BaseTest):
             self.log("="*50)
 
             self.assertTrue(is_good, errors)
+
+    def neigh_lag_status_check(self):
+        """
+        Ensure there are no interface flaps after warm-boot
+        """
+        for neigh in self.ssh_targets:
+            self.neigh_handle = Arista(neigh, None, self.test_params)
+            self.neigh_handle.connect()
+            fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
+            self.neigh_handle.disconnect()
+            self.fails[neigh] |= fails
+            if not flap_cnt:
+                self.log("No LAG flaps seen on %s after warm boot" % neigh)
+            else:
+                self.fails[neigh].add("LAG flapped %s times on %s after warm boot" % (flap_cnt, neigh))
 
     def extract_no_cpu_replies(self, arr):
       """
@@ -904,7 +1068,10 @@ class ReloadTest(BaseTest):
             self.log("Sender started at %s" % str(sender_start))
             for entry in packets_list:
                 time.sleep(interval)
-                testutils.send_packet(self, *entry)
+                if self.vnet:
+                    testutils.send_packet(self, entry[0], entry[1].decode("base64"))
+                else:
+                    testutils.send_packet(self, *entry)
             self.log("Sender has been running for %s" % str(datetime.datetime.now() - sender_start))
             # Remove filter
             self.apply_filter_all_ports('')
@@ -917,7 +1084,7 @@ class ReloadTest(BaseTest):
         The native scapy.snif() is used as a background thread, to allow delayed start for the send_in_background().
         """
         if not wait:
-            wait = self.time_to_listen + 60
+            wait = self.time_to_listen + self.test_params['sniff_time_incr']
         sniffer_start = datetime.datetime.now()
         self.log("Sniffer started at %s" % str(sniffer_start))
         sniff_filter = "tcp and tcp dst port 5000 and tcp src port 1234 and not icmp"
@@ -930,7 +1097,7 @@ class ReloadTest(BaseTest):
         self.sniffer_started.clear()
 
     def save_sniffed_packets(self):
-        filename = "/tmp/capture_%s.pcap" % self.preboot_oper if self.preboot_oper is not None else "/tmp/capture.pcap"
+        filename = "/tmp/capture_%s.pcap" % self.sad_oper if self.sad_oper is not None else "/tmp/capture.pcap"
         if self.packets:
             scapyall.wrpcap(filename, self.packets)
             self.log("Pcap file dumped to %s" % filename)
@@ -1007,6 +1174,22 @@ class ReloadTest(BaseTest):
             self.check_tcp_payload(pkt) and
             self.no_flood(pkt)
             ]
+
+        if self.vnet:
+            decap_packets = [ scapyall.Ether(str(pkt.payload.payload.payload)[8:]) for pkt in all_packets if
+                scapyall.UDP in pkt and
+                pkt[scapyall.UDP].sport == 1234
+                ]
+            filtered_decap_packets = [ pkt for pkt in decap_packets if
+                scapyall.TCP in pkt and
+                not scapyall.ICMP in pkt and
+                pkt[scapyall.TCP].sport == 1234 and
+                pkt[scapyall.TCP].dport == 5000 and
+                self.check_tcp_payload(pkt) and
+                self.no_flood(pkt)
+                ]
+            filtered_packets = filtered_packets + filtered_decap_packets
+
         # Re-arrange packets, if delayed, by Payload ID and Timestamp:
         packets = sorted(filtered_packets, key = lambda packet: (int(str(packet[scapyall.TCP].payload)), packet.time ))
         self.lost_packets = dict()
@@ -1051,8 +1234,8 @@ class ReloadTest(BaseTest):
         self.fails['dut'].add("Sniffer failed to filter any traffic from DUT")
         self.assertTrue(received_counter, "Sniffer failed to filter any traffic from DUT")
         self.fails['dut'].clear()
+        self.disrupts_count = len(self.lost_packets) # Total disrupt counter.
         if self.lost_packets:
-            self.disrupts_count = len(self.lost_packets) # Total disrupt counter.
             # Find the longest loss with the longest time:
             max_disrupt_from_id, (self.max_lost_id, self.max_disrupt_time, self.no_routing_start, self.no_routing_stop) = \
                 max(self.lost_packets.items(), key = lambda item:item[1][0:2])
@@ -1061,10 +1244,14 @@ class ReloadTest(BaseTest):
             self.log("Disruptions happen between %s and %s after the reboot." % \
                 (str(self.disruption_start - self.reboot_start), str(self.disruption_stop - self.reboot_start)))
         else:
+            self.max_lost_id = 0
+            self.max_disrupt_time = 0
+            self.total_disrupt_packets = 0
+            self.total_disrupt_time = 0
             self.log("Gaps in forwarding not found.")
         self.log("Total incoming packets captured %d" % received_counter)
         if packets:
-            filename = '/tmp/capture_filtered.pcap' if self.preboot_oper is None else "/tmp/capture_filtered_%s.pcap" % self.preboot_oper
+            filename = '/tmp/capture_filtered.pcap' if self.sad_oper is None else "/tmp/capture_filtered_%s.pcap" % self.sad_oper
             scapyall.wrpcap(filename, packets)
             self.log("Filtered pcap dumped to %s" % filename)
 

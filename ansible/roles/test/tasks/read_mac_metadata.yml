@@ -48,5 +48,5 @@
     when: (minigraph1 is defined) or (minigraph2 is defined) and (store_original_minigraph is defined)
 
   - name: Verify MAC in image reinstall loop
-    include: roles/test/tasks/read_mac/read_mac_metadata_loop.yml
+    include_tasks: roles/test/tasks/read_mac/read_mac_metadata_loop.yml
     with_sequence: count={{ iterations }}

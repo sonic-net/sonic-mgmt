@@ -9,7 +9,7 @@
         out_dir: /tmp
         run_dir: /tmp
         errors_expected: true
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Verify "CRM_CLEAR" log message for "used" threshold
       vars:
@@ -20,7 +20,7 @@
         out_dir: /tmp
         run_dir: /tmp
         errors_expected: true
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Verify "CRM_EXCEEDED" log message for "free" threshold
       vars:
@@ -31,7 +31,7 @@
         out_dir: /tmp
         run_dir: /tmp
         errors_expected: true
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Verify "CRM_CLEAR" log message for "free" threshold
       vars:
@@ -42,7 +42,7 @@
         out_dir: /tmp
         run_dir: /tmp
         errors_expected: true
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Verify "CRM_EXCEEDED" log message for "percentage" threshold
       vars:
@@ -55,7 +55,7 @@
         out_dir: /tmp
         run_dir: /tmp
         errors_expected: true
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Verify "CRM_CLEAR" log message for "percentage" threshold
       vars:
@@ -68,7 +68,7 @@
         out_dir: /tmp
         run_dir: /tmp
         errors_expected: true
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
   always:
 

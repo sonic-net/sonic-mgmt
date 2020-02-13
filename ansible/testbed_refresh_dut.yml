@@ -6,7 +6,7 @@
 #  - configuration property
 #  - configuration
 #
-#  topology key contains a dictionary of hostnames with 'vm_offset' and 'vlans' keys in it. 
+#  topology key contains a dictionary of hostnames with 'vm_offset' and 'vlans' keys in it.
 #  'vm_offset' is used to map current hostname vm_set VM to server VM (like ARISTA01T0 -> VM0300).
 #  This offset is used on VM_base
 #  'vlans' is a list of vlan offsets which helps us to calculate vlan numbers which will be connected to Eth1/1..Eth1/8 interfaces.
@@ -69,7 +69,7 @@
 
   - name: Read dut minigraph
     conn_graph_facts: host={{ dut_name }}
-    connection: local
+    delegate_to: localhost
 
   roles:
     - { role: vm_set, action: 'stop_sonic_vm' }
