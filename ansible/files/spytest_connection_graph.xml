@@ -1,0 +1,61 @@
+<LabConnectionGraph>
+  <PhysicalNetworkGraphDeclaration>
+    <Devices>
+      <Device Hostname="STR2-7260CX3-ACS-Root02" HwSku="Arista-7260CX3-64" Type="FanoutRoot"/>
+      <Device Hostname="str2-dx010-acs-2" HwSku="Celestica-DX010-C32" Type="FanoutLeafSonic"/>
+      <Device Hostname="str2-msn2700-spy-1" HwSku="Mellanox-SN2700" Type="DevSonic"/>
+      <Device Hostname="str2-msn2700-spy-2" HwSku="Mellanox-SN2700" Type="DevSonic"/>
+      <Device Hostname="str2-a7060-spy-1" HwSku="Arista-7060CX-32S-C32" Type="DevSonic"/>
+      <Device Hostname="str2-a7060-spy-2" HwSku="Arista-7060CX-32S-C32" Type="DevSonic"/>
+    </Devices>
+    <DeviceInterfaceLinks>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp32" StartDevice="STR2-7260CX3-ACS-Root02" StartPort="Ethernet64/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp1" StartDevice="str2-msn2700-spy-1" StartPort="Ethernet0"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp2" StartDevice="str2-msn2700-spy-1" StartPort="Ethernet4"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp3" StartDevice="str2-msn2700-spy-1" StartPort="Ethernet8"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp4" StartDevice="str2-msn2700-spy-1" StartPort="Ethernet12"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp5" StartDevice="str2-msn2700-spy-2" StartPort="Ethernet0"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp6" StartDevice="str2-msn2700-spy-2" StartPort="Ethernet4"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp7" StartDevice="str2-msn2700-spy-2" StartPort="Ethernet8"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp8" StartDevice="str2-msn2700-spy-2" StartPort="Ethernet12"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp9" StartDevice="str2-a7060-spy-1" StartPort="Ethernet0"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp10" StartDevice="str2-a7060-spy-1" StartPort="Ethernet4"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp11" StartDevice="str2-a7060-spy-1" StartPort="Ethernet8"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp12" StartDevice="str2-a7060-spy-1" StartPort="Ethernet12"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp13" StartDevice="str2-a7060-spy-2" StartPort="Ethernet0"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp14" StartDevice="str2-a7060-spy-2" StartPort="Ethernet4"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp15" StartDevice="str2-a7060-spy-2" StartPort="Ethernet8"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-dx010-acs-2" EndPort="etp16" StartDevice="str2-a7060-spy-2" StartPort="Ethernet12"/>
+    </DeviceInterfaceLinks>
+  </PhysicalNetworkGraphDeclaration>
+  <DataPlaneGraph>
+    <DevicesL3Info Hostname="STR2-7260CX3-ACS-Root02">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.104/23"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="STR2-7260CX3-ACS-Root02">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="201-216"/>
+    </DevicesL2Info>
+    <DevicesL3Info Hostname="str2-dx010-acs-2">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.236/23"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="str2-dx010-acs-2">
+      <InterfaceVlan mode="Trunk" portname="etp32" vlanids="201-216"/>
+      <InterfaceVlan mode="Access" portname="etp1" vlanids="201"/>
+      <InterfaceVlan mode="Access" portname="etp2" vlanids="202"/>
+      <InterfaceVlan mode="Access" portname="etp3" vlanids="203"/>
+      <InterfaceVlan mode="Access" portname="etp4" vlanids="204"/>
+      <InterfaceVlan mode="Access" portname="etp5" vlanids="205"/>
+      <InterfaceVlan mode="Access" portname="etp6" vlanids="206"/>
+      <InterfaceVlan mode="Access" portname="etp7" vlanids="207"/>
+      <InterfaceVlan mode="Access" portname="etp8" vlanids="208"/>
+      <InterfaceVlan mode="Access" portname="etp9" vlanids="209"/>
+      <InterfaceVlan mode="Access" portname="etp10" vlanids="210"/>
+      <InterfaceVlan mode="Access" portname="etp11" vlanids="211"/>
+      <InterfaceVlan mode="Access" portname="etp12" vlanids="212"/>
+      <InterfaceVlan mode="Access" portname="etp13" vlanids="213"/>
+      <InterfaceVlan mode="Access" portname="etp14" vlanids="214"/>
+      <InterfaceVlan mode="Access" portname="etp15" vlanids="215"/>
+      <InterfaceVlan mode="Access" portname="etp16" vlanids="216"/>
+    </DevicesL2Info>
+  </DataPlaneGraph>
+</LabConnectionGraph>

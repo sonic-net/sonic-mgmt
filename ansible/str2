@@ -1,0 +1,39 @@
+[sonic_mlnx]
+str2-msn2700-spy-1  ansible_host=10.3.146.242
+str2-msn2700-spy-2  ansible_host=10.3.146.243
+
+[sonic_mlnx:vars]
+hwsku="Mellanox-SN2700"
+iface_speed='100000'
+
+[sonic_arista]
+str2-a7060-spy-1    ansible_host=10.3.146.241
+str2-a7060-spy-2    ansible_host=10.3.146.240
+
+[sonic_arista:vars]
+hwsku="Arista-7060CX-32S-C32"
+iface_speed='100000'
+
+[sonic:children]
+sonic_mlnx
+sonic_arista
+
+[sonic:vars]
+mgmt_subnet_mask_length='23'
+
+[ptf]
+
+[ptf:vars]
+ansible_ssh_user=root
+ansible_ssh_pass=root
+
+[str2:children]
+sonic
+fanout
+
+[fanout]
+str2-dx010-acs-2   ansible_host=10.3.146.236 os=sonic
+
+[docker_registry]
+acs-devrepo.corp.microsoft.com
+acs-repo.corp.microsoft.com
