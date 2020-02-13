@@ -155,13 +155,11 @@ def enable_counters(duthost):
 
     for cmd in cmd_list:
         duthost.command(cmd)
-    try:
-        yield
-    finally:
-        for port, status in previous_cnt_status.items():
-            if status == "disable":
-                logger.info("Restoring counter '{}' state to disable".format(port))
-                duthost.command("counterpoll {} disable".format(port))
+    yield
+    for port, status in previous_cnt_status.items():
+        if status == "disable":
+            logger.info("Restoring counter '{}' state to disable".format(port))
+            duthost.command("counterpoll {} disable".format(port))
 
 
 @pytest.fixture
