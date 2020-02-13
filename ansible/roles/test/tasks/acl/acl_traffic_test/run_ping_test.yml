@@ -11,7 +11,7 @@
     result_file: "result.loganalysis.{{ testname_unique }}.log"
 
 - name: Start log analyser
-  include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+  include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
 - block:
     - name: Execute ping from host to switch to validate link
@@ -33,7 +33,7 @@
 
   always:
     - name: Stop log analyser
-      include: "{{ loganalyzer_analyze }}"
+      include_tasks: "{{ loganalyzer_analyze }}"
 
     - name: Get the total number of error messages.
       shell: grep "TOTAL MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL MATCHES:[[:space:]]*//p"
@@ -44,5 +44,5 @@
       when: errors_found.rc != 0
 
     - name: Do configuration cleanup.
-      include: "{{ run_config_cleanup }}"
+      include_tasks: "{{ run_config_cleanup }}"
       when: run_cleanup == true

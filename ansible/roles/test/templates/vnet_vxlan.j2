@@ -13,7 +13,7 @@
     "VNET": {
 {% for vnet in vnet_id_list %}
         "{{ vnet  }}": {
-{% if (ipv6_vxlan_test == false) or (loop.index < vnet_v6_base) %}
+{% if (ipv6_vxlan_test == false) or ((loop.index0%num_vnet_batch) < vnet_v6_base) %}
             "vxlan_tunnel": "tunnel_v4",
 {% else %}
             "vxlan_tunnel": "tunnel_v6",

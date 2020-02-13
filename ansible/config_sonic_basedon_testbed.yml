@@ -42,7 +42,7 @@
 
     - name: Gathering testbed information
       test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
-      connection: local
+      delegate_to: localhost
 
     - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
       when: testbed_facts['dut'] != inventory_hostname
@@ -58,7 +58,7 @@
     when: testbed_name is defined
 
   - topo_facts: topo={{ topo }}
-    connection: local
+    delegate_to: localhost
 
   - set_fact:
       VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
@@ -66,7 +66,7 @@
 
   - name: gather testbed VM informations
     testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }}
-    connection: local
+    delegate_to: localhost
     when: "VM_topo | bool"
 
   - name: find interface name mapping and individual interface speed if defined
@@ -82,25 +82,33 @@
     with_items: "{{ host_if_indexes }}"
     when: ("'host_interfaces' in vm_topo_config") and ("'tor' in vm_topo_config['dut_type'] | lower")
 
+  - name: find all vlan configurations for T0 topology
+    vlan_config:
+      vm_topo_config: "{{ vm_topo_config }}"
+      port_alias: "{{ port_alias }}"
+      vlan_config: "{{ vlan_config | default(None) }}"
+    delegate_to: localhost
+    when: ("'host_interfaces' in vm_topo_config") and ("'tor' in vm_topo_config['dut_type'] | lower")
+
   - name: find all interface indexes mapping connecting to VM
     set_fact:
       interface_to_vms: "{{ interface_to_vms|default({}) | combine({ item.key: item.value['interface_indexes'] }) }}"
-    with_dict: vm_topo_config['vm']
+    with_dict: "{{ vm_topo_config['vm'] }}"
 
   - name: find all interface indexes connecting to VM
     set_fact:
       ifindex_to_vms: "{{ ifindex_to_vms|default([]) }} + {{ item.value['interface_indexes']}}"
-    with_dict: vm_topo_config['vm']
+    with_dict: "{{ vm_topo_config['vm'] }}"
 
   - name: find all interface names
     set_fact:
       intf_names: "{{ intf_names | default({}) | combine({item.key: port_alias[item.value[0]|int:item.value[-1]|int+1] }) }}"
-    with_dict: interface_to_vms
+    with_dict: "{{ interface_to_vms }}"
 
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
               dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
-    connection: local
+    delegate_to: localhost
     when: local_minigraph is defined and local_minigraph|bool == true
 
   - block:
@@ -114,18 +122,49 @@
                   dest=/etc/sonic/minigraph.xml
         become: true
 
+      - name: Test if configlet script exist
+        stat:
+            path: vars/configlet/{{ topo }}/apply_clet.sh
+        register: stat_result
+        delegate_to: localhost
+
+      - name: debug print stat_result
+        debug: 
+            msg: Stat result is {{ stat_result }}
+
+      - name: Copy corresponding configlet files if exist
+        copy: src=vars/configlet/{{ topo }}/
+              dest=/etc/sonic/
+        become: true
+        when: stat_result.stat.exists is defined and stat_result.stat.exists
+
+      - name: Replace snmp community string
+        lineinfile:
+            name: /etc/sonic/snmp.yml
+            regexp: '^snmp_rocommunity:'
+            line: 'snmp_rocommunity: {{ snmp_rocommunity }}'
+        become: true
+
       - name: disable automatic minigraph update if we are deploying new minigraph into SONiC
         lineinfile:
             name: /etc/sonic/updategraph.conf
             regexp: '^enabled='
             line: 'enabled=false'
         become: true
+        register: updategraph_conf
 
       - name: restart automatic minigraph update service
         become: true
         service:
           name: updategraph
           state: restarted
+        when: updategraph_conf.changed
+
+      - name: docker status
+        shell: docker ps
+        register: docker_status
+
+      - debug: msg={{ docker_status.stdout_lines }}
 
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
@@ -134,6 +173,11 @@
       - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
         become: true
         shell: config bgp startup all
+
+      - name: execute configlet application script, which applies configlets in strict order.
+        become: true
+        shell: bash -c "/etc/sonic/apply_clet.sh"
+        when: stat_result.stat.exists is defined and stat_result.stat.exists
 
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true

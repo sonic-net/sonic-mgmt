@@ -54,6 +54,10 @@
 
 {% macro fanout_deploy() %}
 conf t
+
+{# Disable CLI paging #}
+no cli default paging enable
+
 no lldp
 no spanning-tree
 ip routing

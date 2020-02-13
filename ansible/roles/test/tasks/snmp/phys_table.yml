@@ -1,7 +1,7 @@
 # Gather facts with SNMP version 2
 - name: Gathering basic snmp facts about the device
   snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
-  connection: local
+  delegate_to: localhost
 
 - set_fact:
     chassis_id: "1"
@@ -34,8 +34,7 @@
   fail:
     msg: '{{ (((item.value.name.split("Ethernet")[-1] | int + 1) * 1000) | string) }}'
   when: '{{ (((item.value.name.split("Ethernet")[-1] | int + 1) * 1000) | string) not in snmp_physical_entities.keys() }}'
-  with_dict:
-      minigraph_ports
+  with_dict: "{{ minigraph_ports }}"
 
 - name: Check all transceiver DOM sensors present in Entity MIB
   fail:

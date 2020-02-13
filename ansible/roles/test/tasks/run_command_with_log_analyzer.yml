@@ -19,14 +19,14 @@
 
 - block:
     - name: Initialize loganalizer. Put start marker to log file.
-      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Run command {{ command_to_run }}
       command: "{{ command_to_run }}"
       become: yes
 
     - name: Use loganalyzer to check for the error messages {{ testname }} / {{ command_to_run }}.
-      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     - name: Read loganalyzer summary file.
       shell: cat "{{ test_out_dir }}/{{ summary_file }}"

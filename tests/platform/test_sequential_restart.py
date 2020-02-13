@@ -5,30 +5,24 @@ This script is to cover the test case 'Sequential syncd/swss restart' in the SON
 https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import logging
-import re
 import os
-import time
 import sys
 
-from ansible_host import AnsibleHost
-from utilities import wait_until
+import pytest
+
+from platform_fixtures import conn_graph_facts
+from common.utilities import wait_until
 from check_critical_services import check_critical_services
-from check_interface_status import check_interface_status
 from check_transceiver_status import check_transceiver_basic
-from check_transceiver_status import all_transceivers_detected
+from check_all_interface_info import check_interface_information
+
+pytestmark = [pytest.mark.disable_loganalyzer]
 
 
-def restart_service_and_check(localhost, dut, service):
+def restart_service_and_check(localhost, dut, service, interfaces):
     """
     Restart specified service and check platform status
     """
-    dut.command("show platform summary")
-    lab_conn_graph_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
-        "../../ansible/files/lab_connection_graph.xml")
-    conn_graph_facts = localhost.conn_graph_facts(host=dut.hostname, filename=lab_conn_graph_file).\
-        contacted['localhost']['ansible_facts']
-    interfaces = conn_graph_facts["device_conn"]
-    asic_type = dut.shell("show platform summary | awk '/ASIC: / {print$2}'")["stdout"].strip()
 
     logging.info("Restart the %s service" % service)
     dut.command("sudo systemctl restart %s" % service)
@@ -37,17 +31,13 @@ def restart_service_and_check(localhost, dut, service):
     check_critical_services(dut)
 
     logging.info("Wait some time for all the transceivers to be detected")
-    assert wait_until(300, 20, all_transceivers_detected, dut, interfaces), \
-        "Not all transceivers are detected in 300 seconds"
-
-    logging.info("Check interface status")
-    time.sleep(60)
-    check_interface_status(dut, interfaces)
+    assert wait_until(300, 20, check_interface_information, dut, interfaces), \
+        "Not all interface information are detected within 300 seconds"
 
     logging.info("Check transceiver status")
     check_transceiver_basic(dut, interfaces)
 
-    if asic_type in ["mellanox"]:
+    if dut.facts["asic_type"] in ["mellanox"]:
 
         current_file_dir = os.path.dirname(os.path.realpath(__file__))
         sub_folder_dir = os.path.join(current_file_dir, "mellanox")
@@ -63,19 +53,20 @@ def restart_service_and_check(localhost, dut, service):
         check_sysfs(dut)
 
 
-def test_restart_swss(localhost, ansible_adhoc, testbed):
+def test_restart_swss(testbed_devices, conn_graph_facts):
     """
     @summary: This test case is to restart the swss service and check platform status
     """
-    hostname = testbed['dut']
-    ans_host = AnsibleHost(ansible_adhoc, hostname)
-    restart_service_and_check(localhost, ans_host, "swss")
+    dut = testbed_devices["dut"]
+    localhost = testbed_devices["localhost"]
+    restart_service_and_check(localhost, dut, "swss", conn_graph_facts["device_conn"])
 
 
-def test_restart_syncd(localhost, ansible_adhoc, testbed):
+@pytest.mark.skip(reason="Restarting syncd is not supported yet")
+def test_restart_syncd(testbed_devices, conn_graph_facts):
     """
     @summary: This test case is to restart the syncd service and check platform status
     """
-    hostname = testbed['dut']
-    ans_host = AnsibleHost(ansible_adhoc, hostname)
-    restart_service_and_check(localhost, ans_host, "syncd")
+    dut = testbed_devices["dut"]
+    localhost = testbed_devices["localhost"]
+    restart_service_and_check(localhost, dut, "syncd", conn_graph_facts["device_conn"])

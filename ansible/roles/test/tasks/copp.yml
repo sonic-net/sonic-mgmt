@@ -1,3 +1,11 @@
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: "{{ item }}"
+  with_items:
+    - "lldp"
+    - "syncd"
+    - "swss"
+
 - block:
     - fail: msg="Please set ptf_host variable"
       when: ptf_host is not defined
@@ -5,9 +13,7 @@
     - name: Ensure LLDP Daemon stopped
       become: yes
       supervisorctl: state=stopped name={{ item }}
-      vars:
-        ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i lldp python
+      delegate_to: "{{ ansible_host }}_lldp"
       with_items:
         - lldp-syncd
         - lldpd
@@ -38,21 +44,25 @@
 
     - name: Update ptf_nn_agent configuration inside dut
       template: src=ptf_nn_agent.conf.dut.j2 dest=/etc/supervisor/conf.d/ptf_nn_agent.conf
-      vars:
-        ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i syncd python
+      delegate_to: "{{ ansible_host }}_syncd"
 
     - name: Restart ptf_nn_agent inside dut
       supervisorctl: state=restarted name=ptf_nn_agent
-      vars:
-        ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i syncd python
+      delegate_to: "{{ ansible_host }}_syncd"
 
     - name: copy the test to ptf container
       copy: src=roles/test/files/ptftests dest=/root
       delegate_to: "{{ ptf_host }}"
 
-    - include: ptf_runner.yml
+    - name: copy copp configuration file
+      copy: src=roles/test/tasks/copp/ip2me_600.json dest=/root
+      delegate_to: "{{ ansible_host }}_swss"
+
+    - name: update copp configuration
+      shell: "swssconfig /root/ip2me_600.json"
+      delegate_to: "{{ ansible_host }}_swss"
+
+    - include_tasks: ptf_runner.yml
       vars:
         ptf_test_name: COPP test - {{ item }}
         ptf_test_dir: ptftests
@@ -76,6 +86,14 @@
         - IP2METest
 
   always:
+    - name: copy copp configuration file
+      copy: src=roles/test/tasks/copp/ip2me_6000.json dest=/root
+      delegate_to: "{{ ansible_host }}_swss"
+
+    - name: restore copp configuration
+      shell: "swssconfig /root/ip2me_6000.json"
+      delegate_to: "{{ ansible_host }}_swss"
+
     - name: Remove existing ip from ptf host
       script: roles/test/files/helpers/remove_ip.sh
       delegate_to: "{{ ptf_host }}"
@@ -96,22 +114,16 @@
 
     - name: Update ptf_nn_agent configuration inside dut
       template: src=ptf_nn_agent.conf.dut.j2 dest=/etc/supervisor/conf.d/ptf_nn_agent.conf
-      vars:
-        ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i syncd python
+      delegate_to: "{{ ansible_host }}_syncd"
 
     - name: Restart ptf_nn_agent inside dut
       supervisorctl: state=restarted name=ptf_nn_agent
-      vars:
-        ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i syncd python
+      delegate_to: "{{ ansible_host }}_syncd"
 
     - name: Restore LLDP Daemon
       become: yes
       supervisorctl: state=started name={{ item }}
-      vars:
-        ansible_shell_type: docker
-        ansible_python_interpreter: docker exec -i lldp python
+      delegate_to: "{{ ansible_host }}_lldp"
       with_items:
         - lldpd
         - lldp-syncd

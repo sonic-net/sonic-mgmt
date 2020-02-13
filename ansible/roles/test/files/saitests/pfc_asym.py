@@ -113,7 +113,7 @@ class PfcAsymOffOnTxTest(PfcAsymBaseTest):
         sched_prof_id = sai_thrift_create_scheduler_profile(self.client, self.RELEASE_PORT_MAX_RATE)
         attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
         attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-        self.client.sai_thrift_set_port_attribute(int(self.non_server_port['index']),attr)
+        self.client.sai_thrift_set_port_attribute(port_list[int(self.non_server_port['index'])],attr)
 
         PfcAsymBaseTest.tearDown(self)
 

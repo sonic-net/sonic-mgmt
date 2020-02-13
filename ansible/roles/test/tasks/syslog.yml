@@ -19,8 +19,13 @@
 # Fetch the source IP of the ansible server
 - name: Get localhost facts
   setup:
-  connection: local
+  delegate_to: localhost
   register: local_facts
+
+- name: Get external host facts
+  setup:
+  delegate_to: "{{ testbed_server }}"
+  register: external_facts
 
 #- debug: var=local_facts.ansible_facts.ansible_eth0.ipv4.address
 
@@ -28,7 +33,8 @@
 # Set variables for the test
 - name: Set variables for the test
   set_fact:
-    local_srcip: "{{ local_facts.ansible_facts.ansible_eth0.ipv4.address }}"
+    local_srcip: "{{ external_facts.ansible_facts.ansible_br1.ipv4.address }}"
+    docker_mgmt_srcip: "{{ local_facts.ansible_facts.ansible_eth0.ipv4.address }}"
     original_syslog_servers: "{{ syslog_servers }}"
     syslog_port: "{{ 65535 | random(start=65000) }}"
     test_message: "Basic Test Message"
@@ -46,10 +52,32 @@
   become: true
   service: name=rsyslog state=restarted
 
+# Add iptables rules for rsyslog test
+- name: Add DOCKER chain input rule
+  delegate_to: "{{ testbed_server }}"
+  become: true
+  iptables:
+    chain: DOCKER
+    protocol: udp
+    destination: "{{ docker_mgmt_srcip }}"
+    destination_port: "{{ syslog_port }}"
+    jump: ACCEPT
+
+- name: Add DOCKER chain DNAT rule
+  delegate_to: "{{ testbed_server }}"
+  become: true
+  iptables:
+    table: nat
+    chain: DOCKER
+    protocol: udp
+    destination_port: "{{ syslog_port }}"
+    jump: DNAT
+    to_destination: "{{ docker_mgmt_srcip }}:{{ syslog_port }}"
+
 # Start local ryslog Server
 
 - name: Load imudp module in local syslog
-  connection: local
+  delegate_to: localhost
   become: true
   lineinfile:
     line: "module(load=\"imudp\")"
@@ -57,7 +85,7 @@
     state: present
 
 - name: Remove imudp ports
-  connection: local
+  delegate_to: localhost
   become: true
   lineinfile:
     regexp: "input\\(type=\"imudp\" port=\"\\d+\"\\)"
@@ -65,7 +93,7 @@
     state: absent
 
 - name: Add imudp port {{ syslog_port }}
-  connection: local
+  delegate_to: localhost
   become: true
   lineinfile:
     line: "input(type=\"imudp\" port=\"{{ syslog_port }}\")"
@@ -73,26 +101,27 @@
     state: present
 
 - name: Stop Syslog Daemon
-  connection: local
+  delegate_to: localhost
   become: true
   shell: killall rsyslogd
   ignore_errors: true
 
 - name: Remove local /var/log/syslog
   become: true
-  connection: local
+  delegate_to: localhost
   file:
     path: /var/log/syslog
     state: absent
 
 - name: Start Syslog Daemon
-  connection: local
+  delegate_to: localhost
   become: true
-  service: name=rsyslog state=started
+  shell: service rsyslog restart
+  ignore_errors: true
 
 - name: Wait a little bit for service to start
   wait_for:
-    timeout: 2
+    timeout: 30
 
 # SSH to device and generate a syslog
 - name: Send test syslog
@@ -110,9 +139,37 @@
   become: true
   service: name=rsyslog state=restarted
 
+- name: Wait a little bit for service to start
+  wait_for:
+    timeout: 30
+
+# Remove iptables rules for rsyslog test
+- name: remove DOCKER chain input rule
+  delegate_to: "{{ testbed_server }}"
+  become: true
+  iptables:
+    chain: DOCKER
+    state: absent
+    protocol: udp
+    destination: "{{ docker_mgmt_srcip }}"
+    destination_port: "{{ syslog_port }}"
+    jump: ACCEPT
+
+- name: remove DOCKER chain DNAT rule
+  delegate_to: "{{ testbed_server }}"
+  become: true
+  iptables:
+    table: nat
+    chain: DOCKER
+    state: absent
+    protocol: udp
+    destination_port: "{{ syslog_port }}"
+    jump: DNAT
+    to_destination: "{{ docker_mgmt_srcip }}:{{ syslog_port }}"
+
 # Check Messages
 - name: Check syslog messages for the test message
-  connection: local
+  delegate_to: localhost
   become: true
   shell: grep {{ inventory_hostname }} /var/log/syslog | grep "{{ test_message }}" | grep -v ansible
   register: grep_result

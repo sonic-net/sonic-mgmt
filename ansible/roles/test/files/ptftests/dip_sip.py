@@ -5,7 +5,7 @@ Description:
     This test uses UDP packets to validate that HW supports routing of L3 packets with DIP=SIP
 
 Topologies:
-    Supports t0, t0-16, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag and t1-64-lag topology
+    Supports t0, t0-16, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag t1-64-lag and t1-64-lag-clet topology
 
 Parameters:
     testbed_type    - testbed type
@@ -185,7 +185,7 @@ class DipSipTest(BaseTest):
     #--------------------------------------------------------------------------
 
     def runTest(self):
-        if self.testbed_type in ['t0', 't0-16', 't0-56', 't0-64', 't0-64-32', 't0-116', 't1', 't1-lag', 't1-64-lag']:
+        if self.testbed_type in ['t0', 't0-16', 't0-56', 't0-64', 't0-64-32', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-64-lag-clet']:
             self.log("Run PORT/LAG-router based test")
 
             test = PortLagRouterBasedTest(self)

@@ -20,7 +20,7 @@
   delegate_to: "{{ ptf_host }}"
 
 - name: Update supervisor configuration
-  include: "roles/test/tasks/common_tasks/update_supervisor.yml"
+  include_tasks: "roles/test/tasks/common_tasks/update_supervisor.yml"
   vars:
     supervisor_host: "{{ ptf_host }}"
 
@@ -29,16 +29,17 @@
   delegate_to: "{{ ptf_host }}"
 
 - block:
-    - include: ptf_runner.yml
+    - include_tasks: ptf_runner.yml
       vars:
         ptf_test_name: VLAN test
         ptf_test_dir: ptftests
         ptf_test_path: vlan_test.VlanTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - vlan_ports_list = \"{{ vlan_ports_list }}\"
           - vlan_intf_list = \"{{ vlan_intf_list }}\"
           - router_mac = \"{{ ansible_Ethernet0['macaddress'] }}\"
-        ptf_extra_options: "--relax --debug info --log-file /tmp/vlan_test.log" 
+        ptf_extra_options: "--relax --debug info --log-file /tmp/vlan_test.log"
   rescue:
     - debug: msg="PTF test raise error"

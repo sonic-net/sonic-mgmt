@@ -57,7 +57,7 @@ options:
 EXAMPLES = '''
 # Gather LLDP facts with SNMP version 2
 - snmp_facts: host={{ inventory_hostname }} version=2c community=public
-  connection: local
+  delegate_to: localhost
 
 # Gather LLDP facts using SNMP version 3
 - lldp_facts:
@@ -142,7 +142,7 @@ def main():
         supports_check_mode=False)
 
     m_args = module.params
-        
+
     if not has_pysnmp:
         module.fail_json(msg='Missing required pysnmp module (check docs)')
 
@@ -152,14 +152,14 @@ def main():
     if m_args['version'] == "v2" or m_args['version'] == "v2c":
         if not m_args['community']:
             module.fail_json(msg='Community not set when using snmp version 2')
-            
+
     if m_args['version'] == "v3":
         if m_args['username'] is None:
             module.fail_json(msg='Username not set when using snmp version 3')
 
         if m_args['level'] == "authPriv" and m_args['privacy'] == None:
             module.fail_json(msg='Privacy algorithm not set when using authPriv')
-            
+
         if m_args['integrity'] == "sha":
             integrity_proto = cmdgen.usmHMACSHAAuthProtocol
         elif m_args['integrity'] == "md5":
@@ -169,7 +169,7 @@ def main():
             privacy_proto = cmdgen.usmAesCfb128Protocol
         elif m_args['privacy'] == "des":
             privacy_proto = cmdgen.usmDESPrivProtocol
-    
+
     # Use SNMP Version 2
     if m_args['version'] == "v2" or m_args['version'] == "v2c":
         snmp_auth = cmdgen.CommunityData(m_args['community'])
@@ -188,7 +188,7 @@ def main():
     v = DefineOid(dotprefix=False)
 
     Tree = lambda: defaultdict(Tree)
-                               
+
     results = Tree()
 
     host = m_args['host']
@@ -222,9 +222,9 @@ def main():
     lldp_rem_port_desc = dict()
     lldp_rem_chassis_id = dict()
     lldp_rem_sys_desc = dict()
-    
+
     vbd = []
-    
+
     for var_binds in var_table:
         for oid, val in var_binds:
             current_oid = oid.prettyPrint()
@@ -233,7 +233,7 @@ def main():
             vbd.append(current_val)
 
             try:
-                if_name = inverse_if_table[str(current_oid.split(".")[-2])] 
+                if_name = inverse_if_table[str(current_oid.split(".")[-2])]
             except Exception as e:
                 print json.dumps({
                     "unbound_interface_index": str(current_oid.split(".")[-2])
@@ -259,10 +259,10 @@ def main():
     lldp_data = dict()
 
     for intf in lldp_rem_sys.viewkeys():
-        lldp_data[intf] = {'neighbor_sys_name': lldp_rem_sys[intf], 
-                                'neighbor_port_desc': lldp_rem_port_desc[intf], 
-                                'neighbor_port_id': lldp_rem_port_id[intf], 
-                                'neighbor_sys_desc': lldp_rem_sys_desc[intf], 
+        lldp_data[intf] = {'neighbor_sys_name': lldp_rem_sys[intf],
+                                'neighbor_port_desc': lldp_rem_port_desc[intf],
+                                'neighbor_port_id': lldp_rem_port_id[intf],
+                                'neighbor_sys_desc': lldp_rem_sys_desc[intf],
                                 'neighbor_chassis_id': lldp_rem_chassis_id[intf]}
 
 

@@ -5,32 +5,27 @@ This script is to cover the test case 'Reload configuration' in the SONiC platfo
 https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import logging
-import re
 import os
-import time
 import sys
 
-from ansible_host import AnsibleHost
-from utilities import wait_until
+import pytest
+
+from platform_fixtures import conn_graph_facts
+from common.utilities import wait_until
 from check_critical_services import check_critical_services
-from check_interface_status import check_interface_status
 from check_transceiver_status import check_transceiver_basic
-from check_transceiver_status import all_transceivers_detected
+from check_all_interface_info import check_interface_information
+
+pytestmark = [pytest.mark.disable_loganalyzer]
 
 
-def test_reload_configuration(localhost, ansible_adhoc, testbed):
+def test_reload_configuration(testbed_devices, conn_graph_facts):
     """
     @summary: This test case is to reload the configuration and check platform status
     """
-    hostname = testbed['dut']
-    ans_host = AnsibleHost(ansible_adhoc, hostname)
-    ans_host.command("show platform summary")
-    lab_conn_graph_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
-        "../../ansible/files/lab_connection_graph.xml")
-    conn_graph_facts = localhost.conn_graph_facts(host=hostname, filename=lab_conn_graph_file).\
-        contacted['localhost']['ansible_facts']
+    ans_host = testbed_devices["dut"]
     interfaces = conn_graph_facts["device_conn"]
-    asic_type = ans_host.shell("show platform summary | awk '/ASIC: / {print$2}'")["stdout"].strip()
+    asic_type = ans_host.facts["asic_type"]
 
     logging.info("Reload configuration")
     ans_host.command("sudo config reload -y")
@@ -39,12 +34,8 @@ def test_reload_configuration(localhost, ansible_adhoc, testbed):
     check_critical_services(ans_host)
 
     logging.info("Wait some time for all the transceivers to be detected")
-    assert wait_until(300, 20, all_transceivers_detected, ans_host, interfaces), \
+    assert wait_until(300, 20, check_interface_information, ans_host, interfaces), \
         "Not all transceivers are detected in 300 seconds"
-
-    logging.info("Check interface status")
-    time.sleep(60)
-    check_interface_status(ans_host, interfaces)
 
     logging.info("Check transceiver status")
     check_transceiver_basic(ans_host, interfaces)

@@ -1,0 +1,4 @@
+[{{ dut_name }}]
+chip = {{ chip }}
+vm_image = {{ disk_image }}
+ip = {{ mgmt_ip_address | ipaddr('address') }}, {{ mgmt_ip_address | ipaddr('netmask') }}, {{ vm_mgmt_gw }}

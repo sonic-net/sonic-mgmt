@@ -1,5 +1,5 @@
 - name: Set front panel/mgmt port for dut
-  include: set_dut_port.yml
+  include_tasks: set_dut_port.yml
 
 - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }}
   vm_topology:
@@ -22,8 +22,7 @@
   when: external_port is defined
 
 - name: Remove ptf docker container ptf_{{ vm_set_name }}
-  docker:
-    name: ptf_{{ vm_set_name }}
-    image: "{{ docker_registry_host }}/{{ ptf_imagename }}"
+  docker_container:
+    name: "ptf_{{ vm_set_name }}"
     state: absent
   become: yes

@@ -11,7 +11,7 @@
     register: pgrep_out
 
   - debug: var=pgrep_out.stdout_lines
-  
+
   - name: Verify that orchagent process is running
     assert: { that: "{{ pgrep_out.stdout_lines | length }} > 0"}
 
@@ -29,7 +29,7 @@
       v6_intf_nei: "fe00::2"
 
   - name: init loganalyzer for later syslog analysis
-    include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+    include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
   - name: gather DUT interface table
     show_interface: command='status'
@@ -65,7 +65,7 @@
     command: "ip neigh change {{ v4_nei }} lladdr {{ v4_mac2 }} dev {{ v4_intf }}"
 
   - name: pause a second and check
-    pause: seconds=2 
+    pause: seconds=2
 
   - name: gather orchagent pid, make sure orchagent is still running after v4 neighbor change mac
     command: "pgrep orchagent"
@@ -73,7 +73,7 @@
 
   - assert: { that: orchid.stdout != '' }
 
-  - name: check kernel arp table again 
+  - name: check kernel arp table again
     switch_arptable:
 
   - name: make sure neighbor mac address was changed on SONiC
@@ -135,17 +135,17 @@
   - assert: { that: "neighbour_mac.stdout | lower == v6_mac2" }
 
   - name: analyze the syslog to make sure no syncd errors
-    include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+    include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
   - name: close out the loganalyzer
-    include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+    include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
   become: yes
 
   always:
     - name: reset all changes
-      include: "roles/test/tasks/common_tasks/reload_config.yml"
+      include_tasks: "roles/test/tasks/common_tasks/reload_config.yml"
       vars:
-        config_source: "minigraph"
+        config_source: "config_db"
 
     - name: check port status
       interface_facts: up_ports={{ minigraph_ports }}

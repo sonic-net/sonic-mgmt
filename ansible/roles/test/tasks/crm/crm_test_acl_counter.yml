@@ -55,7 +55,7 @@
         crm_cli_res: "acl group counter"
         crm_used: "{{new_crm_stats_acl_counter_used}}"
         crm_avail: "{{new_crm_stats_acl_counter_available}}"
-      include: roles/test/tasks/crm/crm_test_threshold.yml
+      include_tasks: roles/test/tasks/crm/crm_test_threshold.yml
 
     - name: Remove ACL
       command: acl-loader delete

@@ -16,27 +16,27 @@
 
 - block:
     - name: Test file input.
-      include: "{{ tests_location }}/acl_input_test/acl_input_test.yml"
+      include_tasks: "{{ tests_location }}/acl_input_test/acl_input_test.yml"
       when: tests_location is defined
 
     - name: Test port bind configuration.
-      include: "{{ tests_location }}/acl_port_bind_test/acl_port_bind_test.yml"
+      include_tasks: "{{ tests_location }}/acl_port_bind_test/acl_port_bind_test.yml"
       when: tests_location is defined
 
     - name: Test orchagent logic.
-      include: "{{ tests_location }}/acl_orchagent_logic_test/acl_orchagent_logic_test.yml"
+      include_tasks: "{{ tests_location }}/acl_orchagent_logic_test/acl_orchagent_logic_test.yml"
       when: tests_location is defined
 
     - name: Test traffic.
-      include: "{{ tests_location }}/acl_traffic_test/acl_traffic_test.yml"
+      include_tasks: "{{ tests_location }}/acl_traffic_test/acl_traffic_test.yml"
       when: tests_location is defined
 
     - name: Test counters traffic.
-      include: "{{ tests_location }}/acl_counter_traffic_test/acl_counter_traffic_test.yml"
+      include_tasks: "{{ tests_location }}/acl_counter_traffic_test/acl_counter_traffic_test.yml"
       when: tests_location is defined
 
     - name: Test L4 port range.
-      include: "{{ tests_location }}/acl_port_range_test/acl_port_range_test.yml"
+      include_tasks: "{{ tests_location }}/acl_port_range_test/acl_port_range_test.yml"
       when: tests_location is defined
 
   always:

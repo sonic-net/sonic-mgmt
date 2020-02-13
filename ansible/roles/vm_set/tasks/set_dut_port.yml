@@ -14,5 +14,11 @@
 - name: Get front panel and mgmt port for kvm vm
   kvm_port:
     vmname: "{{ dut_name }}"
-  when: external_port is not defined
+  when: external_port is not defined and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == 'kvm'
+  become: yes
+
+- name: Get front panel and mgmt port for SID
+  mellanox_simx_port:
+    vmname: "{{ dut_name }}"
+  when: external_port is not defined and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == 'simx'
   become: yes

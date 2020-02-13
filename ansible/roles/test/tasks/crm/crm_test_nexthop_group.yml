@@ -80,4 +80,4 @@
         crm_cli_res: "nexthop group object"
         crm_used: "{{new_crm_stats_nexthop_group_used}}"
         crm_avail: "{{new_crm_stats_nexthop_group_available}}"
-      include: roles/test/tasks/crm/crm_test_threshold.yml
+      include_tasks: roles/test/tasks/crm/crm_test_threshold.yml

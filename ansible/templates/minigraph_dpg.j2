@@ -56,19 +56,21 @@
       </PortChannelInterfaces>
       <VlanInterfaces>
 {% if 'tor' in vm_topo_config['dut_type'] | lower %}
-{% set vlan_intf_str=';'.join(vlan_intfs) %}
+{% for vlan, vlan_param in vlan_configs.items() %}
         <VlanInterface>
-          <Name>Vlan1000</Name>
-           <AttachTo>{{ vlan_intf_str }}</AttachTo>
+          <Name>{{ vlan }}</Name>
+{% set vlan_intf_str=';'.join(vlan_param['intfs']) %}
+          <AttachTo>{{ vlan_intf_str }}</AttachTo>
           <NoDhcpRelay>False</NoDhcpRelay>
           <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
           <Type i:nil="true"/>
 {% set dhcp_servers_str=';'.join(dhcp_servers) %}
           <DhcpRelays>{{ dhcp_servers_str }}</DhcpRelays>
-          <VlanID>1000</VlanID>
-          <Tag>1000</Tag>
-          <Subnets>192.168.0.0/21</Subnets>
+          <VlanID>{{ vlan_param['id'] }}</VlanID>
+          <Tag>{{ vlan_param['tag'] }}</Tag>
+          <Subnets>{{ vlan_param['prefix'] | ipaddr('network') }}/{{ vlan_param['prefix'] | ipaddr('prefix') }}</Subnets>
         </VlanInterface>
+{% endfor %}
 {% endif %}
       </VlanInterfaces>
       <IPInterfaces>
@@ -93,11 +95,13 @@
         </IPInterface>
 {% endfor %}
 {% if 'tor' in vm_topo_config['dut_type'] | lower %}
+{% for vlan, vlan_param in vlan_configs.items() %}
         <IPInterface>
           <Name i:nil="true"/>
-          <AttachTo>Vlan1000</AttachTo>
-          <Prefix>192.168.0.1/21</Prefix>
+          <AttachTo>{{ vlan }}</AttachTo>
+          <Prefix>{{ vlan_param['prefix'] }}</Prefix>
         </IPInterface>
+{% endfor %}
 {% endif %}
       </IPInterfaces>
       <DataAcls/>
@@ -122,7 +126,7 @@
           <InAcl>ssh-only</InAcl>
           <Type>SSH</Type>
         </AclInterface>
-{%- if enable_data_plane_acl|default('true')|bool %}
+{% if enable_data_plane_acl|default('true')|bool %}
         <AclInterface>
           <AttachTo>
 {%- for index in range(vms_number) %}
@@ -130,7 +134,7 @@
 PortChannel{{ ((index+1) |string).zfill(4) }}{% if not loop.last %};{% endif %}
 {% endif %}
 {% endfor %}
-{%- for index in range(vms_number) %}
+{% for index in range(vms_number) %}
 {% if 'port-channel' not in vm_topo_config['vm'][vms[index]]['ip_intf']|lower %}
 {{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][0]] }}{% if not loop.last %};{% endif %}
 {% endif %}
@@ -139,7 +143,7 @@ PortChannel{{ ((index+1) |string).zfill(4) }}{% if not loop.last %};{% endif %}
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
         </AclInterface>
-{% endif -%}
+{% endif %}
       </AclInterfaces>
       <DownstreamSummaries/>
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
