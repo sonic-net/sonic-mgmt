@@ -38,6 +38,7 @@ COMBINED_ACL_DROP_COUNTER = False
 def parse_combined_counters(duthost):
     # Get info whether L2 and L3 drop counters are linked
     # Or ACL and L2 drop counters are linked
+    global COMBINED_L2L3_DROP_COUNTER, COMBINED_ACL_DROP_COUNTER
     base_dir = os.path.dirname(os.path.realpath(__file__))
     with open(os.path.join(base_dir, "combined_drop_counters.yml")) as stream:
         regexps = yaml.safe_load(stream)
