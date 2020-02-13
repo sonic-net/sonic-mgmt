@@ -89,7 +89,7 @@
       vlan_config: "{{ vlan_config | default(None) }}"
     delegate_to: localhost
     when:
-      - ("'host_interfaces' in vm_topo_config") and ("'tor' in vm_topo_config['dut_type'] | lower") and ("'t0' in testbed_facts['topo']")
+      - ("'host_interfaces' in vm_topo_config") and ("'tor' in vm_topo_config['dut_type'] | lower")
       - testbed_facts['topo'] in ["t0", "t0-16", "t0-52", "t0-56", "t0-64", "t0-64-32", "t0-116"]
 
   - name: find all interface indexes mapping connecting to VM
