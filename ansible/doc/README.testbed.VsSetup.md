@@ -119,7 +119,7 @@ vm_host_1
 (skip this step if you use cEOS image)
 
 ```
-$ ./testbed-cli.sh -m veos.vtb start-vms server_1 password.txt
+$ ./testbed-cli.sh -m veos.vtb -n 4 start-vms server_1 password.txt
 ```
   - please note: Here "password.txt" is the ansible vault password file name/path. Ansible allows user use ansible vault to encrypt password files. By default, this shell script require a password file. If you are not using ansible vault, just create an empty file and pass the filename to the command line. The file name and location is created and maintained by user. 
 
