@@ -80,7 +80,7 @@
     set_fact:
       vlan_intfs: "{{ vlan_intfs|default([])}} + ['{{ port_alias[item] }}' ]"
     with_items: "{{ host_if_indexes }}"
-    when: ("'host_interfaces' in vm_topo_config") and ("'tor' in vm_topo_config['dut_type'] | lower")
+    when: "('host_interfaces' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
 
   - name: find all vlan configurations for T0 topology
     vlan_config:
@@ -88,9 +88,7 @@
       port_alias: "{{ port_alias }}"
       vlan_config: "{{ vlan_config | default(None) }}"
     delegate_to: localhost
-    when:
-      - ("'host_interfaces' in vm_topo_config") and ("'tor' in vm_topo_config['dut_type'] | lower")
-      - testbed_facts['topo'] in ["t0", "t0-16", "t0-52", "t0-56", "t0-64", "t0-64-32", "t0-116"]
+    when: "('host_interfaces' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
 
   - name: find all interface indexes mapping connecting to VM
     set_fact:
