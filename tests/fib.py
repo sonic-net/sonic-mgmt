@@ -10,13 +10,13 @@ def announce_routes(ptfip, port, family, podset_number, tor_number, tor_subnet_n
                     nexthop, nexthop_v6,
                     tor_subnet_size = 128, max_tor_subnet_number = 16):
     messages = []
-    
+
     # default route
     if family in ["v4", "both"]:
         messages.append("announce route 0.0.0.0/0 next-hop {} as-path [ {} ]".format(nexthop, spine_asn))
     if family in ["v6", "both"]:
         messages.append("announce route ::/0 next-hop {} as-path [ {} ]".format(nexthop_v6, spine_asn))
-    
+
     # NOTE: Using large enough values (e.g., podset_number = 200,
     # us to overflow the 192.168.0.0/16 private address space here.
     # This should be fine for internal use, but may pose an issue if used otherwise
@@ -35,17 +35,17 @@ def announce_routes(ptfip, port, family, podset_number, tor_number, tor_subnet_n
                 octet3 = ((suffix / 256) % 256)
                 octet4 = (suffix % 256)
                 prefixlen_v4 = (32 - int(math.log(tor_subnet_size, 2)))
-    
+
                 prefix = "{}.{}.{}.{}/{}".format(octet1, octet2, octet3, octet4, prefixlen_v4)
                 prefix_v6 = "20%02X:%02X%02X:0:%02X::/64" % (octet1, octet2, octet3, octet4) 
-    
+
                 leaf_asn = leaf_asn_start + podset
                 tor_asn  = tor_asn_start + tor
                 if podset == 0:
                     aspath = "{}".format(tor_asn)
                 else:
                     aspath = "{} {} {}".format(spine_asn, leaf_asn, tor_asn)
-               
+
                 if family in ["v4", "both"]:
                     messages.append("announce route {} next-hop {} as-path [ {} ]".format(prefix, nexthop, aspath))
                 if family in ["v6", "both"]:
@@ -56,7 +56,7 @@ def announce_routes(ptfip, port, family, podset_number, tor_number, tor_subnet_n
     r = requests.post(url, data=data)
     print r
     assert r.status_code == 200
-   
+
 @pytest.fixture(scope='module')
 def fib_t0(ptfhost, testbed):
 
@@ -82,7 +82,7 @@ def fib_t0(ptfhost, testbed):
         asn = int(v['bgp']['asn'])
         port = 5000 + vm_offset
         ptfhost.exabgp(name=k,
-                       state="restarted", \
+                       state="started", \
                        router_id = str(local_ip), \
                        local_ip  = str(local_ip), \
                        peer_ip   = str(peer_ip.ip), \
@@ -90,23 +90,47 @@ def fib_t0(ptfhost, testbed):
                        peer_asn  = asn, \
                        port = port)
 
-        announce_routes(ptfip, port, "v4", podset_number, tor_number, tor_subnet_number,
-                        spine_asn, leaf_asn_start, tor_asn_start,
-                        local_ip, local_ipv6)
-
     for k, v in testbed['topo']['properties']['configuration'].items():
         vm_offset = testbed['topo']['properties']['topology']['VMs'][k]['vm_offset']
         peer_ip = ipaddress.IPNetwork(v['bp_interface']['ipv6'])
         asn = int(v['bgp']['asn'])
         port = 6000 + vm_offset
         ptfhost.exabgp(name="%s-v6" % k,
-                       state="restarted", \
+                       state="started", \
                        router_id = str(local_ip), \
                        local_ip  = str(local_ipv6), \
                        peer_ip   = str(peer_ip.ip), \
                        local_asn = asn, \
                        peer_asn  = asn, \
                        port = port)
+
+    for k, v in testbed['topo']['properties']['configuration'].items():
+        vm_offset = testbed['topo']['properties']['topology']['VMs'][k]['vm_offset']
+        port = 5000 + vm_offset
+
+        count = 0
+        while count < 5:
+            count += 1
+            time.sleep(15)
+            ret = ptfhost.exabgp(name=k, state="status")
+            if 'RUNNING' is ret['status']:
+                break 
+
+        announce_routes(ptfip, port, "v4", podset_number, tor_number, tor_subnet_number,
+                        spine_asn, leaf_asn_start, tor_asn_start,
+                        local_ip, local_ipv6)
+
+    for k, v in testbed['topo']['properties']['configuration'].items():
+        vm_offset = testbed['topo']['properties']['topology']['VMs'][k]['vm_offset']
+        port = 6000 + vm_offset
+
+        count = 0
+        while count < 5:
+            count += 1
+            time.sleep(15)
+            ret = ptfhost.exabgp(name="%s-v6" % k, state="status")
+            if 'RUNNING' is ret['status']:
+                break 
 
         announce_routes(ptfip, port, "v6", podset_number, tor_number, tor_subnet_number,
                         spine_asn, leaf_asn_start, tor_asn_start,
