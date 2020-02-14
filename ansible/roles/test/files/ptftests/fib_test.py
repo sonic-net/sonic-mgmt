@@ -212,8 +212,8 @@ class FibTest(BaseTest):
         @param dest_ip_addr: destination IP to build packet with.
         @param dst_port_list: list of ports on which to expect packet to come back from the switch
         '''
-        sport = random.randint(0, 65535)
-        dport = random.randint(0, 65535)
+        sport = random.randint(10000, 65535)
+        dport = random.randint(10000, 65535)
         ip_src = "10.0.0.1"
         ip_dst = dst_ip_addr
         src_mac = self.dataplane.get_mac(0, 0)
@@ -261,8 +261,8 @@ class FibTest(BaseTest):
         @param dst_port_list: list of ports on which to expect packet to come back from the switch
         @return Boolean
         '''
-        sport = random.randint(0, 65535)
-        dport = random.randint(0, 65535)
+        sport = random.randint(10000, 65535)
+        dport = random.randint(10000, 65535)
         ip_src = '2000::1'
         ip_dst = dst_ip_addr
         src_mac = self.dataplane.get_mac(0, 0)
