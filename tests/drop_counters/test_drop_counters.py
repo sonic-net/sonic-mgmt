@@ -183,16 +183,17 @@ def mtu_config(duthost):
             cls.iface = iface
         @classmethod
         def restore_mtu(cls):
-            if "PortChannel" in cls.iface:
-                duthost.command("redis-cli -n 4 hset \"PORTCHANNEL|{}\" mtu {}".format(cls.iface, cls.mtu))["stdout"]
-            elif "Ethernet" in cls.iface:
-                duthost.command("redis-cli -n 4 hset \"PORT|{}\" mtu {}".format(cls.iface, cls.mtu))["stdout"]
-            else:
-                raise Exception("Trying to restore MTU on unsupported interface - {}".format(cls.iface))
-    try:
-        yield MTUConfig
-    finally:
-        MTUConfig.restore_mtu()
+            if cls.iface:
+                if "PortChannel" in cls.iface:
+                    duthost.command("redis-cli -n 4 hset \"PORTCHANNEL|{}\" mtu {}".format(cls.iface, cls.mtu))["stdout"]
+                elif "Ethernet" in cls.iface:
+                    duthost.command("redis-cli -n 4 hset \"PORT|{}\" mtu {}".format(cls.iface, cls.mtu))["stdout"]
+                else:
+                    raise Exception("Trying to restore MTU on unsupported interface - {}".format(cls.iface))
+
+    yield MTUConfig
+
+    MTUConfig.restore_mtu()
 
 
 @pytest.fixture
@@ -219,15 +220,14 @@ def acl_setup(duthost, loganalyzer):
     with loganalyzer as analyzer:
         duthost.command("config acl update full {}".format(dut_conf_file_path))
 
-    try:
-        yield
-    finally:
-        loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
-        with loganalyzer as analyzer:
-            logger.info("Applying {}".format(dut_clear_conf_file_path))
-            duthost.command("config acl update full {}".format(dut_clear_conf_file_path))
-            logger.info("Removing {}".format(dut_tmp_dir))
-            duthost.command("rm -rf {}".format(dut_tmp_dir))
+    yield
+
+    loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
+    with loganalyzer as analyzer:
+        logger.info("Applying {}".format(dut_clear_conf_file_path))
+        duthost.command("config acl update full {}".format(dut_clear_conf_file_path))
+        logger.info("Removing {}".format(dut_tmp_dir))
+        duthost.command("rm -rf {}".format(dut_tmp_dir))
 
 
 @pytest.fixture
@@ -258,14 +258,13 @@ def rif_port_down(duthost, setup, loganalyzer):
         duthost.command("config interface shutdown {}".format(rif_member_iface))
 
     time.sleep(1)
-    try:
-        yield ip_dst
-    finally:
-        loganalyzer.expect_regex = [LOG_EXPECT_PORT_ADMIN_UP_RE.format(rif_member_iface)]
-        with loganalyzer as analyzer:
-            duthost.command("config interface startup {}".format(rif_member_iface))
-            time.sleep(wait_after_ports_up)
 
+    yield ip_dst
+
+    loganalyzer.expect_regex = [LOG_EXPECT_PORT_ADMIN_UP_RE.format(rif_member_iface)]
+    with loganalyzer as analyzer:
+        duthost.command("config interface startup {}".format(rif_member_iface))
+        time.sleep(wait_after_ports_up)
 
 
 @pytest.fixture
@@ -288,11 +287,11 @@ def fanouthost(request, testbed_devices):
                 module = importlib.import_module("fanout.{0}.{0}_fanout".format(file_name.strip(".py")))
                 fanout = module.FanoutHandler(testbed_devices)
                 break
-    try:
-        yield fanout
-    finally:
-        if fanout is not None:
-            fanout.restore_config()
+
+    yield fanout
+
+    if fanout is not None:
+        fanout.restore_config()
 
 
 def get_pkt_drops(duthost, cli_cmd):
@@ -786,6 +785,9 @@ def test_ip_pkt_with_exceeded_mtu(ptfadapter, duthost, setup, tx_dut_ports, pkt_
     """
     @summary: Verify that IP packet with exceeded MTU is dropped and L3 drop counter incremented
     """
+    if  "vlan" in tx_dut_ports[ports_info["dut_iface"]].lower():
+        pytest.skip("Test case is not supported on VLAN interface")
+
     tmp_port_mtu = 1500
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"],
