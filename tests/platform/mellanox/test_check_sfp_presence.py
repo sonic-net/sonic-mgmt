@@ -12,7 +12,8 @@ def test_check_sfp_presence(testbed_devices, conn_graph_facts):
     """
     ans_host = testbed_devices["dut"]
     ports_config = json.loads(ans_host.command("sudo sonic-cfggen -d --var-json PORT")["stdout"])
-    check_qsfp_sysfs_command = 'cat /var/run/hw-management/qsfp/qsfp{}_status'
+    sysfs_path = get_sfp_sysfs_path(ans_host)
+    check_qsfp_sysfs_command = 'cat {}'.format(sysfs_path)
     check_intf_presence_command = 'show interface transceiver presence {}'
 
     logging.info("Use show interface status information")
@@ -30,5 +31,13 @@ def test_check_sfp_presence(testbed_devices, conn_graph_facts):
 
         check_sysfs_output = ans_host.command(check_qsfp_sysfs_command.format(str(sfp_id)))
         logging.info('output of check sysfs %s' % (str(check_sysfs_output)))
-        assert check_sysfs_output["rc"] == 0, "Failed to read qsfp_status of sfp%s." % str(sfp_id)
-        assert check_sysfs_output["stdout"] == '1', "Content of qsfp_status of sfp%s is not correct" % str(sfp_id)
+        assert check_sysfs_output["rc"] == 0, "Failed to read sysfs of sfp%s." % str(sfp_id)
+        assert check_sysfs_output["stdout"] == '1', "Content of sysfs of sfp%s is not correct" % str(sfp_id)
+
+
+def get_sfp_sysfs_path(ans_host):
+    file_exists = ans_host.stat(path='/var/run/hw-management/qsfp')
+    if file_exists['stat']['exists'] == True:
+        return '/var/run/hw-management/qsfp/qsfp{}_status'
+    else:
+        return '/var/run/hw-management/sfp/sfp{}_status'
