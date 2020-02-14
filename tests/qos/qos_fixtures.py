@@ -44,7 +44,7 @@ def conn_graph_facts(testbed_devices):
     localhost = testbed_devices["localhost"]
 
     base_path = os.path.dirname(os.path.realpath(__file__))
-    lab_conn_graph_file = os.path.join(base_path, "../../ansible/files/starlab_connection_graph.xml")
+    lab_conn_graph_file = os.path.join(base_path, "../../ansible/files/lab_connection_graph.xml")
     result = localhost.conn_graph_facts(host=dut.hostname, filename=lab_conn_graph_file)['ansible_facts']
 	
     return result
