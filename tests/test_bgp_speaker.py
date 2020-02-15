@@ -101,11 +101,13 @@ def common_setup_teardown(duthost, ptfhost):
                        port=str(port_num[i]))
 
     for i in range(0, 3):
+        ret = {}
         for count in range(0, 5):
             time.sleep(15)
             ret = ptfhost.exabgp(name="bgps%d" % i, state="status")
-            if 'RUNNING' is ret['status']:
-                break 
+            if u'RUNNING' == ret['status']:
+                break
+        assert u'RUNNING' == ret['status']
 
     logging.info("########### Done setup for bgp speaker testing ###########")
 
