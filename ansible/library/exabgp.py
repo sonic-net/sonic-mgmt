@@ -140,9 +140,23 @@ def start_exabgp(module, name):
     refresh_supervisord(module)
     exec_command(module, cmd="supervisorctl start exabgp-%s" % name)
 
+    for count in range(0, 5):
+        time.sleep(15)
+        ret = get_exabgp_status(module, name)
+        if u'RUNNING' == ret['status']:
+            break
+    assert u'RUNNING' == ret['status']
+
 def restart_exabgp(module, name):
     refresh_supervisord(module)
     exec_command(module, cmd="supervisorctl restart exabgp-%s" % name)
+
+    for count in range(0, 5):
+        time.sleep(15)
+        ret = get_exabgp_status(module, name)
+        if u'RUNNING' == ret['status']:
+            break
+    assert u'RUNNING' == ret['status']
 
 def stop_exabgp(module, name):
     exec_command(module, cmd="supervisorctl stop exabgp-%s" % name, ignore_error=True)
