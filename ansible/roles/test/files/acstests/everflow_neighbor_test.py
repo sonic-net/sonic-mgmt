@@ -41,6 +41,7 @@ class EverflowNeighborTest(BaseTest):
         self.asic_type = self.test_params['asic_type']
         self.router_mac = self.test_params['router_mac']
         self.src_port = int(self.test_params['src_port'])
+        self.mirror_stage = self.test_params['mirror_stage']
         self.dst_mirror_ports = [
             int(p)
             for p
