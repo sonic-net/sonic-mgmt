@@ -100,7 +100,7 @@ def fib_t0(ptfhost, testbed):
                        peer_ip   = str(peer_ipv6.ip), \
                        local_asn = asn, \
                        peer_asn  = asn, \
-                       port = port)
+                       port = port6)
 
     for k, v in testbed['topo']['properties']['configuration'].items():
         vm_offset = testbed['topo']['properties']['topology']['VMs'][k]['vm_offset']
