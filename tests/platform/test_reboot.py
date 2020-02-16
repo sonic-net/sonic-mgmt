@@ -156,7 +156,7 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
         logging.info("Further checking skipped for %s test which intends to verify reboot-cause only".format(reboot_type))
         return
 
-    check_further_interfaces_and_services(dut)
+    check_further_interfaces_and_services(dut, interfaces)
 
 
 def check_further_interfaces_and_services(dut, interfaces):
@@ -258,7 +258,7 @@ def _power_off_reboot_helper(kwargs):
         psu_ctrl.turn_on_psu(psu["psu_id"])
 
 
-def test_power_off_reboot(testbed_devices, conn_graph_facts, psu_controller, power_off_delay):
+def _test_power_off_reboot(testbed_devices, conn_graph_facts, psu_controller, power_off_delay):
     """
     @summary: This test case is to perform reboot via powercycle and check platform status
     @param testbed_devices: Fixture initialize devices in testbed
