@@ -66,9 +66,6 @@ reboot_ctrl_dict = {
 }
 
 
-sku_supporting_reboot_cause_test = ['ACS-MSN2410', 'ACS-MSN2700', "LS-SN2700", 'Mellanox-SN2700', 'Mellanox-SN2700-D48C8', 'ACS-MSN3700', 'ACS-MSN3700C', 'ACS-MSN3800', 'Mellanox-SN3800-D112C8']
-sku_supporting_fast_reboot = ['ACS-MSN2410', 'ACS-MSN2700', "LS-SN2700", 'Mellanox-SN2700', 'Mellanox-SN2700-D48C8', 'ACS-MSN2100', 'ACS-MSN2010', 'ACS-MSN2740']
-
 ansible_dut = None
 ansible_interfaces = None
 
@@ -258,7 +255,7 @@ def _power_off_reboot_helper(kwargs):
         psu_ctrl.turn_on_psu(psu["psu_id"])
 
 
-def _test_power_off_reboot(testbed_devices, conn_graph_facts, psu_controller, power_off_delay):
+def test_power_off_reboot(testbed_devices, conn_graph_facts, psu_controller, power_off_delay):
     """
     @summary: This test case is to perform reboot via powercycle and check platform status
     @param testbed_devices: Fixture initialize devices in testbed
