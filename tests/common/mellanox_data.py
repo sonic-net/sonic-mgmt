@@ -104,7 +104,7 @@ SWITCH_MODELS = {
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": True,
-            "warm_reboot": True
+            "warm_reboot": False
         },
         "fans": {
             "number": 4,
