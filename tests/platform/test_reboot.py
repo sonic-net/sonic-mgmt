@@ -66,6 +66,18 @@ reboot_ctrl_dict = {
 }
 
 
+sku_supporting_reboot_cause_test = ['ACS-MSN2410', 'ACS-MSN2700', "LS-SN2700", 'Mellanox-SN2700', 'Mellanox-SN2700-D48C8', 'ACS-MSN3700', 'ACS-MSN3700C', 'ACS-MSN3800', 'Mellanox-SN3800-D112C8']
+sku_supporting_fast_reboot = ['ACS-MSN2410', 'ACS-MSN2700', "LS-SN2700", 'Mellanox-SN2700', 'Mellanox-SN2700-D48C8', 'ACS-MSN2100', 'ACS-MSN2010', 'ACS-MSN2740']
+
+ansible_dut = None
+ansible_interfaces = None
+
+def teardown_module():
+    logging.info("Tearing down: to make sure all the critical services, interfaces and transceivers are good")
+    check_critical_services(ansible_dut)
+    check_further_interfaces_and_services(ansible_dut, ansible_interfaces)
+
+
 def check_reboot_cause(dut, reboot_cause_expected):
     """
     @summary: Check the reboot cause on DUT.
@@ -90,6 +102,11 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
     @param reboot_helper: The helper function used only by power off reboot
     @param reboot_kwargs: The argument used by reboot_helper
     """
+    global ansible_dut
+    global ansible_interfaces
+    ansible_dut = dut
+    ansible_interfaces = interfaces
+
     logging.info("Run %s reboot on DUT" % reboot_type)
 
     assert reboot_type in reboot_ctrl_dict.keys(), "Unknown reboot type %s" % reboot_type
@@ -139,6 +156,16 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
         logging.info("Further checking skipped for %s test which intends to verify reboot-cause only".format(reboot_type))
         return
 
+    check_further_interfaces_and_services(dut)
+
+
+def check_further_interfaces_and_services(dut, interfaces):
+    """
+    Perform the further check after reboot-cause, including transceiver status, interface status
+    @param localhost: The Localhost object.
+    @param dut: The AnsibleHost object of DUT.
+    @param interfaces: DUT's interfaces defined by minigraph
+    """
     logging.info("Wait some time for all the transceivers to be detected")
     assert wait_until(300, 20, check_interface_information, dut, interfaces), \
         "Not all transceivers are detected or interfaces are up in 300 seconds"
