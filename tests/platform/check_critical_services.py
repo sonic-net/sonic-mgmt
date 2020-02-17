@@ -11,7 +11,7 @@ from common.utilities import wait_until
 
 def _all_critical_services_fully_started(dut):
     logging.info("Check critical service status")
-    if not dut.critical_services_fully_started:
+    if not dut.critical_services_fully_started():
         logging.info("dut.critical_services_fully_started is False")
         return False
 
