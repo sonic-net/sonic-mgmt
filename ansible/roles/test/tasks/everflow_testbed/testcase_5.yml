@@ -67,11 +67,15 @@
         - dst_ports='{{",".join((spine_ptf_ports))}}'
         - dst_mirror_ports='{{dst_port_1_ptf_id}}'
         - mirror_stage='{{ mirror_stage }}'
+        - session_src_ip='{{ session_src_ip }}'
+        - session_dst_ip='{{ session_dst_ip }}'
+        - session_ttl='{{ session_ttl }}'
+        - session_dscp='{{ session_dscp }}'
         - meter_type='{{ policer_meter_type }}'
         - cir='{{ policer_cir }}'
         - cbs='{{ policer_cbs }}'
         - tolerance='{{ policer_tolerance }}'
-      ptf_extra_options: "--relax --debug info"
+      ptf_extra_options: "--relax --debug info --log-file /tmp/everflow_policer_test.EverflowPolicerTest.{{ lookup('pipe','date +%Y-%m-%d-%H:%M:%S') }}.log"
 
   always:
     - name: Remove the rule with DSCP value and mask
