@@ -43,6 +43,19 @@ class EverflowPolicerTest(BaseTest):
             return False
 
 
+    def getCBSRefillTime(self):
+        '''
+        @summary: Gets Committed Burst Size (CBS) bucket refill time
+
+        Note:
+        Committed Burst Size (CBS) refills at Committed Information Rate (CIR) speed.
+        Example: meter_type=packets, CBS=100 pkts, CIR=100 pkt/sec
+        refill_time = CBS/CIR = 100 pkts / 100 pkt/sec = 1 sec
+        '''
+
+        return self.cbs / self.cir
+
+
     def setUp(self):
         '''
         @summary: Setup the test
@@ -61,6 +74,13 @@ class EverflowPolicerTest(BaseTest):
         self.src_port = int(self.test_params['src_port'])
         self.dst_mirror_ports = [int(p) for p in self.test_params['dst_mirror_ports'].split(",") if p]
         self.dst_ports = [int(p) for p in self.test_params['dst_ports'].split(",")]
+        self.meter_type = self.test_params['meter_type']
+        self.cir = int(self.test_params['cir'])
+        self.cbs = int(self.test_params['cbs'])
+        self.tolerance = int(self.test_params['tolerance'])
+
+        self.min_range = self.cbs - (self.cbs / 100) * self.tolerance
+        self.max_range = self.cbs + (self.cbs / 100) * self.tolerance
 
         self.base_pkt = testutils.simple_tcp_packet(
                 eth_dst = self.router_mac,
@@ -152,14 +172,16 @@ class EverflowPolicerTest(BaseTest):
         self.dataplane.flush()
 
         count = 0
+        testutils.send_packet(self, self.src_port, self.base_pkt, count=self.NUM_OF_TOTAL_PACKETS)
         for i in range(0,self.NUM_OF_TOTAL_PACKETS):
-            testutils.send_packet(self, self.src_port, self.base_pkt)
             (rcv_device, rcv_port, rcv_pkt, pkt_time) = testutils.dp_poll(self, timeout=0.1, exp_pkt=masked_exp_pkt)
             if rcv_pkt is not None and match_payload(rcv_pkt):
                 count += 1
             elif count == 0:
                 print "The first mirrored packet is not recieved"
                 assert False # Fast failure without waiting for full iteration
+            else:
+                break # No more packets available
         print "Received " + str(count) + " mirrored packets after rate limiting"
         return count
 
@@ -173,12 +195,17 @@ class EverflowPolicerTest(BaseTest):
         count = self.checkOriginalFlow()
         assert count == self.NUM_OF_TOTAL_PACKETS
 
-        # Sleep for t=CBS/CIR=(100packets)/(100packets/s)=1s to refill CBS capacity after checkOriginalFlow()
+        # Verify packet policing is used
+        assert_str = "Non packet policing is not supported"
+        assert self.meter_type == "packets", assert_str
+
+        # Sleep for t=CBS/CIR to refill CBS capacity after checkOriginalFlow()
         # otherwise we can have first mirrored packet dropped by policer in checkMirroredFlow()
-        time.sleep(1)
+        time.sleep(self.getCBSRefillTime())
 
         testutils.add_filter(self.greFilter)
 
         # Send traffic and verify the mirroed traffic is rate limited
         count = self.checkMirroredFlow()
-        assert count > 100 and count < self.NUM_OF_TOTAL_PACKETS # cbs = cir = 100
+        assert_str = "min({1}) <= count({0}) <= max({2})".format(count, self.min_range, self.max_range)
+        assert count >= self.min_range and count <= self.max_range, assert_str
