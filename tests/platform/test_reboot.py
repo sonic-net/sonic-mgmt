@@ -66,13 +66,12 @@ reboot_ctrl_dict = {
 }
 
 
-ansible_dut = None
-ansible_interfaces = None
-
-def teardown_module():
+@pytest.fixture(scope="module", autouse=True)
+def teardown_module(duthost, conn_graph_facts):
     logging.info("Tearing down: to make sure all the critical services, interfaces and transceivers are good")
-    check_critical_services(ansible_dut)
-    check_further_interfaces_and_services(ansible_dut, ansible_interfaces)
+    interfaces = conn_graph_facts["device_conn"]
+    check_critical_services(duthost)
+    check_further_interfaces_and_services(duthost, interfaces)
 
 
 def check_reboot_cause(dut, reboot_cause_expected):
@@ -99,11 +98,6 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
     @param reboot_helper: The helper function used only by power off reboot
     @param reboot_kwargs: The argument used by reboot_helper
     """
-    global ansible_dut
-    global ansible_interfaces
-    ansible_dut = dut
-    ansible_interfaces = interfaces
-
     logging.info("Run %s reboot on DUT" % reboot_type)
 
     assert reboot_type in reboot_ctrl_dict.keys(), "Unknown reboot type %s" % reboot_type
