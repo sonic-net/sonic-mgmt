@@ -68,6 +68,8 @@ reboot_ctrl_dict = {
 
 @pytest.fixture(scope="module", autouse=True)
 def teardown_module(duthost, conn_graph_facts):
+    yield
+
     logging.info("Tearing down: to make sure all the critical services, interfaces and transceivers are good")
     interfaces = conn_graph_facts["device_conn"]
     check_critical_services(duthost)
