@@ -3,9 +3,9 @@
 ## Overview
 
 ```PtfTestAdapter``` provides an interface to send and receive traffic in the same way as ```ptf.base_tests.BaseTest``` object in PTF framework.
-It makes use of ```ptf_nn_agent.py``` script running on PTF host, connectes to it over TCP and intialize PTF data plane thread.
+It makes use of ```ptf_nn_agent.py``` script running on PTF host, connects to it over TCP and initialize PTF data plane thread.
 
-**NOTE** a good network connection between sonic-mgmt node and PTF host is requiered for traffic tests to be stable.
+**NOTE** a good network connection between sonic-mgmt node and PTF host is required for traffic tests to be stable.
 
 ## Usage in pytest
 

@@ -12,7 +12,7 @@ import sys
 
 import pytest
 
-from loganalyzer import LogAnalyzer, LogAnalyzerError
+from common.plugins.loganalyzer import LogAnalyzer, LogAnalyzerError
 from common.utilities import wait_until
 from psu_controller import psu_controller
 from thermal_control_test_helper import *
@@ -183,7 +183,7 @@ def check_all_psu_on(dut, psu_test_results):
         psu_test_results[fields[1]] = False
         if " ".join(fields[2:]) == "NOT OK":
             power_off_psu_list.append(fields[1])
-    
+
     if power_off_psu_list:
         logging.warn('Power off PSU list: {}'.format(power_off_psu_list))
 
@@ -347,7 +347,7 @@ def test_show_platform_fanstatus(testbed_devices, mocker_factory):
 def check_show_platform_temperature_output(lines):
     """
     @summary: Check basic output of 'show platform temperature'. Expect output are:
-              "Thermal Not detected" or a table of thermal status data with 8 columns.    
+              "Thermal Not detected" or a table of thermal status data with 8 columns.
     """
     assert len(lines) > 0, 'There must be at least one line output for show platform temperature'
     if len(lines) == 1:
@@ -385,7 +385,7 @@ def test_show_platform_temperature(testbed_devices, mocker_factory):
 @pytest.mark.disable_loganalyzer
 def test_thermal_control_load_invalid_format_json(testbed_devices):
     """
-    @summary: Load a thermal policy file with invalid format, check thermal 
+    @summary: Load a thermal policy file with invalid format, check thermal
               control daemon is up and there is an error log printed
     """
     logging.info('Loading invalid format policy file...')
@@ -395,7 +395,7 @@ def test_thermal_control_load_invalid_format_json(testbed_devices):
 @pytest.mark.disable_loganalyzer
 def test_thermal_control_load_invalid_value_json(testbed_devices):
     """
-    @summary: Load a thermal policy file with invalid value, check thermal 
+    @summary: Load a thermal policy file with invalid value, check thermal
               control daemon is up and there is an error log printed
     """
     logging.info('Loading invalid value policy file...')
@@ -404,7 +404,7 @@ def test_thermal_control_load_invalid_value_json(testbed_devices):
 
 def check_thermal_control_load_invalid_file(testbed_devices, file_name):
     """
-    @summary: Load an invalid thermal policy file check thermal 
+    @summary: Load an invalid thermal policy file check thermal
               control daemon is up and there is an error log printed
     """
     dut = testbed_devices["dut"]

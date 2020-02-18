@@ -16,29 +16,6 @@ DUT_MONITOR = "/tmp/dut_monitor.py"
 DUT_CPU_LOG = "/tmp/cpu.log"
 DUT_RAM_LOG = "/tmp/ram.log"
 DUT_HDD_LOG = "/tmp/hdd.log"
-THRESHOLDS = os.path.join(os.path.split(__file__)[0], "thresholds.yml")
-
-
-def pytest_addoption(parser):
-    """Describe plugin specified options"""
-    parser.addoption("--dut_monitor", action="store_true", default=False,
-                     help="Enable DUT hardware resources monitoring")
-    parser.addoption("--thresholds_file", action="store", default=None, help="Path to the custom thresholds file")
-
-
-def pytest_configure(config):
-    if config.option.dut_monitor:
-        config.pluginmanager.register(DUTMonitorPlugin(), "dut_monitor")
-        if config.option.thresholds_file:
-            global THRESHOLDS
-            THRESHOLDS = config.option.thresholds_file
-
-
-def pytest_unconfigure(config):
-    dut_monitor = getattr(config, "dut_monitor", None)
-    if dut_monitor:
-        del config.dut_monitor
-        config.pluginmanager.unregister(dut_monitor)
 
 
 class DUTMonitorPlugin(object):
@@ -48,6 +25,8 @@ class DUTMonitorPlugin(object):
         - handlers to verify that measured CPU, RAM and HDD values during each test item execution
           does not exceed defined threshold
     """
+    def __init__(self, thresholds):
+        self.thresholds = thresholds
 
     @pytest.fixture(autouse=True, scope="session")
     def dut_ssh(self, testbed, creds):
@@ -67,7 +46,7 @@ class DUTMonitorPlugin(object):
         dut_ssh.start()
 
         # Read file with defined thresholds
-        with open(THRESHOLDS) as stream:
+        with open(self.thresholds) as stream:
             general_thresholds = yaml.safe_load(stream)
         dut_thresholds = general_thresholds["default"]
 
@@ -359,7 +338,7 @@ class DUTMonitorClient(object):
             measurements = yaml.safe_load("".join(fp))
         if measurements is None:
             return {}
-        # Sort json data to process logs chronologically 
+        # Sort json data to process logs chronologically
         keys = measurements.keys()
         keys.sort()
         key_value_pairs = [(item, measurements[item]) for item in keys]

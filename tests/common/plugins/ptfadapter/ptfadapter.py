@@ -88,4 +88,3 @@ class PtfTestAdapter(BaseTest):
         """
         self.kill()
         self._init_ptf_dataplane(self.ptf_ip, self.ptf_nn_port, self.device_num, self.ptf_ports_num, ptf_config)
-

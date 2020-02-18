@@ -10,13 +10,16 @@ import yaml
 import ipaddr as ipaddress
 
 from ansible_host import AnsibleHost
-from loganalyzer import LogAnalyzer
 from common.sanity_check import check_critical_services, check_links_up
 
 from common.devices import SonicHost, Localhost, PTFHost
 
 logger = logging.getLogger(__name__)
-pytest_plugins = ('ptf_fixtures', 'ansible_fixtures', 'plugins.dut_monitor.pytest_dut_monitor', 'fib')
+pytest_plugins = ('common.plugins.ptfadapter',
+                  'common.plugins.ansible_fixtures',
+                  'common.plugins.dut_monitor',
+                  'common.plugins.fib',
+                  'common.plugins.loganalyzer')
 
 
 class TestbedInfo(object):
@@ -60,12 +63,11 @@ class TestbedInfo(object):
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
-    parser.addoption("--disable_loganalyzer", action="store_true", default=False,
-                     help="disable loganalyzer analysis for 'loganalyzer' fixture")
 
     # test_vrf options
     parser.addoption("--vrf_capacity", action="store", default=None, type=int, help="vrf capacity of dut (4-1000)")
     parser.addoption("--vrf_test_count", action="store", default=None, type=int, help="number of vrf to be tested (1-997)")
+
 
 @pytest.fixture(scope="session")
 def testbed(request):
@@ -113,6 +115,7 @@ def testbed_devices(ansible_adhoc, testbed):
 
     return devices
 
+
 def disable_ssh_timout(dut):
     '''
     @summary disable ssh session on target dut
@@ -124,6 +127,7 @@ def disable_ssh_timout(dut):
 
     dut.command("sudo systemctl restart ssh")
     time.sleep(5)
+
 
 def enable_ssh_timout(dut):
     '''
@@ -157,6 +161,7 @@ def duthost(testbed_devices, request):
     if stop_ssh_timeout is not None:
         enable_ssh_timout(duthost)
 
+
 @pytest.fixture(scope="module")
 def ptfhost(testbed_devices):
     """
@@ -174,22 +179,6 @@ def eos():
         return eos
 
 
-@pytest.fixture(autouse=True)
-def loganalyzer(duthost, request):
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name)
-    # Add start marker into DUT syslog
-    marker = loganalyzer.init()
-    yield loganalyzer
-    if not request.config.getoption("--disable_loganalyzer") and "disable_loganalyzer" not in request.keywords:
-        # Read existed common regular expressions located with legacy loganalyzer module
-        loganalyzer.load_common_config()
-        # Parse syslog and process result. Raise "LogAnalyzerError" exception if: total match or expected missing
-        # match is not equal to zero
-        loganalyzer.analyze(marker)
-    else:
-        # Add end marker into DUT syslog
-        loganalyzer._add_end_marker(marker)
-
 @pytest.fixture(scope="session")
 def creds():
     """ read and yield lab configuration """
@@ -199,6 +188,7 @@ def creds():
         with open(f) as stream:
             creds.update(yaml.safe_load(stream))
     return creds
+
 
 @pytest.fixture(scope="module", autouse=True)
 def base_sanity(duthost):
@@ -211,6 +201,7 @@ def base_sanity(duthost):
 
     check_critical_services(duthost)
     check_links_up(duthost)
+
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
@@ -229,6 +220,7 @@ def fetch_dbs(duthost, testname):
         duthost.shell("redis-dump -d {} --pretty -o {}.json".format(db[0], db[1]))
         duthost.fetch(src="{}.json".format(db[1]), dest="logs/{}".format(testname))
 
+
 @pytest.fixture
 def collect_techsupport(request, duthost):
     yield
@@ -243,5 +235,5 @@ def collect_techsupport(request, duthost):
         for m in tar.getmembers():
             if m.isfile():
                 tar.extract(m, path="logs/{}/{}/".format(testname, duthost.hostname))
-    
+
         logging.info("########### Collected tech support for test {} ###########".format(testname))
