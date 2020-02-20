@@ -6,7 +6,10 @@ Usage:          Examples of how to use:
 '''
 
 
+import sys
 import time
+import logging
+
 import ptf
 import ptf.packet as scapy
 import ptf.dataplane as dataplane
@@ -14,10 +17,13 @@ import ptf.testutils as testutils
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
 
+logger = logging.getLogger('EverflowPolicerTest')
+
 class EverflowPolicerTest(BaseTest):
 
     GRE_PROTOCOL_NUMBER = 47
     NUM_OF_TOTAL_PACKETS = 500
+    METER_TYPES = ['packets', 'bytes']
 
 
     def __init__(self):
@@ -43,6 +49,69 @@ class EverflowPolicerTest(BaseTest):
             return False
 
 
+    def getCBSRefillTime(self):
+        '''
+        @summary: Gets Committed Burst Size (CBS) bucket refill time
+
+        Note:
+        Committed Burst Size (CBS) refills at Committed Information Rate (CIR) speed.
+        Example: meter_type=packets, CBS=100 pkts, CIR=100 pkt/sec
+        refill_time = CBS/CIR = 100 pkts / 100 pkt/sec = 1 sec
+        '''
+
+        return self.cbs / self.cir
+
+
+    def setupLogging(self):
+        handler = logging.StreamHandler(sys.stdout)
+        logger.addHandler(handler)
+
+
+    def logParams(self):
+        '''
+        @summary: Pretty prints test parameters
+        '''
+
+        logger.info("#")
+        logger.info("# Params")
+        logger.info("#")
+
+        msg = "hwsku={}".format(self.hwsku)
+        logger.info(msg)
+        msg = "asic_type={}".format(self.asic_type)
+        logger.info(msg)
+        msg = "router_mac={}".format(self.router_mac)
+        logger.info(msg)
+        msg = "mirror_stage={}".format(self.mirror_stage)
+        logger.info(msg)
+        msg = "session_src_ip={}".format(self.session_src_ip)
+        logger.info(msg)
+        msg = "session_dst_ip={}".format(self.session_dst_ip)
+        logger.info(msg)
+        msg = "session_ttl={}".format(self.session_ttl)
+        logger.info(msg)
+        msg = "session_dscp={}".format(self.session_dscp)
+        logger.info(msg)
+        msg = "src_port={}".format(self.src_port)
+        logger.info(msg)
+        msg = "dst_mirror_ports={}".format(str(self.dst_mirror_ports))
+        logger.info(msg)
+        msg = "dst_ports={}".format(str(self.dst_ports))
+        logger.info(msg)
+        msg = "meter_type={}".format(self.meter_type)
+        logger.info(msg)
+        msg = "cir={}".format(self.cir)
+        logger.info(msg)
+        msg = "cbs={}".format(self.cbs)
+        logger.info(msg)
+        msg = "tolerance={}".format(self.tolerance)
+        logger.info(msg)
+        msg = "min_range={}".format(self.min_range)
+        logger.info(msg)
+        msg = "max_range={}".format(self.max_range)
+        logger.info(msg)
+
+
     def setUp(self):
         '''
         @summary: Setup the test
@@ -54,13 +123,27 @@ class EverflowPolicerTest(BaseTest):
         self.asic_type = self.test_params['asic_type']
         self.router_mac = self.test_params['router_mac']
         self.mirror_stage = self.test_params['mirror_stage']
-        self.session_src_ip = "1.1.1.1"
-        self.session_dst_ip = "2.2.2.2"
-        self.session_ttl = 1
-        self.session_dscp = 8
+        self.session_src_ip = self.test_params['session_src_ip']
+        self.session_dst_ip = self.test_params['session_dst_ip']
+        self.session_ttl = int(self.test_params['session_ttl'])
+        self.session_dscp = int(self.test_params['session_dscp'])
         self.src_port = int(self.test_params['src_port'])
         self.dst_mirror_ports = [int(p) for p in self.test_params['dst_mirror_ports'].split(",") if p]
         self.dst_ports = [int(p) for p in self.test_params['dst_ports'].split(",")]
+        self.meter_type = self.test_params['meter_type']
+        self.cir = int(self.test_params['cir'])
+        self.cbs = int(self.test_params['cbs'])
+        self.tolerance = int(self.test_params['tolerance'])
+
+        assert_str = "meter_type({0}) not in {1}".format(self.meter_type, str(self.METER_TYPES))
+        assert self.meter_type in self.METER_TYPES, assert_str
+        assert_str = "cir({}) > 0".format(self.cir)
+        assert self.cir > 0, assert_str
+        assert_str = "cbs({}) > 0".format(self.cbs)
+        assert self.cbs > 0, assert_str
+
+        self.min_range = self.cbs - (self.cbs / 100) * self.tolerance
+        self.max_range = self.cbs + (self.cbs / 100) * self.tolerance
 
         self.base_pkt = testutils.simple_tcp_packet(
                 eth_dst = self.router_mac,
@@ -71,6 +154,9 @@ class EverflowPolicerTest(BaseTest):
                 tcp_dport = 0x50,
                 ip_dscp = 9,
                 ip_ttl = 64)
+
+        self.setupLogging()
+        self.logParams()
 
     def checkOriginalFlow(self):
         """
@@ -93,9 +179,11 @@ class EverflowPolicerTest(BaseTest):
             if rcv_pkt is not None:
                 count += 1
             elif count == 0:
-                print "The first original packet is not recieved"
-                assert False # Fast failure without waiting for full iteration
-        print "Recieved " + str(count) + " original packets"
+                assert_str = "The first original packet is not recieved"
+                assert count > 0, assert_str # Fast failure without waiting for full iteration
+
+        logger.info("Recieved {} original packets".format(count))
+
         return count
 
     def checkMirroredFlow(self):
@@ -152,15 +240,19 @@ class EverflowPolicerTest(BaseTest):
         self.dataplane.flush()
 
         count = 0
+        testutils.send_packet(self, self.src_port, self.base_pkt, count=self.NUM_OF_TOTAL_PACKETS)
         for i in range(0,self.NUM_OF_TOTAL_PACKETS):
-            testutils.send_packet(self, self.src_port, self.base_pkt)
             (rcv_device, rcv_port, rcv_pkt, pkt_time) = testutils.dp_poll(self, timeout=0.1, exp_pkt=masked_exp_pkt)
             if rcv_pkt is not None and match_payload(rcv_pkt):
                 count += 1
             elif count == 0:
-                print "The first mirrored packet is not recieved"
-                assert False # Fast failure without waiting for full iteration
-        print "Received " + str(count) + " mirrored packets after rate limiting"
+                assert_str = "The first mirrored packet is not recieved"
+                assert count > 0, assert_str # Fast failure without waiting for full iteration
+            else:
+                break # No more packets available
+
+        logger.info("Received {} mirrored packets after rate limiting".format(count))
+
         return count
 
 
@@ -169,16 +261,25 @@ class EverflowPolicerTest(BaseTest):
         @summary: Run EVERFLOW Policer Test
         """
 
+        logger.info("#")
+        logger.info("# Run test")
+        logger.info("#")
+
         # Send traffic and verify the original traffic is not rate limited
         count = self.checkOriginalFlow()
         assert count == self.NUM_OF_TOTAL_PACKETS
 
-        # Sleep for t=CBS/CIR=(100packets)/(100packets/s)=1s to refill CBS capacity after checkOriginalFlow()
+        # Verify packet policing is used
+        assert_str = "Non packet policing is not supported"
+        assert self.meter_type == "packets", assert_str
+
+        # Sleep for t=CBS/CIR to refill CBS capacity after checkOriginalFlow()
         # otherwise we can have first mirrored packet dropped by policer in checkMirroredFlow()
-        time.sleep(1)
+        time.sleep(self.getCBSRefillTime())
 
         testutils.add_filter(self.greFilter)
 
         # Send traffic and verify the mirroed traffic is rate limited
         count = self.checkMirroredFlow()
-        assert count > 100 and count < self.NUM_OF_TOTAL_PACKETS # cbs = cir = 100
+        assert_str = "min({1}) <= count({0}) <= max({2})".format(count, self.min_range, self.max_range)
+        assert count >= self.min_range and count <= self.max_range, assert_str
