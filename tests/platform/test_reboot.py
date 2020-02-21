@@ -27,6 +27,9 @@ from check_all_interface_info import check_interface_information
 
 pytestmark = [pytest.mark.disable_loganalyzer]
 
+MAX_WAIT_TIME_FOR_INTERFACES = 300
+MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
+
 REBOOT_TYPE_WARM = "warm"
 REBOOT_TYPE_COLD = "cold"
 REBOOT_TYPE_FAST = "fast"
@@ -73,7 +76,8 @@ def teardown_module(duthost, conn_graph_facts):
     logging.info("Tearing down: to make sure all the critical services, interfaces and transceivers are good")
     interfaces = conn_graph_facts["device_conn"]
     check_critical_services(duthost)
-    check_further_interfaces_and_services(duthost, interfaces)
+    check_interfaces_and_services(duthost, interfaces)
+
 
 
 def check_reboot_cause(dut, reboot_cause_expected):
@@ -105,7 +109,6 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
     assert reboot_type in reboot_ctrl_dict.keys(), "Unknown reboot type %s" % reboot_type
 
     reboot_timeout = reboot_ctrl_dict[reboot_type]["timeout"]
-    reboot_cause = reboot_ctrl_dict[reboot_type]["cause"]
 
     dut_datetime = datetime.strptime(dut.command('date -u +"%Y-%m-%d %H:%M:%S"')["stdout"], "%Y-%m-%d %H:%M:%S")
 
@@ -138,30 +141,31 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
     dut_uptime = datetime.strptime(dut.command("uptime -s")["stdout"], "%Y-%m-%d %H:%M:%S")
     assert float(dut_uptime.strftime("%s")) - float(dut_datetime.strftime("%s")) > 10, "Device did not reboot"
 
-    logging.info("Wait until all critical services are fully started")
-    check_critical_services(dut)
+    check_interfaces_and_services(dut, interfaces, reboot_type)
 
-    logging.info("Check reboot cause")
-    assert wait_until(120, 20, check_reboot_cause, dut, reboot_cause), \
-        "got reboot-cause failed after rebooted by %s" % reboot_cause
-
-    if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
-        logging.info("Further checking skipped for %s test which intends to verify reboot-cause only".format(reboot_type))
-        return
-
-    check_further_interfaces_and_services(dut, interfaces)
-
-
-def check_further_interfaces_and_services(dut, interfaces):
+def check_interfaces_and_services(dut, interfaces, reboot_type = None):
     """
-    Perform the further check after reboot-cause, including transceiver status, interface status
+    Perform a further check after reboot-cause, including transceiver status, interface status
     @param localhost: The Localhost object.
     @param dut: The AnsibleHost object of DUT.
     @param interfaces: DUT's interfaces defined by minigraph
     """
-    logging.info("Wait some time for all the transceivers to be detected")
-    assert wait_until(300, 20, check_interface_information, dut, interfaces), \
-        "Not all transceivers are detected or interfaces are up in 300 seconds"
+    logging.info("Wait until all critical services are fully started")
+    check_critical_services(dut)
+
+    if reboot_type is not None:
+        logging.info("Check reboot cause")
+        reboot_cause = reboot_ctrl_dict[reboot_type]["cause"]
+        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, check_reboot_cause, dut, reboot_cause), \
+            "got reboot-cause failed after rebooted by %s" % reboot_cause
+
+        if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
+            logging.info("Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
+            return
+
+    logging.info("Wait %d seconds for all the transceivers to be detected" % MAX_WAIT_TIME_FOR_INTERFACES)
+    assert wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, check_interface_information, dut, interfaces), \
+        "Not all transceivers are detected or interfaces are up in %d seconds" % MAX_WAIT_TIME_FOR_INTERFACES
 
     logging.info("Check transceiver status")
     check_transceiver_basic(dut, interfaces)

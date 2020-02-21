@@ -159,7 +159,7 @@ class SonicHost(AnsibleHostBase):
         for service in self.CRITICAL_SERVICES:
             result[service] = self.is_service_fully_started(service)
 
-        logging.debug("Status of critical services: %s" % str(result))
+        logging.info("Status of critical services: %s" % str(result))
         return all(result.values())
 
 
