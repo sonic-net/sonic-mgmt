@@ -385,7 +385,7 @@ class FanData:
         """
         if self.status_file:
             self.helper.mock_thermal_value(self.status_file, str(status))
-            self.mocked_status = 'OK' if status == 1 else 'Not OK'
+            self.mocked_status = 'OK' if status == 0 else 'Not OK'
         else:
             self.mocked_status = 'OK'
 
@@ -470,10 +470,10 @@ class TemperatureData:
         :param temperature: Temperature value.
         :return:
         """
+        if temperature == 0:
+            temperature = 1000 # avoid to set temperature to 0
         self.helper.mock_thermal_value(self.temperature_file, str(temperature))
         temperature = temperature / float(1000)
-        if temperature == 0.0:
-            temperature = NOT_AVAILABLE # Now mellanox API treat 0.0 as an invalid value of temperature
         self.mocked_temperature = str(temperature)
 
     def get_high_threshold(self):
@@ -545,26 +545,37 @@ class RandomFanStatusMocker(FanStatusMocker):
         fan_index = 1
         drawer_index = 1
         drawer_data = None
+        presence = 0
         naming_rule = FAN_NAMING_RULE['fan']
         while fan_index <= MockerHelper.FAN_NUM:
             try:
                 if (fan_index - 1) % MockerHelper.FAN_NUM_PER_DRAWER == 0:
                     drawer_data = FanDrawerData(self.mock_helper, naming_rule, drawer_index)
                     drawer_index += 1
-                    drawer_data.mock_presence(random.randint(0, 1))
+                    presence = random.randint(0, 1)
+                    drawer_data.mock_presence(presence)
 
                 fan_data = FanData(self.mock_helper, naming_rule, fan_index)
                 fan_index += 1
-                fan_data.mock_status(random.randint(0, 1))
-                fan_data.mock_speed(random.randint(0, 100))
-                fan_data.mock_fan_direction(random.randint(0, 1))
-                self.expected_data[fan_data.name] = [
-                    fan_data.name,
-                    '{}%'.format(fan_data.mocked_speed),
-                    fan_data.mocked_direction,
-                    drawer_data.mocked_presence,
-                    fan_data.mocked_status
-                ]
+                if presence == 1:
+                    fan_data.mock_status(random.randint(0, 1))
+                    fan_data.mock_speed(random.randint(0, 100))
+                    fan_data.mock_fan_direction(random.randint(0, 1))
+                    self.expected_data[fan_data.name] = [
+                        fan_data.name,
+                        '{}%'.format(fan_data.mocked_speed),
+                        fan_data.mocked_direction,
+                        drawer_data.mocked_presence,
+                        fan_data.mocked_status
+                    ]
+                else:
+                    self.expected_data[fan_data.name] = [
+                        fan_data.name,
+                        'N/A',
+                        'N/A',
+                        'Not Present',
+                        'Not OK'
+                    ]
             except SysfsNotExistError as e:
                 logging.info('Failed to mock fan data for {}'.format(fan_data.name))
                 continue
