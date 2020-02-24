@@ -22,13 +22,13 @@ def eos_to_linux_intf(eos_intf_name):
     """
     return eos_intf_name.replace('Ethernet', 'et').replace('/', '_')
 
-def get_active_intfs(dut_ans):
+def get_active_intfs(host_ans):
     """
     @Summary: Get the active interfaces of a DUT
-    @param dut_ans: Ansible host instance of this DUT
+    @param host_ans: Ansible host instance of this DUT
     @return: Return the list of active interfaces
     """
-    int_status = dut_ans.show_interface(command = "status")['ansible_facts']['int_status']
+    int_status = host_ans.show_interface(command = "status")['ansible_facts']['int_status']
     active_intfs = []
     
     for intf in int_status:
@@ -95,17 +95,17 @@ def gen_arp_responder_config(intfs, ip_addrs, mac_addrs, config_file):
             
     return True 
 
-def check_mac_table(dut_ans, mac_addrs):
+def check_mac_table(host_ans, mac_addrs):
     """
     @Summary: Check if the DUT's MAC table (FIB) has all the MAC address information
-    @param dut_ans: Ansible host instance of this DUT
+    @param host_ans: Ansible host instance of this DUT
     @param mac_addrs: list of MAC addresses to check 
     return: Return true if the DUT's MAC table has all the MAC addresses 
     """
     if mac_addrs is None:
         return False 
     
-    stdout = ansible_stdout_to_str(dut_ans.command('show mac')['stdout'])
+    stdout = ansible_stdout_to_str(host_ans.command('show mac')['stdout'])
     
     for mac in mac_addrs:
         if mac.upper() not in stdout.upper():
@@ -113,15 +113,15 @@ def check_mac_table(dut_ans, mac_addrs):
         
     return True
 
-def get_mac(dut_ans, ip_addr):
+def get_mac(host_ans, ip_addr):
     """
     @Summary: Get the MAC address of a given IP address in a DUT
-    @param dut_ans: Ansible host instance of this DUT
+    @param host_ans: Ansible host instance of this DUT
     @param ip_addr: IP address
     return: Return the MAC address or None if we cannot find it
     """
     cmd = 'sudo arp -a -n %s' % (ip_addr)
-    stdout = ansible_stdout_to_str(dut_ans.command(cmd)['stdout']).strip()
+    stdout = ansible_stdout_to_str(host_ans.command(cmd)['stdout']).strip()
     
     if len(stdout) == 0 or 'incomplete' in stdout:
         return None 
@@ -134,6 +134,19 @@ def get_mac(dut_ans, ip_addr):
     
     else:
         return results[0]
-    
+
+def config_intf_ip_mac(host_ans, intf, ip_addr, netmask, mac_addr):
+    """
+    @Summary: Configure IP and MAC on a intferface of a PTF
+    @param host_ans: Ansible host instance of this PTF
+    @param intf: interface name
+    @param ip_addr: IP address, e.g., '192.168.1.1'
+    @param netmask: Network mask, e.g., '255.255.255.0'  
+    @param mac_addr: MAC address, e.g., '00:11:22:33:44:55'
+    """
+    host_ans.shell('ifconfig %s down' % intf)
+    host_ans.shell('ifconfig %s hw ether %s' % (intf, mac_addr))
+    host_ans.shell('ifconfig %s up' % intf)
+    host_ans.shell('ifconfig %s %s netmask %s' % (intf, ip_addr, netmask))
     
     
