@@ -1,8 +1,7 @@
 
 from ansible_host import AnsibleHost
 from qos_fixtures import *
-from qos_helpers import ansible_stdout_to_str, eos_to_linux_intf, get_active_intfs, get_addrs_in_subnet, get_neigh_ip,check_mac_table, get_mac
-
+from qos_helpers import ansible_stdout_to_str, eos_to_linux_intf, get_active_intfs, get_addrs_in_subnet, get_neigh_ip,check_mac_table, get_mac, config_intf_ip_mac
 import pytest
 import os
 import time
@@ -21,6 +20,9 @@ PTF_FILE_DEST = '~/pfc_pause_test.py'
 PTF_PKT_COUNT = 50
 PTF_PKT_INTVL_SEC = 0.1
 PTF_PASS_RATIO_THRESH = 0.75
+
+""" Maximum number of interfaces to test on a DUT """
+MAX_TEST_INTFS_COUNT = 4
          
 def atoi(text):
     return int(text) if text.isdigit() else text
@@ -30,8 +32,10 @@ def natural_keys(text):
 
 def setup_testbed(ansible_adhoc, testbed, leaf_fanouts):
     """
-    @Summary: Set up the testbed, including (1) copying the PFC generator to the leaf fanout switches,
-    and (2) copying the PTF script to the PTF container.
+    @Summary: Set up the testbed, including:
+    (1) copying the PFC generator to the leaf fanout switches,
+    (2) stopping PFC storm at the leaf fanout switches,
+    (3) copying the PTF script to the PTF container.
     @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
     mandatory argument for the class constructors.
     @param testbed: Testbed information
@@ -45,7 +49,13 @@ def setup_testbed(ansible_adhoc, testbed, leaf_fanouts):
         peerdev_ans.shell(cmd)
         file_src = os.path.join(os.path.dirname(__file__), PFC_GEN_FILE_RELATIVE_PATH)
         peerdev_ans.copy(src=file_src, dest=PFC_GEN_FILE_DEST, force=True)
-                  
+   
+    """ Stop PFC storm at the leaf fanout switches """
+    for peer_device in leaf_fanouts:
+        peerdev_ans = AnsibleHost(ansible_adhoc, peer_device)
+        cmd = "sudo kill -9 $(pgrep -f %s) </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE) 
+        peerdev_ans.shell(cmd) 
+                       
     """ Remove existing python scripts on PTF """
     ptf_hostname = testbed['ptf']
     ptf_ans = AnsibleHost(ansible_adhoc, ptf_hostname)
@@ -58,8 +68,19 @@ def setup_testbed(ansible_adhoc, testbed, leaf_fanouts):
     """ Copy the PFC test script to the PTF container """  
     file_src = os.path.join(os.path.dirname(__file__), PTF_FILE_RELATIVE_PATH)
     ptf_ans.copy(src=file_src, dest=PTF_FILE_DEST, force=True)
-
-def run_test_t0(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, prio, dscp, dscp_bg, queue_paused, is_pfc=True, pause_time=65535, max_test_count=128):
+    
+def run_test_t0(ansible_adhoc, 
+                testbed, 
+                conn_graph_facts, 
+                leaf_fanouts, 
+                dscp, 
+                dscp_bg, 
+                queue_paused, 
+                send_pause, 
+                pfc_pause, 
+                pause_prio, 
+                pause_time=65535, 
+                max_test_intfs_count=128):
     """ 
     @Summary: Run a series of tests on a T0 topology.
     For the T0 topology, we only test Vlan (server-faced) interfaces.    
@@ -68,13 +89,14 @@ def run_test_t0(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, prio, ds
     @param testbed: Testbed information
     @param conn_graph_facts: Testbed topology
     @param leaf_fanouts: Leaf fanout switches
-    @param prio: priority of PFC frame
     @param dscp: DSCP value of test data packets
     @param dscp_bg: DSCP value of background data packets
     @param queue_paused: if the queue is expected to be paused
-    @param is_pfc: If this test is for PFC?
-    @param pause_time: pause time quanta of PFC frames. It is 65535 (maximum pause time quanta) by default.
-    @param max_test_count: maximum count of tests to run. By default, it is a very large value to cover all the interfaces.  
+    @param send_pause: send pause frames or not
+    @param pfc_pause: send PFC pause frames or not
+    @param pause_prio: priority of PFC franme
+    @param pause_time: pause time quanta. It is 65535 (maximum pause time quanta) by default.
+    @param max_test_intfs_count: maximum count of interfaces to test. By default, it is a very large value to cover all the interfaces.  
     return: Return # of iterations and # of passed iterations for each tested interface.   
     """
     dut_hostname = testbed['dut']
@@ -110,29 +132,22 @@ def run_test_t0(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, prio, ds
     vlan_members.sort(key = natural_keys)
     vlan_members_index = [phy_intfs.index(intf) for intf in vlan_members]
     ptf_intfs = ['eth' + str(i) for i in vlan_members_index]
-    
-    ptf_hostname = testbed['ptf']
-    ptf_ans = AnsibleHost(ansible_adhoc, ptf_hostname)
-    
-    """ Remove existing IP addresses from PTF host """ 
-    ptf_ans.script('scripts/remove_ip.sh')
-    
-    """ Stop PFC storm at the leaf fanout switches """
-    for peer_device in leaf_fanouts:
-        peerdev_ans = AnsibleHost(ansible_adhoc, peer_device)
-        cmd = "sudo kill -9 $(pgrep -f %s) </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE) 
-        peerdev_ans.shell(cmd) 
-        
+                
     """ Clear DUT's PFC counters """
-    dut_ans.sonic_pfc_counters(method = "clear")
+    dut_ans.sonic_pfc_counters(method="clear")
     
     """ Disable DUT's PFC wd """
     dut_ans.shell('sudo pfcwd stop')
 
+    """ Remove existing IP addresses from PTF host """ 
+    ptf_hostname = testbed['ptf']
+    ptf_ans = AnsibleHost(ansible_adhoc, ptf_hostname)
+    ptf_ans.script('scripts/remove_ip.sh')
+    
     time.sleep(1)
     results = dict()
 
-    for i in range(min(max_test_count, len(ptf_intfs))):
+    for i in range(min(max_test_intfs_count, len(ptf_intfs))):
         src_index = i
         dst_index = (i + 1) % len(ptf_intfs)
         
@@ -149,16 +164,9 @@ def run_test_t0(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, prio, ds
         dut_intf_paused = vlan_members[dst_index]
 
         """ Configure IP and MAC on Tx and Rx interfaces of PTF """
-        ptf_ans.shell('ifconfig %s down' % src_intf)
-        ptf_ans.shell('ifconfig %s hw ether %s'% (src_intf, src_mac))
-        ptf_ans.shell('ifconfig %s up' % src_intf)
-        ptf_ans.shell('ifconfig %s %s netmask %s' % (src_intf, src_ip, vlan_subnet_mask))
-        
-        ptf_ans.shell('ifconfig %s down' % dst_intf)
-        ptf_ans.shell('ifconfig %s hw ether %s'% (dst_intf, dst_mac))
-        ptf_ans.shell('ifconfig %s up' % dst_intf)
-        ptf_ans.shell('ifconfig %s %s netmask %s' % (dst_intf, dst_ip, vlan_subnet_mask))
-                
+        config_intf_ip_mac(ptf_ans, src_intf, src_ip, vlan_subnet_mask, src_mac)
+        config_intf_ip_mac(ptf_ans, dst_intf, dst_ip, vlan_subnet_mask, dst_mac)
+                                
         """ Clear MAC table in DUT (host memory and ASIC) """
         dut_ans.shell('sonic-clear fdb all </dev/null >/dev/null 2>&1 &')
         dut_ans.shell('sudo ip -s -s neigh flush all </dev/null >/dev/null 2>&1 &')
@@ -173,22 +181,23 @@ def run_test_t0(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, prio, ds
         if not check_mac_table(dut_ans, [src_mac, dst_mac]):
             print 'MAC table of DUT is incorrect'
             continue 
-                
-        peer_device = conn_graph_facts['device_conn'][dut_intf_paused]['peerdevice']
-        peer_port = conn_graph_facts['device_conn'][dut_intf_paused]['peerport']
-        peer_port_name = eos_to_linux_intf(peer_port)
-        peerdev_ans = AnsibleHost(ansible_adhoc, peer_device)
         
-        cmd = "nohup sudo python %s -i %s -g -t %d -n %d </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE_DEST, peer_port_name, pause_time, PFC_PKT_COUNT)
+        if send_pause:            
+            peer_device = conn_graph_facts['device_conn'][dut_intf_paused]['peerdevice']
+            peer_port = conn_graph_facts['device_conn'][dut_intf_paused]['peerport']
+            peer_port_name = eos_to_linux_intf(peer_port)
+            peerdev_ans = AnsibleHost(ansible_adhoc, peer_device)
         
-        if is_pfc:
-            cmd = "nohup sudo python %s -i %s -p %d -t %d -n %d </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE_DEST, peer_port_name, 2 ** prio, pause_time, PFC_PKT_COUNT)
+            cmd = "nohup sudo python %s -i %s -g -t %d -n %d </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE_DEST, peer_port_name, pause_time, PFC_PKT_COUNT)
+        
+            if pfc_pause:
+                cmd = "nohup sudo python %s -i %s -p %d -t %d -n %d </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE_DEST, peer_port_name, 2**pause_prio, pause_time, PFC_PKT_COUNT)
                 
-        """ Start PFC / FC storm """
-        peerdev_ans.shell(cmd)
+            """ Start PFC / FC storm """
+            peerdev_ans.shell(cmd)
        
-        """ Wait for PFC pause frame generation """
-        time.sleep(2)
+            """ Wait for PFC pause frame generation """
+            time.sleep(2)
         
         """ Run PTF test """
         intf_info = '--interface %d@%s --interface %d@%s' % (src_index, src_intf, dst_index, dst_intf)
@@ -210,31 +219,46 @@ def run_test_t0(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, prio, ds
             results[dut_intf_paused] = [int(words[1]), int(words[3])] 
         time.sleep(1)
 
-        """ Stop PFC / FC storm """
-        cmd = "sudo kill -9 $(pgrep -f %s) </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE)
-        peerdev_ans.shell(cmd)
-        time.sleep(1)
-                
+        if send_pause:
+            """ Stop PFC / FC storm """
+            cmd = "sudo kill -9 $(pgrep -f %s) </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE)
+            peerdev_ans.shell(cmd)
+            time.sleep(1)
+        
+    """ Remove existing IP addresses from PTF host """ 
+    ptf_ans.script('scripts/remove_ip.sh')
+            
     return results
 
 
-def run_test(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, prio, dscp, dscp_bg, queue_paused, is_pfc=True, pause_time=65535, max_test_count=128):
+def run_test(ansible_adhoc, 
+             testbed, 
+             conn_graph_facts, 
+             leaf_fanouts, 
+             dscp, 
+             dscp_bg, 
+             queue_paused, 
+             send_pause, 
+             pfc_pause, 
+             pause_prio, 
+             pause_time=65535, 
+             max_test_intfs_count=128):
     """ 
-    @Summary: Run a series of tests on a T0 topology.
-    For the T0 topology, we only test Vlan (server-faced) interfaces. 
+    @Summary: Run a series of tests (only support T0 topology)
     @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
     mandatory argument for the class constructors.
     @param testbed: Testbed information
     @param conn_graph_facts: Testbed topology
     @param leaf_fanouts: Leaf fanout switches
-    @param prio: priority of PFC frame
     @param dscp: DSCP value of test data packets
     @param dscp_bg: DSCP value of background data packets
     @param queue_paused: if the queue is expected to be paused
-    @param is_pfc: If this test is for PFC?
-    @param pause_time: pause time quanta of PFC frames. It is 65535 (maximum pause time quanta) by default.
-    @param max_test_count: maximum count of tests to run. By default, it is a very large value to cover all the interfaces.
-    return: Return # of iterations and # of passed iterations for each test case. 
+    @param send_pause: send pause frames or not
+    @param pfc_pause: send PFC pause frames or not
+    @param pause_prio: priority of PFC franme
+    @param pause_time: pause time quanta. It is 65535 (maximum pause time quanta) by default.
+    @param max_test_intfs_count: maximum count of interfaces to test. By default, it is a very large value to cover all the interfaces.  
+    return: Return # of iterations and # of passed iterations for each tested interface.   
     """
     
     print testbed 
@@ -242,59 +266,72 @@ def run_test(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, prio, dscp,
         return run_test_t0(ansible_adhoc=ansible_adhoc,       
                            testbed=testbed, 
                            conn_graph_facts=conn_graph_facts, leaf_fanouts=leaf_fanouts, 
-                           prio=prio, 
                            dscp=dscp, 
                            dscp_bg=dscp_bg, 
                            queue_paused=queue_paused, 
-                           is_pfc=is_pfc, 
+                           send_pause=send_pause,
+                           pfc_pause=pfc_pause,
+                           pause_prio=pause_prio,
                            pause_time=pause_time, 
-                           max_test_count=max_test_count)
+                           max_test_intfs_count=max_test_intfs_count)
             
     else:
         return None 
 
-def test_pfc_pause_lossless(ansible_adhoc, testbed, conn_graph_facts, leaf_fanouts, lossless_prio_dscp_map):
+def test_pfc_pause_lossless(ansible_adhoc,
+                            testbed, 
+                            conn_graph_facts, 
+                            leaf_fanouts, lossless_prio_dscp_map):
+    
     """ @Summary: Test if PFC pause frames can pause a lossless priority without affecting the other priorities """    
     setup_testbed(ansible_adhoc, testbed, leaf_fanouts)
 
     errors = []
     
+    """ DSCP vlaues for lossless priorities """
+    lossless_dscps = [int(dscp) for prio in lossless_prio_dscp_map for dscp in lossless_prio_dscp_map[prio]]
+    """ DSCP values for lossy priorities """
+    lossy_dscps = list(set(range(64)) - set(lossless_dscps))
+    
     for prio in lossless_prio_dscp_map:
-        """ DSCP of the other priorities """
-        other_dscps = [x for x in range(64) if x not in lossless_prio_dscp_map[prio]]
+        """ DSCP values of the other lossless priorities """
+        other_lossless_dscps = list(set(lossless_dscps) - set(lossless_prio_dscp_map[prio]))
+        """ We also need to test some DSCP values for lossy priorities """
+        other_dscps = other_lossless_dscps + random.sample(lossy_dscps, k=2)
         
         for dscp in lossless_prio_dscp_map[prio]:
-            dscp_bg = random.choice(other_dscps)
-            results = run_test(ansible_adhoc=ansible_adhoc, 
-                               testbed=testbed,
-                               conn_graph_facts=conn_graph_facts,
-                               leaf_fanouts=leaf_fanouts, 
-                               prio=prio,
-                               dscp=dscp,
-                               dscp_bg=dscp_bg,
-                               queue_paused=True,
-                               is_pfc=True,
-                               pause_time=65535,
-                               max_test_count=4)
+            for dscp_bg in other_dscps:
+                results = run_test(ansible_adhoc=ansible_adhoc, 
+                                   testbed=testbed,
+                                   conn_graph_facts=conn_graph_facts,
+                                   leaf_fanouts=leaf_fanouts, 
+                                   dscp=dscp,
+                                   dscp_bg=dscp_bg,
+                                   queue_paused=True,
+                                   send_pause=True,
+                                   pfc_pause=True,
+                                   pause_prio=prio,
+                                   pause_time=65535,
+                                   max_test_intfs_count=MAX_TEST_INTFS_COUNT)
 
-            """ results should not be none """
-            if results is None:
-                assert 0 
+                """ results should not be none """
+                if results is None:
+                    assert 0 
             
-            errors = dict()
-            for intf in results:
-                if len(results[intf]) != 2:
-                    continue
+                errors = dict()
+                for intf in results:
+                    if len(results[intf]) != 2:
+                        continue
                 
-                pass_count = results[intf][0]
-                total_count = results[intf][1]
+                    pass_count = results[intf][0]
+                    total_count = results[intf][1]
 
-                if total_count == 0:
-                    continue
+                    if total_count == 0:
+                        continue
             
-                if pass_count < total_count * PTF_PASS_RATIO_THRESH:
-                    errors[intf] = results[intf]
+                    if pass_count < total_count * PTF_PASS_RATIO_THRESH:
+                        errors[intf] = results[intf]
 
-            if len(errors) > 0:
-                print "errors occured:\n{}".format("\n".join(errors))
-                assert 0 
+                if len(errors) > 0:
+                    print "errors occured:\n{}".format("\n".join(errors))
+                    assert 0 
