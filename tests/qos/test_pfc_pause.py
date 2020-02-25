@@ -277,7 +277,7 @@ def run_test(ansible_adhoc,
             
     else:
         return None 
-
+    
 def test_pfc_pause_lossless(ansible_adhoc,
                             testbed, 
                             conn_graph_facts, 
@@ -312,6 +312,65 @@ def test_pfc_pause_lossless(ansible_adhoc,
                                    pfc_pause=True,
                                    pause_prio=prio,
                                    pause_time=65535,
+                                   max_test_intfs_count=MAX_TEST_INTFS_COUNT)
+
+                """ results should not be none """
+                if results is None:
+                    assert 0 
+            
+                errors = dict()
+                for intf in results:
+                    if len(results[intf]) != 2:
+                        continue
+                
+                    pass_count = results[intf][0]
+                    total_count = results[intf][1]
+
+                    if total_count == 0:
+                        continue
+            
+                    if pass_count < total_count * PTF_PASS_RATIO_THRESH:
+                        errors[intf] = results[intf]
+
+                if len(errors) > 0:
+                    print "errors occured:\n{}".format("\n".join(errors))
+                    assert 0 
+
+def test_no_pfc(ansible_adhoc,
+                testbed, 
+                conn_graph_facts, 
+                leaf_fanouts, 
+                lossless_prio_dscp_map):
+    
+    """ @Summary: Test if lossless and lossy priorities can forward packets in the absence of PFC pause frames """
+    setup_testbed(ansible_adhoc, testbed, leaf_fanouts)
+
+    errors = []
+    
+    """ DSCP vlaues for lossless priorities """
+    lossless_dscps = [int(dscp) for prio in lossless_prio_dscp_map for dscp in lossless_prio_dscp_map[prio]]
+    """ DSCP values for lossy priorities """
+    lossy_dscps = list(set(range(64)) - set(lossless_dscps))
+    
+    for prio in lossless_prio_dscp_map:
+        """ DSCP values of the other lossless priorities """
+        other_lossless_dscps = list(set(lossless_dscps) - set(lossless_prio_dscp_map[prio]))
+        """ We also need to test some DSCP values for lossy priorities """
+        other_dscps = other_lossless_dscps + random.sample(lossy_dscps, k=2)
+        
+        for dscp in lossless_prio_dscp_map[prio]:
+            for dscp_bg in other_dscps:
+                results = run_test(ansible_adhoc=ansible_adhoc, 
+                                   testbed=testbed,
+                                   conn_graph_facts=conn_graph_facts,
+                                   leaf_fanouts=leaf_fanouts, 
+                                   dscp=dscp,
+                                   dscp_bg=dscp_bg,
+                                   queue_paused=False,
+                                   send_pause=False,
+                                   pfc_pause=None,
+                                   pause_prio=None,
+                                   pause_time=None,
                                    max_test_intfs_count=MAX_TEST_INTFS_COUNT)
 
                 """ results should not be none """
