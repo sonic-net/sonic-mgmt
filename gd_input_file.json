@@ -2,7 +2,7 @@
     "Topology": {
         "Nodes": {  
             "R1": {  
-                "alias": "R1", 
+                "alias": "UUT", 
                 "platform": "linux",
                 "os": "linux",
                 "custom": "cmal-agent"
@@ -169,6 +169,20 @@
                     "svr_port": "50051",
                     "proto_dump_file": "s1-p4runtime-requests-log.txt",
                     "device_id": "0"
+                },
+                "th3_4": {
+                    "name": "s1",
+                    "svr_addr": "1.81.15.145",
+                    "svr_port": "50051",
+                    "proto_dump_file": "s1-p4runtime-requests-log.txt",
+                    "device_id": "0"
+                },
+                "th3_5": {
+                    "name": "s1",
+                    "svr_addr": "1.81.15.123",
+                    "svr_port": "50051",
+                    "proto_dump_file": "s1-p4runtime-requests-log.txt",
+                    "device_id": "0"
                 }
             },
             "gnmi": {
@@ -176,8 +190,17 @@
                 "R1": {
                     "name": "s1",
                     "svr_addr": "172.17.0.2",
-                    "svr_port": "9339",
-                    "proto_dump_file": "s1-gnmi-requests-log.txt"
+                    "svr_port": "9339"
+                },
+                "th3_4": {
+                    "name": "s1",
+                    "svr_addr": "1.81.15.145",
+                    "svr_port": "9339"
+                },
+                "th3_5": {
+                    "name": "s1",
+                    "svr_addr": "1.81.15.123",
+                    "svr_port": "9339"
                 }
             },
             "infra": {
@@ -185,6 +208,22 @@
                 "R1": {
                     "name": "s1",
                     "svr_addr": "172.17.0.2",
+                    "svr_port": "22",
+                    "svr_gnmi_port": "9339",
+                    "proto_dump_file": "s1-infra-requests-log.txt"
+                },
+                "th3_4": {
+                    "name": "s1",
+                    "svr_addr": "1.81.15.145",
+                    "svr_port": "22",
+                    "username": "cisco",
+                    "password": "lab",
+                    "svr_gnmi_port": "9339",
+                    "proto_dump_file": "s1-infra-requests-log.txt"
+                },
+                "th3_5": {
+                    "name": "s1",
+                    "svr_addr": "1.81.15.123",
                     "svr_port": "22",
                     "svr_gnmi_port": "9339",
                     "proto_dump_file": "s1-infra-requests-log.txt"

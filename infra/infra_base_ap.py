@@ -28,15 +28,23 @@ class ApData:
         input_file = os.path.join(prefix,"gd_ap_input_file.json")
     testbed = Topology(topo_file=test_bed)
     zap = Zap(test_input_file=input_file,topo_file=test_bed)
-    infra_feature_dict = zap.get_feature_configuration("infra")  
+    infra_feature_dict = zap.get_feature_configuration("infra")
+    uut = testbed.get_device(alias="UUT")
+    uut_name = uut.name
+    
     
 class InfraApBase(ApBase):
     # INFRA Base Variables
-    ApData.svr_addr = ApData.infra_feature_dict['R1']['svr_addr']
-    ApData.port_addr = ApData.infra_feature_dict['R1']['svr_port']
-    ApData.proto_dump_file = ApData.infra_feature_dict['R1']['proto_dump_file']
+    ApData.svr_addr = ApData.infra_feature_dict[ApData.uut_name]['svr_addr']
+    log.info(ApData.svr_addr)
+    #ApData.svr_addr = "host_b"
+    ApData.port_addr = ApData.infra_feature_dict[ApData.uut_name]['svr_port']
+    ApData.proto_dump_file = ApData.infra_feature_dict[ApData.uut_name]['proto_dump_file']
     ApData.input_conf_file = ApData.infra_feature_dict['input_conf_file']
-    ApData.sw_name = ApData.infra_feature_dict['R1']['name']
+    ApData.sw_name = ApData.infra_feature_dict[ApData.uut_name]['name']
+    ApData.uname = ApData.infra_feature_dict[ApData.uut_name]['username']
+    ApData.pwd = ApData.infra_feature_dict[ApData.uut_name]['password']
+
 
     # Port Configuration Variables
     

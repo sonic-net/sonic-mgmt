@@ -1,9 +1,9 @@
 {
-    "name": "GD-INFRA",
+    "name": "GD-GNMI",
     "nodes": [
         {
-            "alias": "R1",
-            "name": "docker",
+            "alias": "UUT",
+            "name": "R1",
             "id": 3,
             "type": "linux",
             "access_info": [

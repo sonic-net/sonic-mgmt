@@ -1,110 +1,136 @@
 {
   "GET_WITH_PFX": {
     "openconfig-interfaces:interfaces": {
-        "interface": [
-          {
+      "interface": [
+        {
+          "name": "Loopback123",
+          "config": {
             "name": "Loopback123",
-            "config": {
-              "name": "Loopback123",
-              "description": "For GET_WITH_PFX TC",
-              "type": "iana-if-type:ethernetCsmacd",
-              "mtu": "1500"
-            }
-          },
-          {
-            "name": "Ethernet0",
-            "config": {
-              "name": "Ethernet0",
-              "description": "For GET_WITH_PFX TC",
-              "type": "iana-if-type:ethernetCsmacd",
-              "mtu": "1500"
-            }
+            "description": "For GET_WITH_PFX TC",
+            "type": "iana-if-type:ethernetCsmacd",
+            "mtu": "1500"
           }
-        ]
-      }
+        },
+        {
+          "name": "Ethernet0",
+          "config": {
+            "name": "Ethernet0",
+            "description": "For GET_WITH_PFX TC",
+            "type": "iana-if-type:ethernetCsmacd",
+            "mtu": "1500"
+          }
+        }
+      ]
+    }
   },
   "VERIFY_GET_WITH_PFX": {
     "prefix": "/oc-if:interfaces",
-    "path":"/oc-if:interface"
+    "path": "/oc-if:interface",
+    "config": [
+      {
+        "section": "GET_WITH_PFX",
+        "name": "Loopback123",
+        "key": [
+            {
+            "get_key": "interfaces,interface,config",
+            "set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
+            "set_list_index": "0",
+            "check_var_list": ["name","type","description","mtu"]
+          }
+        ]
+      },
+      {
+        "section": "GET_WITH_PFX",
+        "name": "Ethernet0",
+        "key": [
+          {
+            "get_key": "interfaces,interface,config",
+            "set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
+            "set_list_index": "1",
+            "check_var_list": ["name","type","description","mtu"]
+          }
+        ]
+      }
+    ]
   },
   "VERIFY_GET_WITH_WRONG_PATH": {
     "prefix": "/oc-if:interfaces",
-    "path":"/oc-if:if"
+    "path": "/oc-if:if"
   },
   "GET_WITH_TYPE": {
     "openconfig-interfaces:interfaces": {
-        "interface": [
-          {
+      "interface": [
+        {
+          "name": "Loopback123",
+          "config": {
             "name": "Loopback123",
-            "config": {
-              "name": "Loopback123",
-              "description": "For GET_WITH_PFX TC",
-              "type": "iana-if-type:ethernetCsmacd"
-            }
-          },
-            {
-              "name": "Ethernet0",
-              "config": {
-                "name": "Ethernet0",
-                "description": "For GET_WITH_PFX TC",
-                "type": "iana-if-type:ethernetCsmacd"
-            }
+            "description": "For GET_WITH_PFX TC",
+            "type": "iana-if-type:ethernetCsmacd"
           }
-        ]
-      }
+        },
+        {
+          "name": "Ethernet0",
+          "config": {
+            "name": "Ethernet0",
+            "description": "For GET_WITH_PFX TC",
+            "type": "iana-if-type:ethernetCsmacd"
+          }
+        }
+      ]
+    }
   },
   "VERIFY_GET_WITH_TYPE": {
     "prefix": "/oc-if:interfaces",
-    "path":"/oc-if:interface"
+    "path": "/oc-if:interface"
   },
   "GET_WITH_OC_COMP": {
     "openconfig-platform:components": {
-        "component": [
-          {
+      "component": [
+        {
+          "name": "eth-1/1/0",
+          "config": {
             "name": "eth-1/1/0",
-            "config": {
-              "name": "eth-1/1/0",
-              "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
-            },
-            "port": {
-                "config": {
-                    "openconfig-hercules-platform:port-id": "0"
-                }
-            }
+            "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
           },
-          {
-            "name": "eth-1/1/1",
+          "port": {
             "config": {
-              "name": "eth-1/1/1",
-              "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
-            },
-            "port": {
-                "config": {
-                    "openconfig-hercules-platform:port-id": "1"
-                }
-            }
-          },
-          {
-            "name": "eth-1/1/2",
-            "config": {
-              "name": "eth-1/1/2",
-              "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
-            },
-            "port": {
-                "config": {
-                    "openconfig-hercules-platform:port-id": "2"
-                }
+              "openconfig-hercules-platform:port-id": "0"
             }
           }
-        ]
-      }
+        },
+        {
+          "name": "eth-1/1/1",
+          "config": {
+            "name": "eth-1/1/1",
+            "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
+          },
+          "port": {
+            "config": {
+              "openconfig-hercules-platform:port-id": "1"
+            }
+          }
+        },
+        {
+          "name": "eth-1/1/2",
+          "config": {
+            "name": "eth-1/1/2",
+            "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
+          },
+          "port": {
+            "config": {
+              "openconfig-hercules-platform:port-id": "2"
+            }
+          }
+        }
+      ]
+    }
   },
   "VERIFY_GET_WITH_OC_COMP": {
     "prefix": "/oc-platform:components",
-    "path":"/oc-platform:component"
+    "path": "/oc-platform:component"
   },
   "Inv_Upd_Neg_1": {
-    "Updates" : {
+    "Updates": {
       "set-type": "multiple",
       "set-lst": {
         "set-delete": {
@@ -205,7 +231,6 @@
   },
   "VERIFY_GET_WITH_PATH_CHECK": {
     "prefix": "/oc-if:interfaces",
-    "path":"/oc-if:interface[name=Loopback123]"
+    "path": "/oc-if:interface[name=Loopback123]"
   }
 }
-

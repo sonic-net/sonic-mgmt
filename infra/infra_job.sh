@@ -1,7 +1,7 @@
 # exec
-pytest -s gnmi_ap.py \
+pytest -s infra_ap.py \
     --selective-test-file=selective_test_file.txt \
-    --topology-file gnmi_topo.json \
+    --topology-file "./../th3_4_topo.json" \
     --tb=short \
     --test-input-file="./../gd_input_file.json" \
     --mail-to=pevenkat@cisco.com \

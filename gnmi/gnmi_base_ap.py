@@ -27,6 +27,10 @@ class ApData:
     else:
         input_file = os.path.join(prefix,"gd_ap_input_file.json")
     testbed = Topology(topo_file=test_bed)
+    uut = testbed.get_device(alias="UUT")
+    uut_name = uut.name
+    log.info(uut_name)
+
     zap = Zap(test_input_file=input_file,topo_file=test_bed)
     gnmi_feature_dict = zap.get_feature_configuration("gnmi")  
     
@@ -34,9 +38,7 @@ class GnmiApBase(ApBase):
     # GNMI Base Variables
     ApData.svr_addr = ApData.gnmi_feature_dict['R1']['svr_addr']
     ApData.port_addr = ApData.gnmi_feature_dict['R1']['svr_port']
-    ApData.proto_dump_file = ApData.gnmi_feature_dict['R1']['proto_dump_file']
     ApData.input_conf_file = ApData.gnmi_feature_dict['input_conf_file']
-    ApData.sw_name = ApData.gnmi_feature_dict['R1']['name']
 
     # Port Configuration Variables
     

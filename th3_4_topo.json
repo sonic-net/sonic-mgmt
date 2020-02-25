@@ -1,26 +1,26 @@
 {
-    "name": "GD-GNMI",
+    "name": "GD-P4",
     "nodes": [
         {
             "alias": "UUT",
-            "name": "R1",
+            "name": "th3_4",
             "id": 3,
             "type": "linux",
             "access_info": [
               {
-                "name": "docker",
-                "interface": "docker",
+                "name": "eth0",
+                "interface": "eth0",
                 "address_info": [
                   {
                     "name": "ai",
-                    "address": "172.17.0.1"
+                    "address": "1.81.15.145"
                   }
                 ]
               }
             ],
             "handles": [{
                       "name": "vty",
-                      "via": "docker.ai",
+                      "via": "eth0.ai",
                       "credential": "default",
                       "connection": "ssh",
                       "default": true
@@ -68,8 +68,8 @@
     ],
     "credentials": [{
             "name": "default",
-            "username": "root",
-            "password": ""
+            "username": "cisco",
+            "password": "lab"
         },
         {
             "name": "server",
