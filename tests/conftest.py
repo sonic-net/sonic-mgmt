@@ -3,6 +3,7 @@ import os
 import glob
 import tarfile
 import logging
+import time
 
 import pytest
 import csv
@@ -16,7 +17,11 @@ from common.sanity_check import check_critical_services, check_links_up
 from common.devices import SonicHost, Localhost, PTFHost
 
 logger = logging.getLogger(__name__)
-pytest_plugins = ('ptf_fixtures', 'ansible_fixtures', 'plugins.dut_monitor.pytest_dut_monitor', 'fib')
+pytest_plugins = ('ptf_fixtures',
+                  'ansible_fixtures',
+                  'plugins.dut_monitor.pytest_dut_monitor',
+                  'fib',
+                  'common.plugins.psu_controller')
 
 
 class TestbedInfo(object):
@@ -243,5 +248,5 @@ def collect_techsupport(request, duthost):
         for m in tar.getmembers():
             if m.isfile():
                 tar.extract(m, path="logs/{}/{}/".format(testname, duthost.hostname))
-    
+
         logging.info("########### Collected tech support for test {} ###########".format(testname))

@@ -14,7 +14,6 @@ import pytest
 
 from loganalyzer import LogAnalyzer, LogAnalyzerError
 from common.utilities import wait_until
-from psu_controller import psu_controller
 from thermal_control_test_helper import *
 
 CMD_PLATFORM_SUMMARY = "show platform summary"
@@ -183,7 +182,7 @@ def check_all_psu_on(dut, psu_test_results):
         psu_test_results[fields[1]] = False
         if " ".join(fields[2:]) == "NOT OK":
             power_off_psu_list.append(fields[1])
-    
+
     if power_off_psu_list:
         logging.warn('Power off PSU list: {}'.format(power_off_psu_list))
 
@@ -203,7 +202,7 @@ def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller):
         pytest.skip("At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PSU controller for testing")
-    psu_ctrl = psu_controller(ans_host.hostname, ans_host.facts["asic_type"])
+    psu_ctrl = psu_controller
     if psu_ctrl is None:
         pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % ans_host.hostname)
 
@@ -347,7 +346,7 @@ def test_show_platform_fanstatus(testbed_devices, mocker_factory):
 def check_show_platform_temperature_output(lines):
     """
     @summary: Check basic output of 'show platform temperature'. Expect output are:
-              "Thermal Not detected" or a table of thermal status data with 8 columns.    
+              "Thermal Not detected" or a table of thermal status data with 8 columns.
     """
     assert len(lines) > 0, 'There must be at least one line output for show platform temperature'
     if len(lines) == 1:
@@ -385,7 +384,7 @@ def test_show_platform_temperature(testbed_devices, mocker_factory):
 @pytest.mark.disable_loganalyzer
 def test_thermal_control_load_invalid_format_json(testbed_devices):
     """
-    @summary: Load a thermal policy file with invalid format, check thermal 
+    @summary: Load a thermal policy file with invalid format, check thermal
               control daemon is up and there is an error log printed
     """
     logging.info('Loading invalid format policy file...')
@@ -395,7 +394,7 @@ def test_thermal_control_load_invalid_format_json(testbed_devices):
 @pytest.mark.disable_loganalyzer
 def test_thermal_control_load_invalid_value_json(testbed_devices):
     """
-    @summary: Load a thermal policy file with invalid value, check thermal 
+    @summary: Load a thermal policy file with invalid value, check thermal
               control daemon is up and there is an error log printed
     """
     logging.info('Loading invalid value policy file...')
@@ -404,7 +403,7 @@ def test_thermal_control_load_invalid_value_json(testbed_devices):
 
 def check_thermal_control_load_invalid_file(testbed_devices, file_name):
     """
-    @summary: Load an invalid thermal policy file check thermal 
+    @summary: Load an invalid thermal policy file check thermal
               control daemon is up and there is an error log printed
     """
     dut = testbed_devices["dut"]
@@ -425,7 +424,7 @@ def test_thermal_control_psu_absence(testbed_devices, psu_controller, mocker_fac
         pytest.skip("At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PSU controller for testing")
-    psu_ctrl = psu_controller(dut.hostname, dut.facts["asic_type"])
+    psu_ctrl = psu_controller
     if psu_ctrl is None:
         pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % dut.hostname)
 
