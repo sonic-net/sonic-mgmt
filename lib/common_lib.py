@@ -43,7 +43,6 @@ def node_get(ip, uname, passwd, cmd):
     
     # Now let's try to send 'cmd' to the router
     remote_conn.send("\n")
-    output = remote_conn.recv(1000)
     #remote_conn.send("free -m\n")
     remote_conn.sendall(cmd)
 
