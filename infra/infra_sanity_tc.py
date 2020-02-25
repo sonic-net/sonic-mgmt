@@ -36,13 +36,13 @@ from infra_base_ap import ApData, InfraApBase
 def _test_Memory_Usage():
     #Currently sample added for getting Memory info from DUT in docker. Will update for TH3
     cmd = "cat /proc/meminfo\n"
-    reply = commonLib.node_get(ApData.uut_name, ApData.uname, ApData.pwd, cmd)
+    reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
     log.info(reply.decode())
 
 
 def _test_Optics_Presence_All():
     cmd = "sudo /usr/cisco/godiva/optics/opticsd -presence all\n"
-    reply = commonLib.node_get(ApData.uut_name, ApData.uname, ApData.pwd, cmd)
+    reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
     log.info(reply.decode())
     with open ("data-files/mock-rslt.txt", "r") as myfile:
         data=myfile.readlines()
@@ -56,7 +56,7 @@ def _test_Optics_Presence_All():
 
 def _test_Optics_Laser_Status():
     cmd = "sudo /usr/cisco/godiva/optics/opticsd -laser_status all\n"
-    reply = commonLib.node_get(ApData.uut_name, ApData.uname, ApData.pwd, cmd)
+    reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
     log.info(reply.decode())
     with open ("data-files/mock-rslt1.txt", "r") as myfile:
         data=myfile.readlines()

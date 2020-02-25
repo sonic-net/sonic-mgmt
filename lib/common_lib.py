@@ -27,6 +27,9 @@ def node_get(ip, uname, passwd, cmd):
          paramiko.AutoAddPolicy())
 
     # initiate SSH connection
+    print(ip)
+    print(uname)
+    print(passwd)
     remote_conn_pre.connect(ip, username=uname, password=passwd, look_for_keys=False, allow_agent=False)
     print ("SSH connection established to %s" % ip)
 
