@@ -17,7 +17,7 @@ def check_services(dut):
     logger.info("networking_uptime=%d seconds, timeout=%d seconds, interval=%d seconds" % \
                 (networking_uptime, timeout, interval))
 
-    check_result = {"failed": True}
+    check_result = {"failed": True, "check_item": "services"}
     if timeout == 0:    # Check services status, do not retry.
         services_status = dut.critical_services_status()
         check_result["failed"] = False if all(services_status.values()) else True
@@ -63,11 +63,16 @@ def check_interfaces(dut):
     logger.info("networking_uptime=%d seconds, timeout=%d seconds, interval=%d seconds" % \
                 (networking_uptime, timeout, interval))
 
-    mg_facts = dut.minigraph_facts(host=dut.hostname)['ansible_facts']
-    interfaces = mg_facts["minigraph_ports"].keys() + mg_facts["minigraph_portchannels"].keys() + \
-                 mg_facts["minigraph_vlans"].keys()
+    cfg_facts = dut.config_facts(host=dut.hostname, source="persistent")['ansible_facts']
+    interfaces = [k for k,v in cfg_facts["PORT"].items() if "admin_status" in v and v["admin_status"] == "up"]
+    if "PORTCHANNEL_INTERFACE" in cfg_facts:
+        interfaces += cfg_facts["PORTCHANNEL_INTERFACE"].keys()
+    if "VLAN_INTERFACE" in cfg_facts:
+        interfaces += cfg_facts["VLAN_INTERFACE"].keys()
 
-    check_result = {"failed": True}
+    logger.info(json.dumps(interfaces, indent=4))
+
+    check_result = {"failed": True, "check_item": "interfaces"}
     if timeout == 0:    # Check interfaces status, do not retry.
         down_ports = _find_down_ports(dut, interfaces)
         check_result["failed"] = True if len(down_ports) > 0 else False
