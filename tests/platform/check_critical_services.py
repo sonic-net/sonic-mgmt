@@ -21,7 +21,7 @@ def _all_critical_services_fully_started(dut):
             logging.info("ActiveState of %s is %s, expected: active" % (service, status["ActiveState"]))
             return False
         if status["SubState"] != "running":
-            logging.info("SubState of %s is %s, expected: active" % (service, status["SubState"]))
+            logging.info("SubState of %s is %s, expected: running" % (service, status["SubState"]))
             return False
 
     return True
