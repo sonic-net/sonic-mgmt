@@ -27,9 +27,6 @@ def node_get(ip, uname, passwd, cmd):
          paramiko.AutoAddPolicy())
 
     # initiate SSH connection
-    print(ip)
-    print(uname)
-    print(passwd)
     remote_conn_pre.connect(ip, username=uname, password=passwd, look_for_keys=False, allow_agent=False)
     print ("SSH connection established to %s" % ip)
 
@@ -41,13 +38,14 @@ def node_get(ip, uname, passwd, cmd):
     output = remote_conn.recv(1000)
 
     # See what we have
-    print (output)
+    #print (output)
     #return remote_conn
     
     # Now let's try to send 'cmd' to the router
     remote_conn.send("\n")
+    output = remote_conn.recv(1000)
     #remote_conn.send("free -m\n")
-    remote_conn.send(cmd)
+    remote_conn.sendall(cmd)
 
     # Wait for the command to complete
     sleep(2)
