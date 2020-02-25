@@ -60,8 +60,8 @@ def _test_Optics_Laser_Status():
 #    with open ("data-files/mock-rslt1.txt", "r") as myfile:
 #        data=myfile.readlines()
     op = reply.decode()
-#    op = op.split('\\r\\n')
     op = op.splitlines()
+    print(op)
     for x in op:
         print("Decoded reply: {}".format(x))
     data = reply.decode()
