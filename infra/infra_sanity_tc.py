@@ -57,13 +57,11 @@ def _test_Optics_Presence_All():
 def _test_Optics_Laser_Status():
     cmd = "sudo /usr/cisco/godiva/optics/opticsd -laser_status all\n"
     reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
-    log.info("********")
 #    with open ("data-files/mock-rslt1.txt", "r") as myfile:
 #        data=myfile.readlines()
     op = reply.decode()
-    op = op.split('\\r\\n')
-    log.info("********{}".format(op))
-
+#    op = op.split('\\r\\n')
+    op = op.splitlines()
     for x in op:
         print("Decoded reply: {}".format(x))
     data = reply.decode()
