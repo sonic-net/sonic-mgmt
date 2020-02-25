@@ -31,6 +31,7 @@ vms1-9,vms1-9,t0,docker-ptf-brcm,vms1-9,10.64.246.15/23,server_1,VM0192,str-s600
 vms2-1,vms2-1,t1,docker-ptf-brcm,vms2-1,10.64.246.24/23,server_2,VM0200,str-s6000-acs-10,Kamil
 vms2-2-t0-2700,vms2-2,t0-56,docker-ptf-mlnx,vms2-2,10.64.246.27/23,server_2,VM0232,str-msn2700-20,qiluo
 vms2-3-t1-2700,vms2-3,t1,docker-ptf-mlnx,vms2-3,10.64.246.29/23,server_2,VM0240,str-msn2700-22,qiluo
+vms2-4-t0-2700,vms2-4,t0,docker-ptf-mlnx,vms2-4,10.64.246.29/23,server_2,VM0240,str-msn2700-22,stumkurv
 vms2-4-t1-7050-1,vms2-4,t1-lag,docker-ptf-brcm,vms2-4,10.64.246.52/23,server_2,VM0272,str-a7050-acs-1,wenda
 vms2-5-t0-7050-1,vms2-5,t0,docker-ptf-brcm,vms2-5,10.64.247.23/23,server_2,VM0272,str-a7050-acs-1,wenda
 vms3-t0-s6100,vms3-61,t0-64,docker-ptf-brcm,vms3-61,10.64.246.21/23,server_3,VM0340,str-s6100-acs-1,Pavel
