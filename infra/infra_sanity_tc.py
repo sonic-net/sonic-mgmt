@@ -62,6 +62,7 @@ def _test_Optics_Laser_Status():
     op = reply.decode()
     op = op.splitlines()
     data = [i for i in op if "cisco@godiva" not in i and cmd not in i]
+    print(data)
     #data = reply.decode()
     lsr_up = {}
     no_lsr = "No optics present"
