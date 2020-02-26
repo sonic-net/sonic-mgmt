@@ -66,6 +66,7 @@ def _test_Optics_Laser_Status():
     lsr_up = {}
     no_lsr = "No optics present"
     for item in op[4:]:
+        print(item)
         if (no_lsr not in item) and (item.split()[1] == "On"):
             lsr_up[item.split()[0]] = item.split()[1]
     log.info("Opt_Laser1:The below Ports have Laser Status ON")
