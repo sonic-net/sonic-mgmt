@@ -126,7 +126,7 @@
         key: "{{ ansible_user }}"
         split: ":"
     - set_fact:
-        home_path: "{{ getent_passwd[ansible_user][4] }}"
+        home_path: "/images"
     - debug: msg="{{ home_path }}"
 
 - name: Ensure {{ root_path }} exists
