@@ -29,15 +29,14 @@ class ApData:
     testbed = Topology(topo_file=test_bed)
     uut = testbed.get_device(alias="UUT")
     uut_name = uut.name
-    log.info(uut_name)
 
     zap = Zap(test_input_file=input_file,topo_file=test_bed)
     gnmi_feature_dict = zap.get_feature_configuration("gnmi")  
     
 class GnmiApBase(ApBase):
     # GNMI Base Variables
-    ApData.svr_addr = ApData.gnmi_feature_dict['R1']['svr_addr']
-    ApData.port_addr = ApData.gnmi_feature_dict['R1']['svr_port']
+    ApData.svr_addr = ApData.gnmi_feature_dict[ApData.uut_name]['svr_addr']
+    ApData.port_addr = ApData.gnmi_feature_dict[ApData.uut_name]['svr_port']
     ApData.input_conf_file = ApData.gnmi_feature_dict['input_conf_file']
 
     # Port Configuration Variables
