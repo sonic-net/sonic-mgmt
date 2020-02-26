@@ -61,13 +61,11 @@ def _test_Optics_Laser_Status():
 #        data=myfile.readlines()
     op = reply.decode()
     op = op.splitlines()
-    print(op)
-    for x in op:
-        print("Decoded reply: {}".format(x))
-    data = reply.decode()
+    op = [i for i in op if "cisco@godiva" not in i and cmd not in i]
+    #data = reply.decode()
     lsr_up = {}
     no_lsr = "No optics present"
-    for item in data[3:]:
+    for item in op[4:]:
         if (no_lsr not in item) and (item.split()[1] == "On"):
             lsr_up[item.split()[0]] = item.split()[1]
     log.info("Opt_Laser1:The below Ports have Laser Status ON")
