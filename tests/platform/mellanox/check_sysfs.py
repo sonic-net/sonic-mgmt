@@ -129,14 +129,14 @@ def check_sysfs(dut):
             psu_status_output = dut.command("cat %s" % psu_status_file)
             psu_status = int(psu_status_output["stdout"])
             if not psu_status:
-                logging.info("PSU %d doesn't exist, skipped".format(psu_id))
+                logging.info("PSU %d doesn't exist, skipped" % psu_id)
                 continue
 
             psu_pwr_status_file = "/var/run/hw-management/thermal/psu{}_pwr_status".format(psu_id)
             psu_pwr_status_output = dut.command("cat %s" % psu_pwr_status_file)
             psu_pwr_status = int(psu_pwr_status_output["stdout"])
             if not psu_pwr_status:
-                logging.info("PSU %d isn't poweron, skipped".format(psu_id))
+                logging.info("PSU %d isn't poweron, skipped" % psu_id)
                 continue
 
             psu_temp_file = "/var/run/hw-management/thermal/psu{}_temp".format(psu_id)

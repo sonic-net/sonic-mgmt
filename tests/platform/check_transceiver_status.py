@@ -45,7 +45,7 @@ def all_transceivers_detected(dut, interfaces):
     db_output = dut.command("redis-cli --raw -n 6 keys TRANSCEIVER_INFO\*")["stdout_lines"]
     not_detected_interfaces = [intf for intf in interfaces if "TRANSCEIVER_INFO|%s" % intf not in db_output]
     if len(not_detected_interfaces) > 0:
-        logging.debug("Interfaces not detected: %s" % str(not_detected_interfaces))
+        logging.info("Interfaces not detected: %s" % str(not_detected_interfaces))
         return False
     return True
 

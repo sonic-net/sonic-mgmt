@@ -1,6 +1,6 @@
 [
     {
-         "COPP_TABLE:trap.group.ip2me": {
+         "COPP_TABLE:trap.group.nat.ip2me": {
              "cir":"600",
              "cbs":"600"
          },

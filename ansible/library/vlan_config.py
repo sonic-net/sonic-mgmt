@@ -30,8 +30,8 @@ EXAMPLES = '''
 def main():
     module = AnsibleModule(
         argument_spec=dict(
-            vm_topo_config=dict(required=True),
-            port_alias=dict(required=True),
+            vm_topo_config=dict(required=True, type="dict"),
+            port_alias=dict(required=True, type="list"),
             vlan_config=dict(required=False, type='str', default=None),
         ),
         supports_check_mode=True

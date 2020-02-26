@@ -2,6 +2,8 @@ import sys
 import os
 import glob
 import tarfile
+import logging
+import time
 
 import pytest
 import csv
@@ -14,8 +16,12 @@ from common.sanity_check import check_critical_services, check_links_up
 
 from common.devices import SonicHost, Localhost, PTFHost
 
-
-pytest_plugins = ('ptf_fixtures', 'ansible_fixtures', 'plugins.dut_monitor.pytest_dut_monitor', 'fib')
+logger = logging.getLogger(__name__)
+pytest_plugins = ('ptf_fixtures',
+                  'ansible_fixtures',
+                  'plugins.dut_monitor.pytest_dut_monitor',
+                  'fib',
+                  'common.plugins.psu_controller')
 
 
 class TestbedInfo(object):
@@ -112,15 +118,49 @@ def testbed_devices(ansible_adhoc, testbed):
 
     return devices
 
+def disable_ssh_timout(dut):
+    '''
+    @summary disable ssh session on target dut
+    @param dut: Ansible host DUT
+    '''
+    logger.info('Disabling ssh time out on dut: %s' % dut.hostname)
+    dut.command("sudo sed -i 's/^ClientAliveInterval/#&/' /etc/ssh/sshd_config")
+    dut.command("sudo sed -i 's/^ClientAliveCountMax/#&/' /etc/ssh/sshd_config")
+
+    dut.command("sudo systemctl restart ssh")
+    time.sleep(5)
+
+def enable_ssh_timout(dut):
+    '''
+    @summary: enable ssh session on target dut
+    @param dut: Ansible host DUT
+    '''
+    logger.info('Enabling ssh time out on dut: %s' % dut.hostname)
+    dut.command("sudo sed -i '/^#ClientAliveInterval/s/^#//' /etc/ssh/sshd_config")
+    dut.command("sudo sed -i '/^#ClientAliveCountMax/s/^#//' /etc/ssh/sshd_config")
+
+    dut.command("sudo systemctl restart ssh")
+    time.sleep(5)
+
 
 @pytest.fixture(scope="module")
-def duthost(testbed_devices):
-    """
-    Shortcut fixture for getting DUT host
-    """
+def duthost(testbed_devices, request):
+    '''
+    @summary: Shortcut fixture for getting DUT host. For a lengthy test case, test case module can
+              pass a request to disable sh time out mechanis on dut in order to avoid ssh timeout.
+              After test case completes, the fixture will restore ssh timeout.
+    @param testbed_devices: Ansible framework testbed devices
+    '''
+    stop_ssh_timeout = getattr(request.module, "pause_ssh_timeout", None)
 
-    return testbed_devices["dut"]
+    duthost = testbed_devices["dut"]
+    if stop_ssh_timeout is not None:
+        disable_ssh_timout(duthost)
 
+    yield duthost
+
+    if stop_ssh_timeout is not None:
+        enable_ssh_timout(duthost)
 
 @pytest.fixture(scope="module")
 def ptfhost(testbed_devices):
@@ -208,5 +248,5 @@ def collect_techsupport(request, duthost):
         for m in tar.getmembers():
             if m.isfile():
                 tar.extract(m, path="logs/{}/{}/".format(testname, duthost.hostname))
-    
+
         logging.info("########### Collected tech support for test {} ###########".format(testname))

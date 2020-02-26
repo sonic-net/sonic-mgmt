@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+import re
+
 DOCUMENTATION = '''
 module:  exabgp
 version_added:  "1.0"
@@ -125,6 +127,11 @@ def exec_command(module, cmd, ignore_error=False, msg="executing command"):
                          (msg, rc, out, err))
     return out
 
+def get_exabgp_status(module, name):
+    output = exec_command(module, cmd="supervisorctl status exabgp-%s" % name)
+    m = re.search('^([\w|-]*)\s+(\w*).*$', output.decode("utf-8"))
+    return m.group(2)
+
 def refresh_supervisord(module):
     exec_command(module, cmd="supervisorctl reread", ignore_error=True)
     exec_command(module, cmd="supervisorctl update", ignore_error=True)
@@ -133,9 +140,23 @@ def start_exabgp(module, name):
     refresh_supervisord(module)
     exec_command(module, cmd="supervisorctl start exabgp-%s" % name)
 
+    for count in range(0, 60):
+        time.sleep(1)
+        status = get_exabgp_status(module, name)
+        if u'RUNNING' == status:
+            break
+    assert u'RUNNING' == status
+
 def restart_exabgp(module, name):
     refresh_supervisord(module)
     exec_command(module, cmd="supervisorctl restart exabgp-%s" % name)
+
+    for count in range(0, 60):
+        time.sleep(1)
+        ret = get_exabgp_status(module, name)
+        if u'RUNNING' == status:
+            break
+    assert u'RUNNING' == status
 
 def stop_exabgp(module, name):
     exec_command(module, cmd="supervisorctl stop exabgp-%s" % name, ignore_error=True)
@@ -193,7 +214,7 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             name=dict(required=True, type='str'),
-            state=dict(required=True, choices=['started', 'restarted', 'stopped', 'present', 'absent'], type='str'),
+            state=dict(required=True, choices=['started', 'restarted', 'stopped', 'present', 'absent', 'status'], type='str'),
             router_id=dict(required=False, type='str'),
             local_ip=dict(required=False, type='str'),
             peer_ip=dict(required=False, type='str'),
@@ -214,6 +235,7 @@ def main():
 
     setup_exabgp_processor()
 
+    result = {}
     try:
         if state == 'started':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port)
@@ -234,11 +256,14 @@ def main():
             remove_exabgp_supervisord_conf(name)
             remove_exabgp_conf(name)
             refresh_supervisord(module)
+        elif state == 'status':
+            status = get_exabgp_status(module, name)
+            result = {'status' : status}
     except:
         err = str(sys.exc_info())
         module.fail_json(msg="Error: %s" % err)
 
-    module.exit_json()
+    module.exit_json(**result)
 
 if __name__ == '__main__':
     main()

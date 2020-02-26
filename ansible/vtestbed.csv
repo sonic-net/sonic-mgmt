@@ -1,3 +1,3 @@
-# conf-name,group-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,comment
-vms-kvm-t0,vms6-1,t0,docker-ptf,10.250.0.102/24,server_1,VM0100,vlab-01,Tests virtual switch vm
-vms-kvm-t0-64,vms6-1,t0-64,docker-ptf,10.250.0.102/24,server_1,VM0100,vlab-02,Tests virtual switch vm
+# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,server,vm_base,dut,comment
+vms-kvm-t0,vms6-1,t0,docker-ptf,ptf-unknown,10.250.0.102/24,server_1,VM0100,vlab-01,Tests virtual switch vm
+vms-kvm-t0-64,vms6-1,t0-64,docker-ptf,ptf-unknown,10.250.0.102/24,server_1,VM0100,vlab-02,Tests virtual switch vm

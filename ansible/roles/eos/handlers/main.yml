@@ -10,20 +10,20 @@
 
 - name: Wait for VM to shutdown
   wait_for:
-    host: "{{ ansible_ssh_host }}"
+    host: "{{ ansible_host }}"
     port: 22
     state: stopped
     delay: 10
     timeout: 300
-  connection: local
+  delegate_to: "{{ VM_host[0] }}"
   listen: "Update VM state"
 
 - name: Wait for VM to startup
   wait_for:
-    host: "{{ ansible_ssh_host }}"
+    host: "{{ ansible_host }}"
     port: 22
     state: started
     delay: 10
     timeout: 1200
-  connection: local
+  delegate_to: "{{ VM_host[0] }}"
   listen: "Update VM state"
