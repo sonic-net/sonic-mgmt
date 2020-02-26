@@ -47,7 +47,7 @@ def node_get(ip, uname, passwd, cmd):
     remote_conn.sendall(cmd)
 
     # Wait for the command to complete
-    sleep(2)
+    sleep(5)
     
     output = remote_conn.recv(5000)
     return output
