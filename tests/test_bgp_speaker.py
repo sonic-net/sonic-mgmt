@@ -65,7 +65,7 @@ def common_setup_teardown(duthost, ptfhost):
         duthost.command("ip route flush %s/32" % ip.ip)
         duthost.command("ip route add %s/32 dev %s" % (ip.ip, mg_facts['minigraph_vlan_interfaces'][0]['attachto']))
 
-    port_num = [5000, 6000, 7000]
+    port_num = [7000, 8000, 9000]
 
     lo_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
     lo_addr_prefixlen = int(mg_facts['minigraph_lo_interfaces'][0]['prefixlen'])

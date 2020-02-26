@@ -3,6 +3,7 @@ import os
 import glob
 import tarfile
 import logging
+import time
 
 import pytest
 import csv
@@ -19,7 +20,8 @@ pytest_plugins = ('common.plugins.ptfadapter',
                   'common.plugins.ansible_fixtures',
                   'common.plugins.dut_monitor',
                   'common.plugins.fib',
-                  'common.plugins.loganalyzer')
+                  'common.plugins.loganalyzer',
+                  'common.plugins.psu_controller')
 
 
 class TestbedInfo(object):

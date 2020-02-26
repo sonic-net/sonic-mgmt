@@ -3,6 +3,12 @@
 - set_fact:
     policer_name: TEST_POLICER
     policer_session_name: TEST_POLICER_SESSION
+    policer_meter_type: "packets"
+    policer_mode: "sr_tcm"
+    policer_cir: "100"
+    policer_cbs: "100"
+    policer_red_packet_action: "drop"
+    policer_tolerance: "10"
     dscp_table_name: EVERFLOW_DSCP
 
 - set_fact:
@@ -20,7 +26,12 @@
 - block:
   - name: Create a policer
     shell: |
-      redis-cli -n 4 hmset "POLICER|{{policer_name}}" "meter_type" "packets" "mode" "sr_tcm" "cir" "100" "cbs" "100" "red_packet_action" "drop"
+      redis-cli -n 4 hmset "POLICER|{{ policer_name }}" \
+      "meter_type" "{{ policer_meter_type }}" \
+      "mode" "{{ policer_mode }}" \
+      "cir" "{{ policer_cir }}" \
+      "cbs" "{{ policer_cbs }}" \
+      "red_packet_action" "{{ policer_red_packet_action }}"
     become: yes
 
   - name: Create a policer enforced mirror session
@@ -56,7 +67,15 @@
         - dst_ports='{{",".join((spine_ptf_ports))}}'
         - dst_mirror_ports='{{dst_port_1_ptf_id}}'
         - mirror_stage='{{ mirror_stage }}'
-      ptf_extra_options: "--relax --debug info"
+        - session_src_ip='{{ session_src_ip }}'
+        - session_dst_ip='{{ session_dst_ip }}'
+        - session_ttl='{{ session_ttl }}'
+        - session_dscp='{{ session_dscp }}'
+        - meter_type='{{ policer_meter_type }}'
+        - cir='{{ policer_cir }}'
+        - cbs='{{ policer_cbs }}'
+        - tolerance='{{ policer_tolerance }}'
+      ptf_extra_options: "--relax --debug info --log-file /tmp/everflow_policer_test.EverflowPolicerTest.{{ lookup('pipe','date +%Y-%m-%d-%H:%M:%S') }}.log"
 
   always:
     - name: Remove the rule with DSCP value and mask

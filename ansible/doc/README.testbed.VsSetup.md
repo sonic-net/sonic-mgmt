@@ -35,9 +35,9 @@ $ make configure PLATFORM=generic
 $ make target/docker-sonic-mgmt.gz
 ```
 
-- Download pre-built *sonic-mgmt* image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/target/docker-sonic-mgmt.gz).
+- Download pre-built *sonic-mgmt* image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/sonic-buildimage/target/docker-sonic-mgmt.gz).
 ```
-$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/target/docker-sonic-mgmt.gz
+$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/sonic-buildimage/target/docker-sonic-mgmt.gz
 ```
 
 - Load *sonic-mgmt* image
@@ -84,6 +84,7 @@ vm_host_1
 ## Run sonic-mgmt docker
 
 ```
+(run following command from a place where the newly cloned sonic-mgmt repo is accessible, e.g. home directory or the parent fold of sonic-mgmt, the point is that you want to run following deployment and test commands from this repo)
 $ docker run -v $PWD:/data -it docker-sonic-mgmt bash
 ```
 

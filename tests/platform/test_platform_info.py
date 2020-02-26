@@ -14,7 +14,6 @@ import pytest
 
 from common.plugins.loganalyzer import LogAnalyzer, LogAnalyzerError
 from common.utilities import wait_until
-from psu_controller import psu_controller
 from thermal_control_test_helper import *
 
 CMD_PLATFORM_SUMMARY = "show platform summary"
@@ -203,7 +202,7 @@ def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller):
         pytest.skip("At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PSU controller for testing")
-    psu_ctrl = psu_controller(ans_host.hostname, ans_host.facts["asic_type"])
+    psu_ctrl = psu_controller
     if psu_ctrl is None:
         pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % ans_host.hostname)
 
@@ -425,7 +424,7 @@ def test_thermal_control_psu_absence(testbed_devices, psu_controller, mocker_fac
         pytest.skip("At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PSU controller for testing")
-    psu_ctrl = psu_controller(dut.hostname, dut.facts["asic_type"])
+    psu_ctrl = psu_controller
     if psu_ctrl is None:
         pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % dut.hostname)
 
