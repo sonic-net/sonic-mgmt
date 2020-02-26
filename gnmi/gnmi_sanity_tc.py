@@ -332,9 +332,10 @@ def _test_Get_with_prefix(stub):
             path = input_conf['VERIFY_GET_WITH_PFX']['path']
             path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
             response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG')
-            #log.info(response)
+            #log.info(response)   
+
             msg_dict = google.protobuf.json_format.MessageToDict(response)
-            log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
+            #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
             resp_dict = gnmiTestLib.get_response_dict(msg_dict)
             for cfg in input_conf['VERIFY_GET_WITH_PFX']['config']:
                 set_info = input_conf[cfg['section']]
@@ -698,6 +699,8 @@ def _test_Get_with_wrong_encoding(stub):
     try:
         response = gnmiTestLib._get(stub, path, user, password,prefix,type='ALL',encoding='JSON')
         log.info(response)
+        log.error("Test test_Get_with_wrong_encoding.2 - Unsupported :Failed - Expected the testcase to fail, but got no GRPC Error")
+        err_msg.append("test_Get_with_wrong_encoding.2 - Unsupported :Failed - Expected the testcase to fail, but got no GRPC Error")
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:

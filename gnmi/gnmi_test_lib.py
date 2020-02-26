@@ -415,6 +415,8 @@ def _get(stub, paths, username, password, prefix="/", type='ALL', encoding='PROT
             gnmi_pb2.GetRequest(
                 path=[paths], prefix=prefix, type=type, encoding=encoding),
             metadata=[('username', username), ('password', password)])
+    #request = gnmi_pb2.GetRequest(path=[paths], prefix=prefix, type=type, encoding=encoding)
+    #print(request.encoding)
     return stub.Get(gnmi_pb2.GetRequest(path=[paths], prefix=prefix, type=type, encoding=encoding))
 
 
@@ -745,8 +747,8 @@ def get_response_dict(get_value):
                 pfx_list = list();pfx_list.append(prefix_dict)
                 main_key_dict[old_key] = pfx_list
 
-    #return main_key_dict
-    return response_dict
+    return main_key_dict
+    #return response_dict
 
 
 def parallel_oper(oper):
