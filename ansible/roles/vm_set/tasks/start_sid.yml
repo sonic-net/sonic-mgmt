@@ -29,12 +29,12 @@
 - fail: msg="sonic_hwsku is not defined"
   when: "sonic_hwsku is not defined"
 
-- fail: msg="{{ item }} is not defined"
-  when: "{{ item }} is not defined"
-  with_items:
-    - "{{ mellanox_spc1_hwskus }}"
-    - "{{ mellanox_spc2_hwskus }}"
+ - fail: msg="{{ item }} is not defined"
+  when: "mellanox_spc1_hwskus is not defined"
 
+- fail: msg="{{ item }} is not defined"
+  when: "mellanox_spc2_hwskus is not defined"
+  
 - set_fact:
     chip: "spectrum"
   when: hostvars[dut_name]['hwsku'] in mellanox_spc1_hwskus
