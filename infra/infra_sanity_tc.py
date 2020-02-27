@@ -86,8 +86,9 @@ def _test_Optics_Laser_Status():
             reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
             op = reply.decode()
             op = op.splitlines()
-            print(op)
+            
             data = [i for i in op if "cisco@godiva" not in i and cmd.strip('\n') not in i]
+            print(data)
             if 'Port' in data:
                 for item in data:
                     if 'Port' in item:
@@ -101,7 +102,8 @@ def _test_Optics_Laser_Status():
                         log.info("Laser Status is up for slot_num {}".format(slot_num))
                     else:
                         log.error("Laser Status is {} for slot_num {}".format(item.split()[1],slot_num))
-                
+            else:
+                log.error("Port Status missing in output")    
     #print(data)
     #data = reply.decode()
     """
