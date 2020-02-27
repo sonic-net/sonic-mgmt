@@ -44,7 +44,8 @@ def check_links_up(duthost):
     # for multi-npu platform, the interface state will got from the DUT.
     if duthost.num_npus() > 1:
         check_multi_npu_links_up(duthost)
-        
+        return
+    
     config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     host_facts = duthost.setup()['ansible_facts']
 

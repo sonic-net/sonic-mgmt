@@ -59,7 +59,7 @@ class BgpModule(object):
         
         if 'num_npus' in m_args and m_args['num_npus'] is not '1':
             npus = int(m_args['num_npus'])
-            for npu in range(0, num_npus):
+            for npu in range(0, npus):
                 self.instances.append("bgp{}".format(npu))
         else:
              self.instances.append("bgp")
