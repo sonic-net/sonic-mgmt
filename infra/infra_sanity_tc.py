@@ -78,7 +78,7 @@ def _test_Optics_Laser_Status_All():
 def _test_Optics_Laser_Status():
 
     input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_Optics_Laser_Status/input_conf_file"), 'r').read())
-
+    index = None
     if 'IND_OPTICS_LASER_STATUS' in input_conf:
         slot_list = input_conf['IND_OPTICS_LASER_STATUS']['SLOT_LIST']
         for slot_num in slot_list:
@@ -89,13 +89,12 @@ def _test_Optics_Laser_Status():
             
             data = [i for i in op if "cisco@godiva" not in i and cmd.strip('\n') not in i]
             print(data)
-            if 'Port' in data:
-                for item in data:
-                    if 'Port' in item:
-                        index = data.index(item)
-                        print(index)
-                
-                data[0:index] = []
+            for item in data:
+                if 'Port' in item:
+                    index = data.index(item)
+                    print(index)
+            if index is not None:
+                data[0:index+1] = []
                 print(data)
                 for item in data:
                     if item.split()[1] == "On":
@@ -103,7 +102,8 @@ def _test_Optics_Laser_Status():
                     else:
                         log.error("Laser Status is {} for slot_num {}".format(item.split()[1],slot_num))
             else:
-                log.error("Port Status missing in output")    
+                log.error("Port Status not present in the output : {}".format(reply.decode()))
+
     #print(data)
     #data = reply.decode()
     """
