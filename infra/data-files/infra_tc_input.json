@@ -1,10 +1,14 @@
 {
   "IND_OPTICS_LASER_STATUS": {
     "SLOT_LIST": [1, 2],
-    "VERIFY": [{"Status" : "ON"}]
+    "VERIFY": [
+      {
+        "Status" : ["ON","ON"]
+      }
+    ]
   },
   "IND_OPTICS_PRESENCE": {
     "SLOT_LIST": [1, 2],
-    "VERIFY": [{"Status" : "Yes"}]
+    "VERIFY": [{"Status" : ["Yes","Yes"]}]
   }
 }

@@ -81,40 +81,22 @@ def _test_Optics_Laser_Status():
     index = None
     if 'IND_OPTICS_LASER_STATUS' in input_conf:
         slot_list = input_conf['IND_OPTICS_LASER_STATUS']['SLOT_LIST']
-        for slot_num in slot_list:
+        verify_status_list = input_conf['IND_OPTICS_LASER_STATUS']['VERIFY']['Status']
+        for slot_num,status in zip(slot_list, verify_status_list):
             cmd = "sudo /usr/cisco/godiva/optics/opticsd -laser_status {}\n".format(slot_num)
             reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
             op = reply.decode()
-            op = op.splitlines()
-            
-            data = [i for i in op if "cisco@godiva" not in i and cmd.strip('\n') not in i]
-            
+            op = op.splitlines()            
+            data = [i for i in op if "cisco@godiva" not in i and cmd.strip('\n') not in i]            
             for item in data:
-                print(item)
                 if 'Port' in item:
                     index = data.index(item)
-                    print(index)
-                    
             if index is not None:
                 data[0:index+1] = []
-                print(data)
                 for item in data:
-                    if item.split()[1] == "On":
+                    if item.split()[0] == slot_num and item.split()[1] == status:
                         log.info("Laser Status is up for slot_num {}".format(slot_num))
                     else:
                         log.error("Laser Status is {} for slot_num {}".format(item.split()[1],slot_num))
             else:
                 log.error("Port Status not present in the output : {}".format(reply.decode()))
-
-    #print(data)
-    #data = reply.decode()
-    """
-    lsr_up = {}
-    no_lsr = "No optics present"
-    for item in data[4:]:
-        print(item)
-        if (no_lsr not in item) and (item.split()[1] == "On"):
-            lsr_up[item.split()[0]] = item.split()[1]
-    log.info("Opt_Laser1:The below Ports have Laser Status ON")
-    print(lsr_up)
-    """
