@@ -86,6 +86,7 @@ def _test_Optics_Laser_Status():
             reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
             op = reply.decode()
             op = op.splitlines()
+            print(op)
             data = [i for i in op if "cisco@godiva" not in i and cmd not in i]
             for item in data:
                 log.info(item)
