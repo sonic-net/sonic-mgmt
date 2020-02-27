@@ -35,18 +35,18 @@ class TestbedInfo(object):
     def __init__(self, testbed_file):
         self.testbed_filename = testbed_file
         self.testbed_topo = {}
+        CSV_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'server', 'vm_base', 'dut', 'comment')
 
         with open(self.testbed_filename) as f:
-            topo = csv.DictReader(f)
+            topo = csv.DictReader(f, fieldnames=CSV_FIELDS)
             for line in topo:
+                if '#' in line['conf-name']:
+                    ### skip comment line
+                    continue
                 tb_prop = {}
-                name = ''
+                name = line['conf-name']
                 for key in line:
-                    if ('uniq-name' in key or 'conf-name' in key) and '#' in line[key]:
-                        continue
-                    elif 'uniq-name' in key or 'conf-name' in key:
-                        name = line[key]
-                    elif 'ptf_ip' in key and line[key]:
+                    if 'ptf_ip' in key and line[key]:
                         ptfaddress = ipaddress.IPNetwork(line[key])
                         tb_prop['ptf_ip'] = str(ptfaddress.ip)
                         tb_prop['ptf_netmask'] = str(ptfaddress.netmask)
