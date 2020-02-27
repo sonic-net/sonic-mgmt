@@ -44,10 +44,14 @@ def _test_Optics_Presence_All():
     cmd = "sudo /usr/cisco/godiva/optics/opticsd -presence all\n"
     reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
     log.info(reply.decode())
-    with open ("data-files/mock-rslt.txt", "r") as myfile:
-        data=myfile.readlines()
+    op = reply.decode()
+    op = op.splitlines()
+    data = [i for i in op if "cisco@godiva" not in i and cmd not in i]
+
+    #with open ("data-files/mock-rslt.txt", "r") as myfile:
+    #    data=myfile.readlines()
     up_ports = {}
-    for item in data[3:]:
+    for item in data[4:]:
         if item.split()[1] == "Yes":
             up_ports[item.split()[0]] = item.split()[1]
     log.info("Opt_Presence1:The below Ports have Optics Inserted")
@@ -57,8 +61,6 @@ def _test_Optics_Presence_All():
 def _test_Optics_Laser_Status():
     cmd = "sudo /usr/cisco/godiva/optics/opticsd -laser_status all\n"
     reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
-#    with open ("data-files/mock-rslt1.txt", "r") as myfile:
-#        data=myfile.readlines()
     op = reply.decode()
     op = op.splitlines()
     data = [i for i in op if "cisco@godiva" not in i and cmd not in i]
