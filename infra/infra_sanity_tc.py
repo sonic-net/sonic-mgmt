@@ -87,9 +87,20 @@ def _test_Optics_Laser_Status():
             op = reply.decode()
             op = op.splitlines()
             print(op)
-            data = [i for i in op if "cisco@godiva" not in i and cmd not in i]
-            for item in data:
-                log.info(item)
+            data = [i for i in op if "cisco@godiva" not in i and cmd.strip('\n') not in i]
+            if 'Port' in data:
+                for item in data:
+                    if 'Port' in item:
+                        index = data.index(item)
+                
+                data[0:index+1] = []
+                print(data)
+                for item in data:
+                    if item.split()[1] == "On"
+                        log.info("Laser Status is up for slot_num {}".format(slot_num))
+                    else:
+                        log.error("Laser Status is {} for slot_num {}".format(item.split()[1],slot_num))
+                
     #print(data)
     #data = reply.decode()
     """
