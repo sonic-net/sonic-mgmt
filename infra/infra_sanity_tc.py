@@ -96,7 +96,7 @@ def _test_Optics_Laser_Status():
                 data[0:index+1] = []
                 print(data)
                 for item in data:
-                    if item.split()[1] == "On"
+                    if item.split()[1] == "On":
                         log.info("Laser Status is up for slot_num {}".format(slot_num))
                     else:
                         log.error("Laser Status is {} for slot_num {}".format(item.split()[1],slot_num))
