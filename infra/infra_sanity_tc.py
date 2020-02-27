@@ -88,7 +88,7 @@ def _test_Optics_Laser_Status():
             op = op.splitlines()
             data = [i for i in op if "cisco@godiva" not in i and cmd not in i]
             for item in data:
-                print(item)
+                log.info(item)
     #print(data)
     #data = reply.decode()
     """
