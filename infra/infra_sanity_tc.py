@@ -94,11 +94,7 @@ def _test_Optics_Laser_Status():
             if index is not None:
                 data[0:index+1] = []
                 for item in data:
-                    print(type(item.split()[0]))
-                    print(type(slot_num))
-                    print(type(item.split()[1].lower()))
-                    print(type(status.lower()))
-                    if item.split()[0] == slot_num and item.split()[1].lower() == status.lower():
+                    if item.split()[0] == str(slot_num) and item.split()[1].lower() == status.lower():
                         log.info("Laser Status is up for slot_num {}".format(slot_num))
                     else:
                         log.error("Laser Status is {} for slot_num {}".format(item.split()[1],slot_num))
