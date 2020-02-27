@@ -44,7 +44,8 @@
       "HOSTNAME": "{{ dut_name }}-0",
       "IP": "{{ mgmt_ip_address | ipaddr('address') }}",
       "MASK": "{{ mgmt_ip_address | ipaddr('netmask') }}",
-      "GATEWAY": "{{ vm_mgmt_gw }}"
+      "GATEWAY": "{{ vm_mgmt_gw }}",
+      "SRVC_PORT": "12000"
     }
 
 - debug:
@@ -67,7 +68,7 @@
   become: yes
 
 - name: Start simulation inside container
-  shell: "docker exec {{ dut_name }} /opt/simx_docker/sid_prepare_switch.py"
+  shell: "docker exec {{ dut_name }} /opt/simx_docker/sid_prepare_switch.py -s -c"
 
 - name: Wait for SID to start
   pause:
