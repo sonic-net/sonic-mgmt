@@ -88,11 +88,13 @@ def _test_Optics_Laser_Status():
             op = op.splitlines()
             
             data = [i for i in op if "cisco@godiva" not in i and cmd.strip('\n') not in i]
-            print(data)
+            
             for item in data:
+                print(item)
                 if 'Port' in item:
                     index = data.index(item)
                     print(index)
+                    
             if index is not None:
                 data[0:index+1] = []
                 print(data)
