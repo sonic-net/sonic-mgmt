@@ -141,6 +141,9 @@
             },
             "test_gnmi_parallel_oper": {
                 "input_conf_file": "./data-files/parallel_scale_intf_4k.json"
+            },
+            "test_Optics_Laser_Status": {
+                "input_conf_file": "./data-files/infra_tc_input.json"
             }
 
         },

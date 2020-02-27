@@ -58,7 +58,7 @@ def _test_Optics_Presence_All():
     print(up_ports)
 
 
-def _test_Optics_Laser_Status():
+def _test_Optics_Laser_Status_All():
     cmd = "sudo /usr/cisco/godiva/optics/opticsd -laser_status all\n"
     reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
     op = reply.decode()
@@ -75,7 +75,29 @@ def _test_Optics_Laser_Status():
     log.info("Opt_Laser1:The below Ports have Laser Status ON")
     print(lsr_up)
 
+def _test_Optics_Laser_Status():
 
+    input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_Optics_Laser_Status/input_conf_file"), 'r').read())
 
-
-
+    if 'IND_OPTICS_LASER_STATUS' in input_conf:
+        slot_list = input_conf['IND_OPTICS_LASER_STATUS']['SLOT_LIST']
+        for slot_num in slot_list:
+            cmd = "sudo /usr/cisco/godiva/optics/opticsd -laser_status {}\n".format(slot_num)
+            reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
+            op = reply.decode()
+            op = op.splitlines()
+            data = [i for i in op if "cisco@godiva" not in i and cmd not in i]
+            for item in data:
+                print(item)
+    #print(data)
+    #data = reply.decode()
+    """
+    lsr_up = {}
+    no_lsr = "No optics present"
+    for item in data[4:]:
+        print(item)
+        if (no_lsr not in item) and (item.split()[1] == "On"):
+            lsr_up[item.split()[0]] = item.split()[1]
+    log.info("Opt_Laser1:The below Ports have Laser Status ON")
+    print(lsr_up)
+    """
