@@ -92,8 +92,9 @@ def _test_Optics_Laser_Status():
                 for item in data:
                     if 'Port' in item:
                         index = data.index(item)
+                        print(index)
                 
-                data[0:index+1] = []
+                data[0:index] = []
                 print(data)
                 for item in data:
                     if item.split()[1] == "On":
