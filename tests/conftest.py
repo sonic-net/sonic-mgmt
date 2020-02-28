@@ -40,6 +40,12 @@ class TestbedInfo(object):
 
         with open(self.testbed_filename) as f:
             topo = csv.DictReader(f, fieldnames=CSV_FIELDS)
+
+            # Validate all field are in the same order and are present
+            header = next(topo)
+            for field in CSV_FIELDS:
+                assert header[field].replace('#', '').strip() == field
+
             for line in topo:
                 if '#' in line['conf-name']:
                     ### skip comment line
