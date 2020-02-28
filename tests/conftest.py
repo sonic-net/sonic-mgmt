@@ -13,6 +13,7 @@ import ipaddr as ipaddress
 from ansible_host import AnsibleHost
 from loganalyzer import LogAnalyzer
 from common.sanity_check import check_critical_services, check_links_up
+from collections import defaultdict
 
 from common.devices import SonicHost, Localhost, PTFHost
 
@@ -34,7 +35,7 @@ class TestbedInfo(object):
 
     def __init__(self, testbed_file):
         self.testbed_filename = testbed_file
-        self.testbed_topo = {}
+        self.testbed_topo = defaultdict()
         CSV_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'server', 'vm_base', 'dut', 'comment')
 
         with open(self.testbed_filename) as f:
@@ -43,23 +44,19 @@ class TestbedInfo(object):
                 if '#' in line['conf-name']:
                     ### skip comment line
                     continue
-                tb_prop = {}
-                name = line['conf-name']
-                for key in line:
-                    if 'ptf_ip' in key and line[key]:
-                        ptfaddress = ipaddress.IPNetwork(line[key])
-                        tb_prop['ptf_ip'] = str(ptfaddress.ip)
-                        tb_prop['ptf_netmask'] = str(ptfaddress.netmask)
-                    elif key == 'topo':
-                        tb_prop['topo'] = {}
-                        tb_prop['topo']['name'] = line[key]
-                        with open("../ansible/vars/topo_{}.yml".format(tb_prop['topo']['name']), 'r') as fh:
-                            tb_prop['topo']['properties'] = yaml.safe_load(fh)
-                    else:
-                        tb_prop[key] = line[key]
+                if line['ptf_ip']:
+                    ptfaddress = ipaddress.IPNetwork(line['ptf_ip'])
+                    line['ptf_ip'] = str(ptfaddress.ip)
+                    line['ptf_netmask'] = str(ptfaddress.netmask)
 
-                if name:
-                    self.testbed_topo[name] = tb_prop
+                topo = line['topo']
+                del line['topo']
+                line['topo'] = defaultdict()
+                line['topo']['name'] = topo
+                with open("../ansible/vars/topo_{}.yml".format(topo), 'r') as fh:
+                    line['topo']['properties'] = yaml.safe_load(fh)
+
+                self.testbed_topo[line['conf-name']] = line
 
 
 def pytest_addoption(parser):

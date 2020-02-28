@@ -6,6 +6,7 @@ import csv
 from operator import itemgetter
 from itertools import groupby
 import yaml
+from collections import defaultdict
 
 DOCUMENTATION = '''
 module: test_facts.py
@@ -103,7 +104,7 @@ class ParseTestbedTopoinfo():
     '''
     def __init__(self, testbed_file):
         self.testbed_filename = testbed_file
-        self.testbed_topo = {}
+        self.testbed_topo = defaultdict()
 
     def read_testbed_topo(self):
         CSV_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'server', 'vm_base', 'dut', 'comment')
@@ -113,17 +114,12 @@ class ParseTestbedTopoinfo():
                 if '#' in line['conf-name']:
                     ### skip comment line
                     continue
-                tb_prop = {}
-                name = line['conf-name']
-                for key in line:
-                    if 'ptf_ip' in key and line[key]:
-                        ptfaddress = ipaddress.IPNetwork(line[key])
-                        tb_prop['ptf_ip'] = str(ptfaddress.ip)
-                        tb_prop['ptf_netmask'] = str(ptfaddress.netmask)
-                    else:
-                        tb_prop[key] = line[key]
-                if name:
-                    self.testbed_topo[name] = tb_prop
+                if line['ptf_ip']:
+                    ptfaddress = ipaddress.IPNetwork(line['ptf_ip'])
+                    line['ptf_ip'] = str(ptfaddress.ip)
+                    line['ptf_netmask'] = str(ptfaddress.netmask)
+
+                self.testbed_topo[line['conf-name']] = line
         return
 
     def get_testbed_info(self, testbed_name):
