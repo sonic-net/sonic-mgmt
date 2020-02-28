@@ -16,7 +16,7 @@
             "name": "any PSU absence",
             "conditions": [
                 {
-                    "type": "fan.any.absence"
+                    "type": "psu.any.absence"
                 }
             ],
             "actions": [
