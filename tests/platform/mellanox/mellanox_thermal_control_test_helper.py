@@ -470,8 +470,6 @@ class TemperatureData:
         :param temperature: Temperature value.
         :return:
         """
-        if temperature == 0:
-            temperature = 1000 # avoid to set temperature to 0
         self.helper.mock_thermal_value(self.temperature_file, str(temperature))
         temperature = temperature / float(1000)
         self.mocked_temperature = str(temperature)
@@ -574,7 +572,7 @@ class RandomFanStatusMocker(FanStatusMocker):
                         'N/A',
                         'N/A',
                         'Not Present',
-                        'Not OK'
+                        'N/A'
                     ]
             except SysfsNotExistError as e:
                 logging.info('Failed to mock fan data for {}'.format(fan_data.name))
@@ -696,7 +694,7 @@ class RandomThermalStatusMocker(ThermalStatusMocker):
         try:
             high_threshold = mock_data.get_high_threshold()
             if high_threshold != 0:
-                temperature = random.randint(0, high_threshold - RandomThermalStatusMocker.DEFAULT_THRESHOLD_DIFF)
+                temperature = random.randint(1, high_threshold - RandomThermalStatusMocker.DEFAULT_THRESHOLD_DIFF)
                 mock_data.mock_temperature(temperature)
 
                 high_threshold = temperature + RandomThermalStatusMocker.DEFAULT_THRESHOLD_DIFF
