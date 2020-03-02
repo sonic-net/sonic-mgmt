@@ -26,6 +26,9 @@ from collections import namedtuple
 
 Record = namedtuple('Record', ['hostname', 'family', 'expired', 'lo', 'mac', 'vxlan_id'])
 
+ASIC_TYPE=None
+
+
 class Ferret(BaseHTTPServer.BaseHTTPRequestHandler):
     server_version = "FerretHTTP/0.1"
 
@@ -179,8 +182,17 @@ class Responder(object):
         gre_type  = data[0x24:0x26]
 
         gre_type_r = struct.unpack('!H', gre_type)[0]
+        self.hexdump(data)
         if gre_type_r == 0x88be:   # Broadcom
             arp_request = data[0x26:]
+            if ASIC_TYPE == "barefoot":
+                # ERSPAN type 2
+                # Ethernet(14) + IP(20) + GRE(4) + ERSPAN(8) = 46 = 0x2e
+                # Note: Count GRE as 4 byte, only mandatory fields.
+                # References: https://tools.ietf.org/html/rfc1701
+                #             https://tools.ietf.org/html/draft-foschiano-erspan-00
+                arp_request = data[0x2E:]
+
         elif gre_type_r == 0x8949: # Mellanox
             arp_request = data[0x3c:]
         else:
@@ -291,11 +303,14 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Ferret VXLAN API')
     parser.add_argument('-f', '--config-file', help='file with configuration', required=True)
     parser.add_argument('-s', '--src-ip', help='Ferret endpoint ip', required=True)
+    parser.add_argument('-a', '--asic-type', help='ASIC vendor name', type=str, required=False)
     args = parser.parse_args()
     if not os.path.isfile(args.config_file):
         print "Can't open config file '%s'" % args.config_file
         exit(1)
 
+    global ASIC_TYPE
+    ASIC_TYPE = args.asic_type
     return args.config_file, args.src_ip
 
 def main():
