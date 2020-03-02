@@ -47,7 +47,7 @@ class TestbedInfo(object):
                 assert header[field].replace('#', '').strip() == field
 
             for line in topo:
-                if '#' in line['conf-name']:
+                if line['conf-name'].lstrip().startswith('#'):
                     ### skip comment line
                     continue
                 if line['ptf_ip']:
