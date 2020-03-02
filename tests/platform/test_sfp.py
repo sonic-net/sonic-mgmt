@@ -14,7 +14,7 @@ import json
 import pytest
 
 from platform_fixtures import conn_graph_facts
-from loganalyzer import LogAnalyzer
+from common.plugins.loganalyzer import LogAnalyzer
 
 ans_host = None
 port_mapping = None

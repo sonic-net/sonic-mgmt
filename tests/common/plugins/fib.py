@@ -5,8 +5,8 @@ import requests
 import pytest
 import ipaddr as ipaddress
 
-def announce_routes(ptfip, port, family, podset_number, tor_number, tor_subnet_number, 
-                    spine_asn, leaf_asn_start, tor_asn_start, 
+def announce_routes(ptfip, port, family, podset_number, tor_number, tor_subnet_number,
+                    spine_asn, leaf_asn_start, tor_asn_start,
                     nexthop, nexthop_v6,
                     tor_subnet_size = 128, max_tor_subnet_number = 16):
     messages = []
@@ -29,7 +29,7 @@ def announce_routes(ptfip, port, family, podset_number, tor_number, tor_subnet_n
                 suffix = ( (podset * tor_number * max_tor_subnet_number * tor_subnet_size) + \
                       (tor * max_tor_subnet_number * tor_subnet_size) + \
                       (subnet * tor_subnet_size) )
-                octet2 = (168 + (suffix / (256 ** 2))) 
+                octet2 = (168 + (suffix / (256 ** 2)))
                 octet1 = (192 + (octet2 / 256))
                 octet2 = (octet2 % 256)
                 octet3 = ((suffix / 256) % 256)
@@ -37,7 +37,7 @@ def announce_routes(ptfip, port, family, podset_number, tor_number, tor_subnet_n
                 prefixlen_v4 = (32 - int(math.log(tor_subnet_size, 2)))
 
                 prefix = "{}.{}.{}.{}/{}".format(octet1, octet2, octet3, octet4, prefixlen_v4)
-                prefix_v6 = "20%02X:%02X%02X:0:%02X::/64" % (octet1, octet2, octet3, octet4) 
+                prefix_v6 = "20%02X:%02X%02X:0:%02X::/64" % (octet1, octet2, octet3, octet4)
 
                 leaf_asn = leaf_asn_start + podset
                 tor_asn  = tor_asn_start + tor
