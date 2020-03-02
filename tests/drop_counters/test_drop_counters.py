@@ -53,7 +53,8 @@ def parse_combined_counters(duthost):
                     COMBINED_ACL_DROP_COUNTER = True
                     break
 
-MELLANOX_SMAC_UPDATE_SCRIPT = os.path.join(os.path.dirname(__file__), "fanout/mellanox/mlnx_update_smac.j2")
+MELLANOX_MAC_UPDATE_SCRIPT = os.path.join(os.path.dirname(__file__), "fanout/mellanox/mlnx_update_mac.j2")
+
 
 @pytest.fixture(scope="module")
 def pkt_fields(duthost):
@@ -484,7 +485,7 @@ def test_equal_smac_dmac_drop(ptfadapter, duthost, setup, fanouthost, pkt_fields
     if "mellanox" == duthost.facts["asic_type"]:
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
-        fanouthost.update_config(template_path=MELLANOX_SMAC_UPDATE_SCRIPT, match_mac=src_mac, set_mac=ports_info["dst_mac"])
+        fanouthost.update_config(template_path=MELLANOX_MAC_UPDATE_SCRIPT, match_mac=src_mac, set_mac=ports_info["dst_mac"], eth_field="eth_src")
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"], # DUT port
@@ -497,17 +498,23 @@ def test_equal_smac_dmac_drop(ptfadapter, duthost, setup, fanouthost, pkt_fields
     do_test("L2", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], ports_info["dut_iface"], setup["neighbor_sniff_ports"])
 
 
-def test_multicast_smac_drop(ptfadapter, duthost, setup, pkt_fields, ports_info):
+def test_multicast_smac_drop(ptfadapter, duthost, setup, fanouthost, pkt_fields, ports_info):
     """
     @summary: Verify that packet with multicast SMAC is dropped and L2 drop counter incremented
     """
     multicast_smac = "01:00:5e:00:01:02"
+    src_mac = multicast_smac
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], multicast_smac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 
+    if "mellanox" == duthost.facts["asic_type"]:
+        src_mac = "00:00:00:00:00:11"
+        # Prepare openflow rule
+        fanouthost.update_config(template_path=MELLANOX_MAC_UPDATE_SCRIPT, match_mac=src_mac, set_mac=multicast_smac, eth_field="eth_src")
+
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"], # DUT port
-        eth_src=multicast_smac,
+        eth_src=src_mac,
         ip_src=pkt_fields["ipv4_src"], # PTF source
         ip_dst=pkt_fields["ipv4_dst"], # VM source
         tcp_sport=pkt_fields["tcp_sport"],
@@ -516,7 +523,7 @@ def test_multicast_smac_drop(ptfadapter, duthost, setup, pkt_fields, ports_info)
     do_test("L2", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], ports_info["dut_iface"], setup["neighbor_sniff_ports"])
 
 
-def test_reserved_dmac_drop(ptfadapter, duthost, setup, pkt_fields, ports_info):
+def test_reserved_dmac_drop(ptfadapter, duthost, setup, fanouthost, pkt_fields, ports_info):
     """
     @summary: Verify that packet with reserved DMAC is dropped and L2 drop counter incremented
     @used_mac_address:
@@ -526,9 +533,15 @@ def test_reserved_dmac_drop(ptfadapter, duthost, setup, pkt_fields, ports_info):
     reserved_mac_addr = ["01:80:C2:00:00:05", "01:80:C2:00:00:08"]
 
     for reserved_dmac in reserved_mac_addr:
+        dst_mac = reserved_dmac
+        if "mellanox" == duthost.facts["asic_type"]:
+            dst_mac = "00:00:00:00:00:11"
+            # Prepare openflow rule
+            fanouthost.update_config(template_path=MELLANOX_MAC_UPDATE_SCRIPT, match_mac=dst_mac, set_mac=reserved_dmac, eth_field="eth_dst")
+
         log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], reserved_dmac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
         pkt = testutils.simple_tcp_packet(
-            eth_dst=reserved_dmac, # DUT port
+            eth_dst=dst_mac, # DUT port
             eth_src=ports_info["src_mac"],
             ip_src=pkt_fields["ipv4_src"], # PTF source
             ip_dst=pkt_fields["ipv4_dst"], # VM source
