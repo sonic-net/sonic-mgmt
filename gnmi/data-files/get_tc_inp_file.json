@@ -3,19 +3,28 @@
     "openconfig-interfaces:interfaces": {
       "interface": [
         {
-          "name": "Loopback123",
+          "name": "eth-1/1/0",
           "config": {
-            "name": "Loopback123",
-            "description": "For GET_WITH_PFX TC",
+            "name": "eth-1/1/0",
+            "description": "For GET_WITH_PFX TC ETH1/1/0",
             "type": "iana-if-type:ethernetCsmacd",
             "mtu": "1500"
           }
         },
         {
-          "name": "Ethernet0",
+          "name": "eth-1/1/1",
           "config": {
-            "name": "Ethernet0",
-            "description": "For GET_WITH_PFX TC",
+            "name": "eth-1/1/1",
+            "description": "For GET_WITH_PFX TC ETH1/1/1",
+            "type": "iana-if-type:ethernetCsmacd",
+            "mtu": "1500"
+          }
+        },
+        {
+          "name": "eth-1/1/2",
+          "config": {
+            "name": "eth-1/1/2",
+            "description": "For GET_WITH_PFX TC ETH1/1/2",
             "type": "iana-if-type:ethernetCsmacd",
             "mtu": "1500"
           }

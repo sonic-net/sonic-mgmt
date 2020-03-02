@@ -355,7 +355,7 @@ def _test_Get_with_prefix(stub):
         pytest.fail("test_Get_with_prefix failed due to : {}".format(*err_msg))
     else:
         log.info("test_Get_with_prefix Passed")
-    
+    """
     try:
         xpath = "/oc-if:interfaces"
         paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
@@ -373,7 +373,8 @@ def _test_Get_with_prefix(stub):
         log.error(e)
         printGrpcError(e)
         pytest.fail("test_Get_with_prefix - Delete Config during cleanup failed due to Grpc Error {err}".format(err=e.details()))
-
+    """
+    
 def _test_GetSet_OC_Components(stub):
     user = None
     password = None
