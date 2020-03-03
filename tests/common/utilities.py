@@ -11,7 +11,7 @@ def wait(seconds, msg=""):
     @param seconds: Number of seconds to pause
     @param msg: Optional extra message for pause reason
     """
-    logging.debug("Pause %d seconds, reason: %s" % (seconds, msg))
+    logging.info("Pause %d seconds, reason: %s" % (seconds, msg))
     time.sleep(seconds)
 
 

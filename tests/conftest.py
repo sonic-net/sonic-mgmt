@@ -11,18 +11,18 @@ import yaml
 import ipaddr as ipaddress
 
 from ansible_host import AnsibleHost
-from common.sanity_check import check_critical_services, check_links_up
 from collections import defaultdict
-
 from common.devices import SonicHost, Localhost, PTFHost
 
 logger = logging.getLogger(__name__)
+
 pytest_plugins = ('common.plugins.ptfadapter',
                   'common.plugins.ansible_fixtures',
                   'common.plugins.dut_monitor',
                   'common.plugins.fib',
                   'common.plugins.loganalyzer',
-                  'common.plugins.psu_controller')
+                  'common.plugins.psu_controller',
+                  'common.plugins.sanity_check')
 
 
 class TestbedInfo(object):
@@ -193,19 +193,6 @@ def creds():
         with open(f) as stream:
             creds.update(yaml.safe_load(stream))
     return creds
-
-
-@pytest.fixture(scope="module", autouse=True)
-def base_sanity(duthost):
-    """perform base sanity checks before and after each test"""
-
-    check_critical_services(duthost)
-    check_links_up(duthost)
-
-    yield base_sanity
-
-    check_critical_services(duthost)
-    check_links_up(duthost)
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
