@@ -99,7 +99,7 @@
   command: openssl req -new -x509 -keyout test.key -out test.pem -days 365 -nodes -subj "/C=10/ST=Test/L=Test/O=Test/OU=Test/CN=test.com"
   args:
     chdir: /opt
-    delegate_to: "{{ ptf_host }}"
+  delegate_to: "{{ ptf_host }}"
 
 - name: Update supervisor configuration
   include_tasks: "roles/test/tasks/common_tasks/update_supervisor.yml"
