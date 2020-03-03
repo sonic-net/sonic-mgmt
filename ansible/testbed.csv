@@ -1,4 +1,4 @@
-# uniq-name,testbed-name,topo,ptf_image_name,ptf,ptf_ip,server,vm_base,dut,owner
+# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,server,vm_base,dut,comment
 
 # ptfs
 ptf1-1,ptf1-1,ptf32,docker-ptf-brcm,ptf1-1,10.64.246.6/23,server_1,,str-s6000-acs-8,Jenkins

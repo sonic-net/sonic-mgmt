@@ -52,7 +52,7 @@ def parse_file(topo_vm_cnt, testbed_file):
         with open(testbed_file) as f:
              content = csv.DictReader(f)
              for line in content:
-                 if 'ptf' in line['# uniq-name'] or '#' in line['# uniq-name']:
+                 if 'ptf' in line['# conf-name'] or '#' in line['# conf-name']:
                      continue
                  server_info[line['server']].append((line['vm_base'], topo_vm_cnt[line['topo']]))
     except EnvironmentError as e:
