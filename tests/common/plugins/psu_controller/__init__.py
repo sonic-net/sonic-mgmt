@@ -32,6 +32,7 @@ def psu_controller(duthost):
         logging.info("No 'pdu_host' is defined in inventory file for '%s'. Unable to create psu_controller" %
                      duthost.hostname)
         yield None
+        return
 
     controller_vars = inv_mgr.get_host(pdu_host).get_vars()
 
@@ -40,6 +41,7 @@ def psu_controller(duthost):
         logging.info("No 'ansible_host' is defined in inventory file for '%s'" % pdu_host)
         logging.info("Unable to create psu_controller for %s" % duthost.hostname)
         yield None
+        return
 
     controller_protocol = controller_vars.get("protocol")
     if not controller_protocol:
