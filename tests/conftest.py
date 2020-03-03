@@ -72,6 +72,16 @@ def pytest_addoption(parser):
     # test_vrf options
     parser.addoption("--vrf_capacity", action="store", default=None, type=int, help="vrf capacity of dut (4-1000)")
     parser.addoption("--vrf_test_count", action="store", default=None, type=int, help="number of vrf to be tested (1-997)")
+    ############################
+    # test_techsupport options #
+    ############################
+    
+    parser.addoption("--loop_num", action="store", default=10, type=int,
+                    help="Change default loop range for show techsupport command")
+    parser.addoption("--loop_delay", action="store", default=10, type=int,
+                    help="Change default loops delay")
+    parser.addoption("--logs_since", action="store", type=int, 
+                    help="number of minutes for show techsupport command")
 
 
 @pytest.fixture(scope="session")
