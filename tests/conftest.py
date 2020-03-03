@@ -12,6 +12,7 @@ import ipaddr as ipaddress
 
 from ansible_host import AnsibleHost
 from common.sanity_check import check_critical_services, check_links_up
+from collections import defaultdict
 
 from common.devices import SonicHost, Localhost, PTFHost
 
@@ -29,37 +30,39 @@ class TestbedInfo(object):
     Parse the CSV file used to describe whole testbed info
     Please refer to the example of the CSV file format
     CSV file first line is title
-    The topology name in title is using uniq-name | conf-name
+    The topology name in title is using conf-name
     """
 
     def __init__(self, testbed_file):
         self.testbed_filename = testbed_file
-        self.testbed_topo = {}
+        self.testbed_topo = defaultdict()
+        CSV_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'server', 'vm_base', 'dut', 'comment')
 
         with open(self.testbed_filename) as f:
-            topo = csv.DictReader(f)
-            for line in topo:
-                tb_prop = {}
-                name = ''
-                for key in line:
-                    if ('uniq-name' in key or 'conf-name' in key) and '#' in line[key]:
-                        continue
-                    elif 'uniq-name' in key or 'conf-name' in key:
-                        name = line[key]
-                    elif 'ptf_ip' in key and line[key]:
-                        ptfaddress = ipaddress.IPNetwork(line[key])
-                        tb_prop['ptf_ip'] = str(ptfaddress.ip)
-                        tb_prop['ptf_netmask'] = str(ptfaddress.netmask)
-                    elif key == 'topo':
-                        tb_prop['topo'] = {}
-                        tb_prop['topo']['name'] = line[key]
-                        with open("../ansible/vars/topo_{}.yml".format(tb_prop['topo']['name']), 'r') as fh:
-                            tb_prop['topo']['properties'] = yaml.safe_load(fh)
-                    else:
-                        tb_prop[key] = line[key]
+            topo = csv.DictReader(f, fieldnames=CSV_FIELDS)
 
-                if name:
-                    self.testbed_topo[name] = tb_prop
+            # Validate all field are in the same order and are present
+            header = next(topo)
+            for field in CSV_FIELDS:
+                assert header[field].replace('#', '').strip() == field
+
+            for line in topo:
+                if line['conf-name'].lstrip().startswith('#'):
+                    ### skip comment line
+                    continue
+                if line['ptf_ip']:
+                    ptfaddress = ipaddress.IPNetwork(line['ptf_ip'])
+                    line['ptf_ip'] = str(ptfaddress.ip)
+                    line['ptf_netmask'] = str(ptfaddress.netmask)
+
+                topo = line['topo']
+                del line['topo']
+                line['topo'] = defaultdict()
+                line['topo']['name'] = topo
+                with open("../ansible/vars/topo_{}.yml".format(topo), 'r') as fh:
+                    line['topo']['properties'] = yaml.safe_load(fh)
+
+                self.testbed_topo[line['conf-name']] = line
 
 
 def pytest_addoption(parser):

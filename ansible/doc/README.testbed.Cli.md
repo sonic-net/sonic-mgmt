@@ -12,7 +12,7 @@
 
 ## Add/Remove topo
 ```
-# uniq-name,testbed-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,owner
+# conf-name,testbed-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,owner
 vms1-1-t1,vms1-1,t1,docker-ptf-sai-mlnx,10.0.10.5/23,server_1,VM0100,str-msn2700-11,t1 tests
 vms1-1-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.0.10.5/23,server_1,VM0100,str-msn2700-11,t1-lag tests
 
@@ -32,7 +32,7 @@ Caveat: Have to remember what was the initial topology. Should be fixed in futur
 
 # Renumber topo
 ```
-# uniq-name,testbed-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,owner
+# conf-name,testbed-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,owner
 vms2-2-b,vms2-2,t1,docker-ptf-sai-brcm,10.0.10.7/23,server_1,VM0100,str-d6000-05,brcm test
 vms2-2-m,vms2-2,t1,docker-ptf-sai-mlnx,10.0.10.7/23,server_1,VM0100,str-msn2700-5,mlnx test
 
