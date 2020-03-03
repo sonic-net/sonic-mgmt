@@ -30,7 +30,7 @@ class TestbedInfo(object):
     Parse the CSV file used to describe whole testbed info
     Please refer to the example of the CSV file format
     CSV file first line is title
-    The topology name in title is using uniq-name | conf-name
+    The topology name in title is using conf-name
     """
 
     def __init__(self, testbed_file):
