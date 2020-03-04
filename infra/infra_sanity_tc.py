@@ -100,9 +100,9 @@ def _test_Optics_Laser_Status():
                 log.info("test_Get_with_prefix:Failed - was unable to do SET-UPDATE with input json")
             
             #xpath = "/if:interfaces/if:interface"
-            prefix = gnmi_input_conf['PORT_INTF']['verfiy']
+            prefix = gnmi_input_conf['PORT_INTF']['verfiy']['prefix']
             #prefix = gnmiTestLib._parse_path(gnmiTestLib._path_names(prefix))
-            path = gnmi_input_conf['PORT_INTF']['path']
+            path = gnmi_input_conf['PORT_INTF']['verfiy']['path']
             path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
             response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG')
             #log.info(response)   
