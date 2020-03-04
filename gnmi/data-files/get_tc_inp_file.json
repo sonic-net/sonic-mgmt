@@ -38,7 +38,7 @@
     "config": [
       {
         "section": "GET_WITH_PFX",
-        "name": "Loopback123",
+        "name": "eth-1/1/0",
         "key": [
             {
             "get_key": "interfaces,interface,config",
@@ -50,7 +50,19 @@
       },
       {
         "section": "GET_WITH_PFX",
-        "name": "Ethernet0",
+        "name": "eth-1/1/1",
+        "key": [
+          {
+            "get_key": "interfaces,interface,config",
+            "set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
+            "set_list_index": "1",
+            "check_var_list": ["name","type","description","mtu"]
+          }
+        ]
+      },
+      {
+        "section": "GET_WITH_PFX",
+        "name": "eth-1/1/2",
         "key": [
           {
             "get_key": "interfaces,interface,config",

@@ -25,6 +25,7 @@ for tp_dir in tp_dirs:
 
 sys.path.append('../gnmi/')
 import gnmi_test_lib as gnmiTestLib
+from gnmi_test_lib import GnmiConnection
 sys.path.append('./../../godiva-test/lib/')
 import common_lib as commonLib
 sys.path.append('../p4/')
@@ -76,8 +77,51 @@ def _test_Optics_Laser_Status_All():
     print(lsr_up)
 
 def _test_Optics_Laser_Status():
+    user = None
+    password = None
+    err_msg = list()
 
     input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_Optics_Laser_Status/input_conf_file"), 'r').read())
+    gnmi_input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_Optics_Laser_Status/gnmi_input_conf_file"), 'r').read())
+    gnmi_conn = GnmiConnection(target=ApData.svr_addr, port=ApData.port_addr)
+    stub = gnmi_conn.stub
+
+    log.info('Performing SET-UPDATE Request to target \n')
+    try:
+        if 'PORT_INTF' in gnmi_input_conf:
+            set_info = gnmi_input_conf['PORT_INTF']['config']
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'update', user, password, set_info)
+            log.info(str(reply))
+            if ('response' in str(reply) and 'op: UPDATE' in str(reply)):
+                log.info("test_Get_with_prefix:Passed - was able to do SET-UPDATE with input json")
+            else:
+                log.info("test_Get_with_prefix:Failed - was unable to do SET-UPDATE with input json")
+            
+            #xpath = "/if:interfaces/if:interface"
+            prefix = gnmi_input_conf['PORT_INTF']['verfiy']
+            #prefix = gnmiTestLib._parse_path(gnmiTestLib._path_names(prefix))
+            path = gnmi_input_conf['PORT_INTF']['path']
+            path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG')
+            #log.info(response)   
+
+            msg_dict = google.protobuf.json_format.MessageToDict(response)
+            #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+            for cfg in gnmi_input_conf['PORT_INTF']['config']:
+                result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
+                err_msg = result['err_msg'] + err_msg
+    
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        err_msg.append("test_Get_with_prefix failed due to Grpc Error {err}".format(err=e.details()))
+
     index = None
     if 'IND_OPTICS_LASER_STATUS' in input_conf:
         slot_list = input_conf['IND_OPTICS_LASER_STATUS']['SLOT_LIST']
