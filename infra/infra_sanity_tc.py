@@ -145,3 +145,9 @@ def _test_Optics_Laser_Status():
                         log.error("Laser Status is {} for slot_num {}".format(item.split()[1],slot_num))
             else:
                 log.error("Port Status not present in the output : {}".format(reply.decode()))
+    
+    if len(err_msg) != 0:
+        log.error("test_Get_with_prefix failed due to : {}".format(*err_msg))
+        pytest.fail("test_Get_with_prefix failed due to : {}".format(*err_msg))
+    else:
+        log.info("test_Get_with_prefix Passed")
