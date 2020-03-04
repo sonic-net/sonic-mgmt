@@ -39,6 +39,7 @@ class InfraApBase(ApBase):
     log.info(ApData.svr_addr)
     #ApData.svr_addr = "host_b"
     ApData.port_addr = ApData.infra_feature_dict[ApData.uut_name]['svr_port']
+    ApData.gnmi_port_addr = ApData.infra_feature_dict[ApData.uut_name]['svr_gnmi_port']
     ApData.proto_dump_file = ApData.infra_feature_dict[ApData.uut_name]['proto_dump_file']
     ApData.input_conf_file = ApData.infra_feature_dict['input_conf_file']
     ApData.sw_name = ApData.infra_feature_dict[ApData.uut_name]['name']
