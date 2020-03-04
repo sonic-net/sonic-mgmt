@@ -695,6 +695,7 @@ def get_response_dict(get_value):
         for key_val in value['prefix']['elem']:
             try:
                 main_key = key_val['key']['name']
+                main_key = main_key.replace("\'","")
                 #main_key = re.sub(r'\W+', '',main_key)
 
                 if old_key is None:
