@@ -1,78 +1,82 @@
 {
   "PORT_INTF": {
-    "config": {
-      "openconfig-interfaces:interfaces": {
-        "interface": [
-          {
-            "name": "eth-1/1/0",
-            "config": {
-              "name": "eth-1/1/0",
-              "description": "For GET_WITH_PFX TC ETH1/1/0",
-              "type": "iana-if-type:ethernetCsmacd",
-              "mtu": "1500"
-            }
-          },
-          {
-            "name": "eth-1/1/1",
-            "config": {
-              "name": "eth-1/1/1",
-              "description": "For GET_WITH_PFX TC ETH1/1/1",
-              "type": "iana-if-type:ethernetCsmacd",
-              "mtu": "1500"
-            }
-          },
-          {
-            "name": "eth-1/1/2",
-            "config": {
-              "name": "eth-1/1/2",
-              "description": "For GET_WITH_PFX TC ETH1/1/2",
-              "type": "iana-if-type:ethernetCsmacd",
-              "mtu": "1500"
-            }
-          }
-        ]
-      },
-      "openconfig-platform:components": {
-          "component": [
+    "config": [
+      {
+        "openconfig-interfaces:interfaces": {
+          "interface": [
             {
               "name": "eth-1/1/0",
               "config": {
                 "name": "eth-1/1/0",
-                "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
-              },
-              "port": {
-                "config": {
-                  "openconfig-hercules-platform:port-id": "0"
-                }
+                "description": "For GET_WITH_PFX TC ETH1/1/0",
+                "type": "iana-if-type:ethernetCsmacd",
+                "mtu": "1500"
               }
             },
             {
               "name": "eth-1/1/1",
               "config": {
                 "name": "eth-1/1/1",
-                "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
-              },
-              "port": {
-                "config": {
-                  "openconfig-hercules-platform:port-id": "1"
-                }
+                "description": "For GET_WITH_PFX TC ETH1/1/1",
+                "type": "iana-if-type:ethernetCsmacd",
+                "mtu": "1500"
               }
             },
             {
               "name": "eth-1/1/2",
               "config": {
                 "name": "eth-1/1/2",
-                "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
-              },
-              "port": {
-                "config": {
-                  "openconfig-hercules-platform:port-id": "2"
-                }
+                "description": "For GET_WITH_PFX TC ETH1/1/2",
+                "type": "iana-if-type:ethernetCsmacd",
+                "mtu": "1500"
               }
             }
           ]
+        }
+      },
+      {
+        "openconfig-platform:components": {
+            "component": [
+              {
+                "name": "eth-1/1/0",
+                "config": {
+                  "name": "eth-1/1/0",
+                  "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
+                },
+                "port": {
+                  "config": {
+                    "openconfig-hercules-platform:port-id": "0"
+                  }
+                }
+              },
+              {
+                "name": "eth-1/1/1",
+                "config": {
+                  "name": "eth-1/1/1",
+                  "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
+                },
+                "port": {
+                  "config": {
+                    "openconfig-hercules-platform:port-id": "1"
+                  }
+                }
+              },
+              {
+                "name": "eth-1/1/2",
+                "config": {
+                  "name": "eth-1/1/2",
+                  "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
+                },
+                "port": {
+                  "config": {
+                    "openconfig-hercules-platform:port-id": "2"
+                  }
+                }
+              }
+            ]
+          }
       }
-    },
+    ],
     "verfiy": {
       "prefix": "/oc-if:interfaces",
       "path": "/oc-if:interface",
