@@ -1,3 +1,5 @@
+- include_vars: "vars/docker_registry.yml"
+
 - include_vars: "roles/test/vars/testcases.yml"
 
 - name: Gathering minigraph facts about the device

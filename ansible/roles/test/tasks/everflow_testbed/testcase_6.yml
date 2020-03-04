@@ -41,6 +41,7 @@
         - src_port='{{src_port_ptf_id}}'
         - dst_ports='{{",".join((spine_ptf_ports))}}'
         - dst_mirror_ports='{{dst_port_1_ptf_id}}'
+        - mirror_stage='{{ mirror_stage }}'
       ptf_extra_options: "--relax --debug info"
 
   always:

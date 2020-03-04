@@ -1,3 +1,8 @@
+- name: Add docker official GPG key
+  apt_key: url=https://download.docker.com/linux/ubuntu/gpg state=present
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+
 - name: Add docker repository for 16.04
   apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable
@@ -18,11 +23,6 @@
     state: present
   become: yes
   when: host_distribution_version.stdout == "18.04"
-
-- name: Add docker official GPG key
-  apt_key: url=https://download.docker.com/linux/ubuntu/gpg state=present
-  become: yes
-  environment: "{{ proxy_env | default({}) }}"
 
 - name: Install docker-ce
   apt: pkg=docker-ce update_cache=yes

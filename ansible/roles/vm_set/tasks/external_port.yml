@@ -1,3 +1,9 @@
+- name: make sure /etc/network/interfaces.d exists
+  file:
+    path: /etc/network/interfaces.d
+    state: directory
+  become: yes
+
 - name: setup external interface as trunk port
   template: src=external_port.j2
             dest=/etc/network/interfaces.d/external_port
