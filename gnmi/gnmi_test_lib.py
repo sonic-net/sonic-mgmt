@@ -850,6 +850,7 @@ def verify_get_response(resp_dict,set_info,cfg_section):
     log.info(resp_dict)
 
     for key in key_section:
+        get_var = None
         get_key = key['get_key']
         set_key = key['set_key']
         chk_var_list = key['check_var_list']
@@ -872,8 +873,9 @@ def verify_get_response(resp_dict,set_info,cfg_section):
                 #get_var = resp_dict[resp_key][0][get_key][var]
                         log.info("{}:{}".format(set_var,get_var))
                 if set_var != None:
-                    if get_var not in set_var:
-                        err_msg.append("{} does not match the {} in input json file: {}".format(get_var,var,set_var))
+                    if get_var != None:
+                        if get_var not in set_var:
+                            err_msg.append("{} does not match the {} in input json file: {}".format(get_var,var,set_var))
                 else:
                     if str(var).lower is "enabled":
                         if not get_var:
