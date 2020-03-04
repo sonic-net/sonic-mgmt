@@ -100,19 +100,20 @@ def _test_Optics_Laser_Status():
                 log.info("test_Get_with_prefix:Failed - was unable to do SET-UPDATE with input json")
             
             #xpath = "/if:interfaces/if:interface"
-            prefix = gnmi_input_conf['PORT_INTF']['verfiy']['prefix']
-            #prefix = gnmiTestLib._parse_path(gnmiTestLib._path_names(prefix))
-            path = gnmi_input_conf['PORT_INTF']['verfiy']['path']
-            path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
-            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG')
-            #log.info(response)   
+            for verify_sec in gnmi_input_conf['PORT_INTF']['verfiy']:
+                prefix = verify_sec['prefix']
+                #prefix = gnmiTestLib._parse_path(gnmiTestLib._path_names(prefix))
+                path = verify_sec['path']
+                path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
+                response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG')
+                #log.info(response)   
 
-            msg_dict = google.protobuf.json_format.MessageToDict(response)
-            #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
-            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
-            for cfg in gnmi_input_conf['PORT_INTF']['config']:
-                result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
-                err_msg = result['err_msg'] + err_msg
+                msg_dict = google.protobuf.json_format.MessageToDict(response)
+                #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
+                resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+                for cfg in verify_sec['config']:
+                    result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
+                    err_msg = result['err_msg'] + err_msg
     
     except KeyboardInterrupt:
         log.info("Shutting down.")

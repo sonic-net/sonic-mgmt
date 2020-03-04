@@ -73,47 +73,44 @@
           ]
       }
     },
-    "verfiy": {
-      "prefix": "/oc-if:interfaces",
-      "path": "/oc-if:interface",
-      "config": [
-        {
-          "section": "GET_WITH_PFX",
-          "name": "eth-1/1/0",
-          "key": [
-              {
-              "get_key": "interfaces,interface,config",
-              "set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
-              "set_list_index": "0",
-              "check_var_list": ["name","type","description","mtu"]
-            }
-          ]
-        },
-        {
-          "section": "GET_WITH_PFX",
-          "name": "eth-1/1/1",
-          "key": [
-            {
-              "get_key": "interfaces,interface,config",
-              "set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
-              "set_list_index": "1",
-              "check_var_list": ["name","type","description","mtu"]
-            }
-          ]
-        },
-        {
-          "section": "GET_WITH_PFX",
-          "name": "eth-1/1/2",
-          "key": [
-            {
-              "get_key": "interfaces,interface,config",
-              "set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
-              "set_list_index": "1",
-              "check_var_list": ["name","type","description","mtu"]
-            }
-          ]
-        }
-      ]
-    }
+    "verfiy": [
+      {
+        "prefix": "/oc-if:interfaces",
+        "path": "/oc-if:interface",
+        "config": [
+          {
+            "name": "eth-1/1/0",
+            "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
+                "set_list_index": "0","check_var_list": ["name","type","description","mtu"]}]
+          },
+          {
+            "name": "eth-1/1/1",
+            "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
+                "set_list_index": "1","check_var_list": ["name","type","description","mtu"]}]
+          },
+          {
+            "name": "eth-1/1/2",
+            "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",2,"config"],
+                "set_list_index": "2","check_var_list": ["name","type","description","mtu"]}]
+          }
+        ]
+      },
+      {
+        "prefix": "/oc-platform:components",
+        "path": "/oc-platform:component",
+        "config": [
+          {
+            "name": "eth-1/1/0",
+            "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
+                "set_list_index": "0","check_var_list": ["name","type","description","mtu"]}]
+          },
+          {
+            "name": "eth-1/1/1",
+            "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
+                "set_list_index": "1","check_var_list": ["name","type","description","mtu"]}]
+          }
+        ]
+      }
+    ]
   }
 }
