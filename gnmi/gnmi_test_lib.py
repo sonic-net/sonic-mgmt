@@ -870,7 +870,7 @@ def verify_get_response(resp_dict,set_info,cfg_section):
                     if get_key in key_var.keys():
                         get_var = key_var[get_key][var]
                 #get_var = resp_dict[resp_key][0][get_key][var]
-                log.info("{}:{}".format(set_var,get_var))
+                        log.info("{}:{}".format(set_var,get_var))
                 if set_var != None:
                     if get_var not in set_var:
                         err_msg.append("{} does not match the {} in input json file: {}".format(get_var,var,set_var))
