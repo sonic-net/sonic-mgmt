@@ -1,7 +1,7 @@
 import pytest
 import os
 import pprint
-from loganalyzer import LogAnalyzer, LogAnalyzerError
+from common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 import time
 from random import randint
 from common.utilities import wait_until
@@ -240,7 +240,7 @@ def execute_command(duthost, since):
     if stdout['rc'] == SUCCESS_CODE:
         pytest.tar_stdout = stdout['stdout']
     return stdout['rc'] == SUCCESS_CODE
-        
+
 
 def test_techsupport(request, config, duthost, testbed):
     """
