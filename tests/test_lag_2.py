@@ -1,5 +1,6 @@
 import pytest
 
+import json
 import time
 import logging
 import os
@@ -16,6 +17,7 @@ def common_setup_teardown(duthost, ptfhost, testbed, conn_graph_facts):
         pytest.skip("No lag configuration found in %s" % duthost.hostname)
 
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    logging.info("dut hostname: %s" % mg_facts)
     vm_neighbors = mg_facts['minigraph_neighbors']
 
     # Copy PTF test into PTF-docker for test LACP DU
@@ -30,11 +32,9 @@ def common_setup_teardown(duthost, ptfhost, testbed, conn_graph_facts):
 
     # Inlucde testbed topology configuration
     testbed_type = testbed['topo']['name']
+    
     support_testbed_types = frozenset(['t1-lag', 't0', 't0-116'])
-    if testbed_type in support_testbed_types:
-        # TODO: Not sure why need to load vars
-        logging.info("Load vars for %s" % testbed_type)
-    else:
+    if testbed_type not in support_testbed_types:
         pytest.skip("Not support given test bed type %s" % testbed_type)
 
     # TODO: dut_mac might useful for other test cases
@@ -43,25 +43,24 @@ def common_setup_teardown(duthost, ptfhost, testbed, conn_graph_facts):
 
     yield ptfhost, vm_neighbors, mg_facts, lag_facts
 
-def test_lag_2(common_setup_teardown, testbed_devices):
+def test_lag_2(common_setup_teardown, ansible_adhoc):
     ptfhost, vm_neighbors, mg_facts, lag_facts = common_setup_teardown
 
     # Test for each lag
     for lag_name in lag_facts['names']:
-        check_single_lag_lacp_rate(common_setup_teardown, testbed_devices, lag_name)
+        check_single_lag_lacp_rate(common_setup_teardown, ansible_adhoc, lag_name)
 
-def check_single_lag_lacp_rate(common_setup_teardown, testbed_devices, lag_name):
+def check_single_lag_lacp_rate(common_setup_teardown, ansible_adhoc, lag_name):
     ptfhost, vm_neighbors, mg_facts, lag_facts = common_setup_teardown
     logging.info("Start checking single lap lacp rate for: %s" % lag_name)
     
     po_interfaces = lag_facts['lags'][lag_name]['po_config']['ports']
     intf = lag_facts['lags'][lag_name]['po_config']['ports'].keys()[0]
 
-    # Figure out remote VM and interface info for the flapping lag member and run minlink test
+    # Figure out remote VM and interface info
     peer_device = vm_neighbors[intf]['name']
-    neighbor_interface = vm_neighbors[intf]['port']
     peer_hwsku = 'Arista-VM'
-    peer_host = mg_facts['minigraph_devices']
+    peer_host = mg_facts['minigraph_devices'][peer_device]['mgmt_addr']
 
     # Prepare for the remote VM interfaces that using PTF docker to check if the LACP DU packet rate is correct
     iface_behind_lag_member = []
@@ -73,8 +72,17 @@ def check_single_lag_lacp_rate(common_setup_teardown, testbed_devices, lag_name)
     for po_interface in po_interfaces:
         neighbor_lag_intfs.append(vm_neighbors[po_interface]['port'])
 
+    # TODO: The labinfo.json is not standard because it uses a single quote which
+    #       is not allowed by json module. Although ast.literal_eval can by pass this issue,
+    #       i still think it is make sense to update the json file itself instead of use another module
+    with open('../ansible/group_vars/all/labinfo.json') as f:
+        lab_info = json.load(f)
+
     try:
         lag_rate_current_setting = None
+        logging.info("All is well now: %s" % peer_host)
+        switch_login = lab_info['switch_login'][peer_hwsku]
+        eos_host = ansible_adhoc(become=True, user=switch_login['user'], password=switch_login['passwd'])[peer_host]
 
         # Make sure all lag members on VM are set to fast
         # TODO: login peer_host and use action [apswitch]
