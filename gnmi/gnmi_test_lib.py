@@ -867,10 +867,9 @@ def verify_get_response(resp_dict,set_info,cfg_section):
                         work_set_info = value
                 
                 set_var = work_set_info.get(var)
-                print(set_var)
-                print(resp_dict[resp_key])
-                print(get_key)
                 for key_var in resp_dict[resp_key]:
+                    log.info("key_var keys {}".format(key_var.keys()))
+                    log.info("Get Key: {}".format(get_key))
                     if get_key in key_var.keys():
                         get_var = key_var[get_key][var]
                 #get_var = resp_dict[resp_key][0][get_key][var]
