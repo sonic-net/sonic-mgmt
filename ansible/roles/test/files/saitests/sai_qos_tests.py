@@ -82,7 +82,7 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
 
-     def runTest(self):
+    def runTest(self):
          # ARP Populate
         if self.testbed_type in ['t0', 't0-64', 't0-116']:
             arpreq_pkt = simple_arp_packet(
@@ -95,7 +95,7 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
                           hw_tgt='00:00:00:00:00:00')
 
             send_packet(self, self.src_port_id, arpreq_pkt)
-             arpreq_pkt = simple_arp_packet(
+            arpreq_pkt = simple_arp_packet(
                            eth_dst='ff:ff:ff:ff:ff:ff',
                            eth_src=self.dst_port_mac,
                            arp_op=1,
