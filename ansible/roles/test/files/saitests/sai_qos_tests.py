@@ -135,6 +135,7 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
                               hw_tgt='00:00:00:00:00:00')
                 send_packet(self, port[1], arpreq_pkt)
                 index += 1
+        time.sleep(8)
 
 class ReleaseAllPorts(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
@@ -850,13 +851,14 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                           hw_snd=self.dst_port_mac,
                           hw_tgt='00:00:00:00:00:00')
             send_packet(self, self.dst_port_id, arpreq_pkt)
+        time.sleep(8)
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
 
     def runTest(self):
         margin = 0
-        sidx_dscp_pg_tuples = [(sidx, dscp, pgs[pgidx]) for sidx, sid in enumerate(self.src_port_ids) for pgidx, dscp in enumerate(self.dscps)]
+        sidx_dscp_pg_tuples = [(sidx, dscp, self.pgs[pgidx]) for sidx, sid in enumerate(self.src_port_ids) for pgidx, dscp in enumerate(self.dscps)]
         assert(len(sidx_dscp_pg_tuples) >= self.pgs_num)
         print >> sys.stderr, sidx_dscp_pg_tuples
         sys.stderr.flush()
@@ -867,7 +869,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         xmit_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[self.dst_port_id])
 
         # Pause egress of dut xmit port
-        sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+        sai_thrift_port_tx_disable(self.client, self.asic_type, [self.dst_port_id])
 
         try:
             # send packets to leak out
@@ -981,7 +983,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.flush()
 
         finally:
-            sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+            sai_thrift_port_tx_enable(self.client, self.asic_type, [self.dst_port_id])
 
 # TODO: remove sai_thrift_clear_all_counters and change to use incremental counter values
 class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
