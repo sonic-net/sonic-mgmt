@@ -203,6 +203,7 @@
         test_name: headroom pool size ptf test ecn = {{qp.hdrm_pool_size.ecn}}
         test_path: sai_qos_tests.HdrmPoolSizeTest
         test_params:
+        - testbed_type='{{testbed_type}}'
         - dscps={{qp.hdrm_pool_size.dscps}}
         - ecn={{qp.hdrm_pool_size.ecn}}
         - pgs={{qp.hdrm_pool_size.pgs}}
