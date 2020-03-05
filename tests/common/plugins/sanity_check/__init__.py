@@ -89,6 +89,7 @@ def sanity_check(testbed_devices, request):
 
     if skip_sanity:
         logger.info("Skip sanity check according to configuration of test script.")
+        yield
         return
 
     if not check_items:
