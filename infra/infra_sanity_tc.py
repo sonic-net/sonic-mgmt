@@ -109,7 +109,7 @@ def _test_Optics_Laser_Status():
                 #log.info(response)   
 
                 msg_dict = google.protobuf.json_format.MessageToDict(response)
-                #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
+                log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
                 resp_dict = gnmiTestLib.get_response_dict(msg_dict)
                 for cfg in verify_sec['config']:
                     result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
@@ -147,7 +147,7 @@ def _test_Optics_Laser_Status():
                 log.error("Port Status not present in the output : {}".format(reply.decode()))
     
     if len(err_msg) != 0:
-        log.error("test_Get_with_prefix failed due to : {}".format(*err_msg))
-        pytest.fail("test_Get_with_prefix failed due to : {}".format(*err_msg))
+        log.error("test_Optics_Laser_Status failed due to : {}".format(*err_msg))
+        pytest.fail("test_Optics_Laser_Status failed due to : {}".format(*err_msg))
     else:
-        log.info("test_Get_with_prefix Passed")
+        log.info("test_Optics_Laser_Status Passed")
