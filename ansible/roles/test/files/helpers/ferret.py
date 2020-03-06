@@ -11,6 +11,7 @@ import BaseHTTPServer
 import time
 import socket
 import ctypes
+import ssl
 import struct
 import binascii
 import itertools
@@ -92,10 +93,15 @@ class Ferret(BaseHTTPServer.BaseHTTPRequestHandler):
 
 
 class RestAPI(object):
-    PORT = 85
+    PORT = 448
 
     def __init__(self, obj, db, src_ip):
         self.httpd = SocketServer.TCPServer(("", self.PORT), obj)
+        self.context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+        self.context.verify_mode = ssl.CERT_NONE
+        self.context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        self.context.load_cert_chain(certfile="/opt/test.pem", keyfile="/opt/test.key")
+        self.httpd.socket=self.context.wrap_socket(self.httpd.socket, server_side=True)
         self.db = db
         obj.db = db
         obj.src_ip = src_ip
