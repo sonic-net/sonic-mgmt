@@ -12,7 +12,7 @@ import sys
 
 import pytest
 
-from common.plugins.loganalyzer import LogAnalyzer, LogAnalyzerError
+from common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from common.utilities import wait_until
 from thermal_control_test_helper import *
 
