@@ -1,6 +1,5 @@
 import pytest
 import crypt
-from ansible_host import AnsibleHost
 
 @pytest.fixture(scope="module")
 def setup_tacacs(ptfhost, duthost, creds):
