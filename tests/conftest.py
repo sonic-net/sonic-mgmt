@@ -20,6 +20,7 @@ pytest_plugins = ('common.plugins.ptfadapter',
                   'common.plugins.ansible_fixtures',
                   'common.plugins.dut_monitor',
                   'common.plugins.fib',
+                  'common.plugins.tacacs',
                   'common.plugins.loganalyzer',
                   'common.plugins.psu_controller',
                   'common.plugins.sanity_check')
