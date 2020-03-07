@@ -49,10 +49,9 @@ def _update_check_items(old_items, new_items, supported_items):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def sanity_check(testbed_devices, request, fanouthosts):
+def sanity_check(testbed_devices, duthost, request, fanouthosts):
     logger.info("Start pre-test sanity check")
 
-    dut = testbed_devices["dut"]
     localhost = testbed_devices["localhost"]
 
     skip_sanity = False
@@ -102,8 +101,8 @@ def sanity_check(testbed_devices, request, fanouthosts):
         logger.info("No sanity check item is specified, no post-test sanity check")
         return
 
-    print_logs(dut, constants.PRINT_LOGS)
-    check_results = do_checks(dut, check_items)
+    print_logs(duthost, constants.PRINT_LOGS)
+    check_results = do_checks(duthost, check_items)
     logger.info("!!!!!!!!!!!!!!!! Pre-test sanity check results: !!!!!!!!!!!!!!!!\n%s" % \
                 json.dumps(check_results, indent=4))
     if any([result["failed"] for result in check_results]):
@@ -112,9 +111,9 @@ def sanity_check(testbed_devices, request, fanouthosts):
             return
 
         logger.info("Pre-test sanity check failed, try to recover, recover_method=%s" % recover_method)
-        recover(dut, localhost, fanouthosts, check_results, recover_method)
+        recover(duthost, localhost, fanouthosts, check_results, recover_method)
         logger.info("Run sanity check again after recovery")
-        new_check_results = do_checks(dut, check_items)
+        new_check_results = do_checks(duthost, check_items)
         logger.info("!!!!!!!!!!!!!!!! Pre-test sanity check after recovery results: !!!!!!!!!!!!!!!!\n%s" % \
                     json.dumps(new_check_results, indent=4))
         if any([result["failed"] for result in new_check_results]):
@@ -131,7 +130,7 @@ def sanity_check(testbed_devices, request, fanouthosts):
         logger.info("No post-test check is required. Done post-test sanity check")
         return
 
-    post_check_results = do_checks(dut, check_items)
+    post_check_results = do_checks(duthost, check_items)
     logger.info("!!!!!!!!!!!!!!!! Post-test sanity check results: !!!!!!!!!!!!!!!!\n%s" % \
                 json.dumps(post_check_results, indent=4))
     if any([result["failed"] for result in post_check_results]):

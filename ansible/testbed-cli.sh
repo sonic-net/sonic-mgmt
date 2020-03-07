@@ -57,37 +57,38 @@ function usage
 
 function read_file
 {
- echo reading
+  echo reading
 
- # Filter testbed names in the first column in the testbed definition file
- line=$(cat $tbfile | grep "^$1,")
+  # Filter testbed names in the first column in the testbed definition file
+  line=$(cat $tbfile | grep "^$1,")
 
- if [ $? -ne 0 ]
- then
+  if [ $? -ne 0 ]
+  then
    echo "Couldn't find topology name '$1'"
    exit
- fi
+  fi
 
- NL='
+  NL='
 '
- case $line in
-  *"$NL"*) echo "Find more than one topology names in $tbfile"
-           exit
-           ;;
-        *) echo Found topology $1
-           ;;
- esac
+  case $line in
+    *"$NL"*) echo "Find more than one topology names in $tbfile"
+             exit
+             ;;
+          *) echo Found topology $1
+             ;;
+  esac
 
- IFS=, read -r -a line_arr <<< $line
+  IFS=, read -r -a line_arr <<< $line
 
- testbed_name=${line_arr[1]}
- topo=${line_arr[2]}
- ptf_imagename=${line_arr[3]}
- ptf=${line_arr[4]}
- ptf_ip=${line_arr[5]}
- server=${line_arr[6]}
- vm_base=${line_arr[7]}
- dut=${line_arr[8]}
+  testbed_name=${line_arr[1]}
+  topo=${line_arr[2]}
+  ptf_imagename=${line_arr[3]}
+  ptf=${line_arr[4]}
+  ptf_ip=${line_arr[5]}
+  server=${line_arr[6]}
+  vm_base=${line_arr[7]}
+  dut=${line_arr[8]//;/,}
+  dut=${dut//[\[\]]/}
 }
 
 function start_vms

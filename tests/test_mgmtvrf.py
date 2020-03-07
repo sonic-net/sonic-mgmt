@@ -83,7 +83,6 @@ class TestMvrfInbound():
 
     def test_snmp_fact(self,testbed_devices):
        localhost = testbed_devices['localhost']
-       duthost = testbed_devices['dut']
        snmp_res = localhost.snmp_facts(host=var['dut_ip'],version='v2c',community='public' )  
        
 class TestMvrfOutbound(): 

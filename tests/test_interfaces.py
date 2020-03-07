@@ -2,14 +2,11 @@ from ansible_host import AnsibleHost
 from netaddr import IPAddress
 import pytest
 
-def test_interfaces(ansible_adhoc, testbed):
+def test_interfaces(duthost):
     """compare the interfaces between observed states and target state"""
 
-    hostname = testbed['dut']
-    ans_host = AnsibleHost(ansible_adhoc, hostname)
-
-    host_facts = ans_host.setup()['ansible_facts']
-    mg_facts   = ans_host.minigraph_facts(host=hostname)['ansible_facts']
+    host_facts = duthost.setup()['ansible_facts']
+    mg_facts   = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 
     verify_port(host_facts, mg_facts['minigraph_portchannels'].keys())
     for k, v in mg_facts['minigraph_portchannels'].items():

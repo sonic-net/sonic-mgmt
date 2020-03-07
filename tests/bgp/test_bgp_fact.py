@@ -1,13 +1,11 @@
 from ansible_host import AnsibleHost
 
-def test_bgp_facts(ansible_adhoc, testbed,duthost):
+def test_bgp_facts(duthost):
     """compare the bgp facts between observed states and target state"""
 
-    hostname = testbed['dut']
-    ans_host = AnsibleHost(ansible_adhoc, hostname)
     npus = duthost.num_npus()
-    bgp_facts = ans_host.bgp_facts(num_npus=npus)['ansible_facts']
-    mg_facts  = ans_host.minigraph_facts(host=hostname)['ansible_facts']
+    bgp_facts = duthost.bgp_facts()['ansible_facts']
+    mg_facts  = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 
     for k, v in bgp_facts['bgp_neighbors'].items():
         # Verify bgp sessions are established
