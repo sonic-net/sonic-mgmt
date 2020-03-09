@@ -101,7 +101,6 @@
         test_name: populate arp on all ports
         test_path: sai_qos_tests.ARPpopulate
         test_params:
-        - testbed_type='{{testbed_type}}'
         - dst_port_id='{{dst_port_id}}'
         - dst_port_ip='{{dst_port_ip}}'
         - dst_port_2_id='{{dst_port_2_id}}'
@@ -111,11 +110,6 @@
         - src_port_id='{{src_port_id}}'
         - src_port_ip='{{src_port_ip}}'
       when: testbed_type in ['t0', 't0-64', 't0-116'] or arp_entries.stdout.find('incomplete') == -1
-
-    - name: Manually add an ARP entry for dst port
-      command: ip neigh replace {{dst_port_ip}} lladdr 7c:fe:90:5e:6b:a6 dev {{dut_switch_ports[dst_port_id|int]}}
-      become: yes
-      when: testbed_type not in ['t0', 't0-64', 't0-116'] and arp_entries.stdout.find('incomplete') != -1
 
     # XOFF limit
     - include_tasks: qos_sai_ptf.yml

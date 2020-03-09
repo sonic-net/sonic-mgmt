@@ -64,7 +64,6 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         switch_init(self.client)
 
         # Parse input parameters
-        self.testbed_type = self.test_params['testbed_type']
         self.router_mac = self.test_params['router_mac']
         self.dst_port_id = int(self.test_params['dst_port_id'])
         self.dst_port_ip = self.test_params['dst_port_ip']
@@ -84,57 +83,43 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
 
     def runTest(self):
          # ARP Populate
-        if self.testbed_type in ['t0', 't0-64', 't0-116']:
-            arpreq_pkt = simple_arp_packet(
-                          eth_dst='ff:ff:ff:ff:ff:ff',
-                          eth_src=self.src_port_mac,
-                          arp_op=1,
-                          ip_snd=self.src_port_ip,
-                          ip_tgt='192.168.0.1',
-                          hw_snd=self.src_port_mac,
-                          hw_tgt='00:00:00:00:00:00')
+        arpreq_pkt = simple_arp_packet(
+                      eth_dst='ff:ff:ff:ff:ff:ff',
+                      eth_src=self.src_port_mac,
+                      arp_op=1,
+                      ip_snd=self.src_port_ip,
+                      ip_tgt='192.168.0.1',
+                      hw_snd=self.src_port_mac,
+                      hw_tgt='00:00:00:00:00:00')
 
-            send_packet(self, self.src_port_id, arpreq_pkt)
-            arpreq_pkt = simple_arp_packet(
-                           eth_dst='ff:ff:ff:ff:ff:ff',
-                           eth_src=self.dst_port_mac,
-                           arp_op=1,
-                           ip_snd=self.dst_port_ip,
-                           ip_tgt='192.168.0.1',
-                           hw_snd=self.dst_port_mac,
-                           hw_tgt='00:00:00:00:00:00')
-            send_packet(self, self.dst_port_id, arpreq_pkt)
-            arpreq_pkt = simple_arp_packet(
-                          eth_dst='ff:ff:ff:ff:ff:ff',
-                          eth_src=self.dst_port_2_mac,
-                          arp_op=1,
-                          ip_snd=self.dst_port_2_ip,
-                          ip_tgt='192.168.0.1',
-                          hw_snd=self.dst_port_2_mac,
-                          hw_tgt='00:00:00:00:00:00')
-            send_packet(self, self.dst_port_2_id, arpreq_pkt)
-            arpreq_pkt = simple_arp_packet(
-                          eth_dst='ff:ff:ff:ff:ff:ff',
-                          eth_src=self.dst_port_3_mac,
-                          arp_op=1,
-                          ip_snd=self.dst_port_3_ip,
-                          ip_tgt='192.168.0.1',
-                          hw_snd=self.dst_port_3_mac,
-                          hw_tgt='00:00:00:00:00:00')
-            send_packet(self, self.dst_port_3_id, arpreq_pkt)
-        else:
-            index = 0
-            for port in ptf_ports():
-                arpreq_pkt = simple_arp_packet(
-                              eth_dst='ff:ff:ff:ff:ff:ff',
-                              eth_src=self.dataplane.get_mac(port[0],port[1]),
-                              arp_op=1,
-                              ip_snd='10.0.0.%d' % (index * 2 + 1),
-                              ip_tgt='10.0.0.%d' % (index * 2),
-                              hw_snd=self.dataplane.get_mac(port[0], port[1]),
-                              hw_tgt='00:00:00:00:00:00')
-                send_packet(self, port[1], arpreq_pkt)
-                index += 1
+        send_packet(self, self.src_port_id, arpreq_pkt)
+        arpreq_pkt = simple_arp_packet(
+                       eth_dst='ff:ff:ff:ff:ff:ff',
+                       eth_src=self.dst_port_mac,
+                       arp_op=1,
+                       ip_snd=self.dst_port_ip,
+                       ip_tgt='192.168.0.1',
+                       hw_snd=self.dst_port_mac,
+                       hw_tgt='00:00:00:00:00:00')
+        send_packet(self, self.dst_port_id, arpreq_pkt)
+        arpreq_pkt = simple_arp_packet(
+                      eth_dst='ff:ff:ff:ff:ff:ff',
+                      eth_src=self.dst_port_2_mac,
+                      arp_op=1,
+                      ip_snd=self.dst_port_2_ip,
+                      ip_tgt='192.168.0.1',
+                      hw_snd=self.dst_port_2_mac,
+                      hw_tgt='00:00:00:00:00:00')
+        send_packet(self, self.dst_port_2_id, arpreq_pkt)
+        arpreq_pkt = simple_arp_packet(
+                      eth_dst='ff:ff:ff:ff:ff:ff',
+                      eth_src=self.dst_port_3_mac,
+                      arp_op=1,
+                      ip_snd=self.dst_port_3_ip,
+                      ip_tgt='192.168.0.1',
+                      hw_snd=self.dst_port_3_mac,
+                      hw_tgt='00:00:00:00:00:00')
+        send_packet(self, self.dst_port_3_id, arpreq_pkt)
         time.sleep(8)
 
 class ReleaseAllPorts(sai_base_test.ThriftInterfaceDataPlane):
