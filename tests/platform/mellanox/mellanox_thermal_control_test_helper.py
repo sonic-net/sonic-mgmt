@@ -575,7 +575,7 @@ class RandomFanStatusMocker(FanStatusMocker):
                         'N/A'
                     ]
             except SysfsNotExistError as e:
-                logging.info('Failed to mock fan data for {}'.format(fan_data.name))
+                logging.info('Failed to mock fan data: {}'.format(e))
                 continue
 
         dut_hwsku = self.mock_helper.dut.facts["hwsku"]
