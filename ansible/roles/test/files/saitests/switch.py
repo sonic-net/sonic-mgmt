@@ -51,6 +51,10 @@ rewrite_mac2='00:77:66:55:46:01'
 
 is_bmv2 = ('BMV2_TEST' in os.environ) and (int(os.environ['BMV2_TEST']) == 1)
 
+# constants
+STOP_PORT_MAX_RATE = 1
+RELEASE_PORT_MAX_RATE = 0
+
 def switch_init(client):
     global switch_inited
     if switch_inited:
