@@ -556,6 +556,8 @@ class RandomFanStatusMocker(FanStatusMocker):
                     drawer_index += 1
                     presence = random.randint(0, 1)
                     drawer_data.mock_presence(presence)
+                    if drawer_data.mocked_presence == 'Present':
+                        presence = 1
 
                 fan_data = FanData(self.mock_helper, naming_rule, fan_index)
                 fan_index += 1
@@ -808,10 +810,13 @@ class AbnormalFanMocker(SingleFanMocker):
         """
         for name, fields in actual_data.items():
             if name == self.fan_data.name:
-                actual_color = self.fan_drawer_data.get_status_led()
-                assert actual_color == self.expect_led_color, 'FAN {} color is {}, expect: {}'.format(name,
-                                                                                                      actual_color,
-                                                                                                      self.expect_led_color)
+                try:
+                    actual_color = self.fan_drawer_data.get_status_led()
+                    assert actual_color == self.expect_led_color, 'FAN {} color is {}, expect: {}'.format(name,
+                                                                                                        actual_color,
+                                                                                                        self.expect_led_color)
+                except SysfsNotExistError as e:
+                    logging.info('LED check only support on SPC2 and SPC3: {}'.format(e))
                 return
 
         assert 0, 'Expected data not found'
