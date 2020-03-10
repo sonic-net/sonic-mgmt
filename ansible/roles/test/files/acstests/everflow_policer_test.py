@@ -230,10 +230,12 @@ class EverflowPolicerTest(BaseTest):
         masked_exp_pkt.set_do_not_care(38*8, len(payload)*8)  # don't match payload, payload will be matched by match_payload(pkt)
 
         def match_payload(pkt):
-            pkt = scapy.Ether(pkt).load
             if self.asic_type in ["mellanox"]:
+                pkt = scapy.Ether(pkt).load
                 pkt = pkt[22:] # Mask the Mellanox specific inner header
-            pkt = scapy.Ether(pkt)
+                pkt = scapy.Ether(pkt)
+            else:
+                pkt = scapy.Ether(pkt)[scapy.GRE].payload
 
             return dataplane.match_exp_pkt(payload_mask, pkt)
 
