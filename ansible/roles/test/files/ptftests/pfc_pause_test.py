@@ -14,7 +14,7 @@ import ptf.dataplane as dataplane
 from ptf import config
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
-from ptf.testutils import *
+from ptf.testutils import add_filter, reset_filters, dp_poll, simple_udp_packet, send_packet, test_params_get
 
 def udp_filter(pkt_str):
     try:
@@ -24,7 +24,7 @@ def udp_filter(pkt_str):
     except:
         return False
 
-def capture_matched_packets(test, exp_packet, port, device_number = 0,timeout = 1):
+def capture_matched_packets(test, exp_packet, port, device_number=0, timeout=1):
     """
     Receive all packets on the port and return all the received packets.
     As soon as the packets stop arriving, the function waits for the timeout value and returns the received packets. Therefore, this function requires a positive timeout value.
@@ -34,7 +34,7 @@ def capture_matched_packets(test, exp_packet, port, device_number = 0,timeout = 
     
     pkts = list()
     while True:
-        result = dp_poll(test, device_number = device_number, port_number = port, timeout = timeout)
+        result = dp_poll(test, device_number=device_number, port_number=port, timeout=timeout)
         if isinstance(result, test.dataplane.PollSuccess):
             if ptf.dataplane.match_exp_pkt(exp_packet, result.packet):
                 pkts.append(result.packet)
@@ -74,32 +74,32 @@ class PfcPauseTest(BaseTest):
             dport = random.randint(0, 65535)
         
             pkt = simple_udp_packet(
-                        eth_dst = self.mac_dst,
-                        eth_src = self.mac_src,
-                        ip_src = self.ip_src,
-                        ip_dst = self.ip_dst,
-                        ip_tos = tos,
-                        udp_sport = sport,
-                        udp_dport = dport,
-                        ip_ttl = 64)
+                        eth_dst=self.mac_dst,
+                        eth_src=self.mac_src,
+                        ip_src=self.ip_src,
+                        ip_dst=self.ip_dst,
+                        ip_tos=tos,
+                        udp_sport=sport,
+                        udp_dport=dport,
+                        ip_ttl=64)
             
             pkt_bg = simple_udp_packet(
-                        eth_dst = self.mac_dst,
-                        eth_src = self.mac_src,
-                        ip_src = self.ip_src,
-                        ip_dst = self.ip_dst,
-                        ip_tos = tos_bg,
-                        udp_sport = sport,
-                        udp_dport = dport,
-                        ip_ttl = 64)
+                        eth_dst=self.mac_dst,
+                        eth_src=self.mac_src,
+                        ip_src=self.ip_src,
+                        ip_dst=self.ip_dst,
+                        ip_tos=tos_bg,
+                        udp_sport=sport,
+                        udp_dport=dport,
+                        ip_ttl=64)
                           
             exp_pkt = simple_udp_packet(
-                        ip_src = self.ip_src,
-                        ip_dst = self.ip_dst,
-                        ip_tos = tos_bg,
-                        udp_sport = sport,
-                        udp_dport = dport,
-                        ip_ttl = 63)
+                        ip_src=self.ip_src,
+                        ip_dst=self.ip_dst,
+                        ip_tos=tos_bg,
+                        udp_sport=sport,
+                        udp_dport=dport,
+                        ip_ttl=63)
             
             masked_exp_pkt = Mask(exp_pkt)
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
