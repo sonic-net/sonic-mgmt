@@ -147,6 +147,12 @@ class SingleFanMocker(BaseMocker):
     This class could mock speed, presence/absence for one FAN, check LED color and
     other information.
     """
+    def is_fan_removable(self):
+        """
+        :return: True if FAN is removable else False
+        """
+        pass
+
     def mock_normal(self):
         """
         Change the mocked FAN status to 'Present' and normal speed.

@@ -283,7 +283,11 @@ class FanDrawerData:
         :param presence: Given presence value. 1 means present, 0 means not present.
         :return:
         """
-        if self.presence_file:
+        dut_hwsku = self.helper.dut.facts["hwsku"]
+        always_present = not SWITCH_MODELS[dut_hwsku]['fans']['hot_swappable']
+        if always_present:
+            self.mocked_presence = 'Present'
+        elif self.presence_file:
             self.helper.mock_thermal_value(self.presence_file, str(presence))
             self.mocked_presence = 'Present' if presence == 1 else 'Not Present'
         else:
@@ -812,6 +816,13 @@ class AbnormalFanMocker(SingleFanMocker):
 
         assert 0, 'Expected data not found'
 
+    def is_fan_removable(self):
+        """
+        :return: True if FAN is removable else False
+        """
+        dut_hwsku = self.mock_helper.dut.facts["hwsku"]
+        return SWITCH_MODELS[dut_hwsku]['fans']['hot_swappable']
+
     def mock_all_normal(self):
         """
         Change all the mocked FANs status to normal.
@@ -821,14 +832,14 @@ class AbnormalFanMocker(SingleFanMocker):
             try:
                 drawer_data.mock_presence(1)
             except SysfsNotExistError as e:
-                logging.info('Failed to mock drawer data')
+                logging.info('Failed to mock drawer data: {}'.format(e))
 
         for fan_data in self.fan_data_list:
             try:
                 fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
                 fan_data.mock_target_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
             except SysfsNotExistError as e:
-                logging.info('Failed to mock fan data for {}'.format(fan_data.name))
+                logging.info('Failed to mock fan data: {}'.format(e))
 
     def mock_normal(self):
         """
