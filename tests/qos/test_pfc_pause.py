@@ -1,14 +1,13 @@
 
 from ansible_host import AnsibleHost
-from qos_fixtures import *
-from qos_helpers import ansible_stdout_to_str, eos_to_linux_intf, get_active_intfs, get_addrs_in_subnet, get_neigh_ip,check_mac_table, get_mac, config_intf_ip_mac
 import pytest
 import os
 import time
 import re
 import struct
 import random
-import ipaddress
+from qos_fixtures import lossless_prio_dscp_map, conn_graph_facts, leaf_fanouts
+from qos_helpers import ansible_stdout_to_str, eos_to_linux_intf, check_mac_table, config_testbed_t0
 
 PFC_GEN_FILE = 'pfc_gen.py'
 PFC_GEN_FILE_RELATIVE_PATH = '../../ansible/roles/test/files/helpers/pfc_gen.py'
@@ -23,19 +22,10 @@ PTF_PASS_RATIO_THRESH = 0.75
 
 """ Maximum number of interfaces to test on a DUT """
 MAX_TEST_INTFS_COUNT = 4
-         
-def atoi(text):
-    return int(text) if text.isdigit() else text
-
-def natural_keys(text):
-    return [atoi(c) for c in re.split(r'(\d+)', text)]
-
+             
 def setup_testbed(ansible_adhoc, testbed, leaf_fanouts):
     """
-    @Summary: Set up the testbed, including:
-    (1) copying the PFC generator to the leaf fanout switches,
-    (2) stopping PFC storm at the leaf fanout switches,
-    (3) copying the PTF script to the PTF container.
+    @Summary: Set up the testbed
     @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
     mandatory argument for the class constructors.
     @param testbed: Testbed information
@@ -68,7 +58,7 @@ def setup_testbed(ansible_adhoc, testbed, leaf_fanouts):
     """ Copy the PFC test script to the PTF container """  
     file_src = os.path.join(os.path.dirname(__file__), PTF_FILE_RELATIVE_PATH)
     ptf_ans.copy(src=file_src, dest=PTF_FILE_DEST, force=True)
-    
+            
 def run_test_t0(ansible_adhoc, 
                 testbed, 
                 conn_graph_facts, 
@@ -101,50 +91,19 @@ def run_test_t0(ansible_adhoc,
     """
     dut_hostname = testbed['dut']
     dut_ans = AnsibleHost(ansible_adhoc, dut_hostname)
-    mg_facts = dut_ans.minigraph_facts(host=dut_hostname)['ansible_facts']
-    mg_vlans = mg_facts['minigraph_vlans']
-
-    if len(mg_vlans) != 1:
-        print 'There should be only one Vlan at the DUT'
-        return None
     
-    """ Get all the Vlan memebrs """
-    vlan_intf = mg_vlans.keys()[0]
-    vlan_members = mg_vlans[vlan_intf]['members']
+    ptf_hostname = testbed['ptf']
+    ptf_ans = AnsibleHost(ansible_adhoc, ptf_hostname)
     
-    """ Filter inactive Vlan members """
-    active_intfs = get_active_intfs(dut_ans)
-    vlan_members = [x for x in vlan_members if x in active_intfs]
-
-    mg_vlan_intfs = mg_facts['minigraph_vlan_interfaces']        
-    vlan_subnet = ansible_stdout_to_str(mg_vlan_intfs[0]['subnet'])
-    vlan_subnet_mask = ipaddress.ip_network(unicode(vlan_subnet, "utf-8")).netmask
-         
-    """ Generate IP addresses for servers in the Vlan """
-    vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, len(vlan_members))
-    """ Generate MAC addresses 00:00:00:00:00:XX for servers in the Vlan """
-    vlan_mac_addrs = [5 * '00:' + format(k, '02x') for k in random.sample(range(1, 256), len(vlan_members))]
-    
-    """ Find correspoinding interfaces on PTF """
-    intf_facts = dut_ans.interface_facts()['ansible_facts']['ansible_interface_facts'] 
-    phy_intfs = [k for k in intf_facts.keys() if k.startswith('Ethernet')]
-    phy_intfs.sort(key = natural_keys)
-    vlan_members.sort(key = natural_keys)
-    vlan_members_index = [phy_intfs.index(intf) for intf in vlan_members]
-    ptf_intfs = ['eth' + str(i) for i in vlan_members_index]
-                
     """ Clear DUT's PFC counters """
     dut_ans.sonic_pfc_counters(method="clear")
     
     """ Disable DUT's PFC wd """
     dut_ans.shell('sudo pfcwd stop')
-
-    """ Remove existing IP addresses from PTF host """ 
-    ptf_hostname = testbed['ptf']
-    ptf_ans = AnsibleHost(ansible_adhoc, ptf_hostname)
-    ptf_ans.script('scripts/remove_ip.sh')
     
-    time.sleep(1)
+    """ Configure T0 tesbted and return testbed information """
+    dut_intfs, ptf_intfs, ptf_ip_addrs, ptf_mac_addrs = config_testbed_t0(ansible_adhoc, testbed)
+    
     results = dict()
 
     for i in range(min(max_test_intfs_count, len(ptf_intfs))):
@@ -154,18 +113,14 @@ def run_test_t0(ansible_adhoc,
         src_intf = ptf_intfs[src_index]
         dst_intf = ptf_intfs[dst_index]
         
-        src_ip = vlan_ip_addrs[src_index]
-        dst_ip = vlan_ip_addrs[dst_index]
+        src_ip = ptf_ip_addrs[src_index]
+        dst_ip = ptf_ip_addrs[dst_index]
         
-        src_mac = vlan_mac_addrs[src_index]
-        dst_mac = vlan_mac_addrs[dst_index]
+        src_mac = ptf_mac_addrs[src_index]
+        dst_mac = ptf_mac_addrs[dst_index]
        
         """ DUT interface to pause """
-        dut_intf_paused = vlan_members[dst_index]
-
-        """ Configure IP and MAC on Tx and Rx interfaces of PTF """
-        config_intf_ip_mac(ptf_ans, src_intf, src_ip, vlan_subnet_mask, src_mac)
-        config_intf_ip_mac(ptf_ans, dst_intf, dst_ip, vlan_subnet_mask, dst_mac)
+        dut_intf_paused = dut_intfs[dst_index]
                                 
         """ Clear MAC table in DUT (host memory and ASIC) """
         dut_ans.shell('sonic-clear fdb all </dev/null >/dev/null 2>&1 &')
@@ -224,10 +179,7 @@ def run_test_t0(ansible_adhoc,
             cmd = "sudo kill -9 $(pgrep -f %s) </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE)
             peerdev_ans.shell(cmd)
             time.sleep(1)
-        
-    """ Remove existing IP addresses from PTF host """ 
-    ptf_ans.script('scripts/remove_ip.sh')
-            
+                    
     return results
 
 
