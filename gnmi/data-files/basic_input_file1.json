@@ -12,7 +12,14 @@
   },
   "VERIFY_GETSET_Sanity1_1": {
     "filter": "/if:interfaces/if:interface",
-    "config": [{"section":"GETSET_Sanity1_1","name":"Loopback123"}]
+    "config": [
+      {
+        "name": "Loopback123",
+        "section":"GETSET_Sanity1_1",
+        "key": [{"get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
+            "set_list_index": "0","check_var_list": ["name","type","description"]}]
+      }
+    ]
   },
   "GETSET_Sanity1_2": {
       "ietf-interfaces:interfaces": {
@@ -27,11 +34,31 @@
   },
   "VERIFY_GETSET_Sanity1_2": {
     "filter": "/if:interfaces/if:interface",
-    "config": [{"section":"GETSET_Sanity1_1","name":"Loopback123"},{"section":"GETSET_Sanity1_2","name":"Loopback456"}]
+    "config": [
+      {
+        "name": "Loopback123",
+        "section":"GETSET_Sanity1_1",
+        "key": [{"get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
+            "set_list_index": "0","check_var_list": ["name","type","description"]}]
+      },
+      {
+        "name": "Loopback456",
+        "section":"GETSET_Sanity1_2",
+        "key": [{"get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
+            "set_list_index": "0","check_var_list": ["name","type","description"]}]
+      }
+    ]
   },
   "VERIFY_GETSET_Sanity1_3": {
     "filter": "/if:interfaces/if:interface",
-    "config": [{"section":"GETSET_Sanity1_1","name":"Loopback123"}]
+    "config": [
+      {
+        "name": "Loopback123",
+        "section":"GETSET_Sanity1_1",
+        "key": [{"get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
+            "set_list_index": "0","check_var_list": ["name","type","description"]}]
+      }
+    ]
   },
   "VERIFY_GETSET_Sanity1_4": {
     "filter": "/if:interfaces/if:interface"
@@ -69,7 +96,22 @@
           ]
         }
      }
-},
+  },
+  "VERIFY_SET_RplOmit_1": {
+    "filter": "/if:interfaces/if:interface",
+    "config": [
+      {
+        "name": "SetRplOmt1",
+        "key": [{"get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
+            "set_list_index": "0","check_var_list": ["name","type"]}]
+      },
+      {
+        "name": "SetRplOmt1",
+        "key": [{"get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
+            "set_list_index": "0","check_var_list": ["description"]}]
+      }
+    ]
+  },
   "MULTISET_Sanity1_1": {
     "set-type": "multiple",
     "set-lst": {

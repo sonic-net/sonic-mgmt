@@ -867,20 +867,27 @@ def verify_get_response(resp_dict,set_info,cfg_section):
                         work_set_info = value
                 
                 set_var = work_set_info.get(var)
+                if set_var is None:
+                    for key in work_set_info.keys():
+                        if var in key:
+                            set_var = work_set_info[key]
                 for key_var in resp_dict[resp_key]:
                     if get_key in key_var.keys():
-                        get_var = key_var[get_key][var]
-                #get_var = resp_dict[resp_key][0][get_key][var]
-                        log.info("{}:{}".format(set_var,get_var))
+                        try:
+                            get_var = key_var[get_key][var]
+                            log.info("{}:{}".format(set_var,get_var))
+                        except KeyError:
+                            err_msg.append("No matching check variable: {} in the Get response dict".format(var))
 
                 if set_var != None:
                     if get_var != None:
                         if get_var not in set_var:
                             err_msg.append("{} does not match the {} in input json file: {}".format(get_var,var,set_var))
+                    else:
+                        err_msg.append("No matching variable: {} in the Get response dict".format(var))
                 else:
-                    if str(var).lower is "enabled":
-                        if not get_var:
-                            err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_key,str(get_var).upper))
+                    err_msg.append("Var {} not found in the set config section".format(var))
+
         else:
             err_msg.append("Interface {} missing from the GET response".format(resp_key))
     
