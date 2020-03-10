@@ -50,6 +50,8 @@
 
         - name: Disable Mellanox packet aging
           shell: python /root/packets_aging.py disable
+          register: result
+          failed_when: result.stderr != ''
       vars:
         ansible_shell_type: docker
         ansible_python_interpreter: docker exec -i syncd python
@@ -481,7 +483,7 @@
 
     - name: Restore original watermark polling status
       shell: counterpoll watermark {{watermark_status.stdout}}
-      when: watermark_status.stdout == "enable" or watermark_status.stdout == "disable"
+      when:  watermark_status is defined and (watermark_status.stdout == "enable" or watermark_status.stdout == "disable")
 
     - name: Restore lossy scheduler weight to {{lossy_sched_weight}}
       command: redis-cli -n 4 HSET "{{lossy_sched_profile}}" weight "{{lossy_sched_weight.stdout}}"
@@ -491,6 +493,8 @@
 
     - name: Enable Mellanox packet aging
       shell: python /root/packets_aging.py enable
+      register: result
+      failed_when: result.stderr != ''
       vars:
         ansible_shell_type: docker
         ansible_python_interpreter: docker exec -i syncd python
