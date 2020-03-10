@@ -232,10 +232,13 @@ def _path_names(xpath):
   """
   if not xpath or xpath == '/':  # A blank xpath was provided at CLI.
     return []
-  return xpath.strip().strip('/').split('/')  # Remove leading and trailing '/'.
+  ppath = re.split('''/(?=(?:[^\[\]]|\[[^\[\]]+\])*$)''', xpath)[1:]
+  print(ppath)
+  return ppath
+  #return xpath.strip().strip('/').split('/')  # Remove leading and trailing '/'.
 
 
-def _parse_path(p_names):
+def _parse_path(p_names,target=None):
   """Parses a list of path names for path keys.
 
   Args:
@@ -260,7 +263,12 @@ def _parse_path(p_names):
           'pname'), key=tmp_key))
     else:
       gnmi_elems.append(gnmi_pb2.PathElem(name=word, key={}))
-  return gnmi_pb2.Path(elem=gnmi_elems)
+
+  if target is not None:
+    return gnmi_pb2.Path(elem=gnmi_elems,target=target)
+  else:
+    return gnmi_pb2.Path(elem=gnmi_elems)
+
 
 
 def _create_stub(creds, target, port, host_override):
