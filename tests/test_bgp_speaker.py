@@ -65,7 +65,7 @@ def common_setup_teardown(duthost, ptfhost):
         duthost.command("ip route flush %s/32" % ip.ip)
         duthost.command("ip route add %s/32 dev %s" % (ip.ip, mg_facts['minigraph_vlan_interfaces'][0]['attachto']))
 
-    port_num = [5000, 6000, 7000]
+    port_num = [7000, 8000, 9000]
 
     lo_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
     lo_addr_prefixlen = int(mg_facts['minigraph_lo_interfaces'][0]['prefixlen'])
@@ -117,7 +117,7 @@ def common_setup_teardown(duthost, ptfhost):
     logging.info("########### Done teardown for bgp speaker testing ###########")
 
 
-def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthost, ptfhost):
+def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthost, ptfhost, collect_techsupport):
     """Setup bgp speaker on T0 topology and verify bgp sessions are established
     """
     ptfip, mg_facts, interface_facts, vlan_ips, speaker_ips, port_num = common_setup_teardown
@@ -131,7 +131,7 @@ def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthost, ptfhost):
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 1514)])
-def test_bgp_speaker_announce_routes(common_setup_teardown, duthost, ptfhost, ipv4, ipv6, mtu):
+def test_bgp_speaker_announce_routes(common_setup_teardown, duthost, ptfhost, ipv4, ipv6, mtu, collect_techsupport):
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """

@@ -44,6 +44,7 @@
       ignore_errors: yes
 
     - name: Set sysctl RCVBUF parameter for tests
+      become: true
       sysctl:
         name: "net.core.rmem_max"
         value: 509430500

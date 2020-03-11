@@ -249,10 +249,6 @@ testcases:
       vtestbed_compatible: no
       topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]
 
-    qos:
-      filename: qos.yml
-      topologies: [ptf32, ptf64]
-    
     qos_sai:
       filename: qos_sai.yml
       topologies: [ptf32, ptf64, t1, t1-lag, t0, t0-64, t0-116]

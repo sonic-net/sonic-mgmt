@@ -150,6 +150,7 @@
 - name: Set lossless ingress buffer pool ROID
   set_fact:
     lossless_ingr_buf_pool_roid: "{{buffer_pool_roid}}"
+  when: not disable_test
 
 
 # Ingress lossy
@@ -171,6 +172,7 @@
 - name: Set lossy ingress buffer pool ROID
   set_fact:
     lossy_ingr_buf_pool_roid: "{{buffer_pool_roid}}"
+  when: not disable_test
 
 
 # Egress lossless

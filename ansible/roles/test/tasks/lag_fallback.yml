@@ -51,10 +51,19 @@
       with_items: "{{ po_interfaces.keys() }}"
       when: item != "{{ flap_intf }}"
 
-    - name: Verify {{ flap_intf}}  lag member interfaces are marked as deselected for the shutdown port
+    - name: Verify {{ flap_intf}}  lag member interfaces are marked as deselected for the shutdown port without fallback
       assert: { that: "'{{ lag_facts.lags[po]['po_stats']['ports'][item]['runner']['selected'] }}' == 'False'" }
       with_items: "{{ po_interfaces.keys() }}"
-      when: item == "{{ flap_intf }}"
+      when: 
+        - po_fallback != True
+        - item == "{{ flap_intf }}"
+
+    - name: Verify {{ flap_intf}}  lag member interfaces are marked as selected for the shutdown port with fallback
+      assert: { that: "'{{ lag_facts.lags[po]['po_stats']['ports'][item]['runner']['selected'] }}' == 'True'" }
+      with_items: "{{ po_interfaces.keys() }}"
+      when: 
+        - po_fallback == True
+        - item == "{{ flap_intf }}"
 
     - name: verify port-channel {{ po }} interface are marked down correctly if portchannel should down
       assert: { that: "'{{ lag_facts.lags[po]['po_intf_stat'] }}' == 'Down' "}

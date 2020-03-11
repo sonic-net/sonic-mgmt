@@ -1,7 +1,7 @@
 import pytest
 from ansible_host import AnsibleHost
 
-def test_snmp_queues(ansible_adhoc, testbed, creds):
+def test_snmp_queues(ansible_adhoc, testbed, creds, collect_techsupport):
 
     hostname = testbed['dut']
     ans_host = AnsibleHost(ansible_adhoc, hostname)

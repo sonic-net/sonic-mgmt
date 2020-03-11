@@ -3,6 +3,7 @@
 - hosts: eos
   gather_facts: no
   tasks:
+    - include_vars: ../group_vars/all/creds.yml
     - name: Set ansible login user name and password
       set_fact: ansible_user="root" ansible_password={{ eos_root_password }}
     - name: Check list of processes

@@ -20,28 +20,7 @@ $ sudo ifconfig br1 up
 - Download vEOS image from [arista](https://www.arista.com/en/support/software-download).
 - Copy below image files to ```~/veos-vm/images``` on your testbed server.
    - ```Aboot-veos-serial-8.0.0.iso```
-   - ```vEOS-lab-4.15.9M.vmdk```
-
-## Setup docker registry for *PTF* docker
-
-PTF docker is used to send and receive packets to test data plane. 
-
-- Build PTF docker
-```
-$ git clone --recursive https://github.com/Azure/sonic-buildimage.git
-$ make configure PLATFORM=generic
-$ make target/docker-ptf.gz
-```
-
-- Download pre-built *docker-ptf* image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/broadcom/job/buildimage-brcm-all/lastSuccessfulBuild/artifact/target/docker-ptf-brcm.gz)
-```
-$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/broadcom/job/buildimage-brcm-all/lastSuccessfulBuild/artifact/target/docker-ptf-brcm.gz
-```
-
-- Load *docker-ptf* image
-```
-$ docker load -i docker-ptf-brcm.gz
-```
+   - ```vEOS-lab-4.20.15M.vmdk```
 
 ## Build or download *sonic-mgmt* docker image
 
@@ -56,9 +35,9 @@ $ make configure PLATFORM=generic
 $ make target/docker-sonic-mgmt.gz
 ```
 
-- Download pre-built *sonic-mgmt* image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/target/docker-sonic-mgmt.gz).
+- Download pre-built *sonic-mgmt* image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/sonic-buildimage/target/docker-sonic-mgmt.gz).
 ```
-$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/target/docker-sonic-mgmt.gz
+$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/sonic-buildimage/target/docker-sonic-mgmt.gz
 ```
 
 - Load *sonic-mgmt* image
@@ -105,6 +84,7 @@ vm_host_1
 ## Run sonic-mgmt docker
 
 ```
+(run following command from a place where the newly cloned sonic-mgmt repo is accessible, e.g. home directory or the parent fold of sonic-mgmt, the point is that you want to run following deployment and test commands from this repo)
 $ docker run -v $PWD:/data -it docker-sonic-mgmt bash
 ```
 

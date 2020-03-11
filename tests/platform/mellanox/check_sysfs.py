@@ -97,12 +97,9 @@ def check_sysfs(dut):
         cpu_pack_crit_temp_file_output = dut.command("cat %s" % cpu_pack_crit_temp_file)
         cpu_pack_crit_temp = float(cpu_pack_crit_temp_file_output["stdout"])/1000
 
-        if cpu_pack_temp >= cpu_pack_max_temp:
-            logging.warning("cpu pack temperature ({}) is higher than alarm threshold ({}) ".format(cpu_pack_temp, cpu_pack_max_temp))
-
         assert cpu_pack_max_temp <= cpu_pack_crit_temp, "Bad CPU pack max temp or critical temp, %s, %s " \
                                                         % (str(cpu_pack_max_temp), str(cpu_pack_crit_temp))
-        assert cpu_pack_temp < cpu_pack_crit_temp, "CPU pack overheated, temp: %s" % (str(cpu_pack_temp))
+        assert cpu_pack_temp < cpu_pack_max_temp, "CPU pack overheated, temp: %s" % (str(cpu_pack_temp))
 
     cpu_core_count = SWITCH_MODELS[dut_hwsku]["cpu_cores"]["number"]
     for core_id in range(0, cpu_core_count):
@@ -118,12 +115,9 @@ def check_sysfs(dut):
         cpu_core_crit_temp_file_output = dut.command("cat %s" % cpu_core_crit_temp_file)
         cpu_core_crit_temp = float(cpu_core_crit_temp_file_output["stdout"])/1000
 
-        if cpu_core_temp >= cpu_core_max_temp:
-            logging.warning("cpu core {} temperature ({}) is higher than alarm threshold ({})".format(core_id, cpu_pack_temp, cpu_pack_max_temp))
-
         assert cpu_core_max_temp <= cpu_core_crit_temp, "Bad CPU core%d max temp or critical temp, %s, %s " \
                                                         % (core_id, str(cpu_core_max_temp), str(cpu_core_crit_temp))
-        assert cpu_core_temp < cpu_core_crit_temp, "CPU core%d overheated, temp: %s" % (core_id, str(cpu_core_temp))
+        assert cpu_core_temp < cpu_core_max_temp, "CPU core%d overheated, temp: %s" % (core_id, str(cpu_core_temp))
 
     psu_count = SWITCH_MODELS[dut_hwsku]["psus"]["number"]
     for psu_id in range(1, psu_count + 1):
@@ -135,14 +129,14 @@ def check_sysfs(dut):
             psu_status_output = dut.command("cat %s" % psu_status_file)
             psu_status = int(psu_status_output["stdout"])
             if not psu_status:
-                logging.info("PSU %d doesn't exist, skipped".format(psu_id))
+                logging.info("PSU %d doesn't exist, skipped" % psu_id)
                 continue
 
             psu_pwr_status_file = "/var/run/hw-management/thermal/psu{}_pwr_status".format(psu_id)
             psu_pwr_status_output = dut.command("cat %s" % psu_pwr_status_file)
             psu_pwr_status = int(psu_pwr_status_output["stdout"])
             if not psu_pwr_status:
-                logging.info("PSU %d isn't poweron, skipped".format(psu_id))
+                logging.info("PSU %d isn't poweron, skipped" % psu_id)
                 continue
 
             psu_temp_file = "/var/run/hw-management/thermal/psu{}_temp".format(psu_id)

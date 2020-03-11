@@ -58,6 +58,8 @@
   apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
   become: yes
   with_items:
+    - ifupdown
+    - python
     - qemu
     - openvswitch-switch
     - net-tools
@@ -152,6 +154,13 @@
         uri=qemu:///system
         state=running
   register: vm_list_running
+  become: true
+
+- name: Retrieve a list of the paused VMs
+  virt: command=list_vms
+        uri=qemu:///system
+        state=pause
+  register: vm_list_paused
   become: true
 
 - name: Find current server group

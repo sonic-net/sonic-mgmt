@@ -61,3 +61,6 @@
 - name: Verify VLAN interfaces are up correctly
   assert: { that: "'{{ ansible_interface_facts[item]['active'] }}' == 'True'" }
   with_items: "{{ minigraph_vlans.keys() }}"
+
+- name: Verify interfaces counters
+  include: interface_counters.yml
