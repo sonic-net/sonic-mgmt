@@ -95,6 +95,7 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
     assert reboot_type in reboot_ctrl_dict.keys(), "Unknown reboot type %s" % reboot_type
 
     reboot_timeout = reboot_ctrl_dict[reboot_type]["timeout"]
+
     ansible_host = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
 
     dut_datetime = datetime.strptime(dut.command('date -u +"%Y-%m-%d %H:%M:%S"')["stdout"], "%Y-%m-%d %H:%M:%S")
