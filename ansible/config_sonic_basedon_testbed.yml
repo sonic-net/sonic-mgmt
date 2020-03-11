@@ -20,6 +20,7 @@
 # -e topo=t0                 - the name of topology to generate minigraph file
 # -e testbed_name=vms1-1     - the testbed name specified in testbed.csv file
 #                              (if you give 'testbed_name' option, will use info from testbed and ignore topo and vm_base options)
+# -e vm_file=veos            - the virtual machine file name
 # -e deploy=True             - if deploy the newly generated minigraph to the targent DUT, default is false if not defined
 # -e save=True               - if save the newly generated minigraph to the targent DUT as starup-config, default is false if not defined
 #
@@ -60,12 +61,17 @@
   - topo_facts: topo={{ topo }}
     delegate_to: localhost
 
+  - name: set default vm file path
+    set_fact:
+      vm_file: veos
+    when: vm_file is not defined
+
   - set_fact:
       VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
       remote_dut: "{{ ansible_ssh_host }}"
 
   - name: gather testbed VM informations
-    testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }}
+    testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }}
     delegate_to: localhost
     when: "VM_topo | bool"
 
