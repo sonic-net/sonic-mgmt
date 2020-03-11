@@ -28,6 +28,30 @@
       ]
     }
   },
+  "MdfyTGT1_1": {
+    "prefix-path": "ietf-interfaces:interfaces",
+    "Updates" : {
+    "interface": [
+        {
+          "name": "Loopback883",
+          "description": "For MdfyTGT1_1'",
+          "type": "iana-if-type:ethernetCsmacd"
+        }
+      ]
+    }
+  },
+  "MdfyTGT1_2": {
+    "prefix-path": "ietf-interfaces:interfaces",
+    "Updates" : {
+    "interface": [
+        {
+          "name": "Loopback884",
+          "description": "For NoTGT1_2'",
+          "type": "iana-if-type:ethernetCsmacd"
+        }
+      ]
+    }
+  },
   "PFXPath_MSet_1": {
     "prefix-path": "ietf-interfaces:interfaces",
     "Updates" : {

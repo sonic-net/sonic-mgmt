@@ -23,12 +23,6 @@ Steps for installing cafyKit libraries on ubuntu:
 
 4. pip3 install current-req.txt
 
-Steps to run cmal script
-========================
-1. Modify cmal-topo.json to match your testbed.
-2. Modify gd_input_file.json to match your test requirements
-3. pytest -rapP -vs cmal_ap.py --mail-to your-email-id@cisco.com --topology-file cmal_topo.json --test-input-file=gd_input_file.json
-
 Steps to run P4 script
 ========================
 1. Modify p4-topo.json to match your testbed.

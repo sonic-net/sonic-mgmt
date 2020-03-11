@@ -233,6 +233,58 @@
                     "proto_dump_file": "s1-infra-requests-log.txt"
                 }
             },
+            "sflow": {
+                "input_conf_file": "../infra/data-files/basic_input_file1.json",
+                "R1": {
+                    "name": "s1",
+                    "svr_addr": "172.17.0.2",
+                    "svr_port": "22",
+                    "svr_gnmi_port": "9339",
+                    "proto_dump_file": "s1-infra-requests-log.txt"
+                },
+                "th3_4": {
+                    "name": "s1",
+                    "svr_addr": "1.81.15.145",
+                    "svr_port": "22",
+                    "username": "cisco",
+                    "password": "lab",
+                    "svr_gnmi_port": "9339",
+                    "proto_dump_file": "s1-infra-requests-log.txt"
+                },
+                "th3_5": {
+                    "name": "s1",
+                    "svr_addr": "1.81.15.123",
+                    "svr_port": "22",
+                    "svr_gnmi_port": "9339",
+                    "proto_dump_file": "s1-infra-requests-log.txt"
+                }
+            },
+            "lacp": {
+                "input_conf_file": "../infra/data-files/basic_input_file1.json",
+                "R1": {
+                    "name": "s1",
+                    "svr_addr": "172.17.0.2",
+                    "svr_port": "22",
+                    "svr_gnmi_port": "9339",
+                    "proto_dump_file": "s1-infra-requests-log.txt"
+                },
+                "th3_4": {
+                    "name": "s1",
+                    "svr_addr": "1.81.15.145",
+                    "svr_port": "22",
+                    "username": "cisco",
+                    "password": "lab",
+                    "svr_gnmi_port": "9339",
+                    "proto_dump_file": "s1-infra-requests-log.txt"
+                },
+                "th3_5": {
+                    "name": "s1",
+                    "svr_addr": "1.81.15.123",
+                    "svr_port": "22",
+                    "svr_gnmi_port": "9339",
+                    "proto_dump_file": "s1-infra-requests-log.txt"
+                }
+            },
             "bsp": {
                 "R1": {
                     "name": "godiva",

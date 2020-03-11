@@ -1,0 +1,35 @@
+Warning: Session g_process already exists
+Error: Session name already exists
+Port	Laser Status
+E0210 23:44:27.799248 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 0
+1	On
+2	On
+E0210 23:44:27.806393 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 3
+E0210 23:44:27.807710 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 4
+E0210 23:44:27.809015 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 5
+E0210 23:44:27.810322 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 6
+E0210 23:44:27.811614 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 7
+E0210 23:44:27.812913 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 8
+E0210 23:44:27.814225 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 9
+E0210 23:44:27.815515 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 10
+E0210 23:44:27.816807 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 11
+E0210 23:44:27.818101 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 12
+E0210 23:44:27.819392 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 13
+E0210 23:44:27.820683 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 14
+E0210 23:44:27.821982 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 15
+E0210 23:44:27.823264 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 16
+E0210 23:44:27.824559 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 17
+E0210 23:44:27.825835 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 18
+E0210 23:44:27.827124 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 19
+E0210 23:44:27.828425 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 20
+E0210 23:44:27.829704 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 21
+E0210 23:44:27.830993 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 22
+E0210 23:44:27.832288 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 23
+E0210 23:44:27.833586 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 24
+E0210 23:44:27.834856 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 25
+E0210 23:44:27.836154 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 26
+E0210 23:44:27.837447 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 27
+E0210 23:44:27.838726 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 28
+E0210 23:44:27.840004 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 29
+E0210 23:44:27.841303 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 30
+E0210 23:44:27.842593 25779 optics_util.cc:320] laser_status_util (get): No optics present on port: 31

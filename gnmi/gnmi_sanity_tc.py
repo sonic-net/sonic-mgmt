@@ -920,6 +920,143 @@ def _test_SetPfxPath_2node(stub):
         raise CafyException.VerificationError("Test SETPfx_2node_1 failed due to Grpc Error {err}".format(err=e.details()))
 
 
+def _test_Set_wTgt(stub):
+    user = None
+    password = None
+    err_msg = list()
+
+    tData = ApData.zap.get_testcase_configuration("test_gnmi_SetPfxPath")
+    input_conf = json.loads(six.moves.builtins.open(tData["input_conf_file"], 'r').read())
+    print(input_conf)
+
+    log.info('Performing SET-REPLACE w/Path Target(gnmi spec:2.2.2.1) for Multiple leaf nodes\n')
+    log.info('For this test we will use Path Target = "SET_GNMI_TGT"')
+    try:
+        if 'SETPfxPath2_1' in input_conf:
+            set_info1 = input_conf['SETPfxPath2_1']
+            print(set_info1['prefix-path'])
+            print(set_info1['Updates'])
+            target = 'SET_GNMI_TGT'
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            pfx_path = gnmiTestLib._parse_path(gnmiTestLib._path_names(set_info1['prefix-path']),target)
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1['Updates'], pfx_path)
+            resp = str(reply)
+            log.info("### RCVD RESPONSE ###")
+            log.info(resp)
+            sresp = "".join(resp.split('\n'))
+            log.info (sresp)
+            mt1 = 'prefix {  elem {    name: "ietf-interfaces:interfaces"  }  target: "SET_GNMI_TGT"}'
+            mt2 = 'response {  path {  }'
+            if (mt1 in sresp and mt2 in sresp):
+                log.info("Set_wTgt_1_1:Passed - was able to do SET-REPLACE Request w/Path Target for Multiple Leaf Nodes")
+            else:
+                log.info("Set_wTgt_1_1:Failed - was unable to do SET-REPLACE Request w/Path Target for Multiple Leaf Nodes")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test Set_wTgt_1_1 failed due to Grpc Error {err}".format(err=e.details()))
+
+    log.info('Performing SET-UPDATE w/Path Target MODIFY(gnmi spec:2.2.2.1) for leaf node\n')
+    log.info('For this test we will MODIFY Path Target = "MDFY_GNMI_TGT"')
+    try:
+        if 'MdfyTGT1_1' in input_conf:
+            set_info1 = input_conf['MdfyTGT1_1']
+            print(set_info1['prefix-path'])
+            print(set_info1['Updates'])
+            target = 'MDFY_GNMI_TGT'
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            pfx_path = gnmiTestLib._parse_path(gnmiTestLib._path_names(set_info1['prefix-path']),target)
+            reply = gnmiTestLib._set(stub, paths, 'update', user, password, set_info1['Updates'], pfx_path)
+            resp = str(reply)
+            log.info("### RCVD RESPONSE ###")
+            log.info(resp)
+            sresp = "".join(resp.split('\n'))
+            log.info (sresp)
+            mt1 = 'prefix {  elem {    name: "ietf-interfaces:interfaces"  }  target: "MDFY_GNMI_TGT"}'
+            mt2 = 'response {  path {  }'
+            if (mt1 in sresp and mt2 in sresp):
+                log.info("Set_wTgt_1_2:Passed - was able to do SET-UPDATE Request w/Path Target MODIFY for Leaf Nodes")
+            else:
+                log.info("Set_wTgt_1_2:Failed - was unable to do SET-UPDATE Request w/Path Target MODIFY for Leaf Nodes")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test Set_wTgt_1_2 failed due to Grpc Error {err}".format(err=e.details()))
+
+    log.info('Perform another SET-UPDATE but without Target for leaf node\n')
+    log.info('For this test we will MODIFY without Path Target ')
+    try:
+        if 'MdfyTGT1_2' in input_conf:
+            set_info1 = input_conf['MdfyTGT1_2']
+            print(set_info1['prefix-path'])
+            print(set_info1['Updates'])
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            pfx_path = gnmiTestLib._parse_path(gnmiTestLib._path_names(set_info1['prefix-path']))
+            reply = gnmiTestLib._set(stub, paths, 'update', user, password, set_info1['Updates'], pfx_path)
+            resp = str(reply)
+            log.info("### RCVD RESPONSE ###")
+            log.info(resp)
+            sresp = "".join(resp.split('\n'))
+            log.info (sresp)
+            mt1 = 'prefix {  elem {    name: "ietf-interfaces:interfaces"  }}'
+            mt2 = 'target'
+            if (mt1 in sresp and mt2 not in sresp):
+                log.info("Set_wTgt_1_3:Passed - was able to do SET-UPDATE Request Without Target and Verify its not sent back")
+            else:
+                log.info("Set_wTgt_1_3:Failed - was unable to do SET-UPDATE Request Without Target and Verify its not sent back")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test Set_wTgt_1_3 failed due to Grpc Error {err}".format(err=e.details()))
+
+    sleep(555)
+
+    log.info('Performing SET-DELETE w/Path Target MODIFY(gnmi spec:2.2.2.1) for leaf node\n')
+    log.info('For this test we will MODIFY Path Target = "DEL_GNMI_TGT"')
+    try:
+        if 'MdfyTGT1_1' in input_conf:
+            set_info1 = input_conf['MdfyTGT1_1']
+            print(set_info1['prefix-path'])
+            target = 'DEL_GNMI_TGT'
+            tval = ""
+            #xpath = "/if:interfaces"
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            set_info1['prefix-path'] = "/if:interfaces"
+            pfx_path = gnmiTestLib._parse_path(gnmiTestLib._path_names(set_info1['prefix-path']),target)
+            reply = gnmiTestLib._set(stub, paths, 'delete', user, password, tval, pfx_path)
+            resp = str(reply)
+            log.info("### RCVD RESPONSE ###")
+            log.info(resp)
+            sresp = "".join(resp.split('\n'))
+            log.info (sresp)
+            mt1 = 'prefix {  elem {    name: "ietf-interfaces:interfaces"  }  target: "DEL_GNMI_TGT"}'
+            mt2 = 'response {  path {  }'
+            if (mt1 in sresp and mt2 in sresp):
+                log.info("Set_wTgt_1_4:Passed - was able to do SET-DELETE Request w/Path Target MODIFY for Leaf Nodes")
+            else:
+                log.info("Set_wTgt_1_4:Failed - was unable to do SET-DELETE Request w/Path Target MODIFY for Leaf Nodes")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test Set_wTgt_1_4 failed due to Grpc Error {err}".format(err=e.details()))
+
+
 def _test_MultiSet_Sanity1(stub):
     user = None
     password = None
@@ -1754,6 +1891,47 @@ def _test_Set_InvldPath1(stub):
             log.info("Test SET_InvldPath1:Passed - Error Scenarios for SET w/Invalid Path Passed")
         else:
             pytest.fail("Test SET_InvldPath1:Failed - One or More Error Scenarios for SET w/Invalid Path FAILED")
+
+
+def _test_Tgt_in_NonPfx(stub):
+    user = None
+    password = None
+    err_msg = list()
+
+    tData = ApData.zap.get_testcase_configuration("test_gnmi_SetPfxPath")
+    input_conf = json.loads(six.moves.builtins.open(tData["input_conf_file"], 'r').read())
+    print(input_conf)
+
+    log.info('Performing SET-REPLACE w/Path Target(gnmi spec:2.2.2.1) in Non Prefix Path\n')
+    log.info('For this test we will use Path Target = "TGT_NON_PFX"')
+    try:
+        if 'SETPfxPath2_1' in input_conf:
+            set_info1 = input_conf['SETPfxPath2_1']
+            print(set_info1['prefix-path'])
+            print(set_info1['Updates'])
+            target = 'TGT_NON_PFX'
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath),target)
+            pfx_path = gnmiTestLib._parse_path(gnmiTestLib._path_names(set_info1['prefix-path']))
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1['Updates'], pfx_path)
+            resp = str(reply)
+            log.info("### RCVD RESPONSE ###")
+            log.info(resp)
+            sresp = "".join(resp.split('\n'))
+            log.info (sresp)
+            mt1 = 'prefix {  elem {    name: "ietf-interfaces:interfaces"  }}'
+            mt2 = 'target'
+            if (mt1 in sresp and mt2 not in sresp):
+                log.info("Tgt_NonPfx_1_1:Passed - SET w/Path Target in Non-Pfx Path works correctly")
+            else:
+                log.info("Tgt_NonPfx_1_1:Failed - Response of SET w/Path Target in Non-Pfx Path does not work correctly")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test Tgt_NonPfx_1_1 failed due to Grpc Error {err}".format(err=e.details()))
 
 
 def _test_SetRpl_Omit1(stub):

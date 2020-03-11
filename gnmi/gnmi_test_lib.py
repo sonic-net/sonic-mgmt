@@ -225,48 +225,55 @@ def _byteify(data, ignore_dicts=False):
 
 
 def _path_names(xpath):
-    """Parses the xpath names.
+  """Parses the xpath names.
 
     This takes an input string and converts it to a list of gNMI Path names. Those
     are later turned into a gNMI Path Class object for use in the Get/SetRequests.
     Args:
       xpath: (str) xpath formatted path.
 
-    Returns:
-      list of gNMI path names.
-    """
-    if not xpath or xpath == '/':  # A blank xpath was provided at CLI.
-        return []
-    # Remove leading and trailing '/'.
-    return xpath.strip().strip('/').split('/')
+  Returns:
+    list of gNMI path names.
+  """
+  if not xpath or xpath == '/':  # A blank xpath was provided at CLI.
+    return []
+  #ppath = re.split('''/(?=(?:[^\[\]]|\[[^\[\]]+\])*$)''', xpath)[1:]
+  #print(ppath)
+  #return ppath
+  return xpath.strip().strip('/').split('/')  # Remove leading and trailing '/'.
 
 
-def _parse_path(p_names):
-    """Parses a list of path names for path keys.
+def _parse_path(p_names,target=None):
+  """Parses a list of path names for path keys.
 
-    Args:
-      p_names: (list) of path elements, which may include keys.
+  Args:
+    p_names: (list) of path elements, which may include keys.
 
-    Returns:
-      a gnmi_pb2.Path object representing gNMI path elements.
+  Returns:
+    a gnmi_pb2.Path object representing gNMI path elements.
 
-    Raises:
-      XpathError: Unabled to parse the xpath provided.
-    """
-    gnmi_elems = []
-    for word in p_names:
-        word_search = _RE_PATH_COMPONENT.search(word)
-        if not word_search:  # Invalid path specified.
-            raise XpathError('xpath component parse error: %s' % word)
-        if word_search.group('key') is not None:  # A path key was provided.
-            tmp_key = {}
-            for x in re.findall(r'\[([^]]*)\]', word):
-                tmp_key[x.split("=")[0]] = x.split("=")[-1]
-            gnmi_elems.append(gnmi_pb2.PathElem(name=word_search.group(
-                'pname'), key=tmp_key))
-        else:
-            gnmi_elems.append(gnmi_pb2.PathElem(name=word, key={}))
+  Raises:
+    XpathError: Unabled to parse the xpath provided.
+  """
+  gnmi_elems = []
+  for word in p_names:
+    word_search = _RE_PATH_COMPONENT.search(word)
+    if not word_search:  # Invalid path specified.
+      raise XpathError('xpath component parse error: %s' % word)
+    if word_search.group('key') is not None:  # A path key was provided.
+      tmp_key = {}
+      for x in re.findall(r'\[([^]]*)\]', word):
+        tmp_key[x.split("=")[0]] = x.split("=")[-1]
+      gnmi_elems.append(gnmi_pb2.PathElem(name=word_search.group(
+          'pname'), key=tmp_key))
+    else:
+      gnmi_elems.append(gnmi_pb2.PathElem(name=word, key={}))
+
+  if target is not None:
+    return gnmi_pb2.Path(elem=gnmi_elems,target=target)
+  else:
     return gnmi_pb2.Path(elem=gnmi_elems)
+
 
 
 def _create_stub(creds, target, port, host_override):

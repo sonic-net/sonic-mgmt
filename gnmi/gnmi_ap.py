@@ -57,7 +57,6 @@ def gnmi_conn():
 
 class TestGnmi(GnmiApBase):
 
-
     def test_Neg_set_with_vld_del_inv_upd(self,stub):
         gnmi_san_tc._test_Neg_set_with_vld_del_inv_upd(stub)
 
@@ -130,6 +129,10 @@ class TestGnmi(GnmiApBase):
     
     def test_parallel_set_get(self,gnmi_conn):
         gnmi_san_tc._test_parallel_set_get(gnmi_conn)
-    
+ 
+    def test_Set_wTgt(self,stub):
+        gnmi_san_tc._test_Set_wTgt(stub)   
 
+    def test_Tgt_in_NonPfx(self,stub):
+        gnmi_san_tc._test_Tgt_in_NonPfx(stub) 
 
