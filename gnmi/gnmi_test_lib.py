@@ -853,51 +853,50 @@ def verify_get_response(resp_dict,set_info,cfg_section):
     result = dict()
     status = True
     resp_key = cfg_section['name']
-    key_section = cfg_section['key']
     log.info(resp_dict)
 
-    for key in key_section:
-        get_var = None
-        get_key = key['get_key']
-        set_key = key['set_key']
-        chk_var_list = key['check_var_list']
-    
-        if resp_key in resp_dict.keys():
-            for var in chk_var_list:
-                work_set_info = set_info
-                for val in set_key:
-                    if type(val) is str:
-                        value = work_set_info.get(val)
-                        work_set_info = value
-                    if type(val) is int:
-                        value = work_set_info[val]
-                        work_set_info = value
-                
-                set_var = work_set_info.get(var)
-                if set_var is None:
-                    for key in work_set_info.keys():
-                        if var in key:
-                            set_var = work_set_info[key]
-                for key_var in resp_dict[resp_key]:
-                    if get_key in key_var.keys():
-                        try:
-                            get_var = key_var[get_key][var]
-                            log.info("{}:{}".format(set_var,get_var))
-                        except KeyError:
-                            err_msg.append("No matching check variable: {} in the Get response dict".format(var))
+    get_var = None
+    get_key = cfg_section['get_key']
+    set_key = cfg_section['set_key']
+    chk_var_list = cfg_section['check_var_list']
 
-                if set_var != None:
-                    if get_var != None:
-                        if get_var not in set_var:
-                            err_msg.append("{} does not match the {} in input json file: {}".format(get_var,var,set_var))
+    if resp_key in resp_dict.keys():
+        for var in chk_var_list:
+            work_set_info = set_info
+            for val in set_key:
+                if type(val) is str:
+                    value = work_set_info.get(val)
+                    work_set_info = value
+                if type(val) is int:
+                    value = work_set_info[val]
+                    work_set_info = value
+            
+            set_var = work_set_info.get(var)
+            if set_var is None:
+                for key in work_set_info.keys():
+                    if var in key:
+                        set_var = work_set_info[key]
+            for key_var in resp_dict[resp_key]:
+                if get_key in key_var.keys():
+                    try:
+                        get_var = key_var[get_key][var]
+                    except KeyError:
+                        err_msg.append("No matching check variable: {} in the Get response dict".format(var))
+
+            if set_var != None:
+                if get_var != None:
+                    if get_var not in set_var:
+                        err_msg.append("{} does not match the {} in input json file: {}".format(get_var,var,set_var))
                     else:
-                        err_msg.append("No matching variable: {} in the Get response dict".format(var))
+                        log.info("{} from config file matches Gnmi Get :{}".format(set_var,get_var))
                 else:
-                    err_msg.append("Var {} not found in the set config section".format(var))
+                    err_msg.append("No matching variable: {} in the Get response dict".format(var))
+            else:
+                err_msg.append("Var {} not found in the set config section".format(var))
 
-        else:
-            err_msg.append("Interface {} missing from the GET response".format(resp_key))
-    
+    else:
+        err_msg.append("Interface {} missing from the GET response".format(resp_key))
+
     if len(err_msg) != 0:
         status = False
 

@@ -16,8 +16,8 @@
       {
         "name": "Loopback123",
         "section":"GETSET_Sanity1_1",
-        "key": [{"get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
-            "set_list_index": "0","check_var_list": ["name","type","description"]}]
+        "get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
+            "set_list_index": "0","check_var_list": ["name","type","description"]
       }
     ]
   },
@@ -38,14 +38,14 @@
       {
         "name": "Loopback123",
         "section":"GETSET_Sanity1_1",
-        "key": [{"get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
-            "set_list_index": "0","check_var_list": ["name","type","description"]}]
+        "get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
+            "set_list_index": "0","check_var_list": ["name","type","description"]
       },
       {
         "name": "Loopback456",
         "section":"GETSET_Sanity1_2",
-        "key": [{"get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
-            "set_list_index": "0","check_var_list": ["name","type","description"]}]
+        "get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
+            "set_list_index": "0","check_var_list": ["name","type","description"]
       }
     ]
   },
@@ -55,8 +55,8 @@
       {
         "name": "Loopback123",
         "section":"GETSET_Sanity1_1",
-        "key": [{"get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
-            "set_list_index": "0","check_var_list": ["name","type","description"]}]
+        "get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
+            "set_list_index": "0","check_var_list": ["name","type","description"]
       }
     ]
   },
@@ -102,13 +102,13 @@
     "config": [
       {
         "name": "SetRplOmt1",
-        "key": [{"get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
-            "set_list_index": "0","check_var_list": ["name","type"]}]
+        "get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
+            "set_list_index": "0","check_var_list": ["name","type"]
       },
       {
         "name": "SetRplOmt1",
-        "key": [{"get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
-            "set_list_index": "0","check_var_list": ["description"]}]
+        "get_key": "interfaces,interface","set_key": ["ietf-interfaces:interfaces","interface",0],
+            "set_list_index": "0","check_var_list": ["description"]
       }
     ]
   },

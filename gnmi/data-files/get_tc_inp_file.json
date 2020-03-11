@@ -24,18 +24,18 @@
       "config": [
         {
           "name": "Eth0",
-          "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
-              "set_list_index": "0","check_var_list": ["name","type","description","mtu"]}]
+          "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
+              "set_list_index": "0","check_var_list": ["name","type","description","mtu"]
         },
         {
           "name": "Eth1",
-          "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
-              "set_list_index": "1","check_var_list": ["name","type","description","mtu"]}]
+          "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
+              "set_list_index": "1","check_var_list": ["name","type","description","mtu"]
         },
         {
           "name": "Eth2",
-          "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",2,"config"],
-              "set_list_index": "2","check_var_list": ["name","type","description","mtu"]}]
+          "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",2,"config"],
+              "set_list_index": "2","check_var_list": ["name","type","description","mtu"]
         }
       ]
     }
@@ -98,13 +98,13 @@
         "config": [
           {
             "name": "Eth1",
-            "key": [{"get_key": "components,component,port,config","set_key": ["openconfig-platform:components","component",1,"port","config"],
-                "set_list_index": "1","check_var_list": ["port-id"]}]
+            "get_key": "components,component,port,config","set_key": ["openconfig-platform:components","component",1,"port","config"],
+                "set_list_index": "1","check_var_list": ["port-id"]
           },
           {
             "name": "Eth2",
-            "key": [{"get_key": "components,component,port,config","set_key": ["openconfig-platform:components","component",2,"port","config"],
-              "set_list_index": "2","check_var_list": ["port-id"]}]
+            "get_key": "components,component,port,config","set_key": ["openconfig-platform:components","component",2,"port","config"],
+              "set_list_index": "2","check_var_list": ["port-id"]
           }
         ]
       }
@@ -154,13 +154,13 @@
       "config": [
         {
           "name": "Eth0",
-          "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
-              "set_list_index": "0","check_var_list": ["name","type","description","mtu"]}]
+          "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
+              "set_list_index": "0","check_var_list": ["name","type","description","mtu"]
         },
         {
           "name": "Eth1",
-          "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
-              "set_list_index": "1","check_var_list": ["name","type","description","mtu"]}]
+          "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
+              "set_list_index": "1","check_var_list": ["name","type","description","mtu"]
         }
       ]
     }
@@ -185,26 +185,26 @@
         {
           "name": "Eth0",
           "section":"Neg_Set_Partial_1",
-          "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
-              "set_list_index": "0","check_var_list": ["description"]}]
+          "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
+              "set_list_index": "0","check_var_list": ["description"]
         },
         {
           "name": "Eth1",
           "section":"Neg_Set_Partial_1",
-          "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
-              "set_list_index": "1","check_var_list": ["description"]}]
+          "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
+              "set_list_index": "1","check_var_list": ["description"]
         },
         {
           "name": "Eth0",
           "section":"GET_WITH_PFX",
-          "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
-              "set_list_index": "0","check_var_list": ["name","type","mtu"]}]
+          "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
+              "set_list_index": "0","check_var_list": ["name","type","mtu"]
         },
         {
           "name": "Eth1",
           "section":"GET_WITH_PFX",
-          "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
-              "set_list_index": "1","check_var_list": ["name","type","mtu"]}]
+          "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
+              "set_list_index": "1","check_var_list": ["name","type","mtu"]
         }
       ]
     }
@@ -249,8 +249,8 @@
         {
           "name": "Eth1",
           "section":"PATH_CHECK",
-          "key": [{"get_key": "interfaces,interface,config","set_key": ["config"],
-              "set_list_index": "1","check_var_list": ["description"]}]
+          "get_key": "interfaces,interface,config","set_key": ["config"],
+              "set_list_index": "1","check_var_list": ["description"]
         }
       ]
     }
