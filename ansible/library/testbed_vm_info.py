@@ -19,6 +19,7 @@ Description:
  options:
     base_vm:  base vm name defined in testbed.csv for the deployed topology; required: True
     topo:     topology name defined in testbed.csv for the deployed topology; required: True
+    vm_file:  the virtual machine file path ; default: 'veos'
 
 Ansible_facts:
     'neighbor_eosvm_mgmt':  all VM hosts management IPs 
@@ -28,7 +29,7 @@ Ansible_facts:
 
 EXAMPLES = '''
     - name: gather vm information
-      testbed_vm_info: base_vm='VM0100' topo='t1'
+      testbed_vm_info: base_vm='VM0100' topo='t1' vm_file='veos'
 '''
 
 ### Here are the assumption/expectation of files to gather VM informations, if the file location or name changes, please modify it here 
@@ -63,15 +64,8 @@ class TestbedVMFacts():
 
     def gather_veos_vms(self):
         vms = {}
-        try:
-            f = open(self.vmfile)
-            lines = f.readlines()
-        except IOError:
-            # fall back to default vm file if given file is not exist
-            with open(VM_INV_FILE) as default_f:
-                lines = default_f.readlines()
-        finally:
-            f.close()
+        with open(self.vmfile) as default_f:
+            lines = default_f.readlines()
 
         for line in lines:
             if 'VM' in line and 'ansible_host' in line:
@@ -84,7 +78,7 @@ def main():
         argument_spec=dict(
             base_vm=dict(required=True, type='str'),
             topo=dict(required=True, type='str'),
-            vm_file=dict(required=True, type='str')
+            vm_file=dict(default=VM_INV_FILE, type='str')
         ),
         supports_check_mode=True
     )
