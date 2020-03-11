@@ -242,6 +242,10 @@ class FanDrawerData:
     """
     Data mocker of a FAN drawer.
     """
+
+    # FAN direction sys fs path.
+    FAN_DIR_PATH = '/run/hw-management/system/fan_dir'
+
     def __init__(self, mock_helper, naming_rule, index):
         """
         Constructor of FAN drawer data.
@@ -252,6 +256,7 @@ class FanDrawerData:
         self.index = index
         self.helper = mock_helper
         self.mocked_presence = None
+        self.mocked_direction = None
         if 'presence' in naming_rule:
             self.presence_file = naming_rule['presence'].format(index)
         else:
@@ -293,6 +298,27 @@ class FanDrawerData:
         else:
             self.mocked_presence = 'Present'
 
+    def mock_fan_direction(self, direction):
+        """
+        Mock direction of this FAN with given direction value.
+        :param direction: Direction value. 1 means intake, 0 means exhaust.
+        :return:
+        """
+        try:
+            fan_dir_bits = int(self.helper.read_value(FanDrawerData.FAN_DIR_PATH))
+        except SysfsNotExistError as e:
+            self.mocked_direction = NOT_AVAILABLE
+            return
+
+        if direction:
+            fan_dir_bits = fan_dir_bits | (1 << (self.index - 1))
+            self.mocked_direction = 'intake'
+        else:
+            fan_dir_bits = fan_dir_bits & ~(1 << (self.index - 1))
+            self.mocked_direction = 'exhaust'
+
+        self.helper.mock_value(FanDrawerData.FAN_DIR_PATH, fan_dir_bits)
+
     def get_status_led(self):
         """
         Get led status from sys fs.
@@ -320,9 +346,6 @@ class FanData:
     # MAX PWM value.
     PWM_MAX = 255
 
-    # FAN direction sys fs path.
-    FAN_DIR_PATH = '/run/hw-management/system/fan_dir'
-
     def __init__(self, mock_helper, naming_rule, index):
         """
         Constructor of FAN data.
@@ -337,7 +360,6 @@ class FanData:
         self.mocked_speed = None
         self.mocked_target_speed = None
         self.mocked_status = None
-        self.mocked_direction = None
 
         if 'target_speed' in naming_rule:
             self.target_speed_file = naming_rule['target_speed'].format(index)
@@ -392,27 +414,6 @@ class FanData:
             self.mocked_status = 'OK' if status == 0 else 'Not OK'
         else:
             self.mocked_status = 'OK'
-
-    def mock_fan_direction(self, direction):
-        """
-        Mock direction of this FAN with given direction value.
-        :param direction: Direction value. 1 means intake, 0 means exhaust.
-        :return:
-        """
-        try:
-            fan_dir_bits = int(self.helper.read_value(FanData.FAN_DIR_PATH))
-        except SysfsNotExistError as e:
-            self.mocked_direction = NOT_AVAILABLE
-            return
-
-        if direction:
-            fan_dir_bits = fan_dir_bits | (1 << (self.index - 1))
-            self.mocked_direction = 'intake'
-        else:
-            fan_dir_bits = fan_dir_bits & ~(1 << (self.index - 1))
-            self.mocked_direction = 'exhaust'
-
-        self.helper.mock_value(FanData.FAN_DIR_PATH, fan_dir_bits)
 
     def get_max_speed(self):
         """
@@ -548,6 +549,7 @@ class RandomFanStatusMocker(FanStatusMocker):
         drawer_index = 1
         drawer_data = None
         presence = 0
+        direction = NOT_AVAILABLE
         naming_rule = FAN_NAMING_RULE['fan']
         while fan_index <= MockerHelper.FAN_NUM:
             try:
@@ -556,6 +558,7 @@ class RandomFanStatusMocker(FanStatusMocker):
                     drawer_index += 1
                     presence = random.randint(0, 1)
                     drawer_data.mock_presence(presence)
+                    drawer_data.mock_fan_direction(random.randint(0, 1))
                     if drawer_data.mocked_presence == 'Present':
                         presence = 1
 
@@ -564,11 +567,10 @@ class RandomFanStatusMocker(FanStatusMocker):
                 if presence == 1:
                     fan_data.mock_status(random.randint(0, 1))
                     fan_data.mock_speed(random.randint(0, 100))
-                    fan_data.mock_fan_direction(random.randint(0, 1))
                     self.expected_data[fan_data.name] = [
                         fan_data.name,
                         '{}%'.format(fan_data.mocked_speed),
-                        fan_data.mocked_direction,
+                        drawer_data.mocked_direction,
                         drawer_data.mocked_presence,
                         fan_data.mocked_status
                     ]
