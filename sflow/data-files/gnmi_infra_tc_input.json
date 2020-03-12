@@ -80,18 +80,18 @@
         "config": [
           {
             "name": "eth-1/1/0",
-            "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
-                "set_list_index": "0","check_var_list": ["name","type","description","mtu"]}]
+            "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
+                "set_list_index": "0","check_var_list": ["name","type","description","mtu"]
           },
           {
             "name": "eth-1/1/1",
-            "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
-                "set_list_index": "1","check_var_list": ["name","type","description","mtu"]}]
+            "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
+                "set_list_index": "1","check_var_list": ["name","type","description","mtu"]
           },
           {
             "name": "eth-1/1/2",
-            "key": [{"get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",2,"config"],
-                "set_list_index": "2","check_var_list": ["name","type","description","mtu"]}]
+            "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",2,"config"],
+                "set_list_index": "2","check_var_list": ["name","type","description","mtu"]
           }
         ]
       },
@@ -101,13 +101,13 @@
         "config": [
           {
             "name": "eth-1/1/1",
-            "key": [{"get_key": "components,component,config","set_key": ["openconfig-platform:components","component",1,"port","config"],
-                "set_list_index": "1","check_var_list": ["openconfig-hercules-platform:port-id"]}]
+            "get_key": "components,component,config","set_key": ["openconfig-platform:components","component",1,"port","config"],
+                "set_list_index": "1","check_var_list": ["openconfig-hercules-platform:port-id"]
           },
           {
             "name": "eth-1/1/2",
-            "key": [{"get_key": "components,component,config","set_key": ["openconfig-platform:components","component",2,"port","config"],
-              "set_list_index": "2","check_var_list": ["openconfig-hercules-platform:port-id"]}]
+            "get_key": "components,component,config","set_key": ["openconfig-platform:components","component",2,"port","config"],
+              "set_list_index": "2","check_var_list": ["openconfig-hercules-platform:port-id"]
           }
         ]
       }
