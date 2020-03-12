@@ -121,19 +121,21 @@ class VMTopology(object):
 
     def init(self, vm_set_name, topo, vm_base, dut_fp_ports, ptf_exists=True):
         self.vm_set_name = vm_set_name
+        self.VMs = {}
         if 'VMs' in topo:
-            self.VMs = topo['VMs']
             self.vm_base = vm_base
             if vm_base in self.vm_names:
                 self.vm_base_index = self.vm_names.index(vm_base)
             else:
                 raise Exception('VM_base "%s" should be presented in current vm_names: %s' % (vm_base, str(self.vm_names)))
+            for k, v in topo['VMs'].iteritems():
+                if self.vm_base_index + v['vm_offset'] < len(self.vm_names):
+                    self.VMs[k] = v
+
             for hostname, attrs in self.VMs.iteritems():
                 vmname = self.vm_names[self.vm_base_index + attrs['vm_offset']]
                 if len(attrs['vlans']) > len(self.get_bridges(vmname)):
                     raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d" % (hostname, vmname, len(self.get_bridges(vmname))))
-        else:
-            self.VMs = {}
             
         if 'host_interfaces' in topo:
             self.host_interfaces = topo['host_interfaces']
@@ -358,19 +360,19 @@ class VMTopology(object):
     def bind_fp_ports(self, disconnect_vm=False):
         for attr in self.VMs.itervalues():
             for vlan_num, vlan in enumerate(attr['vlans']):
-               injected_iface = INJECTED_INTERFACES_TEMPLATE % (self.vm_set_name, vlan)
-               br_name = OVS_FP_BRIDGE_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
-               vm_iface = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
-               self.bind_ovs_ports(br_name, self.dut_fp_ports[vlan], injected_iface, vm_iface, disconnect_vm)
+                injected_iface = INJECTED_INTERFACES_TEMPLATE % (self.vm_set_name, vlan)
+                br_name = OVS_FP_BRIDGE_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
+                vm_iface = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
+                self.bind_ovs_ports(br_name, self.dut_fp_ports[vlan], injected_iface, vm_iface, disconnect_vm)
 
         return
 
     def unbind_fp_ports(self):
         for attr in self.VMs.itervalues():
             for vlan_num, vlan in enumerate(attr['vlans']):
-               br_name = OVS_FP_BRIDGE_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
-               vm_iface = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
-               self.unbind_ovs_ports(br_name, vm_iface)
+                br_name = OVS_FP_BRIDGE_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
+                vm_iface = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
+                self.unbind_ovs_ports(br_name, vm_iface)
 
         return
 
