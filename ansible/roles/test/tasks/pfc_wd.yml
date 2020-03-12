@@ -107,6 +107,14 @@
   with_dict: "{{test_ports}}"
   when: (item.value.test_port_id | int % 15) == (seed | int % 15)
 
+- set_fact:
+    random_port: "{{ test_ports.keys()[0] }}"
+  when: select_test_ports is not defined
+
+- set_fact:
+    select_test_ports: "{{ select_test_ports | default({}) | combine({random_port : test_ports[random_port]}) | to_json }}"
+  when: select_test_ports is not defined
+
 - debug: msg="{{select_test_ports}}"
 
 - name: Run default test if user has not specified warm reboot test
