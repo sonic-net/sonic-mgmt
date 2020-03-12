@@ -9,8 +9,11 @@ Steps before working/using Godiva based test scripts and libraries
 
 Steps for installing cafyKit libraries on ubuntu:
 ================================================
-1. export GIT_REPO=/home/venkat/cafykit
-2. export PYTHONPATH="$GIT_REPO/lib"
+1. vi .bashrc - Add the following
+  a. export GIT_REPO=/home/venkat/cafykit
+  b. export PYTHONPATH="$GIT_REPO/lib"
+  c. export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION='python'
+2. source ~/.bashrc
 3. pip3 install --upgrade pip
 4. sudo apt-get install build-essential libssl-dev libffi-dev python-dev
 5. sudo apt-get install libxml2-dev libxslt-dev
@@ -21,7 +24,7 @@ Steps for installing cafyKit libraries on ubuntu:
 10. sudo apt-get install python3-dev
 11. sudo apt install libssl1.0
 
-4. pip3 install current-req.txt
+4. pip3 install -r current-req.txt
 
 Steps to run P4 script
 ========================
