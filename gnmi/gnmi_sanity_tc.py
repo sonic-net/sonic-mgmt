@@ -2020,7 +2020,7 @@ def _test_gnmi_intf_scale(conn,del_cfg=True):
     try:
         for intf_num in range(1,4096):
             resp_key_list = list()
-            set_info = input_conf["SCALE_INTF_{}".format(intf_num)]
+            set_info = input_conf["SCALE_INTF_{}".format(intf_num)]["config"]
             print(type(set_info))
             print(set_info)
             xpath = "/"
@@ -2033,33 +2033,19 @@ def _test_gnmi_intf_scale(conn,del_cfg=True):
                 log.error("test_gnmi_intf_scale:Failed - was unable to do SET-UPDATE with input json")
                 err_msg.append("test_gnmi_intf_scale:Failed - was unable to do SET-UPDATE with input json")
             
-            prefix = input_conf['GET_VERIFY_{}'.format(intf_num)]['prefix']
+            prefix = input_conf["SCALE_INTF_{}".format(intf_num)]['verify']['prefix']
             #prefix = gnmiTestLib._parse_path(gnmiTestLib._path_names(prefix))
-            path = input_conf['GET_VERIFY_{}'.format(intf_num)]['path']
+            path = input_conf["SCALE_INTF_{}".format(intf_num)]['verify']['path']
             path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
             response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG')
             #log.info(response)
             msg_dict = google.protobuf.json_format.MessageToDict(response)
             resp_dict = gnmiTestLib.get_response_dict(msg_dict)
-            resp_key_list.append(set_info['openconfig-interfaces:interfaces']['interface'][0]['name'])
-            ctr = 0
-            for resp_key in resp_key_list:
-                if resp_key + ',interfaces,interface,name' in resp_dict.keys():
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
-                        err_msg.append("{} does not match the name in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
-                    if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description'] != resp_dict[resp_key + ',interfaces,interface,config,description']:
-                        err_msg.append("{} does not match the description in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,description'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['description']))
-                    if resp_dict[resp_key + ',interfaces,interface,config,type'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']:
-                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,type'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['type']))
-                    if resp_dict[resp_key + ',interfaces,interface,config,mtu'] not in set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']:
-                        err_msg.append("{} does not match the type in input json file: {}".format(resp_dict[resp_key + ',interfaces,interface,config,mtu'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['config']['mtu']))
-                    if not resp_dict[resp_key + ',interfaces,interface,config,enabled']:
-                        err_msg.append("The interface {} is not enabled. Current status is {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
-                    else:
-                        log.info("Get Successful - Interface {} has a current state of {}".format(resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
-                else:
-                    err_msg.append("Interface {} missing from the GET response".format(resp_key))
-                ctr += 1    
+            for cfg in input_conf["SCALE_INTF_{}".format(intf_num)]['verify']['config']:
+                section = cfg['section']
+                set_info = input_conf[section]['config']
+                result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
+                err_msg = result['err_msg'] + err_msg
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:

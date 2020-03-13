@@ -885,10 +885,16 @@ def verify_get_response(resp_dict,set_info,cfg_section):
 
             if set_var != None:
                 if get_var != None:
-                    if get_var not in set_var:
-                        err_msg.append("{} does not match the {} in input json file: {}".format(get_var,var,set_var))
+                    if type(set_var) is int or type(get_var) is int:
+                        if int(get_var) != int(set_var):
+                            err_msg.append("{} does not match the {} in input json file: {}".format(get_var,var,set_var))
+                        else:
+                            log.info("{} from config file matches Gnmi Get :{}".format(set_var,get_var))
                     else:
-                        log.info("{} from config file matches Gnmi Get :{}".format(set_var,get_var))
+                        if str(get_var) not in str(set_var):
+                            err_msg.append("{} does not match the {} in input json file: {}".format(get_var,var,set_var))
+                        else:
+                            log.info("{} from config file matches Gnmi Get :{}".format(set_var,get_var))
                 else:
                     err_msg.append("No matching variable: {} in the Get response dict".format(var))
             else:

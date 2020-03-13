@@ -239,6 +239,8 @@
                     "name": "s1",
                     "svr_addr": "172.17.0.2",
                     "svr_port": "22",
+                    "username": "cisco",
+                    "password": "lab",
                     "svr_gnmi_port": "9339",
                     "proto_dump_file": "s1-infra-requests-log.txt"
                 },
