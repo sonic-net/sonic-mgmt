@@ -122,8 +122,10 @@ def convert_date(fct, s):
             dt = datetime.datetime.strptime(str_date, '%Y %b %d %X.%f')
         except ValueError:
             dt = datetime.datetime.strptime(str_date, '%Y %b %d %X')
-        if (fct - dt).days > 183:
-            dt.replace(year = dt.year + 1)
+        # Handle the wrap around of year (Dec 31 to Jan 1)
+        # Generally, last metadata change time should be larger than generated log message timestamp
+        # but we still perform some wrap around test to avoid the race condition
+        # 183 is the number of days in half year, just a reasonable choice
         if (dt - fct).days > 183:
             dt.replace(year = dt.year - 1)
     else:
