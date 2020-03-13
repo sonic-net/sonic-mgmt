@@ -14,6 +14,6 @@
   when: mode=='default' and item  not in minigraph_portchannels
 
 - name:  check acl table output  shows alias interface  names when mode is  set to alias
-  assert: {that: " '{{port_name_map[item]}}' in acl_table.stdout"}
+  assert: {that: "port_name_map[item] in acl_table.stdout"}
   with_items: "{{ minigraph_acls['DataAcl'] }}"
   when: mode=='alias' and item not in minigraph_portchannels
