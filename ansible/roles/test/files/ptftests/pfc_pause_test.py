@@ -63,12 +63,32 @@ class PfcPauseTest(BaseTest):
         """ DSCP for background traffic """
         self.dscp_bg = self.test_params['dscp_bg']
         self.queue_paused = self.test_params['queue_paused']
+        """ if DUT has MAC information """
+        self.dut_has_mac = self.test_params['dut_has_mac']
         
     def runTest(self):
         pass_cnt = 0
         tos = self.dscp<<2
         tos_bg = self.dscp_bg<<2
         
+        """ If DUT needs to learn MAC addresses """
+        if not self.dut_has_mac:            
+            pkt = simple_udp_packet(
+                eth_dst=self.mac_dst,
+                eth_src=self.mac_src,
+                ip_src=self.ip_src,
+                ip_dst=self.ip_dst)
+            
+            send_packet(self, self.port_src, pkt, 5)
+            
+            pkt = simple_udp_packet(
+                eth_dst=self.mac_src,
+                eth_src=self.mac_dst,
+                ip_src=self.ip_dst,
+                ip_dst=self.ip_src)
+            
+            send_packet(self, self.port_dst, pkt, 5)
+                    
         for x in range(self.pkt_count):
             sport = random.randint(0, 65535)
             dport = random.randint(0, 65535)
