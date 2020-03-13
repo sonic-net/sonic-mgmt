@@ -37,10 +37,21 @@ SWITCH_TO_SWITCH_PORT = 2
 #os.environ['GRPC_VERBOSITY'] = 'DEBUG'
 os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python'
 
+@pytest.fixture(scope="session")
+def stub():
+    host_override = None
+    target = ApData.svr_addr
+    port = ApData.port_addr
+    notls = True
+    get_cert = None
+    certs = None
+    creds = gnmiTestLib._build_creds(target, port, get_cert, certs, notls)
+    return gnmiTestLib._create_stub(creds,target,port,host_override)
+
 class TestSflow(SflowApBase):
 
-    def test_Optics_Laser_Status(self):
-        sflow_san_tc._test_Optics_Laser_Status()
+    def test_Optics_Laser_Status(self,stub):
+        sflow_san_tc._test_Optics_Laser_Status(stub)
 
 
 

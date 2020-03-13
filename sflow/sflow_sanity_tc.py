@@ -33,15 +33,15 @@ from p4_error_utils import printGrpcError
 from p4_error_utils import parseGrpcError
 from sflow_base_ap import ApData, SflowApBase
 
-def _test_Optics_Laser_Status():
+def _test_Optics_Laser_Status(stub):
     user = None
     password = None
     err_msg = list()
 
     input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_Optics_Laser_Status/input_conf_file"), 'r').read())
     gnmi_input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_Optics_Laser_Status/gnmi_input_conf_file"), 'r').read())
-    gnmi_conn = GnmiConnection(target=ApData.svr_addr, port=ApData.gnmi_port_addr)
-    stub = gnmi_conn.stub
+    #gnmi_conn = GnmiConnection(target=ApData.svr_addr, port=ApData.gnmi_port_addr)
+    #stub = gnmi_conn.stub
 
     log.info('Performing SET-UPDATE Request to target \n')
     try:
