@@ -74,99 +74,35 @@ def get_addrs_in_subnet(subnet, n):
     
     return ip_addrs[:n]
 
-def get_neigh_ip(ip_addr, netmask):
+def start_pause(host_ans, pkt_gen_path, intf, pkt_count, pause_duration, pause_priority):
     """
-    @Summary: Given an IP address and a netmask, get another IP in this subnet. 
-    @param ip_addr: IPv4 address string (e.g., "192.168.1.1")
-    @param netmask: network mask string (e.g., "255.255.255.254")
-    @return: Return another IP address in this subnet
+    @Summary: Start priority-based/global flow control pause storm on an interface of a leaf fanout switch
+    @param host_ans: Ansible host instance of this leaf fanout
+    @param pkt_gen_path: path of packet generator
+    @param intf: interface to send packets
+    @param pkt_count: # of pause frames to send
+    @pause_duration: pause time duration 
+    @pause_priority: priority to pause (None means global pause)    
     """
-    prefix_len = IPAddress(netmask).netmask_bits()
-    ip_addrs = get_addrs_in_subnet(ip_addr + '/' + str(prefix_len), 1)
-    
-    if len(ip_addrs) != 0:
-        return ip_addrs[0]
-    
+    """ global pause """
+    if pause_priority is None:
+        cmd = "nohup sudo python %s -i %s -g -t %d -n %d </dev/null >/dev/null 2>&1 &" % (pkt_gen_path, intf, pause_duration, pkt_count)
+
     else:
-        return None  
+        cmd = "nohup sudo python %s -i %s -p %d -t %d -n %d </dev/null >/dev/null 2>&1 &" % (pkt_gen_path, intf, 2**pause_priority, pause_duration, pkt_count)        
 
-def gen_arp_responder_config(intfs, ip_addrs, mac_addrs, config_file):
+    print cmd 
+    host_ans.shell(cmd)
+     
+def stop_pause(host_ans, pkt_gen_path):
     """
-    @Summary: Generate a configuration file for ARP responder
-    @param intfs: list of interfaces
-    @param ip_addrs: list of IP addresses
-    @param mac_addrs: list of MAC addresses
-    @param config_file: configuration file path 
-    return: Return true if the config file is successfully generated
+    @Summary: Stop priority-based/global flow control pause storm on a leaf fanout switch
+    @param host_ans: Ansible host instance of this leaf fanout
+    @param pkt_gen_path: path of packet generator
     """
-    if len(intfs) != len(ip_addrs) or len(intfs) != len(mac_addrs):
-        return False 
+    cmd = "sudo kill -9 $(pgrep -f %s) </dev/null >/dev/null 2>&1 &" % (pkt_gen_path)
+    host_ans.shell(cmd)
     
-    config = dict()
-    for i in range(len(intfs)):
-        config[intfs[i]] = dict()
-        """ The config file accepts MAC addresses like 00112233445566 without any : """
-        config[intfs[i]][ip_addrs[i]] = mac_addrs[i].replace(':', '')
-    
-    with open(config_file, 'w') as fp:
-        json.dump(config, fp)
-            
-    return True 
-
-def check_mac_table(host_ans, mac_addrs):
-    """
-    @Summary: Check if the DUT's MAC table (FIB) has all the MAC address information
-    @param host_ans: Ansible host instance of this DUT
-    @param mac_addrs: list of MAC addresses to check 
-    return: Return true if the DUT's MAC table has all the MAC addresses 
-    """
-    if mac_addrs is None:
-        return False 
-    
-    stdout = ansible_stdout_to_str(host_ans.command('show mac')['stdout'])
-    
-    for mac in mac_addrs:
-        if mac.upper() not in stdout.upper():
-            return False 
-        
-    return True
-
-def get_mac(host_ans, ip_addr):
-    """
-    @Summary: Get the MAC address of a given IP address in a DUT
-    @param host_ans: Ansible host instance of this DUT
-    @param ip_addr: IP address
-    return: Return the MAC address or None if we cannot find it
-    """
-    cmd = 'sudo arp -a -n %s' % (ip_addr)
-    stdout = ansible_stdout_to_str(host_ans.command(cmd)['stdout']).strip()
-    
-    if len(stdout) == 0 or 'incomplete' in stdout:
-        return None 
-         
-    pattern = re.compile(ur'(?:[0-9a-fA-F]:?){12}')
-    results = re.findall(pattern, stdout)
-    
-    if len(results) == 0:
-        return None 
-    
-    else:
-        return results[0]
-
-def config_intf_ip_mac(host_ans, intf, ip_addr, netmask, mac_addr):
-    """
-    @Summary: Configure IP and MAC on a intferface of a PTF
-    @param host_ans: Ansible host instance of this PTF
-    @param intf: interface name
-    @param ip_addr: IP address, e.g., '192.168.1.1'
-    @param netmask: Network mask, e.g., '255.255.255.0'  
-    @param mac_addr: MAC address, e.g., '00:11:22:33:44:55'
-    """
-    host_ans.shell('ifconfig %s down' % intf)
-    host_ans.shell('ifconfig %s hw ether %s' % (intf, mac_addr))
-    host_ans.shell('ifconfig %s up' % intf)
-    host_ans.shell('ifconfig %s %s netmask %s' % (intf, ip_addr, netmask))
-
 def get_active_vlan_members(host_ans, hostname):
     """
     @Summary: Get all the active physical interfaces enslaved to a Vlan
@@ -209,9 +145,9 @@ def get_vlan_subnet(host_ans, hostname):
     vlan_subnet = ansible_stdout_to_str(mg_vlan_intfs[0]['subnet'])
     return vlan_subnet
     
-def config_testbed_t0(ansible_adhoc, testbed):
+def gen_testbed_t0(ansible_adhoc, testbed):
     """
-    @Summary: Configure a T0 testbed
+    @Summary: Generate a T0 testbed configuration
     @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
     mandatory argument for the class constructors.
     @param testbed: Testbed information
@@ -242,20 +178,7 @@ def config_testbed_t0(ansible_adhoc, testbed):
     vlan_members.sort(key=natural_keys)
     vlan_members_index = [phy_intfs.index(intf) for intf in vlan_members]
     ptf_intfs = ['eth' + str(i) for i in vlan_members_index]
-   
-    """ Remove existing IP addresses from PTF host """ 
-    ptf_hostname = testbed['ptf']
-    ptf_ans = AnsibleHost(ansible_adhoc, ptf_hostname)
-    ptf_ans.script('scripts/remove_ip.sh')
-
-    """ Clear MAC table in DUT (host memory and ASIC) """
-    dut_ans.shell('sonic-clear fdb all </dev/null >/dev/null 2>&1 &')
-    dut_ans.shell('sudo ip -s -s neigh flush all </dev/null >/dev/null 2>&1 &')
-        
-    """ Configure IP and MAC addresses on PTF """
-    for i in range(len(ptf_intfs)):
-        config_intf_ip_mac(ptf_ans, ptf_intfs[i], vlan_ip_addrs[i], vlan_subnet_mask, vlan_mac_addrs[i])
-    
+           
     return vlan_members, ptf_intfs, vlan_ip_addrs, vlan_mac_addrs
 
         

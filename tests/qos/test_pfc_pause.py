@@ -7,7 +7,7 @@ import re
 import struct
 import random
 from qos_fixtures import lossless_prio_dscp_map, conn_graph_facts, leaf_fanouts
-from qos_helpers import ansible_stdout_to_str, eos_to_linux_intf, check_mac_table, config_testbed_t0
+from qos_helpers import ansible_stdout_to_str, eos_to_linux_intf, start_pause, stop_pause, gen_testbed_t0
 
 PFC_GEN_FILE = 'pfc_gen.py'
 PFC_GEN_FILE_RELATIVE_PATH = '../../ansible/roles/test/files/helpers/pfc_gen.py'
@@ -43,8 +43,7 @@ def setup_testbed(ansible_adhoc, testbed, leaf_fanouts):
     """ Stop PFC storm at the leaf fanout switches """
     for peer_device in leaf_fanouts:
         peerdev_ans = AnsibleHost(ansible_adhoc, peer_device)
-        cmd = "sudo kill -9 $(pgrep -f %s) </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE) 
-        peerdev_ans.shell(cmd) 
+        stop_pause(peerdev_ans, PFC_GEN_FILE)
                        
     """ Remove existing python scripts on PTF """
     ptf_hostname = testbed['ptf']
@@ -101,9 +100,8 @@ def run_test_t0(ansible_adhoc,
     """ Disable DUT's PFC wd """
     dut_ans.shell('sudo pfcwd stop')
     
-    """ Configure T0 tesbted and return testbed information """
-    dut_intfs, ptf_intfs, ptf_ip_addrs, ptf_mac_addrs = config_testbed_t0(ansible_adhoc, testbed)
-    
+    """ Generate a T0 testbed configuration """
+    dut_intfs, ptf_intfs, ptf_ip_addrs, ptf_mac_addrs = gen_testbed_t0(ansible_adhoc, testbed)
     results = dict()
 
     for i in range(min(max_test_intfs_count, len(ptf_intfs))):
@@ -121,42 +119,33 @@ def run_test_t0(ansible_adhoc,
        
         """ DUT interface to pause """
         dut_intf_paused = dut_intfs[dst_index]
-                                
-        """ Clear MAC table in DUT (host memory and ASIC) """
+        
+        """ Clear MAC table in DUT """
         dut_ans.shell('sonic-clear fdb all </dev/null >/dev/null 2>&1 &')
-        dut_ans.shell('sudo ip -s -s neigh flush all </dev/null >/dev/null 2>&1 &')
         time.sleep(2)
-        
-        """ Populate the MAC table """
-        dut_ans.shell('ping -c 2 %s </dev/null >/dev/null 2>&1 &' % (src_ip))
-        dut_ans.shell('ping -c 2 %s </dev/null >/dev/null 2>&1 &' % (dst_ip))
-        time.sleep(2)
-        
-        """ Ensure the MAC table is correct """
-        if not check_mac_table(dut_ans, [src_mac, dst_mac]):
-            print 'MAC table of DUT is incorrect'
-            continue 
-        
+                                                                 
         if send_pause:            
             peer_device = conn_graph_facts['device_conn'][dut_intf_paused]['peerdevice']
             peer_port = conn_graph_facts['device_conn'][dut_intf_paused]['peerport']
             peer_port_name = eos_to_linux_intf(peer_port)
             peerdev_ans = AnsibleHost(ansible_adhoc, peer_device)
-        
-            cmd = "nohup sudo python %s -i %s -g -t %d -n %d </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE_DEST, peer_port_name, pause_time, PFC_PKT_COUNT)
-        
-            if pfc_pause:
-                cmd = "nohup sudo python %s -i %s -p %d -t %d -n %d </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE_DEST, peer_port_name, 2**pause_prio, pause_time, PFC_PKT_COUNT)
+
+            if not pfc_pause:
+                pause_prio = None 
                 
-            """ Start PFC / FC storm """
-            peerdev_ans.shell(cmd)
-       
+            start_pause(host_ans=peerdev_ans,
+                        pkt_gen_path=PFC_GEN_FILE_DEST, 
+                        intf=peer_port_name,
+                        pkt_count=PFC_PKT_COUNT,
+                        pause_duration=pause_time,
+                        pause_priority=pause_prio)
+                                               
             """ Wait for PFC pause frame generation """
-            time.sleep(2)
+            time.sleep(1)
         
         """ Run PTF test """
         intf_info = '--interface %d@%s --interface %d@%s' % (src_index, src_intf, dst_index, dst_intf)
-        test_params = 'mac_src=\'%s\';mac_dst=\'%s\';ip_src=\'%s\';ip_dst=\'%s\';dscp=%d;dscp_bg=%d;pkt_count=%d;pkt_intvl=%f;port_src=%d;port_dst=%d;queue_paused=%s' % (src_mac, dst_mac, src_ip, dst_ip, dscp, dscp_bg, PTF_PKT_COUNT, PTF_PKT_INTVL_SEC, src_index, dst_index, queue_paused)
+        test_params = 'mac_src=\'%s\';mac_dst=\'%s\';ip_src=\'%s\';ip_dst=\'%s\';dscp=%d;dscp_bg=%d;pkt_count=%d;pkt_intvl=%f;port_src=%d;port_dst=%d;queue_paused=%s;dut_has_mac=False' % (src_mac, dst_mac, src_ip, dst_ip, dscp, dscp_bg, PTF_PKT_COUNT, PTF_PKT_INTVL_SEC, src_index, dst_index, queue_paused)
         cmd = 'ptf --test-dir ~/ %s --test-params="%s"' % (intf_info, test_params)
         print cmd 
         stdout = ansible_stdout_to_str(ptf_ans.shell(cmd)['stdout'])
@@ -176,8 +165,7 @@ def run_test_t0(ansible_adhoc,
 
         if send_pause:
             """ Stop PFC / FC storm """
-            cmd = "sudo kill -9 $(pgrep -f %s) </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE)
-            peerdev_ans.shell(cmd)
+            stop_pause(peerdev_ans, PFC_GEN_FILE)
             time.sleep(1)
                     
     return results
@@ -233,7 +221,8 @@ def run_test(ansible_adhoc,
 def test_pfc_pause_lossless(ansible_adhoc,
                             testbed, 
                             conn_graph_facts, 
-                            leaf_fanouts, lossless_prio_dscp_map):
+                            leaf_fanouts, 
+                            lossless_prio_dscp_map):
     
     """ @Summary: Test if PFC pause frames can pause a lossless priority without affecting the other priorities """    
     setup_testbed(ansible_adhoc, testbed, leaf_fanouts)
@@ -249,7 +238,7 @@ def test_pfc_pause_lossless(ansible_adhoc,
         """ DSCP values of the other lossless priorities """
         other_lossless_dscps = list(set(lossless_dscps) - set(lossless_prio_dscp_map[prio]))
         """ We also need to test some DSCP values for lossy priorities """
-        other_dscps = other_lossless_dscps + random.sample(lossy_dscps, k=2)
+        other_dscps = other_lossless_dscps + lossy_dscps[0:2]
         
         for dscp in lossless_prio_dscp_map[prio]:
             for dscp_bg in other_dscps:
@@ -288,6 +277,7 @@ def test_pfc_pause_lossless(ansible_adhoc,
                     print "errors occured:\n{}".format("\n".join(errors))
                     assert 0 
 
+#@pytest.mark.skip(reason="")
 def test_no_pfc(ansible_adhoc,
                 testbed, 
                 conn_graph_facts, 
@@ -308,7 +298,7 @@ def test_no_pfc(ansible_adhoc,
         """ DSCP values of the other lossless priorities """
         other_lossless_dscps = list(set(lossless_dscps) - set(lossless_prio_dscp_map[prio]))
         """ We also need to test some DSCP values for lossy priorities """
-        other_dscps = other_lossless_dscps + random.sample(lossy_dscps, k=2)
+        other_dscps = other_lossless_dscps + lossy_dscps[0:2]
         
         for dscp in lossless_prio_dscp_map[prio]:
             for dscp_bg in other_dscps:
