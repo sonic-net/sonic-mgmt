@@ -61,7 +61,7 @@
     - Update VM state
 
 - name: update startup-config
-  template: src="{{ topo }}-{{ props.swrole }}.j2"
+  template: src="eos/{{ topo }}-{{ props.swrole }}.j2"
             dest=/mnt/flash/startup-config
   when: hostname in configuration
   notify:

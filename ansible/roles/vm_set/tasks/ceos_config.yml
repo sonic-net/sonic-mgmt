@@ -1,0 +1,34 @@
+- name: Generate hostname for target VM
+  set_fact: hostname={{ VM_hosts | extract_hostname(topology['VMs'], VM_base, item) }}
+
+- debug: msg="VM hostname {{ hostname }}"
+
+- fail:
+    msg: "cannot find {{ item }} in the topology"
+  when: hostname == "hostname not found"
+
+- name: Set EOS backplane port name
+  set_fact: bp_ifname="Ethernet{{ max_fp_num|int + 1 }}"
+
+- name: Set properties list to default value, when properties are not defined
+  set_fact: properties_list=[]
+  when: configuration is not defined or configuration[hostname] is not defined or configuration[hostname]['properties'] is not defined
+
+- name: Set properties list to values, when they're defined
+  set_fact: properties_list="{{ configuration[hostname]['properties'] }}"
+  when: configuration and configuration[hostname] and configuration[hostname]['properties'] is defined
+
+- name: Expand {{ hostname }} properties into props
+  set_fact: props="{{ configuration_properties[item] | combine(props | default({})) }}"
+  with_items: "{{ properties_list }}"
+  when: hostname in configuration and configuration_properties[item] is defined
+
+- name: create directory for ceos config
+  file:
+    path: "/tmp/ceos_{{ vm_set_name }}_{{ item }}/"
+    state: directory
+
+- name: update startup-config
+  become: yes
+  template: src="eos/{{ topo }}-{{ props.swrole }}.j2"
+            dest="/tmp/ceos_{{ vm_set_name }}_{{ item }}/startup-config"

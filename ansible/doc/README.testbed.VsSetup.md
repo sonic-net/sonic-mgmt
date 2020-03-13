@@ -17,10 +17,21 @@ $ sudo ifconfig br1 10.250.0.1/24
 $ sudo ifconfig br1 up
 ```
 
+### Use vEOS image
+
 - Download vEOS image from [arista](https://www.arista.com/en/support/software-download).
 - Copy below image files to ```~/veos-vm/images``` on your testbed server.
    - ```Aboot-veos-serial-8.0.0.iso```
    - ```vEOS-lab-4.20.15M.vmdk```
+
+### Use cEOS image (experimental)
+- Download cEOS image from [arista](https://www.arista.com/en/support/software-download).
+- Copy below image ```cEOS64-lab-4.23.2F.tar.xz``` on your testbed server.
+- Import cEOS image
+
+```
+$ docker import cEOS64-lab-4.23.2F.tar.xz ceosimage:4.23.2F
+```
 
 ## Build or download *sonic-mgmt* docker image
 
@@ -98,6 +109,8 @@ Put the private key inside the sonic-mgmt docker container. Make sure you can lo
 
 ## Setup Arista VMs in the server
 
+(skip this step if you use cEOS image)
+
 ```
 $ ./testbed-cli.sh -m veos.vtb start-vms server_1 password.txt
 ```
@@ -131,8 +144,14 @@ VM0100 | SUCCESS => {
 
 ## Deploy T0 topology
 
+vEOS
 ```
 $ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb add-topo vms-kvm-t0 password.txt
+```
+
+cEOS
+```
+$ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb -k ceos add-topo vms-kvm-t0 password.txt
 ```
 
 ## Deploy minigraph on the DUT

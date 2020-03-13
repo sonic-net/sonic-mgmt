@@ -3,6 +3,16 @@
 {% set tornum = host['tornum'] %}
 no schedule tech-support
 !
+{% if vm_type == "ceos" %}
+agent LicenseManager shutdown
+agent PowerFuse shutdown
+agent PowerManager shutdown
+agent Thermostat shutdown
+agent LedPolicy shutdown
+agent StandbyCpld shutdown
+agent Bfd shutdown
+{% endif %}
+!
 hostname {{ hostname }}
 !
 vrf definition MGMT
@@ -20,7 +30,11 @@ lldp run
 lldp management-address Management1
 lldp management-address vrf MGMT
 !
+{% if vm_type == "ceos" %}
+snmp-server community {{ ceos_snmp_rocommunity }} ro
+{% else %}
 snmp-server community {{ snmp_rocommunity }} ro
+{% endif %}
 snmp-server vrf MGMT
 !
 ip routing

@@ -169,6 +169,12 @@
 - name: Extract VM names from the inventory
   set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') }}
 
+- name: Generate vm list of target VMs
+  set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
+  when: topology['VMs'] is defined
+
+- debug: msg="{{ VM_targets }}"
+
 - name: Stop VMs
   include_tasks: stop.yml
   when: action == 'stop'
