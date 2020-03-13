@@ -102,7 +102,7 @@
   delegate_to: "{{ ptf_host }}"
 
 - name: Update supervisor configuration
-  include_tasks: "roles/test/tasks/common_tasks/update_supervisor.yml"
+  include: "roles/test/tasks/common_tasks/update_supervisor.yml"
   vars:
     supervisor_host: "{{ ptf_host }}"
 
