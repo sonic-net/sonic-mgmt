@@ -46,6 +46,9 @@
   become: yes
   when: external_port is defined
 
+- include_tasks: add_ceos_list.yml
+  when: vm_type is defined and vm_type == "ceos"
+
 - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
   vm_topology:
     cmd: "bind"
