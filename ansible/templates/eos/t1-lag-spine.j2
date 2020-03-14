@@ -2,7 +2,7 @@
 {% set mgmt_ip = ansible_host %}
 no schedule tech-support
 !
-{% if vm_type == "ceos" %}
+{% if vm_type is defined and vm_type == "ceos" %}
 agent LicenseManager shutdown
 agent PowerFuse shutdown
 agent PowerManager shutdown
@@ -29,7 +29,7 @@ lldp run
 lldp management-address Management1
 lldp management-address vrf MGMT
 !
-{% if vm_type == "ceos" %}
+{% if vm_type is defined and vm_type == "ceos" %}
 snmp-server community {{ ceos_snmp_rocommunity }} ro
 {% else %}
 snmp-server community {{ snmp_rocommunity }} ro
