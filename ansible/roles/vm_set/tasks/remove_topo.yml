@@ -14,7 +14,7 @@
   become: yes
 
 - include_tasks: remove_ceos_list.yml
-  when: vm_type == "ceos"
+  when: vm_type is defined and vm_type == "ceos"
 
 - name: Remove vlan port for vlan tunnel
   vlan_port:
