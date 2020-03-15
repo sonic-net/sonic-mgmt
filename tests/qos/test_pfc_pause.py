@@ -18,7 +18,7 @@ PTF_FILE_RELATIVE_PATH = '../../ansible/roles/test/files/ptftests/pfc_pause_test
 PTF_FILE_DEST = '~/pfc_pause_test.py'
 PTF_PKT_COUNT = 50
 PTF_PKT_INTVL_SEC = 0.1
-PTF_PASS_RATIO_THRESH = 0.75
+PTF_PASS_RATIO_THRESH = 0.6
 
 """ Maximum number of interfaces to test on a DUT """
 MAX_TEST_INTFS_COUNT = 4
@@ -121,7 +121,7 @@ def run_test_t0(ansible_adhoc,
         dut_intf_paused = dut_intfs[dst_index]
         
         """ Clear MAC table in DUT """
-        dut_ans.shell('sonic-clear fdb all </dev/null >/dev/null 2>&1 &')
+        dut_ans.shell('sonic-clear fdb all')
         time.sleep(2)
                                                                  
         if send_pause:            
@@ -277,7 +277,6 @@ def test_pfc_pause_lossless(ansible_adhoc,
                     print "errors occured:\n{}".format("\n".join(errors))
                     assert 0 
 
-#@pytest.mark.skip(reason="")
 def test_no_pfc(ansible_adhoc,
                 testbed, 
                 conn_graph_facts, 
