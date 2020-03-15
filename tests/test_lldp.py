@@ -1,5 +1,6 @@
 from ansible_host import AnsibleHost
-
+import logging
+logger = logging.getLogger(__name__)
 
 def test_lldp(localhost, ansible_adhoc, testbed):
     """ verify the LLDP message on DUT """
@@ -39,12 +40,20 @@ def test_lldp_neighbor(localhost, ansible_adhoc, testbed, eos):
     host_facts  = ans_host.setup()['ansible_facts']
     lhost = AnsibleHost(ansible_adhoc, 'localhost', True)
 
+    config_facts  = ans_host.config_facts(host=hostname, source="running")['ansible_facts']
+    nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
+
     for k, v in lldp_facts['lldp'].items():
         if k == 'eth0':
             # skip test on management interface
             continue
 
-        hostip = v['chassis']['mgmt-ip']
+        try:
+            hostip = v['chassis']['mgmt-ip']
+        except:
+            logger.info("Neighbor device {} does not sent management IP via lldp".format(v['chassis']['name']))
+            hostip = nei_meta[v['chassis']['name']]['mgmt_addr']
+
         nei_lldp_facts = lhost.lldp_facts(host=hostip, version='v2c', community=eos['snmp_rocommunity'])['ansible_facts']
         print nei_lldp_facts
         neighbor_interface = v['port']['ifname']
