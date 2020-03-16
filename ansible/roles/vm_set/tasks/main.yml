@@ -173,8 +173,6 @@
   set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
   when: topology['VMs'] is defined
 
-- debug: msg="{{ VM_targets }}"
-
 - name: Stop VMs
   include_tasks: stop.yml
   when: action == 'stop'
