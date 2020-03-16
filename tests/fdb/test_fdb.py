@@ -157,6 +157,7 @@ def fdb_cleanup(ansible_adhoc, testbed):
         duthost.command('sonic-clear fdb all')
 
 
+@pytest.mark.bsl
 @pytest.mark.usefixtures('fdb_cleanup')
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
 def test_fdb(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost, pkt_type):

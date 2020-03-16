@@ -2,6 +2,7 @@ import pytest
 import time
 from ansible_host import AnsibleHost
 
+@pytest.mark.bsl
 def test_snmp_cpu(ansible_adhoc, testbed, creds):
     """
     Test SNMP CPU Utilization
