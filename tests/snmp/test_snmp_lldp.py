@@ -1,5 +1,7 @@
+import pytest
 from ansible_host import AnsibleHost
 
+@pytest.mark.bsl
 def test_snmp_lldp(ansible_adhoc, testbed, creds):
     """
     Test checks for ieee802_1ab MIBs:
