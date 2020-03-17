@@ -26,13 +26,13 @@
       script: roles/test/files/helpers/add_ip.sh
       delegate_to: "{{ ptf_host }}"
 
-    - name: set default nn_target_port if it's not defined
-      set_fact: nn_target_port="3"
-      when: nn_target_port is undefined
-
     - name: set default nn_target_interface if it's not defined
-      set_fact: nn_target_interface="Ethernet12"
+      set_fact: nn_target_interface="{{ minigraph_ports.keys()[3] }}"
       when: nn_target_interface is undefined
+
+    - name: set default nn_target_port if it's not defined
+      set_fact: nn_target_port="{{ minigraph_port_indices[nn_target_interface] }}"
+      when: nn_target_port is undefined
 
     - name: Update ptf_nn_agent configuration inside ptf
       template: src=ptf_nn_agent.conf.ptf.j2 dest=/etc/supervisor/conf.d/ptf_nn_agent.conf
@@ -127,3 +127,4 @@
       with_items:
         - lldpd
         - lldp-syncd
+
