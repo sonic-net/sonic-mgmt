@@ -1,6 +1,46 @@
 {
   "GET_WITH_PFX": {
     "config": {
+      "openconfig-platform:components": {
+        "component": [
+          {
+            "name": "eth-1/1/0",
+            "config": {
+              "name": "eth-1/1/0",
+              "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
+            },
+            "port": {
+              "config": {
+                "openconfig-hercules-platform:port-id": "1"
+              }
+            }
+          },
+          {
+            "name": "eth-1/1/1",
+            "config": {
+              "name": "eth-1/1/1",
+              "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
+            },
+            "port": {
+              "config": {
+                "openconfig-hercules-platform:port-id": "2"
+              }
+            }
+          },
+          {
+            "name": "eth-1/1/2",
+            "config": {
+              "name": "eth-1/1/2",
+              "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
+            },
+            "port": {
+              "config": {
+                "openconfig-hercules-platform:port-id": "3"
+              }
+            }
+          }
+        ]
+      },
       "openconfig-interfaces:interfaces": {
         "interface": [
           {
@@ -77,17 +117,17 @@
           {
             "name": "eth-1/1/0",
             "config": {"name": "eth-1/1/0","openconfig-hercules-platform:type": "openconfig-platform-types:PORT"},
-            "port": {"config": {"openconfig-hercules-platform:port-id": "0"}}
+            "port": {"config": {"openconfig-hercules-platform:port-id": "1"}}
           },
           {
             "name": "eth-1/1/1",
             "config": {"name": "eth-1/1/1","openconfig-hercules-platform:type": "openconfig-platform-types:PORT"},
-            "port": {"config": {"openconfig-hercules-platform:port-id": "1"}}
+            "port": {"config": {"openconfig-hercules-platform:port-id": "2"}}
           },
           {
             "name": "eth-1/1/2",
             "config": {"name": "eth-1/1/2","openconfig-hercules-platform:type": "openconfig-platform-types:PORT"},
-            "port": {"config": {"openconfig-hercules-platform:port-id": "2"}}
+            "port": {"config": {"openconfig-hercules-platform:port-id": "3"}}
           }
         ]
       }
@@ -135,6 +175,34 @@
   },
   "Mult_Set_Rep_1": {
     "config": {
+      "openconfig-platform:components": {
+        "component": [
+          {
+            "name": "eth-1/1/0",
+            "config": {
+              "name": "eth-1/1/0",
+              "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
+            },
+            "port": {
+              "config": {
+                "openconfig-hercules-platform:port-id": "1"
+              }
+            }
+          },
+          {
+            "name": "eth-1/1/1",
+            "config": {
+              "name": "eth-1/1/1",
+              "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
+            },
+            "port": {
+              "config": {
+                "openconfig-hercules-platform:port-id": "2"
+              }
+            }
+          }
+        ]
+      },
       "openconfig-interfaces:interfaces": {
         "interface": [
           {

@@ -1796,7 +1796,7 @@ def _test_Path_with_keys(stub):
         err_msg.append("test_Path_with_keys (SET-REPLACE) failed due to Grpc Error {err}".format(err=e.details()))
     
     try:
-        xpath = "/oc-if:interfaces/oc-if:interface[name=Eth1]"
+        xpath = "/oc-if:interfaces/oc-if:interface[name=eth-1/1/1]"
         paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
         reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info)
         log.info(str(reply))
