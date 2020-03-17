@@ -10,8 +10,8 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-@pytest.mark.parametrize("ipv4, ipv6, mtu, testlb", [pytest.param(True, True, 1514, False)])
-def test_fib(ansible_adhoc, testbed, duthost, ptfhost, ipv4, ipv6, mtu, testlb):
+@pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
+def test_fib(ansible_adhoc, testbed, duthost, ptfhost, ipv4, ipv6, mtu):
 
     hostname = testbed['dut']
     testbed_type = testbed['topo']['name']
@@ -22,6 +22,7 @@ def test_fib(ansible_adhoc, testbed, duthost, ptfhost, ipv4, ipv6, mtu, testlb):
 
     po = config_facts.get('PORTCHANNEL', {})
     ports = config_facts.get('PORT', {})
+    meta = config_facts.get('DEVICE_METADATA')
 
     print po
     print mg_facts['minigraph_port_indices']
@@ -72,6 +73,13 @@ def test_fib(ansible_adhoc, testbed, duthost, ptfhost, ipv4, ipv6, mtu, testlb):
     ptfhost.copy(src="ptftests", dest="/root")
     logging.info("run ptf test")
 
+    # do not test load balancing for vs platform as kernel 4.9
+    # can only do load balance base on L3
+    if meta['localhost']['platform'] == 'x86_64-kvm_x86_64-r0':
+        test_balancing = False
+    else:
+        test_balancing = True
+
     ptf_runner(ptfhost,
                 "ptftests",
                 "fib_test.FibTest",
@@ -82,6 +90,6 @@ def test_fib(ansible_adhoc, testbed, duthost, ptfhost, ipv4, ipv6, mtu, testlb):
                         "ipv4": ipv4,
                         "ipv6": ipv6,
                         "testbed_mtu": mtu,
-                        "test_balancing": testlb },
+                        "test_balancing": test_balancing },
                 log_file=log_file,
                 socket_recv_size=16384)
