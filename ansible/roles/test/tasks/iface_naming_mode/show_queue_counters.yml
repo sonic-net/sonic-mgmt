@@ -9,7 +9,7 @@
       assert:
         that:
         - queue_counter.stdout |  search("{{intf}}\s+[U|M]C{{item}}\s+\S+\s+\S+\s+\S+\s+\S+")
-      with_sequence: start=0 end=9
+      with_sequence: start=0 end="{{ queue_counter.stdout_lines | length -1 }}"
 
     - name: show queue counters for all interfaces
       shell: sudo  show queue counters | grep "UC\|MC"

@@ -1,5 +1,5 @@
-- name: Set ansible login user name and password
-  set_fact: ansible_user="root" ansible_password={{ eos_root_password }}
+- debug: msg="{{ vm_type }}"
+- debug: msg="{{ vm_set_name }}"
 
 - name: Load topo variables
   include_vars: "vars/topo_{{ topo }}.yml"
@@ -24,15 +24,6 @@
     msg: "cannot find {{ inventory_hostname }} in the topology"
   when: hostname == "hostname not found"
 
-- name: Get VM front panel interface number
-  shell: virsh domiflist {{ inventory_hostname }} | grep -E "^{{ inventory_hostname }}-t" | wc -l
-  register: fp_num
-  delegate_to: "{{ VM_host[0] }}"
-  become: yes
-
-- name: Set EOS backplane port name
-  set_fact: bp_ifname="Ethernet{{ fp_num.stdout|int + 1 }}"
-
 - name: Set properties list to default value, when properties are not defined
   set_fact: properties_list=[]
   when: configuration is not defined or configuration[hostname] is not defined or configuration[hostname]['properties'] is not defined
@@ -46,23 +37,8 @@
   with_items: "{{ properties_list }}"
   when: hostname in configuration and configuration_properties[item] is defined
 
-- name: copy rc.eos
-  copy: src=rc.eos
-        dest=/mnt/flash/rc.eos
-  when: hostname in configuration
-  notify:
-    - Update VM state
+- include_tasks: veos.yml
+  when: vm_type == "veos"
 
-- name: copy boot-config
-  copy: src=boot-config
-        dest=/mnt/flash/boot-config
-  when: hostname in configuration
-  notify:
-    - Update VM state
-
-- name: update startup-config
-  template: src="{{ topo }}-{{ props.swrole }}.j2"
-            dest=/mnt/flash/startup-config
-  when: hostname in configuration
-  notify:
-    - Update VM state
+- include_tasks: ceos.yml
+  when: vm_type == "ceos"

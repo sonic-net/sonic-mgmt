@@ -162,6 +162,7 @@ class FibTest(BaseTest):
         src_port = random.choice([port for port in self.src_ports if port not in exp_port_list])
 
         if not exp_port_list:
+            logging.info("Skip check IP range {} with nexthop {}".format(ip_range, next_hop))
             return
 
         logging.info("Check IP range:" + str(ip_range) + " on " + str(exp_port_list) + "...")

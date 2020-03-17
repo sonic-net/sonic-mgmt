@@ -1,6 +1,8 @@
+import pytest
 from ansible_host import AnsibleHost
 
-def test_snmp_interfaces(ansible_adhoc, testbed, creds):
+@pytest.mark.bsl
+def test_snmp_lldp(ansible_adhoc, testbed, creds):
     """
     Test checks for ieee802_1ab MIBs:
      - lldpLocalSystemData  1.0.8802.1.1.2.1.3
@@ -62,9 +64,14 @@ def test_snmp_interfaces(ansible_adhoc, testbed, creds):
            v.has_key("lldpRemSysCapSupported") and \
            v.has_key("lldpRemSysCapEnabled"):
             active_intf.append(k)
-    print active_intf
+    print "lldpRemTable: ", active_intf
 
     assert len(active_intf) >= len(minigraph_lldp_nei) * 0.8 
+
+    # skip neighbors that do not send chassis information via lldp
+    lldp_facts = ans_host.lldp()['ansible_facts']
+    nei = [k for k, v in lldp_facts['lldp'].items() if k != 'eth0' and v['chassis'].has_key('mgmt-ip') ]
+    print "neighbors {} send chassis management IP information".format(nei)
 
     # Check if lldpRemManAddrTable is present
     active_intf = []
@@ -73,6 +80,6 @@ def test_snmp_interfaces(ansible_adhoc, testbed, creds):
            v.has_key("lldpRemManAddrIfId") and \
            v.has_key("lldpRemManAddrOID"):
             active_intf.append(k)
-    print active_intf
+    print "lldpRemManAddrTable: ", active_intf
 
-    assert len(active_intf) >= len(minigraph_lldp_nei) * 0.8 
+    assert len(active_intf) == len(nei)

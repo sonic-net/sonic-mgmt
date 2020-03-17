@@ -1,3 +1,6 @@
+# Wait 30 seconds after previous test finish
+- pause: seconds=30
+
 - name: Get the output of show lldp table command in {{mode}} mode
   shell: show lldp table
   register:  lldp_table

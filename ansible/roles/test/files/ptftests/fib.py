@@ -19,6 +19,7 @@ EXCLUDE_IPV4_PREFIXES = [
 EXCLUDE_IPV6_PREFIXES = [
         '::/128',               # Unspecified           RFC 4291
         '::1/128',              # Loopback              RFC 4291
+        'fe80::/10',            # Link local            RFC 4291
         'ff00::/8'              # Multicast             RFC 4291
         ]
 

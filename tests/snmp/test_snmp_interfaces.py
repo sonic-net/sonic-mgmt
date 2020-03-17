@@ -1,5 +1,7 @@
+import pytest
 from ansible_host import AnsibleHost
 
+@pytest.mark.bsl
 def test_snmp_interfaces(ansible_adhoc, duthost, creds):
     """compare the bgp facts between observed states and target state"""
 

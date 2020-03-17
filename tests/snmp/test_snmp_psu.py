@@ -3,6 +3,7 @@ from ansible_host import AnsibleHost
 
 PSU_STATUS_OK = 2
 
+@pytest.mark.bsl
 def test_snmp_numpsu(testbed_devices, creds, duthost):
 
     ans_host = testbed_devices['dut']
@@ -17,6 +18,7 @@ def test_snmp_numpsu(testbed_devices, creds, duthost):
     assert numpsus == len(snmp_facts['snmp_psu'])
 
 
+@pytest.mark.bsl
 def test_snmp_psu_status(testbed_devices, creds):
 
     ans_host = testbed_devices['dut']

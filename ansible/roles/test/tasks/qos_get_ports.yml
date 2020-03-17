@@ -157,7 +157,7 @@
 - include_tasks: roles/test/tasks/qos_get_max_buff_size.yml
   vars:
     target_table: 'BUFFER_PG'
-    target_port_name: "***{{dut_switch_ports[src_port_id|int]}}***"
+    target_port_name: "{{dut_switch_ports[src_port_id|int]}}"
     target_pg: '0'
     target_buffer_profile_type: 'ingress lossy'
 
@@ -179,7 +179,7 @@
 - include_tasks: roles/test/tasks/qos_get_max_buff_size.yml
   vars:
     target_table: 'BUFFER_QUEUE'
-    target_port_name: "***{{dut_switch_ports[src_port_id|int]}}***"
+    target_port_name: "{{dut_switch_ports[src_port_id|int]}}"
     target_pg: '3-4'
     target_buffer_profile_type: 'egress lossless'
 
@@ -196,7 +196,7 @@
 - include_tasks: roles/test/tasks/qos_get_max_buff_size.yml
   vars:
     target_table: 'BUFFER_QUEUE'
-    target_port_name: "***{{dut_switch_ports[src_port_id|int]}}***"
+    target_port_name: "{{dut_switch_ports[src_port_id|int]}}"
     target_pg: '0-2'
     target_buffer_profile_type: 'egress lossy'
 

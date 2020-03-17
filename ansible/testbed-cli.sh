@@ -16,6 +16,7 @@ function usage
   echo "Options:"
   echo "    -t <tbfile> : testbed CSV file name (default: 'testbed.csv')"
   echo "    -m <vmfile> : virtual machine file name (default: 'veos')"
+  echo "    -k <vmtype> : vm type (veos|ceos) (default: 'veos')"
   echo
   echo "Positional Arguments:"
   echo "    <server-name>         : Hostname of server on which to start VMs"
@@ -121,7 +122,7 @@ function add_topo
 
   read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" -e helper_device="$helper_device" $@
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e helper_device="$helper_device" $@ 
 
   ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$dut" -e helper_device="$helper_device" $@
 
@@ -141,7 +142,7 @@ function remove_topo
 
   read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" -e helper_device="$helper_device" $@
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$dut" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e helper_device="$helper_device" $@
 
   echo Done
 }
@@ -277,14 +278,18 @@ function connect_topo
 
 vmfile=veos
 tbfile=testbed.csv
+vm_type=veos
 
-while getopts "t:m:" OPTION; do
+while getopts "t:m:k:" OPTION; do
     case $OPTION in
     t)
         tbfile=$OPTARG
         ;;
     m)
         vmfile=$OPTARG
+        ;;
+    k)
+        vm_type=$OPTARG
         ;;
     *)
         usage
