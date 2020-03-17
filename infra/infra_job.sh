@@ -1,4 +1,5 @@
-# exec
+#!/bin/bash
+
 pytest -s infra_ap.py \
     --selective-test-file=selective_test_file.txt \
     --topology-file "./../th3_4_topo.json" \
