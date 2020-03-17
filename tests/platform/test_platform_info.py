@@ -518,17 +518,19 @@ def test_thermal_control_fan_status(testbed_devices, mocker_factory):
 
         single_fan_mocker = mocker_factory(dut, 'SingleFanMocker')
         time.sleep(THERMAL_CONTROL_TEST_WAIT_TIME)
-        loganalyzer.expect_regex = [LOG_EXPECT_FAN_REMOVE_RE]
-        with loganalyzer:
-            logging.info('Mocking an absence FAN...')
-            single_fan_mocker.mock_absence()
-            check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
 
-        loganalyzer.expect_regex = [LOG_EXPECT_FAN_REMOVE_CLEAR_RE]
-        with loganalyzer:
-            logging.info('Make the absence FAN back to presence...')
-            single_fan_mocker.mock_presence()
-            check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
+        if single_fan_mocker.is_fan_removable():
+            loganalyzer.expect_regex = [LOG_EXPECT_FAN_REMOVE_RE]
+            with loganalyzer:
+                logging.info('Mocking an absence FAN...')
+                single_fan_mocker.mock_absence()
+                check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
+
+            loganalyzer.expect_regex = [LOG_EXPECT_FAN_REMOVE_CLEAR_RE]
+            with loganalyzer:
+                logging.info('Make the absence FAN back to presence...')
+                single_fan_mocker.mock_presence()
+                check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_OVER_SPEED_RE]
         with loganalyzer:
