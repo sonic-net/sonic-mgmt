@@ -10,8 +10,8 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-@pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
-def test_fib(ansible_adhoc, testbed, duthost, ptfhost,ipv4, ipv6, mtu):
+@pytest.mark.parametrize("ipv4, ipv6, mtu, testlb", [pytest.param(True, True, 1514, False)])
+def test_fib(ansible_adhoc, testbed, duthost, ptfhost, ipv4, ipv6, mtu, testlb):
 
     hostname = testbed['dut']
     testbed_type = testbed['topo']['name']
@@ -81,6 +81,7 @@ def test_fib(ansible_adhoc, testbed, duthost, ptfhost,ipv4, ipv6, mtu):
                         "fib_info": "/root/fib_info.txt",
                         "ipv4": ipv4,
                         "ipv6": ipv6,
-                        "testbed_mtu": mtu },
+                        "testbed_mtu": mtu,
+                        "test_balancing": testlb },
                 log_file=log_file,
                 socket_recv_size=16384)
