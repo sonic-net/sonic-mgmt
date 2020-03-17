@@ -51,18 +51,17 @@ class BgpModule(object):
         self.instances =[]
         self.module = AnsibleModule(
             argument_spec=dict(
-                num_npus=dict(),
+                num_npus=dict(type='int', default=1),
             ),
             supports_check_mode=True)
 
         m_args = self.module.params
-        
-        if 'num_npus' in m_args and m_args['num_npus'] is not '1':
-            npus = int(m_args['num_npus'])
+        npus = m_args['num_npus']
+        if npus > 1:
             for npu in range(0, npus):
                 self.instances.append("bgp{}".format(npu))
         else:
-             self.instances.append("bgp")
+            self.instances.append("bgp")
                     
         self.out = None
         self.facts = {}
@@ -81,7 +80,7 @@ class BgpModule(object):
             self.get_statistics()
         self.module.exit_json(ansible_facts=self.facts)
 
-    def collect_data(self, command_str,instance):
+    def collect_data(self, command_str, instance):
         """
             Collect bgp information by reading output of 'vtysh' command line tool
         """
