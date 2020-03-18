@@ -231,6 +231,10 @@ testcases:
       filename: neighbour-mac-noptf.yml
       topologies: [t0, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]
 
+    network_fuzz:
+      filename: network_fuzz.yml
+      topologies: [t0, t0-16, t0-56, t0-64, t0-116, t1]
+
     ntp:
       filename: ntp.yml
       topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]

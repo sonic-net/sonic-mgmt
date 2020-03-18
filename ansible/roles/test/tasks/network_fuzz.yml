@@ -1,0 +1,77 @@
+- block:
+  - name: Gather interface information if not available
+    interface_facts:
+    when: ansible_interface_facts is not defined
+
+  - name: Read the current interfaces status
+    shell: show interfaces status | head
+    register: show_interface_status
+
+  - name: Store the indices for the ports that operationally 'up'
+    set_fact: candidate_ports="{{ candidate_ports|default([]) + [minigraph_port_indices[item.device]] }}"
+    with_items: ansible_interface_facts.values()
+    when: item.active and (item.device | search('Ethernet'))
+
+  - name: Get the interface name that is connect to the first BGP neighbor
+    set_fact:
+      bgp_neighbor_iface: "{{ item['attachto'] }}"
+    with_items: "{{ minigraph_interfaces + minigraph_portchannel_interfaces}}"
+    when: minigraph_bgp[0]['peer_addr'] == item['addr']
+
+  - name: If bgp_neighbor_iface is a portchannel, get the port index of the first member
+    set_fact:
+      bgp_neighbor_port: "{{ minigraph_port_indices[minigraph_portchannels[bgp_neighbor_iface]['members'][0]] }}"
+    when: "'PortChannel' in bgp_neighbor_iface"
+
+  - name: If bgp_neighbor_iface is not a portchannel, get the port index
+    set_fact:
+      bgp_neighbor_port: "{{ minigraph_port_indices[bgp_neighbor_iface] }}"
+    when: "'PortChannel' not in bgp_neighbor_iface"
+
+  - name: Copy tests to the PTF container
+    copy: src=roles/test/files/ptftests dest=/root
+    delegate_to: "{{ ptf_host }}"
+
+  - name: Spoof random TCP packets from the BGP neighbor to the BGP port on the SONiC switch
+    include: roles/test/tasks/network_fuzz/tcp_fuzz_random_port.yml
+    vars:
+      test_ports: "{{ [bgp_neighbor_port] }}"
+      src_ip: "{{ minigraph_bgp[0]['addr'] }}"
+      dest_ip: "{{ minigraph_bgp[0]['peer_addr'] }}"
+      dest_port: 179
+      packet_count: 1000
+
+  - name: Run IP packet fuzz test to random ports
+    include: roles/test/tasks/network_fuzz/ip_fuzz_random_port.yml
+    vars:
+      packet_count: 10000
+      test_ports: "{{ candidate_ports }}"
+
+  - name: Run TCP packet fuzz test to random ports
+    include: roles/test/tasks/network_fuzz/tcp_fuzz_random_port.yml
+    vars:
+      packet_count: 10000
+      test_ports: "{{ candidate_ports }}"
+
+  - name: Run UDP packet fuzz test to random ports
+    include: roles/test/tasks/network_fuzz/udp_fuzz_random_port.yml
+    vars:
+      packet_count: 10000
+      test_ports: "{{ candidate_ports }}"
+
+  - name: Run IP packet fuzz test to a single port
+    include: roles/test/tasks/network_fuzz/ip_fuzz_random_port.yml
+    vars:
+      packet_count: 30000
+      test_ports: "{{ candidate_ports[0] }}"
+
+  rescue:
+    - name: Do basic sanity check after a failure and allow recovery
+      include: base_sanity.yml
+      vars:
+        recover: "{{ allow_recover }}"
+
+    - name: Validate all interfaces are up and allow recovery
+      include: interface.yml
+      vars:
+        recover: "{{ allow_recover }}"

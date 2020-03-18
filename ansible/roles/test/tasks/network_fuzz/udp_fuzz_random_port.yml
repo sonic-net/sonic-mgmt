@@ -1,0 +1,35 @@
+- block:
+  - set_fact:
+      testname: udp_fuzz_random_port
+      run_dir: /tmp
+      out_dir: /tmp/ansible-loganalyzer-results
+      tests_location: "{{ 'roles/test/tasks' }}"
+
+  - name: Initialize loganalyzer
+    include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+  - include: roles/test/tasks/ptf_runner.yml
+    vars:
+      ptf_test_name: UDP packet fuzz test
+      ptf_test_dir: ptftests
+      ptf_test_path: network_fuzz_test.NetworkFuzzTest
+      ptf_platform: remote
+      ptf_platform_dir: ptftests
+      ptf_test_params:
+        - port_list='{{ test_ports | join(",") }}'
+        - packet_type='udp'
+        - packet_count='{{ packet_count | default(1) }}'
+        - src_ip='{{ src_ip | default(None) }}'
+        - dest_ip='{{ dest_ip | default(None) }}'
+        - dest_port='{{ dest_port | default(None) }}'
+      ptf_extra_options: "--relax --debug info --log-file /tmp/network_fuzz.NetworkFuzzTest.UDP.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log"
+
+  - name: Check if logs contain any error messages
+    include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+  - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+
+  - name: Do a basic sanity check
+    include: roles/test/tasks/base_sanity.yml
+
+  - name: Validate all interfaces are still up
+    include: roles/test/tasks/interface.yml
