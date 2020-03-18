@@ -21,9 +21,9 @@ RUN pip3 install wheel
 RUN pip3 install setuptools --upgrade
 RUN pip3 install -r current-req.txt
 
-# clone cafykit 
-#RUN git clone https://wwwin-github.cisco.com/cafy/cafykit.git /cafykit
-#RUN echo "export PYTHONPATH=/cafykit/lib" >> ~/.bashrc
+# setup cafykit library python path
+RUN echo "export PYTHONPATH=/godiva-test:/godiva-test/cafykit/lib" >> ~/.bashrc
+RUN echo "export GIT_REPO=/godiva-test/cafykit" >> ~/.bashrc
 
 # Run the application:
 ENV https_proxy = http://proxy.esl.cisco.com:80

@@ -1,6 +1,6 @@
 BUILDDIR=$(PWD)/build
 DOCKER_IMG=$(BUILDDIR)/iidfile
-RUNOPTS=-v $(PWD):/godiva-test -v $(HOME):/opt/$(USER)
+RUNOPTS=-v $(PWD):/godiva-test -v $(HOME):/opt/home
 .PHONY: all clean runtest
 
 all: $(DOCKER_IMG)
@@ -12,6 +12,7 @@ runtest : $(DOCKER_IMG)
 	fi
 
 $(DOCKER_IMG): docker/Dockerfile docker/current-req.txt docker/docker_startup_env
+	@git submodule update --init --recursive
 	docker build --iidfile $(DOCKER_IMG) -t ubuntu-cafy docker
 
 clean:
