@@ -69,6 +69,7 @@ def test_fib(testbed, duthost, ptfhost, ipv4, ipv6, mtu):
 
     # do not test load balancing for vs platform as kernel 4.9
     # can only do load balance base on L3
+    meta = config_facts.get('DEVICE_METADATA')
     if meta['localhost']['platform'] == 'x86_64-kvm_x86_64-r0':
         test_balancing = False
     else:
