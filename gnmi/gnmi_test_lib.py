@@ -223,7 +223,6 @@ def _byteify(data, ignore_dicts=False):
     # if it's anything else, return it in its original form
     return data
 
-
 def _path_names(xpath):
   """Parses the xpath names.
 
@@ -237,10 +236,11 @@ def _path_names(xpath):
   """
   if not xpath or xpath == '/':  # A blank xpath was provided at CLI.
     return []
-  #ppath = re.split('''/(?=(?:[^\[\]]|\[[^\[\]]+\])*$)''', xpath)[1:]
+  xpath = xpath.strip().strip('/')  
+  ppath = re.split('''/(?=(?:[^\[\]]|\[[^\[\]]+\])*$)''', xpath)
   #print(ppath)
-  #return ppath
-  return xpath.strip().strip('/').split('/')  # Remove leading and trailing '/'.
+  return ppath
+  #return xpath.strip().strip('/').split('/')  # Remove leading and trailing '/'.
 
 
 def _parse_path(p_names,target=None):
@@ -256,7 +256,9 @@ def _parse_path(p_names,target=None):
     XpathError: Unabled to parse the xpath provided.
   """
   gnmi_elems = []
+  #print(p_names)
   for word in p_names:
+    #print(word)
     word_search = _RE_PATH_COMPONENT.search(word)
     if not word_search:  # Invalid path specified.
       raise XpathError('xpath component parse error: %s' % word)

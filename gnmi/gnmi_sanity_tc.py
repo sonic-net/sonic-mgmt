@@ -405,8 +405,8 @@ def _test_Get_with_type(stub):
     
     log.info('Performing SET-REPLACE Request to target \n')
     try:
-        if 'GET_WITH_TYPE' in input_conf:
-            set_info = input_conf['GET_WITH_TYPE']
+        if 'GET_WITH_PFX' in input_conf:
+            set_info = input_conf['GET_WITH_PFX']['config']
             xpath = "/"
             paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
             reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info)
@@ -417,9 +417,9 @@ def _test_Get_with_type(stub):
                 log.info("test_Get_with_type:Failed - was unable to do SET-REPLACE with input json")
             
             #xpath = "/if:interfaces/if:interface"
-            prefix = input_conf['VERIFY_GET_WITH_TYPE']['prefix']
+            prefix = input_conf['GET_WITH_PFX']['verify']['prefix']
             #prefix = gnmiTestLib._parse_path(gnmiTestLib._path_names(prefix))
-            path = input_conf['VERIFY_GET_WITH_TYPE']['path']
+            path = input_conf['GET_WITH_PFX']['verify']['path']
             path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
             log.info("Verify Get with Type='ALL' ")
             response = gnmiTestLib._get(stub, path, user, password,prefix,type='ALL')
@@ -457,6 +457,9 @@ def _test_Get_with_type(stub):
 
     try:
         log.info("Verify Get with Type='CONFIG' ")
+        prefix = input_conf['GET_WITH_PFX']['verify']['prefix']
+        path = input_conf['GET_WITH_PFX']['verify']['path']
+        path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
         response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG')
         #log.info(response)
         msg_dict = google.protobuf.json_format.MessageToDict(response)
@@ -489,6 +492,9 @@ def _test_Get_with_type(stub):
 
     try:
         log.info("Verify Get with Type='STATE' ")
+        prefix = input_conf['GET_WITH_PFX']['verify']['prefix']
+        path = input_conf['GET_WITH_PFX']['verify']['path']
+        path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
         response = gnmiTestLib._get(stub, path, user, password,prefix,type='STATE')
         #log.info(response)
         msg_dict = google.protobuf.json_format.MessageToDict(response)
@@ -1717,7 +1723,7 @@ def _test_Path_with_keys(stub):
             
         if 'PATH_CHECK' in input_conf:
             set_info = input_conf['PATH_CHECK']['config']
-            xpath ="openconfig-interfaces:interfaces/interface[name=Eth1]"
+            xpath ="openconfig-interfaces:interfaces/interface[name=eth-1/1/1]"
             paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
             reply = gnmiTestLib._set(stub, paths, 'update', user, password, set_info)
             log.info(str(reply))
@@ -1748,7 +1754,7 @@ def _test_Path_with_keys(stub):
         log.error(e)
         printGrpcError(e)
         err_msg.append("test_Path_with_keys (SET-UPDATE) failed due to Grpc Error {err}".format(err=e.details()))
-
+    """
     try:
         if 'GET_WITH_PFX' in input_conf:
             set_info = input_conf['GET_WITH_PFX']['config']
@@ -1763,7 +1769,7 @@ def _test_Path_with_keys(stub):
             
         if 'PATH_CHECK' in input_conf:
             set_info = input_conf['PATH_CHECK']['config']
-            xpath ="openconfig-interfaces:interfaces/interface[name=Eth1]"
+            xpath ="openconfig-interfaces:interfaces/interface[name=eth-1/1/1]"
             paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
             reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info)
             log.info(str(reply))
@@ -1794,7 +1800,7 @@ def _test_Path_with_keys(stub):
         log.error(e)
         printGrpcError(e)
         err_msg.append("test_Path_with_keys (SET-REPLACE) failed due to Grpc Error {err}".format(err=e.details()))
-    
+    """
     try:
         xpath = "/oc-if:interfaces/oc-if:interface[name=eth-1/1/1]"
         paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))

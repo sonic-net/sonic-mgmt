@@ -84,32 +84,6 @@
     "prefix": "/oc-if:interfaces",
     "path": "/oc-if:if"
   },
-  "GET_WITH_TYPE": {
-    "openconfig-interfaces:interfaces": {
-      "interface": [
-        {
-          "name": "Loopback123",
-          "config": {
-            "name": "Loopback123",
-            "description": "For GET_WITH_PFX TC",
-            "type": "iana-if-type:ethernetCsmacd"
-          }
-        },
-        {
-          "name": "Ethernet0",
-          "config": {
-            "name": "Ethernet0",
-            "description": "For GET_WITH_PFX TC",
-            "type": "iana-if-type:ethernetCsmacd"
-          }
-        }
-      ]
-    }
-  },
-  "VERIFY_GET_WITH_TYPE": {
-    "prefix": "/oc-if:interfaces",
-    "path": "/oc-if:interface"
-  },
   "GET_WITH_OC_COMP": {
     "config": {
       "openconfig-platform:components": {
@@ -312,7 +286,7 @@
     },
     "verify": {
       "prefix": "/oc-if:interfaces",
-      "path": "/oc-if:interface[name=Eth1]",
+      "path": "/oc-if:interface[name=eth-1/1/1]",
       "config": [
         {
           "name": "eth-1/1/1",
