@@ -3,28 +3,14 @@ Test Scripts and Libraries
 
 Steps before working/using Godiva based test scripts and libraries
 ==================================================================
-1. Setup a virtual-env called godiva. Use of virtual-env-wrapper is preferred.
-2. Clone godiva-test repo
-3. Clone cafykit repo
+Clone `godiva-test` git repository, and execute `make` to start a `godiva-test` container.
 
-Steps for installing cafyKit libraries on ubuntu:
-================================================
-1. vi .bashrc - Add the following
-  a. export GIT_REPO=/home/venkat/cafykit
-  b. export PYTHONPATH="$GIT_REPO/lib"
-  c. export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION='python'
-2. source ~/.bashrc
-3. pip3 install --upgrade pip
-4. sudo apt-get install build-essential libssl-dev libffi-dev python-dev
-5. sudo apt-get install libxml2-dev libxslt-dev
-6. sudo apt-get install libmysqlclient-dev 
-7. pip3 install wheel
-8. pip3 install setuptools --upgrade
-9. sudo apt-get install openssh-server
-10. sudo apt-get install python3-dev
-11. sudo apt install libssl1.0
+```
+git clone git@wwwin-github.cisco.com:gplatforms/godiva-test.git
+cd godiva-test && make
+```
 
-4. pip3 install -r current-req.txt
+The `godiva-test` container includes all required packages and configuration to execute a `pytest` test-script.
 
 Steps to run P4 script
 ========================
