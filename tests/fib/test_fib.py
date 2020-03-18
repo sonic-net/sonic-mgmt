@@ -67,6 +67,13 @@ def test_fib(testbed, duthost, ptfhost, ipv4, ipv6, mtu):
     ptfhost.copy(src="ptftests", dest="/root")
     logging.info("run ptf test")
 
+    # do not test load balancing for vs platform as kernel 4.9
+    # can only do load balance base on L3
+    if meta['localhost']['platform'] == 'x86_64-kvm_x86_64-r0':
+        test_balancing = False
+    else:
+        test_balancing = True
+
     testbed_type = testbed['topo']['name']
     router_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
     log_file = "/tmp/fib_test.FibTest.ipv4.{}.ipv6.{}.{}.log".format(ipv4, ipv6, t)
