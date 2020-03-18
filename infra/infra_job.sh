@@ -9,7 +9,7 @@ pytest -s ${DIR}/infra/infra_ap.py \
     --topology-file "${DIR}/../th3_4_topo.json" \
     --tb=short \
     --test-input-file="${DIR}/../gd_input_file.json" \
-    --mail-to=pevenkat@cisco.com \
+    --mail-to=godiva-mgbl@cisco.com \
     --mail-from=no-reply@cisco.com \
     --debug-enable \
     -m 'not Future' \
