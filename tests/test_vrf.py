@@ -822,7 +822,7 @@ class TestVrfLoopbackIntf():
             ns = g_vars['vlan_peer_vrf2ns_map'][vrf]
             ptfhost.shell("ip netns exec {} ip address add {} dev e{}mv1".format(ns, ptf_speaker_ip, vlan_peer_port))
 
-        res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/deployment_id_asn_map.yml -v \"deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
+        res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
         bgp_speaker_asn = res['stdout']
 
         exabgp_dir = "/root/exabgp"
@@ -876,7 +876,7 @@ class TestVrfLoopbackIntf():
             ptfhost.shell("ip netns exec {} ip address del {} dev e{}mv1".format(ns, ptf_speaker_ip, vlan_peer_port))
 
         # FIXME workround to overcome the bgp socket issue
-        duthost.shell("vtysh -c 'config terminal' -c 'no router bgp 65444'")
+        #duthost.shell("vtysh -c 'config terminal' -c 'no router bgp 65444'")
 
     @pytest.mark.usefixtures('setup_bgp_with_loopback')
     def test_bgp_with_loopback(self, duthost, cfg_facts):
