@@ -2,8 +2,8 @@
     "name": "GD-P4",
     "nodes": [
         {
-            "alias": "R1",
-            "name": "docker",
+            "alias": "UUT",
+            "name": "R1",
             "id": 3,
             "type": "linux",
             "access_info": [
