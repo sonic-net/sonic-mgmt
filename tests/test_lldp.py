@@ -1,5 +1,12 @@
 from ansible_host import AnsibleHost
 import logging
+import pytest
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_check_topo(testbed):
+    if testbed['topo']['name'] in ('ptf32','ptf64'):
+        pytest.skip('Unsupported topology')
+
 logger = logging.getLogger(__name__)
 
 def test_lldp(localhost, ansible_adhoc, testbed):
