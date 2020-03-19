@@ -10,7 +10,7 @@
               "description": "For GET_WITH_PFX TC ETH1/1/0",
               "type": "iana-if-type:ethernetCsmacd",
               "mtu": "1500",
-              "enabled": "True"
+              "enabled": true
             }
           },
           {
@@ -20,7 +20,7 @@
               "description": "For GET_WITH_PFX TC ETH1/1/1",
               "type": "iana-if-type:ethernetCsmacd",
               "mtu": "1500",
-              "enabled": "True"
+              "enabled": true
             }
           },
           {
@@ -30,7 +30,7 @@
               "description": "For GET_WITH_PFX TC ETH1/1/2",
               "type": "iana-if-type:ethernetCsmacd",
               "mtu": "1500",
-              "enabled": "True"
+              "enabled": true
             }
           }
         ]
@@ -127,7 +127,7 @@
               "description": "For GET_WITH_PFX TC ETH1/1/0",
               "type": "iana-if-type:ethernetCsmacd",
               "mtu": "1500",
-              "enabled": "False"
+              "enabled": false
             }
           },
           {
@@ -137,7 +137,7 @@
               "description": "For GET_WITH_PFX TC ETH1/1/1",
               "type": "iana-if-type:ethernetCsmacd",
               "mtu": "1500",
-              "enabled": "False"
+              "enabled": false
             }
           }
         ]

@@ -61,6 +61,9 @@ class TestInfra(InfraApBase):
     def test_Optics_Laser_Status(self):
         infra_san_tc._test_Optics_Laser_Status()
 
+    def test_Flap_Intf_LS(self):
+        infra_san_tc._test_Flap_Intf_LS()
+
     def test_Memory_Usage(self):
         infra_san_tc._test_Memory_Usage() 
 
