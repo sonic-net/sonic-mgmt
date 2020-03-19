@@ -221,12 +221,6 @@ def _test_Flap_Intf_LS():
                         log.error("Laser Status is {} for slot_num {}".format(item.split()[1],slot_num))
             else:
                 log.error("Port Status not present in the output : {}".format(reply.decode()))
-    
-    if len(err_msg) != 0:
-        log.error("test_Optics_Laser_Status failed due to : {}".format(*err_msg))
-        pytest.fail("test_Optics_Laser_Status failed due to : {}".format(*err_msg))
-    else:
-        log.info("test_Optics_Laser_Status Passed")
 
     try:
         if 'FLAP_INTF' in gnmi_input_conf:
