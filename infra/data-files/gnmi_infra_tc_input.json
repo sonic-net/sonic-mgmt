@@ -10,7 +10,17 @@
               "description": "For GET_WITH_PFX TC ETH1/1/0",
               "type": "iana-if-type:ethernetCsmacd",
               "mtu": "1500",
-              "enabled": true
+              "enabled": true,
+              "id": "1001"
+            },
+            "ethernet": {
+              "config": {
+                "mac-address": "01:02:03:04:05:06",
+                "auto-negotiate": true,
+                "duplex-mode": "FULL",
+                "port-speed": "SPEED_1GB",
+                "forwarding-viable": true
+              }
             }
           },
           {
@@ -20,7 +30,17 @@
               "description": "For GET_WITH_PFX TC ETH1/1/1",
               "type": "iana-if-type:ethernetCsmacd",
               "mtu": "1500",
-              "enabled": true
+              "enabled": true,
+              "id": "1002"
+            },
+            "ethernet": {
+              "config": {
+                "mac-address": "01:02:03:04:05:07",
+                "auto-negotiate": true,
+                "duplex-mode": "FULL",
+                "port-speed": "SPEED_1GB",
+                "forwarding-viable": true
+              }
             }
           },
           {
@@ -30,7 +50,17 @@
               "description": "For GET_WITH_PFX TC ETH1/1/2",
               "type": "iana-if-type:ethernetCsmacd",
               "mtu": "1500",
-              "enabled": true
+              "enabled": true,
+              "id": "1003"
+            },
+            "ethernet": {
+              "config": {
+                "mac-address": "01:02:03:04:05:08",
+                "auto-negotiate": true,
+                "duplex-mode": "FULL",
+                "port-speed": "SPEED_1GB",
+                "forwarding-viable": true
+              }
             }
           }
         ]
@@ -89,7 +119,12 @@
           {
             "name": "eth-1/1/1",
             "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
-                "set_list_index": "1","check_var_list": ["name","type","description","mtu"]
+                "set_list_index": "1","check_var_list": ["name","type","description","mtu","enabled","id"]
+          },
+          {
+            "name": "eth-1/1/1",
+            "get_key": "interfaces,interface,ethernet,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"ethernet","config"],
+                "set_list_index": "1","check_var_list": ["mac-address","auto-negotiate","duplex-mode","port-speed","forwarding-viable"]
           },
           {
             "name": "eth-1/1/2",
