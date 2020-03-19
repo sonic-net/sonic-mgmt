@@ -11,15 +11,15 @@
               "type": "iana-if-type:ethernetCsmacd",
               "mtu": "1500",
               "enabled": true,
-              "id": "1001"
+              "openconfig-hercules-interfaces:id": 1001
             },
-            "ethernet": {
+            "openconfig-if-ethernet:ethernet": {
               "config": {
                 "mac-address": "01:02:03:04:05:06",
                 "auto-negotiate": true,
                 "duplex-mode": "FULL",
-                "port-speed": "SPEED_1GB",
-                "forwarding-viable": true
+                "port-speed": "openconfig-if-ethernet:SPEED_1GB",
+                "openconfig-hercules-interfaces:forwarding-viable": true
               }
             }
           },
@@ -31,15 +31,15 @@
               "type": "iana-if-type:ethernetCsmacd",
               "mtu": "1500",
               "enabled": true,
-              "id": "1002"
+              "openconfig-hercules-interfaces:id": 1002
             },
-            "ethernet": {
+            "openconfig-if-ethernet:ethernet": {
               "config": {
                 "mac-address": "01:02:03:04:05:07",
                 "auto-negotiate": true,
                 "duplex-mode": "FULL",
-                "port-speed": "SPEED_1GB",
-                "forwarding-viable": true
+                "port-speed": "openconfig-if-ethernet:SPEED_1GB",
+                "openconfig-hercules-interfaces:forwarding-viable": true
               }
             }
           },
@@ -51,15 +51,15 @@
               "type": "iana-if-type:ethernetCsmacd",
               "mtu": "1500",
               "enabled": true,
-              "id": "1003"
+              "openconfig-hercules-interfaces:id": 1003
             },
-            "ethernet": {
+            "openconfig-if-ethernet:ethernet": {
               "config": {
                 "mac-address": "01:02:03:04:05:08",
                 "auto-negotiate": true,
                 "duplex-mode": "FULL",
-                "port-speed": "SPEED_1GB",
-                "forwarding-viable": true
+                "port-speed": "openconfig-if-ethernet:SPEED_1GB",
+                "openconfig-hercules-interfaces:forwarding-viable": true
               }
             }
           }
