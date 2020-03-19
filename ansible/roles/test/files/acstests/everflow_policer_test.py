@@ -208,6 +208,10 @@ class EverflowPolicerTest(BaseTest):
             import binascii
             payload = binascii.unhexlify("0"*44) + str(payload) # Add the padding
 
+        if self.asic_type in ["barefoot"]:
+            import binascii
+            payload = binascii.unhexlify("0"*24) + str(payload) # Add the padding
+
         exp_pkt = testutils.simple_gre_packet(
                 eth_src = self.router_mac,
                 ip_src = self.session_src_ip,
@@ -220,6 +224,8 @@ class EverflowPolicerTest(BaseTest):
 
         if self.asic_type in ["mellanox"]:
             exp_pkt['GRE'].proto = 0x8949 # Mellanox specific
+        elif self.asic_type in ["barefoot"]:
+            exp_pkt['GRE'].proto = 0x22eb # Barefoot specific
         else:
             exp_pkt['GRE'].proto = 0x88be
 

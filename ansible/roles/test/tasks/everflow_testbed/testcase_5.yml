@@ -36,7 +36,7 @@
 
   - name: Create a policer enforced mirror session
     shell: |
-      config mirror_session add {{policer_session_name}} {{session_src_ip}} {{session_dst_ip}} {{session_dscp}} {{session_ttl}} --policer {{policer_name}}
+      config mirror_session add {{policer_session_name}} {{session_src_ip}} {{session_dst_ip}} {{session_dscp}} {{session_ttl}} {{session_gre}} --policer {{policer_name}}
     become: yes
 
   - name: Create an ACL table with MIRROR_DSCP type
