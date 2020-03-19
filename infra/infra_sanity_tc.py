@@ -245,10 +245,10 @@ def _test_Flap_Intf_LS():
 
                 msg_dict = google.protobuf.json_format.MessageToDict(response)
                 log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
-                resp_dict = gnmiTestLib.get_response_dict(msg_dict)
-                for cfg in verify_sec['config']:
-                    result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
-                    err_msg = result['err_msg'] + err_msg
+                #resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+                #for cfg in verify_sec['config']:
+                #    result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
+                #    err_msg = result['err_msg'] + err_msg
     
     except KeyboardInterrupt:
         log.info("Shutting down.")
