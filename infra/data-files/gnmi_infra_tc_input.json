@@ -123,7 +123,7 @@
           },
           {
             "name": "eth-1/1/1",
-            "get_key": "interfaces,interface,ethernet,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"ethernet","config"],
+            "get_key": "interfaces,interface,ethernet,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"openconfig-if-ethernet:ethernet","config"],
                 "set_list_index": "1","check_var_list": ["mac-address","auto-negotiate","duplex-mode","port-speed","forwarding-viable"]
           },
           {
