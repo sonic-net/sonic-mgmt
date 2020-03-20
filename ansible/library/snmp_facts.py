@@ -196,6 +196,10 @@ class DefineOid(object):
         # From Dell Private MIB
         self.ChStackUnitCpuUtil5sec = dp + "1.3.6.1.4.1.6027.3.10.1.2.9.1.2.1"
 
+        # Memory Check
+        self.sysTotalMemery         = dp + "1.3.6.1.4.1.2021.4.5.0"
+        self.sysTotalFreeMemery     = dp + "1.3.6.1.4.1.2021.4.6.0"
+
         # From Cisco private MIB (PFC and queue counters)
         self.cpfcIfRequests         = dp + "1.3.6.1.4.1.9.9.813.1.1.1.1" # + .ifindex
         self.cpfcIfIndications      = dp + "1.3.6.1.4.1.9.9.813.1.1.1.2" # + .ifindex
@@ -367,6 +371,9 @@ def main():
         cmdgen.MibVariable(p.sysContact,),
         cmdgen.MibVariable(p.sysName,),
         cmdgen.MibVariable(p.sysLocation,),
+        cmdgen.MibVariable(p.sysTotalMemery,),
+        cmdgen.MibVariable(p.sysTotalFreeMemery,),
+        lookupMib=False, lexicographicMode=False
     )
 
     if errorIndication:
@@ -385,6 +392,10 @@ def main():
             results['ansible_sysname'] = current_val
         elif current_oid == v.sysLocation:
             results['ansible_syslocation'] = current_val
+        elif current_oid == v.sysTotalMemery:
+            results['ansible_sysTotalMemery'] = decode_type(module, current_oid, val)
+        elif current_oid == v.sysTotalFreeMemery:
+            results['ansible_sysTotalFreeMemery'] = decode_type(module, current_oid, val)
 
     errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
         snmp_auth,
@@ -400,6 +411,7 @@ def main():
         cmdgen.MibVariable(p.ipAdEntIfIndex,),
         cmdgen.MibVariable(p.ipAdEntNetMask,),
         cmdgen.MibVariable(p.ifAlias,),
+        lookupMib=False, lexicographicMode=False
     )
 
     if errorIndication:
@@ -464,6 +476,7 @@ def main():
         cmdgen.MibVariable(p.ifHCOutOctets,),
         cmdgen.MibVariable(p.ifInUcastPkts,),
         cmdgen.MibVariable(p.ifOutUcastPkts,),
+        lookupMib=False, lexicographicMode=False
     )
 
     if errorIndication:
@@ -601,6 +614,7 @@ def main():
             snmp_auth,
             cmdgen.UdpTransportTarget((m_args['host'], 161)),
             cmdgen.MibVariable(p.ChStackUnitCpuUtil5sec,),
+            lookupMib=False, lexicographicMode=False
         )
 
         if errorIndication:
