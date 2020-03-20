@@ -1,9 +1,14 @@
 #!/usr/bin/env python
-import csv, sys, os
+
+import csv
+import sys
+import os
+import argparse
 from lxml import etree
 
-DEVICECSV = 'sonic_lab_devices.csv'
-LINKCSV = 'sonic_lab_links.csv'
+DEFAULT_DEVICECSV = 'sonic_lab_devices.csv'
+DEFAULT_LINKCSV = 'sonic_lab_links.csv'
+
 LAB_CONNECTION_GRAPH_ROOT_NAME = 'LabConnectionGraph'
 LAB_CONNECTION_GRAPH_DPGL2_NAME = 'DevicesL2Info'
 
@@ -15,7 +20,7 @@ class LabGraph(object):
     infrastucture for Sonic development and testing environment. 
     """
 
-    def __init__(self, dev_csvfile='', link_csvfile=''):
+    def __init__(self, dev_csvfile=None, link_csvfile=None, graph_xmlfile=None):
         #TODO:make generated xml file name as parameters in the future to make it more flexible
         self.devices = []
         self.links =  []
@@ -23,7 +28,7 @@ class LabGraph(object):
         self.linkcsv = link_csvfile
         self.png_xmlfile = 'str_sonic_png.xml'
         self.dpg_xmlfile = 'str_sonic_dpg.xml'
-        self.one_xmlfile = 'lab_connection_graph.xml'
+        self.one_xmlfile = graph_xmlfile
         self.pngroot = etree.Element('PhysicalNetworkGraphDeclaration')
         self.dpgroot = etree.Element('DataPlaneGraph')
 
@@ -98,7 +103,13 @@ class LabGraph(object):
 
 def main():
 
-    mygraph = LabGraph(DEVICECSV, LINKCSV)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--device", help="device file", default=DEFAULT_DEVICECSV)
+    parser.add_argument("-l", "--links", help="link file", default=DEFAULT_LINKCSV)
+    parser.add_argument("-o", "--output", help="output xml file", required=True)
+    args = parser.parse_args()
+
+    mygraph = LabGraph(args.device, args.links, args.output)
 
     mygraph.read_devices()
     mygraph.read_links()
@@ -108,4 +119,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

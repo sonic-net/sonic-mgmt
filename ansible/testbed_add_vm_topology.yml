@@ -6,7 +6,7 @@
 #  - configuration property
 #  - configuration
 #
-#  topology key contains a dictionary of hostnames with 'vm_offset' and 'vlans' keys in it. 
+#  topology key contains a dictionary of hostnames with 'vm_offset' and 'vlans' keys in it.
 #  'vm_offset' is used to map current hostname vm_set VM to server VM (like ARISTA01T0 -> VM0300).
 #  This offset is used on VM_base
 #  'vlans' is a list of vlan offsets which helps us to calculate vlan numbers which will be connected to Eth1/1..Eth1/8 interfaces.
@@ -26,8 +26,10 @@
 # -e ptf_ip=10.255.0.255/23 - the ip address and prefix of ptf container mgmt interface
 # -e topo=t0                 - the name of removed topo
 # -e ptf_imagename=docker-ptf - name of a docker-image which will be used for the ptf docker container
+# -e vm_type=veos|ceos
 
 - hosts: servers:&vm_host
+  gather_facts: no
   vars_files:
     - vars/docker_registry.yml
   pre_tasks:
@@ -53,7 +55,11 @@
 
   - name: Check that variable topo is defined
     fail: msg="Define topo variable with -e topo=something"
-    when: topo is not defined or topo not in topologies
+    when: topo is not defined
+
+  - name: Check if it is a known topology
+    fail: msg="Unknown topology {{ topo }}"
+    when: topo not in topologies
 
   - name: Check that variable ptf_imagename is defined
     fail: msg="Define ptf_imagename variable with -e ptf_imagename=something"
@@ -64,12 +70,11 @@
 
   - name: Read dut minigraph
     conn_graph_facts: host={{ dut_name }}
-    connection: local
-
-  - name: Extracting vlan_range
-    set_fact: vlan_base={{ device_vlan_list | min }}
+    delegate_to: localhost
 
   roles:
+    - { role: vm_set, action: 'start_sonic_vm' }
+    - { role: vm_set, action: 'start_sid' }
     - { role: vm_set, action: 'add_topo' }
 
 - hosts: servers:&eos
@@ -77,7 +82,11 @@
   pre_tasks:
   - name: Check that variable topo is defined
     fail: msg="Define topo variable with -e topo=something"
-    when: topo is not defined or topo not in topologies
+    when: topo is not defined
+
+  - name: Check if it is a known topology
+    fail: msg="Unknown topology {{ topo }}"
+    when: topo not in topologies
 
   - name: Check that variable VM_base is defined
     fail: msg="Define VM_base variable with -e VM_base=something"
@@ -98,5 +107,3 @@
 
   roles:
     - { role: eos, when: topology.VMs is defined and inventory_hostname in VM_targets } # role eos will be executed in any case, and when will evaluate with every task
-
-

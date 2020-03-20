@@ -1,0 +1,25 @@
+#When the interface naming mode is set,it is written as environment variable in bashrc file.
+#The device need to be logout and login for the actual environment variable to take effect.
+# As the ansible work in non interactive mode, it doesnt read the environmental varaiable set in bashrc file. Hence as a workaround  the variable is  extracted through check_userifmode.yml and manually set the variable 'SONIC_CLI_IFACE_MODE' to take effect.
+
+
+- name:  Extract the "SONIC_CLI_IFACE_MODE" value from bashrc file
+  shell: "cat /home/{{uname1}}/.bashrc | grep SONIC_CLI_IFACE_MODE"
+  args:
+     executable: /bin/bash
+  register: envout
+
+#extract the environmental variable and save it in the variable 'ifmode_env'
+- set_fact:
+    ifmode_env: "{{envout.stdout}}"
+- set_fact: ifmode="{{ifmode_env.split('=')[1]}}"
+
+- debug: msg="Interface mode is set to '{{ifmode}}'"
+
+- command: show interfaces naming_mode
+  register: naming_mode
+  environment:
+    SONIC_CLI_IFACE_MODE: "{{ifmode}}"
+
+- name: check the interface mode is properly set to {{mode}}
+  assert: {that: "'{{ifmode}}'=='{{mode}}' and '{{naming_mode.stdout}}' == '{{mode}}'"}

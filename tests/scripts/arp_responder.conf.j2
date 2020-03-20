@@ -1,0 +1,10 @@
+[program:arp_responder]
+command=/usr/bin/python /opt/arp_responder.py {{ arp_responder_args }}
+process_name=arp_responder
+stdout_logfile=/tmp/arp_responder.out.log
+stderr_logfile=/tmp/arp_responder.err.log
+redirect_stderr=false
+autostart=false
+autorestart=true
+startsecs=1
+numprocs=1

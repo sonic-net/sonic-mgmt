@@ -3,6 +3,9 @@
 - hosts: eos
   gather_facts: no
   tasks:
+    - include_vars: ../group_vars/all/creds.yml
+    - name: Set ansible login user name and password
+      set_fact: ansible_user="root" ansible_password={{ eos_root_password }}
     - name: Check list of processes
       command: ps ax
       changed_when: False
@@ -40,13 +43,10 @@
         src: "{{ item }}"
         dest: /root
       with_items:
-        - ../files/sonic_str_links.csv
-        - ../files/sonic_str_devices.csv
-        - ../files/sonic_lab_links.csv
-        - ../files/sonic_lab_devices.csv
-        - ../veos
-        - scripts/ptf_proxy.py
-        - ../vars/topo_{{ topo }}.yml
+        - "../files/lab_connection_graph.xml"
+        - "../veos"
+        - "scripts/ptf_proxy.py"
+        - "../vars/topo_{{ topo }}.yml"
       ignore_errors: yes     # either sonic_str_*.csv or sonic_lab_*.csv exists
     - name: Rename topo to common filename
       command: mv topo_{{ topo }}.yml topo.yaml
@@ -66,7 +66,7 @@
     - name: Copy script
       copy:
         src: "{{ fanout_listener | default('scripts/fanout_listener.py') }}"
-        dest: /root
+        dest: /root/
     - name: Run the script
       shell: nohup python fanout_listener.py {{ ptf_host }} > /tmp/fanout_listener.console.txt 2>&1 &
       when: '"python fanout_listener.py" not in out.stdout'

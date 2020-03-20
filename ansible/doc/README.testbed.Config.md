@@ -14,7 +14,7 @@
 
 - [```ansible/files/lab_connection_graph.xml```](../files/lab_connection_graph.xml): This is the lab graph file for library/conn_graph_facts.py to parse and get all lab fanout switch connections information. If you have only one fanout switch, you may go head manually modify the sample lab_connection_graph.xml file to set bot your fanout leaf and fanout root switch management IP point to the same fanout switch management IP and make sure all DUT and Fanout name and IP are matching your testbed.
 
-- ```ansible/files/creategraph.py```: Helper file helps you generate a lab_connection_graph.xml based on the device file and link file specified above.
+- [```ansible/files/creategraph.py```](../files/creategraph.py): Helper file helps you generate a lab_connection_graph.xml based on the device file and link file specified above.
 
      Based on ansible_facts,  you may write ansible playbooks to deploy fanout switches or run test which requires to know the DUT physical connections to fanout switch
 
@@ -25,7 +25,7 @@
 
 ### ```testbed.csv``` format
 ```
-# conf-name,group-name,topo,ptf_image_name,ptf_mgmt_ip,server,vm_base,dut,comment
+# conf-name,group-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,comment
 ptf1-m,ptf1,ptf32,docker-ptf-sai-mlnx,10.255.0.188/24,server_1,,str-msn2700-01,Tests ptf
 vms-t1,vms1-1,t1,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str-msn2700-01,Tests vms
 vms-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str-msn2700-01,Tests vms
@@ -36,7 +36,7 @@ vms-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str
 - group-name – used in interface names, up to 8 characters
 - topo – name of topology
 - ptf_imagename – defines PTF image
-- ptf_mgmt_ip – ip address for mgmt interface of PTF container
+- ptf_ip – ip address for mgmt interface of PTF container
 - server – server where the testbed resides
 - vm_base – first VM for the testbed. If empty, no VMs are used
 - dut – target dut name
@@ -44,13 +44,13 @@ vms-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str
 
 ### ```testbed.csv``` consistency rules
 ```
-# uniq-name,testbed-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,owner
+# conf-name,testbed-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,owner
 vms2-2-b,vms2-2,t1,docker-ptf-sai-brcm,10.0.10.7/23,server_1,VM0100,str-d6000-05,brcm test
 vms2-2-m,vms2-2,t1,docker-ptf-sai-mlnx,10.0.10.7/23,server_1,VM0100,str-msn2700-5,mlnx test
 
 ```
 Must be strictly checked in code reviews
- - uniq-name must be unique
+ - conf-name must be unique
  - All testbed records with the same testbed-name must have the same:
    - ptf_ip
    - server
@@ -62,3 +62,5 @@ Must be strictly checked in code reviews
  - vm_base must not overlap with testbeds from different groups (different test-name)
 
 TODO: check this constraints in testbed-cli.sh
+
+

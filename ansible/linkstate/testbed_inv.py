@@ -25,7 +25,7 @@ def read_config():
 def parse_testbed_configuration(filename, target):
     with open(filename) as fp:
         for line in fp:
-            if line.startswith(target):
+            if line.startswith(target + ','):
                 splitted_line = line.split(",")
                 ptf_name = splitted_line[1]
                 topo_name = splitted_line[2]
@@ -43,7 +43,7 @@ def parse_topology(topology_name, vm_start):
 
 def parse_links(links, dut, ports):
     with open(links) as fp:
-        result = set(line.split(',')[2] for line in fp if line.startswith(dut))
+        result = set(line.split(',')[2] for line in fp if line.startswith(dut + ','))
     return list(result)
 
 def extract_hostvars(filename, host):

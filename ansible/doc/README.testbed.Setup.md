@@ -61,7 +61,7 @@ make configure PLATFORM=generic
 make target/docker-sonic-mgmt.gz
 ```
 
-Pre-built *sonic-mgmt* can also be downloaded from [here](https://sonic-jenkins.westus.cloudapp.azure.com/job/common/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/target/docker-sonic-mgmt.gz).
+Pre-built *sonic-mgmt* can also be downloaded from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/sonic-buildimage/target/docker-sonic-mgmt.gz).
 
 - Run *sonic-mgmt* docker
 ```
@@ -81,7 +81,7 @@ Once you are in the docker, you need to modify the testbed configuration files t
   - Update server management IP in [```ansible/veos```](../veos).
   - Update testbed server credentials in [```ansible/group_vars/vm_host/creds.yml```](../group_vars/vm_host/creds.yml).
   - Update server network configuration for VM and PTF management interface in [```ansible/host_vars/STR-ACS-SERV-01.yml```](../host_vars/STR-ACS-SERV-01.yml).
-    - ```external_iface```: server trunk port name (connected to the fanout switch)
+    - ```external_port```: server trunk port name (connected to the fanout switch)
     - ```mgmt_gw```: ip of gateway for VM mgmt interfaces
     - ```mgmt_prefixlen```: prefixlen for management interfaces
   - Check that ansible could reach this device by command ```ansible -m ping -i veos vm_host_1```.
@@ -90,7 +90,7 @@ Once you are in the docker, you need to modify the testbed configuration files t
   - Download vEOS image from [arista](https://www.arista.com/en/support/software-download).
   - Copy below image files to ```~/veos-vm/images``` on your testbed server.
      - ```Aboot-veos-serial-8.0.0.iso```
-     - ```vEOS-lab-4.15.9M.vmdk```
+     - ```vEOS-lab-4.20.15M.vmdk```
   - Update VM IP addresses [```ansible/veos```](../voes) inventory file. These IP addresses should be in the management subnet defined above.
   - Update VM credentials in [```ansible/group_vars/eos/creds.yml```](../group_vars/eos/creds.yml).
 
@@ -102,6 +102,7 @@ Once you are in the docker, you need to modify the testbed configuration files t
 ```
 ./testbed-cli.sh start-vms server_1 password.txt
 ```
+  - please note: Here "password.txt" is the ansible vault password file name/path. Ansible allows user use ansible vault to encrypt password files. By default, this shell script require a password file. If you are not using ansible vault, just create an empty file and pass the filename to the command line. The file name and location is created and maintained by user. 
 
 Check that all VMs are up and running: ```ansible -m ping -i veos server_1```
 
@@ -109,7 +110,7 @@ Check that all VMs are up and running: ```ansible -m ping -i veos server_1```
  
 You need to specify all lab physical connections before running fanout deployment and some of the tests.  
  
-Please follow [Configuration](doc/README.testbed.Config.md) 'Testbed Physical Topology' section to prepare your lab connection graph file.  
+Please follow [Configuration](README.testbed.Config.md) 'Testbed Physical Topology' section to prepare your lab connection graph file.  
 
 We are using Arista switches as fanout switch in our lab. So, the playbook under roles/fanout is for deploy fanout(leaf) switch Vlans configuration of Arista only. If you are using other type of fanout switches, you may manually configure Vlan configurations in switch or you have a good way to deploy regular Layer2 switch configuration in lab would also work. Our fanout switch deploy using Arista switch eosadmin shell login. If you do have an Arista switch as fanout and you want to run the fanout/tasks/main.yml to deploy the switch, please scp the roles/fanout/template/rc.eos file to Arista switch flash, and make sure that you can use your fanout_admin_user/fanout_admin_password to login to shell.  
  

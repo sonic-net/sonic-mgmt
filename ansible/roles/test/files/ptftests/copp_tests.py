@@ -1,4 +1,6 @@
-# ptf --test-dir saitests copp_tests  --qlen=100000 --platform nn -t "verbose=True;pkt_tx_count=100000" --device-socket 0-3@tcp://127.0.0.1:10900 --device-socket 1-3@tcp://10.3.147.47:10900
+# ptf --test-dir saitests copp_tests  --qlen=100000 --platform nn -t "verbose=True;pkt_tx_count=100000;target_port=3" --device-socket 0-3@tcp://127.0.0.1:10900 --device-socket 1-3@tcp://10.3.147.47:10900
+# or
+# ptf --test-dir saitests copp_tests  --qlen=100000 --platform nn -t "verbose=True;pkt_tx_count=100000;target_port=10" --device-socket 0-10@tcp://127.0.0.1:10900 --device-socket 1-10@tcp://10.3.147.47:10900
 #
 # copp_test.${name_test}
 #
@@ -26,12 +28,13 @@ import threading
 
 
 class ControlPlaneBaseTest(BaseTest):
-    MAX_PORTS = 32
+    MAX_PORTS = 128
     PPS_LIMIT = 600
     PPS_LIMIT_MIN = PPS_LIMIT * 0.9
     PPS_LIMIT_MAX = PPS_LIMIT * 1.1
     NO_POLICER_LIMIT = PPS_LIMIT * 1.4
     PKT_TX_COUNT = 100000
+    TARGET_PORT = "3"  # historically we have port 3 as a target port
     TASK_TIMEOUT = 300 # Wait up to 5 minutes for tasks to complete
 
     def __init__(self):
@@ -44,6 +47,9 @@ class ControlPlaneBaseTest(BaseTest):
         if self.pkt_tx_count == 0:
             self.pkt_tx_count = self.PKT_TX_COUNT
         self.pkt_rx_limit = self.pkt_tx_count * 0.90
+
+        target_port_str = test_params.get('target_port', self.TARGET_PORT)
+        self.target_port = int(target_port_str)
 
         self.timeout_thr = None
 
@@ -102,6 +108,19 @@ class ControlPlaneBaseTest(BaseTest):
             self.timeout_thr = None
 
     def copp_test(self, packet, count, send_intf, recv_intf):
+        '''
+        Pre-send some packets for a second to absorb the CBS capacity.
+        '''
+        if self.needPreSend:
+            sendInFirst=0
+            endTime = datetime.datetime.now() + datetime.timedelta(seconds=1)
+            while datetime.datetime.now() < endTime:
+                testutils.send_packet(self, send_intf, packet)
+                sendInFirst += 1
+            rcv_pkt_cnt = testutils.count_matched_packets(self, packet, recv_intf[1], recv_intf[0],timeout=0.01)
+            self.log("Send %d and receive %d packets in the first second (PolicyTest)" % (sendInFirst,  rcv_pkt_cnt))
+            self.dataplane.flush()
+
         b_c_0 = self.dataplane.get_counters(*send_intf)
         b_c_1 = self.dataplane.get_counters(*recv_intf)
         b_n_0 = self.dataplane.get_nn_counters(*send_intf)
@@ -161,7 +180,7 @@ class ControlPlaneBaseTest(BaseTest):
 
     def run_suite(self):
         self.timeout(self.TASK_TIMEOUT, "The test case hasn't been completed in %d seconds" % self.TASK_TIMEOUT) # FIXME: better make it decorator
-        self.one_port_test(3)
+        self.one_port_test(self.target_port)
         self.cancel_timeout()
 
     def printStats(self, pkt_send_count, total_rcv_pkt_cnt, time_delta, tx_pps, rx_pps):
@@ -178,6 +197,7 @@ class ControlPlaneBaseTest(BaseTest):
 class NoPolicyTest(ControlPlaneBaseTest):
     def __init__(self):
         ControlPlaneBaseTest.__init__(self)
+        self.needPreSend=False
 
     def check_constraints(self, total_rcv_pkt_cnt, time_delta_ms, rx_pps):
         self.log("")
@@ -192,6 +212,7 @@ class NoPolicyTest(ControlPlaneBaseTest):
 class PolicyTest(ControlPlaneBaseTest):
     def __init__(self):
         ControlPlaneBaseTest.__init__(self)
+        self.needPreSend=True
 
     def check_constraints(self, total_rcv_pkt_cnt, time_delta_ms, rx_pps):
         self.log("")
@@ -275,7 +296,29 @@ class LLDPTest(NoPolicyTest):
                        eth_src=src_mac,
                        eth_type=0x88cc
                  )
+        return packet
 
+# SONIC configuration has no policer limiting for UDLD
+class UDLDTest(NoPolicyTest):
+    def __init__(self):
+        NoPolicyTest.__init__(self)
+
+    def runTest(self):
+        self.log("UDLDTest")
+        self.run_suite()
+
+    # UDLD uses Ethernet multicast address 01-00-0c-cc-cc-cc
+    # as its destination MAC address. eth_type is to indicate
+    # the length of the data in Ethernet 802.3 frame. pktlen
+    # = 117 = 103 (0x67) + 6 (dst MAC) + 6 (dst MAC) + 2 (len)
+    def contruct_packet(self, port_number):
+        src_mac = self.my_mac[port_number]
+        packet = simple_eth_packet(
+                       pktlen=117,
+                       eth_dst='01:00:0c:cc:cc:cc',
+                       eth_src=src_mac,
+                       eth_type=0x0067
+                 )
         return packet
 
 # SONIC configuration has no policer limiting for BGP

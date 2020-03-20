@@ -4,24 +4,26 @@
   gather_facts: no
   tasks:
       - fail: msg="Please provide VM server name and server port name, see comment line in playbook"
-        when: 
+        when:
             - dut is not defined
 
-      - set_fact:
-          server: "{{ inventory_hostname|lower }}"
-          server_port: "{{ external_iface }}"
+      - block:
+        - set_fact:
+            server: "{{ inventory_hostname|lower }}"
+            server_port: "{{ external_port }}"
 
-      - debug: msg="Connect {{ server }}:{{ server_port }} to {{ dut }}"
+        - debug: msg="Connect {{ server }}:{{ server_port }} to {{ dut }}"
 
-      - name: get the username running the deploy
-        command: whoami
-        connection: local
-        become: no
-        register: calling_username
-        changed_when: false
+        - name: get the username running the deploy
+          command: whoami
+          delegate_to: localhost
+          become: no
+          register: calling_username
+          changed_when: false
 
-      - set_fact: userid={{ calling_username.stdout }}
+        - set_fact: userid={{ calling_username.stdout }}
 
-      - include: roles/fanout/tasks/rootfanout_connect.yml
+        - set_fact: connect_leaf=false
 
-
+        - include_tasks: roles/fanout/tasks/rootfanout_connect.yml
+        when: external_port is defined

@@ -1,0 +1,19 @@
+# Gather facts with SNMP version 2
+- name: Gathering basic snmp facts about the device
+  snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
+  delegate_to: localhost
+
+# We assume that all the PSUs tested should be in good status, otherwise, fix the PSU manually
+- fail:
+    msg: "PSU index {{ item.key }} operstatus is not OK"
+  when: "{{ item.value.operstatus | int }} != 2"
+  with_dict: "{{ snmp_psu }}"
+
+- name: Get the PSU count from command line
+  shell: psuutil numpsus
+  become: yes
+  register: numpsus_out
+
+- fail:
+    msg: "PSU counts mismatch"
+  when: "{{ numpsus_out.stdout | int }} != {{ snmp_psu | length }}"

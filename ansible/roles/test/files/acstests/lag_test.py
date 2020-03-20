@@ -83,6 +83,7 @@ class LacpTimingTest(BaseTest,RouterUtility):
     @ param: timeout        -   time to expect the LACP packet.
     @ param: packet_timing         -   time between two packets.
     @ param: ether_type     -   Ethernet type of expected packet.
+    @ param: interval_count -   Number of intervals to collect.
     '''
 
     def __init__(self):
@@ -95,6 +96,32 @@ class LacpTimingTest(BaseTest,RouterUtility):
         '''
         self.dataplane = ptf.dataplane_instance
 
+    def getMedianInterval(self, masked_exp_pkt):
+        intervals = []
+        # Verify two LACP packets.
+        (rcv_device, rcv_port, rcv_pkt, last_pkt_time) = self.dataplane.poll(port_number=self.exp_iface, timeout=self.timeout, exp_pkt=masked_exp_pkt)
+        last_pkt_time = round(float(last_pkt_time), 2)
+
+        for i in range(0, self.interval_count):
+            (rcv_device, rcv_port, rcv_pkt, curr_pkt_time) = self.dataplane.poll(port_number=self.exp_iface, timeout=self.timeout, exp_pkt=masked_exp_pkt)
+
+            # Check the packet received.
+            self.assertTrue(rcv_pkt != None, "Failed to receive LACP packet\n")
+
+            # Get current packet timing
+            curr_pkt_time = round(float(curr_pkt_time), 2)
+
+            interval   = curr_pkt_time - last_pkt_time
+            intervals += [ interval ]
+
+            last_pkt_time = curr_pkt_time
+
+        # Get the median
+        intervals.sort()
+        current_pkt_timing = intervals[self.interval_count / 2]
+        return current_pkt_timing
+
+
     def runTest(self):
 
         # Get test parameters
@@ -102,6 +129,13 @@ class LacpTimingTest(BaseTest,RouterUtility):
         self.timeout = self.test_params['timeout']
         self.packet_timing = self.test_params['packet_timing']
         self.ether_type = self.test_params['ether_type']
+        self.interval_count = int(self.test_params['interval_count'])
+        if self.interval_count < 1:
+            self.interval_count = 3
+
+        # Make sure the interval count is odd, so that we only look at one median interval
+        if self.interval_count % 2 == 0:
+            self.interval_count += 1
 
         # Generate a packet.
         exp_pkt = simple_eth_packet(eth_type=self.ether_type)
@@ -113,17 +147,9 @@ class LacpTimingTest(BaseTest,RouterUtility):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"src")
         masked_exp_pkt.set_do_not_care(14 * 8, 110 * 8)
 
-        # Verify two LACP packets.
-        (rcv_device, rcv_port, rcv_pkt, first_pkt_time) = self.dataplane.poll(port_number=self.exp_iface, timeout=self.timeout, exp_pkt=masked_exp_pkt)
-        (rcv_device, rcv_port, rcv_pkt, last_pkt_time) = self.dataplane.poll(port_number=self.exp_iface, timeout=self.timeout, exp_pkt=masked_exp_pkt)
-
-        # Check the packet received.
-        self.assertTrue(rcv_pkt != None, "Failed to receive LACP packet\n")
-
-        # Get current packet timing
-        first_pkt_time = round(float(first_pkt_time), 2)
-        last_pkt_time = round(float(last_pkt_time), 2)
-        current_pkt_timing = last_pkt_time - first_pkt_time
+        # Flush packets in dataplane
+        self.dataplane.flush()
 
         # Check that packet timing matches the expected value.
-        self.assertTrue(abs(current_pkt_timing - float(self.packet_timing)) < 0.01, "Bad packet timing: %.2f seconds while expected timing is %d seconds" % (current_pkt_timing, self.packet_timing))
+        current_pkt_timing = self.getMedianInterval(masked_exp_pkt)
+        self.assertTrue(abs(current_pkt_timing - float(self.packet_timing)) < 0.1, "Bad packet timing: %.2f seconds while expected timing is %d seconds from port %s out of %d intervals" % (current_pkt_timing, self.packet_timing, self.exp_iface, self.interval_count))

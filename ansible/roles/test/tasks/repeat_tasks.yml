@@ -1,0 +1,13 @@
+##########################################################################
+# Repeat task is used to specify a list of tasks to repeat.              #
+##########################################################################
+
+- debug:
+    msg: "===================== Repeating starts ======================"
+
+# Add tasks here to be repeated:
+# e.g. - include_tasks: reboot.yml
+
+
+- debug:
+    msg: "===================== Repeating ends   ======================"

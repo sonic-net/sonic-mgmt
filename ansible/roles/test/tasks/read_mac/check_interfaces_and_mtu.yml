@@ -1,0 +1,22 @@
+- block:
+  # During 1 minute verify that interfaces became UP
+  - name: Wait until interfaces bring up
+    interface_facts: up_ports={{minigraph_ports}}
+    register: out
+    until: out.ansible_facts.ansible_interface_link_down_ports | length == 0
+    retries: 6
+    delay: 10
+  # Retrive interface facts from device
+  - interface_facts: up_ports={{minigraph_ports}}
+  # Ignore errors to display fail and continue test
+  - fail: msg="Found link down ports {{ansible_interface_link_down_ports}} "
+    when: ansible_interface_link_down_ports | length > 0
+    ignore_errors: True
+  # Ignore errors to display fail and continue test
+  - name: Verify that Ethernet and PortChannels MTU == 9100
+    assert:
+      that:
+        - "{{ ansible_interface_facts[item][\"mtu\"] }} == 9100"
+    when: ansible_interface_facts[item]["active"] == true and (item | search("Ethernet") or item | search("PortChannel"))
+    with_items: "{{ ansible_interface_facts.keys() }}"
+    ignore_errors: True

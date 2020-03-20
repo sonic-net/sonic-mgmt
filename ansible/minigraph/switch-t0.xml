@@ -172,11 +172,13 @@
       <PortChannelInterfaces>
         <PortChannel>
           <Name>PortChannel01</Name>
+          <Fallback>true</Fallback>
           <AttachTo>fortyGigE0/112</AttachTo>
           <SubInterface/>
         </PortChannel>
         <PortChannel>
           <Name>PortChannel02</Name>
+          <Fallback>false</Fallback>
           <AttachTo>fortyGigE0/116</AttachTo>
           <SubInterface/>
         </PortChannel>

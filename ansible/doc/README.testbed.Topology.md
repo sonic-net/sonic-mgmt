@@ -1,11 +1,12 @@
 # Topologies
 
-1. Configuration of a testbed topology is defined in one file: ```testbed.csv```
-2. One script to operate all testbeds: ```testbed-cli.sh```
+1. Configuration of a testbed topology is defined in one file: [```testbed.csv```](../testbed.csv)
+2. One script to operate all testbeds: [```testbed-cli.sh```](../testbed-cli.sh)
 3. Flexible topologies which allow to use VM_SET and PTF container as one entity
-4. All VM management ip information in one place: ```veos``` inventory file
+4. All VM management ip information in one place: [```veos```](../veos) inventory file
 5. PTF container is generalized and used in every topology
 6. Automatic provisioning of fanout switch configuration (should be refactored)
+7. Please follow the [Example](README.testbed.Example.md) section if you want to set up any testbed and topology.
 
 ## Testbed topology configuration
 

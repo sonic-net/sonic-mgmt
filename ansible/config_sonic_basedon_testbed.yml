@@ -1,5 +1,5 @@
-# This Playbook run time generate matching configuration file for SONiC switch(Minigraph) based on a specific testbed topology specified in testbed.csv  
-# When user call testbed-cli to deploy a testbed topology, use this playbook to generate matching SONiC minigraph file and deploy it into SONiC switch under test. 
+# This Playbook run time generate matching configuration file for SONiC switch(Minigraph) based on a specific testbed topology specified in testbed.csv
+# When user call testbed-cli to deploy a testbed topology, use this playbook to generate matching SONiC minigraph file and deploy it into SONiC switch under test.
 # Or when you know your topology name, you may use this playbook alone to generate a minigraph matching your topology name without deploy it.
 #
 # VM Topologies are defined inside of vars/ directory in files vars/topo_{{ topology_name}}.yml
@@ -11,12 +11,16 @@
 # Template files for generating minigraph.xml are defined in template/topo directory
 #
 # To generate and deploy minigraph for SONiC switch matching the VM topology please use following command
-# ansible-playbook -i lab config_sonic_basedon_testbed.yml -l sonic_dut_name -e vm_base=VM0300 -e topo=t0 [-e deploy=true]
-#
+# ansible-playbook -i lab config_sonic_basedon_testbed.yml -l sonic_dut_name -e vm_base=VM0300 -e topo=t0 [-e deploy=true -e save=true]
+# ansible-playbook -i lab config_sonic_basedon_testbed.yml -l sonic_dut_name -e testbed_name=vms1-1 [-e deploy=true -e save=true]
+
 # Parameters
 # -l str-msn2700-01          - the sonic_dut_name you are going to generate minigraph for
 # -e vm_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
 # -e topo=t0                 - the name of topology to generate minigraph file
+# -e testbed_name=vms1-1     - the testbed name specified in testbed.csv file
+#                              (if you give 'testbed_name' option, will use info from testbed and ignore topo and vm_base options)
+# -e vm_file=veos            - the virtual machine file name
 # -e deploy=True             - if deploy the newly generated minigraph to the targent DUT, default is false if not defined
 # -e save=True               - if save the newly generated minigraph to the targent DUT as starup-config, default is false if not defined
 #
@@ -28,66 +32,161 @@
 ####################################################################################################################################################################################
 
 - hosts: sonic
-  gather_facts: yes
+  gather_facts: no
   tasks:
-  - fail: msg="need to provide topology type and vm base like topo=t0 and vm_base=VM100"
-    when: (topo is not defined) or (vm_base is not defined)
-      
-  - fail: msg="need hwsku, interface speed, netmask and interface prefix/postfix defined to generate configuration file"
-    when: (hwsku is not defined) or (iface_speed is not defined) or (mgmt_subnet_mask_length is not defined)
+
+  - block:
+    - name: set default testbed file
+      set_fact:
+        testbed_file: testbed.csv
+      when: testbed_file is not defined
+
+    - name: Gathering testbed information
+      test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
+      delegate_to: localhost
+
+    - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
+      when: testbed_facts['dut'] != inventory_hostname
+
+    - name: set testbed_type
+      set_fact:
+        topo: "{{ testbed_facts['topo'] }}"
+
+    - name: set vm
+      set_fact:
+        vm_base: "{{ testbed_facts['vm_base'] }}"
+      when: "testbed_facts['vm_base'] != ''"
+    when: testbed_name is defined
+
+  - topo_facts: topo={{ topo }}
+    delegate_to: localhost
+
+  - name: set default vm file path
+    set_fact:
+      vm_file: veos
+    when: vm_file is not defined
 
   - set_fact:
       VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
       remote_dut: "{{ ansible_ssh_host }}"
-      template_name: "{{ 't1' if topo=='ptf32' else topo }}"
 
-  - testbed_vm_info: base_vm="{{ vm_base }}"  topo="{{ topo }}"
-    connection: local
-    when: VM_topo
+  - name: gather testbed VM informations
+    testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }}
+    delegate_to: localhost
+    when: "VM_topo | bool"
 
-  - name: find interface name mapping
+  - name: find interface name mapping and individual interface speed if defined
     port_alias: hwsku="{{ hwsku }}"
-    connection: local
 
-  - debug: var=port_alias
+  - name: find all enabled host_interfaces
+    set_fact:
+      host_if_indexes: "{{ vm_topo_config['host_interfaces'] | difference(vm_topo_config['disabled_host_interfaces']) }}"
 
-  - name: save original minigraph file (if original file does not exist, then ignore errors)
-    shell: mv minigraph/{{ inventory_hostname }}.xml minigraph/{{ inventory_hostname }}.xml.orig
-    connection: local
-    ignore_errors: true
+  - name: find all vlan interface names for T0 topology
+    set_fact:
+      vlan_intfs: "{{ vlan_intfs|default([])}} + ['{{ port_alias[item] }}' ]"
+    with_items: "{{ host_if_indexes }}"
+    when: "('host_interfaces' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
 
-  - name: create minigraph file in minigraph folder
-    become: true
-    template: src=templates/topo/{{ template_name }}.j2
-              dest=minigraph/{{ inventory_hostname}}.xml
-    connection: local
-  
+  - name: find all vlan configurations for T0 topology
+    vlan_config:
+      vm_topo_config: "{{ vm_topo_config }}"
+      port_alias: "{{ port_alias }}"
+      vlan_config: "{{ vlan_config | default(None) }}"
+    delegate_to: localhost
+    when: "('host_interfaces' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+
+  - name: find all interface indexes mapping connecting to VM
+    set_fact:
+      interface_to_vms: "{{ interface_to_vms|default({}) | combine({ item.key: item.value['interface_indexes'] }) }}"
+    with_dict: "{{ vm_topo_config['vm'] }}"
+
+  - name: find all interface indexes connecting to VM
+    set_fact:
+      ifindex_to_vms: "{{ ifindex_to_vms|default([]) }} + {{ item.value['interface_indexes']}}"
+    with_dict: "{{ vm_topo_config['vm'] }}"
+
+  - name: find all interface names
+    set_fact:
+      intf_names: "{{ intf_names | default({}) | combine({item.key: port_alias[item.value[0]|int:item.value[-1]|int+1] }) }}"
+    with_dict: "{{ interface_to_vms }}"
+
+  - name: create minigraph file in ansible minigraph folder
+    template: src=templates/minigraph_template.j2
+              dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
+    delegate_to: localhost
+    when: local_minigraph is defined and local_minigraph|bool == true
+
   - block:
-      - name: saved original minigraph file (if original file may don't exist, then ignore errors)
+      - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
         become: true
         ignore_errors: true
 
-      - name: create minigraph file for SONiC device
-        template: src=templates/topo/{{ template_name }}.j2
+      - name: create new minigraph file for SONiC device
+        template: src=templates/minigraph_template.j2
                   dest=/etc/sonic/minigraph.xml
         become: true
- 
+
+      - name: Test if configlet script exist
+        stat:
+            path: vars/configlet/{{ topo }}/apply_clet.sh
+        register: stat_result
+        delegate_to: localhost
+
+      - name: debug print stat_result
+        debug: 
+            msg: Stat result is {{ stat_result }}
+
+      - name: Copy corresponding configlet files if exist
+        copy: src=vars/configlet/{{ topo }}/
+              dest=/etc/sonic/
+        become: true
+        when: stat_result.stat.exists is defined and stat_result.stat.exists
+
+      - name: Replace snmp community string
+        lineinfile:
+            name: /etc/sonic/snmp.yml
+            regexp: '^snmp_rocommunity:'
+            line: 'snmp_rocommunity: {{ snmp_rocommunity }}'
+        become: true
+
       - name: disable automatic minigraph update if we are deploying new minigraph into SONiC
-        lineinfile: 
+        lineinfile:
             name: /etc/sonic/updategraph.conf
             regexp: '^enabled='
             line: 'enabled=false'
         become: true
+        register: updategraph_conf
+
+      - name: restart automatic minigraph update service
+        become: true
+        service:
+          name: updategraph
+          state: restarted
+        when: updategraph_conf.changed
+
+      - name: docker status
+        shell: docker ps
+        register: docker_status
+
+      - debug: msg={{ docker_status.stdout_lines }}
 
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
-        ignore_errors: true
         shell: config load_minigraph -y
+
+      - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
+        become: true
+        shell: config bgp startup all
+
+      - name: execute configlet application script, which applies configlets in strict order.
+        become: true
+        shell: bash -c "/etc/sonic/apply_clet.sh"
+        when: stat_result.stat.exists is defined and stat_result.stat.exists
 
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true
-        ignore_errors: true
         shell: config save -y
         when: save is defined and save|bool == true
     when: deploy is defined and deploy|bool == true

@@ -1,0 +1,68 @@
+### Playbook that call individual testcase by name defined in roles/test/vars/testcases.yml
+
+- debug:
+    msg:
+      - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+      - "!!!!!!!!!!!!!!!!!!!! start running test {{ testcase_name }} !!!!!!!!!!!!!!!!!!!!"
+      - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+
+- set_fact:
+    allow_recover: false
+  when: allow_recover is not defined
+
+- name: do basic sanity check before each test
+  include_tasks: base_sanity.yml
+  vars: 
+     recover: "{{ allow_recover }}"
+
+- name: validate all interfaces are up
+  include_tasks: interface.yml
+  vars:
+     recover: "{{ allow_recover }}"
+
+### by default, when calling a test case name, we pass 'testbed_type', 'ptf_host, 'dut_name(ansible_hoatname)' down to test playbook.
+### if your test playbook requires more extra vars then default, please make sure you handled them correctly within test playbook.
+- debug: var=testcases[testcase_name]['required_vars']
+  when: testcases[testcase_name]['required_vars'] is defined
+
+- name: gather system version information
+  shell: "show ver"
+  register: versions
+
+- name: print system versions
+  debug: var=versions.stdout_lines
+
+- set_fact:
+    skip_test: false
+
+- set_fact:
+    skip_test: true
+  when: 
+    - hostvars[ansible_hostname]['type'] is defined
+    - testcases[testcase_name]['vtestbed_compatible'] is defined
+    - hostvars[ansible_hostname]['type'] == 'kvm' or hostvars[ansible_hostname]['type'] == 'simx'
+    - not testcases[testcase_name]['vtestbed_compatible'] | bool
+
+- block:
+    - name: run test case {{ testcases[testcase_name]['filename'] }} file
+      include_tasks: "{{ testcases[testcase_name]['filename'] }}"
+  
+    - name: do basic sanity check after each test
+      include_tasks: base_sanity.yml
+
+    - name: validate all interfaces are up after test
+      include_tasks: interface.yml
+
+    - debug:
+        msg:
+          - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+          - "!!!!!!!!!!!!!!!!!!!! end running test {{ testcase_name }} !!!!!!!!!!!!!!!!!!!!!!"
+          - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  when: not skip_test
+
+- debug:
+    msg:
+      - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+      - "!!!!!!!!!!!!!!!!!!!! test {{ testcase_name }} was skipped !!!!!!!!!!!!!!!!!!!!!!"
+      - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  when: skip_test

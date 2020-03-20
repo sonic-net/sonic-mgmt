@@ -1,21 +1,3 @@
-- name: Set sysctl bridge parameters for testbed
-  sysctl:
-    name: "{{ item }}"
-    value: 0
-    sysctl_set: yes
-  become: yes
-  with_items:
-   - net.bridge.bridge-nf-call-arptables
-   - net.bridge.bridge-nf-call-ip6tables
-   - net.bridge.bridge-nf-call-iptables
-
-- name: Set sysctl RCVBUF parameter for testbed
-  sysctl:
-    name: "net.core.rmem_max"
-    value: 509430500
-    sysctl_set: yes
-  become: yes
-
 - name: Create directory for vm images and vm disks
   file: path={{ item }} state=directory mode=0755
   with_items:
@@ -52,33 +34,47 @@
     cmd:          'create'
     vm_names:     "{{ VM_hosts }}"
     fp_mtu:       "{{ fp_mtu_size }}"
+    max_fp_num:   "{{ max_fp_num }}"
+
+- name: Default autostart to no when it is not defined
+  set_fact:
+    autostart: no
+  when: autostart is not defined
+
+- name: Default batch_size to 1 when it is not defined
+  set_fact:
+    batch_size: "{{ VM_hosts|length }}"
+  when: batch_size is not defined
+
+- name: Default wait interval to 0 if it is not defined
+  set_fact:
+    interval: 0
+  when: interval is not defined
 
 - name: Start VMs
-  include: start_vm.yml
+  include_tasks: start_vm.yml
   vars:
     vm_name: "{{ item }}"
     hostname: "{{ vm_name }}"
     mgmt_ip_address: "{{ hostvars[vm_name]['ansible_host'] }}"
     serial_port: "{{ vm_console_base|int + vm_name[4:]|int }}"
-    disk_image: "{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
+    src_disk_image: "{{ root_path }}/images/{{ hdd_image_filename }}"
+    disk_image: "{{ home_path }}/{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
+    cdrom_image: "{{ home_path }}/{{ root_path }}/images/{{ cd_image_filename }}"
     mgmt_tap:  "{{ vm_name }}-m"
-    fp0_bridge: "br-{{ vm_name }}-0"
-    fp0_tap: "{{ vm_name }}-t0"
-    fp1_bridge: "br-{{ vm_name }}-1"
-    fp1_tap: "{{ vm_name }}-t1"
-    fp2_bridge: "br-{{ vm_name }}-2"
-    fp2_tap: "{{ vm_name }}-t2"
-    fp3_bridge: "br-{{ vm_name }}-3"
-    fp3_tap: "{{ vm_name }}-t3"
-    fp4_bridge: "br-{{ vm_name }}-4"
-    fp4_tap: "{{ vm_name }}-t4"
-    fp5_bridge: "br-{{ vm_name }}-5"
-    fp5_tap: "{{ vm_name }}-t5"
-    fp6_bridge: "br-{{ vm_name }}-6"
-    fp6_tap: "{{ vm_name }}-t6"
-    fp7_bridge: "br-{{ vm_name }}-7"
-    fp7_tap: "{{ vm_name }}-t7"
-    port1_bridge: "br-{{ vm_name }}-back"
-    port1_tap: "{{ vm_name }}-back"
+    backplane_tap: "{{ vm_name }}-back"
   with_items: "{{ VM_hosts }}"
 
+- name: Kickstart VMs
+  include_tasks: kickstart_vm.yml
+  vars:
+    vm_name: "{{ item }}"
+    hostname: "{{ vm_name }}"
+    mgmt_ip_address: "{{ hostvars[vm_name]['ansible_host'] }}"
+    serial_port: "{{ vm_console_base|int + vm_name[4:]|int }}"
+    src_disk_image: "{{ root_path }}/images/{{ hdd_image_filename }}"
+    disk_image: "{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
+    cdrom_image: "{{ root_path }}/images/{{ cd_image_filename }}"
+    mgmt_tap:  "{{ vm_name }}-m"
+    backplane_tap: "{{ vm_name }}-back"
+  with_items: "{{ VM_hosts }}"

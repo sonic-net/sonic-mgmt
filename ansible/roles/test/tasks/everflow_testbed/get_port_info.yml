@@ -1,10 +1,11 @@
 - fail: msg="Destination port type is not defined"
   when: dst_port_type not in ['tor', 'spine']
 
+- fail: msg="TOR/SPINE ports are not defined"
+  when: tor_ports is not defined or spine_ports is not defined
+
 - name: Init variables.
   set_fact:
-      tor_ports: []
-      spine_ports: []
       dst_port_1_is_lag_member: ""
       dst_port_1_ptf_id: ""
       dst_port_2: ""
@@ -13,32 +14,6 @@
       dst_port_3: ""
       dst_port_3_is_lag_member: ""
       dst_port_3_ptf_id: ""
-
-- name: Get tor ports
-  set_fact:
-      tor_ports: "{{ tor_ports + [item.key]  }}"
-  with_dict: "{{ minigraph_neighbors }}"
-  when: "'T0' in item.value.name"
-
-- name: Sort tor ports by name.
-  set_fact:
-      tor_port: "{{ tor_ports|sort }}"
-
-- name: Print tor ports
-  debug: msg="{{ tor_ports }}"
-
-- name: Get spine ports
-  set_fact:
-      spine_ports: "{{ spine_ports + [item.key]  }}"
-  with_dict: "{{ minigraph_neighbors }}"
-  when: "'T2' in item.value.name"
-
-- name: Sort tor ports by name.
-  set_fact:
-      tor_port: "{{ spine_ports|sort }}"
-
-- name: Print spine ports
-  debug: msg="{{ spine_ports }}"
 
 - name: Define SRC port variables.
   set_fact:
