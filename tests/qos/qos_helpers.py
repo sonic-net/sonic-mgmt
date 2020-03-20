@@ -5,6 +5,10 @@ import json
 import re
 import ipaddress
 
+PFC_GEN_FILE = 'pfc_gen.py'
+PFC_GEN_LOCAL_PATH = '../../ansible/roles/test/files/helpers/pfc_gen.py'
+PFC_GEN_REMOTE_PATH = '~/pfc_gen.py'
+
 def atoi(text):
     return int(text) if text.isdigit() else text
 
@@ -181,4 +185,37 @@ def gen_testbed_t0(ansible_adhoc, testbed):
            
     return vlan_members, ptf_intfs, vlan_ip_addrs, vlan_mac_addrs
 
-        
+def setup_testbed(ansible_adhoc, testbed, leaf_fanouts, ptf_local_path, ptf_remote_path):
+    """
+    @Summary: Set up the testbed
+    @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
+    mandatory argument for the class constructors.
+    @param testbed: Testbed information
+    @param leaf_fanouts: Leaf fanout switches
+    @param ptf_local_path: local path of PTF script
+    @param ptf_remote_dest: remote path of PTF script
+    """
+    
+    """ Copy the PFC generator to leaf fanout switches """
+    for peer_device in leaf_fanouts:
+        peerdev_ans = AnsibleHost(ansible_adhoc, peer_device)
+        cmd = "sudo kill -9 $(pgrep -f %s) </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE)
+        peerdev_ans.shell(cmd)
+        peerdev_ans.copy(src=PFC_GEN_LOCAL_PATH, dest=PFC_GEN_REMOTE_PATH, force=True)
+   
+    """ Stop PFC storm at the leaf fanout switches """
+    for peer_device in leaf_fanouts:
+        peerdev_ans = AnsibleHost(ansible_adhoc, peer_device)
+        stop_pause(peerdev_ans, PFC_GEN_FILE)
+                       
+    """ Remove existing python scripts on PTF """
+    ptf_hostname = testbed['ptf']
+    ptf_ans = AnsibleHost(ansible_adhoc, ptf_hostname)
+    result = ptf_ans.find(paths=['~/'], patterns="*.py")['files']
+    files = [ansible_stdout_to_str(x['path']) for x in result]
+    
+    for file in files:
+        ptf_ans.file(path=file, mode="absent")
+
+    """ Copy the PFC test script to the PTF container """  
+    ptf_ans.copy(src=ptf_local_path, dest=ptf_remote_path, force=True)

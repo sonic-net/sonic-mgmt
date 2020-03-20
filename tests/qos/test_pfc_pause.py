@@ -7,57 +7,19 @@ import re
 import struct
 import random
 from qos_fixtures import lossless_prio_dscp_map, conn_graph_facts, leaf_fanouts
-from qos_helpers import ansible_stdout_to_str, eos_to_linux_intf, start_pause, stop_pause, gen_testbed_t0
+from qos_helpers import ansible_stdout_to_str, eos_to_linux_intf, start_pause, stop_pause, setup_testbed, gen_testbed_t0, PFC_GEN_FILE, PFC_GEN_REMOTE_PATH
 
-PFC_GEN_FILE = 'pfc_gen.py'
-PFC_GEN_FILE_RELATIVE_PATH = '../../ansible/roles/test/files/helpers/pfc_gen.py'
-PFC_GEN_FILE_DEST = '~/pfc_gen.py'
 PFC_PKT_COUNT = 1000000000
 
-PTF_FILE_RELATIVE_PATH = '../../ansible/roles/test/files/ptftests/pfc_pause_test.py'
-PTF_FILE_DEST = '~/pfc_pause_test.py'
+PTF_FILE_LOCAL_PATH = '../../ansible/roles/test/files/ptftests/pfc_pause_test.py'
+PTF_FILE_REMOTE_PATH = '~/pfc_pause_test.py'
 PTF_PKT_COUNT = 50
 PTF_PKT_INTVL_SEC = 0.1
 PTF_PASS_RATIO_THRESH = 0.6
 
 """ Maximum number of interfaces to test on a DUT """
 MAX_TEST_INTFS_COUNT = 4
-             
-def setup_testbed(ansible_adhoc, testbed, leaf_fanouts):
-    """
-    @Summary: Set up the testbed
-    @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
-    mandatory argument for the class constructors.
-    @param testbed: Testbed information
-    @param leaf_fanouts: Leaf fanout switches
-    """
-    
-    """ Copy the PFC generator to leaf fanout switches """
-    for peer_device in leaf_fanouts:
-        peerdev_ans = AnsibleHost(ansible_adhoc, peer_device)
-        cmd = "sudo kill -9 $(pgrep -f %s) </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE)
-        peerdev_ans.shell(cmd)
-        file_src = os.path.join(os.path.dirname(__file__), PFC_GEN_FILE_RELATIVE_PATH)
-        peerdev_ans.copy(src=file_src, dest=PFC_GEN_FILE_DEST, force=True)
-   
-    """ Stop PFC storm at the leaf fanout switches """
-    for peer_device in leaf_fanouts:
-        peerdev_ans = AnsibleHost(ansible_adhoc, peer_device)
-        stop_pause(peerdev_ans, PFC_GEN_FILE)
-                       
-    """ Remove existing python scripts on PTF """
-    ptf_hostname = testbed['ptf']
-    ptf_ans = AnsibleHost(ansible_adhoc, ptf_hostname)
-    result = ptf_ans.find(paths=['~/'], patterns="*.py")['files']
-    files = [ansible_stdout_to_str(x['path']) for x in result]
-    
-    for file in files:
-        ptf_ans.file(path=file, mode="absent")
-
-    """ Copy the PFC test script to the PTF container """  
-    file_src = os.path.join(os.path.dirname(__file__), PTF_FILE_RELATIVE_PATH)
-    ptf_ans.copy(src=file_src, dest=PTF_FILE_DEST, force=True)
-            
+                         
 def run_test_t0(ansible_adhoc, 
                 testbed, 
                 conn_graph_facts, 
@@ -134,7 +96,7 @@ def run_test_t0(ansible_adhoc,
                 pause_prio = None 
                 
             start_pause(host_ans=peerdev_ans,
-                        pkt_gen_path=PFC_GEN_FILE_DEST, 
+                        pkt_gen_path=PFC_GEN_REMOTE_PATH, 
                         intf=peer_port_name,
                         pkt_count=PFC_PKT_COUNT,
                         pause_duration=pause_time,
@@ -145,8 +107,21 @@ def run_test_t0(ansible_adhoc,
         
         """ Run PTF test """
         intf_info = '--interface %d@%s --interface %d@%s' % (src_index, src_intf, dst_index, dst_intf)
-        test_params = 'mac_src=\'%s\';mac_dst=\'%s\';ip_src=\'%s\';ip_dst=\'%s\';dscp=%d;dscp_bg=%d;pkt_count=%d;pkt_intvl=%f;port_src=%d;port_dst=%d;queue_paused=%s;dut_has_mac=False' % (src_mac, dst_mac, src_ip, dst_ip, dscp, dscp_bg, PTF_PKT_COUNT, PTF_PKT_INTVL_SEC, src_index, dst_index, queue_paused)
-        cmd = 'ptf --test-dir ~/ %s --test-params="%s"' % (intf_info, test_params)
+        
+        test_params = ("mac_src=\'%s\';" % src_mac
+                       + "mac_dst=\'%s\';" % dst_mac
+                       + "ip_src=\'%s\';" % src_ip
+                       + "ip_dst=\'%s\';" % dst_ip
+                       + "dscp=%d;" % dscp
+                       + "dscp_bg=%d;" % dscp_bg
+                       + "pkt_count=%d;" % PTF_PKT_COUNT
+                       + "pkt_intvl=%f;" % PTF_PKT_INTVL_SEC
+                       + "port_src=%d;" % src_index
+                       + "port_dst=%d;" % dst_index
+                       + "queue_paused=%s;" % queue_paused
+                       + "dut_has_mac=False")
+                              
+        cmd = 'ptf --test-dir %s %s --test-params="%s"' % (os.path.dirname(PTF_FILE_REMOTE_PATH), intf_info, test_params)
         print cmd 
         stdout = ansible_stdout_to_str(ptf_ans.shell(cmd)['stdout'])
         words = stdout.split()
@@ -224,8 +199,19 @@ def test_pfc_pause_lossless(ansible_adhoc,
                             leaf_fanouts, 
                             lossless_prio_dscp_map):
     
-    """ @Summary: Test if PFC pause frames can pause a lossless priority without affecting the other priorities """    
-    setup_testbed(ansible_adhoc, testbed, leaf_fanouts)
+    """ 
+    @Summary: Test if PFC pause frames can pause a lossless priority without affecting the other priorities
+    @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
+    mandatory argument for the class constructors.
+    @param testbed: Testbed information
+    @param conn_graph_facts: Testbed topology
+    @param lossless_prio_dscp_map: lossless priorities and their DSCP values
+    """    
+    setup_testbed(ansible_adhoc=ansible_adhoc, 
+                  testbed=testbed, 
+                  leaf_fanouts=leaf_fanouts, 
+                  ptf_local_path=PTF_FILE_LOCAL_PATH, 
+                  ptf_remote_path=PTF_FILE_REMOTE_PATH)
 
     errors = []
     
@@ -283,8 +269,19 @@ def test_no_pfc(ansible_adhoc,
                 leaf_fanouts, 
                 lossless_prio_dscp_map):
     
-    """ @Summary: Test if lossless and lossy priorities can forward packets in the absence of PFC pause frames """
-    setup_testbed(ansible_adhoc, testbed, leaf_fanouts)
+    """ 
+    @Summary: Test if lossless and lossy priorities can forward packets in the absence of PFC pause frames
+    @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
+    mandatory argument for the class constructors.
+    @param testbed: Testbed information
+    @param conn_graph_facts: Testbed topology
+    @param lossless_prio_dscp_map: lossless priorities and their DSCP values
+    """  
+    setup_testbed(ansible_adhoc=ansible_adhoc, 
+                  testbed=testbed, 
+                  leaf_fanouts=leaf_fanouts, 
+                  ptf_local_path=PTF_FILE_LOCAL_PATH, 
+                  ptf_remote_path=PTF_FILE_REMOTE_PATH)
 
     errors = []
     
