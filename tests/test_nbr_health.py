@@ -16,7 +16,7 @@ def test_neighbors_health(duthost, testbed_devices, eos):
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
     for k, v in nei_meta.items():
         logger.info("Check neighbor {}, mgmt ip {} snmp".format(k, v['mgmt_addr']))
-        res = localhost.snmp_facts(host=v['mgmt_addr'], version='v2c', community=eos['snmp_rocommunity'])
+        res = localhost.snmp_facts(host=v['mgmt_addr'], version='v2c', is_eos=True, community=eos['snmp_rocommunity'])
         try:
             snmp_data = res['ansible_facts']
         except:
