@@ -406,8 +406,15 @@ class VMTopology(object):
 
     def bind_ovs_ports(self, br_name, dut_iface, injected_iface, vm_iface, disconnect_vm=False):
         """bind dut/injected/vm ports under an ovs bridge"""
-        ports = VMTopology.get_ovs_br_ports(br_name)
+        br = VMTopology.get_ovs_bridge_by_port(injected_iface)
+        if br is not None and br != br_name:
+            VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, injected_iface))
 
+        br = VMTopology.get_ovs_bridge_by_port(dut_iface)
+        if br is not None and br != br_name:
+            VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, dut_iface))
+
+        ports = VMTopology.get_ovs_br_ports(br_name)
         if injected_iface not in ports:
             VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, injected_iface))
 
@@ -520,6 +527,16 @@ class VMTopology(object):
             if port != "":
                 ports.add(port)
         return ports
+
+    @staticmethod
+    def get_ovs_bridge_by_port(port):
+        try:
+            out = VMTopology.cmd('ovs-vsctl port-to-br %s' % port)
+        except:
+            return None
+
+        bridge = out.rstrip()
+        return bridge
 
     @staticmethod
     def get_ovs_port_bindings(bridge, vlan_iface = None):
