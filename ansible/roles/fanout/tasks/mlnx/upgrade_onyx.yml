@@ -1,0 +1,89 @@
+##############################################################################################
+### sub-playbook to perform Onyx to Onyx OS upgrade on fanout switch
+### To run this play seperately it requires image_url parameter.
+### E.g.
+### ansible-playbook -i lab fanout.yml -l ${FANOUT} -e image_url=http://some-http-server/onyx_os_image --become --tags upgrade -vvvv
+################################################################################################
+- name: Check if image_url is defined
+  fail:
+      msg: "please pass 'image_url' variable"
+  when: image_url is not defined
+
+- name: Define fanout image location
+  set_fact:
+    fanout_img_path: "/var/opt/tms/images"
+
+- name: Get current running Onyx OS version
+  include_tasks: get_onyx_os_version.yml
+
+- name: Print currnetly running Onyx OS version
+  debug:
+    msg: "Currently running Onyx OS version is \"{{ onyx_version }}\""
+
+- name: Download Onyx OS image on fanout switch
+  include_tasks: download_copy_image_fanout.yml
+  vars:
+    image_url: "{{ image_url }}"
+    fanout_dest: "{{ fanout_img_path }}/{{ image_url | basename }}"
+
+- name: Upgrade Onyx OS on fanout switch
+  action: apswitch template=mlnx_upgrade_onyx.j2
+  connection: switch
+  register: installation_output
+  args:
+    login: "{{ switch_login['MLNX-OS'] }}"
+    timeout: 10000
+
+- name: Print installation output for later debugging installation failures
+  debug:
+    var: installation_output
+
+- name: Wait for fanout to shutdown
+  become: false
+  local_action: wait_for
+  args:
+    host: "{{ ansible_host }}"
+    port: 22
+    state: absent
+    search_regex: "OpenSSH_[\\w\\.]+"
+    delay: 10
+    timeout: 180
+
+- name: Wait for fanout to come back
+  become: false
+  local_action: wait_for
+  args:
+    host: "{{ ansible_host }}"
+    port: 22
+    state: started
+    search_regex: "OpenSSH_[\\w\\.]+"
+    delay: 10
+    timeout: 180
+
+# After SSH is started, system is not ready to function
+- name: Pause till Onyx OS modules get configured and we get a promt
+  action: apswitch
+  connection: switch
+  args:
+    login: "{{ switch_login['MLNX-OS'] }}"
+    timeout: 300
+
+- name: Save old Onyx OS version
+  set_fact:
+    old_onyx_verison: "{{ onyx_version }}"
+
+- name: Get current running Onyx OS version
+  include_tasks: get_onyx_os_version.yml
+
+- name: Report currently running Onyx OS version
+  debug:
+    msg: "Currently running Onyx OS version is \"{{ onyx_version }}\""
+
+# Basic sanity check to verify that Onyx hasn't rolled back to previous image.
+# If new image has same version as old, the installation will succssed but lets
+# notify user using fatal message that Onyx OS version didn't change.
+- name: Check that running Onyx OS has changed
+  fail:
+    msg: "Running Onyx OS version did not change: old \"{{ old_onyx_verison }}\", running \"{{ onyx_version }}\""
+  when: old_onyx_verison == onyx_version
+

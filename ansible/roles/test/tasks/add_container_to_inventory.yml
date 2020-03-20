@@ -1,0 +1,26 @@
+- name: Add/update the public key in the "{{ lookup('env','HOME') + '/.ssh/known_hosts' }}"
+  delegate_to: localhost
+  known_hosts:
+    name: "{{ ansible_host }}"
+    key: "{{ lookup('pipe', 'ssh-keyscan ' + ansible_host) }}"
+    state: "present"
+
+- name: Generate an OpenSSH keypair
+  delegate_to: localhost
+  openssh_keypair:
+    path: "{{ lookup('env','HOME') + '/.ssh/id_rsa' }}"
+  register: out
+
+- name: Set authorized key
+  authorized_key:
+    user: "{{ ansible_ssh_user }}"
+    state: present
+    key: "{{ out.public_key }}"
+
+- name: Add {{ container_name }} container to inventory
+  add_host:
+    name: "{{ ansible_host }}_{{ container_name }}"
+    ansible_connection: docker
+    ansible_host: "{{ container_name }}"
+    ansible_docker_extra_args: "-H=ssh://{{ ansible_ssh_user }}@{{ ansible_host }}"
+    ansible_user: root

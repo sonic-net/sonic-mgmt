@@ -52,11 +52,10 @@
 
   - name: Read dut minigraph
     conn_graph_facts: host={{ dut_name }}
-    connection: local
-
-  - name: Extracting vlan_range
-    set_fact: vlan_base={{ device_vlan_list | min }}
+    delegate_to: localhost
 
   roles:
     - { role: vm_set, action: 'remove_topo' }
+    - { role: vm_set, action: 'stop_sid' }
+    - { role: vm_set, action: 'stop_sonic_vm' }
 

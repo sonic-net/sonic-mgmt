@@ -1,0 +1,62 @@
+# Gather facts with SNMP version 2
+- name: Gathering basic snmp facts about the device
+  snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
+  delegate_to: localhost
+
+- name: Get Transceiver info
+  shell: redis-cli -n 6 keys *TRANSCEIVER_INFO* |cut -d "|" -f 2
+  register: trans_output
+
+- set_fact:
+    chassis_id: "1"
+    sensor_partial_oids: {
+      "Temperature": 1,
+      "Voltage": 2,
+      "Rx1Power": 11,
+      "Rx2Power": 21,
+      "Rx3Power": 31,
+      "Rx4Power": 41,
+      "Tx1Bias": 12,
+      "Tx2Bias": 22,
+      "Tx3Bias": 32,
+      "Tx4Bias": 42,
+      "Tx1Power": 13,
+      "Tx2Power": 23,
+      "Tx3Power": 33,
+      "Tx4Power": 43
+    }
+
+- name: Check chassis entity exists in snmp
+  fail: msg="No chassis entry in Physical Table MIB"
+  when: "{{ chassis_id not in snmp_physical_entities or snmp_physical_entities[chassis_id].entPhysClass != 3 }}"
+
+- debug:
+    msg: "{{ snmp_physical_entities.keys()  }}"
+
+- name: Check SFP/SFP+ ports are connected in DUT
+  fail: msg="No SFP ports are connected in DUT"
+  when: "{{ trans_output.stdout_lines|length == 0}}"
+
+# OID index is defined as ifindex*1000, for EthernetN the ifindex is N+1, so OID index for EthernetN will be (N + 1)*1000
+- name: Check all transceivers present in Entity MIB
+  fail:
+    msg: '{{ (((item.split("Ethernet")[-1] | int + 1) * 1000) | string) }}'
+  when: '{{ (((item.split("Ethernet")[-1] | int + 1) * 1000) | string) not in snmp_physical_entities.keys() }}'
+  with_items: "{{ trans_output.stdout_lines }}"
+
+- name: Check all transceiver DOM sensors present in Entity MIB
+  fail:
+  when: '{{ ((((item[0].split("Ethernet")[-1] | int + 1) * 1000) + item[1]) | string) not in snmp_physical_entities.keys() }}'
+  with_nested:
+      - "{{ trans_output.stdout_lines }}"
+      - "{{ sensor_partial_oids.values() }}"
+
+- debug: var=snmp_sensors
+
+- name: Check all transceiver DOM sensors present in Entity Sensor MIB
+  fail:
+  when: '{{ ((((item[0].split("Ethernet")[-1] | int + 1) * 1000) + item[1]) | string) not in snmp_sensors.keys() }}'
+  with_nested:
+      - "{{ trans_output.stdout_lines }}"
+      - "{{ sensor_partial_oids.values() }}"
+

@@ -1,0 +1,45 @@
+##############################################################################################
+### sub-playbook to deploy the docker images needed for the pfcwd test to fanout switch
+### to run separately:
+### ansible-playbook -i lab fanout.yml -l ${FANOUT} --become --tags pfcwd_config -vvvv
+### Optionally "-e pfcwd_dockers_url=<www_path>" can be specified to fetch dockers without
+### building them. This is useful to save time or run task in sonic-mgmt docker.
+### E.g.
+### ansible-playbook -i lab fanout.yml -l ${FANOUT} -e pfcwd_dockers_url=http://some-http-server/pfcwd-dockers/ --become --tags pfcwd_config -vvvv
+################################################################################################
+
+- name: Define variables for deployment of pfcwd dockers on fanout
+  set_fact:
+    pfcwd_dockers: "['roles/test/files/mlnx/docker-tests-pfcgen/pfc_storm.tgz']"
+    fanout_img_path: "/var/opt/tms/images/"
+
+- name: Build containers to save storm arguments and to run storm
+  command: make
+  args:
+    chdir: "{{item | dirname}}"
+  with_items: "{{ pfcwd_dockers }}"
+  delegate_to: localhost
+  when: pfcwd_dockers_url is not defined
+
+- name: Copy pfcwd docker images to switch
+  include_tasks: scp_copy.yml
+  vars:
+    src: "{{ item }}"
+    dest: "{{ fanout_img_path }}"
+  with_items: "{{ pfcwd_dockers }}"
+  when: pfcwd_dockers_url is not defined
+
+- name: Download pre-built pfcwd dockers if path specified
+  include_tasks: download_copy_image_fanout.yml
+  vars:
+    image_url: "{{ pfcwd_dockers_url }}/{{ item | basename }}"
+    fanout_dest: "{{ fanout_img_path }}/{{ item | basename }}"
+  with_items: "{{ pfcwd_dockers }}"
+  when: pfcwd_dockers_url is defined
+
+- name: Load and start dockers
+  action: apswitch template=mlnx_deploy_pfcwd_fanout.j2
+  connection: switch
+  args:
+    timeout: 600
+    login: "{{ switch_login['MLNX-OS'] }}"

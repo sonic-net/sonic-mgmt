@@ -85,6 +85,8 @@ def filter_vm_targets(values, topology, vm_base):
     result = []
     base = values.index(vm_base)
     for hostname, attr in topology.iteritems():
+      if base + attr['vm_offset'] >= len(values):
+        continue
       result.append(values[base + attr['vm_offset']])
 
     return result
@@ -124,6 +126,8 @@ def extract_hostname(values, topology, vm_base, inventory_hostname):
     hash = {}
     base = values.index(vm_base)
     for hostname, attr in topology.iteritems():
+      if base + attr['vm_offset'] >= len(values):
+        continue
       if inventory_hostname == values[base + attr['vm_offset']]:
         return hostname
 

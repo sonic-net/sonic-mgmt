@@ -1,0 +1,41 @@
+- block:
+  # Makes sure all tags are cleared out
+  - name: Clear out all tags
+    shell: portstat -D
+    ignore_errors: True
+
+  - name: run the base command 
+    shell: portstat
+    register: base_out
+
+  - name: pull out the number of columns from the headers
+    set_fact:
+      top_row_base_number_of_items: "{{ base_out.stdout_lines[0].split()|length }}"
+  
+  - name: run the all items command 
+    shell: "{{ command }}" 
+    register: all_out
+
+  - name: pull out the number of columns from the headers
+    set_fact:
+      top_row_all_number_of_items: "{{ all_out.stdout_lines[0].split()|length }}"
+
+  - name: verify the all number of columns is greater than the base number of columns
+    assert:
+      that: top_row_all_number_of_items > top_row_base_number_of_items
+
+  rescue:
+  - debug:
+      msg: "A failure occured"
+
+  - debug:
+      var: top_row_base_number_of_items
+
+  - debug:
+      var: top_row_all_number_of_items
+ 
+  always:
+  - name: reset portstat command
+    shell: portstat -D
+    ignore_errors: True
+ 

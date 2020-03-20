@@ -1,7 +1,7 @@
 # SONiC
 
 # Setup Platform
-#- include: platform-cavm.yml
+#- include_tasks: platform-cavm.yml
 
 # Install Cavium Host Interface Driver
 - name: Install driver package
@@ -18,7 +18,7 @@
 
 # Install docker containers
 - name: Start syncd docker container
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: syncd
     docker_image: "{{ image_id_syncd_cavm }}"
@@ -32,7 +32,7 @@
 
 # Remove deprecated orchagent container
 - name: Remove orchagent docker container
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: orchagent
     docker_image: "{{ image_id_orchagent_cavm }}"
@@ -41,7 +41,7 @@
   tags: orchagent
 
 - name: Start swss docker container
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: swss
     docker_image: "{{ image_id_orchagent_cavm }}"

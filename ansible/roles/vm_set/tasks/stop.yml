@@ -1,5 +1,5 @@
 - name: Remove VMs.
-  include: stop_vm.yml
+  include_tasks: stop_vm.yml
   vars:
     vm_name: "{{ item }}"
     disk_image: "{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"

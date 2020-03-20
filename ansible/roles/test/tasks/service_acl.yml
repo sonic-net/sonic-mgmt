@@ -1,19 +1,12 @@
-- name: Check for existence of /etc/sonic/acl.json (this also ensures we can successfully SSH to the DuT)
-  become: true
-  stat:
-    path: /etc/sonic/acl.json
-  register: file_stat
-  failed_when: not file_stat.stat.exists
-
 # Gather facts with SNMP version 2
 - name: Ensure we can gather basic SNMP facts from the device
   snmp_facts:
     host: "{{ ansible_host }}"
     version: "v2c"
     community: "{{ snmp_rocommunity }}"
-  connection: local
+  delegate_to: localhost
 
-- name: Copy config_service_acls.sh to the DuT
+- name: Copy config_service_acls.sh to the DuT (this also ensures we can successfully SSH to the DuT)
   become: true
   copy:
     src: roles/test/files/helpers/config_service_acls.sh
@@ -49,7 +42,7 @@
     host: "{{ ansible_host }}"
     version: "v2c"
     community: "{{ snmp_rocommunity }}"
-  connection: local
+  delegate_to: localhost
   register: result
   failed_when: "'No SNMP response received before timeout' not in result.msg"
 
@@ -64,6 +57,10 @@
     search_regex: "OpenSSH"
     timeout: 90
 
+- name: Pause for 20s to prevent timeout error which may happen when deleting config_service_acls.sh
+  pause:
+    seconds: 20
+
 - name: Delete config_service_acls.sh from the DuT
   become: true
   file:
@@ -76,4 +73,4 @@
     host: "{{ ansible_host }}"
     version: "v2c"
     community: "{{ snmp_rocommunity }}"
-  connection: local
+  delegate_to: localhost

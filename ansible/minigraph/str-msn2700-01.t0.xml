@@ -198,29 +198,29 @@
       <PortChannelInterfaces>
         <PortChannel>
           <Name>PortChannel0001</Name>
-          <AttachTo>Ethernet112</AttachTo>
+          <AttachTo>etp29</AttachTo>
           <SubInterface/>
         </PortChannel>
         <PortChannel>
           <Name>PortChannel0002</Name>
-          <AttachTo>Ethernet116</AttachTo>
+          <AttachTo>etp30</AttachTo>
           <SubInterface/>
         </PortChannel>
         <PortChannel>
           <Name>PortChannel0003</Name>
-          <AttachTo>Ethernet120</AttachTo>
+          <AttachTo>etp31</AttachTo>
           <SubInterface/>
         </PortChannel>
         <PortChannel>
           <Name>PortChannel0004</Name>
-          <AttachTo>Ethernet124</AttachTo>
+          <AttachTo>etp32</AttachTo>
           <SubInterface/>
         </PortChannel>
       </PortChannelInterfaces>
       <VlanInterfaces>
         <VlanInterface>
           <Name>Vlan1000</Name>
-           <AttachTo>Ethernet4;Ethernet8;Ethernet12;Ethernet16;Ethernet20;Ethernet24;Ethernet28;Ethernet32;Ethernet36;Ethernet40;Ethernet44;Ethernet48;Ethernet52;Ethernet56;Ethernet60;Ethernet64;Ethernet68;Ethernet72;Ethernet76;Ethernet80;Ethernet84;Ethernet88;Ethernet92;Ethernet96</AttachTo>
+           <AttachTo>etp2;etp3;etp4;etp5;etp6;etp7;etp8;etp9;etp10;etp11;etp12;etp13;etp14;etp15;etp16;etp17;etp18;etp19;etp20;etp21;etp22;etp23;etp24;etp25</AttachTo>
           <NoDhcpRelay>False</NoDhcpRelay>
           <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
           <Type i:nil="true"/>
@@ -311,28 +311,196 @@
         <EndDevice>ARISTA01T1</EndDevice>
         <EndPort>Ethernet1</EndPort>
         <StartDevice>str-msn2700-01</StartDevice>
-        <StartPort>Ethernet112</StartPort>
+        <StartPort>etp29</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>ARISTA02T1</EndDevice>
         <EndPort>Ethernet1</EndPort>
         <StartDevice>str-msn2700-01</StartDevice>
-        <StartPort>Ethernet116</StartPort>
+        <StartPort>etp30</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>ARISTA03T1</EndDevice>
         <EndPort>Ethernet1</EndPort>
         <StartDevice>str-msn2700-01</StartDevice>
-        <StartPort>Ethernet120</StartPort>
+        <StartPort>etp31</StartPort>
       </DeviceLinkBase>
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>ARISTA04T1</EndDevice>
         <EndPort>Ethernet1</EndPort>
         <StartDevice>str-msn2700-01</StartDevice>
-        <StartPort>Ethernet124</StartPort>
+        <StartPort>etp32</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp2</EndPort>
+        <StartDevice>Servers0</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp3</EndPort>
+        <StartDevice>Servers1</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp4</EndPort>
+        <StartDevice>Servers2</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp5</EndPort>
+        <StartDevice>Servers3</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp6</EndPort>
+        <StartDevice>Servers4</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp7</EndPort>
+        <StartDevice>Servers5</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp8</EndPort>
+        <StartDevice>Servers6</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp9</EndPort>
+        <StartDevice>Servers7</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp10</EndPort>
+        <StartDevice>Servers8</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp11</EndPort>
+        <StartDevice>Servers9</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp12</EndPort>
+        <StartDevice>Servers10</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp13</EndPort>
+        <StartDevice>Servers11</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp14</EndPort>
+        <StartDevice>Servers12</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp15</EndPort>
+        <StartDevice>Servers13</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp16</EndPort>
+        <StartDevice>Servers14</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp17</EndPort>
+        <StartDevice>Servers15</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp18</EndPort>
+        <StartDevice>Servers16</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp19</EndPort>
+        <StartDevice>Servers17</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp20</EndPort>
+        <StartDevice>Servers18</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp21</EndPort>
+        <StartDevice>Servers19</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp22</EndPort>
+        <StartDevice>Servers20</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp23</EndPort>
+        <StartDevice>Servers21</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp24</EndPort>
+        <StartDevice>Servers22</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>str-msn2700-01</EndDevice>
+        <EndPort>etp25</EndPort>
+        <StartDevice>Servers23</StartDevice>
+        <StartPort>eth0</StartPort>
       </DeviceLinkBase>
     </DeviceInterfaceLinks>
     <Devices>
@@ -372,7 +540,8 @@
          <HwSku>Arista-VM</HwSku>
       </Device>
     </Devices>
-  </PngDec>  <DeviceInfos>
+  </PngDec>
+  <DeviceInfos>
     <DeviceInfo>
       <AutoNegotiation>true</AutoNegotiation>
       <EthernetInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
@@ -382,7 +551,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet0</InterfaceName>
+          <InterfaceName>etp1</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -395,7 +564,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet4</InterfaceName>
+          <InterfaceName>etp2</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -408,7 +577,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet8</InterfaceName>
+          <InterfaceName>etp3</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -421,7 +590,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet12</InterfaceName>
+          <InterfaceName>etp4</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -434,7 +603,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet16</InterfaceName>
+          <InterfaceName>etp5</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -447,7 +616,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet20</InterfaceName>
+          <InterfaceName>etp6</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -460,7 +629,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet24</InterfaceName>
+          <InterfaceName>etp7</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -473,7 +642,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet28</InterfaceName>
+          <InterfaceName>etp8</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -486,7 +655,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet32</InterfaceName>
+          <InterfaceName>etp9</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -499,7 +668,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet36</InterfaceName>
+          <InterfaceName>etp10</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -512,7 +681,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet40</InterfaceName>
+          <InterfaceName>etp11</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -525,7 +694,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet44</InterfaceName>
+          <InterfaceName>etp12</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -538,7 +707,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet48</InterfaceName>
+          <InterfaceName>etp13</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -551,7 +720,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet52</InterfaceName>
+          <InterfaceName>etp14</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -564,7 +733,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet56</InterfaceName>
+          <InterfaceName>etp15</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -577,7 +746,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet60</InterfaceName>
+          <InterfaceName>etp16</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -590,7 +759,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet64</InterfaceName>
+          <InterfaceName>etp17</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -603,7 +772,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet68</InterfaceName>
+          <InterfaceName>etp18</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -616,7 +785,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet72</InterfaceName>
+          <InterfaceName>etp19</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -629,7 +798,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet76</InterfaceName>
+          <InterfaceName>etp20</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -642,7 +811,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet80</InterfaceName>
+          <InterfaceName>etp21</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -655,7 +824,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet84</InterfaceName>
+          <InterfaceName>etp22</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -668,7 +837,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet88</InterfaceName>
+          <InterfaceName>etp23</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -681,7 +850,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet92</InterfaceName>
+          <InterfaceName>etp24</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -694,7 +863,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet96</InterfaceName>
+          <InterfaceName>etp25</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -707,7 +876,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet100</InterfaceName>
+          <InterfaceName>etp26</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -720,7 +889,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet104</InterfaceName>
+          <InterfaceName>etp27</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -733,7 +902,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet108</InterfaceName>
+          <InterfaceName>etp28</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -746,7 +915,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet112</InterfaceName>
+          <InterfaceName>etp29</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -759,7 +928,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet116</InterfaceName>
+          <InterfaceName>etp30</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -772,7 +941,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet120</InterfaceName>
+          <InterfaceName>etp31</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -785,7 +954,7 @@
           <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          <InterfaceName>Ethernet124</InterfaceName>
+          <InterfaceName>etp32</InterfaceName>
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
@@ -843,11 +1012,6 @@
             <a:Name>TacacsServer</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>10.0.0.9;10.0.0.8</a:Value>
-          </a:DeviceProperty>
-          <a:DeviceProperty>
-            <a:Name>ForcedMgmtRoutes</a:Name>
-            <a:Reference i:nil="true"/>
-            <a:Value>10.0.0.100/31;10.250.0.8;10.255.0.0/28</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
             <a:Name>ErspanDestinationIpv4</a:Name>

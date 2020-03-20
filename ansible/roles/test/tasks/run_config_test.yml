@@ -14,9 +14,9 @@
     - name: Run command.
       vars:
         command_to_run: "docker exec -i swss swssconfig {{ docker_testdir }}/{{ config_file }}"
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
   always:
     - name: Do configuration cleanup after {{ testname }} / {{ config_file }}
-      include: roles/test/tasks/run_config_cleanup.yml
+      include_tasks: roles/test/tasks/run_config_cleanup.yml
       when: run_cleanup == true

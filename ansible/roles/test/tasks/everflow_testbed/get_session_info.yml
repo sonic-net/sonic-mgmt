@@ -4,11 +4,21 @@
     session_src_ip: "1.1.1.1"
     session_dst_ip: "2.2.2.2"
     session_ttl: "1"
-    session_dscp: "50"
+    session_dscp: "8"
     session_gre: "0x6558"
     session_queue: "0"
 
-- debug: msg="session name {{ session_name }}"
+- name: Set Barefoot GRE protocol type
+  set_fact:
+    session_gre: "0x22EB"
+  when: sonic_hwsku in barefoot_hwskus
+
+- name: Set Mellanox GRE protocol type
+  set_fact:
+    session_gre: "0x8949"
+  when: sonic_hwsku in mellanox_hwskus
+
+- debug: msg=session name {{ session_name }}
 
 - set_fact:
     addr_1: "{{ session_dst_ip }}/24"

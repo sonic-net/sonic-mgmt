@@ -8,7 +8,7 @@
 
 # Stop syncd and deploy saiserver (only for SAI testing purpose)
 - name: Stop syncd container
-  include: ../../sonic-common/tasks/sonicdocker.yml
+  include_tasks: ../../sonic-common/tasks/sonicdocker.yml
   vars:
     docker_container: syncd
     docker_image: "{{ image_id_syncd if sonic_asic_type!='mellanox' else image_id_syncd_mlnx }}"
@@ -17,7 +17,7 @@
   when: no_deploy_saiserver is not defined
 
 - name: Start saiserver docker container
-  include: ../../sonic-common/tasks/sonicdocker.yml
+  include_tasks: ../../sonic-common/tasks/sonicdocker.yml
   vars:
      docker_container: saiserver
      docker_image: "{{ image_id_saiserver if sonic_asic_type!='mellanox' else image_id_saiserver_mlnx }}"
@@ -40,7 +40,7 @@
 - debug: var=out.stdout_lines
 
 - name: Stop saiserver docker container
-  include: ../../sonic-common/tasks/sonicdocker.yml
+  include_tasks: ../../sonic-common/tasks/sonicdocker.yml
   vars:
      docker_container: saiserver
      docker_image: "{{ image_id_saiserver if sonic_asic_type!='mellanox' else image_id_saiserver_mlnx }}"
@@ -49,7 +49,7 @@
   when: no_deploy_saiserver is not defined
 
 - name: Restart syncd container
-  include: ../../sonic-common/tasks/sonicdocker.yml
+  include_tasks: ../../sonic-common/tasks/sonicdocker.yml
   vars:
     docker_container: syncd
     docker_image: "{{ image_id_syncd if sonic_asic_type!='mellanox' else image_id_syncd_mlnx }}"
@@ -58,7 +58,7 @@
   when: no_deploy_saiserver is not defined
 
 - name: Restart orchagent container
-  include: ../../sonic-common/tasks/sonicdocker.yml
+  include_tasks: ../../sonic-common/tasks/sonicdocker.yml
   vars:
     docker_container: orchagent
     docker_image: "{{ image_id_orchagent if sonic_asic_type!='mellanox' else image_id_orchagent_mlnx }}"

@@ -13,6 +13,17 @@
       </DeviceLinkBase>
 {% endfor %}
 {% endfor %}
+{% if vm_topo_config['host_interfaces'] | length > 0 %}
+{% for host_index in range(vlan_intfs | length) %}
+      <DeviceLinkBase>
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <EndDevice>{{ inventory_hostname }}</EndDevice>
+        <EndPort>{{ vlan_intfs[host_index] }}</EndPort>
+        <StartDevice>Servers{{ host_index }}</StartDevice>
+        <StartPort>eth0</StartPort>
+      </DeviceLinkBase>
+{% endfor %}
+{% endif %}
     </DeviceInterfaceLinks>
     <Devices>
       <Device i:type="{{ vm_topo_config['dut_type'] }}">
@@ -44,3 +55,4 @@
 {% endif %}
     </Devices>
   </PngDec>
+
