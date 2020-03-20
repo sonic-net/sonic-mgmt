@@ -19,4 +19,4 @@ RECOVER_METHODS = {
     "fast_reboot": {"cmd": "fast_reboot", "reboot": True}
 }       # All supported recover methods
 
-SUPPORTED_CHECK_ITEMS = ["services", "interfaces"]          # Supported checks
+SUPPORTED_CHECK_ITEMS = ["services", "interfaces", "dbmemory"]          # Supported checks

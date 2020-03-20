@@ -156,10 +156,6 @@
   include_tasks: lag_2.yml
   tags: lag_2
 
-- name: Memory check
-  include_tasks: mem_check.yml
-  tags: mem_check
-
 - name: ACL test 
   include_tasks: acltb.yml
   tags: acl

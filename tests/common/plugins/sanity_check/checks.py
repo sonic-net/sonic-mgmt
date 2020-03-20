@@ -1,3 +1,4 @@
+import re
 import json
 import logging
 import time
@@ -6,7 +7,7 @@ from common.utilities import wait
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
-
+OMEM_THRESHOLD_BYTES=10485760 # 10MB
 
 def check_services(dut):
     logger.info("Checking services status...")
@@ -95,6 +96,24 @@ def check_interfaces(dut):
     logger.info("Done checking interfaces status.")
     return check_result
 
+def check_dbmemory(dut):
+    total_omem = 0
+    re_omem = re.compile("omem=(\d+)")
+    res = dut.command("/usr/bin/redis-cli client list")
+    for l in res['stdout_lines']:
+        m = re_omem.search(l)
+        if m:
+            omem = int(m.group(1))
+            total_omem += omem
+
+    logger.info(json.dumps(res['stdout_lines'], indent=4))
+    check_result = {"failed": False, "check_item": "dbmemory"}
+    if total_omem > OMEM_THRESHOLD_BYTES:
+        check_result["failed"] = True
+        check_result["total_omem"] = total_omem
+
+    logger.info("Done checking database memory")
+    return check_result
 
 def do_checks(dut, check_items):
     results = []
@@ -103,9 +122,10 @@ def do_checks(dut, check_items):
             results.append(check_services(dut))
         elif item == "interfaces":
             results.append(check_interfaces(dut))
+        elif item == "dbmemory":
+            results.append(check_dbmemory(dut))
 
     return results
-
 
 def print_logs(dut, print_logs):
     logger.info("Run commands to print logs, logs to be collected:\n%s" % json.dumps(print_logs, indent=4))
