@@ -1,0 +1,119 @@
+# This is ecmp test. In this test, all DUT's neighbor interfaces are
+# shutdown. After each shutdown, the DUT's interface is verified to see if it
+# is updated to the correct up/down state. In addition, a prefix is verified
+# for the removed/added ECMP path. Convergence time is calculated after shutting
+# down each interface.
+
+- fail: msg="Please set vm_hosts variable with a list of VMs"
+  when: vm_hosts is not defined
+
+- debug: msg="vm_hosts {{ vm_hosts }}"
+
+- debug: msg="total_VMs {{ vm_hosts.split(",")|length }}"
+
+- set_fact:
+    ipv6: "{{ ipv6 | default(False) }}" 
+
+- debug: msg="ipv6 {{ ipv6 }}"
+
+- name: Initialize the array with the list of commands to be sent to the VM
+  set_fact:
+    commands:
+      - 'config t'
+      - 'interface loopback1'
+      - 'ip address 100.1.1.1/32'
+      - 'router bgp 65200'
+      - 'address-family ipv4'
+      - 'network 100.1.1.1/32'
+      - 'quit'
+  when: "{{ ipv6 }} == False"
+
+- name: Initialize the array with the list of commands to be sent to the VM
+  set_fact:
+    commands:
+      - 'config t'
+      - 'interface loopback1'
+      - 'ipv6 enable'
+      - 'ipv6 address 2064:200::1/128'
+      - 'ipv6 nd ra suppress'
+      - 'router bgp 65200'
+      - 'address-family ipv6'
+      - 'network 2064:200::1/128'
+      - 'quit'
+  when: "{{ ipv6 }} == True"
+
+- name: Configure VMs to add loopback interface
+  configure_vms: ip={{ item }} cmds={{ commands }}
+  with_items: "{{ vm_hosts }}"
+
+- name: Gathering lab graph facts about the device
+  conn_graph_facts: host={{ inventory_hostname }}
+  connection: local
+  tags: always
+
+- set_fact:
+    neighbors: "{{device_conn}}"
+
+- name: Initialize an empty list to store interface names
+  set_fact:
+     iface_list: []
+
+- set_fact:
+    more_convergence: false
+    found_nexthopflag: true
+    found_invalidnexthop: true
+    found_removenexthop: true
+
+- include: ecmp/link_down.yml
+  when: more_convergence == false and found_nexthopflag == true and found_invalidnexthop == true and found_removenexthop == true
+  with_sequence: count="{{ vm_hosts.split(",")|length }}"
+
+- include: ecmp/link_up.yml
+  with_items: iface_list
+  when: more_convergence == true or found_nexthopflag == false or found_invalidnexthop == false or found_removenexthop == false
+
+- fail:
+    msg: The convergence time is greater than 1 second.
+  when: more_convergence == true
+
+- fail:
+    msg: Could not find setNextHopFlag in syslog.
+  when: found_nexthopflag == false
+
+- fail:
+    msg: Could not find invalidnexthopinNextHopGroup in syslog.
+  when: found_invalidnexthop == false
+
+- fail:
+    msg: Could not find removeNextHopGroup in syslog.
+  when: found_removenexthop == false
+
+- name: Gathering lab graph facts about the device
+  conn_graph_facts: host={{ inventory_hostname }}
+  connection: local
+  tags: always
+
+- set_fact:
+    neighbors: "{{device_conn}}"
+
+- debug: msg="iface_list {{ iface_list }}"
+
+- include: ecmp/link_up.yml
+  with_items: iface_list
+
+- name: Verify that all interfaces are up
+  assert: { that: "{{ ansible_interface_link_down_ports }}|length == 0" }
+
+- pause:
+    seconds: 60
+
+- name: Gathering lab graph facts about the device
+  conn_graph_facts: host={{ inventory_hostname }}
+  connection: local
+  tags: always
+
+- set_fact:
+    neighbors: "{{device_conn}}"
+
+- include: ecmp/paths_up.yml
+  with_items: iface_list
