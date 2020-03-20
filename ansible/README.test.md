@@ -216,6 +216,11 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 ```
 - Requires switch connected to a VM set or PTF testbed
 
+### SNMP memory test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME}, --become --tags snmp_memory -e "tolerance=0.05" -e "min_memory_size=512000"
+```
+
 ##### NTP test
 ```
 ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=ntp -e testbed_name={TESTBED_NAME}
