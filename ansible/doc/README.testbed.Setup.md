@@ -61,7 +61,7 @@ make configure PLATFORM=generic
 make target/docker-sonic-mgmt.gz
 ```
 
-Pre-built *sonic-mgmt* can also be downloaded from [here](https://sonic-jenkins.westus.cloudapp.azure.com/job/common/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/target/docker-sonic-mgmt.gz).
+Pre-built *sonic-mgmt* can also be downloaded from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/sonic-buildimage/target/docker-sonic-mgmt.gz).
 
 - Run *sonic-mgmt* docker
 ```
@@ -81,7 +81,7 @@ Once you are in the docker, you need to modify the testbed configuration files t
   - Update server management IP in [```ansible/veos```](../veos).
   - Update testbed server credentials in [```ansible/group_vars/vm_host/creds.yml```](../group_vars/vm_host/creds.yml).
   - Update server network configuration for VM and PTF management interface in [```ansible/host_vars/STR-ACS-SERV-01.yml```](../host_vars/STR-ACS-SERV-01.yml).
-    - ```external_iface```: server trunk port name (connected to the fanout switch)
+    - ```external_port```: server trunk port name (connected to the fanout switch)
     - ```mgmt_gw```: ip of gateway for VM mgmt interfaces
     - ```mgmt_prefixlen```: prefixlen for management interfaces
   - Check that ansible could reach this device by command ```ansible -m ping -i veos vm_host_1```.
@@ -90,7 +90,7 @@ Once you are in the docker, you need to modify the testbed configuration files t
   - Download vEOS image from [arista](https://www.arista.com/en/support/software-download).
   - Copy below image files to ```~/veos-vm/images``` on your testbed server.
      - ```Aboot-veos-serial-8.0.0.iso```
-     - ```vEOS-lab-4.15.9M.vmdk```
+     - ```vEOS-lab-4.20.15M.vmdk```
   - Update VM IP addresses [```ansible/veos```](../voes) inventory file. These IP addresses should be in the management subnet defined above.
   - Update VM credentials in [```ansible/group_vars/eos/creds.yml```](../group_vars/eos/creds.yml).
 

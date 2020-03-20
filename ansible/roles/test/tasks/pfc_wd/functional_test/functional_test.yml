@@ -1,12 +1,52 @@
+- name: Set fact for item values
+  set_fact:
+   peer_device: "{{item.value.peer_device}}"
+   pfc_wd_test_port: "{{item.key}}"
+   pfc_wd_rx_port: "{{item.value.rx_port}}"
+   pfc_wd_test_neighbor_addr: "{{item.value.test_neighbor_addr}}"
+   pfc_wd_rx_neighbor_addr: "{{item.value.rx_neighbor_addr}}"
+   pfc_wd_test_port_id: "{{item.value.test_port_id}}"
+   pfc_wd_rx_port_id: "{{item.value.rx_port_id}}"
+   port_type: "{{item.value.test_port_type}}"
+
+- name: Set fact for test port ids and include portchannel other members if exists
+  set_fact:
+    pfc_wd_test_port_ids: "[{{item.value.test_portchannel_members | join(' ')}}]"
+  when: port_type == "portchannel"
+
+- set_fact:
+    pfc_wd_test_port_ids: "[{{pfc_wd_test_port_id}}]"
+  when: port_type in ["vlan", "interface"]
+
+- name: Remove existing IPs from PTF host
+  script: roles/test/files/helpers/remove_ip.sh
+  delegate_to: "{{ptf_host}}"
+  when: port_type == "vlan"
+
+- name: "Set {{pfc_wd_test_neighbor_addr}} to eth{{pfc_wd_test_port_id}} on PTF host"
+  shell: ifconfig eth{{pfc_wd_test_port_id}} {{pfc_wd_test_neighbor_addr}}
+  delegate_to: "{{ptf_host}}"
+  when: port_type == "vlan"
+
+- name: "Update ARP entry on DUT"
+  shell: ping {{minigraph_vlan_interfaces[0]['addr']}} -c 10
+  delegate_to: "{{ptf_host}}"
+  when: port_type == "vlan"
+
+- name: "Update ARP entry on DUT"
+  shell: docker exec -i swss arping {{pfc_wd_test_neighbor_addr}} -c 5
+  when: port_type == "vlan"
+
 - conn_graph_facts: host={{ peer_device }}
-  connection: local
+  delegate_to: localhost
   become: no
 
+# pfc_frames_number intends to be large enough so that PFC storm keeps happenning until runs pfc_storm_stop command.
 - name: Prepare variables required for PFC test
   set_fact:
     pfc_queue_index: 4
     pfc_frames_number: 100000
-    pfc_wd_test_pkt_count: 10000
+    pfc_wd_test_pkt_count: 100
     pfc_fanout_interface: "{{neighbors[pfc_wd_test_port]['peerport']}}"
     peer_hwsku: "{{device_info['HwSku']}}"
     peer_mgmt: "{{device_info['mgmtip']}}"
@@ -20,27 +60,26 @@
 - set_fact:
     class_enable: "{{(1).__lshift__(pfc_queue_index)}}"
 
-- set_fact: pfc_wd_test_neighbor_addr="{{((minigraph_bgp|selectattr('peer_addr', 'equalto', pfc_wd_test_port_addr))|list)[0]['addr']}}"
-- set_fact: pfc_wd_rx_neighbor_addr="{{((minigraph_bgp|selectattr('peer_addr', 'equalto', pfc_wd_rx_port_addr))|list)[0]['addr']}}"
-
 - set_fact:
       peer_login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
 
 - name: set pfc storm templates based on fanout platform sku
-  include: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
 
-- name: Set timers
+- name: Set timers if user has specified
   set_fact:
-      pfc_wd_detect_time: 200
-      pfc_wd_restore_time: 200
-      pfc_wd_restore_time_large: 50000
-      pfc_wd_poll_time: 100
+      pfc_wd_restore_time_large: "{{restore_time}}"
+  when: restore_time is defined
+
+- name: Set timers 2
+  set_fact:
+    pfc_wait_for_restore_time: "{{(pfc_wd_restore_time_large | int / 1000 * 2) | int}}"
 
 - set_fact:
       pfc_gen_file: pfc_gen.py
 
 - name: Deploy pfc packet generater file to fanout switch
-  include: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
 
 - name: copy the test to ptf container
   copy: src=roles/test/files/ptftests dest=/root
@@ -64,41 +103,48 @@
 
     - name: Let PFC storm happen for a while
       pause:
-        seconds: 1
+        seconds: 5
 
     - name: "Buffer up the queue in {{pfc_wd_test_port}}"
-      include: roles/test/tasks/ptf_runner.yml
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index}}'
-          - pkt_count='1000'
-          - port_src='{{pfc_wd_rx_port_id}}'
-          - ip_src='{{pfc_wd_rx_neighbor_addr}}'
+          - pkt_count='{{pfc_wd_test_pkt_count}}'
+          - port_src='{{pfc_wd_rx_port_id[0]}}'
+          - port_dst='[{{pfc_wd_test_port_id}}]'
           - ip_dst='{{pfc_wd_test_neighbor_addr}}'
-          - wd_action='drop'
+          - port_type='{{port_type}}'
+          - wd_action='dontcare'
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - set_fact:
         test_expect_file: "expect_pfc_wd_detect"
+        test_ignore_file: "ignore_pfc_wd_messages"
 
     - name: Initialize loganalyzer
-      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
-
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Apply drop config to port {{ pfc_wd_test_port }}.
       shell: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time_large }} {{ ports }} {{ pfc_wd_detect_time }}"
+      become: yes
+
+    - name: Let PFC storm happen for a while / Let Watchdog start
+      pause:
+        seconds: 5
 
     - name: Check if logs contain message that PFC WD detected deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     - name: Check if logs contain message that PFC WD detected deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS before test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
@@ -109,74 +155,82 @@
       register: pfc_wd_rx_drop_before
 
     - name: "check egress drop, tx port {{pfc_wd_test_port}}"
-      include: roles/test/tasks/ptf_runner.yml
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
-          - port_src='{{pfc_wd_rx_port_id}}'
-          - ip_src='{{pfc_wd_rx_neighbor_addr}}'
+          - port_src='{{pfc_wd_rx_port_id[0]}}'
+          - port_dst='[{{pfc_wd_test_port_id}}]'
           - ip_dst='{{pfc_wd_test_neighbor_addr}}'
+          - port_type='{{port_type}}'
           - wd_action='drop'
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
     - name: "Check ingress drop, rx port {{pfc_wd_test_port}}"
-      include: roles/test/tasks/ptf_runner.yml
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
           - port_src='{{pfc_wd_test_port_id}}'
-          - ip_src='{{pfc_wd_test_neighbor_addr}}'
+          - port_dst='[{{pfc_wd_rx_port_id | join(' ')}}]'
           - ip_dst='{{pfc_wd_rx_neighbor_addr}}'
+          - port_type='{{port_type}}'
           - wd_action='drop'
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
-    - name: "Send 10K packets via {{pfc_wd_test_port}} to verify that other queue is not affected"
-      include: roles/test/tasks/ptf_runner.yml
+    - name: "Send packets via {{pfc_wd_test_port}} to verify that other queue is not affected"
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index - 1}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
-          - port_src='{{pfc_wd_rx_port_id}}'
-          - ip_src='{{pfc_wd_rx_neighbor_addr}}'
+          - port_src='{{pfc_wd_rx_port_id[0]}}'
+          - port_dst='{{pfc_wd_test_port_ids}}'
           - ip_dst='{{pfc_wd_test_neighbor_addr}}'
+          - port_type='{{port_type}}'
           - wd_action='forward'
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
-    - name: "Send 10K packets to {{pfc_wd_test_port}} to verify that other pg is not affected"
-      include: roles/test/tasks/ptf_runner.yml
+    - name: "Send packets to {{pfc_wd_test_port}} to verify that other pg is not affected"
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index - 1}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
           - port_src='{{pfc_wd_test_port_id}}'
-          - ip_src='{{pfc_wd_test_neighbor_addr}}'
+          - port_dst='[{{pfc_wd_rx_port_id | join(' ')}}]'
           - ip_dst='{{pfc_wd_rx_neighbor_addr}}'
+          - port_type='{{port_type}}'
           - wd_action='forward'
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
@@ -184,7 +238,7 @@
         test_expect_file: "expect_pfc_wd_restore"
 
     - name: Initialize loganalyzer
-      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Stop PFC storm on fanout switch
       action: apswitch template="{{pfc_wd_storm_stop_template}}"
@@ -195,13 +249,13 @@
 
     - name: Wait for queue to recover from PFC storm
       pause:
-        seconds: "{{(pfc_wd_restore_time_large / 1000 * 2) | int}}"
+        seconds: "{{ pfc_wait_for_restore_time }}"
 
     - name: Check if logs contain message that PFC WD restored from deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     - name: Check if logs contain message that PFC WD restored from deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS after test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
@@ -209,8 +263,8 @@
 
     - name: Verify tx drop counter
       fail:
-        msg: "Number of tx dropped packets is not equal to {{ pfc_wd_test_pkt_count }}"
-      when: "{{ pfc_wd_tx_drop_after.stdout | int - pfc_wd_tx_drop_before.stdout | int != pfc_wd_test_pkt_count }}"
+        msg: "Number of tx dropped packets {{pfc_wd_tx_drop_after.stdout | int - pfc_wd_tx_drop_before.stdout | int}} is not equal to {{ pfc_wd_test_pkt_count }}"
+      when: (pfc_wd_tx_drop_after.stdout | int - pfc_wd_tx_drop_before.stdout | int != pfc_wd_test_pkt_count and port_type in ["vlan", "interface"]) or (pfc_wd_tx_drop_after.stdout | int - pfc_wd_tx_drop_before.stdout | int<= 0)
 
     - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS_LAST after test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS_LAST"
@@ -218,8 +272,8 @@
 
     - name: Verify last tx drop counter
       fail:
-        msg: "Number of last tx dropped packets is not equal to {{ pfc_wd_test_pkt_count }}"
-      when: "{{ pfc_wd_tx_drop_last.stdout | int != pfc_wd_test_pkt_count }}"
+        msg: "Number of last tx dropped packets {{pfc_wd_tx_drop_last.stdout | int}} is not equal to {{ pfc_wd_test_pkt_count }}"
+      when: (pfc_wd_tx_drop_last.stdout | int != pfc_wd_test_pkt_count and port_type in ["vlan", "interface"]) or (pfc_wd_tx_drop_last.stdout | int <= 0)
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS after test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
@@ -228,7 +282,7 @@
     - name: Verify rx drop counter
       fail:
         msg: "Number of rx dropped packets is not equal to {{ pfc_wd_test_pkt_count }}"
-      when: "{{ pfc_wd_rx_drop_after.stdout | int - pfc_wd_rx_drop_before.stdout | int != pfc_wd_test_pkt_count }}"
+      when: (pfc_wd_rx_drop_after.stdout | int - pfc_wd_rx_drop_before.stdout | int != pfc_wd_test_pkt_count and port_type in ["vlan", "interface"]) or (pfc_wd_rx_drop_after.stdout | int - pfc_wd_rx_drop_before.stdout | int <= 0)
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST after test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST"
@@ -237,7 +291,7 @@
     - name: Verify last rx drop counter
       fail:
         msg: "Number of last rx dropped packets is not equal to {{ pfc_wd_test_pkt_count }}"
-      when: "{{ pfc_wd_rx_drop_last.stdout | int != pfc_wd_test_pkt_count }}"
+      when: (pfc_wd_rx_drop_last.stdout | int != pfc_wd_test_pkt_count and port_type in ["vlan", "interface"]) or (pfc_wd_rx_drop_last.stdout | int <= 0)
 
   always:
     - name: Stop PFC storm on fanout switch
@@ -251,16 +305,15 @@
       vars:
         command_to_run: "pfcwd stop"
         errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
 # Verify proper function of drop action
 - block:
     - name: Apply drop config to {{ pfc_wd_test_port }}.
       vars:
         command_to_run: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time_large }} {{ ports }} {{ pfc_wd_detect_time }}"
-        test_ignore_file: ignore_pfc_wd_messages
         errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS before test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
@@ -277,7 +330,7 @@
         pfc_frames_number: 100000000
 
     - name: Initialize loganalyzer
-      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Generate PFC storm on fanout switch
       action: apswitch template="{{pfc_wd_storm_template}}"
@@ -286,81 +339,93 @@
         login: "{{peer_login}}"
       connection: switch
 
-    - name: Check if logs contain message that PFC WD detected deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+    - name: Let PFC storm happen for a while
+      pause:
+        seconds: 5
 
     - name: Check if logs contain message that PFC WD detected deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
-    - name: "Send 10K packets via {{pfc_wd_test_port}}"
-      include: roles/test/tasks/ptf_runner.yml
+    - name: Check if logs contain message that PFC WD detected deadlock
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+
+    - name: "Send packets via {{pfc_wd_test_port}}"
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
-          - port_src='{{pfc_wd_rx_port_id}}'
-          - ip_src='{{pfc_wd_rx_neighbor_addr}}'
+          - port_src='{{pfc_wd_rx_port_id[0]}}'
+          - port_dst='[{{pfc_wd_test_port_id}}]'
           - ip_dst='{{pfc_wd_test_neighbor_addr}}'
+          - port_type='{{port_type}}'
           - wd_action='drop'
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
-    - name: "Send 10K packets to {{pfc_wd_test_port}}"
-      include: roles/test/tasks/ptf_runner.yml
+    - name: "Send packets to {{pfc_wd_test_port}}"
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
           - port_src='{{pfc_wd_test_port_id}}'
-          - ip_src='{{pfc_wd_test_neighbor_addr}}'
+          - port_dst='[{{pfc_wd_rx_port_id | join(' ')}}]'
           - ip_dst='{{pfc_wd_rx_neighbor_addr}}'
+          - port_type='{{port_type}}'
           - wd_action='drop'
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
-    - name: "Send 10K packets via {{pfc_wd_test_port}} to verify that other queue is not affected"
-      include: roles/test/tasks/ptf_runner.yml
+    - name: "Send packets via {{pfc_wd_test_port}} to verify that other queue is not affected"
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index - 1}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
-          - port_src='{{pfc_wd_rx_port_id}}'
-          - ip_src='{{pfc_wd_rx_neighbor_addr}}'
+          - port_src='{{pfc_wd_rx_port_id[0]}}'
+          - port_dst='{{pfc_wd_test_port_ids}}'
           - ip_dst='{{pfc_wd_test_neighbor_addr}}'
+          - port_type='{{port_type}}'
           - wd_action='forward'
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
-    - name: "Send 10K packets to {{pfc_wd_test_port}} to verify that other pg is not affected"
-      include: roles/test/tasks/ptf_runner.yml
+    - name: "Send packets to {{pfc_wd_test_port}} to verify that other pg is not affected"
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index - 1}}'
           - pkt_count='{{pfc_wd_test_pkt_count}}'
           - port_src='{{pfc_wd_test_port_id}}'
-          - ip_src='{{pfc_wd_test_neighbor_addr}}'
+          - port_dst='[{{pfc_wd_rx_port_id | join(' ')}}]'
           - ip_dst='{{pfc_wd_rx_neighbor_addr}}'
+          - port_type='{{port_type}}'
           - wd_action='forward'
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
@@ -368,7 +433,7 @@
         test_expect_file: "expect_pfc_wd_restore"
 
     - name: Initialize loganalyzer
-      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Stop PFC storm on fanout switch
       action: apswitch template="{{pfc_wd_storm_stop_template}}"
@@ -379,13 +444,13 @@
 
     - name: Wait for queue to recover from PFC storm
       pause:
-        seconds: "{{(pfc_wd_restore_time_large / 1000 * 2) | int}}"
+        seconds: "{{ pfc_wait_for_restore_time }}"
 
     - name: Check if logs contain message that PFC WD restored from deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     - name: Check if logs contain message that PFC WD restored from deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS after test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
@@ -393,8 +458,8 @@
 
     - name: Verify tx drop counter
       fail:
-        msg: "Number of tx dropped packets is not equal to {{ pfc_wd_test_pkt_count }}"
-      when: "{{ pfc_wd_tx_drop_after.stdout | int - pfc_wd_tx_drop_before.stdout | int != pfc_wd_test_pkt_count }}"
+        msg: "Number of tx dropped packets {{pfc_wd_tx_drop_after.stdout | int - pfc_wd_tx_drop_before.stdout | int}} is not equal to {{ pfc_wd_test_pkt_count }}"
+      when: (pfc_wd_tx_drop_after.stdout | int - pfc_wd_tx_drop_before.stdout | int != pfc_wd_test_pkt_count and port_type in ["vlan", "interface"]) or (pfc_wd_tx_drop_after.stdout | int - pfc_wd_tx_drop_before.stdout | int <= 0)
 
     - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS_LAST after test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS_LAST"
@@ -402,8 +467,8 @@
 
     - name: Verify last tx drop counter
       fail:
-        msg: "Number of last tx dropped packets is not equal to {{ pfc_wd_test_pkt_count }}"
-      when: "{{ pfc_wd_tx_drop_last.stdout | int != pfc_wd_test_pkt_count }}"
+        msg: "Number of last tx dropped packets {{pfc_wd_tx_drop_last.stdout | int}} is not equal to {{ pfc_wd_test_pkt_count }}"
+      when: (pfc_wd_tx_drop_last.stdout | int != pfc_wd_test_pkt_count and port_type in ["vlan", "interface"]) or (pfc_wd_tx_drop_last.stdout | int <= 0)
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS after test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
@@ -411,8 +476,8 @@
 
     - name: Verify rx drop counter
       fail:
-        msg: "Number of rx dropped packets is not equal to {{ pfc_wd_test_pkt_count }}"
-      when: "{{ pfc_wd_rx_drop_after.stdout | int - pfc_wd_rx_drop_before.stdout | int != pfc_wd_test_pkt_count }}"
+        msg: "Number of rx dropped packets {{pfc_wd_rx_drop_after.stdout | int - pfc_wd_rx_drop_before.stdout | int}} is not equal to {{ pfc_wd_test_pkt_count }}"
+      when: (pfc_wd_rx_drop_after.stdout | int - pfc_wd_rx_drop_before.stdout | int != pfc_wd_test_pkt_count and port_type in ["vlan", "interface"]) or (pfc_wd_rx_drop_after.stdout | int - pfc_wd_rx_drop_before.stdout | int <= 0)
 
     - name: Get PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST after test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST"
@@ -420,8 +485,12 @@
 
     - name: Verify last rx drop counter
       fail:
-        msg: "Number of last rx dropped packets is not equal to {{ pfc_wd_test_pkt_count }}"
-      when: "{{ pfc_wd_rx_drop_last.stdout | int != pfc_wd_test_pkt_count }}"
+        msg: "Number of last rx dropped packets {{pfc_wd_rx_drop_last.stdout | int}} is not equal to {{ pfc_wd_test_pkt_count }}"
+      when: (pfc_wd_rx_drop_last.stdout | int != pfc_wd_test_pkt_count and port_type in ["vlan", "interface"]) or (pfc_wd_rx_drop_last.stdout | int <= 0)
+
+    - name: Get PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS after test
+      shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
+      register: pfc_wd_tx_drop_after
 
   always:
     - name: Stop PFC storm on fanout switch
@@ -434,9 +503,8 @@
     - name: Clean up config
       vars:
         command_to_run: "pfcwd stop"
-        test_ignore_file: ignore_pfc_wd_messages
         errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
 # Verify proper function of forward action
 - block:
@@ -444,7 +512,7 @@
       vars:
         command_to_run: "pfcwd start --action forward --restoration-time {{ pfc_wd_restore_time_large }} {{ ports }} {{ pfc_wd_detect_time }}"
         errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_PACKETS before test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS"
@@ -461,7 +529,7 @@
         pfc_frames_number: 100000000
 
     - name: Initialize loganalyzer
-      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Generate PFC storm on fanout switch
       action: apswitch template="{{pfc_wd_storm_template}}"
@@ -475,44 +543,48 @@
         seconds: 1
 
     - name: Check if logs contain message that PFC WD detected deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     - name: Check if logs contain message that PFC WD detected deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
-    - name: "Send 10K packets via {{pfc_wd_test_port}}"
-      include: roles/test/tasks/ptf_runner.yml
+    - name: "Send packets via {{pfc_wd_test_port}}"
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index}}'
-          - pkt_count='10000'
-          - port_src='{{pfc_wd_rx_port_id}}'
-          - ip_src='{{pfc_wd_rx_neighbor_addr}}'
+          - pkt_count='{{pfc_wd_test_pkt_count}}'
+          - port_src='{{pfc_wd_rx_port_id[0]}}'
+          - port_dst='{{pfc_wd_test_port_ids}}'
           - ip_dst='{{pfc_wd_test_neighbor_addr}}'
+          - port_type='{{port_type}}'
           - wd_action='forward'
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
-    - name: "Send 10K packets to {{pfc_wd_test_port}}"
-      include: roles/test/tasks/ptf_runner.yml
+    - name: "Send packets to {{pfc_wd_test_port}}"
+      include_tasks: roles/test/tasks/ptf_runner.yml
       vars:
         ptf_test_name: PFC WD test
         ptf_test_dir: ptftests
         ptf_test_path: pfc_wd.PfcWdTest
         ptf_platform: remote
+        ptf_platform_dir: ptftests
         ptf_test_params:
           - testbed_type='{{testbed_type}}'
-          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
           - queue_index='{{pfc_queue_index}}'
-          - pkt_count='10000'
+          - pkt_count='{{pfc_wd_test_pkt_count}}'
           - port_src='{{pfc_wd_test_port_id}}'
-          - ip_src='{{pfc_wd_test_neighbor_addr}}'
+          - port_dst='[{{pfc_wd_rx_port_id | join(' ')}}]'
           - ip_dst='{{pfc_wd_rx_neighbor_addr}}'
+          - port_type='{{port_type}}'
           - wd_action='forward'
         ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
 
@@ -520,7 +592,7 @@
         test_expect_file: "expect_pfc_wd_restore"
 
     - name: Initialize loganalyzer
-      include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
     - name: Stop PFC storm on fanout switch
       action: apswitch template="{{pfc_wd_storm_stop_template}}"
@@ -531,13 +603,13 @@
 
     - name: Wait for queue to recover from PFC storm
       pause:
-        seconds: "{{(pfc_wd_restore_time_large / 1000 * 2) | int}}"
+        seconds: "{{ pfc_wait_for_restore_time }}"
 
     - name: Check if logs contain message that PFC WD restored from deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
     - name: Check if logs contain message that PFC WD restored from deadlock
-      include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
     - name: Get PFC_WD_QUEUE_STATS_TX_PACKETS after test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS"
@@ -546,7 +618,7 @@
     - name: Verify tx counter
       fail:
         msg: "Number of tx packets is not equal to {{ pfc_wd_test_pkt_count }}"
-      when: "{{ pfc_wd_tx_after.stdout | int - pfc_wd_tx_before.stdout | int != pfc_wd_test_pkt_count }}"
+      when: (pfc_wd_tx_after.stdout | int - pfc_wd_tx_before.stdout | int != pfc_wd_test_pkt_count and port_type in ["vlan", "interface"]) or (pfc_wd_tx_after.stdout | int - pfc_wd_tx_before.stdout | int <= 0)
 
     - name: Get PFC_WD_QUEUE_STATS_TX_PACKETS_LAST after test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_TX_PACKETS_LAST"
@@ -555,7 +627,7 @@
     - name: Verify last tx counter
       fail:
         msg: "Number of last tx packets is not equal to {{ pfc_wd_test_pkt_count }}"
-      when: "{{ pfc_wd_tx_last.stdout | int != pfc_wd_test_pkt_count }}"
+      when: (pfc_wd_tx_last.stdout | int != pfc_wd_test_pkt_count and port_type in ["vlan", "interface"]) or (pfc_wd_tx_last.stdout | int <= 0)
 
     - name: Get PFC_WD_QUEUE_STATS_RX_PACKETS after test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_PACKETS"
@@ -564,7 +636,7 @@
     - name: Verify rx counter
       fail:
         msg: "Number of rx packets is not equal to {{ pfc_wd_test_pkt_count }}"
-      when: "{{ pfc_wd_rx_after.stdout | int - pfc_wd_rx_before.stdout | int != pfc_wd_test_pkt_count }}"
+      when: (pfc_wd_rx_after.stdout | int - pfc_wd_rx_before.stdout | int != pfc_wd_test_pkt_count and port_typein ["vlan", "interface"]) or (pfc_wd_rx_after.stdout | int - pfc_wd_rx_before.stdout | int <= 0)
 
     - name: Get PFC_WD_QUEUE_STATS_RX_PACKETS_LAST after test
       shell: "docker exec -i database redis-cli -n 2 HGET COUNTERS:{{ queue_oid.stdout }} PFC_WD_QUEUE_STATS_RX_PACKETS_LAST"
@@ -573,7 +645,7 @@
     - name: Verify last rx counter
       fail:
         msg: "Number of last rx packets is not equal to {{ pfc_wd_test_pkt_count }}"
-      when: "{{ pfc_wd_rx_last.stdout | int != pfc_wd_test_pkt_count }}"
+      when: (pfc_wd_rx_last.stdout | int != pfc_wd_test_pkt_count and port_type in ["vlan", "interface"]) or (pfc_wd_rx_last.stdout | int <= 0)
 
   rescue:
     - name: Remove all temporary files from local host.
@@ -581,7 +653,7 @@
         name: "{{ tests_location }}/functional_test/{{ item }}"
         state: absent
       with_items: "{{ config_files }}"
-      connection: local
+      delegate_to: localhost
       become: false
 
   always:
@@ -596,70 +668,5 @@
       vars:
         command_to_run: "pfcwd stop"
         errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
-# Verify timers
-
-- block:
-    - name: Apply config with proper timers to {{ pfc_wd_test_port }}.
-      vars:
-        command_to_run: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time }} {{ ports }} {{ pfc_wd_detect_time }}"
-        test_ignore_file: ignore_pfc_wd_messages
-        errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
-
-    - name: Enable routing from mgmt interface to localhost
-      sysctl:
-        name: net.ipv4.conf.eth0.route_localnet
-        value: 1
-        sysctl_set: yes
-      become: true
-
-      # Cannot use iptables module, because it does not support to_destination in 2.0
-    - name: Add iptables rule to forward syslog packets from mgmt interface to localhost
-      shell: "iptables -t nat -I PREROUTING -p udp -d {{ansible_eth0['ipv4']['address']}} --dport 514 -j DNAT --to-destination 127.0.0.1:514"
-      become: true
-
-    - set_fact:
-        detect_time_list: []
-        restore_time_list: []
-
-    - set_fact:
-        pfc_frames_number: 100000
-
-    - name: Calculate detection and restoration timings
-      include: roles/test/tasks/pfc_wd/functional_test/timer_test.yml
-      with_sequence: start=1 end=3
-
-    - debug:
-        var: "{{item}}"
-      with_items: 
-        - detect_time_list
-        - restore_time_list
-
-    - name: Verify that real detection time is not greater than configured
-      fail:
-        msg: Real detection time is greater than configured
-      when: "{{(detect_time_list | sum) / 3 > pfc_wd_detect_time + pfc_wd_poll_time}}"
-
-    - name: Verify that real detection time is not less than configured
-      fail:
-        msg: Real detection time is less than configured
-      when: "{{(detect_time_list | sum) / 3 <  pfc_wd_detect_time}}"
-
-    - name: Verify that real restoration time is not less than configured
-      fail:
-        msg: Real restoration time is less than configured
-      when: "{{(restore_time_list | sum) / 3 < pfc_wd_restore_time}}"
-
-    - name: Verify that real restoration time is less than configured
-      fail:
-        msg: Real restoration time is greater than configured
-      when: "{{(restore_time_list | sum) / 3 > pfc_wd_restore_time + pfc_wd_poll_time}}"
-
-  always:
-    - name: Clean up config
-      vars:
-        command_to_run: "pfcwd stop"
-        errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml

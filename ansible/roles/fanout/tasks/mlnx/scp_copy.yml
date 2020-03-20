@@ -1,0 +1,6 @@
+- name: Use scp to copy local file to remote host
+  command: "{{ scp_cmd }} {{ scp_params }} {{ src }} {{ ansible_ssh_user }}@{{ ansible_host }}:{{ dest }}"
+  vars:
+    scp_cmd: "sshpass -p {{ ansible_ssh_pass }} scp"
+    scp_params: "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+  delegate_to: localhost

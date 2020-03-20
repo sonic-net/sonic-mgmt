@@ -10,5 +10,5 @@
 - debug:
     msg: "Execute reboot.yml {{ repeat_count }} time(s)"
 
-- include: reboot.yml
+- include_tasks: reboot.yml
   with_sequence: end={{repeat_count}}

@@ -1,3 +1,6 @@
+- debug: msg="{{ vm_type }}"
+- debug: msg="{{ vm_set_name }}"
+
 - name: Load topo variables
   include_vars: "vars/topo_{{ topo }}.yml"
 
@@ -21,15 +24,6 @@
     msg: "cannot find {{ inventory_hostname }} in the topology"
   when: hostname == "hostname not found"
 
-- name: Get VM front panel interface number
-  shell: virsh domiflist {{ inventory_hostname }} | grep -E "^{{ inventory_hostname }}-t" | wc -l
-  register: fp_num
-  delegate_to: "{{ VM_host[0] }}"
-  become: yes
-
-- name: Set EOS backplane port name
-  set_fact: bp_ifname="Ethernet{{ fp_num.stdout|int + 1 }}"
-
 - name: Set properties list to default value, when properties are not defined
   set_fact: properties_list=[]
   when: configuration is not defined or configuration[hostname] is not defined or configuration[hostname]['properties'] is not defined
@@ -38,18 +32,13 @@
   set_fact: properties_list="{{ configuration[hostname]['properties'] }}"
   when: configuration and configuration[hostname] and configuration[hostname]['properties'] is defined
 
-- name: copy boot-config
-  copy: src=boot-config
-        dest=/mnt/flash/boot-config
-
 - name: Expand {{ hostname }} properties into props
   set_fact: props="{{ configuration_properties[item] | combine(props | default({})) }}"
-  with_items: properties_list
+  with_items: "{{ properties_list }}"
   when: hostname in configuration and configuration_properties[item] is defined
 
-- name: build a startup config
-  template: src="{{ topo }}-{{ props.swrole }}.j2"
-            dest=/mnt/flash/startup-config
-  when: configuration is defined
-  notify:
-    - Restart the box
+- include_tasks: veos.yml
+  when: vm_type == "veos"
+
+- include_tasks: ceos.yml
+  when: vm_type == "ceos"

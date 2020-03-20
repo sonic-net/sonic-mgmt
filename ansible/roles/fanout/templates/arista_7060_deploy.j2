@@ -18,8 +18,7 @@ spanning-tree mode none
 no spanning-tree vlan {{ device_vlan_range | list | join(',') }}
 !
 aaa authorization exec default local
-!
-no aaa root
+aaa root secret 0 {{ lab_admin_pass }}
 !
 username admin privilege 15 role network-admin secret 0 {{ lab_admin_pass }}
 username eapi privilege 15 secret 0 {{ lab_admin_pass }}
@@ -33,12 +32,46 @@ vrf definition management
 {% set intf =  'Ethernet' + i|string + '/1'  %}
 interface {{ intf }}
 {% if intf in device_port_vlans and device_port_vlans[intf]['mode'] != "Trunk" %}
+{%     if device_conn[intf]['speed'] == "100000" %}
    description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
    switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
    speed forced 100gfull
+   error-correction encoding reed-solomon
    no shutdown
+{%     elif device_conn[intf]['speed'] == "40000" %}
+   description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+   switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
+   switchport mode dot1q-tunnel
+   spanning-tree portfast
+   speed forced 40gfull
+   no shutdown
+{%     elif device_conn[intf]['speed'] == "50000" %}
+   description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+   switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
+   switchport mode dot1q-tunnel
+   spanning-tree portfast
+   speed forced 50gfull
+   no error-correction encoding
+   no shutdown
+{% set intf =  'Ethernet' + i|string + '/3'  %}
+interface {{ intf }}
+{%         if intf in device_port_vlans and device_port_vlans[intf]['mode'] != "Trunk" %}
+   description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+   switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
+   switchport mode dot1q-tunnel
+   spanning-tree portfast
+   speed forced 50gfull
+   no error-correction encoding
+   no shutdown
+{%         else %}
+   shutdown
+{%         endif %}
+{%     else %}
+{#        Not valid speed value #}
+   shutdown
+{%     endif %}
 {% elif intf in device_port_vlans and device_port_vlans[intf]['mode'] == 'Trunk' %}
    description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
    switchport mode trunk
@@ -54,7 +87,6 @@ interface {{ intf }}
 !
 interface Management 1
  description TO LAB MGMT SWITCH
- vrf forwarding management
  ip address {{ device_info["ManagementIp"] }} 
  no shutdown
 !
@@ -63,6 +95,7 @@ mac address-table reserved forward 0180.c200.0002
 # LLDP packets pass through
 mac address-table reserved forward 0180.c200.000e
 !
+ip route 0.0.0.0/0 {{ device_info["ManagementGw"] }}
 ip route vrf management 0.0.0.0/0 {{ device_info["ManagementGw"] }}
 !
 ip routing

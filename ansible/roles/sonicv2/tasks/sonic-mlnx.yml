@@ -2,7 +2,7 @@
 
 # Remove v1 docker containers
 - name: Remove docker-sswsyncd docker container
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: docker-sswsyncd
     docker_image: "docker-sswsyncd"
@@ -10,7 +10,7 @@
     docker_state: absent
 
 - name: Remove sswsyncd docker container
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: sswsyncd
     docker_image: "docker-sswsyncd"
@@ -26,7 +26,7 @@
 
 # Install docker containers
 - name: Start syncd docker container
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: syncd
     docker_image: "{{ image_id_syncd_mlnx_rpc if host_saithrift is defined else image_id_syncd_mlnx }}"
@@ -39,7 +39,7 @@
 
 # Remove deprecated orchagent container
 - name: Remove orchagent docker container
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: orchagent
     docker_image: "{{ image_id_orchagent_mlnx }}"
@@ -48,7 +48,7 @@
   tags: orchagent
 
 - name: Start swss docker container
-  include: sonicdocker.yml
+  include_tasks: sonicdocker.yml
   vars:
     docker_container: swss
     docker_image: "{{ image_id_orchagent_mlnx }}"

@@ -1,0 +1,12 @@
+neighbor {{ lo_addr }} {
+    router-id {{ speaker_ip }};
+    local-address {{ speaker_ip }};
+    peer-as {{ peer_asn }};
+    local-as {{ my_asn }};
+    auto-flush false;
+    group-updates true;
+    static {
+        route {{ announce_prefix }} next-hop {{ direct_ip }};
+    }
+}
+

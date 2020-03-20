@@ -1,2 +1,4 @@
 # Compiled Python files
-ansible/plugins/filter/*.pyc
+*.pyc
+__pycache__/
+.pytest_cache/

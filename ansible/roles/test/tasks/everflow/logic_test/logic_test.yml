@@ -12,7 +12,7 @@
   when: sw_if is not defined
 
 - name: Initialize config test.
-  include: roles/test/tasks/init_config_test.yml
+  include_tasks: roles/test/tasks/init_config_test.yml
 
 - name: Get IP address of one switch interface
   shell: ifconfig {{ sw_if }} | grep "inet addr:" | awk '{print $2}' | sed "s/addr://"
@@ -37,7 +37,7 @@
         test_expect_file: create_session_expect_file
         errors_expected: false
         run_cleanup: false
-      include: roles/test/tasks/run_config_test.yml
+      include_tasks: roles/test/tasks/run_config_test.yml
 
     - name: Create route with prefix that matches session DST IP and unresolved next hop.
       command: ip route add {{ session_ip_prefix_1 }} via {{ neigh_ip }}
@@ -116,8 +116,8 @@
       ignore_errors: yes
 
     - name: Clear session configuration
-      include: roles/test/tasks/run_config_cleanup.yml
+      include_tasks: roles/test/tasks/run_config_cleanup.yml
 
     - name: Remove all the temporary files created by the test.
-      include: roles/test/tasks/deinit_config_test.yml
+      include_tasks: roles/test/tasks/deinit_config_test.yml
 

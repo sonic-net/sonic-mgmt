@@ -9,13 +9,13 @@
 
 - name: Gathering connection facts about the DUT or leaffanout device
   conn_graph_facts: host={{ dut }}
-  connection: local
+  delegate_to: localhost
   tags: always
   register: devinfo
 
-- name: Gathering connection facts about the lab 
-  conn_graph_facts: 
-  connection: local
+- name: Gathering connection facts about the lab
+  conn_graph_facts:
+  delegate_to: localhost
   tags: always
   register: lab
 
@@ -26,11 +26,11 @@
 - name: Find the root fanout switch
   set_fact:
     ansible_host: "{{ lab_devices[item]['mgmtip'] }}"
-    root_dev: "{{ item }}" 
+    root_dev: "{{ item }}"
   with_items: "{{ lab_devices }}"
   when: lab_devices[item]['Type'] == 'FanoutRoot'
 
-- set_fact: 
+- set_fact:
     root_conn: "{{ lab.ansible_facts['device_conn'][root_dev] }}"
 
 - name: Change root fanout port vlan
