@@ -1,6 +1,7 @@
 import sys
 import os
 import glob
+import json
 import tarfile
 import logging
 import time
@@ -12,7 +13,7 @@ import ipaddr as ipaddress
 
 from ansible_host import AnsibleHost
 from collections import defaultdict
-from common.devices import SonicHost, Localhost, PTFHost
+from common.devices import SonicHost, Localhost, PTFHost, EosHost
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +101,7 @@ def testbed(request):
 
 
 @pytest.fixture(scope="module")
-def testbed_devices(ansible_adhoc, testbed):
+def testbed_devices(ansible_adhoc, testbed, creds):
     """
     @summary: Fixture for creating dut, localhost and other necessary objects for testing. These objects provide
         interfaces for interacting with the devices used in testing.
@@ -129,8 +130,11 @@ def testbed_devices(ansible_adhoc, testbed):
     #       from common.devices import FanoutHost
     #       devices["fanout"] = FanoutHost(ansible_adhoc, testbed["dut"])
 
+    vm_base = int(testbed['vm_base'][2:])
+    devices['neighbor'] = {}
+    for k, v in testbed['topo']['properties']['topology']['VMs'].items():
+        devices['neighbor'][k] = EosHost(ansible_adhoc, "VM%04d" % (vm_base + v['vm_offset']), creds['eos_login'], creds['eos_password'])
     return devices
-
 
 def disable_ssh_timout(dut):
     '''
@@ -199,10 +203,15 @@ def eos():
 def creds():
     """ read and yield lab configuration """
     files = glob.glob("../ansible/group_vars/lab/*.yml")
+    files += glob.glob("../ansible/group_vars/all/*.yml")
     creds = {}
     for f in files:
         with open(f) as stream:
-            creds.update(yaml.safe_load(stream))
+            v = yaml.safe_load(stream)
+            if v is not None:
+                creds.update(v)
+            else:
+                logging.info("skip empty var file {}".format(f))
     return creds
 
 
