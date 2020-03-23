@@ -3,7 +3,9 @@ import time
 import math
 import requests
 import pytest
+import logging
 import ipaddr as ipaddress
+logger = logging.getLogger(__name__)
 
 def announce_routes(ptfip, port, family, podset_number, tor_number, tor_subnet_number,
                     spine_asn, leaf_asn_start, tor_asn_start,
@@ -85,8 +87,8 @@ def announce_routes(ptfip, port, family, podset_number, tor_number, tor_subnet_n
     print r
     assert r.status_code == 200
 
-@pytest.fixture(scope='module')
 def fib_t0(ptfhost, testbed):
+    logger.info("use fib_t0 to setup routes for topo {}".format(testbed['topo']['name']))
 
     podset_number = 200
     tor_number = 16
@@ -143,8 +145,8 @@ def fib_t0(ptfhost, testbed):
                         spine_asn, leaf_asn_start, tor_asn_start,
                         local_ip, local_ipv6)
 
-@pytest.fixture(scope='module')
 def fib_t1_lag(ptfhost, testbed):
+    logger.info("use fib_t1_lag to setup routes for topo {}".format(testbed['topo']['name']))
 
     podset_number = 200
     tor_number = 16
@@ -207,3 +209,13 @@ def fib_t1_lag(ptfhost, testbed):
             announce_routes(ptfip, port, "v4", podset_number, tor_number, tor_subnet_number,
                             None, leaf_asn_start, tor_asn_start,
                             local_ip, local_ipv6, router_type="tor")
+
+@pytest.fixture(scope='module')
+def fib(ptfhost, testbed):
+    logger.info("setup fib to topo {}".format(testbed['topo']['name']))
+    if testbed['topo']['name'] == "t0":
+        fib_t0(ptfhost, testbed)
+    elif testbed['topo']['name'] == "t1-lag":
+        fib_t1_lag(ptfhost, testbed)
+    else:
+        logger.error("unknonw topology {}".format(testbed['topo']['name']))
