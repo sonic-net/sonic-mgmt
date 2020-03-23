@@ -41,7 +41,7 @@ def check_bgp_facts(hostname, host):
     if not res.has_key('stdout_lines') or u'BGP summary' not in res['stdout_lines'][0][0]:
         return "neighbor {} bgp not configured correctly".format(hostname)
 
-def test_neighbors_health(duthost, testbed_devices, eos):
+def test_neighbors_health(duthost, testbed_devices, nbrhosts, eos):
     """Check each neighbor device health"""
 
     fails = []
@@ -53,7 +53,7 @@ def test_neighbors_health(duthost, testbed_devices, eos):
         if failmsg:
             fails.append(failmsg)
 
-        eoshost = testbed_devices['neighbor'][k]
+        eoshost = nbrhosts[k]
         failmsg = check_eos_facts(k, v['mgmt_addr'], eoshost)
         if failmsg:
             fails.append(failmsg)
