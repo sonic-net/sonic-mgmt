@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import re
+import json
 import ipaddress
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
@@ -496,6 +497,54 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return rtinfo
 
+    def get_bgp_neighbor_info(self, neighbor_ip):
+        """
+        @summary: return bgp neighbor info
+
+        @param neighbor_ip: bgp neighbor IP
+        """
+        nbip = ipaddress.ip_address(neighbor_ip)
+        if nbip.version == 4:
+            out = self.command("vtysh -c \"show ip bgp neighbor {} json\"".format(neighbor_ip))
+        else:
+            out = self.command("vtysh -c \"show bgp ipv6 neighbor {} json\"".format(neighbor_ip))
+        nbinfo = json.loads(re.sub(r"\\\"", '"', re.sub(r"\\n", "", out['stdout'])))
+        logging.info("bgp neighbor {} info {}".format(neighbor_ip, nbinfo))
+
+        return nbinfo[str(neighbor_ip)]
+
+    def check_bgp_session_state(self, neigh_ips, state="established"):
+        """
+        @summary: check if current bgp session equals to the target state
+
+        @param neigh_ips: bgp neighbor IPs
+        @param state: target state
+        """
+        neigh_ok = []
+        bgp_facts = self.bgp_facts()['ansible_facts']
+        logging.info("bgp_facts: {}".format(bgp_facts))
+        for k, v in bgp_facts['bgp_neighbors'].items():
+            if v['state'] == state:
+                if k in neigh_ips:
+                    neigh_ok.append(k)
+        logging.info("bgp neighbors that match the state: {}".format(neigh_ok))
+        if len(neigh_ips) == len(neigh_ok):
+            return True
+
+        return False
+
+    def check_bgp_session_nsf(self, neighbor_ip):
+        """
+        @summary: check if bgp neighbor session enters NSF state or not
+
+        @param neighbor_ip: bgp neighbor IP
+        """
+        nbinfo = self.get_bgp_neighbor_info(neighbor_ip)
+        if nbinfo['bgpState'].lower() == "Active".lower():
+            if nbinfo['bgpStateIs'].lower() == "passiveNSF".lower():
+                return True
+        return False
+
 class EosHost(AnsibleHostBase):
     """
     @summary: Class for Eos switch
@@ -543,6 +592,52 @@ class EosHost(AnsibleHostBase):
             parents='interface %s' % interface_name)
         logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
         return out
+
+    def kill_bgpd(self):
+        out = self.host.eos_config(lines=['agent Rib shutdown'])
+        return out
+
+    def start_bgpd(self):
+        out = self.host.eos_config(lines=['no agent Rib shutdown'])
+        return out
+
+    def check_bgp_session_state(self, neigh_ips, neigh_desc, state="established"):
+        """
+        @summary: check if current bgp session equals to the target state
+
+        @param neigh_ips: bgp neighbor IPs
+        @param neigh_desc: bgp neighbor description
+        @param state: target state
+        """
+        neigh_ips_ok = []
+        neigh_desc_ok = []
+        out_v4 = self.host.eos_command(
+            commands=['show ip bgp summary | json'])[self.hostname]
+        logging.info("ip bgp summary: {}".format(out_v4))
+
+        out_v6 = self.host.eos_command(
+            commands=['show ipv6 bgp summary | json'])[self.hostname]
+        logging.info("ipv6 bgp summary: {}".format(out_v6))
+
+        for k, v in out_v4['stdout'][0]['vrfs']['default']['peers'].items():
+            if v['peerState'].lower() == state.lower():
+                if k in neigh_ips:
+                    neigh_ips_ok.append(neigh_ips)
+                if v['description'] in neigh_desc:
+                    neigh_desc_ok.append(v['description'])
+
+        for k, v in out_v6['stdout'][0]['vrfs']['default']['peers'].items():
+            if v['peerState'].lower() == state.lower():
+                if k in neigh_ips:
+                    neigh_ips_ok.append(neigh_ips)
+                if v['description'] in neigh_desc:
+                    neigh_desc_ok.append(v['description'])
+
+        if len(neigh_ips) == len(neigh_ips_ok) and len(neigh_desc) == len(neigh_desc_ok):
+            return True
+
+        return False
+
 
 class FanoutHost():
     """
