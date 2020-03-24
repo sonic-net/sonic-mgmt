@@ -592,7 +592,7 @@ class RandomFanStatusMocker(FanStatusMocker):
         for index in range(1, psu_count + 1):
             try:
                 fan_data = FanData(self.mock_helper, naming_rule, index)
-                # PSU fan speed diplay PWM not percentage, it should not be less than 100
+                # PSU fan speed display PWM not percentage, it should not be less than 100
                 speed = random.randint(101, RandomFanStatusMocker.PSU_FAN_MAX_SPEED)
                 fan_data.mock_speed(speed)
 
