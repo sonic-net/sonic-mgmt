@@ -58,7 +58,7 @@
         ptf_test_params:
         - vxlan_enabled=False
         - config_file='/tmp/vxlan_decap.json'
-        - count=10
+        - count=1
 
     - name: Configure vxlan decap tunnel
       shell: sonic-cfggen -j /tmp/vxlan_db.tunnel.json --write-to-db
@@ -78,7 +78,7 @@
         ptf_test_params:
         - vxlan_enabled=True
         - config_file='/tmp/vxlan_decap.json'
-        - count=10
+        - count=1
 
     - name: Remove vxlan tunnel maps configuration
       shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnelVxlan|map{{ item }}"
@@ -98,7 +98,7 @@
         ptf_test_params:
         - vxlan_enabled=False
         - config_file='/tmp/vxlan_decap.json'
-        - count=10
+        - count=1
 
 - block:
     - name: Remove vxlan tunnel maps configuration
