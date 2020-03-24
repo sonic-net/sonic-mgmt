@@ -153,7 +153,7 @@ def restart_exabgp(module, name):
 
     for count in range(0, 60):
         time.sleep(1)
-        ret = get_exabgp_status(module, name)
+        status = get_exabgp_status(module, name)
         if u'RUNNING' == status:
             break
     assert u'RUNNING' == status
