@@ -493,6 +493,7 @@ def turn_off_psu_and_check_thermal_control(dut, psu_ctrl, psu, mocker):
     wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, mocker.check_all_fan_speed, 100)
 
     psu_ctrl.turn_on_psu(psu["psu_id"])
+    time.sleep(5)
 
 
 @pytest.mark.disable_loganalyzer
