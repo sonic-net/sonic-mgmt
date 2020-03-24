@@ -52,6 +52,20 @@
       ]
     }
   },
+  "SlshSET1_1": {
+    "prefix-path": "ietf-interfaces:interfaces/interface[name='Loopback-1/1/0']",
+    "Updates" : {
+          "description": "For SlshInPfxPath1_1'",
+          "type": "iana-if-type:ethernetCsmacd"
+    }
+  },
+  "SlshSET1_2": {
+    "prefix-path": "ietf-interfaces:interfaces/interface[name='Loopback-1/1/0']",
+    "Updates" : {
+          "description": "For Modify with SlshInPfxPath1_2'",
+          "type": "iana-if-type:ethernetCsmacd"
+    }
+  },
   "PFXPath_MSet_1": {
     "prefix-path": "ietf-interfaces:interfaces",
     "Updates" : {

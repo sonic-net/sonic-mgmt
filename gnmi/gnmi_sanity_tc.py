@@ -1063,6 +1063,267 @@ def _test_Set_wTgt(stub):
         raise CafyException.VerificationError("Test Set_wTgt_1_4 failed due to Grpc Error {err}".format(err=e.details()))
 
 
+def _test_Path_with_slash(stub):
+    user = None
+    password = None
+    err_msg = list()
+
+    tData = ApData.zap.get_testcase_configuration("test_GetSet_Sanity1")
+    input_conf = json.loads(six.moves.builtins.open(tData["input_conf_file"], 'r').read())
+    #print(input_conf)
+
+    log.info('Performing SET-REPLACE w/Path consisting of "/" in element \n')
+    log.info('For this test we will use Path w/Element = "Loopback-1/1/0"')
+
+    try:
+        if 'SLASHSET_Sanity1_1' in input_conf:
+            set_info1 = input_conf['SLASHSET_Sanity1_1']
+            print(type(set_info1))
+            print(set_info1)
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1)
+            log.info(str(reply))
+            if ('response' in str(reply) and 'op: REPLACE' in str(reply)):
+                log.info("SLASHSET_Sanity1_1:Passed - was able to do SET-REPLACE with '/' in Path element")
+            else:
+                log.info("SLASHSET_Sanity1_1:Failed - was unable to do SET-REPLACE with '/' in Path element")
+            
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test SLASHSET_Sanity1_1 failed due to Grpc Error {err}".format(err=e.details()))
+
+
+
+    log.info('Performing SET-UPDATE w/Path consisting of "/" in element \n')
+    log.info('For this test we will use Path w/Element = "Loopback-2/2/0"')
+ 
+    try:
+        if 'SLASHSET_Sanity1_2' in input_conf:
+            set_info1 = input_conf['SLASHSET_Sanity1_2']
+            print(set_info1)
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'update', user, password, set_info1)
+            log.info(str(reply))
+            if ('response' in str(reply) and 'op: UPDATE' in str(reply)):
+                log.info("SLASHSET_Sanity1_2:Passed - was able to do SET-UPDATE with '/' in Path element")
+            else:
+                log.info("SLASHSET_Sanity1_2:Failed - was unable to do SET-UPDATE with '/' in Path element")
+            
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test SLASHSET_Sanity1_2 failed due to Grpc Error {err}".format(err=e.details()))
+
+
+
+    log.info('Performing SET-DELETE Request on Path with "/" in element \n')
+
+    try:
+        xpath = "/if:interfaces/interface[name=Loopback-1/1/0]"
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info1)
+        log.info(str(reply))
+        if ('response' in str(reply) and 'op: DELETE' in str(reply)):
+            log.info("SLASHSET_Sanity1_3:Passed - was able to do SET-DELETE with '/' in Path element")
+            #cleaning up the additional interface config also
+            xpath = "/if:interfaces/interface[name=Loopback-2/2/0]"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info1)
+        else:
+            log.error("SLASHSET_Sanity1_3:Failed - was unable to do SET-DELETE with '/' in Path element")
+            err_msg.append("SLASHSET_Sanity1_3:Failed - was unable to do SET-DELETE with '/' in Path element")
+
+        
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test SLASHSET_Sanity1_3 failed due to Grpc Error {err}".format(err=e.details()))
+
+    if len(err_msg) != 0:
+        log.error("Test_SLASHSET_Sanity failed due to : {}".format(*err_msg))
+        pytest.fail("Test_SLASHSET_Sanity failed due to : {}".format(*err_msg))
+    else:
+        log.info("Test_SLASHSET_Sanity - All sections passed")
+
+
+
+def _test_PfxPath_with_slash(stub):
+    user = None
+    password = None
+    err_msg = list()
+
+    tData = ApData.zap.get_testcase_configuration("test_gnmi_SetPfxPath")
+    input_conf = json.loads(six.moves.builtins.open(tData["input_conf_file"], 'r').read())
+    #print(input_conf)
+
+    log.info('Performing SET-REPLACE Request w/Prefix-Path consisting of "/" to target \n')
+    try:
+        if 'SlshSET1_1' in input_conf:
+            set_info1 = input_conf['SlshSET1_1']
+            print(set_info1['prefix-path'])
+            print(set_info1['Updates'])
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            pfx_path = gnmiTestLib._parse_path(gnmiTestLib._path_names(set_info1['prefix-path']))
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1['Updates'], pfx_path)
+            resp = str(reply)
+            log.info(resp)
+            sresp = "".join(resp.split('\n'))
+            log.info (sresp)
+            mt1 = 'prefix {  elem {    name: "ietf-interfaces:interfaces"  }'
+            #mt2 = 'response {  path {  }'
+            mt2 = 'response {  path {  }  op: REPLACE}'
+            if (mt1 in sresp and mt2 in sresp):
+                log.info("SlshInPfxPath1_1:Passed - was able to do SET-REPLACE with '/' in Prefix Path")
+            else:
+                log.info("SlshInPfxPath1_1:Failed - was unable to do SET-REPLACE with '/' in Prefix Path")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test SlshInPfxPath1_1 failed due to Grpc Error {err}".format(err=e.details()))
+
+
+    log.info('Performing SET-UPDATE Request w/Prefix-Path consisting of "/" to target \n')
+    try:
+        if 'SlshSET1_2' in input_conf:
+            set_info1 = input_conf['SlshSET1_2']
+            print(set_info1['prefix-path'])
+            print(set_info1['Updates'])
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            pfx_path = gnmiTestLib._parse_path(gnmiTestLib._path_names(set_info1['prefix-path']))
+            reply = gnmiTestLib._set(stub, paths, 'update', user, password, set_info1['Updates'], pfx_path)
+            resp = str(reply)
+            log.info(resp)
+            sresp = "".join(resp.split('\n'))
+            log.info (sresp)
+            mt1 = 'prefix {  elem {    name: "ietf-interfaces:interfaces"  }'
+            #mt2 = 'response {  path {  }'
+            mt2 = 'response {  path {  }  op: UPDATE}'
+            if (mt1 in sresp and mt2 in sresp):
+                log.info("SlshInPfxPath1_2:Passed - was able to do SET-UPDATE with '/' in Prefix Path")
+            else:
+                log.info("SlshInPfxPath1_2:Failed - was unable to do SET-UPDATE with '/' in Prefix Path")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test SlshInPfxPath1_2 failed due to Grpc Error {err}".format(err=e.details()))
+
+
+
+def _test_MultiKey(stub):
+    user = None
+    password = None
+    err_msg = list()
+
+    tData = ApData.zap.get_testcase_configuration("test_GetSet_Sanity1")
+    input_conf = json.loads(six.moves.builtins.open(tData["input_conf_file"], 'r').read())
+    #print(input_conf)
+
+    log.info('Performing SET-REPLACE w/Path consisting of Multiple Keys \n')
+    log.info('For this test we will use Path facility=KERNEL,severity=CRITICAL')
+
+    try:
+        if 'MKEYSET_Sanity1_1' in input_conf:
+            set_info1 = input_conf['MKEYSET_Sanity1_1']
+            print(type(set_info1))
+            print(set_info1)
+            xpath = "/openconfig-system:system/logging/console"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1)
+            resp = str(reply)
+            log.info(resp)
+            sresp = "".join(resp.split('\n'))
+            log.info (sresp.replace(" ", ""))
+            #mt1 = 'response {  path {    elem {      name: "openconfig-system:system"    }'
+            mt1 = 'response{path{elem{name:"openconfig-system:system"}elem{name:"logging"}elem{name:"console"}}op:REPLACE}'
+            if (mt1 in sresp.replace(" ", "")):
+                log.info("MKEYSET_Sanity1_1:Passed - was able to do SET-REPLACE w/Path consisting of Multiple Keys")
+            else:
+                log.info("MKEYSET_Sanity1_1:Failed - was unable to do SET-REPLACE w/Path consisting of Multiple Keys")
+            
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test MKEYSET_Sanity1_1 failed due to Grpc Error {err}".format(err=e.details())) 
+
+
+    log.info('Performing SET-UPDATE w/Path consisting of Multiple Keys \n')
+    log.info('For this test we will use Path facility=KERNEL,severity=ALERT')
+
+    try:
+        if 'MKEYSET_Sanity1_2' in input_conf:
+            set_info1 = input_conf['MKEYSET_Sanity1_2']
+            print(type(set_info1))
+            print(set_info1)
+            xpath = "/openconfig-system:system/logging/console"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'update', user, password, set_info1)
+            resp = str(reply)
+            log.info(resp)
+            sresp = "".join(resp.split('\n'))
+            log.info (sresp.replace(" ", ""))
+            mt1 = 'response{path{elem{name:"openconfig-system:system"}elem{name:"logging"}elem{name:"console"}}op:UPDATE}'
+            if (mt1 in sresp.replace(" ", "")):
+                log.info("MKEYSET_Sanity1_2:Passed - was able to do SET-UPDATE w/Path consisting of Multiple Keys")
+            else:
+                log.info("MKEYSET_Sanity1_2:Failed - was unable to do SET-UPDATE w/Path consisting of Multiple Keys")
+            
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test MKEYSET_Sanity1_2 failed due to Grpc Error {err}".format(err=e.details())) 
+
+
+
+    log.info('Performing SET-DELETE w/Path consisting of Multiple Keys \n')
+    try:
+        xpath = "/system/logging/console/selectors/selector"
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info1)
+        resp = str(reply)
+        log.info(resp)
+        sresp = "".join(resp.split('\n'))
+        log.info (sresp.replace(" ", ""))
+        mt1 = 'response{path{elem{name:"openconfig-system:system"}elem{name:"logging"}elem{name:"console"}}op:DELETE}'
+        if (mt1 in sresp.replace(" ", "")):
+            log.info("MKEYSET_Sanity1_3:Passed - was able to do SET-DELETE w/Path consisting of Multiple Keys")
+        else:
+            log.info("MKEYSET_Sanity1_3:Failed - was unable to do SET-DELETE w/Path consisting of Multiple Keys")
+            
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test MKEYSET_Sanity1_3 failed due to Grpc Error {err}".format(err=e.details())) 
+
+
 def _test_MultiSet_Sanity1(stub):
     user = None
     password = None

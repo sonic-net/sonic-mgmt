@@ -69,7 +69,6 @@ class TestGnmi(GnmiApBase):
     def test_Set_with_partial_val(self,stub):
         gnmi_san_tc._test_Set_with_partial_val(stub)
 
-
     def test_GetSet_OC_Components(self,stub):
         gnmi_san_tc._test_GetSet_OC_Components(stub)
 
@@ -135,4 +134,13 @@ class TestGnmi(GnmiApBase):
 
     def test_Tgt_in_NonPfx(self,stub):
         gnmi_san_tc._test_Tgt_in_NonPfx(stub) 
+
+    def test_Path_with_slash(self,stub):
+        gnmi_san_tc._test_Path_with_slash(stub)
+
+    def test_PfxPath_with_slash(self,stub):
+        gnmi_san_tc._test_PfxPath_with_slash(stub)
+
+    def test_MultiKey(self,stub):
+        gnmi_san_tc._test_MultiKey(stub)
 

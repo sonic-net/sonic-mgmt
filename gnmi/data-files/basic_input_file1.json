@@ -112,6 +112,50 @@
       }
     ]
   },
+  "SLASHSET_Sanity1_1": {
+      "ietf-interfaces:interfaces": {
+        "interface": [
+          {
+            "name": "Loopback-1/1/0",
+            "description": "For SlashSet_Replace1_1 TC",
+            "type": "iana-if-type:ethernetCsmacd"
+          }
+        ]
+      }
+  },
+  "SLASHSET_Sanity1_2": {
+      "ietf-interfaces:interfaces": {
+        "interface": [
+          {
+            "name": "Loopback-2/2/0",
+            "description": "For SlashSet_Update1_2 TC",
+            "type": "iana-if-type:ethernetCsmacd"
+          }
+        ]
+      }
+  },
+  "MKEYSET_Sanity1_1": {
+      "selectors": {
+        "selector": [
+          {
+            "facility": "openconfig-system-logging:KERNEL",
+            "severity": "CRITICAL",
+            "config": {"facility": "openconfig-system-logging:KERNEL","severity": "CRITICAL"}
+          }
+        ]
+      }
+  },
+  "MKEYSET_Sanity1_2": {
+      "selectors": {
+        "selector": [
+          {
+            "facility": "openconfig-system-logging:KERNEL",
+            "severity": "ALERT",
+            "config": {"facility": "openconfig-system-logging:KERNEL","severity": "ALERT"}
+          }
+        ]
+      }
+  },
   "MULTISET_Sanity1_1": {
     "set-type": "multiple",
     "set-lst": {
