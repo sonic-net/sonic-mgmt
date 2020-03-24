@@ -60,11 +60,18 @@ class TestbedInfo(object):
                 del line['topo']
                 line['topo'] = defaultdict()
                 line['topo']['name'] = topo
+                line['topo']['type'] = self.get_testbed_type(line['topo']['name'])
                 with open("../ansible/vars/topo_{}.yml".format(topo), 'r') as fh:
                     line['topo']['properties'] = yaml.safe_load(fh)
 
                 self.testbed_topo[line['conf-name']] = line
 
+    def get_testbed_type(self, topo_name):
+        testbed_type = ['t0', 't1', 'ptf']
+        for val in testbed_type:
+            if topo_name.find(val) != -1:
+                return val
+        raise Exception("Unsupported testbed type - {}".format(topo_name))
 
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
