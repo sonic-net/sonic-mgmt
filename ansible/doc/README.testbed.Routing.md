@@ -57,7 +57,7 @@ This approach has several advantages
 - Exabgp can generate complex routes.
 - Easy to support different NOS as neigbhor devices, for example SONiC VM.
 
-Implementation details:
+## Implementation details:
 - exabgp ansible module to control exabgp service in PTF docker
   - create, remove, restart exabgp service
   - each exabgp instance listen to a http port for route announce/withdraw
@@ -66,11 +66,38 @@ Implementation details:
   - fib module generate http request to exabgp instance
 - exabgp and VM have iBGP connection to exchange routes (v4 and v6 are separated)
 
-Future applications:
+## Future applications:
 - multi-path relax test. pytest will instruct multiple exabgp instances to advertise 
 same VIP to different T0 VM.
 - add/remove routes test. pytest will control exabgp to advertise/withdraw routes
 
+## How to use exabgp module
+
+start an exabgp instance
+```python
+        ptfhost.exabgp(name=k,
+                       state="started", \
+                       router_id = 10.0.0.1, \
+                       local_ip  = 10.0.0.1, \
+                       peer_ip   = 10.0.0.2, \
+                       local_asn = 65100, \
+                       peer_asn  = 65100, \
+                       port = 6000)
+```
+
+use a fib fixture. The fixture will detect your testbed type and then generate routes based your testbed type.
+
+```python
+import pytest
+
+def test_announce_routes(fib):
+    """Simple test case that utilize fib to announce route in order to a newly setup test bed receive
+       BGP routes from remote devices
+    """
+    assert True
+```
+
+## Q&A
 Q: Why not use exabgp to advertise routes directly to the DUT?
 A: Yes, we can. But, we could not simulate the BGP over LAG as there is no LAG protocol 
 running inside the PTF docker.
