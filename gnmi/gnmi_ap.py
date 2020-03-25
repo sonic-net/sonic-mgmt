@@ -57,6 +57,7 @@ def gnmi_conn():
 
 class TestGnmi(GnmiApBase):
 
+
     def test_Neg_set_with_vld_del_inv_upd(self,stub):
         gnmi_san_tc._test_Neg_set_with_vld_del_inv_upd(stub)
 
@@ -143,4 +144,7 @@ class TestGnmi(GnmiApBase):
 
     def test_MultiKey(self,stub):
         gnmi_san_tc._test_MultiKey(stub)
+
+    def test_PfxPath_with_MultiKey(self,stub):
+        gnmi_san_tc._test_PfxPath_with_MultiKey(stub)
 

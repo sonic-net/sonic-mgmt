@@ -1324,6 +1324,81 @@ def _test_MultiKey(stub):
         raise CafyException.VerificationError("Test MKEYSET_Sanity1_3 failed due to Grpc Error {err}".format(err=e.details())) 
 
 
+
+def _test_PfxPath_with_MultiKey(stub):
+    user = None
+    password = None
+    err_msg = list()
+
+    tData = ApData.zap.get_testcase_configuration("test_gnmi_SetPfxPath")
+    input_conf = json.loads(six.moves.builtins.open(tData["input_conf_file"], 'r').read())
+    #print(input_conf)
+
+    log.info('Performing SET-REPLACE Request w/Prefix-Path consisting of Multikey to target \n')
+    try:
+        if 'MKEYPfx_SET1_1' in input_conf:
+            set_info1 = input_conf['MKEYPfx_SET1_1']
+            print(set_info1['prefix-path'])
+            print(set_info1['Updates'])
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            pfx_path = gnmiTestLib._parse_path(gnmiTestLib._path_names(set_info1['prefix-path']))
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1['Updates'], pfx_path)
+            resp = str(reply)
+            log.info(resp)
+            sresp = "".join(resp.split('\n'))
+            log.info (sresp.replace(" ", ""))
+            mt1 = 'prefix{elem{name:"openconfig-system:system"}elem{name:"logging"}elem{name:"console"}elem{name:"selectors"}'
+            mt2 = 'elem{name:"selector"key{key:"facility"value:"openconfig-system-logging:KERNEL"}'
+            mt3 = 'key{key:"severity"value:"CRITICAL"}}}response{path{}op:REPLACE}'
+                   
+            if (mt1+mt2+mt3 in sresp.replace(" ", "")):
+                log.info("PfxPath_wMKEYSET1_1:Passed - was able to do SET-REPLACE w/PfxPath consisting of Multiple Keys")
+            else:
+                log.info("PfxPath_wMKEYSET1_1:Failed - was unable to do SET-REPLACE w/PfxPath consisting of Multiple Keys")
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test PfxPath_wMKEYSET1_1 failed due to Grpc Error {err}".format(err=e.details()))
+
+    log.info('Performing SET-UPDATE Request w/Prefix-Path consisting of Multikey to target \n')
+    try:
+        if 'MKEYPfx_SET1_1' in input_conf:
+            set_info1 = input_conf['MKEYPfx_SET1_2']
+            print(set_info1['prefix-path'])
+            print(set_info1['Updates'])
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            pfx_path = gnmiTestLib._parse_path(gnmiTestLib._path_names(set_info1['prefix-path']))
+            reply = gnmiTestLib._set(stub, paths, 'update', user, password, set_info1['Updates'], pfx_path)
+            resp = str(reply)
+            log.info(resp)
+            sresp = "".join(resp.split('\n'))
+            log.info (sresp.replace(" ", ""))
+            mt1 = 'prefix{elem{name:"openconfig-system:system"}elem{name:"logging"}elem{name:"console"}elem{name:"selectors"}'
+            mt2 = 'elem{name:"selector"key{key:"facility"value:"openconfig-system-logging:KERNEL"}'
+            mt3 = 'key{key:"severity"value:"ALERT"}}}response{path{}op:UPDATE}'
+                   
+            if (mt1+mt2+mt3 in sresp.replace(" ", "")):
+                log.info("PfxPath_wMKEYSET1_2:Passed - was able to do SET-UPDATE w/PfxPath consisting of Multiple Keys")
+            else:
+                log.info("PfxPath_wMKEYSET1_2:Failed - was unable to do SET-UPDATE w/PfxPath consisting of Multiple Keys")
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test PfxPath_wMKEYSET1_2 failed due to Grpc Error {err}".format(err=e.details()))
+
+
+
+
 def _test_MultiSet_Sanity1(stub):
     user = None
     password = None
@@ -1780,6 +1855,7 @@ def _test_set_with_mul_attr_val(stub):
         pytest.fail("Test test_set_with_mul_attr_val failed due to : {}".format(*err_msg))
     else:
         log.info("Test test_set_with_mul_attr_val - Passed")
+
 
 def _test_Set_with_partial_val(stub):
     user = None

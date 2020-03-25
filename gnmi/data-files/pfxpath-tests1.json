@@ -66,6 +66,18 @@
           "type": "iana-if-type:ethernetCsmacd"
     }
   },
+  "MKEYPfx_SET1_1": {
+    "prefix-path": "/openconfig-system:system/logging/console/selectors/selector[facility=openconfig-system-logging:KERNEL][severity=CRITICAL]",
+    "Updates" : {
+        "config": {"facility": "openconfig-system-logging:KERNEL","severity": "CRITICAL"}
+      }
+  },
+  "MKEYPfx_SET1_2": {
+    "prefix-path": "/openconfig-system:system/logging/console/selectors/selector[facility=openconfig-system-logging:KERNEL][severity=ALERT]",
+    "Updates" : {
+        "config": {"facility": "openconfig-system-logging:KERNEL","severity": "ALERT"}
+      }
+  },
   "PFXPath_MSet_1": {
     "prefix-path": "ietf-interfaces:interfaces",
     "Updates" : {
