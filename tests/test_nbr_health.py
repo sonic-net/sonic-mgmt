@@ -26,13 +26,19 @@ def check_eos_facts(hostname, mgmt_addr, host):
     except:
         return "neighbor {} has no eos_facts".format(hostname)
 
-    try:
-        mgmt_ip = eos_facts['ansible_net_interfaces']['Management0']['ipv4']['address']
-    except:
-        return "neighbor {} managment address not assigned".format(hostname)
+    mgmt_ifnames = [ x for x in eos_facts['ansible_net_interfaces'] if x.startswith('Management') ]
+    if len(mgmt_ifnames) == 0:
+        return "there is no management interface in neighbor {}".format(hostname)
+    for ifname in mgmt_ifnames:
+        try:
+            mgmt_ip = eos_facts['ansible_net_interfaces'][ifname]['ipv4']['address']
+        except Exception as e:
+            logger.info("interface {} has no managment address on neighbor {}".format(ifname, hostname))
 
-    if mgmt_ip != mgmt_addr:
-        return "neighbor {} management address {} not correct".format(hostname, mgmt_ip)
+        if mgmt_ip == mgmt_addr:
+            return
+
+    return "neighbor {} has no management address {}".format(hostname, mgmt_ip)
 
 def check_bgp_facts(hostname, host):
     logger.info("Check neighbor {} bgp facts".format(hostname))
