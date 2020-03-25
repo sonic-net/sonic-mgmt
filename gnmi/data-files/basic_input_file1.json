@@ -182,6 +182,71 @@
         }
      }
    }
+  },
+  "MULTISET_Mkey1_1": {
+    "set-type": "multiple",
+    "set-lst": {
+      "set-replace": {
+        "ietf-interfaces:interfaces": {
+          "interface": [
+            {
+              "name": "Loopback678",
+              "description": "For MULTISET_Mkey1_1",
+              "type": "iana-if-type:ethernetCsmacd"
+            }
+          ]
+        }
+     },
+      "set-update": {
+       "openconfig-system:system": {
+        "logging": {
+          "console": {
+            "selectors": {
+              "selector": [
+                {
+                  "facility": "openconfig-system-logging:KERNEL",
+                  "severity": "DEBUG",
+                  "config": {"facility": "openconfig-system-logging:KERNEL","severity": "DEBUG"}
+                }
+              ]
+          }}}
+        }
+      }
+    }
+  },
+  "MULTISET_Mkey1_2": {
+    "set-type": "multiple",
+    "set-lst": {
+      "set-replace": {
+       "openconfig-system:system": {
+        "logging": {
+          "console": {
+            "selectors": {
+              "selector": [
+                {
+                  "facility": "openconfig-system-logging:KERNEL",
+                  "severity": "WARNING",
+                  "config": {"facility": "openconfig-system-logging:KERNEL","severity": "WARNING"}
+                }
+              ]
+          }}}
+        }
+      },
+      "set-update": {
+       "openconfig-system:system": {
+        "logging": {
+          "console": {
+            "selectors": {
+              "selector": [
+                {
+                  "facility": "openconfig-system-logging:KERNEL",
+                  "severity": "ERROR",
+                  "config": {"facility": "openconfig-system-logging:KERNEL","severity": "ERROR"}
+                }
+              ]
+          }}}
+        }
+      }
+    }
   }
-
 }

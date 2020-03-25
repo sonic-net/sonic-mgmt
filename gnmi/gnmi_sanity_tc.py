@@ -1396,6 +1396,28 @@ def _test_PfxPath_with_MultiKey(stub):
         printGrpcError(e)
         raise CafyException.VerificationError("Test PfxPath_wMKEYSET1_2 failed due to Grpc Error {err}".format(err=e.details()))
 
+    log.info('Performing SET-DELETE to CLEANUP above config of Multiple Keys \n')
+    try:
+        xpath = "/system/logging/console/selectors/selector"
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info1)
+        resp = str(reply)
+        log.info(resp)
+        sresp = "".join(resp.split('\n'))
+        log.info (sresp.replace(" ", ""))
+        mt1 = 'response{path{elem{name:"openconfig-system:system"}elem{name:"logging"}elem{name:"console"}}op:DELETE}'
+        if (mt1 in sresp.replace(" ", "")):
+            log.info("PfxPath_wMKEYSET1_3:Passed - was able to do SET-DELETE w/Path consisting of Multiple Keys")
+        else:
+            log.info("PfxPath_wMKEYSET1_3:Failed - was unable to do SET-DELETE w/Path consisting of Multiple Keys")
+            
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test PfxPath_wMKEYSET1_3 failed due to Grpc Error {err}".format(err=e.details())) 
 
 
 
@@ -1423,6 +1445,91 @@ def _test_MultiSet_Sanity1(stub):
         log.error(e)
         printGrpcError(e)
         raise CafyException.VerificationError("Test SETReq_Del1_2 failed due to Grpc Error {err}".format(err=e.details()))            
+
+
+def _test_MultiSet_Mkey1(stub):
+    user = None
+    password = None
+    err_msg = list()
+
+    input_conf = json.loads(six.moves.builtins.open(ApData.input_conf_file, 'r').read())
+    #print(input_conf)
+
+    log.info('Performing SET Request w/Multiple Ops(REPLACE+UPDATE) on Paths consisting of Regular & Multikey \n')
+    try:
+        if 'MULTISET_Mkey1_1' in input_conf:
+            set_info1 = input_conf['MULTISET_Mkey1_1']
+            print(set_info1)
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            if set_info1['set-type'] == 'multiple':
+                reply = gnmiTestLib._set(stub, paths, 'multiple', user, password, set_info1)
+                resp = str(reply)
+                log.info(resp)
+                sresp = "".join(resp.split('\n'))
+                log.info (sresp.replace(" ", ""))
+                mt1 = 'response{path{}op:REPLACE}response{path{}op:UPDATE}'
+                if (mt1 in sresp.replace(" ", "")):
+                    log.info("MSET_Mkey1_1:Passed - was able to do Multi-Set w/Paths including Regular & Multiple Keys")
+                else:
+                    log.info("MSET_Mkey1_1:Failed - was unable to do SET-DELETE w/Path including Regular & Multiple Keys")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test MSET_Mkey1_1 failed due to Grpc Error {err}".format(err=e.details()))
+
+
+    log.info('Performing SET Request w/Multiple Ops(REPLACE+UPDATE) on Paths consisting of only Multikeys \n')
+    try:
+        if 'MULTISET_Mkey1_2' in input_conf:
+            set_info1 = input_conf['MULTISET_Mkey1_2']
+            print(set_info1)
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            if set_info1['set-type'] == 'multiple':
+                reply = gnmiTestLib._set(stub, paths, 'multiple', user, password, set_info1)
+                resp = str(reply)
+                log.info(resp)
+                sresp = "".join(resp.split('\n'))
+                log.info (sresp.replace(" ", ""))
+                mt1 = 'response{path{}op:REPLACE}response{path{}op:UPDATE}'
+                if (mt1 in sresp.replace(" ", "")):
+                    log.info("MSET_Mkey1_2:Passed - was able to do Multi-Set w/Paths consisting of only Multikeys")
+                else:
+                    log.info("MSET_Mkey1_2:Failed - was unable to do SET-DELETE w/Paths consisting of only Multikeys")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test MSET_Mkey1_2 failed due to Grpc Error {err}".format(err=e.details()))
+
+    log.info('Performing SET-DELETE to CLEANUP above config of MultiSet w/Multiple Keys \n')
+    try:
+        xpath = "/system/logging/console/selectors/selector"
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info1)
+        resp = str(reply)
+        log.info(resp)
+        sresp = "".join(resp.split('\n'))
+        log.info (sresp.replace(" ", ""))
+        mt1 = 'response{path{elem{name:"openconfig-system:system"}elem{name:"logging"}elem{name:"console"}}op:DELETE}'
+        if (mt1 in sresp.replace(" ", "")):
+            log.info("MSET_Mkey1_3:Passed - was able to do SET-DELETE w/Path consisting MultiSet of Multiple Keys")
+        else:
+            log.info("MSET_Mkey1_3:Failed - was unable to do SET-DELETE w/Path consisting MultiSet of Multiple Keys")
+            
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        raise CafyException.VerificationError("Test MSET_Mkey1_3 failed due to Grpc Error {err}".format(err=e.details())) 
 
 
 def _test_PfxPath_MSet1(stub):
