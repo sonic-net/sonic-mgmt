@@ -31,7 +31,7 @@ class HashTest(BaseTest):
     # Class variables
     #---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
-    BALANCING_TEST_TIMES = 1000
+    BALANCING_TEST_TIMES = 10000
 
     def __init__(self):
         '''
