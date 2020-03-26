@@ -6,6 +6,7 @@ import logging
 import os
 
 from ptf_runner import ptf_runner
+from common.devices import AnsibleHostBase
 
 @pytest.fixture(scope="module")
 def common_setup_teardown(duthost, ptfhost, testbed, conn_graph_facts):
@@ -23,7 +24,7 @@ def common_setup_teardown(duthost, ptfhost, testbed, conn_graph_facts):
     # Copy PTF test into PTF-docker for test LACP DU
     test_files = ['lag_test.py', 'acs_base_test.py', 'router_utils.py']
     for test_file in test_files:
-        src = "roles/test/files/acstests/%s" % test_file
+        src = "../ansible/roles/test/files/acstests/%s" % test_file
         dst = "/tmp/%s" % test_file
         ptfhost.copy(src=src, dest=dst)
 
@@ -37,21 +38,17 @@ def common_setup_teardown(duthost, ptfhost, testbed, conn_graph_facts):
     if testbed_type not in support_testbed_types:
         pytest.skip("Not support given test bed type %s" % testbed_type)
 
-    # TODO: dut_mac might useful for other test cases
-    host_facts  = duthost.setup()['ansible_facts']
-    dut_mac = host_facts['ansible_Ethernet0']['macaddress']
+    yield ptfhost, testbed, vm_neighbors, mg_facts, lag_facts
 
-    yield ptfhost, vm_neighbors, mg_facts, lag_facts
-
-def test_lag_2(common_setup_teardown, ansible_adhoc):
-    ptfhost, vm_neighbors, mg_facts, lag_facts = common_setup_teardown
+def test_lag_2(common_setup_teardown, nbrhosts):
+    ptfhost, testbed, vm_neighbors, mg_facts, lag_facts = common_setup_teardown
 
     # Test for each lag
     for lag_name in lag_facts['names']:
-        check_single_lag_lacp_rate(common_setup_teardown, ansible_adhoc, lag_name)
+        check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name)
 
-def check_single_lag_lacp_rate(common_setup_teardown, ansible_adhoc, lag_name):
-    ptfhost, vm_neighbors, mg_facts, lag_facts = common_setup_teardown
+def check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name):
+    ptfhost, testbed, vm_neighbors, mg_facts, lag_facts = common_setup_teardown
     logging.info("Start checking single lap lacp rate for: %s" % lag_name)
     
     po_interfaces = lag_facts['lags'][lag_name]['po_config']['ports']
@@ -59,8 +56,6 @@ def check_single_lag_lacp_rate(common_setup_teardown, ansible_adhoc, lag_name):
 
     # Figure out remote VM and interface info
     peer_device = vm_neighbors[intf]['name']
-    peer_hwsku = 'Arista-VM'
-    peer_host = mg_facts['minigraph_devices'][peer_device]['mgmt_addr']
 
     # Prepare for the remote VM interfaces that using PTF docker to check if the LACP DU packet rate is correct
     iface_behind_lag_member = []
@@ -72,39 +67,30 @@ def check_single_lag_lacp_rate(common_setup_teardown, ansible_adhoc, lag_name):
     for po_interface in po_interfaces:
         neighbor_lag_intfs.append(vm_neighbors[po_interface]['port'])
 
-    # TODO: The labinfo.json is not standard because it uses a single quote which
-    #       is not allowed by json module. Although ast.literal_eval can by pass this issue,
-    #       i still think it is make sense to update the json file itself instead of use another module
-    with open('../ansible/group_vars/all/labinfo.json') as f:
-        lab_info = json.load(f)
-
     try:
         lag_rate_current_setting = None
-        logging.info("All is well now: %s" % peer_host)
-        switch_login = lab_info['switch_login'][peer_hwsku]
-        eos_host = ansible_adhoc(become=True, user=switch_login['user'], password=switch_login['passwd'])[peer_host]
+
+        # Get the vm host(veos) by it host name
+        vm_host = nbrhosts[peer_device]
 
         # Make sure all lag members on VM are set to fast
-        # TODO: login peer_host and use action [apswitch]
-        # Use arista.py - e.g. advanced-reboot.py instead
-        # Another choice: eos_config ansible
-        # Login information //labinfo.json
+        logging.info("Changing lacp rate to fast for %s" % neighbor_lag_intfs[0])
+        set_interface_lacp_rate(vm_host, neighbor_lag_intfs[0], 'fast')
         lag_rate_current_setting = 'fast'
         time.sleep(5)
-        verify_lag_lacp_timing(ptfhost, peer_device, 1, iface_behind_lag_member[0])
-        verify_lag_lacp_timing(ptfhost, peer_device, 1, iface_behind_lag_member[1])
+        for iface_behind_lag in iface_behind_lag_member:
+            verify_lag_lacp_timing(ptfhost, peer_device, 1, iface_behind_lag)
 
         # Make sure all lag members on VM are set to slow
-        # TODO: login peer_host and use action [apswitch]
+        set_interface_lacp_rate(vm_host, neighbor_lag_intfs[0], 'normal')
         lag_rate_current_setting = 'slow'
         time.sleep(5)
-        verify_lag_lacp_timing(ptfhost, peer_device, 30, iface_behind_lag_member[0])
-        verify_lag_lacp_timing(ptfhost, peer_device, 30, iface_behind_lag_member[1])
+        for iface_behind_lag in iface_behind_lag_member:
+            verify_lag_lacp_timing(ptfhost, peer_device, 30, iface_behind_lag)
     finally:
         # Restore lag rate setting on VM in case of failure
         if lag_rate_current_setting == 'fast':
-            # TODO: login peer_host and use action [apswitch]
-            print "fast"
+            set_interface_lacp_rate(vm_host, neighbor_lag_intfs[0], 'normal')
 
 def verify_lag_lacp_timing(ptfhost, vm_name, lacp_timer, exp_iface):
     if exp_iface is None:
@@ -115,10 +101,10 @@ def verify_lag_lacp_timing(ptfhost, vm_name, lacp_timer, exp_iface):
         'exp_iface': exp_iface,
         'timeout': 35,
         'packet_timing': lacp_timer,
-        'ether_type': '0x8809',
+        'ether_type': 0x8809,
         'interval_count': 3
     }
-    ptf_runner(ptfhost, '.', "lag_test.LacpTimingTest", 'ptftests', params=params)
+    ptf_runner(ptfhost, '/tmp', "lag_test.LacpTimingTest", '/root/ptftests', params=params)
 
 @pytest.fixture(scope="module")
 def conn_graph_facts(testbed_devices):
@@ -132,3 +118,9 @@ def get_conn_graph_facts(testbed_devices, host):
     lab_conn_graph_file = os.path.join(base_path, "../ansible/files/lab_connection_graph.xml")
     result = localhost.conn_graph_facts(host=host, filename=lab_conn_graph_file)['ansible_facts']
     return result
+
+def set_interface_lacp_rate(vm_host, intf, mode):
+    vm_host.eos_config(
+        lines=['lacp rate %s' % mode],
+        parents='interface %s' % intf)
+    logging.info("Set interface [%s] lacp rate to [%s]" % (intf, mode))
