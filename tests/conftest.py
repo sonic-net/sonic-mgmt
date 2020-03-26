@@ -67,11 +67,11 @@ class TestbedInfo(object):
                 self.testbed_topo[line['conf-name']] = line
 
     def get_testbed_type(self, topo_name):
-        testbed_type = ['t0', 't1', 'ptf']
-        for val in testbed_type:
-            if topo_name.find(val) != -1:
-                return val
-        raise Exception("Unsupported testbed type - {}".format(topo_name))
+        pattern = re.compile(r'^(t0|t1|ptf)')
+        match = pattern.match(topo_name)
+        if match == None:
+            raise Exception("Unsupported testbed type - {}".format(topo_name))
+        return match.group()
 
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
