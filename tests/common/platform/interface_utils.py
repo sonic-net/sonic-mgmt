@@ -4,6 +4,7 @@ Helper script for checking status of interfaces
 This script contains re-usable functions for checking status of interfaces on SONiC.
 """
 import logging
+from transceiver_utils import all_transceivers_detected
 
 
 def parse_intf_status(lines):
@@ -68,6 +69,17 @@ def check_interface_status(dut, interfaces):
     down_ports = intf_facts["ansible_interface_link_down_ports"]
     if len(down_ports) != 0:
         logging.info("Some interfaces are down: %s" % str(down_ports))
+        return False
+
+    return True
+
+
+def check_interface_information(dut, interfaces):
+    if not all_transceivers_detected(dut, interfaces):
+        logging.info("Not all transceivers are detected")
+        return False
+    if not check_interface_status(dut, interfaces):
+        logging.info("Not all interfaces are up")
         return False
 
     return True
