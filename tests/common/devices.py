@@ -324,5 +324,6 @@ class EosHost(AnsibleHostBase):
         evars = { 'ansible_connection':'network_cli', \
                   'ansible_network_os':'eos', \
                   'ansible_user': user, \
-                  'ansible_password': passwd }
+                  'ansible_password': passwd, \
+                  'ansible_become_method': 'enable' }
         self.host.options['variable_manager'].extra_vars.update(evars)
