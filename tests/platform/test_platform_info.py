@@ -443,7 +443,9 @@ def test_thermal_control_psu_absence(testbed_devices, psu_controller, mocker_fac
 
         restart_thermal_control_daemon(dut)
         logging.info('Wait and check all FAN speed turn to 60%...')
-        wait_result = wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, fan_mocker.check_all_fan_speed,
+        wait_result = wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
+                                 THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                                 fan_mocker.check_all_fan_speed,
                                  60)
         if not wait_result:
              pytest.skip("FAN speed is not 60%, there might be abnormal in FAN/PSU, skip rest of the testing in this case")
@@ -466,7 +468,9 @@ def test_thermal_control_psu_absence(testbed_devices, psu_controller, mocker_fac
             pytest.skip("Some PSU are still down, skip rest of the testing in this case")
 
         logging.info('Wait and check all FAN speed turn to 65%...')
-        assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, fan_mocker.check_all_fan_speed,
+        assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
+                          THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                          fan_mocker.check_all_fan_speed,
                           65), 'FAN speed not change to 65% according to policy'
 
 
@@ -490,7 +494,9 @@ def turn_off_psu_and_check_thermal_control(dut, psu_ctrl, psu, mocker):
 
     assert psu_under_test is not None, "No PSU is turned off"
     logging.info('Wait and check all FAN speed turn to 100%...')
-    assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, mocker.check_all_fan_speed, 
+    assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
+                      THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                      mocker.check_all_fan_speed,
                       100), 'FAN speed not turn to 100% after PSU off'
 
     psu_ctrl.turn_on_psu(psu["psu_id"])
