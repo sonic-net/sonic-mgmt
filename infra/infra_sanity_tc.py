@@ -283,7 +283,7 @@ def _test_Flap_Intf_LS():
     
     try:
         if 'FLAP_INTF_UP' in gnmi_input_conf:
-            set_info = gnmi_input_conf['FLAP_INTF']['config']
+            set_info = gnmi_input_conf['FLAP_INTF_UP']['config']
             xpath = "/"
             paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
             reply = gnmiTestLib._set(stub, paths, 'update', user, password, set_info)
@@ -319,8 +319,8 @@ def _test_Flap_Intf_LS():
 
     index = None
     if 'FLAP_INTF_UP' in input_conf:
-        slot_list = input_conf['FLAP_INTF_DOWN']['SLOT_LIST']
-        verify_status_list = input_conf['FLAP_INTF_DOWN']['VERIFY']['Status']
+        slot_list = input_conf['FLAP_INTF_UP']['SLOT_LIST']
+        verify_status_list = input_conf['FLAP_INTF_UP']['VERIFY']['Status']
         for slot_num,status in zip(slot_list, verify_status_list):
             cmd = "sudo /usr/cisco/godiva/optics/opticsd -laser_status {}\n".format(slot_num)
             reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
