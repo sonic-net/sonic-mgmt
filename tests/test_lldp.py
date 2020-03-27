@@ -4,7 +4,7 @@ import pytest
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_check_topo(testbed):
-    if testbed['topo']['name'] in ('ptf32','ptf64'):
+    if testbed['topo']['type'] == 'ptf':
         pytest.skip('Unsupported topology')
 
 logger = logging.getLogger(__name__)
