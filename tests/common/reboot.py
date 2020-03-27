@@ -2,6 +2,7 @@ import time
 import logging
 from multiprocessing.pool import ThreadPool, TimeoutError
 from ansible_host import AnsibleModuleException
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -9,16 +10,47 @@ logger = logging.getLogger(__name__)
 SONIC_SSH_PORT  = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
-# map reboot type -> reboot command
-reboot_commands =\
-{
-    'cold': 'reboot',
-    'fast': 'fast-reboot',
-    'warm': 'warm-reboot',
+REBOOT_TYPE_WARM = "warm"
+REBOOT_TYPE_COLD = "cold"
+REBOOT_TYPE_FAST = "fast"
+REBOOT_TYPE_POWEROFF = "power off"
+REBOOT_TYPE_WATCHDOG = "watchdog"
+REBOOT_TYPE_UNKNOWN  = "Unknown"
+
+reboot_ctrl_dict = {
+    REBOOT_TYPE_POWEROFF: {
+        "timeout": 300,
+        "cause": "Power Loss",
+        "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_COLD: {
+        "command": "reboot",
+        "timeout": 300,
+        "cause": "'reboot'",
+        "test_reboot_cause_only": False
+    },
+    REBOOT_TYPE_FAST: {
+        "command": "fast-reboot",
+        "timeout": 180,
+        "cause": "fast-reboot",
+        "test_reboot_cause_only": False
+    },
+    REBOOT_TYPE_WARM: {
+        "command": "warm-reboot",
+        "timeout": 180,
+        "cause": "warm-reboot",
+        "test_reboot_cause_only": False
+    },
+    REBOOT_TYPE_WATCHDOG: {
+        "command": "python -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog().arm(5); exit()\"",
+        "timeout": 300,
+        "cause": "Watchdog",
+        "test_reboot_cause_only": True
+    }
 }
 
 
-def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=180, wait=120):
+def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=180, wait=120, reboot_helper=None, reboot_kwargs=None):
     """
     reboots DUT
     :param duthost: DUT host object
@@ -27,6 +59,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=180, wait=1
     :param delay: delay between ssh availability checks
     :param timeout: timeout for waiting ssh port state change
     :param wait: time to wait for DUT to initialize
+    :param reboot_helper: helper function to execute the power toggling
+    :param reboot_kwargs: arguments to pass to the reboot_helper
     :return:
     """
 
@@ -35,15 +69,26 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=180, wait=1
     dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
 
     try:
-        reboot_command = reboot_commands[reboot_type]
+        reboot_ctrl    = reboot_ctrl_dict[reboot_type]
+        reboot_command = reboot_ctrl['command'] if reboot_type != REBOOT_TYPE_POWEROFF else None
     except KeyError:
         raise ValueError('invalid reboot type: "{}"'.format(reboot_type))
 
-    def execute_reboot():
+    def execute_reboot_command():
         logger.info('rebooting with command "{}"'.format(reboot_command))
         return duthost.command(reboot_command)
 
-    reboot_res = pool.apply_async(execute_reboot)
+    def execute_reboot_helper():
+        logger.info('rebooting with helper "{}"'.format(reboot_helper))
+        return reboot_helper(reboot_kwargs)
+
+    dut_datetime = datetime.strptime(duthost.command('date -u +"%Y-%m-%d %H:%M:%S"')["stdout"], "%Y-%m-%d %H:%M:%S")
+
+    if reboot_type != REBOOT_TYPE_POWEROFF:
+        reboot_res = pool.apply_async(execute_reboot_command)
+    else:
+        assert reboot_helper is not None, "A reboot function must be provided for power off reboot"
+        reboot_res = pool.apply_async(execute_reboot_helper)
 
     logger.info('waiting for ssh to drop')
     res = localhost.wait_for(host=dut_ip,
@@ -86,7 +131,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=180, wait=1
         count = 0
         while finalizer_state == 'activating':
             try:
-                res = duthost.command('systemctl is-active warmboot-finalizer.service')
+                res = duthost.command('systemctl is-active warmboot-finalizer.service',module_ignore_errors=True)
             except AnsibleModuleException as err:
                 res = err.module_result
 
@@ -100,3 +145,23 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=180, wait=1
     logger.info('{} reboot finished'.format(reboot_type))
 
     pool.terminate()
+
+    dut_uptime = datetime.strptime(duthost.command("uptime -s")["stdout"], "%Y-%m-%d %H:%M:%S")
+    logger.info('DUT up since {}'.format(dut_uptime))
+    assert float(dut_uptime.strftime("%s")) - float(dut_datetime.strftime("%s")) > 10, "Device did not reboot"
+
+
+def get_reboot_cause(dut):
+    """
+    @summary: get the reboot cause on DUT.
+    @param dut: The AnsibleHost object of DUT.
+    """
+    logging.info('Getting reboot cause from dut {}'.format(dut.hostname))
+    output = dut.shell('show reboot-cause')
+    cause  = output['stdout']
+
+    for type, ctrl in reboot_ctrl_dict.items():
+        if re.search(ctrl['cause'], cause):
+            return type
+
+    return REBOOT_TYPE_UNKNOWN
