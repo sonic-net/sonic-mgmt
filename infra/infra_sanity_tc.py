@@ -281,7 +281,7 @@ def _test_Flap_Intf_LS():
             else:
                 log.error("Port Status not present in the output : {}".format(reply.decode()))
     
-     try:
+    try:
         if 'FLAP_INTF_UP' in gnmi_input_conf:
             set_info = gnmi_input_conf['FLAP_INTF']['config']
             xpath = "/"
