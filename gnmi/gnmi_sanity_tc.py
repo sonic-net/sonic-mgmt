@@ -296,9 +296,7 @@ def _test_Get_with_prefix(stub):
             else:
                 log.info("test_Get_with_prefix:Failed - was unable to do SET-REPLACE with input json")
             
-            #xpath = "/if:interfaces/if:interface"
             prefix = input_conf['GET_WITH_PFX']['verify']['prefix']
-            #prefix = gnmiTestLib._parse_path(gnmiTestLib._path_names(prefix))
             path = input_conf['GET_WITH_PFX']['verify']['path']
             path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
             response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG')
@@ -958,6 +956,22 @@ def _test_Set_wTgt(stub):
                 log.info("Set_wTgt_1_1:Passed - was able to do SET-REPLACE Request w/Path Target for Multiple Leaf Nodes")
             else:
                 log.info("Set_wTgt_1_1:Failed - was unable to do SET-REPLACE Request w/Path Target for Multiple Leaf Nodes")
+
+            prefix = input_conf['VERIFY_SETPfxPath2_1']['prefix']
+            path = input_conf['VERIFY_SETPfxPath2_1']['path']
+            path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG',target=target)
+            #log.info(response) 
+
+            msg_dict = google.protobuf.json_format.MessageToDict(response)
+            #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+            for cfg in input_conf['VERIFY_SETPfxPath2_1']['config']:
+                section = cfg['section']
+                set_info = input_conf[section]
+                result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
+                err_msg = result['err_msg'] + err_msg
+    
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
@@ -989,6 +1003,22 @@ def _test_Set_wTgt(stub):
                 log.info("Set_wTgt_1_2:Passed - was able to do SET-UPDATE Request w/Path Target MODIFY for Leaf Nodes")
             else:
                 log.info("Set_wTgt_1_2:Failed - was unable to do SET-UPDATE Request w/Path Target MODIFY for Leaf Nodes")
+
+            prefix = input_conf['VERIFY_MdfyTGT1_1']['prefix']
+            path = input_conf['VERIFY_MdfyTGT1_1']['path']
+            path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG',target=target)
+            #log.info(response) 
+
+            msg_dict = google.protobuf.json_format.MessageToDict(response)
+            #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+            for cfg in input_conf['VERIFY_MdfyTGT1_1']['config']:
+                section = cfg['section']
+                set_info = input_conf[section]
+                result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
+                err_msg = result['err_msg'] + err_msg
+
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
@@ -1019,6 +1049,22 @@ def _test_Set_wTgt(stub):
                 log.info("Set_wTgt_1_3:Passed - was able to do SET-UPDATE Request Without Target and Verify its not sent back")
             else:
                 log.info("Set_wTgt_1_3:Failed - was unable to do SET-UPDATE Request Without Target and Verify its not sent back")
+
+            prefix = input_conf['VERIFY_MdfyTGT1_2']['prefix']
+            path = input_conf['VERIFY_MdfyTGT1_2']['path']
+            path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG')
+            #log.info(response) 
+
+            msg_dict = google.protobuf.json_format.MessageToDict(response)
+            #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+            for cfg in input_conf['VERIFY_MdfyTGT1_2']['config']:
+                section = cfg['section']
+                set_info = input_conf[section]
+                result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
+                err_msg = result['err_msg'] + err_msg
+
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
@@ -1027,7 +1073,7 @@ def _test_Set_wTgt(stub):
         printGrpcError(e)
         raise CafyException.VerificationError("Test Set_wTgt_1_3 failed due to Grpc Error {err}".format(err=e.details()))
 
-    sleep(555)
+    #sleep(555)
 
     log.info('Performing SET-DELETE w/Path Target MODIFY(gnmi spec:2.2.2.1) for leaf node\n')
     log.info('For this test we will MODIFY Path Target = "DEL_GNMI_TGT"')
@@ -1061,6 +1107,12 @@ def _test_Set_wTgt(stub):
         log.error(e)
         printGrpcError(e)
         raise CafyException.VerificationError("Test Set_wTgt_1_4 failed due to Grpc Error {err}".format(err=e.details()))
+
+    if len(err_msg) != 0:
+        log.error("Test_Set_wTgt failed due to : {}".format(*err_msg))
+        pytest.fail("Test_Set_wTgt failed due to : {}".format(*err_msg))
+    else:
+        log.info("Test_Set_wTgt - All sections passed")
 
 
 def _test_Path_with_slash(stub):
@@ -2359,7 +2411,7 @@ def _test_Tgt_in_NonPfx(stub):
             set_info1 = input_conf['SETPfxPath2_1']
             print(set_info1['prefix-path'])
             print(set_info1['Updates'])
-            target = 'TGT_NON_PFX'
+            target = set_info1['target']
             xpath = "/"
             paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath),target)
             pfx_path = gnmiTestLib._parse_path(gnmiTestLib._path_names(set_info1['prefix-path']))
@@ -2374,7 +2426,24 @@ def _test_Tgt_in_NonPfx(stub):
             if (mt1 in sresp and mt2 not in sresp):
                 log.info("Tgt_NonPfx_1_1:Passed - SET w/Path Target in Non-Pfx Path works correctly")
             else:
-                log.info("Tgt_NonPfx_1_1:Failed - Response of SET w/Path Target in Non-Pfx Path does not work correctly")
+                log.error("Tgt_NonPfx_1_1:Failed - Response of SET w/Path Target in Non-Pfx Path does not work correctly")
+                err_msg.append("Tgt_NonPfx_1_1:Failed - Response of SET w/Path Target in Non-Pfx Path does not work correctly")
+            
+            prefix = "/"
+            path = input_conf['VERIFY_TGT_NON_PFX']['prefix-path']
+            path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path),target=target)
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG')
+            log.info(response) 
+
+            msg_dict = google.protobuf.json_format.MessageToDict(response)
+            #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+            for cfg in input_conf['VERIFY_TGT_NON_PFX']['config']:
+                section = cfg['section']
+                set_info = input_conf[section]
+                result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
+                err_msg = result['err_msg'] + err_msg
+
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
@@ -2382,6 +2451,12 @@ def _test_Tgt_in_NonPfx(stub):
         log.error(e)
         printGrpcError(e)
         raise CafyException.VerificationError("Test Tgt_NonPfx_1_1 failed due to Grpc Error {err}".format(err=e.details()))
+    
+    if len(err_msg) != 0:
+        log.error("Test Tgt_NonPfx failed due to : {}".format(*err_msg))
+        pytest.fail("Test Tgt_NonPfx - FAILED")
+    else:
+        log.info("Test Tgt_NonPfx - PASSED")
 
 
 def _test_SetRpl_Omit1(stub):

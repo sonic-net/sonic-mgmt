@@ -57,12 +57,6 @@ def gnmi_conn():
 
 class TestGnmi(GnmiApBase):
 
-
-    def test_MultiSet_Mkey1(self,stub):
-        gnmi_san_tc._test_MultiSet_Mkey1(stub)
-
-'''
-
     def test_Neg_set_with_vld_del_inv_upd(self,stub):
         gnmi_san_tc._test_Neg_set_with_vld_del_inv_upd(stub)
 
@@ -156,4 +150,3 @@ class TestGnmi(GnmiApBase):
     def test_MultiSet_Mkey1(self,stub):
         gnmi_san_tc._test_MultiSet_Mkey1(stub)
 
-'''

@@ -236,6 +236,7 @@ def _path_names(xpath):
   """
   if not xpath or xpath == '/':  # A blank xpath was provided at CLI.
     return []
+  print(xpath)
   xpath = xpath.strip().strip('/')  
   ppath = re.split('''/(?=(?:[^\[\]]|\[[^\[\]]+\])*$)''', xpath)
   #print(ppath)
@@ -404,7 +405,7 @@ def _cap(stub, username, password):
     return stub.Capabilities(gnmi_pb2.CapabilityRequest())
 
 
-def _get(stub, paths, username, password, prefix="/", type='ALL', encoding='PROTO', use_models=None, extension=None):
+def _get(stub, paths, username, password, prefix="/", type='ALL', encoding='PROTO', use_models=None, extension=None, target=None):
     """Create a gNMI GetRequest.
 
     Args:
@@ -416,7 +417,10 @@ def _get(stub, paths, username, password, prefix="/", type='ALL', encoding='PROT
     Returns:
       a gnmi_pb2.GetResponse object representing a gNMI GetResponse.
     """
-    prefix = _parse_path(_path_names(prefix))
+    if target is not None:
+        prefix = _parse_path(_path_names(prefix),target)
+    else:
+        prefix = _parse_path(_path_names(prefix))
     print("pfx: {}".format(prefix))
     print("path: {}".format([paths]))
     if username:  # User/pass supplied for Authentication.
@@ -701,6 +705,7 @@ def get_response_dict(get_value):
         ans_dict = dict()
         prefix_dict = dict()
         first_val = True
+        target_dict = dict()
         for key_val in value['prefix']['elem']:
             try:
                 main_key = key_val['key']['name']
@@ -719,6 +724,13 @@ def get_response_dict(get_value):
             if type(key_val['name']) != bool:
                 full_key = full_key + "," + key_val['name']
         prefix_key = full_key
+        
+        try:
+            target = value['prefix']['target']
+        except KeyError:
+            target = None
+        
+        target_dict['target'] = target
 
         values = value['update']
         for val in values:
@@ -746,6 +758,7 @@ def get_response_dict(get_value):
                 main_key_dict[main_key] = pfx_list
             else:
                 pfx_list = list();pfx_list.append(prefix_dict)
+                pfx_list.append(target_dict)
                 main_key_dict[main_key] = pfx_list
             old_key = main_key
             prefix_dict = dict()
@@ -756,6 +769,7 @@ def get_response_dict(get_value):
                 main_key_dict[old_key] = pfx_list
             else:
                 pfx_list = list();pfx_list.append(prefix_dict)
+                pfx_list.append(target_dict)
                 main_key_dict[old_key] = pfx_list
 
     return main_key_dict
@@ -850,7 +864,7 @@ def parallel_oper(oper):
 
     return result
 
-def verify_get_response(resp_dict,set_info,cfg_section):
+def verify_get_response(resp_dict,set_info,cfg_section,target=None):
     err_msg = list()
     result = dict()
     status = True
@@ -858,34 +872,53 @@ def verify_get_response(resp_dict,set_info,cfg_section):
     log.info(resp_dict)
 
     get_var = None
-    get_key = cfg_section['get_key']
-    set_key = cfg_section['set_key']
-    chk_var_list = cfg_section['check_var_list']
+    get_key = cfg_section.get('get_key')
+    set_key = cfg_section.get('set_key')
+    chk_var_list = cfg_section.get('check_var_list')
+    expected_result = cfg_section.get('exp_result')
+    if expected_result is None:
+        expected_result = True
 
     if resp_key in resp_dict.keys():
         for var in chk_var_list:
             work_set_info = set_info
-            for val in set_key:
-                if type(val) is str:
-                    value = work_set_info.get(val)
-                    work_set_info = value
-                if type(val) is int:
-                    value = work_set_info[val]
-                    work_set_info = value
+            if set_key is None:
+                value = work_set_info.get(var)
+                set_var = value
+            else:
+                for val in set_key:
+                    if type(val) is str:
+                        value = work_set_info.get(val)
+                        work_set_info = value
+                    if type(val) is int:
+                        value = work_set_info[val]
+                        work_set_info = value
+                set_var = work_set_info.get(var)
             
-            set_var = work_set_info.get(var)
             if set_var is None:
                 for key in work_set_info.keys():
                     if var in key:
                         set_var = work_set_info[key]
             for key_var in resp_dict[resp_key]:
-                if get_key in key_var.keys():
-                    try:
-                        get_var = key_var[get_key][var]
-                    except KeyError:
-                        err_msg.append("No matching check variable: {} in the Get response dict".format(var))
+                if get_key is None:
+                    if var in key_var.keys():
+                        try:
+                            get_var = key_var[var]
+                        except KeyError:
+                            err_msg.append("No matching check variable: {} in the Get response dict".format(var))
+
+                else:
+                    if get_key in key_var.keys():
+                        try:
+                            get_var = key_var[get_key][var]
+                        except KeyError:
+                            err_msg.append("No matching check variable: {} in the Get response dict".format(var))
 
             if set_var != None:
+                # As more combination arises, this logic will need to be looked at. 
+                # This entire proc is getting a bit complicated with various combinations of check
+                # currently if the get_var returned is None, for e.g. target None, the error message is misleading but 
+                # expected result is accurate.
                 if get_var != None:
                     if type(set_var) is int or type(get_var) is int:
                         if int(get_var) != int(set_var):
@@ -906,7 +939,13 @@ def verify_get_response(resp_dict,set_info,cfg_section):
         err_msg.append("Interface {} missing from the GET response".format(resp_key))
 
     if len(err_msg) != 0:
-        status = False
+        if expected_result is True:
+            status = False
+        else:
+            log.info(' '.join(map(str, err_msg)))
+            log.info("Expected the result to be Fail")
+            status = True
+            err_msg = list()
 
     result['err_msg'] = err_msg
     result["status"] = status

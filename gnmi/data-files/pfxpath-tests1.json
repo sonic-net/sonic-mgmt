@@ -11,8 +11,20 @@
       ]
     }
   },
+  "VERIFY_SETPfxPath1_1": {
+    "prefix-path": "/if:interfaces/if:interface",
+    "config": [
+      {
+        "name": "Loopback777",
+        "section":"SETPfxPath1_1",
+        "get_key": "interfaces,interface","set_key": ["Updates","interface",0],
+            "set_list_index": "0","check_var_list": ["name","type","description"]
+      }
+    ]
+  },
   "SETPfxPath2_1": {
     "prefix-path": "ietf-interfaces:interfaces",
+    "target": "SET_GNMI_TGT",
     "Updates" : {
     "interface": [
         {
@@ -28,8 +40,69 @@
       ]
     }
   },
+  "VERIFY_SETPfxPath2_1": {
+    "prefix": "/if:interfaces",
+    "path": "/if:interface",
+    "prefix-path": "/if:interfaces/if:interface",
+    "config": [
+      {
+        "name": "Loopback881",
+        "section":"SETPfxPath2_1",
+        "get_key": "interfaces,interface","set_key": ["Updates","interface",0],
+        "check_var_list": ["name","type","description"]
+      },
+      {
+        "name": "Loopback882",
+        "section":"SETPfxPath2_1",
+        "get_key": "interfaces,interface","set_key": ["Updates","interface",1],
+            "check_var_list": ["name","type","description"]
+      },
+      {
+        "name": "Loopback881",
+        "section":"SETPfxPath2_1",
+        "check_var_list": ["target"]
+      },
+      {
+        "name": "Loopback882",
+        "section":"SETPfxPath2_1",
+        "check_var_list": ["target"]
+      }
+    ]
+  },
+  "VERIFY_TGT_NON_PFX": {
+    "prefix": "/if:interfaces",
+    "path": "/if:interface",
+    "prefix-path": "/if:interfaces/if:interface",
+    "config": [
+      {
+        "name": "Loopback881",
+        "section":"SETPfxPath2_1",
+        "get_key": "interfaces,interface","set_key": ["Updates","interface",0],
+        "check_var_list": ["name","type","description"]
+      },
+      {
+        "name": "Loopback882",
+        "section":"SETPfxPath2_1",
+        "get_key": "interfaces,interface","set_key": ["Updates","interface",1],
+            "check_var_list": ["name","type","description"]
+      },
+      {
+        "name": "Loopback881",
+        "section":"SETPfxPath2_1",
+        "check_var_list": ["target"],
+        "exp_result": false
+      },
+      {
+        "name": "Loopback882",
+        "section":"SETPfxPath2_1",
+        "check_var_list": ["target"],
+        "exp_result": false
+      }
+    ]
+  },
   "MdfyTGT1_1": {
     "prefix-path": "ietf-interfaces:interfaces",
+    "target": "MDFY_GNMI_TGT",
     "Updates" : {
     "interface": [
         {
@@ -40,8 +113,27 @@
       ]
     }
   },
+  "VERIFY_MdfyTGT1_1": {
+    "prefix": "/if:interfaces",
+    "path": "/if:interface",
+    "prefix-path": "/if:interfaces/if:interface",
+    "config": [
+      {
+        "name": "Loopback883",
+        "section":"MdfyTGT1_1",
+        "get_key": "interfaces,interface","set_key": ["Updates","interface",0],
+        "check_var_list": ["name","type","description"]
+      },
+      {
+        "name": "Loopback883",
+        "section":"MdfyTGT1_1",
+        "check_var_list": ["target"]
+      }
+    ]
+  },
   "MdfyTGT1_2": {
     "prefix-path": "ietf-interfaces:interfaces",
+    "target": "None",
     "Updates" : {
     "interface": [
         {
@@ -51,6 +143,25 @@
         }
       ]
     }
+  },
+  "VERIFY_MdfyTGT1_2": {
+    "prefix": "/if:interfaces",
+    "path": "/if:interface",
+    "prefix-path": "/if:interfaces/if:interface",
+    "config": [
+      {
+        "name": "Loopback884",
+        "section":"MdfyTGT1_2",
+        "get_key": "interfaces,interface","set_key": ["Updates","interface",0],
+        "check_var_list": ["name","type","description"]
+      },
+      {
+        "name": "Loopback884",
+        "section":"MdfyTGT1_2",
+        "check_var_list": ["target"],
+        "exp_result": false
+      }
+    ]
   },
   "SlshSET1_1": {
     "prefix-path": "ietf-interfaces:interfaces/interface[name='Loopback-1/1/0']",

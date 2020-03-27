@@ -151,7 +151,7 @@
       }
     ]
   },
-  "FLAP_INTF": {
+  "FLAP_INTF_DOWN": {
     "config": {
       "openconfig-interfaces:interfaces": {
         "interface": [
@@ -159,7 +159,7 @@
             "name": "eth-1/1/0",
             "config": {
               "name": "eth-1/1/0",
-              "description": "For GET_WITH_PFX TC ETH1/1/0",
+              "description": "FLAP INTF Down TC ETH1/1/0",
               "type": "iana-if-type:ethernetCsmacd",
               "mtu": "1500",
               "enabled": false
@@ -169,10 +169,38 @@
             "name": "eth-1/1/1",
             "config": {
               "name": "eth-1/1/1",
-              "description": "For GET_WITH_PFX TC ETH1/1/1",
+              "description": "FLAP INTF Down TC ETH1/1/1",
               "type": "iana-if-type:ethernetCsmacd",
               "mtu": "1500",
               "enabled": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  "FLAP_INTF_UP": {
+    "config": {
+      "openconfig-interfaces:interfaces": {
+        "interface": [
+          {
+            "name": "eth-1/1/0",
+            "config": {
+              "name": "eth-1/1/0",
+              "description": "FLAP INTF Down TC ETH1/1/0",
+              "type": "iana-if-type:ethernetCsmacd",
+              "mtu": "1500",
+              "enabled": true
+            }
+          },
+          {
+            "name": "eth-1/1/1",
+            "config": {
+              "name": "eth-1/1/1",
+              "description": "FLAP INTF Down TC ETH1/1/1",
+              "type": "iana-if-type:ethernetCsmacd",
+              "mtu": "1500",
+              "enabled": true
             }
           }
         ]
