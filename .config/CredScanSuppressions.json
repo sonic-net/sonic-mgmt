@@ -1,0 +1,9 @@
+{
+  "suppressions": [
+    {
+      "file": "ansible/library/configure_vms.py",
+      "_justification": "VMs are used as test tools and are run in isolated environment. VM password is available publicly"
+    }
+  ]
+}
+
