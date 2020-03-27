@@ -1,6 +1,11 @@
 import pytest
 from ansible_host import AnsibleHost
 
+@pytest.fixture(scope="module", autouse=True)
+def setup_check_topo(testbed):
+    if testbed['topo']['type'] == 'ptf':
+        pytest.skip('Unsupported topology')
+
 @pytest.mark.bsl
 def test_snmp_lldp(ansible_adhoc, testbed, creds):
     """

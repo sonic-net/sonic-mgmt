@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 def pytest_addoption(parser):
     """Describe plugin specified options"""
+    parser.addoption("--skip_sanity", action="store_true", default=False,
+                     help="Skip sanity check")
     parser.addoption("--allow_recover", action="store_true", default=False,
                      help="Allow recovery attempt in sanity check in case of failure")
 
@@ -81,14 +83,16 @@ def sanity_check(testbed_devices, request):
                                           constants.SUPPORTED_CHECK_ITEMS)
         post_check = customized_sanity_check.kwargs.get("post_check", False)
 
+    if request.config.option.skip_sanity:
+        skip_sanity = True
     if request.config.option.allow_recover:
-        allow_recover=True
+        allow_recover = True
 
-    logger.info("Sanity check settings: check_items=%s, allow_recover=%s, recover_method=%s, post_check=%s" % \
-        (check_items, allow_recover, recover_method, post_check))
+    logger.info("Sanity check settings: skip_sanity=%s, check_items=%s, allow_recover=%s, recover_method=%s, post_check=%s" % \
+        (skip_sanity, check_items, allow_recover, recover_method, post_check))
 
     if skip_sanity:
-        logger.info("Skip sanity check according to configuration of test script.")
+        logger.info("Skip sanity check according to command line argument or configuration of test script.")
         yield
         return
 

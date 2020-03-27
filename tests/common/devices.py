@@ -25,11 +25,15 @@ class AnsibleHostBase(object):
     on the host.
     """
 
-    def __init__(self, ansible_adhoc, hostname):
+    def __init__(self, ansible_adhoc, hostname, connection=None):
         if hostname == 'localhost':
             self.host = ansible_adhoc(inventory='localhost', connection='local', host_pattern=hostname)[hostname]
         else:
-            self.host = ansible_adhoc(become=True)[hostname]
+            if connection is None:
+                self.host = ansible_adhoc(become=True)[hostname]
+            else:
+                logging.debug("connection {} for {}".format(connection, hostname))
+                self.host = ansible_adhoc(become=True, connection=connection)[hostname]
         self.hostname = hostname
 
     def __getattr__(self, item):
@@ -307,3 +311,18 @@ class SonicHost(AnsibleHostBase):
         except Exception as e:
             self.logger.error("Exception raised while getting networking restart time: %s" % repr(e))
             return None
+
+class EosHost(AnsibleHostBase):
+    """
+    @summary: Class for Eos switch
+
+    For running ansible module on the Eos switch
+    """
+
+    def __init__(self, ansible_adhoc, hostname, user, passwd, gather_facts=False):
+        AnsibleHostBase.__init__(self, ansible_adhoc, hostname, connection="network_cli")
+        evars = { 'ansible_connection':'network_cli', \
+                  'ansible_network_os':'eos', \
+                  'ansible_user': user, \
+                  'ansible_password': passwd }
+        self.host.options['variable_manager'].extra_vars.update(evars)

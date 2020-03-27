@@ -31,7 +31,7 @@ THERMAL_NAMING_RULE = {
         "high_critical_threshold": "cpu_pack_crit"
     },
     "gearbox": {
-        "name": "CPU Pack Temp",
+        "name": "Gearbox {} Temp",
         "temperature": "gearbox{}_temp_input"
     },
     "asic_ambient": {

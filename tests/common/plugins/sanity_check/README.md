@@ -61,6 +61,13 @@ With this design, we can extend the sanity check items in the future. By default
 ## Log collecting
 If sanity check is to be performed, the script will also run some commands on the DUT to collect some basic information for debugging. Please refer to sonic-mgmt/tests/common/plugins/sanity_check/constants::PRINT_LOGS for the list of logs that will be collected.
 
+## Pytest cmd option `--skip_sanity`
+
+Besides specifying keywoard argument `skip_sanity=True` for `pytest.mark.sanity_check`, we can skip sanity check for test scripts. However, modifying test script is still required. With the pytest command line option `--skip_sanity`, we can skip sanity check on the fly for test scripts. For example:
+```
+$ pytest -i inventory --host-pattern switch1-t0 --module-path ../ansible/library/ --testbed switch1-t0 --testbed-file testbed.csv --log-cli-level info test_something.py --skip_sanity
+```
+
 ## Pytest cmd option `--allow_recover`
 
 The sanity check plugin also supports pytest command line option `--allow_recover`. When this command option presents, sanity check will always try to recover the test bed in case sanity check failed in the first round. The command option has higher priority than the keyword argument value of `allow_recover` for `pytest.mark.sanity_check`. For example:

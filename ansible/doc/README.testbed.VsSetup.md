@@ -38,7 +38,7 @@ ceosimage                                      4.23.2F             d53c28e38448 
 ## Build or download *sonic-mgmt* docker image
 
 ansible playbook in *sonic-mgmt* repo requires to setup ansible and various dependencies.
-We have built a *sonic-mgmt* docker that installs all dependencies, and you can build 
+We have built a *sonic-mgmt* docker that installs all dependencies, and you can build
 the docker and run ansible playbook inside the docker.
 
 - Build *sonic-mgmt* docker
@@ -109,7 +109,7 @@ vm_host_1
 
 - Add user ```foo```'s public key to ```/home/foo/.ssh/authorized_keys``` on the host
 
-- Add user ```foo```'s private key to ```$HOME/.ssh/id_rsa``` inside sonic-mgmt docker container. 
+- Add user ```foo```'s private key to ```$HOME/.ssh/id_rsa``` inside sonic-mgmt docker container.
 
 - Test you can login into box using 
 ```ssh foo@172.17.0.1``` without any password prompt inside the docker container.
@@ -119,31 +119,31 @@ vm_host_1
 (skip this step if you use cEOS image)
 
 ```
-$ ./testbed-cli.sh -m veos.vtb start-vms server_1 password.txt
+$ ./testbed-cli.sh -m veos.vtb -n 4 start-vms server_1 password.txt
 ```
-  - please note: Here "password.txt" is the ansible vault password file name/path. Ansible allows user use ansible vault to encrypt password files. By default, this shell script require a password file. If you are not using ansible vault, just create an empty file and pass the filename to the command line. The file name and location is created and maintained by user. 
+  - please note: Here "password.txt" is the ansible vault password file name/path. Ansible allows user use ansible vault to encrypt password files. By default, this shell script require a password file. If you are not using ansible vault, just create an empty file and pass the filename to the command line. The file name and location is created and maintained by user.
 
 Check that all VMs are up and running, and the passwd is ```123456```
 ```
 $ ansible -m ping -i veos.vtb server_1 -u root -k
 VM0102 | SUCCESS => {
-        "changed": false, 
+        "changed": false,
                 "ping": "pong"
 }
 VM0101 | SUCCESS => {
-        "changed": false, 
+        "changed": false,
                 "ping": "pong"
 }
 STR-ACS-VSERV-01 | SUCCESS => {
-        "changed": false, 
+        "changed": false,
                 "ping": "pong"
 }
 VM0103 | SUCCESS => {
-        "changed": false, 
+        "changed": false,
                 "ping": "pong"
 }
 VM0100 | SUCCESS => {
-        "changed": false, 
+        "changed": false,
                 "ping": "pong"
 }
 ```

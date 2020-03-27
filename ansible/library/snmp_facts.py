@@ -44,7 +44,11 @@ options:
         required: false
     is_dell:
         description:
-            - Whether the bos is dell or not
+            - Whether the nos is dell or not
+        required: false
+    is_eos:
+        description:
+            - Whether the nos is eos or not
         required: false
     level:
         description:
@@ -196,6 +200,10 @@ class DefineOid(object):
         # From Dell Private MIB
         self.ChStackUnitCpuUtil5sec = dp + "1.3.6.1.4.1.6027.3.10.1.2.9.1.2.1"
 
+        # Memory Check
+        self.sysTotalMemery         = dp + "1.3.6.1.4.1.2021.4.5.0"
+        self.sysTotalFreeMemery     = dp + "1.3.6.1.4.1.2021.4.6.0"
+
         # From Cisco private MIB (PFC and queue counters)
         self.cpfcIfRequests         = dp + "1.3.6.1.4.1.9.9.813.1.1.1.1" # + .ifindex
         self.cpfcIfIndications      = dp + "1.3.6.1.4.1.9.9.813.1.1.1.2" # + .ifindex
@@ -287,6 +295,7 @@ def main():
             authkey=dict(required=False),
             privkey=dict(required=False),
             is_dell=dict(required=False, default=False, type='bool'),
+            is_eos=dict(required=False, default=False, type='bool'),
             removeplaceholder=dict(required=False)),
             required_together = ( ['username','level','integrity','authkey'],['privacy','privkey'],),
         supports_check_mode=False)
@@ -367,6 +376,7 @@ def main():
         cmdgen.MibVariable(p.sysContact,),
         cmdgen.MibVariable(p.sysName,),
         cmdgen.MibVariable(p.sysLocation,),
+        lookupMib=False, lexicographicMode=False
     )
 
     if errorIndication:
@@ -400,6 +410,7 @@ def main():
         cmdgen.MibVariable(p.ipAdEntIfIndex,),
         cmdgen.MibVariable(p.ipAdEntNetMask,),
         cmdgen.MibVariable(p.ifAlias,),
+        lookupMib=False, lexicographicMode=False
     )
 
     if errorIndication:
@@ -464,6 +475,7 @@ def main():
         cmdgen.MibVariable(p.ifHCOutOctets,),
         cmdgen.MibVariable(p.ifInUcastPkts,),
         cmdgen.MibVariable(p.ifOutUcastPkts,),
+        lookupMib=False, lexicographicMode=False
     )
 
     if errorIndication:
@@ -601,6 +613,7 @@ def main():
             snmp_auth,
             cmdgen.UdpTransportTarget((m_args['host'], 161)),
             cmdgen.MibVariable(p.ChStackUnitCpuUtil5sec,),
+            lookupMib=False, lexicographicMode=False
         )
 
         if errorIndication:
@@ -834,6 +847,26 @@ def main():
             if v.cefcFRUPowerOperStatus in current_oid:
                 psuIndex = int(current_oid.split('.')[-1])
                 results['snmp_psu'][psuIndex]['operstatus'] = current_val
+
+    if not m_args['is_eos']:
+        errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
+            snmp_auth,
+            cmdgen.UdpTransportTarget((m_args['host'], 161)),
+            cmdgen.MibVariable(p.sysTotalMemery,),
+            cmdgen.MibVariable(p.sysTotalFreeMemery,),
+            lookupMib=False, lexicographicMode=False
+        )
+    
+        if errorIndication:
+            module.fail_json(msg=str(errorIndication) + ' querying system infomation.')
+    
+        for oid, val in varBinds:
+            current_oid = oid.prettyPrint()
+            current_val = val.prettyPrint()
+            if current_oid == v.sysTotalMemery:
+                results['ansible_sysTotalMemery'] = decode_type(module, current_oid, val)
+            elif current_oid == v.sysTotalFreeMemery:
+                results['ansible_sysTotalFreeMemery'] = decode_type(module, current_oid, val)
 
     module.exit_json(ansible_facts=results)
 

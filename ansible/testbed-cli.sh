@@ -17,6 +17,7 @@ function usage
   echo "    -t <tbfile> : testbed CSV file name (default: 'testbed.csv')"
   echo "    -m <vmfile> : virtual machine file name (default: 'veos')"
   echo "    -k <vmtype> : vm type (veos|ceos) (default: 'veos')"
+  echo "    -n <vm_num> : vm num (default: 0)"
   echo
   echo "Positional Arguments:"
   echo "    <server-name>         : Hostname of server on which to start VMs"
@@ -97,7 +98,8 @@ function start_vms
   shift
   echo "Starting VMs on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_start_VMs.yml --vault-password-file="${passwd}" -l "${server}" $@
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -e VM_num="$vm_num" testbed_start_VMs.yml \
+      --vault-password-file="${passwd}" -l "${server}" $@
 }
 
 function stop_vms
@@ -278,8 +280,9 @@ function connect_topo
 vmfile=veos
 tbfile=testbed.csv
 vm_type=veos
+vm_num=0
 
-while getopts "t:m:k:" OPTION; do
+while getopts "t:m:k:n:" OPTION; do
     case $OPTION in
     t)
         tbfile=$OPTARG
@@ -289,6 +292,9 @@ while getopts "t:m:k:" OPTION; do
         ;;
     k)
         vm_type=$OPTARG
+        ;;
+    n)
+        vm_num=$OPTARG
         ;;
     *)
         usage

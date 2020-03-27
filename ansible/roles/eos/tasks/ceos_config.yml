@@ -19,13 +19,14 @@
   set_fact: bp_ifname="Ethernet{{ fp_num.stdout|int - 1}}"
 
 - name: create directory for ceos config
+  become: yes
   file:
-    path: "/tmp/ceos_{{ vm_set_name }}_{{ inventory_hostname }}/"
+    path: "/{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}/"
     state: directory
   delegate_to: "{{ VM_host[0] }}"
 
 - name: update startup-config
   become: yes
   template: src="{{ topo }}-{{ props.swrole }}.j2"
-            dest="/tmp/ceos_{{ vm_set_name }}_{{ inventory_hostname }}/startup-config"
+            dest="/{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}/startup-config"
   delegate_to: "{{ VM_host[0] }}"
