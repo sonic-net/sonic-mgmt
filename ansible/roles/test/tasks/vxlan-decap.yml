@@ -48,7 +48,7 @@
       with_items: "{{ minigraph_vlans }}"
 
     - set_fact:
-          send_packet_count: 1
+          send_packet_count: 10
       when: send_packet_count is not defined
 
     - include_tasks: ptf_runner.yml
