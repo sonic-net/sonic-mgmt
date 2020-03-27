@@ -224,7 +224,7 @@ def _test_Flap_Intf_LS():
 
     try:
         if 'FLAP_INTF_DOWN' in gnmi_input_conf:
-            set_info = gnmi_input_conf['FLAP_INTF']['config']
+            set_info = gnmi_input_conf['FLAP_INTF_DOWN']['config']
             xpath = "/"
             paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
             reply = gnmiTestLib._set(stub, paths, 'update', user, password, set_info)
