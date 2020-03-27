@@ -1,3 +1,8 @@
+# When uptime is less than the boot time of snmp, to pause the task until snmp service is up.
+- name: Wait for snmp service start
+  pause: seconds={{210 - ansible_uptime_seconds}}
+  when: ansible_uptime_seconds < 210
+
 # Gather facts with SNMP version 2
 - name: Gathering basic snmp facts about the device
   snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
