@@ -9,12 +9,22 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'src-mac', 'dst-mac', 'ip-proto', 'vlan-id']
+SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
+DST_IP_RANGE = ['9.0.0.0', '9.255.255.255']
+SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:A800:0:00::FFFF']
+DST_IPV6_RANGE = ['20D0:A800:0:01::', '20D0:A800:0:01::FFFF']
+VLANIDS = range(1001, 1010)
+VLANIP = '192.168.{}.1/24'
+
+g_vars = {}
+
 def build_fib(duthost, config_facts, fibfile, t):
 
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 
     duthost.shell("redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(t))
-    res = duthost.fetch(src="/tmp/fib.{}.txt".format(t), dest="/tmp/fib")
+    duthost.fetch(src="/tmp/fib.{}.txt".format(t), dest="/tmp/fib")
 
     po = config_facts.get('PORTCHANNEL', {})
     ports = config_facts.get('PORT', {})
@@ -93,70 +103,119 @@ def test_fib(testbed, duthost, ptfhost, ipv4, ipv6, mtu):
                 log_file=log_file,
                 socket_recv_size=16384)
 
-@pytest.mark.parametrize("ipv4, ipv6", [pytest.param(True, True)])
-def test_hash(testbed, duthost, ptfhost, ipv4, ipv6):
 
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-
+class Test_Hash():
+    hash_keys = HASH_KEYS
     t = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
-    ofpname = "/tmp/fib/{}/tmp/fib_info.{}.txt".format(duthost.hostname, t)
+    @pytest.fixture(scope="class", autouse=True)
+    def setup_hash(self, testbed, duthost, ptfhost):
+        global g_vars
 
-    build_fib(duthost, config_facts, ofpname, t)
+        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
-    ptfhost.copy(src=ofpname, dest="/root/fib_info.txt")
-    ptfhost.copy(src="ptftests", dest="/root")
-    logging.info("run ptf test")
+        ofpname = "/tmp/fib/{}/tmp/fib_info.{}.txt".format(duthost.hostname, self.t)
 
-    # do not test load balancing on L4 port on vs platform as kernel 4.9
-    # can only do load balance base on L3
-    hash_srcport = True
-    hash_dstport = True
-    meta = config_facts.get('DEVICE_METADATA')
-    if meta['localhost']['platform'] == 'x86_64-kvm_x86_64-r0':
-        hash_srcport = False
-        hash_dstport = False
+        build_fib(duthost, config_facts, ofpname, self.t)
 
-    testbed_type = testbed['topo']['name']
-    router_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
-            
-    if ipv4:
-        log_file = "/tmp/hash_test.HashTest.ipv4.{}.ipv6.{}.{}.log".format(True, False, t)
+        ptfhost.copy(src=ofpname, dest="/root/fib_info.txt")
+        ptfhost.copy(src="ptftests", dest="/root")
+        logging.info("run ptf test")
+
+        # TODO
+        self.hash_keys.remove('dst-mac')
+        # There are some problems at present, and it will be added to the test after those are solved
+        self.hash_keys.remove('ip-proto')
+
+        # do not test load balancing on L4 port on vs platform as kernel 4.9
+        # can only do load balance base on L3
+        meta = config_facts.get('DEVICE_METADATA')
+        if meta['localhost']['platform'] == 'x86_64-kvm_x86_64-r0':
+            self.hash_keys.remove('src-port')
+            self.hash_keys.remove('dst-port')
+
+        g_vars['testbed_type'] = testbed['topo']['name']
+        g_vars['router_mac'] = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
+
+        # generate available send packet ports
+        ports = config_facts.get('INTERFACE', {}).keys()
+        portchannels_member_ports = []
+        vlan_untag_ports = []
+        portchannels_name = config_facts.get('PORTCHANNEL_INTERFACE', {}).keys()
+        if portchannels_name:
+            for po_name in portchannels_name:
+                for p in config_facts.get('PORTCHANNEL', {})[po_name]['members']:
+                    portchannels_member_ports.append(p)
+        if 't0' in g_vars['testbed_type']:
+            vlans = config_facts.get('VLAN_INTERFACE', {}).keys()
+            for vlan in vlans:
+                vlan_member_info = config_facts.get('VLAN_MEMBER', {}).get(vlan, {})
+                if vlan_member_info:
+                    for port_name, tag_mode in vlan_member_info.items():
+                        if tag_mode['tagging_mode'] == 'untagged':
+                            vlan_untag_ports.append(port_name)
+
+        src_ports_name = ports + portchannels_member_ports + vlan_untag_ports
+        g_vars['src_ports'] = [config_facts.get('port_index_map', {})[p] for p in src_ports_name]
+
+        # add some vlan for hash_key vlan-id test
+        if 't0' in g_vars['testbed_type']:
+            for vlan in VLANIDS:
+                duthost.shell('config vlan add {}'.format(vlan))
+                for port in vlan_untag_ports:
+                    duthost.shell('config vlan member add {} {}'.format(vlan, port))
+                duthost.shell('config interface ip add Vlan{} '.format(vlan) + VLANIP.format(vlan%256))
+            time.sleep(5)
+
+        yield
+
+        # remove added vlan
+        if 't0' in g_vars['testbed_type']:
+            for vlan in VLANIDS:
+                duthost.shell('config interface ip remove Vlan{} '.format(vlan) + VLANIP.format(vlan%256))
+                for port in vlan_untag_ports:
+                    duthost.shell('config vlan member del {} {}'.format(vlan, port))
+                duthost.shell('config vlan del {}'.format(vlan))
+            time.sleep(5)
+
+    def test_hash_ipv4(self, ptfhost):
+        log_file = "/tmp/hash_test.HashTest.ipv4.{}.log".format(self.t)
         logging.info("PTF log file: %s" % log_file)
-    
-        src_ip_range = ['8.0.0.0', '9.0.0.0'] 
-        dst_ip_range = ['8.0.0.0', '9.0.0.0'] 
+        src_ip_range = SRC_IP_RANGE
+        dst_ip_range = DST_IP_RANGE
+
         ptf_runner(ptfhost,
                 "ptftests",
                 "hash_test.HashTest",
                 platform_dir="ptftests",
-                params={"testbed_type": testbed_type,
-                        "router_mac": router_mac,
+                params={"testbed_type": g_vars['testbed_type'],
+                        "router_mac": g_vars['router_mac'],
                         "fib_info": "/root/fib_info.txt",
                         "src_ip_range": ",".join(src_ip_range),
                         "dst_ip_range": ",".join(dst_ip_range),
-                        "hash_srcport": hash_srcport,
-                        "hash_dstport": hash_dstport,
-                        "ipv4": True,
-                        "ipv6": False },
+                        "src_ports": g_vars['src_ports'],
+                        "vlans": VLANIDS,
+                        "hash_keys": self.hash_keys },
                 log_file=log_file,
                 socket_recv_size=16384)
-    if ipv6:
-        log_file = "/tmp/hash_test.HashTest.ipv4.{}.ipv6.{}.{}.log".format(False, True, t)
+
+    def test_hash_ipv6(self, ptfhost):
+        log_file = "/tmp/hash_test.HashTest.ipv6.{}.log".format(self.t)
         logging.info("PTF log file: %s" % log_file)
-    
-        src_ip_range = ['20D0:A800:0:00::', '20D0:A800:0:00::FFFF']
-        dst_ip_range = ['20D0:A800:0:00::', '20D0:A800:0:00::FFFF']
+        src_ip_range = SRC_IPV6_RANGE
+        dst_ip_range = DST_IPV6_RANGE
+
         ptf_runner(ptfhost,
                 "ptftests",
                 "hash_test.HashTest",
                 platform_dir="ptftests",
-                params={"testbed_type": testbed_type,
-                        "router_mac": router_mac,
+                params={"testbed_type": g_vars['testbed_type'],
+                        "router_mac": g_vars['router_mac'],
                         "fib_info": "/root/fib_info.txt",
                         "src_ip_range": ",".join(src_ip_range),
                         "dst_ip_range": ",".join(dst_ip_range),
-                        "ipv4": False,
-                        "ipv6": True },
+                        "src_ports": g_vars['src_ports'],
+                        "vlans": VLANIDS,
+                        "hash_keys": self.hash_keys },
                 log_file=log_file,
                 socket_recv_size=16384)
