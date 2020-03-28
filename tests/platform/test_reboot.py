@@ -22,9 +22,9 @@ from common.utilities import wait_until
 from common.reboot import *
 from common.platform.interface_utils import check_interface_information
 from common.platform.transceiver_utils import check_transceiver_basic
+from common.platform.daemon_utils import check_pmon_daemon_status
 
 from check_critical_services import check_critical_services
-from check_daemon_status import check_pmon_daemon_status
 
 pytestmark = [pytest.mark.disable_loganalyzer]
 
