@@ -144,6 +144,41 @@
         become: true
         when: stat_result.stat.exists is defined and stat_result.stat.exists
 
+      - name: read account key
+        set_fact:
+            core_key: "{{ corefile_uploader['azure_sonic_core_storage']['account_key'] | default('') }}"
+
+      - name: read https proxy
+        set_fact:
+            core_proxy: "{{ corefile_uploader['env']['https_proxy'] | default('') }}"
+
+      - name: Put secret in core_analyzer.rc.json
+        lineinfile:
+            name: /etc/sonic/core_analyzer.rc.json
+            regexp: '^.*account_key'
+            line: '        "account_key": "{{ core_key }}",'
+        become: true
+        when: core_key != ""
+
+      - name: Put https-proxy in core_analyzer.rc.json
+        lineinfile:
+            name: /etc/sonic/core_analyzer.rc.json
+            regexp: '^.*https_proxy'
+            line: '        "https_proxy": "{{ core_proxy }}"'
+        become: true
+        when: core_proxy != ""
+
+      - name: enable core uploader service
+        become: true
+        command: systemctl enable core_uploader.service
+        when: core_key != ""
+
+      - name: start core uploader service
+        become: true
+        command: systemctl start core_uploader.service
+        when: core_key != ""
+
+
       - name: Replace snmp community string
         lineinfile:
             name: /etc/sonic/snmp.yml
