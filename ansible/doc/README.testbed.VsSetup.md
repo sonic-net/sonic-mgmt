@@ -111,8 +111,13 @@ vm_host_1
 
 - Add user ```foo```'s private key to ```$HOME/.ssh/id_rsa``` inside sonic-mgmt docker container.
 
-- Test you can login into box using 
-```ssh foo@172.17.0.1``` without any password prompt inside the docker container.
+- Add user ```foo```to sudoer list, use ```visudo``` to add following line in the sudoer configuration.
+```
+   foo ALL=(ALL) NOPASSWD:ALL
+```
+
+- Test you can login into the host ```ssh foo@172.17.0.1``` without any password prompt
+from the ```sonic-mgmt``` container. Then, test you can sudo without password prompot in the host.
 
 ## Setup Arista VMs in the server
 
