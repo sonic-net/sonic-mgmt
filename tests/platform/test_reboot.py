@@ -228,7 +228,7 @@ def test_watchdog_reboot(testbed_devices, conn_graph_facts):
 
 def test_continuous_reboot(testbed_devices, conn_graph_facts):
     """
-    @summary: This test case is to perform reboot via watchdog and check platform status
+    @summary: This test case is to perform 3 cold reboot in a row
     """
     ans_host = testbed_devices["dut"]
     localhost = testbed_devices["localhost"]
