@@ -13,13 +13,15 @@ from ptf_runner import ptf_runner
 logger = logging.getLogger(__name__)
 
 # Globals
-HOST_MAC_COUNT = 126
+HOST_MAX_COUNT = 126
 TIME_BETWEEN_SUCCESSIVE_TEST_OPER = 420
 PTFRUNNER_QLEN = 1000
 
 class AdvancedReboot:
     '''
-    AdvancedReboot class collects information about the current testbed. This information is used by test cases to build
+    AdvancedReboot is used to perform reboot dut while running preboot/inboot operations
+
+    Thed class collects information about the current testbed. This information is used by test cases to build
     inboot/preboot list. The class transfers number of configuration files to the dut/ptf in preparation for reboot test.
     Test cases can trigger test start utilizing runRebootTestcase API.
     '''
@@ -35,7 +37,6 @@ class AdvancedReboot:
             "Please set rebootType var."
         )
 
-        global HOST_MAC_COUNT
         self.request = request
         self.duthost = testbed_devices['dut']
         self.ptfhost = testbed_devices['ptf']
@@ -47,7 +48,7 @@ class AdvancedReboot:
         self.hostMaxLen = 0
         self.lagMemberCnt = 0
         self.vlanMaxCnt = 0
-        self.hostMaxCnt = HOST_MAC_COUNT
+        self.hostMaxCnt = HOST_MAX_COUNT
 
         self.__buildTestbedData()
 
@@ -190,9 +191,8 @@ class AdvancedReboot:
         for item in data:
             data_source = item['source']
             filename = '/tmp/' + item['name'] + '.json'
-            file = open(filename, 'w')
-            file.write(json.dumps(data_source))
-            file.close()
+            with open(filename, 'w') as file:
+                file.write(json.dumps(data_source))
 
             logger.info('Transferring {0} to {1}'.format(filename, ansibleHost.hostname))
             ansibleHost.copy(src=filename, dest='/tmp/')
@@ -372,8 +372,6 @@ class AdvancedReboot:
         @param inbootList: list of operation to run during reboot prcoess
         @param prebootFiles: preboot files
         '''
-        global TIME_BETWEEN_SUCCESSIVE_TEST_OPER
-
         self.prebootList = prebootList
         self.inbootList = inbootList
         self.prebootFiles = prebootFiles
@@ -390,7 +388,7 @@ class AdvancedReboot:
         # Download and install new sonic image
         self.__handleRebootImage()
 
-        # Hanlde mellanox platform
+        # Handle mellanox platform
         self.__handleMellanoxDut()
 
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
@@ -410,7 +408,6 @@ class AdvancedReboot:
         Run single PTF advanced-reboot.ReloadTest
         @param rebootOper:Reboot operation to conduct before/during reboot process
         '''
-        global PTFRUNNER_QLEN
         logger.info("Running PTF runner on PTF host: {0}".format(self.ptfhost))
 
         prebootOper = rebootOper if rebootOper is not None and 'routing' in rebootOper else None

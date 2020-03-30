@@ -552,5 +552,4 @@ SWITCH_MODELS = {
 }
 
 def is_mellanox_device(hwsku):
-    global SWITCH_HWSKUS
     return hwsku in SWITCH_HWSKUS
