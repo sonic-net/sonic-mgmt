@@ -85,11 +85,15 @@ class HashTest(BaseTest):
 
         hit_count_map = {}
         for _ in range(0, self.BALANCING_TEST_TIMES):
-            logging.info("src_port: {}".format(in_port))
-            (matched_index, _) = self.check_ip_route(hash_key, in_port, dst_ip, exp_port_list)
+            src_port = random.choice([port for port in self.src_ports if port not in exp_port_list]) if hash_key == "ingress-port" else in_port
+            logging.info("src_port: {}".format(src_port))
+            (matched_index, _) = self.check_ip_route(hash_key, src_port, dst_ip, exp_port_list)
             hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
         logging.info("hit count map: {}".format(hit_count_map))
-        self.check_balancing(next_hop.get_next_hop(), hit_count_map)
+
+        # The sample is too little for hash_key ingress-port, check it loose
+        check_balancing_mode = 'loose' if hash_key == 'ingress-port' else 'strict'
+        self.check_balancing(next_hop.get_next_hop(), hit_count_map, check_balancing_mode)
 
     def check_ip_route(self, hash_key, src_port, dst_ip, dst_port_list):
         if ip_network(unicode(dst_ip)).version == 4:
@@ -189,33 +193,37 @@ class HashTest(BaseTest):
         return (percentage, abs(percentage) <= self.balancing_range)
 
     #---------------------------------------------------------------------
-    def check_balancing(self, dest_port_list, port_hit_cnt):
+    def check_balancing(self, dest_port_list, port_hit_cnt, mode='strict'):
         '''
         @summary: Check if the traffic is balanced across the ECMP groups and the LAG members
         @param dest_port_list : a list of ECMP entries and in each ECMP entry a list of ports
         @param port_hit_cnt : a dict that records the number of packets each port received
+        @param mode : check mode, strict or loose, default for strict
         @return bool
         '''
 
         logging.info("%-10s \t %-10s \t %10s \t %10s \t %10s" % ("type", "port(s)", "exp_cnt", "act_cnt", "diff(%)"))
         result = True
 
-        total_hit_cnt = sum(port_hit_cnt.values())
-        for ecmp_entry in dest_port_list:
-            total_entry_hit_cnt = 0
-            for member in ecmp_entry:
-                total_entry_hit_cnt += port_hit_cnt.get(member, 0)
-            (p, r) = self.check_within_expected_range(total_entry_hit_cnt, float(total_hit_cnt)/len(dest_port_list))
-            logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
-                        % ("ECMP", str(ecmp_entry), total_hit_cnt/len(dest_port_list), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
-            result &= r
-            if len(ecmp_entry) == 1 or total_entry_hit_cnt == 0:
-                continue
-            for member in ecmp_entry:
-                (p, r) = self.check_within_expected_range(port_hit_cnt.get(member, 0), float(total_entry_hit_cnt)/len(ecmp_entry))
+        if mode == 'loose':
+            result = True if len(port_hit_cnt.keys()) > 1 else False
+        elif mode == 'strict':
+            total_hit_cnt = sum(port_hit_cnt.values())
+            for ecmp_entry in dest_port_list:
+                total_entry_hit_cnt = 0
+                for member in ecmp_entry:
+                    total_entry_hit_cnt += port_hit_cnt.get(member, 0)
+                (p, r) = self.check_within_expected_range(total_entry_hit_cnt, float(total_hit_cnt)/len(dest_port_list))
                 logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
-                            % ("LAG", str(member), total_entry_hit_cnt/len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
+                            % ("ECMP", str(ecmp_entry), total_hit_cnt/len(dest_port_list), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
                 result &= r
+                if len(ecmp_entry) == 1 or total_entry_hit_cnt == 0:
+                    continue
+                for member in ecmp_entry:
+                    (p, r) = self.check_within_expected_range(port_hit_cnt.get(member, 0), float(total_entry_hit_cnt)/len(ecmp_entry))
+                    logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
+                                % ("LAG", str(member), total_entry_hit_cnt/len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
+                    result &= r
 
         assert result
 

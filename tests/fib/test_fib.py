@@ -127,9 +127,6 @@ class Test_Hash():
             self.hash_keys.remove('src-port')
             self.hash_keys.remove('dst-port')
 
-        # TODO
-        self.hash_keys.remove('ingress-port')
-
         g_vars['testbed_type'] = testbed['topo']['name']
         g_vars['router_mac'] = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
             
