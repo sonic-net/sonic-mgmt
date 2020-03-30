@@ -129,7 +129,28 @@ class Test_Hash():
 
         g_vars['testbed_type'] = testbed['topo']['name']
         g_vars['router_mac'] = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
-            
+
+        # generate available send packet ports
+        ports = config_facts.get('INTERFACE', {}).keys()
+        portchannels_member_ports = []
+        vlan_untag_ports = []
+        portchannels_name = config_facts.get('PORTCHANNEL_INTERFACE', {}).keys()
+        if portchannels_name:
+            for po_name in portchannels_name:
+                for p in config_facts.get('PORTCHANNEL', {})[po_name]['members']:
+                    portchannels_member_ports.append(p)
+        if 't0' in g_vars['testbed_type']:
+            vlans = config_facts.get('VLAN_INTERFACE', {}).keys()
+            for vlan in vlans:
+                vlan_member_info = config_facts.get('VLAN_MEMBER', {}).get(vlan, {})
+                if vlan_member_info:
+                    for port_name, tag_mode in vlan_member_info.items():
+                        if tag_mode['tagging_mode'] == 'untagged':
+                            vlan_untag_ports.append(port_name)
+
+        src_ports_name = ports + portchannels_member_ports + vlan_untag_ports
+        g_vars['src_ports'] = [config_facts.get('port_index_map', {})[p] for p in src_ports_name]
+
     def test_hash_ipv4(self, ptfhost):
         log_file = "/tmp/hash_test.HashTest.ipv4.{}.log".format(self.t)
         logging.info("PTF log file: %s" % log_file)
@@ -145,6 +166,7 @@ class Test_Hash():
                         "fib_info": "/root/fib_info.txt",
                         "src_ip_range": ",".join(src_ip_range),
                         "dst_ip_range": ",".join(dst_ip_range),
+                        "src_ports": g_vars['src_ports'],
                         "hash_keys": self.hash_keys },
                 log_file=log_file,
                 socket_recv_size=16384)
@@ -164,6 +186,7 @@ class Test_Hash():
                         "fib_info": "/root/fib_info.txt",
                         "src_ip_range": ",".join(src_ip_range),
                         "dst_ip_range": ",".join(dst_ip_range),
+                        "src_ports": g_vars['src_ports'],
                         "hash_keys": self.hash_keys },
                 log_file=log_file,
                 socket_recv_size=16384)
