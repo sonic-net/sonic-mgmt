@@ -51,16 +51,13 @@ class snmpPsuController(PsuControllerBase):
                 current_val = val.prettyPrint()
                 if current_oid == SYSDESCR:
                     psu = current_val
-                print(psu)
         if psu == None:
             self.psuType = None
             return
         if 'Sentry Switched CDU' in psu:
             self.psuType = "SENTRY"
-            print(self.psuType)
         if 'APC Web/SNMP Management Card' in psu:
             self.psuType = "APC"
-            print(self.psuType)
         return
 
     def psuCntrlOid(self):
@@ -162,7 +159,7 @@ class snmpPsuController(PsuControllerBase):
             cmdgen.CommandGenerator().setCmd(
                 cmdgen.CommunityData('private'),
                 cmdgen.UdpTransportTarget((self.controller, 161)),
-                (port_oid, self.CONTROL_ON),
+                (port_oid, rfc1902.Integer(self.CONTROL_ON)),
             )
             if errorIndication or errorStatus != 0:
                 logging.debug("Failed to turn on PSU %s, exception: %s" % (str(psu_id), str(errorStatus)))
@@ -195,7 +192,7 @@ class snmpPsuController(PsuControllerBase):
             cmdgen.CommandGenerator().setCmd(
                 cmdgen.CommunityData('private'),
                 cmdgen.UdpTransportTarget((self.controller, 161)),
-                (port_oid, self.CONTROL_OFF),
+                (port_oid, rfc1902.Integer(self.CONTROL_OFF)),
             )
             if errorIndication or errorStatus != 0:
                 logging.debug("Failed to turn on PSU %s, exception: %s" % (str(psu_id), str(errorStatus)))
