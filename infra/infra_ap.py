@@ -70,7 +70,5 @@ class TestInfra(InfraApBase):
     def test_Optics_Presence_All(self):
         infra_san_tc._test_Optics_Presence_All()
 
-
-
-
-
+    def test_Optics_Reset_All(self):
+        infra_san_tc._test_Optics_Reset_All()

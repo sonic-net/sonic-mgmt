@@ -16,6 +16,8 @@ from utils.cafyexception import CafyException
 from datetime import datetime
 import six
 import google.protobuf.json_format
+from infra_base_ap import ApData, InfraApBase
+import infra_test_lib as infTestLib
 log = CafyLog("INFRA AP")
 
 TP_DIR = "./../../godiva-test/lib"
@@ -31,7 +33,6 @@ import common_lib as commonLib
 sys.path.append('../p4/')
 from p4_error_utils import printGrpcError
 from p4_error_utils import parseGrpcError
-from infra_base_ap import ApData, InfraApBase
 
 
 def _test_Memory_Usage():
@@ -151,6 +152,59 @@ def _test_Optics_Laser_Status():
         pytest.fail("test_Optics_Laser_Status failed due to : {}".format(*err_msg))
     else:
         log.info("test_Optics_Laser_Status Passed")
+
+
+def _test_Optics_Reset_All():
+    #Initially Create Multiple Interfaces/Ports to be used in below test
+    if infTestLib.create_intf():
+        log.info("Opt_ResetAll_1_1:Passed - Needed Interfaces for this TC have been created ")
+    else:
+        log.error("Opt_ResetAll_1_1:Failed - Unable to Proceed Test as unable to create required Interfaces for this TC")
+    cmd = "sudo /usr/cisco/godiva/optics/opticsd -reset all\n"
+    reply1 = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
+    op = reply1.decode()
+    op = op.splitlines()
+    data = [i for i in op if "cisco@godiva" not in i and cmd not in i]
+    lsr_up = {}
+    no_lsr = "No optics present"
+    #Currently RESET behavior/data output is unknown as outlined in #545
+    #The below needs to be modified after #545 is fixed
+    #Would need below Output to be verified against Expected Output/JSON
+    for item in data[4:]:
+        print(item)
+    #    if (no_lsr not in item) and (item.split()[1] == "OK"):
+    #        lsr_up[item.split()[0]] = item.split()[1]
+    log.info("Opt_ResetAll_1_2_1:Below is Status after RESET ALL w/LASER ON all Intfs/Ports")
+    #if ResetAll_OP in ExpctdOutput:
+    #    log.info("Opt_ResetAll_1_2:Passed - Reset-ALL output matches Expected Output ")
+    #else:
+    #    log.error("Opt_ResetAll_1_2:Failed - Reset-ALL output does not match Expected Output")
+    #print(lsr_up)
+    # Now bring down couple of Interfaces and Reissue Reset-ALL and Verify
+    if infTestLib.intf_oper('eth-1/1/0', 'enabled', False):
+        log.info("Opt_ResetAll_1_2:Passed - Needed Interfaces for this TC have been brought DOWN ")
+    else:
+        log.error("Opt_ResetAll_1_2:Failed - Unable to Proceed Test as required Interfaces for this TC are not DOWN")    
+    #Now execute and verify the output of Optics RESET ALL again
+    reply2 = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
+    op = reply2.decode()
+    op = op.splitlines()
+    data = [i for i in op if "cisco@godiva" not in i and cmd not in i]
+    lsr_up = {}
+    no_lsr = "No optics present"
+    #Currently RESET behavior/data output is unknown as outlined in #545
+    #The below needs to be modified after #545 is fixed
+    #Would need below Output to be verified against Expected Output/JSON
+    for item in data[4:]:
+        print(item)
+    #    if (no_lsr not in item) and (item.split()[1] == "OK"):
+    #        lsr_up[item.split()[0]] = item.split()[1]
+    log.info("Opt_ResetAll_1_3_1:Below is Status after RESET ALL w/LASER ON all Intfs/Ports")
+    #if ResetAll_OP in ExpctdOutput:
+    #    log.info("Opt_ResetAll_1_3:Passed - Reset-ALL output matches Expected Output ")
+    #else:
+    #    log.error("Opt_ResetAll_1_3:Failed - Reset-ALL output does not match Expected Output")    
+
 
 def _test_Flap_Intf_LS():
     user = None
