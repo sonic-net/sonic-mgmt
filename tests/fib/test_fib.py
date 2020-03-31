@@ -14,7 +14,7 @@ SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
 DST_IP_RANGE = ['9.0.0.0', '9.255.255.255']
 SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:A800:0:00::FFFF']
 DST_IPV6_RANGE = ['20D0:A800:0:01::', '20D0:A800:0:01::FFFF']
-VLANIDS = range(1001, 1010)
+VLANIDS = range(1032, 1279)
 VLANIP = '192.168.{}.1/24'
 
 g_vars = {}
@@ -124,8 +124,6 @@ class Test_Hash():
 
         # TODO
         self.hash_keys.remove('dst-mac')
-        # There are some problems at present, and it will be added to the test after those are solved
-        self.hash_keys.remove('ip-proto')
 
         # do not test load balancing on L4 port on vs platform as kernel 4.9
         # can only do load balance base on L3

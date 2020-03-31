@@ -82,8 +82,8 @@ class HashTest(BaseTest):
             hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
         logging.info("hit count map: {}".format(hit_count_map))
 
-        # The sample is too little for hash_key vlan-id and ingress-port, check it loose
-        check_balancing_mode = 'loose' if hash_key in ['vlan-id', 'ingress-port'] else 'strict'
+        # The sample is too little for hash_key ingress-port, check it loose
+        check_balancing_mode = 'loose' if hash_key == 'ingress-port' else 'strict'
         self.check_balancing(next_hop.get_next_hop(), hit_count_map, check_balancing_mode)
 
     def check_ip_route(self, hash_key, src_port, dst_ip, dst_port_list):
@@ -113,8 +113,8 @@ class HashTest(BaseTest):
         base_mac = self.dataplane.get_mac(0, 0)
         src_mac = (base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) if hash_key == 'src-mac' else base_mac
         dst_mac = random.choice(self.dst_macs) if hash_key == 'dst-mac' else self.router_mac
-        vlan_id = random.choice(self.vlans) if hash_key == "vlan-id" else 0
-        ip_proto = random.randint(0, 255) if hash_key == "ip-proto" else None
+        vlan_id = random.choice(self.vlans) if hash_key == 'vlan-id' else 0
+        ip_proto = random.randint(100, 200) if hash_key == 'ip-proto' else None
 
         pkt = simple_tcp_packet(pktlen=100 if vlan_id == 0 else 104,
                             eth_dst=dst_mac,
@@ -135,7 +135,7 @@ class HashTest(BaseTest):
                             tcp_dport=dport,
                             ip_ttl=63)
 
-        if hash_key == "ip-proto":
+        if hash_key == 'ip-proto':
             pkt['IP'].proto = ip_proto
             exp_pkt['IP'].proto = ip_proto
 
@@ -163,8 +163,8 @@ class HashTest(BaseTest):
         base_mac = self.dataplane.get_mac(0, 0)
         src_mac = (base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) if hash_key == 'src-mac' else base_mac
         dst_mac = random.choice(self.dst_macs) if hash_key == 'dst-mac' else self.router_mac
-        vlan_id = random.choice(self.vlans) if hash_key == "vlan-id" else 0
-        ip_proto = random.randint(0, 255) if hash_key == "ip-proto" else None
+        vlan_id = random.choice(self.vlans) if hash_key == 'vlan-id' else 0
+        ip_proto = random.randint(100, 200) if hash_key == "ip-proto" else None
 
         pkt = simple_tcpv6_packet(pktlen=100 if vlan_id == 0 else 104,
                                 eth_dst=dst_mac,
@@ -185,7 +185,7 @@ class HashTest(BaseTest):
                                 tcp_dport=dport,
                                 ipv6_hlim=63)
 
-        if hash_key == "ip-proto":
+        if hash_key == 'ip-proto':
             pkt['IPv6'].nh = ip_proto
             exp_pkt['IPv6'].nh = ip_proto
 
