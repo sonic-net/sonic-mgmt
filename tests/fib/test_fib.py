@@ -9,11 +9,13 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port']
+HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'src-mac', 'dst-mac', 'ip-proto', 'vlan-id']
 SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
 DST_IP_RANGE = ['9.0.0.0', '9.255.255.255']
 SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:A800:0:00::FFFF']
 DST_IPV6_RANGE = ['20D0:A800:0:01::', '20D0:A800:0:01::FFFF']
+VLANIDS = range(1032, 1279)
+VLANIP = '192.168.{}.1/24'
 
 g_vars = {}
 
@@ -120,6 +122,9 @@ class Test_Hash():
         ptfhost.copy(src="ptftests", dest="/root")
         logging.info("run ptf test")
 
+        # TODO
+        self.hash_keys.remove('dst-mac')
+
         # do not test load balancing on L4 port on vs platform as kernel 4.9
         # can only do load balance base on L3
         meta = config_facts.get('DEVICE_METADATA')
@@ -151,6 +156,26 @@ class Test_Hash():
         src_ports_name = ports + portchannels_member_ports + vlan_untag_ports
         g_vars['src_ports'] = [config_facts.get('port_index_map', {})[p] for p in src_ports_name]
 
+        # add some vlan for hash_key vlan-id test
+        if 't0' in g_vars['testbed_type']:
+            for vlan in VLANIDS:
+                duthost.shell('config vlan add {}'.format(vlan))
+                for port in vlan_untag_ports:
+                    duthost.shell('config vlan member add {} {}'.format(vlan, port))
+                duthost.shell('config interface ip add Vlan{} '.format(vlan) + VLANIP.format(vlan%256))
+            time.sleep(5)
+
+        yield
+
+        # remove added vlan
+        if 't0' in g_vars['testbed_type']:
+            for vlan in VLANIDS:
+                duthost.shell('config interface ip remove Vlan{} '.format(vlan) + VLANIP.format(vlan%256))
+                for port in vlan_untag_ports:
+                    duthost.shell('config vlan member del {} {}'.format(vlan, port))
+                duthost.shell('config vlan del {}'.format(vlan))
+            time.sleep(5)
+
     def test_hash_ipv4(self, ptfhost):
         log_file = "/tmp/hash_test.HashTest.ipv4.{}.log".format(self.t)
         logging.info("PTF log file: %s" % log_file)
@@ -167,6 +192,7 @@ class Test_Hash():
                         "src_ip_range": ",".join(src_ip_range),
                         "dst_ip_range": ",".join(dst_ip_range),
                         "src_ports": g_vars['src_ports'],
+                        "vlans": VLANIDS,
                         "hash_keys": self.hash_keys },
                 log_file=log_file,
                 socket_recv_size=16384)
@@ -187,6 +213,7 @@ class Test_Hash():
                         "src_ip_range": ",".join(src_ip_range),
                         "dst_ip_range": ",".join(dst_ip_range),
                         "src_ports": g_vars['src_ports'],
+                        "vlans": VLANIDS,
                         "hash_keys": self.hash_keys },
                 log_file=log_file,
                 socket_recv_size=16384)
