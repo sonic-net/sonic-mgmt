@@ -72,3 +72,10 @@ class TestInfra(InfraApBase):
 
     def test_Optics_Reset_All(self):
         infra_san_tc._test_Optics_Reset_All()
+
+    def test_Optics_Reset_Port(self):
+        infra_san_tc._test_Optics_Reset_Port()
+
+    def test_Optics_Monitor_Port(self):
+        infra_san_tc._test_Optics_Monitor_Port()
+
