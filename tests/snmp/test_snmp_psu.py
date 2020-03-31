@@ -1,7 +1,13 @@
 import pytest
 from ansible_host import AnsibleHost
+from common.utilities import wait_until
 
 PSU_STATUS_OK = 2
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_check_snmp_ready(testbed, testbed_devices):
+    dut = testbed_devices['dut']
+    assert wait_until(300, 20, dut.is_service_fully_started, "snmp"), "SNMP service is not running"
 
 @pytest.mark.bsl
 def test_snmp_numpsu(testbed_devices, creds, duthost):
