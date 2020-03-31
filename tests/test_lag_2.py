@@ -7,6 +7,8 @@ import os
 
 from ptf_runner import ptf_runner
 from common.devices import AnsibleHostBase
+from common.fixtures.conn_graph_facts import conn_graph_facts
+from common.utilities import wait_until
 
 @pytest.fixture(scope="module")
 def common_setup_teardown(duthost, ptfhost, testbed, conn_graph_facts):
@@ -19,7 +21,6 @@ def common_setup_teardown(duthost, ptfhost, testbed, conn_graph_facts):
         pytest.skip("No lag configuration found in %s" % duthost.hostname)
 
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    logging.info("dut hostname: %s" % mg_facts)
     vm_neighbors = mg_facts['minigraph_neighbors']
 
     # Copy PTF test into PTF-docker for test LACP DU
@@ -39,10 +40,10 @@ def common_setup_teardown(duthost, ptfhost, testbed, conn_graph_facts):
     if testbed_type not in support_testbed_types:
         pytest.skip("Not support given test bed type %s" % testbed_type)
 
-    yield duthost, ptfhost, testbed, vm_neighbors, mg_facts, lag_facts, fanout_neighbors
+    yield duthost, ptfhost, vm_neighbors, mg_facts, lag_facts, fanout_neighbors
 
 def test_lag_2(common_setup_teardown, nbrhosts):
-    duthost, ptfhost, testbed, vm_neighbors, mg_facts, lag_facts, fanout_neighbors = common_setup_teardown
+    duthost, ptfhost, vm_neighbors, mg_facts, lag_facts, fanout_neighbors = common_setup_teardown
 
     # Test for each lag
     for lag_name in lag_facts['names']:
@@ -53,11 +54,11 @@ def test_lag_2(common_setup_teardown, nbrhosts):
             logging.info("Skip [check_single_lap] for lag (%s) due to min_ports not exists" % lag_name)
             continue
         else:
-            # check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name)
+            check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name)
             check_single_lag(common_setup_teardown, nbrhosts, lag_name)
 
 def check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name):
-    duthost, ptfhost, testbed, vm_neighbors, mg_facts, lag_facts, fanout_neighbors = common_setup_teardown
+    duthost, ptfhost, vm_neighbors, mg_facts, lag_facts, fanout_neighbors = common_setup_teardown
     logging.info("Start checking single lap lacp rate for: %s" % lag_name)
     
     intf, po_interfaces = get_lag_intfs(lag_facts, lag_name)
@@ -99,7 +100,7 @@ def check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name):
             set_interface_lacp_rate(vm_host, neighbor_lag_intfs[0], 'normal')
 
 def check_single_lag(common_setup_teardown, nbrhosts, lag_name):
-    duthost, ptfhost, testbed, vm_neighbors, mg_facts, lag_facts, fanout_neighbors = common_setup_teardown
+    duthost, ptfhost, vm_neighbors, mg_facts, lag_facts, fanout_neighbors = common_setup_teardown
     logging.info("Start checking single lap for: %s" % lag_name)
 
     intf, po_interfaces = get_lag_intfs(lag_facts, lag_name)
@@ -155,18 +156,14 @@ def verify_lag_minlink(
         # Verify PortChannel interfaces are up correctly
         for po_intf in po_interfaces.keys():
             if po_intf != intf:
-                shell_retry(
-                    duthost,
-                    'bash -c "teamdctl %s state dump" | python -c "import sys, json; print json.load(sys.stdin)[\'ports\'][\'%s\'][\'runner\'][\'selected\']"' % (lag_name, po_intf),
-                    retries,
-                    delay)
+                command = 'bash -c "teamdctl %s state dump" | python -c "import sys, json; print json.load(sys.stdin)[\'ports\'][\'%s\'][\'runner\'][\'selected\']"' % (lag_name, po_intf)
+                wait_until(wait_timeout, delay, check_shell_output, duthost, command)
 
         # Refresh lag facts
         lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
 
         # Verify lag member is marked deselected for the shutdown porta and all other lag member interfaces are marked selected
         for po_intf in po_interfaces.keys():
-            logging.info("po: %s | %s | %s" % (po_intf, intf, lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected']))
             if po_intf != intf:
                 assert lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected']
             else:
@@ -185,11 +182,8 @@ def verify_lag_minlink(
         # Verify PortChannel interfaces are up correctly
         for po_intf in po_interfaces.keys():
             if po_intf != intf:
-                shell_retry(
-                    duthost,
-                    'bash -c "teamdctl %s state dump" | python -c "import sys, json; print json.load(sys.stdin)[\'ports\'][\'%s\'][\'link\'][\'up\']"' % (lag_name, po_intf),
-                    retries,
-                    delay)
+                command = 'bash -c "teamdctl %s state dump" | python -c "import sys, json; print json.load(sys.stdin)[\'ports\'][\'%s\'][\'link\'][\'up\']"' % (lag_name, po_intf)
+                wait_until(wait_timeout, delay, check_shell_output, duthost, command)
 
         # Refresh lag facts
         lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
@@ -197,19 +191,6 @@ def verify_lag_minlink(
             assert lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected'] == True
         
         assert lag_facts['lags'][lag_name]['po_intf_stat'] == 'Up'
-
-@pytest.fixture(scope="module")
-def conn_graph_facts(testbed_devices):
-    dut = testbed_devices["dut"]
-    return get_conn_graph_facts(testbed_devices, dut.hostname)
-
-def get_conn_graph_facts(testbed_devices, host):
-    localhost = testbed_devices["localhost"]
-
-    base_path = os.path.dirname(os.path.realpath(__file__))
-    lab_conn_graph_file = os.path.join(base_path, "../ansible/files/lab_connection_graph.xml")
-    result = localhost.conn_graph_facts(host=host, filename=lab_conn_graph_file)['ansible_facts']
-    return result
 
 def get_lag_intfs(lag_facts, lag_name):
     # Figure out interface informations
@@ -230,19 +211,10 @@ def set_interface_lacp_rate(vm_host, intf, mode):
 
 def set_neighbor_interface(vm_host, neighbor_interface, shut):
     vm_host.eos_config(
-        lins=['%sshutdown' % ('' if shut else 'no ')],
+        lines=['%sshutdown' % ('' if shut else 'no ')],
         parents='interface %s' % neighbor_interface)
     logging.info('%s interface [%s]' % ('Shut' if shut else 'No shut', neighbor_interface))
 
-def shell_retry(host, command, retries, delay):
-    retried = 0
-    while True:
-        out = host.shell(command)
-        if out['stdout'] == 'True':
-            logging.info('sout: %s' % out)
-            break
-        elif retried != retries:
-            time.sleep(delay)
-            retried += 1
-        else:
-            raise Exception('The command execute failed')
+def check_shell_output(host, command):
+    out = host.shell(command)
+    return out['stdout'] == 'True'
