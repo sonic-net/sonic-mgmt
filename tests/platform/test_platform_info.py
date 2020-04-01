@@ -275,7 +275,6 @@ def test_show_platform_syseeprom(testbed_devices):
 
     logging.info("Check output of '%s'" % CMD_PLATFORM_SYSEEPROM)
     show_output = ans_host.command(CMD_PLATFORM_SYSEEPROM)
-    assert show_output["rc"] == 0, "Run command '%s' failed" % CMD_PLATFORM_SYSEEPROM
     if ans_host.facts["asic_type"] in ["mellanox"]:
         expected_fields = [
             "Product Name",
@@ -326,7 +325,6 @@ def test_show_platform_fanstatus(testbed_devices, mocker_factory):
     dut = testbed_devices["dut"]
     logging.info("Check output of '%s'" % CMD_PLATFORM_FANSTATUS)
     cli_fan_status = dut.command(CMD_PLATFORM_FANSTATUS)
-    assert cli_fan_status["rc"] == 0, "Run command '%s' failed" % CMD_PLATFORM_FANSTATUS
     lines = cli_fan_status["stdout_lines"]
     check_show_platform_fanstatus_output(lines)
 
@@ -366,7 +364,6 @@ def test_show_platform_temperature(testbed_devices, mocker_factory):
     dut = testbed_devices["dut"]
     logging.info("Check output of '%s'" % CMD_PLATFORM_TEMPER)
     cli_thermal_status = dut.command(CMD_PLATFORM_TEMPER)
-    assert cli_thermal_status["rc"] == 0, "Run command '%s' failed" % CMD_PLATFORM_TEMPER
 
     # Mock data and check
     mocker = mocker_factory(dut, 'ThermalStatusMocker')
@@ -388,7 +385,7 @@ def test_thermal_control_load_invalid_format_json(testbed_devices):
               control daemon is up and there is an error log printed
     """
     logging.info('Loading invalid format policy file...')
-    check_thermal_control_load_invalid_file(testbed_devices, THERMAL_POLICY_INVALID_VALUE_FILE)
+    check_thermal_control_load_invalid_file(testbed_devices, THERMAL_POLICY_INVALID_FORMAT_FILE)
 
 
 @pytest.mark.disable_loganalyzer
