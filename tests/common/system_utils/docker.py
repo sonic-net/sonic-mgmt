@@ -13,11 +13,6 @@ from common.mellanox_data import is_mellanox_device
 
 _LOGGER = logging.getLogger(__name__)
 
-_LOGIN_CMD = "docker login -u {} -p {} {}"
-_PULL_CMD = "docker pull {}/{}:{}"
-_RM_CMD = "docker rm {}"
-_TAG_CMD = "docker tag {}:{} {}"
-
 _BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 SONIC_DOCKER_REGISTRY = os.path.join(_BASE_DIR, "../../../ansible/vars/docker_registry.yml")
 
@@ -77,7 +72,7 @@ def delete_container(dut, container_name):
             container_name (str): The name of the container to delete.
     """
 
-    dut.command(_RM_CMD.format(container_name))
+    dut.docker_container(name=container_name, state="absent")
 
 def download_image(dut, registry, image_name, image_version="latest"):
     """
@@ -90,11 +85,11 @@ def download_image(dut, registry, image_name, image_version="latest"):
             image_version (str): The version of the image to download.
     """
 
-    # FIXME: When pytest logs the command, the password will be included
-    # in the logs since we are using the -p flag. We should block this or
-    # use the --password-stdin flag instead.
-    dut.command(_LOGIN_CMD.format(registry.username, registry.password, registry.host))
-    dut.command(_PULL_CMD.format(registry.host, image_name, image_version))
+    dut.docker_login(registry_url=registry.host,
+                     username=registry.username,
+                     password=registry.password)
+    dut.docker_image(source="pull",
+                     name="{}/{}:{}".format(registry.host, image_name, image_version))
 
 def tag_image(dut, tag, image_name, image_version="latest"):
     """
@@ -107,7 +102,9 @@ def tag_image(dut, tag, image_name, image_version="latest"):
             image_version (str): The version of the image to tag.
     """
 
-    dut.command(_TAG_CMD.format(image_name, image_version, tag))
+    dut.docker_image(source="local",
+                     name="{}:{}".format(image_name, image_version),
+                     tag=tag)
 
 def swap_syncd(dut, registry_file=SONIC_DOCKER_REGISTRY):
     """
@@ -149,8 +146,10 @@ def swap_syncd(dut, registry_file=SONIC_DOCKER_REGISTRY):
     registry = parse_registry_file(registry_file)
     download_image(dut, registry, docker_rpc_image, sonic_version)
 
-    tag_image(dut, "{}/{}".format(registry.host, docker_syncd_name),
-              docker_rpc_image, sonic_version)
+    tag_image(dut,
+              "{}/{}".format(registry.host, docker_syncd_name),
+              docker_rpc_image,
+              sonic_version)
 
     dut.command("systemctl start swss")
     _LOGGER.info("swss has been restarted, waiting 60 seconds to initialize...")
