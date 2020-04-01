@@ -1,11 +1,10 @@
 import pytest
 from ansible_host import AnsibleHost
-from common.utilities import wait_until
+from test_snmp import check_snmp_ready
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_check_snmp_ready(testbed, testbed_devices):
-    dut = testbed_devices['dut']
-    assert wait_until(300, 20, dut.is_service_fully_started, "snmp"), "SNMP service is not running"
+    check_snmp_ready(testbed, testbed_devices)
 
 def test_snmp_queues(ansible_adhoc, testbed, creds, collect_techsupport):
 
