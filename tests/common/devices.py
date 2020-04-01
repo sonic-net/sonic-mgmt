@@ -318,9 +318,9 @@ class SonicHost(AnsibleHostBase):
                   return a dictionary of "current, next, installed_list"
         """
         output = self.command("sonic_installer list")["stdout"]
-        lines  = output.split('\n')
+        lines  = output.splitlines()
         ret    = {}
-        list   = []
+        images = []
         for line in lines:
             words = line.strip().split(' ')
             if len(words) == 2:
@@ -329,9 +329,9 @@ class SonicHost(AnsibleHostBase):
                 elif words[0] == 'Next:':
                     ret['next'] = words[1]
             elif len(words) == 1 and words[0].startswith('SONiC-OS'):
-                list.append(words[0])
+                images.append(words[0])
 
-        ret['installed_list'] = list
+        ret['installed_list'] = images
         return ret
 
 class EosHost(AnsibleHostBase):
