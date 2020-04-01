@@ -317,8 +317,7 @@ class SonicHost(AnsibleHostBase):
         @summary: get list of images installed on the dut.
                   return a dictionary of "current, next, installed_list"
         """
-        output = self.command("sonic_installer list")["stdout"]
-        lines  = output.splitlines()
+        lines = self.command("sonic_installer list")["stdout_lines"]
         ret    = {}
         images = []
         for line in lines:
