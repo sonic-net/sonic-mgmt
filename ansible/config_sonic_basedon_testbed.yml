@@ -156,16 +156,18 @@
       - name: Put secret in core_analyzer.rc.json
         lineinfile:
             name: /etc/sonic/core_analyzer.rc.json
-            regexp: '^.*account_key'
-            line: '        "account_key": "{{ core_key }}",'
+            regexp: '(^.*)account_key'
+            line: '\1account_key": "{{ core_key }}",'
+            backrefs: yes
         become: true
         when: core_key != ""
 
       - name: Put https-proxy in core_analyzer.rc.json
         lineinfile:
             name: /etc/sonic/core_analyzer.rc.json
-            regexp: '^.*https_proxy'
-            line: '        "https_proxy": "{{ corefile_uploader['env']['https_proxy'] }}"'
+            regexp: '(^.*)https_proxy'
+            line: '\1https_proxy": "{{ corefile_uploader['env']['https_proxy'] }}"'
+            backrefs: yes
         become: true
         when: corefile_uploader['env']['https_proxy'] is defined
 
