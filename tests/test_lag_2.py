@@ -54,8 +54,17 @@ def test_lag_2(common_setup_teardown, nbrhosts):
             logging.info("Skip [check_single_lap] for lag (%s) due to min_ports not exists" % lag_name)
             continue
         else:
-            check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name)
-            check_single_lag(common_setup_teardown, nbrhosts, lag_name)
+            logging.info("No test")
+            #check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name)
+            #check_single_lag(common_setup_teardown, nbrhosts, lag_name)
+
+        try:
+            logging.info('lag fact: %s' % lag_facts['lags'][lag_name]['po_config'])
+            lag_facts['lags'][lag_name]['po_config']['runner']['fallback']
+        except:
+            logging.info("Skip [check_lag_fallback] for lag (%s) due to fallback was not set for it" % lag_name)
+        else:
+            check_lag_fallback(common_setup_teardown, nbrhosts, lag_name)
 
 def check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name):
     duthost, ptfhost, vm_neighbors, mg_facts, lag_facts, fanout_neighbors = common_setup_teardown
@@ -119,6 +128,62 @@ def check_single_lag(common_setup_teardown, nbrhosts, lag_name):
     vm_host = nbrhosts[peer_device]
     verify_lag_minlink(duthost, vm_host, lag_name, peer_device, intf, neighbor_interface, po_interfaces, po_flap, deselect_time=95)
 
+def check_lag_fallback(common_setup_teardown, nbrhosts, lag_name):
+    duthost, ptfhost, vm_neighbors, mg_facts, lag_facts, fanout_neighbors = common_setup_teardown
+    logging.info("Start checking lag fall back for: %s" % lag_name)
+    intf, po_interfaces = get_lag_intfs(lag_facts, lag_name)
+    po_fallback = lag_facts['lags'][lag_name]['po_config']['runner']['fallback']
+
+    # Figure out remote VM and interface info for the lag member and run lag fallback test
+    peer_device = vm_neighbors[intf]['name']
+    neighbor_interface = vm_neighbors[intf]['port']
+    vm_host = nbrhosts[peer_device]
+
+    try:
+        # Shut down neighbor interface
+        set_neighbor_interface(vm_host, neighbor_interface, shut=True)
+        time.sleep(120)
+
+        # Refresh lag facts
+        lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+
+        # Get teamshow result
+        teamshow_result = duthost.shell('teamshow')
+        logging.info("Teamshow result: %s" % teamshow_result)
+
+        # Verify lag members
+        # 1. All other lag should keep selected state
+        # 2. Shutdown port should keep selected state if fallback enabled
+        # 3. Shutdown port should marded as deselected if fallback disabled
+        #  is marked deselected for the shutdown port and all other lag member interfaces are marked selected
+        for po_intf in po_interfaces.keys():
+            if po_intf != intf or po_fallback:
+                assert lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected']
+            else:
+                assert not lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected']
+
+        # The portchannel should marked Up/Down correctly according to po fallback setting
+        if po_fallback:
+            assert lag_facts['lags'][lag_name]['po_intf_stat'] == 'Up'
+        else:
+            assert lag_facts['lags'][lag_name]['po_intf_stat'] == 'Down'
+
+    finally:
+        # Bring up neighbor interface
+        set_neighbor_interface(vm_host, neighbor_interface, shut=False)
+        time.sleep(30)
+
+        # Refresh lag facts
+        lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+
+        # Verify all interfaces in port_channel are marked up
+        for po_intf in po_interfaces.keys():
+            assert lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['link']['up'] == True
+        
+        # Verify portchannel interface are marked up correctly
+        assert lag_facts['lags'][lag_name]['po_intf_stat'] == 'Up'
+
+
 def verify_lag_lacp_timing(ptfhost, vm_name, lacp_timer, exp_iface):
     if exp_iface is None:
         return
@@ -162,7 +227,7 @@ def verify_lag_minlink(
         # Refresh lag facts
         lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
 
-        # Verify lag member is marked deselected for the shutdown porta and all other lag member interfaces are marked selected
+        # Verify lag member is marked deselected for the shutdown port and all other lag member interfaces are marked selected
         for po_intf in po_interfaces.keys():
             if po_intf != intf:
                 assert lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected']
