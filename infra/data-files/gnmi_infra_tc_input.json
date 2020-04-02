@@ -206,5 +206,77 @@
         ]
       }
     }
-  }
+  },
+ "EEPROM_TH4_ALL": {
+   "PORTS": [
+     {
+      "name": "Port 0",
+      "Manufacture Name": "2015911010",
+      "Model Name": "02530043      18",
+      "HW Rev": "01",
+      "Serial Nul": " ",
+      "Vendor OUI": 18,
+      "Vendor Date": " "
+    },
+    {
+      "name": "Port 2",
+      "Manufacture Name": "2015911010",
+      "Model Name": "22530233-A    19",
+      "HW Rev": "03",
+      "Serial Nul": "UCAA",
+      "Vendor OUI": 118,
+      "Vendor Date": " "
+    },
+    {
+      "name": "Port 14",
+      "Manufacture Name": "CISCO-AVAGO",
+      "Model Name": "SFBR-89CDDZ-CS5",
+      "HW Rev": "06",
+      "Serial Nul": "AVF2325S05Y",
+      "Vendor OUI": " ",
+      "Vendor Date": 190620
+    },
+    {
+      "name": "Port 16",
+      "Manufacture Name": "CISCO-INNOLIGHT",
+      "Model Name": "TR-FC85S-NC2",
+      "HW Rev": "1B",
+      "Serial Nul": "INL23137994",
+      "Vendor OUI": "D|",
+      "Vendor Date": 190328
+    },
+    {
+      "name": "Port 18",
+      "Manufacture Name": "CISCO-FINISAR",
+      "Model Name": "FCBN425QE1C15-C1",
+      "HW Rev": "D",
+      "Serial Nul": "FIW210400JN-A",
+      "Vendor OUI": " ",
+      "Vendor Date": 170122
+    }        
+  ]
+},
+ "EEPROM_TH4_PORT": {
+   "PORTS": [
+     {
+      "name": "Port 1",
+      "Manufacture Name": "2015911010",
+      "Model Name": "10930522      18",
+      "HW Rev": "04",
+      "Serial Nul": " ",
+      "Vendor OUI": 18,
+      "Vendor Date": " "
+    },
+    {
+      "name": "Port 4",
+      "Manufacture Name": "CISCO-FINISAR",
+      "Model Name": "FCBN425QE1C15-C1",
+      "HW Rev": "D",
+      "Serial Nul": "FIW210400JN-A",
+      "Vendor OUI": " ",
+      "Vendor Date": 170122
+    }        
+  ]
+}
+
 }

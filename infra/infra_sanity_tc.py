@@ -14,6 +14,7 @@ from topology.zap.zap import Zap
 from utils.helper import Helper
 from utils.cafyexception import CafyException
 from datetime import datetime
+from operator import itemgetter
 import six
 import google.protobuf.json_format
 from infra_base_ap import ApData, InfraApBase
@@ -302,6 +303,107 @@ def _test_Optics_Monitor_Port():
     psid = [i for i in op if "grep" not in i and "sudo" in i]
     #cmd = "sudo kill -9 " + str(psid) + "\n"
     #Also fetch the Monitor Log - MntrPrt2.log
+
+
+def _test_Optics_Eeprom_All():
+    cmd = "sudo /usr/cisco/godiva/optics/opticsd -eeprom all\n"
+    reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
+    log.info(reply.decode())
+    op = reply.decode()
+    op = op.splitlines()
+
+    #The below 2 lines need to be commented out for TH3 runs
+    #with open ("data-files/mock-eeprom.txt", "r") as myfile:
+    #    op=myfile.readlines()
+
+    data = []
+    edict = {}
+    newprt = False
+    for line in op:
+        if 'EEPROM INFO:' in line:                
+            for line in op:
+                if (line.startswith("Port")):
+                    newprt = True
+                    edict['name'] = line.split("\n")[0]
+                    continue
+                if newprt:
+                    pinf = line.split(":")
+                    edict[pinf[0]] = pinf[1].split("\n")[0]
+                    if (pinf[0] == "Vendor Date"):
+                        data.append(edict)
+                        edict = {}
+                        newprt = False
+
+    log.info("Opt_Eeprom_1_1:Below is EEPROM ALL data from the target")
+    print(data)
+
+    input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_Optics_Laser_Status/gnmi_input_conf_file"), 'r').read())
+    try:
+        if 'EEPROM_TH4' in input_conf:
+            vrfy_info = input_conf['EEPROM_TH4']['PORTS']
+            log.info("Input EEPROM Info to compare \n")
+            print(vrfy_info)
+            data,vrfy_info = [sorted(l, key=itemgetter('name')) for l in (data, vrfy_info)]
+            cmb = zip(data, vrfy_info)
+            if any(x != y for x, y in cmb):
+                log.info("Opt_Eeprom_1_2:Passed - EEPROM Info from Target matches Input ")
+            else:
+                [(x, y) for x, y in cmb if x != y]
+                log.error("Opt_Eeprom_1_2:Failed - EEPROM Info from Target does not match Input ")
+
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+        err_msg.append("Opt_Eeprom_1_2:Failed - Unable to get EEPROM Values from Input json for comparison")
+
+
+
+
+def _test_Optics_Eeprom_Port():
+    prt_lst = []
+    input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_Optics_Laser_Status/gnmi_input_conf_file"), 'r').read())
+    if 'EEPROM_TH4_PORT' in input_conf:
+        vrfy_info = input_conf['EEPROM_TH4_PORT']['PORTS']
+        log.info("Input EEPROM Info to compare \n")
+        print(vrfy_info)
+        for i in vrfy_info:
+            prt_lst.append(i['name'].split(" ")[1])
+        print(prt_lst)
+
+    data = []
+    for i in prt_lst:
+        cmd = "sudo /usr/cisco/godiva/optics/opticsd -eeprom " + i + "\n"
+        reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
+        log.info(reply.decode())
+        op = reply.decode()
+        op = op.splitlines()
+
+        edict = {}
+        for line in op:
+            if 'EEPROM INFO:' in line:                
+                for line in op:
+                    if (line.startswith("Port")):
+                        edict['name'] = line.split("\n")[0]
+                        continue
+                    pinf = line.split(":")
+                    edict[pinf[0]] = pinf[1].split("\n")[0]
+                    if (pinf[0] == "Vendor Date"):
+                        data.append(edict)
+                        break
+
+    #Print EEPROM info obtained from Target for the various input Ports
+    log.info(data)
+
+    #Now Compare the outputs of EEPROM data of Ports with the info present in Input json
+    data,vrfy_info = [sorted(l, key=itemgetter('name')) for l in (data, vrfy_info)]
+    cmb = zip(data, vrfy_info)
+    if any(x != y for x, y in cmb):
+        log.info("Opt_Eeprom_Prt_1_1:Passed - EEPROM Info for Ports from Target matches Input ")
+    else:
+        [(x, y) for x, y in cmb if x != y]
+        log.error("Opt_Eeprom_Prt_1_1:Failed - EEPROM Info for Ports from Target does not match Input ")
+
+
 
 
 def _test_Flap_Intf_LS():
