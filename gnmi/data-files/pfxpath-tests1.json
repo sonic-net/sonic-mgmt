@@ -183,11 +183,35 @@
         "config": {"facility": "openconfig-system-logging:KERNEL","severity": "CRITICAL"}
       }
   },
+  "VERIFY_MKEYPfx_SET1_1": {
+    "prefix": "/system/logging/console/selectors/selector",
+    "path": "/",
+    "config": [
+      {
+        "name": null,
+        "section":"MKEYPfx_SET1_1",
+        "get_key": "system,logging,console,selectors,selector,config","set_key": ["Updates","config"],
+            "set_list_index": "0","check_var_list": ["facility","severity"]
+      }
+    ]
+  },
   "MKEYPfx_SET1_2": {
     "prefix-path": "/openconfig-system:system/logging/console/selectors/selector[facility=openconfig-system-logging:KERNEL][severity=ALERT]",
     "Updates" : {
         "config": {"facility": "openconfig-system-logging:KERNEL","severity": "ALERT"}
       }
+  },
+  "VERIFY_MKEYPfx_SET1_2": {
+    "prefix": "/system/logging/console/selectors/selector",
+    "path": "/",
+    "config": [
+      {
+        "name": null,
+        "section":"MKEYPfx_SET1_2",
+        "get_key": "system,logging,console,selectors,selector,config","set_key": ["Updates","config"],
+            "set_list_index": "0","check_var_list": ["facility","severity"]
+      }
+    ]
   },
   "PFXPath_MSet_1": {
     "prefix-path": "ietf-interfaces:interfaces",

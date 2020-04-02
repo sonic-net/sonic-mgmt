@@ -145,16 +145,38 @@
         ]
       }
   },
+  "VERIFY_MKEYSET_Sanity1_1": {
+    "filter": "/system/logging/console/selectors/selector",
+    "config": [
+      {
+        "name": null,
+        "section":"MKEYSET_Sanity1_1",
+        "get_key": "system,logging,console,selectors,selector,config","set_key": ["selectors","selector",0,"config"],
+            "set_list_index": "0","check_var_list": ["facility","severity"]
+      }
+    ]
+  },
   "MKEYSET_Sanity1_2": {
       "selectors": {
         "selector": [
           {
             "facility": "openconfig-system-logging:KERNEL",
-            "severity": "ALERT",
-            "config": {"facility": "openconfig-system-logging:KERNEL","severity": "ALERT"}
+            "severity": "WARNING",
+            "config": {"facility": "openconfig-system-logging:KERNEL","severity": "WARNING"}
           }
         ]
       }
+  },
+  "VERIFY_MKEYSET_Sanity1_2": {
+    "filter": "/system/logging/console/selectors/selector[facility=KERNEL][severity=WARNING]/config",
+    "config": [
+      {
+        "name": null,
+        "section":"MKEYSET_Sanity1_2",
+        "get_key": "system,logging,console,selectors,selector,config","set_key": ["selectors","selector",0,"config"],
+            "set_list_index": "0","check_var_list": ["facility","severity"]
+      }
+    ]
   },
   "MULTISET_Sanity1_1": {
     "set-type": "multiple",

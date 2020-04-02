@@ -951,3 +951,31 @@ def verify_get_response(resp_dict,set_info,cfg_section,target=None):
     result["status"] = status
 
     return result
+
+def verify_json_ietf_response(set_dict,get_dict):
+    err_msg = list()
+    result = dict()
+    status = True
+
+    for (key, value) in set_dict.items():
+        if key in get_dict.keys():
+            if type(value) is str or type(get_dict[key]) is str:
+                if str(value) in str(get_dict[key]):
+                    log.info("{} matches {}".format(value, get_dict[key]))
+                else:
+                    log.error("{} does not match {}".format(value, get_dict[key]))
+                    err_msg.append("{} does not match {}".format(value, get_dict[key]))
+            elif type(value) is int or type(get_dict[key]) is int:
+                if int(value) == int(get_dict[key]):
+                    log.info("{} matches {}".format(value, get_dict[key]))
+                else:
+                    log.error("{} does not match {}".format(value, get_dict[key]))
+                    err_msg.append("{} does not match {}".format(value, get_dict[key]))
+        else:
+            log.error("{} missing in {}".format(key,get_dict.keys()))
+            err_msg.append("{} missing in {}".format(key,get_dict.keys()))
+
+    result['err_msg'] = err_msg
+    result["status"] = status
+
+    return result

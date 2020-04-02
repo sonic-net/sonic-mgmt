@@ -94,7 +94,7 @@ def _test_gnmi_GetTimestamp(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test gnmi_GetTimestamp failed due to Grpc Error {err}".format(err=e.details()))    
+        pytest.fail("Test gnmi_GetTimestamp failed due to Grpc Error {err}".format(err=e.details()))    
 
 
 def _test_Memory_Usage(stub):
@@ -107,11 +107,12 @@ def _test_Memory_Usage(stub):
     log.info(reply.decode())
 
     
-def _test_GetSet_Sanity1(stub):
+def _test_GetSet_Sanity1(stub,encoding):
     user = None
     password = None
     err_msg = list()
     resp_key_list = list()
+    status = True
     #with open(ApData.input_conf_file, 'r') as ip_conf_file:
     #    input_conf = gnmiTestLib.json_load_byteified(ip_conf_file)
 
@@ -136,15 +137,27 @@ def _test_GetSet_Sanity1(stub):
             #xpath = "/if:interfaces/if:interface"
             xpath = input_conf['VERIFY_GETSET_Sanity1_1']['filter']
             paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
-            response = gnmiTestLib._get(stub, paths, user, password)
-            #log.info(response)
-            msg_dict = google.protobuf.json_format.MessageToDict(response)
-            log.info(msg_dict)
+            response = gnmiTestLib._get(stub, paths, user, password,encoding=encoding)
+            #log.info(response)   
+            
+            #log.info("msg dict json dump: {}".format(json.dumps(msg_dict,sort_keys=True, indent=4)))
+            if 'PROTO' in encoding:
+                msg_dict = google.protobuf.json_format.MessageToDict(response)
+                log.info(msg_dict)
 
-            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
-            for cfg in input_conf['VERIFY_GETSET_Sanity1_1']['config']:
-                result = gnmiTestLib.verify_get_response(resp_dict,set_info1,cfg)
-                err_msg = result['err_msg'] + err_msg
+                resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+                for cfg in input_conf['VERIFY_GETSET_Sanity1_1']['config']:
+                    result = gnmiTestLib.verify_get_response(resp_dict,set_info1,cfg)
+                    err_msg = result['err_msg'] + err_msg
+
+            elif 'JSON_IETF' in encoding:
+                json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+                print(json_ietf_val)
+                json_ietf_val = json_ietf_val['data']['ietf-interfaces:interfaces']['interface']
+                set_dict = set_info1['ietf-interfaces:interfaces']['interface']
+                for set_d, get_d in zip(set_dict,json_ietf_val):
+                    result = gnmiTestLib.verify_json_ietf_response(set_d,get_d)
+                    err_msg = result['err_msg'] + err_msg
 
     except KeyboardInterrupt:
         log.info("Shutting down.")
@@ -152,13 +165,16 @@ def _test_GetSet_Sanity1(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test GETSET_Sanity1_1 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test GETSET_Sanity1_1 failed due to Grpc Error {err}".format(err=e.details()))
 
     if len(err_msg) != 0:
         log.error("Test GETSET_Sanity1_1 failed due to : {}".format(*err_msg))
+        status = False
+        err_msg = list()
     else:
         log.info("Test GETSET_Sanity1_1 - Set and Get Passed")
-
+    
+    
     log.info('Performing SET-UPDATE Request to target \n')
     try:
         if 'GETSET_Sanity1_2' in input_conf:
@@ -175,21 +191,35 @@ def _test_GetSet_Sanity1(stub):
             
             xpath = input_conf['VERIFY_GETSET_Sanity1_2']['filter']
             paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
-            response = gnmiTestLib._get(stub, paths, user, password)
-            #log.info(response)
-            msg_dict = google.protobuf.json_format.MessageToDict(response)
-            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
-            for cfg in input_conf['VERIFY_GETSET_Sanity1_2']['config']:
-                section = cfg['section']
-                sifo = input_conf[section]
-                result = gnmiTestLib.verify_get_response(resp_dict,sifo,cfg)
-                err_msg = result['err_msg'] + err_msg
+            response = gnmiTestLib._get(stub, paths, user, password,encoding=encoding)
+            #log.info(response)   
+            
+            #log.info("msg dict json dump: {}".format(json.dumps(msg_dict,sort_keys=True, indent=4)))
+            if 'PROTO' in encoding:
+                msg_dict = google.protobuf.json_format.MessageToDict(response)
+                resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+                for cfg in input_conf['VERIFY_GETSET_Sanity1_2']['config']:
+                    section = cfg['section']
+                    sifo = input_conf[section]
+                    result = gnmiTestLib.verify_get_response(resp_dict,sifo,cfg)
+                    err_msg = result['err_msg'] + err_msg
+            
+            elif 'JSON_IETF' in encoding:
+                json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+                print(json_ietf_val)
+                json_ietf_val = json_ietf_val['data']['ietf-interfaces:interfaces']['interface']
+                set_dict = set_info1['ietf-interfaces:interfaces']['interface'] + set_info2['ietf-interfaces:interfaces']['interface']
+                for set_d, get_d in zip(set_dict,json_ietf_val):
+                    result = gnmiTestLib.verify_json_ietf_response(set_d,get_d)
+                    err_msg = result['err_msg'] + err_msg
+
 
         if len(err_msg) != 0:
             log.error("Test GETSET_Sanity1_2 failed due to : {}".format(*err_msg))
+            status = False
+            err_msg = list()
         else:
             log.info("Test GETSET_Sanity1_2 - Set and Get Passed")
-
 
     except KeyboardInterrupt:
         log.info("Shutting down.")
@@ -197,7 +227,7 @@ def _test_GetSet_Sanity1(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test GETSET_Sanity1_2 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test GETSET_Sanity1_2 failed due to Grpc Error {err}".format(err=e.details()))
 
     log.info('Performing SET-REPLACE after UPDATE on target \n')
     try:
@@ -213,17 +243,31 @@ def _test_GetSet_Sanity1(stub):
         
         xpath = input_conf['VERIFY_GETSET_Sanity1_3']['filter']
         paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
-        response = gnmiTestLib._get(stub, paths, user, password)
-        #log.info(response)
-        msg_dict = google.protobuf.json_format.MessageToDict(response)
-        resp_dict = gnmiTestLib.get_response_dict(msg_dict)
-        for cfg in input_conf['VERIFY_GETSET_Sanity1_3']['config']:
-            result = gnmiTestLib.verify_get_response(resp_dict,set_info1,cfg)
-            err_msg = result['err_msg'] + err_msg
+        response = gnmiTestLib._get(stub, paths, user, password,encoding=encoding)
+        #log.info(response)   
+            
+        #log.info("msg dict json dump: {}".format(json.dumps(msg_dict,sort_keys=True, indent=4)))
+        if 'PROTO' in encoding:
+            msg_dict = google.protobuf.json_format.MessageToDict(response)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+            for cfg in input_conf['VERIFY_GETSET_Sanity1_3']['config']:
+                result = gnmiTestLib.verify_get_response(resp_dict,set_info1,cfg)
+                err_msg = result['err_msg'] + err_msg
+
+        elif 'JSON_IETF' in encoding:
+            json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+            print(json_ietf_val)
+            json_ietf_val = json_ietf_val['data']['ietf-interfaces:interfaces']['interface']
+            set_dict = set_info1['ietf-interfaces:interfaces']['interface']
+            for set_d, get_d in zip(set_dict,json_ietf_val):
+                result = gnmiTestLib.verify_json_ietf_response(set_d,get_d)
+                err_msg = result['err_msg'] + err_msg
 
 
         if len(err_msg) != 0:
             log.error("Test GETSET_Sanity1_3 failed due to : {}".format(*err_msg))
+            status = False
+            err_msg = list()
         else:
             log.info("Test GETSET_Sanity1_3 - Set and Get Passed")
 
@@ -233,7 +277,7 @@ def _test_GetSet_Sanity1(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test GETSET_Sanity1_3 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test GETSET_Sanity1_3 failed due to Grpc Error {err}".format(err=e.details()))
 
     log.info('Performing SET-DELETE Request on target \n')
     #sleep(2)
@@ -250,16 +294,25 @@ def _test_GetSet_Sanity1(stub):
         
         xpath = input_conf['VERIFY_GETSET_Sanity1_4']['filter']
         paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
-        response = gnmiTestLib._get(stub, paths, user, password)
+        response = gnmiTestLib._get(stub, paths, user, password,encoding=encoding)
         #log.info(response)
-        msg_dict = google.protobuf.json_format.MessageToDict(response)
-        log.info(msg_dict)
-        resp_dict = gnmiTestLib.get_response_dict(msg_dict)
-        if resp_dict != None:
-            err_msg.append(resp_dict)
+        if 'PROTO' in encoding:
+            msg_dict = google.protobuf.json_format.MessageToDict(response)
+            log.info(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+            if resp_dict != None:
+                err_msg.append(resp_dict)
+        
+        elif 'JSON_IETF' in encoding:
+            json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+            if bool(json_ietf_val['data']):
+                err_msg.append("Configuration was not completely deleted. Config remaining %s" % json_ietf_val['data'])
 
         if len(err_msg) != 0:
             log.error("Test GETSET_Sanity1_4 failed due to : {}".format(*err_msg))
+            status = False
+            err_msg = list()
+
         else:
             log.info("Test GETSET_Sanity1_4 - Set and Get Passed")
     except KeyboardInterrupt:
@@ -268,15 +321,15 @@ def _test_GetSet_Sanity1(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test GETSET_Sanity1_4 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test GETSET_Sanity1_4 failed due to Grpc Error {err}".format(err=e.details()))
 
-    if len(err_msg) != 0:
-        log.error("Test_GetSet_Sanity1 failed due to : {}".format(*err_msg))
-        pytest.fail("Test_GetSet_Sanity1 failed due to : {}".format(*err_msg))
+    if not status:
+        log.error("Test_GetSet_Sanity1 failed ")
+        pytest.fail("Test_GetSet_Sanity1 failed ")
     else:
         log.info("Test_GetSet_Sanity1 - All sections passed")
 
-def _test_Get_with_prefix(stub):
+def _test_Get_with_prefix(stub,encoding):
     user = None
     password = None
     err_msg = list()
@@ -299,15 +352,28 @@ def _test_Get_with_prefix(stub):
             prefix = input_conf['GET_WITH_PFX']['verify']['prefix']
             path = input_conf['GET_WITH_PFX']['verify']['path']
             path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
-            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG')
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG',encoding=encoding)
             #log.info(response)   
+            
+            #log.info("msg dict json dump: {}".format(json.dumps(msg_dict,sort_keys=True, indent=4)))
+            if 'PROTO' in encoding:
+                msg_dict = google.protobuf.json_format.MessageToDict(response)
+                resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+                #msg_dict = google.protobuf.json_format.MessageToDict(response)
+                #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
+                for cfg in input_conf['GET_WITH_PFX']['verify']['config']:
+                    result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
+                    err_msg = result['err_msg'] + err_msg
+            
+            elif 'JSON_IETF' in encoding:
+                json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+                json_ietf_val = json_ietf_val['data']['openconfig-interfaces:interfaces']['interface']
+                set_dict = set_info['openconfig-interfaces:interfaces']['interface']
+                for set_d, get_d in zip(set_dict,json_ietf_val):
+                    result = gnmiTestLib.verify_json_ietf_response(set_d['config'],get_d['config'])
+                    err_msg = result['err_msg'] + err_msg
 
-            msg_dict = google.protobuf.json_format.MessageToDict(response)
-            #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
-            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
-            for cfg in input_conf['GET_WITH_PFX']['verify']['config']:
-                result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
-                err_msg = result['err_msg'] + err_msg
+            
     
     except KeyboardInterrupt:
         log.info("Shutting down.")
@@ -394,7 +460,7 @@ def _test_GetSet_OC_Components(stub):
     else:
         log.info("Test test_GetSet_OC_Components - Set and Get Passed")
 
-def _test_Get_with_type(stub):
+def _test_Get_with_type(stub,encoding):
     user = None
     password = None
     err_msg = list()
@@ -420,20 +486,44 @@ def _test_Get_with_type(stub):
             path = input_conf['GET_WITH_PFX']['verify']['path']
             path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
             log.info("Verify Get with Type='ALL' ")
-            response = gnmiTestLib._get(stub, path, user, password,prefix,type='ALL')
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='ALL',encoding=encoding)
             #log.info(response)
-            msg_dict = google.protobuf.json_format.MessageToDict(response)
-            
-            #log.info(msg_dict)
-            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
-            resp_dict_keys = list(resp_dict.keys())
-            log.info(list(resp_dict.keys()))
-            log.info(json.dumps(resp_dict,sort_keys=True, indent=4))
-            state_status = False
-            config_status = False
-            for intf_key in resp_dict_keys:
-                for mkeys in resp_dict[intf_key]:
-                    for keys in mkeys:
+
+            if 'PROTO' in encoding:
+                msg_dict = google.protobuf.json_format.MessageToDict(response)
+                
+                #log.info(msg_dict)
+                resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+                resp_dict_keys = list(resp_dict.keys())
+                log.info(list(resp_dict.keys()))
+                log.info(json.dumps(resp_dict,sort_keys=True, indent=4))
+                state_status = False
+                config_status = False
+                for intf_key in resp_dict_keys:
+                    for mkeys in resp_dict[intf_key]:
+                        for keys in mkeys:
+                            if 'config' in keys and not config_status:
+                                config_status = True
+                            if 'state' in keys and not state_status:
+                                state_status = True
+                            if config_status and state_status:
+                                log.info("Both Config and state are present in Get response with Type=ALL")
+                                break
+                if not config_status or not state_status:
+                    log.error("Either Config or state not present in Get response with Type=ALL")
+                    err_msg.append("Either Config or state not present in Get response with Type=ALL")
+
+            elif 'JSON_IETF' in encoding:
+                json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+                print(json_ietf_val)
+                resp_dict_keys = list()
+                resp_dict_list = json_ietf_val['data']['openconfig-interfaces:interfaces']['interface']
+                for intfs in resp_dict_list:
+                    resp_dict_keys.append(list(intfs.keys()))
+                state_status = False
+                config_status = False
+                for intf_key in resp_dict_keys:
+                    for keys in intf_key:
                         if 'config' in keys and not config_status:
                             config_status = True
                         if 'state' in keys and not state_status:
@@ -441,9 +531,9 @@ def _test_Get_with_type(stub):
                         if config_status and state_status:
                             log.info("Both Config and state are present in Get response with Type=ALL")
                             break
-            if not config_status or not state_status:
-                log.error("Either Config or state not present in Get response with Type=ALL")
-                err_msg.append("Either Config or state not present in Get response with Type=ALL")    
+                if not config_status or not state_status:
+                    log.error("Either Config or state not present in Get response with Type=ALL")
+                    err_msg.append("Either Config or state not present in Get response with Type=ALL")
 
     except KeyboardInterrupt:
         log.info("Shutting down.")
@@ -458,17 +548,41 @@ def _test_Get_with_type(stub):
         prefix = input_conf['GET_WITH_PFX']['verify']['prefix']
         path = input_conf['GET_WITH_PFX']['verify']['path']
         path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
-        response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG')
+        response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG',encoding=encoding)
         #log.info(response)
-        msg_dict = google.protobuf.json_format.MessageToDict(response)
-        log.info(msg_dict)
-        resp_dict = gnmiTestLib.get_response_dict(msg_dict)
-        resp_dict_keys = list(resp_dict.keys())
-        state_status = False
-        config_status = False
-        for intf_key in resp_dict_keys:
-            for mkeys in resp_dict[intf_key]:
-                for keys in mkeys:
+
+        if 'PROTO' in encoding:
+            #log.info(response)
+            msg_dict = google.protobuf.json_format.MessageToDict(response)
+            log.info(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+            resp_dict_keys = list(resp_dict.keys())
+            state_status = False
+            config_status = False
+            for intf_key in resp_dict_keys:
+                for mkeys in resp_dict[intf_key]:
+                    for keys in mkeys:
+                        if 'config' in keys and not config_status:
+                            config_status = True
+                        if 'state' in keys and not state_status:
+                            state_status = True
+                        if config_status and not state_status:
+                            log.info("Only Config is present in Get response with Type=Config")
+                            break
+            if state_status:
+                log.error("State is present in Get response with Type=Config")
+                err_msg.append("State is present in Get response with Type=Config")
+
+        elif 'JSON_IETF' in encoding:
+            json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+            resp_dict_keys = list()
+            resp_dict_list = json_ietf_val['data']['openconfig-interfaces:interfaces']['interface']
+            for intfs in resp_dict_list:
+                resp_dict_keys.append(list(intfs.keys()))
+            state_status = False
+            config_status = False
+            for intf_key in resp_dict_keys:
+                for keys in intf_key:
                     if 'config' in keys and not config_status:
                         config_status = True
                     if 'state' in keys and not state_status:
@@ -476,10 +590,10 @@ def _test_Get_with_type(stub):
                     if config_status and not state_status:
                         log.info("Only Config is present in Get response with Type=Config")
                         break
-        if state_status:
-            log.error("State is present in Get response with Type=Config")
-            err_msg.append("State is present in Get response with Type=Config")    
-    
+            if state_status:
+                log.error("State is present in Get response with Type=Config")
+                err_msg.append("State is present in Get response with Type=Config")
+            
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
@@ -493,27 +607,50 @@ def _test_Get_with_type(stub):
         prefix = input_conf['GET_WITH_PFX']['verify']['prefix']
         path = input_conf['GET_WITH_PFX']['verify']['path']
         path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
-        response = gnmiTestLib._get(stub, path, user, password,prefix,type='STATE')
+        response = gnmiTestLib._get(stub, path, user, password,prefix,type='STATE',encoding=encoding)
         #log.info(response)
-        msg_dict = google.protobuf.json_format.MessageToDict(response)
-        log.info(msg_dict)
-        resp_dict = gnmiTestLib.get_response_dict(msg_dict)
-        resp_dict_keys = list(resp_dict.keys())
-        state_status = False
-        config_status = False
-        for intf_key in resp_dict_keys:
-            for mkeys in resp_dict[intf_key]:
-                for keys in mkeys:
+        
+        if 'PROTO' in encoding:
+            msg_dict = google.protobuf.json_format.MessageToDict(response)
+            #log.info(msg_dict)
+            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+            resp_dict_keys = list(resp_dict.keys())
+            state_status = False
+            config_status = False
+            for intf_key in resp_dict_keys:
+                for mkeys in resp_dict[intf_key]:
+                    for keys in mkeys:
+                        if 'config' in keys and not config_status:
+                            config_status = True
+                        if 'state' in keys and not state_status:
+                            state_status = True
+                        if not config_status and state_status:
+                            log.info("Only State is present in Get response with Type=State")
+                            break
+            if config_status:
+                log.error("Config is present in Get response with Type=State")
+                err_msg.append("Config is present in Get response with Type=State")
+
+        elif 'JSON_IETF' in encoding:
+            json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+            resp_dict_keys = list()
+            resp_dict_list = json_ietf_val['data']['openconfig-interfaces:interfaces']['interface']
+            for intfs in resp_dict_list:
+                resp_dict_keys.append(list(intfs.keys()))
+            state_status = False
+            config_status = False
+            for intf_key in resp_dict_keys:
+                for keys in intf_key:
                     if 'config' in keys and not config_status:
                         config_status = True
                     if 'state' in keys and not state_status:
                         state_status = True
                     if not config_status and state_status:
-                        log.info("Only State is present in Get response with Type=State")
-                        break
-        if config_status:
-            log.error("Config is present in Get response with Type=State")
-            err_msg.append("Config is present in Get response with Type=State")    
+                            log.info("Only State is present in Get response with Type=State")
+                            break
+            if config_status:
+                log.error("Config is present in Get response with Type=State")
+                err_msg.append("Config is present in Get response with Type=State")
     
     except KeyboardInterrupt:
         log.info("Shutting down.")
@@ -883,7 +1020,7 @@ def _test_gnmi_SetPfxPath(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test SETPfxPath1_1 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test SETPfxPath1_1 failed due to Grpc Error {err}".format(err=e.details()))
 
 
 def _test_SetPfxPath_2node(stub):
@@ -921,7 +1058,7 @@ def _test_SetPfxPath_2node(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test SETPfx_2node_1 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test SETPfx_2node_1 failed due to Grpc Error {err}".format(err=e.details()))
 
 
 def _test_Set_wTgt(stub):
@@ -978,7 +1115,7 @@ def _test_Set_wTgt(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test Set_wTgt_1_1 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test Set_wTgt_1_1 failed due to Grpc Error {err}".format(err=e.details()))
 
     log.info('Performing SET-UPDATE w/Path Target MODIFY(gnmi spec:2.2.2.1) for leaf node\n')
     log.info('For this test we will MODIFY Path Target = "MDFY_GNMI_TGT"')
@@ -1025,7 +1162,7 @@ def _test_Set_wTgt(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test Set_wTgt_1_2 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test Set_wTgt_1_2 failed due to Grpc Error {err}".format(err=e.details()))
 
     log.info('Perform another SET-UPDATE but without Target for leaf node\n')
     log.info('For this test we will MODIFY without Path Target ')
@@ -1071,7 +1208,7 @@ def _test_Set_wTgt(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test Set_wTgt_1_3 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test Set_wTgt_1_3 failed due to Grpc Error {err}".format(err=e.details()))
 
     #sleep(555)
 
@@ -1106,7 +1243,7 @@ def _test_Set_wTgt(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test Set_wTgt_1_4 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test Set_wTgt_1_4 failed due to Grpc Error {err}".format(err=e.details()))
 
     if len(err_msg) != 0:
         log.error("Test_Set_wTgt failed due to : {}".format(*err_msg))
@@ -1147,7 +1284,7 @@ def _test_Path_with_slash(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test SLASHSET_Sanity1_1 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test SLASHSET_Sanity1_1 failed due to Grpc Error {err}".format(err=e.details()))
 
 
 
@@ -1173,7 +1310,7 @@ def _test_Path_with_slash(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test SLASHSET_Sanity1_2 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test SLASHSET_Sanity1_2 failed due to Grpc Error {err}".format(err=e.details()))
 
 
 
@@ -1201,7 +1338,7 @@ def _test_Path_with_slash(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test SLASHSET_Sanity1_3 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test SLASHSET_Sanity1_3 failed due to Grpc Error {err}".format(err=e.details()))
 
     if len(err_msg) != 0:
         log.error("Test_SLASHSET_Sanity failed due to : {}".format(*err_msg))
@@ -1247,7 +1384,7 @@ def _test_PfxPath_with_slash(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test SlshInPfxPath1_1 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test SlshInPfxPath1_1 failed due to Grpc Error {err}".format(err=e.details()))
 
 
     log.info('Performing SET-UPDATE Request w/Prefix-Path consisting of "/" to target \n')
@@ -1277,14 +1414,13 @@ def _test_PfxPath_with_slash(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test SlshInPfxPath1_2 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test SlshInPfxPath1_2 failed due to Grpc Error {err}".format(err=e.details()))
 
-
-
-def _test_MultiKey(stub):
+def _test_MultiKey(stub,encoding):
     user = None
     password = None
     err_msg = list()
+    status = True
 
     tData = ApData.zap.get_testcase_configuration("test_GetSet_Sanity1")
     input_conf = json.loads(six.moves.builtins.open(tData["input_conf_file"], 'r').read())
@@ -1312,15 +1448,42 @@ def _test_MultiKey(stub):
             else:
                 log.info("MKEYSET_Sanity1_1:Failed - was unable to do SET-REPLACE w/Path consisting of Multiple Keys")
             
+            xpath = input_conf['VERIFY_MKEYSET_Sanity1_1']['filter']
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            response = gnmiTestLib._get(stub, paths, user, password,encoding=encoding)
+            log.info(response)
+
+            if 'PROTO' in encoding:
+                msg_dict = google.protobuf.json_format.MessageToDict(response)
+                #log.info(msg_dict)
+                resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+                log.info(resp_dict)
+                for cfg in input_conf['VERIFY_MKEYSET_Sanity1_1']['config']:
+                    result = gnmiTestLib.verify_get_response(resp_dict,set_info1,cfg)
+                    err_msg = result['err_msg'] + err_msg
+
+            elif 'JSON_IETF' in encoding:
+                json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+                json_ietf_val = json_ietf_val['data']['openconfig-system:system']['logging']['console']['selectors']['selector'][0]['config']
+                set_dict = set_info1['selectors']['selector'][0]['config']
+                result = gnmiTestLib.verify_json_ietf_response(set_dict,json_ietf_val)
+                err_msg = result['err_msg'] + err_msg
+
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test MKEYSET_Sanity1_1 failed due to Grpc Error {err}".format(err=e.details())) 
+        pytest.fail("Test MKEYSET_Sanity1_1 failed due to Grpc Error {err}".format(err=e.details())) 
 
+    if len(err_msg) != 0:
+        log.error("Test MKEYSET_Sanity1_1 failed due to : {}".format(*err_msg))
+        status = False
+    else:
+        log.info("Test MKEYSET_Sanity1_1 - Set and Get Passed")
 
+    err_msg = list()
     log.info('Performing SET-UPDATE w/Path consisting of Multiple Keys \n')
     log.info('For this test we will use Path facility=KERNEL,severity=ALERT')
 
@@ -1341,6 +1504,26 @@ def _test_MultiKey(stub):
                 log.info("MKEYSET_Sanity1_2:Passed - was able to do SET-UPDATE w/Path consisting of Multiple Keys")
             else:
                 log.info("MKEYSET_Sanity1_2:Failed - was unable to do SET-UPDATE w/Path consisting of Multiple Keys")
+
+            xpath = input_conf['VERIFY_MKEYSET_Sanity1_2']['filter']
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            response = gnmiTestLib._get(stub, paths, user, password,encoding=encoding)
+            log.info(response)
+            if 'PROTO' in encoding:
+                msg_dict = google.protobuf.json_format.MessageToDict(response)
+                #log.info(msg_dict)
+                resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+                log.info(resp_dict)                
+                for cfg in input_conf['VERIFY_MKEYSET_Sanity1_2']['config']:
+                    result = gnmiTestLib.verify_get_response(resp_dict,set_info1,cfg)
+                    err_msg = result['err_msg'] + err_msg
+            
+            elif 'JSON_IETF' in encoding:
+                json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+                json_ietf_val = json_ietf_val['data']['openconfig-system:system']['logging']['console']['selectors']['selector'][0]['config']
+                set_dict = set_info1['selectors']['selector'][0]['config']
+                result = gnmiTestLib.verify_json_ietf_response(set_dict,json_ietf_val)
+                err_msg = result['err_msg'] + err_msg
             
     except KeyboardInterrupt:
         log.info("Shutting down.")
@@ -1348,10 +1531,16 @@ def _test_MultiKey(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test MKEYSET_Sanity1_2 failed due to Grpc Error {err}".format(err=e.details())) 
+        pytest.fail("Test MKEYSET_Sanity1_2 failed due to Grpc Error {err}".format(err=e.details())) 
 
+    if len(err_msg) != 0:
+        log.error("Test MKEYSET_Sanity1_2 failed due to : {}".format(*err_msg))
+        status = False
+    else:
+        log.info("Test MKEYSET_Sanity1_2 - Set and Get Passed")
 
-
+    err_msg = list()
+   
     log.info('Performing SET-DELETE w/Path consisting of Multiple Keys \n')
     try:
         xpath = "/system/logging/console/selectors/selector"
@@ -1373,14 +1562,18 @@ def _test_MultiKey(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test MKEYSET_Sanity1_3 failed due to Grpc Error {err}".format(err=e.details())) 
+        pytest.fail("Test MKEYSET_Sanity1_3 failed due to Grpc Error {err}".format(err=e.details())) 
+    
+    if not status:
+        pytest.fail("Test MKEYSET_Sanity failed ")
+    else:
+        log.info("Test MKEYSET_Sanity - Set and Get Passed")
 
-
-
-def _test_PfxPath_with_MultiKey(stub):
+def _test_PfxPath_with_MultiKey(stub,encoding):
     user = None
     password = None
     err_msg = list()
+    status = True
 
     tData = ApData.zap.get_testcase_configuration("test_gnmi_SetPfxPath")
     input_conf = json.loads(six.moves.builtins.open(tData["input_conf_file"], 'r').read())
@@ -1409,17 +1602,49 @@ def _test_PfxPath_with_MultiKey(stub):
             else:
                 log.info("PfxPath_wMKEYSET1_1:Failed - was unable to do SET-REPLACE w/PfxPath consisting of Multiple Keys")
 
+            prefix = input_conf['VERIFY_MKEYPfx_SET1_1']['prefix']
+            path = input_conf['VERIFY_MKEYPfx_SET1_1']['path']
+            path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG',encoding=encoding)
+            log.info("Response : {}".format(response)) 
+
+            msg_dict = google.protobuf.json_format.MessageToDict(response)
+            
+            #log.info("msg dict json dump: {}".format(json.dumps(msg_dict,sort_keys=True, indent=4)))
+            if 'PROTO' in encoding:
+                resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+                for cfg in input_conf['VERIFY_MKEYPfx_SET1_1']['config']:
+                    result = gnmiTestLib.verify_get_response(resp_dict,set_info1,cfg)
+                    err_msg = result['err_msg'] + err_msg
+
+            elif 'JSON_IETF' in encoding:
+                json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+                pfx_path = set_info1['prefix-path']
+                pfx_path = gnmiTestLib._path_names(pfx_path)
+                json_ietf_val = json_ietf_val['data'][pfx_path[0]][pfx_path[1]][pfx_path[2]][pfx_path[3]]['selector'][0]['config']
+                update = set_info1['Updates']['config']
+                result = gnmiTestLib.verify_json_ietf_response(update,json_ietf_val)
+                err_msg = result['err_msg'] + err_msg
+
+
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test PfxPath_wMKEYSET1_1 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test PfxPath_wMKEYSET1_1 failed due to Grpc Error {err}".format(err=e.details()))
 
+    if len(err_msg) != 0:
+        log.error("Test MKEYPfx_SET1_1 failed due to : {}".format(*err_msg))
+        status = False
+    else:
+        log.info("Test MKEYPfx_SET1_1 - Set and Get Passed")
+
+    err_msg = list()
     log.info('Performing SET-UPDATE Request w/Prefix-Path consisting of Multikey to target \n')
     try:
-        if 'MKEYPfx_SET1_1' in input_conf:
+        if 'MKEYPfx_SET1_2' in input_conf:
             set_info1 = input_conf['MKEYPfx_SET1_2']
             print(set_info1['prefix-path'])
             print(set_info1['Updates'])
@@ -1440,13 +1665,46 @@ def _test_PfxPath_with_MultiKey(stub):
             else:
                 log.info("PfxPath_wMKEYSET1_2:Failed - was unable to do SET-UPDATE w/PfxPath consisting of Multiple Keys")
 
+            prefix = input_conf['VERIFY_MKEYPfx_SET1_2']['prefix']
+            path = input_conf['VERIFY_MKEYPfx_SET1_2']['path']
+            path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG',encoding=encoding)
+            #log.info(response) 
+
+            if 'PROTO' in encoding:
+                msg_dict = google.protobuf.json_format.MessageToDict(response)
+                #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
+                resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+                for cfg in input_conf['VERIFY_MKEYPfx_SET1_2']['config']:
+                    result = gnmiTestLib.verify_get_response(resp_dict,set_info1,cfg)
+                    err_msg = result['err_msg'] + err_msg
+
+            elif 'JSON_IETF' in encoding:
+                # Once 675 is fixed, we will be looking at only multikey value, then we need not loop through the list of json_ietf_value
+                json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+                pfx_path = set_info1['prefix-path']
+                pfx_path = gnmiTestLib._path_names(pfx_path)
+                json_ietf_val = json_ietf_val['data'][pfx_path[0]][pfx_path[1]][pfx_path[2]][pfx_path[3]]['selector'][0]['config']
+                update = set_info1['Updates']['config']
+                log.info("json_ietf_val: %s" % json_ietf_val)
+                result = gnmiTestLib.verify_json_ietf_response(update,json_ietf_val)
+                err_msg = result['err_msg'] + err_msg
+
     except KeyboardInterrupt:
         log.info("Shutting down.")
     except grpc.RpcError as e:
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test PfxPath_wMKEYSET1_2 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test PfxPath_wMKEYSET1_2 failed due to Grpc Error {err}".format(err=e.details()))
+
+    if len(err_msg) != 0:
+        log.error("Test MKEYPfx_SET1_2 failed due to : {}".format(*err_msg))
+        status = False
+    else:
+        log.info("Test MKEYPfx_SET1_2 - Set and Get Passed")
+
+    err_msg = list()
 
     log.info('Performing SET-DELETE to CLEANUP above config of Multiple Keys \n')
     try:
@@ -1469,8 +1727,12 @@ def _test_PfxPath_with_MultiKey(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test PfxPath_wMKEYSET1_3 failed due to Grpc Error {err}".format(err=e.details())) 
+        pytest.fail("Test PfxPath_wMKEYSET1_3 failed due to Grpc Error {err}".format(err=e.details())) 
 
+    if not status:
+        pytest.fail("Test MKEYPfx_SET failed ")
+    else:
+        log.info("Test MKEYPfx_SET - Set and Get Passed")
 
 
 def _test_MultiSet_Sanity1(stub):
@@ -1496,7 +1758,7 @@ def _test_MultiSet_Sanity1(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test SETReq_Del1_2 failed due to Grpc Error {err}".format(err=e.details()))            
+        pytest.fail("Test SETReq_Del1_2 failed due to Grpc Error {err}".format(err=e.details()))            
 
 
 def _test_MultiSet_Mkey1(stub):
@@ -1531,7 +1793,7 @@ def _test_MultiSet_Mkey1(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test MSET_Mkey1_1 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test MSET_Mkey1_1 failed due to Grpc Error {err}".format(err=e.details()))
 
 
     log.info('Performing SET Request w/Multiple Ops(REPLACE+UPDATE) on Paths consisting of only Multikeys \n')
@@ -1558,7 +1820,7 @@ def _test_MultiSet_Mkey1(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test MSET_Mkey1_2 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test MSET_Mkey1_2 failed due to Grpc Error {err}".format(err=e.details()))
 
     log.info('Performing SET-DELETE to CLEANUP above config of MultiSet w/Multiple Keys \n')
     try:
@@ -1581,7 +1843,7 @@ def _test_MultiSet_Mkey1(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test MSET_Mkey1_3 failed due to Grpc Error {err}".format(err=e.details())) 
+        pytest.fail("Test MSET_Mkey1_3 failed due to Grpc Error {err}".format(err=e.details())) 
 
 
 def _test_PfxPath_MSet1(stub):
@@ -1619,7 +1881,7 @@ def _test_PfxPath_MSet1(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test PFXPath_MSet_1 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test PFXPath_MSet_1 failed due to Grpc Error {err}".format(err=e.details()))
 
 
 def _test_SetReq_Del1(stub):
@@ -2450,7 +2712,7 @@ def _test_Tgt_in_NonPfx(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test Tgt_NonPfx_1_1 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test Tgt_NonPfx_1_1 failed due to Grpc Error {err}".format(err=e.details()))
     
     if len(err_msg) != 0:
         log.error("Test Tgt_NonPfx failed due to : {}".format(*err_msg))
@@ -2521,7 +2783,7 @@ def _test_SetRpl_Omit1(stub):
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
         printGrpcError(e)
-        raise CafyException.VerificationError("Test SET_RplOmit1_1 failed due to Grpc Error {err}".format(err=e.details()))
+        pytest.fail("Test SET_RplOmit1_1 failed due to Grpc Error {err}".format(err=e.details()))
 
     if len(err_msg) != 0:
         log.error("Test SET_RplOmit1 failed due to : {}".format(*err_msg))
@@ -2669,3 +2931,113 @@ def _test_parallel_set_get(gnmi_conn):
         pytest.fail("Test test_parallel_set_get FAILED")
     else:
         log.info("Test test_parallel_set_get - PASSED")
+
+def _test_default_filter(stub,encoding):
+    user = None
+    password = None
+    err_msg = list()
+    
+    input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_Get_with_prefix/input_conf_file"), 'r').read())
+    
+    log.info('Performing SET-REPLACE Request to target \n')
+    try:
+        if 'GET_WITH_PFX' in input_conf:
+            set_info = input_conf['GET_WITH_PFX']['config']
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info)
+            log.info(str(reply))
+            if ('response' in str(reply) and 'op: REPLACE' in str(reply)):
+                log.info("test_Get_with_prefix:Passed - was able to do SET-REPLACE with input json")
+            else:
+                log.info("test_Get_with_prefix:Failed - was unable to do SET-REPLACE with input json")
+            
+            prefix = input_conf['GET_WITH_PFX']['verify']['prefix']
+            path = input_conf['GET_WITH_PFX']['verify']['path']
+            path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG',encoding=encoding)
+            #log.info(response)   
+            
+            #log.info("msg dict json dump: {}".format(json.dumps(msg_dict,sort_keys=True, indent=4)))
+            if 'PROTO' in encoding:
+                msg_dict = google.protobuf.json_format.MessageToDict(response)
+                resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+                var = 'enabled'
+                get_key = "interfaces,interface,config"
+                for resp_key in resp_dict.keys():
+                    for key_var in resp_dict[resp_key]:
+                        if get_key in key_var.keys():
+                            try:
+                                get_var = key_var[get_key][var]
+                                log.error("Default Filtering is disabled. Value for enabled is %s" % get_var)
+                                err_msg.append("Default Filtering is disabled. Value for enabled is %s" % get_var)
+                            except KeyError:
+                                log.info("Default Filtering is enabled")
+            
+            elif 'JSON_IETF' in encoding:
+                json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+                json_ietf_val = json_ietf_val['data']['openconfig-interfaces:interfaces']['interface']
+                for set_d in json_ietf_val:
+                    if 'enabled' in set_d['config'].keys():
+                        get_var = set_d['config']['enabled']
+                        log.error("Default Filtering is disabled. Value for enabled is %s" % get_var)
+                        err_msg.append("Default Filtering is disabled. Value for enabled is %s" % get_var)
+                    else:
+                        log.info("Default Filtering is enabled")
+    
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        err_msg.append("test_Get_with_prefix failed due to Grpc Error {err}".format(err=e.details()))
+
+    if len(err_msg) != 0:
+        log.error("test_Get_with_prefix failed due to : {}".format(*err_msg))
+        pytest.fail("test_Get_with_prefix failed due to : {}".format(*err_msg))
+    else:
+        log.info("test_Get_with_prefix Passed")
+    
+    try:
+        xpath = "/oc-if:interfaces"
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info)
+        log.info(str(reply))
+        if ('response' in str(reply) and 'op: DELETE' in str(reply)):
+            log.info("test_Get_with_prefix:Passed - was able to do SET-DELETE on target")
+        else:
+            log.error("test_Get_with_prefix:Failed - was unable to do SET-DELETE on target")
+            err_msg.append("test_Get_with_prefix:Failed - was unable to do SET-DELETE on target")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        pytest.fail("test_Get_with_prefix - Delete Config during cleanup failed due to Grpc Error {err}".format(err=e.details()))
+
+def _test_get_at_root(stub,encoding):
+    user = None
+    password = None
+    log.info('Performing CapabilitiesRequest to target \n')
+    xpath = "/"
+    paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+    response = gnmiTestLib._get(stub, paths, user, password,encoding=encoding)
+    #log.info(response)
+    if 'PROTO' in encoding:
+        msg_dict = google.protobuf.json_format.MessageToDict(response)
+        resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+        if resp_dict is not None or len(resp_dict) > 2:
+            log.info("Keys in GNMI GET PROTO encoding: %s" % resp_dict.keys())
+            log.info("Length of return dict: %s" % len(resp_dict))
+        else:
+            log.error("Test test_get_at_root failed, returned config is empty")
+    elif 'JSON_IETF' in encoding:
+        json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+        if not bool(json_ietf_val['data']) or len(json_ietf_val['data']) > 2:
+            log.info("Keys in GNMI GET JSON_IETF encoding: %s" % json_ietf_val['data'].keys())
+            log.info("Length of return dict: %s" % len(json_ietf_val['data']))
+        else:
+            log.error("Test test_get_at_root failed, returned config is empty")
+    

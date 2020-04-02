@@ -75,8 +75,9 @@ class TestGnmi(GnmiApBase):
     def test_SetReq_Del1(self,stub):
         gnmi_san_tc._test_SetReq_Del1(stub)
 
-    def test_GetSet_Sanity1(self,stub):
-        gnmi_san_tc._test_GetSet_Sanity1(stub)
+    @pytest.mark.parametrize("encoding", ["PROTO", "JSON_IETF"])
+    def test_GetSet_Sanity1(self,stub,encoding):
+        gnmi_san_tc._test_GetSet_Sanity1(stub,encoding)
 
     def test_gnmi_get(self,stub):
         gnmi_san_tc._test_gnmi_get(stub)
@@ -84,11 +85,21 @@ class TestGnmi(GnmiApBase):
     def test_gnmi_Capability(self,stub):
         gnmi_san_tc._test_gnmi_Capability(stub)
 
-    def test_Get_with_prefix(self,stub):
-        gnmi_san_tc._test_Get_with_prefix(stub)
+    @pytest.mark.parametrize("encoding", ["PROTO", "JSON_IETF"])
+    def test_get_at_root(self,stub,encoding):
+        gnmi_san_tc._test_get_at_root(stub,encoding)
 
-    def test_Get_with_type(self,stub):
-        gnmi_san_tc._test_Get_with_type(stub)
+    @pytest.mark.parametrize("encoding", ["PROTO", "JSON_IETF"])
+    def test_Get_with_prefix(self,stub,encoding):
+        gnmi_san_tc._test_Get_with_prefix(stub,encoding)
+
+    @pytest.mark.parametrize("encoding", ["PROTO", "JSON_IETF"])
+    def test_Get_with_type(self,stub,encoding):
+        gnmi_san_tc._test_Get_with_type(stub,encoding)
+
+    @pytest.mark.parametrize("encoding", ["PROTO", "JSON_IETF"])
+    def test_default_filter(self,stub,encoding):
+        gnmi_san_tc._test_default_filter(stub,encoding)
 
     def test_Get_with_wrong_path(self,stub):
         gnmi_san_tc._test_Get_with_wrong_path(stub)
@@ -141,11 +152,13 @@ class TestGnmi(GnmiApBase):
     def test_PfxPath_with_slash(self,stub):
         gnmi_san_tc._test_PfxPath_with_slash(stub)
 
-    def test_MultiKey(self,stub):
-        gnmi_san_tc._test_MultiKey(stub)
+    @pytest.mark.parametrize("encoding", ["PROTO","JSON_IETF"])
+    def test_MultiKey(self,stub,encoding):
+        gnmi_san_tc._test_MultiKey(stub,encoding)
 
-    def test_PfxPath_with_MultiKey(self,stub):
-        gnmi_san_tc._test_PfxPath_with_MultiKey(stub)
+    @pytest.mark.parametrize("encoding", ["PROTO","JSON_IETF"])
+    def test_PfxPath_with_MultiKey(self,stub,encoding):
+        gnmi_san_tc._test_PfxPath_with_MultiKey(stub,encoding)
 
     def test_MultiSet_Mkey1(self,stub):
         gnmi_san_tc._test_MultiSet_Mkey1(stub)

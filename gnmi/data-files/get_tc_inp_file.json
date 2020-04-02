@@ -80,6 +80,23 @@
       ]
     }
   },
+  "VERIFY_DEFAULT_FILTER": {
+    "prefix": "/oc-if:interfaces",
+      "path": "/oc-if:interface",
+      "config": [
+        {
+          "name": "eth-1/1/0",
+          "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
+              "set_list_index": "0","check_var_list": ["name","type","description","mtu"]
+        },
+        {
+          "name": "eth-1/1/0",
+          "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
+              "set_list_index": "0","check_var_list": ["enabled"],
+              "exp_result": false
+        }
+      ]
+  },
   "VERIFY_GET_WITH_WRONG_PATH": {
     "prefix": "/oc-if:interfaces",
     "path": "/oc-if:if"
