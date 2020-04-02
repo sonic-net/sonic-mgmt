@@ -307,14 +307,14 @@ def _test_Optics_Monitor_Port():
 
 def _test_Optics_Eeprom_All():
     cmd = "sudo /usr/cisco/godiva/optics/opticsd -eeprom all\n"
-    #reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
-    #log.info(reply.decode())
-    #op = reply.decode()
-    #op = op.splitlines()
+    reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
+    log.info(reply.decode())
+    op = reply.decode()
+    op = op.splitlines()
 
     #The below 2 lines need to be commented out for TH3 runs
-    with open ("data-files/mock-eeprom.txt", "r") as myfile:
-        op=myfile.readlines()
+    #with open ("data-files/mock-eeprom.txt", "r") as myfile:
+    #    op=myfile.readlines()
 
     data = []
     edict = {}
