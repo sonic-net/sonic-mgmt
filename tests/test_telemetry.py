@@ -13,10 +13,8 @@ def get_telemetry_keyvalues(gnmi_out, certs_out):
     return params_dict
 
 # Test functions
-
 def test_config_db_parameters(duthost):
     """Verifies required telemetry parameters from config_db.
-       This is scoped as module as it need to be run once before first test run.
     """
     gnmi = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "TELEMETRY|gnmi"', module_ignore_errors=True)['stdout']
     certs = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "TELEMETRY|certs"', module_ignore_errors=True)['stdout']
