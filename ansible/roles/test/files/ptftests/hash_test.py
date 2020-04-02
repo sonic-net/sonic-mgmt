@@ -57,7 +57,7 @@ class HashTest(BaseTest):
         self.src_ip_interval = lpm.LpmDict.IpInterval(ip_address(self.src_ip_range[0]), ip_address(self.src_ip_range[1]))
         self.dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(self.dst_ip_range[0]), ip_address(self.dst_ip_range[1]))
         self.vlans = self.test_params.get('vlans', [])
-        self.hash_keys = self.test_params.get('hash_keys', ['src-ip'])
+        self.hash_keys = self.test_params.get('hash_keys', ['src-ip', 'dst-ip', 'src-port', 'dst-port'])
         self.dst_macs = self.test_params.get('dst_macs', [])    # TODO
 
         self.balancing_range = self.test_params.get('balancing_range', self.DEFAULT_BALANCING_RANGE)
@@ -76,9 +76,9 @@ class HashTest(BaseTest):
 
         hit_count_map = {}
         for _ in range(0, self.BALANCING_TEST_TIMES):
-            src_port = random.choice([port for port in self.src_ports if port not in exp_port_list]) if hash_key == "ingress-port" else in_port
-            logging.info("src_port: {}".format(src_port))
-            (matched_index, _) = self.check_ip_route(hash_key, src_port, dst_ip, exp_port_list)
+            in_port = random.choice([port for port in self.src_ports if port not in exp_port_list]) if hash_key == "ingress-port" else in_port
+            logging.info("in_port: {}".format(in_port))
+            (matched_index, _) = self.check_ip_route(hash_key, in_port, dst_ip, exp_port_list)
             hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
         logging.info("hit count map: {}".format(hit_count_map))
 
@@ -86,11 +86,11 @@ class HashTest(BaseTest):
         check_balancing_mode = 'loose' if hash_key == 'ingress-port' else 'strict'
         self.check_balancing(next_hop.get_next_hop(), hit_count_map, check_balancing_mode)
 
-    def check_ip_route(self, hash_key, src_port, dst_ip, dst_port_list):
+    def check_ip_route(self, hash_key, in_port, dst_ip, dst_port_list):
         if ip_network(unicode(dst_ip)).version == 4:
-            (matched_index, received) = self.check_ipv4_route(hash_key, src_port, dst_port_list)
+            (matched_index, received) = self.check_ipv4_route(hash_key, in_port, dst_port_list)
         else:
-            (matched_index, received) = self.check_ipv6_route(hash_key, src_port, dst_port_list)
+            (matched_index, received) = self.check_ipv6_route(hash_key, in_port, dst_port_list)
 
         assert received
 
@@ -99,11 +99,11 @@ class HashTest(BaseTest):
 
         return (matched_port, received)
 
-    def check_ipv4_route(self, hash_key, src_port, dst_port_list):
+    def check_ipv4_route(self, hash_key, in_port, dst_port_list):
         '''
         @summary: Check IPv4 route works.
         @param hash_key: hash key to build packet with.
-        @param src_port: index of port to use for sending packet to switch
+        @param in_port: index of port to use for sending packet to switch
         @param dst_port_list: list of ports on which to expect packet to come back from the switch
         '''
         base_mac = self.dataplane.get_mac(0, 0)
@@ -141,17 +141,17 @@ class HashTest(BaseTest):
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
 
-        send_packet(self, src_port, pkt)
-        logging.info("Sending packet from port " + str(src_port) + " to " + ip_dst)
+        send_packet(self, in_port, pkt)
+        logging.info("Sending packet from port " + str(in_port) + " to " + ip_dst)
 
         return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
     #---------------------------------------------------------------------
 
-    def check_ipv6_route(self, hash_key, src_port, dst_port_list):
+    def check_ipv6_route(self, hash_key, in_port, dst_port_list):
         '''
         @summary: Check IPv6 route works.
         @param hash_key: hash key to build packet with.
-        @param src_port: index of port to use for sending packet to switch
+        @param in_port: index of port to use for sending packet to switch
         @param dst_port_list: list of ports on which to expect packet to come back from the switch
         @return Boolean
         '''
@@ -191,8 +191,8 @@ class HashTest(BaseTest):
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
 
-        send_packet(self, src_port, pkt)
-        logging.info("Sending packet from port " + str(src_port) + " to " + ip_dst)
+        send_packet(self, in_port, pkt)
+        logging.info("Sending packet from port " + str(in_port) + " to " + ip_dst)
 
         return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
     #---------------------------------------------------------------------
