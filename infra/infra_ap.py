@@ -79,3 +79,8 @@ class TestInfra(InfraApBase):
     def test_Optics_Monitor_Port(self):
         infra_san_tc._test_Optics_Monitor_Port()
 
+    def test_Optics_Eeprom_All(self):
+        infra_san_tc._test_Optics_Eeprom_All()
+
+    def test_Optics_Eeprom_Port(self):
+        infra_san_tc._test_Optics_Eeprom_Port()       
