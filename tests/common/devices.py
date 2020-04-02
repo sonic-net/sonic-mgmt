@@ -312,6 +312,27 @@ class SonicHost(AnsibleHostBase):
             self.logger.error("Exception raised while getting networking restart time: %s" % repr(e))
             return None
 
+    def get_image_info(self):
+        """
+        @summary: get list of images installed on the dut.
+                  return a dictionary of "current, next, installed_list"
+        """
+        lines = self.command("sonic_installer list")["stdout_lines"]
+        ret    = {}
+        images = []
+        for line in lines:
+            words = line.strip().split(' ')
+            if len(words) == 2:
+                if words[0] == 'Current:':
+                    ret['current'] = words[1]
+                elif words[0] == 'Next:':
+                    ret['next'] = words[1]
+            elif len(words) == 1 and words[0].startswith('SONiC-OS'):
+                images.append(words[0])
+
+        ret['installed_list'] = images
+        return ret
+
 class EosHost(AnsibleHostBase):
     """
     @summary: Class for Eos switch
