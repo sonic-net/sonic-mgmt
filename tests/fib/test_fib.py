@@ -102,7 +102,7 @@ def test_fib(testbed, duthost, ptfhost, ipv4, ipv6, mtu):
                 socket_recv_size=16384)
 
 
-class Test_Hash():
+class TestHash():
     hash_keys = HASH_KEYS
     t = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
