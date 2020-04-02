@@ -14,6 +14,9 @@ def test_config(ansible_adhoc, testbed):
     bgp_facts = ans_host.bgp_facts()['ansible_facts']
 
     # Initialize portchannel
+    if len(mg_facts['minigraph_portchannels'].keys()) == 0:
+        pytest.skip("Skip test due to there is no portchannel exists in current topology.")
+
     portchannel = mg_facts['minigraph_portchannels'].keys()[0]
     tmp_portchannel = "PortChannel999"
     # Initialize portchannel_ip and portchannel_members
@@ -31,6 +34,9 @@ def test_config(ansible_adhoc, testbed):
     logging.info("portchannel_members=%s" % portchannel_members)
  
     try:
+        if len(portchannel_members) == 0:
+            pytest.skip("Skip test due to there is no portchannel member exists in current topology.")
+
         # Step 1: Remove portchannel members from portchannel
         for member in portchannel_members:
             ans_host.shell("config portchannel member del %s %s" % (portchannel, member))
