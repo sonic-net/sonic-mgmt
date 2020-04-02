@@ -127,8 +127,6 @@ class AdvancedReboot:
                 self.rebootData['lo_v6_prefix'] = str(ipaddress.ip_interface(intf['addr'] + '/64').network)
                 break
 
-        self.rebootData['minigraph_hwsku'] = self.mgFacts['minigraph_hwsku']
-
     def __updateNextHopIps(self):
         '''
         Update next hop IPs
@@ -240,7 +238,7 @@ class AdvancedReboot:
         '''
         if self.newSonicImage is not None and \
            self.rebootType == 'fast-reboot' and \
-           isMellanoxDevice(self.rebootData['minigraph_hwsku']):
+           isMellanoxDevice(self.duthost):
             logger.info('Handle Mellanox platform')
             nextImage = self.duthost.shell('sonic_installer list | grep Next | cut -f2 -d " "')['stdout']
             if 'SONiC-OS-201803' in self.currentImage and 'SONiC-OS-201811' in nextImage:

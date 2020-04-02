@@ -117,16 +117,13 @@ def swap_syncd(dut, registry_file=SONIC_DOCKER_REGISTRY):
             registry_file (str): The registry file describing where to download the RPC image.
     """
 
-    minigraph_facts = dut.minigraph_facts(host=dut.hostname)["ansible_facts"]
-    hw_sku = minigraph_facts["minigraph_hwsku"]
-
-    # TODO: Getting the vendor identifier should be a common utility
-    if is_broadcom_device(hw_sku):
+    asic_type = dut.get_asic_type()
+    if asic_type == "broadcom":
         vendor_id = "brcm"
-    elif is_mellanox_device(hw_sku):
+    elif asic_type == "mellanox":
         vendor_id = "mlnx"
     else:
-        error_message = "HW SKU \"{}\" is not currently supported".format(hw_sku)
+        error_message = "\"{}\" is not currently supported".format(asic_type)
         _LOGGER.error(error_message)
         raise ValueError(error_message)
 
