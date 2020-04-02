@@ -3040,4 +3040,3 @@ def _test_get_at_root(stub,encoding):
             log.info("Length of return dict: %s" % len(json_ietf_val['data']))
         else:
             log.error("Test test_get_at_root failed, returned config is empty")
-    
