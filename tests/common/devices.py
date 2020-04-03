@@ -16,6 +16,7 @@ from datetime import datetime
 from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
 
+
 class AnsibleHostBase(object):
     """
     @summary: The base class for various objects.

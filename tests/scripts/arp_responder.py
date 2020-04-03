@@ -31,6 +31,7 @@ def get_mac(iff):
 
 class Interface(object):
     ETH_P_ALL = 0x03
+    ETH_P_ARP = 0x806
     RCV_TIMEOUT = 1000
     RCV_SIZE = 4096
 
@@ -71,7 +72,7 @@ class Poller(object):
         self.responder = responder
         self.mapping = {}
         for interface in interfaces:
-            self.mapping[interface.handler()] = interface 
+            self.mapping[interface.handler()] = interface
 
     def poll(self):
         handlers = self.mapping.keys()
@@ -94,6 +95,7 @@ class ARPResponder(object):
 
     def action(self, interface):
         data = interface.recv()
+
         if len(data) > self.ARP_PKT_LEN:
             return
 
@@ -106,11 +108,17 @@ class ARPResponder(object):
         request_ip_str = socket.inet_ntoa(request_ip)
         if request_ip_str not in self.ip_sets[interface.name()]:
             return
+
+        if 'vlan' in self.ip_sets[interface.name()]:
+            vlan_id = self.ip_sets[interface.name()]['vlan']
+        else:
+            vlan_id = None
+
         arp_reply = self.generate_arp_reply(self.ip_sets[interface.name()][request_ip_str], remote_mac, request_ip, remote_ip, vlan_id)
         interface.send(arp_reply)
 
         return
-        
+
     def extract_arp_info(self, data):
         # remote_mac, remote_ip, request_ip, op_type
         rem_ip_start = 28

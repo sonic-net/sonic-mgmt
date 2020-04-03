@@ -1,7 +1,6 @@
 import sys
 import os
 import glob
-import json
 import tarfile
 import logging
 import time
@@ -81,6 +80,12 @@ def pytest_addoption(parser):
     # test_vrf options
     parser.addoption("--vrf_capacity", action="store", default=None, type=int, help="vrf capacity of dut (4-1000)")
     parser.addoption("--vrf_test_count", action="store", default=None, type=int, help="number of vrf to be tested (1-997)")
+
+    ############################
+    # pfc_asym options         #
+    ############################
+    parser.addoption("--server_ports_num", action="store", default=20, type=int, help="Number of server ports to use")
+
     ############################
     # test_techsupport options #
     ############################
@@ -120,7 +125,8 @@ def testbed_devices(ansible_adhoc, testbed):
 
     devices = {
         "localhost": Localhost(ansible_adhoc),
-        "dut": SonicHost(ansible_adhoc, testbed["dut"], gather_facts=True)}
+        "dut": SonicHost(ansible_adhoc, testbed["dut"], gather_facts=True)
+    }
 
     if "ptf" in testbed:
         devices["ptf"] = PTFHost(ansible_adhoc, testbed["ptf"])
@@ -132,6 +138,7 @@ def testbed_devices(ansible_adhoc, testbed):
         devices["ptf"] = PTFHost(ansible_adhoc, ptf_host)
 
     return devices
+
 
 def disable_ssh_timout(dut):
     '''
@@ -198,6 +205,7 @@ def nbrhosts(ansible_adhoc, testbed, creds):
     for k, v in testbed['topo']['properties']['topology']['VMs'].items():
         devices[k] = EosHost(ansible_adhoc, "VM%04d" % (vm_base + v['vm_offset']), creds['eos_login'], creds['eos_password'])
     return devices
+
 
 @pytest.fixture(scope='session')
 def eos():
