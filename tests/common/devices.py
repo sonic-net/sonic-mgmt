@@ -232,14 +232,20 @@ class SonicHost(AnsibleHostBase):
 
         return result
 
-    def get_pmon_daemon_list(self):
+    def get_pmon_daemon_states(self):
         """
-        @summary: get pmon daemon list from the config file (/usr/share/sonic/device/{platform}/{hwsku}/pmon_daemon_control.json)
+        @summary: get state list of daemons from pmon docker.
+                  Referencing (/usr/share/sonic/device/{platform}/{hwsku}/pmon_daemon_control.json)
                   if some daemon is disabled in the config file, then remove it from the daemon list.
+
+        @return: dictionary of { service_name1 : state1, ... ... }
         """
-        full_daemon_tup = ('xcvrd', 'ledd', 'psud', 'syseepromd')
+        # some services are meant to have a short life span or not part of the daemons
+        exemptions = ('lm-sensors', 'start.sh', 'rsyslogd')
+
+        daemons = self.shell('docker exec pmon supervisorctl status')['stdout_lines']
+
         daemon_ctl_key_prefix = 'skip_'
-        daemon_list = []
         daemon_config_file_path = os.path.join('/usr/share/sonic/device', self.facts["platform"], 'pmon_daemon_control.json')
 
         try:
@@ -248,20 +254,26 @@ class SonicHost(AnsibleHostBase):
             logging.debug("Original file content is %s" % str(json_data))
             for key in full_daemon_tup:
                 if (daemon_ctl_key_prefix + key) not in json_data:
-                    daemon_list.append(key)
                     logging.debug("Daemon %s is enabled" % key)
                 elif not json_data[daemon_ctl_key_prefix + key]:
-                    daemon_list.append(key)
                     logging.debug("Daemon %s is enabled" % key)
                 else:
                     logging.debug("Daemon %s is disabled" % key)
+                    exemptions.append(key)
         except:
             # if pmon_daemon_control.json not exist, then it's using default setting,
             # all the pmon daemons expected to be running after boot up.
-            daemon_list = list(full_daemon_tup)
+            pass
 
-        logging.info("Pmon daemon list for this platform is %s" % str(daemon_list))
-        return daemon_list
+        # Collect state of services that are not on the exemption list.
+        daemon_states = {}
+        for line in daemons:
+            words = str(line).split()
+            if len(words) >= 2 and words[0] not in exemptions:
+                daemon_states[words[0]] = words[1]
+
+        logging.info("Pmon daemon state list for this platform is %s" % str(daemon_states))
+        return daemon_states
 
     def num_npus(self):
         """
@@ -321,7 +333,7 @@ class SonicHost(AnsibleHostBase):
         ret    = {}
         images = []
         for line in lines:
-            words = line.strip().split(' ')
+            words = line.strip().split()
             if len(words) == 2:
                 if words[0] == 'Current:':
                     ret['current'] = words[1]
