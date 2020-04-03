@@ -117,13 +117,12 @@ def swap_syncd(dut, registry_file=SONIC_DOCKER_REGISTRY):
             registry_file (str): The registry file describing where to download the RPC image.
     """
 
-    asic_type = dut.facts["asic_type"]
-    if asic_type == "broadcom":
+    if is_broadcom_device(dut):
         vendor_id = "brcm"
-    elif asic_type == "mellanox":
+    elif is_mellanox_device(dut):
         vendor_id = "mlnx"
     else:
-        error_message = "\"{}\" is not currently supported".format(asic_type)
+        error_message = "\"{}\" is not currently supported".format(dut.facts["asic_type"])
         _LOGGER.error(error_message)
         raise ValueError(error_message)
 
