@@ -1,0 +1,9 @@
+Value uid (\d+)
+Value username (\S+)
+Value gid (\d+)
+Value group (\S+)
+Value secondary_group (\S+)
+
+
+Start
+  ^\s*uid=${uid}\(${username}\)\s+gid=${gid}\(${group}\)\s+groups=${secondary_group}

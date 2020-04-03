@@ -1,0 +1,12 @@
+#################################################
+#sonic# show ip pim nexthop-lookup  10.10.10.2 232.1.1.1
+#Group 232.1.1.1 --- Nexthop 10.10.10.2 Interface Ethernet24
+##################################################
+Value group ([\w\.]+)
+Value source ([\w\.]+)
+Value interface (\w+)
+
+Start
+  ^\s*Group\s*${group}\s*---\s*Nexthop\s*${source}\s*Interface\s*${interface} -> Record
+
+

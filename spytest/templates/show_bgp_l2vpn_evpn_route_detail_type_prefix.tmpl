@@ -1,0 +1,22 @@
+Value Filldown RD (\d+\:\d+|\d+\.\d+\.\d+\.\d+)
+Value AS_PATH (\d+|\d+\s\d+)
+Value VNI_ID (\d+)
+Value PREFIX (\s*\[5\]:\[\d+\]:\[\d+\]:\[\d+\.\d+\.\d+\.\d+\]|\s*\[5\]:\[\d+\]:\[\d+\]:\[\S+\])
+Value RVTEP (\d+\.\d+\.\d+\.\d+)
+Value BGP_PEER (\S+)
+Value ORIGIN ([\w|\s|,]+)
+Value RT (\d+\:\d+|\d+\.\d+\.\d+\.\d+:\d+)
+Value ET (\d+)
+Value RMAC (([0-9a-f]{2}[:]){5}[0-9a-f]{2})
+Value Fillup DPREFIXES (\d+)
+Value Fillup NO_OF_PATHS (\d+)
+
+Start
+  ^\s*Route Distinguisher:\s${RD} -> Continue.Record
+  ^\s*Route ${PREFIX} VNI\s${VNI_ID} -> Continue.Record
+  ^\s*${AS_PATH}$$
+  ^\s*${RVTEP}\sfrom\s${BGP_PEER}\s\(
+  ^\s*Origin\s${ORIGIN}$$
+  ^\s*Extended Community:\sRT:${RT}\sET:${ET}\sRmac:${RMAC}
+  ^\s*Displayed\s${DPREFIXES}\sprefixes\s\(${NO_OF_PATHS}\spaths\)
+

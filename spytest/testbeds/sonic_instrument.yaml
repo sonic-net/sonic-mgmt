@@ -1,0 +1,25 @@
+################################################
+# trigger: [action arguments]
+#     action: sh | py | spy | cmds | info | warn
+################################################
+
+default:
+    pre-infra-module: []
+    pre-user-module: []
+    pre-user-func: []
+    pre-reboot: []
+    post-infra-module: []
+    post-user-module: []
+    post-user-func: []
+    post-reboot: []
+
+example:
+    pre-infra-module: [sh, test-in-dut.sh]
+    pre-user-module: [cmds, test-cli.cmds]
+    pre-user-func: [py, test-in-dut.py]
+    pre-reboot: [warn, rebooting]
+    post-infra-module: [spy, test-out-dut.py]
+    post-user-module: []
+    post-user-func: []
+    post-reboot: [info, rebooted]
+

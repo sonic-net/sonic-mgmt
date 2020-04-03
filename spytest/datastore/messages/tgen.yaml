@@ -1,0 +1,26 @@
+
+traffic_verification_success: traffic verification is successful
+traffic_verification_failed: traffic verification is failed
+traffic_transmission_failed: Traffic is not transmitted from IXIA-{}
+traffic_verification_failed_from_to: Traffic verification failed from {} to {}
+traffic_verification_failed_msg: traffic verification is failed {}
+traffic_stream_config_failed: Traffic stream configuration failed
+traffic_action_control_failed: Traffic action control failed.
+tgen_exception: Traffic generator exception occured {}
+traffic_loss_observed: Traffic loss observed
+
+tgen_vlan_packets_received: All packets with VLAN ID {} received on {}
+tgen_vlan_packets_dropped: All packets with VLAN ID {} NOT received on {}
+tgen_failed_add_endpoint_sets: Failed to add endpointsets
+tgen_failed_api: Traffic generator API Failed with status {}
+tgen_failed_oversubscription: Traffic generator Failed with Oversubscription
+tgen_failed_invalid_option: Traffic generator Failed with invalid option usage
+tgen_failed_runtime_error: Traffic generator Failed with runtime error
+tgen_failed_start_capture: Traffic generator Failed with unable to start capture
+
+tgen_failed_start_protocols: Failed to start TGen Protocols
+tgen_failed_configure_stack: Could not configure TGen stack
+tgen_failed_apply_changes: Port must be selected to apply TGen changes
+tgen_failed_missing_traffic_item: Could not find TGen Traffic Item Statistics view
+tgen_failed_invalid_value: Invalid value for TGen parameter
+tgen_failed_abort: Traffic generator abort {}

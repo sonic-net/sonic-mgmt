@@ -1,0 +1,37 @@
+####################################################
+#admin@sonic:~$ mclagdctl -i 100 dump portlist local
+#--------------------------------------------------
+#Ifindex: 7
+#Type: PortChannel
+#PortName: {PortChannel0002}
+#MAC: 6c:ec:5a:08:31:49
+#IPv4Address: {2.2.2.1}
+#Prefixlen: {24}
+#State: {Down}
+#IsL3Interface: {Yes}
+#IsPeerlink: No
+#MemberPorts: Ethernet10
+#IsIsolateWithPeerlink: {No}
+#IsTrafficDisable: {Yes}
+#VlanList: Vlan10
+#---------------------------------------------------
+#####################################################
+Value Key mclag_intf (\w+)
+Value mclag_mac (\w\w:\w\w:\w\w:\w\w:\w\w:\w\w)
+Value mclag_intf_ip (\d+\.\d+\.\d+\.\d+)
+Value mclag_intf_mask (\d+)
+Value mclag_intf_local_state (\w+)
+Value mclag_intf_l3_status (\w+)
+Value isolate_peer_link (\w+)
+Value traffic_disable (\w+)
+
+Start
+  ^\s*PortName\s*:\s*${mclag_intf}$$
+  ^\s*MAC\s*:\s*${mclag_mac}\s*$$
+  ^\s*IPv4Address\s*:\s*${mclag_intf_ip}$$
+  ^\s*Prefixlen\s*:\s*${mclag_intf_mask}$$
+  ^\s*State\s*:\s*${mclag_intf_local_state}$$
+  ^\s*IsL3Interface\s*:\s*${mclag_intf_l3_status}$$
+  ^\s*IsIsolateWithPeerlink\s*:\s*${isolate_peer_link}$$
+  ^\s*IsTrafficDisable\s*:\s*${traffic_disable}$$ -> Record
+

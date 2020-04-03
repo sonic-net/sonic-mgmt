@@ -1,0 +1,9 @@
+Value Current (\S+)
+Value Next (\S+)
+Value Available (\S+)
+
+Start
+	^Current: ${Current}
+	^Next: ${Next}
+	^Available:
+	^${Available}$$ -> Record

@@ -1,0 +1,11 @@
+Value SRC_VTEP (\d+\.\d+\.\d+\.\d+)
+Value REM_VTEP (\d+\.\d+\.\d+\.\d+)
+Value TUN_TYPE (\S+)
+Value TUN_STATUS (\S+)
+Value NAME (\S+)
+Value Fillup TOTAL_COUNT (\d+)
+
+Start
+  ^\|\s+${SRC_VTEP}\s+\|\s+${REM_VTEP}\s+\|\s+${TUN_TYPE}\s+\|\s+${TUN_STATUS}\s+\| -> Record
+  ^\s*${NAME}\s+${SRC_VTEP}\s+${REM_VTEP}\s+${TUN_TYPE}\s+${TUN_STATUS}\s* -> Record
+  ^\Total count :\s+${TOTAL_COUNT}

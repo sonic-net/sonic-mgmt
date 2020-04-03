@@ -1,0 +1,11 @@
+Value admin_mode (\S+)
+Value global_timeout (\d+)
+Value tcp_timeout (\d+)
+Value udp_timeout (\d+)
+
+
+Start
+  ^\s*Admin\s+Mode\s+:\s+${admin_mode}\s*$$
+  ^\s*Global\s+Timeout\s+:\s+${global_timeout}\s+secs\s*$$
+  ^\s*TCP\s+Timeout\s+:\s+${tcp_timeout}\s+secs\s*$$
+  ^\s*UDP\s+Timeout\s+:\s+${udp_timeout}\s+secs\s*$$ -> Record

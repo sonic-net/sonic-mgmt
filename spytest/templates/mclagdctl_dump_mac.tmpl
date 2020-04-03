@@ -1,0 +1,18 @@
+####################################################
+#admin@sonic:~$ mclagdctl -i 100 dump mac
+#TYPE: S-STATIC, D-DYNAMIC; AGE: L-Local age, P-Peer age
+#No. TYPE MAC               VID  DEV        ORIGIN-DEV         AGE
+#1   D    00:1B:21:BA:DF:A8 1000 Ethernet4  PortChannel0001     L
+#2   D    00:1B:21:BB:2F:DC 1000 Ethernet4  PortChannel0002     L
+#####################################################
+Value num (\d+)
+Value type (\w)
+Value vlan (\d+)
+Value macaddress (\w\w:\w\w:\w\w:\w\w:\w\w:\w\w)
+Value port (\w+)
+Value origin_port (\w+)
+Value age_flag (\w)
+
+Start
+  ^\s*${num}\s+${type}\s+${macaddress}\s+${vlan}\s+${port}\s+${origin_port}\s+${age_flag}\s*$$ -> Record
+

@@ -1,0 +1,23 @@
+##################################################
+#sonic# show ip pim nexthop
+#Number of registered addresses: 1
+#Address         Interface      Nexthop
+#-------------------------------------------
+#10.10.20.2      Ethernet24     10.10.10.2
+#20.20.20.3      Ethernet24     10.10.10.2
+##################################################
+Value Filldown vrf (\w+)
+Value Filldown registered_count (\d+)
+Value source ([\d\.]+)
+Value interface (\w+)
+Value nexthop ([\d\.]+)
+
+Start
+  ^\s*VRF:\s*${vrf}$$
+  ^\s*Number\s*of\s*registered\s*addresses:\s*${registered_count}
+  ^.*----- -> header
+
+header
+  ^\s*${source}\s*${interface}\s*${nexthop} -> Record
+
+EOF

@@ -1,0 +1,43 @@
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+    s6100-01:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 1.2.3.4, port: 22}
+        rps: {model: None, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
+        credentials: {username: admin, password: YourPaSsWoRd, altpassword: broadcom}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    s6100-02:
+        device_type: DevSonic
+        access: {protocol: telnet, ip: 1.2.3.4, port: 2001}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
+        credentials: {username: admin, password: YourPaSsWoRd, altpassword: broadcom}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    s6100-03:
+        device_type: DevSonic
+        access: {protocol: telnet, ip: 1.2.3.4, port: 2002}
+        rps: {model: Avocent, ip: 2.3.4.5, outlet: 12, username: admin, password: admin}
+        credentials: {username: admin, password: YourPaSsWoRd, altpassword: broadcom}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    ixia-01:
+        device_type: TGEN
+        properties: {type: ixia, version: 7.40, ip: 1.2.3.4, ix_server: 3.4.5.6, params: def_tg}
+    stc-01:
+        device_type: TGEN
+        properties: {type: stc, version: 4.95, ip: 1.2.3.4, params: def_tg}
+
+topology:
+    s6100-01:
+

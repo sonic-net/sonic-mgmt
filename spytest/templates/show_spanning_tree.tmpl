@@ -1,0 +1,65 @@
+Value err ([\w\s:*]*)
+Value Filldown mode (\w+)
+#Per VLAN data
+Value Filldown vid (\d+)
+Value Filldown inst (\d+)
+#Bridge Params
+Value Filldown br_id (\w+)
+Value Filldown br_maxage (\d+)
+Value Filldown br_hello (\d+)
+Value Filldown br_fwddly (\d+)
+Value Filldown br_hold (\d+)
+Value Filldown br_lasttopo (\d+)
+Value Filldown br_topoch (\d+)
+#Root Filldown Params
+Value Filldown rt_id (\w+)
+Value Filldown rt_pathcost (\d+)
+Value Filldown rt_desigbridgeid (\w+)
+Value Filldown rt_port (\S+)
+Value Filldown rt_maxage (\d+)
+Value Filldown rt_hello (\d+)
+Value Filldown rt_fwddly (\d+)
+#Port Params
+Value port_name (\w+)
+Value port_priority (\d+)
+Value port_pathcost (\d+)
+Value port_portfast (Y|N)
+Value port_uplinkfast (Y|N)
+Value port_state (\w+)
+Value port_desigcost (\d+)
+Value port_desigrootid (\w+)
+Value port_desigbridgeid (\w+)
+#Show spanning-tree root_guard
+Value Filldown rg_timeout (\d+)
+Value rg_ifname (\w+)
+Value rg_vid (\d+)
+Value rg_status (.*)
+#Show spanning-tree bpdu_guard
+Value bg_ifname (\w+)
+Value bg_cfg_shut (Yes|No)
+Value bg_oper_shut (Yes|No|NA)
+#show spanning-tree statistics
+Value st_vid (\d+)
+Value st_inst (\w+)
+Value st_portno (\d+)
+Value st_bpdutx (\d+)
+Value st_bpdurx (\d+)
+Value st_tcntx (\d+)
+Value st_tcnrx (\d+)
+
+Start
+  ^Spanning-tree is ${err}\s*$$ -> Record
+  ^Spanning-tree Mode: ${mode}\s*$$
+  ^VLAN ${vid} - STP instance ${inst}\s*$$
+  ^${br_id}\s+${br_maxage}\s+${br_hello}\s+${br_fwddly}\s+${br_hold}\s+${br_lasttopo}\s+${br_topoch}\s*$$
+  ^${rt_id}\s+${rt_pathcost}\s+${rt_desigbridgeid}\s+${rt_port}\s+${rt_maxage}\s+${rt_hello}\s+${rt_fwddly}\s*$$
+  ^${port_name}\s+${port_priority}\s+${port_pathcost}\s+${port_portfast}\s+${port_uplinkfast}\s+${port_state}\s+${port_desigcost}\s+${port_desigrootid}\s+${port_desigbridgeid}\s*$$ -> Record
+  ^Root guard timeout: ${rg_timeout} secs
+  ^${rg_ifname}\s+${rg_vid}\s+${rg_status}$$ -> Record
+  ^PortNum\s+Shutdown\s+Port Shut\s*$$
+  ^${bg_ifname}\s+${bg_cfg_shut}\s+${bg_oper_shut}$$ -> Record
+  ^VLAN\s+${st_vid} - STP instance\s+${st_inst}$$
+  ^PortNum\s+BPDU Tx\s+BPDU Rx\s+TCN Tx\s+TCN Rx$$
+  ^${st_portno}\s+${st_bpdutx}\s+${st_bpdurx}\s+${st_tcntx}\s+${st_tcnrx}$$ -> Record
+
+EOF
