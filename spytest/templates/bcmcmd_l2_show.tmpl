@@ -1,0 +1,12 @@
+Value mac (\S+)
+Value vlan (\S+)
+Value gport (\S+)
+Value modid (\S+)
+Value port (\S+)
+Value type (\S+|\S+\s+\S+)
+
+Start
+  ^\s*mac=${mac}\s*vlan=${vlan}\s*GPORT=${gport}\s*modid=${modid}\s*port=${port}\s+${type}\s*$$ -> Record
+  ^\s*mac=${mac}\s*vlan=${vlan}\s*GPORT=${gport}\s*port=${port}\s+${type}\s*$$ -> Record
+  
+EOF

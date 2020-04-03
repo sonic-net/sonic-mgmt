@@ -1,0 +1,24 @@
+Value VRF (\S+)
+Value CONNECTED (\d+)
+Value EBGP (\d+)
+Value IBGP (\d+)
+Value STATIC (\d+)
+Value OSPF (\d+)
+Value TOTAL (\d+)
+Value FIB_CONNECTED (\d+)
+Value FIB_EBGP (\d+)
+Value FIB_IBGP (\d+)
+Value FIB_STATIC (\d+)
+Value FIB_OSPF (\d+)
+Value FIB_TOTAL (\d+)
+
+Start
+  ^\s*Route\s*Source\s*Routes\s*FIB.*\(vrf ${VRF}\).*
+  ^\s*connected\s*${CONNECTED}\s*${FIB_CONNECTED}
+  ^\s*static\s*${STATIC}\s*${FIB_STATIC}
+  ^\s*ospf\s*${OSPF}\s*${FIB_OSPF}
+  ^\s*ebgp\s*${EBGP}\s*${FIB_EBGP}
+  ^\s*ibgp\s*${IBGP}\s*${FIB_IBGP}
+  ^\s*---*
+  ^\s*Totals\s*${TOTAL}\s*${FIB_TOTAL} -> Record
+

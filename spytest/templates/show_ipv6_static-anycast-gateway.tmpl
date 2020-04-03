@@ -1,0 +1,39 @@
+#########################################################
+# admin@sonic:~$ show ipv6 static-anycast-gateway
+# Configured Anycast Gateway MAC address: 00:00:00:01:02:03
+# IPv6 Anycast Gateway MAC address: enable
+# Total number of gateway: 3
+# Total number of gateway admin UP: 3
+# Total number of gateway oper UP: 3
+# Interfaces    Gateway Address    Master    Admin/Oper
+# ------------  -----------------  --------  ------------
+# Vlan2         2001::100/64                 up/up
+# Vlan200       2001:1::10/64      Vrf1      up/up
+#               2001:1::12/64                up/up
+#########################################################
+Value MAC (\S+)
+Value STATUS (\S+)
+Value TOTAL (\d+)
+Value TOTAL_ADMIN (\d+)
+Value TOTAL_OPER (\d+)
+Value Filldown INTERFACE (\S+)
+Value Filldown GATEWAY (\S+)
+Value Filldown MASK (\d+)
+Value Filldown VRF (\S+)
+Value Filldown ADMIN (\S+)
+Value Filldown OPER (\S+)
+
+Start
+  ^\s*Configured Anycast Gateway MAC address: ${MAC}\s*$$
+  ^\s*Configured Anycast Gateway MAC address: ${MAC} Configured\s*$$
+  ^\s*IPv6 Anycast Gateway MAC address: ${STATUS}\s*$$
+  ^\s*Total number of gateway: ${TOTAL}\s*$$
+  ^\s*Total number of gateway admin UP: ${TOTAL_ADMIN}\s*$$
+  ^\s*Total number of gateway oper UP: ${TOTAL_OPER}\s*$$ -> Record
+  ^\s*${INTERFACE}\s+${GATEWAY}/${MASK}\s+${VRF}\s+${ADMIN}/${OPER}\s*$$ -> Record
+  ^\s*${INTERFACE}\s+${GATEWAY}/${MASK}\s+\s+${ADMIN}/${OPER}\s*$$ -> Continue.Clearall
+  ^\s*${INTERFACE}\s+${GATEWAY}/${MASK}\s+\s+${ADMIN}/${OPER}\s*$$ -> Record
+  ^\s*${GATEWAY}/${MASK}\s+\s+${ADMIN}/${OPER}\s*$$ -> Record
+  ^$$
+
+EOF

@@ -1,0 +1,15 @@
+###############################################################################
+#show udld neighbors 
+#Port           Device Name     Device ID         Port ID         Neighbor State
+#---------------------------------------------------------------------------------
+#Ethernet1      sonic           3c2c.992d.8201    Ethernet0       Bidirectional   
+#Ethernet3      sonic           3c2c.992d.8201    Ethernet3       Bidirectional 
+###############################################################################
+Value local_port (\w+)
+Value device_name (\w+)
+Value remote_device_id (\w\w\w\w.\w\w\w\w.\w\w\w\w)
+Value remote_port (\w+)
+Value neighbor_state (\w+)
+
+Start
+  ^\s*${local_port}\s+${device_name}\s+${remote_device_id}\s+${remote_port}\s+${neighbor_state}\s*$$ -> Record

@@ -1,0 +1,17 @@
+Value Localtime (.*)
+Value Universaltime (.*)
+Value RTCtime (.*)
+Value Timezone (.*)
+Value Networktimeon (\S+)
+Value NTPsynchronized (\S+)
+Value RTCinlocalTZ (\S+)
+
+Start
+  ^\s+Local time:\s+${Localtime}
+  ^\s+Universal time:\s+${Universaltime}
+  ^\s+RTC time:\s+${RTCtime}
+  ^\s+Time zone:\s+${Timezone}
+  ^\s+Network time on:\s+${Networktimeon}
+  ^NTP synchronized:\s+${NTPsynchronized}
+  ^\s+RTC in local TZ:\s+${RTCinlocalTZ}
+  ^.*$$ -> Record

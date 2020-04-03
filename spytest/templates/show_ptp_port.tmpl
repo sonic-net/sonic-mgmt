@@ -1,0 +1,20 @@
+Value log_sync_interval (\d+)
+Value delay_mechanism (\w+)
+Value port_state (\w+)
+Value peer_mean_path_delay (\d+)
+Value port_number (\d+)
+Value version_number (\d+)
+Value log_announce_interval (\d+)
+Value log_min_pdelay_req_interval (\d+)
+
+Start
+  ^\s*Log\s+Sync\s+Interval\s+${log_sync_interval}\s*$$
+  ^\s*Delay\s+Mechanism\s+${delay_mechanism}\s*$$
+  ^\s*Port\s+State\s+${port_state}\s*$$
+  ^\s*Peer\s+Mean\s+Path\s+delay\s+${peer_mean_path_delay}\s*$$
+  ^\s*Port\s+Number\s+${port_number}\s*$$
+  ^\s*Version\s+Number\s+${version_number}\s*$$
+  ^\s*Log\s+Announce\s+Interval\s+${log_announce_interval}\s*$$
+  ^\s*Log\s+Min\s+PDelay\s+Req\s+Interval\s+${log_min_pdelay_req_interval}\s*$$ -> Record
+
+EOF
