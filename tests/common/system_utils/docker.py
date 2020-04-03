@@ -122,7 +122,7 @@ def swap_syncd(dut, registry_file=SONIC_DOCKER_REGISTRY):
     elif is_mellanox_device(dut):
         vendor_id = "mlnx"
     else:
-        error_message = "\"{}\" is not currently supported".format(dut.facts["asic_type"])
+        error_message = "\"{}\" is not currently supported".format(dut.get_asic_type())
         _LOGGER.error(error_message)
         raise ValueError(error_message)
 

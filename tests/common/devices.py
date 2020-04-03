@@ -333,6 +333,9 @@ class SonicHost(AnsibleHostBase):
         ret['installed_list'] = images
         return ret
 
+    def get_asic_type(self):
+        return dut.facts["asic_type"]
+
 
 class EosHost(AnsibleHostBase):
     """
