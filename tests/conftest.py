@@ -190,13 +190,31 @@ def ptfhost(testbed_devices):
 @pytest.fixture(scope="module")
 def nbrhosts(ansible_adhoc, testbed, creds):
     """
-    Shortcut fixture for getting PTF host
+    Shortcut fixture for getting VM host
     """
 
     vm_base = int(testbed['vm_base'][2:])
     devices = {}
     for k, v in testbed['topo']['properties']['topology']['VMs'].items():
         devices[k] = EosHost(ansible_adhoc, "VM%04d" % (vm_base + v['vm_offset']), creds['eos_login'], creds['eos_password'])
+    return devices
+
+@pytest.fixture(scope="module")
+def fanouthosts(ansible_adhoc, creds):
+    """
+    Shortcut fixture for getting Fanout host
+    """
+    devices = {}
+
+    # TODO: Create a new module for get lab_graph
+    lab_graph = Parse_Lab_Graph(filename)
+    for device in lab_graph.devices:
+        if device['Type'] == 'FanoutLeaf' or device['Type'] == 'FanoutRoot':
+            # TODO: Get OS by device hwsku: https://github.com/Azure/sonic-mgmt/blob/11904a9cc64bfcd68910cbaa3843516ee3e7feae/ansible/testbed-new.yaml
+            os = 'eos'
+            fanout_host = FanoutHost(ansible_adhoc, device['Hostname'], os, creds['fanout_admin_user'], creds['fanout_admin_password']])
+            devices[device['Hostname']] = fanout_host
+            devices[device['mgmtip']] = fanouthosts
     return devices
 
 @pytest.fixture(scope='session')

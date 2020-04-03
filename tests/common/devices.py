@@ -327,3 +327,37 @@ class EosHost(AnsibleHostBase):
                   'ansible_password': passwd, \
                   'ansible_become_method': 'enable' }
         self.host.options['variable_manager'].extra_vars.update(evars)
+
+    def shutdown(self, interface_name):
+        out = self.host.eos_config(
+            lines=['shutdown'],
+            parents='interface %s' % interface_name)
+        logging.info('Shut interface [%s]' % interface_name)
+        return out
+
+    def no_shutdown(self, interface_name):
+        out = self.host.eos_config(
+            lines=['no shutdown'],
+            parents='interface %s' % interface_name)
+        logging.info('No shut interface [%s]' % interface_name)
+        return out
+
+class FanoutHost():
+    """
+    @summary: Class for Fanout switch
+
+    For running ansible module on the Fanout switch
+    """
+
+    def __init__(self, ansible_adhoc, os, hostname, user, passwd):
+        if os == 'sonic':
+            self.host = SonicHost(ansible_adhoc, hostname)
+        else:
+            # Use eos host if the os type is unknown
+            self.host = EosHost(ansible_adhoc, hostname, user, passwd)
+    
+    def shutdown(self, interface_name):
+        self.host.shutdown(interface_name)
+    
+    def no_shutdown(self, interface_name):
+        self.host.no_shutdown(interface_name)
