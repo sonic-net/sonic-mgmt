@@ -117,7 +117,7 @@ def swap_syncd(dut, registry_file=SONIC_DOCKER_REGISTRY):
             registry_file (str): The registry file describing where to download the RPC image.
     """
 
-    asic_type = dut.get_asic_type()
+    asic_type = dut.facts["asic_type"]
     if asic_type == "broadcom":
         vendor_id = "brcm"
     elif asic_type == "mellanox":

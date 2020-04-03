@@ -333,21 +333,6 @@ class SonicHost(AnsibleHostBase):
         ret['installed_list'] = images
         return ret
 
-    def get_asic_type(self):
-        """
-            get_asic_type returns the type of ASIC the target DUT is using.
-
-            Returns:
-                str: The name of the ASIC vendor (e.g. "mellanox"), all
-                lowercase, or None if the ASIC type cannot be found.
-        """
-        version_output = self.command("show version")["stdout_lines"]
-        asic_line = [line for line in version_output if "ASIC:" in line]
-
-        if not asic_line:
-            return None
-
-        return asic_line[0].strip().split(' ')[1].lower()
 
 class EosHost(AnsibleHostBase):
     """
