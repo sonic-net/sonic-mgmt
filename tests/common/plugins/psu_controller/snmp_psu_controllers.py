@@ -13,10 +13,8 @@ try:
     from pysnmp.proto import rfc1902
     from pysnmp.entity.rfc3413.oneliner import cmdgen
     from pyasn1.type import univ
-    has_pysnmp = True
 except:
-    has_pysnmp = False
-
+    logging.error("Missing required pysnmp module (check docs)")
 class snmpPsuController(PsuControllerBase):
     """
     PSU Controller class for SNMP conrolled PSUs - 'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
@@ -34,23 +32,20 @@ class snmpPsuController(PsuControllerBase):
         pSYSDESCR = ".1.3.6.1.2.1.1.1.0"
         SYSDESCR = "1.3.6.1.2.1.1.1.0"
         psu = None
-        if not has_pysnmp:
-            logging.info("Missing required pysnmp module (check docs)")
-        else:
-            cmdGen = cmdgen.CommandGenerator()
-            snmp_auth = cmdgen.CommunityData('public')
-            errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
-                snmp_auth,
-                cmdgen.UdpTransportTarget((self.controller, 161), timeout=5.0),
-                cmdgen.MibVariable(pSYSDESCR,),
-                )
-            if errorIndication:
-                logging.info("Failed to get psu controller type, exception: " + str(errorIndication))
-            for oid, val in varBinds:
-                current_oid = oid.prettyPrint()
-                current_val = val.prettyPrint()
-                if current_oid == SYSDESCR:
-                    psu = current_val
+        cmdGen = cmdgen.CommandGenerator()
+        snmp_auth = cmdgen.CommunityData('public')
+        errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
+            snmp_auth,
+            cmdgen.UdpTransportTarget((self.controller, 161), timeout=5.0),
+            cmdgen.MibVariable(pSYSDESCR,),
+            )
+        if errorIndication:
+            logging.info("Failed to get psu controller type, exception: " + str(errorIndication))
+        for oid, val in varBinds:
+            current_oid = oid.prettyPrint()
+            current_val = val.prettyPrint()
+            if current_oid == SYSDESCR:
+                psu = current_val
         if psu == None:
             self.psuType = None
             return
@@ -101,25 +96,22 @@ class snmpPsuController(PsuControllerBase):
         The PDU ports connected to DUT must have hostname of DUT configured in port name/description.
         This method depends on this configuration to find out the PDU ports connected to PSUs of specific DUT.
         """
-        if not has_pysnmp:
-            logging.info("Missing required pysnmp module (check docs)")
-        else:
-            cmdGen = cmdgen.CommandGenerator()
-            snmp_auth = cmdgen.CommunityData('public')
-            errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
-                snmp_auth,
-                cmdgen.UdpTransportTarget((self.controller, 161)),
-                cmdgen.MibVariable(self.pPORT_NAME_BASE_OID,),
-                )
-            if errorIndication:
-                logging.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
-            for varBinds in varTable:
-                for oid, val in varBinds:
-                    current_oid = oid.prettyPrint()
-                    current_val = val.prettyPrint()
-                    if self.hostname.lower()  in current_val.lower():
-                        # Remove the preceding PORT_NAME_BASE_OID, remaining string is the PDU port ID
-                        self.pdu_ports.append(current_oid.replace(self.PORT_NAME_BASE_OID, ''))
+        cmdGen = cmdgen.CommandGenerator()
+        snmp_auth = cmdgen.CommunityData('public')
+        errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+            snmp_auth,
+            cmdgen.UdpTransportTarget((self.controller, 161)),
+            cmdgen.MibVariable(self.pPORT_NAME_BASE_OID,),
+            )
+        if errorIndication:
+            logging.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
+        for varBinds in varTable:
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+                if self.hostname.lower()  in current_val.lower():
+                    # Remove the preceding PORT_NAME_BASE_OID, remaining string is the PDU port ID
+                    self.pdu_ports.append(current_oid.replace(self.PORT_NAME_BASE_OID, ''))
 
     def __init__(self, hostname, controller):
         logging.info("Initializing " + self.__class__.__name__)
@@ -150,21 +142,17 @@ class snmpPsuController(PsuControllerBase):
         @param psu_id: ID of the PSU on SONiC DUT
         @return: Return true if successfully execute the command for turning on power. Otherwise return False.
         """
-        idx = int(psu_id) % len(self.pdu_ports)
-        port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[idx]
-        if not has_pysnmp:
-            logging.info("Missing required pysnmp module (check docs)")
-        else:
-            errorIndication, errorStatus, _, _ = \
-            cmdgen.CommandGenerator().setCmd(
-                cmdgen.CommunityData('private'),
-                cmdgen.UdpTransportTarget((self.controller, 161)),
-                (port_oid, rfc1902.Integer(self.CONTROL_ON)),
-            )
-            if errorIndication or errorStatus != 0:
-                logging.debug("Failed to turn on PSU %s, exception: %s" % (str(psu_id), str(errorStatus)))
-                return False
-            return True
+        port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[psu_id]
+        errorIndication, errorStatus, _, _ = \
+        cmdgen.CommandGenerator().setCmd(
+            cmdgen.CommunityData('private'),
+            cmdgen.UdpTransportTarget((self.controller, 161)),
+            (port_oid, rfc1902.Integer(self.CONTROL_ON)),
+        )
+        if errorIndication or errorStatus != 0:
+            logging.debug("Failed to turn on PSU %s, exception: %s" % (str(psu_id), str(errorStatus)))
+            return False
+        return True
 
     def turn_off_psu(self, psu_id):
         """
@@ -183,21 +171,17 @@ class snmpPsuController(PsuControllerBase):
         @param psu_id: ID of the PSU on SONiC DUT
         @return: Return true if successfully execute the command for turning off power. Otherwise return False.
         """
-        idx = int(psu_id) % len(self.pdu_ports)
-        port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[idx]
-        if not has_pysnmp:
-            logging.info("Missing required pysnmp module (check docs)")
-        else:
-            errorIndication, errorStatus, _, _ = \
-            cmdgen.CommandGenerator().setCmd(
-                cmdgen.CommunityData('private'),
-                cmdgen.UdpTransportTarget((self.controller, 161)),
-                (port_oid, rfc1902.Integer(self.CONTROL_OFF)),
-            )
-            if errorIndication or errorStatus != 0:
-                logging.debug("Failed to turn on PSU %s, exception: %s" % (str(psu_id), str(errorStatus)))
-                return False
-            return True
+        port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[psu_id]
+        errorIndication, errorStatus, _, _ = \
+        cmdgen.CommandGenerator().setCmd(
+            cmdgen.CommunityData('private'),
+            cmdgen.UdpTransportTarget((self.controller, 161)),
+            (port_oid, rfc1902.Integer(self.CONTROL_OFF)),
+        )
+        if errorIndication or errorStatus != 0:
+            logging.debug("Failed to turn on PSU %s, exception: %s" % (str(psu_id), str(errorStatus)))
+            return False
+        return True
 
     def get_psu_status(self, psu_id=None):
         """
@@ -220,27 +204,24 @@ class snmpPsuController(PsuControllerBase):
                  The psu_id in returned result is integer starts from 0.
         """
         results = []
-        if not has_pysnmp:
-            logging.info("Missing required pysnmp module (check docs)")
-        else:
-            cmdGen = cmdgen.CommandGenerator()
-            snmp_auth = cmdgen.CommunityData('public')
-            errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
-                snmp_auth,
-                cmdgen.UdpTransportTarget((self.controller, 161)),
-                cmdgen.MibVariable(self.pPORT_STATUS_BASE_OID,),
-                )
-            if errorIndication:
-                logging.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
-            for varBinds in varTable:
-                for oid, val in varBinds:
-                    current_oid = oid.prettyPrint()
-                    current_val = val.prettyPrint()
-                    for idx, port in enumerate(self.pdu_ports):
-                        port_oid = self.PORT_STATUS_BASE_OID + port
-                        if current_oid == port_oid:
-                            status = {"psu_id": idx, "psu_on": True if current_val == self.STATUS_ON else False}
-                            results.append(status)
+        cmdGen = cmdgen.CommandGenerator()
+        snmp_auth = cmdgen.CommunityData('public')
+        errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+            snmp_auth,
+            cmdgen.UdpTransportTarget((self.controller, 161)),
+            cmdgen.MibVariable(self.pPORT_STATUS_BASE_OID,),
+            )
+        if errorIndication:
+            logging.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
+        for varBinds in varTable:
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+                for idx, port in enumerate(self.pdu_ports):
+                    port_oid = self.PORT_STATUS_BASE_OID + port
+                    if current_oid == port_oid:
+                        status = {"psu_id": idx, "psu_on": True if current_val == self.STATUS_ON else False}
+                        results.append(status)
         if psu_id is not None:
             idx = int(psu_id) % len(self.pdu_ports)
             results = results[idx:idx+1]
