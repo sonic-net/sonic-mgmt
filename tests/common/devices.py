@@ -235,7 +235,7 @@ class SonicHost(AnsibleHostBase):
     def get_pmon_daemon_states(self):
         """
         @summary: get state list of daemons from pmon docker.
-                  Referencing (/usr/share/sonic/device/{platform}/{hwsku}/pmon_daemon_control.json)
+                  Referencing (/usr/share/sonic/device/{platform}/pmon_daemon_control.json)
                   if some daemon is disabled in the config file, then remove it from the daemon list.
 
         @return: dictionary of { service_name1 : state1, ... ... }
@@ -245,6 +245,8 @@ class SonicHost(AnsibleHostBase):
 
         daemons = self.shell('docker exec pmon supervisorctl status')['stdout_lines']
 
+        daemon_list = [ line.strip().split()[0] for line in daemons if len(line.strip()) > 0 ] 
+
         daemon_ctl_key_prefix = 'skip_'
         daemon_config_file_path = os.path.join('/usr/share/sonic/device', self.facts["platform"], 'pmon_daemon_control.json')
 
@@ -252,7 +254,7 @@ class SonicHost(AnsibleHostBase):
             output = self.shell('cat %s' % daemon_config_file_path)
             json_data = json.loads(output["stdout"])
             logging.debug("Original file content is %s" % str(json_data))
-            for key in full_daemon_tup:
+            for key in daemon_list:
                 if (daemon_ctl_key_prefix + key) not in json_data:
                     logging.debug("Daemon %s is enabled" % key)
                 elif not json_data[daemon_ctl_key_prefix + key]:
@@ -268,7 +270,7 @@ class SonicHost(AnsibleHostBase):
         # Collect state of services that are not on the exemption list.
         daemon_states = {}
         for line in daemons:
-            words = str(line).split()
+            words = line.strip().split()
             if len(words) >= 2 and words[0] not in exemptions:
                 daemon_states[words[0]] = words[1]
 
