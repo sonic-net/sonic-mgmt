@@ -8,13 +8,13 @@ import logging
 from controller_base import PsuControllerBase
 from controller_base import run_local_cmd
 
-
 try:
     from pysnmp.proto import rfc1902
     from pysnmp.entity.rfc3413.oneliner import cmdgen
     from pyasn1.type import univ
 except:
     logging.error("Missing required pysnmp module (check docs)")
+
 class snmpPsuController(PsuControllerBase):
     """
     PSU Controller class for SNMP conrolled PSUs - 'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
@@ -142,7 +142,7 @@ class snmpPsuController(PsuControllerBase):
         @param psu_id: ID of the PSU on SONiC DUT
         @return: Return true if successfully execute the command for turning on power. Otherwise return False.
         """
-        port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[psu_id]
+        port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(psu_id)]
         errorIndication, errorStatus, _, _ = \
         cmdgen.CommandGenerator().setCmd(
             cmdgen.CommunityData('private'),
@@ -171,7 +171,7 @@ class snmpPsuController(PsuControllerBase):
         @param psu_id: ID of the PSU on SONiC DUT
         @return: Return true if successfully execute the command for turning off power. Otherwise return False.
         """
-        port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[psu_id]
+        port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(psu_id)]
         errorIndication, errorStatus, _, _ = \
         cmdgen.CommandGenerator().setCmd(
             cmdgen.CommunityData('private'),
