@@ -41,7 +41,7 @@ class snmpPsuController(PsuControllerBase):
             current_val = val.prettyPrint()
             if current_oid == SYSDESCR:
                 psu = current_val
-        if psu == None:
+        if psu is None:
             self.psuType = None
             return
         if 'Sentry Switched CDU' in psu:
