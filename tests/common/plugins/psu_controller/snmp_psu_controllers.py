@@ -6,14 +6,9 @@ The classes must implement the PsuControllerBase interface defined in controller
 import logging
 
 from controller_base import PsuControllerBase
-from controller_base import run_local_cmd
 
-try:
-    from pysnmp.proto import rfc1902
-    from pysnmp.entity.rfc3413.oneliner import cmdgen
-    from pyasn1.type import univ
-except:
-    logging.error("Missing required pysnmp module (check docs)")
+from pysnmp.proto import rfc1902
+from pysnmp.entity.rfc3413.oneliner import cmdgen
 
 class snmpPsuController(PsuControllerBase):
     """
