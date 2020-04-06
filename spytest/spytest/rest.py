@@ -232,7 +232,7 @@ class Rest(object):
         retval = SpyTestDict()
         map_operations={"create":"post", "read":"get", "update":"put", "modify":"patch", "delete":"delete"}
         if operations: operations = utils.make_list(operations)
-        for index, ent in enumerate(utils.make_list(request)):
+        for ent in utils.make_list(request):
             key = ent.path.replace("/restconf/data", map_operations[ent.operation])
             key = key.replace("-", "_").replace(":", "_").replace("/", "_")
             cli = self.search_cli(key)

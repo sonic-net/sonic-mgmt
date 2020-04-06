@@ -994,7 +994,7 @@ def deploy_package(dut, packane_name=None, mode='install', skip_verify_package=F
         command = "apt-get update"
         output = st.config(dut, command, skip_error_check=True, faster_cli=False)
         if "Done" not in output:
-            st.log("Package 'update' is failed in DUT".format(packane_name))
+            st.log("Package 'update' is failed in DUT")
             return False
     else:
         st.log("invalid mode - {}".format(mode))
@@ -1365,13 +1365,12 @@ def set_config_profiles(dut, profile, check_system_status=True):
 def get_show_command_data(dut, command, type="txt"):
     file_extension = "txt" if type != "json" else "json"
     data = None
-    for i in range(1,3):
+    for _ in range(1,3):
         actual_cmd = "{} > /tmp/running_config.{}".format(command, file_extension)
         st.config(dut, actual_cmd)
         delete_file("/tmp/running_config.{}".format(file_extension))
         st.download_file_from_dut(dut, "/tmp/running_config.{}".format(file_extension),
                                   "/tmp/running_config.{}".format(file_extension))
-        import os
         if not os.stat("/tmp/running_config.{}".format(file_extension)).st_size == 0:
             break
     try:

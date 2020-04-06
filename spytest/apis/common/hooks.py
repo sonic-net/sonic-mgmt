@@ -8,20 +8,31 @@ import os
 def get_vars(dut):
     from spytest import st
     from apis.system.basic import show_version
+
+    # try to read the version info
+    for _ in range(3):
+        try:
+            version_data = show_version(dut)
+            break
+        except:
+            st.wait(1)
+            continue
+
+    # use default values when the show _version is failed
+    if not version_data:
+        version_data = {
+            'product' : 'unknown',
+            'hwsku'   : 'unknown',
+            'version' : 'unknown',
+        }
+
     retval = dict()
-    retval["constants"] = st.get_datastore(dut, "constants")
-    retval["vervars"] = st.get_datastore(dut, "vervars")
-    version_data = show_version(dut)
-    if not version_data and st.is_dry_run(): return retval
     retval["product"] = version_data['product']
     retval["hwsku"] = version_data['hwsku']
     retval["version"] = version_data['version']
-    for version in ["3.0.x.0", "3.0.1"]:
-        if version in retval["version"]:
-            retval["vervars"] = st.get_datastore(dut, "vervars", version)
-    if retval["vervars"]:
-        for name, val in retval["vervars"].items():
-            st.log("VERVARS ({}) - {} = {}".format(dut, name, val))
+    retval["constants"] = st.get_datastore(dut, "constants")
+    retval["vervars"] = st.get_datastore(dut, "vervars", version_data['version'])
+
     return retval
 
 def ensure_upgrade(dut):

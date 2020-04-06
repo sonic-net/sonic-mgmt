@@ -94,13 +94,13 @@ def config_vrf(dut, **kwargs):
                 my_cmd += 'sudo config vrf del {}\n'.format(vrf)
         if skip_error:
             try:
-                out = st.config(dut, my_cmd)
+                st.config(dut, my_cmd)
                 return True
             except:
                 st.log("Error handled..by API")
                 return False
         else:
-            out = st.config(dut, my_cmd)
+            st.config(dut, my_cmd)
             return True
     elif cli_type == 'klish':
         command = ''
@@ -164,10 +164,10 @@ def bind_vrf_interface(dut, **kwargs):
                 else:
                     my_cmd += 'config interface vrf unbind {} {}\n'.format(intf, vrf)
         if skip_error:
-                out = st.config(dut, my_cmd, skip_error_check=True)
+                st.config(dut, my_cmd, skip_error_check=True)
                 return True
         else:
-            out = st.config(dut, my_cmd)
+            st.config(dut, my_cmd)
             return True
     elif cli_type == 'klish':
         regex = re.compile(r'(\d+|\s+)')
@@ -206,7 +206,7 @@ def config_vrfs(dut, vrf_data_list={}, config='yes'):
         return False
 
     command = []
-    for vrf_name, vrf_data in vrf_data_list.items():
+    for _, vrf_data in vrf_data_list.items():
         vrf = vrf_data['name']
         cmd_str = "sudo config vrf {} {} ".format(config, vrf)
         command.append(cmd_str)

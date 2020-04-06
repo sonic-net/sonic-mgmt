@@ -66,7 +66,7 @@ ftrace_file = None
 def ftrace(*args):
     global ftrace_file
     if not ftrace_file:
-        [user_root, logs_path, slave_id] = _get_logs_path()
+        [_, logs_path, _] = _get_logs_path()
         ftrace_file = get_file_path("ftrace", "txt", logs_path)
         utils.write_file(ftrace_file, "")
     l_args = []
@@ -120,7 +120,7 @@ def get_report_txt(prefix=None, consolidated=False):
     return get_file_path("report", "txt", prefix, consolidated)
 
 def create_pid_file():
-    [user_root, logs_path, slave_id] = _get_logs_path()
+    [_, logs_path, _] = _get_logs_path()
     pid_file = get_file_path("pid", "txt", logs_path)
     utils.write_file(pid_file, "{}".format(os.getpid()))
 
@@ -591,7 +591,7 @@ class WorkArea(object):
                 if d in devices or dinfo.alias in devices:
                     devlist.append(d)
 
-            [rvs, exps] = self._foreach(devlist, self.do_rps, "reset", recon=False)
+            [_, exps] = self._foreach(devlist, self.do_rps, "reset", recon=False)
             self._trace_exceptions(devlist, "exception doing RPS reboot", exps)
             os._exit(1)
 
@@ -647,7 +647,7 @@ class WorkArea(object):
         return bool(self.cfg.skip_load_config not in ["base"])
 
     def get_logs_path(self, for_file=None):
-        [user_root, logs_path, slave_id] = _get_logs_path()
+        [_, logs_path, _] = _get_logs_path()
         if for_file:
             file_path = "{0}_{1}".format(self.file_prefix, for_file)
             return os.path.join(logs_path, file_path)
@@ -816,7 +816,7 @@ class WorkArea(object):
         :return:
         :rtype:
         """
-        return self._context.net.apply_script(dut, cmdlist)
+        return self.net.apply_script(dut, cmdlist)
 
     def apply_json(self, dut, json):
         """
@@ -828,7 +828,7 @@ class WorkArea(object):
         :return:
         :rtype:
         """
-        return self._context.net.apply_json(dut, json)
+        return self.net.apply_json(dut, json)
 
     def apply_json2(self, dut, json):
         """
@@ -840,7 +840,7 @@ class WorkArea(object):
         :return:
         :rtype:
         """
-        return self._context.net.apply_json2(dut, json)
+        return self.net.apply_json2(dut, json)
 
     def apply_files(self, dut, file_list, method="incremental"):
         """
@@ -852,7 +852,7 @@ class WorkArea(object):
         :return:
         :rtype:
         """
-        return self._context.net.apply_files(dut, file_list, method)
+        return self.net.apply_files(dut, file_list, method)
 
     def run_script(self, dut, timeout, script_path, *args):
         """
@@ -866,7 +866,7 @@ class WorkArea(object):
         :return:
         :rtype:
         """
-        return self._context.net.run_script(dut, timeout, script_path, *args)
+        return self.net.run_script(dut, timeout, script_path, *args)
 
     def enable_disable_console_debug_msgs(self, dut, flag):
         """
@@ -876,7 +876,7 @@ class WorkArea(object):
         :return:
         :rtype:
         """
-        return self._context.net.enable_disable_console_debug_msgs(dut, flag)
+        return self.net.enable_disable_console_debug_msgs(dut, flag)
 
     def clear_config(self, dut):
         """
@@ -886,7 +886,7 @@ class WorkArea(object):
         :return:
         :rtype:
         """
-        retval_1 = self._context.net.clear_config(dut)
+        retval_1 = self.net.clear_config(dut)
 
         # wait for system ready
         retval_2 = self.wait_system_status(dut)
@@ -905,7 +905,7 @@ class WorkArea(object):
         :return:
         :rtype:
         """
-        retval_1 = self._context.net.config_db_reload(dut, save)
+        retval_1 = self.net.config_db_reload(dut, save)
 
         # wait for system ready
         retval_2 = self.wait_system_status(dut)
@@ -946,13 +946,19 @@ class WorkArea(object):
 
         return bool(upgrd_retval and (pb_retval or port_speed))
 
-    def reboot(self, dut, method="normal", skip_port_wait=False, skip_exception=False, skip_fallback=False):
-        if not dut:
+    def reboot(self, dut, method="normal", skip_port_wait=False,
+               skip_exception=False, skip_fallback=False):
+
+        if dut is None:
             self.log("reboot all {}".format(self.cfg.faster_init))
-            self._foreach_dev(self._context.net.reboot, method, skip_port_wait,
+            self._foreach_dev(self.net.reboot, method, skip_port_wait,
                                skip_exception, skip_fallback)
+        elif isinstance(dut, list):
+            self.log("reboot: {}".format(",".join(dut)))
+            self._foreach(dut, self.net.reboot, method, skip_port_wait,
+                          skip_exception, skip_fallback)
         else:
-            self._context.net.reboot(dut, method, skip_port_wait, skip_exception, skip_fallback)
+            self.net.reboot(dut, method, skip_port_wait, skip_exception, skip_fallback)
 
     def _apply_config_file_list(self, dut, files):
         for filename in utils.make_list(files):
@@ -1156,7 +1162,7 @@ class WorkArea(object):
         self.all_ports[dut] = []
         self.connected_ports[dut] = []
         self.reserved_ports[dut] = self._context._tb.get_rerved_links(dut)
-        for local, partner, remote in self._get_device_links(dut, None, None):
+        for local, _, _ in self._get_device_links(dut, None, None):
             self.connected_ports[dut].append(local)
         all_ports = self._get_interfaces_all(dut)
         errs = []
@@ -1447,8 +1453,10 @@ class WorkArea(object):
             tryssh = 0
 
         # ajdust Module MAX Timeout using data from tcmap
-        try: module_max_timeout = tcmap.module_max_timeout.get(base_filename, 0)
-        except: module_max_timeout = 0
+        module_max_timeout = 0
+        if self.cfg.module_max_timeout > 0:
+            try: module_max_timeout = tcmap.module_max_timeout.get(base_filename, 0)
+            except: pass
         if module_max_timeout > 0 and module_max_timeout > self.cfg.module_max_timeout:
             self.net.module_init_start(module_max_timeout, fcli, tryssh)
         else:
@@ -1486,7 +1494,7 @@ class WorkArea(object):
                 [self._module_init_tgen],
                 [self._foreach_dev, self._module_init_dut, filepath]
             ]
-            [[rv1, rv2], [e1, e2]] = putil.exec_all(self.cfg.faster_init, funcs, True)
+            [[_, _], [e1, e2]] = putil.exec_all(self.cfg.faster_init, funcs, True)
             if e2 is not None:
                 self.error("Failed to module init one or more devices in topology")
                 for msg in utils.stack_trace(e2):
@@ -1517,7 +1525,7 @@ class WorkArea(object):
 
         if self.cfg.topology_check in ["status2", "status3", "status4"]:
             self.log("verify/show port status before module")
-            [retval, header, rows] = self.hooks.verify_topology(self.cfg.topology_check)
+            [_, header, rows] = self.hooks.verify_topology(self.cfg.topology_check)
             topo_status = utils.sprint_vtable(header, rows)
             self.log(topo_status, split_lines=True)
             # TODO: Swap ports if they are down
@@ -1602,7 +1610,7 @@ class WorkArea(object):
         pass
 
     def _pre_function_epilog(self, name):
-        (res, desc) = self._context.result.get()
+        (res, _) = self._context.result.get()
         if res.lower() not in ["fail", "xfail", "dutfail"]:
             return
         if self.cfg.get_tech_support in ["onfail-epilog"]:
@@ -1656,7 +1664,7 @@ class WorkArea(object):
     def _module_complete(self, filepath):
         self._save_cli()
         dut_list = self.get_dut_names()
-        [retvals, exceptions] = self._foreach(dut_list, self._module_complete_dut, filepath)
+        [_, exceptions] = self._foreach(dut_list, self._module_complete_dut, filepath)
         errs = []
         dut_index = 0
         for ex in exceptions:
@@ -1748,8 +1756,10 @@ class WorkArea(object):
         self.current_tc_start_time = get_timenow()
 
         # ajdust TC MAX Timeout using data from tcmap
-        try: tc_max_timeout = tcmap.tc_max_timeout.get(func_name, 0)
-        except: tc_max_timeout = 0
+        tc_max_timeout = 0
+        if self.cfg.tc_max_timeout > 0:
+            try: tc_max_timeout = tcmap.tc_max_timeout.get(func_name, 0)
+            except: pass
 
         if tc_max_timeout > 0 and tc_max_timeout > self.cfg.tc_max_timeout:
             self.net.function_init_start(tc_max_timeout)
@@ -1794,7 +1804,7 @@ class WorkArea(object):
         #if self.cfg.topology_check in ["status4"] and not self.cfg.filemode:
         if self.cfg.topology_check in ["status4"]:
             self.log("verify/show port status before function")
-            [retval, header, rows] = self.hooks.verify_topology(self.cfg.topology_check)
+            [_, header, rows] = self.hooks.verify_topology(self.cfg.topology_check)
             topo_status = utils.sprint_vtable(header, rows)
             self.log(topo_status, split_lines=True)
 
@@ -1804,12 +1814,12 @@ class WorkArea(object):
             self._context._tb.pertest_topo_checking = True
 
             # get the dut states
-            [retvals, exceptions] = self._foreach_dev(self._check_dut_state)
+            [retvals, _] = self._foreach_dev(self._check_dut_state)
             for dut in self.get_dut_names():
                 self._context._tb.devices_state[dut] = retvals.pop(0)
 
             # get the dut-port-ixia states
-            [retvals, exceptions] = self._foreach_dev(self._check_dut_port_state)
+            [retvals, _] = self._foreach_dev(self._check_dut_port_state)
             for dut in self.get_dut_names():
                 dut_port_states = retvals.pop(0)
                 for port in self.connected_ports[dut]:
@@ -2038,7 +2048,7 @@ class WorkArea(object):
 
     def get_dut_links_local(self, dut, peer=None, index=None):
         retval = []
-        for local, partner, remote in self.get_dut_links(dut, peer):
+        for local, _, _ in self.get_dut_links(dut, peer):
             retval.append(local)
         if index is None:
             return retval
@@ -2144,7 +2154,7 @@ class WorkArea(object):
                 self.error("Failed to perform RPS {}".format(op))
                 return False
             return True
-        (rvs, exps) = self._foreach(dut_mrinfo.keys(), f)
+        (rvs, _) = self._foreach(dut_mrinfo.keys(), f)
         retval = all(rvs)
 
         # perform post-rps operations
@@ -2245,7 +2255,7 @@ class WorkArea(object):
         if name is not None:
             if name not in tbvars.tgen_ports:
                 return (None, None)
-            [tg, ctype, port] = tbvars.tgen_ports[name]
+            [tg, _, port] = tbvars.tgen_ports[name]
             return tgapi.get_tgen(port, tbvars[tg])
         if port is not None:
             return tgapi.get_tgen(port, tg)
@@ -2262,7 +2272,7 @@ class WorkArea(object):
             return tgapi.get_tgen(port, tg)
         count = 0
         for name1, value in tbvars.tgen_ports.items():
-            [tg, ctype, port] = value
+            [tg, _, port] = value
             rv[name1] = tgapi.get_tgen(port, tbvars[tg])
             if max_ports != 0:
                 count = count + 1
@@ -2280,7 +2290,11 @@ class WorkArea(object):
             return self.cfg[arg]
         return None
 
-    def get_ui_type(self, dut=None):
+    def get_ui_type(self, dut=None, **kwargs):
+        if kwargs.get('ui_type') != None:
+            return kwargs.get('ui_type')
+        if kwargs.get('cli_type') != None:
+            return kwargs.get('cli_type')
         if dut and dut in self.app_vars:
             vervars = self.app_vars[dut].get("vervars")
             if vervars:
@@ -2486,7 +2500,14 @@ class WorkArea(object):
         return self.net.run_uignmi_script(dut, scriptname, **kwargs)
 
     def generate_tech_support(self, dut, name):
-        self.net.generate_tech_support(dut, name)
+        if dut is None:
+            self.log("generate_tech_support: all")
+            self._foreach_dev(self.net.generate_tech_support, name)
+        elif isinstance(dut, list):
+            self.log("generate_tech_support: {}".format(",".join(dut)))
+            self._foreach(dut, self.net.generate_tech_support, name)
+        else:
+            self.net.generate_tech_support(dut, name)
 
     def get_credentials(self, dut):
         return self.net.get_credentials(dut)
@@ -2498,10 +2519,10 @@ class WorkArea(object):
 
     def _save_cli(self):
         if not self.cli_file:
-            [user_root, logs_path, slave_id] = _get_logs_path()
+            [_, logs_path, _] = _get_logs_path()
             self.cli_file = get_file_path("cli", "txt", logs_path)
             utils.write_file(self.cli_file, "")
-        for dut, mode_cmd_list in self.cli_records.items():
+        for _, mode_cmd_list in self.cli_records.items():
             for entry in mode_cmd_list:
                 [mode, cmd] = entry
                 utils.write_file(self.cli_file, "{},{}\n".format(mode, cmd), "a")
@@ -2770,7 +2791,6 @@ def _delete_work_area():
     if not wa:
         return
     wa._session_clean()
-    [user_root, logs_path, slave_id] = _get_logs_path()
     if not batch.is_member():
         # master or standalone
         consolidate_results()
@@ -2823,7 +2843,7 @@ def _build_tclist_file(config):
     if not file_name:
         return None
 
-    [user_root, logs_path, slave_id] = _get_logs_path()
+    [user_root, _, _] = _get_logs_path()
     if os.path.isfile(file_name):
         file_path = file_name
     else:
@@ -3136,7 +3156,7 @@ def exclude_executed_tests(config, items):
     if reuse_results in ["none"]:
         return
 
-    [user_root, logs_path, slave_id] = _get_logs_path()
+    [_, logs_path, _] = _get_logs_path()
     [tc_index, csv_files] = get_result_files(logs_path)
 
     # prepare reused test case list
@@ -3301,8 +3321,6 @@ def log_report(report):
         log_report_slave(report, wa)
 
 def log_report_slave(report, wa):
-    [user_root, logs_path, slave_id] = _get_logs_path()
-
     if report.nodeid in nodeid_test_names:
         func_name = nodeid_test_names[report.nodeid]
     else:
@@ -3388,7 +3406,7 @@ def consolidate_results(progress=None, thread=False, count=None):
     # generate email report
     generate_email_report(count)
 
-    [user_root, logs_path, slave_id] = _get_logs_path()
+    [_, logs_path, slave_id] = _get_logs_path()
     count = batch.get_member_count() if count is None else count
     if slave_id or count < 1 or not batch.is_batch():
         return
@@ -3576,7 +3594,7 @@ def generate_email_report_files(files, nodes, report_html):
         ofh.write("\n\n{}\n".format(report_status))
 
 def generate_email_report(count=None):
-    [user_root, logs_path, slave_id] = _get_logs_path()
+    [_, logs_path, slave_id] = _get_logs_path()
     if slave_id:
         return
 
@@ -3976,7 +3994,7 @@ def session_finish(session, exitstatus):
 
 def configure(config):
 
-    [user_root, logs_path, slave_id] = _get_logs_path()
+    [_, logs_path, _] = _get_logs_path()
 
     if batch.configure(config, logs_path):
         # create psuedo workarea for the master
@@ -3994,7 +4012,7 @@ def unconfigure(config):
     _delete_work_area()
 
 def parse_batch_args(numprocesses, buckets):
-    [user_root, logs_path, slave_id] = _get_logs_path()
+    [_, logs_path, _] = _get_logs_path()
     return batch.parse_args(numprocesses, buckets, logs_path)
 
 def make_scheduler(config, log):

@@ -9,7 +9,7 @@ def set_aaa_authentication_properties(dut,property,value):
         Configuring aaa authentication properties.
         '''
         command = "config aaa  authentication {} {}".format(property,value)
-        rv = st.config(dut,command)
+        st.config(dut,command)
         return True
 
 
@@ -18,7 +18,7 @@ def set_tacacs_properties(dut,property,value):
         Configuring tacacs properties.
         '''
         command = "config tacacs {} {}".format(property,value)
-        rv = st.config(dut,command)
+        st.config(dut,command)
         return True
 
 
@@ -46,7 +46,7 @@ def set_tacacs_server(dut,mode,address,tcp_port=None,timeout=None,passkey=None,a
         elif mode.lower() == 'delete':
                 command = "config tacacs {} {} ".format('delete',address)
 
-        rv = st.config(dut,command)
+        st.config(dut,command)
         return True
 
 def show_aaa(dut):

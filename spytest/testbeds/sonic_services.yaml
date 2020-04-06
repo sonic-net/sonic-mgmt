@@ -184,8 +184,8 @@ mod:
   protoc_path: /projects/scid/tools/protobuf/bin/protoc
 
 dhcp_server_vxlan:
-    server_mgmt_ip: 10.59.130.241
-    dhcp_server_ip: 172.16.0.241
-    dhcp_server_ipv6: 2072::241
+    server_mgmt_ip: 10.59.130.210
+    dhcp_server_ip: 172.16.40.210
+    dhcp_server_ipv6: 2072::210
     username: root
-    password: stratax120
+    password: broadcom

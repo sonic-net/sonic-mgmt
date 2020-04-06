@@ -23,13 +23,13 @@ def set_status(dut, portlist, status):
         try:
             port = ",".join(portlist)
             return st.config(dut, "config interface {} {}".format(status, port))
-        except Exception as exp:
+        except Exception:
             st.warn("Failed to execute {} command - try alternative".format(status))
 
     for port in portlist:
         try:
             st.config(dut, "config interface {} {}".format(status, port))
-        except ValueError as ex:
+        except ValueError:
             st.warn("Failed to execute {} command - try alternative".format(status))
             st.config(dut, "config interface {} {}".format(port, status))
     return ""
@@ -80,7 +80,7 @@ def get_status(dut, port=None):
     # port could be range switch to all when failed
     try:
         return st.show(dut, "show interfaces status {}".format(port))
-    except ValueError as ex:
+    except ValueError:
         st.warn("Failed to use interface command - try global")
 
     return st.show(dut, "show interfaces status")

@@ -90,7 +90,6 @@ def gnmi_call(dut, **kwargs):
     login_type = kwargs.get('login_type')
     mode = kwargs.get('mode')
     port = st.get_free_ports(dut)[0]
-    insecure = kwargs.get('insecure', '')
     xpath = '/openconfig-interfaces:interfaces/interface[name={}]/config/description'.format(port)
     json_content = {"openconfig-interfaces:description": "Eth"}
 
@@ -158,7 +157,6 @@ def rest_rbac_call(dut, **kwargs):
     operation_down = {"sonic-port:admin_status": "down"}
     operation_up = {"sonic-port:admin_status": "up"}
     port = st.get_free_ports(dut)[0]
-    device_ip = st.get_mgmt_ip(dut)
     cert = kwargs.get("cert")
     url = 'restconf/data/sonic-port:sonic-port/PORT/PORT_LIST={}/admin_status'.format(port)
 

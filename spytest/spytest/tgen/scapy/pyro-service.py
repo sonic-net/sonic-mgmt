@@ -83,7 +83,7 @@ def main():
     Pyro4.config.SERIALIZERS_ACCEPTED.add('pickle')
     Pyro4.config.SERIALIZERS_ACCEPTED.remove('serpent')
     os.environ["PYRO_DETAILED_TRACEBACK"] = "1"
-    for i in range(10):
+    for _ in range(10):
         try:
             custom_daemon = Pyro4.Daemon(port=8009, host="0.0.0.0")
             break

@@ -148,8 +148,7 @@ def clear_module_configuration():
         utils.ExecAllFunc(vlan_obj.delete_vlan, vars.D2, data.vlan, data.cli_type),
     ])
     # delete acl tables and rules
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
 
 
@@ -395,16 +394,13 @@ def test_ft_acl_ingress_ipv6():
     Traffic is sent on TG Port #2
     Traffic is recieved at TG Port #1
     '''
-    [output, exceptions] = utils.exec_all(True,
-                                          [[clear_interface_counters, vars.D1], [clear_interface_counters, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[clear_interface_counters, vars.D1], [clear_interface_counters, vars.D2]])
     ensure_no_exception(exceptions)
-    [output, exceptions] = utils.exec_all(True,
-                                          [[get_interface_counters, vars.D1, vars.D1T1P1],
+    [_, exceptions] = utils.exec_all(True, [[get_interface_counters, vars.D1, vars.D1T1P1],
                                            [get_interface_counters, vars.D2, vars.D2T1P1]])
     ensure_no_exception(exceptions)
     transmit('tg2')
-    [output, exceptions] = utils.exec_all(True,
-                                          [[get_interface_counters, vars.D1, vars.D1T1P1],
+    [_, exceptions] = utils.exec_all(True, [[get_interface_counters, vars.D1, vars.D1T1P1],
                                            [get_interface_counters, vars.D2, vars.D2T1P1]])
     ensure_no_exception(exceptions)
     result1 = verify_packet_count('tg2', vars.T1D2P1, 'tg1', vars.T1D1P1, "L3_IPV6_INGRESS")
@@ -434,16 +430,13 @@ def test_ft_acl_egress_ipv6():
     Traffic is sent on TG Port #1
     Traffic is recieved at TG Port #2
     '''
-    [output, exceptions] = utils.exec_all(True,
-                                          [[clear_interface_counters, vars.D1], [clear_interface_counters, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[clear_interface_counters, vars.D1], [clear_interface_counters, vars.D2]])
     ensure_no_exception(exceptions)
-    [output, exceptions] = utils.exec_all(True,
-                                          [[get_interface_counters, vars.D1, vars.D1T1P1],
+    [_, exceptions] = utils.exec_all(True, [[get_interface_counters, vars.D1, vars.D1T1P1],
                                            [get_interface_counters, vars.D2, vars.D2T1P1]])
     ensure_no_exception(exceptions)
     transmit('tg1')
-    [output, exceptions] = utils.exec_all(True,
-                                          [[get_interface_counters, vars.D1, vars.D1T1P1],
+    [_, exceptions] = utils.exec_all(True, [[get_interface_counters, vars.D1, vars.D1T1P1],
                                            [get_interface_counters, vars.D2, vars.D2T1P1]])
     ensure_no_exception(exceptions)
     result1 = verify_packet_count('tg1', vars.T1D1P1, 'tg2', vars.T1D2P1, "L3_IPV6_EGRESS")
@@ -493,8 +486,7 @@ def test_ft_acl_port_channel_ingress():
     '''
     # deleting same streams are used for both IPv6 and PortChannel test
     # to avoid conflicts, delete IPv6 rules
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     # Creating Ingress ACL table and rules
     print_log('Creating Ingress ACL table and apply on Port channel')
@@ -560,24 +552,20 @@ def test_ft_acl_vlan_v6_egress():
     '''
 
     # Creating Ingress ACL table and rules
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     print_log('Creating Egress ACL table and apply on VLAN')
     acl_config = acl_data.acl_json_config_v6_egress_vlan
     add_port_to_acl_table(acl_config, 'L3_IPV6_EGRESS', "Vlan{}".format(data.vlan))
     apply_acl_config(vars.D2, acl_config)
-    [output, exceptions] = utils.exec_all(True,
-                                          [[clear_interface_counters, vars.D1], [clear_interface_counters, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[clear_interface_counters, vars.D1], [clear_interface_counters, vars.D2]])
     ensure_no_exception(exceptions)
-    [output, exceptions] = utils.exec_all(True,
-                                          [[get_interface_counters, vars.D1, vars.D1T1P1],
+    [_, exceptions] = utils.exec_all(True, [[get_interface_counters, vars.D1, vars.D1T1P1],
                                            [get_interface_counters, vars.D2, vars.D2T1P1]])
     ensure_no_exception(exceptions)
     st.wait(2)
     transmit('tg1')
-    [output, exceptions] = utils.exec_all(True,
-                                          [[get_interface_counters, vars.D1, vars.D1T1P1],
+    [_, exceptions] = utils.exec_all(True, [[get_interface_counters, vars.D1, vars.D1T1P1],
                                            [get_interface_counters, vars.D2, vars.D2T1P1]])
     ensure_no_exception(exceptions)
     result1 = verify_packet_count('tg1', vars.T1D1P1, 'tg2', vars.T1D2P1, "L3_IPV6_EGRESS")
@@ -591,8 +579,7 @@ def test_ft_acl_vlan_v6_ingress():
     Traffic is recieved at TG Port #2
     '''
 
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     # Creating Ingress ACL table and rules
     print_log('Creating ACL table and apply on VLAN')
@@ -612,8 +599,7 @@ def test_ft_acl_vlan_V4_ingress():
     Traffic is sent on TG Port #1
     Traffic is recieved at TG Port #2
     '''
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     # Creating Ingress ACL table and rules
     print_log('Creating ACL table and apply on VLAN')
@@ -639,8 +625,7 @@ def test_ft_acl_port_channel_V4_ingress():
     '''
     # deleting same streams are used for both IPv6 and PortChannel test
     # to avoid conflicts, delete IPv6 rules
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     # Creating Ingress ACL table and rules
     print_log('Creating Ingress ACL table and apply on Port channel')
@@ -661,8 +646,7 @@ def test_ft_v4_acl_switch():
     Traffic is sent on TG Port #1 and received at TG Port #2 for ingress
     Traffic is sent on TG Port #2 and received at TG Port #1 for egress
     '''
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     print_log('Creating ACL table and apply on switch')
     acl_config = acl_data.acl_json_config_v4_switch
@@ -671,30 +655,24 @@ def test_ft_v4_acl_switch():
     change_acl_rules(acl_data.acl_json_config_d1, "L3_IPV4_INGRESS|rule6", "PACKET_ACTION", "DROP")
     apply_acl_config(vars.D1, acl_config)
     st.wait(2)
-    [output, exceptions] = utils.exec_all(True,
-                                          [[clear_interface_counters, vars.D1], [clear_interface_counters, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[clear_interface_counters, vars.D1], [clear_interface_counters, vars.D2]])
     ensure_no_exception(exceptions)
-    [output, exceptions] = utils.exec_all(True,
-                                          [[get_interface_counters, vars.D1, vars.D1T1P1],
+    [_, exceptions] = utils.exec_all(True, [[get_interface_counters, vars.D1, vars.D1T1P1],
                                            [get_interface_counters, vars.D2, vars.D2T1P1]])
     ensure_no_exception(exceptions)
     transmit('tg1')
-    [output, exceptions] = utils.exec_all(True,
-                                          [[get_interface_counters, vars.D1, vars.D1T1P1],
+    [_, exceptions] = utils.exec_all(True, [[get_interface_counters, vars.D1, vars.D1T1P1],
                                            [get_interface_counters, vars.D2, vars.D2T1P1]])
     ensure_no_exception(exceptions)
     result1 = verify_packet_count('tg1', vars.T1D1P1, 'tg2', vars.T1D2P1, "L3_IPV4_INGRESS")
     result2 = verify_acl_hit_counters(vars.D1, "L3_IPV4_INGRESS")
-    [output, exceptions] = utils.exec_all(True,
-                                          [[clear_interface_counters, vars.D1], [clear_interface_counters, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[clear_interface_counters, vars.D1], [clear_interface_counters, vars.D2]])
     ensure_no_exception(exceptions)
-    [output, exceptions] = utils.exec_all(True,
-                                          [[get_interface_counters, vars.D1, vars.D1T1P1],
+    [_, exceptions] = utils.exec_all(True, [[get_interface_counters, vars.D1, vars.D1T1P1],
                                            [get_interface_counters, vars.D2, vars.D2T1P1]])
     ensure_no_exception(exceptions)
     transmit('tg2')
-    [output, exceptions] = utils.exec_all(True,
-                                          [[get_interface_counters, vars.D1, vars.D1T1P1],
+    [_, exceptions] = utils.exec_all(True, [[get_interface_counters, vars.D1, vars.D1T1P1],
                                            [get_interface_counters, vars.D2, vars.D2T1P1]])
     ensure_no_exception(exceptions)
     result3 = verify_packet_count('tg2', vars.T1D2P1, 'tg1', vars.T1D1P1, "L3_IPV4_EGRESS")
@@ -710,8 +688,7 @@ def test_ft_mac_acl_switch():
     Traffic is sent on TG Port #1
     Traffic is recieved at TG Port #2
     '''
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     # Creating Ingress ACL table and rules
 
@@ -735,8 +712,7 @@ def test_ft_mac_acl_switch_egress():
     Traffic is recieved at TG Port #2
     '''
 
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     # Creating Ingress ACL table and rules
 
@@ -760,8 +736,7 @@ def test_ft_mac_acl_vlan():
     Traffic is sent on TG Port #1
     Traffic is recieved at TG Port #2
     '''
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     # Creating Ingress ACL table and rules
     print_log('Creating ACL table and apply on VLAN')
@@ -786,8 +761,7 @@ def test_ft_mac_acl_portchannel():
     Traffic is sent on TG Port #1
     Traffic is received at TG Port #2
     '''
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     # Creating Ingress ACL table and rules
     print_log('Creating Ingress ACL table and apply on Port channel')
@@ -815,8 +789,7 @@ def test_ft_acl_loader():
     data.v4_eg_tab = 'L3_IPV4_EGRESS'
     data.v6_in_tab = 'L3_IPV6_INGRESS'
     data.v6_eg_tab = 'L3_IPV6_EGRESS'
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     acl_config = acl_data.acl_json_config_table
     add_port_to_acl_table(acl_config, data.v4_in_tab, vars.D1T1P1)
@@ -894,8 +867,7 @@ def test_ft_acl_icmpv6():
 
 @pytest.mark.acl_testacl1
 def test_ft_mac_acl_port_adv():
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     acl_obj.config_hw_acl_mode(vars.D1, counter='per-interface-rule')
     acl_config = acl_data.acl_json_config_d1
@@ -906,8 +878,7 @@ def test_ft_mac_acl_port_adv():
     st.wait(5)
     if not acl_obj.verify_acl_stats(vars.D1, 'L2_MAC_INGRESS', 'macrule1'):
         st.report_fail("test_case_failed")
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     acl_obj.config_hw_acl_mode(vars.D1, counter='per-rule')
     st.report_pass("test_case_passed")
@@ -915,8 +886,7 @@ def test_ft_mac_acl_port_adv():
 
 @pytest.mark.acl_testacl1
 def test_ft_acl_ingress_ipv4_adv():
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     acl_obj.config_hw_acl_mode(vars.D1, counter='per-interface-rule')
     acl_config = acl_data.acl_json_config_d1
@@ -927,8 +897,7 @@ def test_ft_acl_ingress_ipv4_adv():
     st.wait(5)
     if not acl_obj.verify_acl_stats(vars.D1, 'L3_IPV4_INGRESS',"rule5"):
         st.report_fail("test_case_failed")
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     acl_obj.config_hw_acl_mode(vars.D1, counter='per-rule')
     st.report_pass("test_case_passed")
@@ -942,8 +911,7 @@ def test_ft_mac_acl_prioirty_ingress():
     Traffic is recieved at TG Port #2
     '''
 
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     # Creating Ingress ACL table and rules
     print_log('Creating ACL table and apply on port')
@@ -973,8 +941,7 @@ def test_ft_mac_acl_prioirty_egress():
     Traffic is sent on TG Port #1
     Traffic is recieved at TG Port #2
     '''
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     # Creating Ingress ACL table and rules
     print_log('Creating ACL table and apply on port')
@@ -1010,33 +977,27 @@ def test_ft_acl_mac():
     change_acl_rules(acl_data.acl_json_config_port_d3, "L2_MAC_INGRESS|macrule1", "VLAN", data.vlan)
     change_acl_rules(acl_data.acl_json_config_port_d3, "L2_MAC_INGRESS|macrule2", "VLAN", data.vlan)
     apply_acl_config(vars.D1, acl_config)
-    [output, exceptions] = utils.exec_all(True,
-                                          [[clear_interface_counters, vars.D1], [clear_interface_counters, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[clear_interface_counters, vars.D1], [clear_interface_counters, vars.D2]])
     ensure_no_exception(exceptions)
-    [output, exceptions] = utils.exec_all(True,
-                                          [[get_interface_counters, vars.D1, vars.D1T1P1],
+    [_, exceptions] = utils.exec_all(True, [[get_interface_counters, vars.D1, vars.D1T1P1],
                                            [get_interface_counters, vars.D2, vars.D2T1P1]])
     ensure_no_exception(exceptions)
     st.wait(2)
     transmit('tg1')
-    [output, exceptions] = utils.exec_all(True,
-                                          [[get_interface_counters, vars.D1, vars.D1T1P1],
+    [_, exceptions] = utils.exec_all(True, [[get_interface_counters, vars.D1, vars.D1T1P1],
                                            [get_interface_counters, vars.D2, vars.D2T1P1]])
     ensure_no_exception(exceptions)
     print_log('Verifying MAC Ingress packet count')
     result1 = verify_packet_count('tg1', vars.T1D1P1, 'tg2', vars.T1D2P1, "L2_MAC_INGRESS")
-    [output, exceptions] = utils.exec_all(True,
-                                          [[clear_interface_counters, vars.D1], [clear_interface_counters, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[clear_interface_counters, vars.D1], [clear_interface_counters, vars.D2]])
     ensure_no_exception(exceptions)
-    [output, exceptions] = utils.exec_all(True,
-                                          [[get_interface_counters, vars.D1, vars.D1T1P1],
+    [_, exceptions] = utils.exec_all(True, [[get_interface_counters, vars.D1, vars.D1T1P1],
                                            [get_interface_counters, vars.D2, vars.D2T1P1]])
     ensure_no_exception(exceptions)
     print_log('Verifying MAC Ingress ACL hit counters')
     transmit('tg2')
     result2 = verify_acl_hit_counters(vars.D1, "L2_MAC_INGRESS")
-    [output, exceptions] = utils.exec_all(True,
-                                          [[get_interface_counters, vars.D1, vars.D1T1P1],
+    [_, exceptions] = utils.exec_all(True, [[get_interface_counters, vars.D1, vars.D1T1P1],
                                            [get_interface_counters, vars.D2, vars.D2T1P1]])
     ensure_no_exception(exceptions)
     print_log('Verifying MAC Ingress packet count')
@@ -1063,8 +1024,7 @@ def test_acl_rest():
     acl_l4_src_port_range = "100-500"
     acl_pkt_action = "FORWARD"
     acl_pkt_action_drop = "DROP"
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     rest_url = "/restconf/data/{}".format(YANG_MODEL)
     ACL_TABLE = {"ACL_TABLE_LIST": [
@@ -1118,8 +1078,7 @@ def test_ft_acl_gnmi():
     acl_src_ip = "5.5.5.5/16"
     acl_dst_ip = "9.9.9.9/16"
     acl_src_interface = vars.D1T1P1
-    [output, exceptions] = utils.exec_all(True,
-                                          [[acl_delete, vars.D1], [acl_delete, vars.D2]])
+    [_, exceptions] = utils.exec_all(True, [[acl_delete, vars.D1], [acl_delete, vars.D2]])
     ensure_no_exception(exceptions)
     xpath = "/sonic-acl:sonic-acl/"
     ACL_TABLE = {"ACL_TABLE_LIST": [

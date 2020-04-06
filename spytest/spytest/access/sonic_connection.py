@@ -394,7 +394,7 @@ class SonicBaseConnection(CiscoBaseConnection):
     def dmsg_append(self, dbg_msg, *args):
         try:
             msg = " ".join(map(str,args))
-        except UnicodeEncodeError as exp:
+        except UnicodeEncodeError:
             msg = " ".join(map(unicode,args))
         dtrace(msg)
         dbg_msg.append(msg)

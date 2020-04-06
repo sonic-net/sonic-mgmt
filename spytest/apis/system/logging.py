@@ -37,7 +37,7 @@ def show_logging(dut, severity=None, filter_list=None, lines=None):
         command += " | grep -i '{}'".format(each_filter)
     output = st.show(dut, command, skip_tmpl=True, skip_error_check=True, faster_cli=False, max_time=1200)
     out_list = output.strip().split('\n')[:-1]
-    for each in range(out_list.count("'")):
+    for _ in range(out_list.count("'")):
         out_list.remove("'")
     return out_list
 

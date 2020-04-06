@@ -52,24 +52,24 @@ def get_args(identifier, value, attribs, pps, tg_type):
        parts = value.split('-')
        if attribs['IP_PROTOCOL'] == 6:
           tmp['tcp_src_port'] = int(parts[0])
-          tmp['tcp_src_port_mode'] = (tg_type == 'stc' and 'increment' or 'incr') #STC
+          tmp['tcp_src_port_mode'] = ('increment' if tg_type == 'stc' else 'incr') #STC
           tmp['tcp_src_port_count'] = 10
           tmp['tcp_src_port_step'] = 1
        elif attribs['IP_PROTOCOL'] == 17:
           tmp['udp_src_port'] = int(parts[0])
-          tmp['udp_src_port_mode'] = (tg_type == 'stc' and 'increment' or 'incr') #STC
+          tmp['udp_src_port_mode'] = ('increment' if tg_type == 'stc' else 'incr') #STC
           tmp['udp_src_port_count'] = 10
           tmp['udp_src_port_step'] = 1
     if identifier == "L4_DST_PORT_RANGE":
        parts = value.split('-')
        if attribs['IP_PROTOCOL'] == 6:
           tmp['tcp_dst_port'] = int(parts[0])
-          tmp['tcp_dst_port_mode'] = (tg_type == 'stc' and 'increment' or 'incr') #STC
+          tmp['tcp_dst_port_mode'] = ('increment' if tg_type == 'stc' else 'incr') #STC
           tmp['tcp_dst_port_count'] = 10
           tmp['tcp_dst_port_step'] = 1
        elif attribs['IP_PROTOCOL'] == 17:
           tmp['udp_dst_port'] = int(parts[0])
-          tmp['udp_dst_port_mode'] = (tg_type == 'stc' and 'increment' or 'incr') #STC
+          tmp['udp_dst_port_mode'] = ('increment' if tg_type == 'stc' else 'incr') #STC
           tmp['udp_dst_port_count'] = 10
           tmp['udp_dst_port_step'] = 1
     if identifier == "IP_PROTOCOL":
@@ -128,24 +128,24 @@ def get_args_l3(identifier, value, attribs, pps, tg_type):
        parts = value.split('-')
        if attribs['IP_PROTOCOL'] == 6:
           tmp['tcp_src_port'] = int(parts[0])
-          tmp['tcp_src_port_mode'] = (tg_type == 'stc' and 'increment' or 'incr') #STC
+          tmp['tcp_src_port_mode'] = ('increment' if tg_type == 'stc' else 'incr') #STC
           tmp['tcp_src_port_count'] = 10
           tmp['tcp_src_port_step'] = 1
        elif attribs['IP_PROTOCOL'] == 17:
           tmp['udp_src_port'] = int(parts[0])
-          tmp['udp_src_port_mode'] = (tg_type == 'stc' and 'increment' or 'incr') #STC
+          tmp['udp_src_port_mode'] = ('increment' if tg_type == 'stc' else 'incr') #STC
           tmp['udp_src_port_count'] = 10
           tmp['udp_src_port_step'] = 1
     if identifier == "L4_DST_PORT_RANGE":
        parts = value.split('-')
        if attribs['IP_PROTOCOL'] == 6:
           tmp['tcp_dst_port'] = int(parts[0])
-          tmp['tcp_dst_port_mode'] = (tg_type == 'stc' and 'increment' or 'incr') #STC
+          tmp['tcp_dst_port_mode'] = ('increment' if tg_type == 'stc' else 'incr') #STC
           tmp['tcp_dst_port_count'] = 10
           tmp['tcp_dst_port_step'] = 1
        elif attribs['IP_PROTOCOL'] == 17:
           tmp['udp_dst_port'] = int(parts[0])
-          tmp['udp_dst_port_mode'] = (tg_type == 'stc' and 'increment' or 'incr') #STC
+          tmp['udp_dst_port_mode'] = ('increment' if tg_type == 'stc' else 'incr') #STC
           tmp['udp_dst_port_count'] = 10
           tmp['udp_dst_port_step'] = 1
     if identifier == "IP_PROTOCOL":

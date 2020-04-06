@@ -39,7 +39,7 @@ class BatchService(rpyc.Service):
     def set_items(self, items):
         self.items = items
         self.status = []
-        for item in items:
+        for _ in items:
             self.status.append(0)
         self.ready = True
 
@@ -70,7 +70,7 @@ class BatchService(rpyc.Service):
                 self.status[i] = 2
 
     def exposed_get_test(self):
-        for i, ent in enumerate(self.items):
+        for i, _ in enumerate(self.items):
             if self.status[i] == 0:
                 self.status[i] = 1
                 return self.items[i].nodeid
@@ -164,7 +164,7 @@ class BatchSlave(object):
 
         # connect to batch server
         conn = None
-        for i in range(0, 10):
+        for _ in range(0, 10):
             try:
                 filename = os.path.join(self.logs_path, "..", "batch.server")
                 lines = utils.read_lines(filename)
@@ -237,7 +237,7 @@ def slave_main(index, testbed_file, logs_path):
     key = "SPYTEST_TESTBED_FILE_gw{}".format(index)
     os.environ[key] = testbed_file
     os.environ["SPYTEST_TESTBED_FILE"] = testbed_file
-    spytest.main(True)
+    spytest.main.main(True)
 
 def slave_start(testbed_file, logs_path):
     debug("starting slave", testbed_file, wa.slave_index)

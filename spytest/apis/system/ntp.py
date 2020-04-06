@@ -1,8 +1,8 @@
-from spytest.utils import filter_and_select
-from spytest import st
-import json
-from utilities.utils import ensure_service_params
 
+import json
+from spytest import st
+from spytest.utils import filter_and_select
+from utilities.utils import ensure_service_params
 
 def add_ntp_servers(dut, iplist=[]):
     """
@@ -426,7 +426,6 @@ def verify_ntp_service_status(dut, status, iteration=1, delay=1):
 
 def verify_ntp_server_exists(dut, server_ip=None, **kwargs):
     output = show_ntp_server(dut)
-    flag = 1
     if server_ip is None:
         if "No association ID's returned" in output:
             return True

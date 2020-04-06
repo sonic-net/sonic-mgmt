@@ -27,7 +27,7 @@ def storm_control_module_hooks(request):
     vars = st.ensure_min_topology("D1D2:2", "D1T1:2", "D2T1:2")
     sc_data.version_data = basic_obj.show_version(vars.D1)
     vlan_variables()
-    [out, exceptions] = exec_all(True, [[config_tg_stream], [vlan_module_prolog]], first_on_main=True)
+    [_, exceptions] = exec_all(True, [[config_tg_stream], [vlan_module_prolog]], first_on_main=True)
     ensure_no_exception(exceptions)
     yield
     vlan.clear_vlan_configuration(st.get_dut_names(), thread=False, cli_type="click")
@@ -538,7 +538,7 @@ def test_ft_stormcontrol_incremental_bps_max_vlan():
         sc_data.bum_deviation1 = int(0.10 * sc_data.packets)
         sc_data.lower_pkt_cnt = int(sc_data.packets - sc_data.bum_deviation1)
         sc_data.higher_pkt_cnt = int(sc_data.packets + sc_data.bum_deviation1)
-        for iter in range(1,3,1):
+        for _ in range(1,3,1):
             verify_bum_traffic_mode('broadcast', tg_info['tg1_stream_id'], skip_traffic_verify=True)
             st.log("Clearing interface counters")
             ifapi.clear_interface_counters(vars.D1)

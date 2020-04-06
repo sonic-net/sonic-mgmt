@@ -154,14 +154,14 @@ class Testbed(object):
         return None
 
     def get_device_info(self, name, dtype=None):
-        for dut, dinfo in self.topology.devices.items():
+        for _, dinfo in self.topology.devices.items():
             if not dtype or dinfo.type == dtype:
                 if dinfo["__name__"] == name:
                     return dinfo
         return None
 
     def get_device_alias(self, name, only=False):
-        for dut, dinfo in self.topology.devices.items():
+        for _, dinfo in self.topology.devices.items():
             if dinfo.__name__ == name or dinfo.__name0__ == name:
                 if only:
                     return dinfo.alias
@@ -596,14 +596,14 @@ class Testbed(object):
             # override device properties from command line
             if self.cfg and self.cfg.dev_prop:
                 for k,v in self.cfg.dev_prop:
-                    for dev, dinfo in self.devices.items():
+                    for _, dinfo in self.devices.items():
                         if dinfo.properties:
                             dinfo.properties[k] = v
 
             # override ixnetwork from command line
             if self.cfg and self.cfg.ixserver:
                 ix_server = ",".join(self.cfg.ixserver)
-                for dev, dinfo in self.devices.items():
+                for _, dinfo in self.devices.items():
                     if dinfo.device_type == "TGEN" and dinfo.properties:
                         dinfo.properties["ix_server"] = ix_server
 
@@ -713,7 +713,7 @@ class Testbed(object):
     def get_speed(self, dut, scope=None):
         rv = self._get_dut_property(dut, "speed", "speeds", scope, None)
         if not rv: rv = SpyTestDict()
-        for local, partner, remote in self.get_links(dut):
+        for local, _, _ in self.get_links(dut):
             value = self.get_link_param(dut, local, "speed", None)
             if value: rv[local] = value
         return rv
@@ -822,7 +822,7 @@ class Testbed(object):
             if dtype == "DUT" and self.derived.devices:
                 return self.derived.devices
         retval = []
-        for dut, dinfo in self.topology.devices.items():
+        for _, dinfo in self.topology.devices.items():
             if not dtype or dinfo["type"] == dtype:
                 name = dinfo["__name__"]
                 if name not in retval:
@@ -838,7 +838,7 @@ class Testbed(object):
         :rtype:
         """
         retval = []
-        for link, linfo in self.reserved_links.items():
+        for _, linfo in self.reserved_links.items():
             if linfo["from_dut"] == dut:
                 retval.append(linfo["from_port"])
         return retval
@@ -852,7 +852,7 @@ class Testbed(object):
         :rtype:
         """
         retval = []
-        for link, linfo in self.links.items():
+        for _, linfo in self.links.items():
             if peer:
                 if linfo["from_dut"] == dut and linfo["to_dut"] == peer:
                     if not dtype or dtype == linfo["to_type"]:
@@ -881,7 +881,7 @@ class Testbed(object):
         :return: properties dictionary
         :rtype: dict
         """
-        for ent, dinfo in self.topology.devices.items():
+        for _, dinfo in self.topology.devices.items():
             if dinfo.type == "TG":
                 if not tg or dinfo["__name__"] == tg:
                     rv = SpyTestDict()
@@ -940,7 +940,7 @@ class Testbed(object):
                 (from_dev, to_dev) = (rv[from_name], rv[to_name])
                 links = self.get_links(from_dev, to_dev)
                 lnum = 1
-                for local, partner, remote in links:
+                for local, _, remote in links:
                     lname1 = "{}{}P{}".format(from_name, to_name, lnum)
                     lname2 = "{}{}P{}".format(to_name, from_name, lnum)
                     lnum = lnum + 1
@@ -954,7 +954,7 @@ class Testbed(object):
                     to_name = "D{}".format(to_index)
                     (from_dev, to_dev) = (rv[from_name], rv[to_name])
                     links = self.get_links(from_dev, to_dev)
-                    for local, partner, remote in links:
+                    for local, _, remote in links:
                         lname1 = "T1{}P{}".format(to_name, lnum)
                         lname2 = "{}T1P{}".format(to_name, lnum)
                         lnum = lnum + 1
@@ -969,7 +969,7 @@ class Testbed(object):
                     (from_dev, to_dev) = (rv[from_name], rv[to_name])
                     links = self.get_links(from_dev, to_dev)
                     lnum = 1
-                    for local, partner, remote in links:
+                    for local, _, remote in links:
                         lname1 = "{}{}P{}".format(from_name, to_name, lnum)
                         lname2 = "{}{}P{}".format(to_name, from_name, lnum)
                         lnum = lnum + 1
@@ -998,7 +998,7 @@ class Testbed(object):
         exclude = []
         for dut, dinfo in self.topology.devices.items():
             partners = OrderedDict()
-            for local, partner, remote in self.get_links(dut):
+            for _, partner, _ in self.get_links(dut):
                 partners[partner] = partners.setdefault(partner, 0) + 1
             for partner in partners:
                 if "{}--{}".format(dut, partner) in exclude:
@@ -1029,7 +1029,7 @@ class Testbed(object):
             if to_type == 'D' and not self.devices_state[to_dev]:
                 errs.append("dut_down")
                 return [False, from_dev, to_dev]
-            for local, partner, remote in links:
+            for local, _, _ in links:
                 if not self.devices_port_state["{}:{}".format(from_dev, local)]:
                     errs.append("link_down")
                     return [False, from_dev, to_dev]
@@ -1174,7 +1174,7 @@ class Testbed(object):
         if not errs or not self.flex_dut:
             return [errs, properties]
 
-        [setup_list, properties, errs2] = self.identify_topology(logger, self, None, 1, *args)
+        [setup_list, properties, _] = self.identify_topology(logger, self, None, 1, *args)
         if not setup_list:
             return [errs, properties]
         self.derived.devices = setup_list[0]
@@ -1189,8 +1189,8 @@ class Testbed(object):
         l = len(topo_list)
         for i in range(0, l):
             for j in range(0, l-i-1):
-                [a_from_dev, a_from_index, a_to_dev, a_to_index, a_count] = topo_dict.get(topo_list[j])
-                [b_from_dev, b_from_index, b_to_dev, b_to_index, b_count] = topo_dict.get(topo_list[j+1])
+                [a_from_dev, a_from_index, a_to_dev, a_to_index, _] = topo_dict.get(topo_list[j])
+                [b_from_dev, b_from_index, b_to_dev, b_to_index, _] = topo_dict.get(topo_list[j+1])
                 if a_from_dev > b_from_dev or a_from_index > b_from_index or \
                    a_to_dev > b_to_dev or a_to_index > b_to_index:
                     tmp = topo_list[j]
@@ -1412,7 +1412,7 @@ class Testbed(object):
         # build available duts by excluding used ones from all
         used_list = []
         if rdict:
-            for reqid, duts in rdict.items():
+            for _, duts in rdict.items():
                 used_list.extend(duts)
         dut_list = []
         for dut in tb.get_device_names("DUT"):
@@ -1538,7 +1538,7 @@ class Testbed(object):
         return [setup_list, properties, errs]
 
     def get_device_name(self, name):
-        for dut, dinfo in self.topology.devices.items():
+        for _, dinfo in self.topology.devices.items():
             if dinfo["__name0__"] == name:
                 return dinfo["__name__"]
         return None

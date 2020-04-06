@@ -207,7 +207,7 @@ def links_status(threads, check_type):
 def tg_links_status_1():
     results = dict()
     for dut in st.get_dut_names():
-        for local, partner, remote in st.get_tg_links(dut):
+        for _, partner, remote in st.get_tg_links(dut):
             (tg, ph) = tgapi.get_handle_byname(None, tg=partner, port=remote)
             name = "{}--{}".format(partner, remote)
             results[name] = get_link_status(tg, ph)
@@ -217,13 +217,13 @@ def tg_links_status_0():
     # build port list per tgen
     tg_port_dict = {}
     for dut in st.get_dut_names():
-        for local, partner, remote in st.get_tg_links(dut):
+        for _, partner, remote in st.get_tg_links(dut):
             tg_port_dict.setdefault(partner, []).append(remote)
 
     results = dict()
     for partner, port_list in tg_port_dict.items():
         # get tgen handle using first port
-        (tg, ph) = tgapi.get_handle_byname(None, tg=partner, port=port_list[0])
+        (tg, _) = tgapi.get_handle_byname(None, tg=partner, port=port_list[0])
         # get all ports status
         rv = tg.get_port_status(port_list)
         # fill the results
@@ -243,7 +243,7 @@ def tg_links_status(check_type):
 
 def duts_links_status(threads):
     results = dict()
-    [rvs, exs] = utils.exec_foreach(threads, st.get_dut_names(), dut_links_status)
+    [rvs, _] = utils.exec_foreach(threads, st.get_dut_names(), dut_links_status)
     for rv in rvs:
         if rv:
             results.update(rv)
@@ -251,14 +251,14 @@ def duts_links_status(threads):
 
 def dut_links_status(dut):
     local_list = []
-    for local, partner, remote in st.get_dut_links(dut):
+    for local, _, _ in st.get_dut_links(dut):
         local_list.append(local)
-    for local, partner, remote in st.get_tg_links(dut):
+    for local, _, _ in st.get_tg_links(dut):
         local_list.append(local)
     output = portapi.get_status(dut, ",".join(local_list))
 
     results = dict()
-    for local, partner, remote in st.get_dut_links(dut):
+    for local, _, _ in st.get_dut_links(dut):
         match = {"interface": local}
         entries = utils.filter_and_select(output, ["admin","oper"], match)
         name = "{}--{}".format(dut, local)
@@ -266,7 +266,7 @@ def dut_links_status(dut):
             results[name] = "{}/{}".format(entries[0]["admin"], entries[0]["oper"])
         else:
             results[name] = "----"
-    for local, partner, remote in st.get_tg_links(dut):
+    for local, _, _ in st.get_tg_links(dut):
         match = {"interface": local}
         entries = utils.filter_and_select(output, ["admin","oper"], match)
         name = "{}--{}".format(dut, local)

@@ -62,7 +62,6 @@ def bgp_rr_traffic_pre_config():
     if not bgplib.l3tc_vrfipv4v6_address_leafspine_ping_test(config_type='all', ping_count=3):
         st.error("Ping failed in between Spine - Leaf")
         st.report_fail('test_case_failed')
-    ibgp_as = bgplib.data['spine_as']
 
     bgplib.l3tc_vrfipv4v6_address_leafspine_rr_tg_bgp_config(config='yes', rr_enable='true')
     bgplib.l3tc_vrfipv4v6_address_leafspine_bgp_config(config='yes', rr_enable='true')
@@ -78,7 +77,6 @@ def bgp_rr_traffic_pre_config():
 
 def bgp_rr_traffic_pre_config_cleanup():
     st.banner("BGP RR WITH TRAFFIC CLASS CONFIG CLEANUP - START")
-    ibgp_as = bgplib.data['spine_as']
     bgplib.l3tc_vrfipv4v6_address_leafspine_bgp_config(config='no', rr_enable='true')
     bgplib.l3tc_vrfipv4v6_address_leafspine_config_unconfig(config='no')
     bgpapi.cleanup_router_bgp(st.get_dut_names())
@@ -107,12 +105,12 @@ class TestBGPRrTraffic():
         bgp_handle = topo['T1{}P1_ipv4_tg_bh'.format(TG_D1)]
         tc_fail_flag = 0
         spine_as = int(bgplib.data['spine_as'])
-        bgp_ctrl = tg_ob.tg_emulation_bgp_control(handle=bgp_handle['handle'], mode='stop')
+        tg_ob.tg_emulation_bgp_control(handle=bgp_handle['handle'], mode='stop')
         st.wait(10)
         st.log("Advertising Routes from one of the Leaf Router")
         bgp_route = tg_ob.tg_emulation_bgp_route_config(handle=bgp_handle['handle'], mode='add', num_routes='100',
                                                         prefix='121.1.1.0', as_path='as_seq:1')
-        bgp_ctrl = tg_ob.tg_emulation_bgp_control(handle=bgp_handle['handle'], mode='start')
+        tg_ob.tg_emulation_bgp_control(handle=bgp_handle['handle'], mode='start')
 
         # Sleep for some time and the check the route count in neighbour
         st.wait(10)
@@ -183,7 +181,7 @@ class TestBGPRrTraffic():
         bgp_route = tg_ob.tg_emulation_bgp_route_config(handle=bgp_handle['handle'], mode='add',  ip_version='6',
                                                         num_routes='100',
                                                         prefix='1001::1', as_path='as_seq:1')
-        bgp_ctrl = tg_ob.tg_emulation_bgp_control(handle=bgp_handle['handle'], mode='start')
+        tg_ob.tg_emulation_bgp_control(handle=bgp_handle['handle'], mode='start')
 
         # Sleep for some time and the check the route count in neighbour
         st.wait(10)

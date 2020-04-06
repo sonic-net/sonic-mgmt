@@ -179,7 +179,7 @@ def get_portchannel(dut, portchannel_name="", cli_type=""):
                             result[portchannel_data["name"]]["members"].append(members)
             response = list()
             if result:
-                for pc_name, pc_data in result.items():
+                for _, pc_data in result.items():
                     response.append(pc_data)
             return response
         else:
@@ -549,7 +549,7 @@ def verify_portchannel_fallback(dut, portchannel):
     :return:
     """
     command = "teamdctl {} config dump".format(portchannel)
-    response = st.config(dut, command)
+    st.config(dut, command)
 
 
 def _clear_portchannel_configuration_helper(dut_list,cli_type="click"):
@@ -704,7 +704,7 @@ def verify_lacp_fallback(dut,**kwargs):
 
     """
     ret_val = True
-    cli_type = kwargs.get('cli_mode', 'click')
+    cli_type = kwargs.get('cli_type', 'click')
     cmd = ''
     if 'port_channel_name' in kwargs:
         port_channel_name = kwargs['port_channel_name']

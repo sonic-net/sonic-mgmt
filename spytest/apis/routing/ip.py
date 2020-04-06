@@ -1368,7 +1368,7 @@ def config_interface_ip_addresses(dut, if_data_list={}, config='yes'):
         return False
 
     command = []
-    for if_name, if_data in if_data_list.items():
+    for _, if_data in if_data_list.items():
         if not if_data['name']:
             st.error("Please provide interface name in {} ".format(if_data))
             return False
@@ -1438,13 +1438,13 @@ def config_unnumbered_interface(dut, **kwargs):
     if commands:
         if skip_error:
             try:
-                out = st.config(dut, commands, skip_error_check=skip_error, type=cli_type)
+                st.config(dut, commands, skip_error_check=skip_error, type=cli_type)
                 return True
             except:
                 st.log("Error handled..by API")
                 return False
         else:
-            out = st.config(dut, commands, skip_error_check=skip_error, type=cli_type)
+            st.config(dut, commands, skip_error_check=skip_error, type=cli_type)
             return True
 
 
@@ -1463,7 +1463,7 @@ def prepare_show_ipv6_interface_output(data):
             output[ip_data["interface"]] = [ip_data]
     if output:
         ip_keys = ["status", "neighborip", "ipaddr", "flags", "vrf", "neighbor", "interface"]
-        for key, value in output.items():
+        for _, value in output.items():
             result.append(value[0])
             if len(value) > 1:
                 for attr in ip_keys:

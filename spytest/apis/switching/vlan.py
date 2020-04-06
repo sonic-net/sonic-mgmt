@@ -384,10 +384,10 @@ def verify_vlan_brief(dut, vid, tagged=None, untagged=None, ip_address=None, dhc
         st.log("Provided interface {} is not a untagged member of Valn {}".format(untagged, vid))
         return False
     if dhcp_helper_add and not filter_and_select(entries, None, {"vid": vid, "dhcphelperadd": dhcp_helper_add}):
-        st.log("Provided and configured vlan {} DHCPHelperAdd in not match".format(vid, dhcp_helper_add))
+        st.log("Provided and configured vlan {} DHCPHelperAdd {} in not match".format(vid, dhcp_helper_add))
         return False
     if ip_address and not filter_and_select(entries, None, {"vid": vid, "ipadd": ip_address}):
-        st.log("Provided and configured vlan {} IpAdd in not match".format(vid, ip_address))
+        st.log("Provided and configured vlan {} IpAdd {} in not match".format(vid, ip_address))
         return False
     return True
 
@@ -570,13 +570,13 @@ def config_vlan_range_members(dut, vlan_range, port, config="add", skip_verify=F
     port_list = list(port) if isinstance(port, list) else [port]
 
     entries = []
-    for vlan_range in vlan_range_list:
+    for vrange in vlan_range_list:
         for each_port in port_list:
             if not st.is_community_build():
-                command = "config vlan member range {} {} {}".format(config, vlan_range, each_port)
-                entries.append([command, each_port, vlan_range])
+                command = "config vlan member range {} {} {}".format(config, vrange, each_port)
+                entries.append([command, each_port, vrange])
             else:
-                [range_min, range_max] = [int(vid) for vid in vlan_range.split()]
+                [range_min, range_max] = [int(vid) for vid in vrange.split()]
                 for vid in range(range_min, range_max+1):
                     command = "config vlan member {} {} {}".format(config, vid, each_port)
                     entries.append([command, each_port, vid])
@@ -585,16 +585,16 @@ def config_vlan_range_members(dut, vlan_range, port, config="add", skip_verify=F
         skip_error=True
 
     ver_flag = True
-    for [command, each_port, vlan_range] in entries:
+    for [command, each_port, vrange] in entries:
         if not skip_verify and not st.is_community_build():
             # -w option displays warning, turned on so that existing vlans message can be checked
             command += " -w"
         output = st.config(dut, command, skip_error_check=skip_error)
         if "is already a member of Vlan" in output:
-            st.error("{} is already a member of Vlan{}".format(each_port, vlan_range))
+            st.error("{} is already a member of Vlan{}".format(each_port, vrange))
             ver_flag = False
         if "doesn't exist" in output:
-            st.error(" Vlan{} doesn't exist".format(vlan_range))
+            st.error(" Vlan{} doesn't exist".format(vrange))
             ver_flag = False
 
     return ver_flag
@@ -649,7 +649,7 @@ def create_multiple_vlans_and_members(dut, data):
     :param data: {'G7': {'normal_vlan': {'vlans': [1577, 1578, 1579], 'members':['Ethernet0', 'PortChannel3', 'PortChannel5', 'PortChannel4']}, 'peer_vlan': {'vlans': 1580, 'members': ['Ethernet12', 'PortChannel2']}}, 'G6':{'normal_vlan': {'vlans': [1577, 1578, 1579], 'members': ['Ethernet0', 'PortChannel5', 'Ethernet24']}}, 'G4': {'normal_vlan': {'vlans': [1577,    1578, 1579], 'members': ['Ethernet120', 'PortChannel2', 'PortChannel3',    'PortChannel4', 'Ethernet112']}, 'peer_vlan': {'vlans': 1581, 'members':   ['PortChannel1']}}, 'G3': {'normal_vlan': {'vlans': [1577, 1578, 1579],  'members': ['Ethernet120', 'PortChannel3', 'PortChannel5', 'PortChannel4']},  'peer_vlan': {'vlans': 1580, 'members': ['Ethernet0', 'PortChannel2']}}, 'G8': {'normal_vlan': {'vlans': [1577, 1578, 1579], 'members': ['Ethernet0',  'PortChannel2', 'PortChannel3', 'PortChannel4']}, 'peer_vlan': {'vlans':1581, 'members': ['PortChannel1']}}}
     :return: True | False
     """
-    for key, value in data[dut].items():
+    for _, value in data[dut].items():
         create_vlan(dut, value["vlans"])
         if not config_vlan_members(dut,value["vlans"],value["members"]):
             st.log("ADDING MEMBERS {} to VLAN {} FAILED".format(value["members"], value["vlans"]))

@@ -37,7 +37,7 @@ class Profile(object):
         thid = logger.get_thread_name()
         if dut:
             if pid > 0 and thid == "T0000: ":
-                [pstart_time, pdut, pmsg, pdata] = self.profile_ids[pid-1]
+                [_, pdut, pmsg, _] = self.profile_ids[pid-1]
                 if pmsg == msg and dut != pdut:
                     self.canbe_parallel.append([start_time, msg, dut, pdut])
             if "spytest-helper.py" in msg:
