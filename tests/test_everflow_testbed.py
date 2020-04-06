@@ -1,9 +1,8 @@
 import os
 import time
-from ansible_host import AnsibleHost
 import pytest
 from ptf_runner import ptf_runner
-from abc import ABCMeta, abstractmethod
+from abc import abstractmethod
 import ipaddr as ipaddress
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -168,10 +167,8 @@ def add_route(duthost, prefix, nexthop):
     duthost: fixture that have duthost information
     prefix:  Ip prefix 
     nexthop: nexthop
-    return:pass
     """
     duthost.shell("vtysh -c 'configure terminal' -c 'ip route {} {}'".format(prefix, nexthop))
-    pass
 
 def remove_route(duthost, prefix, nexthop):
     """
@@ -179,10 +176,8 @@ def remove_route(duthost, prefix, nexthop):
     duthost: fixture that have duthost information
     prefix:  Ip prefix 
     nexthop: nexthop
-    return:pass
     """
     duthost.shell("vtysh -c 'configure terminal' -c 'no ip route {} {}'".format(prefix, nexthop))
-    pass
 
 def get_neighbor_info(duthost, dest_port, resolved = True):
 
@@ -242,7 +237,7 @@ class BaseEverflowTest(object):
 
 
     @abstractmethod
-    def setup_acl_table():
+    def setup_acl_table(self, duthost, setup_info, setup_mirror_session):
         """
         setup the acl table
         return:pass
@@ -251,7 +246,7 @@ class BaseEverflowTest(object):
 
 
     @abstractmethod
-    def mirror_type():
+    def mirror_type(self):
         """
         used to parametrized test cases on mirror type
         :param request: pytest request object
@@ -260,7 +255,7 @@ class BaseEverflowTest(object):
         pass
 
     @abstractmethod
-    def acl_stage():
+    def acl_stage(self):
         """
         get the acl stage
         return:pass
@@ -271,7 +266,6 @@ class BaseEverflowTest(object):
     def test_everflow_case1(self, duthost, setup_info, setup_mirror_session, dest_port_type, partial_ptf_runner):
         """  Test on Resolved route, unresolved route, best prefix match route creation and removal flows """
 
-        rx_port = setup_info[dest_port_type]['src_port']
         rx_port_ptf_id =  setup_info[dest_port_type] ['src_port_ptf_id']
         tx_port = setup_info[dest_port_type]['dest_port'][0]
         tx_port_ptf_id = setup_info[dest_port_type]['dest_port_ptf_id'][0]
@@ -325,7 +319,6 @@ class BaseEverflowTest(object):
         """Test case 2 - Change neighbor MAC address.
         Verify that session destination MAC address is changed after neighbor MAC address update."""
 
-        rx_port = setup_info[dest_port_type]['src_port']
         rx_port_ptf_id =  setup_info[dest_port_type] ['src_port_ptf_id']
         tx_port = setup_info[dest_port_type]['dest_port'][0]
         tx_port_ptf_id = setup_info[dest_port_type]['dest_port_ptf_id'][0]
@@ -365,10 +358,8 @@ class BaseEverflowTest(object):
         """Test case 3 -  ECMP route change (remove next hop not used by session).
         Verify that after removal of next hop that was used by session from ECMP route session state is active."""
 
-        rx_port = setup_info[dest_port_type]['src_port']
         rx_port_ptf_id =  setup_info[dest_port_type] ['src_port_ptf_id']
         tx_port = setup_info[dest_port_type]['dest_port'][0]
-        tx_port_ptf_id = setup_info[dest_port_type]['dest_port_ptf_id'][0]
         peer_ip, peer_mac = get_neighbor_info(duthost, tx_port)
         peer_ip0 = peer_ip
         
@@ -419,7 +410,6 @@ class BaseEverflowTest(object):
         """Test case 4 - ECMP route change (remove next hop used by session).
         Verify that removal of next hop that is not used by session doesn't cause DST port and MAC change."""
 
-        rx_port = setup_info[dest_port_type]['src_port']
         rx_port_ptf_id =  setup_info[dest_port_type] ['src_port_ptf_id']
         tx_port = setup_info[dest_port_type]['dest_port'][0]
         tx_port_ptf_id = setup_info[dest_port_type]['dest_port_ptf_id'][0]
@@ -435,19 +425,16 @@ class BaseEverflowTest(object):
                            dst_ports = tx_port_ptf_id)
  
         tx_port = setup_info[dest_port_type]['dest_port'][1]
-        tx_port_ptf_id = setup_info[dest_port_type]['dest_port_ptf_id'][1]
         peer_ip, peer_mac = get_neighbor_info(duthost, tx_port)
         peer_ip1 = peer_ip
 
         add_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
 
         tx_port = setup_info[dest_port_type]['dest_port'][2]
-        tx_port_ptf_id = setup_info[dest_port_type]['dest_port_ptf_id'][2]
         peer_ip, peer_mac = get_neighbor_info(duthost, tx_port)
         peer_ip2 = peer_ip
 
         add_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
- 
         
         time.sleep(3)
 
@@ -479,7 +466,6 @@ class BaseEverflowTest(object):
 
         """Test case 5 - Policer enforced DSCP value/mask test"""
 
-        rx_port = setup_info[dest_port_type]['src_port']
         rx_port_ptf_id =  setup_info[dest_port_type] ['src_port_ptf_id']
         tx_port = setup_info[dest_port_type]['dest_port'][0]
         tx_port_ptf_id = setup_info[dest_port_type]['dest_port_ptf_id'][0]
@@ -523,7 +509,6 @@ class BaseEverflowTest(object):
 
         """ Test Case 6 - ARP/ND packet mirroring"""
 
-        rx_port = setup_info[dest_port_type]['src_port']
         rx_port_ptf_id =  setup_info[dest_port_type] ['src_port_ptf_id']
         tx_port = setup_info[dest_port_type]['dest_port'][0]
         tx_port_ptf_id = setup_info[dest_port_type]['dest_port_ptf_id'][0]
