@@ -408,8 +408,8 @@ class AdvancedReboot:
         '''
         logger.info("Running PTF runner on PTF host: {0}".format(self.ptfhost))
 
-        prebootOper = rebootOper if rebootOper is not None and 'routing' in rebootOper else None
-        inbootOper = rebootOper if rebootOper is not None and 'routing' not in rebootOper else None
+        prebootOper = rebootOper if rebootOper is not None and 'routing' not in rebootOper else None
+        inbootOper = rebootOper if rebootOper is not None and 'routing' in rebootOper else None
 
         self.__updateAndRestartArpResponder(rebootOper)
 
