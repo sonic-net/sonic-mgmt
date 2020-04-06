@@ -902,8 +902,6 @@ class ReloadTest(BaseTest):
             # revert to pretest state
             if self.sad_oper and self.sad_handle:
                 self.sad_revert()
-                if self.test_params['inboot_oper']:
-                    self.check_postboot_sad_status()
                 self.log(" ")
 
             # Generating report
