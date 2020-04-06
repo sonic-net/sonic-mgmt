@@ -37,8 +37,8 @@ class UICLI(object):
                     mode = config_step.get("mode", None)
 
                     if len(mode) > 1:
-                        (mode_name, mode_args) = mode
-                        for key, value in mode_args.items():
+                        (_, mode_args) = mode
+                        for _, value in mode_args.items():
                             matched = re.match(r'\$(\S+)\$(\S+)\$', str(value).strip())
                             if not matched:
                                 replaced_mode_values[value] = value
@@ -101,8 +101,8 @@ class UICLI(object):
                     mode = action_step.get("mode", None)
 
                     if len(mode) > 1:
-                        (mode_name, mode_args) = mode
-                        for key, value in mode_args.items():
+                        (_, mode_args) = mode
+                        for _, value in mode_args.items():
                             matched = re.match(r'\$(\S+)\$(\S+)\$', str(value).strip())
                             if not matched:
                                 replaced_mode_values[value] = value
@@ -165,8 +165,8 @@ class UICLI(object):
                     mode = config_step.get("mode", None)
 
                     if len(mode) > 1:
-                        (mode_name, mode_args) = mode
-                        for key, value in mode_args.items():
+                        (_, mode_args) = mode
+                        for _, value in mode_args.items():
                             matched = re.match(r'\$(\S+)\$(\S+)\$', str(value).strip())
                             if not matched:
                                 replaced_mode_values[value] = value
@@ -249,7 +249,7 @@ class UICLI(object):
 
                         # Replace the mode values in arg strings
                         if len(cfg_mode) > 1:
-                            (mode_name, mode_args) = cfg_mode
+                            (_, mode_args) = cfg_mode
                             for key, value in mode_args.items():
                                 if replaced_mode_values.get(value, None) is not None:
                                     mode_args.update({key: replaced_mode_values.get(value)})
@@ -285,7 +285,7 @@ class UICLI(object):
 
                         # Replace the mode values in arg strings
                         if len(cfg_mode) > 1:
-                            (mode_name, mode_args) = cfg_mode
+                            (_, mode_args) = cfg_mode
                             for key, value in mode_args.items():
                                 if replaced_mode_values.get(value, None) is not None:
                                     mode_args.update({key: replaced_mode_values.get(value)})
@@ -332,7 +332,7 @@ class UICLI(object):
 
                         # Replace the mode values in arg strings
                         if len(action_mode) > 1:
-                            (mode_name, mode_args) = action_mode
+                            (_, mode_args) = action_mode
                             for key, value in mode_args.items():
                                 if replaced_mode_values.get(value, None) is not None:
                                     mode_args.update({key: replaced_mode_values.get(value)})

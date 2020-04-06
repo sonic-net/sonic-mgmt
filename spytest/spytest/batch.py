@@ -50,7 +50,7 @@ def save_report():
 
     # show running
     (header, rows) = (['#', "Module", "Function", "TestCase", "Node", "Status"], [])
-    for index, nodeid in enumerate(wa.executed):
+    for nodeid in wa.executed:
         [node_name, status] = wa.executed[nodeid]
         if not node_name: continue
         parts = nodeid.split("::", 1)
@@ -70,7 +70,7 @@ def save_report():
 
     # show pending
     (header, rows) = (['#', "Module", "Function", "TestCase", "Status"], [])
-    for index, nodeid in enumerate(wa.executed):
+    for nodeid in wa.executed:
         [node_name, status] = wa.executed[nodeid]
         if node_name: continue
         parts = nodeid.split("::", 1)
@@ -239,7 +239,7 @@ class SpyTestScheduling(object):
                 if minfo.bucket <= slave.bucket and \
                    minfo.bucket >= slave.min_bucket:
                     if minfo.topo:
-                        [errs, p] = slave.tb_obj.ensure_min_topology(minfo.topo)
+                        [errs, _] = slave.tb_obj.ensure_min_topology(minfo.topo)
                         slave.tb_obj.reset_derived_devices()
                         if errs: continue
                     minfo.nodes.append(slave.name)
@@ -251,7 +251,7 @@ class SpyTestScheduling(object):
                     if minfo.nodes: break
                     for slave in wa.slaves.values():
                         if slave.bucket != bucket: continue
-                        [errs, p] = slave.tb_obj.ensure_min_topology(minfo.topo)
+                        [errs, _] = slave.tb_obj.ensure_min_topology(minfo.topo)
                         slave.tb_obj.reset_derived_devices()
                         if not errs:
                             msg = "Using testbed {} to execute {}"
@@ -319,7 +319,7 @@ class SpyTestScheduling(object):
         prev_count = len(self.node_modules[node])
         if prev_count >= 2: return
         debug("================ load =========== {} {}".format(node, prev_count))
-        for i in range(0,2):
+        for _ in range(0,2):
             if len(self.node_modules[node]) < 2:
                 self._assign_test(node, name)
         indexes = self.node_modules[node][prev_count:]
@@ -590,7 +590,7 @@ def _create_bucket_testbeds(tb_objs, buckets, logs_path):
             continue
         for index, tb in enumerate(tb_objs):
             topo = topologies[bucket]
-            [slist, props, errs] = tb.identify_topology(None, tb, None, 100, topo)
+            [slist, props, _] = tb.identify_topology(None, tb, None, 100, topo)
             if not slist or len(slist) <= 0:
                 msg = "Failed to create testbed for bucket {} topo {} using higher bucket {} testbed"
                 trace(msg.format(bucket, topo, prev_bucket))
@@ -618,7 +618,7 @@ def parse_args(numprocesses, buckets, logs_path):
     parts = filename.split(",")
     count = len(parts)
     if numprocesses and count < numprocesses and os.getenv("SPYTEST_FILE_MODE"):
-        for index in range(count, numprocesses):
+        for _ in range(count, numprocesses):
             parts.append(parts[0])
         count = numprocesses
     [count, parts] = parse_buckets(count, parts, buckets, logs_path)
@@ -661,7 +661,7 @@ def parse_buckets(count, testbeds, buckets_csv, logs_path):
     trace("Buckets - Sorted = {}".format(bucket_list))
 
     # create testbed objects for testbed files
-    for j,testbed in enumerate(testbeds):
+    for testbed in testbeds:
         tb = Testbed(testbed, flex_dut=True)
         if not tb.is_valid():
             msg = "testbed file {} is not valid"
@@ -681,7 +681,7 @@ def parse_buckets(count, testbeds, buckets_csv, logs_path):
     # than the spefified buckets
     data = _create_bucket_testbeds(tb_objs, bucket_list, logs_path)
     for bucket, min_bucket, parent_testbed, tbs in sorted(data, reverse=True):
-        for index,testbed in enumerate(tbs):
+        for testbed in tbs:
             wa.buckets.append(bucket)
             wa.min_buckets.append(min_bucket)
             wa.testbeds.append(testbed)
@@ -726,7 +726,7 @@ def parse_buckets(count, testbeds, buckets_csv, logs_path):
             min_bucket = bucket
 
     # let the testbeds in min bucket handled all lower buckets
-    for name, slave in wa.slaves.items():
+    for _, slave in wa.slaves.items():
         if slave.bucket <= min_bucket:
             slave.min_bucket = 0
 

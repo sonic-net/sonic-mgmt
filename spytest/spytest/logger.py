@@ -226,7 +226,7 @@ class Logger(object):
 
         try:
             msg1 = str(msg)
-        except UnicodeEncodeError as exp:
+        except UnicodeEncodeError:
             msg1 = unicode(msg)
 
         # add main log

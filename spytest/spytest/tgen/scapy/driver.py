@@ -180,7 +180,7 @@ class ScapyDriver(object):
 
         # wait for max 30 seconds to finish
         if non_continuous:
-            for check in range(30):
+            for _ in range(30):
                 if not self.txState.is_set():
                     break
         elif duration > 0:
@@ -207,7 +207,7 @@ class ScapyDriver(object):
             return
         self.logger.debug("stop-tx: {}".format(self.iface))
         self.txState.clear()
-        for index in range(10):
+        for _ in range(10):
             time.sleep(1)
             if not self.txState.is_set():
                 break

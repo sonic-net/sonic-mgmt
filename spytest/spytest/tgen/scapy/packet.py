@@ -163,7 +163,7 @@ class ScapyPacket(object):
             bridge = "{0}-br".format(iface)
             os.system("ip link set dev {0} down".format(bridge))
             #os.system("brctl delif {0} {1}".format(bridge, iface))
-            os.system("ip link set dev {1} nomaster".format(bridge, iface))
+            os.system("ip link set dev {0} nomaster".format(iface))
             #os.system("brctl delbr {0}".format(bridge))
             os.system("ip link del {0}".format(bridge))
             os.system("ip link del {0}-rx".format(iface))
@@ -1199,16 +1199,16 @@ class ScapyPacket(object):
 
         remote_as = self.utils.intval(intf.bgp_kws, "remote_as", 65001)
         local_as = self.utils.intval(intf.bgp_kws, "local_as", 65007)
-        ip_version = self.utils.intval(intf.bgp_kws, "ip_version", 4)
+        #ip_version = self.utils.intval(intf.bgp_kws, "ip_version", 4)
 
         cmds = textwrap.dedent("""
-            neighbor {3} {{
-                router-id {1};
-                local-address {1};
-                local-as {2};
-                peer-as {4};
+            neighbor {2} {{
+                router-id {0};
+                local-address {0};
+                local-as {1};
+                peer-as {3};
             }}
-        """.format(ns, intf_ip_addr, local_as, remote_ip_addr, remote_as))
+        """.format(intf_ip_addr, local_as, remote_ip_addr, remote_as))
         self.utils.fwrite(cmds, cfgfile)
 
         cmds = textwrap.dedent("""
@@ -1249,7 +1249,7 @@ class ScapyPacket(object):
             msg = "Prefix not specified num_routes={}".format(num_routes)
             self.logger.error(msg)
             #return False
-        for index in range(num_routes):
+        for _ in range(num_routes):
             cwd = os.getcwd()
             envfile = "{}/logs/current/exabgpd_{}.env".format(cwd, ns)
             remote_ipv6_addr = intf.bgp_kws.get("remote_ipv6_addr", "")
@@ -1298,7 +1298,7 @@ class ScapyPacket(object):
         self.utils.cmdexec(cmd)
 
         # add ip addresses
-        for i in range(num_groups):
+        for _ in range(num_groups):
             if mode in ["start", "join"]:
                 cmd = "ip netns exec ns_{0} ip addr add {1}/32 dev veth1 autojoin".format(ns, ip4_addr)
             else:

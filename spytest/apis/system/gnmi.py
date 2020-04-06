@@ -210,7 +210,6 @@ def client_auth(dut, **kwargs):
     :return:
     """
     st.log("Configuring gNMI authentication.")
-    docer_name = "TELEMETRY"
     docker_name= "telemetry"
     command = 'redis-cli -n 4 hmset "TELEMETRY|gnmi" client_auth'
     if 'auth_type' in kwargs:

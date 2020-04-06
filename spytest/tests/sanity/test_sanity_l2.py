@@ -762,7 +762,7 @@ def test_base_line_vlan_create_delete_and_mac_learning_with_bum():
             stats2 = tg2.tg_traffic_stats(port_handle=tg_ph_2, mode='aggregate')
             total_tx2 = int(stats2[tg_ph_2]['aggregate']['tx']['total_pkts'])
             st.log("looping to verify traffic is sent or not")
-            for i in range(1,5,1):
+            for _ in range(1,5,1):
                 if total_tx1 and total_tx2 == 0:
                     st.wait(data.post_wait_time_run)
 
@@ -877,7 +877,7 @@ def test_base_line_vlan_create_delete_and_mac_learning_with_bum():
             stats2 = tg2.tg_traffic_stats(port_handle=tg_ph_2, mode='aggregate')
             total_tx2 = int(stats2[tg_ph_2]['aggregate']['tx']['total_pkts'])
             st.log("looping to verify traffic is sent or not")
-            for i in range(1, 5, 1):
+            for _ in range(1, 5, 1):
                 if total_tx1 and total_tx2 == 0:
                     st.wait(data.post_wait_time_run)
                 if not mac_obj.verify_mac_address_table(vars.D1, "00:00:00:00:11:11", vlan=data.vlan, port=vars.D1T1P1):

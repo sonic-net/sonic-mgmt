@@ -1119,7 +1119,7 @@ def test_ft_snmp_warmstart_trap():
 
     result = any('warmStart' in x for x in trap_lines)
     if result == 0:
-        for i in range(1, 4):
+        for _ in range(1, 4):
             read_cmd = "cat {}".format(capture_file)
             output = execute_command(ssh_conn_obj, read_cmd)
             trap_lines = output.split("\n")[:-1]
@@ -1139,10 +1139,11 @@ def test_ft_snmp_docker_restart():
     Verify that the sysName MIB object functions properly after docker restart
     Reference Test Bed : D1--- Mgmt Network
     """
-    basic_obj.service_operations_by_systemctl(vars.D1, 'snmp', 'restart')
-    if not basic_obj.poll_for_system_status(vars.D1, 'snmp', 30, 1):
-        st.report_fail("service_not_running".format('snmp'))
-    if not basic_obj.verify_service_status(vars.D1, 'snmp'):
+    service_name = "snmp"
+    basic_obj.service_operations_by_systemctl(vars.D1, service_name, 'restart')
+    if not basic_obj.poll_for_system_status(vars.D1, service_name, 30, 1):
+        st.report_fail("service_not_running", service_name)
+    if not basic_obj.verify_service_status(vars.D1, service_name):
         st.report_fail("snmp_service_not_up")
     hostname =basic_obj.get_hostname(vars.D1)
     get_snmp_output= snmp_obj.get_snmp_operation(ipaddress=ipaddress, oid=data.oid_sysName,
@@ -1151,6 +1152,4 @@ def test_ft_snmp_docker_restart():
     if not get_snmp_output[0] == hostname:
         st.report_fail("sysName_verification_fail_after_docker_restart")
     st.report_pass("test_case_passed")
-
-
 

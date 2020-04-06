@@ -349,7 +349,7 @@ class Net(object):
                 if not hndl:
                     self.dut_log(device, "Failed to read prompt: Null handle")
                 else:
-                    for j in range(5):
+                    for _ in range(5):
                         output = hndl.find_prompt()
                         access["last-prompt"] = output
                         if hndl.verify_prompt(output):
@@ -1269,7 +1269,7 @@ class Net(object):
         self._enter_linux(devname)
 
     def _enter_linux(self, devname, prompt=None):
-        for i in range(10):
+        for _ in range(10):
             (rv, known_prompt) = self._enter_linux_once(devname, prompt)
             if rv:
                 return known_prompt
@@ -1689,7 +1689,7 @@ class Net(object):
 
         # Identify the current mode
         if not prompt or prompt == "unknown-mode":
-            for i in range(3):
+            for _ in range(3):
                 prompt = self._find_prompt(access)
                 startmode = prompts.get_mode_for_prompt(prompt)
                 if startmode != "unknown-prompt":
@@ -1803,7 +1803,7 @@ class Net(object):
             self._send_command(access, cmd, expected_prompt)
 
         # Identify the current prompt, check and return appropriately.
-        for i in range(3):
+        for _ in range(3):
             prompt = self._find_prompt(access)
             endmode = prompts.get_mode_for_prompt(prompt)
             if endmode != "unknown-prompt":
@@ -2033,7 +2033,7 @@ class Net(object):
                 raise ValueError("invalid json data")
 
         # write json content into file
-        for retry in range(3):
+        for _ in range(3):
             src_file = tempfile.mktemp()
             src_fp = open(src_file, "w")
             src_fp.write(indented)
@@ -2047,7 +2047,7 @@ class Net(object):
                 self.dut_log(devname, msg, lvl=logging.WARNING)
 
         applied = False
-        for retry in range(3):
+        for _ in range(3):
             # transfer the file
             access = self._get_dev_access(devname)
             dst_file = self._upload_file(access, src_file)
@@ -2869,7 +2869,6 @@ class Net(object):
         return retval
 
     def make_local_file_path(self, devname, filepath, suffix, ts=None):
-        access = self._get_dev_access(devname)
         dut_label = self._get_dut_label(devname)
         if ts is None: ts = time.strftime("%Y%m%d%H%M")
         if filepath:
@@ -3176,7 +3175,7 @@ class Net(object):
         return True
 
     def generate_tech_support(self, devname, name):
-        for retry in range(2):
+        for _ in range(2):
             try:
                 self._apply_remote(devname, "get-tech-support", [name])
                 break
@@ -3453,6 +3452,8 @@ class Net(object):
                 output.append("Exception: {}".format(e))
 
         net_connect.disconnect()
+        output = "\n".join(output)
+        self.dut_log(devname, output, lvl=logging.INFO)
         return "\n".join(output)
 
     def exec_remote(self, ipaddress, username, password, scriptpath, wait_factor=2):
@@ -4008,7 +4009,7 @@ class Net(object):
 
     def show_new(self, devname, cmd, **kwargs):
         opts = self._parse_cli_opts(**kwargs)
-        (prefix, op, expect_mode) = self._change_mode(devname, True, cmd, opts)
+        (prefix, _, expect_mode) = self._change_mode(devname, True, cmd, opts)
 
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
@@ -4064,7 +4065,7 @@ class Net(object):
         cmd_list = self._build_cmd_list(cmd, opts)
         if not cmd_list: return ""
 
-        (prefix, op, expect_mode) = self._change_mode(devname, False, cmd, opts)
+        (_, op, expect_mode) = self._change_mode(devname, False, cmd, opts)
 
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
@@ -4097,7 +4098,7 @@ class Net(object):
             confirm_prompts.append(r"(.*Y\/N\](\:)*\s*)$")
             all_prompts.extend(confirm_prompts)
         expected_prompt_with_confirm = "|".join(all_prompts)
-        expected_prompt_re = re.compile(expected_prompt)
+        #expected_prompt_re = re.compile(expected_prompt)
 
         # execute individual commands
         op_lines = []
@@ -4184,7 +4185,6 @@ class Net(object):
         msg = "Using script: script({})".format(scriptname)
         self.logger.info(msg)
 
-        output = ""
         data = None
         script_module = os.path.splitext(os.path.basename(scriptname))[0]
         try:
@@ -4236,7 +4236,7 @@ class Net(object):
             all_params.update(params_mapfile_data)
 
         error_patterns = []
-        for err, errinfo in list(access["errors"].items()):
+        for _, errinfo in list(access["errors"].items()):
             error_patterns.append(errinfo.search)
         error_patterns.extend([".*No such file or directory.*", ".*can't open file .*"])
 
@@ -4758,7 +4758,6 @@ class Net(object):
         uicli_scripts_root = os.path.join(os.path.dirname(__file__), '..', "datastore", "ui_cli", "json_scripts")
         autogen_params_file = os.path.join(os.path.abspath(uicli_scripts_root), "all_params.json")
 
-        mappings_root = os.path.join(os.path.dirname(__file__), '..', "datastore", "ui_rest", "mappings")
         uirest_scripts_root = os.path.join(os.path.dirname(__file__), '..', "datastore", "ui_rest", "json_scripts")
         #uirest_scripts_root = os.path.join(os.path.dirname(__file__), '..', "datastore", "ui_rest", "json_scripts_test")
 
@@ -4794,7 +4793,7 @@ class Net(object):
             raise ValueError(e)
 
         error_patterns = []
-        for err, errinfo in list(access["errors"].items()):
+        for _, errinfo in list(access["errors"].items()):
             error_patterns.append(errinfo.search)
 
         tb_vars = SpyTestDict()
@@ -5020,7 +5019,6 @@ class Net(object):
         uicli_scripts_root = os.path.join(os.path.dirname(__file__), '..', "datastore", "ui_cli", "json_scripts")
         autogen_params_file = os.path.join(os.path.abspath(uicli_scripts_root), "all_params.json")
 
-        mappings_root = os.path.join(os.path.dirname(__file__), '..', "datastore", "ui_gnmi", "mappings")
         uignmi_scripts_root = os.path.join(os.path.dirname(__file__), '..', "datastore", "ui_rest", "json_scripts")
 
         path_args_file = os.path.join(os.path.abspath(uignmi_scripts_root), "path_args.json")
@@ -5055,7 +5053,7 @@ class Net(object):
             raise ValueError(e)
 
         error_patterns = []
-        for err, errinfo in list(access["errors"].items()):
+        for _, errinfo in list(access["errors"].items()):
             error_patterns.append(errinfo.search)
 
         tb_vars = SpyTestDict()
@@ -5288,9 +5286,8 @@ class Net(object):
         :return:
         """
         self.logger.info("Performing GNMI GET OPERATION ...")
-        skip_tmpl = kwargs.get('skip_tmpl', False)
+        #skip_tmpl = kwargs.get('skip_tmpl', False)
 
-        result = dict()
         try:
             kwargs.update({"devname": devname})
             command = self._prepare_gnmi_command(xpath, **kwargs)
@@ -5420,10 +5417,7 @@ class Net(object):
         cert = kwargs.get('cert')
         action = kwargs.get("action", "get")
         pretty = kwargs.get('pretty')
-        logstostderr = kwargs.get('logstostderr')
         mode = kwargs.get('mode', '--update')
-        docker_path = kwargs.get("docker_path")
-        docker_command = "docker exec -it telemetry bash"
         if action == "get":
             gnmi_command = 'gnmi_get -xpath {} -target_addr {}:{}'.format(xpath, ip_address, port)
             """

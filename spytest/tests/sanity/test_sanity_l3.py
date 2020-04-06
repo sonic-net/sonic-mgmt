@@ -125,11 +125,8 @@ def sanity_l3_func_hooks(request):
 def test_l3_fwding():
     #pre_test_l3_fwding()
     data.my_dut_list = st.get_dut_names()
-    dut1 = data.my_dut_list[0]
-    dut2 = data.my_dut_list[1]
 
     dut1 = vars.D1
-    dut2 = vars.D2
     st.show(dut1, "show ip interfaces")
     st.show(dut1, "show ipv6 interfaces")
     st.show(dut1, "show ip route")

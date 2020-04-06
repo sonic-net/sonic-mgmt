@@ -41,7 +41,6 @@ def arp_static_route_reboot_module_hooks(request):
     tg_handler = tgapi.get_handles_byname("T1D1P1", "T1D1P2")
     global tg
     tg = tg_handler["tg"]
-    tg_ph_list = [tg_handler["tg_ph_1"], tg_handler["tg_ph_2"]]
     st.log("configuring static route")
     adding_static_route()
     st.log("Getting ARP entry dynamically")

@@ -299,7 +299,7 @@ class UIRest(object):
                                     else:
                                         matches_str = matches_str.replace("{{" + key + "}}", str(value))
                             matches = json.loads(matches_str)
-                            
+
                         # Update the step values with replaced data
                         action_step.update({"path": path})
                         if matches:
@@ -668,10 +668,10 @@ class UIRest(object):
                 while True:
                     iter_count += 1
                     if iter_count > 5: break
-                    min_hex_str = "0x0"
+                    #min_hex_str = "0x0"
                     rand_hex_str = '0x' + ''.join(random.choice(string.hexdigits).lower() for _ in range(6))
-                    max_hex_str = "0xFFFFFF"
-                    invalid_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(6))
+                    #max_hex_str = "0xFFFFFF"
+                    #invalid_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(6))
                     if datatype in ["path", "match"]:
                         retval = rand_hex_str
                     else:
@@ -697,10 +697,10 @@ class UIRest(object):
                 while True:
                     iter_count += 1
                     if iter_count > 5: break
-                    min_hex_str = "0x0"
+                    #min_hex_str = "0x0"
                     rand_hex_str = '0x' + random.choice(string.hexdigits).lower()
-                    max_hex_str = "0xF"
-                    invalid_hex_str = random.choice(string.hexdigits).lower()
+                    #max_hex_str = "0xF"
+                    #invalid_hex_str = random.choice(string.hexdigits).lower()
                     if datatype in ["path", "match"]:
                         retval = rand_hex_str
                     else:
@@ -873,11 +873,11 @@ class UIRest(object):
                 while True:
                     iter_count += 1
                     if iter_count > 5: break
-                    min_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(32))
-                    max_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(32))
+                    #min_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(32))
+                    #max_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(32))
                     rand_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(32))
-                    invalid_hex_str1 = ''.join(random.choice(string.hexdigits).lower() for _ in range(30))
-                    invalid_hex_str2 = ''.join(random.choice(string.hexdigits).lower() for _ in range(34))
+                    #invalid_hex_str1 = ''.join(random.choice(string.hexdigits).lower() for _ in range(30))
+                    #invalid_hex_str2 = ''.join(random.choice(string.hexdigits).lower() for _ in range(34))
                     if datatype in ["path", "match"]:
                         retval = rand_hex_str
                     else:
@@ -903,11 +903,11 @@ class UIRest(object):
                 while True:
                     iter_count += 1
                     if iter_count > 5: break
-                    min_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(40))
-                    max_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(40))
+                    #min_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(40))
+                    #max_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(40))
                     rand_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(40))
-                    invalid_hex_str1 = ''.join(random.choice(string.hexdigits).lower() for _ in range(38))
-                    invalid_hex_str2 = ''.join(random.choice(string.hexdigits).lower() for _ in range(42))
+                    #invalid_hex_str1 = ''.join(random.choice(string.hexdigits).lower() for _ in range(38))
+                    #invalid_hex_str2 = ''.join(random.choice(string.hexdigits).lower() for _ in range(42))
                     if datatype in ["path", "match"]:
                         retval = rand_hex_str
                     else:
@@ -933,11 +933,11 @@ class UIRest(object):
                 while True:
                     iter_count += 1
                     if iter_count > 5: break
-                    min_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(10))
-                    max_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(64))
+                    #min_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(10))
+                    #max_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(64))
                     rand_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(random.randint(10, 64)))
-                    invalid_hex_str1 = ''.join(random.choice(string.hexdigits).lower() for _ in range(9))
-                    invalid_hex_str2 = ''.join(random.choice(string.hexdigits).lower() for _ in range(65))
+                    #invalid_hex_str1 = ''.join(random.choice(string.hexdigits).lower() for _ in range(9))
+                    #invalid_hex_str2 = ''.join(random.choice(string.hexdigits).lower() for _ in range(65))
                     if datatype in ["path", "match"]:
                         retval = rand_hex_str
                     else:
@@ -970,11 +970,11 @@ class UIRest(object):
                     if datatype in ["path", "match"]:
                         retval = ''.join(random.choice(letters) for i in range(stringLength))
                     else:
-                        minStr = ''.join(random.choice(letters) for i in range(minLen))
-                        maxStr = ''.join(random.choice(letters) for i in range(maxLen))
+                        #minStr = ''.join(random.choice(letters) for i in range(minLen))
+                        #maxStr = ''.join(random.choice(letters) for i in range(maxLen))
                         randStr = ''.join(random.choice(letters) for i in range(stringLength))
-                        invalidStr1 = ''.join(random.choice(letters) for i in range(minLen - 1))
-                        invalidStr2 = ''.join(random.choice(letters) for i in range(maxLen + 1))
+                        #invalidStr1 = ''.join(random.choice(letters) for i in range(minLen - 1))
+                        #invalidStr2 = ''.join(random.choice(letters) for i in range(maxLen + 1))
                         #retval = [minStr, maxStr, randStr, invalidStr1, invalidStr2]
                         retval = ''.join(random.choice(letters) for i in range(stringLength))
                     try:
@@ -1004,11 +1004,11 @@ class UIRest(object):
                     if datatype in ["path", "match"]:
                         retval = ''.join(random.choice(letters) for i in range(stringLength))
                     else:
-                        minStr = ''.join(random.choice(letters) for i in range(minLen))
-                        maxStr = ''.join(random.choice(letters) for i in range(maxLen))
+                        #minStr = ''.join(random.choice(letters) for i in range(minLen))
+                        #maxStr = ''.join(random.choice(letters) for i in range(maxLen))
                         randStr = ''.join(random.choice(letters) for i in range(stringLength))
-                        invalidStr1 = ''.join(random.choice(letters) for i in range(minLen - 1))
-                        invalidStr2 = ''.join(random.choice(letters) for i in range(maxLen + 1))
+                        #invalidStr1 = ''.join(random.choice(letters) for i in range(minLen - 1))
+                        #invalidStr2 = ''.join(random.choice(letters) for i in range(maxLen + 1))
                         #retval = [minStr, maxStr, randStr, invalidStr1, invalidStr2]
                         retval = ''.join(random.choice(letters) for i in range(stringLength))
                     try:
@@ -1038,11 +1038,11 @@ class UIRest(object):
                     if datatype in ["path", "match"]:
                         retval = ''.join(random.choice(letters) for i in range(stringLength))
                     else:
-                        minStr = ''.join(random.choice(letters) for i in range(minLen))
-                        maxStr = ''.join(random.choice(letters) for i in range(maxLen))
+                        #minStr = ''.join(random.choice(letters) for i in range(minLen))
+                        #maxStr = ''.join(random.choice(letters) for i in range(maxLen))
                         randStr = ''.join(random.choice(letters) for i in range(stringLength))
-                        invalidStr1 = ''.join(random.choice(letters) for i in range(minLen - 1))
-                        invalidStr2 = ''.join(random.choice(letters) for i in range(maxLen + 1))
+                        #invalidStr1 = ''.join(random.choice(letters) for i in range(minLen - 1))
+                        #invalidStr2 = ''.join(random.choice(letters) for i in range(maxLen + 1))
                         #retval = [minStr, maxStr, randStr, invalidStr1, invalidStr2]
                         retval = ''.join(random.choice(letters) for i in range(stringLength))
                     try:

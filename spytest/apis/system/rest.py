@@ -38,13 +38,22 @@ def send_rest_request(dut, feature, method, parms_data, timeout=30, port=8361):
     request_id += 1
     st.log("JSON Data: {}".format(json_data))
 
-    try:
-        response = requests.post(url, data=json_data, timeout=timeout)
-    except requests.ConnectionError:
-        st.error("A Connection error occurred.")
-        return False
-    except requests.Timeout:
-        st.error("The request timed out.")
+    response_flag = False
+    for retry in range(1, 4):
+        msg = "Trying REST request for iteration '{}'".format(retry)
+        st.log(msg)
+        try:
+            response = requests.post(url, data=json_data, timeout=timeout)
+            response_flag = True
+            break
+        except requests.ConnectionError:
+            st.error("A Connection error occurred.")
+        except requests.Timeout:
+            st.error("The request timed out.")
+        except Exception as e:
+            st.error(e)
+
+    if not response_flag:
         return False
 
     st.log("Response code : {}".format(response.status_code))
@@ -149,26 +158,34 @@ def rest_call(dut, **kwargs):
 
     # response type
     warnings.filterwarnings('ignore', message='Unverified HTTPS request')
-    try:
-        if call_type == 'put':
-            response = requests.put(final_url, **call_data)
-        elif call_type == 'post':
-            response = requests.post(final_url, **call_data)
-        elif call_type == 'patch':
-            response = requests.patch(final_url, **call_data)
-        elif call_type == 'delete':
-            response = requests.delete(final_url, **call_data)
-        else:
-            response = requests.get(final_url, **call_data)
-    except requests.ConnectionError:
-        st.error("A Connection error occurred.")
+
+    response_flag = False
+    for retry in range(1,4):
+        msg = "Trying REST call for iteration '{}'".format(retry)
+        st.log(msg)
+        try:
+            if call_type == 'put':
+                response = requests.put(final_url, **call_data)
+            elif call_type == 'post':
+                response = requests.post(final_url, **call_data)
+            elif call_type == 'patch':
+                response = requests.patch(final_url, **call_data)
+            elif call_type == 'delete':
+                response = requests.delete(final_url, **call_data)
+            else:
+                response = requests.get(final_url, **call_data)
+            response_flag = True
+            break
+        except requests.ConnectionError:
+            st.error("A Connection error occurred.")
+        except requests.Timeout:
+            st.error("The request timed out.")
+        except Exception as e:
+            st.error(e)
+
+    if not response_flag:
         return False
-    except requests.Timeout:
-        st.error("The request timed out.")
-        return False
-    except Exception as e:
-        st.error(e)
-        return False
+
     st.log("Response Code: {}, Text: {}".format(response.status_code, response.text))
     return {"status": response.status_code, "output": response.text}
 

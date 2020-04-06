@@ -32,7 +32,7 @@ IGNORE2="$IGNORE2 --disable=W0601" #global-variable-undefined
 IGNORE2="$IGNORE2 --disable=W0603" #global-statement
 IGNORE2="$IGNORE2 --disable=W0604" #global-at-module-level
 #IGNORE2="$IGNORE2 --disable=W0611" #unused-import
-IGNORE2="$IGNORE2 --disable=W0612" #unused-variable
+#IGNORE2="$IGNORE2 --disable=W0612" #unused-variable
 IGNORE2="$IGNORE2 --disable=W0613" #unused-argument
 IGNORE2="$IGNORE2 --disable=W0614" #unused-wildcard-import
 IGNORE2="$IGNORE2 --disable=W0621" #redefined-outer-name
@@ -58,7 +58,7 @@ IGNORE2="$IGNORE2 --disable=C1001" #old-style-class
 IGNORE2="$IGNORE2 --disable=C1801" #len-as-condition
 
 IGNORE2="$IGNORE2 --disable=E0632" #unbalanced-tuple-unpacking
-IGNORE2="$IGNORE2 --disable=E1305" #too-many-format-args
+#IGNORE2="$IGNORE2 --disable=E1305" #too-many-format-args
 
 IGNORE2="$IGNORE2 --disable=R0101" #too-many-nested-blocks
 IGNORE2="$IGNORE2 --disable=R0102" #simplifiable-if-statement
@@ -87,9 +87,11 @@ LINT3="$dir/python -m flake8 --select F --ignore=F401,F841"
 
 if [ $# -eq 0 ]; then
   files1=$(find $ddir/spytest/ -name "*.py" | grep -v __init__.py | grep -v $ddir/spytest/ddm | grep -v $ddir/spytest/tg)
-  files2=$(find $ddir/scheduler/ -name "*.py" | grep -v __init__.py)
+  if [ -d $ddir/scheduler ]; then
+    files2=$(find $ddir/scheduler/ -name "*.py" | grep -v __init__.py)
+  fi
   files3=$(find $ddir/apis/ -name "*.py" | grep -v __init__.py)
-  files4=$(find $ddir/utilities/ -name "*.py" | grep -v __init__.py | grep -v ipaddress.py)
+  files4=$(find $ddir/utilities/ -name "*.py" | grep -v __init__.py)
   files5=$(find $ddir/tests/ -name "*.py" | grep -v __init__.py | grep -v $ddir/tests/ddm)
   files="$files1 $files2 $files3 $files4 $files5"
 else

@@ -59,7 +59,7 @@ def config_router_bgp_mode(dut, local_asn, config_mode='enable', vrf='default', 
         command = "{} router bgp {}".format(mode, local_asn)
     else:
         command = "{} router bgp {} vrf {}".format(mode, local_asn, vrf)
-    output = st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
+    st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
     return True
 
 
@@ -1199,7 +1199,7 @@ def create_bgp_peergroup(dut, local_asn, peer_grp_name, remote_asn, keep_alive=6
     :param password:
     :return:
     """
-    cli_type = kwargs.get('cli_mode', st.get_ui_type())
+    cli_type = kwargs.get('cli_type', st.get_ui_type())
     neighbor_ip = kwargs.get('neighbor_ip',None)
     st.log("Creating BGP peer-group ..")
     cmd = ''
@@ -1668,9 +1668,9 @@ def config_bgp(dut, **kwargs):
     interface = kwargs.get('interface', None)
     connect = kwargs.get('connect', None)
     ebgp_mhop = kwargs.get('ebgp_mhop', None)
-    failover = kwargs.get('failover', None)
+    #failover = kwargs.get('failover', None)
     shutdown = kwargs.get('shutdown', None)
-    max_path = kwargs.get('max_path', None)
+    #max_path = kwargs.get('max_path', None)
     redistribute = kwargs.get('redistribute', None)
     network = kwargs.get('network', None)
     password = kwargs.get('password', None)
@@ -1680,9 +1680,9 @@ def config_bgp(dut, **kwargs):
     distribute_list = kwargs.get('distribute_list', None)
     filter_list = kwargs.get('filter_list', None)
     prefix_list = kwargs.get('prefix_list', None)
-    import_vrf = kwargs.get('import_vrf', None)
+    #import_vrf = kwargs.get('import_vrf', None)
     import_vrf_name = kwargs.get('import_vrf_name', None)
-    fast_external_failover = kwargs.get('fast_external_failover', None)
+    #fast_external_failover = kwargs.get('fast_external_failover', None)
     bgp_bestpath_selection = kwargs.get('bgp_bestpath_selection', None)
     removeBGP = kwargs.get('removeBGP', 'no')
     diRection = kwargs.get('diRection', 'in')

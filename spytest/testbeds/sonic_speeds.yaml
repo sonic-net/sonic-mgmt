@@ -5,6 +5,10 @@ AS7326-GPOD:
   Ethernet1: 10000
   Ethernet2: 10000
   Ethernet3: 10000 
+  Ethernet24: 10000
+  Ethernet25: 10000
+  Ethernet26: 10000
+  Ethernet27: 10000
 
 AS7326-25G:
   Ethernet0: 25000

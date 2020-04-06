@@ -120,7 +120,7 @@ def create_acl_rule(dut, skip_verify=True, type1=None, type2=None, **kwargs):
                 if not l4_protocol == "tcp":
                     st.log("l4 protocol should be tcp")
                     return False
-                command += " tcp_flag".format(tcp_flag)
+                command += " tcp_flag {}".format(tcp_flag)
             if dscp_value:
                 command += " dscp {}".format(dscp_value)
             commands.append(command)

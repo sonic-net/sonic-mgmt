@@ -635,7 +635,7 @@ def validate_packet_capture(**kwargs):
         st.log('Packets have caputred on more than one port. Pass packet info for only one port')
         return False
 
-    for key,value in pkt_dict.items():
+    for key in pkt_dict:
         if key != 'status':
             port_handle = key
 
@@ -666,7 +666,7 @@ def verify_ping(src_obj,port_handle,dev_handle,dst_ip,ping_count=5,exp_count=5):
         return True if int(result['tx']) == ping_count and  int(result['rx']) == exp_count else False
     elif src_obj.tg_type in ['ixia', 'scapy']:
         count = 0
-        for num in range(ping_count):
+        for _ in range(ping_count):
             result = src_obj.tg_interface_config(protocol_handle=dev_handle,send_ping='1',ping_dst=dst_ip)
             st.log("ping output: {}".format(result))
             try:

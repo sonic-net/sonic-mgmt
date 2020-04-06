@@ -27,7 +27,7 @@ def get_in_parallel():
 def wait_for_threads(threads):
     while True:
         alive = False
-        for index, thread in enumerate(threads):
+        for thread in threads:
             thread.join(timeout=1)
             if thread.is_alive():
                 alive=True
@@ -42,7 +42,7 @@ def exec_foreach (use_threads, items, func, *args, **kwargs):
         try:
             retvals[index] = func(*args, **kwargs)
             exceptions[index] = None
-        except Exception as e1:
+        except Exception:
             retvals[index] = None
             exceptions[index] = traceback.format_exc()
         except SystemExit as e2:
@@ -85,7 +85,7 @@ class ExecAllFunc_todo_rename(object):
         self.args = args
         self.kwargs = kwargs
 
-def exec_all(use_threads, entries, first_on_main=False):
+def exec_all(use_threads, entries, first_on_main=False, abort_on_except=False):
     set_in_parallel(True)
     retvals = list()
     exceptions = list()
@@ -93,7 +93,7 @@ def exec_all(use_threads, entries, first_on_main=False):
         try:
             retvals[index] = func(*args, **kwargs)
             exceptions[index] = None
-        except Exception as e1:
+        except Exception:
             retvals[index] = None
             exceptions[index] = traceback.format_exc()
         except SystemExit as e2:
@@ -133,6 +133,8 @@ def exec_all(use_threads, entries, first_on_main=False):
     for exp in exceptions:
         if isinstance(exp, SystemExit):
             sys.exit()
+    if abort_on_except:
+        ensure_no_exception(exceptions)
     return [retvals, exceptions]
 
 def exec_parallel(use_threads, items, func, kwarg_list,*args):
@@ -154,7 +156,7 @@ def exec_parallel(use_threads, items, func, kwarg_list,*args):
         try:
             retvals[index] = func(*args, **kwargs)
             exceptions[index] = None
-        except Exception as e1:
+        except Exception:
             retvals[index] = None
             exceptions[index] = traceback.format_exc()
         except SystemExit as e2:

@@ -35,7 +35,7 @@ def test_clear(tg):
 
 def test_single_burst(tg):
     print("============= test_single_burst ==============")
-    (tg_ph_1, tg_ph_2) = tg.tg_port_handle.values()
+    (tg_ph_1, _) = tg.tg_port_handle.values()
     tg.tg_traffic_config(mac_src = '00.00.00.00.10.01',mac_dst='00.00.00.00.10.02',rate_pps='2',mode='create',\
        port_handle=tg_ph_1,transmit_mode='single_burst', pkts_per_burst=10, frame_size=64)
     tg.tg_traffic_control(action='run',port_handle=tg_ph_1)
@@ -89,7 +89,7 @@ def test_capture(tg):
 
 def test_interface(tg):
     print("============= test_interface ==============")
-    (tg_ph_1, tg_ph_2) = tg.tg_port_handle.values()
+    (tg_ph_1, _) = tg.tg_port_handle.values()
     res1 = tg.tg_interface_config(port_handle=tg_ph_1, mode='config', arp_send_req='1', \
              intf_ip_addr='21.1.1.100', gateway='21.1.1.1', src_mac_addr='00:0a:01:01:00:01')
     tg.tg_interface_config(port_handle=tg_ph_1, handle=res1['handle'], mode='destroy')
@@ -148,14 +148,13 @@ def test_bgp(tg):
     tg.tg_emulation_bgp_config(handle=res["handle"],local_as=63001,active_connect_enable='1',mode='enable',remote_as=650002,enable_4_byte_as='1',remote_ip_addr='193.1.1.1')
 
 def test_emulated(tg):
-    (tg_ph_1, tg_ph_2) = tg.tg_port_handle.values()
+    (tg_ph_1, _) = tg.tg_port_handle.values()
     tg.tg_traffic_config(**{'ip_src_count': 1, 'mac_src': '00:0a:01:00:11:01', 'l3_length': '500', 'length_mode': 'fixed', 'mac_dst': '00:00:00:00:00:00', 'port_handle': 'port-1/1', 'ip_src_addr': '192.168.13.2', 'transmit_mode': 'continuous', 'rate_pps': '1000', 'mode': 'create', 'l3_protocol': 'ipv4'})
     tg.tg_traffic_control(action='run',port_handle=tg_ph_1)
 
 def test_main(ipaddr, port=8009):
     logging.basicConfig()
     tg = TGScapyTest(ipaddr, port, ["1/1", "1/2"])
-    (tg_ph_1, tg_ph_2) = tg.tg_port_handle.values()
 
     test_emulated(tg)
     raw_input("press any key")

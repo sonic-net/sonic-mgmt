@@ -728,7 +728,7 @@ def config_loopback_interfaces(dut, lpbk_if_data={}, config='yes'):
         return False
 
     command = []
-    for if_name, if_data in lpbk_if_data.items():
+    for if_name, _ in lpbk_if_data.items():
         cmd_str = "sudo  config loopback {} {} ".format(config, if_name)
         command.append(cmd_str)
 
@@ -803,7 +803,7 @@ def config_vlan_interfaces(dut, vlan_data={}, config='yes', skip_error=False):
 
     command = []
     if config == 'del' :
-        for if_name, if_data in vlan_data.items():
+        for _, if_data in vlan_data.items():
             vlan_id = if_data['vlan_id']
 
             range_cmd = False
@@ -838,7 +838,7 @@ def config_vlan_interfaces(dut, vlan_data={}, config='yes', skip_error=False):
             return False
 
     command = []
-    for if_name, if_data in vlan_data.items():
+    for _, if_data in vlan_data.items():
         vlan_id = if_data['vlan_id']
 
         range_cmd = False
@@ -872,7 +872,7 @@ def config_vlan_interfaces(dut, vlan_data={}, config='yes', skip_error=False):
 
     command = []
     if config == 'add' :
-        for if_name, if_data in vlan_data.items():
+        for _, if_data in vlan_data.items():
             vlan_id = if_data['vlan_id']
 
             range_cmd = False

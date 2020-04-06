@@ -276,6 +276,7 @@ def config_dut2_verify():
 
 @pytest.mark.bgp_save_reboot
 def test_ft_bgp_save_reboot():
-    [out, exceptions] = exec_all(True, [[config_dut1_verify], [config_dut2_verify]], first_on_main=True)
+    [_, exceptions] = exec_all(True, [[config_dut1_verify], [config_dut2_verify]], first_on_main=True)
     ensure_no_exception(exceptions)
     st.report_pass('test_case_passed')
+

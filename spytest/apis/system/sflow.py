@@ -284,7 +284,7 @@ def show(dut, cli_type="klish"):
                                 if attributes.get("agent_id"):
                                     ip_address = get_interface_ip_address(dut, attributes.get("agent_id"))
                                     if ip_address:
-                                        ip, subnet = ip_address[0]['ipaddr'].split('/')
+                                        ip, _ = ip_address[0]['ipaddr'].split('/')
                                         result.update({"agent_ip": ip})
                 if "SFLOW_COLLECTOR" in data:
                     result.update({"collectors_cnt": len(data["SFLOW_COLLECTOR"]["SFLOW_COLLECTOR_LIST"])})
@@ -363,7 +363,7 @@ def verify_config(dut, **kwargs):
             return False
         verify_data = kwargs.get("data") if isinstance(kwargs.get("data"), list) else [kwargs.get("data")]
         for data in verify_data:
-            for key, value in data.items():
+            for key in data:
                 if key not in supported_params:
                     st.log("Unsupported params {}".format(key))
                     return False

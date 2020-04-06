@@ -391,7 +391,7 @@ def create_default_base_config():
     print("enable all ports")
     if "PORT" in file_dict:
         port_dict = file_dict['PORT']
-        for k, v in port_dict.items():
+        for _, v in port_dict.items():
             v["admin_status"] = "up"
 
     # save the configuration to init file
@@ -447,7 +447,7 @@ def wait_for_ports_2(port_init_wait, poll_for_ports):
     port_num = read_port_inifile()
     output = []
     if poll_for_ports == "yes":
-        for iter in range(0, port_init_wait/2):
+        for _ in range(0, port_init_wait/2):
             retval = execute_check_cmd("grep -r PortInitDone /var/log/syslog", skip_error=True)
             port_info = get_port_status(port_num)
             if port_info:
@@ -473,7 +473,7 @@ def wait_for_ports(port_init_wait, poll_for_ports):
     if poll_for_ports == "yes":
         # Wait for last port to be available
         port_num = read_port_inifile()
-        for iter in range(0, port_init_wait/2):
+        for _ in range(0, port_init_wait/2):
             port_info = get_port_status(port_num)
             retval = execute_check_cmd("show system status")
             if "System is ready" in retval:
@@ -761,7 +761,7 @@ def enable_disable_debug(flag):
     print("NOCHANGE")
 
 def read_messages(file_path, all_file, var_file, our_file):
-    (offset_file, offset) = read_offset(file_path)
+    (_, offset) = read_offset(file_path)
     execute_check_cmd("tail --lines=+{} {} > {}".format(offset, all_file, our_file))
     execute_check_cmd("ls -l {}*".format(var_file))
     retval = execute_check_cmd("wc -l {}".format(our_file))

@@ -1103,7 +1103,7 @@ def get_auth_priv_keys(**kwargs):
     st.log("Command is:{}".format(command))
     pprocess1 = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                  universal_newlines=True)
-    (stdout, stderr) = pprocess1.communicate()
+    (stdout, _) = pprocess1.communicate()
     st.log("Auth Priv Keys output: {}".format(stdout))
     if pprocess1.returncode == 0:
         result = stdout.rstrip('\n').split("\n")

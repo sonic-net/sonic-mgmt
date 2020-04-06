@@ -127,7 +127,7 @@ class ScapyPort(object):
 
     def getStreamStats(self):
         res = []
-        for stream_id, stream in self.streams.items():
+        for _, stream in self.streams.items():
             res.append([stream, stream.stats])
         return res
 
@@ -237,7 +237,7 @@ class ScapyPort(object):
             self.interfaces[handle] = interface
             self.driver.createInterface(interface)
             if count > 1:
-                res.handle = [handle for i in range(count)]
+                res.handle = [handle for _ in range(count)]
             else:
                 res.handle = handle
         elif mode == "destroy":

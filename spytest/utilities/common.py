@@ -270,9 +270,9 @@ def exec_foreach (use_threads, items, func, *args, **kwargs):
     from . import parallel
     return parallel.exec_foreach (use_threads, items, func, *args, **kwargs)
 
-def exec_all(use_threads, entries, first_on_main=False):
+def exec_all(use_threads, entries, first_on_main=False, abort_on_except=False):
     from . import parallel
-    return parallel.exec_all(use_threads, entries, first_on_main)
+    return parallel.exec_all(use_threads, entries, first_on_main, abort_on_except)
 ######################## to be removed after refactoring ####################
 ######################## to be removed after refactoring ####################
 

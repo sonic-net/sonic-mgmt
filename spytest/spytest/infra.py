@@ -295,8 +295,8 @@ def get_link_param(dut, local, name, default):
 def get_args(arg):
     return getwa().get_args(arg)
 
-def get_ui_type(dut=None):
-    return getwa().get_ui_type(dut)
+def get_ui_type(dut=None, **kwargs):
+    return getwa().get_ui_type(dut, **kwargs)
 
 def get_run_config():
     return getwa().get_run_config()

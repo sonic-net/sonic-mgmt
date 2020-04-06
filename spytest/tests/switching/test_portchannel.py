@@ -186,6 +186,7 @@ def verify_portchannel_status(delay=2):
 def create_vlan_using_thread(dut_list, vlan_list, thread = True):
     sub_list = [[vlan_obj.create_vlan, dut, vlan_list[cnt], data.cli_type] for cnt, dut in enumerate(dut_list, start=0)]
     [output, exceptions] = exec_all(thread, sub_list)
+    ensure_no_exception(exceptions)
     return output
 
 def config_test_ft_portchannel_with_new_member_and_untagged_traffic():
@@ -258,7 +259,8 @@ def unconfig_test_ft_lag_l3_hash_sip_dip_l4port():
 
 def clear_intf_counters_using_thread(dut_list, thread=True):
     sub_list = [[intf_obj.clear_interface_counters, dut] for dut in dut_list]
-    [output, exceptions] = exec_all(thread, sub_list)
+    [_, exceptions] = exec_all(thread, sub_list)
+    ensure_no_exception(exceptions)
 
 def add_del_member_using_thread(dut_list, portchannel_list, member_list, flag = 'add', thread=True):
     sub_list = []
@@ -267,13 +269,15 @@ def add_del_member_using_thread(dut_list, portchannel_list, member_list, flag = 
                          flag, True, data.cli_type])
         sub_list.append([portchannel_obj.add_del_portchannel_member, dut_list[1], portchannel_list[1], member_list[1],
                          flag, True, data.cli_type])
-        [output, expressions] = exec_all(thread, sub_list)
+        [_, exceptions] = exec_all(thread, sub_list)
+        ensure_no_exception(exceptions)
     else:
         sub_list.append([portchannel_obj.delete_portchannel_member, dut_list[0], portchannel_list[0], member_list[0],
                          data.cli_type])
         sub_list.append([portchannel_obj.delete_portchannel_member, dut_list[1], portchannel_list[1], member_list[1],
                          data.cli_type])
-        [output, expressions] = exec_all(thread, sub_list)
+        [_, exceptions] = exec_all(thread, sub_list)
+        ensure_no_exception(exceptions)
 
 def verify_traffic_hashed_or_not(dut, port_list, pkts_per_port, traffic_loss_verify = False, rx_port = '',
                                  tx_port = '', dut2 =''):
@@ -282,6 +286,7 @@ def verify_traffic_hashed_or_not(dut, port_list, pkts_per_port, traffic_loss_ver
         sub_list.append([intf_obj.show_interface_counters_all, dut])
         sub_list.append([intf_obj.show_interface_counters_all, dut2])
         [output, exceptions] = exec_all(True, sub_list)
+        ensure_no_exception(exceptions)
         data.intf_counters_1, data.intf_counters_2 = output
     else:
         data.intf_counters_1 = intf_obj.show_interface_counters_all(dut)
@@ -325,18 +330,21 @@ def delete_vlan_member_using_thread(dut_list, vlan_list, members_list):
     sub_list = []
     sub_list.append([vlan_obj.delete_vlan_member, dut_list[0], vlan_list[0], members_list[0], data.cli_type])
     sub_list.append([vlan_obj.delete_vlan_member, dut_list[1], vlan_list[1], members_list[1], data.cli_type])
-    [output, expressions] = exec_all(True, sub_list)
+    [_, exceptions] = exec_all(True, sub_list)
+    ensure_no_exception(exceptions)
 
 def add_vlan_member_using_thread(dut_list, vlan_list, port_list, tagged = True):
     sub_list = []
     sub_list.append([vlan_obj.add_vlan_member, dut_list[0], vlan_list[0], port_list[0], tagged, False, data.cli_type])
     sub_list.append([vlan_obj.add_vlan_member, dut_list[1], vlan_list[1], port_list[1], tagged, False, data.cli_type])
-    [output, expressions] = exec_all(True, sub_list)
+    [output, exceptions] = exec_all(True, sub_list)
+    ensure_no_exception(exceptions)
     return output
 
 def get_intf_counters_using_thread(dut_list, thread=True):
     sub_list = [[intf_obj.show_interface_counters_all, dut] for dut in dut_list]
-    [output, expressions] = exec_all(thread, sub_list)
+    [output, exceptions] = exec_all(thread, sub_list)
+    ensure_no_exception(exceptions)
     return output
 
 def verify_portchannel_cum_member_status(dut, portchannel, members_list, iter_count=10, iter_delay=2, state='up'):
@@ -371,12 +379,14 @@ def check_lldp_neighbors(dut, port, ipaddress, hostname):
 
 def get_mgmt_ip_using_thread(dut_list, mgmt_list, thread=True):
     sub_list = [[basic_obj.get_ifconfig_inet, dut, mgmt_list[cnt]] for cnt, dut in enumerate(dut_list, start=0)]
-    [output, expressions] = exec_all(thread, sub_list)
+    [output, exceptions] = exec_all(thread, sub_list)
+    ensure_no_exception(exceptions)
     return output
 
 def get_hostname_using_thread(dut_list, thread=True):
     sub_list = [[basic_obj.get_hostname, dut] for dut in dut_list]
-    [output, expressions] = exec_all(thread, sub_list)
+    [output, exceptions] = exec_all(thread, sub_list)
+    ensure_no_exception(exceptions)
     return output
 
 def test_ft_portchannel_behavior_with_tagged_traffic():
@@ -483,8 +493,8 @@ def test_ft_portchannel_behavior_with_tagged_traffic():
 
     st.log("Test scenario-5: Verifying LLDP interaction with LAG")
     data.mgmt_int = 'eth0'
-    ipaddress_d1, ipaddress_d2 = get_mgmt_ip_using_thread([vars.D1, vars.D2], [data.mgmt_int, data.mgmt_int])
-    hostname_d1, hostname_d2 = get_hostname_using_thread([vars.D1, vars.D2])
+    _, ipaddress_d2 = get_mgmt_ip_using_thread([vars.D1, vars.D2], [data.mgmt_int, data.mgmt_int])
+    _, hostname_d2 = get_hostname_using_thread([vars.D1, vars.D2])
     check_lldp_neighbors(vars.D1, random_member1, ipaddress_d2, hostname_d2)
     st.log("Test scenario-5: Successfully verified LLDP interaction with LAG")
 
@@ -578,7 +588,8 @@ def test_ft_portchannel_behavior_with_tagged_traffic():
                      random_member1, data.cli_type])
     sub_list.append([portchannel_obj.verify_portchannel_and_member_status, vars.D2, data.portchannel_name,
                      random_member2, data.cli_type])
-    [output, expressions] = exec_all(True, sub_list)
+    [output, exceptions] = exec_all(True, sub_list)
+    ensure_no_exception(exceptions)
     st.log("Test scenario-6: Successfully verified that a LAG with only 1 port functions properly")
 
     st.log("Test scenario-12: Verifying that the LAG in DUT is not UP when LAG is not created at partner DUT")
