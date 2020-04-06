@@ -1,0 +1,12 @@
+Value Filldown interface (Ethernet\d+|PortChannel\d+|Vlan\d+)
+Value vrf (\S+)
+Value relay_address (\d+\.\d+\.\d+\.\d+)
+
+
+Start
+  ^\s*${interface}\s+${vrf}\s+${relay_address}\s*$$ -> Record
+  ^\s*${interface}\s+${relay_address}\s*$$ -> Record
+  ^\s*${vrf}\s+${relay_address}\s*$$ -> Record
+  ^\s*${relay_address}\s*$$ -> Record
+
+EOF

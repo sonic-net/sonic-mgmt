@@ -1,0 +1,7 @@
+Value vrf_name (\S+)
+Value status (\S+)
+
+Start
+  ^\s*VRFS\s+Status\s*$$
+  ^(-+\s*)*$$
+  ^\s*${vrf_name}\s+${status} -> Record

@@ -8,7 +8,6 @@ def test_interfaces(ansible_adhoc, testbed):
     hostname = testbed['dut']
     ans_host = AnsibleHost(ansible_adhoc, hostname)
 
-    bgp_facts = ans_host.bgp_facts()['ansible_facts']
     host_facts = ans_host.setup()['ansible_facts']
     mg_facts   = ans_host.minigraph_facts(host=hostname)['ansible_facts']
 

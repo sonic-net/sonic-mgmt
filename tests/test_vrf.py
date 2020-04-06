@@ -359,7 +359,7 @@ def cleanup_vlan_peer(ptfhost, vlan_peer_vrf2ns_map):
 def gen_vrf_fib_file(vrf, testbed, ptfhost, dst_intfs, \
                      render_file, limited_podset_number=10, limited_tor_number=10):
     extra_vars = {
-        'testbed_type': testbed['topo'],
+        'testbed_type': testbed['topo']['name'],
         'props': g_vars['props'],
         'intf_member_indices': g_vars['vrf_intf_member_port_indices'][vrf],
         'dst_intfs': dst_intfs,
@@ -416,7 +416,7 @@ def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
     ## Setup global variables
     global g_vars
 
-    with open("../ansible/vars/topo_{}.yml".format(testbed['topo']), 'r') as fh:
+    with open("../ansible/vars/topo_{}.yml".format(testbed['topo']['name']), 'r') as fh:
         g_vars['topo_properties'] = yaml.safe_load(fh)
 
     g_vars['props'] = g_vars['topo_properties']['configuration_properties']['common']
@@ -441,7 +441,7 @@ def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
 @pytest.fixture
 def partial_ptf_runner(request, ptfhost, testbed, host_facts):
     def _partial_ptf_runner(testname, **kwargs):
-        params = {'testbed_type': testbed['topo'],
+        params = {'testbed_type': testbed['topo']['name'],
                   'router_mac': host_facts['ansible_Ethernet0']['macaddress']}
         params.update(kwargs)
         ptf_runner(host=ptfhost,
@@ -822,7 +822,7 @@ class TestVrfLoopbackIntf():
             ns = g_vars['vlan_peer_vrf2ns_map'][vrf]
             ptfhost.shell("ip netns exec {} ip address add {} dev e{}mv1".format(ns, ptf_speaker_ip, vlan_peer_port))
 
-        res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/deployment_id_asn_map.yml -v \"deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
+        res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
         bgp_speaker_asn = res['stdout']
 
         exabgp_dir = "/root/exabgp"
@@ -876,7 +876,7 @@ class TestVrfLoopbackIntf():
             ptfhost.shell("ip netns exec {} ip address del {} dev e{}mv1".format(ns, ptf_speaker_ip, vlan_peer_port))
 
         # FIXME workround to overcome the bgp socket issue
-        duthost.shell("vtysh -c 'config terminal' -c 'no router bgp 65444'")
+        #duthost.shell("vtysh -c 'config terminal' -c 'no router bgp 65444'")
 
     @pytest.mark.usefixtures('setup_bgp_with_loopback')
     def test_bgp_with_loopback(self, duthost, cfg_facts):

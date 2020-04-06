@@ -95,7 +95,7 @@ Like the veos_groups section, this section contains information about the server
 Confirm the following: 
 - root_path - server's root path to building the VMs
 - cd_image_filename - you should be able to locate "Aboot-veos-serial-8.0.0.iso"
-- hdd_image_file: you should also be able to locate "vEOS-lab-4.15.10M.vmdk"
+- hdd_image_file: you should also be able to locate "vEOS-lab-4.20.15M.vmdk"
 
 Define:
 - vm_console_base - if you are running multiple sets of sonic-mgmt VMs, define a conflict-free vm_console_base

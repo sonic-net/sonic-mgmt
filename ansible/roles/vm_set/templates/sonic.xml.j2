@@ -31,10 +31,12 @@
       <protocol type='telnet'/>
     </serial>
     <interface type='ethernet'>
+        <target dev='{{ dut_name }}-0' />
         <model type='e1000' />
     </interface>
 {% for i in range(port_alias|length) %}
     <interface type='ethernet' >
+        <target dev='{{ dut_name }}-{{ i + 1 }}' />
         <model type='e1000' />
     </interface>
 {% endfor %}

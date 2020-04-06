@@ -1,0 +1,6 @@
+testbed_no_rps_info : Failed to get RPS information from testbed
+testbed_no_rps_model: Failed to get RPS model from testbed
+testbed_no_rps_ip: Failed to get RPS IP address from testbed
+testbed_no_rps_outlet: Failed to get RPS outlet from testbed
+testbed_no_rps_username: Failed to get RPS outlet from testbed
+

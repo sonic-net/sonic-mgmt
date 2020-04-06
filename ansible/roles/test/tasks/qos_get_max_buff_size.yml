@@ -115,32 +115,34 @@
 
 # Get buffer pool ROID
 # This is perhaps the only useful section in this yaml play
-- set_fact:
-    buffer_pool_name="{{buffer_pool_id|replace('BUFFER_POOL|','')}}"
+- block:
+    - set_fact:
+        buffer_pool_name="{{buffer_pool_id|replace('BUFFER_POOL|','')}}"
 
-- name: Get {{buffer_pool_name}} VOID
-  shell: redis-cli -n 2 HGET COUNTERS_BUFFER_POOL_NAME_MAP "{{buffer_pool_name}}"
-  register: buffer_pool_void
+    - name: Get {{buffer_pool_name}} VOID
+      shell: redis-cli -n 2 HGET COUNTERS_BUFFER_POOL_NAME_MAP "{{buffer_pool_name}}"
+      register: buffer_pool_void
 
-- fail:
-    msg: "Unable to get VOID for {{buffer_pool_name}}"
-  when: buffer_pool_void.stdout == ""
+    - fail:
+        msg: "Unable to get VOID for {{buffer_pool_name}}"
+      when: buffer_pool_void.stdout == ""
 
-- name: Parse buffer pool VOID
-  set_fact:
-    buffer_pool_void="{{buffer_pool_void.stdout}}"
+    - name: Parse buffer pool VOID
+      set_fact:
+        buffer_pool_void="{{buffer_pool_void.stdout}}"
 
-- name: Get {{buffer_pool_name}} ROID
-  shell: redis-cli -n 1 HGET VIDTORID "{{buffer_pool_void}}"
-  register: buffer_pool_roid
+    - name: Get {{buffer_pool_name}} ROID
+      shell: redis-cli -n 1 HGET VIDTORID "{{buffer_pool_void}}"
+      register: buffer_pool_roid
 
-- fail:
-    msg: "Unable to get ROID for {{buffer_pool_name}}"
-  when: buffer_pool_roid.stdout == ""
+    - fail:
+        msg: "Unable to get ROID for {{buffer_pool_name}}"
+      when: buffer_pool_roid.stdout == ""
 
-- name: Parse buffer pool ROID, remove 'oid:' prefix
-  set_fact:
-    buffer_pool_roid="{{buffer_pool_roid.stdout|replace('oid:','')}}"
+    - name: Parse buffer pool ROID, remove 'oid:' prefix
+      set_fact:
+        buffer_pool_roid="{{buffer_pool_roid.stdout|replace('oid:','')}}"
 
-- debug:
-    msg="{{buffer_pool_name}} roid {{buffer_pool_roid}}"
+    - debug:
+        msg="{{buffer_pool_name}} roid {{buffer_pool_roid}}"
+  when: not disable_test

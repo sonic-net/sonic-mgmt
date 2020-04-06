@@ -1,0 +1,18 @@
+####################################################
+#A1# show mclag interface 10 2
+# 
+#Local/Remote Status : up/up
+#TrafficDisable      : No
+#IsolateWithPeerLink : Yes
+#A1#
+#####################################################
+Value mclag_intf_local_state (\w+)
+Value mclag_intf_peer_state (\w+)
+Value traffic_disable (\w+)
+Value isolate_peer_link (\w+)
+
+Start
+  ^\s*Local/Remote Status\s*: ${mclag_intf_local_state}/${mclag_intf_peer_state}$$
+  ^\s*TrafficDisable\s*: ${traffic_disable}$$
+  ^\s*IsolateWithPeerLink\s*: ${isolate_peer_link}$$ -> Record
+

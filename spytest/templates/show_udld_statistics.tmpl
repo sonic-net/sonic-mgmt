@@ -1,0 +1,28 @@
+##################################################################
+#show udld statistics interface Ethernet0
+#UDLD Interface statistics for Ethernet0
+#Frames transmitted:         10
+#Frames received:            9
+#Frames with error:          0
+#############################OR###################################
+#show udld statistics
+#UDLD Interface statistics for Ethernet0
+#Frames transmitted:         10
+#Frames received:            9
+#Frames with error:          0
+#
+#UDLD Interface statistics for Ethernet1
+#Frames transmitted:         11
+#Frames received:            12
+#Frames with error:          0
+##################################################################
+Value udld_interface (\w+)
+Value udld_tx (\d+)
+Value udld_rx (\d+)
+Value udld_errors (\d+)
+
+Start
+  ^\s*UDLD\s*Interface\s*statistics\s*for\s*${udld_interface}$$
+  ^\s*Frames\s*transmitted:\s*${udld_tx}$$
+  ^\s*Frames\s*received:\s*${udld_rx}$$
+  ^\s*Frames\s*with\s*error:\s*${udld_errors}$$ -> Record Start

@@ -1,0 +1,14 @@
+Value container_id (\S+)
+Value image (\S+)
+Value command (\".*\")
+Value created (\w+\s*\S+\s*\S+\s*\S+\s*\S+)
+Value status (\w+\s*\w+\s*\S+\s*\S+)
+Value ports (\S+|.)
+Value names (\S+)
+
+
+Start
+  ^\s*CONTAINER ID\s+IMAGE\s+COMMAND\s+CREATED\s+STATUS\s+PORTS\s+NAMES\s*$$
+  ^\s*${container_id}\s+${image}\s+${command}\s+${created}\s+${status}\s+${names}\s*$$ -> Record
+  ^\s*${container_id}\s+${image}\s+${command}\s+${created}\s+${status}\s+${ports}\s+${names}\s*$$ -> Record
+

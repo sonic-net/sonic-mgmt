@@ -1,0 +1,6 @@
+Value Names (\S+)
+Value entries (\d+)
+
+Start
+  ^\s*\S+\s+${Names}\s+${entries} -> Record 
+  ^\s*\S+\s+\*\s+${Names}\s+${entries} -> Record

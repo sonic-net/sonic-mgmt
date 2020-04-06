@@ -9,7 +9,7 @@
     disk_image: "{{ home_path }}/sonic-vm/disks/sonic_{{ dut_name }}.img"
     mgmt_ip_address: " {{ hostvars[dut_name]['ansible_host'] }}"
     mgmt_gw: "{{ vm_mgmt_gw | default(mgmt_gw) }}"
-    serial_port: 9000
+    serial_port: "{{ hostvars[dut_name]['serial_port'] }}"
 
 - name: Device debug output
   debug: msg="hostname = {{ dut_name }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }}/{{ mgmt_prefixlen }} mgmt_gw = {{ mgmt_gw }}"
@@ -26,7 +26,7 @@
   port_alias: hwsku={{ hostvars[dut_name].hwsku }}
   delegate_to: localhost
 
-- name: Define vm {{ dut_name }}
+- name: Define SONiC vm {{ dut_name }}
   virt: name={{ dut_name }}
         command=define
         xml="{{ lookup('template', 'templates/sonic.xml.j2') }}"
@@ -34,12 +34,13 @@
   when: dut_name not in vm_list_defined.list_vms
   become: yes
 
-- name: Start vm {{ dut_name }}
+- name: Start SONiC vm {{ dut_name }}
   virt: name={{ dut_name }}
         state=running
         uri=qemu:///system
   when: dut_name not in vm_list_running.list_vms
   become: yes
+  register: sonic_vm_start
 
 - name: Wait until vm {{ dut_name }} is loaded
   sonic_kickstart: telnet_port={{ serial_port }}

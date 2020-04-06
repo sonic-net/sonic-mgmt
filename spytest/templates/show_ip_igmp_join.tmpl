@@ -1,0 +1,15 @@
+#######################################################
+#sonic# show ip igmp  join 
+#Interface Address         Source          Group           Socket Uptime  
+#Ethernet46 20.20.20.1      10.10.10.2      231.1.1.1           20 00:00:28
+#sonic# 
+######################################################
+Value interface (\w+)
+Value address ([\w\.]+)
+Value source ([\w\.]+)
+Value group ([\w\.]+)
+Value socket (\d+)
+Value uptime ([\d\:]+)
+
+Start
+  ^\s*${interface}\s*${address}\s*${source}\s*${group}\s*${socket}\s*${uptime}$$ -> Record

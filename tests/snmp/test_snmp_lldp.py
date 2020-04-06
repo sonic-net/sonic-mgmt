@@ -1,6 +1,13 @@
+import pytest
 from ansible_host import AnsibleHost
 
-def test_snmp_interfaces(ansible_adhoc, testbed, creds):
+@pytest.fixture(scope="module", autouse=True)
+def setup_check_topo(testbed):
+    if testbed['topo']['type'] == 'ptf':
+        pytest.skip('Unsupported topology')
+
+@pytest.mark.bsl
+def test_snmp_lldp(ansible_adhoc, testbed, creds):
     """
     Test checks for ieee802_1ab MIBs:
      - lldpLocalSystemData  1.0.8802.1.1.2.1.3
@@ -31,14 +38,12 @@ def test_snmp_interfaces(ansible_adhoc, testbed, creds):
     # Check if lldpLocPortTable is present for all ports
     for k, v in snmp_facts['snmp_interfaces'].items():
         if "Ethernet" in v['name'] or "eth" in v['name']: 
-            for oid in ['lldpLocPortNum', 'lldpLocPortIdSubtype', 'lldpLocPortId', 'lldpLocPortDesc']:
+            for oid in ['lldpLocPortIdSubtype', 'lldpLocPortId', 'lldpLocPortDesc']:
                 assert v.has_key(oid)
                 assert "No Such Object currently exists" not in v[oid]
 
     # Check if lldpLocManAddrTable is present
-    for k in ['lldpLocManAddrSubtype', \
-               'lldpLocManAddr', \
-               'lldpLocManAddrLen', \
+    for k in ['lldpLocManAddrLen', \
                'lldpLocManAddrIfSubtype', \
                'lldpLocManAddrIfId', \
                'lldpLocManAddrOID']:
@@ -54,10 +59,7 @@ def test_snmp_interfaces(ansible_adhoc, testbed, creds):
     # Check if lldpRemTable is present
     active_intf = []
     for k, v in snmp_facts['snmp_interfaces'].items():
-        if v.has_key("lldpRemTimeMark") and \
-           v.has_key("lldpRemLocalPortNum") and \
-           v.has_key("lldpRemIndex") and \
-           v.has_key("lldpRemChassisIdSubtype") and \
+        if v.has_key("lldpRemChassisIdSubtype") and \
            v.has_key("lldpRemChassisId") and \
            v.has_key("lldpRemPortIdSubtype") and \
            v.has_key("lldpRemPortId") and \
@@ -67,19 +69,22 @@ def test_snmp_interfaces(ansible_adhoc, testbed, creds):
            v.has_key("lldpRemSysCapSupported") and \
            v.has_key("lldpRemSysCapEnabled"):
             active_intf.append(k)
-    print active_intf
+    print "lldpRemTable: ", active_intf
 
     assert len(active_intf) >= len(minigraph_lldp_nei) * 0.8 
+
+    # skip neighbors that do not send chassis information via lldp
+    lldp_facts = ans_host.lldp()['ansible_facts']
+    nei = [k for k, v in lldp_facts['lldp'].items() if k != 'eth0' and v['chassis'].has_key('mgmt-ip') ]
+    print "neighbors {} send chassis management IP information".format(nei)
 
     # Check if lldpRemManAddrTable is present
     active_intf = []
     for k, v in snmp_facts['snmp_interfaces'].items():
-        if v.has_key("lldpRemManAddrSubtype") and \
-           v.has_key("lldpRemManAddr") and \
-           v.has_key("lldpRemManAddrIfSubtype") and \
+        if v.has_key("lldpRemManAddrIfSubtype") and \
            v.has_key("lldpRemManAddrIfId") and \
            v.has_key("lldpRemManAddrOID"):
             active_intf.append(k)
-    print active_intf
+    print "lldpRemManAddrTable: ", active_intf
 
-    assert len(active_intf) >= len(minigraph_lldp_nei) * 0.8 
+    assert len(active_intf) == len(nei)

@@ -35,6 +35,10 @@
   include_tasks: bgp_fact.yml
   tags: bgp_fact
 
+- name: ECMP test
+  include: ecmp.yml
+  tags: ecmp
+
 - name: Neighbor mac change test
   include_tasks: neighbour-mac.yml
   tags: neighbour
@@ -151,10 +155,6 @@
 - name: Test LAG using lag graph file
   include_tasks: lag_2.yml
   tags: lag_2
-
-- name: Memory check
-  include_tasks: mem_check.yml
-  tags: mem_check
 
 - name: ACL test 
   include_tasks: acltb.yml

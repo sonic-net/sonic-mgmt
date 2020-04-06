@@ -102,15 +102,23 @@ class Connection(ConnectionBase):
 
         # determine the sku
         client.sendline('show version')
-        client.expect(['#', '>'])
-        if 'Arista' in client.before:
-            self.sku = 'eos'
-        elif 'Cisco' in client.before:
-            self.sku = 'nxos'
-        elif ('MLNX-OS' in client.before) or ('Onyx' in client.before):
-            self.sku = 'mlnx_os'
-        elif 'Dell' in client.before:
-            self.sku = 'dell'
+        while True:
+            client.expect(['#', '>'])
+            # It may be that right after fanout starts
+            # the OS on fanout sends few promts which may not
+            # include 'show version' output
+            if 'show version' in client.before:
+                if 'Arista' in client.before:
+                    self.sku = 'eos'
+                elif 'Cisco' in client.before:
+                    self.sku = 'nxos'
+                elif ('MLNX-OS' in client.before) or ('Onyx' in client.before):
+                    self.sku = 'mlnx_os'
+                elif 'Dell' in client.before:
+                    self.sku = 'dell'
+                else:
+                    raise AnsibleError("Unable to determine fanout SKU")
+                break
 
         if self.sku == 'mlnx_os':
             self.hname = ' '.join(self.before_backup[-3:])

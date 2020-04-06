@@ -2,6 +2,7 @@ import pytest
 import time
 from ansible_host import AnsibleHost
 
+@pytest.mark.bsl
 def test_snmp_cpu(ansible_adhoc, testbed, creds):
     """
     Test SNMP CPU Utilization
@@ -18,6 +19,8 @@ def test_snmp_cpu(ansible_adhoc, testbed, creds):
     ans_host = AnsibleHost(ansible_adhoc, hostname)
     lhost = AnsibleHost(ansible_adhoc, 'localhost', True)
     hostip = ans_host.host.options['inventory_manager'].get_host(hostname).vars['ansible_host']
+    host_facts = ans_host.setup()['ansible_facts']
+    host_vcpus = int(host_facts['ansible_processor_vcpus'])
 
     # Gather facts with SNMP version 2
     snmp_facts = lhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"], is_dell=True)['ansible_facts']
@@ -25,8 +28,9 @@ def test_snmp_cpu(ansible_adhoc, testbed, creds):
     assert int(snmp_facts['ansible_ChStackUnitCpuUtil5sec'])
 
     try:
-        ans_host.shell("cpu_load() { yes > /dev/null & }; cpu_load && cpu_load && cpu_load && cpu_load")
-    
+        for i in range(host_vcpus):
+            ans_host.shell("nohup yes > /dev/null 2>&1 & sleep 1")
+
         # Wait for load to reflect in SNMP
         time.sleep(20)
 

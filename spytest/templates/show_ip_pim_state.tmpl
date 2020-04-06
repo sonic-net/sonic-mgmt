@@ -1,0 +1,18 @@
+##################################################################################
+#sonic# show ip pim state 
+#Codes: J -> Pim Join, I -> IGMP Report, S -> Source, * -> Inherited from (*,G)
+#Installed Source           Group            IIF      OIL
+#1         10.10.10.2       232.1.1.1        Ethernet24 Ethernet12( J   ), Vlan101( J   )
+#################################################################################
+Value vrf (\w+)
+Value installed (\d+)
+Value source ([\w\.]+)
+Value group ([\w\.]+)
+Value iif (\w*)
+Value oif (.*)
+
+Start
+  ^.*Installed\s*Source\s*Group\s*IIF\s*OIL$$ -> header
+
+header
+  ^\s*${installed}\s*${source}\s*${group}\s*${iif}\s*${oif}$$ -> Record

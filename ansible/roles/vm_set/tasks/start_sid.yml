@@ -7,34 +7,21 @@
 - include_vars: group_vars/sonic/vars
 
 - set_fact:
-    src_disk_image: "{{ home_path }}/sid/images/sonic.img"
-    disk_image: "{{ home_path }}/sid/disks/{{ dut_name }}.img"
-    simx_image: "{{ home_path }}/sid/images/simx:latest.tar"
-    mgmt_ip_address: " {{ hostvars[dut_name]['ansible_host'] }}/{{ mgmt_prefixlen }}"
-
-- name: Device debug output
-  debug: msg="hostname = {{ dut_name }} ip = {{ mgmt_ip_address }}"
-
-- name: Check destination file existance
-  stat: path={{ disk_image }}
-  register: file_stat
-
-- name: Copy sonic disk image for {{ dut_name }}
-  copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
-  when: not file_stat.stat.exists
-
-- set_fact:
     sonic_hwsku: "{{ hostvars[dut_name]['hwsku'] }}"
+    mgmt_ip_address: " {{ hostvars[dut_name]['ansible_host'] }}/{{ mgmt_prefixlen }}"
 
 - fail: msg="sonic_hwsku is not defined"
   when: "sonic_hwsku is not defined"
 
-- fail: msg="{{ item }} is not defined"
-  when: "{{ item }} is not defined"
-  with_items:
-    - "{{ mellanox_spc1_hwskus }}"
-    - "{{ mellanox_spc2_hwskus }}"
+- fail: msg="mellanox_spc1_hwskus is not defined"
+  when: "mellanox_spc1_hwskus is not defined"
 
+- fail: msg="mellanox_spc2_hwskus is not defined"
+  when: "mellanox_spc2_hwskus is not defined"
+
+- fail: msg="mellanox_spc3_hwskus is not defined"
+  when: "mellanox_spc3_hwskus is not defined"
+  
 - set_fact:
     chip: "spectrum"
   when: hostvars[dut_name]['hwsku'] in mellanox_spc1_hwskus
@@ -43,13 +30,45 @@
     chip: "spectrum2"
   when: hostvars[dut_name]['hwsku'] in mellanox_spc2_hwskus
 
-- name: Create SID startup config
-  template:
-    src: settings.ini.j2
-    dest: "{{ home_path }}/sid/images/settings.ini"
+- set_fact:
+    chip: "spectrum3"
+  when: hostvars[dut_name]['hwsku'] in mellanox_spc3_hwskus
 
-- name: start SimX in docker container
-  shell: /usr/bin/env python {{ home_path }}/sid/images/start.py
+- set_fact:
+    simx_image_name: "sdk-ver-simx/sonic_simx"
+    mgmt_ip_address: " {{ hostvars[dut_name]['ansible_host'] }}/{{ mgmt_prefixlen }}"
+    sid_env: {
+      "IMAGE": "None",
+      "MAC": "{{ '52:54:00' | random_mac }}",
+      "CHIPTYPE": "{{ chip }}",
+      "HOSTNAME": "{{ dut_name }}-0",
+      "IP": "{{ mgmt_ip_address | ipaddr('address') }}",
+      "MASK": "{{ mgmt_ip_address | ipaddr('netmask') }}",
+      "GATEWAY": "{{ vm_mgmt_gw }}",
+      "SRVC_PORT": "12000"
+    }
+
+- debug:
+    var: sid_env
+
+- name: Create SID container
+  docker_container:
+    name: "{{ dut_name }}"
+    image: "{{ docker_registry_host }}/{{ simx_image_name }}:latest"
+    pull: yes
+    state: started
+    restart: yes
+    network_mode: host
+    detach: True
+    capabilities:
+      - net_admin
+    privileged: yes
+    env: "{{ sid_env }}"
+    command: /usr/sbin/init
+  become: yes
+
+- name: Start simulation inside container
+  shell: "docker exec {{ dut_name }} /opt/simx_docker/sid_prepare_switch.py -s -c"
 
 - name: Wait for SID to start
   pause:

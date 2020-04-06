@@ -31,7 +31,7 @@ class HashTest(BaseTest):
     # Class variables
     #---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
-    BALANCING_TEST_TIMES = 1000
+    BALANCING_TEST_TIMES = 10000
 
     def __init__(self):
         '''
@@ -50,8 +50,11 @@ class HashTest(BaseTest):
         self.fib = fib.Fib(self.test_params['fib_info'])
         self.router_mac = self.test_params['router_mac']
 
-        self.test_ipv4 = self.test_params.get('ipv4', True)
-        self.test_ipv6 = self.test_params.get('ipv6', True)
+        self.src_ip_range = [unicode(x) for x in self.test_params['src_ip_range'].split(',')]
+        self.dst_ip_range = [unicode(x) for x in self.test_params['dst_ip_range'].split(',')]
+        self.src_ip_interval = lpm.LpmDict.IpInterval(ip_address(self.src_ip_range[0]), ip_address(self.src_ip_range[1]))
+        self.dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(self.dst_ip_range[0]), ip_address(self.dst_ip_range[1]))
+        self.hash_keys = self.test_params.get('hash_keys', ['src-ip', 'dst-ip', 'src-port', 'dst-port'])
 
         self.balancing_range = self.test_params.get('balancing_range', self.DEFAULT_BALANCING_RANGE)
 
@@ -70,96 +73,29 @@ class HashTest(BaseTest):
             self.src_ports = range(0, 120)
     #---------------------------------------------------------------------
 
-    def check_hash(self, ipv4=True):
-        if ipv4:
-            src_ip_interval = lpm.LpmDict.IpInterval(ip_address(u'8.0.0.0'), ip_address(u'8.255.255.255'))
-            dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(u'9.0.0.0'), ip_address(u'9.255.255.255'))
-        else:
-            src_ip_interval = lpm.LpmDict.IpInterval(ip_address(u'20D0:A800:0:00::'), ip_address(u'20D0:A800:0:00::FFFF'))
-            dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(u'20D0:A800:0:00::'), ip_address(u'20D0:A800:0:00::FFFF'))
-
-        # hash field for regular packets:
-        #   src_ip, dst_ip, protocol, l4_src_port, l4_dst_port (if applicable)
-
-        # initialize all parameters
-        src_ip = src_ip_interval.get_random_ip()
-        dst_ip = dst_ip_interval.get_random_ip()
-        src_port = random.randint(0, 65535)
-        dst_port = random.randint(0, 65535)
+    def check_hash(self, hash_key):
+        dst_ip = self.dst_ip_interval.get_random_ip()
+        next_hop = self.fib[dst_ip]
         exp_port_list = self.fib[dst_ip].get_next_hop_list()
+        logging.info("exp_port_list: {}".format(exp_port_list))
+        if exp_port_list <= 1:
+            logging.warning("{} has only {} nexthop".format(dst_ip, exp_port_list))
+            assert False
         in_port = random.choice([port for port in self.src_ports if port not in exp_port_list])
 
-        ### check hash fields ###
-
-        # step 1: check randomizing source ip
         hit_count_map = {}
-        for i in range(0, self.BALANCING_TEST_TIMES):
-            src_ip = src_ip_interval.get_random_ip()
-            (matched_index, _) = self.check_ip_route(
-                    in_port, src_port, dst_port, src_ip, dst_ip, exp_port_list, ipv4)
+        for _ in range(0, self.BALANCING_TEST_TIMES):
+            logging.info("in_port: {}".format(in_port))
+            (matched_index, _) = self.check_ip_route(hash_key, in_port, dst_ip, exp_port_list)
             hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
-        print hit_count_map
-        self.check_balancing(exp_port_list, hit_count_map)
+        logging.info("hit count map: {}".format(hit_count_map))
+        self.check_balancing(next_hop.get_next_hop(), hit_count_map)
 
-        # step 2: check randomizing destination ip
-        hit_count_map.clear()
-        for i in range(0, self.BALANCING_TEST_TIMES):
-            dst_ip = dst_ip_interval.get_random_ip()
-            (matched_index, _) = self.check_ip_route(
-                    in_port, src_port, dst_port, src_ip, dst_ip, exp_port_list, ipv4)
-            hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
-        print hit_count_map
-        self.check_balancing(exp_port_list, hit_count_map)
-
-        # step 3: check randomizing l3 source port
-        hit_count_map.clear()
-        for i in range(0, self.BALANCING_TEST_TIMES):
-            src_port = random.randint(0, 65535)
-            (matched_index, _) = self.check_ip_route(
-                    in_port, src_port, dst_port, src_ip, dst_ip, exp_port_list, ipv4)
-            hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
-        print hit_count_map
-        self.check_balancing(exp_port_list, hit_count_map)
-
-        # step 4: check randomizing l4 destination port
-        hit_count_map.clear()
-        for i in range(0, self.BALANCING_TEST_TIMES):
-            dst_port = random.randint(0, 65535)
-            (matched_index, _) = self.check_ip_route(
-                    in_port, src_port, dst_port, src_ip, dst_ip, exp_port_list, ipv4)
-            hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
-        print hit_count_map
-        self.check_balancing(exp_port_list, hit_count_map)
-
-        ### check non hash fields ###
-        hit_count_map.clear()
-        for i in range(0, self.BALANCING_TEST_TIMES):
-            dst_port = random.randint(0, 65535)
-            (matched_index, _) = self.check_ip_route(
-                    in_port, src_port, dst_port, src_ip, dst_ip, exp_port_list, ipv4)
-            hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
-        print hit_count_map
-        self.check_balancing(exp_port_list, hit_count_map)
-
-        # step 5: check randomizing in port
-        # get the first packet's _ port
-        (expected_index, _) = self.check_ip_route(
-                in_port, src_port, dst_port, src_ip, dst_ip, exp_port_list, ipv4)
-        for i in range(0, self.BALANCING_TEST_TIMES):
-            # randomize in port
-            in_port = random.choice([port for port in self.src_ports if port not in exp_port_list])
-            (matched_index, _) = self.check_ip_route(
-                    in_port, src_port, dst_port, src_ip, dst_ip, exp_port_list, ipv4)
-            assert matched_index == expected_index
-
-    def check_ip_route(self, in_port, sport, dport, src_ip_addr, dst_ip_addr,
-                       dst_port_list, ipv4=True):
-        if ipv4:
-            (matched_index, received) = self.check_ipv4_route(in_port, sport, dport,
-                    src_ip_addr, dst_ip_addr, dst_port_list)
+    def check_ip_route(self, hash_key, in_port, dst_ip, dst_port_list):
+        if ip_network(unicode(dst_ip)).version == 4:
+            (matched_index, received) = self.check_ipv4_route(hash_key, in_port, dst_port_list)
         else:
-            (matched_index, received) = self.check_ipv6_route(in_port, sport, dport,
-                    src_ip_addr, dst_ip_addr, dst_port_list)
+            (matched_index, received) = self.check_ipv6_route(hash_key, in_port, dst_port_list)
 
         assert received
 
@@ -168,15 +104,18 @@ class HashTest(BaseTest):
 
         return (matched_port, received)
 
-    def check_ipv4_route(self, in_port, sport, dport,
-                         ip_src, ip_dst, dst_port_list):
+    def check_ipv4_route(self, hash_key, in_port, dst_port_list):
         '''
         @summary: Check IPv4 route works.
+        @param hash_key: hash key to build packet with.
         @param in_port: index of port to use for sending packet to switch
-        @param dest_ip_addr: destination IP to build packet with.
         @param dst_port_list: list of ports on which to expect packet to come back from the switch
         '''
         src_mac = self.dataplane.get_mac(0, 0)
+        ip_src = self.src_ip_interval.get_random_ip() if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
+        ip_dst = self.dst_ip_interval.get_random_ip() if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
+        sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
+        dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
 
         pkt = simple_tcp_packet(
                             eth_dst=self.router_mac,
@@ -202,16 +141,19 @@ class HashTest(BaseTest):
         return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
     #---------------------------------------------------------------------
 
-    def check_ipv6_route(self, in_port, sport, dport,
-                         ip_src, ip_dst, dst_port_list):
+    def check_ipv6_route(self, hash_key, in_port, dst_port_list):
         '''
         @summary: Check IPv6 route works.
-        @param source_port_index: index of port to use for sending packet to switch
-        @param dest_ip_addr: destination IP to build packet with.
+        @param hash_key: hash key to build packet with.
+        @param in_port: index of port to use for sending packet to switch
         @param dst_port_list: list of ports on which to expect packet to come back from the switch
         @return Boolean
         '''
         src_mac = self.dataplane.get_mac(0, 0)
+        ip_src = self.src_ip_interval.get_random_ip() if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
+        ip_dst = self.dst_ip_interval.get_random_ip() if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
+        sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
+        dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
 
         pkt = simple_tcpv6_packet(
                                 eth_dst=self.router_mac,
@@ -250,17 +192,30 @@ class HashTest(BaseTest):
     def check_balancing(self, dest_port_list, port_hit_cnt):
         '''
         @summary: Check if the traffic is balanced across the ECMP groups and the LAG members
-        @param dest_port_list : a list of ECMP entries and in each ECMP entry a list 
+        @param dest_port_list : a list of ECMP entries and in each ECMP entry a list of ports
         @param port_hit_cnt : a dict that records the number of packets each port received
         @return bool
         '''
 
+        logging.info("%-10s \t %-10s \t %10s \t %10s \t %10s" % ("type", "port(s)", "exp_cnt", "act_cnt", "diff(%)"))
         result = True
 
         total_hit_cnt = sum(port_hit_cnt.values())
-        for port in dest_port_list:
-            (p, r) = self.check_within_expected_range(port_hit_cnt[port], float(total_hit_cnt)/len(dest_port_list))
+        for ecmp_entry in dest_port_list:
+            total_entry_hit_cnt = 0
+            for member in ecmp_entry:
+                total_entry_hit_cnt += port_hit_cnt.get(member, 0)
+            (p, r) = self.check_within_expected_range(total_entry_hit_cnt, float(total_hit_cnt)/len(dest_port_list))
+            logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
+                        % ("ECMP", str(ecmp_entry), total_hit_cnt/len(dest_port_list), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
             result &= r
+            if len(ecmp_entry) == 1 or total_entry_hit_cnt == 0:
+                continue
+            for member in ecmp_entry:
+                (p, r) = self.check_within_expected_range(port_hit_cnt.get(member, 0), float(total_entry_hit_cnt)/len(ecmp_entry))
+                logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
+                            % ("LAG", str(member), total_entry_hit_cnt/len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
+                result &= r
 
         assert result
 
@@ -271,8 +226,7 @@ class HashTest(BaseTest):
         @summary: Send packet for each range of both IPv4 and IPv6 spaces and
         expect the packet to be received from one of the expected ports
         """
-        # IPv4 Test
-        # if (self.test_ipv4):
-        #     self.check_hash()
-        if (self.test_ipv6):
-            self.check_hash(ipv4=False)
+
+        for hash_key in self.hash_keys:
+            logging.info("hash test hash_key: {}".format(hash_key))
+            self.check_hash(hash_key)

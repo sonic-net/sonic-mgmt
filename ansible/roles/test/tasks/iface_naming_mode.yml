@@ -15,8 +15,47 @@
 - set_fact: 
     up_ports: "{{minigraph_ports | list}}"
 
+- name: Change port alias names in redis db for make it common to all platforms
+  command: "redis-cli -n 4 HSET 'PORT|{{item.1}}' alias TestAlias{{item.0}}"
+  with_indexed_items: "{{ default_interfaces }}"
+
+- name: rewrite port alias list, port name map dict, port alias map dict
+  set_fact:
+    port_alias: []
+    port_name_map: {}
+    port_alias_map: {}
+
+- name: create list of new port alias names
+  set_fact:
+    port_alias: "{{ port_alias | default([]) | union( [ 'TestAlias%s' | format(item.0) ] ) }}"
+  with_indexed_items: "{{ default_interfaces }}"
+
+- name: create dict of new port name map
+  set_fact:
+    port_name_map: "{{ port_name_map | default({}) | combine( { item.0 : item.1 } ) }}"
+    port_alias_map: "{{ port_alias_map | default({}) | combine( { item.1 : item.0 } ) }}"
+  with_together:
+    - "{{ default_interfaces }}"
+    - "{{ port_alias }}"
+
+- name: create list of port speed values
+  set_fact:
+    port_speed_values: "{{ port_speed.values() | list }}"
+
+- name: rewrite port speed dict
+  set_fact:
+    port_speed: {}
+
+- name: create dict of new port speed
+  set_fact:
+    port_speed: "{{ port_speed | default({}) | combine( { item.1 : item.0 } ) }}"
+  with_together:
+    - "{{ port_speed_values }}"
+    - "{{ port_alias }}"
+
+# Reassign up port alias list
 - set_fact:
-    upport_alias_list: "{{minigraph_ports.values()| map(attribute='alias') | list }}"
+    upport_alias_list: "{{ port_alias }}"
 
 #Sample Test interface name and its alias 
 - set_fact: 
@@ -39,3 +78,6 @@
   include_tasks: "roles/test/tasks/iface_naming_mode/iface_naming_mode_tests.yml"
   vars:
     mode: default
+
+- name: Reboot dut after all test passed to return default port alias name
+  include_tasks: "common_tasks/reboot_sonic.yml"

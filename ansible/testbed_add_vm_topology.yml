@@ -26,6 +26,7 @@
 # -e ptf_ip=10.255.0.255/23 - the ip address and prefix of ptf container mgmt interface
 # -e topo=t0                 - the name of removed topo
 # -e ptf_imagename=docker-ptf - name of a docker-image which will be used for the ptf docker container
+# -e vm_type=veos|ceos
 
 - hosts: servers:&vm_host
   gather_facts: no

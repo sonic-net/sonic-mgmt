@@ -1,47 +1,7 @@
 #-----------------------------------------
 # Run MTU test and Perform log analysis.
 #-----------------------------------------
-
-# Pre-check testbed_type value
-- fail: msg="testbed_type is not defined."
-  when: testbed_type is not defined
-
-- fail: msg="testbed_type {{testbed_type}} is invalid."
-  when: testbed_type not in ['t1-lag', 't1', 't1-64-lag', 't1-64-lag-clet']
-
-- set_fact: mtu=9114   #using the default mtu,The value includes the 14 bytes Layer 2 Ethernet header
-  when: mtu is not defined
-
-- name: Print testbed mtu
-  debug: msg="{{mtu}}"
-  
-- include_vars: "vars/topo_{{testbed_type}}.yml"
-
-- name: Expand properties into props
-  set_fact: props="{{configuration_properties['spine']}}"
-
-- name: Expand ToR properties into props
-  set_fact: props_tor="{{configuration_properties['tor']}}"
-
-- name: Gathering minigraph facts about the device
-  minigraph_facts: host={{ inventory_hostname }}
-
-- debug : msg="Start MTU Test"
-
-- name: copy the test to ptf container
-  copy: src=roles/test/files/ptftests dest=/root
-  delegate_to: "{{ ptf_host }}"
-
-- name: "Start PTF runner"
-  include_tasks: ptf_runner.yml
+- name: Run MTU relay test (pytest-ansible)
+  include_tasks: roles/test/tasks/pytest_runner.yml
   vars:
-    ptf_test_name: MTU test
-    ptf_test_dir: ptftests
-    ptf_test_path: mtu_test.MtuTest
-    ptf_platform_dir: ptftests
-    ptf_platform: remote
-    ptf_test_params:
-      - testbed_type='{{testbed_type}}'
-      - router_mac='{{ansible_Ethernet0['macaddress']}}'
-      - testbed_mtu={{mtu}} 
-    ptf_extra_options: "--relax --debug info --log-file /tmp/mtu_test.MtuTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log --socket-recv-size 16384"
+    test_node: test_mtu.py
