@@ -81,7 +81,6 @@ def gather_facts(testbed_devices, testbed):
     topo = testbed['topo']['name']
     if topo not in TOPO_LIST:
         pytest.skip("Unsupported topology")
-    import pdb; pdb.set_trace()
     logger.info("Gathering facts on DUT ...")
     dut = testbed_devices["dut"]
     mg_facts = dut.minigraph_facts(host=dut.hostname)['ansible_facts']
