@@ -1,12 +1,7 @@
 import pytest
 from ansible_host import AnsibleHost
-from test_snmp import check_snmp_ready
 
 PSU_STATUS_OK = 2
-
-@pytest.fixture(scope="module", autouse=True)
-def setup_check_snmp_ready(testbed, testbed_devices):
-    check_snmp_ready(testbed, testbed_devices)
 
 @pytest.mark.bsl
 def test_snmp_numpsu(testbed_devices, creds, duthost):

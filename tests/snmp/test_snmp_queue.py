@@ -1,10 +1,5 @@
 import pytest
 from ansible_host import AnsibleHost
-from test_snmp import check_snmp_ready
-
-@pytest.fixture(scope="module", autouse=True)
-def setup_check_snmp_ready(testbed, testbed_devices):
-    check_snmp_ready(testbed, testbed_devices)
 
 def test_snmp_queues(ansible_adhoc, testbed, creds, collect_techsupport):
 

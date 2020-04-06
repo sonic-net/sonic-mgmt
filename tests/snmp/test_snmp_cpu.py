@@ -1,11 +1,6 @@
 import pytest
 import time
 from ansible_host import AnsibleHost
-from test_snmp import check_snmp_ready
-
-@pytest.fixture(scope="module", autouse=True)
-def setup_check_snmp_ready(testbed, testbed_devices):
-    check_snmp_ready(testbed, testbed_devices)
 
 @pytest.mark.bsl
 def test_snmp_cpu(ansible_adhoc, testbed, creds):
