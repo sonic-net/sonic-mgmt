@@ -5,21 +5,21 @@ import subprocess
 import time
 
 from arista import Arista
+from device_connection import DeviceConnection
 
 
 class SadTest(object):
-    def __init__(self, oper_type, vm_list, portchannel_ports, vm_dut_map, test_args, dut_ssh, vlan_ports):
+    def __init__(self, oper_type, vm_list, portchannel_ports, vm_dut_map, test_args, vlan_ports):
         self.oper_type = oper_type
         self.vm_list = vm_list
         self.portchannel_ports = portchannel_ports
         self.vm_dut_map = vm_dut_map
         self.test_args = test_args
-        self.dut_ssh = dut_ssh
         self.vlan_ports = vlan_ports
         self.fails_vm = set()
         self.fails_dut = set()
         self.log = []
-        self.shandle = SadOper(self.oper_type, self.vm_list, self.portchannel_ports, self.vm_dut_map, self.test_args, self.dut_ssh, self.vlan_ports)
+        self.shandle = SadOper(self.oper_type, self.vm_list, self.portchannel_ports, self.vm_dut_map, self.test_args, self.vlan_ports)
 
     def setup(self):
         self.shandle.sad_setup(is_up=False)
@@ -55,6 +55,7 @@ class SadPath(object):
         self.portchannel_ports = portchannel_ports
         self.vm_dut_map = vm_dut_map
         self.test_args = test_args
+        self.dut_connection = DeviceConnection(test_args['dut_hostname'], test_args['dut_username'], password=test_args['dut_password'])
         self.vlan_ports = vlan_ports
         self.vlan_if_port = self.test_args['vlan_if_port']
         self.neigh_vms = []
@@ -96,16 +97,6 @@ class SadPath(object):
                 self.ip_cnt = int(temp[-1])
         else:
             self.oper_type = oper_type
-
-    def cmd(self, cmds):
-        process = subprocess.Popen(cmds,
-                                   shell=False,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate()
-        return_code = process.returncode
-
-        return stdout, stderr, return_code
 
     def select_vm(self):
         self.vm_list.sort()
@@ -203,9 +194,8 @@ class SadPath(object):
 
 
 class SadOper(SadPath):
-    def __init__(self, oper_type, vm_list, portchannel_ports, vm_dut_map, test_args, dut_ssh, vlan_ports):
+    def __init__(self, oper_type, vm_list, portchannel_ports, vm_dut_map, test_args, vlan_ports):
         super(SadOper, self).__init__(oper_type, vm_list, portchannel_ports, vm_dut_map, test_args, vlan_ports)
-        self.dut_ssh = dut_ssh
         self.dut_needed = dict()
         self.lag_members_down = dict()
         self.neigh_lag_members_down = dict()
@@ -335,7 +325,7 @@ class SadOper(SadPath):
         else:
             cmd = 'show ipv6 bgp summary | sed \'1,/Neighbor/d;/^$/,$d\' | sed \'s/\s\s*/ /g\' | cut -d\' \' -f 1,10'
 
-        stdout, stderr, return_code = self.cmd(['ssh', '-oStrictHostKeyChecking=no', self.dut_ssh, cmd])
+        stdout, stderr, return_code = self.dut_connection.execCommand(cmd)
         if return_code != 0:
             self.fails['dut'].add('%s: Failed to retreive BGP route info from DUT' % self.msg_prefix[1 - is_up])
             self.fails['dut'].add('%s: Return code: %d' % (self.msg_prefix[1 - is_up], return_code))
@@ -386,7 +376,7 @@ class SadOper(SadPath):
         for intf, port in self.down_vlan_info:
             if not re.match('Ethernet\d+', intf): continue
             self.log.append('Changing state of %s from DUT side to %s' % (intf, state[is_up]))
-            stdout, stderr, return_code = self.cmd(['ssh', '-oStrictHostKeyChecking=no', self.dut_ssh, 'sudo config interface %s %s' % (state[is_up], intf)])
+            stdout, stderr, return_code = self.dut_connection.execCommand('sudo config interface %s %s' % (state[is_up], intf))
             if return_code != 0:
                 self.fails['dut'].add('%s: State change not successful from DUT side for %s' % (self.msg_prefix[1 - is_up], intf))
                 self.fails['dut'].add('%s: Return code: %d' % (self.msg_prefix[1 - is_up], return_code))
@@ -400,9 +390,9 @@ class SadOper(SadPath):
         # extract the admin status
         pat = re.compile('(\S+\s+){7}%s' % state)
         for intf, port in self.down_vlan_info:
-            stdout, stderr, return_code = self.cmd(['ssh', '-oStrictHostKeyChecking=no', self.dut_ssh, 'show interfaces status %s' % intf])
+            stdout, stderr, return_code = self.dut_connection.execCommand('show interfaces status %s' % intf)
             if return_code == 0:
-                for line in stdout.split('\n'):
+                for line in stdout:
                     if intf in line:
                         is_match = pat.match(line.strip())
                         if is_match:
@@ -426,7 +416,7 @@ class SadOper(SadPath):
                     continue
 
                 self.log.append('Changing state of BGP peer %s from DUT side to %s' % (self.neigh_bgps[vm][key], state[is_up]))
-                stdout, stderr, return_code = self.cmd(['ssh', '-oStrictHostKeyChecking=no', self.dut_ssh, 'sudo config bgp %s neighbor %s' % (state[is_up], self.neigh_bgps[vm][key])])
+                stdout, stderr, return_code = self.dut_connection.execCommand('sudo config bgp %s neighbor %s' % (state[is_up], self.neigh_bgps[vm][key]))
                 if return_code != 0:
                     self.fails['dut'].add('State change not successful from DUT side for peer %s' % self.neigh_bgps[vm][key])
                     self.fails['dut'].add('Return code: %d' % return_code)
@@ -442,9 +432,9 @@ class SadOper(SadPath):
                 if key not in ['v4', 'v6']:
                     continue
                 self.log.append('Verifying if the DUT side BGP peer %s is %s' % (self.neigh_bgps[vm][key], states))
-                stdout, stderr, return_code = self.cmd(['ssh', '-oStrictHostKeyChecking=no', self.dut_ssh, 'show ip bgp neighbor %s' % self.neigh_bgps[vm][key]])
+                stdout, stderr, return_code = self.dut_connection.execCommand('show ip bgp neighbor %s' % self.neigh_bgps[vm][key])
                 if return_code == 0:
-                    for line in stdout.split('\n'):
+                    for line in stdout:
                         if 'BGP state' in line:
                             curr_state = re.findall('BGP state = (\w+)', line)[0]
                             bgp_state[vm][key] = (curr_state in states)
@@ -507,7 +497,7 @@ class SadOper(SadPath):
             for intf in down_intfs:
                 if not re.match('(PortChannel|Ethernet)\d+', intf): continue
                 self.log.append('Changing state of %s from DUT side to %s' % (intf, state[is_up]))
-                stdout, stderr, return_code = self.cmd(['ssh', '-oStrictHostKeyChecking=no', self.dut_ssh, 'sudo config interface %s %s' % (state[is_up], intf)])
+                stdout, stderr, return_code = self.dut_connection.execCommand('sudo config interface %s %s' % (state[is_up], intf))
                 if return_code != 0:
                     self.fails['dut'].add('%s: State change not successful from DUT side for %s' % (self.msg_prefix[1 - is_up], intf))
                     self.fails['dut'].add('%s: Return code: %d' % (self.msg_prefix[1 - is_up], return_code))
@@ -549,9 +539,9 @@ class SadOper(SadPath):
             po_list.append(po_name)
             self.po_neigh_map[po_name] = self.neigh_names[vm]
 
-        stdout, stderr, return_code = self.cmd(['ssh', '-oStrictHostKeyChecking=no', self.dut_ssh, 'show interfaces portchannel'])
+        stdout, stderr, return_code = self.dut_connection.execCommand('show interfaces portchannel')
         if return_code == 0:
-            for line in stdout.split('\n'):
+            for line in stdout:
                 for po_name in po_list:
                     if po_name in line:
                         is_match = pat.match(line)
