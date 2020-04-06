@@ -141,7 +141,9 @@ def neighbor_ip(duthost, testbed):
     if mg_facts["minigraph_portchannel_interfaces"]:
         dst_ip = mg_facts["minigraph_portchannel_interfaces"][0]['peer_addr']
     else:
-        dst_ip = [(item['peer_addr']) for item in mg_facts["minigraph_interfaces"] if 'peer_addr' in item][0]
+        peer_addr_list = [(item['peer_addr']) for item in mg_facts["minigraph_interfaces"] if 'peer_addr' in item]
+        if peer_addr_list:
+            dst_ip = peer_addr_list[0]
 
     if dst_ip is None:
         pytest.skip("No neighbor ip available. Skipping test.")
