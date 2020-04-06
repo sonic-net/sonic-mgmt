@@ -21,9 +21,9 @@ def prepare_ptf(testbed_devices):
     ptfhost.script('scripts/change_mac.sh')
 
 
-def lag_facts(dut):
+def lag_facts(dut, mg_facts):
     facts = {}
-    mg_facts = dut.minigraph_facts(host=dut.hostname)['ansible_facts']
+
     if not mg_facts['minigraph_portchannels']:
         pytest.fail("minigraph_portchannels is not defined")
     host_facts = dut.setup()['ansible_facts']
@@ -48,9 +48,8 @@ def lag_facts(dut):
     return facts
 
 
-def port_facts(dut):
+def port_facts(dut, mg_facts):
     facts = {}
-    mg_facts = dut.minigraph_facts(host=dut.hostname)['ansible_facts']
 
     if not mg_facts['minigraph_interfaces']:
         pytest.fail("minigraph_interfaces is not defined.")
@@ -82,14 +81,16 @@ def gather_facts(testbed_devices, testbed):
     topo = testbed['topo']['name']
     if topo not in TOPO_LIST:
         pytest.skip("Unsupported topology")
+    import pdb; pdb.set_trace()
     logger.info("Gathering facts on DUT ...")
     dut = testbed_devices["dut"]
-    if topo in PORTS_TOPO:
-        facts = port_facts(dut)
-    elif topo in LAG_TOPO:
-        facts = lag_facts(dut)
+    mg_facts = dut.minigraph_facts(host=dut.hostname)['ansible_facts']
+    
+    # if minigraph_portchannel_interfaces is not empty - topology with lag
+    if mg_facts['minigraph_portchannel_interfaces']:
+        facts = lag_facts(dut, mg_facts)
     else:
-        pytest.skip("Unsupported topology")
+        facts = port_facts(dut, mg_facts)
 
     logger.info("Facts gathered successfully")
 
