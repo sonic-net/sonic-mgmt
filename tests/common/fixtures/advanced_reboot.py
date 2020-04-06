@@ -169,7 +169,7 @@ class AdvancedReboot:
             if 'vlan_port_down' in item:
                 assert itemCnt <= self.vlanMaxCnt, (
                     'Vlan count is greater than or equal to number of Vlan interfaces. '
-                    'Current val = {0} Max val = {}'
+                    'Current val = {0} Max val = {1}'
                 ).format(itemCnt, self.vlanMaxCnt)
             if 'routing' in item:
                 assert itemCnt <= self.hostMaxCnt, (
@@ -216,7 +216,7 @@ class AdvancedReboot:
         logger.info('Remove old keys from ptfhost')
         self.ptfhost.shell('rm -f /root/.ssh/id_rsa*')
         try:
-            result = self.ptfhost.shell('stat /root/.ssh/known_hosts')
+            self.ptfhost.shell('stat /root/.ssh/known_hosts')
         except RunAnsibleModuleFail:
             pass # files does not exist
         else:
