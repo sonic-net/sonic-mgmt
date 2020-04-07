@@ -1,0 +1,7 @@
+Value service_type ((\S+\s*)*)
+Value version (\d+|\d+\.\d+|\d+\.\d+.\d+)
+
+Start
+  ^${service_type}\s+${version}\s*$$ -> Record
+
+EOF

@@ -1,0 +1,15 @@
+Value Filldown VID (\d+)
+Value Filldown IpAdd (\S+)
+Value Ports (\S+)
+Value PortTagging (\S+)
+Value DHCPHelperAdd (\S+)
+
+Start
+  ^\+\S+
+  ^\|\s+VLAN ID\s+\|\s+IP Address\s+\|\s+Ports\s+\|\s+Port Tagging\s+\|\s+DHCP Helper Address\s+\|
+  ^\+\S+
+  ^\|\s+${VID}\s+\|\s+(${IpAdd}|.)\s+\|\s+(${Ports}|.)\s+\|\s+(${PortTagging}|.)\s+\|\s+(${DHCPHelperAdd}|.)\s+\| -> Record
+  ^\|\s+\|\s+(${IpAdd}|.)\s+\|\s+(${Ports}|.)\s+\|\s+(${PortTagging}|.)\s+\|\s+(${DHCPHelperAdd}|.)\s+\| -> Record
+  ^\+\S+
+
+EOF

@@ -1,0 +1,130 @@
+####################################################
+#VRF: default
+#Router MLAG Role: NONE
+#Mroute socket descriptor: 7(default)
+#Mroute socket uptime: 00:34:04
+#
+#Zclient update socket: 11 failures=0
+#Zclient lookup socket: 12 failures=0
+#
+#Maximum highest VifIndex: 31
+#
+#Total Dynamic Multicast routes in VRF default: 0
+#Total Dynamic Uninstalled Multicast routes in VRF default: 0
+#Total Static Multicast routes in VRF default: 0
+#Total Static Uninstalled Multicast routes in VRF default: 0
+#Total Uninstalled Multicast routes in VRF default: 0
+#Total Multicast routes in VRF default: 0
+#
+#Total Dynamic Multicast routes across all VRFs: 0
+#Total Dynamic Uninstalled Multicast routes across all VRFs: 0
+#Total Static Multicast routes across all VRFs: 0
+#Total Static Uninstalled Multicast routes across all VRFs: 0
+#Total Uninstalled Multicast routes across all VRFs: 0
+#Total Multicast routes across all VRFs: 0
+#
+#Upstream Join Timer: 60 secs
+#Join/Prune Holdtime: 210 secs
+#PIM ECMP: Disable
+#PIM ECMP Rebalance: Disable
+#
+#RPF Cache Refresh Delay:    50 msecs
+#RPF Cache Refresh Timer:    0 msecs
+#RPF Cache Refresh Requests: 12
+#RPF Cache Refresh Events:   3
+#RPF Cache Refresh Last:     00:04:16
+#Nexthop Lookups:            1
+#Nexthop Lookups Avoided:    0
+#
+#Scan OIL - Last: 00:04:16  Events: 13
+#MFC Add  - Last: 00:28:12  Events: 6
+#MFC Del  - Last: 00:24:29  Events: 4
+#
+#Interface        Address            ifi Vif  PktsIn PktsOut    BytesIn   BytesOut
+#Ethernet12       14.14.1.1       1029   3       0       0          0          0
+#####################################################
+Value vrf (\w+)
+Value mlag_role (\w+)
+Value mroute_sock_desc (\d+)
+Value mroute_sock_uptime ([\d\:]+)
+Value zclient_update_sock (\d+)
+Value zclient_lookup_sock (\d+)
+Value zclient_update_sock_fail (\d+)
+Value zclient_lookup_sock_fail (\d+)
+Value max_vif_index (\d+)
+Value tot_dyn_mcast_routes (\d+)
+Value tot_dyn_uninst_mcast_routes (\d+)
+Value tot_static_mcast_routes (\d+)
+Value tot_static_uninst_mcast_routes (\d+)
+Value tot_uninst_mcast_routes (\d+)
+Value tot_mcast_routes (\d+)
+Value tot_dyn_mcast_routes_ac (\d+)
+Value tot_dyn_uninst_mcast_routes_ac (\d+)
+Value tot_static_mcast_routes_ac (\d+)
+Value tot_static_uninst_mcast_routes_ac (\d+)
+Value tot_uninst_mcast_routes_ac (\d+)
+Value tot_mcast_routes_ac (\d+)
+Value upstream_join_timer (\d+)
+Value join_prune_holdtime (\d+)
+Value pim_ecmp (\w+)
+Value pim_ecmp_rebalance (\w+)
+Value rpf_cache_ref_delay (\d+)
+Value rpf_cache_ref_timer (\d+)
+Value rpf_cache_ref_requests (\d+)
+Value rpf_cache_ref_events (\d+)
+Value rpf_cache_ref_last ([\d\:]+)
+Value nxthop_lookups (\d+)
+Value nxthop_lookups_avoided (\d+)
+Value scan_oil_last_time ([\d\:]+)
+Value mfc_add_last_time ([\d\:]+)
+Value mfc_del_last_time ([\d\:]+)
+Value scan_oil_last_event (\d+)
+Value mfc_add_last_event (\d+)
+Value mfc_del_last_event (\d+)
+Value interface (\w+)
+Value address ([\w\.]+)
+Value ifi (\d+)
+Value vif (\d+)
+Value pkts_in (\d+)
+Value pkts_out (\d+)
+Value bytes_in (\d+)
+Value bytes_out (\d+)
+
+Start
+  ^\s*VRF:\s*${vrf}$$
+  ^\s*Router MLAG Role:\s*${mlag_role}$$
+  ^\s*Mroute socket descriptor:\s*${mroute_sock_desc}(\s*${vrf})$$
+  ^\s*Mroute socket uptime:\s*${mroute_sock_uptime}$$
+  ^\s*Zclient update socket:\s*${zclient_update_sock} failures=\s*${zclient_update_sock_fail}$$
+  ^\s*Zclient lookup socket:\s*${zclient_lookup_sock} failures=\s*${zclient_lookup_sock_fail}$$
+  ^\s*Maximum highest VifIndex:\s*${max_vif_index}$$
+  ^\s*Total Dynamic Multicast routes in VRF default:\s*${tot_dyn_mcast_routes}$$
+  ^\s*Total Dynamic Uninstalled Multicast routes in VRF default:\s*${tot_dyn_uninst_mcast_routes}$$
+  ^\s*Total Static Multicast routes in VRF default:\s*${tot_static_mcast_routes}$$
+  ^\s*Total Static Uninstalled Multicast routes in VRF default:\s*${tot_static_uninst_mcast_routes}$$
+  ^\s*Total Uninstalled Multicast routes in VRF default:\s*${tot_uninst_mcast_routes}$$
+  ^\s*Total Multicast routes in VRF default:\s*${tot_mcast_routes}$$
+  ^\s*Total Dynamic Multicast routes across all VRFs:\s*${tot_dyn_mcast_routes_ac}$$
+  ^\s*Total Dynamic Uninstalled Multicast routes across all VRFs:\s*${tot_dyn_uninst_mcast_routes_ac}$$
+  ^\s*Total Static Multicast routes across all VRFs:\s*${tot_static_mcast_routes_ac}$$
+  ^\s*Total Static Uninstalled Multicast routes across all VRFs:\s*${tot_static_uninst_mcast_routes_ac}$$
+  ^\s*Total Uninstalled Multicast routes across all VRFs:\s*${tot_uninst_mcast_routes_ac}$$
+  ^\s*Total Multicast routes across all VRFs:\s*${tot_mcast_routes_ac}$$
+  ^\s*Upstream Join Timer:\s*${upstream_join_timer} secs
+  ^\s*Join/Prune Holdtime:\s*${join_prune_holdtime} secs
+  ^\s*PIM ECMP:\s*${pim_ecmp}$$
+  ^\s*PIM ECMP Rebalance:\s*${pim_ecmp_rebalance}$$
+  ^\s*RPF Cache Refresh Delay:\s*${rpf_cache_ref_delay} msecs
+  ^\s*RPF Cache Refresh Timer:\s*${rpf_cache_ref_timer} msecs
+  ^\s*RPF Cache Refresh Requests:\s*${rpf_cache_ref_requests}$$
+  ^\s*RPF Cache Refresh Events:\s*${rpf_cache_ref_events}$$
+  ^\s*RPF Cache Refresh Last:\s*${rpf_cache_ref_last}$$
+  ^\s*Nexthop Lookups:\s*${nxthop_lookups}$$
+  ^\s*Nexthop Lookups Avoided:\s*${nxthop_lookups_avoided}$$
+  ^\s*Scan OIL - Last:\s*${scan_oil_last_time}\s*Events:\s*${scan_oil_last_event}$$
+  ^\s*MFC Add  - Last\s*${mfc_add_last_time}\s*Events:\s*${mfc_add_last_event}$$
+  ^\s*MFC Del  - Last:\s*${mfc_del_last_time}\s*Events:\s*${mfc_del_last_event}$$
+  ^\s*Interface\s*Address\s*ifi\s*Vif\s*PktsIn\s*PktsOut\s*BytesIn\s*BytesOut -> header
+
+header
+  ^\s*${interface}\s*${address}\s*${ifi}\s*${vif}\s*${pkts_in}\s*${pkts_out}\s*${bytes_in}\s*${bytes_out}$$ -> Record

@@ -1,0 +1,9 @@
+Value temp_sensor (\S+)
+Value label (\S+)
+Value value (.*)
+
+
+Start
+  ^Temp\s+Sensor\s+Label\s+Value
+  ^(-+\s*)*$$
+  ^${temp_sensor}\s+${label}\s+${value}\s*$$ -> Record

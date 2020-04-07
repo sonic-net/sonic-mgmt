@@ -7,7 +7,12 @@ import argparse
 import os.path
 from fcntl import ioctl
 from pprint import pprint
-
+import logging
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+import ptf.packet as scapy
+import scapy.all as scapy2
+scapy2.conf.use_pcap=True
+import scapy.arch.pcapdnet
 
 def hexdump(data):
     print " ".join("%02x" % ord(d) for d in data)
@@ -39,18 +44,20 @@ class Interface(object):
             self.socket.close()
 
     def bind(self):
-        self.socket = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(self.ETH_P_ALL))
-        self.socket.bind((self.iface, 0))
-        self.socket.settimeout(self.RCV_TIMEOUT)
+        self.socket = scapy2.conf.L2listen(iface=self.iface)
 
     def handler(self):
-        return self.socket.fileno()
+        return self.socket
 
     def recv(self):
-        return self.socket.recv(self.RCV_SIZE)
+        sniffed = self.socket.recv()
+        pkt = sniffed[0]
+        str_pkt = str(pkt).encode("HEX")
+        binpkt = binascii.unhexlify(str_pkt)
+        return binpkt
 
     def send(self, data):
-        self.socket.send(data)
+        scapy2.sendp(data, iface=self.iface)
 
     def mac(self):
         return self.mac_address
@@ -75,7 +82,8 @@ class Poller(object):
 
 
 class ARPResponder(object):
-    ARP_PKT_LEN = 60
+    ARP_PKT_LEN = 64
+    ARP_OP_REQUEST = 1
     def __init__(self, ip_sets):
         self.arp_chunk = binascii.unhexlify('08060001080006040002') # defines a part of the packet for ARP Reply
         self.arp_pad = binascii.unhexlify('00' * 18)
@@ -86,27 +94,44 @@ class ARPResponder(object):
 
     def action(self, interface):
         data = interface.recv()
-        if len(data) >= self.ARP_PKT_LEN:
+        if len(data) > self.ARP_PKT_LEN:
             return
 
-        remote_mac, remote_ip, request_ip = self.extract_arp_info(data)
+        remote_mac, remote_ip, request_ip, op_type, vlan_id = self.extract_arp_info(data)
+
+        # Don't send ARP response if the ARP op code is not request
+        if op_type != self.ARP_OP_REQUEST:
+            return
 
         request_ip_str = socket.inet_ntoa(request_ip)
         if request_ip_str not in self.ip_sets[interface.name()]:
             return
-
-        if 'vlan' in self.ip_sets[interface.name()]:
-            vlan_id = self.ip_sets[interface.name()]['vlan']
-        else:
-            vlan_id = None
-
         arp_reply = self.generate_arp_reply(self.ip_sets[interface.name()][request_ip_str], remote_mac, request_ip, remote_ip, vlan_id)
         interface.send(arp_reply)
 
         return
         
     def extract_arp_info(self, data):
-        return data[6:12], data[28:32], data[38:42] # remote_mac, remote_ip, request_ip
+        # remote_mac, remote_ip, request_ip, op_type
+        rem_ip_start = 28
+        req_ip_start = 38
+        op_type_start = 20
+        eth_offset = 0
+        vlan_id = None
+        ether_type = str(data[12:14]).encode("HEX")
+        if (ether_type == '8100'):
+            vlan = str(data[14:16]).encode("HEX")
+            if (vlan != '0000'):
+                eth_offset = 4
+                vlan_id = data[14:16]
+        rem_ip_start = rem_ip_start + eth_offset
+        req_ip_start = req_ip_start + eth_offset
+        op_type_start = op_type_start + eth_offset
+        rem_ip_end = rem_ip_start + 4
+        req_ip_end = req_ip_start + 4
+        op_type_end = op_type_start + 1
+
+        return data[6:12], data[rem_ip_start:rem_ip_end], data[req_ip_start:req_ip_end], (ord(data[op_type_start]) * 256 + ord(data[op_type_end])), vlan_id
 
     def generate_arp_reply(self, local_mac, remote_mac, local_ip, remote_ip, vlan_id):
         eth_hdr = remote_mac + local_mac
@@ -143,7 +168,8 @@ def main():
             iface, vlan = iface.split('@')
             vlan_tag = format(int(vlan), 'x')
             vlan_tag = vlan_tag.zfill(4)
-        ip_sets[str(iface)] = {}
+        if str(iface) not in ip_sets:
+            ip_sets[str(iface)] = {}
         if args.extended:
             for ip, mac in ip_dict.items():
                 ip_sets[str(iface)][str(ip)] = binascii.unhexlify(str(mac))

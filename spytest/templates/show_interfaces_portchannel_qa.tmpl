@@ -1,0 +1,11 @@
+Value No (\d+)
+Value TeamDev (\S+)
+Value Protocol (\S+)
+Value Ports (\S+[\S ]+)
+
+Start
+  ^Flags:\s+A\s+-\sactive,\s+I\s+-\s+inactive,\s+Up\s+-\s+up,\s+Dw\s+-\s+Down,\s+N/A\s+-\s+not\s+available,\s+S\s+-\s+selected,\s+D\s+-\sdeselected -> Continue
+  ^\s*No.\s+Team Dev\s+Protocol\s+Ports\s*$$
+  ^(-+\s*)*$$
+  ^\s*${No}\s+${TeamDev}\s+${Protocol}\s+${Ports}\s*$$ -> Record
+  ^\s*${No}\s+${TeamDev}\s+${Protocol}\s*$$ -> Record

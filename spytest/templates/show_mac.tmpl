@@ -1,0 +1,16 @@
+Value SERIALNO (\s*\d+)
+Value VLAN (\S+)
+Value MACADDRESS (..:..:..:..:..:..)
+Value PORT (\S+)
+Value DEST_IP (\d+\.\d+\.\d+\.\d+)
+Value TYPE (\S+)
+Value Fillup total (\d+)
+
+Start
+  ^No\.\s+Vlan\s+MacAddress\s+Port\s+Type\s*$$
+  ^(-+\s*)*$$
+  ^${SERIALNO}\s+${VLAN}\s+${MACADDRESS}\s+${PORT}\s+${TYPE}\s*$$ -> Record
+  ^${SERIALNO}\s+${VLAN}\s+${MACADDRESS}\s+VxLAN\sDIP:\s${DEST_IP}\s+${TYPE}\s*$$ -> Record
+  ^\s*Total number of entries\s+${total}
+  ^$$
+

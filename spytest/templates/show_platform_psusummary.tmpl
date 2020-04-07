@@ -1,0 +1,22 @@
+Value psu (\w+\s\d+)
+Value psu_status (\S+\s*\S+|\S+)
+Value manufacturer_id (\S+\s*\S+|\S+)
+Value model (\S+)
+Value serial_number (\S+)
+Value output_voltage (\S+)
+Value output_current (\S+)
+Value output_power (\S+)
+Value fan_direction (\S+)
+Value fan_speed (\d+)
+
+Start
+  ^\s*${psu}:\s+${psu_status}\s*
+  ^\s*Manufacturer\s*Id:\s*${manufacturer_id}\s*$$
+  ^\s*Model:\s*${model}\s*$$
+  ^\s*Serial\s*Number:\s*${serial_number}\s*$$
+  ^\s*Output\s*Voltage\s*\(mV\):\s*${output_voltage}\s*$$
+  ^\s*Output\s*Current\s*\(mA\):\s*${output_current}\s*$$
+  ^\s*Output\s*Power\s*\(mW\):\s*${output_power}\s*$$
+  ^\s*Fan\s*Direction:\s*${fan_direction}\s*$$
+  ^\s*Fan\s*Speed\s*\(RPM\):\s*${fan_speed}\s*$$
+  ^$$ -> Record

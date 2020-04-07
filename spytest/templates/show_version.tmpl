@@ -1,0 +1,35 @@
+Value Version (\S+)
+Value Product (.*)
+Value Distribution (\S+\s+\d+.\d+)
+Value Kernel (\S+)
+Value Build_commit (\S+)
+Value Build_date (.*)
+Value Built_by (\S+)
+Value Platform (\S+)
+Value HwSKU (\S+)
+Value ASIC (\S+)
+Value Serial_Number (\S+)
+Value Uptime (.*)
+Value user (\d+)
+Value load_average (.*)
+Value REPOSITORY (\S+)
+Value TAG (\S+)
+Value IMAGE_ID (\S+)
+Value SIZE (\S+)
+
+Start
+  ^SONiC Software Version:\s+${Version}\s*$$
+  ^Product:\s+${Product}\s*$$
+  ^Distribution:\s+${Distribution}\s*$$
+  ^Kernel:\s+${Kernel}\s*$$
+  ^Build commit:\s+${Build_commit}\s*$$ 
+  ^Build date:\s+${Build_date}\s*$$ 
+  ^Built by:\s+${Built_by}\s*$$ 
+  ^Platform:\s+${Platform}\s*$$ 
+  ^HwSKU:\s+${HwSKU}\s*$$ 
+  ^ASIC:\s+${ASIC}\s*$$ 
+  ^Serial Number:\s+${Serial_Number}\s*$$ 
+  ^Uptime:\s+${Uptime},\s+${user}\s+user,\s+load average:\s+${load_average}\s*$$ -> Record
+  ^Docker images:\s*$$  
+  ^REPOSITORY\s+TAG\s+IMAGE ID\s+SIZE\s*$$ 
+  ^${REPOSITORY}\s+${TAG}\s+${IMAGE_ID}\s+${SIZE}\s*$$ -> Record

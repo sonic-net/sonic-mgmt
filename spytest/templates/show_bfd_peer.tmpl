@@ -1,0 +1,77 @@
+Value peer ([\:\.\dabcdefABCDEF]+)
+Value vrf_name (\S+)
+Value local_addr ([\:\.\dabcdefABCDEF]+)
+Value interface ([\w]+)
+Value label ([\S]+)
+Value local_id (\d+)
+Value remote_id (\d+)
+Value status (\w+)
+Value upTimeDay (\d+)
+Value upTimeHr (\d+)
+Value upTimeMin (\d+)
+Value upTimeSec (\d+)
+Value downTimeDay (\d+)
+Value downTimeHr (\d+)
+Value downTimeMin (\d+)
+Value downTimeSec (\d+)
+Value diagnostics ([\w\s]+)
+Value remote_diagnostics ([\w\s]+)
+Value peer_type ([\w\s]+)
+Value List multiplier (\d+)
+Value List rx_interval (\d+)
+Value List tx_interval (\d+)
+Value List echo_tx_interval (\d+)
+Value err ([\w\s]+)
+
+Start
+  ^\s*\%\s*${err}\s*\'peer ${peer}\'\s*$$ -> Record
+  ^\s*\%\s*${err}\s*\'peer ${peer}\s*vrf\s*${vrf_name}\'\s*$$ -> Record
+  ^\s*\%\s*${err}\s*\'peer ${peer}\s*local-address\s*${local_addr}\'\s*$$ -> Record
+  ^\s*\%\s*${err}\s*\'peer ${peer}\s*vrf\s*${vrf_name}\s*local-address\s*${local_addr}\'\s*$$ -> Record
+  ^\s*\%\s*${err}\s*\'peer ${peer}\s*local-address\s*${local_addr}\s*vrf\s*${vrf_name}\'\s*$$ -> Record
+  ^\s*\%\s*${err}\s*\'peer ${peer}\s*local-address\s*${local_addr}\s*interface\s*${interface}\'\s*$$ -> Record
+  ^\s*\%\s*${err}\s*\'peer ${peer}\s*local-address\s*${local_addr}\s*vrf\s*${vrf_name}\s*interface\s*${interface}\'\s*$$ -> Record
+  ^\s*\%\s*${err}\s*\'peer ${peer}\s*interface\s*${interface}\'\s*$$ -> Record
+  ^\s*\%\s*${err}\s*\'peer ${peer}\s*vrf\s*${vrf_name}\s*interface\s*${interface}\'\s*$$ -> Record
+  ^\s*\%\s*${err}\s*\'peer ${peer}\s*interface\s*${interface}\s*vrf\s*${vrf_name}\'\s*$$ -> Record
+  ^\s*\%\s*${err}\s*\'peer ${peer}\s*interface\s*${interface}\s*local-address\s*${local_addr}\'\s*$$ -> Record
+  ^\s*\%\s*${err}\s*\'peer ${peer}\s*interface\s*${interface}\s*local-address\s*${local_addr}\s*vrf\s*${vrf_name}\'\s*$$ -> Record
+  ^\s*\%\s*${err}\s*\'peer ${peer}\s*vrf\s*${vrf_name}\s*interface\s*${interface}\s*local-address\s*${local_addr}\'\s*$$ -> Record
+  ^\s*peer\s*(.*) -> Continue.Record
+  ^\s*peer\s*${peer}$$
+  ^\s*peer\s*${peer}\s*vrf\s*${vrf_name}$$
+  ^\s*peer\s*${peer}\s*local-address\s*${local_addr}$$
+  ^\s*peer\s*${peer}\s*vrf\s*${vrf_name}\s*local-address\s*${local_addr}$$
+  ^\s*peer\s*${peer}\s*local-address\s*${local_addr}\s*vrf\s*${vrf_name}$$
+  ^\s*peer\s*${peer}\s*local-address\s*${local_addr}\s*interface\s*${interface}$$
+  ^\s*peer\s*${peer}\s*local-address\s*${local_addr}\s*vrf\s*${vrf_name}\s*interface\s*${interface}$$
+  ^\s*peer\s*${peer}\s*interface\s*${interface}$$
+  ^\s*peer\s*${peer}\s*vrf\s*${vrf_name}\s*interface\s*${interface}$$
+  ^\s*peer\s*${peer}\s*interface\s*${interface}\s*vrf\s*${vrf_name}$$i
+  ^\s*peer\s*${peer}\s*interface\s*${interface}\s*local-address\s*${local_addr}$$
+  ^\s*peer\s*${peer}\s*vrf\s*${vrf_name}\s*local-address\s*${local_addr}\s*interface\s*${interface}$$
+  ^\s*peer\s*${peer}\s*local-address\s*${local_addr}\s*interface\s*${interface}\s*vrf\s*${vrf_name}$$
+  ^\s*peer\s*${peer}\s*multihop\s*local-address\s*${local_addr}$$
+  ^\s*peer\s*${peer}\s*multihop\s*local-address\s*${local_addr}\s*vrf\s*${vrf_name}\s*interface\s*${interface}$$
+  ^\s*peer\s*${peer}\s*multihop\s*local-address\s*${local_addr}\s*vrf\s*${vrf_name}$$
+  ^\s*peer\s*${peer}\s*vrf\s*${vrf_name}\s*multihop\s*local-address\s*${local_addr}$$
+  ^\s*label:\s*${label}
+  ^\s*ID:\s*${local_id}
+  ^\s*Remote ID:\s*${remote_id}
+  ^\s*Status:\s*${status}
+  ^\s*Uptime:\s*${upTimeDay}\s*day\(s\),\s*${upTimeHr}\s*hour\(s\),\s*${upTimeMin}\s*minute\(s\),\s*${upTimeSec}\s*second\(s\)
+  ^\s*Uptime:\s*${upTimeHr}\s*hour\(s\),\s*${upTimeMin}\s*minute\(s\),\s*${upTimeSec}\s*second\(s\)
+  ^\s*Uptime:\s*${upTimeMin}\s*minute\(s\),\s*${upTimeSec}\s*second\(s\)
+  ^\s*Uptime:\s*${upTimeSec}\s*second\(s\)
+  ^\s*Downtime:\s*${downTimeDay}\s*day\(s\),\s*${downTimeHr}\s*hour\(s\),\s*${downTimeMin}\s*minute\(s\),\s*${downTimeSec}\s*second\(s\)
+  ^\s*Downtime:\s*${downTimeHr}\s*hour\(s\),\s*${downTimeMin}\s*minute\(s\),\s*${downTimeSec}\s*second\(s\)
+  ^\s*Downtime:\s*${downTimeMin}\s*minute\(s\),\s*${downTimeSec}\s*second\(s\)
+  ^\s*Downtime:\s*${downTimeSec}\s*second\(s\)
+  ^\s*Diagnostics:\s*${diagnostics}
+  ^\s*Remote\s*diagnostics:\s*${remote_diagnostics}
+  ^\s*Peer\s*Type:\s*${peer_type}
+  ^\s*Detect-multiplier:\s*${multiplier}
+  ^\s*Receive\s*interval:\s*${rx_interval}ms
+  ^\s*Transmission\s*interval:\s*${tx_interval}ms
+  ^\s*Echo\s*transmission\s*interval:\s*${echo_tx_interval}ms
+

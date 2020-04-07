@@ -7,18 +7,20 @@ import os
 
 from ptf_runner import ptf_runner
 from common.devices import AnsibleHostBase
+from common.fixtures.conn_graph_facts import conn_graph_facts
+from common.utilities import wait_until
 
 @pytest.fixture(scope="module")
 def common_setup_teardown(duthost, ptfhost, testbed, conn_graph_facts):
     logging.info("########### Setup for lag testing ###########")
 
     lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+    fanout_neighbors = conn_graph_facts['device_conn']
 
     if lag_facts['names'] == []:
         pytest.skip("No lag configuration found in %s" % duthost.hostname)
 
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    logging.info("dut hostname: %s" % mg_facts)
     vm_neighbors = mg_facts['minigraph_neighbors']
 
     # Copy PTF test into PTF-docker for test LACP DU
@@ -38,23 +40,28 @@ def common_setup_teardown(duthost, ptfhost, testbed, conn_graph_facts):
     if testbed_type not in support_testbed_types:
         pytest.skip("Not support given test bed type %s" % testbed_type)
 
-    yield ptfhost, testbed, vm_neighbors, mg_facts, lag_facts
+    yield duthost, ptfhost, vm_neighbors, mg_facts, lag_facts, fanout_neighbors
 
 def test_lag_2(common_setup_teardown, nbrhosts):
-    ptfhost, testbed, vm_neighbors, mg_facts, lag_facts = common_setup_teardown
+    duthost, ptfhost, vm_neighbors, mg_facts, lag_facts, fanout_neighbors = common_setup_teardown
 
     # Test for each lag
     for lag_name in lag_facts['names']:
-        check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name)
+        try:
+            lag_facts['lags'][lag_name]['po_config']['runner']['min_ports']
+        except:
+            logging.info("Skip [check_single_lap_lacp_rate] for lag (%s) due to min_ports not exists" % lag_name)
+            logging.info("Skip [check_single_lap] for lag (%s) due to min_ports not exists" % lag_name)
+            continue
+        else:
+            check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name)
+            check_single_lag(common_setup_teardown, nbrhosts, lag_name)
 
 def check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name):
-    ptfhost, testbed, vm_neighbors, mg_facts, lag_facts = common_setup_teardown
+    duthost, ptfhost, vm_neighbors, mg_facts, lag_facts, fanout_neighbors = common_setup_teardown
     logging.info("Start checking single lap lacp rate for: %s" % lag_name)
     
-    po_interfaces = lag_facts['lags'][lag_name]['po_config']['ports']
-    intf = lag_facts['lags'][lag_name]['po_config']['ports'].keys()[0]
-
-    # Figure out remote VM and interface info
+    intf, po_interfaces = get_lag_intfs(lag_facts, lag_name)
     peer_device = vm_neighbors[intf]['name']
 
     # Prepare for the remote VM interfaces that using PTF docker to check if the LACP DU packet rate is correct
@@ -92,6 +99,26 @@ def check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name):
         if lag_rate_current_setting == 'fast':
             set_interface_lacp_rate(vm_host, neighbor_lag_intfs[0], 'normal')
 
+def check_single_lag(common_setup_teardown, nbrhosts, lag_name):
+    duthost, ptfhost, vm_neighbors, mg_facts, lag_facts, fanout_neighbors = common_setup_teardown
+    logging.info("Start checking single lap for: %s" % lag_name)
+
+    intf, po_interfaces = get_lag_intfs(lag_facts, lag_name)
+    po_flap = check_flap(lag_facts, lag_name)
+
+    # Figure out fanout switches info if exists for the lag member and run minlink test
+    if intf in fanout_neighbors.keys():
+        peer_device = fanout_neighbors[intf]['peerdevice']
+        neighbor_interface = fanout_neighbors[intf]['peerport']
+        vm_host = nbrhosts[peer_device]
+        verify_lag_minlink(duthost, vm_host, lag_name, peer_device, intf, neighbor_interface, po_interfaces, po_flap, deselect_time=5)
+
+    # Figure out remote VM and interface info for the lag member and run minlink test
+    peer_device = vm_neighbors[intf]['name']
+    neighbor_interface = vm_neighbors[intf]['port']
+    vm_host = nbrhosts[peer_device]
+    verify_lag_minlink(duthost, vm_host, lag_name, peer_device, intf, neighbor_interface, po_interfaces, po_flap, deselect_time=95)
+
 def verify_lag_lacp_timing(ptfhost, vm_name, lacp_timer, exp_iface):
     if exp_iface is None:
         return
@@ -106,21 +133,88 @@ def verify_lag_lacp_timing(ptfhost, vm_name, lacp_timer, exp_iface):
     }
     ptf_runner(ptfhost, '/tmp', "lag_test.LacpTimingTest", '/root/ptftests', params=params)
 
-@pytest.fixture(scope="module")
-def conn_graph_facts(testbed_devices):
-    dut = testbed_devices["dut"]
-    return get_conn_graph_facts(testbed_devices, dut.hostname)
+def verify_lag_minlink(
+    duthost,
+    vm_host,
+    lag_name,
+    peer_device,
+    intf,
+    neighbor_interface,
+    po_interfaces,
+    po_flap,
+    deselect_time,
+    wait_timeout = 30):
 
-def get_conn_graph_facts(testbed_devices, host):
-    localhost = testbed_devices["localhost"]
+    delay = 5
+    retries = wait_timeout / delay
+    try:
+        set_neighbor_interface(vm_host, neighbor_interface, shut=True)
 
-    base_path = os.path.dirname(os.path.realpath(__file__))
-    lab_conn_graph_file = os.path.join(base_path, "../ansible/files/lab_connection_graph.xml")
-    result = localhost.conn_graph_facts(host=host, filename=lab_conn_graph_file)['ansible_facts']
-    return result
+        # Let PortalChannel react to neighbor interface shutdown
+        time.sleep(deselect_time)
+
+        # Verify PortChannel interfaces are up correctly
+        for po_intf in po_interfaces.keys():
+            if po_intf != intf:
+                command = 'bash -c "teamdctl %s state dump" | python -c "import sys, json; print json.load(sys.stdin)[\'ports\'][\'%s\'][\'runner\'][\'selected\']"' % (lag_name, po_intf)
+                wait_until(wait_timeout, delay, check_shell_output, duthost, command)
+
+        # Refresh lag facts
+        lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+
+        # Verify lag member is marked deselected for the shutdown porta and all other lag member interfaces are marked selected
+        for po_intf in po_interfaces.keys():
+            if po_intf != intf:
+                assert lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected']
+            else:
+                assert not lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected']
+
+        # Verify PortChannel's interface are marked down/up correctly if it should down/up
+        if po_flap == True:
+            assert lag_facts['lags'][lag_name]['po_intf_stat'] == 'Down'
+        else:
+            assert lag_facts['lags'][lag_name]['po_intf_stat'] == 'Up'
+    finally:
+        # Bring back port in case test error and left testbed in unknow stage
+        # Bring up neighbor interface
+        set_neighbor_interface(vm_host, neighbor_interface, shut=False)
+
+        # Verify PortChannel interfaces are up correctly
+        for po_intf in po_interfaces.keys():
+            if po_intf != intf:
+                command = 'bash -c "teamdctl %s state dump" | python -c "import sys, json; print json.load(sys.stdin)[\'ports\'][\'%s\'][\'link\'][\'up\']"' % (lag_name, po_intf)
+                wait_until(wait_timeout, delay, check_shell_output, duthost, command)
+
+        # Refresh lag facts
+        lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+        for po_intf in po_interfaces.keys():
+            assert lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected'] == True
+        
+        assert lag_facts['lags'][lag_name]['po_intf_stat'] == 'Up'
+
+def get_lag_intfs(lag_facts, lag_name):
+    # Figure out interface informations
+    po_interfaces = lag_facts['lags'][lag_name]['po_config']['ports']
+    intf = lag_facts['lags'][lag_name]['po_config']['ports'].keys()[0]
+    return intf, po_interfaces
+
+def check_flap(lag_facts, lag_name):
+    po_intf_num = len(lag_facts['lags'][lag_name]['po_config']['ports'])
+    po_min_links = lag_facts['lags'][lag_name]['po_config']['runner']['min_ports']
+    return ((po_intf_num - 1) * 100 / po_min_links) < 75
 
 def set_interface_lacp_rate(vm_host, intf, mode):
     vm_host.eos_config(
         lines=['lacp rate %s' % mode],
         parents='interface %s' % intf)
     logging.info("Set interface [%s] lacp rate to [%s]" % (intf, mode))
+
+def set_neighbor_interface(vm_host, neighbor_interface, shut):
+    vm_host.eos_config(
+        lines=['%sshutdown' % ('' if shut else 'no ')],
+        parents='interface %s' % neighbor_interface)
+    logging.info('%s interface [%s]' % ('Shut' if shut else 'No shut', neighbor_interface))
+
+def check_shell_output(host, command):
+    out = host.shell(command)
+    return out['stdout'] == 'True'

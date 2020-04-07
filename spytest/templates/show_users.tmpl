@@ -1,0 +1,16 @@
+#admin    ttyS1        2019-03-25 20:31
+#admin    ttyS1        2019-03-25 20:31 (100.127.20.23)
+#admin    pts/9        May 11 22:32 (100.127.20.23)
+Value User (\w+)
+Value SessionType (\S+)
+Value Month (\S+)
+Value MonthDay (\d+)
+Value Hours (\d+)
+Value Minutes (\d+)
+Value Ip (\S+)
+Value Year (\d+)
+
+Start
+  ^${User}\s+${SessionType}\s+${Year}\-${Month}\-${MonthDay}\s+${Hours}:${Minutes}$$ -> Record
+  ^${User}\s+${SessionType}\s+${Year}\-${Month}\-${MonthDay}\s+${Hours}:${Minutes}\s+${Ip}$$ -> Record
+  ^${User}\s+${SessionType}\s+${Month}\s+${MonthDay}\s+${Hours}:${Minutes}\s+${Ip}$$ -> Record

@@ -1,0 +1,9 @@
+Value Message (.*)
+Value Username (\S+)
+Value Time (.*)
+
+Start
+  ^${Message}\[User:\s*${Username},\s*Time:\s*${Time}\] -> Record
+  ^${Message} -> Record
+
+EOF
