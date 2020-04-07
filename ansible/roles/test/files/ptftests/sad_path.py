@@ -1,7 +1,6 @@
 import datetime
 import ipaddress
 import re
-import subprocess
 import time
 
 from arista import Arista

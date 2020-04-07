@@ -53,13 +53,10 @@ class DeviceConnection:
             retValue = 0
         except SSHException as sshException:
             logger.error('SSH Command failed with message: %s' % sshException)
-            pass
         except AuthenticationException as authenticationException:
             logger.error('SSH Authentiaction failure with message: %s' % authenticationException)
-            pass
         except BadHostKeyException as badHostKeyException:
             logger.error('SSH Authentiaction failure with message: %s' % badHostKeyException)
-            pass
         finally:
             client.close()
 
