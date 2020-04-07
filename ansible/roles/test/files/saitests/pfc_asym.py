@@ -199,13 +199,13 @@ class PfcAsymOffRxTest(PfcAsymBaseTest):
 
         # Verify that packets are not dropped on src port
         port_counters, queue_counters = sai_thrift_read_port_counters(
-            self.client, port_list[int(self.non_server_port['index'])])
+            self.client, self.non_server_port['oid'])
         assert(port_counters[self.INGRESS_DROP] == 0)
 
         # 1. Verify that packets are not dropped on dst ports
         # 2. Verify that packets are transmitted from dst ports
         for sp in self.server_ports:
-            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[int(sp['index'])])
+            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, sp['oid'])
             self.log("Lossy - EGRESS_DROP: port_counters = {}\n queue_counters = {}\nserver_port = {}".format(
                 port_counters, queue_counters, sp))
             assert(port_counters[self.EGRESS_DROP] == 0)
@@ -217,14 +217,14 @@ class PfcAsymOffRxTest(PfcAsymBaseTest):
 
         # Verify that some packets are dropped on src port, which means that Rx queue is full
         port_counters, queue_counters = sai_thrift_read_port_counters(
-            self.client,port_list[int(self.non_server_port['index'])])
+            self.client, self.non_server_port['oid'])
         self.log("\nLossless - INGRESS_DROP: port_counters = {}\n queue_counters = {}".format(
             port_counters, queue_counters))
         assert(port_counters[self.INGRESS_DROP] > 0)
 
         # Verify that some packets are dropped on dst ports, which means that Tx buffer is full
         for sp in self.server_ports:
-            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[int(sp['index'])])
+            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, sp['oid'])
             self.log("\nLossless - EGRESS_DROP: port_counters = {}\n queue_counters = {}\nserver_port = {}".format(
                 port_counters, queue_counters, sp))
             assert(port_counters[self.EGRESS_DROP] > 0)
@@ -272,14 +272,14 @@ class PfcAsymOnRxTest(PfcAsymBaseTest):
 
         # Verify that packets are not dropped on src port
         port_counters, queue_counters = sai_thrift_read_port_counters(
-            self.client, port_list[int(self.non_server_port['index'])])
+            self.client, self.non_server_port['oid'])
         self.log("Lossy - INGRESS_DROP: port_counters = {}\n queue_counters = {}".format(
             port_counters, queue_counters))
         assert(port_counters[self.INGRESS_DROP] == 0)
 
         # Verify that some packets are dropped on dst ports, which means that Tx buffer is full
         for sp in self.server_ports:
-            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[int(sp['index'])])
+            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, sp['oid'])
             self.log("Lossy - EGRESS_DROP: port_counters = {}\n queue_counters = {}\nserver_port = {}".format(
                 port_counters, queue_counters, sp))
             assert(port_counters[self.EGRESS_DROP] > 0)
@@ -289,14 +289,14 @@ class PfcAsymOnRxTest(PfcAsymBaseTest):
 
         # Verify that some packets are dropped on src port, which means that Rx queue is full
         port_counters, queue_counters = sai_thrift_read_port_counters(
-            self.client, port_list[int(self.non_server_port['index'])])
+            self.client, self.non_server_port['oid'])
         self.log("Lossy - INGRESS_DROP: port_counters = {}\n queue_counters = {}".format(
             port_counters, queue_counters))
         assert(port_counters[self.INGRESS_DROP] > 0)
 
         # Verify that some packets are dropped on dst ports, which means that Tx buffer is full
         for sp in self.server_ports:
-            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[int(sp['index'])])
+            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, sp['oid'])
             self.log("\nLossless - EGRESS_DROP: port_counters = {}\n queue_counters = {}\nserver_port = {}".format(
                 port_counters, queue_counters, sp))
             assert(port_counters[self.EGRESS_DROP] > 0)
