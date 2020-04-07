@@ -148,8 +148,8 @@ class TestHash():
                         if tag_mode['tagging_mode'] == 'untagged':
                             vlan_untag_ports.append(port_name)
 
-        src_ports_name = ports + portchannels_member_ports + vlan_untag_ports
-        g_vars['src_ports'] = [config_facts.get('port_index_map', {})[p] for p in src_ports_name]
+        in_ports_name = ports + portchannels_member_ports + vlan_untag_ports
+        g_vars['in_ports'] = [config_facts.get('port_index_map', {})[p] for p in in_ports_name]
 
     def test_hash_ipv4(self, ptfhost):
         log_file = "/tmp/hash_test.HashTest.ipv4.{}.log".format(self.t)
@@ -166,7 +166,7 @@ class TestHash():
                         "fib_info": "/root/fib_info.txt",
                         "src_ip_range": ",".join(src_ip_range),
                         "dst_ip_range": ",".join(dst_ip_range),
-                        "src_ports": g_vars['src_ports'],
+                        "in_ports": g_vars['in_ports'],
                         "hash_keys": self.hash_keys },
                 log_file=log_file,
                 socket_recv_size=16384)
@@ -186,7 +186,7 @@ class TestHash():
                         "fib_info": "/root/fib_info.txt",
                         "src_ip_range": ",".join(src_ip_range),
                         "dst_ip_range": ",".join(dst_ip_range),
-                        "src_ports": g_vars['src_ports'],
+                        "in_ports": g_vars['in_ports'],
                         "hash_keys": self.hash_keys },
                 log_file=log_file,
                 socket_recv_size=16384)

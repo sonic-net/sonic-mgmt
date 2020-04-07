@@ -49,7 +49,7 @@ class HashTest(BaseTest):
         self.dataplane = ptf.dataplane_instance
         self.fib = fib.Fib(self.test_params['fib_info'])
         self.router_mac = self.test_params['router_mac']
-        self.src_ports = self.test_params['src_ports']
+        self.in_ports = self.test_params['in_ports']
 
         self.src_ip_range = [unicode(x) for x in self.test_params['src_ip_range'].split(',')]
         self.dst_ip_range = [unicode(x) for x in self.test_params['dst_ip_range'].split(',')]
@@ -69,11 +69,11 @@ class HashTest(BaseTest):
         if exp_port_list <= 1:
             logging.warning("{} has only {} nexthop".format(dst_ip, exp_port_list))
             assert False
-        in_port = random.choice([port for port in self.src_ports if port not in exp_port_list])
+        in_port = random.choice([port for port in self.in_ports if port not in exp_port_list])
 
         hit_count_map = {}
         for _ in range(0, self.BALANCING_TEST_TIMES):
-            in_port = random.choice([port for port in self.src_ports if port not in exp_port_list]) if hash_key == "ingress-port" else in_port
+            in_port = random.choice([port for port in self.in_ports if port not in exp_port_list]) if hash_key == "ingress-port" else in_port
             logging.info("in_port: {}".format(in_port))
             (matched_index, _) = self.check_ip_route(hash_key, in_port, dst_ip, exp_port_list)
             hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
