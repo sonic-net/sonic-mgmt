@@ -1,0 +1,26 @@
+Value Filldown BGP_VERSION (\d+)
+Value Filldown ROUTER_ID (\d+\.\d+\.\d+\.\d)
+Value Filldown RD (\d+\:\d+|\d+\.\d+\.\d+\.\d+)
+Value Required STATUS_CODE (\S+)
+Value EVPN_PREFIX (\s*\[5\]:\[\d+\]:\[\d+\]:\[\d+\.\d+\.\d+\.\d+\]|\s*\[3\]:\[\d+\]:\[\d+\]:\[\d+\.\d+\.\d+\.\d+\]|\s*\[2\]:\[\d+\]:\[\d+\]:\[([0-9a-f]{2}[:]){5}[0-9a-f]{2}\]:\[32\]:\[\d+\.\d+\.\d+\.\d+\]|\s*\[2\]:\[\d+\]:\[\d+\]:\[([0-9a-f]{2}[:]){5}[0-9a-f]{2}\]|\s*\[5\]:\[\d+\]:\[\d+\]:\[\S+\])
+Value NEXT_HOP (\d+\.\d+\.\d+\.\d)
+Value METRIC (\s|\d)
+Value WEIGHT (\d+|\s{1,4}\d+)
+Value PATH ([\d+\s]+|\s{0})
+Value ORIGIN_CODE (i|e|\?)
+Value RT (\d+\:\d+)
+Value ET (\d+)
+Value RMAC (([0-9a-f]{2}[:]){5}[0-9a-f]{2})
+Value Fillup DISPLAYED_PREFIXES (\d+)
+Value Fillup NO_OF_PATHS (\d+)
+
+Start
+  ^\s*BGP table version is ${BGP_VERSION}, local router ID is ${ROUTER_ID}
+  ^\s*Route Distinguisher:\s${RD}
+  ^\s*${STATUS_CODE}\s*${EVPN_PREFIX}
+  ^\s*${NEXT_HOP}          \s{1,8}${METRIC}                 ${WEIGHT}\s${PATH}\s{0,1}${ORIGIN_CODE}$$ 
+  ^\s*RT:${RT}\sET:${ET}\sRmac:${RMAC} -> Continue.Record 
+  ^\s*ET:${ET}\sRT:${RT}\sRmac:${RMAC} -> Continue.Record 
+  ^\s*RT:${RT}\sET:${ET} -> Continue.Record
+  ^\s*ET:${ET}\sRT:${RT} -> Continue.Record
+  ^\s*Displayed\s${DISPLAYED_PREFIXES}\sprefixes\s\(${NO_OF_PATHS}\spaths\)

@@ -1,0 +1,15 @@
+#admin    ttyS1        2019-03-25 20:31
+#admin    ttyS1        2019-03-25 20:31 (100.127.20.23)
+#admin    pts/9        May 11 22:32 (100.127.20.23)
+#-P INPUT ACCEPT
+#-P FORWARD ACCEPT
+#-P OUTPUT ACCEPT
+#-A INPUT -i Vrf10 -p tcp -m tcp --dport 22 -j ACCEPT
+#-A INPUT -i VrfTest -p tcp -m tcp --dport 22 -j ACCEPT
+#-A INPUT -i mgmt+ -p tcp -m tcp --dport 22 -j REJECT --reject-with icmp-port-unreachable
+#-A INPUT -i Vrf+ -p tcp -m tcp --dport 22 -j REJECT --reject-with icmp-port-unreachable
+#-A INPUT -s 127.0.0.1/32 -i lo -j ACCEPT
+Value vrf_name (\S+)
+
+Start
+  ^-A INPUT -i\s+${vrf_name}.* -> Record

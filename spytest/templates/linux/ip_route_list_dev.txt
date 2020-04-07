@@ -1,0 +1,7 @@
+10.89.80.0/20  proto kernel  scope link  src 10.89.87.107
+169.254.0.0/16  scope link  metric 1002
+default via 10.89.80.1
+Cannot find device "test"
+10.89.80.0/20 dev eth0  proto kernel  scope link  src 10.89.87.107
+169.254.0.0/16 dev eth0  scope link  metric 1002
+default via 10.89.80.1 dev eth0

@@ -1,0 +1,8 @@
+Value Port (\S+)
+Value Presence (Not present|Present)
+
+Start
+  ^\s*Port\s+Presence\s+
+  ^(-+\s+-+)*$$
+  ^\s*${Port}\s+${Presence} -> Record
+  ^\s*$$

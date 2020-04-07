@@ -484,7 +484,10 @@ class ReloadTest(BaseTest):
         self.dut_mac = self.test_params['dut_mac']
 
         # get VM info
-        arista_vms = self.test_params['arista_vms'][1:-1].split(",")
+        if isinstance(self.test_params['arista_vms'], list):
+            arista_vms = self.test_params['arista_vms']
+        else:
+            arista_vms = self.test_params['arista_vms'][1:-1].split(",")
         self.ssh_targets = []
         for vm in arista_vms:
             if (vm.startswith("'") or vm.startswith('"')) and (vm.endswith("'") or vm.endswith('"')):

@@ -1,0 +1,33 @@
+
+default :
+  current: #current.bin
+  restore: #golden.bin
+
+arlo :
+  current: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/daily/2.0/broadcom/LATEST_BUILD/sonic-broadcom.bin
+  #restore: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/daily/2.0/broadcom/GA_BUILD/sonic-broadcom.bin
+
+arloplus :
+  current: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/daily/2.1/broadcom/LATEST_BUILD/sonic-broadcom-cloud-advanced.bin
+  #restore: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/daily/2.1/broadcom/GA_BUILD/sonic-broadcom.bin
+
+arloplus_rc :
+  current: http://10.59.132.240:9009/projects/sonic_deliverables/sonic_2.1/release/broadcom/Broadcom_SONiC_2.1.0_RC11/sonic-broadcom-cloud-advanced.bin
+  #restore: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/daily/2.1/broadcom/GA_BUILD/sonic-broadcom.bin
+
+buzznik :
+  current: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/daily/3.0/broadcom/LATEST_BUILD_NGCOV/sonic-broadcom-cloud-advanced.bin
+  #restore: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/daily/3.0/broadcom/GA_BUILD/sonic-broadcom.bin
+
+daily :
+  current: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/daily/3.0/broadcom/LATEST_BUILD_NGCOV/sonic-broadcom-cloud-advanced.bin
+  #restore: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/daily/3.0/broadcom/GA_BUILD/sonic-broadcom.bin
+
+daily_gcov :
+  current: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/daily/3.0/broadcom/LATEST_BUILD_GCOV/sonic-broadcom-cloud-advanced.bin
+  #restore: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/daily/3.0/broadcom/GA_BUILD/sonic-broadcom.bin
+
+community :
+  current: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/community/LATEST_BUILD/sonic-broadcom.bin
+  #restore: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/community/GA_BUILD/sonic-broadcom.bin
+

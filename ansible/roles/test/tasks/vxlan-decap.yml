@@ -47,6 +47,10 @@
       template: src=vxlan_db.maps.json.j2 dest=/tmp/vxlan_db.maps.{{ item }}.json
       with_items: "{{ minigraph_vlans }}"
 
+    - set_fact:
+          send_packet_count: 10
+      when: send_packet_count is not defined
+
     - include_tasks: ptf_runner.yml
       vars:
         ptf_test_name: Vxlan decap test - No vxlan configuration
@@ -58,7 +62,7 @@
         ptf_test_params:
         - vxlan_enabled=False
         - config_file='/tmp/vxlan_decap.json'
-        - count=10
+        - count={{ send_packet_count }}
 
     - name: Configure vxlan decap tunnel
       shell: sonic-cfggen -j /tmp/vxlan_db.tunnel.json --write-to-db
@@ -78,7 +82,7 @@
         ptf_test_params:
         - vxlan_enabled=True
         - config_file='/tmp/vxlan_decap.json'
-        - count=10
+        - count={{ send_packet_count }}
 
     - name: Remove vxlan tunnel maps configuration
       shell: docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnelVxlan|map{{ item }}"
@@ -98,7 +102,7 @@
         ptf_test_params:
         - vxlan_enabled=False
         - config_file='/tmp/vxlan_decap.json'
-        - count=10
+        - count={{ send_packet_count }}
 
 - block:
     - name: Remove vxlan tunnel maps configuration

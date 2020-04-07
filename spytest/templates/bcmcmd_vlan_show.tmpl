@@ -1,0 +1,9 @@
+Value vlan (\S+)
+Value ports (\S+)
+Value untagged (\S+)
+Value filter (\S+)
+
+Start
+  ^\s*vlan\s*${vlan}\s*ports\s*${ports}\s*\(.*\),\s*untagged\s+${untagged}\s*\(.*\)\s*${filter}\s*$$ -> Record
+  
+EOF

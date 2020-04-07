@@ -1,0 +1,12 @@
+Value INTF (\S+)
+Value COUNTNAME (\S+)
+Value TOTVAL (\S+)
+Value DIFFVAL (\S+)
+
+Start
+  ^\s*IFACE\s+COUNTER\s+COUNT\s+CHANGE
+  ^(-+\s*)*$$
+  ^\s*${INTF}\s+${COUNTNAME}\s+${TOTVAL}\s+${DIFFVAL} -> Record 
+  ^$$
+
+EOF

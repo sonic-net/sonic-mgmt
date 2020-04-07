@@ -1,0 +1,6 @@
+Value vrf_name (\S+)
+Value interfaces (\S+)
+
+Start
+  ^VRF-Name\s+Interfaces
+  ^${vrf_name}\s+${interfaces}\s*$$ -> Record

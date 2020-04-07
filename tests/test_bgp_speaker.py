@@ -131,7 +131,7 @@ def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthost, ptfhost, colle
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 1514)])
-def test_bgp_speaker_announce_routes(common_setup_teardown, duthost, ptfhost, ipv4, ipv6, mtu, collect_techsupport):
+def test_bgp_speaker_announce_routes(common_setup_teardown, testbed, duthost, ptfhost, ipv4, ipv6, mtu, collect_techsupport):
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """
@@ -180,7 +180,7 @@ def test_bgp_speaker_announce_routes(common_setup_teardown, duthost, ptfhost, ip
                 "ptftests",
                 "fib_test.FibTest",
                 platform_dir="ptftests",
-                params={"testbed_type": "t0",
+                params={"testbed_type": testbed['topo']['name'],
                         "router_mac": interface_facts['ansible_interface_facts']['Ethernet0']['macaddress'],
                         "fib_info": "/root/bgp_speaker_route.txt",
                         "ipv4": ipv4,

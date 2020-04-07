@@ -1,0 +1,13 @@
+Value vrfName (\S+)
+Value Required vrfTableID (\d+)
+Value Required vrfID (\d+)
+Value List interfaces (\S+)
+
+Start
+  ^.*----- -> Routes
+
+Routes
+  ^\S+\s+\d+ -> Continue.Record
+  ^${vrfName}\s+${vrfTableID}\s+${vrfID}\s+${interfaces}
+  ^\s+${interfaces} 
+  

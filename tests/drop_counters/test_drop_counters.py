@@ -483,6 +483,7 @@ def test_equal_smac_dmac_drop(ptfadapter, duthost, setup, fanouthost, pkt_fields
     src_mac = ports_info["dst_mac"]
 
     if "mellanox" == duthost.facts["asic_type"]:
+        pytest.skip("Currently not supported on Mellanox platform")
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
         fanouthost.update_config(template_path=MELLANOX_MAC_UPDATE_SCRIPT, match_mac=src_mac, set_mac=ports_info["dst_mac"], eth_field="eth_src")
@@ -508,6 +509,7 @@ def test_multicast_smac_drop(ptfadapter, duthost, setup, fanouthost, pkt_fields,
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], multicast_smac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 
     if "mellanox" == duthost.facts["asic_type"]:
+        pytest.skip("Currently not supported on Mellanox platform")
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
         fanouthost.update_config(template_path=MELLANOX_MAC_UPDATE_SCRIPT, match_mac=src_mac, set_mac=multicast_smac, eth_field="eth_src")
@@ -535,6 +537,7 @@ def test_reserved_dmac_drop(ptfadapter, duthost, setup, fanouthost, pkt_fields, 
     for reserved_dmac in reserved_mac_addr:
         dst_mac = reserved_dmac
         if "mellanox" == duthost.facts["asic_type"]:
+            pytest.skip("Currently not supported on Mellanox platform")
             dst_mac = "00:00:00:00:00:11"
             # Prepare openflow rule
             fanouthost.update_config(template_path=MELLANOX_MAC_UPDATE_SCRIPT, match_mac=dst_mac, set_mac=reserved_dmac, eth_field="eth_dst")
@@ -932,7 +935,7 @@ def test_broken_ip_header(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, 
     """
     @summary: Verify that packets with broken IP header are dropped and L3 drop counter incremented
     """
-    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], src_mac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"], # DUT port
