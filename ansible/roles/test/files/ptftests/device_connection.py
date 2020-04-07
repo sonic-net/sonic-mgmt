@@ -8,9 +8,9 @@ DEFAULT_CMD_EXECUTION_TIMEOUT_SEC = 10
 
 class DeviceConnection:
     '''
-    DeviceConnection uses Pramiko module to connect to devices
+    DeviceConnection uses Paramiko module to connect to devices
 
-    Pramiko module uses fallback mechanism where it would first try to use
+    Paramiko module uses fallback mechanism where it would first try to use
     ssh key and that fails, it will attempt username/password combination
     '''
     def __init__(self, hostname, username, password=None):
