@@ -1,0 +1,9 @@
+Value bg_ifname (\w+)
+Value bg_cfg_shut (Yes|No)
+Value bg_oper_shut (Yes|No|NA)
+
+Start 
+  ^PortNum\s+Shutdown\s+Port Shut\s*$$
+  ^${bg_ifname}\s+${bg_cfg_shut}\s+${bg_oper_shut}$$ -> Record
+
+EOF

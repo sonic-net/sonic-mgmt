@@ -182,7 +182,7 @@
 
       - name: execute configlet application script, which applies configlets in strict order.
         become: true
-        shell: bash -c "/etc/sonic/apply_clet.sh"
+        shell: bash "/etc/sonic/apply_clet.sh"
         when: stat_result.stat.exists is defined and stat_result.stat.exists
 
       - name: execute cli "config save -y" to save current minigraph as startup-config

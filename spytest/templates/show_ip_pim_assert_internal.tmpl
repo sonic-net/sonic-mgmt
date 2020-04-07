@@ -1,0 +1,27 @@
+###############################################################
+#sonic# show ip pim assert-internal 
+#CA:   CouldAssert
+#ECA:  Evaluate CouldAssert
+#ATD:  AssertTrackingDesired
+#eATD: Evaluate AssertTrackingDesired
+#
+#Interface Address         Source          Group           CA  eCA ATD eATD
+#Ethernet46 10.1.1.2        10.2.1.20       232.0.0.20      no  no  no  no  
+#
+###############################################################
+Value interface (\w+)
+Value address ([\w\.]+)
+Value source ([\w\.]+)
+Value group ([\w\.]+)
+Value ca (\w+)
+Value eca (\w+)
+Value atd (\w+)
+Value eatd (\w+)
+Value vrf (\w+)
+
+Start
+  ^\s*CA:\s*CouldAssert
+  ^\s*ECA:\s*Evaluate CouldAssert
+  ^\s*ATD:\s*AssertTrackingDesired
+  ^\s*eATD:\s*Evaluate AssertTrackingDesired
+  ^\s*${interface}\s*${address}\s*${source}\s*${group}\s*${ca}\s*${eca}\s*${atd}\s*${eatd}$$ -> Record

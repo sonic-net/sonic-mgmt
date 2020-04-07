@@ -1,0 +1,137 @@
+############################################################################
+#sonic# show ip pim interface Ethernet7
+#Interface  : Ethernet7
+#State      : up
+#Address    : 10.10.10.1 (primary)
+#             fe80::3e2c:99ff:fea6:fba0/64
+#
+#Designated Router
+#-----------------
+#Address   : 10.10.10.1
+#Local DR Priority      : 1
+#Neighbors that didn't      
+# advertise DR Priority : 0
+#
+#Uptime    : --:--:--
+#Elections : 2
+#Changes   : 0
+#
+#
+#Hellos
+#------
+#Period         : 30
+#Timer          : 00:00:04
+#StatStart      : 00:01:25
+#Receive        : 0
+#Receive Failed : 0
+#Send           : 3
+#Send Failed    : 0
+#Generation ID  : 2e7ca6f0
+#
+#
+#Flags
+#-----
+#All Multicast   : no
+#Broadcast       : yes
+#Deleted         : no
+#Interface Index : 91
+#Multicast       : yes
+#Multicast Loop  : 0
+#Promiscuous     : no
+#
+#
+#Join Prune Interval
+#-------------------
+#LAN Delay                    : yes
+#Effective Propagation Delay  : 0 msec
+#Effective Override Interval  : 0 msec
+#Join Prune Override Interval : 0 msec
+#
+#
+#LAN Prune Delay
+#---------------
+#Propagation Delay           : 500 msec
+#Propagation Delay (Highest) : 0 msec
+#Override Interval           : 2500 msec
+#Override Interval (Highest) : 0 msec
+##########################################################################################
+Value interface (\w+)
+Value state (\w+)
+Value primary_addr ([\w\.\:]*)
+Value List secondary_addr ([\w\.\:\/]+)
+Value pim_nbr ([\w\.]+)
+Value nbr_state (\w+)
+Value nbr_uptime (.*)
+Value nbr_expiry_timer (.*)
+Value dr_addr ([\w\.]+)
+Value dr_priority_local (.*)
+Value nbrs_no_advertise (\d+)
+Value dr_uptime (.*)
+Value dr_elections (\d+)
+Value dr_changes (\d+)
+Value period (\d+)
+Value timer (.*)
+Value stat_start (.*)
+Value receive (\d+)
+Value receive_failed (\d+)
+Value send (\d+)
+Value send_failed (\d+)
+Value gen_id (.*)
+Value all_multicast (\w+)
+Value broadcast (\w+)
+Value deleted (\w+)
+Value ifindex (\w+)
+Value multicast (\w+)
+Value mulicast_loop (\w+)
+Value promiscuous (\w+)
+Value lan_delay (\w+)
+Value eff_propogation_delay (\d+)
+Value eff_override_interval (\d+)
+Value join_prune_override_interval (\d+)
+Value propogation_delay (\d+)
+Value propogation_delay_high (\d+)
+Value override_interval (\d+)
+Value override_interval_high (\d+)
+
+Start
+  ^\s*Interface\s*:\s*${interface}$$
+  ^\s*State\s*:\s*${state}$$
+  ^\s*Address\s*:\s*${primary_addr}\s*\(primary\)$$
+  ^\s*${secondary_addr}$$
+  ^.*------- -> header
+
+header
+  ^\s*${pim_nbr}\s*\:\s*${nbr_state}\s*for${nbr_uptime}\s*,\s*holdtime\s*expires\s*in\s*${nbr_expiry_timer}$$
+  ^\s*Address\s*\:\s*${dr_addr}$$
+  ^\s*Local\s*DR\s*Priority\s*\:\s*${dr_priority_local}$$
+  ^\s*advertise\s*DR\s*Priority\s*:\s*${nbrs_no_advertise}$$
+  ^\s*Uptime\s*\:\s*${dr_uptime}$$
+  ^\s*Elections\s*:\s*${dr_elections}$$
+  ^\s*Changes\s*:\s*${dr_changes}$$
+  ^\s*Period\s*:\s*${period}$$
+  ^\s*Timer\s*:\s*${timer}$$
+  ^\s*StatStart\s*:\s*${stat_start}$$
+  ^\s*Receive\s*:\s*${receive}$$
+  ^\s*Receive\s*Failed\s*:\s*${receive_failed}$$
+  ^\s*Send\s*:\s*${send}$$
+  ^\s*Send\s*Failed\s*:\s*${send_failed}$$
+  ^\s*Generation\s*ID\s*:\s*${gen_id}$$
+  ^\s*All\s*Multicast\s*:\s*${all_multicast}$$
+  ^\s*Broadcast\s*:\s*${broadcast}$$
+  ^\s*Deleted\s*:\s*${deleted}$$
+  ^\s*Interface\s*Index\s*:\s*${ifindex}$$
+  ^\s*Multicast\s*:\s*${multicast}$$
+  ^\s*Multicast\s*Loop\s*:\s*${mulicast_loop}$$
+  ^\s*Promiscuous\s*:\s*${promiscuous}$$
+  ^\s*LAN\s*Delay\s*:\s*${lan_delay}$$
+  ^\s*Effective\s*Propagation\s*Delay\s*:\s*${eff_propogation_delay}\s*msec$$
+  ^\s*Effective\s*Override\s*Interval\s*:\s*${eff_override_interval}\s*msec$$
+  ^\s*Join\s*Prune\s*Override\s*Interval\s*:\s*${join_prune_override_interval}\s*msec$$
+  ^\s*Propagation\s*Delay\s*:\s*${propogation_delay}\s*msec$$
+  ^\s*Propagation\s*Delay\s*\(Highest\)\s*:\s*${propogation_delay_high}\s*msec$$
+  ^\s*Override\s*Interval\s*:\s*${override_interval}\s*msec$$
+  ^\s*Override\s*Interval\s*\(Highest\)\s*:\s*${override_interval_high}\s*msec -> Record Start
+
+
+
+

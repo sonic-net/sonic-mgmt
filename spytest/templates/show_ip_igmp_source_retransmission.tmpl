@@ -1,0 +1,13 @@
+#########################################################
+#sonic# show ip igmp source  retransmissions 
+#Interface Address         Group           Source          Counter
+#Ethernet46 20.20.20.1      231.1.1.1       10.10.10.2            0
+##########################################################
+Value interface (\w+)
+Value address ([\w\.]+)
+Value group ([\w\.]+)
+Value source ([\w\.]+)
+Value counter (\d+)
+
+Start
+  ^\s*${interface}\s*${address}\s*${group}\s*${source}\s*${counter}$$ -> Record

@@ -1,0 +1,10 @@
+Value TableID (\S+)
+Value ResourceName (\S+)
+Value UsedCount (\d+)
+Value AvailableCount (\d+)
+
+Start
+  ^\s*Table ID\s+Resource Name\s+Used Count\s+Available Count\s*$$
+  ^(-+\s*)*$$
+  ^\s*${TableID}\s+${ResourceName}\s+${UsedCount}\s+${AvailableCount}\s*$$ -> Record
+  ^$$

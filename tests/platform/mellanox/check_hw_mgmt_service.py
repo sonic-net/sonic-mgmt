@@ -28,10 +28,6 @@ def check_hw_management_service(dut):
     assert hw_mgmt_service_state["ActiveState"] == "active", "The hw-management service is not active"
     assert hw_mgmt_service_state["SubState"] == "exited", "The hw-management service is not exited"
 
-    logging.info("Check the thermal control process")
-    tc_pid = dut.command("pgrep -f /usr/bin/hw-management-thermal-control.sh")
-    assert re.match(r"\d+", tc_pid["stdout"]), "The hw-management-thermal-control process is not running"
-
     logging.info("Check thermal control status")
     tc_suspend = dut.command("cat /var/run/hw-management/config/suspend")
     assert tc_suspend["stdout"] == "1", "Thermal control is not suspended"

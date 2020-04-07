@@ -1,0 +1,13 @@
+Value lookup_configured (Advanced|Legacy|Optimized)
+Value lookup_active (Advanced|Legacy|Optimized)
+Value counter_configured ((\w+-)+\w+)
+Value counter_active ((\w+-)+\w+)
+
+
+Start
+  ^\s*Lookup\s+mode:\s*$$
+  ^\s+Configured:\s+${lookup_configured}\s*$$
+  ^\s+Active:\s+${lookup_active}\s*$$
+  ^\s*Counter\s+mode:\s*$$
+  ^\s+Configured:\s+${counter_configured}\s*$$
+  ^\s+Active:\s+${counter_active}\s*$$

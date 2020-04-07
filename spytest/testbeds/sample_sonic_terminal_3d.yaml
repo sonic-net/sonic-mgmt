@@ -1,0 +1,56 @@
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+    s6100-01:
+        device_type: DevSonic
+        access: {protocol: telnet, ip: 1.2.3.4, port: 2000}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
+        credentials: {username: admin, password: YourPaSsWoRd, altpassword: broadcom}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    s6100-02:
+        device_type: DevSonic
+        access: {protocol: telnet, ip: 1.2.3.4, port: 2001}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
+        credentials: {username: admin, password: YourPaSsWoRd, altpassword: broadcom}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    s6100-03:
+        device_type: DevSonic
+        access: {protocol: telnet, ip: 1.2.3.4, port: 2002}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 12, username: admin, password: admin}
+        credentials: {username: admin, password: YourPaSsWoRd, altpassword: broadcom}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    ixia-01:
+        device_type: TGEN
+        properties: {type: ixia, version: 8.40, ip: 1.2.3.5, ix_server: 3.4.5.6, params: def_tg}
+    stc-01:
+        device_type: TGEN
+        properties: {type: stc, version: 4.95, ip: 1.2.3.6, params: def_tg}
+
+topology:
+    s6100-01:
+        interfaces:
+            Ethernet11: {EndDevice: s6100-02, EndPort: Ethernet21, params: def_link}
+            Ethernet12: {EndDevice: s6100-02, EndPort: Ethernet22, params: def_link}
+            Ethernet13: {EndDevice: s6100-02, EndPort: Ethernet23, params: def_link}
+            Ethernet15: {EndDevice: ixia-01, EndPort: 1/1, params: def_tg_link}
+            Ethernet16: {EndDevice: ixia-01, EndPort: 1/2, params: def_tg_link}
+    s6100-02:
+        interfaces:
+            Ethernet24: {EndDevice: s6100-03, EndPort: Ethernet34, params: def_link}
+            Ethernet25: {EndDevice: s6100-03, EndPort: Ethernet35, params: def_link}
+            Ethernet26: {EndDevice: s6100-03, EndPort: Ethernet36, params: def_link}
+            Ethernet27: {EndDevice: stc-01, EndPort: 2/1, params: def_tg_link}
+            Ethernet28: {EndDevice: stc-01, EndPort: 2/2, params: def_tg_link}
+
