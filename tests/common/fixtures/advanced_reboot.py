@@ -408,7 +408,11 @@ class AdvancedReboot:
         '''
         logger.info("Running PTF runner on PTF host: {0}".format(self.ptfhost))
 
+        # Non-routing neighbor/dut lag/bgp, vlan port up/down operation is performed before dut reboot process
+        # lack of routing indicates it is preboot operation
         prebootOper = rebootOper if rebootOper is not None and 'routing' not in rebootOper else None
+        # Routing add/remove is performed during dut reboot process
+        # presence of routing in reboot operation indicates it is during reboot operation (inboot)
         inbootOper = rebootOper if rebootOper is not None and 'routing' in rebootOper else None
 
         self.__updateAndRestartArpResponder(rebootOper)
