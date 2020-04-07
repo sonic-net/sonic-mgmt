@@ -5,6 +5,9 @@
         },
         {
             "type": "psu_info"
+        },
+        {
+            "type": "chassis_info"
         }
     ],
     "policies": [
