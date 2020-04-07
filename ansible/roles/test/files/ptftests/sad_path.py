@@ -335,15 +335,15 @@ class SadOper(SadPath):
     def build_neigh_rt_map(self, neigh_rt_info):
         # construct neigh to route cnt map
         self.neigh_rt_map = dict()
-        for line in neigh_rt_info.strip().split('\n'):
-            key, value = line.split(' ')
+        for line in neigh_rt_info:
+            key, value = line.strip().split(' ')
             self.neigh_rt_map.update({key:value})
 
     def verify_route_cnt(self, rt_incr, is_up=True, v4=True):
         neigh_rt_info, ret = self.get_bgp_route_cnt(is_up=is_up, v4=v4)
         if not ret:
-            for line in neigh_rt_info.strip().split('\n'):
-                neigh_ip, rt_cnt = line.split(' ')
+            for line in neigh_rt_info:
+                neigh_ip, rt_cnt = line.strip().split(' ')
                 exp_cnt = int(self.neigh_rt_map[neigh_ip]) + rt_incr
                 if int(rt_cnt) != exp_cnt:
                     self.fails['dut'].add('%s: Route cnt incorrect for neighbor %s Expected: %d Obtained: %d' % (self.msg_prefix[is_up], neigh_ip, exp_cnt, int(rt_cnt)))
