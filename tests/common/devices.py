@@ -349,15 +349,28 @@ class FanoutHost():
     For running ansible module on the Fanout switch
     """
 
-    def __init__(self, ansible_adhoc, os, hostname, user, passwd):
+    def __init__(self, ansible_adhoc, os, hostname, device_type, user, passwd):
+        self.hostname = hostname
+        self.type = device_type
         if os == 'sonic':
+            self.os = os
             self.host = SonicHost(ansible_adhoc, hostname)
         else:
             # Use eos host if the os type is unknown
+            self.os = 'eos'
             self.host = EosHost(ansible_adhoc, hostname, user, passwd)
+
+    def get_fanout_type(self):
+        return self.os
     
     def shutdown(self, interface_name):
         self.host.shutdown(interface_name)
     
     def no_shutdown(self, interface_name):
         self.host.no_shutdown(interface_name)
+
+    def __str__(self):
+        return "{ os: '%s', hostname: '%s', device_type: '%s' }" % (self.os, self.hostname, self.type)
+    
+    def __repr__(self):
+        return self.__str__()

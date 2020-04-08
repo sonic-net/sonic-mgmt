@@ -13,7 +13,8 @@ import ipaddr as ipaddress
 
 from ansible_host import AnsibleHost
 from collections import defaultdict
-from common.devices import SonicHost, Localhost, PTFHost, EosHost
+from common.fixtures.conn_graph_facts import conn_graph_facts
+from common.devices import SonicHost, Localhost, PTFHost, EosHost, FanoutHost
 
 logger = logging.getLogger(__name__)
 
@@ -200,21 +201,33 @@ def nbrhosts(ansible_adhoc, testbed, creds):
     return devices
 
 @pytest.fixture(scope="module")
-def fanouthosts(ansible_adhoc, creds):
+def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
     """
-    Shortcut fixture for getting Fanout host
+    Shortcut fixture for getting Fanout hosts
     """
-    devices = {}
 
-    # TODO: Create a new module for get lab_graph
-    lab_graph = Parse_Lab_Graph(filename)
-    for device in lab_graph.devices:
-        if device['Type'] == 'FanoutLeaf' or device['Type'] == 'FanoutRoot':
-            # TODO: Get OS by device hwsku: https://github.com/Azure/sonic-mgmt/blob/11904a9cc64bfcd68910cbaa3843516ee3e7feae/ansible/testbed-new.yaml
-            os = 'eos'
-            fanout_host = FanoutHost(ansible_adhoc, device['Hostname'], os, creds['fanout_admin_user'], creds['fanout_admin_password']])
-            devices[device['Hostname']] = fanout_host
-            devices[device['mgmtip']] = fanouthosts
+    with open('../ansible/testbed-new.yaml') as stream:
+        testbed_doc = yaml.safe_load(stream)
+
+    fanout_types = ['FanoutLeaf', 'FanoutRoot']
+    devices = {}
+    for hostname in conn_graph_facts['device_info'].keys():
+        device_info = conn_graph_facts['device_info'][hostname]
+        if device_info['Type'] in fanout_types:
+            # Use EOS if the target OS type is unknown
+            os = 'eos' if 'os' not in testbed_doc['devices'][hostname] else testbed_doc['devices'][hostname]['os']
+            device_exists = False
+            try:
+                fanout_host = FanoutHost(ansible_adhoc, os, hostname, device_info['Type'], creds['fanout_admin_user'], creds['fanout_admin_password'])
+                device_exists = True
+            except:
+                logging.warning("Couldn't found the given host(%s) in inventory file" % hostname)
+            
+            if device_exists:
+                # Index fanout host by both hostname and mgmt ip
+                devices[hostname] = fanout_host
+                devices[device_info['mgmtip']] = fanout_host
+
     return devices
 
 @pytest.fixture(scope='session')
