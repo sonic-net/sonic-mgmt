@@ -1073,7 +1073,7 @@ def _test_multiple_target_get(encoding):
 
     try:
 
-        tData = ApData.zap.get_testcase_configuration("test_multiple_target_get")
+        tData = ApData.zap.get_testcase_configuration("test_gnmi_SetPfxPath")
         input_conf = json.loads(six.moves.builtins.open(tData["input_conf_file"], 'r').read())
         #print(input_conf)
 

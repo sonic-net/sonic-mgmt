@@ -27,20 +27,21 @@ class ApData:
     else:
         input_file = os.path.join(prefix,"gd_ap_input_file.json")
     testbed = Topology(topo_file=test_bed)
+    uut = testbed.get_device(alias="UUT")
+    uut_name = uut.name
     zap = Zap(test_input_file=input_file,topo_file=test_bed)
-    p4_feature_dict = zap.get_feature_configuration("p4")  
-    
+    p4_feature_dict = zap.get_feature_configuration("p4")
+
 class P4ApBase(ApBase):
     # P4 Base Variables
     ApData.p4info = ApData.p4_feature_dict['p4info']
     ApData.p4json = ApData.p4_feature_dict['p4json']
     ApData.input_conf_file = ApData.p4_feature_dict['input_conf_file']
-    ApData.svr_addr = ApData.p4_feature_dict['R1']['svr_addr']
-    ApData.port_addr = ApData.p4_feature_dict['R1']['svr_port']
-    ApData.proto_dump_file = ApData.p4_feature_dict['R1']['proto_dump_file']
-    ApData.device_id = ApData.p4_feature_dict['R1']['device_id']
-    ApData.sw_name = ApData.p4_feature_dict['R1']['name']
+    ApData.svr_addr = ApData.p4_feature_dict[ApData.uut_name]['svr_addr']
+    ApData.port_addr = ApData.p4_feature_dict[ApData.uut_name]['svr_port']
+    ApData.proto_dump_file = ApData.p4_feature_dict[ApData.uut_name]['proto_dump_file']
+    ApData.device_id = ApData.p4_feature_dict[ApData.uut_name]['device_id']
+    ApData.sw_name = ApData.p4_feature_dict[ApData.uut_name]['name']
     ApData.skip_set_pipeline = 0
     # Port Configuration Variables
-    
 
