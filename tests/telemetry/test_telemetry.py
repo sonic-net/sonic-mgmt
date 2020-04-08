@@ -1,8 +1,6 @@
 import pytest
 import logging
 
-logger = logging.getLogger(__name__)
-
 # Helper functions
 def get_dict_stdout(gnmi_out, certs_out):
     result = ""
@@ -22,7 +20,6 @@ def get_list_stdout(cmd_out):
 # Test functions
 def test_config_db_parameters(duthost):
     """Verifies required telemetry parameters from config_db.
-       This is scoped as module as it need to be run once before first test run.
     """
     gnmi = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "TELEMETRY|gnmi"', module_ignore_errors=False)['stdout_lines']
     certs = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "TELEMETRY|certs"', module_ignore_errors=False)['stdout_lines']
@@ -42,7 +39,7 @@ def test_config_db_parameters(duthost):
 def test_telemetry_enabledbydefault(duthost):
     """Verify telemetry should be enabled by default
     """
-    status = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "FEATURE|telemetry"', module_ignore_errors=True)['stdout_lines']
+    status = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "FEATURE|telemetry"', module_ignore_errors=False)['stdout_lines']
     status_list = get_list_stdout(status)
     status_dict = dict(itertools.izip_longest(*[iter(status_list)] *2, fillvalue=""))
     for k,v in status_dict.items():
