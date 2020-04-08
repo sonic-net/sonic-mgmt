@@ -1,6 +1,4 @@
-import pytest
-import logging
-
+# Helper Functions
 def get_dict_stdout(cmd_out):
     """Extract dictionary from show features command output
     """
@@ -22,6 +20,7 @@ def get_status_redisout(status_out):
         status = s.encode('UTF-8')
         return status
 
+#Test Functions
 def test_show_features(duthost):
     """Verify show features command output against CONFIG_DB
     """
