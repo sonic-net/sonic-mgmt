@@ -1,12 +1,9 @@
-import pytest
-import logging
-
 # Helper functions
 def get_dict_stdout(gnmi_out, certs_out):
     result = ""
     gnmi_list = []
     gnmi_list = get_list_stdout(gnmi_out) + get_list_stdout(certs_out)
-    params_dict= dict(itertools.izip_longest(*[iter(gnmi_list)] *2, fillvalue=""))
+    params_dict= dict(itertools.izip_longest(*[iter(gnmi_list)] *2, fillvalue = ""))
     return params_dict
 
 def get_list_stdout(cmd_out):
