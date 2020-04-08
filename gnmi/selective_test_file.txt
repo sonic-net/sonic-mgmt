@@ -28,4 +28,5 @@
 #gnmi_ap.py::TestGnmi::()::test_PfxPath_with_MultiKey
 #gnmi_ap.py::TestGnmi::()::test_MultiSet_Mkey1
 #gnmi_ap.py::TestGnmi::()::test_default_filter
-gnmi_ap.py::TestGnmi::()::test_get_at_root
+#gnmi_ap.py::TestGnmi::()::test_get_at_root
+#gnmi_ap.py::TestGnmi::()::test_multiple_target_get

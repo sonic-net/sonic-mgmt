@@ -139,9 +139,10 @@ class TestGnmi(GnmiApBase):
     
     def test_parallel_set_get(self,gnmi_conn):
         gnmi_san_tc._test_parallel_set_get(gnmi_conn)
- 
-    def test_Set_wTgt(self,stub):
-        gnmi_san_tc._test_Set_wTgt(stub)   
+
+    @pytest.mark.parametrize("encoding", ["PROTO", "JSON_IETF"])
+    def test_Set_wTgt(self,stub,encoding):
+        gnmi_san_tc._test_Set_wTgt(stub,encoding)   
 
     def test_Tgt_in_NonPfx(self,stub):
         gnmi_san_tc._test_Tgt_in_NonPfx(stub) 
@@ -162,4 +163,8 @@ class TestGnmi(GnmiApBase):
 
     def test_MultiSet_Mkey1(self,stub):
         gnmi_san_tc._test_MultiSet_Mkey1(stub)
+
+    @pytest.mark.parametrize("encoding", ["PROTO", "JSON_IETF"])
+    def test_multiple_target_get(self,encoding):
+        gnmi_san_tc._test_multiple_target_get(encoding)
 

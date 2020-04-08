@@ -36,6 +36,7 @@ for tp_dir in tp_dirs:
     sys.path.append(os.path.join(TP_DIR,tp_dir))
 
 import gnmi_test_lib as gnmiTestLib
+from gnmi_test_lib import GnmiConnection
 sys.path.append('./../../godiva-test/lib/')
 import common_lib as commonLib
 sys.path.append('../p4/')
@@ -1061,14 +1062,111 @@ def _test_SetPfxPath_2node(stub):
         pytest.fail("Test SETPfx_2node_1 failed due to Grpc Error {err}".format(err=e.details()))
 
 
-def _test_Set_wTgt(stub):
+def _test_multiple_target_get(encoding):
+     
+    pool = Pool(processes=2)
+    user = None
+    password = None
+    err_msg = list()
+    gnmi_conn = GnmiConnection(target=ApData.svr_addr, port=ApData.port_addr)
+    stub = gnmi_conn.stub
+
+    try:
+
+        tData = ApData.zap.get_testcase_configuration("test_multiple_target_get")
+        input_conf = json.loads(six.moves.builtins.open(tData["input_conf_file"], 'r').read())
+        #print(input_conf)
+
+        log.info('Performing SET-REPLACE w/Path Target(gnmi spec:2.2.2.1) for Multiple leaf nodes\n')
+        log.info('For this test we will use Path Target = "SET_GNMI_TGT"')
+
+        if 'SETPfxPath2_1' in input_conf:
+            set_info1 = input_conf['SETPfxPath2_1']
+            print(set_info1['prefix-path'])
+            print(set_info1['Updates'])
+            target = 'SET_GNMI_TGT'
+            xpath = "/"
+            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+            pfx_path = gnmiTestLib._parse_path(gnmiTestLib._path_names(set_info1['prefix-path']),target)
+            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info1['Updates'], pfx_path)
+            resp = str(reply)
+            log.info("### RCVD RESPONSE ###")
+            log.info(resp)
+            sresp = "".join(resp.split('\n'))
+            log.info (sresp)
+            mt1 = 'prefix {  elem {    name: "ietf-interfaces:interfaces"  }  target: "SET_GNMI_TGT"}'
+            mt2 = 'response {  path {  }'
+            if (mt1 in sresp and mt2 in sresp):
+                log.info("Set_wTgt_1_1:Passed - was able to do SET-REPLACE Request w/Path Target for Multiple Leaf Nodes")
+            else:
+                log.info("Set_wTgt_1_1:Failed - was unable to do SET-REPLACE Request w/Path Target for Multiple Leaf Nodes")
+
+            tget = 'target' + ":" + encoding
+            no_tget = 'no_target' + ":" + encoding
+            gnmi_conn.closeAllConnections()
+            results = pool.map(gnmiTestLib.parallel_target_oper,[tget,no_tget])
+            for result in results:
+                oper = result['oper']
+                status = result['status']
+                if "target" in oper:
+                    if status:
+                        log.info("Test test_multiple_target_get Passed: GET received with the target information")
+                    else:
+                        msg=result['msg']
+                        for error in msg:
+                            err_msg.append("Test test_multiple_target_get: Failed failed due to : {}".format(error))
+
+                if "no_target" in oper:
+                    if status:
+                        log.info("Test test_multiple_target_get Passed: GET received without the target information")
+                    else:
+                        msg=result['msg']
+                        for error in msg:
+                            err_msg.append("Test test_multiple_target_get :Failed - failed due to : {}".format(error))
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+    
+    try:
+        gnmi_conn = gnmiTestLib.GnmiConnection(target=ApData.svr_addr,port=ApData.port_addr)
+        #input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("test_gnmi_parallel_oper/input_conf_file"), 'r').read())
+        #set_info = input_conf["SCALE_INTF_{}".format(intf_num)]
+        xpath = "/oc-if:interfaces"
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        reply = gnmiTestLib._set(gnmi_conn.stub, paths, 'delete', user, password,None)
+        log.info(str(reply))
+        if ('response' in str(reply) and 'op: DELETE' in str(reply)):
+            log.info("test_multiple_target_get:Passed - was able to do SET-DELETE on target")
+        else:
+            log.error("test_multiple_target_get:Failed - was unable to do SET-DELETE on target")
+            err_msg.append("test_multiple_target_get:Failed - was unable to do SET-DELETE on target")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        err_msg.append("test_parallel_set_get - Delete Config during cleanup failed due to Grpc Error {err}".format(err=e.details()))
+
+    gnmi_conn.shutdown()
+    if len(err_msg) != 0:
+        log.error("Test test_multiple_target_get failed due to : {}".format(*err_msg))
+        pytest.fail("Test test_multiple_target_get FAILED")
+    else:
+        log.info("Test test_multiple_target_get - PASSED")
+
+def _test_Set_wTgt(stub,encoding):
     user = None
     password = None
     err_msg = list()
 
     tData = ApData.zap.get_testcase_configuration("test_gnmi_SetPfxPath")
     input_conf = json.loads(six.moves.builtins.open(tData["input_conf_file"], 'r').read())
-    print(input_conf)
+    #print(input_conf)
 
     log.info('Performing SET-REPLACE w/Path Target(gnmi spec:2.2.2.1) for Multiple leaf nodes\n')
     log.info('For this test we will use Path Target = "SET_GNMI_TGT"')
@@ -1097,17 +1195,38 @@ def _test_Set_wTgt(stub):
             prefix = input_conf['VERIFY_SETPfxPath2_1']['prefix']
             path = input_conf['VERIFY_SETPfxPath2_1']['path']
             path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
-            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG',target=target)
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG',target=target,encoding=encoding)
             #log.info(response) 
+            if 'PROTO' in encoding:
+                msg_dict = google.protobuf.json_format.MessageToDict(response)
+                #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
+                resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+                for cfg in input_conf['VERIFY_SETPfxPath2_1']['config']:
+                    section = cfg['section']
+                    set_info = input_conf[section]
+                    result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
+                    err_msg = result['err_msg'] + err_msg
+        
+            elif 'JSON_IETF' in encoding:
+                resp_target = response.notification[0].prefix.target
+                if resp_target is not "":
+                    if resp_target == target:
+                        log.info("Received matching target in GET response")
+                    else:
+                        log.error("Received target does not match the target set")
+                        err_msg.append("Received target does not match the target set")
+                else:
+                    log.error("GET response does not have target set")
+                    err_msg.append("GET response does not have target set")
 
-            msg_dict = google.protobuf.json_format.MessageToDict(response)
-            #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
-            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
-            for cfg in input_conf['VERIFY_SETPfxPath2_1']['config']:
-                section = cfg['section']
-                set_info = input_conf[section]
-                result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
-                err_msg = result['err_msg'] + err_msg
+                json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+                #print(json_ietf_val)
+                json_ietf_val = json_ietf_val['data']['ietf-interfaces:interfaces']['interface']
+                set_dict = set_info1['Updates']['interface']
+                for set_d, get_d in zip(set_dict,json_ietf_val):
+                    result = gnmiTestLib.verify_json_ietf_response(set_d,get_d)
+                    err_msg = result['err_msg'] + err_msg
+                
     
     except KeyboardInterrupt:
         log.info("Shutting down.")
@@ -1144,17 +1263,37 @@ def _test_Set_wTgt(stub):
             prefix = input_conf['VERIFY_MdfyTGT1_1']['prefix']
             path = input_conf['VERIFY_MdfyTGT1_1']['path']
             path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
-            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG',target=target)
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG',target=target,encoding=encoding)
             #log.info(response) 
+            if 'PROTO' in encoding:
+                msg_dict = google.protobuf.json_format.MessageToDict(response)
+                #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
+                resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+                for cfg in input_conf['VERIFY_MdfyTGT1_1']['config']:
+                    section = cfg['section']
+                    set_info = input_conf[section]
+                    result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
+                    err_msg = result['err_msg'] + err_msg
+            
+            elif 'JSON_IETF' in encoding:
+                resp_target = response.notification[0].prefix.target
+                if resp_target is not "":
+                    if resp_target == target:
+                        log.info("Received matching target in GET response")
+                    else:
+                        log.error("Received target does not match the target set")
+                        err_msg.append("Received target does not match the target set")
+                else:
+                    log.error("GET response does not have target set")
+                    err_msg.append("GET response does not have target set")
 
-            msg_dict = google.protobuf.json_format.MessageToDict(response)
-            #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
-            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
-            for cfg in input_conf['VERIFY_MdfyTGT1_1']['config']:
-                section = cfg['section']
-                set_info = input_conf[section]
-                result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
-                err_msg = result['err_msg'] + err_msg
+                json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+                print(json_ietf_val)
+                json_ietf_val = json_ietf_val['data']['ietf-interfaces:interfaces']['interface']
+                set_dict = input_conf['SETPfxPath2_1']['Updates']['interface'] + set_info1['Updates']['interface']
+                for set_d, get_d in zip(set_dict,json_ietf_val):
+                    result = gnmiTestLib.verify_json_ietf_response(set_d,get_d)
+                    err_msg = result['err_msg'] + err_msg
 
     except KeyboardInterrupt:
         log.info("Shutting down.")
@@ -1190,17 +1329,33 @@ def _test_Set_wTgt(stub):
             prefix = input_conf['VERIFY_MdfyTGT1_2']['prefix']
             path = input_conf['VERIFY_MdfyTGT1_2']['path']
             path = gnmiTestLib._parse_path(gnmiTestLib._path_names(path))
-            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG')
-            #log.info(response) 
+            response = gnmiTestLib._get(stub, path, user, password,prefix,type='CONFIG',encoding=encoding)
+            log.info(response) 
+            if 'PROTO' in encoding:
+                msg_dict = google.protobuf.json_format.MessageToDict(response)
+                #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
+                resp_dict = gnmiTestLib.get_response_dict(msg_dict)
+                for cfg in input_conf['VERIFY_MdfyTGT1_2']['config']:
+                    section = cfg['section']
+                    set_info = input_conf[section]
+                    result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
+                    err_msg = result['err_msg'] + err_msg
+            
+            elif 'JSON_IETF' in encoding:
+                resp_target = response.notification[0].prefix.target
+                if resp_target is not "":
+                    log.error("GET response should not have a target set, current target set as : %s" % resp_target)
+                    err_msg.append("GET response should not have a target set, current target set as : %s" % resp_target)
+                else:
+                    log.info("GET response does not have target set as expected")
 
-            msg_dict = google.protobuf.json_format.MessageToDict(response)
-            #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
-            resp_dict = gnmiTestLib.get_response_dict(msg_dict)
-            for cfg in input_conf['VERIFY_MdfyTGT1_2']['config']:
-                section = cfg['section']
-                set_info = input_conf[section]
-                result = gnmiTestLib.verify_get_response(resp_dict,set_info,cfg)
-                err_msg = result['err_msg'] + err_msg
+                json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+                print(json_ietf_val)
+                json_ietf_val = json_ietf_val['data']['ietf-interfaces:interfaces']['interface']
+                set_dict = input_conf['SETPfxPath2_1']['Updates']['interface'] + input_conf['MdfyTGT1_1']['Updates']['interface'] + set_info1['Updates']['interface']
+                for set_d, get_d in zip(set_dict,json_ietf_val):
+                    result = gnmiTestLib.verify_json_ietf_response(set_d,get_d)
+                    err_msg = result['err_msg'] + err_msg
 
     except KeyboardInterrupt:
         log.info("Shutting down.")

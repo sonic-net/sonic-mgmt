@@ -864,6 +864,101 @@ def parallel_oper(oper):
 
     return result
 
+def parallel_target_oper(ops):
+    user = None
+    password = None
+    err_msg = list()
+    ret_result = dict()
+    oper = ops.split(":")[0]
+    encoding = ops.split(":")[1]
+    ret_result['oper'] = oper
+    
+    try:    
+        gnmi_conn = GnmiConnection(target=ApData.svr_addr, port=ApData.port_addr)
+        stub = gnmi_conn.stub
+        tData = ApData.zap.get_testcase_configuration("test_gnmi_SetPfxPath")
+        input_conf = json.loads(six.moves.builtins.open(tData["input_conf_file"], 'r').read())
+        #print(input_conf)
+
+        if 'SETPfxPath2_1' in input_conf:
+            set_info1 = input_conf['SETPfxPath2_1']
+            print(set_info1['prefix-path'])
+            print(set_info1['Updates'])
+            target = 'SET_GNMI_TGT'
+
+            prefix = input_conf['VERIFY_SETPfxPath2_1']['prefix']
+            path = input_conf['VERIFY_SETPfxPath2_1']['path']
+            path = _parse_path(_path_names(path))
+            if 'no_target' in oper:
+                response = _get(stub, path, user, password,prefix,type='CONFIG',encoding=encoding)
+            else:
+                response = _get(stub, path, user, password,prefix,type='CONFIG',target=target,encoding=encoding)
+
+            #log.info(response) 
+            if 'PROTO' in encoding:
+                msg_dict = google.protobuf.json_format.MessageToDict(response)
+                #log.info(json.dumps(msg_dict,sort_keys=True, indent=4))
+                resp_dict = get_response_dict(msg_dict)
+                if 'no_target' in oper:
+                    for cfg in input_conf['VERIFY_PARALLEL_NO_TGT']['config']:
+                        section = cfg['section']
+                        set_info = input_conf[section]
+                        result = verify_get_response(resp_dict,set_info,cfg)
+                        err_msg = result['err_msg'] + err_msg
+                else:
+                    for cfg in input_conf['VERIFY_SETPfxPath2_1']['config']:
+                        section = cfg['section']
+                        set_info = input_conf[section]
+                        result = verify_get_response(resp_dict,set_info,cfg)
+                        err_msg = result['err_msg'] + err_msg
+        
+            elif 'JSON_IETF' in encoding:
+                resp_target = response.notification[0].prefix.target
+                if 'no_target' in oper:
+                    resp_target = response.notification[0].prefix.target
+                    if resp_target is not "":
+                        log.error("GET response should not have a target set, current target set as : %s" % resp_target)
+                        err_msg.append("GET response should not have a target set, current target set as : %s" % resp_target)
+                    else:
+                        log.info("GET response does not have target set as expected")
+                else:
+                    if resp_target is not "":
+                        if resp_target == target:
+                            log.info("Received matching target in GET response")
+                        else:
+                            log.error("Received target does not match the target set")
+                            err_msg.append("Received target does not match the target set")
+                    else:
+                        log.error("GET response does not have target set")
+                        err_msg.append("GET response does not have target set")
+
+                json_ietf_val = json.loads(response.notification[0].update[0].val.json_ietf_val)
+                #print(json_ietf_val)
+                json_ietf_val = json_ietf_val['data']['ietf-interfaces:interfaces']['interface']
+                set_dict = set_info1['Updates']['interface']
+                for set_d, get_d in zip(set_dict,json_ietf_val):
+                    result = verify_json_ietf_response(set_d,get_d)
+                    err_msg = result['err_msg'] + err_msg
+
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        err_msg.append(
+            "Test test_multiple_target_get failed due to Grpc Error {err}".format(err=e.details()))
+    gnmi_conn.shutdown()
+
+    if len(err_msg) != 0:
+        ret_result["msg"] = err_msg
+        ret_result["status"] = False
+    else:
+        ret_result["status"] = True
+
+    return ret_result
+
+
 def verify_get_response(resp_dict,set_info,cfg_section,target=None):
     err_msg = list()
     result = dict()
