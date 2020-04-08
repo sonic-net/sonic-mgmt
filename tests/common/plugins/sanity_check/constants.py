@@ -20,4 +20,4 @@ RECOVER_METHODS = {
     "adaptive": {"cmd": None, "reboot": False, "adaptive": True, 'recover_wait': 30},
 }       # All supported recover methods
 
-SUPPORTED_CHECK_ITEMS = ["services", "interfaces", "dbmemory"]          # Supported checks
+SUPPORTED_CHECK_ITEMS = ["services", "interfaces", "dbmemory", "processes"]          # Supported checks
