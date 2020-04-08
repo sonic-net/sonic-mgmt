@@ -51,7 +51,8 @@
         ptf_qlen: 1000
         ptf_test_params:
         - verbose=False
-        - dut_username=\"{{ ansible_ssh_user }}\"
+        - dut_username=\"{{ sonicadmin_user }}\"
+        - dut_password=\"{{ sonicadmin_password }}\"
         - dut_hostname=\"{{ ansible_host }}\"
         - reboot_limit_in_seconds={{ reboot_limit }}
         - reboot_type=\"{{ reboot_type }}\"
