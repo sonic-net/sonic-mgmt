@@ -1,8 +1,6 @@
 import pytest
 import logging
 
-logger = logging.getLogger(__name__)
-
 def get_dict_stdout(cmd_out):
     """Extract dictionary from show features command output
     """
@@ -27,7 +25,7 @@ def get_status_redisout(status_out):
 def test_show_features(duthost):
     """Verify show features command output against CONFIG_DB
     """
-    features_stdout = duthost.shell('show features', module_ignore_errors=True)['stdout_lines']
+    features_stdout = duthost.shell('show features', module_ignore_errors=False)['stdout_lines']
     features_dict = get_dict_stdout(features_stdout)
     for k,v in features_dict.items():
         feature = str(k)
