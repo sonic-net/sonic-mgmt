@@ -1,5 +1,3 @@
-import pytest
-import logging
 
 #Helper Functions
 def get_count_fromredisout(keys_out):
