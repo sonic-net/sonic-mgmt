@@ -360,8 +360,11 @@ class FanoutHost():
             self.os = 'eos'
             self.host = EosHost(ansible_adhoc, hostname, user, passwd)
 
-    def get_fanout_type(self):
+    def get_fanout_os(self):
         return self.os
+
+    def get_fanout_type(self):
+        return self.type
     
     def shutdown(self, interface_name):
         self.host.shutdown(interface_name)
