@@ -762,9 +762,9 @@ def _test_Get_with_wrong_encoding(stub):
             reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info)
             log.info(str(reply))
             if ('response' in str(reply) and 'op: REPLACE' in str(reply)):
-                log.info("_test_Get_with_wrong_path: was able to do SET-REPLACE with input json")
+                log.info("_test_Get_with_wrong_encoding: was able to do SET-REPLACE with input json")
             else:
-                log.info("_test_Get_with_wrong_path:Failed - was unable to do SET-REPLACE with input json")
+                log.info("_test_Get_with_wrong_encoding:Failed - was unable to do SET-REPLACE with input json")
             
             #xpath = "/if:interfaces/if:interface"
             prefix = input_conf['GET_WITH_PFX']['verify']['prefix']
@@ -779,7 +779,7 @@ def _test_Get_with_wrong_encoding(stub):
     except grpc.RpcError as e:
         log.error("### GRPC ERROR RECEIVED:: ###")
         log.error(e)
-        if ('StatusCode.INVALID_ARGUMENT' in str(e) and 'gNMI: Specified encoding 0 is not supported' in str(e)):
+        if ('StatusCode.UNIMPLEMENTED' in str(e) and 'gNMI: Specified encoding 0 is not supported' in str(e)):
             log.info("Test test_Get_with_wrong_encoding.1 - No Encoding :Passed - received correct error message on sending no encoding in GET RPC")
         else:
             log.error("Test test_Get_with_wrong_encoding.1 - No Encoding :Failed - received incorrect error message on sending no encoding in GET RPC")
@@ -1890,7 +1890,7 @@ def _test_SetReq_Del1(stub):
     err_msg = list()
 
     input_conf = json.loads(six.moves.builtins.open(ApData.input_conf_file, 'r').read())
-    print(input_conf)
+    #print(input_conf)
 
     log.info('Performing Test Set-Delete of Node with Children on target \n')
     try:
