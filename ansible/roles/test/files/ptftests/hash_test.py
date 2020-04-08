@@ -84,12 +84,21 @@ class HashTest(BaseTest):
         in_port = random.choice([port for port in self.src_ports if port not in exp_port_list])
 
         hit_count_map = {}
-        for _ in range(0, self.BALANCING_TEST_TIMES):
-            logging.info("in_port: {}".format(in_port))
-            (matched_index, _) = self.check_ip_route(hash_key, in_port, dst_ip, exp_port_list)
-            hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
-        logging.info("hit count map: {}".format(hit_count_map))
-        self.check_balancing(next_hop.get_next_hop(), hit_count_map)
+        if hash_key == 'ingress-port': # The sample is too little for hash_key ingress-port, check it loose(just verify if the asic actually used the hash field as a load-balancing factor)
+            for in_port in [port for port in self.src_ports if port not in exp_port_list]:
+                logging.info("in_port: {}".format(in_port))
+                (matched_index, _) = self.check_ip_route(hash_key, in_port, dst_ip, exp_port_list)
+                hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
+            logging.info("hit count map: {}".format(hit_count_map))
+            assert True if len(hit_count_map.keys()) > 1 else False
+        else:
+            for _ in range(0, self.BALANCING_TEST_TIMES):
+                logging.info("in_port: {}".format(in_port))
+                (matched_index, _) = self.check_ip_route(hash_key, in_port, dst_ip, exp_port_list)
+                hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
+            logging.info("hit count map: {}".format(hit_count_map))
+
+            self.check_balancing(next_hop.get_next_hop(), hit_count_map)
 
     def check_ip_route(self, hash_key, in_port, dst_ip, dst_port_list):
         if ip_network(unicode(dst_ip)).version == 4:
