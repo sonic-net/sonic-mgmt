@@ -1,0 +1,7 @@
+# Configure core file storage secret key and https-proxy as required
+#
+#corefile_uploader:
+#        azure_sonic_core_storage:
+#                account_key: "Your Secret"
+#        env:
+#                https_proxy: "http://10.10.10.10:8000"
