@@ -1,7 +1,10 @@
 Hostname,ManagementIp,HwSku,Type
 STR2-7260CX3-ACS-Root02,10.3.146.104/23,Arista-7260CX3-64,FanoutRoot
 str2-dx010-acs-2,10.3.146.236/23,Celestica-DX010-C32,FanoutLeafSonic
+str-7260cx3-acs-fan-06,10.3.146.176/23,Arista-7260CX3,FanoutLeaf
 str2-msn2700-spy-1,10.3.146.242,Mellanox-SN2700,DevSonic
 str2-msn2700-spy-2,10.3.146.243,Mellanox-SN2700,DevSonic
 str2-a7060-spy-1,10.3.146.241,Arista-7060CX-32S-C32,DevSonic
 str2-a7060-spy-2,10.3.146.240,Arista-7060CX-32S-C32,DevSonic
+str-sn3800-azd,10.3.146.183/23,ACS-MSN3800,DevSonic
+str-acs-serv-17,10.64.246.96/23,TestServ,Server

@@ -6,6 +6,13 @@ str2-msn2700-spy-2  ansible_host=10.3.146.243
 hwsku="Mellanox-SN2700"
 iface_speed='100000'
 
+[sonic_mlnx_3800]
+str-sn3800-azd   ansible_host=10.3.146.183
+
+[sonic_mlnx_3800:vars]
+hwsku="ACS-MSN3800"
+iface_speed='100000'
+
 [sonic_arista]
 str2-a7060-spy-1    ansible_host=10.3.146.241
 str2-a7060-spy-2    ansible_host=10.3.146.240
@@ -17,11 +24,13 @@ iface_speed='100000'
 [sonic:children]
 sonic_mlnx
 sonic_arista
+sonic_mlnx_3800
 
 [sonic:vars]
 mgmt_subnet_mask_length='23'
 
 [ptf]
+v17-3 ansible_host=10.64.246.107
 
 [ptf:vars]
 ansible_ssh_user=root
@@ -33,6 +42,7 @@ fanout
 
 [fanout]
 str2-dx010-acs-2   ansible_host=10.3.146.236 os=sonic
+str-7260cx3-acs-fan-06  ansible_host=10.3.146.176
 
 [docker_registry]
 acs-devrepo.corp.microsoft.com
