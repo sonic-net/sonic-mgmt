@@ -38,6 +38,7 @@ class P4ApBase(ApBase):
     ApData.p4json = ApData.p4_feature_dict['p4json']
     ApData.input_conf_file = ApData.p4_feature_dict['input_conf_file']
     ApData.svr_addr = ApData.p4_feature_dict[ApData.uut_name]['svr_addr']
+    ApData.gnmi_port_addr = ApData.infra_feature_dict[ApData.uut_name]['svr_gnmi_port']
     ApData.port_addr = ApData.p4_feature_dict[ApData.uut_name]['svr_port']
     ApData.proto_dump_file = ApData.p4_feature_dict[ApData.uut_name]['proto_dump_file']
     ApData.device_id = ApData.p4_feature_dict[ApData.uut_name]['device_id']
