@@ -115,9 +115,14 @@ class AdvancedReboot:
 
         self.rebootData['dut_hostname'] = self.mgFacts['minigraph_mgmt_interface']['addr']
         self.rebootData['dut_mac'] = hostFacts['ansible_Ethernet0']['macaddress']
-        self.rebootData['dut_username'] = hostFacts['ansible_env']['SUDO_USER']
         self.rebootData['vlan_ip_range'] = self.mgFacts['minigraph_vlan_interfaces'][0]['subnet']
         self.rebootData['dut_vlan_ip'] = self.mgFacts['minigraph_vlan_interfaces'][0]['addr']
+
+        invetory = self.duthost.host.options['inventory'].split('/')[-1]
+        secrets = self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname]['secret_group_vars']
+        self.rebootData['dut_username'] = secrets[invetory]['sonicadmin_user']
+        self.rebootData['dut_password'] = secrets[invetory]['sonicadmin_password']
+
         self.rebootData['default_ip_range'] = str(
             ipaddress.ip_interface(self.mgFacts['minigraph_vlan_interfaces'][0]['addr'] + '/16').network
         )
@@ -223,13 +228,24 @@ class AdvancedReboot:
             self.ptfhost.shell('ssh-keygen -f /root/.ssh/known_hosts -R ' + dutIp)
 
         logger.info('Generate public key for ptf host')
-        self.ptfhost.shell('ssh-keygen -b 2048 -t rsa -f /root/.ssh/id_rsa -q -N ""')
-        result = self.ptfhost.shell('cat /root/.ssh/id_rsa.pub')
+        self.ptfhost.file(path='/root/.ssh/', mode='u+rwx,g-rwx,o-rwx', state='directory')
+        result = self.ptfhost.openssh_keypair(
+            path='/root/.ssh/id_rsa',
+            size=2048,
+            force=True,
+            type='rsa',
+            mode='u=rw,g=,o='
+        )
+        # There is an error with id_rsa.pub access permissions documented in:
+        # https://github.com/ansible/ansible/issues/61411
+        # @TODO: remove the following line when upgrading to Ansible 2.9x
+        self.ptfhost.file(path='/root/.ssh/id_rsa.pub', mode='u=rw,g=,o=')
+
         cmd = '''
             mkdir -p /home/{0}/.ssh && 
             echo "{1}" >> /home/{0}/.ssh/authorized_keys && 
             chown -R {0}:{0} /home/{0}/.ssh/
-        '''.format(dutUsername, result['stdout'])
+        '''.format(dutUsername, result['public_key'])
         self.duthost.shell(cmd)
 
     def __handleMellanoxDut(self):
@@ -408,8 +424,12 @@ class AdvancedReboot:
         '''
         logger.info("Running PTF runner on PTF host: {0}".format(self.ptfhost))
 
-        prebootOper = rebootOper if rebootOper is not None and 'routing' in rebootOper else None
-        inbootOper = rebootOper if rebootOper is not None and 'routing' not in rebootOper else None
+        # Non-routing neighbor/dut lag/bgp, vlan port up/down operation is performed before dut reboot process
+        # lack of routing indicates it is preboot operation
+        prebootOper = rebootOper if rebootOper is not None and 'routing' not in rebootOper else None
+        # Routing add/remove is performed during dut reboot process
+        # presence of routing in reboot operation indicates it is during reboot operation (inboot)
+        inbootOper = rebootOper if rebootOper is not None and 'routing' in rebootOper else None
 
         self.__updateAndRestartArpResponder(rebootOper)
 
@@ -423,6 +443,7 @@ class AdvancedReboot:
             platform="remote",
             params={
                 "dut_username" : self.rebootData['dut_username'],
+                "dut_password" : self.rebootData['dut_password'],
                 "dut_hostname" : self.rebootData['dut_hostname'],
                 "reboot_limit_in_seconds" : self.rebootLimit,
                 "reboot_type" :self.rebootType,
@@ -452,15 +473,17 @@ class AdvancedReboot:
         '''
         Resotre previous image and reboot DUT
         '''
-        logger.info('Restore current image')
-        self.duthost.shell('sonic_installer set_default {0}'.format(self.currentImage))
-
-        rebootDut(
-            self.duthost,
-            self.localhost,
-            reboot_type=self.rebootType.replace('-reboot', ''),
-            wait = 180 + self.readyTimeout
-        )
+        currentImage = self.duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+        if currentImage != self.currentImage:
+            logger.info('Restore current image')
+            self.duthost.shell('sonic_installer set_default {0}'.format(self.currentImage))
+    
+            rebootDut(
+                self.duthost,
+                self.localhost,
+                reboot_type=self.rebootType.replace('-reboot', ''),
+                wait = self.readyTimeout
+            )
 
     def tearDown(self):
         '''

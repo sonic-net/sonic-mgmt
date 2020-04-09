@@ -8,7 +8,7 @@ import logging
 import os
 import json
 
-from platform_fixtures import conn_graph_facts
+from common.fixtures.conn_graph_facts import conn_graph_facts
 from check_hw_mgmt_service import check_hw_management_service
 
 

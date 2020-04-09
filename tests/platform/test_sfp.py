@@ -13,7 +13,7 @@ import json
 
 import pytest
 
-from platform_fixtures import conn_graph_facts
+from common.fixtures.conn_graph_facts import conn_graph_facts
 from common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 ans_host = None

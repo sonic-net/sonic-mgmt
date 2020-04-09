@@ -9,7 +9,7 @@ import re
 import os
 
 from check_transceiver_status import check_transceiver_status
-from platform_fixtures import conn_graph_facts
+from common.fixtures.conn_graph_facts import conn_graph_facts
 
 
 def test_xcvr_info_in_db(testbed_devices, conn_graph_facts):
