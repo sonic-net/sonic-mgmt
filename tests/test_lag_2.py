@@ -58,7 +58,6 @@ def test_lag_2(common_setup_teardown, nbrhosts):
             check_single_lag(common_setup_teardown, nbrhosts, lag_name)
 
         try:
-            lag_facts['lags'][lag_name]['po_config']['runner']['fallback'] = False
             lag_facts['lags'][lag_name]['po_config']['runner']['fallback']
         except:
             logging.info("Skip [check_lag_fallback] for lag (%s) due to fallback was not set for it" % lag_name)
