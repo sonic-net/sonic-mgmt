@@ -1,9 +1,13 @@
 # Helper functions
 def get_dict_stdout(gnmi_out, certs_out):
-    result = ""
+    """ Extracts dictionary from redis output.
+    """
     gnmi_list = []
     gnmi_list = get_list_stdout(gnmi_out) + get_list_stdout(certs_out)
-    params_dict= dict(itertools.izip_longest(*[iter(gnmi_list)] *2, fillvalue = ""))
+    # Elements in list alternate between key and value. Separate them and combine into a dict.
+    key_list = gnmi_list[0::2]
+    value_list = gnmi_list[1::2]
+    params_dict = dict(zip(key_list, value_list))
     return params_dict
 
 def get_list_stdout(cmd_out):
