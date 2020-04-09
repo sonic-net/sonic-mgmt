@@ -371,15 +371,24 @@ class EosHost(AnsibleHostBase):
         out = self.host.eos_config(
             lines=['shutdown'],
             parents='interface %s' % interface_name)
-        logging.info('Shut interface [%s]' % interface_name)
-        return out
+        if not self.check_intf_link_state(interface_name):
+            logging.info('Shut interface [%s]' % interface_name)
+            return out
+        raise Exception("The interface state is Up but expect Down, detail output: %s" % out[self.hostname])
 
     def no_shutdown(self, interface_name):
         out = self.host.eos_config(
             lines=['no shutdown'],
             parents='interface %s' % interface_name)
-        logging.info('No shut interface [%s]' % interface_name)
-        return out
+        if self.check_intf_link_state(interface_name):
+            logging.info('No shut interface [%s]' % interface_name)
+            return out
+        raise Exception("The interface state is Down but expect Up, detail output: %s" % out[self.hostname])
+
+    def check_intf_link_state(self, interface_name):
+        show_int_result = self.host.eos_command(
+            commands=['show interface %s' % interface_name])[self.hostname]
+        return 'Up' in show_int_result['stdout_lines'][0]
 
 class FanoutHost():
     """

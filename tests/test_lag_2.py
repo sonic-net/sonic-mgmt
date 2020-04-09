@@ -50,16 +50,15 @@ def test_lag_2(common_setup_teardown, nbrhosts):
         try:
             lag_facts['lags'][lag_name]['po_config']['runner']['min_ports']
         except:
-            logging.info("Skip [check_single_lap_lacp_rate] for lag (%s) due to min_ports not exists" % lag_name)
-            logging.info("Skip [check_single_lap] for lag (%s) due to min_ports not exists" % lag_name)
+            logging.info("Skip [check_single_lag_lacp_rate] for lag (%s) due to min_ports not exists" % lag_name)
+            logging.info("Skip [check_single_lag] for lag (%s) due to min_ports not exists" % lag_name)
             continue
         else:
-            logging.info("No test")
-            #check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name)
-            #check_single_lag(common_setup_teardown, nbrhosts, lag_name)
+            check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name)
+            check_single_lag(common_setup_teardown, nbrhosts, lag_name)
 
         try:
-            logging.info('lag fact: %s' % lag_facts['lags'][lag_name]['po_config'])
+            lag_facts['lags'][lag_name]['po_config']['runner']['fallback'] = False
             lag_facts['lags'][lag_name]['po_config']['runner']['fallback']
         except:
             logging.info("Skip [check_lag_fallback] for lag (%s) due to fallback was not set for it" % lag_name)
@@ -68,7 +67,7 @@ def test_lag_2(common_setup_teardown, nbrhosts):
 
 def check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name):
     duthost, ptfhost, vm_neighbors, mg_facts, lag_facts, fanout_neighbors = common_setup_teardown
-    logging.info("Start checking single lap lacp rate for: %s" % lag_name)
+    logging.info("Start checking single lag lacp rate for: %s" % lag_name)
     
     intf, po_interfaces = get_lag_intfs(lag_facts, lag_name)
     peer_device = vm_neighbors[intf]['name']
@@ -110,7 +109,7 @@ def check_single_lag_lacp_rate(common_setup_teardown, nbrhosts, lag_name):
 
 def check_single_lag(common_setup_teardown, nbrhosts, lag_name):
     duthost, ptfhost, vm_neighbors, mg_facts, lag_facts, fanout_neighbors = common_setup_teardown
-    logging.info("Start checking single lap for: %s" % lag_name)
+    logging.info("Start checking single lag for: %s" % lag_name)
 
     intf, po_interfaces = get_lag_intfs(lag_facts, lag_name)
     po_flap = check_flap(lag_facts, lag_name)
@@ -141,7 +140,7 @@ def check_lag_fallback(common_setup_teardown, nbrhosts, lag_name):
 
     try:
         # Shut down neighbor interface
-        set_neighbor_interface(vm_host, neighbor_interface, shut=True)
+        vm_host.shutdown(neighbor_interface)
         time.sleep(120)
 
         # Refresh lag facts
@@ -170,7 +169,7 @@ def check_lag_fallback(common_setup_teardown, nbrhosts, lag_name):
 
     finally:
         # Bring up neighbor interface
-        set_neighbor_interface(vm_host, neighbor_interface, shut=False)
+        vm_host.no_shutdown(neighbor_interface)
         time.sleep(30)
 
         # Refresh lag facts
