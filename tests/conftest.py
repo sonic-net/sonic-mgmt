@@ -200,36 +200,6 @@ def nbrhosts(ansible_adhoc, testbed, creds):
         devices[k] = EosHost(ansible_adhoc, "VM%04d" % (vm_base + v['vm_offset']), creds['eos_login'], creds['eos_password'])
     return devices
 
-@pytest.fixture(scope="module")
-def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
-    """
-    Shortcut fixture for getting Fanout hosts
-    """
-
-    with open('../ansible/testbed-new.yaml') as stream:
-        testbed_doc = yaml.safe_load(stream)
-
-    fanout_types = ['FanoutLeaf', 'FanoutRoot']
-    devices = {}
-    for hostname in conn_graph_facts['device_info'].keys():
-        device_info = conn_graph_facts['device_info'][hostname]
-        if device_info['Type'] in fanout_types:
-            # Use EOS if the target OS type is unknown
-            os = 'eos' if 'os' not in testbed_doc['devices'][hostname] else testbed_doc['devices'][hostname]['os']
-            device_exists = False
-            try:
-                fanout_host = FanoutHost(ansible_adhoc, os, hostname, device_info['Type'], creds['fanout_admin_user'], creds['fanout_admin_password'])
-                device_exists = True
-            except:
-                logging.warning("Couldn't found the given host(%s) in inventory file" % hostname)
-            
-            if device_exists:
-                # Index fanout host by both hostname and mgmt ip
-                devices[hostname] = fanout_host
-                devices[device_info['mgmtip']] = fanout_host
-
-    return devices
-
 @pytest.fixture(scope='session')
 def eos():
     """ read and yield eos configuration """
