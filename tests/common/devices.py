@@ -348,7 +348,7 @@ class SonicHost(AnsibleHostBase):
         return ret
 
     def get_asic_type(self):
-        return dut.facts["asic_type"]
+        return self.facts["asic_type"]
 
 
 class EosHost(AnsibleHostBase):
