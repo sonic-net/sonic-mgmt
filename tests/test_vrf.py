@@ -31,6 +31,11 @@ from common.utilities import wait_until
     So, we prefer a fixture rather than xunit-style setup/teardown functions.
 """
 
+@pytest.fixture(scope="module", autouse=True)
+def setup_check_topo(testbed):
+    if testbed['topo']['name'] != 't0':
+        pytest.skip('Unsupported topology')
+
 # global variables
 g_vars = {}
 

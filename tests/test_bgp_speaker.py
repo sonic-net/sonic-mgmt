@@ -5,6 +5,10 @@ import logging
 import requests
 from ptf_runner import ptf_runner
 
+@pytest.fixture(scope="module", autouse=True)
+def setup_check_topo(testbed):
+    if testbed['topo']['type'] in ['t1', 'ptf']:
+        pytest.skip('Unsupported topology')
 
 def generate_ips(num, prefix, exclude_ips):
     """

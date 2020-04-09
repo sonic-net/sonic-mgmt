@@ -3,6 +3,10 @@ import time
 
 from ptf_runner import ptf_runner
 
+@pytest.fixture(scope="module", autouse=True)
+def setup_check_topo(testbed):
+    if testbed['topo']['type'] in ['t1', 'ptf']:
+        pytest.skip('Unsupported topology')
 
 @pytest.fixture(scope="module", autouse=True)
 def copy_ptftests_directory(ptfhost):

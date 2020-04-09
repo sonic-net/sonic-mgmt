@@ -1,4 +1,10 @@
+import pytest
 from ansible_host import AnsibleHost
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_check_topo(testbed):
+    if testbed['topo']['type'] == 'ptf':
+        pytest.skip('Unsupported topology')
 
 def test_bgp_facts(ansible_adhoc, testbed,duthost):
     """compare the bgp facts between observed states and target state"""
