@@ -119,7 +119,7 @@ class TestP4(P4ApBase):
             gnmi_conn = GnmiConnection(target=ApData.svr_addr, port=ApData.gnmi_port_addr)
             stub = gnmi_conn.stub
             set_info = gnmi_input_conf['PORT_INTF']['config']
-            xpath = "/oc-platform:components"
+            xpath = "/oc-if:interfaces"
             paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
             reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info)
             log.info(str(reply))
@@ -128,8 +128,8 @@ class TestP4(P4ApBase):
             else:
                 log.error("port_cleanup:Failed - was unable to do SET-DELETE on target")
                 err_msg.append("port_cleanup:Failed - was unable to do SET-DELETE on target")
-                
-            xpath = "/oc-if:interfaces"
+            
+            xpath = "/oc-platform:components"
             paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
             reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info)
             log.info(str(reply))
@@ -148,13 +148,16 @@ class TestP4(P4ApBase):
         finally:
             gnmi_conn.shutdown()
 
-
     def setup_method(self):
+        log.info("Clean all P4 Switch connections")
+        p4_switch.ShutdownAllSwitchConnections()
+
+    def setup_class(self):
         log.info("Clean all P4 Switch connections")
         p4_switch.ShutdownAllSwitchConnections()
         self.port_setup()
     
-    def teardown_method(self):
+    def teardown_class(self):
         log.info("Clean all P4 Switch connections")
         p4_switch.ShutdownAllSwitchConnections()
         self.port_cleanup()
