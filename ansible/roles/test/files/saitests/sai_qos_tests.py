@@ -122,6 +122,25 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         send_packet(self, self.dst_port_3_id, arpreq_pkt)
         time.sleep(8)
 
+
+class ARPpopulatePTF(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        router_mac = self.test_params['router_mac']
+        ## ARP Populate
+        index = 0
+        for port in ptf_ports():
+            arpreq_pkt = simple_arp_packet(
+                          eth_dst='ff:ff:ff:ff:ff:ff',
+                          eth_src=self.dataplane.get_mac(port[0],port[1]),
+                          arp_op=1,
+                          ip_snd='10.0.0.%d' % (index * 2 + 1),
+                          ip_tgt='10.0.0.%d' % (index * 2),
+                          hw_snd=self.dataplane.get_mac(port[0], port[1]),
+                          hw_tgt='ff:ff:ff:ff:ff:ff')
+            send_packet(self, port[1], arpreq_pkt)
+            index += 1
+
+
 class ReleaseAllPorts(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)
@@ -1268,6 +1287,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         queue_num_of_pkts[48] = queue_6_num_of_pkts
         total_pkts = 0
 
+        diff_list = []
+
         for pkt_to_inspect in pkts:
             dscp_of_pkt = pkt_to_inspect.payload.tos >> 2
             total_pkts += 1
@@ -1276,9 +1297,15 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 
             queue_pkt_counters[dscp_of_pkt] += 1
             if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
-                 assert((queue_0_num_of_pkts + queue_1_num_of_pkts + queue_2_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts + queue_5_num_of_pkts + queue_6_num_of_pkts) - total_pkts < limit)
+                 diff_list.append((dscp_of_pkt, (queue_0_num_of_pkts + queue_1_num_of_pkts + queue_2_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts + queue_5_num_of_pkts + queue_6_num_of_pkts) - total_pkts))
 
             print >> sys.stderr, queue_pkt_counters
+
+        print >> sys.stderr, "Difference for each dscp: "
+        print >> sys.stderr, diff_list
+
+        for dscp, diff in diff_list:
+            assert diff < limit, "Difference for %d is %d which exceeds limit %d" % (dscp, diff, limit)
 
         # Read counters
         print "DST port counters: "
