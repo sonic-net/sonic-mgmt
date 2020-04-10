@@ -80,73 +80,72 @@ def sw_conn():
         p4_switch.ShutdownAllSwitchConnections()
     #return sw_conn
 
+def port_setup():
+    user = None
+    password = None
+    err_msg = list()
+    try:
+        gnmi_input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("p4_port_intf_setup/gnmi_input_conf_file"), 'r').read())
+        gnmi_conn = GnmiConnection(target=ApData.svr_addr, port=ApData.gnmi_port_addr)
+        stub = gnmi_conn.stub
+        set_info = gnmi_input_conf['PORT_INTF']['config']
+        xpath = "/"
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info)
+        log.info(str(reply))
+        if ('response' in str(reply) and 'op: REPLACE' in str(reply)):
+            log.info("test_Get_with_prefix:Passed - was able to do SET-REPLACE with input json")
+        else:
+            log.info("test_Get_with_prefix:Failed - was unable to do SET-REPLACE with input json")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        err_msg.append("Port and Interface setup failed due to Grpc Error {err}".format(err=e.details()))
+    finally:
+        gnmi_conn.shutdown()
+
+def port_cleanup():
+    user = None
+    password = None
+    err_msg = list()
+    try:
+        gnmi_input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("p4_port_intf_setup/gnmi_input_conf_file"), 'r').read())
+        gnmi_conn = GnmiConnection(target=ApData.svr_addr, port=ApData.gnmi_port_addr)
+        stub = gnmi_conn.stub
+        set_info = gnmi_input_conf['PORT_INTF']['config']
+        xpath = "/oc-if:interfaces"
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info)
+        log.info(str(reply))
+        if ('response' in str(reply) and 'op: DELETE' in str(reply)):
+            log.info("port_cleanup:success - was able to do SET-DELETE on target")
+        else:
+            log.error("port_cleanup:Failed - was unable to do SET-DELETE on target")
+            err_msg.append("port_cleanup:Failed - was unable to do SET-DELETE on target")
+        
+        xpath = "/oc-platform:components"
+        paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
+        reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info)
+        log.info(str(reply))
+        if ('response' in str(reply) and 'op: DELETE' in str(reply)):
+            log.info("port_cleanup:success - was able to do SET-DELETE on target")
+        else:
+            log.error("port_cleanup:Failed - was unable to do SET-DELETE on target")
+            err_msg.append("port_cleanup:Failed - was unable to do SET-DELETE on target")
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
+    except grpc.RpcError as e:
+        log.error("### GRPC ERROR RECEIVED:: ###")
+        log.error(e)
+        printGrpcError(e)
+        err_msg.append("Port and Interface cleanup failed due to Grpc Error {err}".format(err=e.details()))
+    finally:
+        gnmi_conn.shutdown()
 
 class TestP4(P4ApBase):
-
-    def port_setup(self):
-        user = None
-        password = None
-        err_msg = list()
-        try:
-            gnmi_input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("p4_port_intf_setup/gnmi_input_conf_file"), 'r').read())
-            gnmi_conn = GnmiConnection(target=ApData.svr_addr, port=ApData.gnmi_port_addr)
-            stub = gnmi_conn.stub
-            set_info = gnmi_input_conf['PORT_INTF']['config']
-            xpath = "/"
-            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
-            reply = gnmiTestLib._set(stub, paths, 'replace', user, password, set_info)
-            log.info(str(reply))
-            if ('response' in str(reply) and 'op: REPLACE' in str(reply)):
-                log.info("test_Get_with_prefix:Passed - was able to do SET-REPLACE with input json")
-            else:
-                log.info("test_Get_with_prefix:Failed - was unable to do SET-REPLACE with input json")
-        except KeyboardInterrupt:
-            log.info("Shutting down.")
-        except grpc.RpcError as e:
-            log.error("### GRPC ERROR RECEIVED:: ###")
-            log.error(e)
-            printGrpcError(e)
-            err_msg.append("Port and Interface setup failed due to Grpc Error {err}".format(err=e.details()))
-        finally:
-            gnmi_conn.shutdown()
-
-    def port_cleanup(self):
-        user = None
-        password = None
-        err_msg = list()
-        try:
-            gnmi_input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("p4_port_intf_setup/gnmi_input_conf_file"), 'r').read())
-            gnmi_conn = GnmiConnection(target=ApData.svr_addr, port=ApData.gnmi_port_addr)
-            stub = gnmi_conn.stub
-            set_info = gnmi_input_conf['PORT_INTF']['config']
-            xpath = "/oc-if:interfaces"
-            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
-            reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info)
-            log.info(str(reply))
-            if ('response' in str(reply) and 'op: DELETE' in str(reply)):
-                log.info("port_cleanup:success - was able to do SET-DELETE on target")
-            else:
-                log.error("port_cleanup:Failed - was unable to do SET-DELETE on target")
-                err_msg.append("port_cleanup:Failed - was unable to do SET-DELETE on target")
-            
-            xpath = "/oc-platform:components"
-            paths = gnmiTestLib._parse_path(gnmiTestLib._path_names(xpath))
-            reply = gnmiTestLib._set(stub, paths, 'delete', user, password, set_info)
-            log.info(str(reply))
-            if ('response' in str(reply) and 'op: DELETE' in str(reply)):
-                log.info("port_cleanup:success - was able to do SET-DELETE on target")
-            else:
-                log.error("port_cleanup:Failed - was unable to do SET-DELETE on target")
-                err_msg.append("port_cleanup:Failed - was unable to do SET-DELETE on target")
-        except KeyboardInterrupt:
-            log.info("Shutting down.")
-        except grpc.RpcError as e:
-            log.error("### GRPC ERROR RECEIVED:: ###")
-            log.error(e)
-            printGrpcError(e)
-            err_msg.append("Port and Interface cleanup failed due to Grpc Error {err}".format(err=e.details()))
-        finally:
-            gnmi_conn.shutdown()
 
     def setup_method(self):
         log.info("Clean all P4 Switch connections")
@@ -155,12 +154,12 @@ class TestP4(P4ApBase):
     def setup_class(self):
         log.info("Clean all P4 Switch connections")
         p4_switch.ShutdownAllSwitchConnections()
-        self.port_setup()
+        port_setup()
     
     def teardown_class(self):
         log.info("Clean all P4 Switch connections")
         p4_switch.ShutdownAllSwitchConnections()
-        self.port_cleanup()
+        port_cleanup()
 
     def test_setForwarding_pipeline_config(self):
         p4_san_tc._test_setForwarding_pipeline_config()
