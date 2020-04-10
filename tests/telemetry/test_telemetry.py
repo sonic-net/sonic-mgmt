@@ -24,18 +24,21 @@ def test_config_db_parameters(duthost):
     """
     gnmi = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "TELEMETRY|gnmi"', module_ignore_errors=False)['stdout_lines']
     certs = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "TELEMETRY|certs"', module_ignore_errors=False)['stdout_lines']
-    d = get_dict_stdout(gnmi, certs)
-    for key, value in d.items():
-        if str(key) == "client_auth" and str(value) == "true":
-            assert True, "Client_auth set to true"
-        if str(key) == "port" and str(value) == "50051":
-            assert True, "port is set to 50051"
-        if str(key) == "ca_crt" and str(value) == "/etc/sonic/telemetry/dsmsroot.cer":
-            assert True, "ca_crt is set to {}".format(str(value))
-        if str(key) == "server_key" and str(value) == "/etc/sonic/telemetry/streamingtelemetryserver.key":
-            assert True, "server_key is set to {}".format(str(value))
-        if str(key) == "server_crt" and str(value) == "/etc/sonic/telemetry/streamingtelemetry.cer":
-            assert True, "server_crt is set to {}".format(str(value))
+    if gnmi is None or certs is None:
+        assert False, "Either TELEMETRY|gnmi or TELEMETRY|certs does not exist in config_db"
+    else:
+        d = get_dict_stdout(gnmi, certs)
+        for key, value in d.items():
+            if str(key) == "client_auth" and str(value) == "true":
+                assert True, "Client_auth set to true"
+            if str(key) == "port" and str(value) == "50051":
+                assert True, "port is set to 50051"
+            if str(key) == "ca_crt" and str(value) == "/etc/sonic/telemetry/dsmsroot.cer":
+                assert True, "ca_crt is set to {}".format(str(value))
+            if str(key) == "server_key" and str(value) == "/etc/sonic/telemetry/streamingtelemetryserver.key":
+                assert True, "server_key is set to {}".format(str(value))
+            if str(key) == "server_crt" and str(value) == "/etc/sonic/telemetry/streamingtelemetryserver.cer":
+                assert True, "server_crt is set to {}".format(str(value))
 
 def test_telemetry_enabledbydefault(duthost):
     """Verify telemetry should be enabled by default
