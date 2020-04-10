@@ -177,6 +177,14 @@
                     "proto_dump_file": "s1-p4runtime-requests-log.txt",
                     "device_id": "0"
                 },
+                "th3_3": {
+                    "name": "s1",
+                    "svr_addr": "1.81.15.122",
+                    "svr_port": "50051",
+                    "svr_gnmi_port": "9339",
+                    "proto_dump_file": "s1-p4runtime-requests-log.txt",
+                    "device_id": "0"
+                },
                 "th3_4": {
                     "name": "s1",
                     "svr_addr": "1.81.15.145",
@@ -209,6 +217,11 @@
                     "svr_addr": "172.17.0.2",
                     "svr_port": "9339"
                 },
+                "th3_3": {
+                    "name": "s1",
+                    "svr_addr": "1.81.15.122",
+                    "svr_port": "9339"
+                },
                 "th3_4": {
                     "name": "s1",
                     "svr_addr": "1.81.15.145",
@@ -230,6 +243,15 @@
                 "R1": {
                     "name": "s1",
                     "svr_addr": "172.17.0.2",
+                    "svr_port": "22",
+                    "username": "cisco",
+                    "password": "lab",
+                    "svr_gnmi_port": "9339",
+                    "proto_dump_file": "s1-infra-requests-log.txt"
+                },
+                "th3_3": {
+                    "name": "s1",
+                    "svr_addr": "1.81.15.122",
                     "svr_port": "22",
                     "username": "cisco",
                     "password": "lab",
@@ -271,6 +293,15 @@
                     "svr_gnmi_port": "9339",
                     "proto_dump_file": "s1-infra-requests-log.txt"
                 },
+                "th3_3": {
+                    "name": "s1",
+                    "svr_addr": "1.81.15.122",
+                    "svr_port": "22",
+                    "username": "cisco",
+                    "password": "lab",
+                    "svr_gnmi_port": "9339",
+                    "proto_dump_file": "s1-infra-requests-log.txt"
+                },
                 "th3_4": {
                     "name": "s1",
                     "svr_addr": "1.81.15.145",
@@ -305,6 +336,15 @@
                     "name": "s1",
                     "svr_addr": "172.17.0.2",
                     "svr_port": "22",
+                    "svr_gnmi_port": "9339",
+                    "proto_dump_file": "s1-infra-requests-log.txt"
+                },
+                "th3_3": {
+                    "name": "s1",
+                    "svr_addr": "1.81.15.122",
+                    "svr_port": "22",
+                    "username": "cisco",
+                    "password": "lab",
                     "svr_gnmi_port": "9339",
                     "proto_dump_file": "s1-infra-requests-log.txt"
                 },
