@@ -323,7 +323,7 @@ class SonicHost(AnsibleHostBase):
             return self.get_now_time() - datetime.strptime(start_time["ExecMainStartTimestamp"],
                                                            "%a %Y-%m-%d %H:%M:%S UTC")
         except Exception as e:
-            self.logger.error("Exception raised while getting networking restart time: %s" % repr(e))
+            logging.error("Exception raised while getting networking restart time: %s" % repr(e))
             return None
 
     def get_image_info(self):
@@ -348,7 +348,7 @@ class SonicHost(AnsibleHostBase):
         return ret
 
     def get_asic_type(self):
-        return dut.facts["asic_type"]
+        return self.facts["asic_type"]
 
 
 class EosHost(AnsibleHostBase):
