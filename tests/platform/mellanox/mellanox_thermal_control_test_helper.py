@@ -347,7 +347,7 @@ class FanDrawerData:
             return 'red'
 
         for fan_data in self.fan_data_list:
-            if fan_data.get_expect_led_color():
+            if fan_data.get_expect_led_color() == 'red':
                 return 'red'
 
         return 'green'
