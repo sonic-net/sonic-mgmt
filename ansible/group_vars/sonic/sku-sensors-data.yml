@@ -860,8 +860,7 @@ sensors_checks:
       - tps53679-i2c-5-70/PMIC-1 ASIC 1.2V Rail Curr (out)/curr2_crit_alarm
       - tps53679-i2c-5-70/PMIC-1 ASIC 1.2V Rail Curr (out)/curr2_max_alarm
       - tps53679-i2c-5-70/PMIC-1 PSU 12V Rail (in)/in1_alarm
-      - tps53679-i2c-5-70/PMIC-1 ASIC 0.8V VCORE Rail (out)/in2_crit_alarm
-      - tps53679-i2c-5-70/PMIC-1 ASIC 0.8V VCORE Rail (out)/in2_lcrit_alarm
+      - tps53679-i2c-5-70/PMIC-1 ASIC 0.8V VCORE Rail (out)/in2_alarm
       - tps53679-i2c-5-70/PMIC-1 ASIC 1.2V Rail (out)/in3_crit_alarm
       - tps53679-i2c-5-70/PMIC-1 ASIC 1.2V Rail (out)/in3_lcrit_alarm
 
@@ -870,8 +869,7 @@ sensors_checks:
       - tps53679-i2c-5-71/PMIC-2 ASIC 1.8V Rail Curr (out)/curr2_crit_alarm
       - tps53679-i2c-5-71/PMIC-2 ASIC 1.8V Rail Curr (out)/curr2_max_alarm
       - tps53679-i2c-5-71/PMIC-2 PSU 12V Rail (in)/in1_alarm
-      - tps53679-i2c-5-71/PMIC-2 ASIC 3.3V Rail (out)/in2_crit_alarm
-      - tps53679-i2c-5-71/PMIC-2 ASIC 3.3V Rail (out)/in2_lcrit_alarm
+      - tps53679-i2c-5-71/PMIC-2 ASIC 3.3V Rail (out)/in2_alarm
       - tps53679-i2c-5-71/PMIC-2 ASIC 1.8V Rail (out)/in3_crit_alarm
       - tps53679-i2c-5-71/PMIC-2 ASIC 1.8V Rail (out)/in3_lcrit_alarm
 
@@ -880,16 +878,14 @@ sensors_checks:
       - tps53679-i2c-15-58/PMIC-3 COMEX 1.05V Rail Curr (out)/curr2_crit_alarm
       - tps53679-i2c-15-58/PMIC-3 COMEX 1.05V Rail Curr (out)/curr2_max_alarm
       - tps53679-i2c-15-58/PMIC-3 PSU 12V Rail (in)/in1_alarm
-      - tps53679-i2c-15-58/PMIC-3 COMEX 1.8V Rail (out)/in2_crit_alarm
-      - tps53679-i2c-15-58/PMIC-3 COMEX 1.8V Rail (out)/in2_lcrit_alarm
+      - tps53679-i2c-15-58/PMIC-3 COMEX 1.8V Rail (out)/in2_alarm
       - tps53679-i2c-15-58/PMIC-3 COMEX 1.05V Rail (out)/in3_crit_alarm
       - tps53679-i2c-15-58/PMIC-3 COMEX 1.05V Rail (out)/in3_lcrit_alarm
 
       - tps53679-i2c-15-61/PMIC-4 COMEX 1.2V Rail Curr (out)/curr1_crit_alarm
       - tps53679-i2c-15-61/PMIC-4 COMEX 1.2V Rail Curr (out)/curr1_max_alarm
       - tps53679-i2c-15-61/PMIC-4 PSU 12V Rail (in)/in1_alarm
-      - tps53679-i2c-15-61/PMIC-4 COMEX 1.2V Rail (out)/in2_crit_alarm
-      - tps53679-i2c-15-61/PMIC-4 COMEX 1.2V Rail (out)/in2_lcrit_alarm
+      - tps53679-i2c-15-61/PMIC-4 COMEX 1.2V Rail (out)/in2_alarm
 
       - dps460-i2c-4-58/PSU-1 220V Rail Curr (in)/curr1_crit_alarm
       - dps460-i2c-4-58/PSU-1 220V Rail Curr (in)/curr1_max_alarm
