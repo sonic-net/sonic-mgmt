@@ -37,14 +37,20 @@
         - lldpd
         - lldp-syncd
 
-    - name: Disable bgpd
+    - name: Ensure BGP Daemon stopped
       become: yes
-      lineinfile: dest=/etc/quagga/daemons
-                  regexp=^bgpd=.*$
-                  line='bgpd=no'
-      notify:
-        - Restart Quagga Daemon
+      supervisorctl: state=stopped name={{item}}
       delegate_to: "{{ ansible_host }}_bgp"
+      with_items:
+        - bgpd
+    
+    - name: Add iptables rule to drop BGP SYN Packet from peer so that we do not ACK back
+      shell: "iptables -A INPUT -j DROP -p tcp --destination-port bgp"
+      become: true
+
+    - name: Add ip6tables rule to drop BGP SYN Packet from peer so that we do not ACK back
+      shell: "ip6tables -A INPUT -j DROP -p tcp --destination-port bgp"
+      become: true
 
     - meta: flush_handlers
 
@@ -467,14 +473,22 @@
         - lldpd
         - lldp-syncd
 
+    - name: Remove iptables rule to drop BGP SYN Packet from Peer
+      shell: "iptables -D INPUT -j DROP -p tcp --destination-port bgp"
+      become: true
+
+    - name: Remove ip6tables rule to drop BGP SYN Packet from Peer
+      shell: "ip6tables -D INPUT -j DROP -p tcp --destination-port bgp"
+      become: true
+
     - name: Enable bgpd
       become: yes
-      lineinfile: dest=/etc/quagga/daemons
-                  regexp=^bgpd=.*$
-                  line='bgpd=yes'
+      supervisorctl: state=started name={{item}}
+      delegate_to: "{{ ansible_host }}_bgp"
+      with_items:
+        - bgpd
       notify:
         - Restart Quagga Daemon
-      delegate_to: "{{ ansible_host }}_bgp"
 
     - name: Restore original watermark polling status
       shell: counterpoll watermark {{watermark_status.stdout}}
