@@ -126,8 +126,9 @@ def blocking_table_play(name):
         if 'table_entries' in input_conf:
                 log.info(input_conf)
                 table_entries = input_conf['table_entries']
-                log.info("Inserting {entries} table entries - Switch {name}".format(entries = len(table_entries), name=name))
-                for entry in table_entries:
+                insrt_entrs = [x for x in table_entries if x['entry_oper'] == "INSERT"]
+                log.info("Inserting {entries} table entries - Switch {name}".format(entries = len(insrt_entrs), name=name))
+                for entry in insrt_entrs:
                     log.info(p4TestLib.tableEntryToString(entry))
                     log.info("INSERTING TABLE ENTRIES - Switch {name}".format(name=name))
                     p4TestLib.tableEntryActions(sw_name, entry, p4info_helper, 'INSERT',election_id_low=election_id_low,election_id_high=election_id_high)
@@ -245,8 +246,9 @@ def non_blocking_table_play(name):
 
             if 'table_entries' in input_conf:
                 table_entries = input_conf['table_entries']
-                log.info("Inserting {entries} table entries - Switch {name}".format(entries = len(table_entries), name=name))
-                for entry in table_entries:
+                insrt_entrs = [x for x in table_entries if x['entry_oper'] == "INSERT"]
+                log.info("Inserting {entries} table entries - Switch {name}".format(entries = len(insrt_entrs), name=name))
+                for entry in insrt_entrs:
                     log.info(p4TestLib.tableEntryToString(entry))
                     log.info("INSERTING TABLE ENTRIES - Switch {name}".format(name=name))
                     p4TestLib.tableEntryActions(sw_name, entry, p4info_helper, 'INSERT',election_id_low=election_id_low,election_id_high=election_id_high)
@@ -269,8 +271,9 @@ def non_blocking_table_play(name):
             if 'table_entries' in input_conf:
                 log.info(input_conf)
                 table_entries = input_conf['table_entries']
-                log.info("Inserting {entries} table entries - Switch {name}".format(entries = len(table_entries), name=name))
-                for entry in table_entries:
+                insrt_entrs = [x for x in table_entries if x['entry_oper'] == "INSERT"]
+                log.info("Inserting {entries} table entries - Switch {name}".format(entries = len(insrt_entrs), name=name))
+                for entry in insrt_entrs:
                     log.info(p4TestLib.tableEntryToString(entry))
                     #insertTableEntry(sw_name, entry, p4info_helper)
                     #removeTableEntry(sw_name, entry, p4info_helper)
