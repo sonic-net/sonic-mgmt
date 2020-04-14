@@ -65,6 +65,7 @@ class AdvancedReboot:
         self.newSonicImage = self.request.config.getoption("--new_sonic_image")
         self.cleanupOldSonicImages = self.request.config.getoption("--cleanup_old_sonic_images")
         self.readyTimeout = self.request.config.getoption("--ready_timeout")
+        self.replaceFastRebootScript = self.request.config.getoption("--replace_fast_reboot_script")
 
     def getHostMaxLen(self):
         '''
@@ -322,6 +323,11 @@ class AdvancedReboot:
 
         logger.info('Copy ARP responder to the PTF container  {}'.format(self.ptfhost.hostname))
         self.ptfhost.copy(src='scripts/arp_responder.py', dest='/opt')
+
+        # Replace fast-reboot script
+        if self.replaceFastRebootScript:
+            logger.info('Replace fast-reboot script on DUT  {}'.format(self.duthost.hostname))
+            self.duthost.copy(src='scripts/fast-reboot', dest='/usr/bin/')
 
     def __clearArpAndFdbTables(self):
         '''

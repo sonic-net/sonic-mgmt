@@ -76,3 +76,11 @@ def add_advanced_reboot_args(parser):
         default=180,
         help="DUT reboot ready timout",
     )
+
+    parser.addoption(
+        "--replace_fast_reboot_script",
+        action="store",
+        type=bool,
+        default=False,
+        help="Replace fast-reboot script on DUT",
+    )
