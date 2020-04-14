@@ -458,21 +458,21 @@
     ],
     "NEG_ActMem_2": [
         {
-            "member_id": 202,
+            "member_id": 29,
             "entry_oper": "MODIFY",
             "action_profile_id": 285212673,
             "action": "ingress.l3_fwd.set_nexthop",
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": 
                 {
-                    "port": 202,
+                    "port": 29,
                     "smac": "0e:99:90:95:28:3b",
                     "dmac": "0e:99:90:95:28:4b",
                     "l3_class_id": 10
                 }
         },
         {
-            "member_id": 202,
+            "member_id": 29,
             "entry_oper": "NO-ACTION",
             "action_profile_id": 285212673,
             "action": "ingress.l3_fwd.set_nexthop",
@@ -481,14 +481,14 @@
     ],
     "NEG_ActMem_3": [
         {
-            "member_id": 203,
+            "member_id": 28,
             "entry_oper": "DELETE",
             "action_profile_id": 285212673,
             "action": "ingress.l3_fwd.set_nexthop",
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": 
                 {
-                    "port": 203,
+                    "port": 28,
                     "smac": "0e:99:90:95:28:3b",
                     "dmac": "0e:99:90:95:28:4b",
                     "l3_class_id": 10
@@ -497,10 +497,10 @@
         {
             "action_profile_id": 285212673,
             "entry_oper": "INSERT",
-            "group_id": 203,
+            "group_id": 28,
             "members" : [
                 {
-                    "id" : 203,
+                    "id" : 28,
                     "weight": 1
                 }
             ]
