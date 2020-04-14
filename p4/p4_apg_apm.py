@@ -1292,7 +1292,7 @@ def _test_actionMem_Neg1():
         print("ERROR DETAILS::")
         print(e_det)
         for item in e_det:
-            if (item['code'] == "INVALID_ARGUMENT") and (item['message'] == " "):
+            if (item['code'] == "INVALID_ARGUMENT") and (item['message'] == ''):
                 log.info("Test NEG_ActMem_1.2:Passed - received correct error message on inserting Member without Action spec")
             else:
                 log.error("Test NEG_ActMem_1.2:Failed - received incorrect message on Member Insert without Action")
