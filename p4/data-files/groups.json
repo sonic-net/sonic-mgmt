@@ -421,35 +421,35 @@
     ],
     "NEG_ActMem_1": [
         {
-            "member_id": 200,
+            "member_id": 32,
             "entry_oper": "INSERT",
             "action_profile_id": 285212673,
             "action": "ingress.l3_fwd.set_nexthop",
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": 
                 {
-                    "port": 200,
+                    "port": 32,
                     "smac": "0e:99:90:95:28:3b",
                     "dmac": "0e:99:90:95:28:4b",
                     "l3_class_id": 10
                 }
         },
         {
-            "member_id": 200,
+            "member_id": 32,
             "entry_oper": "DUPE-INSERT",
             "action_profile_id": 285212673,
             "action": "ingress.l3_fwd.set_nexthop",
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": 
                 {
-                    "port": 200,
+                    "port": 32,
                     "smac": "0e:99:90:95:28:3b",
                     "dmac": "0e:99:90:95:28:4b",
                     "l3_class_id": 10
                 }
         },
         {
-            "member_id": 201,
+            "member_id": 31,
             "entry_oper": "NO-ACTION",
             "action_profile_id": 285212673,
             "action": "ingress.l3_fwd.set_nexthop",

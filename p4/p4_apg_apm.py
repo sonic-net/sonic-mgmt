@@ -1241,11 +1241,11 @@ def _test_actionMem_Neg1():
     if 'NEG_ActMem_1' in input_conf:
         members = input_conf['NEG_ActMem_1']
         for entry in members:
-            if entry["member_id"] == 200 and entry["entry_oper"] == "INSERT":
+            if entry["member_id"] == 32 and entry["entry_oper"] == "INSERT":
                 entry_ins = entry
-            elif entry["member_id"] == 200 and entry["entry_oper"] == "DUPE-INSERT":
+            elif entry["member_id"] == 32 and entry["entry_oper"] == "DUPE-INSERT":
                 entry_dupe = entry
-            elif entry["member_id"] == 201 and entry["entry_oper"] == "NO-ACTION":
+            elif entry["member_id"] == 31 and entry["entry_oper"] == "NO-ACTION":
                 entry_noact = entry
 
 
@@ -1320,9 +1320,9 @@ def _test_actionMem_Neg2():
     if 'NEG_ActMem_2' in input_conf:
         members = input_conf['NEG_ActMem_2']
         for entry in members:
-            if entry["member_id"] == 202 and entry["entry_oper"] == "MODIFY":
+            if entry["member_id"] == 29 and entry["entry_oper"] == "MODIFY":
                 entry_ins = entry
-            elif entry["member_id"] == 202 and entry["entry_oper"] == "NO-ACTION":
+            elif entry["member_id"] == 29 and entry["entry_oper"] == "NO-ACTION":
                 entry_noact = entry
 
     try:       
@@ -1341,7 +1341,7 @@ def _test_actionMem_Neg2():
         print("ERROR DETAILS::")
         print(e_det)
         for item in e_det:
-            if (item['code'] == "NOT_FOUND") and (item['message'] == "Member id does not exist: 202"):
+            if (item['code'] == "NOT_FOUND") and (item['message'] == "Member id does not exist: 29"):
                 log.info("Test NEG_ActMem_2.1:Passed - received correct error message on trying to Modify Non-Existant Member")
             else:
                 log.error("Test NEG_ActMem_2.1:Failed - received incorrect message on trying to Modify Non-Existant Member")
@@ -1399,9 +1399,9 @@ def _test_actionMem_Neg3():
     if 'NEG_ActMem_3' in input_conf:
         members = input_conf['NEG_ActMem_3']
         for entry in members:
-            if "member_id" in entry and entry["member_id"] == 203:
+            if "member_id" in entry and entry["member_id"] == 28:
                 entry_ins = entry
-            elif "group_id" in entry and entry["group_id"] == 203:
+            elif "group_id" in entry and entry["group_id"] == 28:
                 entry_grp = entry       
 
     try:       
@@ -1420,7 +1420,7 @@ def _test_actionMem_Neg3():
         print("ERROR DETAILS::")
         print(e_det)
         for item in e_det:
-            if (item['code'] == "NOT_FOUND") and (item['message'] == "Member id does not exist: 203"):
+            if (item['code'] == "NOT_FOUND") and (item['message'] == "Member id does not exist: 28"):
                 log.info("Test NEG_ActMem_3.1:Passed - received correct error message on trying to DELETE Non-Existant Member")
             else:
                 log.error("Test NEG_ActMem_3.1:Failed - received incorrect message on trying to DELETE Non-Existant Member")
@@ -1450,7 +1450,7 @@ def _test_actionMem_Neg3():
         print("ERROR DETAILS::")
         print(e_det)
         for item in e_det:
-            if (item['code'] == "FAILED_PRECONDITION") and (item['message'] == "Member id does not exist: 203"):
+            if (item['code'] == "FAILED_PRECONDITION") and (item['message'] == "Member id does not exist: 28"):
                 log.info("Test NEG_ActMem_3.2:Passed - received correct error message on trying to DELETE Non-Existant Member")
             else:
                 log.error("Test NEG_ActMem_3.2:Failed - received incorrect message on trying to DELETE Non-Existant Member")
