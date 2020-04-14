@@ -322,8 +322,8 @@ def _test_negative_action_profile_groups_2(self,sw_conn):
         print("ERROR DETAILS::")
         if ('details = "Error when reading action profile entries from target"' in str(e)):
             print(str(e))
-            log.error("Test:Failed - received error message while reading a group with group id = 0. Creation of group with id = 0 should not be allowed")
-            err_msg.append("Test:Failed - received error message while reading a group with group id = 0. Creation of group with id = 0 should not be allowed")
+            log.error("Test:Failed - received error message while reading a group with group id = 0.")
+            err_msg.append("Test:Failed - received error message while reading a group with group id = 0.")
         else:
             print(e_det)
             for item in e_det:
@@ -934,11 +934,12 @@ def _test_negative_action_profile_groups_8(self,sw_conn):
     except grpc.RpcError as e:
         e_det = parseGrpcError(e)
         for item in e_det:
-            log.error(item)
+            log.info(item)
             result = True
             if (item['code'] == "NOT_FOUND") and (item['message'] == "Group id does not exist: 2"):
                 log.info("Test test_negative_action_profile_groups_8:Passed - NOT_FOUND case verified")
             else:
+                log.error("Test test_negative_action_profile_groups_8:Failed - NOT_FOUND case not verified")
                 err_msg.append("Test test_negative_action_profile_groups_8:Failed - NOT_FOUND case not verified")
 
     if not result:
@@ -958,11 +959,12 @@ def _test_negative_action_profile_groups_8(self,sw_conn):
     except grpc.RpcError as e:
         e_det = parseGrpcError(e)
         for item in e_det:
-            log.error(item)
+            log.info(item)
             result = True
             if (item['code'] == "FAILED_PRECONDITION") and (item['message'] == ""):
                 log.info("Test test_negative_action_profile_groups_8:Passed - received correct error message - FAILED_PRECONDITION case verified")
             else:
+                log.error("Test test_negative_action_profile_groups_8: Failed - received incorrect message - FAILED_PRECONDITION case not verified")
                 err_msg.append("Test test_negative_action_profile_groups_8: Failed - received incorrect message - FAILED_PRECONDITION case not verified")
 
     if not result:
