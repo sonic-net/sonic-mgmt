@@ -1,0 +1,23 @@
+##################################################################################
+#Source          Group           Proto  Input            Output           TTL  Uptime
+#90.0.0.2        232.1.1.1       PIM    Ethernet46       Ethernet12       1    00:00:13
+#                                PIM                     Vlan101          1    00:00:13
+#90.0.0.2        232.1.1.2       PIM    Ethernet46       Ethernet12       1    00:00:11
+#                                PIM                     Vlan101          1    00:00:11
+###################################################################################
+Value installed ([\*]*)
+Value Filldown source ([\d\.]+|\*)
+Value Filldown group ([\w\.]+)
+Value Filldown iif (\w+)
+Value proto (\w+)
+Value oif (\w+)
+Value ttl (\d+)
+Value uptime ([\d\:\-]+)
+Value vrf (\w+)
+
+Start
+  ^\s+${source}\s*${group}\s*\<*${proto}\>*\s*\<*\s*${iif}\s*\>*\s*\<*\s*${oif}\s*\>*\s*${ttl}\s*${uptime}.*$$ -> Record
+  ^\s*${installed}\s*${source}\s*${group}\s*\<*${proto}\>*\s*\<*\s*${iif}\s*\>*\s*\<*\s*${oif}\s*\>*\s*${ttl}\s*${uptime}.*$$ -> Record
+  ^\s*${installed}\s+${proto}\s+${oif}\s*${ttl}\s*${uptime}$$ -> Record
+
+EOF

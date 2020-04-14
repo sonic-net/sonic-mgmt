@@ -1,6 +1,6 @@
 - name: Gathering lab graph facts about the device
   conn_graph_facts: host={{ ansible_host }}
-  connection: local
+  delegate_to: localhost
   tags: always
 
 - name: Init variables.
@@ -16,7 +16,7 @@
       vm_name: "{{ item.value.name }}"
       vm_intf: "{{ item.key }}"
   with_dict: "{{ minigraph_neighbors }}"
-  when: "testbed_type in ['t1', 't1-lag', 't1-64-lag'] and 'T0' in item.value.name and not vm_name"
+  when: "testbed_type in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet'] and 'T0' in item.value.name and not vm_name"
 
 - name: Get neighbor IPv4 address.
   set_fact:
@@ -30,11 +30,13 @@
   with_items: "{{ minigraph_bgp }}"
   when: "item.name == vm_name and item.addr|ipv6"
 
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: lldp
+
 - name: Gather information from LLDP
   lldp:
-  vars:
-    ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i lldp python
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - name: Get VM IP address.
   set_fact:

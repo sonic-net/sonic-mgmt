@@ -1,0 +1,9 @@
+Value VRF (\d+)
+Value nhip (\d+:\d+:\d+:\d+:\d+:\d+:\d+:\d+)
+Value nhpmac (\d+:\d+:\d+:\d+:\d+:\d+)
+Value egr_intf (\d+)
+Value port (\d+)
+
+Start
+  ^\s*\d+\s+${VRF}\s+${nhip}\s+${nhpmac}\s+${egr_intf}\s+\d+\s+${port}\s+\d+\s+\S+\s+\d+ -> Record
+

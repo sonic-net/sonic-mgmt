@@ -54,6 +54,10 @@
 
 {% macro fanout_deploy() %}
 conf t
+
+{# Disable CLI paging #}
+no cli default paging enable
+
 no lldp
 no spanning-tree
 ip routing
@@ -71,7 +75,7 @@ interface ethernet {{ qsfp_split_4[i] }} module-type qsfp-split-4 force
 {% endfor %}
 
 {% for i in range(1, port_speed|length) %}
-interface ethernet {{ eth_ports[i] }} speed {{ port_speed[i] }} force
+interface ethernet {{ eth_ports[i] }} speed {{ port_speed[i] }} no-autoneg force
 {% endfor %}
 
 {% for i in range(1, eth_ports|length) %}

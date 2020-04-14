@@ -1,0 +1,9 @@
+Value port_id (\d+)
+Value stp_port_id (\d+)
+Value mclag_sm_state (\S+)
+
+Start
+  ^\s*port_id\s+=\s+\d+\s+${port_id}\s*$$
+  ^\s*stp_port_id\s+=\s+${stp_port_id}\s*$$
+  ^\s*mclag_sm_state\s+=\s+${mclag_sm_state}\s*$$
+

@@ -33,11 +33,11 @@
   tags: always
 
 - name: update sonicadmin password
-  include: passwd.yml
+  include_tasks: passwd.yml
   tags: system
 
 # Setup apt repo
-- include: aptrepo.yml
+- include_tasks: aptrepo.yml
   tags: repo
 
 - name: Ensure /etc/sonic path exists
@@ -178,11 +178,11 @@
   tags: network,unsafe
 
 # Docker engine
-- include: docker.yml
+- include_tasks: docker.yml
   tags: docker
  
 ## Redis database
-- include: database.yml
+- include_tasks: database.yml
   tags:
     - swss
     - database
@@ -207,7 +207,7 @@
   when: sonic_hwsku != "AS7512"
 
 # Setup Platform
-- include: platform.yml
+- include_tasks: platform.yml
   tags: platform,unsafe
 
 # Install Persistent Iptables Package
@@ -218,21 +218,21 @@
   tags: unsafe
 
 # setup sudoers
-- include: sudoers.yml
+- include_tasks: sudoers.yml
 
 # Install Logrotate
-- include: logrotate.yml
+- include_tasks: logrotate.yml
 
 # SNMP
-- include: snmp.yml
+- include_tasks: snmp.yml
   tags: snmp
 
 # LLDP
-- include: lldp.yml
+- include_tasks: lldp.yml
   tags: lldp
 
 # DHCP Relay
-- include: dhcp_relay.yml
+- include_tasks: dhcp_relay.yml
   tags: dhcp_relay
   when: minigraph_devices[inventory_hostname]['type'] == "ToRRouter"
 

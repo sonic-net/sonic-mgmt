@@ -9,5 +9,5 @@
 
 - debug: msg="Execute repeat_tasks.yml {{ repeat_count }} time(s)"
 
-- include: repeat_tasks.yml
+- include_tasks: repeat_tasks.yml
   with_sequence: end={{repeat_count}}

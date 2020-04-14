@@ -5,7 +5,7 @@
 #     running - yes/no (optional default:yes)
 #
 # Example:
-#     - include: process_checker.yml
+#     - include_tasks: process_checker.yml
 #       vars:
 #         process: {{ item }}
 #       with_items:

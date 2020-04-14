@@ -6,6 +6,7 @@ import csv
 from operator import itemgetter
 from itertools import groupby
 import yaml
+from collections import defaultdict
 
 DOCUMENTATION = '''
 module: test_facts.py
@@ -38,7 +39,7 @@ EXAMPLES = '''
         testcases:
             acl:
                 filename: acl.yml
-                topologies: [t1, t1-lag, t1-64-lag]
+                topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet]
                 execvar:
                   ptf_host:
                   testbed_type:
@@ -49,7 +50,7 @@ EXAMPLES = '''
                   ptf_host:
             bgp_fact:
                 filename: bgp_fact.yml
-                topologies: [t0, t0-64, t0-64-32, t1, t1-lag, t1-64-lag]
+                topologies: [t0, t0-64, t0-64-32, t1, t1-lag, t1-64-lag, t1-64-lag-clet]
             ...
 
     To use it:
@@ -85,6 +86,7 @@ RETURN = '''
                 t1:        [acl, bgp_fact, bgp_multipath_relax, decap, everflow_testbed, fib, lldp, pfc_wd]
                 t1-lag:    [acl, bgp_fact, bgp_multipath_relax, decap, everflow_testbed, fib, lldp, lag_2, pfc_wd]
                 t1-64-lag: [acl, bgp_fact, bgp_multipath_relax, decap, everflow_testbed, fib, lldp, lag_2, pfc_wd]
+                t1-64-lag-clet: [acl, bgp_fact, bgp_multipath_relax, decap, everflow_testbed, fib, lldp, lag_2, pfc_wd]
             }
 '''
 
@@ -98,32 +100,32 @@ class ParseTestbedTopoinfo():
     Parse the CSV file used to describe whole testbed info
     Please refer to the example of the CSV file format
     CSV file first line is title
-    The topology name in title is using uniq-name | conf-name
+    The topology name in title is using conf-name
     '''
     def __init__(self, testbed_file):
         self.testbed_filename = testbed_file
-        self.testbed_topo = {}
+        self.testbed_topo = defaultdict()
 
     def read_testbed_topo(self):
+        CSV_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'server', 'vm_base', 'dut', 'comment')
         with open(self.testbed_filename) as f:
-            topo = csv.DictReader(f)
+            topo = csv.DictReader(f, fieldnames=CSV_FIELDS)
+
+            # Validate all field are in the same order and are present
+            header = next(topo)
+            for field in CSV_FIELDS:
+                assert header[field].replace('#', '').strip() == field
+
             for line in topo:
-                tb_prop = {}
-                name = ''
-                for key in line:
-                    if ('uniq-name' in key or 'conf-name' in key) and '#' in line[key]:
-                        ### skip comment line
-                        continue
-                    elif 'uniq-name' in key or 'conf-name' in key:
-                        name = line[key]
-                    elif 'ptf_ip' in key and line[key]:
-                        ptfaddress = ipaddress.IPNetwork(line[key])
-                        tb_prop['ptf_ip'] = str(ptfaddress.ip)
-                        tb_prop['ptf_netmask'] = str(ptfaddress.netmask)
-                    else:
-                        tb_prop[key] = line[key]
-                if name:
-                    self.testbed_topo[name] = tb_prop
+                if line['conf-name'].lstrip().startswith('#'):
+                    ### skip comment line
+                    continue
+                if line['ptf_ip']:
+                    ptfaddress = ipaddress.IPNetwork(line['ptf_ip'])
+                    line['ptf_ip'] = str(ptfaddress.ip)
+                    line['ptf_netmask'] = str(ptfaddress.netmask)
+
+                self.testbed_topo[line['conf-name']] = line
         return
 
     def get_testbed_info(self, testbed_name):

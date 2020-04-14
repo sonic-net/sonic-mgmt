@@ -45,7 +45,7 @@
   when: port_type == "vlan"
 
 - conn_graph_facts: host={{ peer_device }}
-  connection: local
+  delegate_to: localhost
   become: no
 
 - name: Prepare variables required for PFC test
@@ -67,11 +67,11 @@
       peer_login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
 
 - name: set pfc storm templates based on fanout platform sku
-  include: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
 
 
-- name: Test PFC restore function per queue
-  include: roles/test/tasks/pfc_wd/functional_test/functional_test_restore_perq.yml
+- name: Test PFC restore function per pg/queue
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test_restore_perq.yml
   vars:
     pfc_queue_index: "{{item}}"
     class_enable: "{{(1).__lshift__(item)}}"

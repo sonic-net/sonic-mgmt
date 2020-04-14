@@ -10,7 +10,7 @@ import sys
 
 import pytest
 
-from platform_fixtures import conn_graph_facts
+from common.fixtures.conn_graph_facts import conn_graph_facts
 from common.utilities import wait_until
 from check_critical_services import check_critical_services
 from check_transceiver_status import check_transceiver_basic

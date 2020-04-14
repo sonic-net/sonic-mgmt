@@ -9,8 +9,8 @@
 - fail: msg="please provide testbed_type for bgp_multipath_relax test"
   when: testbed_type is not defined 
 
-- fail: mgs="This test only works for leaf routers as DUT in topology, t1, t1-lag, t1-64-lag"
-  when: testbed_type not in ['t1', 't1-lag', 't1-64-lag']
+- fail: mgs="This test only works for leaf routers as DUT in topology, t1, t1-lag, t1-64-lag, t1-64-lag-clet"
+  when: testbed_type not in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet']
 
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
@@ -18,7 +18,7 @@
 - name:  Find all V4 bgp neighbors from minigraph
   set_fact:
     bgp_v4nei: "{{ bgp_v4nei | default({}) | combine({ item['name']: item['addr'] }) }}"
-  with_items: minigraph_bgp
+  with_items: "{{ minigraph_bgp }}"
   when: "'::' not in item['addr']"
 
 - include_vars: "vars/topo_{{ testbed_type }}.yml"
@@ -74,7 +74,7 @@
   assert:
     that:
         - vips_asn in item
-  with_items: bgp_route[vips_prefix]['aspath']
+  with_items: "{{ bgp_route[vips_prefix]['aspath'] }}"
 
 #### Verify each t2 adv routes: this option takes time and resources; verified working but print out too much, comment this 
 #### out unless we have a reason to do so
@@ -90,7 +90,7 @@
 #        - item.ansible_facts['bgp_route_neiadv'][vips_prefix]['aspath'] | length == 2
 #        - vips_asn in item.ansible_facts['bgp_route_neiadv'][vips_prefix]['aspath']
 #        - vips_asn == item.ansible_facts['bgp_route_neiadv'][vips_prefix]['aspath'][-1]
-#  with_items: adv_t2_results.results
+#  with_items: "{{ adv_t2_results.results }}"
 ######### Verify each t2 option 
 
 
@@ -109,4 +109,4 @@
   assert:
     that:
         - item in "{{ vips_t0 + [vips_asn] }}"
-  with_items: bgp_route_neiadv[vips_prefix]['aspath']
+  with_items: "{{ bgp_route_neiadv[vips_prefix]['aspath'] }}"

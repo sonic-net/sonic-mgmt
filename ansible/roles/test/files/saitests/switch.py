@@ -51,6 +51,10 @@ rewrite_mac2='00:77:66:55:46:01'
 
 is_bmv2 = ('BMV2_TEST' in os.environ) and (int(os.environ['BMV2_TEST']) == 1)
 
+# constants
+STOP_PORT_MAX_RATE = 1
+RELEASE_PORT_MAX_RATE = 0
+
 def switch_init(client):
     global switch_inited
     if switch_inited:
@@ -616,6 +620,34 @@ def sai_thrift_clear_all_counters(client):
         cnt_ids.append(SAI_QUEUE_STAT_PACKETS)
         for queue in queue_list:
             client.sai_thrift_clear_queue_stats(queue,cnt_ids,len(cnt_ids))
+
+def sai_thrift_port_tx_disable(client, asic_type, port_ids):
+    if asic_type == 'mellanox':
+        # Close DST port
+        sched_prof_id = sai_thrift_create_scheduler_profile(client, STOP_PORT_MAX_RATE)
+        attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+    else:
+        # Pause egress of dut xmit port
+        attr_value = sai_thrift_attribute_value_t(booldata=0)
+        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
+
+    for port_id in port_ids:
+        client.sai_thrift_set_port_attribute(port_list[port_id], attr)
+
+def sai_thrift_port_tx_enable(client, asic_type, port_ids):
+    if asic_type == 'mellanox':
+        # Release port
+        sched_prof_id = sai_thrift_create_scheduler_profile(client, RELEASE_PORT_MAX_RATE)
+        attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
+        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
+    else:
+        # Resume egress of dut xmit port
+        attr_value = sai_thrift_attribute_value_t(booldata=1)
+        attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
+
+    for port_id in port_ids:
+        client.sai_thrift_set_port_attribute(port_list[port_id], attr)
 
 def sai_thrift_read_port_counters(client,port):
     port_cnt_ids=[]

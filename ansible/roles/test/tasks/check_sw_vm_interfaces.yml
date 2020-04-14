@@ -23,7 +23,7 @@
 
   - name: Gathering testbed information
     test_facts: testbed_name="{{ testbed_name }}"
-    connection: local
+    delegate_to: localhost
     ignore_errors: yes
 
   - name: Gather vm list from Testbed server
@@ -47,7 +47,7 @@
     connection: switch
     ignore_errors: yes
     when: vms["{{ item }}"]['hwsku'] == 'Arista-VM'
-    with_items: vms
+    with_items: "{{ vms }}"
     register: vm_portchannel_status
 
   - name: Debug Port-Channel on VMs

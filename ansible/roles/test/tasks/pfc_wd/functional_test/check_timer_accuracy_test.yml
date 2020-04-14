@@ -1,13 +1,35 @@
 # Verify timers
 - set_fact:
     pfc_wd_test_port: "{{test_ports.keys()[0]}}"
+    testname: functional_test
+
+- conn_graph_facts: host={{test_ports[pfc_wd_test_port]['peer_device']}}
+  delegate_to: localhost
+  become: no
+
+- name: Prepare variables required for PFC test
+  set_fact:
+    pfc_gen_file: pfc_gen.py
+    pfc_queue_index: 4
+    pfc_frames_number: 100000
+    pfc_wd_test_pkt_count: 100
+    pfc_fanout_interface: "{{neighbors[pfc_wd_test_port]['peerport']}}"
+    peer_hwsku: "{{device_info['HwSku']}}"
+    peer_mgmt: "{{device_info['mgmtip']}}"
+    peer_login: "{{switch_login[hwsku_map[device_info['HwSku']]]}}"
+
+- name: set pfc storm templates based on fanout platform sku
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
+
+- name: Deploy pfc packet generater file to fanout switch
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
 
 - block:
     - name: Apply config with proper timers to {{ pfc_wd_test_port }}.
       vars:
         command_to_run: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time }} {{ ports }} {{ pfc_wd_detect_time }}"
         errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
 
     - name: Enable routing from mgmt interface to localhost
       sysctl:
@@ -29,7 +51,7 @@
         pfc_frames_number: 300000
 
     - name: Calculate detection and restoration timings
-      include: roles/test/tasks/pfc_wd/functional_test/timer_test.yml
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/timer_test.yml
       with_sequence: start=1 end=19
 
     - set_fact:
@@ -38,9 +60,9 @@
 
     - debug:
         var: "{{item}}"
-      with_items: 
-        - detect_time_list
-        - restore_time_list
+      with_items:
+        - "{{ detect_time_list }}"
+        - "{{ restore_time_list }}"
 
     - name: Verify that real detection time is not greater than configured
       fail:
@@ -67,4 +89,4 @@
       vars:
         command_to_run: "pfcwd stop"
         errors_expected: false
-      include: roles/test/tasks/run_command_with_log_analyzer.yml
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml

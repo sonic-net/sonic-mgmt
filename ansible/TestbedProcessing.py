@@ -197,7 +197,7 @@ generates /testbed.csv by pulling confName, groupName, topo, ptf_image_name, ptf
 error handling: checks if attribute values are None type or string "None"
 """
 def makeTestbed(data, outfile):
-    csv_columns = "# conf-name,group-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,comment"
+    csv_columns = "# conf-name,group-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,ptf,comment"
     topology = data
     csv_file = outfile
 
@@ -213,6 +213,7 @@ def makeTestbed(data, outfile):
                 server = groupDetails.get("server")
                 vm_base = groupDetails.get("vm_base")
                 dut = groupDetails.get("dut")
+                ptf = groupDetails.get("ptf")
                 comment = groupDetails.get("comment")
 
                 # catch empty types
@@ -230,10 +231,12 @@ def makeTestbed(data, outfile):
                     vm_base = ""
                 if not dut:
                     dut = ""
+                if not ptf:
+                    ptf = ""
                 if not comment:
                     comment = ""
 
-                row = confName + "," + groupName + "," + topo + "," + ptf_image_name + "," + ptf_ip + "," + server + "," + vm_base + "," + dut + "," + comment
+                row = confName + "," + groupName + "," + topo + "," + ptf_image_name + "," + ptf_ip + "," + server + "," + vm_base + "," + dut + "," + ptf + "," + comment
                 f.write(row + "\n")
     except IOError:
         print("I/O error: issue creating testbed.csv")
@@ -571,4 +574,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
+

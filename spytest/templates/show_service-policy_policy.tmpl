@@ -1,0 +1,12 @@
+Value policy_name (\S+)
+Value class_name (\S+)
+Value priority_val (\d+)
+Value stage (\w+)
+Value interface_name (\w+)
+
+
+Start
+  ^${interface_name}
+  ^\s*policy ${policy_name} type qos at ${stage}\s*$$
+  ^\s*flow ${class_name} at priority ${priority_val}.*$$
+  ^$$ -> Record

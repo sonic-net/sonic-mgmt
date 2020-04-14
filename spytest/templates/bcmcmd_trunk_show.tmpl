@@ -1,0 +1,12 @@
+Value trunk (\d+)
+Value port_type (.*)
+Value port_count (\d+)
+Value ports (\S+)
+Value dlf (\S+)
+Value mc (\S+)
+Value ipmc (\S+)
+Value psc (\S+)
+Value bit (\S+)
+
+Start
+  ^\s*trunk\s+${trunk}:\s+\(${port_type},\s+${port_count}\s+ports\)=${ports}\s+dlf=${dlf}\s+mc=${mc}\s+ipmc=${ipmc}\s+psc=${psc}\s+\(${bit}\)$$ -> Record

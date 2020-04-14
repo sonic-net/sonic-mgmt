@@ -1,0 +1,29 @@
+- name: Create VMs network
+  become: yes
+  vm_topology:
+    cmd:          'create'
+    vm_names:     "{{ VM_hosts }}"
+    fp_mtu:       "{{ fp_mtu_size }}"
+    max_fp_num:   "{{ max_fp_num }}"
+
+- name: create directory for build ceos image
+  become: yes
+  file:
+    path: "/tmp/ceosimage"
+    state: directory
+
+- name: copy the ceos image template
+  become: yes
+  template: src=ceos_dockerfile.j2 dest=/tmp/ceosimage/Dockerfile mode=0644
+
+- name: Build the ceos image with increase inotify limit
+  become: yes
+  docker_image:
+    name: "{{ ceos_image }}"
+    build:
+      path: "/tmp/ceosimage"
+      pull: no
+    source: build
+
+- include_tasks: add_ceos.yml
+  with_items: "{{ VM_targets }}"

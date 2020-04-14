@@ -1,0 +1,12 @@
+Value admin_status (\S+)
+Value oper_status (\S+)
+Value mtu (\d+)
+Value active (\S+)
+Value name (\S+)
+
+Start
+  ^\s*2\)\s*\"${admin_status}\"\s*$$
+  ^\s*4\)\s*\"${oper_status}\"\s*$$
+  ^\s*6\)\s*\"${mtu}\"\s*$$
+  ^\s*8\)\s*\"${active}\"\s*$$
+  ^\s*10\)\s*\"${name}\"\s*$$ -> Record

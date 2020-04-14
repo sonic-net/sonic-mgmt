@@ -28,40 +28,44 @@
   tags: always
 
 - name: Verify interfaces are up
-  include: interface.yml
+  include_tasks: interface.yml
   tags: always
 
 - name: BGP facts test
-  include: bgp_fact.yml
+  include_tasks: bgp_fact.yml
   tags: bgp_fact
 
+- name: ECMP test
+  include: ecmp.yml
+  tags: ecmp
+
 - name: Neighbor mac change test
-  include: neighbour-mac.yml
+  include_tasks: neighbour-mac.yml
   tags: neighbour
 
 - name: Test LLDP
-  include: lldp.yml
+  include_tasks: lldp.yml
   tags: lldp
 
 - name: Test NTP
-  include: ntp.yml
+  include_tasks: ntp.yml
   tags: ntp
 
 - name: Test SNMP Basic
-  include: snmp.yml
+  include_tasks: snmp.yml
   tags: snmp
 
 - name: Test DHCP Relay
-  include: dhcp_relay.yml
+  include_tasks: dhcp_relay.yml
   tags: dhcp_relay
   when: minigraph_devices[inventory_hostname]['type'] == "ToRRouter"
 
 - name: Test Control-Plain policing COPP
-  include: copp.yml
+  include_tasks: copp.yml
   tags: copp
 
 - name: Fast-reboot test
-  include: fast-reboot.yml
+  include_tasks: fast-reboot.yml
   when: minigraph_portchannel_interfaces | length > 0 and minigraph_vlan_interfaces | length > 0
   tags: fast_reboot
 
@@ -72,116 +76,112 @@
   tags: sync
 
 - name: Test SyncD BGP Flaps
-  include: bgp_flap.yml
+  include_tasks: bgp_flap.yml
   tags: sync
 
 - name: Test Syslog Basic
-  include: syslog.yml
+  include_tasks: syslog.yml
   tags: syslog
 
 - name: Test SNMP CPU
-  include: snmp/cpu.yml
+  include_tasks: snmp/cpu.yml
   tags: snmp_cpu
   when: minigraph_hwsku == "Force10-S6000" or minigraph_hwsku == "ACS-S6000"
 
 - name: Test SNMP Interfaces
-  include: snmp/interfaces.yml
+  include_tasks: snmp/interfaces.yml
   tags: snmp_interfaces
 
 - name: Test Interface Flap from Neighbor
-  include: link_flap.yml
+  include_tasks: link_flap.yml
   tags: link_flap
 
 - name: Test kernel ARP behavior
-  include: arpall.yml
+  include_tasks: arpall.yml
   tags: arp
 
 - name: Test sensors
-  include: sensors_check.yml
+  include_tasks: sensors_check.yml
   tags: sensors
 
 - name: Test reboot
-  include: reboot.yml
+  include_tasks: reboot.yml
   tags: reboot
 
 ### When calling the following tests, please add command line of what testbed_type and which PTF docker to test against
 ### -e "testbed_type=t1-lag ptf_host=10.0.0.200"
 - name: Fib test
-  include: fib.yml
+  include_tasks: fib.yml
   tags: fib
 
 - name: Hash test
-  include: hash.yml
+  include_tasks: hash.yml
   tags: hash
 
 - name: MTU test
-  include: mtu.yml
+  include_tasks: mtu.yml
   tags: mtu
 
 - name: Directed Broadcast test
-  include: dir_bcast.yml
+  include_tasks: dir_bcast.yml
   tags: dir_bcast
 
 - name: FDB test
-  include: fdb.yml
+  include_tasks: fdb.yml
   tags: fdb
 
 ### When calling this decap test, please add command line of what testbed_type, dscp_mode, and which PTF docker to test against
 #### -e "testbed_type=t1-lag dscp_mode=pipe ptf_host=10.0.0.200"
 - name: Decap test
-  include: decap.yml
+  include_tasks: decap.yml
   tags: decap
 
 - name: BGP Speaker test
-  include: bgp_speaker.yml
+  include_tasks: bgp_speaker.yml
   tags: bgp_speaker
 
 - name: Test Everflow
-  include: everflow.yml
+  include_tasks: everflow.yml
   tags: everflow
 
 - name: Test Everflow on testbed
-  include: everflow_testbed.yml
+  include_tasks: everflow_testbed.yml
   tags: everflow_testbed
 
 - name: Test LAG
-  include: lagall.yml
+  include_tasks: lagall.yml
   tags: lag
 
 - name: Test LAG using lag graph file
-  include: lag_2.yml
+  include_tasks: lag_2.yml
   tags: lag_2
 
-- name: Memory check
-  include: mem_check.yml
-  tags: mem_check
-
 - name: ACL test 
-  include: acltb.yml
+  include_tasks: acltb.yml
   tags: acl
 
 #- name: PFC Watchdog test
-#  include: pfc_wd.yml
+#  include_tasks: pfc_wd.yml
 #tags: pfc_wd
 
 - name: ECN WRED configure test
-  include: ecn_wred.yml
+  include_tasks: ecn_wred.yml
   tags: ecn_wred
 
 ### when calling this test, please add command line of testbed_type 
 ### -e testbed_type=t1
 - name: BGP multipath relax
-  include: bgp_multipath_relax.yml
+  include_tasks: bgp_multipath_relax.yml
   tags: bgp_multipath_relax
 
 - name: neighbor mac change test without using ptf
-  include: neighbour-mac-noptf.yml
+  include_tasks: neighbour-mac-noptf.yml
   tags: neighbour_mac_noptf
 
 - name: CRM test
-  include: crm.yml
+  include_tasks: crm.yml
   tags: crm
 
 - name: Asymmetric PFC test
-  include: pfc_asym.yml
+  include_tasks: pfc_asym.yml
   tags: pfc_asym

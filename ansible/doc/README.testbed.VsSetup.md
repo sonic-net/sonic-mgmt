@@ -17,36 +17,28 @@ $ sudo ifconfig br1 10.250.0.1/24
 $ sudo ifconfig br1 up
 ```
 
+### Use vEOS image
+
 - Download vEOS image from [arista](https://www.arista.com/en/support/software-download).
 - Copy below image files to ```~/veos-vm/images``` on your testbed server.
    - ```Aboot-veos-serial-8.0.0.iso```
-   - ```vEOS-lab-4.15.9M.vmdk```
+   - ```vEOS-lab-4.20.15M.vmdk```
 
-## Setup docker registry for *PTF* docker
+### Use cEOS image (experimental)
+- Download cEOS image from [arista](https://www.arista.com/en/support/software-download) onto your testbed server
+- Import cEOS image
 
-PTF docker is used to send and receive packets to test data plane. 
-
-- Build PTF docker
 ```
-$ git clone --recursive https://github.com/Azure/sonic-buildimage.git
-$ make configure PLATFORM=generic
-$ make target/docker-ptf.gz
-```
-
-- Download pre-built *docker-ptf* image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/broadcom/job/buildimage-brcm-all/lastSuccessfulBuild/artifact/target/docker-ptf-brcm.gz)
-```
-$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/broadcom/job/buildimage-brcm-all/lastSuccessfulBuild/artifact/target/docker-ptf-brcm.gz
-```
-
-- Load *docker-ptf* image
-```
-$ docker load -i docker-ptf-brcm.gz
+$ docker import cEOS64-lab-4.23.2F.tar.xz ceosimage:4.23.2F
+$ docker images
+REPOSITORY                                     TAG                 IMAGE ID            CREATED             SIZE
+ceosimage                                      4.23.2F             d53c28e38448        2 hours ago         1.82GB
 ```
 
 ## Build or download *sonic-mgmt* docker image
 
 ansible playbook in *sonic-mgmt* repo requires to setup ansible and various dependencies.
-We have built a *sonic-mgmt* docker that installs all dependencies, and you can build 
+We have built a *sonic-mgmt* docker that installs all dependencies, and you can build
 the docker and run ansible playbook inside the docker.
 
 - Build *sonic-mgmt* docker
@@ -56,9 +48,9 @@ $ make configure PLATFORM=generic
 $ make target/docker-sonic-mgmt.gz
 ```
 
-- Download pre-built *sonic-mgmt* image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/target/docker-sonic-mgmt.gz).
+- Download pre-built *sonic-mgmt* image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/sonic-buildimage/target/docker-sonic-mgmt.gz).
 ```
-$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/target/docker-sonic-mgmt.gz
+$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/sonic-buildimage/target/docker-sonic-mgmt.gz
 ```
 
 - Load *sonic-mgmt* image
@@ -86,23 +78,9 @@ $ mv sonic-vs.img ~/sonic-vm/images
 $ git clone https://github.com/Azure/sonic-mgmt
 ```
 
-### Modify login user name
-```
-lgh@gulv-vm2:/data/sonic/sonic-mgmt/ansible$ git diff
-diff --git a/ansible/veos.vtb b/ansible/veos.vtb
-index 4ea5a7a..4cfc448 100644
---- a/ansible/veos.vtb
-+++ b/ansible/veos.vtb
-@@ -1,5 +1,5 @@
-[vm_host_1]
--STR-ACS-VSERV-01 ansible_host=172.17.0.1 ansible_user=use_own_value
-+STR-ACS-VSERV-01 ansible_host=172.17.0.1 ansible_user=lgh
-
- [vm_host:children]
-vm_host_1
-```
-
 ## Run sonic-mgmt docker
+
+(run following command from a place where the newly cloned sonic-mgmt repo is accessible, e.g. home directory or the parent fold of sonic-mgmt, the point is that you want to run following deployment and test commands from this repo)
 
 ```
 $ docker run -v $PWD:/data -it docker-sonic-mgmt bash
@@ -112,38 +90,65 @@ From now on, all steps are running inside the *sonic-mgmt* docker.
 
 ### Setup public key to login into the linux host from sonic-mgmt docker
 
-- Modify veos.vtb to use the user name to login linux host. Add public key to authorized\_keys for your user. 
-Put the private key inside the sonic-mgmt docker container. Make sure you can login into box using 
-```ssh yourusername@172.17.0.1``` without any password prompt inside the docker container.
+- Modify veos.vtb to use the user name, e.g., ```foo``` to login linux host.
+
+```
+lgh@gulv-vm2:/data/sonic/sonic-mgmt/ansible$ git diff
+diff --git a/ansible/veos.vtb b/ansible/veos.vtb
+index 4ea5a7a..4cfc448 100644
+--- a/ansible/veos.vtb
++++ b/ansible/veos.vtb
+@@ -1,5 +1,5 @@
+[vm_host_1]
+-STR-ACS-VSERV-01 ansible_host=172.17.0.1 ansible_user=use_own_value
++STR-ACS-VSERV-01 ansible_host=172.17.0.1 ansible_user=foo
+
+ [vm_host:children]
+vm_host_1
+```
+
+- Add user ```foo```'s public key to ```/home/foo/.ssh/authorized_keys``` on the host
+
+- Add user ```foo```'s private key to ```$HOME/.ssh/id_rsa``` inside sonic-mgmt docker container.
+
+- Add user ```foo```to sudoer list, use ```visudo``` to add following line in the sudoer configuration.
+```
+   foo ALL=(ALL) NOPASSWD:ALL
+```
+
+- Test you can login into the host ```ssh foo@172.17.0.1``` without any password prompt
+from the ```sonic-mgmt``` container. Then, test you can sudo without password prompot in the host.
 
 ## Setup Arista VMs in the server
 
+(skip this step if you use cEOS image)
+
 ```
-$ ./testbed-cli.sh -m veos.vtb start-vms server_1 password.txt
+$ ./testbed-cli.sh -m veos.vtb -n 4 start-vms server_1 password.txt
 ```
-  - please note: Here "password.txt" is the ansible vault password file name/path. Ansible allows user use ansible vault to encrypt password files. By default, this shell script require a password file. If you are not using ansible vault, just create an empty file and pass the filename to the command line. The file name and location is created and maintained by user. 
+  - please note: Here "password.txt" is the ansible vault password file name/path. Ansible allows user use ansible vault to encrypt password files. By default, this shell script require a password file. If you are not using ansible vault, just create an empty file and pass the filename to the command line. The file name and location is created and maintained by user.
 
 Check that all VMs are up and running, and the passwd is ```123456```
 ```
 $ ansible -m ping -i veos.vtb server_1 -u root -k
 VM0102 | SUCCESS => {
-        "changed": false, 
+        "changed": false,
                 "ping": "pong"
 }
 VM0101 | SUCCESS => {
-        "changed": false, 
+        "changed": false,
                 "ping": "pong"
 }
 STR-ACS-VSERV-01 | SUCCESS => {
-        "changed": false, 
+        "changed": false,
                 "ping": "pong"
 }
 VM0103 | SUCCESS => {
-        "changed": false, 
+        "changed": false,
                 "ping": "pong"
 }
 VM0100 | SUCCESS => {
-        "changed": false, 
+        "changed": false,
                 "ping": "pong"
 }
 ```
@@ -151,8 +156,30 @@ VM0100 | SUCCESS => {
 
 ## Deploy T0 topology
 
+### vEOS
 ```
 $ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb add-topo vms-kvm-t0 password.txt
+```
+
+### cEOS
+```
+$ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb -k ceos add-topo vms-kvm-t0 password.txt
+```
+
+Verify topology setup successfully.
+
+```
+$ docker ps
+CONTAINER ID        IMAGE                                                 COMMAND                  CREATED              STATUS              PORTS               NAMES
+575064498cbc        ceosimage:4.23.2F                                     "/sbin/init systemd.…"   About a minute ago   Up About a minute                       ceos_vms6-1_VM0103
+d71b8970bcbb        debian:jessie                                         "bash"                   About a minute ago   Up About a minute                       net_vms6-1_VM0103
+3d2e5ecdd472        ceosimage:4.23.2F                                     "/sbin/init systemd.…"   About a minute ago   Up About a minute                       ceos_vms6-1_VM0102
+28d64c74fa54        debian:jessie                                         "bash"                   About a minute ago   Up About a minute                       net_vms6-1_VM0102
+0fa067a47c7f        ceosimage:4.23.2F                                     "/sbin/init systemd.…"   About a minute ago   Up About a minute                       ceos_vms6-1_VM0101
+47066451fa4c        debian:jessie                                         "bash"                   About a minute ago   Up About a minute                       net_vms6-1_VM0101
+e07bd0245bd9        ceosimage:4.23.2F                                     "/sbin/init systemd.…"   About a minute ago   Up About a minute                       ceos_vms6-1_VM0100
+4584820bf368        debian:jessie                                         "bash"                   7 minutes ago        Up 7 minutes                            net_vms6-1_VM0100
+c929c622232a        sonicdev-microsoft.azurecr.io:443/docker-ptf:latest   "/usr/local/bin/supe…"   7 minutes ago        Up 7 minutes                            ptf_vms6-1
 ```
 
 ## Deploy minigraph on the DUT

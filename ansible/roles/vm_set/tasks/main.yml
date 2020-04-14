@@ -58,6 +58,8 @@
   apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
   become: yes
   with_items:
+    - ifupdown
+    - python
     - qemu
     - openvswitch-switch
     - net-tools
@@ -73,7 +75,7 @@
     - curl
     - software-properties-common
 
-- include: docker.yml
+- include_tasks: docker.yml
 
 - name: Ensure {{ ansible_user }} in docker,sudo group
   user:
@@ -88,7 +90,7 @@
 - name: Set sysctl bridge parameters for testbed
   sysctl:
     name: "{{ item }}"
-    value: 0
+    value: "0"
     sysctl_set: yes
   become: yes
   with_items:
@@ -99,23 +101,23 @@
 - name: Set sysctl RCVBUF max parameter for testbed
   sysctl:
     name: "net.core.rmem_max"
-    value: 509430500
+    value: "509430500"
     sysctl_set: yes
   become: yes
 
 - name: Set sysctl RCVBUF default parameter for testbed
   sysctl:
     name: "net.core.rmem_default"
-    value: 31457280
+    value: "31457280"
     sysctl_set: yes
   become: yes
 
 - name: Setup external front port
-  include: external_port.yml
+  include_tasks: external_port.yml
   when: external_port is defined
 
 - name: Setup internal management network
-  include: internal_mgmt_network.yml
+  include_tasks: internal_mgmt_network.yml
   when: internal_mgmt_network is defined and internal_mgmt_network == True
 
 - block:
@@ -154,44 +156,72 @@
   register: vm_list_running
   become: true
 
+- name: Retrieve a list of the paused VMs
+  virt: command=list_vms
+        uri=qemu:///system
+        state=pause
+  register: vm_list_paused
+  become: true
+
 - name: Find current server group
   set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
 
 - name: Extract VM names from the inventory
   set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') }}
 
+- name: Limit VM
+  set_fact: VM_hosts="{{ VM_hosts | first_n_elements(VM_num) }}"
+  when: VM_num is defined and VM_num > 0
+
+- name: Generate vm list of target VMs
+  set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
+  when: topology['VMs'] is defined
+
 - name: Stop VMs
-  include: stop.yml
+  include_tasks: stop.yml
   when: action == 'stop'
 
 - name: Start VMs
-  include: start.yml
+  include_tasks: start.yml
   when: action == 'start'
 
 - name: Add topology
-  include: add_topo.yml
+  include_tasks: add_topo.yml
   when: action == 'add_topo'
 
 - name: Remove topology
-  include: remove_topo.yml
+  include_tasks: remove_topo.yml
   when: action == 'remove_topo'
 
 - name: Renumber topology
-  include: renumber_topo.yml
+  include_tasks: renumber_topo.yml
   when: action == 'renumber_topo'
 
 - name: Connect VMs
-  include: connect_vms.yml
+  include_tasks: connect_vms.yml
   when: action == 'connect_vms'
 
 - name: Disconnect VMs
-  include: disconnect_vms.yml
+  include_tasks: disconnect_vms.yml
   when: action == 'disconnect_vms'
 
-- name: Start SONiC VM
-  include: start_sonic_vm.yml
-  when: action == 'start_sonic_vm' and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == 'kvm'
+- block:
+    - name: Start SONiC VM
+      include_tasks: start_sonic_vm.yml
+      when: action == 'start_sonic_vm' and hostvars[dut_name]['type'] == 'kvm'
 
-- name: Stop SONiC VM
-  include: stop_sonic_vm.yml
-  when: action == 'stop_sonic_vm' and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == 'kvm'
+    - name: Stop SONiC VM
+      include_tasks: stop_sonic_vm.yml
+      when: action == 'stop_sonic_vm' and hostvars[dut_name]['type'] == 'kvm'
+
+    - name: Start SID
+      include_tasks: start_sid.yml
+      when: action == 'start_sid' and hostvars[dut_name]['type'] == 'simx'
+
+    - name: Stop SID
+      include_tasks: stop_sid.yml
+      when: action == 'stop_sid' and hostvars[dut_name]['type'] == 'simx'
+  when:
+    - dut_name is defined
+    - hostvars[dut_name] is defined
+    - hostvars[dut_name].type is defined

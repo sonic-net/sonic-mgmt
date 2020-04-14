@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import datetime
 from telnetlib import Telnet
 
 
@@ -58,7 +59,7 @@ class SerialSession(object):
 
         return
 
-    def pair(self, action, wait_for, timeout):
+    def pair(self, action, wait_for, timeout=60):
         self.d.debug('output: %s' % action)
         self.d.debug('match: %s' % ",".join(wait_for))
         self.tn.write("%s\n" % action)
@@ -79,37 +80,47 @@ class SerialSession(object):
                 break
 
         for password in passwords:
-            index = self.pair(user, [r'assword:', r'\$'], 20)
+            index = self.pair(user, [r'assword:', r'\$'])
             if index == 0:
-                index = self.pair(password, [r'login:', r'\$'], 10)
+                index = self.pair(password, [r'login:', r'\$'])
                 if index == 1:
                     break
 
         return
 
     def configure(self, seq):
-        self.pair('sudo bash', [r'#'], 10)
-        for action, wait_for in seq:
-            self.pair(action, wait_for, 10)
-        self.pair('exit', [r'\$'], 10)
+        self.pair('sudo bash', [r'#'])
+        for cmd in seq:
+            if len(cmd) == 2:
+                (action, wait_for) = cmd
+                self.pair(action, wait_for)
+            else:
+                (action, wait_for, timeout) = cmd
+                self.pair(action, wait_for, timeout)
+        self.pair('exit', [r'\$'])
 
         return
 
     def logout(self):
-        self.pair('exit', [r'login:'], 10)
+        self.pair('exit', [r'login:'])
 
         return
 
 def session(new_params):
     seq = [
+        ('while true; do if [ $(systemctl is-active swss) == "active" ]; then break; fi; echo $(systemctl is-active swss); sleep 1; done', [r'#'], 180),
+        ('pkill dhclient', [r'#']),
         ('hostname %s' % str(new_params['hostname']), [r'#']),
         ('sed -i s:sonic:%s: /etc/hosts' % str(new_params['hostname']), [r'#']),
         ('ifconfig eth0 %s' % str(new_params['mgmt_ip']), [r'#']),
+        ('ifconfig eth0', [r'#']),
         ('ip route add 0.0.0.0/0 via %s table default' % str(new_params['mgmt_gw']), [r'#']),
+        ('ip route', [r'#']),
         ('echo %s:%s | chpasswd' % (str(new_params['login']), str(new_params['new_password'])), [r'#']),
     ]
 
-    debug = MyDebug('/tmp/debug.%s.txt' % new_params['hostname'], enabled=True)
+    curtime = datetime.datetime.now().isoformat()
+    debug = MyDebug('/tmp/debug.%s.%s.txt' % (new_params['hostname'], curtime), enabled=True)
     ss = SerialSession(new_params['telnet_port'], debug)
     ss.login(new_params['login'], new_params['passwords'])
     ss.configure(seq)

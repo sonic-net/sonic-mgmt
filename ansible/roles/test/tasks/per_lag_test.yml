@@ -21,10 +21,10 @@
 - set_fact:
     cur_lag_member_name: "{{member_0_name}}"
     cur_lag_member_index: "{{member_0_index}}"
-- include: roles/test/tasks/per_lag_member_test.yml
+- include_tasks: roles/test/tasks/per_lag_member_test.yml
 
 - debug: msg="Test current lag with member-1 port put down"
 - set_fact:
     cur_lag_member_name: "{{member_1_name}}"
     cur_lag_member_index: "{{member_1_index}}"
-- include: roles/test/tasks/per_lag_member_test.yml
+- include_tasks: roles/test/tasks/per_lag_member_test.yml

@@ -52,4 +52,4 @@
         crm_cli_res: "ipv4 nexthop"
         crm_used: "{{new_crm_stats_ipv4_nexthop_used}}"
         crm_avail: "{{new_crm_stats_ipv4_nexthop_available}}"
-      include: roles/test/tasks/crm/crm_test_threshold.yml
+      include_tasks: roles/test/tasks/crm/crm_test_threshold.yml

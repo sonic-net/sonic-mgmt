@@ -35,7 +35,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: true
         run_cleanup: true
-      include: "{{ run_ping_test }}"
+      include_tasks: "{{ run_ping_test }}"
 
     - name: ACL drop traffic by source ip address test
       vars:
@@ -43,7 +43,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: true
         run_cleanup: true
-      include: "{{ run_ping_test }}"
+      include_tasks: "{{ run_ping_test }}"
 
     - name: ACL drop traffic by destination ip address test
       vars:
@@ -51,7 +51,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: true
         run_cleanup: true
-      include: "{{ run_ping_test }}"
+      include_tasks: "{{ run_ping_test }}"
 
     - name: ACL drop traffic by ip prototype test
       vars:
@@ -59,7 +59,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: true
         run_cleanup: true
-      include: "{{ run_ping_test }}"
+      include_tasks: "{{ run_ping_test }}"
 
     - name: ACL drop traffic by ip type test
       vars:
@@ -67,7 +67,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: true
         run_cleanup: true
-      include: "{{ run_ping_test }}"
+      include_tasks: "{{ run_ping_test }}"
 
     - name: ACL drop traffic by tcp flags test
       vars:
@@ -75,7 +75,7 @@
         test_expect_file: "{{ config_empty_expect }}"
         errors_expected: false
         run_cleanup: true
-      include: "{{ run_ping_test }}"
+      include_tasks: "{{ run_ping_test }}"
 
   always:
     - name: Remove all the temporary created by the test.

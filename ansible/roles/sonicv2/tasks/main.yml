@@ -42,20 +42,20 @@
         mode=0755
 
 # SONiC
-- include: sonic-brcm.yml
+- include_tasks: sonic-brcm.yml
   when: sonic_asic_type == 'broadcom'
   tags: swss,unsafe
 
-- include: sonic-mlnx.yml
+- include_tasks: sonic-mlnx.yml
   when: sonic_asic_type == 'mellanox'
   tags: swss,unsafe
 
-- include: sonic-cavm.yml
+- include_tasks: sonic-cavm.yml
   when: sonic_asic_type == 'cavium'
   tags: swss,unsafe
 
-- include: quagga.yml
+- include_tasks: quagga.yml
   tags: quagga,unsafe
 
-- include: teamd.yml
+- include_tasks: teamd.yml
   tags: teamd,unsafe

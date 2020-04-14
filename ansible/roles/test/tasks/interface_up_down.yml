@@ -1,5 +1,9 @@
 # This playbook tests neighbor interface flap and ACS interface status work properly
 #
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: lldp
+
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
 
@@ -8,15 +12,11 @@
   service: name=lldpd
            state=started
            enabled=yes
-  vars:
-    ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i lldp python
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - name: Gather information from lldp
   lldp:
-  vars:
-    ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i lldp python
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - name: If underlay exists, use underlay to replace it.
   set_fact:
@@ -37,23 +37,21 @@
   pause: seconds=5
 
 - name: gather interface facts
-  setup: 
+  setup:
 
-- name: verify all local interfaces are up 
+- name: verify all local interfaces are up
   assert: { that: "ansible_{{ item }}['active']  == true" }
-  with_items: ansible_interfaces
+  with_items: "{{ ansible_interfaces }}"
   when:
     - item | match("Ethernet.*")
 
 - name: Gather information from lldp again after ports are enabled
   lldp:
-  vars:
-    ansible_shell_type: docker
-    ansible_python_interpreter: docker exec -i lldp python
+  delegate_to: "{{ ansible_host }}_lldp"
 
 - name: rearrange lldp received data structure for interface up down test
   interface_up_down_data_struct_facts: data="{{ lldp }}"
-  connection: local
+  delegate_to: localhost
   become: no
 
 - name:  shutdown neighbor interfaces
@@ -63,17 +61,17 @@
      login: "{{ switch_login[ansible_interface_up_down_data_struct_facts[item]['nei_device_type']] }}"
      skip_default_user:   "yes"
   connection: cisco
-  with_items: ansible_interface_up_down_data_struct_facts.keys()
-  
+  with_items: "{{ ansible_interface_up_down_data_struct_facts.keys() }}"
+
 - name: sleep for some time
   pause: seconds=5
 
 - name: gather interface facts
-  setup: 
+  setup:
 
-- name: verify all local interfaces are down 
+- name: verify all local interfaces are down
   assert: { that: "ansible_{{ item }}['active']  == false" }
-  with_items: ansible_interfaces
+  with_items: "{{ ansible_interfaces }}"
   when:
     - item | match("Ethernet.*")
 
@@ -84,16 +82,16 @@
         login: "{{ switch_login[ansible_interface_up_down_data_struct_facts[item]['nei_device_type']] }}"
         skip_default_user:   "yes"
   connection: cisco
-  with_items: ansible_interface_up_down_data_struct_facts.keys()
+  with_items: "{{ ansible_interface_up_down_data_struct_facts.keys() }}"
 
 - name: sleep for some time
   pause: seconds=5
 
 - name: gather interface facts
-  setup: 
+  setup:
 
-- name: verify all local interfaces are up 
+- name: verify all local interfaces are up
   assert: { that: "ansible_{{ item }}['active']  == true" }
-  with_items: ansible_interfaces
+  with_items: "{{ ansible_interfaces }}"
   when:
     - item | match("Ethernet.*")

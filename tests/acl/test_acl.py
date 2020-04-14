@@ -13,7 +13,7 @@ import ptf.mask as mask
 import ptf.packet as packet
 
 from common import reboot, port_toggle
-from loganalyzer import LogAnalyzer, LogAnalyzerError
+from common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ def setup(duthost, testbed):
     port_channels = []
     acl_table_ports = []
 
-    if testbed['topo'] not in ('t1', 't1-lag', 't1-64-lag'):
+    if testbed['topo']['name'] not in ('t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet'):
         pytest.skip('Unsupported topology')
 
     # gather ansible facts
@@ -82,7 +82,7 @@ def setup(duthost, testbed):
 
     # get the list of port to be combined to ACL tables
     acl_table_ports += tor_ports
-    if testbed['topo'] in ('t1-lag', 't1-64-lag'):
+    if testbed['topo']['name'] in ('t1-lag', 't1-64-lag', 't1-64-lag-clet'):
         acl_table_ports += port_channels
     else:
         acl_table_ports += spine_ports
@@ -156,7 +156,7 @@ def acl_table_config(duthost, setup, stage):
     }
 
     logger.info('extra variables for ACL table:\n{}'.format(pprint.pformat(acl_table_vars)))
-    duthost.host.options['variable_manager'].extra_vars = acl_table_vars
+    duthost.host.options['variable_manager'].extra_vars.update(acl_table_vars)
 
     logger.info('generate config for ACL table {}'.format(acl_table_name))
     acl_config = 'acl_table_{}.json'.format(acl_table_name)
@@ -257,7 +257,7 @@ class BaseAclTest(object):
         dut.command('config acl update full {}'.format(remove_rules_dut_path))
 
     @pytest.fixture(scope='class', autouse=True)
-    def acl_rules(self, duthost, localhost, setup, acl_table):
+    def acl_rules(self, duthost, testbed_devices, setup, acl_table):
         """
         setup/teardown ACL rules based on test class requirements
         :param duthost: DUT host object
@@ -266,7 +266,7 @@ class BaseAclTest(object):
         :param acl_table: table creating fixture
         :return:
         """
-
+        localhost = testbed_devices['localhost']
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl_rules')
         loganalyzer.load_common_config()
 

@@ -9,14 +9,14 @@
       assert:
         that:
         - int_po.stdout | search("{{item.key}}\s+LACP\(A\)\(Up\).*{{item.value['members'][0]}}")
-      with_dict: minigraph_portchannels
+      with_dict: "{{ minigraph_portchannels }}"
       when: mode=='default' 
 
     - name: check  show interface portchannel output shows alias name in alias mode 
       assert:
         that:
         - int_po.stdout | search("{{item.key}}\s+LACP\(A\)\(Up\).*{{port_name_map[item.value['members'][0]]}}")
-      with_dict: minigraph_portchannels
+      with_dict: "{{ minigraph_portchannels }}"
       when: mode=='alias'
 # As the ansible work in non interactive mode, it doesnt read the environmental varaiable set in bashrc file. Hence as a workaround, the variable is  extracted through check_userifmode.yml and manually set the variable 'SONIC_CLI_IFACE_MODE' to take effect.
 

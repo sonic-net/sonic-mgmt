@@ -6,10 +6,10 @@
   when: testbed_type is not defined
 
 - fail: msg="testbed_type {{testbed_type}} is unsupported."
-  when: testbed_type not in ['t1', 't1-lag', 't1-64-lag']
+  when: testbed_type not in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet']
 
 - name: Get VM info.
-  include: "roles/test/tasks/bgp_gr_helper/get_vm_info.yml"
+  include_tasks: "roles/test/tasks/bgp_gr_helper/get_vm_info.yml"
 
 - name: Gather facts from bgp container.
   bgp_facts:
@@ -36,7 +36,7 @@
     - set_fact:
         test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
 
-    - include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
       vars:
         test_match_file: routes_update_match.txt
 
@@ -78,11 +78,11 @@
       assert: { that: "'{{ bgp_neighbors[peer_ipv6]['capabilities']['peer af ipv6 unicast'] }}' == 'preserved'" }
 
     # Analyze syslog, no log message related with routes update should be observed
-    - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
       vars:
         test_match_file: routes_update_match.txt
 
-    - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
   always:
     - name: Set log level back to NOTICE
@@ -96,7 +96,7 @@
     - set_fact:
         test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
 
-    - include: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
       vars:
         test_expect_file: routes_update_expect.txt
 
@@ -135,11 +135,11 @@
       assert: { that: "'{{ bgp_neighbors[peer_ipv6]['capabilities']['peer af ipv6 unicast'] }}' == 'not preserved'" }
 
     # Analyze syslog, log messages related with routes update are expected
-    - include: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
       vars:
         test_expect_file: routes_update_expect.txt
 
-    - include: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
   always:
     - name: Set log level back to NOTICE

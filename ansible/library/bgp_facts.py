@@ -48,34 +48,45 @@ Read thread: off  Write thread: off
 
 class BgpModule(object):
     def __init__(self):
+        self.instances =[]
         self.module = AnsibleModule(
             argument_spec=dict(
+                num_npus=dict(type='int', default=1),
             ),
             supports_check_mode=True)
 
+        m_args = self.module.params
+        npus = m_args['num_npus']
+        if npus > 1:
+            for npu in range(0, npus):
+                self.instances.append("bgp{}".format(npu))
+        else:
+            self.instances.append("bgp")
+                    
         self.out = None
         self.facts = {}
-
+        self.facts['bgp_neighbors'] = {}
         return
 
     def run(self):
         """
             Main method of the class
         """
-        self.collect_data('summary')
-        self.parse_summary()
-        self.collect_data('neighbor')
-        self.parse_neighbors()
-        self.get_statistics()
+        for instance in self.instances:
+            self.collect_data('summary', instance)
+            self.parse_summary()
+            self.collect_data('neighbor',instance)
+            self.parse_neighbors()
+            self.get_statistics()
         self.module.exit_json(ansible_facts=self.facts)
 
-    def collect_data(self, command_str):
+    def collect_data(self, command_str, instance):
         """
             Collect bgp information by reading output of 'vtysh' command line tool
         """
+        docker_cmd = 'docker exec -i {} vtysh -c "show ip bgp {}" '.format(instance,command_str)
         try:
-            rc, self.out, err = self.module.run_command('docker exec -i bgp vtysh -c "show ip bgp ' + command_str + '"',
-                                                        executable='/bin/bash', use_unsafe_shell=True)
+            rc, self.out, err = self.module.run_command(docker_cmd, executable='/bin/bash', use_unsafe_shell=True)
         except Exception as e:
             self.module.fail_json(msg=str(e))
 
@@ -176,7 +187,7 @@ class BgpModule(object):
         except Exception as e:
             self.module.fail_json(msg=str(e))
 
-        self.facts['bgp_neighbors'] = neighbors
+        self.facts['bgp_neighbors'].update(neighbors)
         return
 
     def get_statistics(self):

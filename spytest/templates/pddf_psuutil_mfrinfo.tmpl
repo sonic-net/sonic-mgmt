@@ -1,0 +1,14 @@
+Value psu_name (\S+)
+Value psu_status (.*)
+Value Manufacture (.*)
+Value Model (\S+)
+Value serial_number (\S+)
+Value fan_direction (\S+)
+
+
+Start
+  ^${psu_name}\s+is\s+${psu_status}\s*$$
+  ^Manufacture\s+Id:\s+${Manufacture}\s*$$
+  ^Model:\s+${Model}\s*$$
+  ^Serial\s+Number:\s+${serial_number}\s*$$
+  ^Fan\s+Direction:\s+${fan_direction}\s*$$ -> Record

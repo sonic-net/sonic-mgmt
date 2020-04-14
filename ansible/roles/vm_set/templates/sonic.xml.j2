@@ -2,7 +2,7 @@
   <name>{{ dut_name }}</name>
   <memory unit='KiB'>2048000</memory>
   <currentMemory unit='KiB'>2048000</currentMemory>
-  <vcpu placement='static'>2</vcpu>
+  <vcpu placement='static'>4</vcpu>
   <resource>
     <partition>/machine</partition>
   </resource>
@@ -31,10 +31,12 @@
       <protocol type='telnet'/>
     </serial>
     <interface type='ethernet'>
+        <target dev='{{ dut_name }}-0' />
         <model type='e1000' />
     </interface>
 {% for i in range(port_alias|length) %}
     <interface type='ethernet' >
+        <target dev='{{ dut_name }}-{{ i + 1 }}' />
         <model type='e1000' />
     </interface>
 {% endfor %}

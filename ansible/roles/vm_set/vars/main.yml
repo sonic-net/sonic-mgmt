@@ -1,7 +1,5 @@
 tor_memory: 1572864
 spine_memory: 2097152
 
-port1_bridge: br-port1-{{ id }}
-
 fp_mtu_size: 9216
 

@@ -2,7 +2,7 @@
   when: testbed_type is not defined
 
 - fail: msg="testbed_type {{test_type}} is invalid"
-  when: testbed_type not in ['t0', 't0-64', 't0-64-32', 't0-116']
+  when: testbed_type not in ['t0', 't0-64', 't0-64-32', 't0-116', 't0-52']
 
 - name: set fdb_aging_time to default if no user input
   set_fact:
@@ -54,7 +54,7 @@
     - debug: msg="{{show_mac_output.stdout}}"
 
     - name: "Start PTF runner"
-      include: ptf_runner.yml
+      include_tasks: ptf_runner.yml
       vars:
         ptf_test_name: FDB Mac Expire test
         ptf_test_dir: ptftests

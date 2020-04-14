@@ -1,25 +1,4 @@
-- name: Stop NTP service
-  become: true
-  service:
-    name: ntp
-    state: stopped
-
-- name: Force local clock to sync with an NTP clock
-  become: true
-  command: ntpd -gq
-
-- name: Start NTP service
-  become: true
-  service:
-    name: ntp
-    state: started
-
-- name: Check if NTP is synced
-  become: true
-  shell: ntpstat
-  register: ntpstat_result
-  until: ntpstat_result.rc == 0
-  retries: 10
-  delay: 30
-
-- debug: msg="NTP Status {{ ntpstat_result.stdout }}"
+- name: run test
+  include_tasks: roles/test/tasks/pytest_runner.yml
+  vars:
+    test_node: ntp/test_ntp.py

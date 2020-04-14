@@ -3,12 +3,12 @@
 #-----------------------------------------
 
 - block:
-  - name: Set dscp_mode for decap test for broadcom
+  - name: Set dscp_mode for decap test for broadcom or marvell
     set_fact:
        dscp_mode: pipe
        ecn_mode: copy_from_outer
     when:
-       - sonic_hwsku in broadcom_hwskus
+       - sonic_hwsku in broadcom_hwskus or sonic_hwsku in marvell_hwskus
        - dscp_mode is not defined
 
   - name: Set dscp_mode var for decap test for mellanox
@@ -39,7 +39,7 @@
 
 - name: Expand properties into props
   set_fact: props="{{configuration_properties['spine']}}"
-  when: testbed_type in ['t1', 't1-lag', 't1-64-lag']
+  when: testbed_type in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet']
 
 - name: Expand properties into props
   set_fact: props="{{configuration_properties['common']}}"
@@ -47,7 +47,7 @@
 
 - name: Expand properties into props
   set_fact: props_tor="{{configuration_properties['tor']}}"
-  when: testbed_type in ['t1', 't1-lag', 't1-64-lag']
+  when: testbed_type in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet']
 
 # Gather minigraph facts
 - name: Gathering minigraph facts about the device
@@ -109,7 +109,7 @@
     delegate_to: "{{ ptf_host }}"
 
   - name: "Running test {{ testname }}"
-    include: ptf_runner.yml
+    include_tasks: ptf_runner.yml
     vars:
       ptf_test_name: '{{ testname_unique }}'
       ptf_test_dir: ptftests

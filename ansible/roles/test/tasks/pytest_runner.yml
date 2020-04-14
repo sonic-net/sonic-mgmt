@@ -35,7 +35,7 @@
 
 - name: append inventory file
   set_fact:
-    pytest_cmd: '{{ pytest_cmd }} --inventory=../ansible/{{ inventory_file }}'
+    pytest_cmd: '{{ pytest_cmd }} --inventory={{ inventory_file }}'
 
 - name: append testbed file
   set_fact:
@@ -45,6 +45,10 @@
   set_fact:
     pytest_cmd: '{{ pytest_cmd }} --host-pattern={{ testbed_name }}'
 
+- name: append module path
+  set_fact:
+    pytest_cmd: '{{ pytest_cmd }} --module-path=../ansible/library'
+
 - name: append verbosity flag
   set_fact:
     pytest_cmd: '{{ pytest_cmd }} -v'
@@ -52,7 +56,7 @@
 - debug: var=pytest_cmd
 
 - name: run py.test
-  connection: local
+  delegate_to: localhost
   shell: '{{ pytest_cmd }}'
   args:
     chdir: ../tests/

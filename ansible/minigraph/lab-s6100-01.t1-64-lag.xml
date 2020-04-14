@@ -1155,7 +1155,12 @@
           <InAcl>Everflow</InAcl>
           <Type>Everflow</Type>
         </AclInterface>
-          <AclInterface>
+        <AclInterface>
+          <AttachTo>ERSPANV6</AttachTo>
+          <InAcl>EverflowV6</InAcl>
+          <Type>EverflowV6</Type>
+        </AclInterface>
+        <AclInterface>
           <AttachTo>VTY_LINE</AttachTo>
           <InAcl>ssh-only</InAcl>
           <Type>SSH</Type>
@@ -1406,13 +1411,6 @@
          <HwSku>Arista-VM</HwSku>
       </Device>
       <Device i:type="ToRRouter">
-         <Hostname>ARISTA05T0</Hostname>
-         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.250.0.10</a:IPPrefix>
-         </ManagementAddress>
-         <HwSku>Arista-VM</HwSku>
-      </Device>
-      <Device i:type="ToRRouter">
          <Hostname>ARISTA09T0</Hostname>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.250.0.14</a:IPPrefix>
@@ -1420,9 +1418,9 @@
          <HwSku>Arista-VM</HwSku>
       </Device>
       <Device i:type="ToRRouter">
-         <Hostname>ARISTA06T0</Hostname>
+         <Hostname>ARISTA20T0</Hostname>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.250.0.11</a:IPPrefix>
+           <a:IPPrefix>10.250.0.25</a:IPPrefix>
          </ManagementAddress>
          <HwSku>Arista-VM</HwSku>
       </Device>
@@ -1469,9 +1467,9 @@
          <HwSku>Arista-VM</HwSku>
       </Device>
       <Device i:type="ToRRouter">
-         <Hostname>ARISTA20T0</Hostname>
+         <Hostname>ARISTA05T0</Hostname>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>10.250.0.25</a:IPPrefix>
+           <a:IPPrefix>10.250.0.10</a:IPPrefix>
          </ManagementAddress>
          <HwSku>Arista-VM</HwSku>
       </Device>
@@ -1542,6 +1540,13 @@
          <Hostname>ARISTA13T0</Hostname>
          <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.250.0.18</a:IPPrefix>
+         </ManagementAddress>
+         <HwSku>Arista-VM</HwSku>
+      </Device>
+      <Device i:type="ToRRouter">
+         <Hostname>ARISTA06T0</Hostname>
+         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>10.250.0.11</a:IPPrefix>
          </ManagementAddress>
          <HwSku>Arista-VM</HwSku>
       </Device>
@@ -2386,9 +2391,9 @@
       </EthernetInterfaces>
       <FlowControl>true</FlowControl>
       <Height>0</Height>
-      <HwSku>Force10-S6100</HwSku> 
+      <HwSku>Force10-S6100</HwSku>
       <ManagementInterfaces/>
-    </DeviceInfo> 
+    </DeviceInfo>
   </DeviceInfos>
   <MetadataDeclaration>
     <Devices xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">

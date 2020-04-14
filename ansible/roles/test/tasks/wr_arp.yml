@@ -9,6 +9,10 @@
   script: roles/test/files/helpers/change_mac.sh
   delegate_to: "{{ ptf_host }}"
 
+- name: set ptf_host_ip
+  set_fact:
+    ptf_host_ip: "{{ hostvars[ptf_host]['ansible_host'] }}"
+
 - name: Remove old keys
   file:
     path: "{{ item }}"
@@ -48,12 +52,12 @@
     key: "{{ lookup('file', '/tmp/id_rsa.pub') }}"
 
 - name: Restart DUT. Wait 240 seconds after SONiC started ssh
-  include: reboot.yml
+  include_tasks: reboot.yml
   vars:
     ready_timeout: 240
 
 - name: Find appropriate VXLAN sender
-  shell: ip route show proto zebra type unicast | sed -e '/default/d' -ne '/0\//p' | head -n 1 | sed -ne 's/0\/.*$/1/p'
+  shell: ip route show type unicast | sed -e '/proto 186\|proto zebra/!d' -e '/default/d' -ne '/0\//p' | head -n 1 | sed -ne 's/0\/.*$/1/p'
   register: dip_output
 
 - name: Check that VXLAN DIP was found
@@ -61,7 +65,7 @@
   when: dip_output.stdout | length == 0
 
 - name: Check if the DUT has access to our ptf host
-  command: ip route get {{ ptf_host }}
+  command: ip route get {{ ptf_host_ip }}
   register: route_output
 
 - name: Find the gateway for management port
@@ -73,14 +77,9 @@
   when: gw_output.stdout | length == 0
 
 - name: Install explicit route through eth0 (mgmt) interface, when we don't have correct route to ptf
-  command: ip route add {{ ptf_host }}/32 {{ gw_output.stdout }}
+  command: ip route add {{ ptf_host_ip }}/32 {{ gw_output.stdout }}
   become: yes
   when: "'PortChannel' in route_output.stdout"
-
-- name: Update supervisor configuration
-  include: "roles/test/tasks/common_tasks/update_supervisor.yml"
-  vars:
-    supervisor_host: "{{ ptf_host }}"
 
 - name: Copy tests to the PTF container
   copy: src=roles/test/files/ptftests dest=/root
@@ -100,6 +99,17 @@
   template: src=vxlan_decap.json.j2 dest=/tmp/vxlan_decap.json
   delegate_to: "{{ ptf_host }}"
 
+- name: Generate pem and key files for ssl
+  command: openssl req -new -x509 -keyout test.key -out test.pem -days 365 -nodes -subj "/C=10/ST=Test/L=Test/O=Test/OU=Test/CN=test.com"
+  args:
+    chdir: /opt
+  delegate_to: "{{ ptf_host }}"
+
+- name: Update supervisor configuration
+  include_tasks: "roles/test/tasks/common_tasks/update_supervisor.yml"
+  vars:
+    supervisor_host: "{{ ptf_host }}"
+
 - name: Dump debug info. DUT ip
   debug: var=ansible_eth0.ipv4.address
 
@@ -109,7 +119,7 @@
 - name: Dump debug info. DIP
   debug: var=dip_output.stdout
 
-- include: ptf_runner.yml
+- include_tasks: ptf_runner.yml
   vars:
     ptf_test_name: Warm-Reboot Control-Plane assist feature
     ptf_test_dir: ptftests
@@ -118,7 +128,7 @@
     ptf_platform_dir: ptftests
     ptf_qlen: 1000
     ptf_test_params:
-    - ferret_ip='{{ ptf_host }}'
+    - ferret_ip='{{ ptf_host_ip }}'
     - dut_ssh='{{ ansible_eth0.ipv4.address }}'
     - config_file='/tmp/vxlan_decap.json'
     - how_long=370

@@ -1,0 +1,23 @@
+#####################################################
+#sonic# show ip pim interface          
+#Interface  State          Address  PIM Nbrs           PIM DR  FHR IfChannels
+#Ethernet7     up       10.10.10.1         0            local    0          0
+#pimreg        up          0.0.0.0         0            local    0          0
+#######################################################
+Value vrf (\w+)
+Value interface (\w+)
+Value state (\w+)
+Value address ([\w\.]+)
+Value nbr_count (\d+)
+Value dr ([\w\.]+)
+Value fhr (\w+)
+Value if_channels (\d+)
+
+Start
+  ^\s*VRF:\s*${vrf}$$
+  ^.*Interface\s*State\s*Address\s*PIM\s*Nbrs\s*PIM\s*DR\s*FHR\s*IfChannels -> header
+
+header
+  ^\s*${interface}\s*${state}\s*${address}\s*${nbr_count}\s*${dr}\s*${fhr}\s*${if_channels}$$ -> Record
+
+
