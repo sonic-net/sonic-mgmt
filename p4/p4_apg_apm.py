@@ -1268,7 +1268,7 @@ def _test_actionMem_Neg1():
         print("ERROR DETAILS::")
         print(e_det)
         for item in e_det:
-            if (item['code'] == "ALREADY_EXISTS") and (item['message'] == "Duplicate member id: 200"):
+            if (item['code'] == "ALREADY_EXISTS") and (item['message'] == "Duplicate member id: 32"):
                 log.info("Test NEG_ActMem_1.1:Passed - received correct error message on trying Duplicate Insert of Action Profile Member")
             else:
                 log.error("Test NEG_ActMem_1.1:Failed - received incorrect message on Duplicate Insert")
