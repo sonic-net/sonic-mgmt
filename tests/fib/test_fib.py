@@ -59,6 +59,31 @@ def build_fib(duthost, config_facts, fibfile, t):
             else:
                 ofp.write("{} []\n".format(prefix))
 
+def get_router_interface_ports(config_facts, testbed):
+    """
+    get all physical ports associated with router interface (physical router interface, port channel router interface and vlan router interface)
+    """
+
+    ports = config_facts.get('INTERFACE', {}).keys()
+    portchannels_member_ports = []
+    vlan_untag_ports = []
+    portchannels_name = config_facts.get('PORTCHANNEL_INTERFACE', {}).keys()
+    if portchannels_name:
+        for po_name in portchannels_name:
+            for port_name in config_facts.get('PORTCHANNEL', {})[po_name]['members']:
+                portchannels_member_ports.append(port_name)
+    if 't0' in testbed['topo']['name']:
+        vlans = config_facts.get('VLAN_INTERFACE', {}).keys()
+        for vlan in vlans:
+            vlan_member_info = config_facts.get('VLAN_MEMBER', {}).get(vlan, {})
+            if vlan_member_info:
+                for port_name, tag_mode in vlan_member_info.items():
+                    if tag_mode['tagging_mode'] == 'untagged':
+                        vlan_untag_ports.append(port_name)
+
+    router_interface_ports = ports + portchannels_member_ports + vlan_untag_ports
+
+    return router_interface_ports
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
 def test_fib(testbed, duthost, ptfhost, ipv4, ipv6, mtu):
@@ -130,25 +155,7 @@ class TestHash():
         g_vars['testbed_type'] = testbed['topo']['name']
         g_vars['router_mac'] = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
 
-        # generate available send packet ports
-        ports = config_facts.get('INTERFACE', {}).keys()
-        portchannels_member_ports = []
-        vlan_untag_ports = []
-        portchannels_name = config_facts.get('PORTCHANNEL_INTERFACE', {}).keys()
-        if portchannels_name:
-            for po_name in portchannels_name:
-                for p in config_facts.get('PORTCHANNEL', {})[po_name]['members']:
-                    portchannels_member_ports.append(p)
-        if 't0' in g_vars['testbed_type']:
-            vlans = config_facts.get('VLAN_INTERFACE', {}).keys()
-            for vlan in vlans:
-                vlan_member_info = config_facts.get('VLAN_MEMBER', {}).get(vlan, {})
-                if vlan_member_info:
-                    for port_name, tag_mode in vlan_member_info.items():
-                        if tag_mode['tagging_mode'] == 'untagged':
-                            vlan_untag_ports.append(port_name)
-
-        in_ports_name = ports + portchannels_member_ports + vlan_untag_ports
+        in_ports_name = get_router_interface_ports(config_facts, testbed)
         g_vars['in_ports'] = [config_facts.get('port_index_map', {})[p] for p in in_ports_name]
 
     def test_hash_ipv4(self, ptfhost):
