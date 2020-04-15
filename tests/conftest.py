@@ -215,6 +215,8 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
         if fanout_host in fanout_hosts.keys():
             fanout  = fanout_hosts[fanout_host]
         else:
+            # FIXME: assuming all fanout hosts are EOS for now. Needs to figure out the os type and
+            #        create fanout switch with the right type.
             fanout  = FanoutHost(ansible_adhoc, 'eos', fanout_host, 'FanoutLeaf', creds['fanout_admin_user'], creds['fanout_admin_password'])
             fanout_hosts[fanout_host] = fanout
         fanout.add_port_map(dut_port, fanout_port)
