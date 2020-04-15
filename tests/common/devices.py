@@ -364,6 +364,8 @@ class EosHost(AnsibleHostBase):
                   'ansible_network_os':'eos', \
                   'ansible_user': user, \
                   'ansible_password': passwd, \
+                  'ansible_ssh_user': user, \
+                  'ansible_ssh_pass': passwd, \
                   'ansible_become_method': 'enable' }
         self.host.options['variable_manager'].extra_vars.update(evars)
 
@@ -390,6 +392,10 @@ class EosHost(AnsibleHostBase):
             commands=['show interface %s' % interface_name])[self.hostname]
         return 'Up' in show_int_result['stdout_lines'][0]
 
+    def command(self, cmd):
+        out = self.host.eos_command(commands=[cmd])
+        return out
+
 class FanoutHost():
     """
     @summary: Class for Fanout switch
@@ -400,6 +406,8 @@ class FanoutHost():
     def __init__(self, ansible_adhoc, os, hostname, device_type, user, passwd):
         self.hostname = hostname
         self.type = device_type
+        self.host_to_fanout_port_map = {}
+        self.fanout_to_host_port_map = {}
         if os == 'sonic':
             self.os = os
             self.host = SonicHost(ansible_adhoc, hostname)
@@ -415,13 +423,27 @@ class FanoutHost():
         return self.type
     
     def shutdown(self, interface_name):
-        self.host.shutdown(interface_name)
+        return self.host.shutdown(interface_name)[self.hostname]
     
     def no_shutdown(self, interface_name):
-        self.host.no_shutdown(interface_name)
+        return self.host.no_shutdown(interface_name)[self.hostname]
+
+    def command(self, cmd):
+        return self.host.command(cmd)[self.hostname]
 
     def __str__(self):
         return "{ os: '%s', hostname: '%s', device_type: '%s' }" % (self.os, self.hostname, self.type)
     
     def __repr__(self):
         return self.__str__()
+
+    def add_port_map(self, host_port, fanout_port):
+        """
+            Fanout switch is build from the connection graph of the
+            DUT. So each fanout switch instance is relevant to the
+            DUT instance in the test. As result the port mapping is
+            unique from the DUT perspective. However, this function
+            need update when supporting multiple DUT
+        """
+        self.host_to_fanout_port_map[host_port]   = fanout_port
+        self.fanout_to_host_port_map[fanout_port] = host_port
