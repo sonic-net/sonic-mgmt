@@ -49,6 +49,7 @@ class HashTest(BaseTest):
         self.dataplane = ptf.dataplane_instance
         self.fib = fib.Fib(self.test_params['fib_info'])
         self.router_mac = self.test_params['router_mac']
+        self.in_ports = self.test_params['in_ports']
 
         self.src_ip_range = [unicode(x) for x in self.test_params['src_ip_range'].split(',')]
         self.dst_ip_range = [unicode(x) for x in self.test_params['dst_ip_range'].split(',')]
@@ -58,19 +59,6 @@ class HashTest(BaseTest):
 
         self.balancing_range = self.test_params.get('balancing_range', self.DEFAULT_BALANCING_RANGE)
 
-        # Provide the list of all UP interfaces with index in sequence order starting from 0
-        if self.test_params['testbed_type'] == 't1' or self.test_params['testbed_type'] == 't1-lag':
-            self.src_ports = range(0, 32)
-        if self.test_params['testbed_type'] == 't1-64-lag' or self.test_params['testbed_type'] == 't1-64-lag-clet':
-            self.src_ports = [0, 1, 4, 5, 16, 17, 20, 21, 34, 36, 37, 38, 39, 42, 44, 45, 46, 47, 50, 52, 53, 54, 55, 58, 60, 61, 62, 63]
-        if self.test_params['testbed_type'] == 't0':
-            self.src_ports = range(1, 25) + range(28, 32)
-        if self.test_params['testbed_type'] == 't0-56':
-            self.src_ports = [0, 1, 4, 5, 8, 9] + range(12, 18) + [20, 21, 24, 25, 28, 29, 32, 33, 36, 37] + range(40, 46) + [48, 49, 52, 53]
-        if self.test_params['testbed_type'] == 't0-64':
-            self.src_ports = range(0, 2) + range(4, 18) + range(20, 33) + range(36, 43) + range(48, 49) + range(52, 59)
-        if self.test_params['testbed_type'] == 't0-116':
-            self.src_ports = range(0, 120)
     #---------------------------------------------------------------------
 
     def check_hash(self, hash_key):
@@ -81,11 +69,11 @@ class HashTest(BaseTest):
         if exp_port_list <= 1:
             logging.warning("{} has only {} nexthop".format(dst_ip, exp_port_list))
             assert False
-        in_port = random.choice([port for port in self.src_ports if port not in exp_port_list])
+        in_port = random.choice([port for port in self.in_ports if port not in exp_port_list])
 
         hit_count_map = {}
         if hash_key == 'ingress-port': # The sample is too little for hash_key ingress-port, check it loose(just verify if the asic actually used the hash field as a load-balancing factor)
-            for in_port in [port for port in self.src_ports if port not in exp_port_list]:
+            for in_port in [port for port in self.in_ports if port not in exp_port_list]:
                 logging.info("in_port: {}".format(in_port))
                 (matched_index, _) = self.check_ip_route(hash_key, in_port, dst_ip, exp_port_list)
                 hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
