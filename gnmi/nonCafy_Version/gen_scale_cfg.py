@@ -39,7 +39,7 @@ def main():
 
         cfg_dict["name"] = "Loopback{}".format(i)
         cfg_dict["description"] = "For {} oper TC :{}".format(descr,i)
-        cfg_dict["type"] = "iana-if-type:ethernetCsmacd"
+        cfg_dict["type"] = "ianaift:softwareLoopback"
         cfg_dict["mtu"] = "1500"
 
         intf_dict["name"] = "Loopback{}".format(i)
