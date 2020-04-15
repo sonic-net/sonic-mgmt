@@ -198,6 +198,15 @@ def _test_batched_read_apg_apm(self,sw_conn):
 
         mode = 'DELETE'
         if 'DELETE' in mode:
+            if 'group_entries' in input_conf:
+                group_entries = input_conf['group_entries']
+                insrt_entrs = [x for x in group_entries if x['entry_oper'] == mode]
+                log.info("{mode} {num} group entries...".format(num=len(insrt_entrs),mode=mode.upper()))
+                for entry in insrt_entrs:
+                    log.info("{mode} a Group ".format(mode=mode.upper()))
+                    p4TestLib.groupActions(sw_conn,entry,p4info_helper, mode)
+                    group_id = entry["group_id"]
+                        
             log.info("Delete members after group is deleted")            
             if 'member_entries' in input_conf:
                 members = input_conf['member_entries']
