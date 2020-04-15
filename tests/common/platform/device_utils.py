@@ -2,8 +2,6 @@
 Helper script for fanout switch operations
 """
 
-import logging
-
 def fanout_switch_port_lookup(fanout_switches, dut_port):
     """
         look up the fanout switch instance and the fanout switch port

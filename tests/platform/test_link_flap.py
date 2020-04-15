@@ -23,8 +23,8 @@ class TestLinkFlap:
         return ifstate['active'] == exp_state
 
 
-    def __toggle_one_port(self, dut, dut_port, fanout, fanout_port):
-        logging.info("Testing port toggle on {}".format(dut_port))
+    def __toggle_one_link(self, dut, dut_port, fanout, fanout_port):
+        logging.info("Testing link flap on {}".format(dut_port))
 
         ifstate = self.__get_dut_if_facts(dut)[dut_port]
         assert ifstate['active'], "dut port {} is down".format(dut_port)
@@ -65,7 +65,7 @@ class TestLinkFlap:
 
         try:
             for dut_port, fanout, fanout_port in candidates:
-                self.__toggle_one_port(dut, dut_port, fanout, fanout_port)
+                self.__toggle_one_link(dut, dut_port, fanout, fanout_port)
         finally:
             logging.info("Restoring fanout switch ports that were shut down by test")
             for fanout, fanout_port in self.ports_shutdown_by_test:
