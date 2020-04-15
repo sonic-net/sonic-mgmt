@@ -314,7 +314,7 @@ def restart_thermal_control_daemon(dut):
     assert output["rc"] == 0, "Run command '%s' failed" % kill_thermalctld_cmd
     
     # make sure thermalctld has restarted
-    max_wait_time = 5
+    max_wait_time = 30
     while max_wait_time > 0:
         max_wait_time -= 1
         output = dut.command(find_thermalctld_pid_cmd)
