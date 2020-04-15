@@ -1451,9 +1451,9 @@ def _test_actionMem_Neg3():
         print(e_det)
         for item in e_det:
             if (item['code'] == "FAILED_PRECONDITION") and (item['message'] == "Member id does not exist: 28"):
-                log.info("Test NEG_ActMem_3.2:Passed - received correct error message on trying to DELETE Non-Existant Member")
+                log.info("Test NEG_ActMem_3.2:Passed - received correct error message on trying to DELETE a member which part of a group")
             else:
-                log.error("Test NEG_ActMem_3.2:Failed - received incorrect message on trying to DELETE Non-Existant Member")
+                log.error("Test NEG_ActMem_3.2:Failed - received incorrect message on trying to DELETE a member which part of a group")
                 rslt = False
     finally:
         mode = "DELETE"
