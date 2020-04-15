@@ -1,7 +1,6 @@
 import pytest
-import time
 import logging
-import pprint
+
 logger = logging.getLogger(__name__)
 
 def get_t2_neigh(testbed):
@@ -12,23 +11,28 @@ def get_t2_neigh(testbed):
     return  dut_t2_neigh
 
 def get_t0_neigh(testbed, topo_config):
+    """
+    get all t0 router names which has vips defined 
+    """
     dut_t0_neigh = []
-    
     for vm in testbed['topo']['properties']['topology']['VMs'].keys():
         if 'T0' in vm:
             if topo_config[vm].has_key('vips'):
                 dut_t0_neigh.append(vm)
     return dut_t0_neigh
 
-def get_vips_prefixes(dut_t0_neigh, topo_config):
+def get_vips_prefix(dut_t0_neigh, topo_config):
     vips_prefixes = []
 
+    # find all vips prefixes
     for neigh in dut_t0_neigh:
         prefixes = topo_config[neigh]['vips']['ipv4']['prefixes']
         for prefix in prefixes:
             if prefix not in vips_prefixes:
                 vips_prefixes.append(prefix)
-    return vips_prefixes
+
+    # use the first prefix for testing
+    return vips_prefixes[0]
 
 def get_vips_prefix_paths(dut_t0_neigh, vips_prefix, topo_config):
     vips_t0 = []
@@ -39,6 +43,7 @@ def get_vips_prefix_paths(dut_t0_neigh, vips_prefix, topo_config):
             vips_t0.append(topo_config[neigh]['bgp']['asn'])
             vips_asn.append(topo_config[neigh]['vips']['ipv4']['asn'])
     return vips_t0, vips_asn
+
 def get_bgp_v4_neighbors_from_minigraph(duthost, testbed):
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     
@@ -68,14 +73,11 @@ def test_bgp_multipath_relax(testbed, duthost):
     if not dut_t0_neigh:
         pytest.fail("Didn't find multipath t0's")
 
-    # find all vips prefixes
-    vips_prefixes = get_vips_prefixes(dut_t0_neigh, topo_config)
+    vips_prefix = get_vips_prefix(dut_t0_neigh, topo_config)
     
-    # use the first prefix for testing
-    vips_prefix = vips_prefixes[0]
     logger.info("vips_prefix = {}".format(vips_prefix))
 
-    # find all paths of the prefix for test prefix
+    # find all paths of the prefix for test 
     vips_t0, vips_asn = get_vips_prefix_paths(dut_t0_neigh, vips_prefix, topo_config)
     
     logger.info("vips_t0: {}, vips_asn: {}".format(vips_t0, vips_asn))
@@ -91,7 +93,7 @@ def test_bgp_multipath_relax(testbed, duthost):
     # Verify found vips prefix entry in Sonic bgp routes
     assert bgp_route[vips_prefix]['found'] ==True
 
-    # total multipath match number of t0 with vips that has prefix for test
+    # Verify total multipath match number of t0 with vips that has prefix for test
     assert int(bgp_route[vips_prefix]['path_num']) == len(vips_t0)
 
     
