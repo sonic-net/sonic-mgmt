@@ -566,6 +566,7 @@ class RandomFanStatusMocker(FanStatusMocker):
         """
         FanStatusMocker.__init__(self, dut)
         self.mock_helper = MockerHelper(dut)
+        self.drawer_list = []
         self.expected_data = {}
 
     def deinit(self):
@@ -590,6 +591,7 @@ class RandomFanStatusMocker(FanStatusMocker):
             try:
                 if (fan_index - 1) % MockerHelper.FAN_NUM_PER_DRAWER == 0:
                     drawer_data = FanDrawerData(self.mock_helper, naming_rule, drawer_index)
+                    self.drawer_list.append(drawer_data)
                     drawer_index += 1
                     presence = random.randint(0, 1)
                     drawer_data.mock_presence(presence)
@@ -605,7 +607,7 @@ class RandomFanStatusMocker(FanStatusMocker):
                     fan_data.mock_speed(random.randint(0, 100))
                     self.expected_data[fan_data.name] = [
                         drawer_data.name,
-                        drawer_data.get_expect_led_color(), 
+                        'N/A', # update this value later 
                         fan_data.name,
                         '{}%'.format(fan_data.mocked_speed),
                         drawer_data.mocked_direction,
@@ -625,6 +627,13 @@ class RandomFanStatusMocker(FanStatusMocker):
             except SysfsNotExistError as e:
                 logging.info('Failed to mock fan data: {}'.format(e))
                 continue
+
+        # update led color here
+        for drawer_data in self.drawer_list:
+            for fan_data in drawer_data.fan_data_list:
+                if drawer_data.mocked_presence == 'Present':
+                    expected_data = self.expected_data[fan_data.name]
+                    expected_data[1] = drawer_data.get_expect_led_color()
 
         dut_hwsku = self.mock_helper.dut.facts["hwsku"]
         psu_count = SWITCH_MODELS[dut_hwsku]["psus"]["number"]
