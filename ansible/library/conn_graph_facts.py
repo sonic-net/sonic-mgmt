@@ -209,7 +209,7 @@ class Parse_Lab_Graph():
         if hostname in self.devices:
             return  self.devices[hostname]
         else:
-            return self.devices
+            return None
 
     def get_host_port_vlans(self, hostname):
         """
@@ -218,7 +218,7 @@ class Parse_Lab_Graph():
         if hostname in self.vlanport:
             return self.vlanport[hostname]
         else:
-            return self.vlanport
+            return None
 
     def get_host_connections(self, hostname):
         """
@@ -227,12 +227,12 @@ class Parse_Lab_Graph():
         if hostname in self.links:
             return self.links[hostname]
         else:
-            return self.links
+            return None
 
 def main():
     module = AnsibleModule(
         argument_spec=dict(
-            host=dict(required=False),
+            host=dict(required=True),
             filename=dict(required=False),
         ),
         supports_check_mode=True
