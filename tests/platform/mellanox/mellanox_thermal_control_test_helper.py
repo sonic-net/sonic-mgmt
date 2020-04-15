@@ -605,22 +605,22 @@ class RandomFanStatusMocker(FanStatusMocker):
                     fan_data.mock_speed(random.randint(0, 100))
                     self.expected_data[fan_data.name] = [
                         drawer_data.name,
+                        drawer_data.get_expect_led_color(), 
                         fan_data.name,
                         '{}%'.format(fan_data.mocked_speed),
                         drawer_data.mocked_direction,
                         drawer_data.mocked_presence,
-                        fan_data.mocked_status,
-                        drawer_data.get_expect_led_color()
+                        fan_data.mocked_status
                     ]
                 else:
                     self.expected_data[fan_data.name] = [
                         drawer_data.name,
+                        'red',
                         fan_data.name,
                         'N/A',
                         'N/A',
                         'Not Present',
-                        'N/A',
-                        'red'
+                        'N/A'
                     ]
             except SysfsNotExistError as e:
                 logging.info('Failed to mock fan data: {}'.format(e))
@@ -637,7 +637,8 @@ class RandomFanStatusMocker(FanStatusMocker):
                 fan_data.mock_speed(speed)
 
                 self.expected_data[fan_data.name] = [
-                    'PSU{}'.format(index),
+                    'N/A',
+                    '',
                     fan_data.name,
                     '{}RPM'.format(fan_data.mocked_speed),
                     NOT_AVAILABLE,
@@ -659,6 +660,8 @@ class RandomFanStatusMocker(FanStatusMocker):
             if name in actual_data:
                 actual_fields = actual_data[name]
                 for i, expected_field in enumerate(fields):
+                    if name.find('psu') != -1 and i ==1: 
+                        continue # skip led status check for PSU because we don't mock it
                     if expected_field != actual_fields[i]:
                         logging.error('Check fan status for {} failed, ' \
                                      'expected: {}, actual: {}'.format(name, expected_field, actual_fields[i]))
