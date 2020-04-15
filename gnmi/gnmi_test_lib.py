@@ -794,7 +794,7 @@ def parallel_oper(oper):
             for num in range(1, 4096):
                 intf_num = randint(1, 4095)
                 log.info("SET INTF_NUM {}".format(intf_num))
-                set_info = input_conf["SCALE_INTF_{}".format(intf_num)]
+                set_info = input_conf["SCALE_INTF_{}".format(intf_num)]["config"]
                 xpath = "/"
                 paths = _parse_path(_path_names(xpath))
                 reply = _set(stub, paths, 'update', user, password, set_info)
@@ -820,32 +820,21 @@ def parallel_oper(oper):
             for num in range(1, 4096):
                 intf_num = randint(1, 4095)
                 log.info("GET INTF_NUM {}".format(intf_num))
-                resp_key_list = list()
-                set_info = input_conf["SCALE_INTF_{}".format(intf_num)]
-                prefix = input_conf['GET_VERIFY_{}'.format(intf_num)]['prefix']
+                set_info = input_conf["SCALE_INTF_{}".format(intf_num)]["config"]
+                prefix = input_conf["SCALE_INTF_{}".format(intf_num)]['verify']['prefix']
                 #prefix = _parse_path(_path_names(prefix))
-                path = input_conf['GET_VERIFY_{}'.format(intf_num)]['path']
+                path = input_conf["SCALE_INTF_{}".format(intf_num)]['verify']['path']
                 path = _parse_path(_path_names(path))
-                response = _get(stub, path, user, password,
-                                prefix, type='CONFIG')
-                # log.info(response)
+                response = _get(stub, path, user, password,prefix,type='CONFIG')
+                #log.info(response)
                 msg_dict = google.protobuf.json_format.MessageToDict(response)
                 resp_dict = get_response_dict(msg_dict)
-                resp_key_list.append(
-                    set_info['openconfig-interfaces:interfaces']['interface'][0]['name'])
-                ctr = 0
-                for resp_key in resp_key_list:
-                    if resp_key + ',interfaces,interface,name' in resp_dict.keys():
-                        if set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name'] != resp_dict[resp_key + ',interfaces,interface,name']:
-                            err_msg.append("{} does not match the name in input json file: {}".format(
-                                resp_dict[resp_key + ',interfaces,interface,name'], set_info['openconfig-interfaces:interfaces']['interface'][ctr]['name']))
-                        else:
-                            log.info("Get Successful - Interface {} has a current state of {}".format(
-                                resp_dict[resp_key + ',interfaces,interface,name'], resp_dict[resp_key + ',interfaces,interface,config,enabled']))
-                    else:
-                        err_msg.append(
-                            "Interface {} missing from the GET response".format(resp_key))
-                    ctr += 1
+                for cfg in input_conf["SCALE_INTF_{}".format(intf_num)]['verify']['config']:
+                    section = cfg['section']
+                    set_info = input_conf[section]['config']
+                    result = verify_get_response(resp_dict,set_info,cfg)
+                    err_msg = result['err_msg'] + err_msg
+
         except KeyboardInterrupt:
             log.info("Shutting down.")
         except grpc.RpcError as e:
