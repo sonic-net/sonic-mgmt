@@ -215,7 +215,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
         if fanout_host in fanout_hosts.keys():
             fanout  = fanout_hosts[fanout_host]
         else:
-            fanout = FanoutHost(ansible_adhoc, 'eos', fanout_host, 'FanoutLeaf', creds['fanout_admin_user'], creds['fanout_admin_password'])
+            fanout  = FanoutHost(ansible_adhoc, 'eos', fanout_host, 'FanoutLeaf', creds['fanout_admin_user'], creds['fanout_admin_password'])
             fanout_hosts[fanout_host] = fanout
         fanout.add_port_map(dut_port, fanout_port)
 
