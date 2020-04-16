@@ -85,12 +85,12 @@ def pytest_addoption(parser):
     ############################
     # test_techsupport options #
     ############################
-    
+
     parser.addoption("--loop_num", action="store", default=10, type=int,
                     help="Change default loop range for show techsupport command")
     parser.addoption("--loop_delay", action="store", default=10, type=int,
                     help="Change default loops delay")
-    parser.addoption("--logs_since", action="store", type=int, 
+    parser.addoption("--logs_since", action="store", type=int,
                     help="number of minutes for show techsupport command")
 
 
@@ -234,8 +234,11 @@ def eos():
 @pytest.fixture(scope="module")
 def creds(duthost):
     """ read credential information according to the dut inventory """
-    inv   = duthost.host.options['inventory'].split('/')[-1]
-    files = glob.glob("../ansible/group_vars/{}/*.yml".format(inv))
+    groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
+    logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
+    files = []
+    for group in groups:
+        files += glob.glob("../ansible/group_vars/{}/*.yml".format(group))
     files += glob.glob("../ansible/group_vars/all/*.yml")
     creds = {}
     for f in files:
