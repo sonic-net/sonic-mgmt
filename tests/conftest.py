@@ -236,10 +236,9 @@ def creds(duthost):
     """ read credential information according to the dut inventory """
     groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
-    files = []
+    files = glob.glob("../ansible/group_vars/all/*.yml")
     for group in groups:
         files += glob.glob("../ansible/group_vars/{}/*.yml".format(group))
-    files += glob.glob("../ansible/group_vars/all/*.yml")
     creds = {}
     for f in files:
         with open(f) as stream:
