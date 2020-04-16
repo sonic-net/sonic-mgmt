@@ -1,1 +1,1 @@
-../../../../../tests/scripts/ferret.py
+../../../../../tests/arp/files/ferret.py

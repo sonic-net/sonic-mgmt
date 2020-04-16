@@ -13,14 +13,18 @@ VXLAN_CONFIG_FILE = '/tmp/vxlan_decap.json'
 
 class TestWrArp:
     '''
-    TestWrArp Performs control plane assisted warm-reboo
+        TestWrArp Performs control plane assisted warm-reboo
     '''
     def __prepareVxlanConfigData(self, duthost, ptfhost):
         '''
-        Prepares Vxlan Configuration data for Ferret service running on PTF host
+            Prepares Vxlan Configuration data for Ferret service running on PTF host
 
-        @param duthost: AnsibleHost object of DUT
-        @param ptfhost: AnsibleHost object of PTF
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+
+            Returns:
+                None
         '''
         mgFacts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
         vxlanConfigData = {
@@ -41,12 +45,16 @@ class TestWrArp:
     @pytest.fixture(scope='class', autouse=True)
     def setupFerret(self, duthost, ptfhost):
         '''
-        Sets Ferret service on PTF host. This class-scope fixture runs once before test start
+            Sets Ferret service on PTF host. This class-scope fixture runs once before test start
 
-        @param duthost: AnsibleHost object of DUT
-        @param ptfhost: AnsibleHost object of PTF
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+
+            Returns:
+                None
         '''
-        ptfhost.copy(src="scripts/ferret.py", dest="/opt")
+        ptfhost.copy(src="arp/files/ferret.py", dest="/opt")
 
         result = duthost.shell(
             cmd='''ip route show proto zebra type unicast |
@@ -82,19 +90,27 @@ class TestWrArp:
     @pytest.fixture(scope='class', autouse=True)
     def copyPtfDirectory(self, ptfhost):
         '''
-        Copys PTF directory to PTF host. This class-scope fixture runs once before test start
+            Copys PTF directory to PTF host. This class-scope fixture runs once before test start
 
-        @param ptfhost: AnsibleHost object of PTF
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+
+            Returns:
+                None
         '''
         ptfhost.copy(src="ptftests", dest="/root")
 
     @pytest.fixture(scope='class', autouse=True)
     def setupRouteToPtfhost(self, duthost, ptfhost):
         '''
-        Sets routes up on DUT to PTF host. This class-scope fixture runs once before test start
+            Sets routes up on DUT to PTF host. This class-scope fixture runs once before test start
 
-        @param duthost: AnsibleHost object of DUT
-        @param ptfhost: AnsibleHost object of PTF
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+
+            Returns:
+                None
         '''
         result = duthost.shell(cmd="ip route show table default | sed -n 's/default //p'")
         assert len(result['stderr_lines']) == 0, 'Could not find the gateway for management port'
@@ -112,9 +128,13 @@ class TestWrArp:
     @pytest.fixture(scope='class', autouse=True)
     def removePtfhostIp(self, ptfhost):
         '''
-        Removes IP assigned to eth<n> inerface of PTF host. This class-scope fixture runs once before test start
+            Removes IP assigned to eth<n> inerface of PTF host. This class-scope fixture runs once before test start
 
-        @param ptfhost: AnsibleHost object of PTF
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+
+            Returns:
+                None
         '''
         ptfhost.script(src='scripts/remove_ip.sh')
 
@@ -130,11 +150,15 @@ class TestWrArp:
     @pytest.fixture(scope='class', autouse=True)
     def prepareSshKeys(self, duthost, ptfhost):
         '''
-        Prepares testbed ssh keys by generating ssh key on ptf host and adding this key to known_hosts on duthost
-        This class-scope fixture runs once before test start
+            Prepares testbed ssh keys by generating ssh key on ptf host and adding this key to known_hosts on duthost
+            This class-scope fixture runs once before test start
 
-        @param duthost: AnsibleHost object of DUT
-        @param ptfhost: AnsibleHost object of PTF
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+
+            Returns:
+                None
         '''
         invetory = duthost.host.options['inventory'].split('/')[-1]
         secrets = duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']
@@ -143,15 +167,20 @@ class TestWrArp:
 
     def testWrArp(self, request, duthost, ptfhost):
         '''
-        Control Plane Assistent test for Warm-Reboot.
+            Control Plane Assistent test for Warm-Reboot.
 
-        The test first start Ferret server, implemented in Python. Then initiate Warm-Reboot procedure. While the host
-        in Warm-Reboot test continuously sending ARP request to the Vlan member ports and expect to receive ARP replies.
-        The test will fail as soon as there is no replies for more than 25 seconds for one of the Vlan member ports.
+            The test first start Ferret server, implemented in Python. Then initiate Warm-Reboot procedure. While the
+            host in Warm-Reboot test continuously sending ARP request to the Vlan member ports and expect to receive ARP
+            replies. The test will fail as soon as there is no replies for more than 25 seconds for one of the Vlan
+            member ports.
 
-        @param request: pytest request object
-        @param duthost: AnsibleHost object of DUT
-        @param ptfhost: AnsibleHost object of PTF
+            Args:
+                request: pytest request object
+                duthost (AnsibleHost): Device Under Test (DUT)
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+
+            Returns:
+                None
         '''
         testDuration = request.config.getoption('--test_duration')
         ptfIp = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
