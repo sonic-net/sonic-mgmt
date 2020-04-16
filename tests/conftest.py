@@ -206,29 +206,22 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
     Shortcut fixture for getting Fanout hosts
     """
 
-    with open('../ansible/testbed-new.yaml') as stream:
-        testbed_doc = yaml.safe_load(stream)
+    dev_conn     = conn_graph_facts['device_conn']
+    fanout_hosts = {}
+    for dut_port in dev_conn.keys():
+        fanout_rec  = dev_conn[dut_port]
+        fanout_host = fanout_rec['peerdevice']
+        fanout_port = fanout_rec['peerport']
+        if fanout_host in fanout_hosts.keys():
+            fanout  = fanout_hosts[fanout_host]
+        else:
+            # FIXME: assuming all fanout hosts are EOS for now. Needs to figure out the os type and
+            #        create fanout switch with the right type.
+            fanout  = FanoutHost(ansible_adhoc, 'eos', fanout_host, 'FanoutLeaf', creds['fanout_admin_user'], creds['fanout_admin_password'])
+            fanout_hosts[fanout_host] = fanout
+        fanout.add_port_map(dut_port, fanout_port)
 
-    fanout_types = ['FanoutLeaf', 'FanoutRoot']
-    devices = {}
-    for hostname in conn_graph_facts['device_info'].keys():
-        device_info = conn_graph_facts['device_info'][hostname]
-        if device_info['Type'] in fanout_types:
-            # Use EOS if the target OS type is unknown
-            os = 'eos' if 'os' not in testbed_doc['devices'][hostname] else testbed_doc['devices'][hostname]['os']
-            device_exists = False
-            try:
-                fanout_host = FanoutHost(ansible_adhoc, os, hostname, device_info['Type'], creds['fanout_admin_user'], creds['fanout_admin_password'])
-                device_exists = True
-            except:
-                logging.warning("Couldn't found the given host(%s) in inventory file" % hostname)
-            
-            if device_exists:
-                # Index fanout host by both hostname and mgmt ip
-                devices[hostname] = fanout_host
-                devices[device_info['mgmtip']] = fanout_host
-
-    return devices
+    return fanout_hosts
 
 @pytest.fixture(scope='session')
 def eos():
@@ -238,10 +231,11 @@ def eos():
         return eos
 
 
-@pytest.fixture(scope="session")
-def creds():
-    """ read and yield lab configuration """
-    files = glob.glob("../ansible/group_vars/lab/*.yml")
+@pytest.fixture(scope="module")
+def creds(duthost):
+    """ read credential information according to the dut inventory """
+    inv   = duthost.host.options['inventory'].split('/')[-1]
+    files = glob.glob("../ansible/group_vars/{}/*.yml".format(inv))
     files += glob.glob("../ansible/group_vars/all/*.yml")
     creds = {}
     for f in files:
