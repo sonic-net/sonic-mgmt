@@ -7,4 +7,6 @@ str2-msn2700-spy-2,10.3.146.243,Mellanox-SN2700,DevSonic
 str2-a7060-spy-1,10.3.146.241,Arista-7060CX-32S-C32,DevSonic
 str2-a7060-spy-2,10.3.146.240,Arista-7060CX-32S-C32,DevSonic
 str-sn3800-azd,10.3.146.183/23,ACS-MSN3800,DevSonic
+str-acs-serv-16,10.64.246.95/23,TestServ,Server
 str-acs-serv-17,10.64.246.96/23,TestServ,Server
+

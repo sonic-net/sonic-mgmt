@@ -1,5 +1,6 @@
 StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode
 
+STR2-7260CX3-ACS-Root02,Ethernet3/1,str-acs-serv-16,eno2,100000,,Trunk
 STR2-7260CX3-ACS-Root02,Ethernet4/1,str-acs-serv-17,enp59s0f1,100000,,Trunk
 STR2-7260CX3-ACS-Root02,Ethernet64/1,str2-dx010-acs-2,etp32,100000,"201-216",Trunk
 STR2-7260CX3-ACS-Root02,Ethernet13/1,str-7260cx3-acs-fan-06,Ethernet64/1,100000,"217-248",Trunk
