@@ -15,32 +15,28 @@ class TestLinkFlap:
         return status
 
 
-    def __check_if_status(self, dut, dut_port, exp_state):
+    def __check_if_status(self, dut, dut_port, exp_state, verbose=False):
         status = self.__get_dut_if_status(dut, dut_port)[dut_port]
+        if verbose:
+            logging.debug("Interface status : {}".format(status))
         return status['oper_state'] == exp_state
 
 
     def __toggle_one_link(self, dut, dut_port, fanout, fanout_port):
         logging.info("Testing link flap on {}".format(dut_port))
 
-        status = self.__get_dut_if_status(dut, dut_port)[dut_port]
-        logging.debug("Dut port status {}".format(status))
-        assert status['oper_state'] == 'up', "Skipping dut port {}: link operational down".format(status)
+        assert self.__check_if_status(dut, dut_port, 'up', verbose=True), "Fail: dut port {}: link operational down".format(status)
 
         logging.info("Shutting down fanout switch {} port {} connecting to {}".format(fanout.hostname, fanout_port, dut_port))
         self.ports_shutdown_by_test.add((fanout, fanout_port))
         fanout.shutdown(fanout_port)
         wait_until(30, 1, self.__check_if_status, dut, dut_port, 'down')
-        status = self.__get_dut_if_status(dut, dut_port)[dut_port]
-        logging.debug("Interface fact  : {}".format(status))
-        assert status['oper_state'] == 'down', "dut port {} didn't go down as expected".format(dut_port)
+        assert self.__check_if_status(dut, dut_port, 'down', verbose=True), "dut port {} didn't go down as expected".format(dut_port)
 
         logging.info("Bring up fanout switch {} port {} connecting to {}".format(fanout.hostname, fanout_port, dut_port))
         fanout.no_shutdown(fanout_port)
         wait_until(30, 1, self.__check_if_status, dut, dut_port, 'up')
-        status = self.__get_dut_if_status(dut, dut_port)[dut_port]
-        logging.debug("Interface fact  : {}".format(status))
-        assert status['oper_state'] == 'up', "dut port {} didn't come up as expected".format(dut_port)
+        assert self.__check_if_status(dut, dut_port, 'up', verbose=True), "dut port {} didn't go down as expected".format(dut_port)
         self.ports_shutdown_by_test.discard((fanout, fanout_port))
 
 
