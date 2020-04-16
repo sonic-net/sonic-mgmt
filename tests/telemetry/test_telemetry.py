@@ -29,15 +29,20 @@ def test_config_db_parameters(duthost):
         d = get_dict_stdout(gnmi, certs)
         for key, value in d.items():
             if str(key) == "client_auth":
-                assert str(value) == "true", 'Client_auth should be set to true!'
+                client_auth_expected = "true"
+                assert str(value) == client_auth_expected, "'client_auth' value is not '{}'".format(client_auth_expected)
             if str(key) == "port":
-                assert str(value) == "50051", "Port should be set to 50051"
+                port_expected = "50051"
+                assert str(value) == port_expected, "'port' value is not '{}'".format(port_expected)
             if str(key) == "ca_crt":
-                assert str(value) == "/etc/sonic/telemetry/dsmsroot.cer", "ca_crt  value should be set to /etc/sonic/telemetry/dsmsroot.cer"
+                ca_crt_value_expected = "/etc/sonic/telemetry/dsmsroot.cer"
+                assert str(value) == ca_crt_value_expected , "'ca_crt' value is not '{}'".format(ca_crt_value_expected)
             if str(key) == "server_key":
-                assert str(value) == "/etc/sonic/telemetry/streamingtelemetryserver.key", "server_key  value should be set to  /etc/sonic/telemetry/streamingtelemetryserver.key"
+                server_key_expected = "/etc/sonic/telemetry/streamingtelemetryserver.key"
+                assert str(value) == server_key_expected , "'server_key' value is not '{}'".format(server_key_expected)
             if str(key) == "server_crt":
-                assert str(value) == "/etc/sonic/telemetry/streamingtelemetryserver.cer", "server_crt is set to /etc/sonic/telemetry/streamingtelemetryserver.cer"
+                server_crt_expected = "/etc/sonic/telemetry/streamingtelemetryserver.cer"
+                assert str(value) == server_crt_expected , "'server_crt' value is not '{}'".format(server_crt_expected)
 
 def test_telemetry_enabledbydefault(duthost):
     """Verify telemetry should be enabled by default
@@ -47,4 +52,5 @@ def test_telemetry_enabledbydefault(duthost):
     status_dict = dict(itertools.izip_longest(*[iter(status_list)] *2, fillvalue=""))
     for k,v in status_dict.items():
         if str(k) == "status":
-            assert str(v) == "enabled", "Telemetry status should be enabled!"
+            status_expected = "enabled";
+            assert str(v) == status_expected, "'Telemetry' status is not '{}'".format(status_expected)
