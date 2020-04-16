@@ -799,8 +799,7 @@ def parallel_oper(oper):
                 paths = _parse_path(_path_names(xpath))
                 reply = _set(stub, paths, 'update', user, password, set_info)
                 if ('response' in str(reply) and 'op: UPDATE' in str(reply)):
-                    log.info(
-                        "test_parallel_set_get:Passed - was able to do SET-UPDATE with input json")
+                    log.info("test_parallel_set_get:Passed - was able to do SET-UPDATE with input json")
                 else:
                     log.error(
                         "test_parallel_set_get:Failed - was unable to do SET-UPDATE with input json")
@@ -819,7 +818,7 @@ def parallel_oper(oper):
         try:
             for num in range(1, 4096):
                 intf_num = randint(1, 4095)
-                log.info("GET INTF_NUM {}".format(intf_num))
+                log.info("PARALLEL GET INTF_NUM {}".format(intf_num))
                 set_info = input_conf["SCALE_INTF_{}".format(intf_num)]["config"]
                 prefix = input_conf["SCALE_INTF_{}".format(intf_num)]['verify']['prefix']
                 #prefix = _parse_path(_path_names(prefix))
@@ -832,8 +831,8 @@ def parallel_oper(oper):
                 for cfg in input_conf["SCALE_INTF_{}".format(intf_num)]['verify']['config']:
                     section = cfg['section']
                     set_info = input_conf[section]['config']
-                    result = verify_get_response(resp_dict,set_info,cfg)
-                    err_msg = result['err_msg'] + err_msg
+                    ver_result = verify_get_response(resp_dict,set_info,cfg)
+                    err_msg = ver_result['err_msg'] + err_msg
 
         except KeyboardInterrupt:
             log.info("Shutting down.")
