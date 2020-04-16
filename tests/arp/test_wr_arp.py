@@ -104,7 +104,9 @@ class TestWrArp:
 
         route = duthost.shell(cmd='ip route get {0}'.format(ptfIp))['stdout']
         if 'PortChannel' in route:
-            logger.info("Install explicit route through eth0 (mgmt) interface, when we don't have correct route to ptf")
+            logger.info(
+                "Install explicit route for PTF host ({0}) through eth0 (mgmt) interface ({1})".format(ptfIp, gwIp)
+            )
             duthost.shell(cmd='ip route add {0}/32 {1}'.format(ptfIp, gwIp))
 
     @pytest.fixture(scope='class', autouse=True)

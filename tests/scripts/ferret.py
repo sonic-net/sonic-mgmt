@@ -2,6 +2,7 @@
 
 # python t.py -f /tmp/vxlan_decap.json -s 192.168.8.1
 
+import SimpleHTTPServer
 import SocketServer
 import select
 import shutil
@@ -13,10 +14,14 @@ import ctypes
 import ssl
 import struct
 import binascii
+import itertools
 import argparse
 import os
 
+from pprint import pprint
+
 from cStringIO import StringIO
+from functools import partial
 from collections import namedtuple
 
 
@@ -179,6 +184,7 @@ class Responder(object):
             return
         src_ip = data[0x001a:0x001e]
         dst_ip = data[0x1e:0x22]
+        gre_flags = data[0x22:0x24]
         gre_type  = data[0x24:0x26]
 
         gre_type_r = struct.unpack('!H', gre_type)[0]
