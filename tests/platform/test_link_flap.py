@@ -45,8 +45,6 @@ class TestLinkFlap:
 
 
     def __build_test_candidates(self, dut, fanouthosts):
-        self.ports_shutdown_by_test = set()
-
         status = self.__get_dut_if_status(dut)
         candidates = []
 
@@ -64,6 +62,8 @@ class TestLinkFlap:
 
 
     def run_link_flap_test(self, dut, fanouthosts):
+        self.ports_shutdown_by_test = set()
+
         candidates = self.__build_test_candidates(dut, fanouthosts)
 
         try:
@@ -76,7 +76,7 @@ class TestLinkFlap:
                 fanout.no_shutdown(fanout_port)
 
 
-@pytest.mark.topology_agnostic
+@pytest.mark.topology_any
 @pytest.mark.platform_physical
 def test_link_flap(duthost, fanouthosts):
     tlf = TestLinkFlap()
