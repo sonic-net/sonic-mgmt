@@ -26,9 +26,8 @@ def test_show_features(duthost):
     """
     features_stdout = duthost.shell('show features', module_ignore_errors=False)['stdout_lines']
     features_dict = get_dict_stdout(features_stdout)
-    for k,v in features_dict.items():
-        feature = str(k)
+    for cmd_key,cmd_value in features_dict.items():
+        feature = str(cmd_key)
         status_out = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "FEATURE|{}"'.format(feature), module_ignore_errors=False)['stdout_lines']
         redis_value = get_status_redisout(status_out)
-        if str(redis_value) == str(v):
-            assert True, "{} is {} which matches with config_db".format(k,v)
+        assert str(redis_value) == str(cmd_value), "{} is {} which does not match with config_db".format(cmd_key, cmd_value)
