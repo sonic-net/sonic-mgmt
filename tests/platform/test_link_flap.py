@@ -79,7 +79,7 @@ class TestLinkFlap:
 
 
 @pytest.mark.topology('any')
-@pytest.mark.platform('physicaa')
+@pytest.mark.platform('physical')
 def test_link_flap(duthost, fanouthosts):
     tlf = TestLinkFlap()
     tlf.run_link_flap_test(duthost, fanouthosts)
