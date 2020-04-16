@@ -6,54 +6,57 @@ from common.platform.device_utils import fanout_switch_port_lookup
 from common.utilities import wait_until
 
 class TestLinkFlap:
-    def __init__(self):
-        self.ports_shutdown_by_test = set()
+    def __get_dut_if_status(self, dut, ifname=None):
+        if not ifname:
+            status = dut.show_interface(command='status')['ansible_facts']['int_status']
+        else:
+            status = dut.show_interface(command='status', interfaces=[ifname])['ansible_facts']['int_status']
 
-
-    def __get_dut_if_facts(self, dut):
-        interface_facts = dut.interface_facts()
-        ansible_facts   = interface_facts['ansible_facts']
-        if_facts        = ansible_facts['ansible_interface_facts']
-
-        return if_facts
+        return status
 
 
     def __check_if_status(self, dut, dut_port, exp_state):
-        ifstate = self.__get_dut_if_facts(dut)[dut_port]
-        return ifstate['active'] == exp_state
+        status = self.__get_dut_if_status(dut, dut_port)[dut_port]
+        return status['oper_state'] == exp_state
 
 
     def __toggle_one_link(self, dut, dut_port, fanout, fanout_port):
         logging.info("Testing link flap on {}".format(dut_port))
 
-        ifstate = self.__get_dut_if_facts(dut)[dut_port]
-        assert ifstate['active'], "dut port {} is down".format(dut_port)
+        status = self.__get_dut_if_status(dut, dut_port)[dut_port]
+        logging.debug("Dut port status {}".format(status))
+        assert status['oper_state'] == 'up', "Skipping dut port {}: link operational down".format(status)
 
-        logging.debug("Shutting down fanout switch {} port {} connecting to {}".format(fanout.hostname, fanout_port, dut_port))
+        logging.info("Shutting down fanout switch {} port {} connecting to {}".format(fanout.hostname, fanout_port, dut_port))
         self.ports_shutdown_by_test.add((fanout, fanout_port))
         fanout.shutdown(fanout_port)
-        wait_until(30, 0.2, self.__check_if_status, dut, dut_port, False)
-        ifstate = self.__get_dut_if_facts(dut)[dut_port]
-        logging.debug("Interface fact  : {}".format(ifstate))
-        assert not ifstate['active'], "dut port {} didn't go down as expected".format(dut_port)
+        wait_until(30, 1, self.__check_if_status, dut, dut_port, 'down')
+        status = self.__get_dut_if_status(dut, dut_port)[dut_port]
+        logging.debug("Interface fact  : {}".format(status))
+        assert status['oper_state'] == 'down', "dut port {} didn't go down as expected".format(dut_port)
 
-        logging.debug("Bring up fanout switch {} port {} connecting to {}".format(fanout.hostname, fanout_port, dut_port))
+        logging.info("Bring up fanout switch {} port {} connecting to {}".format(fanout.hostname, fanout_port, dut_port))
         fanout.no_shutdown(fanout_port)
-        wait_until(30, 0.2, self.__check_if_status, dut, dut_port, True)
-        ifstate = self.__get_dut_if_facts(dut)[dut_port]
-        logging.debug("Interface fact  : {}".format(ifstate))
-        assert ifstate['active'], "dut port {} didn't come up as expected".format(dut_port)
+        wait_until(30, 1, self.__check_if_status, dut, dut_port, 'up')
+        status = self.__get_dut_if_status(dut, dut_port)[dut_port]
+        logging.debug("Interface fact  : {}".format(status))
+        assert status['oper_state'] == 'up', "dut port {} didn't come up as expected".format(dut_port)
         self.ports_shutdown_by_test.discard((fanout, fanout_port))
 
 
     def __build_test_candidates(self, dut, fanouthosts):
-        if_facts = self.__get_dut_if_facts(dut)
+        self.ports_shutdown_by_test = set()
+
+        status = self.__get_dut_if_status(dut)
         candidates = []
-        for dut_port in if_facts.keys():
+
+        for dut_port in status.keys():
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, dut_port)
 
             if not fanout or not fanout_port:
                 logging.info("Skipping port {} that is not found in connection graph".format(dut_port))
+            elif status[dut_port]['admin_state'] == 'down':
+                logging.info("Skipping port {} that is admin down".format(dut_port))
             else:
                 candidates.append((dut_port, fanout, fanout_port))
 
