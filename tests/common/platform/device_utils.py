@@ -9,7 +9,7 @@ def fanout_switch_port_lookup(fanout_switches, dut_port):
 
         Args:
             fanout_switches (list FanoutHost): list of fanout switch
-                                               instaances.
+                                               instances.
             dut_port (str): port name on the DUT
 
         Returns:
