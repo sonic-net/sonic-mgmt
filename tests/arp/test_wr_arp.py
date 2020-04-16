@@ -141,9 +141,13 @@ class TestWrArp:
     @pytest.fixture(scope='class', autouse=True)
     def changePtfhostMacAddresses(self, ptfhost):
         '''
-        Change MAC addresses (unique) on PTF host. This class-scope fixture runs once before test start
+            Change MAC addresses (unique) on PTF host. This class-scope fixture runs once before test start
 
-        @param ptfhost: AnsibleHost object of PTF
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+
+            Returns:
+                None
         '''
         ptfhost.script(src="scripts/change_mac.sh")
 
