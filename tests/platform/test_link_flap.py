@@ -65,6 +65,8 @@ class TestLinkFlap:
         self.ports_shutdown_by_test = set()
 
         candidates = self.__build_test_candidates(dut, fanouthosts)
+        if not candidates:
+            pytest.skip("Didn't find any port that is admin up and present in the connection graph")
 
         try:
             for dut_port, fanout, fanout_port in candidates:
@@ -76,8 +78,8 @@ class TestLinkFlap:
                 fanout.no_shutdown(fanout_port)
 
 
-@pytest.mark.topology_any
-@pytest.mark.platform_physical
+@pytest.mark.topology('any')
+@pytest.mark.platform('physicaa')
 def test_link_flap(duthost, fanouthosts):
     tlf = TestLinkFlap()
     tlf.run_link_flap_test(duthost, fanouthosts)

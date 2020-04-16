@@ -17,7 +17,7 @@ def fanout_switch_port_lookup(fanout_switches, dut_port):
             FanoutHost, Portname(str) if found
     """
     for _, fanout in fanout_switches.items():
-        if dut_port in fanout.host_to_fanout_port_map.keys():
+        if dut_port in fanout.host_to_fanout_port_map:
             return fanout, fanout.host_to_fanout_port_map[dut_port]
 
     return None, None
