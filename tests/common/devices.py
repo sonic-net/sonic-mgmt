@@ -323,7 +323,7 @@ class SonicHost(AnsibleHostBase):
             return self.get_now_time() - datetime.strptime(start_time["ExecMainStartTimestamp"],
                                                            "%a %Y-%m-%d %H:%M:%S UTC")
         except Exception as e:
-            self.logger.error("Exception raised while getting networking restart time: %s" % repr(e))
+            logging.error("Exception raised while getting networking restart time: %s" % repr(e))
             return None
 
     def get_image_info(self):
@@ -348,7 +348,7 @@ class SonicHost(AnsibleHostBase):
         return ret
 
     def get_asic_type(self):
-        return dut.facts["asic_type"]
+        return self.facts["asic_type"]
 
 
 class EosHost(AnsibleHostBase):
@@ -364,5 +364,86 @@ class EosHost(AnsibleHostBase):
                   'ansible_network_os':'eos', \
                   'ansible_user': user, \
                   'ansible_password': passwd, \
+                  'ansible_ssh_user': user, \
+                  'ansible_ssh_pass': passwd, \
                   'ansible_become_method': 'enable' }
         self.host.options['variable_manager'].extra_vars.update(evars)
+
+    def shutdown(self, interface_name):
+        out = self.host.eos_config(
+            lines=['shutdown'],
+            parents='interface %s' % interface_name)
+        if not self.check_intf_link_state(interface_name):
+            logging.info('Shut interface [%s]' % interface_name)
+            return out
+        raise RunAnsibleModuleFail("The interface state is Up but expect Down, detail output: %s" % out[self.hostname])
+
+    def no_shutdown(self, interface_name):
+        out = self.host.eos_config(
+            lines=['no shutdown'],
+            parents='interface %s' % interface_name)
+        if self.check_intf_link_state(interface_name):
+            logging.info('No shut interface [%s]' % interface_name)
+            return out
+        raise RunAnsibleModuleFail("The interface state is Down but expect Up, detail output: %s" % out[self.hostname])
+
+    def check_intf_link_state(self, interface_name):
+        show_int_result = self.host.eos_command(
+            commands=['show interface %s' % interface_name])[self.hostname]
+        return 'Up' in show_int_result['stdout_lines'][0]
+
+    def command(self, cmd):
+        out = self.host.eos_command(commands=[cmd])
+        return out
+
+class FanoutHost():
+    """
+    @summary: Class for Fanout switch
+
+    For running ansible module on the Fanout switch
+    """
+
+    def __init__(self, ansible_adhoc, os, hostname, device_type, user, passwd):
+        self.hostname = hostname
+        self.type = device_type
+        self.host_to_fanout_port_map = {}
+        self.fanout_to_host_port_map = {}
+        if os == 'sonic':
+            self.os = os
+            self.host = SonicHost(ansible_adhoc, hostname)
+        else:
+            # Use eos host if the os type is unknown
+            self.os = 'eos'
+            self.host = EosHost(ansible_adhoc, hostname, user, passwd)
+
+    def get_fanout_os(self):
+        return self.os
+
+    def get_fanout_type(self):
+        return self.type
+    
+    def shutdown(self, interface_name):
+        return self.host.shutdown(interface_name)[self.hostname]
+    
+    def no_shutdown(self, interface_name):
+        return self.host.no_shutdown(interface_name)[self.hostname]
+
+    def command(self, cmd):
+        return self.host.command(cmd)[self.hostname]
+
+    def __str__(self):
+        return "{ os: '%s', hostname: '%s', device_type: '%s' }" % (self.os, self.hostname, self.type)
+    
+    def __repr__(self):
+        return self.__str__()
+
+    def add_port_map(self, host_port, fanout_port):
+        """
+            Fanout switch is build from the connection graph of the
+            DUT. So each fanout switch instance is relevant to the
+            DUT instance in the test. As result the port mapping is
+            unique from the DUT perspective. However, this function
+            need update when supporting multiple DUT
+        """
+        self.host_to_fanout_port_map[host_port]   = fanout_port
+        self.fanout_to_host_port_map[fanout_port] = host_port

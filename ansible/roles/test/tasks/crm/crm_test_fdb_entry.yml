@@ -1,5 +1,11 @@
 - block:
 
+    - name: Stop arp_update
+      command: docker exec -i swss supervisorctl stop arp_update
+
+    - name: Remove FDB entry
+      command: fdbclear
+
     - name: Get "crm_stats_fdb_entry" used and available counter value
       command: redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available
       register: out
@@ -84,3 +90,6 @@
 
     - name: Remove FDB JSON config from SWSS container
       command: docker exec -i swss rm /fdb.json
+
+    - name: Restart arp_update
+      command: docker exec -i swss supervisorctl start arp_update

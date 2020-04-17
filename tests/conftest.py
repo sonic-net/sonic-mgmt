@@ -13,7 +13,8 @@ import ipaddr as ipaddress
 
 from ansible_host import AnsibleHost
 from collections import defaultdict
-from common.devices import SonicHost, Localhost, PTFHost, EosHost
+from common.fixtures.conn_graph_facts import conn_graph_facts
+from common.devices import SonicHost, Localhost, PTFHost, EosHost, FanoutHost
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +191,7 @@ def ptfhost(testbed_devices):
 @pytest.fixture(scope="module")
 def nbrhosts(ansible_adhoc, testbed, creds):
     """
-    Shortcut fixture for getting PTF host
+    Shortcut fixture for getting VM host
     """
 
     vm_base = int(testbed['vm_base'][2:])
@@ -198,6 +199,29 @@ def nbrhosts(ansible_adhoc, testbed, creds):
     for k, v in testbed['topo']['properties']['topology']['VMs'].items():
         devices[k] = EosHost(ansible_adhoc, "VM%04d" % (vm_base + v['vm_offset']), creds['eos_login'], creds['eos_password'])
     return devices
+
+@pytest.fixture(scope="module")
+def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
+    """
+    Shortcut fixture for getting Fanout hosts
+    """
+
+    dev_conn     = conn_graph_facts['device_conn']
+    fanout_hosts = {}
+    for dut_port in dev_conn.keys():
+        fanout_rec  = dev_conn[dut_port]
+        fanout_host = fanout_rec['peerdevice']
+        fanout_port = fanout_rec['peerport']
+        if fanout_host in fanout_hosts.keys():
+            fanout  = fanout_hosts[fanout_host]
+        else:
+            # FIXME: assuming all fanout hosts are EOS for now. Needs to figure out the os type and
+            #        create fanout switch with the right type.
+            fanout  = FanoutHost(ansible_adhoc, 'eos', fanout_host, 'FanoutLeaf', creds['fanout_admin_user'], creds['fanout_admin_password'])
+            fanout_hosts[fanout_host] = fanout
+        fanout.add_port_map(dut_port, fanout_port)
+
+    return fanout_hosts
 
 @pytest.fixture(scope='session')
 def eos():
@@ -207,10 +231,11 @@ def eos():
         return eos
 
 
-@pytest.fixture(scope="session")
-def creds():
-    """ read and yield lab configuration """
-    files = glob.glob("../ansible/group_vars/lab/*.yml")
+@pytest.fixture(scope="module")
+def creds(duthost):
+    """ read credential information according to the dut inventory """
+    inv   = duthost.host.options['inventory'].split('/')[-1]
+    files = glob.glob("../ansible/group_vars/{}/*.yml".format(inv))
     files += glob.glob("../ansible/group_vars/all/*.yml")
     creds = {}
     for f in files:

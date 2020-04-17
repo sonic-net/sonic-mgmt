@@ -275,7 +275,6 @@ def test_show_platform_syseeprom(testbed_devices):
 
     logging.info("Check output of '%s'" % CMD_PLATFORM_SYSEEPROM)
     show_output = ans_host.command(CMD_PLATFORM_SYSEEPROM)
-    assert show_output["rc"] == 0, "Run command '%s' failed" % CMD_PLATFORM_SYSEEPROM
     if ans_host.facts["asic_type"] in ["mellanox"]:
         expected_fields = [
             "Product Name",
@@ -326,7 +325,6 @@ def test_show_platform_fanstatus(testbed_devices, mocker_factory):
     dut = testbed_devices["dut"]
     logging.info("Check output of '%s'" % CMD_PLATFORM_FANSTATUS)
     cli_fan_status = dut.command(CMD_PLATFORM_FANSTATUS)
-    assert cli_fan_status["rc"] == 0, "Run command '%s' failed" % CMD_PLATFORM_FANSTATUS
     lines = cli_fan_status["stdout_lines"]
     check_show_platform_fanstatus_output(lines)
 
@@ -366,7 +364,6 @@ def test_show_platform_temperature(testbed_devices, mocker_factory):
     dut = testbed_devices["dut"]
     logging.info("Check output of '%s'" % CMD_PLATFORM_TEMPER)
     cli_thermal_status = dut.command(CMD_PLATFORM_TEMPER)
-    assert cli_thermal_status["rc"] == 0, "Run command '%s' failed" % CMD_PLATFORM_TEMPER
 
     # Mock data and check
     mocker = mocker_factory(dut, 'ThermalStatusMocker')
@@ -388,7 +385,7 @@ def test_thermal_control_load_invalid_format_json(testbed_devices):
               control daemon is up and there is an error log printed
     """
     logging.info('Loading invalid format policy file...')
-    check_thermal_control_load_invalid_file(testbed_devices, THERMAL_POLICY_INVALID_VALUE_FILE)
+    check_thermal_control_load_invalid_file(testbed_devices, THERMAL_POLICY_INVALID_FORMAT_FILE)
 
 
 @pytest.mark.disable_loganalyzer
@@ -441,12 +438,14 @@ def test_thermal_control_psu_absence(testbed_devices, psu_controller, mocker_fac
         if fan_mocker is None:
             pytest.skip("No FanStatusMocker for %s, skip rest of the testing in this case" % dut.facts['asic_type'])
 
-        logging.info('Mock FAN status data...')
-        fan_mocker.mock_data()  # make data random
         restart_thermal_control_daemon(dut)
         logging.info('Wait and check all FAN speed turn to 60%...')
-        wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, fan_mocker.check_all_fan_speed,
-                   60)
+        wait_result = wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
+                                 THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                                 fan_mocker.check_all_fan_speed,
+                                 60)
+        if not wait_result:
+             pytest.skip("FAN speed is not 60%, there might be abnormal in FAN/PSU, skip rest of the testing in this case")
 
         check_thermal_algorithm_status(dut, mocker_factory, False)
 
@@ -466,8 +465,10 @@ def test_thermal_control_psu_absence(testbed_devices, psu_controller, mocker_fac
             pytest.skip("Some PSU are still down, skip rest of the testing in this case")
 
         logging.info('Wait and check all FAN speed turn to 65%...')
-        wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, fan_mocker.check_all_fan_speed,
-                   65)
+        assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
+                          THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                          fan_mocker.check_all_fan_speed,
+                          65), 'FAN speed not change to 65% according to policy'
 
 
 def turn_off_psu_and_check_thermal_control(dut, psu_ctrl, psu, mocker):
@@ -490,9 +491,13 @@ def turn_off_psu_and_check_thermal_control(dut, psu_ctrl, psu, mocker):
 
     assert psu_under_test is not None, "No PSU is turned off"
     logging.info('Wait and check all FAN speed turn to 100%...')
-    wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, mocker.check_all_fan_speed, 100)
+    assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
+                      THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                      mocker.check_all_fan_speed,
+                      100), 'FAN speed not turn to 100% after PSU off'
 
     psu_ctrl.turn_on_psu(psu["psu_id"])
+    time.sleep(5)
 
 
 @pytest.mark.disable_loganalyzer

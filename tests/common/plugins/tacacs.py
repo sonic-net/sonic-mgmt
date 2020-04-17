@@ -6,11 +6,11 @@ def setup_tacacs(ptfhost, duthost, creds):
     """setup tacacs client and server"""
 
     # disable tacacs server
-    ptfhost.shell("service tacacs_plus stop")
+    ptfhost.service(name="tacacs_plus", state="stopped")
 
     # configure tacacs client
     duthost.shell("sudo config tacacs passkey %s" % creds['tacacs_passkey'])
-   
+
     # get default tacacs servers
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     for tacacs_server in config_facts.get('TACPLUS_SERVER', {}):
@@ -34,12 +34,12 @@ def setup_tacacs(ptfhost, duthost, creds):
     ptfhost.template(src="tacacs/tac_plus.conf.j2", dest="/etc/tacacs+/tac_plus.conf")
 
     # start tacacs server
-    ptfhost.shell("service tacacs_plus start")
+    ptfhost.service(name="tacacs_plus", state="started")
 
     yield
 
     # stop tacacs server
-    ptfhost.shell("service tacacs_plus stop")
+    ptfhost.service(name="tacacs_plus", state="stopped")
 
     # reset tacacs client configuration
     duthost.shell("sudo config tacacs delete %s" % ptfip)
