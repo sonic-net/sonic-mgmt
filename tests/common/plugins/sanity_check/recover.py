@@ -1,10 +1,9 @@
 
 import logging
-import time
 
 import constants
 
-from common.utilities import wait, wait_until
+from common.utilities import wait
 from common.errors import RunAnsibleModuleFail
 from common.platform.device_utils import fanout_switch_port_lookup
 
@@ -64,7 +63,8 @@ def adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time):
                 # Only allow outstanding_action be overridden when it is
                 # None. In case the outstanding_action has already been
                 # been set to 'reboot'.
-                outstanding_action = action if not outstanding_action
+                if not outstanding_action:
+                    outstanding_action = action
             else:
                 outstanding_action = 'reboot'
 
