@@ -32,7 +32,7 @@ def reboot_dut(dut, localhost, cmd):
 
 def __recover_interfaces(dut, fanouthosts, result):
     for port in result['down_ports']:
-        logging.debug("Restoring port {}".format(port))
+        logging.info("Restoring port {}".format(port))
         fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, port)
         if fanout and fanout_port:
             fanout.no_shutdown(fanout_port)
@@ -40,15 +40,22 @@ def __recover_interfaces(dut, fanouthosts, result):
     wait(30, msg="Wait 30 seconds for interface(s) to restore.")
 
 
+def __recover_services(dut, result):
+    status   = result['services_status']
+    services = [ x for x in status if not status[x] ]
+    logging.info("Service(s) down: {}".format(services))
+    return 'reboot' if 'database' in services else 'config_reload'
+
+
 def adaptive_recover(dut, localhost, fanouthosts, check_results):
     outstanding_action = None
     for result in check_results:
         if result['failed']:
-            logging.debug("Restoring {}".format(result))
+            logging.info("Restoring {}".format(result))
             if result['check_item'] == 'interfaces':
                 __recover_interfaces(dut, fanouthosts, result)
             elif result['check_item'] == 'services':
-                outstanding_action = 'config_reload'
+                outstanding_action = __recover_services(dut, result)
             else:
                 outstanding_action = 'reboot'
 
