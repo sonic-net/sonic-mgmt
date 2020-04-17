@@ -30,4 +30,5 @@ def test_show_features(duthost):
         feature = str(cmd_key)
         status_out = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "FEATURE|{}"'.format(feature), module_ignore_errors=False)['stdout_lines']
         redis_value = get_status_redisout(status_out)
-        assert str(redis_value) == str(cmd_value), "{} is {} which does not match with config_db".format(cmd_key, cmd_value)
+        status_value_expected = str(cmd_value)
+        assert str(redis_value) == status_value_expected, "'{}' is '{}' which does not match with config_db".format(cmd_key, cmd_value)
