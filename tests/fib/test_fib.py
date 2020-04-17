@@ -1,9 +1,7 @@
 import pytest
-from netaddr import *
 import time
 import json
 import logging
-import requests
 from ptf_runner import ptf_runner
 from datetime import datetime 
 

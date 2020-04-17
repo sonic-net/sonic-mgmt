@@ -5,11 +5,8 @@ Description:    This file contains the hash test for SONiC
 #---------------------------------------------------------------------
 # Global imports
 #---------------------------------------------------------------------
-import ipaddress
 import logging
 import random
-import socket
-import sys
 
 from ipaddress import ip_address, ip_network
 
