@@ -6,6 +6,7 @@ import constants
 
 from common.utilities import wait, wait_until
 from common.errors import RunAnsibleModuleFail
+from common.platform.device_utils import fanout_switch_port_lookup
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +27,47 @@ def reboot_dut(dut, localhost, cmd):
         assert False, "Failed to reboot the DUT"
 
     localhost.wait_for(host=dut.hostname, port=22, state="started", delay=10, timeout=300)
-    wait(30, msg="Wait 30 seconds for system to be stable.")
+    wait(120, msg="Wait 120 seconds for system to be stable.")
 
 
-def recover(dut, localhost, recover_method):
+def __recover_interfaces(dut, fanouthosts, result):
+    for port in result['down_ports']:
+        logging.debug("Restoring port {}".format(port))
+        fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, port)
+        if fanout and fanout_port:
+            fanout.no_shutdown(fanout_port)
+        dut.no_shutdown(port)
+    wait(30, msg="Wait 30 seconds for interface(s) to restore.")
+
+
+def adaptive_recover(dut, localhost, fanouthosts, check_results):
+    outstanding_action = None
+    for result in check_results:
+        if result['failed']:
+            logging.debug("Restoring {}".format(result))
+            if result['check_item'] == 'interfaces':
+                __recover_interfaces(dut, fanouthosts, result)
+            elif result['check_item'] == 'services':
+                outstanding_action = 'config_reload'
+            else:
+                outstanding_action = 'reboot'
+
+    if outstanding_action:
+        method = constants.RECOVER_METHODS[outstanding_action]
+        if method["reboot"]:
+            reboot_dut(dut, localhost, constants.RECOVER_METHODS[recover_method]["cmd"])
+        else:
+            dut.command(method["cmd"])
+            wait(60, msg="Wait 60 seconds for system to be stable.")
+
+
+def recover(dut, localhost, fanouthosts, check_results, recover_method):
     logger.info("Try to recover %s using method %s" % (dut.hostname, recover_method))
-    if constants.RECOVER_METHODS[recover_method]["reboot"]:
+    method = constants.RECOVER_METHODS[recover_method]
+    if method["adaptive"]:
+        adaptive_recover(dut, localhost, fanouthosts, check_results)
+    elif method["reboot"]:
         reboot_dut(dut, localhost, constants.RECOVER_METHODS[recover_method]["cmd"])
     else:
-        dut.command(constants.RECOVER_METHODS[recover_method]["cmd"])
-        wait(30, msg="Wait 30 seconds for system to be stable.")
+        dut.command(method["cmd"])
+        wait(60, msg="Wait 60 seconds for system to be stable.")
