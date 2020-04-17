@@ -83,7 +83,8 @@ def test_snmp_lldp(ansible_adhoc, testbed, creds):
     for k, v in snmp_facts['snmp_interfaces'].items():
         if v.has_key("lldpRemManAddrIfSubtype") and \
            v.has_key("lldpRemManAddrIfId") and \
-           v.has_key("lldpRemManAddrOID"):
+           v.has_key("lldpRemManAddrOID") and \
+           v['name'] != 'eth0':
             active_intf.append(k)
     print "lldpRemManAddrTable: ", active_intf
 
