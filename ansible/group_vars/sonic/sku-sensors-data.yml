@@ -1717,30 +1717,18 @@ sensors_checks:
       - tps53679-i2c-15-61/PMIC-9 Temp 2/temp2_max_alarm
 
       - dps460-i2c-4-58/PSU-1(L) Temp 1/temp1_crit_alarm
-      - dps460-i2c-4-58/PSU-1(L) Temp 1/temp1_lcrit_alarm
       - dps460-i2c-4-58/PSU-1(L) Temp 1/temp1_max_alarm
-      - dps460-i2c-4-58/PSU-1(L) Temp 1/temp1_min_alarm
       - dps460-i2c-4-58/PSU-1(L) Temp 2/temp2_crit_alarm
-      - dps460-i2c-4-58/PSU-1(L) Temp 2/temp2_lcrit_alarm
       - dps460-i2c-4-58/PSU-1(L) Temp 2/temp2_max_alarm
-      - dps460-i2c-4-58/PSU-1(L) Temp 2/temp2_min_alarm
       - dps460-i2c-4-58/PSU-1(L) Temp 3/temp3_crit_alarm
-      - dps460-i2c-4-58/PSU-1(L) Temp 3/temp3_lcrit_alarm
       - dps460-i2c-4-58/PSU-1(L) Temp 3/temp3_max_alarm
-      - dps460-i2c-4-58/PSU-1(L) Temp 3/temp3_min_alarm
 
       - dps460-i2c-4-59/PSU-2(R) Temp 1/temp1_crit_alarm
-      - dps460-i2c-4-59/PSU-2(R) Temp 1/temp1_lcrit_alarm
       - dps460-i2c-4-59/PSU-2(R) Temp 1/temp1_max_alarm
-      - dps460-i2c-4-59/PSU-2(R) Temp 1/temp1_min_alarm
       - dps460-i2c-4-59/PSU-2(R) Temp 2/temp2_crit_alarm
-      - dps460-i2c-4-59/PSU-2(R) Temp 2/temp2_lcrit_alarm
       - dps460-i2c-4-59/PSU-2(R) Temp 2/temp2_max_alarm
-      - dps460-i2c-4-59/PSU-2(R) Temp 2/temp2_min_alarm
       - dps460-i2c-4-59/PSU-2(R) Temp 3/temp3_crit_alarm
-      - dps460-i2c-4-59/PSU-2(R) Temp 3/temp3_lcrit_alarm
       - dps460-i2c-4-59/PSU-2(R) Temp 3/temp3_max_alarm
-      - dps460-i2c-4-59/PSU-2(R) Temp 3/temp3_min_alarm
     compares:
       power: []
       temp:
