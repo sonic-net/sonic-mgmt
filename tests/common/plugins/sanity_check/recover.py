@@ -56,7 +56,7 @@ def adaptive_recover(dut, localhost, fanouthosts, check_results):
                 __recover_interfaces(dut, fanouthosts, result)
             elif result['check_item'] == 'services':
                 action             = __recover_services(dut, result)
-                # Only allow outstanding_action be overriden when it is
+                # Only allow outstanding_action be overridden when it is
                 # None. In case the outstanding_action has already been
                 # been set to 'reboot'.
                 outstanding_action = action if not outstanding_action
