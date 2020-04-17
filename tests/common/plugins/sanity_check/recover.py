@@ -55,7 +55,8 @@ def adaptive_recover(dut, localhost, fanouthosts, check_results):
             if result['check_item'] == 'interfaces':
                 __recover_interfaces(dut, fanouthosts, result)
             elif result['check_item'] == 'services':
-                outstanding_action = __recover_services(dut, result)
+                action             = __recover_services(dut, result)
+                outstanding_action = action if not outstanding_action
             else:
                 outstanding_action = 'reboot'
 
