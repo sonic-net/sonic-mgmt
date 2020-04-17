@@ -13,14 +13,16 @@
         crm_stats_fdb_entry_used: "{{ out.stdout_lines[0] }}"
         crm_stats_fdb_entry_available: "{{ out.stdout_lines[1] }}"
 
-    - name: Copy FDB JSON config to switch.
-      copy: src=roles/test/tasks/crm/fdb.json dest=/tmp
+    - set_fact: op="SET"
+
+    - name: Render FDB JSON config.
+      template: src=roles/test/templates/fdb_conf.j2 dest=/tmp/fdb_conf.json
 
     - name: Copy FDB JSON config to SWSS container
-      command: docker cp /tmp/fdb.json swss:/
+      command: docker cp /tmp/fdb_conf.json swss:/
 
     - name: Add FDB entry
-      command: docker exec -i swss swssconfig /fdb.json
+      command: docker exec -i swss swssconfig /fdb_conf.json
 
     - name: Add VLAN required for FDB entry
       command: config vlan add 2
@@ -53,8 +55,16 @@
         crm_avail: "{{new_crm_stats_fdb_entry_available}}"
       include_tasks: roles/test/tasks/crm/crm_test_threshold.yml
 
+    - set_fact: op="DEL"
+
+    - name: Render FDB JSON config.
+      template: src=roles/test/templates/fdb_conf.j2 dest=/tmp/fdb_conf.json
+
+    - name: Copy FDB JSON config to SWSS container
+      command: docker cp /tmp/fdb_conf.json swss:/
+
     - name: Remove FDB entry
-      command: fdbclear
+      command: docker exec -i swss swssconfig /fdb_conf.json
 
     - name: Make sure CRM counters updated
       pause: seconds={{ crm_update_time }}
@@ -82,14 +92,22 @@
       command: config vlan del 2
       become: yes
 
+    - set_fact: op="DEL"
+
+    - name: Render FDB JSON config.
+      template: src=roles/test/templates/fdb_conf.j2 dest=/tmp/fdb_conf.json
+
+    - name: Copy FDB JSON config to SWSS container
+      command: docker cp /tmp/fdb_conf.json swss:/
+
     - name: Remove FDB entry
-      command: fdbclear
+      command: docker exec -i swss swssconfig /fdb_conf.json
 
     - name: Remove FDB JSON config from switch.
-      command: rm /tmp/fdb.json
+      command: rm /tmp/fdb_conf.json
 
     - name: Remove FDB JSON config from SWSS container
-      command: docker exec -i swss rm /fdb.json
+      command: docker exec -i swss rm /fdb_conf.json
 
     - name: Restart arp_update
       command: docker exec -i swss supervisorctl start arp_update
