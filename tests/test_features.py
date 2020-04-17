@@ -20,13 +20,13 @@ def get_status_redisout(status_out):
         status = s.encode('UTF-8')
         return status
 
-#Test Functions
+# Test Functions
 def test_show_features(duthost):
     """Verify show features command output against CONFIG_DB
     """
     features_stdout = duthost.shell('show features', module_ignore_errors=False)['stdout_lines']
     features_dict = get_dict_stdout(features_stdout)
-    for cmd_key,cmd_value in features_dict.items():
+    for cmd_key, cmd_value in features_dict.items():
         feature = str(cmd_key)
         status_out = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "FEATURE|{}"'.format(feature), module_ignore_errors=False)['stdout_lines']
         redis_value = get_status_redisout(status_out)
