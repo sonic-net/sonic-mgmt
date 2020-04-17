@@ -392,6 +392,13 @@ class EosHost(AnsibleHostBase):
         out = self.host.eos_command(commands=[cmd])
         return out
 
+    def set_interface_lacp_rate_mode(self, interface_name, mode):
+        out = self.host.eos_config(
+            lines=['lacp rate %s' % mode],
+            parents='interface %s' % interface_name)
+        logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
+        return out
+
 class FanoutHost():
     """
     @summary: Class for Fanout switch
