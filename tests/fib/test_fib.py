@@ -192,7 +192,7 @@ class TestHash():
                         "src_ip_range": ",".join(src_ip_range),
                         "dst_ip_range": ",".join(dst_ip_range),
                         "in_ports": g_vars['in_ports'],
-                        "vlans": VLANIDS,
+                        "vlan_ids": VLANIDS,
                         "hash_keys": self.hash_keys },
                 log_file=log_file,
                 socket_recv_size=16384)
@@ -213,7 +213,7 @@ class TestHash():
                         "src_ip_range": ",".join(src_ip_range),
                         "dst_ip_range": ",".join(dst_ip_range),
                         "in_ports": g_vars['in_ports'],
-                        "vlans": VLANIDS,
+                        "vlan_ids": VLANIDS,
                         "hash_keys": self.hash_keys },
                 log_file=log_file,
                 socket_recv_size=16384)

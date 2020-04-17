@@ -56,7 +56,7 @@ class HashTest(BaseTest):
         self.dst_ip_range = [unicode(x) for x in self.test_params['dst_ip_range'].split(',')]
         self.src_ip_interval = lpm.LpmDict.IpInterval(ip_address(self.src_ip_range[0]), ip_address(self.src_ip_range[1]))
         self.dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(self.dst_ip_range[0]), ip_address(self.dst_ip_range[1]))
-        self.vlans = self.test_params.get('vlans', [])
+        self.vlan_ids = self.test_params.get('vlan_ids', [])
         self.hash_keys = self.test_params.get('hash_keys', ['src-ip', 'dst-ip', 'src-port', 'dst-port'])
         self.dst_macs = self.test_params.get('dst_macs', [])    # TODO
 
@@ -118,7 +118,7 @@ class HashTest(BaseTest):
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
         src_mac = (base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) if hash_key == 'src-mac' else base_mac
         dst_mac = random.choice(self.dst_macs) if hash_key == 'dst-mac' else self.router_mac
-        vlan_id = random.choice(self.vlans) if hash_key == 'vlan-id' else 0
+        vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
         ip_proto = random.randint(100, 200) if hash_key == 'ip-proto' else None
 
         pkt = simple_tcp_packet(pktlen=100 if vlan_id == 0 else 104,
@@ -167,7 +167,7 @@ class HashTest(BaseTest):
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
         src_mac = (base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) if hash_key == 'src-mac' else base_mac
         dst_mac = random.choice(self.dst_macs) if hash_key == 'dst-mac' else self.router_mac
-        vlan_id = random.choice(self.vlans) if hash_key == 'vlan-id' else 0
+        vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
         ip_proto = random.randint(100, 200) if hash_key == "ip-proto" else None
 
         pkt = simple_tcpv6_packet(pktlen=100 if vlan_id == 0 else 104,
