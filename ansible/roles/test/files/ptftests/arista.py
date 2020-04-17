@@ -373,7 +373,13 @@ class Arista(object):
         state = ['shut', 'no shut']
         self.do_cmd('configure')
         self.do_cmd('router bgp %s' % asn)
-        self.do_cmd('%s' % state[is_up])
+        if is_up == True:
+            self.do_cmd('%s' % state[is_up])
+        else:
+            # shutdown BGP will pop confirm message, the message is 
+            # "You are attempting to shutdown BGP. Are you sure you want to shutdown? [confirm]"
+            self.do_cmd('%s' % state[is_up], prompt = '[confirm]')
+            self.do_cmd('y')
         self.do_cmd('exit')
         self.do_cmd('exit')
 
