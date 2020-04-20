@@ -66,6 +66,9 @@ class TestLag:
         out = host.shell(command)
         return out['stdout'] == 'True'
 
+    def __check_intf_state(self, vm_host, intf, expect):
+        return vm_host.check_intf_link_state(vm_host, intf) == expect
+
     def __verify_lag_lacp_timing(self, lacp_timer, exp_iface):
         if exp_iface is None:
             return
@@ -126,13 +129,6 @@ class TestLag:
                     command = 'bash -c "teamdctl %s state dump" | python -c "import sys, json; print json.load(sys.stdin)[\'ports\'][\'%s\'][\'link\'][\'up\']"' % (lag_name, po_intf)
                     wait_until(wait_timeout, delay, self.__check_shell_output, self.duthost, command)
 
-            # Refresh lag facts
-            lag_facts = self.__get_lag_facts()
-            for po_intf in po_interfaces.keys():
-                assert lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected'] == True
-            
-            assert lag_facts['lags'][lag_name]['po_intf_stat'] == 'Up'
-
     def run_single_lag_lacp_rate_test(self, lag_name):
         logging.info("Start checking single lag lacp rate for: %s" % lag_name)
     
@@ -157,7 +153,7 @@ class TestLag:
             vm_host = self.nbrhosts[peer_device]
 
             # Make sure all lag members on VM are set to fast
-            logging.info("Changing lacp rate to fast for %s" % neighbor_lag_intfs[0])
+            logging.info("Changing lacp rate to fast for %s in %s" % (neighbor_lag_intfs[0], peer_device))
             vm_host.set_interface_lacp_rate_mode(neighbor_lag_intfs[0], 'fast')
             lag_rate_current_setting = 'fast'
             time.sleep(5)
@@ -205,10 +201,12 @@ class TestLag:
         neighbor_intf = self.vm_neighbors[intf]['port']
         vm_host       = self.nbrhosts[peer_device]
 
+        wait_timeout = 120
+        delay        = 5
         try:
             # Shut down neighbor interface
             vm_host.shutdown(neighbor_intf)
-            time.sleep(120)
+            wait_until(wait_timeout, delay, self.__check_intf_state, vm_host, neighbor_intf, False)
 
             # Refresh lag facts
             lag_facts = self.__get_lag_facts()
@@ -237,17 +235,7 @@ class TestLag:
         finally:
             # Bring up neighbor interface
             vm_host.no_shutdown(neighbor_intf)
-            time.sleep(30)
-
-            # Refresh lag facts
-            lag_facts = self.__get_lag_facts()
-
-            # Verify all interfaces in port_channel are marked up
-            for po_intf in po_interfaces.keys():
-                assert lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['link']['up'] == True
-            
-            # Verify portchannel interface are marked up correctly
-            assert lag_facts['lags'][lag_name]['po_intf_stat'] == 'Up'
+            wait_until(wait_timeout, delay, self.__check_intf_state, vm_host, neighbor_intf, True)
 
 def test_lag(common_setup_teardown, nbrhosts, fanouthosts, conn_graph_facts):
     duthost, ptfhost, lag_facts = common_setup_teardown
