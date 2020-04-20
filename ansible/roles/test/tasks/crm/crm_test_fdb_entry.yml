@@ -84,14 +84,6 @@
 
   always:
 
-    - name: Remove VLAN member required for FDB entry
-      command: config vlan member del 2 Ethernet0
-      become: yes
-
-    - name: Remove VLAN required for FDB entry
-      command: config vlan del 2
-      become: yes
-
     - set_fact: op="DEL"
 
     - name: Render FDB JSON config.
@@ -102,6 +94,14 @@
 
     - name: Remove FDB entry
       command: docker exec -i swss swssconfig /fdb_conf.json
+
+    - name: Remove VLAN member required for FDB entry
+      command: config vlan member del 2 Ethernet0
+      become: yes
+
+    - name: Remove VLAN required for FDB entry
+      command: config vlan del 2
+      become: yes
 
     - name: Remove FDB JSON config from switch.
       command: rm /tmp/fdb_conf.json
