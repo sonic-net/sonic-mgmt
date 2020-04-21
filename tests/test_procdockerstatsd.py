@@ -1,3 +1,4 @@
+from common.helpers.assertions import pytest_assert
 
 #Helper Functions
 def get_count_fromredisout(keys_out):
@@ -23,6 +24,7 @@ def test_verify_redisexport(duthost):
     docker_keys_count = get_count_fromredisout(docker_stdout)
     process_stdout= duthost.shell('/usr/bin/redis-cli -n 6 KEYS "PROCESS_STATS|*" | wc -l' , module_ignore_errors=False)['stdout_lines']
     process_keys_count = get_count_fromredisout(process_stdout)
-    #if single entry found then daemon is upload is sucessful
-    if int(docker_keys_count) > 1 and int(process_keys_count) > 1:
-        assert True, "Procdockerstatsd is uploading data to state_db"
+    #if entry for process or docker data found then daemon is upload is sucessful
+    pytest_assert(int(docker_keys_count) > 1, "No data docker data upload found by Procdockerstatsd daemon to state_db")
+    pytest_assert(int(process_keys_count) > 1, "No data process data upload found by Procdockerstatsd daemon to state_db")
+
