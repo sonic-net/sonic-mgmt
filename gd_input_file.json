@@ -175,7 +175,10 @@
                     "svr_port": "50051",
                     "svr_gnmi_port": "9339",
                     "proto_dump_file": "s1-p4runtime-requests-log.txt",
-                    "device_id": "0"
+                    "device_id": "0",
+                    "username": "cisco",
+                    "password": "lab",
+                    "ssh_port": "22"
                 },
                 "th3_3": {
                     "name": "s1",
@@ -183,7 +186,10 @@
                     "svr_port": "50051",
                     "svr_gnmi_port": "9339",
                     "proto_dump_file": "s1-p4runtime-requests-log.txt",
-                    "device_id": "0"
+                    "device_id": "0",
+                    "username": "cisco",
+                    "password": "lab",
+                    "ssh_port": "22"
                 },
                 "th3_4": {
                     "name": "s1",
@@ -191,7 +197,10 @@
                     "svr_port": "50051",
                     "svr_gnmi_port": "9339",
                     "proto_dump_file": "s1-p4runtime-requests-log.txt",
-                    "device_id": "0"
+                    "device_id": "0",
+                    "username": "cisco",
+                    "password": "lab",
+                    "ssh_port": "22"
                 },
                 "th3_5": {
                     "name": "s1",
@@ -199,7 +208,10 @@
                     "svr_port": "50051",
                     "svr_gnmi_port": "9339",
                     "proto_dump_file": "s1-p4runtime-requests-log.txt",
-                    "device_id": "0"
+                    "device_id": "0",
+                    "username": "cisco",
+                    "password": "lab",
+                    "ssh_port": "22"
                 },
                 "th3_6": {
                     "name": "s1",
@@ -207,7 +219,10 @@
                     "svr_port": "50051",
                     "svr_gnmi_port": "9339",
                     "proto_dump_file": "s1-p4runtime-requests-log.txt",
-                    "device_id": "0"
+                    "device_id": "0",
+                    "username": "cisco",
+                    "password": "lab",
+                    "ssh_port": "22"
                 }
             },
             "gnmi": {
