@@ -44,5 +44,8 @@ class P4ApBase(ApBase):
     ApData.device_id = ApData.p4_feature_dict[ApData.uut_name]['device_id']
     ApData.sw_name = ApData.p4_feature_dict[ApData.uut_name]['name']
     ApData.skip_set_pipeline = 0
+    ApData.uname = ApData.p4_feature_dict[ApData.uut_name]['username']
+    ApData.pwd = ApData.p4_feature_dict[ApData.uut_name]['password']
+    ApData.ssh_port = ApData.p4_feature_dict[ApData.uut_name]['ssh_port']
     # Port Configuration Variables
 

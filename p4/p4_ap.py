@@ -42,7 +42,8 @@ import google.protobuf.json_format
 sys.path.append('../gnmi/')
 import gnmi_test_lib as gnmiTestLib
 from gnmi_test_lib import GnmiConnection
-
+sys.path.append('./../../godiva-test/lib/')
+import common_lib as commonLib
 SWITCH_TO_HOST_PORT = 1
 SWITCH_TO_SWITCH_PORT = 2
 
@@ -145,6 +146,13 @@ def port_cleanup():
     finally:
         gnmi_conn.shutdown()
 
+def reset_p4():
+    if ApData.svr_addr != "172.17.0.2":
+        cmd = "sudo systemctl restart p4rt-agent\n"
+        commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
+        cmd = "sudo systemctl restart hal_server\n"
+        commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
+    
 class TestP4(P4ApBase):
 
     def setup_method(self):
@@ -161,14 +169,15 @@ class TestP4(P4ApBase):
         p4_switch.ShutdownAllSwitchConnections()
         port_cleanup()
 
+    def test_writeRPC_Neg3(self):
+        reset_p4()
+        p4_san_tc._test_writeRPC_Neg3()
+
     def test_writeRPC_Neg1(self,sw_conn):
         p4_san_tc._test_writeRPC_Neg1()
 
     def test_writeRPC_Neg2(self,sw_conn):
         p4_san_tc._test_writeRPC_Neg2()
-
-    def test_writeRPC_Neg3(self):
-        p4_san_tc._test_writeRPC_Neg3()
 
     def test_setForwarding_pipeline_config(self):
         p4_san_tc._test_setForwarding_pipeline_config()
@@ -306,12 +315,15 @@ class TestP4(P4ApBase):
         p4_san_tc._test_getFwd_Resp1()
 
     def test_multicontrollers_blocking_tableEdit(self):
+        reset_p4()
         p4_san_tc._test_multicontrollers_blocking_tableEdit()
 
     def test_multicontrollers_non_blocking_tableEdit(self,sw_conn):
+        reset_p4()
         p4_san_tc._test_multicontrollers_non_blocking_tableEdit()
 
 
     @pytest.mark.last
     def test_max_connections(self,sw_conn):
+        reset_p4()
         p4_san_tc._test_max_connections()

@@ -2,6 +2,8 @@
 test_type="func"
 topo_file="./../th3_5_topo.json"
 email="pevenkat@cisco.com"
+func=false;neg=false;stress=false;failed=false
+
 while getopts ":t:f:m:" flag
 do
     case "${flag}" in
