@@ -26,7 +26,7 @@ pytest_plugins = ('common.plugins.ptfadapter',
                   'common.plugins.loganalyzer',
                   'common.plugins.psu_controller',
                   'common.plugins.sanity_check')
-VEOS_INVENTORY = "../ansible/veos"
+VEOS_INVENTORY = os.path.normpath(os.path.join(os.path.split(__file__)[0], "../ansible/veos"))
 
 class TestbedInfo(object):
     """
