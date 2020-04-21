@@ -5,8 +5,8 @@ import logging
 import pytest
 import time
 
-from common.errors import RunAnsibleModuleFail
 from common.mellanox_data import is_mellanox_device as isMellanoxDevice
+from common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
 from common.reboot import reboot as rebootDut
 from ptf_runner import ptf_runner
 
@@ -213,41 +213,11 @@ class AdvancedReboot:
             logger.info('Running script {0} on {1}'.format(script, ansibleHost.hostname))
             ansibleHost.script('scripts/' + script)
 
-    def __prepareTestbedSshKeys(self, dutUsername, dutIp):
+    def __prepareTestbedSshKeys(self):
         '''
         Prepares testbed ssh keys by generating ssh key on ptf host and adding this key to known_hosts on duthost
-        @param dutUsername: DUT username
-        @param dutIp: DUT IP
         '''
-        logger.info('Remove old keys from ptfhost')
-        self.ptfhost.shell('rm -f /root/.ssh/id_rsa*')
-        try:
-            self.ptfhost.shell('stat /root/.ssh/known_hosts')
-        except RunAnsibleModuleFail:
-            pass # files does not exist
-        else:
-            self.ptfhost.shell('ssh-keygen -f /root/.ssh/known_hosts -R ' + dutIp)
-
-        logger.info('Generate public key for ptf host')
-        self.ptfhost.file(path='/root/.ssh/', mode='u+rwx,g-rwx,o-rwx', state='directory')
-        result = self.ptfhost.openssh_keypair(
-            path='/root/.ssh/id_rsa',
-            size=2048,
-            force=True,
-            type='rsa',
-            mode='u=rw,g=,o='
-        )
-        # There is an error with id_rsa.pub access permissions documented in:
-        # https://github.com/ansible/ansible/issues/61411
-        # @TODO: remove the following line when upgrading to Ansible 2.9x
-        self.ptfhost.file(path='/root/.ssh/id_rsa.pub', mode='u=rw,g=,o=')
-
-        cmd = '''
-            mkdir -p /home/{0}/.ssh && 
-            echo "{1}" >> /home/{0}/.ssh/authorized_keys && 
-            chown -R {0}:{0} /home/{0}/.ssh/
-        '''.format(dutUsername, result['public_key'])
-        self.duthost.shell(cmd)
+        prepareTestbedSshKeys(self.duthost, self.ptfhost, self.rebootData['dut_username'])
 
     def __handleMellanoxDut(self):
         '''
@@ -316,7 +286,7 @@ class AdvancedReboot:
 
         self.__runScript(['remove_ip.sh', 'change_mac.sh'], self.ptfhost)
 
-        self.__prepareTestbedSshKeys(self.rebootData['dut_username'], self.rebootData['dut_hostname'])
+        self.__prepareTestbedSshKeys()
 
         logger.info('Copy tests to the PTF container  {}'.format(self.ptfhost.hostname))
         self.ptfhost.copy(src='ptftests', dest='/root')
