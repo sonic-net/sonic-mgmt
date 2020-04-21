@@ -206,7 +206,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
     Shortcut fixture for getting Fanout hosts
     """
 
-    dev_conn     = conn_graph_facts['device_conn']
+    dev_conn     = conn_graph_facts['device_conn'] if 'device_conn' in conn_graph_facts else {}
     fanout_hosts = {}
     for dut_port in dev_conn.keys():
         fanout_rec  = dev_conn[dut_port]
