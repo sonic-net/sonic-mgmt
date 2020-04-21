@@ -14,8 +14,7 @@ def test_verify_status(duthost):
     """Verify procdockerstatsd is active and running
     """
     status = duthost.get_service_props('procdockerstatsd')
-    if status["ActiveState"] == "active" and status["SubState"] == "running":
-        assert True , "Procdockerstatsd is active and running"
+    pytest_assert(status["ActiveState"] == "active" and status["SubState"] == "running", "Procdockerstatsd either not active or not running")
 
 def test_verify_redisexport(duthost):
     """Verify procdockerstatsd is exporting values to redis.
