@@ -37,7 +37,7 @@ def common_setup_teardown(duthost, ptfhost, testbed):
 
     yield duthost, ptfhost, lag_facts
 
-class TestLag:
+class LagTest:
     def __init__(self, duthost, ptfhost, nbrhosts, fanouthosts, conn_graph_facts):
         self.duthost     = duthost
         self.ptfhost     = ptfhost
@@ -239,7 +239,7 @@ class TestLag:
 
 def test_lag(common_setup_teardown, nbrhosts, fanouthosts, conn_graph_facts):
     duthost, ptfhost, lag_facts = common_setup_teardown
-    test_instance = TestLag(duthost, ptfhost, nbrhosts, fanouthosts, conn_graph_facts)
+    test_instance = LagTest(duthost, ptfhost, nbrhosts, fanouthosts, conn_graph_facts)
 
     # Test for each lag
     for lag_name in lag_facts['names']:
