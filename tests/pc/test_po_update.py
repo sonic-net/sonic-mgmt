@@ -1,4 +1,3 @@
-from ansible_host import AnsibleHost
 import time
 import pytest
 import logging
@@ -9,7 +8,6 @@ def test_po_update(duthost):
     """
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     int_facts = duthost.interface_facts()['ansible_facts']
-    bgp_facts = duthost.bgp_facts()['ansible_facts']
 
     # Initialize portchannel
     if len(mg_facts['minigraph_portchannels'].keys()) == 0:
