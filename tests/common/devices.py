@@ -350,6 +350,24 @@ class SonicHost(AnsibleHostBase):
     def get_asic_type(self):
         return self.facts["asic_type"]
 
+    def shutdown(self, ifname):
+        """
+            Shutdown interface specified by ifname
+
+            Args:
+                ifname: the interface to shutdown
+        """
+        return self.command("sudo config interface shutdown {}".format(ifname))
+
+    def no_shutdown(self, ifname):
+        """
+            Bring up interface specified by ifname
+
+            Args:
+                ifname: the interface to bring up
+        """
+        return self.command("sudo config interface startup {}".format(ifname))
+
 
 class EosHost(AnsibleHostBase):
     """

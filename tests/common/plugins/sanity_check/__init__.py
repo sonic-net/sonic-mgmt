@@ -49,7 +49,7 @@ def _update_check_items(old_items, new_items, supported_items):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def sanity_check(testbed_devices, request):
+def sanity_check(testbed_devices, request, fanouthosts):
     logger.info("Start pre-test sanity check")
 
     dut = testbed_devices["dut"]
@@ -57,7 +57,7 @@ def sanity_check(testbed_devices, request):
 
     skip_sanity = False
     allow_recover = False
-    recover_method = "config_reload"
+    recover_method = "adaptive"
     check_items = set(copy.deepcopy(constants.SUPPORTED_CHECK_ITEMS))  # Default check items
     post_check = False
 
@@ -72,7 +72,7 @@ def sanity_check(testbed_devices, request):
         logger.info("Process marker %s in script. m.args=%s, m.kwargs=%s" % (m.name, str(m.args), str(m.kwargs)))
         skip_sanity = customized_sanity_check.kwargs.get("skip_sanity", False)
         allow_recover = customized_sanity_check.kwargs.get("allow_recover", False)
-        recover_method = customized_sanity_check.kwargs.get("recover_method", "config_reload")
+        recover_method = customized_sanity_check.kwargs.get("recover_method", "adaptive")
         if allow_recover and recover_method not in constants.RECOVER_METHODS:
             pytest.warning("Unsupported recover method")
             logger.info("Fall back to use default recover method 'config_reload'")
@@ -108,11 +108,11 @@ def sanity_check(testbed_devices, request):
                 json.dumps(check_results, indent=4))
     if any([result["failed"] for result in check_results]):
         if not allow_recover:
-            pytest.fail("Pre-test sanity check failed, allow_recover=False")
+            pytest.fail("Pre-test sanity check failed, allow_recover=False {}".format(check_results))
             return
 
         logger.info("Pre-test sanity check failed, try to recover, recover_method=%s" % recover_method)
-        recover(dut, localhost, recover_method)
+        recover(dut, localhost, fanouthosts, check_results, recover_method)
         logger.info("Run sanity check again after recovery")
         new_check_results = do_checks(dut, check_items)
         logger.info("!!!!!!!!!!!!!!!! Pre-test sanity check after recovery results: !!!!!!!!!!!!!!!!\n%s" % \
