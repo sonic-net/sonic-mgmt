@@ -7,7 +7,9 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'src-mac', 'dst-mac', 'ip-proto', 'vlan-id']
+# Usually src-mac, dst-mac, vlan-id are optional hash keys. Not all the platform supports these optional hash keys. Not enable these three by default. 
+# HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'src-mac', 'dst-mac', 'ip-proto', 'vlan-id']
+HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'ip-proto']
 SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
 DST_IP_RANGE = ['9.0.0.0', '9.255.255.255']
 SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:A800:0:00::FFFF']
@@ -59,6 +61,21 @@ def build_fib(duthost, config_facts, fibfile, t):
             else:
                 ofp.write("{} []\n".format(prefix))
 
+def get_vlan_untag_ports(config_facts):
+    """
+    get all untag vlan ports
+    """
+    vlan_untag_ports = []
+    vlans = config_facts.get('VLAN_INTERFACE', {}).keys()
+    for vlan in vlans:
+        vlan_member_info = config_facts.get('VLAN_MEMBER', {}).get(vlan, {})
+        if vlan_member_info:
+            for port_name, tag_mode in vlan_member_info.items():
+                if tag_mode['tagging_mode'] == 'untagged':
+                    vlan_untag_ports.append(port_name)
+    
+    return vlan_untag_ports
+
 def get_router_interface_ports(config_facts, testbed):
     """
     get all physical ports associated with router interface (physical router interface, port channel router interface and vlan router interface)
@@ -73,13 +90,7 @@ def get_router_interface_ports(config_facts, testbed):
             for port_name in config_facts.get('PORTCHANNEL', {})[po_name]['members']:
                 portchannels_member_ports.append(port_name)
     if 't0' in testbed['topo']['name']:
-        vlans = config_facts.get('VLAN_INTERFACE', {}).keys()
-        for vlan in vlans:
-            vlan_member_info = config_facts.get('VLAN_MEMBER', {}).get(vlan, {})
-            if vlan_member_info:
-                for port_name, tag_mode in vlan_member_info.items():
-                    if tag_mode['tagging_mode'] == 'untagged':
-                        vlan_untag_ports.append(port_name)
+        vlan_untag_ports = get_vlan_untag_ports(config_facts)
 
     router_interface_ports = ports + portchannels_member_ports + vlan_untag_ports
 
@@ -146,7 +157,8 @@ class TestHash():
         logging.info("run ptf test")
 
         # TODO
-        self.hash_keys.remove('dst-mac')
+        if 'dst-mac' in self.hash_keys:
+            self.hash_keys.remove('dst-mac')
 
         # do not test load balancing on L4 port on vs platform as kernel 4.9
         # can only do load balance base on L3
@@ -158,11 +170,12 @@ class TestHash():
         g_vars['testbed_type'] = testbed['topo']['name']
         g_vars['router_mac'] = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
 
+        vlan_untag_ports = get_vlan_untag_ports(config_facts)
         in_ports_name = get_router_interface_ports(config_facts, testbed)
         g_vars['in_ports'] = [config_facts.get('port_index_map', {})[p] for p in in_ports_name]
 
         # add some vlan for hash_key vlan-id test
-        if 't0' in g_vars['testbed_type']:
+        if 't0' in g_vars['testbed_type'] and 'vlan-id' in self.hash_keys:
             for vlan in VLANIDS:
                 duthost.shell('config vlan add {}'.format(vlan))
                 for port in vlan_untag_ports:
@@ -173,7 +186,7 @@ class TestHash():
         yield
 
         # remove added vlan
-        if 't0' in g_vars['testbed_type']:
+        if 't0' in g_vars['testbed_type'] and 'vlan-id' in self.hash_keys:
             for vlan in VLANIDS:
                 duthost.shell('config interface ip remove Vlan{} '.format(vlan) + VLANIP.format(vlan%256))
                 for port in vlan_untag_ports:
