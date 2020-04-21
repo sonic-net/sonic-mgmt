@@ -2,7 +2,13 @@
 
 def add_wr_arp_args(parser):
     '''
-    Adding arguments required for wr arp test cases
+        Adding arguments required for wr arp test cases
+
+       Args:
+            parser: pytest parser object
+
+        Returns:
+            None
     '''
     parser.addoption(
         "--test_duration",

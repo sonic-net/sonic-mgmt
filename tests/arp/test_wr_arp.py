@@ -73,7 +73,7 @@ class TestWrArp:
         })
 
         logger.info('Copying ferret config file to {0}'.format(ptfhost.hostname))
-        ptfhost.template(src='ferret.conf.j2', dest='/etc/supervisor/conf.d/ferret.conf')
+        ptfhost.template(src='arp/files/ferret.conf.j2', dest='/etc/supervisor/conf.d/ferret.conf')
 
         logger.info('Generate pem and key files for ssl')
         ptfhost.command(
