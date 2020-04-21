@@ -25,15 +25,17 @@ class AnsibleHostBase(object):
     on the host.
     """
 
-    def __init__(self, ansible_adhoc, hostname, connection=None):
+    def __init__(self, ansible_adhoc, hostname, connection=None, inventory=None):
         if hostname == 'localhost':
             self.host = ansible_adhoc(inventory='localhost', connection='local', host_pattern=hostname)[hostname]
         else:
+            if not inventory:
+                inventory = ansible_adhoc().options["inventory"]
             if connection is None:
-                self.host = ansible_adhoc(become=True)[hostname]
+                self.host = ansible_adhoc(become=True, inventory=inventory)[hostname]
             else:
                 logging.debug("connection {} for {}".format(connection, hostname))
-                self.host = ansible_adhoc(become=True, connection=connection)[hostname]
+                self.host = ansible_adhoc(become=True, connection=connection, inventory=inventory)[hostname]
         self.hostname = hostname
 
     def __getattr__(self, item):
@@ -376,8 +378,8 @@ class EosHost(AnsibleHostBase):
     For running ansible module on the Eos switch
     """
 
-    def __init__(self, ansible_adhoc, hostname, user, passwd, gather_facts=False):
-        AnsibleHostBase.__init__(self, ansible_adhoc, hostname, connection="network_cli")
+    def __init__(self, ansible_adhoc, hostname, user, passwd, gather_facts=False, inventory=None):
+        AnsibleHostBase.__init__(self, ansible_adhoc, hostname, connection="network_cli", inventory=inventory)
         evars = { 'ansible_connection':'network_cli', \
                   'ansible_network_os':'eos', \
                   'ansible_user': user, \
