@@ -350,23 +350,23 @@ class SonicHost(AnsibleHostBase):
     def get_asic_type(self):
         return self.facts["asic_type"]
 
-    def shutdown(self, portname):
+    def shutdown(self, ifname):
         """
-            Shutdown interface (parity function as EosHost)
+            Shutdown interface specified by ifname
 
             Args:
-                portname: the interface to shutdown
+                ifname: the interface to shutdown
         """
-        return self.command("sudo config interface shutdown {}".format(portname))
+        return self.command("sudo config interface shutdown {}".format(ifname))
 
-    def no_shutdown(self, portname):
+    def no_shutdown(self, ifname):
         """
-            Bring up interface (parity function as EosHost)
+            Bring up interface specified by ifname
 
             Args:
-                portname: the interface to bring up
+                ifname: the interface to bring up
         """
-        return self.command("sudo config interface startup {}".format(portname))
+        return self.command("sudo config interface startup {}".format(ifname))
 
 
 class EosHost(AnsibleHostBase):
