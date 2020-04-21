@@ -1,3 +1,5 @@
+from common.helpers.assertions import pytest_assert
+
 # Helper functions
 def get_dict_stdout(gnmi_out, certs_out):
     """ Extracts dictionary from redis output.
@@ -24,25 +26,26 @@ def test_config_db_parameters(duthost):
     gnmi = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "TELEMETRY|gnmi"', module_ignore_errors=False)['stdout_lines']
     certs = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "TELEMETRY|certs"', module_ignore_errors=False)['stdout_lines']
     if gnmi is None or certs is None:
-        assert False, "Either TELEMETRY|gnmi or TELEMETRY|certs does not exist in config_db"
+        pytest_assert(gnmi is not None, "TELEMETRY|gnmi does not exist in config_db")
+        pytest_assert(certs is not None, "TELEMETRY|certs does not exist in config_db")
     else:
         d = get_dict_stdout(gnmi, certs)
         for key, value in d.items():
             if str(key) == "client_auth":
                 client_auth_expected = "true"
-                assert str(value) == client_auth_expected, "'client_auth' value is not '{}'".format(client_auth_expected)
+                pytest_assert(str(value) == client_auth_expected, "'client_auth' value is not '{}'".format(client_auth_expected))
             if str(key) == "port":
                 port_expected = "50051"
-                assert str(value) == port_expected, "'port' value is not '{}'".format(port_expected)
+                pytest_assert(str(value) == port_expected, "'port' value is not '{}'".format(port_expected))
             if str(key) == "ca_crt":
                 ca_crt_value_expected = "/etc/sonic/telemetry/dsmsroot.cer"
-                assert str(value) == ca_crt_value_expected, "'ca_crt' value is not '{}'".format(ca_crt_value_expected)
+                pytest_assert(str(value) == ca_crt_value_expected, "'ca_crt' value is not '{}'".format(ca_crt_value_expected))
             if str(key) == "server_key":
                 server_key_expected = "/etc/sonic/telemetry/streamingtelemetryserver.key"
-                assert str(value) == server_key_expected, "'server_key' value is not '{}'".format(server_key_expected)
+                pytest_assert(str(value) == server_key_expected, "'server_key' value is not '{}'".format(server_key_expected))
             if str(key) == "server_crt":
                 server_crt_expected = "/etc/sonic/telemetry/streamingtelemetryserver.cer"
-                assert str(value) == server_crt_expected, "'server_crt' value is not '{}'".format(server_crt_expected)
+                pytest_assert str(value) == server_crt_expected, "'server_crt' value is not '{}'".format(server_crt_expected))
 
 def test_telemetry_enabledbydefault(duthost):
     """Verify telemetry should be enabled by default
@@ -53,4 +56,4 @@ def test_telemetry_enabledbydefault(duthost):
     for k, v in status_dict.items():
         if str(k) == "status":
             status_expected = "enabled";
-            assert str(v) == status_expected, "'Telemetry' status is not 'enabled'"
+            pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")
