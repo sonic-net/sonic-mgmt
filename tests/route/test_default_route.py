@@ -71,10 +71,11 @@ default proto bgp src fc00:1::32 metric 20
     """
 
     rt = duthost.command("ip -6 route list match ::")['stdout_lines']
+    logger.info("default ipv6 route {}".format(rt))
     for l in rt[1:]:
         m = re.search(r"nexthop via (\S+)", l)
         if m:
             if ipaddress.ip_address(m.group(1)).is_link_local:
-                pytest.fail("use link local address for for nexthop".format(m.group(1)))
+                pytest.fail("use link local address {} for nexthop".format(m.group(1)))
         else:
             pytest.fail("cannot find ipv6 nexthop for default route {}".format(rt))
