@@ -13,6 +13,13 @@ str2-sn3800-azd   ansible_host=10.3.146.183
 hwsku="ACS-MSN3800"
 iface_speed='100000'
 
+[sonic_mlnx_3800_50]
+str-sn3800-02    ansible_host=10.3.146.232
+
+[sonic_mlnx_3800_50:vars]
+hwsku="Mellanox-SN3800-D112C8"
+iface_speed='50000'
+
 [sonic_nexus_3164]
 str2-n3164-acs-4    ansible_host=10.3.146.124
 str2-n3164-acs-3    ansible_host=10.3.146.132
@@ -33,11 +40,13 @@ iface_speed='100000'
 sonic_mlnx
 sonic_arista
 sonic_mlnx_3800
+sonic_mlnx_3800_50
 
 [sonic:vars]
 mgmt_subnet_mask_length='23'
 
 [ptf]
+v17-1   ansible_host=10.64.246.105
 vms17-2 ansible_host=10.64.246.106
 v17-3 ansible_host=10.64.246.107
 
@@ -54,6 +63,7 @@ str2-dx010-acs-2   ansible_host=10.3.146.236 os=sonic
 str2-7260cx3-acs-fan-06  ansible_host=10.3.146.176
 str2-7260cx3-fan-07  ansible_host=10.3.146.244
 str2-7260cx3-fan-08  ansible_host=10.3.146.245
+str-7260cx3-acs-8  ansible_host=10.3.146.220
 
 [docker_registry]
 acs-devrepo.corp.microsoft.com
