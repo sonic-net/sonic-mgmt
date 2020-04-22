@@ -21,7 +21,7 @@
       "table": "ingress.encap.encap_in_ipv4_table",
       "entry_oper": "INSERT",
       "match": {
-        "local_metadata.encap_id": 22
+        "local_metadata.encap_id": 2
       },
       "action_name": "ingress.encap.encap_ip_in_ip",
       "action_params": {
@@ -34,7 +34,7 @@
       "table": "ingress.encap.encap_in_ipv4_table",
       "entry_oper": "MODIFY",
       "match": {
-        "local_metadata.encap_id": 22
+        "local_metadata.encap_id": 2
       },
       "action_name": "ingress.encap.encap_ip_in_ip",
       "action_params": {
