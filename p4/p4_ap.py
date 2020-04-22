@@ -154,7 +154,7 @@ def reset_p4():
         commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
         cmd = "sudo systemctl status p4rt-agent\n"
         reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
-        log.info(reply.decode())
+        log.info(reply)
     
 class TestP4(P4ApBase):
 

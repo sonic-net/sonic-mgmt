@@ -213,9 +213,12 @@ class SwitchConnection(object):
             request.device_id = kwargs["device_id"]
         except KeyError:
             request.device_id = self.device_id
+        try:
+            request.role_id = kwargs["role_id"]
+        except KeyError:
+            request.role_id = 555
 
-
-        request.role_id = 555
+        #request.role_id = 555
         update = request.updates.add()
         if upd_type.upper() == "MODIFY":
             update.type = p4runtime_pb2.Update.MODIFY
@@ -232,7 +235,10 @@ class SwitchConnection(object):
     
     def ProcessBatchedTableEntries(self, table_entries, dry_run=False, **kwargs):
         request = p4runtime_pb2.WriteRequest()
-        request.device_id = self.device_id
+        try:
+            request.device_id = kwargs["device_id"]
+        except KeyError:
+            request.device_id = self.device_id
         try:
             request.election_id.low = kwargs["election_id_low"]
         except KeyError:
@@ -264,7 +270,10 @@ class SwitchConnection(object):
     def WriteActionProfileGroup(self, group_entry, dry_run=False, **kwargs):
         
         request = p4runtime_pb2.WriteRequest()
-        request.device_id = self.device_id
+        try:
+            request.device_id = kwargs["device_id"]
+        except KeyError:
+            request.device_id = self.device_id
         try:
             request.election_id.low = kwargs["election_id_low"]
         except KeyError:
@@ -301,7 +310,10 @@ class SwitchConnection(object):
 
     def ReadActionProfileGroup(self, group_id=None, dry_run=False, **kwargs):
         request = p4runtime_pb2.ReadRequest()
-        request.device_id = self.device_id
+        try:
+            request.device_id = kwargs["device_id"]
+        except KeyError:
+            request.device_id = self.device_id
         entity = request.entities.add()
         group = entity.action_profile_group
         if group_id is not None:
@@ -318,7 +330,10 @@ class SwitchConnection(object):
     def WriteActionProfileMember(self, member_entry, dry_run=False, **kwargs):
         
         request = p4runtime_pb2.WriteRequest()
-        request.device_id = self.device_id
+        try:
+            request.device_id = kwargs["device_id"]
+        except KeyError:
+            request.device_id = self.device_id
         try:
             request.election_id.low = kwargs["election_id_low"]
         except KeyError:
@@ -441,7 +456,10 @@ class SwitchConnection(object):
 
     def DeleteTableEntry(self, table_entry, dry_run=False, **kwargs):
         request = p4runtime_pb2.WriteRequest()
-        request.device_id = self.device_id
+        try:
+            request.device_id = kwargs["device_id"]
+        except KeyError:
+            request.device_id = self.device_id
         try:
             request.election_id.low = kwargs["election_id_low"]
         except KeyError:
@@ -450,6 +468,10 @@ class SwitchConnection(object):
             request.election_id.high = kwargs["election_id_high"]
         except KeyError:
             request.election_id.high = 0
+        try:
+            request.role_id = kwargs["role_id"]
+        except KeyError:
+            request.role_id = 555
         update = request.updates.add()
         update.type = p4runtime_pb2.Update.DELETE
         update.entity.table_entry.CopyFrom(table_entry)
@@ -462,7 +484,6 @@ class SwitchConnection(object):
 
     def ReadTableEntries(self, table_id=None, dry_run=False, **kwargs):
         request = p4runtime_pb2.ReadRequest()
-        #request.device_id = self.device_id
         try:
             request.device_id = kwargs["device_id"]
         except KeyError:

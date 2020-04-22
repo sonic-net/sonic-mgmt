@@ -441,10 +441,10 @@ def tableEntryActions(sw, flow, p4info_helper, action, **kwargs):
         priority = kwargs["priority"]
     except KeyError:
         priority = flow.get('priority')  # None if not found
-    #try:
-    #    device_id = kwargs["device_id"]
-    #except KeyError:
-    #    device_id = 0
+    try:
+        device_id = kwargs["device_id"]
+    except KeyError:
+        device_id = 0
 
     
     table_name = flow['table']
@@ -454,7 +454,6 @@ def tableEntryActions(sw, flow, p4info_helper, action, **kwargs):
     action_params = flow.get('action_params') # None if not found
     action_member = flow.get('action_member') # None if not found
     action_group = flow.get('action_group') # None if not found
-    #priority = flow.get('priority')  # None if not found
     oper = flow.get('operation') # None if not found
     if oper is None:
         oper = action
@@ -470,11 +469,11 @@ def tableEntryActions(sw, flow, p4info_helper, action, **kwargs):
         priority=priority)
 
     if oper.upper() == 'INSERT':
-        sw.WriteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high)
+        sw.WriteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high,device_id=device_id,role_id=role_id)
     elif oper.upper() == 'MODIFY':
-        sw.WriteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high,oper="MODIFY")
+        sw.WriteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high,oper="MODIFY",device_id=device_id,role_id=role_id)
     elif oper.upper() == 'DELETE':
-        sw.DeleteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high)
+        sw.DeleteTableEntry(table_entry,election_id_low=election_id_low,election_id_high=election_id_high,device_id=device_id,role_id=role_id)
 
     return
 
