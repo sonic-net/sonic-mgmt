@@ -5,11 +5,8 @@ Description:    This file contains the hash test for SONiC
 #---------------------------------------------------------------------
 # Global imports
 #---------------------------------------------------------------------
-import ipaddress
 import logging
 import random
-import socket
-import sys
 
 from ipaddress import ip_address, ip_network
 
@@ -48,6 +45,7 @@ class HashTest(BaseTest):
         '''
         self.dataplane = ptf.dataplane_instance
         self.fib = fib.Fib(self.test_params['fib_info'])
+        self.testbed_type = self.test_params['testbed_type']
         self.router_mac = self.test_params['router_mac']
         self.in_ports = self.test_params['in_ports']
 
@@ -55,7 +53,9 @@ class HashTest(BaseTest):
         self.dst_ip_range = [unicode(x) for x in self.test_params['dst_ip_range'].split(',')]
         self.src_ip_interval = lpm.LpmDict.IpInterval(ip_address(self.src_ip_range[0]), ip_address(self.src_ip_range[1]))
         self.dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(self.dst_ip_range[0]), ip_address(self.dst_ip_range[1]))
+        self.vlan_ids = self.test_params.get('vlan_ids', [])
         self.hash_keys = self.test_params.get('hash_keys', ['src-ip', 'dst-ip', 'src-port', 'dst-port'])
+        self.dst_macs = self.test_params.get('dst_macs', [])    # TODO
 
         self.balancing_range = self.test_params.get('balancing_range', self.DEFAULT_BALANCING_RANGE)
 
@@ -108,27 +108,38 @@ class HashTest(BaseTest):
         @param in_port: index of port to use for sending packet to switch
         @param dst_port_list: list of ports on which to expect packet to come back from the switch
         '''
-        src_mac = self.dataplane.get_mac(0, 0)
+        base_mac = self.dataplane.get_mac(0, 0)
         ip_src = self.src_ip_interval.get_random_ip() if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
         ip_dst = self.dst_ip_interval.get_random_ip() if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
+        src_mac = (base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) if hash_key == 'src-mac' else base_mac
+        dst_mac = random.choice(self.dst_macs) if hash_key == 'dst-mac' else self.router_mac
+        vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
+        ip_proto = random.randint(100, 200) if hash_key == 'ip-proto' else None
 
-        pkt = simple_tcp_packet(
-                            eth_dst=self.router_mac,
+        pkt = simple_tcp_packet(pktlen=100 if vlan_id == 0 else 104,
+                            eth_dst=dst_mac,
                             eth_src=src_mac,
+                            dl_vlan_enable=False if vlan_id == 0 else True,
+                            vlan_vid=vlan_id,
+                            vlan_pcp=0,
                             ip_src=ip_src,
                             ip_dst=ip_dst,
                             tcp_sport=sport,
                             tcp_dport=dport,
                             ip_ttl=64)
         exp_pkt = simple_tcp_packet(
-                            eth_src=self.router_mac,
+                            eth_src=dst_mac,
                             ip_src=ip_src,
                             ip_dst=ip_dst,
                             tcp_sport=sport,
                             tcp_dport=dport,
                             ip_ttl=63)
+
+        if hash_key == 'ip-proto':
+            pkt['IP'].proto = ip_proto
+            exp_pkt['IP'].proto = ip_proto
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
 
@@ -146,27 +157,39 @@ class HashTest(BaseTest):
         @param dst_port_list: list of ports on which to expect packet to come back from the switch
         @return Boolean
         '''
-        src_mac = self.dataplane.get_mac(0, 0)
+        base_mac = self.dataplane.get_mac(0, 0)
         ip_src = self.src_ip_interval.get_random_ip() if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
         ip_dst = self.dst_ip_interval.get_random_ip() if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
+        src_mac = (base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) if hash_key == 'src-mac' else base_mac
+        dst_mac = random.choice(self.dst_macs) if hash_key == 'dst-mac' else self.router_mac
+        vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
+        ip_proto = random.randint(100, 200) if hash_key == "ip-proto" else None
 
-        pkt = simple_tcpv6_packet(
-                                eth_dst=self.router_mac,
+        pkt = simple_tcpv6_packet(pktlen=100 if vlan_id == 0 else 104,
+                                eth_dst=dst_mac,
                                 eth_src=src_mac,
+                                dl_vlan_enable=False if vlan_id == 0 else True,
+                                vlan_vid=vlan_id,
+                                vlan_pcp=0,
                                 ipv6_dst=ip_dst,
                                 ipv6_src=ip_src,
                                 tcp_sport=sport,
                                 tcp_dport=dport,
                                 ipv6_hlim=64)
         exp_pkt = simple_tcpv6_packet(
-                                eth_src=self.router_mac,
+                                eth_src=dst_mac,
                                 ipv6_dst=ip_dst,
                                 ipv6_src=ip_src,
                                 tcp_sport=sport,
                                 tcp_dport=dport,
                                 ipv6_hlim=63)
+
+        if hash_key == 'ip-proto':
+            pkt['IPv6'].nh = ip_proto
+            exp_pkt['IPv6'].nh = ip_proto
+
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
 
