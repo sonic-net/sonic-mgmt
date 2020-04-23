@@ -1,5 +1,5 @@
 #
-#ptf --test-dir ptftests fast-reboot --qlen=1000 --platform remote -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;portchannel_ports_file="/tmp/portchannel_interfaces.json";vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";dut_mac="4c:76:25:f5:48:80";default_ip_range="192.168.0.0/16";vlan_ip_range="172.0.0.0/22";arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' --platform-dir ptftests --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
+#ptf --test-dir ptftests fast-reboot --qlen=1000 --platform remote -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;portchannel_ports_file="/tmp/portchannel_interfaces.json";vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";dut_mac="4c:76:25:f5:48:80";vlan_ip_range="172.0.0.0/22";arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' --platform-dir ptftests --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
 #
 #
 # This test checks that DUT is able to make FastReboot procedure
@@ -67,6 +67,8 @@ import itertools
 from arista import Arista
 import sad_path as sp
 
+import fib
+import random
 
 class StateMachine():
     def __init__(self, init_state='init'):
@@ -132,9 +134,11 @@ class ReloadTest(BaseTest):
         self.check_param('portchannel_ports_file', '', required=True)
         self.check_param('vlan_ports_file', '', required=True)
         self.check_param('ports_file', '', required=True)
+        self.check_param('fib_info', '', required=True)
+
         self.check_param('dut_mac', '', required=True)
         self.check_param('dut_vlan_ip', '', required=True)
-        self.check_param('default_ip_range', '', required=True)
+
         self.check_param('vlan_ip_range', '', required=True)
         self.check_param('lo_prefix', '10.1.0.32/32', required=False)
         self.check_param('lo_v6_prefix', 'fc00:1::/64', required=False)
@@ -249,6 +253,22 @@ class ReloadTest(BaseTest):
             if required:
                 raise Exception("Test parameter '%s' is required" % param)
             self.test_params[param] = default
+
+    def generate_ip_range_list_by_nexthop_portlist(self, nexthop_portlist):
+        ip_range_list = []
+        for ip_range in self.fib.ipv4_ranges():
+            if len( set(nexthop_portlist) & set(self.fib[ip_range.get_first_ip()].get_next_hop_list())) > 0 :
+               ip_range_list.append(ip_range)
+
+        if len(ip_range_list) < 1 :
+           raise Exception("Can't forward from server to T1 packet.Please check BGP setting")
+
+        return ip_range_list
+
+
+    def generate_ip_addr_by_ip_range_list(self):
+        forward_ip_range = random.choice(self.ip_range_list)
+        return forward_ip_range.get_random_ip()
 
     def random_ip(self, ip):
         net_addr, mask = ip.split('/')
@@ -473,8 +493,8 @@ class ReloadTest(BaseTest):
             self.build_peer_mapping()
             self.test_params['vlan_if_port'] = self.build_vlan_if_port_mapping()
 
+        self.fib = fib.Fib(self.test_params['fib_info'])
         self.vlan_ip_range = self.test_params['vlan_ip_range']
-        self.default_ip_range = self.test_params['default_ip_range']
 
         self.limit = datetime.timedelta(seconds=self.test_params['reboot_limit_in_seconds'])
         self.reboot_type = self.test_params['reboot_type']
@@ -498,12 +518,13 @@ class ReloadTest(BaseTest):
         self.vlan_host_map = self.generate_vlan_servers()
         arp_responder_conf = self.generate_arp_responder_conf(self.vlan_host_map)
         self.dump_arp_responder_config(arp_responder_conf)
+        self.ip_range_list = self.generate_ip_range_list_by_nexthop_portlist(self.portchannel_ports)
 
         self.random_vlan           = random.choice(self.vlan_ports)
         self.from_server_src_port  = self.random_vlan
         self.from_server_src_addr  = random.choice(self.vlan_host_map[self.random_vlan].keys())
-        self.from_server_dst_addr  = self.random_ip(self.test_params['default_ip_range'])
         self.from_server_dst_ports = self.portchannel_ports
+        self.from_server_dst_addr  = self.generate_ip_addr_by_ip_range_list()
 
         self.log("Test params:")
         self.log("DUT ssh: %s" % self.dut_ssh)
@@ -602,7 +623,7 @@ class ReloadTest(BaseTest):
 
         # for each server host create a packet destinating server IP
         for counter, host_port in enumerate(self.vlan_host_map):
-            src_addr = self.random_ip(self.default_ip_range)
+            src_addr = self.generate_ip_addr_by_ip_range_list()
             src_port = self.random_port(self.portchannel_ports)
 
             for server_ip in self.vlan_host_map[host_port]:

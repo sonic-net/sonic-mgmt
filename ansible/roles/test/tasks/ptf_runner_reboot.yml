@@ -41,6 +41,18 @@
       vars:
         supervisor_host: "{{ ptf_host }}"
 
+    - include_vars: "vars/topo_{{testbed_type}}.yml"
+
+    - name: Expand properties into props
+      set_fact: props="{{configuration_properties['common']}}"
+      when: testbed_type in ['t0', 't0-56', 't0-64', 't0-116', 't0-64-32']
+
+    # Generate route file
+    - name: Generate route-port map information
+      template: src=roles/test/templates/fib.j2
+            dest=/root/fib_info.txt
+      delegate_to: "{{ptf_host}}"
+
     - include_tasks: ptf_runner.yml
       vars:
         ptf_test_name: Advanced-reboot test
@@ -58,9 +70,9 @@
         - portchannel_ports_file=\"/tmp/portchannel_interfaces.json\"
         - vlan_ports_file=\"/tmp/vlan_interfaces.json\"
         - ports_file=\"/tmp/ports.json\"
+        - fib_info=\"/root/fib_info.txt\"
         - dut_mac='{{ dut_mac }}'
         - dut_vlan_ip='192.168.0.1'
-        - default_ip_range='192.168.0.0/16'
         - vlan_ip_range='{{ vlan_ip_range }}'
         - lo_v6_prefix='{{ lo_v6_prefix }}'
         - arista_vms=\"['{{ vm_hosts | list | join("','") }}']\"
