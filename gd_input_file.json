@@ -94,7 +94,7 @@
             },
             "indirect_table_tests": {
                 "ingress.l3_fwd.l3_ipv4_vrf_table": {
-                    "input_conf_file": "./data-files/ingress-l3fwd-ipv4vrf-table.json"
+                    "input_conf_file": "./data-files/M1-ingress-l3fwd-ipv4vrf-table.json"
                 }
             },
             "test_action_profile_groups": {
