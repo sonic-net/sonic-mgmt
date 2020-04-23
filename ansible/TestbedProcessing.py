@@ -199,7 +199,7 @@ generates /testbed.csv by pulling confName, groupName, topo, ptf_image_name, ptf
 error handling: checks if attribute values are None type or string "None"
 """
 def makeTestbed(data, outfile):
-    csv_columns = "# conf-name,group-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,ptf,comment"
+    csv_columns = "# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,server,vm_base,dut,comment"
     topology = data
     csv_file = outfile
 
@@ -238,7 +238,7 @@ def makeTestbed(data, outfile):
                 if not comment:
                     comment = ""
 
-                row = confName + "," + groupName + "," + topo + "," + ptf_image_name + "," + ptf_ip + "," + server + "," + vm_base + "," + dut + "," + ptf + "," + comment
+                row = confName + "," + groupName + "," + topo + "," + ptf_image_name + "," + ptf + "," + ptf_ip + "," + server + "," + vm_base + "," + dut + "," + comment
                 f.write(row + "\n")
     except IOError:
         print("I/O error: issue creating testbed.csv")
