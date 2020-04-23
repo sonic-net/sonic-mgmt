@@ -165,6 +165,9 @@ def test_fdb(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost, pkt_type):
     1. verify fdb forwarding.
     2. verify show mac command on DUT for learned mac.
     """
+    
+    if testbed['topo']['type'] in ['t1', 'ptf']:
+        pytest.skip('unsupported testbed type')
 
     host_facts  = duthost.setup()['ansible_facts']
     conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
