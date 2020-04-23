@@ -1,1 +1,4 @@
-../../sonic-common/tasks/sensors_check.yml
+- name: run test
+  include_tasks: roles/test/tasks/pytest_runner.yml
+  vars:
+    test_node: test_sensors.py 
