@@ -143,14 +143,14 @@ makeVMHost_cred(data, outfile)
 @:parameter data - the dictionary to look for (in this case: veos)
 @:parameter outfile - the file to write to
 generates /group_vars/vm_host/creds.yml
-pulls ansible_user, ansible_password, ansible_sudo_pass from vm_host_ansible into a dictionary
+pulls ansible_user, ansible_password, ansible_become_pass from vm_host_ansible into a dictionary
 """
 def makeVMHostCreds(data, outfile):
     veos = data
     result = {
         "ansible_user": veos.get("vm_host_ansible").get("ansible_user"),
         "ansible_password": veos.get("vm_host_ansible").get("ansible_password"),
-        "ansible_sudo_password": veos.get("vm_host_ansible").get("ansible_sudo_pass")
+        "ansible_become_pass": veos.get("vm_host_ansible").get("ansible_become_pass")
     }
     with open(outfile, "w") as toWrite:
         toWrite.write("---\n")
