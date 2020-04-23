@@ -52,7 +52,9 @@ def test_telemetry_enabledbydefault(duthost):
     """
     status = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "FEATURE|telemetry"', module_ignore_errors=False)['stdout_lines']
     status_list = get_list_stdout(status)
-    status_dict = dict(itertools.izip_longest(*[iter(status_list)] *2, fillvalue=""))
+    status_key_list = status_list[0::2]
+    status_value_list = status_list[1::2]
+    status_dict = dict(zip(status_key_list, status_value_list))
     for k, v in status_dict.items():
         if str(k) == "status":
             status_expected = "enabled";
