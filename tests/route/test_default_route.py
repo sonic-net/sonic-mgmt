@@ -21,6 +21,19 @@ default proto bgp src fc00:1::32 metric 20
         nexthop via fc00::76 dev PortChannel0002 weight 1
         nexthop via fc00::7a dev PortChannel0003 weight 1
         nexthop via fc00::7e dev PortChannel0004 weight 1 pref medium
+
+============ 4.9 kernel ===============
+admin@vlab-01:~$ ip route list match 0.0.0.0
+default proto 186 src 10.1.0.32 metric 20
+        nexthop via 10.0.0.57  dev PortChannel0001 weight 1
+        nexthop via 10.0.0.59  dev PortChannel0002 weight 1
+        nexthop via 10.0.0.61  dev PortChannel0003 weight 1
+        nexthop via 10.0.0.63  dev PortChannel0004 weight 1
+admin@vlab-01:~$ ip -6 route list match ::
+default via fc00::72 dev PortChannel0001 proto 186 src fc00:1::32 metric 20  pref medium
+default via fc00::76 dev PortChannel0002 proto 186 src fc00:1::32 metric 20  pref medium
+default via fc00::7a dev PortChannel0003 proto 186 src fc00:1::32 metric 20  pref medium
+default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pref medium
     """
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -44,18 +57,22 @@ default proto bgp src fc00:1::32 metric 20
         pytest.fail("cannot find ipv6 Loopback0 address")
 
     rt = duthost.command("ip route list match 0.0.0.0")['stdout_lines']
-    m = re.match(r"^default proto bgp src (\S+)", rt[0])
+    m = re.match(r"^default proto (bgp|186) src (\S+)", rt[0])
     if m:
-        if ipaddress.ip_address(m.group(1)) != lo_ipv4.ip:
+        if ipaddress.ip_address(m.group(2)) != lo_ipv4.ip:
             pytest.fail("default route set src to wrong IP {} != {}".format(m.group(1), lo_ipv4.ip))
     else:
         pytest.fail("default route do not have set src. {}".format(rt))
 
     rt = duthost.command("ip -6 route list match ::")['stdout_lines']
     m = re.match(r"^default proto bgp src (\S+)", rt[0])
+    m1 = re.match(r"default via (\S+) dev (\S+) proto 186 src (\S+)", rt[0])
     if m:
         if ipaddress.ip_address(m.group(1)) != lo_ipv6.ip:
             pytest.fail("default route set src to wrong IP {} != {}".format(m.group(1), lo_ipv6.ip))
+    elif m1:
+        if ipaddress.ip_address(m1.group(3)) != lo_ipv6.ip:
+            pytest.fail("default route set src to wrong IP {} != {}".format(m1.group(3), lo_ipv6.ip))
     else:
         pytest.fail("default route do not have set src. {}".format(rt))
 
@@ -68,14 +85,25 @@ default proto bgp src fc00:1::32 metric 20
         nexthop via fc00::76 dev PortChannel0002 weight 1
         nexthop via fc00::7a dev PortChannel0003 weight 1
         nexthop via fc00::7e dev PortChannel0004 weight 1 pref medium
+
+============ 4.9 kernel ===============
+admin@vlab-01:~$ ip -6 route list match ::
+default via fc00::72 dev PortChannel0001 proto 186 src fc00:1::32 metric 20  pref medium
+default via fc00::76 dev PortChannel0002 proto 186 src fc00:1::32 metric 20  pref medium
+default via fc00::7a dev PortChannel0003 proto 186 src fc00:1::32 metric 20  pref medium
+default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pref medium
+
     """
 
     rt = duthost.command("ip -6 route list match ::")['stdout_lines']
     logger.info("default ipv6 route {}".format(rt))
-    for l in rt[1:]:
-        m = re.search(r"nexthop via (\S+)", l)
+    found_nexthop_via = False
+    for l in rt:
+        m = re.search(r"(default|nexthop) via (\S+)", l)
         if m:
-            if ipaddress.ip_address(m.group(1)).is_link_local:
-                pytest.fail("use link local address {} for nexthop".format(m.group(1)))
-        else:
-            pytest.fail("cannot find ipv6 nexthop for default route {}".format(rt))
+            found_nexthop_via = True
+            if ipaddress.ip_address(m.group(2)).is_link_local:
+                pytest.fail("use link local address {} for nexthop".format(m.group(2)))
+
+    if found_nexthop_via is False:
+        pytest.fail("cannot find ipv6 nexthop for default route {}".format(rt))
