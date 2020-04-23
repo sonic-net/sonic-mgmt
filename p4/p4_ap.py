@@ -172,6 +172,9 @@ class TestP4(P4ApBase):
         p4_switch.ShutdownAllSwitchConnections()
         port_cleanup()
 
+    def test_reset_p4(self):
+        reset_p4()
+
     def test_writeRPC_Neg3(self):
         reset_p4()
         p4_san_tc._test_writeRPC_Neg3()
