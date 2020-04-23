@@ -148,9 +148,11 @@ def port_cleanup():
 
 def reset_p4():
     if ApData.svr_addr != "172.17.0.2":
-        cmd = "sudo systemctl restart p4rt-agent\n"
-        commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
         cmd = "sudo systemctl restart hal_server\n"
+        commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
+        cmd = "sudo systemctl restart halmgr\n"
+        commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
+        cmd = "sudo systemctl restart p4rt-agent\n"
         commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
         cmd = "sudo systemctl status p4rt-agent\n"
         reply = commonLib.node_get(ApData.svr_addr, ApData.uname, ApData.pwd, cmd)
