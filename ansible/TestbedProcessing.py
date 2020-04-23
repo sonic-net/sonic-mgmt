@@ -122,7 +122,9 @@ def makeMain(data, outfile):
         "skip_image_downloading": veos.get("skip_image_downloading"),
         "vm_console_base": veos.get("vm_console_base"),
         "memory": veos.get("memory"),
-        "max_fp_num": veos.get("max_fp_num")
+        "max_fp_num": veos.get("max_fp_num"),
+        "ptf_bp_ip": veos.get("ptf_bp_ip"),
+        "ptf_bp_ipv6": veos.get("ptf_bp_ipv6")
     }
     proxy = {
         "proxy_env": {
