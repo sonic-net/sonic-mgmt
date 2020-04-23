@@ -189,11 +189,18 @@ def check_all_psu_on(dut, psu_test_results):
     return len(power_off_psu_list) == 0
 
 
+@pytest.mark.disable_loganalyzer
 def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
     ans_host = testbed_devices["dut"]
+
+    loganalyzer = LogAnalyzer(ansible_host=ans_host, marker_prefix='turn_on_off_psu_and_check_psustatus')
+    loganalyzer.load_common_config()
+
+    loganalyzer.ignore_regex.append("Error getting sensor data: dps460.*Kernel interface error")
+    marker = loganalyzer.init()
 
     psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
 
@@ -251,6 +258,8 @@ def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller):
 
     for psu in psu_test_results:
         assert psu_test_results[psu], "Test psu status of PSU %s failed" % psu
+
+    loganalyzer.analyze(marker)
 
 
 def parse_platform_summary(raw_input_lines):
