@@ -129,22 +129,34 @@ class SonicHost(AnsibleHostBase):
             self._get_critical_services_for_multi_npu
 
 
-    def _platform_info(self):
+    def get_platform_info(self):
+        """
+        @summary: Get the platform information of the SONiC switch.
+        @return: Returns a dictionary containing preperties of the platform information, for example:
+            {
+                "platform": "",
+                "hwsku": "",
+                "asic_type": ""
+            }
+        """
         platform_info = self.command("show platform summary")["stdout_lines"]
+        result = {}
         for line in platform_info:
             if line.startswith("Platform:"):
-                self.facts["platform"] = line.split(":")[1].strip()
+                result["platform"] = line.split(":")[1].strip()
             elif line.startswith("HwSKU:"):
-                self.facts["hwsku"] = line.split(":")[1].strip()
+                result["hwsku"] = line.split(":")[1].strip()
             elif line.startswith("ASIC:"):
-                self.facts["asic_type"] = line.split(":")[1].strip()
+                result["asic_type"] = line.split(":")[1].strip()
+        return result
 
     def gather_facts(self):
         """
         @summary: Gather facts of the SONiC switch and store the gathered facts in the dict type 'facts' attribute.
         """
         self.facts = {}
-        self._platform_info()
+        platform_info = self.get_platform_info()
+        self.facts.update(platform_info)
         self._get_npu_info()
         logging.debug("SonicHost facts: %s" % json.dumps(self.facts))
 
