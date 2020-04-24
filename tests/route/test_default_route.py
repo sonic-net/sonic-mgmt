@@ -2,6 +2,7 @@ import ipaddress
 import re
 import pytest
 import logging
+from common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
@@ -51,16 +52,14 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                 elif ip.version == 6:
                     lo_ipv6 = ip
 
-    if lo_ipv4 is None:
-        pytest.fail("cannot find ipv4 Loopback0 address")
-    if lo_ipv6 is None:
-        pytest.fail("cannot find ipv6 Loopback0 address")
+    pytest_assert(lo_ipv4, "cannot find ipv4 Loopback0 address")
+    pytest_assert(lo_ipv6, "cannot find ipv6 Loopback0 address")
 
     rt = duthost.command("ip route list match 0.0.0.0")['stdout_lines']
     m = re.match(r"^default proto (bgp|186) src (\S+)", rt[0])
     if m:
-        if ipaddress.ip_address(m.group(2)) != lo_ipv4.ip:
-            pytest.fail("default route set src to wrong IP {} != {}".format(m.group(1), lo_ipv4.ip))
+        pytest_assert(ipaddress.ip_address(m.group(2)) == lo_ipv4.ip, \
+            "default route set src to wrong IP {} != {}".format(m.group(1), lo_ipv4.ip))
     else:
         pytest.fail("default route do not have set src. {}".format(rt))
 
@@ -68,11 +67,11 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
     m = re.match(r"^default proto bgp src (\S+)", rt[0])
     m1 = re.match(r"default via (\S+) dev (\S+) proto 186 src (\S+)", rt[0])
     if m:
-        if ipaddress.ip_address(m.group(1)) != lo_ipv6.ip:
-            pytest.fail("default route set src to wrong IP {} != {}".format(m.group(1), lo_ipv6.ip))
+        pytest_assert(ipaddress.ip_address(m.group(1)) == lo_ipv6.ip, \
+            "default route set src to wrong IP {} != {}".format(m.group(1), lo_ipv6.ip))
     elif m1:
-        if ipaddress.ip_address(m1.group(3)) != lo_ipv6.ip:
-            pytest.fail("default route set src to wrong IP {} != {}".format(m1.group(3), lo_ipv6.ip))
+        pytest_assert(ipaddress.ip_address(m1.group(3)) == lo_ipv6.ip, \
+            "default route set src to wrong IP {} != {}".format(m1.group(3), lo_ipv6.ip))
     else:
         pytest.fail("default route do not have set src. {}".format(rt))
 
@@ -102,8 +101,7 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         m = re.search(r"(default|nexthop) via (\S+)", l)
         if m:
             found_nexthop_via = True
-            if ipaddress.ip_address(m.group(2)).is_link_local:
-                pytest.fail("use link local address {} for nexthop".format(m.group(2)))
+            pytest_assert(not ipaddress.ip_address(m.group(2)).is_link_local, \
+                "use link local address {} for nexthop".format(m.group(2)))
 
-    if found_nexthop_via is False:
-        pytest.fail("cannot find ipv6 nexthop for default route {}".format(rt))
+    pytest_assert(found_nexthop_via, "cannot find ipv6 nexthop for default route {}".format(rt))
