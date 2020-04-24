@@ -68,7 +68,6 @@ from arista import Arista
 import sad_path as sp
 
 import fib
-import random
 
 class StateMachine():
     def __init__(self, init_state='init'):
