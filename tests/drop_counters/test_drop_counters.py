@@ -415,10 +415,13 @@ def str_to_int(value):
 
 def verify_drop_counters(duthost, dut_iface, get_cnt_cli_cmd, column_key):
     """ Verify drop counter incremented on specific interface """
-    drops = get_pkt_drops(duthost, get_cnt_cli_cmd)[dut_iface][column_key]
-    drops = str_to_int(drops)
-
-    if drops != PKT_NUMBER:
+    for _ in range(3):
+        drops = get_pkt_drops(duthost, get_cnt_cli_cmd)[dut_iface][column_key]
+        drops = str_to_int(drops)
+        if drops == PKT_NUMBER:
+            break
+        time.sleep(1)
+    else:
         fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
             column_key, dut_iface, column_key, drops, PKT_NUMBER
         )
@@ -454,7 +457,6 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, d
             ensure_no_l2_drops(duthost)
     else:
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2' or 'L3'")
-
 
 
 def do_test(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, sniff_ports, l2_col_key=RX_DRP, l3_col_key=RX_ERR):
@@ -559,15 +561,17 @@ def test_not_expected_vlan_tag_drop(ptfadapter, duthost, setup, pkt_fields, port
     @summary: Verify that VLAN tagged packet which VLAN ID does not match ingress port VLAN ID is dropped
               and L2 drop counter incremented
     """
+    start_vlan_id = 2
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
     max_vlan_id = 1000
     upper_bound = max(setup["vlans"]) if setup["vlans"] else max_vlan_id
-    for interim in range(1, upper_bound):
+    for interim in range(start_vlan_id, upper_bound):
         if interim not in setup["vlans"]:
             vlan_id = interim
             break
     else:
-        pytest.fail("Unable to generate unique not yet existed VLAN ID. Already configured VLANs range {}-{}".format(1, upper_bound))
+        pytest.fail("Unable to generate unique not yet existed VLAN ID. Already configured VLANs range {}-{}".format(start_vlan_id,
+            upper_bound))
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"], # DUT port
@@ -768,6 +772,12 @@ def test_ip_link_local(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, add
             setup["neighbor_sniff_ports"])
 
 
+# Test case is skipped, because SONiC does not have a control to adjust loop-back filter settings.
+# Default SONiC behaviour is to forward the traffic, so loop-back filter does not triggers for IP packets.
+# All router interfaces has attribute "sx_interface_attributes_t.loopback_enable" - enabled.
+# To enable loop-back filter drops - need to disable that attribute when create RIF.
+# To do this can be used SAI attribute SAI_ROUTER_INTERFACE_ATTR_LOOPBACK_PACKET_ACTION, which is not exposed to SONiC
+@pytest.mark.skip(reason="SONiC can't enable loop-back filter feature")
 def test_loopback_filter(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Verify that packet drops by loopback-filter. Loop-back filter means that route to the host
