@@ -9,14 +9,14 @@ Testbed Processing
 
 Requirement:
     python version: 2.X
-    python package: PyYAML 3.12 (or later) 
-    
+    python package: PyYAML 3.12 (or later)
+
 PyYaml Install Instructions:
-    [1] Download PyYAML from https://pyyaml.org/wiki/PyYAML 
+    [1] Download PyYAML from https://pyyaml.org/wiki/PyYAML
     [2] Unpack the archive
     [3] Install the package by executing (python setup.py install)
-    [4] Test if installation was successful (python setup.py test) 
-    
+    [4] Test if installation was successful (python setup.py test)
+
 Usage:
     put TestbedProcessing.py and testbed.yaml under sonic-mgmt/ansible
     python TestbedProcessing.py
@@ -25,12 +25,12 @@ Usage:
 Arguments:
     -i : the testbed.yaml file to parse
     -basedir : the basedir for the project
-    -backupdir : the backup directory for the files  
+    -backupdir : the backup directory for the files
 
 Script Procedure
-    [1] Backup the files we will be copying 
+    [1] Backup the files we will be copying
     [2] Load testbed.yaml into dictionaries for easy processing
-    [3] Generate the files via methods defined below 
+    [3] Generate the files via methods defined below
 """
 
 # ARGUMENTS TO PARSE
@@ -86,7 +86,7 @@ os.makedirs(args.backupdir + "/" + timestamp + "/vars")  # create vars folder un
 
 """
 represent_none(self, _)
-modifies yaml to replace null values with blanks 
+modifies yaml to replace null values with blanks
 SOURCE: https://stackoverflow.com/questions/37200150/can-i-dump-blank-instead-of-null-in-yaml-pyyaml/37201633#3720163
 """
 def represent_none(self, _):
@@ -98,7 +98,7 @@ yaml.add_representer(type(None), represent_none)
 generateDictionary(data, result, category)
 @:parameter data - the dictionary to iterate through
 @:parameter result - the resulting dictionary
-Generates the dictionaries that are used when creating csv, yml, or text files 
+Generates the dictionaries that are used when creating csv, yml, or text files
 """
 def generateDictionary(data, result, category):
     for key, value in data[category].items():
@@ -108,7 +108,7 @@ def generateDictionary(data, result, category):
 """
 makeMain(data, outfile)
 @:parameter data - the dictionary to look through
-@:parameter outfile - the file to write to 
+@:parameter outfile - the file to write to
 makeMain generates the vm_host/main.yml file
 it pulls two sets of information; dictionary data and proxy data
 """
@@ -122,7 +122,9 @@ def makeMain(data, outfile):
         "skip_image_downloading": veos.get("skip_image_downloading"),
         "vm_console_base": veos.get("vm_console_base"),
         "memory": veos.get("memory"),
-        "max_fp_num": veos.get("max_fp_num")
+        "max_fp_num": veos.get("max_fp_num"),
+        "ptf_bp_ip": veos.get("ptf_bp_ip"),
+        "ptf_bp_ipv6": veos.get("ptf_bp_ipv6")
     }
     proxy = {
         "proxy_env": {
@@ -141,21 +143,21 @@ makeVMHost_cred(data, outfile)
 @:parameter data - the dictionary to look for (in this case: veos)
 @:parameter outfile - the file to write to
 generates /group_vars/vm_host/creds.yml
-pulls ansible_user, ansible_password, ansible_sudo_pass from vm_host_ansible into a dictionary
+pulls ansible_user, ansible_password, ansible_become_pass from vm_host_ansible into a dictionary
 """
 def makeVMHostCreds(data, outfile):
     veos = data
     result = {
         "ansible_user": veos.get("vm_host_ansible").get("ansible_user"),
         "ansible_password": veos.get("vm_host_ansible").get("ansible_password"),
-        "ansible_sudo_password": veos.get("vm_host_ansible").get("ansible_sudo_pass")
+        "ansible_become_pass": veos.get("vm_host_ansible").get("ansible_become_pass")
     }
     with open(outfile, "w") as toWrite:
         toWrite.write("---\n")
         yaml.dump(result, stream=toWrite, default_flow_style=False)
 
 """
-makeSonicLabDevices(data, outfile) 
+makeSonicLabDevices(data, outfile)
 @:parameter data - the dictionary to look through (devices dictionary)
 @:parameter outfile - the file to write to
 generates files/sonic_lab_devices.csv by pulling hostname, managementIP, hwsku, and type
@@ -190,14 +192,14 @@ def makeSonicLabDevices(data, outfile):
 
 
 """
-makeTestbed(data, outfile) 
+makeTestbed(data, outfile)
 @:parameter data - the dictionary to look through (devices dictionary)
 @:parameter outfile - the file to write to
 generates /testbed.csv by pulling confName, groupName, topo, ptf_image_name, ptf_ip, server, vm_base, dut, and comment
 error handling: checks if attribute values are None type or string "None"
 """
 def makeTestbed(data, outfile):
-    csv_columns = "# conf-name,group-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,ptf,comment"
+    csv_columns = "# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,server,vm_base,dut,comment"
     topology = data
     csv_file = outfile
 
@@ -236,7 +238,7 @@ def makeTestbed(data, outfile):
                 if not comment:
                     comment = ""
 
-                row = confName + "," + groupName + "," + topo + "," + ptf_image_name + "," + ptf_ip + "," + server + "," + vm_base + "," + dut + "," + ptf + "," + comment
+                row = confName + "," + groupName + "," + topo + "," + ptf_image_name + "," + ptf + "," + ptf_ip + "," + server + "," + vm_base + "," + dut + "," + comment
                 f.write(row + "\n")
     except IOError:
         print("I/O error: issue creating testbed.csv")
@@ -245,9 +247,9 @@ def makeTestbed(data, outfile):
 """
 makeSonicLabLinks(data, outfile)
 @:parameter data - the dictionary to look through (devices dictionary)
-@:parameter outfile - the file to write to  
+@:parameter outfile - the file to write to
 generates /files/sonic_lab_links.csv by pulling startPort, endPort, bandWidth, vlanID, vlanMode
-error handling: checks if attribute values are None type or string "None" 
+error handling: checks if attribute values are None type or string "None"
 """
 def makeSonicLabLinks(data, outfile):
     csv_columns = "StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode"
@@ -308,7 +310,7 @@ def makeEOSCreds(data, outfile):
 """
 makeFanout_secrets(data, outfile)
 @:parameter data - reads from devices dictionary
-@:parameter outfile - the file to write to 
+@:parameter outfile - the file to write to
 Makes /group_vars/fanout/secrets.yml
 Finds the fanout secret credentials by using "fanout" as the value to search for under device_type
 Under github and personal topology configuration, there is only one designated fanout switch credential
@@ -428,7 +430,7 @@ def makeLab(data, devices, testbed, outfile):
 """
 makeVeos(data, veos, devices, outfile)
 @:parameter data - reads from either veos-groups, this helps separate the function into 3 components; children, host, vars
-@:parameter veos - reads from either veos 
+@:parameter veos - reads from either veos
 @:parameter devices - reads from devices
 @:parameter outfile - writes to veos
 """
@@ -487,8 +489,8 @@ def makeHostVar(data):
 
 """
 updateDockerRegistry
-@:parameter outfile - the file to write to 
-hard codes the docker registry to search locally rather than externally 
+@:parameter outfile - the file to write to
+hard codes the docker registry to search locally rather than externally
 """
 def updateDockerRegistry(docker_registry, outfile):
     if (not docker_registry.get("docker_registry_host")) or (not docker_registry.get("docker_registry_username")) or (not docker_registry.get("docker_registry_password")):
