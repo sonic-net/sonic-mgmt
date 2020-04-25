@@ -8,4 +8,4 @@
 - name: run test
   include_tasks: roles/test/tasks/pytest_runner.yml
   vars:
-    test_node: test_lag_2.py
+    test_node: pc/test_lag_2.py
