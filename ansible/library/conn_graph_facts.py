@@ -234,11 +234,13 @@ def main():
         argument_spec=dict(
             host=dict(required=False),
             filename=dict(required=False),
+            helper_device=dict(required=False),
         ),
         supports_check_mode=True
     )
     m_args = module.params
     hostname = m_args['host']
+    helper_device = m_args['helper_device']
     try:
         if m_args['filename']:
             filename = m_args['filename']
@@ -256,6 +258,17 @@ def main():
             results['device_vlan_range'] = lab_graph.get_host_vlan(hostname)['VlanRange']
             results['device_vlan_list'] = lab_graph.get_host_vlan(hostname)['VlanList']
         results['device_port_vlans'] = lab_graph.get_host_port_vlans(hostname)
+
+        if helper_device:
+            helper_dev = lab_graph.get_host_device_info(helper_device)
+            if helper_dev is None:
+                module.fail_json(msg="cannot find helper device info for "+helper_device)
+        results['helper_device_info'] =  lab_graph.get_host_device_info(helper_device) if helper_device else {}
+        results['helper_device_conn'] = lab_graph.get_host_connections(helper_device) if helper_device else {}
+        results['helper_device_vlan_range'] = lab_graph.get_host_vlan(helper_device)['VlanRange'] if helper_device else []
+        results['helper_device_vlan_list'] = lab_graph.get_host_vlan(helper_device)['VlanList'] if helper_device else []
+        results['helper_device_port_vlans'] = lab_graph.get_host_port_vlans(helper_device) if helper_device else {}
+
         module.exit_json(ansible_facts=results)
     except (IOError, OSError):
         module.fail_json(msg="Can not find lab graph file "+LAB_CONNECTION_GRAPH_FILE)

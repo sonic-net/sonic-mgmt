@@ -58,8 +58,15 @@
       when: "testbed_facts['vm_base'] != ''"
     when: testbed_name is defined
 
-  - topo_facts: topo={{ topo }}
+  - name: Gathering topology execpt t0-mclag
+    topo_facts: topo={{ topo }}
     delegate_to: localhost
+    when: topo not in ["t0-mclag", "t0-mclag-16"]
+
+  - name: Gathering t0-mclag information
+    topo_facts: topo="{{ topo }}_dut{{dut_no}}"
+    delegate_to: localhost
+    when: topo in ["t0-mclag", "t0-mclag-16"] and dut_no is defined
 
   - name: set default vm file path
     set_fact:
