@@ -35,6 +35,56 @@
   tasks:
 
   - block:
+    - name: Creates telemetry directory
+      file:
+          path: /etc/sonic/telemetry
+          state: directory
+      become: true
+
+    - name: Create telemetry server private key
+      openssl_privatekey:
+          path: /etc/sonic/telemetry/streamingtelemetryserver.key
+          size: 2048
+      become: true 
+
+    - name: create telemetry server csr
+      openssl_csr:
+          path: /etc/sonic/telemetry/streamingtelemetryserver.csr
+          privatekey_path: /etc/sonic/telemetry/streamingtelemetryserver.key
+      become: true
+    
+    - name: Generate a Self Signed OpenSSL telemetry server certificate
+      openssl_certificate:
+          path: /etc/sonic/telemetry/streamingtelemetryserver.cer
+          privatekey_path: /etc/sonic/telemetry/streamingtelemetryserver.key
+          csr_path: /etc/sonic/telemetry/streamingtelemetryserver.csr
+          subject:
+              commonName: ndastreamingservertest.osdinfra.net
+          provider: selfsigned
+      become: true
+
+    - name: Create telemetry dsmsroot private key
+      openssl_privatekey:
+          path: /etc/sonic/telemetry/dsmsroot.key
+          size: 2048
+      become: true
+   
+    - name: create telemetry dsmsroot csr
+      openssl_csr:
+          path: /etc/sonic/telemetry/dsmsroot.csr
+          privatekey_path: /etc/sonic/telemetry/dsmsroot.key
+      become: true
+    
+    - name: Generate a Self Signed OpenSSL telemetry dsmsroot certificate
+      openssl_certificate:
+          path: /etc/sonic/telemetry/dsmsroot.cer
+          privatekey_path: /etc/sonic/telemetry/dsmsroot.key
+          csr_path: /etc/sonic/telemetry/dsmsroot.csr
+          subject:
+              commonName: ndastreamingservertest.osdinfra.net
+          provider: selfsigned
+      become: true
+
     - name: set default testbed file
       set_fact:
         testbed_file: testbed.csv
