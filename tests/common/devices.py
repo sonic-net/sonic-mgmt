@@ -10,6 +10,7 @@ We can consider using netmiko for interacting with the VMs used in testing.
 import json
 import logging
 import os
+import re
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
 
@@ -91,7 +92,7 @@ class SonicHost(AnsibleHostBase):
 
     For running ansible module on the SONiC switch
     """
-    CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp", "pmon", "lldp"]
+    CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp", "pmon", "lldp", "snmp"]
 
     def __init__(self, ansible_adhoc, hostname, gather_facts=False):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
@@ -214,6 +215,55 @@ class SonicHost(AnsibleHostBase):
         logging.debug("Status of critical services: %s" % str(result))
         return all(result.values())
 
+    def critical_process_status(self, service):
+        """
+        @summary: Check whether critical process status of a service.
+
+        @param service: Name of the SONiC service
+        """
+        result = {'status': True}
+        result['exited_critical_process'] = []
+        result['running_critical_process'] = []
+        critical_process_list = []
+
+        # return false if the service is not started
+        service_status = self.is_service_fully_started(service)
+        if service_status == False:
+            result['status'] = False
+            return result
+
+        # get critical process list for the service
+        output = self.command("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] && cat /etc/supervisor/critical_processes'".format(service), module_ignore_errors=True)
+        for l in output['stdout'].split():
+            critical_process_list.append(l.rstrip())
+        if len(critical_process_list) == 0:
+            return result
+
+        # get process status for the service
+        output = self.command("docker exec {} supervisorctl status".format(service))
+        logging.info("====== supervisor process status for service {} ======".format(service))
+
+        for l in output['stdout_lines']:
+            (pname, status, info) = re.split("\s+", l, 2)
+            if status != "RUNNING":
+                if pname in critical_process_list:
+                    result['exited_critical_process'].append(pname)
+                    result['status'] = False
+            else:
+                if pname in critical_process_list:
+                    result['running_critical_process'].append(pname)
+
+        return result
+
+    def all_critical_process_status(self):
+        """
+        @summary: Check whether all critical processes status for all critical services
+        """
+        result = {}
+        for service in self.CRITICAL_SERVICES:
+            result[service] = self.critical_process_status(service)
+        return result
+
     def get_crm_resources(self):
         """
         @summary: Run the "crm show resources all" command and parse its output
@@ -257,7 +307,7 @@ class SonicHost(AnsibleHostBase):
 
         daemons = self.shell('docker exec pmon supervisorctl status')['stdout_lines']
 
-        daemon_list = [ line.strip().split()[0] for line in daemons if len(line.strip()) > 0 ] 
+        daemon_list = [ line.strip().split()[0] for line in daemons if len(line.strip()) > 0 ]
 
         daemon_ctl_key_prefix = 'skip_'
         daemon_config_file_path = os.path.join('/usr/share/sonic/device', self.facts["platform"], 'pmon_daemon_control.json')
@@ -294,7 +344,7 @@ class SonicHost(AnsibleHostBase):
         return the number of NPUs on the DUT
         """
         return self.facts["num_npu"]
-    
+
     def get_syncd_docker_names(self):
         """
         @summary: get the list of syncd dockers names for the number of NPUs present on the DUT
@@ -454,10 +504,10 @@ class FanoutHost():
 
     def get_fanout_type(self):
         return self.type
-    
+
     def shutdown(self, interface_name):
         return self.host.shutdown(interface_name)[self.hostname]
-    
+
     def no_shutdown(self, interface_name):
         return self.host.no_shutdown(interface_name)[self.hostname]
 
@@ -466,7 +516,7 @@ class FanoutHost():
 
     def __str__(self):
         return "{ os: '%s', hostname: '%s', device_type: '%s' }" % (self.os, self.hostname, self.type)
-    
+
     def __repr__(self):
         return self.__str__()
 
