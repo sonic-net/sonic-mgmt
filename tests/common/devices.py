@@ -226,6 +226,7 @@ class SonicHost(AnsibleHostBase):
         result['running_critical_process'] = []
         critical_process_list = []
 
+        # return false if the service is not started
         service_status = self.is_service_fully_started(service)
         if service_status == False:
             result['service'] = False
