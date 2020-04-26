@@ -221,7 +221,7 @@ class SonicHost(AnsibleHostBase):
 
         @param service: Name of the SONiC service
         """
-        result = {}
+        result = {'status': True}
         result['exited_critical_process'] = []
         result['running_critical_process'] = []
         critical_process_list = []
@@ -229,10 +229,8 @@ class SonicHost(AnsibleHostBase):
         # return false if the service is not started
         service_status = self.is_service_fully_started(service)
         if service_status == False:
-            result['service'] = False
+            result['status'] = False
             return result
-        else:
-            result['service'] = True
 
         # get critical process list for the service
         output = self.command("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] && cat /etc/supervisor/critical_processes'".format(service), module_ignore_errors=True)
@@ -250,6 +248,7 @@ class SonicHost(AnsibleHostBase):
             if status != "RUNNING":
                 if pname in critical_process_list:
                     result['exited_critical_process'].append(pname)
+                    result['status'] = False
             else:
                 if pname in critical_process_list:
                     result['running_critical_process'].append(pname)

@@ -58,7 +58,7 @@ def adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time):
             logging.info("Restoring {}".format(result))
             if result['check_item'] == 'interfaces':
                 __recover_interfaces(dut, fanouthosts, result, wait_time)
-            elif result['check_item'] == 'services':
+            elif result['check_item'] in ['services', 'processes']:
                 action             = __recover_services(dut, result)
                 # Only allow outstanding_action be overridden when it is
                 # None. In case the outstanding_action has already been

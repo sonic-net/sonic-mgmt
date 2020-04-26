@@ -130,18 +130,22 @@ def check_processes(dut):
     if timeout == 0:    # Check processes status, do not retry.
         processes_status = dut.all_critical_process_status()
         check_result["processes_status"] = processes_status
+        check_result["services_status"] = {}
         for k, v in processes_status.items():
-            if v['service'] == False or len(v['exited_critical_process']) > 0:
+            if v['status'] == False or len(v['exited_critical_process']) > 0:
                 check_result['failed'] = True
+            check_result["services_status"].update({k: v['status']})
     else:               # Retry checking processes status
         start = time.time()
         elapsed = 0
         while elapsed < timeout:
             processes_status = dut.all_critical_process_status()
             check_result["processes_status"] = processes_status
+            check_result["services_status"] = {}
             for k, v in processes_status.items():
-                if v['service'] == False or len(v['exited_critical_process']) > 0:
+                if v['status'] == False or len(v['exited_critical_process']) > 0:
                     check_result['failed'] = True
+                check_result["services_status"].update({k: v['status']})
 
             if check_result["failed"]:
                 wait(interval, msg="Not all processes are started, wait %d seconds to retry. Remaining time: %d %s" % \
