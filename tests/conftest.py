@@ -197,7 +197,11 @@ def nbrhosts(ansible_adhoc, testbed, creds):
     vm_base = int(testbed['vm_base'][2:])
     devices = {}
     for k, v in testbed['topo']['properties']['topology']['VMs'].items():
-        devices[k] = EosHost(ansible_adhoc, "VM%04d" % (vm_base + v['vm_offset']), creds['eos_login'], creds['eos_password'])
+        devices[k] = {'host': EosHost(ansible_adhoc, \
+                                      "VM%04d" % (vm_base + v['vm_offset']), \
+                                      creds['eos_login'], \
+                                      creds['eos_password']),
+                      'conf': testbed['topo']['properties']['configuration'][k]}
     return devices
 
 @pytest.fixture(scope="module")

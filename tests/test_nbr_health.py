@@ -59,7 +59,7 @@ def test_neighbors_health(duthost, testbed_devices, nbrhosts, eos):
         if failmsg:
             fails.append(failmsg)
 
-        eoshost = nbrhosts[k]
+        eoshost = nbrhosts[k]['host']
         failmsg = check_eos_facts(k, v['mgmt_addr'], eoshost)
         if failmsg:
             fails.append(failmsg)
