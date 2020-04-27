@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import re
+import ipaddress
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
 
@@ -358,6 +359,7 @@ class SonicHost(AnsibleHostBase):
             for npu in range(0,num_npus):
                 syncd_docker_names.append("syncd{}".format(npu))
         return syncd_docker_names
+
     def get_swss_docker_names(self):
         swss_docker_names = []
         if self.facts["num_npu"] == 1:
@@ -430,6 +432,69 @@ class SonicHost(AnsibleHostBase):
         """
         return self.command("sudo config interface startup {}".format(ifname))
 
+    def get_ip_route_info(self, dstip):
+        """
+        @summary: return route information for a destionation IP
+
+        @param dstip: destination IP (either ipv4 or ipv6)
+
+============ 4.19 kernel ==============
+admin@vlab-01:~$ ip route list match 0.0.0.0
+default proto bgp src 10.1.0.32 metric 20
+        nexthop via 10.0.0.57 dev PortChannel0001 weight 1
+        nexthop via 10.0.0.59 dev PortChannel0002 weight 1
+        nexthop via 10.0.0.61 dev PortChannel0003 weight 1
+        nexthop via 10.0.0.63 dev PortChannel0004 weight 1
+
+admin@vlab-01:~$ ip -6 route list match ::
+default proto bgp src fc00:1::32 metric 20
+        nexthop via fc00::72 dev PortChannel0001 weight 1
+        nexthop via fc00::76 dev PortChannel0002 weight 1
+        nexthop via fc00::7a dev PortChannel0003 weight 1
+        nexthop via fc00::7e dev PortChannel0004 weight 1 pref medium
+
+============ 4.9 kernel ===============
+admin@vlab-01:~$ ip route list match 0.0.0.0
+default proto 186 src 10.1.0.32 metric 20
+        nexthop via 10.0.0.57  dev PortChannel0001 weight 1
+        nexthop via 10.0.0.59  dev PortChannel0002 weight 1
+        nexthop via 10.0.0.61  dev PortChannel0003 weight 1
+        nexthop via 10.0.0.63  dev PortChannel0004 weight 1
+
+admin@vlab-01:~$ ip -6 route list match ::
+default via fc00::72 dev PortChannel0001 proto 186 src fc00:1::32 metric 20  pref medium
+default via fc00::76 dev PortChannel0002 proto 186 src fc00:1::32 metric 20  pref medium
+default via fc00::7a dev PortChannel0003 proto 186 src fc00:1::32 metric 20  pref medium
+default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pref medium
+
+        """
+
+        if dstip.version == 4:
+            rt = self.command("ip route list match {}".format(dstip))['stdout_lines']
+        else:
+            rt = self.command("ip -6 route list match {}".format(dstip))['stdout_lines']
+
+        logging.info("route raw info for {}: {}".format(dstip, rt))
+
+        rtinfo = {'set_src': None, 'nexthops': [] }
+
+        # parse set_src
+        m = re.match(r"^default proto (bgp|186) src (\S+)", rt[0])
+        m1 = re.match(r"^default via (\S+) dev (\S+) proto 186 src (\S+)", rt[0])
+        if m:
+            rtinfo['set_src'] = ipaddress.ip_address(m.group(2))
+        elif m1:
+            rtinfo['set_src'] = ipaddress.ip_address(m.group(3))
+
+        # parse nexthops
+        for l in rt:
+            m = re.search(r"(default|nexthop) via (\S+) dev (\S+)", l)
+            if m:
+                rtinfo['nexthops'].append((ipaddress.ip_address(m.group(2)), m.group(3)))
+
+        logging.info("route parsed info for {}: {}".format(dstip, rtinfo))
+
+        return rtinfo
 
 class EosHost(AnsibleHostBase):
     """
