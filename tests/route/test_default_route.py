@@ -1,6 +1,4 @@
 import ipaddress
-import re
-import pytest
 import logging
 from common.helpers.assertions import pytest_assert
 
