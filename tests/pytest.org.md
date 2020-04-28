@@ -8,16 +8,19 @@ This proposal intends to achieve the following
   - Test result collection
 
 ## Test categorization
-Leverage pytest custom markers to group tests based on topology, platform, features and connection type.
+Leverage pytest custom markers to group tests based on topology, asic, features, device type and connection type.
+Every testcase needs to have a topology marker. Feature markers are recommended for any feature test that are getting added.
+'Device_type' is optional but needs to be specified if there is a specific requirement that the test needs a physical DUT as opposed to a VS. The same criteria applies for 'connection_type'
 
 ```
 pytest.ini
 [pytest]
 markers:
     topology(topo_name): The topologies this particular testcase can run against. topo_name can be individual topology names like 't0', 't1', 'ptf', 'any' or a comma separated like ('t0', 't1') if supported on multiple topologies
-    platform(platform_name): used for platform specific test(broadcom, mellanox, vs etc)
+    asic(vendor_name): used for asic specific test(broadcom, mellanox etc)
     feature(feature_name): feature this test is written for. eg. acl, nat
     connection_type(name): names can be 'fabric' (which indicates the presence of a fanout switch) or 'direct' if a testcase uses directly connected links
+    device_type(name): name can 'physical' (if this test requires a physical dut) or 'vs' (if this test can be run on a virtual switch)
 
 ```
 conftest.py
@@ -76,8 +79,10 @@ rootdir: /var/nejo/Networking-acs-sonic-mgmt/tests, inifile: pytest.ini
 plugins: ansible-2.2.2
 collected 4 items
 
-test_topo.py .ss                                                                                                                                                                                                                  [ 75%]
-test_notopo.py s
+test_topo.py::test_all PASSED                                                                                                                                                                                                     [ 25%]
+test_topo.py::test_t0 PASSED                                                                                                                                                                                                      [ 50%]
+test_topo.py::test_any SKIPPED                                                                                                                                                                                                    [ 75%]
+test_notopo.py::test_notopo SKIPPED                                                                                                                                                                                               [100%]
 
 ....
 
@@ -108,6 +113,7 @@ tests
 - Any reusable code needs to go under tests/common
 
 - File naming convention
+  The objective here is to provide meaningful names for helper files/testcase files so that the user gets a general idea of the file contents.
 
 
 ## Master wrapper
