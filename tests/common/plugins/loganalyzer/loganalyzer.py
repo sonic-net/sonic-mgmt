@@ -52,6 +52,9 @@ class LogAnalyzer:
         self.ansible_host.command(cmd)
 
     def __call__(self, **kwargs):
+        """
+        Pass additional arguments when the instance is called
+        """
         self.fail = kwargs.get("fail", True)
         return self
 
