@@ -131,6 +131,9 @@ class PopulateFdb(BaseTest):
         """
             Populates DUT FDB entries
 
+            It accepts MAC to IP ratio and packet count. It generates packets withratio of distinct MAC addresses
+            to distinct IP addresses as provided. The IP addresses starts from VLAN address pool.
+
             Args:
                 None
 
