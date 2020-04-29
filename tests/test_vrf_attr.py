@@ -10,6 +10,10 @@ from test_vrf import (
 )
 from ptf_runner import ptf_runner                     
 
+@pytest.fixture(scope="module", autouse=True)
+def setup_check_topo(testbed):
+    if testbed['topo']['name'] != 't0':
+        pytest.skip('Unsupported topology')
 
 # tests
 class TestVrfAttrSrcMac():
