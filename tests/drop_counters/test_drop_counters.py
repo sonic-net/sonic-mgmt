@@ -904,7 +904,7 @@ def test_non_routable_igmp_pkts(ptfadapter, duthost, setup, tx_dut_ports, pkt_fi
             ip_ttl=1,
             ip_proto=igmp_proto
         )
-        del pkt[testutils.scapy.scapy.all.Raw]
+        del pkt["Raw"]
         pkt = pkt / igmp_types[igmp_version][msg_type]
     elif igmp_version != "v3":
         eth_layer = Ether(src=ports_info["src_mac"], dst=ethernet_dst)
