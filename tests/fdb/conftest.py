@@ -1,8 +1,9 @@
 from args.populate_fdb_args import add_populate_fdb_args
+from common.fixtures.populate_fdb import populate_fdb
 
 # FDB pytest arguments
 def pytest_addoption(parser):
-    '''
+    """
         Adds option to FDB pytest
 
         Args:
@@ -10,5 +11,5 @@ def pytest_addoption(parser):
 
         Returns:
             None
-    '''
+    """
     add_populate_fdb_args(parser)
