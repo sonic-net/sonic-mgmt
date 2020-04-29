@@ -3,6 +3,7 @@ import random
 import logging
 from thermal_control_test_helper import *
 from common.mellanox_data import SWITCH_MODELS
+from minimum_table import MINIMUM_TABLE
 
 NOT_AVAILABLE = 'N/A'
 
@@ -899,3 +900,49 @@ class AbnormalFanMocker(SingleFanMocker):
         self.fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
         self.fan_data.mock_target_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
         self.expect_led_color = 'green'
+
+
+@mocker('MinTableMocker')
+class MinTableMocker(object):
+    FAN_AMB_PATH = 'fan_amb'
+    PORT_AMB_PATH = 'port_amb'
+    TRUST_PATH = 'module1_temp_fault'
+    def __init__(self, dut):
+        self.mock_helper = MockerHelper(dut)
+
+    def get_expect_cooling_level(self, air_flow_dir, temperature, trust_state):
+        hwsku = self.mock_helper.dut.facts["hwsku"]
+        minimum_table = MINIMUM_TABLE[hwsku]
+        row = minimum_table['{}_{}'.format(air_flow_dir, 'trust' if trust_state else 'untrust')]
+        temperature = temperature / 1000
+        for range_str, cooling_level in row.items():
+            range_str_list = range_str.split(':')
+            min_temp = int(range_str_list[0])
+            max_temp = int(range_str_list[1])
+            if min_temp <= temperature <= max_temp:
+                return cooling_level - 10
+        
+        return None
+
+    def mock_min_table(self, air_flow_dir, temperature, trust_state):
+        trust_value = '0' if trust_state else '1'
+        if air_flow_dir == 'p2c':
+            fan_temp = temperature
+            port_temp = temperature - 100
+        elif air_flow_dir == 'c2p':
+            fan_temp = temperature - 100
+            port_temp = temperature
+        else:
+            fan_temp = temperature
+            port_temp = temperature
+
+        self.mock_helper.mock_thermal_value(self.FAN_AMB_PATH, str(fan_temp))
+        self.mock_helper.mock_thermal_value(self.PORT_AMB_PATH, str(port_temp))
+        self.mock_helper.mock_thermal_value(self.TRUST_PATH, str(trust_value))
+
+    def deinit(self):
+        """
+        Destructor of MinTableMocker.
+        :return:
+        """
+        self.mock_helper.deinit()
