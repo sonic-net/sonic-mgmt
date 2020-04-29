@@ -15,7 +15,7 @@ def add_populate_fdb_args(parser):
         action='store',
         type=str,
         default='100:1',
-        help='VM MAC to IP assigned ratio',
+        help='Ratio of distinct MAC addresses to distinct IP addresses assigned to VM',
     )
 
     parser.addoption(

@@ -2,7 +2,6 @@ import json
 import logging
 import pytest
 
-from common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
 from ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)
@@ -14,6 +13,15 @@ class PopulateFdb:
         It accepts MAC to IP ratio (default 100:1) and packet count (default 2000). It generates packets with
         ratio of distinct MAC addresses to distinct IP addresses as provided. The IP addresses starts from VLAN
         address pool.
+
+        Command line sample:
+            pytest testbed_setup/test_populate_fdb.py --testbed=<testbed> --inventory=<inventory> --testbed_file=<testbed fiel> \
+            --host-pattern={<dut>|all} --module-path=<ansible library path> --mac_to_ip_ratio=100:1 --packet_count=8000
+
+            where:
+                mac_to_ip_ratio: Ratio of distinct MAC addresses to distinct IP addresses assigned to VM
+                packet_count: Number of packets to be created and sent to DUT
+                start_mac: VM start MAC address. Subsequent MAC addresses are increment of 1 on top of start MAC
     """
     PTFRUNNER_QLEN = 1000
     VLAN_CONFIG_FILE = "/tmp/vlan_config.json"
