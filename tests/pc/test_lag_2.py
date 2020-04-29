@@ -30,7 +30,7 @@ def common_setup_teardown(duthost, ptfhost, testbed):
 
     # Inlucde testbed topology configuration
     testbed_type = testbed['topo']['name']
-    
+
     support_testbed_types = frozenset(['t1-lag', 't0', 't0-116'])
     if testbed_type not in support_testbed_types:
         pytest.skip("Not support given test bed type %s" % testbed_type)
@@ -131,7 +131,7 @@ class LagTest:
 
     def run_single_lag_lacp_rate_test(self, lag_name):
         logging.info("Start checking single lag lacp rate for: %s" % lag_name)
-    
+
         lag_facts           = self.__get_lag_facts()
         intf, po_interfaces = self.__get_lag_intf_info(lag_facts, lag_name)
         peer_device         = self.vm_neighbors[intf]['name']
@@ -150,7 +150,7 @@ class LagTest:
             lag_rate_current_setting = None
 
             # Get the vm host(veos) by it host name
-            vm_host = self.nbrhosts[peer_device]
+            vm_host = self.nbrhosts[peer_device]['host']
 
             # Make sure all lag members on VM are set to fast
             logging.info("Changing lacp rate to fast for %s in %s" % (neighbor_lag_intfs[0], peer_device))
@@ -187,7 +187,7 @@ class LagTest:
         # Figure out remote VM and interface info for the lag member and run minlink test
         peer_device   = self.vm_neighbors[intf]['name']
         neighbor_intf = self.vm_neighbors[intf]['port']
-        self.__verify_lag_minlink(self.nbrhosts[peer_device], lag_name, intf, neighbor_intf, po_interfaces, po_flap, deselect_time=95)
+        self.__verify_lag_minlink(self.nbrhosts[peer_device]['host'], lag_name, intf, neighbor_intf, po_interfaces, po_flap, deselect_time=95)
 
     def run_lag_fallback_test(self, lag_name):
         logging.info("Start checking lag fall back for: %s" % lag_name)
@@ -199,7 +199,7 @@ class LagTest:
         # Figure out remote VM and interface info for the lag member and run lag fallback test
         peer_device   = self.vm_neighbors[intf]['name']
         neighbor_intf = self.vm_neighbors[intf]['port']
-        vm_host       = self.nbrhosts[peer_device]
+        vm_host       = self.nbrhosts[peer_device]['host']
 
         wait_timeout = 120
         delay        = 5
