@@ -5,7 +5,7 @@ import logging
 from ptf_runner import ptf_runner
 from datetime import datetime
 
-def test_dir_bcast(duthost, ptfhost, testbed):
+def test_dir_bcast(duthost, ptfhost, testbed, fib):
     support_testbed_types = frozenset(['t0', 't0-16', 't0-56', 't0-64', 't0-64-32', 't0-116'])
     testbed_type = testbed['topo']['name']
     if testbed_type not in support_testbed_types:
