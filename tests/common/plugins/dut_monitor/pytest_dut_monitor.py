@@ -28,7 +28,7 @@ class DUTMonitorPlugin(object):
     def __init__(self, thresholds):
         self.thresholds = thresholds
 
-    @pytest.fixture(autouse=True, scope="session")
+    @pytest.fixture(autouse=True, scope="module")
     def dut_ssh(self, testbed, creds):
         """Establish SSH connection with DUT"""
         ssh = DUTMonitorClient(host=testbed["dut"], user=creds["sonicadmin_user"],
