@@ -1,6 +1,4 @@
 import pytest
-import time
-import logging
 
 from ptf_runner import ptf_runner
 from datetime import datetime
