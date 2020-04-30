@@ -7,7 +7,6 @@ modules, we have no other choice, at least for interacting with SONiC, localhost
 
 We can consider using netmiko for interacting with the VMs used in testing.
 """
-import json
 import logging
 import os
 import re

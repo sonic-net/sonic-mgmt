@@ -1,4 +1,3 @@
-import time
 import pytest
 import logging
 import ipaddress
@@ -14,7 +13,6 @@ def test_bgp_gr_helper_routes_perserved(duthost, nbrhosts, setup_bgp_graceful_re
 
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
-    metadata = config_facts.get('DEVICE_METADATA', {})
     po = config_facts.get('PORTCHANNEL', {})
     dev_nbr = config_facts.get('DEVICE_NEIGHBOR', {})
 
@@ -71,11 +69,11 @@ def test_bgp_gr_helper_routes_perserved(duthost, nbrhosts, setup_bgp_graceful_re
     # confirm ip route still there
     rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_address(u'0.0.0.0'))
     pytest_assert(ipaddress.ip_address(bgp_nbr_ipv4) in [ nh[0] for nh in rtinfo_v4['nexthops'] ], \
-        "cannot find nexthop {} in the new default route nexthops".format(bgp_nbr_ipv4, rtinfo_v4))
+        "cannot find nexthop {} in the new default route nexthops. {}".format(bgp_nbr_ipv4, rtinfo_v4))
 
     rtinfo_v6 = duthost.get_ip_route_info(ipaddress.ip_address(u'::'))
     pytest_assert(ipaddress.ip_address(bgp_nbr_ipv6) in [ nh[0] for nh in rtinfo_v6['nexthops'] ], \
-        "cannot find nexthop {} in the new default route nexthops".format(bgp_nbr_ipv6, rtinfo_v6))
+        "cannot find nexthop {} in the new default route nexthops. {}".format(bgp_nbr_ipv6, rtinfo_v6))
 
     # shutdown the connected ports from nbr
     for nbr_port in nbr_ports:
