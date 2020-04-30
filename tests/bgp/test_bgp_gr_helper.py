@@ -20,11 +20,11 @@ def test_bgp_gr_helper_routes_perserved(duthost, nbrhosts, setup_bgp_graceful_re
 
     rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_address(u'0.0.0.0'))
     if len(rtinfo_v4['nexthops']) == 0:
-        pytest.fail("there is no next hop for v4 default route")
+        pytest.skip("there is no next hop for v4 default route")
 
     rtinfo_v6 = duthost.get_ip_route_info(ipaddress.ip_address(u'::'))
     if len(rtinfo_v6['nexthops']) == 0:
-        pytest.fail("there is no next hop for v6 default route")
+        pytest.skip("there is no next hop for v6 default route")
 
     ifnames_v4 = [nh[1] for nh in rtinfo_v4['nexthops']]
     ifnames_v6 = [nh[1] for nh in rtinfo_v6['nexthops']]
@@ -38,7 +38,7 @@ def test_bgp_gr_helper_routes_perserved(duthost, nbrhosts, setup_bgp_graceful_re
         for member in po[ifname]['members']:
             nbr_ports.append(dev_nbr[member]['port'])
     else:
-        pytest.fail("Do not support peer device not connected via port channel")
+        pytest.skip("Do not support peer device not connected via port channel")
     logger.info("neighbor device connected ports {}".format(nbr_ports))
 
     # get nexthop ip
