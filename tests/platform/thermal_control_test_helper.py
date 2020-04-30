@@ -174,6 +174,14 @@ class SingleFanMocker(BaseMocker):
         """
         pass
 
+    def mock_status(self, status):
+        """
+        Change the mocked FAN status to good or bad
+        :param status: bool value indicate the target status of the FAN.
+        :return:
+        """
+        pass
+
     def mock_normal_speed(self):
         """
         Change the mocked FAN speed to a normal value.
@@ -254,7 +262,7 @@ def get_fields(line, field_ranges):
     return fields
 
 
-def check_cli_output_with_mocker(dut, mocker_object, command, max_wait_time):
+def check_cli_output_with_mocker(dut, mocker_object, command, max_wait_time, key_index=0):
     """
     Check the command line output matches the mocked data.
     :param dut: DUT object representing a SONiC switch under test. 
@@ -273,7 +281,7 @@ def check_cli_output_with_mocker(dut, mocker_object, command, max_wait_time):
     actual_data = {}
     for line in output["stdout_lines"][2:]:
         fields = get_fields(line, field_ranges)
-        actual_data[fields[0]] = fields
+        actual_data[fields[key_index]] = fields
     
     return mocker_object.check_result(actual_data)
 

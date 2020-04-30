@@ -256,6 +256,12 @@ class FanDrawerData:
         """
         self.index = index
         self.helper = mock_helper
+        dut_hwsku = self.helper.dut.facts["hwsku"]
+        if SWITCH_MODELS[dut_hwsku]['fans']['hot_swappable']:
+            self.name = 'drawer{}'.format(index)
+        else:
+            self.name = 'N/A'
+        self.fan_data_list = []
         self.mocked_presence = None
         self.mocked_direction = None
         if 'presence' in naming_rule:
@@ -337,7 +343,15 @@ class FanDrawerData:
         else:
             assert 0, 'Invalid FAN led color for FAN: {}, green={}, red={}'.format(self.name, green_led_value,
                                                                                    red_led_value)
+    def get_expect_led_color(self):
+        if self.mocked_presence == 'Not Present':
+            return 'red'
 
+        for fan_data in self.fan_data_list:
+            if fan_data.get_expect_led_color() == 'red':
+                return 'red'
+
+        return 'green'
 
 class FanData:
     """
@@ -346,6 +360,9 @@ class FanData:
 
     # MAX PWM value.
     PWM_MAX = 255
+
+    # Speed tolerance
+    SPEED_TOLERANCE = 0.2
 
     def __init__(self, mock_helper, naming_rule, index):
         """
@@ -437,7 +454,25 @@ class FanData:
         target_speed = int(round(pwm * 100.0 / FanData.PWM_MAX))
         return target_speed
 
+    def get_expect_led_color(self):
+        """
+        Get expect LED color.
+        :return: Return the LED color that this FAN expect to have.
+        """
+        if self.mocked_status == 'Not OK':
+            return 'red'
 
+        target_speed = self.get_target_speed()
+        mocked_speed = int(self.mocked_speed)
+        if mocked_speed > target_speed * (1 + FanData.SPEED_TOLERANCE):
+            return 'red'
+
+        if mocked_speed < target_speed * (1 - FanData.SPEED_TOLERANCE):
+            return 'red'
+
+        return 'green'
+
+ 
 class TemperatureData:
     """
     Data mocker of a thermal.
@@ -532,6 +567,7 @@ class RandomFanStatusMocker(FanStatusMocker):
         """
         FanStatusMocker.__init__(self, dut)
         self.mock_helper = MockerHelper(dut)
+        self.drawer_list = []
         self.expected_data = {}
 
     def deinit(self):
@@ -556,6 +592,7 @@ class RandomFanStatusMocker(FanStatusMocker):
             try:
                 if (fan_index - 1) % MockerHelper.FAN_NUM_PER_DRAWER == 0:
                     drawer_data = FanDrawerData(self.mock_helper, naming_rule, drawer_index)
+                    self.drawer_list.append(drawer_data)
                     drawer_index += 1
                     presence = random.randint(0, 1)
                     drawer_data.mock_presence(presence)
@@ -564,11 +601,14 @@ class RandomFanStatusMocker(FanStatusMocker):
                         presence = 1
 
                 fan_data = FanData(self.mock_helper, naming_rule, fan_index)
+                drawer_data.fan_data_list.append(fan_data)
                 fan_index += 1
                 if presence == 1:
                     fan_data.mock_status(random.randint(0, 1))
                     fan_data.mock_speed(random.randint(0, 100))
                     self.expected_data[fan_data.name] = [
+                        drawer_data.name,
+                        'N/A', # update this value later 
                         fan_data.name,
                         '{}%'.format(fan_data.mocked_speed),
                         drawer_data.mocked_direction,
@@ -577,6 +617,8 @@ class RandomFanStatusMocker(FanStatusMocker):
                     ]
                 else:
                     self.expected_data[fan_data.name] = [
+                        drawer_data.name,
+                        'red',
                         fan_data.name,
                         'N/A',
                         'N/A',
@@ -586,6 +628,13 @@ class RandomFanStatusMocker(FanStatusMocker):
             except SysfsNotExistError as e:
                 logging.info('Failed to mock fan data: {}'.format(e))
                 continue
+
+        # update led color here
+        for drawer_data in self.drawer_list:
+            for fan_data in drawer_data.fan_data_list:
+                if drawer_data.mocked_presence == 'Present':
+                    expected_data = self.expected_data[fan_data.name]
+                    expected_data[1] = drawer_data.get_expect_led_color()
 
         dut_hwsku = self.mock_helper.dut.facts["hwsku"]
         psu_count = SWITCH_MODELS[dut_hwsku]["psus"]["number"]
@@ -598,6 +647,8 @@ class RandomFanStatusMocker(FanStatusMocker):
                 fan_data.mock_speed(speed)
 
                 self.expected_data[fan_data.name] = [
+                    'N/A',
+                    '',
                     fan_data.name,
                     '{}RPM'.format(fan_data.mocked_speed),
                     NOT_AVAILABLE,
@@ -611,7 +662,7 @@ class RandomFanStatusMocker(FanStatusMocker):
     def check_result(self, actual_data):
         """
         Check actual data with mocked data.
-        :param actual_data: A dictionary contains actual command line data. Key of the dictionary  is FAN name. Value
+        :param actual_data: A dictionary contains actual command line data. Key of the dictionary is FAN name. Value
                             of the dictionary is a list of field values for a line of FAN data.
         :return: True if match else False.
         """
@@ -619,6 +670,8 @@ class RandomFanStatusMocker(FanStatusMocker):
             if name in actual_data:
                 actual_fields = actual_data[name]
                 for i, expected_field in enumerate(fields):
+                    if name.find('psu') != -1 and i ==1: 
+                        continue # skip led status check for PSU because we don't mock it
                     if expected_field != actual_fields[i]:
                         logging.error('Check fan status for {} failed, ' \
                                      'expected: {}, actual: {}'.format(name, expected_field, actual_fields[i]))
@@ -845,6 +898,7 @@ class AbnormalFanMocker(SingleFanMocker):
 
         for fan_data in self.fan_data_list:
             try:
+                fan_data.mock_status(0)
                 fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
                 fan_data.mock_target_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
             except SysfsNotExistError as e:
@@ -855,6 +909,7 @@ class AbnormalFanMocker(SingleFanMocker):
         Change the mocked FAN status to 'Present' and normal speed.
         :return:
         """
+        self.mock_status(0)
         self.mock_presence()
         self.mock_normal_speed()
 
@@ -873,6 +928,15 @@ class AbnormalFanMocker(SingleFanMocker):
         """
         self.fan_drawer_data.mock_presence(1)
         self.expect_led_color = 'green'
+
+    def mock_status(self, status):
+        """
+        Change the mocked FAN status to good or bad
+        :param status: bool value indicate the target status of the FAN.
+        :return:
+        """
+        self.fan_data.mock_status(0 if status else 1)
+        self.expect_led_color = 'green' if status else 'red'
 
     def mock_over_speed(self):
         """
