@@ -7,7 +7,7 @@ pytestmark = [
 
 def test_ro_user(testbed_devices, duthost, creds, setup_tacacs):
 
-    localhost = localhost = testbed_devices['localhost']
+    localhost = testbed_devices['localhost']
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     res = localhost.shell("sshpass -p {} ssh "\
                           "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "\

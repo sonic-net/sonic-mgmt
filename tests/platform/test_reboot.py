@@ -104,40 +104,37 @@ def check_interfaces_and_services(dut, interfaces, reboot_type = None):
         check_sysfs(dut)
 
 
-def test_cold_reboot(testbed_devices, conn_graph_facts):
+def test_cold_reboot(duthost, testbed_devices, conn_graph_facts):
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
-    ans_host = testbed_devices["dut"]
     localhost = testbed_devices["localhost"]
 
-    reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_COLD)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_COLD)
 
 
-def test_fast_reboot(testbed_devices, conn_graph_facts):
+def test_fast_reboot(duthost, testbed_devices, conn_graph_facts):
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
-    ans_host = testbed_devices["dut"]
     localhost = testbed_devices["localhost"]
 
-    reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_FAST)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_FAST)
 
 
-def test_warm_reboot(testbed_devices, conn_graph_facts):
+def test_warm_reboot(duthost, testbed_devices, conn_graph_facts):
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
-    ans_host = testbed_devices["dut"]
     localhost = testbed_devices["localhost"]
-    asic_type = ans_host.facts["asic_type"]
+    asic_type = duthost.facts["asic_type"]
 
     if asic_type in ["mellanox"]:
-        issu_capability = ans_host.command("show platform mlnx issu")["stdout"]
+        issu_capability = duthost.command("show platform mlnx issu")["stdout"]
         if "disabled" in issu_capability:
             pytest.skip("ISSU is not supported on this DUT, skip this test case")
 
-    reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_WARM)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_WARM)
 
 
 @pytest.fixture(params=[15, 5])
@@ -170,20 +167,20 @@ def _power_off_reboot_helper(kwargs):
         psu_ctrl.turn_on_psu(psu["psu_id"])
 
 
-def test_power_off_reboot(testbed_devices, conn_graph_facts, psu_controller, power_off_delay):
+def test_power_off_reboot(duthost, testbed_devices, conn_graph_facts, psu_controller, power_off_delay):
     """
     @summary: This test case is to perform reboot via powercycle and check platform status
     @param testbed_devices: Fixture initialize devices in testbed
+    @param duthost: Fixture for DUT AnsibleHost object
     @param conn_graph_facts: Fixture parse and return lab connection graph
     @param psu_controller: The python object of psu controller
     @param power_off_delay: Pytest fixture. The delay between turning off and on the PSU
     """
-    ans_host = testbed_devices["dut"]
     localhost = testbed_devices["localhost"]
 
     psu_ctrl = psu_controller
     if psu_ctrl is None:
-        pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % ans_host.hostname)
+        pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
 
     all_psu = psu_ctrl.get_psu_status()
 
@@ -199,39 +196,37 @@ def test_power_off_reboot(testbed_devices, conn_graph_facts, psu_controller, pow
 
     logging.info("Got all power on sequences {}".format(power_on_seq_list))
 
-    poweroff_reboot_kwargs = {"dut": ans_host}
+    poweroff_reboot_kwargs = {"dut": duthost}
 
     for power_on_seq in power_on_seq_list:
         poweroff_reboot_kwargs["psu_ctrl"] = psu_ctrl
         poweroff_reboot_kwargs["all_psu"] = all_psu
         poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
         poweroff_reboot_kwargs["delay_time"] = power_off_delay
-        reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], REBOOT_TYPE_POWEROFF,
+        reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], REBOOT_TYPE_POWEROFF,
                          _power_off_reboot_helper, poweroff_reboot_kwargs)
 
 
-def test_watchdog_reboot(testbed_devices, conn_graph_facts):
+def test_watchdog_reboot(duthost, testbed_devices, conn_graph_facts):
     """
     @summary: This test case is to perform reboot via watchdog and check platform status
     """
-    ans_host = testbed_devices["dut"]
     localhost = testbed_devices["localhost"]
 
     test_watchdog_supported = "python -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog(); exit()\""
 
-    watchdog_supported = ans_host.command(test_watchdog_supported,module_ignore_errors=True)["stderr"]
+    watchdog_supported = duthost.command(test_watchdog_supported,module_ignore_errors=True)["stderr"]
     if "" != watchdog_supported:
         pytest.skip("Watchdog is not supported on this DUT, skip this test case")
 
-    reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], REBOOT_TYPE_WATCHDOG)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], REBOOT_TYPE_WATCHDOG)
 
 
-def test_continuous_reboot(testbed_devices, conn_graph_facts):
+def test_continuous_reboot(duthost, testbed_devices, conn_graph_facts):
     """
     @summary: This test case is to perform 3 cold reboot in a row
     """
-    ans_host = testbed_devices["dut"]
     localhost = testbed_devices["localhost"]
 
     for i in range(3):
-        reboot_and_check(localhost, ans_host, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_COLD)
+        reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_COLD)

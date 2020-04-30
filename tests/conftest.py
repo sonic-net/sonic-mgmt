@@ -176,6 +176,7 @@ def duthost(ansible_adhoc, testbed, request):
     '''
     stop_ssh_timeout = getattr(request.module, "pause_ssh_timeout", None)
     dut_index = getattr(request.module, "dut_index", 0)
+    assert dut_index < len(testbed["duts"]), "DUT index '{0}' is out of bound '{1}'".format(dut_index, len(testbed["duts"]))
 
     duthost = SonicHost(ansible_adhoc, testbed["duts"][dut_index], gather_facts=True)
     if stop_ssh_timeout is not None:

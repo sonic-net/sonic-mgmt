@@ -9,7 +9,7 @@ def setup_check_topo(testbed):
     if testbed['topo']['type'] == 'ptf':
         pytest.skip('Unsupported topology')
 
-def test_lldp(localhost, duthost, collect_techsupport):
+def test_lldp(duthost, localhost, collect_techsupport):
     """ verify the LLDP message on DUT """
 
     mg_facts  = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
@@ -32,7 +32,7 @@ def test_lldp(localhost, duthost, collect_techsupport):
         assert v['port']['ifname'] == mg_facts['minigraph_neighbors'][k]['port']
 
 
-def test_lldp_neighbor(localhost, ansible_adhoc, duthost, eos, collect_techsupport):
+def test_lldp_neighbor(duthost, localhost, ansible_adhoc, eos, collect_techsupport):
     """ verify LLDP information on neighbors """
 
     mg_facts  = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
@@ -42,7 +42,7 @@ def test_lldp_neighbor(localhost, ansible_adhoc, duthost, eos, collect_techsuppo
     host_facts  = duthost.setup()['ansible_facts']
     lhost = AnsibleHost(ansible_adhoc, 'localhost', True)
 
-    config_facts  = ans_host.config_facts(host=hostname, source="running")['ansible_facts']
+    config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
 
     for k, v in lldp_facts['lldp'].items():

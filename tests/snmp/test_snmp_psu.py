@@ -4,7 +4,7 @@ from ansible_host import AnsibleHost
 PSU_STATUS_OK = 2
 
 @pytest.mark.bsl
-def test_snmp_numpsu(testbed_devices, creds, duthost):
+def test_snmp_numpsu(duthost, testbed_devices, creds):
 
     lhost = testbed_devices['localhost']
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']

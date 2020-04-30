@@ -7,7 +7,7 @@ def setup_check_topo(testbed):
         pytest.skip('Unsupported topology')
 
 @pytest.mark.bsl
-def test_snmp_lldp(ansible_adhoc, duthost, creds):
+def test_snmp_lldp(duthost, ansible_adhoc, creds):
     """
     Test checks for ieee802_1ab MIBs:
      - lldpLocalSystemData  1.0.8802.1.1.2.1.3
@@ -72,7 +72,7 @@ def test_snmp_lldp(ansible_adhoc, duthost, creds):
     assert len(active_intf) >= len(minigraph_lldp_nei) * 0.8 
 
     # skip neighbors that do not send chassis information via lldp
-    lldp_facts = ans_host.lldp()['ansible_facts']
+    lldp_facts = duthost.lldp()['ansible_facts']
     nei = [k for k, v in lldp_facts['lldp'].items() if k != 'eth0' and v['chassis'].has_key('mgmt-ip') ]
     print "neighbors {} send chassis management IP information".format(nei)
 

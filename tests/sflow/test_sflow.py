@@ -55,12 +55,12 @@ def setup(duthost, ptfhost):
     yield
     # -------- Teardown ----------
     config_reload(duthost, config_source='minigraph', wait=120)
-    
+
  # ----------------------------------------------------------------------------------
 def setup_ptf(ptfhost, collector_ports):
     root_dir   = "/root"
     extra_vars = {'arp_responder_args' : '--conf /tmp/sflow_arpresponder.conf'}
-    ptfhost.host.options['variable_manager'].extra_vars = extra_vars
+    ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     ptfhost.template(src="../ansible/roles/test/templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
     ptfhost.copy(src="ptftests", dest=root_dir)
     ptfhost.copy(src="../ansible/roles/test/files/helpers/arp_responder.py", dest="/opt")
@@ -390,8 +390,7 @@ class TestAgentId():
 
 class TestReboot():
 
-    def testRebootSflowEnable(self, sflowbase_config, duthost, testbed_devices, localhost, partial_ptf_runner, ptfhost):
-        duthost = testbed_devices["dut"]
+    def testRebootSflowEnable(self, sflowbase_config, duthost, localhost, partial_ptf_runner, ptfhost):
         duthost.command("config sflow polling-interval 80")
         verify_show_sflow(duthost,status='up',polling_int=80)
         duthost.command('sudo config save -y')
@@ -412,7 +411,7 @@ class TestReboot():
               active_collectors="['collector0','collector1']" )
 
 
-    def testRebootSflowDisable(self, sflowbase_config, duthost, testbed_devices, localhost, partial_ptf_runner, ptfhost):
+    def testRebootSflowDisable(self, sflowbase_config, duthost, localhost, partial_ptf_runner, ptfhost):
         config_sflow(duthost,sflow_status='disable')
         verify_show_sflow(duthost,status='down')
         partial_ptf_runner(
@@ -431,7 +430,7 @@ class TestReboot():
               active_collectors="[]" )
 
 
-    def testFastreboot(self, sflowbase_config, duthost, testbed_devices, localhost, partial_ptf_runner, ptfhost):
+    def testFastreboot(self, sflowbase_config, duthost, localhost, partial_ptf_runner, ptfhost):
 
         config_sflow(duthost,sflow_status='enable')
         verify_show_sflow(duthost,status='up',collector=['collector0','collector1'])

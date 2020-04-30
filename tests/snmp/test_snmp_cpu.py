@@ -16,7 +16,7 @@ def test_snmp_cpu(ansible_adhoc, duthost, creds):
     """
 
     lhost = AnsibleHost(ansible_adhoc, 'localhost', True)
-    hostip = duthost.host.options['inventory_manager'].get_host(hostname).vars['ansible_host']
+    hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     host_facts = duthost.setup()['ansible_facts']
     host_vcpus = int(host_facts['ansible_processor_vcpus'])
 

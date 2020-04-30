@@ -77,24 +77,23 @@ def stop_pmon_sensord_task(ans_host):
 
 
 @pytest.fixture(scope="module")
-def psu_test_setup_teardown(testbed_devices):
+def psu_test_setup_teardown(duthost):
     """
     @summary: Sensord task will print out error msg when detect PSU offline,
               which can cause log analyzer fail the test. So stop sensord task
               before test and restart it after all test finished.
     """
     logging.info("Starting psu test setup")
-    ans_host = testbed_devices["dut"]
-    stop_pmon_sensord_task(ans_host)
+    stop_pmon_sensord_task(duthost)
 
     yield
 
     logging.info("Starting psu test teardown")
-    sensord_running_status, sensord_pid = check_sensord_status(ans_host)
+    sensord_running_status, sensord_pid = check_sensord_status(duthost)
     if not sensord_running_status:
         ans_host.command("docker exec pmon supervisorctl restart lm-sensors")
         time.sleep(3)
-        sensord_running_status, sensord_pid = check_sensord_status(ans_host)
+        sensord_running_status, sensord_pid = check_sensord_status(duthost)
         if sensord_running_status:
             logging.info("sensord task restarted, pid = {}".format(sensord_pid))
         else:
@@ -103,14 +102,12 @@ def psu_test_setup_teardown(testbed_devices):
         logging.info("sensord is running, pid = {}".format(sensord_pid))
 
 
-def test_show_platform_summary(testbed_devices):
+def test_show_platform_summary(duthost):
     """
     @summary: Check output of 'show platform summary'
     """
-    ans_host = testbed_devices["dut"]
-
     logging.info("Check output of '%s'" % CMD_PLATFORM_SUMMARY)
-    platform_summary = ans_host.command(CMD_PLATFORM_SUMMARY)
+    platform_summary = duthost.command(CMD_PLATFORM_SUMMARY)
     expected_fields = set(["Platform", "HwSKU", "ASIC"])
     actual_fields = set()
     for line in platform_summary["stdout_lines"]:
@@ -141,18 +138,16 @@ def check_vendor_specific_psustatus(dut, psu_status_line):
         check_psu_sysfs(dut, psu_id, psu_status)
 
 
-def test_show_platform_psustatus(testbed_devices):
+def test_show_platform_psustatus(duthost):
     """
     @summary: Check output of 'show platform psustatus'
     """
-    ans_host = testbed_devices["dut"]
-
-    logging.info("Check PSU status using '%s', hostname: %s" % (CMD_PLATFORM_PSUSTATUS, ans_host.hostname))
-    psu_status = ans_host.command(CMD_PLATFORM_PSUSTATUS)
+    logging.info("Check PSU status using '%s', hostname: %s" % (CMD_PLATFORM_PSUSTATUS, duthost.hostname))
+    psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
     psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
     for line in psu_status["stdout_lines"][2:]:
         assert psu_line_pattern.match(line), "Unexpected PSU status output"
-        check_vendor_specific_psustatus(ans_host, line)
+        check_vendor_specific_psustatus(duthost, line)
 
 
 def get_psu_num(dut):
@@ -194,13 +189,11 @@ def check_all_psu_on(dut, psu_test_results):
 
 
 @pytest.mark.disable_loganalyzer
-def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller):
+def test_turn_on_off_psu_and_check_psustatus(duthost, psu_controller):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
-    ans_host = testbed_devices["dut"]
-
-    loganalyzer = LogAnalyzer(ansible_host=ans_host, marker_prefix='turn_on_off_psu_and_check_psustatus')
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='turn_on_off_psu_and_check_psustatus')
     loganalyzer.load_common_config()
 
     loganalyzer.ignore_regex.append("Error getting sensor data: dps460.*Kernel interface error")
@@ -208,21 +201,21 @@ def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller):
 
     psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
 
-    psu_num = get_psu_num(ans_host)
+    psu_num = get_psu_num(duthost)
     if psu_num < 2:
         pytest.skip("At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PSU controller for testing")
     psu_ctrl = psu_controller
     if psu_ctrl is None:
-        pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % ans_host.hostname)
+        pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
 
     logging.info("To avoid DUT being shutdown, need to turn on PSUs that are not powered")
     turn_all_psu_on(psu_ctrl)
 
     logging.info("Initialize test results")
     psu_test_results = {}
-    if not check_all_psu_on(ans_host, psu_test_results):
+    if not check_all_psu_on(duthost, psu_test_results):
         pytest.skip("Some PSU are still down, skip rest of the testing in this case")
 
     assert len(psu_test_results.keys()) == psu_num, \
@@ -237,26 +230,26 @@ def test_turn_on_off_psu_and_check_psustatus(testbed_devices, psu_controller):
         psu_ctrl.turn_off_psu(psu["psu_id"])
         time.sleep(5)
 
-        cli_psu_status = ans_host.command(CMD_PLATFORM_PSUSTATUS)
+        cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
             assert psu_line_pattern.match(line), "Unexpected PSU status output"
             fields = line.split()
             if fields[2] != "OK":
                 psu_under_test = fields[1]
-            check_vendor_specific_psustatus(ans_host, line)
+            check_vendor_specific_psustatus(duthost, line)
         assert psu_under_test is not None, "No PSU is turned off"
 
         logging.info("Turn on PSU %s" % str(psu["psu_id"]))
         psu_ctrl.turn_on_psu(psu["psu_id"])
         time.sleep(5)
 
-        cli_psu_status = ans_host.command(CMD_PLATFORM_PSUSTATUS)
+        cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
             assert psu_line_pattern.match(line), "Unexpected PSU status output"
             fields = line.split()
             if fields[1] == psu_under_test:
                 assert fields[2] == "OK", "Unexpected PSU status after turned it on"
-            check_vendor_specific_psustatus(ans_host, line)
+            check_vendor_specific_psustatus(duthost, line)
 
         psu_test_results[psu_under_test] = True
 
@@ -280,15 +273,13 @@ def parse_platform_summary(raw_input_lines):
     return res
 
 
-def test_show_platform_syseeprom(testbed_devices):
+def test_show_platform_syseeprom(duthost):
     """
     @summary: Check output of 'show platform syseeprom'
     """
-    ans_host = testbed_devices["dut"]
-
     logging.info("Check output of '%s'" % CMD_PLATFORM_SYSEEPROM)
-    show_output = ans_host.command(CMD_PLATFORM_SYSEEPROM)
-    if ans_host.facts["asic_type"] in ["mellanox"]:
+    show_output = duthost.command(CMD_PLATFORM_SYSEEPROM)
+    if duthost.facts["asic_type"] in ["mellanox"]:
         expected_fields = [
             "Product Name",
             "Part Number",
@@ -303,8 +294,8 @@ def test_show_platform_syseeprom(testbed_devices):
             "CRC-32"]
         utility_cmd = "sudo python -c \"import imp; \
             m = imp.load_source('eeprom', '/usr/share/sonic/device/%s/plugins/eeprom.py'); \
-            t = m.board('board', '', '', ''); e = t.read_eeprom(); t.decode_eeprom(e)\"" % ans_host.facts["platform"]
-        utility_cmd_output = ans_host.command(utility_cmd)
+            t = m.board('board', '', '', ''); e = t.read_eeprom(); t.decode_eeprom(e)\"" % duthost.facts["platform"]
+        utility_cmd_output = duthost.command(utility_cmd)
 
         for field in expected_fields:
             assert show_output["stdout"].find(field) >= 0, "Expected field %s is not found" % field
@@ -330,26 +321,25 @@ def check_show_platform_fanstatus_output(lines):
         assert len(field_ranges) == 8, 'There must be 8 columns in output of show platform fans'
 
 
-def test_show_platform_fanstatus(testbed_devices, mocker_factory):
+def test_show_platform_fanstatus(duthost, mocker_factory):
     """
     @summary: Check output of 'show platform fan'.
     """
     # Do basic check first
-    dut = testbed_devices["dut"]
     logging.info("Check output of '%s'" % CMD_PLATFORM_FANSTATUS)
-    cli_fan_status = dut.command(CMD_PLATFORM_FANSTATUS)
+    cli_fan_status = duthost.command(CMD_PLATFORM_FANSTATUS)
     lines = cli_fan_status["stdout_lines"]
     check_show_platform_fanstatus_output(lines)
 
     # Mock data and check
-    mocker = mocker_factory(dut, 'FanStatusMocker')
+    mocker = mocker_factory(duthost, 'FanStatusMocker')
     if mocker is None:
-        pytest.skip("No FanStatusMocker for %s, skip rest of the testing in this case" % dut.facts['asic_type'])
+        pytest.skip("No FanStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
 
     logging.info('Mock FAN status data...')
     mocker.mock_data()
     logging.info('Wait and check actual data with mocked FAN status data...')
-    result = check_cli_output_with_mocker(dut, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
+    result = check_cli_output_with_mocker(duthost, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
 
     assert result, 'FAN mock data mismatch'
 
@@ -369,89 +359,86 @@ def check_show_platform_temperature_output(lines):
         assert len(field_ranges) == 8, 'There must be 8 columns in output of show platform temperature'
 
 
-def test_show_platform_temperature(testbed_devices, mocker_factory):
+def test_show_platform_temperature(duthost, mocker_factory):
     """
     @summary: Check output of 'show platform temperature'
     """
     # Do basic check first
-    dut = testbed_devices["dut"]
     logging.info("Check output of '%s'" % CMD_PLATFORM_TEMPER)
-    cli_thermal_status = dut.command(CMD_PLATFORM_TEMPER)
+    cli_thermal_status = duthost.command(CMD_PLATFORM_TEMPER)
 
     # Mock data and check
-    mocker = mocker_factory(dut, 'ThermalStatusMocker')
+    mocker = mocker_factory(duthost, 'ThermalStatusMocker')
     if mocker is None:
-        pytest.skip("No ThermalStatusMocker for %s, skip rest of the testing in this case" % dut.facts['asic_type'])
+        pytest.skip("No ThermalStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
 
     logging.info('Mock Thermal status data...')
     mocker.mock_data()
     logging.info('Wait and check actual data with mocked Thermal status data...')
-    result = check_cli_output_with_mocker(dut, mocker, CMD_PLATFORM_TEMPER, THERMAL_CONTROL_TEST_WAIT_TIME)
+    result = check_cli_output_with_mocker(duthost, mocker, CMD_PLATFORM_TEMPER, THERMAL_CONTROL_TEST_WAIT_TIME)
 
     assert result, 'Thermal mock data mismatch'
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_load_invalid_format_json(testbed_devices):
+def test_thermal_control_load_invalid_format_json(duthost):
     """
     @summary: Load a thermal policy file with invalid format, check thermal
               control daemon is up and there is an error log printed
     """
     logging.info('Loading invalid format policy file...')
-    check_thermal_control_load_invalid_file(testbed_devices, THERMAL_POLICY_INVALID_FORMAT_FILE)
+    check_thermal_control_load_invalid_file(duthost, THERMAL_POLICY_INVALID_FORMAT_FILE)
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_load_invalid_value_json(testbed_devices):
+def test_thermal_control_load_invalid_value_json(duthost):
     """
     @summary: Load a thermal policy file with invalid value, check thermal
               control daemon is up and there is an error log printed
     """
     logging.info('Loading invalid value policy file...')
-    check_thermal_control_load_invalid_file(testbed_devices, THERMAL_POLICY_INVALID_VALUE_FILE)
+    check_thermal_control_load_invalid_file(duthost, THERMAL_POLICY_INVALID_VALUE_FILE)
 
 
-def check_thermal_control_load_invalid_file(testbed_devices, file_name):
+def check_thermal_control_load_invalid_file(duthost, file_name):
     """
     @summary: Load an invalid thermal policy file check thermal
               control daemon is up and there is an error log printed
     """
-    dut = testbed_devices["dut"]
-    loganalyzer = LogAnalyzer(ansible_host=dut, marker_prefix='thermal_control')
-    with ThermalPolicyFileContext(dut, file_name):
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='thermal_control')
+    with ThermalPolicyFileContext(duthost, file_name):
         loganalyzer.expect_regex = [LOG_EXPECT_POLICY_FILE_INVALID]
         with loganalyzer:
-            restart_thermal_control_daemon(dut)
+            restart_thermal_control_daemon(duthost)
 
 
-def test_thermal_control_psu_absence(testbed_devices, psu_controller, mocker_factory):
+def test_thermal_control_psu_absence(duthost, psu_controller, mocker_factory):
     """
     @summary: Turn off/on PSUs, check thermal control is working as expect.
     """
-    dut = testbed_devices["dut"]
-    psu_num = get_psu_num(dut)
+    psu_num = get_psu_num(duthost)
     if psu_num < 2:
         pytest.skip("At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PSU controller for testing")
     psu_ctrl = psu_controller
     if psu_ctrl is None:
-        pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % dut.hostname)
+        pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
 
     logging.info("To avoid DUT being shutdown, need to turn on PSUs that are not powered")
     turn_all_psu_on(psu_ctrl)
 
     logging.info("Initialize test results")
     psu_test_results = {}
-    if not check_all_psu_on(dut, psu_test_results):
+    if not check_all_psu_on(duthost, psu_test_results):
         pytest.skip("Some PSU are still down, skip rest of the testing in this case")
 
-    with ThermalPolicyFileContext(dut, THERMAL_POLICY_VALID_FILE):
-        fan_mocker = mocker_factory(dut, 'FanStatusMocker')
+    with ThermalPolicyFileContext(duthost, THERMAL_POLICY_VALID_FILE):
+        fan_mocker = mocker_factory(duthost, 'FanStatusMocker')
         if fan_mocker is None:
-            pytest.skip("No FanStatusMocker for %s, skip rest of the testing in this case" % dut.facts['asic_type'])
+            pytest.skip("No FanStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
 
-        restart_thermal_control_daemon(dut)
+        restart_thermal_control_daemon(duthost)
         logging.info('Wait and check all FAN speed turn to 60%...')
         wait_result = wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
                                  THERMAL_CONTROL_TEST_CHECK_INTERVAL,
@@ -460,21 +447,21 @@ def test_thermal_control_psu_absence(testbed_devices, psu_controller, mocker_fac
         if not wait_result:
              pytest.skip("FAN speed is not 60%, there might be abnormal in FAN/PSU, skip rest of the testing in this case")
 
-        check_thermal_algorithm_status(dut, mocker_factory, False)
+        check_thermal_algorithm_status(duthost, mocker_factory, False)
 
         logging.info('Shutdown first PSU and check thermal control result...')
         all_psu_status = psu_ctrl.get_psu_status()
         psu = all_psu_status[0]
-        turn_off_psu_and_check_thermal_control(dut, psu_ctrl, psu, fan_mocker)
+        turn_off_psu_and_check_thermal_control(duthost, psu_ctrl, psu, fan_mocker)
         psu_test_results.clear()
-        if not check_all_psu_on(dut, psu_test_results):
+        if not check_all_psu_on(duthost, psu_test_results):
             pytest.skip("Some PSU are still down, skip rest of the testing in this case")
 
         logging.info('Shutdown second PSU and check thermal control result...')
         psu = all_psu_status[1]
-        turn_off_psu_and_check_thermal_control(dut, psu_ctrl, psu, fan_mocker)
+        turn_off_psu_and_check_thermal_control(duthost, psu_ctrl, psu, fan_mocker)
         psu_test_results.clear()
-        if not check_all_psu_on(dut, psu_test_results):
+        if not check_all_psu_on(duthost, psu_test_results):
             pytest.skip("Some PSU are still down, skip rest of the testing in this case")
 
         logging.info('Wait and check all FAN speed turn to 65%...')
@@ -514,27 +501,26 @@ def turn_off_psu_and_check_thermal_control(dut, psu_ctrl, psu, mocker):
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_fan_status(testbed_devices, mocker_factory):
+def test_thermal_control_fan_status(duthost, mocker_factory):
     """
     @summary: Make FAN absence, over speed and under speed, check logs and LED color.
     """
-    dut = testbed_devices["dut"]
-    loganalyzer = LogAnalyzer(ansible_host=dut, marker_prefix='thermal_control')
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='thermal_control')
     loganalyzer.load_common_config()
 
-    with ThermalPolicyFileContext(dut, THERMAL_POLICY_VALID_FILE):
-        fan_mocker = mocker_factory(dut, 'FanStatusMocker')
+    with ThermalPolicyFileContext(duthost, THERMAL_POLICY_VALID_FILE):
+        fan_mocker = mocker_factory(duthost, 'FanStatusMocker')
         if fan_mocker is None:
-            pytest.skip("No FanStatusMocker for %s, skip rest of the testing in this case" % dut.facts['asic_type'])
+            pytest.skip("No FanStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
 
         logging.info('Mock FAN status data...')
         fan_mocker.mock_data()  # make data random
-        restart_thermal_control_daemon(dut)
+        restart_thermal_control_daemon(duthost)
         wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, fan_mocker.check_all_fan_speed,
                    60)
-        check_thermal_algorithm_status(dut, mocker_factory, False)
+        check_thermal_algorithm_status(duthost, mocker_factory, False)
 
-        single_fan_mocker = mocker_factory(dut, 'SingleFanMocker')
+        single_fan_mocker = mocker_factory(duthost, 'SingleFanMocker')
         time.sleep(THERMAL_CONTROL_TEST_WAIT_TIME)
 
         if single_fan_mocker.is_fan_removable():
@@ -542,13 +528,13 @@ def test_thermal_control_fan_status(testbed_devices, mocker_factory):
             with loganalyzer:
                 logging.info('Mocking an absence FAN...')
                 single_fan_mocker.mock_absence()
-                check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
+                check_cli_output_with_mocker(duthost, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
 
             loganalyzer.expect_regex = [LOG_EXPECT_FAN_REMOVE_CLEAR_RE, LOG_EXPECT_INSUFFICIENT_FAN_NUM_CLEAR_RE]
             with loganalyzer:
                 logging.info('Make the absence FAN back to presence...')
                 single_fan_mocker.mock_presence()
-                check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
+                check_cli_output_with_mocker(duthost, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_FAULT_RE, LOG_EXPECT_INSUFFICIENT_FAN_NUM_RE]
         with loganalyzer:
@@ -566,22 +552,22 @@ def test_thermal_control_fan_status(testbed_devices, mocker_factory):
         with loganalyzer:
             logging.info('Mocking an over speed FAN...')
             single_fan_mocker.mock_over_speed()
-            check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
+            check_cli_output_with_mocker(duthost, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_OVER_SPEED_CLEAR_RE]
         with loganalyzer:
             logging.info('Make the over speed FAN back to normal...')
             single_fan_mocker.mock_normal_speed()
-            check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
+            check_cli_output_with_mocker(duthost, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_UNDER_SPEED_RE]
         with loganalyzer:
             logging.info('Mocking an under speed FAN...')
             single_fan_mocker.mock_under_speed()
-            check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
+            check_cli_output_with_mocker(duthost, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_UNDER_SPEED_CLEAR_RE]
         with loganalyzer:
             logging.info('Make the under speed FAN back to normal...')
             single_fan_mocker.mock_normal_speed()
-            check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
+            check_cli_output_with_mocker(duthost, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
