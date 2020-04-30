@@ -137,7 +137,7 @@ def swap_syncd(dut):
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
     docker_rpc_image = docker_syncd_name + "-rpc"
 
-    dut.command("sudo systemctl stop swss")
+    dut.command("systemctl stop swss")
     delete_container(dut, "syncd")
 
     # Set sysctl RCVBUF parameter for tests
@@ -155,8 +155,8 @@ def swap_syncd(dut):
               "{}/{}".format(registry.host, docker_rpc_image),
               sonic_version)
 
-    dut.command("sudo systemctl reset-failed swss")
-    dut.command("sudo systemctl start swss")
+    dut.command("systemctl reset-failed swss")
+    dut.command("systemctl start swss")
 
     _LOGGER.info("swss has been restarted, waiting 60 seconds to initialize...")
     time.sleep(60)
@@ -182,7 +182,7 @@ def restore_default_syncd(dut):
 
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
 
-    dut.command("sudo systemctl stop swss")
+    dut.command("systemctl stop swss")
     delete_container(dut, "syncd")
 
     # TODO: Getting the base image version should be a common utility
@@ -194,8 +194,8 @@ def restore_default_syncd(dut):
               docker_syncd_name,
               sonic_version)
 
-    dut.command("sudo systemctl reset-failed swss")
-    dut.command("sudo systemctl start swss")
+    dut.command("systemctl reset-failed swss")
+    dut.command("systemctl start swss")
 
     _LOGGER.info("swss has been restarted, waiting 60 seconds to initialize...")
     time.sleep(60)
