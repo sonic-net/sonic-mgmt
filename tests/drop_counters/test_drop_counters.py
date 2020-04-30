@@ -7,13 +7,13 @@ import importlib
 import pprint
 import random
 import time
-import scapy
 import yaml
 import re
 import os
 import json
 import netaddr
 
+from common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -415,15 +415,11 @@ def str_to_int(value):
 
 def verify_drop_counters(duthost, dut_iface, get_cnt_cli_cmd, column_key):
     """ Verify drop counter incremented on specific interface """
-    for _ in range(3):
-        drops = get_pkt_drops(duthost, get_cnt_cli_cmd)[dut_iface][column_key]
-        drops = str_to_int(drops)
-        if drops == PKT_NUMBER:
-            break
-        time.sleep(1)
-    else:
+    get_drops = lambda: int(get_pkt_drops(duthost, get_cnt_cli_cmd)[dut_iface][column_key].replace(",", ""))
+    check_drops_on_dut = lambda: PKT_NUMBER == get_drops()
+    if not wait_until(5, 1, check_drops_on_dut):
         fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
-            column_key, dut_iface, column_key, drops, PKT_NUMBER
+            column_key, dut_iface, column_key, get_drops(), PKT_NUMBER
         )
         pytest.fail(fail_msg)
 
