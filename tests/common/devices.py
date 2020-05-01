@@ -484,7 +484,7 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         if m:
             rtinfo['set_src'] = ipaddress.ip_address(m.group(2))
         elif m1:
-            rtinfo['set_src'] = ipaddress.ip_address(m.group(3))
+            rtinfo['set_src'] = ipaddress.ip_address(m1.group(3))
 
         # parse nexthops
         for l in rt:
