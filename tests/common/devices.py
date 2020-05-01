@@ -783,6 +783,10 @@ class FanoutHost():
         elif os == 'onyx':
             self.os = os
             self.host = OnyxHost(ansible_adhoc, hostname, user, passwd)
+        elif os == 'ixia':
+            # TODO: add ixia chassis abstraction
+            self.os = os
+            self.host = None
         else:
             # Use eos host if the os type is unknown
             self.os = 'eos'
