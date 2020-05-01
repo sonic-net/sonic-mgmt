@@ -16,6 +16,9 @@
 - include_tasks: remove_ceos_list.yml
   when: vm_type is defined and vm_type == "ceos"
 
+- include_tasks: remove_csonic_list.yml
+  when: vm_type is defined and vm_type == "csonic"
+
 - name: Remove vlan port for vlan tunnel
   vlan_port:
     external_port: "{{ external_port }}"

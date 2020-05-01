@@ -1,11 +1,3 @@
-- name: Create VMs network
-  become: yes
-  vm_topology:
-    cmd:          'create'
-    vm_names:     "{{ VM_hosts }}"
-    fp_mtu:       "{{ fp_mtu_size }}"
-    max_fp_num:   "{{ max_fp_num }}"
-
 - name: create directory for build ceos image
   become: yes
   file:
@@ -24,6 +16,3 @@
       path: "/tmp/ceosimage"
       pull: no
     source: build
-
-- include_tasks: add_ceos.yml
-  with_items: "{{ VM_targets }}"

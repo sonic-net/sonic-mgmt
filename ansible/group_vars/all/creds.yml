@@ -12,3 +12,5 @@ sonic_password: "password"
 
 ceos_image_orig: ceosimage:4.23.2F
 ceos_image: ceosimage:4.23.2F-1
+
+csonic_image: docker-sonic-vs

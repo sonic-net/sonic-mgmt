@@ -1,0 +1,51 @@
+- name: Get netbase container info
+  docker_container_info:
+    name: net_{{ vm_set_name }}_{{ inventory_hostname }}
+  register: ctninfo
+  delegate_to: "{{ VM_host[0] }}"
+  become: yes
+
+- debug: msg="{{ ctninfo.container.State.Pid }}"
+
+- name: Get front panel port in netbase container
+  shell: nsenter -t {{ ctninfo.container.State.Pid }} -n ip link show | grep -E eth[0-9]+ | wc -l
+  register: fp_num
+  delegate_to: "{{ VM_host[0] }}"
+  become: yes
+
+- debug: msg="{{ fp_num }}"
+
+- name: Set EOS backplane port name
+  set_fact: bp_ifname="Ethernet{{ fp_num.stdout|int - 1}}"
+
+- name: create directory for sonic config
+  become: yes
+  file:
+    path: "/{{ csonic_image_mount_dir }}/csonic_{{ vm_set_name }}_{{ inventory_hostname }}/sonic"
+    state: directory
+  delegate_to: "{{ VM_host[0] }}"
+
+- name: create config db
+  become: yes
+  template: src="configdb-{{ topo }}-{{ props.swrole }}.j2"
+            dest="/{{ csonic_image_mount_dir }}/csonic_{{ vm_set_name }}_{{ inventory_hostname }}/sonic/config_db.json"
+  delegate_to: "{{ VM_host[0] }}"
+
+- name: create directory for frr config
+  become: yes
+  file:
+    path: "/{{ csonic_image_mount_dir }}/csonic_{{ vm_set_name }}_{{ inventory_hostname }}/frr"
+    state: directory
+  delegate_to: "{{ VM_host[0] }}"
+
+- name: create frr bgpd config
+  become: yes
+  template: src="frr-{{ topo }}-{{ props.swrole }}.j2"
+            dest="/{{ csonic_image_mount_dir }}/csonic_{{ vm_set_name }}_{{ inventory_hostname }}/frr/bgpd.conf"
+  delegate_to: "{{ VM_host[0] }}"
+
+- name: create zebra config
+  become: yes
+  template: src="zebra-{{ topo }}-{{ props.swrole }}.j2"
+            dest="/{{ csonic_image_mount_dir }}/csonic_{{ vm_set_name }}_{{ inventory_hostname }}/frr/zebra.conf"
+  delegate_to: "{{ VM_host[0] }}"
