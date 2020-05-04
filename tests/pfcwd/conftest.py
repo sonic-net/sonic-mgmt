@@ -1,6 +1,5 @@
 import logging
 import pytest
-import os
 from common.fixtures.conn_graph_facts import conn_graph_facts
 from files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
 
