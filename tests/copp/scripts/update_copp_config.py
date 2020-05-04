@@ -32,6 +32,13 @@ def generate_limited_pps_config(pps_limit, input_config_file, output_config_file
 
     for trap_group in copp_config:
         for _, group_config in trap_group.items():
+            # Notes:
+            # CIR (committed information rate) - bandwidth limit set by the policer
+            # CBS (committed burst size) - largest burst of packets allowed by the policer
+            #
+            # Setting these two values to pps_limit restricts the policer to allowing exactly
+            # that number of packets per second, which is what we want for our tests.
+
             if "cir" in group_config:
                 group_config["cir"] = pps_limit
 

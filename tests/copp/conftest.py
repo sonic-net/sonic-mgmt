@@ -1,10 +1,10 @@
 """
-Pytest configuration used by the COPP tests.
+    Pytest configuration used by the COPP tests.
 """
 
 def pytest_addoption(parser):
     """
-    Adds options to pytest that are used by the COPP tests.
+        Adds options to pytest that are used by the COPP tests.
     """
 
     parser.addoption(

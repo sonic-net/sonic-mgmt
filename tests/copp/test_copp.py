@@ -1,29 +1,29 @@
 """
-Tests the COPP feature in SONiC.
+    Tests the COPP feature in SONiC.
 
-Notes:
-    These test cases require that a special RPC syncd image is installed on the
-    DUT. You can either pre-install this image and run the test normally, or
-    specify the `--swap-syncd` flag from the command line to have the test fetch
-    the RPC image and install it before the test runs.
+    Notes:
+        These test cases require that a special RPC syncd image is installed on the
+        DUT. You can either pre-install this image and run the test normally, or
+        specify the `--swap-syncd` flag from the command line to have the test fetch
+        the RPC image and install it before the test runs.
 
-    These test cases limit the PPS of all trap groups to 600. This is done to ensure
-    that the PTF can send traffic fast enough to trigger the policer. In order to validate
-    higher rate limits, a physical traffic generator is needed, which is beyond the scope
-    of these test cases.
+        These test cases limit the PPS of all trap groups to 600. This is done to ensure
+        that the PTF can send traffic fast enough to trigger the policer. In order to validate
+        higher rate limits, a physical traffic generator is needed, which is beyond the scope
+        of these test cases.
 
-Parameters:
-    --nn_target_port <port> (int): Which port you want the test to send traffic
-        to. Default is 3.
+    Parameters:
+        --nn_target_port <port> (int): Which port you want the test to send traffic
+            to. Default is 3.
 
-        Note that this is not the same as the interface name. For example, Ethernet12
-        may not be the 12th port in your system depending on the HWSKU under test.
+            Note that this is not the same as the interface name. For example, Ethernet12
+            may not be the 12th port in your system depending on the HWSKU under test.
 
-    --pkt_tx_count <n> (int): How many packets to send during each individual test case.
-        Default is 100000.
+        --pkt_tx_count <n> (int): How many packets to send during each individual test case.
+            Default is 100000.
 
-    --swap_syncd: Used to install the RPC syncd image before running the tests. Default
-        is disabled.
+        --swap_syncd: Used to install the RPC syncd image before running the tests. Default
+            is disabled.
 """
 
 import time
@@ -45,7 +45,7 @@ _TEST_RATE_LIMIT = 600
 
 class TestCOPP(object):
     """
-    Tests basic COPP functionality in SONiC.
+        Tests basic COPP functionality in SONiC.
     """
 
     @pytest.mark.parametrize("protocol", ["ARP",
@@ -54,10 +54,10 @@ class TestCOPP(object):
                                           "SSH"])
     def test_policer(self, protocol, duthost, ptfhost, _copp_testbed):
         """
-        Validates that rate-limited COPP groups work as expected.
+            Validates that rate-limited COPP groups work as expected.
 
-        Checks that the policer enforces the rate limit for protocols
-        that have a set rate limit.
+            Checks that the policer enforces the rate limit for protocols
+            that have a set rate limit.
         """
 
         if protocol == "ARP" and is_broadcom_device(duthost):
@@ -78,10 +78,10 @@ class TestCOPP(object):
                                           "UDLD"])
     def test_no_policer(self, protocol, duthost, ptfhost, _copp_testbed):
         """
-        Validates that non-rate-limited COPP groups work as expected.
+            Validates that non-rate-limited COPP groups work as expected.
 
-        Checks that the policer does not enforce a rate limit for protocols
-        that do not have any set rate limit.
+            Checks that the policer does not enforce a rate limit for protocols
+            that do not have any set rate limit.
         """
 
         if protocol == "BGP" and _copp_testbed.topo == "t1-lag":
@@ -95,7 +95,7 @@ class TestCOPP(object):
 @pytest.fixture(scope="class")
 def _copp_testbed(duthost, ptfhost, testbed, request):
     """
-    Pytest fixture to handle setup and cleanup for the COPP tests.
+        Pytest fixture to handle setup and cleanup for the COPP tests.
     """
 
     test_params = _gather_test_params(testbed, request)
@@ -109,7 +109,7 @@ def _copp_testbed(duthost, ptfhost, testbed, request):
 
 def _copp_runner(dut, ptf, protocol, test_params):
     """
-    Configures and runs the PTF test cases.
+        Configures and runs the PTF test cases.
     """
 
     params = {"verbose": False,
@@ -135,7 +135,7 @@ def _copp_runner(dut, ptf, protocol, test_params):
 
 def _gather_test_params(testbed, request):
     """
-    Fetches the test parameters from pytest.
+        Fetches the test parameters from pytest.
     """
 
     nn_target_port = request.config.getoption("--nn_target_port")
@@ -150,7 +150,7 @@ def _gather_test_params(testbed, request):
 
 def _setup_testbed(dut, ptf, test_params):
     """
-    Sets up the testbed to run the COPP tests.
+        Sets up the testbed to run the COPP tests.
     """
 
     # We don't want LLDP to throw off our test results, so we disable it first.
@@ -172,7 +172,7 @@ def _setup_testbed(dut, ptf, test_params):
 
 def _teardown_testbed(dut, ptf, test_params):
     """
-    Tears down the testbed, returning it to its initial state.
+        Tears down the testbed, returning it to its initial state.
     """
 
     copp_utils.restore_ptf(ptf)
@@ -189,7 +189,7 @@ def _teardown_testbed(dut, ptf, test_params):
 
 def _restart_swss(dut):
     """
-    Restarts SWSS and waits for the system to stabilize.
+        Restarts SWSS and waits for the system to stabilize.
     """
 
     # The failure counter may be incremented by other test cases, so we clear it
