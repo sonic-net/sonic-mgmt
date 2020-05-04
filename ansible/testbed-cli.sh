@@ -88,7 +88,7 @@ function read_file
   server=${line_arr[6]}
   vm_base=${line_arr[7]}
   dut=${line_arr[8]//;/,}
-  duts=${dut//[\[\]]/}
+  duts=${dut//[\[\] ]/}
 }
 
 function start_vms

@@ -58,7 +58,7 @@ class TestbedInfo(object):
                     line['ptf_ip'] = str(ptfaddress.ip)
                     line['ptf_netmask'] = str(ptfaddress.netmask)
 
-                line['duts'] = line['dut'].translate(string.maketrans("", "", ), "[]").split(';')
+                line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
                 del line['dut']
 
                 topo = line['topo']
