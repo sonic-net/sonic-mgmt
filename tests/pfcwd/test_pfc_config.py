@@ -129,13 +129,13 @@ class TestPfcConfig(object):
     """
     Test case definition and helper function class
     """
-    def execute_test(self, duthost, marker, ignore_regex=None, expect_regex=None, expect_errors=False):
+    def execute_test(self, duthost, syslog_marker, ignore_regex=None, expect_regex=None, expect_errors=False):
         """
         Helper function that loads each template on the DUT and verifies the expected behavior
 
         Args:
             duthost (AnsibleHost): instance
-            marker (string): marker prefix name to be inserted in the syslog
+            syslog_marker (string): marker prefix name to be inserted in the syslog
             ignore_regex (string): file containing regexs to be ignored by loganalyzer
             expect_regex (string): regex pattern that is expected to be present in the syslog
             expect_erros (bool): if the test expects an error msg in the syslog or not. Default: False
@@ -143,7 +143,7 @@ class TestPfcConfig(object):
         Returns:
             None
         """
-        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker)
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=syslog_marker)
 
         if ignore_regex:
             ignore_file = os.path.join(TEMPLATES_DIR, ignore_regex)
@@ -156,7 +156,7 @@ class TestPfcConfig(object):
 
         loganalyzer.match_regex = []
         with loganalyzer(fail=not expect_errors):
-            cmd = "sonic-cfggen -j {}/{}.json --write-to-db".format(DUT_RUN_DIR, marker)
+            cmd = "sonic-cfggen -j {}/{}.json --write-to-db".format(DUT_RUN_DIR, syslog_marker)
             out = duthost.command(cmd)
             pytest_assert(out["rc"] == 0, "Failed to execute cmd {}: Error: {}".format(cmd, out["stderr"]))
 
