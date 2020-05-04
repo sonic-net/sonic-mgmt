@@ -352,3 +352,7 @@ testcases:
     read_mac:
       filename: read_mac_metadata.yml
       topologies: [t0, t1, t1-lag]
+
+    tx_drop:
+      filename: tx_drop.yml
+      topologies: [ptf32]

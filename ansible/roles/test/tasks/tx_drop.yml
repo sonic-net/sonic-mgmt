@@ -1,0 +1,195 @@
+#-------------------------------------------------------------------------------
+# Preparing switch for test
+#-------------------------------------------------------------------------------
+
+- name: "Preapare switch for test" 
+  block:
+    - set_fact:
+        intf_name: "Ethernet4"
+        tx_drop_threshold_val: 200
+        tx_drop_stat_poll_period_val: 200
+
+    - name: "Check if tx_drop_threshold command exist"
+      shell: config interface --help | grep tx_drop_threshold
+      register: config_intf_check_out
+      ignore_errors: true
+      become: yes
+  
+    - name: "Set tx_drop_threshold for interface"
+      command: config interface tx_drop_threshold set {{ intf_name }} {{ tx_drop_threshold_val }}
+      when: config_intf_check_out is succeeded
+      become: yes
+  
+    - name: "Check if tx_drop_stat_poll_period command exist"
+      shell: config --help | grep tx_drop_stat_poll_period
+      register: config_check_out
+      ignore_errors: true
+      become: yes
+  
+    - name: "Set tx_drop_stat_poll_period"
+      command: config tx_drop_stat_poll_period {{ tx_drop_stat_poll_period_val }}
+      when: config_check_out is succeeded
+      become: yes
+
+#-------------------------------------------------------------------------------
+# Start PFC generator
+#-------------------------------------------------------------------------------
+
+- name: "PFC generator block start"
+  block:
+    - name: Initialize variables
+      set_fact:
+        server_ports: []
+        pfc_mask: 0
+        pfc_rx_mask: 0
+        pfc_tx_mask: 0
+    
+    - name: Get server ports info
+      set_fact:
+        server_ports: ["Ethernet4"]
+    
+    - name: Gathering lab graph facts about the device
+      conn_graph_facts: host={{ ansible_host }}
+      delegate_to: localhost
+      tags: always
+    
+    - set_fact:
+        neighbors: "{{device_conn}}"
+    - set_fact:
+        peer_device: "{{neighbors[server_ports[0]]['peerdevice']}}"
+        neighbor_interface: "{{neighbors[server_ports[0]]['peerport']}}"
+    
+    - debug: msg={{ neighbor_interface }}
+    
+    - conn_graph_facts: host={{ peer_device }}
+      delegate_to: localhost
+    
+    - set_fact:
+        peer_host: "{{device_info['mgmtip']}}"
+        peer_hwsku: "{{device_info['HwSku']}}"
+        peer_type: "{{device_info['Type']}}"
+    
+    - name: Set PFC storm templates based on fanout platform SKU
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
+    
+    - set_fact:
+        pfc_gen_file: pfc_gen.py
+        pfc_queue_index: 0xff
+        pfc_frames_number: 100000000
+        pfc_fanout_interface: "{{ neighbor_interface }}"
+        ansible_eth0_ipv4_addr: "{{ansible_eth0['ipv4']['address']}}"
+        pfc_asym: True
+    
+    - name: Start PFC generator on fanout switch
+      action: apswitch template="{{pfc_wd_storm_template}}"
+      args:
+        host: "{{peer_host}}"
+        login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+      connection: switch
+    
+
+#-------------------------------------------------------------------------------
+# Preparing PTF docker
+#-------------------------------------------------------------------------------
+
+- name: "Prepare PTF docker to test"
+  block:
+    - name: "Get switch interfaces facts"
+      interface_facts: up_ports={{minigraph_ports}}
+      register: intf_facts_out
+    
+    - name: "Remove existing IPs from PTF host"
+      script: roles/test/files/helpers/remove_ip.sh
+      delegate_to: "{{ ptf_host }}"
+    
+    - name: "Set unique MACs to PTF interfaces"
+      script: roles/test/files/helpers/change_mac.sh
+      delegate_to: "{{ ptf_host }}"
+      register: changed_mac_out
+    
+    - name: "Prepare params for PTF runner"
+      set_fact:
+        src_mac: "{{ changed_mac_out['stdout_lines'][0].split('->')[1] }}"
+        dst_mac: "{{ intf_facts_out['ansible_facts']['ansible_interface_facts']['Ethernet0']['macaddress'] }}"
+        src_ip: "10.0.0.1"
+        dst_ip: "10.0.0.3"
+        ip_mask: "/31"
+        src_intf: "eth0"
+        dst_intf: "eth1"
+        tos: "12"
+        pkt_count: "100000"
+    
+    - name: "Set source ip address to PTF docker interface"
+      command: ifconfig {{ src_intf }} {{ src_ip }}{{ ip_mask }}
+      delegate_to: "{{ ptf_host }}"
+    
+    - name: "Set destination ip address to PTF docker interface"
+      command: ifconfig {{ dst_intf }} {{ dst_ip }}{{ ip_mask }}
+      delegate_to: "{{ ptf_host }}"
+    
+    - name: "Copy tests to PTF"
+      copy: src=roles/test/files/ptftests dest=/root
+      delegate_to: "{{ ptf_host }}"
+    
+    - name: "Start PTF runner: '{{ testbed_type }}' designated"
+      include: ptf_runner.yml
+      vars:
+        ptf_test_name: TxDrop test
+        ptf_test_dir: ptftests
+        ptf_test_path: tx_drop.TxDropTest
+        ptf_platform: remote
+        ptf_platform_dir: ptftests
+        ptf_test_params:
+          - testbed_type='{{ testbed_type }}'
+          - src_mac='{{ src_mac }}'
+          - dst_mac='{{ dst_mac }}'
+          - src_ip='{{ src_ip }}'
+          - dst_ip='{{ dst_ip }}'
+          - tos='{{ tos }}'
+          - src_intf='{{ src_intf }}'
+          - pkt_count='{{ pkt_count }}'
+
+#-------------------------------------------------------------------------------
+# Stop PFC generator
+#-------------------------------------------------------------------------------
+
+- name: Stop PFC generator on fanout switch
+  action: apswitch template="{{pfc_wd_storm_stop_template}}"
+  args:
+    host: "{{peer_host}}"
+    login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+  connection: switch
+
+- name: Pause after PFC stop
+  pause:
+    seconds: 360
+
+#-------------------------------------------------------------------------------
+# Analyze results
+#-------------------------------------------------------------------------------
+
+- name: "Prepare params for analyzing"
+  set_fact:
+    tx_drop_cfg: "TX_DROP_CFG"
+    global_period: "GLOBAL_PERIOD" 
+    delimeter: "|"
+    config_db_idx: 4
+    state_db_idx: 0
+
+- name: "Check for th_drop_threshold entry in CONFIG_DB"
+  shell: "redis-cli -n {{ config_db_idx }} HGETALL \"{{ tx_drop_cfg }}{{ delimeter }}{{ intf_name }}\""
+  register: check_threshold_out
+  become: yes
+  failed_when: check_threshold_out.stdout == ""
+
+- name: "Check for tx_drop_stat_poll_period entry in CONFIG_DB"
+  shell: "redis-cli -n {{ config_db_idx }} HGETALL \"{{ tx_drop_cfg }}{{ delimeter }}{{ global_period }}\""
+  register: check_poll_period_out
+  become: yes
+  failed_when: check_poll_period_out.stdout == ""
+
+- name: "Check interface state in STATE_DB"
+  shell: "show interface tx_drop"
+  register: intf_state_out
+  become: yes
+  failed_when: "'Ethernet4  ok' in intf_state_out.stdout"
