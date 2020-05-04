@@ -60,7 +60,9 @@ class TestCOPP(object):
             that have a set rate limit.
         """
 
-        if protocol == "ARP" and is_broadcom_device(duthost):
+        if protocol == "ARP" \
+                and is_broadcom_device(duthost) \
+                and "201811" not in duthost.get_version():
             pytest.xfail("ARP policy disabled on BRCM devices due to SAI bug")
 
         if protocol in ["IP2ME", "SNMP", "SSH"] and _copp_testbed.topo == "t1-lag":
