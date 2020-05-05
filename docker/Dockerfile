@@ -11,7 +11,16 @@ RUN apt-get update && apt-get install \
 RUN apt-get update && apt-get install \
   -y libssl1.0
 
+# copy SSH credentials to the root directory in container
+#COPY keys/* /root/.ssh/
+
 WORKDIR /root/gd_test 
+
+ENV http_proxy=http://proxy.esl.cisco.com:80
+ENV https_proxy=http://proxy.esl.cisco.com:80
+ENV HTTPS_PROXY=http://proxy.esl.cisco.com:80
+ENV HTTP_PROXY=http://proxy.esl.cisco.com:80
+ENV no_proxy=.cisco.com
 
 # Install dependencies:
 COPY current-req.txt .
@@ -26,7 +35,4 @@ RUN echo "export PYTHONPATH=/godiva-test:/godiva-test/cafykit/lib" >> ~/.bashrc
 RUN echo "export GIT_REPO=/godiva-test/cafykit" >> ~/.bashrc
 
 # Run the application:
-ENV https_proxy = http://proxy.esl.cisco.com:80
-ENV HTTPS_PROXY = http://proxy.esl.cisco.com:80
-ENV no_proxy = .cisco.com
 ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION='python'

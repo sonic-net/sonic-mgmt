@@ -7,16 +7,21 @@ all: $(DOCKER_IMG)
 	docker run $(RUNOPTS) -it $(shell cat $(DOCKER_IMG)) bash
 
 runtest : $(DOCKER_IMG)
-	@if [ -f $(BASH_CMD) ]; then \
+	@if [ -s $(BASH_CMD) ]; then \
 		docker run $(RUNOPTS) -w /godiva-test $(shell cat $(DOCKER_IMG)) /godiva-test/$(BASH_CMD); \
-	fi
+	fi;
 
 $(DOCKER_IMG): docker/Dockerfile docker/current-req.txt docker/docker_startup_env
 	@git submodule update --init --recursive
-	docker build --iidfile $(DOCKER_IMG) -t ubuntu-cafy docker
+	@mkdir -p $(BUILDDIR)
+	@docker build --iidfile $(DOCKER_IMG) -t ubuntu-cafy docker
+
+distclean: clean
+	@rm -fr $(BUILDDIR)
 
 clean:
-	@if [ -f $(DOCKER_IMG) ]; then \
+	@if [ -e $(DOCKER_IMG) ]; then \
+		echo "deleting docker image ..." \
 		docker image remove --force $(shell cat $(DOCKER_IMG)); \
 		rm -fr $(DOCKER_IMG); \
-	fi
+	fi;

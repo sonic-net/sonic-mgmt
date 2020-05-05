@@ -12,6 +12,14 @@ cd godiva-test && make
 
 The `godiva-test` container includes all required packages and configuration to execute a `pytest` test-script.
 
+Note, the following directories from host are mounted inside the container at:
+- /opt/home: home directory in host.Eg: /home/$USER in slurm server
+- /godiva-test: godiva-test git workspace
+- /root/gd-test: docker build directory in godiva-test git workspace
+
+The user credential in host is not set up inside container. Hence, any git 
+operation in `/godiva-test` directory will not work in container.
+
 Steps to run P4 script
 ========================
 1. Modify p4-topo.json to match your testbed.
