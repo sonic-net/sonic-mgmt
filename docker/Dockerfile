@@ -1,7 +1,8 @@
 FROM ubuntu:18.04
 
-ARG HTTP_PROXY
-ARG NO_PROXY
+ARG http_proxy
+ARG https_proxy
+ARG no_proxy
 
 ENV TERM=vt100
 
@@ -19,11 +20,9 @@ RUN apt-get update && apt-get install \
 
 WORKDIR /root/gd_test 
 
-ENV http_proxy=$HTTP_PROXY
-ENV https_proxy=$HTTP_PROXY
-ENV HTTP_PROXY=$HTTP_PROXY
-ENV HTTPS_PROXY=$HTTP_PROXY
-ENV no_proxy=$NO_PROXY
+ENV HTTP_PROXY=$http_proxy
+ENV HTTPS_PROXY=$https_proxy
+ENV NO_PROXY=$no_proxy
 
 # Install dependencies:
 COPY current-req.txt .

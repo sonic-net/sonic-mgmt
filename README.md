@@ -10,6 +10,14 @@ git clone git@wwwin-github.cisco.com:gplatforms/godiva-test.git
 cd godiva-test && make
 ```
 
+If HTTP proxy is needed:
+```
+export http_proxy=http://proxy-wsa.esl.cisco.com:80
+export https_proxy=http://proxy-wsa.esl.cisco.com:80
+export no_proxy=.cisco.com
+cd godiva-test && make
+```
+
 The `godiva-test` container includes all required packages and configuration to execute a `pytest` test-script.
 
 Note, the following directories from host are mounted inside the container at:

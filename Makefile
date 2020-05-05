@@ -1,8 +1,8 @@
 BUILDDIR=$(PWD)/build
 DOCKER_IMG=$(BUILDDIR)/iidfile
 RUNOPTS=-v $(PWD):/godiva-test -v $(HOME):/opt/home
-BUILD_ARGS=--build-arg HTTP_PROXY=http://proxy.esl.cisco.com:80 \
-	--build-arg NO_PROXY=.cisco.com
+BUILD_ARGS=--build-arg http_proxy --build-arg https_proxy \
+	--build-arg no_proxy=.cisco.com
 
 .PHONY: all clean runtest
 
