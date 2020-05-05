@@ -544,6 +544,16 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                 return True
         return False
 
+    def get_version(self):
+        """
+            Gets the SONiC version this device is running.
+
+            Returns:
+                str: the firmware version number (e.g. 20181130.31)
+        """
+        output = dut.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
+        return output["stdout_lines"][0].strip()
+
 class EosHost(AnsibleHostBase):
     """
     @summary: Class for Eos switch
