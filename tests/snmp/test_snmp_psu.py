@@ -4,11 +4,10 @@ from ansible_host import AnsibleHost
 PSU_STATUS_OK = 2
 
 @pytest.mark.bsl
-def test_snmp_numpsu(testbed_devices, creds, duthost):
+def test_snmp_numpsu(duthost, testbed_devices, creds):
 
-    ans_host = testbed_devices['dut']
     lhost = testbed_devices['localhost']
-    hostip = ans_host.host.options['inventory_manager'].get_host(ans_host.hostname).vars['ansible_host']
+    hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
     snmp_facts = lhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
     res = duthost.shell("psuutil numpsus")
@@ -19,11 +18,10 @@ def test_snmp_numpsu(testbed_devices, creds, duthost):
 
 
 @pytest.mark.bsl
-def test_snmp_psu_status(testbed_devices, creds):
+def test_snmp_psu_status(duthost, testbed_devices, creds):
 
-    ans_host = testbed_devices['dut']
     lhost = testbed_devices['localhost']
-    hostip = ans_host.host.options['inventory_manager'].get_host(ans_host.hostname).vars['ansible_host']
+    hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
     snmp_facts = lhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
 

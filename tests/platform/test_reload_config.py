@@ -19,26 +19,25 @@ from check_all_interface_info import check_interface_information
 pytestmark = [pytest.mark.disable_loganalyzer]
 
 
-def test_reload_configuration(testbed_devices, conn_graph_facts):
+def test_reload_configuration(duthost, conn_graph_facts):
     """
     @summary: This test case is to reload the configuration and check platform status
     """
-    ans_host = testbed_devices["dut"]
     interfaces = conn_graph_facts["device_conn"]
-    asic_type = ans_host.facts["asic_type"]
+    asic_type = duthost.facts["asic_type"]
 
     logging.info("Reload configuration")
-    ans_host.command("sudo config reload -y")
+    duthost.command("sudo config reload -y")
 
     logging.info("Wait until all critical services are fully started")
-    check_critical_services(ans_host)
+    check_critical_services(duthost)
 
     logging.info("Wait some time for all the transceivers to be detected")
-    assert wait_until(300, 20, check_interface_information, ans_host, interfaces), \
+    assert wait_until(300, 20, check_interface_information, duthost, interfaces), \
         "Not all transceivers are detected in 300 seconds"
 
     logging.info("Check transceiver status")
-    check_transceiver_basic(ans_host, interfaces)
+    check_transceiver_basic(duthost, interfaces)
 
     if asic_type in ["mellanox"]:
 
@@ -50,7 +49,7 @@ def test_reload_configuration(testbed_devices, conn_graph_facts):
         from check_sysfs import check_sysfs
 
         logging.info("Check the hw-management service")
-        check_hw_management_service(ans_host)
+        check_hw_management_service(duthost)
 
         logging.info("Check sysfs")
-        check_sysfs(ans_host)
+        check_sysfs(duthost)

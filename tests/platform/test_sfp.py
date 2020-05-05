@@ -57,7 +57,7 @@ def parse_eeprom(output_lines):
     return res
 
 
-def get_port_map(testbed_devices):
+def get_port_map(duthost):
     """
     @summary: Get the port mapping info from the DUT
     @return: a dictionary containing the port map
@@ -73,7 +73,7 @@ def get_port_map(testbed_devices):
     # this is the first running
     logging.info("Retrieving port mapping from DUT")
     # copy the helper to DUT
-    ans_host = testbed_devices["dut"]
+    ans_host = duthost
     src_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'files/getportmap.py')
     dest_path = os.path.join('/usr/share/sonic/device', ans_host.facts['platform'], 'plugins/getportmap.py')
     ans_host.copy(src=src_path, dest=dest_path)
@@ -89,7 +89,7 @@ def get_port_map(testbed_devices):
     return port_mapping
 
 
-def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
+def test_check_sfp_status_and_configure_sfp(duthost, conn_graph_facts):
     """
     @summary: Check SFP status and configure SFP
 
@@ -101,10 +101,8 @@ def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
     * show interface transceiver eeprom
     * sfputil reset <interface name>
     """
-    ans_host = testbed_devices["dut"]
-
-    if ans_host.facts["asic_type"] in ["mellanox"]:
-        loganalyzer = LogAnalyzer(ansible_host=ans_host, marker_prefix='sfp_cfg')
+    if duthost.facts["asic_type"] in ["mellanox"]:
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='sfp_cfg')
         loganalyzer.load_common_config()
 
         loganalyzer.ignore_regex.append("kernel.*Eeprom query failed*")
@@ -116,32 +114,32 @@ def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
     cmd_xcvr_presence = "show interface transceiver presence"
     cmd_xcvr_eeprom = "show interface transceiver eeprom"
 
-    portmap = get_port_map(testbed_devices)
+    portmap = get_port_map(duthost)
     logging.info("Got portmap {}".format(portmap))
 
     logging.info("Check output of '%s'" % cmd_sfp_presence)
-    sfp_presence = ans_host.command(cmd_sfp_presence)
+    sfp_presence = duthost.command(cmd_sfp_presence)
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
     for intf in conn_graph_facts["device_conn"]:
         assert intf in parsed_presence, "Interface is not in output of '%s'" % cmd_sfp_presence
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
     logging.info("Check output of '%s'" % cmd_xcvr_presence)
-    xcvr_presence = ans_host.command(cmd_xcvr_presence)
+    xcvr_presence = duthost.command(cmd_xcvr_presence)
     parsed_presence = parse_output(xcvr_presence["stdout_lines"][2:])
     for intf in conn_graph_facts["device_conn"]:
         assert intf in parsed_presence, "Interface is not in output of '%s'" % cmd_xcvr_presence
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
     logging.info("Check output of '%s'" % cmd_sfp_eeprom)
-    sfp_eeprom = ans_host.command(cmd_sfp_eeprom)
+    sfp_eeprom = duthost.command(cmd_sfp_eeprom)
     parsed_eeprom = parse_eeprom(sfp_eeprom["stdout_lines"])
     for intf in conn_graph_facts["device_conn"]:
         assert intf in parsed_eeprom, "Interface is not in output of 'sfputil show eeprom'"
         assert parsed_eeprom[intf] == "SFP EEPROM detected"
 
     logging.info("Check output of '%s'" % cmd_xcvr_eeprom)
-    xcvr_eeprom = ans_host.command(cmd_xcvr_eeprom)
+    xcvr_eeprom = duthost.command(cmd_xcvr_eeprom)
     parsed_eeprom = parse_eeprom(xcvr_eeprom["stdout_lines"])
     for intf in conn_graph_facts["device_conn"]:
         assert intf in parsed_eeprom, "Interface is not in output of '%s'" % cmd_xcvr_eeprom
@@ -156,30 +154,30 @@ def test_check_sfp_status_and_configure_sfp(testbed_devices, conn_graph_facts):
             continue
         tested_physical_ports.add(phy_intf)
         logging.info("resetting {} physical interface {}".format(intf, phy_intf))
-        reset_result = ans_host.command("%s %s" % (cmd_sfp_reset, intf))
+        reset_result = duthost.command("%s %s" % (cmd_sfp_reset, intf))
         assert reset_result["rc"] == 0, "'%s %s' failed" % (cmd_sfp_reset, intf)
         time.sleep(5)
     logging.info("Wait some time for SFP to fully recover after reset")
     time.sleep(60)
 
     logging.info("Check sfp presence again after reset")
-    sfp_presence = ans_host.command(cmd_sfp_presence)
+    sfp_presence = duthost.command(cmd_sfp_presence)
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
     for intf in conn_graph_facts["device_conn"]:
         assert intf in parsed_presence, "Interface is not in output of '%s'" % cmd_sfp_presence
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
     logging.info("Check interface status")
-    mg_facts = ans_host.minigraph_facts(host=ans_host.hostname)["ansible_facts"]
-    intf_facts = ans_host.interface_facts(up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    intf_facts = duthost.interface_facts(up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
     assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
         "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
 
-    if ans_host.facts["asic_type"] in ["mellanox"]:
+    if duthost.facts["asic_type"] in ["mellanox"]:
         loganalyzer.analyze(marker)
 
 
-def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
+def test_check_sfp_low_power_mode(duthost, conn_graph_facts):
     """
     @summary: Check SFP low power mode
 
@@ -188,10 +186,8 @@ def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
     * sfputil lpmode off
     * sfputil lpmode on
     """
-    ans_host = testbed_devices["dut"]
-
-    if ans_host.facts["asic_type"] in ["mellanox"]:
-        loganalyzer = LogAnalyzer(ansible_host=ans_host, marker_prefix='sfp_lpm')
+    if duthost.facts["asic_type"] in ["mellanox"]:
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='sfp_lpm')
         loganalyzer.load_common_config()
 
         loganalyzer.ignore_regex.append("Eeprom query failed")
@@ -201,11 +197,11 @@ def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
     cmd_sfp_show_lpmode = "sudo sfputil show lpmode"
     cmd_sfp_set_lpmode = "sudo sfputil lpmode"
 
-    portmap = get_port_map(testbed_devices)
+    portmap = get_port_map(duthost)
     logging.info("Got portmap {}".format(portmap))
 
     logging.info("Check output of '%s'" % cmd_sfp_show_lpmode)
-    lpmode_show = ans_host.command(cmd_sfp_show_lpmode)
+    lpmode_show = duthost.command(cmd_sfp_show_lpmode)
     parsed_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
     original_lpmode = copy.deepcopy(parsed_lpmode)
     for intf in conn_graph_facts["device_conn"]:
@@ -222,12 +218,12 @@ def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
         tested_physical_ports.add(phy_intf)
         logging.info("setting {} physical interface {}".format(intf, phy_intf))
         new_lpmode = "off" if original_lpmode[intf].lower() == "on" else "on"
-        lpmode_set_result = ans_host.command("%s %s %s" % (cmd_sfp_set_lpmode, new_lpmode, intf))
+        lpmode_set_result = duthost.command("%s %s %s" % (cmd_sfp_set_lpmode, new_lpmode, intf))
         assert lpmode_set_result["rc"] == 0, "'%s %s %s' failed" % (cmd_sfp_set_lpmode, new_lpmode, intf)
     time.sleep(10)
 
     logging.info("Check SFP lower power mode again after changing SFP lpmode")
-    lpmode_show = ans_host.command(cmd_sfp_show_lpmode)
+    lpmode_show = duthost.command(cmd_sfp_show_lpmode)
     parsed_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
     for intf in conn_graph_facts["device_conn"]:
         assert intf in parsed_lpmode, "Interface is not in output of '%s'" % cmd_sfp_show_lpmode
@@ -243,29 +239,29 @@ def test_check_sfp_low_power_mode(testbed_devices, conn_graph_facts):
         tested_physical_ports.add(phy_intf)
         logging.info("restoring {} physical interface {}".format(intf, phy_intf))
         new_lpmode = original_lpmode[intf].lower()
-        lpmode_set_result = ans_host.command("%s %s %s" % (cmd_sfp_set_lpmode, new_lpmode, intf))
+        lpmode_set_result = duthost.command("%s %s %s" % (cmd_sfp_set_lpmode, new_lpmode, intf))
         assert lpmode_set_result["rc"] == 0, "'%s %s %s' failed" % (cmd_sfp_set_lpmode, new_lpmode, intf)
     time.sleep(10)
 
     logging.info("Check SFP lower power mode again after changing SFP lpmode")
-    lpmode_show = ans_host.command(cmd_sfp_show_lpmode)
+    lpmode_show = duthost.command(cmd_sfp_show_lpmode)
     parsed_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
     for intf in conn_graph_facts["device_conn"]:
         assert intf in parsed_lpmode, "Interface is not in output of '%s'" % cmd_sfp_show_lpmode
         assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", "Unexpected SFP lpmode"
 
     logging.info("Check sfp presence again after setting lpmode")
-    sfp_presence = ans_host.command(cmd_sfp_presence)
+    sfp_presence = duthost.command(cmd_sfp_presence)
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
     for intf in conn_graph_facts["device_conn"]:
         assert intf in parsed_presence, "Interface is not in output of '%s'" % cmd_sfp_presence
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
     logging.info("Check interface status")
-    mg_facts = ans_host.minigraph_facts(host=ans_host.hostname)["ansible_facts"]
-    intf_facts = ans_host.interface_facts(up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    intf_facts = duthost.interface_facts(up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
     assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
         "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
 
-    if ans_host.facts["asic_type"] in ["mellanox"]:
+    if duthost.facts["asic_type"] in ["mellanox"]:
         loganalyzer.analyze(marker)

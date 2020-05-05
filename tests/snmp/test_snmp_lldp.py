@@ -7,7 +7,7 @@ def setup_check_topo(testbed):
         pytest.skip('Unsupported topology')
 
 @pytest.mark.bsl
-def test_snmp_lldp(ansible_adhoc, testbed, creds):
+def test_snmp_lldp(duthost, ansible_adhoc, creds):
     """
     Test checks for ieee802_1ab MIBs:
      - lldpLocalSystemData  1.0.8802.1.1.2.1.3
@@ -22,13 +22,11 @@ def test_snmp_lldp(ansible_adhoc, testbed, creds):
     (similar to lldp test)
     """
 
-    hostname = testbed['dut']
-    ans_host = AnsibleHost(ansible_adhoc, hostname)
     lhost = AnsibleHost(ansible_adhoc, 'localhost', True)
-    hostip = ans_host.host.options['inventory_manager'].get_host(hostname).vars['ansible_host']
+    hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
     snmp_facts = lhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
-    mg_facts   = ans_host.minigraph_facts(host=hostname)['ansible_facts']
+    mg_facts   = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 
     print snmp_facts['snmp_lldp']
     for k in ['lldpLocChassisIdSubtype', 'lldpLocChassisId', 'lldpLocSysName', 'lldpLocSysDesc']:
@@ -74,7 +72,7 @@ def test_snmp_lldp(ansible_adhoc, testbed, creds):
     assert len(active_intf) >= len(minigraph_lldp_nei) * 0.8 
 
     # skip neighbors that do not send chassis information via lldp
-    lldp_facts = ans_host.lldp()['ansible_facts']
+    lldp_facts = duthost.lldp()['ansible_facts']
     nei = [k for k, v in lldp_facts['lldp'].items() if k != 'eth0' and v['chassis'].has_key('mgmt-ip') ]
     print "neighbors {} send chassis management IP information".format(nei)
 

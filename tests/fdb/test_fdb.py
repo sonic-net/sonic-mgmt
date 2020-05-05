@@ -146,9 +146,8 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
 
 
 @pytest.fixture
-def fdb_cleanup(ansible_adhoc, testbed):
+def fdb_cleanup(duthost):
     """ cleanup FDB before and after test run """
-    duthost = AnsibleHost(ansible_adhoc, testbed['dut'])
     try:
         duthost.command('sonic-clear fdb all')
         yield

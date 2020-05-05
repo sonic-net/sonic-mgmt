@@ -2,21 +2,18 @@ from ansible_host import AnsibleHost
 import logging
 import pytest
 
+logger = logging.getLogger(__name__)
+
 @pytest.fixture(scope="module", autouse=True)
 def setup_check_topo(testbed):
     if testbed['topo']['type'] == 'ptf':
         pytest.skip('Unsupported topology')
 
-logger = logging.getLogger(__name__)
-
-def test_lldp(localhost, ansible_adhoc, testbed, collect_techsupport):
+def test_lldp(duthost, localhost, collect_techsupport):
     """ verify the LLDP message on DUT """
 
-    hostname = testbed['dut']
-    ans_host = AnsibleHost(ansible_adhoc, hostname)
-
-    mg_facts  = ans_host.minigraph_facts(host=hostname)['ansible_facts']
-    lldp_facts = ans_host.lldp()['ansible_facts']
+    mg_facts  = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    lldp_facts = duthost.lldp()['ansible_facts']
 
     minigraph_lldp_nei = {}
     for k, v in mg_facts['minigraph_neighbors'].items():
@@ -35,19 +32,17 @@ def test_lldp(localhost, ansible_adhoc, testbed, collect_techsupport):
         assert v['port']['ifname'] == mg_facts['minigraph_neighbors'][k]['port']
 
 
-def test_lldp_neighbor(localhost, ansible_adhoc, testbed, eos, collect_techsupport):
+def test_lldp_neighbor(duthost, localhost, ansible_adhoc, eos, collect_techsupport):
     """ verify LLDP information on neighbors """
 
-    hostname = testbed['dut']
-    ans_host = AnsibleHost(ansible_adhoc, hostname)
-    mg_facts  = ans_host.minigraph_facts(host=hostname)['ansible_facts']
-    res = ans_host.shell("docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")
+    mg_facts  = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    res = duthost.shell("docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")
     dut_system_description = res['stdout']
-    lldp_facts = ans_host.lldp()['ansible_facts']
-    host_facts  = ans_host.setup()['ansible_facts']
+    lldp_facts = duthost.lldp()['ansible_facts']
+    host_facts  = duthost.setup()['ansible_facts']
     lhost = AnsibleHost(ansible_adhoc, 'localhost', True)
 
-    config_facts  = ans_host.config_facts(host=hostname, source="running")['ansible_facts']
+    config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
 
     for k, v in lldp_facts['lldp'].items():
@@ -65,7 +60,7 @@ def test_lldp_neighbor(localhost, ansible_adhoc, testbed, eos, collect_techsuppo
         print nei_lldp_facts
         neighbor_interface = v['port']['ifname']
         # Verify the published DUT system name field is correct
-        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_name'] == hostname
+        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_name'] == duthost.hostname
         # Verify the published DUT chassis id field is not empty
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_chassis_id'] == \
                 "0x%s" % (host_facts['ansible_eth0']['macaddress'].replace(':', ''))

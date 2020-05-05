@@ -76,20 +76,19 @@ def port_facts(dut, mg_facts):
 
 
 @pytest.fixture(scope='function')
-def gather_facts(testbed_devices, testbed):
+def gather_facts(testbed, duthost):
     facts = {}
     topo = testbed['topo']['name']
     if topo not in TOPO_LIST:
         pytest.skip("Unsupported topology")
     logger.info("Gathering facts on DUT ...")
-    dut = testbed_devices["dut"]
-    mg_facts = dut.minigraph_facts(host=dut.hostname)['ansible_facts']
-    
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+
     # if minigraph_portchannel_interfaces is not empty - topology with lag
     if mg_facts['minigraph_portchannel_interfaces']:
-        facts = lag_facts(dut, mg_facts)
+        facts = lag_facts(duthost, mg_facts)
     else:
-        facts = port_facts(dut, mg_facts)
+        facts = port_facts(duthost, mg_facts)
 
     logger.info("Facts gathered successfully")
 

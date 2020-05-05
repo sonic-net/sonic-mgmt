@@ -78,14 +78,12 @@ def execute_dut_command(duthost, command, mvrf = True, ignore_errors=False):
     
 class TestMvrfInbound():
 
-    def test_ping(self,duthost, localhost):
+    def test_ping(self, duthost, localhost):
        res = duthost.ping()
 
-    def test_snmp_fact(self,testbed_devices):
-       localhost = testbed_devices['localhost']
-       duthost = testbed_devices['dut']
+    def test_snmp_fact(self, localhost):
        snmp_res = localhost.snmp_facts(host=var['dut_ip'],version='v2c',community='public' )  
-       
+
 class TestMvrfOutbound(): 
 
     @pytest.fixture  
@@ -167,36 +165,33 @@ class TestServices():
 
 class TestReboot():
 
-    def basic_check_after_reboot(self, duthost, localhost, testbed_devices, testbed):
+    def basic_check_after_reboot(self, duthost, localhost, testbed):
          verify_show_command(duthost)
          inbound_test = TestMvrfInbound()
          outbound_test = TestMvrfOutbound()
          outbound_test.test_ping(testbed,duthost)
          inbound_test.test_ping(duthost,localhost)
-         inbound_test.test_snmp_fact(testbed_devices)
+         inbound_test.test_snmp_fact(localhost)
 
 
-    def test_warmboot(self, localhost, testbed_devices, testbed):
+    def test_warmboot(self, duthost, localhost, testbed_devices, testbed):
 
-        duthost = testbed_devices["dut"]
         duthost.command('sudo config save -y')
         reboot(duthost, localhost, reboot_type='warm')
         assert wait_until(120, 20, duthost.critical_services_fully_started), "Not all critical services are fully started"
-        self.basic_check_after_reboot(duthost, localhost, testbed_devices, testbed)
+        self.basic_check_after_reboot(duthost, localhost, testbed)
 
 
-    def test_reboot(self, localhost, testbed_devices, testbed):
-        duthost = testbed_devices["dut"]
+    def test_reboot(self, duthost, localhost, testbed_devices, testbed):
         duthost.command('sudo config save -y')
         reboot(duthost, localhost)
         assert wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started"
-        self.basic_check_after_reboot(duthost, localhost, testbed_devices, testbed)
+        self.basic_check_after_reboot(duthost, localhost, testbed)
 
-    def test_fastboot(self, localhost, testbed_devices, testbed):
+    def test_fastboot(self, duthost, localhost, testbed_devices, testbed):
  
-        duthost = testbed_devices["dut"]
         duthost.command('sudo config save -y')
         reboot(duthost, localhost,reboot_type='fast')
         assert wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started"
-        self.basic_check_after_reboot(duthost, localhost, testbed_devices, testbed)
+        self.basic_check_after_reboot(duthost, localhost, testbed)
 

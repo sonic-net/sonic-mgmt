@@ -53,12 +53,11 @@ class TestWatchdogAPI(object):
         return config
 
 
-    def test_arm_disarm_states(self, testbed_devices, platform_api_conn, conf):
+    def test_arm_disarm_states(self, duthost, testbed_devices, platform_api_conn, conf):
         ''' arm watchdog with a valid timeout value, verify it is in armed state,
         disarm watchdog and verify it is in disarmed state
         '''
 
-        duthost = testbed_devices['dut']
         localhost = testbed_devices['localhost']
 
         watchdog_timeout = conf['valid_timeout']
@@ -161,10 +160,9 @@ class TestWatchdogAPI(object):
         assert actual_timeout == -1
 
     @pytest.mark.disable_loganalyzer
-    def test_reboot(self, testbed_devices, platform_api_conn, conf):
+    def test_reboot(self, duthost, testbed_devices, platform_api_conn, conf):
         ''' arm the watchdog and verify it did its job after timeout expiration '''
 
-        duthost = testbed_devices['dut']
         localhost = testbed_devices['localhost']
 
         watchdog_timeout = conf['valid_timeout']
