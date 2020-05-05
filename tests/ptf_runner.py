@@ -7,7 +7,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     cmd = "ptf --test-dir {} {}".format(testdir, testname)
 
     if platform_dir:
-        cmd += "--platform-dir {}".format(platform_dir)
+        cmd += " --platform-dir {}".format(platform_dir)
 
     if qlen:
         cmd += " --qlen={}".format(qlen)
