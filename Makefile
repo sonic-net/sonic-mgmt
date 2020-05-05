@@ -1,6 +1,9 @@
 BUILDDIR=$(PWD)/build
 DOCKER_IMG=$(BUILDDIR)/iidfile
 RUNOPTS=-v $(PWD):/godiva-test -v $(HOME):/opt/home
+BUILD_ARGS=--build-arg HTTP_PROXY=http://proxy.esl.cisco.com:80 \
+	--build-arg NO_PROXY=.cisco.com
+
 .PHONY: all clean runtest
 
 all: $(DOCKER_IMG)
@@ -14,14 +17,13 @@ runtest : $(DOCKER_IMG)
 $(DOCKER_IMG): docker/Dockerfile docker/current-req.txt docker/docker_startup_env
 	@git submodule update --init --recursive
 	@mkdir -p $(BUILDDIR)
-	@docker build --iidfile $(DOCKER_IMG) -t ubuntu-cafy docker
+	@docker build $(BUILD_ARGS) --iidfile $(DOCKER_IMG) -t ubuntu-cafy docker
 
 distclean: clean
 	@rm -fr $(BUILDDIR)
 
 clean:
 	@if [ -e $(DOCKER_IMG) ]; then \
-		echo "deleting docker image ..." \
 		docker image remove --force $(shell cat $(DOCKER_IMG)); \
 		rm -fr $(DOCKER_IMG); \
 	fi;

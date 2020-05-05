@@ -1,5 +1,8 @@
 FROM ubuntu:18.04
 
+ARG HTTP_PROXY
+ARG NO_PROXY
+
 ENV TERM=vt100
 
 RUN apt-get update && apt-get install \
@@ -16,11 +19,11 @@ RUN apt-get update && apt-get install \
 
 WORKDIR /root/gd_test 
 
-ENV http_proxy=http://proxy.esl.cisco.com:80
-ENV https_proxy=http://proxy.esl.cisco.com:80
-ENV HTTPS_PROXY=http://proxy.esl.cisco.com:80
-ENV HTTP_PROXY=http://proxy.esl.cisco.com:80
-ENV no_proxy=.cisco.com
+ENV http_proxy=$HTTP_PROXY
+ENV https_proxy=$HTTP_PROXY
+ENV HTTP_PROXY=$HTTP_PROXY
+ENV HTTPS_PROXY=$HTTP_PROXY
+ENV no_proxy=$NO_PROXY
 
 # Install dependencies:
 COPY current-req.txt .
