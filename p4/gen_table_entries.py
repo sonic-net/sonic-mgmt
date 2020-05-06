@@ -49,8 +49,12 @@ def main():
         member_dict['action_profile_name'] = "ingress.l3_fwd.l3_action_profile"
         member_dict['action_name'] = "ingress.l3_fwd.set_nexthop"
         action_params_dict['port'] = i
-        action_params_dict['smac'] = "02:01:02:03:04:0{}".format(i)
-        action_params_dict['dmac'] = "00:10:94:00:00:0{}".format(i)
+        if i < 10:
+            last_octet = "0{}".format(i)
+        else:
+            last_octet = i
+        action_params_dict['smac'] = "02:01:02:03:04:{}".format(last_octet)
+        action_params_dict['dmac'] = "00:10:94:00:00:{}".format(last_octet)
         action_params_dict['l3_class_id'] = 10
         member_dict['action_params'] = action_params_dict
         member_list.append(member_dict)
@@ -65,8 +69,12 @@ def main():
         member_dict['action_profile_name'] = "ingress.l3_fwd.l3_action_profile"
         member_dict['action_name'] = "ingress.l3_fwd.set_nexthop"
         action_params_dict['port'] = i
-        action_params_dict['smac'] = "02:01:02:03:04:0{}".format(i)
-        action_params_dict['dmac'] = "00:10:94:00:00:0{}".format(i)
+        if i < 10:
+            last_octet = "0{}".format(i)
+        else:
+            last_octet = i
+        action_params_dict['smac'] = "02:01:02:03:04:{}".format(last_octet)
+        action_params_dict['dmac'] = "00:10:94:00:00:{}".format(last_octet)
         action_params_dict['l3_class_id'] = 10
         member_dict['action_params'] = action_params_dict
         member_list.append(member_dict)
