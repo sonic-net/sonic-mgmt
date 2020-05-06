@@ -1,0 +1,1362 @@
+{
+    "target": "th3",
+    "p4info": "build/basic.json",
+    "table_name": "ingress.l3_fwd.l3_ipv4_vrf_table",
+    "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+    "member_entries": [
+        {
+            "member_id": 1,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 1,
+                "smac": "0x020102030401",
+                "dmac": "0x001094000001",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 2,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 2,
+                "smac": "0x020102030402",
+                "dmac": "0x001094000002",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 3,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 3,
+                "smac": "0x020102030403",
+                "dmac": "0x001094000003",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 4,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 4,
+                "smac": "0x020102030404",
+                "dmac": "0x001094000004",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 5,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 5,
+                "smac": "0x020102030405",
+                "dmac": "0x001094000005",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 6,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 6,
+                "smac": "0x020102030406",
+                "dmac": "0x001094000006",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 7,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 7,
+                "smac": "0x020102030407",
+                "dmac": "0x001094000007",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 8,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 8,
+                "smac": "0x020102030408",
+                "dmac": "0x001094000008",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 9,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 9,
+                "smac": "0x020102030409",
+                "dmac": "0x001094000009",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 10,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 10,
+                "smac": "0x0201020304010",
+                "dmac": "0x0010940000010",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 11,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 11,
+                "smac": "0x0201020304011",
+                "dmac": "0x0010940000011",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 12,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 12,
+                "smac": "0x0201020304012",
+                "dmac": "0x0010940000012",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 13,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 13,
+                "smac": "0x0201020304013",
+                "dmac": "0x0010940000013",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 14,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 14,
+                "smac": "0x0201020304014",
+                "dmac": "0x0010940000014",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 15,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 15,
+                "smac": "0x0201020304015",
+                "dmac": "0x0010940000015",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 16,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 16,
+                "smac": "0x0201020304016",
+                "dmac": "0x0010940000016",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 17,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 17,
+                "smac": "0x0201020304017",
+                "dmac": "0x0010940000017",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 18,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 18,
+                "smac": "0x0201020304018",
+                "dmac": "0x0010940000018",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 19,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 19,
+                "smac": "0x0201020304019",
+                "dmac": "0x0010940000019",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 20,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 20,
+                "smac": "0x0201020304020",
+                "dmac": "0x0010940000020",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 21,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 21,
+                "smac": "0x0201020304021",
+                "dmac": "0x0010940000021",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 22,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 22,
+                "smac": "0x0201020304022",
+                "dmac": "0x0010940000022",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 23,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 23,
+                "smac": "0x0201020304023",
+                "dmac": "0x0010940000023",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 24,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 24,
+                "smac": "0x0201020304024",
+                "dmac": "0x0010940000024",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 25,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 25,
+                "smac": "0x0201020304025",
+                "dmac": "0x0010940000025",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 26,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 26,
+                "smac": "0x0201020304026",
+                "dmac": "0x0010940000026",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 27,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 27,
+                "smac": "0x0201020304027",
+                "dmac": "0x0010940000027",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 28,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 28,
+                "smac": "0x0201020304028",
+                "dmac": "0x0010940000028",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 29,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 29,
+                "smac": "0x0201020304029",
+                "dmac": "0x0010940000029",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 30,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 30,
+                "smac": "0x0201020304030",
+                "dmac": "0x0010940000030",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 31,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 31,
+                "smac": "0x0201020304031",
+                "dmac": "0x0010940000031",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 32,
+            "entry_oper": "INSERT",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 32,
+                "smac": "0x0201020304032",
+                "dmac": "0x0010940000032",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 1,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 1,
+                "smac": "0x020102030401",
+                "dmac": "0x001094000001",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 2,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 2,
+                "smac": "0x020102030402",
+                "dmac": "0x001094000002",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 3,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 3,
+                "smac": "0x020102030403",
+                "dmac": "0x001094000003",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 4,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 4,
+                "smac": "0x020102030404",
+                "dmac": "0x001094000004",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 5,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 5,
+                "smac": "0x020102030405",
+                "dmac": "0x001094000005",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 6,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 6,
+                "smac": "0x020102030406",
+                "dmac": "0x001094000006",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 7,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 7,
+                "smac": "0x020102030407",
+                "dmac": "0x001094000007",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 8,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 8,
+                "smac": "0x020102030408",
+                "dmac": "0x001094000008",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 9,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 9,
+                "smac": "0x020102030409",
+                "dmac": "0x001094000009",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 10,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 10,
+                "smac": "0x0201020304010",
+                "dmac": "0x0010940000010",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 11,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 11,
+                "smac": "0x0201020304011",
+                "dmac": "0x0010940000011",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 12,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 12,
+                "smac": "0x0201020304012",
+                "dmac": "0x0010940000012",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 13,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 13,
+                "smac": "0x0201020304013",
+                "dmac": "0x0010940000013",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 14,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 14,
+                "smac": "0x0201020304014",
+                "dmac": "0x0010940000014",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 15,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 15,
+                "smac": "0x0201020304015",
+                "dmac": "0x0010940000015",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 16,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 16,
+                "smac": "0x0201020304016",
+                "dmac": "0x0010940000016",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 17,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 17,
+                "smac": "0x0201020304017",
+                "dmac": "0x0010940000017",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 18,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 18,
+                "smac": "0x0201020304018",
+                "dmac": "0x0010940000018",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 19,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 19,
+                "smac": "0x0201020304019",
+                "dmac": "0x0010940000019",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 20,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 20,
+                "smac": "0x0201020304020",
+                "dmac": "0x0010940000020",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 21,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 21,
+                "smac": "0x0201020304021",
+                "dmac": "0x0010940000021",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 22,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 22,
+                "smac": "0x0201020304022",
+                "dmac": "0x0010940000022",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 23,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 23,
+                "smac": "0x0201020304023",
+                "dmac": "0x0010940000023",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 24,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 24,
+                "smac": "0x0201020304024",
+                "dmac": "0x0010940000024",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 25,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 25,
+                "smac": "0x0201020304025",
+                "dmac": "0x0010940000025",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 26,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 26,
+                "smac": "0x0201020304026",
+                "dmac": "0x0010940000026",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 27,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 27,
+                "smac": "0x0201020304027",
+                "dmac": "0x0010940000027",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 28,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 28,
+                "smac": "0x0201020304028",
+                "dmac": "0x0010940000028",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 29,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 29,
+                "smac": "0x0201020304029",
+                "dmac": "0x0010940000029",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 30,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 30,
+                "smac": "0x0201020304030",
+                "dmac": "0x0010940000030",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 31,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 31,
+                "smac": "0x0201020304031",
+                "dmac": "0x0010940000031",
+                "l3_class_id": 10
+            }
+        },
+        {
+            "member_id": 32,
+            "entry_oper": "DELETE",
+            "action_profile_id": "285212673",
+            "action_profile_name": "ingress.l3_fwd.l3_action_profile",
+            "action_name": "ingress.l3_fwd.set_nexthop",
+            "action_params": {
+                "port": 32,
+                "smac": "0x0201020304032",
+                "dmac": "0x0010940000032",
+                "l3_class_id": 10
+            }
+        }
+    ],
+    "table_entries": [
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 1,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.1",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 1,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.1",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 2,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.2",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 2,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.2",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 3,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.3",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 3,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.3",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 4,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.4",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 4,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.4",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 5,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.5",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 5,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.5",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 6,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.6",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 6,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.6",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 7,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.7",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 7,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.7",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 8,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.8",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 8,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.8",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 9,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.9",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 9,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.9",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 10,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.10",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.vrf_id": 10,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.10",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 1,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.1",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 1,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.1",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 2,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.2",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 2,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.2",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 3,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.3",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 3,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.3",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 4,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.4",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 4,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.4",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 5,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.5",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 5,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.5",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 6,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.6",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 6,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.6",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 7,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.7",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 7,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.7",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 8,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.8",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 8,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.8",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 9,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.9",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 9,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.9",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 10,
+                "hdr.ipv4_base.dst_addr": [
+                    "100.27.1.10",
+                    32
+                ]
+            },
+            "action_member": 27,
+            "priority": 0
+        },
+        {
+            "entry_oper": "DELETE",
+            "table": "ingress.l3_fwd.l3_ipv4_vrf_table",
+            "match": {
+                "local_metadata.vrf_id": 10,
+                "hdr.ipv4_base.dst_addr": [
+                    "200.27.1.10",
+                    32
+                ]
+            },
+            "action_member": 29,
+            "priority": 0
+        }
+    ]
+}

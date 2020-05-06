@@ -34,6 +34,7 @@ from p4_error_utils import printGrpcError
 import p4_info_helper
 import p4_test_lib as p4TestLib
 import p4_sanity_tc as p4_san_tc
+import p4_traffic_test as p4_traffic_tc
 import tc_helper_lib as TchLib
 import p4_apg_apm
 import six
@@ -211,6 +212,10 @@ class TestP4(P4ApBase):
     @pytest.mark.parametrize("tbl_name", ["ingress.l3_fwd.l3_ipv4_vrf_table"])
     def test_indirect_table_crudTests(self, tbl_name, tbl_ops, sw_conn):
         p4_san_tc._test_indirect_table_crudTests(self, tbl_name, tbl_ops,sw_conn)
+
+    @pytest.mark.parametrize("tbl_ops", ["INSERT", "READ"])
+    def test_traffic_l3_fwd_l3_ipv4_vrf_table(self, tbl_ops, sw_conn):
+        p4_traffic_tc._test_traffic_l3_fwd_l3_ipv4_vrf_table(self, tbl_ops,sw_conn)
 
     def test_p4_sanity(self,sw_conn):
         p4_san_tc._test_p4_sanity(sw_conn)
