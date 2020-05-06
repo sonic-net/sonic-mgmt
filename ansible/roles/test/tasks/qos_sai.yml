@@ -295,8 +295,10 @@
         - pkts_num_fill_min='{{qp.wm_pg_shared_lossless.pkts_num_fill_min}}'
         - pkts_num_fill_shared='{{qp.wm_pg_shared_lossless.pkts_num_trig_pfc}}'
         - cell_size='{{qp.wm_pg_shared_lossless.cell_size}}'
+        - packet_size='{{qp.wm_pg_shared_lossless.packet_size}}'
       when: minigraph_hwsku is defined and
             (minigraph_hwsku not in ['Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8'])
+
     - debug:
         var: out.stdout_lines
       when: minigraph_hwsku is defined and
@@ -324,8 +326,10 @@
         - pkts_num_fill_min='{{qp.wm_pg_shared_lossy.pkts_num_fill_min}}'
         - pkts_num_fill_shared='{{qp.wm_pg_shared_lossy.pkts_num_trig_egr_drp|int - 1}}'
         - cell_size='{{qp.wm_pg_shared_lossy.cell_size}}'
+        - packet_size='{{qp.wm_pg_shared_lossless.packet_size}}'
       when: minigraph_hwsku is defined and
             minigraph_hwsku not in ['Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8']
+
     - debug:
         var: out.stdout_lines
       when: minigraph_hwsku is defined and

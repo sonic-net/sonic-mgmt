@@ -1394,12 +1394,17 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_fill_min = int(self.test_params['pkts_num_fill_min'])
         pkts_num_fill_shared = int(self.test_params['pkts_num_fill_shared'])
         cell_size = int(self.test_params['cell_size'])
+        if 'packet_size' in self.test_params.keys():
+            default_packet_length = int(self.test_params['packet_size'])
+        else:
+            default_packet_length = 64
+
+        cell_occupancy = (default_packet_length + cell_size - 1) / cell_size
 
         # Prepare TCP packet data
         tos = dscp << 2
         tos |= ecn
         ttl = 64
-        default_packet_length = 64
         pkt = simple_tcp_packet(pktlen=default_packet_length,
                                 eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                 eth_src=src_port_mac,
@@ -1438,13 +1443,16 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # first round sends only 1 packet
             expected_wm = 0
             total_shared = pkts_num_fill_shared - pkts_num_fill_min
-            pkts_inc = total_shared >> 2
+            pkts_inc = (total_shared / cell_occupancy) >> 2
             pkts_num = 1 + margin
-            while (expected_wm < total_shared):
-                expected_wm += pkts_num
+            fragment = 0
+            while (expected_wm < total_shared - fragment):
+                expected_wm += pkts_num * cell_occupancy
                 if (expected_wm > total_shared):
-                    pkts_num -= (expected_wm - total_shared)
-                    expected_wm = total_shared
+                    diff = (expected_wm - total_shared + cell_occupancy - 1) / cell_occupancy
+                    pkts_num -= diff
+                    expected_wm -= diff * cell_occupancy
+                    fragment = total_shared - expected_wm
                 print >> sys.stderr, "pkts num to send: %d, total pkts: %d, pg shared: %d" % (pkts_num, expected_wm, total_shared)
 
                 send_packet(self, src_port_id, pkt, pkts_num)
@@ -1460,10 +1468,11 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             send_packet(self, src_port_id, pkt, pkts_num)
             time.sleep(8)
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[src_port_id])
-            print >> sys.stderr, "exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (pkts_num, (expected_wm * cell_size), pg_shared_wm_res[pg])
-            assert(expected_wm == total_shared)
+            print >> sys.stderr, "exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (pkts_num, ((expected_wm + cell_occupancy) * cell_size), pg_shared_wm_res[pg])
+#            assert(expected_wm == total_shared)
+            assert(fragment < cell_occupancy)
             assert(expected_wm * cell_size <= pg_shared_wm_res[pg])
-            assert(pg_shared_wm_res[pg] <= (expected_wm + margin) * cell_size)
+            assert(pg_shared_wm_res[pg] <= (expected_wm + margin + cell_occupancy) * cell_size)
 
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
