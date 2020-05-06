@@ -12,8 +12,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 1,
-                "smac": "0x020102030401",
-                "dmac": "0x001094000001",
+                "smac": "02:01:02:03:04:01",
+                "dmac": "00:10:94:00:00:01",
                 "l3_class_id": 10
             }
         },
@@ -25,8 +25,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 2,
-                "smac": "0x020102030402",
-                "dmac": "0x001094000002",
+                "smac": "02:01:02:03:04:02",
+                "dmac": "00:10:94:00:00:02",
                 "l3_class_id": 10
             }
         },
@@ -38,8 +38,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 3,
-                "smac": "0x020102030403",
-                "dmac": "0x001094000003",
+                "smac": "02:01:02:03:04:03",
+                "dmac": "00:10:94:00:00:03",
                 "l3_class_id": 10
             }
         },
@@ -51,8 +51,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 4,
-                "smac": "0x020102030404",
-                "dmac": "0x001094000004",
+                "smac": "02:01:02:03:04:04",
+                "dmac": "00:10:94:00:00:04",
                 "l3_class_id": 10
             }
         },
@@ -64,8 +64,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 5,
-                "smac": "0x020102030405",
-                "dmac": "0x001094000005",
+                "smac": "02:01:02:03:04:05",
+                "dmac": "00:10:94:00:00:05",
                 "l3_class_id": 10
             }
         },
@@ -77,8 +77,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 6,
-                "smac": "0x020102030406",
-                "dmac": "0x001094000006",
+                "smac": "02:01:02:03:04:06",
+                "dmac": "00:10:94:00:00:06",
                 "l3_class_id": 10
             }
         },
@@ -90,8 +90,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 7,
-                "smac": "0x020102030407",
-                "dmac": "0x001094000007",
+                "smac": "02:01:02:03:04:07",
+                "dmac": "00:10:94:00:00:07",
                 "l3_class_id": 10
             }
         },
@@ -103,8 +103,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 8,
-                "smac": "0x020102030408",
-                "dmac": "0x001094000008",
+                "smac": "02:01:02:03:04:08",
+                "dmac": "00:10:94:00:00:08",
                 "l3_class_id": 10
             }
         },
@@ -116,8 +116,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 9,
-                "smac": "0x020102030409",
-                "dmac": "0x001094000009",
+                "smac": "02:01:02:03:04:09",
+                "dmac": "00:10:94:00:00:09",
                 "l3_class_id": 10
             }
         },
@@ -129,8 +129,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 10,
-                "smac": "0x0201020304010",
-                "dmac": "0x0010940000010",
+                "smac": "02:01:02:03:04:010",
+                "dmac": "00:10:94:00:00:010",
                 "l3_class_id": 10
             }
         },
@@ -142,8 +142,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 11,
-                "smac": "0x0201020304011",
-                "dmac": "0x0010940000011",
+                "smac": "02:01:02:03:04:011",
+                "dmac": "00:10:94:00:00:011",
                 "l3_class_id": 10
             }
         },
@@ -155,8 +155,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 12,
-                "smac": "0x0201020304012",
-                "dmac": "0x0010940000012",
+                "smac": "02:01:02:03:04:012",
+                "dmac": "00:10:94:00:00:012",
                 "l3_class_id": 10
             }
         },
@@ -168,8 +168,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 13,
-                "smac": "0x0201020304013",
-                "dmac": "0x0010940000013",
+                "smac": "02:01:02:03:04:013",
+                "dmac": "00:10:94:00:00:013",
                 "l3_class_id": 10
             }
         },
@@ -181,8 +181,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 14,
-                "smac": "0x0201020304014",
-                "dmac": "0x0010940000014",
+                "smac": "02:01:02:03:04:014",
+                "dmac": "00:10:94:00:00:014",
                 "l3_class_id": 10
             }
         },
@@ -194,8 +194,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 15,
-                "smac": "0x0201020304015",
-                "dmac": "0x0010940000015",
+                "smac": "02:01:02:03:04:015",
+                "dmac": "00:10:94:00:00:015",
                 "l3_class_id": 10
             }
         },
@@ -207,8 +207,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 16,
-                "smac": "0x0201020304016",
-                "dmac": "0x0010940000016",
+                "smac": "02:01:02:03:04:016",
+                "dmac": "00:10:94:00:00:016",
                 "l3_class_id": 10
             }
         },
@@ -220,8 +220,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 17,
-                "smac": "0x0201020304017",
-                "dmac": "0x0010940000017",
+                "smac": "02:01:02:03:04:017",
+                "dmac": "00:10:94:00:00:017",
                 "l3_class_id": 10
             }
         },
@@ -233,8 +233,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 18,
-                "smac": "0x0201020304018",
-                "dmac": "0x0010940000018",
+                "smac": "02:01:02:03:04:018",
+                "dmac": "00:10:94:00:00:018",
                 "l3_class_id": 10
             }
         },
@@ -246,8 +246,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 19,
-                "smac": "0x0201020304019",
-                "dmac": "0x0010940000019",
+                "smac": "02:01:02:03:04:019",
+                "dmac": "00:10:94:00:00:019",
                 "l3_class_id": 10
             }
         },
@@ -259,8 +259,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 20,
-                "smac": "0x0201020304020",
-                "dmac": "0x0010940000020",
+                "smac": "02:01:02:03:04:020",
+                "dmac": "00:10:94:00:00:020",
                 "l3_class_id": 10
             }
         },
@@ -272,8 +272,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 21,
-                "smac": "0x0201020304021",
-                "dmac": "0x0010940000021",
+                "smac": "02:01:02:03:04:021",
+                "dmac": "00:10:94:00:00:021",
                 "l3_class_id": 10
             }
         },
@@ -285,8 +285,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 22,
-                "smac": "0x0201020304022",
-                "dmac": "0x0010940000022",
+                "smac": "02:01:02:03:04:022",
+                "dmac": "00:10:94:00:00:022",
                 "l3_class_id": 10
             }
         },
@@ -298,8 +298,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 23,
-                "smac": "0x0201020304023",
-                "dmac": "0x0010940000023",
+                "smac": "02:01:02:03:04:023",
+                "dmac": "00:10:94:00:00:023",
                 "l3_class_id": 10
             }
         },
@@ -311,8 +311,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 24,
-                "smac": "0x0201020304024",
-                "dmac": "0x0010940000024",
+                "smac": "02:01:02:03:04:024",
+                "dmac": "00:10:94:00:00:024",
                 "l3_class_id": 10
             }
         },
@@ -324,8 +324,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 25,
-                "smac": "0x0201020304025",
-                "dmac": "0x0010940000025",
+                "smac": "02:01:02:03:04:025",
+                "dmac": "00:10:94:00:00:025",
                 "l3_class_id": 10
             }
         },
@@ -337,8 +337,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 26,
-                "smac": "0x0201020304026",
-                "dmac": "0x0010940000026",
+                "smac": "02:01:02:03:04:026",
+                "dmac": "00:10:94:00:00:026",
                 "l3_class_id": 10
             }
         },
@@ -350,8 +350,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 27,
-                "smac": "0x0201020304027",
-                "dmac": "0x0010940000027",
+                "smac": "02:01:02:03:04:027",
+                "dmac": "00:10:94:00:00:027",
                 "l3_class_id": 10
             }
         },
@@ -363,8 +363,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 28,
-                "smac": "0x0201020304028",
-                "dmac": "0x0010940000028",
+                "smac": "02:01:02:03:04:028",
+                "dmac": "00:10:94:00:00:028",
                 "l3_class_id": 10
             }
         },
@@ -376,8 +376,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 29,
-                "smac": "0x0201020304029",
-                "dmac": "0x0010940000029",
+                "smac": "02:01:02:03:04:029",
+                "dmac": "00:10:94:00:00:029",
                 "l3_class_id": 10
             }
         },
@@ -389,8 +389,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 30,
-                "smac": "0x0201020304030",
-                "dmac": "0x0010940000030",
+                "smac": "02:01:02:03:04:030",
+                "dmac": "00:10:94:00:00:030",
                 "l3_class_id": 10
             }
         },
@@ -402,8 +402,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 31,
-                "smac": "0x0201020304031",
-                "dmac": "0x0010940000031",
+                "smac": "02:01:02:03:04:031",
+                "dmac": "00:10:94:00:00:031",
                 "l3_class_id": 10
             }
         },
@@ -415,8 +415,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 32,
-                "smac": "0x0201020304032",
-                "dmac": "0x0010940000032",
+                "smac": "02:01:02:03:04:032",
+                "dmac": "00:10:94:00:00:032",
                 "l3_class_id": 10
             }
         },
@@ -428,8 +428,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 1,
-                "smac": "0x020102030401",
-                "dmac": "0x001094000001",
+                "smac": "02:01:02:03:04:01",
+                "dmac": "00:10:94:00:00:01",
                 "l3_class_id": 10
             }
         },
@@ -441,8 +441,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 2,
-                "smac": "0x020102030402",
-                "dmac": "0x001094000002",
+                "smac": "02:01:02:03:04:02",
+                "dmac": "00:10:94:00:00:02",
                 "l3_class_id": 10
             }
         },
@@ -454,8 +454,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 3,
-                "smac": "0x020102030403",
-                "dmac": "0x001094000003",
+                "smac": "02:01:02:03:04:03",
+                "dmac": "00:10:94:00:00:03",
                 "l3_class_id": 10
             }
         },
@@ -467,8 +467,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 4,
-                "smac": "0x020102030404",
-                "dmac": "0x001094000004",
+                "smac": "02:01:02:03:04:04",
+                "dmac": "00:10:94:00:00:04",
                 "l3_class_id": 10
             }
         },
@@ -480,8 +480,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 5,
-                "smac": "0x020102030405",
-                "dmac": "0x001094000005",
+                "smac": "02:01:02:03:04:05",
+                "dmac": "00:10:94:00:00:05",
                 "l3_class_id": 10
             }
         },
@@ -493,8 +493,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 6,
-                "smac": "0x020102030406",
-                "dmac": "0x001094000006",
+                "smac": "02:01:02:03:04:06",
+                "dmac": "00:10:94:00:00:06",
                 "l3_class_id": 10
             }
         },
@@ -506,8 +506,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 7,
-                "smac": "0x020102030407",
-                "dmac": "0x001094000007",
+                "smac": "02:01:02:03:04:07",
+                "dmac": "00:10:94:00:00:07",
                 "l3_class_id": 10
             }
         },
@@ -519,8 +519,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 8,
-                "smac": "0x020102030408",
-                "dmac": "0x001094000008",
+                "smac": "02:01:02:03:04:08",
+                "dmac": "00:10:94:00:00:08",
                 "l3_class_id": 10
             }
         },
@@ -532,8 +532,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 9,
-                "smac": "0x020102030409",
-                "dmac": "0x001094000009",
+                "smac": "02:01:02:03:04:09",
+                "dmac": "00:10:94:00:00:09",
                 "l3_class_id": 10
             }
         },
@@ -545,8 +545,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 10,
-                "smac": "0x0201020304010",
-                "dmac": "0x0010940000010",
+                "smac": "02:01:02:03:04:010",
+                "dmac": "00:10:94:00:00:010",
                 "l3_class_id": 10
             }
         },
@@ -558,8 +558,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 11,
-                "smac": "0x0201020304011",
-                "dmac": "0x0010940000011",
+                "smac": "02:01:02:03:04:011",
+                "dmac": "00:10:94:00:00:011",
                 "l3_class_id": 10
             }
         },
@@ -571,8 +571,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 12,
-                "smac": "0x0201020304012",
-                "dmac": "0x0010940000012",
+                "smac": "02:01:02:03:04:012",
+                "dmac": "00:10:94:00:00:012",
                 "l3_class_id": 10
             }
         },
@@ -584,8 +584,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 13,
-                "smac": "0x0201020304013",
-                "dmac": "0x0010940000013",
+                "smac": "02:01:02:03:04:013",
+                "dmac": "00:10:94:00:00:013",
                 "l3_class_id": 10
             }
         },
@@ -597,8 +597,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 14,
-                "smac": "0x0201020304014",
-                "dmac": "0x0010940000014",
+                "smac": "02:01:02:03:04:014",
+                "dmac": "00:10:94:00:00:014",
                 "l3_class_id": 10
             }
         },
@@ -610,8 +610,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 15,
-                "smac": "0x0201020304015",
-                "dmac": "0x0010940000015",
+                "smac": "02:01:02:03:04:015",
+                "dmac": "00:10:94:00:00:015",
                 "l3_class_id": 10
             }
         },
@@ -623,8 +623,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 16,
-                "smac": "0x0201020304016",
-                "dmac": "0x0010940000016",
+                "smac": "02:01:02:03:04:016",
+                "dmac": "00:10:94:00:00:016",
                 "l3_class_id": 10
             }
         },
@@ -636,8 +636,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 17,
-                "smac": "0x0201020304017",
-                "dmac": "0x0010940000017",
+                "smac": "02:01:02:03:04:017",
+                "dmac": "00:10:94:00:00:017",
                 "l3_class_id": 10
             }
         },
@@ -649,8 +649,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 18,
-                "smac": "0x0201020304018",
-                "dmac": "0x0010940000018",
+                "smac": "02:01:02:03:04:018",
+                "dmac": "00:10:94:00:00:018",
                 "l3_class_id": 10
             }
         },
@@ -662,8 +662,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 19,
-                "smac": "0x0201020304019",
-                "dmac": "0x0010940000019",
+                "smac": "02:01:02:03:04:019",
+                "dmac": "00:10:94:00:00:019",
                 "l3_class_id": 10
             }
         },
@@ -675,8 +675,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 20,
-                "smac": "0x0201020304020",
-                "dmac": "0x0010940000020",
+                "smac": "02:01:02:03:04:020",
+                "dmac": "00:10:94:00:00:020",
                 "l3_class_id": 10
             }
         },
@@ -688,8 +688,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 21,
-                "smac": "0x0201020304021",
-                "dmac": "0x0010940000021",
+                "smac": "02:01:02:03:04:021",
+                "dmac": "00:10:94:00:00:021",
                 "l3_class_id": 10
             }
         },
@@ -701,8 +701,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 22,
-                "smac": "0x0201020304022",
-                "dmac": "0x0010940000022",
+                "smac": "02:01:02:03:04:022",
+                "dmac": "00:10:94:00:00:022",
                 "l3_class_id": 10
             }
         },
@@ -714,8 +714,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 23,
-                "smac": "0x0201020304023",
-                "dmac": "0x0010940000023",
+                "smac": "02:01:02:03:04:023",
+                "dmac": "00:10:94:00:00:023",
                 "l3_class_id": 10
             }
         },
@@ -727,8 +727,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 24,
-                "smac": "0x0201020304024",
-                "dmac": "0x0010940000024",
+                "smac": "02:01:02:03:04:024",
+                "dmac": "00:10:94:00:00:024",
                 "l3_class_id": 10
             }
         },
@@ -740,8 +740,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 25,
-                "smac": "0x0201020304025",
-                "dmac": "0x0010940000025",
+                "smac": "02:01:02:03:04:025",
+                "dmac": "00:10:94:00:00:025",
                 "l3_class_id": 10
             }
         },
@@ -753,8 +753,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 26,
-                "smac": "0x0201020304026",
-                "dmac": "0x0010940000026",
+                "smac": "02:01:02:03:04:026",
+                "dmac": "00:10:94:00:00:026",
                 "l3_class_id": 10
             }
         },
@@ -766,8 +766,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 27,
-                "smac": "0x0201020304027",
-                "dmac": "0x0010940000027",
+                "smac": "02:01:02:03:04:027",
+                "dmac": "00:10:94:00:00:027",
                 "l3_class_id": 10
             }
         },
@@ -779,8 +779,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 28,
-                "smac": "0x0201020304028",
-                "dmac": "0x0010940000028",
+                "smac": "02:01:02:03:04:028",
+                "dmac": "00:10:94:00:00:028",
                 "l3_class_id": 10
             }
         },
@@ -792,8 +792,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 29,
-                "smac": "0x0201020304029",
-                "dmac": "0x0010940000029",
+                "smac": "02:01:02:03:04:029",
+                "dmac": "00:10:94:00:00:029",
                 "l3_class_id": 10
             }
         },
@@ -805,8 +805,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 30,
-                "smac": "0x0201020304030",
-                "dmac": "0x0010940000030",
+                "smac": "02:01:02:03:04:030",
+                "dmac": "00:10:94:00:00:030",
                 "l3_class_id": 10
             }
         },
@@ -818,8 +818,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 31,
-                "smac": "0x0201020304031",
-                "dmac": "0x0010940000031",
+                "smac": "02:01:02:03:04:031",
+                "dmac": "00:10:94:00:00:031",
                 "l3_class_id": 10
             }
         },
@@ -831,8 +831,8 @@
             "action_name": "ingress.l3_fwd.set_nexthop",
             "action_params": {
                 "port": 32,
-                "smac": "0x0201020304032",
-                "dmac": "0x0010940000032",
+                "smac": "02:01:02:03:04:032",
+                "dmac": "00:10:94:00:00:032",
                 "l3_class_id": 10
             }
         }
