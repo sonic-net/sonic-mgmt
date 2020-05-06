@@ -151,10 +151,10 @@
             },
             "p4_port_intf_setup": {
                 "th3_1": {
-                    "gnmi_input_conf_file": "./data-files/th3_1_inft_port.json"
+                    "gnmi_input_conf_file": "./data-files/th3_1_intf_port.json"
                 },
                 "th3_2": {
-                    "gnmi_input_conf_file": "./data-files/th3_2_inft_port.json"
+                    "gnmi_input_conf_file": "./data-files/th3_2_intf_port.json"
                 }
             }
         },
