@@ -12,17 +12,17 @@ class PtfTestAdapter(BaseTest):
     DEFAULT_PTF_TIMEOUT = 2
     DEFAULT_PTF_NEG_TIMEOUT = 0.1
 
-    def __init__(self, ptf_ip, ptf_nn_port, device_num, ptf_ports_num):
+    def __init__(self, ptf_ip, ptf_nn_port, device_num, ptf_port_set):
         """ initialize PtfTestAdapter
         :param ptf_ip: PTF host IP
         :param ptf_nn_port: PTF nanomessage agent port
         :param device_num: device number
-        :param ptf_ports_num: PTF ports count
+        :param ptf_port_set: PTF ports
         :return:
         """
         self.runTest = lambda : None # set a no op runTest attribute to satisfy BaseTest interface
         super(PtfTestAdapter, self).__init__()
-        self._init_ptf_dataplane(ptf_ip, ptf_nn_port, device_num, ptf_ports_num)
+        self._init_ptf_dataplane(ptf_ip, ptf_nn_port, device_num, ptf_port_set)
 
     def __enter__(self):
         """ enter in 'with' block """
@@ -34,20 +34,20 @@ class PtfTestAdapter(BaseTest):
 
         self.kill()
 
-    def _init_ptf_dataplane(self, ptf_ip, ptf_nn_port, device_num, ptf_ports_num, ptf_config=None):
+    def _init_ptf_dataplane(self, ptf_ip, ptf_nn_port, device_num, ptf_port_set, ptf_config=None):
         """
         initialize ptf framework and establish connection to ptf_nn_agent
         running on PTF host
         :param ptf_ip: PTF host IP
         :param ptf_nn_port: PTF nanomessage agent port
         :param device_num: device number
-        :param ptf_ports_num: PTF ports count
+        :param ptf_port_set: PTF ports
         :return:
         """
         self.ptf_ip = ptf_ip
         self.ptf_nn_port = ptf_nn_port
         self.device_num = device_num
-        self.ptf_ports_num = ptf_ports_num
+        self.ptf_port_set = ptf_port_set
 
         ptfutils.default_timeout = self.DEFAULT_PTF_TIMEOUT
         ptfutils.default_negative_timeout = self.DEFAULT_PTF_NEG_TIMEOUT
@@ -55,7 +55,7 @@ class PtfTestAdapter(BaseTest):
         ptf.config.update({
             'platform': 'nn',
             'device_sockets': [
-                (device_num, range(ptf_ports_num), 'tcp://{}:{}'.format(ptf_ip, ptf_nn_port))
+                (device_num, ptf_port_set, 'tcp://{}:{}'.format(ptf_ip, ptf_nn_port))
             ],
             'qlen': self.DEFAULT_PTF_QUEUE_LEN,
             'relax': True,
@@ -87,4 +87,4 @@ class PtfTestAdapter(BaseTest):
         :param ptf_config: PTF configuration dictionary
         """
         self.kill()
-        self._init_ptf_dataplane(self.ptf_ip, self.ptf_nn_port, self.device_num, self.ptf_ports_num, ptf_config)
+        self._init_ptf_dataplane(self.ptf_ip, self.ptf_nn_port, self.device_num, self.ptf_port_set, ptf_config)
