@@ -87,7 +87,8 @@ def port_setup():
     password = None
     err_msg = list()
     try:
-        gnmi_input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("p4_port_intf_setup/gnmi_input_conf_file"), 'r').read())
+        conf_file = "p4_port_intf_setup/" + ApData.uut_name + "/gnmi_input_conf_file"
+        gnmi_input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration(conf_file), 'r').read())
         gnmi_conn = GnmiConnection(target=ApData.svr_addr, port=ApData.gnmi_port_addr)
         stub = gnmi_conn.stub
         set_info = gnmi_input_conf['PORT_INTF']['config']
@@ -114,7 +115,8 @@ def port_cleanup():
     password = None
     err_msg = list()
     try:
-        gnmi_input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration("p4_port_intf_setup/gnmi_input_conf_file"), 'r').read())
+        conf_file = "p4_port_intf_setup/" + ApData.uut_name + "/gnmi_input_conf_file"
+        gnmi_input_conf = json.loads(six.moves.builtins.open(ApData.zap.get_testcase_configuration(conf_file), 'r').read())
         gnmi_conn = GnmiConnection(target=ApData.svr_addr, port=ApData.gnmi_port_addr)
         stub = gnmi_conn.stub
         set_info = gnmi_input_conf['PORT_INTF']['config']
