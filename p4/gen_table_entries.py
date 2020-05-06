@@ -45,7 +45,7 @@ def main():
 
         member_dict['member_id'] = i
         member_dict['entry_oper'] = "INSERT"
-        member_dict['action_profile_id'] = "285212673"
+        member_dict['action_profile_id'] = 285212673
         member_dict['action_profile_name'] = "ingress.l3_fwd.l3_action_profile"
         member_dict['action_name'] = "ingress.l3_fwd.set_nexthop"
         action_params_dict['port'] = i
@@ -61,7 +61,7 @@ def main():
 
         member_dict['member_id'] = i
         member_dict['entry_oper'] = "DELETE"
-        member_dict['action_profile_id'] = "285212673"
+        member_dict['action_profile_id'] = 285212673
         member_dict['action_profile_name'] = "ingress.l3_fwd.l3_action_profile"
         member_dict['action_name'] = "ingress.l3_fwd.set_nexthop"
         action_params_dict['port'] = i
