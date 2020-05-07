@@ -175,7 +175,7 @@ class TestP4(P4ApBase):
     def teardown_class(self):
         log.info("Clean all P4 Switch connections")
         p4_switch.ShutdownAllSwitchConnections()
-        port_cleanup()
+        #port_cleanup()
 
     def test_reset_p4(self):
         reset_p4()
