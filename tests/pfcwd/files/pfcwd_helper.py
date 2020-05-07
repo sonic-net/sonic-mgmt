@@ -26,8 +26,9 @@ class TrafficPorts(object):
 
     def build_port_list(self):
         """
-        Generate a list of ports to be used for the test. For T0 topology, the
-        port list is built parsing the portchannel and vlan info and for T1,
+        Generate a list of ports to be used for the test
+
+        For T0 topology, the port list is built parsing the portchannel and vlan info and for T1,
         port list is constructed from the interface info
         """
         if self.mg_facts['minigraph_interfaces']:
@@ -40,12 +41,12 @@ class TrafficPorts(object):
 
     def parse_intf_list(self):
         """
-        Built the port info from the ports in 'minigraph_interfaces'. The constructed
-        port info is a dict with a port as the key (transmit port) and value contains
-        all the info associated with this port (its fanout neighbor, receive port, receive
-        ptf id, transmit ptf id, neighbor addr etc).
-        The first port in the list is assumed to be the Rx port. The rest
-        of the ports will use this port as the Rx port while populating their dict
+        Built the port info from the ports in 'minigraph_interfaces'
+
+        The constructed port info is a dict with a port as the key (transmit port) and value contains
+        all the info associated with this port (its fanout neighbor, receive port, receive ptf id,
+        transmit ptf id, neighbor addr etc).  The first port in the list is assumed to be the Rx port.
+        The rest of the ports will use this port as the Rx port while populating their dict
         info. The selected Rx port when used as a transmit port will use the next port in
         the list as its associated Rx port
         """
@@ -101,8 +102,9 @@ class TrafficPorts(object):
 
     def parse_pc_list(self):
         """
-        Built the port info from the ports in portchannel. The constructed
-        port info is a dict with a port as the key (transmit port) and value contains
+        Built the port info from the ports in portchannel
+
+        The constructed port info is a dict with a port as the key (transmit port) and value contains
         all the info associated with this port (its fanout neighbor, receive ports, receive
         ptf ids, transmit ptf ids, neighbor portchannel addr, its own portchannel addr etc).
         The first port in the list is assumed to be the Rx port. The rest
@@ -170,9 +172,9 @@ class TrafficPorts(object):
     def parse_vlan_list(self):
         """
         Add vlan specific port info to the already populated port info dict.
-        Each vlan interface will be the key and value contains
-        all the info associated with this port (receive fanout neighbor, receive port receive
-        ptf id, transmit ptf id, neighbor addr etc).
+
+        Each vlan interface will be the key and value contains all the info associated with this port
+        (receive fanout neighbor, receive port receive ptf id, transmit ptf id, neighbor addr etc).
 
         Args:
             None
