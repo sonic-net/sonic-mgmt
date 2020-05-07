@@ -9,6 +9,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# fixtures
+@pytest.fixture(scope="module")
+def localhost(testbed_devices):
+    return testbed_devices['localhost']
 
 @pytest.fixture(scope='module',autouse=True)
 def setup_mvrf(duthost, testbed_devices, testbed, localhost):
