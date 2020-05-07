@@ -97,6 +97,28 @@ def pytest_addoption(parser):
                     help="number of minutes for show techsupport command")
 
 
+@pytest.fixture(scope="session", autouse=True)
+def enhance_inventory(request):
+    """
+    This fixture is to enhance the capability of parsing the value of pytest cli argument '--inventory'.
+    The pytest-ansible plugin always assumes that the value of cli argument '--inventory' is a single
+    inventory file. With this enhancement, we can pass in multiple inventory files using the cli argument
+    '--inventory'. The multiple inventory files can be separated by comma ','.
+
+    For example:
+        pytest --inventory "inventory1, inventory2" <other arguments>
+        pytest --inventory inventory1,inventory2 <other arguments>
+
+    This fixture is automatically applied, you don't need to declare it in your test script.
+    """
+    inv_opt = request.config.getoption("ansible_inventory")
+    inv_files = [inv_file.strip() for inv_file in inv_opt.split(",")]
+    try:
+        setattr(request.config.option, "ansible_inventory", inv_files)
+    except AttributeError:
+        logger.error("Failed to set enhanced 'ansible_inventory' to request.config.option")
+
+
 @pytest.fixture(scope="session")
 def testbed(request):
     """
