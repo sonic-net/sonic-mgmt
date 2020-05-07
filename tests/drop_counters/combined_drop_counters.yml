@@ -20,6 +20,10 @@
 #   - "x86_64-mlnx"
 #   - "x86_64-dell.*"
 l2_l3:
+    - "x86_64-dell.*"
+    - "x86_64-arista.*"
 
 acl_l2:
     - "x86_64-mlnx"
+    - "x86_64-dell.*"
+    - "x86_64-arista.*"

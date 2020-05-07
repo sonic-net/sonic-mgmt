@@ -423,6 +423,19 @@ def verify_drop_counters(duthost, dut_iface, get_cnt_cli_cmd, column_key):
         pytest.fail(fail_msg)
 
 
+def get_receiving_iface(ports_info, tx_dut_ports):
+    """
+    Returns which interface on the DUT to check for drops.
+
+    This method ensures that the correct L2 interface is checked for devices that
+    have combined L2/L3 drop counters.
+    """
+    if COMBINED_L2L3_DROP_COUNTER:
+        return ports_info["dut_iface"]
+
+    return tx_dut_ports[ports_info["dut_iface"]]
+
+
 def base_verification(discard_group, pkt, ptfadapter, duthost, ptf_tx_port_id, dut_iface, l2_col_key=RX_DRP, l3_col_key=RX_ERR):
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
@@ -598,7 +611,8 @@ def test_dst_ip_is_loopback_addr(ptfadapter, duthost, setup, pkt_fields, tx_dut_
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]], setup["neighbor_sniff_ports"])
+    recv_iface = get_receiving_iface(ports_info, tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], recv_iface, setup["neighbor_sniff_ports"])
 
 
 def test_src_ip_is_loopback_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
@@ -617,7 +631,8 @@ def test_src_ip_is_loopback_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_f
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]], setup["neighbor_sniff_ports"])
+    recv_iface = get_receiving_iface(ports_info, tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], recv_iface, setup["neighbor_sniff_ports"])
 
 
 def test_dst_ip_absent(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
@@ -633,7 +648,9 @@ def test_dst_ip_absent(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, por
         ip_dst="", # VM source
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
-    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]], setup["neighbor_sniff_ports"])
+
+    recv_iface = get_receiving_iface(ports_info, tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], recv_iface, setup["neighbor_sniff_ports"])
 
 
 @pytest.mark.parametrize("ip_addr", ["ipv4", "ipv6"])
@@ -667,7 +684,9 @@ def test_src_ip_is_multicast_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_
         pytest.fail("Incorrect value specified for 'ip_addr' test parameter. Supported parameters: 'ipv4' and 'ipv6'")
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"], ip_src)
-    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+
+    recv_iface = get_receiving_iface(ports_info, tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], recv_iface,
             setup["neighbor_sniff_ports"])
 
 
@@ -688,7 +707,9 @@ def test_src_ip_is_class_e(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields,
             ip_dst=pkt_fields["ipv4_dst"], # VM source
             tcp_sport=pkt_fields["tcp_sport"],
             tcp_dport=pkt_fields["tcp_dport"])
-        do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+
+        recv_iface = get_receiving_iface(ports_info, tx_dut_ports)
+        do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], recv_iface,
                 setup["neighbor_sniff_ports"])
 
 
@@ -734,7 +755,9 @@ def test_ip_is_zero_addr(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, a
         pytest.fail("Incorrect value specified for 'addr_type' test parameter. Supported parameters: 'ipv4' or 'ipv6'")
 
     logger.info(pkt_params)
-    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+
+    recv_iface = get_receiving_iface(ports_info, tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], recv_iface,
             setup["dut_to_ptf_port_map"].values())
 
 
@@ -763,7 +786,8 @@ def test_ip_link_local(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, add
     pkt = testutils.simple_tcp_packet(**pkt_params)
 
     logger.info(pkt_params)
-    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+    recv_iface = get_receiving_iface(ports_info, tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], recv_iface,
             setup["neighbor_sniff_ports"])
 
 
@@ -798,7 +822,8 @@ def test_loopback_filter(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, p
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+    recv_iface = get_receiving_iface(ports_info, tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], recv_iface,
             setup["neighbor_sniff_ports"])
 
 
@@ -846,7 +871,8 @@ def test_ip_pkt_with_expired_ttl(ptfadapter, duthost, setup, tx_dut_ports, pkt_f
         tcp_dport=pkt_fields["tcp_dport"],
         ip_ttl=0)
 
-    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+    recv_iface = get_receiving_iface(ports_info, tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], recv_iface,
             setup["neighbor_sniff_ports"])
 
 
@@ -907,7 +933,9 @@ def test_non_routable_igmp_pkts(ptfadapter, duthost, setup, tx_dut_ports, pkt_fi
 
     del pkt[testutils.scapy.scapy.all.Raw]
     pkt = pkt / igmp_types[igmp_version][msg_type]
-    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+
+    recv_iface = get_receiving_iface(ports_info, tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], recv_iface,
             setup["dut_to_ptf_port_map"].values())
 
 
@@ -931,7 +959,8 @@ def test_absent_ip_header(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, 
     pkt.type = 0x800
     pkt = pkt/tcp
 
-    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+    recv_iface = get_receiving_iface(ports_info, tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], recv_iface,
             setup["neighbor_sniff_ports"])
 
 
@@ -951,7 +980,9 @@ def test_broken_ip_header(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, 
         tcp_dport=pkt_fields["tcp_dport"]
         )
     setattr(pkt[testutils.scapy.scapy.all.IP], pkt_field, value)
-    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+
+    recv_iface = get_receiving_iface(ports_info, tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], recv_iface,
             setup["neighbor_sniff_ports"])
 
 
@@ -973,7 +1004,9 @@ def test_unicast_ip_incorrect_eth_dst(ptfadapter, duthost, setup, tx_dut_ports, 
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
         )
-    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+
+    recv_iface = get_receiving_iface(ports_info, tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], recv_iface,
             setup["neighbor_sniff_ports"])
 
 
@@ -1019,5 +1052,7 @@ def test_egress_drop_on_down_link(ptfadapter, duthost, setup, tx_dut_ports, pkt_
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
         )
-    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], tx_dut_ports[ports_info["dut_iface"]],
+
+    recv_iface = get_receiving_iface(ports_info, tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, duthost, ports_info["ptf_tx_port_id"], recv_iface,
             setup["neighbor_sniff_ports"])
