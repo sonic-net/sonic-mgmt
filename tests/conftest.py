@@ -1,4 +1,5 @@
-# Adding pytest base dir to Python system path
+# Adding pytest base dir to Python system path.
+# This is required in order to import from common package including pytest_plugins within this file.
 import site
 from os.path import dirname, abspath
 site.addsitedir(dirname(abspath(__file__)))
