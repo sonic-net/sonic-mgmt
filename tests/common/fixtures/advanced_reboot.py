@@ -126,7 +126,7 @@ class AdvancedReboot:
         self.rebootData['dut_password'] = secrets[invetory]['sonicadmin_password']
 
         self.rebootData['default_ip_range'] = str(
-            ipaddress.ip_interface(self.mgFacts['minigraph_vlan_interfaces'][0]['addr'] + '/16').network
+            ipaddress.ip_interface(self.mgFacts['minigraph_vlan_interfaces'][0]['addr'] + '/18').network
         )
 
         for intf in self.mgFacts['minigraph_lo_interfaces']:
