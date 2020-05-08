@@ -155,6 +155,18 @@
                 },
                 "th3_2": {
                     "gnmi_input_conf_file": "./data-files/th3_2_intf_port.json"
+                },
+                "th3_3": {
+                    "gnmi_input_conf_file": "./data-files/gnmi_infra_tc_input.json"
+                },
+                "th3_4": {
+                    "gnmi_input_conf_file": "./data-files/gnmi_infra_tc_input.json"
+                },
+                "th3_5": {
+                    "gnmi_input_conf_file": "./data-files/gnmi_infra_tc_input.json"
+                },
+                "th3_6": {
+                    "gnmi_input_conf_file": "./data-files/gnmi_infra_tc_input.json"
                 }
             }
         },
