@@ -33,7 +33,8 @@ def parse_arguments():
         reserve_parser = subparsers.add_parser('release', help=('release devices'))
         reserve_parser.add_argument('-D','--domain', action='store', help='Domain name where devices are to be released')
         reserve_parser.set_defaults(which='release')
-        reserve_parser.add_argument('-t','--topology_id', action='store', help='topology id')
+        #reserve_parser.add_argument('-t','--topology_id', action='store', help='topology id')
+        reserve_parser.add_argument('-u','--uuid', action='store', help='uuid')
         return parser.parse_args()
     except argparse.ArgumentError as err:
         print str(err)
@@ -89,10 +90,10 @@ def release(topology_id):
 
 def release_2(uuid):
     cmd1 = "http://laas-robot-lab.cisco.com:9080/vmcloud/v1/topologies/" + str(uuid) + "?release=true"
-    #r1 = requests.delete(cmd1, auth=(getpass.getuser(),''))
-    #print (cmd1)
-    #print (r1)
-    #print (r1.text)
+    r1 = requests.delete(cmd1, auth=(getpass.getuser(),''))
+    print (cmd1)
+    print (r1)
+    print (r1.text)
 
 def get_second(time1):
     datepattern = re.compile("\d{2}:\d{2}:\d{2}")
@@ -240,8 +241,9 @@ def reserve(domain, device, user, duration, topology_id):
 
     uuid = get_uuid(r1.text)
     print "UUID: ", uuid
-    if uuid != None:
-       release_2(uuid)
+
+    #if uuid != None:
+       #release_2(uuid)
 
     delete_topofile(virlfile) 
 
@@ -253,7 +255,11 @@ if __name__ == "__main__":
 #    r = requests.get('http://laas-robot-lab.cisco.com:9060/laas-ng/v1/login')
 #    print (r.text)
     if (args.which == 'release'):
-        release(args.topology_id)
+        #if args.topology_id != None:
+        #    release(args.topology_id)
+
+        if args.uuid != None:
+            release_2(args.uuid)
     if (args.which == 'reserve'):
        #Validate entered arguments
        res = validate_args(args.domain, args.device, args.profile, args.num, args.user)
