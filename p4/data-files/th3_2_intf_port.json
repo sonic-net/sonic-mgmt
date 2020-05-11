@@ -4,20 +4,6 @@
       "openconfig-interfaces:interfaces": {
         "interface": [
           {
-            "name": "eth-1/1/26",
-            "config": {
-              "name": "eth-1/1/26",
-              "type": "iana-if-type:ethernetCsmacd",
-              "enabled": true,
-              "openconfig-hercules-interfaces:id": 26
-            },
-            "openconfig-if-ethernet:ethernet": {
-              "config": {
-                "mac-address": "02:01:02:03:04:26"
-              }
-            }
-          },
-          {
             "name": "eth-1/1/27",
             "config": {
               "name": "eth-1/1/27",
@@ -28,20 +14,6 @@
             "openconfig-if-ethernet:ethernet": {
               "config": {
                 "mac-address": "02:01:02:03:04:27"
-              }
-            }
-          },
-          {
-            "name": "eth-1/1/28",
-            "config": {
-              "name": "eth-1/1/28",
-              "type": "iana-if-type:ethernetCsmacd",
-              "enabled": true,
-              "openconfig-hercules-interfaces:id": 28
-            },
-            "openconfig-if-ethernet:ethernet": {
-              "config": {
-                "mac-address": "02:01:02:03:04:28"
               }
             }
           },
@@ -63,19 +35,6 @@
       },
       "openconfig-platform:components": {
         "component": [
-          
-          {
-            "name": "eth-1/1/26",
-            "config": {
-              "name": "eth-1/1/26",
-              "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
-            },
-            "port": {
-              "config": {
-                "openconfig-hercules-platform:port-id": 26
-              }
-            }
-          },
           {
             "name": "eth-1/1/27",
             "config": {
@@ -85,18 +44,6 @@
             "port": {
               "config": {
                 "openconfig-hercules-platform:port-id": 27
-              }
-            }
-          },
-          {
-            "name": "eth-1/1/28",
-            "config": {
-              "name": "eth-1/1/28",
-              "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
-            },
-            "port": {
-              "config": {
-                "openconfig-hercules-platform:port-id": 28
               }
             }
           },
@@ -121,19 +68,9 @@
         "path": "/oc-if:interface",
         "config": [
           {
-            "name": "eth-1/1/26",
-            "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
-                "set_list_index": "0","check_var_list": ["name","type","description","mtu"]
-          },
-          {
             "name": "eth-1/1/27",
             "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
                 "set_list_index": "1","check_var_list": ["name","type","description","mtu","enabled","id"]
-          },
-          {
-            "name": "eth-1/1/28",
-            "get_key": "interfaces,interface,ethernet,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"openconfig-if-ethernet:ethernet","config"],
-                "set_list_index": "1","check_var_list": ["mac-address","auto-negotiate","duplex-mode","port-speed","forwarding-viable"]
           },
           {
             "name": "eth-1/1/29",
