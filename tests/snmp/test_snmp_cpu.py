@@ -1,9 +1,9 @@
 import pytest
 import time
-from ansible_host import AnsibleHost
+
 
 @pytest.mark.bsl
-def test_snmp_cpu(ansible_adhoc, duthost, creds):
+def test_snmp_cpu(duthost, localhost, creds):
     """
     Test SNMP CPU Utilization
 
@@ -15,13 +15,12 @@ def test_snmp_cpu(ansible_adhoc, duthost, creds):
     TODO: abstract the snmp OID by SKU
     """
 
-    lhost = AnsibleHost(ansible_adhoc, 'localhost', True)
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     host_facts = duthost.setup()['ansible_facts']
     host_vcpus = int(host_facts['ansible_processor_vcpus'])
 
     # Gather facts with SNMP version 2
-    snmp_facts = lhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"], is_dell=True)['ansible_facts']
+    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"], is_dell=True)['ansible_facts']
 
     assert int(snmp_facts['ansible_ChStackUnitCpuUtil5sec'])
 
@@ -33,10 +32,10 @@ def test_snmp_cpu(ansible_adhoc, duthost, creds):
         time.sleep(20)
 
         # Gather facts with SNMP version 2
-        snmp_facts = lhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"], is_dell=True)['ansible_facts']
+        snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"], is_dell=True)['ansible_facts']
 
         # Pull CPU utilization via shell
-        # Explanation: Run top command with 2 iterations, 5sec delay. 
+        # Explanation: Run top command with 2 iterations, 5sec delay.
         # Discard the first iteration, then grap the CPU line from the second,
         # subtract 100% - idle, and round down to integer.
 

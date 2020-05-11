@@ -1,4 +1,3 @@
-from ansible_host import AnsibleHost
 from netaddr import IPAddress
 import pytest
 
@@ -33,7 +32,7 @@ def verify_port(host_facts, ports):
     for port in ports:
         ans_ifname = "ansible_%s" % port
         assert host_facts[ans_ifname]['active']
-        
+
 def verify_ip_address(host_facts, intfs):
     for intf in intfs:
         if intf.has_key('attachto'):

@@ -1,5 +1,4 @@
 import pytest
-from ansible_host import AnsibleHost
 
 PSU_STATUS_OK = 2
 

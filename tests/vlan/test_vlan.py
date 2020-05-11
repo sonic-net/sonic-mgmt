@@ -1,4 +1,3 @@
-from ansible_host import AnsibleHost
 
 import pytest
 import ptf.packet as scapy
@@ -34,7 +33,7 @@ def vlan_ports_list(cfg_facts, ptfhost):
     config_portchannels = cfg_facts.get('PORTCHANNEL', {})
     config_port_indices = cfg_facts['port_index_map']
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
-    
+
     pvid_cycle = itertools.cycle(vlan_id_list)
 
     # when running on t0 we can use the portchannel members
@@ -80,9 +79,9 @@ def create_vlan_interfaces(vlan_ports_list, vlan_intfs_list, duthost, ptfhost):
 
                 ptfhost.command("ip link set eth{idx}.{pvid} up".format(
                    idx=vlan_port["port_index"],
-                   pvid=permit_vlanid  
+                   pvid=permit_vlanid
                 ))
-    
+
     for vlan in vlan_intfs_list:
         duthost.command("config interface ip add Vlan{} {}".format(vlan['vlan_id'], vlan['ip']))
 
@@ -154,7 +153,7 @@ def setup_vlan(ptfadapter, duthost, ptfhost, vlan_ports_list, vlan_intfs_list, c
 
         ptfhost.command('supervisorctl reread')
         ptfhost.command('supervisorctl update')
-        
+
         logger.info("Start arp_responder")
         ptfhost.command('supervisorctl start arp_responder')
 
@@ -180,7 +179,7 @@ def tearDown(vlan_ports_list, duthost, ptfhost, vlan_intfs_list, portchannel_int
                 if int(permit_vlanid) != vlan_port["pvid"]:
                     ptfhost.command("ip link delete eth{idx}.{pvid}".format(
                     idx=vlan_port["port_index"],
-                    pvid=permit_vlanid  
+                    pvid=permit_vlanid
                     ))
     except RunAnsibleModuleFail as e:
         logger.error(e)
@@ -200,14 +199,14 @@ def setUpArpResponder(vlan_ports_list, ptfhost):
             else:
                 iface = "eth{}.{}".format(vlan_port["port_index"], permit_vlanid)
             d[iface].append(vlan_port["permit_vlanid"][permit_vlanid]["peer_ip"])
-    
+
     with open('/tmp/from_t1.json', 'w') as file:
         json.dump(d, file)
     ptfhost.copy(src='/tmp/from_t1.json', dest='/tmp/from_t1.json')
 
 def build_icmp_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff:ff:ff",
                         src_ip="192.168.0.1", dst_ip="192.168.0.2", ttl=64):
-    
+
     pkt = testutils.simple_icmp_packet(pktlen=100 if vlan_id == 0 else 104,
                                 eth_dst=dst_mac,
                                 eth_src=src_mac,
@@ -243,9 +242,9 @@ def verify_icmp_packets(ptfadapter, vlan_ports_list, vlan_port, vlan_id):
 @pytest.mark.bsl
 def test_vlan_tc1_send_untagged(ptfadapter, vlan_ports_list):
     """
-    Test case #1 
-    Verify packets egress without tag from ports whose PVID same with ingress port 
-    Verify packets egress with tag from ports who include VLAN ID but PVID different from ingress port.    
+    Test case #1
+    Verify packets egress without tag from ports whose PVID same with ingress port
+    Verify packets egress with tag from ports who include VLAN ID but PVID different from ingress port.
     """
 
     logger.info("Test case #1 starting ...")
@@ -262,8 +261,8 @@ def test_vlan_tc1_send_untagged(ptfadapter, vlan_ports_list):
 def test_vlan_tc2_send_tagged(ptfadapter, vlan_ports_list):
     """
     Test case #2
-    Send tagged packets from each port. 
-    Verify packets egress without tag from ports whose PVID same with ingress port 
+    Send tagged packets from each port.
+    Verify packets egress without tag from ports whose PVID same with ingress port
     Verify packets egress with tag from ports who include VLAN ID but PVID different from ingress port.
     """
 
@@ -282,7 +281,7 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, vlan_ports_list):
     """
     Test case #3
     Send packets with invalid VLAN ID
-    Verify no port can receive these pacekts   
+    Verify no port can receive these pacekts
     """
 
     logger.info("Test case #3 starting ...")
@@ -293,7 +292,7 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, vlan_ports_list):
 
     for vlan_port in vlan_ports_list:
         src_port = vlan_port["port_index"]
-        dst_ports = [port["port_index"] for port in vlan_ports_list 
+        dst_ports = [port["port_index"] for port in vlan_ports_list
                                 if port != vlan_port ]
         logger.info("Send invalid tagged packet " + " from " + str(src_port) + "...")
         logger.info(invalid_tagged_pkt.sprintf("%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
