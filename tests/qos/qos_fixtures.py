@@ -1,51 +1,37 @@
 import pytest
-import os
-from ansible_host import AnsibleHost
+from common.fixtures.conn_graph_facts import conn_graph_facts
+
 
 @pytest.fixture(scope = "module")
 def lossless_prio_dscp_map(duthost):
     config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
     if "PORT_QOS_MAP" not in config_facts.keys():
-        return None 
+        return None
 
     port_qos_map = config_facts["PORT_QOS_MAP"]
     lossless_priorities = list()
     intf = port_qos_map.keys()[0]
     if 'pfc_enable' not in port_qos_map[intf]:
-        return None 
+        return None
 
     lossless_priorities = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]
     dscp_to_tc_map = config_facts["DSCP_TO_TC_MAP"]
-    
+
     result = dict()
     for prio in lossless_priorities:
         result[prio] = list()
 
     profile = dscp_to_tc_map.keys()[0]
-         
+
     for dscp in dscp_to_tc_map[profile]:
         tc = dscp_to_tc_map[profile][dscp]
-        
+
         if int(tc) in lossless_priorities:
             result[int(tc)].append(int(dscp))
 
-    return result 
-
-@pytest.fixture(scope = "module")
-def conn_graph_facts(duthost, testbed_devices):
-    """
-    @summary: Fixture for getting testbed topology connectivity information.
-    @param duthost: AnsibleHost instance for DUT
-    @return: Return the topology connectivity information
-    """
-    localhost = testbed_devices["localhost"]
-
-    base_path = os.path.dirname(os.path.realpath(__file__))
-    lab_conn_graph_file = os.path.join(base_path, "../../ansible/files/lab_connection_graph.xml")
-    result = localhost.conn_graph_facts(host=duthost.hostname, filename=lab_conn_graph_file)['ansible_facts']
-	
     return result
+
 
 @pytest.fixture(scope = "module")
 def leaf_fanouts(conn_graph_facts):

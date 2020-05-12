@@ -1,4 +1,3 @@
-from ansible_host import AnsibleHost
 import logging
 import pytest
 
@@ -32,7 +31,7 @@ def test_lldp(duthost, localhost, collect_techsupport):
         assert v['port']['ifname'] == mg_facts['minigraph_neighbors'][k]['port']
 
 
-def test_lldp_neighbor(duthost, localhost, ansible_adhoc, eos, collect_techsupport):
+def test_lldp_neighbor(duthost, localhost, eos, collect_techsupport):
     """ verify LLDP information on neighbors """
 
     mg_facts  = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
@@ -40,7 +39,6 @@ def test_lldp_neighbor(duthost, localhost, ansible_adhoc, eos, collect_techsuppo
     dut_system_description = res['stdout']
     lldp_facts = duthost.lldp()['ansible_facts']
     host_facts  = duthost.setup()['ansible_facts']
-    lhost = AnsibleHost(ansible_adhoc, 'localhost', True)
 
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
@@ -56,7 +54,7 @@ def test_lldp_neighbor(duthost, localhost, ansible_adhoc, eos, collect_techsuppo
             logger.info("Neighbor device {} does not sent management IP via lldp".format(v['chassis']['name']))
             hostip = nei_meta[v['chassis']['name']]['mgmt_addr']
 
-        nei_lldp_facts = lhost.lldp_facts(host=hostip, version='v2c', community=eos['snmp_rocommunity'])['ansible_facts']
+        nei_lldp_facts = localhost.lldp_facts(host=hostip, version='v2c', community=eos['snmp_rocommunity'])['ansible_facts']
         print nei_lldp_facts
         neighbor_interface = v['port']['ifname']
         # Verify the published DUT system name field is correct

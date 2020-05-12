@@ -11,13 +11,14 @@ import json
 import tarfile
 import logging
 import time
+import string
+import re
 
 import pytest
 import csv
 import yaml
 import ipaddr as ipaddress
 
-from ansible_host import AnsibleHost
 from collections import defaultdict
 from common.fixtures.conn_graph_facts import conn_graph_facts
 from common.devices import SonicHost, Localhost, PTFHost, EosHost, FanoutHost
@@ -173,6 +174,7 @@ def testbed_devices(ansible_adhoc, testbed, duthost):
 
     return devices
 
+
 def disable_ssh_timout(dut):
     '''
     @summary disable ssh session on target dut
@@ -225,12 +227,20 @@ def duthost(ansible_adhoc, testbed, request):
 
 
 @pytest.fixture(scope="module")
-def ptfhost(testbed_devices):
-    """
-    Shortcut fixture for getting PTF host
-    """
+def localhost(ansible_adhoc):
+    return Localhost(ansible_adhoc)
 
-    return testbed_devices["ptf"]
+
+@pytest.fixture(scope="module")
+def ptfhost(ansible_adhoc, testbed):
+    if "ptf" in testbed:
+        return PTFHost(ansible_adhoc, testbed["ptf"])
+    else:
+        # when no ptf defined in testbed.csv
+        # try to parse it from inventory
+        ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
+        return PTFHost(ansible_adhoc, ptf_host)
+
 
 @pytest.fixture(scope="module")
 def nbrhosts(ansible_adhoc, testbed, creds):

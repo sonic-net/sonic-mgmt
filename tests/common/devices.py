@@ -60,7 +60,7 @@ class AnsibleHostBase(object):
 
         res = self.module(*module_args, **complex_args)[self.hostname]
         if res.is_failed and not module_ignore_errors:
-            raise RunAnsibleModuleFail("run module {} failed, errmsg {}".format(self.module_name, res))
+            raise RunAnsibleModuleFail("run module {} failed".format(self.module_name), res)
 
         return res
 
