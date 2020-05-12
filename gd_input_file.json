@@ -72,6 +72,9 @@
             "test_traffic_l3_fwd_l3_ipv4_vrf_table": {
                 "input_conf_file": "./data-files/traffic_l3_fwd_l3_ipv4_vrf_table.json"
             },
+            "test_subnet_traffic_l3_fwd_l3_ipv4_vrf_table": {
+                "input_conf_file": "./data-files/traffic_l3_fwd_l3_ipv4_vrf_table_diff_subnets.json"
+            },
             "test_ingress_encapIn_ipv4_table_crudTests": {
                 "input_conf_file": "./data-files/ingress-encapin-ipv4-table.json"
             },
