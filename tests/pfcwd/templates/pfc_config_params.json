@@ -1,0 +1,42 @@
+{
+    "pfc_wd_fwd_action": {
+        "pfc_wd_action": "forward",
+        "pfc_wd_detection_time": 4000,
+        "pfc_wd_restoration_time": 5000
+     },
+     "pfc_wd_invalid_action": {
+        "pfc_wd_action": "invalid",
+        "pfc_wd_detection_time": 4000,
+        "pfc_wd_restoration_time": 5000
+     },
+     "pfc_wd_invalid_detect_time": {
+        "pfc_wd_action": "forward",
+        "pfc_wd_detection_time": "400a",
+        "pfc_wd_restoration_time": 5000
+     },
+     "pfc_wd_low_detect_time": {
+        "pfc_wd_action": "forward",
+        "pfc_wd_detection_time": 40,
+        "pfc_wd_restoration_time": 5000
+     },
+     "pfc_wd_high_detect_time": {
+        "pfc_wd_action": "forward",
+        "pfc_wd_detection_time": 4000000,
+        "pfc_wd_restoration_time": 5000
+     },
+     "pfc_wd_invalid_restore_time": {
+        "pfc_wd_action": "forward",
+        "pfc_wd_detection_time": 4000,
+        "pfc_wd_restoration_time": "500c"
+     },
+     "pfc_wd_low_restore_time": {
+        "pfc_wd_action": "forward",
+        "pfc_wd_detection_time": 4000,
+        "pfc_wd_restoration_time": 50
+     },
+     "pfc_wd_high_restore_time": {
+        "pfc_wd_action": "forward",
+        "pfc_wd_detection_time": 4000,
+        "pfc_wd_restoration_time": 50000000
+     }
+}
