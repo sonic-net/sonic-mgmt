@@ -10,8 +10,11 @@ pytestmark = [
 ]
 
 @pytest.fixture(scope="module")
-def setup_ntp(ptfhost, duthost):
+def setup_ntp(ptfhost, duthost, creds):
     """setup ntp client and server"""
+    if creds.get('proxy_env'):
+        # If testbed is behaind proxy then force ntpd inside ptf use local time
+        ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
 
     # enable ntp server
     ptfhost.service(name="ntp", state="started")
@@ -31,7 +34,6 @@ def setup_ntp(ptfhost, duthost):
 
     # stop ntp server
     ptfhost.service(name="ntp", state="stopped")
-
     # reset ntp client configuration
     duthost.command("config ntp del %s" % ptfip)
     for ntp_server in ntp_servers:
