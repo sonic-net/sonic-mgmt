@@ -44,14 +44,14 @@ import tc_helper_lib as TchLib
 SWITCH_TO_HOST_PORT = 1
 SWITCH_TO_SWITCH_PORT = 2
 
-def _test_traffic_l3_fwd_l3_ipv4_vrf_table(self,tbl_ops,sw_conn):
+def _test_traffic_l3_fwd_l3_ipv4_vrf_table(self,tc_name,tbl_ops,sw_conn):
     err_msg = list()
     sw_conn=TchLib.Establish_Switch_Conn(ApData.sw_name)
     sw_conn.MasterArbitrationUpdate()
 
     tbl_name = "ingress.l3_fwd.l3_ipv4_vrf_table"
     p4info_helper = p4_info_helper.P4InfoHelper(ApData.p4info)
-    conf_file = "test_traffic_l3_fwd_l3_ipv4_vrf_table/input_conf_file"
+    conf_file = tc_name + "/input_conf_file"
     tbl_input_file = ApData.zap.get_testcase_configuration(conf_file)
     with open(tbl_input_file, 'r') as conf_file:
         input_conf = p4TestLib.json_load_byteified(conf_file)
