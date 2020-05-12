@@ -30,13 +30,21 @@ def reboot_dut(dut, localhost, cmd, wait_time):
 
 
 def __recover_interfaces(dut, fanouthosts, result, wait_time):
+    action = None
     for port in result['down_ports']:
         logging.info("Restoring port {}".format(port))
+
+        pn = str(port).lower()
+        if 'portchannel' in pn or 'vlan' in pn:
+            action = 'config_reload'
+            continue
+
         fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, port)
         if fanout and fanout_port:
             fanout.no_shutdown(fanout_port)
         dut.no_shutdown(port)
     wait(wait_time, msg="Wait {} seconds for interface(s) to restore.".format(wait_time))
+    return action
 
 
 def __recover_services(dut, result):
@@ -57,16 +65,18 @@ def adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time):
         if result['failed']:
             logging.info("Restoring {}".format(result))
             if result['check_item'] == 'interfaces':
-                __recover_interfaces(dut, fanouthosts, result, wait_time)
-            elif result['check_item'] in ['services', 'processes']:
-                action             = __recover_services(dut, result)
-                # Only allow outstanding_action be overridden when it is
-                # None. In case the outstanding_action has already been
-                # been set to 'reboot'.
-                if not outstanding_action:
-                    outstanding_action = action
+                action = __recover_interfaces(dut, fanouthosts, result, wait_time)
+            elif result['check_item'] == 'services':
+                action = __recover_services(dut, result)
+            elif result['check_item'] == 'processes':
+                action = 'config_reload'
             else:
-                outstanding_action = 'reboot'
+                action = 'reboot'
+
+            # Any action can override no action or 'config_reload'.
+            # 'reboot' is last resort and cannot be overridden.
+            if action and (not outstanding_action or outstanding_action == 'config_reload'):
+                outstanding_action = action
 
     if outstanding_action:
         method    = constants.RECOVER_METHODS[outstanding_action]

@@ -12,8 +12,8 @@ PRINT_LOGS = {
 
 # Recover related definitions
 RECOVER_METHODS = {
-    "config_reload": {"cmd": "config reload -y", "reboot": False, "adaptive": False, 'recover_wait': 60},
-    "load_minigraph": {"cmd": "config load_minigraph -y", "reboot": False, "adaptive": False, 'recover_wait': 60},
+    "config_reload": {"cmd": "bash -c 'config reload -y &>/dev/null'", "reboot": False, "adaptive": False, 'recover_wait': 60},
+    "load_minigraph": {"cmd": "bash -c 'config load_minigraph -y &>/dev/null'", "reboot": False, "adaptive": False, 'recover_wait': 60},
     "reboot": {"cmd": "reboot", "reboot": True, "adaptive": False, 'recover_wait': 120},
     "warm_reboot": {"cmd": "warm-reboot", "reboot": True, "adaptive": False, 'recover_wait': 120},
     "fast_reboot": {"cmd": "fast_reboot", "reboot": True, "adaptive": False, 'recover_wait': 120},
