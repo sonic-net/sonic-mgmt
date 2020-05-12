@@ -7,8 +7,7 @@ SERVER_FILE = 'platform_api_server.py'
 SERVER_PORT = 8000
 
 @pytest.fixture(scope='function')
-def start_platform_api_service(duthost, testbed_devices):
-    localhost = testbed_devices['localhost']
+def start_platform_api_service(duthost, localhost):
     res = localhost.wait_for(host=duthost.hostname, port=SERVER_PORT, state='started', delay=1, timeout=5)
     if 'exception' in res:
         supervisor_conf = [

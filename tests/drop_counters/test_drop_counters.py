@@ -269,7 +269,7 @@ def rif_port_down(duthost, setup, loganalyzer):
 
 
 @pytest.fixture
-def fanouthost(request, duthost, testbed_devices):
+def fanouthost(request, duthost, localhost):
     """
     Fixture that allows to update Fanout configuration if there is a need to send incorrect packets.
     Added possibility to create vendor specific logic to handle fanout configuration.
@@ -285,7 +285,7 @@ def fanouthost(request, duthost, testbed_devices):
             # Import fanout configuration handler based on vendor name
             if "mellanox" in file_name:
                 module = importlib.import_module("fanout.{0}.{0}_fanout".format(file_name.strip(".py")))
-                fanout = module.FanoutHandler(duthost, testbed_devices)
+                fanout = module.FanoutHandler(duthost, localhost)
                 break
 
     yield fanout

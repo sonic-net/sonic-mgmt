@@ -3,9 +3,8 @@ import os
 import json
 
 @pytest.fixture(scope="module")
-def conn_graph_facts(duthost, testbed_devices):
+def conn_graph_facts(duthost, localhost):
     conn_graph_facts = dict()
-    localhost = testbed_devices["localhost"]
 
     base_path = os.path.dirname(os.path.realpath(__file__))
     # json file contains mapping from inventory file name to its corresponding graph file
