@@ -1,5 +1,4 @@
 import pytest
-import os
 from common.fixtures.conn_graph_facts import conn_graph_facts
 
 

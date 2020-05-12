@@ -21,7 +21,6 @@ import ipaddr as ipaddress
 
 from collections import defaultdict
 from common.fixtures.conn_graph_facts import conn_graph_facts
-from common.devices import AnsibleHostBase
 from common.devices import SonicHost, Localhost, PTFHost, EosHost, FanoutHost
 
 logger = logging.getLogger(__name__)
