@@ -505,36 +505,6 @@ class BaseEverflowTest(object):
         duthost.shell("redis-cli -n 4 del 'ACL_RULE|EVERFLOW_DSCP|RULE_1'")
         remove_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
 
-    def test_everflow_case6(self, duthost, setup_info, setup_mirror_session, dest_port_type, partial_ptf_runner):
-
-        """ Test Case 6 - ARP/ND packet mirroring"""
-
-        rx_port_ptf_id =  setup_info[dest_port_type] ['src_port_ptf_id']
-        tx_port = setup_info[dest_port_type]['dest_port'][0]
-        tx_port_ptf_id = setup_info[dest_port_type]['dest_port_ptf_id'][0]
-        
-
-        mirror_action = "MIRROR_INGRESS_ACTION" if self.mirror_type() == 'ingress' else "MIRROR_EGRESS_ACTION"
-
-        # Add ACL Rule to match on ARP and DSCP packets.
-        duthost.shell("redis-cli -n 4 hmset 'ACL_RULE|EVERFLOW|RULE_ARP' PRIORITY 8888 {} {} ETHER_TYPE 2054".format(mirror_action, setup_mirror_session['session_name']))
-        duthost.shell("redis-cli -n 4 hmset 'ACL_RULE|EVERFLOWV6|RULE_ND' PRIORITY 8888 {} {} ICMPV6_TYPE 135".format(mirror_action,setup_mirror_session['session_name']))
-
-        peer_ip, peer_mac = get_neighbor_info(duthost, tx_port)
-        add_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
-
-        time.sleep(3)
-
-        partial_ptf_runner(setup_info, setup_mirror_session,self.acl_stage(), self.mirror_type(),
-                           expect_receive = True, test_name = 'everflow_neighbor_test.EverflowNeighborTest',
-                           src_port = rx_port_ptf_id, dst_mirror_ports = tx_port_ptf_id,
-                           dst_ports = tx_port_ptf_id)
-
-        #Remove ACL rule for Everflow and ARP Packets.
-        duthost.shell("redis-cli -n 4 del 'ACL_RULE|EVERFLOW|RULE_ARP'")
-        duthost.shell("redis-cli -n 4 del 'ACL_RULE|EVERFLOWV6|RULE_ND'")
-        remove_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
-
 class TestEverflowIngressAclIngressMirror(BaseEverflowTest):
 
     @pytest.fixture(scope='class',  autouse = True)
