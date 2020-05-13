@@ -12,7 +12,8 @@ import ipaddr as ipaddress
 
 from ansible_host import AnsibleHost
 from collections import defaultdict
-from common.devices import SonicHost, Localhost, PTFHost, EosHost
+from common.fixtures.conn_graph_facts import conn_graph_facts
+from common.devices import SonicHost, Localhost, PTFHost, EosHost, FanoutHost
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,7 @@ def pytest_addoption(parser):
                     help="Change default loop range for show techsupport command")
     parser.addoption("--loop_delay", action="store", default=10, type=int,
                     help="Change default loops delay")
-    parser.addoption("--logs_since", action="store", type=int, 
+    parser.addoption("--logs_since", action="store", type=int,
                     help="number of minutes for show techsupport command")
 
 
@@ -197,7 +198,7 @@ def ptfhost(testbed_devices):
 @pytest.fixture(scope="module")
 def nbrhosts(ansible_adhoc, testbed, creds):
     """
-    Shortcut fixture for getting PTF host
+    Shortcut fixture for getting VM host
     """
 
     vm_base = int(testbed['vm_base'][2:])
@@ -206,6 +207,34 @@ def nbrhosts(ansible_adhoc, testbed, creds):
         devices[k] = EosHost(ansible_adhoc, "VM%04d" % (vm_base + v['vm_offset']), creds['eos_login'], creds['eos_password'])
     return devices
 
+@pytest.fixture(scope="module")
+def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
+    """
+    Shortcut fixture for getting Fanout hosts
+    """
+
+    dev_conn     = conn_graph_facts['device_conn'] if 'device_conn' in conn_graph_facts else {}
+    fanout_hosts = {}
+    for dut_port in dev_conn.keys():
+        fanout_rec  = dev_conn[dut_port]
+        fanout_host = fanout_rec['peerdevice']
+        fanout_port = fanout_rec['peerport']
+        if fanout_host in fanout_hosts.keys():
+            fanout  = fanout_hosts[fanout_host]
+        else:
+            host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_host).vars
+            os_type = 'eos' if 'os' not in host_vars else host_vars['os']
+            if os_type == "eos":
+                user = creds['fanout_admin_user']
+                pswd = creds['fanout_admin_password']
+            elif os_type == "onyx":
+                user = creds["fanout_mlnx_user"]
+                pswd = creds["fanout_mlnx_password"]
+            fanout  = FanoutHost(ansible_adhoc, os_type, fanout_host, 'FanoutLeaf', user, pswd)
+            fanout_hosts[fanout_host] = fanout
+        fanout.add_port_map(dut_port, fanout_port)
+
+    return fanout_hosts
 
 @pytest.fixture(scope='session')
 def eos():
@@ -215,11 +244,15 @@ def eos():
         return eos
 
 
-@pytest.fixture(scope="session")
-def creds():
-    """ read and yield lab configuration """
-    files = glob.glob("../ansible/group_vars/lab/*.yml")
-    files += glob.glob("../ansible/group_vars/all/*.yml")
+@pytest.fixture(scope="module")
+def creds(duthost):
+    """ read credential information according to the dut inventory """
+    groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
+    groups.append("fanout")
+    logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
+    files = glob.glob("../ansible/group_vars/all/*.yml")
+    for group in groups:
+        files += glob.glob("../ansible/group_vars/{}/*.yml".format(group))
     creds = {}
     for f in files:
         with open(f) as stream:

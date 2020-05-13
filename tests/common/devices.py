@@ -130,22 +130,34 @@ class SonicHost(AnsibleHostBase):
             self._get_critical_services_for_multi_npu
 
 
-    def _platform_info(self):
+    def get_platform_info(self):
+        """
+        @summary: Get the platform information of the SONiC switch.
+        @return: Returns a dictionary containing preperties of the platform information, for example:
+            {
+                "platform": "",
+                "hwsku": "",
+                "asic_type": ""
+            }
+        """
         platform_info = self.command("show platform summary")["stdout_lines"]
+        result = {}
         for line in platform_info:
             if line.startswith("Platform:"):
-                self.facts["platform"] = line.split(":")[1].strip()
+                result["platform"] = line.split(":")[1].strip()
             elif line.startswith("HwSKU:"):
-                self.facts["hwsku"] = line.split(":")[1].strip()
+                result["hwsku"] = line.split(":")[1].strip()
             elif line.startswith("ASIC:"):
-                self.facts["asic_type"] = line.split(":")[1].strip()
+                result["asic_type"] = line.split(":")[1].strip()
+        return result
 
     def gather_facts(self):
         """
         @summary: Gather facts of the SONiC switch and store the gathered facts in the dict type 'facts' attribute.
         """
         self.facts = {}
-        self._platform_info()
+        platform_info = self.get_platform_info()
+        self.facts.update(platform_info)
         self._get_npu_info()
         logging.debug("SonicHost facts: %s" % json.dumps(self.facts))
 
@@ -233,36 +245,50 @@ class SonicHost(AnsibleHostBase):
 
         return result
 
-    def get_pmon_daemon_list(self):
+    def get_pmon_daemon_states(self):
         """
-        @summary: get pmon daemon list from the config file (/usr/share/sonic/device/{platform}/{hwsku}/pmon_daemon_control.json)
+        @summary: get state list of daemons from pmon docker.
+                  Referencing (/usr/share/sonic/device/{platform}/pmon_daemon_control.json)
                   if some daemon is disabled in the config file, then remove it from the daemon list.
+
+        @return: dictionary of { service_name1 : state1, ... ... }
         """
-        full_daemon_tup = ('xcvrd', 'ledd', 'psud', 'syseepromd')
+        # some services are meant to have a short life span or not part of the daemons
+        exemptions = ['lm-sensors', 'start.sh', 'rsyslogd']
+
+        daemons = self.shell('docker exec pmon supervisorctl status')['stdout_lines']
+
+        daemon_list = [ line.strip().split()[0] for line in daemons if len(line.strip()) > 0 ] 
+
         daemon_ctl_key_prefix = 'skip_'
-        daemon_list = []
         daemon_config_file_path = os.path.join('/usr/share/sonic/device', self.facts["platform"], 'pmon_daemon_control.json')
 
         try:
             output = self.shell('cat %s' % daemon_config_file_path)
             json_data = json.loads(output["stdout"])
             logging.debug("Original file content is %s" % str(json_data))
-            for key in full_daemon_tup:
+            for key in daemon_list:
                 if (daemon_ctl_key_prefix + key) not in json_data:
-                    daemon_list.append(key)
                     logging.debug("Daemon %s is enabled" % key)
                 elif not json_data[daemon_ctl_key_prefix + key]:
-                    daemon_list.append(key)
                     logging.debug("Daemon %s is enabled" % key)
                 else:
                     logging.debug("Daemon %s is disabled" % key)
+                    exemptions.append(key)
         except:
             # if pmon_daemon_control.json not exist, then it's using default setting,
             # all the pmon daemons expected to be running after boot up.
-            daemon_list = list(full_daemon_tup)
+            pass
 
-        logging.info("Pmon daemon list for this platform is %s" % str(daemon_list))
-        return daemon_list
+        # Collect state of services that are not on the exemption list.
+        daemon_states = {}
+        for line in daemons:
+            words = line.strip().split()
+            if len(words) >= 2 and words[0] not in exemptions:
+                daemon_states[words[0]] = words[1]
+
+        logging.info("Pmon daemon state list for this platform is %s" % str(daemon_states))
+        return daemon_states
 
     def num_npus(self):
         """
@@ -310,7 +336,7 @@ class SonicHost(AnsibleHostBase):
             return self.get_now_time() - datetime.strptime(start_time["ExecMainStartTimestamp"],
                                                            "%a %Y-%m-%d %H:%M:%S UTC")
         except Exception as e:
-            self.logger.error("Exception raised while getting networking restart time: %s" % repr(e))
+            logging.error("Exception raised while getting networking restart time: %s" % repr(e))
             return None
 
     def get_image_info(self):
@@ -322,7 +348,7 @@ class SonicHost(AnsibleHostBase):
         ret    = {}
         images = []
         for line in lines:
-            words = line.strip().split(' ')
+            words = line.strip().split()
             if len(words) == 2:
                 if words[0] == 'Current:':
                     ret['current'] = words[1]
@@ -333,6 +359,28 @@ class SonicHost(AnsibleHostBase):
 
         ret['installed_list'] = images
         return ret
+
+    def get_asic_type(self):
+        return self.facts["asic_type"]
+
+    def shutdown(self, ifname):
+        """
+            Shutdown interface specified by ifname
+
+            Args:
+                ifname: the interface to shutdown
+        """
+        return self.command("sudo config interface shutdown {}".format(ifname))
+
+    def no_shutdown(self, ifname):
+        """
+            Bring up interface specified by ifname
+
+            Args:
+                ifname: the interface to bring up
+        """
+        return self.command("sudo config interface startup {}".format(ifname))
+
 
 class EosHost(AnsibleHostBase):
     """
@@ -347,5 +395,170 @@ class EosHost(AnsibleHostBase):
                   'ansible_network_os':'eos', \
                   'ansible_user': user, \
                   'ansible_password': passwd, \
+                  'ansible_ssh_user': user, \
+                  'ansible_ssh_pass': passwd, \
                   'ansible_become_method': 'enable' }
         self.host.options['variable_manager'].extra_vars.update(evars)
+        self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
+
+    def shutdown(self, interface_name):
+        out = self.host.eos_config(
+            lines=['shutdown'],
+            parents='interface %s' % interface_name)
+        logging.info('Shut interface [%s]' % interface_name)
+        return out
+
+    def no_shutdown(self, interface_name):
+        out = self.host.eos_config(
+            lines=['no shutdown'],
+            parents='interface %s' % interface_name)
+        logging.info('No shut interface [%s]' % interface_name)
+        return out
+
+    def check_intf_link_state(self, interface_name):
+        show_int_result = self.host.eos_command(
+            commands=['show interface %s' % interface_name])[self.hostname]
+        return 'Up' in show_int_result['stdout_lines'][0]
+
+    def command(self, cmd):
+        out = self.host.eos_command(commands=[cmd])
+        return out
+
+    def set_interface_lacp_rate_mode(self, interface_name, mode):
+        out = self.host.eos_config(
+            lines=['lacp rate %s' % mode],
+            parents='interface %s' % interface_name)
+        logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
+        return out
+
+    def exec_template(self, ansible_root, ansible_playbook, **kwargs):
+        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i lab -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
+        cli_cmd = playbook_template.format(ansible_path=ansible_root, playbook=ansible_playbook, fanout_host=self.hostname,
+                                            extra_vars=json.dumps(kwargs))
+        res = self.localhost.shell(cli_cmd)
+
+        if res["localhost"]["rc"] != 0:
+            raise Exception("Unable to execute template\n{}".format(res["stdout"]))
+
+
+class OnyxHost(AnsibleHostBase):
+    """
+    @summary: Class for ONYX switch
+
+    For running ansible module on the ONYX switch
+    """
+
+    def __init__(self, ansible_adhoc, hostname, user, passwd, gather_facts=False):
+        AnsibleHostBase.__init__(self, ansible_adhoc, hostname, connection="network_cli")
+        evars = {'ansible_connection':'network_cli',
+                'ansible_network_os':'onyx',
+                'ansible_user': user,
+                'ansible_password': passwd,
+                'ansible_ssh_user': user,
+                'ansible_ssh_pass': passwd,
+                'ansible_become_method': 'enable'
+                }
+
+        self.host.options['variable_manager'].extra_vars.update(evars)
+        self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
+
+    def shutdown(self, interface_name):
+        out = self.host.onyx_config(
+            lines=['shutdown'],
+            parents='interface ethernet %s' % interface_name)
+        logging.info('Shut interface [%s]' % interface_name)
+        return out
+
+    def no_shutdown(self, interface_name):
+        out = self.host.onyx_config(
+            lines=['no shutdown'],
+            parents='interface ethernet %s' % interface_name)
+        logging.info('No shut interface [%s]' % interface_name)
+        return out
+
+    def check_intf_link_state(self, interface_name):
+        show_int_result = self.host.onyx_command(
+            commands=['show interfaces ethernet {} | include "Operational state"'.format(interface_name)])[self.hostname]
+        return 'Up' in show_int_result['stdout'][0]
+
+    def command(self, cmd):
+        out = self.host.onyx_command(commands=[cmd])
+        return out
+
+    def set_interface_lacp_rate_mode(self, interface_name, mode):
+        out = self.host.onyx_config(
+            lines=['lacp rate %s' % mode],
+            parents='interface ethernet %s' % interface_name)
+        logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
+        return out
+
+    def exec_template(self, ansible_root, ansible_playbook, **kwargs):
+        """
+        Execute ansible playbook with specified parameters
+        """
+        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i lab -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
+        cli_cmd = playbook_template.format(ansible_path=ansible_root, playbook=ansible_playbook, fanout_host=self.hostname,
+                                            extra_vars=json.dumps(kwargs))
+        res = self.localhost.shell(cli_cmd)
+
+        if res["localhost"]["rc"] != 0:
+            raise Exception("Unable to execute template\n{}".format(res["stdout"]))
+
+
+class FanoutHost():
+    """
+    @summary: Class for Fanout switch
+
+    For running ansible module on the Fanout switch
+    """
+
+    def __init__(self, ansible_adhoc, os, hostname, device_type, user, passwd):
+        self.hostname = hostname
+        self.type = device_type
+        self.host_to_fanout_port_map = {}
+        self.fanout_to_host_port_map = {}
+        if os == 'sonic':
+            self.os = os
+            self.host = SonicHost(ansible_adhoc, hostname)
+        elif os == 'onyx':
+            self.os = os
+            self.host = OnyxHost(ansible_adhoc, hostname, user, passwd)
+        else:
+            # Use eos host if the os type is unknown
+            self.os = 'eos'
+            self.host = EosHost(ansible_adhoc, hostname, user, passwd)
+
+    def get_fanout_os(self):
+        return self.os
+
+    def get_fanout_type(self):
+        return self.type
+    
+    def shutdown(self, interface_name):
+        return self.host.shutdown(interface_name)[self.hostname]
+    
+    def no_shutdown(self, interface_name):
+        return self.host.no_shutdown(interface_name)[self.hostname]
+
+    def command(self, cmd):
+        return self.host.command(cmd)[self.hostname]
+
+    def __str__(self):
+        return "{ os: '%s', hostname: '%s', device_type: '%s' }" % (self.os, self.hostname, self.type)
+    
+    def __repr__(self):
+        return self.__str__()
+
+    def add_port_map(self, host_port, fanout_port):
+        """
+            Fanout switch is build from the connection graph of the
+            DUT. So each fanout switch instance is relevant to the
+            DUT instance in the test. As result the port mapping is
+            unique from the DUT perspective. However, this function
+            need update when supporting multiple DUT
+        """
+        self.host_to_fanout_port_map[host_port]   = fanout_port
+        self.fanout_to_host_port_map[fanout_port] = host_port
+
+    def exec_template(self, ansible_root, ansible_playbook, **kwargs):
+        return self.host.exec_template(ansible_root, ansible_playbook, **kwargs)

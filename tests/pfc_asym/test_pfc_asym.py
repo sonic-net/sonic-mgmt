@@ -1,4 +1,3 @@
-import pytest
 from ptf_runner import ptf_runner
 
 
@@ -58,7 +57,7 @@ def test_pfc_asym_on_tx_pfc(ptfhost, setup, enable_pfc_asym, pfc_storm_runner):
                 log_file="/tmp/pfc_asym.PfcAsymOffOnTxTest.log")
 
 
-def test_pfc_asym_on_handle_pfc_all_prio(ptfhost, setup, pfc_storm_runner, enable_pfc_asym):
+def test_pfc_asym_on_handle_pfc_all_prio(ptfhost, setup, enable_pfc_asym, pfc_storm_runner):
     """
     @summary: Asymmetric PFC is enabled. Verify that while receiving PFC frames DUT handle PFC frames on all
                 priorities when asymetric mode is enabled
