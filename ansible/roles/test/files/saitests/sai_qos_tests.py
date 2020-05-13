@@ -125,7 +125,6 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
 
 class ARPpopulatePTF(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
-        router_mac = self.test_params['router_mac']
         ## ARP Populate
         index = 0
         for port in ptf_ports():
