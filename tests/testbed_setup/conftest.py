@@ -1,4 +1,4 @@
-from .args.populate_fdb_args import add_populate_fdb_args
+from setup_args.populate_fdb_args import add_populate_fdb_args
 from common.fixtures.populate_fdb import populate_fdb
 
 # FDB pytest arguments
