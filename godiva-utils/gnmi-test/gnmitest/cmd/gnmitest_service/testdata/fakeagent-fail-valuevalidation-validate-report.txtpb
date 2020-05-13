@@ -1,0 +1,53 @@
+results: <
+  description: "Subscription tests"
+  instance: <
+    description: "Components tests"
+    test: <
+      test: <
+        description: "Value validation"
+        timeout: 20
+        schema: "openconfig"
+        connection: <
+          address: "%%ADDRESS%%"
+          timeout: 20
+        >
+        subscribe: <
+          request: <
+            subscribe: <
+              prefix: <
+                origin: "openconfig"
+                target: "DUT"
+              >
+              subscription: <
+                path: <
+                  elem: <
+                    name: "components"
+                  >
+                  elem: <
+                    name: "component"
+                  >
+                >
+              >
+              mode: ONCE
+            >
+          >
+          value_validation: <
+          >
+        >
+      >
+      result: FAIL
+      subscribe: <
+        status: EARLY_FINISHED
+        errors: <
+          message: "pointed-to value with path ../config/name from field Name value FOO (string ptr) schema /device/components/component/name is empty set"
+        >
+        errors: <
+          message: "pointed-to value with path ../../../../../component/config/name from field Name value forty two (string ptr) schema /device/components/component/subcomponents/subcomponent/config/name is empty set"
+        >
+        errors: <
+          message: "field name Name value BAR (string ptr) schema path /device/components/component/subcomponents/subcomponent/name has leafref path ../config/name not equal to any target nodes"
+        >
+      >
+    >
+  >
+>
