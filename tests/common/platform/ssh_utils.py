@@ -1,6 +1,6 @@
 import logging
 
-from common.errors import RunAnsibleModuleFail
+from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 
