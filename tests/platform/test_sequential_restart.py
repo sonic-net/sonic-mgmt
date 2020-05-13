@@ -10,7 +10,7 @@ import sys
 
 import pytest
 
-from platform_fixtures import conn_graph_facts
+from common.fixtures.conn_graph_facts import conn_graph_facts
 from common.utilities import wait_until
 from check_critical_services import check_critical_services
 from check_transceiver_status import check_transceiver_basic
@@ -53,20 +53,18 @@ def restart_service_and_check(localhost, dut, service, interfaces):
         check_sysfs(dut)
 
 
-def test_restart_swss(testbed_devices, conn_graph_facts):
+def test_restart_swss(duthost, testbed_devices, conn_graph_facts):
     """
     @summary: This test case is to restart the swss service and check platform status
     """
-    dut = testbed_devices["dut"]
     localhost = testbed_devices["localhost"]
-    restart_service_and_check(localhost, dut, "swss", conn_graph_facts["device_conn"])
+    restart_service_and_check(localhost, duthost, "swss", conn_graph_facts["device_conn"])
 
 
 @pytest.mark.skip(reason="Restarting syncd is not supported yet")
-def test_restart_syncd(testbed_devices, conn_graph_facts):
+def test_restart_syncd(duthost, testbed_devices, conn_graph_facts):
     """
     @summary: This test case is to restart the syncd service and check platform status
     """
-    dut = testbed_devices["dut"]
     localhost = testbed_devices["localhost"]
-    restart_service_and_check(localhost, dut, "syncd", conn_graph_facts["device_conn"])
+    restart_service_and_check(localhost, duthost, "syncd", conn_graph_facts["device_conn"])

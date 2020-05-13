@@ -1,0 +1,222 @@
+default:
+
+AS7326-GPOD:
+  Ethernet0: 10000
+  Ethernet1: 10000
+  Ethernet2: 10000
+  Ethernet3: 10000 
+
+AS7326-25G:
+  Ethernet0: 25000
+  Ethernet1: 25000
+  Ethernet2: 25000
+  Ethernet3: 25000
+  Ethernet4: 25000
+  Ethernet5: 25000
+  Ethernet6: 25000
+  Ethernet7: 25000
+  Ethernet8: 25000
+  Ethernet9: 25000
+  Ethernet10: 25000
+  Ethernet11: 25000
+  Ethernet12: 25000
+  Ethernet13: 25000
+  Ethernet14: 25000
+  Ethernet15: 25000
+  Ethernet16: 25000
+  Ethernet17: 25000
+  Ethernet18: 25000
+  Ethernet19: 25000
+  Ethernet20: 25000
+  Ethernet21: 25000
+  Ethernet22: 25000
+  Ethernet23: 25000
+  Ethernet24: 25000
+  Ethernet25: 25000
+  Ethernet26: 25000
+  Ethernet27: 25000
+  Ethernet28: 25000
+  Ethernet29: 25000
+  Ethernet30: 25000
+  Ethernet31: 25000
+  Ethernet32: 25000
+  Ethernet33: 25000
+  Ethernet34: 25000
+  Ethernet35: 25000
+  Ethernet36: 25000
+  Ethernet37: 25000
+  Ethernet38: 25000
+  Ethernet39: 25000
+  Ethernet40: 25000
+  Ethernet41: 25000
+  Ethernet42: 25000
+  Ethernet43: 25000
+  Ethernet44: 25000
+  Ethernet45: 25000
+  Ethernet46: 25000
+  Ethernet47: 25000
+
+AS7326-10G:
+  Ethernet0: 10000
+  Ethernet1: 10000
+  Ethernet2: 10000
+  Ethernet3: 10000
+  Ethernet4: 10000
+  Ethernet5: 10000
+  Ethernet6: 10000
+  Ethernet7: 10000
+  Ethernet8: 10000
+  Ethernet9: 10000
+  Ethernet10: 10000
+  Ethernet11: 10000
+  Ethernet12: 10000
+  Ethernet13: 10000
+  Ethernet14: 10000
+  Ethernet15: 10000
+  Ethernet16: 10000
+  Ethernet17: 10000
+  Ethernet18: 10000
+  Ethernet19: 10000
+  Ethernet20: 10000
+  Ethernet21: 10000
+  Ethernet22: 10000
+  Ethernet23: 10000
+  Ethernet24: 10000
+  Ethernet25: 10000
+  Ethernet26: 10000
+  Ethernet27: 10000
+  Ethernet28: 10000
+  Ethernet29: 10000
+  Ethernet30: 10000
+  Ethernet31: 10000
+  Ethernet32: 10000
+  Ethernet33: 10000
+  Ethernet34: 10000
+  Ethernet35: 10000
+  Ethernet36: 10000
+  Ethernet37: 10000
+  Ethernet38: 10000
+  Ethernet39: 10000
+  Ethernet40: 10000
+  Ethernet41: 10000
+  Ethernet42: 10000
+  Ethernet43: 10000
+  Ethernet44: 10000
+  Ethernet45: 10000
+  Ethernet46: 10000
+  Ethernet47: 10000
+  
+AS7326-10G_PG1:
+  Ethernet0: 10000
+  Ethernet1: 10000
+  Ethernet2: 10000
+  Ethernet3: 10000
+  Ethernet4: 10000
+  Ethernet5: 10000
+  Ethernet6: 10000
+  Ethernet7: 10000
+  Ethernet8: 10000
+  Ethernet9: 10000
+  Ethernet10: 10000
+  Ethernet11: 10000
+  
+AS7326-10G_PG2:
+  Ethernet12: 10000
+  Ethernet13: 10000
+  Ethernet14: 10000
+  Ethernet15: 10000
+  Ethernet16: 10000
+  Ethernet17: 10000
+  Ethernet18: 10000
+  Ethernet19: 10000
+  Ethernet20: 10000
+  Ethernet21: 10000
+  Ethernet22: 10000
+  Ethernet23: 10000
+
+AS7326-10G_PG3:
+  Ethernet24: 10000
+  Ethernet25: 10000
+  Ethernet26: 10000
+  Ethernet27: 10000
+  Ethernet28: 10000
+  Ethernet29: 10000
+  Ethernet30: 10000
+  Ethernet31: 10000
+  Ethernet32: 10000
+  Ethernet33: 10000
+  Ethernet34: 10000
+  Ethernet35: 10000
+
+AS7326-10G_PG4:
+  Ethernet36: 10000
+  Ethernet37: 10000
+  Ethernet38: 10000
+  Ethernet39: 10000
+  Ethernet40: 10000
+  Ethernet41: 10000
+  Ethernet42: 10000
+  Ethernet43: 10000
+  Ethernet44: 10000
+  Ethernet45: 10000
+  Ethernet46: 10000
+  Ethernet47: 10000
+
+AS7326-SCH-10G-IXIA:
+  Ethernet44: 10000
+  Ethernet45: 10000
+  Ethernet46: 10000
+  Ethernet47: 10000
+
+IX8-IFA-10G:
+  Ethernet0: 10000
+  Ethernet1: 10000
+  Ethernet2: 10000
+  Ethernet3: 10000
+  Ethernet4: 10000
+  Ethernet5: 10000
+  Ethernet6: 10000
+  Ethernet7: 10000
+  Ethernet8: 10000
+  Ethernet9: 10000
+  Ethernet10: 10000
+  Ethernet11: 10000
+  Ethernet16: 10000
+  Ethernet17: 10000
+  Ethernet18: 10000
+  Ethernet19: 10000
+  Ethernet20: 10000
+  Ethernet21: 10000
+  Ethernet22: 10000
+  Ethernet23: 10000
+  Ethernet24: 10000
+  Ethernet25: 10000
+  Ethernet26: 10000
+  Ethernet27: 10000
+  Ethernet28: 10000
+  Ethernet29: 10000
+  Ethernet30: 10000
+  Ethernet31: 10000
+  Ethernet32: 10000
+  Ethernet33: 10000
+  Ethernet34: 10000
+  Ethernet35: 10000
+  Ethernet36: 10000
+  Ethernet37: 10000
+  Ethernet38: 10000
+  Ethernet39: 10000
+  Ethernet40: 10000
+  Ethernet41: 10000
+  Ethernet42: 10000
+  Ethernet43: 10000
+  Ethernet44: 10000
+  Ethernet45: 10000
+  Ethernet46: 10000
+  Ethernet47: 10000
+
+Force10-S6100-60-63-10G:
+  Ethernet60: 10000
+  Ethernet61: 10000
+  Ethernet62: 10000
+  Ethernet63: 10000
+

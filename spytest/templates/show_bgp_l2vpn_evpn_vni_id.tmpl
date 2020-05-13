@@ -1,0 +1,19 @@
+Value VNI (\d+)
+Value TYPE (\S+)
+Value VRFNAME (\S+)
+Value RD (\d+\:\d+|\d+\.\d+\.\d+\.\d+)
+Value ORIGINIP (\d+\.\d+\.\d+\.\d)
+Value GWMAC (\S+)
+Value List RT (\d+\:\d+)
+
+
+Start
+  ^\s*VNI:\s${VNI}
+  ^\s*Type:\s${TYPE}$$
+  ^\s*Tenant-Vrf:\s${VRFNAME}$$
+  ^\s*RD:\s${RD}
+  ^\s*Originator IP:\s${ORIGINIP}$$
+  ^\s*Advertise-gw-macip :\s${GWMAC}$$
+  ^\s*${RT}$$
+
+

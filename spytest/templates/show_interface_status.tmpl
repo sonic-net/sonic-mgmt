@@ -1,0 +1,9 @@
+Value interface (\S+)
+Value description (\S+)
+Value admin (\S+)
+Value oper (\S+)
+Value speed (\S+)
+Value mtu (\d+)
+
+Start
+  ^\s*${interface}\s*${description}\s*${admin}\s*${oper}\s*${speed}\s*${mtu}\s*$$ -> Record

@@ -1,0 +1,19 @@
+Value pkts (\d+)
+Value bytes (\d+)
+Value target (\S+)
+Value prot (\S+)
+Value opt (\S+)
+Value source (\S+)
+Value destination (\S+)
+#Value localip (\S+:\s+\S+)
+Value port (\d+)
+Value trans_ip (\d+.\d+.\d+.\d+)
+Value trans_port (\d+)
+Value global_ip_range (\S+)
+Value global_port_range (\d+-\d+)
+ 
+Start
+  ^\s+${pkts}\s+${bytes}\s+${target}\s+${prot}\s+${opt}\s+\S+\s+\S+\s+${source}\s+${destination}\s*\S+\s*\S+\s*\S+\s*\S+\s*\S+:${port}\s*to:${trans_ip}:${trans_port} -> Record
+  ^\s+${pkts}\s+${bytes}\s+${target}\s+${prot}\s+${opt}\s+\S+\s+\S+\s+${source}\s+${destination}\s*\S+\s*\S+:${port}\s*to:${trans_ip}:${trans_port} -> Record
+  ^\s+${pkts}\s+${bytes}\s+${target}\s+${prot}\s+${opt}\s+\S+\s+\S+\s+${source}\s+${destination}\s*\S+\s*\S+\s*\S+\s*to:${global_ip_range}:${global_port_range} -> Record
+  ^\s+${pkts}\s+${bytes}\s+${target}\s+${prot}\s+${opt}\s+\S+\s+\S+\s+${source}\s+${destination}\s*\S+\s*\S+\s*\S+\s*to:${trans_ip} -> Record

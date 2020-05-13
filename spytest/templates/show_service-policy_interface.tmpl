@@ -1,0 +1,65 @@
+Value interface_name (\w+)
+Value policy_name (\S+)
+Value stage (\w+)
+Value policy_desc_name (\w+)
+Value class_desc_name (\w+)
+Value class_name ([\w\S]+)
+Value priority_val (\d+)
+Value flow_state ([\w\S]+)
+Value dscp_val (\d+)
+Value pcp_val (\d+)
+Value acl_name (\S+)
+Value field_value (\d+)
+Value ip_protocol_val (\d+)
+Value src_port_val (\d+)
+Value dst_port_val (\d+)
+Value src_ip_val (\S+)
+Value dst_ip_val (\S+)
+Value src_ipv6_val (\S+)
+Value dst_ipv6_val (\S+)
+Value src_mac_val (\S+)
+Value dst_mac_val (\S+)
+Value cir_val (\d+)
+Value cbs_val (\d+)
+Value pir_val (\d+)
+Value pbs_val (\d+)
+Value policy_flow_state ([\w\S]+)
+Value green_pkts_val (\d+)
+Value green_bytes_val (\d+)
+Value yellow_pkts_val (\d+)
+Value yellow_bytes_val (\d+)
+Value red_pkts_val (\d+)
+Value red_bytes_val (\d+)
+Value match_pkts_val (\d+)
+Value match_bytes_val (\d+)
+Value match_type (\S+)
+Value tcp_flags_type (\S+.*)
+
+Start
+  ^${interface_name}
+  ^\s*Policy ${policy_name} Type qos at ${stage}\s*$$
+  ^\s*Description:.*$$
+  ^\s*${policy_desc_name}*$$
+  ^\s*Flow\s+${class_name}\s+at\s+priority\s+${priority_val}\s+${flow_state}\s*$$
+  ^\s*Description:.*$$
+  ^\s*${class_desc_name}*$$
+  ^\s*set-pcp\s+${pcp_val}\s*$$
+  ^\s*set-dscp\s+${dscp_val}\s*$$
+  ^\s*match acl\s+${acl_name}\s*$$
+  ^\s*ether-type ${field_value}\s*$$
+  ^\s*ip-protocol ${ip_protocol_val}\s*$$
+  ^\s*src-port ${src_port_val}\s*$$
+  ^\s*dst-port ${dst_port_val}\s*$$
+  ^\s*src-ip ${src_ip_val}\s*$$
+  ^\s*dst-ip ${dst_ip_val}\s*$$
+  ^\s*src-ipv6 ${src_ipv6_val}\s*$$
+  ^\s*dst-ipv6 ${dst_ipv6_val}\s*$$
+  ^\s*src-mac ${src_mac_val}\s*$$
+  ^\s*dst-mac ${dst_mac_val}\s*$$
+  ^\s*tcp-flags ${tcp_flags_type}*$$
+  ^\s*police:\s+cir\s+${cir_val}\s+cbs\s+${cbs_val}\s+pir\s+${pir_val}\s+pbs\s+${pbs_val}\s+${policy_flow_state}\s*$$
+  ^\s*operational cir ${cir_val} cbs ${cbs_val} pir ${pir_val} pbs ${pbs_val}\s.*$$
+  ^\s*green ${green_pkts_val} packets ${green_bytes_val} bytes action forward\s.*$$
+  ^\s*yellow ${yellow_pkts_val} packets ${yellow_bytes_val} bytes action forward\s*$$
+  ^\s*red ${red_pkts_val} packets ${red_bytes_val} bytes action drop\s*$$
+  ^\s*Packet matches:\s+${match_pkts_val}\s+frames\s+${match_bytes_val}\s+bytes\s*$$

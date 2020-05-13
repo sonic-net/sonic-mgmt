@@ -1,0 +1,18 @@
+####################################################
+#admin@sonic:~$ mclagdctl -i 100 dump portlist peer
+#--------------------------------------------------
+#Ifindex: 1
+#Type: PortChannel
+#PortName: {PortChannel0001}
+#MAC: 6c:ec:5a:08:31:49
+#State: {Up}
+#---------------------------------------------------
+#####################################################
+Value Required,Key mclag_intf (\w+)
+Value mclag_intf_peer_state (\w+)
+
+
+Start
+  ^\s*PortName\s*:\s*${mclag_intf}$$
+  ^\s*State\s*:\s*${mclag_intf_peer_state}$$ -> Record
+

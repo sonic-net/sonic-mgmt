@@ -1,0 +1,7 @@
+Value id (\d+)
+Value name (\S+)
+
+Start
+  ^\s*${id}\)\s*"\s*${name}\s*"\s*$$ -> Record
+  ^\s*${id}\)\s*${name}\s*$$ -> Record
+

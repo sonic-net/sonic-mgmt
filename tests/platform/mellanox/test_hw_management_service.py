@@ -8,8 +8,7 @@ plan: https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_pl
 from check_hw_mgmt_service import check_hw_management_service
 
 
-def test_hw_management_service_status(testbed_devices):
+def test_hw_management_service_status(duthost):
     """This test case is to verify that the hw-management service is running properly
     """
-    ans_host = testbed_devices["dut"]
-    check_hw_management_service(ans_host)
+    check_hw_management_service(duthost)

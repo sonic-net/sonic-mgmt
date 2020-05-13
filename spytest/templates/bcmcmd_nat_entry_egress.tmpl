@@ -1,0 +1,15 @@
+Value Filldown Type (\S+)
+Value IDX (\d+)
+Value TYPE (\S+)
+Value ID (\d+)
+Value IP (\d+.\d+.\d+.\d+)
+Value MASK (\d+.\d+.\d+.\d+)
+Value L4Port (\d+)
+Value REFCOUNT (\d+)
+
+Start
+  ^\s*l3 nat_egress show\s*$$
+  ^\s*IDX\s+TYPE\s+ID\s+IP\s+Mask\s+L4PORT\s+REFCOUNT\s*$$
+  ^\s*${IDX}\s+${TYPE}\s+${ID}\s+${IP}\s+${MASK}\s+${L4Port}\s+${REFCOUNT}\s*$$ -> Record
+
+EOF

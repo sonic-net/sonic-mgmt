@@ -83,6 +83,9 @@ def check_sysfs(dut):
         assert min_tolerance_speed < fan_speed < max_tolerance_speed, "Speed out of tolerance speed range (%d, %d)" \
                                                                       % (min_tolerance_speed, max_tolerance_speed)
 
+    cpu_temp_high_counter = 0
+    cpu_temp_list = []
+    cpu_crit_temp_list = []
     cpu_pack_count = SWITCH_MODELS[dut_hwsku]["cpu_pack"]["number"]
     if cpu_pack_count != 0:
         cpu_pack_temp_file = "/var/run/hw-management/thermal/cpu_pack"
@@ -99,7 +102,10 @@ def check_sysfs(dut):
 
         assert cpu_pack_max_temp <= cpu_pack_crit_temp, "Bad CPU pack max temp or critical temp, %s, %s " \
                                                         % (str(cpu_pack_max_temp), str(cpu_pack_crit_temp))
-        assert cpu_pack_temp < cpu_pack_max_temp, "CPU pack overheated, temp: %s" % (str(cpu_pack_temp))
+        if cpu_pack_temp >= cpu_pack_crit_temp:
+            cpu_temp_high_counter += 1
+        cpu_temp_list.append(cpu_pack_temp)
+        cpu_crit_temp_list.append(cpu_pack_crit_temp)
 
     cpu_core_count = SWITCH_MODELS[dut_hwsku]["cpu_cores"]["number"]
     for core_id in range(0, cpu_core_count):
@@ -117,7 +123,15 @@ def check_sysfs(dut):
 
         assert cpu_core_max_temp <= cpu_core_crit_temp, "Bad CPU core%d max temp or critical temp, %s, %s " \
                                                         % (core_id, str(cpu_core_max_temp), str(cpu_core_crit_temp))
-        assert cpu_core_temp < cpu_core_max_temp, "CPU core%d overheated, temp: %s" % (core_id, str(cpu_core_temp))
+        if cpu_core_temp >= cpu_core_crit_temp:
+            cpu_temp_high_counter += 1
+        cpu_temp_list.append(cpu_core_temp)
+        cpu_crit_temp_list.append(cpu_core_crit_temp)
+
+    if cpu_temp_high_counter > 0:
+        logging.info("CPU temperatures {}".format(cpu_temp_list))
+        logging.info("CPU critical temperatures {}".format(cpu_crit_temp_list))
+        assert False, "At least {} of the CPU cores or pack is overheated".format(cpu_temp_high_counter)
 
     psu_count = SWITCH_MODELS[dut_hwsku]["psus"]["number"]
     for psu_id in range(1, psu_count + 1):

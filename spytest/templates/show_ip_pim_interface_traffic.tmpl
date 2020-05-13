@@ -1,0 +1,29 @@
+#######################################################################################
+#show ip pim interface traffic 
+#
+#Interface       HELLO            JOIN            PRUNE            REGISTER        REGISTER-STOP    ASSERT         
+#                Rx/Tx            Rx/Tx           Rx/Tx            Rx/Tx             Rx/Tx           Rx/Tx        
+#---------------------------------------------------------------------------------------------------------------
+#Ethernet24     2781/2780           0/0             0/0             0/0             0/0             0/0
+#Vlan100        1234/1233           1/2             2/3             1/2             2/1             1/1
+###############################################################################################
+Value interface (\w+)
+Value hello_rx (\d+)
+Value hello_tx (\d+)
+Value join_rx (\d+)
+Value join_tx (\d+)
+Value prune_rx (\d+)
+Value prune_tx (\d+)
+Value register_rx (\d+)
+Value register_tx (\d+)
+Value register_stop_rx (\d+)
+Value register_stop_tx (\d+)
+Value assert_rx (\d+)
+Value assert_tx (\d+)
+
+Start
+  ^.*------- -> header
+
+header
+  ^\s*${interface}\s*${hello_rx}/${hello_tx}\s*${join_rx}/${join_tx}\s*${prune_rx}/${prune_tx}\s*${register_rx}/${register_tx}\s*${register_stop_rx}/${register_stop_tx}\s*${assert_rx}/${assert_tx}\s* -> Record
+

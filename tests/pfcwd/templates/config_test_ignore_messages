@@ -1,0 +1,8 @@
+r, ".* Port counter .* not implemented"
+r, ".* Port counter .* not supported"
+r, ".* Invalid port counter .*"
+r, ".* Unknown.*"
+r, ".* SAI_STATUS_ATTR_NOT_SUPPORT.*"
+r, ".* snmp.*"
+r, ".* Trying to remove nonexisting queue from flex counter .*"
+r, ".* ERR ntpd.*routing socket reports: No buffer space available.*"

@@ -1,0 +1,19 @@
+###############################################################
+#sonic# show ip pim upstream-join-desired 
+#Interface Source          Group           LostAssert Joins PimInclude JoinDesired EvalJD
+#Ethernet46 10.2.1.20       232.0.0.20      no         no    no         no          no   
+#
+###############################################################
+Value interface (\w+)
+Value source ([\w\.]+)
+Value group ([\w\.]+)
+Value lostassert (\w+)
+Value joins (\w+)
+Value piminclude (\w+)
+Value joindesired (\w+)
+Value evaljd (\w+)
+Value vrf (\w+)
+
+Start
+  ^\s*VRF:\s*${vrf}$$
+  ^\s*${interface}\s*${source}\s*${group}\s*${lostassert}\s*${joins}\s*${piminclude}\s*${joindesired}\s*${evaljd}$$ -> Record

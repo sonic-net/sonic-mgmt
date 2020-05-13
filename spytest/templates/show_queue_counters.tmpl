@@ -1,0 +1,13 @@
+Value PORT (\S+)
+Value TXQ (\S+)
+Value PKTS_COUNT (\S+)
+Value BYTE_COUNT (\S+)
+Value PKTS_DROP (\S+)
+Value BYTE_DROP (\S+)
+
+Start
+  ^\s*Port\s+TxQ\s+Counter/pkts\s+Counter/bytes\s+Drop/pkts\s+Drop/bytes
+  ^(-+\s*)*$$
+  ^\s*${PORT}\s+${TXQ}\s+${PKTS_COUNT}\s+${BYTE_COUNT}\s+${PKTS_DROP}\s+${BYTE_DROP} -> Record 
+
+EOF

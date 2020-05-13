@@ -57,12 +57,12 @@ import json
 import re
 from collections import defaultdict
 import json
-import paramiko
 import Queue
 import pickle
 from operator import itemgetter
 import scapy.all as scapyall
 import itertools
+from device_connection import DeviceConnection
 
 from arista import Arista
 import sad_path as sp
@@ -126,6 +126,7 @@ class ReloadTest(BaseTest):
         self.test_params = testutils.test_params_get()
         self.check_param('verbose', False, required=False)
         self.check_param('dut_username', '', required=True)
+        self.check_param('dut_password', '', required=True)
         self.check_param('dut_hostname', '', required=True)
         self.check_param('reboot_limit_in_seconds', 30, required=False)
         self.check_param('reboot_type', 'fast-reboot', required=False)
@@ -219,6 +220,12 @@ class ReloadTest(BaseTest):
         self.dataplane_io_lock   = threading.Lock()
 
         self.allow_vlan_flooding = bool(self.test_params['allow_vlan_flooding'])
+
+        self.dut_connection = DeviceConnection(
+            self.test_params['dut_hostname'],
+            self.test_params['dut_username'],
+            password=self.test_params['dut_password']
+        )
 
         return
 
@@ -430,7 +437,7 @@ class ReloadTest(BaseTest):
     def init_sad_oper(self):
         if self.sad_oper:
             self.log("Preboot/Inboot Operations:")
-            self.sad_handle = sp.SadTest(self.sad_oper, self.ssh_targets, self.portchannel_ports, self.vm_dut_map, self.test_params, self.dut_ssh, self.vlan_ports)
+            self.sad_handle = sp.SadTest(self.sad_oper, self.ssh_targets, self.portchannel_ports, self.vm_dut_map, self.test_params, self.vlan_ports)
             (self.ssh_targets, self.portchannel_ports, self.neigh_vm, self.vlan_ports), (log_info, fails) = self.sad_handle.setup()
             self.populate_fail_info(fails)
             for log in log_info:
@@ -499,11 +506,13 @@ class ReloadTest(BaseTest):
         self.reboot_type = self.test_params['reboot_type']
         if self.reboot_type not in ['fast-reboot', 'warm-reboot']:
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
-        self.dut_ssh = self.test_params['dut_username'] + '@' + self.test_params['dut_hostname']
         self.dut_mac = self.test_params['dut_mac']
 
         # get VM info
-        arista_vms = self.test_params['arista_vms'][1:-1].split(",")
+        if isinstance(self.test_params['arista_vms'], list):
+            arista_vms = self.test_params['arista_vms']
+        else:
+            arista_vms = self.test_params['arista_vms'][1:-1].split(",")
         self.ssh_targets = []
         for vm in arista_vms:
             if (vm.startswith("'") or vm.startswith('"')) and (vm.endswith("'") or vm.endswith('"')):
@@ -526,7 +535,7 @@ class ReloadTest(BaseTest):
         self.from_server_dst_addr  = self.generate_ip_addr_by_ip_range_list()
 
         self.log("Test params:")
-        self.log("DUT ssh: %s" % self.dut_ssh)
+        self.log("DUT ssh: %s@%s" % (self.test_params['dut_username'], self.test_params['dut_hostname']))
         self.log("DUT reboot limit in seconds: %s" % self.limit)
         self.log("DUT mac address: %s" % self.dut_mac)
 
@@ -1021,7 +1030,7 @@ class ReloadTest(BaseTest):
         time.sleep(self.reboot_delay)
 
         self.log("Rebooting remote side")
-        stdout, stderr, return_code = self.cmd(["ssh", "-oStrictHostKeyChecking=no", self.dut_ssh, "sudo " + self.reboot_type])
+        stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type)
         if stdout != []:
             self.log("stdout from %s: %s" % (self.reboot_type, str(stdout)))
         if stderr != []:

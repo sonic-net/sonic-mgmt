@@ -5,11 +5,8 @@ Description:    This file contains the hash test for SONiC
 #---------------------------------------------------------------------
 # Global imports
 #---------------------------------------------------------------------
-import ipaddress
 import logging
 import random
-import socket
-import sys
 
 from ipaddress import ip_address, ip_network
 
@@ -31,7 +28,7 @@ class HashTest(BaseTest):
     # Class variables
     #---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
-    BALANCING_TEST_TIMES = 1000
+    BALANCING_TEST_TIMES = 10000
 
     def __init__(self):
         '''
@@ -48,113 +45,54 @@ class HashTest(BaseTest):
         '''
         self.dataplane = ptf.dataplane_instance
         self.fib = fib.Fib(self.test_params['fib_info'])
+        self.testbed_type = self.test_params['testbed_type']
         self.router_mac = self.test_params['router_mac']
+        self.in_ports = self.test_params['in_ports']
 
         self.src_ip_range = [unicode(x) for x in self.test_params['src_ip_range'].split(',')]
         self.dst_ip_range = [unicode(x) for x in self.test_params['dst_ip_range'].split(',')]
-        self.test_hash_srcip = self.test_params.get('hash_srcip', True)
-        self.test_hash_dstip = self.test_params.get('hash_dstip', True)
-        self.test_hash_srcport = self.test_params.get('hash_srcport', True)
-        self.test_hash_dstport = self.test_params.get('hash_dstport', True)
-        self.test_hash_inport = self.test_params.get('hash_inport', False)
-        self.test_ipv4 = self.test_params.get('ipv4', True)
-        self.test_ipv6 = self.test_params.get('ipv6', True)
+        self.src_ip_interval = lpm.LpmDict.IpInterval(ip_address(self.src_ip_range[0]), ip_address(self.src_ip_range[1]))
+        self.dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(self.dst_ip_range[0]), ip_address(self.dst_ip_range[1]))
+        self.vlan_ids = self.test_params.get('vlan_ids', [])
+        self.hash_keys = self.test_params.get('hash_keys', ['src-ip', 'dst-ip', 'src-port', 'dst-port'])
+        self.dst_macs = self.test_params.get('dst_macs', [])    # TODO
 
         self.balancing_range = self.test_params.get('balancing_range', self.DEFAULT_BALANCING_RANGE)
 
-        # Provide the list of all UP interfaces with index in sequence order starting from 0
-        if self.test_params['testbed_type'] == 't1' or self.test_params['testbed_type'] == 't1-lag':
-            self.src_ports = range(0, 32)
-        if self.test_params['testbed_type'] == 't1-64-lag' or self.test_params['testbed_type'] == 't1-64-lag-clet':
-            self.src_ports = [0, 1, 4, 5, 16, 17, 20, 21, 34, 36, 37, 38, 39, 42, 44, 45, 46, 47, 50, 52, 53, 54, 55, 58, 60, 61, 62, 63]
-        if self.test_params['testbed_type'] == 't0':
-            self.src_ports = range(1, 25) + range(28, 32)
-        if self.test_params['testbed_type'] == 't0-56':
-            self.src_ports = [0, 1, 4, 5, 8, 9] + range(12, 18) + [20, 21, 24, 25, 28, 29, 32, 33, 36, 37] + range(40, 46) + [48, 49, 52, 53]
-        if self.test_params['testbed_type'] == 't0-64':
-            self.src_ports = range(0, 2) + range(4, 18) + range(20, 33) + range(36, 43) + range(48, 49) + range(52, 59)
-        if self.test_params['testbed_type'] == 't0-116':
-            self.src_ports = range(0, 120)
     #---------------------------------------------------------------------
 
-    def check_hash(self, src_ip_range, dst_ip_range, ipv4=True):
-
-        src_ip_interval = lpm.LpmDict.IpInterval(ip_address(src_ip_range[0]), ip_address(src_ip_range[1]))
-        dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(dst_ip_range[0]), ip_address(dst_ip_range[1]))
-
-        # hash field for regular packets:
-        #   src_ip, dst_ip, protocol, l4_src_port, l4_dst_port (if applicable)
-
-        # initialize all parameters
-        src_ip = src_ip_interval.get_random_ip()
-        dst_ip = dst_ip_interval.get_random_ip()
-        src_port = random.randint(0, 65535)
-        dst_port = random.randint(0, 65535)
+    def check_hash(self, hash_key):
+        dst_ip = self.dst_ip_interval.get_random_ip()
         next_hop = self.fib[dst_ip]
         exp_port_list = self.fib[dst_ip].get_next_hop_list()
         logging.info("exp_port_list: {}".format(exp_port_list))
         if exp_port_list <= 1:
             logging.warning("{} has only {} nexthop".format(dst_ip, exp_port_list))
             assert False
-        in_port = random.choice([port for port in self.src_ports if port not in exp_port_list])
-
-        ### check hash fields ###
+        in_port = random.choice([port for port in self.in_ports if port not in exp_port_list])
 
         hit_count_map = {}
-        # step 1: check randomizing source ip
-        if self.test_hash_srcip:
-            for i in range(0, self.BALANCING_TEST_TIMES):
-                src_ip = src_ip_interval.get_random_ip()
-                (matched_index, _) = self.check_ip_route(
-                        in_port, src_port, dst_port, src_ip, dst_ip, exp_port_list, ipv4)
+        if hash_key == 'ingress-port': # The sample is too little for hash_key ingress-port, check it loose(just verify if the asic actually used the hash field as a load-balancing factor)
+            for in_port in [port for port in self.in_ports if port not in exp_port_list]:
+                logging.info("in_port: {}".format(in_port))
+                (matched_index, _) = self.check_ip_route(hash_key, in_port, dst_ip, exp_port_list)
                 hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
             logging.info("hit count map: {}".format(hit_count_map))
-            self.check_balancing(next_hop.get_next_hop(), hit_count_map)
-
-        # step 2: check randomizing destination ip
-        if self.test_hash_dstip:
-            hit_count_map.clear()
-            for i in range(0, self.BALANCING_TEST_TIMES):
-                dst_ip = dst_ip_interval.get_random_ip()
-                (matched_index, _) = self.check_ip_route(
-                        in_port, src_port, dst_port, src_ip, dst_ip, exp_port_list, ipv4)
-                hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
-            logging.info("hit count map: {}".format(hit_count_map))
-            self.check_balancing(next_hop.get_next_hop(), hit_count_map)
-
-        # step 3: check randomizing l3 source port
-        if self.test_hash_srcport:
-            hit_count_map.clear()
-            for i in range(0, self.BALANCING_TEST_TIMES):
-                src_port = random.randint(0, 65535)
-                (matched_index, _) = self.check_ip_route(
-                        in_port, src_port, dst_port, src_ip, dst_ip, exp_port_list, ipv4)
-                hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
-            logging.info("hit count map: {}".format(hit_count_map))
-            self.check_balancing(next_hop.get_next_hop(), hit_count_map)
-
-        # step 4: check randomizing l4 destination port
-        if self.test_hash_dstport:
-            hit_count_map.clear()
-            for i in range(0, self.BALANCING_TEST_TIMES):
-                dst_port = random.randint(0, 65535)
-                (matched_index, _) = self.check_ip_route(
-                        in_port, src_port, dst_port, src_ip, dst_ip, exp_port_list, ipv4)
-                hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
-            logging.info("hit count map: {}".format(hit_count_map))
-            self.check_balancing(exp_port_list, hit_count_map)
-
-        # step 5: check randomizing in port
-        # TODO
-
-    def check_ip_route(self, in_port, sport, dport, src_ip_addr, dst_ip_addr,
-                       dst_port_list, ipv4=True):
-        if ipv4:
-            (matched_index, received) = self.check_ipv4_route(in_port, sport, dport,
-                    src_ip_addr, dst_ip_addr, dst_port_list)
+            assert True if len(hit_count_map.keys()) > 1 else False
         else:
-            (matched_index, received) = self.check_ipv6_route(in_port, sport, dport,
-                    src_ip_addr, dst_ip_addr, dst_port_list)
+            for _ in range(0, self.BALANCING_TEST_TIMES):
+                logging.info("in_port: {}".format(in_port))
+                (matched_index, _) = self.check_ip_route(hash_key, in_port, dst_ip, exp_port_list)
+                hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
+            logging.info("hit count map: {}".format(hit_count_map))
+
+            self.check_balancing(next_hop.get_next_hop(), hit_count_map)
+
+    def check_ip_route(self, hash_key, in_port, dst_ip, dst_port_list):
+        if ip_network(unicode(dst_ip)).version == 4:
+            (matched_index, received) = self.check_ipv4_route(hash_key, in_port, dst_port_list)
+        else:
+            (matched_index, received) = self.check_ipv6_route(hash_key, in_port, dst_port_list)
 
         assert received
 
@@ -163,31 +101,45 @@ class HashTest(BaseTest):
 
         return (matched_port, received)
 
-    def check_ipv4_route(self, in_port, sport, dport,
-                         ip_src, ip_dst, dst_port_list):
+    def check_ipv4_route(self, hash_key, in_port, dst_port_list):
         '''
         @summary: Check IPv4 route works.
+        @param hash_key: hash key to build packet with.
         @param in_port: index of port to use for sending packet to switch
-        @param dest_ip_addr: destination IP to build packet with.
         @param dst_port_list: list of ports on which to expect packet to come back from the switch
         '''
-        src_mac = self.dataplane.get_mac(0, 0)
+        base_mac = self.dataplane.get_mac(0, 0)
+        ip_src = self.src_ip_interval.get_random_ip() if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
+        ip_dst = self.dst_ip_interval.get_random_ip() if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
+        sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
+        dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
+        src_mac = (base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) if hash_key == 'src-mac' else base_mac
+        dst_mac = random.choice(self.dst_macs) if hash_key == 'dst-mac' else self.router_mac
+        vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
+        ip_proto = random.randint(100, 200) if hash_key == 'ip-proto' else None
 
-        pkt = simple_tcp_packet(
-                            eth_dst=self.router_mac,
+        pkt = simple_tcp_packet(pktlen=100 if vlan_id == 0 else 104,
+                            eth_dst=dst_mac,
                             eth_src=src_mac,
+                            dl_vlan_enable=False if vlan_id == 0 else True,
+                            vlan_vid=vlan_id,
+                            vlan_pcp=0,
                             ip_src=ip_src,
                             ip_dst=ip_dst,
                             tcp_sport=sport,
                             tcp_dport=dport,
                             ip_ttl=64)
         exp_pkt = simple_tcp_packet(
-                            eth_src=self.router_mac,
+                            eth_src=dst_mac,
                             ip_src=ip_src,
                             ip_dst=ip_dst,
                             tcp_sport=sport,
                             tcp_dport=dport,
                             ip_ttl=63)
+
+        if hash_key == 'ip-proto':
+            pkt['IP'].proto = ip_proto
+            exp_pkt['IP'].proto = ip_proto
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
 
@@ -197,32 +149,47 @@ class HashTest(BaseTest):
         return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
     #---------------------------------------------------------------------
 
-    def check_ipv6_route(self, in_port, sport, dport,
-                         ip_src, ip_dst, dst_port_list):
+    def check_ipv6_route(self, hash_key, in_port, dst_port_list):
         '''
         @summary: Check IPv6 route works.
-        @param source_port_index: index of port to use for sending packet to switch
-        @param dest_ip_addr: destination IP to build packet with.
+        @param hash_key: hash key to build packet with.
+        @param in_port: index of port to use for sending packet to switch
         @param dst_port_list: list of ports on which to expect packet to come back from the switch
         @return Boolean
         '''
-        src_mac = self.dataplane.get_mac(0, 0)
+        base_mac = self.dataplane.get_mac(0, 0)
+        ip_src = self.src_ip_interval.get_random_ip() if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
+        ip_dst = self.dst_ip_interval.get_random_ip() if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
+        sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
+        dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
+        src_mac = (base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) if hash_key == 'src-mac' else base_mac
+        dst_mac = random.choice(self.dst_macs) if hash_key == 'dst-mac' else self.router_mac
+        vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
+        ip_proto = random.randint(100, 200) if hash_key == "ip-proto" else None
 
-        pkt = simple_tcpv6_packet(
-                                eth_dst=self.router_mac,
+        pkt = simple_tcpv6_packet(pktlen=100 if vlan_id == 0 else 104,
+                                eth_dst=dst_mac,
                                 eth_src=src_mac,
+                                dl_vlan_enable=False if vlan_id == 0 else True,
+                                vlan_vid=vlan_id,
+                                vlan_pcp=0,
                                 ipv6_dst=ip_dst,
                                 ipv6_src=ip_src,
                                 tcp_sport=sport,
                                 tcp_dport=dport,
                                 ipv6_hlim=64)
         exp_pkt = simple_tcpv6_packet(
-                                eth_src=self.router_mac,
+                                eth_src=dst_mac,
                                 ipv6_dst=ip_dst,
                                 ipv6_src=ip_src,
                                 tcp_sport=sport,
                                 tcp_dport=dport,
                                 ipv6_hlim=63)
+
+        if hash_key == 'ip-proto':
+            pkt['IPv6'].nh = ip_proto
+            exp_pkt['IPv6'].nh = ip_proto
+
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
 
@@ -260,14 +227,14 @@ class HashTest(BaseTest):
                 total_entry_hit_cnt += port_hit_cnt.get(member, 0)
             (p, r) = self.check_within_expected_range(total_entry_hit_cnt, float(total_hit_cnt)/len(dest_port_list))
             logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
-                         % ("ECMP", str(ecmp_entry), total_hit_cnt/len(dest_port_list), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
+                        % ("ECMP", str(ecmp_entry), total_hit_cnt/len(dest_port_list), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
             result &= r
             if len(ecmp_entry) == 1 or total_entry_hit_cnt == 0:
                 continue
             for member in ecmp_entry:
                 (p, r) = self.check_within_expected_range(port_hit_cnt.get(member, 0), float(total_entry_hit_cnt)/len(ecmp_entry))
                 logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
-                              % ("LAG", str(member), total_entry_hit_cnt/len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
+                            % ("LAG", str(member), total_entry_hit_cnt/len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
                 result &= r
 
         assert result
@@ -279,8 +246,7 @@ class HashTest(BaseTest):
         @summary: Send packet for each range of both IPv4 and IPv6 spaces and
         expect the packet to be received from one of the expected ports
         """
-        # IPv4 Test
-        if (self.test_ipv4):
-            self.check_hash(self.src_ip_range, self.dst_ip_range)
-        if (self.test_ipv6):
-            self.check_hash(self.src_ip_range, self.dst_ip_range, ipv4=False)
+
+        for hash_key in self.hash_keys:
+            logging.info("hash test hash_key: {}".format(hash_key))
+            self.check_hash(hash_key)

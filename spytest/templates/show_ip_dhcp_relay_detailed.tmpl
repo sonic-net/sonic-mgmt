@@ -1,0 +1,12 @@
+Value Filldown server_addr (^$|\S+|\S+, \S+|\S+, \S+, \S+|\S+, \S+, \S+, \S+)
+Value Filldown src_interface (\S+)
+Value Filldown link_select (\S+)
+Value Filldown max_hop_count (\d+)
+
+Start
+  ^\s*Server Address:\s*${server_addr}\s*$$ -> Record
+  ^\s*Source Interface:\s*${src_interface}\s*$$ -> Record
+  ^\s*Link Select:\s*${link_select}\s*$$ -> Record
+  ^\s*Max Hop Count:\s*${max_hop_count}\s*$$ -> Record
+
+EOF

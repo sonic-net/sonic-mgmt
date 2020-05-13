@@ -307,9 +307,10 @@ class Vxlan(BaseTest):
         exp_packet = Mask(exp_packet)
         exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
 
+        self.dataplane.flush()
         for i in xrange(self.nr):
             testutils.send_packet(self, acc_port, packet)
-        nr_rcvd = testutils.count_matched_packets_all_ports(self, exp_packet, pc_ports, timeout=0.2)
+        nr_rcvd = testutils.count_matched_packets_all_ports(self, exp_packet, pc_ports, timeout=0.5)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
@@ -339,9 +340,10 @@ class Vxlan(BaseTest):
                          ip_ttl = 63,
                        )
 
+        self.dataplane.flush()
         for i in xrange(self.nr):
             testutils.send_packet(self, net_port, packet)
-        nr_rcvd = testutils.count_matched_packets(self, exp_packet, acc_port, timeout=0.2)
+        nr_rcvd = testutils.count_matched_packets(self, exp_packet, acc_port, timeout=0.5)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
@@ -376,9 +378,11 @@ class Vxlan(BaseTest):
                        vxlan_vni=test['vni'],
                        inner_frame=inpacket
                  )
+
+        self.dataplane.flush()
         for i in xrange(self.nr):
             testutils.send_packet(self, net_port, packet)
-        nr_rcvd = testutils.count_matched_packets(self, inpacket, acc_port, timeout=0.2)
+        nr_rcvd = testutils.count_matched_packets(self, inpacket, acc_port, timeout=0.5)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:

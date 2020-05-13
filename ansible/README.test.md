@@ -106,6 +106,12 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 ```
 - Requires switch connected to a PTF testbed
 
+##### ECMP test
+```
+ansible-playbook test_sonic_by_tag.yml -i inventory --limit {DUT_NAME}, --become --tags ecmp --extra-vars "testbed_type={TESTBED_TYPE} vm_hosts=[DESTINATION_VMS] vm_source={SOURCE_VM} [ipv6=True]"
+```
+- Requires switch connected to a VM testbed (t1); default IPv4
+
 ##### ECN WRED test
 ```
 ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=ecn_wred -e testbed_name={TESTBED_NAME}
@@ -209,6 +215,11 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=neighbor_mac_noptf -e testbed_name={TESTBED_NAME}
 ```
 - Requires switch connected to a VM set or PTF testbed
+
+### SNMP memory test
+```
+ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME}, --become --tags snmp_memory -e "tolerance=0.05" -e "min_memory_size=512000"
+```
 
 ##### NTP test
 ```
