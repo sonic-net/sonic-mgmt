@@ -13,6 +13,14 @@ from recover import recover
 logger = logging.getLogger(__name__)
 
 
+def pytest_addoption(parser):
+    """Describe plugin specified options"""
+    parser.addoption("--skip_sanity", action="store_true", default=False,
+                     help="Skip sanity check")
+    parser.addoption("--allow_recover", action="store_true", default=False,
+                     help="Allow recovery attempt in sanity check in case of failure")
+
+
 def _update_check_items(old_items, new_items, supported_items):
     """
     @summary: Update the items to be performed in sanity check
