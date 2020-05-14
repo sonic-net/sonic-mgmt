@@ -785,20 +785,22 @@ sensors_checks:
     alarms:
       fan: []
       power:
-      - tps53679-i2c-5-70/vin/in1_alarm
-      - tps53679-i2c-5-70/vout1/in2_lcrit_alarm
-      - tps53679-i2c-5-70/vout1/in2_crit_alarm
-      - tps53679-i2c-5-70/vout2/in3_lcrit_alarm
-      - tps53679-i2c-5-70/vout2/in3_crit_alarm
+      - tps53679-i2c-5-70/vin1/in1_alarm
+      - tps53679-i2c-5-70/vin2/in2_alarm
+      - tps53679-i2c-5-70/vout1/in3_lcrit_alarm
+      - tps53679-i2c-5-70/vout1/in3_crit_alarm
+      - tps53679-i2c-5-70/vout2/in4_lcrit_alarm
+      - tps53679-i2c-5-70/vout2/in4_crit_alarm
       - tps53679-i2c-5-70/iout1/curr1_max_alarm
       - tps53679-i2c-5-70/iout1/curr1_crit_alarm
       - tps53679-i2c-5-70/iout2/curr2_max_alarm
       - tps53679-i2c-5-70/iout2/curr2_crit_alarm
-      - tps53679-i2c-5-71/vin/in1_alarm
-      - tps53679-i2c-5-71/vout1/in2_lcrit_alarm
-      - tps53679-i2c-5-71/vout1/in2_crit_alarm
-      - tps53679-i2c-5-71/vout2/in3_lcrit_alarm
-      - tps53679-i2c-5-71/vout2/in3_crit_alarm
+      - tps53679-i2c-5-71/vin1/in1_alarm
+      - tps53679-i2c-5-71/vin2/in2_alarm
+      - tps53679-i2c-5-71/vout1/in3_lcrit_alarm
+      - tps53679-i2c-5-71/vout1/in3_crit_alarm
+      - tps53679-i2c-5-71/vout2/in4_lcrit_alarm
+      - tps53679-i2c-5-71/vout2/in4_crit_alarm
       - tps53679-i2c-5-71/iout1/curr1_max_alarm
       - tps53679-i2c-5-71/iout1/curr1_crit_alarm
       - tps53679-i2c-5-71/iout2/curr2_max_alarm
