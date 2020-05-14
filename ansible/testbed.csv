@@ -57,7 +57,7 @@ vms12-t0-s6000,v12-4,t0,docker-ptf-brcm,vms-unknown,10.64.246.84/23,server_12,VM
 vms12-t0-s6000-1,v12-6,t0,docker-ptf-brcm,v12-6,10.64.246.55/23,server_12,VM1280,str-s6000-acs-14,taahme
 vms12-4-t0-marvell,v12-41,t0-52,docker-ptf-brcm,vms-unknown,10.64.246.85/23,server_12,VM1268,str-marvell-acs-1,stumkurv
 vms12-t0-3800,vms12-5,t0-64,docker-ptf-brcm,vms12-5,10.64.246.90/23,server_12,VM1272,str-sn3800-01,stumkurv
-vms17-t0-3800-azd,v17-3,t0,docker-ptf-mlnx,v17-3,10.64.246.107/23,server_17,VM1728,str-sn3800-azd,annarsia
+vms17-t0-3800-azd,vms17-3,t0,docker-ptf-mlnx,vms17-3,10.64.246.107/23,server_17,VM1728,str2-sn3800-azd,annarsia
 vms12-t0-7280,vms12-6,t0,docker-ptf-brcm,vms-unknown,10.64.247.7/23,server_12,VM1272,str-a7280cr3-1,prsunny
 vms12-t1-n3164-1,vms12-7,t1-4-lag,docker-ptf-brcm,vms12-7,10.64.246.53/23,server_12,VM1276,str-n3164-acs-1,Judy
 vms13-t0-n9232-1,vms13-1,t0,docker-ptf-brcm,vms13-1,10.64.247.29/23,server_13,VM1300,str-n9232-acs-1,Jenkins
