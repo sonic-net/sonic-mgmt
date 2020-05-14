@@ -1,0 +1,191 @@
+
+tftp:
+  ip: 192.168.1.1
+  path: /home/vmuser/tftp
+
+ftp:
+  ip: 192.168.1.1
+  path: /home/vmuser/ftp
+
+scp:
+  ip: 192.168.1.1
+  path: /home/vmuser/scp
+  username: vmuser
+  password: broadcom
+
+ssh:
+  ip: 192.168.1.1
+  path: /tftpboot
+  username: admin
+  password: broadcom
+
+sftp:
+  ip: 192.168.1.1
+  path: /tftpboot
+  username: admin
+  password: broadcom
+
+snmptrap:
+  ip: 10.59.143.179
+  port: 22
+  username: vagrant
+  password: vagrant
+  path: /var/log/snmptrap.log
+
+tacacs:
+  hosts: [{ip: 10.59.143.179, username: root, password: lvl7india,
+           timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 1},
+          {ip: 10.52.132.214, username: root, password: lvl7india,
+           timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 2},
+          {ip: 10.52.145.181, username: root, password: lvl7india,
+           timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 3},
+          {ip: 10.2.3.2, username: root, password: lvl7india,
+           timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 4},
+          {ip: 10.2.3.4, username: root, password: lvl7india,
+           timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 5},
+          {ip: 10.2.3.5, username: root, password: lvl7india,
+           timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 6},
+          {ip: 10.2.3.6, username: root, password: lvl7india,
+           timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 7},
+          {ip: 10.2.3.7, username: root, password: lvl7india,
+           timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 8}]
+
+radius:
+  hosts: [{ip: 10.52.132.214, username: test, password: test,
+           timeout: 5, passkey: Lvl7india, udp_port: 1812, auth_type: pap, priority: 8},
+          {ip: '10.52.1.1', username: root, password: lvl7india,
+           timeout: 5, passkey: lvl7india, udp_port: 1812, auth_type: pap, priority: 2},
+          {ip: '10.52.145.181', username: root, password: lvl7india,
+           timeout: 5, passkey: lvl7india, udp_port: 1812, auth_type: pap, priority: 3},
+          {ip: "4001::1", username: root, password: lvl7india,
+           timeout: 5, passkey: lvl7india, udp_port: 1812, auth_type: pap, priority: 4},
+          {ip: "3001::1", username: root, password: lvl7india,
+           timeout: 5, passkey: lvl7india, udp_port: 1812, auth_type: pap, priority: 5},
+          {ip: "2001::1", username: root, password: lvl7india,
+           timeout: 5, passkey: lvl7india, udp_port: 1812, auth_type: pap, priority: 6},
+          {ip: "1001::1", username: root, password: lvl7india,
+           timeout: 5, passkey: lvl7india, udp_port: 1812, auth_type: pap, priority: 7},
+          {ip: 10.2.3.7, username: root, password: lvl7india,
+           timeout: 5, passkey: lvl7india, udp_port: 1812, auth_type: pap, priority: 1}]
+  globals: [{source_ip: 10.52.1.1, passkey: Lvl7india, auth_type: pap, timeout: 7, retransmit: 2, auth_type_mschapv2: mschapv2},
+            {passkey: lvl7india, auth_type_chap: chap}]
+  aaa: [{login_radius: radius, login_local: local,login_default: default,
+         failthrough_enable: enable, failthrough_disable: disable, failthrough_default: default,
+         fallback_enable: enable, fallback_disable: disable, fallback_default: default},
+         {login_local_radius: 'local radius', login_radius_local: 'radius local'}]
+  local: {username: admin, password: YourPaSsWoRd}
+  invalid: {username: abcbd1234, password: abcd1234}
+  root_credentials: {username: root, password: broadcom}
+  invalid_passkey: {invalid_passkey: '@#_+%^'}
+  source_ip: {ipv6: '5001::2', ipv4: '10.5.2.3'}
+  logs_path: {path: '/var/log/auth.log'}
+  cisco_acs_server: {ip: 10.52.136.77, username: qauser, password: qauser123, passkey: lvl7india}
+  radius_conf_files: {path: '/usr/share/sonic/templates/radius_nss.conf.j2', backup_path: '/usr/share/sonic/templates/radius_nss_bkp.conf.j2'}
+  ro_user: {username: test1, password: password}
+
+syslog:
+  ip: 192.168.1.1
+  port: 23
+  username: root
+  password: lvl7india
+  path: /var/log/syslog
+
+ntp:
+  default: [216.239.35.4, 216.239.35.8, 216.239.35.12]
+  host: [162.246.94.71,192.111.144.114,47.190.36.230]
+
+smtp:
+  host: smtphost.broadcom.com
+  user: TAMAlert
+  pass: tamalert
+  domain: broadcom.com
+  sendor: SpyTest@broadcom.com
+
+ansible:
+  ip: 10.130.184.158
+  username: qaadmin
+  password: broadcom
+  port: 22
+  inventory: /etc/ansible/hosts
+  bkp_inventory: /etc/ansible/hosts.bkp
+  hosts: {"host1":{username: admin, password: broadcom},
+          "host2":{username: admin, password: broadcom}}
+  playbook_dir: /etc/ansible
+  upgrade_path: http://10.130.64.137:4321/sonic-broadcom.bin
+
+ztp:
+  dhcp: {inband: {ip: 10.52.139.214, username: admin, password: broadcom,
+         config_file: /etc/dhcp/dhcpd.conf, static_ip: 192.168.2.1, interface: Ethernet46,
+                  home_path: /home/admin/www, port: 0},
+          outofband: {ip: 10.52.139.122, username: vmuser, password: broadcom,
+                      config_file: /etc/dhcp/dhcpd.conf, static_ip: 192.168.1.1, interface: eth0,
+                      home_path: /home/vmuser/www, port: 0}}
+  dhcpv6: {inband: {ip: 10.52.139.214, username: admin, password: broadcom,
+                    config_file: /etc/dhcp/dhcpd6.conf, static_ip: "2001:db8:aad:aaa::99", interface: Ethernet46,
+                    home_path: /home/admin/www, port: 0},
+           outofband: {ip: 10.52.139.122, username: vmuser, password: broadcom,
+                       config_file: /etc/dhcp/dhcpd6.conf, static_ip: "2002:db8:aad:aaa::99", interface: eth0,
+                       home_path: /home/vmuser/www, port: 0}}
+  config_path: /sonic-ztp/json
+  firmware_path: /sonic-ztp/firmware
+  provision_script_path: /sonic-ztp/provisioning_scripts
+  xml_path: /sonic-ztp/xml
+  build_file_name: sonic-broadcom-cloud-base.bin.RC2
+  uninstall_image: SONiC-OS-sonic_2.0_daily_190823_0000_262-dirty-20190823.000207
+  dut_path: /host/ztp
+  ztp_cfg_file_name: ztp_cfg.json
+  docker_path: /sonic-ztp/firmware
+  docker_image: docker-teamd.gz
+  docker_component_name: teamd
+  minigraph_file: minigraph_as7726.xml
+
+
+http:
+  ip: 1.1.1.1
+  image1: sonic_broadcom.bin
+  path: /sonic_builds
+  version_upgrade_old_image_path:
+  version_upgrade_new_image_path:
+
+chef:
+  ip: 10.59.142.28
+  username: vagrant
+  password: vagrant
+  user_home_folder: /home/vagrant
+  path: /home/vagrant/chef-repo
+  roles: /home/vagrant/chef-repo/roles
+  cookbook_path: /home/vagrant/chef-repo/cookbooks
+  client_path: /etc/chef
+  validation_file: validation.pem
+  client_rb: client.rb
+  client_log: /var/log/chef/client.log
+  default_rb: /cookbooks/sonic-cli/recipes/default.rb
+  mgmt_intf: eth0
+
+vm_server:
+  ip: 10.0.0.10
+  username: admin
+  password: broadcom
+
+dhcp_relay:
+  connected_port: Ethernet2
+  server_ip: 1.1.1.1
+  serverv6_ip: 1111::1
+  ipv6_link_local_intf: Ethernet0
+  ipv6_link_local_server_ip: 12.1.1.2
+  ipv6_link_local_network: 12.1.1.0/24
+
+calnex:
+    chassis_ip: 10.59.130.10
+    controller_ip: 10.59.130.9
+
+mod:
+  proto_file_name: r5_tapp_event.proto
+  protoc_path: /projects/scid/tools/protobuf/bin/protoc
+
+dhcp_server_vxlan:
+    server_mgmt_ip: 10.59.130.241
+    dhcp_server_ip: 172.16.0.241
+    dhcp_server_ipv6: 2072::241
+    username: root
+    password: stratax120

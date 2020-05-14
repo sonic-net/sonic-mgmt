@@ -1,0 +1,10 @@
+Value vrfName (\S+)
+Value status (\S+)
+
+Start
+  ^.*----- -> Routes
+
+Routes
+  ^\S+ -> Continue.Record
+  ^${vrfName}\s+${status}
+

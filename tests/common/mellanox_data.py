@@ -551,5 +551,5 @@ SWITCH_MODELS = {
     }
 }
 
-def is_mellanox_device(hwsku):
-    return hwsku in SWITCH_HWSKUS
+def is_mellanox_device(dut):
+    return dut.get_asic_type() == "mellanox"

@@ -3,7 +3,6 @@ import os
 import pytest
 
 from ptfadapter import PtfTestAdapter
-from ansible_host import AnsibleHost
 
 DEFAULT_PTF_NN_PORT = 10900
 DEFAULT_DEVICE_NUM = 0

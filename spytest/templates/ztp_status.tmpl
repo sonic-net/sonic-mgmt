@@ -1,0 +1,16 @@
+Value Filldown AdminMode (\S+)
+Value Filldown Service (\S+\s*\S+)|(\S+)
+Value Filldown Status (\S+\s*\S+)|(\S+)
+Value Filldown Source (\S+\s*\S+)|(\S+)
+Value Filldown TimeStamp (\S+\s+\S+)
+Value Filldown FileName (\S+\s*:\s+[\S+\s+]+)
+
+Start
+  ^\s*ZTP\s*Admin\s*Mode\s*:\s*${AdminMode}\s*$$ -> Record
+  ^\s*ZTP\s*Service\s*:\s*${Service}\s*$$ -> Record
+  ^\s*ZTP\s*Status\s*:\s*${Status}\s*$$ -> Record
+  ^\s*ZTP\s*Source\s*:\s*${Source}\s*$$ -> Record
+  ^\s*Timestamp\s*:\s*${TimeStamp}\s*$$ -> Record
+  ^\s*${FileName}\s*$$ -> Record
+
+EOF

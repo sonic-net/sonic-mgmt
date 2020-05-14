@@ -1,4 +1,3 @@
-from ansible_host import AnsibleHost
 
 import pytest
 import ptf.testutils as testutils
@@ -146,9 +145,8 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
 
 
 @pytest.fixture
-def fdb_cleanup(ansible_adhoc, testbed):
+def fdb_cleanup(duthost):
     """ cleanup FDB before and after test run """
-    duthost = AnsibleHost(ansible_adhoc, testbed['dut'])
     try:
         duthost.command('sonic-clear fdb all')
         yield
@@ -169,7 +167,7 @@ def test_fdb(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost, pkt_type):
     host_facts  = duthost.setup()['ansible_facts']
     conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
-    # remove existing IPs from PTF host 
+    # remove existing IPs from PTF host
     ptfhost.script('scripts/remove_ip.sh')
     # set unique MACs to PTF interfaces
     ptfhost.script('scripts/change_mac.sh')

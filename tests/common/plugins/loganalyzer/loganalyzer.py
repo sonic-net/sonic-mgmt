@@ -36,6 +36,7 @@ class LogAnalyzer:
         self.expect_regex = []
         self.ignore_regex = []
         self._markers = []
+        self.fail = True
 
     def _add_end_marker(self, marker):
         """
@@ -50,6 +51,13 @@ class LogAnalyzer:
         logging.debug("Adding end marker '{}'".format(marker))
         self.ansible_host.command(cmd)
 
+    def __call__(self, **kwargs):
+        """
+        Pass additional arguments when the instance is called
+        """
+        self.fail = kwargs.get("fail", True)
+        return self
+
     def __enter__(self):
         """
         Store start markers which are used in analyze phase.
@@ -60,7 +68,7 @@ class LogAnalyzer:
         """
         Analyze syslog messages.
         """
-        self.analyze(self._markers.pop())
+        self.analyze(self._markers.pop(), fail=self.fail)
 
     def _verify_log(self, result):
         """
@@ -108,13 +116,14 @@ class LogAnalyzer:
         @return: Callback execution result
         """
         marker = self.init()
+        fail = kwargs.pop("fail", True)
         try:
             call_result = callback(*args, **kwargs)
         except Exception as err:
             logging.error("Error during callback execution:\n{}".format(err))
-            logging.debug("Log analysis result\n".format(self.analyze(marker)))
+            logging.debug("Log analysis result\n".format(self.analyze(marker, fail=fail)))
             raise err
-        self.analyze(marker)
+        self.analyze(marker, fail=fail)
 
         return call_result
 

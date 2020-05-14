@@ -1,0 +1,50 @@
+Value NEIGHBOR (\S+)
+Value VERSION (\d+)
+Value ASN (\d+|\s+)
+Value MSGRCVD (\d+)
+Value MSGSENT (\d+)
+Value TBLVER (\d+)
+Value INQ (\d+)
+Value OUTQ (\d+)
+Value UPDOWN (\S+|\d+\-\d+\-\d+\s+\d+\:\d+\:\d+|\d+\:\d+\:\d+)
+Value STATE (\S+)
+Value Filldown ROUTERID (\S+)
+Value Filldown LOCALASNNUMBER (\d+)
+Value Filldown TABLEVERSION (\d+)
+Value Filldown RIBENTRIES (\d+)
+Value Filldown RIBMEMORYINBYTES (\d+)
+Value Filldown PEERS (\d+)
+Value Filldown PEERSMEMORYINKBYTES (\d+)
+Value Filldown VRFID (\d+)
+Value Filldown TOTALENTRIES (\d+)
+Value DYNNBR (\d+)
+Value DYNLIMIT (\d+)
+
+Start
+  ^\s*IPv\d{1} Unicast Summary:.*$$ -> VTYSH
+  ^\s*BGP router identifier ${ROUTERID}, local AS number ${LOCALASNNUMBER}\s*$$ -> KLISH
+
+VTYSH
+  ^BGP router identifier ${ROUTERID}, local AS number ${LOCALASNNUMBER} vrf-id ${VRFID}\s*$$
+  ^BGP table version ${VERSION}\s*$$
+  ^RIB entries ${RIBENTRIES}, using ${RIBMEMORYINBYTES} (\S+) of memory\s*$$
+  ^Peers ${PEERS}, using ${PEERSMEMORYINKBYTES} KiB of memory\s*$$
+  ^(\s*)*$$ -> Continue
+  ^\s+Neighbor\s+V\s+AS\s+MsgRcvd\s+MsgSent\s+TblVer\s+InQ\s+OutQ\s+Up\/Down\s+State\/PfxRcd\s+ -> Continue
+  ^\s*${NEIGHBOR}\s+${VERSION}\s+${ASN}\s+${MSGRCVD}\s+${MSGSENT}\s+${TBLVER}\s+${INQ}\s+${OUTQ}\s+${UPDOWN}\s+${STATE}\s*$$ -> Record
+  ^(\s*)*$$ -> Continue
+  ^Total number of neighbors ${TOTALENTRIES}
+  ^${DYNNBR} dynamic neighbor\(s\), limit ${DYNLIMIT}$$ -> Record
+
+KLISH
+  ^\s*BGP router identifier ${ROUTERID}, local AS number ${LOCALASNNUMBER}\s*$$
+  ^\s*Neighbor\s+V\s+AS\s+MsgRcvd\s+MsgSent\s+TblVer\s+InQ\s+OutQ\s+Up\/Down\s+State\/PfxRcd\s+ -> Continue
+  ^\s*${NEIGHBOR}\s+${VERSION}\s+${ASN}\s+${MSGRCVD}\s+${MSGSENT}\s+${TBLVER}\s+${INQ}\s+${OUTQ}\s+${UPDOWN}\s+${STATE}\s*$$ -> Record
+  ^(\s*)*$$ -> Continue
+  ^\s*Total number of neighbors ${TOTALENTRIES}\s*$$ -> Record
+
+EOF
+
+
+
+

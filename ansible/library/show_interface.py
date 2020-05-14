@@ -93,7 +93,7 @@ class ShowInterfaceModule(object):
                     rc, self.out, err = self.module.run_command(command, executable='/bin/bash', use_unsafe_shell=True)
                     for line in self.out.split("\n"):
                         line = line.strip()
-                        if regex_int.match(line):
+                        if regex_int.match(line) and interface == regex_int.match(line).group(1):
                             self.int_status[interface]['name'] = regex_int.match(line).group(1)
                             self.int_status[interface]['speed'] = regex_int.match(line).group(2)
                             self.int_status[interface]['alias'] = regex_int.match(line).group(4)
