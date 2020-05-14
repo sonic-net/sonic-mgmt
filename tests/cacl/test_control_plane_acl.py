@@ -52,17 +52,17 @@ def test_control_plane_acls(duthost, testbed_devices, creds):
                              timeout=10)
 
     if "Timeout when waiting for search string" not in res.get('msg', ''):
-        pytest.fail("SSH did not time out when expected to")
+        pytest.fail("SSH did not time out when expected")
 
     # Ensure we CANNOT gather basic SNMP facts from the device
     res = localhost.snmp_facts(host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'])
 
     if 'ansible_facts' in res or "No SNMP response received before timeout" not in res.get('msg', ''):
-        pytest.fail("SNMP did not time out when expected to")
+        pytest.fail("SNMP did not time out when expected")
 
 
     # Wait until the original service ACLs are reinstated and the SSH port on the
-    # DUT is open to us once again. Note that the timeout here should be made sufficiently
+    # DUT is open to us once again. Note that the timeout here should be set sufficiently
     # long enough to allow config_service_acls.sh to reset the ACLs to their original
     # configuration.
     res = localhost.wait_for(host=dut_mgmt_ip,
@@ -71,6 +71,9 @@ def test_control_plane_acls(duthost, testbed_devices, creds):
                              search_regex=SONIC_SSH_REGEX,
                              delay=0,
                              timeout=90)
+
+    if "Timeout when waiting for search string" in res.get('msg', ''):
+        pytest.fail("SSH did not start working when expected")
 
     # Sleep a while to prevent timeout error which may happen when deleting config_service_acls.sh
     time.sleep(20)
