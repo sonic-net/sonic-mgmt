@@ -1,7 +1,4 @@
 import pytest
-import time
-import json
-import os
 
 from common.fixtures.conn_graph_facts import fanout_graph_facts
 from common.fixtures.pfc_asym import *
