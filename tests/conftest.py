@@ -261,7 +261,13 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
         else:
             host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_host).vars
             os_type = 'eos' if 'os' not in host_vars else host_vars['os']
-            fanout  = FanoutHost(ansible_adhoc, os_type, fanout_host, 'FanoutLeaf', creds['fanout_admin_user'], creds['fanout_admin_password'])
+            if os_type == "eos":
+                user = creds['fanout_admin_user']
+                pswd = creds['fanout_admin_password']
+            elif os_type == "onyx":
+                user = creds["fanout_mlnx_user"]
+                pswd = creds["fanout_mlnx_password"]
+            fanout  = FanoutHost(ansible_adhoc, os_type, fanout_host, 'FanoutLeaf', user, pswd)
             fanout_hosts[fanout_host] = fanout
         fanout.add_port_map(dut_port, fanout_port)
 
@@ -279,6 +285,7 @@ def eos():
 def creds(duthost):
     """ read credential information according to the dut inventory """
     groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
+    groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
     files = glob.glob("../ansible/group_vars/all/*.yml")
     for group in groups:

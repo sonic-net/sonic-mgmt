@@ -31,3 +31,10 @@ def conn_graph_facts(duthost, testbed_devices):
                 conn_graph_facts = localhost.conn_graph_facts(host=duthost.hostname, filename=lab_conn_graph_file)['ansible_facts']
                 return conn_graph_facts
     return conn_graph_facts
+
+@pytest.fixture(scope="module")
+def fanout_graph_facts(testbed_devices, conn_graph_facts):
+    localhost = testbed_devices["localhost"]
+    fanout_host = conn_graph_facts["device_conn"]["Ethernet0"]["peerdevice"]
+    facts = localhost.conn_graph_facts(host=fanout_host, filename=LAB_CONNECTION_GRAPH)["ansible_facts"]
+    return facts
