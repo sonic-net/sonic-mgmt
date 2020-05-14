@@ -75,8 +75,9 @@ def test_control_plane_acls(duthost, testbed_devices, creds):
     if "Timeout when waiting for search string" in res.get('msg', ''):
         pytest.fail("SSH did not start working when expected")
 
-    # Sleep a while to prevent timeout error which may happen when deleting config_service_acls.sh
-    time.sleep(20)
+    # Sleep a while to ensure SSH is stable and prevent timeout error which may
+    # occur when deleting config_service_acls.sh
+    time.sleep(5)
 
     # Delete config_service_acls.sh from the DuT
     duthost.file(path="/tmp/config_service_acls.sh", state="absent")
