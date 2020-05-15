@@ -1,0 +1,24 @@
+{
+  "interfaces": {
+    "interface": [
+      {
+        "name": "eth0",
+        "config": {
+          "name": "eth0"
+        },
+        "state" : {
+          "oper-status": "UP"
+        }
+      },
+      {
+        "name": "eth1",
+        "config": {
+          "name": "eth1"
+        },
+        "state": {
+          "oper-status": "DOWN"
+        }
+      }
+    ]
+  }
+}

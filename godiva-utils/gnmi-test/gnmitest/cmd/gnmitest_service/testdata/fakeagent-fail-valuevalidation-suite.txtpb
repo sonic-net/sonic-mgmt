@@ -1,0 +1,36 @@
+name: "Arista Telemetry Tests"
+timeout: 20
+schema: "openconfig"
+connection: {
+  address: "%%ADDRESS%%"
+  timeout: 20
+}
+
+instance_group_list {
+  description: "Subscription tests"
+  instance {
+    description: "Interfaces tests"
+    test {
+      description: "Value validation"
+      subscribe {
+        request {
+          subscribe {
+            prefix {
+              target: "DUT"
+              origin: "openconfig"
+            }
+            subscription {
+              path {
+                elem {
+                  name: "interfaces"
+                }
+              }
+            }
+            mode: ONCE
+          }
+        }
+        value_validation {}
+      }
+    }
+  }
+}

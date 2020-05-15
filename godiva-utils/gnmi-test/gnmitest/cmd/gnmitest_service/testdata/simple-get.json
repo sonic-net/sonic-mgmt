@@ -1,0 +1,18 @@
+{
+	"interfaces": {
+		"interface": [
+			{
+				"name": "eth0",
+				"config": {
+					"name": "eth0"
+				}
+			},
+			{
+				"name": "eth1",
+				"config": {
+					"name": "eth1"
+				}
+			}
+		]
+	}
+}

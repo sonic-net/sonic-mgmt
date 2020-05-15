@@ -1,0 +1,47 @@
+results: {
+  description: "Base Telemetry Tests"
+  instance: {
+    description: "OpenConfig interfaces schema path validation"
+    test: {
+      test: {
+        description: "Interfaces"
+        timeout: 20
+        schema: "openconfig"
+        connection: {
+          address: "%%HOST%%:%%PORT%%"
+          credentials: {
+            username: "robjs"
+            password: "robjs"
+          }
+          timeout: 10
+        }
+        subscribe: {
+          request: {
+            subscribe: {
+              prefix: {
+                origin: "openconfig"
+                target: "DUT"
+              }
+              subscription: {
+                path: {
+                  elem: {
+                    name: "interfaces"
+                  }
+                }
+              }
+              mode: STREAM
+            }
+          }
+          path_validation: {
+          }
+        }
+      }
+      subscribe: {
+        errors: {
+          message: "rpc error: code = Unimplemented desc = Subscription modes other than ONCE are not implemented"
+        }
+        status: RPC_ERROR
+      }
+    }
+  }
+}
