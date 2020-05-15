@@ -5,9 +5,8 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
 ]
 
-def test_ro_user(testbed_devices, duthost, creds, setup_tacacs):
+def test_ro_user(localhost, duthost, creds, setup_tacacs):
 
-    localhost = testbed_devices['localhost']
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     res = localhost.shell("sshpass -p {} ssh "\
                           "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "\

@@ -49,10 +49,8 @@ def _update_check_items(old_items, new_items, supported_items):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def sanity_check(testbed_devices, duthost, request, fanouthosts):
+def sanity_check(localhost, duthost, request, fanouthosts):
     logger.info("Start pre-test sanity check")
-
-    localhost = testbed_devices["localhost"]
 
     skip_sanity = False
     allow_recover = False

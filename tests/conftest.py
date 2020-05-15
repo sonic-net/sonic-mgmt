@@ -134,33 +134,6 @@ def testbed(request):
     return tbinfo.testbed_topo[tbname]
 
 
-@pytest.fixture(scope="module")
-def testbed_devices(ansible_adhoc, testbed, duthost):
-    """
-    @summary: Fixture for creating dut, localhost and other necessary objects for testing. These objects provide
-        interfaces for interacting with the devices used in testing.
-    @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
-        mandatory argument for the class constructors.
-    @param testbed: Fixture for parsing testbed configuration file.
-    @return: Return the created device objects in a dictionary
-    """
-
-    devices = {
-        "localhost": Localhost(ansible_adhoc),
-        "duts" : [SonicHost(ansible_adhoc, x, gather_facts=True) for x in testbed["duts"]],
-    }
-
-    if "ptf" in testbed:
-        devices["ptf"] = PTFHost(ansible_adhoc, testbed["ptf"])
-    else:
-        # when no ptf defined in testbed.csv
-        # try to parse it from inventory
-        ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
-        devices["ptf"] = PTFHost(ansible_adhoc, ptf_host)
-
-    return devices
-
-
 def disable_ssh_timout(dut):
     '''
     @summary disable ssh session on target dut
@@ -218,7 +191,7 @@ def localhost(ansible_adhoc):
 
 
 @pytest.fixture(scope="module")
-def ptfhost(ansible_adhoc, testbed):
+def ptfhost(ansible_adhoc, testbed, duthost):
     if "ptf" in testbed:
         return PTFHost(ansible_adhoc, testbed["ptf"])
     else:

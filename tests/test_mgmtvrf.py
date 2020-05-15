@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope='module',autouse=True)
-def setup_mvrf(duthost, testbed_devices, testbed, localhost):
+def setup_mvrf(duthost, testbed, localhost):
     '''
     Setup Management vrf configs before the start of testsuite
     '''
@@ -173,7 +173,7 @@ class TestReboot():
          inbound_test.test_snmp_fact(localhost)
 
 
-    def test_warmboot(self, duthost, localhost, testbed_devices, testbed):
+    def test_warmboot(self, duthost, localhost, testbed):
 
         duthost.command('sudo config save -y')
         reboot(duthost, localhost, reboot_type='warm')
@@ -181,13 +181,13 @@ class TestReboot():
         self.basic_check_after_reboot(duthost, localhost, testbed)
 
 
-    def test_reboot(self, duthost, localhost, testbed_devices, testbed):
+    def test_reboot(self, duthost, localhost, testbed):
         duthost.command('sudo config save -y')
         reboot(duthost, localhost)
         assert wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started"
         self.basic_check_after_reboot(duthost, localhost, testbed)
 
-    def test_fastboot(self, duthost, localhost, testbed_devices, testbed):
+    def test_fastboot(self, duthost, localhost, testbed):
 
         duthost.command('sudo config save -y')
         reboot(duthost, localhost,reboot_type='fast')
