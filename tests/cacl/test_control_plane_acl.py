@@ -8,10 +8,9 @@ SONIC_SSH_PORT  = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 
-def test_control_plane_acls(duthost, testbed_devices, creds):
+def test_control_plane_acls(duthost, localhost, testbed_devices, creds):
     """Test control plane ACL functionality on a SONiC device
     """
-    localhost = testbed_devices['localhost']
     dut_mgmt_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
 
     # Ensure we can gather basic SNMP facts from the device
