@@ -97,6 +97,8 @@ def check_interfaces(dut):
     return check_result
 
 def check_dbmemory(dut):
+    logger.info("Checking database memory...")
+
     total_omem = 0
     re_omem = re.compile("omem=(\d+)")
     res = dut.command("/usr/bin/redis-cli client list")
@@ -115,6 +117,46 @@ def check_dbmemory(dut):
     logger.info("Done checking database memory")
     return check_result
 
+def check_processes(dut):
+    logger.info("Checking process status...")
+
+    networking_uptime = dut.get_networking_uptime().seconds
+    timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
+    interval = 20
+    logger.info("networking_uptime=%d seconds, timeout=%d seconds, interval=%d seconds" % \
+                (networking_uptime, timeout, interval))
+
+    check_result = {"failed": False, "check_item": "processes"}
+    if timeout == 0:    # Check processes status, do not retry.
+        processes_status = dut.all_critical_process_status()
+        check_result["processes_status"] = processes_status
+        check_result["services_status"] = {}
+        for k, v in processes_status.items():
+            if v['status'] == False or len(v['exited_critical_process']) > 0:
+                check_result['failed'] = True
+            check_result["services_status"].update({k: v['status']})
+    else:               # Retry checking processes status
+        start = time.time()
+        elapsed = 0
+        while elapsed < timeout:
+            processes_status = dut.all_critical_process_status()
+            check_result["processes_status"] = processes_status
+            check_result["services_status"] = {}
+            for k, v in processes_status.items():
+                if v['status'] == False or len(v['exited_critical_process']) > 0:
+                    check_result['failed'] = True
+                check_result["services_status"].update({k: v['status']})
+
+            if check_result["failed"]:
+                wait(interval, msg="Not all processes are started, wait %d seconds to retry. Remaining time: %d %s" % \
+                     (interval, int(timeout - elapsed), str(check_result["processes_status"])))
+                elapsed = time.time() - start
+            else:
+                break
+
+    logger.info("Done checking processes status.")
+    return check_result
+
 def do_checks(dut, check_items):
     results = []
     for item in check_items:
@@ -124,6 +166,8 @@ def do_checks(dut, check_items):
             results.append(check_interfaces(dut))
         elif item == "dbmemory":
             results.append(check_dbmemory(dut))
+        elif item == "processes":
+            results.append(check_processes(dut))
 
     return results
 

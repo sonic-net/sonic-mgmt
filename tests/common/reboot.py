@@ -1,7 +1,7 @@
 import time
 import logging
 from multiprocessing.pool import ThreadPool, TimeoutError
-from ansible_host import AnsibleModuleException
+from errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 
@@ -148,8 +148,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=0, wait=0, 
         while finalizer_state == 'activating':
             try:
                 res = duthost.command('systemctl is-active warmboot-finalizer.service',module_ignore_errors=True)
-            except AnsibleModuleException as err:
-                res = err.module_result
+            except RunAnsibleModuleFail as err:
+                res = err.results
 
             finalizer_state = res['stdout'].strip()
             logger.info('warmboot finalizer service state {}'.format(finalizer_state))

@@ -37,14 +37,18 @@
         - lldpd
         - lldp-syncd
 
-    - name: Disable bgpd
+    - name: Ensure BGP Daemon stopped
       become: yes
-      lineinfile: dest=/etc/quagga/daemons
-                  regexp=^bgpd=.*$
-                  line='bgpd=no'
-      notify:
-        - Restart Quagga Daemon
+      supervisorctl: state=stopped name=bgpd
       delegate_to: "{{ ansible_host }}_bgp"
+    
+    - name: Add iptables rule to drop BGP SYN Packet from peer so that we do not ACK back
+      shell: "iptables -A INPUT -j DROP -p tcp --destination-port bgp"
+      become: true
+
+    - name: Add ip6tables rule to drop BGP SYN Packet from peer so that we do not ACK back
+      shell: "ip6tables -A INPUT -j DROP -p tcp --destination-port bgp"
+      become: true
 
     - meta: flush_handlers
 
@@ -112,6 +116,21 @@
         - src_port_id='{{src_port_id}}'
         - src_port_ip='{{src_port_ip}}'
       when: testbed_type in ['t0', 't0-64', 't0-116'] or arp_entries.stdout.find('incomplete') == -1
+
+    - include_tasks: qos_sai_ptf.yml
+      vars:
+        test_name: populate arp on all ports
+        test_path: sai_qos_tests.ARPpopulatePTF
+        test_params:
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - dst_port_2_id='{{dst_port_2_id}}'
+        - dst_port_2_ip='{{dst_port_2_ip}}'
+        - dst_port_3_id='{{dst_port_3_id}}'
+        - dst_port_3_ip='{{dst_port_3_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+      when: testbed_type in ['ptf32', 'ptf64']
 
     # XOFF limit
     - include_tasks: qos_sai_ptf.yml
@@ -467,14 +486,20 @@
         - lldpd
         - lldp-syncd
 
+    - name: Remove iptables rule to drop BGP SYN Packet from Peer
+      shell: "iptables -D INPUT -j DROP -p tcp --destination-port bgp"
+      become: true
+
+    - name: Remove ip6tables rule to drop BGP SYN Packet from Peer
+      shell: "ip6tables -D INPUT -j DROP -p tcp --destination-port bgp"
+      become: true
+
     - name: Enable bgpd
       become: yes
-      lineinfile: dest=/etc/quagga/daemons
-                  regexp=^bgpd=.*$
-                  line='bgpd=yes'
+      supervisorctl: state=started name=bgpd
+      delegate_to: "{{ ansible_host }}_bgp"
       notify:
         - Restart Quagga Daemon
-      delegate_to: "{{ ansible_host }}_bgp"
 
     - name: Restore original watermark polling status
       shell: counterpoll watermark {{watermark_status.stdout}}

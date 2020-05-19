@@ -5,8 +5,8 @@ import logging
 import pytest
 import time
 
-from common.errors import RunAnsibleModuleFail
 from common.mellanox_data import is_mellanox_device as isMellanoxDevice
+from common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
 from common.reboot import reboot as rebootDut
 from ptf_runner import ptf_runner
 
@@ -25,11 +25,13 @@ class AdvancedReboot:
     inboot/preboot list. The class transfers number of configuration files to the dut/ptf in preparation for reboot test.
     Test cases can trigger test start utilizing runRebootTestcase API.
     '''
-    def __init__(self, request, testbed_devices, testbed, **kwargs):
+    def __init__(self, request, duthost, ptfhost, localhost, testbed, **kwargs):
         '''
         Class contructor.
         @param request: pytest request object
-        @param testbed_devices: fixture provides information about testbed devices
+        @param duthost: AnsibleHost instance of DUT
+        @param ptfhost: PTFHost for interacting with PTF through ansible
+        @param localhost: Localhost for interacting with localhost through ansible
         @param testbed: fixture provides information about testbed
         @param kwargs: extra parameters including reboot type
         '''
@@ -38,9 +40,9 @@ class AdvancedReboot:
         )
 
         self.request = request
-        self.duthost = testbed_devices['dut']
-        self.ptfhost = testbed_devices['ptf']
-        self.localhost = testbed_devices['localhost']
+        self.duthost = duthost
+        self.ptfhost = ptfhost
+        self.localhost = localhost
         self.testbed = testbed
         self.__dict__.update(kwargs)
         self.__extractTestParam()
@@ -65,6 +67,7 @@ class AdvancedReboot:
         self.newSonicImage = self.request.config.getoption("--new_sonic_image")
         self.cleanupOldSonicImages = self.request.config.getoption("--cleanup_old_sonic_images")
         self.readyTimeout = self.request.config.getoption("--ready_timeout")
+        self.replaceFastRebootScript = self.request.config.getoption("--replace_fast_reboot_script")
 
     def getHostMaxLen(self):
         '''
@@ -115,11 +118,16 @@ class AdvancedReboot:
 
         self.rebootData['dut_hostname'] = self.mgFacts['minigraph_mgmt_interface']['addr']
         self.rebootData['dut_mac'] = hostFacts['ansible_Ethernet0']['macaddress']
-        self.rebootData['dut_username'] = hostFacts['ansible_env']['SUDO_USER']
         self.rebootData['vlan_ip_range'] = self.mgFacts['minigraph_vlan_interfaces'][0]['subnet']
         self.rebootData['dut_vlan_ip'] = self.mgFacts['minigraph_vlan_interfaces'][0]['addr']
+
+        invetory = self.duthost.host.options['inventory'].split('/')[-1]
+        secrets = self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname]['secret_group_vars']
+        self.rebootData['dut_username'] = secrets[invetory]['sonicadmin_user']
+        self.rebootData['dut_password'] = secrets[invetory]['sonicadmin_password']
+
         self.rebootData['default_ip_range'] = str(
-            ipaddress.ip_interface(self.mgFacts['minigraph_vlan_interfaces'][0]['addr'] + '/16').network
+            ipaddress.ip_interface(self.mgFacts['minigraph_vlan_interfaces'][0]['addr'] + '/18').network
         )
 
         for intf in self.mgFacts['minigraph_lo_interfaces']:
@@ -169,7 +177,7 @@ class AdvancedReboot:
             if 'vlan_port_down' in item:
                 assert itemCnt <= self.vlanMaxCnt, (
                     'Vlan count is greater than or equal to number of Vlan interfaces. '
-                    'Current val = {0} Max val = {}'
+                    'Current val = {0} Max val = {1}'
                 ).format(itemCnt, self.vlanMaxCnt)
             if 'routing' in item:
                 assert itemCnt <= self.hostMaxCnt, (
@@ -207,30 +215,11 @@ class AdvancedReboot:
             logger.info('Running script {0} on {1}'.format(script, ansibleHost.hostname))
             ansibleHost.script('scripts/' + script)
 
-    def __prepareTestbedSshKeys(self, dutUsername, dutIp):
+    def __prepareTestbedSshKeys(self):
         '''
         Prepares testbed ssh keys by generating ssh key on ptf host and adding this key to known_hosts on duthost
-        @param dutUsername: DUT username
-        @param dutIp: DUT IP
         '''
-        logger.info('Remove old keys from ptfhost')
-        self.ptfhost.shell('rm -f /root/.ssh/id_rsa*')
-        try:
-            result = self.ptfhost.shell('stat /root/.ssh/known_hosts')
-        except RunAnsibleModuleFail:
-            pass # files does not exist
-        else:
-            self.ptfhost.shell('ssh-keygen -f /root/.ssh/known_hosts -R ' + dutIp)
-
-        logger.info('Generate public key for ptf host')
-        self.ptfhost.shell('ssh-keygen -b 2048 -t rsa -f /root/.ssh/id_rsa -q -N ""')
-        result = self.ptfhost.shell('cat /root/.ssh/id_rsa.pub')
-        cmd = '''
-            mkdir -p /home/{0}/.ssh && 
-            echo "{1}" >> /home/{0}/.ssh/authorized_keys && 
-            chown -R {0}:{0} /home/{0}/.ssh/
-        '''.format(dutUsername, result['stdout'])
-        self.duthost.shell(cmd)
+        prepareTestbedSshKeys(self.duthost, self.ptfhost, self.rebootData['dut_username'])
 
     def __handleMellanoxDut(self):
         '''
@@ -299,13 +288,18 @@ class AdvancedReboot:
 
         self.__runScript(['remove_ip.sh', 'change_mac.sh'], self.ptfhost)
 
-        self.__prepareTestbedSshKeys(self.rebootData['dut_username'], self.rebootData['dut_hostname'])
+        self.__prepareTestbedSshKeys()
 
         logger.info('Copy tests to the PTF container  {}'.format(self.ptfhost.hostname))
         self.ptfhost.copy(src='ptftests', dest='/root')
 
         logger.info('Copy ARP responder to the PTF container  {}'.format(self.ptfhost.hostname))
         self.ptfhost.copy(src='scripts/arp_responder.py', dest='/opt')
+
+        # Replace fast-reboot script
+        if self.replaceFastRebootScript:
+            logger.info('Replace fast-reboot script on DUT  {}'.format(self.duthost.hostname))
+            self.duthost.copy(src='scripts/fast-reboot', dest='/usr/bin/')
 
     def __clearArpAndFdbTables(self):
         '''
@@ -408,8 +402,12 @@ class AdvancedReboot:
         '''
         logger.info("Running PTF runner on PTF host: {0}".format(self.ptfhost))
 
-        prebootOper = rebootOper if rebootOper is not None and 'routing' in rebootOper else None
-        inbootOper = rebootOper if rebootOper is not None and 'routing' not in rebootOper else None
+        # Non-routing neighbor/dut lag/bgp, vlan port up/down operation is performed before dut reboot process
+        # lack of routing indicates it is preboot operation
+        prebootOper = rebootOper if rebootOper is not None and 'routing' not in rebootOper else None
+        # Routing add/remove is performed during dut reboot process
+        # presence of routing in reboot operation indicates it is during reboot operation (inboot)
+        inbootOper = rebootOper if rebootOper is not None and 'routing' in rebootOper else None
 
         self.__updateAndRestartArpResponder(rebootOper)
 
@@ -423,6 +421,7 @@ class AdvancedReboot:
             platform="remote",
             params={
                 "dut_username" : self.rebootData['dut_username'],
+                "dut_password" : self.rebootData['dut_password'],
                 "dut_hostname" : self.rebootData['dut_hostname'],
                 "reboot_limit_in_seconds" : self.rebootLimit,
                 "reboot_type" :self.rebootType,
@@ -452,15 +451,17 @@ class AdvancedReboot:
         '''
         Resotre previous image and reboot DUT
         '''
-        logger.info('Restore current image')
-        self.duthost.shell('sonic_installer set_default {0}'.format(self.currentImage))
+        currentImage = self.duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+        if currentImage != self.currentImage:
+            logger.info('Restore current image')
+            self.duthost.shell('sonic_installer set_default {0}'.format(self.currentImage))
 
-        rebootDut(
-            self.duthost,
-            self.localhost,
-            reboot_type=self.rebootType.replace('-reboot', ''),
-            wait = 180 + self.readyTimeout
-        )
+            rebootDut(
+                self.duthost,
+                self.localhost,
+                reboot_type=self.rebootType.replace('-reboot', ''),
+                wait = self.readyTimeout
+            )
 
     def tearDown(self):
         '''
@@ -480,11 +481,13 @@ class AdvancedReboot:
             self.__restorePrevImage()
 
 @pytest.fixture
-def get_advanced_reboot(request, testbed_devices, testbed):
+def get_advanced_reboot(request, duthost, ptfhost, localhost, testbed):
     '''
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
-        @param testbed_devices: fixture provides information about testbed devices
+        @param duthost: AnsibleHost instance of DUT
+        @param ptfhost: PTFHost for interacting with PTF through ansible
+        @param localhost: Localhost for interacting with localhost through ansible
         @param testbed: fixture provides information about testbed
     '''
     instances = []
@@ -494,7 +497,7 @@ def get_advanced_reboot(request, testbed_devices, testbed):
         API that returns instances of AdvancedReboot class
         '''
         assert len(instances) == 0, "Only one instance of reboot data is allowed"
-        advancedReboot = AdvancedReboot(request, testbed_devices, testbed, **kwargs)
+        advancedReboot = AdvancedReboot(request, duthost, ptfhost, localhost, testbed, **kwargs)
         instances.append(advancedReboot)
         return advancedReboot
 

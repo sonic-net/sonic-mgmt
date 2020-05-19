@@ -1,19 +1,21 @@
 import pytest
-from netaddr import *
 import time
 import json
 import logging
-import requests
 from ptf_runner import ptf_runner
 from datetime import datetime 
 
 logger = logging.getLogger(__name__)
 
-HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port']
+# Usually src-mac, dst-mac, vlan-id are optional hash keys. Not all the platform supports these optional hash keys. Not enable these three by default. 
+# HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'src-mac', 'dst-mac', 'ip-proto', 'vlan-id']
+HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'ip-proto']
 SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
 DST_IP_RANGE = ['9.0.0.0', '9.255.255.255']
 SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:A800:0:00::FFFF']
 DST_IPV6_RANGE = ['20D0:A800:0:01::', '20D0:A800:0:01::FFFF']
+VLANIDS = range(1032, 1279)
+VLANIP = '192.168.{}.1/24'
 
 g_vars = {}
 
@@ -59,6 +61,40 @@ def build_fib(duthost, config_facts, fibfile, t):
             else:
                 ofp.write("{} []\n".format(prefix))
 
+def get_vlan_untag_ports(config_facts):
+    """
+    get all untag vlan ports
+    """
+    vlan_untag_ports = []
+    vlans = config_facts.get('VLAN_INTERFACE', {}).keys()
+    for vlan in vlans:
+        vlan_member_info = config_facts.get('VLAN_MEMBER', {}).get(vlan, {})
+        if vlan_member_info:
+            for port_name, tag_mode in vlan_member_info.items():
+                if tag_mode['tagging_mode'] == 'untagged':
+                    vlan_untag_ports.append(port_name)
+    
+    return vlan_untag_ports
+
+def get_router_interface_ports(config_facts, testbed):
+    """
+    get all physical ports associated with router interface (physical router interface, port channel router interface and vlan router interface)
+    """
+
+    ports = config_facts.get('INTERFACE', {}).keys()
+    portchannels_member_ports = []
+    vlan_untag_ports = []
+    portchannels_name = config_facts.get('PORTCHANNEL_INTERFACE', {}).keys()
+    if portchannels_name:
+        for po_name in portchannels_name:
+            for port_name in config_facts.get('PORTCHANNEL', {})[po_name]['members']:
+                portchannels_member_ports.append(port_name)
+    if 't0' in testbed['topo']['name']:
+        vlan_untag_ports = get_vlan_untag_ports(config_facts)
+
+    router_interface_ports = ports + portchannels_member_ports + vlan_untag_ports
+
+    return router_interface_ports
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
 def test_fib(testbed, duthost, ptfhost, ipv4, ipv6, mtu):
@@ -120,6 +156,10 @@ class TestHash():
         ptfhost.copy(src="ptftests", dest="/root")
         logging.info("run ptf test")
 
+        # TODO
+        if 'dst-mac' in self.hash_keys:
+            self.hash_keys.remove('dst-mac')
+
         # do not test load balancing on L4 port on vs platform as kernel 4.9
         # can only do load balance base on L3
         meta = config_facts.get('DEVICE_METADATA')
@@ -127,12 +167,33 @@ class TestHash():
             self.hash_keys.remove('src-port')
             self.hash_keys.remove('dst-port')
 
-        # TODO
-        self.hash_keys.remove('ingress-port')
-
         g_vars['testbed_type'] = testbed['topo']['name']
         g_vars['router_mac'] = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
-            
+
+        vlan_untag_ports = get_vlan_untag_ports(config_facts)
+        in_ports_name = get_router_interface_ports(config_facts, testbed)
+        g_vars['in_ports'] = [config_facts.get('port_index_map', {})[p] for p in in_ports_name]
+
+        # add some vlan for hash_key vlan-id test
+        if 't0' in g_vars['testbed_type'] and 'vlan-id' in self.hash_keys:
+            for vlan in VLANIDS:
+                duthost.shell('config vlan add {}'.format(vlan))
+                for port in vlan_untag_ports:
+                    duthost.shell('config vlan member add {} {}'.format(vlan, port))
+                duthost.shell('config interface ip add Vlan{} '.format(vlan) + VLANIP.format(vlan%256))
+            time.sleep(5)
+
+        yield
+
+        # remove added vlan
+        if 't0' in g_vars['testbed_type'] and 'vlan-id' in self.hash_keys:
+            for vlan in VLANIDS:
+                duthost.shell('config interface ip remove Vlan{} '.format(vlan) + VLANIP.format(vlan%256))
+                for port in vlan_untag_ports:
+                    duthost.shell('config vlan member del {} {}'.format(vlan, port))
+                duthost.shell('config vlan del {}'.format(vlan))
+            time.sleep(5)
+
     def test_hash_ipv4(self, ptfhost):
         log_file = "/tmp/hash_test.HashTest.ipv4.{}.log".format(self.t)
         logging.info("PTF log file: %s" % log_file)
@@ -148,6 +209,8 @@ class TestHash():
                         "fib_info": "/root/fib_info.txt",
                         "src_ip_range": ",".join(src_ip_range),
                         "dst_ip_range": ",".join(dst_ip_range),
+                        "in_ports": g_vars['in_ports'],
+                        "vlan_ids": VLANIDS,
                         "hash_keys": self.hash_keys },
                 log_file=log_file,
                 socket_recv_size=16384)
@@ -167,6 +230,8 @@ class TestHash():
                         "fib_info": "/root/fib_info.txt",
                         "src_ip_range": ",".join(src_ip_range),
                         "dst_ip_range": ",".join(dst_ip_range),
+                        "in_ports": g_vars['in_ports'],
+                        "vlan_ids": VLANIDS,
                         "hash_keys": self.hash_keys },
                 log_file=log_file,
                 socket_recv_size=16384)
