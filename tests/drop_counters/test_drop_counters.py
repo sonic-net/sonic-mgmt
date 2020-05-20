@@ -270,7 +270,7 @@ def rif_port_down(duthost, setup, loganalyzer):
 
 
 @pytest.fixture
-def fanouthost(request, duthost, testbed_devices):
+def fanouthost(request, duthost, localhost):
     """
     Fixture that allows to update Fanout configuration if there is a need to send incorrect packets.
     Added possibility to create vendor specific logic to handle fanout configuration.
@@ -286,7 +286,7 @@ def fanouthost(request, duthost, testbed_devices):
             # Import fanout configuration handler based on vendor name
             if "mellanox" in file_name:
                 module = importlib.import_module("fanout.{0}.{0}_fanout".format(file_name.strip(".py")))
-                fanout = module.FanoutHandler(duthost, testbed_devices)
+                fanout = module.FanoutHandler(duthost, localhost)
                 break
 
     yield fanout
@@ -925,7 +925,7 @@ def test_non_routable_igmp_pkts(ptfadapter, duthost, setup, tx_dut_ports, pkt_fi
         pkt = eth_layer/ip_layer/igmp_layer
 
     log_pkt_params(ports_info["dut_iface"], ethernet_dst, ports_info["src_mac"], pkt.getlayer("IP").dst, pkt_fields["ipv4_src"])
-    do_test("L3", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, duthost, ports_info, setup["dut_to_ptf_port_map"].values(), tx_dut_ports)
 
 
 def test_absent_ip_header(ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
