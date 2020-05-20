@@ -7,7 +7,6 @@ import importlib
 import pprint
 import random
 import time
-import scapy
 import yaml
 import re
 import os

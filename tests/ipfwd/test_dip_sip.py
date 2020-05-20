@@ -13,8 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope='function', autouse=True)
-def prepare_ptf(testbed_devices):
-    ptfhost = testbed_devices["ptf"]
+def prepare_ptf(ptfhost):
     # remove existing IPs from ptf host
     ptfhost.script('scripts/remove_ip.sh')
     # set unique MACs to ptf interfaces
@@ -76,20 +75,19 @@ def port_facts(dut, mg_facts):
 
 
 @pytest.fixture(scope='function')
-def gather_facts(testbed_devices, testbed):
+def gather_facts(testbed, duthost):
     facts = {}
     topo = testbed['topo']['name']
     if topo not in TOPO_LIST:
         pytest.skip("Unsupported topology")
     logger.info("Gathering facts on DUT ...")
-    dut = testbed_devices["dut"]
-    mg_facts = dut.minigraph_facts(host=dut.hostname)['ansible_facts']
-    
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+
     # if minigraph_portchannel_interfaces is not empty - topology with lag
     if mg_facts['minigraph_portchannel_interfaces']:
-        facts = lag_facts(dut, mg_facts)
+        facts = lag_facts(duthost, mg_facts)
     else:
-        facts = port_facts(dut, mg_facts)
+        facts = port_facts(duthost, mg_facts)
 
     logger.info("Facts gathered successfully")
 
@@ -111,7 +109,7 @@ def run_test_ipv6(ptfadapter, gather_facts):
     logger.info("\nSend Packet:\neth_dst: {}, eth_src: {}, ipv6 ip: {}".format(
         gather_facts['src_router_mac'], gather_facts['src_host_mac'], dst_host_ipv6)
     )
-    
+
     testutils.send(ptfadapter, int(gather_facts['src_port_ids'][0]), pkt)
 
     pkt = testutils.simple_udpv6_packet(
@@ -124,7 +122,7 @@ def run_test_ipv6(ptfadapter, gather_facts):
     logger.info("\nExpect Packet:\neth_dst: {}, eth_src: {}, ipv6 ip: {}".format(
         gather_facts['dst_host_mac'], gather_facts['dst_router_mac'], dst_host_ipv6)
     )
-    
+
     port_list = [int(port) for port in gather_facts['dst_port_ids']]
     testutils.verify_packet_any_port(ptfadapter, pkt, port_list, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
 
@@ -142,7 +140,7 @@ def run_test_ipv4(ptfadapter, gather_facts):
     logger.info("\nSend Packet:\neth_dst: {}, eth_src: {}, ipv6 ip: {}".format(
         gather_facts['src_router_mac'], gather_facts['src_host_mac'], dst_host_ipv4)
     )
-    
+
     testutils.send(ptfadapter, int(gather_facts['src_port_ids'][0]), pkt)
 
     pkt = testutils.simple_udp_packet(
@@ -155,7 +153,7 @@ def run_test_ipv4(ptfadapter, gather_facts):
     logger.info("\nExpect Packet:\neth_dst: {}, eth_src: {}, ipv6 ip: {}".format(
         gather_facts['dst_host_mac'], gather_facts['dst_router_mac'], dst_host_ipv4)
     )
-    
+
     port_list = [int(port) for port in gather_facts['dst_port_ids']]
     testutils.verify_packet_any_port(ptfadapter, pkt, port_list, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
 

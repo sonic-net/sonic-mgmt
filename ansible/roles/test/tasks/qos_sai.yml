@@ -117,6 +117,21 @@
         - src_port_ip='{{src_port_ip}}'
       when: testbed_type in ['t0', 't0-64', 't0-116'] or arp_entries.stdout.find('incomplete') == -1
 
+    - include_tasks: qos_sai_ptf.yml
+      vars:
+        test_name: populate arp on all ports
+        test_path: sai_qos_tests.ARPpopulatePTF
+        test_params:
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - dst_port_2_id='{{dst_port_2_id}}'
+        - dst_port_2_ip='{{dst_port_2_ip}}'
+        - dst_port_3_id='{{dst_port_3_id}}'
+        - dst_port_3_ip='{{dst_port_3_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+      when: testbed_type in ['ptf32', 'ptf64']
+
     # XOFF limit
     - include_tasks: qos_sai_ptf.yml
       vars:

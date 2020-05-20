@@ -25,11 +25,13 @@ class AdvancedReboot:
     inboot/preboot list. The class transfers number of configuration files to the dut/ptf in preparation for reboot test.
     Test cases can trigger test start utilizing runRebootTestcase API.
     '''
-    def __init__(self, request, testbed_devices, testbed, **kwargs):
+    def __init__(self, request, duthost, ptfhost, localhost, testbed, **kwargs):
         '''
         Class contructor.
         @param request: pytest request object
-        @param testbed_devices: fixture provides information about testbed devices
+        @param duthost: AnsibleHost instance of DUT
+        @param ptfhost: PTFHost for interacting with PTF through ansible
+        @param localhost: Localhost for interacting with localhost through ansible
         @param testbed: fixture provides information about testbed
         @param kwargs: extra parameters including reboot type
         '''
@@ -38,9 +40,9 @@ class AdvancedReboot:
         )
 
         self.request = request
-        self.duthost = testbed_devices['dut']
-        self.ptfhost = testbed_devices['ptf']
-        self.localhost = testbed_devices['localhost']
+        self.duthost = duthost
+        self.ptfhost = ptfhost
+        self.localhost = localhost
         self.testbed = testbed
         self.__dict__.update(kwargs)
         self.__extractTestParam()
@@ -125,7 +127,7 @@ class AdvancedReboot:
         self.rebootData['dut_password'] = secrets[invetory]['sonicadmin_password']
 
         self.rebootData['default_ip_range'] = str(
-            ipaddress.ip_interface(self.mgFacts['minigraph_vlan_interfaces'][0]['addr'] + '/16').network
+            ipaddress.ip_interface(self.mgFacts['minigraph_vlan_interfaces'][0]['addr'] + '/18').network
         )
 
         for intf in self.mgFacts['minigraph_lo_interfaces']:
@@ -453,7 +455,7 @@ class AdvancedReboot:
         if currentImage != self.currentImage:
             logger.info('Restore current image')
             self.duthost.shell('sonic_installer set_default {0}'.format(self.currentImage))
-    
+
             rebootDut(
                 self.duthost,
                 self.localhost,
@@ -479,11 +481,13 @@ class AdvancedReboot:
             self.__restorePrevImage()
 
 @pytest.fixture
-def get_advanced_reboot(request, testbed_devices, testbed):
+def get_advanced_reboot(request, duthost, ptfhost, localhost, testbed):
     '''
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
-        @param testbed_devices: fixture provides information about testbed devices
+        @param duthost: AnsibleHost instance of DUT
+        @param ptfhost: PTFHost for interacting with PTF through ansible
+        @param localhost: Localhost for interacting with localhost through ansible
         @param testbed: fixture provides information about testbed
     '''
     instances = []
@@ -493,7 +497,7 @@ def get_advanced_reboot(request, testbed_devices, testbed):
         API that returns instances of AdvancedReboot class
         '''
         assert len(instances) == 0, "Only one instance of reboot data is allowed"
-        advancedReboot = AdvancedReboot(request, testbed_devices, testbed, **kwargs)
+        advancedReboot = AdvancedReboot(request, duthost, ptfhost, localhost, testbed, **kwargs)
         instances.append(advancedReboot)
         return advancedReboot
 

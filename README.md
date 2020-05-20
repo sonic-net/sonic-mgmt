@@ -4,9 +4,10 @@
 # Description
 Tools for managing, configuring and monitoring SONiC
 
+# CII Best Practices
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/3933/badge)](https://bestpractices.coreinfrastructure.org/projects/3933)
 
 # Contribution guide
-
 All contributors must sign a contribution license agreement before contributions can be accepted.  
 [How to become a contributer](https://github.com/Azure/SONiC/wiki/Becoming-a-contributor)
  

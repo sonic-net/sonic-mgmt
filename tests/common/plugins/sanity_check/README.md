@@ -20,7 +20,7 @@ pytest_plugins = [
 sonic-mgmt/tests/common/plugins/sanity_check:
 ```
 @pytest.fixture(scope="module", autouse=True)
-def sanity_check(testbed_devices, request):
+def sanity_check(localhost, duthost, request, fanouthosts):
     ...
 ```
 
