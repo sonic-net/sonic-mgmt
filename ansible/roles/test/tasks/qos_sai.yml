@@ -31,9 +31,9 @@
 
     - set_fact:
         defined_asic_list: ['td2', 'th', 'th2', 'spc1', 'spc2', 'spc3']
-        spc: "{{ lossless_buffer_profile }}"
+        speed_cablelen: "{{ lossless_buffer_profile }}"
 
-    - set_fact: spc="{{spc | regex_replace('BUFFER_PROFILE\|pg_lossless_(.*)_profile', '\\1')}}"
+    - set_fact: speed_cablelen="{{speed_cablelen | regex_replace('BUFFER_PROFILE\|pg_lossless_(.*)_profile', '\\1')}}"
 
     - name: Get asic type
       set_fact: asic_type="{{ item }}"
@@ -42,16 +42,16 @@
         - minigraph_hwsku in hostvars[inventory_hostname][sonic_asic_type + '_' + item + '_hwskus']
       with_items: "{{ defined_asic_list }}"
 
-    - debug: msg="asic type is {{ asic_type }}, portspeed_cablelen is {{ spc }}"
+    - debug: msg="asic type is {{ asic_type }}, portspeed_cablelen is {{ speed_cablelen }}"
 
     - name: check if the device has configured qos parameters
       fail: msg="device doesn't have configured qos parameters"
-      when: qos_params[asic_type] is not defined or qos_params[asic_type][spc] is not defined
+      when: qos_params[asic_type] is not defined or qos_params[asic_type][speed_cablelen] is not defined
 
     - name: set qos parameters for the device
       set_fact:
         qp: "{{qos_params[asic_type]}}"
-        qp_sc: "{{qos_params[asic_type][spc]}}"
+        qp_sc: "{{qos_params[asic_type][speed_cablelen]}}"
 
     - name: Ensure LLDP Daemon stopped
       become: yes
