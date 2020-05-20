@@ -41,8 +41,17 @@ def lag_facts(dut, mg_facts):
     facts['dst_router_ipv4'] = host_facts['ansible_' + dst_lag]['ipv4']['address']
     dst_ipv6 = host_facts['ansible_' + dst_lag]['ipv6']
     facts['dst_router_ipv6'] = [(item['address']) for item in dst_ipv6 if item['scope'] == 'global'][0]
-    facts['dst_port_ids'] = [mg_facts['minigraph_port_indices'][mg_facts['minigraph_portchannels'][dst_lag]['members'][0]]]
-    facts['src_port_ids'] = [mg_facts['minigraph_port_indices'][mg_facts['minigraph_portchannels'][src_lag]['members'][0]]]
+
+    dst_port_list = []
+    src_port_list = []
+    dst_len = len(mg_facts['minigraph_portchannels'][dst_lag]['members'])
+    src_len = len(mg_facts['minigraph_portchannels'][src_lag]['members'])
+    for i in range(dst_len):
+        dst_port_list.append(mg_facts['minigraph_port_indices'][mg_facts['minigraph_portchannels'][dst_lag]['members'][i]])
+    facts['dst_port_ids'] = dst_port_list
+    for i in range(src_len):
+        src_port_list.append(mg_facts['minigraph_port_indices'][mg_facts['minigraph_portchannels'][src_lag]['members'][i]])
+    facts['src_port_ids'] = src_port_list
 
     return facts
 
