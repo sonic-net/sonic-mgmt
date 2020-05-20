@@ -27,7 +27,7 @@ def test_reload_configuration(duthost, conn_graph_facts):
     asic_type = duthost.facts["asic_type"]
 
     logging.info("Reload configuration")
-    duthost.command("sudo config reload -y")
+    duthost.shell("sudo config reload -y &>/dev/null")
 
     logging.info("Wait until all critical services are fully started")
     check_critical_services(duthost)
