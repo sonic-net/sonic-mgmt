@@ -57,8 +57,8 @@ class TestWrArp:
         ptfhost.copy(src="arp/files/ferret.py", dest="/opt")
 
         result = duthost.shell(
-            cmd='''ip route show proto 186 type unicast |
-            sed -e '/default/d' -ne '/0\//p' |
+            cmd='''ip route show type unicast |
+            sed -e '/proto 186\|proto zebra/!d' -e '/default/d' -ne '/0\//p' |
             head -n 1 |
             sed -ne 's/0\/.*$/1/p'
             '''
