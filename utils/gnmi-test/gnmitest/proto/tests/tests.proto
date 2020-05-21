@@ -19,6 +19,7 @@ syntax = "proto3";
 import "github.com/openconfig/gnmi/proto/gnmi/gnmi.proto";
 
 package tests;
+option go_package = "github.com/openconfig/gnmitest/proto/tests";
 
 // Default message to use if test doesn't need any arguments. Default message
 // will be type of the field in the message. The name of the field discriminates

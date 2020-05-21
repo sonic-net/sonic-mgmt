@@ -20,9 +20,10 @@ mkdir -p ${GOPATH}/pkg
 clone_version google.golang.org/grpc v1.27.0
 #clone_version google.golang.org/genproto bd9b4fb
 clone_version github.com/golang/protobuf \
-  8d0c54c1246661d9a51ca0ba455d22116d485eaa
+  d04d7b157bb510b1e0c10132224b616ac0e26b17
+#  8d0c54c1246661d9a51ca0ba455d22116d485eaa
 # make install to install protoc-gen-go and libs
-make -C ${GOPATH}/src/github.com/golang/protobuf install
+go install ${GOPATH}/src/github.com/golang/protobuf/protoc-gen-go
 
 clone_version github.com/openconfig/gnmi \
   e7106f7f5493a9fa152d28ab314f2cc734244ed8
@@ -34,7 +35,6 @@ clone_version github.com/cenkalti/backoff
 
 clone_version github.com/openconfig/ygot \
 	6daf745bd5f14eda714e98cec83884e5b3954898
-
 
 clone_version github.com/google/go-cmp \
   f6dc95b586bc4e5c03cc308129693d9df2819e1c

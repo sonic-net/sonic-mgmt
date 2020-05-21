@@ -11,7 +11,6 @@ runtest : $(DOCKER_IMG)
 	fi
 
 $(DOCKER_IMG): #Dockerfile current-req.txt docker_startup_env
-	#@git submodule update --init --recursive
 	docker build --iidfile $(DOCKER_IMG) -t godiva-perf .
 
 clean:

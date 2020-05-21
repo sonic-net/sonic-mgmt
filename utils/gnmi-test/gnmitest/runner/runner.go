@@ -24,7 +24,7 @@ import (
 	"context"
 	//"crypto/tls"
 	"fmt"
-	//"strconv"
+	"strconv"
 	"time"
 
 	log "github.com/golang/glog"
@@ -115,9 +115,9 @@ func (r *Runner) Start(pCtx context.Context) error {
 	}
 	for j := 0; j < int(r.cfg.Suite.Iteration); j++ {
            fmt.Println("Iteration: ", j) 
-	for igIndex, ig := range r.cfg.Suite.InstanceGroupList {
 
-                fmt.Println("  Instance Group: ", igIndex)
+	   for igIndex, ig := range r.cfg.Suite.InstanceGroupList {
+		fmt.Println("  Instance Group(" + ig.Description + ") :", igIndex)
 
 		// Create an InstanceGroup report.
 		igResult := &rpb.InstanceGroup{Description: ig.Description}
@@ -159,8 +159,8 @@ func (r *Runner) Start(pCtx context.Context) error {
 		inst := 0
 		var max_instance_time int64 = 0
 		for  _, insr := range igResult.Instance {
-			fmt.Print("    Instance : ", inst);
-			fmt.Println("    OperTime : ", insr.Test.OperTime);
+			fmt.Print("    Instance(" + insr.Description + ") :", inst);
+			fmt.Println("    ExecTime : " + strconv.FormatInt(insr.Test.OperTime,10) + "ns");
 			inst  += 1
 
 			insPerf := &ppb.Instance{Description: insr.Description}
@@ -196,11 +196,13 @@ func (r *Runner) Start(pCtx context.Context) error {
 			}
 			break
 		}
-		fmt.Println("  Instance Group Time : ", max_instance_time);
-	}
+		fmt.Println("  Instance Group Time : " + strconv.FormatInt(max_instance_time, 10) + "ns");
+	    }
         }
-	fmt.Println("Total time", total_time)
-	fmt.Println("Avg time", (total_time)/int64(r.cfg.Suite.Iteration))
+	fmt.Println("---------------------------------------")
+	fmt.Println("Total time : " + strconv.FormatInt(total_time, 10) + "ns");
+	fmt.Println("Avg time : " + strconv.FormatInt(((total_time)/int64(r.cfg.Suite.Iteration)), 10) + "ns")
+	fmt.Println("---------------------------------------")
 	return nil
 }
 

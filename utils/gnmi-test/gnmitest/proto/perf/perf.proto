@@ -19,7 +19,7 @@ syntax = "proto3";
 import "github.com/openconfig/gnmi/proto/gnmi/gnmi.proto";
 
 package perf;
-
+option go_package = "github.com/openconfig/gnmitest/proto/perf";
 // Instances.
 message Instance {
   string description = 1;

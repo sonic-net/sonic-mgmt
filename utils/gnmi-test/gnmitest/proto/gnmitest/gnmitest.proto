@@ -20,6 +20,7 @@ import "github.com/openconfig/gnmitest/proto/suite/suite.proto";
 import "github.com/openconfig/gnmitest/proto/report/report.proto";
 
 package gnmitest;
+option go_package = "github.com/openconfig/gnmitest/proto/gnmitest";
 
 service GNMITest {
   // Run runs the given Suite proto and returns Report and Perf proto.

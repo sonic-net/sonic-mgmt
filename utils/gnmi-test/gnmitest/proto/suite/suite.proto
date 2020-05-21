@@ -64,6 +64,7 @@ import "github.com/openconfig/gnmi/proto/gnmi/gnmi.proto";
 // (https://github.com/openconfig/ygot). If the top-level Suite specifies a
 // schema, all tests that do not specify an overridden schema inherit it.
 package suite;
+option go_package = "github.com/openconfig/gnmitest/proto/suite";
 
 enum Verbose {
   NONE = 0;  // Prints no output    
