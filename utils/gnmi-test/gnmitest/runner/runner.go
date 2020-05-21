@@ -117,7 +117,6 @@ func (r *Runner) Start(pCtx context.Context) error {
            fmt.Println("Iteration: ", j) 
 
 	   for igIndex, ig := range r.cfg.Suite.InstanceGroupList {
-		fmt.Println("  Instance Group(" + ig.Description + ") :", igIndex)
 
 		// Create an InstanceGroup report.
 		igResult := &rpb.InstanceGroup{Description: ig.Description}
@@ -157,10 +156,9 @@ func (r *Runner) Start(pCtx context.Context) error {
 		igPerf := &ppb.InstanceGroup{Description: ig.Description}
 		igPerf.Iteration = int64(j+1);
 		inst := 0
+		fmt.Println("  Instance Group(" + igResult.Description + ") :", igIndex)
 		var max_instance_time int64 = 0
 		for  _, insr := range igResult.Instance {
-			fmt.Print("    Instance(" + insr.Description + ") :", inst);
-			fmt.Println("    ExecTime : " + strconv.FormatInt(insr.Test.OperTime,10) + "ns");
 			inst  += 1
 
 			insPerf := &ppb.Instance{Description: insr.Description}
@@ -169,6 +167,8 @@ func (r *Runner) Start(pCtx context.Context) error {
 			if max_instance_time < insPerf.ExecTime {
 				max_instance_time = insPerf.ExecTime
 			}
+			fmt.Print("    Instance(" + insr.Description + ") :", inst);
+			fmt.Println("    ExecTime : " + strconv.FormatInt(insr.Test.OperTime,10) + "ns");
 
 		}
 		// assign max instance time for the Instance group time
