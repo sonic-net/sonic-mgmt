@@ -57,7 +57,7 @@ class TestWrArp:
         ptfhost.copy(src="arp/files/ferret.py", dest="/opt")
 
         result = duthost.shell(
-            cmd='''ip route show proto zebra type unicast |
+            cmd='''ip route show proto 186 type unicast |
             sed -e '/default/d' -ne '/0\//p' |
             head -n 1 |
             sed -ne 's/0\/.*$/1/p'
@@ -144,7 +144,7 @@ class TestWrArp:
             Returns:
                 None
         '''
-        ptfhost.script(src='scripts/remove_ip.sh')
+        ptfhost.script('./scripts/remove_ip.sh')
 
     @pytest.fixture(scope='class', autouse=True)
     def changePtfhostMacAddresses(self, ptfhost):
@@ -157,7 +157,7 @@ class TestWrArp:
             Returns:
                 None
         '''
-        ptfhost.script(src="scripts/change_mac.sh")
+        ptfhost.script("./scripts/change_mac.sh")
 
     @pytest.fixture(scope='class', autouse=True)
     def prepareSshKeys(self, duthost, ptfhost):
