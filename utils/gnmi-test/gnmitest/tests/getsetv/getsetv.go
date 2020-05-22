@@ -189,9 +189,9 @@ func doOper(ctx context.Context, conn gpb.GNMIClient, oper *tpb.GetSetValidation
 	pass := true
 
 	if s := oper.GetSet(); s != nil {
-		t0 = time.Now().UnixNano()
+		t0 =  time.Now().Round(time.Millisecond).UnixNano() / 1e6
 		sr, err := conn.Set(ctx, s)
-		t1 = time.Now().UnixNano()
+		t1 = time.Now().Round(time.Millisecond).UnixNano() / 1e6
 		r.SetResponse = sr
 		if err != nil {
 			if oper.SetOk != tpb.GetSetValidationOper_FAILED {
@@ -209,9 +209,9 @@ func doOper(ctx context.Context, conn gpb.GNMIClient, oper *tpb.GetSetValidation
 	}
 
 	if g := oper.GetGet(); g != nil {
-		t0 = time.Now().UnixNano()
+		t0 = time.Now().Round(time.Millisecond).UnixNano() / 1e6
 		gr, err := conn.Get(ctx, g)
-		t1 = time.Now().UnixNano()
+		t1 = time.Now().Round(time.Millisecond).UnixNano() / 1e6
 		r.GetResponse = gr
 		if err != nil {
 			if oper.GetOk != tpb.GetSetValidationOper_FAILED {

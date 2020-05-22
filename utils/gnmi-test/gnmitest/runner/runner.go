@@ -126,6 +126,7 @@ func (r *Runner) Start(pCtx context.Context) error {
 		ctx, cancelFunc := context.WithCancel(pCtx)
 		defer cancelFunc()
 
+		t0 :=  time.Now().Round(time.Millisecond).UnixNano() / 1e6
 		for _, ins := range ig.Instance {
 			// Create a rpb.Instance report and append it to rpb.IntanceGroup.
 			// So, while each test is running, no synchronization is needed
@@ -142,8 +143,6 @@ func (r *Runner) Start(pCtx context.Context) error {
 			}(ins)
 		} 
 
-		//fmt.Println("Time taken for instancegroup" + strconv.Itoa(igIndex), diff)
- 
 
 		for i := 0; i < len(ig.Instance); i++ {
 			err := <-errC
@@ -151,6 +150,7 @@ func (r *Runner) Start(pCtx context.Context) error {
 				return err
 			}
 		}
+		t1 :=  time.Now().Round(time.Millisecond).UnixNano() / 1e6
 
 		//Create an InstanceGroup perf
 		igPerf := &ppb.InstanceGroup{Description: ig.Description}
@@ -168,7 +168,7 @@ func (r *Runner) Start(pCtx context.Context) error {
 				max_instance_time = insPerf.ExecTime
 			}
 			fmt.Print("    Instance(" + insr.Description + ") :", inst);
-			fmt.Println("    ExecTime : " + strconv.FormatInt(insr.Test.OperTime,10) + "ns");
+			fmt.Println("    ExecTime : " + strconv.FormatInt(insr.Test.OperTime,10) + "ms");
 
 		}
 		// assign max instance time for the Instance group time
@@ -196,12 +196,13 @@ func (r *Runner) Start(pCtx context.Context) error {
 			}
 			break
 		}
-		fmt.Println("  Instance Group Time : " + strconv.FormatInt(max_instance_time, 10) + "ns");
+		fmt.Println("  Instance Group Time : " + strconv.FormatInt(max_instance_time, 10) + "ms");
+		fmt.Println("  Instance Group Time(including overhead) : " + strconv.FormatInt(t1-t0, 10) + "ms");
 	    }
         }
 	fmt.Println("---------------------------------------")
-	fmt.Println("Total time : " + strconv.FormatInt(total_time, 10) + "ns");
-	fmt.Println("Avg time : " + strconv.FormatInt(((total_time)/int64(r.cfg.Suite.Iteration)), 10) + "ns")
+	fmt.Println("Total time : " + strconv.FormatInt(total_time, 10) + "ms");
+	fmt.Println("Avg time : " + strconv.FormatInt(((total_time)/int64(r.cfg.Suite.Iteration)), 10) + "ms")
 	fmt.Println("---------------------------------------")
 	return nil
 }
