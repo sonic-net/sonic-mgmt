@@ -28,7 +28,7 @@ class ArpTest(BaseTest):
     def __init__(self):
         BaseTest.__init__(self)
 
-        log_file_name = '/root/wr_arp_test.log'
+        log_file_name = '/tmp/wr_arp_test.log'
         self.log_fp = open(log_file_name, 'a')
         self.log_fp.write("\nNew test:\n")
 
@@ -46,6 +46,7 @@ class ArpTest(BaseTest):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print "%s : %s" % (current_time, message)
         self.log_fp.write("%s : %s\n" % (current_time, message))
+        self.log_fp.flush()
 
         return
 
@@ -100,6 +101,16 @@ class ArpTest(BaseTest):
                 self.log('Unsupported cmd: %s' % cmd)
                 q_to.put("error: unsupported cmd: %s" % cmd)
         self.log("Quiting from dut_thr")
+        return
+
+    def test_port_thr(self):
+        self.log("test_port_thr started")
+        while time.time() < self.stop_at:
+            for test in self.tests:
+                for port in test['acc_ports']:
+                    nr_rcvd = self.testPort(port)
+                    self.records[port][time.time()] = nr_rcvd
+        self.log("Quiting from test_port_thr")
         return
 
     def readMacs(self):
@@ -241,22 +252,25 @@ class ArpTest(BaseTest):
             self.req_dut('quit')
             self.assertTrue(False, "DUT returned error for first uptime request")
 
-        records = defaultdict(dict)
-        stop_at = time.time() + self.how_long
-        rebooted = False
-        while time.time() < stop_at:
-            for test in self.tests:
-                for port in test['acc_ports']:
-                    nr_rcvd = self.testPort(port)
-                    records[port][time.time()] = nr_rcvd
-            if not rebooted:
-                result = self.req_dut('WR')
-                if result.startswith('ok'):
-                    rebooted = True
-                else:
-                    self.log("Error in WR")
-                    self.req_dut('quit')
-                    self.assertTrue(False, "Error in WR")
+        self.records = defaultdict(dict)
+        self.stop_at = time.time() + self.how_long
+
+        test_port_thr = threading.Thread(target=self.test_port_thr)
+        test_port_thr.setDaemon(True)
+        test_port_thr.start()
+
+        self.log("Issuing WR command")
+        result = self.req_dut('WR')
+        if result.startswith('ok'):
+            self.log("WR OK!")
+        else:
+            self.log("Error in WR")
+            self.req_dut('quit')
+            self.assertTrue(False, "Error in WR")
+
+        self.assertTrue(time.time() < self.stop_at, "warm-reboot took to long")
+
+        test_port_thr.join()
 
         uptime_after = self.req_dut('uptime')
         if uptime_after.startswith('error'):
@@ -272,7 +286,7 @@ class ArpTest(BaseTest):
 
         # check that every port didn't have pauses more than 25 seconds
         pauses = defaultdict(list)
-        for port, data in records.items():
+        for port, data in self.records.items():
             was_active = True
             last_inactive = None
             for t in sorted(data.keys()):
