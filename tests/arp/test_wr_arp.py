@@ -78,14 +78,15 @@ class TestWrArp:
             ...
 
             We'll use the first subnet IP taken from zebra protocol as the base for the host IP.
-            As in the new SONiC image the proto will look as '186' instead of 'zebra' (like it looks in 201811)
-            the filtering output command below will pick the first line containing either 'zebra' or '186' 
+            As in the new SONiC image the proto will look as '186'(201911) or bgp (master) 
+            instead of 'zebra' (like it looks in 201811)the filtering output command below will pick 
+            the first line containing either 'proto zebra' (or 'proto 186' or 'proto bgp')
             (except the one for the deafult route) and take host IP from the subnet IP. For the output
             above 192.168.8.0/25 subnet will be taken and host IP given to ferret script will be 192.168.8.1               
         '''
         result = duthost.shell(
             cmd='''ip route show type unicast |
-            sed -e '/proto 186\|proto zebra/!d' -e '/default/d' -ne '/0\//p' |
+            sed -e '/proto 186\|proto zebra\|proto bgp/!d' -e '/default/d' -ne '/0\//p' |
             head -n 1 |
             sed -ne 's/0\/.*$/1/p'
             '''
