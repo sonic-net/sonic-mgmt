@@ -109,7 +109,7 @@ class ArpTest(BaseTest):
             for test in self.tests:
                 for port in test['acc_ports']:
                     nr_rcvd = self.testPort(port)
-                    records[port][time.time()] = nr_rcvd
+                    self.records[port][time.time()] = nr_rcvd
         self.log("Quiting from test_port_thr")
         return
 
@@ -252,7 +252,7 @@ class ArpTest(BaseTest):
             self.req_dut('quit')
             self.assertTrue(False, "DUT returned error for first uptime request")
 
-        records = defaultdict(dict)
+        self.records = defaultdict(dict)
         self.stop_at = time.time() + self.how_long
 
         test_port_thr = threading.Thread(target=self.test_port_thr)
@@ -286,7 +286,7 @@ class ArpTest(BaseTest):
 
         # check that every port didn't have pauses more than 25 seconds
         pauses = defaultdict(list)
-        for port, data in records.items():
+        for port, data in self.records.items():
             was_active = True
             last_inactive = None
             for t in sorted(data.keys()):
