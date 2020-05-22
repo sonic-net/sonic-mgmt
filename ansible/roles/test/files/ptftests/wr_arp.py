@@ -268,6 +268,8 @@ class ArpTest(BaseTest):
             self.req_dut('quit')
             self.assertTrue(False, "Error in WR")
 
+        self.assertTrue(time.time() < self.stop_at, "warm-reboot took to long")
+
         test_port_thr.join()
 
         uptime_after = self.req_dut('uptime')
