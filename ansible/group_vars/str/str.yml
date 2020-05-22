@@ -55,13 +55,15 @@ rw_netgroups: [
         "NWK-FABRIC-FTE-ALLDVC-PERSISTENTRW",          # FTEs with full time RW for FABRIC devices; they do not use JIT for access
         "NWK-FABRIC-FTE-ALLDVC-TEMPRW",                # FTEs allowed to use JIT to request elevation of access to FABRIC devices
         "NWK-FABRIC-VENDOR-ALLDVC-TEMPRW",             # Vendors allowed to use JIT to request elevation of access to FABRIC devices
-        "NWK-AZURE-FABRICATOR-TORTEST-CUSTOM",         # starlab test users 
+        "NWK-AZURE-FABRICATOR-TORTEST-CUSTOM",         # starlab test users
 ]
 
 ro_netgroups: [
         "NWK-ALLDVC-PERSISTENTRO",                     # users with full time RO access to all network devices
 ]
 
+# bgp slb passive range
+bgp_slb_passive_range: 10.255.0.0/25
 
 #TBD for ACS-MSN2700 xon_1, xon_2:
 # Once the new fw version with the fix is burned, should change the
