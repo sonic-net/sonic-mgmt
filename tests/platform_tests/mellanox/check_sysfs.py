@@ -19,16 +19,11 @@ def check_sysfs(dut):
 
     logging.info("Check content of some key files")
 
-    assert not wait_until_fan_speed_set_to_default(dut, timeout=120), \
-        "Content of /var/run/hw-management/thermal/pwm1 should be 153"
-
-    file_suspend = dut.command("cat /var/run/hw-management/config/suspend")
-    assert file_suspend["stdout"] == "1", "Content of /var/run/hw-management/config/suspend should be 1"
 
     file_asic = dut.command("cat /var/run/hw-management/thermal/asic")
     try:
         asic_temp = float(file_asic["stdout"]) / 1000
-        assert 0 < asic_temp < 85, "Abnormal ASIC temperature: %s" % file_asic["stdout"]
+        assert 0 < asic_temp < 90, "Abnormal ASIC temperature: %s" % file_asic["stdout"]
     except Exception as e:
         assert False, "Bad content in /var/run/hw-management/thermal/asic: %s" % repr(e)
 
@@ -67,7 +62,6 @@ def check_sysfs(dut):
 
         fan_speed_set = "/var/run/hw-management/thermal/fan{}_speed_set".format(fan_id)
         fan_speed_set_content = dut.command("cat %s" % fan_speed_set)
-        assert fan_speed_set_content["stdout"] == "153", "Fan speed should be set to 60%, 153/255"
         fan_set_speed = int(fan_speed_set_content["stdout"])
 
         fan_speed_get = "/var/run/hw-management/thermal/fan{}_speed_get".format(fan_id)
