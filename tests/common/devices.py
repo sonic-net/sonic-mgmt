@@ -11,7 +11,6 @@ import json
 import logging
 import os
 import re
-import json
 import ipaddress
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
