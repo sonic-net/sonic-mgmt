@@ -616,6 +616,7 @@ class EosHost(AnsibleHostBase):
     def check_bgp_session_state(self, neigh_ips, neigh_desc, state="established"):
         """
         @summary: check if current bgp session equals to the target state
+
         @param neigh_ips: bgp neighbor IPs
         @param neigh_desc: bgp neighbor description
         @param state: target state
@@ -625,6 +626,7 @@ class EosHost(AnsibleHostBase):
         out_v4 = self.host.eos_command(
             commands=['show ip bgp summary | json'])[self.hostname]
         logging.info("ip bgp summary: {}".format(out_v4))
+
         out_v6 = self.host.eos_command(
             commands=['show ipv6 bgp summary | json'])[self.hostname]
         logging.info("ipv6 bgp summary: {}".format(out_v6))
@@ -642,6 +644,7 @@ class EosHost(AnsibleHostBase):
                     neigh_ips_ok.append(neigh_ips)
                 if v['description'] in neigh_desc:
                     neigh_desc_ok.append(v['description'])
+
         if len(neigh_ips) == len(neigh_ips_ok) and len(neigh_desc) == len(neigh_desc_ok):
             return True
 
