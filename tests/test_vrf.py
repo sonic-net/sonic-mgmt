@@ -220,31 +220,31 @@ def check_bgp_facts(duthost, cfg_facts):
 
 # FIXME later may move to "common.reboot"
 #
-# The reason to introduce a new 'reboot' here is due to 
+# The reason to introduce a new 'reboot' here is due to
 # the difference of fixture 'localhost' between the two 'reboot' functions.
-# 
-# 'common.reboot' request *ansible_fixtures.localhost*, 
+#
+# 'common.reboot' request *ansible_fixtures.localhost*,
 # but here it request *common.devices.Localhost*.
 def reboot(duthost, localhost, timeout=120, basic_check=True):
     duthost.shell("nohup reboot &")
 
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).address
-    
+
     logging.info('waiting for dut to go down')
-    res = localhost.wait_for(host=dut_ip, 
-                             port=22, 
-                             state="stopped", 
-                             delay=10, 
+    res = localhost.wait_for(host=dut_ip,
+                             port=22,
+                             state="stopped",
+                             delay=10,
                              timeout=timeout,
                              module_ignore_errors=True)
     if res.is_failed:
         raise Exception('DUT did not shutdown in {}s'.format(timeout))
 
     logging.info('waiting for dut to startup')
-    res = localhost.wait_for(host=dut_ip, 
-                             port=22, 
-                             state="started", 
-                             delay=10, 
+    res = localhost.wait_for(host=dut_ip,
+                             port=22,
+                             state="started",
+                             delay=10,
                              timeout=timeout,
                              module_ignore_errors=True)
     if res.is_failed:
@@ -382,10 +382,6 @@ def gen_vrf_neigh_file(vrf, ptfhost, render_file):
     ptfhost.template(src="vrf/vrf_neigh.j2", dest=render_file)
 
 # fixtures
-@pytest.fixture(scope="module")
-def localhost(testbed_devices):
-    return testbed_devices['localhost']
-
 @pytest.fixture(scope="module")
 def host_facts(duthost):
     return get_host_facts(duthost)
@@ -771,7 +767,7 @@ class TestVrfLoopbackIntf():
             for ip in ips:
                 if ip.version == 4:
                     # FIXME Within a vrf, currently ping(4) does not support using
-                    # an ip of loopback intface as source(it complains 'Cannot assign 
+                    # an ip of loopback intface as source(it complains 'Cannot assign
                     # requested address'). An alternative is ping the loopback address
                     # from ptf
                     ptfhost.shell("ip netns exec {} ping {} -c 3 -f -W2".format(g_vars['vlan_peer_vrf2ns_map']['Vrf1'], ip.ip))
@@ -784,7 +780,7 @@ class TestVrfLoopbackIntf():
             for ip in ips:
                 if ip.version == 4:
                     # FIXME Within a vrf, currently ping(4) does not support using
-                    # an ip of loopback intface as source(it complains 'Cannot assign 
+                    # an ip of loopback intface as source(it complains 'Cannot assign
                     # requested address'). An alternative is ping the loopback address
                     # from ptf
                     ptfhost.shell("ip netns exec {} ping {} -c 3 -f -W2".format(g_vars['vlan_peer_vrf2ns_map']['Vrf2'], ip.ip))
@@ -1391,7 +1387,7 @@ class TestVrfDeletion():
     def setup_vrf_restore(self, duthost, cfg_facts):
         self.restore_vrf(duthost)
         self.c_vars['restore_vrf'] = False  # Mark to skip restore vrf during teardown
-        
+
         # check bgp session state after restore
         assert wait_until(120, 10, check_bgp_facts, duthost, cfg_facts), \
                "Bgp sessions should be re-estabalished after restore Vrf1"

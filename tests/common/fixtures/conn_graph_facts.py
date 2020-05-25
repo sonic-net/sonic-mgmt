@@ -7,6 +7,7 @@ def conn_graph_facts(duthost, localhost):
     conn_graph_facts = get_graph_facts(duthost, localhost, duthost.hostname)
     return conn_graph_facts
 
+  
 @pytest.fixture(scope="module")
 def fanout_graph_facts(localhost, duthost, conn_graph_facts):
     fanout_host = conn_graph_facts["device_conn"]["Ethernet0"]["peerdevice"]

@@ -7,12 +7,28 @@ import logging
 import ipaddr as ipaddress
 logger = logging.getLogger(__name__)
 
-def announce_routes(ptfip, port, family, podset_number, tor_number, tor_subnet_number,
+
+def announce_routes(ptfip, port, routes):
+    messages = []
+    for prefix, nexthop, aspath in routes:
+        if aspath:
+            messages.append("announce route {} next-hop {} as-path [ {} ]".format(prefix, nexthop, aspath))
+        else:
+            messages.append("announce route {} next-hop {}".format(prefix, nexthop))
+
+    url = "http://%s:%d" % (ptfip, port)
+    data = { "commands": ";".join(messages) }
+    r = requests.post(url, data=data)
+    print r
+    assert r.status_code == 200
+
+
+def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                     spine_asn, leaf_asn_start, tor_asn_start,
                     nexthop, nexthop_v6,
                     tor_subnet_size = 128, max_tor_subnet_number = 16,
                     router_type = "leaf"):
-    messages = []
+    routes = []
 
     default_route_as_path = "6666 6667"
 
@@ -21,9 +37,9 @@ def announce_routes(ptfip, port, family, podset_number, tor_number, tor_subnet_n
 
     if router_type != 'tor':
         if family in ["v4", "both"]:
-            messages.append("announce route 0.0.0.0/0 next-hop {} as-path [ {} ]".format(nexthop, default_route_as_path))
+            routes.append(("0.0.0.0/0", nexthop, default_route_as_path))
         if family in ["v6", "both"]:
-            messages.append("announce route ::/0 next-hop {} as-path [ {} ]".format(nexthop_v6, default_route_as_path))
+            routes.append(("::/0", nexthop_v6, default_route_as_path))
 
     # NOTE: Using large enough values (e.g., podset_number = 200,
     # us to overflow the 192.168.0.0/16 private address space here.
@@ -69,23 +85,13 @@ def announce_routes(ptfip, port, family, podset_number, tor_number, tor_subnet_n
                     else:
                         aspath = "{} {} {}".format(spine_asn, leaf_asn, tor_asn)
 
-                if aspath:
-                    if family in ["v4", "both"]:
-                        messages.append("announce route {} next-hop {} as-path [ {} ]".format(prefix, nexthop, aspath))
-                    if family in ["v6", "both"]:
-                        messages.append("announce route {} next-hop {} as-path [ {} ]".format(prefix_v6, nexthop_v6, aspath))
-                else:
-                    if family in ["v4", "both"]:
-                        messages.append("announce route {} next-hop {}".format(prefix, nexthop))
-                    if family in ["v6", "both"]:
-                        messages.append("announce route {} next-hop {}".format(prefix_v6, nexthop_v6))
+                if family in ["v4", "both"]:
+                    routes.append((prefix, nexthop, aspath))
+                if family in ["v6", "both"]:
+                    routes.append((prefix_v6, nexthop_v6, aspath))
 
+    return routes
 
-    url = "http://%s:%d" % (ptfip, port)
-    data = { "commands": ";".join(messages) }
-    r = requests.post(url, data=data)
-    print r
-    assert r.status_code == 200
 
 def fib_t0(ptfhost, testbed):
     logger.info("use fib_t0 to setup routes for topo {}".format(testbed['topo']['name']))
@@ -137,13 +143,16 @@ def fib_t0(ptfhost, testbed):
         port = 5000 + vm_offset
         port6 = 6000 + vm_offset
 
-        announce_routes(ptfip, port, "v4", podset_number, tor_number, tor_subnet_number,
-                        spine_asn, leaf_asn_start, tor_asn_start,
-                        local_ip, local_ipv6)
+        routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
+                                    spine_asn, leaf_asn_start, tor_asn_start,
+                                    local_ip, local_ipv6)
+        routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
+                                    spine_asn, leaf_asn_start, tor_asn_start,
+                                    local_ip, local_ipv6)
 
-        announce_routes(ptfip, port6, "v6", podset_number, tor_number, tor_subnet_number,
-                        spine_asn, leaf_asn_start, tor_asn_start,
-                        local_ip, local_ipv6)
+        announce_routes(ptfip, port, routes_v4)
+        announce_routes(ptfip, port6, routes_v6)
+
 
 def fib_t1_lag(ptfhost, testbed):
     logger.info("use fib_t1_lag to setup routes for topo {}".format(testbed['topo']['name']))
@@ -197,18 +206,27 @@ def fib_t1_lag(ptfhost, testbed):
         port6 = 6000 + vm_offset
 
         if 'spine' in v['properties']:
-            announce_routes(ptfip, port, "v4", podset_number, tor_number, tor_subnet_number,
-                            None, leaf_asn_start, tor_asn_start,
-                            local_ip, local_ipv6, router_type="spine")
-
-            announce_routes(ptfip, port6, "v6", podset_number, tor_number, tor_subnet_number,
-                            None, leaf_asn_start, tor_asn_start,
-                            local_ip, local_ipv6, router_type="spine")
+            routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
+                                        None, leaf_asn_start, tor_asn_start,
+                                        local_ip, local_ipv6, router_type="spine")
+            routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
+                                        None, leaf_asn_start, tor_asn_start,
+                                        local_ip, local_ipv6, router_type="spine")
+            announce_routes(ptfip, port, routes_v4)
+            announce_routes(ptfip, port6, routes_v6)
 
         elif 'tor' in v['properties']:
-            announce_routes(ptfip, port, "v4", podset_number, tor_number, tor_subnet_number,
-                            None, leaf_asn_start, tor_asn_start,
-                            local_ip, local_ipv6, router_type="tor")
+            routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
+                                        None, leaf_asn_start, tor_asn_start,
+                                        local_ip, local_ipv6, router_type="tor")
+            announce_routes(ptfip, port, routes_v4)
+
+        if 'vips' in v:
+            routes_vips = []
+            for prefix in v["vips"]["ipv4"]["prefixes"]:
+                routes_vips.append((prefix, local_ip, v["vips"]["ipv4"]["asn"]))
+            announce_routes(ptfip, port, routes_vips)
+
 
 @pytest.fixture(scope='module')
 def fib(ptfhost, testbed):

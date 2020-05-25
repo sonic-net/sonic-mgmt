@@ -25,6 +25,7 @@ def copy_acstests_directory(ptfhost):
         there is no return value, there is no point in passing it into the functions.
     """
     ptfhost.copy(src="acstests", dest="/root")
+    ptfhost.copy(src="ptftests", dest="/root")
 
 @pytest.fixture(scope='module')
 def setup_info(duthost, testbed):
@@ -214,6 +215,7 @@ class BaseEverflowTest(object):
         session_dst_ip = "2.2.2.2"
         session_ttl = "1"
         session_dscp = "8"
+        session_gre = 0x6558
 
         session_prefixlens = ["24", "32"]
         session_prefixes = []
@@ -221,15 +223,18 @@ class BaseEverflowTest(object):
             session_prefixes.append(str(ipaddress.IPNetwork(session_dst_ip + "/" + prefixlen).network) + "/" + prefixlen)
 
         if "mellanox" == duthost.facts["asic_type"]:
-            duthost.command('config mirror_session add {} {} {} {} {} 0x8949'.format(session_name, session_src_ip, session_dst_ip, session_dscp, session_ttl))
-        else:
-            duthost.command('config mirror_session add {} {} {} {} {}'.format(session_name, session_src_ip, session_dst_ip, session_dscp, session_ttl))
+            session_gre = 0x8949
+        elif "barefoot" == duthost.facts["asic_type"]:
+            session_gre = 0x22EB
+
+        duthost.command('config mirror_session add {} {} {} {} {} {}'.format(session_name, session_src_ip, session_dst_ip, session_dscp, session_ttl, session_gre))
 
         yield {'session_name' : session_name,
                'session_src_ip' : session_src_ip,
                'session_dst_ip' : session_dst_ip,
                'session_ttl' : session_ttl,
                'session_dscp' : session_dscp,
+               'session_gre' : session_gre,
                'session_prefixes': session_prefixes
                }
 
@@ -477,14 +482,10 @@ class BaseEverflowTest(object):
                         cir 100 cbs 100 red_packet_action drop")
 
         # Add Mirror Session with Policer aqttached to it.
-        if "mellanox" == duthost.facts["asic_type"]:
-            duthost.command('config mirror_session add TEST_POLICER_SESSION {} {} {} {} 0x8949 --policer TEST_POLICER'.format(
-                            setup_mirror_session['session_src_ip'], setup_mirror_session['session_dst_ip'],
-                            setup_mirror_session['session_dscp'], setup_mirror_session['session_ttl']))
-        else:
-            duthost.command('config mirror_session add TEST_POLICER_SESSION {} {} {} {} --policer TEST_POLICER'.format(
-                            setup_mirror_session['session_src_ip'], setup_mirror_session['session_dst_ip'],
-                            setup_mirror_session['session_dscp'], setup_mirror_session['session_ttl']))
+        duthost.command('config mirror_session add TEST_POLICER_SESSION {} {} {} {} {} --policer TEST_POLICER'.format(
+                        setup_mirror_session['session_src_ip'], setup_mirror_session['session_dst_ip'],
+                        setup_mirror_session['session_dscp'], setup_mirror_session['session_ttl'],
+                        setup_mirror_session['session_gre']))
 
        # Add ACL rule to match on DSCP and action as mirror
         mirror_action = "MIRROR_INGRESS_ACTION" if self.mirror_type() == 'ingress' else "MIRROR_EGRESS_ACTION" 
@@ -503,36 +504,6 @@ class BaseEverflowTest(object):
         duthost.command('config mirror_session remove TEST_POLICER_SESSION')
         duthost.shell("redis-cli -n 4 del 'POLICER|TEST_POLICER_SESSION'")
         duthost.shell("redis-cli -n 4 del 'ACL_RULE|EVERFLOW_DSCP|RULE_1'")
-        remove_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
-
-    def test_everflow_case6(self, duthost, setup_info, setup_mirror_session, dest_port_type, partial_ptf_runner):
-
-        """ Test Case 6 - ARP/ND packet mirroring"""
-
-        rx_port_ptf_id =  setup_info[dest_port_type] ['src_port_ptf_id']
-        tx_port = setup_info[dest_port_type]['dest_port'][0]
-        tx_port_ptf_id = setup_info[dest_port_type]['dest_port_ptf_id'][0]
-        
-
-        mirror_action = "MIRROR_INGRESS_ACTION" if self.mirror_type() == 'ingress' else "MIRROR_EGRESS_ACTION"
-
-        # Add ACL Rule to match on ARP and DSCP packets.
-        duthost.shell("redis-cli -n 4 hmset 'ACL_RULE|EVERFLOW|RULE_ARP' PRIORITY 8888 {} {} ETHER_TYPE 2054".format(mirror_action, setup_mirror_session['session_name']))
-        duthost.shell("redis-cli -n 4 hmset 'ACL_RULE|EVERFLOWV6|RULE_ND' PRIORITY 8888 {} {} ICMPV6_TYPE 135".format(mirror_action,setup_mirror_session['session_name']))
-
-        peer_ip, peer_mac = get_neighbor_info(duthost, tx_port)
-        add_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
-
-        time.sleep(3)
-
-        partial_ptf_runner(setup_info, setup_mirror_session,self.acl_stage(), self.mirror_type(),
-                           expect_receive = True, test_name = 'everflow_neighbor_test.EverflowNeighborTest',
-                           src_port = rx_port_ptf_id, dst_mirror_ports = tx_port_ptf_id,
-                           dst_ports = tx_port_ptf_id)
-
-        #Remove ACL rule for Everflow and ARP Packets.
-        duthost.shell("redis-cli -n 4 del 'ACL_RULE|EVERFLOW|RULE_ARP'")
-        duthost.shell("redis-cli -n 4 del 'ACL_RULE|EVERFLOWV6|RULE_ND'")
         remove_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
 
 class TestEverflowIngressAclIngressMirror(BaseEverflowTest):
@@ -559,7 +530,7 @@ class TestEverflowIngressAclIngressMirror(BaseEverflowTest):
     def acl_stage(self):
         return 'ingress'
 
-    def  mirror_type(self):
+    def mirror_type(self):
         return 'ingress'
 
 class TestEverflowIngressAclEgressMirror(BaseEverflowTest):
@@ -586,7 +557,7 @@ class TestEverflowIngressAclEgressMirror(BaseEverflowTest):
     def acl_stage(self):
         return 'ingress'
 
-    def  mirror_type(self):
+    def mirror_type(self):
         return 'egress'
 
 class TestEverflowEgressAclIngressMirror(BaseEverflowTest):
@@ -601,8 +572,10 @@ class TestEverflowEgressAclIngressMirror(BaseEverflowTest):
         duthost.host.options['variable_manager'].extra_vars.update({'acl_table_name' : "EVERFLOW_EGRESS"}) 
 
         duthost.template(src=os.path.join(TEMPLATE_DIR, EVERFLOW_TABLE_RULE_CREATE_TEMPLATE), dest=os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_CREATE_FILE))
-        
-        
+
+        # Remove default SONiC Everflow table (since SONiC allows only one mirror table)
+        duthost.command("config acl remove table EVERFLOW")
+
         duthost.command("config acl add table EVERFLOW_EGRESS MIRROR --description EVERFLOW_EGRESS --stage=egress")
         duthost.command("config acl add table EVERFLOW_DSCP MIRROR_DSCP --description EVERFLOW_EGRESS_TEST --stage=egress")
         duthost.command('acl-loader update full {} --session_name={} --mirror_stage=egress'.format((os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_CREATE_FILE)),setup_mirror_session['session_name']))
@@ -615,10 +588,13 @@ class TestEverflowEgressAclIngressMirror(BaseEverflowTest):
         duthost.command("config acl remove table EVERFLOW_DSCP")
         duthost.shell("rm -rf {}".format(DUT_RUN_DIR))
 
+        # Add default SONiC Everflow table back
+        duthost.command("config acl add table EVERFLOW MIRROR --description EVERFLOW --stage=ingress")
+
     def acl_stage(self):
         return 'egress'
 
-    def  mirror_type(self):
+    def mirror_type(self):
         return 'ingress'
 
 class TestEverflowEgressAclEgressMirror(BaseEverflowTest):
@@ -633,8 +609,10 @@ class TestEverflowEgressAclEgressMirror(BaseEverflowTest):
 
 
         duthost.template(src=os.path.join(TEMPLATE_DIR, EVERFLOW_TABLE_RULE_CREATE_TEMPLATE), dest=os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_CREATE_FILE))
-        
-        
+
+        # Remove default SONiC Everflow table (since SONiC allows only one mirror table)
+        duthost.command("config acl remove table EVERFLOW")
+
         duthost.command("config acl add table EVERFLOW_EGRESS MIRROR --description EVERFLOW_EGRESS --stage=egress")
         duthost.command("config acl add table EVERFLOW_DSCP MIRROR_DSCP --description EVERFLOW_EGRESS_TEST --stage=egress")
         duthost.command('acl-loader update full {} --session_name={} --mirror_stage=egress'.format((os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_CREATE_FILE)),setup_mirror_session['session_name']))
@@ -646,6 +624,9 @@ class TestEverflowEgressAclEgressMirror(BaseEverflowTest):
         duthost.command("config acl remove table EVERFLOW_EGRESS")
         duthost.command("config acl remove table EVERFLOW_DSCP")
         duthost.shell("rm -rf {}".format(DUT_RUN_DIR))
+
+        # Add default SONiC Everflow table back
+        duthost.command("config acl add table EVERFLOW MIRROR --description EVERFLOW --stage=ingress")
 
     def acl_stage(self):
         return 'egress'

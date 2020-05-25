@@ -104,29 +104,24 @@ def check_interfaces_and_services(dut, interfaces, reboot_type = None):
         check_sysfs(dut)
 
 
-def test_cold_reboot(duthost, testbed_devices, conn_graph_facts):
+def test_cold_reboot(duthost, localhost, conn_graph_facts):
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
-    localhost = testbed_devices["localhost"]
-
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_COLD)
 
 
-def test_fast_reboot(duthost, testbed_devices, conn_graph_facts):
+def test_fast_reboot(duthost, localhost, conn_graph_facts):
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
-    localhost = testbed_devices["localhost"]
-
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_FAST)
 
 
-def test_warm_reboot(duthost, testbed_devices, conn_graph_facts):
+def test_warm_reboot(duthost, localhost, conn_graph_facts):
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
-    localhost = testbed_devices["localhost"]
     asic_type = duthost.facts["asic_type"]
 
     if asic_type in ["mellanox"]:
@@ -167,17 +162,15 @@ def _power_off_reboot_helper(kwargs):
         psu_ctrl.turn_on_psu(psu["psu_id"])
 
 
-def test_power_off_reboot(duthost, testbed_devices, conn_graph_facts, psu_controller, power_off_delay):
+def test_power_off_reboot(duthost, localhost, conn_graph_facts, psu_controller, power_off_delay):
     """
     @summary: This test case is to perform reboot via powercycle and check platform status
-    @param testbed_devices: Fixture initialize devices in testbed
     @param duthost: Fixture for DUT AnsibleHost object
+    @param localhost: Fixture for interacting with localhost through ansible
     @param conn_graph_facts: Fixture parse and return lab connection graph
     @param psu_controller: The python object of psu controller
     @param power_off_delay: Pytest fixture. The delay between turning off and on the PSU
     """
-    localhost = testbed_devices["localhost"]
-
     psu_ctrl = psu_controller
     if psu_ctrl is None:
         pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
@@ -207,12 +200,10 @@ def test_power_off_reboot(duthost, testbed_devices, conn_graph_facts, psu_contro
                          _power_off_reboot_helper, poweroff_reboot_kwargs)
 
 
-def test_watchdog_reboot(duthost, testbed_devices, conn_graph_facts):
+def test_watchdog_reboot(duthost, localhost, conn_graph_facts):
     """
     @summary: This test case is to perform reboot via watchdog and check platform status
     """
-    localhost = testbed_devices["localhost"]
-
     test_watchdog_supported = "python -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog(); exit()\""
 
     watchdog_supported = duthost.command(test_watchdog_supported,module_ignore_errors=True)["stderr"]
@@ -222,11 +213,9 @@ def test_watchdog_reboot(duthost, testbed_devices, conn_graph_facts):
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], REBOOT_TYPE_WATCHDOG)
 
 
-def test_continuous_reboot(duthost, testbed_devices, conn_graph_facts):
+def test_continuous_reboot(duthost, localhost, conn_graph_facts):
     """
     @summary: This test case is to perform 3 cold reboot in a row
     """
-    localhost = testbed_devices["localhost"]
-
     for i in range(3):
         reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_COLD)
