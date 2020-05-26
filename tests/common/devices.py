@@ -29,7 +29,7 @@ class AnsibleHostBase(object):
 
     def __init__(self, ansible_adhoc, hostname, connection=None):
         if hostname == 'localhost':
-            self.host = ansible_adhoc(inventory='localhost', connection='local', host_pattern=hostname)[hostname]
+            self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
         else:
             if connection is None:
                 self.host = ansible_adhoc(become=True)[hostname]
