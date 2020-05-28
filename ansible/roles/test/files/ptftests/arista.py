@@ -127,12 +127,10 @@ class Arista(object):
             bgp_neig_output = self.do_cmd('show ip bgp neighbors')
             info['bgp_neig'] = self.parse_bgp_neighbor(bgp_neig_output)
 
-            bgp_route_v4_output = self.do_cmd('show ip route bgp | json')
-            v4_routing_ok = self.parse_bgp_route(bgp_route_v4_output, self.v4_routes)
+            v4_routing_ok, bgp_route_v4_output = self.check_bgp_route(self.v4_routes)
             info['bgp_route_v4'] = v4_routing_ok
 
-            bgp_route_v6_output = self.do_cmd("show ipv6 route bgp | json")
-            v6_routing_ok = self.parse_bgp_route(bgp_route_v6_output, self.v6_routes)
+            v6_routing_ok, bgp_route_v6_output = self.check_bgp_route(self.v6_routes, ipv6=True)
             info["bgp_route_v6"] = v6_routing_ok
 
             portchannel_output = self.do_cmd("show interfaces po1 | json")
@@ -352,6 +350,18 @@ class Arista(object):
                 prefixes.add(prefix)
 
         return set(expects) == prefixes
+
+    def check_bgp_route(self, expects, ipv6=False):
+        cmd = 'show ip route {} | json'
+        if ipv6:
+            cmd = 'show ipv6 route {} | json'
+
+        ok = True
+        for prefix in set(expects):
+            output = self.do_cmd(cmd.format(prefix))
+            ok &= self.parse_bgp_route(output, [prefix])
+
+        return ok, output
 
     def get_bgp_info(self):
         # Retreive BGP info (peer addr, AS) for the dut and neighbor
