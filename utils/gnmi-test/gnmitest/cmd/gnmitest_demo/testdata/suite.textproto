@@ -1,0 +1,95 @@
+name: "hello suite"
+# suite level parameters are used by individual tests.
+timeout: 120
+schema: "openconfig"
+
+instance_group_list {
+  description: "instancegroup1"
+  instance {
+    description: "instance1"
+    test {
+      connection {
+        target: "targetA"
+        address: "host:port(overridden in test)"
+        timeout: 30
+      }
+      description: "test1"
+      subscribe {
+        request {
+          subscribe {
+            prefix {
+              target: "targetA"
+              origin: "openconfig"
+              elem {
+                name: "interfaces"
+              }
+              elem {
+                name: "interface"
+              }
+            }
+            subscription {
+              path {
+                elem {
+                  name: "int0"
+                }
+              }
+            }
+            # Subscribe for ONCE mode.
+            mode: 1
+          }
+        }
+        path_validation {}
+      }
+    }
+  }
+}
+
+instance_group_list {
+  description: "instancegroup2"
+  instance {
+    description: "instance1"
+    test {
+      connection {
+        target: "targetB"
+        address: "host:port(overridden in test)"
+        timeout: 30
+      }
+      description: "test1"
+      subscribe {
+        request {
+          subscribe {
+            prefix {
+              target: "targetB"
+              origin: "openconfig"
+            }
+            subscription {
+              path {
+                elem {
+                  name: "int0"
+                }
+              }
+            }
+            # Subscribe for STREAM mode.
+            mode: 0
+          }
+        }
+        has_keys {
+          path {
+            elem {
+              name: "components"
+            }
+            elem {
+              name: "component"
+            }
+          }
+          item {
+            key {
+              key: "name"
+              value: "arbitrary_key"
+            }
+          }
+        }
+      }
+    }
+  }
+}

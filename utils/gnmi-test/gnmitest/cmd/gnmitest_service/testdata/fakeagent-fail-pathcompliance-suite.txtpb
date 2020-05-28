@@ -1,0 +1,62 @@
+name: "Arista Telemetry Tests"
+timeout: 20
+schema: "openconfig"
+connection: {
+  address: "%%ADDRESS%%"
+  timeout: 20
+}
+
+instance_group_list {
+  description: "Subscription tests"
+  instance {
+    description: "Interfaces tests"
+    test {
+      description: "Path validation"
+      subscribe {
+        request {
+          subscribe {
+            prefix {
+              target: "DUT"
+              origin: "openconfig"
+            }
+            subscription {
+              path {
+                elem {
+                  name: "interfaces"
+                }
+              }
+            }
+            mode: ONCE
+          }
+        }
+        path_validation {}
+      }
+    }
+  }
+  instance {
+    description: "Interfaces tests"
+    test {
+      description: "Path validation with logged responses"
+      subscribe {
+        request {
+          subscribe {
+            prefix {
+              target: "DUT"
+              origin: "openconfig"
+            }
+            subscription {
+              path {
+                elem {
+                  name: "interfaces"
+                }
+              }
+            }
+            mode: ONCE
+          }
+        }
+        log_responses: true
+        path_validation {}
+      }
+    }
+  }
+}

@@ -1,0 +1,231 @@
+name: "Arista Telemetry Tests"
+timeout: 20
+schema: "openconfig"
+connection: {
+  address: "%%HOST%%:%%PORT%%"
+  timeout: 10
+  credentials {
+    username: "robjs"
+    password: "robjs"
+  }
+}
+
+instance_group_list {
+  description: "Base Telemetry Tests"
+  instance {
+    description: "Interfaces tests"
+    test {
+      description: "Path validation"
+      subscribe {
+        request {
+          subscribe {
+            prefix {
+              target: "DUT"
+              origin: "openconfig"
+            }
+            subscription {
+              path {
+                elem {
+                  name: "interfaces"
+                }
+              }
+            }
+            mode: ONCE
+          }
+        }
+        path_validation {}
+      }
+    }
+  }
+  instance {
+    description: "Interfaces tests"
+    test {
+      description: "Value validation"
+      subscribe {
+        request {
+          subscribe {
+            prefix {
+              target: "DUT"
+              origin: "openconfig"
+            }
+            subscription {
+              path {
+                elem {
+                  name: "interfaces"
+                }
+              }
+            }
+            mode: ONCE
+          }
+        }
+        value_validation {}
+      }
+    }
+  }
+  instance {
+    description: "Interfaces tests"
+    test {
+      description: "gNMI Path 0.4.0 Compliance"
+      subscribe {
+        request {
+          subscribe {
+            prefix {
+              target: "DUT"
+              origin: "openconfig"
+            }
+            subscription {
+              path {
+                elem {
+                  name: "interfaces"
+                }
+              }
+            }
+            mode: ONCE
+          }
+        }
+        gnmipath_compliance {}
+      }
+    }
+  }
+  instance {
+    test {
+      description: "Schema path complete"
+      subscribe {
+        request {
+          subscribe {
+            prefix {
+              target: "DUT"
+              origin: "openconfig"
+            }
+            subscription {
+              path {
+                elem {
+                  name: "interfaces"
+                }
+              }
+            }
+            mode: ONCE
+          }
+        }
+        schemapath_complete {
+          prefix {
+            elem {
+              name: "interfaces"
+            }
+            elem {
+              name: "interface"
+            }
+            elem {
+              name: "state"
+            }
+          }
+          path {
+            elem {
+              name: "oper-status"
+            }
+          }
+        }
+      }
+    }
+  }
+  instance {
+    test {
+      description: "Has keys"
+      subscribe {
+        request {
+          subscribe {
+            prefix {
+              target: "DUT"
+              origin: "openconfig"
+            }
+            subscription {
+              path {
+                elem {
+                  name: "interfaces"
+                }
+              }
+            }
+            mode: ONCE
+          }
+        }
+        has_keys {
+          path {
+            elem {
+              name: "interfaces"
+            }
+            elem {
+              name: "interface"
+            }
+          }
+          item {
+            key {
+              key: "name"
+              value: "eth0"
+            }
+            key {
+              key: "name"
+              value: "eth1"
+            }
+          }
+        }
+      }
+    }
+  }
+  instance {
+    test {
+      description: "data tree paths"
+      subscribe {
+        request {
+          subscribe {
+            prefix {
+              target: "DUT"
+              origin: "openconfig"
+            }
+            subscription {
+              path {
+                elem {
+                  name: "interfaces"
+                }
+              }
+            }
+            mode: ONCE
+          }
+        }
+        data_tree_paths {
+          test_oper {
+            steps {
+              name: "interfaces"
+            }
+            steps {
+              name: "interface"
+            }
+            get_list_keys {
+              var_name: "%%interface%%"
+              next_query {
+                steps {
+                  name: "interfaces"
+                }
+                steps {
+                  name: "interface"
+                  key_name: "%%interface%%"
+                }
+                required_paths {
+                  prefix {
+                    elem {
+                      name: "state"
+                    }
+                  }
+                  paths {
+                    elem {
+                      name: "oper-status"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
