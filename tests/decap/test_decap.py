@@ -4,7 +4,7 @@ from datetime import datetime
 
 import pytest
 from jinja2 import Template
-from netaddr import IPNetwork, IPAddress
+from netaddr import IPNetwork
 from ansible.plugins.filter.core import to_bool
 
 from ptf_runner import ptf_runner
@@ -62,8 +62,6 @@ def gen_fib_info(ptfhost, testbed, cfg_facts):
     podset_number = 5  # Limit the number of podsets to limit test execution time
     tor_number = 16
     tor_subnet_number = 2
-    max_tor_subnet_number = 16
-    tor_subnet_size = 128
 
     # routes to uplink
     routes_uplink_v4 = []

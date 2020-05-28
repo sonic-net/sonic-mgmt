@@ -45,14 +45,13 @@ import logging
 import socket
 import os
 import unittest
-import pprint
 
 import ipaddress
 import ptf
 import ptf.packet as scapy
-import ptf.dataplane as dataplane
 import ptf.testutils as testutils
-from ptf.testutils import *
+from ptf.testutils import simple_ip_only_packet, simple_tcpv6_packet, simple_ipv4ip_packet, simple_ipv6ip_packet
+from ptf.testutils import send_packet, verify_packet_any_port
 from ptf.mask import Mask
 from ptf.base_tests import BaseTest
 from ptf import config
