@@ -15,7 +15,7 @@ def conn_graph_facts(duthost, localhost):
         inv_opt = duthost.host.options['inventory']
         inv_files = []
         if isinstance(inv_opt, str):
-            inv_files = (duthost.host.options['inventory'])  # Make it iterable for later use
+            inv_files = [duthost.host.options['inventory']]  # Make it iterable for later use
         elif isinstance(inv_opt, list) or isinstance(inv_opt, tuple):
             inv_files = duthost.host.options['inventory']
 
