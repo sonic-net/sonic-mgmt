@@ -27,7 +27,6 @@ def get_graph_facts(duthost, localhost, host_name):
     if os.path.exists(inv_mapping_file):
         with open(inv_mapping_file) as fd:
             inv_map = yaml.load(fd, Loader=yaml.FullLoader)
-        import pdb; pdb.set_trace()
         inv_opt = duthost.host.options['inventory']
         inv_files = []
         if isinstance(inv_opt, str):

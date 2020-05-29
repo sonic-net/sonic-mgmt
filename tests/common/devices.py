@@ -649,10 +649,10 @@ class EosHost(AnsibleHostBase):
 
         return False
 
-    def exec_template(self, ansible_root, ansible_playbook, **kwargs):
-        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i lab -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
-        cli_cmd = playbook_template.format(ansible_path=ansible_root, playbook=ansible_playbook, fanout_host=self.hostname,
-                                            extra_vars=json.dumps(kwargs))
+    def exec_template(self, ansible_root, ansible_playbook, inventory, **kwargs):
+        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i {inventory} -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
+        cli_cmd = playbook_template.format(ansible_path=ansible_root, playbook=ansible_playbook, inventory=inventory,
+            fanout_host=self.hostname, extra_vars=json.dumps(kwargs))
         res = self.localhost.shell(cli_cmd)
 
         if res["localhost"]["rc"] != 0:
@@ -710,13 +710,13 @@ class OnyxHost(AnsibleHostBase):
         logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
         return out
 
-    def exec_template(self, ansible_root, ansible_playbook, **kwargs):
+    def exec_template(self, ansible_root, ansible_playbook, inventory, **kwargs):
         """
         Execute ansible playbook with specified parameters
         """
-        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i lab -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
-        cli_cmd = playbook_template.format(ansible_path=ansible_root, playbook=ansible_playbook, fanout_host=self.hostname,
-                                            extra_vars=json.dumps(kwargs))
+        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i {inventory} -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
+        cli_cmd = playbook_template.format(ansible_path=ansible_root, playbook=ansible_playbook, inventory=inventory,
+            fanout_host=self.hostname, extra_vars=json.dumps(kwargs))
         res = self.localhost.shell(cli_cmd)
 
         if res["localhost"]["rc"] != 0:
@@ -778,5 +778,5 @@ class FanoutHost():
         self.host_to_fanout_port_map[host_port]   = fanout_port
         self.fanout_to_host_port_map[fanout_port] = host_port
 
-    def exec_template(self, ansible_root, ansible_playbook, **kwargs):
-        return self.host.exec_template(ansible_root, ansible_playbook, **kwargs)
+    def exec_template(self, ansible_root, ansible_playbook, inventory, **kwargs):
+        return self.host.exec_template(ansible_root, ansible_playbook, inventory, **kwargs)
