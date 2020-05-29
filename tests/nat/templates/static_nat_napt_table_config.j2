@@ -1,0 +1,15 @@
+{
+    "{{ table_name }}": {
+{% if table_name == "STATIC_NAT" %}
+    "{{ global_ip }}":{
+{% else %}
+    "{{ global_ip }}|{{ protocol }}|{{global_port}}":{
+{% endif %}
+          "local_ip": "{{ nat_local_ip }}",
+{% if table_name == "STATIC_NAPT" %}
+          "local_port": "{{ napt_local_port }}",
+{% endif %}
+          "nat_type": "{{ static_nat_type }}"
+          }
+    }
+}

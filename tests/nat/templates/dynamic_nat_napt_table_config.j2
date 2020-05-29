@@ -1,0 +1,35 @@
+{
+    "NAT_POOL": {
+        "{{ pool_name }}": {
+            "nat_ip": "{{ global_ip }}",
+            "nat_port": "{{ port_range }}"
+        }
+    },
+
+    "ACL_TABLE": {
+        "{{ acl_table_name }}": {
+            "stage": "{{ stage }}",
+            "type": "L3",
+            "policy_desc": "test_policy",
+            "ports": ["{{ ports_assigned }}"]
+        }
+    },
+
+{% for rule in acl_rules %}
+    "ACL_RULE": {
+        "{{ acl_table_name }}|{{ loop.index }}": {
+            "PRIORITY": "{{ rule.priority }}",
+            "SRC_IP": "{{ rule.src_ip }}",
+            "PACKET_ACTION": "{{ rule.action }}"
+        }
+    },
+{% if not loop.last %}
+{% endif %}{% endfor %}
+
+    "NAT_BINDINGS": {
+        "{{ binding_name }}": {
+            "access_list": "{{ acl_table_name }}",
+            "nat_pool": "{{ pool_name }}"
+        }
+    }
+}

@@ -1,0 +1,233 @@
+import pytest
+
+from nat_helpers import *
+
+
+@pytest.fixture(params=['static_nat', 'static_napt'])
+def static_nat_type(request):
+    """
+    used to parametrized test cases on static nat/napt
+    :param request: pytest request object
+    :return: static_nat_type
+    """
+
+    return request.param
+
+
+@pytest.fixture(params=['cold', 'fast', 'warm'])
+def reboot_type(request):
+    """
+    used to parametrized test cases on reboot
+    :param request: pytest request object
+    :return: reboot type
+    """
+
+    return request.param
+
+
+@pytest.fixture(params=['TCP', 'UDP', 'ICMP'])
+def protocol_type(request):
+    """
+    used to parametrized test cases on protocol type
+    :param request: pytest request object
+    :return: protocol type
+    """
+
+    return request.param
+
+
+@pytest.fixture(params=[0, 1])
+def zone_type(request):
+    """
+    used to parametrized test cases on NAT zone type
+    :param request: pytest request object
+    :return: zone type
+    """
+
+    return request.param
+
+
+# TODO: Add all interfaces types
+@pytest.fixture(params=["loopback", "port_in_lag"])
+def interface_type(request):
+    """
+    used to parametrized test cases on interface_type
+    :param request: pytest request object
+    :return: interface type
+    """
+
+    return request.param
+
+
+@pytest.fixture(autouse=True)
+def apply_global_nat_config(duthost):
+    """
+    generate global NAT configuration files and deploy them on DUT;
+    after test run cleanup artifacts on DUT
+    :param duthost: DUT host object
+    """
+
+    # Create temporary directory for NAT templates
+    duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
+    # Initialize variables for NAT global table
+    nat_table_vars = {
+        'nat_admin_mode': NAT_ADMIN_MODE,
+        'global_nat_timeout': GLOBAL_NAT_TIMEOUT,
+        'tcp_timeout': GLOBAL_TCP_NAPT_TIMEOUT,
+        'udp_timeout': GLOBAL_UDP_NAPT_TIMEOUT,
+    }
+    duthost.host.options['variable_manager'].extra_vars.update(nat_table_vars)
+    nat_global_config = 'nat_table_global_{}.json'.format(NAT_ADMIN_MODE)
+    nat_config_path = os.path.join(DUT_TMP_DIR, nat_global_config)
+    duthost.template(src=os.path.join(TEMPLATE_DIR, NAT_GLOBAL_TEMPLATE), dest=nat_config_path)
+    # Apply config file
+    duthost.command('sonic-cfggen -j {} --write-to-db'.format(nat_config_path))
+    yield
+    # Teardown after test finished
+    shutdown_cmds = ["config nat remove {}".format(cmd) for cmd in ["static all", "bindings", "pools", "interfaces"]]
+    exec_command(duthost, shutdown_cmds)
+    # Remove temporary folders
+    duthost.command('rm -rf {}'.format(DUT_TMP_DIR))
+
+
+@pytest.fixture(scope="module")
+def setup_info(ptfhost, duthost, testbed):
+    """
+    setup fixture gathers all test required information from DUT facts and testbed
+    :param ptfhost: PTF host object
+    :param duthost: DUT host object
+    :param testbed: Testbed object
+    :return: dictionary with all test required information
+    """
+
+    interfaces_nat_zone = {}
+    portchannels_port_indices = []
+    vlan_port_indices = []
+    testbed_conf = testbed['topo']['properties']['configuration']
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    router_mac = duthost.setup()['ansible_facts']['ansible_Ethernet0']['macaddress']
+    config_port_indices = cfg_facts['port_index_map']
+    config_portchannels = cfg_facts.get('PORTCHANNEL', {})
+    config_ports = cfg_facts['PORT']
+    ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
+    # Get outer port indices
+    for po in config_portchannels.keys():
+        port = config_portchannels[po]['members'][0]
+        portchannels_port_indices.append(config_port_indices[port])
+    ports = [port for port in config_ports if config_port_indices[port] in ptf_ports_available_in_topo
+             and config_ports[port].get('admin_status', 'down') == 'up']
+    for po in ports:
+        vlan_port_indices.append(config_port_indices[po])
+    dut_rifs_in_topo_t0 = [el[8:] for el in duthost.setup()['ansible_facts'].keys()
+                           if 'PortCh' in el or 'Loop' in el or 'Vlan' in el]
+    dut_rifs_in_topo_t0 = sorted(dut_rifs_in_topo_t0, reverse=True)
+    inner_zone_interfaces = dut_rifs_in_topo_t0[0]
+    outer_zone_interfaces = dut_rifs_in_topo_t0[1:]
+    for rif in dut_rifs_in_topo_t0:
+        interfaces_nat_zone[rif] = {'interface_name': rif,
+                                    "global_interface_name": '{}_INTERFACE'.format(
+                                        (rif.encode()).translate(None, '0123456789').upper())
+                                    }
+        if rif in inner_zone_interfaces:
+            interfaces_nat_zone[rif]['zone_id'] = 0
+        elif rif in outer_zone_interfaces:
+            interfaces_nat_zone[rif]['zone_id'] = 1
+    indices_to_ports_config = dict((v, k) for k, v in config_port_indices.iteritems())
+    setup_information = {
+        "router_mac": router_mac,
+        "interfaces_nat_zone": interfaces_nat_zone,
+        "dut_rifs_in_topo_t0": dut_rifs_in_topo_t0,
+        "indices_to_ports_config": indices_to_ports_config,
+        # TODO: add pairs of necessary interfaces for setup_test_env
+        "loopback": {
+            "inner_zone_interfaces": [inner_zone_interfaces, ],
+            "outer_zone_interfaces": outer_zone_interfaces,
+            "inner_port_id": [int(vlan_port_indices[0]), ],
+            "outer_port_id": portchannels_port_indices,
+            "src_ip": SETUP_CONF["loopback"]["src_ip"],
+            "second_src_ip": SETUP_CONF["loopback"]["second_src_ip"],
+            "dst_ip": testbed_conf['ARISTA01T1']['interfaces']['Loopback0']['ipv4'][:-3],
+            "second_dst_ip": testbed_conf['ARISTA02T1']['interfaces']['Loopback0']['ipv4'][:-3],
+            "public_ip": duthost.setup()['ansible_facts']['ansible_Loopback0']['ipv4']['address'],
+            "second_public_ip": duthost.setup()['ansible_facts']['ansible_Loopback0']['ipv4']['address'],
+            "gw": duthost.setup()['ansible_facts']['ansible_Vlan1000']['ipv4']['address']
+        },
+        "port_in_lag": {
+            "inner_zone_interfaces": [inner_zone_interfaces, ],
+            "outer_zone_interfaces": [outer_zone_interfaces[-2], outer_zone_interfaces[-3]],
+            "inner_port_id": [int(vlan_port_indices[0]), ],
+            "outer_port_id": [portchannels_port_indices[0], ],
+            "src_ip": SETUP_CONF["port_in_lag"]["src_ip"],
+            "second_src_ip": SETUP_CONF["port_in_lag"]["second_src_ip"],
+            "dst_ip": testbed_conf['ARISTA01T1']['interfaces']['Loopback0']['ipv4'][:-3],
+            "second_dst_ip": testbed_conf['ARISTA02T1']['interfaces']['Loopback0']['ipv4'][:-3],
+            "public_ip": duthost.setup()['ansible_facts']['ansible_PortChannel0001']['ipv4']['address'],
+            "second_public_ip": duthost.setup()['ansible_facts']['ansible_PortChannel0002']['ipv4']['address'],
+            "gw": duthost.setup()['ansible_facts']['ansible_Vlan1000']['ipv4']['address']
+        }
+    }
+    yield setup_information
+
+
+class TestNat(object):
+    """ TestNat class for testing nat """
+
+    @pytest.mark.nat_static
+    def test_nat_static_basic(self, ptfhost, testbed, duthost, ptfadapter, setup_info, interface_type, protocol_type,
+                              setup_info_modify_zones=None, negative=False):
+        if interface_type == 'port_in_lag':
+            pytest.skip("Not supported")
+        # setup PTF's interfaces
+        setup_test_env(ptfhost, duthost, testbed, setup_info, interface_type)
+        for direction in DIRECTION_PARAMS:
+            if direction == 'leaf-tor':
+                continue
+            # Set public and private IPs for NAT configuration
+            public_ip = get_public_ip(setup_info, interface_type)
+            private_ip = get_src_ip(setup_info, direction, interface_type)
+            # Set NAT configuration for test
+            apply_static_nat_config(duthost, public_ip, private_ip, direction, nat_entry='static_nat')
+            nat_zones_config(duthost, setup_info, interface_type)
+            # Traffic send and check
+            for path in DIRECTION_PARAMS:
+                src_l4_port, dst_l4_port, exp_src_port, exp_dst_port = \
+                    get_static_l4_ports(protocol_type, direction=path, nat_type='static_nat')
+                check_rule_by_traffic(ptfhost, ptfadapter, setup_info, path, interface_type, protocol_type,
+                                      source_l4_port=src_l4_port, dest_l4_port=dst_l4_port,
+                                      exp_source_port=exp_src_port, exp_dst_port=exp_dst_port, negative=negative,
+                                      handshake=not negative)
+        if setup_info_modify_zones:
+            nat_zones_config(duthost, setup_info_modify_zones, interface_type)
+            # Traffic send and check
+            for direction in DIRECTION_PARAMS:
+                src_l4_port, dst_l4_port, exp_src_port, exp_dst_port = \
+                    get_static_l4_ports(protocol_type, direction, nat_type='static_nat')
+                check_rule_by_traffic(ptfhost, ptfadapter, setup_info, direction, interface_type, protocol_type,
+                                      source_l4_port=src_l4_port, dest_l4_port=dst_l4_port,
+                                      exp_source_port=exp_src_port, exp_dst_port=exp_dst_port, negative=True,
+                                      handshake=not negative)
+        # soft teardown (PTF's interfaces clear)
+        conf_ptf_interfaces(ptfhost, setup_info[interface_type], teardown=True)
+
+    @pytest.mark.nat_dynamic
+    def test_nat_dynamic_basic(self, ptfhost, testbed, duthost, ptfadapter, setup_info, interface_type,
+                               protocol_type, remove_bindings=False, negative=False):
+        # setup PTF's interfaces
+        setup_test_env(ptfhost, duthost, testbed, setup_info, interface_type)
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, setup_info, interface_type, default=True,
+                                   remove_bindings=remove_bindings)
+        # Traffic send and check
+        increment = 1 if interface_type == 'loopback' else 2
+        for direction in DIRECTION_PARAMS:
+            if protocol_type == 'ICMP' and direction == 'leaf-tor':
+                continue
+            source_l4_port, dest_l4_port, exp_source_port, exp_dst_port = \
+                initialize_dynamic_nat_l4_ports(protocol_type, direction,
+                                                exp_src_port=POOL_RANGE_START_PORT + increment, default=True)
+            check_rule_by_traffic(ptfhost, ptfadapter, setup_info, direction, interface_type, protocol_type,
+                                  source_l4_port=source_l4_port, dest_l4_port=dest_l4_port,
+                                  exp_source_port=exp_source_port, exp_dst_port=exp_dst_port,
+                                  icmp_id=POOL_RANGE_START_PORT, negative=negative, handshake=True)
+        # soft teardown (PTF's interfaces clear)
+        conf_ptf_interfaces(ptfhost, setup_info[interface_type], teardown=True)
