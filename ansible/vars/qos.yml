@@ -128,6 +128,7 @@ qos_params:
             pkts_num_fill_min: 6
             pkts_num_trig_pfc: 22038
             cell_size: 96
+            packet_size: 300
         wm_pg_shared_lossy:
             dscp: 1
             ecn: 1
@@ -300,6 +301,7 @@ qos_params:
             pg: 3
             pkts_num_fill_min: 6
             pkts_num_trig_pfc: 4898
+            packet_size: 64
             cell_size: 208
         wm_pg_shared_lossy:
             dscp: 1
@@ -307,6 +309,7 @@ qos_params:
             pg: 0
             pkts_num_fill_min: 0
             pkts_num_trig_egr_drp: 31322
+            packet_size: 64
             cell_size: 208
         wm_q_shared_lossy:
             dscp: 1
@@ -501,6 +504,7 @@ qos_params:
             pg: 3
             pkts_num_fill_min: 6
             pkts_num_trig_pfc: 6542
+            packet_size: 64
             cell_size: 208
         wm_pg_shared_lossy:
             dscp: 8
@@ -508,6 +512,7 @@ qos_params:
             pg: 0
             pkts_num_fill_min: 0
             pkts_num_trig_egr_drp: 9887
+            packet_size: 64
             cell_size: 208
         wm_q_shared_lossy:
             dscp: 8
@@ -695,6 +700,7 @@ qos_params:
             pg: 3
             pkts_num_fill_min: 6
             pkts_num_trig_pfc: 4457
+            packet_size: 64
             cell_size: 208
         wm_pg_shared_lossy:
             dscp: 8
@@ -702,6 +708,7 @@ qos_params:
             pg: 0
             pkts_num_fill_min: 0
             pkts_num_trig_egr_drp: 10692
+            packet_size: 64
             cell_size: 208
         wm_q_shared_lossy:
             dscp: 8
