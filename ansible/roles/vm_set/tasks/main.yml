@@ -127,6 +127,7 @@
         split: ":"
     - set_fact:
         home_path: "{{ getent_passwd[ansible_user][4] }}"
+      when: home_path is not defined
     - debug: msg="{{ home_path }}"
 
 - name: Ensure {{ root_path }} exists
