@@ -164,7 +164,9 @@
             dsmsroot_cer: "{{ telemetry_certs['dsmsroot_cer'] }}"
          when: telemetry_certs['dsmsroot_cer'] is defined
                                                                                                                          - name: read directory path
-         set_fact:                                                                                                             dir_path: "{{ telemetry_certs['dir_path'] }}"                                                                 when: telemetry_certs['dir_path'] is defined
+         set_fact:
+             dir_path: "{{ telemetry_certs['dir_path'] }}"
+         when: telemetry_certs['dir_path'] is defined
 
        - name: Creates telemetry directory
          file:
@@ -388,6 +390,7 @@
 
     - name: copy file to ptfhost
       copy:
-         src: "{{ dir_path }}"                                                                                             dest: "{{ dir_path }}"
+         src: "{{ dir_path }}"
+         dest: "{{ dir_path }}"
       become: yes
     
