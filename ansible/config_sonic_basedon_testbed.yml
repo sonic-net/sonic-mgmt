@@ -159,7 +159,10 @@
             dsmsroot_csr: "{{ telemetry_certs['dsmsroot_csr'] }}"
          when: telemetry_certs['dsmsroot_csr'] is defined
 
-       - name: read dsmsroot cer                                                                                           set_fact:                                                                                                            dsmsroot_cer: "{{ telemetry_certs['dsmsroot_cer'] }}"                                                          when: telemetry_certs['dsmsroot_cer'] is defined
+       - name: read dsmsroot cer
+         set_fact:
+            dsmsroot_cer: "{{ telemetry_certs['dsmsroot_cer'] }}"
+         when: telemetry_certs['dsmsroot_cer'] is defined
                                                                                                                          - name: read directory path
          set_fact:                                                                                                             dir_path: "{{ telemetry_certs['dir_path'] }}"                                                                 when: telemetry_certs['dir_path'] is defined
 
@@ -211,11 +214,15 @@
          delegate_to: localhost
 
        - name: Generate a Self Signed OpenSSL telemetry dsmsroot certificate
-         openssl_certificate:                                                                                                   path: "{{ dsmsroot_cer }}" 
-              privatekey_path: "{{ dsmsroot_key }} "                                                                            csr_path: "{{ dsmsroot_csr }} "
-              subject"
-                 commonName: ndastreamingclienttest.osdinfra.net                                                                provider: selfsigned
-         become: true                                                                                                      delegate_to: localhost
+         openssl_certificate:
+              path: "{{ dsmsroot_cer }}" 
+              privatekey_path: "{{ dsmsroot_key }} "
+              csr_path: "{{ dsmsroot_csr }} "
+              subject:
+                 commonName: ndastreamingclienttest.osdinfra.net
+              provider: selfsigned
+         become: true
+         delegate_to: localhost
 
        - name: Creates telemetry directory
          file:
@@ -374,11 +381,13 @@
       when: telemetry_certs['dir_path'] is defined
 
     - name: create dir on ptfhost
-      file:                                                                                                               path: "{{ dir_path }}"
+      file:
+        path: "{{ dir_path }}"
         state: directory
       become: true
 
-    - name: copy file to ptfhost                                                                                        copy:
-        src: "{{ dir_path }}"                                                                                             dest: "{{ dir_path }}"
+    - name: copy file to ptfhost
+      copy:
+         src: "{{ dir_path }}"                                                                                             dest: "{{ dir_path }}"
       become: yes
     
