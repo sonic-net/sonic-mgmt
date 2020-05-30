@@ -163,12 +163,12 @@
          set_fact:
             dsmsroot_cer: "{{ telemetry_certs['dsmsroot_cer'] }}"
          when: telemetry_certs['dsmsroot_cer'] is defined
-                                                                                                                         - name: read directory path
+       
+       - name: read directory path
          set_fact:
              dir_path: "{{ telemetry_certs['dir_path'] }}"
          when: telemetry_certs['dir_path'] is defined
-
-       - name: Creates telemetry directory
+                                                                                                                         - name: Creates telemetry directory
          file:
            path: /etc/sonic/telemetry
            state: directory
