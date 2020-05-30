@@ -168,9 +168,10 @@
          set_fact:
              dir_path: "{{ telemetry_certs['dir_path'] }}"
          when: telemetry_certs['dir_path'] is defined
-                                                                                                                         - name: Creates telemetry directory
+       
+       - name: Creates telemetry directory
          file:
-           path: /etc/sonic/telemetry
+           path: "{{ dir_path }}"
            state: directory
            mode: '0755'
          become: true
