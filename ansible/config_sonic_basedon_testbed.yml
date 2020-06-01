@@ -162,12 +162,12 @@
          set_fact:
             dsmsroot_cer: "{{ telemetry_certs['dsmsroot_cer'] }}"
          when: telemetry_certs['dsmsroot_cer'] is defined
-       
+
        - name: read directory path
          set_fact:
              dir_path: "{{ telemetry_certs['dir_path'] }}"
          when: telemetry_certs['dir_path'] is defined
-       
+
        - name: Create telemetry directory
          file:
            path: "{{ dir_path }}"
@@ -183,7 +183,7 @@
             mode: '0755'
          become: true
          delegate_to: localhost
-       
+
        - name: create telemetry server csr
          openssl_csr:
             path: "{{ telemetry_certs['server_csr'] }}"
@@ -219,7 +219,7 @@
 
        - name: Generate a Self Signed OpenSSL telemetry dsmsroot certificate
          openssl_certificate:
-              path: "{{ dsmsroot_cer }}" 
+              path: "{{ dsmsroot_cer }}"
               privatekey_path: "{{ dsmsroot_key }} "
               csr_path: "{{ dsmsroot_csr }} "
               subject:
@@ -239,19 +239,19 @@
           copy:
             src: "{{ server_key }}"
             dest: "{{ server_key }}"
-          become: yes     
+          become: yes
 
         - name: copy server_cer from local to remote
           copy:
             src: "{{ server_cer }}"
             dest: "{{ server_cer }}"
-          become: yes 
+          become: yes
 
         - name: copy dsmsroot_key from local to remote
           copy:
             src: "{{ dsmsroot_key }}"
             dest: "{{ dsmsroot_key }}"
-          become: yes 
+          become: yes
 
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)
@@ -271,7 +271,7 @@
         delegate_to: localhost
 
       - name: debug print stat_result
-        debug: 
+        debug:
             msg: Stat result is {{ stat_result }}
 
       - name: Copy corresponding configlet files if exist
@@ -369,30 +369,3 @@
         shell: config save -y
         when: save is defined and save|bool == true
     when: deploy is defined and deploy|bool == true
-
-- hosts: [ptf]
-  gather_facts: no
-   
-  tasks:
-
-    - name: Init dir_path
-      set_fact:
-         dir_path: ""
-
-    - name: read directory path
-      set_fact:
-         dir_path: "{{ telemetry_certs['dir_path'] }}"
-      when: telemetry_certs['dir_path'] is defined
-
-    - name: create dir on ptfhost
-      file:
-        path: "{{ dir_path }}"
-        state: directory
-      become: true
-
-    - name: copy file to ptfhost
-      copy:
-         src: "{{ dir_path }}"
-         dest: "{{ dir_path }}"
-      become: yes
-    

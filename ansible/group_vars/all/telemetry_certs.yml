@@ -7,6 +7,4 @@ telemetry_certs:
     dsmsroot_key: "/etc/sonic/telemetry/dsmsroot.key"
     dsmsroot_csr: "/etc/sonic/telemetry/dsmsroot.csr"
     dsmsroot_cer: "/etc/sonic/telemetry/dsmsroot.cer"
-    client_key: "/etc/sonic/telemetry/streamingtelemetryclient.key"
-    client_cer: "/etc/sonic/telemetry/streamingtelemetryclient.cer"
     dir_path: "/etc/sonic/telemetry"
