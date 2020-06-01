@@ -133,7 +133,6 @@
             dsmsroot_cer: ""
             dir_path: ""
 
-
        - name: read server key
          set_fact:
             server_key: "{{ telemetry_certs['server_key'] }}"
@@ -169,7 +168,7 @@
              dir_path: "{{ telemetry_certs['dir_path'] }}"
          when: telemetry_certs['dir_path'] is defined
        
-       - name: Creates telemetry directory
+       - name: Create telemetry directory
          file:
            path: "{{ dir_path }}"
            state: directory
@@ -197,6 +196,8 @@
              path: "{{ server_cer }}"
              privatekey_path: "{{ server_key }}"
              csr_path: "{{ server_csr }}"
+             subject:
+                commonName: ndastreamingclienttest.osdinfra.net
              provider: selfsigned
          become: true
          delegate_to: localhost
