@@ -120,19 +120,13 @@ def setup_teardown(request, testbed, duthost, ptfhost):
 
     # Initialize parameters
     dscp_mode = "pipe"
-    ecn_mode = "standard"
+    ecn_mode = "copy_from_outer"
     ttl_mode = "pipe"
 
     # The hostvars dict has definitions defined in ansible/group_vars/sonic/vars
-    hostvars = duthost.host.options["variable_manager"].get_vars()["hostvars"][duthost.hostname]
+    hostvars = duthost.host.options["variable_manager"]._hostvars[duthost.hostname]
     sonic_hwsku = duthost.facts["hwsku"]
-    broadcom_hwskus = hostvars["broadcom_hwskus"]
     mellanox_hwskus = hostvars["mellanox_hwskus"]
-    marvell_hwskus = hostvars["marvell_hwskus"]
-
-    if sonic_hwsku in broadcom_hwskus or sonic_hwsku in marvell_hwskus:
-        dscp_mode = "pipe"
-        ecn_mode = "copy_from_outer"
 
     if sonic_hwsku in mellanox_hwskus:
         dscp_mode = "uniform"
