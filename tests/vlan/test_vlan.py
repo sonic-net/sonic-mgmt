@@ -184,7 +184,7 @@ def tearDown(vlan_ports_list, duthost, ptfhost, vlan_intfs_list, portchannel_int
     except RunAnsibleModuleFail as e:
         logger.error(e)
 
-    duthost.shell("config reload -y &>/dev/null")
+    duthost.shell("config reload -y &>/dev/null", executable="/bin/bash")
 
     # make sure Portchannels go up for post-test link sanity
     time.sleep(90)
