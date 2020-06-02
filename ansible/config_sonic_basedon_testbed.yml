@@ -197,7 +197,7 @@
              privatekey_path: "{{ server_key }}"
              csr_path: "{{ server_csr }}"
              subject:
-                commonName: ndastreamingservertest.osdinfra.net
+                commonName: ndastreamingservertest
              provider: selfsigned
          become: true
          delegate_to: localhost
@@ -223,7 +223,7 @@
               privatekey_path: "{{ dsmsroot_key }} "
               csr_path: "{{ dsmsroot_csr }} "
               subject:
-                 commonName: ndastreamingclienttest.osdinfra.net
+                 commonName: ndastreamingclienttest
               provider: selfsigned
          become: true
          delegate_to: localhost
