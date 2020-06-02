@@ -6,7 +6,8 @@ PRINT_LOGS = {
     "interfaces": "show interface status",
     "ip": "show ip interface",
     "neigh": "ip neigh",
-    "bgp": "show bgp summary",
+    "bgpv4": "show ip bgp summary",
+    "bgpv6": "show ipv6 bgp summary",
     "routes": "ip route | wc -l"
 }
 
