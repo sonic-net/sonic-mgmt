@@ -200,7 +200,8 @@ class TestWrArp:
             Returns:
                 None
         '''
-        invetory = duthost.host.options['inventory'].split('/')[-1]
+        hostVars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+        invetory = hostVars['inventory_file'].split('/')[-1]
         secrets = duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']
 
         prepareTestbedSshKeys(duthost, ptfhost, secrets[invetory]['sonicadmin_user'])
