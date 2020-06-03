@@ -135,15 +135,20 @@
             core_key: ""
             core_proxy: ""
 
+      - name: Test if core_analyzer.rc.json exists
+        stat:
+            path: /etc/sonic/core_analyzer.rc.json
+        register: rc_stat
+
       - name: read account key
         set_fact:
             core_key: "{{ corefile_uploader['azure_sonic_core_storage']['account_key'] }}"
-        when: corefile_uploader['azure_sonic_core_storage']['account_key'] is defined
+        when: rc_stat.stat.exists is defined and rc_stat.stat.exists and corefile_uploader['azure_sonic_core_storage']['account_key'] is defined
 
       - name: read https proxy
         set_fact:
             core_proxy: "{{ corefile_uploader['env']['https_proxy'] }}"
-        when: corefile_uploader['env']['https_proxy'] is defined
+        when: rc_stat.stat.exists is defined and rc_stat.stat.exists and corefile_uploader['env']['https_proxy'] is defined
 
       - name: Put secret in core_analyzer.rc.json
         lineinfile:
