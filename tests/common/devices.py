@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import re
+import inspect
 import ipaddress
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
@@ -49,6 +50,14 @@ class AnsibleHostBase(object):
             raise UnsupportedAnsibleModule("Unsupported module")
 
     def _run(self, *module_args, **complex_args):
+
+        previous_frame = inspect.currentframe().f_back
+        filename, line_number, function_name, lines, index = inspect.getframeinfo(previous_frame)
+
+        logging.debug("{}::{}#{}: [{}] AnsibleModule::{}, args={}, kwargs={}"\
+            .format(filename, function_name, line_number, self.hostname,
+                    self.module_name, json.dumps(module_args), json.dumps(complex_args)))
+
         module_ignore_errors = complex_args.pop('module_ignore_errors', False)
         module_async = complex_args.pop('module_async', False)
 
@@ -60,6 +69,9 @@ class AnsibleHostBase(object):
             return pool, result
 
         res = self.module(*module_args, **complex_args)[self.hostname]
+        logging.debug("{}::{}#{}: [{}] AnsibleModule::{} Result => {}"\
+            .format(filename, function_name, line_number, self.hostname, self.module_name, json.dumps(res)))
+
         if res.is_failed and not module_ignore_errors:
             raise RunAnsibleModuleFail("run module {} failed".format(self.module_name), res)
 
@@ -101,7 +113,7 @@ class SonicHost(AnsibleHostBase):
         if gather_facts:
             self.gather_facts()
 
-    def _get_critical_services_for_multi_npu():
+    def _get_critical_services_for_multi_npu(self):
         """
         Update the critical_services with the service names for multi-npu platforms
         """

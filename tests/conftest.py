@@ -7,6 +7,7 @@ import logging
 import time
 import string
 import re
+import getpass
 
 import pytest
 import csv
@@ -119,6 +120,28 @@ def enhance_inventory(request):
         setattr(request.config.option, "ansible_inventory", inv_files)
     except AttributeError:
         logger.error("Failed to set enhanced 'ansible_inventory' to request.config.option")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def config_logging(request):
+
+    # Filter out unnecessary pytest_ansible plugin log messages
+    pytest_ansible_logger = logging.getLogger("pytest_ansible")
+    if pytest_ansible_logger:
+        pytest_ansible_logger.setLevel(logging.WARNING)
+
+    # Filter out unnecessary ansible log messages (ansible v2.8)
+    # The logger name of ansible v2.8 is nasty
+    mypid = str(os.getpid())
+    user = getpass.getuser()
+    ansible_loggerv28 = logging.getLogger("p=%s u=%s | " % (mypid, user))
+    if ansible_loggerv28:
+        ansible_loggerv28.setLevel(logging.WARNING)
+
+    # Filter out unnecessary ansible log messages (latest ansible)
+    ansible_logger = logging.getLogger("ansible")
+    if ansible_logger:
+        ansible_logger.setLevel(logging.WARNING)
 
 
 @pytest.fixture(scope="session")
@@ -280,6 +303,10 @@ def creds(duthost):
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
+
+    # Filter out unnecessary logs captured on "stdout" and "stderr"
+    item._report_sections = filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections)
+
     # execute all other hooks to obtain the report object
     outcome = yield
     rep = outcome.get_result()
