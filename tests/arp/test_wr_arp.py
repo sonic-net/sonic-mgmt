@@ -159,7 +159,9 @@ class TestWrArp:
             logger.info(
                 "Delete explicit route for PTF host ({0}) through eth0 (mgmt) interface ({1})".format(ptfIp, gwIp)
             )
-            duthost.shell(cmd='ip route delete {0}/32 {1}'.format(ptfIp, gwIp))
+            result = duthost.shell(cmd='ip route delete {0}/32 {1}'.format(ptfIp, gwIp), module_ignore_errors=True)
+            assert result["rc"] == 0 or "No such process" in result["stderr"], \
+                "Failed to delete route with error '{0}'".format(result["stderr"])
 
     @pytest.fixture(scope='class', autouse=True)
     def removePtfhostIp(self, ptfhost):
