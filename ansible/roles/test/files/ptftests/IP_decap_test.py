@@ -7,10 +7,13 @@ Description:    This file contains the decapasulation test for SONIC, to test de
 Precondition:   Before the test start, all routes need to be defined as in the fib_info.txt file, in addition to the
                 decap rule that need to be set as the dspc_mode
 
-topology:       Supports t1, t1-lag, t0-116 and t0 topology
+topology:       Supports all the variations of t0 and t1 topologies.
 
 Usage:          Examples of how to start the test
-                ptf --test-dir /root/dor/ ip_decap_test_red --platform remote -t "verbose=True;fib_info='/root/fib_info.txt';lo_ip='10.1.0.32';router_mac='00:02:03:04:05:00';dscp_mode='pipe';ttl_mode='pipe';testbed_type='t1'" --log-dir /tmp/logs --verbose
+                ptf --test-dir /root/ptftest/ IP_decap_test.DecapPacketTest --platform-dir ptftests --platform remote \
+                    --qlen=1000 -t "verbose=True;fib_info='/root/fib_info.txt';lo_ip='10.1.0.32';\
+                    router_mac='00:02:03:04:05:00';dscp_mode='pipe';ttl_mode='pipe';testbed_type='t1';\
+                    vlan_ip='192.168.0.1';src_ports='1,2,3,4,5,6'" --log-file /tmp/logs --verbose
 
 Parameters:     fib_info - The fib_info file location
                 lo_ip -  The loop_back IP that is configured in the decap rule
@@ -25,6 +28,10 @@ Parameters:     fib_info - The fib_info file location
                 inner_ipv6 - Test IPv6 encap packets
                 outer_ipv4 - Test packets encapsulated in IPv4
                 outer_ipv6 - Test packets encapsulated in IPv6
+                src_ports - The list of ports for injecting encapsulated packets. Separated by comma, for example:
+                            "1,2,3,4,5,6"
+                vlan_ip - IPv4 address of the vlan interface. Required for t0 testbed type.
+                vlan_ipv6 - IPv6 address of the vlan interface. Optional.
 
 '''
 
@@ -35,27 +42,22 @@ import sys
 import random
 import time
 import logging
-import ptf.packet as scapy
 import socket
-import ptf.dataplane as dataplane
-
-from ptf.testutils import *
-from ptf.mask import Mask
-import ipaddress
-
 import os
 import unittest
 
+import ipaddress
 import ptf
+import ptf.packet as scapy
+import ptf.testutils as testutils
+from ptf.testutils import simple_ip_only_packet, simple_tcpv6_packet, simple_ipv4ip_packet, simple_ipv6ip_packet
+from ptf.testutils import send_packet, verify_packet_any_port
+from ptf.mask import Mask
 from ptf.base_tests import BaseTest
 from ptf import config
-import ptf.dataplane as dataplane
-import ptf.testutils as testutils
-
-import pprint
-
 
 import fib
+
 
 class DecapPacketTest(BaseTest):
     """ IP in IP decapsulation test """
@@ -89,24 +91,16 @@ class DecapPacketTest(BaseTest):
         self.dataplane = ptf.dataplane_instance
         self.router_mac = self.test_params['router_mac']
         self.fib = fib.Fib(self.test_params['fib_info'])
-        if self.test_params['testbed_type'] == 't1' or self.test_params['testbed_type'] == 't1-lag':
-            self.src_ports = range(0, 32)
-        if self.test_params['testbed_type'] == 't1-64-lag' or self.test_params['testbed_type'] == 't1-64-lag-clet':
-            self.src_ports = [0, 1, 4, 5, 16, 17, 20, 21, 34, 36, 37, 38, 39, 42, 44, 45, 46, 47, 50, 52, 53, 54, 55, 58, 60, 61, 62, 63]
-        if self.test_params['testbed_type'] == 't0':
-            self.src_ports = range(1, 25) + range(28, 32)
-        if self.test_params['testbed_type'] == 't0-64':
-            self.src_ports = [0,  1,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 36, 37, 38, 39, 40, 41, 42, 48, 52, 53, 54, 55, 56, 57, 58]
-        if self.test_params['testbed_type'] == 't0-116':
-            self.src_ports = range(0, 24) + range(32, 120)
-        if self.test_params['testbed_type'] == 't0-52':
-            self.src_ports = range(0, 52)
+        self.src_ports = [int(port) for port in self.test_params['src_ports'].split(',')]
 
         # which type of tunneled trafic to test (IPv4 in IPv4, IPv6 in IPv4, IPv6 in IPv4, IPv6 in IPv6)
         self.test_outer_ipv4 = self.test_params.get('outer_ipv4', True)
         self.test_outer_ipv6 = self.test_params.get('outer_ipv6', True)
         self.test_inner_ipv4 = self.test_params.get('inner_ipv4', True)
         self.test_inner_ipv6 = self.test_params.get('inner_ipv6', True)
+
+        self.vlan_ip = self.test_params.get('vlan_ip')
+        self.vlan_ipv6 = self.test_params.get('vlan_ipv6')
 
         # Index of current DSCP and TTL value in allowed DSCP_RANGE and TTL_RANGE
         self.dscp_in_idx = 0  # DSCP of inner layer.
@@ -352,6 +346,15 @@ class DecapPacketTest(BaseTest):
             raise Exception('ERROR: Invalid inner packet type passed: ', inner_pkt_type)
 
         for ip_range in ip_ranges:
+
+            # Skip the IP range on VLAN interface, t0 topology
+            if inner_pkt_type == 'ipv4' and self.vlan_ip and \
+                ip_range.contains(ipaddress.ip_address(unicode(self.vlan_ip))):
+                continue
+            elif inner_pkt_type == 'ipv6' and self.vlan_ipv6 and \
+                ip_range.contains(ipaddress.ip_address(unicode(self.vlan_ipv6))):
+                continue
+
             # Get the expected list of ports that would receive the packets
             exp_port_list = self.fib[ip_range.get_first_ip()].get_next_hop_list()
             # Choose random one source port from all ports excluding the expected ones
