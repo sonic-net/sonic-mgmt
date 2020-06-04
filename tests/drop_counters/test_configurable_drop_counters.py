@@ -24,7 +24,7 @@ from common.helpers.assertions import pytest_assert
 PACKET_COUNT = 1000
 
 @pytest.mark.parametrize("drop_reason", ["L3_EGRESS_LINK_DOWN"])
-def test_neighbor_link_down(testbed_params, setup_counters, duthost, mock_server, test_runner,
+def test_neighbor_link_down(testbed_params, setup_counters, duthost, mock_server, send_dropped_traffic,
                             drop_reason):
     """
     Verifies that counters that check for a neighbor link being down work properly.
@@ -45,7 +45,7 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthost, mock_server
     try:
         mock_server.start()
         mock_server.shutdown_link()
-        test_runner(counter_type, pkt, rx_port)
+        send_dropped_traffic(counter_type, pkt, rx_port)
     finally:
         mock_server.startup_link()
         mock_server.shutdown()
@@ -64,7 +64,7 @@ def testbed_params(duthost, testbed):
             their address, subnet, prefix length, and VLAN members.
     """
 
-    if testbed["topo"]["name"] != "t0":
+    if testbed["topo"]["type"] != "t0":
         pytest.skip("Unsupported topology {}".format(testbed["topo"]["name"]))
 
     minigraph_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
@@ -101,8 +101,7 @@ def device_capabilities(duthost):
 
     capabilities = cdc.get_device_capabilities(duthost)
 
-    if not capabilities:
-        pytest.fail("Error fetching device capabilities")
+    pytest_assert(capabilities, "Error fetching device capabilities")
 
     return capabilities
 
@@ -142,9 +141,9 @@ def setup_counters(request, device_capabilities, duthost):
         logging.info("Drop counter does not exist, skipping delete step...")
 
 @pytest.fixture
-def test_runner(duthost, ptfadapter, testbed_params):
+def send_dropped_traffic(duthost, ptfadapter, testbed_params):
     """
-    Returns a method to run the drop counter tests.
+    Returns a method to send traffic to the DUT to be dropped.
 
     Returns:
         A method which, when called, will send traffic to the DUT and check if the proper
