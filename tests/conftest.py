@@ -262,14 +262,20 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
             else:
                 host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_host).vars
                 os_type = 'eos' if 'os' not in host_vars else host_vars['os']
+
+                eos_user = creds['fanout_eos_user'] if 'fanout_eos_user' in creds else creds['fanout_admin_user']
+                eos_password = creds['fanout_eos_password'] if 'fanout_eos_password' in creds else creds['fanout_admin_password']
+                shell_user = creds['fanout_shell_user'] if 'fanout_shell_user' in creds else creds['fanout_admin_user']
+                shell_password = creds['fanout_shell_password'] if 'fanout_shell_password' in creds else creds['fanout_admin_password']
+
                 fanout  = FanoutHost(ansible_adhoc,
                                     os_type,
                                     fanout_host,
                                     'FanoutLeaf',
-                                    creds['fanout_admin_user'],
-                                    creds["fanout_admin_password"],
-                                    shell_user=creds['fanout_root_user'] if 'fanout_root_user' in creds else None,
-                                    shell_passwd=creds['fanout_root_password'] if 'fanout_root_password' in creds else None)
+                                    eos_user,
+                                    eos_password,
+                                    shell_user=shell_user,
+                                    shell_passwd=shell_password)
                 fanout_hosts[fanout_host] = fanout
             fanout.add_port_map(dut_port, fanout_port)
     except:

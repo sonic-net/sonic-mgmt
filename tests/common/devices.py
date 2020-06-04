@@ -575,9 +575,20 @@ class EosHost(AnsibleHostBase):
     For running ansible module on the Eos switch
     """
 
-    def __init__(self, ansible_adhoc, hostname, net_user, net_passwd, shell_user=None, shell_passwd=None, gather_facts=False):
-        self.net_user = net_user
-        self.net_passwd = net_passwd
+    def __init__(self, ansible_adhoc, hostname, eos_user, eos_passwd, shell_user=None, shell_passwd=None, gather_facts=False):
+        '''Initialize an object for interacting with EoS type device using ansible modules
+
+        Args:
+            ansible_adhoc (): The pytest-ansible fixture
+            hostname (string): hostname of the EOS device
+            eos_user (string): Username for accessing the EOS CLI interface
+            eos_passwd (string): Password for the eos_user
+            shell_user (string, optional): Username for accessing the Linux shell CLI interface. Defaults to None.
+            shell_passwd (string, optional): Password for the shell_user. Defaults to None.
+            gather_facts (bool, optional): Whether to gather some basic facts. Defaults to False.
+        '''
+        self.eos_user = eos_user
+        self.eos_passwd = eos_passwd
         self.shell_user = shell_user
         self.shell_passwd = shell_passwd
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
@@ -587,10 +598,10 @@ class EosHost(AnsibleHostBase):
             evars = {
                 'ansible_connection':'network_cli',
                 'ansible_network_os':'eos',
-                'ansible_user': self.net_user,
-                'ansible_password': self.net_passwd,
-                'ansible_ssh_user': self.net_user,
-                'ansible_ssh_pass': self.net_passwd,
+                'ansible_user': self.eos_user,
+                'ansible_password': self.eos_passwd,
+                'ansible_ssh_user': self.eos_user,
+                'ansible_ssh_pass': self.eos_passwd,
                 'ansible_become_method': 'enable'
             }
         else:
