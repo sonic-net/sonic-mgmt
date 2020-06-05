@@ -91,6 +91,7 @@ def pytest_addoption(parser):
     # pfc_asym options         #
     ############################
     parser.addoption("--server_ports_num", action="store", default=20, type=int, help="Number of server ports to use")
+    parser.addoption("--fanout_inventory", action="store", default="lab", help="Inventory with defined fanout hosts")
 
     ############################
     # test_techsupport options #
@@ -138,33 +139,6 @@ def testbed(request):
 
     tbinfo = TestbedInfo(tbfile)
     return tbinfo.testbed_topo[tbname]
-
-
-@pytest.fixture(scope="module")
-def testbed_devices(ansible_adhoc, testbed, duthost):
-    """
-    @summary: Fixture for creating dut, localhost and other necessary objects for testing. These objects provide
-        interfaces for interacting with the devices used in testing.
-    @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
-        mandatory argument for the class constructors.
-    @param testbed: Fixture for parsing testbed configuration file.
-    @return: Return the created device objects in a dictionary
-    """
-
-    devices = {
-        "localhost": Localhost(ansible_adhoc),
-        "duts" : [SonicHost(ansible_adhoc, x, gather_facts=True) for x in testbed["duts"]],
-    }
-
-    if "ptf" in testbed:
-        devices["ptf"] = PTFHost(ansible_adhoc, testbed["ptf"])
-    else:
-        # when no ptf defined in testbed.csv
-        # try to parse it from inventory
-        ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
-        devices["ptf"] = PTFHost(ansible_adhoc, ptf_host)
-
-    return devices
 
 
 def disable_ssh_timout(dut):
@@ -224,7 +198,7 @@ def localhost(ansible_adhoc):
 
 
 @pytest.fixture(scope="module")
-def ptfhost(ansible_adhoc, testbed):
+def ptfhost(ansible_adhoc, testbed, duthost):
     if "ptf" in testbed:
         return PTFHost(ansible_adhoc, testbed["ptf"])
     else:
@@ -258,19 +232,22 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
 
     dev_conn     = conn_graph_facts['device_conn'] if 'device_conn' in conn_graph_facts else {}
     fanout_hosts = {}
-    for dut_port in dev_conn.keys():
-        fanout_rec  = dev_conn[dut_port]
-        fanout_host = fanout_rec['peerdevice']
-        fanout_port = fanout_rec['peerport']
-        if fanout_host in fanout_hosts.keys():
-            fanout  = fanout_hosts[fanout_host]
-        else:
-            host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_host).vars
-            os_type = 'eos' if 'os' not in host_vars else host_vars['os']
-            fanout  = FanoutHost(ansible_adhoc, os_type, fanout_host, 'FanoutLeaf', creds['fanout_admin_user'], creds['fanout_admin_password'])
-            fanout_hosts[fanout_host] = fanout
-        fanout.add_port_map(dut_port, fanout_port)
-
+    # WA for virtual testbed which has no fanout
+    try:
+        for dut_port in dev_conn.keys():
+            fanout_rec  = dev_conn[dut_port]
+            fanout_host = fanout_rec['peerdevice']
+            fanout_port = fanout_rec['peerport']
+            if fanout_host in fanout_hosts.keys():
+                fanout  = fanout_hosts[fanout_host]
+            else:
+                host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_host).vars
+                os_type = 'eos' if 'os' not in host_vars else host_vars['os']
+                fanout  = FanoutHost(ansible_adhoc, os_type, fanout_host, 'FanoutLeaf', creds['fanout_admin_user'], creds['fanout_admin_password'])
+                fanout_hosts[fanout_host] = fanout
+            fanout.add_port_map(dut_port, fanout_port)
+    except:
+        pass
     return fanout_hosts
 
 @pytest.fixture(scope='session')

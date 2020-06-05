@@ -1,16 +1,15 @@
 """
 Classes for various devices that may be used in testing.
-
 There are other options for interacting with the devices used in testing, for example netmiko, fabric.
 We have a big number of customized ansible modules in the sonic-mgmt/ansible/library folder. To reused these
 modules, we have no other choice, at least for interacting with SONiC, localhost and PTF.
-
 We can consider using netmiko for interacting with the VMs used in testing.
 """
+import json
 import logging
 import os
 import re
-import json
+import inspect
 import ipaddress
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
@@ -18,10 +17,10 @@ from datetime import datetime
 from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
 
+
 class AnsibleHostBase(object):
     """
     @summary: The base class for various objects.
-
     This class filters an object from the ansible_adhoc fixture by hostname. The object can be considered as an
     ansible host object although it is not under the hood. Anyway, we can use this object to run ansible module
     on the host.
@@ -29,7 +28,7 @@ class AnsibleHostBase(object):
 
     def __init__(self, ansible_adhoc, hostname, connection=None):
         if hostname == 'localhost':
-            self.host = ansible_adhoc(inventory='localhost', connection='local', host_pattern=hostname)[hostname]
+            self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
         else:
             if connection is None:
                 self.host = ansible_adhoc(become=True)[hostname]
@@ -48,6 +47,14 @@ class AnsibleHostBase(object):
             raise UnsupportedAnsibleModule("Unsupported module")
 
     def _run(self, *module_args, **complex_args):
+
+        previous_frame = inspect.currentframe().f_back
+        filename, line_number, function_name, lines, index = inspect.getframeinfo(previous_frame)
+
+        logging.debug("{}::{}#{}: [{}] AnsibleModule::{}, args={}, kwargs={}"\
+            .format(filename, function_name, line_number, self.hostname,
+                    self.module_name, json.dumps(module_args), json.dumps(complex_args)))
+
         module_ignore_errors = complex_args.pop('module_ignore_errors', False)
         module_async = complex_args.pop('module_async', False)
 
@@ -59,6 +66,9 @@ class AnsibleHostBase(object):
             return pool, result
 
         res = self.module(*module_args, **complex_args)[self.hostname]
+        logging.debug("{}::{}#{}: [{}] AnsibleModule::{} Result => {}"\
+            .format(filename, function_name, line_number, self.hostname, self.module_name, json.dumps(res)))
+
         if res.is_failed and not module_ignore_errors:
             raise RunAnsibleModuleFail("run module {} failed".format(self.module_name), res)
 
@@ -68,7 +78,6 @@ class AnsibleHostBase(object):
 class Localhost(AnsibleHostBase):
     """
     @summary: Class for localhost
-
     For running ansible module on localhost
     """
     def __init__(self, ansible_adhoc):
@@ -78,7 +87,6 @@ class Localhost(AnsibleHostBase):
 class PTFHost(AnsibleHostBase):
     """
     @summary: Class for PTF
-
     Instance of this class can run ansible modules on the PTF host.
     """
     def __init__(self, ansible_adhoc, hostname):
@@ -90,7 +98,6 @@ class PTFHost(AnsibleHostBase):
 class SonicHost(AnsibleHostBase):
     """
     @summary: Class for SONiC switch
-
     For running ansible module on the SONiC switch
     """
     CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp", "pmon", "lldp", "snmp"]
@@ -100,7 +107,7 @@ class SonicHost(AnsibleHostBase):
         if gather_facts:
             self.gather_facts()
 
-    def _get_critical_services_for_multi_npu():
+    def _get_critical_services_for_multi_npu(self):
         """
         Update the critical_services with the service names for multi-npu platforms
         """
@@ -186,11 +193,9 @@ class SonicHost(AnsibleHostBase):
     def is_service_fully_started(self, service):
         """
         @summary: Check whether a SONiC specific service is fully started.
-
         This function assumes that the final step of all services checked by this function is to spawn a Docker
         container with the same name as the service. We determine that the service has fully started if the
         Docker container is running.
-
         @param service: Name of the SONiC service
         """
         try:
@@ -219,7 +224,6 @@ class SonicHost(AnsibleHostBase):
     def critical_process_status(self, service):
         """
         @summary: Check whether critical process status of a service.
-
         @param service: Name of the SONiC service
         """
         result = {'status': True}
@@ -300,7 +304,6 @@ class SonicHost(AnsibleHostBase):
         @summary: get state list of daemons from pmon docker.
                   Referencing (/usr/share/sonic/device/{platform}/pmon_daemon_control.json)
                   if some daemon is disabled in the config file, then remove it from the daemon list.
-
         @return: dictionary of { service_name1 : state1, ... ... }
         """
         # some services are meant to have a short life span or not part of the daemons
@@ -417,7 +420,6 @@ class SonicHost(AnsibleHostBase):
     def shutdown(self, ifname):
         """
             Shutdown interface specified by ifname
-
             Args:
                 ifname: the interface to shutdown
         """
@@ -426,7 +428,6 @@ class SonicHost(AnsibleHostBase):
     def no_shutdown(self, ifname):
         """
             Bring up interface specified by ifname
-
             Args:
                 ifname: the interface to bring up
         """
@@ -435,9 +436,7 @@ class SonicHost(AnsibleHostBase):
     def get_ip_route_info(self, dstip):
         """
         @summary: return route information for a destionation IP
-
         @param dstip: destination IP (either ipv4 or ipv6)
-
 ============ 4.19 kernel ==============
 admin@vlab-01:~$ ip route list match 0.0.0.0
 default proto bgp src 10.1.0.32 metric 20
@@ -445,14 +444,12 @@ default proto bgp src 10.1.0.32 metric 20
         nexthop via 10.0.0.59 dev PortChannel0002 weight 1
         nexthop via 10.0.0.61 dev PortChannel0003 weight 1
         nexthop via 10.0.0.63 dev PortChannel0004 weight 1
-
 admin@vlab-01:~$ ip -6 route list match ::
 default proto bgp src fc00:1::32 metric 20
         nexthop via fc00::72 dev PortChannel0001 weight 1
         nexthop via fc00::76 dev PortChannel0002 weight 1
         nexthop via fc00::7a dev PortChannel0003 weight 1
         nexthop via fc00::7e dev PortChannel0004 weight 1 pref medium
-
 ============ 4.9 kernel ===============
 admin@vlab-01:~$ ip route list match 0.0.0.0
 default proto 186 src 10.1.0.32 metric 20
@@ -460,13 +457,11 @@ default proto 186 src 10.1.0.32 metric 20
         nexthop via 10.0.0.59  dev PortChannel0002 weight 1
         nexthop via 10.0.0.61  dev PortChannel0003 weight 1
         nexthop via 10.0.0.63  dev PortChannel0004 weight 1
-
 admin@vlab-01:~$ ip -6 route list match ::
 default via fc00::72 dev PortChannel0001 proto 186 src fc00:1::32 metric 20  pref medium
 default via fc00::76 dev PortChannel0002 proto 186 src fc00:1::32 metric 20  pref medium
 default via fc00::7a dev PortChannel0003 proto 186 src fc00:1::32 metric 20  pref medium
 default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pref medium
-
         """
 
         if dstip.version == 4:
@@ -499,7 +494,6 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
     def get_bgp_neighbor_info(self, neighbor_ip):
         """
         @summary: return bgp neighbor info
-
         @param neighbor_ip: bgp neighbor IP
         """
         nbip = ipaddress.ip_address(neighbor_ip)
@@ -515,7 +509,6 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
     def check_bgp_session_state(self, neigh_ips, state="established"):
         """
         @summary: check if current bgp session equals to the target state
-
         @param neigh_ips: bgp neighbor IPs
         @param state: target state
         """
@@ -535,7 +528,6 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
     def check_bgp_session_nsf(self, neighbor_ip):
         """
         @summary: check if bgp neighbor session enters NSF state or not
-
         @param neighbor_ip: bgp neighbor IP
         """
         nbinfo = self.get_bgp_neighbor_info(neighbor_ip)
@@ -547,7 +539,6 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
     def get_version(self):
         """
             Gets the SONiC version this device is running.
-
             Returns:
                 str: the firmware version number (e.g. 20181130.31)
         """
@@ -557,7 +548,6 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 class EosHost(AnsibleHostBase):
     """
     @summary: Class for Eos switch
-
     For running ansible module on the Eos switch
     """
 
@@ -571,6 +561,7 @@ class EosHost(AnsibleHostBase):
                   'ansible_ssh_pass': passwd, \
                   'ansible_become_method': 'enable' }
         self.host.options['variable_manager'].extra_vars.update(evars)
+        self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
 
     def shutdown(self, interface_name):
         out = self.host.eos_config(
@@ -613,7 +604,6 @@ class EosHost(AnsibleHostBase):
     def check_bgp_session_state(self, neigh_ips, neigh_desc, state="established"):
         """
         @summary: check if current bgp session equals to the target state
-
         @param neigh_ips: bgp neighbor IPs
         @param neigh_desc: bgp neighbor description
         @param state: target state
@@ -647,11 +637,82 @@ class EosHost(AnsibleHostBase):
 
         return False
 
+    def exec_template(self, ansible_root, ansible_playbook, inventory, **kwargs):
+        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i {inventory} -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
+        cli_cmd = playbook_template.format(ansible_path=ansible_root, playbook=ansible_playbook, inventory=inventory,
+            fanout_host=self.hostname, extra_vars=json.dumps(kwargs))
+        res = self.localhost.shell(cli_cmd)
+
+        if res["localhost"]["rc"] != 0:
+            raise Exception("Unable to execute template\n{}".format(res["stdout"]))
+
+
+class OnyxHost(AnsibleHostBase):
+    """
+    @summary: Class for ONYX switch
+    For running ansible module on the ONYX switch
+    """
+
+    def __init__(self, ansible_adhoc, hostname, user, passwd, gather_facts=False):
+        AnsibleHostBase.__init__(self, ansible_adhoc, hostname, connection="network_cli")
+        evars = {'ansible_connection':'network_cli',
+                'ansible_network_os':'onyx',
+                'ansible_user': user,
+                'ansible_password': passwd,
+                'ansible_ssh_user': user,
+                'ansible_ssh_pass': passwd,
+                'ansible_become_method': 'enable'
+                }
+
+        self.host.options['variable_manager'].extra_vars.update(evars)
+        self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
+
+    def shutdown(self, interface_name):
+        out = self.host.onyx_config(
+            lines=['shutdown'],
+            parents='interface ethernet %s' % interface_name)
+        logging.info('Shut interface [%s]' % interface_name)
+        return out
+
+    def no_shutdown(self, interface_name):
+        out = self.host.onyx_config(
+            lines=['no shutdown'],
+            parents='interface ethernet %s' % interface_name)
+        logging.info('No shut interface [%s]' % interface_name)
+        return out
+
+    def check_intf_link_state(self, interface_name):
+        show_int_result = self.host.onyx_command(
+            commands=['show interfaces ethernet {} | include "Operational state"'.format(interface_name)])[self.hostname]
+        return 'Up' in show_int_result['stdout'][0]
+
+    def command(self, cmd):
+        out = self.host.onyx_command(commands=[cmd])
+        return out
+
+    def set_interface_lacp_rate_mode(self, interface_name, mode):
+        out = self.host.onyx_config(
+            lines=['lacp rate %s' % mode],
+            parents='interface ethernet %s' % interface_name)
+        logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
+        return out
+
+    def exec_template(self, ansible_root, ansible_playbook, inventory, **kwargs):
+        """
+        Execute ansible playbook with specified parameters
+        """
+        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i {inventory} -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
+        cli_cmd = playbook_template.format(ansible_path=ansible_root, playbook=ansible_playbook, inventory=inventory,
+            fanout_host=self.hostname, extra_vars=json.dumps(kwargs))
+        res = self.localhost.shell(cli_cmd)
+
+        if res["localhost"]["rc"] != 0:
+            raise Exception("Unable to execute template\n{}".format(res["stdout"]))
+
 
 class FanoutHost():
     """
     @summary: Class for Fanout switch
-
     For running ansible module on the Fanout switch
     """
 
@@ -663,6 +724,9 @@ class FanoutHost():
         if os == 'sonic':
             self.os = os
             self.host = SonicHost(ansible_adhoc, hostname)
+        elif os == 'onyx':
+            self.os = os
+            self.host = OnyxHost(ansible_adhoc, hostname, user, passwd)
         else:
             # Use eos host if the os type is unknown
             self.os = 'eos'
@@ -699,3 +763,6 @@ class FanoutHost():
         """
         self.host_to_fanout_port_map[host_port]   = fanout_port
         self.fanout_to_host_port_map[fanout_port] = host_port
+
+    def exec_template(self, ansible_root, ansible_playbook, inventory, **kwargs):
+        return self.host.exec_template(ansible_root, ansible_playbook, inventory, **kwargs)

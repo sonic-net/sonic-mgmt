@@ -23,6 +23,14 @@ SAI_TESTS = os.path.join(ANSIBLE_ROOT, "roles/test/files/saitests")
 PTF_TESTS = os.path.join(ANSIBLE_ROOT, "roles/test/files/ptftests")
 
 
+def get_fanout(fanout_graph_facts, setup):
+    for fanout_host_name, value in fanout_graph_facts.items():
+        for fanout_inf, peer_info in value["device_conn"].items():
+            if peer_info["peerport"] == setup["ptf_test_params"]["server_ports"][0]["dut_name"]:
+                return fanout_host_name
+    return None
+
+
 @pytest.fixture(scope="module")
 def ansible_facts(duthost):
     """ Ansible facts fixture """
@@ -36,23 +44,25 @@ def minigraph_facts(duthost):
 
 
 @pytest.fixture(autouse=True, scope="module")
-def deploy_pfc_gen(fanouthosts, fanout_graph_facts):
+def deploy_pfc_gen(fanouthosts, fanout_graph_facts, setup):
     """
     Fixture to deploy 'pfc_gen.py' file for specific platforms to the Fanout switch.
     """
-    if "arista" in fanout_graph_facts["device_info"]["HwSku"].lower():
+    fanout_host_name = get_fanout(fanout_graph_facts, setup)
+
+    if "arista" in fanout_graph_facts[fanout_host_name]["device_info"]["HwSku"].lower():
         arista_pfc_gen_dir = "/mnt/flash/"
-        for host_name, fanout_host in fanouthosts.items():
-            if fanout_host.type == "FanoutLeaf":
+        for host_name, fanout in fanouthosts.items():
+            if host_name == fanout_host_name:
                 break
 
-        fanout_host.host.file(path=arista_pfc_gen_dir, state="directory")
-        fanout_host.host.file(path=os.path.join(arista_pfc_gen_dir, PFC_GEN_FILE), state="touch")
-        fanout_host.host.copy(src=os.path.join(ANSIBLE_ROOT, "roles/test/files/helpers/pfc_gen.py"), dest=arista_pfc_gen_dir)
+        fanout.host.file(path=arista_pfc_gen_dir, state="directory")
+        fanout.host.file(path=os.path.join(arista_pfc_gen_dir, PFC_GEN_FILE), state="touch")
+        fanout.host.copy(src=os.path.join(ANSIBLE_ROOT, "roles/test/files/helpers/pfc_gen.py"), dest=arista_pfc_gen_dir)
 
 
 @pytest.fixture(scope="function")
-def pfc_storm_template(ansible_facts, fanout_graph_facts):
+def pfc_storm_template(ansible_facts, fanout_graph_facts, setup):
     """
     Compose dictionary which items will be used to start/stop PFC generator on Fanout switch by 'pfc_storm_runner' fixture.
     Dictionary values depends on fanout HWSKU (MLNX-OS, Arista or others)
@@ -71,11 +81,11 @@ def pfc_storm_template(ansible_facts, fanout_graph_facts):
             "pfc_asym": True
             }
     }
-
-    if fanout_graph_facts["device_info"]["HwSku"] == "MLNX-OS":
+    fanout_host_name = get_fanout(fanout_graph_facts, setup)
+    if fanout_graph_facts[fanout_host_name]["device_info"]["HwSku"] == "MLNX-OS":
         res["template"]["pfc_storm_start"] = os.path.join(ANSIBLE_ROOT, "roles/test/templates/pfc_storm_mlnx.j2")
         res["template"]["pfc_storm_stop"] = os.path.join(ANSIBLE_ROOT, "roles/test/templates/pfc_storm_stop_mlnx.j2")
-    elif "arista" in fanout_graph_facts["device_info"]["HwSku"].lower():
+    elif "arista" in fanout_graph_facts[fanout_host_name]["device_info"]["HwSku"].lower():
         res["template"]["pfc_storm_start"] = os.path.join(ANSIBLE_ROOT, "roles/test/templates/pfc_storm_arista.j2")
         res["template"]["pfc_storm_stop"] = os.path.join(ANSIBLE_ROOT, "roles/test/templates/pfc_storm_stop_arista.j2")
     else:
@@ -99,23 +109,26 @@ def pfc_storm_runner(fanouthosts, fanout_graph_facts, pfc_storm_template, setup)
         def run(self):
             params["pfc_fanout_interface"] = ""
             if self.server_ports:
-                params["pfc_fanout_interface"] += ",".join([key for key, value in fanout_graph_facts["device_conn"].items() if value["peerport"] in self.used_server_ports])
+                params["pfc_fanout_interface"] += ",".join([key for key, value in fanout_graph_facts[fanout_host_name]["device_conn"].items() if value["peerport"] in self.used_server_ports])
             if self.non_server_port:
                 if params["pfc_fanout_interface"]:
                     params["pfc_fanout_interface"] += ","
-                params["pfc_fanout_interface"] += ",".join([key for key, value in fanout_graph_facts["device_conn"].items() if value["peerport"] in self.used_non_server_port])
-            fanout_host.exec_template(ansible_root=ANSIBLE_ROOT, ansible_playbook=RUN_PLAYBOOK, **params)
+                params["pfc_fanout_interface"] += ",".join([key for key, value in fanout_graph_facts[fanout_host_name]["device_conn"].items() if value["peerport"] in self.used_non_server_port])
+            fanout_host.exec_template(ansible_root=ANSIBLE_ROOT, ansible_playbook=RUN_PLAYBOOK, inventory=setup["fanout_inventory"], \
+                **params)
             time.sleep(5)
+    fanout_host_name = get_fanout(fanout_graph_facts, setup)
     for host_name, fanout_host in fanouthosts.items():
-        if fanout_host.type == "FanoutLeaf":
+        if host_name == fanout_host_name:
             break
     params = pfc_storm_template["template_params"].copy()
-    params["peer_hwsku"] = str(fanout_graph_facts["device_info"]["HwSku"])
+    params["peer_hwsku"] = str(fanout_graph_facts[fanout_host_name]["device_info"]["HwSku"])
     params["template_path"] = pfc_storm_template["template"]["pfc_storm_start"]
 
     yield StormRunner()
     params["template_path"] = pfc_storm_template["template"]["pfc_storm_stop"]
-    fanout_host.exec_template(ansible_root=ANSIBLE_ROOT, ansible_playbook=RUN_PLAYBOOK, **params)
+    fanout_host.exec_template(ansible_root=ANSIBLE_ROOT, ansible_playbook=RUN_PLAYBOOK, inventory=setup["fanout_inventory"], \
+        **params)
     time.sleep(5)
 
 
@@ -210,7 +223,8 @@ def setup(testbed, duthost, ptfhost, ansible_facts, minigraph_facts, request):
             "lossless_priorities": None,
             "lossy_priorities": None
             },
-        "server_ports_oids": []
+        "server_ports_oids": [],
+        "fanout_inventory": request.config.getoption("--fanout_inventory")
     }
 
     server_ports_num = request.config.getoption("--server_ports_num")
