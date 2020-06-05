@@ -123,135 +123,128 @@
     when: local_minigraph is defined and local_minigraph|bool == true
 
   - block:
-       - name: Init telemetry keys
-         set_fact:
-            server_key: ""
-            server_csr: ""
-            server_cer: ""
-            dsmsroot_key: ""
-            dsmsroot_csr: ""
-            dsmsroot_cer: ""
-            dir_path: ""
+    - name: Init telemetry keys
+      set_fact:
+        server_key: ""
+        server_csr: ""
+        server_cer: ""
+        dsmsroot_key: ""
+        dsmsroot_csr: ""
+        dsmsroot_cer: ""
+        dir_path: ""
 
-       - name: read server key
-         set_fact:
-            server_key: "{{ telemetry_certs['server_key'] }}"
-         when: telemetry_certs['server_key'] is defined
+    - name: read server key
+      set_fact:
+        server_key: "{{ telemetry_certs['server_key'] }}"
+      when: telemetry_certs['server_key'] is defined
 
-       - name: read server csr
-         set_fact:
-            server_csr: "{{ telemetry_certs['server_csr'] }}"
-         when: telemetry_certs['server_csr'] is defined
+    - name: read server csr
+      set_fact:
+        server_csr: "{{ telemetry_certs['server_csr'] }}"
+      when: telemetry_certs['server_csr'] is defined
 
-       - name: read server cer
-         set_fact:
-            server_cer: "{{ telemetry_certs['server_cer'] }}"
-          when: telemetry_certs['server_cer'] is defined
+    - name: read server cer
+      set_fact:
+        server_cer: "{{ telemetry_certs['server_cer'] }}"
+      when: telemetry_certs['server_cer'] is defined
 
-       - name: read dsmsroot key
-         set_fact:
-            dsmsroot_key: "{{ telemetry_certs['dsmsroot_key'] }}"
-         when: telemetry_certs['dsmsroot_key'] is defined
+    - name: read dsmsroot key
+      set_fact:
+        dsmsroot_key: "{{ telemetry_certs['dsmsroot_key'] }}"
+      when: telemetry_certs['dsmsroot_key'] is defined
 
-       - name: read dsmsroot csr
-         set_fact:
-            dsmsroot_csr: "{{ telemetry_certs['dsmsroot_csr'] }}"
-         when: telemetry_certs['dsmsroot_csr'] is defined
+    - name: read dsmsroot csr
+      set_fact:
+        dsmsroot_csr: "{{ telemetry_certs['dsmsroot_csr'] }}"
+      when: telemetry_certs['dsmsroot_csr'] is defined
 
-       - name: read dsmsroot cer
-         set_fact:
-            dsmsroot_cer: "{{ telemetry_certs['dsmsroot_cer'] }}"
-         when: telemetry_certs['dsmsroot_cer'] is defined
+    - name: read dsmsroot cer
+      set_fact:
+        dsmsroot_cer: "{{ telemetry_certs['dsmsroot_cer'] }}"
+      when: telemetry_certs['dsmsroot_cer'] is defined
 
-       - name: read directory path
-         set_fact:
-             dir_path: "{{ telemetry_certs['dir_path'] }}"
-         when: telemetry_certs['dir_path'] is defined
+    - name: read directory path
+      set_fact:
+        dir_path: "{{ telemetry_certs['dir_path'] }}"
+      when: telemetry_certs['dir_path'] is defined
 
-       - name: Create telemetry directory
-         file:
-           path: "{{ dir_path }}"
-           state: directory
-           mode: '0755'
-         become: true
-         delegate_to: localhost
+    - name: Create telemetry directory
+      file:
+        path: "{{ dir_path }}"
+        state: directory
+        mode: '0755'
+      become: true
 
-       - name: Create telemetry server private key
-         openssl_privatekey:
-            path: "{{ server_key }}"
-            size: 2048
-            mode: '0755'
-         become: true
-         delegate_to: localhost
+    - name: Create telemetry server private key
+      openssl_privatekey:
+        path: "{{ server_key }}"
+        size: 2048
+        mode: '0755'
+      become: true
 
-       - name: create telemetry server csr
-         openssl_csr:
-            path: "{{ telemetry_certs['server_csr'] }}"
-            privatekey_path: "{{ server_key }}"
-         become: true
-         delegate_to: localhost
+    - name: create telemetry server csr
+      openssl_csr:
+        path: "{{ telemetry_certs['server_csr'] }}"
+        privatekey_path: "{{ server_key }}"
+      become: true
 
-       - name: Generate a Self Signed OpenSSL telemetry server certificate
-         openssl_certificate:
-             path: "{{ server_cer }}"
-             privatekey_path: "{{ server_key }}"
-             csr_path: "{{ server_csr }}"
-             subject:
-                commonName: ndastreamingservertest
-             provider: selfsigned
-         become: true
-         delegate_to: localhost
+    - name: Generate a Self Signed OpenSSL telemetry server certificate
+      openssl_certificate:
+        path: "{{ server_cer }}"
+        privatekey_path: "{{ server_key }}"
+        csr_path: "{{ server_csr }}"
+        subject:
+          commonName: ndastreamingservertest
+        provider: selfsigned
+      become: true
 
-       - name: Create telemetry dsmsroot private key
-         openssl_privatekey:
-             path: "{{ dsmsroot_key }}"
-             size: 2048
-             mode: '0755'
-         become: true
-         delegate_to: localhost
+    - name: Create telemetry dsmsroot private key
+      openssl_privatekey:
+        path: "{{ dsmsroot_key }}"
+        size: 2048
+        mode: '0755'
+      become: true
 
-       - name: create telemetry dsmsroot csr
-         openssl_csr:
-             path: "{{ dsmsroot_csr }}"
-             privatekey_path: "{{ dsmsroot_key }}"
-         become: true
-         delegate_to: localhost
+    - name: create telemetry dsmsroot csr
+      openssl_csr:
+        path: "{{ dsmsroot_csr }}"
+        privatekey_path: "{{ dsmsroot_key }}"
+      become: true
 
-       - name: Generate a Self Signed OpenSSL telemetry dsmsroot certificate
-         openssl_certificate:
-              path: "{{ dsmsroot_cer }}"
-              privatekey_path: "{{ dsmsroot_key }} "
-              csr_path: "{{ dsmsroot_csr }} "
-              subject:
-                 commonName: ndastreamingclienttest
-              provider: selfsigned
-         become: true
-         delegate_to: localhost
+    - name: Generate a Self Signed OpenSSL telemetry dsmsroot certificate
+      openssl_certificate:
+        path: "{{ dsmsroot_cer }}"
+        privatekey_path: "{{ dsmsroot_key }}"
+        csr_path: "{{ dsmsroot_csr }}"
+        subject:
+          commonName: ndastreamingclienttest
+        provider: selfsigned
+      become: true
 
-       - name: Creates telemetry directory
-         file:
-           path: "{{ dir_path }}"
-           state: directory
-           mode: '0755'
-         become: true
+    - name: Creates telemetry directory
+      file:
+        path: "{{ dir_path }}"
+        state: directory
+        mode: '0755'
+      become: true
 
-        - name: copy server_key from local to remote
-          copy:
-            src: "{{ server_key }}"
-            dest: "{{ server_key }}"
-          become: yes
+    - name: copy server_key from local to remote
+      copy:
+        src: "{{ server_key }}"
+        dest: "{{ server_key }}"
+      become: yes
 
-        - name: copy server_cer from local to remote
-          copy:
-            src: "{{ server_cer }}"
-            dest: "{{ server_cer }}"
-          become: yes
+    - name: copy server_cer from local to remote
+      copy:
+        src: "{{ server_cer }}"
+        dest: "{{ server_cer }}"
+      become: yes
 
-        - name: copy dsmsroot_key from local to remote
-          copy:
-            src: "{{ dsmsroot_key }}"
-            dest: "{{ dsmsroot_key }}"
-          become: yes
+    - name: copy dsmsroot_key from local to remote
+      copy:
+        src: "{{ dsmsroot_key }}"
+        dest: "{{ dsmsroot_key }}"
+      become: yes
 
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)
@@ -272,7 +265,7 @@
 
       - name: debug print stat_result
         debug:
-            msg: Stat result is {{ stat_result }}
+          msg: Stat result is {{ stat_result }}
 
       - name: Copy corresponding configlet files if exist
         copy: src=vars/configlet/{{ topo }}/
