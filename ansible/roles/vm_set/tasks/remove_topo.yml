@@ -1,3 +1,8 @@
+- name: Set default value for vlan_base
+  set_fact:
+    vlan_base: 0
+  when: vlan_base is not defined
+
 - name: Set front panel/mgmt port for dut
   include_tasks: set_dut_port.yml
 
@@ -20,6 +25,7 @@
   vlan_port:
     external_port: "{{ external_port }}"
     vlan_ids: "{{ device_vlan_list }}"
+    vlan_base: "{{ vlan_base }}"
     cmd: "remove"
   become: yes
   when: external_port is defined

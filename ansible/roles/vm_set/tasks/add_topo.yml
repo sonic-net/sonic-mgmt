@@ -35,6 +35,11 @@
   command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.conf.all.disable_ipv6=0
   become: yes
 
+- name: Set default value for vlan_base
+  set_fact:
+    vlan_base: 0
+  when: vlan_base is not defined
+
 - name: Set front panel/mgmt port for dut
   include_tasks: set_dut_port.yml
 
@@ -42,6 +47,7 @@
   vlan_port:
     external_port: "{{ external_port }}"
     vlan_ids: "{{ device_vlan_list }}"
+    vlan_base: "{{ vlan_base }}"
     cmd: "create"
   become: yes
   when: external_port is defined

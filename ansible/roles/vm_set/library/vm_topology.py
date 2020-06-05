@@ -363,7 +363,7 @@ class VMTopology(object):
                 injected_iface = INJECTED_INTERFACES_TEMPLATE % (self.vm_set_name, vlan)
                 br_name = OVS_FP_BRIDGE_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
                 vm_iface = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
-                self.bind_ovs_ports(br_name, self.dut_fp_ports[vlan], injected_iface, vm_iface, disconnect_vm)
+                self.bind_ovs_ports(br_name,  self.dut_fp_ports[str(vlan)], injected_iface, vm_iface, disconnect_vm)
 
         return
 
@@ -471,7 +471,7 @@ class VMTopology(object):
         """inject dut port into the ptf docker"""
         self.update()
         for vlan in self.host_interfaces:
-            self.add_dut_if_to_docker(PTF_FP_IFACE_TEMPLATE % vlan, self.dut_fp_ports[vlan])
+            self.add_dut_if_to_docker(PTF_FP_IFACE_TEMPLATE % vlan,  self.dut_fp_ports[str(vlan)])
 
         return
 
@@ -479,7 +479,7 @@ class VMTopology(object):
         """deject dut port from the ptf docker"""
         self.update()
         for vlan in self.host_interfaces:
-            self.remove_dut_if_from_docker(PTF_FP_IFACE_TEMPLATE % vlan, self.dut_fp_ports[vlan])
+            self.remove_dut_if_from_docker(PTF_FP_IFACE_TEMPLATE % vlan,  self.dut_fp_ports[str(vlan)])
 
     @staticmethod
     def iface_up(iface_name, pid=None):
@@ -676,7 +676,7 @@ def main():
             ptf_bp_ip_addr=dict(required=False, type='str'),
             ptf_bp_ipv6_addr=dict(required=False, type='str'),
             mgmt_bridge=dict(required=False, type='str'),
-            dut_fp_ports=dict(required=False, type='list'),
+            dut_fp_ports=dict(required=False, type='dict'),
             dut_mgmt_port=dict(required=False, type='str'),
             fp_mtu=dict(required=False, type='int', default=DEFAULT_MTU),
             max_fp_num=dict(required=False, type='int', default=NUM_FP_VLANS_PER_FP),

@@ -123,6 +123,7 @@ def main():
         cmd=dict(required=True, choices=['create', 'remove', 'list']),
         external_port = dict(required=True, type='str'),
         vlan_ids=dict(required=True, type='list'),
+        vlan_base=dict(type='int', default=0)
     ))
 
     cmd = module.params['cmd']
@@ -130,7 +131,7 @@ def main():
     vlan_ids = module.params['vlan_ids']
     vlan_ids.sort()
 
-    fp_ports = []
+    fp_ports = {}
 
     vp = VlanPort(external_port, vlan_ids)
 
@@ -141,7 +142,7 @@ def main():
         vp.remove_vlan_ports()
 
     for vlan_id in vlan_ids:
-        fp_ports.append("%s.%d" % (external_port, vlan_id))
+        fp_ports[vlan_id - module.params['vlan_base']] = "%s.%d" % (external_port, vlan_id)
 
     module.exit_json(changed=False, ansible_facts={'dut_fp_ports': fp_ports})
 

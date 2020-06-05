@@ -2,6 +2,7 @@
   vlan_port:
     external_port: "{{ external_port }}"
     vlan_ids: "{{ device_vlan_list }}"
+    vlan_base: "{{ vlan_base }}"
     cmd: "list"
   become: yes
   when: external_port is defined
