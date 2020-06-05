@@ -1,3 +1,4 @@
+import ipaddress
 import pytest
 import time
 
@@ -96,8 +97,21 @@ def dut_dhcp_relay_data(duthost, ptfhost, testbed):
 
     return dhcp_relay_data_list
 
+@pytest.fixture(scope="module")
+def validate_dut_routes_exist(duthost, dut_dhcp_relay_data):
+    """Fixture to valid a route to each DHCP server exist
+    """
+    dhcp_servers = set()
+    for dhcp_relay in dut_dhcp_relay_data:
+        dhcp_servers |= set(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
 
-def test_dhcp_relay_default(duthost, ptfhost, dut_dhcp_relay_data):
+    for dhcp_server in dhcp_servers:
+        rtInfo = duthost.get_ip_route_info(ipaddress.ip_address(dhcp_server))
+        assert len(rtInfo["nexthops"]) > 0, \
+            "Failed to find route to DHCP server '{0}' with error '{1}".format(dhcp_server, result["stderr"])
+
+
+def test_dhcp_relay_default(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
     """Test DHCP relay functionality on T0 topology.
 
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
@@ -120,7 +134,7 @@ def test_dhcp_relay_default(duthost, ptfhost, dut_dhcp_relay_data):
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
 
 
-def test_dhcp_relay_after_link_flap(duthost, ptfhost, dut_dhcp_relay_data):
+def test_dhcp_relay_after_link_flap(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
     """Test DHCP relay functionality on T0 topology after uplinks flap
 
        For each DHCP relay agent running on the DuT, with relay agent running, flap the uplinks,
@@ -158,7 +172,7 @@ def test_dhcp_relay_after_link_flap(duthost, ptfhost, dut_dhcp_relay_data):
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
 
 
-def test_dhcp_relay_start_with_uplinks_down(duthost, ptfhost, dut_dhcp_relay_data):
+def test_dhcp_relay_start_with_uplinks_down(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
     """Test DHCP relay functionality on T0 topology when relay agent starts with uplinks down
 
        For each DHCP relay agent running on the DuT, bring the uplinks down, then restart the
