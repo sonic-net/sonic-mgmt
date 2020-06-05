@@ -25,12 +25,13 @@ class AdvancedReboot:
     inboot/preboot list. The class transfers number of configuration files to the dut/ptf in preparation for reboot test.
     Test cases can trigger test start utilizing runRebootTestcase API.
     '''
-    def __init__(self, request, duthost, testbed_devices, testbed, **kwargs):
+    def __init__(self, request, duthost, ptfhost, localhost, testbed, **kwargs):
         '''
         Class contructor.
         @param request: pytest request object
         @param duthost: AnsibleHost instance of DUT
-        @param testbed_devices: fixture provides information about testbed devices
+        @param ptfhost: PTFHost for interacting with PTF through ansible
+        @param localhost: Localhost for interacting with localhost through ansible
         @param testbed: fixture provides information about testbed
         @param kwargs: extra parameters including reboot type
         '''
@@ -40,8 +41,8 @@ class AdvancedReboot:
 
         self.request = request
         self.duthost = duthost
-        self.ptfhost = testbed_devices['ptf']
-        self.localhost = testbed_devices['localhost']
+        self.ptfhost = ptfhost
+        self.localhost = localhost
         self.testbed = testbed
         self.__dict__.update(kwargs)
         self.__extractTestParam()
@@ -120,8 +121,9 @@ class AdvancedReboot:
         self.rebootData['vlan_ip_range'] = self.mgFacts['minigraph_vlan_interfaces'][0]['subnet']
         self.rebootData['dut_vlan_ip'] = self.mgFacts['minigraph_vlan_interfaces'][0]['addr']
 
-        invetory = self.duthost.host.options['inventory'].split('/')[-1]
-        secrets = self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname]['secret_group_vars']
+        hostVars = self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname]
+        invetory = hostVars['inventory_file'].split('/')[-1]
+        secrets = hostVars['secret_group_vars']
         self.rebootData['dut_username'] = secrets[invetory]['sonicadmin_user']
         self.rebootData['dut_password'] = secrets[invetory]['sonicadmin_password']
 
@@ -454,7 +456,7 @@ class AdvancedReboot:
         if currentImage != self.currentImage:
             logger.info('Restore current image')
             self.duthost.shell('sonic_installer set_default {0}'.format(self.currentImage))
-    
+
             rebootDut(
                 self.duthost,
                 self.localhost,
@@ -480,12 +482,13 @@ class AdvancedReboot:
             self.__restorePrevImage()
 
 @pytest.fixture
-def get_advanced_reboot(request, duthost, testbed_devices, testbed):
+def get_advanced_reboot(request, duthost, ptfhost, localhost, testbed):
     '''
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
         @param duthost: AnsibleHost instance of DUT
-        @param testbed_devices: fixture provides information about testbed devices
+        @param ptfhost: PTFHost for interacting with PTF through ansible
+        @param localhost: Localhost for interacting with localhost through ansible
         @param testbed: fixture provides information about testbed
     '''
     instances = []
@@ -495,7 +498,7 @@ def get_advanced_reboot(request, duthost, testbed_devices, testbed):
         API that returns instances of AdvancedReboot class
         '''
         assert len(instances) == 0, "Only one instance of reboot data is allowed"
-        advancedReboot = AdvancedReboot(request, duthost, testbed_devices, testbed, **kwargs)
+        advancedReboot = AdvancedReboot(request, duthost, ptfhost, localhost, testbed, **kwargs)
         instances.append(advancedReboot)
         return advancedReboot
 

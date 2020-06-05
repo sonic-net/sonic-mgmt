@@ -7,6 +7,7 @@ import logging
 import time
 import string
 import re
+import getpass
 
 import pytest
 import csv
@@ -14,7 +15,7 @@ import yaml
 import ipaddr as ipaddress
 
 from collections import defaultdict
-from common.fixtures.conn_graph_facts import conn_graph_facts
+from common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
 from common.devices import SonicHost, Localhost, PTFHost, EosHost, FanoutHost
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,8 @@ pytest_plugins = ('common.plugins.ptfadapter',
                   'common.plugins.tacacs',
                   'common.plugins.loganalyzer',
                   'common.plugins.psu_controller',
-                  'common.plugins.sanity_check')
+                  'common.plugins.sanity_check',
+                  'common.plugins.custom_markers')
 
 
 class TestbedInfo(object):
@@ -125,6 +127,28 @@ def enhance_inventory(request):
         setattr(request.config.option, "ansible_inventory", inv_files)
     except AttributeError:
         logger.error("Failed to set enhanced 'ansible_inventory' to request.config.option")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def config_logging(request):
+
+    # Filter out unnecessary pytest_ansible plugin log messages
+    pytest_ansible_logger = logging.getLogger("pytest_ansible")
+    if pytest_ansible_logger:
+        pytest_ansible_logger.setLevel(logging.WARNING)
+
+    # Filter out unnecessary ansible log messages (ansible v2.8)
+    # The logger name of ansible v2.8 is nasty
+    mypid = str(os.getpid())
+    user = getpass.getuser()
+    ansible_loggerv28 = logging.getLogger("p=%s u=%s | " % (mypid, user))
+    if ansible_loggerv28:
+        ansible_loggerv28.setLevel(logging.WARNING)
+
+    # Filter out unnecessary ansible log messages (latest ansible)
+    ansible_logger = logging.getLogger("ansible")
+    if ansible_logger:
+        ansible_logger.setLevel(logging.WARNING)
 
 
 @pytest.fixture(scope="session")
@@ -243,7 +267,13 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
             else:
                 host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_host).vars
                 os_type = 'eos' if 'os' not in host_vars else host_vars['os']
-                fanout  = FanoutHost(ansible_adhoc, os_type, fanout_host, 'FanoutLeaf', creds['fanout_admin_user'], creds['fanout_admin_password'])
+                if os_type == "eos":
+                    user = creds['fanout_admin_user']
+                    pswd = creds['fanout_admin_password']
+                elif os_type == "onyx":
+                    user = creds["fanout_mlnx_user"]
+                    pswd = creds["fanout_mlnx_password"]
+                fanout  = FanoutHost(ansible_adhoc, os_type, fanout_host, 'FanoutLeaf', user, pswd)
                 fanout_hosts[fanout_host] = fanout
             fanout.add_port_map(dut_port, fanout_port)
     except:
@@ -262,6 +292,7 @@ def eos():
 def creds(duthost):
     """ read credential information according to the dut inventory """
     groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
+    groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
     files = glob.glob("../ansible/group_vars/all/*.yml")
     for group in groups:
@@ -279,6 +310,10 @@ def creds(duthost):
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
+
+    # Filter out unnecessary logs captured on "stdout" and "stderr"
+    item._report_sections = filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections)
+
     # execute all other hooks to obtain the report object
     outcome = yield
     rep = outcome.get_result()

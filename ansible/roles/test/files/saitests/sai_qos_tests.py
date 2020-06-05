@@ -122,6 +122,24 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         send_packet(self, self.dst_port_3_id, arpreq_pkt)
         time.sleep(8)
 
+
+class ARPpopulatePTF(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        ## ARP Populate
+        index = 0
+        for port in ptf_ports():
+            arpreq_pkt = simple_arp_packet(
+                          eth_dst='ff:ff:ff:ff:ff:ff',
+                          eth_src=self.dataplane.get_mac(port[0],port[1]),
+                          arp_op=1,
+                          ip_snd='10.0.0.%d' % (index * 2 + 1),
+                          ip_tgt='10.0.0.%d' % (index * 2),
+                          hw_snd=self.dataplane.get_mac(port[0], port[1]),
+                          hw_tgt='ff:ff:ff:ff:ff:ff')
+            send_packet(self, port[1], arpreq_pkt)
+            index += 1
+
+
 class ReleaseAllPorts(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)
@@ -1268,6 +1286,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         queue_num_of_pkts[48] = queue_6_num_of_pkts
         total_pkts = 0
 
+        diff_list = []
+
         for pkt_to_inspect in pkts:
             dscp_of_pkt = pkt_to_inspect.payload.tos >> 2
             total_pkts += 1
@@ -1276,9 +1296,15 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 
             queue_pkt_counters[dscp_of_pkt] += 1
             if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
-                 assert((queue_0_num_of_pkts + queue_1_num_of_pkts + queue_2_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts + queue_5_num_of_pkts + queue_6_num_of_pkts) - total_pkts < limit)
+                 diff_list.append((dscp_of_pkt, (queue_0_num_of_pkts + queue_1_num_of_pkts + queue_2_num_of_pkts + queue_3_num_of_pkts + queue_4_num_of_pkts + queue_5_num_of_pkts + queue_6_num_of_pkts) - total_pkts))
 
             print >> sys.stderr, queue_pkt_counters
+
+        print >> sys.stderr, "Difference for each dscp: "
+        print >> sys.stderr, diff_list
+
+        for dscp, diff in diff_list:
+            assert diff < limit, "Difference for %d is %d which exceeds limit %d" % (dscp, diff, limit)
 
         # Read counters
         print "DST port counters: "
@@ -1394,12 +1420,17 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_fill_min = int(self.test_params['pkts_num_fill_min'])
         pkts_num_fill_shared = int(self.test_params['pkts_num_fill_shared'])
         cell_size = int(self.test_params['cell_size'])
+        if 'packet_size' in self.test_params.keys():
+            default_packet_length = int(self.test_params['packet_size'])
+        else:
+            default_packet_length = 64
+
+        cell_occupancy = (default_packet_length + cell_size - 1) / cell_size
 
         # Prepare TCP packet data
         tos = dscp << 2
         tos |= ecn
         ttl = 64
-        default_packet_length = 64
         pkt = simple_tcp_packet(pktlen=default_packet_length,
                                 eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                 eth_src=src_port_mac,
@@ -1438,13 +1469,16 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # first round sends only 1 packet
             expected_wm = 0
             total_shared = pkts_num_fill_shared - pkts_num_fill_min
-            pkts_inc = total_shared >> 2
+            pkts_inc = (total_shared / cell_occupancy) >> 2
             pkts_num = 1 + margin
-            while (expected_wm < total_shared):
-                expected_wm += pkts_num
+            fragment = 0
+            while (expected_wm < total_shared - fragment):
+                expected_wm += pkts_num * cell_occupancy
                 if (expected_wm > total_shared):
-                    pkts_num -= (expected_wm - total_shared)
-                    expected_wm = total_shared
+                    diff = (expected_wm - total_shared + cell_occupancy - 1) / cell_occupancy
+                    pkts_num -= diff
+                    expected_wm -= diff * cell_occupancy
+                    fragment = total_shared - expected_wm
                 print >> sys.stderr, "pkts num to send: %d, total pkts: %d, pg shared: %d" % (pkts_num, expected_wm, total_shared)
 
                 send_packet(self, src_port_id, pkt, pkts_num)
@@ -1460,10 +1494,11 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             send_packet(self, src_port_id, pkt, pkts_num)
             time.sleep(8)
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[src_port_id])
-            print >> sys.stderr, "exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (pkts_num, (expected_wm * cell_size), pg_shared_wm_res[pg])
-            assert(expected_wm == total_shared)
+            print >> sys.stderr, "exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (pkts_num, ((expected_wm + cell_occupancy) * cell_size), pg_shared_wm_res[pg])
+#            assert(expected_wm == total_shared)
+            assert(fragment < cell_occupancy)
             assert(expected_wm * cell_size <= pg_shared_wm_res[pg])
-            assert(pg_shared_wm_res[pg] <= (expected_wm + margin) * cell_size)
+            assert(pg_shared_wm_res[pg] <= (expected_wm + margin + cell_occupancy) * cell_size)
 
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])

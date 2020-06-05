@@ -650,6 +650,7 @@ class EosHost(AnsibleHostBase):
 class OnyxHost(AnsibleHostBase):
     """
     @summary: Class for ONYX switch
+
     For running ansible module on the ONYX switch
     """
 

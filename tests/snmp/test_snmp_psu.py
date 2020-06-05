@@ -3,12 +3,11 @@ import pytest
 PSU_STATUS_OK = 2
 
 @pytest.mark.bsl
-def test_snmp_numpsu(duthost, testbed_devices, creds):
+def test_snmp_numpsu(duthost, localhost, creds):
 
-    lhost = testbed_devices['localhost']
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
-    snmp_facts = lhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
     res = duthost.shell("psuutil numpsus")
     assert int(res[u'rc']) == 0, "Failed to get number of PSUs"
 
@@ -17,12 +16,11 @@ def test_snmp_numpsu(duthost, testbed_devices, creds):
 
 
 @pytest.mark.bsl
-def test_snmp_psu_status(duthost, testbed_devices, creds):
+def test_snmp_psu_status(duthost, localhost, creds):
 
-    lhost = testbed_devices['localhost']
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
-    snmp_facts = lhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
 
     for k, v in snmp_facts['snmp_psu'].items():
         if int(v['operstatus']) != PSU_STATUS_OK:

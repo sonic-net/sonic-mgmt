@@ -734,6 +734,12 @@ class ReloadTest(BaseTest):
                 from_port = src_port
             self.packets_list.append((from_port, str(packet)))
 
+    def put_nowait(self, queue, data):
+        try:
+            queue.put_nowait(data)
+        except Queue.Full:
+            pass
+
     def runTest(self):
         self.reboot_start = None
         no_routing_start = None
@@ -744,7 +750,7 @@ class ReloadTest(BaseTest):
 
         self.ssh_jobs = []
         for addr in self.ssh_targets:
-            q = Queue.Queue()
+            q = Queue.Queue(1)
             thr = threading.Thread(target=self.peer_state_check, kwargs={'ip': addr, 'queue': q})
             thr.setDaemon(True)
             self.ssh_jobs.append((thr, q))
@@ -859,8 +865,6 @@ class ReloadTest(BaseTest):
 
             def wait_for_ssh_threads():
                 while any(thr.is_alive() for thr, _ in self.ssh_jobs):
-                    for _, q in self.ssh_jobs:
-                        q.put('go')
                     time.sleep(self.TIMEOUT)
 
                 for thr, _ in self.ssh_jobs:
@@ -1040,7 +1044,7 @@ class ReloadTest(BaseTest):
     def wait_until_cpu_port_down(self):
         while True:
             for _, q in self.ssh_jobs:
-                q.put('go')
+                self.put_nowait(q, 'cpu_down')
             if self.cpu_state.get() == 'down':
                 break
             time.sleep(self.TIMEOUT)
@@ -1048,7 +1052,7 @@ class ReloadTest(BaseTest):
     def wait_until_cpu_port_up(self):
         while True:
             for _, q in self.ssh_jobs:
-                q.put('go')
+                self.put_nowait(q, 'cpu_up')
             if self.cpu_state.get() == 'up':
                 break
             time.sleep(self.TIMEOUT)
@@ -1270,7 +1274,7 @@ class ReloadTest(BaseTest):
         while True:
             state = self.asic_state.get()
             for _, q in self.ssh_jobs:
-                q.put('go')
+                self.put_nowait(q, 'check_stop')
             if state == 'down':
                 break
             time.sleep(self.TIMEOUT)

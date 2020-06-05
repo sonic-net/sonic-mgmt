@@ -1,3 +1,4 @@
+import os
 import pytest
 from ..fanout_base import BaseFanoutHandler
 
@@ -13,11 +14,11 @@ DEL_RULE_TEMPLATE = os.path.join(os.path.dirname(__file__), "mlnx_del_of_rule.j2
 
 
 class FanoutHandler(BaseFanoutHandler):
-    def __init__(self, duthost, testbed_devices):
+    def __init__(self, duthost, localhost):
         self.initialized = False
         self.rule_id = MAX_OPENFLOW_RULE_ID
         # Ansible localhost fixture which calls ansible playbook on the local host
-        self.ansible_localhost = testbed_devices["localhost"]
+        self.ansible_localhost = localhost
 
         dut_facts = self.ansible_localhost.conn_graph_facts(host=duthost.hostname, filename=LAB_CONNECTION_GRAPH)["ansible_facts"]
         self.fanout_host = dut_facts["device_conn"]["Ethernet0"]["peerdevice"]
