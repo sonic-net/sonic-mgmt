@@ -1,3 +1,4 @@
+import ipaddress
 import pytest
 import time
 
@@ -105,8 +106,8 @@ def validate_dut_routes_exist(duthost, dut_dhcp_relay_data):
         dhcp_servers |= set(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
 
     for dhcp_server in dhcp_servers:
-        result = duthost.shell("ip route get {0}".format(dhcp_server))
-        assert result["rc"] == 0 and "{0} via".format(dhcp_server) in result["stdout"], \
+        rtInfo = duthost.get_ip_route_info(ipaddress.ip_address(dhcp_server))
+        assert len(rtInfo["nexthops"]) > 0, \
             "Failed to find route to DHCP server '{0}' with error '{1}".format(dhcp_server, result["stderr"])
 
 
