@@ -354,3 +354,28 @@ def collect_techsupport(request, duthost):
                 tar.extract(m, path="logs/{}/{}/".format(testname, duthost.hostname))
 
         logging.info("########### Collected tech support for test {} ###########".format(testname))
+
+__report_metadata_added = False
+
+@pytest.fixture(scope="module", autouse=True)
+def tag_test_report(request, pytestconfig, testbed, duthost, record_testsuite_property):
+    if not request.config.getoption("--junit-xml"):
+        return
+
+    # NOTE: This is a gnarly hack to deal with the fact that we only want to add this
+    # metadata to the test report once per session. Since the duthost fixture has
+    # module scope we can't give this fixture session scope.
+    global __report_metadata_added
+    if not __report_metadata_added:
+        # Test run information
+        record_testsuite_property("topology", testbed['topo']['name'])
+        record_testsuite_property("markers", pytestconfig.getoption("-m"))
+
+        # Device information
+        record_testsuite_property("host", duthost.hostname)
+        record_testsuite_property("asic", duthost.facts["asic_type"])
+        record_testsuite_property("platform", duthost.facts["platform"])
+        record_testsuite_property("hwsku", duthost.facts["hwsku"])
+        record_testsuite_property("os_version", duthost.os_version)
+
+        __report_metadata_added = True
