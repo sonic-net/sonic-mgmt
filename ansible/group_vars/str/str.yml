@@ -30,6 +30,13 @@ tacacs_servers: ['100.127.20.21']
 #'TacacsGroup' in minigraph
 tacacs_group: 'Starlab'
 
+# tacacs facts required for pytest
+tacacs_passkey: testing123
+tacacs_rw_user: test_rwuser
+tacacs_rw_user_passwd: '123456'
+tacacs_ro_user: test_rouser
+tacacs_ro_user_passwd: '123456'
+
 #'SnmpResources in minigraph
 snmp_servers: ['10.3.145.98']
 
