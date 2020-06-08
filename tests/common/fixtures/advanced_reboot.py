@@ -129,7 +129,9 @@ class AdvancedReboot:
 
         prefixLen = 18
         testNetwork = ipaddress.ip_address(self.mgFacts['minigraph_vlan_interfaces'][0]['addr']) + (1 << (32 - prefixLen))
-        self.rebootData['default_ip_range'] = str(testNetwork) + '/{0}'.format(prefixLen)
+        self.rebootData['default_ip_range'] = str(
+            ipaddress.ip_interface(unicode(str(testNetwork) + '/{0}'.format(prefixLen))).network
+        )
         for intf in self.mgFacts['minigraph_lo_interfaces']:
             if ipaddress.ip_interface(intf['addr']).ip.version == 6:
                 self.rebootData['lo_v6_prefix'] = str(ipaddress.ip_interface(intf['addr'] + '/64').network)
