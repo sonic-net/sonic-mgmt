@@ -141,9 +141,14 @@ def main():
     elif cmd == "remove":
         vp.remove_vlan_ports()
 
+    cur_fp_idx = 0        
     for vlan_id in vlan_ids:
+      if 'vlan_base' in module.params and module.params['vlan_base'] != 0:        
         fp_ports[vlan_id - module.params['vlan_base']] = "%s.%d" % (external_port, vlan_id)
-
+      else:
+        fp_ports[cur_fp_idx] =  "%s.%d" % (external_port, vlan_id)
+        cur_fp_idx = cur_fp_idx + 1
+        
     module.exit_json(changed=False, ansible_facts={'dut_fp_ports': fp_ports})
 
 if __name__ == "__main__":
