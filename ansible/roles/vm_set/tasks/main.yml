@@ -127,6 +127,7 @@
         split: ":"
     - set_fact:
         home_path: "{{ getent_passwd[ansible_user][4] }}"
+      when: home_path is not defined
     - debug: msg="{{ home_path }}"
 
 - name: Ensure {{ root_path }} exists
@@ -171,7 +172,7 @@
 
 - name: Limit VM
   set_fact: VM_hosts="{{ VM_hosts | first_n_elements(VM_num) }}"
-  when: VM_num is defined and VM_num > 0
+  when: VM_num is defined and VM_num|int > 0
 
 - name: Generate vm list of target VMs
   set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}

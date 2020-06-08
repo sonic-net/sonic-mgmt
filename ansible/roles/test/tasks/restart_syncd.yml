@@ -15,7 +15,7 @@
     seconds: 10
 
 - name: Look for syncd process
-  shell: pgrep "\<syncd\>" -a
+  shell: pgrep syncd -a -x
   register: syncd_out
   ignore_errors: yes
 

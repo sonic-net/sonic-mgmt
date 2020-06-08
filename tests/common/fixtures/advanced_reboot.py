@@ -121,8 +121,9 @@ class AdvancedReboot:
         self.rebootData['vlan_ip_range'] = self.mgFacts['minigraph_vlan_interfaces'][0]['subnet']
         self.rebootData['dut_vlan_ip'] = self.mgFacts['minigraph_vlan_interfaces'][0]['addr']
 
-        invetory = self.duthost.host.options['inventory'].split('/')[-1]
-        secrets = self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname]['secret_group_vars']
+        hostVars = self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname]
+        invetory = hostVars['inventory_file'].split('/')[-1]
+        secrets = hostVars['secret_group_vars']
         self.rebootData['dut_username'] = secrets[invetory]['sonicadmin_user']
         self.rebootData['dut_password'] = secrets[invetory]['sonicadmin_password']
 

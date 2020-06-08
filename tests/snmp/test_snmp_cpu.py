@@ -1,6 +1,8 @@
 import pytest
 import time
+import logging
 
+logger = logging.getLogger(__name__)
 
 @pytest.mark.bsl
 def test_snmp_cpu(duthost, localhost, creds):
@@ -17,7 +19,13 @@ def test_snmp_cpu(duthost, localhost, creds):
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     host_facts = duthost.setup()['ansible_facts']
-    host_vcpus = int(host_facts['ansible_processor_vcpus'])
+    if host_facts.has_key("ansible_processor_vcpus"):
+        host_vcpus = int(host_facts['ansible_processor_vcpus'])
+    else:
+        res = duthost.shell("nproc")
+        host_vcpus = int(res['stdout'])
+
+    logger.info("found {} cpu on the dut".format(host_vcpus))
 
     # Gather facts with SNMP version 2
     snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"], is_dell=True)['ansible_facts']

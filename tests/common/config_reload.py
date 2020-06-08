@@ -24,10 +24,10 @@ def config_reload(duthost, config_source='config_db', wait=120):
     logger.info('reloading {}'.format(config_source))
 
     if config_source == 'minigraph':
-        duthost.shell('config load_minigraph -y &>/dev/null')
+        duthost.shell('config load_minigraph -y &>/dev/null', executable="/bin/bash")
         duthost.shell('config save -y')
 
     if config_source == 'config_db':
-        duthost.shell('config reload -y &>/dev/null')
+        duthost.shell('config reload -y &>/dev/null', executable="/bin/bash")
 
     time.sleep(wait)

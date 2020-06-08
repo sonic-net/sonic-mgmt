@@ -1,3 +1,10 @@
+# Adding pytest base dir to Python system path.
+# This is required in order to import from common package including pytest_plugins within this file.
+import site
+from os.path import dirname, abspath
+site.addsitedir(dirname(abspath(__file__)))
+site.addsitedir('.')
+
 import sys
 import os
 import glob
@@ -7,6 +14,7 @@ import logging
 import time
 import string
 import re
+import getpass
 
 import pytest
 import csv
@@ -14,7 +22,7 @@ import yaml
 import ipaddr as ipaddress
 
 from collections import defaultdict
-from common.fixtures.conn_graph_facts import conn_graph_facts
+from common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
 from common.devices import SonicHost, Localhost, PTFHost, EosHost, FanoutHost
 
 logger = logging.getLogger(__name__)
@@ -26,7 +34,8 @@ pytest_plugins = ('common.plugins.ptfadapter',
                   'common.plugins.tacacs',
                   'common.plugins.loganalyzer',
                   'common.plugins.psu_controller',
-                  'common.plugins.sanity_check')
+                  'common.plugins.sanity_check',
+                  'common.plugins.custom_markers')
 
 
 class TestbedInfo(object):
@@ -86,16 +95,24 @@ def pytest_addoption(parser):
     # test_vrf options
     parser.addoption("--vrf_capacity", action="store", default=None, type=int, help="vrf capacity of dut (4-1000)")
     parser.addoption("--vrf_test_count", action="store", default=None, type=int, help="number of vrf to be tested (1-997)")
+
     ############################
     # test_techsupport options #
     ############################
-
     parser.addoption("--loop_num", action="store", default=10, type=int,
                     help="Change default loop range for show techsupport command")
     parser.addoption("--loop_delay", action="store", default=10, type=int,
                     help="Change default loops delay")
     parser.addoption("--logs_since", action="store", type=int,
                     help="number of minutes for show techsupport command")
+
+    ############################
+    #   sanity_check options   #
+    ############################
+    parser.addoption("--skip_sanity", action="store_true", default=False,
+                     help="Skip sanity check")
+    parser.addoption("--allow_recover", action="store_true", default=False,
+                     help="Allow recovery attempt in sanity check in case of failure")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -118,6 +135,28 @@ def enhance_inventory(request):
         setattr(request.config.option, "ansible_inventory", inv_files)
     except AttributeError:
         logger.error("Failed to set enhanced 'ansible_inventory' to request.config.option")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def config_logging(request):
+
+    # Filter out unnecessary pytest_ansible plugin log messages
+    pytest_ansible_logger = logging.getLogger("pytest_ansible")
+    if pytest_ansible_logger:
+        pytest_ansible_logger.setLevel(logging.WARNING)
+
+    # Filter out unnecessary ansible log messages (ansible v2.8)
+    # The logger name of ansible v2.8 is nasty
+    mypid = str(os.getpid())
+    user = getpass.getuser()
+    ansible_loggerv28 = logging.getLogger("p=%s u=%s | " % (mypid, user))
+    if ansible_loggerv28:
+        ansible_loggerv28.setLevel(logging.WARNING)
+
+    # Filter out unnecessary ansible log messages (latest ansible)
+    ansible_logger = logging.getLogger("ansible")
+    if ansible_logger:
+        ansible_logger.setLevel(logging.WARNING)
 
 
 @pytest.fixture(scope="session")
@@ -175,7 +214,7 @@ def duthost(ansible_adhoc, testbed, request):
     dut_index = getattr(request.module, "dut_index", 0)
     assert dut_index < len(testbed["duts"]), "DUT index '{0}' is out of bound '{1}'".format(dut_index, len(testbed["duts"]))
 
-    duthost = SonicHost(ansible_adhoc, testbed["duts"][dut_index], gather_facts=True)
+    duthost = SonicHost(ansible_adhoc, testbed["duts"][dut_index])
     if stop_ssh_timeout is not None:
         disable_ssh_timout(duthost)
 
@@ -225,19 +264,28 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
 
     dev_conn     = conn_graph_facts['device_conn'] if 'device_conn' in conn_graph_facts else {}
     fanout_hosts = {}
-    for dut_port in dev_conn.keys():
-        fanout_rec  = dev_conn[dut_port]
-        fanout_host = fanout_rec['peerdevice']
-        fanout_port = fanout_rec['peerport']
-        if fanout_host in fanout_hosts.keys():
-            fanout  = fanout_hosts[fanout_host]
-        else:
-            host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_host).vars
-            os_type = 'eos' if 'os' not in host_vars else host_vars['os']
-            fanout  = FanoutHost(ansible_adhoc, os_type, fanout_host, 'FanoutLeaf', creds['fanout_admin_user'], creds['fanout_admin_password'])
-            fanout_hosts[fanout_host] = fanout
-        fanout.add_port_map(dut_port, fanout_port)
-
+    # WA for virtual testbed which has no fanout
+    try:
+        for dut_port in dev_conn.keys():
+            fanout_rec  = dev_conn[dut_port]
+            fanout_host = fanout_rec['peerdevice']
+            fanout_port = fanout_rec['peerport']
+            if fanout_host in fanout_hosts.keys():
+                fanout  = fanout_hosts[fanout_host]
+            else:
+                host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_host).vars
+                os_type = 'eos' if 'os' not in host_vars else host_vars['os']
+                if os_type == "eos":
+                    user = creds['fanout_admin_user']
+                    pswd = creds['fanout_admin_password']
+                elif os_type == "onyx":
+                    user = creds["fanout_mlnx_user"]
+                    pswd = creds["fanout_mlnx_password"]
+                fanout  = FanoutHost(ansible_adhoc, os_type, fanout_host, 'FanoutLeaf', user, pswd)
+                fanout_hosts[fanout_host] = fanout
+            fanout.add_port_map(dut_port, fanout_port)
+    except:
+        pass
     return fanout_hosts
 
 @pytest.fixture(scope='session')
@@ -252,6 +300,7 @@ def eos():
 def creds(duthost):
     """ read credential information according to the dut inventory """
     groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
+    groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
     files = glob.glob("../ansible/group_vars/all/*.yml")
     for group in groups:
@@ -269,6 +318,10 @@ def creds(duthost):
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
+
+    # Filter out unnecessary logs captured on "stdout" and "stderr"
+    item._report_sections = filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections)
+
     # execute all other hooks to obtain the report object
     outcome = yield
     rep = outcome.get_result()

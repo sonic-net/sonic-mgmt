@@ -130,7 +130,7 @@ def swap_syncd(dut):
     elif is_mellanox_device(dut):
         vendor_id = "mlnx"
     else:
-        error_message = "\"{}\" is not currently supported".format(dut.get_asic_type())
+        error_message = "\"{}\" is not currently supported".format(dut.facts["asic_type"])
         _LOGGER.error(error_message)
         raise ValueError(error_message)
 
@@ -176,7 +176,7 @@ def restore_default_syncd(dut):
     elif is_mellanox_device(dut):
         vendor_id = "mlnx"
     else:
-        error_message = "\"{}\" is not currently supported".format(dut.get_asic_type())
+        error_message = "\"{}\" is not currently supported".format(dut.facts["asic_type"])
         _LOGGER.error(error_message)
         raise ValueError(error_message)
 
