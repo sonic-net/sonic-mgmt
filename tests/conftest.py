@@ -97,6 +97,12 @@ def pytest_addoption(parser):
     parser.addoption("--vrf_test_count", action="store", default=None, type=int, help="number of vrf to be tested (1-997)")
 
     ############################
+    # pfc_asym options         #
+    ############################
+    parser.addoption("--server_ports_num", action="store", default=20, type=int, help="Number of server ports to use")
+    parser.addoption("--fanout_inventory", action="store", default="lab", help="Inventory with defined fanout hosts")
+
+    ############################
     # test_techsupport options #
     ############################
     parser.addoption("--loop_num", action="store", default=10, type=int,

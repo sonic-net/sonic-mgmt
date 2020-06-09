@@ -144,7 +144,7 @@ class SonicHost(AnsibleHostBase):
     def os_version(self):
         """
         The OS version running on this SONiC device.
-        
+
         Returns:
             str: The SONiC OS version (e.g. "20181130.31")
         """
