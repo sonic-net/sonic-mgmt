@@ -2,6 +2,7 @@ import json
 import logging
 import pytest
 
+from common.fixtures.ptfhost_utils import copy_ptftests_directory
 from ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)
@@ -77,9 +78,6 @@ class PopulateFdb:
 
         logger.info("Copying VLan config file to {0}".format(self.ptfhost.hostname))
         self.ptfhost.copy(src=self.VLAN_CONFIG_FILE, dest="/tmp/")
-
-        logger.info("Copying ptftests to {0}".format(self.ptfhost.hostname))
-        self.ptfhost.copy(src="ptftests", dest="/root")
 
     def run(self):
         """
