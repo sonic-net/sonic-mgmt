@@ -1,8 +1,10 @@
 """
 Classes for various devices that may be used in testing.
+
 There are other options for interacting with the devices used in testing, for example netmiko, fabric.
 We have a big number of customized ansible modules in the sonic-mgmt/ansible/library folder. To reused these
 modules, we have no other choice, at least for interacting with SONiC, localhost and PTF.
+
 We can consider using netmiko for interacting with the VMs used in testing.
 """
 import json
@@ -21,6 +23,7 @@ from errors import UnsupportedAnsibleModule
 class AnsibleHostBase(object):
     """
     @summary: The base class for various objects.
+
     This class filters an object from the ansible_adhoc fixture by hostname. The object can be considered as an
     ansible host object although it is not under the hood. Anyway, we can use this object to run ansible module
     on the host.
@@ -78,6 +81,7 @@ class AnsibleHostBase(object):
 class Localhost(AnsibleHostBase):
     """
     @summary: Class for localhost
+
     For running ansible module on localhost
     """
     def __init__(self, ansible_adhoc):
@@ -87,6 +91,7 @@ class Localhost(AnsibleHostBase):
 class PTFHost(AnsibleHostBase):
     """
     @summary: Class for PTF
+
     Instance of this class can run ansible modules on the PTF host.
     """
     def __init__(self, ansible_adhoc, hostname):
@@ -97,57 +102,103 @@ class PTFHost(AnsibleHostBase):
 
 class SonicHost(AnsibleHostBase):
     """
-    @summary: Class for SONiC switch
-    For running ansible module on the SONiC switch
+    A remote host running SONiC.
+
+    This type of host contains information about the SONiC device (device info, services, etc.),
+    and also provides the ability to run Ansible modules on the SONiC device.
     """
+
+    # TODO: Because people are editing this variable in a bunch of places it should probably be
+    # revised to "DEFAULT_CRITICAL_SERVICES", and we should make critical_services a property of
+    # SonicHost
     CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp", "pmon", "lldp", "snmp"]
 
-    def __init__(self, ansible_adhoc, hostname, gather_facts=False):
+    def __init__(self, ansible_adhoc, hostname):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
-        if gather_facts:
-            self.gather_facts()
+        self._facts = self._gather_facts()
+        self._os_version = self._get_os_version()
 
-    def _get_critical_services_for_multi_npu(self):
+        if self.facts["num_npu"] > 1:
+            self._update_critical_services_for_multi_npu()
+
+    @property
+    def facts(self):
         """
-        Update the critical_services with the service names for multi-npu platforms
+        Platform information for this SONiC device.
+
+        Returns:
+            dict: A dictionary containing the device platform information.
+
+            For example:
+            {
+                "platform": "x86_64-arista_7050_qx32s",
+                "hwsku": "Arista-7050-QX-32S",
+                "asic_type": "broadcom",
+                "num_npu": 1
+            }
         """
+
+        return self._facts
+
+    @property
+    def os_version(self):
+        """
+        The OS version running on this SONiC device.
+
+        Returns:
+            str: The SONiC OS version (e.g. "20181130.31")
+        """
+
+        return self._os_version
+
+    def _gather_facts(self):
+        """
+        Gather facts about the platform for this SONiC device.
+        """
+
+        facts = dict()
+        facts.update(self._get_platform_info())
+        facts["num_npu"] = self._get_npu_count(facts["platform"])
+
+        logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
+        return facts
+
+    def _get_npu_count(self, platform):
+        """
+        Gets the number of npus for this device.
+        """
+
+        asic_conf_file_path = os.path.join("/usr/share/sonic/device", platform, "asic.conf")
+        try:
+            output = self.shell("cat {}".format(asic_conf_file_path))["stdout_lines"]
+            logging.debug(output)
+
+            for line in output:
+                num_npu = line.split("=", 1)[1].strip()
+
+            logging.debug("num_npu = %s" % num_npu)
+            return int(num_npu)
+        except:
+            return 1
+
+    def _update_critical_services_for_multi_npu(self):
+        """
+        Updates the critical services for this device with the services for multi-npu platforms.
+        """
+
         m_service = []
         for service in self.CRITICAL_SERVICES:
             for npu in self.facts["num_npu"]:
-                npu_service = service+npu
+                npu_service = service + npu
                 m_service.insert(npu, npu_service)
         self.CRITICAL_SERVICES = m_service
-        print self.CRITICAL_SERVICES
+        logging.debug(self.CRITICAL_SERVICES)
 
-    def _get_npu_info(self):
+    def _get_platform_info(self):
         """
-        Check if the DUT is multi-npu platfrom and store the number of npus in the facts
+        Gets platform information about this SONiC device.
         """
-        asic_conf_file_path = os.path.join('/usr/share/sonic/device', self.facts["platform"], 'asic.conf')
-        try:
-            output = self.shell('cat %s' % asic_conf_file_path)["stdout_lines"]
-            print output
-            for line in output:
-                num_npu=line.split("=",1)[1].strip()
-            print "num_npu = {}".format(num_npu)
-            self.facts["num_npu"] = int(num_npu)
-        except:
-            self.facts["num_npu"] =1
 
-        if self.facts["num_npu"] > 1:
-            self._get_critical_services_for_multi_npu
-
-
-    def get_platform_info(self):
-        """
-        @summary: Get the platform information of the SONiC switch.
-        @return: Returns a dictionary containing preperties of the platform information, for example:
-            {
-                "platform": "",
-                "hwsku": "",
-                "asic_type": ""
-            }
-        """
         platform_info = self.command("show platform summary")["stdout_lines"]
         result = {}
         for line in platform_info:
@@ -159,15 +210,13 @@ class SonicHost(AnsibleHostBase):
                 result["asic_type"] = line.split(":")[1].strip()
         return result
 
-    def gather_facts(self):
+    def _get_os_version(self):
         """
-        @summary: Gather facts of the SONiC switch and store the gathered facts in the dict type 'facts' attribute.
+        Gets the SONiC OS version that is running on this device.
         """
-        self.facts = {}
-        platform_info = self.get_platform_info()
-        self.facts.update(platform_info)
-        self._get_npu_info()
-        logging.debug("SonicHost facts: %s" % json.dumps(self.facts))
+
+        output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
+        return output["stdout_lines"][0].strip()
 
     def get_service_props(self, service, props=["ActiveState", "SubState"]):
         """
@@ -193,9 +242,11 @@ class SonicHost(AnsibleHostBase):
     def is_service_fully_started(self, service):
         """
         @summary: Check whether a SONiC specific service is fully started.
+
         This function assumes that the final step of all services checked by this function is to spawn a Docker
         container with the same name as the service. We determine that the service has fully started if the
         Docker container is running.
+
         @param service: Name of the SONiC service
         """
         try:
@@ -224,6 +275,7 @@ class SonicHost(AnsibleHostBase):
     def critical_process_status(self, service):
         """
         @summary: Check whether critical process status of a service.
+
         @param service: Name of the SONiC service
         """
         result = {'status': True}
@@ -304,6 +356,7 @@ class SonicHost(AnsibleHostBase):
         @summary: get state list of daemons from pmon docker.
                   Referencing (/usr/share/sonic/device/{platform}/pmon_daemon_control.json)
                   if some daemon is disabled in the config file, then remove it from the daemon list.
+
         @return: dictionary of { service_name1 : state1, ... ... }
         """
         # some services are meant to have a short life span or not part of the daemons
@@ -414,12 +467,10 @@ class SonicHost(AnsibleHostBase):
         ret['installed_list'] = images
         return ret
 
-    def get_asic_type(self):
-        return self.facts["asic_type"]
-
     def shutdown(self, ifname):
         """
             Shutdown interface specified by ifname
+
             Args:
                 ifname: the interface to shutdown
         """
@@ -428,6 +479,7 @@ class SonicHost(AnsibleHostBase):
     def no_shutdown(self, ifname):
         """
             Bring up interface specified by ifname
+
             Args:
                 ifname: the interface to bring up
         """
@@ -436,7 +488,9 @@ class SonicHost(AnsibleHostBase):
     def get_ip_route_info(self, dstip):
         """
         @summary: return route information for a destionation IP
+
         @param dstip: destination IP (either ipv4 or ipv6)
+
 ============ 4.19 kernel ==============
 admin@vlab-01:~$ ip route list match 0.0.0.0
 default proto bgp src 10.1.0.32 metric 20
@@ -444,12 +498,14 @@ default proto bgp src 10.1.0.32 metric 20
         nexthop via 10.0.0.59 dev PortChannel0002 weight 1
         nexthop via 10.0.0.61 dev PortChannel0003 weight 1
         nexthop via 10.0.0.63 dev PortChannel0004 weight 1
+
 admin@vlab-01:~$ ip -6 route list match ::
 default proto bgp src fc00:1::32 metric 20
         nexthop via fc00::72 dev PortChannel0001 weight 1
         nexthop via fc00::76 dev PortChannel0002 weight 1
         nexthop via fc00::7a dev PortChannel0003 weight 1
         nexthop via fc00::7e dev PortChannel0004 weight 1 pref medium
+
 ============ 4.9 kernel ===============
 admin@vlab-01:~$ ip route list match 0.0.0.0
 default proto 186 src 10.1.0.32 metric 20
@@ -457,11 +513,13 @@ default proto 186 src 10.1.0.32 metric 20
         nexthop via 10.0.0.59  dev PortChannel0002 weight 1
         nexthop via 10.0.0.61  dev PortChannel0003 weight 1
         nexthop via 10.0.0.63  dev PortChannel0004 weight 1
+
 admin@vlab-01:~$ ip -6 route list match ::
 default via fc00::72 dev PortChannel0001 proto 186 src fc00:1::32 metric 20  pref medium
 default via fc00::76 dev PortChannel0002 proto 186 src fc00:1::32 metric 20  pref medium
 default via fc00::7a dev PortChannel0003 proto 186 src fc00:1::32 metric 20  pref medium
 default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pref medium
+
         """
 
         if dstip.version == 4:
@@ -494,6 +552,7 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
     def get_bgp_neighbor_info(self, neighbor_ip):
         """
         @summary: return bgp neighbor info
+
         @param neighbor_ip: bgp neighbor IP
         """
         nbip = ipaddress.ip_address(neighbor_ip)
@@ -509,6 +568,7 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
     def check_bgp_session_state(self, neigh_ips, state="established"):
         """
         @summary: check if current bgp session equals to the target state
+
         @param neigh_ips: bgp neighbor IPs
         @param state: target state
         """
@@ -528,6 +588,7 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
     def check_bgp_session_nsf(self, neighbor_ip):
         """
         @summary: check if bgp neighbor session enters NSF state or not
+
         @param neighbor_ip: bgp neighbor IP
         """
         nbinfo = self.get_bgp_neighbor_info(neighbor_ip)
@@ -536,18 +597,10 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                 return True
         return False
 
-    def get_version(self):
-        """
-            Gets the SONiC version this device is running.
-            Returns:
-                str: the firmware version number (e.g. 20181130.31)
-        """
-        output = dut.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
-        return output["stdout_lines"][0].strip()
-
 class EosHost(AnsibleHostBase):
     """
     @summary: Class for Eos switch
+
     For running ansible module on the Eos switch
     """
 
@@ -604,6 +657,7 @@ class EosHost(AnsibleHostBase):
     def check_bgp_session_state(self, neigh_ips, neigh_desc, state="established"):
         """
         @summary: check if current bgp session equals to the target state
+
         @param neigh_ips: bgp neighbor IPs
         @param neigh_desc: bgp neighbor description
         @param state: target state
@@ -714,6 +768,7 @@ class OnyxHost(AnsibleHostBase):
 class FanoutHost():
     """
     @summary: Class for Fanout switch
+
     For running ansible module on the Fanout switch
     """
 
@@ -728,6 +783,10 @@ class FanoutHost():
         elif os == 'onyx':
             self.os = os
             self.host = OnyxHost(ansible_adhoc, hostname, user, passwd)
+        elif os == 'ixia':
+            # TODO: add ixia chassis abstraction
+            self.os = os
+            self.host = None
         else:
             # Use eos host if the os type is unknown
             self.os = 'eos'

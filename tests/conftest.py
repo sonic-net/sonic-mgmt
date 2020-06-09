@@ -1,3 +1,10 @@
+# Adding pytest base dir to Python system path.
+# This is required in order to import from common package including pytest_plugins within this file.
+import site
+from os.path import dirname, abspath
+site.addsitedir(dirname(abspath(__file__)))
+site.addsitedir('.')
+
 import sys
 import os
 import glob
@@ -106,6 +113,14 @@ def pytest_addoption(parser):
     parser.addoption("--logs_since", action="store", type=int,
                     help="number of minutes for show techsupport command")
 
+    ############################
+    #   sanity_check options   #
+    ############################
+    parser.addoption("--skip_sanity", action="store_true", default=False,
+                     help="Skip sanity check")
+    parser.addoption("--allow_recover", action="store_true", default=False,
+                     help="Allow recovery attempt in sanity check in case of failure")
+
 
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
@@ -206,7 +221,7 @@ def duthost(ansible_adhoc, testbed, request):
     dut_index = getattr(request.module, "dut_index", 0)
     assert dut_index < len(testbed["duts"]), "DUT index '{0}' is out of bound '{1}'".format(dut_index, len(testbed["duts"]))
 
-    duthost = SonicHost(ansible_adhoc, testbed["duts"][dut_index], gather_facts=True)
+    duthost = SonicHost(ansible_adhoc, testbed["duts"][dut_index])
     if stop_ssh_timeout is not None:
         disable_ssh_timout(duthost)
 
@@ -346,3 +361,28 @@ def collect_techsupport(request, duthost):
                 tar.extract(m, path="logs/{}/{}/".format(testname, duthost.hostname))
 
         logging.info("########### Collected tech support for test {} ###########".format(testname))
+
+__report_metadata_added = False
+
+@pytest.fixture(scope="module", autouse=True)
+def tag_test_report(request, pytestconfig, testbed, duthost, record_testsuite_property):
+    if not request.config.getoption("--junit-xml"):
+        return
+
+    # NOTE: This is a gnarly hack to deal with the fact that we only want to add this
+    # metadata to the test report once per session. Since the duthost fixture has
+    # module scope we can't give this fixture session scope.
+    global __report_metadata_added
+    if not __report_metadata_added:
+        # Test run information
+        record_testsuite_property("topology", testbed['topo']['name'])
+        record_testsuite_property("markers", pytestconfig.getoption("-m"))
+
+        # Device information
+        record_testsuite_property("host", duthost.hostname)
+        record_testsuite_property("asic", duthost.facts["asic_type"])
+        record_testsuite_property("platform", duthost.facts["platform"])
+        record_testsuite_property("hwsku", duthost.facts["hwsku"])
+        record_testsuite_property("os_version", duthost.os_version)
+
+        __report_metadata_added = True
