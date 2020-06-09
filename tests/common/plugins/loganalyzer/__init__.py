@@ -11,7 +11,7 @@ def pytest_addoption(parser):
 
 @pytest.fixture(autouse=True)
 def loganalyzer(duthost, request):
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name)
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name.replace(' ', '_'))
     logging.info("Add start marker into DUT syslog")
     marker = loganalyzer.init()
     yield loganalyzer
