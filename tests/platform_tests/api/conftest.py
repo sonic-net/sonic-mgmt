@@ -8,7 +8,9 @@ SERVER_PORT = 8000
 
 @pytest.fixture(scope='function')
 def start_platform_api_service(duthost, localhost):
-    res = localhost.wait_for(host=duthost.hostname, port=SERVER_PORT, state='started', delay=1, timeout=5)
+    dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
+
+    res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=5)
     if 'exception' in res:
         supervisor_conf = [
             "[program:platform_api_server]",
@@ -29,11 +31,13 @@ def start_platform_api_service(duthost, localhost):
         duthost.copy(src=src_path, dest=dest_path)
         duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
 
+        duthost.command('systemctl stop caclmgrd.service')
+        duthost.command('iptables -F')
         duthost.command('docker exec -i pmon supervisorctl reread')
         duthost.command('docker exec -i pmon supervisorctl update')
         duthost.command('docker exec -i pmon supervisorctl start platform_api_server.conf')
 
-        res = localhost.wait_for(host=duthost.hostname, port=SERVER_PORT, state='started', delay=1, timeout=5)
+        res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=5)
         assert 'exception' not in res
 
 
@@ -49,10 +53,13 @@ def stop_platform_api_service(duthost):
         duthost.command('docker exec -i pmon rm -f {}'.format(pmon_path_script))
         duthost.command('docker exec -i pmon supervisorctl reread')
         duthost.command('docker exec -i pmon supervisorctl update')
+        duthost.command('systemctl start caclmgrd.service')
 
 @pytest.fixture(scope='function')
 def platform_api_conn(duthost, start_platform_api_service):
-    conn = httplib.HTTPConnection(duthost.hostname, SERVER_PORT)
+    dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
+
+    conn = httplib.HTTPConnection(dut_ip, SERVER_PORT)
     try:
         yield conn
     finally:
