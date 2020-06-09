@@ -1,0 +1,4 @@
+Hostname,ManagementIp,HwSku,Type
+example-ixia-1,10.0.0.20/32,IXIA-tester,DevIxiaChassis
+example-s6100-dut-1,10.0.0.10/32,Dell-S6100,DevSonic
+example-ixia-api-serv-1,10.0.0.30/32,IXIA-tester,DevIxiaApiServ
