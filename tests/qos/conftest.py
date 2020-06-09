@@ -1,9 +1,9 @@
-from args.wr_arp_args import add_wr_arp_args
+from .args.qos_sai_args import add_qos_sai_args
 
 # WR-ARP pytest arguments
 def pytest_addoption(parser):
     '''
-        Adds option to FDB pytest
+        Adds option to QoS pytest
 
         Args:
             parser: pytest parser object
@@ -11,4 +11,4 @@ def pytest_addoption(parser):
         Returns:
             None
     '''
-    add_wr_arp_args(parser)
+    add_qos_sai_args(parser)

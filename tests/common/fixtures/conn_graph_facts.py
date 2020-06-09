@@ -10,8 +10,11 @@ def conn_graph_facts(duthost, localhost):
   
 @pytest.fixture(scope="module")
 def fanout_graph_facts(localhost, duthost, conn_graph_facts):
-    fanout_host = conn_graph_facts["device_conn"]["Ethernet0"]["peerdevice"]
-    facts = get_graph_facts(duthost, localhost, fanout_host)
+    facts = dict()
+    for intf in conn_graph_facts["device_conn"]:
+        fanout = conn_graph_facts["device_conn"][intf]["peerdevice"]
+        if fanout not in facts:
+            facts[fanout] = get_graph_facts(duthost, localhost, fanout)
     return facts
 
 

@@ -221,31 +221,6 @@
         provider: selfsigned
       become: true
 
-    - name: Creates telemetry directory
-      file:
-        path: "{{ dir_path }}"
-        state: directory
-        mode: '0755'
-      become: true
-
-    - name: copy server_key from local to remote
-      copy:
-        src: "{{ server_key }}"
-        dest: "{{ server_key }}"
-      become: yes
-
-    - name: copy server_cer from local to remote
-      copy:
-        src: "{{ server_cer }}"
-        dest: "{{ server_cer }}"
-      become: yes
-
-    - name: copy dsmsroot_key from local to remote
-      copy:
-        src: "{{ dsmsroot_key }}"
-        dest: "{{ dsmsroot_key }}"
-      become: yes
-
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig

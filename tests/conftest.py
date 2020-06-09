@@ -105,7 +105,6 @@ def pytest_addoption(parser):
     ############################
     # test_techsupport options #
     ############################
-    
     parser.addoption("--loop_num", action="store", default=10, type=int,
                     help="Change default loop range for show techsupport command")
     parser.addoption("--loop_delay", action="store", default=10, type=int,

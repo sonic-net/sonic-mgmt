@@ -5,7 +5,7 @@ from common.helpers.assertions import pytest_assert
 
 def test_sensors(duthost, creds):
     # Get platform name
-    platform = duthost.get_platform_info()['platform']
+    platform = duthost.facts['platform']
 
     # Prepare check list
     sensors_checks = creds['sensors_checks']
