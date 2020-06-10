@@ -2,6 +2,7 @@
 import logging
 import pytest
 
+from common.helpers.assertions import pytest_assert
 from common.utilities import wait
 
 logger = logging.getLogger('__name__')
@@ -96,20 +97,20 @@ def reset_portstat(duthost):
 def test_portstat_clear(duthost, command):
 
     before_portstat = parse_portstat(duthost.command('portstat')['stdout_lines'])
-    assert before_portstat, 'No parsed command output'
+    pytest_assert(before_portstat, 'No parsed command output')
 
     duthost.command(command)
     wait(5, 'Wait for portstat counters to refresh')
 
     after_portstat = parse_portstat(duthost.command('portstat')['stdout_lines'])
-    assert after_portstat, 'No parsed command output'
+    pytest_assert(after_portstat, 'No parsed command output')
 
     for intf in before_portstat:
-        assert int(before_portstat[intf]['rx_ok']) >= int(after_portstat[intf]['rx_ok']), \
-            'Value of RX_OK after clear should be lesser'
+        pytest_assert(int(before_portstat[intf]['rx_ok']) >= int(after_portstat[intf]['rx_ok']),
+                      'Value of RX_OK after clear should be lesser')
 
-        assert int(before_portstat[intf]['tx_ok']) >= int(after_portstat[intf]['rx_ok']), \
-            'Value of RX_OK after clear should be lesser'
+        pytest_assert(int(before_portstat[intf]['tx_ok']) >= int(after_portstat[intf]['rx_ok']),
+                      'Value of RX_OK after clear should be lesser')
 
 
 @pytest.mark.parametrize('command', ['portstat -D', 'portstat --delete-all'])
@@ -124,16 +125,16 @@ def test_portstat_delete_all(duthost, command):
     logger.info('Verify that the file names are in the /tmp directory')
     uid = duthost.command('id -u')['stdout'].strip()
     for stats_file in stats_files:
-        assert duthost.stat(path='/tmp/portstat-{uid}/{uid}-{filename}'\
-            .format(uid=uid, filename=stats_file))['stat']['exists']
+        pytest_assert(duthost.stat(path='/tmp/portstat-{uid}/{uid}-{filename}'\
+                      .format(uid=uid, filename=stats_file))['stat']['exists'])
 
     logger.info('Run the command to be tested "{}"'.format(command))
     duthost.command(command)
 
     logger.info('Verify that the file names are not in the /tmp directory')
     for stats_file in stats_files:
-        assert not duthost.stat(path='/tmp/portstat-{uid}/{uid}-{filename}'\
-            .format(uid=uid, filename=stats_file))['stat']['exists']
+        pytest_assert(not duthost.stat(path='/tmp/portstat-{uid}/{uid}-{filename}'\
+                      .format(uid=uid, filename=stats_file))['stat']['exists'])
 
 
 @pytest.mark.parametrize('command',
@@ -151,21 +152,21 @@ def test_portstat_delete_tag(duthost, command):
     logger.info('Verify that the file names are in the /tmp directory')
     uid = duthost.command('id -u')['stdout'].strip()
     for stats_file in stats_files:
-        assert duthost.stat(path='/tmp/portstat-{uid}/{uid}-{filename}'\
-            .format(uid=uid, filename=stats_file))['stat']['exists']
+        pytest_assert(duthost.stat(path='/tmp/portstat-{uid}/{uid}-{filename}'\
+                      .format(uid=uid, filename=stats_file))['stat']['exists'])
 
     full_delete_command = command + ' ' + file_to_delete
     logger.info('Run the command to be tested "{}"'.format(full_delete_command))
     duthost.command(full_delete_command)
 
     logger.info('Verify that the deleted file name is not in the directory')
-    assert not duthost.stat(path='/tmp/portstat-{uid}/{uid}-{filename}'\
-        .format(uid=uid, filename=file_to_delete))['stat']['exists']
+    pytest_assert(not duthost.stat(path='/tmp/portstat-{uid}/{uid}-{filename}'\
+                  .format(uid=uid, filename=file_to_delete))['stat']['exists'])
 
     logger.info('Verify that the remaining file names are in the directory')
     for stats_file in files_not_deleted:
-        assert duthost.stat(path='/tmp/portstat-{uid}/{uid}-{filename}'\
-            .format(uid=uid, filename=stats_file))['stat']['exists']
+        pytest_assert(duthost.stat(path='/tmp/portstat-{uid}/{uid}-{filename}'\
+                      .format(uid=uid, filename=stats_file))['stat']['exists'])
 
 
 @pytest.mark.parametrize('command', ['portstat -a', 'portstat --all'])
@@ -173,18 +174,18 @@ def test_portstat_display_all(duthost, command):
 
     base_portstat = parse_portstat(duthost.command('portstat')['stdout_lines'])
     all_portstats = parse_portstat(duthost.command(command)['stdout_lines'])
-    assert base_portstat and all_portstats, 'No parsed command output'
+    pytest_assert(base_portstat and all_portstats, 'No parsed command output')
 
     logger.info('Verify the all number of columns is greater than the base number of columns')
     for intf in all_portstats.keys():
-        assert len(all_portstats[intf].keys()) > len(base_portstat[intf].keys())
+        pytest_assert(len(all_portstats[intf].keys()) > len(base_portstat[intf].keys()))
 
 
 @pytest.mark.parametrize('command', ['portstat -p 1', 'portstat --period 1'])
 def test_portstat_period(duthost, command):
 
     output = duthost.command(command)
-    assert 'The rates are calculated within 1 seconds period' in output['stdout_lines'][0]
+    pytest_assert('The rates are calculated within 1 seconds period' in output['stdout_lines'][0])
 
 
 @pytest.mark.parametrize('command', ['portstat -h', 'portstat --help', 'portstat', 'portstat -v',
