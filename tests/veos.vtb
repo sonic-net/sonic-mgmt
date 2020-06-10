@@ -68,4 +68,4 @@ vlab-04 ansible_host=10.250.0.107 type=kvm hwsku=Force10-S6000 ansible_password=
 
 ptf-01 ansible_host=10.250.0.102 ansible_user=root ansible_password=root
 ptf-02 ansible_host=10.250.0.106 ansible_user=root ansible_password=root
-ptf-03 ansible_host=10.250.0.110 ansible_user=root ansible_password=root
+ptf-03 ansible_host=10.250.0.108 ansible_user=root ansible_password=root
