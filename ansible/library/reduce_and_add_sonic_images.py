@@ -79,7 +79,7 @@ def install_new_sonic_image(module, new_image_url):
     # to force next image to load minigraph.
     if path.exists("/host/old_config/minigraph.xml"):
         exec_command(module,
-                     cmd="rm /host/old_config/config_db.json",
+                     cmd="rm -f /host/old_config/config_db.json",
                      msg="Remove config_db.json in preference of minigraph.xml")
 
 def main():
