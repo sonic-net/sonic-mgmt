@@ -63,5 +63,5 @@ def ptfadapter(ptfhost, testbed):
     ptfhost.command('supervisorctl reread')
     ptfhost.command('supervisorctl update')
 
-    with PtfTestAdapter(testbed['ptf_ip'], DEFAULT_PTF_NN_PORT, 0, len(ifaces_map)) as adapter:
+    with PtfTestAdapter(testbed['ptf_ip'], DEFAULT_PTF_NN_PORT, 0, ifaces_map.keys()) as adapter:
         yield adapter

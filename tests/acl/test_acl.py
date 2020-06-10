@@ -81,7 +81,9 @@ def setup(duthost, testbed):
     port_channels = mg_facts['minigraph_portchannels']
 
     # get the list of port to be combined to ACL tables
-    acl_table_ports += tor_ports
+    if testbed['topo']['name'] in ('t1', 't1-lag'):
+        acl_table_ports += tor_ports
+    
     if testbed['topo']['name'] in ('t1-lag', 't1-64-lag', 't1-64-lag-clet'):
         acl_table_ports += port_channels
     else:
