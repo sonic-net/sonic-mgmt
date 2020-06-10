@@ -278,8 +278,11 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
                 host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_host).vars
                 os_type = 'eos' if 'os' not in host_vars else host_vars['os']
 
-                eos_user = creds['fanout_eos_user'] if 'fanout_eos_user' in creds else creds['fanout_admin_user']
-                eos_password = creds['fanout_eos_password'] if 'fanout_eos_password' in creds else creds['fanout_admin_password']
+                # `fanout_network_user` and `fanout_network_password` are for accessing the non-shell CLI of fanout
+                # Ansible will use this set of credentail for establishing `network_cli` connection with device
+                # when applicable.
+                network_user = creds['fanout_network_user'] if 'fanout_network_user' in creds else creds['fanout_admin_user']
+                network_password = creds['fanout_network_password'] if 'fanout_network_password' in creds else creds['fanout_admin_password']
                 shell_user = creds['fanout_shell_user'] if 'fanout_shell_user' in creds else creds['fanout_admin_user']
                 shell_password = creds['fanout_shell_password'] if 'fanout_shell_password' in creds else creds['fanout_admin_password']
 
@@ -287,8 +290,8 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
                                     os_type,
                                     fanout_host,
                                     'FanoutLeaf',
-                                    eos_user,
-                                    eos_password,
+                                    network_user,
+                                    network_password,
                                     shell_user=shell_user,
                                     shell_passwd=shell_password)
                 fanout_hosts[fanout_host] = fanout
