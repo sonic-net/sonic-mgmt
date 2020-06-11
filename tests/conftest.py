@@ -111,6 +111,8 @@ def pytest_addoption(parser):
                     help="Change default loops delay")
     parser.addoption("--logs_since", action="store", type=int,
                     help="number of minutes for show techsupport command")
+    parser.addoption("--collect_techsupport", action="store", default=False, type=bool,
+                    help="number of minutes for show techsupport command")
 
     ############################
     #   sanity_check options   #
@@ -358,7 +360,7 @@ def collect_techsupport(request, duthost):
     # request.node is an "item" because we use the default
     # "function" scope
     testname = request.node.name
-    if request.node.rep_call.failed:
+    if request.config.getoption("--collect_techsupport") and request.node.rep_call.failed:
         res = duthost.shell("generate_dump")
         fname = res['stdout']
         duthost.fetch(src=fname, dest="logs/{}".format(testname))
