@@ -15,7 +15,7 @@ def _all_critical_services_fully_started(dut):
         logging.info("dut.critical_services_fully_started is False")
         return False
 
-    for service in dut.CRITICAL_SERVICES:
+    for service in dut.critical_services:
         status = dut.get_service_props(service)
         if status["ActiveState"] != "active":
             logging.info("ActiveState of %s is %s, expected: active" % (service, status["ActiveState"]))

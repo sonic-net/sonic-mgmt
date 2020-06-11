@@ -106,12 +106,13 @@ class SonicHost(AnsibleHostBase):
 
     This type of host contains information about the SONiC device (device info, services, etc.),
     and also provides the ability to run Ansible modules on the SONiC device.
+
+    Attributes:
+        DEFAULT_CRITICAL_SERVICES: The default list of services that are considered critical to a
+            healthy SONiC device.
     """
 
-    # TODO: Because people are editing this variable in a bunch of places it should probably be
-    # revised to "DEFAULT_CRITICAL_SERVICES", and we should make critical_services a property of
-    # SonicHost
-    CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp", "pmon", "lldp", "snmp"]
+    DEFAULT_CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp", "pmon", "lldp", "snmp"]
 
     def __init__(self, ansible_adhoc, hostname):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
@@ -119,7 +120,9 @@ class SonicHost(AnsibleHostBase):
         self._os_version = self._get_os_version()
 
         if self.facts["num_npu"] > 1:
-            self._update_critical_services_for_multi_npu()
+            DEFAULT_CRITICAL_SERVICES = self._generate_critical_services_for_multi_npu()
+
+        self.reset_critical_services_tracking_list()
 
     @property
     def facts(self):
@@ -151,6 +154,42 @@ class SonicHost(AnsibleHostBase):
 
         return self._os_version
 
+    @property
+    def critical_services(self):
+        """
+        The critical services running on this SONiC device.
+
+        Note:
+            This list is used for tracking purposes ONLY. This list does not
+            show which critical services are currently running. See the
+            critical_services_status method for that info.
+
+        Returns:
+            list[str]: A list of the critical services (e.g. ["swss", "syncd"])
+        """
+
+        return self._critical_services
+
+    @critical_services.setter
+    def critical_services(self, var):
+        """
+        Updates the list of critical services running on this device.
+
+        Note:
+            This list is used for tracking purposes ONLY. Updating the list does
+            not actually modify any services running on the device.
+        """
+
+        self._critical_services = var
+        logging.debug(self._critical_services)
+
+    def reset_critical_services_tracking_list(self):
+        """
+        Resets the list of critical services to the default stored in DEFAULT_CRITICAL_SERVICES.
+        """
+
+        self.critical_services = self.DEFAULT_CRITICAL_SERVICES
+
     def _gather_facts(self):
         """
         Gather facts about the platform for this SONiC device.
@@ -181,18 +220,17 @@ class SonicHost(AnsibleHostBase):
         except:
             return 1
 
-    def _update_critical_services_for_multi_npu(self):
+    def _generate_critical_services_for_multi_npu(self):
         """
         Updates the critical services for this device with the services for multi-npu platforms.
         """
 
         m_service = []
-        for service in self.CRITICAL_SERVICES:
+        for service in self.DEFAULT_CRITICAL_SERVICES:
             for npu in self.facts["num_npu"]:
                 npu_service = service + npu
                 m_service.insert(npu, npu_service)
-        self.CRITICAL_SERVICES = m_service
-        logging.debug(self.CRITICAL_SERVICES)
+        return m_service
 
     def _get_platform_info(self):
         """
@@ -260,7 +298,7 @@ class SonicHost(AnsibleHostBase):
 
     def critical_services_status(self):
         result = {}
-        for service in self.CRITICAL_SERVICES:
+        for service in self.critical_services:
             result[service] = self.is_service_fully_started(service)
         return result
 
@@ -317,7 +355,7 @@ class SonicHost(AnsibleHostBase):
         @summary: Check whether all critical processes status for all critical services
         """
         result = {}
-        for service in self.CRITICAL_SERVICES:
+        for service in self.critical_services:
             result[service] = self.critical_process_status(service)
         return result
 
