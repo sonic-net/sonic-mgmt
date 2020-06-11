@@ -229,6 +229,14 @@ def duthost(ansible_adhoc, testbed, request):
     if stop_ssh_timeout is not None:
         enable_ssh_timout(duthost)
 
+@pytest.fixture(scope="module", autouse=True)
+def reset_critical_services_list(duthost):
+    """
+    Resets the critical services list between test modules to ensure that it is
+    left in a known state after tests finish running.
+    """
+
+    duthost.reset_critical_services_tracking_list()
 
 @pytest.fixture(scope="module")
 def localhost(ansible_adhoc):

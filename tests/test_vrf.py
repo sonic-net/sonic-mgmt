@@ -253,7 +253,7 @@ def reboot(duthost, localhost, timeout=120, basic_check=True):
     # Basic check after reboot
     if basic_check:
         assert wait_until(timeout, 10, duthost.critical_services_fully_started), \
-               "All critical services should fully started!{}".format(duthost.CRITICAL_SERVICES)
+               "All critical services should fully started!{}".format(duthost.critical_services)
 
 def setup_vrf_cfg(duthost, localhost, cfg_facts):
     '''
@@ -398,7 +398,7 @@ def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
     ptfhost.copy(src="ptftests", dest="/root")
 
     ## Setup dut
-    duthost.CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp"]  # Don't care about 'pmon' and 'lldp' here
+    duthost.critical_services = ["swss", "syncd", "database", "teamd", "bgp"]  # Don't care about 'pmon' and 'lldp' here
     cfg_t0 = get_cfg_facts(duthost)  # generate cfg_facts for t0 topo
 
     setup_vrf_cfg(duthost, localhost, cfg_t0)
@@ -946,7 +946,7 @@ class TestVrfWarmReboot():
 
         # basic check after warm reboot
         assert wait_until(300, 20, duthost.critical_services_fully_started), \
-               "All critical services should fully started!{}".format(duthost.CRITICAL_SERVICES)
+               "All critical services should fully started!{}".format(duthost.critical_services)
 
         up_ports = [p for p, v in cfg_facts['PORT'].items() if v.get('admin_status', None) == 'up' ]
         assert wait_until(300, 20, check_interface_status, duthost, up_ports), \
