@@ -1,0 +1,203 @@
+import logging
+import re
+
+import pytest
+import yaml
+
+from common.helpers.platform_api import chassis
+
+logger = logging.getLogger(__name__)
+
+pytestmark = [
+    pytest.mark.disable_loganalyzer  # disable automatic loganalyzer
+]
+
+REGEX_MAC_ADDRESS = r'^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$'
+REGEX_SERIAL_NUMBER = r'^[A-Za-z0-9]+$'
+
+
+class TestChassisAPI(object):
+    ''' Platform API test cases for the chassis class'''
+
+    def test_get_base_mac(self, duthost, localhost, platform_api_conn):
+        # Ensure the base MAC address is sane
+        base_mac = chassis.get_base_mac(platform_api_conn)
+        assert base_mac is not None and re.match(REGEX_MAC_ADDRESS, base_mac)
+
+    def test_get_serial_number(self, duthost, localhost, platform_api_conn):
+        # Ensure the serial number is sane
+        # Note: It appears that when retrieving some variable-length fields,
+        # the value is padded with trailing '\x00' bytes because the field
+        # length is longer than the actual value, so we strip those bytes
+        # here before comparing. We may want to change the EEPROM parsing
+        # logic to ensure that trailing '\x00' bytes are removed when retreiving
+        # a variable-length value.
+        serial = chassis.get_serial_number(platform_api_conn).rstrip('\x00')
+        assert serial is not None and re.match(REGEX_SERIAL_NUMBER, serial)
+
+    def test_get_system_eeprom_info(self, duthost, localhost, platform_api_conn):
+        ''' Test that we can retrieve sane system EEPROM info from the DUT via the platform API
+        '''
+        # OCP ONIE TlvInfo EEPROM type codes defined here: https://opencomputeproject.github.io/onie/design-spec/hw_requirements.html
+        VALID_ONIE_TLVINFO_TYPE_CODES_LIST = [
+            '0x21',  # Product Name
+            '0x22',  # Part Number
+            '0x23',  # Serial Number
+            '0x24',  # Base MAC Address
+            '0x25',  # Manufacture Date
+            '0x26',  # Device Version
+            '0x27',  # Label Revision
+            '0x28',  # Platform Name
+            '0x29',  # ONIE Version
+            '0x2A',  # Number of MAC Addresses
+            '0x2B',  # Manufacturer
+            '0x2C',  # Country Code
+            '0x2D',  # Vendor
+            '0x2E',  # Diag Version
+            '0x2F',  # Service Tag
+            '0xFD',  # Vendor Extension
+            '0xFE'   # CRC-32
+        ]
+
+        MINIMUM_REQUIRED_TYPE_CODES_LIST = [
+            '0x23',  # Serial Number
+            '0x24',  # Base MAC Address
+            '0xFE'   # CRC-32
+        ]
+
+        syseeprom_info_dict = chassis.get_system_eeprom_info(platform_api_conn)
+        assert syseeprom_info_dict is not None and isinstance(syseeprom_info_dict, dict)
+
+        syseeprom_type_codes_list = syseeprom_info_dict.keys()
+
+        # Ensure that all keys in the resulting dictionary are valid ONIE TlvInfo type codes
+        assert set(syseeprom_type_codes_list) <= set(VALID_ONIE_TLVINFO_TYPE_CODES_LIST)
+
+        # Ensure that we were able to obtain the minimum required type codes
+        assert set(MINIMUM_REQUIRED_TYPE_CODES_LIST) <= set(syseeprom_type_codes_list)
+
+        # Ensure the base MAC address is sane
+        base_mac = syseeprom_info_dict['0x24']
+        assert base_mac is not None and re.match(REGEX_MAC_ADDRESS, base_mac)
+
+        # Ensure the serial number is sane
+        serial = syseeprom_info_dict['0x23']
+        assert serial is not None and re.match(REGEX_SERIAL_NUMBER, serial)
+
+    def test_get_reboot_cause(self, duthost, localhost, platform_api_conn):
+        # TODO: Compare return values to potential combinations
+        reboot_cause = chassis.get_reboot_cause(platform_api_conn)
+
+        # Actual return value is a tuple, but since we're using the HTTP server
+        # to make the call and it uses JSON, the tuple is changed to a list
+        assert reboot_cause is not None and isinstance(reboot_cause, list) and len(reboot_cause) == 2
+
+    def test_components(self, duthost, localhost, platform_api_conn):
+        # TODO: Ensure the number of components and that the returned list is correct for this platform
+        try:
+            num_components = int(chassis.get_num_components(platform_api_conn))
+        except:
+            pytest.fail("num_components is not an integer")
+
+        component_list = chassis.get_all_components(platform_api_conn)
+        assert component_list is not None and isinstance(component_list, list) and len(component_list) == num_components
+
+        for i in range(num_components):
+            component = chassis.get_component(platform_api_conn, i)
+            assert component and component == component_list[i]
+
+    def test_modules(self, duthost, localhost, platform_api_conn):
+        # TODO: Ensure the number of modules and that the returned list is correct for this platform
+        try:
+            num_modules = int(chassis.get_num_modules(platform_api_conn))
+        except:
+            pytest.fail("num_modules is not an integer")
+
+        module_list = chassis.get_all_modules(platform_api_conn)
+        assert module_list is not None and isinstance(module_list, list) and len(module_list) == num_modules
+
+        for i in range(num_modules):
+            module = chassis.get_module(platform_api_conn, i)
+            assert module and module == module_list[i]
+
+    def test_fans(self, duthost, localhost, platform_api_conn):
+        # TODO: Ensure the number of fans and that the returned list is correct for this platform
+        try:
+            num_fans = int(chassis.get_num_fans(platform_api_conn))
+        except:
+            pytest.fail("num_fans is not an integer")
+
+        fan_list = chassis.get_all_fans(platform_api_conn)
+        assert fan_list is not None and isinstance(fan_list, list) and len(fan_list) == num_fans
+
+        for i in range(num_fans):
+            fan = chassis.get_fan(platform_api_conn, i)
+            assert fan and fan == fan_list[i]
+
+    def test_fan_drawers(self, duthost, localhost, platform_api_conn):
+        # TODO: Ensure the number of fan drawers and that the returned list is correct for this platform
+        try:
+            num_fan_drawers = int(chassis.get_num_fan_drawers(platform_api_conn))
+        except:
+            pytest.fail("num_fan_drawers is not an integer")
+
+        fan_drawer_list = chassis.get_all_fan_drawers(platform_api_conn)
+        assert fan_drawer_list is not None and isinstance(fan_drawer_list, list) and len(fan_drawer_list) == num_fan_drawers
+
+        for i in range(num_fan_drawers):
+            fan_drawer = chassis.get_fan_drawer(platform_api_conn, i)
+            assert fan_drawer and fan_drawer == fan_drawer_list[i]
+
+    def test_psus(self, duthost, localhost, platform_api_conn):
+        # TODO: Ensure the number of PSUs and that the returned list is correct for this platform
+        try:
+            num_psus = int(chassis.get_num_psus(platform_api_conn))
+        except:
+            pytest.fail("num_psus is not an integer")
+
+        psu_list = chassis.get_all_psus(platform_api_conn)
+        assert psu_list is not None and isinstance(psu_list, list) and len(psu_list) == num_psus
+
+        for i in range(num_psus):
+            psu = chassis.get_psu(platform_api_conn, i)
+            assert psu and psu == psu_list[i]
+
+    def test_thermals(self, duthost, localhost, platform_api_conn):
+        # TODO: Ensure the number of thermals and that the returned list is correct for this platform
+        try:
+            num_thermals = int(chassis.get_num_thermals(platform_api_conn))
+        except:
+            pytest.fail("num_thermals is not an integer")
+
+        thermal_list = chassis.get_all_thermals(platform_api_conn)
+        assert thermal_list is not None and isinstance(thermal_list, list) and len(thermal_list) == num_thermals
+
+        for i in range(num_thermals):
+            thermal = chassis.get_thermal(platform_api_conn, i)
+            assert thermal and thermal == thermal_list[i]
+
+    def test_sfps(self, duthost, localhost, platform_api_conn):
+        # TODO: Ensure the number of SFPs and that the returned list is correct for this platform
+        try:
+            num_sfps = int(chassis.get_num_sfps(platform_api_conn))
+        except:
+            pytest.fail("num_sfps is not an integer")
+
+        sfp_list = chassis.get_all_sfps(platform_api_conn)
+        assert sfp_list is not None and isinstance(sfp_list, list) and len(sfp_list) == num_sfps
+
+        for i in range(num_sfps):
+            sfp = chassis.get_sfp(platform_api_conn, i)
+            assert sfp and sfp == sfp_list[i]
+
+    def test_get_thermal_manager(self, duthost, localhost, platform_api_conn):
+        thermal_mgr = chassis.get_thermal_manager(platform_api_conn)
+        assert thermal_mgr is not None
+
+    def test_get_watchdog(self, duthost, localhost, platform_api_conn):
+        watchdog = chassis.get_watchdog(platform_api_conn)
+        assert watchdog is not None
+
+    def test_get_eeprom(self, duthost, localhost, platform_api_conn):
+        eeprom = chassis.get_eeprom(platform_api_conn)
+        assert eeprom is not None
