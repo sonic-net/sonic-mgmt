@@ -23,7 +23,7 @@ def check_sysfs(dut):
     file_asic = dut.command("cat /var/run/hw-management/thermal/asic")
     try:
         asic_temp = float(file_asic["stdout"]) / 1000
-        assert 0 < asic_temp < 90, "Abnormal ASIC temperature: %s" % file_asic["stdout"]
+        assert 0 < asic_temp < 105, "Abnormal ASIC temperature: %s" % file_asic["stdout"]
     except Exception as e:
         assert False, "Bad content in /var/run/hw-management/thermal/asic: %s" % repr(e)
 
@@ -72,8 +72,8 @@ def check_sysfs(dut):
         except Exception as e:
             assert "Get content from %s failed, exception: %s" % (fan_speed_get, repr(e))
 
-        max_tolerance_speed = ((float(fan_set_speed)/256)*fan_max_speed)*(1 + 0.3)
-        min_tolerance_speed = ((float(fan_set_speed)/256)*fan_max_speed)*(1 - 0.3)
+        max_tolerance_speed = ((float(fan_set_speed)/256)*fan_max_speed)*(1 + 0.5)
+        min_tolerance_speed = ((float(fan_set_speed)/256)*fan_max_speed)*(1 - 0.5)
         assert min_tolerance_speed < fan_speed < max_tolerance_speed, "Speed out of tolerance speed range (%d, %d)" \
                                                                       % (min_tolerance_speed, max_tolerance_speed)
 
