@@ -29,7 +29,7 @@ class LogAnalyzer:
         self.ansible_host = ansible_host
         self.dut_run_dir = dut_run_dir
         self.extracted_syslog = os.path.join(self.dut_run_dir, "syslog")
-        self.marker_prefix = marker_prefix
+        self.marker_prefix = marker_prefix.replace(' ', '_')
         self.ansible_loganalyzer = ansible_loganalyzer(self.marker_prefix, False)
 
         self.match_regex = []
@@ -88,7 +88,8 @@ class LogAnalyzer:
         """
         @summary: Update configured marker prefix
         """
-        self.marker_prefix = marker_prefix
+        self.marker_prefix = marker_prefix.replace(' ', '_')
+        return self._setup_marker()
 
     def load_common_config(self):
         """
@@ -137,6 +138,12 @@ class LogAnalyzer:
 
         self.ansible_host.copy(src=ANSIBLE_LOGANALYZER_MODULE, dest=os.path.join(self.dut_run_dir, "loganalyzer.py"))
 
+        return self._setup_marker()
+
+    def _setup_marker(self):
+        """
+        Adds the marker to the syslog
+        """
         start_marker = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
         cmd = "python {run_dir}/loganalyzer.py --action init --run_id {start_marker}".format(run_dir=self.dut_run_dir, start_marker=start_marker)
 
