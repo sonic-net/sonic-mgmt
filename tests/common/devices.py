@@ -106,21 +106,14 @@ class SonicHost(AnsibleHostBase):
 
     This type of host contains information about the SONiC device (device info, services, etc.),
     and also provides the ability to run Ansible modules on the SONiC device.
-
-    Attributes:
-        DEFAULT_CRITICAL_SERVICES: The default list of services that are considered critical to a
-            healthy SONiC device.
     """
 
-    DEFAULT_CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp", "pmon", "lldp", "snmp"]
+    _DEFAULT_CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp", "pmon", "lldp", "snmp"]
 
     def __init__(self, ansible_adhoc, hostname):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
-
-        if self.facts["num_npu"] > 1:
-            DEFAULT_CRITICAL_SERVICES = self._generate_critical_services_for_multi_npu()
 
         self.reset_critical_services_tracking_list()
 
@@ -180,15 +173,19 @@ class SonicHost(AnsibleHostBase):
             not actually modify any services running on the device.
         """
 
-        self._critical_services = var
+        if self.facts["num_npu"] > 1:
+            self._critical_services = self._generate_critical_services_for_multi_npu(var)
+        else:
+            self._critical_services = var
+
         logging.debug(self._critical_services)
 
     def reset_critical_services_tracking_list(self):
         """
-        Resets the list of critical services to the default stored in DEFAULT_CRITICAL_SERVICES.
+        Resets the list of critical services to the default.
         """
 
-        self.critical_services = self.DEFAULT_CRITICAL_SERVICES
+        self.critical_services = self._DEFAULT_CRITICAL_SERVICES
 
     def _gather_facts(self):
         """
@@ -220,13 +217,17 @@ class SonicHost(AnsibleHostBase):
         except:
             return 1
 
-    def _generate_critical_services_for_multi_npu(self):
+    def _generate_critical_services_for_multi_npu(self, services):
         """
-        Updates the critical services for this device with the services for multi-npu platforms.
+        Generates a fully-qualified list of critical services for multi-npu platforms, based on a
+        base list of services.
+
+        Example:
+        ["swss", "syncd"] -> ["swss0", "swss1", "swss2", "syncd0", "syncd1", "syncd2"]
         """
 
         m_service = []
-        for service in self.DEFAULT_CRITICAL_SERVICES:
+        for service in services:
             for npu in self.facts["num_npu"]:
                 npu_service = service + npu
                 m_service.insert(npu, npu_service)
