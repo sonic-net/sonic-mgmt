@@ -24,3 +24,6 @@ class RunAnsibleModuleFail(AnsibleError):
 
     def __str__(self):
         return "{}\nAnsible Results => {}".format(self.message, dump_ansible_results(self.results))
+
+class MissingInputError(Exception):
+    pass
