@@ -5,8 +5,8 @@ import logging
 import pytest
 import time
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory
-from common.fixtures.ptfhost_utils import change_mac_addresses
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/import-and-import-from]
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/import-and-import-from]
 from common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
 from common.reboot import reboot as rebootDut

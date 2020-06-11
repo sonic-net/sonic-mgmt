@@ -5,7 +5,7 @@ import time
 import logging
 import os
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/import-and-import-from]
 from ptf_runner import ptf_runner
 from common.devices import AnsibleHostBase
 from common.fixtures.conn_graph_facts import conn_graph_facts

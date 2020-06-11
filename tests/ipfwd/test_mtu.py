@@ -2,7 +2,7 @@ import pytest
 import time
 import logging
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/import-and-import-from]
 from ptf_runner import ptf_runner
 from datetime import datetime
 

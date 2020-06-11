@@ -3,8 +3,8 @@ import time
 import pytest
 import ipaddr as ipaddress
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory
-from common.fixtures.ptfhost_utils import copy_acstests_directory
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/import-and-import-from]
+from common.fixtures.ptfhost_utils import copy_acstests_directory   # lgtm[py/import-and-import-from]
 from ptf_runner import ptf_runner
 from abc import abstractmethod
 

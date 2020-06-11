@@ -4,8 +4,8 @@ import time
 import logging
 import requests
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory
-from common.fixtures.ptfhost_utils import change_mac_addresses
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/import-and-import-from]
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/import-and-import-from]
 from ptf_runner import ptf_runner
 
 
