@@ -29,7 +29,7 @@ class LogAnalyzer:
         self.ansible_host = ansible_host
         self.dut_run_dir = dut_run_dir
         self.extracted_syslog = os.path.join(self.dut_run_dir, "syslog")
-        self.marker_prefix = marker_prefix
+        self.marker_prefix = marker_prefix.replace(' ', '_')
         self.ansible_loganalyzer = ansible_loganalyzer(self.marker_prefix, False)
 
         self.match_regex = []
@@ -88,7 +88,7 @@ class LogAnalyzer:
         """
         @summary: Update configured marker prefix
         """
-        self.marker_prefix = marker_prefix
+        self.marker_prefix = marker_prefix.replace(' ', '_')
         return self._setup_marker()
 
     def load_common_config(self):
