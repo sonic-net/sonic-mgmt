@@ -15,6 +15,26 @@ pytestmark = [
 REGEX_MAC_ADDRESS = r'^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$'
 REGEX_SERIAL_NUMBER = r'^[A-Za-z0-9]+$'
 
+# Valid OCP ONIE TlvInfo EEPROM type codes as defined here:
+# https://opencomputeproject.github.io/onie/design-spec/hw_requirements.html
+ONIE_TLVINFO_TYPE_CODE_PRODUCT_NAME = '0x21'    # Product Name
+ONIE_TLVINFO_TYPE_CODE_PART_NUMBER = '0x22'     # Part Number
+ONIE_TLVINFO_TYPE_CODE_SERIAL_NUMBER = '0x23'   # Serial Number
+ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR = '0x24'   # Base MAC Address
+ONIE_TLVINFO_TYPE_CODE_MFR_DATE = '0x25'        # Manufacture Date
+ONIE_TLVINFO_TYPE_CODE_DEVICE_VERSION = '0x26'  # Device Version
+ONIE_TLVINFO_TYPE_CODE_LABEL_REVISION = '0x27'  # Label Revision
+ONIE_TLVINFO_TYPE_CODE_PLATFORM_NAME = '0x28'   # Platform Name
+ONIE_TLVINFO_TYPE_CODE_ONIE_VERSION = '0x29'    # ONIE Version
+ONIE_TLVINFO_TYPE_CODE_NUM_MACS = '0x2A'        # Number of MAC Addresses
+ONIE_TLVINFO_TYPE_CODE_MANUFACTURER = '0x2B'    # Manufacturer
+ONIE_TLVINFO_TYPE_CODE_COUNTRY_CODE = '0x2C'    # Country Code
+ONIE_TLVINFO_TYPE_CODE_VENDOR = '0x2D'          # Vendor
+ONIE_TLVINFO_TYPE_CODE_DIAG_VERSION = '0x2E'    # Diag Version
+ONIE_TLVINFO_TYPE_CODE_SERVICE_TAG = '0x2F'     # Service Tag
+ONIE_TLVINFO_TYPE_CODE_VENDOR_EXT = '0xFD'      # Vendor Extension
+ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
+
 
 class TestChassisAPI(object):
     ''' Platform API test cases for the chassis class'''
@@ -40,29 +60,29 @@ class TestChassisAPI(object):
         '''
         # OCP ONIE TlvInfo EEPROM type codes defined here: https://opencomputeproject.github.io/onie/design-spec/hw_requirements.html
         VALID_ONIE_TLVINFO_TYPE_CODES_LIST = [
-            '0x21',  # Product Name
-            '0x22',  # Part Number
-            '0x23',  # Serial Number
-            '0x24',  # Base MAC Address
-            '0x25',  # Manufacture Date
-            '0x26',  # Device Version
-            '0x27',  # Label Revision
-            '0x28',  # Platform Name
-            '0x29',  # ONIE Version
-            '0x2A',  # Number of MAC Addresses
-            '0x2B',  # Manufacturer
-            '0x2C',  # Country Code
-            '0x2D',  # Vendor
-            '0x2E',  # Diag Version
-            '0x2F',  # Service Tag
-            '0xFD',  # Vendor Extension
-            '0xFE'   # CRC-32
+            ONIE_TLVINFO_TYPE_CODE_PRODUCT_NAME,
+            ONIE_TLVINFO_TYPE_CODE_PART_NUMBER,
+            ONIE_TLVINFO_TYPE_CODE_SERIAL_NUMBER,
+            ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR,
+            ONIE_TLVINFO_TYPE_CODE_MFR_DATE,
+            ONIE_TLVINFO_TYPE_CODE_DEVICE_VERSION,
+            ONIE_TLVINFO_TYPE_CODE_LABEL_REVISION,
+            ONIE_TLVINFO_TYPE_CODE_PLATFORM_NAME,
+            ONIE_TLVINFO_TYPE_CODE_ONIE_VERSION,
+            ONIE_TLVINFO_TYPE_CODE_NUM_MACS,
+            ONIE_TLVINFO_TYPE_CODE_MANUFACTURER,
+            ONIE_TLVINFO_TYPE_CODE_COUNTRY_CODE,
+            ONIE_TLVINFO_TYPE_CODE_VENDOR,
+            ONIE_TLVINFO_TYPE_CODE_DIAG_VERSION,
+            ONIE_TLVINFO_TYPE_CODE_SERVICE_TAG,
+            ONIE_TLVINFO_TYPE_CODE_VENDOR_EXT,
+            ONIE_TLVINFO_TYPE_CODE_CRC32
         ]
 
         MINIMUM_REQUIRED_TYPE_CODES_LIST = [
-            '0x23',  # Serial Number
-            '0x24',  # Base MAC Address
-            '0xFE'   # CRC-32
+            ONIE_TLVINFO_TYPE_CODE_SERIAL_NUMBER,
+            ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR,
+            ONIE_TLVINFO_TYPE_CODE_CRC32
         ]
 
         syseeprom_info_dict = chassis.get_system_eeprom_info(platform_api_conn)
@@ -77,11 +97,11 @@ class TestChassisAPI(object):
         assert set(MINIMUM_REQUIRED_TYPE_CODES_LIST) <= set(syseeprom_type_codes_list)
 
         # Ensure the base MAC address is sane
-        base_mac = syseeprom_info_dict['0x24']
+        base_mac = syseeprom_info_dict[ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR]
         assert base_mac is not None and re.match(REGEX_MAC_ADDRESS, base_mac)
 
         # Ensure the serial number is sane
-        serial = syseeprom_info_dict['0x23']
+        serial = syseeprom_info_dict[ONIE_TLVINFO_TYPE_CODE_SERIAL_NUMBER]
         assert serial is not None and re.match(REGEX_SERIAL_NUMBER, serial)
 
     def test_get_reboot_cause(self, duthost, localhost, platform_api_conn):
