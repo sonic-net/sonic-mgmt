@@ -741,10 +741,11 @@ def main():
             ptf_bp_ip_addr = module.params['ptf_bp_ip_addr']
             ptf_bp_ipv6_addr = module.params['ptf_bp_ipv6_addr']
 
+            if module.params['dut_mgmt_port']:
+                    net.bind_mgmt_port(mgmt_bridge, module.params['dut_mgmt_port'])
+
             if vms_exists:
                 net.add_veth_ports_to_docker()
-                if module.params['dut_mgmt_port']:
-                    net.bind_mgmt_port(mgmt_bridge, module.params['dut_mgmt_port'])
                 net.bind_fp_ports()
                 net.bind_vm_backplane()
                 net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
@@ -773,9 +774,10 @@ def main():
 
             net.init(vm_set_name, topo, vm_base, dut_fp_ports)
 
-            if vms_exists:
-                if module.params['dut_mgmt_port']:
+            if module.params['dut_mgmt_port']:
                     net.unbind_mgmt_port(module.params['dut_mgmt_port'])
+
+            if vms_exists:
                 net.unbind_vm_backplane()
                 net.unbind_fp_ports()
 
