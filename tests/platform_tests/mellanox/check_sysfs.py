@@ -5,8 +5,6 @@ This script contains re-usable functions for checking status of hw-management re
 """
 import logging
 
-from check_hw_mgmt_service import wait_until_fan_speed_set_to_default
-
 
 def check_sysfs(dut):
     """
