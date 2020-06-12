@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 TEST_CONFIG_FILE = os.path.join(os.path.split(__file__)[0], "watchdog.yml")
 TEST_WAIT_TIME_SECONDS = 2
+TIMEOUT_DEVIATION = 2
 
 class TestWatchdogAPI(object):
     ''' Hardware watchdog platform API test cases '''
@@ -68,7 +69,8 @@ class TestWatchdogAPI(object):
         assert not watchdog.is_armed(platform_api_conn)
 
         res = localhost.wait_for(host=duthost.hostname,
-                port=22, state="stopped", delay=5, timeout=watchdog_timeout,
+                port=22, state="stopped", delay=5,
+                timeout=watchdog_timeout + TIMEOUT_DEVIATION,
                 module_ignore_errors=True)
 
         assert 'exception' in res
@@ -165,9 +167,10 @@ class TestWatchdogAPI(object):
 
         assert actual_timeout != -1
 
-        res = localhost.wait_for(host=duthost.hostname, port=22, state="stopped", delay=2, timeout=actual_timeout,
+        res = localhost.wait_for(host=duthost.hostname, port=22, state="stopped", delay=2,
+                                 timeout=actual_timeout + TIMEOUT_DEVIATION,
                                  module_ignore_errors=True)
-        assert 'exception' in res
+        assert 'exception' not in res
 
         res = localhost.wait_for(host=duthost.hostname, port=22, state="started", delay=10, timeout=120,
                                  module_ignore_errors=True)
