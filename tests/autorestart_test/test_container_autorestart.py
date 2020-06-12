@@ -65,7 +65,6 @@ def verify_autorestart_with_critical_process(duthost, container_name, process):
               can be stopped and then restarted correctly 
     """
     
-    #for process in critical_process_list:
     kill_process(duthost, container_name, process)
 
     logging.info("Waiting until {} is stopped...".format(container_name))
