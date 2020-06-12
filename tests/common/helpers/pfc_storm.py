@@ -1,8 +1,6 @@
 import logging
 import os
-import pytest
 from common.errors import MissingInputError
-from common.fixtures.conn_graph_facts import fanout_graph_facts
 
 TEMPLATES_DIR = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../common/templates")))
 ANSIBLE_ROOT = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../../ansible")))
@@ -45,7 +43,7 @@ class PFCStorm(object):
         self._populate_optional_params(kwargs)
         self.peer_device = self.fanout_hosts[self.peer_info['peerdevice']]
 
-    def _populate_peer_hwsku():
+    def _populate_peer_hwsku(self):
         """
         Find out the hwsku associated with the fanout
         """
@@ -215,7 +213,7 @@ class PFCMultiStorm(object):
         frames_cnt = self.pfc_frames_number
         gen_file = self.pfc_gen_file
         if 'pfc_frames_number' in self.peer_params[peer_dev]:
-            frames_count = self.peer_params[peer_dev]['pfc_frames_number']
+            frames_cnt = self.peer_params[peer_dev]['pfc_frames_number']
         if 'pfc_queue_index' in self.peer_params[peer_dev]:
             q_idx = self.peer_params[peer_dev]['pfc_queue_index']
         if 'pfc_gen_file' in self.peer_params[peer_dev]:
