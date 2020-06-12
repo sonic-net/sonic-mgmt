@@ -231,9 +231,9 @@ def fib_t1_lag(ptfhost, testbed):
 @pytest.fixture(scope='module')
 def fib(ptfhost, testbed):
     logger.info("setup fib to topo {}".format(testbed['topo']['name']))
-    if testbed['topo']['name'] == "t0":
+    if testbed['topo']['type'] == "t0":
         fib_t0(ptfhost, testbed)
-    elif testbed['topo']['name'] == "t1-lag":
+    elif testbed['topo']['type'] == "t1":
         fib_t1_lag(ptfhost, testbed)
     else:
         logger.error("unknonw topology {}".format(testbed['topo']['name']))
