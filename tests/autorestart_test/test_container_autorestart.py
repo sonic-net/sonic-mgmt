@@ -87,7 +87,6 @@ def verify_autorestart_with_non_critical_process(duthost, container_name, proces
               is still in the running state 
     """
     
-    #for process in critical_process_list:
     kill_process(duthost, container_name, process)
 
     logging.info("Checking whether the {} is still running...".format(container_name))
