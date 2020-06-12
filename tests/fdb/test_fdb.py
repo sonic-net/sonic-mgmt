@@ -7,7 +7,7 @@ import itertools
 import logging
 import pprint
 
-from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/import-and-import-from]
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 
 DEFAULT_FDB_ETHERNET_TYPE = 0x1234
 DUMMY_MAC_PREFIX = "02:11:22:33"

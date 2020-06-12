@@ -3,7 +3,7 @@ import pytest
 import time
 
 from common.helpers.assertions import pytest_assert
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm [py/import-and-import-from]
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm [py/unused-import]
 
 logger = logging.getLogger(__name__)
 

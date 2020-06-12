@@ -2,7 +2,7 @@ import json
 import logging
 import pytest
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/import-and-import-from]
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)

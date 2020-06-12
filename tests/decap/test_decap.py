@@ -7,8 +7,8 @@ from jinja2 import Template
 from netaddr import IPNetwork
 from ansible.plugins.filter.core import to_bool
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/import-and-import-from]
-from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/import-and-import-from]
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from ptf_runner import ptf_runner
 from common.plugins.fib import generate_routes
 
