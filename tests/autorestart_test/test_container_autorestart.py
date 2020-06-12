@@ -44,7 +44,7 @@ def kill_process(duthost, container_name, process):
 
     running_status, process_id = get_process_id(duthost, container_name, process)
     if running_status:
-        assert False, "Failed to stop {} process".format(process)
+        assert False, "Failed to stop %s process" % process
     else:
         logging.info("{} process is stopped successfully".format(process)) 
 
