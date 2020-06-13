@@ -16,7 +16,7 @@ function usage
   echo "Options:"
   echo "    -t <tbfile> : testbed CSV file name (default: 'testbed.csv')"
   echo "    -m <vmfile> : virtual machine file name (default: 'veos')"
-  echo "    -k <vmtype> : vm type (veos|ceos) (default: 'veos')"
+  echo "    -k <vmtype> : vm type (veos|ceos|csonic) (default: 'veos')"
   echo "    -n <vm_num> : vm num (default: 0)"
   echo
   echo "Positional Arguments:"
@@ -124,7 +124,18 @@ function add_topo
 
   read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" $@ 
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml \
+                                        --vault-password-file="${passwd}" \
+                                        -l "$server" \
+                                        -e topo_name="$topo_name" \
+                                        -e dut_name="$duts" \
+                                        -e VM_base="$vm_base" \
+                                        -e ptf_ip="$ptf_ip" \
+                                        -e topo="$topo" \
+                                        -e vm_set_name="$testbed_name" \
+                                        -e ptf_imagename="$ptf_imagename" \
+                                        -e vm_type="$vm_type" \
+                                        $@
 
   ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
 
@@ -144,7 +155,18 @@ function remove_topo
 
   read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" $@
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_remove_vm_topology.yml \
+                                        --vault-password-file="${passwd}" \
+                                        -l "$server" \
+                                        -e topo_name="$topo_name" \
+                                        -e dut_name="$duts" \
+                                        -e VM_base="$vm_base" \
+                                        -e ptf_ip="$ptf_ip" \
+                                        -e topo="$topo" \
+                                        -e vm_set_name="$testbed_name" \
+                                        -e ptf_imagename="$ptf_imagename" \
+                                        -e vm_type="$vm_type" \
+                                        $@
 
   echo Done
 }

@@ -38,7 +38,10 @@ VM0129 ansible_host=10.250.0.80
 VM0130 ansible_host=10.250.0.81
 VM0131 ansible_host=10.250.0.82
 
-[eos:children]
+#[eos:children]
+#vms_1
+
+[sonic:children]
 vms_1
 
 ## The groups below are helper to limit running playbooks to server_1, server_2 or server_3 only
