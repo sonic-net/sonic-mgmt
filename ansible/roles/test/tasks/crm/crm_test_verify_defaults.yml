@@ -1,0 +1,10 @@
+- block:
+
+    - name: Verify Polling Defaults
+      shell: crm show summary | awk '/^$/ {next}{if($3!=300){exit 1}}'
+
+    - name: Verify Default min thresholds
+      shell: crm show thresholds all | awk '/^$/ {next} NR>4 {if($3!=70){exit 1}}'
+
+    - name: Verify Default max thresholds
+      shell: crm show thresholds all | awk '/^$/ {next} NR>4 {if($4!=85){exit 1}}'

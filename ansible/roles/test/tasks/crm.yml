@@ -18,6 +18,12 @@
         ansible_date_time: "{{ansible_date_time}}"
         crm_update_time: 4
 
+   - name: Run test case "CRM verify defaults"
+     include: roles/test/tasks/crm/crm_test_verify_defaults.yml
+
+   - name: Run test case "CRM Test Set Threshold"
+     include: roles/test/tasks/crm/crm_test_set_threshold.yml
+
    - name: Set polling interval
      command: crm config polling interval 1
 
