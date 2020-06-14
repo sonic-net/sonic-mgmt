@@ -6,3 +6,5 @@ example_ixia: example_ixia_connection_graph.xml
 
 
 # Specify all internal mappings below
+str: starlab_connection_graph.xml
+str2: spytest_connection_graph.xml
