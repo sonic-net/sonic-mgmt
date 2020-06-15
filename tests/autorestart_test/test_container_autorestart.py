@@ -1,15 +1,33 @@
 """
-Check the auto-restart feature of containers
+Test the auto-restart feature of containers 
 """
 import time
 import pytest
 import logging
 
 from common.utilities import wait_until
+from common.helpers.assertions import pytest_assert
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_STOP_THRESHOLD_SECS = 30
 CONTAINER_RESTART_THRESHOLD_SECS = 180
+
+CMD_CONTAINER_FEATURE_AUTORESTART = "show container feature autorestart"
+
+def get_autorestart_container_list(duthost):
+    """
+    @summary: Get container list by analyzing the command output of 
+              "show container feature autorestart"
+    @return: The list includes containers which were implemented with the autorestart feature
+    """
+    container_list = []
+    cmd_output = duthost.shell(CMD_CONTAINER_FEATURE_AUTORESTART)
+    for line in cmd_output["stdout_lines"]:
+        if line.split()[1] in ["enabled", "disabled"]:
+            container_list.append(line.split()[0])
+
+    return container_list
+
 
 def get_process_id(duthost, container_name, process):
     """
@@ -22,11 +40,10 @@ def get_process_id(duthost, container_name, process):
     process_id = -1
     ps_out = duthost.shell("docker exec {} ps -ax".format(container_name))
     for line in ps_out["stdout_lines"]:
-        process_info = line.split()
-        if "/usr/bin/supervisor-proc-exit-listener" not in process_info \
-            and str(process_info).find(process) != -1:
+        if "/usr/bin/supervisor-proc-exit-listener" not in line \
+            and line.find(process) != -1:
             running_status = True
-            process_id = int(process_info[0])
+            process_id = int(line.split()[0])
             break 
 
     return running_status, process_id
@@ -42,7 +59,7 @@ def kill_process(duthost, container_name, process):
 
     running_status, process_id = get_process_id(duthost, container_name, process)
     if running_status:
-        assert False, "Failed to stop {} process before test.".format(process)
+        pytest_assert(False, "Failed to stop {} process before test.".format(process))
     else:
         logging.info("{} process is stopped successfully".format(process)) 
 
@@ -65,18 +82,20 @@ def verify_autorestart_with_critical_process(duthost, container_name, process):
     kill_process(duthost, container_name, process)
 
     logging.info("Waiting until {} is stopped...".format(container_name))
-    assert wait_until(CONTAINER_STOP_THRESHOLD_SECS, 
+    pytest_assert(wait_until(CONTAINER_STOP_THRESHOLD_SECS, 
                       CONTAINER_CHECK_INTERVAL_SECS,
-                      check_container_status, duthost, container_name, True)
+                      check_container_status, duthost, container_name, True), 
+                  "Failed to stop {}".format(container_name))
     logging.info("{} is stopped".format(container_name))
 
     logging.info("Waiting until {} is restarted...".format(container_name))
-    assert wait_until(CONTAINER_RESTART_THRESHOLD_SECS, 
+    pytest_assert(wait_until(CONTAINER_RESTART_THRESHOLD_SECS, 
                       CONTAINER_CHECK_INTERVAL_SECS,
-                      check_container_status, duthost, container_name, False)
+                      check_container_status, duthost, container_name, False),
+                  "Failed to restart {}".format(container_name))
     logging.info("{} is restarted".format(container_name))
 
-def verify_autorestart_with_non_critical_process(duthost, container_name, process):
+def verify_no_autorestart_with_non_critical_process(duthost, container_name, process):
     """
     @summary: Killing a non-critical process in a container to verify whether the container 
               is still in the running state 
@@ -84,22 +103,22 @@ def verify_autorestart_with_non_critical_process(duthost, container_name, proces
     kill_process(duthost, container_name, process)
 
     logging.info("Checking whether the {} is still running...".format(container_name))
-    assert wait_until(CONTAINER_STOP_THRESHOLD_SECS, 
+    pytest_assert(wait_until(CONTAINER_STOP_THRESHOLD_SECS, 
                       CONTAINER_CHECK_INTERVAL_SECS,
-                      check_container_status, duthost, container_name, False)
+                      check_container_status, duthost, container_name, False),
+                  "{} is stopped unexpectedly".format(container_name))
     logging.info("{} is running".format(container_name))
 
 @pytest.fixture(scope="module", autouse=True)
 def change_autorestart_status(duthost):
-    container_list = ["lldp", "radv", "pmon", "sflow", "database", "telemetry", "snmp",
-                      "bgp", "dhcp_relay", "nat", "teamd", "syncd", "swss"]
+    container_list = get_autorestart_container_list(duthost)
     for container_name in container_list:
-        logging.info("Change {} auto-restart state to enabled".format(container_name))
+        logging.info("Change {} auto-restart state to 'enabled'".format(container_name))
         duthost.shell("config container feature autorestart %s enabled" % container_name)
 
 def test_swss_autorestart(duthost):
     verify_autorestart_with_critical_process(duthost, "swss", "portsyncd")
-    verify_autorestart_with_non_critical_process(duthost, "swss", "rsyslogd")
+    verify_no_autorestart_with_non_critical_process(duthost, "swss", "rsyslogd")
 
 def test_lldp_autorestart(duthost):
     verify_autorestart_with_critical_process(duthost, "lldp", "lldpmgrd")
