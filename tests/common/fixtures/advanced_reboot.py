@@ -127,10 +127,12 @@ class AdvancedReboot:
         self.rebootData['dut_username'] = secrets[invetory]['sonicadmin_user']
         self.rebootData['dut_password'] = secrets[invetory]['sonicadmin_password']
 
+        # Change network of the dest IP addresses (used by VM servers) to be different from Vlan network
+        prefixLen = self.mgFacts['minigraph_vlan_interfaces'][0]['prefixlen'] - 3
+        testNetwork = ipaddress.ip_address(self.mgFacts['minigraph_vlan_interfaces'][0]['addr']) + (1 << (32 - prefixLen))
         self.rebootData['default_ip_range'] = str(
-            ipaddress.ip_interface(self.mgFacts['minigraph_vlan_interfaces'][0]['addr'] + '/18').network
+            ipaddress.ip_interface(unicode(str(testNetwork) + '/{0}'.format(prefixLen))).network
         )
-
         for intf in self.mgFacts['minigraph_lo_interfaces']:
             if ipaddress.ip_interface(intf['addr']).ip.version == 6:
                 self.rebootData['lo_v6_prefix'] = str(ipaddress.ip_interface(intf['addr'] + '/64').network)
