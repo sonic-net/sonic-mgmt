@@ -3,17 +3,18 @@ import logging
 import pytest
 
 
-def psu_controller_factory(controller_ip, controller_protocol, dut_hostname):
+def psu_controller_factory(controller_ip, controller_protocol, dut_hostname, pdu_port):
     """
     @summary: Factory function for creating PSU controller according to different management protocol.
     @param controller_ip: IP address of the PSU controller host.
     @param controller_protocol: Management protocol supported by the PSU controller host.
     @param dut_hostname: Hostname of the DUT to be controlled by the PSU controller.
+    @param pdu_port: Port number of the PSU controller connected to the DUT.
     """
     logging.info("Creating psu controller object")
     if controller_protocol == "snmp":
         import snmp_psu_controllers
-        return snmp_psu_controllers.get_psu_controller(controller_ip, dut_hostname)
+        return snmp_psu_controllers.get_psu_controller(controller_ip, dut_hostname, pdu_port)
 
 
 @pytest.fixture(scope="module")
@@ -28,6 +29,7 @@ def psu_controller(duthost):
     logging.info("Creating psu_controller fixture")
     inv_mgr = duthost.host.options["inventory_manager"]
     pdu_host = inv_mgr.get_host(duthost.hostname).get_vars().get("pdu_host")
+    pdu_port = inv_mgr.get_host(duthost.hostname).get_vars().get("pdu_port")
     if not pdu_host:
         logging.info("No 'pdu_host' is defined in inventory file for '%s'. Unable to create psu_controller" %
                      duthost.hostname)
@@ -48,7 +50,7 @@ def psu_controller(duthost):
         logging.info("No protocol is defined in inventory file for '%s'. Try to use default 'snmp'" % pdu_host)
         controller_protocol = "snmp"
 
-    controller = psu_controller_factory(controller_ip, controller_protocol, duthost.hostname)
+    controller = psu_controller_factory(controller_ip, controller_protocol, duthost.hostname, pdu_port)
 
     yield controller
 

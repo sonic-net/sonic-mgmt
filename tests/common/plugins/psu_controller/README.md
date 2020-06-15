@@ -36,7 +36,18 @@ pdu-1 ansible_host=192.168.99.2 protocol=snmp
 
 If 'protocol' variable is missed, it will take default value "snmp" in code.
 
-### 3. Extend PDU host configuration
+### 3. Add `pdu_port` variable to DUT host in inventory file
+
+In the inventory file, we can add the 'pdu_port' variable along with pdu_host to DUT host:
+
+```
+[sonic_latest]
+switch1  ansible_host=10.0.0.100  sonic_version=v2  sonic_hwsku=Force10-S6000 pdu_host=pdu-1 pdu_port=6
+```
+
+In the above example, `pdu_port` variable is added to DUT host `switch1` following after adding `pdu_host` variable.
+
+### 4. Extend PDU host configuration
 
 If we need to add more PDU configuration information, we can simply add more variables to the corresponding PDU host in the inventory file.
 
@@ -44,7 +55,7 @@ If we need to add more PDU configuration information, we can simply add more var
 
 ```
 [sonic_latest]
-switch1  ansible_host=10.0.0.100  sonic_version=v2  sonic_hwsku=Force10-S6000 pdu_host=pdu-1
+switch1  ansible_host=10.0.0.100  sonic_version=v2  sonic_hwsku=Force10-S6000 pdu_host=pdu-1 pdu_port=6
 switch2  ansible_host=10.0.0.101  sonic_version=v2  sonic_hwsku=ACS-MSN2700 pdu_host=pdu-1
 switch3  ansible_host=10.0.0.102  sonic_version=v2  sonic_hwsku=Force10-S6000   # LAG topo: 8 LAGs x 2 members/lag to spines; 16 ports to Tors
 switch4  ansible_host=10.0.0.103  sonic_version=v2  sonic_hwsku=AS7512 sonic_portsku=32x40 pdu_host=pdu-2

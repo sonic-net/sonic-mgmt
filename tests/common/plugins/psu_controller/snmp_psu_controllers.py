@@ -108,7 +108,7 @@ class snmpPsuController(PsuControllerBase):
                     # Remove the preceding PORT_NAME_BASE_OID, remaining string is the PDU port ID
                     self.pdu_ports.append(current_oid.replace(self.PORT_NAME_BASE_OID, ''))
 
-    def __init__(self, hostname, controller):
+    def __init__(self, hostname, controller, pdu_port):
         logging.info("Initializing " + self.__class__.__name__)
         PsuControllerBase.__init__(self)
         self.hostname = hostname
@@ -117,7 +117,10 @@ class snmpPsuController(PsuControllerBase):
         self.psuType = None
         self.get_psu_controller_type()
         self.psuCntrlOid()
-        self._get_pdu_ports()
+        if not pdu_port:
+            self._get_pdu_ports()
+        else:
+            self.pdu_ports.append(pdu_port)
         logging.info("Initialized " + self.__class__.__name__)
 
     def turn_on_psu(self, psu_id):
@@ -227,9 +230,9 @@ class snmpPsuController(PsuControllerBase):
         pass
 
 
-def get_psu_controller(controller_ip, dut_hostname):
+def get_psu_controller(controller_ip, dut_hostname, pdu_port):
     """
     @summary: Factory function to create the actual PSU controller object.
     @return: The actual PSU controller object. Returns None if something went wrong.
     """
-    return snmpPsuController(dut_hostname, controller_ip)
+    return snmpPsuController(dut_hostname, controller_ip, pdu_port)
