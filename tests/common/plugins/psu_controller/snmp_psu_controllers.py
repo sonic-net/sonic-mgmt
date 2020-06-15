@@ -26,9 +26,11 @@ class snmpPsuController(PsuControllerBase):
         """
         pSYSDESCR = ".1.3.6.1.2.1.1.1.0"
         SYSDESCR = "1.3.6.1.2.1.1.1.0"
+        SNMP_ROCOMMUNITY = pdu['snmp_rocommunity']
+        SNMP_RWCOMMUNITY = pdu['snmp_rwcommunity']
         psu = None
         cmdGen = cmdgen.CommandGenerator()
-        snmp_auth = cmdgen.CommunityData('public')
+        snmp_auth = cmdgen.CommunityData(SNMP_ROCOMMUNITY)
         errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((self.controller, 161), timeout=5.0),
@@ -92,7 +94,7 @@ class snmpPsuController(PsuControllerBase):
         This method depends on this configuration to find out the PDU ports connected to PSUs of specific DUT.
         """
         cmdGen = cmdgen.CommandGenerator()
-        snmp_auth = cmdgen.CommunityData('public')
+        snmp_auth = cmdgen.CommunityData(SNMP_ROCOMMUNITY)
         errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((self.controller, 161)),
@@ -143,7 +145,7 @@ class snmpPsuController(PsuControllerBase):
         port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(psu_id)]
         errorIndication, errorStatus, _, _ = \
         cmdgen.CommandGenerator().setCmd(
-            cmdgen.CommunityData('private'),
+            cmdgen.CommunityData(SNMP_RWCOMMUNITY),
             cmdgen.UdpTransportTarget((self.controller, 161)),
             (port_oid, rfc1902.Integer(self.CONTROL_ON)),
         )
@@ -172,7 +174,7 @@ class snmpPsuController(PsuControllerBase):
         port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(psu_id)]
         errorIndication, errorStatus, _, _ = \
         cmdgen.CommandGenerator().setCmd(
-            cmdgen.CommunityData('private'),
+            cmdgen.CommunityData(SNMP_RWCOMMUNITY),
             cmdgen.UdpTransportTarget((self.controller, 161)),
             (port_oid, rfc1902.Integer(self.CONTROL_OFF)),
         )
@@ -203,7 +205,7 @@ class snmpPsuController(PsuControllerBase):
         """
         results = []
         cmdGen = cmdgen.CommandGenerator()
-        snmp_auth = cmdgen.CommunityData('public')
+        snmp_auth = cmdgen.CommunityData(SNMP_ROCOMMUNITY)
         errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((self.controller, 161)),

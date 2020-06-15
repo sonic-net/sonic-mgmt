@@ -309,6 +309,12 @@ def eos():
         eos = yaml.safe_load(stream)
         return eos
 
+@pytest.fixture(scope='session')
+def pdu():
+    """ read and yield pdu configuration """
+    with open('pdu/pdu.yml') as stream:
+        pdu = yaml.safe_load(stream)
+        return pdu
 
 @pytest.fixture(scope="module")
 def creds(duthost):
