@@ -59,7 +59,6 @@
   become: yes
   with_items:
     - ifupdown
-    - python
     - qemu
     - openvswitch-switch
     - net-tools
@@ -67,13 +66,31 @@
     - util-linux
     - iproute2
     - vlan
-    - libvirt-bin
-    - python-libvirt
-    - python-pip
     - apt-transport-https
     - ca-certificates
     - curl
     - software-properties-common
+    - libvirt-clients
+
+- name:
+  apt:
+    pkg:
+    - python
+    - libvirt-bin
+    - python-libvirt
+    - python-pip
+  become: yes
+  when: host_distribution_version.stdout == "18.04"
+
+- name:
+  apt:
+    pkg:
+    - python3-libvirt
+    - python3-pip
+    - libvirt-daemon-system
+    - qemu-system-x86
+  become: yes
+  when: host_distribution_version.stdout == "20.04"
 
 - include_tasks: docker.yml
 

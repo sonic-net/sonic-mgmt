@@ -42,7 +42,7 @@ class SerialSession(object):
         self.d = debug
         self.d.debug('Starting')
         self.tn = Telnet('127.0.0.1', port)
-        self.tn.write('\r\n')
+        self.tn.write(b"\r\n")
 
         return
 
@@ -62,9 +62,9 @@ class SerialSession(object):
     def pair(self, action, wait_for, timeout=60):
         self.d.debug('output: %s' % action)
         self.d.debug('match: %s' % ",".join(wait_for))
-        self.tn.write("%s\n" % action)
+        self.tn.write(b"%s\n" % action.encode('ascii'))
         if wait_for is not None:
-            index, match, text = self.tn.expect(wait_for, timeout)
+            index, match, text = self.tn.expect([ x.encode('ascii') for x in wait_for ], timeout)
             self.d.debug('Result of matching: %d %s %s' % (index, str(match), text))
             if index == -1:
                 raise EMatchNotFound
@@ -154,7 +154,7 @@ def main():
         result = {'kickstart_code': -1, 'changed': False, 'msg': 'EOF during the chat'}
     except EMatchNotFound:
         result = {'kickstart_code': -1, 'changed': False, 'msg': "Match for output isn't found"}
-    except Exception, e:
+    except Exception as e:
         module.fail_json(msg=str(e))
 
     module.exit_json(**result)
