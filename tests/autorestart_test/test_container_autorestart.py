@@ -28,7 +28,6 @@ def get_autorestart_container_list(duthost):
 
     return container_list
 
-
 def get_process_id(duthost, container_name, process):
     """
     @summary: Get the pid of process in the specified container by analyzing
@@ -110,7 +109,7 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
     logging.info("{} is running".format(container_name))
 
 @pytest.fixture(scope="module", autouse=True)
-def change_autorestart_status(duthost):
+def change_container_autorestart_state(duthost):
     container_list = get_autorestart_container_list(duthost)
     for container_name in container_list:
         logging.info("Change {} auto-restart state to 'enabled'".format(container_name))
