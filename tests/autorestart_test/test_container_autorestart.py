@@ -1,5 +1,5 @@
 """
-Check the auto-restart feature of different containers 
+Check the auto-restart feature of containers
 """
 import time
 import pytest
@@ -94,7 +94,7 @@ def change_autorestart_status(duthost):
     container_list = ["lldp", "radv", "pmon", "sflow", "database", "telemetry", "snmp",
                       "bgp", "dhcp_relay", "nat", "teamd", "syncd", "swss"]
     for container_name in container_list:
-        logging.info("Change {} auto-restart status to enabled".format(container_name))
+        logging.info("Change {} auto-restart state to enabled".format(container_name))
         duthost.shell("config container feature autorestart %s enabled" % container_name)
 
 def test_swss_autorestart(duthost):
