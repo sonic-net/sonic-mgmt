@@ -586,7 +586,7 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         # parse nexthops
         for l in rt:
-            m = re.search(r"(default|nexthop) via (\S+) dev (\S+)", l)
+            m = re.search(r"(default|nexthop)\s+via\s+(\S+)\s+dev\s+(\S+)", l)
             if m:
                 rtinfo['nexthops'].append((ipaddress.ip_address(m.group(2)), m.group(3)))
 
