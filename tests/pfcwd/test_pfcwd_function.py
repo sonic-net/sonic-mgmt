@@ -501,7 +501,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
              self.setup_test_params(port, setup_info['vlan'], init=not idx)
              self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['ansible_eth0']['macaddress'], self.pfc_wd)
              pfc_wd_restore_time_large = request.config.getoption("--restore-time")
-             # wait time before we check the logs for the 'restore' signature
+             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
              self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
              for action in ['dontcare', 'drop', 'forward']:
                  try:
