@@ -66,8 +66,7 @@ class PFCStorm(object):
         'pfc_storm_defer_time', 'pfc_storm_stop_defer_time', 'pfc_asym'
         """
         if len(kwargs) > 0:
-            for key in kwargs:
-                setattr(self, key, kwargs.get(key))
+            self.__dict__.update(kwargs)
         kwargs.clear()
 
     def _create_pfc_gen(self):
@@ -156,6 +155,8 @@ class PFCStorm(object):
         self._prepare_start_template()
         logger.info("--- Starting PFC storm on {} on interfaces {}"
                     .format(self.peer_info['peerdevice'], self.peer_info['pfc_fanout_interface']))
+        # TODO will get rid of this ansible playbook execution option when Mellanox adds the necessary functionality
+        # to their onyx_config/onyx_command modules
         self.peer_device.exec_template(ANSIBLE_ROOT, RUN_PLAYBOOK, self.inventory, **self.extra_vars)
 
     def stop_storm(self):
@@ -165,6 +166,8 @@ class PFCStorm(object):
         self._prepare_stop_template()
         logger.info("--- Stopping PFC storm on {} on interfaces {}"
                     .format(self.peer_info['peerdevice'], self.peer_info['pfc_fanout_interface']))
+        # TODO will get rid of this ansible playbook execution option when Mellanox adds the necessary functionality
+        # to their onyx_config/onyx_command modules
         self.peer_device.exec_template(ANSIBLE_ROOT, RUN_PLAYBOOK, self.inventory, **self.extra_vars)
 
 
@@ -186,7 +189,7 @@ class PFCMultiStorm(object):
             pfc_queue_index(int) : queue on which the PFC storm should be generated. default: 4
             pfc_frames_number(int) : Number of PFC frames to generate. default: 100000000
             pfc_gen_file(string): Script which generates the PFC traffic. default: pfc_gen.py
-            storm_hndle(dict): PFCStorm instance for each fanout connected to the DUT
+            storm_handle(dict): PFCStorm instance for each fanout connected to the DUT
         """
         self.duthost = duthost
         self.fanout_graph = fanout_graph_facts
@@ -195,7 +198,7 @@ class PFCMultiStorm(object):
         self.pfc_queue_index = 4
         self.pfc_frames_number = 100000000
         self.pfc_gen_file = "pfc_gen.py"
-        self.storm_hndle = dict()
+        self.storm_handle = dict()
 
     def _get_pfc_params(self, peer_dev):
         """
@@ -233,26 +236,26 @@ class PFCMultiStorm(object):
 
             q_idx, frames_cnt, gen_file = self._get_pfc_params(peer_dev)
             # get pfc storm handle
-            self.storm_hndle[peer_dev] = PFCStorm(self.duthost, self.fanout_graph,
+            self.storm_handle[peer_dev] = PFCStorm(self.duthost, self.fanout_graph,
                                                   self.fanouthosts,
                                                   pfc_queue_index=q_idx,
                                                   pfc_frames_number=frames_cnt,
                                                   pfc_gen_file=gen_file,
                                                   peer_info=peer_info)
 
-            self.storm_hndle[peer_dev].deploy_pfc_gen()
+            self.storm_handle[peer_dev].deploy_pfc_gen()
 
     def start_pfc_storm(self):
         """
         Start PFC storm on all fanouts connected to the DUT
         """
-        for hndle in self.storm_hndle:
-            self.storm_hndle[hndle].start_storm()
+        for hndle in self.storm_handle:
+            self.storm_handle[hndle].start_storm()
 
     def stop_pfc_storm(self):
         """
         Stop PFC storm on all fanouts connected to the DUT
         """
-        for hndle in self.storm_hndle:
-            self.storm_hndle[hndle].stop_storm()
+        for hndle in self.storm_handle:
+            self.storm_handle[hndle].stop_storm()
 
