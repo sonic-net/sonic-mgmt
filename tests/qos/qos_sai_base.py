@@ -497,7 +497,7 @@ class QosSaiBase:
         with open(r"qos/files/qos.yml") as file:
             qosConfigs = yaml.load(file, Loader=yaml.FullLoader)
 
-        vendor = duthost.get_asic_type()
+        vendor = duthost.facts["asic_type"]
         hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
         dutAsic = None
         for asic in self.SUPPORTED_ASIC_LIST:
@@ -538,7 +538,6 @@ class QosSaiBase:
             Returns:
                 filename (str): returns the filename copied to PTF host
         """
-        ptfhost.copy(src="ptftests", dest="/root")
         portMapFile = request.config.getoption("--ptf_portmap")
         if not portMapFile:
             portMapFile = self.DEFAULT_PORT_INDEX_TO_ALIAS_MAP_FILE
