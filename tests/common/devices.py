@@ -770,14 +770,14 @@ class OnyxHost(AnsibleHostBase):
     def shutdown(self, interface_name):
         out = self.host.onyx_config(
             lines=['shutdown'],
-            parents='interface ethernet %s' % interface_name)
+            parents='interface %s' % interface_name)
         logging.info('Shut interface [%s]' % interface_name)
         return out
 
     def no_shutdown(self, interface_name):
         out = self.host.onyx_config(
             lines=['no shutdown'],
-            parents='interface ethernet %s' % interface_name)
+            parents='interface %s' % interface_name)
         logging.info('No shut interface [%s]' % interface_name)
         return out
 
