@@ -24,3 +24,35 @@ def test_snmp_interfaces(duthost, localhost, creds):
     # Verify management port in snmp interface list
     for name in config_facts.get('MGMT_INTERFACE', {}):
         assert name in snmp_ifnames
+
+    # Verify Vlan interfaces in snmp interface list
+    for name in config_facts.get('VLAN_INTERFACE', {}):
+        assert name in snmp_ifnames
+
+
+def test_snmp_interface_counters(duthost, localhost, creds):
+    """Make sure Interface MIB has counters available"""
+
+    hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+
+    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
+
+    for k, v in snmp_facts['snmp_interfaces'].items():
+        if "Ethernet" in v['name'] or "PortChannel" in v['name']:
+            if not v.has_key('ifInErrors') or \
+               not v.has_key('ifOutErrors') or \
+               not v.has_key('ifInDiscards') or \
+               not v.has_key('ifHCInOctets') or \
+               not v.has_key('ifOutDiscards') or \
+               not v.has_key('ifHCOutOctets') or \
+               not v.has_key('ifInUcastPkts') or \
+               not v.has_key('ifOutUcastPkts'):
+                pytest.fail("interface %s does not have counters" % v['name'])
+
+        # Vlan interface being a l3 interface, has limited counter support
+        elif "Vlan" in v['name']:
+            if not v.has_key('ifInErrors') or \
+               not v.has_key('ifOutErrors') or \
+               not v.has_key('ifInUcastPkts') or \
+               not v.has_key('ifOutUcastPkts'):
+                pytest.fail("interface %s does not have counters" % v['name'])
