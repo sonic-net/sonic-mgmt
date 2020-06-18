@@ -807,7 +807,7 @@ class OnyxHost(AnsibleHostBase):
         res = self.localhost.shell(cli_cmd)
 
         if res["localhost"]["rc"] != 0:
-            raise Exception("Unable to execute template\n{}".format(res["stdout"]))
+            raise Exception("Unable to execute template\n{}".format(res["localhost"]["stdout"]))
 
 
 class FanoutHost():
