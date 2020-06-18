@@ -150,6 +150,7 @@ def setup_info(ptfhost, duthost, testbed):
         "dut_rifs_in_topo_t0": dut_rifs_in_topo_t0,
         "indices_to_ports_config": indices_to_ports_config,
         "ptf_ports_available_in_topo": ptf_ports_available_in_topo,
+        "config_portchannels":config_portchannels,
         "pch_ips": {"PortChannel0001": duthost.setup()['ansible_facts']['ansible_PortChannel0001']['ipv4']['address'],
                     "PortChannel0002": duthost.setup()['ansible_facts']['ansible_PortChannel0002']['ipv4']['address']},
         "outer_vrf": ["red", "green"],
@@ -457,3 +458,73 @@ class TestNat(object):
         # make sure NAT counters exist and have incremented
         nat_counters = nat_statistics(duthost, show=True)
         pytest_assert(not nat_counters, "Unexpected empty NAT counters output")
+
+    def test_nat_interfaces_flap_dynamic(self, ptfhost, testbed, duthost, ptfadapter, setup_info, interface_type,
+                                         protocol_type):
+        # for T0 only portchannel supported
+        # TODO: extend with more inner/outer interfaces type
+        if interface_type == "loopback":
+            pytest.skip("Not supported")
+        teardown_test_env(duthost, ptfhost, setup_info, interface_type, reboot=True, before_test=True)
+        # re-apply global NAT config
+        duthost.command('sonic-cfggen -j tmp/nat/nat_table_global_enabled.json --write-to-db')
+        # setup PTF's interfaces
+        setup_test_env(ptfhost, duthost, testbed, setup_info, interface_type)
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, setup_info, interface_type, default=True)
+        # Traffic send and check
+        for direction in DIRECTION_PARAMS:
+            if direction == 'leaf-tor':
+                continue
+            check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_info, direction, interface_type,
+                                  protocol_type,
+                                  icmp_id=POOL_RANGE_START_PORT, handshake=True, nat_type='dynamic', default=True)
+        # TODO: extend with more inner/outer interfaces type
+        # Disable outer interface
+        ifname_to_disable = setup_info[interface_type]["outer_zone_interfaces"][0]
+        dut_interface_control(duthost, "disable", setup_info["config_portchannels"][ifname_to_disable]['members'][0])
+        # make sure trasnlations are not expired
+        source_l4_port, _ = set_l4_default_ports(protocol_type)
+        nat_translated_source = "{}:{}".format(setup_info[interface_type]["public_ip"], POOL_RANGE_START_PORT + 1)
+        nat_source = "{}:{}".format(setup_info[interface_type]["src_ip"], source_l4_port)
+        nat_translated_destination = nat_source
+        nat_destination = nat_translated_source
+        # make sure static NAT translations exist
+        translations = nat_translations(duthost, show=True)
+        for entry in translations:
+            # TODO: fix asap as assert helper will be merged
+            if entry == nat_source:
+                pytest_assert(nat_translated_source == translations[entry]["Translated Source"],
+                              "Unexpected source translation rule for {}".format(entry))
+                pytest_assert(nat_source == translations[entry]["Source"],
+                              "Unexpected source translation rule for {}".format(entry))
+            if entry == nat_destination:
+                pytest_assert(nat_translated_destination == translations[entry]["Translated Destination"],
+                              "Unexpected destination translation rule for {}".format(entry))
+                pytest_assert(nat_destination == translations[entry]["Destination"],
+                              "Unexpected source translation rule for {}".format(entry))
+        # make sure iptables rules are not expired
+        portrange = "{}-{}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)
+        acl_subnet = setup_info[interface_type]["acl_subnet"]
+        public_ip = setup_info[interface_type]["public_ip"]
+        iptables_ouput = dut_nat_iptables_status(duthost)
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+                          "postrouting": [
+                              "SNAT tcp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                                                                                                 portrange),
+                              "SNAT udp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                                                                                                 portrange),
+                              "SNAT icmp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                                                                                                  portrange)]
+                          }
+        pytest_assert(iptables_rules == iptables_ouput,
+                      "Unexpected iptables output for nat table")
+        # Enable outer interface
+        dut_interface_control(duthost, "enable", setup_info["config_portchannels"][ifname_to_disable]['members'][0])
+        # Traffic send and check
+        for direction in DIRECTION_PARAMS:
+            if direction == 'leaf-tor':
+                continue
+            check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_info, direction, interface_type,
+                                  protocol_type,
+                                  icmp_id=POOL_RANGE_START_PORT, nat_type='dynamic', default=True)

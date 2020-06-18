@@ -192,7 +192,7 @@ def dut_interface_control(duthost, action, interface_name):
     while current_operstatus != expected_operstatus[action]:
         if attempts == 0:
             break
-        time.sleep(5)
+        time.sleep(15)
         current_operstatus = dut_interface_status(duthost, interface_name)
         attempts -=1
     return current_operstatus
