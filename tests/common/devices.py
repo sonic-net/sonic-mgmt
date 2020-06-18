@@ -78,7 +78,7 @@ class AnsibleHostBase(object):
         logging.debug("{}::{}#{}: [{}] AnsibleModule::{} Result => {}"\
             .format(filename, function_name, line_number, self.hostname, self.module_name, json.dumps(res)))
 
-        if res.is_failed and not module_ignore_errors:
+        if (res.is_failed or 'exception' in res) and not module_ignore_errors:
             raise RunAnsibleModuleFail("run module {} failed".format(self.module_name), res)
 
         return res
