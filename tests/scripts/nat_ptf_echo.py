@@ -18,7 +18,10 @@ class TcpServer(object):
 
 
 class TcpClient(object):
-    def __init__(self, dst_ip, dst_port, src_ip, src_port, vrf_src):
+    def __init__(self, dst_ip, dst_port, src_ip, src_port, vrf_src, nat_dst_ip):
+        if nat_dst_ip != "None":
+                dst_ip = nat_dst_ip
+                dst_port = src_port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.setsockopt(socket.SOL_SOCKET, SO_BINDTODEVICE, b'{}'.format(vrf_src))
@@ -37,7 +40,10 @@ class UdpServer(object):
 
 
 class UdpClient(object):
-    def __init__(self, dst_ip, dst_port, src_ip, src_port, vrf_src):
+    def __init__(self, dst_ip, dst_port, src_ip, src_port, vrf_src, nat_dst_ip):
+        if nat_dst_ip != "None":
+                dst_ip = nat_dst_ip
+                dst_port = src_port
         self.sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.setsockopt(socket.SOL_SOCKET, SO_BINDTODEVICE, b'{}'.format(vrf_src))
@@ -67,16 +73,17 @@ if __name__ == '__main__':
     src_port = int(sys.argv[5])
     vrf_dst = sys.argv[6]
     vrf_src = sys.argv[7]
+    nat_dst_ip = sys.argv[8]
     try:
         if proto == 'tcp':
             tcp_server = TcpServer(dst_ip, dst_port, vrf_dst)
-            tcp_client = TcpClient(dst_ip, dst_port, src_ip, src_port, vrf_src)
+            tcp_client = TcpClient(dst_ip, dst_port, src_ip, src_port, vrf_src, nat_dst_ip)
             client_socket, _ = tcp_server.sock.accept()
             tcp_server.sock.close()
             tcp_client.sock.close()
         if proto == 'udp':
             udp_server = UdpServer(dst_ip, dst_port, vrf_dst)
-            udp_client = UdpClient(dst_ip, dst_port, src_ip, src_port, vrf_src)
+            udp_client = UdpClient(dst_ip, dst_port, src_ip, src_port, vrf_src, nat_dst_ip)
             udp_event_loop(udp_server, udp_client)
     except Exception as e:
         print(e)
