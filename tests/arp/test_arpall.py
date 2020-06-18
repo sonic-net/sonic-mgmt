@@ -151,7 +151,6 @@ def clear_dut_arp_cache(duthost):
     duthost.shell('ip -stats neigh flush all')
 
 def get_po(mg_facts, intf):
-    logging.info("mg_f: {}".format(mg_facts['minigraph_ports']))
     for k, v in mg_facts['minigraph_portchannels'].iteritems():
         if intf in v['members']:
             return k
