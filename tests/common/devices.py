@@ -40,10 +40,10 @@ class AnsibleHostBase(object):
                 self.host = ansible_adhoc(become=True, connection=connection)[hostname]
         self.hostname = hostname
 
-    def __getattr__(self, item):
-        if self.host.has_module(item):
-            self.module_name = item
-            self.module = getattr(self.host, item)
+    def __getattr__(self, module_name):
+        if self.host.has_module(module_name):
+            self.module_name = module_name
+            self.module = getattr(self.host, module_name)
 
             return self._run
         else:
@@ -144,7 +144,7 @@ class SonicHost(AnsibleHostBase):
     def os_version(self):
         """
         The OS version running on this SONiC device.
-        
+
         Returns:
             str: The SONiC OS version (e.g. "20181130.31")
         """
@@ -623,8 +623,8 @@ class EosHost(AnsibleHostBase):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
         self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
 
-    def __getattr__(self, item):
-        if item.startswith('eos_'):
+    def __getattr__(self, module_name):
+        if module_name.startswith('eos_'):
             evars = {
                 'ansible_connection':'network_cli',
                 'ansible_network_os':'eos',
@@ -647,7 +647,7 @@ class EosHost(AnsibleHostBase):
                 'ansible_become_method': 'sudo'
             }
         self.host.options['variable_manager'].extra_vars.update(evars)
-        return super(EosHost, self).__getattr__(item)
+        return super(EosHost, self).__getattr__(module_name)
 
     def shutdown(self, interface_name):
         out = self.eos_config(
@@ -817,8 +817,8 @@ class FanoutHost():
             self.os = 'eos'
             self.host = EosHost(ansible_adhoc, hostname, user, passwd, shell_user=shell_user, shell_passwd=shell_passwd)
 
-    def __getattr__(self, item):
-        return getattr(self.host, item)
+    def __getattr__(self, module_name):
+        return getattr(self.host, module_name)
 
     def get_fanout_os(self):
         return self.os
