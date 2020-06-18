@@ -1,5 +1,5 @@
 """
-Test the auto-restart feature of containers 
+Check the auto-restart feature of containers 
 """
 import time
 import pytest
@@ -18,15 +18,16 @@ def get_autorestart_container_list(duthost):
     """
     @summary: Get container list by analyzing the command output of 
               "show container feature autorestart"
-    @return: The list includes containers which were implemented with the autorestart feature
+    @return: The list includes containers which was implemented with the autorestart feature
     """
     container_list = []
-    cmd_output = duthost.shell(CMD_CONTAINER_FEATURE_AUTORESTART)
-    for line in cmd_output["stdout_lines"]:
+    show_cmd_output = duthost.shell(CMD_CONTAINER_FEATURE_AUTORESTART)
+    for line in show_cmd_output["stdout_lines"]:
         if line.split()[1] in ["enabled", "disabled"]:
             container_list.append(line.split()[0])
 
     return container_list
+
 
 def get_process_id(duthost, container_name, process):
     """
@@ -37,8 +38,12 @@ def get_process_id(duthost, container_name, process):
     """
     running_status = False
     process_id = -1
-    ps_out = duthost.shell("docker exec {} ps -ax".format(container_name))
-    for line in ps_out["stdout_lines"]:
+    is_running = duthost.shell("docker inspect -f \{\{.State.Running\}\} %s" % container_name)
+    if is_running['stdout'].strip() == "false":
+        return running_status, process_id
+ 
+    ps_cmd_out = duthost.shell("docker exec {} ps -ax".format(container_name))
+    for line in ps_cmd_out["stdout_lines"]:
         if "/usr/bin/supervisor-proc-exit-listener" not in line \
             and line.find(process) != -1:
             running_status = True
@@ -54,13 +59,17 @@ def kill_process(duthost, container_name, process):
     """
     running_status, process_id = get_process_id(duthost, container_name, process)
     if running_status:
-        duthost.shell("docker exec {} kill -SIGTERM {}".format(container_name, process_id)) 
+        duthost.shell("docker exec {} kill -9 {}".format(container_name, process_id)) 
+    else:
+        pytest_assert(False, "Failed to find {} process in {}".format(process, container_name))
+
+    time.sleep(7)
 
     running_status, process_id = get_process_id(duthost, container_name, process)
     if running_status:
-        pytest_assert(False, "Failed to stop {} process before test.".format(process))
+        pytest_assert(False, "Failed to stop {} process before test".format(process))
     else:
-        logging.info("{} process is stopped successfully".format(process)) 
+        logging.info("{} process in {} is stopped successfully".format(process, container_name)) 
 
 def check_container_status(duthost, container_name, should_be_stopped):
     """
@@ -109,59 +118,45 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
     logging.info("{} is running".format(container_name))
 
 @pytest.fixture(scope="module", autouse=True)
-def change_container_autorestart_state(duthost):
+def change_autorestart_state(duthost):
     container_list = get_autorestart_container_list(duthost)
     for container_name in container_list:
         logging.info("Change {} auto-restart state to 'enabled'".format(container_name))
         duthost.shell("config container feature autorestart %s enabled" % container_name)
 
-def test_swss_autorestart(duthost):
-    verify_autorestart_with_critical_process(duthost, "swss", "portsyncd")
-    verify_no_autorestart_with_non_critical_process(duthost, "swss", "rsyslogd")
+def test_containers_autorestart(duthost):
+    container_list = get_autorestart_container_list(duthost)
+    for container_name in container_list:
+        logging.info(container_name)
+        if container_name != "restapi":
+            verify_no_autorestart_with_non_critical_process(duthost, container_name, "rsyslogd")
 
-def test_lldp_autorestart(duthost):
-    verify_autorestart_with_critical_process(duthost, "lldp", "lldpmgrd")
-    verify_autorestart_with_non_critical_process(duthost, "lldp", "rsyslogd")
-
-def test_sflow_autorestart(duthost):
-    verify_autorestart_with_critical_process(duthost, "sflow", "sflowmgrd")
-    verify_autorestart_with_non_critical_process(duthost, "sflow", "rsyslogd")
-
-def test_database_autorestart(duthost):
-    verify_autorestart_with_critical_process(duthost, "database", "redis")
-    verify_autorestart_with_non_critical_process(duthost, "database", "rsyslogd")
-
-def test_telemetry_autorestart(duthost):
-    verify_autorestart_with_critical_process(duthost, "telemetry", "telemetry")
-    verify_autorestart_with_non_critical_process(duthost, "telemetry", "rsyslogd")
-
-def test_snmp_autorestart(duthost):
-    verify_autorestart_with_critical_process(duthost, "snmp", "snmpd")
-    verify_autorestart_with_non_critical_process(duthost, "snmp", "rsyslogd")
-
-def test_bgp_autorestart(duthost):
-    verify_autorestart_with_critical_process(duthost, "bgp", "zebra")
-    verify_autorestart_with_non_critical_process(duthost, "bgp", "rsyslogd")
-
-def test_radv_autorestart(duthost):
-    verify_autorestart_with_non_critical_process(duthost, "radv", "rsyslogd")
-
-def test_dhcp_relay_autorestart(duthost):
-    #verify_autorestart_with_critical_process(duthost, "dhcp_relay", "")
-    verify_autorestart_with_non_critical_process(duthost, "dhcp_relay", "rsyslogd")
-
-def test_nat_autorestart(duthost):
-    verify_autorestart_with_critical_process(duthost, "nat", "natmgrd")
-    verify_autorestart_with_non_critical_process(duthost, "nat", "rsyslogd")
-
-def test_teamd_autorestart(duthost):
-    verify_autorestart_with_critical_process(duthost, "teamd", "teammgrd")
-    verify_autorestart_with_non_critical_process(duthost, "teamd", "rsyslogd")
-
-def test_syncd_autorestart(duthost):
-    verify_autorestart_with_critical_process(duthost, "syncd", "syncd")
-    verify_autorestart_with_non_critical_process(duthost, "syncd", "rsyslogd")
-
-def test_pmon_autorestart(duthost):
-    #verify_autorestart_with_critical_process(duthost, "pmon", "")
-    verify_autorestart_with_non_critical_process(duthost, "pmon", "rsyslogd")
+        if container_name == "swss" :
+            verify_autorestart_with_critical_process(duthost, container_name, "portsyncd")
+            time.sleep(7)
+        elif container_name == "lldp":
+            verify_autorestart_with_critical_process(duthost, container_name, "lldpmgrd")
+        elif container_name == "sflow":
+            verify_autorestart_with_critical_process(duthost, container_name, "sflowmgrd")
+        elif container_name == "database":
+            verify_autorestart_with_critical_process(duthost, container_name, "redis")
+        elif container_name == "telemetry":
+            verify_autorestart_with_critical_process(duthost, container_name, "telemetry")
+        elif container_name == "snmp":
+            verify_autorestart_with_critical_process(duthost, container_name, "snmpd")
+        elif container_name == "bgp":
+            verify_autorestart_with_critical_process(duthost, container_name, "zebra")
+        elif container_name == "radv":
+            pass
+            #verify_autorestart_with_critical_process(duthost, container_name, "radvd")
+        elif container_name == "dhcp_relay":
+            verify_autorestart_with_critical_process(duthost, container_name, "dhcrelay")
+        elif container_name == "nat":
+            verify_autorestart_with_critical_process(duthost, container_name, "natmgrd")
+        elif container_name == "teamd":
+            verify_autorestart_with_critical_process(duthost, container_name, "teammgrd")
+        elif container_name == "syncd":
+            verify_autorestart_with_critical_process(duthost, container_name, "syncd")
+        elif container_name == "pmon":
+            pass
+            #verify_autorestart_with_critical_process(duthost, container_name, "ledd")
