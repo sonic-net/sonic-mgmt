@@ -112,7 +112,7 @@ def pytest_addoption(parser):
     parser.addoption("--logs_since", action="store", type=int,
                     help="number of minutes for show techsupport command")
     parser.addoption("--collect_techsupport", action="store", default=True, type=bool,
-                    help="number of minutes for show techsupport command")
+                    help="Enable/Disable tech support collection. Default is enabled (True)")
 
     ############################
     #   sanity_check options   #
