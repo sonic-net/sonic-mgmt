@@ -38,7 +38,6 @@ def common_setup_teardown(duthost, ptfhost):
         duthost.shell('config interface ip add {0} 10.10.1.2/28'.format(intf1))
         duthost.shell('config interface ip add {0} 10.10.1.20/28'.format(intf2))
 
-        # TODO: Use wait_until to replace this
         if (po1 is not None) or (po2 is not None):
             time.sleep(40)
 
