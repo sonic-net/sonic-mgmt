@@ -20,6 +20,7 @@ from netaddr import IPNetwork
 
 import configurable_drop_counters as cdc
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 
 PACKET_COUNT = 1000
@@ -162,17 +163,18 @@ def send_dropped_traffic(duthost, ptfadapter, testbed_params):
 
         logging.info("Sending traffic from ptf on port %s", rx_port)
         _send_packets(duthost, ptfadapter, pkt, rx_port)
-        time.sleep(3)
 
-        dst_port = testbed_params["physical_port_map"][rx_port]
-        recv_count = cdc.get_drop_counts(duthost,
-                                         counter_type,
-                                         "TEST",
-                                         dst_port)
-        logging.info("Received %s drops on port %s", recv_count, dst_port)
+        def _check_drops():
+            dst_port = testbed_params["physical_port_map"][rx_port]
+            recv_count = cdc.get_drop_counts(duthost,
+                                             counter_type,
+                                             "TEST",
+                                             dst_port)
+            logging.info("Received %s drops on port %s, expected %s",
+                         recv_count, dst_port, PACKET_COUNT)
+            return recv_count == PACKET_COUNT
 
-        pytest_assert(recv_count == PACKET_COUNT,
-                      "Expected {} drops, received {}".format(PACKET_COUNT, recv_count))
+        pytest_assert(wait_until(5, 1, _check_drops), "Expected {} drops".format(PACKET_COUNT))
 
     return _runner
 
