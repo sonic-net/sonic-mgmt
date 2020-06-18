@@ -1,7 +1,5 @@
 
-"""
-Utilities for interacting with configurable drop counters.
-"""
+"""Utilities for interacting with configurable drop counters."""
 
 from collections import namedtuple
 
@@ -22,9 +20,10 @@ _SHOW_CAPABILITIES = "show dropcounters capabilities"
 _CREATE_COUNTER = "config dropcounters install {} {} {}"
 _DELETE_COUNTER = "config dropcounters delete {}"
 
+
 def get_device_capabilities(dut):
     """
-    Fetches the drop counter capabilities for the given device.
+    Fetch the drop counter capabilities for the given device.
 
     Args:
         dut (SonicHost): The device to query for drop counter capabilities.
@@ -38,6 +37,7 @@ def get_device_capabilities(dut):
         returned, like this: `{"counters": {}, "reasons": {}}`.
 
         If any other error occurs, then None will be returned.
+
     """
 
     output = dut.command(_SHOW_CAPABILITIES)
@@ -78,9 +78,10 @@ def get_device_capabilities(dut):
 
     return {"counters": counters, "reasons": reasons}
 
+
 def create_drop_counter(dut, counter_name, counter_type, drop_reasons):
     """
-    Creates a drop counter on the target device.
+    Create a drop counter on the target device.
 
     Args:
         dut (SonicHost): The target device.
@@ -90,24 +91,26 @@ def create_drop_counter(dut, counter_name, counter_type, drop_reasons):
 
     Raises:
         RunAnsibleModuleFail: If the given counter name is already in use.
-    """
 
+    """
     dut.command(_CREATE_COUNTER.format(counter_name, counter_type, ",".join(drop_reasons)))
+
 
 def delete_drop_counter(dut, counter_name):
     """
-    Deletes the drop counter from the target device.
+    Delete the drop counter from the target device.
 
     Args:
         dut (SonicHost): The target device.
         counter_name (str): The name of the counter to be created.
-    """
 
+    """
     dut.command(_DELETE_COUNTER.format(counter_name))
+
 
 def get_drop_counts(dut, counter_type, counter_name, interface):
     """
-    Gets the count for a given counter on a given interface.
+    Get the count for a given counter on a given interface.
 
     Note:
         If the specified type is a SWITCH level counter, then the "interface" field is ignored.
@@ -121,8 +124,8 @@ def get_drop_counts(dut, counter_type, counter_name, interface):
     Returns:
         The number of drops on the specified counter, or "None" if the counter type is not
         supported or the counter is not found.
-    """
 
+    """
     if counter_type not in SUPPORTED_COUNTER_TYPES:
         return None
 
@@ -132,6 +135,7 @@ def get_drop_counts(dut, counter_type, counter_name, interface):
     counts = _parse_drop_counts(counter_type, output)
 
     return int(counts[bind_point.upper()].get(counter_name))
+
 
 def _parse_drop_counts(counter_type, counts_output):
     leading_rows = _PARSER_PARAMETERS[counter_type].leading_rows

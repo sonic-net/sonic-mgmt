@@ -11,46 +11,57 @@ Todo:
 import logging
 import random
 import time
-import pytest
-from natsort import natsorted
+import json
+from collections import defaultdict
 
+import pytest
 import ptf.testutils as testutils
 from netaddr import IPNetwork
 
 import configurable_drop_counters as cdc
-from mock_server import MockServer
-from common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.device_utils import fanout_switch_port_lookup
 
 PACKET_COUNT = 1000
 
+VLAN_INDEX = 0
+VLAN_HOSTS = 100
+VLAN_BASE_MAC_PATTERN = "72060001{:04}"
+
+
 @pytest.mark.parametrize("drop_reason", ["L3_EGRESS_LINK_DOWN"])
-def test_neighbor_link_down(testbed_params, setup_counters, duthost, mock_server, send_dropped_traffic,
-                            drop_reason):
+def test_neighbor_link_down(testbed_params, setup_counters, duthost, mock_server,
+                            send_dropped_traffic, drop_reason):
     """
-    Verifies that counters that check for a neighbor link being down work properly.
+    Verifies counters that check for a neighbor link being down.
 
     Note:
-        This test works by mocking a server within a VLAN, thus the T0 topology is required.
+        This test works by mocking a server within a VLAN, thus the T0
+        topology is required.
 
     Args:
         drop_reason (str): The drop reason being tested.
     """
     counter_type = setup_counters([drop_reason])
 
-    rx_port = random.choice([intf
-                             for intf in testbed_params["ports"]
-                             if intf != mock_server.get_neighbor_iface()])
-    pkt = _get_simple_ip_packet(duthost, rx_port, "2.2.2.2", mock_server.get_addr())
+    rx_port = random.choice([port
+                             for port in testbed_params["physical_port_map"].keys()
+                             if port != mock_server["server_dst_port"]])
+    rx_mac = duthost.get_dut_iface_mac(testbed_params["physical_port_map"][rx_port])
+    logging.info("Selected port %s, mac = %s to send traffic", rx_port, rx_mac)
+
+    src_mac = "DE:AD:BE:EF:12:34"
+    src_ip = "2.2.2.2"
+    pkt = _get_simple_ip_packet(src_mac, rx_mac, src_ip, mock_server["server_dst_addr"])
 
     try:
-        mock_server.start()
-        mock_server.shutdown_link()
+        mock_server["fanout_neighbor"].shutdown(mock_server["fanout_intf"])
         send_dropped_traffic(counter_type, pkt, rx_port)
     finally:
-        mock_server.startup_link()
-        mock_server.shutdown()
+        mock_server["fanout_neighbor"].no_shutdown(mock_server["fanout_intf"])
         duthost.command("sonic-clear fdb all")
         duthost.command("sonic-clear arp")
+
 
 @pytest.fixture(scope="module")
 def testbed_params(duthost, testbed):
@@ -58,65 +69,57 @@ def testbed_params(duthost, testbed):
     Gathers parameters about the testbed for the test cases to use.
 
     Returns: A Dictionary with the following information:
-        "ports": A List of the active ports in the system
-        "phy_intfs": A List of ALL physical interfaces in the system
-        "vlan_intfs": A Dictionary containing all the VLAN interfaces in the system, including
-            their address, subnet, prefix length, and VLAN members.
     """
-
     if testbed["topo"]["type"] != "t0":
         pytest.skip("Unsupported topology {}".format(testbed["topo"]["name"]))
 
-    minigraph_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    minigraph_facts = \
+        duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
 
-    active_ports = natsorted(minigraph_facts["minigraph_ports"].keys())
+    physical_port_map = {v: k
+                         for k, v
+                         in minigraph_facts["minigraph_port_indices"].items()
+                         if k in minigraph_facts["minigraph_ports"].keys()}  # Trim inactive ports
 
-    physical_interfaces = natsorted(minigraph_facts["minigraph_port_name_to_alias_map"].keys())
+    vlan_ports = [minigraph_facts["minigraph_port_indices"][ifname]
+                  for ifname
+                  in minigraph_facts["minigraph_vlans"].values()[VLAN_INDEX]["members"]]
 
-    vlan_interfaces = {}
-    for vlan_intf in minigraph_facts["minigraph_vlan_interfaces"]:
-        intf_name = vlan_intf["attachto"]
-        vlan_interfaces[intf_name] = {
-            "addr": vlan_intf["addr"],
-            "subnet": vlan_intf["subnet"],
-            "prefix_len": vlan_intf["prefixlen"],
-            "members": minigraph_facts["minigraph_vlans"][intf_name]["members"]
-        }
+    return {"physical_port_map": physical_port_map,
+            "vlan_ports": vlan_ports,
+            "vlan_interface": minigraph_facts["minigraph_vlan_interfaces"][VLAN_INDEX]}
 
-    return {
-        "ports": active_ports,
-        "phy_intfs": physical_interfaces,
-        "vlan_intfs": vlan_interfaces
-    }
 
 @pytest.fixture(scope="module")
 def device_capabilities(duthost):
     """
-    Gathers information about the DUT's drop counter capabilities.
+    Gather information about the DUT's drop counter capabilities.
 
     Returns:
         A Dictionary of device capabilities (see `get_device_capabilities` under the
         `configurable_drop_counters` package).
-    """
 
+    """
     capabilities = cdc.get_device_capabilities(duthost)
 
     pytest_assert(capabilities, "Error fetching device capabilities")
 
+    logging.info("Retrieved drop counter capabilities: %s", capabilities)
     return capabilities
+
 
 @pytest.fixture(params=cdc.SUPPORTED_COUNTER_TYPES)
 def setup_counters(request, device_capabilities, duthost):
     """
-    Returns a method to setup drop counters.
+    Return a method to setup drop counters.
 
     Notes:
         This fixture will automatically clean-up created drop counters.
 
     Returns:
         A method which, when called, will create a drop counter with the specified drop reasons.
-    """
 
+    """
     if request.param not in device_capabilities["counters"]:
         pytest.skip("Counter type not supported on target DUT")
 
@@ -130,6 +133,8 @@ def setup_counters(request, device_capabilities, duthost):
         cdc.create_drop_counter(duthost, "TEST", counter_type, drop_reasons)
         time.sleep(1)
 
+        logging.info("Created counter TEST: type = %s, drop reasons = %s",
+                     counter_type, drop_reasons)
         return counter_type
 
     yield _setup_counters
@@ -137,77 +142,156 @@ def setup_counters(request, device_capabilities, duthost):
     try:
         cdc.delete_drop_counter(duthost, "TEST")
         time.sleep(1)
+        logging.info("Deleted counter TEST")
     except Exception:
         logging.info("Drop counter does not exist, skipping delete step...")
+
 
 @pytest.fixture
 def send_dropped_traffic(duthost, ptfadapter, testbed_params):
     """
-    Returns a method to send traffic to the DUT to be dropped.
+    Return a method to send traffic to the DUT to be dropped.
 
     Returns:
         A method which, when called, will send traffic to the DUT and check if the proper
         drop counter has been incremented.
-    """
 
+    """
     def _runner(counter_type, pkt, rx_port):
         duthost.command("sonic-clear dropcounters")
 
-        ptf_tx_port_id = testbed_params["phy_intfs"].index(rx_port)
-        _send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id)
+        logging.info("Sending traffic from ptf on port %s", rx_port)
+        _send_packets(duthost, ptfadapter, pkt, rx_port)
         time.sleep(3)
 
-        recv_count = cdc.get_drop_counts(duthost, counter_type, "TEST", rx_port)
+        dst_port = testbed_params["physical_port_map"][rx_port]
+        recv_count = cdc.get_drop_counts(duthost,
+                                         counter_type,
+                                         "TEST",
+                                         dst_port)
+        logging.info("Received %s drops on port %s", recv_count, dst_port)
 
         pytest_assert(recv_count == PACKET_COUNT,
                       "Expected {} drops, received {}".format(PACKET_COUNT, recv_count))
 
     return _runner
 
+
 @pytest.fixture
-def mock_server(ptfhost, fanouthosts, testbed_params):
+def arp_responder(ptfhost, testbed_params):
+    """Set up the ARP responder utility in the PTF container."""
+    vlan_network = testbed_params["vlan_interface"]["subnet"]
+
+    logging.info("Generating simulated servers under VLAN network %s", vlan_network)
+    arp_responder_conf = {}
+    vlan_host_map = _generate_vlan_servers(vlan_network, testbed_params["vlan_ports"])
+
+    logging.info("Generating ARP responder topology")
+    for port in vlan_host_map:
+        arp_responder_conf['eth{}'.format(port)] = vlan_host_map[port]
+
+    logging.info("Copying ARP responder topology to PTF")
+    with open("/tmp/from_t1.json", "w") as ar_config:
+        json.dump(arp_responder_conf, ar_config)
+    ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
+
+    logging.info("Copying ARP responder to PTF container")
+    ptfhost.copy(src="scripts/arp_responder.py", dest="/opt")
+
+    logging.info("Copying ARP responder config file")
+    ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": "-e"})
+    ptfhost.template(src="templates/arp_responder.conf.j2",
+                     dest="/etc/supervisor/conf.d/arp_responder.conf")
+
+    logging.info("Refreshing supervisor and starting ARP responder")
+    ptfhost.shell("supervisorctl reread && supervisorctl update")
+    ptfhost.shell("supervisorctl restart arp_responder")
+
+    yield vlan_host_map
+
+    logging.info("Stopping ARP responder")
+    ptfhost.shell("supervisorctl stop arp_responder")
+
+
+@pytest.fixture
+def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthost):
     """
-    Mocks the presence of a server beneath a T0.
+    Mock the presence of a server beneath a T0.
 
     Returns:
-        A MockServer which will allow the caller to mock the behavior of a server within
-        a VLAN under a T0.
+        A MockServer which will allow the caller to mock the behavior of
+        a server within a VLAN under a T0.
+
     """
+    server_dst_port = random.choice(testbed_params["vlan_ports"])
+    server_dst_addr = random.choice(arp_responder[server_dst_port].keys())
+    server_dst_intf = testbed_params["physical_port_map"][server_dst_port]
+    logging.info("Creating mock server with IP %s; dut port = %s, dut intf = %s",
+                 server_dst_addr, server_dst_port, server_dst_intf)
 
-    if not testbed_params["vlan_intfs"]:
-        pytest.skip("No VLANs available to mock a server under T0")
+    logging.info("Clearing ARP and FDB tables for test setup")
+    duthost.command("sonic-clear fdb all")
+    duthost.command("sonic-clear arp")
 
-    # Randomly pick one of the VLANs beneath the T0.
-    vlan = testbed_params["vlan_intfs"][random.choice(list(testbed_params["vlan_intfs"]))]
+    # Populate FDB
+    logging.info("Populating FDB entry for mock server under VLAN")
+    src_mac = _hex_to_mac(arp_responder[server_dst_port][server_dst_addr])
+    pkt = _get_simple_ip_packet(src_mac,
+                                duthost.get_dut_iface_mac(server_dst_intf),
+                                server_dst_addr,
+                                testbed_params["vlan_interface"]["addr"])
+    _send_packets(duthost, ptfadapter, pkt, server_dst_port, count=100)
 
-    # Generate a dummy IP that falls under the VLAN subnet. Make sure it isn't
-    # the same as the VLAN interface IP!
-    server_ip = vlan["addr"]
-    while server_ip == vlan["addr"]:
-        server_ip = random.choice(list(IPNetwork(vlan["subnet"])))
+    fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, server_dst_intf)
 
-    # Randomly pick one of the interfaces in the VLAN to be connected to the server.
-    outbound_dut_intf = random.choice(vlan["members"])
-    outbound_port = testbed_params["phy_intfs"].index(outbound_dut_intf)
+    return {"server_dst_port": server_dst_port,
+            "server_dst_addr": server_dst_addr,
+            "server_dst_intf": server_dst_intf,
+            "fanout_neighbor": fanout_neighbor,
+            "fanout_intf": fanout_intf}
 
-    return MockServer(server_ip, vlan["prefix_len"], vlan["addr"], outbound_dut_intf,
-                      outbound_port, ptfhost, fanouthosts)
 
-def _get_simple_ip_packet(duthost, dst_port, src_ip, dst_ip):
+def _generate_vlan_servers(vlan_network, vlan_ports):
+    vlan_host_map = defaultdict(dict)
+
+    # Each physical port maps to a set of IP address and their associated MAC addresses
+    # - MACs are generated sequentially as offsets from VLAN_BASE_MAC_PATTERN
+    # - IP addresses are randomly selected from the given VLAN network
+    # - "Hosts" (IP/MAC pairs) are distributed evenly amongst the ports in the VLAN
+    for counter, i in enumerate(xrange(2, VLAN_HOSTS + 2)):
+        mac = VLAN_BASE_MAC_PATTERN.format(counter)
+        port = vlan_ports[i % len(vlan_ports)]
+        addr = str(random.choice(list(IPNetwork(vlan_network))))
+
+        vlan_host_map[port][addr] = mac
+
+    return vlan_host_map
+
+
+def _get_simple_ip_packet(src_mac, dst_mac, src_ip, dst_ip):
     pkt = testutils.simple_ip_packet(
-        eth_dst=duthost.get_dut_iface_mac(dst_port),
-        eth_src="00:de:ad:be:ef:00",
+        eth_src=src_mac,
+        eth_dst=dst_mac,
         ip_src=src_ip,
         ip_dst=dst_ip
     )
 
+    logging.info("Generated simple IP packet (SMAC=%s, DMAC=%s, SIP=%s, DIP=%s)",
+                 src_mac, dst_mac, src_ip, dst_ip)
+
     return pkt
 
-def _send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id):
+
+def _send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id,
+                  count=PACKET_COUNT):
     duthost.command("sonic-clear dropcounters")
 
     ptfadapter.dataplane.flush()
     time.sleep(1)
 
-    testutils.send(ptfadapter, ptf_tx_port_id, pkt, count=PACKET_COUNT)
+    testutils.send(ptfadapter, ptf_tx_port_id, pkt, count=count)
     time.sleep(1)
+
+
+def _hex_to_mac(hex_mac):
+    return ':'.join(hex_mac[i:i+2] for i in range(0, len(hex_mac), 2))
