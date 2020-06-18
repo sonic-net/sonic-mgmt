@@ -145,7 +145,7 @@ def test_arp_garp_no_update(common_setup_teardown):
     ptf_runner(ptfhost, 'ptftests', "arptest.GarpUpdate", '/root/ptftests', params=params, log_file=log_file)
     
     switch_arptable = duthost.switch_arptable()['ansible_facts']
-    pytest_assert(switch_arptable['arptable']['v4']['10.10.1.3']['macaddress'] == '00:06:07:08:09:0a')
+    pytest_assert(switch_arptable['arptable']['v4']['10.10.1.3']['macaddress'] == '00:00:07:08:09:0a')
     pytest_assert(switch_arptable['arptable']['v4']['10.10.1.3']['interface'] == intf1)
 
 def clear_dut_arp_cache(duthost):
