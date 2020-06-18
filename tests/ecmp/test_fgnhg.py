@@ -232,6 +232,8 @@ def fg_ecmp_ipv4(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port,
 
 @pytest.mark.bsl
 def test_fg_ecmp(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost):
+    if testbed['topo']['name'] != 't0':
+        pytest.skip("Unsupported topology")
 
     host_facts  = duthost.setup()['ansible_facts']
     mg_facts   = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
