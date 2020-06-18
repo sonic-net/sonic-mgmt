@@ -191,7 +191,7 @@ def test_portstat_period(duthost, command):
 @pytest.mark.parametrize('command', ['portstat -h', 'portstat --help', 'portstat', 'portstat -v',
                                      'portstat --version', 'portstat -j', 'portstat --json',
                                      'portstat -r', 'portstat --raw'])
-def test_portstat_other(duthost, command):
+def test_portstat_no_exceptions(duthost, command):
 
     logger.info('Verify that the commands do not cause tracebacks')
     duthost.command(command)
