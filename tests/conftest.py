@@ -111,7 +111,7 @@ def pytest_addoption(parser):
                     help="Change default loops delay")
     parser.addoption("--logs_since", action="store", type=int,
                     help="number of minutes for show techsupport command")
-    parser.addoption("--collect_techsupport", action="store", default=False, type=bool,
+    parser.addoption("--collect_techsupport", action="store", default=True, type=bool,
                     help="number of minutes for show techsupport command")
 
     ############################
