@@ -5,6 +5,7 @@ import time
 import logging
 import os
 
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from ptf_runner import ptf_runner
 from common.devices import AnsibleHostBase
 from common.fixtures.conn_graph_facts import conn_graph_facts
@@ -24,9 +25,6 @@ def common_setup_teardown(duthost, ptfhost, testbed):
         src = "../ansible/roles/test/files/acstests/%s" % test_file
         dst = "/tmp/%s" % test_file
         ptfhost.copy(src=src, dest=dst)
-
-    # Copy tests to the PTF-docker
-    ptfhost.copy(src="ptftests", dest="/root")
 
     # Inlucde testbed topology configuration
     testbed_type = testbed['topo']['name']

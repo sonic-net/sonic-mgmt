@@ -3,6 +3,8 @@ import ptf.testutils as testutils
 from ipaddress import ip_address
 import logging
 
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+
 TOPO_LIST = {'t0', 't1', 't1-lag'}
 PORTS_TOPO = {'t1'}
 LAG_TOPO = {'t0', 't1-lag'}
@@ -16,8 +18,6 @@ logger = logging.getLogger(__name__)
 def prepare_ptf(ptfhost):
     # remove existing IPs from ptf host
     ptfhost.script('scripts/remove_ip.sh')
-    # set unique MACs to ptf interfaces
-    ptfhost.script('scripts/change_mac.sh')
 
 
 def lag_facts(dut, mg_facts):

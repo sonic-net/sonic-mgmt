@@ -1,9 +1,12 @@
 import os
 import time
 import pytest
+import ipaddr as ipaddress
+
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from common.fixtures.ptfhost_utils import copy_acstests_directory   # lgtm[py/unused-import]
 from ptf_runner import ptf_runner
 from abc import abstractmethod
-import ipaddr as ipaddress
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -14,18 +17,6 @@ EVERFLOW_TABLE_RULE_CREATE_TEMPLATE = 'acl_rule_persistent.json.j2'
 EVERFLOW_TABLE_RULE_CREATE_FILE = 'acl_rule_persistent.json'
 EVERFLOW_TABLE_RULE_DELETE_FILE = 'acl_rule_persistent-del.json'
 DUT_RUN_DIR = '/home/admin/everflow_tests'
-
-@pytest.fixture(scope="module", autouse=True)
-def copy_acstests_directory(ptfhost):
-    """ Fixture which copies the ptftests directory to the PTF host. This fixture
-        is scoped to the module, as it only needs to be performed once before
-        the first test is run. It does not need to be run before each test.
-        We also set autouse=True to ensure this fixture gets instantiated before
-        the first test runs, even if we don't explicitly pass it to them, and since
-        there is no return value, there is no point in passing it into the functions.
-    """
-    ptfhost.copy(src="acstests", dest="/root")
-    ptfhost.copy(src="ptftests", dest="/root")
 
 @pytest.fixture(scope='module')
 def setup_info(duthost, testbed):

@@ -5,6 +5,8 @@ import logging
 import pytest
 import time
 
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
 from common.reboot import reboot as rebootDut
@@ -289,12 +291,9 @@ class AdvancedReboot:
         ]
         self.__transferTestDataFiles(testDataFiles, self.ptfhost)
 
-        self.__runScript(['remove_ip.sh', 'change_mac.sh'], self.ptfhost)
+        self.__runScript(['remove_ip.sh'], self.ptfhost)
 
         self.__prepareTestbedSshKeys()
-
-        logger.info('Copy tests to the PTF container  {}'.format(self.ptfhost.hostname))
-        self.ptfhost.copy(src='ptftests', dest='/root')
 
         logger.info('Copy ARP responder to the PTF container  {}'.format(self.ptfhost.hostname))
         self.ptfhost.copy(src='scripts/arp_responder.py', dest='/opt')

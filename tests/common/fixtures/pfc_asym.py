@@ -19,8 +19,6 @@ ANSIBLE_ROOT = os.path.realpath(os.path.join(TESTS_ROOT, "../ansible"))
 
 ARP_RESPONDER = os.path.join(TESTS_ROOT, "scripts/arp_responder.py")
 ARP_RESPONDER_CONF = os.path.join(TESTS_ROOT, "scripts/arp_responder.conf.j2")
-SAI_TESTS = os.path.join(ANSIBLE_ROOT, "roles/test/files/saitests")
-PTF_TESTS = os.path.join(ANSIBLE_ROOT, "roles/test/files/ptftests")
 
 
 def get_fanout(fanout_graph_facts, setup):
@@ -235,9 +233,6 @@ def setup(testbed, duthost, ptfhost, ansible_facts, minigraph_facts, request):
 
     # Remove portmap
     ptfhost.file(path=os.path.join(OS_ROOT_DIR, setup_params["ptf_test_params"]["port_map_file"]), state="absent")
-    # Remove SAI and PTF tests
-    ptfhost.file(path=os.path.join(OS_ROOT_DIR, "saitests"), state="absent")
-    ptfhost.file(path=os.path.join(OS_ROOT_DIR, "ptftests"), state="absent")
 
 
 class Setup(object):
@@ -263,7 +258,6 @@ class Setup(object):
         self.generate_non_server_ports()
         self.generate_router_mac()
         self.prepare_arp_responder()
-        self.copy_ptf_sai_tests()
         self.prepare_ptf_port_map()
         self.generate_priority()
         self.generate_pfc_to_dscp_map()
@@ -318,11 +312,6 @@ class Setup(object):
         self.ptfhost.template(src=ARP_RESPONDER_CONF, dest="/etc/supervisor/conf.d/arp_responder.conf", force=True)
         self.ptfhost.command('supervisorctl reread')
         self.ptfhost.command('supervisorctl update')
-
-    def copy_ptf_sai_tests(self):
-        """ Copy 'saitests' and 'ptftests' directory to the PTF host """
-        self.ptfhost.copy(src=SAI_TESTS, dest=OS_ROOT_DIR)
-        self.ptfhost.copy(src=PTF_TESTS, dest=OS_ROOT_DIR)
 
     def prepare_ptf_port_map(self):
         """ Copy 'ptf_portmap' file which is defined in inventory to the PTF host """

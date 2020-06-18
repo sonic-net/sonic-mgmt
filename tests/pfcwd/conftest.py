@@ -1,6 +1,7 @@
 import logging
 import pytest
 from common.fixtures.conn_graph_facts import conn_graph_facts
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
 
 logger = logging.getLogger(__name__)
@@ -48,9 +49,6 @@ def setup_pfc_test(duthost, ptfhost, conn_graph_facts):
         vlan_dev = mg_facts['minigraph_vlan_interfaces'][0]['attachto']
         vlan_ips = duthost.get_ip_in_range(num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix), exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
         vlan_nw = vlan_ips[0].split('/')[0]
-
-        # set unique MACS to PTF interfaces
-        ptfhost.script("./scripts/change_mac.sh")
 
         duthost.shell("ip route flush {}/32".format(vlan_nw))
         duthost.shell("ip route add {}/32 dev {}".format(vlan_nw, vlan_dev))

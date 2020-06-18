@@ -2,6 +2,8 @@ import json
 import logging
 import pytest
 
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
 from ptf_runner import ptf_runner
 
@@ -116,19 +118,6 @@ class TestWrArp:
         ptfhost.shell('supervisorctl reread && supervisorctl update')
 
     @pytest.fixture(scope='class', autouse=True)
-    def copyPtfDirectory(self, ptfhost):
-        '''
-            Copys PTF directory to PTF host. This class-scope fixture runs once before test start
-
-            Args:
-                ptfhost (AnsibleHost): Packet Test Framework (PTF)
-
-            Returns:
-                None
-        '''
-        ptfhost.copy(src="ptftests", dest="/root")
-
-    @pytest.fixture(scope='class', autouse=True)
     def setupRouteToPtfhost(self, duthost, ptfhost):
         '''
             Sets routes up on DUT to PTF host. This class-scope fixture runs once before test start
@@ -175,19 +164,6 @@ class TestWrArp:
                 None
         '''
         ptfhost.script('./scripts/remove_ip.sh')
-
-    @pytest.fixture(scope='class', autouse=True)
-    def changePtfhostMacAddresses(self, ptfhost):
-        '''
-            Change MAC addresses (unique) on PTF host. This class-scope fixture runs once before test start
-
-            Args:
-                ptfhost (AnsibleHost): Packet Test Framework (PTF)
-
-            Returns:
-                None
-        '''
-        ptfhost.script("./scripts/change_mac.sh")
 
     @pytest.fixture(scope='class', autouse=True)
     def prepareSshKeys(self, duthost, ptfhost):
