@@ -68,7 +68,8 @@ def setup_pfc_test(duthost, ptfhost, conn_graph_facts):
                    'neighbors': neighbors,
                    'vlan': {'addr': vlan_addr,
                             'prefix': vlan_prefix,
-                            'dev': vlan_dev}
+                            'dev': vlan_dev},
+                   'eth0_ip': dut_eth0_ip
                   }
 
     # set poll interval
