@@ -86,7 +86,7 @@ class PlatformAPITestService(BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--port', type=int, help='port to listent to', required=True)
+    parser.add_argument('-p', '--port', type=int, help='port to listen to', required=True)
     args = parser.parse_args()
 
     syslog.openlog(SYSLOG_IDENTIFIER)
