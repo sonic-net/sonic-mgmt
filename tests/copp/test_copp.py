@@ -27,9 +27,11 @@
 """
 
 import time
+import pytest
 from collections import namedtuple
 
-import pytest
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from copp import copp_utils
 from ptf_runner import ptf_runner
 from common.system_utils import docker
