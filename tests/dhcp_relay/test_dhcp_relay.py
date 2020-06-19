@@ -85,8 +85,7 @@ def validate_dut_routes_exist(duthost, dut_dhcp_relay_data):
 
     for dhcp_server in dhcp_servers:
         rtInfo = duthost.get_ip_route_info(ipaddress.ip_address(dhcp_server))
-        assert len(rtInfo["nexthops"]) > 0, \
-            "Failed to find route to DHCP server '{0}' with error '{1}".format(dhcp_server, result["stderr"])
+        assert len(rtInfo["nexthops"]) > 0, "Failed to find route to DHCP server '{0}'".format(dhcp_server)
 
 
 def test_dhcp_relay_default(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
