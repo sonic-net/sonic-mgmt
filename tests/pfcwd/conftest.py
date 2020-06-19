@@ -19,6 +19,8 @@ def pytest_addoption(parser):
     """
     parser.addoption('--warm-reboot', action='store', type=bool, default=False,
                      help='Warm reboot needs to be enabled or not')
+    parser.addoption('--restore-time', action='store', type=int, default=3000,
+                     help='PFC WD storm restore interval')
 
 @pytest.fixture(scope="module")
 def setup_pfc_test(duthost, ptfhost, conn_graph_facts):
@@ -60,8 +62,13 @@ def setup_pfc_test(duthost, ptfhost, conn_graph_facts):
     selected_ports = select_test_ports(test_ports)
 
     setup_info = { 'test_ports': test_ports,
+                   'port_list': port_list,
                    'selected_test_ports': selected_ports,
-                   'pfc_timers' : set_pfc_timers()
+                   'pfc_timers' : set_pfc_timers(),
+                   'neighbors': neighbors,
+                   'vlan': {'addr': vlan_addr,
+                            'prefix': vlan_prefix,
+                            'dev': vlan_dev}
                   }
 
     # set poll interval
