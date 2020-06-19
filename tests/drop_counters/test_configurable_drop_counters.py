@@ -29,6 +29,7 @@ VLAN_INDEX = 0
 VLAN_HOSTS = 100
 VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 
+MOCK_DEST_IP = "2.2.2.2"
 
 @pytest.mark.parametrize("drop_reason", ["L3_EGRESS_LINK_DOWN"])
 def test_neighbor_link_down(testbed_params, setup_counters, duthost, mock_server,
@@ -52,7 +53,7 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthost, mock_server
     logging.info("Selected port %s, mac = %s to send traffic", rx_port, rx_mac)
 
     src_mac = "DE:AD:BE:EF:12:34"
-    src_ip = "2.2.2.2"
+    src_ip = MOCK_DEST_IP
     pkt = _get_simple_ip_packet(src_mac, rx_mac, src_ip, mock_server["server_dst_addr"])
 
     try:
@@ -241,7 +242,7 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthost)
     pkt = _get_simple_ip_packet(src_mac,
                                 duthost.get_dut_iface_mac(server_dst_intf),
                                 server_dst_addr,
-                                testbed_params["vlan_interface"]["addr"])
+                                MOCK_DEST_IP)
     _send_packets(duthost, ptfadapter, pkt, server_dst_port, count=100)
 
     fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, server_dst_intf)
