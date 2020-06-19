@@ -119,13 +119,22 @@ def setup(duthost, testbed):
     duthost.command('rm -rf {}'.format(DUT_TMP_DIR))
 
 
-@pytest.fixture(scope='module', params=['ingress', 'egress'])
-def stage(request):
+@pytest.fixture(scope="module", params=["ingress", "egress"])
+def stage(request, duthost):
     """
-    small fixture to parametrize test for ingres/egress stage testing
-    :param request: pytest request
-    :return: stage parameter
+    Parametrize tests for Ingress/Egress stage testing.
+
+    Args:
+        request: Pytest request fixture
+        duthost: DUT fixture
+
+    Returns:
+        str: The ACL stage to be tested.
+
     """
+    if request.param == "egress" and duthost.facts["asic_type"] in ["broadcom"]:
+        pytest.skip("Egress ACL stage not currently supported on {} ASIC"
+                    .format(duthost.facts["asic_type"]))
 
     return request.param
 
