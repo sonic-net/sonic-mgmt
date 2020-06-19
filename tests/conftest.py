@@ -265,10 +265,12 @@ def nbrhosts(ansible_adhoc, testbed, creds):
     vm_base = int(testbed['vm_base'][2:])
     devices = {}
     for k, v in testbed['topo']['properties']['topology']['VMs'].items():
-        devices[k] = {'host': EosHost(ansible_adhoc, \
-                                      "VM%04d" % (vm_base + v['vm_offset']), \
-                                      creds['eos_login'], \
-                                      creds['eos_password']),
+        devices[k] = {'host': EosHost(ansible_adhoc,
+                                      "VM%04d" % (vm_base + v['vm_offset']),
+                                      creds['eos_login'],
+                                      creds['eos_password'],
+                                      shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
+                                      shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None),
                       'conf': testbed['topo']['properties']['configuration'][k]}
     return devices
 
@@ -291,13 +293,23 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
             else:
                 host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_host).vars
                 os_type = 'eos' if 'os' not in host_vars else host_vars['os']
-                if os_type == "eos":
-                    user = creds['fanout_admin_user']
-                    pswd = creds['fanout_admin_password']
-                elif os_type == "onyx":
-                    user = creds["fanout_mlnx_user"]
-                    pswd = creds["fanout_mlnx_password"]
-                fanout  = FanoutHost(ansible_adhoc, os_type, fanout_host, 'FanoutLeaf', user, pswd)
+
+                # `fanout_network_user` and `fanout_network_password` are for accessing the non-shell CLI of fanout
+                # Ansible will use this set of credentail for establishing `network_cli` connection with device
+                # when applicable.
+                network_user = creds['fanout_network_user'] if 'fanout_network_user' in creds else creds['fanout_admin_user']
+                network_password = creds['fanout_network_password'] if 'fanout_network_password' in creds else creds['fanout_admin_password']
+                shell_user = creds['fanout_shell_user'] if 'fanout_shell_user' in creds else creds['fanout_admin_user']
+                shell_password = creds['fanout_shell_password'] if 'fanout_shell_password' in creds else creds['fanout_admin_password']
+
+                fanout  = FanoutHost(ansible_adhoc,
+                                    os_type,
+                                    fanout_host,
+                                    'FanoutLeaf',
+                                    network_user,
+                                    network_password,
+                                    shell_user=shell_user,
+                                    shell_passwd=shell_password)
                 fanout_hosts[fanout_host] = fanout
             fanout.add_port_map(dut_port, fanout_port)
     except:
