@@ -47,7 +47,7 @@ class FgEcmpTest(BaseTest):
         BaseTest.__init__(self)
         self.test_params = test_params_get()
 
-
+    #---------------------------------------------------------------------
     def log(self, message):
         logging.info(message)
 
@@ -115,10 +115,12 @@ class FgEcmpTest(BaseTest):
 
     #---------------------------------------------------------------------
 
-    def fg_ecmp(self, ipv4=True):
-        if ipv4:
+    def fg_ecmp(self):
+        if isinstance(ipaddress.ip_address(self.dst_ip.decode('utf8')), ipaddress.IPv4Address):
+            ipv4=True
             base_ip = ipaddress.ip_address(u'8.0.0.0')
         else:
+            ipv4=False
             base_ip = ipaddress.ip_address(u'20D0:A800:0:00::')
 
         # initialize all parameters
@@ -340,4 +342,4 @@ class FgEcmpTest(BaseTest):
 
     def runTest(self):
         # Main function which triggers all the tests
-        self.fg_ecmp(ipv4=True)
+        self.fg_ecmp()

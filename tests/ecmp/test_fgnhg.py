@@ -17,14 +17,16 @@ from ptf_runner import ptf_runner
 # Constants
 NUM_NHs = 8
 DEFAULT_VLAN_ID = 1000
-DEFAULT_VLAN_IP = ipaddress.ip_network(u'200.200.200.0/28')
-PREFIX = "100.50.25.12/32"
+DEFAULT_VLAN_IPv4 = ipaddress.ip_network(u'200.200.200.0/28')
+DEFAULT_VLAN_IPv6 = ipaddress.ip_network(u'200:200:200:200::/124')
+PREFIX_IPv4 = u'100.50.25.12/32'
+PREFIX_IPv6 = u'fc:05::/128'
 ARP_CFG = '/tmp/arp_cfg.json'
 FG_ECMP_CFG = '/tmp/fg_ecmp.json'
 
 logger = logging.getLogger(__name__)
 
-def configure_interfaces(cfg_facts, duthost, ptfhost, ptfadapter):
+def configure_interfaces(cfg_facts, duthost, ptfhost, ptfadapter, vlan_ip):
     config_port_indices = cfg_facts['port_index_map']
     port_list = []
     eth_port_list = []
@@ -60,9 +62,9 @@ def configure_interfaces(cfg_facts, duthost, ptfhost, ptfadapter):
     bank_1_port = port_list[len(port_list)/2:]
 
     # Create vlan if
-    duthost.command('config interface ip add Vlan' + str(DEFAULT_VLAN_ID) + ' ' + str(DEFAULT_VLAN_IP))
+    duthost.command('config interface ip add Vlan' + str(DEFAULT_VLAN_ID) + ' ' + str(vlan_ip))
 
-    for index, ip in enumerate(DEFAULT_VLAN_IP.hosts()):
+    for index, ip in enumerate(vlan_ip.hosts()):
         if len(ip_to_port) == NUM_NHs:
             break
         ip_to_port[str(ip)] = port_list[index]
@@ -70,8 +72,12 @@ def configure_interfaces(cfg_facts, duthost, ptfhost, ptfadapter):
     return port_list, ip_to_port, bank_0_port, bank_1_port
 
 
-def generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port):
-    fgnhg_name = 'fgnhg_v4'
+def generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port, prefix):
+    if isinstance(ipaddress.ip_network(prefix), ipaddress.IPv4Network):
+        fgnhg_name = 'fgnhg_v4'
+    else:
+        fgnhg_name = 'fgnhg_v6'
+
     fgnhg_data = {}
 
     fgnhg_data['FG_NHG'] = {}
@@ -90,7 +96,7 @@ def generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port):
         }
 
     fgnhg_data['FG_NHG_PREFIX'] = {}
-    fgnhg_data['FG_NHG_PREFIX'][PREFIX] = {
+    fgnhg_data['FG_NHG_PREFIX'][prefix] = {
         "FG_NHG": fgnhg_name
     }
 
@@ -104,41 +110,54 @@ def setup_neighbors(duthost, ptfhost, ip_to_port):
     neigh_entries['NEIGH'] = {}
 
     for ip, port in ip_to_port.items():
-        neigh_entries['NEIGH'][vlan_name + "|" + ip] = {
-            "neigh": ptfhost.shell("cat /sys/class/net/eth" + str(port) + "/address")["stdout_lines"][0],
-            "family": "IPv4"
-        }
+
+        if isinstance(ipaddress.ip_address(ip.decode('utf8')), ipaddress.IPv4Address):
+            neigh_entries['NEIGH'][vlan_name + "|" + ip] = {
+                "neigh": ptfhost.shell("cat /sys/class/net/eth" + str(port) + "/address")["stdout_lines"][0],
+                "family": "IPv4"
+            }
+        else:
+            neigh_entries['NEIGH'][vlan_name + "|" + ip] = {
+                "neigh": ptfhost.shell("cat /sys/class/net/eth" + str(port) + "/address")["stdout_lines"][0],
+                "family": "IPv6"
+            }
 
     duthost.copy(content=json.dumps(neigh_entries, indent=2), dest="/tmp/neigh.json")
     duthost.shell("sonic-cfggen -j /tmp/neigh.json --write-to-db")
 
 
-def create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_port, router_mac, net_ports):
+def create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_port, router_mac, net_ports, prefix):
     fg_ecmp = {
             "ip_to_port": ip_to_port,
             "port_list": port_list,
             "bank_0_port": bank_0_port,
             "bank_1_port": bank_1_port,
             "dut_mac": router_mac,
-            "dst_ip": PREFIX.split('/')[0],
+            "dst_ip": prefix.split('/')[0],
             "net_ports": net_ports
     }
     ptfhost.copy(content=json.dumps(fg_ecmp, indent=2), dest=FG_ECMP_CFG)
 
 
-def setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts, router_mac, net_ports):
-    port_list, ip_to_port, bank_0_port, bank_1_port = configure_interfaces(cfg_facts, duthost, ptfhost, ptfadapter)
-    generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port)
+def setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts, router_mac, net_ports, vlan_ip, prefix):
+    port_list, ip_to_port, bank_0_port, bank_1_port = configure_interfaces(cfg_facts, duthost, ptfhost, ptfadapter, vlan_ip)
+    generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port, prefix)
     time.sleep(60)
     setup_neighbors(duthost, ptfhost, ip_to_port)
-    create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_port, router_mac, net_ports)
+    create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_port, router_mac, net_ports, prefix)
     ptfhost.copy(src="ptftests/fg_ecmp_test.py", dest="/root/ptftests")
     return port_list, ip_to_port, bank_0_port, bank_1_port
 
 
-def fg_ecmp_ipv4(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port):
+def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, prefix):
+
+    if isinstance(ipaddress.ip_network(prefix), ipaddress.IPv4Network):
+        ipcmd = "ip route"
+    else:
+        ipcmd = "ipv6 route"
+
     for nexthop in ip_to_port:
-        duthost.shell("vtysh -c 'configure terminal' -c 'ip route {} {}'".format(PREFIX, nexthop))
+        duthost.shell("vtysh -c 'configure terminal' -c '{} {} {}'".format(ipcmd, prefix, nexthop))
     time.sleep(1)
 
     log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.log".format(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
@@ -164,7 +183,7 @@ def fg_ecmp_ipv4(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port,
     withdraw_nh_port = bank_0_port[1]
     for nexthop, port in ip_to_port.items():
         if port == withdraw_nh_port:
-            duthost.shell("vtysh -c 'configure terminal' -c 'no ip route {} {}'".format(PREFIX, nexthop))
+            duthost.shell("vtysh -c 'configure terminal' -c 'no {} {} {}'".format(ipcmd, prefix, nexthop))
 
     time.sleep(1)
 
@@ -180,7 +199,7 @@ def fg_ecmp_ipv4(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port,
 
     for nexthop, port in ip_to_port.items():
         if port == withdraw_nh_port:
-            duthost.shell("vtysh -c 'configure terminal' -c 'ip route {} {}'".format(PREFIX, nexthop))
+            duthost.shell("vtysh -c 'configure terminal' -c '{} {} {}'".format(ipcmd, prefix, nexthop))
 
     time.sleep(1)
 
@@ -198,7 +217,7 @@ def fg_ecmp_ipv4(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port,
     withdraw_nh_bank = bank_0_port
     for nexthop, port in ip_to_port.items():
         if port in withdraw_nh_bank:
-            duthost.shell("vtysh -c 'configure terminal' -c 'no ip route {} {}'".format(PREFIX, nexthop))
+            duthost.shell("vtysh -c 'configure terminal' -c 'no {} {} {}'".format(ipcmd, prefix, nexthop))
 
     time.sleep(1)
 
@@ -215,7 +234,7 @@ def fg_ecmp_ipv4(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port,
     first_nh = bank_0_port[3]
     for nexthop, port in ip_to_port.items():
         if port == first_nh:
-            duthost.shell("vtysh -c 'configure terminal' -c 'ip route {} {}'".format(PREFIX, nexthop))
+            duthost.shell("vtysh -c 'configure terminal' -c '{} {} {}'".format(ipcmd, prefix, nexthop))
 
     time.sleep(1)
 
@@ -244,6 +263,10 @@ def test_fg_ecmp(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost):
         members = [mg_facts['minigraph_port_indices'][member] for member in val['members']]
         net_ports.extend(members)
 
-    port_list, ip_to_port, bank_0_port, bank_1_port = setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts, router_mac, net_ports)
+    # IPv4 test
+    port_list, ip_to_port, bank_0_port, bank_1_port = setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv4, PREFIX_IPv4)
+    fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, PREFIX_IPv4) 
 
-    fg_ecmp_ipv4(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port) 
+    # IPv6 test
+    port_list, ip_to_port, bank_0_port, bank_1_port = setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv6, PREFIX_IPv6)
+    fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, PREFIX_IPv6) 
