@@ -1,5 +1,6 @@
 import pytest
 
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from ptf_runner import ptf_runner
 from datetime import datetime
 
@@ -8,9 +9,6 @@ def test_dir_bcast(duthost, ptfhost, testbed, fib):
     testbed_type = testbed['topo']['name']
     if testbed_type not in support_testbed_types:
         pytest.skip("Not support given test bed type %s" % testbed_type)
-
-    # Copy PTF test into PTF-docker
-    ptfhost.copy(src="ptftests", dest="/root")
 
     # Copy VLAN information file to PTF-docker
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']

@@ -7,6 +7,8 @@ from jinja2 import Template
 from netaddr import IPNetwork
 from ansible.plugins.filter.core import to_bool
 
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from ptf_runner import ptf_runner
 from common.plugins.fib import generate_routes
 
@@ -105,12 +107,8 @@ def gen_fib_info(ptfhost, testbed, cfg_facts):
 
 
 def prepare_ptf(ptfhost, testbed, cfg_facts):
-    logger.info("Remove IP and change MAC on PTF container")
+    logger.info("Remove IP on PTF container")
     ptfhost.script("./scripts/remove_ip.sh")
-    ptfhost.script("./scripts/change_mac.sh")
-
-    logger.info("Copy PTF scripts to PTF container")
-    ptfhost.copy(src="ptftests", dest="/root")
 
     gen_fib_info(ptfhost, testbed, cfg_facts)
 

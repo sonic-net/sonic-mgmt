@@ -5,6 +5,9 @@
         Refactor ptfadapter so it can be leveraged in these test cases.
 """
 
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+
 DEFAULT_NN_TARGET_PORT = 3
 
 _REMOVE_IP_SCRIPT = "scripts/remove_ip.sh"
@@ -58,7 +61,6 @@ def configure_ptf(ptf, nn_target_port):
             nn_target_port (int): The port to run NN agent on.
     """
 
-    ptf.script(cmd=_REMOVE_IP_SCRIPT)
     ptf.script(cmd=_ADD_IP_SCRIPT)
 
     facts = {"nn_target_port": nn_target_port}
@@ -66,8 +68,6 @@ def configure_ptf(ptf, nn_target_port):
     ptf.template(src=_PTF_NN_TEMPLATE, dest=_PTF_NN_DEST)
 
     ptf.supervisorctl(name="ptf_nn_agent", state="restarted")
-
-    ptf.copy(src="ptftests", dest="/root")
 
 def restore_ptf(ptf):
     """

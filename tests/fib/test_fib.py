@@ -2,6 +2,8 @@ import pytest
 import time
 import json
 import logging
+
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from ptf_runner import ptf_runner
 from datetime import datetime 
 
@@ -108,7 +110,6 @@ def test_fib(testbed, duthost, ptfhost, ipv4, ipv6, mtu):
     build_fib(duthost, config_facts, ofpname, t)
 
     ptfhost.copy(src=ofpname, dest="/root/fib_info.txt")
-    ptfhost.copy(src="ptftests", dest="/root")
     logging.info("run ptf test")
 
     # do not test load balancing for vs platform as kernel 4.9
@@ -152,7 +153,6 @@ def setup_hash(testbed, duthost, ptfhost, timestamp):
     build_fib(duthost, config_facts, ofpname, timestamp)
 
     ptfhost.copy(src=ofpname, dest="/root/fib_info.txt")
-    ptfhost.copy(src="ptftests", dest="/root")
     logging.info("run ptf test")
 
     # TODO

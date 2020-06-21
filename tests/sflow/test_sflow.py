@@ -3,6 +3,8 @@ import logging
 import time
 import json
 import re
+
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from ptf_runner import ptf_runner
 from common import reboot
 from common  import config_reload
@@ -62,7 +64,6 @@ def setup_ptf(ptfhost, collector_ports):
     extra_vars = {'arp_responder_args' : '--conf /tmp/sflow_arpresponder.conf'}
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     ptfhost.template(src="../ansible/roles/test/templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
-    ptfhost.copy(src="ptftests", dest=root_dir)
     ptfhost.copy(src="../ansible/roles/test/files/helpers/arp_responder.py", dest="/opt")
     ptfhost.shell('supervisorctl reread')
     ptfhost.shell('supervisorctl update')

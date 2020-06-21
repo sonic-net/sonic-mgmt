@@ -2,32 +2,10 @@ import ipaddress
 import pytest
 import time
 
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from ptf_runner import ptf_runner
 
-
-@pytest.fixture(scope="module", autouse=True)
-def copy_ptftests_directory(ptfhost):
-    """ Fixture which copies the ptftests directory to the PTF host. This fixture
-        is scoped to the module, as it only needs to be performed once before
-        the first test is run. It does not need to be run before each test.
-        We also set autouse=True to ensure this fixture gets instantiated before
-        the first test runs, even if we don't explicitly pass it to them, and since
-        there is no return value, there is no point in passing it into the functions.
-    """
-    ptfhost.copy(src="ptftests", dest="/root")
-
-@pytest.fixture(scope="module", autouse=True)
-def ptf_configure_unique_interface_mac_addresses(ptfhost, autouse=True):
-    """ Fixture which copies the change_mac.sh script to the PTF host and executes
-        it there, changing the MAC addresses of the PTF host's interfaces such that
-        each interface has a unique MAC address.
-
-        This fixture is scoped to the module, as it only needs to be performed once
-        before the first test is run.
-    """
-    ptfhost.copy(src="scripts/change_mac.sh", dest="/tmp")
-
-    ptfhost.shell("/bin/bash /tmp/change_mac.sh")
 
 @pytest.fixture(scope="module")
 def dut_dhcp_relay_data(duthost, ptfhost, testbed):
@@ -107,8 +85,7 @@ def validate_dut_routes_exist(duthost, dut_dhcp_relay_data):
 
     for dhcp_server in dhcp_servers:
         rtInfo = duthost.get_ip_route_info(ipaddress.ip_address(dhcp_server))
-        assert len(rtInfo["nexthops"]) > 0, \
-            "Failed to find route to DHCP server '{0}' with error '{1}".format(dhcp_server, result["stderr"])
+        assert len(rtInfo["nexthops"]) > 0, "Failed to find route to DHCP server '{0}'".format(dhcp_server)
 
 
 def test_dhcp_relay_default(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):

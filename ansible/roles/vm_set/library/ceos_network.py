@@ -207,7 +207,7 @@ class CeosNetwork(object):
 
         with open(cmd_debug_fname, 'a') as fp:
             pprint("OUTPUT: %s" % stdout, fp)
-        return stdout
+        return stdout.decode('utf-8')
 
     @staticmethod
     def get_ovs_br_ports(bridge):

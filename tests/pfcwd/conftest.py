@@ -1,6 +1,7 @@
 import logging
 import pytest
 from common.fixtures.conn_graph_facts import conn_graph_facts
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,8 @@ def pytest_addoption(parser):
     """
     parser.addoption('--warm-reboot', action='store', type=bool, default=False,
                      help='Warm reboot needs to be enabled or not')
+    parser.addoption('--restore-time', action='store', type=int, default=3000,
+                     help='PFC WD storm restore interval')
 
 @pytest.fixture(scope="module")
 def setup_pfc_test(duthost, ptfhost, conn_graph_facts):
@@ -49,9 +52,6 @@ def setup_pfc_test(duthost, ptfhost, conn_graph_facts):
         vlan_ips = duthost.get_ip_in_range(num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix), exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
         vlan_nw = vlan_ips[0].split('/')[0]
 
-        # set unique MACS to PTF interfaces
-        ptfhost.script("./scripts/change_mac.sh")
-
         duthost.shell("ip route flush {}/32".format(vlan_nw))
         duthost.shell("ip route add {}/32 dev {}".format(vlan_nw, vlan_dev))
 
@@ -62,8 +62,13 @@ def setup_pfc_test(duthost, ptfhost, conn_graph_facts):
     selected_ports = select_test_ports(test_ports)
 
     setup_info = { 'test_ports': test_ports,
+                   'port_list': port_list,
                    'selected_test_ports': selected_ports,
-                   'pfc_timers' : set_pfc_timers()
+                   'pfc_timers' : set_pfc_timers(),
+                   'neighbors': neighbors,
+                   'vlan': {'addr': vlan_addr,
+                            'prefix': vlan_prefix,
+                            'dev': vlan_dev}
                   }
 
     # set poll interval

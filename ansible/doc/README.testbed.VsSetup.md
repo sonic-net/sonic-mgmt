@@ -26,7 +26,7 @@ $ sudo ifconfig br1 up
 
 ### Use cEOS image (experimental)
 - Download cEOS image from [arista](https://www.arista.com/en/support/software-download) onto your testbed server
-- Import cEOS image
+- Import cEOS image (It will take several minutes to import, so please be patient)
 
 ```
 $ docker import cEOS64-lab-4.23.2F.tar.xz ceosimage:4.23.2F
@@ -48,7 +48,7 @@ $ make configure PLATFORM=generic
 $ make target/docker-sonic-mgmt.gz
 ```
 
-- Download pre-built *sonic-mgmt* image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/sonic-buildimage/target/docker-sonic-mgmt.gz).
+- Or, download pre-built *sonic-mgmt* image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/sonic-buildimage/target/docker-sonic-mgmt.gz).
 ```
 $ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/sonic-buildimage/target/docker-sonic-mgmt.gz
 ```

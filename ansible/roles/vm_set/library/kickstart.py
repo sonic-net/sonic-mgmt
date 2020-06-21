@@ -204,15 +204,15 @@ def main():
     except ELoginPromptNotFound:
         result = {'kickstart_code': -1, 'changed': False, 'msg': 'Login prompt not found'}
     except EWrongDefaultPassword:
-        result = {'kickstart_code': 0, 'changed': False, 'msg': 'Wrong default password, kickstart of VM has been done'}
+        result = {'kickstart_code': -2, 'changed': False, 'msg': 'Wrong default password, kickstart of VM has been done'}
     except EOFError:
-        result = {'kickstart_code': -2, 'changed': False, 'msg': 'EOF during the chat'}
+        result = {'kickstart_code': -3, 'changed': False, 'msg': 'EOF during the chat'}
     except EMatchNotFound:
-        result = {'kickstart_code': -3, 'changed': False, 'msg': "Match for output isn't found"}
+        result = {'kickstart_code': -4, 'changed': False, 'msg': "Match for output isn't found"}
     except ENotInEnabled:
-        module.fail_json(msg='Not in enabled mode')
+        result = {'kickstart_code': -5, 'changed': False, 'msg': "Not in enabled mode"}
     except Exception, e:
-        module.fail_json(msg=str(e))
+        result = {'kickstart_code': -6, 'changed': False, 'msg': str(e)}
 
     module.exit_json(**result)
 

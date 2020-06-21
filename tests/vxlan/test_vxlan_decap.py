@@ -6,6 +6,8 @@ import pytest
 from jinja2 import Template
 from netaddr import IPAddress
 
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)
@@ -21,9 +23,8 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts):
     @param mg_facts: Minigraph facts
     @param dut_facts: Host facts of DUT
     """
-    logger.info("Remove IP and change MAC")
+    logger.info("Remove IP")
     ptfhost.script("./scripts/remove_ip.sh")
-    ptfhost.script("./scripts/change_mac.sh")
 
     logger.info("Prepare arp_responder")
     ptfhost.copy(src="../ansible/roles/test/files/helpers/arp_responder.py", dest="/opt")
@@ -46,9 +47,6 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts):
         "dut_mac": dut_facts["ansible_Ethernet0"]["macaddress"]
     }
     ptfhost.copy(content=json.dumps(vxlan_decap, indent=2), dest="/tmp/vxlan_decap.json")
-
-    logger.info("Copy PTF scripts to PTF container")
-    ptfhost.copy(src="ptftests", dest="/root")
 
 
 def generate_vxlan_config_files(duthost, mg_facts):

@@ -3,6 +3,9 @@ from netaddr import *
 import time
 import logging
 import requests
+
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from ptf_runner import ptf_runner
 
 
@@ -44,7 +47,6 @@ def common_setup_teardown(duthost, ptfhost):
     logging.info("ptfip=%s" % ptfip)
 
     ptfhost.script("./scripts/remove_ip.sh")
-    ptfhost.script("./scripts/change_mac.sh")
 
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     interface_facts = duthost.interface_facts()['ansible_facts']
@@ -171,8 +173,6 @@ def test_bgp_speaker_announce_routes(common_setup_teardown, testbed, duthost, pt
     logging.info("extra_vars: %s" % str(ptfhost.host.options['variable_manager'].extra_vars))
 
     ptfhost.template(src="bgp_speaker/bgp_speaker_route.j2", dest="/root/bgp_speaker_route.txt")
-
-    ptfhost.copy(src="ptftests", dest="/root")
 
     logging.info("run ptf test")
 

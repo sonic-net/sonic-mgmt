@@ -3,6 +3,7 @@ import pytest
 import time
 
 from common.helpers.assertions import pytest_assert
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm [py/unused-import]
 
 logger = logging.getLogger(__name__)
 
@@ -124,19 +125,6 @@ class TestFdbMacExpire:
 
         logger.info("Copying fdb_info.txt config file to {0}".format(ptfhost.hostname))
         ptfhost.template(src="fdb/files/fdb.j2", dest=self.FDB_INFO_FILE)
-
-    @pytest.fixture(scope="class", autouse=True)
-    def copyPtfDirectory(self, ptfhost):
-        """
-            Copys PTF directory to PTF host.
-
-            Args:
-                ptfhost (AnsibleHost): Packet Test Framework (PTF)
-
-            Returns:
-                None
-        """
-        ptfhost.copy(src="ptftests", dest="/root")
 
     @pytest.fixture(scope="class", autouse=True)
     def clearSonicFdbEntries(self, duthost):

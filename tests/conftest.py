@@ -111,6 +111,8 @@ def pytest_addoption(parser):
                     help="Change default loops delay")
     parser.addoption("--logs_since", action="store", type=int,
                     help="number of minutes for show techsupport command")
+    parser.addoption("--collect_techsupport", action="store", default=True, type=bool,
+                    help="Enable/Disable tech support collection. Default is enabled (True)")
 
     ############################
     #   sanity_check options   #
@@ -205,7 +207,7 @@ def enable_ssh_timout(dut):
     time.sleep(5)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def duthost(ansible_adhoc, testbed, request):
     '''
     @summary: Shortcut fixture for getting DUT host. For a lengthy test case, test case module can
@@ -216,8 +218,8 @@ def duthost(ansible_adhoc, testbed, request):
     @param testbed: Ansible framework testbed information
     @param request: request parameters for duthost test fixture
     '''
-    stop_ssh_timeout = getattr(request.module, "pause_ssh_timeout", None)
-    dut_index = getattr(request.module, "dut_index", 0)
+    stop_ssh_timeout = getattr(request.session, "pause_ssh_timeout", None)
+    dut_index = getattr(request.session, "dut_index", 0)
     assert dut_index < len(testbed["duts"]), "DUT index '{0}' is out of bound '{1}'".format(dut_index, len(testbed["duts"]))
 
     duthost = SonicHost(ansible_adhoc, testbed["duts"][dut_index])
@@ -238,12 +240,12 @@ def reset_critical_services_list(duthost):
 
     duthost.reset_critical_services_tracking_list()
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def localhost(ansible_adhoc):
     return Localhost(ansible_adhoc)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def ptfhost(ansible_adhoc, testbed, duthost):
     if "ptf" in testbed:
         return PTFHost(ansible_adhoc, testbed["ptf"])
@@ -263,10 +265,12 @@ def nbrhosts(ansible_adhoc, testbed, creds):
     vm_base = int(testbed['vm_base'][2:])
     devices = {}
     for k, v in testbed['topo']['properties']['topology']['VMs'].items():
-        devices[k] = {'host': EosHost(ansible_adhoc, \
-                                      "VM%04d" % (vm_base + v['vm_offset']), \
-                                      creds['eos_login'], \
-                                      creds['eos_password']),
+        devices[k] = {'host': EosHost(ansible_adhoc,
+                                      "VM%04d" % (vm_base + v['vm_offset']),
+                                      creds['eos_login'],
+                                      creds['eos_password'],
+                                      shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
+                                      shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None),
                       'conf': testbed['topo']['properties']['configuration'][k]}
     return devices
 
@@ -289,13 +293,23 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
             else:
                 host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_host).vars
                 os_type = 'eos' if 'os' not in host_vars else host_vars['os']
-                if os_type == "eos":
-                    user = creds['fanout_admin_user']
-                    pswd = creds['fanout_admin_password']
-                elif os_type == "onyx":
-                    user = creds["fanout_mlnx_user"]
-                    pswd = creds["fanout_mlnx_password"]
-                fanout  = FanoutHost(ansible_adhoc, os_type, fanout_host, 'FanoutLeaf', user, pswd)
+
+                # `fanout_network_user` and `fanout_network_password` are for accessing the non-shell CLI of fanout
+                # Ansible will use this set of credentail for establishing `network_cli` connection with device
+                # when applicable.
+                network_user = creds['fanout_network_user'] if 'fanout_network_user' in creds else creds['fanout_admin_user']
+                network_password = creds['fanout_network_password'] if 'fanout_network_password' in creds else creds['fanout_admin_password']
+                shell_user = creds['fanout_shell_user'] if 'fanout_shell_user' in creds else creds['fanout_admin_user']
+                shell_password = creds['fanout_shell_password'] if 'fanout_shell_password' in creds else creds['fanout_admin_password']
+
+                fanout  = FanoutHost(ansible_adhoc,
+                                    os_type,
+                                    fanout_host,
+                                    'FanoutLeaf',
+                                    network_user,
+                                    network_password,
+                                    shell_user=shell_user,
+                                    shell_passwd=shell_password)
                 fanout_hosts[fanout_host] = fanout
             fanout.add_port_map(dut_port, fanout_port)
     except:
@@ -358,7 +372,7 @@ def collect_techsupport(request, duthost):
     # request.node is an "item" because we use the default
     # "function" scope
     testname = request.node.name
-    if request.node.rep_call.failed:
+    if request.config.getoption("--collect_techsupport") and request.node.rep_call.failed:
         res = duthost.shell("generate_dump")
         fname = res['stdout']
         duthost.fetch(src=fname, dest="logs/{}".format(testname))

@@ -4,6 +4,9 @@ import pytest
 import re
 import yaml
 
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from common.fixtures.ptfhost_utils import copy_acstests_directory   # lgtm[py/unused-import]
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from common.system_utils import docker
 
@@ -497,7 +500,7 @@ class QosSaiBase:
         with open(r"qos/files/qos.yml") as file:
             qosConfigs = yaml.load(file, Loader=yaml.FullLoader)
 
-        vendor = duthost.get_asic_type()
+        vendor = duthost.facts["asic_type"]
         hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
         dutAsic = None
         for asic in self.SUPPORTED_ASIC_LIST:
@@ -512,19 +515,6 @@ class QosSaiBase:
             "portSpeedCableLength": portSpeedCableLength,
         }
 
-    @pytest.fixture(scope='class', autouse=True)
-    def copyPtfDirectory(self, ptfhost):
-        """
-            Copys PTF directory to PTF host. This class-scope fixture runs once before test start
- 
-            Args:
-                ptfhost (AnsibleHost): Packet Test Framework (PTF)
-
-            Returns:
-                None
-        """
-        ptfhost.copy(src="ptftests", dest="/root")
-
     @pytest.fixture(scope='class')
     def ptfPortMapFile(self, request, duthost, ptfhost):
         """
@@ -538,7 +528,6 @@ class QosSaiBase:
             Returns:
                 filename (str): returns the filename copied to PTF host
         """
-        ptfhost.copy(src="ptftests", dest="/root")
         portMapFile = request.config.getoption("--ptf_portmap")
         if not portMapFile:
             portMapFile = self.DEFAULT_PORT_INDEX_TO_ALIAS_MAP_FILE
@@ -555,19 +544,6 @@ class QosSaiBase:
         ptfhost.copy(src=portMapFile, dest="/root/")
 
         yield "/root/{}".format(portMapFile.split('/')[-1])
-
-    @pytest.fixture(scope='class', autouse=True)
-    def copySaiTests(self, ptfhost):
-        """
-            Copys SAI directory to PTF host. This class-scope fixture runs once before test start
- 
-            Args:
-                ptfhost (AnsibleHost): Packet Test Framework (PTF)
- 
-            Returns:
-                None
-        """
-        ptfhost.copy(src="saitests", dest="/root")
 
     @pytest.fixture(scope='class', autouse=True)
     def dutTestParams(self, duthost, testbed, ptfPortMapFile):
@@ -596,19 +572,6 @@ class QosSaiBase:
                 "sonic_asic_type": duthost.facts['asic_type'],
             }
         }
-
-    @pytest.fixture(scope='class', autouse=True)
-    def changePtfhostMacAddresses(self, ptfhost):
-        """
-            Change MAC addresses (unique) on PTF host. This class-scope fixture runs once before test start
- 
-            Args:
-                ptfhost (AnsibleHost): Packet Test Framework (PTF)
- 
-            Returns:
-                None
-        """
-        ptfhost.script("scripts/change_mac.sh")
 
     @pytest.fixture(scope='class')
     def releaseAllPorts(self, ptfhost, dutTestParams, updateIptables):
