@@ -36,7 +36,8 @@ def test_control_plane_acls(duthost, localhost, creds):
                              state='stopped',
                              search_regex=SONIC_SSH_REGEX,
                              delay=0,
-                             timeout=10)
+                             timeout=10,
+                             module_ignore_errors=True)
 
     if "failed" in res.get('msg', ''):
         pytest.fail("SSH connection did not get severed")
@@ -47,13 +48,15 @@ def test_control_plane_acls(duthost, localhost, creds):
                              state='started',
                              search_regex=SONIC_SSH_REGEX,
                              delay=0,
-                             timeout=10)
+                             timeout=10,
+                             module_ignore_errors=True)
 
     if "Timeout when waiting for search string" not in res.get('msg', ''):
         pytest.fail("SSH did not time out when expected")
 
     # Ensure we CANNOT gather basic SNMP facts from the device
-    res = localhost.snmp_facts(host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'])
+    res = localhost.snmp_facts(host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'],
+                               module_ignore_errors=True)
 
     if 'ansible_facts' in res or "No SNMP response received before timeout" not in res.get('msg', ''):
         pytest.fail("SNMP did not time out when expected")
@@ -68,7 +71,8 @@ def test_control_plane_acls(duthost, localhost, creds):
                              state='started',
                              search_regex=SONIC_SSH_REGEX,
                              delay=0,
-                             timeout=90)
+                             timeout=90,
+                             module_ignore_errors=True)
 
     if "Timeout when waiting for search string" in res.get('msg', ''):
         pytest.fail("SSH did not start working when expected")
@@ -77,7 +81,8 @@ def test_control_plane_acls(duthost, localhost, creds):
     duthost.file(path="/tmp/config_service_acls.sh", state="absent")
 
     # Ensure we can gather basic SNMP facts from the device once again
-    res = localhost.snmp_facts(host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'])
+    res = localhost.snmp_facts(host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'],
+                               module_ignore_errors=True)
 
     if 'ansible_facts' not in res:
         pytest.fail("Failed to retrieve SNMP facts from DuT!")
