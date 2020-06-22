@@ -641,6 +641,19 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             if nbinfo['bgpStateIs'].lower() == "passiveNSF".lower():
                 return True
         return False
+    
+    def get_dut_iface_mac(self, iface_name):
+        """
+        Gets the MAC address of specified interface.
+
+        Returns:
+            str: The MAC address of the specified interface, or None if it is not found.
+        """
+        for iface, iface_info in self.setup()['ansible_facts'].items():
+            if iface_name in iface:
+                return iface_info["macaddress"]
+
+        return None
 
 class EosHost(AnsibleHostBase):
     """

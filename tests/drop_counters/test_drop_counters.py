@@ -316,13 +316,6 @@ def get_pkt_drops(duthost, cli_cmd):
         raise Exception("Failed to parse output of '{}', err={}".format(cli_cmd, str(err)))
 
 
-def get_dut_iface_mac(duthost, iface_name):
-    """ Fixture for getting MAC address of specified interface """
-    for iface, iface_info in duthost.setup()['ansible_facts'].items():
-        if iface_name in iface:
-            return iface_info["macaddress"]
-
-
 @pytest.fixture
 def ports_info(ptfadapter, duthost, setup, tx_dut_ports):
     """
@@ -335,7 +328,7 @@ def ports_info(ptfadapter, duthost, setup, tx_dut_ports):
     data = {}
     data["dut_iface"] = random.choice(tx_dut_ports.keys())
     data["ptf_tx_port_id"] = setup["dut_to_ptf_port_map"][data["dut_iface"]]
-    data["dst_mac"] = get_dut_iface_mac(duthost, data["dut_iface"])
+    data["dst_mac"] = duthost.get_dut_iface_mac(data["dut_iface"])
     data["src_mac"] = ptfadapter.dataplane.ports[(0, data["ptf_tx_port_id"])].mac()
     return data
 
