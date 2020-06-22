@@ -289,6 +289,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
             if fanout_host in fanout_hosts.keys():
                 fanout  = fanout_hosts[fanout_host]
             else:
+                user = pswd = None
                 host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_host).vars
                 os_type = 'eos' if 'os' not in host_vars else host_vars['os']
                 if os_type == "eos":
