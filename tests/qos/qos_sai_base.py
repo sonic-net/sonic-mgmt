@@ -21,6 +21,16 @@ class QosSaiBase:
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
     TARGET_LOSSLESS_QUEUE_SCHED = 3
+    buffer_model_initialized = False
+    buffer_model = None
+
+    def __isBufferInApplDb(self, duthost):
+        if not self.buffer_model_initialized:
+            self.buffer_model = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')["stdout"]
+            self.buffer_model_initialized = True
+            logger.info("Buffer model is {}, buffer tables will be fetched from {}".
+                        format(self.buffer_model or "not defined", "APPL_DB" if self.buffer_model else "CONFIG_DB"))
+        return self.buffer_model
 
     def __runRedisCommandOrAssert(self, duthost, argv=[]):
         """
@@ -52,10 +62,11 @@ class QosSaiBase:
             Returns:
                 Updates bufferProfile with computed buffer threshold
         """
+        db = "0" if self.__isBufferInApplDb(duthost) else "4"
         pool = bufferProfile["pool"].encode("utf-8").translate(None, "[]")
         bufferSize = int(self.__runRedisCommandOrAssert(
             duthost,
-            argv = ["redis-cli", "-n", "4", "HGET", pool, "size"]
+            argv = ["redis-cli", "-n", db, "HGET", pool, "size"]
         )[0])
         bufferScale = 2**float(bufferProfile["dynamic_th"])
         bufferScale /= (bufferScale + 1)
@@ -72,7 +83,7 @@ class QosSaiBase:
             Returns:
                 Updates bufferProfile with VOID/ROID obtained from Redis db
         """
-        bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(None, "[]").replace("BUFFER_POOL|",'')
+        bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(None, "[]").replace("BUFFER_POOL_TABLE:",'')
 
         bufferPoolVoid = self.__runRedisCommandOrAssert(
             duthost,
@@ -100,14 +111,21 @@ class QosSaiBase:
             Returns:
                 bufferProfile (dict): Map of buffer profile attributes
         """
+        
+        if self.__isBufferInApplDb(duthost):
+            db = "0"
+            keystr = "{0}:{1}:{2}".format(table, port, priorityGroup)
+        else:
+            db = "4"
+            keystr = "{0}|{1}|{2}".format(table, port, priorityGroup)
         bufferProfileName = self.__runRedisCommandOrAssert(
             duthost,
-            argv = ["redis-cli", "-n", "4", "HGET", "{0}|{1}|{2}".format(table, port, priorityGroup), "profile"]
+            argv = ["redis-cli", "-n", db, "HGET", keystr, "profile"]
         )[0].encode("utf-8").translate(None, "[]")
 
         result = self.__runRedisCommandOrAssert(
             duthost,
-            argv = ["redis-cli", "-n", "4", "HGETALL", bufferProfileName]
+            argv = ["redis-cli", "-n", db, "HGETALL", bufferProfileName]
         )
         it = iter(result)
         bufferProfile = dict(zip(it, it))
@@ -539,7 +557,11 @@ class QosSaiBase:
         pytest_assert("minigraph_hwsku" in mgFacts, "Could not find DUT SKU")
 
         profileName = ingressLosslessProfile["profileName"]
-        m = re.search("^BUFFER_PROFILE\|pg_lossless_(.*)_profile$", profileName)
+        if self.__isBufferInApplDb(duthost):
+            profile_pattern = "^BUFFER_PROFILE_TABLE\:pg_lossless_(.*)_profile$"
+        else:
+            profile_pattern = "^BUFFER_PROFILE\|pg_lossless_(.*)_profile"
+        m = re.search(profile_pattern, profileName)
         pytest_assert(m.group(1), "Cannot find port speed/cable length")
 
         portSpeedCableLength = m.group(1)
@@ -680,7 +702,7 @@ class QosSaiBase:
         yield self.__getBufferProfile(
             request,
             duthost,
-            "BUFFER_PG",
+            "BUFFER_PG_TABLE" if self.__isBufferInApplDb(duthost) else "BUFFER_PG",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "3-4"
         )
@@ -703,7 +725,7 @@ class QosSaiBase:
         yield self.__getBufferProfile(
             request,
             duthost,
-            "BUFFER_PG",
+            "BUFFER_PG_TABLE" if self.__isBufferInApplDb(duthost) else "BUFFER_PG",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "0"
         )
@@ -726,7 +748,7 @@ class QosSaiBase:
         yield self.__getBufferProfile(
             request,
             duthost,
-            "BUFFER_QUEUE",
+            "BUFFER_QUEUE_TABLE" if self.__isBufferInApplDb(duthost) else "BUFFER_QUEUE",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "3-4"
         )
@@ -749,7 +771,7 @@ class QosSaiBase:
         yield self.__getBufferProfile(
             request,
             duthost,
-            "BUFFER_QUEUE",
+            "BUFFER_QUEUE_TABLE" if self.__isBufferInApplDb(duthost) else "BUFFER_QUEUE",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "0-2"
         )
