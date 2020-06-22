@@ -7,8 +7,6 @@ from common.helpers.assertions import pytest_assert
 from common.helpers.pfc_storm import PFCStorm
 from files.pfcwd_helper import start_wd_on_ports
 
-pytestmark = [pytest.mark.disable_loganalyzer]
-
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module', autouse=True)
@@ -53,11 +51,11 @@ def pfcwd_timer_setup_restore(setup_pfc_test, fanout_graph_facts, duthost, fanou
     start_wd_on_ports(dut, pfc_wd_test_port, timers['pfc_wd_restore_time'],
                       timers['pfc_wd_detect_time'])
     # enable routing from mgmt interface to localhost
-    dut.shell("sysctl -w net.ipv4.conf.eth0.route_localnet=1")
+    dut.sysctl(name="net.ipv4.conf.eth0.route_localnet", value=1, sysctl_set=True)
     # rule to forward syslog packets from mgmt interface to localhost
-    cmd = ("iptables -t nat -I PREROUTING -p udp -d {} --dport 514 -j DNAT "
-           "--to-destination 127.0.0.1:514".format(eth0_ip))
-    dut.shell(cmd)
+    dut.iptables(action="insert", chain="PREROUTING", table="nat", protocol="udp",
+                 destination=eth0_ip, destination_port=514, jump="DNAT",
+                 to_destination="127.0.0.1:514")
 
     logger.info("--- Pfcwd Timer Testrun ---")
     yield { 'timers' : timers,
@@ -65,8 +63,8 @@ def pfcwd_timer_setup_restore(setup_pfc_test, fanout_graph_facts, duthost, fanou
           }
 
     logger.info("--- Pfcwd timer test cleanup ---")
-    dut.shell("iptables -t nat --flush")
-    dut.shell("sysctl -w net.ipv4.conf.eth0.route_localnet=0")
+    dut.iptables(table="nat", flush="yes")
+    dut.sysctl(name="net.ipv4.conf.eth0.route_localnet", value=0, sysctl_set=True)
     storm_handle.stop_storm()
 
 def populate_peer_info(neighbors, fanout_info, port):
