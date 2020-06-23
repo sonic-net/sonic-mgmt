@@ -42,6 +42,8 @@ def restart_telemetry(duthost):
 
 # Test functions
 def test_config_db_parameters(duthost):
+     """Verifies required telemetry parameters from config_db.
+    """
     gnmi = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "TELEMETRY|gnmi"', module_ignore_errors=False)['stdout_lines']
     pytest_assert(gnmi is not None, "TELEMETRY|gnmi does not exist in config_db")
 
@@ -67,6 +69,8 @@ def test_config_db_parameters(duthost):
             pytest_assert(str(value) == server_crt_expected, "'server_crt' value is not '{}'".format(server_crt_expected))
 
 def test_telemetry_enabledbydefault(duthost):
+     """Verify telemetry should be enabled by default
+    """
     status = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "FEATURE|telemetry"', module_ignore_errors=False)['stdout_lines']
     status_list = get_list_stdout(status)
     # Elements in list alternate between key and value. Separate them and combine into a dict.
@@ -88,8 +92,7 @@ def test_telemetry_gnmi_get(duthost, ptfhost):
     if restart_status == bool("true"):
         logger.info('telemetry process restarted. Now run gnmi_get on ptfdocker')
         #Now run gnmi_get on ptfdocker
-        dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
-        logger.info("dut ip={}".format(dut_ip))
+        dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']    
         cmd = '''
               cd ~/etc/go/bin &&
              ./gnmi_get -xpath_target COUNTERS_DB COUNTERS/Ethernet0 -target_addr {0}:8080 -insecure
@@ -99,4 +102,4 @@ def test_telemetry_gnmi_get(duthost, ptfhost):
     # Reset config back to original for telemetry process
     duthost.shell('/usr/bin/redis-cli -n 4 hmset "TELEMETRY|certs" "ca_crt" "/etc/sonic/telemetry/dsmsroot.cer" "server_key" "/etc/sonic/telemetry/streamingtelemetryserver.key" "server_crt" "/etc/sonic/telemetry/streamingtelemetryserver.cer"', module_ignore_errors=False)['stdout_lines']
     duthost.shell('/usr/bin/redis-cli -n 4 hset "TELEMETRY|gnmi" "client_auth" "true"', module_ignore_errors=False)['stdout_lines']
-    restart_telemetry(duthost) 
+    restart_telemetry(duthost)
