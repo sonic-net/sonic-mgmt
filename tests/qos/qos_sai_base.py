@@ -4,9 +4,6 @@ import pytest
 import re
 import yaml
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from common.fixtures.ptfhost_utils import copy_acstests_directory   # lgtm[py/unused-import]
-from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from common.system_utils import docker
 

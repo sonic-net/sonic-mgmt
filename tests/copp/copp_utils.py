@@ -5,9 +5,6 @@
         Refactor ptfadapter so it can be leveraged in these test cases.
 """
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-
 DEFAULT_NN_TARGET_PORT = 3
 
 _REMOVE_IP_SCRIPT = "scripts/remove_ip.sh"
