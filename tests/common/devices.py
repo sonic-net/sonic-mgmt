@@ -641,7 +641,7 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             if nbinfo['bgpStateIs'].lower() == "passiveNSF".lower():
                 return True
         return False
-    
+
     def get_dut_iface_mac(self, iface_name):
         """
         Gets the MAC address of specified interface.
@@ -889,10 +889,10 @@ class FanoutHost():
         return self.type
 
     def shutdown(self, interface_name):
-        return self.host.shutdown(interface_name)[self.hostname]
+        return self.host.shutdown(interface_name)
 
     def no_shutdown(self, interface_name):
-        return self.host.no_shutdown(interface_name)[self.hostname]
+        return self.host.no_shutdown(interface_name)
 
     def __str__(self):
         return "{ os: '%s', hostname: '%s', device_type: '%s' }" % (self.os, self.hostname, self.type)
