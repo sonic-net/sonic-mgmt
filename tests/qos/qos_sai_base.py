@@ -446,6 +446,28 @@ class QosSaiBase:
         for service in services:
             updateDockerService(duthost, action="start", **service)
 
+    @pytest.fixture(autouse=True)
+    def updateLoganalyzerExceptions(self, duthost, loganalyzer):
+        """
+            Update loganalyzer ignore regex list
+
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+                loganalyzer (Fixture): log analyzer fixture
+
+            Returns:
+                None
+        """
+        ignoreRegex = [
+            ".*ERR monit.*'lldpd_monitor' process is not running",
+            ".*ERR monit.*'lldp_syncd' process is not running",
+            ".*ERR monit.*'bgpd' process is not running",
+            ".*ERR monit.*'bgpcfgd' process is not running",
+        ]
+        loganalyzer.ignore_regex.extend(ignoreRegex)
+
+        yield
+
     @pytest.fixture(scope='class', autouse=True)
     def disablePacketAging(self, duthost, stopServices):
         """
