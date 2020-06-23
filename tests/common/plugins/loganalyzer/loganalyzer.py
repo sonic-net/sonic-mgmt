@@ -15,7 +15,7 @@ ANSIBLE_LOGANALYZER_MODULE = system_msg_handler.__file__.replace(r".pyc", ".py")
 COMMON_MATCH = join(split(__file__)[0], "loganalyzer_common_match.txt")
 COMMON_IGNORE = join(split(__file__)[0], "loganalyzer_common_ignore.txt")
 COMMON_EXPECT = join(split(__file__)[0], "loganalyzer_common_expect.txt")
-SYSLOG_TMP_FOLDER = "/tmp/pytest-run/syslog"
+SYSLOG_TMP_FOLDER = "/tmp/syslog"
 
 
 class LogAnalyzerError(Exception):
