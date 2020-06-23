@@ -323,6 +323,12 @@ def eos():
         eos = yaml.safe_load(stream)
         return eos
 
+@pytest.fixture(scope="module")
+def vm_host():
+    """ read vm_host configuration """
+    with open('../ansible/group_vars/vm_host/main.yml') as stream:
+        vm_host = yaml.safe_load(stream)
+        return vm_host
 
 @pytest.fixture(scope="module")
 def creds(duthost):

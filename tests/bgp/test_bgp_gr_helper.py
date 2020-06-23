@@ -6,7 +6,7 @@ from common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
-def test_bgp_gr_helper_routes_perserved(duthost, nbrhosts, setup_bgp_graceful_restart):
+def test_bgp_gr_helper_routes_perserved(duthost, nbrhosts, setup_bgp_graceful_restart, vm_host):
     """
     Verify that DUT routes are preserved when peer performed graceful restart
     """
@@ -52,9 +52,9 @@ def test_bgp_gr_helper_routes_perserved(duthost, nbrhosts, setup_bgp_graceful_re
     bgp_nbr = bgp_neighbors[str(bgp_nbr_ipv4)]
     nbr_hostname = bgp_nbr['name']
     nbrhost = nbrhosts[nbr_hostname]['host']
-    exabgp_sessions = ['exabgp_v4', 'exabgp_v6']
-    pytest_assert(nbrhost.check_bgp_session_state([], exabgp_sessions), \
-            "exabgp sessions {} are not up before graceful restart".format(exabgp_sessions))
+    nbr_ips = [vm_host['ptf_bp_ip'].split('/')[0], vm_host['ptf_bp_ipv6'].split('/')[0]]
+    pytest_assert(nbrhost.check_bgp_session_state(nbr_ips), \
+            "exabgp sessions {} are not up before graceful restart".format(nbr_ips))
 
     # shutdown Rib agent, starting gr process
     logger.info("shutdown rib process on neighbor {}".format(nbr_hostname))
@@ -85,8 +85,8 @@ def test_bgp_gr_helper_routes_perserved(duthost, nbrhosts, setup_bgp_graceful_re
         nbrhost.start_bgpd()
 
         # wait for exabgp sessions to establish
-        pytest_assert(wait_until(300, 10, nbrhost.check_bgp_session_state, [], exabgp_sessions), \
-            "exabgp sessions {} are not coming back".format(exabgp_sessions))
+        pytest_assert(wait_until(300, 10, nbrhost.check_bgp_session_state, nbr_ips), \
+            "exabgp sessions {} are not coming back".format(nbr_ips))
     except:
         raise
     finally:
