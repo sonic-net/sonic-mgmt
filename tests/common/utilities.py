@@ -50,3 +50,21 @@ def wait_until(timeout, interval, condition, *args, **kwargs):
     if elapsed_time >= timeout:
         logging.debug("%s is still False after %d seconds, exit with False" % (condition.__name__, timeout))
         return False
+
+def wait_tcp_connection(client, server_hostname, listening_port, timeout_s = 30):
+    """
+    @summary: Wait until tcp connection is ready or timeout
+    @param client: The tcp client host instance
+    @param server_hostname: The tcp server hostname
+    @param listening_port: Port server is listening on
+    @param timeout: Maximum time to wait (30s in default)
+    """
+    res = client.wait_for(host=server_hostname,
+                          port=listening_port,
+                          state='started',
+                          timeout=timeout_s,
+                          module_ignore_errors=True)
+    if 'exception' in res:
+        logging.warn("Failed to establish TCP connection to %s:%d, timeout=%d" % (str(server_hostname), listening_port, timeout_s))
+        return False
+    return True
