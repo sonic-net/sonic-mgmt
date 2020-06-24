@@ -11,6 +11,10 @@ LAG_TOPO = {'t0', 't1-lag'}
 DEFAULT_HLIM_TTL = 64
 WAIT_EXPECTED_PACKET_TIMEOUT = 5
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 logger = logging.getLogger(__name__)
 
 

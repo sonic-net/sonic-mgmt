@@ -8,6 +8,9 @@ from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/un
 from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from ptf_runner import ptf_runner
 
+pytestmark = [
+    pytest.mark.topology('t0')
+]
 
 def generate_ips(num, prefix, exclude_ips):
     """

@@ -16,7 +16,10 @@ from check_critical_services import check_critical_services
 from check_transceiver_status import check_transceiver_basic
 from check_all_interface_info import check_interface_information
 
-pytestmark = [pytest.mark.disable_loganalyzer]
+pytestmark = [
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.topology('any')
+]
 
 
 def test_reload_configuration(duthost, conn_graph_facts):

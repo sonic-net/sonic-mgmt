@@ -37,6 +37,10 @@ from ptf_runner import ptf_runner
 from common.system_utils import docker
 from common.broadcom_data import is_broadcom_device
 
+pytestmark = [
+    pytest.mark.topology('t1')
+]
+
 _COPPTestParameters = namedtuple("_COPPTestParameters",
                                  ["nn_target_port",
                                   "pkt_tx_count",

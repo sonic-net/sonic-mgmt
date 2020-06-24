@@ -5,6 +5,10 @@ import pytest
 from common.platform.device_utils import fanout_switch_port_lookup
 from common.utilities import wait_until
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 class TestLinkFlap:
     def __get_dut_if_status(self, dut, ifname=None):
         if not ifname:
@@ -74,7 +78,6 @@ class TestLinkFlap:
                 fanout.no_shutdown(fanout_port)
 
 
-@pytest.mark.topology('any')
 @pytest.mark.platform('physical')
 def test_link_flap(duthost, fanouthosts):
     tlf = TestLinkFlap()

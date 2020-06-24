@@ -7,10 +7,13 @@ https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 import logging
 import os
 import json
-
+import pytest
 from common.fixtures.conn_graph_facts import conn_graph_facts
 from check_hw_mgmt_service import check_hw_management_service
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 def test_check_sfp_using_ethtool(duthost, conn_graph_facts):
     """This test case is to check SFP using the ethtool.

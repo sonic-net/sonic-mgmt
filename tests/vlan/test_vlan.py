@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 
 vlan_id_list = [ 100, 200 ]
 
+pytestmark = [
+    pytest.mark.topology('t0')
+]
 
 @pytest.fixture(scope="module")
 def cfg_facts(duthost):

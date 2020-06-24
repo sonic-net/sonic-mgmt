@@ -19,7 +19,10 @@ WD_ACTION_MSG_PFX = { "dontcare": "Verify PFCWD detection when queue buffer is n
                       "forward": "Verify proper function of forward action"
                     }
 
-pytestmark = [pytest.mark.disable_loganalyzer]
+pytestmark = [
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.topology('any')
+]
 
 logger = logging.getLogger(__name__)
 

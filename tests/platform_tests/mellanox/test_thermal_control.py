@@ -9,6 +9,10 @@ from common.utilities import wait_until
 from ..thermal_control_test_helper import *
 from mellanox_thermal_control_test_helper import MockerHelper, AbnormalFanMocker
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 THERMAL_CONTROL_TEST_WAIT_TIME = 65
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
 
@@ -69,7 +73,7 @@ def test_set_psu_fan_speed(duthost, mocker_factory):
     single_fan_mocker.mock_absence()
     assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, check_cooling_cur_state, duthost, 10, operator.eq), \
         'Current cooling state is {}'.format(get_cooling_cur_state(duthost))
-    
+
     logging.info('Wait {} seconds for the policy to take effect...'.format(THERMAL_CONTROL_TEST_CHECK_INTERVAL))
     time.sleep(THERMAL_CONTROL_TEST_CHECK_INTERVAL)
     full_speeds = []

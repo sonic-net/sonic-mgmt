@@ -9,6 +9,10 @@ from log_messages import *
 import logging
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 SUCCESS_CODE = 0
 DEFAULT_LOOP_RANGE = 10
 DEFAULT_LOOP_DELAY = 10

@@ -18,6 +18,10 @@ EVERFLOW_TABLE_RULE_CREATE_FILE = 'acl_rule_persistent.json'
 EVERFLOW_TABLE_RULE_DELETE_FILE = 'acl_rule_persistent-del.json'
 DUT_RUN_DIR = '/home/admin/everflow_tests'
 
+pytestmark = [
+    pytest.mark.topology('t1')
+]
+
 @pytest.fixture(scope='module')
 def setup_info(duthost, testbed):
     """
@@ -60,7 +64,7 @@ def setup_info(duthost, testbed):
     test_egress_mirror_on_ingress_acl = 'MIRROR_EGRESS_ACTION' in switch_capability_facts['switch_capabilities']['switch']['ACL_ACTIONS|INGRESS']
 
 
-    def get_port_info(in_port_list, out_port_list, out_port_ptf_id_list, out_port_lag_name): 
+    def get_port_info(in_port_list, out_port_list, out_port_ptf_id_list, out_port_lag_name):
         ptf_port_id = ''
         out_port_exclude_list = []
         for port in in_port_list:
@@ -106,25 +110,25 @@ def setup_info(duthost, testbed):
 
 
     # This is important to add since for Policer test case regular packet
-    # and mirror packet can go to same interface which cause tail drop of 
+    # and mirror packet can go to same interface which cause tail drop of
     # police packet and test case cir/cbs calculation gets impacted
     # We are making Regular Traffic has dedicated route and don't use
     # default route.
 
     peer_ip, peer_mac = get_neighbor_info(duthost, spine_dest_ports[3])
-    
+
     add_route(duthost, "30.0.0.1/24", peer_ip)
 
     yield setup_information
-    
+
     remove_route(duthost, "30.0.0.1/24", peer_ip)
 
 
 
 #partial_ptf_runner is a pytest fixture that takes all the necessary arguments to run
-#each everflow ptf test cases and calling the main function ptf_runner which will then 
-#combine all the arguments and form ptf command to run via ptfhost.shell(). 
-#some of the arguments are fix for each everflow test cases and are define here and 
+#each everflow ptf test cases and calling the main function ptf_runner which will then
+#combine all the arguments and form ptf command to run via ptfhost.shell().
+#some of the arguments are fix for each everflow test cases and are define here and
 #arguments specific to each everflow testcases are passed in each test via partial_ptf_runner
 #Argumnents are passed in dictionary format via kwargs within each test case.
 
@@ -157,7 +161,7 @@ def add_route(duthost, prefix, nexthop):
     """
     utility to add route
     duthost: fixture that have duthost information
-    prefix:  Ip prefix 
+    prefix:  Ip prefix
     nexthop: nexthop
     """
     duthost.shell("vtysh -c 'configure terminal' -c 'ip route {} {}'".format(prefix, nexthop))
@@ -166,7 +170,7 @@ def remove_route(duthost, prefix, nexthop):
     """
     utility to remove route
     duthost: fixture that have duthost information
-    prefix:  Ip prefix 
+    prefix:  Ip prefix
     nexthop: nexthop
     """
     duthost.shell("vtysh -c 'configure terminal' -c 'no ip route {} {}'".format(prefix, nexthop))
@@ -266,19 +270,19 @@ class BaseEverflowTest(object):
         tx_port = setup_info[dest_port_type]['dest_port'][0]
         tx_port_ptf_id = setup_info[dest_port_type]['dest_port_ptf_id'][0]
         peer_ip, peer_mac = get_neighbor_info(duthost, tx_port)
-        
+
         add_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
 
         time.sleep(3)
 
-        # call the function return by pytest fixture and pass arguments needed for 
+        # call the function return by pytest fixture and pass arguments needed for
         # ptf test case like src port, dest port, acl_stage, mirror_type.
         partial_ptf_runner(setup_info, setup_mirror_session,self.acl_stage(), self.mirror_type(),
                            src_port = rx_port_ptf_id,
                            dst_ports = tx_port_ptf_id)
 
         peer_ip, peer_mac = get_neighbor_info(duthost, tx_port, False)
-        
+
         add_route(duthost, setup_mirror_session['session_prefixes'][1], peer_ip)
 
         time.sleep(3)
@@ -288,11 +292,11 @@ class BaseEverflowTest(object):
                            dst_ports = tx_port_ptf_id)
 
         remove_route(duthost, setup_mirror_session['session_prefixes'][1], peer_ip)
-        
+
         tx_port = setup_info[dest_port_type]['dest_port'][1]
         tx_port_ptf_id = setup_info[dest_port_type]['dest_port_ptf_id'][1]
         peer_ip, peer_mac = get_neighbor_info(duthost, tx_port)
-        
+
         add_route(duthost, setup_mirror_session['session_prefixes'][1], peer_ip)
         time.sleep(3)
         partial_ptf_runner(setup_info, setup_mirror_session,self.acl_stage(), self.mirror_type(),
@@ -310,7 +314,7 @@ class BaseEverflowTest(object):
 
 
         remove_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
-    
+
     def test_everflow_case2(self, duthost, setup_info, setup_mirror_session, dest_port_type, partial_ptf_runner):
         """Test case 2 - Change neighbor MAC address.
         Verify that session destination MAC address is changed after neighbor MAC address update."""
@@ -319,7 +323,7 @@ class BaseEverflowTest(object):
         tx_port = setup_info[dest_port_type]['dest_port'][0]
         tx_port_ptf_id = setup_info[dest_port_type]['dest_port_ptf_id'][0]
         peer_ip, peer_mac = get_neighbor_info(duthost, tx_port)
-        
+
         add_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
 
         time.sleep(3)
@@ -334,7 +338,7 @@ class BaseEverflowTest(object):
 
 
         duthost.shell("ip neigh replace {} lladdr 00:11:22:33:44:55 nud permanent dev {}".format(peer_ip, tx_port))
-        
+
         time.sleep(3)
 
         partial_ptf_runner(setup_info, setup_mirror_session,self.acl_stage(), self.mirror_type(),
@@ -342,14 +346,14 @@ class BaseEverflowTest(object):
                            dst_ports = tx_port_ptf_id,
                            expected_dst_mac = '00:11:22:33:44:55')
 
-        
+
         duthost.shell("ip neigh del {} dev {}".format(peer_ip, tx_port))
-        
+
         duthost.shell("ping {} -c3".format(peer_ip))
 
 
         remove_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
-    
+
     def test_everflow_case3(self, duthost, setup_info, setup_mirror_session, dest_port_type, partial_ptf_runner):
         """Test case 3 -  ECMP route change (remove next hop not used by session).
         Verify that after removal of next hop that was used by session from ECMP route session state is active."""
@@ -358,7 +362,7 @@ class BaseEverflowTest(object):
         tx_port = setup_info[dest_port_type]['dest_port'][0]
         peer_ip, peer_mac = get_neighbor_info(duthost, tx_port)
         peer_ip0 = peer_ip
-        
+
         add_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
 
         tx_port = setup_info[dest_port_type]['dest_port'][1]
@@ -367,9 +371,9 @@ class BaseEverflowTest(object):
         peer_ip1 = peer_ip
 
         add_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
-        
+
         time.sleep(3)
-       
+
         partial_ptf_runner(setup_info, setup_mirror_session,self.acl_stage(), self.mirror_type(),
                            src_port = rx_port_ptf_id,
                            dst_ports = tx_port_ptf_id + ',' + setup_info[dest_port_type]['dest_port_ptf_id'][0])
@@ -377,17 +381,17 @@ class BaseEverflowTest(object):
         tx_port = setup_info[dest_port_type]['dest_port'][2]
         tx_port_ptf_id = setup_info[dest_port_type]['dest_port_ptf_id'][2]
         peer_ip, peer_mac = get_neighbor_info(duthost, tx_port)
-        
+
         add_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
-        
+
         time.sleep(3)
 
         partial_ptf_runner(setup_info, setup_mirror_session,self.acl_stage(), self.mirror_type(), expect_receive = False,
                            src_port = rx_port_ptf_id,
                            dst_ports = tx_port_ptf_id)
-        
+
         remove_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
-        
+
         time.sleep(3)
 
         partial_ptf_runner(setup_info, setup_mirror_session,self.acl_stage(), self.mirror_type(),
@@ -397,7 +401,7 @@ class BaseEverflowTest(object):
         partial_ptf_runner(setup_info, setup_mirror_session,self.acl_stage(), self.mirror_type(), expect_receive = False,
                            src_port = rx_port_ptf_id,
                            dst_ports = tx_port_ptf_id)
- 
+
         remove_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip0)
         remove_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip1)
 
@@ -411,15 +415,15 @@ class BaseEverflowTest(object):
         tx_port_ptf_id = setup_info[dest_port_type]['dest_port_ptf_id'][0]
         peer_ip, peer_mac = get_neighbor_info(duthost, tx_port)
         peer_ip0 = peer_ip
-        
+
         add_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
-        
+
         time.sleep(3)
 
         partial_ptf_runner(setup_info, setup_mirror_session,self.acl_stage(), self.mirror_type(),
                            src_port = rx_port_ptf_id,
                            dst_ports = tx_port_ptf_id)
- 
+
         tx_port = setup_info[dest_port_type]['dest_port'][1]
         peer_ip, peer_mac = get_neighbor_info(duthost, tx_port)
         peer_ip1 = peer_ip
@@ -431,26 +435,26 @@ class BaseEverflowTest(object):
         peer_ip2 = peer_ip
 
         add_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
-        
+
         time.sleep(3)
 
         partial_ptf_runner(setup_info, setup_mirror_session,self.acl_stage(), self.mirror_type(),
                            src_port = rx_port_ptf_id,
                            dst_ports = setup_info[dest_port_type]['dest_port_ptf_id'][0])
- 
-       
+
+
         partial_ptf_runner(setup_info, setup_mirror_session,self.acl_stage(), self.mirror_type(), expect_receive = False,
                            src_port = rx_port_ptf_id,
                            dst_ports =  setup_info[dest_port_type]['dest_port_ptf_id'][1] + ',' + setup_info[dest_port_type]['dest_port_ptf_id'][2])
 
         remove_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip0)
-        
+
         time.sleep(3)
 
         partial_ptf_runner(setup_info, setup_mirror_session,self.acl_stage(), self.mirror_type(), expect_receive = False,
                            src_port = rx_port_ptf_id,
                            dst_ports = setup_info[dest_port_type]['dest_port_ptf_id'][0])
- 
+
         partial_ptf_runner(setup_info, setup_mirror_session,self.acl_stage(), self.mirror_type(),
                            src_port = rx_port_ptf_id,
                            dst_ports =  setup_info[dest_port_type]['dest_port_ptf_id'][1] + ',' + setup_info[dest_port_type]['dest_port_ptf_id'][2])
@@ -479,7 +483,7 @@ class BaseEverflowTest(object):
                         setup_mirror_session['session_gre']))
 
        # Add ACL rule to match on DSCP and action as mirror
-        mirror_action = "MIRROR_INGRESS_ACTION" if self.mirror_type() == 'ingress' else "MIRROR_EGRESS_ACTION" 
+        mirror_action = "MIRROR_INGRESS_ACTION" if self.mirror_type() == 'ingress' else "MIRROR_EGRESS_ACTION"
         duthost.shell("redis-cli -n 4 hmset 'ACL_RULE|EVERFLOW_DSCP|RULE_1' PRIORITY 9999  {} TEST_POLICER_SESSION DSCP 8/56".format(mirror_action))
 
         time.sleep(3)
@@ -560,7 +564,7 @@ class TestEverflowEgressAclIngressMirror(BaseEverflowTest):
 
         duthost.shell("mkdir -p {}".format(DUT_RUN_DIR))
 
-        duthost.host.options['variable_manager'].extra_vars.update({'acl_table_name' : "EVERFLOW_EGRESS"}) 
+        duthost.host.options['variable_manager'].extra_vars.update({'acl_table_name' : "EVERFLOW_EGRESS"})
 
         duthost.template(src=os.path.join(TEMPLATE_DIR, EVERFLOW_TABLE_RULE_CREATE_TEMPLATE), dest=os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_CREATE_FILE))
 
@@ -572,7 +576,7 @@ class TestEverflowEgressAclIngressMirror(BaseEverflowTest):
         duthost.command('acl-loader update full {} --session_name={} --mirror_stage=egress'.format((os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_CREATE_FILE)),setup_mirror_session['session_name']))
 
         yield
-        
+
         duthost.copy(src=os.path.join(TEMPLATE_DIR, EVERFLOW_TABLE_RULE_DELETE_FILE), dest=DUT_RUN_DIR)
         duthost.command('acl-loader update full {}'.format((os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_DELETE_FILE))))
         duthost.command("config acl remove table EVERFLOW_EGRESS")
@@ -596,7 +600,7 @@ class TestEverflowEgressAclEgressMirror(BaseEverflowTest):
            pytest.skip("Skipping Feature not Supported {} ACL having {} Mirror".format(self.acl_stage(), self.mirror_type()))
 
         duthost.shell("mkdir -p {}".format(DUT_RUN_DIR))
-        duthost.host.options['variable_manager'].extra_vars.update({'acl_table_name' : "EVERFLOW_EGRESS"}) 
+        duthost.host.options['variable_manager'].extra_vars.update({'acl_table_name' : "EVERFLOW_EGRESS"})
 
 
         duthost.template(src=os.path.join(TEMPLATE_DIR, EVERFLOW_TABLE_RULE_CREATE_TEMPLATE), dest=os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_CREATE_FILE))

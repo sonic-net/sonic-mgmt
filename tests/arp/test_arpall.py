@@ -6,6 +6,10 @@ from datetime import datetime
 from ptf_runner import ptf_runner
 from common.helpers.assertions import pytest_assert
 
+pytestmark = [
+    pytest.mark.topology('t1')
+]
+
 @pytest.fixture(scope="module")
 def common_setup_teardown(duthost, ptfhost):
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
@@ -23,17 +27,17 @@ def common_setup_teardown(duthost, ptfhost):
 
     po1 = get_po(mg_facts, intf1)
     po2 = get_po(mg_facts, intf2)
-    
+
     try:
         # Make sure selected interfaces are not in portchannel
         if po1 is not None:
             duthost.shell('config portchannel member del {0} {1}'.format(po1, intf1))
             duthost.shell('config interface startup {0}'.format(intf1))
-        
+
         if po2 is not None:
             duthost.shell('config portchannel member del {0} {1}'.format(po2, intf2))
             duthost.shell('config interface startup {0}'.format(intf2))
-        
+
         # Change SONiC DUT interface IP to test IP address
         duthost.shell('config interface ip add {0} 10.10.1.2/28'.format(intf1))
         duthost.shell('config interface ip add {0} 10.10.1.20/28'.format(intf2))
@@ -104,7 +108,7 @@ def test_arp_no_reply_src_out_range(common_setup_teardown):
         'acs_mac': int_facts['ansible_interface_facts'][intf1]['macaddress'],
         'port': intf1_indice
     }
-    
+
     # Check DUT won't reply ARP and install ARP entry when src address is not in interface subnet range
     clear_dut_arp_cache(duthost)
     log_file = "/tmp/arptest.SrcOutRangeNoReply.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
@@ -120,12 +124,12 @@ def test_arp_garp_no_update(common_setup_teardown):
         'acs_mac': int_facts['ansible_interface_facts'][intf1]['macaddress'],
         'port': intf1_indice
     }
-    
+
     # Test Gratuitous ARP behavior, no Gratuitous ARP installed when arp was not resolved before
     clear_dut_arp_cache(duthost)
     log_file = "/tmp/arptest.GarpNoUpdate.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
     ptf_runner(ptfhost, 'ptftests', "arptest.GarpNoUpdate", '/root/ptftests', params=params, log_file=log_file)
-    
+
     switch_arptable = duthost.switch_arptable()['ansible_facts']
     for ip in switch_arptable['arptable']['v4'].keys():
         pytest_assert(ip != '10.10.1.7')
@@ -133,7 +137,7 @@ def test_arp_garp_no_update(common_setup_teardown):
     # Test Gratuitous ARP upate case, when received garp, no arp reply, update arp table if it was solved before
     log_file = "/tmp/arptest.ExpectReply.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
     ptf_runner(ptfhost, 'ptftests', "arptest.ExpectReply", '/root/ptftests', params=params, log_file=log_file)
-    
+
     switch_arptable = duthost.switch_arptable()['ansible_facts']
     pytest_assert(switch_arptable['arptable']['v4']['10.10.1.3']['macaddress'] == '00:06:07:08:09:0a')
     pytest_assert(switch_arptable['arptable']['v4']['10.10.1.3']['interface'] == intf1)
@@ -142,7 +146,7 @@ def test_arp_garp_no_update(common_setup_teardown):
 
     log_file = "/tmp/arptest.GarpUpdate.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
     ptf_runner(ptfhost, 'ptftests', "arptest.GarpUpdate", '/root/ptftests', params=params, log_file=log_file)
-    
+
     switch_arptable = duthost.switch_arptable()['ansible_facts']
     pytest_assert(switch_arptable['arptable']['v4']['10.10.1.3']['macaddress'] == '00:00:07:08:09:0a')
     pytest_assert(switch_arptable['arptable']['v4']['10.10.1.3']['interface'] == intf1)
@@ -155,4 +159,4 @@ def get_po(mg_facts, intf):
         if intf in v['members']:
             return k
     return None
-    
+

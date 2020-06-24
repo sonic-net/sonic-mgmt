@@ -1,5 +1,8 @@
 import pytest
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 def test_snmp_queues(duthost, localhost, creds, collect_techsupport):
 

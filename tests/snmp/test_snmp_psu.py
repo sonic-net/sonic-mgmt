@@ -2,6 +2,10 @@ import pytest
 
 PSU_STATUS_OK = 2
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 @pytest.mark.bsl
 def test_snmp_numpsu(duthost, localhost, creds):
 

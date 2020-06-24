@@ -33,6 +33,10 @@ from common.utilities import wait_until
     So, we prefer a fixture rather than xunit-style setup/teardown functions.
 """
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 # global variables
 g_vars = {}
 

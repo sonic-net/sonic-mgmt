@@ -23,6 +23,10 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 PACKET_COUNT = 1000
 
 VLAN_INDEX = 0

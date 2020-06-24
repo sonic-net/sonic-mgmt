@@ -1,5 +1,9 @@
 import pytest
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 def test_snmp_pfc_counters(duthost, localhost, creds):
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']

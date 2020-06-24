@@ -6,6 +6,10 @@ from common.devices import AnsibleHostBase
 from common.utilities import wait
 from netaddr import IPAddress
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module', autouse=True)

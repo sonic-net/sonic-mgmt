@@ -4,8 +4,13 @@ Cross check show sfp presence with qsfp_status
 import logging
 import os
 import json
+import pytest
 
 from common.fixtures.conn_graph_facts import conn_graph_facts
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 def test_check_sfp_presence(duthost, conn_graph_facts):
     """This test case is to check SFP presence status with CLI and sysfs.
@@ -22,4 +27,4 @@ def test_check_sfp_presence(duthost, conn_graph_facts):
         logging.info(str(presence_list))
         assert intf in presence_list, "Wrong interface name in the output %s" % str(presence_list)
         assert 'Present' in presence_list, "Status is not expected, output %s" % str(presence_list)
-        
+

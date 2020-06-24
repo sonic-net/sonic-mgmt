@@ -6,6 +6,10 @@ from common.utilities import wait_until
 import re
 import logging
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 logger = logging.getLogger(__name__)
 
 

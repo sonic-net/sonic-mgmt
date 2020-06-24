@@ -10,9 +10,9 @@ import pytest
 CMD_PLATFORM_SYSEEPROM = "show platform syseeprom"
 
 pytestmark = [
-    pytest.mark.disable_loganalyzer  # disable automatic loganalyzer
+    pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
+    pytest.mark.topology('any')
 ]
-
 
 def test_show_platform_syseeprom(duthost):
     """
