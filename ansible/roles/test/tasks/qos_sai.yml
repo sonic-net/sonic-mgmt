@@ -66,12 +66,12 @@
       supervisorctl: state=stopped name=bgpd
       delegate_to: "{{ ansible_host }}_bgp"
     
-    - name: Add iptables rule to drop BGP SYN Packet from peer so that we do not ACK back
-      shell: "iptables -A INPUT -j DROP -p tcp --destination-port bgp"
+    - name: Add iptables rule to drop BGP SYN Packet from peer so that we do not ACK back. Add at top so existing rules don't have precedence over it.
+      shell: "iptables -I INPUT 1 -j DROP -p tcp --destination-port bgp"
       become: true
 
-    - name: Add ip6tables rule to drop BGP SYN Packet from peer so that we do not ACK back
-      shell: "ip6tables -A INPUT -j DROP -p tcp --destination-port bgp"
+    - name: Add ip6tables rule to drop BGP SYN Packet from peer so that we do not ACK back. Add at top so existing rules don't have precedence over it.
+      shell: "ip6tables -I INPUT 1 -j DROP -p tcp --destination-port bgp"
       become: true
 
     - meta: flush_handlers
