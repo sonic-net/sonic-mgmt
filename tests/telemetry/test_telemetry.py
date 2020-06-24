@@ -69,7 +69,7 @@ def test_config_db_parameters(duthost):
             pytest_assert(str(value) == server_crt_expected, "'server_crt' value is not '{}'".format(server_crt_expected))
 
 def test_telemetry_enabledbydefault(duthost):
-     """Verify telemetry should be enabled by default
+    """Verify telemetry should be enabled by default
     """
     status = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "FEATURE|telemetry"', module_ignore_errors=False)['stdout_lines']
     status_list = get_list_stdout(status)
@@ -92,13 +92,14 @@ def test_telemetry_gnmi_get(duthost, ptfhost):
     if restart_status == bool("true"):
         logger.info('telemetry process restarted. Now run gnmi_get on ptfdocker')
         #Now run gnmi_get on ptfdocker
-        dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']    
+        dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
         cmd = '''
               cd ~/etc/go/bin &&
              ./gnmi_get -xpath_target COUNTERS_DB COUNTERS/Ethernet0 -target_addr {0}:8080 -insecure
              '''.format(dut_ip)
         show_gnmi_get_out = ptfhost.shell(cmd)[stdout]
         logger.info("gnmi get output \n {}".format(show_gnmi_get_out))
+
     # Reset config back to original for telemetry process
     duthost.shell('/usr/bin/redis-cli -n 4 hmset "TELEMETRY|certs" "ca_crt" "/etc/sonic/telemetry/dsmsroot.cer" "server_key" "/etc/sonic/telemetry/streamingtelemetryserver.key" "server_crt" "/etc/sonic/telemetry/streamingtelemetryserver.cer"', module_ignore_errors=False)['stdout_lines']
     duthost.shell('/usr/bin/redis-cli -n 4 hset "TELEMETRY|gnmi" "client_auth" "true"', module_ignore_errors=False)['stdout_lines']
