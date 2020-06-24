@@ -111,7 +111,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=0, wait=0, 
                              state='absent',
                              search_regex=SONIC_SSH_REGEX,
                              delay=delay,
-                             timeout=timeout)
+                             timeout=timeout,
+                             module_ignore_errors=True)
 
     if 'failed' in res:
         if reboot_res.ready():
@@ -128,8 +129,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=0, wait=0, 
                              state='started',
                              search_regex=SONIC_SSH_REGEX,
                              delay=delay,
-                             timeout=timeout
-    )
+                             timeout=timeout,
+                             module_ignore_errors=True)
     if 'failed' in res:
         raise Exception('DUT did not startup')
 
