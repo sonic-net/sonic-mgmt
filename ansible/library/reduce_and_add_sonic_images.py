@@ -51,7 +51,7 @@ def install_new_sonic_image(module, new_image_url):
         return
 
     avail = get_disk_free_size(module, "/host")
-    if avail >= 1500:
+    if avail >= 2000:
         # There is enough space to install directly
         exec_command(module,
                      cmd="sonic_installer install %s -y" % new_image_url,
@@ -62,7 +62,7 @@ def install_new_sonic_image(module, new_image_url):
         exec_command(module, cmd="umount /tmp/tmpfs", ignore_error=True)
 
         exec_command(module,
-                     cmd="mount -t tmpfs -o size=1000M tmpfs /tmp/tmpfs",
+                     cmd="mount -t tmpfs -o size=1300M tmpfs /tmp/tmpfs",
                      msg="mounting tmpfs")
         exec_command(module,
                      cmd="curl -o /tmp/tmpfs/sonic-image %s" % new_image_url,
