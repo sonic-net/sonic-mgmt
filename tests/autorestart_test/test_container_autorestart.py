@@ -79,7 +79,6 @@ def is_container_running(duthost, container_name):
     """
     @summary: Decide whether the container is running or not
     @return:  Boolean value. True represents the container is running
-
     """
     is_running = duthost.shell("docker inspect -f \{{\{{.State.Running\}}\}} {}".format(container_name))
     return is_running['stdout'].strip()
@@ -87,8 +86,7 @@ def is_container_running(duthost, container_name):
 def get_program_state(duthost, container_name, program_name):
     """
     @summary: Return the running status of a program 
-    @return:  "RUNNING" and "EXITED" represents the program is in running or exited state
-
+    @return:  "RUNNING" or "EXITED" represents the program is in running or exited state
     """
     process_list = duthost.shell("docker exec {} supervisorctl".format(container_name))
     for process_info in process_list["stdout_lines"]:
@@ -118,7 +116,6 @@ def get_process_info(duthost, container_name, process_name):
 def kill_process_by_name(duthost, container_name, process_name):
     """
     @summary: Kill a process in the specified container by its name
-
     """
     running_status, process_id = get_process_info(duthost, container_name, process_name)
     if running_status:
@@ -139,7 +136,6 @@ def kill_process_by_name(duthost, container_name, process_name):
 def kill_process_by_pid(duthost, container_name, program_name, program_pid):
     """
     @summary: Kill a process in the specified container by its pid
-
     """
     duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, program_pid)) 
 
