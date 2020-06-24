@@ -215,11 +215,11 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
 def test_containers_autorestart(duthost):
     container_autorestart_info = get_autorestart_container_and_state(duthost)
     for container_name in container_autorestart_info:
-        logging.info("Change {} auto-restart state to 'enabled'".format(container_name))
-        duthost.shell("config container feature autorestart {} enabled".format(container_name))
- 
         if container_name in ["restapi"]:
             continue
+        
+        logging.info("Change {} auto-restart state to 'enabled'".format(container_name))
+        duthost.shell("config container feature autorestart {} enabled".format(container_name))
         
         verify_no_autorestart_with_non_critical_process(duthost, container_name, "rsyslogd")
 
