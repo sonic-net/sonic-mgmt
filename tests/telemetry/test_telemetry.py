@@ -42,7 +42,7 @@ def restart_telemetry(duthost):
 
 # Test functions
 def test_config_db_parameters(duthost):
-     """Verifies required telemetry parameters from config_db.
+    """Verifies required telemetry parameters from config_db.
     """
     gnmi = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "TELEMETRY|gnmi"', module_ignore_errors=False)['stdout_lines']
     pytest_assert(gnmi is not None, "TELEMETRY|gnmi does not exist in config_db")
