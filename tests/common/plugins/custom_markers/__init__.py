@@ -43,13 +43,15 @@ def pytest_runtest_setup(item):
         check_device_type(item)
 
 def check_topology(item):
-    toponames = [mark.args for mark in item.iter_markers(name="topology")]
+    # The closest marker is used here so that the module or class level
+    # marker will be overrided by case level marker
+    toponames = item.get_closest_marker("topology")
     if toponames:
         cfg_topos = item.config.getoption("--topology").split(',')
-        if all(topo not in toponames[0] for topo in cfg_topos):
+        if all(topo not in toponames.args for topo in cfg_topos):
             pytest.skip("test requires topology in {!r}".format(toponames))
     else:
-        pytest.skip("test does not match topology")
+        pytest.skip("testcase {} is skipped when no topology marker is given".format(item.name))
 
 def check_feature(item):
     feature_names = [mark.args for mark in item.iter_markers(name="feature")]
