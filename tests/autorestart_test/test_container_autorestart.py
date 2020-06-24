@@ -237,7 +237,7 @@ def test_containers_autorestart(duthost):
             for program_name in group_program_info:
                 verify_autorestart_with_critical_process(duthost, container_name, "", program_name, 
                                                          group_program_info[program_name], False)
-            break
+                break
 
         if container_name in ["swss", "database"]:
             logging.info("Sleep 10 seconds after testing the {}...".format(container_name))
