@@ -46,6 +46,12 @@ class TestChassisAPI(object):
         pytest_assert(base_mac is not None, "Failed to retrieve base MAC address")
         pytest_assert(re.match(REGEX_MAC_ADDRESS, base_mac), "Base MAC address appears to be incorrect")
 
+        if 'base_mac' in duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars:
+            expected_base_mac = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['base_mac']
+            pytest_assert(base_mac == expected_base_mac, "Base MAC address is incorrect")
+        else:
+            logger.warning('Inventory file does not contain base MAC address for {}'.format(duthost.hostname))
+
     def test_get_serial_number(self, duthost, localhost, platform_api_conn):
         # Ensure the serial number is sane
         # Note: It appears that when retrieving some variable-length fields,
@@ -57,6 +63,12 @@ class TestChassisAPI(object):
         serial = chassis.get_serial_number(platform_api_conn).rstrip('\x00')
         pytest_assert(serial is not None, "Failed to retrieve serial number")
         pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Serial number appears to be incorrect")
+
+        if 'serial' in duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars:
+            expected_serial = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['serial']
+            pytest_assert(serial == expected_serial, "Serial number is incorrect")
+        else:
+            logger.warning('Inventory file does not contain serial number for {}'.format(duthost.hostname))
 
     def test_get_system_eeprom_info(self, duthost, localhost, platform_api_conn):
         ''' Test that we can retrieve sane system EEPROM info from the DUT via the platform API
@@ -109,6 +121,12 @@ class TestChassisAPI(object):
         serial = syseeprom_info_dict[ONIE_TLVINFO_TYPE_CODE_SERIAL_NUMBER]
         pytest_assert(serial is not None, "Failed to retrieve serial number")
         pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Serial number appears to be incorrect")
+
+        if 'syseeprom_info' in duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars:
+            expected_syseeprom_info_dict = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['syseeprom_info']
+            pytest_assert(syseeprom_info_dict == expected_syseeprom_info_dict, "System EEPROM info is incorrect")
+        else:
+            logger.warning('Inventory file does not contain system EEPROM info for {}'.format(duthost.hostname))
 
     def test_get_reboot_cause(self, duthost, localhost, platform_api_conn):
         # TODO: Compare return values to potential combinations
