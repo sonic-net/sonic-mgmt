@@ -344,6 +344,27 @@ def creds(duthost):
     return creds
 
 
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_setup(item):
+    logger.info("="*20 + " {} setup ".format(item.nodeid) + "="*20)
+    yield
+    logger.info("="*20 + " {} setup done ".format(item.nodeid) + "="*20)
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_call(item):
+    logger.info("="*20 + " {} call ".format(item.nodeid) + "="*20)
+    yield
+    logger.info("="*20 + " {} call done ".format(item.nodeid) + "="*20)
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_teardown(item):
+    logger.info("="*20 + " {} teardown ".format(item.nodeid) + "="*20)
+    yield
+    logger.info("="*20 + " {} teardown done ".format(item.nodeid) + "="*20)
+
+
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
 
