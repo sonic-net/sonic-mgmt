@@ -87,7 +87,7 @@ def is_container_running(duthost, container_name):
 def get_program_state(duthost, container_name, program_name):
     """
     @summary: Return the running status of a program 
-    @return:  "RUNNING" and "EXITED" represents the program is in running or exited state
+    @return:  "RUNNING" or "EXITED" represents the program is in running or exited state
 
     """
     process_list = duthost.shell("docker exec {} supervisorctl".format(container_name))
