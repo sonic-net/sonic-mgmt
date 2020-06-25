@@ -79,6 +79,7 @@ def is_container_running(duthost, container_name):
     """
     @summary: Decide whether the container is running or not
     @return:  Boolean value. True represents the container is running
+
     """
     is_running = duthost.shell("docker inspect -f \{{\{{.State.Running\}}\}} {}".format(container_name))
     return is_running['stdout'].strip()
@@ -86,7 +87,8 @@ def is_container_running(duthost, container_name):
 def get_program_state(duthost, container_name, program_name):
     """
     @summary: Return the running status of a program 
-    @return:  "RUNNING" or "EXITED" represents the program is in running or exited state
+    @return:  "RUNNING" and "EXITED" represents the program is in running or exited state
+
     """
     process_list = duthost.shell("docker exec {} supervisorctl".format(container_name))
     for process_info in process_list["stdout_lines"]:
@@ -116,6 +118,7 @@ def get_process_info(duthost, container_name, process_name):
 def kill_process_by_name(duthost, container_name, process_name):
     """
     @summary: Kill a process in the specified container by its name
+
     """
     running_status, process_id = get_process_info(duthost, container_name, process_name)
     if running_status:
@@ -136,6 +139,7 @@ def kill_process_by_name(duthost, container_name, process_name):
 def kill_process_by_pid(duthost, container_name, program_name, program_pid):
     """
     @summary: Kill a process in the specified container by its pid
+
     """
     duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, program_pid)) 
 
@@ -213,31 +217,40 @@ def test_containers_autorestart(duthost):
     for container_name in container_autorestart_info:
         if container_name in ["restapi"]:
             continue
-        
-        logging.info("Change {} auto-restart state to 'enabled'".format(container_name))
-        duthost.shell("config container feature autorestart {} enabled".format(container_name))
-        
+ 
+        need_restore_state = False
+        if container_autorestart_info[container_name] == "disabled":
+            logging.info("Change {} auto-restart state to 'enabled'".format(container_name))
+            duthost.shell("config container feature autorestart {} enabled".format(container_name))
+            need_restore_state = True
+ 
+        # Currently we select 'rsyslogd' as non-critical processes for testing based on 
+        # the assumption that every container has an 'rsyslogd' process running and it is not
+        # consider a critical process
         verify_no_autorestart_with_non_critical_process(duthost, container_name, "rsyslogd")
 
-        if container_name in ["pmon", "radv"]:
-            logging.info("Restore {} auto-restart state to {}".format(container_name, container_autorestart_info[container_name]))
-            duthost.shell("config container feature autorestart {} {}".format(container_name, container_autorestart_info[container_name]))
-            continue
-        
         critical_group_list, critical_process_list = get_critical_group_and_process_list(duthost, container_name)
         for critical_process in critical_process_list:
             verify_autorestart_with_critical_process(duthost, container_name, critical_process, "", "", True)
+            # We are currently only testing one critical process, which is why we use 'break'. Once
+            # we add the "extended" mode, we will remove this statement
             break
         for critical_group in critical_group_list:
             group_program_info = get_group_program_info(duthost, container_name, critical_group) 
             for program_name in group_program_info:
                 verify_autorestart_with_critical_process(duthost, container_name, "", program_name, 
                                                          group_program_info[program_name], False)
+            # We are currently only testing one critical program for each critical group, which is
+            # why we use 'break' statement. Once we add the "extended" mode, we will remove this
+            # statement
                 break
 
+        # After these two containers are restarted, we need wait to give their dependent containers
+        # a chance to restart for testing
         if container_name in ["swss", "database"]:
             logging.info("Sleep 10 seconds after testing the {}...".format(container_name))
             time.sleep(10)
-
-        logging.info("Restore {} auto-restart state to {}".format(container_name, container_autorestart_info[container_name]))
-        duthost.shell("config container feature autorestart {} {}".format(container_name, container_autorestart_info[container_name]))
+        
+        if need_restore_state:
+            logging.info("Restore {} auto-restart state to {}".format(container_name, container_autorestart_info[container_name]))
+            duthost.shell("config container feature autorestart {} {}".format(container_name, container_autorestart_info[container_name]))
