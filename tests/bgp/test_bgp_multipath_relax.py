@@ -118,9 +118,3 @@ def test_bgp_multipath_relax(testbed, duthost):
 
     assert int(bgp_route_neiadv[vips_prefix]['aspath'][0]) in vips_t0 and \
         int(bgp_route_neiadv[vips_prefix]['aspath'][1]) in vips_asn
-
-
-
-
-
-
