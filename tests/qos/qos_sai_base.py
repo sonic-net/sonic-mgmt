@@ -377,13 +377,15 @@ class QosSaiBase:
         def updateIptablesDropRule(duthost, ipVersion,  state='present'):
             duthost.iptables(
                 ip_version=ipVersion,
-                action="Append",
+                action="insert",
+                rule_num="1",
                 chain="INPUT",
                 jump="DROP",
                 protocol="tcp",
                 destination_port="bgp",
                 state=state
             )
+
 
         ipVersions  = [{"ipVersion": "ipv4"}, {"ipVersion": "ipv6"}]
 
