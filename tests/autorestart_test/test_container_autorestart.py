@@ -226,7 +226,7 @@ def test_containers_autorestart(duthost):
  
         # Currently we select 'rsyslogd' as non-critical processes for testing based on 
         # the assumption that every container has an 'rsyslogd' process running and it is not
-        # consider a critical process
+        # considered as critical process
         verify_no_autorestart_with_non_critical_process(duthost, container_name, "rsyslogd")
 
         critical_group_list, critical_process_list = get_critical_group_and_process_list(duthost, container_name)
