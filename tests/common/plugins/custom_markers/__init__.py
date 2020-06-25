@@ -1,4 +1,5 @@
 import pytest
+import warnings
 
 def pytest_addoption(parser):
         parser.addoption("--topology", action="store", metavar="TOPO_NAME",
@@ -51,7 +52,9 @@ def check_topology(item):
         if all(topo not in toponames.args for topo in cfg_topos):
             pytest.skip("test requires topology in {!r}".format(toponames))
     else:
-        pytest.skip("testcase {} is skipped when no topology marker is given".format(item.name))
+        warn_msg = "testcase {} is skipped when no topology marker is given".format(item.nodeid)
+        warnings.warn(warn_msg)
+        pytest.skip(warn_msg)
 
 def check_feature(item):
     feature_names = [mark.args for mark in item.iter_markers(name="feature")]
