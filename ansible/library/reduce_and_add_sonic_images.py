@@ -23,6 +23,7 @@ Options:
 '''
 
 import sys
+from os import path
 from ansible.module_utils.basic import *
 
 def exec_command(module, cmd, ignore_error=False, msg="executing command"):
@@ -50,7 +51,7 @@ def install_new_sonic_image(module, new_image_url):
         return
 
     avail = get_disk_free_size(module, "/host")
-    if avail >= 1500:
+    if avail >= 2000:
         # There is enough space to install directly
         exec_command(module,
                      cmd="sonic_installer install %s -y" % new_image_url,
@@ -61,7 +62,7 @@ def install_new_sonic_image(module, new_image_url):
         exec_command(module, cmd="umount /tmp/tmpfs", ignore_error=True)
 
         exec_command(module,
-                     cmd="mount -t tmpfs -o size=1000M tmpfs /tmp/tmpfs",
+                     cmd="mount -t tmpfs -o size=1300M tmpfs /tmp/tmpfs",
                      msg="mounting tmpfs")
         exec_command(module,
                      cmd="curl -o /tmp/tmpfs/sonic-image %s" % new_image_url,
@@ -74,6 +75,12 @@ def install_new_sonic_image(module, new_image_url):
         exec_command(module, cmd="umount /tmp/tmpfs", ignore_error=True)
         exec_command(module, cmd="rm -rf /tmp/tmpfs", ignore_error=True)
 
+    # If sonic device is configured with minigraph, remove config_db.json
+    # to force next image to load minigraph.
+    if path.exists("/host/old_config/minigraph.xml"):
+        exec_command(module,
+                     cmd="rm -f /host/old_config/config_db.json",
+                     msg="Remove config_db.json in preference of minigraph.xml")
 
 def main():
     module = AnsibleModule(

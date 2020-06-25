@@ -59,5 +59,6 @@ topologies=['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet', 't0', 't0-16', 't0-56
 vlab-01 ansible_host=10.250.0.101 type=kvm hwsku=Force10-S6000 serial_port=9000
 vlab-02 ansible_host=10.250.0.102 type=kvm hwsku=Force10-S6100 serial_port=9000
 vlab-03 ansible_host=10.250.0.105 type=kvm hwsku=Force10-S6000 serial_port=9001
+vlab-04 ansible_host=10.250.0.107 type=kvm hwsku=Force10-S6000 serial_port=9002
 vlab-simx-01 ansible_host=10.250.0.103 type=simx hwsku=MSN2700
 vlab-simx-02 ansible_host=10.250.0.104 type=simx hwsku=MSN3700

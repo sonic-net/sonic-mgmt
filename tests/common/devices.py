@@ -10,11 +10,15 @@ We can consider using netmiko for interacting with the VMs used in testing.
 import json
 import logging
 import os
+import re
+import inspect
+import ipaddress
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
 
 from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
+
 
 class AnsibleHostBase(object):
     """
@@ -25,27 +29,41 @@ class AnsibleHostBase(object):
     on the host.
     """
 
-    def __init__(self, ansible_adhoc, hostname, connection=None):
+    def __init__(self, ansible_adhoc, hostname, connection=None, become_user=None):
         if hostname == 'localhost':
-            self.host = ansible_adhoc(inventory='localhost', connection='local', host_pattern=hostname)[hostname]
+            self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
         else:
             if connection is None:
-                self.host = ansible_adhoc(become=True)[hostname]
+                if become_user is None:
+                    self.host = ansible_adhoc(become=True)[hostname]
+                else:
+                    self.host = ansible_adhoc(become=True, become_user=become_user)[hostname]
             else:
                 logging.debug("connection {} for {}".format(connection, hostname))
-                self.host = ansible_adhoc(become=True, connection=connection)[hostname]
+                if become_user is None:
+                    self.host = ansible_adhoc(become=True, connection=connection)[hostname]
+                else:
+                    self.host = ansible_adhoc(become=True, connection=connection, become_user=become_user)[hostname]
         self.hostname = hostname
 
-    def __getattr__(self, item):
-        if self.host.has_module(item):
-            self.module_name = item
-            self.module = getattr(self.host, item)
+    def __getattr__(self, module_name):
+        if self.host.has_module(module_name):
+            self.module_name = module_name
+            self.module = getattr(self.host, module_name)
 
             return self._run
-        else:
-            raise UnsupportedAnsibleModule("Unsupported module")
+
+        return super(AnsibleHostBase, self).__getattr__(module_name)
 
     def _run(self, *module_args, **complex_args):
+
+        previous_frame = inspect.currentframe().f_back
+        filename, line_number, function_name, lines, index = inspect.getframeinfo(previous_frame)
+
+        logging.debug("{}::{}#{}: [{}] AnsibleModule::{}, args={}, kwargs={}"\
+            .format(filename, function_name, line_number, self.hostname,
+                    self.module_name, json.dumps(module_args), json.dumps(complex_args)))
+
         module_ignore_errors = complex_args.pop('module_ignore_errors', False)
         module_async = complex_args.pop('module_async', False)
 
@@ -57,8 +75,11 @@ class AnsibleHostBase(object):
             return pool, result
 
         res = self.module(*module_args, **complex_args)[self.hostname]
+        logging.debug("{}::{}#{}: [{}] AnsibleModule::{} Result => {}"\
+            .format(filename, function_name, line_number, self.hostname, self.module_name, json.dumps(res)))
+
         if res.is_failed and not module_ignore_errors:
-            raise RunAnsibleModuleFail("run module {} failed, errmsg {}".format(self.module_name, res))
+            raise RunAnsibleModuleFail("run module {} failed".format(self.module_name), res)
 
         return res
 
@@ -87,66 +108,160 @@ class PTFHost(AnsibleHostBase):
 
 class SonicHost(AnsibleHostBase):
     """
-    @summary: Class for SONiC switch
+    A remote host running SONiC.
 
-    For running ansible module on the SONiC switch
+    This type of host contains information about the SONiC device (device info, services, etc.),
+    and also provides the ability to run Ansible modules on the SONiC device.
     """
-    CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp", "pmon", "lldp"]
 
-    def __init__(self, ansible_adhoc, hostname, gather_facts=False):
+    _DEFAULT_CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp", "pmon", "lldp", "snmp"]
+
+    def __init__(self, ansible_adhoc, hostname):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
-        if gather_facts:
-            self.gather_facts()
+        self._facts = self._gather_facts()
+        self._os_version = self._get_os_version()
 
-    def _get_critical_services_for_multi_npu():
-        """
-        Update the critical_services with the service names for multi-npu platforms
-        """
-        m_service = []
-        for service in self.CRITICAL_SERVICES:
-            for npu in self.facts["num_npu"]:
-                npu_service = service+npu
-                m_service.insert(npu, npu_service)
-        self.CRITICAL_SERVICES = m_service
-        print self.CRITICAL_SERVICES
+        self.reset_critical_services_tracking_list()
 
-    def _get_npu_info(self):
+    @property
+    def facts(self):
         """
-        Check if the DUT is multi-npu platfrom and store the number of npus in the facts
+        Platform information for this SONiC device.
+
+        Returns:
+            dict: A dictionary containing the device platform information.
+
+            For example:
+            {
+                "platform": "x86_64-arista_7050_qx32s",
+                "hwsku": "Arista-7050-QX-32S",
+                "asic_type": "broadcom",
+                "num_npu": 1
+            }
         """
-        asic_conf_file_path = os.path.join('/usr/share/sonic/device', self.facts["platform"], 'asic.conf')
-        try:
-            output = self.shell('cat %s' % asic_conf_file_path)["stdout_lines"]
-            print output
-            for line in output:
-                num_npu=line.split("=",1)[1].strip()
-            print "num_npu = {}".format(num_npu)
-            self.facts["num_npu"] = int(num_npu)
-        except:
-            self.facts["num_npu"] =1
+
+        return self._facts
+
+    @property
+    def os_version(self):
+        """
+        The OS version running on this SONiC device.
+
+        Returns:
+            str: The SONiC OS version (e.g. "20181130.31")
+        """
+
+        return self._os_version
+
+    @property
+    def critical_services(self):
+        """
+        The critical services running on this SONiC device.
+
+        Note:
+            This list is used for tracking purposes ONLY. This list does not
+            show which critical services are currently running. See the
+            critical_services_status method for that info.
+
+        Returns:
+            list[str]: A list of the critical services (e.g. ["swss", "syncd"])
+        """
+
+        return self._critical_services
+
+    @critical_services.setter
+    def critical_services(self, var):
+        """
+        Updates the list of critical services running on this device.
+
+        Note:
+            This list is used for tracking purposes ONLY. Updating the list does
+            not actually modify any services running on the device.
+        """
 
         if self.facts["num_npu"] > 1:
-            self._get_critical_services_for_multi_npu
+            self._critical_services = self._generate_critical_services_for_multi_npu(var)
+        else:
+            self._critical_services = var
 
+        logging.debug(self._critical_services)
 
-    def _platform_info(self):
+    def reset_critical_services_tracking_list(self):
+        """
+        Resets the list of critical services to the default.
+        """
+
+        self.critical_services = self._DEFAULT_CRITICAL_SERVICES
+
+    def _gather_facts(self):
+        """
+        Gather facts about the platform for this SONiC device.
+        """
+
+        facts = dict()
+        facts.update(self._get_platform_info())
+        facts["num_npu"] = self._get_npu_count(facts["platform"])
+
+        logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
+        return facts
+
+    def _get_npu_count(self, platform):
+        """
+        Gets the number of npus for this device.
+        """
+
+        asic_conf_file_path = os.path.join("/usr/share/sonic/device", platform, "asic.conf")
+        try:
+            output = self.shell("cat {}".format(asic_conf_file_path))["stdout_lines"]
+            logging.debug(output)
+
+            for line in output:
+                num_npu = line.split("=", 1)[1].strip()
+
+            logging.debug("num_npu = %s" % num_npu)
+            return int(num_npu)
+        except:
+            return 1
+
+    def _generate_critical_services_for_multi_npu(self, services):
+        """
+        Generates a fully-qualified list of critical services for multi-npu platforms, based on a
+        base list of services.
+
+        Example:
+        ["swss", "syncd"] -> ["swss0", "swss1", "swss2", "syncd0", "syncd1", "syncd2"]
+        """
+
+        m_service = []
+        for service in services:
+            for npu in self.facts["num_npu"]:
+                npu_service = service + npu
+                m_service.insert(npu, npu_service)
+        return m_service
+
+    def _get_platform_info(self):
+        """
+        Gets platform information about this SONiC device.
+        """
+
         platform_info = self.command("show platform summary")["stdout_lines"]
+        result = {}
         for line in platform_info:
             if line.startswith("Platform:"):
-                self.facts["platform"] = line.split(":")[1].strip()
+                result["platform"] = line.split(":")[1].strip()
             elif line.startswith("HwSKU:"):
-                self.facts["hwsku"] = line.split(":")[1].strip()
+                result["hwsku"] = line.split(":")[1].strip()
             elif line.startswith("ASIC:"):
-                self.facts["asic_type"] = line.split(":")[1].strip()
+                result["asic_type"] = line.split(":")[1].strip()
+        return result
 
-    def gather_facts(self):
+    def _get_os_version(self):
         """
-        @summary: Gather facts of the SONiC switch and store the gathered facts in the dict type 'facts' attribute.
+        Gets the SONiC OS version that is running on this device.
         """
-        self.facts = {}
-        self._platform_info()
-        self._get_npu_info()
-        logging.debug("SonicHost facts: %s" % json.dumps(self.facts))
+
+        output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
+        return output["stdout_lines"][0].strip()
 
     def get_service_props(self, service, props=["ActiveState", "SubState"]):
         """
@@ -190,7 +305,7 @@ class SonicHost(AnsibleHostBase):
 
     def critical_services_status(self):
         result = {}
-        for service in self.CRITICAL_SERVICES:
+        for service in self.critical_services:
             result[service] = self.is_service_fully_started(service)
         return result
 
@@ -201,6 +316,55 @@ class SonicHost(AnsibleHostBase):
         result = self.critical_services_status()
         logging.debug("Status of critical services: %s" % str(result))
         return all(result.values())
+
+    def critical_process_status(self, service):
+        """
+        @summary: Check whether critical process status of a service.
+
+        @param service: Name of the SONiC service
+        """
+        result = {'status': True}
+        result['exited_critical_process'] = []
+        result['running_critical_process'] = []
+        critical_process_list = []
+
+        # return false if the service is not started
+        service_status = self.is_service_fully_started(service)
+        if service_status == False:
+            result['status'] = False
+            return result
+
+        # get critical process list for the service
+        output = self.command("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] && cat /etc/supervisor/critical_processes'".format(service), module_ignore_errors=True)
+        for l in output['stdout'].split():
+            critical_process_list.append(l.rstrip())
+        if len(critical_process_list) == 0:
+            return result
+
+        # get process status for the service
+        output = self.command("docker exec {} supervisorctl status".format(service))
+        logging.info("====== supervisor process status for service {} ======".format(service))
+
+        for l in output['stdout_lines']:
+            (pname, status, info) = re.split("\s+", l, 2)
+            if status != "RUNNING":
+                if pname in critical_process_list:
+                    result['exited_critical_process'].append(pname)
+                    result['status'] = False
+            else:
+                if pname in critical_process_list:
+                    result['running_critical_process'].append(pname)
+
+        return result
+
+    def all_critical_process_status(self):
+        """
+        @summary: Check whether all critical processes status for all critical services
+        """
+        result = {}
+        for service in self.critical_services:
+            result[service] = self.critical_process_status(service)
+        return result
 
     def get_crm_resources(self):
         """
@@ -245,7 +409,7 @@ class SonicHost(AnsibleHostBase):
 
         daemons = self.shell('docker exec pmon supervisorctl status')['stdout_lines']
 
-        daemon_list = [ line.strip().split()[0] for line in daemons if len(line.strip()) > 0 ] 
+        daemon_list = [ line.strip().split()[0] for line in daemons if len(line.strip()) > 0 ]
 
         daemon_ctl_key_prefix = 'skip_'
         daemon_config_file_path = os.path.join('/usr/share/sonic/device', self.facts["platform"], 'pmon_daemon_control.json')
@@ -282,7 +446,7 @@ class SonicHost(AnsibleHostBase):
         return the number of NPUs on the DUT
         """
         return self.facts["num_npu"]
-    
+
     def get_syncd_docker_names(self):
         """
         @summary: get the list of syncd dockers names for the number of NPUs present on the DUT
@@ -296,6 +460,7 @@ class SonicHost(AnsibleHostBase):
             for npu in range(0,num_npus):
                 syncd_docker_names.append("syncd{}".format(npu))
         return syncd_docker_names
+
     def get_swss_docker_names(self):
         swss_docker_names = []
         if self.facts["num_npu"] == 1:
@@ -347,9 +512,148 @@ class SonicHost(AnsibleHostBase):
         ret['installed_list'] = images
         return ret
 
-    def get_asic_type(self):
-        return self.facts["asic_type"]
+    def shutdown(self, ifname):
+        """
+            Shutdown interface specified by ifname
 
+            Args:
+                ifname: the interface to shutdown
+        """
+        return self.command("sudo config interface shutdown {}".format(ifname))
+
+    def no_shutdown(self, ifname):
+        """
+            Bring up interface specified by ifname
+
+            Args:
+                ifname: the interface to bring up
+        """
+        return self.command("sudo config interface startup {}".format(ifname))
+
+    def get_ip_route_info(self, dstip):
+        """
+        @summary: return route information for a destionation IP
+
+        @param dstip: destination IP (either ipv4 or ipv6)
+
+============ 4.19 kernel ==============
+admin@vlab-01:~$ ip route list match 0.0.0.0
+default proto bgp src 10.1.0.32 metric 20
+        nexthop via 10.0.0.57 dev PortChannel0001 weight 1
+        nexthop via 10.0.0.59 dev PortChannel0002 weight 1
+        nexthop via 10.0.0.61 dev PortChannel0003 weight 1
+        nexthop via 10.0.0.63 dev PortChannel0004 weight 1
+
+admin@vlab-01:~$ ip -6 route list match ::
+default proto bgp src fc00:1::32 metric 20
+        nexthop via fc00::72 dev PortChannel0001 weight 1
+        nexthop via fc00::76 dev PortChannel0002 weight 1
+        nexthop via fc00::7a dev PortChannel0003 weight 1
+        nexthop via fc00::7e dev PortChannel0004 weight 1 pref medium
+
+============ 4.9 kernel ===============
+admin@vlab-01:~$ ip route list match 0.0.0.0
+default proto 186 src 10.1.0.32 metric 20
+        nexthop via 10.0.0.57  dev PortChannel0001 weight 1
+        nexthop via 10.0.0.59  dev PortChannel0002 weight 1
+        nexthop via 10.0.0.61  dev PortChannel0003 weight 1
+        nexthop via 10.0.0.63  dev PortChannel0004 weight 1
+
+admin@vlab-01:~$ ip -6 route list match ::
+default via fc00::72 dev PortChannel0001 proto 186 src fc00:1::32 metric 20  pref medium
+default via fc00::76 dev PortChannel0002 proto 186 src fc00:1::32 metric 20  pref medium
+default via fc00::7a dev PortChannel0003 proto 186 src fc00:1::32 metric 20  pref medium
+default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pref medium
+
+        """
+
+        if dstip.version == 4:
+            rt = self.command("ip route list match {}".format(dstip))['stdout_lines']
+        else:
+            rt = self.command("ip -6 route list match {}".format(dstip))['stdout_lines']
+
+        logging.info("route raw info for {}: {}".format(dstip, rt))
+
+        rtinfo = {'set_src': None, 'nexthops': [] }
+
+        # parse set_src
+        m = re.match(r"^default proto (bgp|186) src (\S+)", rt[0])
+        m1 = re.match(r"^default via (\S+) dev (\S+) proto 186 src (\S+)", rt[0])
+        if m:
+            rtinfo['set_src'] = ipaddress.ip_address(m.group(2))
+        elif m1:
+            rtinfo['set_src'] = ipaddress.ip_address(m1.group(3))
+
+        # parse nexthops
+        for l in rt:
+            m = re.search(r"(default|nexthop)\s+via\s+(\S+)\s+dev\s+(\S+)", l)
+            if m:
+                rtinfo['nexthops'].append((ipaddress.ip_address(m.group(2)), m.group(3)))
+
+        logging.info("route parsed info for {}: {}".format(dstip, rtinfo))
+
+        return rtinfo
+
+    def get_bgp_neighbor_info(self, neighbor_ip):
+        """
+        @summary: return bgp neighbor info
+
+        @param neighbor_ip: bgp neighbor IP
+        """
+        nbip = ipaddress.ip_address(neighbor_ip)
+        if nbip.version == 4:
+            out = self.command("vtysh -c \"show ip bgp neighbor {} json\"".format(neighbor_ip))
+        else:
+            out = self.command("vtysh -c \"show bgp ipv6 neighbor {} json\"".format(neighbor_ip))
+        nbinfo = json.loads(re.sub(r"\\\"", '"', re.sub(r"\\n", "", out['stdout'])))
+        logging.info("bgp neighbor {} info {}".format(neighbor_ip, nbinfo))
+
+        return nbinfo[str(neighbor_ip)]
+
+    def check_bgp_session_state(self, neigh_ips, state="established"):
+        """
+        @summary: check if current bgp session equals to the target state
+
+        @param neigh_ips: bgp neighbor IPs
+        @param state: target state
+        """
+        neigh_ok = []
+        bgp_facts = self.bgp_facts()['ansible_facts']
+        logging.info("bgp_facts: {}".format(bgp_facts))
+        for k, v in bgp_facts['bgp_neighbors'].items():
+            if v['state'] == state:
+                if k in neigh_ips:
+                    neigh_ok.append(k)
+        logging.info("bgp neighbors that match the state: {}".format(neigh_ok))
+        if len(neigh_ips) == len(neigh_ok):
+            return True
+
+        return False
+
+    def check_bgp_session_nsf(self, neighbor_ip):
+        """
+        @summary: check if bgp neighbor session enters NSF state or not
+
+        @param neighbor_ip: bgp neighbor IP
+        """
+        nbinfo = self.get_bgp_neighbor_info(neighbor_ip)
+        if nbinfo['bgpState'].lower() == "Active".lower():
+            if nbinfo['bgpStateIs'].lower() == "passiveNSF".lower():
+                return True
+        return False
+
+    def get_dut_iface_mac(self, iface_name):
+        """
+        Gets the MAC address of specified interface.
+
+        Returns:
+            str: The MAC address of the specified interface, or None if it is not found.
+        """
+        for iface, iface_info in self.setup()['ansible_facts'].items():
+            if iface_name in iface:
+                return iface_info["macaddress"]
+
+        return None
 
 class EosHost(AnsibleHostBase):
     """
@@ -358,37 +662,195 @@ class EosHost(AnsibleHostBase):
     For running ansible module on the Eos switch
     """
 
-    def __init__(self, ansible_adhoc, hostname, user, passwd, gather_facts=False):
-        AnsibleHostBase.__init__(self, ansible_adhoc, hostname, connection="network_cli")
-        evars = { 'ansible_connection':'network_cli', \
-                  'ansible_network_os':'eos', \
-                  'ansible_user': user, \
-                  'ansible_password': passwd, \
-                  'ansible_become_method': 'enable' }
+    def __init__(self, ansible_adhoc, hostname, eos_user, eos_passwd, shell_user=None, shell_passwd=None, gather_facts=False):
+        '''Initialize an object for interacting with EoS type device using ansible modules
+
+        Args:
+            ansible_adhoc (): The pytest-ansible fixture
+            hostname (string): hostname of the EOS device
+            eos_user (string): Username for accessing the EOS CLI interface
+            eos_passwd (string): Password for the eos_user
+            shell_user (string, optional): Username for accessing the Linux shell CLI interface. Defaults to None.
+            shell_passwd (string, optional): Password for the shell_user. Defaults to None.
+            gather_facts (bool, optional): Whether to gather some basic facts. Defaults to False.
+        '''
+        self.eos_user = eos_user
+        self.eos_passwd = eos_passwd
+        self.shell_user = shell_user
+        self.shell_passwd = shell_passwd
+        AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
+        self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
+
+    def __getattr__(self, module_name):
+        if module_name.startswith('eos_'):
+            evars = {
+                'ansible_connection':'network_cli',
+                'ansible_network_os':'eos',
+                'ansible_user': self.eos_user,
+                'ansible_password': self.eos_passwd,
+                'ansible_ssh_user': self.eos_user,
+                'ansible_ssh_pass': self.eos_passwd,
+                'ansible_become_method': 'enable'
+            }
+        else:
+            if not self.shell_user or not self.shell_passwd:
+                raise Exception("Please specify shell_user and shell_passwd for {}".format(self.hostname))
+            evars = {
+                'ansible_connection':'ssh',
+                'ansible_network_os':'linux',
+                'ansible_user': self.shell_user,
+                'ansible_password': self.shell_passwd,
+                'ansible_ssh_user': self.shell_user,
+                'ansible_ssh_pass': self.shell_passwd,
+                'ansible_become_method': 'sudo'
+            }
         self.host.options['variable_manager'].extra_vars.update(evars)
+        return super(EosHost, self).__getattr__(module_name)
 
     def shutdown(self, interface_name):
-        out = self.host.eos_config(
+        out = self.eos_config(
             lines=['shutdown'],
             parents='interface %s' % interface_name)
-        if not self.check_intf_link_state(interface_name):
-            logging.info('Shut interface [%s]' % interface_name)
-            return out
-        raise RunAnsibleModuleFail("The interface state is Up but expect Down, detail output: %s" % out[self.hostname])
+        logging.info('Shut interface [%s]' % interface_name)
+        return out
 
     def no_shutdown(self, interface_name):
-        out = self.host.eos_config(
+        out = self.eos_config(
             lines=['no shutdown'],
             parents='interface %s' % interface_name)
-        if self.check_intf_link_state(interface_name):
-            logging.info('No shut interface [%s]' % interface_name)
-            return out
-        raise RunAnsibleModuleFail("The interface state is Down but expect Up, detail output: %s" % out[self.hostname])
+        logging.info('No shut interface [%s]' % interface_name)
+        return out
 
     def check_intf_link_state(self, interface_name):
-        show_int_result = self.host.eos_command(
-            commands=['show interface %s' % interface_name])[self.hostname]
+        show_int_result = self.eos_command(
+            commands=['show interface %s' % interface_name])
         return 'Up' in show_int_result['stdout_lines'][0]
+
+    def set_interface_lacp_rate_mode(self, interface_name, mode):
+        out = self.eos_config(
+            lines=['lacp rate %s' % mode],
+            parents='interface %s' % interface_name)
+        logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
+        return out
+
+    def kill_bgpd(self):
+        out = self.eos_config(lines=['agent Rib shutdown'])
+        return out
+
+    def start_bgpd(self):
+        out = self.eos_config(lines=['no agent Rib shutdown'])
+        return out
+
+    def check_bgp_session_state(self, neigh_ips, neigh_desc, state="established"):
+        """
+        @summary: check if current bgp session equals to the target state
+
+        @param neigh_ips: bgp neighbor IPs
+        @param neigh_desc: bgp neighbor description
+        @param state: target state
+        """
+        neigh_ips_ok = []
+        neigh_desc_ok = []
+        out_v4 = self.eos_command(
+            commands=['show ip bgp summary | json'])
+        logging.info("ip bgp summary: {}".format(out_v4))
+
+        out_v6 = self.eos_command(
+            commands=['show ipv6 bgp summary | json'])
+        logging.info("ipv6 bgp summary: {}".format(out_v6))
+
+        for k, v in out_v4['stdout'][0]['vrfs']['default']['peers'].items():
+            if v['peerState'].lower() == state.lower():
+                if k in neigh_ips:
+                    neigh_ips_ok.append(neigh_ips)
+                if v['description'] in neigh_desc:
+                    neigh_desc_ok.append(v['description'])
+
+        for k, v in out_v6['stdout'][0]['vrfs']['default']['peers'].items():
+            if v['peerState'].lower() == state.lower():
+                if k in neigh_ips:
+                    neigh_ips_ok.append(neigh_ips)
+                if v['description'] in neigh_desc:
+                    neigh_desc_ok.append(v['description'])
+
+        if len(neigh_ips) == len(neigh_ips_ok) and len(neigh_desc) == len(neigh_desc_ok):
+            return True
+
+        return False
+
+    def exec_template(self, ansible_root, ansible_playbook, inventory, **kwargs):
+        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i {inventory} -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
+        cli_cmd = playbook_template.format(ansible_path=ansible_root, playbook=ansible_playbook, inventory=inventory,
+            fanout_host=self.hostname, extra_vars=json.dumps(kwargs))
+        res = self.localhost.shell(cli_cmd)
+
+        if res["localhost"]["rc"] != 0:
+            raise Exception("Unable to execute template\n{}".format(res["stdout"]))
+
+
+class OnyxHost(AnsibleHostBase):
+    """
+    @summary: Class for ONYX switch
+
+    For running ansible module on the ONYX switch
+    """
+
+    def __init__(self, ansible_adhoc, hostname, user, passwd, gather_facts=False):
+        AnsibleHostBase.__init__(self, ansible_adhoc, hostname, connection="network_cli")
+        evars = {'ansible_connection':'network_cli',
+                'ansible_network_os':'onyx',
+                'ansible_user': user,
+                'ansible_password': passwd,
+                'ansible_ssh_user': user,
+                'ansible_ssh_pass': passwd,
+                'ansible_become_method': 'enable'
+                }
+
+        self.host.options['variable_manager'].extra_vars.update(evars)
+        self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
+
+    def shutdown(self, interface_name):
+        out = self.host.onyx_config(
+            lines=['shutdown'],
+            parents='interface %s' % interface_name)
+        logging.info('Shut interface [%s]' % interface_name)
+        return out
+
+    def no_shutdown(self, interface_name):
+        out = self.host.onyx_config(
+            lines=['no shutdown'],
+            parents='interface %s' % interface_name)
+        logging.info('No shut interface [%s]' % interface_name)
+        return out
+
+    def check_intf_link_state(self, interface_name):
+        show_int_result = self.host.onyx_command(
+            commands=['show interfaces ethernet {} | include "Operational state"'.format(interface_name)])[self.hostname]
+        return 'Up' in show_int_result['stdout'][0]
+
+    def command(self, cmd):
+        out = self.host.onyx_command(commands=[cmd])
+        return out
+
+    def set_interface_lacp_rate_mode(self, interface_name, mode):
+        out = self.host.onyx_config(
+            lines=['lacp rate %s' % mode],
+            parents='interface ethernet %s' % interface_name)
+        logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
+        return out
+
+    def exec_template(self, ansible_root, ansible_playbook, inventory, **kwargs):
+        """
+        Execute ansible playbook with specified parameters
+        """
+        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i {inventory} -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
+        cli_cmd = playbook_template.format(ansible_path=ansible_root, playbook=ansible_playbook, inventory=inventory,
+            fanout_host=self.hostname, extra_vars=json.dumps(kwargs))
+        res = self.localhost.shell(cli_cmd)
+
+        if res["localhost"]["rc"] != 0:
+            raise Exception("Unable to execute template\n{}".format(res["localhost"]["stdout"]))
+
 
 class FanoutHost():
     """
@@ -397,31 +859,57 @@ class FanoutHost():
     For running ansible module on the Fanout switch
     """
 
-    def __init__(self, ansible_adhoc, os, hostname, device_type, user, passwd):
+    def __init__(self, ansible_adhoc, os, hostname, device_type, user, passwd, shell_user=None, shell_passwd=None):
         self.hostname = hostname
         self.type = device_type
+        self.host_to_fanout_port_map = {}
+        self.fanout_to_host_port_map = {}
         if os == 'sonic':
             self.os = os
             self.host = SonicHost(ansible_adhoc, hostname)
+        elif os == 'onyx':
+            self.os = os
+            self.host = OnyxHost(ansible_adhoc, hostname, user, passwd)
+        elif os == 'ixia':
+            # TODO: add ixia chassis abstraction
+            self.os = os
+            self.host = None
         else:
             # Use eos host if the os type is unknown
             self.os = 'eos'
-            self.host = EosHost(ansible_adhoc, hostname, user, passwd)
+            self.host = EosHost(ansible_adhoc, hostname, user, passwd, shell_user=shell_user, shell_passwd=shell_passwd)
+
+    def __getattr__(self, module_name):
+        return getattr(self.host, module_name)
 
     def get_fanout_os(self):
         return self.os
 
     def get_fanout_type(self):
         return self.type
-    
+
     def shutdown(self, interface_name):
-        self.host.shutdown(interface_name)
-    
+        return self.host.shutdown(interface_name)
+
     def no_shutdown(self, interface_name):
-        self.host.no_shutdown(interface_name)
+        return self.host.no_shutdown(interface_name)
 
     def __str__(self):
         return "{ os: '%s', hostname: '%s', device_type: '%s' }" % (self.os, self.hostname, self.type)
-    
+
     def __repr__(self):
         return self.__str__()
+
+    def add_port_map(self, host_port, fanout_port):
+        """
+            Fanout switch is build from the connection graph of the
+            DUT. So each fanout switch instance is relevant to the
+            DUT instance in the test. As result the port mapping is
+            unique from the DUT perspective. However, this function
+            need update when supporting multiple DUT
+        """
+        self.host_to_fanout_port_map[host_port]   = fanout_port
+        self.fanout_to_host_port_map[fanout_port] = host_port
+
+    def exec_template(self, ansible_root, ansible_playbook, inventory, **kwargs):
+        return self.host.exec_template(ansible_root, ansible_playbook, inventory, **kwargs)

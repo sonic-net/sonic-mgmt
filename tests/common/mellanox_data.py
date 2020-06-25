@@ -552,4 +552,4 @@ SWITCH_MODELS = {
 }
 
 def is_mellanox_device(dut):
-    return dut.get_asic_type() == "mellanox"
+    return dut.facts["asic_type"] == "mellanox"

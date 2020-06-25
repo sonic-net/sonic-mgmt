@@ -85,7 +85,7 @@ loganalyzer.init() - can be called several times without calling "loganalyzer.an
     # Example 4
     # Update previously configured marker
     # Now start marker will have new prefix - test_bgp
-    loganalyzer.update_marker_prefix("test_bgp")
+    marker = loganalyzer.update_marker_prefix("test_bgp")
 
     def get_platform_info(dut):
         """

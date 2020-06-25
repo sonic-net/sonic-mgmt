@@ -1,4 +1,3 @@
-from ansible_host import AnsibleHost
 
 import pytest
 import ptf.testutils as testutils
@@ -7,6 +6,8 @@ import time
 import itertools
 import logging
 import pprint
+
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 
 DEFAULT_FDB_ETHERNET_TYPE = 0x1234
 DUMMY_MAC_PREFIX = "02:11:22:33"
@@ -146,9 +147,8 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
 
 
 @pytest.fixture
-def fdb_cleanup(ansible_adhoc, testbed):
+def fdb_cleanup(duthost):
     """ cleanup FDB before and after test run """
-    duthost = AnsibleHost(ansible_adhoc, testbed['dut'])
     try:
         duthost.command('sonic-clear fdb all')
         yield
@@ -169,10 +169,8 @@ def test_fdb(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost, pkt_type):
     host_facts  = duthost.setup()['ansible_facts']
     conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
-    # remove existing IPs from PTF host 
+    # remove existing IPs from PTF host
     ptfhost.script('scripts/remove_ip.sh')
-    # set unique MACs to PTF interfaces
-    ptfhost.script('scripts/change_mac.sh')
     # reinitialize data plane due to above changes on PTF interfaces
     ptfadapter.reinit()
 

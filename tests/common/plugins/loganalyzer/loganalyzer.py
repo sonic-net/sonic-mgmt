@@ -15,7 +15,7 @@ ANSIBLE_LOGANALYZER_MODULE = system_msg_handler.__file__.replace(r".pyc", ".py")
 COMMON_MATCH = join(split(__file__)[0], "loganalyzer_common_match.txt")
 COMMON_IGNORE = join(split(__file__)[0], "loganalyzer_common_ignore.txt")
 COMMON_EXPECT = join(split(__file__)[0], "loganalyzer_common_expect.txt")
-SYSLOG_TMP_FOLDER = "/tmp/pytest-run/syslog"
+SYSLOG_TMP_FOLDER = "/tmp/syslog"
 
 
 class LogAnalyzerError(Exception):
@@ -29,13 +29,14 @@ class LogAnalyzer:
         self.ansible_host = ansible_host
         self.dut_run_dir = dut_run_dir
         self.extracted_syslog = os.path.join(self.dut_run_dir, "syslog")
-        self.marker_prefix = marker_prefix
+        self.marker_prefix = marker_prefix.replace(' ', '_')
         self.ansible_loganalyzer = ansible_loganalyzer(self.marker_prefix, False)
 
         self.match_regex = []
         self.expect_regex = []
         self.ignore_regex = []
         self._markers = []
+        self.fail = True
 
     def _add_end_marker(self, marker):
         """
@@ -50,6 +51,13 @@ class LogAnalyzer:
         logging.debug("Adding end marker '{}'".format(marker))
         self.ansible_host.command(cmd)
 
+    def __call__(self, **kwargs):
+        """
+        Pass additional arguments when the instance is called
+        """
+        self.fail = kwargs.get("fail", True)
+        return self
+
     def __enter__(self):
         """
         Store start markers which are used in analyze phase.
@@ -60,7 +68,7 @@ class LogAnalyzer:
         """
         Analyze syslog messages.
         """
-        self.analyze(self._markers.pop())
+        self.analyze(self._markers.pop(), fail=self.fail)
 
     def _verify_log(self, result):
         """
@@ -80,7 +88,8 @@ class LogAnalyzer:
         """
         @summary: Update configured marker prefix
         """
-        self.marker_prefix = marker_prefix
+        self.marker_prefix = marker_prefix.replace(' ', '_')
+        return self._setup_marker()
 
     def load_common_config(self):
         """
@@ -108,13 +117,14 @@ class LogAnalyzer:
         @return: Callback execution result
         """
         marker = self.init()
+        fail = kwargs.pop("fail", True)
         try:
             call_result = callback(*args, **kwargs)
         except Exception as err:
             logging.error("Error during callback execution:\n{}".format(err))
-            logging.debug("Log analysis result\n".format(self.analyze(marker)))
+            logging.debug("Log analysis result\n".format(self.analyze(marker, fail=fail)))
             raise err
-        self.analyze(marker)
+        self.analyze(marker, fail=fail)
 
         return call_result
 
@@ -128,6 +138,12 @@ class LogAnalyzer:
 
         self.ansible_host.copy(src=ANSIBLE_LOGANALYZER_MODULE, dest=os.path.join(self.dut_run_dir, "loganalyzer.py"))
 
+        return self._setup_marker()
+
+    def _setup_marker(self):
+        """
+        Adds the marker to the syslog
+        """
         start_marker = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
         cmd = "python {run_dir}/loganalyzer.py --action init --run_id {start_marker}".format(run_dir=self.dut_run_dir, start_marker=start_marker)
 

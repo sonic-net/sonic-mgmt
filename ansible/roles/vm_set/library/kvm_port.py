@@ -29,9 +29,9 @@ def main():
 
     try:
         output = subprocess.check_output(
-                "virsh domiflist %s" % vmname, 
-                env={"LIBVIRT_DEFAULT_URI": "qemu:///system"}, 
-                shell=True)
+                "virsh domiflist %s" % vmname,
+                env={"LIBVIRT_DEFAULT_URI": "qemu:///system"},
+                shell=True).decode('utf-8')
     except subprocess.CalledProcessError:
         module.fail_json(msg="failed to iflist dom %s" % vmname)
 
@@ -39,7 +39,7 @@ def main():
     fp_ports = []
 
     for l in output.split('\n'):
-        fds = re.split('\s+', l)
+        fds = re.split('\s+', l.lstrip())
         if len(fds) != 5:
             continue
         if fds[1] == "ethernet":

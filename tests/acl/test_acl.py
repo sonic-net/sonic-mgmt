@@ -32,12 +32,12 @@ ACL_RULES_FULL_TEMPLATE = 'acltb_test_rules.j2'
 ACL_RULES_PART_TEMPLATES = tuple('acltb_test_rules_part_{}.j2'.format(i) for i in xrange(1, 3))
 ACL_REMOVE_RULES_FILE = 'acl_rules_del.json'
 
-DST_IP_TOR = '172.16.1.0'
-DST_IP_TOR_FORWARDED = '172.16.2.0'
-DST_IP_TOR_BLOCKED = '172.16.3.0'
-DST_IP_SPINE = '192.168.0.0'
-DST_IP_SPINE_FORWARDED = '192.168.0.16'
-DST_IP_SPINE_BLOCKED = '192.168.0.17'
+DST_IP_TOR = '192.168.0.1'
+DST_IP_TOR_FORWARDED = '192.168.8.1'
+DST_IP_TOR_BLOCKED = '192.168.16.1'
+DST_IP_SPINE = '192.168.128.1'
+DST_IP_SPINE_FORWARDED = '192.168.136.1'
+DST_IP_SPINE_BLOCKED = '192.168.144.1'
 
 LOG_EXPECT_ACL_TABLE_CREATE_RE = '.*Created ACL table.*'
 LOG_EXPECT_ACL_TABLE_REMOVE_RE = '.*Successfully deleted ACL table.*'
@@ -81,7 +81,9 @@ def setup(duthost, testbed):
     port_channels = mg_facts['minigraph_portchannels']
 
     # get the list of port to be combined to ACL tables
-    acl_table_ports += tor_ports
+    if testbed['topo']['name'] in ('t1', 't1-lag'):
+        acl_table_ports += tor_ports
+    
     if testbed['topo']['name'] in ('t1-lag', 't1-64-lag', 't1-64-lag-clet'):
         acl_table_ports += port_channels
     else:
@@ -117,13 +119,22 @@ def setup(duthost, testbed):
     duthost.command('rm -rf {}'.format(DUT_TMP_DIR))
 
 
-@pytest.fixture(scope='module', params=['ingress', 'egress'])
-def stage(request):
+@pytest.fixture(scope="module", params=["ingress", "egress"])
+def stage(request, duthost):
     """
-    small fixture to parametrize test for ingres/egress stage testing
-    :param request: pytest request
-    :return: stage parameter
+    Parametrize tests for Ingress/Egress stage testing.
+
+    Args:
+        request: Pytest request fixture
+        duthost: DUT fixture
+
+    Returns:
+        str: The ACL stage to be tested.
+
     """
+    if request.param == "egress" and duthost.facts["asic_type"] in ["broadcom"]:
+        pytest.skip("Egress ACL stage not currently supported on {} ASIC"
+                    .format(duthost.facts["asic_type"]))
 
     return request.param
 
@@ -257,7 +268,7 @@ class BaseAclTest(object):
         dut.command('config acl update full {}'.format(remove_rules_dut_path))
 
     @pytest.fixture(scope='class', autouse=True)
-    def acl_rules(self, duthost, testbed_devices, setup, acl_table):
+    def acl_rules(self, duthost, localhost, setup, acl_table):
         """
         setup/teardown ACL rules based on test class requirements
         :param duthost: DUT host object
@@ -266,7 +277,6 @@ class BaseAclTest(object):
         :param acl_table: table creating fixture
         :return:
         """
-        localhost = testbed_devices['localhost']
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl_rules')
         loganalyzer.load_common_config()
 

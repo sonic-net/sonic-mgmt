@@ -36,7 +36,7 @@ def wait_until(timeout, interval, condition, *args, **kwargs):
         try:
             check_result = condition(*args, **kwargs)
         except Exception as e:
-            logging.debug("Exception caught while checking %s: %s" % (condition.__name__, repr(e)))
+            logging.error("Exception caught while checking %s: %s" % (condition.__name__, repr(e)))
             check_result = False
 
         if check_result:

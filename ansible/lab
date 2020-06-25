@@ -1,5 +1,5 @@
 [sonic_sn2700_40]
-str-msn2700-01    ansible_host=10.251.0.188
+str-msn2700-01    ansible_host=10.251.0.188 serial="MT1234X56789" base_mac="24:8a:07:12:34:56" syseeprom_info="{'0xFE': '0xFBA1E964', '0x28': 'x86_64-mlnx_x86-r0', '0x29': '2016.11-5.1.0008-9600', '0x22': 'MSN2700-CS2FO', '0x23': 'MT1234X56789', '0x21': 'MSN2700', '0x26': '0', '0x24': '24:8a:07:12:34:56', '0x25': '12/07/2016', '0x2B': 'Mellanox', '0x2A': '128'}"
 
 [sonic_sn2700_40:vars]
 hwsku="ACS-MSN2700"
@@ -9,6 +9,7 @@ iface_speed='40000'
 lab-s6000-01      ansible_host=10.251.0.189
 vlab-01           ansible_host=10.250.0.101
 vlab-03           ansible_host=10.250.0.105
+vlab-04           ansible_host=10.250.0.107
 
 [sonic_s6000:vars]
 hwsku="Force10-S6000"

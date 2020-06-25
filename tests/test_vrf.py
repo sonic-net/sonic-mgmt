@@ -15,6 +15,8 @@ from functools import partial
 
 import pytest
 
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from ptf_runner import ptf_runner
 from common.utilities import wait_until
 
@@ -220,31 +222,31 @@ def check_bgp_facts(duthost, cfg_facts):
 
 # FIXME later may move to "common.reboot"
 #
-# The reason to introduce a new 'reboot' here is due to 
+# The reason to introduce a new 'reboot' here is due to
 # the difference of fixture 'localhost' between the two 'reboot' functions.
-# 
-# 'common.reboot' request *ansible_fixtures.localhost*, 
+#
+# 'common.reboot' request *ansible_fixtures.localhost*,
 # but here it request *common.devices.Localhost*.
 def reboot(duthost, localhost, timeout=120, basic_check=True):
     duthost.shell("nohup reboot &")
 
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).address
-    
+
     logging.info('waiting for dut to go down')
-    res = localhost.wait_for(host=dut_ip, 
-                             port=22, 
-                             state="stopped", 
-                             delay=10, 
+    res = localhost.wait_for(host=dut_ip,
+                             port=22,
+                             state="stopped",
+                             delay=10,
                              timeout=timeout,
                              module_ignore_errors=True)
     if res.is_failed:
         raise Exception('DUT did not shutdown in {}s'.format(timeout))
 
     logging.info('waiting for dut to startup')
-    res = localhost.wait_for(host=dut_ip, 
-                             port=22, 
-                             state="started", 
-                             delay=10, 
+    res = localhost.wait_for(host=dut_ip,
+                             port=22,
+                             state="started",
+                             delay=10,
                              timeout=timeout,
                              module_ignore_errors=True)
     if res.is_failed:
@@ -253,7 +255,7 @@ def reboot(duthost, localhost, timeout=120, basic_check=True):
     # Basic check after reboot
     if basic_check:
         assert wait_until(timeout, 10, duthost.critical_services_fully_started), \
-               "All critical services should fully started!{}".format(duthost.CRITICAL_SERVICES)
+               "All critical services should fully started!{}".format(duthost.critical_services)
 
 def setup_vrf_cfg(duthost, localhost, cfg_facts):
     '''
@@ -383,10 +385,6 @@ def gen_vrf_neigh_file(vrf, ptfhost, render_file):
 
 # fixtures
 @pytest.fixture(scope="module")
-def localhost(testbed_devices):
-    return testbed_devices['localhost']
-
-@pytest.fixture(scope="module")
 def host_facts(duthost):
     return get_host_facts(duthost)
 
@@ -396,13 +394,8 @@ def cfg_facts(duthost):
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
-    # --------------------- setup -----------------------
-    ## Setup ptf
-    ptfhost.script("scripts/change_mac.sh")
-    ptfhost.copy(src="ptftests", dest="/root")
-
     ## Setup dut
-    duthost.CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp"]  # Don't care about 'pmon' and 'lldp' here
+    duthost.critical_services = ["swss", "syncd", "database", "teamd", "bgp"]  # Don't care about 'pmon' and 'lldp' here
     cfg_t0 = get_cfg_facts(duthost)  # generate cfg_facts for t0 topo
 
     setup_vrf_cfg(duthost, localhost, cfg_t0)
@@ -771,7 +764,7 @@ class TestVrfLoopbackIntf():
             for ip in ips:
                 if ip.version == 4:
                     # FIXME Within a vrf, currently ping(4) does not support using
-                    # an ip of loopback intface as source(it complains 'Cannot assign 
+                    # an ip of loopback intface as source(it complains 'Cannot assign
                     # requested address'). An alternative is ping the loopback address
                     # from ptf
                     ptfhost.shell("ip netns exec {} ping {} -c 3 -f -W2".format(g_vars['vlan_peer_vrf2ns_map']['Vrf1'], ip.ip))
@@ -784,7 +777,7 @@ class TestVrfLoopbackIntf():
             for ip in ips:
                 if ip.version == 4:
                     # FIXME Within a vrf, currently ping(4) does not support using
-                    # an ip of loopback intface as source(it complains 'Cannot assign 
+                    # an ip of loopback intface as source(it complains 'Cannot assign
                     # requested address'). An alternative is ping the loopback address
                     # from ptf
                     ptfhost.shell("ip netns exec {} ping {} -c 3 -f -W2".format(g_vars['vlan_peer_vrf2ns_map']['Vrf2'], ip.ip))
@@ -950,7 +943,7 @@ class TestVrfWarmReboot():
 
         # basic check after warm reboot
         assert wait_until(300, 20, duthost.critical_services_fully_started), \
-               "All critical services should fully started!{}".format(duthost.CRITICAL_SERVICES)
+               "All critical services should fully started!{}".format(duthost.critical_services)
 
         up_ports = [p for p, v in cfg_facts['PORT'].items() if v.get('admin_status', None) == 'up' ]
         assert wait_until(300, 20, check_interface_status, duthost, up_ports), \
@@ -1391,7 +1384,7 @@ class TestVrfDeletion():
     def setup_vrf_restore(self, duthost, cfg_facts):
         self.restore_vrf(duthost)
         self.c_vars['restore_vrf'] = False  # Mark to skip restore vrf during teardown
-        
+
         # check bgp session state after restore
         assert wait_until(120, 10, check_bgp_facts, duthost, cfg_facts), \
                "Bgp sessions should be re-estabalished after restore Vrf1"

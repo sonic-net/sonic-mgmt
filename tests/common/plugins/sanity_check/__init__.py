@@ -13,14 +13,6 @@ from recover import recover
 logger = logging.getLogger(__name__)
 
 
-def pytest_addoption(parser):
-    """Describe plugin specified options"""
-    parser.addoption("--skip_sanity", action="store_true", default=False,
-                     help="Skip sanity check")
-    parser.addoption("--allow_recover", action="store_true", default=False,
-                     help="Allow recovery attempt in sanity check in case of failure")
-
-
 def _update_check_items(old_items, new_items, supported_items):
     """
     @summary: Update the items to be performed in sanity check
@@ -49,15 +41,12 @@ def _update_check_items(old_items, new_items, supported_items):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def sanity_check(testbed_devices, request):
+def sanity_check(localhost, duthost, request, fanouthosts):
     logger.info("Start pre-test sanity check")
-
-    dut = testbed_devices["dut"]
-    localhost = testbed_devices["localhost"]
 
     skip_sanity = False
     allow_recover = False
-    recover_method = "config_reload"
+    recover_method = "adaptive"
     check_items = set(copy.deepcopy(constants.SUPPORTED_CHECK_ITEMS))  # Default check items
     post_check = False
 
@@ -72,7 +61,7 @@ def sanity_check(testbed_devices, request):
         logger.info("Process marker %s in script. m.args=%s, m.kwargs=%s" % (m.name, str(m.args), str(m.kwargs)))
         skip_sanity = customized_sanity_check.kwargs.get("skip_sanity", False)
         allow_recover = customized_sanity_check.kwargs.get("allow_recover", False)
-        recover_method = customized_sanity_check.kwargs.get("recover_method", "config_reload")
+        recover_method = customized_sanity_check.kwargs.get("recover_method", "adaptive")
         if allow_recover and recover_method not in constants.RECOVER_METHODS:
             pytest.warning("Unsupported recover method")
             logger.info("Fall back to use default recover method 'config_reload'")
@@ -102,19 +91,19 @@ def sanity_check(testbed_devices, request):
         logger.info("No sanity check item is specified, no post-test sanity check")
         return
 
-    print_logs(dut, constants.PRINT_LOGS)
-    check_results = do_checks(dut, check_items)
+    print_logs(duthost, constants.PRINT_LOGS)
+    check_results = do_checks(duthost, check_items)
     logger.info("!!!!!!!!!!!!!!!! Pre-test sanity check results: !!!!!!!!!!!!!!!!\n%s" % \
                 json.dumps(check_results, indent=4))
     if any([result["failed"] for result in check_results]):
         if not allow_recover:
-            pytest.fail("Pre-test sanity check failed, allow_recover=False")
+            pytest.fail("Pre-test sanity check failed, allow_recover=False {}".format(check_results))
             return
 
         logger.info("Pre-test sanity check failed, try to recover, recover_method=%s" % recover_method)
-        recover(dut, localhost, recover_method)
+        recover(duthost, localhost, fanouthosts, check_results, recover_method)
         logger.info("Run sanity check again after recovery")
-        new_check_results = do_checks(dut, check_items)
+        new_check_results = do_checks(duthost, check_items)
         logger.info("!!!!!!!!!!!!!!!! Pre-test sanity check after recovery results: !!!!!!!!!!!!!!!!\n%s" % \
                     json.dumps(new_check_results, indent=4))
         if any([result["failed"] for result in new_check_results]):
@@ -131,7 +120,7 @@ def sanity_check(testbed_devices, request):
         logger.info("No post-test check is required. Done post-test sanity check")
         return
 
-    post_check_results = do_checks(dut, check_items)
+    post_check_results = do_checks(duthost, check_items)
     logger.info("!!!!!!!!!!!!!!!! Post-test sanity check results: !!!!!!!!!!!!!!!!\n%s" % \
                 json.dumps(post_check_results, indent=4))
     if any([result["failed"] for result in post_check_results]):

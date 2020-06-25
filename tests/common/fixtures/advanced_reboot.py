@@ -5,8 +5,8 @@ import logging
 import pytest
 import time
 
-from common.errors import RunAnsibleModuleFail
 from common.mellanox_data import is_mellanox_device as isMellanoxDevice
+from common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
 from common.reboot import reboot as rebootDut
 from ptf_runner import ptf_runner
 
@@ -25,11 +25,13 @@ class AdvancedReboot:
     inboot/preboot list. The class transfers number of configuration files to the dut/ptf in preparation for reboot test.
     Test cases can trigger test start utilizing runRebootTestcase API.
     '''
-    def __init__(self, request, testbed_devices, testbed, **kwargs):
+    def __init__(self, request, duthost, ptfhost, localhost, testbed, **kwargs):
         '''
         Class contructor.
         @param request: pytest request object
-        @param testbed_devices: fixture provides information about testbed devices
+        @param duthost: AnsibleHost instance of DUT
+        @param ptfhost: PTFHost for interacting with PTF through ansible
+        @param localhost: Localhost for interacting with localhost through ansible
         @param testbed: fixture provides information about testbed
         @param kwargs: extra parameters including reboot type
         '''
@@ -38,9 +40,9 @@ class AdvancedReboot:
         )
 
         self.request = request
-        self.duthost = testbed_devices['dut']
-        self.ptfhost = testbed_devices['ptf']
-        self.localhost = testbed_devices['localhost']
+        self.duthost = duthost
+        self.ptfhost = ptfhost
+        self.localhost = localhost
         self.testbed = testbed
         self.__dict__.update(kwargs)
         self.__extractTestParam()
@@ -65,6 +67,7 @@ class AdvancedReboot:
         self.newSonicImage = self.request.config.getoption("--new_sonic_image")
         self.cleanupOldSonicImages = self.request.config.getoption("--cleanup_old_sonic_images")
         self.readyTimeout = self.request.config.getoption("--ready_timeout")
+        self.replaceFastRebootScript = self.request.config.getoption("--replace_fast_reboot_script")
 
     def getHostMaxLen(self):
         '''
@@ -118,15 +121,18 @@ class AdvancedReboot:
         self.rebootData['vlan_ip_range'] = self.mgFacts['minigraph_vlan_interfaces'][0]['subnet']
         self.rebootData['dut_vlan_ip'] = self.mgFacts['minigraph_vlan_interfaces'][0]['addr']
 
-        invetory = self.duthost.host.options['inventory'].split('/')[-1]
-        secrets = self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname]['secret_group_vars']
+        hostVars = self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname]
+        invetory = hostVars['inventory_file'].split('/')[-1]
+        secrets = hostVars['secret_group_vars']
         self.rebootData['dut_username'] = secrets[invetory]['sonicadmin_user']
         self.rebootData['dut_password'] = secrets[invetory]['sonicadmin_password']
 
+        # Change network of the dest IP addresses (used by VM servers) to be different from Vlan network
+        prefixLen = self.mgFacts['minigraph_vlan_interfaces'][0]['prefixlen'] - 3
+        testNetwork = ipaddress.ip_address(self.mgFacts['minigraph_vlan_interfaces'][0]['addr']) + (1 << (32 - prefixLen))
         self.rebootData['default_ip_range'] = str(
-            ipaddress.ip_interface(self.mgFacts['minigraph_vlan_interfaces'][0]['addr'] + '/16').network
+            ipaddress.ip_interface(unicode(str(testNetwork) + '/{0}'.format(prefixLen))).network
         )
-
         for intf in self.mgFacts['minigraph_lo_interfaces']:
             if ipaddress.ip_interface(intf['addr']).ip.version == 6:
                 self.rebootData['lo_v6_prefix'] = str(ipaddress.ip_interface(intf['addr'] + '/64').network)
@@ -212,41 +218,11 @@ class AdvancedReboot:
             logger.info('Running script {0} on {1}'.format(script, ansibleHost.hostname))
             ansibleHost.script('scripts/' + script)
 
-    def __prepareTestbedSshKeys(self, dutUsername, dutIp):
+    def __prepareTestbedSshKeys(self):
         '''
         Prepares testbed ssh keys by generating ssh key on ptf host and adding this key to known_hosts on duthost
-        @param dutUsername: DUT username
-        @param dutIp: DUT IP
         '''
-        logger.info('Remove old keys from ptfhost')
-        self.ptfhost.shell('rm -f /root/.ssh/id_rsa*')
-        try:
-            self.ptfhost.shell('stat /root/.ssh/known_hosts')
-        except RunAnsibleModuleFail:
-            pass # files does not exist
-        else:
-            self.ptfhost.shell('ssh-keygen -f /root/.ssh/known_hosts -R ' + dutIp)
-
-        logger.info('Generate public key for ptf host')
-        self.ptfhost.file(path='/root/.ssh/', mode='u+rwx,g-rwx,o-rwx', state='directory')
-        result = self.ptfhost.openssh_keypair(
-            path='/root/.ssh/id_rsa',
-            size=2048,
-            force=True,
-            type='rsa',
-            mode='u=rw,g=,o='
-        )
-        # There is an error with id_rsa.pub access permissions documented in:
-        # https://github.com/ansible/ansible/issues/61411
-        # @TODO: remove the following line when upgrading to Ansible 2.9x
-        self.ptfhost.file(path='/root/.ssh/id_rsa.pub', mode='u=rw,g=,o=')
-
-        cmd = '''
-            mkdir -p /home/{0}/.ssh && 
-            echo "{1}" >> /home/{0}/.ssh/authorized_keys && 
-            chown -R {0}:{0} /home/{0}/.ssh/
-        '''.format(dutUsername, result['public_key'])
-        self.duthost.shell(cmd)
+        prepareTestbedSshKeys(self.duthost, self.ptfhost, self.rebootData['dut_username'])
 
     def __handleMellanoxDut(self):
         '''
@@ -313,15 +289,17 @@ class AdvancedReboot:
         ]
         self.__transferTestDataFiles(testDataFiles, self.ptfhost)
 
-        self.__runScript(['remove_ip.sh', 'change_mac.sh'], self.ptfhost)
+        self.__runScript(['remove_ip.sh'], self.ptfhost)
 
-        self.__prepareTestbedSshKeys(self.rebootData['dut_username'], self.rebootData['dut_hostname'])
-
-        logger.info('Copy tests to the PTF container  {}'.format(self.ptfhost.hostname))
-        self.ptfhost.copy(src='ptftests', dest='/root')
+        self.__prepareTestbedSshKeys()
 
         logger.info('Copy ARP responder to the PTF container  {}'.format(self.ptfhost.hostname))
         self.ptfhost.copy(src='scripts/arp_responder.py', dest='/opt')
+
+        # Replace fast-reboot script
+        if self.replaceFastRebootScript:
+            logger.info('Replace fast-reboot script on DUT  {}'.format(self.duthost.hostname))
+            self.duthost.copy(src='scripts/fast-reboot', dest='/usr/bin/')
 
     def __clearArpAndFdbTables(self):
         '''
@@ -477,7 +455,7 @@ class AdvancedReboot:
         if currentImage != self.currentImage:
             logger.info('Restore current image')
             self.duthost.shell('sonic_installer set_default {0}'.format(self.currentImage))
-    
+
             rebootDut(
                 self.duthost,
                 self.localhost,
@@ -503,11 +481,13 @@ class AdvancedReboot:
             self.__restorePrevImage()
 
 @pytest.fixture
-def get_advanced_reboot(request, testbed_devices, testbed):
+def get_advanced_reboot(request, duthost, ptfhost, localhost, testbed):
     '''
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
-        @param testbed_devices: fixture provides information about testbed devices
+        @param duthost: AnsibleHost instance of DUT
+        @param ptfhost: PTFHost for interacting with PTF through ansible
+        @param localhost: Localhost for interacting with localhost through ansible
         @param testbed: fixture provides information about testbed
     '''
     instances = []
@@ -517,7 +497,7 @@ def get_advanced_reboot(request, testbed_devices, testbed):
         API that returns instances of AdvancedReboot class
         '''
         assert len(instances) == 0, "Only one instance of reboot data is allowed"
-        advancedReboot = AdvancedReboot(request, testbed_devices, testbed, **kwargs)
+        advancedReboot = AdvancedReboot(request, duthost, ptfhost, localhost, testbed, **kwargs)
         instances.append(advancedReboot)
         return advancedReboot
 
