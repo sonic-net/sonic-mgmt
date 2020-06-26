@@ -153,8 +153,10 @@ class PFCStorm(object):
         Starts PFC storm on the fanout interfaces
         """
         self._prepare_start_template()
-        logger.info("--- Starting PFC storm on {} on interfaces {}"
-                    .format(self.peer_info['peerdevice'], self.peer_info['pfc_fanout_interface']))
+        logger.info("--- Starting PFC storm on {} on interfaces {} on queue {} ---"
+                    .format(self.peer_info['peerdevice'],
+                            self.peer_info['pfc_fanout_interface'],
+                            self.pfc_queue_idx))
         # TODO will get rid of this ansible playbook execution option when Mellanox adds the necessary functionality
         # to their onyx_config/onyx_command modules
         self.peer_device.exec_template(ANSIBLE_ROOT, RUN_PLAYBOOK, self.inventory, **self.extra_vars)
@@ -164,8 +166,10 @@ class PFCStorm(object):
         Stops PFC storm on the fanout interfaces
         """
         self._prepare_stop_template()
-        logger.info("--- Stopping PFC storm on {} on interfaces {}"
-                    .format(self.peer_info['peerdevice'], self.peer_info['pfc_fanout_interface']))
+        logger.info("--- Stopping PFC storm on {} on interfaces {} on queue {} ---"
+                    .format(self.peer_info['peerdevice'],
+                            self.peer_info['pfc_fanout_interface'],
+                            self.pfc_queue_idx))
         # TODO will get rid of this ansible playbook execution option when Mellanox adds the necessary functionality
         # to their onyx_config/onyx_command modules
         self.peer_device.exec_template(ANSIBLE_ROOT, RUN_PLAYBOOK, self.inventory, **self.extra_vars)
