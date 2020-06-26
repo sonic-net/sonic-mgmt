@@ -1,9 +1,9 @@
 ###############################################################################
-# This test cases demonstrates: 
-#   * All the fixtures required for running ixia script (please see the 
+# This test cases demonstrates:
+#   * All the fixtures required for running ixia script (please see the
 #     arguments of the test function)
 #   * How Ixia chassis card/ports are addressed
-#   * How you can configure/control ixia devices, start traffic and collect 
+#   * How you can configure/control ixia devices, start traffic and collect
 #     statistics using REST API
 #   * This simple sanity test cases can be used to check if testbed setup
 #     is correct or not - since it prints a lot of testbed data
@@ -22,12 +22,11 @@ from common.platform.device_utils import fanout_switch_port_lookup
 from common.helpers import assertions
 from ixnetwork_restpy import SessionAssistant, Files
 
-from lib.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user,\
+from common.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user,\
      ixia_api_serv_passwd, ixia_dev, ixia_api_serv_port, ixia_api_serv_session_id
 
-from lib.ixia_helpers import get_neigh_ixia_mgmt_ip, get_neigh_ixia_card,\
-     get_neigh_ixia_port 
-
+from common.ixia_helpers import get_neigh_ixia_mgmt_ip, get_neigh_ixia_card,\
+     get_neigh_ixia_port
 
 import time
 
@@ -63,27 +62,16 @@ def getPort(ixiaCardPortList, num) :
 def test_testbed(testbed, conn_graph_facts, duthost, ixia_dev, ixia_api_serv_ip,
                  ixia_api_serv_user, ixia_api_serv_passwd, ixia_api_serv_port,
                  ixia_api_serv_session_id):
-    print("conn_graph_fact          ==============")
-    pprint.pprint(conn_graph_facts)
-    print("DUT hostname             ==============")
-    print(duthost.hostname)
-    print(dir(duthost))
-    print("ixia ports               ==============")
+    logger.info("Connection Graph Facts = %s " %(conn_graph_facts))
+    logger.info("DUT hostname = %s" %(duthost.hostname))
     ixiaports = parseDeviceConn(conn_graph_facts)
-    print(ixiaports)
-    print("IXIA CHASSIS IP          ==============")
-    print(ixia_dev)
-    print("IXIA API SERVER IP       ==============")
-    print(ixia_api_serv_ip)
-    print("IXIA API SERVER USER     ==============")
-    print(ixia_api_serv_user)
-    print("IXIA API SERVER PASSWORD ==============")
-    print(ixia_api_serv_passwd)
-    print("IXIA API REST PORT       ==============")
-    print(ixia_api_serv_port)
-    print("IXIA API SESSION ID      ==============")
-    print(ixia_api_serv_session_id)
-    print("=======================================")
+    logger.info("Ixia ports = %s" %(ixiaports))
+    logger.info("Ixia chassis IP = %s" %(ixia_dev))
+    logger.info("Ixia API server IP = %s" %(ixia_api_serv_ip))
+    logger.info("Ixia API server user = %s" %(ixia_api_serv_user))
+    logger.info("Ixia API server password = %s" %(ixia_api_serv_passwd))
+    logger.info("Ixia API server port = %s" %(ixia_api_serv_port))
+    logger.info("Ixia API server sessionId = %s" %(ixia_api_serv_session_id))
 
     clientIp  = ixia_api_serv_ip
     UserName  = ixia_api_serv_user
@@ -111,7 +99,7 @@ def test_testbed(testbed, conn_graph_facts, duthost, ixia_dev, ixia_api_serv_ip,
                                UserName = UserName,
                                Password = Password,
                                RestPort = RestPort)
-   
+
     sessionData = session.Session
     ixNetwork   = session.Ixnetwork
     ixNetwork.NewConfig()
@@ -130,7 +118,7 @@ def test_testbed(testbed, conn_graph_facts, duthost, ixia_dev, ixia_api_serv_ip,
     t2 = time.time()
 
     time_taken = t2 - t1
-    print("time-taken to connect == %s" %(time_taken))
+    logger.info("time-taken to connect = %s" %(time_taken))
 
     vPort1.L1Config.NovusHundredGigLan.IeeeL1Defaults  =  False
     vPort1.L1Config.NovusHundredGigLan.EnableAutoNegotiation =False
@@ -140,32 +128,31 @@ def test_testbed(testbed, conn_graph_facts, duthost, ixia_dev, ixia_api_serv_ip,
     vPort2.L1Config.NovusHundredGigLan.IeeeL1Defaults  =  False
     vPort2.L1Config.NovusHundredGigLan.EnableAutoNegotiation =False
     vPort2.L1Config.NovusHundredGigLan.EnableRsFec = True
-    vPort2.L1Config.NovusHundredGigLan.EnableRsFecStats = True 
+    vPort2.L1Config.NovusHundredGigLan.EnableRsFecStats = True
 
     vPort3.L1Config.NovusHundredGigLan.IeeeL1Defaults  =  False
     vPort3.L1Config.NovusHundredGigLan.EnableAutoNegotiation =False
     vPort3.L1Config.NovusHundredGigLan.EnableRsFec = True
-    vPort3.L1Config.NovusHundredGigLan.EnableRsFecStats = True 
+    vPort3.L1Config.NovusHundredGigLan.EnableRsFecStats = True
 
     vPort4.L1Config.NovusHundredGigLan.IeeeL1Defaults  =  False
     vPort4.L1Config.NovusHundredGigLan.EnableAutoNegotiation =False
     vPort4.L1Config.NovusHundredGigLan.EnableRsFec = True
-    vPort4.L1Config.NovusHundredGigLan.EnableRsFecStats = True 
+    vPort4.L1Config.NovusHundredGigLan.EnableRsFecStats = True
 
     vPort5.L1Config.NovusHundredGigLan.IeeeL1Defaults  =  False
     vPort5.L1Config.NovusHundredGigLan.EnableAutoNegotiation =False
     vPort5.L1Config.NovusHundredGigLan.EnableRsFec = True
-    vPort5.L1Config.NovusHundredGigLan.EnableRsFecStats = True 
+    vPort5.L1Config.NovusHundredGigLan.EnableRsFecStats = True
 
     vPort6.L1Config.NovusHundredGigLan.IeeeL1Defaults  =  False
     vPort6.L1Config.NovusHundredGigLan.EnableAutoNegotiation =False
     vPort6.L1Config.NovusHundredGigLan.EnableRsFec = True
-    vPort6.L1Config.NovusHundredGigLan.EnableRsFecStats = True 
+    vPort6.L1Config.NovusHundredGigLan.EnableRsFecStats = True
 
     vPort1.Name = 'Tx1'
     vPort4.Name = 'Rx1'
     state = vPort1.State
-    print ('creating topology')
 
     topology1    = ixNetwork.Topology.add(Name='Topo1', Ports=[vPort1, vPort2, vPort3, vPort4, vPort5, vPort6])
     deviceGroup1 = topology1.DeviceGroup.add(Name='DG1', Multiplier='1')
@@ -176,7 +163,7 @@ def test_testbed(testbed, conn_graph_facts, duthost, ixia_dev, ixia_api_serv_ip,
     ipv4.Address.ValueList(['192.168.1.2','192.168.1.3','192.168.1.4','192.168.1.5', '192.168.1.6', '192.168.1.7'])
 
     ixNetwork.StartAllProtocols()
-    time.sleep(60) 
+    time.sleep(60)
 
     # Traffic
     traffic_item = ixNetwork.Traffic.TrafficItem.add(Name='Traffic Test', TrafficType='ipv4')
@@ -190,9 +177,7 @@ def test_testbed(testbed, conn_graph_facts, duthost, ixia_dev, ixia_api_serv_ip,
     ixNetwork.Traffic.Apply()
     ixNetwork.Traffic.Start()
     time.sleep(10)
-    print(session.StatViewAssistant('Traffic Item Statistics'))
-
-    print('passed')
+    logger.info(session.StatViewAssistant('Traffic Item Statistics'))
+    ixNetwork.Traffic.Stop()
 
     assert 1
-
