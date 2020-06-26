@@ -1,5 +1,6 @@
 import pytest
 import logging
+from common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
@@ -82,9 +83,8 @@ def test_bgp_multipath_relax(testbed, duthost):
     
     logger.info("vips_t0: {}, vips_asn: {}".format(vips_t0, vips_asn))
 
-    if len(vips_t0) <= 1:
-        pytest.fail("Did not find preconfigured multipath for the vips prefix under test")
-    
+    pytest_assert((vips_t0 > 1), "Did not find preconfigured multipath for the vips prefix under test")
+        
     # Get the route from the DUT for the prefix
     bgp_route = duthost.bgp_route(prefix=vips_prefix)['ansible_facts']['bgp_route']
     
@@ -100,7 +100,7 @@ def test_bgp_multipath_relax(testbed, duthost):
     # verify vips asn in each path of installed BGP vips prefix
     for asn in vips_asn:
         for aspath in bgp_route[vips_prefix]['aspath']:
-            assert str(asn) in  aspath
+            pytest_assert((str(asn) in  aspath))
 
     # gather one t2 neighbor advertised routes to validate routes advertised to t2 are correct with relaxed multipath
     bgp_route_neiadv = duthost.bgp_route(neighbor=bgp_v4nei[dut_t2_neigh[0]], direction="adv")['ansible_facts']['bgp_route_neiadv']
@@ -111,10 +111,10 @@ def test_bgp_multipath_relax(testbed, duthost):
                        bgp_route_neiadv[vips_prefix]))
 
     # Verify vips prefix in advertised routes to t2 neighbor
-    assert bgp_route_neiadv.has_key(vips_prefix)
+    pytest_assert(bgp_route_neiadv.has_key(vips_prefix), "{} is not present in bgp neighbor adv".format(vips_prefix))
 
     # vips prefix path has only 2 hops
-    assert len(bgp_route_neiadv[vips_prefix]['aspath']) == 2
+    pytest_assert((len(bgp_route_neiadv[vips_prefix]['aspath']) == 2), "vips prefix path doesn't have 2 hops")
 
-    assert int(bgp_route_neiadv[vips_prefix]['aspath'][0]) in vips_t0 and \
-        int(bgp_route_neiadv[vips_prefix]['aspath'][1]) in vips_asn
+    pytest_assert((int(bgp_route_neiadv[vips_prefix]['aspath'][0]) in vips_t0 and \
+                   int(bgp_route_neiadv[vips_prefix]['aspath'][1]) in vips_asn), "vips_prefix asn doesnt match with bgp route adv")
