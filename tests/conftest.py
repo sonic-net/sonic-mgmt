@@ -324,6 +324,14 @@ def eos():
         return eos
 
 
+@pytest.fixture(scope='session')
+def pdu():
+    """ read and yield pdu configuration """
+    with open('../ansible/group_vars/pdu/pdu.yml') as stream:
+        pdu = yaml.safe_load(stream)
+        return pdu
+
+
 @pytest.fixture(scope="module")
 def creds(duthost):
     """ read credential information according to the dut inventory """
