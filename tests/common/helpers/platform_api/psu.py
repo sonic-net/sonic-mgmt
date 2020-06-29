@@ -1,5 +1,7 @@
-""" This module provides interface to interact with the psu of the DUT
-    via platform API remotely """
+"""
+This module provides an interface to remotely interact with the power
+supply units of the DUT via platform API
+"""
 
 import json
 import logging
@@ -7,64 +9,64 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def psu_api(conn, name, args=None):
+def psu_api(conn, psu_id, name, args=None):
     if args is None:
         args = []
-    conn.request('POST', '/platform/psu/{}'.format(name), json.dumps({'args': args}))
+    conn.request('POST', '/platform/chassis/psu/{}/{}'.format(psu_id, name), json.dumps({'args': args}))
     resp = conn.getresponse()
     res = json.loads(resp.read())['res']
-    logger.info('Executing psu API: "{}", arguments: "{}", result: "{}"'.format(name, args, res))
+    logger.info('Executing PSU API: "{}", arguments: "{}", result: "{}"'.format(name, args, res))
     return res
 
 
-def get_num_fans(conn):
-    return psu_api(conn, 'get_num_fans')
+def get_num_fans(conn, psu_id):
+    return psu_api(conn, psu_id, 'get_num_fans')
 
 
-def get_all_fans(conn):
-    return psu_api(conn, 'get_all_fans')
+def get_all_fans(conn, psu_id):
+    return psu_api(conn, psu_id, 'get_all_fans')
 
 
-def get_fan(conn):
-    return psu_api(conn, 'get_fan', [index])
+def get_fan(conn, psu_id, index):
+    return psu_api(conn, psu_id, 'get_fan', [index])
 
 
-def get_voltage(conn):
-    return psu_api(conn, 'get_voltage')
+def get_voltage(conn, psu_id):
+    return psu_api(conn, psu_id, 'get_voltage')
 
 
-def get_current(conn):
-    return psu_api(conn, 'get_current')
+def get_current(conn, psu_id):
+    return psu_api(conn, psu_id, 'get_current')
 
 
-def get_power(conn):
-    return psu_api(conn, 'get_power')
+def get_power(conn, psu_id):
+    return psu_api(conn, psu_id, 'get_power')
 
 
-def get_powergood_status(conn):
-    return psu_api(conn, 'get_powergood_status')
+def get_powergood_status(conn, psu_id):
+    return psu_api(conn, psu_id, 'get_powergood_status')
 
 
-def set_status_led(conn):
-    return psu_api(conn, 'set_status_led')
+def set_status_led(conn, psu_id, color):
+    return psu_api(conn, psu_id, 'set_status_led', [color])
 
 
-def get_status_led(conn):
-    return psu_api(conn, 'get_status_led')
+def get_status_led(conn, psu_id):
+    return psu_api(conn, psu_id, 'get_status_led')
 
 
-def get_temperature(conn):
-    return psu_api(conn, 'get_temperature')
+def get_temperature(conn, psu_id):
+    return psu_api(conn, psu_id, 'get_temperature')
 
 
-def get_temperature_high_threshold(conn):
-    return psu_api(conn, 'get_temperature_high_threshold')
+def get_temperature_high_threshold(conn, psu_id):
+    return psu_api(conn, psu_id, 'get_temperature_high_threshold')
 
 
-def get_voltage_high_threshold(conn):
-    return psu_api(conn, 'get_voltage_high_threshold')
+def get_voltage_high_threshold(conn, psu_id):
+    return psu_api(conn, psu_id, 'get_voltage_high_threshold')
 
 
-def get_voltage_low_threshold(conn):
-    return psu_api(conn, 'get_voltage_low_threshold')
+def get_voltage_low_threshold(conn, psu_id):
+    return psu_api(conn, psu_id, 'get_voltage_low_threshold')
 
