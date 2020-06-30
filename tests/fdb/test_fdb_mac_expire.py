@@ -5,6 +5,10 @@ import time
 from common.helpers.assertions import pytest_assert
 from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm [py/unused-import]
 
+pytestmark = [
+    pytest.mark.topology('t0')
+]
+
 logger = logging.getLogger(__name__)
 
 class TestFdbMacExpire:
@@ -146,7 +150,7 @@ class TestFdbMacExpire:
     @pytest.fixture(scope="class", autouse=True)
     def validateDummyMacAbsent(self, duthost):
         """
-            Validates that test/dummy MAC entry is absent before the test runs 
+            Validates that test/dummy MAC entry is absent before the test runs
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
@@ -202,7 +206,7 @@ class TestFdbMacExpire:
 
             Args:
                 request (Fixture): pytest request object
-                testbed (Fixture, dict): Map containing testbed information 
+                testbed (Fixture, dict): Map containing testbed information
                 duthost (AnsibleHost): Device Under Test (DUT)
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
 

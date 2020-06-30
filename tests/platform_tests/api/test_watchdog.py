@@ -5,6 +5,10 @@ import yaml
 import pytest
 from common.helpers.platform_api import watchdog
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 logger = logging.getLogger(__name__)
 
 TEST_CONFIG_FILE = os.path.join(os.path.split(__file__)[0], "watchdog.yml")

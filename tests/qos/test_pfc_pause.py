@@ -9,6 +9,10 @@ from common.fixtures.conn_graph_facts import conn_graph_facts
 from qos_fixtures import lossless_prio_dscp_map, leaf_fanouts
 from qos_helpers import ansible_stdout_to_str, eos_to_linux_intf, start_pause, stop_pause, setup_testbed, gen_testbed_t0, PFC_GEN_FILE, PFC_GEN_REMOTE_PATH
 
+pytestmark = [
+    pytest.mark.topology('t0')
+]
+
 PFC_PKT_COUNT = 1000000000
 
 PTF_FILE_LOCAL_PATH = '../../ansible/roles/test/files/ptftests/pfc_pause_test.py'

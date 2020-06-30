@@ -2,6 +2,10 @@ import pytest
 
 from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 def test_populate_fdb(populate_fdb):
     """
         Populates DUT FDB entries

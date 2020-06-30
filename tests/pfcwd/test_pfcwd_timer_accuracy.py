@@ -7,6 +7,10 @@ from common.helpers.assertions import pytest_assert
 from common.helpers.pfc_storm import PFCStorm
 from files.pfcwd_helper import start_wd_on_ports
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module', autouse=True)

@@ -25,7 +25,8 @@ def teardown_module():
     ans_host.file(path=file_path, state='absent')
 
 pytestmark = [
-    pytest.mark.disable_loganalyzer  # disable automatic loganalyzer
+    pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
+    pytest.mark.topology('any')
 ]
 
 def parse_output(output_lines):

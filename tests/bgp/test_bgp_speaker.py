@@ -9,6 +9,10 @@ from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/un
 from ptf_runner import ptf_runner
 from common.utilities import wait_tcp_connection
 
+pytestmark = [
+    pytest.mark.topology('t0')
+]
+
 def generate_ips(num, prefix, exclude_ips):
     """
        Generate random ips within prefix

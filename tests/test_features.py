@@ -1,4 +1,10 @@
 # Helper Functions
+import pytest
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 def get_dict_stdout(cmd_out):
     """Extract dictionary from show features command output
     """

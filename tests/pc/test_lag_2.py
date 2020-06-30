@@ -11,6 +11,10 @@ from common.devices import AnsibleHostBase
 from common.fixtures.conn_graph_facts import conn_graph_facts
 from common.utilities import wait_until
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 @pytest.fixture(scope="module")
 def common_setup_teardown(duthost, ptfhost, testbed):
     logging.info("########### Setup for lag testing ###########")

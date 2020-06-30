@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 PTFRUNNER_QLEN = 1000
 FIB_INFO_DEST = "/root/fib_info.txt"
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 def get_uplink_ports(topology, topo_type):
 

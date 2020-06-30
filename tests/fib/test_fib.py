@@ -5,11 +5,15 @@ import logging
 
 from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from ptf_runner import ptf_runner
-from datetime import datetime 
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-# Usually src-mac, dst-mac, vlan-id are optional hash keys. Not all the platform supports these optional hash keys. Not enable these three by default. 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
+# Usually src-mac, dst-mac, vlan-id are optional hash keys. Not all the platform supports these optional hash keys. Not enable these three by default.
 # HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'src-mac', 'dst-mac', 'ip-proto', 'vlan-id']
 HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'ip-proto']
 SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
@@ -75,7 +79,7 @@ def get_vlan_untag_ports(config_facts):
             for port_name, tag_mode in vlan_member_info.items():
                 if tag_mode['tagging_mode'] == 'untagged':
                     vlan_untag_ports.append(port_name)
-    
+
     return vlan_untag_ports
 
 def get_router_interface_ports(config_facts, testbed):

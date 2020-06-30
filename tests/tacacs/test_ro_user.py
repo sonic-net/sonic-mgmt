@@ -3,6 +3,7 @@ import pytest
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
+    pytest.mark.topology('any')
 ]
 
 def test_ro_user(localhost, duthost, creds, setup_tacacs):

@@ -9,6 +9,10 @@ from ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology('t0')
+]
+
 # Globals
 PTFRUNNER_QLEN = 1000
 VXLAN_CONFIG_FILE = '/tmp/vxlan_decap.json'
@@ -62,16 +66,16 @@ class TestWrArp:
             Get the IP which will be used by ferret script from the "ip route show type unicast"
             command output. The output looks as follows:
 
-            default proto 186 src 10.1.0.32 metric 20 
+            default proto 186 src 10.1.0.32 metric 20
                 nexthop via 10.0.0.57  dev PortChannel0001 weight 1
                 nexthop via 10.0.0.59  dev PortChannel0002 weight 1
                 nexthop via 10.0.0.61  dev PortChannel0003 weight 1
                 nexthop via 10.0.0.63  dev PortChannel0004 weight 1
-            10.0.0.56/31 dev PortChannel0001 proto kernel scope link src 10.0.0.56 
-            10.232.24.0/23 dev eth0 proto kernel scope link src 10.232.24.122 
-            100.1.0.29 via 10.0.0.57 dev PortChannel0001 proto 186 src 10.1.0.32 metric 20 
-            192.168.0.0/21 dev Vlan1000 proto kernel scope link src 192.168.0.1 
-            192.168.8.0/25 proto 186 src 10.1.0.32 metric 20 
+            10.0.0.56/31 dev PortChannel0001 proto kernel scope link src 10.0.0.56
+            10.232.24.0/23 dev eth0 proto kernel scope link src 10.232.24.122
+            100.1.0.29 via 10.0.0.57 dev PortChannel0001 proto 186 src 10.1.0.32 metric 20
+            192.168.0.0/21 dev Vlan1000 proto kernel scope link src 192.168.0.1
+            192.168.8.0/25 proto 186 src 10.1.0.32 metric 20
                 nexthop via 10.0.0.57  dev PortChannel0001 weight 1
                 nexthop via 10.0.0.59  dev PortChannel0002 weight 1
                 nexthop via 10.0.0.61  dev PortChannel0003 weight 1
@@ -80,11 +84,11 @@ class TestWrArp:
             ...
 
             We'll use the first subnet IP taken from zebra protocol as the base for the host IP.
-            As in the new SONiC image the proto will look as '186'(201911) or bgp (master) 
-            instead of 'zebra' (like it looks in 201811)the filtering output command below will pick 
+            As in the new SONiC image the proto will look as '186'(201911) or bgp (master)
+            instead of 'zebra' (like it looks in 201811)the filtering output command below will pick
             the first line containing either 'proto zebra' (or 'proto 186' or 'proto bgp')
             (except the one for the deafult route) and take host IP from the subnet IP. For the output
-            above 192.168.8.0/25 subnet will be taken and host IP given to ferret script will be 192.168.8.1               
+            above 192.168.8.0/25 subnet will be taken and host IP given to ferret script will be 192.168.8.1
         '''
         result = duthost.shell(
             cmd='''ip route show type unicast |
@@ -107,7 +111,7 @@ class TestWrArp:
 
         logger.info('Generate pem and key files for ssl')
         ptfhost.command(
-            cmd='''openssl req -new -x509 -keyout test.key -out test.pem -days 365 -nodes 
+            cmd='''openssl req -new -x509 -keyout test.key -out test.pem -days 365 -nodes
             -subj "/C=10/ST=Test/L=Test/O=Test/OU=Test/CN=test.com"''',
             chdir='/opt'
         )

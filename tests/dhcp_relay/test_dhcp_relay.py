@@ -6,6 +6,9 @@ from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/un
 from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from ptf_runner import ptf_runner
 
+pytestmark = [
+    pytest.mark.topology('t0')
+]
 
 @pytest.fixture(scope="module")
 def dut_dhcp_relay_data(duthost, ptfhost, testbed):
@@ -20,7 +23,7 @@ def dut_dhcp_relay_data(duthost, ptfhost, testbed):
     host_facts = duthost.setup()['ansible_facts']
 
     # SONiC spawns one DHCP relay agent per VLAN interface configured on the DUT
-    vlan_dict = mg_facts['minigraph_vlans'] 
+    vlan_dict = mg_facts['minigraph_vlans']
     for vlan_iface_name, vlan_info_dict in vlan_dict.items():
         # Gather information about the downlink VLAN interface this relay agent is listening on
         downlink_vlan_iface = {}
@@ -50,7 +53,7 @@ def dut_dhcp_relay_data(duthost, ptfhost, testbed):
         for iface_name, neighbor_info_dict in mg_facts['minigraph_neighbors'].items():
             if neighbor_info_dict['name'] in mg_facts['minigraph_devices']:
                 neighbor_device_info_dict = mg_facts['minigraph_devices'][neighbor_info_dict['name']]
-                if 'type' in neighbor_device_info_dict and neighbor_device_info_dict['type'] == 'LeafRouter': 
+                if 'type' in neighbor_device_info_dict and neighbor_device_info_dict['type'] == 'LeafRouter':
                     # If this uplink's physical interface is a member of a portchannel interface,
                     # we record the name of the portchannel interface here, as this is the actual
                     # interface the DHCP relay will listen on.

@@ -26,7 +26,10 @@ from common.platform.daemon_utils import check_pmon_daemon_status
 
 from check_critical_services import check_critical_services
 
-pytestmark = [pytest.mark.disable_loganalyzer]
+pytestmark = [
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.topology('any')
+]
 
 MAX_WAIT_TIME_FOR_INTERFACES = 300
 MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120

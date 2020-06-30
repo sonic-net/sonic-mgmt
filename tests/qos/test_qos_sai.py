@@ -27,6 +27,10 @@ from qos_sai_base import QosSaiBase
 
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 class TestQosSai(QosSaiBase):
     """
         TestQosSai derives from QosSaiBase and contains collection of QoS SAI test cases.

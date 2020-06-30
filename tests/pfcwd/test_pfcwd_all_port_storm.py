@@ -11,7 +11,10 @@ TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templ
 EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
 EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
 
-pytestmark = [pytest.mark.disable_loganalyzer]
+pytestmark = [
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.topology('any')
+]
 
 logger = logging.getLogger(__name__)
 

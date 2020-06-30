@@ -16,6 +16,10 @@ from common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from common.utilities import wait_until
 from thermal_control_test_helper import *
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 CMD_PLATFORM_SUMMARY = "show platform summary"
 CMD_PLATFORM_PSUSTATUS = "show platform psustatus"
 CMD_PLATFORM_FANSTATUS = "show platform fan"
@@ -513,7 +517,7 @@ def test_thermal_control_fan_status(duthost, mocker_factory):
             logging.info('Mocking the fault FAN back to normal...')
             single_fan_mocker.mock_status(True)
             check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
-        
+
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_OVER_SPEED_RE]
         with loganalyzer:
             logging.info('Mocking an over speed FAN...')

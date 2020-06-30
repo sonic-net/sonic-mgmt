@@ -1,4 +1,9 @@
+import pytest
 from common.helpers.assertions import pytest_assert
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 # Helper functions
 def get_dict_stdout(gnmi_out, certs_out):
@@ -26,7 +31,7 @@ def test_config_db_parameters(duthost):
     gnmi = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "TELEMETRY|gnmi"', module_ignore_errors=False)['stdout_lines']
     pytest_assert(gnmi is not None, "TELEMETRY|gnmi does not exist in config_db")
 
-    certs = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "TELEMETRY|certs"', module_ignore_errors=False)['stdout_lines']    
+    certs = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "TELEMETRY|certs"', module_ignore_errors=False)['stdout_lines']
     pytest_assert(certs is not None, "TELEMETRY|certs does not exist in config_db")
 
     d = get_dict_stdout(gnmi, certs)

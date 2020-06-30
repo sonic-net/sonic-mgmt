@@ -1,6 +1,11 @@
+import pytest
 import ipaddress
 import logging
 from common.helpers.assertions import pytest_assert
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 logger = logging.getLogger(__name__)
 

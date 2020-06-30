@@ -1,5 +1,8 @@
 import pytest
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 @pytest.mark.bsl
 def test_snmp_interfaces(duthost, localhost, creds):

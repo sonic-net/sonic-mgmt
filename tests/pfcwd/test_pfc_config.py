@@ -15,7 +15,10 @@ CONFIG_TEST_EXPECT_INVALID_ACTION_RE = ".* Invalid PFC Watchdog action .*"
 CONFIG_TEST_EXPECT_INVALID_DETECT_TIME_RE = ".* Failed to parse PFC Watchdog .* detection_time .*"
 CONFIG_TEST_EXPECT_INVALID_RESTORE_TIME_RE = ".* Failed to parse PFC Watchdog .* restoration_time .*"
 
-pytestmark = [pytest.mark.disable_loganalyzer] # disable automatic fixture and invoke within each test
+pytestmark = [
+    pytest.mark.disable_loganalyzer, # disable automatic fixture and invoke within each test
+    pytest.mark.topology('any')
+]
 
 def create_run_dir():
     """

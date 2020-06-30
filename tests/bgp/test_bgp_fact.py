@@ -1,3 +1,8 @@
+import pytest
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 def test_bgp_facts(duthost):
     """compare the bgp facts between observed states and target state"""
