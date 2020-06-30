@@ -91,10 +91,10 @@ def test_bgp_multipath_relax(testbed, duthost):
     logger.info("Bgp route from DUT for prefix {} is {}".format(vips_prefix,bgp_route))
 
     # Verify found vips prefix entry in Sonic bgp routes
-    assert bgp_route[vips_prefix]['found'] ==True
+    pytest_assert( bgp_route[vips_prefix]['found'] ==True, "BGP route for {} not found".format(vips_prefix))
 
     # Verify total multipath match number of t0 with vips that has prefix for test
-    assert int(bgp_route[vips_prefix]['path_num']) == len(vips_t0)
+    pytest_assert (int(bgp_route[vips_prefix]['path_num']) == len(vips_t0), "Path number doesnt match the T0s with VIPS")
 
     
     # verify vips asn in each path of installed BGP vips prefix
