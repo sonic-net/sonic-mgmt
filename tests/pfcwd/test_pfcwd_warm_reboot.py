@@ -23,7 +23,9 @@ ACTIONS = { 'detect': 0,
             'storm_defer': 2
           }
 
-pytestmark = [pytest.mark.disable_loganalyzer]
+pytestmark = [pytest.mark.disable_loganalyzer,
+              pytest.mark.topology('any')
+             ]
 
 logger = logging.getLogger(__name__)
 
