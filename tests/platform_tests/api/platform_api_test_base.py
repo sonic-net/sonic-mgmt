@@ -1,5 +1,3 @@
-import ast
-
 from common.helpers.assertions import pytest_assert
 
 
