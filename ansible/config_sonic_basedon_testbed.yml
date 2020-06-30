@@ -162,8 +162,9 @@
         state: directory
         mode: '0755'
       become: true
-    
-    - name: Generate server cert using openssl. This need to be copied and renamed as dsmsroot.cer on ptfdocker
+
+    # {{ server_cer }}/ streamingtelemetryserver.cer need to be copied on PTFDocker and renamed as dsmsroot.cer    
+    - name: Generate server cert using openssl.
       command: openssl req \
           -x509 \
           -sha256 \
@@ -174,7 +175,8 @@
           -out "{{ server_cer }}" 
       become: true
 
-    - name: Generate dsmsroot cert using openssl. This need to be copied and renamed as streamingtelemetryclient.cer on ptfdocker
+    # {{ dsmsroot_cer }}/ dsmsroot.cer need to be copied on PTFDocker and renamed as streamingtelemetryclient.cer
+    - name: Generate dsmsroot cert using openssl.
       command: openssl req \
           -x509 \
           -sha256 \
