@@ -16,6 +16,7 @@ $ sudo brctl addbr br1
 $ sudo ifconfig br1 10.250.0.1/24
 $ sudo ifconfig br1 up
 ```
+- Install Ansible
 
 ### Use vEOS image
 
@@ -86,7 +87,7 @@ $ git clone https://github.com/Azure/sonic-mgmt
 $ docker run -v $PWD:/data -it docker-sonic-mgmt bash
 ```
 
-From now on, all steps are running inside the *sonic-mgmt* docker.
+From now on, all steps are running inside the *sonic-mgmt* docker except where otherwise specified.
 
 ### Setup public key to login into the linux host from sonic-mgmt docker
 
@@ -111,13 +112,16 @@ vm_host_1
 
 - Add user ```foo```'s private key to ```$HOME/.ssh/id_rsa``` inside sonic-mgmt docker container.
 
-- Add user ```foo```to sudoer list, use ```visudo``` to add following line in the sudoer configuration.
+- Add user ```foo``` to sudoer list, use ```visudo``` to add following line in the sudoer configuration on the host.
+
 ```
    foo ALL=(ALL) NOPASSWD:ALL
 ```
 
+- Make sure user ```foo```'s home directory is owned by user ```foo```. If necessary, ```chown -R foo:foo /home/foo``` on the host.
+
 - Test you can login into the host ```ssh foo@172.17.0.1``` without any password prompt
-from the ```sonic-mgmt``` container. Then, test you can sudo without password prompot in the host.
+from the ```sonic-mgmt``` container. Then, test you can sudo without password prompt in the host.
 
 ## Setup Arista VMs in the server
 
@@ -165,6 +169,8 @@ $ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb add-topo vms-kvm-t0 password.txt
 ```
 $ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb -k ceos add-topo vms-kvm-t0 password.txt
 ```
+
+  - please note: Here "password.txt" is the ansible vault password file name/path. Ansible allows user use ansible vault to encrypt password files. By default, this shell script require a password file. If you are not using ansible vault, just create a file with a dummy pasword and pass the filename to the command line. The file name and location is created and maintained by user.
 
 Verify topology setup successfully.
 
