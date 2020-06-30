@@ -15,9 +15,13 @@ from ptf_runner import ptf_runner
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
 EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
-TESTCASE1_ACTIONS = ["detect", "restore", "warm-reboot", "detect", "restore"]
-TESTCASE2_ACTIONS = ["detect", "warm-reboot", "detect", "restore"]
-TESTCASE3_ACTIONS = ["storm_defer", "warm-reboot", "detect", "restore"]
+TESTCASE_INFO = {'no_storm': { 'test_sequence': ["detect", "restore", "warm-reboot", "detect", "restore"],
+                               'desc': "Test PFC storm detect/restore before and after warm boot" },
+                 'storm': { 'test_sequence': ["detect", "warm-reboot", "detect", "restore"],
+                            'desc': "Test PFC storm detect with on going storm after warm boot followed by restore" },
+                 'async_storm': { 'test_sequence': ["storm_defer", "warm-reboot", "detect", "restore"],
+                                  'desc': "Test PFC async storm start/end with warm boot followed by detect/restore" }
+                }
 ACTIONS = { 'detect': 0,
             'restore': 1,
             'storm_defer': 2
@@ -414,11 +418,34 @@ class TestPfcwdWb(SetupPfcwdFunc):
                                    first_detect_after_wb=(t_idx == 2 and not p_idx and not q_idx and not storm_deferred),
                                    storm_defer=(bitmask & 4))
 
-    def test_pfcwd_no_storm_wb(self, setup_pfc_test, fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts):
+    @pytest.fixture(params=['no_storm', 'storm', 'async_storm'])
+    def testcase_action(self, request):
         """
-        Tests PFCwd storm detection/restore before and after warm reboot
+        Parameters to invoke the pfcwd warm boot test
 
         Args:
+            request(pytest) : pytest request object
+
+        Yields:
+            testcase_action(string) : testcase to execute
+        """
+        yield request.param
+
+    def test_pfcwd_wb(self, testcase_action, setup_pfc_test, fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts):
+        """
+        Tests PFCwd warm reboot with various testcase actions
+
+        Args:
+            testcase_action(fixture): testcase to execute (values: 'no_storm', 'storm', 'async_storm')
+
+                'no_storm' : PFCwd storm detection/restore before and after warm reboot
+                'storm' : PFC storm started and detected before warm-reboot. Storm is ongoing during warm boot and lasts
+                          past the warm boot finish. Verifies if the storm is detected after warm-reboot.
+                          PFC storm is stopped and 465 restored after warm boot
+                'async_storm': PFC storm asynchronously starts at a random time and lasts a random period at fanout.
+                               Warm reboot is done. Wait for all the storms to finish and then verify the storm detect/restore
+                               logic
+
             setup_pfc_test(fixture) : Module scoped autouse fixture for PFCwd
             fanout_graph_facts(fixture) : fanout graph info
             ptfhost(AnsibleHost) : ptf host instance
@@ -426,45 +453,6 @@ class TestPfcwdWb(SetupPfcwdFunc):
             localhost(AnsibleHost) : localhost instance
             fanouthosts(AnsibleHost): fanout instance
         """
-        logger.info("--- Test PFC storm detect/restore before and after warm boot ---")
-        self.pfcwd_wb_helper(TESTCASE1_ACTIONS, setup_pfc_test, fanout_graph_facts, ptfhost,
-                             duthost, localhost, fanouthosts)
-
-    def test_pfcwd_storm_wb(self, setup_pfc_test, fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts):
-        """
-        Tests PFCwd ongoing storm during warm boot
-
-        PFC storm started and detected before warm-reboot. Storm is ongoing during warm boot and lasts past
-        the warm boot finish. Verifies if the storm is detected after warm-reboot. PFC storm is stopped and
-        restored after warm boot
-
-        Args:
-            setup_pfc_test(fixture) : Module scoped autouse fixture for PFCwd
-            fanout_graph_facts(fixture) : fanout graph info
-            ptfhost(AnsibleHost) : ptf host instance
-            duthost(AnsibleHost) : DUT instance
-            localhost(AnsibleHost) : localhost instance
-            fanouthosts(AnsibleHost): fanout instance
-        """
-        logger.info("--- Test PFC storm detect with on going storm after warm boot followed by restore ---")
-        self.pfcwd_wb_helper(TESTCASE2_ACTIONS, setup_pfc_test, fanout_graph_facts, ptfhost,
-                             duthost, localhost, fanouthosts)
-
-    def test_pfcwd_async_storm_wb(self, setup_pfc_test, fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts):
-        """
-        Tests PFCwd warm boot with async storm start/stop
-
-        PFC storm asynchronously starts at a random time and lasts a random period at fanout. Warm reboot is
-        done. Wait for all the storms to finish and then verify the storm detect/restore logic
-
-        Args:
-            setup_pfc_test(fixture) : Module scoped autouse fixture for PFCwd
-            fanout_graph_facts(fixture) : fanout graph info
-            ptfhost(AnsibleHost) : ptf host instance
-            duthost(AnsibleHost) : DUT instance
-            localhost(AnsibleHost) : localhost instance
-            fanouthosts(AnsibleHost): fanout instance
-        """
-        logger.info("--- Test PFC async storm start/end with warm boot followed by detect/restore ---")
-        self.pfcwd_wb_helper(TESTCASE3_ACTIONS, setup_pfc_test, fanout_graph_facts, ptfhost,
-                             duthost, localhost, fanouthosts)
+        logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
+        self.pfcwd_wb_helper(TESTCASE_INFO[testcase_action]['test_sequence'], setup_pfc_test,
+                             fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts)
