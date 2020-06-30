@@ -16,9 +16,37 @@ def chassis_api(conn, name, args=None):
     logger.info('Executing chassis API: "{}", arguments: "{}", result: "{}"'.format(name, args, res))
     return res
 
+
+#
+# Methods inherited from DeviceBase class
+#
+
+def get_name(conn):
+    return chassis_api(conn, 'get_name')
+
+
+def get_presence(conn):
+    return chassis_api(conn, 'get_presence')
+
+
+def get_model(conn):
+    return chassis_api(conn, 'get_model')
+
+
+def get_serial(conn):
+    return chassis_api(conn, 'get_serial')
+
+
+def get_status(conn):
+    return chassis_api(conn, 'get_status')
+
+
+#
+# Methods defined in ChassisBase class
+#
+
 # NOTE: The get_change_event() method is not represented here because there is no reliable way
 # to test this method in an automated fashion.
-
 
 def get_base_mac(conn):
     return chassis_api(conn, 'get_base_mac')

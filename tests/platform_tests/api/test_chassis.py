@@ -7,9 +7,12 @@ import yaml
 from common.helpers.assertions import pytest_assert
 from common.helpers.platform_api import chassis
 
+from platform_api_test_base import PlatformApiTestBase
+
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
     pytest.mark.topology('any')
 ]
@@ -38,8 +41,43 @@ ONIE_TLVINFO_TYPE_CODE_VENDOR_EXT = '0xFD'      # Vendor Extension
 ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
 
 
-class TestChassisAPI(object):
+class TestChassisAPI(PlatformApiTestBase):
     ''' Platform API test cases for the chassis class'''
+
+    #
+    # Functions to test methods inherited from DeviceBase class
+    #
+
+    def test_get_name(self, duthost, localhost, platform_api_conn):
+        name = chassis.get_name(platform_api_conn)
+        pytest_assert(name is not None, "Unable to retrieve chassis name")
+        pytest_assert(isinstance(name, str), "Chassis name appears incorrect")
+
+    def test_get_presence(self, duthost, localhost, platform_api_conn):
+        presence = chassis.get_presence(platform_api_conn)
+        pytest_assert(presence is not None, "Unable to retrieve chassis presence")
+        pytest_assert(isinstance(presence, bool), "Chassis presence appears incorrect")
+        # Chassis should always be present
+        pytest_assert(presence is True, "Chassis is not present")
+
+    def test_get_model(self, duthost, localhost, platform_api_conn):
+        model = chassis.get_model(platform_api_conn)
+        pytest_assert(model is not None, "Unable to retrieve chassis model")
+        pytest_assert(isinstance(model, str), "Chassis model appears incorrect")
+
+    def test_get_serial(self, duthost, localhost, platform_api_conn):
+        serial = chassis.get_serial(platform_api_conn)
+        pytest_assert(serial is not None, "Unable to retrieve chassis serial number")
+        pytest_assert(isinstance(serial, str), "Chassis serial number appears incorrect")
+
+    def test_get_status(self, duthost, localhost, platform_api_conn):
+        status = chassis.get_status(platform_api_conn)
+        pytest_assert(status is not None, "Unable to retrieve chassis status")
+        pytest_assert(isinstance(status, bool), "Chassis status appears incorrect")
+
+    #
+    # Functions to test methods defined in ChassisBase class
+    #
 
     def test_get_base_mac(self, duthost, localhost, platform_api_conn):
         # Ensure the base MAC address is sane
@@ -151,7 +189,8 @@ class TestChassisAPI(object):
 
         for i in range(num_components):
             component = chassis.get_component(platform_api_conn, i)
-            pytest_assert(component and component == component_list[i], "Component {} is incorrect".format(i))
+            self.expect(component and component == component_list[i], "Component {} is incorrect".format(i))
+        self.assert_expectations()
 
     def test_modules(self, duthost, localhost, platform_api_conn):
         # TODO: Ensure the number of modules and that the returned list is correct for this platform
@@ -166,7 +205,8 @@ class TestChassisAPI(object):
 
         for i in range(num_modules):
             module = chassis.get_module(platform_api_conn, i)
-            pytest_assert(module and module == module_list[i], "Module {} is incorrect".format(i))
+            self.expect(module and module == module_list[i], "Module {} is incorrect".format(i))
+        self.assert_expectations()
 
     def test_fans(self, duthost, localhost, platform_api_conn):
         # TODO: Ensure the number of fans and that the returned list is correct for this platform
@@ -181,7 +221,8 @@ class TestChassisAPI(object):
 
         for i in range(num_fans):
             fan = chassis.get_fan(platform_api_conn, i)
-            pytest_assert(fan and fan == fan_list[i], "Fan {} is incorrect".format(i))
+            self.expect(fan and fan == fan_list[i], "Fan {} is incorrect".format(i))
+        self.assert_expectations()
 
     def test_fan_drawers(self, duthost, localhost, platform_api_conn):
         # TODO: Ensure the number of fan drawers and that the returned list is correct for this platform
@@ -196,7 +237,8 @@ class TestChassisAPI(object):
 
         for i in range(num_fan_drawers):
             fan_drawer = chassis.get_fan_drawer(platform_api_conn, i)
-            pytest_assert(fan_drawer and fan_drawer == fan_drawer_list[i], "Fan drawer {} is incorrect".format(i))
+            self.expect(fan_drawer and fan_drawer == fan_drawer_list[i], "Fan drawer {} is incorrect".format(i))
+        self.assert_expectations()
 
     def test_psus(self, duthost, localhost, platform_api_conn):
         # TODO: Ensure the number of PSUs and that the returned list is correct for this platform
@@ -211,7 +253,8 @@ class TestChassisAPI(object):
 
         for i in range(num_psus):
             psu = chassis.get_psu(platform_api_conn, i)
-            pytest_assert(psu and psu == psu_list[i], "PSU {} is incorrect".format(i))
+            self.expect(psu and psu == psu_list[i], "PSU {} is incorrect".format(i))
+        self.assert_expectations()
 
     def test_thermals(self, duthost, localhost, platform_api_conn):
         # TODO: Ensure the number of thermals and that the returned list is correct for this platform
@@ -226,7 +269,8 @@ class TestChassisAPI(object):
 
         for i in range(num_thermals):
             thermal = chassis.get_thermal(platform_api_conn, i)
-            pytest_assert(thermal and thermal == thermal_list[i], "Thermal {} is incorrect".format(i))
+            self.expect(thermal and thermal == thermal_list[i], "Thermal {} is incorrect".format(i))
+        self.assert_expectations()
 
     def test_sfps(self, duthost, localhost, platform_api_conn):
         # TODO: Ensure the number of SFPs and that the returned list is correct for this platform
@@ -241,7 +285,8 @@ class TestChassisAPI(object):
 
         for i in range(num_sfps):
             sfp = chassis.get_sfp(platform_api_conn, i)
-            pytest_assert(sfp and sfp == sfp_list[i], "SFP {} is incorrect".format(i))
+            self.expect(sfp and sfp == sfp_list[i], "SFP {} is incorrect".format(i))
+        self.assert_expectations()
 
     def test_get_thermal_manager(self, duthost, localhost, platform_api_conn):
         thermal_mgr = chassis.get_thermal_manager(platform_api_conn)
