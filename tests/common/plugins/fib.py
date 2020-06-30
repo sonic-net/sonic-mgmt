@@ -5,6 +5,8 @@ import requests
 import pytest
 import logging
 import ipaddr as ipaddress
+from common.utilities import wait_tcp_connection
+
 logger = logging.getLogger(__name__)
 
 
@@ -19,7 +21,6 @@ def announce_routes(ptfip, port, routes):
     url = "http://%s:%d" % (ptfip, port)
     data = { "commands": ";".join(messages) }
     r = requests.post(url, data=data)
-    print r
     assert r.status_code == 200
 
 
@@ -93,7 +94,7 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
     return routes
 
 
-def fib_t0(ptfhost, testbed):
+def fib_t0(ptfhost, testbed, localhost):
     logger.info("use fib_t0 to setup routes for topo {}".format(testbed['topo']['name']))
 
     podset_number = 200
@@ -137,6 +138,15 @@ def fib_t0(ptfhost, testbed):
                        local_asn = asn, \
                        peer_asn  = asn, \
                        port = port6)
+    # check if bgp http_api is ready
+    for k, v in testbed['topo']['properties']['configuration'].items():
+        vm_offset = testbed['topo']['properties']['topology']['VMs'][k]['vm_offset']
+
+        port = 5000 + vm_offset
+        assert wait_tcp_connection(localhost, ptfip, port)
+
+        port6 = 6000 + vm_offset
+        assert wait_tcp_connection(localhost, ptfip, port6)
 
     for k, v in testbed['topo']['properties']['configuration'].items():
         vm_offset = testbed['topo']['properties']['topology']['VMs'][k]['vm_offset']
@@ -154,7 +164,7 @@ def fib_t0(ptfhost, testbed):
         announce_routes(ptfip, port6, routes_v6)
 
 
-def fib_t1_lag(ptfhost, testbed):
+def fib_t1_lag(ptfhost, testbed, localhost):
     logger.info("use fib_t1_lag to setup routes for topo {}".format(testbed['topo']['name']))
 
     podset_number = 200
@@ -198,6 +208,15 @@ def fib_t1_lag(ptfhost, testbed):
                        local_asn = asn, \
                        peer_asn  = asn, \
                        port = port6)
+    # Check if bgp http_api port is ready
+    for k, v in testbed['topo']['properties']['configuration'].items():
+        vm_offset = testbed['topo']['properties']['topology']['VMs'][k]['vm_offset']
+
+        port = 5000 + vm_offset
+        assert wait_tcp_connection(localhost, ptfip, port)
+
+        port6 = 6000 + vm_offset
+        assert wait_tcp_connection(localhost, ptfip, port6)
 
     for k, v in testbed['topo']['properties']['configuration'].items():
 
@@ -229,11 +248,11 @@ def fib_t1_lag(ptfhost, testbed):
 
 
 @pytest.fixture(scope='module')
-def fib(ptfhost, testbed):
+def fib(ptfhost, testbed, localhost):
     logger.info("setup fib to topo {}".format(testbed['topo']['name']))
     if testbed['topo']['type'] == "t0":
-        fib_t0(ptfhost, testbed)
+        fib_t0(ptfhost, testbed, localhost)
     elif testbed['topo']['type'] == "t1":
-        fib_t1_lag(ptfhost, testbed)
+        fib_t1_lag(ptfhost, testbed, localhost)
     else:
         logger.error("unknonw topology {}".format(testbed['topo']['name']))

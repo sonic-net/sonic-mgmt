@@ -76,7 +76,12 @@ class PlatformAPITestService(BaseHTTPRequestHandler):
         api = path.pop()
         args = request['args']
 
-        res = getattr(obj, api)(*args)
+        res = None
+
+        try:
+            res = getattr(obj, api)(*args)
+        except NotImplementedError as e:
+            syslog.syslog(syslog.LOG_WARNING, "API '{}' not implemented".format(api))
 
         response = BytesIO()
         response.write(json.dumps({'res': res}, default=obj_serialize))
