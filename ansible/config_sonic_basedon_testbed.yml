@@ -176,6 +176,7 @@
       become: true
 
     # {{ dsmsroot_cer }}/ dsmsroot.cer need to be copied on PTFDocker and renamed as streamingtelemetryclient.cer
+    # {{ dsms_key }}/ dsmsroot.key need to be copied and renamed as streamingtelemetryclient.key
     - name: Generate dsmsroot cert using openssl.
       command: openssl req \
           -x509 \
