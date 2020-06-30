@@ -42,13 +42,13 @@ def get_serial(conn, index):
 def get_status(conn, index):
     return sfp_api(conn, index, 'get_status')
 
+
 #
 # Methods defined in SfpBase class
 #
 
 # NOTE: The get_change_event() method is not represented here because there is no reliable way
 # to test this method in an automated fashion.
-
 
 def get_transceiver_info(conn, index):
     return sfp_api(conn, index, 'get_transceiver_info')
