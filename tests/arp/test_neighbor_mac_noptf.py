@@ -3,9 +3,13 @@ import pytest
 import time
 
 from common.helpers.assertions import pytest_assert
+from common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
 class TestNeighborMacNoPtf:
     """
         Test handling of neighbor MAC in SONiC switch
@@ -34,9 +38,7 @@ class TestNeighborMacNoPtf:
         yield
  
         logger.info("Reload Config DB")
-        duthost.shell(argv=["config", "reload", "-y"])
- 
-        time.sleep(120)
+        config_reload(duthost, config_source='config_db', wait=120)
 
     @pytest.fixture(params=[4, 6])
     def ipVersion(self, request):
@@ -84,9 +86,9 @@ class TestNeighborMacNoPtf:
             Returns:
                 None
         """
-        def getOrchagentPid(duthost):
+        def verifyOrchagentRunningOrAssert(duthost):
             """
-                Retreive orchagent process ID
+                Verifyes that orchagent is running, asserts otherwise
 
                 Args:
                     duthost (AnsibleHost): Device Under Test (DUT)
@@ -94,11 +96,11 @@ class TestNeighborMacNoPtf:
             result = duthost.shell(argv=["pgrep", "orchagent"])
             pytest_assert(int(result["stdout"]) > 0, "Orchagent is not running")
 
-        getOrchagentPid(duthost)
+        verifyOrchagentRunningOrAssert(duthost)
 
         yield
 
-        getOrchagentPid(duthost)
+        verifyOrchagentRunningOrAssert(duthost)
 
     def __updateNeighborIp(self, duthost, intf, ipVersion, macIndex, action=None):
         """
