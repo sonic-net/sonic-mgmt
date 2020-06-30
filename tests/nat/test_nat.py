@@ -1,10 +1,18 @@
-import json
 import random
 import pytest
-import time
+import os
 
-import common.reboot as common_reboot
-from nat_helpers import *
+from nat_helpers import DIRECTION_PARAMS, SUPPORTED_TOPO, SETUP_CONF, POOL_RANGE_START_PORT, \
+                        POOL_RANGE_END_PORT, DUT_TMP_DIR, NAT_ADMIN_MODE, \
+                        TEMPLATE_DIR, GLOBAL_NAT_TIMEOUT, GLOBAL_TCP_NAPT_TIMEOUT, \ 
+                        GLOBAL_UDP_NAPT_TIMEOUT, NAT_GLOBAL_TEMPLATE, \
+                        get_dst_ip, nat_statistics, set_l4_default_ports, \
+                        get_dst_port, get_src_port, expected_mask_nated_packet, \
+                        conf_ptf_interfaces, setup_test_env, apply_static_nat_config, \
+                        check_rule_by_traffic, configure_dynamic_nat_rule, \
+                        dut_interface_control, dut_nat_iptables_status, nat_translations, \
+                        get_public_ip, get_src_ip, nat_zones_config, exec_command, \
+                        teardown_test_env, get_static_l4_ports, wait_timeout
 from common.helpers.assertions import pytest_assert
 
 
@@ -102,7 +110,7 @@ def apply_global_nat_config(duthost, ptfhost, setup_info, interface_type):
         print(e)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def setup_info(ptfhost, duthost, testbed):
     """
     setup fixture gathers all test required information from DUT facts and testbed
@@ -150,7 +158,7 @@ def setup_info(ptfhost, duthost, testbed):
         "dut_rifs_in_topo_t0": dut_rifs_in_topo_t0,
         "indices_to_ports_config": indices_to_ports_config,
         "ptf_ports_available_in_topo": ptf_ports_available_in_topo,
-        "config_portchannels":config_portchannels,
+        "config_portchannels": config_portchannels,
         "pch_ips": {"PortChannel0001": duthost.setup()['ansible_facts']['ansible_PortChannel0001']['ipv4']['address'],
                     "PortChannel0002": duthost.setup()['ansible_facts']['ansible_PortChannel0002']['ipv4']['address']},
         "outer_vrf": ["red", "green"],
@@ -169,7 +177,7 @@ def setup_info(ptfhost, duthost, testbed):
             "public_ip": duthost.setup()['ansible_facts']['ansible_Loopback0']['ipv4']['address'],
             "second_public_ip": duthost.setup()['ansible_facts']['ansible_Loopback0']['ipv4']['address'],
             "gw": duthost.setup()['ansible_facts']['ansible_Vlan1000']['ipv4']['address'],
-            "acl_subnet" : SETUP_CONF["loopback"]["acl_subnet"]
+            "acl_subnet": SETUP_CONF["loopback"]["acl_subnet"]
         },
         "port_in_lag": {
             "vrf_conf": SETUP_CONF["port_in_lag"]["vrf"],
@@ -184,7 +192,7 @@ def setup_info(ptfhost, duthost, testbed):
             "public_ip": SETUP_CONF["port_in_lag"]["vrf"]["red"]["gw"],
             "second_public_ip": SETUP_CONF["port_in_lag"]["vrf"]["green"]["gw"],
             "gw": duthost.setup()['ansible_facts']['ansible_Vlan1000']['ipv4']['address'],
-            "acl_subnet" : SETUP_CONF["port_in_lag"]["acl_subnet"]
+            "acl_subnet": SETUP_CONF["port_in_lag"]["acl_subnet"]
         }
     }
     yield setup_information
@@ -192,7 +200,7 @@ def setup_info(ptfhost, duthost, testbed):
 
 class TestNat(object):
     """ TestNat class for testing nat """
-    
+
     def test_nat_static_basic(self, ptfhost, testbed, duthost, ptfadapter, setup_info, interface_type, protocol_type,
                               setup_info_modify_zones=None, negative=False):
         setup_test_env(ptfhost, duthost, testbed, setup_info, interface_type)
@@ -248,9 +256,9 @@ class TestNat(object):
                 src_l4_port, dst_l4_port, exp_src_port, exp_dst_port = get_static_l4_ports(protocol_type,
                                                                                            direction=path,
                                                                                            nat_type='static_napt')
-                check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_info, path, interface_type, 
+                check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_info, path, interface_type,
                                       protocol_type, source_l4_port=src_l4_port, dest_l4_port=dst_l4_port,
-                                      exp_source_port=exp_src_port, exp_dst_port=exp_dst_port, 
+                                      exp_source_port=exp_src_port, exp_dst_port=exp_dst_port,
                                       nat_type='static_napt', negative=negative, handshake=not negative)
         if setup_info_modify_zones:
             nat_zones_config(duthost, setup_info_modify_zones, interface_type)
@@ -364,9 +372,9 @@ class TestNat(object):
             check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_info, direction, interface_type,
                                   protocol_type, exp_source_port=POOL_RANGE_START_PORT, icmp_id=POOL_RANGE_START_PORT,
                                   nat_type='dynamic', default=True, negative=True, action='do_not_nat')
-        
+
     def test_nat_dynamic_zones(self, ptfhost, testbed, duthost, ptfadapter, setup_info, interface_type,
-                                protocol_type, zone_type):
+                               protocol_type, zone_type):
         # Prepare configuration for NAT zones modify test
         setup_info_modify_zones = {k: v for (k, v) in setup_info.items()}
         for key in setup_info_modify_zones['interfaces_nat_zone']:
@@ -402,7 +410,7 @@ class TestNat(object):
             # Set source and destination IPs for packets to send
             ip_src = get_src_ip(setup_info, direction, interface_type)
             ip_dst = get_dst_ip(setup_info, direction, interface_type)
-            pkt = testutils.simple_gre_packet(eth_dst=eth_dst,eth_src=eth_src, ip_src=ip_src, ip_dst=ip_dst)
+            pkt = testutils.simple_gre_packet(eth_dst=eth_dst, eth_src=eth_src, ip_src=ip_src, ip_dst=ip_dst)
             exp_pkt = expected_mask_nated_packet(pkt, setup_info, interface_type, direction, "gre")
             # Check that packet was not NAT
             testutils.send(ptfadapter, inner_ports[0], pkt, count=5)
@@ -421,16 +429,15 @@ class TestNat(object):
         configure_dynamic_nat_rule(duthost, setup_info, interface_type, default=True)
         # make sure static NAT translations don't exist
         cleared_translations = nat_translations(duthost, show=True)
-        pytest_assert(not cleared_translations,
-                        "Unexpected NAT translations output")
+        pytest_assert(not cleared_translations, "Unexpected NAT translations output")
         # Traffic send and check
         for direction in DIRECTION_PARAMS:
             if direction == 'leaf-tor':
                 continue
             # Traffic send and check
             check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_info, direction, interface_type,
-                                    protocol_type,
-                                    icmp_id=POOL_RANGE_START_PORT, handshake=True, nat_type='dynamic', default=True)
+                                  protocol_type, icmp_id=POOL_RANGE_START_PORT, handshake=True,
+                                  nat_type='dynamic', default=True)
         source_l4_port, _ = set_l4_default_ports(protocol_type)
         nat_translated_source = "{}:{}".format(setup_info[interface_type]["public_ip"], POOL_RANGE_START_PORT + 1)
         nat_source = "{}:{}".format(setup_info[interface_type]["src_ip"], source_l4_port)
@@ -439,17 +446,16 @@ class TestNat(object):
         # make sure static NAT translations exist
         translations = nat_translations(duthost, show=True)
         for entry in translations:
-            # TODO: fix asap as assert helper will be merged
             if entry == nat_source:
                 pytest_assert(nat_translated_source == translations[entry]["Translated Source"],
-                                "Unexpected source translation rule for {}".format(entry))
+                              "Unexpected source translation rule for {}".format(entry))
                 pytest_assert(nat_source == translations[entry]["Source"],
-                                "Unexpected source translation rule for {}".format(entry))
+                              "Unexpected source translation rule for {}".format(entry))
             if entry == nat_destination:
                 pytest_assert(nat_translated_destination == translations[entry]["Translated Destination"],
-                                "Unexpected destination translation rule for {}".format(entry))
+                              "Unexpected destination translation rule for {}".format(entry))
                 pytest_assert(nat_destination == translations[entry]["Destination"],
-                                "Unexpected source translation rule for {}".format(entry))
+                              "Unexpected source translation rule for {}".format(entry))
         # clear translations
         nat_translations(duthost, clear=True)
         # make sure static NAT translations don't exist
@@ -492,7 +498,6 @@ class TestNat(object):
         # make sure static NAT translations exist
         translations = nat_translations(duthost, show=True)
         for entry in translations:
-            # TODO: fix asap as assert helper will be merged
             if entry == nat_source:
                 pytest_assert(nat_translated_source == translations[entry]["Translated Source"],
                               "Unexpected source translation rule for {}".format(entry))
