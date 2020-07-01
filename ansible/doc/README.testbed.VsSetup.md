@@ -111,7 +111,7 @@ vm_host_1
 
 - Add user `foo`'s private key to `$HOME/.ssh/id_rsa` inside sonic-mgmt docker container.
 
-- Add user `foo` to sudoer list, use `visudo` to add following line in the sudoer configuration on the host.
+- Add user `foo` to sudoer list, use `visudo` to add following line in the sudoer configuration.
 
 ```
    foo ALL=(ALL) NOPASSWD:ALL
