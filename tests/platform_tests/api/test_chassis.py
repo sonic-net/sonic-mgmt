@@ -265,7 +265,7 @@ class TestChassisApi(PlatformApiTestBase):
 
         thermal_list = chassis.get_all_thermals(platform_api_conn)
         pytest_assert(thermal_list is not None, "Failed to retrieve thermals")
-        pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Thermalss appear to be incorrect")
+        pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Thermals appear to be incorrect")
 
         for i in range(num_thermals):
             thermal = chassis.get_thermal(platform_api_conn, i)
