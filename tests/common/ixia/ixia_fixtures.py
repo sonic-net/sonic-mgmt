@@ -1,4 +1,4 @@
-mport pytest
+import pytest
 import pprint
 from common.devices import FanoutHost
 from ixnetwork_restpy import SessionAssistant, Files
