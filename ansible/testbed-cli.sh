@@ -85,9 +85,10 @@ function read_file
   ptf_imagename=${line_arr[3]}
   ptf=${line_arr[4]}
   ptf_ip=${line_arr[5]}
-  server=${line_arr[6]}
-  vm_base=${line_arr[7]}
-  dut=${line_arr[8]//;/,}
+  ptf_ipv6=${line_arr[6]}
+  server=${line_arr[7]}
+  vm_base=${line_arr[8]}
+  dut=${line_arr[9]//;/,}
   duts=${dut//[\[\] ]/}
 }
 

@@ -1,8 +1,8 @@
 import pytest
 import crypt
+import pdb
 
-@pytest.fixture(scope="module")
-def setup_tacacs(ptfhost, duthost, creds):
+def start_tacacs(ptfhost, duthost, creds, tacacs_server_ip):
     """setup tacacs client and server"""
 
     # disable tacacs server
@@ -15,9 +15,7 @@ def setup_tacacs(ptfhost, duthost, creds):
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     for tacacs_server in config_facts.get('TACPLUS_SERVER', {}):
         duthost.shell("sudo config tacacs delete %s" % tacacs_server)
-
-    ptfip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
-    duthost.shell("sudo config tacacs add %s" % ptfip)
+    duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
     duthost.shell("sudo config tacacs authtype login")
 
     # enable tacacs+
@@ -36,15 +34,34 @@ def setup_tacacs(ptfhost, duthost, creds):
     # start tacacs server
     ptfhost.service(name="tacacs_plus", state="started")
 
-    yield
 
+def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
     # stop tacacs server
     ptfhost.service(name="tacacs_plus", state="stopped")
 
     # reset tacacs client configuration
-    duthost.shell("sudo config tacacs delete %s" % ptfip)
+    duthost.shell("sudo config tacacs delete %s" % tacacs_server_ip)
     duthost.shell("sudo config tacacs default passkey")
     duthost.shell("sudo config aaa authentication login default")
     duthost.shell("sudo config aaa authentication failthrough default")
+
+@pytest.fixture(scope="module")
+def setup_tacacs(ptfhost, duthost, creds):
+    tacacs_server_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
+    start_tacacs(ptfhost, duthost, creds, tacacs_server_ip)
+
+    yield
+
+    cleanup_tacacs(ptfhost, duthost, tacacs_server_ip)
+
+
+@pytest.fixture(scope="module")
+def setup_tacacs_v6(ptfhost, duthost, creds):
+    tacacs_server_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_hostv6']
+    start_tacacs(ptfhost, duthost, creds, tacacs_server_ip)
+
+    yield
+
+    cleanup_tacacs(ptfhost, duthost, tacacs_server_ip)
 
 
