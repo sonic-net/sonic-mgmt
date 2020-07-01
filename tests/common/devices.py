@@ -851,6 +851,26 @@ class OnyxHost(AnsibleHostBase):
         if res["localhost"]["rc"] != 0:
             raise Exception("Unable to execute template\n{}".format(res["localhost"]["stdout"]))
 
+class IxiaHost (AnsibleHostBase):
+    """
+    @summary: For running ansible module on Ixia Fanout switch in future (TBD).
+    Now it is just a place holder
+    """
+    def __init__ (self, ansible_adhoc, os, hostname, device_type) :
+        self.ansible_adhoc = ansible_adhoc
+        self.os            = os
+        self.hostname      = hostname
+        self.device_type   = device_type
+   
+    def get_host_name (self) :
+        return self.hostname
+
+    def get_os (self) :
+        return self.os
+
+    def exacute (self, cmd) :
+        if (self.os == 'ixia') :
+            eval(cmd)
 
 class FanoutHost():
     """
@@ -873,7 +893,7 @@ class FanoutHost():
         elif os == 'ixia':
             # TODO: add ixia chassis abstraction
             self.os = os
-            self.host = None
+            self.host = IxiaHost(ansible_adhoc, os, hostname, device_type)
         else:
             # Use eos host if the os type is unknown
             self.os = 'eos'
