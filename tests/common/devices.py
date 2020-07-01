@@ -617,12 +617,13 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         @param neigh_ips: bgp neighbor IPs
         @param state: target state
         """
+        neigh_ips = [ip.lower() for ip in neigh_ips]
         neigh_ok = []
         bgp_facts = self.bgp_facts()['ansible_facts']
         logging.info("bgp_facts: {}".format(bgp_facts))
         for k, v in bgp_facts['bgp_neighbors'].items():
             if v['state'] == state:
-                if k in neigh_ips:
+                if k.lower() in neigh_ips:
                     neigh_ok.append(k)
         logging.info("bgp neighbors that match the state: {}".format(neigh_ok))
         if len(neigh_ips) == len(neigh_ok):
@@ -749,8 +750,11 @@ class EosHost(AnsibleHostBase):
         @param neigh_desc: bgp neighbor description
         @param state: target state
         """
+        neigh_ips = [ip.lower() for ip in neigh_ips]
         neigh_ips_ok = []
         neigh_desc_ok = []
+        neigh_desc_available = False
+
         out_v4 = self.eos_command(
             commands=['show ip bgp summary | json'])
         logging.info("ip bgp summary: {}".format(out_v4))
@@ -762,19 +766,28 @@ class EosHost(AnsibleHostBase):
         for k, v in out_v4['stdout'][0]['vrfs']['default']['peers'].items():
             if v['peerState'].lower() == state.lower():
                 if k in neigh_ips:
-                    neigh_ips_ok.append(neigh_ips)
-                if v['description'] in neigh_desc:
-                    neigh_desc_ok.append(v['description'])
+                    neigh_ips_ok.append(k)
+                if 'description' in v:
+                    neigh_desc_available = True
+                    if v['description'] in neigh_desc:
+                        neigh_desc_ok.append(v['description'])
 
         for k, v in out_v6['stdout'][0]['vrfs']['default']['peers'].items():
             if v['peerState'].lower() == state.lower():
-                if k in neigh_ips:
-                    neigh_ips_ok.append(neigh_ips)
-                if v['description'] in neigh_desc:
-                    neigh_desc_ok.append(v['description'])
-
-        if len(neigh_ips) == len(neigh_ips_ok) and len(neigh_desc) == len(neigh_desc_ok):
-            return True
+                if k.lower() in neigh_ips:
+                    neigh_ips_ok.append(k)
+                if 'description' in v:
+                    neigh_desc_available = True
+                    if v['description'] in neigh_desc:
+                        neigh_desc_ok.append(v['description'])
+        logging.info("neigh_ips_ok={} neigh_desc_available={} neigh_desc_ok={}"\
+            .format(str(neigh_ips_ok), str(neigh_desc_available), str(neigh_desc_ok)))
+        if neigh_desc_available:
+            if len(neigh_ips) == len(neigh_ips_ok) and len(neigh_desc) == len(neigh_desc_ok):
+                return True
+        else:
+            if len(neigh_ips) == len(neigh_ips_ok):
+                return True
 
         return False
 
