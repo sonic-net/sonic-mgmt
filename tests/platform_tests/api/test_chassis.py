@@ -41,8 +41,8 @@ ONIE_TLVINFO_TYPE_CODE_VENDOR_EXT = '0xFD'      # Vendor Extension
 ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
 
 
-class TestChassisAPI(PlatformApiTestBase):
-    ''' Platform API test cases for the chassis class'''
+class TestChassisApi(PlatformApiTestBase):
+    ''' Platform API test cases for the Chassis class'''
 
     #
     # Functions to test methods inherited from DeviceBase class
