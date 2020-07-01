@@ -220,8 +220,8 @@ ptf1-7  ansible_host=10.64.246.35
 ptf12-1 ansible_host=10.64.246.44
 vtf2-6  ansible_host=10.64.246.16
 ptf3-1  ansible_host=10.64.246.18
-vms1-1  ansible_host=10.64.246.22
-vms1-2  ansible_host=10.64.246.23
+vms1-1  ansible_host=10.64.246.56
+vms1-2  ansible_host=10.64.246.57
 vms1-3  ansible_host=10.64.246.69
 vms1-4  ansible_host=10.64.246.70
 vms1-8  ansible_host=10.64.246.43
@@ -254,8 +254,8 @@ vms11-1 ansible_host=10.64.247.27
 vms11-4 ansible_host=10.64.246.83
 vms11-5 ansible_host=10.64.246.108
 v11-21  ansible_host=10.64.246.23
+v11-31  ansible_host=10.64.246.22
 v12-6   ansible_host=10.64.246.55
-v12-31  ansible_host=10.64.246.22
 v12-11  ansible_host=10.64.247.27
 v12-12  ansible_host=10.64.247.26
 v12-21  ansible_host=10.64.246.26
@@ -325,7 +325,7 @@ str-e1031-acs-2     ansible_host=10.64.247.25 os=sonic
 str-marvell-acs-2   ansible_host=10.3.146.155 os=sonic
 str-7260cx3-acs-fan-05 ansible_host=10.64.246.76
 str-7260cx3-64-20   ansible_host=10.3.146.151
-str-7260cx3-64-19   ansible_host=10.3.146.150	
+str-7260cx3-64-19   ansible_host=10.3.146.150
 str-7260-25         ansible_host=10.3.146.234
 str-7260-26         ansible_host=10.3.146.160
 
