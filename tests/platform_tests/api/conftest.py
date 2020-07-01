@@ -13,7 +13,12 @@ IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT
 def start_platform_api_service(duthost, localhost):
     dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
 
-    res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=5)
+    res = localhost.wait_for(host=dut_ip,
+                             port=SERVER_PORT,
+                             state='started',
+                             delay=1,
+                             timeout=5,
+                             module_ignore_errors=True)
     if 'exception' in res:
         supervisor_conf = [
             "[program:platform_api_server]",
