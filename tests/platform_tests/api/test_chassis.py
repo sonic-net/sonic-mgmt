@@ -184,7 +184,7 @@ class TestChassisApi(PlatformApiTestBase):
             pytest.fail("num_components is not an integer")
 
         component_list = chassis.get_all_components(platform_api_conn)
-        pytest_assert(component_list is not None, "Failed to retrieve componenets")
+        pytest_assert(component_list is not None, "Failed to retrieve components")
         pytest_assert(isinstance(component_list, list) and len(component_list) == num_components, "Components appear to be incorrect")
 
         for i in range(num_components):
