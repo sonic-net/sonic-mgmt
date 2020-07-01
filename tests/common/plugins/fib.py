@@ -224,21 +224,20 @@ def fib_t1_lag(ptfhost, testbed, localhost):
         port = 5000 + vm_offset
         port6 = 6000 + vm_offset
 
+        router_type = None
         if 'spine' in v['properties']:
+            router_type = 'spine'
+        elif 'tor' in v['properties']:
+            router_type = 'tor'
+        if router_type:
             routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
                                         None, leaf_asn_start, tor_asn_start,
-                                        local_ip, local_ipv6, router_type="spine")
+                                        local_ip, local_ipv6, router_type=router_type)
             routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
                                         None, leaf_asn_start, tor_asn_start,
-                                        local_ip, local_ipv6, router_type="spine")
+                                        local_ip, local_ipv6, router_type=router_type)
             announce_routes(ptfip, port, routes_v4)
             announce_routes(ptfip, port6, routes_v6)
-
-        elif 'tor' in v['properties']:
-            routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
-                                        None, leaf_asn_start, tor_asn_start,
-                                        local_ip, local_ipv6, router_type="tor")
-            announce_routes(ptfip, port, routes_v4)
 
         if 'vips' in v:
             routes_vips = []
