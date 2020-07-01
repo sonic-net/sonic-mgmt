@@ -27,28 +27,25 @@ def setup_mvrf(duthost, testbed, localhost):
     var['ptf_ip'] = testbed['ptf_ip']
     var['filename'] = 'README.md'
     duthost.command('sudo config vrf add  mgmt')
-    logger.info('waiting for ssh to startup')
     SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
-    res = localhost.wait_for(host=var['dut_ip'],
-                             port=22,
-                             state='started',
-                             search_regex=SONIC_SSH_REGEX,
-                             timeout=90)
-    time.sleep(5)
     verify_show_command(duthost)
     yield
     mvrf = False
     logging.info(' Unconfigure  mgmt vrf')
     duthost.copy(src="mvrf/config_vrf_del.sh",dest="/tmp/config_vrf_del.sh",mode=0755)
     duthost.shell("nohup /tmp/config_vrf_del.sh < /dev/null > /dev/null 2>&1 &")
+    res = localhost.wait_for(host=var['dut_ip'],
+                             port=22,
+                             state='stopped',
+                             search_regex=SONIC_SSH_REGEX,
+                             timeout=90)
 
     res = localhost.wait_for(host=var['dut_ip'],
                              port=22,
                              state='started',
                              search_regex=SONIC_SSH_REGEX,
                              timeout=90)
-    time.sleep(10)
 
     duthost.command('sudo config save -y')
     verify_show_command(duthost, mvrf=False)
