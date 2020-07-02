@@ -116,9 +116,9 @@ class TestPsuApi(PlatformApiTestBase):
                 if self.expect(result is not None, "Failed to perform set_status_led of PSU {}".format(psu_id)):
                     self.expect(result is True, "Failed to set status_led of PSU {}".format(psu_id))
 
-                color_status = psu.get_status_led(platform_api_conn, psu_id)
-                if self.expect(color_status is not None, "Failed to retrieve status_led of PSU {}".format(psu_id)):
-                    if self.expect(isinstance(color_status, str), "PSU {} status led color appears incorrect".format(psu_id)):
-                        self.expect(color == color_status, "Retrived the status_led {} not {} from PSU {}".format(color_status, color, psu_id))
+                color_actual = psu.get_status_led(platform_api_conn, psu_id)
+                if self.expect(color_actual is not None, "Failed to retrieve status_led of PSU {}".format(psu_id)):
+                    if self.expect(isinstance(color_actual, str), "PSU {} status LED color appears incorrect".format(psu_id)):
+                        self.expect(color == color_actual, "Retrived the status_led {} not {} from PSU {}".format(color_actual, color, psu_id))
         self.assert_expectations()
 
