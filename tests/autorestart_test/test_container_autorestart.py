@@ -235,8 +235,6 @@ def test_containers_autorestart(duthost):
     """ 
     container_autorestart_info = get_autorestart_container_and_state(duthost)
     for container_name in container_autorestart_info:
-        if container_name in ["bgp", "database", "restapi", "pmon", "radv"]:
-            continue
         is_running = is_container_running(duthost, container_name)
         if is_running == "false":
             pytest_assert(False, "{} is not running".format(container_name))
