@@ -13,6 +13,10 @@ def skip_on_simx(duthost):
 def cont_reboot_limit(request):
     return request.config.getoption("--cont_reboot_limit")
 
+@pytest.fixture(autouse=True, scope="module")
+def cont_reboot_delay(request):
+    return request.config.getoption("--cont_reboot_delay")
+
 # Platform pytest arguments
 def pytest_addoption(parser):
 

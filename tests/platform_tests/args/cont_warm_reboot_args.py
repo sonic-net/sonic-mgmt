@@ -1,6 +1,3 @@
-import pytest
-
-
 def add_cont_warm_reboot_args(parser):
     '''
     Adding arguments required for continuous warm-reboot test case
@@ -11,4 +8,12 @@ def add_cont_warm_reboot_args(parser):
         type=int,
         default=10,
         help="Number of iterations of warm-reboot",
+    )
+
+    parser.addoption(
+        "--cont_reboot_delay",
+        action="store",
+        type=int,
+        default=10,
+        help="Delay period in seconds between subsequent reboots",
     )

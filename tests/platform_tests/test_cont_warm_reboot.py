@@ -9,19 +9,21 @@ Status of BGP neighbors (should be established)
 """
 import os
 import sys
-
 import pytest
+
+from check_critical_services import check_critical_services
+from common.helpers.assertions import pytest_assert
+from common.utilities import wait
 from common.utilities import wait_until
 from common.reboot import check_reboot_cause, reboot_ctrl_dict, logging, reboot, REBOOT_TYPE_WARM
 from common.platform.interface_utils import check_interface_information
 from common.platform.daemon_utils import check_pmon_daemon_status
 from common.platform.transceiver_utils import check_transceiver_basic
 from common.plugins.sanity_check import checks
-from check_critical_services import check_critical_services
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0-cont-wb')
+    pytest.mark.topology('t0-soak')
 ]
 
 MAX_WAIT_TIME_FOR_INTERFACES = 300
@@ -64,8 +66,8 @@ def check_reboot_type(dut, reboot_type=None):
     """
     if reboot_type is not None:
         logging.info("Check reboot cause")
-        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, check_reboot_cause, dut, reboot_type), \
-            "got reboot-cause failed after rebooted by %s" % reboot_type
+        pytest_assert(wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, check_reboot_cause, dut, reboot_type), \
+            "got reboot-cause failed after rebooted by %s" % reboot_type)
 
         if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
             logging.info("Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
@@ -79,8 +81,8 @@ def check_interfaces_and_transceivers(dut, interfaces):
     @param interfaces: DUT's interfaces defined by minigraph
     """
     logging.info("Wait %d seconds for all the transceivers to be detected" % MAX_WAIT_TIME_FOR_INTERFACES)
-    assert wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, check_interface_information, dut, interfaces), \
-        "Not all transceivers are detected or interfaces are up in %d seconds" % MAX_WAIT_TIME_FOR_INTERFACES
+    pytest_assert(wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, check_interface_information, dut, interfaces), \
+        "Not all transceivers are detected or interfaces are up in %d seconds" % MAX_WAIT_TIME_FOR_INTERFACES)
 
     logging.info("Check transceiver status")
     check_transceiver_basic(dut, interfaces)
@@ -100,18 +102,21 @@ def check_neighbors(dut):
 
     for value in bgp_facts['bgp_neighbors'].values():
         # Verify bgp sessions are established
-        assert value['state'] == 'established'
+        pytest_assert(value['state'] == 'established', "BGP session not established")
         # Verify locat ASNs in bgp sessions
-        assert value['local AS'] == mg_facts['minigraph_bgp_asn']
+        pytest_assert(value['local AS'] == mg_facts['minigraph_bgp_asn'], \
+          "Local ASNs not found in BGP session")
 
     for v in mg_facts['minigraph_bgp']:
         # Compare the bgp neighbors name with minigraph bgp neigbhors name
-        assert v['name'] == bgp_facts['bgp_neighbors'][v['addr'].lower()]['description']
+        pytest_assert(v['name'] == bgp_facts['bgp_neighbors'][v['addr'].lower()]['description'], \
+          "BGP neighbor's name does not match minigraph")
         # Compare the bgp neighbors ASN with minigraph
-        assert v['asn'] == bgp_facts['bgp_neighbors'][v['addr'].lower()]['remote AS']
+        pytest_assert(v['asn'] == bgp_facts['bgp_neighbors'][v['addr'].lower()]['remote AS'], \
+          "BGP neighbor's ASN does not match minigraph")
 
 
-def test_cont_warm_reboot(duthost, localhost, conn_graph_facts, cont_reboot_limit):
+def test_cont_warm_reboot(duthost, localhost, conn_graph_facts, cont_reboot_limit, cont_reboot_delay):
     """
     @summary: This test case is to perform continuous warm reboot in a row
     """
@@ -123,3 +128,4 @@ def test_cont_warm_reboot(duthost, localhost, conn_graph_facts, cont_reboot_limi
 
     for _ in range(cont_reboot_limit):
         reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_WARM)
+        wait(cont_reboot_delay, msg="Wait {}s before next warm-reboot".format(cont_reboot_delay))
