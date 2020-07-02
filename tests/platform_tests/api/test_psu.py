@@ -85,7 +85,8 @@ class TestPsuApi(PlatformApiTestBase):
         ''' PSU temperature test '''
         for psu_id in range(self.num_psus):
             temperature = psu.get_temperature(platform_api_conn, psu_id)
-            self.expect(temperature is not None, "Failed to retrieve temperature of PSU {}".format(psu_id))
+            if self.expect(temperature is not None, "Failed to retrieve temperature of PSU {}".format(psu_id)):
+                self.expect(isinstance(temperature, float), "PSU {} temperature appears incorrect".format(psu_id))
 
             temp_threshold = psu.get_temperature_high_threshold(platform_api_conn, psu_id)
             if self.expect(temp_threshold is not None, "Failed to retrieve temperature threshold of PSU {}".format(psu_id)):
