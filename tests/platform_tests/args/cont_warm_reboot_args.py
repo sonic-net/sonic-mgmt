@@ -10,5 +10,5 @@ def add_cont_warm_reboot_args(parser):
         action="store",
         type=int,
         default=10,
-        help="Reboot time limit in sec",
+        help="Number of iterations of warm-reboot",
     )
