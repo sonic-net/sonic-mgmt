@@ -41,8 +41,8 @@ ONIE_TLVINFO_TYPE_CODE_VENDOR_EXT = '0xFD'      # Vendor Extension
 ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
 
 
-class TestChassisAPI(PlatformApiTestBase):
-    ''' Platform API test cases for the chassis class'''
+class TestChassisApi(PlatformApiTestBase):
+    ''' Platform API test cases for the Chassis class'''
 
     #
     # Functions to test methods inherited from DeviceBase class
@@ -184,7 +184,7 @@ class TestChassisAPI(PlatformApiTestBase):
             pytest.fail("num_components is not an integer")
 
         component_list = chassis.get_all_components(platform_api_conn)
-        pytest_assert(component_list is not None, "Failed to retrieve componenets")
+        pytest_assert(component_list is not None, "Failed to retrieve components")
         pytest_assert(isinstance(component_list, list) and len(component_list) == num_components, "Components appear to be incorrect")
 
         for i in range(num_components):
@@ -265,7 +265,7 @@ class TestChassisAPI(PlatformApiTestBase):
 
         thermal_list = chassis.get_all_thermals(platform_api_conn)
         pytest_assert(thermal_list is not None, "Failed to retrieve thermals")
-        pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Thermalss appear to be incorrect")
+        pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Thermals appear to be incorrect")
 
         for i in range(num_thermals):
             thermal = chassis.get_thermal(platform_api_conn, i)
