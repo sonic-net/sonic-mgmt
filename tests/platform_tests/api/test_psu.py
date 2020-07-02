@@ -51,7 +51,8 @@ class TestPsuApi(PlatformApiTestBase):
 
             for i in range(num_fans):
                 fan = psu.get_fan(platform_api_conn, psu_id, i)
-                self.expect(fan and fan == fan_list[i], "Fan {} of PSU {} is incorrect".format(i, psu_id))
+                if self.expect(fan is not None, "Failed to retrieve fan {} of PSU {}".format(i, psu_id)):
+                    self.expect(fan and fan == fan_list[i], "Fan {} of PSU {} is incorrect".format(i, psu_id))
         self.assert_expectations()
 
 
@@ -95,8 +96,8 @@ class TestPsuApi(PlatformApiTestBase):
 
             temp_threshold = psu.get_temperature_high_threshold(platform_api_conn, psu_id)
             if self.expect(temp_threshold is not None, "Failed to retrieve temperature threshold of PSU {}".format(psu_id)):
-                self.expect(isinstance(temp_threshold, float), "PSU {} temperature high threshold appears incorrect".format(psu_id))
-                self.expect(temperature < temp_threshold, "Temperature {} of PSU {} is over the threshold {}".format(temperature, psu_id, temp_threshold))
+                if self.expect(isinstance(temp_threshold, float), "PSU {} temperature high threshold appears incorrect".format(psu_id)):
+                    self.expect(temperature < temp_threshold, "Temperature {} of PSU {} is over the threshold {}".format(temperature, psu_id, temp_threshold))
         self.assert_expectations()
 
 
@@ -116,6 +117,8 @@ class TestPsuApi(PlatformApiTestBase):
                     self.expect(result is True, "Failed to set status_led of PSU {}".format(psu_id))
 
                 color_status = psu.get_status_led(platform_api_conn, psu_id)
-                self.expect(color == color_status, "Retrived the status_led {} not {} from PSU {}".format(color_status, color, psu_id))
+                if self.expect(color_status is not None, "Failed to retrieve status_led of PSU {}".format(psu_id)):
+                    if self.expect(isinstance(color_status, str), "PSU {} status led color appears incorrect".format(psu_id)):
+                        self.expect(color == color_status, "Retrived the status_led {} not {} from PSU {}".format(color_status, color, psu_id))
         self.assert_expectations()
 
