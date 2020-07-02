@@ -59,11 +59,14 @@ class TestPsuApi(PlatformApiTestBase):
         ''' PSU power test '''
         for psu_id in range(self.num_psus):
             voltage = psu.get_voltage(platform_api_conn, psu_id)
-            self.expect(voltage is not None, "Failed to retrieve voltage of PSU {}".format(psu_id))
+            if self.expect(voltage is not None, "Failed to retrieve voltage of PSU {}".format(psu_id)):
+                self.expect(isinstance(voltage, float), "PSU {} voltage appears incorrect".format(psu_id))
             current = psu.get_current(platform_api_conn, psu_id)
-            self.expect(current is not None, "Failed to retrieve current of PSU {}".format(psu_id))
+            if self.expect(current is not None, "Failed to retrieve current of PSU {}".format(psu_id)):
+                self.expect(isinstance(current, float), "PSU {} current appears incorrect".format(psu_id))
             power = psu.get_power(platform_api_conn, psu_id)
-            self.expect(current is not None, "Failed to retrieve current of PSU {}".format(psu_id))
+            if self.expect(current is not None, "Failed to retrieve current of PSU {}".format(psu_id)):
+                self.expect(isinstance(power, float), "PSU {} power appears incorrect".format(psu_id))
             if current is not None and voltage is not None and power is not None:
                 self.expect(abs(power - (voltage*current)) < power*0.1, "PSU {} reading does not make sense \
                     (power:{}, voltage:{}, current:{})".format(psu_id, power, voltage, current))
@@ -73,9 +76,11 @@ class TestPsuApi(PlatformApiTestBase):
                 self.expect(powergood_status is True, "PSU {} is not operational".format(psu_id))
 
             high_threshold = psu.get_voltage_high_threshold(platform_api_conn, psu_id)
-            self.expect(high_threshold is not None, "Failed to retrieve the high voltage threshold of PSU {}".format(psu_id))
+            if self.expect(high_threshold is not None, "Failed to retrieve the high voltage threshold of PSU {}".format(psu_id)):
+                self.expect(isinstance(high_threshold, float), "PSU {} voltage high threshold appears incorrect".format(psu_id))
             low_threshold = psu.get_voltage_low_threshold(platform_api_conn, psu_id)
-            self.expect(low_threshold is not None, "Failed to retrieve the low voltage threshold of PSU {}".format(psu_id))
+            if self.expect(low_threshold is not None, "Failed to retrieve the low voltage threshold of PSU {}".format(psu_id)):
+                self.expect(isinstance(low_threshold, float), "PSU {} voltage low threshold appears incorrect".format(psu_id))
             if high_threshold is not None and low_threshold is not None:
                 self.expect(voltage < high_threshold and voltage > low_threshold, "Voltage {} of PSU {} is not in between {} and {}".format(voltage, psu_id, low_threshold, high_threshold))
         self.assert_expectations()
@@ -90,6 +95,7 @@ class TestPsuApi(PlatformApiTestBase):
 
             temp_threshold = psu.get_temperature_high_threshold(platform_api_conn, psu_id)
             if self.expect(temp_threshold is not None, "Failed to retrieve temperature threshold of PSU {}".format(psu_id)):
+                self.expect(isinstance(temp_threshold, float), "PSU {} temperature high threshold appears incorrect".format(psu_id))
                 self.expect(temperature < temp_threshold, "Temperature {} of PSU {} is over the threshold {}".format(temperature, psu_id, temp_threshold))
         self.assert_expectations()
 
