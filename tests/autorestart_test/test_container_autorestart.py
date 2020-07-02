@@ -270,7 +270,7 @@ def test_containers_autorestart(duthost):
             time.sleep(20)
             # We are currently only testing one critical process, that is why we use 'break'. Once
             # we add the "extended" mode, we will remove this statement
-            #break
+            break
         for critical_group in critical_group_list:
             group_program_info = get_group_program_info(duthost, container_name, critical_group) 
             for program_name in group_program_info:
@@ -282,7 +282,7 @@ def test_containers_autorestart(duthost):
             # statement
                 break
 
-        # After these two containers are restarted, we need wait to give their dependent containers
+        # After these three containers are restarted, we need wait to give their dependent containers
         # a chance to restart
         if container_name in ["syncd", "swss", "database"]:
             logging.info("Sleep 20 seconds after testing the {}...".format(container_name))
