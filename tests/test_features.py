@@ -1,5 +1,6 @@
 # Helper Functions
 import pytest
+from common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -18,7 +19,8 @@ def get_status_redisout(status_out):
 def test_show_features(duthost):
     """Verify show features command output against CONFIG_DB
     """
-    features_dict = duthost.get_feature_status()
+    features_dict, succeeded = duthost.get_feature_status()
+    pytest_assert(succeeded, "failed to obtain feature status")
     for cmd_key, cmd_value in features_dict.items():
         feature = str(cmd_key)
         status_out = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "FEATURE|{}"'.format(feature), module_ignore_errors=False)['stdout_lines']

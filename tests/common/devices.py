@@ -662,11 +662,12 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         Returns:
             dict: feature status dict. { <feature name> : <status: enabled | disabled> }
+            bool: status obtained successfully (True | False)
         """
         feature_status = {}
         command_output = self.shell('show features', module_ignore_errors=True)
         if command_output['rc'] != 0:
-            return feature_status
+            return feature_status, False
 
         features_stdout = command_output['stdout_lines']
         lines = features_stdout[2:]
@@ -674,7 +675,7 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             result = x.encode('UTF-8')
             r = result.split()
             feature_status[r[0]] = r[1]
-        return feature_status
+        return feature_status, True
 
 class EosHost(AnsibleHostBase):
     """

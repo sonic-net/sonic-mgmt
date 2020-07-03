@@ -22,7 +22,7 @@ def setup(duthost, ptfhost):
     global var
     var = {}
 
-    feature_status = duthost.get_feature_status()
+    feature_status, _ = duthost.get_feature_status()
     if 'sflow' not in feature_status or feature_status['sflow'] == 'disabled':
         pytest.skip("sflow feature is not eanbled")
 
