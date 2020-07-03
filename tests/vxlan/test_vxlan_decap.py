@@ -121,6 +121,8 @@ def setup(duthost, ptfhost):
 
 @pytest.fixture(params=["NoVxLAN", "Enabled", "Removed"])
 def vxlan_status(setup, request, duthost):
+    #clear FDB and arp cache on DUT
+    duthost.shell('sonic-clear arp; fdbclear')
     if request.param == "Enabled":
         duthost.shell("sonic-cfggen -j /tmp/vxlan_db.tunnel.json --write-to-db")
         duthost.shell("sonic-cfggen -j /tmp/vxlan_db.maps.json --write-to-db")
@@ -147,5 +149,5 @@ def test_vxlan_decap(setup, vxlan_status, duthost, ptfhost):
                 params={"vxlan_enabled": vxlan_enabled,
                         "config_file": '/tmp/vxlan_decap.json',
                         "count": COUNT},
-                qlen=1000,
+                qlen=10000,
                 log_file=log_file)

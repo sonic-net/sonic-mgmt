@@ -22,6 +22,7 @@ import ptf.testutils as testutils
 from ptf.testutils import *
 from ptf.dataplane import match_exp_pkt
 from ptf.mask import Mask
+from ptf.testutils import dp_poll
 import datetime
 import subprocess
 import traceback
@@ -29,6 +30,54 @@ import socket
 import struct
 from pprint import pprint
 from pprint import pformat
+
+def count_matched_packets_helper(test, exp_packet, exp_packet_number, port, device_number=0, timeout=1):
+    """
+    Add exp_packet_number to original ptf interface in order to
+    stop waiting when expected number of packets is received
+    """
+    if timeout <= 0:
+        raise Exception("%s() requires positive timeout value." % sys._getframe().f_code.co_name)
+
+    total_rcv_pkt_cnt = 0
+    while True:
+        result = dp_poll(test, device_number=device_number, port_number=port, timeout=timeout)
+        if isinstance(result, test.dataplane.PollSuccess):
+            if ptf.dataplane.match_exp_pkt(exp_packet, result.packet):
+                total_rcv_pkt_cnt += 1
+                if total_rcv_pkt_cnt == exp_packet_number:
+                    break
+        else:
+            break
+
+    return total_rcv_pkt_cnt
+
+def count_matched_packets_all_ports_helper(test, exp_packet, exp_packet_number, ports=[], device_number=0, timeout=1):
+    """
+    Add exp_packet_number to original ptf interface in order to
+    stop waiting when expected number of packets is received
+    """
+    if timeout <= 0:
+        raise Exception("%s() requires positive timeout value." % sys._getframe().f_code.co_name)
+
+    last_matched_packet_time = time.time()
+    total_rcv_pkt_cnt = 0
+    while True:
+        if (time.time() - last_matched_packet_time) > timeout:
+            break
+
+        result = dp_poll(test, device_number=device_number, timeout=timeout)
+        if isinstance(result, test.dataplane.PollSuccess):
+            if (result.port in ports and
+                  ptf.dataplane.match_exp_pkt(exp_packet, result.packet)):
+                total_rcv_pkt_cnt += 1
+                if total_rcv_pkt_cnt == exp_packet_number:
+                    break
+                last_matched_packet_time = time.time()
+        else:
+            break
+
+    return total_rcv_pkt_cnt
 
 class Vxlan(BaseTest):
     def __init__(self):
@@ -172,7 +221,8 @@ class Vxlan(BaseTest):
         self.generate_ArpResponderConfig()
 
         self.cmd(["supervisorctl", "restart", "arp_responder"])
-
+        #Wait a short time for asp_reponder to be ready
+        time.sleep(10)
         self.dataplane.flush()
 
         return
@@ -188,10 +238,9 @@ class Vxlan(BaseTest):
         ret = 0
         try:
             for test in self.tests:
-                if self.vxlan_enabled:
-                    self.Vxlan(test, True)
                 self.RegularLAGtoVLAN(test, True)
-                self.RegularVLANtoLAG(test, True)
+                #wait sometime for DUT to build FDB and ARP table
+                time.sleep(60)
 
         except Exception as e:
             err = str(e)
@@ -217,19 +266,21 @@ class Vxlan(BaseTest):
         try:
             for test in self.tests:
                 print test['name']
-                res_v, out_v = self.Vxlan(test)
-                print "  Vxlan            = ", res_v
+
                 res_f, out_f = self.RegularLAGtoVLAN(test)
                 print "  RegularLAGtoVLAN = ", res_f
+                self.assertTrue(res_f, "RegularLAGtoVLAN test failed:\n  %s\n\ntest:\n%s" % (out_f, pformat(test)))
+
                 res_t, out_t = self.RegularVLANtoLAG(test)
                 print "  RegularVLANtoLAG = ", res_t
-                print
+                self.assertTrue(res_t, "RegularVLANtoLAG test failed:\n  %s\n\ntest:\n%s" % (out_t, pformat(test)))
+
+                res_v, out_v = self.Vxlan(test)
+                print "  Vxlan            = ", res_v
                 if self.vxlan_enabled:
                     self.assertTrue(res_v, "VxlanTest failed:\n  %s\n\ntest:\n%s"  % (out_v, pformat(test)))
                 else:
                     self.assertFalse(res_v, "VxlanTest: vxlan works, but it must have been disabled!\n\ntest:%s" % pformat(test))
-                self.assertTrue(res_f, "RegularLAGtoVLAN test failed:\n  %s\n\ntest:\n%s" % (out_f, pformat(test)))
-                self.assertTrue(res_t, "RegularVLANtoLAG test failed:\n  %s\n\ntest:\n%s" % (out_t, pformat(test)))
         except AssertionError as e:
             err = str(e)
             trace = traceback.format_exc()
@@ -248,7 +299,6 @@ class Vxlan(BaseTest):
 
 
     def runTest(self):
-        print
         # Warm-up first
         self.warmup()
         # test itself
@@ -258,13 +308,13 @@ class Vxlan(BaseTest):
     def Vxlan(self, test, wu = False):
         for i, n in enumerate(test['acc_ports']):
             for j, a in enumerate(test['acc_ports']):
-                res, out = self.checkVxlan(a, n, test)
+                res, out = self.checkVxlan(a, n, test, wu)
                 if not res and not wu:
                     return False, out + " | net_port_rel(acc)=%d acc_port_rel=%d" % (i, j)
 
         for i, n in enumerate(self.net_ports):
             for j, a in enumerate(test['acc_ports']):
-                res, out = self.checkVxlan(a, n, test)
+                res, out = self.checkVxlan(a, n, test, wu)
                 if not res and not wu:
                     return False, out + " | net_port_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
@@ -272,20 +322,26 @@ class Vxlan(BaseTest):
     def RegularLAGtoVLAN(self, test, wu = False):
         for i, n in enumerate(self.net_ports):
             for j, a in enumerate(test['acc_ports']):
-                res, out = self.checkRegularRegularLAGtoVLAN(a, n, test)
+                res, out = self.checkRegularRegularLAGtoVLAN(a, n, test, wu)
+                if wu:
+                    #Wait a short time for building FDB and ARP table
+                    time.sleep(0.5)
                 if not res and not wu:
                     return False, out + " | net_port_rel=%d acc_port_rel=%d" % (i, j)
+            #We only loop all acc_ports in warmup
+            if wu:
+                break
         return True, ""
 
     def RegularVLANtoLAG(self, test, wu = False):
         for i, (dst, ports) in enumerate(self.pc_info):
             for j, a in enumerate(test['acc_ports']):
-                res, out = self.checkRegularRegularVLANtoLAG(a, ports, dst, test)
+                res, out = self.checkRegularRegularVLANtoLAG(a, ports, dst, test, wu)
                 if not res and not wu:
                     return False, out + " | pc_info_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
 
-    def checkRegularRegularVLANtoLAG(self, acc_port, pc_ports, dst_ip, test):
+    def checkRegularRegularVLANtoLAG(self, acc_port, pc_ports, dst_ip, test, wu):
         src_mac = self.ptf_mac_addrs['eth%d' % acc_port]
         dst_mac = self.dut_mac
         src_ip = test['vlan_ip_prefixes'][acc_port]
@@ -310,7 +366,11 @@ class Vxlan(BaseTest):
         self.dataplane.flush()
         for i in xrange(self.nr):
             testutils.send_packet(self, acc_port, packet)
-        nr_rcvd = testutils.count_matched_packets_all_ports(self, exp_packet, pc_ports, timeout=0.5)
+        # We don't care if expected packet is received during warming up
+        if not wu:
+            nr_rcvd = count_matched_packets_all_ports_helper(self, exp_packet, self.nr, pc_ports, timeout=20)
+        else:
+            nr_rcvd = 0
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
@@ -319,7 +379,7 @@ class Vxlan(BaseTest):
         return rv, out
 
 
-    def checkRegularRegularLAGtoVLAN(self, acc_port, net_port, test):
+    def checkRegularRegularLAGtoVLAN(self, acc_port, net_port, test, wu):
         src_mac = self.random_mac
         dst_mac = self.dut_mac
         src_ip = test['src_ip']
@@ -343,7 +403,11 @@ class Vxlan(BaseTest):
         self.dataplane.flush()
         for i in xrange(self.nr):
             testutils.send_packet(self, net_port, packet)
-        nr_rcvd = testutils.count_matched_packets(self, exp_packet, acc_port, timeout=0.5)
+        # We don't care if expected packet is received during warming up
+        if not wu:
+            nr_rcvd = count_matched_packets_helper(self, exp_packet, self.nr, acc_port, timeout=20)
+        else:
+            nr_rcvd = 0
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
@@ -351,7 +415,7 @@ class Vxlan(BaseTest):
             out = "sent = %d rcvd = %d | src_port=%s dst_port=%s | src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s" % arg
         return rv, out
 
-    def checkVxlan(self, acc_port, net_port, test):
+    def checkVxlan(self, acc_port, net_port, test, wu=False):
         inner_dst_mac = self.ptf_mac_addrs['eth%d' % acc_port]
         inner_src_mac = self.dut_mac
         inner_src_ip = test['vlan_gw']
@@ -382,7 +446,10 @@ class Vxlan(BaseTest):
         self.dataplane.flush()
         for i in xrange(self.nr):
             testutils.send_packet(self, net_port, packet)
-        nr_rcvd = testutils.count_matched_packets(self, inpacket, acc_port, timeout=0.5)
+        if not wu:
+            nr_rcvd = count_matched_packets_helper(self, inpacket, self.nr, acc_port, timeout=20)
+        else:
+            nr_rcvd = 0
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
