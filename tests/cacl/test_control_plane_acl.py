@@ -2,7 +2,7 @@ import pytest
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer globally
-    pytest.mark.topology('t1')
+    pytest.mark.topology('any')
 ]
 
 SONIC_SSH_PORT  = 22
