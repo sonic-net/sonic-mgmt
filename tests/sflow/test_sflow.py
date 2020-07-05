@@ -21,6 +21,11 @@ logger = logging.getLogger(__name__)
 def setup(duthost, ptfhost):
     global var
     var = {}
+
+    feature_status, _ = duthost.get_feature_status()
+    if 'sflow' not in feature_status or feature_status['sflow'] == 'disabled':
+        pytest.skip("sflow feature is not eanbled")
+
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     var['host_facts']  = duthost.setup()['ansible_facts']
     vlan_dict = mg_facts['minigraph_vlans']
