@@ -41,6 +41,15 @@ Return the session ID.
 def ixia_api_serv_session_id(duthost):
     return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']['ixia_api_server']['session_id']
 
+
+@pytest.fixture(scope = "module")
+def ixia_dev(duthost, fanouthosts):
+    result = dict()
+    ixia_dev_hostnames = fanouthosts.keys()
+    for hostname in ixia_dev_hostnames:
+        result[hostname] = duthost.host.options['inventory_manager'].get_host(hostname).get_vars()['ansible_host']
+    return result
+
 """
 IXIA session manager with PTF server
 """
@@ -54,7 +63,8 @@ def ixia_api_server_session(ixia_api_serv_ip,
                                UserName = ixia_api_serv_user,
                                Password = ixia_api_serv_passwd,
                                RestPort = ixia_api_serv_port,
-                               SessionId = ixia_api_serv_session_id)
+                               SessionId = ixia_api_serv_session_id,
+                               LogLevel='all')
     else :
         session = SessionAssistant(IpAddress = ixia_api_serv_ip,
                                UserName = ixia_api_serv_user,
