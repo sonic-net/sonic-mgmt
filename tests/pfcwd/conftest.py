@@ -1,6 +1,7 @@
 import logging
 import pytest
 from common.fixtures.conn_graph_facts import conn_graph_facts
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
 
