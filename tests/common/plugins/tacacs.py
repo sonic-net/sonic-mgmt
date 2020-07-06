@@ -1,6 +1,5 @@
 import pytest
 import crypt
-import pdb
 
 def start_tacacs(ptfhost, duthost, creds, tacacs_server_ip):
     """setup tacacs client and server"""
@@ -63,5 +62,3 @@ def setup_tacacs_v6(ptfhost, duthost, creds):
     yield
 
     cleanup_tacacs(ptfhost, duthost, tacacs_server_ip)
-
-
