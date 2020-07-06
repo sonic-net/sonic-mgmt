@@ -119,6 +119,6 @@ class TestPsuApi(PlatformApiTestBase):
                 color_actual = psu.get_status_led(platform_api_conn, psu_id)
                 if self.expect(color_actual is not None, "Failed to retrieve status_led of PSU {}".format(psu_id)):
                     if self.expect(isinstance(color_actual, str), "PSU {} status LED color appears incorrect".format(psu_id)):
-                        self.expect(color == color_actual, "Retrived the status_led {} not {} from PSU {}".format(color_actual, color, psu_id))
+                        self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {}) from PSU {}".format(color, color_actual, psu_id))
         self.assert_expectations()
 
