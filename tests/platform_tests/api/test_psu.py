@@ -114,7 +114,7 @@ class TestPsuApi(PlatformApiTestBase):
             for color in LED_COLOR_LIST:
                 result = psu.set_status_led(platform_api_conn, psu_id, color)
                 if self.expect(result is not None, "Failed to perform set_status_led of PSU {}".format(psu_id)):
-                    self.expect(result is True, "Failed to set status_led of PSU {}".format(psu_id))
+                    self.expect(result is True, "Failed to set status_led of PSU {} to {}".format(psu_id, color))
 
                 color_actual = psu.get_status_led(platform_api_conn, psu_id)
                 if self.expect(color_actual is not None, "Failed to retrieve status_led of PSU {}".format(psu_id)):
