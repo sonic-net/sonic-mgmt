@@ -14,6 +14,6 @@ def add_cont_warm_reboot_args(parser):
         "--continuous_reboot_delay",
         action="store",
         type=int,
-        default=10,
+        default=300,
         help="Delay period in seconds between subsequent reboots",
     )
