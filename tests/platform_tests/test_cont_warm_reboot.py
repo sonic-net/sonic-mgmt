@@ -116,7 +116,7 @@ def check_neighbors(dut):
           "BGP neighbor's ASN does not match minigraph")
 
 
-def test_cont_warm_reboot(duthost, localhost, conn_graph_facts, cont_reboot_limit, cont_reboot_delay):
+def test_cont_warm_reboot(duthost, localhost, conn_graph_facts, continuous_reboot_count, continuous_reboot_delay):
     """
     @summary: This test case is to perform continuous warm reboot in a row
     """
@@ -126,6 +126,6 @@ def test_cont_warm_reboot(duthost, localhost, conn_graph_facts, cont_reboot_limi
         if "disabled" in issu_capability:
             pytest.skip("ISSU is not supported on this DUT, skip this test case")
 
-    for _ in range(cont_reboot_limit):
+    for _ in range(continuous_reboot_count):
         reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_WARM)
-        wait(cont_reboot_delay, msg="Wait {}s before next warm-reboot".format(cont_reboot_delay))
+        wait(continuous_reboot_delay, msg="Wait {}s before next warm-reboot".format(continuous_reboot_delay))

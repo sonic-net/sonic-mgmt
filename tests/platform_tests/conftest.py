@@ -10,12 +10,12 @@ def skip_on_simx(duthost):
         pytest.skip('skipped on this platform: {}'.format(platform))
 
 @pytest.fixture(autouse=True, scope="module")
-def cont_reboot_limit(request):
-    return request.config.getoption("--cont_reboot_limit")
+def continuous_reboot_count(request):
+    return request.config.getoption("--continuous_reboot_count")
 
 @pytest.fixture(autouse=True, scope="module")
-def cont_reboot_delay(request):
-    return request.config.getoption("--cont_reboot_delay")
+def continuous_reboot_delay(request):
+    return request.config.getoption("--continuous_reboot_delay")
 
 # Platform pytest arguments
 def pytest_addoption(parser):

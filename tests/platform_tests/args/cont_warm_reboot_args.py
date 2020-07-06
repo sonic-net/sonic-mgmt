@@ -3,7 +3,7 @@ def add_cont_warm_reboot_args(parser):
     Adding arguments required for continuous warm-reboot test case
     '''
     parser.addoption(
-        "--cont_reboot_limit",
+        "--continuous_reboot_count",
         action="store",
         type=int,
         default=10,
@@ -11,7 +11,7 @@ def add_cont_warm_reboot_args(parser):
     )
 
     parser.addoption(
-        "--cont_reboot_delay",
+        "--continuous_reboot_delay",
         action="store",
         type=int,
         default=10,
