@@ -42,6 +42,7 @@
   vlan_port:
     external_port: "{{ external_port }}"
     vlan_ids: "{{ device_vlan_list }}"
+    is_multi_duts: "{{ dut_name is defined and dut_name.split(',')|length > 1 }}"
     cmd: "create"
   become: yes
   when: external_port is defined
@@ -65,6 +66,7 @@
     dut_mgmt_port: "{{ dut_mgmt_port }}"
     fp_mtu: "{{ fp_mtu_size }}"
     max_fp_num: "{{ max_fp_num }}"
+    is_multi_duts: "{{ dut_name is defined and dut_name.split(',')|length > 1 }}"
   become: yes
 
 - name: Send arp ping packet to gw for flusing the ARP table

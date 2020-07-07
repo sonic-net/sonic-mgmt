@@ -241,5 +241,6 @@
       when: action == 'stop_sid' and hostvars[dut_name]['type'] == 'simx'
   when:
     - dut_name is defined
+    - dut_name.split(',')|length == 1
     - hostvars[dut_name] is defined
     - hostvars[dut_name].type is defined
