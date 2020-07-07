@@ -1,11 +1,11 @@
 """
 Test for continuously warm rebooting the DUT
 In between warm reboots, verify:
-Reboot cause (should match the trigger cause)
-Status of services (Services syncd and swss should be active/running)
-Status of interfaces and LAGs (all interface and LAGs should comply with current topology)
-Status of transceivers (ports in lab_connection_graph should be present)
-Status of BGP neighbors (should be established)
+Reboot cause (should match the trigger cause)
+Status of services (Services syncd and swss should be active/running)
+Status of interfaces and LAGs (all interface and LAGs should comply with current topology)
+Status of transceivers (ports in lab_connection_graph should be present)
+Status of BGP neighbors (should be established)
 """
 import os
 import sys
