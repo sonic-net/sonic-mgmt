@@ -407,7 +407,7 @@ def collect_techsupport(request, duthost):
     # "function" scope
     testname = request.node.name
     if request.config.getoption("--collect_techsupport") and request.node.rep_call.failed:
-        res = duthost.shell("generate_dump")
+        res = duthost.shell("generate_dump -s yesterday")
         fname = res['stdout']
         duthost.fetch(src=fname, dest="logs/{}".format(testname))
         tar = tarfile.open("logs/{}/{}/{}".format(testname, duthost.hostname, fname))
