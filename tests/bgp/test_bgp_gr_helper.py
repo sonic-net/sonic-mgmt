@@ -5,7 +5,8 @@ from common.helpers.assertions import pytest_assert
 from common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('t1'),
+    pytest.mark.device_type('vs')
 ]
 
 logger = logging.getLogger(__name__)

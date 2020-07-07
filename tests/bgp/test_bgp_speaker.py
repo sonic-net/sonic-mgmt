@@ -10,7 +10,8 @@ from ptf_runner import ptf_runner
 from common.utilities import wait_tcp_connection
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0'),
+    pytest.mark.device_type('vs')
 ]
 
 def generate_ips(num, prefix, exclude_ips):
