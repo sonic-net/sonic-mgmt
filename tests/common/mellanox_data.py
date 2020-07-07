@@ -159,7 +159,7 @@ SWITCH_MODELS = {
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": True,
-            "warm_reboot": False
+            "warm_reboot": True
         },
         "fans": {
             "number": 4,
@@ -256,7 +256,7 @@ SWITCH_MODELS = {
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": True,
-            "warm_reboot": False
+            "warm_reboot": True
         },
         "fans": {
             "number": 4,
@@ -299,7 +299,7 @@ SWITCH_MODELS = {
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": True,
-            "warm_reboot": False
+            "warm_reboot": True
         },
         "fans": {
             "number": 4,
@@ -341,8 +341,8 @@ SWITCH_MODELS = {
     "ACS-MSN3800": {
         "reboot": {
             "cold_reboot": True,
-            "fast_reboot": True,
-            "warm_reboot": False
+            "fast_reboot": False,
+            "warm_reboot": True
         },
         "fans": {
             "number": 3,
@@ -398,8 +398,8 @@ SWITCH_MODELS = {
     "Mellanox-SN3800-D112C8": {
         "reboot": {
             "cold_reboot": True,
-            "fast_reboot": True,
-            "warm_reboot": False
+            "fast_reboot": False,
+            "warm_reboot": True
         },
         "fans": {
             "number": 3,
@@ -455,8 +455,8 @@ SWITCH_MODELS = {
     "ACS-MSN3700": {
         "reboot": {
             "cold_reboot": True,
-            "fast_reboot": True,
-            "warm_reboot": False
+            "fast_reboot": False,
+            "warm_reboot": True
         },
         "fans": {
             "number": 6,
@@ -508,8 +508,8 @@ SWITCH_MODELS = {
     "ACS-MSN3700C": {
         "reboot": {
             "cold_reboot": True,
-            "fast_reboot": True,
-            "warm_reboot": False
+            "fast_reboot": False,
+            "warm_reboot": True
         },
         "fans": {
             "number": 4,
@@ -562,7 +562,7 @@ SWITCH_MODELS = {
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": False,
-            "warm_reboot": False
+            "warm_reboot": True
         },
         "fans": {
             "number": 6,
@@ -615,7 +615,7 @@ SWITCH_MODELS = {
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": False,
-            "warm_reboot": False
+            "warm_reboot": True
         },
         "fans": {
             "number": 1,
@@ -667,8 +667,8 @@ SWITCH_MODELS = {
     "ACS-MSN3420": {
         "reboot": {
             "cold_reboot": True,
-            "fast_reboot": True,
-            "warm_reboot": False
+            "fast_reboot": False,
+            "warm_reboot": True
         },
         "fans": {
             "number": 5,
