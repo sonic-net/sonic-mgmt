@@ -11,9 +11,9 @@ def test_snmp_interfaces(duthost, localhost, creds):
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
     snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
-    config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    config_facts  = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
-    snmp_ifnames = [v['name'] for k, v in snmp_facts['snmp_interfaces'].items()]
+    snmp_ifnames = [ v['name'] for k, v in snmp_facts['snmp_interfaces'].items() ]
     print snmp_ifnames
 
     # Verify all physical ports in snmp interface list
@@ -27,42 +27,3 @@ def test_snmp_interfaces(duthost, localhost, creds):
     # Verify management port in snmp interface list
     for name in config_facts.get('MGMT_INTERFACE', {}):
         assert name in snmp_ifnames
-
-    # Verify Vlan interfaces in snmp interface list
-    for name in config_facts.get('VLAN_INTERFACE', {}):
-        assert name in snmp_ifnames
-
-
-def test_snmp_interface_counters(duthost, localhost, creds):
-    """Make sure Interface MIB has counters available"""
-    hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
-
-    for k, v in snmp_facts['snmp_interfaces'].items():
-        if "Ethernet" in v['name'] or "PortChannel" in v['name']:
-            if ('ifInErrors' not in v or \
-                'ifOutErrors' not in v or \
-                'ifInDiscards' not in v or \
-                'ifHCInOctets' not in v or \
-                'ifOutDiscards' not in v or \
-                'ifHCOutOctets' not in v or \
-                'ifInUcastPkts' not in v or \
-                'ifOutUcastPkts' not in v):
-                pytest.fail("interface %s does not have counters" % v['name'])
-
-
-def test_snmp_l3vlan_counters(duthost, localhost, creds):
-    """Make sure Interface MIB has counters available for l3vlan"""
-    if duthost.facts["asic_type"] not in ["mellanox"]:
-        pytest.skip("Skip test due to RIF counter not supported on {}".format(duthost.facts["platform"]))
-
-    hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
-
-    for k, v in snmp_facts['snmp_interfaces'].items():
-        if "Vlan" in v['name']:
-            if ('ifInErrors' not in v or \
-                'ifOutErrors' not in v or \
-                'ifInUcastPkts' not in v or \
-                'ifOutUcastPkts' not in v):
-                pytest.fail("interface %s does not have counters" % v['name'])
