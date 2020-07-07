@@ -63,7 +63,7 @@ class ControlPlaneBaseTest(BaseTest):
               self.myip[idx] = peer['addr']
               self.peerip[idx] = peer['peer_addr']
               idx = idx+1
-#if port number is out of the total of IPv4, take the last IPv4
+        #if port number is out of the total of IPv4, take the last IPv4
         if int(target_port_str) > idx-1:
           self.myip[self.target_port] = self.myip[idx-1]
           self.peerip[self.target_port] = self.peerip[idx-1]
