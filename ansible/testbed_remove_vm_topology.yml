@@ -51,8 +51,16 @@
     include_vars: "vars/topo_{{ topo }}.yml"
 
   - name: Read dut minigraph
-    conn_graph_facts: host={{ dut_name }}
+    conn_graph_facts:
+      host: "{{ dut_name }}"
     delegate_to: localhost
+    when: dut_name.split(',')|length == 1
+
+  - name: Read duts minigraph
+    conn_graph_facts:
+      hosts: "{{ dut_name.split(',') }}"
+    delegate_to: localhost
+    when: dut_name.split(',')|length > 1
 
   roles:
     - { role: vm_set, action: 'remove_topo' }
