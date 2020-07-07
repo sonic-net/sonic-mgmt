@@ -44,6 +44,10 @@ class TestQosSai(QosSaiBase):
         'Arista-7260CX3-Q64'
     ]
 
+    def testParameter(self, duthost, dutQosConfig, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile):
+        logger.info("asictype {}".format(duthost.facts["asic_type"]))
+        logger.info("qosConfig {}".format(dutQosConfig))
+
     @pytest.mark.parametrize("xoffProfile", ["xoff_1", "xoff_2"])
     def testQosSaiPfcXoffLimit(self, xoffProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
                                ingressLosslessProfile, egressLosslessProfile):
@@ -82,6 +86,8 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_pfc": qosConfig[xoffProfile]["pkts_num_trig_pfc"],
             "pkts_num_trig_ingr_drp": qosConfig[xoffProfile]["pkts_num_trig_ingr_drp"],
         }
+        if "pkts_num_margin" in qosConfig[xoffProfile].keys():
+            testParams["pkts_num_margin"] = qosConfig[xoffProfile]["pkts_num_margin"]
         testParams.update(dutTestParams["basicParams"])
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams)
 
@@ -123,8 +129,12 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
             "pkts_num_trig_pfc": qosConfig[xonProfile]["pkts_num_trig_pfc"],
-            "pkts_num_dismiss_pfc": qosConfig[xonProfile]["pkts_num_dismiss_pfc"],
+            "pkts_num_dismiss_pfc": qosConfig[xonProfile]["pkts_num_dismiss_pfc"]
         }
+        if "pkts_num_hysteresis" in qosConfig[xonProfile].keys():
+            testParams["pkts_num_hysteresis"] = qosConfig[xonProfile]["pkts_num_hysteresis"]
+        if "pkts_num_margin" in qosConfig[xonProfile].keys():
+            testParams["pkts_num_margin"] = qosConfig[xonProfile]["pkts_num_margin"]
         testParams.update(dutTestParams["basicParams"])
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.PFCXonTest", testParams=testParams)
 
@@ -207,6 +217,11 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
             "pkts_num_trig_egr_drp": qosConfig["lossy_queue_1"]["pkts_num_trig_egr_drp"],
         }
+        if "packet_size" in qosConfig["lossy_queue_1"].keys():
+            testParams["packet_size"] = qosConfig["lossy_queue_1"]["packet_size"]
+            testParams["cell_size"] = qosConfig["lossy_queue_1"]["cell_size"]
+        if "pkts_num_margin" in qosConfig["lossy_queue_1"].keys():
+            testParams["pkts_num_margin"] = qosConfig["lossy_queue_1"]["pkts_num_margin"]
         testParams.update(dutTestParams["basicParams"])
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.LossyQueueTest", testParams=testParams)
 
@@ -357,6 +372,8 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_ingr_drp": qosConfig["wm_pg_headroom"]["pkts_num_trig_ingr_drp"],
             "cell_size": qosConfig["wm_pg_headroom"]["cell_size"],
         }
+        if "pkts_num_margin" in qosConfig["wm_pg_headroom"].keys():
+            testParams["pkts_num_margin"] = qosConfig["wm_pg_headroom"]["pkts_num_margin"]
         testParams.update(dutTestParams["basicParams"])
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.PGHeadroomWatermarkTest", testParams=testParams)
 
@@ -397,6 +414,7 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
             "pkts_num_fill_min": qosConfig[queueProfile]["pkts_num_fill_min"],
             "pkts_num_trig_drp": triggerDrop,
+            "packet_size": qosConfig[queueProfile]["packet_size"],
             "cell_size": qosConfig[queueProfile]["cell_size"],
         }
         testParams.update(dutTestParams["basicParams"])
