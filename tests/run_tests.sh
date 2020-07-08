@@ -13,8 +13,9 @@ function show_help_and_exit()
     echo "    -k             : specify file log level: error|warning|info|debug (default debug)"
     echo "    -l             : specify cli log level: error|warning|info|debug (default warning)"
     echo "    -m             : specify test method group|individual|debug (default group)"
-    echo "    -o             : omit the file logs"
     echo "    -n             : specify testbed name (*)"
+    echo "    -o             : omit the file logs"
+    echo "    -p             : specify log path (default: logs)"
     echo "    -r             : retain individual file log for suceeded tests (default: remove)"
     echo "    -s             : specify list of scripts to skip (default: none)"
     echo "    -t             : specify toplogy: t0|t1|any|combo like t0,any (*)"
@@ -53,6 +54,7 @@ function setup_environment()
     FULL_PATH=$(realpath ${SCRIPT})
     SCRIPT_PATH=$(dirname ${FULL_PATH})
     BASE_PATH=$(dirname ${SCRIPT_PATH})
+    LOG_PATH="logs"
 
     BYPASS_UTIL="False"
     CLI_LOG_LEVEL='warning'
@@ -88,18 +90,18 @@ function setup_test_options()
         PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
     done
 
-    if [[ -d logs ]]; then
-        rm -rf logs
+    if [[ -d ${LOG_PATH} ]]; then
+        rm -rf ${LOG_PATH}
     fi
 
     if [[ x"${OMIT_FILE_LOG}" == x"True" ]]; then
         UTIL_LOGGING_OPTIONS=""
         TEST_LOGGING_OPTIONS=""
     else
-        mkdir logs
+        mkdir -p ${LOG_PATH}
 
-        UTIL_LOGGING_OPTIONS="--junit-xml=logs/util.xml --log-file=logs/util.log"
-        TEST_LOGGING_OPTIONS="--junit-xml=logs/tr.xml --log-file=logs/test.log"
+        UTIL_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/util.xml --log-file=${LOG_PATH}/util.log"
+        TEST_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/tr.xml --log-file=${LOG_PATH}/test.log"
     fi
     UTIL_TOPOLOGY_OPTIONS="--topology util"
     TEST_TOPOLOGY_OPTIONS="--topology ${TOPOLOGY}"
@@ -120,6 +122,7 @@ function run_debug_tests()
     echo "EXTRA_PARAMETERS:      ${EXTRA_PARAMETERS}"
     echo "FILE_LOG_LEVEL:        ${FILE_LOG_LEVEL}"
     echo "INVENTORY:             ${INVENTORY}"
+    echo "LOG_PATH:              ${LOG_PATH}"
     echo "OMIT_FILE_LOG:         ${OMIT_FILE_LOG}"
     echo "RETAIN_SUCCESS_LOG:    ${RETAIN_SUCCESS_LOG}"
     echo "SKIP_SCRIPTS:          ${SKIP_SCRIPTS}"
@@ -175,9 +178,9 @@ function run_individual_tests()
             script_name=$(basename ${test_script})
             test_name=${script_name%.py}
             if [[ ${test_dir} != "." ]]; then
-                mkdir -p logs/${test_dir}
+                mkdir -p ${LOG_PATH}/${test_dir}
             fi
-            TEST_LOGGING_OPTIONS="--log-file logs/${test_dir}/${test_name}.log --junitxml=results/${test_dir}/${test_name}.xml"
+            TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
         fi
 
         py.test ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${test_script} ${EXTRA_PARAMETERS}
@@ -186,7 +189,7 @@ function run_individual_tests()
         # If test passed, no need to keep its log.
         if [ ${ret_code} -eq 0 ]; then
             if [[ x"${OMIT_FILE_LOG}" != x"True" && x"${RETAIN_SUCCESS_LOG}" == x"False" ]]; then
-                rm -f logs/${test_dir}/${test_name}.log
+                rm -f ${LOG_PATH}/${test_dir}/${test_name}.log
             fi
         else
             EXIT_CODE=1
@@ -199,7 +202,7 @@ function run_individual_tests()
 
 setup_environment
 
-while getopts "h?c:d:e:f:i:k:l:m:n:ors:t:u" opt; do
+while getopts "h?c:d:e:f:i:k:l:m:n:op:rs:t:u" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -233,6 +236,9 @@ while getopts "h?c:d:e:f:i:k:l:m:n:ors:t:u" opt; do
             ;;
         o )
             OMIT_FILE_LOG="True"
+            ;;
+        p )
+            LOG_PATH=${OPTARG}
             ;;
         r )
             RETAIN_SUCCESS_LOG="True"
