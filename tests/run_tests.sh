@@ -53,19 +53,19 @@ function setup_environment()
     FULL_PATH=$(realpath ${SCRIPT})
     SCRIPT_PATH=$(dirname ${FULL_PATH})
     BASE_PATH=$(dirname ${SCRIPT_PATH})
-    CLI_LOG_LEVEL='warning'
-    FILE_LOG_LEVEL='debug'
-    SKIP_FOLDERS="ptftests acstests saitests"
-    EXTRA_PARAMETERS=""
-    TEST_CASES=""
-    OMIT_FILE_LOG="False"
+
     BYPASS_UTIL="False"
-    RETAIN_SUCCESS_LOG="False"
-
-    TEST_METHOD='group'
-
-    TESTBED_FILE="${BASE_PATH}/ansible/testbed.csv"
+    CLI_LOG_LEVEL='warning'
+    EXTRA_PARAMETERS=""
+    FILE_LOG_LEVEL='debug'
     INVENTORY="${BASE_PATH}/ansible/lab,${BASE_PATH}/ansible/veos"
+    OMIT_FILE_LOG="False"
+    RETAIN_SUCCESS_LOG="False"
+    SKIP_SCRIPTS=""
+    SKIP_FOLDERS="ptftests acstests saitests"
+    TESTBED_FILE="${BASE_PATH}/ansible/testbed.csv"
+    TEST_CASES=""
+    TEST_METHOD='group'
 
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
@@ -88,7 +88,10 @@ function setup_test_options()
         PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
     done
 
-    rm -rf logs
+    if [[ -d logs ]]; then
+        rm -rf logs
+    fi
+
     if [[ x"${OMIT_FILE_LOG}" == x"True" ]]; then
         UTIL_LOGGING_OPTIONS=""
         TEST_LOGGING_OPTIONS=""
@@ -135,7 +138,7 @@ function run_debug_tests()
 function run_group_tests()
 {
     if [[ x"${BYPASS_UTIL}" == x"False" ]]; then
-        echo "=== Runing utility test cases ==="
+        echo "=== Runing pre-test cases ==="
         py.test ${PYTEST_COMMON_OPTS} ${UTIL_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} -k "not test_restart_syncd" ${EXTRA_PARAMETERS}
     fi
     echo "=== Running tests in groups ==="
@@ -145,7 +148,7 @@ function run_group_tests()
 function run_individual_tests()
 {
     if [[ x"${BYPASS_UTIL}" == x"False" ]]; then
-        echo "=== Runing utility test cases ==="
+        echo "=== Runing pre-test cases ==="
         py.test ${PYTEST_COMMON_OPTS} ${UTIL_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} -k "not test_restart_syncd" ${EXTRA_PARAMETERS}
     fi
 
