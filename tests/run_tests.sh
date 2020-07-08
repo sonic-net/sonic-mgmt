@@ -12,9 +12,10 @@ function show_help_and_exit()
     echo "    -i             : specify inventory name"
     echo "    -k             : specify file log level: error|warning|info|debug (default debug)"
     echo "    -l             : specify cli log level: error|warning|info|debug (default warning)"
-    echo "    -m             : specify test method group|individual|dump (default group)"
+    echo "    -m             : specify test method group|individual|debug (default group)"
     echo "    -o             : omit the file logs"
     echo "    -n             : specify testbed name (*)"
+    echo "    -r             : retain individual file log for suceeded tests (default: remove)"
     echo "    -s             : specify list of scripts to skip (default: none)"
     echo "    -t             : specify toplogy: t0|t1|any|combo like t0,any (*)"
     echo "    -u             : bypass util group"
@@ -59,6 +60,7 @@ function setup_environment()
     TEST_CASES=""
     OMIT_FILE_LOG="False"
     BYPASS_UTIL="False"
+    RETAIN_SUCCUSESS_LOG="False"
 
     TEST_METHOD='group'
 
@@ -86,10 +88,13 @@ function setup_test_options()
         PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
     done
 
+    rm -rf logs
     if [[ x"${OMIT_FILE_LOG}" == x"True" ]]; then
         UTIL_LOGGING_OPTIONS=""
         TEST_LOGGING_OPTIONS=""
     else
+        mkdir logs
+
         UTIL_LOGGING_OPTIONS="--junit-xml=logs/util.xml --log-file=logs/util.log"
         TEST_LOGGING_OPTIONS="--junit-xml=logs/tr.xml --log-file=logs/test.log"
     fi
@@ -97,8 +102,9 @@ function setup_test_options()
     TEST_TOPOLOGY_OPTIONS="--topology ${TOPOLOGY}"
 }
 
-function run_dump_tests()
+function run_debug_tests()
 {
+    echo "=== Show test settings ==="
     echo "SCRIPT:                ${SCRIPT}"
     echo "FULL_PATH:             ${FULL_PATH}"
     echo "SCRIPT_PATH:           ${SCRIPT_PATH}"
@@ -112,6 +118,7 @@ function run_dump_tests()
     echo "FILE_LOG_LEVEL:        ${FILE_LOG_LEVEL}"
     echo "INVENTORY:             ${INVENTORY}"
     echo "OMIT_FILE_LOG:         ${OMIT_FILE_LOG}"
+    echo "RETAIN_SUCCUSESS_LOG:  ${RETAIN_SUCCUSESS_LOG}"
     echo "SKIP_SCRIPTS:          ${SKIP_SCRIPTS}"
     echo "SKIP_FOLDERS:          ${SKIP_FOLDERS}"
     echo "TEST_CASES:            ${TEST_CASES}"
@@ -127,17 +134,18 @@ function run_dump_tests()
 
 function run_group_tests()
 {
-    echo "=== running tests in groups ==="
     if [[ x"${BYPASS_UTIL}" == x"False" ]]; then
+        echo "=== Runing utility test cases ==="
         py.test ${PYTEST_COMMON_OPTS} ${UTIL_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} -k "not test_restart_syncd" ${EXTRA_PARAMETERS}
     fi
+    echo "=== Running tests in groups ==="
     py.test ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} -k "not test_restart_syncd" ${EXTRA_PARAMETERS} ${TEST_CASES}
 }
 
 function run_individual_tests()
 {
-    echo "=== running tests individually ==="
     if [[ x"${BYPASS_UTIL}" == x"False" ]]; then
+        echo "=== Runing utility test cases ==="
         py.test ${PYTEST_COMMON_OPTS} ${UTIL_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} -k "not test_restart_syncd" ${EXTRA_PARAMETERS}
     fi
 
@@ -152,33 +160,38 @@ function run_individual_tests()
 
     EXIT_CODE=0
 
-    for test_script in $test_scripts; do
-
-        tdir=$(dirname $test_script)
-        ts=$(basename $test_script)
-        tn=${ts%.py}
-        if [[ $tdir != "." ]]; then
-            mkdir -p logs/$tdir
+    echo "=== Running tests individually ==="
+    for test_script in ${test_scripts}; do
+        if [[ x"${OMIT_FILE_LOG}" != x"True" ]]; then
+            test_dir=$(dirname ${test_script})
+            script_name=$(basename ${test_script})
+            test_name=${script_name%.py}
+            if [[ ${test_dir} != "." ]]; then
+                mkdir -p logs/${test_dir}
+            fi
+            TEST_LOGGING_OPTIONS="--log-file logs/${test_dir}/${test_name}.log --junitxml=results/${test_dir}/${test_name}.xml"
         fi
-        py.test $PYTEST_COMMON_OPTS --log-file logs/$tdir/$tn.log --junitxml=results/$tdir/$tn.xml ${TEST_TOPOLOGY_OPTIONS} $test_script -k "not test_restart_syncd" ${EXTRA_PARAMETERS}
 
+        py.test ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${test_script} -k "not test_restart_syncd" ${EXTRA_PARAMETERS}
         ret_code=$?
 
         # If test passed, no need to keep its log.
-        if [ $ret_code -eq 0 ]; then
-            rm logs/$tdir/$tn.log
+        if [ ${ret_code} -eq 0 ]; then
+            if [[ x"${OMIT_FILE_LOG}" != x"True" && x"${RETAIN_SUCCUSESS_LOG}" == x"False" ]]; then
+                rm -f logs/${test_dir}/${test_name}.log
+            fi
         else
             EXIT_CODE=1
         fi
 
     done
 
-    return $EXIT_CODE
+    return ${EXIT_CODE}
 }
 
 setup_environment
 
-while getopts "h?c:d:e:f:i:k:l:m:n:os:t:u" opt; do
+while getopts "h?c:d:e:f:i:k:l:m:n:ors:t:u" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -213,6 +226,9 @@ while getopts "h?c:d:e:f:i:k:l:m:n:os:t:u" opt; do
         o )
             OMIT_FILE_LOG="True"
             ;;
+        r )
+            RETAIN_SUCCUSESS_LOG="True"
+            ;;
         s )
             SKIP_SCRIPTS=${OPTARG}
             ;;
@@ -227,10 +243,5 @@ done
 
 validate_parameters
 setup_test_options
-
-if [[ x"${OMIT_FILE_LOG}" != x"True" ]]; then
-    rm -rf logs
-    mkdir logs
-fi
 
 run_${TEST_METHOD}_tests
