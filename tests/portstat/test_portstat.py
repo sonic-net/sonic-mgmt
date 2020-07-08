@@ -2,8 +2,8 @@
 import logging
 import pytest
 
-from common.helpers.assertions import pytest_assert
-from common.utilities import wait
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait
 
 logger = logging.getLogger('__name__')
 

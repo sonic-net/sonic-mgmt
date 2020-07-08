@@ -1,8 +1,8 @@
 import pytest
 import logging
 import ipaddress
-from common.helpers.assertions import pytest_assert
-from common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t1'),

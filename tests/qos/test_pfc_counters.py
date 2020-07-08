@@ -1,4 +1,4 @@
-from common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from qos_fixtures import leaf_fanouts
 from qos_helpers import eos_to_linux_intf
 import os

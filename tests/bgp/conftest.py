@@ -1,6 +1,6 @@
 import pytest
 import logging
-from common.utilities import wait_until
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 

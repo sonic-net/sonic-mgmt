@@ -1,6 +1,6 @@
 import logging
 import os
-from common.errors import MissingInputError
+from tests.common.errors import MissingInputError
 
 TEMPLATES_DIR = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../common/templates")))
 ANSIBLE_ROOT = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../../ansible")))

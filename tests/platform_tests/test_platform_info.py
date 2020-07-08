@@ -12,8 +12,8 @@ import sys
 
 import pytest
 
-from common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from common.utilities import wait_until
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common.utilities import wait_until
 from thermal_control_test_helper import *
 
 pytestmark = [
@@ -127,11 +127,7 @@ def check_vendor_specific_psustatus(dut, psu_status_line):
     @summary: Vendor specific psu status check
     """
     if dut.facts["asic_type"] in ["mellanox"]:
-        current_file_dir = os.path.dirname(os.path.realpath(__file__))
-        sub_folder_dir = os.path.join(current_file_dir, "mellanox")
-        if sub_folder_dir not in sys.path:
-            sys.path.append(sub_folder_dir)
-        from check_sysfs import check_psu_sysfs
+        from .mellanox.check_sysfs import check_psu_sysfs
 
         psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
         psu_match = psu_line_pattern.match(psu_status_line)

@@ -3,7 +3,7 @@ import json
 import logging
 import time
 
-from common.utilities import wait
+from tests.common.utilities import wait
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300

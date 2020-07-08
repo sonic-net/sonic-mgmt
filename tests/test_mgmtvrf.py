@@ -3,9 +3,9 @@ import time
 import re
 import logging
 
-from common import reboot
-from common.utilities import wait_until
-from common.helpers.assertions import pytest_assert
+from tests.common import reboot
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology("any")
