@@ -135,11 +135,19 @@ function run_debug_tests()
     echo "PYTEST_COMMON_OPTS:    ${PYTEST_COMMON_OPTS}"
 }
 
+function prepare_dut()
+{
+    echo "=== Preparing DUT for subsequent tests ==="
+    py.test ${PYTEST_COMMON_OPTS} ${UTIL_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+
+    # Give some delay for the newly announced routes to propagate.
+    sleep 120
+}
+
 function run_group_tests()
 {
     if [[ x"${BYPASS_UTIL}" == x"False" ]]; then
-        echo "=== Preparing DUT for subsequent tests ==="
-        py.test ${PYTEST_COMMON_OPTS} ${UTIL_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+        prepare_dut
     fi
     echo "=== Running tests in groups ==="
     py.test ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${TEST_CASES}
@@ -148,11 +156,8 @@ function run_group_tests()
 function run_individual_tests()
 {
     if [[ x"${BYPASS_UTIL}" == x"False" ]]; then
-        echo "=== Preparing DUT for subsequent tests ==="
-        py.test ${PYTEST_COMMON_OPTS} ${UTIL_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+        prepare_dut
     fi
-
-    sleep 120
 
     SKIP_SCRIPTS="${SKIP_SCRIPTS} test_announce_routes.py test_nbr_health.py"
 
