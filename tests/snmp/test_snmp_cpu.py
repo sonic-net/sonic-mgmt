@@ -5,7 +5,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
 ]
 
 @pytest.mark.bsl

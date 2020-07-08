@@ -7,7 +7,8 @@ from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/un
 from ptf_runner import ptf_runner
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0'),
+    pytest.mark.device_type('vs')
 ]
 
 @pytest.fixture(scope="module")
