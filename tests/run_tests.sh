@@ -53,6 +53,7 @@ function setup_environment()
     FULL_PATH=$(realpath ${SCRIPT})
     SCRIPT_PATH=$(dirname ${FULL_PATH})
     BASE_PATH=$(dirname ${SCRIPT_PATH})
+    LOG_PATH="logs"
 
     BYPASS_UTIL="False"
     CLI_LOG_LEVEL='warning'
@@ -88,18 +89,18 @@ function setup_test_options()
         PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
     done
 
-    if [[ -d logs ]]; then
-        rm -rf logs
+    if [[ -d ${LOG_PATH} ]]; then
+        rm -rf ${LOG_PATH}
     fi
 
     if [[ x"${OMIT_FILE_LOG}" == x"True" ]]; then
         UTIL_LOGGING_OPTIONS=""
         TEST_LOGGING_OPTIONS=""
     else
-        mkdir logs
+        mkdir ${LOG_PATH}
 
-        UTIL_LOGGING_OPTIONS="--junit-xml=logs/util.xml --log-file=logs/util.log"
-        TEST_LOGGING_OPTIONS="--junit-xml=logs/tr.xml --log-file=logs/test.log"
+        UTIL_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/util.xml --log-file=${LOG_PATH}/util.log"
+        TEST_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/tr.xml --log-file=${LOG_PATH}/test.log"
     fi
     UTIL_TOPOLOGY_OPTIONS="--topology util"
     TEST_TOPOLOGY_OPTIONS="--topology ${TOPOLOGY}"
@@ -175,9 +176,9 @@ function run_individual_tests()
             script_name=$(basename ${test_script})
             test_name=${script_name%.py}
             if [[ ${test_dir} != "." ]]; then
-                mkdir -p logs/${test_dir}
+                mkdir -p ${LOG_PATH}/${test_dir}
             fi
-            TEST_LOGGING_OPTIONS="--log-file logs/${test_dir}/${test_name}.log --junitxml=logs/${test_dir}/${test_name}.xml"
+            TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
         fi
 
         py.test ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${test_script} ${EXTRA_PARAMETERS}
@@ -186,7 +187,7 @@ function run_individual_tests()
         # If test passed, no need to keep its log.
         if [ ${ret_code} -eq 0 ]; then
             if [[ x"${OMIT_FILE_LOG}" != x"True" && x"${RETAIN_SUCCESS_LOG}" == x"False" ]]; then
-                rm -f logs/${test_dir}/${test_name}.log
+                rm -f ${LOG_PATH}/${test_dir}/${test_name}.log
             fi
         else
             EXIT_CODE=1
