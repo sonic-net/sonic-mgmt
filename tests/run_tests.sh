@@ -14,6 +14,7 @@ function show_help_and_exit()
     echo "    -l             : specify cli log level: error|warning|info|debug (default warning)"
     echo "    -m             : specify test method group|individual|debug (default group)"
     echo "    -o             : omit the file logs"
+    echo "    -p             : specify log path (default: logs)"
     echo "    -n             : specify testbed name (*)"
     echo "    -r             : retain individual file log for suceeded tests (default: remove)"
     echo "    -s             : specify list of scripts to skip (default: none)"
@@ -121,6 +122,7 @@ function run_debug_tests()
     echo "EXTRA_PARAMETERS:      ${EXTRA_PARAMETERS}"
     echo "FILE_LOG_LEVEL:        ${FILE_LOG_LEVEL}"
     echo "INVENTORY:             ${INVENTORY}"
+    echo "LOG_PATH:              ${LOG_PATH}"
     echo "OMIT_FILE_LOG:         ${OMIT_FILE_LOG}"
     echo "RETAIN_SUCCESS_LOG:    ${RETAIN_SUCCESS_LOG}"
     echo "SKIP_SCRIPTS:          ${SKIP_SCRIPTS}"
@@ -200,7 +202,7 @@ function run_individual_tests()
 
 setup_environment
 
-while getopts "h?c:d:e:f:i:k:l:m:n:ors:t:u" opt; do
+while getopts "h?c:d:e:f:i:k:l:m:n:op:rs:t:u" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -234,6 +236,9 @@ while getopts "h?c:d:e:f:i:k:l:m:n:ors:t:u" opt; do
             ;;
         o )
             OMIT_FILE_LOG="True"
+            ;;
+        p )
+            LOG_PATH=${OPTARG}
             ;;
         r )
             RETAIN_SUCCESS_LOG="True"
