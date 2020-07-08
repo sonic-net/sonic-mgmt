@@ -60,7 +60,7 @@ function setup_environment()
     TEST_CASES=""
     OMIT_FILE_LOG="False"
     BYPASS_UTIL="False"
-    RETAIN_SUCCUSESS_LOG="False"
+    RETAIN_SUCCESS_LOG="False"
 
     TEST_METHOD='group'
 
@@ -118,7 +118,7 @@ function run_debug_tests()
     echo "FILE_LOG_LEVEL:        ${FILE_LOG_LEVEL}"
     echo "INVENTORY:             ${INVENTORY}"
     echo "OMIT_FILE_LOG:         ${OMIT_FILE_LOG}"
-    echo "RETAIN_SUCCUSESS_LOG:  ${RETAIN_SUCCUSESS_LOG}"
+    echo "RETAIN_SUCCESS_LOG:    ${RETAIN_SUCCESS_LOG}"
     echo "SKIP_SCRIPTS:          ${SKIP_SCRIPTS}"
     echo "SKIP_FOLDERS:          ${SKIP_FOLDERS}"
     echo "TEST_CASES:            ${TEST_CASES}"
@@ -177,7 +177,7 @@ function run_individual_tests()
 
         # If test passed, no need to keep its log.
         if [ ${ret_code} -eq 0 ]; then
-            if [[ x"${OMIT_FILE_LOG}" != x"True" && x"${RETAIN_SUCCUSESS_LOG}" == x"False" ]]; then
+            if [[ x"${OMIT_FILE_LOG}" != x"True" && x"${RETAIN_SUCCESS_LOG}" == x"False" ]]; then
                 rm -f logs/${test_dir}/${test_name}.log
             fi
         else
