@@ -177,7 +177,7 @@ function run_individual_tests()
             if [[ ${test_dir} != "." ]]; then
                 mkdir -p logs/${test_dir}
             fi
-            TEST_LOGGING_OPTIONS="--log-file logs/${test_dir}/${test_name}.log --junitxml=results/${test_dir}/${test_name}.xml"
+            TEST_LOGGING_OPTIONS="--log-file logs/${test_dir}/${test_name}.log --junitxml=logs/${test_dir}/${test_name}.xml"
         fi
 
         py.test ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${test_script} ${EXTRA_PARAMETERS}
