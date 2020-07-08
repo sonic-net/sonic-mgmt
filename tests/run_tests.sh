@@ -138,18 +138,18 @@ function run_debug_tests()
 function run_group_tests()
 {
     if [[ x"${BYPASS_UTIL}" == x"False" ]]; then
-        echo "=== Runing pre-test cases ==="
-        py.test ${PYTEST_COMMON_OPTS} ${UTIL_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} -k "not test_restart_syncd" ${EXTRA_PARAMETERS}
+        echo "=== Preparing DUT for subsequent tests ==="
+        py.test ${PYTEST_COMMON_OPTS} ${UTIL_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
     fi
     echo "=== Running tests in groups ==="
-    py.test ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} -k "not test_restart_syncd" ${EXTRA_PARAMETERS} ${TEST_CASES}
+    py.test ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${TEST_CASES}
 }
 
 function run_individual_tests()
 {
     if [[ x"${BYPASS_UTIL}" == x"False" ]]; then
-        echo "=== Runing pre-test cases ==="
-        py.test ${PYTEST_COMMON_OPTS} ${UTIL_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} -k "not test_restart_syncd" ${EXTRA_PARAMETERS}
+        echo "=== Preparing DUT for subsequent tests ==="
+        py.test ${PYTEST_COMMON_OPTS} ${UTIL_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
     fi
 
     sleep 120
@@ -175,7 +175,7 @@ function run_individual_tests()
             TEST_LOGGING_OPTIONS="--log-file logs/${test_dir}/${test_name}.log --junitxml=results/${test_dir}/${test_name}.xml"
         fi
 
-        py.test ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${test_script} -k "not test_restart_syncd" ${EXTRA_PARAMETERS}
+        py.test ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${test_script} ${EXTRA_PARAMETERS}
         ret_code=$?
 
         # If test passed, no need to keep its log.
