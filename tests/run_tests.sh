@@ -98,7 +98,7 @@ function setup_test_options()
         UTIL_LOGGING_OPTIONS=""
         TEST_LOGGING_OPTIONS=""
     else
-        mkdir ${LOG_PATH}
+        mkdir -p ${LOG_PATH}
 
         UTIL_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/util.xml --log-file=${LOG_PATH}/util.log"
         TEST_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/tr.xml --log-file=${LOG_PATH}/test.log"
