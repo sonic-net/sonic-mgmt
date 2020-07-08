@@ -1,7 +1,7 @@
 import logging
 import time
 import os
-import sys
+
 import pytest
 
 from tests.common.utilities import wait_until

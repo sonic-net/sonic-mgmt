@@ -9,9 +9,7 @@ https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import logging
 import re
-import os
 import time
-import sys
 
 from datetime import datetime
 

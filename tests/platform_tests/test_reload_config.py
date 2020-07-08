@@ -5,8 +5,6 @@ This script is to cover the test case 'Reload configuration' in the SONiC platfo
 https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import logging
-import os
-import sys
 
 import pytest
 
