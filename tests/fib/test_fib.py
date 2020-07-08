@@ -123,7 +123,7 @@ def test_basic_fib(testbed, duthost, ptfhost, ipv4, ipv6, mtu, config_facts, bui
 
     # do not test load balancing for vs platform as kernel 4.9
     # can only do load balance base on L3
-    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+    if duthost.facts['asic_type'] in ["vs"]:
         test_balancing = False
     else:
         test_balancing = True
@@ -162,7 +162,7 @@ def setup_hash(testbed, duthost, config_facts):
 
     # do not test load balancing on L4 port on vs platform as kernel 4.9
     # can only do load balance base on L3
-    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+    if duthost.facts['asic_type'] in ["vs"]:
         if 'src-port' in hash_keys:
             hash_keys.remove('src-port')
         if 'dst-port' in hash_keys:
