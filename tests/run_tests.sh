@@ -227,7 +227,7 @@ while getopts "h?c:d:e:f:i:k:l:m:n:ors:t:u" opt; do
             OMIT_FILE_LOG="True"
             ;;
         r )
-            RETAIN_SUCCUSESS_LOG="True"
+            RETAIN_SUCCESS_LOG="True"
             ;;
         s )
             SKIP_SCRIPTS=${OPTARG}
