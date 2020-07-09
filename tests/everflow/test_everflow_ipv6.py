@@ -264,7 +264,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                             test_packet)
 
     def test_any_protocol(self, setup_info, setup_mirror_session, ptfadapter, duthost):
-        """Verify that ALL protocols are matched if no Next Header is specified."""
+        """Verify that the protocol number is ignored if it is not specified in the ACL rule."""
         test_packet = self._base_tcp_packet(
             ptfadapter,
             setup_info,
@@ -311,8 +311,8 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                             duthost,
                                             test_packet)
 
-    def test_fuzzy_packet(self, setup_info, setup_mirror_session, ptfadapter, duthost):
-        """Verify that we can match packets with a mix of UDP and TCP fields."""
+    def test_invalid_tcp_rule(self, setup_info, setup_mirror_session, ptfadapter, duthost):
+        """Verify that the ASIC does not reject rules with TCP flags if the protocol is not TCP."""
         test_packet = self._base_tcp_packet(
             ptfadapter,
             setup_info,
@@ -322,7 +322,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
             sport=12004,
             dport=12005,
             flags=0x12,
-            next_header=0x11
+            next_header=0x7F
         )
 
         # NOTE: We're keeping this test + its associated ACL rule here for now since tbh
