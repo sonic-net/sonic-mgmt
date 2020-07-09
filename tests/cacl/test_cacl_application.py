@@ -134,7 +134,7 @@ def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6ta
     # Gather device configuration facts
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")["ansible_facts"]
 
-    # Add iptables/ip6tables rules to drop all packets destined for loopback interface IP addresses
+    # Add iptables/ip6tables rules to drop all packets destined for peer-to-peer interface IP addresses
     for iface_table_name in INTERFACE_TABLE_NAME_LIST:
         if iface_table_name in cfg_facts:
             ifaces = cfg_facts[iface_table_name]
