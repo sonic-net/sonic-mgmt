@@ -7,7 +7,7 @@ from io import BytesIO
 
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 
-import sonic_platform
+import sonic_platform.platform
 
 SYSLOG_IDENTIFIER = os.path.basename(__file__)
 
