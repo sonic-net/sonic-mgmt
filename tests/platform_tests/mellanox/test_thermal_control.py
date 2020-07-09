@@ -6,7 +6,7 @@ import time
 from tests.common.mellanox_data import SWITCH_MODELS
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until
-from ..thermal_control_test_helper import *
+from tests.platform_tests.thermal_control_test_helper import *
 from mellanox_thermal_control_test_helper import MockerHelper, AbnormalFanMocker
 
 pytestmark = [

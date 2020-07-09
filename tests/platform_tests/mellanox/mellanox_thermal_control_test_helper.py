@@ -1,7 +1,7 @@
 import os
 import random
 import logging
-from ..thermal_control_test_helper import *
+from tests.platform_tests.thermal_control_test_helper import *
 from tests.common.mellanox_data import SWITCH_MODELS
 from minimum_table import MINIMUM_TABLE
 
