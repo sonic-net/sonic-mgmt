@@ -5,12 +5,12 @@ import pytest
 import random
 import time
 
-from common.fixtures.conn_graph_facts import fanout_graph_facts
-from common.helpers.assertions import pytest_assert
-from common.helpers.pfc_storm import PFCStorm
-from common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from common.reboot import reboot
-from ptf_runner import ptf_runner
+from tests.common.fixtures.conn_graph_facts import fanout_graph_facts
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.pfc_storm import PFCStorm
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.reboot import reboot
+from tests.ptf_runner import ptf_runner
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"

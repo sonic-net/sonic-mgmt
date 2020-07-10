@@ -12,8 +12,8 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 
-from common import reboot, port_toggle
-from common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common import reboot, port_toggle
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 
 logger = logging.getLogger(__name__)
 

@@ -4,10 +4,10 @@ import time
 import logging
 import requests
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from ptf_runner import ptf_runner
-from common.utilities import wait_tcp_connection
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.ptf_runner import ptf_runner
+from tests.common.utilities import wait_tcp_connection
 
 pytestmark = [
     pytest.mark.topology('t0'),

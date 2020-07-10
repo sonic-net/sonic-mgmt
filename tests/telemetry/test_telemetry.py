@@ -1,5 +1,5 @@
 import pytest
-from common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology('any')

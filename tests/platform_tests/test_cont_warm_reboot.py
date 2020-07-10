@@ -12,14 +12,14 @@ import sys
 import pytest
 
 from check_critical_services import check_critical_services
-from common.helpers.assertions import pytest_assert
-from common.utilities import wait
-from common.utilities import wait_until
-from common.reboot import check_reboot_cause, reboot_ctrl_dict, logging, reboot, REBOOT_TYPE_WARM
-from common.platform.interface_utils import check_interface_information
-from common.platform.daemon_utils import check_pmon_daemon_status
-from common.platform.transceiver_utils import check_transceiver_basic
-from common.plugins.sanity_check import checks
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait
+from tests.common.utilities import wait_until
+from tests.common.reboot import check_reboot_cause, reboot_ctrl_dict, logging, reboot, REBOOT_TYPE_WARM
+from tests.common.platform.interface_utils import check_interface_information
+from tests.common.platform.daemon_utils import check_pmon_daemon_status
+from tests.common.platform.transceiver_utils import check_transceiver_basic
+from tests.common.plugins.sanity_check import checks
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,

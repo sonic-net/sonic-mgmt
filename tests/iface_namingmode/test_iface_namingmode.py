@@ -2,8 +2,8 @@ import logging
 import pytest
 import re
 
-from common.devices import AnsibleHostBase
-from common.utilities import wait
+from tests.common.devices import AnsibleHostBase
+from tests.common.utilities import wait
 from netaddr import IPAddress
 
 pytestmark = [

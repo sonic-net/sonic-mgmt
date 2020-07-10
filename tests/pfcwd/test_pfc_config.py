@@ -3,8 +3,8 @@ import os
 import pytest
 import logging
 
-from common.helpers.assertions import pytest_assert
-from common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 logger = logging.getLogger(__name__)
 

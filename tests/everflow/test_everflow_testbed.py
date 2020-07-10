@@ -3,9 +3,9 @@ import time
 import pytest
 import ipaddr as ipaddress
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from common.fixtures.ptfhost_utils import copy_acstests_directory   # lgtm[py/unused-import]
-from ptf_runner import ptf_runner
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_acstests_directory   # lgtm[py/unused-import]
+from tests.ptf_runner import ptf_runner
 from abc import abstractmethod
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))

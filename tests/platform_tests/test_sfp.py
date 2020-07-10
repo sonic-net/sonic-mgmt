@@ -13,8 +13,8 @@ import json
 
 import pytest
 
-from common.fixtures.conn_graph_facts import conn_graph_facts
-from common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 ans_host = None
 port_mapping = None

@@ -1,4 +1,4 @@
-from common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert
 
 
 class PlatformApiTestBase(object):

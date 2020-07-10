@@ -8,7 +8,7 @@ from test_vrf import (
     gen_vrf_neigh_file,
     partial_ptf_runner
 )
-from ptf_runner import ptf_runner
+from tests.ptf_runner import ptf_runner
 
 pytestmark = [
     pytest.mark.topology('any')
