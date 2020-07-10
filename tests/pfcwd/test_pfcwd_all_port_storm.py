@@ -2,10 +2,10 @@ import logging
 import os
 import pytest
 
-from common.fixtures.conn_graph_facts import fanout_graph_facts
-from common.helpers.pfc_storm import PFCMultiStorm
-from common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from files.pfcwd_helper import start_wd_on_ports
+from tests.common.fixtures.conn_graph_facts import fanout_graph_facts
+from tests.common.helpers.pfc_storm import PFCMultiStorm
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from .files.pfcwd_helper import start_wd_on_ports
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"

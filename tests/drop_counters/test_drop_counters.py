@@ -13,7 +13,7 @@ import os
 import json
 import netaddr
 
-from common.utilities import wait_until
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('any')

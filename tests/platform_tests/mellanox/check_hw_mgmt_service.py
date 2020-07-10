@@ -4,7 +4,7 @@ Helper function for checking the hw-management service
 import logging
 import re
 
-from common.utilities import wait_until
+from tests.common.utilities import wait_until
 
 
 def fan_speed_set_to_default(dut):

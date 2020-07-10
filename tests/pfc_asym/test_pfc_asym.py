@@ -1,4 +1,4 @@
-from ptf_runner import ptf_runner
+from tests.ptf_runner import ptf_runner
 import pytest
 
 pytestmark = [

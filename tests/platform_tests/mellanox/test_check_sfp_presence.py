@@ -6,7 +6,7 @@ import os
 import json
 import pytest
 
-from common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 
 pytestmark = [
     pytest.mark.topology('any')

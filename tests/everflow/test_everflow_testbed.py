@@ -9,9 +9,9 @@ from tests.ptf_runner import ptf_runner
 from everflow_test_utilities import BaseEverflowTest
 
 # Module-level fixtures
-from common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
-from common.fixtures.ptfhost_utils import copy_acstests_directory  # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
-from everflow_test_utilities import setup_info  # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
+from tests.common.fixtures.ptfhost_utils import copy_acstests_directory   # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
+from everflow_test_utilities import setup_info                            # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))

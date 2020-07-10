@@ -1,5 +1,5 @@
-from common.utilities import wait_until
-from common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 import logging
 logger = logging.getLogger(__name__)
 
@@ -8,7 +8,8 @@ import pytest
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
 ]
 
 @pytest.fixture(scope="module")

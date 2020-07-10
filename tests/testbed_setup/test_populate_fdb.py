@@ -1,6 +1,6 @@
 import pytest
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 
 pytestmark = [
     pytest.mark.topology('any')

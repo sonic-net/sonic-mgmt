@@ -2,14 +2,15 @@ import pytest
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer globally
-    pytest.mark.topology('t1')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
 ]
 
 SONIC_SSH_PORT  = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 
-def test_control_plane_acls(duthost, localhost, creds):
+def test_cacl_function(duthost, localhost, creds):
     """Test control plane ACL functionality on a SONiC device
     """
     dut_mgmt_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']

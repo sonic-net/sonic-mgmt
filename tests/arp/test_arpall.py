@@ -3,8 +3,8 @@ import pytest
 import time
 from datetime import datetime
 
-from ptf_runner import ptf_runner
-from common.helpers.assertions import pytest_assert
+from tests.ptf_runner import ptf_runner
+from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology('t1')
