@@ -39,7 +39,7 @@ vms6-t0-z91,vms6-2,t0,docker-ptf-brcm,vms6-2,10.64.247.18/23,server_6,VM0632,str
 vms6-t0-7060,vms6-4,t0,docker-ptf-brcm,vms6-4,10.64.247.20/23,server_6,VM0636,str-a7060cx-acs-1,prsunny
 vms6-t1-7060,vms6-3,t1-lag,docker-ptf-brcm,vms6-3,10.64.247.19/23,server_6,VM0640,str-a7060cx-acs-10,prsunny
 vms7-t0-s6100,vms7-5,t0-64,docker-ptf-brcm,vms7-5,10.64.247.16/23,server_7,VM0732,str-s6100-acs-2,Sujin
-vms7-t1-s6100,vms7-6,t1,docker-ptf-brcm,vms7-6,10.64.247.8/23,server_7,VM0700,str-s6100-acs-5,Jenkins
+vms7-t1-s6100,vms7-6,t1-64-lag,docker-ptf-brcm,vms7-6,10.64.247.8/23,server_7,VM0700,str-s6100-acs-5,Jenkins
 vms7-t0-7260-1,vms7-7,t0-116,docker-ptf-brcm,vms7-7,10.64.247.17/23,server_7,VM0736,str-7260cx3-acs-1,yingxie
 vms7-t0-7260-2,vms7-8,t0-116,docker-ptf-brcm,vms7-8,10.64.247.21/23,server_7,VM0740,str-7260cx3-acs-2,yingxie
 vms7-t0-7260-7,vms7-9,t0-64,docker-ptf-brcm,vms7-9,10.64.246.79/23,server_7,VM0744,str-7260cx3-acs-7,nejo
