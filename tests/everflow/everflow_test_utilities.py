@@ -63,14 +63,20 @@ def setup_info(duthost, testbed):
         test_egress_mirror_on_egress_acl = "MIRROR_EGRESS_ACTION" in switch_capabilities["ACL_ACTIONS|EGRESS"]
         test_egress_mirror_on_ingress_acl = "MIRROR_EGRESS_ACTION" in switch_capabilities["ACL_ACTIONS|INGRESS"]
 
+    # Collects a list of interfaces, their port number for PTF, and the LAGs they are members of,
+    # if applicable.
+    #
+    # TODO: Add a namedtuple to make the groupings more explicit
     def get_port_info(in_port_list, out_port_list, out_port_ptf_id_list, out_port_lag_name):
         ptf_port_id = ""
         out_port_exclude_list = []
+
         for port in in_port_list:
             if port not in out_port_list and port not in out_port_exclude_list and len(out_port_list) < 4:
                 ptf_port_id += (str(mg_facts["minigraph_port_indices"][port]))
                 out_port_list.append(port)
                 out_port_lag_name.append("Not Applicable")
+
                 for portchannelinfo in mg_facts["minigraph_portchannels"].items():
                     if port in portchannelinfo[1]["members"]:
                         out_port_lag_name[-1] = portchannelinfo[0]
@@ -79,6 +85,7 @@ def setup_info(duthost, testbed):
                                 continue
                             ptf_port_id += "," + (str(mg_facts["minigraph_port_indices"][lag_member]))
                             out_port_exclude_list.append(lag_member)
+
                 out_port_ptf_id_list.append(ptf_port_id)
                 ptf_port_id = ""
 
