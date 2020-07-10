@@ -2,7 +2,7 @@ import ipaddress
 
 import pytest
 
-from common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
