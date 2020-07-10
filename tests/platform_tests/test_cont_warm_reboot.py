@@ -10,6 +10,7 @@ Status of BGP neighbors (should be established)
 import os
 import sys
 import pytest
+import threading
 
 from check_critical_services import check_critical_services
 from tests.common.helpers.assertions import pytest_assert
@@ -20,6 +21,9 @@ from tests.common.platform.interface_utils import check_interface_information
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.transceiver_utils import check_transceiver_basic
 from tests.common.plugins.sanity_check import checks
+
+from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -116,7 +120,9 @@ def check_neighbors(dut):
           "BGP neighbor's ASN does not match minigraph")
 
 
-def test_cont_warm_reboot(duthost, localhost, conn_graph_facts, continuous_reboot_count, continuous_reboot_delay):
+@pytest.mark.usefixtures('get_advanced_reboot')
+def test_cont_warm_reboot(duthost, ptfhost, localhost, conn_graph_facts, continuous_reboot_count, \
+    continuous_reboot_delay, enable_continuous_io, get_advanced_reboot):
     """
     @summary: This test case is to perform continuous warm reboot in a row
     """
@@ -126,6 +132,19 @@ def test_cont_warm_reboot(duthost, localhost, conn_graph_facts, continuous_reboo
         if "disabled" in issu_capability:
             pytest.skip("ISSU is not supported on this DUT, skip this test case")
 
+    # Start advancedReboot script on the ptf host to enable continuous I/O
+    advancedReboot = get_advanced_reboot(rebootType='warm-reboot', enableContinuousIO=enable_continuous_io)
+    thr = threading.Thread(target=advancedReboot.runRebootTestcase)
+    thr.setDaemon(True)
+    thr.start()
+
+    # Start continuous warm reboot on the DUT
     for _ in range(continuous_reboot_count):
         reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_WARM)
         wait(continuous_reboot_delay, msg="Wait {}s before next warm-reboot".format(continuous_reboot_delay))
+
+    # Find the pid of continuous I/O script inside ptf container and send a stop signal
+    pid_res = ptfhost.command("cat /tmp/advanced-reboot-pid.log")
+    ptfhost.command("kill -SIGUSR1 {}".format(pid_res['stdout']))
+    thr.join()
+    logging.info("Continuous warm-reboot test completed")

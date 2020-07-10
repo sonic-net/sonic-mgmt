@@ -19,6 +19,10 @@ def continuous_reboot_count(request):
 def continuous_reboot_delay(request):
     return request.config.getoption("--continuous_reboot_delay")
 
+@pytest.fixture(autouse=True, scope="module")
+def enable_continuous_io(request):
+    return request.config.getoption("--enable_continuous_io")
+
 # Platform pytest arguments
 def pytest_addoption(parser):
 
