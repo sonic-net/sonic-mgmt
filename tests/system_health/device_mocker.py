@@ -46,9 +46,9 @@ def device_mocker_factory():
         :param dut: DUT object representing a SONiC switch under test.
         :return: Created mocker instance.
         """
-        platform = dut.facts['platform']
+        asic = dut.facts['asic_type']
         mocker_object = None
-        if 'mlnx' in platform:
+        if 'mellanox' in asic:
             from .mellanox.mellanox_device_mocker import MellanoxDeviceMocker
             mocker_object = MellanoxDeviceMocker(dut)
             mockers.append(mocker_object)

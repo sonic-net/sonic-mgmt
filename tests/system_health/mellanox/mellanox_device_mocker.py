@@ -1,6 +1,6 @@
 from ..device_mocker import DeviceMocker
-from common.mellanox_data import SWITCH_MODELS
-from platform_tests.mellanox.mellanox_thermal_control_test_helper import MockerHelper, FanDrawerData, FanData, \
+from tests.common.mellanox_data import SWITCH_MODELS
+from tests.platform_tests.mellanox.mellanox_thermal_control_test_helper import MockerHelper, FanDrawerData, FanData, \
     FAN_NAMING_RULE
 
 
