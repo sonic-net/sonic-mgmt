@@ -5,10 +5,15 @@ import time
 import logging
 import os
 
-from ptf_runner import ptf_runner
-from common.devices import AnsibleHostBase
-from common.fixtures.conn_graph_facts import conn_graph_facts
-from common.utilities import wait_until
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.ptf_runner import ptf_runner
+from tests.common.devices import AnsibleHostBase
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.utilities import wait_until
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 @pytest.fixture(scope="module")
 def common_setup_teardown(duthost, ptfhost, testbed):
@@ -24,9 +29,6 @@ def common_setup_teardown(duthost, ptfhost, testbed):
         src = "../ansible/roles/test/files/acstests/%s" % test_file
         dst = "/tmp/%s" % test_file
         ptfhost.copy(src=src, dest=dst)
-
-    # Copy tests to the PTF-docker
-    ptfhost.copy(src="ptftests", dest="/root")
 
     # Inlucde testbed topology configuration
     testbed_type = testbed['topo']['name']
@@ -153,15 +155,18 @@ class LagTest:
             vm_host = self.nbrhosts[peer_device]['host']
 
             # Make sure all lag members on VM are set to fast
-            logging.info("Changing lacp rate to fast for %s in %s" % (neighbor_lag_intfs[0], peer_device))
-            vm_host.set_interface_lacp_rate_mode(neighbor_lag_intfs[0], 'fast')
+            for neighbor_lag_member in neighbor_lag_intfs:
+                logging.info("Changing lacp rate to fast for %s in %s" % (neighbor_lag_member, peer_device))
+                vm_host.set_interface_lacp_rate_mode(neighbor_lag_member, 'fast')
             lag_rate_current_setting = 'fast'
             time.sleep(5)
             for iface_behind_lag in iface_behind_lag_member:
                 self.__verify_lag_lacp_timing(1, iface_behind_lag)
 
             # Make sure all lag members on VM are set to slow
-            vm_host.set_interface_lacp_rate_mode(neighbor_lag_intfs[0], 'normal')
+            for neighbor_lag_member in neighbor_lag_intfs:
+                logging.info("Changing lacp rate to slow for %s in %s" % (neighbor_lag_member, peer_device))
+                vm_host.set_interface_lacp_rate_mode(neighbor_lag_member, 'normal')
             lag_rate_current_setting = 'slow'
             time.sleep(5)
             for iface_behind_lag in iface_behind_lag_member:
@@ -169,7 +174,9 @@ class LagTest:
         finally:
             # Restore lag rate setting on VM in case of failure
             if lag_rate_current_setting == 'fast':
-                vm_host.set_interface_lacp_rate_mode(neighbor_lag_intfs[0], 'normal')
+                for neighbor_lag_member in neighbor_lag_intfs:
+                    logging.info("Changing lacp rate to slow for %s in %s" % (neighbor_lag_member, peer_device))
+                    vm_host.set_interface_lacp_rate_mode(neighbor_lag_member, 'normal')
 
     def run_single_lag_test(self, lag_name):
         logging.info("Start checking single lag for: %s" % lag_name)

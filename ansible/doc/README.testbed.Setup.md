@@ -4,7 +4,7 @@ This document describes the steps to setup the testbed and deploy a topology.
 
 ## Prepare testbed server
 
-- Install Ubuntu 16.04 or 17.04 amd64 server.
+- Install Ubuntu 18.04 amd64 server.
 - Setup management port configuration using sample ```/etc/network/interfaces```.
 
 ```
@@ -37,7 +37,7 @@ iface br1 inet static
 
 ## Setup docker registry for *PTF* docker
 
-PTF docker is used to send and receive packets to test data plane. 
+PTF docker is used to send and receive packets to test data plane.
 
 - Build PTF docker
 ```
@@ -51,7 +51,7 @@ make target/docker-ptf.gz
 ## Build and run *sonic-mgmt* docker
 
 ansible playbook in *sonic-mgmt* repo requires to setup ansible and various dependencies.
-We have built a *sonic-mgmt* docker that installs all dependencies, and you can build 
+We have built a *sonic-mgmt* docker that installs all dependencies, and you can build
 the docker and run ansible playbook inside the docker.
 
 - Build *sonic-mgmt* docker
@@ -74,7 +74,7 @@ From now on, all steps are running inside the *sonic-mgmt* docker.
 
 ## Prepare testbed configurations
 
-Latest *sonic-mgmt* repo is cloned into *sonic-mgmt* docker under '/var/[your-login-username]/sonic-mgmt`. 
+Latest *sonic-mgmt* repo is cloned into *sonic-mgmt* docker under '/var/[your-login-username]/sonic-mgmt`.
 Once you are in the docker, you need to modify the testbed configuration files to reflect your lab setup.
 
 - Server
@@ -102,19 +102,19 @@ Once you are in the docker, you need to modify the testbed configuration files t
 ```
 ./testbed-cli.sh start-vms server_1 password.txt
 ```
-  - please note: Here "password.txt" is the ansible vault password file name/path. Ansible allows user use ansible vault to encrypt password files. By default, this shell script require a password file. If you are not using ansible vault, just create an empty file and pass the filename to the command line. The file name and location is created and maintained by user. 
+  - please note: Here "password.txt" is the ansible vault password file name/path. Ansible allows user use ansible vault to encrypt password files. By default, this shell script require a password file. If you are not using ansible vault, just create an empty file and pass the filename to the command line. The file name and location is created and maintained by user.
 
 Check that all VMs are up and running: ```ansible -m ping -i veos server_1```
 
-## Deploy fanout switch Vlan 
- 
-You need to specify all lab physical connections before running fanout deployment and some of the tests.  
- 
-Please follow [Configuration](README.testbed.Config.md) 'Testbed Physical Topology' section to prepare your lab connection graph file.  
+## Deploy fanout switch Vlan
 
-We are using Arista switches as fanout switch in our lab. So, the playbook under roles/fanout is for deploy fanout(leaf) switch Vlans configuration of Arista only. If you are using other type of fanout switches, you may manually configure Vlan configurations in switch or you have a good way to deploy regular Layer2 switch configuration in lab would also work. Our fanout switch deploy using Arista switch eosadmin shell login. If you do have an Arista switch as fanout and you want to run the fanout/tasks/main.yml to deploy the switch, please scp the roles/fanout/template/rc.eos file to Arista switch flash, and make sure that you can use your fanout_admin_user/fanout_admin_password to login to shell.  
- 
-TODO: Improve testbed rootfanout switch configuration method; along we are changing the inventory file format, some of the early fanout definition files has duplicated fields with inventory file, should adopt new inventory file and improve the lab graph 
+You need to specify all lab physical connections before running fanout deployment and some of the tests.
+
+Please follow [Configuration](README.testbed.Config.md) 'Testbed Physical Topology' section to prepare your lab connection graph file.
+
+We are using Arista switches as fanout switch in our lab. So, the playbook under roles/fanout is for deploy fanout(leaf) switch Vlans configuration of Arista only. If you are using other type of fanout switches, you may manually configure Vlan configurations in switch or you have a good way to deploy regular Layer2 switch configuration in lab would also work. Our fanout switch deploy using Arista switch eosadmin shell login. If you do have an Arista switch as fanout and you want to run the fanout/tasks/main.yml to deploy the switch, please scp the roles/fanout/template/rc.eos file to Arista switch flash, and make sure that you can use your fanout_admin_user/fanout_admin_password to login to shell.
+
+TODO: Improve testbed rootfanout switch configuration method; along we are changing the inventory file format, some of the early fanout definition files has duplicated fields with inventory file, should adopt new inventory file and improve the lab graph
 
 ## Deploy topology
 

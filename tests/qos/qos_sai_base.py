@@ -4,8 +4,8 @@ import pytest
 import re
 import yaml
 
-from common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from common.system_utils import docker
+from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
+from tests.common.system_utils import docker
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class QosSaiBase:
 
     def __runRedisCommandOrAssert(self, duthost, argv=[]):
         """
-            Runs Redis command on DUT host. 
+            Runs Redis command on DUT host.
 
             The method asserts if the command fails.
 
@@ -208,7 +208,7 @@ class QosSaiBase:
             #TODO: handle the case when there are multiple vlans
             testVlan = next(iter(mgFacts["minigraph_vlans"]))
             testVlanMembers = mgFacts["minigraph_vlans"][testVlan]["members"]
-    
+
             testVlanIp = None
             for vlan in mgFacts["minigraph_vlan_interfaces"]:
                 if mgFacts["minigraph_vlans"][testVlan]["name"] in vlan["attachto"]:
@@ -258,7 +258,7 @@ class QosSaiBase:
     def runPtfTest(self, ptfhost, testCase='', testParams={}):
         """
             Runs QoS SAI test case on PTF host
- 
+
             Args:
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
                 testCase (str): SAI tests test case name
@@ -377,13 +377,15 @@ class QosSaiBase:
         def updateIptablesDropRule(duthost, ipVersion,  state='present'):
             duthost.iptables(
                 ip_version=ipVersion,
-                action="Append",
+                action="insert",
+                rule_num="1",
                 chain="INPUT",
                 jump="DROP",
                 protocol="tcp",
                 destination_port="bgp",
                 state=state
             )
+
 
         ipVersions  = [{"ipVersion": "ipv4"}, {"ipVersion": "ipv6"}]
 
@@ -446,6 +448,28 @@ class QosSaiBase:
         for service in services:
             updateDockerService(duthost, action="start", **service)
 
+    @pytest.fixture(autouse=True)
+    def updateLoganalyzerExceptions(self, duthost, loganalyzer):
+        """
+            Update loganalyzer ignore regex list
+
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+                loganalyzer (Fixture): log analyzer fixture
+
+            Returns:
+                None
+        """
+        ignoreRegex = [
+            ".*ERR monit.*'lldpd_monitor' process is not running",
+            ".*ERR monit.*'lldp_syncd' process is not running",
+            ".*ERR monit.*'bgpd' process is not running",
+            ".*ERR monit.*'bgpcfgd' process is not running",
+        ]
+        loganalyzer.ignore_regex.extend(ignoreRegex)
+
+        yield
+
     @pytest.fixture(scope='class', autouse=True)
     def disablePacketAging(self, duthost, stopServices):
         """
@@ -497,7 +521,7 @@ class QosSaiBase:
         with open(r"qos/files/qos.yml") as file:
             qosConfigs = yaml.load(file, Loader=yaml.FullLoader)
 
-        vendor = duthost.get_asic_type()
+        vendor = duthost.facts["asic_type"]
         hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
         dutAsic = None
         for asic in self.SUPPORTED_ASIC_LIST:
@@ -512,24 +536,11 @@ class QosSaiBase:
             "portSpeedCableLength": portSpeedCableLength,
         }
 
-    @pytest.fixture(scope='class', autouse=True)
-    def copyPtfDirectory(self, ptfhost):
-        """
-            Copys PTF directory to PTF host. This class-scope fixture runs once before test start
- 
-            Args:
-                ptfhost (AnsibleHost): Packet Test Framework (PTF)
-
-            Returns:
-                None
-        """
-        ptfhost.copy(src="ptftests", dest="/root")
-
     @pytest.fixture(scope='class')
     def ptfPortMapFile(self, request, duthost, ptfhost):
         """
             Prepare and copys port map file to PTF host
- 
+
             Args:
                 request (Fixture): pytest request object
                 duthost (AnsibleHost): Device Under Test (DUT)
@@ -538,7 +549,6 @@ class QosSaiBase:
             Returns:
                 filename (str): returns the filename copied to PTF host
         """
-        ptfhost.copy(src="ptftests", dest="/root")
         portMapFile = request.config.getoption("--ptf_portmap")
         if not portMapFile:
             portMapFile = self.DEFAULT_PORT_INDEX_TO_ALIAS_MAP_FILE
@@ -557,26 +567,13 @@ class QosSaiBase:
         yield "/root/{}".format(portMapFile.split('/')[-1])
 
     @pytest.fixture(scope='class', autouse=True)
-    def copySaiTests(self, ptfhost):
-        """
-            Copys SAI directory to PTF host. This class-scope fixture runs once before test start
- 
-            Args:
-                ptfhost (AnsibleHost): Packet Test Framework (PTF)
- 
-            Returns:
-                None
-        """
-        ptfhost.copy(src="saitests", dest="/root")
-
-    @pytest.fixture(scope='class', autouse=True)
     def dutTestParams(self, duthost, testbed, ptfPortMapFile):
         """
             Prepares DUT host test params
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
-                testbed (Fixture, dict): Map containing testbed information 
+                testbed (Fixture, dict): Map containing testbed information
                 ptfPortMapFile (Fxiture, str): filename residing on PTF host and contains port maps information
 
             Returns:
@@ -597,28 +594,15 @@ class QosSaiBase:
             }
         }
 
-    @pytest.fixture(scope='class', autouse=True)
-    def changePtfhostMacAddresses(self, ptfhost):
-        """
-            Change MAC addresses (unique) on PTF host. This class-scope fixture runs once before test start
- 
-            Args:
-                ptfhost (AnsibleHost): Packet Test Framework (PTF)
- 
-            Returns:
-                None
-        """
-        ptfhost.script("scripts/change_mac.sh")
-
     @pytest.fixture(scope='class')
     def releaseAllPorts(self, ptfhost, dutTestParams, updateIptables):
         """
             Release all paused ports prior to running QoS SAI test cases
- 
+
             Args:
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
                 dutTestParams (Fixture, dict): DUT host test params
-                updateIptables (Fixture, dict): updateIptables to run prior to releasing paused ports 
+                updateIptables (Fixture, dict): updateIptables to run prior to releasing paused ports
 
             Returns:
                 None
@@ -632,14 +616,14 @@ class QosSaiBase:
     def populateArpEntries(self, duthost, ptfhost, dutTestParams, dutConfig, releaseAllPorts):
         """
             Update ARP entries of QoS SAI test ports
- 
+
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
                 dutTestParams (Fixture, dict): DUT host test params
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
-                releaseAllPorts (Fixture, dict): releaseAllPorts to run prior to updating ARP entries 
+                releaseAllPorts (Fixture, dict): releaseAllPorts to run prior to updating ARP entries
 
             Returns:
                 None
@@ -667,7 +651,7 @@ class QosSaiBase:
     def ingressLosslessProfile(self, request, duthost, dutConfig):
         """
             Retreives ingress lossless profile
- 
+
             Args:
                 request (Fixture): pytest request object
                 duthost (AnsibleHost): Device Under Test (DUT)
@@ -689,7 +673,7 @@ class QosSaiBase:
     def ingressLossyProfile(self, request, duthost, dutConfig):
         """
             Retreives ingress lossy profile
- 
+
             Args:
                 request (Fixture): pytest request object
                 duthost (AnsibleHost): Device Under Test (DUT)
@@ -711,7 +695,7 @@ class QosSaiBase:
     def egressLosslessProfile(self, request, duthost, dutConfig):
         """
             Retreives egress lossless profile
- 
+
             Args:
                 request (Fixture): pytest request object
                 duthost (AnsibleHost): Device Under Test (DUT)
@@ -733,7 +717,7 @@ class QosSaiBase:
     def losslessSchedProfile(self, duthost, dutConfig):
         """
             Retreives lossless scheduler profile
- 
+
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
@@ -752,7 +736,7 @@ class QosSaiBase:
     def lossySchedProfile(self, duthost, dutConfig):
         """
             Retreives lossy scheduler profile
- 
+
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
@@ -771,7 +755,7 @@ class QosSaiBase:
     def updateSchedProfile(self, duthost, dutQosConfig, losslessSchedProfile, lossySchedProfile):
         """
             Updates lossless/lossy scheduler profiles
- 
+
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
                 dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
@@ -826,7 +810,7 @@ class QosSaiBase:
     def resetWatermark(self, duthost):
         """
             Reset queue watermark
- 
+
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
 

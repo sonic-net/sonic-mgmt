@@ -5,8 +5,6 @@ This script contains re-usable functions for checking status of hw-management re
 """
 import logging
 
-from check_hw_mgmt_service import wait_until_fan_speed_set_to_default
-
 
 def check_sysfs(dut):
     """
@@ -19,21 +17,16 @@ def check_sysfs(dut):
 
     logging.info("Check content of some key files")
 
-    assert not wait_until_fan_speed_set_to_default(dut, timeout=120), \
-        "Content of /var/run/hw-management/thermal/pwm1 should be 153"
-
-    file_suspend = dut.command("cat /var/run/hw-management/config/suspend")
-    assert file_suspend["stdout"] == "1", "Content of /var/run/hw-management/config/suspend should be 1"
 
     file_asic = dut.command("cat /var/run/hw-management/thermal/asic")
     try:
         asic_temp = float(file_asic["stdout"]) / 1000
-        assert 0 < asic_temp < 85, "Abnormal ASIC temperature: %s" % file_asic["stdout"]
+        assert 0 < asic_temp < 105, "Abnormal ASIC temperature: %s" % file_asic["stdout"]
     except Exception as e:
         assert False, "Bad content in /var/run/hw-management/thermal/asic: %s" % repr(e)
 
     dut_hwsku = dut.facts["hwsku"]
-    from common.mellanox_data import SWITCH_MODELS
+    from tests.common.mellanox_data import SWITCH_MODELS
     fan_count = SWITCH_MODELS[dut_hwsku]["fans"]["number"]
 
     fan_speed = 0
@@ -67,7 +60,6 @@ def check_sysfs(dut):
 
         fan_speed_set = "/var/run/hw-management/thermal/fan{}_speed_set".format(fan_id)
         fan_speed_set_content = dut.command("cat %s" % fan_speed_set)
-        assert fan_speed_set_content["stdout"] == "153", "Fan speed should be set to 60%, 153/255"
         fan_set_speed = int(fan_speed_set_content["stdout"])
 
         fan_speed_get = "/var/run/hw-management/thermal/fan{}_speed_get".format(fan_id)
@@ -78,8 +70,8 @@ def check_sysfs(dut):
         except Exception as e:
             assert "Get content from %s failed, exception: %s" % (fan_speed_get, repr(e))
 
-        max_tolerance_speed = ((float(fan_set_speed)/256)*fan_max_speed)*(1 + 0.3)
-        min_tolerance_speed = ((float(fan_set_speed)/256)*fan_max_speed)*(1 - 0.3)
+        max_tolerance_speed = ((float(fan_set_speed)/256)*fan_max_speed)*(1 + 0.5)
+        min_tolerance_speed = ((float(fan_set_speed)/256)*fan_max_speed)*(1 - 0.5)
         assert min_tolerance_speed < fan_speed < max_tolerance_speed, "Speed out of tolerance speed range (%d, %d)" \
                                                                       % (min_tolerance_speed, max_tolerance_speed)
 
@@ -220,7 +212,7 @@ def check_psu_sysfs(dut, psu_id, psu_state):
         assert psu_exist_content["stdout"] == "0", "CLI returns NOT PRESENT while %s contains %s" %  \
                     (psu_exist, psu_exist_content["stdout"])
     else:
-        from common.mellanox_data import SWITCH_MODELS
+        from tests.common.mellanox_data import SWITCH_MODELS
         dut_hwsku = dut.facts["hwsku"]
         hot_swappabe = SWITCH_MODELS[dut_hwsku]["psus"]["hot_swappable"]
         if hot_swappabe:

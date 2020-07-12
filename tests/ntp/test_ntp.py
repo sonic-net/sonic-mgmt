@@ -1,5 +1,5 @@
-from common.utilities import wait_until
-from common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 import logging
 logger = logging.getLogger(__name__)
 
@@ -8,6 +8,8 @@ import pytest
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
 ]
 
 @pytest.fixture(scope="module")
@@ -41,7 +43,7 @@ def setup_ntp(ptfhost, duthost, creds):
         duthost.command("config ntp add %s" % ntp_server)
 
 def check_ntp_status(host):
-    res = host.command("ntpstat")
+    res = host.command("ntpstat", module_ignore_errors=True)
     if res['rc'] != 0:
        return False
     return True
@@ -52,4 +54,4 @@ def test_ntp(duthost, setup_ntp):
     duthost.service(name='ntp', state='stopped')
     duthost.command("ntpd -gq")
     duthost.service(name='ntp', state='restarted')
-    pytest_assert(wait_until(120, 5, check_ntp_status, duthost), "NTP not in sync")
+    pytest_assert(wait_until(300, 5, check_ntp_status, duthost), "NTP not in sync")

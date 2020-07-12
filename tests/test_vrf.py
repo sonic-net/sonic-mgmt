@@ -15,8 +15,10 @@ from functools import partial
 
 import pytest
 
-from ptf_runner import ptf_runner
-from common.utilities import wait_until
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.ptf_runner import ptf_runner
+from tests.common.utilities import wait_until
 
 
 """
@@ -30,6 +32,10 @@ from common.utilities import wait_until
         2. Calling a fixture function directly is deprecated.
     So, we prefer a fixture rather than xunit-style setup/teardown functions.
 """
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 # global variables
 g_vars = {}
@@ -392,11 +398,6 @@ def cfg_facts(duthost):
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
-    # --------------------- setup -----------------------
-    ## Setup ptf
-    ptfhost.script("scripts/change_mac.sh")
-    ptfhost.copy(src="ptftests", dest="/root")
-
     ## Setup dut
     duthost.critical_services = ["swss", "syncd", "database", "teamd", "bgp"]  # Don't care about 'pmon' and 'lldp' here
     cfg_t0 = get_cfg_facts(duthost)  # generate cfg_facts for t0 topo

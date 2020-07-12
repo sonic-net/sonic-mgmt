@@ -235,3 +235,17 @@ def select_test_ports(test_ports):
         selected_ports[random_port] = test_ports[random_port]
 
     return selected_ports
+
+
+def start_wd_on_ports(duthost, port, restore_time, detect_time, action="drop"):
+    """
+    Starts PFCwd on ports
+
+    Args:
+        port (string): single port or space separated list of ports
+        restore_time (int): PFC storm restoration time
+        detect_time (int): PFC storm detection time
+        action (string): PFCwd action. values include 'drop', 'forward'
+    """
+    duthost.command("pfcwd start --action {} --restoration-time {} {} {}"
+                    .format(action, restore_time, port, detect_time))

@@ -20,9 +20,16 @@
 import logging
 import pytest
 
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from qos_sai_base import QosSaiBase
 
 logger = logging.getLogger(__name__)
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 class TestQosSai(QosSaiBase):
     """

@@ -4,6 +4,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
+]
+
 @pytest.mark.bsl
 def test_snmp_cpu(duthost, localhost, creds):
     """

@@ -128,15 +128,15 @@ class VMTopology(object):
                 self.vm_base_index = self.vm_names.index(vm_base)
             else:
                 raise Exception('VM_base "%s" should be presented in current vm_names: %s' % (vm_base, str(self.vm_names)))
-            for k, v in topo['VMs'].iteritems():
+            for k, v in topo['VMs'].items():
                 if self.vm_base_index + v['vm_offset'] < len(self.vm_names):
                     self.VMs[k] = v
 
-            for hostname, attrs in self.VMs.iteritems():
+            for hostname, attrs in self.VMs.items():
                 vmname = self.vm_names[self.vm_base_index + attrs['vm_offset']]
                 if len(attrs['vlans']) > len(self.get_bridges(vmname)):
                     raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d" % (hostname, vmname, len(self.get_bridges(vmname))))
-            
+
         if 'host_interfaces' in topo:
             self.host_interfaces = topo['host_interfaces']
         else:
@@ -180,14 +180,14 @@ class VMTopology(object):
 
     def extract_vm_vlans(self):
         vlans = []
-        for attr in self.VMs.itervalues():
+        for attr in self.VMs.values():
             vlans.extend(attr['vlans'])
 
         return vlans
 
     def create_bridges(self):
         for vm in self.vm_names:
-            for fp_num in xrange(self.max_fp_num):
+            for fp_num in range(self.max_fp_num):
                 fp_br_name = OVS_FP_BRIDGE_TEMPLATE % (vm, fp_num)
                 self.create_ovs_bridge(fp_br_name, self.fp_mtu)
 
@@ -358,7 +358,7 @@ class VMTopology(object):
         return
 
     def bind_fp_ports(self, disconnect_vm=False):
-        for attr in self.VMs.itervalues():
+        for attr in self.VMs.values():
             for vlan_num, vlan in enumerate(attr['vlans']):
                 injected_iface = INJECTED_INTERFACES_TEMPLATE % (self.vm_set_name, vlan)
                 br_name = OVS_FP_BRIDGE_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
@@ -368,7 +368,7 @@ class VMTopology(object):
         return
 
     def unbind_fp_ports(self):
-        for attr in self.VMs.itervalues():
+        for attr in self.VMs.values():
             for vlan_num, vlan in enumerate(attr['vlans']):
                 br_name = OVS_FP_BRIDGE_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
                 vm_iface = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
@@ -385,7 +385,7 @@ class VMTopology(object):
 
         self.update()
 
-        for attr in self.VMs.itervalues():
+        for attr in self.VMs.values():
             vm_name = self.vm_names[self.vm_base_index + attr['vm_offset']]
             bp_port_name = OVS_BP_TAP_TEMPLATE % vm_name
 
@@ -517,7 +517,7 @@ class VMTopology(object):
 
         with open(cmd_debug_fname, 'a') as fp:
             pprint("OUTPUT: %s" % stdout, fp)
-        return stdout
+        return stdout.decode('utf-8')
 
     @staticmethod
     def get_ovs_br_ports(bridge):
@@ -556,7 +556,7 @@ class VMTopology(object):
             if vlan_iface is None or vlan_iface in result:
                 return result
             time.sleep(2*retries+1)
-        # Flow reaches here when vlan_iface not present in result 
+        # Flow reaches here when vlan_iface not present in result
         raise Exception("Can't find vlan_iface_id")
 
     @staticmethod
@@ -637,7 +637,7 @@ def check_topo(topo):
         if not isinstance(VMs, dict):
             raise Exception("topo['VMs'] should be a dictionary")
 
-        for hostname, attrs in VMs.iteritems():
+        for hostname, attrs in VMs.items():
             if 'vlans' not in attrs or not isinstance(attrs['vlans'], list):
                 raise Exception("topo['VMs']['%s'] should contain 'vlans' with a list of vlans" % hostname)
 
@@ -741,10 +741,11 @@ def main():
             ptf_bp_ip_addr = module.params['ptf_bp_ip_addr']
             ptf_bp_ipv6_addr = module.params['ptf_bp_ipv6_addr']
 
+            if module.params['dut_mgmt_port']:
+                net.bind_mgmt_port(mgmt_bridge, module.params['dut_mgmt_port'])
+
             if vms_exists:
                 net.add_veth_ports_to_docker()
-                if module.params['dut_mgmt_port']:
-                    net.bind_mgmt_port(mgmt_bridge, module.params['dut_mgmt_port'])
                 net.bind_fp_ports()
                 net.bind_vm_backplane()
                 net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
@@ -773,9 +774,10 @@ def main():
 
             net.init(vm_set_name, topo, vm_base, dut_fp_ports)
 
+            if module.params['dut_mgmt_port']:
+                net.unbind_mgmt_port(module.params['dut_mgmt_port'])
+
             if vms_exists:
-                if module.params['dut_mgmt_port']:
-                    net.unbind_mgmt_port(module.params['dut_mgmt_port'])
                 net.unbind_vm_backplane()
                 net.unbind_fp_ports()
 
