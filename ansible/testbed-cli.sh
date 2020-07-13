@@ -7,6 +7,7 @@ function usage
   echo "testbed-cli. Interface to testbeds"
   echo "Usage:"
   echo "    $0 [options] (start-vms | stop-vms) <server-name> <vault-password-file>"
+  echo "    $0 [options] (start-topo-vms | stop-topo-vms) <topo-name> <vault-password-file>"
   echo "    $0 [options] (add-topo | remove-topo | renumber-topo | connect-topo) <topo-name> <vault-password-file>"
   echo "    $0 [options] refresh-dut <topo-name> <vault-password-file>"
   echo "    $0 [options] (connect-vms | disconnect-vms) <topo-name> <vault-password-file>"
@@ -23,7 +24,7 @@ function usage
   echo "    <topo-name>           : Name of the target topology"
   echo "    <inventory>           : Name of the Ansible inventory containing the DUT"
   echo
-  echo "To start VMs on a server: $0 start-vms 'server-name' ~/.password"
+  echo "To start all VMs on a server: $0 start-vms 'server-name' ~/.password"
   echo "To restart a subset of VMs:"
   echo "        $0 start-vms server-name vault-password-file -e respin_vms=[vm_list]"
   echo "             vm_list is separated by comma and shouldn't have space in the list."
@@ -32,7 +33,9 @@ function usage
   echo "        $0 start-vms server-name vault-password-file -e batch_size=2 -e interval=60"
   echo "To enable autostart of VMs:"
   echo "        $0 start-vms server-name vault-password-file -e autostart=yes"
-  echo "To stop VMs on a server:  $0 stop-vms 'server-name' ~/.password"
+  echo "To start VMs for specified topology on server: $0 start-topo-vms 'topo-name' ~/.password"
+  echo "To stop all VMs on a server:  $0 stop-vms 'server-name' ~/.password"
+  echo "To stop VMs for specified topology on server: $0 stop-topo-vms 'topo-name' ~/.password"
   echo "To deploy a topology on a server: $0 add-topo 'topo-name' ~/.password"
   echo "    Optional argument for add-topo:"
   echo "        -e ptf_imagetag=<tag>    # Use PTF image with specified tag for creating PTF container"
@@ -107,6 +110,32 @@ function stop_vms
   echo "Stopping VMs on server '${server}'"
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" $@
+}
+
+function start_topo_vms
+{
+  topology=$1
+  passwd=$2
+  shift
+  shift
+  read_file ${topology}
+
+  echo "Starting VMs for topology '${topology}' on server '${server}'"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_start_VMs.yml --vault-password-file="${passwd}" -l "${server}" -e VM_base="$vm_base" -e topo="$topo" $@
+}
+
+function stop_topo_vms
+{
+  topology=$1
+  passwd=$2
+  shift
+  shift
+  read_file ${topology}
+
+  echo "Stopping VMs for topology '${topology}' on server '${server}'"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" -e VM_base="$vm_base" -e topo="$topo" $@
 }
 
 function add_topo
@@ -302,6 +331,10 @@ case "${subcmd}" in
   start-vms)   start_vms $@
                ;;
   stop-vms)    stop_vms $@
+               ;;
+  start-topo-vms) start_topo_vms $@
+               ;;
+  stop-topo-vms) stop_topo_vms $@
                ;;
   add-topo)    add_topo $@
                ;;

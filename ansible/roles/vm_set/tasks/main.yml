@@ -160,7 +160,7 @@
   set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
 
 - name: Extract VM names from the inventory
-  set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') }}
+  set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') | sort}}
 
 - name: Stop VMs
   include: stop.yml
