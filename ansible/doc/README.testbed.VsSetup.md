@@ -209,3 +209,53 @@ Neighbor        V         AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/P
 10.0.0.61       4 64600    3205     950        0    0    0 00:00:21     6400
 10.0.0.63       4 64600    3204     950        0    0    0 00:00:21     6400
 ```
+## Deploy IxNetwork API Server
+
+### Download IxNetwork API Server docker image
+1. Download IxNetwork Web Edition (Docker deployment)
+2. Copy the tar.bz2 file on the testbed server.
+3. Make sure the interface has promiscuous mode enabled: ifconfig eth1 promisc
+4. Decompress the file (it may take a few minutes): tar xjf <path_to_tar_file>
+
+### Run IxNetwork API Server docker 
+1. Load the image to docker: 
+   - docker load -i Ixia_IxNetworkWeb_Docker_*version*.tar
+
+2. Loaded image : ixnetworkweb_*version_image*
+3. Create the macvlan bridge to be used by IxNetwork Web Edition:
+   -   docker network create -d macvlan -o parent=eth1 --subnet=192.168.x.0/24 --gateway=192.168.x.254 \<bridge_name\>  
+ (*NOTE*: Use your subnet, prefix length and gateway IP address.)
+4. Verify bridge got created properly:
+   - docker network ls
+   - docker network inspect IxNetVlanMac
+5. Deploy the IxNetwork Web Edition container using the following command (<image_name> should be as shown in step 2 above):
+
+        docker run --net <bridge name> \
+        --ip <container ip> \
+        --hostname <hostname> \
+        --name <container name> \
+        --privileged \
+        --restart=always \
+        --cap-add=SYS_ADMIN \
+        --cap-add=SYS_TIME \
+        --cap-add=NET_ADMIN \
+        --cap-add=SYS_PTRACE \
+        -i -d \
+        -v /sys/fs/cgroup:/sys/fs/cgroup \
+        -v /var/crash/=/var/crash \
+        -v <host configs location>:/root/.local/share/Ixia/sdmStreamManager/common \
+        -v <host results location>:/root/.local/share/Ixia/IxNetwork/data/result \
+        -v <host settingslocation>:/root/.local/share/IXIA/IxNetwork.Globals \
+        --tmpfs /run \
+        <image name>
+
+6. Get connected to the new IxNetworkWeb container using browser ( https://container ip)
+
+
+
+
+
+
+
+
+
