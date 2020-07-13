@@ -240,16 +240,19 @@ Neighbor        V         AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/P
         --cap-add=SYS_TIME \
         --cap-add=NET_ADMIN \
         --cap-add=SYS_PTRACE \
+        --cpus="12" \
+        --memory="24g" \
         -i -d \
         -v /sys/fs/cgroup:/sys/fs/cgroup \
         -v /var/crash/=/var/crash \
-        -v <host configs location>:/root/.local/share/Ixia/sdmStreamManager/common \
-        -v <host results location>:/root/.local/share/Ixia/IxNetwork/data/result \
-        -v <host settingslocation>:/root/.local/share/IXIA/IxNetwork.Globals \
+        -v /opt/container/one/configs:/root/.local/share/Ixia/sdmStreamManager/common \
+        -v /opt/container/one/results:/root/.local/share/Ixia/IxNetwork/data/result \
+        -v /opt/container/one/settings:/root/.local/share/IXIA/IxNetwork.Globals \
         --tmpfs /run \
         <image name>
 
-6. Get connected to the new IxNetworkWeb container using browser ( https://container ip)
+6. Get connected to the new IxNetworkWeb container using browser https://container ip
+
 
 
 
