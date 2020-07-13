@@ -3,13 +3,17 @@ import ptf.testutils as testutils
 from ipaddress import ip_address
 import logging
 
-from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 
 TOPO_LIST = {'t0', 't1', 't1-lag'}
 PORTS_TOPO = {'t1'}
 LAG_TOPO = {'t0', 't1-lag'}
 DEFAULT_HLIM_TTL = 64
 WAIT_EXPECTED_PACKET_TIMEOUT = 5
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 logger = logging.getLogger(__name__)
 

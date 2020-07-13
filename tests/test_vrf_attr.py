@@ -1,15 +1,18 @@
 import pytest
 
 from test_vrf import (
-    g_vars, 
-    setup_vrf, 
-    host_facts, 
-    cfg_facts, 
-    gen_vrf_neigh_file, 
+    g_vars,
+    setup_vrf,
+    host_facts,
+    cfg_facts,
+    gen_vrf_neigh_file,
     partial_ptf_runner
 )
-from ptf_runner import ptf_runner                     
+from tests.ptf_runner import ptf_runner
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 # tests
 class TestVrfAttrSrcMac():

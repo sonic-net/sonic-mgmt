@@ -20,9 +20,9 @@ $ sudo ifconfig br1 up
 ### Use vEOS image
 
 - Download vEOS image from [arista](https://www.arista.com/en/support/software-download).
-- Copy below image files to ```~/veos-vm/images``` on your testbed server.
-   - ```Aboot-veos-serial-8.0.0.iso```
-   - ```vEOS-lab-4.20.15M.vmdk```
+- Copy below image files to `~/veos-vm/images` on your testbed server.
+   - `Aboot-veos-serial-8.0.0.iso`
+   - `vEOS-lab-4.20.15M.vmdk`
 
 ### Use cEOS image (experimental)
 - Download cEOS image from [arista](https://www.arista.com/en/support/software-download) onto your testbed server
@@ -65,7 +65,7 @@ $ docker load -i docker-sonic-mgmt.gz
 $ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz
 ```
 
-- unzip the image and move it into ```~/sonic-vm/images/```
+- unzip the image and move it into `~/sonic-vm/images/`
 ```
 $ gzip -d sonic-vs.img.gz
 $ mkdir -p ~/sonic-vm/images
@@ -86,11 +86,11 @@ $ git clone https://github.com/Azure/sonic-mgmt
 $ docker run -v $PWD:/data -it docker-sonic-mgmt bash
 ```
 
-From now on, all steps are running inside the *sonic-mgmt* docker.
+From now on, all steps are running inside the *sonic-mgmt* docker except where otherwise specified.
 
 ### Setup public key to login into the linux host from sonic-mgmt docker
 
-- Modify veos.vtb to use the user name, e.g., ```foo``` to login linux host.
+- Modify veos.vtb to use the user name, e.g., `foo` to login linux host.
 
 ```
 lgh@gulv-vm2:/data/sonic/sonic-mgmt/ansible$ git diff
@@ -107,17 +107,20 @@ index 4ea5a7a..4cfc448 100644
 vm_host_1
 ```
 
-- Add user ```foo```'s public key to ```/home/foo/.ssh/authorized_keys``` on the host
+- Add user `foo`'s public key to `/home/foo/.ssh/authorized_keys` on the host
 
-- Add user ```foo```'s private key to ```$HOME/.ssh/id_rsa``` inside sonic-mgmt docker container.
+- Add user `foo`'s private key to `$HOME/.ssh/id_rsa` inside sonic-mgmt docker container.
 
-- Add user ```foo```to sudoer list, use ```visudo``` to add following line in the sudoer configuration.
+- Add user `foo` to sudoer list, use `visudo` to add following line in the sudoer configuration.
+
 ```
    foo ALL=(ALL) NOPASSWD:ALL
 ```
 
-- Test you can login into the host ```ssh foo@172.17.0.1``` without any password prompt
-from the ```sonic-mgmt``` container. Then, test you can sudo without password prompot in the host.
+- Make sure user `foo`'s home directory is owned by user `foo`. If necessary, `chown -R foo:foo /home/foo` on the host.
+
+- Test you can login into the host `ssh foo@172.17.0.1` without any password prompt
+from the `sonic-mgmt` container. Then, test you can sudo without password prompt in the host.
 
 ## Setup Arista VMs in the server
 
@@ -126,9 +129,9 @@ from the ```sonic-mgmt``` container. Then, test you can sudo without password pr
 ```
 $ ./testbed-cli.sh -m veos.vtb -n 4 start-vms server_1 password.txt
 ```
-  - please note: Here "password.txt" is the ansible vault password file name/path. Ansible allows user use ansible vault to encrypt password files. By default, this shell script require a password file. If you are not using ansible vault, just create a file with a dummy pasword and pass the filename to the command line. The file name and location is created and maintained by user.
+  - Please note: Here "password.txt" is the Ansible Vault password file name/path. Ansible allows user to use Ansible Vault to encrypt password files. By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line. The file name and location is created and maintained by user.
 
-Check that all VMs are up and running, and the passwd is ```123456```
+Check that all VMs are up and running, and the passwd is `123456`
 ```
 $ ansible -m ping -i veos.vtb server_1 -u root -k
 VM0102 | SUCCESS => {
@@ -165,6 +168,8 @@ $ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb add-topo vms-kvm-t0 password.txt
 ```
 $ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb -k ceos add-topo vms-kvm-t0 password.txt
 ```
+
+  - Please note: Here "password.txt" is the Ansible Vault password file name/path. Ansible allows user to use Ansible Vault to encrypt password files. By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line. The file name and location is created and maintained by user.
 
 Verify topology setup successfully.
 

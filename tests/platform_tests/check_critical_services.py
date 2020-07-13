@@ -6,7 +6,7 @@ This script contains re-usable functions for checking status of critical service
 import time
 import logging
 
-from common.utilities import wait_until
+from tests.common.utilities import wait_until
 
 
 def _all_critical_services_fully_started(dut):

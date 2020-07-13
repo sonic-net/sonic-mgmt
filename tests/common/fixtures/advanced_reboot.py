@@ -5,10 +5,10 @@ import logging
 import pytest
 import time
 
-from common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
-from common.reboot import reboot as rebootDut
-from ptf_runner import ptf_runner
+from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
+from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
+from tests.common.reboot import reboot as rebootDut
+from tests.ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)
 

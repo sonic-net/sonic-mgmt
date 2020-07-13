@@ -26,7 +26,8 @@ class RunAnsibleModuleFail(AnsibleError):
         self.results = results
 
     def _to_string(self):
-        return "{}, Ansible Results =>\n{}".format(self.message, dump_ansible_results(self.results))
+        return unicode(u"{}, Ansible Results =>\n{}".format(self.message, dump_ansible_results(self.results)))\
+            .encode('ascii', 'backslashreplace')
 
     def __str__(self):
         return self._to_string()
