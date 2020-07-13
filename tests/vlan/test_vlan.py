@@ -151,7 +151,7 @@ def setup_vlan(ptfadapter, duthost, ptfhost, vlan_ports_list, vlan_intfs_list, c
         }
 
         ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
-        ptfhost.template(src='arp_responder.conf.j2', dest='/tmp')
+        ptfhost.template(src='templates/arp_responder.conf.j2', dest='/tmp')
         ptfhost.command("cp /tmp/arp_responder.conf.j2 /etc/supervisor/conf.d/arp_responder.conf")
 
         ptfhost.command('supervisorctl reread')
