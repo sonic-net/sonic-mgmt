@@ -4,8 +4,8 @@ import re
 import pytest
 import yaml
 
-from common.helpers.assertions import pytest_assert
-from common.helpers.platform_api import chassis, module
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.platform_api import chassis, module
 
 logger = logging.getLogger(__name__)
 
@@ -201,92 +201,92 @@ class TestModuleApi(object):
             pytest.skip("No modules found on device")
 
         # TODO: Ensure the number of components and that the returned list is correct for this platform
-        for i in range(self.num_modules):
+        for mod_idx in range(self.num_modules):
             try:
-                num_components = int(module.get_num_components(platform_api_conn, i))
+                num_components = int(module.get_num_components(platform_api_conn, mod_idx))
             except:
-                pytest.fail("Module {}: num_components is not an integer".format(i))
+                pytest.fail("Module {}: num_components is not an integer".format(mod_idx))
 
-            component_list = chassis.get_all_components(platform_api_conn)
-            pytest_assert(component_list is not None, "Module {}: Failed to retrieve components".format(i))
-            pytest_assert(isinstance(component_list, list) and len(component_list) == num_components, "Module {}: Components appear to be incorrect".format(i))
+            component_list = module.get_all_components(platform_api_conn, mod_idx)
+            pytest_assert(component_list is not None, "Module {}: Failed to retrieve components".format(mod_idx))
+            pytest_assert(isinstance(component_list, list) and len(component_list) == num_components, "Module {}: Components appear to be incorrect".format(mod_idx))
 
-            for i in range(num_components):
-                component = chassis.get_component(platform_api_conn, i)
-                pytest_assert(component and component == component_list[i], "Module {}: Component {} is incorrect".format(i))
+            for comp_idx in range(num_components):
+                component = module.get_component(platform_api_conn, mod_idx, comp_idx)
+                pytest_assert(component and component == component_list[mod_idx], "Module {}: Component {} is incorrect".format(mod_idx, comp_idx))
 
     def test_fans(self, duthost, localhost, platform_api_conn):
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
         # TODO: Ensure the number of fans and that the returned list is correct for this platform
-        for i in range(self.num_modules):
+        for mod_idx in range(self.num_modules):
             try:
-                num_fans = int(module.get_num_fans(platform_api_conn, i))
+                num_fans = int(module.get_num_fans(platform_api_conn, mod_idx))
             except:
-                pytest.fail("Module {}: num_fans is not an integer".format(i))
+                pytest.fail("Module {}: num_fans is not an integer".format(mod_idx))
 
-            fan_list = chassis.get_all_fans(platform_api_conn)
-            pytest_assert(fan_list is not None, "Module {}: Failed to retrieve fans".format(i))
-            pytest_assert(isinstance(fan_list, list) and len(fan_list) == num_fans, "Module {}: Fans appear to be incorrect".format(i))
+            fan_list = module.get_all_fans(platform_api_conn, mod_idx)
+            pytest_assert(fan_list is not None, "Module {}: Failed to retrieve fans".format(mod_idx))
+            pytest_assert(isinstance(fan_list, list) and len(fan_list) == num_fans, "Module {}: Fans appear to be incorrect".format(mod_idx))
 
             for fan_idx in range(num_fans):
-                fan = module.get_fan(platform_api_conn, i, fan_idx)
-                pytest_assert(fan and fan == fan_list[i], "Module {}: Fan {} is incorrect".format(i, fan_idx))
+                fan = module.get_fan(platform_api_conn, mod_idx, fan_idx)
+                pytest_assert(fan and fan == fan_list[mod_idx], "Module {}: Fan {} is incorrect".format(mod_idx, fan_idx))
 
     def test_psus(self, duthost, localhost, platform_api_conn):
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
         # TODO: Ensure the number of PSUs and that the returned list is correct for this platform
-        for i in range(self.num_modules):
+        for mod_idx in range(self.num_modules):
             try:
-                num_psus = int(module.get_num_psus(platform_api_conn, i))
+                num_psus = int(module.get_num_psus(platform_api_conn, mod_idx))
             except:
-                pytest.fail("Module {}: num_psus is not an integer".format(i))
+                pytest.fail("Module {}: num_psus is not an integer".format(mod_idx))
 
-            psu_list = chassis.get_all_psus(platform_api_conn)
-            pytest_assert(psu_list is not None, "Module {}: Failed to retrieve PSUs".format(i))
-            pytest_assert(isinstance(psu_list, list) and len(psu_list) == num_psus, "Module {}: PSUs appear to be incorrect".format(i))
+            psu_list = module.get_all_psus(platform_api_conn, mod_idx)
+            pytest_assert(psu_list is not None, "Module {}: Failed to retrieve PSUs".format(mod_idx))
+            pytest_assert(isinstance(psu_list, list) and len(psu_list) == num_psus, "Module {}: PSUs appear to be incorrect".format(mod_idx))
 
             for psu_idx in range(num_psus):
-                psu = chassis.get_psu(platform_api_conn, i, psu_idx)
-                pytest_assert(psu and psu == psu_list[i], "Module {}: PSU {} is incorrect".format(i, psu_idx))
+                psu = module.get_psu(platform_api_conn, mod_idx, psu_idx)
+                pytest_assert(psu and psu == psu_list[mod_idx], "Module {}: PSU {} is incorrect".format(mod_idx, psu_idx))
 
     def test_thermals(self, duthost, localhost, platform_api_conn):
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
         # TODO: Ensure the number of thermals and that the returned list is correct for this platform
-        for i in range(self.num_modules):
+        for mod_idx in range(self.num_modules):
             try:
-                num_thermals = int(module.get_num_thermals(platform_api_conn, i))
+                num_thermals = int(module.get_num_thermals(platform_api_conn, mod_idx))
             except:
-                pytest.fail("Module {}: num_thermals is not an integer".format(i))
+                pytest.fail("Module {}: num_thermals is not an integer".format(mod_idx))
 
-            thermal_list = chassis.get_all_thermals(platform_api_conn)
-            pytest_assert(thermal_list is not None, "Module {}: Failed to retrieve thermals".format(i))
-            pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Module {}: Thermals appear to be incorrect".format(i))
+            thermal_list = module.get_all_thermals(platform_api_conn, mod_idx)
+            pytest_assert(thermal_list is not None, "Module {}: Failed to retrieve thermals".format(mod_idx))
+            pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Module {}: Thermals appear to be incorrect".format(mod_idx))
 
             for therm_idx in range(num_thermals):
-                thermal = chassis.get_thermal(platform_api_conn, i, therm_idx)
-                pytest_assert(thermal and thermal == thermal_list[i], "Thermal {} is incorrect".format(i, therm_idx))
+                thermal = module.get_thermal(platform_api_conn, mod_idx, therm_idx)
+                pytest_assert(thermal and thermal == thermal_list[mod_idx], "Thermal {} is incorrect".format(mod_idx, therm_idx))
 
     def test_sfps(self, duthost, localhost, platform_api_conn):
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
         # TODO: Ensure the number of SFPs and that the returned list is correct for this platform
-        for i in range(self.num_modules):
+        for mod_idx in range(self.num_modules):
             try:
-                num_sfps = int(module.get_num_sfps(platform_api_conn, i))
+                num_sfps = int(module.get_num_sfps(platform_api_conn, mod_idx))
             except:
-                pytest.fail("Module {}: num_sfps is not an integer".format(i))
+                pytest.fail("Module {}: num_sfps is not an integer".format(mod_idx))
 
-            sfp_list = chassis.get_all_sfps(platform_api_conn)
-            pytest_assert(sfp_list is not None, "Module {}: Failed to retrieve SFPs".format(i))
-            pytest_assert(isinstance(sfp_list, list) and len(sfp_list) == num_sfps, "Module {}: SFPs appear to be incorrect".format(i))
+            sfp_list = module.get_all_sfps(platform_api_conn, mod_idx)
+            pytest_assert(sfp_list is not None, "Module {}: Failed to retrieve SFPs".format(mod_idx))
+            pytest_assert(isinstance(sfp_list, list) and len(sfp_list) == num_sfps, "Module {}: SFPs appear to be incorrect".format(mod_idx))
 
             for sfp_idx in range(num_sfps):
-                sfp = chassis.get_sfp(platform_api_conn, i, sfp_idx)
-                pytest_assert(sfp and sfp == sfp_list[i], "Module {}: SFP {} is incorrect".format(i, sfp_idx))
+                sfp = module.get_sfp(platform_api_conn, mod_idx, sfp_idx)
+                pytest_assert(sfp and sfp == sfp_list[mod_idx], "Module {}: SFP {} is incorrect".format(mod_idx, sfp_idx))

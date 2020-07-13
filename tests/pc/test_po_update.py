@@ -3,7 +3,8 @@ import pytest
 import logging
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
 ]
 
 def test_po_update(duthost):

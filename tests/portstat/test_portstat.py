@@ -2,8 +2,8 @@
 import logging
 import pytest
 
-from common.helpers.assertions import pytest_assert
-from common.utilities import wait
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait
 
 logger = logging.getLogger('__name__')
 
@@ -98,23 +98,32 @@ def reset_portstat(duthost):
 
 @pytest.mark.parametrize('command', ['portstat -c', 'portstat --clear'])
 def test_portstat_clear(duthost, command):
-
+    wait(30, 'Wait for DUT to receive/send some packets')
     before_portstat = parse_portstat(duthost.command('portstat')['stdout_lines'])
     pytest_assert(before_portstat, 'No parsed command output')
 
     duthost.command(command)
-    wait(5, 'Wait for portstat counters to refresh')
+    wait(1, 'Wait for portstat counters to refresh')
 
     after_portstat = parse_portstat(duthost.command('portstat')['stdout_lines'])
     pytest_assert(after_portstat, 'No parsed command output')
 
+    """
+    Assert only when rx/tx count is no smaller than COUNT_THRES because DUT may send or receive
+    some packets during test after port status are clear
+    """
+    COUNT_THRES = 10
     for intf in before_portstat:
-        pytest_assert(int(before_portstat[intf]['rx_ok']) >= int(after_portstat[intf]['rx_ok']),
-                      'Value of RX_OK after clear should be lesser')
-
-        pytest_assert(int(before_portstat[intf]['tx_ok']) >= int(after_portstat[intf]['rx_ok']),
-                      'Value of RX_OK after clear should be lesser')
-
+        rx_ok_before = int(before_portstat[intf]['rx_ok'].replace(',',''))
+        rx_ok_after = int(after_portstat[intf]['rx_ok'].replace(',',''))
+        tx_ok_before = int(before_portstat[intf]['tx_ok'].replace(',',''))
+        tx_ok_after = int(after_portstat[intf]['tx_ok'].replace(',',''))
+        if int(rx_ok_before >= COUNT_THRES):
+            pytest_assert(rx_ok_before >= rx_ok_after,
+                          'Value of RX_OK after clear should be lesser')
+        if int(tx_ok_before >= COUNT_THRES):
+            pytest_assert(tx_ok_before >= tx_ok_after,
+                          'Value of TX_OK after clear should be lesser')
 
 @pytest.mark.parametrize('command', ['portstat -D', 'portstat --delete-all'])
 def test_portstat_delete_all(duthost, command):

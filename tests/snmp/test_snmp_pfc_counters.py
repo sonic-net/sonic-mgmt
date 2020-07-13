@@ -1,7 +1,8 @@
 import pytest
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
 ]
 
 def test_snmp_pfc_counters(duthost, localhost, creds):

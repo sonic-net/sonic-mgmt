@@ -4,8 +4,8 @@ import re
 import pytest
 import yaml
 
-from common.helpers.assertions import pytest_assert
-from common.helpers.platform_api import chassis
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.platform_api import chassis
 
 from platform_api_test_base import PlatformApiTestBase
 

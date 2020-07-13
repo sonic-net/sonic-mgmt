@@ -2,10 +2,10 @@ import json
 import logging
 import pytest
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
-from ptf_runner import ptf_runner
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
+from tests.ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)
 

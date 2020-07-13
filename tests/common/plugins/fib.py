@@ -5,7 +5,7 @@ import requests
 import pytest
 import logging
 import ipaddr as ipaddress
-from common.utilities import wait_tcp_connection
+from tests.common.utilities import wait_tcp_connection
 
 logger = logging.getLogger(__name__)
 

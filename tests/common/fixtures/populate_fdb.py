@@ -2,7 +2,7 @@ import json
 import logging
 import pytest
 
-from ptf_runner import ptf_runner
+from tests.ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)
 

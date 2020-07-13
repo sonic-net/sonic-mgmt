@@ -1,10 +1,3 @@
-# Adding pytest base dir to Python system path.
-# This is required in order to import from common package including pytest_plugins within this file.
-import site
-from os.path import dirname, abspath
-site.addsitedir(dirname(abspath(__file__)))
-site.addsitedir('.')
-
 import sys
 import os
 import glob
@@ -22,20 +15,20 @@ import yaml
 import ipaddr as ipaddress
 
 from collections import defaultdict
-from common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
-from common.devices import SonicHost, Localhost, PTFHost, EosHost, FanoutHost
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
+from tests.common.devices import SonicHost, Localhost, PTFHost, EosHost, FanoutHost
 
 logger = logging.getLogger(__name__)
 
-pytest_plugins = ('common.plugins.ptfadapter',
-                  'common.plugins.ansible_fixtures',
-                  'common.plugins.dut_monitor',
-                  'common.plugins.fib',
-                  'common.plugins.tacacs',
-                  'common.plugins.loganalyzer',
-                  'common.plugins.psu_controller',
-                  'common.plugins.sanity_check',
-                  'common.plugins.custom_markers')
+pytest_plugins = ('tests.common.plugins.ptfadapter',
+                  'tests.common.plugins.ansible_fixtures',
+                  'tests.common.plugins.dut_monitor',
+                  'tests.common.plugins.fib',
+                  'tests.common.plugins.tacacs',
+                  'tests.common.plugins.loganalyzer',
+                  'tests.common.plugins.psu_controller',
+                  'tests.common.plugins.sanity_check',
+                  'tests.common.plugins.custom_markers')
 
 
 class TestbedInfo(object):
@@ -407,7 +400,7 @@ def collect_techsupport(request, duthost):
     # "function" scope
     testname = request.node.name
     if request.config.getoption("--collect_techsupport") and request.node.rep_call.failed:
-        res = duthost.shell("generate_dump")
+        res = duthost.shell("generate_dump -s yesterday")
         fname = res['stdout']
         duthost.fetch(src=fname, dest="logs/{}".format(testname))
         tar = tarfile.open("logs/{}/{}/{}".format(testname, duthost.hostname, fname))

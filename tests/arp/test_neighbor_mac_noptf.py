@@ -2,8 +2,8 @@ import logging
 import pytest
 import time
 
-from common.helpers.assertions import pytest_assert
-from common.config_reload import config_reload
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class TestNeighborMacNoPtf:
                 None
         """
         yield
- 
+
         logger.info("Reload Config DB")
         config_reload(duthost, config_source='config_db', wait=120)
 
@@ -44,7 +44,7 @@ class TestNeighborMacNoPtf:
     def ipVersion(self, request):
         """
             Parameterized fixture for IP versions. This Fixture will run the test twice for both
-            IPv4 and IPv6 
+            IPv4 and IPv6
 
             Args:
                 request: pytest request object

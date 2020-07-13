@@ -1,17 +1,16 @@
 import logging
 import time
 import os
-import sys
+
 import pytest
 
-from common.utilities import wait_until
-from common.config_reload import config_reload
+from tests.common.utilities import wait_until
+from tests.common.config_reload import config_reload
 
 DUT_THERMAL_POLICY_FILE = '/usr/share/sonic/device/{}/thermal_policy.json'
 DUT_THERMAL_POLICY_BACKUP_FILE = '/usr/share/sonic/device/{}/thermal_policy.json.bak'
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, 'files')
-
 
 class BaseMocker:
     """
@@ -105,13 +104,6 @@ def mocker_factory():
         mocker_object = None
 
         if 'mlnx' in platform:
-            current_file_dir = os.path.dirname(os.path.realpath(__file__))
-            if current_file_dir not in sys.path:
-                sys.path.append(current_file_dir)
-            sub_folder_dir = os.path.join(current_file_dir, "mellanox")
-            if sub_folder_dir not in sys.path:
-                sys.path.append(sub_folder_dir)
-            import mellanox_thermal_control_test_helper
             mocker_type = BaseMocker.get_mocker_type(mocker_name)
             if mocker_type:
                 mocker_object = mocker_type(dut)
@@ -265,7 +257,7 @@ def get_fields(line, field_ranges):
 def check_cli_output_with_mocker(dut, mocker_object, command, max_wait_time, key_index=0):
     """
     Check the command line output matches the mocked data.
-    :param dut: DUT object representing a SONiC switch under test. 
+    :param dut: DUT object representing a SONiC switch under test.
     :param mocker_object: A mocker instance.
     :param command: The command to be executed. E.g, 'show platform fan'
     :param max_wait_time: Max wait time.
@@ -282,7 +274,7 @@ def check_cli_output_with_mocker(dut, mocker_object, command, max_wait_time, key
     for line in output["stdout_lines"][2:]:
         fields = get_fields(line, field_ranges)
         actual_data[fields[key_index]] = fields
-    
+
     return mocker_object.check_result(actual_data)
 
 
@@ -320,7 +312,7 @@ def restart_thermal_control_daemon(dut):
     kill_thermalctld_cmd = 'docker exec -i pmon bash -c \'kill {}\''.format(pid_to_kill)
     output = dut.command(kill_thermalctld_cmd)  # kill thermalctld and wait supervisord auto reboot thermalctld
     assert output["rc"] == 0, "Run command '%s' failed" % kill_thermalctld_cmd
-    
+
     # make sure thermalctld has restarted
     max_wait_time = 30
     while max_wait_time > 0:
@@ -330,11 +322,11 @@ def restart_thermal_control_daemon(dut):
         if len(output["stdout_lines"]) != 2:
             time.sleep(1)
             continue
-        
+
         new_pid_0 = int(output["stdout_lines"][0].strip())
         new_pid_1 = int(output["stdout_lines"][1].strip())
         parent_pid = new_pid_0 if new_pid_0 < new_pid_1 else new_pid_1
-        
+
         if parent_pid == pid_to_kill:
             logging.info('Old thermal control daemon is still alive, waiting...')
             time.sleep(1)

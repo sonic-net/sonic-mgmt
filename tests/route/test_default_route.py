@@ -1,10 +1,11 @@
 import pytest
 import ipaddress
 import logging
-from common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
 ]
 
 logger = logging.getLogger(__name__)
