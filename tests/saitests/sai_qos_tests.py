@@ -1354,18 +1354,18 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_trig_egr_drp = int(self.test_params['pkts_num_trig_egr_drp'])
         if 'packet_size' in self.test_params.keys():
-            default_packet_length = int(self.test_params['packet_size'])
+            packet_length = int(self.test_params['packet_size'])
             cell_size = int(self.test_params['cell_size'])
-            if default_packet_length != 64:
-                cell_occupancy = (default_packet_length + cell_size - 1) / cell_size
+            if packet_length != 64:
+                cell_occupancy = (packet_length + cell_size - 1) / cell_size
                 pkts_num_trig_egr_drp /= cell_occupancy
                 # It is possible that pkts_num_trig_egr_drp * cell_occupancy < original pkts_num_trig_egr_drp,
                 # which probaly can fail the assert(xmit_counters[EGRESS_DROP] > xmit_counters_base[EGRESS_DROP])
                 # due to not sending enough packets.
                 # To avoid that we need a larger margin
         else:
-            default_packet_length = 64
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
+            packet_length = 64
+        pkt = simple_tcp_packet(pktlen=packet_length,
                                 eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                 eth_src=src_port_mac,
                                 ip_src=src_port_ip,
@@ -1445,17 +1445,17 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_fill_shared = int(self.test_params['pkts_num_fill_shared'])
         cell_size = int(self.test_params['cell_size'])
         if 'packet_size' in self.test_params.keys():
-            default_packet_length = int(self.test_params['packet_size'])
+            packet_length = int(self.test_params['packet_size'])
         else:
-            default_packet_length = 64
+            packet_length = 64
 
-        cell_occupancy = (default_packet_length + cell_size - 1) / cell_size
+        cell_occupancy = (packet_length + cell_size - 1) / cell_size
 
         # Prepare TCP packet data
         tos = dscp << 2
         tos |= ecn
         ttl = 64
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
+        pkt = simple_tcp_packet(pktlen=packet_length,
                                 eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                 eth_src=src_port_mac,
                                 ip_src=src_port_ip,
@@ -1640,17 +1640,17 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_trig_drp = int(self.test_params['pkts_num_trig_drp'])
         cell_size = int(self.test_params['cell_size'])
         if 'packet_size' in self.test_params.keys():
-            default_packet_length = int(self.test_params['packet_size'])
+            packet_length = int(self.test_params['packet_size'])
         else:
-            default_packet_length = 64
+            packet_length = 64
 
-        cell_occupancy = (default_packet_length + cell_size - 1) / cell_size
+        cell_occupancy = (packet_length + cell_size - 1) / cell_size
 
         # Prepare TCP packet data
         tos = dscp << 2
         tos |= ecn
         ttl = 64
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
+        pkt = simple_tcp_packet(pktlen=packet_length,
                                 eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                 eth_src=src_port_mac,
                                 ip_src=src_port_ip,
