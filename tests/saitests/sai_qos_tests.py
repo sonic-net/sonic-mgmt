@@ -695,10 +695,6 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
         pkts_num_dismiss_pfc = int(self.test_params['pkts_num_dismiss_pfc'])
-        if 'pkts_num_hysteresis' in self.test_params.keys():
-            hysteresis = int(self.test_params['pkts_num_hysteresis'])
-        else:
-            hysteresis = 0
         default_packet_length = 64
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
