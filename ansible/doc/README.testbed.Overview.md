@@ -72,7 +72,7 @@ Based on test need there may be multiple topologies possible as shown below:
 
 
 - Multiple IxNetwork Topology
-![](img/multiple-ixnetwork.png)
+![](img/multiple-ixnetwork.PNG)
 
 ## Topology Description
 
