@@ -16,6 +16,17 @@
 #         "status": "enabled"
 #     }
 # }
+#
+# An example result of calling the module:
+# {
+#     "ansible_facts": {
+#         "feature_facts": {
+#             "sflow": "disabled",
+#             "telemetry" : "enabled"
+#         }
+#     }
+# }
+
 
 from ansible.module_utils.basic import *
 SUCCESS_CODE = 0
@@ -24,7 +35,7 @@ SUCCESS_CODE = 0
 def get_feature_facts(module):
     rc, stdout, stderr = module.run_command('sonic-db-cli CONFIG_DB keys FEATURE\*')
     if rc != SUCCESS_CODE:
-        module.fail_json(msg='Failed to get feature data, rc=%s, stdout=%s, stderr=%s' % (rc, stdout, stderr))
+        module.fail_json(msg='Failed to get feature names, rc=%s, stdout=%s, stderr=%s' % (rc, stdout, stderr))
 
     features = {}
     output_lines = stdout.splitlines()
@@ -32,7 +43,7 @@ def get_feature_facts(module):
         feature_name = line.split('|')[1]
         rc, stdout, stderr = module.run_command('sonic-db-cli CONFIG_DB HGET "FEATURE|{}" status'.format(feature_name))
         if rc != SUCCESS_CODE:
-            module.fail_json(msg='Failed to get feature data, rc=%s, stdout=%s, stderr=%s' % (rc, stdout, stderr))
+            module.fail_json(msg='Failed to get feature status, rc=%s, stdout=%s, stderr=%s' % (rc, stdout, stderr))
         features[feature_name] = stdout.rstrip('\n')
 
     return features

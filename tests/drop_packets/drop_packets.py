@@ -103,7 +103,7 @@ def setup(duthost, testbed):
     configured_vlans = []
     rif_members = []
 
-    if testbed["topo"] == "ptf32":
+    if testbed["topo"]["type"] == "ptf":
         pytest.skip("Unsupported topology {}".format(testbed["topo"]))
 
     # Gather ansible facts

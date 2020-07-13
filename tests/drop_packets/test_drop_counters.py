@@ -12,7 +12,7 @@ import re
 import os
 import json
 import netaddr
-from common.utilities import wait_until
+from tests.common.utilities import wait_until
 from drop_packets import *
 
 logger = logging.getLogger(__name__)
@@ -115,8 +115,6 @@ def get_pkt_drops(duthost, cli_cmd):
     @return: Return dictionary of parsed counters
     """
     stdout = duthost.command(cli_cmd)
-    if stdout["rc"] != 0:
-        raise Exception(stdout["stdout"] + stdout["stderr"])
     stdout = stdout["stdout"]
 
     match = re.search("Last cached time was.*\n", stdout)
@@ -237,6 +235,7 @@ def mtu_config(duthost):
             else:
                 raise Exception("Unsupported interface parameter - {}".format(iface))
             cls.iface = iface
+
         @classmethod
         def restore_mtu(cls):
             if cls.iface:
@@ -292,7 +291,7 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthost, setup, fanouthost, pkt
         dst_mac = reserved_dmac
 
         if "mellanox" == duthost.facts["asic_type"]:
-            pytest.SKIP_COUNTERS_FOR_MLNX = True
+            pytest.skip("Currently not supported on Mellanox platform")
             dst_mac = "00:00:00:00:00:11"
             # Prepare openflow rule
             fanouthost.update_config(template_path=MELLANOX_MAC_UPDATE_SCRIPT, match_mac=dst_mac, set_mac=reserved_dmac, eth_field="eth_dst")
