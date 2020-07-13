@@ -65,11 +65,14 @@ Based on test need there may be multiple topologies possible as shown below:
 
 - Single DUT Topology
 ![](img/single-dut-topology.png)
+
+
 - Multiple DUT Topology
 ![](img/multiple-dut-topology.png)
 
+
 - Multiple IxNetwork Topology
-![](img/multiple-ixnetwork-topology.png)
+![](img/multiple-ixnetwork.png)
 
 ## Topology Description
 
