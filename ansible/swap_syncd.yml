@@ -50,6 +50,13 @@
         value: 509430500
         sysctl_set: yes
 
+    - name: Set sysctl SENDBUF parameter for tests
+      become: true
+      sysctl:
+        name: "net.core.wmem_max"
+        value: 509430500
+        sysctl_set: yes
+
     - name: Gather SONiC base image version
       shell: sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version
       register: result
