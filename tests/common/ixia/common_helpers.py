@@ -1,4 +1,11 @@
+import ipaddr
 from netaddr import IPNetwork
+
+def incriment_ip_address (ip, incrment=1) :
+    ipaddress = ipaddr.IPv4Address(ip)
+    ipaddress = ipaddress + incrment
+    return_value = ipaddress._string_from_ip_int(ipaddress._ip)
+    return(return_value)
 
 def ansible_stdout_to_str(ansible_stdout):
     """

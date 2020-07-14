@@ -70,10 +70,11 @@ def parseFanoutConnections (device_conn) :
     retval.sort()
     return(retval)
 
-def getCardPort(i) :
-    crd = (i.split('/')[0]).replace('Card', '')
-    prt = (i.split('/')[1]).replace('Port', '')
-    return (crd, prt)
+def get_card_port(i) :
+    chassis = i.split('/')[0]
+    crd = (i.split('/')[1]).replace('Card', '')
+    prt = (i.split('/')[2]).replace('Port', '')
+    return (chassis, crd, prt)
 
 class IxiaFanoutManager () :
     def __init__(self,fanout_data) :
@@ -85,12 +86,12 @@ class IxiaFanoutManager () :
         for i in fanout_data.keys() :
             self.fanout_list.append(fanout_data[i])
 
-    def __parseFanoutConnections__ (self) :
+    def __parse_fanout_connections__ (self) :
         device_conn = self.last_device_connection_details
         retval = []
         for key in device_conn.keys() :
-            pp =  device_conn[key]['peerport']
-            string = key + '/' + pp
+            #pp =  device_conn[key]['peerport']
+            string = self.ip_address + '/' + key
             retval.append(string)
         retval.sort()
         return(retval)
@@ -110,18 +111,22 @@ class IxiaFanoutManager () :
 
         # List of chassis cards and ports 
         self.current_ixia_port_list = \
-             self.__parseFanoutConnections__()
+             self.__parse_fanout_connections__()
 
         #return self.fanout_list[self.last_fanout_assessed]
 
     def get_connection_details (self) :
         return(self.last_device_connection_details)
   
-    def getCardPort (self, crd_prt) :
-        ip  = self.ip_address
-        crd = (crd_prt.split('/')[0]).replace('Card', '')
-        prt = (crd_prt.split('/')[1]).replace('Port', '')
-        return(ip, crd, prt)
+    def get_card_port (self, crd_prt) :
+        chassis = i.split('/')[0]
+        if (self.ip_address == chassis) :
+            crd = (i.split('/')[1]).replace('Card', '')
+            prt = (i.split('/')[2]).replace('Port', '')
+        else :
+            pytest_assert(0)
+ 
+        return(chassis, crd, prt)
 
     def get_chassis_ip (self) :
         return self.ip_address
@@ -133,7 +138,6 @@ class IxiaFanoutManager () :
 # Newely added
 #------------------------------------------------------------------------------
 def create_session(server_ip, username, password, log_file="ixia.log"):
-    
     return SessionAssistant(IpAddress=server_ip, RestPort=None, UserName=username, Password=password, 
                             SessionName=None, SessionId=None, ApiKey=None, ClearConfig=True, 
                             LogLevel='all', LogFilename=log_file)
@@ -149,17 +153,30 @@ Configure ports of the IXIA chassis
 @param port_list: List of port locations. Each entry has four keys: 'ip', 'card_id', 'port_id', 'speed'
 @return the list of ports if the configuration succeeds. Otherwise return None 
 """
-def config_ports(session, port_list):
+def configure_ports(session, 
+                    port_list, 
+                    start_name='port',
+                    pfc_priotity_groups=[0,1,2,3,4,5,6,7],
+                    ieee_l1_defaults=False,
+                    enable_auto_negotiation=False,
+                    port_speed = 10000000):
+
     port_map = session.PortMapAssistant()
     vports = list()
         
     index = 1
     for port in port_list:        
-        port_name = 'Port_{}'.format(index)
+        port_name = start_name + '-'  + str(index)
         index += 1
         """ Map a test port location (ip, card, port) to a virtual port (name) """
-        vports.append(port_map.Map(IpAddress=port['ip'], CardId=port['card_id'], 
-                                   PortId=port['port_id'], Name=port_name))
+        chassis_card_port = port.split('/')
+         
+        vports.append(port_map.Map(
+            IpAddress=chassis_card_port[0],
+            CardId=chassis_card_port[1].replace('Card', ''),
+            PortId=chassis_card_port[2].replace('Port', ''),
+            Name=port_name)
+        )
     
     """ Connect all mapped virtual ports to test port locations """
     port_map.Connect()
@@ -168,10 +185,18 @@ def config_ports(session, port_list):
     i = 0
     for vport in ixnetwork.Vport.find():
         vport.L1Config.CurrentType = 'novusHundredGigLanFcoe'
-        vport.L1Config.NovusHundredGigLan.Fcoe.PfcPriorityGroups = [0,1,2,3,4,5,6,7]
-        vport.L1Config.NovusHundredGigLan.IeeeL1Defaults = False
-        vport.L1Config.NovusHundredGigLan.EnableAutoNegotiation = False
-        vport.L1Config.NovusHundredGigLan.Speed = 'speed{}g'.format(port_list[i]['speed']/1000)
+
+        vport.L1Config.NovusHundredGigLan.Fcoe.PfcPriorityGroups =\
+            pfc_priotity_groups
+
+        vport.L1Config.NovusHundredGigLan.IeeeL1Defaults =\
+            ieee_l1_defaults
+
+        vport.L1Config.NovusHundredGigLan.EnableAutoNegotiation =\
+            enable_auto_negotiation
+
+        vport.L1Config.NovusHundredGigLan.Speed = port_speed
+
         i += 1
         
     return vports
@@ -201,7 +226,16 @@ Create a topology
 @param gw_incr_step: Increment step of gateway IPv4 addresses, e.g., 0.0.0.0 (no increment)    
 @return the topology
 """
-def create_topology(session, name, ports, ip_start, ip_incr_step, gw_start, gw_incr_step):
+def create_topology(
+    session, 
+    ports, 
+    name='Topology 1', 
+    ip_type='ipv4', 
+    ip_start='10.0.0.1', 
+    ip_incr_step='0.0.1.0', 
+    gw_start='10.0.0.2', 
+    gw_incr_step='0.0.1.0'):
+
     ixnetwork = session.Ixnetwork
     
     topology = ixnetwork.Topology.add(Name=name, Ports=ports)
@@ -209,18 +243,21 @@ def create_topology(session, name, ports, ip_start, ip_incr_step, gw_start, gw_i
     
     device_group = topology.DeviceGroup.add(Name=name+' DG', Multiplier='1')
     ethernet = device_group.Ethernet.add(Name='Ethernet')
+    if (ip_type == 'ipv4') : 
+        ixnetwork.info('Configure IPv4')
+        ipv4 = ethernet.Ipv4.add(Name='Ipv4')
+        ipv4.Address.Increment(start_value=ip_start, step_value=ip_incr_step)
+        ipv4.Address.Steps.Step = ip_incr_step
     
-    ipv4 = ethernet.Ipv4.add(Name='Ipv4')
-    ipv4.Address.Increment(start_value=ip_start, step_value=ip_incr_step)
-    ipv4.Address.Steps.Step = ip_incr_step
-    
-    ipv4.GatewayIp.Increment(start_value=gw_start, step_value=gw_incr_step)
-    ipv4.GatewayIp.Steps.Step = gw_incr_step
-    
-    ixnetwork.info('Configure IPv4')
+        ipv4.GatewayIp.Increment(start_value=gw_start, step_value=gw_incr_step)
+        ipv4.GatewayIp.Steps.Step = gw_incr_step
+    elif (ip_type == 'ipv6') :
+        # TBD    
+        pass
+    else :
+        pytest_assert(0) 
     
     return topology
-
 
 """
 Start protocols (e.g., IP and Ethernet)
@@ -307,8 +344,17 @@ Create an IPv4 traffic item
 @param ecn_capable: if packets can get ECN marked 
 @return the created traffic item 
 """
-def create_ipv4_traffic(session, name, source, destination, pkt_size=64, pkt_count=None, duration=None, 
-                        rate_percent=100, start_delay=0, dscp_list=None, lossless_prio_list=None, 
+def create_ipv4_traffic(session, 
+                        name, 
+                        source, 
+                        destination, 
+                        pkt_size=64, 
+                        pkt_count=None,
+                        duration=None, 
+                        rate_percent=100,
+                        start_delay=0,
+                        dscp_list=None, 
+                        lossless_prio_list=None, 
                         ecn_capable=False):
     
     ixnetwork = session.Ixnetwork
@@ -687,4 +733,59 @@ Get the DSCP field value of the packet
 def get_dscp(pkt):
     return get_pkt_field(pkt=pkt, header='Internet Protocol', field='Differentiated Services Codepoint')
 
+def start_traffic(session):
+    ixnetwork = session.Ixnetwork
+    """ Apply traffic to hardware """
+    ixnetwork.Traffic.Apply()
+    """ Run traffic """
+    ixnetwork.Traffic.StartStatelessTrafficBlocking()
 
+def stop_traffic(session):
+    ixnetwork = session.Ixnetwork
+    ixnetwork.Traffic.StopStatelessTrafficBlocking()
+
+def create_ip_traffic_item_using_wizard_arguments (
+    session,
+    src_start_port,
+    src_port_count,
+    src_first_route_index,
+    src_route_count,
+    dst_start_port,
+    dst_port_count,
+    dst_first_route_index,
+    dst_route_count,
+    name='example_traffic',
+    traffic_type='ipv4') :
+
+    traffic_item = session.Ixnetwork.Traffic.TrafficItem.add(
+                   Name = name,
+                   TrafficType = traffic_type)
+
+    if (traffic_type == 'ipv4') :
+        obj = '/api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1'
+    elif (traffic_type == 'ipv6'):
+        obj = '/api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv6/1'
+    else :
+        pytest_assert(0) 
+    
+    src = [{'arg1': obj,
+            'arg2': src_start_port,
+            'arg3': src_port_count,
+            'arg4': src_first_route_index,
+            'arg5': dst_route_count}
+    ]
+
+    dst = [{'arg1': obj, 
+            'arg2': dst_start_port,
+            'arg3': dst_port_count,
+            'arg4': dst_first_route_index,
+            'arg5': dst_route_count}
+    ]
+        
+    endPoint = traffic_item.EndpointSet.add()
+    endPoint.ScalableSources = src
+    endPoint.ScalableDestinations = dst
+
+    # Enable tracking.
+    traffic_item.Tracking.find().TrackBy = ['trackingenabled0']
+    return traffic_item
