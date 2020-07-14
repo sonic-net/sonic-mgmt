@@ -61,7 +61,7 @@ L3_router_interface
             {
             "INTERFACE": {
                 "Ethernet0|11.0.0.1/24": {},
-                "Ethernet1|11.1.0.1/24": {},
+                "Ethernet1|11.1.0.1/24": {}
                 }
             }
         ]
@@ -118,7 +118,7 @@ L3_portchannel
         },
           "PORTCHANNEL_INTERFACE": {
              "PortChannel10|13.0.0.2/24": {},
-             "PortChannel10|13.1.0.2/24": {},
+             "PortChannel10|13.1.0.2/24": {}
               },
               
          "PORTCHANNEL_MEMBER": {
