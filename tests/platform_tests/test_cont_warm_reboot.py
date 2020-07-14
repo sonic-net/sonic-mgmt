@@ -22,8 +22,8 @@ from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.transceiver_utils import check_transceiver_basic
 from tests.common.plugins.sanity_check import checks
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -32,6 +32,19 @@ pytestmark = [
 
 MAX_WAIT_TIME_FOR_INTERFACES = 300
 MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
+
+
+@pytest.fixture(autouse=True, scope="module")
+def continuous_reboot_count(request):
+    return request.config.getoption("--continuous_reboot_count")
+
+@pytest.fixture(autouse=True, scope="module")
+def continuous_reboot_delay(request):
+    return request.config.getoption("--continuous_reboot_delay")
+
+@pytest.fixture(autouse=True, scope="module")
+def enable_continuous_io(request):
+    return request.config.getoption("--enable_continuous_io")
 
 
 def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_WARM, reboot_kwargs=None):
@@ -120,7 +133,6 @@ def check_neighbors(dut):
           "BGP neighbor's ASN does not match minigraph")
 
 
-@pytest.mark.usefixtures('get_advanced_reboot')
 def test_cont_warm_reboot(duthost, ptfhost, localhost, conn_graph_facts, continuous_reboot_count, \
     continuous_reboot_delay, enable_continuous_io, get_advanced_reboot):
     """

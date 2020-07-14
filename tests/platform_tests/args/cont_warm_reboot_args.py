@@ -22,6 +22,6 @@ def add_cont_warm_reboot_args(parser):
         "--enable_continuous_io",
         action="store",
         type=bool,
-        default=True,
+        default=False,
         help="Enable continuous IO",
     )
