@@ -57,11 +57,11 @@ DUT front panel port is directly connected to one of VMs interfaces. But also we
 
 # SONiC Testbed with Keysight IxNetwork as Traffic Generator
 
-This document gives an overview of the stand-alone testbed topology where SONiC DUT is directly connected with Keysight’s protocol emulator and traffic generator (IxNetwork).
+This section gives an overview of the stand-alone testbed topology where SONiC DUT is directly connected with Keysight’s protocol emulator and traffic generator (IxNetwork).
 
 ## Physical Topology
 
-Based on test need there may be multiple topologies possible as shown below:
+Based on test need there may be multiple topologies possible as shown below :
 
 - Single DUT Topology
 ![](img/single-dut-topology.png)
@@ -84,5 +84,5 @@ Keysight IxNetwork is used as the network tester to emulate protocol sessions eg
 The IxNetwork API Server docker is installed in the Testbed server along with sonic-mgmt docker. It provides API server, that is used to configure the Traffic Generator (IxNetwork) using restPy APIs. It is capable of offering multiple sessions of IxNetwork API server. Each session runs independent of each other and configures IxNetwork.
 
 ### Network connections
-- IxNetwork API server is connected to the IxNetwork Chassis via the management port. 
+- IxNetwork API server is connected to IxNetwork via the management port. 
 - IxNetwork test ports are directly connected to single or multiple DUTs.
