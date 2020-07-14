@@ -264,8 +264,11 @@ if [[ x"${BYPASS_UTIL}" == x"False" ]]; then
     prepare_dut
 fi
 
-run_${TEST_METHOD}_tests
+RC=0
+run_${TEST_METHOD}_tests || RC=$?
 
 if [[ x"${BYPASS_UTIL}" == x"False" ]]; then
     cleanup_dut
 fi
+
+exit ${RC}
