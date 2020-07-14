@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 function show_help_and_exit()
 {
@@ -71,7 +71,7 @@ function setup_environment()
 
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
-} 
+}
 
 function setup_test_options()
 {
