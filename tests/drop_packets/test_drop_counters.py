@@ -15,6 +15,10 @@ import netaddr
 from tests.common.utilities import wait_until
 from drop_packets import *
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 logger = logging.getLogger(__name__)
 
 PKT_NUMBER = 1000

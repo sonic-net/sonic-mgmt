@@ -6,6 +6,10 @@ import time
 from tests.common.utilities import wait_until
 from device_mocker import device_mocker_factory
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 HEALTH_TABLE_NAME = 'SYSTEM_HEALTH_INFO'
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
