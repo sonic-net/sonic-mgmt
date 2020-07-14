@@ -216,13 +216,9 @@ Neighbor        V         AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/P
 
 2. Copy the tar.bz2 file on the testbed server.
 
-3. Make sure the interface has promiscuous mode enabled: 
+3. Decompress the file (it may take a few minutes): 
 ```
-ifconfig eth1 promisc
-```
-4. Decompress the file (it may take a few minutes): 
-```
-tar xjf <path_to_tar_file>
+tar xvjf <path_to_tar_file>
 ```
 ### Run IxNetwork API Server docker
 
@@ -230,7 +226,7 @@ tar xjf <path_to_tar_file>
 ```
 docker load -i Ixia_IxNetworkWeb_Docker_<version>.tar
 ```
-2. Loaded image : ` ixnetworkweb_<version>_image`
+2. Loaded image : `ixnetworkweb_<version>_image`
 
 3. Create the macvlan bridge to be used by IxNetwork Web Edition:
 ```
@@ -239,14 +235,13 @@ docker network create -d macvlan -o parent=eth1 --subnet=192.168.x.0/24 --gatewa
 ```
 
 4. Verify bridge got created properly:
-
 ```
 docker network ls
 docker network inspect IxNetVlanMac
 ```
-5. Deploy the IxNetwork Web Edition container using the following command (<image_name> should be as shown in step 2 above):
+5. Deploy the IxNetwork Web Edition container using the following command ixnetworkweb_\<version>_image  should be as shown in step 2 above):
 ```
-docker run --net <bridge name> \
+docker run --net <bridge_name> \
 --ip <container ip> \
 --hostname <hostname> \
 --name <container name> \
@@ -265,7 +260,9 @@ docker run --net <bridge name> \
 -v /opt/container/one/results:/root/.local/share/Ixia/IxNetwork/data/result \
 -v /opt/container/one/settings:/root/.local/share/IXIA/IxNetwork.Globals \
 --tmpfs /run \
-<image name>
+ixnetworkweb_<version>_image
+
+Note : The folders within /opt/container/one/ should to be created with read and write permission prior docker run.
 ```
 
 6. Launch IxNetworkWeb using browser `https://container ip`
