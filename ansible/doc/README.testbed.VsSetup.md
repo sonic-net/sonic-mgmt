@@ -212,46 +212,63 @@ Neighbor        V         AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/P
 ## Deploy IxNetwork API Server
 
 ### Download IxNetwork API Server docker image
-1. Download IxNetwork Web Edition (Docker deployment)
+1. Download IxNetwork Web Edition (Docker deployment) from [ here ](https://ks-aws-prd-itshared-opix.s3-us-west-1.amazonaws.com/IxSoftwareUpgrades/IxNetwork/9.0_Update3/Ixia_IxNetworkWeb_Docker_9.00.100.213.tar.bz2)
+
 2. Copy the tar.bz2 file on the testbed server.
-3. Make sure the interface has promiscuous mode enabled: ifconfig eth1 promisc
-4. Decompress the file (it may take a few minutes): tar xjf <path_to_tar_file>
 
-### Run IxNetwork API Server docker 
-1. Load the image to docker: 
-   - docker load -i Ixia_IxNetworkWeb_Docker_*version*.tar
+3. Make sure the interface has promiscuous mode enabled: 
+```
+ifconfig eth1 promisc
+```
+4. Decompress the file (it may take a few minutes): 
+```
+tar xjf <path_to_tar_file>
+```
+### Run IxNetwork API Server docker
 
-2. Loaded image : ixnetworkweb_*version_image*
+1. Load the image to docker:
+```
+docker load -i Ixia_IxNetworkWeb_Docker_<version>.tar
+```
+2. Loaded image : ` ixnetworkweb_<version>_image`
+
 3. Create the macvlan bridge to be used by IxNetwork Web Edition:
-   -   docker network create -d macvlan -o parent=eth1 --subnet=192.168.x.0/24 --gateway=192.168.x.254 \<bridge_name\>  
- (*NOTE*: Use your subnet, prefix length and gateway IP address.)
+```
+docker network create -d macvlan -o parent=eth1 --subnet=192.168.x.0/24 --gateway=192.168.x.254 <bridge_name>
+(NOTE: Use your subnet, prefix length and gateway IP address.)
+```
+
 4. Verify bridge got created properly:
-   - docker network ls
-   - docker network inspect IxNetVlanMac
+
+```
+docker network ls
+docker network inspect IxNetVlanMac
+```
 5. Deploy the IxNetwork Web Edition container using the following command (<image_name> should be as shown in step 2 above):
+```
+docker run --net <bridge name> \
+--ip <container ip> \
+--hostname <hostname> \
+--name <container name> \
+--privileged \
+--restart=always \
+--cap-add=SYS_ADMIN \
+--cap-add=SYS_TIME \
+--cap-add=NET_ADMIN \
+--cap-add=SYS_PTRACE \
+--cpus="12" \
+--memory="24g" \
+-i -d \
+-v /sys/fs/cgroup:/sys/fs/cgroup \
+-v /var/crash/=/var/crash \
+-v /opt/container/one/configs:/root/.local/share/Ixia/sdmStreamManager/common \
+-v /opt/container/one/results:/root/.local/share/Ixia/IxNetwork/data/result \
+-v /opt/container/one/settings:/root/.local/share/IXIA/IxNetwork.Globals \
+--tmpfs /run \
+<image name>
+```
 
-        docker run --net <bridge name> \
-        --ip <container ip> \
-        --hostname <hostname> \
-        --name <container name> \
-        --privileged \
-        --restart=always \
-        --cap-add=SYS_ADMIN \
-        --cap-add=SYS_TIME \
-        --cap-add=NET_ADMIN \
-        --cap-add=SYS_PTRACE \
-        --cpus="12" \
-        --memory="24g" \
-        -i -d \
-        -v /sys/fs/cgroup:/sys/fs/cgroup \
-        -v /var/crash/=/var/crash \
-        -v /opt/container/one/configs:/root/.local/share/Ixia/sdmStreamManager/common \
-        -v /opt/container/one/results:/root/.local/share/Ixia/IxNetwork/data/result \
-        -v /opt/container/one/settings:/root/.local/share/IXIA/IxNetwork.Globals \
-        --tmpfs /run \
-        <image name>
-
-6. Get connected to the new IxNetworkWeb container using browser https://container ip
+6. Launch IxNetworkWeb using browser `https://container ip`
 
 
 
