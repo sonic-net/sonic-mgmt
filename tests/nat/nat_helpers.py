@@ -1,11 +1,13 @@
-import logging
+import re
 import os
 import time
-import pytest
-import ptf.testutils as testutils
+import logging
+
 import ptf.mask as mask
 import ptf.packet as packet
-import re
+import ptf.testutils as testutils
+from common.errors import RunAnsibleModuleFail
+
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -33,30 +35,19 @@ ACL_TABLE_GLOBAL_NAME = "test_acl_table"
 DYNAMIC_BINDING_NAME = "test_binding"
 SUPPORTED_TOPO = ['t0', 't0-16', 't0-52', 't0-56', 't0-64', 't0-64-32', 't0-116']
 DIRECTION_MAP = {'leaf-tor': 'dnat'}
-SETUP_CONF = {"loopback": {"vrf": {"red": {"ip": "11.1.0.2", "id": "1", "mask": "30", "gw": "11.1.0.1",
-                                           "port_id": "28", "dut_iface": "PortChannel0001"},
-                                   "blue": {"ip": "192.168.0.101", "id": "2", "mask": "24", "gw": "192.168.0.1",
-                                            "port_id": "2"},
-                                   "green": {"ip": "12.1.0.2", "id": "3", "mask": "30", "gw": "12.1.0.1",
-                                             "port_id": "29", "dut_iface": "PortChannel0002"},
-                                   "yellow": {"ip": "192.168.0.201", "id": "4", "mask": "24", "gw": "192.168.0.1",
-                                              "port_id": "3"}
-                                   },
-                           "acl_subnet": "192.168.0.0/24"
-                           },
-              "port_in_lag": {"vrf": {"red": {"ip": "11.1.0.2", "id": "1", "mask": "30", "gw": "11.1.0.1",
-                                              "port_id": "28", "dut_iface": "PortChannel0001"},
-                                      "blue": {"ip": "192.168.0.101", "id": "2", "mask": "24", "gw": "192.168.0.1",
-                                               "port_id": "2"},
-                                      "green": {"ip": "12.1.0.2", "id": "3", "mask": "30", "gw": "12.1.0.1",
-                                                "port_id": "29", "dut_iface": "PortChannel0002"},
-                                      "yellow": {"ip": "192.168.0.201", "id": "4", "mask": "24", "gw": "192.168.0.1",
-                                                 "port_id": "3"}
-                                      },
-                              "acl_subnet": "192.168.0.0/24"
-                              }
+ACL_SUBNET = "192.168.0.0/24"
+VRF = {"red": {"ip": "11.1.0.2", "id": "1", "mask": "30", "gw": "11.1.0.1", "port_id": "28", "dut_iface": "PortChannel0001"},
+       "blue": {"ip": "192.168.0.101", "id": "2", "mask": "24", "gw": "192.168.0.1", "port_id": "2"},
+       "green": {"ip": "12.1.0.2", "id": "3", "mask": "30", "gw": "12.1.0.1", "port_id": "29", "dut_iface": "PortChannel0002"},
+       "yellow": {"ip": "192.168.0.201", "id": "4", "mask": "24", "gw": "192.168.0.1", "port_id": "3"}
+       }
+SETUP_CONF = {"loopback": {"vrf": VRF, "acl_subnet": ACL_SUBNET},
+              "port_in_lag": {"vrf": VRF, "acl_subnet": ACL_SUBNET}
               }
 DIRECTION_PARAMS = ['host-tor', 'leaf-tor']
+FULL_CONE_TEST_IP = "172.20.1.2"
+FULL_CONE_TEST_SUBNET = "172.20.1.0/24"
+REBOOT_MAP = {'cold': {"timeout": 300}, 'fast': {"timeout": 180}, 'warm': {"timeout": 180}}
 
 
 def configure_nat_over_cli(duthost, flow_direction, action, nat_type, global_ip, local_ip, proto=None,
@@ -74,7 +65,6 @@ def configure_nat_over_cli(duthost, flow_direction, action, nat_type, global_ip,
     :param local_port: string local l4 port
     :return : dict with rule parameters
     """
-
     if nat_type == 'static_nat':
         entry = {
             global_ip: {'local_ip': local_ip}
@@ -105,7 +95,6 @@ def nat_statistics(duthost, show=False, clear=False):
     :param clear: bool
     :return : formatted CLI output
     """
-
     if show:
         output_cli = exec_command(duthost, ["show nat statistics"])
         if output_cli["rc"]:
@@ -134,7 +123,6 @@ def dut_nat_iptables_status(duthost):
     :param duthost: DUT host object
     :return : dict with nat PREROUTING/POSTROUTING iptables entries
     """
-
     nat_table_status = {}
     output_cli = exec_command(duthost, ["sudo iptables -nL -t nat"])
     if output_cli["rc"]:
@@ -145,10 +133,10 @@ def dut_nat_iptables_status(duthost):
     index_postrouting = [i for i in range(0, len(entries)) if 'POSTROUTING' in entries[i]][0] + 2
     if any(['DOCKER' in entry for entry in entries]):
         index_docker = [i for i in range(0, len(entries)) if 'DOCKER' in entries[i]][0]
-        postrouting = [el for el in entries[index_postrouting: index_docker] if len(el) > 1]
+        postrouting = [el for el in entries[index_postrouting:index_docker] if len(el) > 1]
     else:
         postrouting = [el for el in entries[index_postrouting:] if len(el) > 1]
-    prerouting = [el for el in entries[index_prerouting: index_input] if len(el) > 0]
+    prerouting = [el for el in entries[index_prerouting:index_input] if len(el) > 0]
     nat_table_status["prerouting"] = [" ".join([s.strip() for s in el.split() if len(el) > 0])
                                       for el in prerouting]
     nat_table_status["postrouting"] = [" ".join([s.strip() for s in el.split() if len(el) > 0])
@@ -163,7 +151,6 @@ def dut_interface_status(duthost, interface_name):
     :param interface_name: string interface to configure
     :return : string formatted CLI output with interface current operstatus
     """
-
     interfaces_status = {}
     output_cli = exec_command(duthost, ["show interfaces status | grep {}".format(interface_name)])
     if output_cli["rc"]:
@@ -184,7 +171,6 @@ def dut_interface_control(duthost, action, interface_name):
     :param interface_name: string interface to configure
     :return : formatted CLI output with interface current operstatus
     """
-
     interface_actions = {"disable": "shutdown", "enable": "startup"}
     expected_operstatus = {"disable": "down", "enable": "up"}
     output_cli = exec_command(duthost, ["sudo config interface {} {}".format(interface_actions[action],
@@ -210,7 +196,6 @@ def nat_translations(duthost, show=False, clear=False):
     :param clear: bool
     :return : formatted CLI output
     """
-
     if show:
         output_cli = exec_command(duthost, ["show nat translations"])
         if output_cli["rc"]:
@@ -244,7 +229,6 @@ def crud_operations_basic(duthost, flow_direction, crud_operation):
     :param crud_operation: dict dict with action and rule parameters
     :return : dict with rule parameters
     """
-
     nat_type = "static_nat"
     for key in crud_operation.keys():
         output = configure_nat_over_cli(duthost, flow_direction,
@@ -261,7 +245,6 @@ def crud_operations_napt(duthost, flow_direction, crud_operation):
     :param crud_operation: dict dict with action and rule parameters
     :return : dict with rule parameters
     """
-
     nat_type = 'static_napt'
     for key in crud_operation.keys():
         output = configure_nat_over_cli(duthost, flow_direction,
@@ -280,7 +263,6 @@ def exec_command(host, command_list):
     :param command_list: list of commands to execute
     :return : response from host or exception __str__
     """
-
     if len(command_list) == 1:
         try:
             response = host.shell(command_list[0])
@@ -294,12 +276,11 @@ def exec_command(host, command_list):
 
 def nat_zones_config(duthost, setup_info, interface_type):
     """
-    sets NAT zones configuration files for deploy them on DUT;
+    set NAT zones configuration files for deploy them on DUT;
     :param duthost: DUT host object
     :param setup_info: dict, setup info fixture
     :param interface_type: interface type
     """
-
     # Get inner and outer interfaces from setup info
     inner_zone_interfaces = setup_info[interface_type]["inner_zone_interfaces"]
     outer_zone_interfaces = setup_info[interface_type]["outer_zone_interfaces"]
@@ -317,7 +298,7 @@ def nat_zones_config(duthost, setup_info, interface_type):
 def apply_static_nat_config(duthost, public_ip, private_ip, flow_direction, protocol_type=None, nat_entry=None,
                             global_port=None, local_port=None):
     """
-    generates static NAT/NAPT configuration files and deploy them on DUT;
+    generate static NAT/NAPT configuration files and deploy them on DUT;
     :param duthost: DUT host object
     :param public_ip: IP Address of Internet IP (host-tor) or IP Address of Public Interface (leaf-tor)
     :param private_ip: IP Address of Local IP (host-tor) or IP Address of Internet IP (leaf-tor)
@@ -327,7 +308,6 @@ def apply_static_nat_config(duthost, public_ip, private_ip, flow_direction, prot
     :param global_port: global l4 port
     :param local_port: local l4 port
     """
-
     # Initialize variables for Static NAT/NAPT table
     static_nat_table_vars = {
         'table_name': STATIC_NAPT_TABLE_NAME if nat_entry != 'static_nat' else STATIC_NAT_TABLE_NAME,
@@ -349,14 +329,13 @@ def apply_static_nat_config(duthost, public_ip, private_ip, flow_direction, prot
 
 def get_src_port(setup_info, direction, interface_type, second_port=False):
     """
-    returns source port ids based on test case direction and interface_type
+    return source port ids based on test case direction and interface_type
     :param setup_info: setup info fixture
     :param direction: 'host-tor', 'leaf-tor'
     :param interface_type: type of interface
     :param second_port: boolean if second port id needs to be returned
     :return: source port ids
     """
-
     if direction == 'host-tor':
         if second_port:
             return [setup_info[interface_type]['inner_port_id'][0] + 1]
@@ -366,14 +345,13 @@ def get_src_port(setup_info, direction, interface_type, second_port=False):
 
 def get_dst_port(setup_info, direction, interface_type, second_port=False):
     """
-    returns destination port ids based on direction and interface_type
+    return destination port ids based on test case direction and interface_type
     :param setup_info: setup info fixture
     :param direction: 'host-tor', 'leaf-tor'
     :param interface_type: type of interface
     :param second_port: boolean if second port id needs to be returned
     :return: destination port ids
     """
-
     if direction == 'leaf-tor':
         if second_port:
             return [setup_info[interface_type]['inner_port_id'][0] + 1]
@@ -383,7 +361,7 @@ def get_dst_port(setup_info, direction, interface_type, second_port=False):
 
 def get_src_ip(setup_info, direction, interface_type, nat_type=None, second_port=False):
     """
-    returns source IP  based on test case direction and interface_type
+    return source IP  based on test case direction and interface_type
     :param setup_info: setup info fixture
     :param direction: 'host-tor', 'leaf-tor'
     :param interface_type: type of interface
@@ -391,7 +369,6 @@ def get_src_ip(setup_info, direction, interface_type, nat_type=None, second_port
     :param nat_type: string nat type
     :return: source IP
     """
-
     if direction == 'host-tor' or nat_type == "static_napt":
         if second_port:
             return setup_info[interface_type]["second_src_ip"]
@@ -409,7 +386,6 @@ def get_dst_ip(setup_info, direction, interface_type, nat_type=None, second_port
     :param nat_type: string nat type
     :return: destination IP
     """
-
     if direction == 'host-tor' or nat_type == "static_napt":
         return setup_info[interface_type]['dst_ip']
     return setup_info[interface_type]['public_ip']
@@ -426,28 +402,6 @@ def get_public_ip(setup_info, interface_type, second_port=False):
     if second_port and interface_type == "port_in_lag":
         return setup_info[interface_type]['second_public_ip']
     return setup_info[interface_type]['public_ip']
-
-
-def setup_test_env(ptfhost, duthost, testbed, setup_info, interface_type):
-    """
-    setup testbed's environment for CT run
-    :param ptfhost: PTF host object
-    :param duthost: DUT host object
-    :param testbed: Testbed object
-    :param setup_info: fixture gathers all test required information from DUT facts and testbed
-    :param interface_type: interface type to configure
-    """
-
-    # Check if topology is supported
-    if testbed['topo']['name'] not in SUPPORTED_TOPO:
-        pytest.skip('Unsupported topology')
-    try:
-        # TODO: extend with other interface types
-        # Setup interfaces on PTF container
-        conf_ptf_interfaces(ptfhost, duthost, setup_info, interface_type)
-    except Exception as e:
-        teardown_test_env(duthost, ptfhost, setup_info, interface_type)
-        raise e
 
 
 def setup_ptf_interfaces(ptfhost, duthost, setup_info, interface_type, vrf_id, vrf_name, port_id,
@@ -501,7 +455,7 @@ def teardown_ptf_interfaces(ptfhost, gw_ip, vrf_id, ip_address, mask, port_id, v
     ptfhost.shell("ip link del {} type vrf table {}".format(vrf_name, vrf_id))
 
 
-def conf_ptf_interfaces(ptfhost, duthost, setup_info, interface_type, teardown=False, second_port=False):
+def conf_ptf_interfaces(ptfhost, duthost, setup_info, interface_type, teardown=False):
     """
     setup testbed's environment for CT run
     :param ptfhost: PTF host object
@@ -509,9 +463,7 @@ def conf_ptf_interfaces(ptfhost, duthost, setup_info, interface_type, teardown=F
     :param setup_info: setup info fixture
     :param interface_type: string interface type
     :param teardown: Boolean parameter to remove or not PTF's interfaces config
-    :param second_port: bolean for PTF's interface ip address configuration
     """
-
     if not teardown:
         ptfhost.script("./scripts/change_mac.sh")
     for key in setup_info[interface_type]["vrf_conf"]:
@@ -546,7 +498,6 @@ def expected_mask_nated_packet(pkt, setup_info, interface_type, direction, proto
     :param second_port: boolean for second port settings
     :return: expected packet
     """
-
     # Setup source and destination IP based on direction
     if direction == 'host-tor':
         ip_dst = setup_info[interface_type]["dst_ip"] if not exp_dst_ip else exp_dst_ip
@@ -556,6 +507,7 @@ def expected_mask_nated_packet(pkt, setup_info, interface_type, direction, proto
         ip_src = setup_info[interface_type]["dst_ip"] if not exp_src_ip else exp_src_ip
         if second_port:
             ip_dst = setup_info[interface_type]["second_src_ip"]
+
     # Set up all fields
     exp_pkt = pkt.copy()
     exp_pkt['IP'].ttl -= 1
@@ -586,16 +538,14 @@ def create_packet(eth_dst, eth_src, ip_dst, ip_src, protocol_type, sport=None, d
     :param dport: destination port for UDP/TCP traffic
     :return: packet based on protocol type
     """
-
     if protocol_type == "TCP":
         return testutils.simple_tcp_packet(eth_dst=eth_dst, eth_src=eth_src, ip_dst=ip_dst, ip_src=ip_src,
                                            tcp_sport=sport, tcp_dport=dport, ip_ttl=64)
     elif protocol_type == "UDP":
         return testutils.simple_udp_packet(eth_dst=eth_dst, eth_src=eth_src, ip_dst=ip_dst, ip_src=ip_src,
                                            udp_sport=sport, udp_dport=dport, ip_ttl=64)
-    else:
-        return testutils.simple_icmp_packet(eth_dst=eth_dst, eth_src=eth_src, ip_dst=ip_dst, ip_src=ip_src, icmp_type=8,
-                                            icmp_code=0, ip_ttl=64)
+    return testutils.simple_icmp_packet(eth_dst=eth_dst, eth_src=eth_src, ip_dst=ip_dst, ip_src=ip_src, icmp_type=8,
+                                        icmp_code=0, ip_ttl=64)
 
 
 def teardown_test_env(duthost, ptfhost, setup_info, interface_type, reboot=False, before_test=False):
@@ -608,7 +558,6 @@ def teardown_test_env(duthost, ptfhost, setup_info, interface_type, reboot=False
     :param reboot: if True perform DUT reboot
     :param  before_test: boolean to not clear/clear PTF configuration
     """
-
     # reset dut to initial T0 configuration
     if reboot:
         duthost.command('reboot')
@@ -624,7 +573,7 @@ def teardown_test_env(duthost, ptfhost, setup_info, interface_type, reboot=False
 def check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_info, direction, interface_type, protocol_type,
                           outer_ports=None, inner_ports=None, ip_src=None, ip_dst=None, exp_src_ip=None,
                           exp_dst_ip=None, source_l4_port=None, dest_l4_port=None, exp_source_port=None,
-                          exp_dst_port=None, icmp_id=None, nat_type=None, action=None,  negative=False,
+                          exp_dst_port=None, icmp_id=None, nat_type=None, action=None, negative=False,
                           second_port=False, handshake=False, default=False):
     """
     method for check traffic from host to tor and vise versa
@@ -653,7 +602,6 @@ def check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_info, direction, i
     :param default: user default parameters for initializing L4 ports
     :param action: used only for dynamic NAT, could be 'forward' or 'do_not_nat'
     """
-
     # Get outer and inner ports
     outer_ports = get_dst_port(setup_info, direction, interface_type,
                                second_port=second_port) if not outer_ports else outer_ports
@@ -668,75 +616,71 @@ def check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_info, direction, i
     ip_dst = get_dst_ip(setup_info, direction, interface_type,
                         nat_type=nat_type, second_port=second_port) if not ip_dst else ip_dst
     public_ip = get_public_ip(setup_info, interface_type)
-    try:
-        if handshake and direction == "host-tor" and protocol_type != "ICMP":
-            if nat_type == "dynamic" and default:
-                source_l4_port, dest_l4_port = set_l4_default_ports(protocol_type)
-            src_vrf = setup_info["inner_vrf"][0] if not second_port else setup_info["inner_vrf"][1]
-            dst_vrf = setup_info["outer_vrf"][0] if not second_port else setup_info["outer_vrf"][1]
-            ptfhost.copy(src="./scripts/nat_ptf_echo.py", dest="/tmp")
-            ptfhost.command("python /tmp/nat_ptf_echo.py {} "
-                            "{} {} {} {} {} {} None &".format(protocol_type.lower(), ip_dst, dest_l4_port,
-                                                              ip_src, source_l4_port, dst_vrf, src_vrf))
-        elif handshake and direction == "leaf-tor" and protocol_type != "ICMP" and nat_type == "static_napt":
-            src_vrf = setup_info["outer_vrf"][0] if not second_port else setup_info["outer_vrf"][1]
-            dst_vrf = setup_info["inner_vrf"][0] if not second_port else setup_info["inner_vrf"][1]
-            ptfhost.copy(src="./scripts/nat_ptf_echo.py", dest="/tmp")
-            ptfhost.command("python /tmp/nat_ptf_echo.py {} "
-                            "{} {} {} {} {} {} {} &".format(protocol_type.lower(), ip_src, source_l4_port,
-                                                            ip_dst, dest_l4_port, dst_vrf, src_vrf,
-                                                            public_ip))
-        if nat_type == 'dynamic':
-            if not exp_source_port and not negative and protocol_type != 'ICMP':
-                output = exec_command(duthost, ["show nat translation"])['stdout']
-                # Find expected source port
-                pattern = r"tcp.+{}:(\d+)" if protocol_type == "TCP" else r"udp.+{}:(\d+)"
-                exp_source_port = sorted(re.findall(pattern.format(get_public_ip(setup_info, interface_type)),
-                                                    output))[-1]
-            if protocol_type == 'ICMP':
-                exp_source_port = POOL_RANGE_START_PORT
-                if action == 'do_not_nat':
-                    icmp_id = 0
-            if not exp_source_port and negative:
-                exp_source_port = POOL_RANGE_START_PORT
-            if default:
-                source_l4_port, dest_l4_port, exp_source_port, exp_dst_port = initialize_dynamic_nat_l4_ports(
-                    protocol_type, direction, exp_src_port=int(exp_source_port), default=default)
-            else:
-                source_l4_port, dest_l4_port, exp_source_port, exp_dst_port = initialize_dynamic_nat_l4_ports(
-                    protocol_type, direction, src_port=source_l4_port, dst_port=dest_l4_port,
-                    exp_src_port=int(exp_source_port), exp_dst_port=dest_l4_port)
-        if nat_type == "static_napt" and direction == "leaf-tor" and protocol_type != 'ICMP':
-            source_l4_port = dest_l4_port
-            exp_source_port, exp_dst_port = exp_dst_port, exp_source_port
-            exp_dst_ip = ip_src
-            ip_src = ip_dst
-            ip_dst = public_ip
-            exp_src_ip = ip_src
-        # Create packet to send
-        pkt = create_packet(eth_dst, eth_src, ip_dst, ip_src, protocol_type, sport=source_l4_port, dport=dest_l4_port)
-        exp_pkt = expected_mask_nated_packet(pkt, setup_info, interface_type, direction, protocol_type,
-                                             exp_src_ip=exp_src_ip, exp_dst_ip=exp_dst_ip, src_port=exp_source_port,
-                                             dst_port=exp_dst_port, icmp_id=icmp_id, second_port=second_port)
-        # clear buffer
-        ptfadapter.dataplane.flush()
-        testutils.send(ptfadapter, inner_ports[0], pkt, count=5)
-        if not negative:
-            # Verify that packets arrive on outer ports
-            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=outer_ports)
-            if protocol_type == "ICMP":
-                exp_pkt = expected_mask_nated_packet(pkt, setup_info, interface_type, 'leaf-tor', protocol_type,
-                                                     exp_src_ip=exp_src_ip, exp_dst_ip=exp_dst_ip,
-                                                     src_port=exp_source_port,
-                                                     dst_port=exp_dst_port, icmp_id=0)
-                exp_pkt.exp_pkt[protocol_type].type = 0
-                testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=inner_ports)
+
+    if handshake and direction == "host-tor" and protocol_type != "ICMP":
+        if nat_type == "dynamic" and default:
+            source_l4_port, dest_l4_port = set_l4_default_ports(protocol_type)
+        src_vrf = setup_info["inner_vrf"][0] if not second_port else setup_info["inner_vrf"][1]
+        dst_vrf = setup_info["outer_vrf"][0] if not second_port else setup_info["outer_vrf"][1]
+        ptfhost.copy(src="./scripts/nat_ptf_echo.py", dest="/tmp")
+        ptfhost.command("python /tmp/nat_ptf_echo.py {} "
+                        "{} {} {} {} {} {} None &".format(protocol_type.lower(), ip_dst, dest_l4_port,
+                                                          ip_src, source_l4_port, dst_vrf, src_vrf))
+    elif handshake and direction == "leaf-tor" and protocol_type != "ICMP" and nat_type == "static_napt":
+        src_vrf = setup_info["outer_vrf"][0] if not second_port else setup_info["outer_vrf"][1]
+        dst_vrf = setup_info["inner_vrf"][0] if not second_port else setup_info["inner_vrf"][1]
+        ptfhost.copy(src="./scripts/nat_ptf_echo.py", dest="/tmp")
+        ptfhost.command("python /tmp/nat_ptf_echo.py {} "
+                        "{} {} {} {} {} {} {} &".format(protocol_type.lower(), ip_src, source_l4_port,
+                                                        ip_dst, dest_l4_port, dst_vrf, src_vrf,
+                                                        public_ip))
+    if nat_type == 'dynamic':
+        if not exp_source_port and not negative and protocol_type != 'ICMP':
+            output = exec_command(duthost, ["show nat translation"])['stdout']
+            # Find expected source port
+            pattern = r"tcp.+{}:(\d+)" if protocol_type == "TCP" else r"udp.+{}:(\d+)"
+            exp_source_port = sorted(re.findall(pattern.format(get_public_ip(setup_info, interface_type)),
+                                                output))[-1]
+        if protocol_type == 'ICMP':
+            exp_source_port = POOL_RANGE_START_PORT
+            if action == 'do_not_nat':
+                icmp_id = 0
+        if not exp_source_port and negative:
+            exp_source_port = POOL_RANGE_START_PORT
+        if default:
+            source_l4_port, dest_l4_port, exp_source_port, exp_dst_port = initialize_dynamic_nat_l4_ports(
+                protocol_type, direction, exp_src_port=int(exp_source_port), default=default)
         else:
-            testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=outer_ports)
-    except Exception as e:
-        # Perform teardown if error happens
-        conf_ptf_interfaces(ptfhost, duthost, setup_info, interface_type, teardown=True, second_port=second_port)
-        raise e
+            source_l4_port, dest_l4_port, exp_source_port, exp_dst_port = initialize_dynamic_nat_l4_ports(
+                protocol_type, direction, src_port=source_l4_port, dst_port=dest_l4_port,
+                exp_src_port=int(exp_source_port), exp_dst_port=dest_l4_port)
+    if nat_type == "static_napt" and direction == "leaf-tor" and protocol_type != 'ICMP':
+        source_l4_port = dest_l4_port
+        exp_source_port, exp_dst_port = exp_dst_port, exp_source_port
+        exp_dst_ip = ip_src
+        ip_src = ip_dst
+        ip_dst = public_ip
+        exp_src_ip = ip_src
+    # Create packet to send
+    pkt = create_packet(eth_dst, eth_src, ip_dst, ip_src, protocol_type, sport=source_l4_port, dport=dest_l4_port)
+    exp_pkt = expected_mask_nated_packet(pkt, setup_info, interface_type, direction, protocol_type,
+                                         exp_src_ip=exp_src_ip, exp_dst_ip=exp_dst_ip, src_port=exp_source_port,
+                                         dst_port=exp_dst_port, icmp_id=icmp_id, second_port=second_port)
+    # clear buffer
+    ptfadapter.dataplane.flush()
+    testutils.send(ptfadapter, inner_ports[0], pkt, count=5)
+    if not negative:
+        # Verify that packets arrive on outer ports
+        testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=outer_ports)
+        if protocol_type == "ICMP":
+            exp_pkt = expected_mask_nated_packet(pkt, setup_info, interface_type, 'leaf-tor', protocol_type,
+                                                 exp_src_ip=exp_src_ip, exp_dst_ip=exp_dst_ip,
+                                                 src_port=exp_source_port,
+                                                 dst_port=exp_dst_port, icmp_id=0)
+            exp_pkt.exp_pkt[protocol_type].type = 0
+            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=inner_ports)
+    else:
+        testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=outer_ports)
 
 
 def set_l4_default_ports(protocol_type):
@@ -768,7 +712,6 @@ def initialize_dynamic_nat_l4_ports(protocol_type, direction, src_port=None, dst
     :param direction: switch ports
     :return src_port, dst_port, exp_src_port, exp_dst_port
     """
-
     # Use default values but reverse ports for DNAT
     if default and direction == 'leaf-tor':
         src_port, dst_port = set_l4_default_ports(protocol_type)
@@ -810,7 +753,6 @@ def configure_dynamic_nat_rule(duthost, setup_info, interface_type, pool_name=DY
     :param remove_bindings: if True remove applied bindings from NAT rules
     :param default: use default ports
     """
-
     if default:
         # Set private IP for dynamic NAT configuration
         public_ip = get_public_ip(setup_info, interface_type) if not public_ip else public_ip
@@ -849,7 +791,6 @@ def wait_timeout(protocol_type, wait_time=None, default=True):
     :param wait_time: time to wait
     :param default: wait default NAT timeout
     """
-
     if protocol_type == "UDP":
         # Wait until UDP entry expires
         time.sleep(GLOBAL_UDP_NAPT_TIMEOUT + 60) if default else time.sleep(wait_time)
@@ -867,7 +808,6 @@ def get_static_l4_ports(proto, direction, nat_type):
     :param nat_type: string with static napt/nat types
     :return strings values for src_port, dst_port, exp_src_port, exp_dst_por
     """
-
     src_port, dst_port = set_l4_default_ports(proto)
     exp_src_port = src_port
     exp_dst_port = dst_port
@@ -887,3 +827,22 @@ def get_static_l4_ports(proto, direction, nat_type):
             src_port, dst_port = dst_port, src_port
             return src_port, dst_port, exp_src_port, exp_dst_port
     return src_port, dst_port, exp_src_port, exp_dst_port
+
+
+def conf_dut_routes(duthost, setup_info, subnet, interface_type, teardown=False):
+    """
+    method for add/delete routes on DUT
+    :param duthost: DUT host object
+    :param setup_info: dict with interfaces parameters to configure
+    :param teardown: Boolean parameter to remove or not DUT routes
+    :param subnet: subnet to configure
+    """
+    gw = setup_info[interface_type]["vrf_conf"]["red"]["ip"][:-1] + "{}". \
+        format(int(setup_info[interface_type]["vrf_conf"]["red"]["ip"][-1:]) + 1)
+    if teardown:
+        try:
+            duthost.command("ip route del {} via {}".format(subnet, gw))
+        except RunAnsibleModuleFail:
+            logger.debug("Route '%s via %s' was not deleted/existed", subnet, gw)
+    else:
+        duthost.command("ip route add {} via {}".format(subnet, gw))
