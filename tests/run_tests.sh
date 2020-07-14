@@ -95,12 +95,14 @@ function setup_test_options()
     fi
 
     if [[ x"${OMIT_FILE_LOG}" == x"True" ]]; then
-        UTIL_LOGGING_OPTIONS=""
+        PRET_LOGGING_OPTIONS=""
+        POST_LOGGING_OPTIONS=""
         TEST_LOGGING_OPTIONS=""
     else
         mkdir -p ${LOG_PATH}
 
-        UTIL_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/util.xml --log-file=${LOG_PATH}/util.log"
+        PRET_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/pretest.xml --log-file=${LOG_PATH}/pretest.log"
+        POST_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/posttest.xml --log-file=${LOG_PATH}/posttest.log"
         TEST_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/tr.xml --log-file=${LOG_PATH}/test.log"
     fi
     UTIL_TOPOLOGY_OPTIONS="--topology util"
@@ -132,7 +134,8 @@ function run_debug_tests()
     echo "TESTBED_FILE:          ${TESTBED_FILE}"
     echo "TEST_LOGGING_OPTIONS:  ${TEST_LOGGING_OPTIONS}"
     echo "TEST_TOPOLOGY_OPTIONS: ${TEST_TOPOLOGY_OPTIONS}"
-    echo "UTIL_LOGGING_OPTIONS:  ${UTIL_LOGGING_OPTIONS}"
+    echo "PRET_LOGGING_OPTIONS:  ${PRET_LOGGING_OPTIONS}"
+    echo "POST_LOGGING_OPTIONS:  ${POST_LOGGING_OPTIONS}"
     echo "UTIL_TOPOLOGY_OPTIONS: ${UTIL_TOPOLOGY_OPTIONS}"
 
     echo "PYTEST_COMMON_OPTS:    ${PYTEST_COMMON_OPTS}"
@@ -141,27 +144,26 @@ function run_debug_tests()
 function prepare_dut()
 {
     echo "=== Preparing DUT for subsequent tests ==="
-    py.test ${PYTEST_COMMON_OPTS} ${UTIL_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+    py.test ${PYTEST_COMMON_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m pretest
 
     # Give some delay for the newly announced routes to propagate.
     sleep 120
 }
 
+function cleanup_dut()
+{
+    echo "=== Cleaning up DUT after tests ==="
+    py.test ${PYTEST_COMMON_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m posttest
+}
+
 function run_group_tests()
 {
-    if [[ x"${BYPASS_UTIL}" == x"False" ]]; then
-        prepare_dut
-    fi
     echo "=== Running tests in groups ==="
     py.test ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${TEST_CASES}
 }
 
 function run_individual_tests()
 {
-    if [[ x"${BYPASS_UTIL}" == x"False" ]]; then
-        prepare_dut
-    fi
-
     SKIP_SCRIPTS="${SKIP_SCRIPTS} test_announce_routes.py test_nbr_health.py"
 
     ignores=$(python -c "print '|'.join('''$SKIP_FOLDERS'''.split())")
@@ -258,4 +260,12 @@ done
 validate_parameters
 setup_test_options
 
+if [[ x"${BYPASS_UTIL}" == x"False" ]]; then
+    prepare_dut
+fi
+
 run_${TEST_METHOD}_tests
+
+if [[ x"${BYPASS_UTIL}" == x"False" ]]; then
+    cleanup_dut
+fi
