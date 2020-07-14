@@ -5,25 +5,23 @@ class QosParamMellanox(object):
         asic_param_dic = {
             'spc1': {
                 'cell_size': 96,
-                'headroom_overhead': 95,
-                'hysteresis': 0
+                'headroom_overhead': 95
             },
             'spc2': {
                 'cell_size': 144,
-                'headroom_overhead': 64,
-                'hysteresis': 0
+                'headroom_overhead': 64
             },
             'spc3': {
                 'cell_size': 144,
-                'headroom_overhead': 64,
-                'hysteresis': 0
+                'headroom_overhead': 64
             }
         }
 
         self.asic_type = asic_type
         self.cell_size = asic_param_dic[asic_type]['cell_size']
         self.headroom_overhead = asic_param_dic[asic_type]['headroom_overhead']
-        self.hysteresis = asic_param_dic[asic_type]['hysteresis']
+        if speed_cable_len[0:6] == '400000':
+            self.headroom_overhead += 59
         self.speed_cable_len = speed_cable_len
         self.lossless_profile = "pg_lossless_{}_profile".format(speed_cable_len)
         self.pools_info = {}
@@ -54,11 +52,13 @@ class QosParamMellanox(object):
         """
         xon = int(math.ceil(float(self.ingressLosslessProfile['xon']) / self.cell_size))
         xoff = int(math.ceil(float(self.ingressLosslessProfile['xoff']) / self.cell_size))
-        headroom = xon + xoff
+        size = int(math.ceil(float(self.ingressLosslessProfile['size']) / self.cell_size))
+        headroom = size
+        hysteresis = headroom - (xon + xoff)
         ingress_lossless_size = int(math.ceil(float(self.ingressLosslessProfile['static_th']) / self.cell_size)) - headroom
         egress_lossy_size = int(math.ceil(float(self.egressLossyProfile['static_th']) / self.cell_size))
 
-        pkts_num_trig_pfc = ingress_lossless_size + xon
+        pkts_num_trig_pfc = ingress_lossless_size + xon + hysteresis
         pkts_num_trig_ingr_drp = ingress_lossless_size + headroom - self.headroom_overhead
         pkts_num_dismiss_pfc = ingress_lossless_size + 1
         pkts_num_trig_egr_drp = egress_lossy_size + 1
@@ -67,6 +67,7 @@ class QosParamMellanox(object):
         self.qos_parameters['pkts_num_trig_ingr_drp'] = pkts_num_trig_ingr_drp
         self.qos_parameters['pkts_num_dismiss_pfc'] = pkts_num_dismiss_pfc
         self.qos_parameters['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp
+        self.qos_parameters['pkts_num_hysteresis'] = hysteresis
 
     def calculate_parameters(self):
         """
@@ -86,6 +87,7 @@ class QosParamMellanox(object):
         pkts_num_trig_ingr_drp = self.qos_parameters['pkts_num_trig_ingr_drp']
         pkts_num_dismiss_pfc = self.qos_parameters['pkts_num_dismiss_pfc']
         pkts_num_trig_egr_drp = self.qos_parameters['pkts_num_trig_egr_drp']
+        pkts_num_hysteresis = self.qos_parameters['pkts_num_hysteresis']
 
         xoff = {}
         xoff['pkts_num_trig_pfc'] = pkts_num_trig_pfc
@@ -100,9 +102,11 @@ class QosParamMellanox(object):
         xon = {}
         xon['pkts_num_trig_pfc'] = pkts_num_trig_pfc
         xon['pkts_num_dismiss_pfc'] = pkts_num_dismiss_pfc
-        xon['pkts_num_hysteresis'] = self.hysteresis
-        if self.asic_type != 'spc1':
+        xon['pkts_num_hysteresis'] = pkts_num_hysteresis
+        if self.asic_type == 'spc2':
             xon['pkts_num_margin'] = 2
+        elif self.asic_type == 'spc3':
+            xon['pkts_num_margin'] = 0
         self.qos_params_mlnx['xon_1'].update(xon)
         self.qos_params_mlnx['xon_2'].update(xon)
 

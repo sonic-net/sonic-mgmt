@@ -695,7 +695,12 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
         pkts_num_dismiss_pfc = int(self.test_params['pkts_num_dismiss_pfc'])
+        if 'pkts_num_hysteresis' in self.test_params.keys():
+            hysteresis = int(self.test_params['pkts_num_hysteresis'])
+        else:
+            hysteresis = 0
         default_packet_length = 64
+
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
         recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
@@ -713,7 +718,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id, dst_port_2_id, dst_port_3_id])
 
         try:
-            # send packets to dst port 0
+            # send packets to dst port 1, occupying the "xon"
             pkt = simple_tcp_packet(pktlen=default_packet_length,
                                     eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                     eth_src=src_port_mac,
@@ -721,8 +726,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ip_dst=dst_port_ip,
                                     ip_tos=tos,
                                     ip_ttl=ttl)
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc)
-            # send packets to dst port 1
+            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc - hysteresis)
+            # send packets to dst port 2, occupying the shared buffer
             pkt = simple_tcp_packet(pktlen=default_packet_length,
                                     eth_dst=router_mac if router_mac != '' else dst_port_2_mac,
                                     eth_src=src_port_mac,
@@ -730,8 +735,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ip_dst=dst_port_2_ip,
                                     ip_tos=tos,
                                     ip_ttl=ttl)
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1)
-            # send 1 packet to dst port 2
+            send_packet(self, src_port_id, pkt, pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1 + hysteresis)
+            # send 1 packet to dst port 3, triggering PFC
             pkt = simple_tcp_packet(pktlen=default_packet_length,
                                     eth_dst=router_mac if router_mac != '' else dst_port_3_mac,
                                     eth_src=src_port_mac,
@@ -1368,6 +1373,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                                 ip_dst=dst_port_ip,
                                 ip_tos=tos,
                                 ip_ttl=ttl)
+
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
         recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
