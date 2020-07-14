@@ -51,8 +51,7 @@ def check_topology(item):
         topo_mark = topo_marks[0]   # The nearest mark overides others
         cfg_topos = item.config.getoption("--topology").split(',')
         if all(topo not in topo_mark.args for topo in cfg_topos):
-            pytest.skip("{} supports topologies: {}, specified topologies: {}"\
-                .format(item.nodeid, topo_mark.args, cfg_topos))
+            pytest.skip("test requires topology in {!r}".format(topo_mark))
     else:
         warn_msg = "testcase {} is skipped when no topology marker is given".format(item.nodeid)
         warnings.warn(warn_msg)
@@ -63,30 +62,30 @@ def check_feature(item):
     if feature_names:
         cfg_features = item.config.getoption("--feature").split(',')
         if all(feature not in feature_names[0] for feature in cfg_features):
-            pytest.skip("test {} requires feature name in {!r}".format(item.nodeid, feature_names))
+            pytest.skip("test requires feature name in {!r}".format(feature_names))
     else:
-        pytest.skip("test {} does not match feature".format(item.nodeid))
+        pytest.skip("test does not match feature")
 
 def check_asic(item):
     asic = [mark.args[0] for mark in item.iter_markers(name="asic")]
     if asic:
         if item.config.getoption("--asic") not in asic:
-            pytest.skip("test {} requires asic in {!r}".format(item.nodeid, asic))
+            pytest.skip("test requires asic in {!r}".format(asic))
     else:
-        pytest.skip("test {} does not match asic type".format(item.nodeid))
+        pytest.skip("test does not match asic type")
 
 def check_conn_type(item):
     conn = [mark.args[0] for mark in item.iter_markers(name="connection_type")]
     if conn:
         if item.config.getoption("--connection_type") not in conn:
-            pytest.skip("test {} requires connection in {!r}".format(item.nodeid, conn))
+            pytest.skip("test requires connection in {!r}".format(conn))
     else:
-        pytest.skip("test {} does not match connection type".format(item.nodeid))
+        pytest.skip("test does not match connection type")
 
 def check_device_type(item):
     dev = [mark.args[0] for mark in item.iter_markers(name="device_type")]
     if dev:
         if item.config.getoption("--device_type") not in dev:
-            pytest.skip("test {} requires device type in {!r}".format(item.nodeid, dev))
+            pytest.skip("test requires device type in {!r}".format(dev))
     else:
-        pytest.skip("test {} does not match device type".format(item.nodeid))
+        pytest.skip("test does not match device type")
