@@ -151,7 +151,9 @@ def test_cont_warm_reboot(duthost, ptfhost, localhost, conn_graph_facts, continu
     thr.start()
 
     # Start continuous warm reboot on the DUT
-    for _ in range(continuous_reboot_count):
+    for count in range(continuous_reboot_count):
+        logging.info("==================== Continuous warm reboot iteration: {}/{} ====================".format \
+            (count + 1, continuous_reboot_count))
         reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_WARM)
         wait(continuous_reboot_delay, msg="Wait {}s before next warm-reboot".format(continuous_reboot_delay))
 
