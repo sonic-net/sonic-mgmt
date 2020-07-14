@@ -3,7 +3,7 @@ import os
 import time
 
 from netaddr import IPAddress
-from common.helpers.generators import generate_ips
+from tests.common.helpers.generators import generate_ips
 
 
 PFC_GEN_FILE = "pfc_gen.py"
