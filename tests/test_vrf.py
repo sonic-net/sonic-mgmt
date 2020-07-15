@@ -842,8 +842,8 @@ class TestVrfLoopbackIntf():
         # deploy start script
         ptfhost.template(src="vrf/bgp_speaker/start.j2", dest="%s/%s" % (exabgp_dir, 'start.sh'), mode="u+rwx")
 
-        # kill exabgp if any
-        ptfhost.shell("pkill exabgp || true")
+        # Send SIGTERM to exabgp processes if any
+        ptfhost.shell("pkill -f exabgp || true")
 
         # start exabgp instance
         ptfhost.shell("bash %s/start.sh" % exabgp_dir)
@@ -864,8 +864,8 @@ class TestVrfLoopbackIntf():
         for (vrf, vlan_peer_port), ips in g_vars['vlan_peer_ips'].iteritems():
             duthost.shell("vtysh -c 'configure terminal' -c 'no ip route {} {} vrf {}'".format(peer_range, ips['ipv4'][0], vrf))
 
-        # kill exabgp
-        ptfhost.shell("pkill exabgp || true")
+        # Send SIGTERM to exabgp processes if any
+        ptfhost.shell("pkill -f exabgp || true")
 
         # del speaker ips from ptf ports
         for vrf, vlan_peer_port in g_vars['vlan_peer_ips']:
