@@ -305,17 +305,17 @@ class Vxlan(BaseTest):
         self.work_test()
 
 
-    def Vxlan(self, test, wu = False):
+    def Vxlan(self, test):
         for i, n in enumerate(test['acc_ports']):
             for j, a in enumerate(test['acc_ports']):
-                res, out = self.checkVxlan(a, n, test, wu)
-                if not res and not wu:
+                res, out = self.checkVxlan(a, n, test)
+                if not res:
                     return False, out + " | net_port_rel(acc)=%d acc_port_rel=%d" % (i, j)
 
         for i, n in enumerate(self.net_ports):
             for j, a in enumerate(test['acc_ports']):
-                res, out = self.checkVxlan(a, n, test, wu)
-                if not res and not wu:
+                res, out = self.checkVxlan(a, n, test)
+                if not res:
                     return False, out + " | net_port_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
 
@@ -333,15 +333,15 @@ class Vxlan(BaseTest):
                 break
         return True, ""
 
-    def RegularVLANtoLAG(self, test, wu = False):
+    def RegularVLANtoLAG(self, test):
         for i, (dst, ports) in enumerate(self.pc_info):
             for j, a in enumerate(test['acc_ports']):
-                res, out = self.checkRegularRegularVLANtoLAG(a, ports, dst, test, wu)
-                if not res and not wu:
+                res, out = self.checkRegularRegularVLANtoLAG(a, ports, dst, test)
+                if not res:
                     return False, out + " | pc_info_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
 
-    def checkRegularRegularVLANtoLAG(self, acc_port, pc_ports, dst_ip, test, wu):
+    def checkRegularRegularVLANtoLAG(self, acc_port, pc_ports, dst_ip, test):
         src_mac = self.ptf_mac_addrs['eth%d' % acc_port]
         dst_mac = self.dut_mac
         src_ip = test['vlan_ip_prefixes'][acc_port]
@@ -366,11 +366,7 @@ class Vxlan(BaseTest):
         self.dataplane.flush()
         for i in xrange(self.nr):
             testutils.send_packet(self, acc_port, packet)
-        # We don't care if expected packet is received during warming up
-        if not wu:
-            nr_rcvd = count_matched_packets_all_ports_helper(self, exp_packet, self.nr, pc_ports, timeout=20)
-        else:
-            nr_rcvd = 0
+        nr_rcvd = count_matched_packets_all_ports_helper(self, exp_packet, self.nr, pc_ports, timeout=20)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
@@ -415,7 +411,7 @@ class Vxlan(BaseTest):
             out = "sent = %d rcvd = %d | src_port=%s dst_port=%s | src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s" % arg
         return rv, out
 
-    def checkVxlan(self, acc_port, net_port, test, wu=False):
+    def checkVxlan(self, acc_port, net_port, test):
         inner_dst_mac = self.ptf_mac_addrs['eth%d' % acc_port]
         inner_src_mac = self.dut_mac
         inner_src_ip = test['vlan_gw']
@@ -446,10 +442,7 @@ class Vxlan(BaseTest):
         self.dataplane.flush()
         for i in xrange(self.nr):
             testutils.send_packet(self, net_port, packet)
-        if not wu:
-            nr_rcvd = count_matched_packets_helper(self, inpacket, self.nr, acc_port, timeout=20)
-        else:
-            nr_rcvd = 0
+        nr_rcvd = count_matched_packets_helper(self, inpacket, self.nr, acc_port, timeout=20)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
