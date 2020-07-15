@@ -76,7 +76,7 @@ Based on test need there may be multiple topologies possible as shown below :
 
 ## Topology Description
 
-### IxNetwork
+### Ixia Chassis (IxNetwork)
 Keysight IxNetwork is used as the network tester to emulate protocol sessions eg. OSPF, BGP, LACP etc. and send data traffic with various user defined traffic profiles at line rate. Based on test need this can support line cards of varying speed ranging from 1G to 400G. It also supports vlan separated logical interfaces over each physical port.
 
 ### IxNetwork API Server Docker
