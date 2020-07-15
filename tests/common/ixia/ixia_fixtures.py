@@ -73,5 +73,8 @@ def ixia_api_server_session(ixia_api_serv_ip,
     sessionData = session.Session
     ixNetwork   = session.Ixnetwork
     ixNetwork.NewConfig()
-    return session
+    
+    yield session
 
+    ixNetwork.NewConfig()
+    session.Session.remove()

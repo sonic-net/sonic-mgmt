@@ -46,14 +46,11 @@ def test_testbed(testbed, conn_graph_facts, duthost, fanout_graph_facts,
 
     session = ixia_api_server_session
 
-    t1 = time.time()
+    logger.info("Configuring ports.")
     port_list = configure_ports(session=session, 
-                                port_list=ixiaFanoutHostList.ports())
-    t2 = time.time()
+                                port_list=ixiaFanoutHostList.get_ports())
 
-    time_taken = t2 - t1
-    logger.info("time-taken to connect = %s" %(time_taken))
- 
+    logger.info("Creating topology.")
     topology = create_topology(session=session,
                                ports=port_list,
                                name="Sender",
@@ -63,10 +60,11 @@ def test_testbed(testbed, conn_graph_facts, duthost, fanout_graph_facts,
                                gw_incr_step='0.0.0.0')
    
     start_protocols(session)
-    logger.info("Wait for 5 seconds for iv4 sessions to up")
+    logger.info("Wait for 5 seconds for iv4 sessions to up.")
     time.sleep(5) 
 
     # Create a traffic item 
+    logger.info("Configuring traffic.")
     traffic_item = create_ip_traffic_item_using_wizard_arguments(
         session=session, 
         src_start_port=1,

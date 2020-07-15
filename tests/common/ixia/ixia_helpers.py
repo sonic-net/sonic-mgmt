@@ -1,83 +1,35 @@
+# -*- coding: utf-8 -*-
+"""This module contains the high-level wrapper function using the APIs defined
+by Ixia/Keysights ixnetwork_restpy library functions. Intention of providing
+these to SONiC group is to avoid writing multiple low-level rest API calls for
+doing the top-level tasks like configure ports, create topology, 
+start protocols, start traffic etc.
+
+This module also contains a definition of a simple helper class 
+"IxiaFanoutManager" which can be used to manage cards and ports of ixia 
+chassis instead of reading it from fanout_graph_facts fixture.
+"""
+
 import re 
 from common.reboot import logger
 from ixnetwork_restpy import SessionAssistant, Files
 import pytest
 
-"""
-@summary: given a DUT interface, return the management IP address of its neighbor IXIA device
-@param intf: DUT interface
-@param conn_graph_facts: testbed connectivity graph
-@param ixia_dev: the mapping of hostname to IP address of IXIA devices
-@return the management IP address of its neighbor IXIA device or None if we cannot find it
-"""
-def get_neigh_ixia_mgmt_ip(intf, conn_graph_facts, ixia_dev):
-    device_conn = conn_graph_facts['device_conn']
-    if intf not in device_conn:
-        return None 
-    
-    ixia_dev_hostname = device_conn[intf]['peerdevice']
-    if ixia_dev_hostname not in ixia_dev:
-        return None 
-    
-    return ixia_dev[ixia_dev_hostname]
-
-"""
-@summary: given a DUT interface, return the card of its neighbor IXIA device
-@param intf: DUT interface
-@param conn_graph_facts: testbed connectivity graph
-@return the card of its neighbor IXIA device or None if we cannot find it
-"""
-def get_neigh_ixia_card(intf, conn_graph_facts):
-    device_conn = conn_graph_facts['device_conn']
-    if intf not in device_conn:
-        return None 
-    
-    ixia_intf = device_conn[intf]['peerport']
-    pattern = r'Card(\d+)/Port(\d+)'
-    m = re.match(pattern, ixia_intf)
-
-    if m is None:
-        return None 
-    else:
-        return m.group(1)    
-
-"""
-@summary: given a DUT interface, return the port of its neighbor IXIA device
-@param intf: DUT interface
-@param conn_graph_facts: testbed connectivity graph
-@return the port of its neighbor IXIA device or None if we cannot find it
-"""
-def get_neigh_ixia_port(intf, conn_graph_facts):
-    device_conn = conn_graph_facts['device_conn']
-    if intf not in device_conn:
-        return None
-    
-    ixia_intf = device_conn[intf]['peerport']
-    pattern = r'Card(\d+)/Port(\d+)'
-    m = re.match(pattern, ixia_intf)
-
-    if m is None:
-        return None 
-    else:
-        return m.group(2)
-
-#def parseFanoutConnections (device_conn) :
-#    retval = []
-#    for key in device_conn.keys() :
-#        pp =  device_conn[key]['peerport']
-#        string = key + '/' + pp
-#        retval.append(string)
-#    retval.sort()
-#    return(retval)
-
-#def get_card_port(i) :
-#    chassis = i.split('/')[0]
-#    crd = (i.split('/')[1]).replace('Card', '')
-#    prt = (i.split('/')[2]).replace('Port', '')
-#    return (chassis, crd, prt)
-
 class IxiaFanoutManager () :
+    """Class for managing multiple chassis and extracting the information 
+     like chassis IP, card, port etc. from fanout_graph_fact."""
+
     def __init__(self,fanout_data) :
+        """ When multiple chassis are available inside fanout_graph_facts 
+        this method makes a  list of chassis connection-details out of it.
+        So each chassis and details  associated with it can be accessed by 
+        a integer index (starting from 0)
+
+        Args:
+           fanout_data (dict): the dictionary returned by fanout_graph_fact
+
+        """
+ 
         self.last_fanout_assessed = None
         self.fanout_list = []
         self.last_device_connection_details = None
@@ -97,6 +49,23 @@ class IxiaFanoutManager () :
         return(retval)
 
     def get_fanout_device_details (self, device_number) :
+        """With the help of this function you can select the chassis you want
+        to access. For example get_fanout_device_details(0) selects the 
+        first chassis. It just select the chassis but does not return 
+        anything. The rest of  the function then used to extract chassis 
+        information like "get_chassis_ip()" will the return the ip address 
+        of chassis 0 - the first chassis in the list.
+
+        Note:
+            Counting or indexing starts from 0. That is 0 = 1st cassis, 
+            1 = 2nd chassis ...
+
+        Args:
+           device_number (int): the chassis index (0 is the first)
+
+        Returns:
+           None   
+        """
 
         # Pointer to chassis info  
         self.last_fanout_assessed = device_number
@@ -116,23 +85,51 @@ class IxiaFanoutManager () :
         #return self.fanout_list[self.last_fanout_assessed]
 
     def get_connection_details (self) :
+        """This function returns all the details associated with a particular
+        chassis (selected earlier using get_fanout_device_details() function).
+        Details of the chassis will be available like chassis IP, card, ports, 
+        peer port etc. in a dictionary format.
+
+        Args:
+            This function takes no argument.
+
+        Note: If you have not used get_fanout_device_details(), by default 0th
+            (first) chassis remains selected.
+
+        Returns:
+            Details of the chassis connection as dictionary format.
+        """
         return(self.last_device_connection_details)
   
-    #def get_card_port (self, i) :
-    #    chs = i.split('/')[0]
-    #    if (self.ip_address == chs) :
-    #        crd = (i.split('/')[1]).replace('Card', '')
-    #        prt = (i.split('/')[2]).replace('Port', '')
-    #        peer_port = i.split('/')[3] 
-    #    else :
-    #        pytest_assert(0, 'Invalid portlist %s for chassis %s' %(chs, prt))
-    # 
-    #    return(chs, crd, prt, peer_port)
-
     def get_chassis_ip (self) :
+        """This function returns IP address of a particular chassis 
+        (selected earlier using get_fanout_device_details() function).
+
+        Args:
+            This function takes no argument.
+
+        Note: If you have not used get_fanout_device_details(), by default 0th
+            (first) chassis remains selected.
+
+        Returns:
+            The IP address 
+        """
         return self.ip_address
        
-    def ports(self) :
+    def get_ports(self) :
+        """This function returns list of ports associated with a chassis 
+        (selected earlier using get_fanout_device_details() function) 
+        as a list of dictionary.
+
+        Args:
+            This function takes no argument.
+
+        Note: If you have not used get_fanout_device_details(), by default 0th
+            (first) chassis remains selected.
+
+        Returns:
+            Dictionary of chassis card port information.
+        """
         retval = []
         for ports in self.current_ixia_port_list:   
             info_list = ports.split('/')
@@ -146,26 +143,26 @@ class IxiaFanoutManager () :
 
         return retval 
 
-#------------------------------------------------------------------------------
-# Newely added
-#------------------------------------------------------------------------------
-def create_session(server_ip, username, password, log_file="ixia.log"):
-    return SessionAssistant(IpAddress=server_ip, RestPort=None, UserName=username, Password=password, 
-                            SessionName=None, SessionId=None, ApiKey=None, ClearConfig=True, 
-                            LogLevel='all', LogFilename=log_file)
 
-
-def remove_session(session):
-    session.Session.remove()
-
-  
-"""
-Configure ports of the IXIA chassis
-@param session: IXIA session
-@param port_list: List of port locations. Each entry has four keys: 'ip', 'card_id', 'port_id', 'speed'
-@return the list of ports if the configuration succeeds. Otherwise return None 
-"""
 def configure_ports(session, port_list, start_name='port') :
+    """Configures ports of the IXIA chassis and returns the list 
+       of configured Ixia ports
+
+    Args:
+        session (obj): IXIA session object
+        port_list (list): List of dictionaries.  like below -
+           [{'ip': 10.0.0.1, card_id: '1', 'port_id': '1'},
+           {'ip': 10.0.0.1, card_id: '1', 'port_id': '2'}, ...]. 'ip', 
+           'card_id' and 'port_id' are the mandatory keys.    
+        start_name (str): (optional) The port name to start with, port
+           names will be incremented automatically like port1, port2 ...
+
+        Note: This is like the return value of the method,
+            IxiaFanoutManager.get_ports()
+
+        Returns: The list of Ixia port objects if the configuration
+            succeeds. Otherwise return None
+    """
 
     port_map = session.PortMapAssistant()
     ixnetwork = session.Ixnetwork
@@ -222,34 +219,6 @@ def configure_ports(session, port_list, start_name='port') :
         i += 1
         
     return vports
-
-#def config_ports(session, port_list):
-#    port_map = session.PortMapAssistant()
-#    vports = list()
-#        
-#    index = 1
-#    for port in port_list:        
-#        port_name = 'Port_{}'.format(index)
-#        index += 1
-#        """ Map a test port location (ip, card, port) to a virtual port (name) """
-#        vports.append(port_map.Map(IpAddress=port['ip'], CardId=port['card_id'], 
-#                                   PortId=port['port_id'], Name=port_name))
-#    
-#    """ Connect all mapped virtual ports to test port locations """
-#    port_map.Connect()
-#    
-#    ixnetwork = session.Ixnetwork
-#    i = 0
-#    for vport in ixnetwork.Vport.find():
-#        vport.L1Config.CurrentType = 'novusHundredGigLanFcoe'
-#        vport.L1Config.NovusHundredGigLan.Fcoe.PfcPriorityGroups = [0,1,2,3,4,5,6,7]
-#        vport.L1Config.NovusHundredGigLan.IeeeL1Defaults = False
-#        vport.L1Config.NovusHundredGigLan.EnableAutoNegotiation = False
-#        vport.L1Config.NovusHundredGigLan.Speed = 'speed{}g'.format(port_list[i]['speed']/1000)
-#        logger.info('speed{}g'.format(port_list[i]['speed']/1000))
-#        i += 1
-#        
-#    return vports
 
 """
 Configure capturing packets on a IXIA port

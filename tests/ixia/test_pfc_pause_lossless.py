@@ -3,12 +3,16 @@ import logging
 import time
 import pytest
 from common.fixtures.conn_graph_facts import conn_graph_facts
+
 from common.helpers.assertions import pytest_assert
-from common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user, ixia_api_serv_passwd, ixia_dev,\
-     ixia_api_serv_port, ixia_api_serv_session_id, ixia_api_server_session
-from common.ixia.ixia_helpers import get_neigh_ixia_mgmt_ip, get_neigh_ixia_card, get_neigh_ixia_port, \
-    create_session, remove_session, configure_ports, create_topology, start_protocols, create_ipv4_traffic, \
-    create_pause_traffic, start_traffc, stop_traffic, get_statistics, IxiaFanoutManager
+
+from common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user,\
+     ixia_api_serv_passwd, ixia_dev,  ixia_api_serv_port,\
+     ixia_api_serv_session_id, ixia_api_server_session
+
+from common.ixia.ixia_helpers import configure_ports,\
+     create_topology, start_protocols, create_ipv4_traffic, create_pause_traffic, \
+     start_traffc, stop_traffic, get_statistics, IxiaFanoutManager
 
 from common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet
 
@@ -139,7 +143,7 @@ def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map, d
     fanout_devices.get_fanout_device_details(device_number = 0)
 
     device_conn = conn_graph_facts['device_conn']
-    for intf in fanout_devices.ports():
+    for intf in fanout_devices.get_ports():
         peer_port = intf['peer_port'] 
         intf['speed'] = int(device_conn[peer_port]['speed']) * 100 
         port_list.append(intf)
@@ -185,6 +189,4 @@ def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map, d
 
             ixNetwork = session.Ixnetwork
             ixNetwork.NewConfig()
-
-    remove_session(session)
 
