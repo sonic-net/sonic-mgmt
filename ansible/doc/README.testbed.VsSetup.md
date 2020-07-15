@@ -216,6 +216,11 @@ Neighbor        V         AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/P
 
 2. Copy the tar.bz2 file on the testbed server.
 
+3. Make sure the interface has promiscuous mode enabled
+```
+ ifconfig ens160  promisc
+ ```
+
 3. Decompress the file (it may take a few minutes): 
 ```
 tar xvjf <path_to_tar_file>
@@ -230,7 +235,7 @@ docker load -i Ixia_IxNetworkWeb_Docker_<version>.tar
 
 3. Create the macvlan bridge to be used by IxNetwork Web Edition:
 ```
-docker network create -d macvlan -o parent=eth1 --subnet=192.168.x.0/24 --gateway=192.168.x.254 <bridge_name>
+docker network create -d macvlan -o parent=ens160 --subnet=192.168.x.0/24 --gateway=192.168.x.254 <bridge_name>
 (NOTE: Use your subnet, prefix length and gateway IP address.)
 ```
 
@@ -251,8 +256,6 @@ docker run --net <bridge_name> \
 --cap-add=SYS_TIME \
 --cap-add=NET_ADMIN \
 --cap-add=SYS_PTRACE \
---cpus="12" \
---memory="24g" \
 -i -d \
 -v /sys/fs/cgroup:/sys/fs/cgroup \
 -v /var/crash/=/var/crash \
@@ -263,6 +266,7 @@ docker run --net <bridge_name> \
 ixnetworkweb_<version>_image
 
 Note : The folders within /opt/container/one/ should to be created with read and write permission prior docker run.
+
 ```
 
 6. Launch IxNetworkWeb using browser `https://container ip`
