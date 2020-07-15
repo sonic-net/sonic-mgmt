@@ -202,3 +202,8 @@ def restore_default_syncd(dut):
 
     _LOGGER.info("swss has been restarted, waiting 60 seconds to initialize...")
     time.sleep(60)
+
+    # Remove the RPC image from the DUT
+    docker_rpc_image = docker_syncd_name + "-rpc"
+    registry = load_docker_registry_info(dut)
+    dut.command("docker rmi {}/{}:{}".format(registry.host, docker_rpc_image, sonic_version))
