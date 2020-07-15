@@ -1,7 +1,7 @@
 import re 
-from common.reboot import *
+from common.reboot import logger
 from ixnetwork_restpy import SessionAssistant, Files
-
+import pytest
 
 """
 @summary: given a DUT interface, return the management IP address of its neighbor IXIA device
@@ -61,20 +61,20 @@ def get_neigh_ixia_port(intf, conn_graph_facts):
     else:
         return m.group(2)
 
-def parseFanoutConnections (device_conn) :
-    retval = []
-    for key in device_conn.keys() :
-        pp =  device_conn[key]['peerport']
-        string = key + '/' + pp
-        retval.append(string)
-    retval.sort()
-    return(retval)
+#def parseFanoutConnections (device_conn) :
+#    retval = []
+#    for key in device_conn.keys() :
+#        pp =  device_conn[key]['peerport']
+#        string = key + '/' + pp
+#        retval.append(string)
+#    retval.sort()
+#    return(retval)
 
-def get_card_port(i) :
-    chassis = i.split('/')[0]
-    crd = (i.split('/')[1]).replace('Card', '')
-    prt = (i.split('/')[2]).replace('Port', '')
-    return (chassis, crd, prt)
+#def get_card_port(i) :
+#    chassis = i.split('/')[0]
+#    crd = (i.split('/')[1]).replace('Card', '')
+#    prt = (i.split('/')[2]).replace('Port', '')
+#    return (chassis, crd, prt)
 
 class IxiaFanoutManager () :
     def __init__(self,fanout_data) :
@@ -90,8 +90,8 @@ class IxiaFanoutManager () :
         device_conn = self.last_device_connection_details
         retval = []
         for key in device_conn.keys() :
-            #pp =  device_conn[key]['peerport']
-            string = self.ip_address + '/' + key
+            pp =  device_conn[key]['peerport']
+            string = self.ip_address + '/' + key + '/' + pp
             retval.append(string)
         retval.sort()
         return(retval)
@@ -118,21 +118,33 @@ class IxiaFanoutManager () :
     def get_connection_details (self) :
         return(self.last_device_connection_details)
   
-    def get_card_port (self, crd_prt) :
-        chassis = i.split('/')[0]
-        if (self.ip_address == chassis) :
-            crd = (i.split('/')[1]).replace('Card', '')
-            prt = (i.split('/')[2]).replace('Port', '')
-        else :
-            pytest_assert(0)
- 
-        return(chassis, crd, prt)
+    #def get_card_port (self, i) :
+    #    chs = i.split('/')[0]
+    #    if (self.ip_address == chs) :
+    #        crd = (i.split('/')[1]).replace('Card', '')
+    #        prt = (i.split('/')[2]).replace('Port', '')
+    #        peer_port = i.split('/')[3] 
+    #    else :
+    #        pytest_assert(0, 'Invalid portlist %s for chassis %s' %(chs, prt))
+    # 
+    #    return(chs, crd, prt, peer_port)
 
     def get_chassis_ip (self) :
         return self.ip_address
        
     def ports(self) :
-        return self.current_ixia_port_list  
+        retval = []
+        for ports in self.current_ixia_port_list:   
+            info_list = ports.split('/')
+            dict_element = {
+                'ip': info_list[0],
+                'card_id': info_list[1].replace('Card', ''),
+                'port_id': info_list[2].replace('Port', ''),
+                'peer_port': info_list[3],
+            }
+            retval.append(dict_element)   
+
+        return retval 
 
 #------------------------------------------------------------------------------
 # Newely added
@@ -153,54 +165,91 @@ Configure ports of the IXIA chassis
 @param port_list: List of port locations. Each entry has four keys: 'ip', 'card_id', 'port_id', 'speed'
 @return the list of ports if the configuration succeeds. Otherwise return None 
 """
-def configure_ports(session, 
-                    port_list, 
-                    start_name='port',
-                    pfc_priotity_groups=[0,1,2,3,4,5,6,7],
-                    ieee_l1_defaults=False,
-                    enable_auto_negotiation=False,
-                    port_speed = 10000000):
+def configure_ports(session, port_list, start_name='port') :
 
     port_map = session.PortMapAssistant()
+    ixnetwork = session.Ixnetwork
     vports = list()
+
+    # Add default vport properties here. If vport property is not available in
+    # port_list dictionary get it from here 
+    port_property = {
+        'speed': 10000000,
+        'ieee_l1_defaults': False,
+        'pfc_priotity_groups': [0,1,2,3,4,5,6,7],
+        'card_type': 'novusHundredGigLanFcoe',
+        'enable_auto_negotiation': False
+    } 
         
     index = 1
-    for port in port_list:        
-        port_name = start_name + '-'  + str(index)
+    for port in port_list:
+        port_name = start_name + '-' + str(index)
         index += 1
         """ Map a test port location (ip, card, port) to a virtual port (name) """
-        chassis_card_port = port.split('/')
-         
         vports.append(port_map.Map(
-            IpAddress=chassis_card_port[0],
-            CardId=chassis_card_port[1].replace('Card', ''),
-            PortId=chassis_card_port[2].replace('Port', ''),
+            IpAddress=port['ip'],
+            CardId=port['card_id'],
+            PortId=port['port_id'],
             Name=port_name)
         )
     
     """ Connect all mapped virtual ports to test port locations """
     port_map.Connect()
-    
-    ixnetwork = session.Ixnetwork
+ 
+    # Set L1 config
     i = 0
     for vport in ixnetwork.Vport.find():
-        vport.L1Config.CurrentType = 'novusHundredGigLanFcoe'
+        vport.L1Config.CurrentType = \
+            port_list[i].get('card_type', port_property['card_type'])
 
-        vport.L1Config.NovusHundredGigLan.Fcoe.PfcPriorityGroups =\
-            pfc_priotity_groups
+        vport.L1Config.NovusHundredGigLan.Fcoe.PfcPriorityGroups = \
+            port_list[i].get('pfc_priotity_groups',
+                port_property['pfc_priotity_groups'])
 
-        vport.L1Config.NovusHundredGigLan.IeeeL1Defaults =\
-            ieee_l1_defaults
 
-        vport.L1Config.NovusHundredGigLan.EnableAutoNegotiation =\
-            enable_auto_negotiation
+        vport.L1Config.NovusHundredGigLan.IeeeL1Defaults = \
+            port_list[i].get('ieee_l1_defaults',
+                port_property['ieee_l1_defaults']) 
 
-        vport.L1Config.NovusHundredGigLan.Speed = port_speed
+        vport.L1Config.NovusHundredGigLan.EnableAutoNegotiation = \
+            port_list[i].get('enable_auto_negotiation',
+                port_property['enable_auto_negotiation']) 
+
+        port_speed = port_list[i].get('speed', port_property['speed'])
+        vport.L1Config.NovusHundredGigLan.Speed = \
+            'speed{}g'.format(port_speed/1000)
 
         i += 1
         
     return vports
 
+#def config_ports(session, port_list):
+#    port_map = session.PortMapAssistant()
+#    vports = list()
+#        
+#    index = 1
+#    for port in port_list:        
+#        port_name = 'Port_{}'.format(index)
+#        index += 1
+#        """ Map a test port location (ip, card, port) to a virtual port (name) """
+#        vports.append(port_map.Map(IpAddress=port['ip'], CardId=port['card_id'], 
+#                                   PortId=port['port_id'], Name=port_name))
+#    
+#    """ Connect all mapped virtual ports to test port locations """
+#    port_map.Connect()
+#    
+#    ixnetwork = session.Ixnetwork
+#    i = 0
+#    for vport in ixnetwork.Vport.find():
+#        vport.L1Config.CurrentType = 'novusHundredGigLanFcoe'
+#        vport.L1Config.NovusHundredGigLan.Fcoe.PfcPriorityGroups = [0,1,2,3,4,5,6,7]
+#        vport.L1Config.NovusHundredGigLan.IeeeL1Defaults = False
+#        vport.L1Config.NovusHundredGigLan.EnableAutoNegotiation = False
+#        vport.L1Config.NovusHundredGigLan.Speed = 'speed{}g'.format(port_list[i]['speed']/1000)
+#        logger.info('speed{}g'.format(port_list[i]['speed']/1000))
+#        i += 1
+#        
+#    return vports
 
 """
 Configure capturing packets on a IXIA port

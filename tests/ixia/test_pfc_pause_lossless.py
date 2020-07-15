@@ -7,7 +7,7 @@ from common.helpers.assertions import pytest_assert
 from common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user, ixia_api_serv_passwd, ixia_dev,\
      ixia_api_serv_port, ixia_api_serv_session_id, ixia_api_server_session
 from common.ixia.ixia_helpers import get_neigh_ixia_mgmt_ip, get_neigh_ixia_card, get_neigh_ixia_port, \
-    create_session, remove_session, config_ports, create_topology, start_protocols, create_ipv4_traffic, \
+    create_session, remove_session, configure_ports, create_topology, start_protocols, create_ipv4_traffic, \
     create_pause_traffic, start_traffc, stop_traffic, get_statistics, IxiaFanoutManager
 
 from common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet
@@ -140,15 +140,10 @@ def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map, d
 
     device_conn = conn_graph_facts['device_conn']
     for intf in fanout_devices.ports():
-        ixia_mgmt_ip = fanout_devices.get_chassis_ip() 
-        (ixia_mgmt_ip, ixia_card, ixia_port) = \
-            fanout_devices.getCardPort(intf) 
+        peer_port = intf['peer_port'] 
+        intf['speed'] = int(device_conn[peer_port]['speed']) * 100 
+        port_list.append(intf)
 
-        dutIntf = (intf.split('/'))[2]
-        port_list.append({'ip': ixia_mgmt_ip, 
-                          'card_id': ixia_card, 
-                          'port_id': ixia_port, 
-                          'speed': int(device_conn[dutIntf]['speed'])})
                 
     """ The topology should have at least two interfaces """
     pytest_assert(len(device_conn)>=2, "The topology should have at least two interfaces")
@@ -157,8 +152,8 @@ def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map, d
 
     session = ixia_api_server_session
     for prio in lossless_prio_dscp_map:
-        for i in range(len(port_list)):      
-            vports = config_ports(session, port_list)
+        for i in range(len(port_list)): 
+            vports = configure_ports(session, port_list)
  
             rx_id = i
             tx_id = (i+1) % len(port_list)

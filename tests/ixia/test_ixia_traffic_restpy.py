@@ -4,9 +4,9 @@
 #     arguments of the test function)
 #   * How Ixia chassis card/ports are addressed
 #   * How you can configure/control ixia devices, start traffic and collect 
-#     statistics using REST API
+#     statistics.
 #   * This simple sanity test cases can be used to check if testbed setup
-#     is correct or not - since it prints a lot of testbed data
+#     is correct or not.
 ###############################################################################
 
 import logging
@@ -37,7 +37,7 @@ def test_testbed(testbed, conn_graph_facts, duthost, fanout_graph_facts,
     logger.info("Fanout Graph facts = %s" %(fanout_graph_facts))
     logger.info("DUT hostname = %s" %(duthost.hostname))
  
-    mg_facts  = duthost.minigraph_facts(host=duthost.hostname)
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)
     gateway_ip = mg_facts['ansible_facts']['minigraph_vlan_interfaces'][0]['addr']
     start_interface_ip = incriment_ip_address(gateway_ip)
 
@@ -45,8 +45,6 @@ def test_testbed(testbed, conn_graph_facts, duthost, fanout_graph_facts,
     ixiaFanoutHostList.get_fanout_device_details(device_number = 0)
 
     session = ixia_api_server_session
-    ixNetwork = session.Ixnetwork
-    portMap = session.PortMapAssistant()
 
     t1 = time.time()
     port_list = configure_ports(session=session, 
