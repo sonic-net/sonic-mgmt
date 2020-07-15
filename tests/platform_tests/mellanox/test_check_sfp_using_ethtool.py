@@ -22,7 +22,7 @@ def test_check_sfp_using_ethtool(duthost, conn_graph_facts):
     ports_config = json.loads(duthost.command("sudo sonic-cfggen -d --var-json PORT")["stdout"])
 
     logging.info("Use the ethtool to check SFP information")
-    if conn_graph_facts["device_info"]["HwSku"] in SPC3_HWSKUS:
+    if duthost.facts["hwsku"] in SPC3_HWSKUS:
         lanes_divider = 8
     else:
         lanes_divider = 4
