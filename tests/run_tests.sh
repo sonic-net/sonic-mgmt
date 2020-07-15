@@ -20,6 +20,7 @@ function show_help_and_exit()
     echo "    -s             : specify list of scripts to skip (default: none)"
     echo "    -t             : specify toplogy: t0|t1|any|combo like t0,any (*)"
     echo "    -u             : bypass util group"
+    echo "    -x             : print commands and their arguments as they are executed"
 
     exit $1
 }
@@ -71,7 +72,7 @@ function setup_environment()
 
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
-} 
+}
 
 function setup_test_options()
 {
@@ -204,7 +205,7 @@ function run_individual_tests()
 
 setup_environment
 
-while getopts "h?c:d:e:f:i:k:l:m:n:op:rs:t:u" opt; do
+while getopts "h?c:d:e:f:i:k:l:m:n:op:rs:t:u:x" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -253,6 +254,9 @@ while getopts "h?c:d:e:f:i:k:l:m:n:op:rs:t:u" opt; do
             ;;
         u )
             BYPASS_UTIL="True"
+            ;;
+        x )
+            set -x
             ;;
     esac
 done
