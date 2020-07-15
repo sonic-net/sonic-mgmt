@@ -53,10 +53,9 @@ class TestWatchdogApi(PlatformApiTestBase):
         if platform in test_config and hwsku in test_config[platform]:
             config.update(test_config[platform][hwsku])
 
-        self.expect('valid_timeout' in config, "valid_timeout is not defined in config")
+        pytest_assert('valid_timeout' in config, "valid_timeout is not defined in config")
         # make sure watchdog won't reboot the system when test sleeps for @TEST_WAIT_TIME_SECONDS
-        self.expect(config['valid_timeout'] > TEST_WAIT_TIME_SECONDS * 2, "valid_timeout {} seconds is too short".format(config['valid_timeout']))
-        self.assert_expectations()
+        pytest_assert(config['valid_timeout'] > TEST_WAIT_TIME_SECONDS * 2, "valid_timeout {} seconds is too short".format(config['valid_timeout']))
         return config
 
     @pytest.mark.dependency()
@@ -65,7 +64,10 @@ class TestWatchdogApi(PlatformApiTestBase):
         disarm watchdog and verify it is in disarmed state
         '''
         watchdog_timeout = conf['valid_timeout']
-        actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
+        try:
+            actual_timeout = int(watchdog.arm(platform_api_conn, watchdog_timeout))
+        except:
+            pytest.fail("actual watchdog timeout value is not an integer!")
 
         if self.expect(actual_timeout is not None, "Watchdog.arm is not supported"):
             if self.expect(actual_timeout != -1, "Failed to arm the watchdog"):
@@ -75,7 +77,11 @@ class TestWatchdogApi(PlatformApiTestBase):
         if self.expect(watchdog_status is not None, "Failed to retrieve watchdog status"):
             self.expect(watchdog_status is True, "Watchdog is not armed.")
 
-        remaining_time = watchdog.get_remaining_time(platform_api_conn)
+        try:
+            remaining_time = int(watchdog.get_remaining_time(platform_api_conn))
+        except:
+            pytest.fail("remaining watchdog timeout value is not an integer!")
+
         if self.expect(remaining_time is not None, "Failed to get the remaining time of watchdog"):
             self.expect(remaining_time <= watchdog_timeout, "Watchdog remaining_time {} seconds is wrong compared to watchdog timeout {} seocnds".format(remaining_time))
 
@@ -181,7 +187,7 @@ class TestWatchdogApi(PlatformApiTestBase):
         if watchdog_timeout is None:
             pytest.skip('"too_big_timeout" parameter is required for this test case')
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
-        self.expect(actual_timeout == -1, "{}: watchdog time {} seconds shouldn't be set for big {} seconds".format(test_arm_too_big_timeout.__name__, actual_timeout, watchdog_timeout))
+        self.expect(actual_timeout == -1, "{}: Watchdog should be disarmed, but returned timeout of {} seconds".format(test_arm_too_big_timeout.__name__, watchdog_timeout))
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
@@ -190,5 +196,5 @@ class TestWatchdogApi(PlatformApiTestBase):
 
         watchdog_timeout = -1
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
-        self.expect(actual_timeout == -1, "{}: watchdog time {} seconds shouldn't be set for negative {} seconds".format(test_arm_negative_timeout.__name__, actual_timeout, watchdog_timeout))
+        self.expect(actual_timeout == -1, "{}: Watchdog should be disarmed, but returned timeout of {} seconds".format(test_arm_negative_timeout.__name__, watchdog_timeout))
         self.assert_expectations()
