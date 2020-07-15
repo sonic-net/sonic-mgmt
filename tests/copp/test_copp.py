@@ -40,7 +40,6 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 
 pytestmark = [
-    pytest.mark.disable_loganalyzer,  # TODO: Figure out how to *only* ignore LLDP log messages.
     pytest.mark.topology("t1")
 ]
 
@@ -62,7 +61,7 @@ class TestCOPP(object):
                                           "IP2ME",
                                           "SNMP",
                                           "SSH"])
-    def test_policer(self, protocol, duthost, ptfhost, _copp_testbed):
+    def test_policer(self, protocol, duthost, ptfhost, copp_testbed):
         """
             Validates that rate-limited COPP groups work as expected.
 
@@ -72,14 +71,14 @@ class TestCOPP(object):
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
-                     _copp_testbed)
+                     copp_testbed)
 
     @pytest.mark.parametrize("protocol", ["BGP",
                                           "DHCP",
                                           "LACP",
                                           "LLDP",
                                           "UDLD"])
-    def test_no_policer(self, protocol, duthost, ptfhost, _copp_testbed):
+    def test_no_policer(self, protocol, duthost, ptfhost, copp_testbed):
         """
             Validates that non-rate-limited COPP groups work as expected.
 
@@ -89,10 +88,10 @@ class TestCOPP(object):
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
-                     _copp_testbed)
+                     copp_testbed)
 
 @pytest.fixture(scope="class")
-def _copp_testbed(duthost, ptfhost, testbed, request):
+def copp_testbed(duthost, ptfhost, testbed, request):
     """
         Pytest fixture to handle setup and cleanup for the COPP tests.
     """
@@ -104,6 +103,26 @@ def _copp_testbed(duthost, ptfhost, testbed, request):
     _setup_testbed(duthost, ptfhost, test_params)
     yield test_params
     _teardown_testbed(duthost, ptfhost, test_params)
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(self, duthost, loganalyzer):
+    """
+        Ignore expected failures logs during test execution.
+
+        We disable LLDP during the test, so we expect to see "lldp not running"
+        messages in the logs. All other errors should be treated as errors.
+
+        Args:
+            duthost: DUT fixture
+            loganalyzer: Loganalyzer utility fixture
+    """
+    ignoreRegex = [
+        ".*ERR monit.*'lldpd_monitor' process is not running",
+        ".*ERR monit.*'lldp_syncd' process is not running",
+    ]
+    loganalyzer.ignore_regex.extend(ignoreRegex)
+
+    yield
 
 def _copp_runner(dut, ptf, protocol, test_params):
     """
