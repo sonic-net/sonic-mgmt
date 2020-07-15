@@ -5,10 +5,10 @@ import logging
 import pytest
 import time
 
-from common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
-from common.reboot import reboot as rebootDut
-from ptf_runner import ptf_runner
+from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
+from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
+from tests.common.reboot import reboot as rebootDut
+from tests.ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +21,13 @@ class AdvancedReboot:
     '''
     AdvancedReboot is used to perform reboot dut while running preboot/inboot operations
 
-    Thed class collects information about the current testbed. This information is used by test cases to build
+    This class collects information about the current testbed. This information is used by test cases to build
     inboot/preboot list. The class transfers number of configuration files to the dut/ptf in preparation for reboot test.
     Test cases can trigger test start utilizing runRebootTestcase API.
     '''
-    def __init__(self, request, duthost, ptfhost, localhost, testbed, **kwargs):
+    def __init__(self, request, duthost, ptfhost, localhost, testbed, creds, **kwargs):
         '''
-        Class contructor.
+        Class constructor.
         @param request: pytest request object
         @param duthost: AnsibleHost instance of DUT
         @param ptfhost: PTFHost for interacting with PTF through ansible
@@ -44,6 +44,7 @@ class AdvancedReboot:
         self.ptfhost = ptfhost
         self.localhost = localhost
         self.testbed = testbed
+        self.creds = creds
         self.__dict__.update(kwargs)
         self.__extractTestParam()
         self.rebootData = {}
@@ -121,11 +122,8 @@ class AdvancedReboot:
         self.rebootData['vlan_ip_range'] = self.mgFacts['minigraph_vlan_interfaces'][0]['subnet']
         self.rebootData['dut_vlan_ip'] = self.mgFacts['minigraph_vlan_interfaces'][0]['addr']
 
-        hostVars = self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname]
-        invetory = hostVars['inventory_file'].split('/')[-1]
-        secrets = hostVars['secret_group_vars']
-        self.rebootData['dut_username'] = secrets[invetory]['sonicadmin_user']
-        self.rebootData['dut_password'] = secrets[invetory]['sonicadmin_password']
+        self.rebootData['dut_username'] = creds['sonicadmin_user']
+        self.rebootData['dut_password'] = creds['sonicadmin_password']
 
         # Change network of the dest IP addresses (used by VM servers) to be different from Vlan network
         prefixLen = self.mgFacts['minigraph_vlan_interfaces'][0]['prefixlen'] - 3
@@ -449,7 +447,7 @@ class AdvancedReboot:
 
     def __restorePrevImage(self):
         '''
-        Resotre previous image and reboot DUT
+        Restore previous image and reboot DUT
         '''
         currentImage = self.duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
         if currentImage != self.currentImage:
@@ -481,7 +479,7 @@ class AdvancedReboot:
             self.__restorePrevImage()
 
 @pytest.fixture
-def get_advanced_reboot(request, duthost, ptfhost, localhost, testbed):
+def get_advanced_reboot(request, duthost, ptfhost, localhost, testbed, creds):
     '''
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
@@ -497,7 +495,7 @@ def get_advanced_reboot(request, duthost, ptfhost, localhost, testbed):
         API that returns instances of AdvancedReboot class
         '''
         assert len(instances) == 0, "Only one instance of reboot data is allowed"
-        advancedReboot = AdvancedReboot(request, duthost, ptfhost, localhost, testbed, **kwargs)
+        advancedReboot = AdvancedReboot(request, duthost, ptfhost, localhost, testbed, creds, **kwargs)
         instances.append(advancedReboot)
         return advancedReboot
 

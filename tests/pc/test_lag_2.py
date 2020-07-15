@@ -5,11 +5,11 @@ import time
 import logging
 import os
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from ptf_runner import ptf_runner
-from common.devices import AnsibleHostBase
-from common.fixtures.conn_graph_facts import conn_graph_facts
-from common.utilities import wait_until
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.ptf_runner import ptf_runner
+from tests.common.devices import AnsibleHostBase
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('any')

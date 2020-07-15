@@ -1,5 +1,5 @@
-from common.utilities import wait_until
-from common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 import logging
 logger = logging.getLogger(__name__)
 

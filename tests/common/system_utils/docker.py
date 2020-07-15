@@ -8,8 +8,8 @@ import os
 import time
 import yaml
 
-from common.broadcom_data import is_broadcom_device
-from common.mellanox_data import is_mellanox_device
+from tests.common.broadcom_data import is_broadcom_device
+from tests.common.mellanox_data import is_mellanox_device
 
 _LOGGER = logging.getLogger(__name__)
 

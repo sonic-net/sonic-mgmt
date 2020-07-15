@@ -4,8 +4,8 @@ import json
 import logging
 import tempfile
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from ptf_runner import ptf_runner
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.ptf_runner import ptf_runner
 from datetime import datetime
 
 logger = logging.getLogger(__name__)

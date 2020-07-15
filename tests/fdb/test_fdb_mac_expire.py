@@ -2,8 +2,8 @@ import logging
 import pytest
 import time
 
-from common.helpers.assertions import pytest_assert
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm [py/unused-import]
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm [py/unused-import]
 
 pytestmark = [
     pytest.mark.topology('t0')

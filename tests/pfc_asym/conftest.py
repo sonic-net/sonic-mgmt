@@ -1,9 +1,9 @@
 import pytest
 
-from common.fixtures.conn_graph_facts import fanout_graph_facts
-from common.fixtures.pfc_asym import *
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.conn_graph_facts import fanout_graph_facts
+from tests.common.fixtures.pfc_asym import *
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
 
 
 @pytest.fixture(autouse=True)

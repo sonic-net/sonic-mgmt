@@ -2,10 +2,10 @@ import json
 import logging
 import pytest
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
-from ptf_runner import ptf_runner
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
+from tests.ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +170,7 @@ class TestWrArp:
         ptfhost.script('./scripts/remove_ip.sh')
 
     @pytest.fixture(scope='class', autouse=True)
-    def prepareSshKeys(self, duthost, ptfhost):
+    def prepareSshKeys(self, duthost, ptfhost, creds):
         '''
             Prepares testbed ssh keys by generating ssh key on ptf host and adding this key to known_hosts on duthost
             This class-scope fixture runs once before test start
@@ -182,15 +182,11 @@ class TestWrArp:
             Returns:
                 None
         '''
-        hostVars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
-        invetory = hostVars['inventory_file'].split('/')[-1]
-        secrets = duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']
-
-        prepareTestbedSshKeys(duthost, ptfhost, secrets[invetory]['sonicadmin_user'])
+        prepareTestbedSshKeys(duthost, ptfhost, creds['sonicadmin_user'])
 
     def testWrArp(self, request, duthost, ptfhost):
         '''
-            Control Plane Assistent test for Warm-Reboot.
+            Control Plane Assistant test for Warm-Reboot.
 
             The test first start Ferret server, implemented in Python. Then initiate Warm-Reboot procedure. While the
             host in Warm-Reboot test continuously sending ARP request to the Vlan member ports and expect to receive ARP

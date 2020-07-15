@@ -1,5 +1,5 @@
 import pytest
-from common.utilities import wait_until
+from tests.common.utilities import wait_until
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_check_snmp_ready(duthost):

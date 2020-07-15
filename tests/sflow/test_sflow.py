@@ -4,11 +4,11 @@ import time
 import json
 import re
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from ptf_runner import ptf_runner
-from common import reboot
-from common  import config_reload
-from common.utilities import wait_until
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.ptf_runner import ptf_runner
+from tests.common import reboot
+from tests.common  import config_reload
+from tests.common.utilities import wait_until
 from netaddr import *
 
 pytestmark = [

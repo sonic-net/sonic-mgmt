@@ -1,10 +1,10 @@
 import pytest
 import os
 import pprint
-from common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 import time
 from random import randint
-from common.utilities import wait_until
+from tests.common.utilities import wait_until
 from log_messages import *
 import logging
 logger = logging.getLogger(__name__)

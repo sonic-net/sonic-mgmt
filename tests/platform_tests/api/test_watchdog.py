@@ -3,7 +3,7 @@ import time
 import logging
 import yaml
 import pytest
-from common.helpers.platform_api import watchdog
+from tests.common.helpers.platform_api import watchdog
 
 pytestmark = [
     pytest.mark.topology('any')

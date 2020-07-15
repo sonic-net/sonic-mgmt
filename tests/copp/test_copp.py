@@ -30,12 +30,12 @@ import time
 import pytest
 from collections import namedtuple
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from copp import copp_utils
-from ptf_runner import ptf_runner
-from common.system_utils import docker
-from common.broadcom_data import is_broadcom_device
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.copp import copp_utils
+from tests.ptf_runner import ptf_runner
+from tests.common.system_utils import docker
+from tests.common.broadcom_data import is_broadcom_device
 
 pytestmark = [
     pytest.mark.topology('t1')

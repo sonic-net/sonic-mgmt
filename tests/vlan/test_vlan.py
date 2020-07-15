@@ -11,7 +11,7 @@ import itertools
 import logging
 import pprint
 
-from common.errors import RunAnsibleModuleFail
+from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,9 @@ def vlan_ports_list(cfg_facts, ptfhost):
     config_port_indices = cfg_facts['port_index_map']
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
 
+    config_port_channel_members = [port_channel[1]['members'] for port_channel in config_portchannels.items()]
+    config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
+
     pvid_cycle = itertools.cycle(vlan_id_list)
 
     # when running on t0 we can use the portchannel members
@@ -53,8 +56,10 @@ def vlan_ports_list(cfg_facts, ptfhost):
                     } for vid in vlan_id_list }
             })
 
-    ports = [ port for port in config_ports
-        if config_port_indices[port] in ptf_ports_available_in_topo and config_ports[port].get('admin_status', 'down') == 'up' ]
+    ports = [port for port in config_ports
+        if config_port_indices[port] in ptf_ports_available_in_topo
+        and config_ports[port].get('admin_status', 'down') == 'up'
+        and port not in config_port_channel_member_ports]
 
     for port in ports[:4]:
         vlan_ports_list.append({
@@ -151,7 +156,7 @@ def setup_vlan(ptfadapter, duthost, ptfhost, vlan_ports_list, vlan_intfs_list, c
         }
 
         ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
-        ptfhost.template(src='arp_responder.conf.j2', dest='/tmp')
+        ptfhost.template(src='templates/arp_responder.conf.j2', dest='/tmp')
         ptfhost.command("cp /tmp/arp_responder.conf.j2 /etc/supervisor/conf.d/arp_responder.conf")
 
         ptfhost.command('supervisorctl reread')
