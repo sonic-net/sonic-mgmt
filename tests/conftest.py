@@ -28,7 +28,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.loganalyzer',
                   'tests.common.plugins.psu_controller',
                   'tests.common.plugins.sanity_check',
-                  'tests.common.plugins.custom_markers')
+                  'tests.common.plugins.custom_markers',
+                  'tests.common.plugins.test_completeness')
 
 
 class TestbedInfo(object):
