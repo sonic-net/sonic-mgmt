@@ -17,7 +17,6 @@ from common.fixtures.conn_graph_facts import conn_graph_facts, \
      fanout_graph_facts
 
 from common.reboot import logger
-from ixnetwork_restpy import SessionAssistant, Files
 
 from common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user,\
      ixia_api_serv_passwd, ixia_api_serv_port, ixia_api_serv_session_id, \
