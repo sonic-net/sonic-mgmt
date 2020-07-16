@@ -1,3 +1,8 @@
+"""This module contains the necessary fixtures for running test cases with
+ Ixia devices and IxNetwork. If more fixtures are required, they should be 
+included in this file.
+"""
+
 import pytest
 import pprint
 from common.devices import FanoutHost
@@ -93,6 +98,7 @@ def ixia_dev(duthost, fanouthosts):
     for hostname in ixia_dev_hostnames:
         result[hostname] = duthost.host.options['inventory_manager'].get_host(hostname).get_vars()['ansible_host']
     return result
+
 
 @pytest.fixture(scope = "function")
 def ixia_api_server_session(ixia_api_serv_ip,

@@ -1,7 +1,7 @@
 """This module contains some auxiliary functions that are required 
 to support automation activities. These functions are used for various 
-secondary activities like: convert the ansible Unicode STDOUT output 
-to string, get IP address in a subnet, increment a IP address, get 
+secondary activities like convert the ansible Unicode STDOUT output 
+to string, get IP address in a subnet, increment an IP address, get 
 VLAN subnet etc.
 
 This file is also a placeholder for auxiliary function that are
@@ -16,7 +16,7 @@ from netaddr import IPNetwork
 
 def incriment_ip_address (ip, incr=1) :
     """
-    Increment IP address by a integer number.
+    Increment IP address by an integer number.
 
     Args: 
        ip (str): IP address in string format.
@@ -50,13 +50,13 @@ def ansible_stdout_to_str(ansible_stdout):
 
 def get_vlan_subnet(host_ans):
     """
-    Get Vlan subnet of a T0 device
+    Get VLAN subnet of a T0 device
 
     Args:
         host_ans: Ansible host instance of the device
 
-    Returns :
-        Vlan subnet, e.g., "192.168.1.1/24" where 192.168.1.1 is gateway 
+    Returns:
+        VLAN subnet, e.g., "192.168.1.1/24" where 192.168.1.1 is gateway 
         and 24 is prefix length
     """    
     mg_facts = host_ans.minigraph_facts(host=host_ans.hostname)['ansible_facts']

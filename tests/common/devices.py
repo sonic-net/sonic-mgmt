@@ -851,6 +851,7 @@ class OnyxHost(AnsibleHostBase):
         if res["localhost"]["rc"] != 0:
             raise Exception("Unable to execute template\n{}".format(res["localhost"]["stdout"]))
 
+
 class IxiaHost (AnsibleHostBase):
     """ This class is a place-holder for running ansible module on Ixia
     fanout devices in future (TBD).
@@ -895,6 +896,7 @@ class IxiaHost (AnsibleHostBase):
         """ 
         if (self.os == 'ixia') :
             eval(cmd)
+
 
 class FanoutHost():
     """

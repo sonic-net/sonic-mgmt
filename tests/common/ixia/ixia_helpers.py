@@ -105,11 +105,11 @@ class IxiaFanoutManager () :
         """This function returns IP address of a particular chassis 
         (selected earlier using get_fanout_device_details() function).
 
-        Args:
-            This function takes no argument.
-
         Note: If you have not used get_fanout_device_details(), by default 0th
             (first) chassis remains selected.
+
+        Args:
+            This function takes no argument.
 
         Returns:
             The IP address 
