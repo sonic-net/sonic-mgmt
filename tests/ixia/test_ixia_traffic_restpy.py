@@ -25,7 +25,7 @@ from common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user,\
 
 from common.ixia.ixia_helpers import  IxiaFanoutManager, configure_ports,\
       create_topology, create_ip_traffic_item_using_wizard_arguments,\
-      start_protocols, start_traffic, stop_traffic 
+      start_protocols, start_traffic, stop_traffic, get_traffic_statistics 
 
 from common.ixia.common_helpers import incriment_ip_address
 
@@ -82,6 +82,9 @@ def test_testbed(testbed, conn_graph_facts, duthost, fanout_graph_facts,
     time.sleep(5)
 
     # Fetch statistics.
-    logger.info(session.StatViewAssistant('Traffic Item Statistics'))
+    stats = get_traffic_statistics(session=session, 
+        stat_view_name='Traffic Item Statistics')
+    logger.info(stats)
+
     stop_traffic(session) 
 

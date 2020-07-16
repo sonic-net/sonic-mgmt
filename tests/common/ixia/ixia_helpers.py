@@ -90,11 +90,11 @@ class IxiaFanoutManager () :
         Details of the chassis will be available like chassis IP, card, ports, 
         peer port etc. in a dictionary format.
 
-        Args:
-            This function takes no argument.
-
         Note: If you have not used get_fanout_device_details(), by default 0th
             (first) chassis remains selected.
+
+        Args:
+            This function takes no argument.
 
         Returns:
             Details of the chassis connection as dictionary format.
@@ -121,11 +121,11 @@ class IxiaFanoutManager () :
         (selected earlier using get_fanout_device_details() function) 
         as a list of dictionary.
 
-        Args:
-            This function takes no argument.
-
         Note: If you have not used get_fanout_device_details(), by default 0th
             (first) chassis remains selected.
+
+        Args:
+            This function takes no argument.
 
         Returns:
             Dictionary of chassis card port information.
@@ -148,6 +148,9 @@ def configure_ports(session, port_list, start_name='port') :
     """Configures ports of the IXIA chassis and returns the list 
        of configured Ixia ports
 
+    Note: This is like the return value of the method,
+        IxiaFanoutManager.get_ports()
+
     Args:
         session (obj): IXIA session object
         port_list (list): List of dictionaries.  like below -
@@ -157,8 +160,6 @@ def configure_ports(session, port_list, start_name='port') :
         start_name (str): (optional) The port name to start with, port
            names will be incremented automatically like port1, port2 ...
 
-    Note: This is like the return value of the method,
-        IxiaFanoutManager.get_ports()
 
     Returns: The list of Ixia port objects if the configuration
         succeeds. Otherwise return None
@@ -234,6 +235,8 @@ def create_topology(
     """ This function creates a topology with ethernet and IP stack on 
     IxNetwork
 
+    Note: ipv6 stack option is left for future extension.
+
     Args:
         session (obj): Ixia session object.
         ports (list): List of IxNetwork port objects, returned by the
@@ -247,8 +250,6 @@ def create_topology(
         gw_incr_step (str): IP address increment step in IP format like
             "0.0.0.1"
   
-    Note: ipv6 stack option is left for future extension.
-
     Return: IxNetwork topology obect.       
     """
 
@@ -275,6 +276,7 @@ def create_topology(
     
     return topology
 
+
 def start_protocols(session):
     """This function starts all the protocols configured on the IxNetwork
        protocol stack (e.g., IP and Ethernet).
@@ -292,19 +294,22 @@ def start_protocols(session):
     protocolSummary.CheckCondition('Sessions Down', protocolSummary.EQUAL, 0)
     logger.info(protocolSummary)
 
-def get_statistics(session):
+
+def get_traffic_statistics(session, stat_view_name='Flow Statistics'):
     """This function fetches the traffic statistics information.
        
     Args:
         session (obj) : IxNetwork session object.
+        stat_view_name (str, optional): Statistics view name. Default 
+            value is 'Flow Statistics'
 
     Returns:
-        None    
+        traffic statistics dictionary. 
     """
     ixnetwork = session.Ixnetwork
-    flow_statistics = session.StatViewAssistant('Flow Statistics')
-    ixnetwork.info('{}\n'.format(flow_statistics))
-    return flow_statistics
+    traffic_statistics = session.StatViewAssistant(stat_view_name)
+    ixnetwork.info('{}\n'.format(traffic_statistics))
+    return traffic_statistics
 
 
 def stop_traffic(session):
@@ -379,6 +384,10 @@ def create_ip_traffic_item_using_wizard_arguments (
            'example_traffic'.
         traffic_type (str, optional): Type of the ip source and destination
         (ipv4/ipv6). Default traffic_type is 'ipv4'.
+
+    Returns:
+        IxNetwork traffic item object. 
+
     """ 
 
     traffic_item = session.Ixnetwork.Traffic.TrafficItem.add(
