@@ -69,7 +69,7 @@ class TestWatchdogApi(PlatformApiTestBase):
         if self.expect(actual_timeout is not None, "Watchdog.arm is not supported"):
             pytest_assert(isinstance(actual_timeout, int), "actual_timeout appears incorrect")
             if self.expect(actual_timeout != -1, "Failed to arm the watchdog"):
-                self.expect(actual_timeout >= watchdog_timeout, "Actual watchdog {} seconds apear wrong, should be less than {} seconds".format(actual_timeout, watchdog_timeout))
+                self.expect(actual_timeout >= watchdog_timeout, "Actual watchdog timeout {} seconds apear wrong, should be less than {} seconds".format(actual_timeout, watchdog_timeout))
 
         watchdog_status = watchdog.is_armed(platform_api_conn)
         if self.expect(watchdog_status is not None, "Failed to retrieve watchdog status"):
