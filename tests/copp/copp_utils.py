@@ -58,10 +58,11 @@ def configure_ptf(ptf, nn_target_port):
             nn_target_port (int): The port to run NN agent on.
     """
 
+    ptf.script(cmd=_REMOVE_IP_SCRIPT)
     ptf.script(cmd=_ADD_IP_SCRIPT)
 
     facts = {"nn_target_port": nn_target_port}
-    ptf.host.options['variable_manager'].extra_vars.update(facts)
+    ptf.host.options["variable_manager"].extra_vars.update(facts)
     ptf.template(src=_PTF_NN_TEMPLATE, dest=_PTF_NN_DEST)
 
     ptf.supervisorctl(name="ptf_nn_agent", state="restarted")
@@ -77,7 +78,7 @@ def restore_ptf(ptf):
     ptf.script(cmd=_REMOVE_IP_SCRIPT)
 
     facts = {"nn_target_port": DEFAULT_NN_TARGET_PORT}
-    ptf.host.options['variable_manager'].extra_vars.update(facts)
+    ptf.host.options["variable_manager"].extra_vars.update(facts)
 
     ptf.template(src=_PTF_NN_TEMPLATE, dest=_PTF_NN_DEST)
 
@@ -98,7 +99,7 @@ def configure_syncd(dut, nn_target_port):
 
     facts = {"nn_target_port": nn_target_port,
              "nn_target_interface": _map_port_number_to_interface(dut, nn_target_port)}
-    dut.host.options['variable_manager'].extra_vars.update(facts)
+    dut.host.options["variable_manager"].extra_vars.update(facts)
 
     dut.template(src=_SYNCD_NN_TEMPLATE, dest=_SYNCD_NN_DEST)
     dut.command("docker cp {} syncd:/etc/supervisor/conf.d/".format(_SYNCD_NN_DEST))
