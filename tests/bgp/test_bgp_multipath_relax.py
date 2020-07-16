@@ -2,6 +2,10 @@ import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert
 
+pytestmark = [
+    pytest.mark.topology('t1')
+]
+
 logger = logging.getLogger(__name__)
 
 def get_t2_neigh(testbed):
