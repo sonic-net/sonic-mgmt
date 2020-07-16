@@ -70,3 +70,7 @@
 - name: Send arp ping packet to gw for flusing the ARP table
   command: docker exec -i ptf_{{ vm_set_name }} python -c "from scapy.all import *; arping('{{ mgmt_gw }}')"
   become: yes
+
+- name: Start ptf_tgen service
+  include_tasks: start_ptf_tgen.yml
+  when: topo == 'fullmesh'
