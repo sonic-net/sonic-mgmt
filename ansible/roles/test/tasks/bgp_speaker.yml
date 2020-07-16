@@ -129,7 +129,7 @@
       delegate_to: "{{ptf_host}}"
 
     - name: Kill exabgp instances if existing
-      shell: pkill exabgp
+      shell: pkill -f exabgp
       delegate_to: "{{ptf_host}}"
       ignore_errors: yes
 
@@ -204,6 +204,7 @@
     - name: Send SIGTERM to exabgp instances
       shell: pkill -f exabgp
       delegate_to: "{{ptf_host}}"
+      ignore_errors: yes
 
     - name: Flush vlan ips route
       command: ip route flush {{item.split('/')[0]}}/32
