@@ -44,6 +44,7 @@ class AdvancedReboot:
         self.ptfhost = ptfhost
         self.localhost = localhost
         self.testbed = testbed
+        self.enableContinuousIO = False # default value may get overwritten by value in kwargs
         self.__dict__.update(kwargs)
         self.__extractTestParam()
         self.rebootData = {}
