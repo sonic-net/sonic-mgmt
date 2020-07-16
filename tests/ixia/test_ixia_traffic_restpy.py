@@ -12,7 +12,6 @@
 import logging
 import time
 import pytest
-import ipaddr
 from common.utilities import wait_until
 from common.fixtures.conn_graph_facts import conn_graph_facts, \
      fanout_graph_facts
@@ -60,7 +59,7 @@ def test_testbed(testbed, conn_graph_facts, duthost, fanout_graph_facts,
                                gw_incr_step='0.0.0.0')
    
     start_protocols(session)
-    logger.info("Wait for 5 seconds for iv4 sessions to up.")
+    logger.info("Wait for 5 seconds for IPv4 sessions to up.")
     time.sleep(5) 
 
     # Create a traffic item 
