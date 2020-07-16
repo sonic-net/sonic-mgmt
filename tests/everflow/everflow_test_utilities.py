@@ -228,43 +228,52 @@ class BaseEverflowTest(object):
             dict: Information about the mirror session configuration.
 
         """
-        session_name = "test_session_1"
-        session_src_ip = "1.1.1.1"
-        session_dst_ip = "2.2.2.2"
-        session_ttl = "1"
-        session_dscp = "8"
-
-        if "mellanox" == duthost.facts["asic_type"]:
-            session_gre = 0x8949
-        elif "barefoot" == duthost.facts["asic_type"]:
-            session_gre = 0x22EB
-        else:
-            session_gre = 0x6558
-
-        session_prefixlens = ["24", "32"]
-        session_prefixes = []
-        for prefixlen in session_prefixlens:
-            session_prefixes.append(str(ipaddr.IPNetwork(session_dst_ip + "/" + prefixlen).network) + "/" + prefixlen)
+        session_info = self._mirror_session_info("test_session_1", duthost.facts["asic_type"])
 
         duthost.command("config mirror_session add {} {} {} {} {} {}"
-                        .format(session_name,
-                                session_src_ip,
-                                session_dst_ip,
-                                session_dscp,
-                                session_ttl,
-                                session_gre))
+                        .format(session_info["session_name"],
+                                session_info["session_src_ip"],
+                                session_info["session_dst_ip"],
+                                session_info["session_dscp"],
+                                session_info["session_ttl"],
+                                session_info["session_gre"]))
 
-        yield {
-            "session_name": session_name,
-            "session_src_ip": session_src_ip,
-            "session_dst_ip": session_dst_ip,
-            "session_ttl": session_ttl,
-            "session_dscp": session_dscp,
-            "session_gre": session_gre,
-            "session_prefixes": session_prefixes
-        }
+        yield session_info
 
-        duthost.command("config mirror_session remove {}".format(session_name))
+        duthost.command("config mirror_session remove {}".format(session_info["session_name"]))
+
+    @pytest.fixture(scope="class")
+    def policer_mirror_session(self, duthost):
+        """
+        Set up a mirror session with a policer for Everflow.
+
+        Args:
+            duthost: DUT fixture
+
+        Yields:
+            dict: Information about the mirror session configuration.
+
+        """
+
+        # Create a policer that allows 100 packets/sec through
+        duthost.command("redis-cli -n 4 hmset \"POLICER|TEST_POLICER\" meter_type packets \
+                         mode sr_tcm cir 100 cbs 100 red_packet_action drop")
+
+        # Create a mirror session with the TEST_POLICER attached
+        session_info = self._mirror_session_info("TEST_POLICER_SESSION", duthost.facts["asic_type"])
+        duthost.command("config mirror_session add {} {} {} {} {} {} --policer TEST_POLICER"
+                        .format(session_info["session_name"],
+                                session_info["session_src_ip"],
+                                session_info["session_dst_ip"],
+                                session_info["session_dscp"],
+                                session_info["session_ttl"],
+                                session_info["session_gre"]))
+
+        yield session_info
+
+        # Clean up mirror session and policer
+        duthost.command("config mirror_session remove {}".format(session_info["session_name"]))
+        duthost.command("redis-cli -n 4 del \"POLICER|TEST_POLICER\"")
 
     @abstractmethod
     def setup_acl_table(self, duthost, setup_info, setup_mirror_session):
@@ -297,3 +306,31 @@ class BaseEverflowTest(object):
 
         """
         pass
+
+    def _mirror_session_info(self, session_name, asic_type):
+        session_src_ip = "1.1.1.1"
+        session_dst_ip = "2.2.2.2"
+        session_dscp = "8"
+        session_ttl = "1"
+
+        if "mellanox" == asic_type:
+            session_gre = 0x8949
+        elif "barefoot" == asic_type:
+            session_gre = 0x22EB
+        else:
+            session_gre = 0x88BE
+
+        session_prefix_lens = ["24", "32"]
+        session_prefixes = []
+        for prefix_len in session_prefix_lens:
+            session_prefixes.append(str(ipaddr.IPNetwork(session_dst_ip + "/" + prefix_len).network) + "/" + prefix_len)
+
+        return {
+            "session_name": session_name,
+            "session_src_ip": session_src_ip,
+            "session_dst_ip": session_dst_ip,
+            "session_dscp": session_dscp,
+            "session_ttl": session_ttl,
+            "session_gre": session_gre,
+            "session_prefixes": session_prefixes
+        }
