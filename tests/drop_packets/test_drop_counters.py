@@ -89,6 +89,7 @@ def acl_setup(duthost, loganalyzer):
         duthost.command("config acl update full {}".format(dut_clear_conf_file_path))
         logger.info("Removing {}".format(dut_tmp_dir))
         duthost.command("rm -rf {}".format(dut_tmp_dir))
+        time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
 
 
 @pytest.fixture(scope='module', autouse=True)
