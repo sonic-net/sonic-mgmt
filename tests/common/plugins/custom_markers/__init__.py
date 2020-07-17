@@ -1,5 +1,9 @@
+import sys
 import pytest
 import warnings
+import logging
+from tests.common.plugins.test_completeness import CompletenessLevel
+
 
 def pytest_addoption(parser):
         parser.addoption("--topology", action="store", metavar="TOPO_NAME",
@@ -12,6 +16,10 @@ def pytest_addoption(parser):
                          help="only run tests matching the connection CONN_TYPE ('fabric', 'direct')")
         parser.addoption("--device_type", action="store", metavar="DEV_TYPE",
                          help="only run tests matching the device DEV_TYPE ('physical', 'vs')")
+        parser.addoption("--completeness_level", metavar="TEST_LEVEL", action="store", type=int, \
+                         help="Coverage level of test - partial to full execution.\n Defined levels: \
+                         Debug = 0, Basic = 1, Confident = 2, Thorough = 3")
+
 
 def pytest_configure(config):
     # register all the markers
@@ -30,6 +38,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "device_type(DEV_TYPE): mark test to specify the need for a physical dut or vs only test. allowed values: 'physical', 'vs'"
     )
+    config.addinivalue_line(
+        "markers", "device_type(TEST_LEVEL): mark test to specify the completeness level for the test. Allowed values: 'Debug', 'Basic' ,'Confident', 'Thorough'"
+    )
 
 def pytest_runtest_setup(item):
     if item.config.getoption("--topology"):
@@ -42,6 +53,8 @@ def pytest_runtest_setup(item):
         check_conn_type(item)
     if item.config.getoption("--device_type"):
         check_device_type(item)
+    if item.config.getoption("--completeness_level"):
+        check_test_completeness(item)
 
 def check_topology(item):
     # The closest marker is used here so that the module or class level
@@ -89,3 +102,51 @@ def check_device_type(item):
             pytest.skip("test requires device type in {!r}".format(dev))
     else:
         pytest.skip("test does not match device type")
+
+def check_test_completeness(item):
+    '''
+    API to set the completeness level. If the specified level does not match
+    a defined level in the testcase, level-normalization is done based on:
+    Cases:
+    1. Completeness level not specified - run the lowest defined level (full test if no defined level)
+    2. Test does not define any completeness level - run the testcase entirely.
+    3. Specified completeness level do not match any defined level in a test case:
+        3.1 Specified level is higher than any defined level - go to highest level defined
+        3.2 Specified level is lower than any defined level - go to lowest level defined
+        3.3 Specified level is in between two defined levels - go to next lower level
+    4. Specified level matches one of the defined levels
+    '''
+    specified_level = item.config.getoption("--completeness_level")
+    if not specified_level: # Case 1
+        logging.info("Completeness level not set during test execution. Setting to default level: {}".format(CompletenessLevel.Debug))
+        specified_level = CompletenessLevel.Debug
+
+    # The closest marker is used here so that the module or class level
+    # marker will be overrided by case level marker
+    defined_levels = [mark.args for mark in item.iter_markers(name="supported_completeness_level")]
+    if defined_levels is None or len(defined_levels) == 0: # Case 2
+        logging.info("Test has no defined levels. Continue without test completeness checks")
+        return
+    defined_levels = defined_levels[0] # The nearest mark overides others
+
+    logging.info("Setting test completeness level. Specified: {}. Defined: {}".format(specified_level, str(defined_levels)))
+
+    if specified_level not in defined_levels:
+        if specified_level > max(defined_levels): # Case 3.1
+            completeness_level = max(defined_levels)
+        elif specified_level < min(defined_levels): # Case 3.2
+            completeness_level = min(defined_levels)
+        else: # Case 3.3
+            # Find the maximum defined level less than specified_level
+            lesser_defined_level_dist = sys.maxsize
+            for level in defined_levels:
+                if level <= specified_level and lesser_defined_level_dist > (specified_level - level):
+                    completeness_level = level
+                    lesser_defined_level_dist = lesser_defined_level_dist - level
+        logging.info("Specified level ({}) not found in defined levels. Setting level to {}".format(specified_level, completeness_level))
+    else: # Case 4
+        completeness_level = specified_level
+
+    normalized_completeness_level = pytest.mark.completeness_level(completeness_level)
+    logging.info("Setting the completeness level to {}".format(normalized_completeness_level))
+    item.add_marker(normalized_completeness_level)
