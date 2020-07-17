@@ -32,7 +32,7 @@ class AnsibleHostBase(object):
     def __init__(self, ansible_adhoc, hostname, connection=None, become_user=None):
         if hostname == 'localhost':
             self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
-            self.mgmt_ip = self.host.setup(gather_subset="!all,!min,network")[hostname]["ansible_facts"]["ansible_all_ipv4_addresses"][0]
+            self.mgmt_ip = self.host.setup(gather_subset="!all,!min,network")[hostname]["ansible_facts"]["ansible_default_ipv4"]["address"]
         else:
             if connection is None:
                 if become_user is None:
