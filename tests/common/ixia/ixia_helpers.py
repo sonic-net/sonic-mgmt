@@ -295,6 +295,20 @@ def start_protocols(session):
     logger.info(protocolSummary)
 
 
+def stop_protocols(session) :
+    """This function stops all the protocols configured on the IxNetwork
+       protocol stack (e.g., IP and Ethernet).
+
+    Args:
+        session (obj) : IxNetwork session object.
+
+    Returns:
+        None
+    """
+    ixnetwork = session.Ixnetwork
+    ixnetwork.StopAllProtocols(Arg1='sync')
+
+
 def get_traffic_statistics(session, stat_view_name='Flow Statistics'):
     """This function fetches the traffic statistics information.
        
