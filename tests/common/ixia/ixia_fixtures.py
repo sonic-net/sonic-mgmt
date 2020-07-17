@@ -1,60 +1,131 @@
+"""This module contains the necessary fixtures for running test cases with
+ Ixia devices and IxNetwork. If more fixtures are required, they should be 
+included in this file.
+"""
+
 import pytest
 import pprint
 from common.devices import FanoutHost
 from ixnetwork_restpy import SessionAssistant, Files
 
-""" 
-In an IXIA testbed, there is no PTF docker. 
-Hence, we use ptf_ip field to store IXIA API server. 
-This fixture returns the IP address of the IXIA API server.
-"""
 @pytest.fixture(scope = "module")
 def ixia_api_serv_ip(testbed):
+    """ 
+    In an Ixia testbed, there is no PTF docker. 
+    Hence, we use ptf_ip field to store Ixia API server. 
+    This fixture returns the IP address of the Ixia API server.
+
+    Args: 
+       testbed (pytest fixture): The testbed fixture.
+
+    Returns:
+        Ixia PTF server (API server) IP
+    """
     return testbed['ptf_ip']
 
-"""
-Return the username of IXIA API server
-"""
+
 @pytest.fixture(scope = "module")
 def ixia_api_serv_user(duthost):
+    """
+    Return the username of Ixia API server.
+
+    Args:
+        duthost (pytest fixture): The duthost fixture.
+ 
+    Returns:
+        Ixia PTF server (API server) username.
+    """
     return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']['ixia_api_server']['user']
 
-"""
-Return the password of IXIA API server
-"""
+
 @pytest.fixture(scope = "module")
 def ixia_api_serv_passwd(duthost):
+    """
+    Return the password of Ixia API server.
+
+    Args:
+        duthost (pytest fixture): The duthost fixture.
+ 
+    Returns:
+        Ixia PTF server (API server) password.
+    """
     return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']['ixia_api_server']['password']
 
-"""
-Return REST port. 
-"""
+
 @pytest.fixture(scope = "module")
 def ixia_api_serv_port(duthost):
+    """
+    Return REST port of the ixia API server.
+
+    Args:
+        duthost (pytest fixture): The duthost fixture.
+ 
+    Returns:
+        Ixia PTF server (API server) REST port.
+    """
     return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']['ixia_api_server']['rest_port']
 
-"""
-IXIA PTF can spawn multiple session on the same REST port. Optional for LINUX, Rewuired for windows 
-Return the session ID. 
-"""
+
 @pytest.fixture(scope = "module")
 def ixia_api_serv_session_id(duthost):
+    """
+    Ixia PTF can spawn multiple session on the same REST port.
+    Optional for LINUX, required for windows return the session ID.
+
+    Args:
+        duthost (pytest fixture): The duthost fixture.
+
+    Returns:
+        Ixia PTF server (API server) session id.
+    """
     return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']['ixia_api_server']['session_id']
 
-"""
-IXIA session manager with PTF server
-"""
+
+@pytest.fixture(scope = "module")
+def ixia_dev(duthost, fanouthosts):
+    """
+    Returns the Ixia chassis IP
+
+    Args:
+        duthost (pytest fixture): The duthost fixture. 
+        fanouthosts (pytest fixture): The fanouthosts fixture.
+
+    Returns:
+        Ixia Chassis IP.
+    """
+    result = dict()
+    ixia_dev_hostnames = fanouthosts.keys()
+    for hostname in ixia_dev_hostnames:
+        result[hostname] = duthost.host.options['inventory_manager'].get_host(hostname).get_vars()['ansible_host']
+    return result
+
+
 @pytest.fixture(scope = "function")
 def ixia_api_server_session(ixia_api_serv_ip,
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api_serv_port,
     ixia_api_serv_session_id) :
+    """
+    Ixia session manager fixture.
+
+    Args:
+        ixia_api_serv_ip (pytest fixture): ixia_api_serv_ip fixture
+        ixia_api_serv_user (pytest fixture): ixia_api_serv_user fixture.
+        ixia_api_serv_passwd (pytest fixture): ixia_api_serv_passwd fixture.
+        ixia_api_serv_port (pytest fixture): ixia_api_serv_port fixture.
+        ixia_api_serv_session_id (pytest fixture): ixia_api_serv_session_id 
+            fixture.
+  
+    Returns:
+        IxNetwork Session Id
+    """
 
     if (ixia_api_serv_session_id != "None") :
         session = SessionAssistant(IpAddress = ixia_api_serv_ip,
                                UserName = ixia_api_serv_user,
                                Password = ixia_api_serv_passwd,
                                RestPort = ixia_api_serv_port,
-                               SessionId = ixia_api_serv_session_id)
+                               SessionId = ixia_api_serv_session_id,
+                               LogLevel='all')
     else :
         session = SessionAssistant(IpAddress = ixia_api_serv_ip,
                                UserName = ixia_api_serv_user,
@@ -63,5 +134,8 @@ def ixia_api_server_session(ixia_api_serv_ip,
     sessionData = session.Session
     ixNetwork   = session.Ixnetwork
     ixNetwork.NewConfig()
-    return session
+    
+    yield session
 
+    ixNetwork.NewConfig()
+    session.Session.remove()
