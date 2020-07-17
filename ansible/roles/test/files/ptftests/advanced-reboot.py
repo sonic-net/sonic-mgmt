@@ -124,6 +124,7 @@ class ReloadTest(BaseTest):
         self.sad_handle = None
         self.test_params = testutils.test_params_get()
         self.check_param('verbose', False, required=False)
+        self.check_param('enable_continuous_io', False, required=False)
         self.check_param('dut_username', '', required=True)
         self.check_param('dut_password', '', required=True)
         self.check_param('dut_hostname', '', required=True)
@@ -774,6 +775,26 @@ class ReloadTest(BaseTest):
             self.watcher_is_running.clear()             # By default its required to wait for the Watcher started.
             # Give watch thread some time to wind up
             watcher = self.pool.apply_async(self.reachability_watcher)
+            # If enable_continuous_io is set to True (default - False), prevent the script from proceeding further
+            if self.test_params['enable_continuous_io'] is True:
+                self.log("Waiting for the continuous I/O event to complete")
+
+                def receiveSignal(signalNumber, frame):
+                    self.log("Received signal SIGUSR1:", signalNumber)
+                    self.log("Disabling continuous I/O operation..")
+                    self.test_params['enable_continuous_io'] = False
+                    return
+                # register for an event to disable continuous I/O
+                signal.signal(signal.SIGUSR1, receiveSignal)
+                # Log the PID of the running process so that remote process could communicate via process signals
+                with open("/tmp/advanced-reboot-pid.log", "w") as fp:
+                    mypid = str(os.getpid())
+                    fp.write(mypid)
+                # Wait until continuous I/O event is disabled
+                while self.test_params['enable_continuous_io'] is True:
+                    time.sleep(5)
+                self.log("Continuous I/O operation disabled")
+                return
             time.sleep(5)
 
             self.log("Check that device is alive and pinging")

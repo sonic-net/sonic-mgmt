@@ -45,6 +45,7 @@ class AdvancedReboot:
         self.localhost = localhost
         self.testbed = testbed
         self.creds = creds
+        self.enableContinuousIO = False # default value may get overwritten by value in kwargs
         self.__dict__.update(kwargs)
         self.__extractTestParam()
         self.rebootData = {}
@@ -422,7 +423,8 @@ class AdvancedReboot:
                 "dut_password" : self.rebootData['dut_password'],
                 "dut_hostname" : self.rebootData['dut_hostname'],
                 "reboot_limit_in_seconds" : self.rebootLimit,
-                "reboot_type" :self.rebootType,
+                "reboot_type" : self.rebootType,
+                "enable_continuous_io" : self.enableContinuousIO,
                 "portchannel_ports_file" : self.rebootData['portchannel_interfaces_file'],
                 "vlan_ports_file" : self.rebootData['vlan_interfaces_file'],
                 "ports_file" : self.rebootData['ports_file'],
