@@ -67,7 +67,7 @@ class TestWatchdogApi(PlatformApiTestBase):
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
 
         if self.expect(actual_timeout is not None, "Watchdog.arm is not supported"):
-            if self.expect(isinstance(actual_timeout, int), "actual_timeout appears incorrect")
+            if self.expect(isinstance(actual_timeout, int), "actual_timeout appears incorrect"):
                 if self.expect(actual_timeout != -1, "Failed to arm the watchdog"):
                     self.expect(actual_timeout >= watchdog_timeout, "Actual watchdog timeout {} seconds appears wrong, should be less than {} seconds".format(actual_timeout, watchdog_timeout))
 
@@ -78,7 +78,7 @@ class TestWatchdogApi(PlatformApiTestBase):
         remaining_time = watchdog.get_remaining_time(platform_api_conn)
 
         if self.expect(remaining_time is not None, "Failed to get the remaining time of watchdog"):
-            if self.expect(isinstance(remaining_time, int), "remaining_time appears incorrect")
+            if self.expect(isinstance(remaining_time, int), "remaining_time appears incorrect"):
                 self.expect(remaining_time <= watchdog_timeout, "Watchdog remaining_time {} seconds appears wrong compared to watchdog timeout {} seocnds".format(remaining_time))
 
         watchdog_status = watchdog.disarm(platform_api_conn)
