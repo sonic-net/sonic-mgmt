@@ -272,6 +272,7 @@ def create_topology(
         # ipv6 stack option is left for future extension. 
         pass
     else :
+        logger.info("Unsupported address-type")  
         pytest_assert(0) 
     
     return topology

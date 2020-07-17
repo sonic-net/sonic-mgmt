@@ -58,9 +58,8 @@ def test_testbed(testbed, conn_graph_facts, duthost, fanout_graph_facts,
                                gw_start=gateway_ip,
                                gw_incr_step='0.0.0.0')
    
+    logger.info("Starting all protocols")
     start_protocols(session)
-    logger.info("Wait for 5 seconds for IPv4 sessions to up.")
-    time.sleep(5) 
 
     # Create a traffic item 
     logger.info("Configuring traffic.")
