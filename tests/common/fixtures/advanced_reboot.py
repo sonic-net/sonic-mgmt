@@ -122,8 +122,8 @@ class AdvancedReboot:
         self.rebootData['vlan_ip_range'] = self.mgFacts['minigraph_vlan_interfaces'][0]['subnet']
         self.rebootData['dut_vlan_ip'] = self.mgFacts['minigraph_vlan_interfaces'][0]['addr']
 
-        self.rebootData['dut_username'] = creds['sonicadmin_user']
-        self.rebootData['dut_password'] = creds['sonicadmin_password']
+        self.rebootData['dut_username'] = self.creds['sonicadmin_user']
+        self.rebootData['dut_password'] = self.creds['sonicadmin_password']
 
         # Change network of the dest IP addresses (used by VM servers) to be different from Vlan network
         prefixLen = self.mgFacts['minigraph_vlan_interfaces'][0]['prefixlen'] - 3
