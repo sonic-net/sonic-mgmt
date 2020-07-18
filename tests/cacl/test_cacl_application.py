@@ -192,12 +192,12 @@ def generate_expected_rules(duthost):
     ip6tables_rules.append("-A INPUT -p ipv6-icmp -m icmp6 --icmpv6-type 134 -j ACCEPT")
 
     # Allow all incoming IPv4 DHCP packets
-    iptables_rules.append("-A INPUT -p udp -m udp --sport 67:68 --dport 67:68 -j ACCEPT")
-    ip6tables_rules.append("-A INPUT -p udp -m udp --sport 67:68 --dport 67:68 -j ACCEPT")
+    iptables_rules.append("-A INPUT -p udp -m udp --dport 67:68 -j ACCEPT")
+    ip6tables_rules.append("-A INPUT -p udp -m udp --dport 67:68 -j ACCEPT")
 
     # Allow all incoming IPv6 DHCP packets
-    iptables_rules.append("-A INPUT -p udp -m udp --sport 546:547 --dport 546:547 -j ACCEPT")
-    ip6tables_rules.append("-A INPUT -p udp -m udp --sport 546:547 --dport 546:547 -j ACCEPT")
+    iptables_rules.append("-A INPUT -p udp -m udp --dport 546:547 -j ACCEPT")
+    ip6tables_rules.append("-A INPUT -p udp -m udp --dport 546:547 -j ACCEPT")
 
     # Allow all incoming BGP traffic
     iptables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
