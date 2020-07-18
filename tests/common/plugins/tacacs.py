@@ -1,7 +1,7 @@
 import pytest
 import crypt
 
-def setup_tacacs(ptfhost, duthost, creds, tacacs_server_ip):
+def configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip):
     """setup tacacs client and server"""
 
     # disable tacacs server
@@ -47,7 +47,7 @@ def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
 @pytest.fixture(scope="module")
 def test_tacacs(ptfhost, duthost, creds):
     tacacs_server_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
-    setup_tacacs(ptfhost, duthost, creds, tacacs_server_ip)
+    configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip)
 
     yield
 
@@ -57,7 +57,7 @@ def test_tacacs(ptfhost, duthost, creds):
 @pytest.fixture(scope="module")
 def test_tacacs_v6(ptfhost, duthost, creds):
     tacacs_server_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_hostv6']
-    setup_tacacs(ptfhost, duthost, creds, tacacs_server_ip)
+    configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip)
 
     yield
 
