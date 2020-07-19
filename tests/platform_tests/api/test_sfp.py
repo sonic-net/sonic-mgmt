@@ -12,7 +12,6 @@ from platform_api_test_base import PlatformApiTestBase
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
     pytest.mark.topology('any')
 ]
