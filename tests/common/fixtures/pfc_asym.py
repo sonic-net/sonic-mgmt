@@ -18,7 +18,7 @@ TESTS_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "../.."))
 ANSIBLE_ROOT = os.path.realpath(os.path.join(TESTS_ROOT, "../ansible"))
 
 ARP_RESPONDER = os.path.join(TESTS_ROOT, "scripts/arp_responder.py")
-ARP_RESPONDER_CONF = os.path.join(TESTS_ROOT, "scripts/arp_responder.conf.j2")
+ARP_RESPONDER_CONF = os.path.join(TESTS_ROOT, "templates/arp_responder.conf.j2")
 
 
 def get_fanout(fanout_graph_facts, setup):
@@ -159,6 +159,7 @@ def enable_pfc_asym(setup, duthost):
     finally:
         # Disable asymmetric PFC on all server interfaces
         duthost.shell("for item in {}; do config interface pfc asymmetric $item off; done".format(srv_ports))
+        time.sleep(5)
         for p_oid in setup["server_ports_oids"]:
             # Verify asymmetric PFC disabled
             assert pfc_asym_restored == duthost.command(get_pfc_mode.format(p_oid))["stdout"]

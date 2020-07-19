@@ -11,6 +11,7 @@
     dut_fp_ports: "{{ dut_fp_ports }}"
     dut_mgmt_port: "{{ dut_mgmt_port }}"
     max_fp_num: "{{ max_fp_num }}"
+    is_multi_duts: "{{ dut_name is defined and dut_name.split(',')|length > 1 }}"
   become: yes
 
 - include_tasks: remove_ceos_list.yml
@@ -20,6 +21,7 @@
   vlan_port:
     external_port: "{{ external_port }}"
     vlan_ids: "{{ device_vlan_list }}"
+    is_multi_duts: "{{ dut_name is defined and dut_name.split(',')|length > 1 }}"
     cmd: "remove"
   become: yes
   when: external_port is defined

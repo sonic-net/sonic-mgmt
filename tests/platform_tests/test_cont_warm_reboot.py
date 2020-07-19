@@ -10,6 +10,7 @@ Status of BGP neighbors (should be established)
 import os
 import sys
 import pytest
+import threading
 
 from check_critical_services import check_critical_services
 from tests.common.helpers.assertions import pytest_assert
@@ -21,6 +22,9 @@ from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.transceiver_utils import check_transceiver_basic
 from tests.common.plugins.sanity_check import checks
 
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t0-soak')
@@ -28,6 +32,19 @@ pytestmark = [
 
 MAX_WAIT_TIME_FOR_INTERFACES = 300
 MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
+
+
+@pytest.fixture(autouse=True, scope="module")
+def continuous_reboot_count(request):
+    return request.config.getoption("--continuous_reboot_count")
+
+@pytest.fixture(autouse=True, scope="module")
+def continuous_reboot_delay(request):
+    return request.config.getoption("--continuous_reboot_delay")
+
+@pytest.fixture(autouse=True, scope="module")
+def enable_continuous_io(request):
+    return request.config.getoption("--enable_continuous_io")
 
 
 def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_WARM, reboot_kwargs=None):
@@ -116,7 +133,8 @@ def check_neighbors(dut):
           "BGP neighbor's ASN does not match minigraph")
 
 
-def test_cont_warm_reboot(duthost, localhost, conn_graph_facts, continuous_reboot_count, continuous_reboot_delay):
+def test_cont_warm_reboot(duthost, ptfhost, localhost, conn_graph_facts, continuous_reboot_count, \
+    continuous_reboot_delay, enable_continuous_io, get_advanced_reboot):
     """
     @summary: This test case is to perform continuous warm reboot in a row
     """
@@ -126,6 +144,21 @@ def test_cont_warm_reboot(duthost, localhost, conn_graph_facts, continuous_reboo
         if "disabled" in issu_capability:
             pytest.skip("ISSU is not supported on this DUT, skip this test case")
 
-    for _ in range(continuous_reboot_count):
+    # Start advancedReboot script on the ptf host to enable continuous I/O
+    advancedReboot = get_advanced_reboot(rebootType='warm-reboot', enableContinuousIO=enable_continuous_io)
+    thr = threading.Thread(target=advancedReboot.runRebootTestcase)
+    thr.setDaemon(True)
+    thr.start()
+
+    # Start continuous warm reboot on the DUT
+    for count in range(continuous_reboot_count):
+        logging.info("==================== Continuous warm reboot iteration: {}/{} ====================".format \
+            (count + 1, continuous_reboot_count))
         reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_WARM)
         wait(continuous_reboot_delay, msg="Wait {}s before next warm-reboot".format(continuous_reboot_delay))
+
+    # Find the pid of continuous I/O script inside ptf container and send a stop signal
+    pid_res = ptfhost.command("cat /tmp/advanced-reboot-pid.log")
+    ptfhost.command("kill -SIGUSR1 {}".format(pid_res['stdout']))
+    thr.join()
+    logging.info("Continuous warm-reboot test completed")
