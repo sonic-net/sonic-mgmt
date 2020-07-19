@@ -1613,7 +1613,7 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size, pg_headroom_wm_res[pg], ((expected_wm + margin) * cell_size))
             assert(expected_wm == total_hdrm)
             assert(pg_headroom_wm_res[pg] <= (expected_wm + margin) * cell_size)
-            assert(expected_wm * cell_size <= pg_headroom_wm_res[pg])
+            assert((expected_wm - margin) * cell_size <= pg_headroom_wm_res[pg])
 
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
