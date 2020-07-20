@@ -28,7 +28,7 @@ class snmpPsuController(PsuControllerBase):
         SYSDESCR = "1.3.6.1.2.1.1.1.0"
         psu = None
         cmdGen = cmdgen.CommandGenerator()
-        snmp_auth = cmdgen.CommunityData('public')
+        snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
         errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((self.controller, 161), timeout=5.0),
@@ -92,7 +92,7 @@ class snmpPsuController(PsuControllerBase):
         This method depends on this configuration to find out the PDU ports connected to PSUs of specific DUT.
         """
         cmdGen = cmdgen.CommandGenerator()
-        snmp_auth = cmdgen.CommunityData('public')
+        snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
         errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((self.controller, 161)),
@@ -108,11 +108,13 @@ class snmpPsuController(PsuControllerBase):
                     # Remove the preceding PORT_NAME_BASE_OID, remaining string is the PDU port ID
                     self.pdu_ports.append(current_oid.replace(self.PORT_NAME_BASE_OID, ''))
 
-    def __init__(self, hostname, controller):
+    def __init__(self, hostname, controller, pdu):
         logging.info("Initializing " + self.__class__.__name__)
         PsuControllerBase.__init__(self)
         self.hostname = hostname
         self.controller = controller
+        self.snmp_rocommunity = pdu['snmp_rocommunity']
+        self.snmp_rwcommunity = pdu['snmp_rwcommunity']
         self.pdu_ports = []
         self.psuType = None
         self.get_psu_controller_type()
@@ -140,7 +142,7 @@ class snmpPsuController(PsuControllerBase):
         port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(psu_id)]
         errorIndication, errorStatus, _, _ = \
         cmdgen.CommandGenerator().setCmd(
-            cmdgen.CommunityData('private'),
+            cmdgen.CommunityData(self.snmp_rwcommunity),
             cmdgen.UdpTransportTarget((self.controller, 161)),
             (port_oid, rfc1902.Integer(self.CONTROL_ON)),
         )
@@ -169,7 +171,7 @@ class snmpPsuController(PsuControllerBase):
         port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(psu_id)]
         errorIndication, errorStatus, _, _ = \
         cmdgen.CommandGenerator().setCmd(
-            cmdgen.CommunityData('private'),
+            cmdgen.CommunityData(self.snmp_rwcommunity),
             cmdgen.UdpTransportTarget((self.controller, 161)),
             (port_oid, rfc1902.Integer(self.CONTROL_OFF)),
         )
@@ -200,7 +202,7 @@ class snmpPsuController(PsuControllerBase):
         """
         results = []
         cmdGen = cmdgen.CommandGenerator()
-        snmp_auth = cmdgen.CommunityData('public')
+        snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
         errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((self.controller, 161)),
@@ -227,9 +229,9 @@ class snmpPsuController(PsuControllerBase):
         pass
 
 
-def get_psu_controller(controller_ip, dut_hostname):
+def get_psu_controller(controller_ip, dut_hostname, pdu):
     """
     @summary: Factory function to create the actual PSU controller object.
     @return: The actual PSU controller object. Returns None if something went wrong.
     """
-    return snmpPsuController(dut_hostname, controller_ip)
+    return snmpPsuController(dut_hostname, controller_ip, pdu)

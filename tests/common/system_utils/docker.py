@@ -8,8 +8,8 @@ import os
 import time
 import yaml
 
-from common.broadcom_data import is_broadcom_device
-from common.mellanox_data import is_mellanox_device
+from tests.common.broadcom_data import is_broadcom_device
+from tests.common.mellanox_data import is_mellanox_device
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -141,7 +141,10 @@ def swap_syncd(dut):
     delete_container(dut, "syncd")
 
     # Set sysctl RCVBUF parameter for tests
-    dut.command("sysctl -w net.core.rmem_max=509430500")
+    dut.command("sysctl -w net.core.rmem_max=609430500")
+
+    # Set sysctl SENDBUF parameter for tests
+    dut.command("sysctl -w net.core.wmem_max=609430500")
 
     # TODO: Getting the base image version should be a common utility
     output = dut.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
@@ -199,3 +202,8 @@ def restore_default_syncd(dut):
 
     _LOGGER.info("swss has been restarted, waiting 60 seconds to initialize...")
     time.sleep(60)
+
+    # Remove the RPC image from the DUT
+    docker_rpc_image = docker_syncd_name + "-rpc"
+    registry = load_docker_registry_info(dut)
+    dut.command("docker rmi {}/{}:{}".format(registry.host, docker_rpc_image, sonic_version))

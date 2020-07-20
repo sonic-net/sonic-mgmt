@@ -24,6 +24,7 @@
 # -e dut_name=str-msn2700-01 - the name of target dut
 # -e VM_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
 # -e ptf_ip=10.255.0.255/23 - the ip address and prefix of ptf container mgmt interface
+# -e ptf_ipv6=fec0::ffff:afa:1/64 - the ipv6 address and prefix of ptf container mgmt interface
 # -e topo=t0                 - the name of removed topo
 # -e ptf_imagename=docker-ptf - name of a docker-image which will be used for the ptf docker container
 
@@ -51,6 +52,10 @@
   - name: Check that variable ptf_ip is defined
     fail: msg="Define ptf ip variable with -e ptf_ip=something"
     when: ptf_ip is not defined
+
+  - name: Check that variable ptf_ipv6 is defined
+    fail: msg="Define ptf ipv6 variable with -e ptf_ipv6=something"
+    when: ptf_ipv6 is not defined
 
   - name: Check that variable topo is defined
     fail: msg="Define topo variable with -e topo=something"

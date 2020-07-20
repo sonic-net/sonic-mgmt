@@ -70,7 +70,7 @@ def check_transceiver_details(dut, interfaces):
     @param interfaces: List of interfaces that need to be checked.
     """
     logging.info("Check detailed transceiver information of each connected port")
-    expected_fields = ["type", "hardwarerev", "serialnum", "manufacturename", "modelname"]
+    expected_fields = ["type", "hardware_rev", "serial", "manufacturer", "model"]
     for intf in interfaces:
         port_xcvr_info = dut.command('redis-cli -n 6 hgetall "TRANSCEIVER_INFO|%s"' % intf)
         for field in expected_fields:

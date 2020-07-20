@@ -12,14 +12,15 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 
-from common import reboot, port_toggle
-from common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common import reboot, port_toggle
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.acl,
-    pytest.mark.disable_loganalyzer  # disable automatic loganalyzer
+    pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
+    pytest.mark.topology('t1')
 ]
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -83,7 +84,7 @@ def setup(duthost, testbed):
     # get the list of port to be combined to ACL tables
     if testbed['topo']['name'] in ('t1', 't1-lag'):
         acl_table_ports += tor_ports
-    
+
     if testbed['topo']['name'] in ('t1-lag', 't1-64-lag', 't1-64-lag-clet'):
         acl_table_ports += port_channels
     else:

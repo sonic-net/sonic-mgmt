@@ -7,6 +7,7 @@ function usage
   echo "testbed-cli. Interface to testbeds"
   echo "Usage:"
   echo "    $0 [options] (start-vms | stop-vms) <server-name> <vault-password-file>"
+  echo "    $0 [options] (start-topo-vms | stop-topo-vms) <topo-name> <vault-password-file>"
   echo "    $0 [options] (add-topo | remove-topo | renumber-topo | connect-topo) <topo-name> <vault-password-file>"
   echo "    $0 [options] refresh-dut <topo-name> <vault-password-file>"
   echo "    $0 [options] (connect-vms | disconnect-vms) <topo-name> <vault-password-file>"
@@ -25,7 +26,7 @@ function usage
   echo "    <topo-name>           : Name of the target topology"
   echo "    <inventory>           : Name of the Ansible inventory containing the DUT"
   echo
-  echo "To start VMs on a server: $0 start-vms 'server-name' ~/.password"
+  echo "To start all VMs on a server: $0 start-vms 'server-name' ~/.password"
   echo "To restart a subset of VMs:"
   echo "        $0 start-vms server-name vault-password-file -e respin_vms=[vm_list]"
   echo "             vm_list is separated by comma and shouldn't have space in the list."
@@ -34,7 +35,9 @@ function usage
   echo "        $0 start-vms server-name vault-password-file -e batch_size=2 -e interval=60"
   echo "To enable autostart of VMs:"
   echo "        $0 start-vms server-name vault-password-file -e autostart=yes"
-  echo "To stop VMs on a server:  $0 stop-vms 'server-name' ~/.password"
+  echo "To start VMs for specified topology on server: $0 start-topo-vms 'topo-name' ~/.password"
+  echo "To stop all VMs on a server:  $0 stop-vms 'server-name' ~/.password"
+  echo "To stop VMs for specified topology on server: $0 stop-topo-vms 'topo-name' ~/.password"
   echo "To deploy a topology on a server: $0 add-topo 'topo-name' ~/.password"
   echo "    Optional argument for add-topo:"
   echo "        -e ptf_imagetag=<tag>    # Use PTF image with specified tag for creating PTF container"
@@ -85,9 +88,10 @@ function read_file
   ptf_imagename=${line_arr[3]}
   ptf=${line_arr[4]}
   ptf_ip=${line_arr[5]}
-  server=${line_arr[6]}
-  vm_base=${line_arr[7]}
-  dut=${line_arr[8]//;/,}
+  ptf_ipv6=${line_arr[6]}
+  server=${line_arr[7]}
+  vm_base=${line_arr[8]}
+  dut=${line_arr[9]//;/,}
   duts=${dut//[\[\] ]/}
 }
 
@@ -114,6 +118,32 @@ function stop_vms
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" $@
 }
 
+function start_topo_vms
+{
+  topology=$1
+  passwd=$2
+  shift
+  shift
+  read_file ${topology}
+
+  echo "Starting VMs for topology '${topology}' on server '${server}'"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_start_VMs.yml --vault-password-file="${passwd}" -l "${server}" -e VM_base="$vm_base" -e topo="$topo" $@
+}
+
+function stop_topo_vms
+{
+  topology=$1
+  passwd=$2
+  shift
+  shift
+  read_file ${topology}
+
+  echo "Stopping VMs for topology '${topology}' on server '${server}'"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" -e VM_base="$vm_base" -e topo="$topo" $@
+}
+
 function add_topo
 {
   topology=$1
@@ -124,7 +154,7 @@ function add_topo
 
   read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" $@ 
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" $@
 
   ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
 
@@ -144,7 +174,7 @@ function remove_topo
 
   read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" $@
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" $@
 
   echo Done
 }
@@ -159,7 +189,7 @@ function renumber_topo
 
   read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" $@
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6"$@
 
   ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
 
@@ -176,7 +206,7 @@ function refresh_dut
 
   read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_refresh_dut.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" $@
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_refresh_dut.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e dut_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$testbed_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" $@
 
   echo Done
 }
@@ -315,6 +345,10 @@ case "${subcmd}" in
   start-vms)   start_vms $@
                ;;
   stop-vms)    stop_vms $@
+               ;;
+  start-topo-vms) start_topo_vms $@
+               ;;
+  stop-topo-vms) stop_topo_vms $@
                ;;
   add-topo)    add_topo $@
                ;;

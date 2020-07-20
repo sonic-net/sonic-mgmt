@@ -3,9 +3,9 @@ import logging
 
 import constants
 
-from common.utilities import wait
-from common.errors import RunAnsibleModuleFail
-from common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.utilities import wait
+from tests.common.errors import RunAnsibleModuleFail
+from tests.common.platform.device_utils import fanout_switch_port_lookup
 
 logger = logging.getLogger(__name__)
 

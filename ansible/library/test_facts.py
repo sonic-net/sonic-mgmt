@@ -30,7 +30,7 @@ options:
 
 EXAMPLES = '''
     Testbed CSV file example:
-        # conf-name,group-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,comment
+        # conf-name,group-name,topo,ptf_image_name,ptf_ip,ptf_ipv6,server,vm_base,dut,comment
         ptf1-m,ptf1,ptf32,docker-ptf-sai-mlnx,10.255.0.188/24,server_1,,str-msn2700-01,Tests ptf
         vms-t1,vms1-1,t1,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str-msn2700-01,Tests vms
         vms-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str-msn2700-01,Tests vms
@@ -108,7 +108,7 @@ class ParseTestbedTopoinfo():
         self.testbed_topo = defaultdict()
 
     def read_testbed_topo(self):
-        CSV_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'server', 'vm_base', 'dut', 'comment')
+        CSV_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
         with open(self.testbed_filename) as f:
             topo = csv.DictReader(f, fieldnames=CSV_FIELDS, delimiter=',')
 
@@ -125,6 +125,10 @@ class ParseTestbedTopoinfo():
                     ptfaddress = ipaddress.IPNetwork(line['ptf_ip'])
                     line['ptf_ip'] = str(ptfaddress.ip)
                     line['ptf_netmask'] = str(ptfaddress.netmask)
+                if line['ptf_ipv6']:
+                    ptfaddress = ipaddress.IPNetwork(line['ptf_ipv6'])
+                    line['ptf_ipv6'] = str(ptfaddress.ip)
+                    line['ptf_netmask_v6'] = str(ptfaddress.netmask)
 
                 line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
                 del line['dut']

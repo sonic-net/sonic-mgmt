@@ -13,8 +13,8 @@ import json
 
 import pytest
 
-from common.fixtures.conn_graph_facts import conn_graph_facts
-from common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 ans_host = None
 port_mapping = None
@@ -25,7 +25,8 @@ def teardown_module():
     ans_host.file(path=file_path, state='absent')
 
 pytestmark = [
-    pytest.mark.disable_loganalyzer  # disable automatic loganalyzer
+    pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
+    pytest.mark.topology('any')
 ]
 
 def parse_output(output_lines):

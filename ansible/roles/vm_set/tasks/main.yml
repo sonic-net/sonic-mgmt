@@ -185,7 +185,7 @@
   set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
 
 - name: Extract VM names from the inventory
-  set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') }}
+  set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') | sort}}
 
 - name: Limit VM
   set_fact: VM_hosts="{{ VM_hosts | first_n_elements(VM_num) }}"
@@ -241,5 +241,6 @@
       when: action == 'stop_sid' and hostvars[dut_name]['type'] == 'simx'
   when:
     - dut_name is defined
+    - dut_name.split(',')|length == 1
     - hostvars[dut_name] is defined
     - hostvars[dut_name].type is defined
