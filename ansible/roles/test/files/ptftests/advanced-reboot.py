@@ -109,6 +109,7 @@ class StateMachine():
 
 class ReloadTest(BaseTest):
     TIMEOUT = 0.5
+    PKT_TOUT = 1
     VLAN_BASE_MAC_PATTERN = '72060001{:04}'
     LAG_BASE_MAC_PATTERN = '5c010203{:04}'
     SOCKET_RECV_BUFFER_SIZE = 10 * 1024 * 1024
@@ -285,6 +286,7 @@ class ReloadTest(BaseTest):
             if verbose and self.test_params['verbose'] or not verbose:
                 print "%s : %s" % (current_time, message)
             self.log_fp.write("%s : %s\n" % (current_time, message))
+            self.log_fp.flush()
 
     def timeout(self, func, seconds, message):
         async_res = self.pool.apply_async(func)
@@ -1521,7 +1523,7 @@ class ReloadTest(BaseTest):
         for i in xrange(self.nr_pc_pkts):
             testutils.send_packet(self, self.from_server_src_port, self.from_vlan_packet)
 
-        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.from_vlan_exp_packet, self.from_server_dst_ports, timeout=self.TIMEOUT)
+        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.from_vlan_exp_packet, self.from_server_dst_ports, timeout=self.PKT_TOUT)
 
         self.log("Send %5d Received %5d servers->t1" % (self.nr_pc_pkts, total_rcv_pkt_cnt), True)
 
@@ -1531,7 +1533,7 @@ class ReloadTest(BaseTest):
         for entry in self.from_t1:
             testutils.send_packet(self, *entry)
 
-        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.from_t1_exp_packet, self.vlan_ports, timeout=self.TIMEOUT)
+        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.from_t1_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
 
         self.log("Send %5d Received %5d t1->servers" % (self.nr_vl_pkts, total_rcv_pkt_cnt), True)
 
@@ -1541,7 +1543,7 @@ class ReloadTest(BaseTest):
         for i in xrange(self.ping_dut_pkts):
             testutils.send_packet(self, self.random_port(self.vlan_ports), self.ping_dut_packet)
 
-        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.ping_dut_exp_packet, self.vlan_ports, timeout=self.TIMEOUT)
+        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.ping_dut_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
 
         self.log("Send %5d Received %5d ping DUT" % (self.ping_dut_pkts, total_rcv_pkt_cnt), True)
 
@@ -1550,6 +1552,6 @@ class ReloadTest(BaseTest):
     def arpPing(self):
         for i in xrange(self.arp_ping_pkts):
             testutils.send_packet(self, self.arp_src_port, self.arp_ping)
-        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.arp_resp, [self.arp_src_port], timeout=self.TIMEOUT)
+        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.arp_resp, [self.arp_src_port], timeout=self.PKT_TOUT)
         self.log("Send %5d Received %5d arp ping" % (self.arp_ping_pkts, total_rcv_pkt_cnt), True)
         return total_rcv_pkt_cnt
