@@ -79,7 +79,5 @@ def test_testbed(testbed, conn_graph_facts, duthost, fanout_graph_facts,
     logger.info("wait for two seconds")
     time.sleep(2)
 
+    TgenApi.stop()
  
-
-    logger.info("I am blank!!")
-
