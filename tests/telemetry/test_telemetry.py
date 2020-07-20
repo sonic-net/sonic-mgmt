@@ -1,5 +1,8 @@
+import re
 import pytest
+
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -26,19 +29,12 @@ def get_list_stdout(cmd_out):
         out_list.append(result)
     return out_list
 
-def restart_telemetry(duthost):
-    """ Restart telemetry process
+def setup_telemetry_forpyclient(duthost):
+    """ Set client_auth=false. This is needed for pyclient to sucessfully set up channel with gnmi server.
+        Restart telemetry process
     """
-    duthost.shell('sudo config feature telemetry disabled', module_ignore_errors=False)['stdout_lines']
-    status_out = duthost.shell('show features | grep telemetry', module_ignore_errors=False)['stdout_lines']
-    status_value = get_list_stdout(status_out)
-    status_value_list = status_value[0].split()
-    status_value = status_value_list[1]
-    if str(status_value) == "disabled":
-        logger.info(' telemetry is disabled. enabling it back...')
-        duthost.shell('sudo config feature telemetry enabled', module_ignore_errors=False)['stdout_lines']
-        return True
-    return False
+    set_client_auth = duthost.shell('/usr/bin/redis-cli -n 4 hset "TELEMETRY|gnmi" "client_auth" "false"', module_ignore_errors=False)
+    duthost.service(name="telemetry", state="restarted")
 
 # Test functions
 def test_config_db_parameters(duthost):
@@ -52,9 +48,6 @@ def test_config_db_parameters(duthost):
 
     d = get_dict_stdout(gnmi, certs)
     for key, value in d.items():
-        if str(key) == "client_auth":
-            client_auth_expected = "true"
-            pytest_assert(str(value) == client_auth_expected, "'client_auth' value is not '{}'".format(client_auth_expected))
         if str(key) == "port":
             port_expected = "50051"
             pytest_assert(str(value) == port_expected, "'port' value is not '{}'".format(port_expected))
@@ -84,24 +77,16 @@ def test_telemetry_enabledbydefault(duthost):
 
 def test_telemetry_ouput(duthost, ptfhost):
     """Run pyclient from ptfdocker and show gnmi server outputself.
-       For pyclient to work client_auth need to be set to false.
     """
-    set_client_auth = duthost.shell('/usr/bin/redis-cli -n 4 hset "TELEMETRY|gnmi" "client_auth" "false"', module_ignore_errors=False)
-    logger.info('start telemetry testing')
-    # For server to take effect of client_auth=false, server needs to be restarted
-    restart_status = restart_telemetry(duthost)
-    if restart_status:
-        logger.info('telemetry process restarted. Now run pyclient on ptfdocker')
-        dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
-        # pyclient should be available on ptfhost. If not fail pytest.
-        file_exists = ptfhost.stat(path="~/gnxi/gnmi_cli_py/py_gnmicli.py")
-        pytest_assert(file_exists["stat"]["exists"] is True)
-        cmd = '~/gnxi/gnmi_cli_py/python py_gnmicli.py -g -t {0} -p 50051 -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB -o "ndastreamingservertest"'.format(dut_ip)
-        show_gnmi_out = ptfhost.shell(cmd)[stdout]
-        logger.info("gnmi server output \n {}".format(show_gnmi_out))
-    else:
-        logger.info('restart telemetry failed. Gnmi output is not verified')
-
-    # Reset config back to original for telemetry process
-    duthost.shell('/usr/bin/redis-cli -n 4 hset "TELEMETRY|gnmi" "client_auth" "true"', module_ignore_errors=False)
-    restart_telemetry(duthost)
+    logger.info('start telemetry output testing')
+    setup_telemetry_forpyclient(duthost)
+    # wait till telemetry is restarted
+    pytest_assert(wait_until(100, 10, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started")
+    logger.info('telemetry process restarted. Now run pyclient on ptfdocker')
+    dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
+    # pyclient should be available on ptfhost. If not fail pytest.
+    file_exists = ptfhost.stat(path="/gnxi/gnmi_cli_py/py_gnmicli.py")
+    pytest_assert(file_exists["stat"]["exists"] is True)
+    cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p 50051 -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB -o "ndastreamingservertest"'.format(dut_ip)
+    show_gnmi_out = ptfhost.shell(cmd)['stdout']
+    logger.info("gnmi server output \n {}".format(show_gnmi_out))
