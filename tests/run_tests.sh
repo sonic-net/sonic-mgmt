@@ -205,7 +205,7 @@ function run_individual_tests()
 
 setup_environment
 
-while getopts "h?c:d:e:f:i:k:l:m:n:op:rs:t:u:x" opt; do
+while getopts "h?c:d:e:f:i:k:l:m:n:op:rs:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -261,17 +261,19 @@ while getopts "h?c:d:e:f:i:k:l:m:n:op:rs:t:u:x" opt; do
     esac
 done
 
-validate_parameters
+if [[ x"${TEST_METHOD}" != x"debug" ]]; then
+    validate_parameters
+fi
 setup_test_options
 
-if [[ x"${BYPASS_UTIL}" == x"False" ]]; then
+if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
     prepare_dut
 fi
 
 RC=0
 run_${TEST_METHOD}_tests || RC=$?
 
-if [[ x"${BYPASS_UTIL}" == x"False" ]]; then
+if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
     cleanup_dut
 fi
 
