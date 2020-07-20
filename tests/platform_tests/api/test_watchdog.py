@@ -3,8 +3,8 @@ import time
 import logging
 import yaml
 import pytest
-from common.helpers.platform_api import watchdog
-from common.helpers.assertions import pytest_assert
+from tests.common.helpers.platform_api import watchdog
+from tests.common.helpers.assertions import pytest_assert
 from platform_api_test_base import PlatformApiTestBase
 
 pytestmark = [
