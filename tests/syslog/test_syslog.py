@@ -1,13 +1,17 @@
 import time
 import logging
 import pytest
-from common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 @pytest.fixture(scope="module")
 def config_syslog_srv(ptfhost):
-    logger.info( "Configuring the syslog srver")
+    logger.info( "Configuring the syslog server")
 
     # add the imudp configuration if not present
     ptfhost.shell('sed -ni \'/module/!p;$a module(load="imudp")\' /etc/rsyslog.conf')
@@ -47,7 +51,7 @@ def test_syslog(duthost, ptfhost, config_dut, config_syslog_srv):
 
     #Check syslog messages for the test message
     result = ptfhost.shell("grep {} /var/log/syslog | grep \"{}\" | grep -v ansible".format(duthost.hostname, test_message))['stdout_lines']
-    pytest_assert(result is not None, "Test syslog not seen on the server")
+    pytest_assert(len(result) > 0, "Test syslog not seen on the server")
 
 
     
