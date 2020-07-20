@@ -3,7 +3,7 @@
 
 ### 1. LGTM
 PRs should not introduce any new LGTM errors, with one notable exception:
-- `no-import` errors can be ignored **if you are importing a fixture.** In this case, you should do the following:
+- `unused-import` errors can be ignored **if you are importing a fixture.** In this case, you should do the following:
     ```
     from ptfhost_utils import copy_ptftests_directory  # lgtm[py/unused-import]
     ```
