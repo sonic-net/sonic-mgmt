@@ -42,7 +42,7 @@ class TestbedInfo(object):
     def __init__(self, testbed_file):
         self.testbed_filename = testbed_file
         self.testbed_topo = defaultdict()
-        CSV_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'server', 'vm_base', 'dut', 'comment')
+        CSV_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
 
         with open(self.testbed_filename) as f:
             topo = csv.DictReader(f, fieldnames=CSV_FIELDS, delimiter=',')
@@ -60,6 +60,11 @@ class TestbedInfo(object):
                     ptfaddress = ipaddress.IPNetwork(line['ptf_ip'])
                     line['ptf_ip'] = str(ptfaddress.ip)
                     line['ptf_netmask'] = str(ptfaddress.netmask)
+
+                if line['ptf_ipv6']:
+                    ptfaddress = ipaddress.IPNetwork(line['ptf_ipv6'])
+                    line['ptf_ipv6'] = str(ptfaddress.ip)
+                    line['ptf_netmask_v6'] = str(ptfaddress.netmask)
 
                 line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
                 del line['dut']

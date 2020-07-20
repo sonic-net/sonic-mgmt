@@ -51,6 +51,7 @@ Parameters:
     - vm_names: list of VMs represented on a current host
     - vm_base: which VM consider the first VM in the current vm set
     - ptf_mgmt_ip_addr: ip address with prefixlen for the injected docker container
+    - ptf_mgmt_ipv6_addr: ipv6 address with prefixlen for the injected docker container
     - ptf_mgmt_ip_gw: default gateway for the injected docker container
     - ptf_bp_ip_addr: ipv6 address with prefixlen for the injected docker container
     - ptf_bp_ipv6_addr: ipv6 address with prefixlen for the injected docker container
@@ -75,6 +76,7 @@ EXAMPLES = '''
     vm_names: "{{ VM_hosts }}"
     vm_base: "{{ VM_base }}"
     ptf_mgmt_ip_addr: "{{ ptf_ip }}"
+    ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
     ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
     ptf_bp_ip_addr: "{{ ptf_ip }}"
     ptf_bp_ipv6_addr: "{{ ptf_ip }}"
@@ -257,9 +259,9 @@ class VMTopology(object):
 
         return
 
-    def add_mgmt_port_to_docker(self, mgmt_bridge, mgmt_ip, mgmt_gw):
+    def add_mgmt_port_to_docker(self, mgmt_bridge, mgmt_ip, mgmt_gw, mgmt_ipv6_addr=None):
         self.add_br_if_to_docker(mgmt_bridge, PTF_MGMT_IF_TEMPLATE % self.vm_set_name, MGMT_PORT_NAME)
-        self.add_ip_to_docker_if(MGMT_PORT_NAME, mgmt_ip, mgmt_gw=mgmt_gw)
+        self.add_ip_to_docker_if(MGMT_PORT_NAME, mgmt_ip, mgmt_ipv6_addr=mgmt_ipv6_addr, mgmt_gw=mgmt_gw)
 
         return
 
@@ -730,6 +732,7 @@ def main():
             vm_names=dict(required=True, type='list'),
             vm_base=dict(required=False, type='str'),
             ptf_mgmt_ip_addr=dict(required=False, type='str'),
+            ptf_mgmt_ipv6_addr=dict(required=False, type='str'),
             ptf_mgmt_ip_gw=dict(required=False, type='str'),
             ptf_bp_ip_addr=dict(required=False, type='str'),
             ptf_bp_ipv6_addr=dict(required=False, type='str'),
@@ -768,6 +771,7 @@ def main():
             check_params(module, ['vm_set_name',
                                   'topo',
                                   'ptf_mgmt_ip_addr',
+                                  'ptf_mgmt_ipv6_addr',
                                   'ptf_mgmt_ip_gw',
                                   'ptf_bp_ip_addr',
                                   'ptf_bp_ipv6_addr',
@@ -794,10 +798,11 @@ def main():
                      is_multi_duts=is_multi_duts)
 
             ptf_mgmt_ip_addr = module.params['ptf_mgmt_ip_addr']
+            ptf_mgmt_ipv6_addr = module.params['ptf_mgmt_ipv6_addr']
             ptf_mgmt_ip_gw = module.params['ptf_mgmt_ip_gw']
             mgmt_bridge = module.params['mgmt_bridge']
 
-            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw)
+            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw, ptf_mgmt_ipv6_addr)
 
             ptf_bp_ip_addr = module.params['ptf_bp_ip_addr']
             ptf_bp_ipv6_addr = module.params['ptf_bp_ipv6_addr']
@@ -850,6 +855,7 @@ def main():
             check_params(module, ['vm_set_name',
                                   'topo',
                                   'ptf_mgmt_ip_addr',
+                                  'ptf_mgmt_ipv6_addr',
                                   'ptf_mgmt_ip_gw',
                                   'ptf_bp_ip_addr',
                                   'ptf_bp_ipv6_addr',
@@ -876,10 +882,11 @@ def main():
                      is_multi_duts)
 
             ptf_mgmt_ip_addr = module.params['ptf_mgmt_ip_addr']
+            ptf_mgmt_ipv6_addr = module.params['ptf_mgmt_ipv6_addr']
             ptf_mgmt_ip_gw = module.params['ptf_mgmt_ip_gw']
             mgmt_bridge = module.params['mgmt_bridge']
 
-            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw)
+            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw, ptf_mgmt_ipv6_addr)
 
             ptf_bp_ip_addr = module.params['ptf_bp_ip_addr']
             ptf_bp_ipv6_addr = module.params['ptf_bp_ipv6_addr']
