@@ -27,11 +27,11 @@ def setup_bgp_graceful_restart(duthost, nbrhosts):
     for k, nbr in nbrhosts.items():
         logger.info("enable graceful restart on neighbor {}".format(k))
         logger.info("bgp asn {}".format(nbr['conf']['bgp']['asn']))
-        res = nbr['host'].eos_config(lines=["graceful-restart restart-time 300"], \
+        nbr['host'].eos_config(lines=["graceful-restart restart-time 300"], \
                                parents=["router bgp {}".format(nbr['conf']['bgp']['asn'])])
-        res = nbr['host'].eos_config(lines=["graceful-restart"], \
+        nbr['host'].eos_config(lines=["graceful-restart"], \
                                parents=["router bgp {}".format(nbr['conf']['bgp']['asn']), "address-family ipv4"])
-        res = nbr['host'].eos_config(lines=["graceful-restart"], \
+        nbr['host'].eos_config(lines=["graceful-restart"], \
                                parents=["router bgp {}".format(nbr['conf']['bgp']['asn']), "address-family ipv6"])
 
     # change graceful restart option will clear the bgp session.
