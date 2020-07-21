@@ -12,7 +12,7 @@ from nat_helpers import nat_zones_config
 from nat_helpers import get_static_l4_ports
 from nat_helpers import nat_statistics
 from nat_helpers import nat_translations
-from common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert
 
 
 class TestStaticNat(object):

@@ -26,7 +26,7 @@ from nat_helpers import dut_interface_control
 from nat_helpers import dut_nat_iptables_status
 from nat_helpers import nat_zones_config
 import ptf.testutils as testutils
-from common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert
 
 
 class TestDynamicNat(object):
