@@ -8,7 +8,7 @@ pytestmark = [
     pytest.mark.topology('util')
 ]
 
-def test_prepare_dut(duthost, request):
+def test_cleanup_dut(duthost, request):
     deep_clean = request.config.getoption("--deep_clean")
     if deep_clean:
         logger.info("Deep cleaning DUT {}".format(duthost.hostname))
