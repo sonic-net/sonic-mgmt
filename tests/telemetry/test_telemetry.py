@@ -89,4 +89,5 @@ def test_telemetry_ouput(duthost, ptfhost):
     pytest_assert(file_exists["stat"]["exists"] is True)
     cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p 50051 -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB -o "ndastreamingservertest"'.format(dut_ip)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    logger.info("gnmi server output \n {}".format(show_gnmi_out))
+    logger.info("GNMI server output:")
+    logger.info(repr(show_gnmi_out))
