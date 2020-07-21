@@ -28,7 +28,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.loganalyzer',
                   'tests.common.plugins.psu_controller',
                   'tests.common.plugins.sanity_check',
-                  'tests.common.plugins.custom_markers')
+                  'tests.common.plugins.custom_markers',
+                  'tests.common.plugins.log_section_start')
 
 
 class TestbedInfo(object):
@@ -353,27 +354,6 @@ def creds(duthost):
             else:
                 logging.info("skip empty var file {}".format(f))
     return creds
-
-
-@pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_setup(item):
-    logger.info("="*20 + " {} setup ".format(item.nodeid) + "="*20)
-    yield
-    logger.info("="*20 + " {} setup done ".format(item.nodeid) + "="*20)
-
-
-@pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_call(item):
-    logger.info("="*20 + " {} call ".format(item.nodeid) + "="*20)
-    yield
-    logger.info("="*20 + " {} call done ".format(item.nodeid) + "="*20)
-
-
-@pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_teardown(item):
-    logger.info("="*20 + " {} teardown ".format(item.nodeid) + "="*20)
-    yield
-    logger.info("="*20 + " {} teardown done ".format(item.nodeid) + "="*20)
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
