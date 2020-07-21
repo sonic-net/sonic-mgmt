@@ -31,7 +31,8 @@ class AnsibleHostBase(object):
 
     def __init__(self, ansible_adhoc, hostname, connection=None, become_user=None):
         if hostname == 'localhost':
-            self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
+            self.host = ansible_adhoc(connection='smart', host_pattern=hostname)[hostname]
+            self.mgmt_ip = self.host.setup(gather_subset="!all,!min,network")[hostname]["ansible_facts"]["ansible_default_ipv4"]["address"]
         else:
             if connection is None:
                 if become_user is None:
@@ -44,6 +45,7 @@ class AnsibleHostBase(object):
                     self.host = ansible_adhoc(become=True, connection=connection)[hostname]
                 else:
                     self.host = ansible_adhoc(become=True, connection=connection, become_user=become_user)[hostname]
+            self.mgmt_ip = self.host.options["inventory_manager"].get_host(hostname).vars["ansible_host"]
         self.hostname = hostname
 
     def __getattr__(self, module_name):
@@ -136,7 +138,8 @@ class SonicHost(AnsibleHostBase):
                 "platform": "x86_64-arista_7050_qx32s",
                 "hwsku": "Arista-7050-QX-32S",
                 "asic_type": "broadcom",
-                "num_npu": 1
+                "num_npu": 1,
+                "router_mac": "52:54:00:f0:ac:9d"
             }
         """
 
@@ -201,6 +204,7 @@ class SonicHost(AnsibleHostBase):
         facts = dict()
         facts.update(self._get_platform_info())
         facts["num_npu"] = self._get_npu_count(facts["platform"])
+        facts["router_mac"] = self._get_router_mac()
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
@@ -222,6 +226,9 @@ class SonicHost(AnsibleHostBase):
             return int(num_npu)
         except:
             return 1
+
+    def _get_router_mac(self):
+        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode("utf-8")
 
     def _generate_critical_services_for_multi_npu(self, services):
         """
