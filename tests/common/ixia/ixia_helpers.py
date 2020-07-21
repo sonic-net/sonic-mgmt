@@ -10,10 +10,8 @@ This module also contains a definition of a simple helper class
 chassis instead of reading it from fanout_graph_facts fixture.
 """
 
-import re 
 from common.reboot import logger
 from ixnetwork_restpy import SessionAssistant, Files
-import pytest
 
 class IxiaFanoutManager () :
     """Class for managing multiple chassis and extracting the information 
@@ -26,10 +24,86 @@ class IxiaFanoutManager () :
         a integer index (starting from 0)
 
         Args:
-           fanout_data (dict): the dictionary returned by fanout_graph_fact
-
+           fanout_data (dict): the dictionary returned by fanout_graph_fact.
+           Example format of the fanout_data is given below
+       
+        {u'ixia-sonic': {
+            u'device_conn': {
+                u'Card9/Port1': {
+                    u'peerdevice': u'sonic-s6100-dut',
+                    u'peerport': u'Ethernet0',
+                    u'speed': u'100000'
+                },
+                u'Card9/Port2': {
+                    u'peerdevice': u'sonic-s6100-dut',
+                    u'peerport': u'Ethernet4',
+                    u'speed': u'100000'
+                },
+                u'Card9/Port3': {
+                    u'peerdevice': u'sonic-s6100-dut',
+                    u'peerport': u'Ethernet8',
+                    u'speed': u'100000'
+                },
+                'Card9/Port4': {
+                    u'peerdevice': u'sonic-s6100-dut',
+                    u'peerport': u'Ethernet12',
+                    u'speed': u'100000'
+                },
+                u'Card9/Port5': {
+                    u'peerdevice': u'sonic-s6100-dut',
+                    u'peerport': u'Ethernet16',
+                    u'speed': u'100000'
+                },
+                u'Card9/Port6': {
+                    u'peerdevice': u'sonic-s6100-dut',
+                    u'peerport': u'Ethernet20',
+                    u'speed': u'100000'
+                }
+            },
+            u'device_info': {
+                u'HwSku': u'IXIA-tester',
+                u'ManagementGw': u'10.36.78.54',
+                u'ManagementIp': u'10.36.78.53/32',
+                u'Type': u'DevIxiaChassis',
+                u'mgmtip': u'10.36.78.53'
+            },
+            u'device_port_vlans': {
+                u'Card9/Port1': {
+                    u'mode': u'Access',
+                    u'vlanids': u'300',
+                    u'vlanlist': [300]
+                },
+                u'Card9/Port2': {
+                    u'mode': u'Access',
+                    u'vlanids': u'301',
+                    u'vlanlist': [301]
+                },
+                u'Card9/Port3': {
+                    u'mode': u'Access',
+                    u'vlanids': u'302',
+                    u'vlanlist': [302]
+                },
+                u'Card9/Port4': {
+                    u'mode': u'Access',
+                    u'vlanids': u'300',
+                    u'vlanlist': [300]
+                },
+                u'Card9/Port5': {
+                    u'mode': u'Access',
+                    u'vlanids': u'301',
+                    u'vlanlist': [301]
+                },
+                u'Card9/Port6': {
+                    u'mode': u'Access',
+                    u'vlanids': u'302',
+                    u'vlanlist': [302]
+                }
+            },
+            u'device_vlan_list': [301, 302, 300, 302, 300, 301],
+            u'device_vlan_range': [u'300-302']
+            }
+        }
         """
- 
         self.last_fanout_assessed = None
         self.fanout_list = []
         self.last_device_connection_details = None
@@ -131,8 +205,8 @@ class IxiaFanoutManager () :
             Dictionary of chassis card port information.
         """
         retval = []
-        for ports in self.current_ixia_port_list:   
-            info_list = ports.split('/')
+        for port in self.current_ixia_port_list:   
+            info_list = port.split('/')
             dict_element = {
                 'ip': info_list[0],
                 'card_id': info_list[1].replace('Card', ''),
@@ -143,6 +217,19 @@ class IxiaFanoutManager () :
 
         return retval 
 
+
+def clean_configuration(session) :
+    """Clean up the configurations cteated in IxNetwork API server.
+        
+    Args:
+        session (IxNetwork Session object): IxNetwork session.    
+         
+    Returns:
+        None 
+    """
+    ixNetwork = session.Ixnetwork
+    ixNetwork.NewConfig()
+      
 
 def configure_ports(session, port_list, start_name='port') :
     """Configures ports of the IXIA chassis and returns the list 
@@ -223,14 +310,14 @@ def configure_ports(session, port_list, start_name='port') :
 
 
 def create_topology(
-    session, 
-    ports, 
-    name='Topology 1', 
-    ip_type='ipv4', 
-    ip_start='10.0.0.1', 
-    ip_incr_step='0.0.1.0', 
-    gw_start='10.0.0.2', 
-    gw_incr_step='0.0.1.0'):
+        session, 
+        ports, 
+        name='Topology 1', 
+        ip_type='ipv4', 
+        ip_start='10.0.0.1', 
+        ip_incr_step='0.0.0.1', 
+        gw_start='10.0.0.2', 
+        gw_incr_step='0.0.0.0'):
 
     """ This function creates a topology with ethernet and IP stack on 
     IxNetwork
@@ -357,17 +444,17 @@ def start_traffic(session):
 
 
 def create_ip_traffic_item_using_wizard_arguments (
-    session,
-    src_start_port,
-    src_port_count,
-    src_first_route_index,
-    src_route_count,
-    dst_start_port,
-    dst_port_count,
-    dst_first_route_index,
-    dst_route_count,
-    name='example_traffic',
-    traffic_type='ipv4') :
+        session,
+        src_start_port,
+        src_port_count,
+        src_first_route_index,
+        src_route_count,
+        dst_start_port,
+        dst_port_count,
+        dst_first_route_index,
+        dst_route_count,
+        name='example_traffic',
+        traffic_type='ipv4') :
 
     """
     This function creates a traffic item where source and destination ports 
@@ -385,19 +472,25 @@ def create_ip_traffic_item_using_wizard_arguments (
             starting from src_start_port number. Example, if the start port is 
             port2 and port2 to port5 is sending traffic then src_start_port = 2
             and src_port_count = 3.   
-        src_first_route_index (int): The first route address index.
+        src_first_route_index (int): The first route address index. Conceptually
+            assume the routes (source IP address) are organized as list. Choose 
+            the starting route index.
         src_route_count (int): Number of routes starting from the 
-            src_first_route_index.
+            src_first_route_index. So this together src_first_route_index will 
+            determine total number of sources.
         dst_start_port (int): The first destination port number.  
         dst_port_count (int): Number of ports involved in receiving the traffic
-            starting from dst_start_port number. Example, if rhe rx port is
+            starting from dst_start_port number. Example, if the rx port is
             port6 and port7 then dst_start_port = 6 and dst_port_count = 2
-        dst_first_route_index (int): The first destination IP index.
+        dst_first_route_index (int): The first destination IP index. Conceptually
+            assume the routes (destination IP address) organized as list. Choose
+            the starting destination route index.
         dst_route_count (int): Number of destination IPs starting from
-           dst_first_route_index.
+           dst_first_route_index. So this together with dst_first_route_index
+           will  determine the total number of destinations.
         name (str, optional): Name of the traffic item. Default name is
            'example_traffic'.
-        traffic_type (str, optional): Type of the ip source and destination
+        traffic_type (str, optional): Type of the IP source and destination
         (ipv4/ipv6). Default traffic_type is 'ipv4'.
 
     Returns:

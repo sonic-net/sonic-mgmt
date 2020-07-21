@@ -867,6 +867,8 @@ class IxiaHost (AnsibleHostBase):
             hostname (str): The Ixia fanout host-name
             device_type (str): The Ixia fanout device type.
         """ 
+        super().__init__()
+
         self.ansible_adhoc = ansible_adhoc
         self.os            = os
         self.hostname      = hostname
