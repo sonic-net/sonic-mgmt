@@ -38,6 +38,10 @@
     fail: msg="Define ptf ip variable with -e ptf_ip=something"
     when: ptf_ip is not defined
 
+  - name: Check that variable ptf_ipv6 is defined
+    fail: msg="Define ptf ipv6 variable with -e ptf_ipv6=something"
+    when: ptf_ipv6 is not defined
+
   - name: Check that variable topo is defined
     fail: msg="Define topo variable with -e topo=something"
     when: topo is not defined or topo not in topologies

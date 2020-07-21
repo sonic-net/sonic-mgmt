@@ -29,7 +29,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.psu_controller',
                   'tests.common.plugins.sanity_check',
                   'tests.common.plugins.custom_markers',
-                  'tests.common.plugins.test_completeness')
+                  'tests.common.plugins.test_completeness',
+                  'tests.common.plugins.log_section_start')
 
 
 class TestbedInfo(object):
@@ -43,7 +44,7 @@ class TestbedInfo(object):
     def __init__(self, testbed_file):
         self.testbed_filename = testbed_file
         self.testbed_topo = defaultdict()
-        CSV_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'server', 'vm_base', 'dut', 'comment')
+        CSV_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
 
         with open(self.testbed_filename) as f:
             topo = csv.DictReader(f, fieldnames=CSV_FIELDS, delimiter=',')
@@ -61,6 +62,11 @@ class TestbedInfo(object):
                     ptfaddress = ipaddress.IPNetwork(line['ptf_ip'])
                     line['ptf_ip'] = str(ptfaddress.ip)
                     line['ptf_netmask'] = str(ptfaddress.netmask)
+
+                if line['ptf_ipv6']:
+                    ptfaddress = ipaddress.IPNetwork(line['ptf_ipv6'])
+                    line['ptf_ipv6'] = str(ptfaddress.ip)
+                    line['ptf_netmask_v6'] = str(ptfaddress.netmask)
 
                 line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
                 del line['dut']
@@ -349,27 +355,6 @@ def creds(duthost):
             else:
                 logging.info("skip empty var file {}".format(f))
     return creds
-
-
-@pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_setup(item):
-    logger.info("="*20 + " {} setup ".format(item.nodeid) + "="*20)
-    yield
-    logger.info("="*20 + " {} setup done ".format(item.nodeid) + "="*20)
-
-
-@pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_call(item):
-    logger.info("="*20 + " {} call ".format(item.nodeid) + "="*20)
-    yield
-    logger.info("="*20 + " {} call done ".format(item.nodeid) + "="*20)
-
-
-@pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_teardown(item):
-    logger.info("="*20 + " {} teardown ".format(item.nodeid) + "="*20)
-    yield
-    logger.info("="*20 + " {} teardown done ".format(item.nodeid) + "="*20)
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)

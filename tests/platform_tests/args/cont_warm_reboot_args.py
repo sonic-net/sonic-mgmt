@@ -17,3 +17,11 @@ def add_cont_warm_reboot_args(parser):
         default=300,
         help="Delay period in seconds between subsequent reboots",
     )
+
+    parser.addoption(
+        "--enable_continuous_io",
+        action="store",
+        type=bool,
+        default=False,
+        help="Enable continuous IO",
+    )

@@ -31,7 +31,8 @@ class AnsibleHostBase(object):
 
     def __init__(self, ansible_adhoc, hostname, connection=None, become_user=None):
         if hostname == 'localhost':
-            self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
+            self.host = ansible_adhoc(connection='smart', host_pattern=hostname)[hostname]
+            self.mgmt_ip = self.host.setup(gather_subset="!all,!min,network")[hostname]["ansible_facts"]["ansible_default_ipv4"]["address"]
         else:
             if connection is None:
                 if become_user is None:
@@ -44,6 +45,7 @@ class AnsibleHostBase(object):
                     self.host = ansible_adhoc(become=True, connection=connection)[hostname]
                 else:
                     self.host = ansible_adhoc(become=True, connection=connection, become_user=become_user)[hostname]
+            self.mgmt_ip = self.host.options["inventory_manager"].get_host(hostname).vars["ansible_host"]
         self.hostname = hostname
 
     def __getattr__(self, module_name):
@@ -136,7 +138,8 @@ class SonicHost(AnsibleHostBase):
                 "platform": "x86_64-arista_7050_qx32s",
                 "hwsku": "Arista-7050-QX-32S",
                 "asic_type": "broadcom",
-                "num_npu": 1
+                "num_npu": 1,
+                "router_mac": "52:54:00:f0:ac:9d"
             }
         """
 
@@ -201,6 +204,7 @@ class SonicHost(AnsibleHostBase):
         facts = dict()
         facts.update(self._get_platform_info())
         facts["num_npu"] = self._get_npu_count(facts["platform"])
+        facts["router_mac"] = self._get_router_mac()
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
@@ -222,6 +226,9 @@ class SonicHost(AnsibleHostBase):
             return int(num_npu)
         except:
             return 1
+
+    def _get_router_mac(self):
+        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode("utf-8")
 
     def _generate_critical_services_for_multi_npu(self, services):
         """
@@ -337,7 +344,8 @@ class SonicHost(AnsibleHostBase):
         # get critical process list for the service
         output = self.command("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] && cat /etc/supervisor/critical_processes'".format(service), module_ignore_errors=True)
         for l in output['stdout'].split():
-            critical_process_list.append(l.rstrip())
+            # If ':' exists, the second field is got. Otherwise the only field is got.
+            critical_process_list.append(l.split(':')[-1].rstrip())
         if len(critical_process_list) == 0:
             return result
 
@@ -593,6 +601,25 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         logging.info("route parsed info for {}: {}".format(dstip, rtinfo))
 
         return rtinfo
+
+    def check_default_route(self, ipv4=True, ipv6=True):
+        """
+        @summary: return default route status
+
+        @param ipv4: check ipv4 default
+        @param ipv6: check ipv6 default
+        """
+        if ipv4:
+            rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_address(u'0.0.0.0'))
+            if len(rtinfo_v4['nexthops']) == 0:
+                return False
+
+        if ipv6:
+            rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_address(u'::'))
+            if len(rtinfo_v6['nexthops']) == 0:
+                return False
+
+        return True
 
     def get_bgp_neighbor_info(self, neighbor_ip):
         """

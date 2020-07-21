@@ -11,14 +11,6 @@ def skip_on_simx(duthost):
     if "simx" in platform:
         pytest.skip('skipped on this platform: {}'.format(platform))
 
-@pytest.fixture(autouse=True, scope="module")
-def continuous_reboot_count(request):
-    return request.config.getoption("--continuous_reboot_count")
-
-@pytest.fixture(autouse=True, scope="module")
-def continuous_reboot_delay(request):
-    return request.config.getoption("--continuous_reboot_delay")
-
 # Platform pytest arguments
 def pytest_addoption(parser):
 

@@ -51,6 +51,7 @@ Parameters:
     - vm_names: list of VMs represented on a current host
     - vm_base: which VM consider the first VM in the current vm set
     - ptf_mgmt_ip_addr: ip address with prefixlen for the injected docker container
+    - ptf_mgmt_ipv6_addr: ipv6 address with prefixlen for the injected docker container
     - ptf_mgmt_ip_gw: default gateway for the injected docker container
     - ptf_bp_ip_addr: ipv6 address with prefixlen for the injected docker container
     - ptf_bp_ipv6_addr: ipv6 address with prefixlen for the injected docker container
@@ -75,6 +76,7 @@ EXAMPLES = '''
     vm_names: "{{ VM_hosts }}"
     vm_base: "{{ VM_base }}"
     ptf_mgmt_ip_addr: "{{ ptf_ip }}"
+    ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
     ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
     ptf_bp_ip_addr: "{{ ptf_ip }}"
     ptf_bp_ipv6_addr: "{{ ptf_ip }}"
@@ -108,7 +110,27 @@ RETRIES = 3
 
 cmd_debug_fname = None
 
+
+class HostInterfaces(object):
+    """Data descriptor that supports multi-DUTs interface definition."""
+
+    def __get__(self, obj, objtype):
+        return obj._host_interfaces
+
+    def __set__(self, obj, host_interfaces):
+        """Parse and set host interfaces."""
+        if obj._is_multi_duts:
+            obj._host_interfaces = []
+            for intf in host_interfaces:
+                obj._host_interfaces.append(
+                    tuple(map(int, intf.strip().split("."))))
+        else:
+            obj._host_interfaces = host_interfaces
+
+
 class VMTopology(object):
+
+    host_interfaces = HostInterfaces()
 
     def __init__(self, vm_names, fp_mtu, max_fp_num):
         self.vm_names = vm_names
@@ -119,7 +141,8 @@ class VMTopology(object):
 
         return
 
-    def init(self, vm_set_name, topo, vm_base, dut_fp_ports, ptf_exists=True):
+    def init(self, vm_set_name, topo, vm_base, dut_fp_ports, ptf_exists=True,
+             is_multi_duts=False):
         self.vm_set_name = vm_set_name
         self.VMs = {}
         if 'VMs' in topo:
@@ -137,6 +160,7 @@ class VMTopology(object):
                 if len(attrs['vlans']) > len(self.get_bridges(vmname)):
                     raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d" % (hostname, vmname, len(self.get_bridges(vmname))))
 
+        self._is_multi_duts = is_multi_duts
         if 'host_interfaces' in topo:
             self.host_interfaces = topo['host_interfaces']
         else:
@@ -235,9 +259,9 @@ class VMTopology(object):
 
         return
 
-    def add_mgmt_port_to_docker(self, mgmt_bridge, mgmt_ip, mgmt_gw):
+    def add_mgmt_port_to_docker(self, mgmt_bridge, mgmt_ip, mgmt_gw, mgmt_ipv6_addr=None):
         self.add_br_if_to_docker(mgmt_bridge, PTF_MGMT_IF_TEMPLATE % self.vm_set_name, MGMT_PORT_NAME)
-        self.add_ip_to_docker_if(MGMT_PORT_NAME, mgmt_ip, mgmt_gw=mgmt_gw)
+        self.add_ip_to_docker_if(MGMT_PORT_NAME, mgmt_ip, mgmt_ipv6_addr=mgmt_ipv6_addr, mgmt_gw=mgmt_gw)
 
         return
 
@@ -470,16 +494,28 @@ class VMTopology(object):
     def inject_host_ports(self):
         """inject dut port into the ptf docker"""
         self.update()
-        for vlan in self.host_interfaces:
-            self.add_dut_if_to_docker(PTF_FP_IFACE_TEMPLATE % vlan, self.dut_fp_ports[vlan])
+        for i, intf in enumerate(self.host_interfaces):
+            if self._is_multi_duts:
+                fp_port = self.dut_fp_ports[intf[0]][intf[1]]
+                ptf_intf = PTF_FP_IFACE_TEMPLATE % i
+            else:
+                fp_port = self.dut_fp_ports[intf]
+                ptf_intf = PTF_FP_IFACE_TEMPLATE % intf
+            self.add_dut_if_to_docker(ptf_intf, fp_port)
 
         return
 
     def deject_host_ports(self):
         """deject dut port from the ptf docker"""
         self.update()
-        for vlan in self.host_interfaces:
-            self.remove_dut_if_from_docker(PTF_FP_IFACE_TEMPLATE % vlan, self.dut_fp_ports[vlan])
+        for i, intf in enumerate(self.host_interfaces):
+            if self._is_multi_duts:
+                fp_port = self.dut_fp_ports[intf[0]][intf[1]]
+                ptf_intf = PTF_FP_IFACE_TEMPLATE % i
+            else:
+                fp_port = self.dut_fp_ports[intf]
+                ptf_intf = PTF_FP_IFACE_TEMPLATE % intf
+            self.remove_dut_if_from_docker(ptf_intf, fp_port)
 
     @staticmethod
     def iface_up(iface_name, pid=None):
@@ -610,7 +646,13 @@ class VMTopology(object):
 
         return br_to_ifs, if_to_br
 
-def check_topo(topo):
+
+def check_topo(topo, is_multi_duts=False):
+
+    def _assert(condition, exctype, msg):
+        if not condition:
+            raise exctype(msg)
+
     hostif_exists = False
     vms_exists = False
     all_vlans = set()
@@ -618,43 +660,60 @@ def check_topo(topo):
     if 'host_interfaces' in topo:
         vlans = topo['host_interfaces']
 
-        if not isinstance(vlans, list):
-            raise Exception("topo['host_interfaces'] should be a list of integers")
+        _assert(isinstance(vlans, list), TypeError,
+                "topo['host_interfaces'] should be a list")
 
         for vlan in vlans:
-            if not isinstance(vlan, int) or vlan < 0:
-                raise Exception("topo['host_interfaces'] should be a list of integers")
-            if vlan in all_vlans:
-                raise Exception("topo['host_interfaces'] double use of vlan: %d" % vlan)
+            if is_multi_duts:
+                condition = (isinstance(vlan, str) and
+                             re.match(r"\d+.\d+", vlan))
+                _assert(condition, ValueError,
+                        "topo['host_interfaces'] should be a "
+                        "list of strings of format '<dut>.<vlan>'")
             else:
-                all_vlans.add(vlan)
+                condition = isinstance(vlan, int) and vlan >= 0
+                _assert(condition, ValueError,
+                        "topo['host_interfaces'] should be a "
+                        "list of positive integers")
+            _assert(vlan not in all_vlans, ValueError,
+                    "topo['host_interfaces'] double use of vlan: %s" % vlan)
+            all_vlans.add(vlan)
 
         hostif_exists = True
 
     if 'VMs' in topo:
         VMs = topo['VMs']
 
-        if not isinstance(VMs, dict):
-            raise Exception("topo['VMs'] should be a dictionary")
+        _assert(isinstance(VMs, dict), TypeError,
+                "topo['VMs'] should be a dictionary")
 
         for hostname, attrs in VMs.items():
-            if 'vlans' not in attrs or not isinstance(attrs['vlans'], list):
-                raise Exception("topo['VMs']['%s'] should contain 'vlans' with a list of vlans" % hostname)
+            _assert('vlans' in attrs and isinstance(attrs['vlans'], list),
+                    ValueError,
+                    "topo['VMs']['%s'] should contain "
+                    "'vlans' with a list of vlans" % hostname)
 
-            if 'vm_offset' not in attrs or not isinstance(attrs['vm_offset'], int):
-                raise Exception("topo['VMs']['%s'] should contain 'vm_offset' with a number" % hostname)
+            _assert(('vm_offset' in attrs and
+                     isinstance(attrs['vm_offset'], int)),
+                    ValueError,
+                    "topo['VMs']['%s'] should contain "
+                    "'vm_offset' with a number" % hostname)
 
             for vlan in attrs['vlans']:
-                if not isinstance(vlan, int) or vlan < 0:
-                    raise Exception("topo['VMs'][%s]['vlans'] should contain a list with integers" % hostname)
-                if vlan in all_vlans:
-                    raise Exception("topo['VMs'][%s]['vlans'] double use of vlan: %d" % (hostname, vlan))
-                else:
-                    all_vlans.add(vlan)
+                _assert(isinstance(vlan, int) and vlan >= 0,
+                        ValueError,
+                        "topo['VMs'][%s]['vlans'] should contain"
+                        " a list with integers" % hostname)
+                _assert(vlan not in all_vlans,
+                        ValueError,
+                        "topo['VMs'][%s]['vlans'] double use "
+                        "of vlan: %s" % (hostname, vlan))
+                all_vlans.add(vlan)
 
         vms_exists = True
 
     return hostif_exists, vms_exists
+
 
 def check_params(module, params, mode):
     for param in params:
@@ -662,6 +721,7 @@ def check_params(module, params, mode):
             raise Exception("Parameter %s is required in %s mode" % (param, mode))
 
     return
+
 
 def main():
     module = AnsibleModule(
@@ -672,6 +732,7 @@ def main():
             vm_names=dict(required=True, type='list'),
             vm_base=dict(required=False, type='str'),
             ptf_mgmt_ip_addr=dict(required=False, type='str'),
+            ptf_mgmt_ipv6_addr=dict(required=False, type='str'),
             ptf_mgmt_ip_gw=dict(required=False, type='str'),
             ptf_bp_ip_addr=dict(required=False, type='str'),
             ptf_bp_ipv6_addr=dict(required=False, type='str'),
@@ -680,6 +741,7 @@ def main():
             dut_mgmt_port=dict(required=False, type='str'),
             fp_mtu=dict(required=False, type='int', default=DEFAULT_MTU),
             max_fp_num=dict(required=False, type='int', default=NUM_FP_VLANS_PER_FP),
+            is_multi_duts=dict(required=False, type='bool', default=False),
         ),
         supports_check_mode=False)
 
@@ -709,6 +771,7 @@ def main():
             check_params(module, ['vm_set_name',
                                   'topo',
                                   'ptf_mgmt_ip_addr',
+                                  'ptf_mgmt_ipv6_addr',
                                   'ptf_mgmt_ip_gw',
                                   'ptf_bp_ip_addr',
                                   'ptf_bp_ipv6_addr',
@@ -718,11 +781,12 @@ def main():
             vm_set_name = module.params['vm_set_name']
             topo = module.params['topo']
             dut_fp_ports = module.params['dut_fp_ports']
+            is_multi_duts = module.params['is_multi_duts']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (VM_SET_NAME_MAX_LEN, vm_set_name, len(vm_set_name)))
 
-            hostif_exists, vms_exists = check_topo(topo)
+            hostif_exists, vms_exists = check_topo(topo, is_multi_duts)
 
             if vms_exists:
                 check_params(module, ['vm_base'], cmd)
@@ -730,13 +794,15 @@ def main():
             else:
                 vm_base = None
 
-            net.init(vm_set_name, topo, vm_base, dut_fp_ports)
+            net.init(vm_set_name, topo, vm_base, dut_fp_ports,
+                     is_multi_duts=is_multi_duts)
 
             ptf_mgmt_ip_addr = module.params['ptf_mgmt_ip_addr']
+            ptf_mgmt_ipv6_addr = module.params['ptf_mgmt_ipv6_addr']
             ptf_mgmt_ip_gw = module.params['ptf_mgmt_ip_gw']
             mgmt_bridge = module.params['mgmt_bridge']
 
-            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw)
+            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw, ptf_mgmt_ipv6_addr)
 
             ptf_bp_ip_addr = module.params['ptf_bp_ip_addr']
             ptf_bp_ipv6_addr = module.params['ptf_bp_ipv6_addr']
@@ -760,11 +826,12 @@ def main():
             vm_set_name = module.params['vm_set_name']
             topo = module.params['topo']
             dut_fp_ports = module.params['dut_fp_ports']
+            is_multi_duts = module.params['is_multi_duts']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (VM_SET_NAME_MAX_LEN, vm_set_name, len(vm_set_name)))
 
-            hostif_exists, vms_exists = check_topo(topo)
+            hostif_exists, vms_exists = check_topo(topo, is_multi_duts)
 
             if vms_exists:
                 check_params(module, ['vm_base'], cmd)
@@ -772,7 +839,8 @@ def main():
             else:
                 vm_base = None
 
-            net.init(vm_set_name, topo, vm_base, dut_fp_ports)
+            net.init(vm_set_name, topo, vm_base, dut_fp_ports,
+                     is_multi_duts=is_multi_duts)
 
             if module.params['dut_mgmt_port']:
                 net.unbind_mgmt_port(module.params['dut_mgmt_port'])
@@ -787,6 +855,7 @@ def main():
             check_params(module, ['vm_set_name',
                                   'topo',
                                   'ptf_mgmt_ip_addr',
+                                  'ptf_mgmt_ipv6_addr',
                                   'ptf_mgmt_ip_gw',
                                   'ptf_bp_ip_addr',
                                   'ptf_bp_ipv6_addr',
@@ -796,11 +865,12 @@ def main():
             vm_set_name = module.params['vm_set_name']
             topo = module.params['topo']
             dut_fp_ports = module.params['dut_fp_ports']
+            is_multi_duts = module.params['is_multi_duts']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (VM_SET_NAME_MAX_LEN, vm_set_name, len(vm_set_name)))
 
-            hostif_exists, vms_exists = check_topo(topo)
+            hostif_exists, vms_exists = check_topo(topo, is_multi_duts)
 
             if vms_exists:
                 check_params(module, ['vm_base'], cmd)
@@ -808,13 +878,15 @@ def main():
             else:
                 vm_base = None
 
-            net.init(vm_set_name, topo, vm_base, dut_fp_ports, True)
+            net.init(vm_set_name, topo, vm_base, dut_fp_ports, True,
+                     is_multi_duts)
 
             ptf_mgmt_ip_addr = module.params['ptf_mgmt_ip_addr']
+            ptf_mgmt_ipv6_addr = module.params['ptf_mgmt_ipv6_addr']
             ptf_mgmt_ip_gw = module.params['ptf_mgmt_ip_gw']
             mgmt_bridge = module.params['mgmt_bridge']
 
-            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw)
+            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw, ptf_mgmt_ipv6_addr)
 
             ptf_bp_ip_addr = module.params['ptf_bp_ip_addr']
             ptf_bp_ipv6_addr = module.params['ptf_bp_ipv6_addr']
@@ -833,11 +905,12 @@ def main():
             vm_set_name = module.params['vm_set_name']
             topo = module.params['topo']
             dut_fp_ports = module.params['dut_fp_ports']
+            is_multi_duts = module.params['is_multi_duts']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (VM_SET_NAME_MAX_LEN, vm_set_name, len(vm_set_name)))
 
-            hostif_exists, vms_exists = check_topo(topo)
+            hostif_exists, vms_exists = check_topo(topo, is_multi_duts)
 
             if vms_exists:
                 check_params(module, ['vm_base'], cmd)
@@ -845,7 +918,8 @@ def main():
             else:
                 vm_base = None
 
-            net.init(vm_set_name, topo, vm_base, dut_fp_ports)
+            net.init(vm_set_name, topo, vm_base, dut_fp_ports,
+                     is_multi_duts=is_multi_duts)
 
             if vms_exists:
                 if cmd == 'connect-vms':

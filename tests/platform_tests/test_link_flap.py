@@ -7,6 +7,7 @@ from tests.common.utilities import wait_until
 from tests.common.plugins.test_completeness import CompletenessLevel
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any'),
     pytest.mark.supported_completeness_level(CompletenessLevel.debug, CompletenessLevel.basic)
 ]

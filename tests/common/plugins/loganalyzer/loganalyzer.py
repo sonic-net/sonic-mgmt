@@ -180,8 +180,6 @@ class LogAnalyzer:
         marker = marker.replace(' ', '_')
         self.ansible_loganalyzer.run_id = marker
 
-        # Add end marker into DUT syslog
-        self._add_end_marker(marker)
         if not self.start_marker:
             start_string = 'start-LogAnalyzer-{}'.format(marker)
         else:
@@ -205,6 +203,9 @@ class LogAnalyzer:
                     continue
             else:
                 logging.error("Logrotate from previous task was not finished during 60 seconds")
+
+            # Add end marker into DUT syslog
+            self._add_end_marker(marker)
 
             # On DUT extract syslog files from /var/log/ and create one file by location - /tmp/syslog
             self.ansible_host.extract_log(directory='/var/log', file_prefix='syslog', start_string=start_string, target_filename=self.extracted_syslog)

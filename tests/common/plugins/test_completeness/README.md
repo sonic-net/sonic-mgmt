@@ -6,13 +6,13 @@ Each level is a representation of the scope of execution of a testcase. This doc
 - Use pytest command line option ```--test_completeness_level```
 - Identified meaningful levels - 
         
-        0. Debug
+        Debug
         
-        1. Basic
+        Basic
         
-        2. Confident
+        Confident
         
-        3. Thorough
+        Thorough
 - Mark the testcase with marker ```supported_completeness_level```
 - If module/session/testcase have different supported levels of completeness, the inner most level will supersede any defined level.
   For eg., if the module and testcase have supported levels "debug, basic, thorough" and "confident" respectively, the resultant defined level for this testcase will be "confident".
