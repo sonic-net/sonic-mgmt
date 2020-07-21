@@ -95,6 +95,7 @@ def common_setup_teardown(duthost, ptfhost, localhost):
     ptfhost.shell("ifconfig eth%d %s" % (vlan_ports[2], vlan_ips[2]))
 
     ptfhost.shell("ip route flush %s/%d" % (lo_addr, lo_addr_prefixlen))
+    ptfhost.shell("ip route add %s/%d via %s" % (lo_addr, lo_addr_prefixlen, vlan_addr))
 
     logging.info("Start exabgp on ptf")
     for i in range(0, 3):
