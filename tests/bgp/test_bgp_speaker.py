@@ -146,6 +146,7 @@ def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthost, ptfhost, colle
         "Not all bgp sessions are established"
     assert str(speaker_ips[2].ip) in bgp_facts["bgp_neighbors"], "No bgp session with PTF"
 
+
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 1514)])
 def test_bgp_speaker_announce_routes(common_setup_teardown, testbed, duthost, ptfhost, ipv4, ipv6, mtu, collect_techsupport):
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
@@ -248,8 +249,6 @@ def common_setup_teardown_v6(duthost, ptfhost, localhost):
     for i in [0, 1, 2]:
         ptfhost.shell("ip -6 addr add %s dev eth%d:%d" % (nexthops_ipv6[i], vlan_ports[0], i))
         ptfhost.shell("ip    addr add %s dev eth%d:%d" % (speaker_ips[i], vlan_ports[0], i))
-
-    vlan_ipv4_addrs = generate_ips(3, mg_facts['minigraph_bgp_peers_with_range'][0]['ip_range'][0], [])
 
     # Generate ipv4 vlan ips
     vlan_ipv4_entry = mg_facts['minigraph_vlan_interfaces'][0]
