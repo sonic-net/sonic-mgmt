@@ -80,7 +80,6 @@ def common_setup_teardown(duthost, ptfhost, localhost):
     lo_addr_prefixlen = int(mg_facts['minigraph_lo_interfaces'][0]['prefixlen'])
 
     vlan_addr = mg_facts['minigraph_vlan_interfaces'][0]['addr']
-    logging.info("Vlan addr = %s" % vlan_addr)
 
     vlan_ports = []
     for i in range(0, 3):
@@ -96,8 +95,6 @@ def common_setup_teardown(duthost, ptfhost, localhost):
     ptfhost.shell("ifconfig eth%d %s" % (vlan_ports[2], vlan_ips[2]))
 
     ptfhost.shell("ip route flush %s/%d" % (lo_addr, lo_addr_prefixlen))
-    logging.info("Vlan addr = %s" % vlan_addr)
-#    ptfhost.shell("ip route add %s/%d via %s" % (lo_addr, lo_addr_prefixlen, vlan_addr))
 
     logging.info("Start exabgp on ptf")
     for i in range(0, 3):
