@@ -120,6 +120,12 @@ def pytest_addoption(parser):
     parser.addoption("--allow_recover", action="store_true", default=False,
                      help="Allow recovery attempt in sanity check in case of failure")
 
+    ########################
+    #   pre-test options   #
+    ########################
+    parser.addoption("--deep_clean", action="store_true", default=False,
+                     help="Deep clean DUT before tests (remove old logs, cores, dumps)")
+
 
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
