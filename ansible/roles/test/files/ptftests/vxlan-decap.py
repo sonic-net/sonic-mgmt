@@ -1,4 +1,4 @@
-# ptf -t "config_file='/tmp/vxlan_decap.json';vxlan_enabled=True" --platform-dir ptftests --test-dir ptftests --platform remote vxlan-decap
+# ptf -t "config_file='/tmp/vxlan_decap.json';vxlan_enabled=True;dut_host=10.0.0.1;sonic_admin_user=admin;sonic_admin_password=admin" --platform-dir ptftests --test-dir ptftests --platform remote vxlan-decap
 
 # The test checks vxlan decapsulation for the dataplane.
 # The test runs three tests for each vlan on the DUT:
@@ -6,10 +6,13 @@
 # 2. 'RegularLAGtoVLAN' : Sends regular packets to PortChannel interfaces and expects to see the packets on the corresponding vlan interface.
 # 3. 'RegularVLANtoLAG' : Sends regular packets to Vlan member interfaces and expects to see the packets on the one of PortChannel interfaces.
 #
-# The test has two parameters:
+# The test has 6 parameters:
 # 1. 'config_file' is a filename of a file which contains all necessary information to run the test. The file is populated by ansible. This parameter is mandatory.
 # 2. 'vxlan_enabled' is a boolean parameter. When the parameter is true the test will fail if vxlan test failing. When the parameter is false the test will not fail. By default this parameter is false.
 # 3. 'count' is an integer parameter. It defines how many packets are sent for each combination of ingress/egress interfaces. By default the parameter equal to 1
+# 4. 'dut_host' is the ip address of dut.
+# 5. 'sonic_admin_user': User name to login dut
+# 6. 'sonic_admin_password': Password for sonic_admin_user to login dut
 
 import sys
 import os.path
@@ -30,6 +33,8 @@ import socket
 import struct
 from pprint import pprint
 from pprint import pformat
+from device_connection import DeviceConnection
+import re
 
 def count_matched_packets_helper(test, exp_packet, exp_packet_number, port, device_number=0, timeout=1):
     """
@@ -154,8 +159,19 @@ class Vxlan(BaseTest):
 
         if 'config_file' not in self.test_params:
             raise Exception("required parameter 'config_file' is not present")
-
         config = self.test_params['config_file']
+
+        if 'dut_host' not in self.test_params:
+            raise Exception("required parameter 'dut_host' is not present")
+        self.dut_host = self.test_params['dut_host']
+
+        if 'sonic_admin_user' not in self.test_params:
+            raise Exception("required parameter 'sonic_admin_user' is not present")
+        self.sonic_admin_user = self.test_params['sonic_admin_user']
+
+        if 'sonic_admin_password' not in self.test_params:
+            raise Exception("required parameter 'sonic_admin_password' is not present")
+        self.sonic_admin_password = self.test_params['sonic_admin_password']
 
         if not os.path.isfile(config):
             raise Exception("the config file %s doesn't exist" % config)
@@ -184,6 +200,7 @@ class Vxlan(BaseTest):
         for name, data in graph['minigraph_vlans'].items():
             test = {}
             test['name'] = name
+            test['intf_alias'] = data['members']
             test['acc_ports'] = [graph['minigraph_port_indices'][member] for member in data['members']]
             vlan_id = int(name.replace('Vlan', ''))
             test['vni'] = vni_base + vlan_id
@@ -224,8 +241,59 @@ class Vxlan(BaseTest):
         #Wait a short time for asp_reponder to be ready
         time.sleep(10)
         self.dataplane.flush()
+        self.dut_connection = DeviceConnection(
+            self.dut_host,
+            self.sonic_admin_user,
+            password=self.sonic_admin_password
+        )
 
         return
+
+    def check_arp_table_on_dut(self, test):
+        COMMAND = 'show arp'
+        stdout, stderr, return_code = self.dut_connection.execCommand(COMMAND)
+        for idx, port in enumerate(test['acc_ports']):
+            intf_alias = test['intf_alias'][idx]
+            ip_prefix = test['vlan_ip_prefixes'][port]
+            match = False
+            for line in stdout:
+                match = re.match(r"{}.*{}.*".format(ip_prefix, intf_alias), line, re.IGNORECASE)
+                if match:
+                    break
+            if not match:
+                return False
+        return True
+
+    def check_fdb_on_dut(self, test):
+        COMMAND = 'fdbshow'
+        stdout, stderr, return_code = self.dut_connection.execCommand(COMMAND)
+        for idx, port in enumerate(test['acc_ports']):
+            mac_addr = self.ptf_mac_addrs['eth%d' % port]
+            intf_alias = test['intf_alias'][idx]
+            match = False
+            for line in stdout:
+                match = re.match(r".*{}.*{}.*".format(mac_addr, intf_alias), line, re.IGNORECASE)
+                if match:
+                    break
+            if not match:
+                return False
+        return True
+
+    def wait_dut(self, test, timeout):
+        t = 0
+        while t < timeout:
+            if self.check_fdb_on_dut(test):
+                break;
+            t += 1
+        if t >= timeout:
+            return False
+        while t < timeout:
+            if self.check_arp_table_on_dut(test):
+                break;
+            t += 1
+        if t >= timeout:
+            return False
+        return True
 
     def tearDown(self):
         self.cmd(["supervisorctl", "stop", "arp_responder"])
@@ -236,11 +304,13 @@ class Vxlan(BaseTest):
         err = ''
         trace = ''
         ret = 0
+        TIMEOUT = 60
         try:
             for test in self.tests:
                 self.RegularLAGtoVLAN(test, True)
                 #wait sometime for DUT to build FDB and ARP table
-                time.sleep(60)
+                res = self.wait_dut(test, TIMEOUT)
+                self.assertTrue(res, "DUT is not ready after {} seconds".format(TIMEOUT))
 
         except Exception as e:
             err = str(e)
