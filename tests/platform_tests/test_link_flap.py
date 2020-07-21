@@ -4,9 +4,11 @@ import pytest
 
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.utilities import wait_until
+from tests.common.plugins.test_completeness import CompletenessLevel
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.supported_completeness_level(CompletenessLevel.debug, CompletenessLevel.basic)
 ]
 
 class TestLinkFlap:
@@ -29,7 +31,7 @@ class TestLinkFlap:
     def __toggle_one_link(self, dut, dut_port, fanout, fanout_port):
         logging.info("Testing link flap on {}".format(dut_port))
 
-        assert self.__check_if_status(dut, dut_port, 'up', verbose=True), "Fail: dut port {}: link operational down".format(status)
+        assert self.__check_if_status(dut, dut_port, 'up', verbose=True), "Fail: dut port {}: link operational down".format(dut_port)
 
         logging.info("Shutting down fanout switch {} port {} connecting to {}".format(fanout.hostname, fanout_port, dut_port))
         self.ports_shutdown_by_test.add((fanout, fanout_port))
@@ -61,24 +63,37 @@ class TestLinkFlap:
         return candidates
 
 
-    def run_link_flap_test(self, dut, fanouthosts):
+    def run_link_flap_test(self, request, dut, fanouthosts):
         self.ports_shutdown_by_test = set()
 
         candidates = self.__build_test_candidates(dut, fanouthosts)
         if not candidates:
             pytest.skip("Didn't find any port that is admin up and present in the connection graph")
 
-        try:
-            for dut_port, fanout, fanout_port in candidates:
-                self.__toggle_one_link(dut, dut_port, fanout, fanout_port)
-        finally:
-            logging.info("Restoring fanout switch ports that were shut down by test")
-            for fanout, fanout_port in self.ports_shutdown_by_test:
-                logging.debug("Restoring fanout switch {} port {} shut down by test".format(fanout.hostname, fanout_port))
-                fanout.no_shutdown(fanout_port)
+        normalized_level = [mark.args for mark in request.node.iter_markers(name="completeness_level")][0]
+        logging.info("Completeness level set: {}".format(str(normalized_level)))
 
+        if CompletenessLevel.debug in normalized_level:
+            # Run the test for one port only - to test the test works fine
+            try:
+                dut_port, fanout, fanout_port = candidates[0]
+                self.__toggle_one_link(dut, dut_port, fanout, fanout_port)
+            finally:
+                logging.info("Restoring fanout switch ports that were shut down by test")
+                for fanout, fanout_port in self.ports_shutdown_by_test:
+                    logging.debug("Restoring fanout switch {} port {} shut down by test".format(fanout.hostname, fanout_port))
+                    fanout.no_shutdown(fanout_port)
+        else: # Run the test on all ports
+            try:
+                for dut_port, fanout, fanout_port in candidates:
+                    self.__toggle_one_link(dut, dut_port, fanout, fanout_port)
+            finally:
+                logging.info("Restoring fanout switch ports that were shut down by test")
+                for fanout, fanout_port in self.ports_shutdown_by_test:
+                    logging.debug("Restoring fanout switch {} port {} shut down by test".format(fanout.hostname, fanout_port))
+                    fanout.no_shutdown(fanout_port)
 
 @pytest.mark.platform('physical')
-def test_link_flap(duthost, fanouthosts):
+def test_link_flap(request, duthost, fanouthosts):
     tlf = TestLinkFlap()
-    tlf.run_link_flap_test(duthost, fanouthosts)
+    tlf.run_link_flap_test(request, duthost, fanouthosts)
