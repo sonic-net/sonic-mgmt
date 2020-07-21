@@ -21,17 +21,15 @@ def generate_ips(num, prefix, exclude_ips):
     prefix = IPNetwork(prefix)
     exclude_ips.append(prefix.broadcast)
     exclude_ips.append(prefix.network)
-    available_ips = list(prefix)
-
-    if len(available_ips) - len(exclude_ips)< num:
-        raise Exception("Not enough available IPs")
 
     generated_ips = []
-    for available_ip in available_ips:
+    for available_ip in prefix:
         if available_ip not in exclude_ips:
             generated_ips.append(IPNetwork(str(available_ip) + '/' + str(prefix.prefixlen)))
         if len(generated_ips) == num:
             break
+    else:
+        raise Exception("Not enough available IPs")
 
     return generated_ips
 
@@ -56,7 +54,11 @@ def common_setup_teardown(duthost, ptfhost, localhost):
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     interface_facts = duthost.interface_facts()['ansible_facts']
 
-    res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
+    check = duthost.shell("test -e /etc/sonic/constants.yml || echo 'not present'")
+    if check['stdout'] == 'not present':
+        res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/deployment_id_asn_map.yml -v \"deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
+    else:
+        res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
     bgp_speaker_asn = res['stdout']
 
     vlan_ips = generate_ips(3, "%s/%s" % (mg_facts['minigraph_vlan_interfaces'][0]['addr'],
@@ -78,6 +80,7 @@ def common_setup_teardown(duthost, ptfhost, localhost):
     lo_addr_prefixlen = int(mg_facts['minigraph_lo_interfaces'][0]['prefixlen'])
 
     vlan_addr = mg_facts['minigraph_vlan_interfaces'][0]['addr']
+    logging.info("Vlan addr = %s" % vlan_addr)
 
     vlan_ports = []
     for i in range(0, 3):
@@ -93,7 +96,8 @@ def common_setup_teardown(duthost, ptfhost, localhost):
     ptfhost.shell("ifconfig eth%d %s" % (vlan_ports[2], vlan_ips[2]))
 
     ptfhost.shell("ip route flush %s/%d" % (lo_addr, lo_addr_prefixlen))
-    ptfhost.shell("ip route add %s/%d via %s" % (lo_addr, lo_addr_prefixlen, vlan_addr))
+    logging.info("Vlan addr = %s" % vlan_addr)
+#    ptfhost.shell("ip route add %s/%d via %s" % (lo_addr, lo_addr_prefixlen, vlan_addr))
 
     logging.info("Start exabgp on ptf")
     for i in range(0, 3):
@@ -143,7 +147,6 @@ def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthost, ptfhost, colle
     assert all([v["state"] == "established" for _, v in bgp_facts["bgp_neighbors"].items()]), \
         "Not all bgp sessions are established"
     assert str(speaker_ips[2].ip) in bgp_facts["bgp_neighbors"], "No bgp session with PTF"
-
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 1514)])
 def test_bgp_speaker_announce_routes(common_setup_teardown, testbed, duthost, ptfhost, ipv4, ipv6, mtu, collect_techsupport):
@@ -202,3 +205,181 @@ def test_bgp_speaker_announce_routes(common_setup_teardown, testbed, duthost, pt
                         "testbed_mtu": mtu },
                 log_file="/tmp/bgp_speaker_test.FibTest.log",
                 socket_recv_size=16384)
+
+
+@pytest.fixture(scope="module")
+def common_setup_teardown_v6(duthost, ptfhost, localhost):
+
+    logging.info("########### Setup for bgp speaker testing ###########")
+
+    ptfhost.script("./scripts/remove_ip.sh")
+
+    ptfip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
+    logging.info("ptfip=%s" % ptfip)
+
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    interface_facts = duthost.interface_facts()['ansible_facts']
+    # Generate ipv6 nexthops
+    vlan_ipv6_entry = mg_facts['minigraph_vlan_interfaces'][1]
+    vlan_ipv6_prefix = "%s/%s" % (vlan_ipv6_entry["addr"], vlan_ipv6_entry["prefixlen"])
+    vlan_ipv6_address = vlan_ipv6_entry["addr"]
+    vlan_if_name = vlan_ipv6_entry['attachto']
+    nexthops_ipv6 = generate_ips(3, vlan_ipv6_prefix, [IPAddress(vlan_ipv6_address)])
+    logging.info("Generated nexthops_ipv6: %s" % str(nexthops_ipv6))
+
+    # Set ipv6 nexthop addresses on the ptf interfaces
+    for nh in nexthops_ipv6:
+        duthost.command("ip -6 route flush %s/64" % nh.ip)
+        duthost.command("ip -6 route add %s/64 dev %s" % (nh.ip, vlan_if_name))
+
+    # Generate ips for bgp dynamic peers
+    speaker_ips = generate_ips(3, mg_facts['minigraph_bgp_peers_with_range'][0]['ip_range'][0], [])
+    logging.info("speaker_ips: %s" % str(speaker_ips))
+
+    lo_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
+    lo_addr_prefixlen = int(mg_facts['minigraph_lo_interfaces'][0]['prefixlen'])
+
+    vlan_ipv4_addr = mg_facts['minigraph_vlan_interfaces'][0]['addr']
+
+    vlan_ports = []
+    for i in [0, 1, 2]:
+        vlan_ports.append(mg_facts['minigraph_port_indices'][mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][0]['attachto']]['members'][i]])
+    logging.info("vlan_ports: %s" % str(vlan_ports))
+
+    logging.info("setup ip/routes in ptf")
+    for i in [0, 1, 2]:
+        ptfhost.shell("ip -6 addr add %s dev eth%d:%d" % (nexthops_ipv6[i], vlan_ports[0], i))
+        ptfhost.shell("ip    addr add %s dev eth%d:%d" % (speaker_ips[i], vlan_ports[0], i))
+
+    vlan_ipv4_addrs = generate_ips(3, mg_facts['minigraph_bgp_peers_with_range'][0]['ip_range'][0], [])
+
+    # Generate ipv4 vlan ips
+    vlan_ipv4_entry = mg_facts['minigraph_vlan_interfaces'][0]
+    vlan_ipv4_prefix = "%s/%s" % (vlan_ipv4_entry["addr"], vlan_ipv4_entry["prefixlen"])
+    vlan_ipv4_address = vlan_ipv4_entry["addr"]
+    vlan_ipv4s = generate_ips(3, vlan_ipv4_prefix, [IPAddress(vlan_ipv4_address)])
+    logging.info("Generated vlan_ipv4: %s" % str(vlan_ipv4s))
+
+    ptfhost.shell("ip addr add %s dev eth%d:%d" % (vlan_ipv4s[0], vlan_ports[1], 0))
+    ptfhost.shell("ip route flush %s/%d" % (lo_addr, lo_addr_prefixlen))
+    ptfhost.shell("ip route add %s/%d via %s" % (lo_addr, lo_addr_prefixlen, vlan_ipv4_addr))
+
+    for i in [0, 1, 2]:
+        duthost.shell('ip route flush %s/32' % speaker_ips[i].ip)
+        duthost.shell("ip route add %s/32 via %s" % (speaker_ips[i].ip, vlan_ipv4s[0].ip))
+
+    port_num = [7000, 8000, 9000]
+
+    check = duthost.shell("test -e /etc/sonic/constants.yml || echo 'not present'")
+    if check['stdout'] == 'not present':
+        res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/deployment_id_asn_map.yml -v \"deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
+    else:
+        res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
+    bgp_speaker_asn = res['stdout']
+
+    logging.info("Start exabgp on ptf")
+    for i in [0, 1, 2]:
+        local_ip = str(speaker_ips[i].ip)
+        logging.info("local_ip=%s" % local_ip)
+        logging.info("router_id=%s" % local_ip)
+        logging.info("peer_ip=%s" % lo_addr)
+        logging.info("local_asn=%s" % bgp_speaker_asn)
+        logging.info("peer_asn=%s" % mg_facts['minigraph_bgp_asn'])
+        logging.info("port=%s" % str(port_num[i]))
+        logging.info("------------")
+        ptfhost.exabgp(name="bgps%d" % i,
+                       state="started",
+                       local_ip=local_ip,
+                       router_id=local_ip,
+                       peer_ip=lo_addr,
+                       local_asn=bgp_speaker_asn,
+                       peer_asn=mg_facts['minigraph_bgp_asn'],
+                       port=str(port_num[i]))
+
+    # check exabgp http_api port is ready
+    http_ready = True
+    for i in [0, 1, 2]:
+        http_ready = wait_tcp_connection(localhost, ptfip, port_num[i])
+        if not http_ready:
+            break
+
+    # ping
+    ptfhost.shell("ping -c 3 -S %s %s" % (speaker_ips[0].ip, lo_addr))
+
+    logging.info("########### Done setup for bgp speaker testing ###########")
+
+    yield ptfip, mg_facts, interface_facts, lo_addr, vlan_if_name, nexthops_ipv6, speaker_ips, port_num, http_ready
+
+    logging.info("########### Teardown for bgp speaker testing ###########")
+
+    for i in [0, 1, 2]:
+        ptfhost.exabgp(name="bgps%d" % i, state="absent")
+
+    logging.info("exabgp stopped")
+
+    for nh in nexthops_ipv6:
+        duthost.command("ip -6 route flush %s/64" % nh.ip)
+
+    logging.info("Flushed ipv6 nexthop routes from dut")
+
+    for i in [0, 1, 2]:
+        duthost.shell("ip route del %s/32 via %s" % (speaker_ips[i].ip, vlan_ipv4s[0].ip))
+
+    logging.info("Removed ipv4 speaker routes from dut")
+
+    ptfhost.script("./scripts/remove_ip.sh")
+
+    logging.info("########### Done teardown for bgp speaker testing ###########")
+
+
+@pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(False, True, 1514)])
+def test_bgp_speaker_announce_routes_ipv6(common_setup_teardown_v6, testbed, duthost, ptfhost, ipv4, ipv6, mtu, collect_techsupport):
+    """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
+
+    """
+    ptfip, mg_facts, interface_facts, lo_addr, vlan_if_name, nexthops_ipv6, speaker_ips, port_num, http_ready = common_setup_teardown_v6
+    assert http_ready
+
+    logging.info("Announce ipv6 prefixes over ipv4 bgp sessions")
+    for i, nexthop in enumerate(nexthops_ipv6):
+        prefix = 'fc00:1%d::/64' % i
+        logging.info("announce route: prefix: %s nexthops: %s" % (prefix, str(nexthop.ip)))
+        announce_route(ptfip, lo_addr, prefix, nexthop.ip, port_num[i])
+
+    logging.info("Wait some time to make sure routes announced to dynamic bgp neighbors")
+    time.sleep(30)
+
+    logging.info("Verify nexthops and nexthop interfaces for accepted prefixes of the dynamic neighbors")
+    for i, nexthop in enumerate(nexthops_ipv6):
+        prefix = 'fc00:1%d::/64' % i
+        cmd = "ip -6 route get %s" % prefix
+        output = duthost.shell(cmd)
+        res = output["stdout"].split("\n")
+        assert " via %s dev %s " % (nexthop.ip, vlan_if_name) in res[0]
+
+    logging.info("Generate route-port map information")
+    extra_vars = {'announce_prefix': 'fc00:10::/64',
+                  'minigraph_portchannels': mg_facts['minigraph_portchannels'],
+                  'minigraph_vlans': mg_facts['minigraph_vlans'],
+                  'minigraph_port_indices': mg_facts['minigraph_port_indices']}
+    ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    logging.info("extra_vars: %s" % str(ptfhost.host.options['variable_manager'].extra_vars))
+
+    ptfhost.template(src="bgp_speaker/bgp_speaker_route.j2", dest="/root/bgp_speaker_route.txt")
+
+    logging.info("run ptf test")
+
+    ptf_runner(ptfhost,
+                "ptftests",
+                "fib_test.FibTest",
+                platform_dir="ptftests",
+                params={"testbed_type": testbed['topo']['name'],
+                        "router_mac": interface_facts['ansible_interface_facts']['Ethernet0']['macaddress'],
+                        "fib_info": "/root/bgp_speaker_route.txt",
+                        "ipv4": ipv4,
+                        "ipv6": ipv6,
+                        "testbed_mtu": mtu },
+                log_file="/tmp/bgp_speaker_test.FibTest.log",
+                socket_recv_size=16384)
+
+    logging.info("Nexthop tests are done")
