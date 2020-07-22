@@ -213,19 +213,23 @@ class SonicHost(AnsibleHostBase):
         """
         Gets the number of npus for this device.
         """
-
+        num_npu = 1
         asic_conf_file_path = os.path.join("/usr/share/sonic/device", platform, "asic.conf")
         try:
             output = self.shell("cat {}".format(asic_conf_file_path))["stdout_lines"]
             logging.debug(output)
 
             for line in output:
-                num_npu = line.split("=", 1)[1].strip()
+                key, value = line.split("=")
+                if key.strip().upper() == "NUM_ASIC":
+                    num_npu = value.strip()
+                    break
 
             logging.debug("num_npu = %s" % num_npu)
+
             return int(num_npu)
         except:
-            return 1
+            return int(num_npu)
 
     def _get_router_mac(self):
         return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode("utf-8")
@@ -241,8 +245,8 @@ class SonicHost(AnsibleHostBase):
 
         m_service = []
         for service in services:
-            for npu in self.facts["num_npu"]:
-                npu_service = service + npu
+            for npu in range(self.facts["num_npu"]):
+                npu_service = service + str(npu)
                 m_service.insert(npu, npu_service)
         return m_service
 
