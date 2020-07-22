@@ -255,12 +255,10 @@ class Vxlan(BaseTest):
         for idx, port in enumerate(test['acc_ports']):
             intf_alias = test['intf_alias'][idx]
             ip_prefix = test['vlan_ip_prefixes'][port]
-            match = False
             for line in stdout:
-                match = re.match(r"{}.*{}.*".format(ip_prefix, intf_alias), line, re.IGNORECASE)
-                if match:
+                if re.match(r"{}.*{}.*".format(ip_prefix, intf_alias), line, re.IGNORECASE):
                     break
-            if not match:
+            else:
                 return False
         return True
 
@@ -270,12 +268,10 @@ class Vxlan(BaseTest):
         for idx, port in enumerate(test['acc_ports']):
             mac_addr = self.ptf_mac_addrs['eth%d' % port]
             intf_alias = test['intf_alias'][idx]
-            match = False
             for line in stdout:
-                match = re.match(r".*{}.*{}.*".format(mac_addr, intf_alias), line, re.IGNORECASE)
-                if match:
+                if re.match(r".*{}.*{}.*".format(mac_addr, intf_alias), line, re.IGNORECASE):
                     break
-            if not match:
+            else:
                 return False
         return True
 
