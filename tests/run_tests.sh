@@ -85,6 +85,7 @@ function setup_test_options()
                       --allow_recover \
                       --showlocals \
                       --assert plain \
+                      --show-capture no \
                       -rav"
 
     for skip in ${SKIP_SCRIPTS} ${SKIP_FOLDERS}; do
