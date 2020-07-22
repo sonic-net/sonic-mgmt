@@ -152,6 +152,14 @@ def get_sfp(conn, index):
     return chassis_api(conn, 'get_sfp', [index])
 
 
+def set_status_led(conn, color):
+    return chassis_api(conn, 'set_status_led', [color])
+
+
+def get_status_led(conn):
+    return chassis_api(conn, 'get_status_led')
+
+
 def get_watchdog(conn):
     return chassis_api(conn, 'get_watchdog')
 
