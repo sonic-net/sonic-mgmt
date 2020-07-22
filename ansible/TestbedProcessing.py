@@ -212,6 +212,7 @@ def makeTestbed(data, outfile):
                 topo = groupDetails.get("topo")
                 ptf_image_name = groupDetails.get("ptf_image_name")
                 ptf_ip = groupDetails.get("ptf_ip")
+                ptf_ipv6 = groupDetails.get("ptf_ipv6")
                 server = groupDetails.get("server")
                 vm_base = groupDetails.get("vm_base")
                 dut = groupDetails.get("dut")
