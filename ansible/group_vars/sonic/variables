@@ -15,7 +15,7 @@ mellanox_hwskus: "{{ mellanox_spc1_hwskus + mellanox_spc2_hwskus + mellanox_spc3
 
 cavium_hwskus: [ "AS7512", "XP-SIM" ]
 
-barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C" ]
+barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C", "newport" ]
 
 marvell_hwskus: [ "et6448m" ]
 
