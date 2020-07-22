@@ -23,11 +23,10 @@ from common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user,\
      ixia_api_server_session  
 
 from common.ixia.ixia_helpers import  IxiaFanoutManager, configure_ports,\
-      create_topology, create_ip_traffic_item_using_wizard_arguments,\
-      start_protocols, start_traffic, stop_traffic, get_traffic_statistics,\
-      stop_protocols 
+      create_topology, create_ip_traffic_item, start_protocols, \
+      start_traffic, stop_traffic, get_traffic_statistics, stop_protocols
 
-from common.ixia.common_helpers import incriment_ip_address
+from common.ixia.common_helpers import increment_ip_address 
 
 def test_testbed(testbed, conn_graph_facts, duthost, fanout_graph_facts,
     ixia_api_server_session, fanouthosts):
@@ -38,7 +37,7 @@ def test_testbed(testbed, conn_graph_facts, duthost, fanout_graph_facts,
  
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)
     gateway_ip = mg_facts['ansible_facts']['minigraph_vlan_interfaces'][0]['addr']
-    start_interface_ip = incriment_ip_address(gateway_ip)
+    start_interface_ip = increment_ip_address(gateway_ip)
 
     ixiaFanoutHostList = IxiaFanoutManager(fanout_graph_facts) 
     ixiaFanoutHostList.get_fanout_device_details(device_number = 0)
@@ -63,7 +62,7 @@ def test_testbed(testbed, conn_graph_facts, duthost, fanout_graph_facts,
 
     # Create a traffic item 
     logger.info("Configuring traffic.")
-    traffic_item = create_ip_traffic_item_using_wizard_arguments(
+    traffic_item = create_ip_traffic_item(
         session=session, 
         src_start_port=1,
         src_port_count=1,

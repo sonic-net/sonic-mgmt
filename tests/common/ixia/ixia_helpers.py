@@ -443,7 +443,7 @@ def start_traffic(session):
     ixnetwork.Traffic.StartStatelessTrafficBlocking()
 
 
-def create_ip_traffic_item_using_wizard_arguments (
+def create_ip_traffic_item (
         session,
         src_start_port,
         src_port_count,
