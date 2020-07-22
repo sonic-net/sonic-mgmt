@@ -33,8 +33,13 @@ def setup_telemetry_forpyclient(duthost):
     """ Set client_auth=false. This is needed for pyclient to sucessfully set up channel with gnmi server.
         Restart telemetry process
     """
-    set_client_auth = duthost.shell('/usr/bin/redis-cli -n 4 hset "TELEMETRY|gnmi" "client_auth" "false"', module_ignore_errors=False)
-    duthost.service(name="telemetry", state="restarted")
+    client_auth_out = duthost.shell('/usr/bin/redis-cli -n 4 hget "TELEMETRY|gnmi" "client_auth"', module_ignore_errors=False)['stdout_lines']
+    client_auth = str(client_auth_out[0])
+    if client_auth == "true":
+        set_client_auth = duthost.shell('/usr/bin/redis-cli -n 4 hset "TELEMETRY|gnmi" "client_auth" "false"', module_ignore_errors=False)
+        duthost.service(name="telemetry", state="restarted")
+    else:
+        logger.info('client auth is false. No need to restart telemetry')
 
 # Test functions
 def test_config_db_parameters(duthost):
@@ -89,5 +94,10 @@ def test_telemetry_ouput(duthost, ptfhost):
     pytest_assert(file_exists["stat"]["exists"] is True)
     cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p 50051 -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB -o "ndastreamingservertest"'.format(dut_ip)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    logger.info("GNMI server output:")
-    logger.info(repr(show_gnmi_out))
+    logger.info("GNMI Server output".format(show_gnmi_out))
+    result = str(show_gnmi_out)
+    getresponse_match = re.search("GetResponse", result)
+    pytest_assert(getresponse_match is not None, "GetResponse not found in gnmi output")
+    inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
+    pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
+    
