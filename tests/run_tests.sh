@@ -40,7 +40,7 @@ function validate_parameters()
     fi
 
     if [[ -z ${TOPOLOGY} && -z ${TEST_CASES} ]]; then
-        echo "Niether TOPOLOGY (-t) nor test case list (-c) is not set.."
+        echo "Neither TOPOLOGY (-t) nor test case list (-c) is set.."
         RET=3
     fi
 
