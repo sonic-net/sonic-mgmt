@@ -22,6 +22,7 @@ import configurable_drop_counters as cdc
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -203,7 +204,6 @@ def arp_responder(ptfhost, testbed_params):
     ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
 
     logging.info("Copying ARP responder to PTF container")
-    ptfhost.copy(src="scripts/arp_responder.py", dest="/opt")
 
     logging.info("Copying ARP responder config file")
     ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": "-e"})
