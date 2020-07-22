@@ -170,7 +170,7 @@ class TestWrArp:
         ptfhost.script('./scripts/remove_ip.sh')
 
     @pytest.fixture(scope='class', autouse=True)
-    def prepareSshKeys(self, duthost, ptfhost, creds):
+    def prepareSshKeys(self, duthost, ptfhost):
         '''
             Prepares testbed ssh keys by generating ssh key on ptf host and adding this key to known_hosts on duthost
             This class-scope fixture runs once before test start
@@ -182,7 +182,11 @@ class TestWrArp:
             Returns:
                 None
         '''
-        prepareTestbedSshKeys(duthost, ptfhost, creds['sonicadmin_user'])
+        hostVars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+        invetory = hostVars['inventory_file'].split('/')[-1]
+        secrets = duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']
+
+        prepareTestbedSshKeys(duthost, ptfhost, secrets[invetory]['sonicadmin_user'])
 
     def testWrArp(self, request, duthost, ptfhost):
         '''

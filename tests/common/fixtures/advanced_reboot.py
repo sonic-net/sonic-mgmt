@@ -25,7 +25,7 @@ class AdvancedReboot:
     inboot/preboot list. The class transfers number of configuration files to the dut/ptf in preparation for reboot test.
     Test cases can trigger test start utilizing runRebootTestcase API.
     '''
-    def __init__(self, request, duthost, ptfhost, localhost, testbed, creds, **kwargs):
+    def __init__(self, request, duthost, ptfhost, localhost, testbed, **kwargs):
         '''
         Class constructor.
         @param request: pytest request object
@@ -44,7 +44,6 @@ class AdvancedReboot:
         self.ptfhost = ptfhost
         self.localhost = localhost
         self.testbed = testbed
-        self.creds = creds
         self.enableContinuousIO = False # default value may get overwritten by value in kwargs
         self.__dict__.update(kwargs)
         self.__extractTestParam()
@@ -123,8 +122,11 @@ class AdvancedReboot:
         self.rebootData['vlan_ip_range'] = self.mgFacts['minigraph_vlan_interfaces'][0]['subnet']
         self.rebootData['dut_vlan_ip'] = self.mgFacts['minigraph_vlan_interfaces'][0]['addr']
 
-        self.rebootData['dut_username'] = self.creds['sonicadmin_user']
-        self.rebootData['dut_password'] = self.creds['sonicadmin_password']
+        hostVars = self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname]
+        invetory = hostVars['inventory_file'].split('/')[-1]
+        secrets = hostVars['secret_group_vars']
+        self.rebootData['dut_username'] = secrets[invetory]['sonicadmin_user']
+        self.rebootData['dut_password'] = secrets[invetory]['sonicadmin_password']
 
         # Change network of the dest IP addresses (used by VM servers) to be different from Vlan network
         prefixLen = self.mgFacts['minigraph_vlan_interfaces'][0]['prefixlen'] - 3
@@ -481,7 +483,7 @@ class AdvancedReboot:
             self.__restorePrevImage()
 
 @pytest.fixture
-def get_advanced_reboot(request, duthost, ptfhost, localhost, testbed, creds):
+def get_advanced_reboot(request, duthost, ptfhost, localhost, testbed):
     '''
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
@@ -497,7 +499,7 @@ def get_advanced_reboot(request, duthost, ptfhost, localhost, testbed, creds):
         API that returns instances of AdvancedReboot class
         '''
         assert len(instances) == 0, "Only one instance of reboot data is allowed"
-        advancedReboot = AdvancedReboot(request, duthost, ptfhost, localhost, testbed, creds, **kwargs)
+        advancedReboot = AdvancedReboot(request, duthost, ptfhost, localhost, testbed, **kwargs)
         instances.append(advancedReboot)
         return advancedReboot
 
