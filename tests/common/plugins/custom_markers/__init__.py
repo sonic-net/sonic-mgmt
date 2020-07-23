@@ -2,7 +2,7 @@ import sys
 import pytest
 import warnings
 import logging
-from tests.common.plugins.test_completeness import CompletenessLevel
+from tests.common.plugins import test_completeness
 
 
 def pytest_addoption(parser):
@@ -38,7 +38,7 @@ def pytest_configure(config):
         "markers", "device_type(DEV_TYPE): mark test to specify the need for a physical dut or vs only test. allowed values: 'physical', 'vs'"
     )
     config.addinivalue_line(
-        "markers", "test_level(TEST_LEVEL): mark test to specify the completeness level for the test. Allowed values: 'debug', 'basic' ,'confident', 'thorough'"
+        "markers", "supported_completeness_level(TEST_LEVEL): mark test to specify the completeness level for the test. Allowed values: 'debug', 'basic' ,'confident', 'thorough'"
     )
 
 def pytest_runtest_setup(item):
@@ -117,44 +117,19 @@ def check_test_completeness(item):
     4. Specified level matches one of the defined levels
     '''
     specified_level = item.config.getoption("--completeness_level")
-    if not specified_level: # Case 1
-        logging.info("Completeness level not set during test execution. Setting to default level: {}".format(str(CompletenessLevel.basic)))
-        specified_level = CompletenessLevel.basic # - every testcase should run BASIC by default
-    else:
-        specified_level = specified_level.lower()
-        if specified_level not in CompletenessLevel._member_names_:
-            specified_level = CompletenessLevel.basic
-            warnings.warn("Unidentified completeness level specified. Specified: {}. Allowed: {}".format(str(CompletenessLevel(specified_level)), \
-                str(CompletenessLevel._member_names_)))
-            logging.info("Unidentified completeness level specified. Setting to default level: {}".format(CompletenessLevel.debug))
-        else:
-            specified_level = CompletenessLevel[specified_level]
+    # Check for case 1
+    specified_level = test_completeness.set_default(specified_level)
+
     # The closest marker is used here so that the module or class level
     # marker will be overrided by case level marker
     defined_levels = [mark.args for mark in item.iter_markers(name="supported_completeness_level")]
-    if defined_levels is None or len(defined_levels) == 0: # Case 2
+    # Check for case 2
+    if len(defined_levels) == 0:
         logging.info("Test has no defined levels. Continue without test completeness checks")
         return
     defined_levels = defined_levels[0] # The nearest mark overides others
 
-    logging.info("Setting test completeness level. Specified: {}. Defined: {}".format(str(CompletenessLevel(specified_level)), str(defined_levels)))
-
-    if specified_level not in defined_levels:
-        if specified_level > max(defined_levels): # Case 3.1
-            completeness_level = max(defined_levels)
-        elif specified_level < min(defined_levels): # Case 3.2
-            completeness_level = min(defined_levels)
-        else: # Case 3.3
-            # Find the maximum defined level less than specified_level
-            lesser_defined_level_dist = sys.maxsize
-            for level in defined_levels:
-                if level <= specified_level and lesser_defined_level_dist > (specified_level - level):
-                    completeness_level = level
-                    lesser_defined_level_dist = lesser_defined_level_dist - level
-        logging.info("Specified level ({}) not found in defined levels. Setting level to {}".format(str(CompletenessLevel(specified_level)), str(completeness_level)))
-    else: # Case 4
-        completeness_level = specified_level
-        logging.info("Setting the completeness level to {}".format(str(CompletenessLevel(completeness_level))))
-
+    # Check for case 3, 4
+    completeness_level = test_completeness.normalize_levels(specified_level, defined_levels)
     normalized_completeness_level = pytest.mark.completeness_level(completeness_level)
     item.add_marker(normalized_completeness_level)

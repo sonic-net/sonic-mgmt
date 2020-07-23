@@ -3,8 +3,8 @@ CompletenessLevel marker enables testcases to be executed in different meaningfu
 Each level is a representation of the scope of execution of a testcase. This document describes the usage of CompletenessLevel marker.
 
 ### To use CompletenessLevel:
-- Use pytest command line option ```--test_completeness_level```
-- Identified meaningful levels - 
+- Use pytest command line option ```--completeness_level```
+- Identified meaningful levels (in increasing order) -
         
         Debug
         
