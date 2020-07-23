@@ -14,13 +14,13 @@ in .csv format etc.
 import ipaddr
 from netaddr import IPNetwork
 
-def incriment_ip_address (ip, incr=1) :
+def increment_ip_address (ip, incr=1) :
     """
     Increment IP address by an integer number.
 
     Args: 
        ip (str): IP address in string format.
-       incr (int):  Increment by.
+       incr (int): Increment by the specified number.
 
     Return:
        IP address in the argument incremented by the given integer.
@@ -72,24 +72,25 @@ def get_vlan_subnet(host_ans):
     return gw_addr + '/' + str(prefix_len)
 
 
-def get_addrs_in_subnet(subnet, n):
+def get_addrs_in_subnet(subnet, number_of_ip):
     """
     Get N IP addresses in a subnet.
 
     Args:
         subnet (str): IPv4 subnet, e.g., '192.168.1.1/24'
-        n (int): Number of IP addresses to get
+        number_of_ip (int): Number of IP addresses to get
 
     Return:
-        Retuen n IPv4 addresses in this subnet in a list.
+        Return n IPv4 addresses in this subnet in a list.
     """
     ip_addr = subnet.split('/')[0]
     ip_addrs = [str(x) for x in list(IPNetwork(subnet))]
     ip_addrs.remove(ip_addr)
 
     """ Try to avoid network and broadcast addresses """
-    if len(ip_addrs) >= n + 2:
+    if len(ip_addrs) >= number_of_ip + 2:
         del ip_addrs[0]
         del ip_addrs[-1]
 
-    return ip_addrs[:n]
+    return ip_addrs[:number_of_ip]
+

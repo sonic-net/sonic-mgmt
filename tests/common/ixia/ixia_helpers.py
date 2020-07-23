@@ -443,7 +443,7 @@ def start_traffic(session):
     ixnetwork.Traffic.StartStatelessTrafficBlocking()
 
 
-def create_ip_traffic_item_using_wizard_arguments (
+def create_ip_traffic_item (
         session,
         src_start_port,
         src_port_count,
@@ -490,7 +490,7 @@ def create_ip_traffic_item_using_wizard_arguments (
            will  determine the total number of destinations.
         name (str, optional): Name of the traffic item. Default name is
            'example_traffic'.
-        traffic_type (str, optional): Type of the ip source and destination
+        traffic_type (str, optional): Type of the IP source and destination
         (ipv4/ipv6). Default traffic_type is 'ipv4'.
 
     Returns:
