@@ -14,35 +14,36 @@ from ixnetwork_restpy import SessionAssistant
 import common.ixia.ixia_helpers as helpers
 
 class KeysTgenApi(TgenApi):
-    def __init__(self, **kwargs):
-        self._vports = None
-        self.config = Config()  
-        for key in kwargs.keys() :
-            if (key == 'session') :
-                self._assistant = kwargs['session']
-                self._ixnetwork = self._assistant.Ixnetwork
-            else :
-                logger.info('invalid key %s in init' %(key))
-                pytest_assert(0)
-
-    def init_tgen(self, config = None) :
-        """Staging repositary Initial configuration data
-        """
-        logger.info("Staging the initial configuration ....")
-        if config is not None:
-            self.config = config  
-
-    def connect(self, host):
-        if ']:' in host:
-            address, port = host.split(']:')
-        elif ':' in host:
-            address, port = host.split(':')
+    def __init__(self, config):
+        if config is None:
+            self.config = Config()
+        elif isinstance(config, dict):
+            self.config = Config(**json.loads(config))
         else:
-            address = host
-            port = None
-        self._assistant = SessionAssistant(IpAddress=address, RestPort=port)
-        self._ixnetwork = self._assistant.Ixnetwork
-        self._port_map = self._assistant.PortMapAssistant()
+            self.config = config
+
+    #def init_tgen(self, config = None) :
+    #    """Staging repositary Initial configuration data
+    #    """
+    #    logger.info("Staging the initial configuration ....")
+    #    if config is not None:
+    #        self.config = config  
+
+    def connect(self, host, port, username, password):
+        """
+        Connect to Ixia API server.
+        """
+        try :
+            self._assistant = SessionAssistant(IpAddress=host,
+                                               RestPort=port,
+                                               UserName=username,
+                                               Password=password)
+            ixNetwork = self._assistant.Ixnetwork
+            ixNetwork.NewConfig()
+        except:
+            logger.info('unable to connect to the API server')
+            #pytest_assert(0)
+        return self._assistant  
 
     def configure(self):
         """

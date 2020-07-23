@@ -16,13 +16,7 @@ class TgenApi():
         pass
 
     @abstractmethod
-    def init_tgen(self, config):
-        """Initialize your traffic configuration
-        """
-        pass
-
-    @abstractmethod
-    def connect(self, host):
+    def connect(self, host, port, username, password):
         """Information for establishing a connection to the test tool
         """
         pass
