@@ -33,10 +33,10 @@ def setup_telemetry_forpyclient(duthost):
     """ Set client_auth=false. This is needed for pyclient to sucessfully set up channel with gnmi server.
         Restart telemetry process
     """
-    client_auth_out = duthost.shell('/usr/bin/redis-cli -n 4 hget "TELEMETRY|gnmi" "client_auth"', module_ignore_errors=False)['stdout_lines']
+    client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "TELEMETRY|gnmi" "client_auth"', module_ignore_errors=False)['stdout_lines']
     client_auth = str(client_auth_out[0])
     if client_auth == "true":
-        set_client_auth = duthost.shell('/usr/bin/redis-cli -n 4 hset "TELEMETRY|gnmi" "client_auth" "false"', module_ignore_errors=False)
+        set_client_auth = duthost.shell('sonic-db-cli CONFIG_DB HSET "TELEMETRY|gnmi" "client_auth" "false"', module_ignore_errors=False)
         duthost.service(name="telemetry", state="restarted")
     else:
         logger.info('client auth is false. No need to restart telemetry')
@@ -45,10 +45,10 @@ def setup_telemetry_forpyclient(duthost):
 def test_config_db_parameters(duthost):
     """Verifies required telemetry parameters from config_db.
     """
-    gnmi = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "TELEMETRY|gnmi"', module_ignore_errors=False)['stdout_lines']
+    gnmi = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|gnmi"', module_ignore_errors=False)['stdout_lines']
     pytest_assert(gnmi is not None, "TELEMETRY|gnmi does not exist in config_db")
 
-    certs = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "TELEMETRY|certs"', module_ignore_errors=False)['stdout_lines']
+    certs = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|certs"', module_ignore_errors=False)['stdout_lines']
     pytest_assert(certs is not None, "TELEMETRY|certs does not exist in config_db")
 
     d = get_dict_stdout(gnmi, certs)
@@ -69,7 +69,7 @@ def test_config_db_parameters(duthost):
 def test_telemetry_enabledbydefault(duthost):
     """Verify telemetry should be enabled by default
     """
-    status = duthost.shell('/usr/bin/redis-cli -n 4 hgetall "FEATURE|telemetry"', module_ignore_errors=False)['stdout_lines']
+    status = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "FEATURE|telemetry"', module_ignore_errors=False)['stdout_lines']
     status_list = get_list_stdout(status)
     # Elements in list alternate between key and value. Separate them and combine into a dict.
     status_key_list = status_list[0::2]
@@ -94,10 +94,9 @@ def test_telemetry_ouput(duthost, ptfhost):
     pytest_assert(file_exists["stat"]["exists"] is True)
     cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p 50051 -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB -o "ndastreamingservertest"'.format(dut_ip)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    logger.info("GNMI Server output".format(show_gnmi_out))
+    logger.info("GNMI Server output")
+    logger.info(show_gnmi_out)
     result = str(show_gnmi_out)
-    getresponse_match = re.search("GetResponse", result)
-    pytest_assert(getresponse_match is not None, "GetResponse not found in gnmi output")
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
     pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
     
