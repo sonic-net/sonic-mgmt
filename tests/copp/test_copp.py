@@ -105,7 +105,7 @@ def copp_testbed(duthost, ptfhost, testbed, request):
     _teardown_testbed(duthost, ptfhost, test_params)
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(self, duthost, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
