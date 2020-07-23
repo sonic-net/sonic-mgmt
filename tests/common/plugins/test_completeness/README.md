@@ -38,7 +38,7 @@ from tests.common.plugins.test_completeness import CompletenessLevel
 pytestmark = [pytest.mark.supported_completeness_level(CompletenessLevel.Debug, CompletenessLevel.Thorough)]
 
 def test_test_completeness_default(request):
-    normalized_level = [mark.args for mark in request.node.iter_markers(name="completeness_level")]
+    normalized_level = [mark.args for mark in request.node.iter_markers(name="supported_completeness_level")]
     logger.info("Completeness level set to: {}".format(str(normalized_level)))
 
     ## Continue execution of the testecase until the completeness level specified.

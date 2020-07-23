@@ -106,7 +106,7 @@ def check_test_completeness(item):
     '''
     API to set the completeness level. If the specified level does not match
     a defined level in the testcase, level-normalization is done based on below
-    defined cases. The normalized level is set as a Pytest marker "completeness_level":
+    defined cases. The normalized level is set as a Pytest marker "supported_completeness_level":
     Cases:
     1. Completeness level not specified - set to the default (basic) value of test completeness.
     2. Test does not define any completeness level - run the testcase entirely.
@@ -130,6 +130,7 @@ def check_test_completeness(item):
     defined_levels = defined_levels[0] # The nearest mark overides others
 
     # Check for case 3, 4
-    completeness_level = test_completeness.normalize_levels(specified_level, defined_levels)
-    normalized_completeness_level = pytest.mark.completeness_level(completeness_level)
-    item.add_marker(normalized_completeness_level)
+    normalized_completeness_level = test_completeness.normalize_levels(specified_level, defined_levels)
+
+    normalized_completeness_level = pytest.mark.supported_completeness_level(normalized_completeness_level)
+    item.add_marker(normalized_completeness_level, append=False)

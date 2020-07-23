@@ -85,7 +85,7 @@ class TestLinkFlap:
 
 @pytest.mark.platform('physical')
 def test_link_flap(request, duthost, fanouthosts):
-    normalized_level = [mark.args for mark in request.node.iter_markers(name="completeness_level")][0]
+    normalized_level = [mark.args for mark in request.node.iter_markers(name="supported_completeness_level")][0]
     logging.info("Completeness level set: {}".format(str(normalized_level)))
     tlf = TestLinkFlap()
     tlf.run_link_flap_test(duthost, fanouthosts, normalized_level)
