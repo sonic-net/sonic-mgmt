@@ -7,19 +7,13 @@
 - set_fact: dut="{{ leaf_name }}"
   when: deploy_leaf
 
-- name: Gathering connection facts about the DUT or leaffanout device
-  conn_graph_facts: host={{ dut }}
-  delegate_to: localhost
-  tags: always
-  register: devinfo
-  when: dut.split(',')|length == 1
-
 - name: Gathering connection facts about the DUTs or leaffanout device
-  conn_graph_facts: hosts={{ dut.split(',') }}
+  conn_graph_facts:
+    host: "{{ dut if ',' not in dut else omit }}"
+    hosts: "{{ dut.split(',') if ',' in dut else omit }}"
   delegate_to: localhost
   tags: always
   register: devinfo
-  when: dut.split(',')|length > 1
 
 - name: Gathering connection facts about the lab
   conn_graph_facts:
