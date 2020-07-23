@@ -22,13 +22,6 @@ class KeysTgenApi(TgenApi):
         else:
             self.config = config
 
-    #def init_tgen(self, config = None) :
-    #    """Staging repositary Initial configuration data
-    #    """
-    #    logger.info("Staging the initial configuration ....")
-    #    if config is not None:
-    #        self.config = config  
-
     def connect(self, host, port, username, password):
         """
         Connect to Ixia API server.
