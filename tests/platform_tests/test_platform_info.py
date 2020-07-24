@@ -20,6 +20,7 @@ pytestmark = [
 
 CMD_PLATFORM_PSUSTATUS = "show platform psustatus"
 CMD_PLATFORM_FANSTATUS = "show platform fan"
+CMD_PLATFORM_TEMPER = "show platform temperature"
 
 THERMAL_CONTROL_TEST_WAIT_TIME = 65
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
@@ -208,6 +209,40 @@ def test_turn_on_off_psu_and_check_psustatus(duthost, psu_controller):
         assert psu_test_results[psu], "Test psu status of PSU %s failed" % psu
 
     loganalyzer.analyze(marker)
+
+
+def test_show_platform_fanstatus_mocked(duthost, mocker_factory):
+    """
+    @summary: Check output of 'show platform fan'.
+    """
+    # Mock data and check
+    mocker = mocker_factory(duthost, 'FanStatusMocker')
+    if mocker is None:
+        pytest.skip("No FanStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
+
+    logging.info('Mock FAN status data...')
+    mocker.mock_data()
+    logging.info('Wait and check actual data with mocked FAN status data...')
+    result = check_cli_output_with_mocker(duthost, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
+
+    assert result, 'FAN mock data mismatch'
+
+
+def test_show_platform_temperature_mocked(duthost, mocker_factory):
+    """
+    @summary: Check output of 'show platform temperature'
+    """
+    # Mock data and check
+    mocker = mocker_factory(duthost, 'ThermalStatusMocker')
+    if mocker is None:
+        pytest.skip("No ThermalStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
+
+    logging.info('Mock Thermal status data...')
+    mocker.mock_data()
+    logging.info('Wait and check actual data with mocked Thermal status data...')
+    result = check_cli_output_with_mocker(duthost, mocker, CMD_PLATFORM_TEMPER, THERMAL_CONTROL_TEST_WAIT_TIME)
+
+    assert result, 'Thermal mock data mismatch'
 
 
 @pytest.mark.disable_loganalyzer
