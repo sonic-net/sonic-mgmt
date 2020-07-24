@@ -119,6 +119,7 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     ignoreRegex = [
         ".*ERR monit.*'lldpd_monitor' process is not running",
         ".*ERR monit.*'lldp_syncd' process is not running",
+        ".*snmp#snmp-subagent.*",
     ]
     loganalyzer.ignore_regex.extend(ignoreRegex)
 
