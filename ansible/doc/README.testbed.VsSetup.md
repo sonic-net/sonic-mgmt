@@ -5,16 +5,10 @@ This document describes the steps to setup the virtual switch based testbed and 
 ## Prepare testbed server
 
 - Install Ubuntu 18.04 amd64 server. To setup a T0 topology, the server needs to have 10GB free memory.
-- Install bridge utils
+- Setup internal management network:
 ```
-$ sudo apt-get install bridge-utils
-```
-- Setup internal management network.
-
-```
-$ sudo brctl addbr br1
-$ sudo ifconfig br1 10.250.0.1/24
-$ sudo ifconfig br1 up
+$ cd sonic-mgmt/ansible
+$ sudo ./setup-management-network.sh
 ```
 
 ### Use vEOS image
