@@ -997,6 +997,21 @@ class ReloadTest(BaseTest):
             else:
                 self.fails[neigh].add("LAG flapped %s times on %s after warm boot" % (flap_cnt, neigh))
 
+    def check_sonic_version_after_reboot(self):
+        # Check sonic version after reboot
+        target_version = self.test_params['target_version']
+        if target_version:
+            stdout, stderr, return_code = self.dut_connection.execCommand("sudo sonic_installer list | grep Current | awk '{print $2}'")
+            current_version = ""
+            if stdout != []:
+                current_version = str(stdout[0]).replace('\n', '')
+            self.log("Current={} Target={}".format(current_version, target_version))
+            if current_version != target_version:
+                self.fails['dut'].add("Sonic upgrade failed. Target={} Current={}".format(\
+                    target_version, current_version))
+                return False
+        return True
+
     def extract_no_cpu_replies(self, arr):
       """
       This function tries to extract number of replies from dataplane, when control plane is non working
@@ -1021,17 +1036,8 @@ class ReloadTest(BaseTest):
             self.log("stderr from %s: %s" % (self.reboot_type, str(stderr)))
         self.log("return code from %s: %s" % (self.reboot_type, str(return_code)))
         # Check sonic version after reboot
-        target_version = self.test_params['target_version']
-        if target_version:
-            stdout, stderr, return_code = self.dut_connection.execCommand("sudo sonic_installer list | grep Current | awk '{print $2}'")
-            current_version = ""
-            if stdout != []:
-                current_version = str(stdout[0]).replace('\n', '')
-            self.log("Current={} Target={}".format(current_version, target_version))
-            if current_version != target_version:
-                self.fails['dut'].add("Sonic upgrade failed. Target={} Current={}".format(\
-                    target_version, current_version))
-                thread.interrupt_main()
+        if not check_sonic_version_after_reboot():
+            thread.interrupt_main()
 
         # Note: a timeout reboot in ssh session will return a 255 code
         if return_code not in [0, 255]:

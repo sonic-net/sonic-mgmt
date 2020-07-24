@@ -2,15 +2,15 @@ import pytest
 import logging
 import json
 import os
-from common import reboot
+from tests.common import reboot
 from jinja2 import Template
 import ipaddr as ipaddress
-from ptf_runner import ptf_runner
-from common.platform.ssh_utils import prepare_testbed_ssh_keys
+from tests.ptf_runner import ptf_runner
+from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys
 from datetime import datetime
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -18,8 +18,6 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-SOURCE_UPGRADE_SCRIPT = 'upgrade_path/upgrade_sonic.sh'
-UPGRADE_SCRIPT = '/tmp/upgrade_sonic.sh'
 
 TMP_VLAN_PORTCHANNEL_FILE = '/tmp/portchannel_interfaces.json'
 TMP_VLAN_FILE = '/tmp/vlan_interfaces.json'
@@ -27,44 +25,21 @@ TMP_PORTS_FILE = '/tmp/ports.json'
 
 
 @pytest.fixture(scope="module")
-def duthost_original_image(duthost):
-    original_image = ""
-    res = duthost.shell('sonic_installer list', module_ignore_errors=True)
-    for line in res['stdout'].splitlines():
-        if line.startswith('Current:'):
-            original_image = line.split(':')[-1].strip()
-            break
-    logger.info("Original image is {}".format(original_image))
-    return original_image
-
-
-@pytest.fixture(scope="module")
-def setup(localhost, ptfhost, duthost, duthost_original_image):
+def setup(localhost, ptfhost, duthost, upgrade_path_lists):
     prepare_ptf(ptfhost, duthost)
     yield
-    cleanup(localhost, ptfhost, duthost, duthost_original_image)
+    cleanup(localhost, ptfhost, duthost, upgrade_path_lists)
 
 
-def prepare_dut(duthost):
-    # copy script to dut
-    duthost.copy(src=SOURCE_UPGRADE_SCRIPT,
-                 dest=UPGRADE_SCRIPT,
-                 mode=0755)
-
-
-def cleanup(localhost, ptfhost, duthost, duthost_original_image):
-    original_image = duthost_original_image
-    logger.info("Preparing to cleanup and restore to {}".format(original_image))
-    # restore orignial image
-    logger.info("Set default image to {}".format(original_image))
-    # try to restore original image
-    duthost.shell("sonic_installer set_default {}".format(original_image),
-                  module_ignore_errors=True)
-    # Perform a cold reboot
-    reboot(duthost, localhost)
+def cleanup(localhost, ptfhost, duthost, upgrade_path_lists):
+    _, _, restore_to_image = upgrade_path_lists
+    if restore_to_image:
+        logger.info("Preparing to cleanup and restore to {}".format(restore_to_image))
+        # restore orignial image
+        install_sonic(duthost, restore_to_image)
+        # Perform a cold reboot
+        reboot(duthost, localhost)
     # cleanup
-    duthost.shell("sonic_installer cleanup -y", module_ignore_errors=True)
-    duthost.shell("config load_minigraph -y", module_ignore_errors=True)
     ptfhost.shell("rm -f {} {} {}".format(TMP_VLAN_FILE, TMP_VLAN_PORTCHANNEL_FILE, TMP_PORTS_FILE),
                   module_ignore_errors=True)
     os.remove(TMP_VLAN_FILE)
@@ -148,28 +123,21 @@ def ptf_params(duthost, nbrhosts):
 
 
 def check_sonic_version(duthost, target_version):
-    res = duthost.shell(r"sudo sonic_installer list | grep Current | awk '{print $2}'")
-    assert res['stdout'] == target_version, \
-        "Upgrade sonic failed: target={} current={}".format(target_version, res['stdout'])
+    current_version = duthost.image_facts()['ansible_facts']['ansible_image_facts']['current']
+    assert current_version == target_version, \
+        "Upgrade sonic failed: target={} current={}".format(target_version, current_version)
 
 
 def install_sonic(duthost, image_url):
-    prepare_dut(duthost)
-    res = duthost.shell("bash {} {}".format(UPGRADE_SCRIPT, image_url))
-    target_version = "Unknown"
-    for line in res['stdout'].split('\n'):
-        if line.startswith(u"installed_version"):
-            target_version = line.split()[-1]
-            break
-    return target_version
+    res = duthost.reduce_and_add_sonic_images(new_image_url=image_url)
+    return res['ansible_facts']['downloaded_image_version']
 
 def test_upgrade_path(localhost, duthost, ptfhost, upgrade_path_lists, ptf_params, setup):
-    from_list_images, to_list_images = upgrade_path_lists
+    from_list_images, to_list_images, _ = upgrade_path_lists
     from_list = from_list_images.split(',')
     to_list = to_list_images.split(',')
     assert (from_list and to_list)
     test_params = ptf_params
-    logger.info(json.dumps(test_params))
     for from_image in from_list:
         for to_image in to_list:
             logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
