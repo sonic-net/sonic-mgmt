@@ -19,11 +19,13 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
             duthost: DUT fixture
             loganalyzer: Loganalyzer utility fixture
     """
-    ignoreRegex = [
-        ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*",
-        ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs, bug.*",
-    ]
-    loganalyzer.ignore_regex.extend(ignoreRegex)
+    # when loganalyzer is disabled, the object could be None
+    if loganalyzer:
+        ignoreRegex = [
+            ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*",
+            ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs, bug.*",
+        ]
+        loganalyzer.ignore_regex.extend(ignoreRegex)
 
     yield
 
