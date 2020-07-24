@@ -10,6 +10,8 @@ from collections import defaultdict
 from common.utilities import wait_until
 from common.helpers.assertions import pytest_assert
 
+logger = logging.getLogger(__name__)
+
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_STOP_THRESHOLD_SECS = 30
 CONTAINER_RESTART_THRESHOLD_SECS = 180
@@ -49,7 +51,8 @@ def get_group_program_info(duthost, container_name, critical_group):
     """
     @summary: Get critical program names, running status and their pids by analyzing the command
               output of "docker exec <container_name> supervisorctl"
-    @return: Critical program names and their pids
+    @return: A dictionary where keys are the critical program names and values
+             are their running status and pids
     """
     group_program_info = defaultdict(list)
     program_name = None
@@ -73,7 +76,7 @@ def get_group_program_info(duthost, container_name, critical_group):
 
 def get_program_info(duthost, container_name, program_name):
     """
-    @summary: Get program running status and pid by analyzing the command
+    @summary: Get program running status and its pid by analyzing the command
               output of "docker exec <container_name> supervisorctl"
     @return:  Program running status and its pid
     """
@@ -88,7 +91,8 @@ def get_program_info(duthost, container_name, program_name):
                 program_pid = int(program_info.split()[3].strip(' ,'))
             break
 
-    logging.info("Found program {} in the {} state with pid {}".format(program_name, program_status, program_pid))
+    if program_status:
+        logger.info("Found program {} in the {} state with pid {}".format(program_name, program_status, program_pid))
             
     return program_status, program_pid
 
@@ -96,18 +100,41 @@ def get_autorestart_container_and_state(duthost):
     """
     @summary: Get container names and its autorestart states by analyzing 
               the command output of "show container feature autorestart"
-    @return:  container names and their states which have the autorestart feature implemented
+    @return:  A dictionary where keys are the names of containers which have the 
+              autorestart feature implemented and values are the autorestart feature
+              state for that container
     """
-    container_autorestart_info = {}
+    autorestart_containers = {}
 
     show_cmd_output = duthost.shell(CMD_CONTAINER_FEATURE_AUTORESTART)
     for line in show_cmd_output["stdout_lines"]:
         container_name = line.split()[0].strip()
         container_state = line.split()[1].strip(' \n')
         if container_state in ["enabled", "disabled"]:
-            container_autorestart_info[container_name] = container_state
+           autorestart_containers[container_name] = container_state
 
-    return container_autorestart_info
+    return autorestart_containers
+
+def get_disabled_container_list(duthost):
+    """
+    @summary: Get the container/service names which are disabled by default
+    @return: A list includes the names of disabled container/service
+    """
+    disabled_containers = []
+    container_list = []
+
+    redis_cli_keys_output = duthost.shell("redis-cli -n 4 keys 'FEATURE|*'")
+    for line in redis_cli_keys_output["stdout_lines"]:
+        container_list.append(line.strip(' \n').split('|')[1])
+
+    for container_name in container_list:
+        redis_cli_values_output = duthost.shell("redis-cli -n 4 hgetall 'FEATURE|{}'".format(container_name))
+        values = redis_cli_values_output["stdout_lines"]
+        if "status" in values and values.index("status") + 1 < len(values) \
+            and values[values.index("status") + 1] == "disabled":
+            disabled_containers.append(container_name)
+
+    return disabled_containers
 
 def is_container_running(duthost, container_name):
     """
@@ -120,9 +147,9 @@ def is_container_running(duthost, container_name):
 
 def get_program_status(duthost, container_name, program_name):
     """
-    @summary: Return the running status of a program 
-    @return:  "RUNNING" or "EXITED" represents the program is in running or exited state
-
+    @summary: Return the status of a program in the specified container
+    @return:  "RUNNING" or "EXITED" represents the program is in the running
+              or exited status
     """
     program_status = None
 
@@ -142,9 +169,11 @@ def kill_process_by_pid(duthost, container_name, program_name, program_status, p
     if program_status == "RUNNING":
         duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, program_pid)) 
     elif program_status in ["EXITED", "STOPPED", "STARTING"]:
-        pytest_assert(False, "{} in {} is in the {} state not running".format(program_name, container_name, program_status))
+        pytest_assert(False, "{} in {} is in the {} state not in the running state" \
+                .format(program_name, container_name, program_status))
     else:
-        pytest_assert(False, "Failed to find {} in {}".format(program_name, container_name))
+        pytest_assert(False, "Failed to find {} in {} container" \
+                .format(program_name, container_name))
     # Sleep 10 seconds to wait container is stopped
     time.sleep(10)
 
@@ -154,7 +183,7 @@ def kill_process_by_pid(duthost, container_name, program_name, program_status, p
         if program_status == "RUNNING":
             pytest_assert(False, "Failed to stop {} before test".format(program_name))
 
-    logging.info("{} in {} is stopped successfully".format(program_name, container_name)) 
+    logger.info("{} in {} container is stopped successfully".format(program_name, container_name)) 
 
 
 def check_container_status(duthost, container_name, should_be_stopped):
@@ -188,20 +217,20 @@ def verify_autorestart_with_critical_process(duthost, container_name, program_na
     """
     kill_process_by_pid(duthost, container_name, program_name, program_status, program_pid)
 
-    logging.info("Waiting until {} is stopped...".format(container_name))
+    logger.info("Waiting until {} container is stopped...".format(container_name))
     pytest_assert(wait_until(CONTAINER_STOP_THRESHOLD_SECS, 
                       CONTAINER_CHECK_INTERVAL_SECS,
                       check_container_status, duthost, container_name, True), 
-                  "Failed to stop {}".format(container_name))
-    logging.info("{} is stopped".format(container_name))
+                  "Failed to stop {} container".format(container_name))
+    logger.info("{} container is stopped".format(container_name))
 
-    logging.info("Waiting until {} is restarted...".format(container_name))
+    logger.info("Waiting until {} container is restarted...".format(container_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS, 
                   CONTAINER_CHECK_INTERVAL_SECS,
                   check_container_status, duthost, container_name, False)
     if not restarted:
         if is_hiting_start_limit(duthost, container_name):
-            logging.info("{} hits start limit and clear reset-failed...".format(container_name))
+            logger.info("{} hits start limit and clear reset-failed flag".format(container_name))
             duthost.shell("sudo systemctl reset-failed {}.service".format(container_name))
             duthost.shell("sudo systemctl start {}.service".format(container_name))
             pytest_assert(wait_until(CONTAINER_RESTART_THRESHOLD_SECS, 
@@ -209,8 +238,9 @@ def verify_autorestart_with_critical_process(duthost, container_name, program_na
                       check_container_status, duthost, container_name, False), 
                   "Failed to restart {} after reset-failed is cleared".format(container_name))
         else:
-            pytest_assert(False, "Failed to restart {}".format(container_name)) 
-    logging.info("{} is restarted".format(container_name))
+            pytest_assert(False, "Failed to restart {} container".format(container_name)) 
+
+    logger.info("{} container is restarted".format(container_name))
 
 def verify_no_autorestart_with_non_critical_process(duthost, container_name, program_name,
                                                     program_status, program_pid):
@@ -220,12 +250,12 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
     """
     kill_process_by_pid(duthost, container_name, program_name, program_status, program_pid)
 
-    logging.info("Checking whether the {} is still running...".format(container_name))
+    logger.info("Checking whether the {} container is still running...".format(container_name))
     pytest_assert(wait_until(CONTAINER_STOP_THRESHOLD_SECS, 
                       CONTAINER_CHECK_INTERVAL_SECS,
                       check_container_status, duthost, container_name, False),
-                  "{} is stopped unexpectedly".format(container_name))
-    logging.info("{} is running".format(container_name))
+                  "{} container is stopped unexpectedly".format(container_name))
+    logger.info("{} container is running".format(container_name))
 
 def test_containers_autorestart(duthost):
     """
@@ -233,30 +263,31 @@ def test_containers_autorestart(duthost):
               a non-critical process to verity the container is still running; killing each
               critical process to verify the container will be stopped and restarted
     """ 
-    container_autorestart_info = get_autorestart_container_and_state(duthost)
-    for container_name in container_autorestart_info:
+    autorestart_containers = get_autorestart_container_and_state(duthost)
+    disabled_containers = get_disabled_container_list(duthost)
+
+    for container_name in autorestart_containers.keys():
+        if container_name in ["bgp", "database", "restapi", "pmon", "radv"]:
+            continue
+        # Skip testing the containers/services which are disabled by default
+        if container_name in disabled_containers:
+            continue
+
         is_running = is_container_running(duthost, container_name)
         if is_running == "false":
-            pytest_assert(False, "{} is not running".format(container_name))
+            pytest_assert(False, "{} container is not running. Exiting...".format(container_name))
 
-        logging.info("Start testing the container {}...".format(container_name))
-
-        if container_name == "sflow":
-            logging.info("Unmask sflow service and start it")
-            duthost.shell("sudo systemctl unmask {}".format(container_name))
-            duthost.shell("sudo systemctl start {}".format(container_name))
-            # Sleep 10 seconds such that processes in sflow can come into live
-            time.sleep(10)
+        logger.info("Start testing the {} container...".format(container_name))
 
         need_restore_state = False
-        if container_autorestart_info[container_name] == "disabled":
-            logging.info("Change {} auto-restart state to 'enabled'".format(container_name))
+        if autorestart_containers[container_name] == "disabled":
+            logger.info("Change auto-restart state of {} container to 'enabled'".format(container_name))
             duthost.shell("config container feature autorestart {} enabled".format(container_name))
             need_restore_state = True
  
         # Currently we select 'rsyslogd' as non-critical processes for testing based on 
         # the assumption that every container has an 'rsyslogd' process running and it is not
-        # consider a critical process
+        # considered to be a critical process
         program_status, program_pid = get_program_info(duthost, container_name, "rsyslogd")
         verify_no_autorestart_with_non_critical_process(duthost, container_name, "rsyslogd", 
                                                         program_status, program_pid)
@@ -271,25 +302,28 @@ def test_containers_autorestart(duthost):
             # We are currently only testing one critical process, that is why we use 'break'. Once
             # we add the "extended" mode, we will remove this statement
             break
+
         for critical_group in critical_group_list:
             group_program_info = get_group_program_info(duthost, container_name, critical_group) 
             for program_name in group_program_info:
                 verify_autorestart_with_critical_process(duthost, container_name, program_name, 
                                                          group_program_info[program_name][0],
                                                          group_program_info[program_name][1])
-            # We are currently only testing one critical program for each critical group, which is
-            # why we use 'break' statement. Once we add the "extended" mode, we will remove this
-            # statement
+                # We are currently only testing one critical program for each critical group, which is
+                # why we use 'break' statement. Once we add the "extended" mode, we will remove this
+                # statement
                 break
 
         # After these three containers are restarted, we need wait to give their dependent containers
         # a chance to restart
         if container_name in ["syncd", "swss", "database"]:
-            logging.info("Sleep 20 seconds after testing the {}...".format(container_name))
+            logger.info("Sleep 20 seconds after testing the {} container...".format(container_name))
             time.sleep(20)
         
         if need_restore_state:
-            logging.info("Restore {} auto-restart state to {}".format(container_name, container_autorestart_info[container_name]))
-            duthost.shell("config container feature autorestart {} {}".format(container_name, container_autorestart_info[container_name]))
+            logger.info("Restore auto-restart state of {} container to be '{}'" \
+                    .format(container_name, autorestart_containers[container_name]))
+            duthost.shell("config container feature autorestart {} {}" \
+                    .format(container_name, autorestart_containers[container_name]))
 
-        logging.info("End of testing for {}".format(container_name))
+        logger.info("End of testing {} container".format(container_name))
