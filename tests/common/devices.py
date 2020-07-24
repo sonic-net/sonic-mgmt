@@ -138,7 +138,7 @@ class SonicHost(AnsibleHostBase):
                 "platform": "x86_64-arista_7050_qx32s",
                 "hwsku": "Arista-7050-QX-32S",
                 "asic_type": "broadcom",
-                "num_npu": 1,
+                "num_asic": 1,
                 "router_mac": "52:54:00:f0:ac:9d"
             }
         """
@@ -182,8 +182,8 @@ class SonicHost(AnsibleHostBase):
             not actually modify any services running on the device.
         """
 
-        if self.facts["num_npu"] > 1:
-            self._critical_services = self._generate_critical_services_for_multi_npu(var)
+        if self.facts["num_asic"] > 1:
+            self._critical_services = self._generate_critical_services_for_multi_asic(var)
         else:
             self._critical_services = var
 
@@ -203,17 +203,17 @@ class SonicHost(AnsibleHostBase):
 
         facts = dict()
         facts.update(self._get_platform_info())
-        facts["num_npu"] = self._get_npu_count(facts["platform"])
+        facts["num_asic"] = self._get_asic_count(facts["platform"])
         facts["router_mac"] = self._get_router_mac()
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
 
-    def _get_npu_count(self, platform):
+    def _get_asic_count(self, platform):
         """
-        Gets the number of npus for this device.
+        Gets the number of asics for this device.
         """
-        num_npu = 1
+        num_asic = 1
         asic_conf_file_path = os.path.join("/usr/share/sonic/device", platform, "asic.conf")
         try:
             output = self.shell("cat {}".format(asic_conf_file_path))["stdout_lines"]
@@ -222,21 +222,21 @@ class SonicHost(AnsibleHostBase):
             for line in output:
                 key, value = line.split("=")
                 if key.strip().upper() == "NUM_ASIC":
-                    num_npu = value.strip()
+                    num_asic = value.strip()
                     break
 
-            logging.debug("num_npu = %s" % num_npu)
+            logging.debug("num_asic = %s" % num_asic)
 
-            return int(num_npu)
+            return int(num_asic)
         except:
-            return int(num_npu)
+            return int(num_asic)
 
     def _get_router_mac(self):
         return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode("utf-8")
 
-    def _generate_critical_services_for_multi_npu(self, services):
+    def _generate_critical_services_for_multi_asic(self, services):
         """
-        Generates a fully-qualified list of critical services for multi-npu platforms, based on a
+        Generates a fully-qualified list of critical services for multi-asic platforms, based on a
         base list of services.
 
         Example:
@@ -245,9 +245,9 @@ class SonicHost(AnsibleHostBase):
 
         m_service = []
         for service in services:
-            for npu in range(self.facts["num_npu"]):
-                npu_service = service + str(npu)
-                m_service.insert(npu, npu_service)
+            for asic in range(self.facts["num_asic"]):
+                asic_service = service + str(asic)
+                m_service.insert(asic, asic_service)
         return m_service
 
     def _get_platform_info(self):
@@ -453,11 +453,11 @@ class SonicHost(AnsibleHostBase):
         logging.info("Pmon daemon state list for this platform is %s" % str(daemon_states))
         return daemon_states
 
-    def num_npus(self):
+    def num_asics(self):
         """
         return the number of NPUs on the DUT
         """
-        return self.facts["num_npu"]
+        return self.facts["num_asic"]
 
     def get_syncd_docker_names(self):
         """
@@ -465,22 +465,22 @@ class SonicHost(AnsibleHostBase):
         for a single NPU dut the list will have only "syncd" in it
         """
         syncd_docker_names = []
-        if self.facts["num_npu"] == 1:
+        if self.facts["num_asic"] == 1:
             syncd_docker_names.append("syncd")
         else:
-            num_npus = int(self.facts["num_npu"])
-            for npu in range(0,num_npus):
-                syncd_docker_names.append("syncd{}".format(npu))
+            num_asics = int(self.facts["num_asic"])
+            for asic in range(0,num_asics):
+                syncd_docker_names.append("syncd{}".format(asic))
         return syncd_docker_names
 
     def get_swss_docker_names(self):
         swss_docker_names = []
-        if self.facts["num_npu"] == 1:
+        if self.facts["num_asic"] == 1:
             swss_docker_names.append("swss")
         else:
-            num_npus = self.facts["num_npu"]
-            for npu in range(0,num_npus):
-                swss_docker_names.append("swss{}".format(npu))
+            num_asics = self.facts["num_asic"]
+            for asic in range(0,num_asics):
+                swss_docker_names.append("swss{}".format(asic))
         return swss_docker_names
 
     def get_up_time(self):
