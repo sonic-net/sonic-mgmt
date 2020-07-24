@@ -7,6 +7,28 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
+    """
+        Ignore expected failures logs during test execution.
+
+        LAG tests are triggering following syncd complaints but the don't cause
+        harm to DUT.
+
+        Args:
+            duthost: DUT fixture
+            loganalyzer: Loganalyzer utility fixture
+    """
+    # when loganalyzer is disabled, the object could be None
+    if loganalyzer:
+        ignoreRegex = [
+            ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*",
+            ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs, bug.*",
+        ]
+        loganalyzer.ignore_regex.extend(ignoreRegex)
+
+    yield
+
 def test_po_update(duthost):
     """
     test port channel add/deletion as well ip address configuration

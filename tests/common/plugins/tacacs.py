@@ -56,7 +56,10 @@ def test_tacacs(ptfhost, duthost, creds):
 
 @pytest.fixture(scope="module")
 def test_tacacs_v6(ptfhost, duthost, creds):
-    tacacs_server_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_hostv6']
+    ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
+    if 'ansible_hostv6' not in ptfhost_vars:
+        pytest.skip("Skip IPv6 test. ptf ansible_hostv6 not configured.")
+    tacacs_server_ip = ptfhost_vars['ansible_hostv6']
     configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip)
 
     yield

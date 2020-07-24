@@ -12,6 +12,7 @@ import getpass
 import pytest
 import csv
 import yaml
+import jinja2
 import ipaddr as ipaddress
 
 from collections import defaultdict
@@ -359,6 +360,13 @@ def creds(duthost):
                 creds.update(v)
             else:
                 logging.info("skip empty var file {}".format(f))
+
+    cred_vars = ["sonicadmin_user", "sonicadmin_password"]
+    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+    for cred_var in cred_vars:
+        if cred_var in creds:
+            creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
+
     return creds
 
 
