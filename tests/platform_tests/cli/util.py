@@ -1,3 +1,26 @@
+"""
+util.py
+
+Utility functions for testing SONiC CLI
+"""
+
+
+def parse_colon_speparated_lines(lines):
+    """
+    @summary: Helper function for parsing lines which consist of key-value pairs
+              formatted like "<key>: <value>", where the colon can be surrounded
+              by 0 or more whitespace characters
+    @return: A dictionary containing key-value pairs of the output
+    """
+    res = {}
+    for line in lines:
+        fields = line.split(":")
+        if len(fields) != 2:
+            continue
+        res[fields[0].strip()] = fields[1].strip()
+    return res
+
+
 def get_field_range(second_line):
     """
     @summary: Utility function to help get field range from a simple tabulate output line.

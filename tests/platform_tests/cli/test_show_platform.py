@@ -30,22 +30,6 @@ THERMAL_CONTROL_TEST_WAIT_TIME = 65
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
 
 
-def parse_colon_speparated_lines(lines):
-    """
-    @summary: Helper function for parsing lines which consist of key-value pairs
-              formatted like "<key>: <value>", where the colon can be surrounded
-              by 0 or more whitespace characters
-    @return: A dictionary containing key-value pairs of the output
-    """
-    res = {}
-    for line in lines:
-        fields = line.split(":")
-        if len(fields) != 2:
-            continue
-        res[fields[0].strip()] = fields[1].strip()
-    return res
-
-
 def test_show_platform_summary(duthost):
     """
     @summary: Verify output of `show platform summary`
@@ -54,7 +38,7 @@ def test_show_platform_summary(duthost):
 
     logging.info("Verifying output of '{}' ...".format(cmd))
     summary_output_lines = duthost.command(cmd)["stdout_lines"]
-    summary_dict = parse_colon_speparated_lines(summary_output_lines)
+    summary_dict = util.parse_colon_speparated_lines(summary_output_lines)
     expected_fields = set(["Platform", "HwSKU", "ASIC"])
     actual_fields = set(summary_dict.keys())
 
@@ -205,7 +189,7 @@ def test_show_platform_ssdhealth(duthost):
 
     logging.info("Verifying output of '{}' ...".format(cmd))
     ssdhealth_output_lines = duthost.command(cmd)["stdout_lines"]
-    ssdhealth_dict = parse_colon_speparated_lines(ssdhealth_output_lines)
+    ssdhealth_dict = util.parse_colon_speparated_lines(ssdhealth_output_lines)
     expected_fields = set(["Device Model", "Health", "Temperature"])
     actual_fields = set(ssdhealth_dict.keys())
 
