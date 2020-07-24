@@ -130,7 +130,7 @@ def get_disabled_container_list(duthost):
     for container_name in container_list:
         redis_cli_values_output = duthost.shell("redis-cli -n 4 hgetall 'FEATURE|{}'".format(container_name))
         values = redis_cli_values_output["stdout_lines"]
-        if "status" in values and values.index("status") + 1 < len(values) \
+        if "status" in values and (values.index("status") + 1 < len(values)) \
             and values[values.index("status") + 1] == "disabled":
             disabled_containers.append(container_name)
 
