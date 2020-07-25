@@ -102,6 +102,15 @@
           <Prefix>{{ vlan_param['prefix'] }}</Prefix>
         </IPInterface>
 {% endfor %}
+{% for vlan, vlan_param in vlan_configs.items() %}
+{%   if 'prefix_v6' in vlan_param %}
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>{{ vlan }}</AttachTo>
+          <Prefix>{{ vlan_param['prefix_v6'] }}</Prefix>
+        </IPInterface>
+{%   endif %}
+{% endfor %}
 {% endif %}
       </IPInterfaces>
       <DataAcls/>
