@@ -54,11 +54,11 @@ def common_setup_teardown(duthost, ptfhost, localhost):
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     interface_facts = duthost.interface_facts()['ansible_facts']
 
-    check = duthost.shell("test -e /etc/sonic/constants.yml || echo 'not present'")
-    if check['stdout'] == 'not present':
-        res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/deployment_id_asn_map.yml -v \"deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
-    else:
+    constants_stat = duthost.stat(path="/etc/sonic/constants.yml")
+    if constants_stat["stat"]["exists"]:
         res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
+    else:
+        res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/deployment_id_asn_map.yml -v \"deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
     bgp_speaker_asn = res['stdout']
 
     vlan_ips = generate_ips(3, "%s/%s" % (mg_facts['minigraph_vlan_interfaces'][0]['addr'],
@@ -267,11 +267,11 @@ def common_setup_teardown_v6(duthost, ptfhost, localhost):
 
     port_num = [7000, 8000, 9000]
 
-    check = duthost.shell("test -e /etc/sonic/constants.yml || echo 'not present'")
-    if check['stdout'] == 'not present':
-        res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/deployment_id_asn_map.yml -v \"deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
-    else:
+    constants_stat = duthost.stat(path="/etc/sonic/constants.yml")
+    if constants_stat["stat"]["exists"]:
         res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
+    else:
+        res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/deployment_id_asn_map.yml -v \"deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
     bgp_speaker_asn = res['stdout']
 
     logging.info("Start exabgp on ptf")
