@@ -1,5 +1,5 @@
 import pytest
-from common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 
 
 @pytest.fixture(scope = "module")

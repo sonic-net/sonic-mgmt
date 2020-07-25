@@ -6,9 +6,13 @@ import pytest
 from jinja2 import Template
 from netaddr import IPAddress
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from ptf_runner import ptf_runner
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.ptf_runner import ptf_runner
+
+pytestmark = [
+    pytest.mark.topology('t0')
+]
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +121,8 @@ def setup(duthost, ptfhost):
 
 @pytest.fixture(params=["NoVxLAN", "Enabled", "Removed"])
 def vxlan_status(setup, request, duthost):
+    #clear FDB and arp cache on DUT
+    duthost.shell('sonic-clear arp; fdbclear')
     if request.param == "Enabled":
         duthost.shell("sonic-cfggen -j /tmp/vxlan_db.tunnel.json --write-to-db")
         duthost.shell("sonic-cfggen -j /tmp/vxlan_db.maps.json --write-to-db")
@@ -134,6 +140,10 @@ def test_vxlan_decap(setup, vxlan_status, duthost, ptfhost):
 
     vxlan_enabled, scenario = vxlan_status
 
+    hostVars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+    inventory = hostVars['inventory_file'].split('/')[-1]
+    secrets = duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']
+
     logger.info("vxlan_enabled=%s, scenario=%s" % (vxlan_enabled, scenario))
     log_file = "/tmp/vxlan-decap.Vxlan.{}.{}.log".format(scenario, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
     ptf_runner(ptfhost,
@@ -142,6 +152,9 @@ def test_vxlan_decap(setup, vxlan_status, duthost, ptfhost):
                 platform_dir="ptftests",
                 params={"vxlan_enabled": vxlan_enabled,
                         "config_file": '/tmp/vxlan_decap.json',
-                        "count": COUNT},
-                qlen=1000,
+                        "count": COUNT,
+                        "sonic_admin_user": secrets[inventory]['sonicadmin_user'],
+                        "sonic_admin_password": secrets[inventory]['sonicadmin_password'],
+                        "dut_host": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']},
+                qlen=10000,
                 log_file=log_file)

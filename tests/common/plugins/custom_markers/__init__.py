@@ -1,4 +1,5 @@
 import pytest
+import warnings
 
 def pytest_addoption(parser):
         parser.addoption("--topology", action="store", metavar="TOPO_NAME",
@@ -45,13 +46,16 @@ def pytest_runtest_setup(item):
 def check_topology(item):
     # The closest marker is used here so that the module or class level
     # marker will be overrided by case level marker
-    toponames = item.get_closest_marker("topology")
-    if toponames:
+    topo_marks = [mark for mark in item.iter_markers(name="topology")]   # Get all 'topology' marks on the chain
+    if topo_marks:
+        topo_mark = topo_marks[0]   # The nearest mark overides others
         cfg_topos = item.config.getoption("--topology").split(',')
-        if all(topo not in toponames.args for topo in cfg_topos):
-            pytest.skip("test requires topology in {!r}".format(toponames))
+        if all(topo not in topo_mark.args for topo in cfg_topos):
+            pytest.skip("test requires topology in {!r}".format(topo_mark))
     else:
-        pytest.skip("testcase {} is skipped when no topology marker is given".format(item.name))
+        warn_msg = "testcase {} is skipped when no topology marker is given".format(item.nodeid)
+        warnings.warn(warn_msg)
+        pytest.skip(warn_msg)
 
 def check_feature(item):
     feature_names = [mark.args for mark in item.iter_markers(name="feature")]

@@ -195,11 +195,11 @@ def makeSonicLabDevices(data, outfile):
 makeTestbed(data, outfile)
 @:parameter data - the dictionary to look through (devices dictionary)
 @:parameter outfile - the file to write to
-generates /testbed.csv by pulling confName, groupName, topo, ptf_image_name, ptf_ip, server, vm_base, dut, and comment
+generates /testbed.csv by pulling confName, groupName, topo, ptf_image_name, ptf_ip, ptf_ipv6, server, vm_base, dut, and comment
 error handling: checks if attribute values are None type or string "None"
 """
 def makeTestbed(data, outfile):
-    csv_columns = "# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,server,vm_base,dut,comment"
+    csv_columns = "# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,comment"
     topology = data
     csv_file = outfile
 
@@ -212,6 +212,7 @@ def makeTestbed(data, outfile):
                 topo = groupDetails.get("topo")
                 ptf_image_name = groupDetails.get("ptf_image_name")
                 ptf_ip = groupDetails.get("ptf_ip")
+                ptf_ipv6 = groupDetails.get("ptf_ipv6")
                 server = groupDetails.get("server")
                 vm_base = groupDetails.get("vm_base")
                 dut = groupDetails.get("dut")
@@ -227,6 +228,8 @@ def makeTestbed(data, outfile):
                     ptf_image_name = ""
                 if not ptf_ip:
                     ptf_ip = ""
+                if not ptf_ipv6:
+                    ptf_ipv6 = ""
                 if not server:
                     server = ""
                 if not vm_base:
@@ -238,7 +241,7 @@ def makeTestbed(data, outfile):
                 if not comment:
                     comment = ""
 
-                row = confName + "," + groupName + "," + topo + "," + ptf_image_name + "," + ptf + "," + ptf_ip + "," + server + "," + vm_base + "," + dut + "," + comment
+                row = confName + "," + groupName + "," + topo + "," + ptf_image_name + "," + ptf + "," + ptf_ip + "," + ptf_ipv6 + ","+ server + "," + vm_base + "," + dut + "," + comment
                 f.write(row + "\n")
     except IOError:
         print("I/O error: issue creating testbed.csv")

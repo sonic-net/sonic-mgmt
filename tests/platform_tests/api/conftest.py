@@ -6,9 +6,19 @@ import httplib
 SERVER_FILE = 'platform_api_server.py'
 SERVER_PORT = 8000
 
+IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
+IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
+
 @pytest.fixture(scope='function')
 def start_platform_api_service(duthost, localhost):
-    res = localhost.wait_for(host=duthost.hostname, port=SERVER_PORT, state='started', delay=1, timeout=5)
+    dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
+
+    res = localhost.wait_for(host=dut_ip,
+                             port=SERVER_PORT,
+                             state='started',
+                             delay=1,
+                             timeout=5,
+                             module_ignore_errors=True)
     if 'exception' in res:
         supervisor_conf = [
             "[program:platform_api_server]",
@@ -29,11 +39,15 @@ def start_platform_api_service(duthost, localhost):
         duthost.copy(src=src_path, dest=dest_path)
         duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
 
+        # Prepend an iptables rule to allow incoming traffic to the HTTP server
+        duthost.command(IPTABLES_PREPEND_RULE_CMD)
+
+        # Reload the supervisor config and Start the HTTP server
         duthost.command('docker exec -i pmon supervisorctl reread')
         duthost.command('docker exec -i pmon supervisorctl update')
         duthost.command('docker exec -i pmon supervisorctl start platform_api_server.conf')
 
-        res = localhost.wait_for(host=duthost.hostname, port=SERVER_PORT, state='started', delay=1, timeout=5)
+        res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=5)
         assert 'exception' not in res
 
 
@@ -42,6 +56,7 @@ def stop_platform_api_service(duthost):
     try:
         yield
     finally:
+        # Stop the server and remove our supervisor config changes
         pmon_path_supervisor = os.path.join(os.sep, 'etc', 'supervisor', 'conf.d', 'platform_api_server.conf')
         pmon_path_script = os.path.join(os.sep, 'opt', SERVER_FILE)
         duthost.command('docker exec -i pmon supervisorctl stop platform_api_server')
@@ -50,9 +65,14 @@ def stop_platform_api_service(duthost):
         duthost.command('docker exec -i pmon supervisorctl reread')
         duthost.command('docker exec -i pmon supervisorctl update')
 
+        # Delete the iptables rule we added
+        duthost.command(IPTABLES_DELETE_RULE_CMD)
+
 @pytest.fixture(scope='function')
 def platform_api_conn(duthost, start_platform_api_service):
-    conn = httplib.HTTPConnection(duthost.hostname, SERVER_PORT)
+    dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
+
+    conn = httplib.HTTPConnection(dut_ip, SERVER_PORT)
     try:
         yield conn
     finally:

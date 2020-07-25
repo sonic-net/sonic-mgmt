@@ -6,6 +6,8 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
+    pytest.mark.pretest,
+    pytest.mark.topology('util') #special marker
 ]
 
 def check_snmp(hostname, mgmt_addr, localhost, community):

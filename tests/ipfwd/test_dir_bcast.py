@@ -1,8 +1,12 @@
 import pytest
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from ptf_runner import ptf_runner
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.ptf_runner import ptf_runner
 from datetime import datetime
+
+pytestmark = [
+    pytest.mark.topology('t0')
+]
 
 def test_dir_bcast(duthost, ptfhost, testbed, fib):
     support_testbed_types = frozenset(['t0', 't0-16', 't0-56', 't0-64', 't0-64-32', 't0-116'])

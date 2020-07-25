@@ -1,4 +1,9 @@
-from common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert
+import pytest
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 # Helper Functions
 def get_count_fromredisout(keys_out):

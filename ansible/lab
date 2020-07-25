@@ -6,10 +6,10 @@ hwsku="ACS-MSN2700"
 iface_speed='40000'
 
 [sonic_s6000]
-lab-s6000-01      ansible_host=10.251.0.189
-vlab-01           ansible_host=10.250.0.101
-vlab-03           ansible_host=10.250.0.105
-vlab-04           ansible_host=10.250.0.107
+lab-s6000-01      ansible_host=10.251.0.189    ansible_hostv6=fec0::ffff:afa:9
+vlab-01           ansible_host=10.250.0.101    ansible_hostv6=fec0::ffff:afa:1
+vlab-03           ansible_host=10.250.0.105    ansible_hostv6=fec0::ffff:afa:5
+vlab-04           ansible_host=10.250.0.107    ansible_hostv6=fec0::ffff:afa:7
 
 [sonic_s6000:vars]
 hwsku="Force10-S6000"

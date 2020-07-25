@@ -1,8 +1,8 @@
 import os
 import random
 import logging
-from ..thermal_control_test_helper import *
-from common.mellanox_data import SWITCH_MODELS
+from tests.platform_tests.thermal_control_test_helper import *
+from tests.common.mellanox_data import SWITCH_MODELS
 from minimum_table import MINIMUM_TABLE
 
 NOT_AVAILABLE = 'N/A'
@@ -472,7 +472,7 @@ class FanData:
 
         return 'green'
 
- 
+
 class TemperatureData:
     """
     Data mocker of a thermal.
@@ -608,7 +608,7 @@ class RandomFanStatusMocker(FanStatusMocker):
                     fan_data.mock_speed(random.randint(0, 100))
                     self.expected_data[fan_data.name] = [
                         drawer_data.name,
-                        'N/A', # update this value later 
+                        'N/A', # update this value later
                         fan_data.name,
                         '{}%'.format(fan_data.mocked_speed),
                         drawer_data.mocked_direction,
@@ -670,7 +670,7 @@ class RandomFanStatusMocker(FanStatusMocker):
             if name in actual_data:
                 actual_fields = actual_data[name]
                 for i, expected_field in enumerate(fields):
-                    if name.find('psu') != -1 and i ==1: 
+                    if name.find('psu') != -1 and i ==1:
                         continue # skip led status check for PSU because we don't mock it
                     if expected_field != actual_fields[i]:
                         logging.error('Check fan status for {} failed, ' \
@@ -985,7 +985,7 @@ class MinTableMocker(object):
             max_temp = int(range_str_list[1])
             if min_temp <= temperature <= max_temp:
                 return cooling_level - 10
-        
+
         return None
 
     def mock_min_table(self, air_flow_dir, temperature, trust_state):
