@@ -11,8 +11,9 @@ from common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user,\
      ixia_api_serv_session_id, ixia_api_server_session
 
 from common.ixia.ixia_helpers import configure_ports,\
-     create_topology, start_protocols, create_ipv4_traffic, create_pause_traffic, \
-     start_traffc, stop_traffic, get_statistics, IxiaFanoutManager
+     create_topology, start_protocols, create_ipv4_traffic,\
+     create_pause_traffic, start_traffic, stop_traffic,\
+     get_traffic_statistics, IxiaFanoutManager, clean_configuration
 
 from common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet
 
@@ -23,34 +24,43 @@ pytestmark = [pytest.mark.disable_loganalyzer]
 """ Data packet size in bytes """
 DATA_PKT_SIZE = 1024
 
-"""
-Run a PFC experiment
-                     _________
-                    |         |
-IXIA tx_port ------ |   DUT   |------ IXIA rx_port
-                    |_________|
-IXIA sends test traffic and background traffic from tx_port
-IXIA sends PFC pause frames from rx_port to pause priorities 
-                    
-@param session: IXIA session
-@param dut: Ansible instance of SONiC device under test (DUT)
-@param tx_port: IXIA port to transmit traffic
-@param rx_port: IXIA port to receive traffic
-@param port_bw: bandwidth (in Mbps) of tx_port and rx_port
-@param test_prio_list: PFC priorities of test traffic and PFC pause frames
-@param test_dscp_list: DSCP values of test traffic
-@param bg_dscp_list: DSCP values of background traffic
-@param exp_dur: experiment duration in second
-@param paused: if test traffic should be paused
-"""
-def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list, test_dscp_list, bg_dscp_list,\
-                exp_dur, paused):
+
+def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,\
+                test_dscp_list, bg_dscp_list, exp_dur, paused):
+    """
+    Run a PFC experiment
+                        _________
+                       |         |
+    IXIA tx_port ------+   DUT   +------ IXIA rx_port
+                       |_________|
+
+    IXIA sends test traffic and background traffic from tx_port
+    IXIA sends PFC pause frames from rx_port to pause priorities
+
+    Args:
+        session (IxNetwork Session object): IxNetwork session.
+        dut (object): Ansible instance of SONiC device under test (DUT).
+        tx_port (object Ixia vport): IXIA port to transmit traffic.
+        rx_port (object Ixia vport): IXIA port to receive traffic.
+        port_bw (int): bandwidth (in Mbps) of tx_port and rx_port.
+        test_prio_list (list of integers): PFC priorities of test traffic and
+            PFC pause frames.
+        test_dscp_list (list of integers): DSCP values of test traffic.
+        bg_dscp_list (list of integers): DSCP values of background traffic.
+        exp_dur (integer): experiment duration in second.
+        paused (bool): if test traffic should be paused.
+
+    Returns:
+        This function returns nothing.
+    """
     
     """ Disable DUT's PFC watchdog """
     dut.shell('sudo pfcwd stop')
     
     vlan_subnet = get_vlan_subnet(dut)
-    pytest_assert(vlan_subnet is not None, "Fail to get Vlan subnet information")
+
+    pytest_assert(vlan_subnet is not None,
+                  "Fail to get Vlan subnet information")
     
     gw_addr = vlan_subnet.split('/')[0]
     """ One for sender and the other one for receiver """
@@ -108,14 +118,13 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list, test_ds
                                        global_pause=False,
                                        pause_prio_list=test_prio_list)
     
-    start_traffc(session)
+    start_traffic(session)
     
     """ Wait for test and background traffic to finish """
-    time.sleep(exp_dur+1.5)
+    time.sleep(exp_dur + 1.5)
     
     """ Capture traffic statistics  """
-    
-    flow_statistics = get_statistics(session)
+    flow_statistics = get_traffic_statistics(session)
     logger.info(flow_statistics)
         
     for row_number, flow_stat in enumerate(flow_statistics.Rows):
@@ -124,20 +133,25 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list, test_ds
         
         if 'Test' in flow_stat['Traffic Item']:
             if paused:          
-                pytest_assert(tx_frames>0 and rx_frames==0, "Test traffic should be fully paused")
+                pytest_assert(tx_frames > 0 and rx_frames == 0, 
+                    "Test traffic should be fully paused")
             else:
-                pytest_assert(tx_frames>0 and tx_frames==rx_frames, "Test traffic should not be impacted")
+                pytest_assert(tx_frames > 0 and tx_frames == rx_frames, 
+                    "Test traffic should not be impacted")
                        
         elif 'PFC' in flow_stat['Traffic Item']:
-            pytest_assert(tx_frames>0 and rx_frames==0, "PFC packets should be dropped")
+            pytest_assert(tx_frames > 0 and rx_frames == 0,
+                "PFC packets should be dropped")
         else:         
-            pytest_assert(tx_frames>0 and tx_frames==rx_frames, "Background traffic should not be impacted")
+            pytest_assert(tx_frames > 0 and tx_frames == rx_frames,
+                "Background traffic should not be impacted")
         
     stop_traffic(session)
 
-def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map, duthost, ixia_dev, \
-                            ixia_api_server_session, fanout_graph_facts):
-    
+
+def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map,\
+                            duthost, ixia_dev, ixia_api_server_session,\
+                            fanout_graph_facts):
     port_list = list()
     fanout_devices = IxiaFanoutManager(fanout_graph_facts)
     fanout_devices.get_fanout_device_details(device_number = 0)
@@ -148,19 +162,18 @@ def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map, d
         intf['speed'] = int(device_conn[peer_port]['speed']) * 100 
         port_list.append(intf)
 
-                
     """ The topology should have at least two interfaces """
-    pytest_assert(len(device_conn)>=2, "The topology should have at least two interfaces")
+    pytest_assert(len(device_conn)>=2,
+        "The topology should have at least two interfaces")
                 
     """ Test pausing each lossless priority individually """
-
     session = ixia_api_server_session
     for prio in lossless_prio_dscp_map:
         for i in range(len(port_list)): 
             vports = configure_ports(session, port_list)
  
             rx_id = i
-            tx_id = (i+1) % len(port_list)
+            tx_id = (i + 1) % len(port_list)
             
             rx_port = vports[rx_id]
             tx_port = vports[tx_id]
@@ -187,6 +200,5 @@ def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map, d
                         exp_dur=exp_dur,
                         paused=True)
 
-            ixNetwork = session.Ixnetwork
-            ixNetwork.NewConfig()
+            clean_configuration(session=session)
 

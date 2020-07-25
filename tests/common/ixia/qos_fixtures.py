@@ -2,7 +2,8 @@ import pytest
 
 @pytest.fixture(scope = "module")
 def lossless_prio_dscp_map(duthost):
-    config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    config_facts = duthost.config_facts(host=duthost.hostname, 
+                                        source="persistent")['ansible_facts']
 
     if "PORT_QOS_MAP" not in config_facts.keys():
         return None
