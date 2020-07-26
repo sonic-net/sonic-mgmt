@@ -12,21 +12,21 @@
 import logging
 import time
 import pytest
-from common.utilities import wait_until
-from common.fixtures.conn_graph_facts import conn_graph_facts, \
-     fanout_graph_facts
+from tests.common.utilities import wait_until
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
+    fanout_graph_facts
 
-from common.reboot import logger
+from tests.common.reboot import logger
 
-from common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user,\
-     ixia_api_serv_passwd, ixia_api_serv_port, ixia_api_serv_session_id, \
-     ixia_api_server_session  
+from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user,\
+    ixia_api_serv_passwd, ixia_api_serv_port, ixia_api_serv_session_id, \
+    ixia_api_server_session  
 
-from common.ixia.ixia_helpers import  IxiaFanoutManager, configure_ports,\
-      create_topology, create_ip_traffic_item, start_protocols, \
-      start_traffic, stop_traffic, get_traffic_statistics, stop_protocols
+from tests.common.ixia.ixia_helpers import  IxiaFanoutManager, configure_ports,\
+    create_topology, create_ip_traffic_item, start_protocols, \
+    start_traffic, stop_traffic, get_traffic_statistics, stop_protocols
 
-from common.ixia.common_helpers import increment_ip_address 
+from tests.common.ixia.common_helpers import increment_ip_address 
 
 def test_testbed(testbed, conn_graph_facts, duthost, fanout_graph_facts,
     ixia_api_server_session, fanouthosts):
