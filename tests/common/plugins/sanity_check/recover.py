@@ -50,7 +50,7 @@ def __recover_interfaces(dut, fanouthosts, result, wait_time):
 def __recover_services(dut, result):
     status   = result['services_status']
     services = [ x for x in status if not status[x] ]
-    logging.info("Service(s) down: {}".format(services))
+    logging.warning("Service(s) down: {}".format(services))
     return 'reboot' if 'database' in services else 'config_reload'
 
 
