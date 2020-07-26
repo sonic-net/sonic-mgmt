@@ -44,7 +44,7 @@ class Interface(object):
             self.socket.close()
 
     def bind(self):
-        self.socket = scapy2.conf.L2listen(iface=self.iface)
+        self.socket = scapy2.conf.L2listen(iface=self.iface, filter='arp')
 
     def handler(self):
         return self.socket

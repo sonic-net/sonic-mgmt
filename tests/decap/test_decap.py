@@ -7,16 +7,19 @@ from jinja2 import Template
 from netaddr import IPNetwork
 from ansible.plugins.filter.core import to_bool
 
-from common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from ptf_runner import ptf_runner
-from common.plugins.fib import generate_routes
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.ptf_runner import ptf_runner
+from tests.common.plugins.fib import generate_routes
 
 logger = logging.getLogger(__name__)
 
 PTFRUNNER_QLEN = 1000
 FIB_INFO_DEST = "/root/fib_info.txt"
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 def get_uplink_ports(topology, topo_type):
 

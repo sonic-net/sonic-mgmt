@@ -1,6 +1,6 @@
 import logging
 
-from common.errors import RunAnsibleModuleFail
+from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +38,8 @@ def prepare_testbed_ssh_keys(duthost, ptfhost, dut_username):
     ptfhost.file(path='/root/.ssh/id_rsa.pub', mode='u=rw,g=,o=')
 
     cmd = '''
-        mkdir -p /home/{0}/.ssh && 
-        echo "{1}" >> /home/{0}/.ssh/authorized_keys && 
+        mkdir -p /home/{0}/.ssh &&
+        echo "{1}" >> /home/{0}/.ssh/authorized_keys &&
         chown -R {0}:{0} /home/{0}/.ssh/
     '''.format(dut_username, result['public_key'])
     duthost.shell(cmd)

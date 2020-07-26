@@ -1,10 +1,13 @@
 import logging
 import pytest
-from common.fixtures.conn_graph_facts import conn_graph_facts
-from common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
+
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from .files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
 
 logger = logging.getLogger(__name__)
+
 
 def pytest_addoption(parser):
     """
@@ -66,11 +69,16 @@ def setup_pfc_test(duthost, ptfhost, conn_graph_facts):
                    'selected_test_ports': selected_ports,
                    'pfc_timers' : set_pfc_timers(),
                    'neighbors': neighbors,
-                   'vlan': {'addr': vlan_addr,
-                            'prefix': vlan_prefix,
-                            'dev': vlan_dev},
                    'eth0_ip': dut_eth0_ip
                   }
+
+    if mg_facts['minigraph_vlans']:
+        setup_info['vlan'] = {'addr': vlan_addr,
+                              'prefix': vlan_prefix,
+                              'dev': vlan_dev
+                             }
+    else:
+        setup_info['vlan'] = None
 
     # set poll interval
     duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))

@@ -26,7 +26,7 @@ def check_sysfs(dut):
         assert False, "Bad content in /var/run/hw-management/thermal/asic: %s" % repr(e)
 
     dut_hwsku = dut.facts["hwsku"]
-    from common.mellanox_data import SWITCH_MODELS
+    from tests.common.mellanox_data import SWITCH_MODELS
     fan_count = SWITCH_MODELS[dut_hwsku]["fans"]["number"]
 
     fan_speed = 0
@@ -212,7 +212,7 @@ def check_psu_sysfs(dut, psu_id, psu_state):
         assert psu_exist_content["stdout"] == "0", "CLI returns NOT PRESENT while %s contains %s" %  \
                     (psu_exist, psu_exist_content["stdout"])
     else:
-        from common.mellanox_data import SWITCH_MODELS
+        from tests.common.mellanox_data import SWITCH_MODELS
         dut_hwsku = dut.facts["hwsku"]
         hot_swappabe = SWITCH_MODELS[dut_hwsku]["psus"]["hot_swappable"]
         if hot_swappabe:

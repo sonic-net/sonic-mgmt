@@ -1,8 +1,9 @@
-from common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from qos_fixtures import leaf_fanouts
 from qos_helpers import eos_to_linux_intf
 import os
 import time
+import pytest
 
 """
 This module implements test cases for PFC counters of SONiC.
@@ -12,6 +13,10 @@ The PFC Rx counter should NOT be updated when the switch receives a global flow 
 In each test case, we send a specific number of pause/unpause frames to a given priority queue of a given port at the
 device under test (DUT). Then we check the SONiC PFC Rx counters.
 """
+
+pytestmark = [
+    pytest.mark.topology('t0')
+]
 
 PFC_GEN_FILE_RELATIVE_PATH = r'../../ansible/roles/test/files/helpers/pfc_gen.py'
 """ Expected PFC generator path at the leaf fanout switch """
