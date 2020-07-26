@@ -46,11 +46,10 @@ def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
     # reset tacacs client configuration
     duthost.shell("sudo config tacacs delete %s" % tacacs_server_ip)
     if duthost.facts['asic_type'] == 'mellanox':
-        duthost.shell("sudo config tacacs delete %s" % creds['tacacs_ro_user'])
+        duthost.shell("sudo config tacacs delete %s" % creds['tacacs_servers'][0])
     duthost.shell("sudo config tacacs default passkey")
     duthost.shell("sudo config aaa authentication login default")
     duthost.shell("sudo config aaa authentication failthrough default")
-
 
 @pytest.fixture(scope="module")
 def test_tacacs(ptfhost, duthost, creds):
