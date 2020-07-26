@@ -10,7 +10,7 @@ This module also contains a definition of a simple helper class
 chassis instead of reading it from fanout_graph_facts fixture.
 """
 
-from common.reboot import logger
+from tests.common.reboot import logger
 from ixnetwork_restpy import SessionAssistant, Files
 
 class IxiaFanoutManager () :
