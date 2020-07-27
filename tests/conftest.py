@@ -121,6 +121,8 @@ def pytest_addoption(parser):
                      help="Skip sanity check")
     parser.addoption("--allow_recover", action="store_true", default=False,
                      help="Allow recovery attempt in sanity check in case of failure")
+    parser.addoption("--check_items", action="store", default=False,
+                     help="Change (add|remove) check items in the check list")
 
     ########################
     #   pre-test options   #

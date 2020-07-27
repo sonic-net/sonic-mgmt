@@ -80,6 +80,10 @@ def setup_pfc_test(duthost, ptfhost, conn_graph_facts):
     else:
         setup_info['vlan'] = None
 
+    # stop pfcwd
+    logger.info("--- Stopping Pfcwd ---")
+    duthost.command("pfcwd stop")
+
     # set poll interval
     duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
 
