@@ -12,6 +12,7 @@ import getpass
 import pytest
 import csv
 import yaml
+import jinja2
 import ipaddr as ipaddress
 
 from collections import defaultdict
@@ -121,6 +122,14 @@ def pytest_addoption(parser):
                      help="Skip sanity check")
     parser.addoption("--allow_recover", action="store_true", default=False,
                      help="Allow recovery attempt in sanity check in case of failure")
+    parser.addoption("--check_items", action="store", default=False,
+                     help="Change (add|remove) check items in the check list")
+
+    ########################
+    #   pre-test options   #
+    ########################
+    parser.addoption("--deep_clean", action="store_true", default=False,
+                     help="Deep clean DUT before tests (remove old logs, cores, dumps)")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -354,6 +363,13 @@ def creds(duthost):
                 creds.update(v)
             else:
                 logging.info("skip empty var file {}".format(f))
+
+    cred_vars = ["sonicadmin_user", "sonicadmin_password"]
+    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+    for cred_var in cred_vars:
+        if cred_var in creds:
+            creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
+
     return creds
 
 

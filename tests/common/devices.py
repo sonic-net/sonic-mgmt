@@ -31,8 +31,7 @@ class AnsibleHostBase(object):
 
     def __init__(self, ansible_adhoc, hostname, connection=None, become_user=None):
         if hostname == 'localhost':
-            self.host = ansible_adhoc(connection='smart', host_pattern=hostname)[hostname]
-            self.mgmt_ip = self.host.setup(gather_subset="!all,!min,network")[hostname]["ansible_facts"]["ansible_default_ipv4"]["address"]
+            self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
         else:
             if connection is None:
                 if become_user is None:
@@ -45,7 +44,6 @@ class AnsibleHostBase(object):
                     self.host = ansible_adhoc(become=True, connection=connection)[hostname]
                 else:
                     self.host = ansible_adhoc(become=True, connection=connection, become_user=become_user)[hostname]
-            self.mgmt_ip = self.host.options["inventory_manager"].get_host(hostname).vars["ansible_host"]
         self.hostname = hostname
 
     def __getattr__(self, module_name):
@@ -138,8 +136,7 @@ class SonicHost(AnsibleHostBase):
                 "platform": "x86_64-arista_7050_qx32s",
                 "hwsku": "Arista-7050-QX-32S",
                 "asic_type": "broadcom",
-                "num_npu": 1,
-                "router_mac": "52:54:00:f0:ac:9d"
+                "num_npu": 1
             }
         """
 
@@ -204,7 +201,6 @@ class SonicHost(AnsibleHostBase):
         facts = dict()
         facts.update(self._get_platform_info())
         facts["num_npu"] = self._get_npu_count(facts["platform"])
-        facts["router_mac"] = self._get_router_mac()
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
@@ -226,9 +222,6 @@ class SonicHost(AnsibleHostBase):
             return int(num_npu)
         except:
             return 1
-
-    def _get_router_mac(self):
-        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode("utf-8")
 
     def _generate_critical_services_for_multi_npu(self, services):
         """
@@ -637,6 +630,18 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return nbinfo[str(neighbor_ip)]
 
+    def get_bgp_neighbors(self):
+        """
+        Get a diction of BGP neighbor states
+
+        Args: None
+
+        Returns: dictionary { (neighbor_ip : info_dict)* }
+
+        """
+        bgp_facts = self.bgp_facts()['ansible_facts']
+        return bgp_facts['bgp_neighbors']
+
     def check_bgp_session_state(self, neigh_ips, state="established"):
         """
         @summary: check if current bgp session equals to the target state
@@ -913,6 +918,54 @@ class OnyxHost(AnsibleHostBase):
             raise Exception("Unable to execute template\n{}".format(res["localhost"]["stdout"]))
 
 
+class IxiaHost (AnsibleHostBase):
+    """ This class is a place-holder for running ansible module on Ixia
+    fanout devices in future (TBD).
+    """
+    def __init__ (self, ansible_adhoc, os, hostname, device_type) :
+        """ Initializing Ixia fanout host for using ansible modules.
+
+        Note: Right now, it is just a place holder.
+
+        Args:
+            ansible_adhoc :The pytest-ansible fixture
+            os (str): The os type of Ixia Fanout.
+            hostname (str): The Ixia fanout host-name
+            device_type (str): The Ixia fanout device type.
+        """ 
+
+        self.ansible_adhoc = ansible_adhoc
+        self.os            = os
+        self.hostname      = hostname
+        self.device_type   = device_type
+        super().__init__(IxiaHost, self)
+   
+    def get_host_name (self):
+        """Returns the Ixia hostname
+
+        Args:
+            This function takes no argument.
+        """    
+        return self.hostname
+
+    def get_os (self) :
+        """Returns the os type of the ixia device.
+
+        Args:
+            This function takes no argument.
+        """    
+        return self.os
+
+    def execute (self, cmd) :
+        """Execute a given command on ixia fanout host.
+         
+        Args: 
+           cmd (str): Command to be executed.
+        """ 
+        if (self.os == 'ixia') :
+            eval(cmd)
+
+
 class FanoutHost():
     """
     @summary: Class for Fanout switch
@@ -934,7 +987,7 @@ class FanoutHost():
         elif os == 'ixia':
             # TODO: add ixia chassis abstraction
             self.os = os
-            self.host = None
+            self.host = IxiaHost(ansible_adhoc, os, hostname, device_type)
         else:
             # Use eos host if the os type is unknown
             self.os = 'eos'

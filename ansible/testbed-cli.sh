@@ -179,6 +179,29 @@ function remove_topo
   echo Done
 }
 
+function connect_topo
+{
+  topology=$1
+  passwd=$2
+  shift
+  shift
+
+  echo "Connect to Topology '${topology}'"
+
+  read_file ${topology}
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_connect_topo.yml \
+                     --vault-password-file="${passwd}" --limit "$server" \
+                     -e topo_name="$topo_name" -e dut_name="$duts" \
+                     -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" \
+                     -e topo="$topo" -e vm_set_name="$testbed_name" \
+                     -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" $@
+
+  ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+
+  echo Done
+}
+
 function renumber_topo
 {
   topology=$1
@@ -232,7 +255,6 @@ function disconnect_vms
 
   echo Done
 }
-
 
 function generate_minigraph
 {
@@ -297,15 +319,6 @@ function config_vm
   ansible-playbook -i $vmfile eos.yml --vault-password-file="$3" -l "$2" -e topo="$topo" -e VM_base="$vm_base"
 
   echo Done
-}
-
-function connect_topo
-{
-  echo "Connect to Fanout"
-
-  read_file $1
-
-  ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="$2" -e "dut=$duts"
 }
 
 vmfile=veos
