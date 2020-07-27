@@ -35,6 +35,49 @@ class TestPsuApi(PlatformApiTestBase):
             except:
                 pytest.fail("num_psus is not an integer")
 
+    #
+    # Functions to test methods inherited from DeviceBase class
+    #
+
+    def test_get_name(self, duthost, localhost, platform_api_conn):
+        for i in range(self.num_psus):
+            name = psu.get_name(platform_api_conn, i)
+            if self.expect(name is not None, "Unable to retrieve transceiver {} name".format(i)):
+                self.expect(isinstance(name, str), "Transceiver {} name appears incorrect".format(i))
+        self.assert_expectations()
+
+    def test_get_presence(self, duthost, localhost, platform_api_conn):
+        for i in range(self.num_psus):
+            presence = psu.get_presence(platform_api_conn, i)
+            if self.expect(presence is not None, "Unable to retrieve transceiver {} presence".format(i)):
+                if self.expect(isinstance(presence, bool), "Transceiver {} presence appears incorrect".format(i)):
+                    self.expect(presence is True, "Transceiver {} is not present".format(i))
+        self.assert_expectations()
+
+    def test_get_model(self, duthost, localhost, platform_api_conn):
+        for i in range(self.num_psus):
+            model = psu.get_model(platform_api_conn, i)
+            if self.expect(model is not None, "Unable to retrieve transceiver {} model".format(i)):
+                self.expect(isinstance(model, str), "Transceiver {} model appears incorrect".format(i))
+        self.assert_expectations()
+
+    def test_get_serial(self, duthost, localhost, platform_api_conn):
+        for i in range(self.num_psus):
+            serial = psu.get_serial(platform_api_conn, i)
+            if self.expect(serial is not None, "Unable to retrieve transceiver {} serial number".format(i)):
+                self.expect(isinstance(serial, str), "Transceiver {} serial number appears incorrect".format(i))
+        self.assert_expectations()
+
+    def test_get_status(self, duthost, localhost, platform_api_conn):
+        for i in range(self.num_psus):
+            status = psu.get_status(platform_api_conn, i)
+            if self.expect(status is not None, "Unable to retrieve transceiver {} status".format(i)):
+                self.expect(isinstance(status, bool), "Transceiver {} status appears incorrect".format(i))
+        self.assert_expectations()
+
+    #
+    # Functions to test methods defined in PsuBase class
+    #
 
     def test_fans(self, duthost, localhost, platform_api_conn):
         ''' PSU fan test '''
