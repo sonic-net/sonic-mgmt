@@ -30,13 +30,11 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,\
                 test_dscp_list, bg_dscp_list, exp_dur, paused):
     """
     Run a PFC experiment.
-                        _________
-                       |         |
-    IXIA tx_port ------+   DUT   +------ IXIA rx_port
-                       |_________|
-
-    IXIA sends test traffic and background traffic from tx_port
-    IXIA sends PFC pause frames from rx_port to pause priorities.
+    1. IXIA sends test traffic and background traffic from tx_port
+    2. IXIA sends PFC pause frames from rx_port to pause priorities.
+    3. Background traffic should not be interupped - all background traffic
+       will be received at the rx_port.
+    4. No PFC traffic will be received at the rx_port. 
 
     Args:
         session (IxNetwork Session object): IxNetwork session.
