@@ -11,9 +11,9 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, \
     ixia_api_serv_session_id, ixia_api_server_session
 
 from tests.common.ixia.ixia_helpers import configure_ports,\
-     create_topology, start_protocols, create_ipv4_traffic,\
-     create_pause_traffic, start_traffic, stop_traffic,\
-     get_traffic_statistics, IxiaFanoutManager, clean_configuration
+    create_topology, start_protocols, create_ipv4_traffic,\
+    create_pause_traffic, start_traffic, stop_traffic,\
+    get_traffic_statistics, IxiaFanoutManager, clean_configuration
 
 from tests.common.ixia.common_helpers import get_vlan_subnet, \
     get_addrs_in_subnet
@@ -22,21 +22,21 @@ from tests.common.ixia.qos_fixtures import lossless_prio_dscp_map
 
 pytestmark = [pytest.mark.disable_loganalyzer]
 
-""" Data packet size in bytes """
+# Data packet size in bytes.
 DATA_PKT_SIZE = 1024
 
 
 def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,\
                 test_dscp_list, bg_dscp_list, exp_dur, paused):
     """
-    Run a PFC experiment
+    Run a PFC experiment.
                         _________
                        |         |
     IXIA tx_port ------+   DUT   +------ IXIA rx_port
                        |_________|
 
     IXIA sends test traffic and background traffic from tx_port
-    IXIA sends PFC pause frames from rx_port to pause priorities
+    IXIA sends PFC pause frames from rx_port to pause priorities.
 
     Args:
         session (IxNetwork Session object): IxNetwork session.
@@ -49,13 +49,13 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,\
         test_dscp_list (list of integers): DSCP values of test traffic.
         bg_dscp_list (list of integers): DSCP values of background traffic.
         exp_dur (integer): experiment duration in second.
-        paused (bool): if test traffic should be paused.
+        paused (bool): If test traffic should be paused.
 
     Returns:
         This function returns nothing.
     """
     
-    """ Disable DUT's PFC watchdog """
+    # Disable DUT's PFC watchdog.
     dut.shell('sudo pfcwd stop')
     
     vlan_subnet = get_vlan_subnet(dut)
@@ -64,7 +64,8 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,\
                   "Fail to get Vlan subnet information")
     
     gw_addr = vlan_subnet.split('/')[0]
-    """ One for sender and the other one for receiver """
+
+    # One for sender and the other one for receiver.
     vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, 2)
        
     topo_receiver = create_topology(session=session,
@@ -107,10 +108,10 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,\
                                              dscp_list=bg_dscp_list,
                                              lossless_prio_list=None)
     
-    """ Pause time duration (in second) for each PFC pause frame """ 
+    # Pause time duration (in second) for each PFC pause frame.
     pause_dur_per_pkt = 65535 * 64 * 8.0 / (port_bw * 1000000) 
     
-    """ Do not specify duration here as we want it keep running """
+    # Do not specify duration here as we want it keep running.
     pfc_traffic = create_pause_traffic(session=session,
                                        name='PFC Pause Storm',
                                        source=rx_port,
@@ -121,10 +122,10 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,\
     
     start_traffic(session)
     
-    """ Wait for test and background traffic to finish """
+    # Wait for test and background traffic to finish.
     time.sleep(exp_dur + 1.5)
     
-    """ Capture traffic statistics  """
+    # Capture traffic statistics.
     flow_statistics = get_traffic_statistics(session)
     logger.info(flow_statistics)
         
@@ -163,11 +164,11 @@ def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map,\
         intf['speed'] = int(device_conn[peer_port]['speed']) * 100 
         port_list.append(intf)
 
-    """ The topology should have at least two interfaces """
+    # The topology should have at least two interfaces.
     pytest_assert(len(device_conn)>=2,
         "The topology should have at least two interfaces")
                 
-    """ Test pausing each lossless priority individually """
+    # Test pausing each lossless priority individually.
     session = ixia_api_server_session
     for prio in lossless_prio_dscp_map:
         for i in range(len(port_list)): 
@@ -183,9 +184,10 @@ def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map,\
             
             pytest_assert(rx_port_bw == tx_port_bw)
             
-            """ All the DSCP values mapped to this priority """
+            # All the DSCP values mapped to this priority.
             test_dscp_list = lossless_prio_dscp_map[prio]
-            """ The other DSCP values """
+
+            # The other DSCP values.
             bg_dscp_list = [x for x in range(64) if x not in test_dscp_list]
             
             exp_dur = 2
