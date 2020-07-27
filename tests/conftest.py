@@ -130,6 +130,12 @@ def pytest_addoption(parser):
     parser.addoption("--deep_clean", action="store_true", default=False,
                      help="Deep clean DUT before tests (remove old logs, cores, dumps)")
 
+    ############################
+    #   tacacs tests options   #
+    ############################
+    parser.addoption("--switch_tacacs_config", action="store", default=False, type=bool,
+                    help="Boolean indicated if TACACS server configuration should be performed on switch")
+
 
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):

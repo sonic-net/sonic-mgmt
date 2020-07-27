@@ -1,7 +1,7 @@
 import pytest
 import crypt
 
-def configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip):
+def configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip, config_tacacs_on_switch):
     """setup tacacs client and server"""
 
     # disable tacacs server
@@ -14,8 +14,14 @@ def configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip):
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     for tacacs_server in config_facts.get('TACPLUS_SERVER', {}):
         duthost.shell("sudo config tacacs delete %s" % tacacs_server)
+
     duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
     duthost.shell("sudo config tacacs authtype login")
+
+    if config_tacacs_on_switch:
+        duthost.shell("sudo config tacacs add %s" % creds['tacacs_servers'][0])
+        duthost.shell("sudo config tacacs authtype pap")
+        duthost.shell("sudo useradd %s --password 111111" % creds['tacacs_ro_user'], module_ignore_errors=True)
 
     # enable tacacs+
     duthost.shell("sudo config aaa authentication login tacacs+")
@@ -34,11 +40,14 @@ def configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip):
     ptfhost.service(name="tacacs_plus", state="started")
 
 
-def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
+def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip, creds, config_tacacs_on_switch):
     # stop tacacs server
     ptfhost.service(name="tacacs_plus", state="stopped")
 
     # reset tacacs client configuration
+    if config_tacacs_on_switch:
+        duthost.shell("sudo config tacacs delete %s" % creds['tacacs_servers'][0], module_ignore_errors=True)
+        duthost.shell("sudo userdell %s" % creds['tacacs_ro_user'], module_ignore_errors=True)
     duthost.shell("sudo config tacacs delete %s" % tacacs_server_ip)
     duthost.shell("sudo config tacacs default passkey")
     duthost.shell("sudo config aaa authentication login default")
@@ -47,11 +56,13 @@ def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
 @pytest.fixture(scope="module")
 def test_tacacs(ptfhost, duthost, creds):
     tacacs_server_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
-    configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip)
+    config_tacacs_on_switch = request.config.getoption('--switch_tacacs_config')
+
+    configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip, config_tacacs_on_switch)
 
     yield
 
-    cleanup_tacacs(ptfhost, duthost, tacacs_server_ip)
+    cleanup_tacacs(ptfhost, duthost, tacacs_server_ip, creds, config_tacacs_on_switch)
 
 
 @pytest.fixture(scope="module")
@@ -60,8 +71,10 @@ def test_tacacs_v6(ptfhost, duthost, creds):
     if 'ansible_hostv6' not in ptfhost_vars:
         pytest.skip("Skip IPv6 test. ptf ansible_hostv6 not configured.")
     tacacs_server_ip = ptfhost_vars['ansible_hostv6']
-    configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip)
+    config_tacacs_on_switch = request.config.getoption('--switch_tacacs_config')
+
+    configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip, config_tacacs_on_switch)
 
     yield
 
-    cleanup_tacacs(ptfhost, duthost, tacacs_server_ip)
+    cleanup_tacacs(ptfhost, duthost, tacacs_server_ip, creds, config_tacacs_on_switch)
