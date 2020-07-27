@@ -1,23 +1,24 @@
-from common.reboot import logger
+from tests.common.reboot import logger
 import logging
 import time
 import pytest
-from common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 
-from common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert
 
-from common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user,\
-     ixia_api_serv_passwd, ixia_dev,  ixia_api_serv_port,\
-     ixia_api_serv_session_id, ixia_api_server_session
+from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, \
+    ixia_api_serv_user, ixia_api_serv_passwd, ixia_dev, ixia_api_serv_port,\
+    ixia_api_serv_session_id, ixia_api_server_session
 
-from common.ixia.ixia_helpers import configure_ports,\
+from tests.common.ixia.ixia_helpers import configure_ports,\
      create_topology, start_protocols, create_ipv4_traffic,\
      create_pause_traffic, start_traffic, stop_traffic,\
      get_traffic_statistics, IxiaFanoutManager, clean_configuration
 
-from common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet
+from tests.common.ixia.common_helpers import get_vlan_subnet, \
+    get_addrs_in_subnet
 
-from common.ixia.qos_fixtures import lossless_prio_dscp_map
+from tests.common.ixia.qos_fixtures import lossless_prio_dscp_map
 
 pytestmark = [pytest.mark.disable_loganalyzer]
 
