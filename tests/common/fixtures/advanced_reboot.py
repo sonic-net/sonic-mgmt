@@ -355,7 +355,7 @@ class AdvancedReboot:
             for log in logs:
                 host.fetch(**log)
 
-    def runRebootTestcase(self, prebootList=None, inbootList=None, prebootFiles=None):
+    def imageInstall(self, prebootList=None, inbootList=None, prebootFiles=None):
         '''
         This method validates and prepare test bed for rebot test case. It runs the reboot test case using provided
         test arguments
@@ -381,6 +381,17 @@ class AdvancedReboot:
 
         # Handle mellanox platform
         self.__handleMellanoxDut()
+
+    def runRebootTestcase(self, prebootList=None, inbootList=None, prebootFiles=None):
+        '''
+        This method validates and prepare test bed for rebot test case. It runs the reboot test case using provided
+        test arguments
+        @param prebootList: list of operation to run before reboot process
+        @param inbootList: list of operation to run during reboot prcoess
+        @param prebootFiles: preboot files
+        '''
+
+        self.imageInstall(prebootList, inbootList, prebootFiles)
 
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
         for rebootOper in self.rebootData['sadList']:
