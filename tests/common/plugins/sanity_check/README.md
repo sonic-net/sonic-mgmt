@@ -58,6 +58,8 @@ If a supported check item is prefixed with `-`, then this item will not be check
 
 With this design, we can extend the sanity check items in the future. By default, only a very basic set of sanity check is performed. For some test scripts that do not need some default sanity check items or need some extra sanity check items, we can use this syntax to tailor the check items that fit best for the current test script.
 
+User can change check item list by passing parameter from command line --check_items="add remove string". Exmaple: --check_items="-services,+bgp" means do not check services, but add bgp to the check list. This parameter is not an absolute list, it is addition or subtraction from the existing list.
+
 ## Log collecting
 If sanity check is to be performed, the script will also run some commands on the DUT to collect some basic information for debugging. Please refer to sonic-mgmt/tests/common/plugins/sanity_check/constants::PRINT_LOGS for the list of logs that will be collected.
 
