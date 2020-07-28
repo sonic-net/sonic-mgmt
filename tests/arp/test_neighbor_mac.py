@@ -8,11 +8,11 @@ from tests.common.config_reload import config_reload
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('ptf')
 ]
 class TestNeighborMac:
     """
-        Test handling of neighbor MAC in SONiC switch
+        Test handling of neighbor MAC in SONiC switch with PTF docker 
     """
     PTF_HOST_IF = "eth0"
     DUT_ETH_IF = "Ethernet0"
@@ -33,13 +33,13 @@ class TestNeighborMac:
             Returns:
                 None
         """
-        logger.info("Configure the DUT interface, add IP address")
+        logger.info("Configure the DUT interface, start interface, add IP address")
         self.__startInterface(duthost)
         self.__configureInterfaceIp(duthost, action="add")
 
         yield
 
-        logger.info("Restore the DUT interface config")
+        logger.info("Restore the DUT interface config, remove IP address")
         self.__configureInterfaceIp(duthost, action="remove")
 
     @pytest.fixture(params=[0, 1])
