@@ -734,7 +734,7 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
 
     return traffic_item
 
-# This secrion defines helper function used in the module. These functions
+# This section defines helper function used in the module. These functions
 # should not be called from test script.
 # 1. __set_global_pause_fields__ 
 # 2. __set_eth_fields__
