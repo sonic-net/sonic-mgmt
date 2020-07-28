@@ -151,7 +151,7 @@ class ContinuousReboot:
 
         file_template = {
             'install_list': self.image_list, # this list can be modified at runtime to enable testing different images
-            'location': 'http://100.127.20.23/installer/sonic/broadcom/internal-201811/',
+            'location': self.image_location,
             'CONTINUOUS_IO': True,
         }
         with open("image_install_list.json", "w") as image_file:
@@ -165,8 +165,8 @@ class ContinuousReboot:
                 install_info = json.load(f)
                 image_install_list = install_info.get('install_list').split(",")
                 # Use modulus operator to cycle through the image_install_list per reboot iteration
-                image = image_install_list[count % len(image_install_list)]
-                image_path = install_info.get('location') + image
+                image = image_install_list[count % len(image_install_list)].strip()
+                image_path = install_info.get('location').strip() + image
 
             if image == "current":
                 logging.info("Next image is set to current - skip image installation")
