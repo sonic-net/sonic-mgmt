@@ -630,6 +630,18 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return nbinfo[str(neighbor_ip)]
 
+    def get_bgp_neighbors(self):
+        """
+        Get a diction of BGP neighbor states
+
+        Args: None
+
+        Returns: dictionary { (neighbor_ip : info_dict)* }
+
+        """
+        bgp_facts = self.bgp_facts()['ansible_facts']
+        return bgp_facts['bgp_neighbors']
+
     def check_bgp_session_state(self, neigh_ips, state="established"):
         """
         @summary: check if current bgp session equals to the target state
