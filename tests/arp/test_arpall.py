@@ -52,7 +52,7 @@ def common_setup_teardown(duthost, ptfhost):
         yield duthost, ptfhost, int_facts, intf1, intf2, intf1_indice, intf2_indice
     finally:
         # Recover DUT interface IP address
-        config_reload(duthost, config_source='minigraph', wait=120)
+        config_reload(duthost, config_source='config_db', wait=120)
 
 def test_arp_unicast_reply(common_setup_teardown):
     duthost, ptfhost, int_facts, intf1, intf2, intf1_indice, intf2_indice = common_setup_teardown
