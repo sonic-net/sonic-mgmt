@@ -30,7 +30,7 @@ def add_cont_warm_reboot_args(parser):
         "--image_location",
         action="store",
         default=None,
-        help="Enable continuous IO",
+        help="Path to image(s) to be installed",
     )
 
     parser.addoption(
