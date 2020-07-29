@@ -40,13 +40,10 @@ def get_serial(conn, index):
 
 def get_status(conn, index):
     return fan_api(conn, index, 'get_status')
+
 #
 # Methods defined in fanBase class
 #
-
-
-def get_name(conn, index):
-    return fan_api(conn, index, 'get_name')
 
 
 def get_direction(conn, index):

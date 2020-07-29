@@ -1,7 +1,7 @@
 import logging
 import re
-import time
 import random
+import time
 
 import pytest
 import yaml
@@ -32,6 +32,7 @@ STATUS_LED_COLOR_OFF = "off"
 class TestFanApi(PlatformApiTestBase):
 
     num_fans = None
+
     # This fixture would probably be better scoped at the class level, but
     # it relies on the platform_api_conn fixture, which is scoped at the function
     # level, so we must do the same here to prevent a scope mismatch.
@@ -68,6 +69,7 @@ class TestFanApi(PlatformApiTestBase):
     def test_get_model(self, duthost, localhost, platform_api_conn):
         for i in range(self.num_fans):
             model = fan.get_model(platform_api_conn, i)
+
             if self.expect(model is not None, "Unable to retrieve fan {} model".format(i)):
                 self.expect(isinstance(model, str),
                             "Fan {} model appears incorrect".format(i))
@@ -97,11 +99,10 @@ class TestFanApi(PlatformApiTestBase):
         # Ensure the fan speed is sane
         for i in range(self.num_fans):
             speed = fan.get_speed(platform_api_conn, i)
-            logger.error("vaibhav got fan speed {}".format(speed))
             if self.expect(speed is not None, "Unable to retrieve Fan {} speed".format(i)):
                 if self.expect(isinstance(speed, int), "Fan {} speed appears incorrect".format(i)):
                     self.expect(speed > 0 and speed <= 100,
-                                "Fan {} speed  {} reading is not within range".format(i, speed))
+                                "Fan {} speed {} reading is not within range".format(i, speed))
         self.assert_expectations()
 
     def test_get_direction(self, duthost, localhost, platform_api_conn):
@@ -119,19 +120,13 @@ class TestFanApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_fans_speed_target(self, duthost, localhost, platform_api_conn):
-        try:
-            num_fans = int(chassis.get_num_fans(platform_api_conn))
-        except:
-            pytest.fail("num_fans is not an integer")
+    def test_get_fans_target_speed(self, duthost, localhost, platform_api_conn):
 
-        fan_list = chassis.get_all_fans(platform_api_conn)
-        pytest_assert(fan_list is not None, "Failed to retrieve fans")
-
-        for i in range(num_fans):
+        for i in range(self.num_fans):
             fan_instance = chassis.get_fan(platform_api_conn, i)
             self.expect(fan_instance and fan_instance ==
                         fan_list[i], "Fan {} is incorrect".format(i))
+
             speed_target_val = 25
             speed_set = fan.set_speed(platform_api_conn, i, speed_target_val)
             target_speed = fan.get_target_speed(platform_api_conn, i)
@@ -143,18 +138,12 @@ class TestFanApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_fans_speed_tolerance(self, duthost, localhost, platform_api_conn):
-        try:
-            num_fans = int(chassis.get_num_fans(platform_api_conn))
-        except:
-            pytest.fail("num_fans is not an integer")
 
-        fan_list = chassis.get_all_fans(platform_api_conn)
-        pytest_assert(fan_list is not None, "Failed to retrieve fans")
-
-        for i in range(num_fans):
+        for i in range(self.num_fans):
             fan_instance = chassis.get_fan(platform_api_conn, i)
             self.expect(fan_instance and fan_instance ==
                         fan_list[i], "Fan {} is incorrect".format(i))
+
             speed_tol = fan.get_speed_tolerance(platform_api_conn, i)
             if self.expect(speed_tol is not None, "Unable to retrieve Fan {} speed tolerance".format(i)):
                 if self.expect(isinstance(speed_tol, int), "Fan {} speed tolerance appears incorrect".format(i)):
@@ -164,21 +153,15 @@ class TestFanApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_set_fans_speed(self, duthost, localhost, platform_api_conn):
-        try:
-            num_fans = int(chassis.get_num_fans(platform_api_conn))
-        except:
-            pytest.fail("num_fans is not an integer")
 
-        fan_list = chassis.get_all_fans(platform_api_conn)
-        pytest_assert(fan_list is not None, "Failed to retrieve fans")
         target_speed = random.randint(1, 100)
 
-        for i in range(num_fans):
+        for i in range(self.num_fans):
             fan_instance = chassis.get_fan(platform_api_conn, i)
             self.expect(fan_instance and fan_instance ==
                         fan_list[i], "Fan {} is incorrect".format(i))
-            speed = fan.get_speed(platform_api_conn, i)
 
+            speed = fan.get_speed(platform_api_conn, i)
             speed_tol = fan.get_speed_tolerance(platform_api_conn, i)
 
             led_status = fan.get_status_led(platform_api_conn, i)
@@ -199,21 +182,14 @@ class TestFanApi(PlatformApiTestBase):
             "green",
         ]
 
-        try:
-            num_fans = int(chassis.get_num_fans(platform_api_conn))
-        except:
-            pytest.fail("num_fans is not an integer")
-
-        fan_list = chassis.get_all_fans(platform_api_conn)
-        pytest_assert(fan_list is not None, "Failed to retrieve fans")
-
-        for i in range(num_fans):
+        for i in range(self.num_fans):
             for color in LED_COLOR_LIST:
 
                 result = fan.set_status_led(platform_api_conn, i, color)
                 if self.expect(result is not None, "Failed to perform set_status_led"):
                     self.expect(
                         result is True, "Failed to set status_led for fan {} to {}".format(i, color))
+
                 color_actual = fan.get_status_led(platform_api_conn, i)
 
                 if self.expect(color_actual is not None, "Failed to retrieve status_led"):
