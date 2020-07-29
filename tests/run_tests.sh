@@ -65,7 +65,7 @@ function setup_environment()
     OMIT_FILE_LOG="False"
     RETAIN_SUCCESS_LOG="False"
     SKIP_SCRIPTS=""
-    SKIP_FOLDERS="ptftests acstests saitests"
+    SKIP_FOLDERS="ptftests acstests saitests scripts"
     TESTBED_FILE="${BASE_PATH}/ansible/testbed.csv"
     TEST_CASES=""
     TEST_METHOD='group'
@@ -220,13 +220,13 @@ while getopts "h?c:d:e:f:i:k:l:m:n:op:rs:t:ux" opt; do
             show_help_and_exit 0
             ;;
         c )
-            TEST_CASES=${OPTARG}
+            TEST_CASES="${TEST_CASES} ${OPTARG}"
             ;;
         d )
             DUT_NAME=${OPTARG}
             ;;
         e )
-            EXTRA_PARAMETERS=${OPTARG}
+            EXTRA_PARAMETERS="${EXTRA_PARAMETERS} ${OPTARG}"
             ;;
         f )
             TESTBED_FILE=${OPTARG}
@@ -256,7 +256,7 @@ while getopts "h?c:d:e:f:i:k:l:m:n:op:rs:t:ux" opt; do
             RETAIN_SUCCESS_LOG="True"
             ;;
         s )
-            SKIP_SCRIPTS=${OPTARG}
+            SKIP_SCRIPTS="${SKIP_SCRIPTS} ${OPTARG}"
             ;;
         t )
             TOPOLOGY=${OPTARG}
