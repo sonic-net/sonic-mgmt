@@ -98,7 +98,7 @@ class TestWrArp:
             sed -ne 's/0\/.*$/1/p'
             '''
         )
-        assert len(result['stderr_lines']) == 0, 'Could not obtain DIP'
+
         pytest_assert(len(result['stdout'].strip()) > 0, 'Empty DIP returned')
 
         dip = result['stdout']
