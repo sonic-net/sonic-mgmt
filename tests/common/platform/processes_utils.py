@@ -10,7 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 
-def _get_critical_processes_status(dut):
+def get_critical_processes_status(dut):
     processes_status = dut.all_critical_process_status()
     for k, v in processes_status.items():
         if v['status'] == False or len(v['exited_critical_process']) > 0:
@@ -20,7 +20,7 @@ def _get_critical_processes_status(dut):
 
 def _all_critical_processes_healthy(dut):
     logging.info("Check critical processes status")
-    status, _ = _get_critical_processes_status(dut)
+    status, _ = get_critical_processes_status(dut)
     return status
 
 def check_critical_processes(dut, watch_secs=0):
@@ -32,7 +32,7 @@ def check_critical_processes(dut, watch_secs=0):
     """
     logging.info("Check all critical processes are healthy for {} seconds".format(watch_secs))
     while watch_secs >= 0:
-        status, details = _get_critical_processes_status(dut)
+        status, details = get_critical_processes_status(dut)
         pytest_assert(status, "Not all critical processes are healthy: {}".format(details))
         if watch_secs > 0:
             time.sleep(min(5, watch_secs))
