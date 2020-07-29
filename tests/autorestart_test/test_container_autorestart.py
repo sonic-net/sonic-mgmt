@@ -271,8 +271,6 @@ def test_containers_autorestart(duthost):
     disabled_containers = get_disabled_container_list(duthost)
 
     for container_name in container_autorestart_states.keys():
-        if container_name in ["bgp", "database", "restapi", "pmon", "radv"]:
-            continue
         # Skip testing the containers/services which are disabled by default
         if container_name in disabled_containers:
             continue
