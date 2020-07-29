@@ -471,7 +471,7 @@ class VMTopology(object):
         """inject dut port into the ptf docker"""
         self.update()
         for vlan in self.host_interfaces:
-            self.add_dut_if_to_docker(PTF_FP_IFACE_TEMPLATE % vlan,  self.dut_fp_ports[str(vlan)])
+            self.add_dut_if_to_docker(PTF_FP_IFACE_TEMPLATE % vlan, self.dut_fp_ports[str(vlan)])
 
         return
 
@@ -479,7 +479,7 @@ class VMTopology(object):
         """deject dut port from the ptf docker"""
         self.update()
         for vlan in self.host_interfaces:
-            self.remove_dut_if_from_docker(PTF_FP_IFACE_TEMPLATE % vlan,  self.dut_fp_ports[str(vlan)])
+            self.remove_dut_if_from_docker(PTF_FP_IFACE_TEMPLATE % vlan, self.dut_fp_ports[str(vlan)])
 
     @staticmethod
     def iface_up(iface_name, pid=None):
