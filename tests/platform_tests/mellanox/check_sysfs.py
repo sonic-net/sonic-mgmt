@@ -4,6 +4,7 @@ Helper script for checking status of sysfs.
 This script contains re-usable functions for checking status of hw-management related sysfs.
 """
 import logging
+import time
 
 
 def check_sysfs(dut):
@@ -72,8 +73,7 @@ def check_sysfs(dut):
 
         max_tolerance_speed = ((float(fan_set_speed)/256)*fan_max_speed)*(1 + 0.5)
         min_tolerance_speed = ((float(fan_set_speed)/256)*fan_max_speed)*(1 - 0.5)
-        assert min_tolerance_speed < fan_speed < max_tolerance_speed, "Speed out of tolerance speed range (%d, %d)" \
-                                                                      % (min_tolerance_speed, max_tolerance_speed)
+        _check_fan_speed_in_tolerance(dut, fan_speed, min_tolerance_speed, max_tolerance_speed, fan_speed_get)
 
     cpu_temp_high_counter = 0
     cpu_temp_list = []
@@ -227,3 +227,26 @@ def check_psu_sysfs(dut, psu_id, psu_state):
         assert (psu_pwr_state_content["stdout"] == "1" and psu_state == "OK") \
                 or (psu_pwr_state_content["stdout"] == "0" and psu_state == "NOT OK"),\
             "sysfs content %s mismatches with psu_state %s" % (psu_pwr_state_content["stdout"], psu_state)
+
+
+def _check_fan_speed_in_tolerance(dut, fan_speed, min_speed, max_speed, sysfs_path):
+    read_count = 6
+    read_interval = 5
+    in_range = False
+    while 1:
+        if min_speed < fan_speed < max_speed:
+            in_range = True
+            break
+
+        read_count -= 1
+        if read_count <= 0:
+            break
+
+        time.sleep(read_interval)
+        try:
+            fan_speed_get_content = dut.command("cat %s" % sysfs_path)
+            fan_speed = int(fan_speed_get_content["stdout"])
+        except Exception as e:
+            assert "Get content from %s failed, exception: %s" % (sysfs_path, repr(e))
+
+    assert in_range, "Speed %d out of tolerance speed range (%d, %d)" % (fan_speed, min_speed, max_speed)
