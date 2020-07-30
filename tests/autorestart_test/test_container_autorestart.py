@@ -233,24 +233,24 @@ def verify_autorestart_with_critical_process(duthost, container_name, program_na
 
     logger.info("Waiting until {} container is stopped...".format(container_name))
     pytest_assert(wait_until(CONTAINER_STOP_THRESHOLD_SECS,
-                      CONTAINER_CHECK_INTERVAL_SECS,
-                      check_container_status, duthost, container_name, True),
+                  CONTAINER_CHECK_INTERVAL_SECS,
+                  check_container_status, duthost, container_name, True),
                   "Failed to stop {} container".format(container_name))
     logger.info("{} container is stopped".format(container_name))
 
     logger.info("Waiting until {} container is restarted...".format(container_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
-                  CONTAINER_CHECK_INTERVAL_SECS,
-                  check_container_status, duthost, container_name, False)
+                           CONTAINER_CHECK_INTERVAL_SECS,
+                           check_container_status, duthost, container_name, False)
     if not restarted:
         if is_hiting_start_limit(duthost, container_name):
             logger.info("{} hits start limit and clear reset-failed flag".format(container_name))
             duthost.shell("sudo systemctl reset-failed {}.service".format(container_name))
             duthost.shell("sudo systemctl start {}.service".format(container_name))
             pytest_assert(wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
-                      CONTAINER_CHECK_INTERVAL_SECS,
-                      check_container_status, duthost, container_name, False),
-                  "Failed to restart {} after reset-failed is cleared".format(container_name))
+                          CONTAINER_CHECK_INTERVAL_SECS,
+                          check_container_status, duthost, container_name, False),
+                          "Failed to restart {} after reset-failed is cleared".format(container_name))
         else:
             pytest.fail("Failed to restart {} container".format(container_name))
 
@@ -266,18 +266,19 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
     kill_process_by_pid(duthost, container_name, program_name, program_status, program_pid)
 
     logger.info("Checking whether the {} container is still running...".format(container_name))
-    pytest_assert(wait_until(CONTAINER_STOP_THRESHOLD_SECS, 
-                      CONTAINER_CHECK_INTERVAL_SECS,
-                      check_container_status, duthost, container_name, False),
+    pytest_assert(wait_until(CONTAINER_STOP_THRESHOLD_SECS,
+                  CONTAINER_CHECK_INTERVAL_SECS,
+                  check_container_status, duthost, container_name, False),
                   "{} container is stopped unexpectedly".format(container_name))
     logger.info("{} container is running".format(container_name))
+
 
 def test_containers_autorestart(duthost):
     """
     @summary: Test the auto-restart feature of each contianer against two scenarios: killing
               a non-critical process to verity the container is still running; killing each
               critical process to verify the container will be stopped and restarted
-    """ 
+    """
     container_autorestart_states = get_autorestart_container_and_state(duthost)
     disabled_containers = get_disabled_container_list(duthost)
 
@@ -297,18 +298,18 @@ def test_containers_autorestart(duthost):
             logger.info("Change auto-restart state of {} container to be 'enabled'".format(container_name))
             duthost.shell("config container feature autorestart {} enabled".format(container_name))
             need_restore_state = True
- 
-        # Currently we select 'rsyslogd' as non-critical processes for testing based on 
+
+        # Currently we select 'rsyslogd' as non-critical processes for testing based on
         # the assumption that every container has an 'rsyslogd' process running and it is not
         # considered to be a critical process
         program_status, program_pid = get_program_info(duthost, container_name, "rsyslogd")
-        verify_no_autorestart_with_non_critical_process(duthost, container_name, "rsyslogd", 
+        verify_no_autorestart_with_non_critical_process(duthost, container_name, "rsyslogd",
                                                         program_status, program_pid)
 
         critical_group_list, critical_process_list = get_critical_group_and_process_list(duthost, container_name)
         for critical_process in critical_process_list:
             program_status, program_pid = get_program_info(duthost, container_name, critical_process)
-            verify_autorestart_with_critical_process(duthost, container_name, critical_process, 
+            verify_autorestart_with_critical_process(duthost, container_name, critical_process,
                                                      program_status, program_pid)
             # Sleep 20 seconds in order to let the processes come into live after container is restarted.
             # We will uncomment the following line once the "extended" mode is added
@@ -318,9 +319,9 @@ def test_containers_autorestart(duthost):
             break
 
         for critical_group in critical_group_list:
-            group_program_info = get_group_program_info(duthost, container_name, critical_group) 
+            group_program_info = get_group_program_info(duthost, container_name, critical_group)
             for program_name in group_program_info:
-                verify_autorestart_with_critical_process(duthost, container_name, program_name, 
+                verify_autorestart_with_critical_process(duthost, container_name, program_name,
                                                          group_program_info[program_name][0],
                                                          group_program_info[program_name][1])
                 # We are currently only testing one critical program for each critical group, which is
@@ -333,11 +334,12 @@ def test_containers_autorestart(duthost):
         if container_name in ["syncd", "swss", "database"]:
             logger.info("Sleep 20 seconds after testing the {} container...".format(container_name))
             time.sleep(20)
-        
+
         if need_restore_state:
-            logger.info("Restore auto-restart state of {} container to be '{}'" \
-                    .format(container_name, container_autorestart_states[container_name]))
-            duthost.shell("config container feature autorestart {} {}" \
-                    .format(container_name, container_autorestart_states[container_name]))
+            logger.info("Restore auto-restart state of {} container to be '{}'"
+                        .format(container_name, container_autorestart_states[container_name]))
+            duthost.shell("config container feature autorestart {} {}"
+                          .format(container_name, container_autorestart_states[container_name]))
 
         logger.info("End of testing {} container".format(container_name))
+
