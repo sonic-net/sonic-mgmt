@@ -153,6 +153,7 @@ class ReloadTest(BaseTest):
         self.check_param('sniff_time_incr', 60, required = False)
         self.check_param('vnet', False, required = False)
         self.check_param('vnet_pkts', None, required = False)
+        self.check_param('target_version', '', required = False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
@@ -750,7 +751,6 @@ class ReloadTest(BaseTest):
         no_cp_replies = None
         upper_replies = []
         routing_always = False
-
         self.ssh_jobs = []
         for addr in self.ssh_targets:
             q = Queue.Queue(1)
@@ -1020,6 +1020,21 @@ class ReloadTest(BaseTest):
             else:
                 self.fails[neigh].add("LAG flapped %s times on %s after warm boot" % (flap_cnt, neigh))
 
+    def check_sonic_version_after_reboot(self):
+        # Check sonic version after reboot
+        target_version = self.test_params['target_version']
+        if target_version:
+            stdout, stderr, return_code = self.dut_connection.execCommand("sudo sonic_installer list | grep Current | awk '{print $2}'")
+            current_version = ""
+            if stdout != []:
+                current_version = str(stdout[0]).replace('\n', '')
+            self.log("Current={} Target={}".format(current_version, target_version))
+            if current_version != target_version:
+                self.fails['dut'].add("Sonic upgrade failed. Target={} Current={}".format(\
+                    target_version, current_version))
+                return False
+        return True
+
     def extract_no_cpu_replies(self, arr):
       """
       This function tries to extract number of replies from dataplane, when control plane is non working
@@ -1043,6 +1058,9 @@ class ReloadTest(BaseTest):
         if stderr != []:
             self.log("stderr from %s: %s" % (self.reboot_type, str(stderr)))
         self.log("return code from %s: %s" % (self.reboot_type, str(return_code)))
+        # Check sonic version after reboot
+        if not check_sonic_version_after_reboot():
+            thread.interrupt_main()
 
         # Note: a timeout reboot in ssh session will return a 255 code
         if return_code not in [0, 255]:
