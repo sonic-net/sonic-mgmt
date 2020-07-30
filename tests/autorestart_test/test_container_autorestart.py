@@ -38,8 +38,7 @@ def get_critical_group_and_process_list(duthost, container_name):
     for line in file_content["stdout_lines"]:
         line_info = line.strip('\n').split(':')
         if len(line_info) != 2:
-            pytest.fail("Syntax of the line {} in critical_processes \
-                file is incorrect.".format(line))
+            pytest.fail("Syntax of the line {} in critical_processes file is incorrect.".format(line))
 
         identifier_key = line_info[0].strip()
         identifier_value = line_info[1].strip()
@@ -48,8 +47,7 @@ def get_critical_group_and_process_list(duthost, container_name):
         elif identifier_key == "program" and identifier_value:
             critical_process_list.append(identifier_value)
         else:
-            pytest.fail("Syntax of the line {} in critical_processes \
-                file is incorrect.".format(line))
+            pytest.fail("Syntax of the line {} in critical_processes file is incorrect.".format(line))
 
     return critical_group_list, critical_process_list
 
@@ -100,7 +98,8 @@ def get_program_info(duthost, container_name, program_name):
             break
 
     if program_pid != -1:
-        logger.info("Found program {} in the {} state with pid {}".format(program_name, program_status, program_pid))
+        logger.info("Found program {} in the {} state with pid {}"
+                    .format(program_name, program_status, program_pid))
 
     return program_status, program_pid
 
@@ -185,10 +184,13 @@ def kill_process_by_pid(duthost, container_name, program_name, program_status, p
         pytest.fail("Failed to find {} in {} container"
                     .format(program_name, container_name))
 
+    # Wait 30 seconds such that the container is stopped
     wait_until(CONTAINER_STOP_THRESHOLD_SECS,
                CONTAINER_CHECK_INTERVAL_SECS,
                check_container_status, duthost, container_name, True)
 
+    # If program is still in the running state, that means it is not terminated by "kill" command
+    # and the testing will exit
     is_running = is_container_running(duthost, container_name)
     if is_running:
         program_status = get_program_status(duthost, container_name, program_name)
