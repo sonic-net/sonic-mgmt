@@ -10,13 +10,12 @@ logger = logging.getLogger(__name__)
 def fan_api(conn, index, name, args=None):
     if args is None:
         args = []
-    conn.request('POST', '/platform/chassis/fan/{}/{}'.format(index,
-                                                              name), json.dumps({'args': args}))
+    conn.request('POST', '/platform/chassis/fan/{}/{}'.format(index, name), json.dumps({'args': args}))
     resp = conn.getresponse()
     res = json.loads(resp.read())['res']
-    logger.info('Executing fan API: "{}", index: {}, arguments: "{}", result: "{}"'.format(
-        name, index, args, res))
+    logger.info('Executing fan API: "{}", index: {}, arguments: "{}", result: "{}"'.format(name, index, args, res))
     return res
+
 #
 # Methods inherited from DeviceBase class
 #

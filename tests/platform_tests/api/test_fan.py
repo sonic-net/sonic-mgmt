@@ -1,6 +1,6 @@
 import logging
-import re
 import random
+import re
 import time
 
 import pytest
@@ -52,18 +52,20 @@ class TestFanApi(PlatformApiTestBase):
     def test_get_name(self, duthost, localhost, platform_api_conn):
         for i in range(self.num_fans):
             name = fan.get_name(platform_api_conn, i)
+
             if self.expect(name is not None, "Unable to retrieve Fan {} name".format(i)):
-                self.expect(isinstance(name, str),
-                            "Fan {} name appears incorrect".format(i))
+                self.expect(isinstance(name, str), "Fan {} name appears incorrect".format(i))
+
         self.assert_expectations()
 
     def test_get_presence(self, duthost, localhost, platform_api_conn):
         for i in range(self.num_fans):
             presence = fan.get_presence(platform_api_conn, i)
+
             if self.expect(presence is not None, "Unable to retrieve fan {} presence".format(i)):
                 if self.expect(isinstance(presence, bool), "Fan {} presence appears incorrect".format(i)):
-                    self.expect(presence is True,
-                                "Fan {} is not present".format(i))
+                    self.expect(presence is True, "Fan {} is not present".format(i))
+
         self.assert_expectations()
 
     def test_get_model(self, duthost, localhost, platform_api_conn):
@@ -71,24 +73,26 @@ class TestFanApi(PlatformApiTestBase):
             model = fan.get_model(platform_api_conn, i)
 
             if self.expect(model is not None, "Unable to retrieve fan {} model".format(i)):
-                self.expect(isinstance(model, str),
-                            "Fan {} model appears incorrect".format(i))
+                self.expect(isinstance(model, str), "Fan {} model appears incorrect".format(i))
+
         self.assert_expectations()
 
     def test_get_serial(self, duthost, localhost, platform_api_conn):
         for i in range(self.num_fans):
             serial = fan.get_serial(platform_api_conn, i)
+
             if self.expect(serial is not None, "Unable to retrieve fan {} serial number".format(i)):
-                self.expect(isinstance(serial, str),
-                            "Fan {} serial number appears incorrect".format(i))
+                self.expect(isinstance(serial, str), "Fan {} serial number appears incorrect".format(i))
+
         self.assert_expectations()
 
     def test_get_status(self, duthost, localhost, platform_api_conn):
         for i in range(self.num_fans):
             status = fan.get_status(platform_api_conn, i)
+
             if self.expect(status is not None, "Unable to retrieve fan {} status".format(i)):
-                self.expect(isinstance(status, bool),
-                            "Fan {} status appears incorrect".format(i))
+                self.expect(isinstance(status, bool), "Fan {} status appears incorrect".format(i))
+
         self.assert_expectations()
 
     #
@@ -115,18 +119,13 @@ class TestFanApi(PlatformApiTestBase):
         for i in range(self.num_fans):
             direction = fan.get_direction(platform_api_conn, i)
             if self.expect(direction is not None, "Unable to retrieve Fan {} direction".format(i)):
-                self.expect(direction in FAN_DIRECTION_LIST,
-                            "Fan {} direction is not one of predefined directions".format(i))
+                self.expect(direction in FAN_DIRECTION_LIST, "Fan {} direction is not one of predefined directions".format(i))
 
         self.assert_expectations()
 
     def test_get_fans_target_speed(self, duthost, localhost, platform_api_conn):
 
         for i in range(self.num_fans):
-            fan_instance = chassis.get_fan(platform_api_conn, i)
-            self.expect(fan_instance and fan_instance ==
-                        fan_list[i], "Fan {} is incorrect".format(i))
-
             speed_target_val = 25
             speed_set = fan.set_speed(platform_api_conn, i, speed_target_val)
             target_speed = fan.get_target_speed(platform_api_conn, i)
@@ -140,15 +139,10 @@ class TestFanApi(PlatformApiTestBase):
     def test_get_fans_speed_tolerance(self, duthost, localhost, platform_api_conn):
 
         for i in range(self.num_fans):
-            fan_instance = chassis.get_fan(platform_api_conn, i)
-            self.expect(fan_instance and fan_instance ==
-                        fan_list[i], "Fan {} is incorrect".format(i))
-
             speed_tol = fan.get_speed_tolerance(platform_api_conn, i)
             if self.expect(speed_tol is not None, "Unable to retrieve Fan {} speed tolerance".format(i)):
                 if self.expect(isinstance(speed_tol, int), "Fan {} speed tolerance appears incorrect".format(i)):
-                    self.expect(speed_tol > 0 and speed_tol <= 100,
-                                "Fan {} speed tolerance {} reading does not make sense".format(i, speed_tol))
+                    self.expect(speed_tol > 0 and speed_tol <= 100, "Fan {} speed tolerance {} reading does not make sense".format(i, speed_tol))
 
         self.assert_expectations()
 
@@ -157,10 +151,6 @@ class TestFanApi(PlatformApiTestBase):
         target_speed = random.randint(1, 100)
 
         for i in range(self.num_fans):
-            fan_instance = chassis.get_fan(platform_api_conn, i)
-            self.expect(fan_instance and fan_instance ==
-                        fan_list[i], "Fan {} is incorrect".format(i))
-
             speed = fan.get_speed(platform_api_conn, i)
             speed_tol = fan.get_speed_tolerance(platform_api_conn, i)
 
