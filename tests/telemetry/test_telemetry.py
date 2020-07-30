@@ -80,7 +80,7 @@ def test_config_db_parameters(duthost):
             pytest_assert(str(value) == server_key_expected, "'server_key' value is not '{}'".format(server_key_expected))
         if str(key) == "server_crt":
             server_crt_expected = "/etc/sonic/telemetry/streamingtelemetryserver.cer"
-            pytest_assert(str(value) == server_crt_expected, "'server_crt' value is not '{}'".format(server_crt_expecteid))
+            pytest_assert(str(value) == server_crt_expected, "'server_crt' value is not '{}'".format(server_crt_expected))
 
 def test_telemetry_enabledbydefault(duthost):
     """Verify telemetry should be enabled by default
