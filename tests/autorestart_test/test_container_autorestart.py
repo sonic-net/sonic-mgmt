@@ -105,7 +105,7 @@ def get_program_info(duthost, container_name, program_name):
     return program_status, program_pid
 
 
-def get_autorestart_container_and_state(duthost):
+def get_container_autorestart_states(duthost):
     """
     @summary: Get container names and its autorestart states by analyzing
               the command output of "show container feature autorestart"
@@ -279,7 +279,7 @@ def test_containers_autorestart(duthost):
               a non-critical process to verity the container is still running; killing each
               critical process to verify the container will be stopped and restarted
     """
-    container_autorestart_states = get_autorestart_container_and_state(duthost)
+    container_autorestart_states = get_container_autorestart_states(duthost)
     disabled_containers = get_disabled_container_list(duthost)
 
     for container_name in container_autorestart_states.keys():
