@@ -1,11 +1,18 @@
 import pytest
 import os
+import six
 import yaml
+
 
 @pytest.fixture(scope="module")
 def conn_graph_facts(duthost, localhost):
-    conn_graph_facts = get_graph_facts(duthost, localhost, duthost.hostname)
-    return conn_graph_facts
+    return get_graph_facts(duthost, localhost, duthost.hostname)
+
+
+@pytest.fixture(scope="module")
+def conn_graph_facts_multi_duts(duthost, duthosts, localhost):
+    return get_graph_facts(duthost, localhost,
+                           [dh.hostname for dh in duthosts])
 
   
 @pytest.fixture(scope="module")
@@ -18,10 +25,10 @@ def fanout_graph_facts(localhost, duthost, conn_graph_facts):
     return facts
 
 
-def get_graph_facts(duthost, localhost, host_name):
+def get_graph_facts(duthost, localhost, hostnames):
     """
     duthost - pytest fixture
-    host_name - to get graph facts from
+    hostnames - can be either a single DUT or a list of multiple DUTs
     """
     conn_graph_facts = dict()
     base_path = os.path.dirname(os.path.realpath(__file__))
@@ -45,6 +52,12 @@ def get_graph_facts(duthost, localhost, host_name):
             # its conn_graph_facts.
             if inv_map and inv_file in inv_map:
                 lab_conn_graph_file = os.path.join(base_path, "../../../ansible/files/{}".format(inv_map[inv_file]))
-                conn_graph_facts = localhost.conn_graph_facts(host=host_name, filename=lab_conn_graph_file)['ansible_facts']
+                kargs = {"filename": lab_conn_graph_file}
+                if isinstance(hostnames, six.string_types):
+                    kargs["host"] = hostnames
+                elif isinstance(hostnames, (list, tuple)):
+                    kargs["hosts"] = hostnames
+                conn_graph_facts = localhost.conn_graph_facts(
+                    **kargs)["ansible_facts"]
                 return conn_graph_facts
     return conn_graph_facts
