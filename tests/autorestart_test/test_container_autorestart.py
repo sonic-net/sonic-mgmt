@@ -189,11 +189,11 @@ def kill_process_by_pid(duthost, container_name, program_name, program_status, p
                CONTAINER_CHECK_INTERVAL_SECS,
                check_container_status, duthost, container_name, True)
 
-    # If program is still in the running state, that means it is not terminated by "kill" command
-    # and the testing will exit
     is_running = is_container_running(duthost, container_name)
     if is_running:
         program_status = get_program_status(duthost, container_name, program_name)
+        # If program is still in the running state, that means it is not terminated by "kill" command
+        # and the testing will exit
         if program_status == "RUNNING":
             pytest.fail("Failed to stop {} process before test".format(program_name))
 
