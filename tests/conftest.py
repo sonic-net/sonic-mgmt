@@ -135,6 +135,9 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--switch_tacacs_config", action="store", default=False, type=bool,
                     help="Boolean indicated if TACACS server configuration should be performed on switch")
+    parser.addoption("--local_username", action="store", default="ro", help="String to indicate username of what test should be added - insert ro/rw")
+    parser.addoption("--local_password", action="store", default=111111, type=int,
+                    help="A password for local username. the password needs to be different from tacacs user password")
 
 
 @pytest.fixture(scope="session", autouse=True)
