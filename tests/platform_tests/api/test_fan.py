@@ -177,8 +177,7 @@ class TestFanApi(PlatformApiTestBase):
 
                 result = fan.set_status_led(platform_api_conn, i, color)
                 if self.expect(result is not None, "Failed to perform set_status_led"):
-                    self.expect(
-                        result is True, "Failed to set status_led for fan {} to {}".format(i, color))
+                    self.expect(result is True, "Failed to set status_led for fan {} to {}".format(i, color))
 
                 color_actual = fan.get_status_led(platform_api_conn, i)
 
