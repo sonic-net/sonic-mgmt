@@ -8,6 +8,8 @@ from netaddr import IPAddress
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
 
 pytestmark = [
@@ -27,11 +29,8 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts):
     @param mg_facts: Minigraph facts
     @param dut_facts: Host facts of DUT
     """
-    logger.info("Remove IP")
-    ptfhost.script("./scripts/remove_ip.sh")
 
     logger.info("Prepare arp_responder")
-    ptfhost.copy(src="../ansible/roles/test/files/helpers/arp_responder.py", dest="/opt")
 
     arp_responder_conf = Template(open("../ansible/roles/test/templates/arp_responder.conf.j2").read())
     ptfhost.copy(content=arp_responder_conf.render(arp_responder_args="--conf /tmp/vxlan_arpresponder.conf"),

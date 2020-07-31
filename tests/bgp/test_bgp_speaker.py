@@ -6,6 +6,7 @@ import requests
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_tcp_connection
 
@@ -50,8 +51,6 @@ def common_setup_teardown(duthost, ptfhost, localhost):
 
     ptfip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
     logging.info("ptfip=%s" % ptfip)
-
-    ptfhost.script("./scripts/remove_ip.sh")
 
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     interface_facts = duthost.interface_facts()['ansible_facts']
@@ -125,8 +124,6 @@ def common_setup_teardown(duthost, ptfhost, localhost):
 
     for ip in vlan_ips:
         duthost.command("ip route flush %s/32" % ip.ip, module_ignore_errors=True)
-
-    ptfhost.script("./scripts/remove_ip.sh")
 
     logging.info("########### Done teardown for bgp speaker testing ###########")
 
