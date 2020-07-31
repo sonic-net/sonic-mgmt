@@ -73,7 +73,7 @@ def get_group_program_info(duthost, container_name, group_name):
             if program_status in ["EXITED", "STOPPED", "STARTING"]:
                 program_pid = -1
             else:
-                program_pid = program_info.split()[3].strip(',')
+                program_pid = int(program_info.split()[3].strip(','))
 
             group_program_info[program_name].append(program_status)
             group_program_info[program_name].append(program_pid)
@@ -198,7 +198,7 @@ def kill_process_by_pid(duthost, container_name, program_name, program_pid):
         # If program is still in the running state, that means it is not terminated by "kill" command
         # and the testing will exit
         if program_status == "RUNNING":
-            pytest.fail("Failed to stop {} process before test".format(program_name))
+            pytest.fail("Failed to stop program '{}' before test".format(program_name))
 
     logger.info("Program '{}' in container '{}' was stopped successfully"
                 .format(program_name, container_name))
@@ -229,7 +229,7 @@ def verify_autorestart_with_critical_process(duthost, container_name, program_na
         pytest.fail("Program '{}' in container '{}' is in the {} state, expected 'RUNNING'"
                     .format(program_name, container_name, program_status))
     else:
-        pytest.fail("Failed to find program {} in container '{}'"
+        pytest.fail("Failed to find program '{}' in container '{}'"
                     .format(program_name, container_name))
 
     logger.info("Waiting until container '{}' is stopped...".format(container_name))
@@ -251,7 +251,7 @@ def verify_autorestart_with_critical_process(duthost, container_name, program_na
             pytest_assert(wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
                           CONTAINER_CHECK_INTERVAL_SECS,
                           check_container_state, duthost, container_name, True),
-                          "Failed to restart container '{}' after reset-failed is cleared".format(container_name))
+                          "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
         else:
             pytest.fail("Failed to restart container '{}'".format(container_name))
 
