@@ -574,27 +574,27 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         """
 
         if dstip.version == 4:
-            rt = self.command("ip route list match {}".format(dstip))['stdout_lines']
+            rt = self.command("ip route list exact {}".format(dstip))['stdout_lines']
         else:
-            rt = self.command("ip -6 route list match {}".format(dstip))['stdout_lines']
+            rt = self.command("ip -6 route list exact {}".format(dstip))['stdout_lines']
 
         logging.info("route raw info for {}: {}".format(dstip, rt))
 
         rtinfo = {'set_src': None, 'nexthops': [] }
 
         # parse set_src
-        m = re.match(r"^default proto (bgp|186) src (\S+)", rt[0])
-        m1 = re.match(r"^default via (\S+) dev (\S+) proto 186 src (\S+)", rt[0])
+        m = re.match(r"^(default|\S+) proto (bgp|186) src (\S+)", rt[0])
+        m1 = re.match(r"^(default|\S+) via (\S+) dev (\S+) proto 186 src (\S+)", rt[0])
         if m:
-            rtinfo['set_src'] = ipaddress.ip_address(m.group(2))
+            rtinfo['set_src'] = ipaddress.ip_address(unicode(m.group(3)))
         elif m1:
-            rtinfo['set_src'] = ipaddress.ip_address(m1.group(3))
+            rtinfo['set_src'] = ipaddress.ip_address(unicode(m1.group(4)))
 
         # parse nexthops
         for l in rt:
-            m = re.search(r"(default|nexthop)\s+via\s+(\S+)\s+dev\s+(\S+)", l)
+            m = re.search(r"(default|nexthop|\S+)\s+via\s+(\S+)\s+dev\s+(\S+)", l)
             if m:
-                rtinfo['nexthops'].append((ipaddress.ip_address(m.group(2)), m.group(3)))
+                rtinfo['nexthops'].append((ipaddress.ip_address(unicode(m.group(2))), unicode(m.group(3))))
 
         logging.info("route parsed info for {}: {}".format(dstip, rtinfo))
 
