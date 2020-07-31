@@ -272,11 +272,10 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
         pytest.fail("Failed to find {} in {} container"
                     .format(program_name, container_name))
 
-
     logger.info("Checking whether the {} container is still running...".format(container_name))
     pytest_assert(wait_until(CONTAINER_STOP_THRESHOLD_SECS,
                   CONTAINER_CHECK_INTERVAL_SECS,
-                  check_container_state, duthost, container_name, False),
+                  check_container_state, duthost, container_name, True),
                   "{} container is stopped unexpectedly".format(container_name))
     logger.info("{} container is running".format(container_name))
 
