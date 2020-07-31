@@ -4,7 +4,6 @@ Helper script for checking status of sysfs.
 This script contains re-usable functions for checking status of hw-management related sysfs.
 """
 import logging
-import time
 from tests.common.utilities import wait_until
 
 
@@ -31,7 +30,6 @@ def check_sysfs(dut):
     from tests.common.mellanox_data import SWITCH_MODELS
     fan_count = SWITCH_MODELS[dut_hwsku]["fans"]["number"]
 
-    fan_speed = 0
     fan_min_speed = 0
     fan_max_speed = 0
     for fan_id in range(1, fan_count + 1):
