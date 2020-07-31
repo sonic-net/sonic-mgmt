@@ -269,9 +269,20 @@ class EverflowIPv6Tests(BaseEverflowTest):
             ptfadapter,
             setup_info,
             src_ip="ffbe:0225:7c6b:a982:d48b:230e:f271:000c",
-            dst_ip="ffbe:0225:7c6b:a982:d48b:230e:f271:000d",
-            sport=12002,
-            dport=12003
+            dst_ip="ffbe:0225:7c6b:a982:d48b:230e:f271:000d"
+        )
+
+        self._send_and_check_mirror_packets(setup_info,
+                                            setup_mirror_session,
+                                            ptfadapter,
+                                            duthost,
+                                            test_packet)
+
+        test_packet = self._base_udp_packet(
+            ptfadapter,
+            setup_info,
+            src_ip="ffbe:0225:7c6b:a982:d48b:230e:f271:000c",
+            dst_ip="ffbe:0225:7c6b:a982:d48b:230e:f271:000d"
         )
 
         self._send_and_check_mirror_packets(setup_info,
@@ -285,24 +296,39 @@ class EverflowIPv6Tests(BaseEverflowTest):
             setup_info,
             src_ip="ffbe:0225:7c6b:a982:d48b:230e:f271:000c",
             dst_ip="ffbe:0225:7c6b:a982:d48b:230e:f271:000d",
-            sport=12002,
-            dport=12003
-        )
-
-        self._send_and_check_mirror_packets(setup_info,
-                                            setup_mirror_session,
-                                            ptfadapter,
-                                            duthost,
-                                            test_packet)
-
-        test_packet = self._base_udp_packet(
-            ptfadapter,
-            setup_info,
-            src_ip="ffbe:0225:7c6b:a982:d48b:230e:f271:000c",
-            dst_ip="ffbe:0225:7c6b:a982:d48b:230e:f271:000d",
-            sport=12002,
-            dport=12003,
             next_header=0xAB
+        )
+
+        self._send_and_check_mirror_packets(setup_info,
+                                            setup_mirror_session,
+                                            ptfadapter,
+                                            duthost,
+                                            test_packet)
+
+    def test_any_transport_protocol(self, setup_info, setup_mirror_session, ptfadapter, duthost):
+        """Verify that src port and dst port rules match regardless of whether TCP or UDP traffic is sent."""
+        test_packet = self._base_tcp_packet(
+            ptfadapter,
+            setup_info,
+            src_ip="ffbe:0225:7c6b:a982:d48b:230e:f271:001c",
+            dst_ip="ffbe:0225:7c6b:a982:d48b:230e:f271:001d",
+            sport=12002,
+            dport=12003
+        )
+
+        self._send_and_check_mirror_packets(setup_info,
+                                            setup_mirror_session,
+                                            ptfadapter,
+                                            duthost,
+                                            test_packet)
+
+        test_packet = self._base_udp_packet(
+            ptfadapter,
+            setup_info,
+            src_ip="ffbe:0225:7c6b:a982:d48b:230e:f271:001c",
+            dst_ip="ffbe:0225:7c6b:a982:d48b:230e:f271:001d",
+            sport=12002,
+            dport=12003
         )
 
         self._send_and_check_mirror_packets(setup_info,
@@ -313,29 +339,12 @@ class EverflowIPv6Tests(BaseEverflowTest):
 
     def test_invalid_tcp_rule(self, setup_info, setup_mirror_session, ptfadapter, duthost):
         """Verify that the ASIC does not reject rules with TCP flags if the protocol is not TCP."""
-        test_packet = self._base_tcp_packet(
-            ptfadapter,
-            setup_info,
-            src_ip="ffbe:0225:7c6b:a982:d48b:230e:f271:000e",
-            dst_ip="ffbe:0225:7c6b:a982:d48b:230e:f271:000f",
-            dscp=16,
-            sport=12004,
-            dport=12005,
-            flags=0x12,
-            next_header=0x7F
-        )
+        pass
 
-        # NOTE: We're keeping this test + its associated ACL rule here for now since tbh
-        # it mostly just exists to see if the ASIC will panic if it sees proto=UDP +
-        # TCP flags in the same ACL rule. Will take another look at the payload comparison
-        # logic later.
-        pytest.xfail("Invalid comparison logic")
-
-        self._send_and_check_mirror_packets(setup_info,
-                                            setup_mirror_session,
-                                            ptfadapter,
-                                            duthost,
-                                            test_packet)
+        # NOTE: This type of rule won't really function since you need a TCP packet to have TCP flags.
+        # However, we have still included such a rule in the acl.json file to validate that the SAI
+        # will not crash if such a rule is installed. If this does happen, we expect the whole test
+        # suite + loganaylzer + the sanity check to fail.
 
     def test_source_subnet(self, setup_info, setup_mirror_session, ptfadapter, duthost):
         """Verify that we can match packets with a Source IPv6 Subnet."""
