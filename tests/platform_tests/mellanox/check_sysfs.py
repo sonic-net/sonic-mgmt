@@ -5,6 +5,7 @@ This script contains re-usable functions for checking status of hw-management re
 """
 import logging
 import time
+from tests.common.utilities import wait_until
 
 
 def check_sysfs(dut):
@@ -62,18 +63,12 @@ def check_sysfs(dut):
         fan_speed_set = "/var/run/hw-management/thermal/fan{}_speed_set".format(fan_id)
         fan_speed_set_content = dut.command("cat %s" % fan_speed_set)
         fan_set_speed = int(fan_speed_set_content["stdout"])
-
+        max_tolerance_speed = ((float(fan_set_speed) / 256) * fan_max_speed) * (1 + 0.5)
+        min_tolerance_speed = ((float(fan_set_speed) / 256) * fan_max_speed) * (1 - 0.5)
         fan_speed_get = "/var/run/hw-management/thermal/fan{}_speed_get".format(fan_id)
-        try:
-            fan_speed_get_content = dut.command("cat %s" % fan_speed_get)
-            fan_speed = int(fan_speed_get_content["stdout"])
-            assert fan_min_speed < fan_speed < fan_max_speed, "Bad fan speed: %s" % str(fan_speed)
-        except Exception as e:
-            assert "Get content from %s failed, exception: %s" % (fan_speed_get, repr(e))
-
-        max_tolerance_speed = ((float(fan_set_speed)/256)*fan_max_speed)*(1 + 0.5)
-        min_tolerance_speed = ((float(fan_set_speed)/256)*fan_max_speed)*(1 - 0.5)
-        _check_fan_speed_in_tolerance(dut, fan_speed, min_tolerance_speed, max_tolerance_speed, fan_speed_get)
+        assert wait_until(30, 5, _check_fan_speed_in_range, dut, fan_min_speed, fan_max_speed,
+                          min_tolerance_speed, max_tolerance_speed, fan_speed_get), \
+            "Fan speed not in range"
 
     cpu_temp_high_counter = 0
     cpu_temp_list = []
@@ -229,24 +224,17 @@ def check_psu_sysfs(dut, psu_id, psu_state):
             "sysfs content %s mismatches with psu_state %s" % (psu_pwr_state_content["stdout"], psu_state)
 
 
-def _check_fan_speed_in_tolerance(dut, fan_speed, min_speed, max_speed, sysfs_path):
-    read_count = 6
-    read_interval = 5
-    in_range = False
-    while 1:
-        if min_speed < fan_speed < max_speed:
-            in_range = True
-            break
-
-        read_count -= 1
-        if read_count <= 0:
-            break
-
-        time.sleep(read_interval)
-        try:
-            fan_speed_get_content = dut.command("cat %s" % sysfs_path)
-            fan_speed = int(fan_speed_get_content["stdout"])
-        except Exception as e:
-            assert "Get content from %s failed, exception: %s" % (sysfs_path, repr(e))
-
-    assert in_range, "Speed %d out of tolerance speed range (%d, %d)" % (fan_speed, min_speed, max_speed)
+def _check_fan_speed_in_range(dut, min_speed, max_speed, low_threshold, high_threshold, sysfs_path):
+    try:
+        fan_speed_get_content = dut.command("cat %s" % sysfs_path)
+        fan_speed = int(fan_speed_get_content["stdout"])
+        logging.info("fan speed: {}, min_speed: {}, max_speed: {}, low_threshold: {}, high_threshold: {}".format(
+            fan_speed,
+            min_speed,
+            max_speed,
+            low_threshold,
+            high_threshold
+        ))
+        return min_speed < fan_speed < max_speed and low_threshold < fan_speed < high_threshold
+    except Exception as e:
+        assert "Get content from %s failed, exception: %s" % (sysfs_path, repr(e))
