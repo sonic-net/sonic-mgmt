@@ -538,66 +538,73 @@ class SonicHost(AnsibleHostBase):
 
     def get_ip_route_info(self, dstip):
         """
-        @summary: return route information for a destionation IP
+        @summary: return route information for a destionation. The destination coulb an ip address or ip prefix.
 
-        @param dstip: destination IP (either ipv4 or ipv6)
+        @param dstip: destination. either ip_address or ip_network
 
-============ 4.19 kernel ==============
-admin@vlab-01:~$ ip route list match 0.0.0.0
-default proto bgp src 10.1.0.32 metric 20
-        nexthop via 10.0.0.57 dev PortChannel0001 weight 1
-        nexthop via 10.0.0.59 dev PortChannel0002 weight 1
-        nexthop via 10.0.0.61 dev PortChannel0003 weight 1
-        nexthop via 10.0.0.63 dev PortChannel0004 weight 1
+        Please beware: if dstip is an ip network, you will receive all ECMP nexthops
+        But if dstip is an ip address, only one nexthop will be returned, the one which is going to be used to send a packet to the destination.
 
-admin@vlab-01:~$ ip -6 route list match ::
-default proto bgp src fc00:1::32 metric 20
-        nexthop via fc00::72 dev PortChannel0001 weight 1
-        nexthop via fc00::76 dev PortChannel0002 weight 1
-        nexthop via fc00::7a dev PortChannel0003 weight 1
-        nexthop via fc00::7e dev PortChannel0004 weight 1 pref medium
+        Debian stretch.
 
-============ 4.9 kernel ===============
-admin@vlab-01:~$ ip route list match 0.0.0.0
-default proto 186 src 10.1.0.32 metric 20
-        nexthop via 10.0.0.57  dev PortChannel0001 weight 1
-        nexthop via 10.0.0.59  dev PortChannel0002 weight 1
-        nexthop via 10.0.0.61  dev PortChannel0003 weight 1
-        nexthop via 10.0.0.63  dev PortChannel0004 weight 1
+        Exanples:
+        get_ip_route_info(ipaddress.ip_address(unicode("192.168.8.0")))
+        returns {'set_src': IPv4Address(u'10.1.0.32'), 'nexthops': [(IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
 
-admin@vlab-01:~$ ip -6 route list match ::
-default via fc00::72 dev PortChannel0001 proto 186 src fc00:1::32 metric 20  pref medium
-default via fc00::76 dev PortChannel0002 proto 186 src fc00:1::32 metric 20  pref medium
-default via fc00::7a dev PortChannel0003 proto 186 src fc00:1::32 metric 20  pref medium
-default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pref medium
+        get_ip_route_info(ipaddress.ip_network(unicode("192.168.8.0/25")))
+        returns {'set_src': IPv4Address(u'10.1.0.32'), 'nexthops': [(IPv4Address(u'10.0.0.1'), u'PortChannel0001'), (IPv4Address(u'10.0.0.5'), u'PortChannel0002'), (IPv4Address(u'10.0.0.9'), u'PortChannel0003'), (IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
+
+        get_ip_route_info(ipaddress.ip_address(unicode("20c0:a818::")))
+        returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
+
+        get_ip_route_info(ipaddress.ip_network(unicode("20c0:a818::/64")))
+        returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::2'), u'PortChannel0001'), (IPv6Address(u'fc00::a'), u'PortChannel0002'), (IPv6Address(u'fc00::12'), u'PortChannel0003'), (IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
+
+        get_ip_route_info(ipaddress.ip_network(unicode("0.0.0.0/0")))
+        returns {'set_src': IPv4Address(u'10.1.0.32'), 'nexthops': [(IPv4Address(u'10.0.0.1'), u'PortChannel0001'), (IPv4Address(u'10.0.0.5'), u'PortChannel0002'), (IPv4Address(u'10.0.0.9'), u'PortChannel0003'), (IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
+
+        get_ip_route_info(ipaddress.ip_network(unicode("::/0")))
+        returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::2'), u'PortChannel0001'), (IPv6Address(u'fc00::a'), u'PortChannel0002'), (IPv6Address(u'fc00::12'), u'PortChannel0003'), (IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
 
         """
 
-        if dstip.version == 4:
-            rt = self.command("ip route list exact {}".format(dstip))['stdout_lines']
-        else:
-            rt = self.command("ip -6 route list exact {}".format(dstip))['stdout_lines']
-
-        logging.info("route raw info for {}: {}".format(dstip, rt))
-
         rtinfo = {'set_src': None, 'nexthops': [] }
 
-        # parse set_src
-        m = re.match(r"^(default|\S+) proto (bgp|186) src (\S+)", rt[0])
-        m1 = re.match(r"^(default|\S+) via (\S+) dev (\S+) proto 186 src (\S+)", rt[0])
-        if m:
-            rtinfo['set_src'] = ipaddress.ip_address(unicode(m.group(3)))
-        elif m1:
-            rtinfo['set_src'] = ipaddress.ip_address(unicode(m1.group(4)))
+        if isinstance(dstip, ipaddress.IPv4Network) or isinstance(dstip, ipaddress.IPv6Network):
+            if dstip.version == 4:
+                rt = self.command("ip route list exact {}".format(dstip))['stdout_lines']
+            else:
+                rt = self.command("ip -6 route list exact {}".format(dstip))['stdout_lines']
 
-        # parse nexthops
-        for l in rt:
-            m = re.search(r"(default|nexthop|\S+)\s+via\s+(\S+)\s+dev\s+(\S+)", l)
+            logging.info("route raw info for {}: {}".format(dstip, rt))
+
+            # parse set_src
+            m = re.match(r"^(default|\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
+            m1 = re.match(r"^(default|\S+) via (\S+) dev (\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
             if m:
-                rtinfo['nexthops'].append((ipaddress.ip_address(unicode(m.group(2))), unicode(m.group(3))))
+                rtinfo['set_src'] = ipaddress.ip_address(unicode(m.group(3)))
+            elif m1:
+                rtinfo['set_src'] = ipaddress.ip_address(unicode(m1.group(5)))
+
+            # parse nexthops
+            for l in rt:
+                m = re.search(r"(default|nexthop|\S+)\s+via\s+(\S+)\s+dev\s+(\S+)", l)
+                if m:
+                    rtinfo['nexthops'].append((ipaddress.ip_address(unicode(m.group(2))), unicode(m.group(3))))
+
+        elif isinstance(dstip, ipaddress.IPv4Address) or isinstance(dstip, ipaddress.IPv6Address):
+            rt = self.command("ip route get {}".format(dstip))['stdout_lines']
+            logging.info("route raw info for {}: {}".format(dstip, rt))
+            m = re.match(".+\s+via\s+(\S+)\s+.*dev\s+(\S+)\s+.*src\s+(\S+)\s+", rt[0])
+            if m:
+                nexthop_ip = ipaddress.ip_address(unicode(m.group(1)))
+                gw_if = m.group(2)
+                rtinfo['nexthops'].append((nexthop_ip, gw_if))
+                rtinfo['set_src'] = ipaddress.ip_address(unicode(m.group(3)))
+        else:
+            raise ValueError("Wrong type of dstip")
 
         logging.info("route parsed info for {}: {}".format(dstip, rtinfo))
-
         return rtinfo
 
     def check_default_route(self, ipv4=True, ipv6=True):
@@ -937,20 +944,20 @@ class IxiaHost (AnsibleHostBase):
             os (str): The os type of Ixia Fanout.
             hostname (str): The Ixia fanout host-name
             device_type (str): The Ixia fanout device type.
-        """ 
+        """
 
         self.ansible_adhoc = ansible_adhoc
         self.os            = os
         self.hostname      = hostname
         self.device_type   = device_type
         super().__init__(IxiaHost, self)
-   
+
     def get_host_name (self):
         """Returns the Ixia hostname
 
         Args:
             This function takes no argument.
-        """    
+        """
         return self.hostname
 
     def get_os (self) :
@@ -958,15 +965,15 @@ class IxiaHost (AnsibleHostBase):
 
         Args:
             This function takes no argument.
-        """    
+        """
         return self.os
 
     def execute (self, cmd) :
         """Execute a given command on ixia fanout host.
-         
-        Args: 
+
+        Args:
            cmd (str): Command to be executed.
-        """ 
+        """
         if (self.os == 'ixia') :
             eval(cmd)
 
