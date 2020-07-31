@@ -57,7 +57,7 @@ def get_group_program_info(duthost, container_name, group_name):
     @summary: Get program names, running status and their pids by analyzing the command
               output of "docker exec <container_name> supervisorctl status". Program name
               at here represents a program which is part of group <group_name>
-    @return: A dictionary where keys are the program names and values are their running 
+    @return: A dictionary where keys are the program names and values are their running
              status and pids
     """
     group_program_info = defaultdict(list)
@@ -231,7 +231,6 @@ def verify_autorestart_with_critical_process(duthost, container_name, program_na
     else:
         pytest.fail("Failed to find program {} in container '{}'"
                     .format(program_name, container_name))
-
 
     logger.info("Waiting until container '{}' is stopped...".format(container_name))
     pytest_assert(wait_until(CONTAINER_STOP_THRESHOLD_SECS,
