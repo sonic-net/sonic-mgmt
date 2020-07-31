@@ -34,7 +34,7 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,\
     2. IXIA sends PFC pause frames from rx_port to pause priorities.
     3. Background traffic should not be interruped - all background traffic
        will be received at the rx_port.
-    4. No PFC traffic will be received at the rx_port. 
+    4. No PFC traffic will be received at the rx_port.
 
     Args:
         session (IxNetwork Session object): IxNetwork session.
@@ -52,38 +52,38 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,\
     Returns:
         This function returns nothing.
     """
-    
+
     # Disable DUT's PFC watchdog.
     dut.shell('sudo pfcwd stop')
-    
+
     vlan_subnet = get_vlan_subnet(dut)
 
     pytest_assert(vlan_subnet is not None,
                   "Fail to get Vlan subnet information")
-    
+
     gw_addr = vlan_subnet.split('/')[0]
 
     # One for sender and the other one for receiver.
     vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, 2)
-       
+
     topo_receiver = create_topology(session=session,
-                                    name="Receiver", 
+                                    name="Receiver",
                                     ports=list(rx_port),
                                     ip_start=vlan_ip_addrs[0],
                                     ip_incr_step='0.0.0.1',
-                                    gw_start=gw_addr, 
+                                    gw_start=gw_addr,
                                     gw_incr_step='0.0.0.0')
 
-    topo_sender = create_topology(session=session, 
-                                  name="Sender", 
-                                  ports=list(tx_port), 
-                                  ip_start=vlan_ip_addrs[1], 
-                                  ip_incr_step='0.0.0.1', 
-                                  gw_start=gw_addr, 
+    topo_sender = create_topology(session=session,
+                                  name="Sender",
+                                  ports=list(tx_port),
+                                  ip_start=vlan_ip_addrs[1],
+                                  ip_incr_step='0.0.0.1',
+                                  gw_start=gw_addr,
                                   gw_incr_step='0.0.0.0')
 
     start_protocols(session)
-    
+
     test_traffic = create_ipv4_traffic(session=session,
                                        name='Test Data Traffic',
                                        source=topo_sender,
@@ -95,6 +95,7 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,\
                                        dscp_list=test_dscp_list,
                                        lossless_prio_list=test_prio_list)
 
+    bg_priority_list = [b for b in range(8) if b not in test_prio_list]
     background_traffic = create_ipv4_traffic(session=session,
                                              name='Background Data Traffic',
                                              source=topo_sender,
@@ -104,11 +105,11 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,\
                                              rate_percent=50,
                                              start_delay=1,
                                              dscp_list=bg_dscp_list,
-                                             lossless_prio_list=None)
-    
+                                             lossless_prio_list=bg_priority_list)
+
     # Pause time duration (in second) for each PFC pause frame.
-    pause_dur_per_pkt = 65535 * 64 * 8.0 / (port_bw * 1000000) 
-    
+    pause_dur_per_pkt = 65535 * 64 * 8.0 / (port_bw * 1000000)
+
     # Do not specify duration here as we want it keep running.
     pfc_traffic = create_pause_traffic(session=session,
                                        name='PFC Pause Storm',
@@ -117,89 +118,192 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,\
                                        start_delay=0,
                                        global_pause=False,
                                        pause_prio_list=test_prio_list)
-    
+
     start_traffic(session)
-    
+
     # Wait for test and background traffic to finish.
     time.sleep(exp_dur + 1.5)
-    
+
     # Capture traffic statistics.
     flow_statistics = get_traffic_statistics(session)
     logger.info(flow_statistics)
-        
+
     for row_number, flow_stat in enumerate(flow_statistics.Rows):
         tx_frames = int(flow_stat['Tx Frames'])
-        rx_frames = int(flow_stat['Rx Frames'])       
-        
+        rx_frames = int(flow_stat['Rx Frames'])
+
         if 'Test' in flow_stat['Traffic Item']:
-            if paused:          
-                pytest_assert(tx_frames > 0 and rx_frames == 0, 
+            if paused:
+                pytest_assert(tx_frames > 0 and rx_frames == 0,
                     "Test traffic should be fully paused")
             else:
-                pytest_assert(tx_frames > 0 and tx_frames == rx_frames, 
+                pytest_assert(tx_frames > 0 and tx_frames == rx_frames,
                     "Test traffic should not be impacted")
-                       
+
         elif 'PFC' in flow_stat['Traffic Item']:
             pytest_assert(tx_frames > 0 and rx_frames == 0,
                 "PFC packets should be dropped")
-        else:         
+        else:
             pytest_assert(tx_frames > 0 and tx_frames == rx_frames,
                 "Background traffic should not be impacted")
-        
+
     stop_traffic(session)
 
 
 def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map,\
                             duthost, ixia_dev, ixia_api_server_session,\
                             fanout_graph_facts):
+    """
+    RDMA PFC - Pauses on losless priorities.
+    1. On SONiC DUT enable PFC on any two Traffic Classes (TC) say, m and n.
+       0 <= m,n <= 7.
+    2. Disable the PFC watch-dog on the SONiC DUT.
+    3. On the Ixia Tx port create two flows - a) 'Test Data Traffic' and 
+       b) 'Background Data traffic'.
+    4. The flow 'Test Data Traffic' can assume only one TC of the values -
+       either m or n.  
+    5. The flow 'Background Data Traffic' can assume all TC values that is
+       not taken 'Test Data Traffic' (including m or n). That is:- 
+       a. Background data traffic can assume TC value n if 'Test Data Traffic'
+          has the TC value m.
+       b. Background data traffic can assume TC value m if 'Test Data Traffic'
+          has the TC value n.
+    6. From Rx port send pause frames on pririties either m or n. Such that
+       TC of 'Test Data Traffic' at Tx end == Pause Priority at Rx end. 
+    """
     port_list = list()
     fanout_devices = IxiaFanoutManager(fanout_graph_facts)
     fanout_devices.get_fanout_device_details(device_number = 0)
 
     device_conn = conn_graph_facts['device_conn']
     for intf in fanout_devices.get_ports():
-        peer_port = intf['peer_port'] 
-        intf['speed'] = int(device_conn[peer_port]['speed']) * 100 
+        peer_port = intf['peer_port']
+        intf['speed'] = int(device_conn[peer_port]['speed']) * 100
         port_list.append(intf)
 
     # The topology should have at least two interfaces.
     pytest_assert(len(device_conn)>=2,
         "The topology should have at least two interfaces")
-                
+
     # Test pausing each lossless priority individually.
     session = ixia_api_server_session
     for prio in lossless_prio_dscp_map:
-        for i in range(len(port_list)): 
+        for i in range(len(port_list)):
             vports = configure_ports(session, port_list)
- 
+
             rx_id = i
             tx_id = (i + 1) % len(port_list)
-            
+
             rx_port = vports[rx_id]
             tx_port = vports[tx_id]
             rx_port_bw = port_list[rx_id]['speed']
             tx_port_bw = port_list[tx_id]['speed']
-            
+
             pytest_assert(rx_port_bw == tx_port_bw)
-            
+
             # All the DSCP values mapped to this priority.
             test_dscp_list = lossless_prio_dscp_map[prio]
 
             # The other DSCP values.
             bg_dscp_list = [x for x in range(64) if x not in test_dscp_list]
-            
+
             exp_dur = 2
-                
-            run_pfc_exp(session=session, 
-                        dut=duthost, 
-                        tx_port=tx_port, 
+
+            run_pfc_exp(session=session,
+                        dut=duthost,
+                        tx_port=tx_port,
                         rx_port=rx_port,
                         port_bw=tx_port_bw,
                         test_prio_list=[prio],
-                        test_dscp_list=test_dscp_list, 
+                        test_dscp_list=test_dscp_list,
                         bg_dscp_list=bg_dscp_list,
                         exp_dur=exp_dur,
                         paused=True)
+
+            clean_configuration(session=session)
+
+
+def test_pauses_on_lossy_priorities (testbed,
+                                     conn_graph_facts,
+                                     lossless_prio_dscp_map,
+                                     duthost,
+                                     ixia_dev,
+                                     ixia_api_server_session,
+                                     fanout_graph_facts) :
+    """
+    RDMA PFC - Pauses on lossy priorities.
+    1. On SONiC DUT enable PFC on any two Traffic Classes (TC) say, m and n.
+       0 <= m,n <= 7.
+    2. Disable the PFC watch-dog on the SONiC DUT.
+    3. On the Ixia Tx port create two flows - a) Test Data Traffic and 
+       b) Background Data traffic.
+    4. TC of 'Test Data Traffic' can take any value except m and n.
+    5. From Rx port send pause frames on all other TC except m and n.
+    6. Verify the following:
+       a. Traffic classes for which pause frame is send is not affected,
+          packet loss is %0. That is - Test traffic has 0% loss.
+       b. Traffic classes for which pause frame is not send i.e. (
+          including PFC enabled  class m and n) also remains un-affected. 
+          Background Traffic 0% loss.
+    7. Repeat the steps 1 to 6 for all TC except m and n. 
+    8. Expected - sending pauses on lossy traffic does not have effect the
+       any of the traffic flows.
+
+    Note: value of traffic classes 0 <= traffic classes <= 7
+        Value of test traffic class = {x : <= x <= 7 and x <> m, n}
+        Value of background traffic class = {y :  <= x <= 7 and y <> x}
+        Value of test traffic dscp = {d : 0 <= d <= 63}
+        Value of test traffic dscp = {d : 0 <= d <= 63}
+        Currently in this test cases m = 3, n = 4.
+    """
+    port_list = list()
+    fanout_devices = IxiaFanoutManager(fanout_graph_facts)
+    fanout_devices.get_fanout_device_details(device_number = 0)
+
+    device_conn = conn_graph_facts['device_conn']
+    for intf in fanout_devices.get_ports():
+        peer_port = intf['peer_port']
+        intf['speed'] = int(device_conn[peer_port]['speed']) * 100
+        port_list.append(intf)
+
+    # The topology should have at least two interfaces.
+    pytest_assert(len(device_conn)>=2,
+        "The topology should have at least two interfaces")
+
+    # Test pausing each lossless priority individually.
+    session = ixia_api_server_session
+
+    lossless_prio_map = [x for x in lossless_prio_dscp_map]
+    prio_test_traffic = [y for y in range(8) if y not in lossless_prio_map]
+    test_dscp_list = [d for d in range(64)]
+    bg_dscp_list = test_dscp_list
+
+    for prio in prio_test_traffic:
+        for i in range(len(port_list)):
+            vports = configure_ports(session, port_list)
+
+            rx_id = i
+            tx_id = (i + 1) % len(port_list)
+
+            rx_port = vports[rx_id]
+            tx_port = vports[tx_id]
+            rx_port_bw = port_list[rx_id]['speed']
+            tx_port_bw = port_list[tx_id]['speed']
+
+            pytest_assert(rx_port_bw == tx_port_bw)
+
+            exp_dur = 2
+
+            run_pfc_exp(session=session,
+                        dut=duthost,
+                        tx_port=tx_port,
+                        rx_port=rx_port,
+                        port_bw=tx_port_bw,
+                        test_prio_list=[prio],
+                        test_dscp_list=test_dscp_list,
+                        bg_dscp_list=bg_dscp_list,
+                        exp_dur=exp_dur,
+                        paused=False)
 
             clean_configuration(session=session)
 
