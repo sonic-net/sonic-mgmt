@@ -615,12 +615,12 @@ class SonicHost(AnsibleHostBase):
         @param ipv6: check ipv6 default
         """
         if ipv4:
-            rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_address(u'0.0.0.0'))
+            rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network(u'0.0.0.0/0'))
             if len(rtinfo_v4['nexthops']) == 0:
                 return False
 
         if ipv6:
-            rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_address(u'::'))
+            rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network(u'::/0'))
             if len(rtinfo_v6['nexthops']) == 0:
                 return False
 
