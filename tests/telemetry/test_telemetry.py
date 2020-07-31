@@ -41,10 +41,26 @@ def setup_telemetry_forpyclient(duthost):
     else:
         logger.info('client auth is false. No need to restart telemetry')
 
+def verify_telemetry_dockerimage(duthost):
+    """If telemetry docker is available in image then return true
+    """
+    docker_out_list = []
+    docker_out = duthost.shell('docker images docker-sonic-telemetry', module_ignore_errors=False)['stdout_lines']
+    docker_out_list = get_list_stdout(docker_out)
+    matching = [s for s in docker_out_list if "docker-sonic-telemetry" in s]
+    if str(matching):
+        return True
+    return False
+
 # Test functions
 def test_config_db_parameters(duthost):
     """Verifies required telemetry parameters from config_db.
     """
+    docker_present = verify_telemetry_dockerimage(duthost)
+    if not docker_present:
+        pytest.skip("docker-sonic-telemetry is not part of the image")
+        return
+
     gnmi = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|gnmi"', module_ignore_errors=False)['stdout_lines']
     pytest_assert(gnmi is not None, "TELEMETRY|gnmi does not exist in config_db")
 
@@ -69,6 +85,11 @@ def test_config_db_parameters(duthost):
 def test_telemetry_enabledbydefault(duthost):
     """Verify telemetry should be enabled by default
     """
+    docker_present = verify_telemetry_dockerimage(duthost)
+    if not docker_present:
+        pytest.skip("docker-sonic-telemetry is not part of the image")
+        return
+
     status = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "FEATURE|telemetry"', module_ignore_errors=False)['stdout_lines']
     status_list = get_list_stdout(status)
     # Elements in list alternate between key and value. Separate them and combine into a dict.
@@ -83,6 +104,11 @@ def test_telemetry_enabledbydefault(duthost):
 def test_telemetry_ouput(duthost, ptfhost):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
+    docker_present = verify_telemetry_dockerimage(duthost)
+    if not docker_present:
+        pytest.skip("docker-sonic-telemetry is not part of the image")
+        return
+
     logger.info('start telemetry output testing')
     setup_telemetry_forpyclient(duthost)
     # wait till telemetry is restarted
@@ -99,4 +125,3 @@ def test_telemetry_ouput(duthost, ptfhost):
     result = str(show_gnmi_out)
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
     pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
-    
