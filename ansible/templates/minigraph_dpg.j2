@@ -32,9 +32,17 @@
           <Name>V6HostIP</Name>
           <AttachTo>eth0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+{% if ansible_hostv6 is defined %}
             <b:IPPrefix>{{ ansible_hostv6 }}/64</b:IPPrefix>
+{% else %}
+            <b:IPPrefix>FC00:2::32/64</b:IPPrefix>
+{% endif %}
           </a:Prefix>
+{% if ansible_hostv6 is defined %}
           <a:PrefixStr>{{ ansible_hostv6 }}/64</a:PrefixStr>
+{% else %}
+          <a:PrefixStr>FC00:2::32/64</a:PrefixStr>
+{% endif %}
         </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
