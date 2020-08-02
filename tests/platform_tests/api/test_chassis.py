@@ -86,7 +86,7 @@ class TestChassisApi(PlatformApiTestBase):
 
         if 'base_mac' in duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars:
             expected_base_mac = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['base_mac']
-            pytest_assert(base_mac == expected_base_mac, "Base MAC address is incorrect")
+            pytest_assert(base_mac.lower() == expected_base_mac.lower(), "Base MAC address is incorrect")
         else:
             logger.warning('Inventory file does not contain base MAC address for {}'.format(duthost.hostname))
 
