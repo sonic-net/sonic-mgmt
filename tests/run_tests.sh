@@ -232,7 +232,7 @@ function run_individual_tests()
 
 setup_environment
 
-while getopts "h?c:d:e:f:i:k:l:m:n:op:q:rs:t:ux" opt; do
+while getopts "h?a:c:d:e:f:i:k:l:m:n:op:q:rs:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
