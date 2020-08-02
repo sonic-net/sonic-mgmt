@@ -5,7 +5,7 @@ function show_help_and_exit()
     echo "Usage ${SCRIPT} [options]"
     echo "    options with (*) must be provided"
     echo "    -h -?          : get this help"
-    echo "    -a <True|False>: specify specify if autu-recover is allowed (default: True)"
+    echo "    -a <True|False>: specify if autu-recover is allowed (default: True)"
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
     echo "    -d <dut name>  : specify DUT name (*)"
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
