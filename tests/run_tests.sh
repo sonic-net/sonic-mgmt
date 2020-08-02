@@ -5,13 +5,14 @@ function show_help_and_exit()
     echo "Usage ${SCRIPT} [options]"
     echo "    options with (*) must be provided"
     echo "    -h -?          : get this help"
+    echo "    -a <True|False>: specify specify if autu-recover is allowed (default: True)"
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
     echo "    -d <dut name>  : specify DUT name (*)"
-    echo "    -e <paramters> : specify extra parameter(s) (default: none)"
+    echo "    -e <parameters>: specify extra parameter(s) (default: none)"
     echo "    -f <tb file>   : specify testbed file (default testbed.csv)"
     echo "    -i <inventory> : specify inventory name"
-    echo "    -k <log level> : specify file log level: error|warning|info|debug (default debug)"
-    echo "    -l <log level> : specify cli log level: error|warning|info|debug (default warning)"
+    echo "    -k <file log>  : specify file log level: error|warning|info|debug (default debug)"
+    echo "    -l <cli log>   : specify cli log level: error|warning|info|debug (default warning)"
     echo "    -m <method>    : specify test method group|individual|debug (default group)"
     echo "    -n <testbed>   : specify testbed name (*)"
     echo "    -o             : omit the file logs"
@@ -58,6 +59,7 @@ function setup_environment()
     BASE_PATH=$(dirname ${SCRIPT_PATH})
     LOG_PATH="logs"
 
+    AUTO_RECOVER="True"
     BYPASS_UTIL="False"
     CLI_LOG_LEVEL='warning'
     EXTRA_PARAMETERS=""
@@ -84,11 +86,14 @@ function setup_test_options()
                       --testbed_file ${TESTBED_FILE} \
                       --log-cli-level ${CLI_LOG_LEVEL} \
                       --log-file-level ${FILE_LOG_LEVEL} \
-                      --allow_recover \
                       --showlocals \
                       --assert plain \
                       --show-capture no \
                       -rav"
+
+    if [[ x"${AUTO_RECOVER}" == x"True" ]]; then
+        PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --allow_recover"
+    fi
 
     for skip in ${SKIP_SCRIPTS} ${SKIP_FOLDERS}; do
         PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
@@ -133,6 +138,7 @@ function run_debug_tests()
 
     echo "ANSIBLE_CONFIG:        ${ANSIBLE_CONFIG}"
     echo "ANSIBLE_LIBRARY:       ${ANSIBLE_LIBRARY}"
+    echo "AUTO_RECOVER:          ${AUTO_RECOVER}"
     echo "BYPASS_UTIL:           ${BYPASS_UTIL}"
     echo "CLI_LOG_LEVEL:         ${CLI_LOG_LEVEL}"
     echo "EXTRA_PARAMETERS:      ${EXTRA_PARAMETERS}"
@@ -230,6 +236,9 @@ while getopts "h?c:d:e:f:i:k:l:m:n:op:q:rs:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
+            ;;
+        a )
+            AUTO_RECOVER=${OPTARG}
             ;;
         c )
             TEST_CASES="${TEST_CASES} ${OPTARG}"
