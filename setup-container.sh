@@ -51,6 +51,10 @@ function start_and_config_container() {
     docker exec $CONTAINER_NAME sudo usermod -aG sudo $USER
     # Be VERY careful modifying this line or you will break sudo functionality in your container
     docker exec $CONTAINER_NAME sudo sed -i "$ a $USER ALL=(ALL) NOPASSWD:ALL" /etc/sudoers
+
+    echo "Creating home directory for $USER"
+    docker exec $CONTAINER_NAME sudo mkdir -p /home/$USER
+    docker exec $CONTAINER_NAME sudo chown $USER /home/$USER
 }
 
 
