@@ -89,7 +89,6 @@ def validate_dut_routes_exist(duthost, dut_dhcp_relay_data):
 
     for dhcp_server in dhcp_servers:
         rtInfo = duthost.get_ip_route_info(ipaddress.ip_address(dhcp_server))
-        # FIXME: this test looks iconnect, because we will receive a nexthop in case we have a default route
         assert len(rtInfo["nexthops"]) > 0, "Failed to find route to DHCP server '{0}'".format(dhcp_server)
 
 
