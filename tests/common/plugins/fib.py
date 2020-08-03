@@ -94,7 +94,7 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
     return routes
 
 
-def fib_t0(ptfhost, testbed, localhost):
+def fib_t0(ptfhost, testbed, localhost, topology=None):
     logger.info("use fib_t0 to setup routes for topo {}".format(testbed['topo']['name']))
 
     podset_number = 200
@@ -103,9 +103,14 @@ def fib_t0(ptfhost, testbed, localhost):
     max_tor_subnet_number = 16
     tor_subnet_size = 128
 
-    spine_asn       = 65534
-    leaf_asn_start  = 64600
-    tor_asn_start   = 65500
+    # TODO: spine_asn, leaf_asn_start and tor_asn_start should come from the topology file
+    spine_asn = 65534
+    if topology == 't0-116':
+        leaf_asn_start = 4200064600
+        tor_asn_start = 4200065500
+    else:
+        leaf_asn_start = 64600
+        tor_asn_start = 65500
 
     topo = testbed['topo']['properties']
     ptf_hostname = testbed['ptf']
@@ -248,9 +253,10 @@ def fib_t1_lag(ptfhost, testbed, localhost):
 
 @pytest.fixture(scope='module')
 def fib(ptfhost, testbed, localhost):
-    logger.info("setup fib to topo {}".format(testbed['topo']['name']))
+    topology = testbed['topo']['name']
+    logger.info("setup fib to topo {}".format(topology))
     if testbed['topo']['type'] == "t0":
-        fib_t0(ptfhost, testbed, localhost)
+        fib_t0(ptfhost, testbed, localhost, topology)
     elif testbed['topo']['type'] == "t1":
         fib_t1_lag(ptfhost, testbed, localhost)
     else:
