@@ -65,7 +65,7 @@ interface {{ name }}
  no switchport
 {% endif %}
 {% if name.startswith('Port-Channel') %}
- port-channel min-links 1
+ port-channel min-links 2
 {% endif %}
 {% if iface['lacp'] is defined %}
  channel-group {{ iface['lacp'] }} mode active
