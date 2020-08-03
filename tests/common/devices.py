@@ -545,27 +545,65 @@ class SonicHost(AnsibleHostBase):
         Please beware: if dstip is an ip network, you will receive all ECMP nexthops
         But if dstip is an ip address, only one nexthop will be returned, the one which is going to be used to send a packet to the destination.
 
-        Debian stretch.
-
         Exanples:
-        get_ip_route_info(ipaddress.ip_address(unicode("192.168.8.0")))
-        returns {'set_src': IPv4Address(u'10.1.0.32'), 'nexthops': [(IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
+----------------
+get_ip_route_info(ipaddress.ip_address(unicode("192.168.8.0")))
+returns {'set_src': IPv4Address(u'10.1.0.32'), 'nexthops': [(IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
 
-        get_ip_route_info(ipaddress.ip_network(unicode("192.168.8.0/25")))
-        returns {'set_src': IPv4Address(u'10.1.0.32'), 'nexthops': [(IPv4Address(u'10.0.0.1'), u'PortChannel0001'), (IPv4Address(u'10.0.0.5'), u'PortChannel0002'), (IPv4Address(u'10.0.0.9'), u'PortChannel0003'), (IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
+raw data sonic 20191130
+192.168.8.0 via 10.0.0.13 dev PortChannel0004 src 10.1.0.32
+    cache
 
-        get_ip_route_info(ipaddress.ip_address(unicode("20c0:a818::")))
-        returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
+----------------
+get_ip_route_info(ipaddress.ip_network(unicode("192.168.8.0/25")))
+returns {'set_src': IPv4Address(u'10.1.0.32'), 'nexthops': [(IPv4Address(u'10.0.0.1'), u'PortChannel0001'), (IPv4Address(u'10.0.0.5'), u'PortChannel0002'), (IPv4Address(u'10.0.0.9'), u'PortChannel0003'), (IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
 
-        get_ip_route_info(ipaddress.ip_network(unicode("20c0:a818::/64")))
-        returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::2'), u'PortChannel0001'), (IPv6Address(u'fc00::a'), u'PortChannel0002'), (IPv6Address(u'fc00::12'), u'PortChannel0003'), (IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
+raw data sonic 20191130
+192.168.8.0/25 proto 186 src 10.1.0.32 metric 20
+        nexthop via 10.0.0.1  dev PortChannel0001 weight 1
+        nexthop via 10.0.0.5  dev PortChannel0002 weight 1
+        nexthop via 10.0.0.9  dev PortChannel0003 weight 1
+        nexthop via 10.0.0.13  dev PortChannel0004 weight 1
 
-        get_ip_route_info(ipaddress.ip_network(unicode("0.0.0.0/0")))
-        returns {'set_src': IPv4Address(u'10.1.0.32'), 'nexthops': [(IPv4Address(u'10.0.0.1'), u'PortChannel0001'), (IPv4Address(u'10.0.0.5'), u'PortChannel0002'), (IPv4Address(u'10.0.0.9'), u'PortChannel0003'), (IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
+----------------
+get_ip_route_info(ipaddress.ip_address(unicode("20c0:a818::")))
+returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
 
-        get_ip_route_info(ipaddress.ip_network(unicode("::/0")))
-        returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::2'), u'PortChannel0001'), (IPv6Address(u'fc00::a'), u'PortChannel0002'), (IPv6Address(u'fc00::12'), u'PortChannel0003'), (IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
+raw data sonic 20191130
+20c0:a818:: from :: via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pref medium
 
+----------------
+get_ip_route_info(ipaddress.ip_network(unicode("20c0:a818::/64")))
+returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::2'), u'PortChannel0001'), (IPv6Address(u'fc00::a'), u'PortChannel0002'), (IPv6Address(u'fc00::12'), u'PortChannel0003'), (IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
+
+raw data sonic 20191130
+20c0:a818::/64 via fc00::2 dev PortChannel0001 proto 186 src fc00:1::32 metric 20  pref medium
+20c0:a818::/64 via fc00::a dev PortChannel0002 proto 186 src fc00:1::32 metric 20  pref medium
+20c0:a818::/64 via fc00::12 dev PortChannel0003 proto 186 src fc00:1::32 metric 20  pref medium
+20c0:a818::/64 via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pref medium
+
+----------------
+get_ip_route_info(ipaddress.ip_network(unicode("0.0.0.0/0")))
+returns {'set_src': IPv4Address(u'10.1.0.32'), 'nexthops': [(IPv4Address(u'10.0.0.1'), u'PortChannel0001'), (IPv4Address(u'10.0.0.5'), u'PortChannel0002'), (IPv4Address(u'10.0.0.9'), u'PortChannel0003'), (IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
+
+raw data sonic 20191130
+default proto 186 src 10.1.0.32 metric 20
+        nexthop via 10.0.0.1  dev PortChannel0001 weight 1
+        nexthop via 10.0.0.5  dev PortChannel0002 weight 1
+        nexthop via 10.0.0.9  dev PortChannel0003 weight 1
+        nexthop via 10.0.0.13  dev PortChannel0004 weight 1
+
+----------------
+get_ip_route_info(ipaddress.ip_network(unicode("::/0")))
+returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::2'), u'PortChannel0001'), (IPv6Address(u'fc00::a'), u'PortChannel0002'), (IPv6Address(u'fc00::12'), u'PortChannel0003'), (IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
+
+raw data sonic 20191130
+default via fc00::2 dev PortChannel0001 proto 186 src fc00:1::32 metric 20  pref medium
+default via fc00::a dev PortChannel0002 proto 186 src fc00:1::32 metric 20  pref medium
+default via fc00::12 dev PortChannel0003 proto 186 src fc00:1::32 metric 20  pref medium
+default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pref medium
+
+----------------
         """
 
         rtinfo = {'set_src': None, 'nexthops': [] }
