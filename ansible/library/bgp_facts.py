@@ -142,6 +142,7 @@ class BgpModule(object):
                     lines = n.splitlines()
                     neighbor['admin'] = 'up'
                     neighbor['accepted prefixes'] = 0
+                    neighbor_ip = None
 
                     for line in lines:
                         if regex_ipv4.match(line):
@@ -186,7 +187,8 @@ class BgpModule(object):
                         if message_stats:
                             neighbor['message statistics'] = message_stats
 
-                    neighbors[neighbor_ip] = neighbor
+                    if neighbor_ip:
+                        neighbors[neighbor_ip] = neighbor
 
         except Exception as e:
             self.module.fail_json(msg=str(e))

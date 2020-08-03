@@ -31,10 +31,12 @@ Hosting pytest test infrastructure and test cases
 
 
 ### Run a single test case ###
-* ./run_tests.sh -d <dut_name> -n <testbed_name> [-s <list of test cases or files to skip>] -t t1 -u -c platform_tests/test_link_flap.py
+* ./run_tests.sh -d <dut_name> -n <testbed_name> [-s <list of test cases or files to skip>] -u -c platform_tests/test_link_flap.py
     * execute link flap test case.
+    * when specifying test cast list, no need to specify topology with -t.
 
 
 ### Run a list of test cases ###
-* ./run_tests.sh -d <dut_name> -n <testbed_name> [-s <list of test cases or files to skip>] -t t1 -u -c "platform_tests/test_link_flap.py platform_tests/test_reboot.py::test_cold_reboot"
+* ./run_tests.sh -d <dut_name> -n <testbed_name> [-s <list of test cases or files to skip>] -u -c "platform_tests/test_link_flap.py platform_tests/test_reboot.py::test_cold_reboot"
     * execute link flap test and cold reboot test case.
+    * when specifying test cast list, no need to specify topology with -t.

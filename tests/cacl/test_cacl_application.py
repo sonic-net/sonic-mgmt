@@ -80,27 +80,35 @@ def get_cacl_tables_and_rules(duthost):
 
     # The output of `show acl table` and `show acl rule` are difficult to parse well :(
     # We should consider modifying the output format to make it more easily parsable.
-    stdout = duthost.shell("show acl table | grep 'CTRLPLANE'")["stdout"]
-    for line in stdout.strip().split("\n"):
-        tokens = line.split()
-        # More recent builds of SONiC output 5 columns (new 'stage' column), older output 4
+    stdout_lines = duthost.shell("show acl table")["stdout_lines"]
+
+    previous_table_ctrlplane = False
+    for line in stdout_lines:
+        tokens = line.strip().split()
+        # A line beginning a new ACL table definition should contian at least 4
+        # columns of data. More recent builds of SONiC output 5 columns (a new
+        # 'stage' column)
         if len(tokens) >= 4:
-            cacl_tables.append({"name": tokens[0], "services": [tokens[2]], "rules": []})
-        elif len(tokens) == 1:
-            # If the line only contains one token, it must be an additional service which this
-            # ACL table is attached to, so we append it to the list fo services of the last
-            # table we added.
+            if tokens[1] == "CTRLPLANE":
+                # This is the beginning of a new control plane ACL definition
+                previous_table_ctrlplane = True
+                cacl_tables.append({"name": tokens[0], "services": [tokens[2]], "rules": []})
+            else:
+                previous_table_ctrlplane = False
+        elif len(tokens) == 1 and previous_table_ctrlplane:
+            # If the line only contains one token and the previous table we
+            # encountered was a control plane ACL table, the token in this line
+            # must be an additional service which the previous table is
+            # attached to, so we append it to the list of services of the last
+            # table we added
             cacl_tables[-1]["services"].append(tokens[0])
-        else:
-            pytest.fail("Unexpected ACL table data: {}".format(repr(tokens)))
 
     # Process the rules for each table
     for table in cacl_tables:
-        stdout = duthost.shell("show acl rule {}".format(table["name"]))["stdout"]
-        lines = stdout.strip().split("\n")
+        stdout_lines = duthost.shell("show acl rule {}".format(table["name"]))["stdout_lines"]
         # First two lines make up the table header. Get rid of them.
-        lines = lines[2:]
-        for line in lines:
+        stdout_lines = stdout_lines[2:]
+        for line in stdout_lines:
             tokens = line.strip().split()
             if len(tokens) == 6 and tokens[0] == table["name"]:
                 table["rules"].append({"name": tokens[1], "priority": tokens[2], "action": tokens[3]})
@@ -301,9 +309,7 @@ def generate_expected_rules(duthost):
     if rules_applied_from_config > 0:
         # Default drop rules
         iptables_rules.append("-A INPUT -j DROP")
-        iptables_rules.append("-A FORWARD -j DROP")
         ip6tables_rules.append("-A INPUT -j DROP")
-        ip6tables_rules.append("-A FORWARD -j DROP")
 
     return iptables_rules, ip6tables_rules
 

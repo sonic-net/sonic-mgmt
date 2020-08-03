@@ -39,8 +39,8 @@ function validate_parameters()
         RET=2
     fi
 
-    if [[ -z ${TOPOLOGY} ]]; then
-        echo "TOPOLOGY (-t) is not set.."
+    if [[ -z ${TOPOLOGY} && -z ${TEST_CASES} ]]; then
+        echo "Neither TOPOLOGY (-t) nor test case list (-c) is set.."
         RET=3
     fi
 
@@ -65,7 +65,7 @@ function setup_environment()
     OMIT_FILE_LOG="False"
     RETAIN_SUCCESS_LOG="False"
     SKIP_SCRIPTS=""
-    SKIP_FOLDERS="ptftests acstests saitests"
+    SKIP_FOLDERS="ptftests acstests saitests scripts"
     TESTBED_FILE="${BASE_PATH}/ansible/testbed.csv"
     TEST_CASES=""
     TEST_METHOD='group'
@@ -85,6 +85,7 @@ function setup_test_options()
                       --allow_recover \
                       --showlocals \
                       --assert plain \
+                      --show-capture no \
                       -rav"
 
     for skip in ${SKIP_SCRIPTS} ${SKIP_FOLDERS}; do
@@ -107,7 +108,11 @@ function setup_test_options()
         TEST_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/tr.xml --log-file=${LOG_PATH}/test.log"
     fi
     UTIL_TOPOLOGY_OPTIONS="--topology util"
-    TEST_TOPOLOGY_OPTIONS="--topology ${TOPOLOGY}"
+    if [[ -z ${TOPOLOGY} ]]; then
+        TEST_TOPOLOGY_OPTIONS=""
+    else
+        TEST_TOPOLOGY_OPTIONS="--topology ${TOPOLOGY}"
+    fi
 }
 
 function run_debug_tests()
@@ -165,12 +170,16 @@ function run_group_tests()
 
 function run_individual_tests()
 {
-    SKIP_SCRIPTS="${SKIP_SCRIPTS} test_announce_routes.py test_nbr_health.py"
+    if [[ -n ${TEST_CASES} ]] ;then
+        test_scripts=${TEST_CASES}
+    else
+        SKIP_SCRIPTS="${SKIP_SCRIPTS} test_announce_routes.py test_nbr_health.py"
 
-    ignores=$(python -c "print '|'.join('''$SKIP_FOLDERS'''.split())")
+        ignores=$(python -c "print '|'.join('''$SKIP_FOLDERS'''.split())")
 
-    all_scripts=$(find ./ -name 'test_*.py' | sed s:^./:: | grep -vE "^(${SKIP_FOLDERS})")
-    test_scripts=$(python -c "print '\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split()))" | sort)
+        all_scripts=$(find ./ -name 'test_*.py' | sed s:^./:: | grep -vE "^(${SKIP_FOLDERS})")
+        test_scripts=$(python -c "print '\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split()))" | sort)
+    fi
 
     EXIT_CODE=0
 
@@ -211,13 +220,13 @@ while getopts "h?c:d:e:f:i:k:l:m:n:op:rs:t:ux" opt; do
             show_help_and_exit 0
             ;;
         c )
-            TEST_CASES=${OPTARG}
+            TEST_CASES="${TEST_CASES} ${OPTARG}"
             ;;
         d )
             DUT_NAME=${OPTARG}
             ;;
         e )
-            EXTRA_PARAMETERS=${OPTARG}
+            EXTRA_PARAMETERS="${EXTRA_PARAMETERS} ${OPTARG}"
             ;;
         f )
             TESTBED_FILE=${OPTARG}
@@ -247,7 +256,7 @@ while getopts "h?c:d:e:f:i:k:l:m:n:op:rs:t:ux" opt; do
             RETAIN_SUCCESS_LOG="True"
             ;;
         s )
-            SKIP_SCRIPTS=${OPTARG}
+            SKIP_SCRIPTS="${SKIP_SCRIPTS} ${OPTARG}"
             ;;
         t )
             TOPOLOGY=${OPTARG}

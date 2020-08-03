@@ -46,4 +46,4 @@ def test_ser(duthost):
         logger.info('Test complete with %s: ' % rc)
 
     else:
-        logger.info('Skipping SER test for asic_type: %s' % asic_type)
+        pytest.skip('Skipping SER test for asic_type: %s' % asic_type)

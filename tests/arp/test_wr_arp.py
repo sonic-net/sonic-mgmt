@@ -2,6 +2,7 @@ import json
 import logging
 import pytest
 
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
@@ -97,7 +98,8 @@ class TestWrArp:
             sed -ne 's/0\/.*$/1/p'
             '''
         )
-        assert len(result['stderr_lines']) == 0, 'Could not obtain DIP'
+
+        pytest_assert(len(result['stdout'].strip()) > 0, 'Empty DIP returned')
 
         dip = result['stdout']
         logger.info('VxLan Sender {0}'.format(dip))

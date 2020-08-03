@@ -31,8 +31,7 @@ class AnsibleHostBase(object):
 
     def __init__(self, ansible_adhoc, hostname, connection=None, become_user=None):
         if hostname == 'localhost':
-            self.host = ansible_adhoc(connection='smart', host_pattern=hostname)[hostname]
-            self.mgmt_ip = self.host.setup(gather_subset="!all,!min,network")[hostname]["ansible_facts"]["ansible_default_ipv4"]["address"]
+            self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
         else:
             if connection is None:
                 if become_user is None:
@@ -45,7 +44,6 @@ class AnsibleHostBase(object):
                     self.host = ansible_adhoc(become=True, connection=connection)[hostname]
                 else:
                     self.host = ansible_adhoc(become=True, connection=connection, become_user=become_user)[hostname]
-            self.mgmt_ip = self.host.options["inventory_manager"].get_host(hostname).vars["ansible_host"]
         self.hostname = hostname
 
     def __getattr__(self, module_name):
@@ -138,8 +136,7 @@ class SonicHost(AnsibleHostBase):
                 "platform": "x86_64-arista_7050_qx32s",
                 "hwsku": "Arista-7050-QX-32S",
                 "asic_type": "broadcom",
-                "num_npu": 1,
-                "router_mac": "52:54:00:f0:ac:9d"
+                "num_asic": 1,
             }
         """
 
@@ -182,8 +179,8 @@ class SonicHost(AnsibleHostBase):
             not actually modify any services running on the device.
         """
 
-        if self.facts["num_npu"] > 1:
-            self._critical_services = self._generate_critical_services_for_multi_npu(var)
+        if self.facts["num_asic"] > 1:
+            self._critical_services = self._generate_critical_services_for_multi_asic(var)
         else:
             self._critical_services = var
 
@@ -203,36 +200,37 @@ class SonicHost(AnsibleHostBase):
 
         facts = dict()
         facts.update(self._get_platform_info())
-        facts["num_npu"] = self._get_npu_count(facts["platform"])
-        facts["router_mac"] = self._get_router_mac()
+        facts["num_asic"] = self._get_asic_count(facts["platform"])
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
 
-    def _get_npu_count(self, platform):
+    def _get_asic_count(self, platform):
         """
-        Gets the number of npus for this device.
+        Gets the number of asics for this device.
         """
-
+        num_asic = 1
         asic_conf_file_path = os.path.join("/usr/share/sonic/device", platform, "asic.conf")
         try:
             output = self.shell("cat {}".format(asic_conf_file_path))["stdout_lines"]
             logging.debug(output)
 
             for line in output:
-                num_npu = line.split("=", 1)[1].strip()
+                key, value = line.split("=")
+                if key.strip().upper() == "NUM_ASIC":
+                    num_asic = value.strip()
+                    break
 
-            logging.debug("num_npu = %s" % num_npu)
-            return int(num_npu)
+            logging.debug("num_asic = %s" % num_asic)
+
+            return int(num_asic)
         except:
-            return 1
+            return int(num_asic)
 
-    def _get_router_mac(self):
-        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode("utf-8")
 
-    def _generate_critical_services_for_multi_npu(self, services):
+    def _generate_critical_services_for_multi_asic(self, services):
         """
-        Generates a fully-qualified list of critical services for multi-npu platforms, based on a
+        Generates a fully-qualified list of critical services for multi-asic platforms, based on a
         base list of services.
 
         Example:
@@ -241,9 +239,9 @@ class SonicHost(AnsibleHostBase):
 
         m_service = []
         for service in services:
-            for npu in self.facts["num_npu"]:
-                npu_service = service + npu
-                m_service.insert(npu, npu_service)
+            for asic in range(self.facts["num_asic"]):
+                asic_service = service + str(asic)
+                m_service.insert(asic, asic_service)
         return m_service
 
     def _get_platform_info(self):
@@ -449,11 +447,11 @@ class SonicHost(AnsibleHostBase):
         logging.info("Pmon daemon state list for this platform is %s" % str(daemon_states))
         return daemon_states
 
-    def num_npus(self):
+    def num_asics(self):
         """
         return the number of NPUs on the DUT
         """
-        return self.facts["num_npu"]
+        return self.facts["num_asic"]
 
     def get_syncd_docker_names(self):
         """
@@ -461,22 +459,22 @@ class SonicHost(AnsibleHostBase):
         for a single NPU dut the list will have only "syncd" in it
         """
         syncd_docker_names = []
-        if self.facts["num_npu"] == 1:
+        if self.facts["num_asic"] == 1:
             syncd_docker_names.append("syncd")
         else:
-            num_npus = int(self.facts["num_npu"])
-            for npu in range(0,num_npus):
-                syncd_docker_names.append("syncd{}".format(npu))
+            num_asics = int(self.facts["num_asic"])
+            for asic in range(0,num_asics):
+                syncd_docker_names.append("syncd{}".format(asic))
         return syncd_docker_names
 
     def get_swss_docker_names(self):
         swss_docker_names = []
-        if self.facts["num_npu"] == 1:
+        if self.facts["num_asic"] == 1:
             swss_docker_names.append("swss")
         else:
-            num_npus = self.facts["num_npu"]
-            for npu in range(0,num_npus):
-                swss_docker_names.append("swss{}".format(npu))
+            num_asics = self.facts["num_asic"]
+            for asic in range(0,num_asics):
+                swss_docker_names.append("swss{}".format(asic))
         return swss_docker_names
 
     def get_up_time(self):
@@ -636,6 +634,18 @@ default via fc00::7e dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         logging.info("bgp neighbor {} info {}".format(neighbor_ip, nbinfo))
 
         return nbinfo[str(neighbor_ip)]
+
+    def get_bgp_neighbors(self):
+        """
+        Get a diction of BGP neighbor states
+
+        Args: None
+
+        Returns: dictionary { (neighbor_ip : info_dict)* }
+
+        """
+        bgp_facts = self.bgp_facts()['ansible_facts']
+        return bgp_facts['bgp_neighbors']
 
     def check_bgp_session_state(self, neigh_ips, state="established"):
         """
@@ -913,6 +923,54 @@ class OnyxHost(AnsibleHostBase):
             raise Exception("Unable to execute template\n{}".format(res["localhost"]["stdout"]))
 
 
+class IxiaHost (AnsibleHostBase):
+    """ This class is a place-holder for running ansible module on Ixia
+    fanout devices in future (TBD).
+    """
+    def __init__ (self, ansible_adhoc, os, hostname, device_type) :
+        """ Initializing Ixia fanout host for using ansible modules.
+
+        Note: Right now, it is just a place holder.
+
+        Args:
+            ansible_adhoc :The pytest-ansible fixture
+            os (str): The os type of Ixia Fanout.
+            hostname (str): The Ixia fanout host-name
+            device_type (str): The Ixia fanout device type.
+        """ 
+
+        self.ansible_adhoc = ansible_adhoc
+        self.os            = os
+        self.hostname      = hostname
+        self.device_type   = device_type
+        super().__init__(IxiaHost, self)
+   
+    def get_host_name (self):
+        """Returns the Ixia hostname
+
+        Args:
+            This function takes no argument.
+        """    
+        return self.hostname
+
+    def get_os (self) :
+        """Returns the os type of the ixia device.
+
+        Args:
+            This function takes no argument.
+        """    
+        return self.os
+
+    def execute (self, cmd) :
+        """Execute a given command on ixia fanout host.
+         
+        Args: 
+           cmd (str): Command to be executed.
+        """ 
+        if (self.os == 'ixia') :
+            eval(cmd)
+
+
 class FanoutHost():
     """
     @summary: Class for Fanout switch
@@ -934,7 +992,7 @@ class FanoutHost():
         elif os == 'ixia':
             # TODO: add ixia chassis abstraction
             self.os = os
-            self.host = None
+            self.host = IxiaHost(ansible_adhoc, os, hostname, device_type)
         else:
             # Use eos host if the os type is unknown
             self.os = 'eos'

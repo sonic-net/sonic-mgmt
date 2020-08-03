@@ -19,6 +19,35 @@ def psu_api(conn, psu_id, name, args=None):
     return res
 
 
+#
+# Methods inherited from DeviceBase class
+#
+
+def get_name(conn, index):
+    return psu_api(conn, index, 'get_name')
+
+
+def get_presence(conn, index):
+    return psu_api(conn, index, 'get_presence')
+
+
+def get_model(conn, index):
+    return psu_api(conn, index, 'get_model')
+
+
+def get_serial(conn, index):
+    return psu_api(conn, index, 'get_serial')
+
+
+def get_status(conn, index):
+    return psu_api(conn, index, 'get_status')
+
+
+#
+# Methods defined in PsuBase class
+#
+
+
 def get_num_fans(conn, psu_id):
     return psu_api(conn, psu_id, 'get_num_fans')
 

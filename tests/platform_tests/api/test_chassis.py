@@ -287,6 +287,26 @@ class TestChassisApi(PlatformApiTestBase):
             self.expect(sfp and sfp == sfp_list[i], "SFP {} is incorrect".format(i))
         self.assert_expectations()
 
+    def test_status_led(self, duthost, localhost, platform_api_conn):
+        # TODO: Get a platform-specific list of available colors for the status LED
+        LED_COLOR_LIST = [
+            "off",
+            "red",
+            "amber",
+            "green",
+        ]
+
+        for color in LED_COLOR_LIST:
+            result = chassis.set_status_led(platform_api_conn, color)
+            if self.expect(result is not None, "Failed to perform set_status_led"):
+                self.expect(result is True, "Failed to set status_led to {}".format(color))
+
+            color_actual = chassis.get_status_led(platform_api_conn)
+            if self.expect(color_actual is not None, "Failed to retrieve status_led"):
+                if self.expect(isinstance(color_actual, str), "Status LED color appears incorrect"):
+                    self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {})".format(color, color_actual))
+        self.assert_expectations()
+
     def test_get_thermal_manager(self, duthost, localhost, platform_api_conn):
         thermal_mgr = chassis.get_thermal_manager(platform_api_conn)
         pytest_assert(thermal_mgr is not None, "Failed to retrieve thermal manager")
