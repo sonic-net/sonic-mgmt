@@ -27,7 +27,8 @@ DATA_PKT_SIZE = 1024
 
 
 def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,\
-                test_dscp_list, bg_dscp_list, exp_dur, paused):
+                test_dscp_list, bg_dscp_list, exp_dur, paused,
+                global_pause=False) :
     """
     Run a PFC experiment.
     1. IXIA sends test traffic and background traffic from tx_port
@@ -110,13 +111,12 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,\
     # Pause time duration (in second) for each PFC pause frame.
     pause_dur_per_pkt = 65535 * 64 * 8.0 / (port_bw * 1000000)
 
-    # Do not specify duration here as we want it keep running.
     pfc_traffic = create_pause_traffic(session=session,
                                        name='PFC Pause Storm',
                                        source=rx_port,
                                        pkt_per_sec=1.1/pause_dur_per_pkt,
                                        start_delay=0,
-                                       global_pause=False,
+                                       global_pause=global_pause,
                                        pause_prio_list=test_prio_list)
 
     start_traffic(session)
@@ -160,7 +160,7 @@ def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map,\
     2. Disable the PFC watch-dog on the SONiC DUT.
     3. On the Ixia Tx port create two flows - a) 'Test Data Traffic' and 
        b) 'Background Data traffic'.
-    4. The flow 'Test Data Traffic' can assume only one TC of the values -
+    4. The flow 'Test Data Traffic' can assume only one of the TC values -
        either m or n.  
     5. The flow 'Background Data Traffic' can assume all TC values that is
        not taken 'Test Data Traffic' (including m or n). That is:- 
@@ -304,6 +304,83 @@ def test_pauses_on_lossy_priorities (testbed,
                         bg_dscp_list=bg_dscp_list,
                         exp_dur=exp_dur,
                         paused=False)
+
+            clean_configuration(session=session)
+
+
+def test_pfc_global_pause (testbed,
+                           conn_graph_facts,
+                           lossless_prio_dscp_map,
+                           duthost,
+                           ixia_dev,
+                           ixia_api_server_session,
+                           fanout_graph_facts) :
+    port_list = list()
+    fanout_devices = IxiaFanoutManager(fanout_graph_facts)
+    fanout_devices.get_fanout_device_details(device_number = 0)
+
+    device_conn = conn_graph_facts['device_conn']
+    for intf in fanout_devices.get_ports():
+        peer_port = intf['peer_port']
+        intf['speed'] = int(device_conn[peer_port]['speed']) * 100
+        port_list.append(intf)
+
+    # The topology should have at least two interfaces.
+    pytest_assert(len(device_conn)>=2,
+        "The topology should have at least two interfaces")
+
+    # Test pausing each lossless priority individually.
+    #session = ixia_api_server_session
+
+    lossless_prio_map = [x for x in lossless_prio_dscp_map]
+    prio_test_traffic = [y for y in range(8)]
+    test_dscp_list = [d for d in range(64)]
+
+    session = ixia_api_server_session
+    global_pause = False
+    for prio in lossless_prio_dscp_map:
+        for i in range(len(port_list)):
+            vports = configure_ports(session, port_list)
+
+            rx_id = i
+            tx_id = (i + 1) % len(port_list)
+
+            rx_port = vports[rx_id]
+            tx_port = vports[tx_id]
+            rx_port_bw = port_list[rx_id]['speed']
+            tx_port_bw = port_list[tx_id]['speed']
+
+            pytest_assert(rx_port_bw == tx_port_bw)
+
+            # All the DSCP values mapped to this priority.
+            test_dscp_list = lossless_prio_dscp_map[prio]
+
+            # The other DSCP values.
+            bg_dscp_list = [x for x in range(64) if x not in test_dscp_list]
+
+            exp_dur = 2
+
+            # toggle golbal paues in iterations
+            if global_pause == True :
+                global_pause = False
+                paused = True
+            else :
+                global_pause = True
+                paused = False
+
+            logger.info("global_pause = %s, pause = %s" %(global_pause, paused))
+
+            run_pfc_exp(session=session,
+                        dut=duthost,
+                        tx_port=tx_port,
+                        rx_port=rx_port,
+                        port_bw=tx_port_bw,
+                        test_prio_list=[prio],
+                        test_dscp_list=test_dscp_list,
+                        bg_dscp_list=bg_dscp_list,
+                        exp_dur=exp_dur,
+                        paused=paused,
+                        global_pause=global_pause)
 
             clean_configuration(session=session)
 

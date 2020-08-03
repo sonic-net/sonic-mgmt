@@ -719,7 +719,7 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
 
     # Construct global pause and PFC packets.
     if global_pause:
-        set_global_pause_fields(pfc_stack_obj)
+        __set_global_pause_fields__(pfc_stack_obj)
     else:
         __set_pfc_fields__(pfc_stack_obj, pause_prio_list)
 
@@ -740,7 +740,8 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
 # 2. __set_eth_fields__
 # 3. __set_eth_fields__
 # 4. __set_pfc_fields__
-# 5. __create_pkt_hdr__
+# 5. __set_global_pause_fields__
+# 6. __create_pkt_hdr__
 
 def __set_global_pause_fields__(pfc_stack_obj):
     code = pfc_stack_obj.find(DisplayName='Control opcode')
@@ -819,6 +820,20 @@ def __set_pfc_fields__(pfc_stack_obj, pause_prio_list):
             pause_duration.SingleValue = 'ffff'
         else:
             pause_duration.SingleValue = '0'
+
+def __set_global_pause_fields__(pfc_stack_obj):
+    code = pfc_stack_obj.find(DisplayName='Control opcode')
+    code.ValueType = 'singleValue'
+    code.SingleValue = '1'
+
+    prio_enable_vector = pfc_stack_obj.find(DisplayName='priority_enable_vector')
+    prio_enable_vector.ValueType = 'singleValue'
+    prio_enable_vector.SingleValue = 'ffff'
+
+    for i in range(8):
+        pause_duration = pfc_stack_obj.find(DisplayName='PFC Queue {}'.format(i))
+        pause_duration.ValueType = 'singleValue'
+        pause_duration.SingleValue = '0'
 
 
 def __create_pkt_hdr__(ixnetwork, 
