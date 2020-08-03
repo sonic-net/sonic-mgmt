@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import logging
 import yaml
@@ -48,14 +49,19 @@ class TestWatchdogApi(PlatformApiTestBase):
         platform = duthost.facts['platform']
         hwsku = duthost.facts['hwsku']
 
-        if platform in test_config and 'default' in test_config[platform]:
-            config.update(test_config[platform]['default'])
-        if platform in test_config and hwsku in test_config[platform]:
-            config.update(test_config[platform][hwsku])
+        # override test config with platform/hwsku specific configs
+        for platform_regexp in test_config:
+            if re.match(platform_regexp, platform):
+                config.update(test_config[platform_regexp].get('default', {}))
+                for hwsku_regexp in test_config[platform_regexp]:
+                    if re.match(hwsku_regexp, hwsku):
+                        config.update(test_config[platform_regexp][hwsku_regexp])
 
         pytest_assert('valid_timeout' in config, "valid_timeout is not defined in config")
         # make sure watchdog won't reboot the system when test sleeps for @TEST_WAIT_TIME_SECONDS
         pytest_assert(config['valid_timeout'] > TEST_WAIT_TIME_SECONDS * 2, "valid_timeout {} seconds is too short".format(config['valid_timeout']))
+
+        logger.info('Test configuration for platform: {} hwksu: {}: {}'.format(platform, hwsku, config))
         return config
 
     @pytest.mark.dependency()
@@ -95,7 +101,7 @@ class TestWatchdogApi(PlatformApiTestBase):
 
         res = localhost.wait_for(host=duthost.hostname, port=22, state="stopped", delay=5, timeout=watchdog_timeout + TIMEOUT_DEVIATION, module_ignore_errors=True)
 
-        self.expect('exception' in res, "unexpected disconnection from dut")
+        self.expect('Timeout' in res.get('msg', ''), "unexpected disconnection from dut")
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
@@ -194,3 +200,4 @@ class TestWatchdogApi(PlatformApiTestBase):
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
         self.expect(actual_timeout == -1, "{}: Watchdog should be disarmed, but returned timeout of {} seconds".format(test_arm_negative_timeout.__name__, watchdog_timeout))
         self.assert_expectations()
+
