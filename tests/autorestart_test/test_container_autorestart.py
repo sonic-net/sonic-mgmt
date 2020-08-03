@@ -182,20 +182,12 @@ def kill_process_by_pid(duthost, container_name, program_name, program_pid):
     """
     @summary: Kill a process in the specified container by its pid
     """
-    duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, program_pid))
+    kill_cmd_output = duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, program_pid))
 
-    # Wait 30 seconds such that the container is stopped
-    wait_until(CONTAINER_STOP_THRESHOLD_SECS,
-               CONTAINER_CHECK_INTERVAL_SECS,
-               check_container_state, duthost, container_name, False)
-
-    is_running = is_container_running(duthost, container_name)
-    if is_running:
-        program_status = get_program_status(duthost, container_name, program_name)
-        # If program is still in the running state, that means it is not terminated by "kill" command
-        # and the testing will exit
-        if program_status == "RUNNING":
-            pytest.fail("Failed to stop program '{}' before test".format(program_name))
+    # Get the exit code of 'kill' command
+    exit_code = kill_cmd_output["rc"]
+    if exit_code !=  0:
+        pytest.fail("Failed to stop program '{}' before test".format(program_name))
 
     logger.info("Program '{}' in container '{}' was stopped successfully"
                 .format(program_name, container_name))
