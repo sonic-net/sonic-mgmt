@@ -349,10 +349,11 @@ def test_bgp_speaker_announce_routes_ipv6(common_setup_teardown_v6, testbed, dut
     logging.info("Verify nexthops and nexthop interfaces for accepted prefixes of the dynamic neighbors")
     for i, nexthop in enumerate(nexthops_ipv6):
         prefix = 'fc00:1%d::/64' % i
-        cmd = "ip -6 route get %s" % prefix
-        output = duthost.shell(cmd)
-        res = output["stdout"].split("\n")
-        assert " via %s dev %s " % (nexthop.ip, vlan_if_name) in res[0]
+        rtinfo = duthost.get_ip_route_info(ipaddress.ip_network(unicode(prefix)))
+        logging.debug("prefix='%s' rtinfo=%s" % (prefix, rtinfo))
+        assert len(rtinfo["nexthops"]) > 0
+        assert rtinfo["nexthops"][0][0] == ipaddress.ip_address(unicode(nexthop.ip))
+        assert rtinfo["nexthops"][0][1] == unicode(vlan_if_name)
 
     logging.info("Generate route-port map information")
     extra_vars = {'announce_prefix': 'fc00:10::/64',
