@@ -13,6 +13,7 @@ import pytest
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
 from thermal_control_test_helper import *
+from tests.platform_tests.cli.test_show_platform import check_vendor_specific_psustatus
 
 pytestmark = [
     pytest.mark.topology('any')
