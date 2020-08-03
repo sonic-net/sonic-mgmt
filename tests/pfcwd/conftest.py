@@ -55,9 +55,6 @@ def setup_pfc_test(duthost, ptfhost, conn_graph_facts):
         vlan_ips = duthost.get_ip_in_range(num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix), exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
         vlan_nw = vlan_ips[0].split('/')[0]
 
-        duthost.shell("ip route flush {}/32".format(vlan_nw))
-        duthost.shell("ip route add {}/32 dev {}".format(vlan_nw, vlan_dev))
-
     # build the port list for the test
     tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw)
     test_ports = tp_handle.build_port_list()
