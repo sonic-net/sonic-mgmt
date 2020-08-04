@@ -261,9 +261,10 @@ def test_bgp_speaker_announce_routes_v6(common_setup_teardown, testbed, duthost,
 
     logging.info("Verify nexthops and nexthop interfaces for accepted prefixes of the dynamic neighbors")
     rtinfo = duthost.get_ip_route_info(ipaddress.ip_network(unicode(prefix)))
+    nexthops_ipv6_set = { str(nexthop.ip) for nexthop in nexthops_ipv6 }
     assert len(rtinfo["nexthops"]) == 2
     for i in [0,1]:
-        assert str(rtinfo["nexthops"][i][0]) == str(nexthops_ipv6[i+1].ip)
+        assert str(rtinfo["nexthops"][i][0]) in nexthops_ipv6_set
         assert rtinfo["nexthops"][i][1] == unicode(vlan_if_name)
 
     logging.info("Generate route-port map information")
