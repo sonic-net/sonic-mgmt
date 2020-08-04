@@ -291,11 +291,11 @@ def test_containers_autorestart(duthost):
 
         logger.info("Start testing the container '{}'...".format(container_name))
 
-        need_restore_state = False
+        restore_disabled_state = False
         if container_autorestart_states[container_name] == "disabled":
             logger.info("Change auto-restart state of container '{}' to be 'enabled'".format(container_name))
             duthost.shell("config container feature autorestart {} enabled".format(container_name))
-            need_restore_state = True
+            restore_disabled_state = True
 
         # Currently we select 'rsyslogd' as non-critical processes for testing based on
         # the assumption that every container has an 'rsyslogd' process running and it is not
@@ -333,10 +333,8 @@ def test_containers_autorestart(duthost):
             logger.info("Sleep 20 seconds after testing the container '{}'...".format(container_name))
             time.sleep(20)
 
-        if need_restore_state:
-            logger.info("Restore auto-restart state of container '{}' to be '{}'"
-                        .format(container_name, container_autorestart_states[container_name]))
-            duthost.shell("config container feature autorestart {} {}"
-                          .format(container_name, container_autorestart_states[container_name]))
+        if restore_disabled_state:
+            logger.info("Restore auto-restart state of container '{}' to 'disabled'".format(container_name))
+            duthost.shell("config container feature autorestart {} disabled".format(container_name))
 
         logger.info("End of testing the container '{}'".format(container_name))
