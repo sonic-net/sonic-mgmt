@@ -1714,7 +1714,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             send_packet(self, src_port_id, pkt, pkts_num)
             time.sleep(8)
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
-            print >> sys.stderr, "exceeded pkts num sent: %d, actual value: %d, expected watermark: %d" % (pkts_num, q_wm_res[queue], ((expected_wm + cell_occupancy) * cell_size))
+            print >> sys.stderr, "exceeded pkts num sent: %d, actual value: %d, lower bound: %d, upper bound: %d" % (pkts_num, q_wm_res[queue], expected_wm * cell_size, (expected_wm + margin) * cell_size)
             assert(fragment < cell_occupancy)
             assert(expected_wm * cell_size <= q_wm_res[queue])
             assert(q_wm_res[queue] <= (expected_wm + margin) * cell_size)
