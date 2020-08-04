@@ -123,7 +123,7 @@ def setup_teardown(request, testbed, duthost, ptfhost):
     ecn_mode = "copy_from_outer"
     ttl_mode = "pipe"
 
-    # The hostvars dict has definitions defined in ansible/group_vars/sonic/vars
+    # The hostvars dict has definitions defined in ansible/group_vars/sonic/variables
     hostvars = duthost.host.options["variable_manager"]._hostvars[duthost.hostname]
     sonic_hwsku = duthost.facts["hwsku"]
     mellanox_hwskus = hostvars["mellanox_hwskus"]
