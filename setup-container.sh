@@ -12,7 +12,7 @@ function show_help_and_exit() {
 
 function start_and_config_container() {
     echo "Creating container"
-    CURRENT_DIR=`pwd`
+    CURRENT_DIR=`pwd`/..
     docker run --name $CONTAINER_NAME -v $CURRENT_DIR:$LINK_DIR -d -t $IMAGE_ID bash > /dev/null
 
     if [[ "$?" != 0 ]]; then
