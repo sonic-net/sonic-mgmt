@@ -13,7 +13,6 @@ import pytest
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
 from thermal_control_test_helper import *
-from tests.platform_tests.cli.test_show_platform import check_vendor_specific_psustatus
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -115,6 +114,21 @@ def get_psu_num(dut):
         assert False, "Unable to get the number of PSUs using command '%s'" % cmd_num_psu
 
     return psu_num
+
+
+def check_vendor_specific_psustatus(dut, psu_status_line):
+    """
+    @summary: Vendor specific psu status check
+    """
+    if dut.facts["asic_type"] in ["mellanox"]:
+        from .mellanox.check_sysfs import check_psu_sysfs
+
+        psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
+        psu_match = psu_line_pattern.match(psu_status_line)
+        psu_id = psu_match.group(1)
+        psu_status = psu_match.group(2)
+
+        check_psu_sysfs(dut, psu_id, psu_status)
 
 
 def turn_all_psu_on(psu_ctrl):
