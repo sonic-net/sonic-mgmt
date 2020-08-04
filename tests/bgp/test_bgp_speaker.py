@@ -181,7 +181,7 @@ def test_bgp_speaker_announce_routes(common_setup_teardown, testbed, duthost, pt
     logging.info("announce route")
     peer_range = mg_facts['minigraph_bgp_peers_with_range'][0]['ip_range'][0]
     lo_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
-    lo_addr_prefixlen = int(mg_facts['minigraph_lo_interfaces'][0]['prefixlen'])
+
     prefix = '10.10.10.0/26'
     announce_route(ptfip, lo_addr, prefix, vlan_ips[1].ip, port_num[0])
     announce_route(ptfip, lo_addr, prefix, vlan_ips[2].ip, port_num[1])
@@ -240,7 +240,6 @@ def test_bgp_speaker_announce_routes_v6(common_setup_teardown, testbed, duthost,
     logging.info("announce route")
     peer_range = mg_facts['minigraph_bgp_peers_with_range'][0]['ip_range'][0]
     lo_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
-    lo_addr_prefixlen = int(mg_facts['minigraph_lo_interfaces'][0]['prefixlen'])
 
     logging.info("Announce ipv6 prefixes over ipv4 bgp sessions")
     prefix = 'fc00:10::/64'
