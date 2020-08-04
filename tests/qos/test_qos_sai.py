@@ -332,9 +332,10 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
             "pkts_num_fill_min": qosConfig[pgProfile]["pkts_num_fill_min"],
             "pkts_num_fill_shared": pktsNumFillShared,
-            "packet_size": qosConfig[pgProfile]["packet_size"],
             "cell_size": qosConfig[pgProfile]["cell_size"],
         }
+        if "packet_size" in qosConfig[pgProfile].keys():
+            testParams["packet_size"] = qosConfig[pgProfile]["packet_size"]
         testParams.update(dutTestParams["basicParams"])
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.PGSharedWatermarkTest", testParams=testParams)
 
@@ -414,9 +415,10 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
             "pkts_num_fill_min": qosConfig[queueProfile]["pkts_num_fill_min"],
             "pkts_num_trig_drp": triggerDrop,
-            "packet_size": qosConfig[queueProfile]["packet_size"],
             "cell_size": qosConfig[queueProfile]["cell_size"],
         }
+        if "packet_size" in qosConfig[queueProfile].keys():
+            testParams["packet_size"] = qosConfig[queueProfile]["packet_size"]
         testParams.update(dutTestParams["basicParams"])
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.QSharedWatermarkTest", testParams=testParams)
 
