@@ -85,7 +85,7 @@ class TestWatchdogApi(PlatformApiTestBase):
 
         if self.expect(remaining_time is not None, "Failed to get the remaining time of watchdog"):
             if self.expect(isinstance(remaining_time, int), "remaining_time appears incorrect"):
-                self.expect(remaining_time <= watchdog_timeout, "Watchdog remaining_time {} seconds appears wrong compared to watchdog timeout {} seocnds".format(remaining_time))
+                self.expect(remaining_time <= watchdog_timeout, "Watchdog remaining_time {} seconds appears wrong compared to watchdog timeout {} seocnds".format(remaining_time, watchdog_timeout))
 
         watchdog_status = watchdog.disarm(platform_api_conn)
         if self.expect(watchdog_status is not None, "Watchdog.disarm is not supported"):
