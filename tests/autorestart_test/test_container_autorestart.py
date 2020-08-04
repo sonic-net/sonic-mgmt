@@ -38,7 +38,7 @@ def get_critical_group_and_process_list(duthost, container_name):
     for line in file_content["stdout_lines"]:
         line_info = line.strip('\n').split(':')
         if len(line_info) != 2:
-            pytest.fail("Syntax of the line {} in critical_processes file is incorrect.".format(line))
+            pytest.fail("Syntax of the line '{}' in critical_processes file is incorrect.".format(line))
 
         identifier_key = line_info[0].strip()
         identifier_value = line_info[1].strip()
@@ -47,7 +47,7 @@ def get_critical_group_and_process_list(duthost, container_name):
         elif identifier_key == "program" and identifier_value:
             critical_process_list.append(identifier_value)
         else:
-            pytest.fail("Syntax of the line {} in critical_processes file is incorrect.".format(line))
+            pytest.fail("Syntax of the line '{}' in critical_processes file is incorrect.".format(line))
 
     return critical_group_list, critical_process_list
 
@@ -99,7 +99,7 @@ def get_program_info(duthost, container_name, program_name):
             break
 
     if program_pid != -1:
-        logger.info("Found program {} in the {} state with pid {}"
+        logger.info("Found program '{}' in the '{}' state with pid {}"
                     .format(program_name, program_status, program_pid))
 
     return program_status, program_pid
@@ -147,10 +147,8 @@ def is_container_running(duthost, container_name):
     @summary: Decide whether the container is running or not
     @return:  Boolean value. True represents the container is running
     """
-    is_running = duthost.shell("docker inspect -f \{{\{{.State.Running\}}\}} {}".format(container_name))
-    if is_running["stdout_lines"][0].strip() == "true":
-        return True
-    return False
+    result = duthost.shell("docker inspect -f \{{\{{.State.Running\}}\}} {}".format(container_name))
+    return result["stdout_lines"][0].strip() == "true"
 
 
 def check_container_state(duthost, container_name, should_be_running):
@@ -209,13 +207,13 @@ def is_hiting_start_limit(duthost, container_name):
 def verify_autorestart_with_critical_process(duthost, container_name, program_name,
                                              program_status, program_pid):
     """
-    @summary: Killing a critical process in a container to verify whether the container
-              can be stopped and then restarted correctly
+    @summary: Kill a critical process in a container to verify whether the container
+              is stopped and restarted correctly
     """
     if program_status == "RUNNING":
         kill_process_by_pid(duthost, container_name, program_name, program_pid)
     elif program_status in ["EXITED", "STOPPED", "STARTING"]:
-        pytest.fail("Program '{}' in container '{}' is in the {} state, expected 'RUNNING'"
+        pytest.fail("Program '{}' in container '{}' is in the '{}' state, expected 'RUNNING'"
                     .format(program_name, container_name, program_status))
     else:
         pytest.fail("Failed to find program '{}' in container '{}'"
@@ -256,7 +254,7 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
     if program_status == "RUNNING":
         kill_process_by_pid(duthost, container_name, program_name, program_pid)
     elif program_status in ["EXITED", "STOPPED", "STARTING"]:
-        pytest.fail("Program '{}' in container '{}' is in the {} state, expected 'RUNNING'"
+        pytest.fail("Program '{}' in container '{}' is in the '{}' state, expected 'RUNNING'"
                     .format(program_name, container_name, program_status))
     else:
         pytest.fail("Failed to find program '{}' in container '{}'"
