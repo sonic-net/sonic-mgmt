@@ -340,4 +340,3 @@ def test_containers_autorestart(duthost):
                           .format(container_name, container_autorestart_states[container_name]))
 
         logger.info("End of testing the container '{}'".format(container_name))
-
