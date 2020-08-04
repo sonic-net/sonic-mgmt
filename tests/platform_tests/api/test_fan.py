@@ -14,7 +14,6 @@ from platform_api_test_base import PlatformApiTestBase
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
     pytest.mark.topology('any')
 ]
@@ -42,7 +41,6 @@ class TestFanApi(PlatformApiTestBase):
         if self.num_fans is None:
             try:
                 self.num_fans = int(chassis.get_num_fans(platform_api_conn))
-                logger.error("vaibhav got num_fans {}".format(self.num_fans))
             except:
                 pytest.fail("num_fans is not an integer")
 
