@@ -26,7 +26,7 @@ pytestmark = [pytest.mark.disable_loganalyzer]
 DATA_PKT_SIZE = 1024
 
 
-def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,\
+def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
                 test_dscp_list, bg_dscp_list, exp_dur, paused,
                 global_pause=False) :
     """
@@ -150,8 +150,8 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,\
     stop_traffic(session)
 
 
-def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map,\
-                            duthost, ixia_dev, ixia_api_server_session,\
+def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map,
+                            duthost, ixia_dev, ixia_api_server_session,
                             fanout_graph_facts):
     """
     RDMA PFC - Pauses on lossless priorities.
@@ -173,7 +173,7 @@ def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map,\
        TC of 'Test Data Traffic' at Tx end == Pause Priority at Rx end.
     8. You may repeat the steps 6 and 7 several times.
 
-    9. Expected result - 
+    9. Expected result -
        a. No 'Test Data Traffic' will flow. Since priority of
           that is always equal to the priority pause frame priority.
        b. 'Background Data Traffic' will always flow.
@@ -245,7 +245,7 @@ def test_pauses_on_lossy_priorities (testbed,
     2. Disable the PFC watchdog on the SONiC DUT.
     3. On the Ixia Tx port create two flows - a) 'Test Data Traffic' and
        b) 'Background Data Traffic'.
-    4. TC of 'Test Data Traffic' can take any value except m and n 
+    4. TC of 'Test Data Traffic' can take any value except m and n
        priorities. 'Background Data Traffic' has the traffic classes m & n.
     5. From Ixia Rx port send pause frames on all other TC except m and n.
     6. Start 'Test Data traffic' and 'Background Data Traffic'
