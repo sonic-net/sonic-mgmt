@@ -201,7 +201,7 @@ def _setup_testbed(dut, ptf, test_params):
     else:
         # NOTE: Even if the rpc syncd image is already installed, we need to restart
         # SWSS for the COPP changes to take effect.
-        logging.info("Restart SWSS...")
+        logging.info("Reloading config and restarting swss...")
         config_reload(dut)
 
     logging.info("Configure syncd RPC for testing")
@@ -222,7 +222,7 @@ def _teardown_testbed(dut, ptf, test_params):
         logging.info("Restore default syncd docker...")
         docker.restore_default_syncd(dut)
     else:
-        logging.info("Restart SWSS...")
+        logging.info("Reloading config and restarting swss...")
         config_reload(dut)
 
     logging.info("Restore LLDP")
