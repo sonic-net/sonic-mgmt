@@ -33,6 +33,7 @@ from collections import namedtuple
 
 from tests.copp import copp_utils
 from tests.ptf_runner import ptf_runner
+from tests.common import config_reload
 from tests.common.system_utils import docker
 
 # Module-level fixtures
@@ -202,7 +203,7 @@ def _setup_testbed(dut, ptf, test_params):
         # NOTE: Even if the rpc syncd image is already installed, we need to restart
         # SWSS for the COPP changes to take effect.
         logging.info("Restart SWSS...")
-        _restart_swss(dut)
+        config_reload(dut)
 
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port)
@@ -223,18 +224,8 @@ def _teardown_testbed(dut, ptf, test_params):
         docker.restore_default_syncd(dut)
     else:
         logging.info("Restart SWSS...")
-        _restart_swss(dut)
+        config_reload(dut)
 
     logging.info("Restore LLDP")
     dut.command("docker exec lldp supervisorctl start lldpd")
     dut.command("docker exec lldp supervisorctl start lldp-syncd")
-
-def _restart_swss(dut):
-    """
-        Restarts SWSS and waits for the system to stabilize.
-    """
-
-    # The failure counter may be incremented by other test cases, so we clear it
-    # first to avoid crashing the testbed.
-    dut.command("config reload -y")
-    time.sleep(60)
