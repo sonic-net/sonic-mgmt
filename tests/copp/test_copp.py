@@ -27,7 +27,6 @@
 """
 
 import logging
-import time
 import pytest
 from collections import namedtuple
 

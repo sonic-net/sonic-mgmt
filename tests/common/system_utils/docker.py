@@ -5,7 +5,6 @@
 import collections
 import logging
 import os
-import time
 import yaml
 
 from tests.common import config_reload
