@@ -27,12 +27,12 @@
 """
 
 import logging
-import time
 import pytest
 from collections import namedtuple
 
 from tests.copp import copp_utils
 from tests.ptf_runner import ptf_runner
+from tests.common import config_reload
 from tests.common.system_utils import docker
 
 # Module-level fixtures
@@ -85,6 +85,17 @@ class TestCOPP(object):
             Checks that the policer does not enforce a rate limit for protocols
             that do not have any set rate limit.
         """
+        # FIXME: The DHCP COPP Policy was removed from T1 in a recent change, so no
+        # packets will be trapped to CPU. So, we should have two cases:
+        #
+        # 1. Verify that NO DHCP packets are trapped to CPU on T1, and
+        # 2. Verify that DHCP packets ARE trapped to CPU on T0
+        #
+        # Because COPP doesn't run on T0 yet and the ptf script does not support "no
+        # packets received", we expect the test to fail for the time being.
+        if protocol == "DHCP":
+            pytest.mark.xfail("DHCP COPP Policy has been removed from T1 config")
+
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
@@ -190,8 +201,8 @@ def _setup_testbed(dut, ptf, test_params):
     else:
         # NOTE: Even if the rpc syncd image is already installed, we need to restart
         # SWSS for the COPP changes to take effect.
-        logging.info("Restart SWSS...")
-        _restart_swss(dut)
+        logging.info("Reloading config and restarting swss...")
+        config_reload(dut)
 
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port)
@@ -211,20 +222,9 @@ def _teardown_testbed(dut, ptf, test_params):
         logging.info("Restore default syncd docker...")
         docker.restore_default_syncd(dut)
     else:
-        logging.info("Restart SWSS...")
-        _restart_swss(dut)
+        logging.info("Reloading config and restarting swss...")
+        config_reload(dut)
 
     logging.info("Restore LLDP")
     dut.command("docker exec lldp supervisorctl start lldpd")
     dut.command("docker exec lldp supervisorctl start lldp-syncd")
-
-def _restart_swss(dut):
-    """
-        Restarts SWSS and waits for the system to stabilize.
-    """
-
-    # The failure counter may be incremented by other test cases, so we clear it
-    # first to avoid crashing the testbed.
-    dut.command("systemctl reset-failed swss")
-    dut.command("systemctl restart swss")
-    time.sleep(60)

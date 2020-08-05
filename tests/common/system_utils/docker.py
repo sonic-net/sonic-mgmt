@@ -5,9 +5,9 @@
 import collections
 import logging
 import os
-import time
 import yaml
 
+from tests.common import config_reload
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
 
@@ -158,11 +158,9 @@ def swap_syncd(dut):
               "{}/{}".format(registry.host, docker_rpc_image),
               sonic_version)
 
-    dut.command("systemctl reset-failed swss")
-    dut.command("systemctl start swss")
+    _LOGGER.info("Reloading config and restarting swss...")
+    config_reload(dut)
 
-    _LOGGER.info("swss has been restarted, waiting 60 seconds to initialize...")
-    time.sleep(60)
 
 def restore_default_syncd(dut):
     """
@@ -197,11 +195,8 @@ def restore_default_syncd(dut):
               docker_syncd_name,
               sonic_version)
 
-    dut.command("systemctl reset-failed swss")
-    dut.command("systemctl start swss")
-
-    _LOGGER.info("swss has been restarted, waiting 60 seconds to initialize...")
-    time.sleep(60)
+    _LOGGER.info("Reloading config and restarting swss...")
+    config_reload(dut)
 
     # Remove the RPC image from the DUT
     docker_rpc_image = docker_syncd_name + "-rpc"
