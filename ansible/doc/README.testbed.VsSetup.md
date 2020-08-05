@@ -72,19 +72,25 @@ $ mv sonic-vs.img ~/sonic-vm/images
 $ git clone https://github.com/Azure/sonic-mgmt
 ```
 
-## Run sonic-mgmt docker
+## Configure sonic-mgmt docker
 
-(run following command from a place where the newly cloned sonic-mgmt repo is accessible, e.g. home directory or the parent fold of sonic-mgmt, the point is that you want to run following deployment and test commands from this repo)
+Run the `setup-container.sh` in the root directory of the sonic-mgmt repository:
 
 ```
-$ docker run -v $PWD:/data -it docker-sonic-mgmt bash
+$ ./setup-container.sh -n <container name> -i docker-sonic-mgmt -d /data
 ```
 
 From now on, all steps are running inside the *sonic-mgmt* docker except where otherwise specified.
 
+You can enter your sonic-mgmt container with the following command:
+
+```
+$ docker exec -u <alias> -it <container name> bash
+```
+
 ### Setup public key to login into the linux host from sonic-mgmt docker
 
-- Modify veos.vtb to use the user name, e.g., `foo` to login linux host.
+- Modify veos.vtb to use the user name, e.g., `foo` to login linux host (this can be your username on the host).
 
 ```
 lgh@gulv-vm2:/data/sonic/sonic-mgmt/ansible$ git diff
@@ -103,15 +109,13 @@ vm_host_1
 
 - Add user `foo`'s public key to `/home/foo/.ssh/authorized_keys` on the host
 
+- On the host, run `sudo visudo` and add the following line at the end:
+
+```
+foo ALL=(ALL) NOPASSWD:ALL
+```
+
 - Add user `foo`'s private key to `$HOME/.ssh/id_rsa` inside sonic-mgmt docker container.
-
-- Add user `foo` to sudoer list, use `visudo` to add following line in the sudoer configuration.
-
-```
-   foo ALL=(ALL) NOPASSWD:ALL
-```
-
-- Make sure user `foo`'s home directory is owned by user `foo`. If necessary, `chown -R foo:foo /home/foo` on the host.
 
 - Test you can login into the host `ssh foo@172.17.0.1` without any password prompt
 from the `sonic-mgmt` container. Then, test you can sudo without password prompt in the host.
