@@ -158,8 +158,7 @@ def swap_syncd(dut):
               "{}/{}".format(registry.host, docker_rpc_image),
               sonic_version)
 
-    dut.command("systemctl reset-failed swss")
-    dut.command("systemctl start swss")
+    dut.command("config reload -y")
 
     _LOGGER.info("swss has been restarted, waiting 60 seconds to initialize...")
     time.sleep(60)
@@ -197,8 +196,7 @@ def restore_default_syncd(dut):
               docker_syncd_name,
               sonic_version)
 
-    dut.command("systemctl reset-failed swss")
-    dut.command("systemctl start swss")
+    dut.command("config reload -y")
 
     _LOGGER.info("swss has been restarted, waiting 60 seconds to initialize...")
     time.sleep(60)

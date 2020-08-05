@@ -225,6 +225,5 @@ def _restart_swss(dut):
 
     # The failure counter may be incremented by other test cases, so we clear it
     # first to avoid crashing the testbed.
-    dut.command("systemctl reset-failed swss")
-    dut.command("systemctl restart swss")
+    dut.command("config reload -y")
     time.sleep(60)
