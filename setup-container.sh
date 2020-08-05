@@ -20,11 +20,17 @@ function start_and_config_container() {
         exit 1
     fi
 
-    echo "Creating user $USER and setting UID and GID"
+    echo "Creating user $USER, group $USER, and setting UID and GID"
     docker exec $CONTAINER_NAME id $USER > /dev/null 2> /dev/null
     RET=`docker exec $CONTAINER_NAME echo $?`
     if [[ "$RET" != 0 ]]; then
         docker exec $CONTAINER_NAME sudo useradd $USER
+    fi
+
+    docker exec $CONTAINER_NAME grep -q "^$USER" /etc/group
+    RET=`docker exec $CONTAINER_NAME echo $?`
+    if [[ "$RET" != 0 ]]; then
+        docker exec $CONTAINER_NAME sudo groupadd $USER
     fi
 
     HOST_GROUP_ID=`id $USER | grep -o "gid=[0-9]*" | cut -d "=" -f 2`
@@ -54,7 +60,7 @@ function start_and_config_container() {
 
     echo "Creating home directory for $USER"
     docker exec $CONTAINER_NAME sudo mkdir -p /home/$USER
-    docker exec $CONTAINER_NAME sudo chown $USER /home/$USER
+    docker exec $CONTAINER_NAME sudo chown -R $USER /home/$USER
 }
 
 
