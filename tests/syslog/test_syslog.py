@@ -10,6 +10,11 @@ pytestmark = [
     pytest.mark.topology("any")
 ]
 
+SYSLOG_STARTUP_TIMEOUT = 30
+SYSLOG_STARTUP_POLLING_INTERVAL = 3
+
+SYSLOG_MESSAGE_TEST_TIMEOUT = 10
+
 
 @pytest.fixture(scope="module")
 def config_syslog_srv(ptfhost, duthost):
@@ -27,12 +32,10 @@ def config_syslog_srv(ptfhost, duthost):
 
     # Wait a little bit for service to start
     def _is_syslog_running():
-        result = duthost.shell("service rsyslog status | grep \"active (running)\"")["stdout_lines"]
-        return len(result) > 0
+        result = duthost.shell("service rsyslog status | grep \"active (running)\"")["stdout"]
+        return "active (running)" in result
 
-    wait_until(30, 3, _is_syslog_running)
-
-    yield
+    wait_until(SYSLOG_STARTUP_TIMEOUT, SYSLOG_STARTUP_POLLING_INTERVAL, _is_syslog_running)
 
 
 @pytest.fixture(scope="module")
@@ -60,7 +63,8 @@ def test_syslog(duthost, ptfhost, config_dut, config_syslog_srv):
     # Check syslog messages for the test message
     def _check_syslog():
         result = ptfhost.shell("grep {} /var/log/syslog | grep \"{}\" | grep -v ansible"
-                               .format(duthost.hostname, test_message))["stdout_lines"]
-        return len(result) > 0
+                               .format(duthost.hostname, test_message))["stdout"]
+        return test_message in result
 
-    pytest_assert(wait_until(10, 1, _check_syslog), "Test syslog not seen on the server after 10s")
+    pytest_assert(wait_until(SYSLOG_MESSAGE_TEST_TIMEOUT, 1, _check_syslog),
+                  "Test syslog message not seen on the server after {}s".format(SYSLOG_MESSAGE_TEST_TIMEOUT))
