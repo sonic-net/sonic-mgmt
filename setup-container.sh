@@ -79,6 +79,13 @@ function validate_parameters() {
         LINK_DIR="/var/src"
         echo "Using default bind mount directory $LINK_DIR"
     fi
+
+    ID_OUT=`id $USER`
+    if [[ $ID_OUT != *"docker"* ]]; then
+        echo "User $USER is not in the docker group"
+        echo "Please add $USER to the docker group before proceeding"
+        exit 1
+    fi
 }
 
 if [[ "$#" == 0 ]]; then

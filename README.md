@@ -19,7 +19,11 @@ Options with (*) are required
 -d <directory>        : specify directory inside container to bind mount to sonic-mgmt root (default "/var/src/")
 ```
 
-After running the script, you should be able to enter the container using the `-u` option and your username.
+After running the script, you should be able to enter the container using the `-u` option and your username:
+
+```
+docker exec -u <user> -it <container name> bash
+```
 
 # Contribution guide
 All contributors must sign a contribution license agreement before contributions can be accepted.  
