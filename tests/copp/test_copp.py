@@ -85,6 +85,17 @@ class TestCOPP(object):
             Checks that the policer does not enforce a rate limit for protocols
             that do not have any set rate limit.
         """
+        # FIXME: The DHCP COPP Policy was removed from T1 in a recent change, so no
+        # packets will be trapped to CPU. So, we should have two cases:
+        #
+        # 1. Verify that NO DHCP packets are trapped to CPU on T1, and
+        # 2. Verify that DHCP packets ARE trapped to CPU on T0
+        #
+        # Because COPP doesn't run on T0 yet and the ptf script does not support "no
+        # packets received", we expect the test to fail for the time being.
+        if protocol == "DHCP":
+            pytest.mark.xfail("DHCP COPP Policy has been removed from T1 config")
+
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
