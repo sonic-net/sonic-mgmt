@@ -83,6 +83,7 @@ class ShowInterfaceModule(object):
         self.module.exit_json(ansible_facts=self.facts)
 
     def collect_interface_status(self):
+        regex_int_fec = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|N\/A)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         self.int_status = {}
         if self.m_args['interfaces'] is not None:
@@ -93,13 +94,24 @@ class ShowInterfaceModule(object):
                     rc, self.out, err = self.module.run_command(command, executable='/bin/bash', use_unsafe_shell=True)
                     for line in self.out.split("\n"):
                         line = line.strip()
-                        if regex_int.match(line):
-                            self.int_status[interface]['name'] = regex_int.match(line).group(1)
-                            self.int_status[interface]['speed'] = regex_int.match(line).group(2)
-                            self.int_status[interface]['alias'] = regex_int.match(line).group(4)
-                            self.int_status[interface]['vlan'] = regex_int.match(line).group(5)
-                            self.int_status[interface]['oper_state'] = regex_int.match(line).group(6)
-                            self.int_status[interface]['admin_state'] = regex_int.match(line).group(7)
+                        fec = regex_int_fec.match(line)
+                        old = regex_int.match(line)
+                        if fec and interface == fec.group(1):
+                            self.int_status[interface]['name'] = fec.group(1)
+                            self.int_status[interface]['speed'] = fec.group(2)
+                            self.int_status[interface]['fec'] = fec.group(4)
+                            self.int_status[interface]['alias'] = fec.group(5)
+                            self.int_status[interface]['vlan'] = fec.group(6)
+                            self.int_status[interface]['oper_state'] = fec.group(7)
+                            self.int_status[interface]['admin_state'] = fec.group(8)
+                        elif old and interface == old.group(1):
+                            self.int_status[interface]['name'] = old.group(1)
+                            self.int_status[interface]['speed'] = old.group(2)
+                            self.int_status[interface]['fec'] = 'Unknown'
+                            self.int_status[interface]['alias'] = old.group(4)
+                            self.int_status[interface]['vlan'] = old.group(5)
+                            self.int_status[interface]['oper_state'] = old.group(6)
+                            self.int_status[interface]['admin_state'] = old.group(7)
                     self.facts['int_status'] = self.int_status
                 except Exception as e:
                     self.module.fail_json(msg=str(e))
@@ -110,15 +122,28 @@ class ShowInterfaceModule(object):
                 rc, self.out, err = self.module.run_command('show interface status', executable='/bin/bash', use_unsafe_shell=True)
                 for line in self.out.split("\n"):
                     line = line.strip()
-                    if regex_int.match(line):
-                        interface = regex_int.match(line).group(1)
+                    fec = regex_int_fec.match(line)
+                    old = regex_int.match(line)
+                    if fec:
+                        interface = fec.group(1)
                         self.int_status[interface] = {}
                         self.int_status[interface]['name'] = interface
-                        self.int_status[interface]['speed'] = regex_int.match(line).group(2)
-                        self.int_status[interface]['alias'] = regex_int.match(line).group(4)
-                        self.int_status[interface]['vlan'] = regex_int.match(line).group(5)
-                        self.int_status[interface]['oper_state'] = regex_int.match(line).group(6)
-                        self.int_status[interface]['admin_state'] = regex_int.match(line).group(7)
+                        self.int_status[interface]['speed'] = fec.group(2)
+                        self.int_status[interface]['fec'] = fec.group(4)
+                        self.int_status[interface]['alias'] = fec.group(5)
+                        self.int_status[interface]['vlan'] = fec.group(6)
+                        self.int_status[interface]['oper_state'] = fec.group(7)
+                        self.int_status[interface]['admin_state'] = fec.group(8)
+                    elif old:
+                        interface = old.group(1)
+                        self.int_status[interface] = {}
+                        self.int_status[interface]['name'] = interface
+                        self.int_status[interface]['speed'] = old.group(2)
+                        self.int_status[interface]['fec'] = 'Unknown'
+                        self.int_status[interface]['alias'] = old.group(4)
+                        self.int_status[interface]['vlan'] = old.group(5)
+                        self.int_status[interface]['oper_state'] = old.group(6)
+                        self.int_status[interface]['admin_state'] = old.group(7)
                 self.facts['int_status'] = self.int_status
             except Exception as e:
                 self.module.fail_json(msg=str(e))
