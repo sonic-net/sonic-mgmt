@@ -29,21 +29,11 @@ class AnsibleHostBase(object):
     on the host.
     """
 
-    def __init__(self, ansible_adhoc, hostname, connection=None, become_user=None):
+    def __init__(self, ansible_adhoc, hostname, *args, **kwargs):
         if hostname == 'localhost':
             self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
         else:
-            if connection is None:
-                if become_user is None:
-                    self.host = ansible_adhoc(become=True)[hostname]
-                else:
-                    self.host = ansible_adhoc(become=True, become_user=become_user)[hostname]
-            else:
-                logging.debug("connection {} for {}".format(connection, hostname))
-                if become_user is None:
-                    self.host = ansible_adhoc(become=True, connection=connection)[hostname]
-                else:
-                    self.host = ansible_adhoc(become=True, connection=connection, become_user=become_user)[hostname]
+            self.host = ansible_adhoc(become=True, *args, **kwargs)[hostname]
         self.hostname = hostname
 
     def __getattr__(self, module_name):
