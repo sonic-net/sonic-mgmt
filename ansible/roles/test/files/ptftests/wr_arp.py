@@ -25,6 +25,7 @@ import ptf.dataplane as dataplane
 import ptf.testutils as testutils
 import paramiko
 from paramiko.ssh_exception import BadHostKeyException, AuthenticationException, SSHException
+from device_connection import DeviceConnection
 
 
 class ArpTest(BaseTest):
@@ -64,28 +65,8 @@ class ArpTest(BaseTest):
         return stdout, stderr, return_code
 
     def dut_exec_cmd(self, cmd):
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-        stdout = stderr = []
-        return_code = 1
-
-        try:
-            client.connect(self.dut_ssh, username=self.dut_username, password=self.dut_password, allow_agent=False)
-            si, so, se = client.exec_command(cmd, timeout=30)
-            stdout = so.readlines()
-            stderr = se.readlines()
-            self.log('executed command {}, stdout={}, stderr={}'.format(cmd, stdout, stderr))
-            return_code = 0
-        except socket.timeout as e:
-            self.log('Caught exception socket.timeout: {}, {}, {}'.format(repr(e), str(e), type(e)))
-            return_code = 255
-        except Exception as e:
-            self.log('Exception caught: {}, {}, type: {}'.format(repr(e), str(e), type(e)))
-            self.log(sys.exc_info())
-        finally:
-            client.close()
-
+        self.log("Executing cmd='{}'".format(cmd))
+        stdout, stderr, return_code = self.dut_connection.execCommand(cmd, timeout=30)
         self.log("return_code={}, stdout={}, stderr={}".format(return_code, stdout, stderr))
 
         if return_code == 0:
@@ -213,6 +194,7 @@ class ArpTest(BaseTest):
         self.dut_ssh = self.get_param('dut_ssh')
         self.dut_username = self.get_param('dut_username')
         self.dut_password = self.get_param('dut_password')
+        self.dut_connection = DeviceConnection(self.dut_ssh, username=self.dut_username, password=self.dut_password)
         self.how_long = int(self.get_param('how_long', required=False, default=300))
 
         if not os.path.isfile(config):
