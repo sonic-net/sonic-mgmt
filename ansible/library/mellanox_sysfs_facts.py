@@ -93,15 +93,15 @@ class MellanoxSysfsModule(object):
         self.facts['fan_info'] = fan_info
 
     def collect_cpu_info(self):
-        cpu_info = {}
         cpu_pack_count = self.sku_info["cpu_pack"]["number"]
         if cpu_pack_count > 0:
             cpu_pack_info = dict()
             cpu_pack_info['cpu_pack_temp'] = self.run_command("cat /var/run/hw-management/thermal/cpu_pack")
             cpu_pack_info['cpu_pack_max_temp'] = self.run_command("cat /var/run/hw-management/thermal/cpu_pack_max")
-            cpu_pack_info['cpu_crit_max_temp'] = self.run_command("/var/run/hw-management/thermal/cpu_pack_crit")
-            cpu_info['cpu_pack_info'] = cpu_pack_info
+            cpu_pack_info['cpu_crit_max_temp'] = self.run_command("cat /var/run/hw-management/thermal/cpu_pack_crit")
+            self.facts['cpu_pack_info'] = cpu_pack_info
 
+        cpu_info = {}
         cpu_core_count = self.sku_info["cpu_cores"]["number"]
         for core_id in range(0, cpu_core_count):
             cpu_core_info = {}

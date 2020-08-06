@@ -15,7 +15,7 @@ def check_sysfs(dut):
     from tests.common.mellanox_data import SWITCH_MODELS
     sku_info = SWITCH_MODELS[dut_hwsku]
     logging.info("Collect mellanox sysfs facts")
-    sysfs_facts = dut.sysfs_facts(sku_info=sku_info)['ansible_facts']
+    sysfs_facts = dut.mellanox_sysfs_facts(sku_info=sku_info)['ansible_facts']
 
     logging.info("Check broken symbolinks")
     broken_symbolinks = sysfs_facts['broken_link_info']
@@ -45,9 +45,9 @@ def check_sysfs(dut):
     cpu_crit_temp_list = []
     cpu_pack_count = SWITCH_MODELS[dut_hwsku]["cpu_pack"]["number"]
     if cpu_pack_count > 0:
-        cpu_pack_temp = float(sysfs_facts['cpu_pack_info']['cpu_pack_temp'])/1000
-        cpu_pack_max_temp = float(sysfs_facts['cpu_pack_info']['cpu_pack_max_temp']) / 1000
-        cpu_pack_crit_temp = float(sysfs_facts['cpu_pack_info']['cpu_crit_max_temp']) / 1000
+        cpu_pack_temp = float(sysfs_facts['cpu_info']['cpu_pack_info']['cpu_pack_temp']) / 1000
+        cpu_pack_max_temp = float(sysfs_facts['cpu_info']['cpu_pack_info']['cpu_pack_max_temp']) / 1000
+        cpu_pack_crit_temp = float(sysfs_facts['cpu_info']['cpu_pack_info']['cpu_crit_max_temp']) / 1000
         assert cpu_pack_max_temp <= cpu_pack_crit_temp, "Bad CPU pack max temp or critical temp, %s, %s " \
                                                         % (str(cpu_pack_max_temp), str(cpu_pack_crit_temp))
         if cpu_pack_temp >= cpu_pack_crit_temp:
@@ -92,7 +92,8 @@ def check_sysfs(dut):
                 psu_fan_speed = int(psu_info["psu_fan_speed"])
                 assert psu_fan_speed > 1000, "Bad fan speed: %s" % str(psu_fan_speed)
             except Exception as e:
-                assert "Invalid PSU fan speed value {} for PSU {}, exception: {}".format(psu_info["psu_fan_speed"], psu_id, e)
+                assert "Invalid PSU fan speed value {} for PSU {}, exception: {}".format(psu_info["psu_fan_speed"],
+                                                                                         psu_id, e)
 
     logging.info("Check SFP related sysfs")
     for sfp_id, sfp_info in sysfs_facts['sfp_info'].items():
@@ -116,8 +117,8 @@ def check_psu_sysfs(dut, psu_id, psu_state):
     if psu_state == "NOT PRESENT":
         psu_exist_content = dut.command("cat %s" % psu_exist)
         logging.info("PSU state %s file %s read %s" % (psu_state, psu_exist, psu_exist_content["stdout"]))
-        assert psu_exist_content["stdout"] == "0", "CLI returns NOT PRESENT while %s contains %s" %  \
-                    (psu_exist, psu_exist_content["stdout"])
+        assert psu_exist_content["stdout"] == "0", "CLI returns NOT PRESENT while %s contains %s" % \
+                                                   (psu_exist, psu_exist_content["stdout"])
     else:
         from tests.common.mellanox_data import SWITCH_MODELS
         dut_hwsku = dut.facts["hwsku"]
@@ -125,14 +126,14 @@ def check_psu_sysfs(dut, psu_id, psu_state):
         if hot_swappabe:
             psu_exist_content = dut.command("cat %s" % psu_exist)
             logging.info("PSU state %s file %s read %s" % (psu_state, psu_exist, psu_exist_content["stdout"]))
-            assert psu_exist_content["stdout"] == "1", "CLI returns %s while %s contains %s" %  \
-                        (psu_state, psu_exist, psu_exist_content["stdout"])
+            assert psu_exist_content["stdout"] == "1", "CLI returns %s while %s contains %s" % \
+                                                       (psu_state, psu_exist, psu_exist_content["stdout"])
 
         psu_pwr_state = "/var/run/hw-management/thermal/psu%s_pwr_status" % psu_id
         psu_pwr_state_content = dut.command("cat %s" % psu_pwr_state)
         logging.info("PSU state %s file %s read %s" % (psu_state, psu_pwr_state, psu_pwr_state_content["stdout"]))
         assert (psu_pwr_state_content["stdout"] == "1" and psu_state == "OK") \
-                or (psu_pwr_state_content["stdout"] == "0" and psu_state == "NOT OK"),\
+               or (psu_pwr_state_content["stdout"] == "0" and psu_state == "NOT OK"), \
             "sysfs content %s mismatches with psu_state %s" % (psu_pwr_state_content["stdout"], psu_state)
 
 
@@ -153,14 +154,14 @@ def _check_fan_speed_in_range(dut, min_speed, max_speed, low_threshold, high_thr
 
 
 def _check_fan_speed_in_range(dut, sku_info):
-    sysfs_facts = dut.sysfs_facts(sku_info=sku_info,
-                                  collect_broken_link=False,
-                                  collect_asic=False,
-                                  collect_fan=True,
-                                  collect_cpu=False,
-                                  collect_psu=False,
-                                  collect_sfp=False,
-                                  )['ansible_facts']
+    sysfs_facts = dut.mellanox_sysfs_facts(sku_info=sku_info,
+                                           collect_broken_link=False,
+                                           collect_asic=False,
+                                           collect_fan=True,
+                                           collect_cpu=False,
+                                           collect_psu=False,
+                                           collect_sfp=False,
+                                           )['ansible_facts']
 
     return _is_fan_speed_in_range(sysfs_facts)
 
@@ -173,14 +174,15 @@ def _is_fan_speed_in_range(sysfs_facts):
             fan_speed_set = int(fan_info["fan_speed_set"])
             fan_speed_get = int(fan_info["fan_speed_get"])
 
-            assert fan_min_speed > 0 and fan_max_speed > 10000, 'Invalid fan min/max speed: {}, {}'.format(fan_min_speed,
-                                                                                                           fan_max_speed)
+            assert fan_min_speed > 0 and fan_max_speed > 10000, 'Invalid fan min/max speed: {}, {}'.format(
+                fan_min_speed,
+                fan_max_speed)
             assert fan_min_speed < fan_speed_get < fan_max_speed, 'Fan speed {} not in range: [{}, {}]'.format(
                 fan_speed_get, fan_min_speed, fan_max_speed
             )
 
-            low_threshold = ((float(fan_speed_set)/255)*fan_max_speed)*(1 - 0.5)
-            high_threshold = ((float(fan_speed_set)/255)*fan_max_speed)*(1 + 0.5)
+            low_threshold = ((float(fan_speed_set) / 255) * fan_max_speed) * (1 - 0.5)
+            high_threshold = ((float(fan_speed_set) / 255) * fan_max_speed) * (1 + 0.5)
             return low_threshold < fan_speed_get < high_threshold
         except Exception as e:
             assert False, 'Invalid fan speed: actual speed={}, set speed={}, min={}, max={}'.format(
