@@ -90,15 +90,10 @@ def common_setup_teardown(duthost, ptfhost, localhost):
     logging.info("vlan_ports: %s" % str(vlan_ports))
 
     # Generate ipv6 nexthops
-    if len(mg_facts['minigraph_vlan_interfaces']) > 1:
-        vlan_ipv6_entry = mg_facts['minigraph_vlan_interfaces'][1]
-        vlan_ipv6_prefix = "%s/%s" % (vlan_ipv6_entry["addr"], vlan_ipv6_entry["prefixlen"])
-        vlan_ipv6_address = vlan_ipv6_entry["addr"]
-        vlan_if_name = vlan_ipv6_entry['attachto']
-    else:
-        vlan_ipv6_prefix = "fc02:1000::1/64"
-        vlan_ipv6_address = "fc02:1000::1"
-        vlan_if_name = mg_facts['minigraph_vlan_interfaces'][0]['attachto']
+    vlan_ipv6_entry = mg_facts['minigraph_vlan_interfaces'][1]
+    vlan_ipv6_prefix = "%s/%s" % (vlan_ipv6_entry["addr"], vlan_ipv6_entry["prefixlen"])
+    vlan_ipv6_address = vlan_ipv6_entry["addr"]
+    vlan_if_name = vlan_ipv6_entry['attachto']
     nexthops_ipv6 = generate_ips(3, vlan_ipv6_prefix, [IPAddress(vlan_ipv6_address)])
     logging.info("Generated nexthops_ipv6: %s" % str(nexthops_ipv6))
 
