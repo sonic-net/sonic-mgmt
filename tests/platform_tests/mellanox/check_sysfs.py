@@ -45,9 +45,9 @@ def check_sysfs(dut):
     cpu_crit_temp_list = []
     cpu_pack_count = SWITCH_MODELS[dut_hwsku]["cpu_pack"]["number"]
     if cpu_pack_count > 0:
-        cpu_pack_temp = float(sysfs_facts['cpu_info']['cpu_pack_info']['cpu_pack_temp']) / 1000
-        cpu_pack_max_temp = float(sysfs_facts['cpu_info']['cpu_pack_info']['cpu_pack_max_temp']) / 1000
-        cpu_pack_crit_temp = float(sysfs_facts['cpu_info']['cpu_pack_info']['cpu_crit_max_temp']) / 1000
+        cpu_pack_temp = float(sysfs_facts['cpu_pack_info']['cpu_pack_temp']) / 1000
+        cpu_pack_max_temp = float(sysfs_facts['cpu_pack_info']['cpu_pack_max_temp']) / 1000
+        cpu_pack_crit_temp = float(sysfs_facts['cpu_pack_info']['cpu_crit_max_temp']) / 1000
         assert cpu_pack_max_temp <= cpu_pack_crit_temp, "Bad CPU pack max temp or critical temp, %s, %s " \
                                                         % (str(cpu_pack_max_temp), str(cpu_pack_crit_temp))
         if cpu_pack_temp >= cpu_pack_crit_temp:
