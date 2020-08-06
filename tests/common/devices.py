@@ -600,6 +600,9 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
             logging.info("route raw info for {}: {}".format(dstip, rt))
 
+            if len(rt) == 0:
+                return rtinfo
+
             # parse set_src
             m = re.match(r"^(default|\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
             m1 = re.match(r"^(default|\S+) via (\S+) dev (\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
@@ -617,6 +620,10 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         elif isinstance(dstip, ipaddress.IPv4Address) or isinstance(dstip, ipaddress.IPv6Address):
             rt = self.command("ip route get {}".format(dstip))['stdout_lines']
             logging.info("route raw info for {}: {}".format(dstip, rt))
+
+            if len(rt) == 0:
+                return rtinfo
+
             m = re.match(".+\s+via\s+(\S+)\s+.*dev\s+(\S+)\s+.*src\s+(\S+)\s+", rt[0])
             if m:
                 nexthop_ip = ipaddress.ip_address(unicode(m.group(1)))
