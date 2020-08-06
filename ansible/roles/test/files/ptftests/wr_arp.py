@@ -23,8 +23,6 @@ from ptf.base_tests import BaseTest
 from ptf import config
 import ptf.dataplane as dataplane
 import ptf.testutils as testutils
-import paramiko
-from paramiko.ssh_exception import BadHostKeyException, AuthenticationException, SSHException
 from device_connection import DeviceConnection
 
 
