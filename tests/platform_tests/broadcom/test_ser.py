@@ -4,7 +4,7 @@ import logging
 
 import pytest
 
-from tests.common.reboot import *
+from tests.common.reboot import reboot
 
 logger = logging.getLogger(__name__)
 
