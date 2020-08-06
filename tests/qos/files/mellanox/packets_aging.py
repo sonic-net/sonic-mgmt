@@ -29,9 +29,9 @@ if (rc != SX_STATUS_SUCCESS):
     sys.exit(errno.EACCES)
 
 # Get list of ports
-port_attributes_list = new_sx_port_attributes_t_arr(64)
+port_attributes_list = new_sx_port_attributes_t_arr(128)
 port_cnt_p = new_uint32_t_p()
-uint32_t_p_assign(port_cnt_p, 64)
+uint32_t_p_assign(port_cnt_p, 128)
 
 rc = sx_api_port_device_get(handle, 1 , 0, port_attributes_list,  port_cnt_p)
 if (rc != SX_STATUS_SUCCESS):
