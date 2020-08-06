@@ -32,7 +32,13 @@ def test_bgp_gr_helper_routes_perserved(duthost, nbrhosts, setup_bgp_graceful_re
     ifnames_v4 = [nh[1] for nh in rtinfo_v4['nexthops']]
     ifnames_v6 = [nh[1] for nh in rtinfo_v6['nexthops']]
 
+    logger.info("ifnames_v4: %s" % ifnames_v4)
+    logger.info("ifnames_v6: %s" % ifnames_v6)
+
     ifnames_common = [ ifname for ifname in ifnames_v4 if ifname in ifnames_v6 ]
+    if len(ifnames_common) == 0:
+        pytest.skip("No common ifnames between ifnames_v4 and ifname_v6: %s and %s" % (ifnames_v4, ifnames_v6))
+
     ifname = ifnames_common[0]
 
     # get neighbor device connected ports
