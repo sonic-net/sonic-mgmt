@@ -48,7 +48,7 @@ def verify_telemetry_dockerimage(duthost):
     docker_out = duthost.shell('docker images docker-sonic-telemetry', module_ignore_errors=False)['stdout_lines']
     docker_out_list = get_list_stdout(docker_out)
     matching = [s for s in docker_out_list if "docker-sonic-telemetry" in s]
-    if str(matching):
+    if matching:
         return True
     return False
 
