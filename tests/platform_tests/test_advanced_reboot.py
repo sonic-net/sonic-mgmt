@@ -4,6 +4,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t0')
 ]
 

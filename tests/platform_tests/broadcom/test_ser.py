@@ -1,10 +1,10 @@
 import os
 import time
-import random
 import logging
-import pprint
 
 import pytest
+
+from tests.common.reboot import *
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,49 @@ FILES_DIR = os.path.join(BASE_DIR, 'files')
 SER_INJECTOR_FILE = 'ser_injector.py'
 DUT_WORKING_DIR = '/tmp/'
 
-pause_ssh_timeout = True
+
+def disable_ssh_timout(dut):
+    '''
+    @summary disable ssh session on target dut
+    @param dut: Ansible host DUT
+    '''
+    logger.info('Disabling ssh time out on dut: %s' % dut.hostname)
+    dut.command("sudo sed -i 's/^ClientAliveInterval/#&/' /etc/ssh/sshd_config")
+    dut.command("sudo sed -i 's/^ClientAliveCountMax/#&/' /etc/ssh/sshd_config")
+
+    dut.command("sudo systemctl restart ssh")
+    time.sleep(5)
+
+
+def enable_ssh_timout(dut):
+    '''
+    @summary: enable ssh session on target dut
+    @param dut: Ansible host DUT
+    '''
+    logger.info('Enabling ssh time out on dut: %s' % dut.hostname)
+    dut.command("sudo sed -i '/^#ClientAliveInterval/s/^#//' /etc/ssh/sshd_config")
+    dut.command("sudo sed -i '/^#ClientAliveCountMax/s/^#//' /etc/ssh/sshd_config")
+
+    dut.command("sudo systemctl restart ssh")
+    time.sleep(5)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def test_setup_teardown(duthost, localhost):
+    disable_ssh_timout(duthost)
+    # There must be a better way to do this.
+    # Reboot the DUT so that we guaranteed to login without ssh timeout.
+    reboot(duthost, localhost, wait=120)
+
+    yield
+
+    enable_ssh_timout(duthost)
+
+    # This test could leave DUT in a failed state or have syslog contaminations.
+    # We should be able to cleanup with config reload, but reboot to make sure
+    # we reset the connection on duthost for now.
+    reboot(duthost, localhost, wait=120)
+
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.broadcom
@@ -36,14 +78,13 @@ def test_ser(duthost):
     @param duthost: Ansible framework testbed DUT device
     '''
     asic_type = duthost.facts["asic_type"]
-    if "broadcom" in asic_type:
-
-        logger.info('Copying SER injector to dut: %s' % duthost.hostname)
-        duthost.copy(src=os.path.join(FILES_DIR, SER_INJECTOR_FILE), dest=DUT_WORKING_DIR)
-
-        logger.info('Running SER injector test')
-        rc = duthost.command('python {}'.format(os.path.join(DUT_WORKING_DIR, SER_INJECTOR_FILE)))
-        logger.info('Test complete with %s: ' % rc)
-
-    else:
+    if "broadcom" not in asic_type:
         pytest.skip('Skipping SER test for asic_type: %s' % asic_type)
+
+    logger.info('Copying SER injector to dut: %s' % duthost.hostname)
+    duthost.copy(src=os.path.join(FILES_DIR, SER_INJECTOR_FILE), dest=DUT_WORKING_DIR)
+
+    logger.info('Running SER injector test')
+    rc = duthost.shell('python {}'.format(os.path.join(DUT_WORKING_DIR, SER_INJECTOR_FILE)), executable="/bin/bash")
+    logger.info('Test complete with %s: ' % rc)
+

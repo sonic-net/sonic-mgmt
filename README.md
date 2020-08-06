@@ -7,6 +7,24 @@ Tools for managing, configuring and monitoring SONiC
 # CII Best Practices
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/3933/badge)](https://bestpractices.coreinfrastructure.org/projects/3933)
 
+# Docker Container Setup
+Use the `setup-container.sh` script to automatically create and configure your sonic-mgmt Docker container. This script should be run directly from the root of the sonic-mgmt repo. You should also run this script as the user that will be using the created container.
+
+```
+Usage ./setup-container.sh [options]
+Options with (*) are required
+-h -?                 : get this help
+-n <container name>   : (*) set the name of the Docker container 
+-i <image ID>         : (*) specify Docker image to use
+-d <directory>        : specify directory inside container to bind mount to sonic-mgmt root (default "/var/src/")
+```
+
+After running the script, you should be able to enter the container using the `-u` option and your username:
+
+```
+docker exec -u <user> -it <container name> bash
+```
+
 # Contribution guide
 All contributors must sign a contribution license agreement before contributions can be accepted.  
 [How to become a contributer](https://github.com/Azure/SONiC/wiki/Becoming-a-contributor)

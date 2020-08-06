@@ -188,7 +188,7 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, ports_info, tx_du
     # Clear SONiC counters
     duthost.command("sonic-clear counters")
     duthost.command("sonic-clear rifcounters")
-    send_packets(pkt, duthost, ptfadapter, ports_info["ptf_tx_port_id"])
+    send_packets(pkt, duthost, ptfadapter, ports_info["ptf_tx_port_id"], PKT_NUMBER)
     if discard_group == "L2":
         verify_drop_counters(duthost, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY)
         ensure_no_l3_drops(duthost)

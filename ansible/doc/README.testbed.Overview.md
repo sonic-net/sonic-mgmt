@@ -54,3 +54,35 @@ DUT front panel port is directly connected to one of PTF container ports. Usuall
 ![](img/testbed-injected.png)
 
 DUT front panel port is directly connected to one of VMs interfaces. But also we have a tap into this connection. Packets coming from the physical vlan interface are sent to both the VMs and the PTF docker. Packets from the VM and PTF docker are sent to the vlan interface. It allows us to inject packets from the PTF host to DUT and maintain a BGP session between VM and DUT at the same time.
+
+# SONiC Testbed with Keysight IxNetwork as Traffic Generator
+
+This section gives an overview of the stand-alone testbed topology where SONiC DUT is directly connected with Keysight’s protocol emulator and traffic generator (IxNetwork).
+
+## Physical Topology
+
+Based on test need there may be multiple topologies possible as shown below :
+
+- Single DUT Topology
+![](img/single-dut-topology.png)
+
+
+- Multiple DUT Topology
+![](img/multiple-dut-topology.png)
+
+
+- Multiple IxNetwork Topology
+![](img/multiple-ixnetwork.PNG)
+
+## Topology Description
+
+### Ixia Chassis (IxNetwork)
+Keysight IxNetwork is used as the network tester to emulate protocol sessions eg. OSPF, BGP, LACP etc. and send data traffic with various user defined traffic profiles at line rate. Based on test need this can support line cards of varying speed ranging from 1G to 400G. It also supports vlan separated logical interfaces over each physical port.
+
+### IxNetwork API Server Docker
+
+The IxNetwork API Server docker is installed in the Testbed server along with sonic-mgmt docker. It provides API server, that is used to configure the Traffic Generator (IxNetwork) using restPy APIs. It is capable of offering multiple sessions of IxNetwork API server. Each session runs independent of each other and configures IxNetwork.
+
+### Network connections
+- IxNetwork API server is connected to IxNetwork via the management port. 
+- IxNetwork test ports are directly connected to single or multiple DUTs.

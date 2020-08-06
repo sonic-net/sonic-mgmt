@@ -496,7 +496,7 @@ class QosSaiBase:
             duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutQosConfig(self, duthost, ingressLosslessProfile):
+    def dutQosConfig(self, duthost, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile):
         """
             Prepares DUT host QoS configuration
 
@@ -529,10 +529,27 @@ class QosSaiBase:
             if vendorAsic in hostvars.keys() and mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
                 dutAsic = asic
                 break
+
         assert dutAsic, "Cannot identify DUT ASIC type"
 
+        if isMellanoxDevice(duthost):
+            current_file_dir = os.path.dirname(os.path.realpath(__file__))
+            sub_folder_dir = os.path.join(current_file_dir, "files/mellanox/")
+            if sub_folder_dir not in sys.path:
+                sys.path.append(sub_folder_dir)
+            import qos_param_generator
+            qpm = qos_param_generator.QosParamMellanox(qosConfigs['qos_params']['mellanox'], dutAsic,
+                                                      portSpeedCableLength,
+                                                      ingressLosslessProfile,
+                                                      ingressLossyProfile,
+                                                      egressLosslessProfile,
+                                                      egressLossyProfile)
+            qosParams = qpm.run()
+        else:
+            qosParams = qosConfigs['qos_params'][dutAsic]
+
         yield {
-            "param": qosConfigs["qos_params"][dutAsic],
+            "param": qosParams,
             "portSpeedCableLength": portSpeedCableLength,
         }
 
@@ -711,6 +728,28 @@ class QosSaiBase:
             "BUFFER_QUEUE",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "3-4"
+        )
+
+    @pytest.fixture(scope='class', autouse=True)
+    def egressLossyProfile(self, request, duthost, dutConfig):
+        """
+            Retreives egress lossy profile
+ 
+            Args:
+                request (Fixture): pytest request object
+                duthost (AnsibleHost): Device Under Test (DUT)
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+
+            Returns:
+                egressLossyProfile (dict): Map of egress lossy buffer profile attributes
+        """
+        yield self.__getBufferProfile(
+            request,
+            duthost,
+            "BUFFER_QUEUE",
+            dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
+            "0-2"
         )
 
     @pytest.fixture(scope='class')
