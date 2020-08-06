@@ -2,6 +2,7 @@
 
 import subprocess
 import re
+import sys
 import time
 import random
 import argparse
@@ -436,8 +437,8 @@ def main():
     start_time = time.time()
     serTest = SerTest()
     rc = serTest.test_memory(args.completeness)
-    print("--- %s seconds ---" % (time.time() - start_time))
-    return rc
+    print("--- %s seconds, rc %d ---" % ((time.time() - start_time), rc))
+    sys.exit(rc)
 
 if __name__ == "__main__":
     main()
