@@ -4,9 +4,10 @@ This document describes the steps to setup the virtual switch based testbed and 
 
 ## Prepare testbed server
 
-- Install Ubuntu 18.04 amd64 server. To setup a T0 topology, the server needs to have 10GB free memory.
+- Install Ubuntu 20.04 amd64 server. To setup a T0 topology, the server needs to have 10GB free memory.
 - Setup internal management network:
 ```
+$ git clone https://github.com/Azure/sonic-mgmt
 $ cd sonic-mgmt/ansible
 $ sudo ./setup-management-network.sh
 ```
@@ -29,7 +30,23 @@ REPOSITORY                                     TAG                 IMAGE ID     
 ceosimage                                      4.23.2F             d53c28e38448        2 hours ago         1.82GB
 ```
 
-## Build or download *sonic-mgmt* docker image
+## Download sonic-vs image
+
+- Download sonic-vs image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz)
+```
+$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz
+```
+
+- unzip the image and move it into `~/sonic-vm/images/`
+```
+$ gzip -d sonic-vs.img.gz
+$ mkdir -p ~/sonic-vm/images
+$ mv sonic-vs.img ~/sonic-vm/images
+```
+
+## Setup sonic-mgmt docker
+
+### Build or download *sonic-mgmt* docker image
 
 ansible playbook in *sonic-mgmt* repo requires to setup ansible and various dependencies.
 We have built a *sonic-mgmt* docker that installs all dependencies, and you can build
@@ -52,31 +69,10 @@ $ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-so
 $ docker load -i docker-sonic-mgmt.gz
 ```
 
-## Download sonic-vs image
-
-- Download sonic-vs image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz)
-```
-$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz
-```
-
-- unzip the image and move it into `~/sonic-vm/images/`
-```
-$ gzip -d sonic-vs.img.gz
-$ mkdir -p ~/sonic-vm/images
-$ mv sonic-vs.img ~/sonic-vm/images
-```
-
-## Clone sonic-mgmt repo
-
-```
-$ git clone https://github.com/Azure/sonic-mgmt
-```
-
-## Configure sonic-mgmt docker
-
 Run the `setup-container.sh` in the root directory of the sonic-mgmt repository:
 
 ```
+$ cd sonic-mgmt
 $ ./setup-container.sh -n <container name> -i docker-sonic-mgmt -d /data
 ```
 
@@ -93,7 +89,7 @@ $ docker exec -u <alias> -it <container name> bash
 - Modify veos.vtb to use the user name, e.g., `foo` to login linux host (this can be your username on the host).
 
 ```
-lgh@gulv-vm2:/data/sonic/sonic-mgmt/ansible$ git diff
+lgh@gulv-vm2:/data/sonic-mgmt/ansible$ git diff
 diff --git a/ansible/veos.vtb b/ansible/veos.vtb
 index 4ea5a7a..4cfc448 100644
 --- a/ansible/veos.vtb
@@ -106,6 +102,10 @@ index 4ea5a7a..4cfc448 100644
  [vm_host:children]
 vm_host_1
 ```
+
+- Create dummy `password.txt` under `/data/sonic-mgmt/ansible`
+  
+  Please note: Here "password.txt" is the Ansible Vault password file name/path. Ansible allows user to use Ansible Vault to encrypt password files. By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line. The file name and location is created and maintained by user.
 
 - Add user `foo`'s public key to `/home/foo/.ssh/authorized_keys` on the host
 
@@ -159,15 +159,15 @@ VM0100 | SUCCESS => {
 
 ### vEOS
 ```
+$ cd /data/sonic-mgmt/ansible
 $ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb add-topo vms-kvm-t0 password.txt
 ```
 
 ### cEOS
 ```
+$ cd /data/sonic-mgmt/ansible
 $ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb -k ceos add-topo vms-kvm-t0 password.txt
 ```
-
-  - Please note: Here "password.txt" is the Ansible Vault password file name/path. Ansible allows user to use Ansible Vault to encrypt password files. By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line. The file name and location is created and maintained by user.
 
 Verify topology setup successfully.
 
