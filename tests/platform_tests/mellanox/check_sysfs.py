@@ -11,80 +11,43 @@ def check_sysfs(dut):
     """
     @summary: Check various hw-management related sysfs under /var/run/hw-management
     """
+    dut_hwsku = dut.facts["hwsku"]
+    from tests.common.mellanox_data import SWITCH_MODELS
+    sku_info = SWITCH_MODELS[dut_hwsku]
+    logging.info("Collect mellanox sysfs facts")
+    sysfs_facts = dut.sysfs_facts(sku_info=sku_info)['ansible_facts']
+
     logging.info("Check broken symbolinks")
-    broken_symbolinks = dut.command("find /var/run/hw-management -xtype l")
-    assert len(broken_symbolinks["stdout_lines"]) == 0, \
-        "Found some broken symbolinks: %s" % str(broken_symbolinks["stdout_lines"])
+    broken_symbolinks = sysfs_facts['broken_link_info']
+    assert len(broken_symbolinks) == 0, \
+        "Found some broken symbolinks: %s" % str(broken_symbolinks)
 
-    logging.info("Check content of some key files")
-
-
-    file_asic = dut.command("cat /var/run/hw-management/thermal/asic")
+    logging.info("Check ASIC related sysfs")
     try:
-        asic_temp = float(file_asic["stdout"]) / 1000
-        assert 0 < asic_temp < 105, "Abnormal ASIC temperature: %s" % file_asic["stdout"]
+        asic_temp = float(sysfs_facts['asic_temp']) / 1000
+        assert 0 < asic_temp < 105, "Abnormal ASIC temperature: %s" % sysfs_facts['asic_temp']
     except Exception as e:
         assert False, "Bad content in /var/run/hw-management/thermal/asic: %s" % repr(e)
 
-    dut_hwsku = dut.facts["hwsku"]
-    from tests.common.mellanox_data import SWITCH_MODELS
-    fan_count = SWITCH_MODELS[dut_hwsku]["fans"]["number"]
-
-    fan_min_speed = 0
-    fan_max_speed = 0
-    for fan_id in range(1, fan_count + 1):
+    logging.info("Check fan related sysfs")
+    for fan_id, fan_info in sysfs_facts['fan_info'].items():
         if SWITCH_MODELS[dut_hwsku]["fans"]["hot_swappable"]:
-            fan_status = "/var/run/hw-management/thermal/fan{}_status".format(fan_id)
-            fan_status_content = dut.command("cat %s" % fan_status)
-            assert fan_status_content["stdout"] == "1", "Content of %s is not 1" % fan_status
+            assert fan_info['fan_status'] == '1', "Fan {} status {} is not 1".format(fan_id, fan_info['fan_status'])
 
-        fan_fault = "/var/run/hw-management/thermal/fan{}_fault".format(fan_id)
-        fan_fault_content = dut.command("cat %s" % fan_fault)
-        assert fan_fault_content["stdout"] == "0", "Content of %s is not 0" % fan_fault
+        assert fan_info['fan_fault'] == '0', "Fan {} fault status {} is not 1".format(fan_id, fan_info['fan_fault'])
 
-        fan_min = "/var/run/hw-management/thermal/fan{}_min".format(fan_id)
-        try:
-            fan_min_content = dut.command("cat %s" % fan_min)
-            fan_min_speed = int(fan_min_content["stdout"])
-            assert fan_min_speed > 0, "Bad fan minimum speed: %s" % str(fan_min_speed)
-        except Exception as e:
-            assert "Get content from %s failed, exception: %s" % (fan_min, repr(e))
+    if not _is_fan_speed_in_range(sysfs_facts):
+        assert wait_until(30, 5, _check_fan_speed_in_range, dut, sku_info), "Fan speed not in range"
 
-        fan_max = "/var/run/hw-management/thermal/fan{}_max".format(fan_id)
-        try:
-            fan_max_content = dut.command("cat %s" % fan_max)
-            fan_max_speed = int(fan_max_content["stdout"])
-            assert fan_max_speed > 10000, "Bad fan maximum speed: %s" % str(fan_max_speed)
-        except Exception as e:
-            assert "Get content from %s failed, exception: %s" % (fan_max, repr(e))
-
-        fan_speed_set = "/var/run/hw-management/thermal/fan{}_speed_set".format(fan_id)
-        fan_speed_set_content = dut.command("cat %s" % fan_speed_set)
-        fan_set_speed = int(fan_speed_set_content["stdout"])
-        max_tolerance_speed = ((float(fan_set_speed) / 256) * fan_max_speed) * (1 + 0.5)
-        min_tolerance_speed = ((float(fan_set_speed) / 256) * fan_max_speed) * (1 - 0.5)
-        fan_speed_get = "/var/run/hw-management/thermal/fan{}_speed_get".format(fan_id)
-        assert wait_until(30, 5, _check_fan_speed_in_range, dut, fan_min_speed, fan_max_speed,
-                          min_tolerance_speed, max_tolerance_speed, fan_speed_get), \
-            "Fan speed not in range"
-
+    logging.info("Check CPU related sysfs")
     cpu_temp_high_counter = 0
     cpu_temp_list = []
     cpu_crit_temp_list = []
     cpu_pack_count = SWITCH_MODELS[dut_hwsku]["cpu_pack"]["number"]
-    if cpu_pack_count != 0:
-        cpu_pack_temp_file = "/var/run/hw-management/thermal/cpu_pack"
-        cpu_pack_temp_file_output = dut.command("cat %s" % cpu_pack_temp_file)
-        cpu_pack_temp = float(cpu_pack_temp_file_output["stdout"])/1000
-
-        cpu_pack_max_temp_file = "/var/run/hw-management/thermal/cpu_pack_max"
-        cpu_pack_max_temp_file_output = dut.command("cat %s" % cpu_pack_max_temp_file)
-        cpu_pack_max_temp = float(cpu_pack_max_temp_file_output["stdout"])/1000
-
-        cpu_pack_crit_temp_file = "/var/run/hw-management/thermal/cpu_pack_crit"
-        cpu_pack_crit_temp_file_output = dut.command("cat %s" % cpu_pack_crit_temp_file)
-        cpu_pack_crit_temp = float(cpu_pack_crit_temp_file_output["stdout"])/1000
-
+    if cpu_pack_count > 0:
+        cpu_pack_temp = float(sysfs_facts['cpu_pack_info']['cpu_pack_temp'])/1000
+        cpu_pack_max_temp = float(sysfs_facts['cpu_pack_info']['cpu_pack_max_temp']) / 1000
+        cpu_pack_crit_temp = float(sysfs_facts['cpu_pack_info']['cpu_crit_max_temp']) / 1000
         assert cpu_pack_max_temp <= cpu_pack_crit_temp, "Bad CPU pack max temp or critical temp, %s, %s " \
                                                         % (str(cpu_pack_max_temp), str(cpu_pack_crit_temp))
         if cpu_pack_temp >= cpu_pack_crit_temp:
@@ -92,20 +55,10 @@ def check_sysfs(dut):
         cpu_temp_list.append(cpu_pack_temp)
         cpu_crit_temp_list.append(cpu_pack_crit_temp)
 
-    cpu_core_count = SWITCH_MODELS[dut_hwsku]["cpu_cores"]["number"]
-    for core_id in range(0, cpu_core_count):
-        cpu_core_temp_file = "/var/run/hw-management/thermal/cpu_core{}".format(core_id)
-        cpu_core_temp_file_output = dut.command("cat %s" % cpu_core_temp_file)
-        cpu_core_temp = float(cpu_core_temp_file_output["stdout"])/1000
-
-        cpu_core_max_temp_file = "/var/run/hw-management/thermal/cpu_core{}_max".format(core_id)
-        cpu_core_max_temp_file_output = dut.command("cat %s" % cpu_core_max_temp_file)
-        cpu_core_max_temp = float(cpu_core_max_temp_file_output["stdout"])/1000
-
-        cpu_core_crit_temp_file = "/var/run/hw-management/thermal/cpu_core{}_crit".format(core_id)
-        cpu_core_crit_temp_file_output = dut.command("cat %s" % cpu_core_crit_temp_file)
-        cpu_core_crit_temp = float(cpu_core_crit_temp_file_output["stdout"])/1000
-
+    for core_id, cpu_info in sysfs_facts['cpu_info'].items():
+        cpu_core_temp = float(cpu_info["cpu_core_temp"]) / 1000
+        cpu_core_max_temp = float(cpu_info["cpu_core_max_temp"]) / 1000
+        cpu_core_crit_temp = float(cpu_info["cpu_core_crit_temp"]) / 1000
         assert cpu_core_max_temp <= cpu_core_crit_temp, "Bad CPU core%d max temp or critical temp, %s, %s " \
                                                         % (core_id, str(cpu_core_max_temp), str(cpu_core_crit_temp))
         if cpu_core_temp >= cpu_core_crit_temp:
@@ -118,81 +71,42 @@ def check_sysfs(dut):
         logging.info("CPU critical temperatures {}".format(cpu_crit_temp_list))
         assert False, "At least {} of the CPU cores or pack is overheated".format(cpu_temp_high_counter)
 
-    psu_count = SWITCH_MODELS[dut_hwsku]["psus"]["number"]
-    for psu_id in range(1, psu_count + 1):
-        if SWITCH_MODELS[dut_hwsku]["psus"]["hot_swappable"]:
-
-            # If the PSU is poweroff, all PSU thermal related sensors are not available.
-            # In that case, just skip the following tests
-            psu_status_file = "/var/run/hw-management/thermal/psu{}_status".format(psu_id)
-            psu_status_output = dut.command("cat %s" % psu_status_file)
-            psu_status = int(psu_status_output["stdout"])
+    logging.info("Check PSU related sysfs")
+    if SWITCH_MODELS[dut_hwsku]["psus"]["hot_swappable"]:
+        for psu_id, psu_info in sysfs_facts['psu_info'].items():
+            psu_status = int(psu_info["psu_status"])
             if not psu_status:
                 logging.info("PSU %d doesn't exist, skipped" % psu_id)
                 continue
 
-            psu_pwr_status_file = "/var/run/hw-management/thermal/psu{}_pwr_status".format(psu_id)
-            psu_pwr_status_output = dut.command("cat %s" % psu_pwr_status_file)
-            psu_pwr_status = int(psu_pwr_status_output["stdout"])
+            psu_pwr_status = int(psu_info["psu_pwr_status"])
             if not psu_pwr_status:
-                logging.info("PSU %d isn't poweron, skipped" % psu_id)
+                logging.info("PSU %d isn't power on, skipped" % psu_id)
                 continue
 
-            psu_temp_file = "/var/run/hw-management/thermal/psu{}_temp".format(psu_id)
-            psu_temp_file_output = dut.command("cat %s" % psu_temp_file)
-            psu_temp = float(psu_temp_file_output["stdout"])/1000
-
-            psu_max_temp_file = "/var/run/hw-management/thermal/psu{}_temp_max".format(psu_id)
-            psu_max_temp_file_output = dut.command("cat %s" % psu_max_temp_file)
-            psu_max_temp = float(psu_max_temp_file_output["stdout"])/1000
-
+            psu_temp = float(psu_info["psu_temp"]) / 1000
+            psu_max_temp = float(psu_info["psu_max_temp"]) / 1000
             assert psu_temp < psu_max_temp, "PSU%d overheated, temp: %s" % (psu_id, str(psu_temp))
-
-            psu_max_temp_alarm_file = "/var/run/hw-management/thermal/psu{}_temp_max_alarm".format(psu_id)
-            psu_max_temp_alarm_file_output = dut.command("cat %s" % psu_max_temp_alarm_file)
-            assert psu_max_temp_alarm_file_output["stdout"] == '0', "PSU{} temp alarm set".format(psu_id)
-
-            psu_fan_speed_get = "/var/run/hw-management/thermal/psu{}_fan1_speed_get".format(psu_id)
+            assert psu_info["psu_max_temp_alarm"] == '0', "PSU{} temp alarm set".format(psu_id)
             try:
-                psu_fan_speed_get_content = dut.command("cat %s" % psu_fan_speed_get)
-                psu_fan_speed = int(psu_fan_speed_get_content["stdout"])
+                psu_fan_speed = int(psu_info["psu_fan_speed"])
                 assert psu_fan_speed > 1000, "Bad fan speed: %s" % str(psu_fan_speed)
-
             except Exception as e:
-                assert "Get content from %s failed, exception: %s" % (psu_fan_speed_get, repr(e))
+                assert "Invalid PSU fan speed value {} for PSU {}, exception: {}".format(psu_info["psu_fan_speed"], psu_id, e)
 
-    sfp_count = SWITCH_MODELS[dut_hwsku]["ports"]["number"]
-    for sfp_id in range(1, sfp_count + 1):
-        sfp_temp_fault_file = "/var/run/hw-management/thermal/module{}_temp_fault".format(sfp_id)
-        sfp_temp_fault_file_output = dut.command("cat %s" % sfp_temp_fault_file)
-        assert sfp_temp_fault_file_output["stdout"] == '0', "SFP%d temp fault" % sfp_id
-
-        sfp_temp_file = "/var/run/hw-management/thermal/module{}_temp_input".format(sfp_id)
-        sfp_temp_file_output = dut.command("cat %s" % sfp_temp_file)
-        if sfp_temp_file_output["stdout"] != '0':
-            sfp_temp = float(sfp_temp_file_output["stdout"])/1000
-        else:
-            sfp_temp = 0
-
-        sfp_temp_crit_file = "/var/run/hw-management/thermal/module{}_temp_crit".format(sfp_id)
-        sfp_temp_crit_file_output = dut.command("cat %s" % sfp_temp_crit_file)
-        if sfp_temp_crit_file_output["stdout"] != '0':
-            sfp_temp_crit = float(sfp_temp_crit_file_output["stdout"])/1000
-        else:
-            sfp_temp_crit = 0
-
-        sfp_temp_emergency_file = "/var/run/hw-management/thermal/module{}_temp_emergency".format(sfp_id)
-        sfp_temp_emergency_file_output = dut.command("cat %s" % sfp_temp_emergency_file)
-        if sfp_temp_emergency_file_output["stdout"] != '0':
-            sfp_temp_emergency = float(sfp_temp_emergency_file_output["stdout"])/1000
-        else:
-            sfp_temp_emergency = 0
-
+    logging.info("Check SFP related sysfs")
+    for sfp_id, sfp_info in sysfs_facts['sfp_info'].items():
+        assert sfp_info["temp_fault"] == '0', "SFP%d temp fault" % sfp_id
+        sfp_temp = float(sfp_info['temp_input']) if sfp_info['temp_input'] != '0' else 0
+        sfp_temp_crit = float(sfp_info['temp_crit']) if sfp_info['temp_crit'] != '0' else 0
+        sfp_temp_emergency = float(sfp_info['temp_emergency']) if sfp_info['temp_emergency'] != '0' else 0
         if sfp_temp_crit != 0:
             assert sfp_temp < sfp_temp_crit, "SFP%d overheated, temp%s" % (sfp_id, str(sfp_temp))
             assert sfp_temp_crit < sfp_temp_emergency, "Wrong SFP critical temp or emergency temp, " \
                                                        "critical temp: %s emergency temp: %s" \
                                                        % (str(sfp_temp_crit), str(sfp_temp_emergency))
+    logging.info("Finish checking sysfs")
+
 
 def check_psu_sysfs(dut, psu_id, psu_state):
     """
@@ -236,3 +150,42 @@ def _check_fan_speed_in_range(dut, min_speed, max_speed, low_threshold, high_thr
         return min_speed < fan_speed < max_speed and low_threshold < fan_speed < high_threshold
     except Exception as e:
         assert "Get content from %s failed, exception: %s" % (sysfs_path, repr(e))
+
+
+def _check_fan_speed_in_range(dut, sku_info):
+    sysfs_facts = dut.sysfs_facts(sku_info=sku_info,
+                                  collect_broken_link=False,
+                                  collect_asic=False,
+                                  collect_fan=True,
+                                  collect_cpu=False,
+                                  collect_psu=False,
+                                  collect_sfp=False,
+                                  )['ansible_facts']
+
+    return _is_fan_speed_in_range(sysfs_facts)
+
+
+def _is_fan_speed_in_range(sysfs_facts):
+    for fan_id, fan_info in sysfs_facts['fan_info'].items():
+        try:
+            fan_min_speed = int(fan_info["fan_min"])
+            fan_max_speed = int(fan_info["fan_max"])
+            fan_speed_set = int(fan_info["fan_speed_set"])
+            fan_speed_get = int(fan_info["fan_speed_get"])
+
+            assert fan_min_speed > 0 and fan_max_speed > 10000, 'Invalid fan min/max speed: {}, {}'.format(fan_min_speed,
+                                                                                                           fan_max_speed)
+            assert fan_min_speed < fan_speed_get < fan_max_speed, 'Fan speed {} not in range: [{}, {}]'.format(
+                fan_speed_get, fan_min_speed, fan_max_speed
+            )
+
+            low_threshold = ((float(fan_speed_set)/255)*fan_max_speed)*(1 - 0.5)
+            high_threshold = ((float(fan_speed_set)/255)*fan_max_speed)*(1 + 0.5)
+            return low_threshold < fan_speed_get < high_threshold
+        except Exception as e:
+            assert False, 'Invalid fan speed: actual speed={}, set speed={}, min={}, max={}'.format(
+                fan_info["fan_min"],
+                fan_info["fan_max"],
+                fan_info["fan_speed_set"],
+                fan_info["fan_speed_get"],
+            )
