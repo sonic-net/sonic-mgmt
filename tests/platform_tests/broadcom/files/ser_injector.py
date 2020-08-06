@@ -236,7 +236,7 @@ class SerTest(object):
 
         count = 0
         stall = 0
-        # Test idea: initiaate small matches and wait for short timeout, until the test
+        # Test idea: initiaate small batches and wait for short timeout, until the test
         #            is either done or stalled.
         #            running test this way because:
         #            - Injecting too many errors takes too long.
@@ -280,6 +280,7 @@ class SerTest(object):
         print("SER Test is not supported for memories (%s): %s" % (len(self.mem_ser_unsupported), self.mem_ser_unsupported))
 
         if VERBOSE:
+            print("--- found {} memory location(s) reported misaligned correction events ---".format(len(self.miss_counts)))
             for address, count in self.miss_counts.items():
                 print("--- unknown address {} was triggered {} times".format(hex(address), count))
 
@@ -430,7 +431,7 @@ def main():
     parser.add_argument('-v', '--verbose', help='Set verbose output', action='store_true', required=False, default=False)
     args = parser.parse_args()
 
-    VERBOSE=args.verbose
+    VERBOSE = args.verbose
 
     start_time = time.time()
     serTest = SerTest()
