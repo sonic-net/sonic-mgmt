@@ -1,10 +1,8 @@
-import sys
 import os
 import glob
 import json
 import tarfile
 import logging
-import time
 import string
 import re
 import getpass
@@ -17,8 +15,6 @@ import ipaddr as ipaddress
 
 from collections import defaultdict
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.fixtures.conn_graph_facts import fanout_graph_facts
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts_multi_duts
 from tests.common.devices import SonicHost, Localhost
 from tests.common.devices import PTFHost, EosHost, FanoutHost
 
