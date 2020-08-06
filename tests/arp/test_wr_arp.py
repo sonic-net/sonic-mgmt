@@ -5,6 +5,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
 from tests.ptf_runner import ptf_runner
 
@@ -157,19 +158,6 @@ class TestWrArp:
             result = duthost.shell(cmd='ip route delete {0}/32 {1}'.format(ptfIp, gwIp), module_ignore_errors=True)
             assert result["rc"] == 0 or "No such process" in result["stderr"], \
                 "Failed to delete route with error '{0}'".format(result["stderr"])
-
-    @pytest.fixture(scope='class', autouse=True)
-    def removePtfhostIp(self, ptfhost):
-        '''
-            Removes IP assigned to eth<n> inerface of PTF host. This class-scope fixture runs once before test start
-
-            Args:
-                ptfhost (AnsibleHost): Packet Test Framework (PTF)
-
-            Returns:
-                None
-        '''
-        ptfhost.script('./scripts/remove_ip.sh')
 
     @pytest.fixture(scope='class', autouse=True)
     def prepareSshKeys(self, duthost, ptfhost, creds):

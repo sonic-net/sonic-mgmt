@@ -1831,29 +1831,50 @@ sensors_checks:
     alarms:
       fan: []
       power:
-      - dps460-i2c-6-58/vin/in1_min_alarm
-      - dps460-i2c-6-58/vin/in1_max_alarm
-      - dps460-i2c-6-58/vin/in1_lcrit_alarm
-      - dps460-i2c-6-58/vin/in1_crit_alarm
-      - dps460-i2c-6-58/vout1/in3_min_alarm
-      - dps460-i2c-6-58/vout1/in3_max_alarm
-      - dps460-i2c-6-58/vout1/in3_lcrit_alarm
-      - dps460-i2c-6-58/vout1/in3_crit_alarm
-      - dps460-i2c-6-58/iin/curr1_max_alarm
-      - dps460-i2c-6-58/iin/curr1_crit_alarm
-      - dps460-i2c-6-58/iout1/curr2_max_alarm
-      - dps460-i2c-6-58/iout1/curr2_lcrit_alarm
-      - dps460-i2c-6-58/iout1/curr2_crit_alarm
+      - dps460-i2c-8-58/vin/in1_min_alarm
+      - dps460-i2c-8-58/vin/in1_max_alarm
+      - dps460-i2c-8-58/vin/in1_lcrit_alarm
+      - dps460-i2c-8-58/vin/in1_crit_alarm
+      - dps460-i2c-8-58/vout1/in3_min_alarm
+      - dps460-i2c-8-58/vout1/in3_max_alarm
+      - dps460-i2c-8-58/vout1/in3_lcrit_alarm
+      - dps460-i2c-8-58/vout1/in3_crit_alarm
+      - dps460-i2c-8-58/iin/curr1_max_alarm
+      - dps460-i2c-8-58/iin/curr1_crit_alarm
+      - dps460-i2c-8-58/iout1/curr2_max_alarm
+      - dps460-i2c-8-58/iout1/curr2_lcrit_alarm
+      - dps460-i2c-8-58/iout1/curr2_crit_alarm
+      - dps460-i2c-9-58/vin/in1_min_alarm
+      - dps460-i2c-9-58/vin/in1_max_alarm
+      - dps460-i2c-9-58/vin/in1_lcrit_alarm
+      - dps460-i2c-9-58/vin/in1_crit_alarm
+      - dps460-i2c-9-58/vout1/in3_min_alarm
+      - dps460-i2c-9-58/vout1/in3_max_alarm
+      - dps460-i2c-9-58/vout1/in3_lcrit_alarm
+      - dps460-i2c-9-58/vout1/in3_crit_alarm
+      - dps460-i2c-9-58/iin/curr1_max_alarm
+      - dps460-i2c-9-58/iin/curr1_crit_alarm
+      - dps460-i2c-9-58/iout1/curr2_max_alarm
+      - dps460-i2c-9-58/iout1/curr2_lcrit_alarm
+      - dps460-i2c-9-58/iout1/curr2_crit_alarm
 
       temp:
-      - dps460-i2c-6-58/Power supply 2 inlet temp sensor/temp1_max_alarm
-      - dps460-i2c-6-58/Power supply 2 inlet temp sensor/temp1_min_alarm
-      - dps460-i2c-6-58/Power supply 2 inlet temp sensor/temp1_crit_alarm
-      - dps460-i2c-6-58/Power supply 2 inlet temp sensor/temp1_lcrit_alarm
-      - dps460-i2c-6-58/Power supply 2 internal sensor/temp2_max_alarm
-      - dps460-i2c-6-58/Power supply 2 internal sensor/temp2_min_alarm
-      - dps460-i2c-6-58/Power supply 2 internal sensor/temp2_crit_alarm
-      - dps460-i2c-6-58/Power supply 2 internal sensor/temp2_lcrit_alarm
+      - dps460-i2c-8-58/Power supply 1 inlet temp sensor/temp1_max_alarm
+      - dps460-i2c-8-58/Power supply 1 inlet temp sensor/temp1_min_alarm
+      - dps460-i2c-8-58/Power supply 1 inlet temp sensor/temp1_crit_alarm
+      - dps460-i2c-8-58/Power supply 1 inlet temp sensor/temp1_lcrit_alarm
+      - dps460-i2c-8-58/Power supply 1 internal sensor/temp2_max_alarm
+      - dps460-i2c-8-58/Power supply 1 internal sensor/temp2_min_alarm
+      - dps460-i2c-8-58/Power supply 1 internal sensor/temp2_crit_alarm
+      - dps460-i2c-8-58/Power supply 1 internal sensor/temp2_lcrit_alarm
+      - dps460-i2c-9-58/Power supply 2 inlet temp sensor/temp1_max_alarm
+      - dps460-i2c-9-58/Power supply 2 inlet temp sensor/temp1_min_alarm
+      - dps460-i2c-9-58/Power supply 2 inlet temp sensor/temp1_crit_alarm
+      - dps460-i2c-9-58/Power supply 2 inlet temp sensor/temp1_lcrit_alarm
+      - dps460-i2c-9-58/Power supply 2 internal sensor/temp2_max_alarm
+      - dps460-i2c-9-58/Power supply 2 internal sensor/temp2_min_alarm
+      - dps460-i2c-9-58/Power supply 2 internal sensor/temp2_crit_alarm
+      - dps460-i2c-9-58/Power supply 2 internal sensor/temp2_lcrit_alarm
 
     compares:
       fan: []
@@ -1861,20 +1882,25 @@ sensors_checks:
       temp:
       - - k10temp-pci-00c3/Cpu temp sensor/temp1_input
         - k10temp-pci-00c3/Cpu temp sensor/temp1_max
-      - - lm73-i2c-3-48/Back panel temp sensor/temp1_input
-        - lm73-i2c-3-48/Back panel temp sensor/temp1_max
-      - - max6658-i2c-2-4c/Board temp sensor/temp1_input
-        - max6658-i2c-2-4c/Board temp sensor/temp1_max
-      - - max6658-i2c-2-4c/Front panel temp sensor/temp2_input
-        - max6658-i2c-2-4c/Front panel temp sensor/temp2_max
-      - - dps460-i2c-6-58/Power supply 2 inlet temp sensor/temp1_input
-        - dps460-i2c-6-58/Power supply 2 inlet temp sensor/temp1_max
-      - - dps460-i2c-6-58/Power supply 2 internal sensor/temp2_input
-        - dps460-i2c-6-58/Power supply 2 internal sensor/temp2_max
+      - - lm73-i2c-6-48/Back panel temp sensor/temp1_input
+        - lm73-i2c-6-48/Back panel temp sensor/temp1_max
+      - - max6658-i2c-5-4c/Board temp sensor/temp1_input
+        - max6658-i2c-5-4c/Board temp sensor/temp1_max
+      - - max6658-i2c-5-4c/Front panel temp sensor/temp2_input
+        - max6658-i2c-5-4c/Front panel temp sensor/temp2_max
+      - - dps460-i2c-8-58/Power supply 1 inlet temp sensor/temp1_input
+        - dps460-i2c-8-58/Power supply 1 inlet temp sensor/temp1_max
+      - - dps460-i2c-8-58/Power supply 1 internal sensor/temp2_input
+        - dps460-i2c-8-58/Power supply 1 internal sensor/temp2_max
+      - - dps460-i2c-9-58/Power supply 2 inlet temp sensor/temp1_input
+        - dps460-i2c-9-58/Power supply 2 inlet temp sensor/temp1_max
+      - - dps460-i2c-9-58/Power supply 2 internal sensor/temp2_input
+        - dps460-i2c-9-58/Power supply 2 internal sensor/temp2_max
 
     non_zero:
       fan:
-      - dps460-i2c-6-58/fan1/fan1_input
+      - dps460-i2c-8-58/fan1/fan1_input
+      - dps460-i2c-9-58/fan1/fan1_input
       power: []
       temp: []
 

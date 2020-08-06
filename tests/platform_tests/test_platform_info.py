@@ -116,6 +116,21 @@ def get_psu_num(dut):
     return psu_num
 
 
+def check_vendor_specific_psustatus(dut, psu_status_line):
+    """
+    @summary: Vendor specific psu status check
+    """
+    if dut.facts["asic_type"] in ["mellanox"]:
+        from .mellanox.check_sysfs import check_psu_sysfs
+
+        psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
+        psu_match = psu_line_pattern.match(psu_status_line)
+        psu_id = psu_match.group(1)
+        psu_status = psu_match.group(2)
+
+        check_psu_sysfs(dut, psu_id, psu_status)
+
+
 def turn_all_psu_on(psu_ctrl):
     all_psu_status = psu_ctrl.get_psu_status()
     if all_psu_status:

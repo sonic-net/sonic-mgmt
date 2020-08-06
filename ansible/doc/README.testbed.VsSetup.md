@@ -4,9 +4,10 @@ This document describes the steps to setup the virtual switch based testbed and 
 
 ## Prepare testbed server
 
-- Install Ubuntu 18.04 amd64 server. To setup a T0 topology, the server needs to have 10GB free memory.
+- Install Ubuntu 20.04 amd64 server. To setup a T0 topology, the server needs to have 10GB free memory.
 - Setup internal management network:
 ```
+$ git clone https://github.com/Azure/sonic-mgmt
 $ cd sonic-mgmt/ansible
 $ sudo ./setup-management-network.sh
 ```
@@ -29,7 +30,23 @@ REPOSITORY                                     TAG                 IMAGE ID     
 ceosimage                                      4.23.2F             d53c28e38448        2 hours ago         1.82GB
 ```
 
-## Build or download *sonic-mgmt* docker image
+## Download sonic-vs image
+
+- Download sonic-vs image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz)
+```
+$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz
+```
+
+- unzip the image and move it into `~/sonic-vm/images/`
+```
+$ gzip -d sonic-vs.img.gz
+$ mkdir -p ~/sonic-vm/images
+$ mv sonic-vs.img ~/sonic-vm/images
+```
+
+## Setup sonic-mgmt docker
+
+### Build or download *sonic-mgmt* docker image
 
 ansible playbook in *sonic-mgmt* repo requires to setup ansible and various dependencies.
 We have built a *sonic-mgmt* docker that installs all dependencies, and you can build
@@ -52,42 +69,27 @@ $ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-so
 $ docker load -i docker-sonic-mgmt.gz
 ```
 
-## Download sonic-vs image
-
-- Download sonic-vs image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz)
-```
-$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz
-```
-
-- unzip the image and move it into `~/sonic-vm/images/`
-```
-$ gzip -d sonic-vs.img.gz
-$ mkdir -p ~/sonic-vm/images
-$ mv sonic-vs.img ~/sonic-vm/images
-```
-
-## Clone sonic-mgmt repo
+Run the `setup-container.sh` in the root directory of the sonic-mgmt repository:
 
 ```
-$ git clone https://github.com/Azure/sonic-mgmt
-```
-
-## Run sonic-mgmt docker
-
-(run following command from a place where the newly cloned sonic-mgmt repo is accessible, e.g. home directory or the parent fold of sonic-mgmt, the point is that you want to run following deployment and test commands from this repo)
-
-```
-$ docker run -v $PWD:/data -it docker-sonic-mgmt bash
+$ cd sonic-mgmt
+$ ./setup-container.sh -n <container name> -i docker-sonic-mgmt -d /data
 ```
 
 From now on, all steps are running inside the *sonic-mgmt* docker except where otherwise specified.
 
-### Setup public key to login into the linux host from sonic-mgmt docker
-
-- Modify veos.vtb to use the user name, e.g., `foo` to login linux host.
+You can enter your sonic-mgmt container with the following command:
 
 ```
-lgh@gulv-vm2:/data/sonic/sonic-mgmt/ansible$ git diff
+$ docker exec -u <alias> -it <container name> bash
+```
+
+### Setup public key to login into the linux host from sonic-mgmt docker
+
+- Modify veos.vtb to use the user name, e.g., `foo` to login linux host (this can be your username on the host).
+
+```
+lgh@gulv-vm2:/data/sonic-mgmt/ansible$ git diff
 diff --git a/ansible/veos.vtb b/ansible/veos.vtb
 index 4ea5a7a..4cfc448 100644
 --- a/ansible/veos.vtb
@@ -101,17 +103,19 @@ index 4ea5a7a..4cfc448 100644
 vm_host_1
 ```
 
+- Create dummy `password.txt` under `/data/sonic-mgmt/ansible`
+  
+  Please note: Here "password.txt" is the Ansible Vault password file name/path. Ansible allows user to use Ansible Vault to encrypt password files. By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line. The file name and location is created and maintained by user.
+
 - Add user `foo`'s public key to `/home/foo/.ssh/authorized_keys` on the host
 
+- On the host, run `sudo visudo` and add the following line at the end:
+
+```
+foo ALL=(ALL) NOPASSWD:ALL
+```
+
 - Add user `foo`'s private key to `$HOME/.ssh/id_rsa` inside sonic-mgmt docker container.
-
-- Add user `foo` to sudoer list, use `visudo` to add following line in the sudoer configuration.
-
-```
-   foo ALL=(ALL) NOPASSWD:ALL
-```
-
-- Make sure user `foo`'s home directory is owned by user `foo`. If necessary, `chown -R foo:foo /home/foo` on the host.
 
 - Test you can login into the host `ssh foo@172.17.0.1` without any password prompt
 from the `sonic-mgmt` container. Then, test you can sudo without password prompt in the host.
@@ -155,15 +159,15 @@ VM0100 | SUCCESS => {
 
 ### vEOS
 ```
+$ cd /data/sonic-mgmt/ansible
 $ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb add-topo vms-kvm-t0 password.txt
 ```
 
 ### cEOS
 ```
+$ cd /data/sonic-mgmt/ansible
 $ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb -k ceos add-topo vms-kvm-t0 password.txt
 ```
-
-  - Please note: Here "password.txt" is the Ansible Vault password file name/path. Ansible allows user to use Ansible Vault to encrypt password files. By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line. The file name and location is created and maintained by user.
 
 Verify topology setup successfully.
 
@@ -203,3 +207,74 @@ Neighbor        V         AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/P
 10.0.0.61       4 64600    3205     950        0    0    0 00:00:21     6400
 10.0.0.63       4 64600    3204     950        0    0    0 00:00:21     6400
 ```
+## Deploy IxNetwork API Server
+
+### Download IxNetwork API Server docker image
+1. Download IxNetwork Web Edition (Docker deployment) from [ here ](https://ks-aws-prd-itshared-opix.s3-us-west-1.amazonaws.com/IxSoftwareUpgrades/IxNetwork/9.0_Update3/Ixia_IxNetworkWeb_Docker_9.00.100.213.tar.bz2)
+
+2. Copy the tar.bz2 file on the testbed server.
+
+3. Make sure the interface has promiscuous mode enabled
+```
+ ifconfig ens160  promisc
+ ```
+
+3. Decompress the file (it may take a few minutes): 
+```
+tar xvjf <path_to_tar_file>
+```
+### Run IxNetwork API Server docker
+
+1. Load the image to docker:
+```
+docker load -i Ixia_IxNetworkWeb_Docker_<version>.tar
+```
+2. Loaded image : `ixnetworkweb_<version>_image`
+
+3. Create the macvlan bridge to be used by IxNetwork Web Edition:
+```
+docker network create -d macvlan -o parent=ens160 --subnet=192.168.x.0/24 --gateway=192.168.x.254 <bridge_name>
+(NOTE: Use your subnet, prefix length and gateway IP address.)
+```
+
+4. Verify bridge got created properly:
+```
+docker network ls
+docker network inspect IxNetVlanMac
+```
+5. Deploy the IxNetwork Web Edition container using the following command ixnetworkweb_\<version>_image  should be as shown in step 2 above):
+```
+docker run --net <bridge_name> \
+--ip <container ip> \
+--hostname <hostname> \
+--name <container name> \
+--privileged \
+--restart=always \
+--cap-add=SYS_ADMIN \
+--cap-add=SYS_TIME \
+--cap-add=NET_ADMIN \
+--cap-add=SYS_PTRACE \
+-i -d \
+-v /sys/fs/cgroup:/sys/fs/cgroup \
+-v /var/crash/=/var/crash \
+-v /opt/container/one/configs:/root/.local/share/Ixia/sdmStreamManager/common \
+-v /opt/container/one/results:/root/.local/share/Ixia/IxNetwork/data/result \
+-v /opt/container/one/settings:/root/.local/share/IXIA/IxNetwork.Globals \
+--tmpfs /run \
+ixnetworkweb_<version>_image
+
+Note : The folders within /opt/container/one/ should to be created with read and write permission prior docker run.
+
+```
+
+6. Launch IxNetworkWeb using browser `https://container ip`
+
+
+
+
+
+
+
+
+
+

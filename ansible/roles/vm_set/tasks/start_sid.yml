@@ -1,4 +1,4 @@
-- include_vars: group_vars/sonic/vars
+- include_vars: group_vars/sonic/variables
 
 - set_fact:
     sonic_hwsku: "{{ hostvars[dut_name]['hwsku'] }}"

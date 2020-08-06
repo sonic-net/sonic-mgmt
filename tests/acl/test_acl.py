@@ -418,6 +418,7 @@ class BaseAclTest(object):
         pkt = self.tcp_packet(setup, direction, ptfadapter)
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -428,6 +429,7 @@ class BaseAclTest(object):
         pkt['IP'].src = '20.0.0.2'
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -440,6 +442,7 @@ class BaseAclTest(object):
         pkt['IP'].src = '20.0.0.7'
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -452,6 +455,7 @@ class BaseAclTest(object):
         pkt['IP'].src = '20.0.0.3'
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -464,6 +468,7 @@ class BaseAclTest(object):
         pkt['IP'].dst = DST_IP_TOR_FORWARDED if direction == 'spine->tor' else DST_IP_SPINE_FORWARDED
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -476,6 +481,7 @@ class BaseAclTest(object):
         pkt['IP'].dst = DST_IP_TOR_BLOCKED if direction == 'spine->tor' else DST_IP_SPINE_BLOCKED
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -488,6 +494,7 @@ class BaseAclTest(object):
         pkt['IP'].src = '20.0.0.6'
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -500,6 +507,7 @@ class BaseAclTest(object):
         pkt['IP'].src = '20.0.0.4'
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -512,6 +520,7 @@ class BaseAclTest(object):
         pkt['IP'].src = '20.0.0.8'
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -524,6 +533,7 @@ class BaseAclTest(object):
         pkt['IP'].src = '20.0.0.8'
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -536,6 +546,7 @@ class BaseAclTest(object):
         pkt['IP'].src = '20.0.0.4'
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -548,6 +559,7 @@ class BaseAclTest(object):
         pkt['TCP'].dport = 0x1217
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -560,6 +572,7 @@ class BaseAclTest(object):
         pkt['TCP'].sport = 0x120D
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -572,6 +585,7 @@ class BaseAclTest(object):
         pkt['TCP'].dport = 0x123B
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -584,6 +598,7 @@ class BaseAclTest(object):
         pkt['TCP'].sport = 0x123A
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -596,6 +611,7 @@ class BaseAclTest(object):
         pkt['TCP'].dport = 0x127B
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -608,6 +624,7 @@ class BaseAclTest(object):
         pkt['TCP'].sport = 0x1271
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -620,6 +637,7 @@ class BaseAclTest(object):
         pkt['IP'].proto = 0x7E
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -632,6 +650,7 @@ class BaseAclTest(object):
         pkt['TCP'].flags = 0x1B
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -644,6 +663,7 @@ class BaseAclTest(object):
         pkt['TCP'].dport = 0x127B
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -656,6 +676,7 @@ class BaseAclTest(object):
         pkt['TCP'].sport = 0x1271
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -668,6 +689,7 @@ class BaseAclTest(object):
         pkt['IP'].proto = 0x7F
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
@@ -680,6 +702,7 @@ class BaseAclTest(object):
         pkt['TCP'].flags = 0x24
         exp_pkt = self.expected_mask_routed_packet(pkt)
 
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 

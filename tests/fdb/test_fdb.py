@@ -8,6 +8,7 @@ import logging
 import pprint
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 
 pytestmark = [
     pytest.mark.topology('t0')
@@ -172,8 +173,6 @@ def test_fdb(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost, pkt_type):
     host_facts  = duthost.setup()['ansible_facts']
     conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
-    # remove existing IPs from PTF host
-    ptfhost.script('scripts/remove_ip.sh')
     # reinitialize data plane due to above changes on PTF interfaces
     ptfadapter.reinit()
 

@@ -4,6 +4,7 @@ from ipaddress import ip_address
 import logging
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 
 TOPO_LIST = {'t0', 't1', 't1-lag'}
 PORTS_TOPO = {'t1'}
@@ -16,12 +17,6 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
-
-
-@pytest.fixture(scope='function', autouse=True)
-def prepare_ptf(ptfhost):
-    # remove existing IPs from ptf host
-    ptfhost.script('scripts/remove_ip.sh')
 
 
 def lag_facts(dut, mg_facts):

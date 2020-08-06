@@ -5,20 +5,22 @@ function show_help_and_exit()
     echo "Usage ${SCRIPT} [options]"
     echo "    options with (*) must be provided"
     echo "    -h -?          : get this help"
-    echo "    -c             : specify test cases to execute (default: none, executed all matched)"
-    echo "    -d             : specify DUT name (*)"
-    echo "    -e             : specify extra parameter(s) (default: none)"
-    echo "    -f             : specify testbed file (default testbed.csv)"
-    echo "    -i             : specify inventory name"
-    echo "    -k             : specify file log level: error|warning|info|debug (default debug)"
-    echo "    -l             : specify cli log level: error|warning|info|debug (default warning)"
-    echo "    -m             : specify test method group|individual|debug (default group)"
-    echo "    -n             : specify testbed name (*)"
+    echo "    -a <True|False>: specify if autu-recover is allowed (default: True)"
+    echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
+    echo "    -d <dut name>  : specify DUT name (*)"
+    echo "    -e <parameters>: specify extra parameter(s) (default: none)"
+    echo "    -f <tb file>   : specify testbed file (default testbed.csv)"
+    echo "    -i <inventory> : specify inventory name"
+    echo "    -k <file log>  : specify file log level: error|warning|info|debug (default debug)"
+    echo "    -l <cli log>   : specify cli log level: error|warning|info|debug (default warning)"
+    echo "    -m <method>    : specify test method group|individual|debug (default group)"
+    echo "    -n <testbed>   : specify testbed name (*)"
     echo "    -o             : omit the file logs"
-    echo "    -p             : specify log path (default: logs)"
+    echo "    -p <path>      : specify log path (default: logs)"
+    echo "    -q <n>         : test will stop after <n> failures (default: not stop on failure)"
     echo "    -r             : retain individual file log for suceeded tests (default: remove)"
-    echo "    -s             : specify list of scripts to skip (default: none)"
-    echo "    -t             : specify toplogy: t0|t1|any|combo like t0,any (*)"
+    echo "    -s <tests>     : specify list of tests to skip (default: none)"
+    echo "    -t <topology>  : specify toplogy: t0|t1|any|combo like t0,any (*)"
     echo "    -u             : bypass util group"
     echo "    -x             : print commands and their arguments as they are executed"
 
@@ -57,6 +59,7 @@ function setup_environment()
     BASE_PATH=$(dirname ${SCRIPT_PATH})
     LOG_PATH="logs"
 
+    AUTO_RECOVER="True"
     BYPASS_UTIL="False"
     CLI_LOG_LEVEL='warning'
     EXTRA_PARAMETERS=""
@@ -69,6 +72,7 @@ function setup_environment()
     TESTBED_FILE="${BASE_PATH}/ansible/testbed.csv"
     TEST_CASES=""
     TEST_METHOD='group'
+    TEST_MAX_FAIL=0
 
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
@@ -82,11 +86,14 @@ function setup_test_options()
                       --testbed_file ${TESTBED_FILE} \
                       --log-cli-level ${CLI_LOG_LEVEL} \
                       --log-file-level ${FILE_LOG_LEVEL} \
-                      --allow_recover \
                       --showlocals \
                       --assert plain \
                       --show-capture no \
                       -rav"
+
+    if [[ x"${AUTO_RECOVER}" == x"True" ]]; then
+        PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --allow_recover"
+    fi
 
     for skip in ${SKIP_SCRIPTS} ${SKIP_FOLDERS}; do
         PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
@@ -113,6 +120,12 @@ function setup_test_options()
     else
         TEST_TOPOLOGY_OPTIONS="--topology ${TOPOLOGY}"
     fi
+
+    PYTEST_UTIL_OPTS=${PYTEST_COMMON_OPTS}
+    # Max failure only applicable to the test session. Not the preparation and cleanup session.
+    if [[ ${TEST_MAX_FAIL} != 0 ]]; then
+        PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --maxfail=${TEST_MAX_FAIL}"
+    fi
 }
 
 function run_debug_tests()
@@ -125,6 +138,7 @@ function run_debug_tests()
 
     echo "ANSIBLE_CONFIG:        ${ANSIBLE_CONFIG}"
     echo "ANSIBLE_LIBRARY:       ${ANSIBLE_LIBRARY}"
+    echo "AUTO_RECOVER:          ${AUTO_RECOVER}"
     echo "BYPASS_UTIL:           ${BYPASS_UTIL}"
     echo "CLI_LOG_LEVEL:         ${CLI_LOG_LEVEL}"
     echo "EXTRA_PARAMETERS:      ${EXTRA_PARAMETERS}"
@@ -136,6 +150,7 @@ function run_debug_tests()
     echo "SKIP_SCRIPTS:          ${SKIP_SCRIPTS}"
     echo "SKIP_FOLDERS:          ${SKIP_FOLDERS}"
     echo "TEST_CASES:            ${TEST_CASES}"
+    echo "TEST_MAX_FAIL:         ${TEST_MAX_FAIL}"
     echo "TEST_METHOD:           ${TEST_METHOD}"
     echo "TESTBED_FILE:          ${TESTBED_FILE}"
     echo "TEST_LOGGING_OPTIONS:  ${TEST_LOGGING_OPTIONS}"
@@ -150,7 +165,7 @@ function run_debug_tests()
 function prepare_dut()
 {
     echo "=== Preparing DUT for subsequent tests ==="
-    py.test ${PYTEST_COMMON_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m pretest
+    py.test ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m pretest
 
     # Give some delay for the newly announced routes to propagate.
     sleep 120
@@ -159,7 +174,7 @@ function prepare_dut()
 function cleanup_dut()
 {
     echo "=== Cleaning up DUT after tests ==="
-    py.test ${PYTEST_COMMON_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m posttest
+    py.test ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m posttest
 }
 
 function run_group_tests()
@@ -205,6 +220,9 @@ function run_individual_tests()
             fi
         else
             EXIT_CODE=1
+            if [[ ${TEST_MAX_FAIL} != 0 ]]; then
+                return ${EXIT_CODE}
+            fi
         fi
 
     done
@@ -214,10 +232,13 @@ function run_individual_tests()
 
 setup_environment
 
-while getopts "h?c:d:e:f:i:k:l:m:n:op:rs:t:ux" opt; do
+while getopts "h?a:c:d:e:f:i:k:l:m:n:op:q:rs:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
+            ;;
+        a )
+            AUTO_RECOVER=${OPTARG}
             ;;
         c )
             TEST_CASES="${TEST_CASES} ${OPTARG}"
@@ -251,6 +272,9 @@ while getopts "h?c:d:e:f:i:k:l:m:n:op:rs:t:ux" opt; do
             ;;
         p )
             LOG_PATH=${OPTARG}
+            ;;
+        q )
+            TEST_MAX_FAIL=${OPTARG}
             ;;
         r )
             RETAIN_SUCCESS_LOG="True"

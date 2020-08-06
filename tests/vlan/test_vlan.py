@@ -12,6 +12,7 @@ import logging
 import pprint
 
 from tests.common.errors import RunAnsibleModuleFail
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +148,6 @@ def setup_vlan(ptfadapter, duthost, ptfhost, vlan_ports_list, vlan_intfs_list, c
                     ))
 
         logger.info("Copy arp_responder to ptfhost")
-        ptfhost.copy(src='scripts/arp_responder.py', dest='/opt')
 
         setUpArpResponder(vlan_ports_list, ptfhost)
 

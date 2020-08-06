@@ -91,22 +91,6 @@ def test_show_platform_syseeprom(duthost):
             pytest_assert(line in syseeprom_output, "Line '{}' was not found in output".format(line))
 
 
-# TODO: Gather expected data from a platform-specific data file instead of this method
-def check_vendor_specific_psustatus(dut, psu_status_line):
-    """
-    @summary: Vendor specific psu status check
-    """
-    if dut.facts["asic_type"] in ["mellanox"]:
-        from ..mellanox.check_sysfs import check_psu_sysfs
-
-        psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
-        psu_match = psu_line_pattern.match(psu_status_line)
-        psu_id = psu_match.group(1)
-        psu_status = psu_match.group(2)
-
-        check_psu_sysfs(dut, psu_id, psu_status)
-
-
 def test_show_platform_psustatus(duthost):
     """
     @summary: Verify output of `show platform psustatus`
@@ -118,7 +102,7 @@ def test_show_platform_psustatus(duthost):
     psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
     for line in psu_status_output_lines[2:]:
         pytest_assert(psu_line_pattern.match(line), "Unexpected PSU status output: '{}'".format(line))
-        check_vendor_specific_psustatus(duthost, line)
+        # TODO: Compare against expected platform-specific output
 
 
 def verify_show_platform_fan_output(raw_output_lines):
@@ -160,7 +144,7 @@ def verify_show_platform_temperature_output(raw_output_lines):
 
     pytest_assert(len(raw_output_lines) > 0, "There must be at least one line of output")
     if len(raw_output_lines) == 1:
-        pytest_assert(raw_output_lines[0].encode('utf-8').strip() == "Thernal Not detected", "Unexpected thermal status output")
+        pytest_assert(raw_output_lines[0].encode('utf-8').strip() == "Thermal Not detected", "Unexpected thermal status output")
     else:
         pytest_assert(len(raw_output_lines) > 2, "There must be at least two lines of output if any thermal is detected")
         second_line = raw_output_lines[1]

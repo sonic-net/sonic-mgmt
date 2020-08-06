@@ -1,10 +1,8 @@
-import sys
 import os
 import glob
 import json
 import tarfile
 import logging
-import time
 import string
 import re
 import getpass
@@ -16,8 +14,10 @@ import jinja2
 import ipaddr as ipaddress
 
 from collections import defaultdict
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
-from tests.common.devices import SonicHost, Localhost, PTFHost, EosHost, FanoutHost
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.devices import SonicHost, Localhost
+from tests.common.devices import PTFHost, EosHost, FanoutHost
+
 
 logger = logging.getLogger(__name__)
 
@@ -195,55 +195,35 @@ def testbed(request):
     return tbinfo.testbed_topo[tbname]
 
 
-def disable_ssh_timout(dut):
-    '''
-    @summary disable ssh session on target dut
-    @param dut: Ansible host DUT
-    '''
-    logger.info('Disabling ssh time out on dut: %s' % dut.hostname)
-    dut.command("sudo sed -i 's/^ClientAliveInterval/#&/' /etc/ssh/sshd_config")
-    dut.command("sudo sed -i 's/^ClientAliveCountMax/#&/' /etc/ssh/sshd_config")
-
-    dut.command("sudo systemctl restart ssh")
-    time.sleep(5)
-
-
-def enable_ssh_timout(dut):
-    '''
-    @summary: enable ssh session on target dut
-    @param dut: Ansible host DUT
-    '''
-    logger.info('Enabling ssh time out on dut: %s' % dut.hostname)
-    dut.command("sudo sed -i '/^#ClientAliveInterval/s/^#//' /etc/ssh/sshd_config")
-    dut.command("sudo sed -i '/^#ClientAliveCountMax/s/^#//' /etc/ssh/sshd_config")
-
-    dut.command("sudo systemctl restart ssh")
-    time.sleep(5)
+@pytest.fixture(name="duthosts", scope="session")
+def fixture_duthosts(ansible_adhoc, testbed):
+    """
+    @summary: fixture to get DUT hosts defined in testbed.
+    @param ansible_adhoc: Fixture provided by the pytest-ansible package.
+        Source of the various device objects. It is
+        mandatory argument for the class constructors.
+    @param testbed: Ansible framework testbed information
+    """
+    return [SonicHost(ansible_adhoc, dut) for dut in testbed["duts"]]
 
 
 @pytest.fixture(scope="session")
-def duthost(ansible_adhoc, testbed, request):
+def duthost(duthosts, request):
     '''
     @summary: Shortcut fixture for getting DUT host. For a lengthy test case, test case module can
               pass a request to disable sh time out mechanis on dut in order to avoid ssh timeout.
               After test case completes, the fixture will restore ssh timeout.
-    @param ansible_adhoc: Fixture provided by the pytest-ansible package. Source of the various device objects. It is
-        mandatory argument for the class constructors.
-    @param testbed: Ansible framework testbed information
+    @param duthosts: fixture to get DUT hosts
     @param request: request parameters for duthost test fixture
     '''
-    stop_ssh_timeout = getattr(request.session, "pause_ssh_timeout", None)
     dut_index = getattr(request.session, "dut_index", 0)
-    assert dut_index < len(testbed["duts"]), "DUT index '{0}' is out of bound '{1}'".format(dut_index, len(testbed["duts"]))
+    assert dut_index < len(duthosts), \
+        "DUT index '{0}' is out of bound '{1}'".format(dut_index,
+                                                       len(duthosts))
 
-    duthost = SonicHost(ansible_adhoc, testbed["duts"][dut_index])
-    if stop_ssh_timeout is not None:
-        disable_ssh_timout(duthost)
+    duthost = duthosts[dut_index]
 
-    yield duthost
-
-    if stop_ssh_timeout is not None:
-        enable_ssh_timout(duthost)
+    return duthost
 
 @pytest.fixture(scope="module", autouse=True)
 def reset_critical_services_list(duthost):
