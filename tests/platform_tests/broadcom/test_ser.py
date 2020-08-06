@@ -67,6 +67,7 @@ def test_setup_teardown(duthost, localhost):
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.broadcom
+@pytest.mark.skip(reason="Test is currently taking multiple hours to false negatively pass")
 def test_ser(duthost):
     '''
     @summary: Broadcom SER injection test use Broadcom SER injection utility to insert SER
