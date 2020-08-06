@@ -144,7 +144,7 @@ def verify_show_platform_temperature_output(raw_output_lines):
 
     pytest_assert(len(raw_output_lines) > 0, "There must be at least one line of output")
     if len(raw_output_lines) == 1:
-        pytest_assert(raw_output_lines[0].encode('utf-8').strip() == "Thernal Not detected", "Unexpected thermal status output")
+        pytest_assert(raw_output_lines[0].encode('utf-8').strip() == "Thermal Not detected", "Unexpected thermal status output")
     else:
         pytest_assert(len(raw_output_lines) > 2, "There must be at least two lines of output if any thermal is detected")
         second_line = raw_output_lines[1]
