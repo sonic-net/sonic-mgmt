@@ -70,7 +70,7 @@ def test_po_update(duthost):
         duthost.shell("config interface ip remove %s %s/31" % (portchannel, portchannel_ip))
         remove_portchannel_ip = True
 
-        time.sleep(30)
+        time.sleep(180)
         int_facts = duthost.interface_facts()['ansible_facts']
         assert not int_facts['ansible_interface_facts'][portchannel]['link']
         bgp_facts = duthost.bgp_facts()['ansible_facts']
@@ -91,7 +91,7 @@ def test_po_update(duthost):
         assert int_facts['ansible_interface_facts'][tmp_portchannel]['ipv4']['address'] == portchannel_ip
         add_tmp_portchannel_ip = True
 
-        time.sleep(30)
+        time.sleep(180)
         int_facts = duthost.interface_facts()['ansible_facts']
         assert int_facts['ansible_interface_facts'][tmp_portchannel]['link']
         bgp_facts = duthost.bgp_facts()['ansible_facts']
@@ -115,6 +115,6 @@ def test_po_update(duthost):
             for member in portchannel_members:
                 duthost.shell("config portchannel member add %s %s" % (portchannel, member))
 
-        time.sleep(30)
+        time.sleep(180)
         bgp_facts = duthost.bgp_facts()['ansible_facts']
         assert bgp_facts['bgp_statistics']['ipv4_idle'] == 0
