@@ -76,9 +76,9 @@ function start_and_config_container() {
 
 
 function validate_parameters() {
-    if ! `id -Gn $USER | grep -q '\bdocker\b'`; then
-        echo "User $USER is not in the docker group"
-        echo "Please add $USER to the docker group before proceeding"
+    if ! docker ps > /dev/null 2> /dev/null; then
+        echo "Unable to access Docker daemon"
+        echo "Hint: make sure $USER is a member of the docker group"
         exit 1
     fi
 
