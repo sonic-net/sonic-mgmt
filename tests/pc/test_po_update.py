@@ -73,7 +73,6 @@ def test_po_update(duthost):
         time.sleep(30)
         int_facts = duthost.interface_facts()['ansible_facts']
         assert not int_facts['ansible_interface_facts'][portchannel]['link']
-        bgp_facts = duthost.bgp_facts()['ansible_facts']
         if not wait_until(120, 10, duthost.check_bgp_statistic, 'ipv4_idle', 1):
             assert duthost.get_bgp_statistic('ipv4_idle') == 1
 
@@ -95,7 +94,6 @@ def test_po_update(duthost):
         time.sleep(30)
         int_facts = duthost.interface_facts()['ansible_facts']
         assert int_facts['ansible_interface_facts'][tmp_portchannel]['link']
-        bgp_facts = duthost.bgp_facts()['ansible_facts']
         if not wait_until(120, 10, duthost.check_bgp_statistic, 'ipv4_idle', 0):
             assert duthost.get_bgp_statistic('ipv4_idle') == 0
     finally:

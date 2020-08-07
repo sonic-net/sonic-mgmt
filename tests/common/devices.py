@@ -687,7 +687,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         
     def check_bgp_statistic(self, stat, value):
         val = get_bgp_statistic(stat)
-        return val == value:
+        return val == value
 
     def get_bgp_neighbors(self):
         """
