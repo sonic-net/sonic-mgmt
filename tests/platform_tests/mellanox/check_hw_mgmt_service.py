@@ -4,8 +4,6 @@ Helper function for checking the hw-management service
 import logging
 import re
 
-from tests.common.utilities import wait_until
-
 
 def check_hw_management_service(dut):
     """This function is to check the hw management service and related settings.
