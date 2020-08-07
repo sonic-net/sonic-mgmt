@@ -97,8 +97,17 @@
 - name: Ensure {{ ansible_user }} in docker,sudo group
   user:
     name: "{{ ansible_user }}"
+    append: yes
     groups: docker,sudo
   become: yes
+
+- name: Ensure {{ ansible_user }} in libvirt group
+  user:
+    name: "{{ ansible_user }}"
+    append: yes
+    groups: libvirt
+  become: yes
+  when: host_distribution_version.stdout == "20.04"
 
 - name: Install br_netfilter kernel module
   become: yes
