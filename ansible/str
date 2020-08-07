@@ -264,11 +264,15 @@ all:
               hosts:
                 str-z9100-acs-1:
                   ansible_host: 10.3.146.191
+                  hwsku: Force10-Z9100-C32
                 str-z9100-acs-2:
                   ansible_host: 10.64.247.237
+                  hwsku: Force10-Z9100-C32
                   pdu_host: pdu-107
+                str-s5232f-on-1:
+                  ansible_host: 10.64.246.111
+                  hwsku: DellEMC-S5232f-C32
               vars:
-                hwsku: Force10-Z9100-C32
                 iface_speed: 100000
 
             sonic_e1031:
@@ -546,6 +550,8 @@ all:
           ansible_host: 10.64.246.42
         vms12-5:
           ansible_host: 10.64.246.90
+        vms12-8:
+          ansible_host: 10.64.246.112
         vms13-1:
           ansible_host: 10.64.247.29
         vms13-2:

@@ -58,6 +58,7 @@
       <Device Hostname="str-marvell-acs-1" HwSku="et6448m" Type="DevSonic"/>
       <Device Hostname="str-n3164-acs-2" HwSku="Nexus-3164" Type="DevSonic"/>
       <Device Hostname="str-n3164-acs-1" HwSku="Nexus-3164" Type="DevSonic"/>
+      <Device Hostname="str-s5232f-on-1" HwSku="DellEMC-S5232f-C32" Type="DevSonic"/>
       <Device Hostname="str-marvell-acs-2" HwSku="et6448m" Type="FanoutLeafSonic"/>
       <Device Hostname="str-sn3800-01" HwSku="ACS-MSN3800" Type="DevSonic"/>
       <Device Hostname="str-7260-02" HwSku="Arista-7260QX-64" Type="FanoutLeaf"/>
@@ -2075,38 +2076,38 @@
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260cx3-acs-fan-05" EndPort="Ethernet60/1" StartDevice="str-7260cx3-acs-7" StartPort="Ethernet244"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260cx3-acs-fan-05" EndPort="Ethernet61/1" StartDevice="str-7260cx3-acs-7" StartPort="Ethernet248"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260cx3-acs-fan-05" EndPort="Ethernet62/1" StartDevice="str-7260cx3-acs-7" StartPort="Ethernet252"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet1/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet0"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet2/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet4"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet3/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet8"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet4/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet12"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet5/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet16"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet6/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet20"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet7/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet24"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet8/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet28"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet9/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet32"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet10/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet36"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet11/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet40"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet12/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet44"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet13/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet48"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet14/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet52"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet15/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet56"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet16/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet60"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet17/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet64"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet18/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet68"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet19/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet72"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet20/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet76"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet21/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet80"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet22/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet84"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet23/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet88"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet24/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet92"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet25/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet96"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet26/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet100"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet27/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet104"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet28/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet108"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet29/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet112"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet30/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet116"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet31/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet120"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet32/1" StartDevice="str-a7280cr3-1" StartPort="Ethernet124"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet1/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet0"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet2/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet4"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet3/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet8"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet4/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet12"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet5/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet16"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet6/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet20"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet7/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet24"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet8/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet28"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet9/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet32"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet10/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet36"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet11/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet40"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet12/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet44"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet13/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet48"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet14/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet52"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet15/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet56"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet16/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet60"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet17/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet64"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet18/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet68"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet19/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet72"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet20/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet76"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet21/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet80"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet22/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet84"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet23/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet88"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet24/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet92"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet25/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet96"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet26/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet100"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet27/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet104"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet28/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet108"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet29/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet112"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet30/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet116"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet31/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet120"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-20" EndPort="Ethernet32/1" StartDevice="str-s5232f-on-1" StartPort="Ethernet124"/>
       <DeviceInterfaceLink BandWidth="1000" EndDevice="str-marvell-acs-2" EndPort="Ethernet0" StartDevice="str-marvell-acs-1" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="1000" EndDevice="str-marvell-acs-2" EndPort="Ethernet1" StartDevice="str-marvell-acs-1" StartPort="Ethernet1"/>
       <DeviceInterfaceLink BandWidth="1000" EndDevice="str-marvell-acs-2" EndPort="Ethernet2" StartDevice="str-marvell-acs-1" StartPort="Ethernet2"/>
