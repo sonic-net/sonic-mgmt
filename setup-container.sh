@@ -76,6 +76,12 @@ function start_and_config_container() {
 
 
 function validate_parameters() {
+    if ! `id -Gn $USER | grep -q '\bdocker\b'`; then
+        echo "User $USER is not in the docker group"
+        echo "Please add $USER to the docker group before proceeding"
+        exit 1
+    fi
+
     if [[ -z ${CONTAINER_NAME} ]]; then
         echo "Container name not set"
         show_help_and_exit 1
@@ -99,12 +105,6 @@ function validate_parameters() {
     if [[ -z ${LINK_DIR} ]]; then
         LINK_DIR="/var/src"
         echo "Using default bind mount directory $LINK_DIR"
-    fi
-
-    if [[ ! `id -Gn $USER | grep '\bdocker\b'` ]]; then
-        echo "User $USER is not in the docker group"
-        echo "Please add $USER to the docker group before proceeding"
-        exit 1
     fi
 }
 
