@@ -6,13 +6,13 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
-from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
 from tests.ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0'),
+    pytest.mark.disable_loganalyzer
 ]
 
 # Globals
@@ -159,22 +159,7 @@ class TestWrArp:
             assert result["rc"] == 0 or "No such process" in result["stderr"], \
                 "Failed to delete route with error '{0}'".format(result["stderr"])
 
-    @pytest.fixture(scope='class', autouse=True)
-    def prepareSshKeys(self, duthost, ptfhost, creds):
-        '''
-            Prepares testbed ssh keys by generating ssh key on ptf host and adding this key to known_hosts on duthost
-            This class-scope fixture runs once before test start
-
-            Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
-                ptfhost (AnsibleHost): Packet Test Framework (PTF)
-
-            Returns:
-                None
-        '''
-        prepareTestbedSshKeys(duthost, ptfhost, creds['sonicadmin_user'])
-
-    def testWrArp(self, request, duthost, ptfhost):
+    def testWrArp(self, request, duthost, ptfhost, creds):
         '''
             Control Plane Assistant test for Warm-Reboot.
 
@@ -206,6 +191,8 @@ class TestWrArp:
             params={
                 'ferret_ip' : ptfIp,
                 'dut_ssh' : dutIp,
+                'dut_username': creds['sonicadmin_user'],
+                'dut_password': creds['sonicadmin_password'],
                 'config_file' : VXLAN_CONFIG_FILE,
                 'how_long' : testDuration,
             },

@@ -1,5 +1,6 @@
 import paramiko
 import logging
+import socket
 from paramiko.ssh_exception import BadHostKeyException, AuthenticationException, SSHException
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,13 @@ class DeviceConnection:
             logger.error('SSH Authentiaction failure with message: %s' % authenticationException)
         except BadHostKeyException as badHostKeyException:
             logger.error('SSH Authentiaction failure with message: %s' % badHostKeyException)
+        except socket.timeout as e:
+            # The ssh session will timeout in case of a successful reboot
+            logger.error('Caught exception socket.timeout: {}, {}, {}'.format(repr(e), str(e), type(e)))
+            retValue = 255
+        except Exception as e:
+            logger.error('Exception caught: {}, {}, type: {}'.format(repr(e), str(e), type(e)))
+            logger.error(sys.exc_info())
         finally:
             client.close()
 

@@ -12,6 +12,7 @@ import subprocess
 import datetime
 import traceback
 import sys
+import socket
 import threading
 from collections import defaultdict
 from pprint import pprint
@@ -22,6 +23,7 @@ from ptf.base_tests import BaseTest
 from ptf import config
 import ptf.dataplane as dataplane
 import ptf.testutils as testutils
+from device_connection import DeviceConnection
 
 
 class ArpTest(BaseTest):
@@ -60,19 +62,14 @@ class ArpTest(BaseTest):
 
         return stdout, stderr, return_code
 
-    def ssh(self, cmds):
-        ssh_cmds = ["ssh", "-oStrictHostKeyChecking=no", "-oServerAliveInterval=2", "admin@" + self.dut_ssh]
-        ssh_cmds.extend(cmds)
-        stdout, stderr, return_code = self.cmd(ssh_cmds)
-        if stdout != []:
-            self.log("stdout from dut: '%s'" % str(stdout))
-        if stderr != []:
-            self.log("stderr from dut '%s'" % str(stderr))
-        self.log("return code from dut: '%s'" % str(return_code))
+    def dut_exec_cmd(self, cmd):
+        self.log("Executing cmd='{}'".format(cmd))
+        stdout, stderr, return_code = self.dut_connection.execCommand(cmd, timeout=30)
+        self.log("return_code={}, stdout={}, stderr={}".format(return_code, stdout, stderr))
 
         if return_code == 0:
             return True, str(stdout)
-        elif return_code == 255 and 'Timeout, server' in stderr and 'not responding' in stderr:
+        elif return_code == 255:
             return True, str(stdout)
         else:
             return False, "return code: %d. stdout = '%s' stderr = '%s'" % (return_code, str(stdout), str(stderr))
@@ -82,14 +79,14 @@ class ArpTest(BaseTest):
             cmd = q_from.get()
             if cmd == 'WR':
                 self.log("Rebooting remote side")
-                res, res_text = self.ssh(["sudo", "warm-reboot", "-c", self.ferret_ip])
+                res, res_text = self.dut_exec_cmd("sudo warm-reboot -c {}".format(self.ferret_ip))
                 if res:
                     q_to.put('ok: %s' % res_text)
                 else:
                     q_to.put('error: %s' % res_text)
             elif cmd == 'uptime':
                 self.log("Check uptime remote side")
-                res, res_text = self.ssh(["uptime", "-s"])
+                res, res_text = self.dut_exec_cmd("uptime -s")
                 if res:
                     q_to.put('ok: %s' % res_text)
                 else:
@@ -193,6 +190,9 @@ class ArpTest(BaseTest):
         config = self.get_param('config_file')
         self.ferret_ip = self.get_param('ferret_ip')
         self.dut_ssh = self.get_param('dut_ssh')
+        self.dut_username = self.get_param('dut_username')
+        self.dut_password = self.get_param('dut_password')
+        self.dut_connection = DeviceConnection(self.dut_ssh, username=self.dut_username, password=self.dut_password)
         self.how_long = int(self.get_param('how_long', required=False, default=300))
 
         if not os.path.isfile(config):
