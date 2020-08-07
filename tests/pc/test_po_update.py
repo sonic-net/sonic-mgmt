@@ -2,6 +2,8 @@ import time
 import pytest
 import logging
 
+from tests.common.utilities import wait_until
+
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
