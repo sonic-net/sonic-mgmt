@@ -47,6 +47,7 @@ $ mv sonic-vs.img ~/sonic-vm/images
 ## Setup sonic-mgmt docker
 
 ### Build or download *sonic-mgmt* docker image
+(Note: downloading or building the sonic-mgmt image is optional)
 
 ansible playbook in *sonic-mgmt* repo requires to setup ansible and various dependencies.
 We have built a *sonic-mgmt* docker that installs all dependencies, and you can build
@@ -73,7 +74,7 @@ Run the `setup-container.sh` in the root directory of the sonic-mgmt repository:
 
 ```
 $ cd sonic-mgmt
-$ ./setup-container.sh -n <container name> -i docker-sonic-mgmt -d /data
+$ ./setup-container.sh -n <container name> -d /data
 ```
 
 From now on, all steps are running inside the *sonic-mgmt* docker except where otherwise specified.

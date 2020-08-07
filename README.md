@@ -14,8 +14,16 @@ Use the `setup-container.sh` script to automatically create and configure your s
 Usage ./setup-container.sh [options]
 Options with (*) are required
 -h -?                 : get this help
+
 -n <container name>   : (*) set the name of the Docker container 
--i <image ID>         : (*) specify Docker image to use
+
+-i <image ID>         : specify Docker image to use. This can be an image ID (hashed value) or an image name.
+                      | If no value is provided, defaults to the following images in the specified order:
+                      |   1. The local image named \"docker-sonic-mgmt\"
+                      |   2. The local image named \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\"
+                      |   3. The remote image at \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\"
+                      |      Note: to use option 3, your system must have Python3 with the PyYAML package installed
+
 -d <directory>        : specify directory inside container to bind mount to sonic-mgmt root (default "/var/src/")
 ```
 

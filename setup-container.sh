@@ -1,17 +1,32 @@
 #! /bin/bash
 
+DOCKER_SONIC_MGMT="docker-sonic-mgmt"
+DOCKER_REGISTRY="sonicdev-microsoft.azurecr.io:443/"
+VAR_FILE="ansible/vars/docker_registry.yml"
+USER_KEY="docker_registry_username"
+PASS_KEY="docker_registry_password"
+
 function show_help_and_exit() {
     echo "Usage $0 [options]"
     echo "Options with (*) are required"
+    echo ""
     echo "-h -?                 : get this help"
+    echo ""
     echo "-n <container name>   : (*) set the name of the Docker container"
-    echo "-i <image ID>         : (*) specify Docker image to use"
+    echo ""
+    echo "-i <image ID>         : specify Docker image to use. This can be an image ID (hashed value) or an image name."
+    echo "                      | If no value is provided, defaults to the following images in the specified order:"
+    echo "                      |   1. The local image named \"docker-sonic-mgmt\""
+    echo "                      |   2. The local image named \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\""
+    echo "                      |   3. The remote image at \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\""
+    echo "                      |      Note: to use option 3, your system must have Python3 with the PyYAML package installed"
+    echo ""
     echo "-d <directory>        : specify directory inside container to bind mount to sonic-mgmt root (default \"/var/src/\")"
     exit $1
 }
 
 function start_and_config_container() {
-    echo "Creating container"
+    echo "Creating container $CONTAINER_NAME"
     CURRENT_DIR=`pwd`/..
     docker run --name $CONTAINER_NAME -v $CURRENT_DIR:$LINK_DIR -d -t $IMAGE_ID bash > /dev/null
 
@@ -71,8 +86,28 @@ function validate_parameters() {
     fi
 
     if [[ -z ${IMAGE_ID} ]]; then
-        echo "Image ID not set"
-        show_help_and_exit 1
+        if docker images --format "{{.Repository}}" | grep -q "^${DOCKER_SONIC_MGMT}$"; then
+            IMAGE_ID=$DOCKER_SONIC_MGMT
+        elif docker images --format "{{.Repository}}" | grep -q "^${DOCKER_REGISTRY}${DOCKER_SONIC_MGMT}$"; then
+            IMAGE_ID=${DOCKER_REGISTRY}${DOCKER_SONIC_MGMT}
+        elif python3 -c "import yaml" 2> /dev/null ; then
+            echo "Pulling image from registry"
+            DOCKER_USER=`python3 -c "import yaml;print(yaml.load(open(\"$VAR_FILE\").read())[\"$USER_KEY\"])"`
+            DOCKER_PASS=`python3 -c "import yaml;print(yaml.load(open(\"$VAR_FILE\").read())[\"$PASS_KEY\"])"`
+        
+            if docker login -u $DOCKER_USER -p $DOCKER_PASS $DOCKER_REGISTRY > /dev/null 2> /dev/null; then
+                docker pull ${DOCKER_REGISTRY}${DOCKER_SONIC_MGMT}
+                IMAGE_ID=${DOCKER_REGISTRY}${DOCKER_SONIC_MGMT}  
+            else
+                echo "Problem logging into container registry, check credentials in $VAR_FILE"
+                exit 1
+            fi
+        else
+            echo "Unable to find a usable default image, please specify one manually"
+            show_help_and_exit 1
+            
+        fi
+        echo "Using default image $IMAGE_ID"
     fi
 
     if [[ -z ${LINK_DIR} ]]; then
@@ -104,6 +139,12 @@ while getopts "h?n:i:d:" opt; do
             ;;
         d )
             LINK_DIR=${OPTARG}
+            ;;
+        u )
+            DOCKER_USER=${OPTARG}
+            ;;
+        p )
+            DOCKER_PW=${OPTARG}
     esac
 done
 
