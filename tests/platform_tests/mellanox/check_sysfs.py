@@ -14,40 +14,42 @@ def check_sysfs(dut):
     dut_hwsku = dut.facts["hwsku"]
     from tests.common.mellanox_data import SWITCH_MODELS
     sku_info = SWITCH_MODELS[dut_hwsku]
+    sysfs_config = generate_sysfs_config(sku_info)
     logging.info("Collect mellanox sysfs facts")
-    sysfs_facts = dut.mellanox_sysfs_facts(sku_info=sku_info)['ansible_facts']
+    sysfs_facts = dut.sysfs_facts(config=sysfs_config)['ansible_facts']
 
     logging.info("Check broken symbolinks")
-    broken_symbolinks = sysfs_facts['broken_link_info']
+    broken_symbolinks = sysfs_facts['symbolink_info']['broken_links']
     assert len(broken_symbolinks) == 0, \
         "Found some broken symbolinks: %s" % str(broken_symbolinks)
 
     logging.info("Check ASIC related sysfs")
     try:
-        asic_temp = float(sysfs_facts['asic_temp']) / 1000
-        assert 0 < asic_temp < 105, "Abnormal ASIC temperature: %s" % sysfs_facts['asic_temp']
+        asic_temp = float(sysfs_facts['asic_info']['temp']) / 1000
+        assert 0 < asic_temp < 105, "Abnormal ASIC temperature: %s" % sysfs_facts['asic_info']['temp']
     except Exception as e:
         assert False, "Bad content in /var/run/hw-management/thermal/asic: %s" % repr(e)
 
     logging.info("Check fan related sysfs")
     for fan_id, fan_info in sysfs_facts['fan_info'].items():
         if SWITCH_MODELS[dut_hwsku]["fans"]["hot_swappable"]:
-            assert fan_info['fan_status'] == '1', "Fan {} status {} is not 1".format(fan_id, fan_info['fan_status'])
+            assert fan_info['status'] == '1', "Fan {} status {} is not 1".format(fan_id, fan_info['status'])
 
-        assert fan_info['fan_fault'] == '0', "Fan {} fault status {} is not 1".format(fan_id, fan_info['fan_fault'])
+        assert fan_info['fault'] == '0', "Fan {} fault status {} is not 1".format(fan_id, fan_info['fault'])
 
     if not _is_fan_speed_in_range(sysfs_facts):
-        assert wait_until(30, 5, _check_fan_speed_in_range, dut, sku_info), "Fan speed not in range"
+        sysfs_fan_config = [generate_sysfs_fan_config(sku_info)]
+        assert wait_until(30, 5, _check_fan_speed_in_range, dut, sysfs_fan_config), "Fan speed not in range"
 
     logging.info("Check CPU related sysfs")
     cpu_temp_high_counter = 0
     cpu_temp_list = []
     cpu_crit_temp_list = []
-    cpu_pack_count = SWITCH_MODELS[dut_hwsku]["cpu_pack"]["number"]
+    cpu_pack_count = sku_info["cpu_pack"]["number"]
     if cpu_pack_count > 0:
-        cpu_pack_temp = float(sysfs_facts['cpu_pack_info']['cpu_pack_temp']) / 1000
-        cpu_pack_max_temp = float(sysfs_facts['cpu_pack_info']['cpu_pack_max_temp']) / 1000
-        cpu_pack_crit_temp = float(sysfs_facts['cpu_pack_info']['cpu_crit_max_temp']) / 1000
+        cpu_pack_temp = float(sysfs_facts['cpu_pack_info']['temp']) / 1000
+        cpu_pack_max_temp = float(sysfs_facts['cpu_pack_info']['max_temp']) / 1000
+        cpu_pack_crit_temp = float(sysfs_facts['cpu_pack_info']['crit_temp']) / 1000
         assert cpu_pack_max_temp <= cpu_pack_crit_temp, "Bad CPU pack max temp or critical temp, %s, %s " \
                                                         % (str(cpu_pack_max_temp), str(cpu_pack_crit_temp))
         if cpu_pack_temp >= cpu_pack_crit_temp:
@@ -55,10 +57,10 @@ def check_sysfs(dut):
         cpu_temp_list.append(cpu_pack_temp)
         cpu_crit_temp_list.append(cpu_pack_crit_temp)
 
-    for core_id, cpu_info in sysfs_facts['cpu_info'].items():
-        cpu_core_temp = float(cpu_info["cpu_core_temp"]) / 1000
-        cpu_core_max_temp = float(cpu_info["cpu_core_max_temp"]) / 1000
-        cpu_core_crit_temp = float(cpu_info["cpu_core_crit_temp"]) / 1000
+    for core_id, cpu_info in sysfs_facts['cpu_core_info'].items():
+        cpu_core_temp = float(cpu_info["temp"]) / 1000
+        cpu_core_max_temp = float(cpu_info["max_temp"]) / 1000
+        cpu_core_crit_temp = float(cpu_info["crit_temp"]) / 1000
         assert cpu_core_max_temp <= cpu_core_crit_temp, "Bad CPU core%d max temp or critical temp, %s, %s " \
                                                         % (core_id, str(cpu_core_max_temp), str(cpu_core_crit_temp))
         if cpu_core_temp >= cpu_core_crit_temp:
@@ -74,33 +76,33 @@ def check_sysfs(dut):
     logging.info("Check PSU related sysfs")
     if SWITCH_MODELS[dut_hwsku]["psus"]["hot_swappable"]:
         for psu_id, psu_info in sysfs_facts['psu_info'].items():
-            psu_status = int(psu_info["psu_status"])
+            psu_status = int(psu_info["status"])
             if not psu_status:
                 logging.info("PSU %d doesn't exist, skipped" % psu_id)
                 continue
 
-            psu_pwr_status = int(psu_info["psu_pwr_status"])
+            psu_pwr_status = int(psu_info["pwr_status"])
             if not psu_pwr_status:
                 logging.info("PSU %d isn't power on, skipped" % psu_id)
                 continue
 
-            psu_temp = float(psu_info["psu_temp"]) / 1000
-            psu_max_temp = float(psu_info["psu_max_temp"]) / 1000
+            psu_temp = float(psu_info["temp"]) / 1000
+            psu_max_temp = float(psu_info["max_temp"]) / 1000
             assert psu_temp < psu_max_temp, "PSU%d overheated, temp: %s" % (psu_id, str(psu_temp))
-            assert psu_info["psu_max_temp_alarm"] == '0', "PSU{} temp alarm set".format(psu_id)
+            assert psu_info["max_temp_alarm"] == '0', "PSU{} temp alarm set".format(psu_id)
             try:
-                psu_fan_speed = int(psu_info["psu_fan_speed"])
+                psu_fan_speed = int(psu_info["fan_speed"])
                 assert psu_fan_speed > 1000, "Bad fan speed: %s" % str(psu_fan_speed)
             except Exception as e:
-                assert "Invalid PSU fan speed value {} for PSU {}, exception: {}".format(psu_info["psu_fan_speed"],
+                assert "Invalid PSU fan speed value {} for PSU {}, exception: {}".format(psu_info["fan_speed"],
                                                                                          psu_id, e)
 
     logging.info("Check SFP related sysfs")
     for sfp_id, sfp_info in sysfs_facts['sfp_info'].items():
         assert sfp_info["temp_fault"] == '0', "SFP%d temp fault" % sfp_id
-        sfp_temp = float(sfp_info['temp_input']) if sfp_info['temp_input'] != '0' else 0
-        sfp_temp_crit = float(sfp_info['temp_crit']) if sfp_info['temp_crit'] != '0' else 0
-        sfp_temp_emergency = float(sfp_info['temp_emergency']) if sfp_info['temp_emergency'] != '0' else 0
+        sfp_temp = float(sfp_info['temp']) if sfp_info['temp'] != '0' else 0
+        sfp_temp_crit = float(sfp_info['crit_temp']) if sfp_info['crit_temp'] != '0' else 0
+        sfp_temp_emergency = float(sfp_info['emergency_temp']) if sfp_info['emergency_temp'] != '0' else 0
         if sfp_temp_crit != 0:
             assert sfp_temp < sfp_temp_crit, "SFP%d overheated, temp%s" % (sfp_id, str(sfp_temp))
             assert sfp_temp_crit < sfp_temp_emergency, "Wrong SFP critical temp or emergency temp, " \
@@ -137,31 +139,8 @@ def check_psu_sysfs(dut, psu_id, psu_state):
             "sysfs content %s mismatches with psu_state %s" % (psu_pwr_state_content["stdout"], psu_state)
 
 
-def _check_fan_speed_in_range(dut, min_speed, max_speed, low_threshold, high_threshold, sysfs_path):
-    try:
-        fan_speed_get_content = dut.command("cat %s" % sysfs_path)
-        fan_speed = int(fan_speed_get_content["stdout"])
-        logging.info("fan speed: {}, min_speed: {}, max_speed: {}, low_threshold: {}, high_threshold: {}".format(
-            fan_speed,
-            min_speed,
-            max_speed,
-            low_threshold,
-            high_threshold
-        ))
-        return min_speed < fan_speed < max_speed and low_threshold < fan_speed < high_threshold
-    except Exception as e:
-        assert "Get content from %s failed, exception: %s" % (sysfs_path, repr(e))
-
-
-def _check_fan_speed_in_range(dut, sku_info):
-    sysfs_facts = dut.mellanox_sysfs_facts(sku_info=sku_info,
-                                           collect_broken_link=False,
-                                           collect_asic=False,
-                                           collect_fan=True,
-                                           collect_cpu=False,
-                                           collect_psu=False,
-                                           collect_sfp=False,
-                                           )['ansible_facts']
+def _check_fan_speed_in_range(dut, config):
+    sysfs_facts = dut.sysfs_facts(config=config)['ansible_facts']
 
     return _is_fan_speed_in_range(sysfs_facts)
 
@@ -169,10 +148,10 @@ def _check_fan_speed_in_range(dut, sku_info):
 def _is_fan_speed_in_range(sysfs_facts):
     for fan_id, fan_info in sysfs_facts['fan_info'].items():
         try:
-            fan_min_speed = int(fan_info["fan_min"])
-            fan_max_speed = int(fan_info["fan_max"])
-            fan_speed_set = int(fan_info["fan_speed_set"])
-            fan_speed_get = int(fan_info["fan_speed_get"])
+            fan_min_speed = int(fan_info["min_speed"])
+            fan_max_speed = int(fan_info["max_speed"])
+            fan_speed_set = int(fan_info["speed_set"])
+            fan_speed_get = int(fan_info["speed_get"])
 
             assert fan_min_speed > 0 and fan_max_speed > 10000, 'Invalid fan min/max speed: {}, {}'.format(
                 fan_min_speed,
@@ -186,8 +165,192 @@ def _is_fan_speed_in_range(sysfs_facts):
             return low_threshold < fan_speed_get < high_threshold
         except Exception as e:
             assert False, 'Invalid fan speed: actual speed={}, set speed={}, min={}, max={}'.format(
-                fan_info["fan_min"],
-                fan_info["fan_max"],
-                fan_info["fan_speed_set"],
-                fan_info["fan_speed_get"],
+                fan_info["min_speed"],
+                fan_info["max_speed"],
+                fan_info["speed_set"],
+                fan_info["speed_get"]
             )
+
+
+def generate_sysfs_config(sku_info):
+    config = list()
+    config.append(generate_sysfs_symbolink_config())
+    config.append(generate_sysfs_asic_config())
+    if sku_info["cpu_pack"]["number"] > 0:
+        config.append(generate_sysfs_cpu_pack_config())
+    config.append(generate_sysfs_cpu_core_config(sku_info))
+    config.append(generate_sysfs_fan_config(sku_info))
+    if sku_info['psus']['hot_swappable']:
+        config.append(generate_sysfs_psu_config(sku_info))
+    config.append(generate_sysfs_sfp_config(sku_info))
+    return config
+
+
+def generate_sysfs_symbolink_config():
+    return {
+        'name': 'symbolink_info',
+        'type': 'single',
+        'properties': [
+            {
+                'name': 'broken_links',
+                'cmd_pattern': 'find /var/run/hw-management -xtype l'
+            }
+        ]
+    }
+
+
+def generate_sysfs_asic_config():
+    return {
+        'name': 'asic_info',
+        'type': 'single',
+        'properties': [
+            {
+                'name': 'temp',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/asic'
+            }
+        ]
+    }
+
+
+def generate_sysfs_fan_config(sku_info):
+    fan_config = {
+        'name': 'fan_info',
+        'start': 1,
+        'count': sku_info['fan']['number'],
+        'type': 'increment',
+        'properties': [
+            {
+                'name': 'status',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/fan{}_status',
+            },
+            {
+                'name': 'fault',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/fan{}_fault',
+            },
+            {
+                'name': 'min_speed',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/fan{}_min',
+            },
+            {
+                'name': 'max_speed',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/fan{}_max',
+            },
+            {
+                'name': 'speed_set',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/fan{}_speed_set',
+            },
+            {
+                'name': 'speed_get',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/fan{}_speed_get',
+            }
+        ]
+    }
+    if not sku_info['fan']['hot_swappable']:
+        fan_config['properties'] = fan_config['properties'][1:]
+    return fan_config
+
+
+def generate_sysfs_cpu_pack_config():
+    return {
+        'name': 'cpu_pack_info',
+        'type': 'single',
+        'properties': [
+            {
+                'name': 'temp',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/cpu_pack'
+            },
+            {
+                'name': 'max_temp',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/cpu_pack_max'
+            },
+            {
+                'name': 'crit_temp',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/cpu_pack_crit'
+            }
+        ]
+    }
+
+
+def generate_sysfs_cpu_core_config(sku_info):
+    return {
+        'name': 'cpu_core_info',
+        'start': 0,
+        'count': sku_info['cpu_cores']['number'],
+        'type': 'increment',
+        'properties': [
+            {
+                'name': 'temp',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/cpu_core{}',
+            },
+            {
+                'name': 'max_temp',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/cpu_core{}_max',
+            },
+            {
+                'name': 'crit_temp',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/cpu_core{}_crit',
+            }
+        ]
+    }
+
+
+def generate_sysfs_psu_config(sku_info):
+    return {
+        'name': 'psu_info',
+        'start': 1,
+        'count': sku_info['psus']['number'],
+        'type': 'increment',
+        'properties': [
+            {
+                'name': 'status',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/psu{}_status',
+            },
+            {
+                'name': 'pwr_status',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/psu{}_pwr_status',
+            },
+            {
+                'name': 'temp',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/psu{}_temp',
+            },
+            {
+                'name': 'max_temp',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/psu{}_temp_max',
+            },
+            {
+                'name': 'max_temp_alarm',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/psu{}_temp_max_alarm',
+            },
+            {
+                'name': 'fan_speed',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/psu{}_fan1_speed_get',
+            }
+        ]
+    }
+
+
+def generate_sysfs_sfp_config(sku_info):
+    return {
+        'name': 'sfp_info',
+        'start': 1,
+        'count': sku_info['psus']['number'],
+        'type': 'increment',
+        'properties': [
+            {
+                'name': 'temp_fault',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/module{}_temp_fault',
+            },
+            {
+                'name': 'temp',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/module{}_temp_input',
+            },
+            {
+                'name': 'crit_temp',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/module{}_temp_crit',
+            },
+            {
+                'name': 'emergency_temp',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/module{}_temp_emergency',
+            }
+        ]
+    }
