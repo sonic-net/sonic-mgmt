@@ -172,7 +172,7 @@ def test_bgp_speaker_announce_routes(common_setup_teardown, testbed, duthost, pt
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """
-    ptfip, mg_facts, interface_facts, vlan_ips, _, _, speaker_ips, port_num, http_ready = common_setup_teardown
+    ptfip, mg_facts, interface_facts, vlan_ips, vlan_if_name, _, speaker_ips, port_num, http_ready = common_setup_teardown
     assert http_ready
 
     logging.info("announce route")
@@ -199,6 +199,14 @@ def test_bgp_speaker_announce_routes(common_setup_teardown, testbed, duthost, pt
     bgp_facts = duthost.bgp_facts()['ansible_facts']
     for ip in speaker_ips:
         assert bgp_facts['bgp_neighbors'][str(ip.ip)]['accepted prefixes'] == 1
+
+    logging.info("Verify nexthops and nexthop interfaces for accepted prefixes of the dynamic neighbors")
+    rtinfo = duthost.get_ip_route_info(ipaddress.ip_network(unicode(prefix)))
+    nexthops_ip_set = { str(nexthop.ip) for nexthop in vlan_ips }
+    assert len(rtinfo["nexthops"]) == 2
+    for i in [0,1]:
+        assert str(rtinfo["nexthops"][i][0]) in nexthops_ip_set
+        assert rtinfo["nexthops"][i][1] == unicode(vlan_if_name)
 
     logging.info("Generate route-port map information")
     extra_vars = {'announce_prefix': '10.10.10.0/26',
