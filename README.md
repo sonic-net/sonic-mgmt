@@ -22,7 +22,6 @@ Options with (*) are required
                       |   1. The local image named \"docker-sonic-mgmt\"
                       |   2. The local image named \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\"
                       |   3. The remote image at \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\"
-                      |      Note: to use option 3, your system must have Python3 with the PyYAML package installed
 
 -d <directory>        : specify directory inside container to bind mount to sonic-mgmt root (default "/var/src/")
 ```
