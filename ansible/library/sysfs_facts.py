@@ -1,6 +1,62 @@
 #!/usr/bin/python
-import os
+
 from ansible.module_utils.basic import *
+
+DOCUMENTATION = '''
+module:         sysfs_facts
+version_added:  "1.0"
+author:         Junchao Chen (junchao@nvidia.com)
+short_description: Collect sysfs information from switch
+description:
+    - Collect sysfs information from switch
+'''
+
+EXAMPLES = '''
+- name: Get BGP neighbor information
+  sysfs_facts:
+    config: ${a list of check items}
+'''
+
+# Example of input config
+'''
+sysfs_facts accept a list of check item configuration. 
+
+Single check item config:
+{
+    'name': 'item_name',
+    'type': 'single',
+    'properties': [
+        {
+            'name': 'prop_name',
+            'cmd_pattern': 'some command'
+        }
+    ]
+}
+
+User can get the item property value by: 
+ansible_facts['item_name']['prop_name']
+
+Increment check item config:
+{
+    'name': 'item_name',
+    'start': 1,
+    'count': 10,
+    'type': 'increment',
+    'properties': [
+        {
+            'name': 'prop1_name',
+            'cmd_pattern': 'some command {}',
+        },
+        {
+            'name': 'prop2_name',
+            'cmd_pattern': 'some command {}',
+        }
+    ]
+}
+
+User can get the first property of the first item value by:
+ansible_facts['item_name'][1]['prop1_name']
+'''
 
 
 class SysfsModule(object):

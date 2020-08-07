@@ -216,7 +216,7 @@ def generate_sysfs_fan_config(sku_info):
     fan_config = {
         'name': 'fan_info',
         'start': 1,
-        'count': sku_info['fan']['number'],
+        'count': sku_info['fans']['number'],
         'type': 'increment',
         'properties': [
             {
@@ -245,7 +245,7 @@ def generate_sysfs_fan_config(sku_info):
             }
         ]
     }
-    if not sku_info['fan']['hot_swappable']:
+    if not sku_info['fans']['hot_swappable']:
         fan_config['properties'] = fan_config['properties'][1:]
     return fan_config
 
@@ -333,7 +333,7 @@ def generate_sysfs_sfp_config(sku_info):
     return {
         'name': 'sfp_info',
         'start': 1,
-        'count': sku_info['psus']['number'],
+        'count': sku_info['ports']['number'],
         'type': 'increment',
         'properties': [
             {
