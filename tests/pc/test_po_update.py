@@ -70,11 +70,12 @@ def test_po_update(duthost):
         duthost.shell("config interface ip remove %s %s/31" % (portchannel, portchannel_ip))
         remove_portchannel_ip = True
 
-        time.sleep(180)
+        time.sleep(30)
         int_facts = duthost.interface_facts()['ansible_facts']
         assert not int_facts['ansible_interface_facts'][portchannel]['link']
         bgp_facts = duthost.bgp_facts()['ansible_facts']
-        assert bgp_facts['bgp_statistics']['ipv4_idle'] == 1
+        if not wait_until(120, 10, duthost.check_bgp_statistic, 'ipv4_idle', 1):
+            assert duthost.get_bgp_statistic('ipv4_idle') == 1
 
         # Step 3: Create tmp portchannel
         duthost.shell("config portchannel add %s" % tmp_portchannel)
@@ -91,11 +92,12 @@ def test_po_update(duthost):
         assert int_facts['ansible_interface_facts'][tmp_portchannel]['ipv4']['address'] == portchannel_ip
         add_tmp_portchannel_ip = True
 
-        time.sleep(180)
+        time.sleep(30)
         int_facts = duthost.interface_facts()['ansible_facts']
         assert int_facts['ansible_interface_facts'][tmp_portchannel]['link']
         bgp_facts = duthost.bgp_facts()['ansible_facts']
-        assert bgp_facts['bgp_statistics']['ipv4_idle'] == 0
+        if not wait_until(120, 10, duthost.check_bgp_statistic, 'ipv4_idle', 0):
+            assert duthost.get_bgp_statistic('ipv4_idle') == 0
     finally:
         # Recover all states
         if add_tmp_portchannel_ip:
@@ -114,7 +116,6 @@ def test_po_update(duthost):
         if remove_portchannel_members:
             for member in portchannel_members:
                 duthost.shell("config portchannel member add %s %s" % (portchannel, member))
+        if not wait_until(120, 10, duthost.check_bgp_statistic, 'ipv4_idle', 0):
+            assert duthost.get_bgp_statistic('ipv4_idle') == 0
 
-        time.sleep(180)
-        bgp_facts = duthost.bgp_facts()['ansible_facts']
-        assert bgp_facts['bgp_statistics']['ipv4_idle'] == 0
