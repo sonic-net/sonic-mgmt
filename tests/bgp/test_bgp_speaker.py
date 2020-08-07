@@ -208,7 +208,7 @@ def test_bgp_speaker_announce_routes(common_setup_teardown, testbed, duthost, pt
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     logging.info("extra_vars: %s" % str(ptfhost.host.options['variable_manager'].extra_vars))
 
-    ptfhost.template(src="bgp_speaker/bgp_speaker_route.j2", dest="/root/bgp_speaker_route.txt")
+    ptfhost.template(src="bgp_speaker/bgp_speaker_route.j2", dest="/root/bgp_speaker_v6route.txt")
 
     logging.info("run ptf test")
 
@@ -218,7 +218,7 @@ def test_bgp_speaker_announce_routes(common_setup_teardown, testbed, duthost, pt
                 platform_dir="ptftests",
                 params={"testbed_type": testbed['topo']['name'],
                         "router_mac": interface_facts['ansible_interface_facts']['Ethernet0']['macaddress'],
-                        "fib_info": "/root/bgp_speaker_route.txt",
+                        "fib_info": "/root/bgp_speaker_v6route.txt",
                         "ipv4": ipv4,
                         "ipv6": ipv6,
                         "testbed_mtu": mtu },
