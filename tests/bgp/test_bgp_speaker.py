@@ -37,13 +37,17 @@ def generate_ips(num, prefix, exclude_ips):
 
     return generated_ips
 
-
 def announce_route(ptfip, neighbor, route, nexthop, port):
+    change_route("announce", ptfip, neighbor, route, nexthop, port)
+
+def withdraw_route(ptfip, neighbor, route, nexthop, port):
+    change_route("withdraw", ptfip, neighbor, route, nexthop, port)
+
+def change_route(operation, ptfip, neighbor, route, nexthop, port):
     url = "http://%s:%d" % (ptfip, port)
-    data = {"command": "neighbor %s announce route %s next-hop %s" % (neighbor, route, nexthop)}
+    data = {"command": "neighbor %s %s route %s next-hop %s" % (neighbor, operation, route, nexthop)}
     r = requests.post(url, data=data)
     assert r.status_code == 200
-
 
 @pytest.fixture(scope="module")
 def common_setup_teardown(duthost, ptfhost, localhost):
@@ -154,6 +158,7 @@ def common_setup_teardown(duthost, ptfhost, localhost):
 
     logging.info("########### Done teardown for bgp speaker testing ###########")
 
+
 def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthost, ptfhost, collect_techsupport):
     """Setup bgp speaker on T0 topology and verify bgp sessions are established
     """
@@ -166,6 +171,7 @@ def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthost, ptfhost, colle
     assert all([v["state"] == "established" for _, v in bgp_facts["bgp_neighbors"].items()]), \
         "Not all bgp sessions are established"
     assert str(speaker_ips[2].ip) in bgp_facts["bgp_neighbors"], "No bgp session with PTF"
+
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 1514)])
 def test_bgp_speaker_announce_routes(common_setup_teardown, testbed, duthost, ptfhost, ipv4, ipv6, mtu, collect_techsupport):
@@ -216,7 +222,7 @@ def test_bgp_speaker_announce_routes(common_setup_teardown, testbed, duthost, pt
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     logging.info("extra_vars: %s" % str(ptfhost.host.options['variable_manager'].extra_vars))
 
-    ptfhost.template(src="bgp_speaker/bgp_speaker_route.j2", dest="/root/bgp_speaker_v6route.txt")
+    ptfhost.template(src="bgp_speaker/bgp_speaker_route.j2", dest="/root/bgp_speaker_route.txt")
 
     logging.info("run ptf test")
 
@@ -226,12 +232,19 @@ def test_bgp_speaker_announce_routes(common_setup_teardown, testbed, duthost, pt
                 platform_dir="ptftests",
                 params={"testbed_type": testbed['topo']['name'],
                         "router_mac": interface_facts['ansible_interface_facts']['Ethernet0']['macaddress'],
-                        "fib_info": "/root/bgp_speaker_v6route.txt",
+                        "fib_info": "/root/bgp_speaker_route.txt",
                         "ipv4": ipv4,
                         "ipv6": ipv6,
                         "testbed_mtu": mtu },
                 log_file="/tmp/bgp_speaker_test.FibTest.log",
                 socket_recv_size=16384)
+
+    logging.info("Withdraw routes")
+    withdraw_route(ptfip, lo_addr, prefix, vlan_ips[1].ip, port_num[0])
+    withdraw_route(ptfip, lo_addr, prefix, vlan_ips[2].ip, port_num[1])
+    withdraw_route(ptfip, lo_addr, peer_range, vlan_ips[0].ip, port_num[2])
+
+    logging.info("Nexthop ipv4 tests are done")
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(False, True, 1514)])
@@ -263,6 +276,11 @@ def test_bgp_speaker_announce_routes_v6(common_setup_teardown, testbed, duthost,
     duthost.shell("ping %s -c 3" % vlan_ips[2].ip)
     time.sleep(5)
 
+    logging.info("Verify accepted prefixes of the dynamic neighbors are correct")
+    bgp_facts = duthost.bgp_facts()['ansible_facts']
+    for ip in speaker_ips:
+        assert bgp_facts['bgp_neighbors'][str(ip.ip)]['accepted prefixes'] == 1
+
     logging.info("Verify nexthops and nexthop interfaces for accepted prefixes of the dynamic neighbors")
     rtinfo = duthost.get_ip_route_info(ipaddress.ip_network(unicode(prefix)))
     nexthops_ipv6_set = { str(nexthop.ip) for nexthop in nexthops_ipv6 }
@@ -279,7 +297,7 @@ def test_bgp_speaker_announce_routes_v6(common_setup_teardown, testbed, duthost,
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     logging.info("extra_vars: %s" % str(ptfhost.host.options['variable_manager'].extra_vars))
 
-    ptfhost.template(src="bgp_speaker/bgp_speaker_route.j2", dest="/root/bgp_speaker_route.txt")
+    ptfhost.template(src="bgp_speaker/bgp_speaker_route.j2", dest="/root/bgp_speaker_v6route.txt")
 
     logging.info("run ptf test")
 
@@ -289,11 +307,15 @@ def test_bgp_speaker_announce_routes_v6(common_setup_teardown, testbed, duthost,
                 platform_dir="ptftests",
                 params={"testbed_type": testbed['topo']['name'],
                         "router_mac": interface_facts['ansible_interface_facts']['Ethernet0']['macaddress'],
-                        "fib_info": "/root/bgp_speaker_route.txt",
+                        "fib_info": "/root/bgp_speaker_v6route.txt",
                         "ipv4": ipv4,
                         "ipv6": ipv6,
                         "testbed_mtu": mtu },
                 log_file="/tmp/bgp_speaker_test.FibTest.log",
                 socket_recv_size=16384)
 
-    logging.info("Nexthop tests are done")
+    withdraw_route(ptfip, lo_addr, prefix, nexthops_ipv6[1].ip, port_num[0])
+    withdraw_route(ptfip, lo_addr, prefix, nexthops_ipv6[2].ip, port_num[1])
+    withdraw_route(ptfip, lo_addr, peer_range, vlan_ips[0].ip, port_num[2])
+
+    logging.info("Nexthop ipv6 tests are done")
