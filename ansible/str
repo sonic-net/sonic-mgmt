@@ -270,7 +270,7 @@ all:
                   hwsku: Force10-Z9100-C32
                   pdu_host: pdu-107
                 str-s5232f-on-1:
-                  ansible_host: 10.64.246.111
+                  ansible_host: 10.3.146.247
                   hwsku: DellEMC-S5232f-C32
               vars:
                 iface_speed: 100000
