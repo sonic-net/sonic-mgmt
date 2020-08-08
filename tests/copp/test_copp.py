@@ -49,7 +49,9 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "swap_syncd",
                                   "topo",
                                   "bgp_graph"])
-_SUPPORTED_TOPOS = ["ptf32", "ptf64", "t1", "t1-lag"]
+_SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
+_SUPPORTED_T1_TOPOS = ["t1", "t1-lag"]
+_T1_NO_COPP_PROTOCOL = ["DHCP"]
 _TEST_RATE_LIMIT = 600
 
 class TestCOPP(object):
@@ -85,17 +87,6 @@ class TestCOPP(object):
             Checks that the policer does not enforce a rate limit for protocols
             that do not have any set rate limit.
         """
-        # FIXME: The DHCP COPP Policy was removed from T1 in a recent change, so no
-        # packets will be trapped to CPU. So, we should have two cases:
-        #
-        # 1. Verify that NO DHCP packets are trapped to CPU on T1, and
-        # 2. Verify that DHCP packets ARE trapped to CPU on T0
-        #
-        # Because COPP doesn't run on T0 yet and the ptf script does not support "no
-        # packets received", we expect the test to fail for the time being.
-        if protocol == "DHCP":
-            pytest.mark.xfail("DHCP COPP Policy has been removed from T1 config")
-
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
@@ -108,7 +99,7 @@ def copp_testbed(duthost, ptfhost, testbed, request):
     """
     test_params = _gather_test_params(testbed, duthost, request)
 
-    if test_params.topo not in _SUPPORTED_TOPOS:
+    if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T1_TOPOS):
         pytest.skip("Topology not supported by COPP tests")
 
     _setup_testbed(duthost, ptfhost, test_params)
@@ -155,7 +146,9 @@ def _copp_runner(dut, ptf, protocol, test_params):
     # nightly test runs.
     ptf_runner(host=ptf,
                testdir="ptftests",
-               testname="copp_tests.{}Test".format(protocol),
+               # Special Handling for DHCP if we are using T1 Topo
+               testname="copp_tests.{}Test".format((protocol+"TopoT1")
+                         if test_params.topo in _SUPPORTED_T1_TOPOS and protocol in _T1_NO_COPP_PROTOCOL else protocol),
                platform="nn",
                qlen=100000,
                params=params,
