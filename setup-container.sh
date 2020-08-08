@@ -76,7 +76,7 @@ function start_and_config_container() {
 
 
 function validate_parameters() {
-    if ! docker ps > /dev/null 2> /dev/null; then
+    if ! docker info > /dev/null 2> /dev/null; then
         echo "Unable to access Docker daemon"
         echo "Hint: make sure $USER is a member of the docker group"
         exit 1
