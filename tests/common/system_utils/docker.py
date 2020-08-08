@@ -5,7 +5,6 @@
 import collections
 import logging
 import os
-import yaml
 
 from tests.common import config_reload
 from tests.common.broadcom_data import is_broadcom_device
