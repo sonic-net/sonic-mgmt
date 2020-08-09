@@ -19,7 +19,6 @@ all:
             str-msn2700-02:
               ansible_host: 10.251.0.235
               os: sonic
-
     ptf:
       hosts:
         ptf_ptf1:
@@ -36,6 +35,9 @@ all:
           ansible_ssh_pass: root
 
 sonic_sn2700_40:
+  vars:
+    hwsku: ACS-MSN2700
+    iface_speed: 40000
   hosts:
     str-msn2700-01:
       ansible_host: 10.251.0.188
@@ -53,11 +55,11 @@ sonic_sn2700_40:
         "0x2A": "128"
         "0x2B": "Mellanox"
         "0xFE": "0xFBA1E964"
-  vars:
-    hwsku: ACS-MSN2700
-    iface_speed: 40000
 
 sonic_s6000:
+  vars:
+    hwsku: Force10-S6000
+    iface_speed: 40000
   hosts:
     lab-s6000-01:
       ansible_host: 10.251.0.189
@@ -71,24 +73,21 @@ sonic_s6000:
     vlab-04:
       ansible_host: 10.250.0.107
       ansible_hostv6: fec0::ffff:afa:7
-  vars:
-    hwsku: Force10-S6000
-    iface_speed: 40000
 
 sonic_s6100:
+  vars:
+    hwsku: Force10-S6100
+    iface_speed: 40000
   hosts:
     lab-s6100-01:
       ansible_host: 10.251.0.190
     vlab-02:
       ansible_host: 10.250.0.102
-  vars:
-    hwsku: Force10-S6100
-    iface_speed: 40000
 
 sonic_a7260:
+  vars:
+    iface_speed: 100000
   hosts:
     lab-a7260-01:
       ansible_host: 10.251.0.191
       hwsku: Arista-7260CX3-D108C8
-  vars:
-    iface_speed: 100000
