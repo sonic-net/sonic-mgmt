@@ -141,7 +141,7 @@ def common_setup_teardown(duthost, ptfhost, localhost):
 
     logging.info("########### Done setup for bgp speaker testing ###########")
 
-    yield ptfip, mg_facts, interface_facts, vlan_ips, vlan_if_name, nexthops_ipv6, speaker_ips, port_num, http_ready
+    yield ptfip, mg_facts, interface_facts, vlan_ips, nexthops_ipv6, vlan_if_name, speaker_ips, port_num, http_ready
 
     logging.info("########### Teardown for bgp speaker testing ###########")
 
@@ -178,7 +178,7 @@ def test_bgp_speaker_announce_routes(common_setup_teardown, testbed, duthost, pt
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """
-    ptfip, mg_facts, interface_facts, vlan_ips, vlan_if_name, _, speaker_ips, port_num, http_ready = common_setup_teardown
+    ptfip, mg_facts, interface_facts, vlan_ips, _, vlan_if_name, speaker_ips, port_num, http_ready = common_setup_teardown
     assert http_ready
 
     logging.info("announce route")
@@ -252,7 +252,7 @@ def test_bgp_speaker_announce_routes_v6(common_setup_teardown, testbed, duthost,
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """
-    ptfip, mg_facts, interface_facts, vlan_ips, vlan_if_name, nexthops_ipv6, speaker_ips, port_num, http_ready = common_setup_teardown
+    ptfip, mg_facts, interface_facts, vlan_ips, nexthops_ipv6, vlan_if_name, speaker_ips, port_num, http_ready = common_setup_teardown
     assert http_ready
 
     logging.info("announce route")
