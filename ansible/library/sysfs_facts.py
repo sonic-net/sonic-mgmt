@@ -12,7 +12,7 @@ description:
 '''
 
 EXAMPLES = '''
-- name: Get BGP neighbor information
+- name: Get sysfs information from switch
   sysfs_facts:
     config: ${a list of check items}
 '''
@@ -56,6 +56,8 @@ Increment check item config:
 
 User can get the first property of the first item value by:
 ansible_facts['item_name'][1]['prop1_name']
+
+A example that using this facts is at tests/platform_tests/mellanox/check_sysfs.py
 '''
 
 
