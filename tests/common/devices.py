@@ -30,7 +30,7 @@ from errors import UnsupportedAnsibleModule
 # will not remove it before returning the ansible result to plugins (pytest_ansible in our case)
 try:
     from ansible.executor import task_result
-    task_result._IGNORE = ('skipped')
+    task_result._IGNORE = ('skipped', )
 except Exception as e:
     logging.error("Hack for https://github.com/ansible/pytest-ansible/issues/47 failed: {}".format(repr(e)))
 
