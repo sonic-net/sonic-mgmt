@@ -20,7 +20,8 @@ from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
 
 
-# This is a hack for issue https://github.com/Azure/sonic-mgmt/issues/1941
+# HACK: This is a hack for issue https://github.com/Azure/sonic-mgmt/issues/1941 and issue
+# https://github.com/ansible/pytest-ansible/issues/47
 # Detailed root cause analysis of the issue: https://github.com/Azure/sonic-mgmt/issues/1941#issuecomment-670434790
 # Before calling callback function of plugins to return ansible module result, ansible calls the
 # ansible.executor.task_result.TaskResult.clean_copy method to remove some keys like 'failed' and 'skipped' in the
