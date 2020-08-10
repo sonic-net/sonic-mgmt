@@ -1,5 +1,5 @@
 """
-This component provides an interface to remotely interact with Modules
+This module provides an interface to remotely interact with Components
 of the DUT via platform API
 """
 

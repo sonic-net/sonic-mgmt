@@ -136,7 +136,7 @@ class TestComponentApi(PlatformApiTestBase):
         for i in range(self.num_components):
             for image in range(image_list):
                 notif = component.get_firmware_update_notification(platform_api_conn, i, image)
-                # None can be return if no update required. 
+                # Can return "None" if no update required. 
                 pytest_assert(isinstance(notif, str), "Component {}: Firmware update notification appears to be incorrect from image {}".format(i, image))
 
     def test_install_firmware(self, duthost, localhost, platform_api_conn):
