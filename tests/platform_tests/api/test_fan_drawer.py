@@ -92,7 +92,7 @@ class TestFan_drawer_DrawerApi(PlatformApiTestBase):
     #
     # Functions to test methods defined in Fan_drawerBase class
     #
-    def test_get_num_fan(self, duthost, localhost, platform_api_conn):
+    def test_get_num_fans(self, duthost, localhost, platform_api_conn):
         for i in range(self.num_fan_drawers):
 
             num_fans = fan_drawer.get_num_fans(platform_api_conn, i)
