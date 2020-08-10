@@ -1,13 +1,11 @@
 import pytest
 
-from test_vrf import (
-    g_vars,
-    setup_vrf,
-    host_facts,
-    cfg_facts,
-    gen_vrf_neigh_file,
-    partial_ptf_runner
-)
+from test_vrf import g_vars
+from test_vrf import setup_vrf              # lgtm[py/unused-import]
+from test_vrf import host_facts             # lgtm[py/unused-import]
+from test_vrf import gen_vrf_neigh_file
+from test_vrf import partial_ptf_runner     # lgtm[py/unused-import]
+
 from tests.ptf_runner import ptf_runner
 
 pytestmark = [

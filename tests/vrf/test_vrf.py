@@ -5,13 +5,11 @@ import Queue
 import yaml
 import json
 import random
-import re
 import logging
 
 from collections import OrderedDict
 from natsort import natsorted
 from netaddr import IPNetwork
-from functools import partial
 
 import pytest
 
@@ -205,7 +203,7 @@ def check_bgp_peer_state(duthost, vrf, peer_ip, expected_state):
 
     try:
         peer_state = peer_info[peer_ip].get('bgpState', 'Unknown')
-    except:
+    except Exception as e:
         peer_state = 'Unknown'
     if  peer_state != expected_state:
         logger.info("Vrf {} bgp peer {} is {}, exptected {}!".format(vrf, peer_ip, peer_state, expected_state))
