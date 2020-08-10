@@ -67,11 +67,14 @@ class ShowInterfaceModule(object):
             argument_spec=dict(
             command=dict(required=True, type='str'),
             interfaces=dict(required=False, type='list', default=None),
+            iface_mode=dict(required=False, type='str',
+                            default=None, choices=("default", "alias")),
             ),
             supports_check_mode=False)
         self.m_args = self.module.params
         self.out = None
         self.facts = {}
+        self.iface_mode = self.m_args["iface_mode"]
         return
 
     def run(self):
@@ -86,17 +89,25 @@ class ShowInterfaceModule(object):
         regex_int_fec = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|N\/A)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         self.int_status = {}
+        environ_update = None
+        if self.iface_mode:
+            environ_update = {"SONIC_CLI_IFACE_MODE": self.iface_mode}
         if self.m_args['interfaces'] is not None:
             for interface in self.m_args['interfaces']:
                 self.int_status[interface] = {}
                 command = 'sudo show interface status ' + interface
                 try:
-                    rc, self.out, err = self.module.run_command(command, executable='/bin/bash', use_unsafe_shell=True)
+                    rc, self.out, err = self.module.run_command(
+                        command,
+                        executable='/bin/bash',
+                        use_unsafe_shell=True,
+                        environ_update=environ_update
+                        )
                     for line in self.out.split("\n"):
                         line = line.strip()
                         fec = regex_int_fec.match(line)
                         old = regex_int.match(line)
-                        if fec and interface == fec.group(1):
+                        if fec and interface in (fec.group(1), fec.group(5)):
                             self.int_status[interface]['name'] = fec.group(1)
                             self.int_status[interface]['speed'] = fec.group(2)
                             self.int_status[interface]['fec'] = fec.group(4)
@@ -104,7 +115,7 @@ class ShowInterfaceModule(object):
                             self.int_status[interface]['vlan'] = fec.group(6)
                             self.int_status[interface]['oper_state'] = fec.group(7)
                             self.int_status[interface]['admin_state'] = fec.group(8)
-                        elif old and interface == old.group(1):
+                        elif old and interface in (old.group(1), old.group(4)):
                             self.int_status[interface]['name'] = old.group(1)
                             self.int_status[interface]['speed'] = old.group(2)
                             self.int_status[interface]['fec'] = 'Unknown'

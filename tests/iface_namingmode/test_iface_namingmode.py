@@ -246,15 +246,14 @@ class TestShowInterfaces():
         test_intf = sample_intf[mode]
         interface = sample_intf['default']
         interface_alias = sample_intf['alias']
-        regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
 
-        show_intf_status = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={0} show interfaces status {1} | grep -w {1}'.format(ifmode, test_intf))
-        logger.info('show_intf_status:\n{}'.format(show_intf_status['stdout']))
-
-        line = show_intf_status['stdout'].strip()
-        if regex_int.match(line) and interface == regex_int.match(line).group(1):
-            name = regex_int.match(line).group(1)
-            alias = regex_int.match(line).group(4)
+        intf_status = dutHostGuest.show_interface(command="status",
+                                                  interfaces=(test_intf,),
+                                                  iface_mode=ifmode)
+        intf_status = intf_status["ansible_facts"]["int_status"][test_intf]
+        logger.info('show_intf_status:\n{}'.format(intf_status))
+        name = intf_status["name"]
+        alias = intf_status["alias"]
 
         assert (name == interface) and (alias == interface_alias)
 
