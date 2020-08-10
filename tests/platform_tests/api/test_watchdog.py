@@ -8,6 +8,19 @@ from tests.common.helpers.platform_api import watchdog
 from tests.common.helpers.assertions import pytest_assert
 from platform_api_test_base import PlatformApiTestBase
 
+from collections import OrderedDict
+
+def ordered_load(stream, Loader=yaml.Loader, object_pairs_hook=OrderedDict):
+    class OrderedLoader(Loader):
+        pass
+    def construct_mapping(loader, node):
+        loader.flatten_mapping(node)
+        return object_pairs_hook(loader.construct_pairs(node))
+    OrderedLoader.add_constructor(
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+        construct_mapping)
+    return yaml.load(stream, OrderedLoader)
+
 pytestmark = [
     pytest.mark.topology('any')
 ]
@@ -42,7 +55,7 @@ class TestWatchdogApi(PlatformApiTestBase):
 
         test_config = None
         with open(TEST_CONFIG_FILE) as stream:
-            test_config = yaml.safe_load(stream)
+            test_config = ordered_load(stream)
 
         config = test_config['default']
 
