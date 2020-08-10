@@ -5,7 +5,7 @@ all:
         vm_host_1:
     eos:
       children:
-        vms_1
+        vms_1:
     servers:
       vars:
         topologies:
@@ -23,7 +23,7 @@ all:
           - t0-64-32
           - t0-116
       children:
-        server_1
+        server_1:
     sonic:
       hosts:
         vlab-01:
