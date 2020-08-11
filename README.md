@@ -8,7 +8,7 @@ Tools for managing, configuring and monitoring SONiC
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/3933/badge)](https://bestpractices.coreinfrastructure.org/projects/3933)
 
 # Docker Container Setup
-Use the `setup-container.sh` script to automatically create and configure your sonic-mgmt Docker container. This script should be run directly from the root of the sonic-mgmt repo. You should also run this script as the user that will be using the created container.
+Use the `setup-container.sh` script to automatically create and configure your sonic-mgmt Docker container. You should run this script as the user that will be using the created container.
 
 ```
 Usage ./setup-container.sh [options]

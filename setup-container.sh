@@ -23,8 +23,10 @@ function show_help_and_exit() {
 
 function start_and_config_container() {
     echo "Creating container $CONTAINER_NAME"
-    CURRENT_DIR=`pwd`/..
-    docker run --name $CONTAINER_NAME -v $CURRENT_DIR:$LINK_DIR -d -t $IMAGE_ID bash > /dev/null
+    SCRIPT_DIR=`dirname $0`
+    cd $SCRIPT_DIR
+    PARENT_DIR=`pwd`/..
+    docker run --name $CONTAINER_NAME -v $PARENT_DIR:$LINK_DIR -d -t $IMAGE_ID bash > /dev/null
 
     if [[ "$?" != 0 ]]; then
         echo "Container creation failed, exiting"
