@@ -290,6 +290,8 @@ class QosSaiBase:
                 "--disable-nvgre",
                 "--log-file",
                 "/tmp/{0}.log".format(testCase),
+                "--test-case-timeout",
+                "600"
             ],
             chdir = "/root",
         )["rc"] == 0, "Failed when running test '{0}'".format(testCase)
