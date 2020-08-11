@@ -29,7 +29,7 @@ def pytest_runtest_teardown(item, nextitem):
                 low=crm_thresholds[crm_threshold_name]["low"])
             logger.info("Restore CRM thresholds. Execute: {}".format(cmd))
             # Restore default CRM thresholds
-            ress = item.funcargs["duthost"].command(cmd)
+            item.funcargs["duthost"].command(cmd)
 
         test_name = item.function.func_name
         logger.info("Execute test cleanup")
