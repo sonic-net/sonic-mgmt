@@ -1,10 +1,12 @@
+import logging
+import os
+import importlib
+import netaddr
 import pytest
+
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
-import logging
-import netaddr
-import importlib
 
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
@@ -222,6 +224,9 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, duthost, setup, fanouthost, p
     """
     @summary: Create a packet with equal SMAC and DMAC.
     """
+    if not fanouthost:
+        pytest.skip("Test case requires explicit fanout support")
+
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["dst_mac"], pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
     src_mac = ports_info["dst_mac"]
 
@@ -256,6 +261,9 @@ def test_multicast_smac_drop(do_test, ptfadapter, duthost, setup, fanouthost, pk
     """
     @summary: Create a packet with multicast SMAC.
     """
+    if not fanouthost:
+        pytest.skip("Test case requires explicit fanout support")
+
     multicast_smac = "01:00:5e:00:01:02"
     src_mac = multicast_smac
 
