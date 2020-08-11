@@ -581,7 +581,7 @@ def create_ipv4_traffic(session,
     traffic_config.FrameSize.FixedSize = pkt_size
 
     if pkt_count is not None and duration is not None:
-        logger.info('You can only specify either pkt_count or duration')
+        logger.error('You can only specify either pkt_count or duration')
         return None
 
     if pkt_count is not None:
@@ -589,7 +589,7 @@ def create_ipv4_traffic(session,
                                                   FrameCount=pkt_count)
     elif duration is not None:
         if type(duration) != int or duration <= 0:
-            logger.info('Invalid duration value {} (positive integer only)'.
+            logger.error('Invalid duration value {} (positive integer only)'.
                 format(duration))
 
             return None
@@ -663,7 +663,7 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
     if pause_prio_list is not None:
         for prio in pause_prio_list:
             if prio < 0 or prio > 7:
-                logger.info('Invalid pause priorities {}'.
+                logger.error('Invalid pause priorities {}'.
                     format(pause_prio_list))
                 return None
 
@@ -683,7 +683,7 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
     traffic_config.FrameSize.FixedSize = 64
 
     if pkt_count is not None and duration is not None:
-        logger.info('You can only specify either pkt_count or duration')
+        logger.error('You can only specify either pkt_count or duration')
         return None
 
     if pkt_count is not None:
@@ -693,7 +693,7 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
 
     elif duration is not None:
         if type(duration) != int or duration <= 0:
-            logger.info('Invalid duration value {} (positive integer only)'.
+            logger.error('Invalid duration value {} (positive integer only)'.
                 format(duration))
 
             return None
@@ -748,16 +748,14 @@ def __set_global_pause_fields__(pfc_stack_obj):
     code.SingleValue = '1'
 
     # This field is pause duration in global pause packet.
-    prio_enable_vector = pfc_stack_obj.\
-        find(DisplayName='priority_enable_vector')
+    prio_enable_vector = pfc_stack_obj.find(DisplayName='priority_enable_vector')
 
     prio_enable_vector.ValueType = 'singleValue'
     prio_enable_vector.SingleValue = 'ffff'
 
     # pad bytes
     for i in range(8):
-        pause_duration = pfc_stack_obj.\
-            find(DisplayName='PFC Queue {}'.format(i))
+        pause_duration = pfc_stack_obj.find(DisplayName='PFC Queue {}'.format(i))
 
         pause_duration.ValueType = 'singleValue'
         pause_duration.SingleValue = '0'
@@ -770,8 +768,7 @@ def __set_eth_fields__(eth_stack_obj, src_mac, dst_mac):
         src_mac_field.SingleValue = src_mac
 
     if dst_mac is not None:
-        dst_mac_field = eth_stack_obj.\
-            find(DisplayName='Destination MAC Address')
+        dst_mac_field = eth_stack_obj.find(DisplayName='Destination MAC Address')
 
         dst_mac_field.ValueType = 'singleValue'
         dst_mac_field.SingleValue = dst_mac
@@ -800,19 +797,16 @@ def __set_pfc_fields__(pfc_stack_obj, pause_prio_list):
     code.ValueType = 'singleValue'
     code.SingleValue = '101'
 
-    prio_enable_vector = pfc_stack_obj.\
-       find(DisplayName='priority_enable_vector')
-
+    prio_enable_vector = pfc_stack_obj.find(DisplayName='priority_enable_vector')
     prio_enable_vector.ValueType = 'singleValue'
+
     val = 0
     for prio in pause_prio_list:
         val += (1 << prio)
     prio_enable_vector.SingleValue = hex(val)
 
     for i in range(8):
-        pause_duration = pfc_stack_obj.\
-            find(DisplayName='PFC Queue {}'.format(i))
-
+        pause_duration = pfc_stack_obj.find(DisplayName='PFC Queue {}'.format(i))
         pause_duration.ValueType = 'singleValue'
 
         if i in pause_prio_list:

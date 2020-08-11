@@ -27,7 +27,6 @@ def lossless_prio_dscp_map(duthost):
 
     # Read the port QOS map. If pfc_enable flag is false then return None.
     port_qos_map = config_facts["PORT_QOS_MAP"]
-    lossless_priorities = list()
     intf = port_qos_map.keys()[0]
     if 'pfc_enable' not in port_qos_map[intf]:
         return None
