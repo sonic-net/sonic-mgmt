@@ -12,6 +12,10 @@ from tests.common.helpers.assertions import pytest_assert
 from collections import OrderedDict
 
 
+pytestmark = [
+    pytest.mark.topology("any")
+]
+
 logger = logging.getLogger(__name__)
 
 CRM_POLLING_INTERVAL = 1
@@ -39,52 +43,6 @@ RESTORE_CMDS = {"test_crm_route": [],
                 "test_crm_fdb_entry": [],
                 "crm_cli_res": None,
                 "wait": 0}
-
-
-@pytest.fixture(scope="module", autouse=True)
-def crm_thresholds(duthost):
-    cmd = "sonic-db-cli CONFIG_DB hget \"CRM|Config\" {threshold_name}_{type}_threshold"
-    crm_res_list = ["ipv4_route", "ipv6_route", "ipv4_nexthop", "ipv6_nexthop", "ipv4_neighbor",
-        "ipv6_neighbor", "nexthop_group_member", "nexthop_group", "acl_counter", "acl_entry", "fdb_entry"]
-    res = {}
-    for item in crm_res_list:
-        high = duthost.command(cmd.format(threshold_name=item, type="high"))["stdout_lines"][0]
-        low = duthost.command(cmd.format(threshold_name=item, type="low"))["stdout_lines"][0]
-        res[item] = {}
-        res[item]["high"] = high
-        res[item]["low"] = low
-
-    return res
-
-@pytest.fixture(scope="module", autouse=True)
-def crm_interface(duthost, testbed):
-    """ Return tuple of two DUT interfaces """
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
-    if testbed["topo"]["name"] == "t1":
-        crm_intf1 = mg_facts["minigraph_interfaces"][0]["attachto"]
-        crm_intf2 = mg_facts["minigraph_interfaces"][2]["attachto"]
-    elif testbed["topo"]["name"] in ["t0", "t1-lag", "t0-52", "t0-56", "t0-64", "t0-116"]:
-        crm_intf1 = mg_facts["minigraph_portchannel_interfaces"][0]["attachto"]
-        crm_intf2 = mg_facts["minigraph_portchannel_interfaces"][2]["attachto"]
-    else:
-        pytest.skip("Unsupported topology for current test cases - {}".format(testbed["topo"]["name"]))
-    yield (crm_intf1, crm_intf2)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def set_polling_interval(duthost):
-    """ Set CRM polling interval to 1 second """
-    wait_time = 2
-    duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))["stdout"]
-    logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
-    time.sleep(wait_time)
-
-
-@pytest.fixture(scope="module")
-def collector(duthost):
-    """ Fixture for sharing variables beatween test cases """
-    data = {}
-    yield data
 
 
 def apply_acl_config(duthost, test_name, collector, entry_num=1):
