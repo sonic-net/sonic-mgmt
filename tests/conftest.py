@@ -333,6 +333,7 @@ def creds(duthost):
     groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
     files = glob.glob("../ansible/group_vars/all/*.yml")
+    files += glob.glob("../ansible/vars/*.yml")
     for group in groups:
         files += glob.glob("../ansible/group_vars/{}/*.yml".format(group))
     creds = {}
@@ -344,7 +345,13 @@ def creds(duthost):
             else:
                 logging.info("skip empty var file {}".format(f))
 
-    cred_vars = ["sonicadmin_user", "sonicadmin_password"]
+    cred_vars = [
+        "sonicadmin_user",
+        "sonicadmin_password",
+        "docker_registry_host",
+        "docker_registry_username",
+        "docker_registry_password"
+    ]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     for cred_var in cred_vars:
         if cred_var in creds:

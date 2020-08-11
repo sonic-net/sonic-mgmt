@@ -93,7 +93,7 @@ class TestCOPP(object):
                      copp_testbed)
 
 @pytest.fixture(scope="class")
-def copp_testbed(duthost, ptfhost, testbed, request):
+def copp_testbed(duthost, creds, ptfhost, testbed, request):
     """
         Pytest fixture to handle setup and cleanup for the COPP tests.
     """
@@ -102,9 +102,9 @@ def copp_testbed(duthost, ptfhost, testbed, request):
     if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T1_TOPOS):
         pytest.skip("Topology not supported by COPP tests")
 
-    _setup_testbed(duthost, ptfhost, test_params)
+    _setup_testbed(duthost, creds, ptfhost, test_params)
     yield test_params
-    _teardown_testbed(duthost, ptfhost, test_params)
+    _teardown_testbed(duthost, creds, ptfhost, test_params)
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
@@ -173,7 +173,7 @@ def _gather_test_params(testbed, duthost, request):
                                topo=topo,
                                bgp_graph=bgp_graph)
 
-def _setup_testbed(dut, ptf, test_params):
+def _setup_testbed(dut, creds, ptf, test_params):
     """
         Sets up the testbed to run the COPP tests.
     """
@@ -190,7 +190,7 @@ def _setup_testbed(dut, ptf, test_params):
 
     if test_params.swap_syncd:
         logging.info("Swap out syncd to use RPC image...")
-        docker.swap_syncd(dut)
+        docker.swap_syncd(dut, creds)
     else:
         # NOTE: Even if the rpc syncd image is already installed, we need to restart
         # SWSS for the COPP changes to take effect.
@@ -200,7 +200,7 @@ def _setup_testbed(dut, ptf, test_params):
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port)
 
-def _teardown_testbed(dut, ptf, test_params):
+def _teardown_testbed(dut, creds, ptf, test_params):
     """
         Tears down the testbed, returning it to its initial state.
     """
@@ -213,7 +213,7 @@ def _teardown_testbed(dut, ptf, test_params):
 
     if test_params.swap_syncd:
         logging.info("Restore default syncd docker...")
-        docker.restore_default_syncd(dut)
+        docker.restore_default_syncd(dut, creds)
     else:
         logging.info("Reloading config and restarting swss...")
         config_reload(dut)

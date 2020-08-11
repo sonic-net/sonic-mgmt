@@ -295,7 +295,7 @@ class QosSaiBase:
         )["rc"] == 0, "Failed when running test '{0}'".format(testCase)
 
     @pytest.fixture(scope='class')
-    def swapSyncd(self, request, duthost):
+    def swapSyncd(self, request, duthost, creds):
         """
             Swap syncd on DUT host
 
@@ -308,12 +308,12 @@ class QosSaiBase:
         """
         swapSyncd = request.config.getoption("--qos_swap_syncd")
         if swapSyncd:
-            docker.swap_syncd(duthost)
+            docker.swap_syncd(duthost, creds)
 
         yield
 
         if swapSyncd:
-            docker.restore_default_syncd(duthost)
+            docker.restore_default_syncd(duthost, creds)
 
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(self, request, duthost):
