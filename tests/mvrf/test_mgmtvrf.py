@@ -19,7 +19,7 @@ def setup_mvrf(duthost, testbed, localhost):
     """
     Setup Management vrf configs before the start of testsuite
     """
-    logging.info("Configure mgmt vrf")
+    logger.info("Configure mgmt vrf")
     global var
     global mvrf
     mvrf = True
@@ -35,7 +35,7 @@ def setup_mvrf(duthost, testbed, localhost):
     yield
 
     mvrf = False
-    logging.info("Unconfigure  mgmt vrf")
+    logger.info("Unconfigure  mgmt vrf")
     duthost.copy(src="mvrf/config_vrf_del.sh", dest="/tmp/config_vrf_del.sh", mode=0755)
     duthost.shell("nohup /tmp/config_vrf_del.sh < /dev/null > /dev/null 2>&1 &")
     localhost.wait_for(host=var["dut_ip"],
@@ -50,14 +50,13 @@ def setup_mvrf(duthost, testbed, localhost):
                        search_regex=SONIC_SSH_REGEX,
                        timeout=90)
 
-    duthost.command("sudo config save -y")
     verify_show_command(duthost, mvrf=False)
 
 
 def verify_show_command(duthost, mvrf=True):
     show_mgmt_vrf = duthost.shell("show mgmt-vrf")["stdout"]
     mvrf_interfaces = {}
-    logging.debug("show mgmt vrf \n {}".format(show_mgmt_vrf))
+    logger.debug("show mgmt vrf \n {}".format(show_mgmt_vrf))
     if mvrf:
         mvrf_interfaces["mgmt"] = "\d+:\s+mgmt:\s+<NOARP,MASTER,UP,LOWER_UP> mtu\s+\d+\s+qdisc\s+noqueue\s+state\s+UP"
         mvrf_interfaces["vrf_table"] = "vrf table 5000"
@@ -88,40 +87,43 @@ class TestMvrfInbound():
 
 
 class TestMvrfOutbound():
+
+    def get_free_port(self, ptfhost):
+        res = ptfhost.shell('netstat -lntu | grep -Eo "^tcp +[0-9]+ +[0-9]+ +[^:]+:([0-9]+)" | cut -d: -f2')
+        used_ports = set(res['stdout_lines'])
+        for p in range(8000, 9000):
+            if str(p) not in used_ports:
+                return p
+
     @pytest.fixture
-    def apt_install_wget(self, duthost):
-        logging.info("apt-get update, apt-get install wget")
-        apt_update_cmd = "apt-get update -y"
-        apt_install_wget = "apt-get install wget -y"
-        apt_remove = "apt-get remove wget -y"
-        execute_dut_command(duthost, apt_update_cmd, mvrf=True)
-        execute_dut_command(duthost, apt_install_wget, mvrf=True)
+    def setup_http_server(self, localhost, duthost, ptfhost):
+        # Run a script on PTF to start a temp http server
+        server_script_dest_path = "/tmp/temp_http_server.py"
+        ptfhost.copy(src="mvrf/temp_http_server.py", dest=server_script_dest_path)
+        logger.info("Starting http server on PTF")
+        ptfhost.command("python {} {}".format(server_script_dest_path, free_port), module_async=True)
+        localhost.wait_for(host=var["ptf_ip"], port=int(free_port), state="started", timeout=30)
 
-        yield
+        url = "http://{}:{}".format(var["ptf_ip"], free_port)
+        from temp_http_server import MAGIC_STRING
 
-        logging.info("remove wget")
-        duthost.file(path=var["filename"], state="absent")
-        execute_dut_command(duthost, apt_remove, mvrf=True)
+        yield url, MAGIC_STRING
+
+        ptfhost.file(path=server_script_dest_path, state="absent")
 
     def test_ping(self, testbed, duthost):
-        logging.info("Test OutBound Ping")
+        logger.info("Test OutBound Ping")
         command = "ping  -c 3 " + var["ptf_ip"]
         execute_dut_command(duthost, command, mvrf=True)
 
-    def test_wget(self, duthost, apt_install_wget):
-        logging.info("Test Wget")
-        wget_command = "wget  https://raw.githubusercontent.com/Azure/SONiC/master/README.md"
-        execute_dut_command(duthost, wget_command, mvrf=True)
-        file_exists = duthost.stat(path=var["filename"])
-        pytest_assert(file_exists["stat"]["exists"] is True)
+    def test_curl(self, duthost, setup_http_server):
+        logger.info("Test Curl")
 
-    def test_curl(self, duthost):
-        logging.info("Test Curl")
-        curl_cmd = "curl https://raw.githubusercontent.com/Azure/SONiC/master/README.md -o {} -f".format(var["filename"])
-        execute_dut_command(duthost, curl_cmd, mvrf=True)
-        file_exists = duthost.stat(path=var["filename"])
-        pytest_assert(file_exists["stat"]["exists"] is True)
-        duthost.file(path=var["filename"], state="absent")
+        url, MAGIC_STRING = setup_http_server
+
+        curl_cmd = "curl {}".format(url)
+        result = execute_dut_command(duthost, curl_cmd, mvrf=True)
+        pytest_assert(result["stdout"].strip() == MAGIC_STRING)
 
 
 class TestServices():
@@ -133,17 +135,17 @@ class TestServices():
     def test_ntp(self, duthost):
         force_ntp = "ntpd -gq"
         duthost.service(name="ntp", state="stopped")
-        logging.info("Ntp restart in mgmt vrf")
+        logger.info("Ntp restart in mgmt vrf")
         execute_dut_command(duthost, force_ntp)
         duthost.service(name="ntp", state="restarted")
         pytest_assert(wait_until(100, 10, self.check_ntp_status, duthost), "Ntp not started")
 
     def test_service_acl(self, duthost, localhost):
         # SSH definitions
-        logging.info("test Service acl")
+        logger.info("test Service acl")
         SONIC_SSH_PORT = 22
         SONIC_SSH_REGEX = "OpenSSH_[\\w\\.]+ Debian"
-        dut_ip = duthost.setup()["ansible_facts"]["ansible_eth0"]["ipv4"]["address"]
+        dut_ip = var["dut_ip"]
         duthost.copy(src="mvrf/config_service_acls.sh", dest="/tmp/config_service_acls.sh", mode=0755)
         duthost.shell("nohup /tmp/config_service_acls.sh < /dev/null > /dev/null 2>&1 &")
         time.sleep(5)
@@ -172,20 +174,28 @@ class TestReboot():
         inbound_test.test_ping(duthost, localhost)
         inbound_test.test_snmp_fact(localhost)
 
-    def test_warmboot(self, duthost, localhost, testbed):
-        duthost.command("sudo config save -y")
+    @pytest.fixture(scope="class")
+    def backup_restore_config(self, duthost):
+        # Backup the original config_db without mgmt vrf config
+        duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
+        yield
+        # Restore the original config_db to override the config_db with mgmt vrf config
+        duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
+
+    def test_warmboot(self, duthost, localhost, testbed, backup_restore_config):
+        duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="warm")
         pytest_assert(wait_until(120, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
         self.basic_check_after_reboot(duthost, localhost, testbed)
 
-    def test_reboot(self, duthost, localhost, testbed):
-        duthost.command("sudo config save -y")
+    def test_reboot(self, duthost, localhost, testbed, backup_restore_config):
+        duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost)
         pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
         self.basic_check_after_reboot(duthost, localhost, testbed)
 
-    def test_fastboot(self, duthost, localhost, testbed):
-        duthost.command("sudo config save -y")
+    def test_fastboot(self, duthost, localhost, testbed, backup_restore_config):
+        duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="fast")
         pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
         self.basic_check_after_reboot(duthost, localhost, testbed)
