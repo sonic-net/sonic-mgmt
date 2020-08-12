@@ -16,7 +16,7 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_
 logger = logging.getLogger(__name__)
 
 IPV6_VXLAN_TEST = False
-VXLAN_PORT = 13330
+VXLAN_PORT = "13330"
 VXLAN_MAC = "00:aa:bb:cc:78:9a"
 APPLY_NEW_CONFIG = True
 CLEANUP = True
@@ -32,7 +32,7 @@ def get_vnet_config(mg_facts):
     @param mg_facts: Minigraph facts
     @returns: A Python dictionary containing the VNET configuration
     """
-    logger.info("Generate VNet configuration")
+    logger.info("Generating VNet configuration")
     return yaml.safe_load(Template(open("templates/vnet_config.j2").read())
                                     .render(mg_facts, ipv6_vxlan_test=IPV6_VXLAN_TEST))
 
@@ -90,7 +90,8 @@ def render_template_to_host(template_name, host, dest_file, *template_args, **te
 
     rendered = Template(open(path.join("templates",template_name)).read()) \
                         .render(combined_template_args, **template_kwargs)
-    host.copy(content=json.dumps(rendered, indent=2), dest=dest_file)
+
+    host.copy(content=rendered, dest=dest_file)
 
 def generate_dut_config_files(duthost, mg_facts):
     """
@@ -100,15 +101,15 @@ def generate_dut_config_files(duthost, mg_facts):
     """
     logger.info("Generating config files and copying to DUT")
 
-    vnet_switch_config = {
+    vnet_switch_config = [{
         "SWITCH_TABLE:switch": {
             "vxlan_port": VXLAN_PORT,
             "vxlan_router_mac": VXLAN_MAC
         },
         "OP": "SET"
-    }
+    }]
 
-    duthost.copy(content=json.dumps(vnet_switch_config, indent=2), dest=DUT_VNET_SWITCH_CONFIG)
+    duthost.copy(content=json.dumps(vnet_switch_config, indent=4), dest=DUT_VNET_SWITCH_CONFIG)
 
     vnet_config = get_vnet_config(mg_facts)
 
@@ -166,7 +167,6 @@ def setup(duthost, ptfhost):
     minigraph_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
     dut_facts = duthost.setup(gather_subset="!all,!any,network", filter="ansible_Ethernet*")["ansible_facts"]
 
-
     prepare_ptf(ptfhost, minigraph_facts, dut_facts)
 
     generate_dut_config_files(duthost, minigraph_facts)
@@ -191,7 +191,7 @@ def vxlan_status(setup, request, duthost):
         
         attach_to = mg_facts["minigraph_vlan_interfaces"][0]['attachto']
         member_to_remove = mg_facts["minigraph_vlans"][attach_to]['members'][0]
-        duthost.shell("docker exec -i database redis-cli -n 4 del \"VLAN_MEMBER|{}|{}".format(attach_to, member_to_remove))
+        duthost.shell("docker exec -i database redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attach_to, member_to_remove))
 
         apply_dut_config_files(duthost) 
 
@@ -224,7 +224,7 @@ def test_vnet_vxlan(setup, vxlan_status, duthost, ptfhost):
 
     log_file = "/tmp/vnet-vxlan.Vxlan.{}.{}.log".format(scenario, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
     ptf_params = {"vxlan_enabled": vxlan_enabled,
-                  "config_file": '/tmp/vxlan_decap.json',
+                  "config_file": '/tmp/vnet.json',
                   "sonic_admin_user": secrets[inventory]['sonicadmin_user'],
                   "sonic_admin_password": secrets[inventory]['sonicadmin_password'],
                   "dut_host": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']}
