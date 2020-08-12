@@ -140,6 +140,10 @@ class PopulateFdb(BaseTest):
             Returns:
                 None
         """
+        if not self.configData["vlan_ports"]:
+            # No vlan port to test
+            return
+
         packet = testutils.simple_tcp_packet(
             eth_dst=self.dutMac,
             tcp_sport=self.TCP_SRC_PORT,
