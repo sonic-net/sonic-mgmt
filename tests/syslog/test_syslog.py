@@ -22,7 +22,7 @@ def config_syslog_srv(ptfhost):
     # Add the imudp configuration if not present
     ptfhost.shell("sed -i -e '/^input(type/d' -e '/^module/d' /etc/rsyslog.conf; sed -i -e '$amodule(load=\"imudp\")' -e '$ainput(type=\"imudp\" port=\"514\")' /etc/rsyslog.conf")
 
-    # Stop Syslog Daemon
+    # Restart Syslog Daemon
     logger.info("Restarting rsyslog service")
     ptfhost.shell("service rsyslog stop && rm -rf /var/log/syslog && touch /var/log/syslog && service rsyslog restart")
 
@@ -32,7 +32,7 @@ def config_syslog_srv(ptfhost):
         result = ptfhost.shell("service rsyslog status | grep \"{}\"".format(rsyslog_running_msg))["stdout"]
         return rsyslog_running_msg in result
 
-    logger.debug("Waiting for rsyslog server restarting")
+    logger.debug("Waiting for rsyslog server to restart")
     wait_until(SYSLOG_STARTUP_TIMEOUT, SYSLOG_STARTUP_POLLING_INTERVAL, _is_syslog_running)
     logger.debug("rsyslog server restarted")
 
