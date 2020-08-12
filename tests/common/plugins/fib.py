@@ -103,14 +103,10 @@ def fib_t0(ptfhost, testbed, localhost, topology=None):
     max_tor_subnet_number = 16
     tor_subnet_size = 128
 
-    # TODO: spine_asn, leaf_asn_start and tor_asn_start should come from the topology file
-    spine_asn = 65534
-    if topology == 't0-116':
-        leaf_asn_start = 4200064600
-        tor_asn_start = 4200065500
-    else:
-        leaf_asn_start = 64600
-        tor_asn_start = 65500
+    common_config_topo = testbed['topo']['properties']['configuration_properties']['common']
+    spine_asn = common_config_topo.get("spine_asn", 65534)
+    leaf_asn_start = common_config_topo.get("leaf_asn_start", 64600)
+    tor_asn_start = common_config_topo.get("tor_asn_start", 65500)
 
     topo = testbed['topo']['properties']
     ptf_hostname = testbed['ptf']

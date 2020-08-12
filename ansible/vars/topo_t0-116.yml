@@ -164,7 +164,7 @@ configuration_properties:
     swrole: leaf
     spine_asn: 65534
     leaf_asn_start: 4200064600
-    tor_asn_start: 4200065100
+    tor_asn_start: 4200065500
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
 
