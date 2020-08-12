@@ -4,6 +4,7 @@ import re
 import time
 import pytest
 import yaml
+import json
 
 import ptf.packet as packet
 import ptf.testutils as testutils
