@@ -3,7 +3,7 @@ import sys
 from BaseHTTPServer import HTTPServer
 from BaseHTTPServer import BaseHTTPRequestHandler
 
-MAGIC_STRING = "MAGCI_STRING_FOR_TESTING"
+MAGIC_STRING = "MAGIC_STRING_FOR_TESTING"
 
 
 class TempHttpServer(BaseHTTPRequestHandler):
