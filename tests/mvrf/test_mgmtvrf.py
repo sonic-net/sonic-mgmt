@@ -5,6 +5,7 @@ import logging
 
 from tests.common import reboot
 from tests.common.utilities import wait_until
+from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
@@ -34,23 +35,28 @@ def setup_mvrf(duthost, testbed, localhost):
 
     yield
 
-    mvrf = False
-    logger.info("Unconfigure  mgmt vrf")
-    duthost.copy(src="mvrf/config_vrf_del.sh", dest="/tmp/config_vrf_del.sh", mode=0755)
-    duthost.shell("nohup /tmp/config_vrf_del.sh < /dev/null > /dev/null 2>&1 &")
-    localhost.wait_for(host=var["dut_ip"],
-                       port=22,
-                       state="stopped",
-                       search_regex=SONIC_SSH_REGEX,
-                       timeout=90)
+    try:
+        mvrf = False
+        logger.info("Unconfigure  mgmt vrf")
+        duthost.copy(src="mvrf/config_vrf_del.sh", dest="/tmp/config_vrf_del.sh", mode=0755)
+        duthost.shell("nohup /tmp/config_vrf_del.sh < /dev/null > /dev/null 2>&1 &")
+        localhost.wait_for(host=var["dut_ip"],
+                        port=22,
+                        state="stopped",
+                        search_regex=SONIC_SSH_REGEX,
+                        timeout=90)
 
-    localhost.wait_for(host=var["dut_ip"],
-                       port=22,
-                       state="started",
-                       search_regex=SONIC_SSH_REGEX,
-                       timeout=90)
+        localhost.wait_for(host=var["dut_ip"],
+                        port=22,
+                        state="started",
+                        search_regex=SONIC_SSH_REGEX,
+                        timeout=90)
 
-    verify_show_command(duthost, mvrf=False)
+        verify_show_command(duthost, mvrf=False)
+
+    finally:
+        # Reload to restore configuration
+        config_reload(duthost)
 
 
 def verify_show_command(duthost, mvrf=True):
@@ -101,6 +107,7 @@ class TestMvrfOutbound():
         server_script_dest_path = "/tmp/temp_http_server.py"
         ptfhost.copy(src="mvrf/temp_http_server.py", dest=server_script_dest_path)
         logger.info("Starting http server on PTF")
+        free_port = self.get_free_port(ptfhost)
         ptfhost.command("python {} {}".format(server_script_dest_path, free_port), module_async=True)
         localhost.wait_for(host=var["ptf_ip"], port=int(free_port), state="started", timeout=30)
 
