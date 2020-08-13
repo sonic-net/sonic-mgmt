@@ -142,6 +142,7 @@ class SonicHost(AnsibleHostBase):
                 "hwsku": "Arista-7050-QX-32S",
                 "asic_type": "broadcom",
                 "num_asic": 1,
+                "router_mac": "52:54:00:f0:ac:9d",
             }
         """
 
@@ -206,6 +207,7 @@ class SonicHost(AnsibleHostBase):
         facts = dict()
         facts.update(self._get_platform_info())
         facts["num_asic"] = self._get_asic_count(facts["platform"])
+        facts["router_mac"] = self._get_router_mac()
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
@@ -232,6 +234,8 @@ class SonicHost(AnsibleHostBase):
         except:
             return int(num_asic)
 
+    def _get_router_mac(self):
+        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode("utf-8")
 
     def _generate_critical_services_for_multi_asic(self, services):
         """
