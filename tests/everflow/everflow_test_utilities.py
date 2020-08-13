@@ -312,12 +312,6 @@ class BaseEverflowTest(object):
                                       src_port=None,
                                       dest_ports=None,
                                       expect_recv=True):
-        # For egress mirroring, we expect the DUT to have modified the packet
-        # before forwarding it.
-        if self.mirror_type == "egress":
-            mirror_packet["IP"].ttl -= 1
-            mirror_packet["Ether"].src = setup["router_mac"]
-
         expected_mirror_packet = self._get_expected_mirror_packet(mirror_session,
                                                                   setup,
                                                                   duthost,
@@ -338,21 +332,30 @@ class BaseEverflowTest(object):
                 expected_mirror_packet,
                 ports=dest_ports
             )
-
-            logging.info("received: %s", packet.Ether(received_packet).summary())
+            logging.info("Received packet: %s", packet.Ether(received_packet).summary())
 
             inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet))
-
-            logging.info("inner_packet: %s", inner_packet.summary())
-            logging.info("expected_packet: %s", mirror_packet.summary())
+            logging.info("Received inner packet: %s", inner_packet.summary())
 
             inner_packet = Mask(inner_packet)
 
-            # For egress mirroring, the DMAC will have been modified by the DUT. Since not all Everflow
-            # tests have explicitly defined forwarding behavior (currently), we ignore it here.
-            if self.mirror_type == "egress":
-                inner_packet.set_do_not_care_scapy(packet.Ether, "dst")
+            # For egress mirroring, we expect the DUT to have modified the packet
+            # before forwarding it. Specifically:
+            #
+            # - In L2 the SMAC and DMAC will change.
+            # - In L3 the TTL and checksum will change.
+            #
+            # We know what the TTL and SMAC should be after going through the pipeline,
+            # but DMAC and checksum are trickier. For now, update the TTL and SMAC, and
+            # mask off the DMAC and IP Checksum to verify the packet contents.
+            if self.mirror_type() == "egress":
+                mirror_packet[packet.IP].ttl -= 1
+                mirror_packet[packet.Ether].src = setup["router_mac"]
 
+                inner_packet.set_do_not_care_scapy(packet.Ether, "dst")
+                inner_packet.set_do_not_care_scapy(packet.IP, "chksum")
+
+            logging.info("Expected inner packet: %s", mirror_packet.summary())
             pytest_assert(inner_packet.pkt_match(mirror_packet), "Mirror payload does not match received packet")
         else:
             testutils.verify_no_packet_any(ptfadapter, expected_mirror_packet, dest_ports)

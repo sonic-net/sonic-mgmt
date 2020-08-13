@@ -638,5 +638,5 @@ class TestEverflowV4EgressAclEgressMirror(EverflowIPv4Tests):
     def acl_stage(self):
         return "egress"
 
-    def  mirror_type(self):
+    def mirror_type(self):
         return "egress"
