@@ -156,53 +156,62 @@
       when: home_path is not defined
     - debug: msg="{{ home_path }}"
 
-- name: Ensure {{ root_path }} exists
-  file: path={{ root_path }} state=directory
+- name: Determine if VMs are needed
+  set_fact:
+    vm_required: true
+  when: ptf_image_name is defined and ptf_image_name != "docker-keysight-api-server"
 
-- name: Install cleanup script
-  template: src=cleanup.sh.j2
-            dest={{ root_path }}/cleanup.sh
+- block:
+  - name: Ensure {{ root_path }} exists
+    file: path={{ root_path }} state=directory
 
-- name: Copy vm_resumer.py to the {{ root_path }}
-  become: true
-  copy:
-    src: roles/vm_set/files/vm_resumer.py
-    dest: "{{ root_path }}"
-    mode: 0755
+  - name: Install cleanup script
+    template: src=cleanup.sh.j2
+              dest={{ root_path }}/cleanup.sh
 
-- name: Retrieve a list of the defined VMs
-  virt: command=list_vms
-        uri=qemu:///system
-  register: vm_list_defined
-  become: true
+  - name: Copy vm_resumer.py to the {{ root_path }}
+    become: true
+    copy:
+      src: roles/vm_set/files/vm_resumer.py
+      dest: "{{ root_path }}"
+      mode: 0755
 
-- name: Retrieve a list of the running VMs
-  virt: command=list_vms
-        uri=qemu:///system
-        state=running
-  register: vm_list_running
-  become: true
+  - name: Retrieve a list of the defined VMs
+    virt: command=list_vms
+          uri=qemu:///system
+    register: vm_list_defined
+    become: true
 
-- name: Retrieve a list of the paused VMs
-  virt: command=list_vms
-        uri=qemu:///system
-        state=pause
-  register: vm_list_paused
-  become: true
+  - name: Retrieve a list of the running VMs
+    virt: command=list_vms
+          uri=qemu:///system
+          state=running
+    register: vm_list_running
+    become: true
 
-- name: Find current server group
-  set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
+  - name: Retrieve a list of the paused VMs
+    virt: command=list_vms
+          uri=qemu:///system
+          state=pause
+    register: vm_list_paused
+    become: true
 
-- name: Extract VM names from the inventory
-  set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') | sort}}
+  - name: Find current server group
+    set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
 
-- name: Limit VM
-  set_fact: VM_hosts="{{ VM_hosts | first_n_elements(VM_num) }}"
-  when: VM_num is defined and VM_num|int > 0
+  - name: Extract VM names from the inventory
+    set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') | sort}}
 
-- name: Generate vm list of target VMs
-  set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
-  when: topology['VMs'] is defined
+  - name: Limit VM
+    set_fact: VM_hosts="{{ VM_hosts | first_n_elements(VM_num) }}"
+    when: VM_num is defined and VM_num|int > 0
+
+  - name: Generate vm list of target VMs
+    set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
+    when: topology['VMs'] is defined
+
+  when: vm_required is defined and vm_required == True
+
 
 - name: Stop VMs
   include_tasks: stop.yml
