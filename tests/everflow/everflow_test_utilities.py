@@ -73,8 +73,7 @@ def setup_info(duthost, testbed):
         out_port_exclude_list = []
         for port in in_port_list:
             if port not in out_port_list and port not in out_port_exclude_list and len(out_port_list) < 4:
-                ptf_port_id = ""
-                ptf_port_id += (str(mg_facts["minigraph_port_indices"][port]))
+                ptf_port_id = str(mg_facts["minigraph_port_indices"][port])
                 out_port_list.append(port)
                 out_port_lag_name.append("Not Applicable")
 
@@ -313,6 +312,12 @@ class BaseEverflowTest(object):
                                       src_port=None,
                                       dest_ports=None,
                                       expect_recv=True):
+        # For egress mirroring, we expect the DUT to have modified the packet
+        # before forwarding it.
+        if self.mirror_type == "egress":
+            mirror_packet["IP"].ttl -= 1
+            mirror_packet["Ether"].src = setup["router_mac"]
+
         expected_mirror_packet = self._get_expected_mirror_packet(mirror_session,
                                                                   setup,
                                                                   duthost,
@@ -337,9 +342,18 @@ class BaseEverflowTest(object):
             logging.info("received: %s", packet.Ether(received_packet).summary())
 
             inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet))
+
             logging.info("inner_packet: %s", inner_packet.summary())
             logging.info("expected_packet: %s", mirror_packet.summary())
-            pytest_assert(Mask(inner_packet).pkt_match(mirror_packet), "Mirror payload does not match received packet")
+
+            inner_packet = Mask(inner_packet)
+
+            # For egress mirroring, the DMAC will have been modified by the DUT. Since not all Everflow
+            # tests have explicitly defined forwarding behavior (currently), we ignore it here.
+            if self.mirror_type == "egress":
+                inner_packet.set_do_not_care_scapy(packet.Ether, "dst")
+
+            pytest_assert(inner_packet.pkt_match(mirror_packet), "Mirror payload does not match received packet")
         else:
             testutils.verify_no_packet_any(ptfadapter, expected_mirror_packet, dest_ports)
 
@@ -353,16 +367,13 @@ class BaseEverflowTest(object):
         if duthost.facts["asic_type"] in ["barefoot"]:
             payload = binascii.unhexlify("0" * 24) + str(payload)
 
-        # If the mirroring type is egress, we expect the TTL to drop by 1
-        expected_ttl = int(mirror_session["session_ttl"]) - (self.mirror_type == "egress")
-
         expected_packet = testutils.simple_gre_packet(
             eth_src=setup["router_mac"],
             ip_src=mirror_session["session_src_ip"],
             ip_dst=mirror_session["session_dst_ip"],
             ip_dscp=int(mirror_session["session_dscp"]),
             ip_id=0,
-            ip_ttl=expected_ttl,
+            ip_ttl=int(mirror_session["session_ttl"]),
             inner_frame=payload
         )
 
