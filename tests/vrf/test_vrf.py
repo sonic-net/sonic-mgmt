@@ -356,6 +356,7 @@ def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
 
     try:
         ## Setup dut
+        g_vars["dut_ip"] = duthost.host.options["inventory_manager"].get_host(duthost.hostname).vars["ansible_host"]
         duthost.critical_services = ["swss", "syncd", "database", "teamd", "bgp"]  # Don't care about 'pmon' and 'lldp' here
         cfg_t0 = get_cfg_facts(duthost)  # generate cfg_facts for t0 topo
 
@@ -381,11 +382,20 @@ def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
         g_vars['vrf_intf_member_port_indices'], g_vars['vrf_member_port_indices'] = get_vrf_ports(cfg_facts)
     # --------------------- Testing -----------------------
     except Exception as e:
-        logger.error("Exception raised in setup: {}".format(repr(e)))
-        logger.error(json.dumps(traceback.format_exception(*sys.exc_info()), indent=2))
         # Ensure that config_db is restored.
         # If exception is raised in setup, the teardown code won't be executed. That's why we need to capture
         # exception and do cleanup here in setup part (code before 'yield').
+        logger.error("Exception raised in setup: {}".format(repr(e)))
+        logger.error(json.dumps(traceback.format_exception(*sys.exc_info()), indent=2))
+
+        # In case something went wrong in previous reboot, wait until the DUT is accessible to ensure that
+        # the `mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json` is executed on DUT.
+        # If the DUT is still inaccessible after timeout, we may have already lose the DUT. Something sad happened.
+        localhost.wait_for(host=g_vars["dut_ip"],
+                           port=22,
+                           state="started",
+                           search_regex="OpenSSH_[\\w\\.]+ Debian",
+                           timeout=180)
         duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
         reboot(duthost, localhost)
 
@@ -399,6 +409,11 @@ def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
     yield
 
     # --------------------- Teardown -----------------------
+    localhost.wait_for(host=g_vars["dut_ip"],
+                        port=22,
+                        state='started',
+                        search_regex='OpenSSH_[\\w\\.]+ Debian',
+                        timeout=180)   # Similiar approach to increase the chance that the next line get executed.
     duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
     reboot(duthost, localhost)
 
