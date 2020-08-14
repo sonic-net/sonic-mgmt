@@ -135,6 +135,17 @@ def pytest_addoption(parser):
     parser.addoption("--deep_clean", action="store_true", default=False,
                      help="Deep clean DUT before tests (remove old logs, cores, dumps)")
 
+    #########################
+    #   reboot test options #
+    #########################
+
+    # Allow user to specify the power off delay in seconds. User can add multiple delay by:
+    # "--power_off_delay=5, --power_off_delay=15, --power_off_delay=20"
+    # If this option is not specified, [5, 15] will be used by default, see function pytest_generate_tests in
+    # tests/platform_tests/conftest.py
+    parser.addoption("--power_off_delay", action="append", type=int, default=[],
+                     help="Power off delay seconds for test_power_off_reboot")
+
 
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
