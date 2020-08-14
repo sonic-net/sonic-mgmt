@@ -2,7 +2,6 @@
 import pytest
 import ptf.packet as scapy
 import ptf.testutils as testutils
-from ptf.testutils import dp_poll
 from ptf.mask import Mask
 from collections import defaultdict
 
