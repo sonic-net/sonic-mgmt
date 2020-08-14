@@ -47,7 +47,7 @@ LOG_EXPECT_ACL_RULE_REMOVE_RE = '.*Successfully deleted ACL rule.*'
 
 
 @pytest.fixture(scope='module')
-def setup(duthost, testbed):
+def setup(duthost, testbed, ptfadapter):
     """
     setup fixture gathers all test required information from DUT facts and testbed
     :param duthost: DUT host object
@@ -113,6 +113,14 @@ def setup(duthost, testbed):
     }
 
     logger.info('setup variables {}'.format(pprint.pformat(setup_information)))
+
+    # FIXME: There seems to be some issue with the initial setup of the ptfadapter, causing some of the
+    # TestBasicAcl tests to fail because the forwarded packets are not being collected. This is an
+    # attempt to mitigate that issue while we continue to investigate the root cause.
+    #
+    # Ref: GitHub Issue #2032
+    logger.info("setting up the ptfadapter")
+    ptfadapter.reinit()
 
     yield setup_information
 
