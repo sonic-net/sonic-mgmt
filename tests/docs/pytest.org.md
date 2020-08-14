@@ -93,7 +93,7 @@ def test_notopo():
 Test run
 
 ```
-py.test --inventory inv --host-pattern dut-1 --module-path ../ansible/library/ --testbed tb --testbed_file tb.csv --junit-xml=tr.xml --log-cli-level warn --topology t1 test_topo
+pytest --inventory inv --host-pattern dut-1 --module-path ../ansible/library/ --testbed tb --testbed_file tb.csv --junit-xml=tr.xml --log-cli-level warn --topology t1 test_topo
  --disable_loganalyzer --topology t1 test_topo.py
 ================================= test session starts ==================================
 platform linux2 -- Python 2.7.12, pytest-4.6.5, py-1.8.1, pluggy-0.13.1
