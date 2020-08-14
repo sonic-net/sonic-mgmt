@@ -28,7 +28,7 @@ DATA_PKT_SIZE = 1024
 START_DELAY = 1.5 
 
 def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
-		test_dscp_list, bg_dscp_list, exp_dur, start_delay=START_DELAY,
+                test_dscp_list, bg_dscp_list, exp_dur, start_delay=START_DELAY,
                 test_traffic_pause_expected=True,
                 send_pause_frame=True):
     """
@@ -37,8 +37,11 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
     2. IXIA sends PFC pause frames from rx_port to pause priorities.
     3. Background traffic should not be interruped - all background traffic
        will be received at the rx_port.
-    4. No PFC traffic will be received at the rx_port when pause priority
+    4. No test traffic will be received at the rx_port when pause priority
        is equal to test traffic priority.
+   
+    Note: PFC pause frames should always be dropped, regardless of their 
+          pause priorities.
 
     Args:
         session (IxNetwork Session object): IxNetwork session.
@@ -54,7 +57,7 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
         start_delay (float): approximated initial delay to start the traffic.
         test_traffic_pause_expected (bool): Do you expect test traffic to
             be stopped? If yes, this should be true; false otherwise.
-        send_pause_frame (bool): True/False depending on whether you wand to
+        send_pause_frame (bool): True/False depending on whether you want to
            send pause frame Rx port or not.
 
     Returns:
@@ -96,7 +99,7 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
                                        pkt_size=DATA_PKT_SIZE,
                                        duration=exp_dur,
                                        rate_percent=50,
-                                       start_delay=1,
+                                       start_delay=start_delay,
                                        dscp_list=test_dscp_list,
                                        lossless_prio_list=test_prio_list)
 
@@ -108,7 +111,7 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
                                              pkt_size=DATA_PKT_SIZE,
                                              duration=exp_dur,
                                              rate_percent=50,
-                                             start_delay=1,
+                                             start_delay=start_delay,
                                              dscp_list=bg_dscp_list,
                                              lossless_prio_list=bg_priority_list)
 
@@ -128,7 +131,7 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
     start_traffic(session)
 
     # Wait for test and background traffic to finish.
-    time.sleep(exp_dur + start_delay)
+    time.sleep(exp_dur + start_delay + 1) 
 
     # Capture traffic statistics.
     flow_statistics = get_traffic_statistics(session)
@@ -156,44 +159,37 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
     stop_traffic(session)
 
 
-def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map,
-                            duthost, ixia_dev, ixia_api_server_session,
-                            fanout_graph_facts):
+def test_pfc_pause_single_lossless_priority(testbed, 
+                                            conn_graph_facts, 
+                                            lossless_prio_dscp_map,
+                                            duthost, 
+                                            ixia_dev, 
+                                            ixia_api_server_session,
+                                            fanout_graph_facts):
     """
-    RDMA PFC - Pauses on lossless priorities.
-    1. On SONiC DUT enable PFC on any two priorities say, m and n.
+    RDMA PFC - Pauses on single lossless priority.
+    1. On SONiC DUT enable PFC on any priorities Pi. (0 <= i <= 7).
     2. Disable the PFC watchdog on the SONiC DUT.
     3. On the Ixia Tx port create two flows - a) 'Test Data Traffic' and
        b) 'Background Data traffic'.
-    4. The flow 'Test Data Traffic' can assume only one of the priority 
-       values - either m or n (or both).
-    5. The flow 'Background Data Traffic' can assume any priority values 
-       which is not in 'Test Data Traffic' (including m or n). Note that:
-       a. Background data traffic can assume priority n if 'Test Data Traffic'
-          has the TC value m.
-       b. Background data traffic can assume priority m if 'Test Data Traffic'
-          has the TC value n.
-       c. Neither m or n when 'Test Data Traffic' has both the priorities.   
-    6. Start 'Test Data Traffic' and 'Background Data Traffic'.
-    7. From Rx port send pause frames on priorities either m or n. Such that
-       priority of 'Test Data Traffic' at Tx end == Pause Priority at Rx end.
-    8. You may repeat the steps 6 and 7 several times.
+    4. The flow 'Test Data Traffic' can assume one of the lossless priority 
+       values Pi.
+    5. The flow 'Background Data Traffic' can assume all the priority values
+       which is not in 'Test Data Traffic'. For example if the priority of
+       'Test Data Traffic' is 3, the priorities of the 'Background Data 
+       Traffic' should be 0, 1, 2, 4, 5, 6, 7.   
+    6. From Rx port send pause frames on priority Pi. Such that priority of
+       'Test Data Traffic' at Tx end == Pause Priority at Rx end. That is,
+       send pause frames on priority Pi.
+    7. Start 'Test Data Traffic' and 'Background Data Traffic'.
+    8. You may repeat step 6 and 7 for each lossless priorities.
     9. Expected result -
        a. No 'Test Data Traffic' will not flow. Since priority of
           that is always equal to the priority pause frame priority.
        b. 'Background Data Traffic' will always flow.
-    10. Configure 'Test Data Traffic' such that it contains traffic items
-        of both the priorities m and n.
-    11. Configure 'Background Data Traffic' it contains all other traffic
-        except priorities m and n.	
-    12. From Rx port send pause frames on priorities both m and n.
-    13. When pause frames are started 'Test Data Traffic' will stop; 
-        and when pause frames are stopped 'Test Data Traffic' will start.
-    14. 'Background Data Traffic' will always flow.
-    15. Repeat the steps 10, to 14 several times.
 
-    Note: We are using default PFC enabled class of SONiC DUT as m and n. 
-          So, m = 3, n = 4.
+    Note: Test and background traffic should be started after PFC pause storm.
+
     """ 
     port_list = list()
     fanout_devices = IxiaFanoutManager(fanout_graph_facts)
@@ -210,7 +206,6 @@ def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map,
         "The topology should have at least two interfaces")
 
     # Test pausing each lossless priority individually.
-    # Step - 6, 7, 8, and 9.
     session = ixia_api_server_session
     for prio in lossless_prio_dscp_map:
         for i in range(len(port_list)):
@@ -246,7 +241,50 @@ def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map,
 
             clean_configuration(session=session)
 
-    # Step - 10, 11, 12, 13 and 14.
+
+def test_pfc_pause_multi_lossless_priorities(testbed, 
+                                             conn_graph_facts, 
+                                             lossless_prio_dscp_map,
+                                             duthost, 
+                                             ixia_dev, 
+                                             ixia_api_server_session,
+                                             fanout_graph_facts):
+    """
+    RDMA PFC - Pauses on multiple lossless priorities.
+    1. On SONiC DUT enable PFC any two priorities Pm, Pn. (0 <= n<= 7) also
+       (0 <= m <= 7)
+    2. Disable the PFC watchdog on the SONiC DUT.
+    3. On the Ixia Tx port create two flows - a) 'Test Data Traffic' and
+       b) 'Background Data traffic'.
+    4. Configure 'Test Data Traffic' such that it contains traffic items
+       of two lossless priorities Pm and Pn.
+    5. Configure 'Background Data Traffic' it contains all other traffic
+       except priorities Pm and Pn. For example if Pm = 3 and Pn = 4 then
+       the priorities of the 'Background Data Traffic' should be 0, 1, 2,
+       5, 6 and 7.
+    6. From Rx port send pause frames on priorities both Pm and Pn. Then
+       start 'Test Data Traffic' and 'Background Data Traffic'.
+    7. When pause frames are started 'Test Data Traffic' will stop; 
+       and when pause frames are stopped 'Test Data Traffic' will start.
+    8. 'Background Data Traffic' will always flow.
+    9. Repeat the steps 4 to 8 several times.
+
+    """
+    port_list = list()
+    fanout_devices = IxiaFanoutManager(fanout_graph_facts)
+    fanout_devices.get_fanout_device_details(device_number=0)
+    device_conn = conn_graph_facts['device_conn']
+
+    for intf in fanout_devices.get_ports():
+        peer_port = intf['peer_port']
+        intf['speed'] = int(device_conn[peer_port]['speed'])
+        port_list.append(intf)
+
+    # The topology should have at least two interfaces.
+    pytest_assert(len(device_conn) >= 2,
+        "The topology should have at least two interfaces")
+
+    session = ixia_api_server_session
     send_pause_frame = False
     for i in range(len(port_list)):
         vports = configure_ports(session, port_list)
