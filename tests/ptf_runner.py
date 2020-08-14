@@ -2,7 +2,7 @@ import pipes
 
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                platform="remote", qlen=0, relax=True, debug_level="info",
-               socket_recv_size=None, log_file=None, device_sockets=[]):
+               socket_recv_size=None, log_file=None, device_sockets=[], timeout=0):
 
     cmd = "ptf --test-dir {} {}".format(testdir, testname)
 
@@ -33,5 +33,8 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
 
     if device_sockets:
         cmd += " ".join(map(" --device-socket {}".format, device_sockets))
+
+    if timeout:
+        cmd += " --test-case-timeout {}".format(int(timeout))
 
     host.shell(cmd, chdir="/root")

@@ -1059,7 +1059,7 @@ class ReloadTest(BaseTest):
             self.log("stderr from %s: %s" % (self.reboot_type, str(stderr)))
         self.log("return code from %s: %s" % (self.reboot_type, str(return_code)))
         # Check sonic version after reboot
-        if not check_sonic_version_after_reboot():
+        if not self.check_sonic_version_after_reboot():
             thread.interrupt_main()
 
         # Note: a timeout reboot in ssh session will return a 255 code

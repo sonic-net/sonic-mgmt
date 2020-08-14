@@ -20,6 +20,21 @@ from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
 
 
+# HACK: This is a hack for issue https://github.com/Azure/sonic-mgmt/issues/1941 and issue
+# https://github.com/ansible/pytest-ansible/issues/47
+# Detailed root cause analysis of the issue: https://github.com/Azure/sonic-mgmt/issues/1941#issuecomment-670434790
+# Before calling callback function of plugins to return ansible module result, ansible calls the
+# ansible.executor.task_result.TaskResult.clean_copy method to remove some keys like 'failed' and 'skipped' in the
+# result dict. The keys to be removed are defined in module variable ansible.executor.task_result._IGNORE. The trick
+# of this hack is to override this pre-defined key list. When the 'failed' key is not included in the list, ansible
+# will not remove it before returning the ansible result to plugins (pytest_ansible in our case)
+try:
+    from ansible.executor import task_result
+    task_result._IGNORE = ('skipped', )
+except Exception as e:
+    logging.error("Hack for https://github.com/ansible/pytest-ansible/issues/47 failed: {}".format(repr(e)))
+
+
 class AnsibleHostBase(object):
     """
     @summary: The base class for various objects.

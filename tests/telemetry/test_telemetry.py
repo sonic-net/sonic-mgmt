@@ -48,9 +48,7 @@ def verify_telemetry_dockerimage(duthost):
     docker_out = duthost.shell('docker images docker-sonic-telemetry', module_ignore_errors=False)['stdout_lines']
     docker_out_list = get_list_stdout(docker_out)
     matching = [s for s in docker_out_list if "docker-sonic-telemetry" in s]
-    if str(matching):
-        return True
-    return False
+    return (len(matching) > 0)
 
 # Test functions
 def test_config_db_parameters(duthost):
@@ -59,7 +57,6 @@ def test_config_db_parameters(duthost):
     docker_present = verify_telemetry_dockerimage(duthost)
     if not docker_present:
         pytest.skip("docker-sonic-telemetry is not part of the image")
-        return
 
     gnmi = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|gnmi"', module_ignore_errors=False)['stdout_lines']
     pytest_assert(gnmi is not None, "TELEMETRY|gnmi does not exist in config_db")
@@ -88,7 +85,6 @@ def test_telemetry_enabledbydefault(duthost):
     docker_present = verify_telemetry_dockerimage(duthost)
     if not docker_present:
         pytest.skip("docker-sonic-telemetry is not part of the image")
-        return
 
     status = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "FEATURE|telemetry"', module_ignore_errors=False)['stdout_lines']
     status_list = get_list_stdout(status)
@@ -107,7 +103,6 @@ def test_telemetry_ouput(duthost, ptfhost):
     docker_present = verify_telemetry_dockerimage(duthost)
     if not docker_present:
         pytest.skip("docker-sonic-telemetry is not part of the image")
-        return
 
     logger.info('start telemetry output testing')
     setup_telemetry_forpyclient(duthost)

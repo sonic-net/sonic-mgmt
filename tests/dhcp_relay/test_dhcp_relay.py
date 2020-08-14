@@ -11,6 +11,19 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(loganalyzer):
+    """Ignore expected failures logs during test execution."""
+    if loganalyzer:
+        ignoreRegex = [
+            ".*ERR snmp#snmp-subagent.*",
+        ]
+        loganalyzer.ignore_regex.extend(ignoreRegex)
+
+    yield
+
+
 @pytest.fixture(scope="module")
 def dut_dhcp_relay_data(duthost, ptfhost, testbed):
     """ Fixture which returns a list of dictionaries where each dictionary contains

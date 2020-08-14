@@ -2,9 +2,6 @@
 
 DOCKER_SONIC_MGMT="docker-sonic-mgmt"
 DOCKER_REGISTRY="sonicdev-microsoft.azurecr.io:443/"
-VAR_FILE="ansible/vars/docker_registry.yml"
-USER_KEY="docker_registry_username"
-PASS_KEY="docker_registry_password"
 
 function show_help_and_exit() {
     echo "Usage $0 [options]"
@@ -19,7 +16,6 @@ function show_help_and_exit() {
     echo "                      |   1. The local image named \"docker-sonic-mgmt\""
     echo "                      |   2. The local image named \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\""
     echo "                      |   3. The remote image at \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\""
-    echo "                      |      Note: to use option 3, your system must have Python3 with the PyYAML package installed"
     echo ""
     echo "-d <directory>        : specify directory inside container to bind mount to sonic-mgmt root (default \"/var/src/\")"
     exit $1
@@ -27,8 +23,10 @@ function show_help_and_exit() {
 
 function start_and_config_container() {
     echo "Creating container $CONTAINER_NAME"
-    CURRENT_DIR=`pwd`/..
-    docker run --name $CONTAINER_NAME -v $CURRENT_DIR:$LINK_DIR -d -t $IMAGE_ID bash > /dev/null
+    SCRIPT_DIR=`dirname $0`
+    cd $SCRIPT_DIR
+    PARENT_DIR=`pwd`/..
+    docker run --name $CONTAINER_NAME -v $PARENT_DIR:$LINK_DIR -d -t $IMAGE_ID bash > /dev/null
 
     if [[ "$?" != 0 ]]; then
         echo "Container creation failed, exiting"
@@ -80,6 +78,12 @@ function start_and_config_container() {
 
 
 function validate_parameters() {
+    if ! docker info > /dev/null 2> /dev/null; then
+        echo "Unable to access Docker daemon"
+        echo "Hint: make sure $USER is a member of the docker group"
+        exit 1
+    fi
+
     if [[ -z ${CONTAINER_NAME} ]]; then
         echo "Container name not set"
         show_help_and_exit 1
@@ -90,18 +94,8 @@ function validate_parameters() {
             IMAGE_ID=$DOCKER_SONIC_MGMT
         elif docker images --format "{{.Repository}}" | grep -q "^${DOCKER_REGISTRY}${DOCKER_SONIC_MGMT}$"; then
             IMAGE_ID=${DOCKER_REGISTRY}${DOCKER_SONIC_MGMT}
-        elif python3 -c "import yaml" 2> /dev/null ; then
-            echo "Pulling image from registry"
-            DOCKER_USER=`python3 -c "import yaml;print(yaml.load(open(\"$VAR_FILE\").read())[\"$USER_KEY\"])"`
-            DOCKER_PASS=`python3 -c "import yaml;print(yaml.load(open(\"$VAR_FILE\").read())[\"$PASS_KEY\"])"`
-        
-            if docker login -u $DOCKER_USER -p $DOCKER_PASS $DOCKER_REGISTRY > /dev/null 2> /dev/null; then
-                docker pull ${DOCKER_REGISTRY}${DOCKER_SONIC_MGMT}
-                IMAGE_ID=${DOCKER_REGISTRY}${DOCKER_SONIC_MGMT}  
-            else
-                echo "Problem logging into container registry, check credentials in $VAR_FILE"
-                exit 1
-            fi
+        elif echo "Pulling image from registry" && docker pull ${DOCKER_REGISTRY}${DOCKER_SONIC_MGMT}; then 
+            IMAGE_ID=${DOCKER_REGISTRY}${DOCKER_SONIC_MGMT}  
         else
             echo "Unable to find a usable default image, please specify one manually"
             show_help_and_exit 1
@@ -113,12 +107,6 @@ function validate_parameters() {
     if [[ -z ${LINK_DIR} ]]; then
         LINK_DIR="/var/src"
         echo "Using default bind mount directory $LINK_DIR"
-    fi
-
-    if [[ ! `id -Gn $USER | grep '\bdocker\b'` ]]; then
-        echo "User $USER is not in the docker group"
-        echo "Please add $USER to the docker group before proceeding"
-        exit 1
     fi
 }
 

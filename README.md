@@ -8,7 +8,7 @@ Tools for managing, configuring and monitoring SONiC
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/3933/badge)](https://bestpractices.coreinfrastructure.org/projects/3933)
 
 # Docker Container Setup
-Use the `setup-container.sh` script to automatically create and configure your sonic-mgmt Docker container. This script should be run directly from the root of the sonic-mgmt repo. You should also run this script as the user that will be using the created container.
+Use the `setup-container.sh` script to automatically create and configure your sonic-mgmt Docker container. You should run this script as the user that will be using the created container.
 
 ```
 Usage ./setup-container.sh [options]
@@ -22,7 +22,6 @@ Options with (*) are required
                       |   1. The local image named \"docker-sonic-mgmt\"
                       |   2. The local image named \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\"
                       |   3. The remote image at \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\"
-                      |      Note: to use option 3, your system must have Python3 with the PyYAML package installed
 
 -d <directory>        : specify directory inside container to bind mount to sonic-mgmt root (default "/var/src/")
 ```
