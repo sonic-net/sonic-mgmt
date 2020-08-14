@@ -117,7 +117,7 @@ def common_setup_teardown(duthost, ptfhost, localhost):
         # The ping here is workaround for known issue:
         # https://github.com/Azure/SONiC/issues/387 Pre-ARP support for static route config
         # When there is no arp entry for next hop, routes learnt from exabgp will not be set down to ASIC
-        # Also because iof issue https://github.com/Azure/sonic-buildimage/issues/5185 ping is done before route addition.
+        # Also because of issue https://github.com/Azure/sonic-buildimage/issues/5185 ping is done before route addition.
         duthost.shell("ping %s -c 3" % ip.ip)
         time.sleep(2)
         duthost.command("ip route add %s/32 dev %s" % (ip.ip, mg_facts['minigraph_vlan_interfaces'][0]['attachto']))
