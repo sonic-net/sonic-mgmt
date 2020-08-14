@@ -76,10 +76,6 @@ def common_setup_teardown(duthost, ptfhost, localhost):
     speaker_ips.append(vlan_ips[0])
     logging.info("speaker_ips: %s" % str(speaker_ips))
 
-    for ip in vlan_ips:
-        duthost.command("ip route flush %s/32" % ip.ip)
-        duthost.command("ip route add %s/32 dev %s" % (ip.ip, mg_facts['minigraph_vlan_interfaces'][0]['attachto']))
-
     port_num = [7000, 8000, 9000]
 
     lo_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
@@ -115,6 +111,17 @@ def common_setup_teardown(duthost, ptfhost, localhost):
 
     ptfhost.shell("ip route flush %s/%d" % (lo_addr, lo_addr_prefixlen))
     ptfhost.shell("ip route add %s/%d via %s" % (lo_addr, lo_addr_prefixlen, vlan_addr))
+
+    for ip in vlan_ips:
+        duthost.command("ip route flush %s/32" % ip.ip)
+        # The ping here is workaround for known issue:
+        # https://github.com/Azure/SONiC/issues/387 Pre-ARP support for static route config
+        # When there is no arp entry for next hop, routes learnt from exabgp will not be set down to ASIC
+        # Also because of issue https://github.com/Azure/sonic-buildimage/issues/5185 ping is done before route addition.
+        duthost.shell("ping %s -c 3" % ip.ip)
+        time.sleep(2)
+        duthost.command("ip route add %s/32 dev %s" % (ip.ip, mg_facts['minigraph_vlan_interfaces'][0]['attachto']))
+
 
     logging.info("setup ip/routes in ptf")
     for i in [0, 1, 2]:
@@ -191,14 +198,6 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, testbed, duthost, 
 
     logging.info("Wait some time to make sure routes announced to dynamic bgp neighbors")
     time.sleep(30)
-
-    # The ping here is workaround for known issue:
-    #     https://github.com/Azure/SONiC/issues/387 Pre-ARP support for static route config
-    # When there is no arp entry for next hop, routes learnt from exabgp will not be set down to ASIC
-    # Traffic to prefix 10.10.10.0 will be routed to vEOS VMs via default gateway.
-    duthost.shell("ping %s -c 3" % vlan_ips[1].ip)
-    duthost.shell("ping %s -c 3" % vlan_ips[2].ip)
-    time.sleep(5)
 
     logging.info("Verify accepted prefixes of the dynamic neighbors are correct")
     bgp_facts = duthost.bgp_facts()['ansible_facts']
