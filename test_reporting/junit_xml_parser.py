@@ -217,15 +217,14 @@ def _validate_test_cases(root):
         _validate_test_case(test_case)
 
 
-def parse_test_result(root, compact=False):
+def parse_test_result(root):
     """Parse a given XML document into JSON.
 
     Args:
         root: The root of the XML document to parse.
-        compact: Whether to include whitespace in the JSON output or not.
 
     Returns:
-        A JSON string containing the parsed test result.
+        A dict containing the parsed test result.
     """
     test_result_json = {}
 
@@ -233,10 +232,7 @@ def parse_test_result(root, compact=False):
     test_result_json["test_metadata"] = _parse_test_metadata(root)
     test_result_json["test_cases"] = _parse_test_cases(root)
 
-    if compact:
-        return json.dumps(test_result_json, separators=(",", ":"), sort_keys=True)
-
-    return json.dumps(test_result_json, indent=4, sort_keys=True)
+    return test_result_json
 
 
 def _parse_test_summary(root):
@@ -323,13 +319,18 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
         print(f"{args.file_name} validated succesfully!")
         sys.exit(0)
 
-    test_result_json = parse_test_result(root, compact=args.compact)
+    test_result_json = parse_test_result(root)
+
+    if args.compact:
+        output = json.dumps(test_result_json, separators=(",", ":"), sort_keys=True)
+    else:
+        output = json.dumps(test_result_json, indent=4, sort_keys=True)
 
     if args.output_file:
         with open(args.output_file, "w+") as output_file:
-            output_file.write(test_result_json)
+            output_file.write(output)
     else:
-        print(test_result_json)
+        print(output)
 
 
 if __name__ == "__main__":

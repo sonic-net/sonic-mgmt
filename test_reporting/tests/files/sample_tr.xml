@@ -9,7 +9,7 @@
         <property name="hwsku" value="Force10-S6000"/>
         <property name="os_version" value="master.449-9c22d19b"/>
     </properties>
-    <testcase classname="bgp.test_bgp_" file="bgp/test_bgp.py" line="161" name="test_bgp_fact" time="109.472" />
+    <testcase classname="bgp.test_bgp" file="bgp/test_bgp.py" line="161" name="test_bgp_fact" time="109.472" />
     <testcase classname="bgp.test_bgp" file="bgp/test_bgp.py" line="248" name="test_bgp_speaker" time="46.316">
         <failure message="test machine go brr" />
     </testcase>

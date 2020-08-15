@@ -33,7 +33,7 @@ VALID_TEST_RESULT = """<?xml version="1.0" encoding="utf-8"?>
 
 VALID_TEST_RESULT_FILE = os.path.join(os.path.dirname(__file__), "files/sample_tr.xml")
 
-EXPECTED_PRETTY_JSON_OUTPUT = """{
+EXPECTED_JSON_OUTPUT = {
     "test_cases": {
         "acl": [
             {
@@ -78,17 +78,7 @@ EXPECTED_PRETTY_JSON_OUTPUT = """{
         "tests": "3",
         "time": "214.054"
     }
-}"""
-
-EXPECTED_COMPACT_JSON_OUTPUT = """{"test_cases":{"acl":[{"classname":"acl.test_acl",\
-"error":"test machine broke","file":"acl/test_acl.py","line":"257","name":"test_acl",\
-"time":"58.161"}],"bgp":[{"classname":"bgp.test_bgp","file":"bgp/test_bgp.py","line":"161",\
-"name":"test_bgp_fact","time":"109.472"},{"classname":"bgp.test_bgp",\
-"failure":"test machine go brr","file":"bgp/test_bgp.py","line":"248",\
-"name":"test_bgp_speaker","time":"46.316"}]},"test_metadata":{"asic":"vs","host":"vlab-01",\
-"hwsku":"Force10-S6000","os_version":"master.449-9c22d19b","platform":"x86_64-kvm_x86_64-r0",\
-"topology":"t0"},"test_summary":{"errors":"1","failures":"1","skipped":"0","tests":"3",\
-"time":"214.054"}}"""
+}
 
 BILLION_LAUGHS_ATTACK = """<!DOCTYPE xmlbomb [
 <!ENTITY a "1234567890" >
@@ -216,18 +206,14 @@ def test_invalid_junit_xml_exploits(exploit_string):
         validate_junit_xml_stream(exploits[exploit_string])
 
 
-def test_pretty_json_output():
+def test_json_output_from_stream():
     root = validate_junit_xml_stream(VALID_TEST_RESULT)
-    assert parse_test_result(root) == EXPECTED_PRETTY_JSON_OUTPUT
+    assert parse_test_result(root) == EXPECTED_JSON_OUTPUT
 
 
-def test_compact_json_output():
-    root = validate_junit_xml_stream(VALID_TEST_RESULT)
-    assert parse_test_result(root, compact=True) == EXPECTED_COMPACT_JSON_OUTPUT
-
-
-def test_load_and_validate_xml_file():
-    validate_junit_xml_file(VALID_TEST_RESULT_FILE)
+def test_json_output_from_file():
+    root = validate_junit_xml_file(VALID_TEST_RESULT_FILE)
+    assert parse_test_result(root) == EXPECTED_JSON_OUTPUT
 
 
 def test_xml_file_not_found():
