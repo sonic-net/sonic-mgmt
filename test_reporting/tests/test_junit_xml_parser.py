@@ -116,6 +116,11 @@ def test_valid_junit_xml():
     validate_junit_xml_stream(VALID_TEST_RESULT)
 
 
+@pytest.mark.parametrize("encoding", ["utf-8", "ascii"])
+def test_valid_junit_xml_byte_stream(encoding):
+    validate_junit_xml_stream(bytes(VALID_TEST_RESULT, encoding))
+
+
 @pytest.mark.parametrize("input_string", [None, ""])
 def test_invalid_junit_xml_missing_xml(input_string):
     with pytest.raises(JUnitXMLValidationError, match="could not parse provided XML stream"):
@@ -206,8 +211,14 @@ def test_invalid_junit_xml_exploits(exploit_string):
         validate_junit_xml_stream(exploits[exploit_string])
 
 
-def test_json_output_from_stream():
+def test_json_output_from_string():
     root = validate_junit_xml_stream(VALID_TEST_RESULT)
+    assert parse_test_result(root) == EXPECTED_JSON_OUTPUT
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "ascii"])
+def test_json_output_from_byte_stream(encoding):
+    root = validate_junit_xml_stream(bytes(VALID_TEST_RESULT, encoding))
     assert parse_test_result(root) == EXPECTED_JSON_OUTPUT
 
 
