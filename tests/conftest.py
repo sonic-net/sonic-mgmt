@@ -93,6 +93,14 @@ def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
 
+    # test_vnet_vxlan options
+    parser.addoption("--num_vnet", action="store", default=None, type=int, help="number of VNETs for VNET VxLAN test")
+    parser.addoption("--num_routes", action="store", default=None, type=int, help="number of routes for VNET VxLAN test")
+    parser.addoption("--num_endpoints", action="store", default=None, type=int, help="number of endpoints for VNET VxLAN")
+
+    parser.addoption("--ipv6_vxlan_test", action="store_true", help="Use IPV6 for VxLAN test")
+    parser.addoption("--skip_cleanup", action="store_true", help="Do not cleanup after VNET VxLAN test")
+
     # test_vrf options
     parser.addoption("--vrf_capacity", action="store", default=None, type=int, help="vrf capacity of dut (4-1000)")
     parser.addoption("--vrf_test_count", action="store", default=None, type=int, help="number of vrf to be tested (1-997)")
