@@ -719,7 +719,7 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
 
     # Construct global pause and PFC packets.
     if global_pause:
-        set_global_pause_fields(pfc_stack_obj)
+        __set_global_pause_fields__(pfc_stack_obj)
     else:
         __set_pfc_fields__(pfc_stack_obj, pause_prio_list)
 
