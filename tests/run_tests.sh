@@ -165,7 +165,7 @@ function run_debug_tests()
 function prepare_dut()
 {
     echo "=== Preparing DUT for subsequent tests ==="
-    py.test ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m pretest
+    pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m pretest
 
     # Give some delay for the newly announced routes to propagate.
     sleep 120
@@ -174,13 +174,13 @@ function prepare_dut()
 function cleanup_dut()
 {
     echo "=== Cleaning up DUT after tests ==="
-    py.test ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m posttest
+    pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m posttest
 }
 
 function run_group_tests()
 {
     echo "=== Running tests in groups ==="
-    py.test ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${TEST_CASES}
+    pytest ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${TEST_CASES}
 }
 
 function run_individual_tests()
@@ -210,7 +210,7 @@ function run_individual_tests()
             TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
         fi
 
-        py.test ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${test_script} ${EXTRA_PARAMETERS}
+        pytest ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${test_script} ${EXTRA_PARAMETERS}
         ret_code=$?
 
         # If test passed, no need to keep its log.

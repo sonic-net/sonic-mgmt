@@ -87,21 +87,23 @@ $ docker exec -u <alias> -it <container name> bash
 
 ### Setup public key to login into the linux host from sonic-mgmt docker
 
-- Modify veos.vtb to use the user name, e.g., `foo` to login linux host (this can be your username on the host).
+- Modify veos_vtb to use the user name, e.g., `foo` to login linux host (this can be your username on the host).
 
 ```
 lgh@gulv-vm2:/data/sonic-mgmt/ansible$ git diff
-diff --git a/ansible/veos.vtb b/ansible/veos.vtb
-index 4ea5a7a..4cfc448 100644
---- a/ansible/veos.vtb
-+++ b/ansible/veos.vtb
-@@ -1,5 +1,5 @@
-[vm_host_1]
--STR-ACS-VSERV-01 ansible_host=172.17.0.1 ansible_user=use_own_value
-+STR-ACS-VSERV-01 ansible_host=172.17.0.1 ansible_user=foo
+diff --git a/ansible/veos_vtb b/ansible/veos_vtb
+index 3e7b3c4e..edabfc40 100644
+--- a/ansible/veos_vtb
++++ b/ansible/veos_vtb
+@@ -73,7 +73,7 @@ vm_host_1:
+   hosts:
+     STR-ACS-VSERV-01:
+       ansible_host: 172.17.0.1
+-      ansible_user: use_own_value
++      ansible_user: foo
 
- [vm_host:children]
-vm_host_1
+ vms_1:
+   hosts:
 ```
 
 - Create dummy `password.txt` under `/data/sonic-mgmt/ansible`
@@ -126,13 +128,13 @@ from the `sonic-mgmt` container. Then, test you can sudo without password prompt
 (skip this step if you use cEOS image)
 
 ```
-$ ./testbed-cli.sh -m veos.vtb -n 4 start-vms server_1 password.txt
+$ ./testbed-cli.sh -m veos_vtb -n 4 start-vms server_1 password.txt
 ```
   - Please note: Here "password.txt" is the Ansible Vault password file name/path. Ansible allows user to use Ansible Vault to encrypt password files. By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line. The file name and location is created and maintained by user.
 
 Check that all VMs are up and running, and the passwd is `123456`
 ```
-$ ansible -m ping -i veos.vtb server_1 -u root -k
+$ ansible -m ping -i veos_vtb server_1 -u root -k
 VM0102 | SUCCESS => {
         "changed": false,
                 "ping": "pong"
@@ -161,13 +163,13 @@ VM0100 | SUCCESS => {
 ### vEOS
 ```
 $ cd /data/sonic-mgmt/ansible
-$ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb add-topo vms-kvm-t0 password.txt
+$ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb add-topo vms-kvm-t0 password.txt
 ```
 
 ### cEOS
 ```
 $ cd /data/sonic-mgmt/ansible
-$ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb -k ceos add-topo vms-kvm-t0 password.txt
+$ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb -k ceos add-topo vms-kvm-t0 password.txt
 ```
 
 Verify topology setup successfully.
@@ -189,7 +191,7 @@ c929c622232a        sonicdev-microsoft.azurecr.io:443/docker-ptf:latest   "/usr/
 ## Deploy minigraph on the DUT
 
 ```
-$ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb deploy-mg vms-kvm-t0 lab password.txt
+$ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb deploy-mg vms-kvm-t0 lab password.txt
 ```
 
 You should be login into the sonic kvm using IP: 10.250.0.101 using admin:password.
