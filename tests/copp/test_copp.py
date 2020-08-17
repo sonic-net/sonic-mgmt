@@ -52,7 +52,7 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "bgp_graph"])
 _SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
 _SUPPORTED_T1_TOPOS = ["t1", "t1-lag"]
-_NO_TOR_EXCLUDE_PROTOCOL = ["DHCP"]
+_TOR_ONLY_PROTOCOL = ["DHCP"]
 _TEST_RATE_LIMIT = 600
 
 class TestCOPP(object):
@@ -88,13 +88,11 @@ class TestCOPP(object):
             Checks that the policer does not enforce a rate limit for protocols
             that do not have any set rate limit.
         """
-        if protocol in _NO_TOR_EXCLUDE_PROTOCOL and dut_type != "ToRRouter":
-            pytest.skip("{} not supported on {}.".format(protocol, dut_type))
-
         _copp_runner(duthost,
                     ptfhost,
                     protocol,
-                    copp_testbed)
+                    copp_testbed,
+                    dut_type)
 
 @pytest.fixture(scope="class")
 def dut_type(duthost):
@@ -143,7 +141,7 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
 
     yield
 
-def _copp_runner(dut, ptf, protocol, test_params):
+def _copp_runner(dut, ptf, protocol, test_params, dut_type):
     """
         Configures and runs the PTF test cases.
     """
@@ -163,7 +161,8 @@ def _copp_runner(dut, ptf, protocol, test_params):
     ptf_runner(host=ptf,
                testdir="ptftests",
                # Special Handling for DHCP if we are using T1 Topo
-               testname="copp_tests.{}Test".format(protocol),
+               testname="copp_tests.{}Test".format((protocol+"TopoT1")
+                         if protocol in _TOR_ONLY_PROTOCOL and dut_type != "ToRRouter" else protocol),
                platform="nn",
                qlen=100000,
                params=params,
