@@ -67,7 +67,7 @@ class PopulateFdb:
                 })
         vlan_interfaces = {}
         for vlan in mgFacts["minigraph_vlan_interfaces"]:
-            if isinstance(ipaddress.IPNetwork(vlan['addr']), ipaddress.IPv4Network):
+            if ipaddress.IPNetwork(vlan['addr']).version == 4:
                 vlan_interfaces[vlan["attachto"]] = vlan
 
         vlanConfigData = {
