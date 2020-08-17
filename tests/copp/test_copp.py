@@ -28,6 +28,7 @@
 
 import logging
 import pytest
+import json
 from collections import namedtuple
 
 from tests.copp import copp_utils
@@ -51,7 +52,7 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "bgp_graph"])
 _SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
 _SUPPORTED_T1_TOPOS = ["t1", "t1-lag"]
-_T1_NO_COPP_PROTOCOL = ["DHCP"]
+_NO_TOR_EXCLUDE_PROTOCOL = ["DHCP"]
 _TEST_RATE_LIMIT = 600
 
 class TestCOPP(object):
@@ -80,17 +81,32 @@ class TestCOPP(object):
                                           "LACP",
                                           "LLDP",
                                           "UDLD"])
-    def test_no_policer(self, protocol, duthost, ptfhost, copp_testbed):
+    def test_no_policer(self, protocol, duthost, ptfhost, copp_testbed, dut_type):
         """
             Validates that non-rate-limited COPP groups work as expected.
 
             Checks that the policer does not enforce a rate limit for protocols
             that do not have any set rate limit.
         """
+        if protocol in _NO_TOR_EXCLUDE_PROTOCOL and dut_type != "ToRRouter":
+            pytest.skip("{} not supported on {}.".format(protocol, dut_type))
+
         _copp_runner(duthost,
-                     ptfhost,
-                     protocol,
-                     copp_testbed)
+                    ptfhost,
+                    protocol,
+                    copp_testbed)
+
+@pytest.fixture(scope="class")
+def dut_type(duthost):
+    cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])  # return config db contents(running-config)
+    dut_type = None
+
+    if "DEVICE_METADATA" in cfg_facts:
+        if "localhost" in cfg_facts["DEVICE_METADATA"]:
+            if "type" in cfg_facts["DEVICE_METADATA"]["localhost"]:
+                dut_type = cfg_facts["DEVICE_METADATA"]["localhost"]["type"]
+
+    return dut_type
 
 @pytest.fixture(scope="class")
 def copp_testbed(duthost, creds, ptfhost, testbed, request):
@@ -147,8 +163,7 @@ def _copp_runner(dut, ptf, protocol, test_params):
     ptf_runner(host=ptf,
                testdir="ptftests",
                # Special Handling for DHCP if we are using T1 Topo
-               testname="copp_tests.{}Test".format((protocol+"TopoT1")
-                         if test_params.topo in _SUPPORTED_T1_TOPOS and protocol in _T1_NO_COPP_PROTOCOL else protocol),
+               testname="copp_tests.{}Test".format(protocol),
                platform="nn",
                qlen=100000,
                params=params,
