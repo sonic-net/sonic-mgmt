@@ -711,7 +711,7 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
             StartDelay=start_delay*(10**6))
 
     # Add PFC header
-    pfc_stack_obj = __create_pkt_hdr__(
+    pfc_stack_obj = __create_pkt_hdr(
         ixnetwork=ixnetwork,
         traffic_item=traffic_item,
         pkt_hdr_to_add='^PFC PAUSE \(802.1Qbb\)',
@@ -719,9 +719,9 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
 
     # Construct global pause and PFC packets.
     if global_pause:
-        __set_global_pause_fields__(pfc_stack_obj)
+        __set_global_pause_fields(pfc_stack_obj)
     else:
-        __set_pfc_fields__(pfc_stack_obj, pause_prio_list)
+        __set_pfc_fields(pfc_stack_obj, pause_prio_list)
 
     # Remove Ethernet header.
     traffic_item.ConfigElement.find()[0].Stack.\
@@ -736,13 +736,12 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
 
 # This section defines helper function used in the module. These functions
 # should not be called from test script.
-# 1. __set_global_pause_fields__ 
-# 2. __set_eth_fields__
-# 3. __set_eth_fields__
-# 4. __set_pfc_fields__
-# 5. __create_pkt_hdr__
+# 1. __set_global_pause_fields 
+# 2. __set_eth_fields
+# 3. __set_pfc_fields
+# 4. __create_pkt_hdr
 
-def __set_global_pause_fields__(pfc_stack_obj):
+def __set_global_pause_fields(pfc_stack_obj):
     code = pfc_stack_obj.find(DisplayName='Control opcode')
     code.ValueType = 'singleValue'
     code.SingleValue = '1'
@@ -761,7 +760,7 @@ def __set_global_pause_fields__(pfc_stack_obj):
         pause_duration.SingleValue = '0'
 
 
-def __set_eth_fields__(eth_stack_obj, src_mac, dst_mac):
+def __set_eth_fields(eth_stack_obj, src_mac, dst_mac):
     if src_mac is not None:
         src_mac_field = eth_stack_obj.find(DisplayName='Source MAC Address')
         src_mac_field.ValueType = 'singleValue'
@@ -774,7 +773,7 @@ def __set_eth_fields__(eth_stack_obj, src_mac, dst_mac):
         dst_mac_field.SingleValue = dst_mac
 
 
-def __set_ip_fields__(ip_stack_obj, src_ip, dst_ip, dscp_list):
+def __set_ip_fields(ip_stack_obj, src_ip, dst_ip, dscp_list):
     if src_ip is not None:
         src_ip_field = ip_stack_obj.find(DisplayName='Source Address')
         src_ip_field.ValueType = 'singleValue'
@@ -792,7 +791,7 @@ def __set_ip_fields__(ip_stack_obj, src_ip, dst_ip, dscp_list):
         phb_field.ValueList = dscp_list
 
 
-def __set_pfc_fields__(pfc_stack_obj, pause_prio_list):
+def __set_pfc_fields(pfc_stack_obj, pause_prio_list):
     code = pfc_stack_obj.find(DisplayName='Control opcode')
     code.ValueType = 'singleValue'
     code.SingleValue = '101'
@@ -815,7 +814,7 @@ def __set_pfc_fields__(pfc_stack_obj, pause_prio_list):
             pause_duration.SingleValue = '0'
 
 
-def __create_pkt_hdr__(ixnetwork, 
+def __create_pkt_hdr(ixnetwork, 
                        traffic_item, 
                        pkt_hdr_to_add,
                        append_to_stack):

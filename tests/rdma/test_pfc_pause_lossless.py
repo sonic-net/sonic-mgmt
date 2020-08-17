@@ -19,7 +19,8 @@ from tests.common.ixia.ixia_helpers import configure_ports,\
 from tests.common.ixia.common_helpers import get_vlan_subnet, \
     get_addrs_in_subnet
 
-from tests.common.ixia.qos_fixtures import lossless_prio_dscp_map
+#from tests.rdma.files.qos_fixtures import lossless_prio_dscp_map
+from files.qos_fixtures import lossless_prio_dscp_map
 
 pytestmark = [pytest.mark.disable_loganalyzer]
 
