@@ -64,7 +64,7 @@ class TestCOPP(object):
                                           "IP2ME",
                                           "SNMP",
                                           "SSH"])
-    def test_policer(self, protocol, duthost, ptfhost, copp_testbed):
+    def test_policer(self, protocol, duthost, ptfhost, copp_testbed, dut_type):
         """
             Validates that rate-limited COPP groups work as expected.
 
@@ -74,7 +74,8 @@ class TestCOPP(object):
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
-                     copp_testbed)
+                     copp_testbed,
+                     dut_type)
 
     @pytest.mark.parametrize("protocol", ["BGP",
                                           "DHCP",
