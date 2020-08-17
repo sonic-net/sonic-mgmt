@@ -380,7 +380,7 @@ def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
         g_vars['vrf_intfs'] = get_vrf_intfs(cfg_facts)
 
         g_vars['vrf_intf_member_port_indices'], g_vars['vrf_member_port_indices'] = get_vrf_ports(cfg_facts)
-    # --------------------- Testing -----------------------
+
     except Exception as e:
         # Ensure that config_db is restored.
         # If exception is raised in setup, the teardown code won't be executed. That's why we need to capture
