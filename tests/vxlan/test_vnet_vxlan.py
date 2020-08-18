@@ -174,6 +174,19 @@ def cleanup_dut_vnets(duthost, mg_facts):
     for vnet in VNET_CONFIG['vnet_id_list']:
         duthost.shell("docker exec -i database redis-cli -n 4 del \"VNET|{}\"".format(vnet))
 
+def cleanup_vxlan_tunnels(duthost):
+    """
+    @summary: Removes all VxLAN tunnels from DUT
+    @param duthost: DUT host object
+    """
+    logger.info("Removing VxLAN tunnel from DUT")
+    tunnels = ["tunnel_v4"]
+    if IPV6_VXLAN_TEST:
+        tunnels.append("tunnel_v6")
+
+    for tunnel in tunnels:
+        duthost.shell("docker exec -i database redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
+
 @pytest.fixture(scope="module")
 def setup(duthost, ptfhost, num_vnet, num_routes, num_endpoints, ipv6_vxlan_test, skip_cleanup):
     """
@@ -228,6 +241,7 @@ def vxlan_status(setup, request, duthost):
         duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
         sleep(3)
         cleanup_dut_vnets(duthost, setup)
+        cleanup_vxlan_tunnels(duthost)
     return vxlan_enabled, request.param
 
 
