@@ -44,10 +44,6 @@ def num_endpoints(request):
 def ipv6_vxlan_test(request):
     return request.config.option.ipv6_vxlan_test
 
-@pytest.fixture(scope="module")
-def skip_cleanup(request):
-    return request.config.option.skip_cleanup
-
 def gen_vnet_config(mg_facts, num_vnet, num_routes, num_endpoints):
     """
     @summary: Generates and stores the VNET configuration

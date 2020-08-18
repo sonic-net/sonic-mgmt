@@ -444,3 +444,7 @@ def tag_test_report(request, pytestconfig, testbed, duthost, record_testsuite_pr
         record_testsuite_property("os_version", duthost.os_version)
 
         __report_metadata_added = True
+
+@pytest.fixture(scope="module")
+def skip_cleanup(request): 
+    return request.config.option.skip_cleanup
