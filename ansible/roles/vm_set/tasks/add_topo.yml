@@ -30,6 +30,17 @@
 
 - name: Start Keysight API Server container
   block: 
+    - name: Include variables for Keysight API Server container
+      include_vars:
+        dir: "{{ playbook_dir }}/group_vars/example-ixia/"
+
+    - name: default secret_group_vars if not defined
+      set_fact:
+        secret_group_vars:
+          ixia_api_server:
+            rest_port: 443
+      when: secret_group_vars is not defined
+
     - name: Pull and start Keysight API Server container
       docker_container:
         name: apiserver
@@ -37,7 +48,7 @@
         pull: yes
         state: started
         restart: no
-        published_ports: 8443:443
+        published_ports: "{{ secret_group_vars.ixia_api_server.rest_port }}:443"
         detach: True
         capabilities:
           - net_admin
