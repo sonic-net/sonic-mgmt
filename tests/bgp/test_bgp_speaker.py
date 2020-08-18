@@ -112,6 +112,8 @@ def common_setup_teardown(duthost, ptfhost, localhost):
     ptfhost.shell("ip route flush %s/%d" % (lo_addr, lo_addr_prefixlen))
     ptfhost.shell("ip route add %s/%d via %s" % (lo_addr, lo_addr_prefixlen, vlan_addr))
 
+    logging.info("clear ARP cache on DUT")
+    duthost.command("sonic-clear arp")
     for ip in vlan_ips:
         duthost.command("ip route flush %s/32" % ip.ip)
         # The ping here is workaround for known issue:

@@ -125,6 +125,12 @@ class TestWrArp:
         ptfhost.shell('supervisorctl reread && supervisorctl update')
 
     @pytest.fixture(scope='class', autouse=True)
+    def clean_dut(self, duthost):
+        yield
+        logger.info("Clear ARP cache on DUT")
+        duthost.command('sonic-clear arp')
+
+    @pytest.fixture(scope='class', autouse=True)
     def setupRouteToPtfhost(self, duthost, ptfhost):
         '''
             Sets routes up on DUT to PTF host. This class-scope fixture runs once before test start
