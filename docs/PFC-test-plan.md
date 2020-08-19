@@ -1,6 +1,6 @@
-# RDMA PFC test plan
+# PFC test plan
 
-- [RDMA PFC test plan](#rdma-pfc-test-plan)
+- [PFC test plan](#pfc-test-plan)
   - [Overview](#overview)
     - [Scope](#scope)
     - [Testbed](#testbed)
@@ -57,10 +57,6 @@ represents the time needed to transmit 512 bits at the current network
 speed. For user data traffic, the CoS maps to either CoS values defined
 in 802.1Q VLAN tag or the IP DSCP values.
 
-The purpose of this test plan is to test the PFC PAUSE processing
-behavior of a SONiC DUT. The test assumes all necessary configuration is
-already pre-configured on the SONIC DUT before test runs.
-
 SONiC has two lossless priorities: 3 and 4, by default. It is to be
 noted that only the lossless priorities can react to or generate PFC
 frames. In other words, PFC frames should not have any impact on traffic
@@ -69,10 +65,7 @@ on lossy priorities. Packets with Differentiated Services Code Point
 
 ### Scope
 
-The test is targeting a running SONIC system with fully functioning
-configuration. The purpose of the test is not to test specific API, but
-functional testing of SONiC DUT on receiving a PFC pause frame, making
-sure that traffic are getting paused or unpaused on correct priorities.
+The purpose of this test plan is to test the PFC PAUSE processing behavior of a SONiC DUT and its capability to pause or un-pause traffic with right priorities. The test assumes all necessary configuration is already pre-configured on the SONIC DUT before test runs.
 
 ### Testbed
 
@@ -81,11 +74,8 @@ sure that traffic are getting paused or unpaused on correct priorities.
 | Keysight TX |------|   SONiC DUT  |------| Keysight RX |
 +-------------+      +--------------+      +-------------+
 
-Keysight ports are connected via SONiC switch as shown in the illustration above.
-
-The test will run on the following testbed: T0-64
+Keysight ports are connected with SONiC switch as shown in the illustration above.
 ```
-
 ## Setup configuration
 
 ### DUT configuration
@@ -146,8 +136,7 @@ properly.
 
 #### Test Configuration
 
-- On SONiC DUT configure two lossless CoS values Pi and Pm. (0 \<= i,m
-    \<= 7).
+- On SONiC DUT configure multiple lossless CoS values, eg. Pi, Pm (0 <= Pi, Pm, Pn <= 7). Maximum seven lossless priorities can be configured.
 - Configure following traffic items on the Keysight device:
     1. Test data traffic: A traffic item from the Keysight Tx port to
         the Keysight Rx port with two lossless priorities (DSCP value ==
@@ -175,6 +164,7 @@ properly.
 5. Stop the PFC PAUSE storm.
 6. Now start the Test data traffic again for a fixed duration.
 7. Verify as there is no PFC PAUSE received by DUT, the Keysight Rx port should receive all the Test data packets.
+8. Repeat the test with a different set of lossless CoS values
 
 ### Test Case #3 - PFC PAUSE with lossy priorities
 
