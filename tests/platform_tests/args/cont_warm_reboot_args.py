@@ -19,11 +19,10 @@ def add_cont_warm_reboot_args(parser):
     )
 
     parser.addoption(
-        "--enable_continuous_io",
+        "--reboot_type",
         action="store",
-        type=bool,
-        default=False,
-        help="Enable continuous IO",
+        default="warm",
+        help="Reboot type - warm/fast",
     )
 
     parser.addoption(
