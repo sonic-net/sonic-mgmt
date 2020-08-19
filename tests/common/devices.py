@@ -682,12 +682,12 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         """
         ret = None
         bgp_facts = self.bgp_facts()['ansible_facts']
-        if stat in bgp_facts['bgp_statistics']:
-            ret = bgp_facts['bgp_statistics'][stat]
+        if stat in self.bgp_facts['bgp_statistics']:
+            ret = self.bgp_facts['bgp_statistics'][stat]
         return ret;
         
     def check_bgp_statistic(self, stat, value):
-        val = get_bgp_statistic(stat)
+        val = self.get_bgp_statistic(stat)
         return val == value
 
     def get_bgp_neighbors(self):
