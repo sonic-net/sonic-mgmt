@@ -48,7 +48,9 @@ def gen_vnet_config(mg_facts, num_vnet, num_routes, num_endpoints):
     """
     @summary: Generates and stores the VNET configuration
     @param mg_facts: Minigraph facts
-    @returns: A Python dictionary containing the VNET configuration
+    @param num_vnet: Number of VNETs
+    @param num_routes: Number of routes
+    @param num_endpoints: Number of endpoints
     """
     logger.info("Generating VNet configuration")
     global VNET_CONFIG
@@ -139,6 +141,7 @@ def generate_dut_config_files(duthost, mg_facts):
 def apply_dut_config_files(duthost):
     """
     @summary: Applies config files on disk
+    @param duthost: DUT host object
     """
     logger.info("Applying config files on DUT")
 
@@ -193,6 +196,11 @@ def setup(duthost, ptfhost, num_vnet, num_routes, num_endpoints, ipv6_vxlan_test
     @summary: Fixture to prepare the DUT and PTF hosts for testing
     @param duthost: DUT host object
     @param ptfhost: PTF host object
+    @param num_vnet: Number of VNETs
+    @param num_routes: Number of routes
+    @param num_endpoints: Number of endpoints
+    @param ipv6_vxlan_test: Use IPV6 for testing
+    @param skip_cleanup: Determines if cleanup is skipped or not
     """
     minigraph_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
     dut_facts = duthost.setup(gather_subset="!all,!any,network", filter="ansible_Ethernet*")["ansible_facts"]
@@ -218,6 +226,7 @@ def vxlan_status(setup, request, duthost):
     @param setup: Pytest fixture that provides access to minigraph facts
     @param request: Contains the parameter (Disabled, Enabled, or Cleanup) for the current test iteration
     @param duthost: DUT host object
+    @param returns: VxLAN status, and the test scenario
     """
     vxlan_enabled = False
     if request.param == "Disabled":
