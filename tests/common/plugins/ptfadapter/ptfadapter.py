@@ -3,6 +3,8 @@ from ptf.base_tests import BaseTest
 from ptf.dataplane import DataPlane
 import ptf.platforms.nn as nn
 import ptf.ptfutils as ptfutils
+import ptf.packet as scapy
+import ptf.mask as mask
 
 
 class PtfTestAdapter(BaseTest):
@@ -22,6 +24,7 @@ class PtfTestAdapter(BaseTest):
         """
         self.runTest = lambda : None # set a no op runTest attribute to satisfy BaseTest interface
         super(PtfTestAdapter, self).__init__()
+        self.payload_pattern = ""
         self._init_ptf_dataplane(ptf_ip, ptf_nn_port, device_num, ptf_port_set)
 
     def __enter__(self):
@@ -88,3 +91,27 @@ class PtfTestAdapter(BaseTest):
         """
         self.kill()
         self._init_ptf_dataplane(self.ptf_ip, self.ptf_nn_port, self.device_num, self.ptf_port_set, ptf_config)
+
+    def update_payload(self, pkt):
+        if isinstance(pkt, scapy.Ether):
+            for proto in (scapy.UDP, scapy.TCP):
+                if proto in pkt:
+                    pkt[proto].load = self._update_payload(pkt[proto].load)
+        elif isinstance(pkt, mask.Mask):
+            for proto in (scapy.UDP, scapy.TCP):
+                if proto in pkt.exp_pkt:
+                    pkt.exp_pkt[proto].load = self._update_payload(pkt.exp_pkt[proto].load)
+        return pkt
+
+    def _update_payload(self, payload):
+        if self.payload_pattern:
+            len_old = len(payload)
+            len_new = len(self.payload_pattern)
+            if len_new >= len_old:
+                return self.payload_pattern[:len_old]
+            else:
+                factor = len_old/len_new + 1
+                new_payload = self.payload_pattern * factor
+                return new_payload[:len_old]
+        else:
+            return payload
