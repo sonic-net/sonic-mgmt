@@ -126,7 +126,6 @@ class ReloadTest(BaseTest):
         self.process_id = str(os.getpid())
         self.test_params = testutils.test_params_get()
         self.check_param('verbose', False, required=False)
-        self.check_param('enable_continuous_io', False, required=False)
         self.check_param('dut_username', '', required=True)
         self.check_param('dut_password', '', required=True)
         self.check_param('dut_hostname', '', required=True)
@@ -596,9 +595,6 @@ class ReloadTest(BaseTest):
             self.dataplane.stop_pcap()
         self.log_fp.close()
 
-        if self.test_params['enable_continuous_io']:
-            os.system('touch {}'.format("/tmp/{}".format(self.process_id)))
-
     def get_if(self, iff, cmd):
         s = socket.socket()
         ifreq = ioctl(s, cmd, struct.pack("16s16x",iff))
@@ -973,27 +969,7 @@ class ReloadTest(BaseTest):
 
         self.assertTrue(is_good, errors)
 
-    def handle_continuous_io(self):        
-        self.log("Registering signalling events for the continuous I/O")
-        self.continuous_io_reboot_ready = False
-        # Log the PID of the running process so that remote process could communicate via process signals
-        with open("/tmp/advanced-reboot-pid.log", "w") as fp:
-            fp.write(self.process_id)
-
-        def receive_disable_signal(signalNumber, frame):
-            self.log("Received signal SIGUSR1:", signalNumber)
-            self.log("Disabling continuous I/O operation..")
-            self.test_params['enable_continuous_io'] = False
-            self.continuous_io_reboot_ready = True
-            #self.continuous_io_reboot_ready.set()
-        def receive_reboot_signal(signalNumber, frame):
-            self.continuous_io_reboot_ready = True
-            #self.continuous_io_reboot_ready.set()
-        # register for an event to disable continuous I/O
-        signal.signal(signal.SIGUSR1, receive_disable_signal)
-        signal.signal(signal.SIGUSR2, receive_reboot_signal)
-
-    def runRebootTest(self):
+    def runTest(self):
         self.pre_reboot_test_setup()        
         try:
             self.log("Check that device is alive and pinging")
@@ -1017,28 +993,6 @@ class ReloadTest(BaseTest):
             self.fails['dut'].add(e)
         finally:
             self.handle_post_reboot_test_reports()
-
-    def runTest(self):
-        if not self.test_params['enable_continuous_io']:
-            self.runRebootTest()
-        else:
-            self.handle_continuous_io()
-            self.log("Starting continuous warm reboot test on ptf host")
-            while self.test_params['enable_continuous_io'] is True:
-                self.log("Waiting for the next reboot signal")
-                while self.continuous_io_reboot_ready is False:
-                    continue
-                # self.continuous_io_reboot_ready.wait()
-                if self.test_params['enable_continuous_io'] is False:
-                    self.log("Continuous IO has been disabled from the remote. Exiting ptf script...")
-                    break
-                self.log("Received reboot signal from remote server...")
-                self.runRebootTest()
-                self.log("Finished running a reboot iteration in continuous reboot test...")
-                os.system('touch {}'.format("/tmp/{}".format(self.process_id)))
-                #self.continuous_io_reboot_ready.clear()
-                self.continuous_io_reboot_ready = False
-            self.log("Completed running continuous warm reboot test on ptf host")
 
     def neigh_lag_status_check(self):
         """

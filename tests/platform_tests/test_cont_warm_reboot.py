@@ -4,16 +4,11 @@ import csv
 import sys
 import time
 import json
-import signal
 import traceback
 import pytest
-import threading
 import logging
 from datetime import datetime
-from check_critical_services import check_critical_services
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait
-from tests.common.utilities import wait_until
 from tests.common.reboot import get_reboot_cause
 from tests.common.platform.transceiver_utils import parse_transceiver_info
 from tests.common.plugins.sanity_check import checks
@@ -41,7 +36,7 @@ def handle_test_error(health_check):
             self.test_report[health_check.__name__] = err.message
             self.sub_test_result = False
             return
-        except ContinuousRebootError as err:
+        except Exception as err:
             traceback.print_exc()
             logging.error("Health check {} failed with unknown error".format(health_check.__name__))
             self.test_report[health_check.__name__] = "Unkown error"
@@ -117,7 +112,7 @@ class ContinuousReboot:
         result = self.advancedReboot.runRebootTest()
         if result is not True:
             # Create a failure report
-            raise ContinuousRebootError("Reboot test failed with error: {}".format(self.reboot_count, str(result["stderr"])))
+            raise ContinuousRebootError("Reboot test failed with error: {}".format(str(result["stderr"])))
 
 
     @handle_test_error
@@ -230,6 +225,8 @@ class ContinuousReboot:
                 except ValueError:
                     logging.warn("Invalid json file, continuing the reboot test with old list of images")
                 break
+        logging.info("Copy latest PTF test files to PTF host '{0}'".format(self.ptfhost.hostname))
+        self.ptfhost.copy(src="ptftests", dest="/root")
         return True
 
 
