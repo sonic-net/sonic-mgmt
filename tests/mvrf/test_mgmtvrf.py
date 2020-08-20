@@ -15,23 +15,38 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
+def restore_config_db(duthost):
+    # Restore the original config_db to override the config_db with mgmt vrf config
+    duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
+
+    # Reload to restore configuration
+    config_reload(duthost)
+
+
 @pytest.fixture(scope="module", autouse=True)
 def setup_mvrf(duthost, testbed, localhost):
     """
     Setup Management vrf configs before the start of testsuite
     """
-    logger.info("Configure mgmt vrf")
-    global var
-    global mvrf
-    mvrf = True
-    var = {}
-    var["dut_ip"] = duthost.setup()["ansible_facts"]["ansible_eth0"]["ipv4"]["address"]
-    var["ptf_ip"] = testbed["ptf_ip"]
-    var["filename"] = "README.md"
-    duthost.command("sudo config vrf add mgmt")
-    SONIC_SSH_REGEX = "OpenSSH_[\\w\\.]+ Debian"
+    # Backup the original config_db without mgmt vrf config
+    duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
 
-    verify_show_command(duthost)
+    try:
+        logger.info("Configure mgmt vrf")
+        global var
+        global mvrf
+        mvrf = True
+        var = {}
+        var["dut_ip"] = duthost.setup()["ansible_facts"]["ansible_eth0"]["ipv4"]["address"]
+        var["ptf_ip"] = testbed["ptf_ip"]
+        var["filename"] = "README.md"
+        duthost.command("sudo config vrf add mgmt")
+        SONIC_SSH_REGEX = "OpenSSH_[\\w\\.]+ Debian"
+        verify_show_command(duthost)
+    except Exception as e:
+        logger.error("Exception raised in setup, exception: {}".format(repr(e)))
+        restore_config_db(duthost)
+        pytest.fail("Configure mgmt vrf failed, no test case will be executed. Teardown will not be executed either.")
 
     yield
 
@@ -54,9 +69,8 @@ def setup_mvrf(duthost, testbed, localhost):
 
         verify_show_command(duthost, mvrf=False)
 
-    finally:
-        # Reload to restore configuration
-        config_reload(duthost)
+    finally:    # Always restore and reload the original config_db.
+        restore_config_db(duthost)
 
 
 def verify_show_command(duthost, mvrf=True):
@@ -68,11 +82,14 @@ def verify_show_command(duthost, mvrf=True):
         mvrf_interfaces["vrf_table"] = "vrf table 5000"
         mvrf_interfaces["eth0"] = "\d+:\s+eth0+:\s+<BROADCAST,MULTICAST,UP,LOWER_UP>.*master mgmt\s+state\s+UP "
         mvrf_interfaces["lo"] = "\d+:\s+lo-m:\s+<BROADCAST,NOARP,UP,LOWER_UP>.*master mgmt"
-        pytest_assert("ManagementVRF : Enabled" in show_mgmt_vrf)
+        if not "ManagementVRF : Enabled" in show_mgmt_vrf:
+            raise Exception("'ManagementVRF : Enabled' not in output of 'show mgmt vrf'")
         for _, pattern in mvrf_interfaces.items():
-            pytest_assert(re.search(pattern, show_mgmt_vrf))
+            if not re.search(pattern, show_mgmt_vrf):
+                raise Exception("Unexpected output for MgmtVRF=enabled")
     else:
-        pytest_assert("ManagementVRF : Disabled" in show_mgmt_vrf)
+        if not "ManagementVRF : Disabled" in show_mgmt_vrf:
+            raise Exception("'ManagementVRF : Disabled' not in output of 'show mgmt vrf'")
 
 
 def execute_dut_command(duthost, command, mvrf=True, ignore_errors=False):
@@ -181,27 +198,19 @@ class TestReboot():
         inbound_test.test_ping(duthost, localhost)
         inbound_test.test_snmp_fact(localhost)
 
-    @pytest.fixture(scope="class")
-    def backup_restore_config(self, duthost):
-        # Backup the original config_db without mgmt vrf config
-        duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
-        yield
-        # Restore the original config_db to override the config_db with mgmt vrf config
-        duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
-
-    def test_warmboot(self, duthost, localhost, testbed, backup_restore_config):
+    def test_warmboot(self, duthost, localhost, testbed):
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="warm")
         pytest_assert(wait_until(120, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
         self.basic_check_after_reboot(duthost, localhost, testbed)
 
-    def test_reboot(self, duthost, localhost, testbed, backup_restore_config):
+    def test_reboot(self, duthost, localhost, testbed):
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost)
         pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
         self.basic_check_after_reboot(duthost, localhost, testbed)
 
-    def test_fastboot(self, duthost, localhost, testbed, backup_restore_config):
+    def test_fastboot(self, duthost, localhost, testbed):
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="fast")
         pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
