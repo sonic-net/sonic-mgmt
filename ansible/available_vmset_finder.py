@@ -67,23 +67,14 @@ def parse_vm_file(vm_file):
     vms = dict()
     try:
         with open(vm_file) as f:
-            found_vm = 0
-            start_vm = 0
-            for line in f:
-                if found_vm and start_vm:
-                   server_name = 'server_{}'.format(server_id)
-                   vms[server_name] = {'start_vm':line.split(' ')[0]}
-                   start_vm = 0
-                elif found_vm and line.startswith('\n'):
-                   found_vm = 0
-                elif found_vm:
-                   vms[server_name].update({'end_vm':line.split(' ')[0]})
-                elif line.startswith('[vms_'):
-                   match = re.match('\[vms_(\d+)\]', line)
-                   if match:
-                       server_id = match.group(1)
-                   found_vm = 1
-                   start_vm = 1
+            veos_info = yaml.load(f, Loader=yaml.FullLoader)
+            vms_names = [key for key in veos_info if 'vms_' in key]
+            for name in vms_names:
+                server_name = 'server_{}'.format(name.split('_')[1])
+                vm_list = sorted(veos_info[name]['hosts'].keys())
+                vms[server_name] = {'start_vm': vm_list[0],
+                                    'end_vm': vm_list[-1]
+                                   }
     except EnvironmentError as e:
         print 'Error while trying to open/read vms file: {}'.format(str(e))
         exit(1)
