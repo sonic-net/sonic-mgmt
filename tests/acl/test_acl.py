@@ -480,7 +480,7 @@ class BaseAclTest(object):
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
-        counters_sanity_check.append(2 if direction == 'spine->tor' else 3)
+        counters_sanity_check.append(3 if direction == 'spine->tor' else 2)
 
     def test_dest_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check):
         """ test destination IP matched packet dropped """
@@ -493,7 +493,7 @@ class BaseAclTest(object):
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
-        counters_sanity_check.append(15 if direction == 'spine->tor' else 16)
+        counters_sanity_check.append(16 if direction == 'spine->tor' else 15)
 
     def test_source_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check):
         """ test source IP matched packet dropped """
@@ -571,7 +571,7 @@ class BaseAclTest(object):
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
-        counters_sanity_check.append(5)
+        counters_sanity_check.append(9)
 
     def test_l4_sport_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check):
         """ test L4 source port matched packet forwarded """
@@ -610,7 +610,7 @@ class BaseAclTest(object):
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
-        counters_sanity_check.append(10)
+        counters_sanity_check.append(17)
 
     def test_l4_dport_range_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check):
         """ test L4 destination port range matched packet dropped """
@@ -649,7 +649,7 @@ class BaseAclTest(object):
         testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
 
-        counters_sanity_check.append(5)
+        counters_sanity_check.append(19)
 
     def test_tcp_flags_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check):
         """ test TCP flags matched packet forwarded """
