@@ -1,0 +1,122 @@
+import json
+import logging
+import vnet_config as vc
+import yaml
+
+from jinja2 import Template
+from os import path
+from time import sleep
+
+logger = logging.getLogger(__name__)
+
+def gen_vnet_config(mg_facts, num_vnet, num_routes, num_endpoints):
+    """
+    @summary: Generates and stores the VNET configuration
+    @param mg_facts: Minigraph facts
+    @param num_vnet: Number of VNETs
+    @param num_routes: Number of routes
+    @param num_endpoints: Number of endpoints
+    """
+    logger.info("Generating VNet configuration")
+    vc.VNET_CONFIG = yaml.safe_load(Template(open("templates/vnet_config.j2").read())
+                                .render(mg_facts, ipv6_vxlan_test=vc.IPV6_VXLAN_TEST, 
+                                        num_vnet=num_vnet, num_routes=num_routes, num_endpoints=num_endpoints))
+
+def render_template_to_host(template_name, host, dest_file, *template_args, **template_kwargs):
+    """
+    @summary: Renders a template with the given arguments and copies it to the host
+    @param template_name: A template inside the "templates" folder (without the preceding "templates/")
+    @param host: The host device to copy the rendered template to
+    @param dest_file: The location on the host to copy the rendered template to
+    @param *template_args: Any arguments to be passed to j2 during rendering
+    @param **template_kwargs: Any keyword arguments to be passed to j2 during rendering
+    """
+    # Combine all dictionaries given in template_args
+    template_args_iter = iter(template_args)
+    try:
+        combined_template_args = next(template_args_iter).copy()
+        for arg in template_args_iter:
+            combined_template_args.update(arg)
+    except StopIteration:
+        combined_template_args = {}
+
+    rendered = Template(open(path.join("templates",template_name)).read()) \
+                        .render(combined_template_args, **template_kwargs)
+
+    host.copy(content=rendered, dest=dest_file)
+
+def generate_dut_config_files(duthost, mg_facts):
+    """
+    @summary: Generate VNET and VXLAN config files and copy them to DUT.
+    @param duthost: DUT host object
+    @param mg_facts: Minigraph facts
+    """
+    logger.info("Generating config files and copying to DUT")
+
+    vnet_switch_config = [{
+        "SWITCH_TABLE:switch": {
+            "vxlan_port": vc.VXLAN_PORT,
+            "vxlan_router_mac": vc.VXLAN_MAC
+        },
+        "OP": "SET"
+    }]
+
+    duthost.copy(content=json.dumps(vnet_switch_config, indent=4), dest=vc.DUT_VNET_SWITCH_CONFIG)
+
+
+    render_template_to_host("vnet_vxlan.j2", duthost, vc.DUT_VNET_CONF, vc.VNET_CONFIG, mg_facts, ipv6_vxlan_test=vc.IPV6_VXLAN_TEST)
+    render_template_to_host("vnet_interface.j2", duthost, vc.DUT_VNET_INTF_CONFIG, vc.VNET_CONFIG)
+    render_template_to_host("vnet_nbr.j2", duthost, vc.DUT_VNET_NBR_JSON, vc.VNET_CONFIG)
+    render_template_to_host("vnet_routes.j2", duthost, vc.DUT_VNET_ROUTE_CONFIG, vc.VNET_CONFIG, op="SET")
+
+def apply_dut_config_files(duthost):
+    """
+    @summary: Applies config files on disk
+    @param duthost: DUT host object
+    """
+    logger.info("Applying config files on DUT")
+
+    config_files = ["/tmp/vnet.intf.json", "/tmp/vnet.nbr.json"]
+    if vc.APPLY_NEW_CONFIG:
+        config_files.append("/tmp/vnet.conf.json")
+
+    for config in config_files:
+        duthost.shell("sonic-cfggen -j {} --write-to-db".format(config))
+        sleep(3)
+
+    duthost.shell("docker cp {} swss:/vnet.route.json".format(vc.DUT_VNET_ROUTE_CONFIG))
+    duthost.shell("docker cp {} swss:/vnet.switch.json".format(vc.DUT_VNET_SWITCH_CONFIG))
+    if vc.APPLY_NEW_CONFIG:
+        duthost.shell("docker exec swss sh -c \"swssconfig /vnet.switch.json\"")
+        duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
+        sleep(3)
+
+def cleanup_dut_vnets(duthost, mg_facts):
+    """
+    @summary: Removes all VNET information from DUT
+    @param duthost: DUT host object
+    @param mg_factS: Minigraph facts
+    """
+    logger.info("Removing VNET information from DUT")
+
+    for intf in vc.VNET_CONFIG['vlan_intf_list']:
+        duthost.shell("docker exec -i database redis-cli -n 4 del \"VLAN_INTERFACE|{}|{}\"".format(intf['ifname'], intf['ip']))
+
+    for intf in vc.VNET_CONFIG['vlan_intf_list']:
+        duthost.shell("docker exec -i database redis-cli -n 4 del \"VLAN_INTERFACE|{}\"".format(intf['ifname']))
+    
+    for vnet in vc.VNET_CONFIG['vnet_id_list']:
+        duthost.shell("docker exec -i database redis-cli -n 4 del \"VNET|{}\"".format(vnet))
+
+def cleanup_vxlan_tunnels(duthost):
+    """
+    @summary: Removes all VxLAN tunnels from DUT
+    @param duthost: DUT host object
+    """
+    logger.info("Removing VxLAN tunnel from DUT")
+    tunnels = ["tunnel_v4"]
+    if vc.IPV6_VXLAN_TEST:
+        tunnels.append("tunnel_v6")
+
+    for tunnel in tunnels:
+        duthost.shell("docker exec -i database redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
