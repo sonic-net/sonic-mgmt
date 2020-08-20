@@ -55,6 +55,19 @@ class PfcCmd(object):
         return dut.command("{} {}".format(cmd.format(queue_oid), attr))['stdout']
 
     @staticmethod
+    def set_storm_status(dut, queue_oid, storm_status):
+        """
+        Sets PFC storm status for the queue
+
+        Args:
+            dut(AnsibleHost) : dut instance
+            queue_oid(string) : queue oid for which the storm status needs to be set
+            storm_status(string) : debug storm status (enabled/disabled)
+        """
+        cmd = "redis-cli -n 2 HSET COUNTERS:{} DEBUG_STORM {}"
+        dut.command(cmd.format(queue_oid, storm_status))
+
+    @staticmethod
     def get_queue_oid(dut, port, queue_num):
         """
         Retreive queue oid
@@ -162,11 +175,12 @@ class SetupPfcwdFunc(object):
             init(bool) : If the fanout needs to be initialized or not
         """
         logger.info("--- Setting up test params for port {} ---".format(port))
-        self.setup_port_params(port)
+        self.setup_port_params(port, init=init)
         self.resolve_arp(vlan)
-        self.storm_setup(init=init)
+        if not self.pfc_wd['fake_storm']:
+            self.storm_setup(init=init)
 
-    def setup_port_params(self, port):
+    def setup_port_params(self, port, init=False):
          """
          Gather all the parameters needed for storm generation and ptf test based off the DUT port
 
@@ -174,6 +188,7 @@ class SetupPfcwdFunc(object):
              port(string) : DUT port
          """
          self.pfc_wd = dict()
+         self.pfc_wd['fake_storm'] = False if init else self.fake_storm
          self.pfc_wd['test_pkt_count'] = 100
          self.pfc_wd['queue_index'] = 4
          self.pfc_wd['frames_number'] = 100000000
@@ -418,11 +433,16 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         if action != "dontcare":
             start_wd_on_ports(dut, port, restore_time, detect_time, action)
 
-        self.storm_hndle.start_storm()
+        if not self.pfc_wd['fake_storm']:
+            self.storm_hndle.start_storm()
 
         if action == "dontcare":
             self.traffic_inst.fill_buffer()
             start_wd_on_ports(dut, port, restore_time, detect_time, "drop")
+
+        # placing this here to cover all action types. for 'dontcare' action, wd is started much later after the pfc storm is started
+        if self.pfc_wd['fake_storm']:
+            PfcCmd.set_storm_status(dut, self.queue_oid, "enabled")
 
         time.sleep(5)
 
@@ -434,7 +454,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.traffic_inst.verify_wd_func(action if action != "dontcare" else "drop")
         return loganalyzer
 
-    def storm_restore_path(self, loganalyzer, port, action):
+    def storm_restore_path(self, dut, loganalyzer, port, action):
         """
         Storm restoration action and associated verifications
 
@@ -451,7 +471,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         loganalyzer.expect_regex.extend([EXPECT_PFC_WD_RESTORE_RE])
         loganalyzer.match_regex = []
 
-        self.storm_hndle.stop_storm()
+        if self.pfc_wd['fake_storm']:
+            PfcCmd.set_storm_status(dut, self.queue_oid, "disabled")
+        else:
+            self.storm_hndle.stop_storm()
         time.sleep(self.timers['pfc_wd_wait_for_restore_time'])
         # storm restore
         logger.info("Verify if PFC storm is restored on port {}".format(port))
@@ -471,7 +494,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         logger.info("--- Storm detection path for port {} ---".format(port))
         loganalyzer = self.storm_detect_path(dut, port, action)
         logger.info("--- Storm restoration path for port {} ---".format(port))
-        self.storm_restore_path(loganalyzer, port, action)
+        self.storm_restore_path(dut, loganalyzer, port, action)
         logger.info("--- Verify PFCwd counters for port {} ---".format(port))
         self.stats.verify_pkt_cnts(self.pfc_wd['port_type'], self.pfc_wd['test_pkt_count'])
 
@@ -497,8 +520,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.neighbors = setup_info['neighbors']
         dut_facts = self.dut.setup()['ansible_facts']
         self.peer_dev_list = dict()
+        self.fake_storm = request.config.getoption("--fake-storm")
 
         for idx, port in enumerate(self.ports):
+             self.storm_hndle = None
              logger.info("")
              logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
              self.setup_test_params(port, setup_info['vlan'], init=not idx)
@@ -518,5 +543,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                      if self.storm_hndle:
                          logger.info("--- Stop pfc storm on port {}".format(port))
                          self.storm_hndle.stop_storm()
+                     else:
+                         logger.info("--- Disabling fake storm on port {} queue {}".format(port, self.queue_oid))
+                         PfcCmd.set_storm_status(self.dut, self.queue_oid, "disabled")
                      logger.info("--- Stop PFC WD ---")
                      self.dut.command("pfcwd stop")

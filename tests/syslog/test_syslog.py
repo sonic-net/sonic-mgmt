@@ -16,26 +16,25 @@ SYSLOG_STARTUP_POLLING_INTERVAL = 3
 SYSLOG_MESSAGE_TEST_TIMEOUT = 10
 
 
-@pytest.fixture(scope="module")
-def config_syslog_srv(ptfhost, duthost):
+def config_syslog_srv(ptfhost):
     logger.info("Configuring the syslog server")
 
     # Add the imudp configuration if not present
-    ptfhost.shell("sed -ni '/module/!p;$a module(load=\"imudp\")' /etc/rsyslog.conf")
-    ptfhost.shell("sed -i '/input(type/!p;$a input(type=\"imudp\" port=\"514\")' /etc/rsyslog.conf")
-
-    # Remove local /var/log/syslog
-    ptfhost.shell("rm -rf /var/log/syslog")
+    ptfhost.shell("sed -i -e '/^input(type/d' -e '/^module/d' /etc/rsyslog.conf; sed -i -e '$amodule(load=\"imudp\")' -e '$ainput(type=\"imudp\" port=\"514\")' /etc/rsyslog.conf")
 
     # Restart Syslog Daemon
-    ptfhost.shell("service rsyslog restart")
+    logger.info("Restarting rsyslog service")
+    ptfhost.shell("service rsyslog stop && rm -rf /var/log/syslog && touch /var/log/syslog && service rsyslog restart")
 
     # Wait a little bit for service to start
+    rsyslog_running_msg="rsyslogd is running"
     def _is_syslog_running():
-        result = duthost.shell("service rsyslog status | grep \"active (running)\"")["stdout"]
-        return "active (running)" in result
+        result = ptfhost.shell("service rsyslog status | grep \"{}\"".format(rsyslog_running_msg))["stdout"]
+        return rsyslog_running_msg in result
 
+    logger.debug("Waiting for rsyslog server to restart")
     wait_until(SYSLOG_STARTUP_TIMEOUT, SYSLOG_STARTUP_POLLING_INTERVAL, _is_syslog_running)
+    logger.debug("rsyslog server restarted")
 
 
 @pytest.fixture(scope="module")
@@ -46,6 +45,7 @@ def config_dut(testbed, duthost):
 
     # Add Rsyslog destination for testing
     duthost.shell("sudo config syslog add {}".format(local_syslog_srv_ip))
+    logger.debug("Added new rsyslog server IP {}".format(local_syslog_srv_ip))
 
     yield
 
@@ -53,18 +53,22 @@ def config_dut(testbed, duthost):
     duthost.shell("sudo config syslog del {}".format(local_syslog_srv_ip))
 
 
-def test_syslog(duthost, ptfhost, config_dut, config_syslog_srv):
+def test_syslog(duthost, ptfhost, config_dut):
     logger.info("Starting syslog tests")
     test_message = "Basic Test Message"
 
+    logger.debug("Configuring rsyslog server")
+    config_syslog_srv(ptfhost)
+
+    logger.debug("Generating log message from DUT")
     # Generate a syslog from the DUT
     duthost.shell("logger --priority INFO {}".format(test_message))
 
     # Check syslog messages for the test message
     def _check_syslog():
-        result = ptfhost.shell("grep {} /var/log/syslog | grep \"{}\" | grep -v ansible"
+        result = ptfhost.shell("grep {} /var/log/syslog | grep -v ansible | grep -c \"{}\""
                                .format(duthost.hostname, test_message))["stdout"]
-        return test_message in result
+        return result != "0"
 
     pytest_assert(wait_until(SYSLOG_MESSAGE_TEST_TIMEOUT, 1, _check_syslog),
                   "Test syslog message not seen on the server after {}s".format(SYSLOG_MESSAGE_TEST_TIMEOUT))

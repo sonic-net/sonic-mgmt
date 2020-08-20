@@ -1,30 +1,24 @@
-import pytest
-import ptf.testutils as testutils
-import ptf.mask as mask
-import ptf.packet as packet
 import logging
-import importlib
-import pprint
-import random
-import time
-import yaml
-import re
 import os
+import re
+import time
+import pytest
+import yaml
 import json
-import netaddr
+
+import ptf.packet as packet
+import ptf.testutils as testutils
+
 from tests.common.utilities import wait_until
-from drop_packets import *
+from drop_packets import *  # FIXME
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology("any")
 ]
 
 logger = logging.getLogger(__name__)
 
 PKT_NUMBER = 1000
-
-# Discard key from 'portstat -j' CLI command output
-
 
 # CLI commands to obtain drop counters
 GET_L2_COUNTERS = "portstat -j"
@@ -291,6 +285,9 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthost, setup, fanouthost, pkt
         01:80:C2:00:00:05 - reserved for future standardization
         01:80:C2:00:00:08 - provider Bridge group address
     """
+    if not fanouthost:
+        pytest.skip("Test case requires explicit fanout support")
+
     reserved_mac_addr = ["01:80:C2:00:00:05", "01:80:C2:00:00:08"]
     for reserved_dmac in reserved_mac_addr:
         dst_mac = reserved_dmac

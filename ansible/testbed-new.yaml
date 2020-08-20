@@ -745,7 +745,3 @@ topology:                               # source: sonic-mgmt/ansible/files/sonic
 # docker_registry dictionary does not cross reference with other files 
 docker_registry:
     docker_registry_host: sonicdev-microsoft.azurecr.io:443
-    docker_registry_username: 1dafc8d7-d19c-4f58-8653-e8d904f30dab
-    docker_registry_password: sonic
-    
-

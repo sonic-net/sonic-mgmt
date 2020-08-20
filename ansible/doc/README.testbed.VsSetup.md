@@ -87,21 +87,23 @@ $ docker exec -u <alias> -it <container name> bash
 
 ### Setup public key to login into the linux host from sonic-mgmt docker
 
-- Modify veos.vtb to use the user name, e.g., `foo` to login linux host (this can be your username on the host).
+- Modify veos_vtb to use the user name, e.g., `foo` to login linux host (this can be your username on the host).
 
 ```
 lgh@gulv-vm2:/data/sonic-mgmt/ansible$ git diff
-diff --git a/ansible/veos.vtb b/ansible/veos.vtb
-index 4ea5a7a..4cfc448 100644
---- a/ansible/veos.vtb
-+++ b/ansible/veos.vtb
-@@ -1,5 +1,5 @@
-[vm_host_1]
--STR-ACS-VSERV-01 ansible_host=172.17.0.1 ansible_user=use_own_value
-+STR-ACS-VSERV-01 ansible_host=172.17.0.1 ansible_user=foo
+diff --git a/ansible/veos_vtb b/ansible/veos_vtb
+index 3e7b3c4e..edabfc40 100644
+--- a/ansible/veos_vtb
++++ b/ansible/veos_vtb
+@@ -73,7 +73,7 @@ vm_host_1:
+   hosts:
+     STR-ACS-VSERV-01:
+       ansible_host: 172.17.0.1
+-      ansible_user: use_own_value
++      ansible_user: foo
 
- [vm_host:children]
-vm_host_1
+ vms_1:
+   hosts:
 ```
 
 - Create dummy `password.txt` under `/data/sonic-mgmt/ansible`
@@ -126,13 +128,13 @@ from the `sonic-mgmt` container. Then, test you can sudo without password prompt
 (skip this step if you use cEOS image)
 
 ```
-$ ./testbed-cli.sh -m veos.vtb -n 4 start-vms server_1 password.txt
+$ ./testbed-cli.sh -m veos_vtb -n 4 start-vms server_1 password.txt
 ```
   - Please note: Here "password.txt" is the Ansible Vault password file name/path. Ansible allows user to use Ansible Vault to encrypt password files. By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line. The file name and location is created and maintained by user.
 
 Check that all VMs are up and running, and the passwd is `123456`
 ```
-$ ansible -m ping -i veos.vtb server_1 -u root -k
+$ ansible -m ping -i veos_vtb server_1 -u root -k
 VM0102 | SUCCESS => {
         "changed": false,
                 "ping": "pong"
@@ -161,13 +163,13 @@ VM0100 | SUCCESS => {
 ### vEOS
 ```
 $ cd /data/sonic-mgmt/ansible
-$ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb add-topo vms-kvm-t0 password.txt
+$ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb add-topo vms-kvm-t0 password.txt
 ```
 
 ### cEOS
 ```
 $ cd /data/sonic-mgmt/ansible
-$ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb -k ceos add-topo vms-kvm-t0 password.txt
+$ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb -k ceos add-topo vms-kvm-t0 password.txt
 ```
 
 Verify topology setup successfully.
@@ -189,7 +191,7 @@ c929c622232a        sonicdev-microsoft.azurecr.io:443/docker-ptf:latest   "/usr/
 ## Deploy minigraph on the DUT
 
 ```
-$ ./testbed-cli.sh -t vtestbed.csv -m veos.vtb deploy-mg vms-kvm-t0 lab password.txt
+$ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb deploy-mg vms-kvm-t0 lab password.txt
 ```
 
 You should be login into the sonic kvm using IP: 10.250.0.101 using admin:password.
@@ -208,67 +210,6 @@ Neighbor        V         AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/P
 10.0.0.61       4 64600    3205     950        0    0    0 00:00:21     6400
 10.0.0.63       4 64600    3204     950        0    0    0 00:00:21     6400
 ```
-## Deploy IxNetwork API Server
-
-### Download IxNetwork API Server docker image
-1. Download IxNetwork Web Edition (Docker deployment) from [ here ](https://ks-aws-prd-itshared-opix.s3-us-west-1.amazonaws.com/IxSoftwareUpgrades/IxNetwork/9.0_Update3/Ixia_IxNetworkWeb_Docker_9.00.100.213.tar.bz2)
-
-2. Copy the tar.bz2 file on the testbed server.
-
-3. Make sure the interface has promiscuous mode enabled
-```
- ifconfig ens160  promisc
- ```
-
-3. Decompress the file (it may take a few minutes): 
-```
-tar xvjf <path_to_tar_file>
-```
-### Run IxNetwork API Server docker
-
-1. Load the image to docker:
-```
-docker load -i Ixia_IxNetworkWeb_Docker_<version>.tar
-```
-2. Loaded image : `ixnetworkweb_<version>_image`
-
-3. Create the macvlan bridge to be used by IxNetwork Web Edition:
-```
-docker network create -d macvlan -o parent=ens160 --subnet=192.168.x.0/24 --gateway=192.168.x.254 <bridge_name>
-(NOTE: Use your subnet, prefix length and gateway IP address.)
-```
-
-4. Verify bridge got created properly:
-```
-docker network ls
-docker network inspect IxNetVlanMac
-```
-5. Deploy the IxNetwork Web Edition container using the following command ixnetworkweb_\<version>_image  should be as shown in step 2 above):
-```
-docker run --net <bridge_name> \
---ip <container ip> \
---hostname <hostname> \
---name <container name> \
---privileged \
---restart=always \
---cap-add=SYS_ADMIN \
---cap-add=SYS_TIME \
---cap-add=NET_ADMIN \
---cap-add=SYS_PTRACE \
--i -d \
--v /sys/fs/cgroup:/sys/fs/cgroup \
--v /var/crash/=/var/crash \
--v /opt/container/one/configs:/root/.local/share/Ixia/sdmStreamManager/common \
--v /opt/container/one/results:/root/.local/share/Ixia/IxNetwork/data/result \
--v /opt/container/one/settings:/root/.local/share/IXIA/IxNetwork.Globals \
---tmpfs /run \
-ixnetworkweb_<version>_image
-
-Note : The folders within /opt/container/one/ should to be created with read and write permission prior docker run.
-
-```
-
-6. Launch IxNetworkWeb using browser `https://container ip`
 
 
 
