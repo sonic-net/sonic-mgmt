@@ -345,6 +345,21 @@ def host_facts(duthost):
 def cfg_facts(duthost):
     return get_cfg_facts(duthost)
 
+def restore_config_db(localhost, duthost, ptfhost):
+    # In case something went wrong in previous reboot, wait until the DUT is accessible to ensure that
+    # the `mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json` is executed on DUT.
+    # If the DUT is still inaccessible after timeout, we may have already lose the DUT. Something sad happened.
+    localhost.wait_for(host=g_vars["dut_ip"],
+                        port=22,
+                        state='started',
+                        search_regex='OpenSSH_[\\w\\.]+ Debian',
+                        timeout=180)   # Similiar approach to increase the chance that the next line get executed.
+    duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
+    reboot(duthost, localhost)
+
+    if 'vlan_peer_vrf2ns_map' in g_vars:
+        cleanup_vlan_peer(ptfhost, g_vars['vlan_peer_vrf2ns_map'])
+
 @pytest.fixture(scope="module", autouse=True)
 def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
 
@@ -388,19 +403,7 @@ def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
         logger.error("Exception raised in setup: {}".format(repr(e)))
         logger.error(json.dumps(traceback.format_exception(*sys.exc_info()), indent=2))
 
-        # In case something went wrong in previous reboot, wait until the DUT is accessible to ensure that
-        # the `mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json` is executed on DUT.
-        # If the DUT is still inaccessible after timeout, we may have already lose the DUT. Something sad happened.
-        localhost.wait_for(host=g_vars["dut_ip"],
-                           port=22,
-                           state="started",
-                           search_regex="OpenSSH_[\\w\\.]+ Debian",
-                           timeout=180)
-        duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
-        reboot(duthost, localhost)
-
-        if 'vlan_peer_vrf2ns_map' in g_vars:
-            cleanup_vlan_peer(ptfhost, g_vars['vlan_peer_vrf2ns_map'])
+        restore_config_db(localhost, duthost, ptfhost)
 
         # Setup failed. There is no point to continue running the cases.
         pytest.fail("VRF testing setup failed")    # If this line is hit, script execution will stop here
@@ -409,16 +412,7 @@ def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
     yield
 
     # --------------------- Teardown -----------------------
-    localhost.wait_for(host=g_vars["dut_ip"],
-                        port=22,
-                        state='started',
-                        search_regex='OpenSSH_[\\w\\.]+ Debian',
-                        timeout=180)   # Similiar approach to increase the chance that the next line get executed.
-    duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
-    reboot(duthost, localhost)
-
-    if 'vlan_peer_vrf2ns_map' in g_vars:
-        cleanup_vlan_peer(ptfhost, g_vars['vlan_peer_vrf2ns_map'])
+    restore_config_db(localhost, duthost, ptfhost)
 
 
 @pytest.fixture
