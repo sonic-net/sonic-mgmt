@@ -86,7 +86,7 @@ def vnet_test_params(request):
     Returns:
         A dictionary holding each parameter with the parameter name as the key
             * ipv6_vxlan_test - whether to include ipv6 functionality in testing
-            * cleanup - whether to remove test data/configs after test in finished
+            * cleanup - whether to remove test data/configs after test is finished
     """
 
     params = {}
