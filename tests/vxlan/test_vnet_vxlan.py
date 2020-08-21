@@ -18,6 +18,10 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_
 
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology("t0")
+]
+
 def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
     """
     @summary: Prepare the PTF docker container for testing
@@ -68,7 +72,7 @@ def setup(duthost, ptfhost, minigraph_facts, vnet_config, vnet_test_params, scal
 
     generate_dut_config_files(duthost, minigraph_facts, vnet_test_params, vnet_config)
 
-    yield minigraph_facts 
+    return minigraph_facts 
 
 @pytest.fixture(params=["Disabled", "Enabled", "Cleanup"])
 def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
@@ -87,9 +91,9 @@ def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
 
         duthost.shell("sonic-clear fdb all")
         
-        attach_to = mg_facts["minigraph_vlan_interfaces"][0]['attachto']
-        member_to_remove = mg_facts["minigraph_vlans"][attach_to]['members'][0]
-        duthost.shell("docker exec -i database redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attach_to, member_to_remove))
+        attached_vlan = mg_facts["minigraph_vlan_interfaces"][0]['attachto']
+        member_to_remove = mg_facts["minigraph_vlans"][attached_vlan]['members'][0]
+        duthost.shell("docker exec -i database redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, member_to_remove))
 
         apply_dut_config_files(duthost) 
 
