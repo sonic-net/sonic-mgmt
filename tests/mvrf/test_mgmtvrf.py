@@ -46,7 +46,7 @@ def setup_mvrf(duthost, testbed, localhost):
     except Exception as e:
         logger.error("Exception raised in setup, exception: {}".format(repr(e)))
         restore_config_db(duthost)
-        pytest.fail("Configure mgmt vrf failed, no test case will be executed. Teardown will not be executed either.")
+        pytest.fail("Configure mgmt vrf failed, no test case will be executed. Code after 'yield' will not be executed either.")
 
     yield
 

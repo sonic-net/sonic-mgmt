@@ -1,7 +1,6 @@
 import sys
 
-from BaseHTTPServer import HTTPServer
-from BaseHTTPServer import BaseHTTPRequestHandler
+from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 
 MAGIC_STRING = "MAGIC_STRING_FOR_TESTING"
 
