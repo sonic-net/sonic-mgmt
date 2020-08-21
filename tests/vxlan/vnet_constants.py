@@ -6,6 +6,7 @@ DUT_VNET_CONF = "/tmp/vnet.conf.json"
 DUT_VNET_ROUTE_CONFIG = "/tmp/vnet.route.json"
 DUT_VNET_INTF_CONFIG = "/tmp/vnet.intf.json"
 DUT_VNET_NBR_JSON = "/tmp/vnet.nbr.json"
+TEMPLATE_DIR = "vxlan/templates"
 
 CLEANUP_KEY = "cleanup"
 IPV6_VXLAN_TEST_KEY = "ipv6_vxlan_test"

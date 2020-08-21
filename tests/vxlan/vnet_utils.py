@@ -35,7 +35,7 @@ def render_template_to_host(template_name, host, dest_file, *template_args, **te
 
     combined_template_args = combine_dicts(*template_args)
 
-    rendered = Template(open(path.join("templates",template_name)).read()) \
+    rendered = Template(open(path.join(TEMPLATE_DIR, template_name)).read()) \
                         .render(combined_template_args, **template_kwargs)
 
     host.copy(content=rendered, dest=dest_file)

@@ -2,6 +2,7 @@ import pytest
 import yaml
 
 from jinja2 import Template
+from os import path
 from vnet_utils import combine_dicts
 
 from vnet_constants import * 
@@ -115,5 +116,5 @@ def vnet_config(minigraph_facts, vnet_test_params, scaled_vnet_params):
     """
     
     combined_args = combine_dicts(minigraph_facts, vnet_test_params, scaled_vnet_params)
-    return yaml.safe_load(Template(open("templates/vnet_config.j2").read())
+    return yaml.safe_load(Template(open(os.path.join(TEMPLATE_DIR, "vnet_config.j2")).read())
                             .render(combined_args))
