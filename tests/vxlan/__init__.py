@@ -48,6 +48,19 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope="module")
 def scaled_vnet_params(request):
+    """
+    Fixture to get CLI parameters for scaled vnet testing
+
+    Args:
+        request: Pytest fixture containing parsed CLI parameters
+
+    Returns:
+        A dictionary holding each scaled vnet parameter with the parameter name as the key
+            * num_vnet
+            * num_routes
+            * num_endpoints
+    """
+
     params = {}
     params[NUM_VNET_KEY] = request.config.option.num_vnet
     params[NUM_ROUTES_KEY] = request.config.option.num_routes
@@ -56,17 +69,51 @@ def scaled_vnet_params(request):
     
 @pytest.fixture(scope="module")
 def vnet_test_params(request):
+    """
+    Fixture to get CLI parameters for vnet testing
+
+    Args:
+        request: Pytest fixture containing parsed CLI parameters
+
+    Returns:
+        A dictienary holding each parameter with the parameter name as the key
+            * ipv6_vxlan_test - whether to include ipv6 functionality in testing
+            * cleanup - whether to remove test data/configs after test in finished
+    """
+
     params = {}
     params[IPV6_VXLAN_TEST_KEY] = request.config.option.ipv6_vxlan_test
     params[CLEANUP_KEY] = not request.config.option.skip_cleanup
     return params
 
 @pytest.fixture(scope="module")
-def minigraph_facts(request, duthost):
+def minigraph_facts(duthost):
+    """
+    Fixture to get minigraph facts
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        Dictionary containing minigraph information
+    """
+
     return duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
 
 @pytest.fixture(scope="module")
-def vnet_config(request, minigraph_facts, vnet_test_params, scaled_vnet_params):
+def vnet_config(minigraph_facts, vnet_test_params, scaled_vnet_params):
+    """
+    Fixture to generate vnet configuration from templates/vnet_config.j2
+
+    Args:
+        minigraph_facts: minigraph information/facts
+        vnet_test_params: Dictionary holding vnet test parameters
+        scaled_vnet_params: Dictionary holding scaled vnet testing parameters
+
+    Returns:
+        A dictionary containing the generated vnet configuration information
+    """
+    
     combined_args = combine_dicts(minigraph_facts, vnet_test_params, scaled_vnet_params)
     return yaml.safe_load(Template(open("templates/vnet_config.j2").read())
                             .render(combined_args))

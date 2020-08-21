@@ -24,11 +24,17 @@ pytestmark = [
 
 def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
     """
-    @summary: Prepare the PTF docker container for testing
-    @param ptfhost: Reference to the PTF container
-    @param mg_facts: Minigraph facts
-    @param dut_facts: DUT host facts
+    Prepares the PTF container for testing
+
+    Generates and copies PTF required config files to the PTF host
+
+    Args:
+        ptfhost: PTF host object
+        mg_facts: Minigraph facts
+        dut_facts: DUT host facts
+        vnet_config: Configuration file generated from templates/vnet_config.j2
     """
+
     logger.info("Preparing PTF host")
 
     arp_responder_conf = Template(open("templates/arp_responder.conf.j2").read()) \
@@ -58,14 +64,17 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
 @pytest.fixture(scope="module")
 def setup(duthost, ptfhost, minigraph_facts, vnet_config, vnet_test_params, scaled_vnet_params):
     """
-    @summary: Fixture to prepare the DUT and PTF hosts for testing
-    @param duthost: DUT host object
-    @param ptfhost: PTF host object
-    @param num_vnet: Number of VNETs
-    @param num_routes: Number of routes
-    @param num_endpoints: Number of endpoints
-    @param skip_cleanup: Determines if cleanup is skipped or not
+    Prepares DUT and PTF hosts for testing
+
+    Args:
+        duthost: DUT host object
+        ptfhost: PTF host object
+        minigraph_facts: Minigraph facts
+        vnet_config: Configuration file generated from templates/vnet_config.j2
+        vnet_test_params: Dictionary holding vnet test parameters
+        scaled_vnet_params: Dictionary hold parameters for scaled vnet testing
     """
+
     dut_facts = duthost.setup(gather_subset="!all,!any,network", filter="ansible_Ethernet*")["ansible_facts"]
 
     prepare_ptf(ptfhost, minigraph_facts, dut_facts, vnet_config)
@@ -77,12 +86,17 @@ def setup(duthost, ptfhost, minigraph_facts, vnet_config, vnet_test_params, scal
 @pytest.fixture(params=["Disabled", "Enabled", "Cleanup"])
 def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
     """
-    @summary: Paramterized fixture that tests the Disabled, Enabled, and Cleanup configs for VxLAN
-    @param setup: Pytest fixture that provides access to minigraph facts
-    @param request: Contains the parameter (Disabled, Enabled, or Cleanup) for the current test iteration
-    @param duthost: DUT host object
-    @param returns: VxLAN status, and the test scenario
+    Paramterized fixture that tests the Disabled, Enabled, and Cleanup configs for VxLAN
+
+    Args:
+        setup: Pytest fixture that provides access to minigraph facts
+        request: Contains the parameter (Disabled, Enabled, or Cleanup) for the current test iteration
+        duthost: DUT host object
+
+    Returns: 
+        A tuple containing the VxLAN status (True or False), and the test scenario (one of the pytest parameters)
     """
+
     vxlan_enabled = False
     if request.param == "Disabled":
         vxlan_enabled = False
@@ -111,12 +125,16 @@ def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
 
 def test_vnet_vxlan(setup, vxlan_status, duthost, ptfhost, vnet_test_params):
     """
-    @summary: Test case for VNET VxLAN
-    @param setup: Pytest fixture that sets up PTF and DUT hosts and yields minigraph facts
-    @param vxlan_status: Parameterized pytest fixture used to test different VxLAN configurations
-    @param duthost: DUT host object
-    @param ptfhost: PTF host object
+    Test case for VNET VxLAN
+
+    Args:
+        setup: Pytest fixture that sets up PTF and DUT hosts 
+        vxlan_status: Parameterized pytest fixture used to test different VxLAN configurations
+        duthost: DUT host object
+        ptfhost: PTF host object
+        vnet_test_params: Dictionary containing vnet test parameters
     """
+
     vxlan_enabled, scenario = vxlan_status
 
     host_vars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]

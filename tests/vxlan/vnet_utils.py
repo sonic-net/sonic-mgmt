@@ -23,12 +23,14 @@ def combine_dicts(*args):
 
 def render_template_to_host(template_name, host, dest_file, *template_args, **template_kwargs):
     """
-    @summary: Renders a template with the given arguments and copies it to the host
-    @param template_name: A template inside the "templates" folder (without the preceding "templates/")
-    @param host: The host device to copy the rendered template to
-    @param dest_file: The location on the host to copy the rendered template to
-    @param *template_args: Any arguments to be passed to j2 during rendering
-    @param **template_kwargs: Any keyword arguments to be passed to j2 during rendering
+    Renders a template with the given arguments and copies it to the host
+
+    Args:
+        template_name: A template inside the "templates" folder (without the preceding "templates/")
+        host: The host device to copy the rendered template to (either a PTF or DUT host object)
+        dest_file: The location on the host to copy the rendered template to
+        *template_args: Any arguments to be passed to j2 during rendering
+        **template_kwargs: Any keyword arguments to be passed to j2 during rendering
     """
 
     combined_template_args = combine_dicts(*template_args)
@@ -40,9 +42,16 @@ def render_template_to_host(template_name, host, dest_file, *template_args, **te
 
 def generate_dut_config_files(duthost, mg_facts, vnet_test_params, vnet_config):
     """
-    @summary: Generate VNET and VXLAN config files and copy them to DUT
-    @param duthost: DUT host object
-    @param mg_facts: Minigraph facts
+    Generate VNET and VXLAN config files and copy them to DUT
+
+    Note:
+        Does not actually apply any of these new configs
+
+    Args
+        duthost: DUT host object
+        mg_facts: Minigraph facts
+        vnet_test_params: Dictionary holding vnet test parameters
+        vnet_config: Configuration generated from templates/vnet_config.j2
     """
 
     logger.info("Generating config files and copying to DUT")
@@ -65,8 +74,10 @@ def generate_dut_config_files(duthost, mg_facts, vnet_test_params, vnet_config):
 
 def apply_dut_config_files(duthost):
     """
-    @summary: Applies config files on disk
-    @param duthost: DUT host object
+    Applies config files that are stored on the given DUT
+
+    Args:
+        duthost: DUT host object
     """
     logger.info("Applying config files on DUT")
 
@@ -87,9 +98,12 @@ def apply_dut_config_files(duthost):
 
 def cleanup_dut_vnets(duthost, mg_facts, vnet_config):
     """
-    @summary: Removes all VNET information from DUT
-    @param duthost: DUT host object
-    @param mg_factS: Minigraph facts
+    Removes all VNET information from DUT
+
+    Args:
+        duthost: DUT host object
+        mg_facts: Minigraph facts
+        vnet_config: Configuration generated from templates/vnet_config.j2
     """
     logger.info("Removing VNET information from DUT")
 
@@ -104,8 +118,11 @@ def cleanup_dut_vnets(duthost, mg_facts, vnet_config):
 
 def cleanup_vxlan_tunnels(duthost, vnet_test_params):
     """
-    @summary: Removes all VxLAN tunnels from DUT
-    @param duthost: DUT host object
+    Removes all VxLAN tunnels from DUT
+
+    Args:
+        duthost: DUT host object
+        vnet_test_params: Dictionary holding vnet test parameters
     """
     logger.info("Removing VxLAN tunnel from DUT")
     tunnels = ["tunnel_v4"]
