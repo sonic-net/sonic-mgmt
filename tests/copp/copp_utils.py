@@ -11,11 +11,13 @@ DEFAULT_NN_TARGET_PORT = 3
 _REMOVE_IP_SCRIPT = "scripts/remove_ip.sh"
 _ADD_IP_SCRIPT = "scripts/add_ip.sh"
 _UPDATE_COPP_SCRIPT = "copp/scripts/update_copp_config.py"
-_COPP_GEN_ENABLE_SCRIPT = "copp/scripts/copp_gen_enable.sh"
 
 _BASE_COPP_CONFIG = "/tmp/00-copp.config.json"
 _SWSS_COPP_CONFIG = "swss:/etc/swss/config.d/00-copp.config.json"
 _TEMP_COPP_CONFIG = "/tmp/copp_config.json"
+_TEMP_COPP_TEMPLATE = "/tmp/copp.json.j2"
+_COPP_TEMPLATE_PATH = "/usr/share/sonic/templates/copp.json.j2"
+_SWSS_COPP_TEMPLATE = "swss:" + _COPP_TEMPLATE_PATH
 
 _PTF_NN_TEMPLATE = "templates/ptf_nn_agent.conf.ptf.j2"
 _PTF_NN_DEST = "/etc/supervisor/conf.d/ptf_nn_agent.conf"
@@ -39,18 +41,14 @@ def limit_policer(dut, pps_limit):
     dut.script(cmd="{} {} {} {}".format(_UPDATE_COPP_SCRIPT, pps_limit,
                                         _BASE_COPP_CONFIG, _TEMP_COPP_CONFIG))
     dut.command("docker cp {} {}".format(_TEMP_COPP_CONFIG, _SWSS_COPP_CONFIG))
-    # Comment out copp config generation in start.sh
-    copp_gen_script_text = '#!/bin/bash\n' + \
-                    'docker exec -ti swss bash -c ' + \
-                    '\"sed -i \'s+sonic-cfggen -d -t /usr/share/sonic/templates/copp.json.j2+' + \
-                    '#sonic-cfggen -d -t /usr/share/sonic/templates/copp.json.j2+g\' /usr/bin/start.sh\"'
-       
-    with open(_COPP_GEN_ENABLE_SCRIPT, 'w') as f:
-        f.write(copp_gen_script_text)
 
-    dut.script(cmd="{}".format(_COPP_GEN_ENABLE_SCRIPT))
-    os.system("rm {}".format(_COPP_GEN_ENABLE_SCRIPT))
-
+    # As copp config is regenerated each time swss starts need to replace the template with
+    # config updated above. But before doing that need store the original template in a temporary file
+    # for restore after test. Also if there is no such a template on older SONiC images let's create it 
+    # with "touch" command for backward compatibility.
+    dut.command("docker exec -d swss touch {}".format(_COPP_TEMPLATE_PATH))
+    dut.command("docker cp {} {}".format(_SWSS_COPP_TEMPLATE, _TEMP_COPP_TEMPLATE))
+    dut.command("docker cp {} {}".format(_TEMP_COPP_CONFIG, _SWSS_COPP_TEMPLATE))
 
 def restore_policer(dut):
     """
@@ -61,19 +59,9 @@ def restore_policer(dut):
 
             The SWSS container must be restarted for the config change to take effect.
     """
-    # Uncomment copp config generation in start.sh
-    copp_gen_script_text = '#!/bin/bash\n' + \
-                    'docker exec -ti swss bash -c ' + \
-                    '\"sed -i \'s+#sonic-cfggen -d -t /usr/share/sonic/templates/copp.json.j2+' + \
-                    'sonic-cfggen -d -t /usr/share/sonic/templates/copp.json.j2+g\' /usr/bin/start.sh\"'
-       
-    with open(_COPP_GEN_ENABLE_SCRIPT, 'w') as f:
-        f.write(copp_gen_script_text)
-
-    dut.script(cmd="{}".format(_COPP_GEN_ENABLE_SCRIPT))
-    os.system("rm {}".format(_COPP_GEN_ENABLE_SCRIPT))
-
-    # Copy old configf back for backward compatibility on older SONiC images
+    # Restore the copp template in swss 
+    dut.command("docker cp {} {}".format(_TEMP_COPP_TEMPLATE, _SWSS_COPP_TEMPLATE))
+    # Restore copp config for backward compatibility on older SONiC images
     dut.command("docker cp {} {}".format(_BASE_COPP_CONFIG, _SWSS_COPP_CONFIG))
 
 def configure_ptf(ptf, nn_target_port):
