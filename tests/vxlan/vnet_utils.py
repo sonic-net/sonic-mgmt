@@ -1,11 +1,11 @@
 import json
 import logging
-import yaml
 
 from jinja2 import Template
 from os import path
 from time import sleep
 from vnet_constants import *
+from vnet_constants import VXLAN_PORT, VXLAN_MAC
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ def generate_dut_config_files(duthost, mg_facts, vnet_test_params, vnet_config):
     render_template_to_host("vnet_nbr.j2", duthost, DUT_VNET_NBR_JSON, vnet_config)
     render_template_to_host("vnet_routes.j2", duthost, DUT_VNET_ROUTE_CONFIG, vnet_config, op="SET")
 
-def apply_dut_config_files(duthost):
+def apply_dut_config_files(duthost, vnet_test_params):
     """
     Applies config files that are stored on the given DUT
 
@@ -82,7 +82,7 @@ def apply_dut_config_files(duthost):
     logger.info("Applying config files on DUT")
 
     config_files = ["/tmp/vnet.intf.json", "/tmp/vnet.nbr.json"]
-    if APPLY_NEW_CONFIG:
+    if vnet_test_params[APPLY_NEW_CONFIG_KEY]:
         config_files.append("/tmp/vnet.conf.json")
 
     for config in config_files:
@@ -91,7 +91,7 @@ def apply_dut_config_files(duthost):
 
     duthost.shell("docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_CONFIG))
     duthost.shell("docker cp {} swss:/vnet.switch.json".format(DUT_VNET_SWITCH_CONFIG))
-    if APPLY_NEW_CONFIG:
+    if vnet_test_params[APPLY_NEW_CONFIG_KEY]:
         duthost.shell("docker exec swss sh -c \"swssconfig /vnet.switch.json\"")
         duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
         sleep(3)

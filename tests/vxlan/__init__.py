@@ -6,6 +6,7 @@ from os import path
 from vnet_utils import combine_dicts
 
 from vnet_constants import * 
+
 def pytest_addoption(parser):
     """
     Adds pytest options that are used by VxLAN tests
@@ -47,6 +48,12 @@ def pytest_addoption(parser):
         help="Do not cleanup after VNET VxLAN test"
     )
 
+    parser.addoption(
+        "--apply_new_config",
+        action="store_false",
+        help="Apply new configurations on DUT"
+    )
+
 @pytest.fixture(scope="module")
 def scaled_vnet_params(request):
     """
@@ -85,6 +92,7 @@ def vnet_test_params(request):
     params = {}
     params[IPV6_VXLAN_TEST_KEY] = request.config.option.ipv6_vxlan_test
     params[CLEANUP_KEY] = not request.config.option.skip_cleanup
+    params[APPLY_NEW_CONFIG_KEY] = request.config.option.apply_new_config
     return params
 
 @pytest.fixture(scope="module")

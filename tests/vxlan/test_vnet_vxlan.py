@@ -1,12 +1,9 @@
 import json
 import logging
 import pytest
-import yaml
 
 from datetime import datetime
 from jinja2 import Template
-from netaddr import IPAddress
-from os import path
 from time import sleep
 from tests.ptf_runner import ptf_runner
 from vnet_constants import CLEANUP_KEY, DUT_VNET_ROUTE_CONFIG
@@ -109,7 +106,7 @@ def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
         member_to_remove = mg_facts["minigraph_vlans"][attached_vlan]['members'][0]
         duthost.shell("docker exec -i database redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, member_to_remove))
 
-        apply_dut_config_files(duthost) 
+        apply_dut_config_files(duthost, vnet_test_params) 
 
         vxlan_enabled = True
     elif request.param == "Cleanup" and vnet_test_params[CLEANUP_KEY]:
