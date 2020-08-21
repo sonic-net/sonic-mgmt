@@ -87,6 +87,7 @@ def vnet_test_params(request):
         A dictienary holding each parameter with the parameter name as the key
             * ipv6_vxlan_test - whether to include ipv6 functionality in testing
             * cleanup - whether to remove test data/configs after test in finished
+            * apply_new_config - whether to apply new configurations that were pushed to the DUT
     """
 
     params = {}
