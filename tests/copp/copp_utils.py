@@ -4,7 +4,6 @@
     Todo:
         Refactor ptfadapter so it can be leveraged in these test cases.
 """
-import os
 
 DEFAULT_NN_TARGET_PORT = 3
 
