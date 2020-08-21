@@ -11,7 +11,7 @@ DEFAULT_HLIM_TTL = 64
 WAIT_EXPECTED_PACKET_TIMEOUT = 5
 
 pytestmark = [
-    pytest.mark.topology('t0', "t1")
+    pytest.mark.topology('t0', 't1')
 ]
 
 logger = logging.getLogger(__name__)
