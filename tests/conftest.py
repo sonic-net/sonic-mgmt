@@ -31,7 +31,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.sanity_check',
                   'tests.common.plugins.custom_markers',
                   'tests.common.plugins.test_completeness',
-                  'tests.common.plugins.log_section_start')
+                  'tests.common.plugins.log_section_start',
+                  'tests.vxlan')
 
 
 class TestbedInfo(object):
@@ -92,14 +93,6 @@ class TestbedInfo(object):
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
-
-    # test_vnet_vxlan options
-    parser.addoption("--num_vnet", action="store", default=None, type=int, help="number of VNETs for VNET VxLAN test")
-    parser.addoption("--num_routes", action="store", default=None, type=int, help="number of routes for VNET VxLAN test")
-    parser.addoption("--num_endpoints", action="store", default=None, type=int, help="number of endpoints for VNET VxLAN")
-
-    parser.addoption("--ipv6_vxlan_test", action="store_true", help="Use IPV6 for VxLAN test")
-    parser.addoption("--skip_cleanup", action="store_true", help="Do not cleanup after VNET VxLAN test")
 
     # test_vrf options
     parser.addoption("--vrf_capacity", action="store", default=None, type=int, help="vrf capacity of dut (4-1000)")
@@ -444,7 +437,3 @@ def tag_test_report(request, pytestconfig, testbed, duthost, record_testsuite_pr
         record_testsuite_property("os_version", duthost.os_version)
 
         __report_metadata_added = True
-
-@pytest.fixture(scope="module")
-def skip_cleanup(request): 
-    return request.config.option.skip_cleanup

@@ -6,10 +6,23 @@ import yaml
 from jinja2 import Template
 from os import path
 from time import sleep
+from vnet_config import IPV6_VXLAN_TEST_KEY
 
 logger = logging.getLogger(__name__)
 
-def gen_vnet_config(mg_facts, num_vnet, num_routes, num_endpoints):
+def combine_dicts(*args):
+    combined_args = {}
+    args_iter = iter(args)
+    try:
+        combined_args = next(args_iter).copy()
+        for arg in args_iter:
+            combined_args.update(arg)
+    except StopIteration:
+        combined_args= {}
+    
+    return combined_args
+
+def gen_vnet_config(mg_facts, vnet_test_params, scaled_vnet_params):
     """
     @summary: Generates and stores the VNET configuration
     @param mg_facts: Minigraph facts
@@ -18,9 +31,12 @@ def gen_vnet_config(mg_facts, num_vnet, num_routes, num_endpoints):
     @param num_endpoints: Number of endpoints
     """
     logger.info("Generating VNet configuration")
+
+    combined_args = combine_dicts(mg_facts, vnet_test_params, scaled_vnet_params)
+
     vc.VNET_CONFIG = yaml.safe_load(Template(open("templates/vnet_config.j2").read())
-                                .render(mg_facts, ipv6_vxlan_test=vc.IPV6_VXLAN_TEST, 
-                                        num_vnet=num_vnet, num_routes=num_routes, num_endpoints=num_endpoints))
+                                    .render(combined_args)
+                          )
 
 def render_template_to_host(template_name, host, dest_file, *template_args, **template_kwargs):
     """
@@ -32,20 +48,15 @@ def render_template_to_host(template_name, host, dest_file, *template_args, **te
     @param **template_kwargs: Any keyword arguments to be passed to j2 during rendering
     """
     # Combine all dictionaries given in template_args
-    template_args_iter = iter(template_args)
-    try:
-        combined_template_args = next(template_args_iter).copy()
-        for arg in template_args_iter:
-            combined_template_args.update(arg)
-    except StopIteration:
-        combined_template_args = {}
+
+    combined_template_args = combine_dicts(*template_args)
 
     rendered = Template(open(path.join("templates",template_name)).read()) \
                         .render(combined_template_args, **template_kwargs)
 
     host.copy(content=rendered, dest=dest_file)
 
-def generate_dut_config_files(duthost, mg_facts):
+def generate_dut_config_files(duthost, mg_facts, vnet_test_params):
     """
     @summary: Generate VNET and VXLAN config files and copy them to DUT.
     @param duthost: DUT host object
@@ -64,7 +75,7 @@ def generate_dut_config_files(duthost, mg_facts):
     duthost.copy(content=json.dumps(vnet_switch_config, indent=4), dest=vc.DUT_VNET_SWITCH_CONFIG)
 
 
-    render_template_to_host("vnet_vxlan.j2", duthost, vc.DUT_VNET_CONF, vc.VNET_CONFIG, mg_facts, ipv6_vxlan_test=vc.IPV6_VXLAN_TEST)
+    render_template_to_host("vnet_vxlan.j2", duthost, vc.DUT_VNET_CONF, vc.VNET_CONFIG, mg_facts, vnet_test_params)
     render_template_to_host("vnet_interface.j2", duthost, vc.DUT_VNET_INTF_CONFIG, vc.VNET_CONFIG)
     render_template_to_host("vnet_nbr.j2", duthost, vc.DUT_VNET_NBR_JSON, vc.VNET_CONFIG)
     render_template_to_host("vnet_routes.j2", duthost, vc.DUT_VNET_ROUTE_CONFIG, vc.VNET_CONFIG, op="SET")
@@ -108,14 +119,14 @@ def cleanup_dut_vnets(duthost, mg_facts):
     for vnet in vc.VNET_CONFIG['vnet_id_list']:
         duthost.shell("docker exec -i database redis-cli -n 4 del \"VNET|{}\"".format(vnet))
 
-def cleanup_vxlan_tunnels(duthost):
+def cleanup_vxlan_tunnels(duthost, vnet_test_params):
     """
     @summary: Removes all VxLAN tunnels from DUT
     @param duthost: DUT host object
     """
     logger.info("Removing VxLAN tunnel from DUT")
     tunnels = ["tunnel_v4"]
-    if vc.IPV6_VXLAN_TEST:
+    if vnet_test_params[IPV6_VXLAN_TEST_KEY]:
         tunnels.append("tunnel_v6")
 
     for tunnel in tunnels:

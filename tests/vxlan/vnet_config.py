@@ -1,11 +1,15 @@
-IPV6_VXLAN_TEST = False
 VXLAN_PORT = "13330"
 VXLAN_MAC = "00:aa:bb:cc:78:9a"
 APPLY_NEW_CONFIG = True
-CLEANUP = True
 DUT_VNET_SWITCH_CONFIG = "/tmp/vnet.switch.json"
 DUT_VNET_CONF = "/tmp/vnet.conf.json"
 DUT_VNET_ROUTE_CONFIG = "/tmp/vnet.route.json"
 DUT_VNET_INTF_CONFIG = "/tmp/vnet.intf.json"
 DUT_VNET_NBR_JSON = "/tmp/vnet.nbr.json"
 VNET_CONFIG = None
+
+CLEANUP_KEY = "cleanup"
+IPV6_VXLAN_TEST_KEY = "ipv6_vxlan_test"
+NUM_VNET_KEY = "num_vnet"
+NUM_ROUTES_KEY = "num_routes"
+NUM_ENDPOINTS_KEY = "num_endpoints"

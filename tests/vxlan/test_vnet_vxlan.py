@@ -1,7 +1,6 @@
 import json
 import logging
 import pytest
-import vnet_config as vc
 import yaml
 
 from datetime import datetime
@@ -10,28 +9,13 @@ from netaddr import IPAddress
 from os import path
 from time import sleep
 from tests.ptf_runner import ptf_runner
+from vnet_config import CLEANUP_KEY
 from vnet_utils import *
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
                                                 copy_arp_responder_py, copy_ptftests_directory
 
 logger = logging.getLogger(__name__)
-
-@pytest.fixture(scope="module")
-def num_vnet(request):
-    return request.config.option.num_vnet
-
-@pytest.fixture(scope="module")
-def num_routes(request):
-    return request.config.option.num_routes
-
-@pytest.fixture(scope="module")
-def num_endpoints(request):
-    return request.config.option.num_endpoints
-
-@pytest.fixture(scope="module")
-def ipv6_vxlan_test(request):
-    return request.config.option.ipv6_vxlan_test
 
 def prepare_ptf(ptfhost, mg_facts, dut_facts):
     """
@@ -67,7 +51,7 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts):
     ptfhost.copy(content=json.dumps(vnet_json, indent=2), dest="/tmp/vnet.json")
 
 @pytest.fixture(scope="module")
-def setup(duthost, ptfhost, num_vnet, num_routes, num_endpoints, ipv6_vxlan_test, skip_cleanup):
+def setup(duthost, ptfhost, vnet_test_params, scaled_vnet_params):
     """
     @summary: Fixture to prepare the DUT and PTF hosts for testing
     @param duthost: DUT host object
@@ -75,26 +59,21 @@ def setup(duthost, ptfhost, num_vnet, num_routes, num_endpoints, ipv6_vxlan_test
     @param num_vnet: Number of VNETs
     @param num_routes: Number of routes
     @param num_endpoints: Number of endpoints
-    @param ipv6_vxlan_test: Use IPV6 for testing
     @param skip_cleanup: Determines if cleanup is skipped or not
     """
     minigraph_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
     dut_facts = duthost.setup(gather_subset="!all,!any,network", filter="ansible_Ethernet*")["ansible_facts"]
 
-    vc.IPV6_VXLAN_TEST = ipv6_vxlan_test
-
-    vc.CLEANUP = not skip_cleanup
-
-    gen_vnet_config(minigraph_facts, num_vnet, num_routes, num_endpoints)
+    gen_vnet_config(minigraph_facts, vnet_test_params, scaled_vnet_params)
 
     prepare_ptf(ptfhost, minigraph_facts, dut_facts)
 
-    generate_dut_config_files(duthost, minigraph_facts)
+    generate_dut_config_files(duthost, minigraph_facts, vnet_test_params)
 
     yield minigraph_facts 
 
 @pytest.fixture(params=["Disabled", "Enabled", "Cleanup"])
-def vxlan_status(setup, request, duthost):
+def vxlan_status(setup, request, duthost, vnet_test_params):
     """
     @summary: Paramterized fixture that tests the Disabled, Enabled, and Cleanup configs for VxLAN
     @param setup: Pytest fixture that provides access to minigraph facts
@@ -117,18 +96,18 @@ def vxlan_status(setup, request, duthost):
         apply_dut_config_files(duthost) 
 
         vxlan_enabled = True
-    elif request.param == "Cleanup" and vc.CLEANUP:
+    elif request.param == "Cleanup" and vnet_test_params[CLEANUP_KEY]:
         vxlan_enabled = True
         render_template_to_host("vnet_routes.j2", duthost, vc.DUT_VNET_ROUTE_CONFIG, vc.VNET_CONFIG, op="DEL")
         duthost.shell("docker cp {} swss:/vnet.route.json".format(vc.DUT_VNET_ROUTE_CONFIG))
         duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
         sleep(3)
         cleanup_dut_vnets(duthost, setup)
-        cleanup_vxlan_tunnels(duthost)
+        cleanup_vxlan_tunnels(duthost, vnet_test_params)
     return vxlan_enabled, request.param
 
 
-def test_vnet_vxlan(setup, vxlan_status, duthost, ptfhost):
+def test_vnet_vxlan(setup, vxlan_status, duthost, ptfhost, vnet_test_params):
     """
     @summary: Test case for VNET VxLAN
     @param setup: Pytest fixture that sets up PTF and DUT hosts and yields minigraph facts
@@ -153,7 +132,7 @@ def test_vnet_vxlan(setup, vxlan_status, duthost, ptfhost):
     if scenario == "Cleanup":
         ptf_params["routes_removed"] = True
     
-    if scenario == "Cleanup" and not vc.CLEANUP:
+    if scenario == "Cleanup" and not vnet_test_params[CLEANUP_KEY]:
         logger.info("Skipping cleanup")
         pytest.skip("Skip cleanup specified")
 
