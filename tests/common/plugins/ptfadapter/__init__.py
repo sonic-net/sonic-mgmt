@@ -34,7 +34,7 @@ def _dp_poll(test, device_number=0, port_number=None, timeout=-1, exp_pkt=None):
 
     result = test.dataplane.poll(
         device_number=device_number, port_number=port_number,
-        timeout=timeout, exp_pkt=exp_pkt, filters=[]
+        timeout=timeout, exp_pkt=exp_pkt, filters=ptf.testutils.FILTERS
     )
     if isinstance(result, test.dataplane.PollSuccess):
         test.at_receive(result.packet, device_number=result.device, port_number=result.port)
