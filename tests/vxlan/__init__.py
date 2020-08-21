@@ -1,8 +1,10 @@
 import pytest
+import yaml
 
-from vnet_config import CLEANUP_KEY, IPV6_VXLAN_TEST_KEY, \
-                        NUM_VNET_KEY, NUM_ROUTES_KEY, NUM_ENDPOINTS_KEY
+from jinja2 import Template
+from vnet_utils import combine_dicts
 
+from vnet_constants import * 
 def pytest_addoption(parser):
     """
     Adds pytest options that are used by VxLAN tests
@@ -58,3 +60,13 @@ def vnet_test_params(request):
     params[IPV6_VXLAN_TEST_KEY] = request.config.option.ipv6_vxlan_test
     params[CLEANUP_KEY] = not request.config.option.skip_cleanup
     return params
+
+@pytest.fixture(scope="module")
+def minigraph_facts(request, duthost):
+    return duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+
+@pytest.fixture(scope="module")
+def vnet_config(request, minigraph_facts, vnet_test_params, scaled_vnet_params):
+    combined_args = combine_dicts(minigraph_facts, vnet_test_params, scaled_vnet_params)
+    return yaml.safe_load(Template(open("templates/vnet_config.j2").read())
+                            .render(combined_args))

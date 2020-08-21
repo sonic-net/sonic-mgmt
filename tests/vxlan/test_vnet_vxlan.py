@@ -9,15 +9,16 @@ from netaddr import IPAddress
 from os import path
 from time import sleep
 from tests.ptf_runner import ptf_runner
-from vnet_config import CLEANUP_KEY
-from vnet_utils import *
+from vnet_constants import CLEANUP_KEY, DUT_VNET_ROUTE_CONFIG
+from vnet_utils import render_template_to_host, generate_dut_config_files, \
+                       apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
                                                 copy_arp_responder_py, copy_ptftests_directory
 
 logger = logging.getLogger(__name__)
 
-def prepare_ptf(ptfhost, mg_facts, dut_facts):
+def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
     """
     @summary: Prepare the PTF docker container for testing
     @param ptfhost: Reference to the PTF container
@@ -33,7 +34,7 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts):
     ptfhost.shell("supervisorctl reread")
     ptfhost.shell("supervisorctl update")
 
-    logger.debug("VNet config is: " + str(vc.VNET_CONFIG))
+    logger.debug("VNet config is: " + str(vnet_config))
     vnet_json = {
         "minigraph_port_indices": mg_facts["minigraph_port_indices"],
         "minigraph_portchannel_interfaces": mg_facts["minigraph_portchannel_interfaces"],
@@ -42,16 +43,16 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts):
         "minigraph_vlans": mg_facts["minigraph_vlans"],
         "minigraph_vlan_interfaces": mg_facts["minigraph_vlan_interfaces"],
         "dut_mac": dut_facts["ansible_Ethernet0"]["macaddress"],
-        "vnet_interfaces": vc.VNET_CONFIG["vnet_intf_list"],
-        "vnet_routes": vc.VNET_CONFIG["vnet_route_list"],
-        "vnet_local_routes": vc.VNET_CONFIG["vnet_local_routes"],
-        "vnet_neighbors": vc.VNET_CONFIG["vnet_nbr_list"],
-        "vnet_peers": vc.VNET_CONFIG["vnet_peer_list"]
+        "vnet_interfaces": vnet_config["vnet_intf_list"],
+        "vnet_routes": vnet_config["vnet_route_list"],
+        "vnet_local_routes": vnet_config["vnet_local_routes"],
+        "vnet_neighbors": vnet_config["vnet_nbr_list"],
+        "vnet_peers": vnet_config["vnet_peer_list"]
     }
     ptfhost.copy(content=json.dumps(vnet_json, indent=2), dest="/tmp/vnet.json")
 
 @pytest.fixture(scope="module")
-def setup(duthost, ptfhost, vnet_test_params, scaled_vnet_params):
+def setup(duthost, ptfhost, minigraph_facts, vnet_config, vnet_test_params, scaled_vnet_params):
     """
     @summary: Fixture to prepare the DUT and PTF hosts for testing
     @param duthost: DUT host object
@@ -61,19 +62,16 @@ def setup(duthost, ptfhost, vnet_test_params, scaled_vnet_params):
     @param num_endpoints: Number of endpoints
     @param skip_cleanup: Determines if cleanup is skipped or not
     """
-    minigraph_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
     dut_facts = duthost.setup(gather_subset="!all,!any,network", filter="ansible_Ethernet*")["ansible_facts"]
 
-    gen_vnet_config(minigraph_facts, vnet_test_params, scaled_vnet_params)
+    prepare_ptf(ptfhost, minigraph_facts, dut_facts, vnet_config)
 
-    prepare_ptf(ptfhost, minigraph_facts, dut_facts)
-
-    generate_dut_config_files(duthost, minigraph_facts, vnet_test_params)
+    generate_dut_config_files(duthost, minigraph_facts, vnet_test_params, vnet_config)
 
     yield minigraph_facts 
 
 @pytest.fixture(params=["Disabled", "Enabled", "Cleanup"])
-def vxlan_status(setup, request, duthost, vnet_test_params):
+def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
     """
     @summary: Paramterized fixture that tests the Disabled, Enabled, and Cleanup configs for VxLAN
     @param setup: Pytest fixture that provides access to minigraph facts
@@ -98,11 +96,11 @@ def vxlan_status(setup, request, duthost, vnet_test_params):
         vxlan_enabled = True
     elif request.param == "Cleanup" and vnet_test_params[CLEANUP_KEY]:
         vxlan_enabled = True
-        render_template_to_host("vnet_routes.j2", duthost, vc.DUT_VNET_ROUTE_CONFIG, vc.VNET_CONFIG, op="DEL")
-        duthost.shell("docker cp {} swss:/vnet.route.json".format(vc.DUT_VNET_ROUTE_CONFIG))
+        render_template_to_host("vnet_routes.j2", duthost, DUT_VNET_ROUTE_CONFIG, vnet_config, op="DEL")
+        duthost.shell("docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_CONFIG))
         duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
         sleep(3)
-        cleanup_dut_vnets(duthost, setup)
+        cleanup_dut_vnets(duthost, setup, vnet_config)
         cleanup_vxlan_tunnels(duthost, vnet_test_params)
     return vxlan_enabled, request.param
 
