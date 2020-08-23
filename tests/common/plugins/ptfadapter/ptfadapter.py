@@ -99,7 +99,7 @@ class PtfTestAdapter(BaseTest):
         has UDP or TCP header, then update its TCP or UDP payload.
 
         If it is a masked packet, then its 'exp_pkt' is the regular scapy packet. Update the payload of its 'exp_pkt'
-        propery.
+        properly.
 
         Args:
             pkt [scapy packet or masked packet]: The packet to be updated.
@@ -121,7 +121,7 @@ class PtfTestAdapter(BaseTest):
         """Update payload to the default_pattern if default_pattern is set.
 
         If length of the payload_pattern is longer payload, truncate payload_pattern to the length of payload.
-        Otherwise, repeat the payload_pattern to reach the leangth of payload. Keep length of updated payload same
+        Otherwise, repeat the payload_pattern to reach the length of payload. Keep length of updated payload same
         as the original payload.
 
         Args:
