@@ -121,7 +121,7 @@ def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
     return vxlan_enabled, request.param
 
 
-def test_vnet_vxlan(setup, vxlan_status, duthost, ptfhost, vnet_test_params):
+def test_vnet_vxlan(setup, vxlan_status, duthost, ptfhost, vnet_test_params, creds):
     """
     Test case for VNET VxLAN
 
@@ -137,15 +137,14 @@ def test_vnet_vxlan(setup, vxlan_status, duthost, ptfhost, vnet_test_params):
 
     host_vars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     inventory = host_vars['inventory_file'].split('/')[-1]
-    secrets = duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']
 
     logger.info("vxlan_enabled={}, scenario={}".format(vxlan_enabled, scenario))
 
     log_file = "/tmp/vnet-vxlan.Vxlan.{}.{}.log".format(scenario, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
     ptf_params = {"vxlan_enabled": vxlan_enabled,
                   "config_file": '/tmp/vnet.json',
-                  "sonic_admin_user": secrets[inventory]['sonicadmin_user'],
-                  "sonic_admin_password": secrets[inventory]['sonicadmin_password'],
+                  "sonic_admin_user": creds.get('sonicadmin_user'),
+                  "sonic_admin_password": creds.get('sonicadmin_password'),
                   "dut_host": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']}
     if scenario == "Cleanup":
         ptf_params["routes_removed"] = True
