@@ -9,6 +9,20 @@ from vnet_constants import VXLAN_PORT, VXLAN_MAC
 
 logger = logging.getLogger(__name__)
 
+def safe_open_template(template_path):
+    """
+    Wraps calls to `open()` using `with` to ensure cleanup
+
+    Args:
+        template_path: String containing the location of the template file to be opened
+
+    Returns:
+        A Jinja2 Template object read from the provided file
+    """
+
+    with open(template_path) as template_file:
+        return Template(template_file.read())
+
 def combine_dicts(*args):
     combined_args = {}
     args_iter = iter(args)
@@ -33,10 +47,9 @@ def render_template_to_host(template_name, host, dest_file, *template_args, **te
         **template_kwargs: Any keyword arguments to be passed to j2 during rendering
     """
 
-    combined_template_args = combine_dicts(*template_args)
+    combined_args = combine_dicts(*template_args)
 
-    rendered = Template(open(path.join(TEMPLATE_DIR, template_name)).read()) \
-                        .render(combined_template_args, **template_kwargs)
+    rendered = safe_open_template(path.join(TEMPLATE_DIR, template_name)).render(combined_args, **template_kwargs)
 
     host.copy(content=rendered, dest=dest_file)
 

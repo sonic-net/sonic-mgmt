@@ -7,7 +7,7 @@ from jinja2 import Template
 from time import sleep
 from tests.ptf_runner import ptf_runner
 from vnet_constants import CLEANUP_KEY, DUT_VNET_ROUTE_CONFIG
-from vnet_utils import render_template_to_host, generate_dut_config_files, \
+from vnet_utils import render_template_to_host, generate_dut_config_files, safe_open_template, \
                        apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
@@ -34,8 +34,9 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
 
     logger.info("Preparing PTF host")
 
-    arp_responder_conf = Template(open("templates/arp_responder.conf.j2").read()) \
+    arp_responder_conf = safe_open_template("templates/arp_responder.conf.j2") \
                             .render(arp_responder_args="--conf /tmp/vnet_arpresponder.conf")
+
     ptfhost.copy(content=arp_responder_conf, dest="/etc/supervisor/conf.d/arp_responder.conf")
 
     ptfhost.shell("supervisorctl reread")
