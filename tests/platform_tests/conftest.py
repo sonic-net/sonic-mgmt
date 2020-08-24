@@ -2,6 +2,7 @@ import pytest
 
 from .args.advanced_reboot_args import add_advanced_reboot_args
 from .args.cont_warm_reboot_args import add_cont_warm_reboot_args
+from .args.normal_reboot_args import add_normal_reboot_args
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -15,6 +16,7 @@ def skip_on_simx(duthost):
 def pytest_addoption(parser):
     add_advanced_reboot_args(parser)
     add_cont_warm_reboot_args(parser)
+    add_normal_reboot_args(parser)
 
 
 def pytest_generate_tests(metafunc):
