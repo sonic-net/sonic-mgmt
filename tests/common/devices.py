@@ -421,7 +421,7 @@ class SonicHost(AnsibleHostBase):
         @return: dictionary of { service_name1 : state1, ... ... }
         """
         # some services are meant to have a short life span or not part of the daemons
-        exemptions = ['lm-sensors', 'start.sh', 'rsyslogd']
+        exemptions = ['lm-sensors', 'start.sh', 'rsyslogd', 'start', 'dependent-startup']
 
         daemons = self.shell('docker exec pmon supervisorctl status')['stdout_lines']
 
@@ -758,8 +758,12 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             bool: status obtained successfully (True | False)
         """
         feature_status = {}
-        command_output = self.shell('show features', module_ignore_errors=True)
-        if command_output['rc'] != 0:
+        command_list = ['show feature status', 'show features']
+        for cmd in command_list:
+            command_output = self.shell(cmd, module_ignore_errors=True)
+            if command_output['rc'] == 0:
+                break
+        else:
             return feature_status, False
 
         features_stdout = command_output['stdout_lines']
