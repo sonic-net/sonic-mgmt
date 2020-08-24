@@ -28,7 +28,7 @@ pytestmark = [pytest.mark.disable_loganalyzer]
 DATA_PKT_SIZE = 1024
 START_DELAY = 1.5
 RATE_PERCENTAGE = 50 
-TOLERANCE_PARAMETER = .97
+TOLERANCE_THRESHOLD = .97
 
 def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
                 test_dscp_list, bg_dscp_list, exp_dur, start_delay=START_DELAY,
@@ -153,9 +153,9 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
                     "Test traffic should be fully paused")
             else:
                 pytest_assert(tx_frames > 0 and tx_frames == rx_frames,
-                    "Test traffic should not be impacted")
+                    "Test traffic packets should not be dropped")
 
-                if ((tolerance_ratio < TOLERANCE_PARAMETER) or
+                if ((tolerance_ratio < TOLERANCE_THRESHOLD) or
                     (tolerance_ratio > 1)) :
                     logger.error("Expected Tx/Rx = %s actual Rx = %s"
                         %(exp_tx_byte, exp_tx_byte))
@@ -172,7 +172,7 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
             pytest_assert(tx_frames > 0 and tx_frames == rx_frames,
                 "Background traffic should not be impacted")
            
-            if ((tolerance_ratio < TOLERANCE_PARAMETER) or
+            if ((tolerance_ratio < TOLERANCE_THRESHOLD) or
                 (tolerance_ratio > 1)) :
                 logger.error("Expected Tx/Rx = %s actual Rx = %s"
                     %(exp_tx_byte, exp_tx_byte))
@@ -208,7 +208,7 @@ def test_pfc_pause_single_lossless_priority(testbed,
        'Test Data Traffic' at Tx end == Pause Priority at Rx end. That is,
        send pause frames on priority Pi.
     7. Start 'Test Data Traffic' and 'Background Data Traffic'.
-    8. You may repeat step 6 and 7 for each lossless priorities.
+    8. Repeat step 6 and 7 for each lossless priorities.
     9. Expected result -
        a. No 'Test Data Traffic' will flow. Since priority of
           'Test Data Traffic' equals to the priority of PFC pause frames.
@@ -234,30 +234,29 @@ def test_pfc_pause_single_lossless_priority(testbed,
     # Test pausing each lossless priority individually.
     session = ixia_api_server_session
     for prio in lossless_prio_dscp_map:
-        send_pause_frame = False
         for i in range(len(port_list)):
-            vports = configure_ports(session, port_list)
+            for send_pause_frame in [True, False]:
+                paused = send_pause_frame
+                vports = configure_ports(session, port_list)
 
-            rx_id = i
-            tx_id = (i + 1) % len(port_list)
+                rx_id = i
+                tx_id = (i + 1) % len(port_list)
 
-            rx_port = vports[rx_id]
-            tx_port = vports[tx_id]
-            rx_port_bw = port_list[rx_id]['speed']
-            tx_port_bw = port_list[tx_id]['speed']
+                rx_port = vports[rx_id]
+                tx_port = vports[tx_id]
+                rx_port_bw = port_list[rx_id]['speed']
+                tx_port_bw = port_list[tx_id]['speed']
 
-            pytest_assert(rx_port_bw == tx_port_bw)
+                pytest_assert(rx_port_bw == tx_port_bw)
 
-            # All the DSCP values mapped to this priority.
-            test_dscp_list = lossless_prio_dscp_map[prio]
-            # The other DSCP values.
-            bg_dscp_list = [x for x in range(64) if x not in test_dscp_list]
+                # All the DSCP values mapped to this priority.
+                test_dscp_list = lossless_prio_dscp_map[prio]
+                # The other DSCP values.
+                bg_dscp_list = [x for x in range(64) if x not in test_dscp_list]
 
-            exp_dur = 2
+                exp_dur = 2
 
-            send_pause_frame = False if send_pause_frame == True else True
-            paused = send_pause_frame
-            run_pfc_exp(session=session,
+                run_pfc_exp(session=session,
                         dut=duthost,
                         tx_port=tx_port,
                         rx_port=rx_port,
@@ -269,7 +268,7 @@ def test_pfc_pause_single_lossless_priority(testbed,
                         test_traffic_pause_expected=paused,
                         send_pause_frame=send_pause_frame)
 
-            clean_configuration(session=session)
+                clean_configuration(session=session)
 
 
 def test_pfc_pause_multi_lossless_priorities(testbed, 
@@ -294,7 +293,7 @@ def test_pfc_pause_multi_lossless_priorities(testbed,
     7. When pause frames are started 'Test Data Traffic' will stop; 
        and when pause frames are stopped 'Test Data Traffic' will start.
     8. 'Background Data Traffic' will always flow.
-    9. Repeat the steps 4 to 8 several times.
+    9. Repeat the steps 4 to 8 on all ports.
 
     """
     port_list = list()
@@ -314,39 +313,39 @@ def test_pfc_pause_multi_lossless_priorities(testbed,
     session = ixia_api_server_session
     send_pause_frame = False
     for i in range(len(port_list)):
-        vports = configure_ports(session, port_list)
+        for send_pause_frame in [True, False]:
+            paused = send_pause_frame
+            vports = configure_ports(session, port_list)
 
-        rx_id = i
-        tx_id = (i + 1) % len(port_list)
+            rx_id = i
+            tx_id = (i + 1) % len(port_list)
 
-        rx_port = vports[rx_id]
-        tx_port = vports[tx_id]
-        rx_port_bw = port_list[rx_id]['speed']
-        tx_port_bw = port_list[tx_id]['speed']
-        pytest_assert(rx_port_bw == tx_port_bw)
+            rx_port = vports[rx_id]
+            tx_port = vports[tx_id]
+            rx_port_bw = port_list[rx_id]['speed']
+            tx_port_bw = port_list[tx_id]['speed']
+            pytest_assert(rx_port_bw == tx_port_bw)
 
-        test_dscp_list = []
-        test_priority_list = [prio for prio in lossless_prio_dscp_map]
-        for prio in lossless_prio_dscp_map:
-            test_dscp_list += lossless_prio_dscp_map[prio]
+            test_dscp_list = []
+            test_priority_list = [prio for prio in lossless_prio_dscp_map]
+            for prio in lossless_prio_dscp_map:
+                test_dscp_list += lossless_prio_dscp_map[prio]
 
-        bg_dscp_list = [x for x in range(64) if x not in test_dscp_list]
-        exp_dur = 2
+            bg_dscp_list = [x for x in range(64) if x not in test_dscp_list]
+            exp_dur = 2
 
-        send_pause_frame = False if send_pause_frame == True else True
-        paused = send_pause_frame
+ 
+            run_pfc_exp(session=session,
+                        dut=duthost,
+                        tx_port=tx_port,
+                        rx_port=rx_port,
+                        port_bw=tx_port_bw,
+                        test_prio_list=test_priority_list,
+                        test_dscp_list=test_dscp_list,
+                        bg_dscp_list=bg_dscp_list,
+                        exp_dur=exp_dur,
+                        test_traffic_pause_expected=paused,
+                        send_pause_frame=send_pause_frame)
 
-        run_pfc_exp(session=session,
-                    dut=duthost,
-                    tx_port=tx_port,
-                    rx_port=rx_port,
-                    port_bw=tx_port_bw,
-                    test_prio_list=test_priority_list,
-                    test_dscp_list=test_dscp_list,
-                    bg_dscp_list=bg_dscp_list,
-                    exp_dur=exp_dur,
-                    test_traffic_pause_expected=paused,
-                    send_pause_frame=send_pause_frame)
-
-        clean_configuration(session=session)
+            clean_configuration(session=session)
 
