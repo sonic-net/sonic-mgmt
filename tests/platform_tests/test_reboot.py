@@ -129,16 +129,6 @@ def test_warm_reboot(duthost, localhost, conn_graph_facts):
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_WARM)
 
 
-@pytest.fixture(params=[15, 5])
-def power_off_delay(request):
-    """
-    @summary: used to parametrized test cases on power_off_delay
-    @param request: pytest request object
-    @return: power_off_delay
-    """
-    return request.param
-
-
 def _power_off_reboot_helper(kwargs):
     """
     @summary: used to parametrized test cases on power_off_delay
@@ -166,7 +156,7 @@ def test_power_off_reboot(duthost, localhost, conn_graph_facts, psu_controller, 
     @param localhost: Fixture for interacting with localhost through ansible
     @param conn_graph_facts: Fixture parse and return lab connection graph
     @param psu_controller: The python object of psu controller
-    @param power_off_delay: Pytest fixture. The delay between turning off and on the PSU
+    @param power_off_delay: Pytest parameter. The delay between turning off and on the PSU
     """
     psu_ctrl = psu_controller
     if psu_ctrl is None:
