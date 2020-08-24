@@ -24,15 +24,23 @@ def safe_open_template(template_path):
         return Template(template_file.read())
 
 def combine_dicts(*args):
+    """
+    Combines multiple Python dictionaries into a single dictionary
+
+    Used primarily to pass arguments contained in multiple dictionaries to the `render()` method for Jinja2 templates
+
+    Args:
+        *args: The dictionaries to be combined
+
+    Returns:
+        A single Python dictionary containing the key/value pairs of all the input dictionaries
+    """
+
     combined_args = {}
-    args_iter = iter(args)
-    try:
-        combined_args = next(args_iter).copy()
-        for arg in args_iter:
-            combined_args.update(arg)
-    except StopIteration:
-        combined_args= {}
-    
+
+    for arg in args:
+        combined_args.update(arg)
+
     return combined_args
 
 def render_template_to_host(template_name, host, dest_file, *template_args, **template_kwargs):
