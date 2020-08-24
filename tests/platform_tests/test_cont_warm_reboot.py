@@ -244,7 +244,8 @@ class ContinuousReboot:
                 # Use modulus operator to cycle through the image_install_list per reboot iteration
                 self.new_image = image_install_list[count % len(image_install_list)].strip()
                 image_path = install_info.get('location').strip() + "/" + self.new_image
-                file_exists = self.duthost.command("curl -o /dev/null --silent -Iw '%{{http_code}}' {}".format(image_path))["stdout"]
+                file_exists = self.duthost.command("curl -o /dev/null --silent -Iw '%{{http_code}}' {}".format(image_path),\
+                    module_ignore_errors=True)["stdout"]
                 if file_exists != '200':
                     logging.info("Remote image file {} does not exist. Curl returned: {}".format(image_path, file_exists))
                     logging.warn("Continuing the test with current image")
