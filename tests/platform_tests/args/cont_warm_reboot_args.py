@@ -28,7 +28,7 @@ def add_cont_warm_reboot_args(parser):
     parser.addoption(
         "--image_location",
         action="store",
-        default=None,
+        default="",
         help="Path to image(s) to be installed",
     )
 

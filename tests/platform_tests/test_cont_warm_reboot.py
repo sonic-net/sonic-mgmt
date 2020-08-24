@@ -20,7 +20,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0-soak')
+    pytest.mark.topology('t0')
 ]
 
 MAX_WAIT_TIME_FOR_INTERFACES = 30
