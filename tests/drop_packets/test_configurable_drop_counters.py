@@ -248,7 +248,8 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthost)
                                 server_dst_addr,
                                 MOCK_DEST_IP)
     _send_packets(duthost, ptfadapter, pkt, server_dst_port, count=100)
-
+    # Issue a ping to populate ARP table on DUT
+    duthost.command('ping %s -c 3' % server_dst_addr, module_ignore_errors=True)
     fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, server_dst_intf)
 
     return {"server_dst_port": server_dst_port,
@@ -265,12 +266,15 @@ def _generate_vlan_servers(vlan_network, vlan_ports):
     # - MACs are generated sequentially as offsets from VLAN_BASE_MAC_PATTERN
     # - IP addresses are randomly selected from the given VLAN network
     # - "Hosts" (IP/MAC pairs) are distributed evenly amongst the ports in the VLAN
+    addr_list = list(IPNetwork(vlan_network))
     for counter, i in enumerate(xrange(2, VLAN_HOSTS + 2)):
         mac = VLAN_BASE_MAC_PATTERN.format(counter)
         port = vlan_ports[i % len(vlan_ports)]
-        addr = str(random.choice(list(IPNetwork(vlan_network))))
+        addr = random.choice(addr_list)
+        # Ensure that we won't get a duplicate ip address
+        addr_list.remove(addr)
 
-        vlan_host_map[port][addr] = mac
+        vlan_host_map[port][str(addr)] = mac
 
     return vlan_host_map
 
