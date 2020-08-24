@@ -156,10 +156,16 @@
       when: home_path is not defined
     - debug: msg="{{ home_path }}"
 
-- name: Determine if VMs are needed
+- name: Require VMs by default
   set_fact:
     vm_required: true
-  when: ptf_image_name is defined and ptf_image_name != "docker-keysight-api-server"
+
+- name: VMs not needed in case of Keysight API Server
+  set_fact:
+    vm_required: false
+  when:
+    - ptf_imagename is defined
+    - ptf_imagename == "docker-keysight-api-server"
 
 - block:
   - name: Ensure {{ root_path }} exists
