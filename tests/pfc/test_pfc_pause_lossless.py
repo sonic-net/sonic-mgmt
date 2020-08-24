@@ -311,7 +311,6 @@ def test_pfc_pause_multi_lossless_priorities(testbed,
         "The topology should have at least two interfaces")
 
     session = ixia_api_server_session
-    send_pause_frame = False
     for i in range(len(port_list)):
         for send_pause_frame in [True, False]:
             paused = send_pause_frame
