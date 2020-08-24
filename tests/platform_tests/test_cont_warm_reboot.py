@@ -13,6 +13,7 @@ from tests.common.reboot import get_reboot_cause
 from tests.common.platform.transceiver_utils import parse_transceiver_info
 from tests.common.plugins.sanity_check import checks
 from tests.common.fixtures.advanced_reboot import AdvancedReboot
+from tests.common.reboot import reboot
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
@@ -38,7 +39,7 @@ def handle_test_error(health_check):
             return
         except Exception as err:
             traceback.print_exc()
-            logging.error("Health check {} failed with unknown error".format(health_check.__name__))
+            logging.error("Health check {} failed with unknown error: {}".format(health_check.__name__, str(err)))
             self.test_report[health_check.__name__] = "Unkown error"
             self.sub_test_result = False
             return            
@@ -87,7 +88,7 @@ class ContinuousReboot:
         self.fast_reboot_fail = 0
         
 
-    def reboot_and_check(self, reboot_kwargs=None):
+    def reboot_and_check(self):
         """
         Perform the specified type of reboot and check platform status.
         @param interfaces: DUT's interfaces defined by minigraph
@@ -112,7 +113,12 @@ class ContinuousReboot:
         result = self.advancedReboot.runRebootTest()
         if result is not True:
             # Create a failure report
-            raise ContinuousRebootError("Reboot test failed with error: {}".format(str(result["stderr"])))
+            error = result.get("stderr")
+            if error and "DUT is not ready for test" in error:
+                # reboot test did not reboot the DUT, reboot externally to verify for image installation
+                logging.warn("Reboot test failed to reboot the DUT. Trying again..")
+                reboot(self.duthost, self.localhost, reboot_type=self.reboot_type, reboot_helper=None, reboot_kwargs=None)
+            raise ContinuousRebootError("Reboot test failed with error: {}".format(error))
 
 
     @handle_test_error
@@ -286,7 +292,7 @@ class ContinuousReboot:
         # test output file for results
         self.reports_file = os.path.join(self.log_dir, "continuous_reboot_report.csv")
         with open(self.reports_file, "w") as report_file:
-            header = ["test_id", "image", "is_new_image", "up_time", "test_duration", "pass"]
+            header = ["test_id", "image", "is_new_image", "up_time", "test_duration", "result"]
             writer = csv.DictWriter(report_file, fieldnames=header)
             writer.writeheader()
 
@@ -314,10 +320,10 @@ class ContinuousReboot:
             "is_new_image": self.is_new_image,
             "up_time": str(self.duthost.get_uptime().total_seconds()) + "s",
             "test_duration": str((self.test_end_time - self.test_start_time).total_seconds())  + "s",
-            "pass": self.sub_test_result
+            "result": self.sub_test_result
         }
         with open(self.reports_file, "a") as report_file:
-            header = ["test_id", "image", "is_new_image", "up_time", "test_duration", "pass"]
+            header = ["test_id", "image", "is_new_image", "up_time", "test_duration", "result"]
             writer = csv.DictWriter(report_file, fieldnames=header)
             writer.writerow(test_report)
 
