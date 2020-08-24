@@ -1,6 +1,3 @@
-import pytest
-
-
 def add_normal_reboot_args(parser):
     #########################
     #   reboot test options #
