@@ -17,10 +17,8 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 class DhcpPktFwdBase:
-    """
-    Base class for DHCP packet forwarding test. The test ensure that DHCP packets are going through T1 device.
-    """
-    LEASE_TIME = 86400
+    """Base class for DHCP packet forwarding test. The test ensure that DHCP packets are going through T1 device."""
+    LEASE_TIME_SEC = 86400
     DHCP_PKT_BOOTP_MIN_LEN = 300
     DHCP_CLIENT = {
         "mac": "00:11:22:33:44:55",
@@ -48,7 +46,7 @@ class DhcpPktFwdBase:
             testPort(str): port name used for test
 
         Returns:
-            lags(list): list of port indeces (if any) if LAG which has testPort as a member
+            lags(list): list of port indices (if any) if LAG which has testPort as a member
             peerIp(str): BGP peer IP
         """
         peerIp = None
@@ -96,7 +94,7 @@ class DhcpPktFwdBase:
     @pytest.fixture(scope="class")
     def dutPorts(self, duthost, testbed):
         """
-        Buils list of DUT ports and classify them as Upstream/Downstream ports.
+        Build list of DUT ports and classify them as Upstream/Downstream ports.
 
         Args:
             duthost(Ansible Fixture): instance of SonicHost class of DUT
@@ -105,7 +103,7 @@ class DhcpPktFwdBase:
         Returns:
             dict: contains downstream/upstream ports information
         """
-        if testbed["topo"]["name"] not in ("t1", "t1-lag", "t1-64-lag", "t1-64-lag-clet"):
+        if "t1" not in testbed["topo"]["name"]:
             pytest.skip("Unsupported topology")
 
         downstreamPorts = []
@@ -212,7 +210,7 @@ class DhcpPktFwdBase:
             port_dst=self.DHCP_SERVER["port"],
             ip_gateway=self.DHCP_RELAY["ip"],
             netmask_client=self.DHCP_CLIENT["subnet"],
-            dhcp_lease=self.LEASE_TIME,
+            dhcp_lease=self.LEASE_TIME_SEC,
             padding_bytes=0,
             set_broadcast_bit=True
         )
@@ -281,15 +279,13 @@ class DhcpPktFwdBase:
             port_dst=self.DHCP_SERVER["port"],
             ip_gateway=self.DHCP_RELAY["ip"],
             netmask_client=self.DHCP_CLIENT["subnet"],
-            dhcp_lease=self.LEASE_TIME,
+            dhcp_lease=self.LEASE_TIME_SEC,
             padding_bytes=0,
             set_broadcast_bit=True
         )
 
 class TestDhcpPktFwd(DhcpPktFwdBase):
-    """
-    DHCP Packet forward test class
-    """
+    """DHCP Packet forward test class"""
     @pytest.mark.parametrize("pktInfo", [
         {"txDir": "downstream", "rxDir": "upstream", "pktGen": DhcpPktFwdBase.createDhcpDiscoverRelayedPacket},
         {"txDir": "upstream", "rxDir": "downstream", "pktGen": DhcpPktFwdBase.createDhcpOfferPacket},
