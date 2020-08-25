@@ -119,6 +119,7 @@ def swap_syncd(dut, creds):
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
     docker_rpc_image = docker_syncd_name + "-rpc"
 
+    dut.command("config bgp shutdown all")  # Force image download to go through mgmt network
     dut.command("systemctl stop swss")
     delete_container(dut, "syncd")
 
