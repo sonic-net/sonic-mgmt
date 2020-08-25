@@ -25,23 +25,29 @@ Keysight ports are connected via SONiC switch as shown in the illustration above
 ### DUT Configuration
 •	PFC watch dog is disabled
 •	Enable ECN at queue 3:
+```
         $ ecnconfig -q 3 on
-
+```
 •	Configure minimum threshold to Kmin (in bytes):
+```
         $ ecnconfig -p [profile_name] -gmin [Kmin in byte]
-
+```
 •	Configure maximum threshold to Kmax (in bytes):
-        $ ecnconfig -p [profile_name] -gmax [Kmax in byte]
-
+```
+    $ ecnconfig -p [profile_name] -gmax [Kmax in byte]
+```
 •	Configure marking probability Pmax:
-        $ ecnconfig -p [profile_name] -gdrop [Pmax in %]
-
+```
+    $ ecnconfig -p [profile_name] -gdrop [Pmax in %]
+```
 •	To check current ECN configuration:
-        $ ecnconfig -l 
-
+```
+    $ ecnconfig -l 
+```
 •	To check if ECN is enabled at queue 3:
-        $ ecnconfig -q 3
-
+```
+   $ ecnconfig -q 3
+```
 ### Keysight configuration
 •	All Keysight ports should have the same bandwidth capacity. 
 •	Test specific configurations are mentioned in respective test cases.
@@ -82,4 +88,4 @@ This test aims to verify the DUT’s dequeue based ECN marking behavior (Egress 
    * Keysight Rx port must receive 2N test data packets.
    * The first test data packet received by Keysight Rx port should be ECN marked.
    * The last test data packet received by Keysight Rx port should not be ECN marked.
-5. Repeat the test with a different Lossless priority (!=Pi).
+5. Repeat the test with a different lossless priority (!=Pi).
