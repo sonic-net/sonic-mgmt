@@ -86,6 +86,11 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
                                     gw_start=gw_addr,
                                     gw_incr_step='0.0.0.0')
 
+    # Assumption: Line rate percentage of background data traffic 
+    # is equal to Line rate percentage of test data traffic.
+    pytest_assert(2 * RATE_PERCENTAGE <= 100,
+        "Value of RATE_PERCENTAGE should not be more than 50!")
+
     topo_sender = create_topology(session=session,
                                   name="Sender",
                                   ports=list(tx_port),
