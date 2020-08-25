@@ -1,0 +1,181 @@
+- qualifiers:
+    ip:
+      source-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:0002/128"
+
+- qualifiers:
+    ip:
+      destination-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:0003/128"
+
+- qualifiers:
+    ip:
+      protocol: 126
+
+- qualifiers:
+    transport:
+      source-port: "9000"
+
+- qualifiers:
+    transport:
+      destination-port: "9001"
+
+- qualifiers:
+    transport:
+      source-port: "10000..10499"
+
+- qualifiers:
+    transport:
+      destination-port: "10500..10999"
+
+- qualifiers:
+    transport:
+      tcp-flags:
+        - "TCP_SYN"
+        - "TCP_ACK"
+        - "TCP_PSH"
+        - "TCP_FIN"
+
+- qualifiers:
+    ip:
+      dscp: "37"
+
+- qualifiers:
+    ip:
+      source-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:0004/128"
+      destination-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:0005/128"
+      protocol: 6
+    transport:
+      source-port: "11200"
+      destination-port: "11500..11999"
+
+- qualifiers:
+    ip:
+      source-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:0005/128"
+      destination-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:0004/128"
+      protocol: 6
+    transport:
+      source-port: "11500..11999"
+      destination-port: "11200"
+
+- qualifiers:
+    ip:
+      source-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:0006/128"
+      destination-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:0007/128"
+      protocol: 6
+    transport:
+      tcp-flags:
+        - "TCP_SYN"
+
+- qualifiers:
+    ip:
+      source-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:0007/128"
+      destination-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:0006/128"
+      protocol: 6
+    transport:
+      tcp-flags:
+        - "TCP_SYN"
+        - "TCP_ACK"
+
+- qualifiers:
+    ip:
+      source-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:0008/128"
+      destination-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:0009/128"
+      protocol: 6
+    transport:
+      source-port: "12000"
+      destination-port: "443"
+      tcp-flags:
+        - "TCP_SYN"
+
+- qualifiers:
+    ip:
+      source-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:0009/128"
+      destination-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:0008/128"
+      protocol: 6
+    transport:
+      source-port: "443"
+      destination-port: "12000"
+      tcp-flags:
+        - "TCP_SYN"
+        - "TCP_ACK"
+
+- qualifiers:
+    ip:
+      source-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:000a/128"
+      destination-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:000b/128"
+      protocol: 17
+      dscp: 8
+    transport:
+      source-port: "12001"
+      destination-port: "514"
+
+- qualifiers:
+    ip:
+      source-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:000b/128"
+      destination-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:000a/128"
+      protocol: 17
+      dscp: 8
+    transport:
+      source-port: "514"
+      destination-port: "12001"
+
+- qualifiers:
+    ip:
+      source-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:000c/128"
+      destination-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:000d/128"
+
+- qualifiers:
+    ip:
+      source-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:000e/128"
+      destination-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:000f/128"
+      protocol: 127
+      dscp: 16
+    transport:
+      source-port: "12004"
+      destination-port: "12005"
+      tcp-flags:
+        - "TCP_SYN"
+        - "TCP_ACK"
+
+- qualifiers:
+    ip:
+      source-ip-address: "ffbe:0225:7c6b:b000:0000:0000:0000:0000/64"
+      destination-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:0010/128"
+      protocol: 6
+    transport:
+      source-port: "12006"
+      destination-port: "12007"
+
+- qualifiers:
+    ip:
+      source-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:0010/128"
+      destination-ip-address: "ffbe:0225:7c6b:b000:0000:0000:0000:0000/64"
+      protocol: 6
+    transport:
+      source-port: "12008"
+      destination-port: "12009"
+
+- qualifiers:
+    ip:
+      source-ip-address: "ffbe:0225:7c6b:c000:0000:0000:0000:0000/64"
+      destination-ip-address: "ffbe:0225:7c6b:d000:0000:0000:0000:0000/64"
+      protocol: 6
+    transport:
+      source-port: "12010"
+      destination-port: "12011"
+
+- qualifiers:
+    ip:
+      source-ip-address: "ffbe:0225:7c6b:e000:0000:0000:0000:0000/57"
+      destination-ip-address: "ffbe:0225:7c6b:f000:0000:0000:0000:0000/81"
+      protocol: 6
+    transport:
+      source-port: "12012"
+      destination-port: "12013"
+
+- qualifiers:
+    ip:
+      source-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:001c/128"
+      destination-ip-address: "ffbe:0225:7c6b:a982:d48b:230e:f271:001d/128"
+    transport:
+      source-port: "12002"
+      destination-port: "12003"
