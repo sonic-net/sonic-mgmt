@@ -1,6 +1,5 @@
 """Test cases to support the Everflow Mirroring feature in SONiC."""
 import logging
-import os
 import time
 import pytest
 
@@ -13,7 +12,7 @@ from everflow_test_utilities import BaseEverflowTest
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
 from tests.common.fixtures.ptfhost_utils import copy_acstests_directory   # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
-from everflow_test_utilities import setup_info, EVERFLOW_DSCP_RULES
+from everflow_test_utilities import setup_info, EVERFLOW_DSCP_RULES       # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
 
 pytestmark = [
     pytest.mark.topology("t1")
