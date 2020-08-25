@@ -241,13 +241,7 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthost)
     duthost.command("sonic-clear arp")
 
     # Populate FDB
-    logging.info("Populating FDB entry for mock server under VLAN")
-    src_mac = _hex_to_mac(arp_responder[server_dst_port][server_dst_addr])
-    pkt = _get_simple_ip_packet(src_mac,
-                                duthost.get_dut_iface_mac(server_dst_intf),
-                                server_dst_addr,
-                                MOCK_DEST_IP)
-    _send_packets(duthost, ptfadapter, pkt, server_dst_port, count=100)
+    logging.info("Populating FDB and ARP entry for mock server under VLAN")
     # Issue a ping to populate ARP table on DUT
     duthost.command('ping %s -c 3' % server_dst_addr, module_ignore_errors=True)
     fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, server_dst_intf)
