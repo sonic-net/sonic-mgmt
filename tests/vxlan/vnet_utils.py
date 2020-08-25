@@ -85,13 +85,12 @@ def generate_dut_config_files(duthost, mg_facts, vnet_test_params, vnet_config):
         "OP": "SET"
     }]
 
-    duthost.copy(content=json.dumps(vnet_switch_config, indent=4), dest=DUT_VNET_SWITCH_CONFIG)
+    duthost.copy(content=json.dumps(vnet_switch_config, indent=4), dest=DUT_VNET_SWITCH_JSON)
 
-
-    render_template_to_host("vnet_vxlan.j2", duthost, DUT_VNET_CONF, vnet_config, mg_facts, vnet_test_params)
-    render_template_to_host("vnet_interface.j2", duthost, DUT_VNET_INTF_CONFIG, vnet_config)
+    render_template_to_host("vnet_vxlan.j2", duthost, DUT_VNET_CONF_JSON, vnet_config, mg_facts, vnet_test_params)
+    render_template_to_host("vnet_interface.j2", duthost, DUT_VNET_INTF_JSON, vnet_config)
     render_template_to_host("vnet_nbr.j2", duthost, DUT_VNET_NBR_JSON, vnet_config)
-    render_template_to_host("vnet_routes.j2", duthost, DUT_VNET_ROUTE_CONFIG, vnet_config, op="SET")
+    render_template_to_host("vnet_routes.j2", duthost, DUT_VNET_ROUTE_JSON, vnet_config, op="SET")
 
 def apply_dut_config_files(duthost, vnet_test_params):
     """
@@ -100,22 +99,21 @@ def apply_dut_config_files(duthost, vnet_test_params):
     Args:
         duthost: DUT host object
     """
-    logger.info("Applying config files on DUT")
-
-    config_files = ["/tmp/vnet.intf.json", "/tmp/vnet.nbr.json"]
     if vnet_test_params[APPLY_NEW_CONFIG_KEY]:
-        config_files.append("/tmp/vnet.conf.json")
+        logger.info("Applying config files on DUT")
 
-    for config in config_files:
-        duthost.shell("sonic-cfggen -j {} --write-to-db".format(config))
-        sleep(3)
+        config_files = [DUT_VNET_INTF_JSON, DUT_VNET_NBR_JSON, DUT_VNET_CONF_JSON]
+        for config in config_files:
+            duthost.shell("sonic-cfggen -j {} --write-to-db".format(config))
+            sleep(3)
 
-    duthost.shell("docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_CONFIG))
-    duthost.shell("docker cp {} swss:/vnet.switch.json".format(DUT_VNET_SWITCH_CONFIG))
-    if vnet_test_params[APPLY_NEW_CONFIG_KEY]:
+        duthost.shell("docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_JSON))
+        duthost.shell("docker cp {} swss:/vnet.switch.json".format(DUT_VNET_SWITCH_JSON))
         duthost.shell("docker exec swss sh -c \"swssconfig /vnet.switch.json\"")
         duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
         sleep(3)
+    else:
+        logger.info("Skip applying config files on DUT")
 
 def cleanup_dut_vnets(duthost, mg_facts, vnet_config):
     """
@@ -162,7 +160,7 @@ def cleanup_vnet_routes(duthost, vnet_config):
         vnet_config: VNET configuration generated from templates/vnet_config.j2
     """
 
-    render_template_to_host("vnet_routes.j2", duthost, DUT_VNET_ROUTE_CONFIG, vnet_config, op="DEL")
-    duthost.shell("docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_CONFIG))
+    render_template_to_host("vnet_routes.j2", duthost, DUT_VNET_ROUTE_JSON, vnet_config, op="DEL")
+    duthost.shell("docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_JSON))
     duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
     sleep(3)
