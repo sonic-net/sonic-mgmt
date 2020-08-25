@@ -53,7 +53,7 @@ For example:
 pytest test_announce_routes.py --inventory veos_vtb --host-pattern vlab-01 --testbed_file vtestbed.csv --log-cli-level info
 ```
 
-Please ensure that the command line options extended in sonic-mgmt are always added **AFTER** the test script files or directories container test script files. Otherwise, pytest may complain that the options defined in `conftest.py` of sub-folders are unrecognized.
+Please ensure that the command line options extended in sonic-mgmt are always added **AFTER** the test script files or directories containing test script files. Otherwise, pytest may complain that the options defined in `conftest.py` of sub-folders are unrecognized.
 
 The reason is that pytest will do a pre-parse for all of the supplied command line arguments. During pre-parse, all the options extended in sonic-mgmt are unknown to the argparser yet. In this phase, pytest will try to figure out which of the supplied arguments are test scripts.
 
@@ -80,4 +80,4 @@ If we run the command like below, then there is no problem.
 pytest --inventory veos_vtb --host-pattern vlab-01 example/test_example.py --testbed vms-kvm-t0 --testbed_file vtestbed.csv --log-cli-level debug --disable_loganalyzer --skip_sanity --example_option1 my_value1
 ```
 
-During pre-parse, pytest recognizes that `example/test_example.py ` is a test script. Then pytest will try to load file `sonic-mgmt/tests/try_opt/conftest.py`. After this conftest.py file is loaded, there is not problem of parsing argument `--example_option1`.
+During pre-parse, pytest recognizes that `example/test_example.py ` is a test script. Then pytest will try to load file `sonic-mgmt/tests/try_opt/conftest.py`. After this conftest.py file is loaded, there is no problem of parsing argument `--example_option1`.
