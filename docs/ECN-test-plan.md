@@ -68,7 +68,7 @@ This test aims to verify the DUT’s dequeue based ECN marking behavior (Egress 
 #### Test Configuration
 
 - On SONiC DUT configure the following:
-  1. A single lossless priority value Pi. (0 <= i <= 7).
+  1. A single lossless priority value Pi (0 <= i <= 7).
   2. Configure minimum and maximum ECN marking threshold of the lossless priority Pi to N KB (eg. 100 KB).
   3. DUT should have enough buffer to hold 2N KB packets.
 
@@ -105,7 +105,7 @@ This test aims to verify the DUT’s dequeue based ECN marking behavior (Egress 
 #### Test Configuration
 
 - On SONiC DUT configure the following:
-  1. A single lossless priority value Pi. (0 <= i <= 7).
+  1. A single lossless priority value Pi (0 <= i <= 7).
   2. Configure the minimum ECN marking threshold, the maximum ECN marking threshold, and the maximum marking probability of the Priority Pi to Kmin KB, Kmax KB, and Pmax % respectively. Let the Kmin, Kmax, and Pmax be 500 KB, 2000 KB, and 5% for first iteration.
   3. DUT should have enough buffer to hold (Kmax+10) packets each of 1KB size.
 
