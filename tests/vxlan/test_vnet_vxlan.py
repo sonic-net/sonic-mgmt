@@ -105,7 +105,7 @@ def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
         
         attached_vlan = mg_facts["minigraph_vlan_interfaces"][0]['attachto']
         member_to_remove = mg_facts["minigraph_vlans"][attached_vlan]['members'][0]
-        duthost.shell("docker exec -i database redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, member_to_remove))
+        duthost.shell("redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, member_to_remove))
 
         apply_dut_config_files(duthost, vnet_test_params) 
 

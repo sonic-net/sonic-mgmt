@@ -129,13 +129,13 @@ def cleanup_dut_vnets(duthost, mg_facts, vnet_config):
     logger.info("Removing VNET information from DUT")
 
     for intf in vnet_config['vlan_intf_list']:
-        duthost.shell("docker exec -i database redis-cli -n 4 del \"VLAN_INTERFACE|{}|{}\"".format(intf['ifname'], intf['ip']))
+        duthost.shell("redis-cli -n 4 del \"VLAN_INTERFACE|{}|{}\"".format(intf['ifname'], intf['ip']))
 
     for intf in vnet_config['vlan_intf_list']:
-        duthost.shell("docker exec -i database redis-cli -n 4 del \"VLAN_INTERFACE|{}\"".format(intf['ifname']))
+        duthost.shell("redis-cli -n 4 del \"VLAN_INTERFACE|{}\"".format(intf['ifname']))
     
     for vnet in vnet_config['vnet_id_list']:
-        duthost.shell("docker exec -i database redis-cli -n 4 del \"VNET|{}\"".format(vnet))
+        duthost.shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))
 
 def cleanup_vxlan_tunnels(duthost, vnet_test_params):
     """
@@ -151,4 +151,4 @@ def cleanup_vxlan_tunnels(duthost, vnet_test_params):
         tunnels.append("tunnel_v6")
 
     for tunnel in tunnels:
-        duthost.shell("docker exec -i database redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
+        duthost.shell("redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
