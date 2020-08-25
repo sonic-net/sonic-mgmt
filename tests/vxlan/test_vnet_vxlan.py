@@ -3,10 +3,9 @@ import logging
 import pytest
 
 from datetime import datetime
-from jinja2 import Template
 from tests.ptf_runner import ptf_runner
-from vnet_constants import CLEANUP_KEY, DUT_VNET_ROUTE_CONFIG
-from vnet_utils import render_template_to_host, generate_dut_config_files, safe_open_template, \
+from vnet_constants import CLEANUP_KEY
+from vnet_utils import generate_dut_config_files, safe_open_template, \
                        apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
@@ -59,7 +58,7 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
     ptfhost.copy(content=json.dumps(vnet_json, indent=2), dest="/tmp/vnet.json")
 
 @pytest.fixture(scope="module")
-def setup(duthost, ptfhost, minigraph_facts, vnet_config, vnet_test_params, scaled_vnet_params):
+def setup(duthost, ptfhost, minigraph_facts, vnet_config, vnet_test_params):
     """
     Prepares DUT and PTF hosts for testing
 
@@ -69,7 +68,6 @@ def setup(duthost, ptfhost, minigraph_facts, vnet_config, vnet_test_params, scal
         minigraph_facts: Minigraph facts
         vnet_config: Configuration file generated from templates/vnet_config.j2
         vnet_test_params: Dictionary holding vnet test parameters
-        scaled_vnet_params: Dictionary hold parameters for scaled vnet testing
     """
 
     dut_facts = duthost.setup(gather_subset="!all,!any,network", filter="ansible_Ethernet*")["ansible_facts"]
@@ -78,7 +76,7 @@ def setup(duthost, ptfhost, minigraph_facts, vnet_config, vnet_test_params, scal
 
     generate_dut_config_files(duthost, minigraph_facts, vnet_test_params, vnet_config)
 
-    return minigraph_facts 
+    return minigraph_facts
 
 @pytest.fixture(params=["Disabled", "Enabled", "Cleanup"])
 def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
@@ -90,7 +88,7 @@ def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
         request: Contains the parameter (Disabled, Enabled, or Cleanup) for the current test iteration
         duthost: DUT host object
 
-    Returns: 
+    Returns:
         A tuple containing the VxLAN status (True or False), and the test scenario (one of the pytest parameters)
     """
 
@@ -101,12 +99,12 @@ def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
         mg_facts = setup
 
         duthost.shell("sonic-clear fdb all")
-        
+
         attached_vlan = mg_facts["minigraph_vlan_interfaces"][0]['attachto']
         member_to_remove = mg_facts["minigraph_vlans"][attached_vlan]['members'][0]
         duthost.shell("redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, member_to_remove))
 
-        apply_dut_config_files(duthost, vnet_test_params) 
+        apply_dut_config_files(duthost, vnet_test_params)
 
         vxlan_enabled = True
     elif request.param == "Cleanup" and vnet_test_params[CLEANUP_KEY]:
@@ -122,7 +120,7 @@ def test_vnet_vxlan(setup, vxlan_status, duthost, ptfhost, vnet_test_params, cre
     Test case for VNET VxLAN
 
     Args:
-        setup: Pytest fixture that sets up PTF and DUT hosts 
+        setup: Pytest fixture that sets up PTF and DUT hosts
         vxlan_status: Parameterized pytest fixture used to test different VxLAN configurations
         duthost: DUT host object
         ptfhost: PTF host object
@@ -141,7 +139,7 @@ def test_vnet_vxlan(setup, vxlan_status, duthost, ptfhost, vnet_test_params, cre
                   "dut_host": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']}
     if scenario == "Cleanup":
         ptf_params["routes_removed"] = True
-    
+
     if scenario == "Cleanup" and not vnet_test_params[CLEANUP_KEY]:
         logger.info("Skipping cleanup")
         pytest.skip("Skip cleanup specified")

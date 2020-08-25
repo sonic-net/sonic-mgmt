@@ -133,7 +133,7 @@ def cleanup_dut_vnets(duthost, mg_facts, vnet_config):
 
     for intf in vnet_config['vlan_intf_list']:
         duthost.shell("redis-cli -n 4 del \"VLAN_INTERFACE|{}\"".format(intf['ifname']))
-    
+
     for vnet in vnet_config['vnet_id_list']:
         duthost.shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))
 
