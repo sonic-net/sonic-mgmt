@@ -43,9 +43,7 @@ def limit_policer(dut, pps_limit):
 
     # As copp config is regenerated each time swss starts need to replace the template with
     # config updated above. But before doing that need store the original template in a temporary file
-    # for restore after test. Also if there is no such a template on older SONiC images let's create it 
-    # with "touch" command for backward compatibility.
-    dut.command("docker exec -d swss touch {}".format(_COPP_TEMPLATE_PATH))
+    # for restore after test.
     dut.command("docker cp {} {}".format(_SWSS_COPP_TEMPLATE, _TEMP_COPP_TEMPLATE))
     dut.command("docker cp {} {}".format(_TEMP_COPP_CONFIG, _SWSS_COPP_TEMPLATE))
 
@@ -60,8 +58,6 @@ def restore_policer(dut):
     """
     # Restore the copp template in swss 
     dut.command("docker cp {} {}".format(_TEMP_COPP_TEMPLATE, _SWSS_COPP_TEMPLATE))
-    # Restore copp config for backward compatibility on older SONiC images
-    dut.command("docker cp {} {}".format(_BASE_COPP_CONFIG, _SWSS_COPP_CONFIG))
 
 def configure_ptf(ptf, nn_target_port):
     """
