@@ -4,11 +4,10 @@ import pytest
 
 from datetime import datetime
 from jinja2 import Template
-from time import sleep
 from tests.ptf_runner import ptf_runner
 from vnet_constants import CLEANUP_KEY, DUT_VNET_ROUTE_CONFIG
 from vnet_utils import render_template_to_host, generate_dut_config_files, safe_open_template, \
-                       apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels
+                       apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
                                                 copy_arp_responder_py, copy_ptftests_directory
@@ -112,10 +111,7 @@ def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
         vxlan_enabled = True
     elif request.param == "Cleanup" and vnet_test_params[CLEANUP_KEY]:
         vxlan_enabled = True
-        render_template_to_host("vnet_routes.j2", duthost, DUT_VNET_ROUTE_CONFIG, vnet_config, op="DEL")
-        duthost.shell("docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_CONFIG))
-        duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
-        sleep(3)
+        cleanup_vnet_routes(duthost, vnet_config)
         cleanup_dut_vnets(duthost, setup, vnet_config)
         cleanup_vxlan_tunnels(duthost, vnet_test_params)
     return vxlan_enabled, request.param

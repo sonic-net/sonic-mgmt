@@ -152,3 +152,17 @@ def cleanup_vxlan_tunnels(duthost, vnet_test_params):
 
     for tunnel in tunnels:
         duthost.shell("redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
+
+def cleanup_vnet_routes(duthost, vnet_config):
+    """
+    Generates, pushes, and applies VNET route config to clear routes set during test
+
+    Args:
+        duthost: DUT host object
+        vnet_config: VNET configuration generated from templates/vnet_config.j2
+    """
+
+    render_template_to_host("vnet_routes.j2", duthost, DUT_VNET_ROUTE_CONFIG, vnet_config, op="DEL")
+    duthost.shell("docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_CONFIG))
+    duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
+    sleep(3)
