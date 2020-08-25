@@ -49,8 +49,8 @@ def pytest_addoption(parser):
     )
 
     parser.addoption(
-        "--apply_new_config",
-        action="store_false",
+        "--skip_apply_config",
+        action="store_true",
         help="Apply new configurations on DUT"
     )
 
@@ -93,7 +93,7 @@ def vnet_test_params(request):
     params = {}
     params[IPV6_VXLAN_TEST_KEY] = request.config.option.ipv6_vxlan_test
     params[CLEANUP_KEY] = not request.config.option.skip_cleanup
-    params[APPLY_NEW_CONFIG_KEY] = request.config.option.apply_new_config
+    params[APPLY_NEW_CONFIG_KEY] = not request.config.option.skip_apply_config
     return params
 
 @pytest.fixture(scope="module")
