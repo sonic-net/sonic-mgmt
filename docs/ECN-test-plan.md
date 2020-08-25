@@ -3,8 +3,11 @@
 ## Overview
 
 Explicit Congestion Notification (ECN) allows end-to-end notification of network congestion without dropping packets. ECN is an optional feature that may be used between two ECN-enabled endpoints when the underlying network infrastructure also supports it.
+
 Conventionally, TCP/IP networks signal congestion by dropping packets. When ECN is successfully negotiated, an ECN-aware router may set a mark in the IP header instead of dropping a packet, in order to signal impending congestion. The receiver of the packet echoes the congestion indication to the sender, which reduces its transmission rate as if it detected a dropped packet.
-Commodity switches typically use Random Early Detection (RED) algorithm to perform ECN marking. RED algorithm has at least three parameters: the minimum threshold Kmin, the maximum threshold Kmax, and the maximum marking (or dropping) probability Pmax. When the instantaneous queue length is smaller than the minimum marking threshold, the marking probability is 0%. When the instantaneous queue length is larger than the maximum marking threshold, the marking probability is 100%. Otherwise, the marking probability varies as (queue_length - Kmin) / (Kmax - Kmin) * Pmax.
+
+Commodity switches typically use Random Early Detection (RED) algorithm to perform ECN marking. RED algorithm has at least three parameters: the minimum threshold Kmin, the maximum threshold Kmax, and the maximum marking (or dropping) probability Pmax. When the instantaneous queue length is smaller than the minimum marking threshold, the marking probability is 0%. When the instantaneous queue length is larger than the maximum marking threshold, the marking probability is 100%. Otherwise, the marking probability varies as ((queue_length - Kmin) / (Kmax - Kmin)) * Pmax.
+
 Commodity switches can run RED at ingress (enqueue packet to the switch buffer) or egress (dequeue packet from the switch buffer). Compared to ingress RED/ECN, egress RED/ECN can achieve lower feedback delay.
 
 ### Scope
@@ -101,13 +104,13 @@ This test aims to verify the DUT’s dequeue based ECN marking behavior (Egress 
 
 - On SONiC DUT configure the following:
   1. A single lossless priority value Pi. (0 <= i <= 7).
-  2. Configure the minimum ECN marking threshold, the maximum ECN marking threshold, and the maximum marking probability of the Priority Pi to Kmin KB, Kmax KB, and Pmax % respectively. Let the Kmin, Kmax, and Pmax be 500, 2000, and 5% for first iteration.
+  2. Configure the minimum ECN marking threshold, the maximum ECN marking threshold, and the maximum marking probability of the Priority Pi to Kmin KB, Kmax KB, and Pmax % respectively. Let the Kmin, Kmax, and Pmax be 500 KB, 2000 KB, and 5% for first iteration.
   3. DUT should have enough buffer to hold (Kmax+10) packets each of 1KB size.
 
 - Configure following traffic items on the Keysight device:
   1. Test data traffic: A traffic item from the Keysight Tx port to
-        the Keysight Rx port with lossless priority (DSCP value == Pi).
-        Number of packets should be fixed to (Kmax+10), each having 1KB frame size.
+        the Keysight Rx port with the lossless priority (DSCP value == Pi).
+        Should have fixed number of packets, Kmax+10 (2010), each having 1KB frame size.
   2. PFC PAUSE storm: Persistent PFC pause frames from the Keysight
         Rx port to the Keysight Tx port. The priorities of PFC pause
         frames should be the same as that of 'Test data traffic'. And the
@@ -124,7 +127,7 @@ This test aims to verify the DUT’s dequeue based ECN marking behavior (Egress 
 5. Verify the following:
    * All 2010 packets must be received at the Rx port.
    * As per RED ECN egress marking algorithm, the queue length associated with the data packet i (i = 1, 2, … Kmax + 10) is (Kmax + 10 – i) KB.
-   * If instantaneous queue length is q, then, for the first 10 packets, q >= 2000. Hence, the first 10 packets should be ECN marked.
+   * If instantaneous queue length is q, then, for the first 10 packets, q >= 2000. Hence, all the first 10 packets should be ECN marked.
    * For the next 1500 packets, 500 <= q < 2000, so, 5% of these packets should be ECN marked.
    * For the last 500 packets, q<500, so, none of them should be ECN marked.
 6. Repeat steps 1 to 4 at least 200 times.
