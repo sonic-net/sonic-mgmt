@@ -27,6 +27,7 @@ Keysight ports are connected via SONiC switch as shown in the illustration above
 
 ### DUT Configuration
 •	PFC watch dog is disabled
+
 •	Enable ECN at queue 3:
 ```
         $ ecnconfig -q 3 on
@@ -52,7 +53,8 @@ Keysight ports are connected via SONiC switch as shown in the illustration above
    $ ecnconfig -q 3
 ```
 ### Keysight configuration
-•	All Keysight ports should have the same bandwidth capacity. 
+•	All Keysight ports should have the same bandwidth capacity.
+
 •	Test specific configurations are mentioned in respective test cases.
 
 ## Test Cases
@@ -68,7 +70,7 @@ This test aims to verify the DUT’s dequeue based ECN marking behavior (Egress 
 - On SONiC DUT configure the following:
   1. A single lossless priority value Pi. (0 <= i <= 7).
   2. Configure minimum and maximum ECN marking threshold of the lossless priority Pi to N KB (eg. 100 KB).
-  3. DUT should have enough buffer to hold N KB packets.
+  3. DUT should have enough buffer to hold 2N KB packets.
 
 - Configure following traffic items on the Keysight device:
   1. Test data traffic: A traffic item from the Keysight Tx port to
@@ -84,7 +86,7 @@ This test aims to verify the DUT’s dequeue based ECN marking behavior (Egress 
 
 1. Start PFC PAUSE storm to fully block the lossless priority at the
     DUT.
-2. From the Keysight Tx port, send 2N data packets to the receiver. The packets should be mapped to priority Pi on the DUT. Note that the DUT should have enough buffer to hold all these packets.
+2. From the Keysight Tx port, send 2N data packets to the receiver. The packets should be mapped to priority Pi on the DUT.
 3. After all the test data packets are sent, start data capture on the Keysight Rx port. Then, stop PFC PAUSE.
 4. Stop capture after all packets are received.
 5. Verify the following:
