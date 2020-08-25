@@ -297,6 +297,3 @@ def _send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id,
     testutils.send(ptfadapter, ptf_tx_port_id, pkt, count=count)
     time.sleep(1)
 
-
-def _hex_to_mac(hex_mac):
-    return ':'.join(hex_mac[i:i+2] for i in range(0, len(hex_mac), 2))
