@@ -131,9 +131,6 @@ def test_vnet_vxlan(setup, vxlan_status, duthost, ptfhost, vnet_test_params, cre
 
     vxlan_enabled, scenario = vxlan_status
 
-    host_vars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
-    inventory = host_vars['inventory_file'].split('/')[-1]
-
     logger.info("vxlan_enabled={}, scenario={}".format(vxlan_enabled, scenario))
 
     log_file = "/tmp/vnet-vxlan.Vxlan.{}.{}.log".format(scenario, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
