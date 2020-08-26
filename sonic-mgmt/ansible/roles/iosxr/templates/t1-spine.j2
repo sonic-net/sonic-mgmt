@@ -1,0 +1,172 @@
+{% set host = configuration[hostname] %}
+{% set mgmt_ip = ansible_host %}
+hostname {{ hostname }}
+!
+username cisco
+ group root-lr
+ group cisco-support
+ secret 10 $6$gvHzc1yoDuxXCc1.$79owP79DB4fxgLUN/ad22EN1wrxQOFjA5xghKi1ES23q8UR.6U20DqPqY4pgP8uld9qWgmA/zGsTKMCbvoRkN/
+!
+line console
+ exec-timeout 0 0
+ absolute-timeout 0
+ session-timeout 0
+!
+line default
+ exec-timeout 0 0
+ absolute-timeout 0
+ session-timeout 0
+!
+snmp-server community {{ snmp_rocommunity }} ro
+!
+!
+interface MgmtEth0/RP0/CPU0/0
+ ipv4 address dhcp
+!
+{% for name, iface in host['interfaces'].items() %}
+interface {{ name }}
+{% if name.startswith('Loopback') %}
+ description LOOPBACK
+{% endif %}
+{% if iface['ipv4'] is defined %}
+ ip address {{ iface['ipv4'] }}
+{% endif %}
+{% if iface['ipv6'] is defined %}
+ ipv6 enable
+ ipv6 address {{ iface['ipv6'] }}
+ {% if not name.startswith('Loopback') %}
+ ipv6 nd suppress-ra
+{% endif %}
+{% endif %}
+ no shutdown
+!
+{% endfor %}
+!
+interface {{ bp_ifname }}
+ description backplane
+{% if host['bp_interface']['ipv4'] is defined %}
+ ip address {{ host['bp_interface']['ipv4'] }}
+{% endif %}
+{% if host['bp_interface']['ipv6'] is defined %}
+ ipv6 enable
+ ipv6 address {{ host['bp_interface']['ipv6'] }}
+ ipv6 nd suppress-ra
+{% endif %}
+ no shutdown
+!
+!
+{% for podset in range(0, props.podset_number) %}
+{% for tor in range(0, props.tor_number) %}
+prefix-set test_ipv4_{{ podset}}_{{ tor }} 
+  192.168.{{ podset }}.{{ tor * 16 }}/28 ge 28
+end-set
+!
+prefix-set test_ipv6_{{ podset}}_{{ tor }}
+  20C0:A8{{ '%02X' % podset }}:0:{{ '%02X' % (tor * 16) }}::/60 ge 60
+end-set
+!
+{% endfor %}
+{% endfor %}
+!
+!
+route-policy PREPENDAS_V4
+{% for podset in range(0, props.podset_number) %}
+{% if range(0, 1000)|random() >= props.failure_rate %}
+{% for tor in range(0, props.tor_number) %}
+{% set leafasn = props.leaf_asn_start + podset %}
+{% set torasn = props.tor_asn_start + tor %}
+  if destination in test_ipv4_{{ podset }}_{{ tor }} then
+    prepend as-path {{ leafasn }} 
+    prepend as-path {{ torasn }}
+  else
+    pass
+  endif
+{% endfor %}
+{% endif %}
+{% endfor %}
+end-policy
+!
+route-policy PREPENDAS_V6
+{% for podset in range(0, props.podset_number) %}
+{% if range(0, 1000)|random() >= props.failure_rate %}
+{% for tor in range(0, props.tor_number) %}
+{% set leafasn = props.leaf_asn_start + podset %}
+{% set torasn = props.tor_asn_start + tor %}
+  if destination in test_ipv6_{{ podset }}_{{ tor }} then
+    prepend as-path {{ leafasn }} 
+    prepend as-path {{ torasn }}
+  else
+    pass
+  endif
+{% endfor %}
+{% endif %}
+{% endfor %}
+end-policy
+!
+route-policy DEFAULT_ROUTES
+  done
+end-policy
+!
+router static
+ address-family ipv4 unicast
+{% for podset in range(0, props.podset_number) %}
+{% for tor in range(0, props.tor_number) %}
+{% for subnet in range(0, props.tor_subnet_number) %}
+  192.168.{{ podset }}.{{ tor * 16 + subnet }}/32 {{ props.nhipv4 }}
+{% endfor %}
+{% endfor %}
+{% endfor %}
+ !
+  address-family ipv6 unicast
+{% for podset in range(0, props.podset_number) %}
+{% for tor in range(0, props.tor_number) %}
+{% for subnet in range(0, props.tor_subnet_number) %}
+  20C0:A8{{ '%02X' % podset }}:0:{{ '%02X' % (tor * 16 + subnet)}}::/64 {{ props.nhipv6 }}
+{% endfor %}
+{% endfor %}
+{% endfor %}
+!
+router bgp {{ host['bgp']['asn'] }}
+{% for name, iface in host['interfaces'].items() if name.startswith('Loopback') %}
+{% if iface['ipv4'] is defined %}
+ address-family ipv4 unicast
+   network {{ iface['ipv4'] }}
+   redistribute static
+   exit
+{% endif %}
+{% if iface['ipv6'] is defined %}
+ address-family ipv6 unicast
+  network {{ iface['ipv6'] }}
+  redistribute static
+  exit
+{% endif %}
+{% endfor %}
+{% for asn, remote_ips in host['bgp']['peers'].items() %}
+{% for remote_ip in remote_ips %}
+{% if remote_ip | ipv4 %}
+ neighbor {{ remote_ip }} 
+  remote-as {{ asn }}
+  description {{ asn }}
+  address-family ipv4 unicast
+   route-policy DEFAULT_ROUTES in
+   maximum-prefix 12000 75
+   route-policy PREPENDAS_V4 out
+   default-originate route-policy DEFAULT_ROUTES
+{% endif %}
+{% if remote_ip | ipv6 %}
+ neighbor {{ remote_ip }} 
+  remote-as {{ asn }}
+  description {{ asn }}
+  address-family ipv6 unicast
+   route-policy DEFAULT_ROUTES in
+   maximum-prefix 12000 75
+   route-policy PREPENDAS_V6 out
+   default-originate route-policy DEFAULT_ROUTES
+{% endif %}
+{% endfor %}
+{% endfor %}
+ !
+!
+ssh server v2
+!
+end
