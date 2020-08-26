@@ -10,14 +10,6 @@
     ptf_imagetag: "latest"
   when: ptf_imagetag is not defined
 
-- name: Login into docker registry
-  docker_login:
-    registry: "{{ docker_registry_host }}"
-    username: "{{ docker_registry_username }}"
-    password: "{{ docker_registry_password }}"
-  when: docker_registry_username is defined and docker_registry_password is defined
-  become: yes
-
 - name: set "PTF" container type, by default
   set_fact:
     container_type: "PTF"
