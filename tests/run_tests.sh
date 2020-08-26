@@ -7,7 +7,7 @@ function show_help_and_exit()
     echo "    -h -?          : get this help"
     echo "    -a <True|False>: specify if autu-recover is allowed (default: True)"
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
-    echo "    -d <dut name>  : specify DUT name (*)"
+    echo "    -d <dut name>  : specify DUT name (default: DUT name associated with testbed in testbed file)"
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
     echo "    -f <tb file>   : specify testbed file (default testbed.csv)"
     echo "    -i <inventory> : specify inventory name"
@@ -25,6 +25,14 @@ function show_help_and_exit()
     echo "    -x             : print commands and their arguments as they are executed"
 
     exit $1
+}
+
+function get_dut_from_testbed_file() {
+    if [[ -z ${DUT_NAME} ]]; then
+        LINE=`cat $TESTBED_FILE | grep "^$TESTBED_NAME"`
+        IFS=',' read -ra ARRAY <<< "$LINE"
+        DUT_NAME=${ARRAY[9]}
+    fi
 }
 
 function validate_parameters()
@@ -294,6 +302,8 @@ while getopts "h?a:c:d:e:f:i:k:l:m:n:op:q:rs:t:ux" opt; do
             ;;
     esac
 done
+
+get_dut_from_testbed_file
 
 if [[ x"${TEST_METHOD}" != x"debug" ]]; then
     validate_parameters
