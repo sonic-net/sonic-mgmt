@@ -252,7 +252,7 @@ def test_dhcp_relay_random_sport(duthost, ptfhost, dut_dhcp_relay_data, validate
        It is possible in our network that client sends DHCP packets with non-standard client UDP src port. This happens
        if the client is SNAT'd. Verify that DHCP relay works with random sport
     """
-    SYNTHETIC_PACKET_CLIENT_PORT = random.choice(range(1000, 65535))
+    RANDOM_CLIENT_PORT = random.choice(range(1000, 65535))
     for dhcp_relay in dut_dhcp_relay_data:
         # Run the DHCP relay test on the PTF host
         ptf_runner(ptfhost,
@@ -269,5 +269,5 @@ def test_dhcp_relay_random_sport(duthost, ptfhost, dut_dhcp_relay_data, validate
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
                            "dest_mac_address": BROADCAST_MAC,
-                           "client_udp_src_port": SYNTHETIC_PACKET_CLIENT_PORT},
+                           "client_udp_src_port": RANDOM_CLIENT_PORT},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
