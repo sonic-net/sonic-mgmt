@@ -22,9 +22,9 @@ def test_collect_techsupport(duthost):
     # and this util is mainly designed for running on Jenkins,
     # save path is fixed to logs for now.
     TECHSUPPORT_SAVE_PATH = 'logs/'
-    out = duthost.command("show techsupport --since yesterday", module_ignore_errors=True)
+    out = duthost.command("generate_dump -s yesterday", module_ignore_errors=True)
     if out['rc'] == 0:
-        tar_file = [j for j in out['stdout'].split('\n') if j != ''][-1]
+        tar_file = out['stdout_lines'][-1]
         duthost.fetch(src=tar_file, dest=TECHSUPPORT_SAVE_PATH, flat=True)
 
     assert True
