@@ -1,5 +1,20 @@
 # ECN test plan
-
+- [ECN test plan](#ecn-test-plan)
+  - [Overview](#overview)
+    - [Scope](#scope)
+    - [Testbed](#testbed)
+  - [Setup configuration](#setup-configuration)
+    - [DUT Configuration](#dut-configuration)
+    - [Keysight configuration](#keysight-configuration)
+  - [Test Cases](#test-cases)
+    - [Test Case #1 - ECN marking at egress](#test-case-1---ecn-marking-at-egress)
+      - [Test Objective](#test-objective)
+      - [Test Configuration](#test-configuration)
+      - [Test Steps](#test-steps)
+    - [Test Case #2 - ECN marking accuracy](#test-case-2---ecn-marking-accuracy)
+      - [Test Objective](#test-objective-1)
+      - [Test Configuration](#test-configuration-1)
+      - [Test Steps](#test-steps-1)
 ## Overview
 
 Explicit Congestion Notification (ECN) allows end-to-end notification of network congestion without dropping packets. ECN is an optional feature that may be used between two ECN-enabled endpoints when the underlying network infrastructure also supports it.
@@ -12,7 +27,7 @@ Commodity switches can run RED at ingress (enqueue packet to the switch buffer) 
 
 ### Scope
 
-The test cases depicted in this document aim to do functional testing of ECN behavior of SONiC DUT as per RED (Random Early Detection) algorithm.
+The test cases depicted in this document aim to do functional testing of ECN behavior of SONiC DUT (Device Under Test) as per RED (Random Early Detection) algorithm.
 
 ### Testbed
 
@@ -26,7 +41,7 @@ Keysight ports are connected via SONiC switch as shown in the illustration above
 ## Setup configuration
 
 ### DUT Configuration
-•	PFC watch dog is disabled
+•	PFC watch dog is disabled so that the SONiC DUT does not discard packets from the egress queue as  PFC PAUSE storm mitigation action.
 
 •	Enable ECN at queue 3:
 ```
@@ -38,19 +53,19 @@ Keysight ports are connected via SONiC switch as shown in the illustration above
 ```
 •	Configure maximum threshold to Kmax (in bytes):
 ```
-    $ ecnconfig -p [profile_name] -gmax [Kmax in byte]
+        $ ecnconfig -p [profile_name] -gmax [Kmax in byte]
 ```
 •	Configure marking probability Pmax:
 ```
-    $ ecnconfig -p [profile_name] -gdrop [Pmax in %]
+        $ ecnconfig -p [profile_name] -gdrop [Pmax in %]
 ```
 •	To check current ECN configuration:
 ```
-    $ ecnconfig -l 
+        $ ecnconfig -l 
 ```
 •	To check if ECN is enabled at queue 3:
 ```
-   $ ecnconfig -q 3
+        $ ecnconfig -q 3
 ```
 ### Keysight configuration
 •	All Keysight ports should have the same bandwidth capacity.
