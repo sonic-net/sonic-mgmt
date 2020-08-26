@@ -1,0 +1,3 @@
+[submodule "sonic-mgmt"]
+	path = sonic-mgmt
+	url = https://github.com/Azure/sonic-mgmt.git
