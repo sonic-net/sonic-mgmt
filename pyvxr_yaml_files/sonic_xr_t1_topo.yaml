@@ -1,0 +1,218 @@
+simulation:
+  sim_rel: /auto/vxr/vxr2_user/vxr2_npsuite_1.50.0
+  slurm_flags:
+    hours: 120
+    partition: bigmem_intel
+
+devices:
+  
+  ptf:
+    platform: linux
+    image: /auto/vxr/images/onie-sonic/ptf_docker.qcow2
+    linux_username: root
+    linux_password: lab
+    linux_prompt: root@docker-ptf:/#
+    xr_port_redir: [22]
+    extended_pci_bus: True
+    vcpu: 4
+    memory: '4G'
+
+  sonic_dut:
+    platform: spitfire_f
+    os_type: sonic
+    xr_port_redir: [22]
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    onie-install: http://172.29.93.10/sonic-images/sonic-cisco-8000.bin.test
+    linecard_versions: [p7]
+    linux_username: admin
+    linux_password: YourPaSsWoRd
+    vxr_sim_config:
+      shelf:
+          ConfigDsimNplPath: /auto/vxr/sonic_npl/1.50.0
+  
+  sonic_mgmt :
+    platform: linux
+    xr_port_redir: [22]
+    image : /globalnobackup3/sonic/ubuntu1804_sonic_mgmt_081320.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    vcpu: 4
+    memory: '4G'
+
+device_groups:
+  xrv9k:
+    devices:
+    - "xrv9k[1..32]"
+    platform: xrv9k
+    vcpu: 2
+    memory: "8G"
+    xr_port_redir: [22]
+    image: /auto/vxr/images/xrv9k/xrv9k-fullk9-x-7.0.1.138I.qcow2
+
+connections:
+    custom:
+      ptf_injected1:
+        ports:
+        - ptf.eth1
+        - sonic_dut.Ethernet0
+        - xrv9k1.GigabitEthernet0/0/0/0
+      ptf_injected2:
+        ports:
+        - ptf.eth2
+        - sonic_dut.Ethernet1
+        - xrv9k2.GigabitEthernet0/0/0/0
+      ptf_injected3:
+        ports:
+        - ptf.eth3
+        - sonic_dut.Ethernet2
+        - xrv9k3.GigabitEthernet0/0/0/0
+      ptf_injected4:
+        ports:
+        - ptf.eth4
+        - sonic_dut.Ethernet3
+        - xrv9k4.GigabitEthernet0/0/0/0
+      ptf_injected5:
+        ports:
+        - ptf.eth5
+        - sonic_dut.Ethernet4
+        - xrv9k5.GigabitEthernet0/0/0/0
+      ptf_injected6:
+        ports:
+        - ptf.eth6
+        - sonic_dut.Ethernet5
+        - xrv9k6.GigabitEthernet0/0/0/0
+      ptf_injected7:
+        ports:
+        - ptf.eth7
+        - sonic_dut.Ethernet6
+        - xrv9k7.GigabitEthernet0/0/0/0
+      ptf_injected8:
+        ports:
+        - ptf.eth8
+        - sonic_dut.Ethernet7
+        - xrv9k8.GigabitEthernet0/0/0/0
+      ptf_injected9:
+        ports:
+        - ptf.eth9
+        - sonic_dut.Ethernet8
+        - xrv9k9.GigabitEthernet0/0/0/0
+      ptf_injected10:
+        ports:
+        - ptf.eth10
+        - sonic_dut.Ethernet9
+        - xrv9k10.GigabitEthernet0/0/0/0
+      ptf_injected11:
+        ports:
+        - ptf.eth11
+        - sonic_dut.Ethernet10
+        - xrv9k11.GigabitEthernet0/0/0/0
+      ptf_injected12:
+        ports:
+        - ptf.eth12
+        - sonic_dut.Ethernet11
+        - xrv9k12.GigabitEthernet0/0/0/0
+      ptf_injected13:
+        ports:
+        - ptf.eth13
+        - sonic_dut.Ethernet12
+        - xrv9k13.GigabitEthernet0/0/0/0
+      ptf_injected14:
+        ports:
+        - ptf.eth14
+        - sonic_dut.Ethernet13
+        - xrv9k14.GigabitEthernet0/0/0/0
+      ptf_injected15:
+        ports:
+        - ptf.eth15
+        - sonic_dut.Ethernet14
+        - xrv9k15.GigabitEthernet0/0/0/0
+      ptf_injected16:
+        ports:
+        - ptf.eth16
+        - sonic_dut.Ethernet15
+        - xrv9k16.GigabitEthernet0/0/0/0
+      ptf_injected17:
+        ports:
+        - ptf.eth17
+        - sonic_dut.Ethernet16
+        - xrv9k17.GigabitEthernet0/0/0/0
+      ptf_injected18:
+        ports:
+        - ptf.eth18
+        - sonic_dut.Ethernet17
+        - xrv9k18.GigabitEthernet0/0/0/0
+      ptf_injected19:
+        ports:
+        - ptf.eth19
+        - sonic_dut.Ethernet18
+        - xrv9k19.GigabitEthernet0/0/0/0
+      ptf_injected20:
+        ports:
+        - ptf.eth20
+        - sonic_dut.Ethernet19
+        - xrv9k20.GigabitEthernet0/0/0/0
+      ptf_injected21:
+        ports:
+        - ptf.eth21
+        - sonic_dut.Ethernet20
+        - xrv9k21.GigabitEthernet0/0/0/0
+      ptf_injected22:
+        ports:
+        - ptf.eth22
+        - sonic_dut.Ethernet21
+        - xrv9k22.GigabitEthernet0/0/0/0
+      ptf_injected23:
+        ports:
+        - ptf.eth23
+        - sonic_dut.Ethernet22
+        - xrv9k23.GigabitEthernet0/0/0/0
+      ptf_injected24:
+        ports:
+        - ptf.eth24
+        - sonic_dut.Ethernet23
+        - xrv9k24.GigabitEthernet0/0/0/0
+      ptf_injected25:
+        ports:
+        - ptf.eth25
+        - sonic_dut.Ethernet24
+        - xrv9k25.GigabitEthernet0/0/0/0
+      ptf_injected26:
+        ports:
+        - ptf.eth26
+        - sonic_dut.Ethernet25
+        - xrv9k26.GigabitEthernet0/0/0/0
+      ptf_injected27:
+        ports:
+        - ptf.eth27
+        - sonic_dut.Ethernet26
+        - xrv9k27.GigabitEthernet0/0/0/0
+      ptf_injected28:
+        ports:
+        - ptf.eth28
+        - sonic_dut.Ethernet27
+        - xrv9k28.GigabitEthernet0/0/0/0
+      ptf_injected29:
+        ports:
+        - ptf.eth29
+        - sonic_dut.Ethernet28
+        - xrv9k29.GigabitEthernet0/0/0/0
+      ptf_injected30:
+        ports:
+        - ptf.eth30
+        - sonic_dut.Ethernet29
+        - xrv9k30.GigabitEthernet0/0/0/0
+      ptf_injected31:
+        ports:
+        - ptf.eth31
+        - sonic_dut.Ethernet30
+        - xrv9k31.GigabitEthernet0/0/0/0
+      ptf_injected32:
+        ports:
+        - ptf.eth32
+        - sonic_dut.Ethernet31
+        - xrv9k32.GigabitEthernet0/0/0/0
+      backplane:
+        ports:
+        - xrv9k[1..32].GigabitEthernet0/0/0/9
+        - ptf.eth33
