@@ -246,11 +246,11 @@ def test_dhcp_relay_unicast_mac(duthost, ptfhost, dut_dhcp_relay_data, validate_
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
 
 
-def test_dhcp_relay_synthetic_packets(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
-    """Test DHCP relay functionality on T0 topology with synthetic packet
+def test_dhcp_relay_random_sport(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
+    """Test DHCP relay functionality on T0 topology with random source port (sport)
 
-       Synthetic packets are regular packet emanating from DHCP client with non-standard client UDP port. This happens
-       if the client is SNAT'd. Verify that DHCP relay works with synthetic packets
+       It is possible in our network that client sends DHCP packets with non-standard client UDP src port. This happens
+       if the client is SNAT'd. Verify that DHCP relay works with random sport
     """
     SYNTHETIC_PACKET_CLIENT_PORT = random.choice(range(1000, 65535))
     for dhcp_relay in dut_dhcp_relay_data:
