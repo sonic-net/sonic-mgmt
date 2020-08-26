@@ -163,7 +163,7 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
                 if ((tolerance_ratio < TOLERANCE_THRESHOLD) or
                     (tolerance_ratio > 1)) :
                     logger.error("Expected Tx/Rx = %s actual Rx = %s"
-                        %(exp_tx_bytes, exp_tx_bytes))
+                        %(exp_tx_bytes, rx_bytes))
 
                     logger.error("tolerance_ratio = %s" %(tolerance_ratio))
 
