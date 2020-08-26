@@ -13,6 +13,7 @@ from tests.common.mellanox_data import SPC3_HWSKUS
 from check_hw_mgmt_service import check_hw_management_service
 
 pytestmark = [
+    pytest.mark.asic('mellanox'),
     pytest.mark.topology('any')
 ]
 
