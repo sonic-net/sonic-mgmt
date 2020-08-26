@@ -145,13 +145,13 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
     flow_statistics = get_traffic_statistics(session)
     logger.info(flow_statistics)
 
-    exp_tx_byte = (exp_dur * port_bw * 1000000 * (RATE_PERCENTAGE / 100.0)) / 8
+    exp_tx_bytes = (exp_dur * port_bw * 1000000 * (RATE_PERCENTAGE / 100.0)) / 8
     for row_number, flow_stat in enumerate(flow_statistics.Rows):
         tx_frames = int(flow_stat['Tx Frames'])
         rx_frames = int(flow_stat['Rx Frames'])
         rx_bytes  = int(flow_stat['Rx Bytes'])
 
-        tolerance_ratio = rx_bytes / exp_tx_byte  
+        tolerance_ratio = rx_bytes / exp_tx_bytes  
         if 'Test' in flow_stat['Traffic Item']:
             if test_traffic_pause_expected:
                 pytest_assert(tx_frames > 0 and rx_frames == 0,
@@ -163,7 +163,7 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
                 if ((tolerance_ratio < TOLERANCE_THRESHOLD) or
                     (tolerance_ratio > 1)) :
                     logger.error("Expected Tx/Rx = %s actual Rx = %s"
-                        %(exp_tx_byte, exp_tx_byte))
+                        %(exp_tx_bytes, exp_tx_bytes))
 
                     logger.error("tolerance_ratio = %s" %(tolerance_ratio))
 
@@ -180,7 +180,7 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
             if ((tolerance_ratio < TOLERANCE_THRESHOLD) or
                 (tolerance_ratio > 1)) :
                 logger.error("Expected Tx/Rx = %s actual Rx = %s"
-                    %(exp_tx_byte, exp_tx_byte))
+                    %(exp_tx_bytes, rx_bytes))
 
                 logger.error("tolerance_ratio = %s" %(tolerance_ratio))
 
