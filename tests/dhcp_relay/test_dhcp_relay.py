@@ -249,8 +249,8 @@ def test_dhcp_relay_unicast_mac(duthost, ptfhost, dut_dhcp_relay_data, validate_
 def test_dhcp_relay_random_sport(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
     """Test DHCP relay functionality on T0 topology with random source port (sport)
 
-       It is possible in our network that client sends DHCP packets with non-standard client UDP src port. This happens
-       if the client is SNAT'd. Verify that DHCP relay works with random sport
+       If the client is SNAT'd, the source port could be changed to a non-standard port (i.e., not 68). 
+       Verify that DHCP relay works with random high sport.
     """
     RANDOM_CLIENT_PORT = random.choice(range(1000, 65535))
     for dhcp_relay in dut_dhcp_relay_data:
