@@ -22,6 +22,7 @@ Examples:
 python3 junit_xml_parser.py tests/files/sample_tr.xml
 """
 import argparse
+import glob
 import json
 import sys
 import os
@@ -31,29 +32,34 @@ from collections import defaultdict
 import defusedxml.ElementTree as ET
 
 
+TEST_REPORT_CLIENT_VERSION = (1, 0, 0)
+
 MAXIMUM_XML_SIZE = 10e7  # 10MB
 
 # Fields found in the testsuite/root section of the JUnit XML file.
 TESTSUITE_TAG = "testsuite"
 REQUIRED_TESTSUITE_ATTRIBUTES = {
-    "time",
-    "tests",
-    "skipped",
-    "failures",
-    "errors",
+    ("time", float),
+    ("tests", int),
+    ("skipped", int),
+    ("failures", int),
+    ("errors", int)
 }
 
 # Fields found in the metadata/properties section of the JUnit XML file.
+# FIXME: These are specific to pytest, needs to be extended to support spytest.
 METADATA_TAG = "properties"
 METADATA_PROPERTY_TAG = "property"
 REQUIRED_METADATA_PROPERTIES = [
     "topology",
-    "markers",
     "host",
     "asic",
     "platform",
     "hwsku",
     "os_version",
+]
+OPTIONAL_METADATA_PROPERTIES = [
+    "markers"
 ]
 
 # Fields found in the testcase sections of the JUnit XML file.
@@ -92,7 +98,7 @@ def validate_junit_xml_stream(stream):
     try:
         root = ET.fromstring(stream, forbid_dtd=True)
     except Exception as e:
-        raise JUnitXMLValidationError("could not parse provided XML stream") from e
+        raise JUnitXMLValidationError(f"could not parse provided XML stream: {e}") from e
 
     return _validate_junit_xml(root)
 
@@ -122,35 +128,90 @@ def validate_junit_xml_file(document_name):
     try:
         tree = ET.parse(document_name, forbid_dtd=True)
     except Exception as e:
-        raise JUnitXMLValidationError("could not parse provided XML document") from e
+        raise JUnitXMLValidationError(f"could not parse {document_name}: {e}") from e
 
     return _validate_junit_xml(tree.getroot())
 
 
+def validate_junit_xml_archive(directory_name):
+    if not os.path.exists(directory_name) or not os.path.isdir(directory_name):
+        raise JUnitXMLValidationError("file not found")
+
+    roots = []
+    metadata_source = None
+    metadata = {}
+    doc_list = glob.glob(os.path.join(directory_name, "*.xml"))
+    doc_list += glob.glob(os.path.join(directory_name, "**", "*.xml"))
+
+    total_size = 0
+    for document in doc_list:
+        total_size += os.path.getsize(document)
+
+    if total_size > MAXIMUM_XML_SIZE:
+        raise JUnitXMLValidationError("provided directory is too large")
+
+    for document in doc_list:
+        try:
+            root = validate_junit_xml_file(document)
+            root_metadata = {k: v for k, v in _parse_test_metadata(root).items() if k in REQUIRED_METADATA_PROPERTIES}
+
+            if not root_metadata:
+                continue
+
+            # All metadata from a single test run should be identical, so we
+            # just use the first one we see to validate the rest.
+            if not metadata_source:
+                metadata_source = document
+                metadata = root_metadata
+
+            if root_metadata != metadata:
+                raise JUnitXMLValidationError(f"{document} metadata differs from {metadata_source}\n"
+                                              f"{document}: {root_metadata}\n"
+                                              f"{metadata_source}: {metadata}")
+
+            roots.append(root)
+        except Exception as e:
+            raise JUnitXMLValidationError(f"could not parse {document}: {e}") from e
+
+    if not roots:
+        raise JUnitXMLValidationError(f"provided directory {directory_name} does not contain any XML files")
+
+    return roots
+
+
 def _validate_junit_xml(root):
-    _validate_test_summary(root)
-    _validate_test_metadata(root)
+    tests, skipped = _validate_test_summary(root)
+    if tests != skipped:
+        _validate_test_metadata(root)
     _validate_test_cases(root)
 
     return root
 
 
 def _validate_test_summary(root):
+    tests, skipped = 0, 0
     if root.tag != TESTSUITE_TAG:
         raise JUnitXMLValidationError(f"{TESTSUITE_TAG} tag not found on root element")
 
-    for xml_field in REQUIRED_TESTSUITE_ATTRIBUTES:
+    for xml_field, expected_type in REQUIRED_TESTSUITE_ATTRIBUTES:
         if xml_field not in root.keys():
             raise JUnitXMLValidationError(f"{xml_field} not found in <{TESTSUITE_TAG}> element")
 
         try:
-            float(root.get(xml_field))
+            expected_type(root.get(xml_field))
         except Exception as e:
             raise JUnitXMLValidationError(
                 f"invalid type for {xml_field} in {TESTSUITE_TAG}> element: "
                 f"expected a number, received "
                 f'"{root.get(xml_field)}"'
             ) from e
+
+        if xml_field == "tests":
+            tests = int(root.get(xml_field))
+        elif xml_field == "skipped":
+            skipped = int(root.get(xml_field))
+
+    return tests, skipped
 
 
 def _validate_test_metadata(root):
@@ -169,7 +230,7 @@ def _validate_test_metadata(root):
                 f"<{METADATA_PROPERTY_TAG}> element"
             )
 
-        if property_name not in REQUIRED_METADATA_PROPERTIES:
+        if property_name not in REQUIRED_METADATA_PROPERTIES + OPTIONAL_METADATA_PROPERTIES:
             raise JUnitXMLValidationError(f"unexpected metadata element: {property_name}")
 
         if property_name in seen_properties:
@@ -196,7 +257,7 @@ def _validate_test_cases(root):
                     f"\"{test_case.get('name', 'Name Not Found')}\""
                 )
 
-            # NOTE: "if failure" and "if error" does not work with the ETree library.
+            # NOTE: "if failure" does not work with the ETree library.
             failure = test_case.find("failure")
             if failure is not None and failure.get("message") is None:
                 raise JUnitXMLValidationError(
@@ -204,20 +265,24 @@ def _validate_test_cases(root):
                 )
 
             error = test_case.find("error")
-            if error is not None and not error.get("message"):
+            if error is not None and error.get("message") is None:
                 raise JUnitXMLValidationError(
                     f"no message found for error in \"{test_case.get('name')}\""
                 )
 
+            skipped = test_case.find("skipped")
+            if skipped is not None and skipped.get("message") is None:
+                raise JUnitXMLValidationError(
+                    f"no message found for skip in \"{test_case.get('name')}\""
+                )
+
     cases = root.findall(TESTCASE_TAG)
-    if len(cases) <= 0:
-        raise JUnitXMLValidationError("No test cases found")
 
     for test_case in cases:
         _validate_test_case(test_case)
 
 
-def parse_test_result(root):
+def parse_test_result(roots):
     """Parse a given XML document into JSON.
 
     Args:
@@ -226,18 +291,20 @@ def parse_test_result(root):
     Returns:
         A dict containing the parsed test result.
     """
-    test_result_json = {}
+    test_result_json = defaultdict(dict)
 
-    test_result_json["test_summary"] = _parse_test_summary(root)
-    test_result_json["test_metadata"] = _parse_test_metadata(root)
-    test_result_json["test_cases"] = _parse_test_cases(root)
+    for root in roots:
+        test_result_json["test_summary"] = _update_test_summary(test_result_json["test_summary"],
+                                                                _parse_test_summary(root))
+        test_result_json["test_metadata"] = _parse_test_metadata(root)
+        test_result_json["test_cases"] = _update_test_cases(test_result_json["test_cases"], _parse_test_cases(root))
 
     return test_result_json
 
 
 def _parse_test_summary(root):
     test_result_summary = {}
-    for attribute in REQUIRED_TESTSUITE_ATTRIBUTES:
+    for attribute, _ in REQUIRED_TESTSUITE_ATTRIBUTES:
         test_result_summary[attribute] = root.get(attribute)
 
     return test_result_summary
@@ -245,8 +312,11 @@ def _parse_test_summary(root):
 
 def _parse_test_metadata(root):
     properties_element = root.find(METADATA_TAG)
-    test_result_metadata = {}
 
+    if not properties_element:
+        return {}
+
+    test_result_metadata = {}
     for prop in properties_element.iterfind("property"):
         if prop.get("value"):
             test_result_metadata[prop.get("name")] = prop.get("value")
@@ -260,6 +330,7 @@ def _parse_test_cases(root):
     def _parse_test_case(test_case):
         result = {}
 
+        # FIXME: This is specific to pytest, needs to be extended to support spytest.
         test_class_tokens = test_case.get("classname").split(".")
         feature = test_class_tokens[0]
 
@@ -275,6 +346,10 @@ def _parse_test_cases(root):
         if error is not None:
             result["error"] = error.get("message")
 
+        skipped = test_case.find("skipped")
+        if skipped is not None:
+            result["skipped"] = skipped.get("message")
+
         return feature, result
 
     for test_case in root.findall("testcase"):
@@ -282,6 +357,32 @@ def _parse_test_cases(root):
         test_case_results[feature].append(result)
 
     return dict(test_case_results)
+
+
+def _update_test_summary(current, update):
+    if not current:
+        return update
+
+    new_summary = {}
+    for attribute, attr_type in REQUIRED_TESTSUITE_ATTRIBUTES:
+        new_summary[attribute] = str(round(attr_type(current[attribute]) + attr_type(update[attribute]), 3))
+
+    return new_summary
+
+
+def _update_test_cases(current, update):
+    if not current:
+        return update
+
+    new_summary = current.copy()
+    for group, cases in update.items():
+        updated_cases = cases
+        if group in new_summary:
+            updated_cases += new_summary[group]
+
+        new_summary[group] = updated_cases
+
+    return new_summary
 
 
 def _run_script():
@@ -303,11 +404,17 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
     parser.add_argument(
         "--output-file", "-o", type=str, help="A file to store the JSON output in.",
     )
+    parser.add_argument(
+        "--directory", "-d", action="store_true", help="Provide a directory instead of a single file."
+    )
 
     args = parser.parse_args()
 
     try:
-        root = validate_junit_xml_file(args.file_name)
+        if args.directory:
+            roots = validate_junit_xml_archive(args.file_name)
+        else:
+            roots = [validate_junit_xml_file(args.file_name)]
     except JUnitXMLValidationError as e:
         print(f"XML validation failed: {e}")
         sys.exit(1)
@@ -319,7 +426,7 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
         print(f"{args.file_name} validated succesfully!")
         sys.exit(0)
 
-    test_result_json = parse_test_result(root)
+    test_result_json = parse_test_result(roots)
 
     if args.compact:
         output = json.dumps(test_result_json, separators=(",", ":"), sort_keys=True)
