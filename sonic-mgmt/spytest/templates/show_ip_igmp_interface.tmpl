@@ -1,0 +1,92 @@
+##################################################
+#sonic# show ip igmp interface Ethernet46
+#Interface : Ethernet46
+#State     : up
+#Address   : 20.20.20.1
+#Uptime    : 83:19:17
+#Version   : 3
+#
+#
+#Querier
+#-------
+#Querier     : local
+#Start Count : 0
+#Query Timer : 00:01:32
+#Other Timer : --:--:--
+#
+#
+#Timers
+#------
+#Group Membership Interval      : 260s
+#Last Member Query Count        : 4
+#Last Member Query Time         : 20s
+#Older Host Present Interval    : 260s
+#Other Querier Present Interval : 255s
+#Query Interval                 : 125s
+#Query Response Interval        : 10s
+#Robustness Variable            : 2
+#Startup Query Interval         : 31s
+#
+#
+#Flags
+#-----
+#All Multicast   : no
+#Broadcast       : yes
+#Deleted         : no
+#Interface Index : 479
+#Multicast       : yes
+#Multicast Loop  : 0
+#Promiscuous     : no
+##################################################
+Value interface (\w+)
+Value state (\w+)
+Value address ([\d\.]+)
+Value uptime ([\d\:\-]*)
+Value version (\d+)
+Value querier (\w+)
+Value start_count (\d+)
+Value query_timer ([\d\:]+)
+Value other_timer ([\d\:\-]*)
+Value gmi (\d+)
+Value last_member_query_count (\d+)
+Value last_member_query_time (\d+)
+Value old_host_present_interval (\d+)
+Value other_querier_present_interval (\d+)
+Value query_interval (\d+)
+Value query_response_interval (\d+)
+Value robustness (\d+)
+Value startup_query_interval (\d+)
+Value all_multicast (\w+)
+Value broadcast (\w+)
+Value deleted (\w+)
+Value ifindex (\w+)
+Value multicast (\w+)
+Value multicast_loop (\d+)
+Value promiscuous (\w+)
+
+Start
+  ^\s*Interface\s*:\s*${interface}$$
+  ^\s*State\s*:\s*${state}$$
+  ^\s*Address\s*:\s*${address}$$
+  ^\s*Uptime\s*:\s*${uptime}$$
+  ^\s*Version\s*:\s*${version}$$
+  ^\s*Querier\s*:\s*${querier}$$
+  ^\s*Start\s*Count\s*:\s*${start_count}$$
+  ^\s*Query\s*Timer\s*:\s*${query_timer}$$
+  ^\s*Other\s*Timer\s*:\s*${other_timer}$$
+  ^\s*Group\s*Membership\s*Interval\s*:\s*${gmi}s$$
+  ^\s*Last\s*Member\s*Query\s*Count\s*:\s*${last_member_query_count}$$
+  ^\s*Last\s*Member\s*Query\s*Time\s*:\s*${last_member_query_time}s$$
+  ^\s*Older\s*Host\s*Present\s*Interval\s*:\s*${old_host_present_interval}s$$
+  ^\s*Other\s*Querier\s*Present\s*Interval\s*:\s*${other_querier_present_interval}s$$
+  ^\s*Query\s*Interval\s*:\s*${query_interval}s$$
+  ^\s*Query\s*Response\s*Interval\s*:\s*${query_response_interval}s$$
+  ^\s*Robustness\s*Variable\s*:\s*${robustness}$$
+  ^\s*Startup\s*Query\s*Interval\s*:\s*${startup_query_interval}s$$
+  ^\s*All\s*Multicast\s*:\s*${all_multicast}$$
+  ^\s*Broadcast\s*:\s*${broadcast}$$
+  ^\s*Deleted\s*:\s*${deleted}$$
+  ^\s*Interface\s*Index\s*:\s*${ifindex}$$
+  ^\s*Multicast\s*:\s*${multicast}$$
+  ^\s*Multicast\s*Loop\s*:\s*${multicast_loop}$$
+  ^\s*Promiscuous\s*:\s*${promiscuous}$$ -> Record

@@ -1,0 +1,39 @@
+# Test case 2 - Change neighbor MAC address.
+# Verify that session destination MAC address is changed after neighbor MAC address update.
+
+- block:
+    - name: Create route with next hop on {{ dst_port_1 }}.
+      shell: vtysh -e "conf t" -e "ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}"
+
+    - pause:
+        seconds: 3
+
+    - include_tasks: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+      vars:
+        dst_port: "{{ dst_port_1 }}"
+        dst_port_ptf_id: "{{ dst_port_1_ptf_id }}"
+
+    - name: Change neighbor MAC address.
+      shell: ip neigh replace {{ neighbor_info_1['addr'] }} lladdr "00:11:22:33:44:55" nud permanent dev {{ dst_port_1 }}
+
+    - pause:
+        seconds: 3
+
+    - include_tasks: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+      vars:
+        dst_port: "{{ dst_port_1 }}"
+        dst_port_ptf_id: "{{ dst_port_1_ptf_id }}"
+
+  become: yes
+
+  always:
+    - name: Remove neighbor MAC.
+      shell: ip neigh del {{ neighbor_info_1['addr'] }} dev {{ dst_port_1 }}
+
+    - name: Recover neighbor MAC address.
+      shell: ping {{ neighbor_info_1['addr'] }} -c3
+
+    - name: Remove route.
+      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}"
+      ignore_errors: yes
+  become: yes

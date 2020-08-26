@@ -1,0 +1,75 @@
+# Test case 1:
+# PFC storm detected and restored before warm-reboot
+# no on-going storm before warm-reboot emission
+# PFC storm detect and restore functional after warm-reboot
+- block:
+    - name: Test PFC WD storm function
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test_storm.yml
+      with_dict: "{{select_test_ports}}"
+
+    - name: Test PFC WD restore function
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test_restore.yml
+      with_dict: "{{select_test_ports}}"
+
+    - name: Issue warm reboot on the device
+      include_tasks: roles/test/tasks/common_tasks/reboot_sonic.yml
+      vars:
+        reboot_type: warm-reboot
+
+    - name: Test PFC WD storm function
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test_storm.yml
+      with_dict: "{{select_test_ports}}"
+
+    - name: Test PFC WD restore function
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test_restore.yml
+      with_dict: "{{select_test_ports}}"
+
+
+# Test case 2:
+# PFC storm started and detected before warm-reboot
+# On-going storm on warm-reboot emission, and lasts past the warm-reboot finish
+# PFC storm stopped and restored after warm-reboot
+- block:
+    - name: Test PFC WD storm function
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test_storm.yml
+      with_dict: "{{select_test_ports}}"
+
+    - name: Issue warm reboot on the device
+      include_tasks: roles/test/tasks/common_tasks/reboot_sonic.yml
+      vars:
+        reboot_type: warm-reboot
+
+    - name: Test PFC WD storm function
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test_storm.yml
+      vars:
+        start_storm: false
+        start_marker: "NOTICE swss#orchagent: :- setWarmStartState: orchagent warm start state changed to initialized"
+        total_test_ports_num: "{{select_test_ports | length}}"
+      with_dict: "{{select_test_ports}}"
+
+    - name: Test PFC WD restore function
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test_restore.yml
+      with_dict: "{{select_test_ports}}"
+
+# Test case 3:
+# PFC storm asynchronously starts at a random time and lasts a random period at fanout
+# Warm-reboot emission
+# Wait for all the PFC storms to finish
+# Verify PFC storm detection and restoration functional
+- block:
+    - name: PFC storming from fanout switch
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/storm_from_neighbor.yml
+      with_dict: "{{select_test_ports}}"
+
+    - name: Issue warm reboot on the device
+      include_tasks: roles/test/tasks/common_tasks/reboot_sonic.yml
+      vars:
+        reboot_type: warm-reboot
+
+    - name: Test PFC WD storm function
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test_storm.yml
+      with_dict: "{{select_test_ports}}"
+
+    - name: Test PFC WD restore function
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test_restore.yml
+      with_dict: "{{select_test_ports}}"

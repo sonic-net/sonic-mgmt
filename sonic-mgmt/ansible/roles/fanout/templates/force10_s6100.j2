@@ -1,0 +1,78 @@
+conf t
+!
+vlan-stack protocol-type 8100
+!
+hostname {{ inventory_hostname }}
+!
+!
+redundancy auto-synchronize full
+!
+!
+username admin password 0 {{ lab_admin_pass }} privilege 15
+!
+allow unsupported-transceiver
+!
+stack-unit 1 provision S6100-ON
+!
+mac-address-table aging-time 10
+!
+{% for i in range(1,3) %}
+{% for j in range(1,17) %}
+interface fortyGigE 1/{{ i }}/{{ j }}
+ no ip address
+ switchport
+ vlan-stack access
+ no shutdown
+{% endfor %}
+{% endfor %}
+!
+{% for j in range(13,16) %}
+interface fortyGigE 1/4/{{ j }}
+ no ip address
+ switchport
+ vlan-stack trunk
+ no shutdown
+{% endfor %}
+!
+interface ManagementEthernet 1/1
+ ip address {{ minigraph_mgmt_interface["addr"] }} {{ minigraph_mgmt_interface["mask"] }}
+ no shutdown
+!
+interface Vlan 1
+!
+{% for i in range(1,3) %}
+{% for j in range(1,17) %}
+interface Vlan {{ 100 + (i - 1) * 16 + j }}
+ no ip address
+ vlan-stack compatible
+ member fortyGigE 1/{{ i }}/{{ j }}
+ member fortyGigE 1/4/13,1/4/14,1/4/15
+ shutdown
+{% endfor %}
+{% endfor %}
+!
+management route 0.0.0.0/0 10.250.0.1 
+!
+ip ssh server enable
+!
+no protocol lldp
+!
+line console 0
+line vty 0
+line vty 1
+line vty 2
+line vty 3
+line vty 4
+line vty 5
+line vty 6
+line vty 7
+line vty 8
+line vty 9
+!
+reload-type
+ boot-type normal-reload
+ config-scr-download enable
+!
+end
+write mem
+

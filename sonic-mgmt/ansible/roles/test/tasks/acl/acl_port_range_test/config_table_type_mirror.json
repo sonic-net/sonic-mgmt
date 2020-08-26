@@ -1,0 +1,10 @@
+[
+    {
+        "ACL_TABLE:acl_test_table_mirror": {
+            "policy_desc" : "Permit_some_traffic_from_10.0.0.1",
+            "type" : "MIRROR",
+            "ports" : "Ethernet0"
+        },
+        "OP": "SET"
+    }
+]

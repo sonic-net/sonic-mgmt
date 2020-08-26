@@ -1,0 +1,94 @@
+- include_vars: "vars/docker_registry.yml"
+
+- include_vars: "roles/test/vars/testcases.yml"
+
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+
+# Set sonic_hwsku
+- name: Set sonic_hwsku fact
+  set_fact:
+    sonic_hwsku: "{{minigraph_hwsku}}"
+
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: broadcom
+  when: sonic_hwsku in broadcom_hwskus
+
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: mellanox
+  when: sonic_hwsku in mellanox_hwskus
+
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: barefoot
+  when: sonic_hwsku in barefoot_hwskus
+
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: marvell
+  when: sonic_hwsku in marvell_hwskus
+
+###########################################################################
+##### run test using ansible tag when no testbedname specified       ######
+###########################################################################
+- block:
+    - fail: msg="You didn't provide testbed_name=yourtestbedname, so will run by test by tag. Please specify tests you want to run using --tags"
+      when: tags is not defined
+
+    - include_tasks: test_sonic_by_tag.yml
+  when:
+    - testbed_name is not defined
+
+##########################################################################
+####### when give a testbed name, testcase name is required ##############
+####### TODO: to run all applicable tests for each topology ##############
+##########################################################################
+- fail: msg="Please specify a testcase_name to run a specific test associated with the testbed topology"
+  when:
+    - testbed_name is defined
+    - testcase_name is not defined
+
+- name: set default testbed file
+  set_fact:
+    testbed_file: testbed.csv
+  when: testbed_file is not defined
+
+###############################################
+############# test by test case name  #########
+###############################################
+- block:
+    - name: Gathering testbed information
+      test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
+      delegate_to: localhost
+
+    - name: Set default dut index
+      set_fact:
+        dut_index: 0
+      when: dut_index is not defined
+
+    - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
+      when: testbed_facts['duts'][dut_index] != inventory_hostname
+
+    - name: set testbed_type
+      set_fact:
+        testbed_type: "{{ testbed_facts['topo'] }}"
+        ptf_host: "{{ testbed_facts['ptf_ip'] }}"
+        topo: "topo_{{ testbed_facts['topo'] }}.yml"
+
+    - name: set vm
+      set_fact:
+        vm: "{{ testbed_facts['vm_base'] }}"
+      when: "testbed_facts['vm_base'] != ''"
+
+    - fail: msg="cannot find {{ testcase_name }} in available testcases"
+      when: testcases[testcase_name] is not defined
+
+    - fail: msg="{{ testbed_type }} is not supported topology of this testbed {{ testbed_name }}"
+      when: testbed_type not in testcases[testcase_name]['topologies']
+
+    - include_tasks: test_sonic_by_testname.yml
+  when:
+    - testbed_name is defined
+    - testcase_name is defined

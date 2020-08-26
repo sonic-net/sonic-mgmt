@@ -1,0 +1,54 @@
+#-----------------------------------------
+# Port bind testing.
+#-----------------------------------------
+
+- include_vars: "{{ vars_files_location }}/acl_port_bind_test_vars.yml"
+
+- name: Copy JSON configs onto switch.
+  copy: src={{ tests_location }}/{{ testname }}/{{ item }} dest={{ run_dir }}/{{ item }}
+  with_items:
+      - "{{ config_files }}"
+
+- name: Copy JSON configs from switch into docker filesystem.
+  command: docker cp {{ run_dir }}/{{ item }} {{ orchagent }}:{{ docker_testdir }}/{{ item }}
+  with_items:
+      - "{{ config_files }}"
+
+- block:
+    - name: Run test test with unknown port.
+      vars:
+        config_file: "{{ config_bind_unknown_port }}"
+        test_expect_file: "{{ config_bind_unknown_port_expect }}"
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Run test with duplicate port.
+      vars:
+        config_file: "{{ config_bind_duplicate_port }}"
+        test_expect_file: "{{ config_bind_duplicate_port_expect }}"
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Run test with valid port.
+      vars:
+        config_file: "{{ config_bind_valid_port }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Run test to unbind port.
+      vars:
+        config_file: "{{ config_unbind_port }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: true
+      include_tasks: "{{ run_config_test }}"
+
+  always:
+    - name: Remove all the temporary created by the test.
+      file: path="{{ run_dir }}/{{ item }}" state=absent
+      with_items:
+          - "{{ config_files }}"

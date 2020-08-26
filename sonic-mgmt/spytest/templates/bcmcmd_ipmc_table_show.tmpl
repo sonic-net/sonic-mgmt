@@ -1,0 +1,6 @@
+Value src_ip (\d+.\d+.\d+.\d+)
+Value mc_ip (\d+.\d+.\d+.\d+)
+
+Start
+  ^\s*${src_ip}\s+${mc_ip} -> Record
+

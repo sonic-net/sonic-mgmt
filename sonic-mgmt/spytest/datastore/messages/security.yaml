@@ -1,0 +1,72 @@
+##USER
+Tacacs_server_configs_are_not_successful: Tacacs server {} configs are not successful
+DUT_does_not_have_IP_address: DUT does not have IP address
+Login_to_DUT_via_SSH_is_failed: Login to DUT via SSH is failed
+authentication_failthrough_config_to_tacacs+_is_not_successful: authentication fail through config to tacacs+ is not successful
+Ping_to_tacacs_server_is_not_successful: Ping to tacacs server {} is not successful
+PAM_file_is_not_created: PAM file is not created
+tacacs_global_default_config_fail: tacacs global configs are not having default parameters
+tacacs_server_default_config_fail: tacacs server configs are not having default parameters
+authentication_default_configs_fail: authentication configs are not having default parameters
+authentication_login_config_fail: authentication login config to tacacs+ is not successful
+Tacacs_server_ip_delete_fail: Tacacs server ip deletion is not successful
+configuring_tacacs_server_parameters_fail: configuring tacacs server parameters failed
+tacacs_server_key_config_with_special_characters_is_successful: Verified that Tacacs server key can be configured with more than 4 special characters is successful
+SSH_login_using_same_shared_key_success: Verified that SSH login using TACACS+ Server is successful using same shared key
+tacacs_serverkey_config_in_appropriate_mode_success: Verified that user is able to execute the TACACS server key command successfully in appropriate mode
+tacacs_running_config_fail: tacacs config is not seen in running config
+tacacs_config_save_and_reload_success: Verified that TACACS parameters are showing in running config after save and reload
+
+#Radius
+radius_server_config_not_successful: Radius server not configured
+radius_global_params_default_failed: Failed to set global radius parameters to default
+radius_global_params_config_failed: Radius global parameters configuration failed
+ssh_login_with_radius_successful_with_supported_auth_types: SSH authentication using radius server with supported auth type's is successful
+radius_max_servers_not_configured: Max radius servers configuration is not successful
+ssh_login_failed: SSH authentication using radius server with auth-type {} failed
+file_modification_failed: radius_nss.conf file modification failed
+radius_fail_copying_failed: Copying radius_nss.conf file to local path failed
+radius_server_config_failed: Radius server {} not created
+ssh_local_login_status: SSH authentication using local user credentials {}
+invalid_passkey_configured: Able to configure invalid passkey {} on the devive
+invalid_passkey_config_unsuccessful: Device not allowing invalid characters configuration
+ssh_login_success_unreachable_server: SSH authentication successful with unreachable servers
+ssh_login_failed_unreachable_server: SSH authentication failed with unreachable radius server and failthrough mechanism is enabled
+auth_type_config_failed: Confgiuring auth-type {} failed
+invalid_auth_type_configured: Invalid auth type is configured
+ping_to_radius_server_is_not_successful: Ping to radius server {} failed
+local_user_creation_failed: Failed to create local user {} in the device
+ssh_login_with_radius_successful: SSH authentication using radius server with auth type {} successful
+security_config_retained_after_save_reboot: Radius and TACACS+ config retained after save and reboot
+security_config_retained_after_fast_reboot: Radius and TACACS+ config retained after save and fast-reboot
+password_config_failed: password configuration failed
+ssh_root_with_radius_status: SSH login with root credentials {}
+ssh_cisco_status: SSH login with CISCO ACS server {}
+ipv6_source_ip_failed: IPV6 source ip configuration failed
+sourceip_override_success: Sourceip override successful
+ssh_login_success_invalid: SSH login success with invalid credentails
+radius_log_not_found: Radius log is not found in the radius logs file
+ssh_radius_login_mgmt_vrf_status: SSH login with radius server with management VRF is {}
+invalid_action: Invalid radius action
+ssh_ipv6_status: SSH authentication with IPV6 {}
+radius_scaling_memory_leak_success: Radius scaling with {} sessions success with no memory leak
+free_memory_limit_exceeded_after_radius_ssh: Free memory limit after opening {} sessions exceed max limit
+ssh_unnumbered_status: SSH authentication with {} unnumbered interface {}
+admin_user_root_privilege: The {} admin user {} root privileges
+cmd_not_executed: Command not executed
+invalid_config: Invalid config parameter
+radius_data_empty: Radius data not configured through {}
+radius_data_not_created: Radius server {} not created from {}
+ssh_login: SSH login with radius server when configured from {} is {}
+
+
+#AAA
+authentication_failthrough_config_fail: Authentication failthrough config is not successful
+authentication_fallback_config_fail: Authentication fallback config is not successful
+authentication_login_radius_config_fail: Authentication login config to radius is not successful
+
+# RBAC
+rbac_user_config: RBAC User config Failed.
+rbac_test_status: RBAC Test_{}- To verify {}-User, {} login using {}, result-{}.
+rbac_call_fail: RBAC {} to DUT is failed for mode-{}, type-{}.
+rbac_test_jwt_token_fail: RBAC REST call - Unable to Get/Generate the JWT-Token for mode-{}, type-{}.

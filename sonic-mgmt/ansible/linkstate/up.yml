@@ -1,0 +1,73 @@
+# ansible-playbook -i linkstate/testbed_inv.py -e target_host=vms3-t0-s6100 --vault-password-file=~/.password linkstate/up.yml
+
+- hosts: eos
+  gather_facts: no
+  tasks:
+    - include_vars: ../group_vars/all/creds.yml
+    - name: Set ansible login user name and password
+      set_fact: ansible_user="root" ansible_password={{ eos_root_password }}
+    - name: Check list of processes
+      command: ps ax
+      changed_when: False
+      register: out
+    - name: Copy scripts
+      copy:
+        src: "{{ item }}"
+        dest: /root
+      with_items:
+        - scripts/vm_state_changer.py
+        - scripts/vm_tcp_listener.py
+    - name: Check if the rule exists already
+      command: ip netns exec ns-MGMT iptables -L -n
+      changed_when: False
+      register: iptables_out
+    - name: Install iptable rule
+      shell: ip netns exec ns-MGMT iptables -I INPUT 1 -p tcp --dport 9876 -j ACCEPT
+      when: '"tcp dpt:9876" not in iptables_out.stdout'
+    - name: Run scripts vm_state_changer.py
+      shell: nohup python vm_state_changer.py > /tmp/vm_state_changer.console.log 2>&1 &
+      when: '"python vm_state_changer.py" not in out.stdout'
+    - name: Run scripts vm_tcp_listener.py
+      shell: nohup ip netns exec ns-MGMT python vm_tcp_listener.py > /tmp/vm_tcp_listener.console.log 2>&1 &
+      when: '"python vm_tcp_listener.py" not in out.stdout'
+
+- hosts: ptf_host
+  gather_facts: no
+  tasks:
+    - name: Check list of processes
+      command: ps ax
+      changed_when: False
+      register: out
+    - name: Copy scripts and source files
+      copy:
+        src: "{{ item }}"
+        dest: /root
+      with_items:
+        - "../files/lab_connection_graph.xml"
+        - "../veos"
+        - "scripts/ptf_proxy.py"
+        - "../vars/topo_{{ topo }}.yml"
+      ignore_errors: yes     # either sonic_str_*.csv or sonic_lab_*.csv exists
+    - name: Rename topo to common filename
+      command: mv topo_{{ topo }}.yml topo.yaml
+    - name: Run the script
+      shell: nohup python ptf_proxy.py {{ vm_base }} {{ dut }} > /tmp/ptf_proxy.console.log 2>&1 &
+      when: '"python ptf_proxy.py" not in out.stdout'
+
+- hosts: lab
+  gather_facts: no
+  tasks:
+    - name: prepare admin password
+      set_fact: ansible_ssh_user=root ansible_ssh_pass={{ lab_admin_pass }}
+    - name: Check list of processes
+      command: ps ax
+      changed_when: False
+      register: out
+    - name: Copy script
+      copy:
+        src: "{{ fanout_listener | default('scripts/fanout_listener.py') }}"
+        dest: /root/
+    - name: Run the script
+      shell: nohup python fanout_listener.py {{ ptf_host }} > /tmp/fanout_listener.console.txt 2>&1 &
+      when: '"python fanout_listener.py" not in out.stdout'
+

@@ -1,0 +1,70 @@
+##ACL
+failed_to_create_acl : Failed to create ACL -{}
+failed_to_create_acl_rule : Failed to create ACL rule
+unmatched_traffic_dropped: ACL unmatched traffic is not forwarded as per the default permit rule
+matched_traffic_forward_fail: Permit acl rule matched traffic is not forwarded
+matched_traffic_drop_fail: Deny acl rule matched traffic is forwarded
+traffic_match_drop_rule_fail: Traffic matching with deny rule is not dropped
+create_acl_successful : Successfully created acl {}
+test_case_passed: Test case passed
+failed_drop_traffic : Failed to drop valid traffic
+failed_forward_traffic: Failed to forward valid traffic
+acl_counters_update_fail: ACL counters are not updated for the ACL rule {}
+verify_acl_rule_fail: verification of {} ACL rule configuration is failed
+clear_acl_counter_fail: Failed to clear acl counter for rule-{} in ACL-{}
+verify_clear_acl_counter_fail: ACL counter for rule-{} in acl-{} is not cleared even after the clear operation
+acl_counter_output_update_fail: The contents in show acl counters are not updated for the ACL rule {}
+verify_acl_rule_delete_fail: ACL rule-{} under the acl-{} is not erased as per the configuration
+traffic_failed_as_per_the_drop_rule: Failed to drop traffic as per the configured  drop rule
+traffic_success_as_per_the_drop_rule: Succesfully dropped the traffic as per the configured ACL rule.
+traffic_failed_as_per_the_allow_rule: Failed to allow traffic as per the configured  allow rule
+old_acl_rule_not_deleted_after_acl_update_full: ACL rule-{} is not deleted in the acl table-{} after acl update full
+new_acl_rule_not_created_after_acl_update_full: ACL rule-{} is not created in the acl table-{} after acl update full
+old_acl_rule_deleted_after_acl_update_incremental: ACL rule-{} is deleted in the acl table-{} after acl update incremental
+new_acl_rule_not_updated_in_config_db: New ACL rule is not updated in the config db
+old_acl_rule_not_present_in_config_db: Old ACL rule is not present in the config db
+queue_traffic_failed: Traffic is not going to appropriate queue.
+queue_map_not_found: Queue {} mapping not found.
+ecn_config_not_updated_in_config_db: ECN configuration not updated in the config db
+wred_config_not_updated_in_config_db: WRED configuration not updated in the config db
+acl_table_name_missing: Acl table name missing
+acl_table_not_found: Acl table not found
+acl_rule_table_not_found: Acl Table/Rule not found
+
+#### Port priority shaping
+traffic_transmitted_on_the_queue: Traffic {} transmitted on {} at a rate of {}
+traffic_transmitted_on_the_port: Traffic {} transmitted on {} at a rate of {}
+port_shaping_verify: Port shaper verification {}
+queue_shaping_verify: Queue level shaper verification {}
+min_not_met_scheduling: Scheduling of queues in min-bandwidth not met case {}
+port_shaping_after_profile_removed: Traffic is {} rate-limited after removing the existing port shaper profile configuration
+queue_shaping_profile_update: Traffic is {} rate-limited as per the updated value when user updates the existing QoS shaper configuration
+queue_and_port_level_shaping: Verification of both queue and port level shaper configuration {}
+shaper_scheduler_interaction: QoS shaper interaction with scheduler {}
+port_shaping_after_cold_reboot: Port shaping {} after cold reboot
+port_shaping_after_fast_reboot: Port shaping {} after fast-reboot
+port_shaping_after_config_reload: Port shaping {} after config-reload
+port_shaping_after_warm_reboot: Port shaping {} after warm-reboot
+queue_shaping_after_cold_reboot: Queue shaping {} after cold reboot
+queue_shaping_after_fast_reboot: Queue shaping {} after fast-reboot
+queue_shaping_after_config_reload: Queue shaping {} after config-reload
+queue_shaping_after_warm_reboot: Queue shaping {} after warm-reboot
+queue_shaping_effect_on_other: Verification of queue shaping profile on one queue not effecting other has {}
+port_shaping_effect_on_other: Verification of port shaping profile on one port not effecting other has {}
+max_supported_scheduler_success: More than max supported scheduler profiles creation success which is not expected
+max_supported_scheduler_failed: More than max supported scheduler profiles creation failed as expected
+
+##ACL_DSCP
+classifier_opeartion_failed : classifier configuration failed
+policy_operation_failed : policy configuration failed
+Flow_operation_failed : Flow configuration failed
+classifier_opeartion_successful : classifier configuration successful
+policy_operation_successful: policy configuration successful
+Flow_operation_successful : Flow configuration successful
+priority_check_failed : Priority is failed for interface
+
+##CoPP
+igmp_rate_limit_status: CPU counter check for rate limiting  igmp to {} pps is {}
+sflow_rate_limit_status: CPU counter check for rate limiting  sflow to {} pps is {}
+copp_rate_limit_pass: Successfully verified that {} packets hit correct CPU queue {} and were properly rate limited to {} PPS
+copp_rate_limit_fail: Failed to verify that {} packets did not hit correct CPU queue {} or were not properly rate limited to {} PPS

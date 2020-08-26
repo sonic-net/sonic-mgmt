@@ -1,0 +1,131 @@
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: "{{ item }}"
+  with_items:
+    - "lldp"
+    - "syncd"
+    - "swss"
+
+- block:
+    - fail: msg="Please set ptf_host variable"
+      when: ptf_host is not defined
+
+    - name: Ensure LLDP Daemon stopped
+      become: yes
+      supervisorctl: state=stopped name={{ item }}
+      delegate_to: "{{ ansible_host }}_lldp"
+      with_items:
+        - lldp-syncd
+        - lldpd
+
+    - name: Remove existing ip from ptf host
+      script: roles/test/files/helpers/remove_ip.sh
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Install test ip to ptf host
+      script: roles/test/files/helpers/add_ip.sh
+      delegate_to: "{{ ptf_host }}"
+
+    - name: set default nn_target_interface if it's not defined
+      set_fact: nn_target_interface="{{ minigraph_ports.keys()[3] }}"
+      when: nn_target_interface is undefined
+
+    - name: set default nn_target_port if it's not defined
+      set_fact: nn_target_port="{{ minigraph_port_indices[nn_target_interface] }}"
+      when: nn_target_port is undefined
+
+    - name: Update ptf_nn_agent configuration inside ptf
+      template: src=ptf_nn_agent.conf.ptf.j2 dest=/etc/supervisor/conf.d/ptf_nn_agent.conf
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Restart ptf_nn_agent inside ptf
+      supervisorctl: state=restarted name=ptf_nn_agent
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Update ptf_nn_agent configuration inside dut
+      template: src=ptf_nn_agent.conf.dut.j2 dest=/etc/supervisor/conf.d/ptf_nn_agent.conf
+      delegate_to: "{{ ansible_host }}_syncd"
+
+    - name: Restart ptf_nn_agent inside dut
+      supervisorctl: state=restarted name=ptf_nn_agent
+      delegate_to: "{{ ansible_host }}_syncd"
+
+    - name: copy the test to ptf container
+      copy: src=roles/test/files/ptftests dest=/root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: copy copp configuration file
+      copy: src=roles/test/tasks/copp/ip2me_600.json dest=/root
+      delegate_to: "{{ ansible_host }}_swss"
+
+    - name: update copp configuration
+      shell: "swssconfig /root/ip2me_600.json"
+      delegate_to: "{{ ansible_host }}_swss"
+
+    - include_tasks: ptf_runner.yml
+      vars:
+        ptf_test_name: COPP test - {{ item }}
+        ptf_test_dir: ptftests
+        ptf_test_path: copp_tests.{{ item }}
+        ptf_platform: nn
+        ptf_qlen: 100000
+        ptf_test_params:
+        - verbose=False
+        - pkt_tx_count={{ pkt_tx_count|default(0) }}
+        - target_port={{ nn_target_port }}
+        - minig_bgp={{ minigraph_bgp }}
+        ptf_extra_options: "--device-socket 0-{{ nn_target_port }}@tcp://127.0.0.1:10900 --device-socket 1-{{ nn_target_port }}@tcp://{{ ansible_eth0['ipv4']['address'] }}:10900"
+      with_items:
+        - ARPTest
+        - UDLDTest
+        - DHCPTest
+        - LLDPTest
+        - BGPTest
+        - LACPTest
+        - SNMPTest
+        - SSHTest
+        - IP2METest
+
+  always:
+    - name: copy copp configuration file
+      copy: src=roles/test/tasks/copp/ip2me_6000.json dest=/root
+      delegate_to: "{{ ansible_host }}_swss"
+
+    - name: restore copp configuration
+      shell: "swssconfig /root/ip2me_6000.json"
+      delegate_to: "{{ ansible_host }}_swss"
+
+    - name: Remove existing ip from ptf host
+      script: roles/test/files/helpers/remove_ip.sh
+      delegate_to: "{{ ptf_host }}"
+
+    - name: set default nn_target_port
+      set_fact: nn_target_port="3"
+
+    - name: set default nn_target_interface
+      set_fact: nn_target_interface="Ethernet12"
+
+    - name: Update ptf_nn_agent configuration inside ptf
+      template: src=ptf_nn_agent.conf.ptf.j2 dest=/etc/supervisor/conf.d/ptf_nn_agent.conf
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Restart ptf_nn_agent inside ptf
+      supervisorctl: state=restarted name=ptf_nn_agent
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Update ptf_nn_agent configuration inside dut
+      template: src=ptf_nn_agent.conf.dut.j2 dest=/etc/supervisor/conf.d/ptf_nn_agent.conf
+      delegate_to: "{{ ansible_host }}_syncd"
+
+    - name: Restart ptf_nn_agent inside dut
+      supervisorctl: state=restarted name=ptf_nn_agent
+      delegate_to: "{{ ansible_host }}_syncd"
+
+    - name: Restore LLDP Daemon
+      become: yes
+      supervisorctl: state=started name={{ item }}
+      delegate_to: "{{ ansible_host }}_lldp"
+      with_items:
+        - lldpd
+        - lldp-syncd
+

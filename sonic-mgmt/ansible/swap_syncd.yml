@@ -1,0 +1,83 @@
+# Swap docker-syncd to docker-syncd-rpc for oneimage deployed switch
+# A temporary solution during period that sonic_docker is not ready for oneimage
+# Example usage:
+#   ansible-playbook swap_syncd.yml -i str --vault-password-file ~/password.txt --limit devicename
+
+- hosts: all
+  gather_facts: no
+  vars_files:
+    - vars/docker_registry.yml
+  tasks:
+
+    - name: Gathering minigraph facts about the device
+      minigraph_facts: host={{ inventory_hostname }}
+      tags: always
+
+    - name: Set sonic_hwsku fact
+      set_fact:
+        sonic_hwsku: "{{minigraph_hwsku}}"
+      tags: always
+
+    - name: Set sonic_asic_type fact
+      set_fact:
+        sonic_asic_type: broadcom
+        docker_rpc_image_name: docker-syncd-brcm-rpc
+        docker_syncd_name: docker-syncd-brcm
+      when: sonic_hwsku in broadcom_hwskus
+      tags: always
+
+    - name: Set sonic_asic_type fact
+      set_fact:
+        sonic_asic_type: mellanox
+        docker_rpc_image_name: docker-syncd-mlnx-rpc
+        docker_syncd_name: docker-syncd-mlnx
+      when: sonic_hwsku in mellanox_hwskus
+      tags: always
+
+    - name: Stop swss service
+      become: true
+      command: systemctl stop swss
+
+    - name: Delete syncd docker
+      become: true
+      shell: docker rm syncd
+      ignore_errors: yes
+
+    - name: Set sysctl RCVBUF parameter for tests
+      become: true
+      sysctl:
+        name: "net.core.rmem_max"
+        value: 609430500
+        sysctl_set: yes
+
+    - name: Set sysctl SENDBUF parameter for tests
+      become: true
+      sysctl:
+        name: "net.core.wmem_max"
+        value: 609430500
+        sysctl_set: yes
+
+    - name: Gather SONiC base image version
+      shell: sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version
+      register: result
+      changed_when: false
+
+    - name: Set base image verison variable
+      set_fact:
+        sonic_image_version: "{{ result.stdout }}"
+
+    # Note: no_log requires passlib python library
+    - name: Pull syncd-rpc docker from registry
+      shell: docker pull {{docker_registry_host}}/{{docker_rpc_image_name}}:{{sonic_image_version}}
+      no_log: true
+
+    - name: Tag pulled images as syncd
+      shell: docker tag {{docker_registry_host}}/{{docker_rpc_image_name}}:{{sonic_image_version}} {{docker_syncd_name}}
+
+    - name: Start swss service
+      become: true
+      command: systemctl start swss
+
+    - name: Wait for the initialization process
+      pause: seconds=60
+

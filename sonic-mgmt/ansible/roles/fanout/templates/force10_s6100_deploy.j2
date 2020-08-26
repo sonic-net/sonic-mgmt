@@ -1,0 +1,79 @@
+conf t
+!
+vlan-stack protocol-type 8100
+!
+hostname {{ inventory_hostname }}
+!
+!
+redundancy auto-synchronize full
+!
+!
+username admin password 0 {{ lab_admin_pass }} privilege 15
+!
+allow unsupported-transceiver
+!
+stack-unit 1 provision S6100-ON
+!
+mac-address-table aging-time 10
+!
+{% for i in range(1,5) %}
+{% for j in range(1,17) %}
+{% set intf = 'fortyGigE 1/' + i|string + '/' + j|string %}
+interface {{ intf }}
+ no ip address
+ switchport
+{% if intf in device_port_vlans and device_port_vlans[intf]['mode'] != 'Trunk' %}
+ description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+ vlan-stack access
+ no shutdown
+ interface Vlan {{ device_port_vlans[intf]['vlanids'] }}
+ vlan-stack compatible
+ member {{ intf }}
+{% elif intf in device_port_vlans and device_port_vlans[intf]['mode'] == 'Trunk' %} 
+ description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+ vlan-stack trunk 
+ no shutdown
+{% for vlanid in  device_port_vlans[intf]['vlanlist']  %}
+ interface Vlan {{ vlanid }}
+ vlan-stack compatible
+ member {{ intf }}
+ no shutdown
+{% endfor %}
+{% else %}
+ shutdown
+{% endif %}
+!
+{% endfor %}
+{% endfor %}
+!
+interface ManagementEthernet 1/1
+ ip address {{ device_info["ManagementIp"] }} 
+ no shutdown
+!
+interface Vlan 1
+!
+management route 0.0.0.0/0 {{ device_info["ManagementGw"] }} 
+!
+ip ssh server enable
+!
+no protocol lldp
+!
+line console 0
+line vty 0
+line vty 1
+line vty 2
+line vty 3
+line vty 4
+line vty 5
+line vty 6
+line vty 7
+line vty 8
+line vty 9
+!
+reload-type
+ boot-type normal-reload
+ config-scr-download enable
+!
+end
+write mem
+

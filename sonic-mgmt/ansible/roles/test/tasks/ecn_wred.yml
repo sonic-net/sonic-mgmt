@@ -1,0 +1,49 @@
+### This test implements several test cases from the test plan:
+### https://github.com/Azure/SONiC/wiki/QoS-configuration-in-Config-DB.-ECN-WRED-configuration-utility-test-plan
+### It requires no external connections
+###
+### Usage example:
+###    ansible-playbook test_sonic.yml -i inventory --limit arc-switch1028 --tags qosconfig -e skip_interface_check=true
+
+- set_fact:
+    test_files_dir="roles/test/tasks/qos"
+    tmp_dir="/tmp"
+    test_wred_values="[ '491520', '516096', '430080' ]"
+  tags: always
+
+  # Read and store original rmin value for AZURE_LOSSLESS
+- name: Get red_min_threshold
+  shell: ecnconfig -l | grep -A20 AZURE_LOSSLESS | grep red_min_threshold | awk '{print $2}'
+  register: wred_value
+  failed_when: wred_value.rc != 0
+
+- set_fact:
+    red_min_threshold={{ wred_value.stdout }}
+
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: database
+
+- name: Copy test files to DUT database
+  copy: src={{ item }} dest={{ tmp_dir }}
+  delegate_to: "{{ ansible_host }}_database"
+  with_fileglob:
+    - "{{ test_files_dir }}/*"
+
+- block:
+    # Test case #3(MA): Check configuration applied
+    - name: Check if ASIC DB configured qos parameters
+      shell: docker exec database redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_QUEUE* | grep QUEUE
+      register: grep_queue
+      failed_when: grep_queue.rc != 0
+
+    # Run test with different values
+    - include_tasks: ecn_wred_worker.yml
+      with_items: "{{ test_wred_values }}"
+
+  always:
+    - name: Restore original value
+      shell: ecnconfig -p AZURE_LOSSLESS -rmin {{ red_min_threshold }}
+      become: yes
+      register: ecn_restore
+      failed_when: ecn_restore.rc != 0

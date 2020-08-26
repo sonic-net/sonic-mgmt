@@ -1,0 +1,54 @@
+- conn_graph_facts: host={{item.key}}
+  delegate_to: localhost
+  become: no
+
+- set_fact:
+    peer_hwsku: "{{device_info['HwSku']}}"
+    peer_mgmt: "{{device_info['mgmtip']}}"
+
+- set_fact:
+    peer_login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+    pfc_gen_file: "pfc_gen.py"
+    pfc_fanout_interface: "{{item.value | list | join(',')}}"
+
+- name: set pfc storm templates based on fanout platform sku
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
+
+- set_fact:
+    storm_action_template: "{%if storm_action=='start'%}{{pfc_wd_storm_template}}{%else%}{{pfc_wd_storm_stop_template}}{%endif%}"
+
+- name: Deploy pfc packet generater file to fanout switch
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
+
+- name: copy the test to ptf container
+  copy: src=roles/test/files/ptftests dest=/root
+  delegate_to: "{{ ptf_host }}"
+
+- name: Initialize loganalyzer
+  include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+- block:
+    - name: Take action on fanout switch
+      action: apswitch template="{{storm_action_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch
+
+    - name: Let PFC storm happen for a while
+      pause:
+        seconds: 5
+
+    - name: Check if logs contain message that PFC WD detected deadlock
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+
+    - name: Check if logs contain message that PFC WD detected deadlock
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+
+  rescue:
+    - name: Stop PFC storm on fanout switch
+      action: apswitch template="{{pfc_wd_storm_stop_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch

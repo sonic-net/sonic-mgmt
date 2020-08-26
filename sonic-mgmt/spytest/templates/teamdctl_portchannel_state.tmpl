@@ -1,0 +1,16 @@
+Value runner (\S+)
+Value member ([a-zA-Z0-9]+)
+Value link_summary (\S+)
+Value watch (\S+)
+Value name (\S+)
+Value link_state (\S+)
+Value down_count (\d+)
+
+Start
+  ^\s*runner:\s*${runner}\s*$$
+  ^\s*${member}\s*$$
+  ^\s*link summary:\s*${link_summary}\s*$$
+  ^\s*instance\[${watch}\]:\s*$$
+  ^\s*name:\s*${name}\s*$$
+  ^\s*link:\s*${link_state}\s*$$
+  ^\s*down count:\s*${down_count}\s*$$ -> Record

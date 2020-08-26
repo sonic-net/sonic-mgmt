@@ -1,0 +1,21 @@
+Value policy_name (\w+?)
+Value class_name ([\w\S]+)
+Value priority_val (\d+)
+Value stage (\w+)
+Value dscp_val (\d+)
+Value pcp_val (\d+)
+Value interface (\w+)
+Value desc_name (\w+)
+
+Start
+  ^Policy\s+${policy_name}\s+Type\s+qos\s*$$
+  ^\s*Description:.*$$
+  ^\s*${desc_name}*$$
+  ^\s*Flow\s+${class_name}\s+at\s+priority\s+${priority_val}\s*$$
+  ^\s*Description:.*$$
+  ^\s*${desc_name}*$$
+  ^\s*set-dscp\s+${dscp_val}\s*$$
+  ^\s*set-pcp\s+${pcp_val}\s*$$
+  ^\s*Applied to:.*$$
+  ^\s*${interface}\s+at\s+${stage}\s*$$ -> Record
+  ^$$

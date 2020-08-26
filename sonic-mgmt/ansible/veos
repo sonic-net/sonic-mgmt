@@ -1,0 +1,204 @@
+all:
+  children:
+    vm_host:
+      children:
+        vm_host_1:
+        vm_host_2:
+    eos:
+      children:
+        vms_1:
+        vms_2:
+    servers:
+      vars:
+        topologies:
+          - t1
+          - t1-lag
+          - t1-64-lag
+          - t1-64-lag-clet
+          - t0
+          - t0-16
+          - t0-56
+          - t0-52
+          - ptf32
+          - ptf64
+          - t0-64
+          - t0-64-32
+          - t0-116
+      children:
+        server_1:
+        server_2:
+
+vm_host_1:
+  hosts:
+    STR-ACS-SERV-01:
+      ansible_host: 10.251.0.245
+
+vm_host_2:
+  hosts:
+    STR-ACS-SERV-02:
+      ansible_host: 10.251.0.192
+
+vms_1:
+  hosts:
+    VM0100:
+      ansible_host: 10.250.0.2
+    VM0101:
+      ansible_host: 10.250.0.3
+    VM0102:
+      ansible_host: 10.250.0.4
+    VM0103:
+      ansible_host: 10.250.0.5
+    VM0104:
+      ansible_host: 10.250.0.6
+    VM0105:
+      ansible_host: 10.250.0.7
+    VM0106:
+      ansible_host: 10.250.0.8
+    VM0107:
+      ansible_host: 10.250.0.9
+    VM0108:
+      ansible_host: 10.250.0.10
+    VM0109:
+      ansible_host: 10.250.0.11
+    VM0110:
+      ansible_host: 10.250.0.12
+    VM0111:
+      ansible_host: 10.250.0.13
+    VM0112:
+      ansible_host: 10.250.0.14
+    VM0113:
+      ansible_host: 10.250.0.15
+    VM0114:
+      ansible_host: 10.250.0.16
+    VM0115:
+      ansible_host: 10.250.0.17
+    VM0116:
+      ansible_host: 10.250.0.18
+    VM0117:
+      ansible_host: 10.250.0.19
+    VM0118:
+      ansible_host: 10.250.0.20
+    VM0119:
+      ansible_host: 10.250.0.21
+    VM0120:
+      ansible_host: 10.250.0.22
+    VM0121:
+      ansible_host: 10.250.0.23
+    VM0122:
+      ansible_host: 10.250.0.24
+    VM0123:
+      ansible_host: 10.250.0.25
+    VM0124:
+      ansible_host: 10.250.0.26
+    VM0125:
+      ansible_host: 10.250.0.27
+    VM0126:
+      ansible_host: 10.250.0.28
+    VM0127:
+      ansible_host: 10.250.0.29
+    VM0128:
+      ansible_host: 10.250.0.30
+    VM0129:
+      ansible_host: 10.250.0.31
+    VM0130:
+      ansible_host: 10.250.0.32
+    VM0131:
+      ansible_host: 10.250.0.33
+    VM0132:
+      ansible_host: 10.250.0.34
+    VM0133:
+      ansible_host: 10.250.0.35
+    VM0134:
+      ansible_host: 10.250.0.36
+    VM0135:
+      ansible_host: 10.250.0.37
+    VM0136:
+      ansible_host: 10.250.0.38
+    VM0137:
+      ansible_host: 10.250.0.39
+    VM0138:
+      ansible_host: 10.250.0.40
+    VM0139:
+      ansible_host: 10.250.0.41
+    VM0140:
+      ansible_host: 10.250.0.42
+    VM0141:
+      ansible_host: 10.250.0.43
+    VM0142:
+      ansible_host: 10.250.0.44
+    VM0143:
+      ansible_host: 10.250.0.45
+    VM0144:
+      ansible_host: 10.250.0.46
+    VM0145:
+      ansible_host: 10.250.0.47
+    VM0146:
+      ansible_host: 10.250.0.48
+    VM0147:
+      ansible_host: 10.250.0.49
+    VM0148:
+      ansible_host: 10.250.0.50
+    VM0149:
+      ansible_host: 10.250.0.51
+    VM0150:
+      ansible_host: 10.250.0.52
+    VM0151:
+      ansible_host: 10.250.0.53
+    VM0152:
+      ansible_host: 10.250.0.54
+    VM0153:
+      ansible_host: 10.250.0.55
+    VM0154:
+      ansible_host: 10.250.0.56
+    VM0155:
+      ansible_host: 10.250.0.57
+    VM0156:
+      ansible_host: 10.250.0.58
+    VM0157:
+      ansible_host: 10.250.0.59
+    VM0158:
+      ansible_host: 10.250.0.60
+    VM0159:
+      ansible_host: 10.250.0.61
+    VM0160:
+      ansible_host: 10.250.0.62
+    VM0161:
+      ansible_host: 10.250.0.63
+    VM0162:
+      ansible_host: 10.250.0.64
+    VM0163:
+      ansible_host: 10.250.0.65
+    VM0164:
+      ansible_host: 10.250.0.66
+    VM0165:
+      ansible_host: 10.250.0.67
+    VM0166:
+      ansible_host: 10.250.0.68
+    VM0167:
+      ansible_host: 10.250.0.69
+
+vms_2:
+  hosts:
+    VM0200:
+      ansible_host: 10.250.0.51
+    VM0201:
+      ansible_host: 10.250.0.52
+    VM0202:
+      ansible_host: 10.250.0.53
+    VM0203:
+      ansible_host: 10.250.0.54
+
+# The groups below are helper to limit running playbooks to specific server(s) only
+server_1:
+  vars:
+    host_var_file: host_vars/STR-ACS-SERV-01.yml
+  children:
+    vm_host_1:
+    vms_1:
+
+server_2:
+  vars:
+    host_var_file: host_vars/STR-ACS-SERV-02.yml
+  children:
+    vm_host_2:
+    vms_2:

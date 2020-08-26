@@ -1,0 +1,102 @@
+# Example usage:
+#
+# upgrade via sonic2sonic upgrade:
+#   ansible-playbook upgrade_sonic.yml -i lab -l devicename -e "upgrade_type=sonic" -e "image_url='http://8.8.8.8/sonic-broadcom.bin'"
+# upgrade via onie:
+#   ansible-playbook upgrade_sonic.yml -i lab -l devicename -e "upgrade_type=onie" -e "image_url='http://8.8.8.8/sonic-broadcom.bin'"
+
+- hosts: all
+  gather_facts: no
+  tasks:
+
+    - set_fact:
+        real_ansible_host: "{{ ansible_ssh_host }}"
+
+    - block:
+
+        - name: Set next boot device to ONIE
+          become: true
+          shell: grub-editenv /host/grub/grubenv set next_entry=ONIE
+
+        - name: Reboot into ONIE
+          become: true
+          shell: sleep 2 && shutdown -r now "Boot into onie."
+          async: 1
+          poll: 0
+          ignore_errors: true
+
+        - name: Wait for switch to come back (to ONIE)
+          local_action: wait_for
+          args:
+            host: "{{ real_ansible_host }}"
+            port: 22
+            state: started
+            delay: 60
+            timeout: 300
+          changed_when: false
+
+        - name: Pause {{pause_time}} seconds for ONIE initialization
+          pause: seconds={{pause_time}}
+          when: pause_time is defined
+
+        - name: Install SONiC image in ONIE
+          action: onie install=yes url={{ image_url }}
+          connection: onie
+
+      when: upgrade_type == "onie"
+
+    - name: define disk_used_pcent if not defined
+      set_fact:
+        disk_used_pcent: 50
+      when: disk_used_pcent is not defined
+
+    - block:
+        - fail: msg="image_url is not defined"
+          when: image_url is not defined
+
+        - name: Remove some old sonic image(s) and install new image
+          reduce_and_add_sonic_images:
+          become: true
+          args:
+            disk_used_pcent: '{{disk_used_pcent}}'
+            new_image_url: '{{ image_url }}'
+
+        # Reboot may need some time to update firmware firstly.
+        # Increasing the async time to 300 seconds to avoid reboot being interrupted.
+        - name: Reboot the switch {{ inventory_hostname }}
+          become: true
+          shell: reboot
+          async: 300
+          poll: 0
+          ignore_errors: true
+
+      when: upgrade_type == "sonic"
+
+    # Delay 180 seconds to wait for firmware updating before reboot, then start polling switch
+    - name: Wait for switch {{ inventory_hostname }} to come back (to SONiC)
+      local_action: wait_for
+      args:
+        host: "{{ real_ansible_host }}"
+        port: 22
+        state: started
+        search_regex: "OpenSSH"
+        delay: 180
+        timeout: 600
+      changed_when: false
+
+    - name: Wait for SONiC initialization
+      pause: seconds=60
+
+    - name: Set all bgp interfaces admin-up
+      become: true
+      shell: config bgp startup all
+
+    - name: save bgp admin-up states
+      become: true
+      shell: config save -y
+
+    - name: Remove some old sonic image(s) after installing new image
+      reduce_and_add_sonic_images:
+      become: true
+      args:
+        disk_used_pcent: '{{disk_used_pcent}}'

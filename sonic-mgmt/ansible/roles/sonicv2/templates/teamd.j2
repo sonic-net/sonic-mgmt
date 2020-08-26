@@ -1,0 +1,24 @@
+{
+    "device": "{{item['name']}}",
+    "runner": {
+        "name": "lacp",
+        "active": true,
+{% if PORTCHANNEL[pc]['fallback'] and ((PORTCHANNEL[pc]['members'] | length) == 1) %}
+        "fallback": {{ PORTCHANNEL[pc]['fallback'] }},
+{% else %}
+{# Use 75% links upperbound as min-links #}
+        "min_ports": {{item['members'] | length * 0.75 | round(0, 'ceil') | int}},
+{% endif %}
+        "tx_hash": ["eth", "ipv4", "ipv6"]
+    },
+    "link_watch": {
+        "name": "ethtool"
+    },
+    "ports": {
+{% for member in item['members'] %}
+        "{{member}}": {}{% if not loop.last %},
+{% endif %}
+{% endfor %}
+
+    }
+}

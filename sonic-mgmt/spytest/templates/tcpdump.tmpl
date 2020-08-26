@@ -1,0 +1,10 @@
+Value ARP_SRC (\S+)
+Value ARP_DST (\S+)
+Value NA_SRC (\S+)
+Value NA_DST (\S+)
+
+Start
+  ^\s*ARP.+who-has\s${ARP_DST}\s.*tell\s${ARP_SRC},\s.+$$ -> Record
+  ^\s*IP6\s${NA_SRC}\s.+neighbor solicitation, who has\s${NA_DST},\s.+$$ -> Record
+  ^$$
+

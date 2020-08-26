@@ -1,0 +1,71 @@
+# This Playbook would run saiserver-test on all the devices.
+#
+# Examples of running saiserver-test with this playbook:
+# 
+## Run test sail3.L3IPv4HostTest on saiserver switch str-s6000-acs-9 and ptf_host 10.3.155.177
+# ansible-playbook -i str --limit str-s6000-acs-9 test.yml -b --ask-vault-pass -e "ptf_host=10.3.155.177" --e "tests=sail3.L3IPv4HostTest" --tags saiserver
+
+
+# Stop syncd and deploy saiserver (only for SAI testing purpose)
+- name: Stop syncd container
+  include_tasks: ../../sonic-common/tasks/sonicdocker.yml
+  vars:
+    docker_container: syncd
+    docker_image: "{{ image_id_syncd if sonic_asic_type!='mellanox' else image_id_syncd_mlnx }}"
+    docker_privileged: yes
+    docker_state: stopped
+  when: no_deploy_saiserver is not defined
+
+- name: Start saiserver docker container
+  include_tasks: ../../sonic-common/tasks/sonicdocker.yml
+  vars:
+     docker_container: saiserver
+     docker_image: "{{ image_id_saiserver if sonic_asic_type!='mellanox' else image_id_saiserver_mlnx }}"
+     docker_privileged: yes
+     docker_state: reloaded
+  when: no_deploy_saiserver is not defined
+
+- name: Wait to make sure saiserver is started
+  wait_for:
+    timeout: 20
+
+- name: Run SAI Test
+  shell: ptf --test-dir /usr/share/ptf-tests {{ tests | default ("")}} -t "server='{{ ansible_host }}';port_map_file='/etc/ptf/default_interface_to_front_map.ini'" --platform remote {{ extra_options | default("")}} 2>&1
+  args:
+    chdir: /root
+  delegate_to: "{{ ptf_host }}"
+  failed_when: False
+  register: out
+
+- debug: var=out.stdout_lines
+
+- name: Stop saiserver docker container
+  include_tasks: ../../sonic-common/tasks/sonicdocker.yml
+  vars:
+     docker_container: saiserver
+     docker_image: "{{ image_id_saiserver if sonic_asic_type!='mellanox' else image_id_saiserver_mlnx }}"
+     docker_privileged: yes
+     docker_state: stopped
+  when: no_deploy_saiserver is not defined
+
+- name: Restart syncd container
+  include_tasks: ../../sonic-common/tasks/sonicdocker.yml
+  vars:
+    docker_container: syncd
+    docker_image: "{{ image_id_syncd if sonic_asic_type!='mellanox' else image_id_syncd_mlnx }}"
+    docker_privileged: yes
+    docker_state: started
+  when: no_deploy_saiserver is not defined
+
+- name: Restart orchagent container
+  include_tasks: ../../sonic-common/tasks/sonicdocker.yml
+  vars:
+    docker_container: orchagent
+    docker_image: "{{ image_id_orchagent if sonic_asic_type!='mellanox' else image_id_orchagent_mlnx }}"
+    docker_privileged: yes
+    docker_state: restarted
+  when: no_deploy_saiserver is not defined
+
+- fail: msg="Failed test SAI Test"
+  when: out.rc != 0
+

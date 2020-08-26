@@ -1,0 +1,64 @@
+# pfc_frames_number intends to be large enough so that PFC storm keeps happenning until runs pfc_storm_stop command.
+- name: Prepare variables required for PFC test
+  set_fact:
+    pfc_queue_index: 3
+    pfc_frames_number: 10000000
+    pfc_wd_detect_time: 200
+    pfc_wd_restore_time: 200
+    pfc_wd_restore_time_large: 30000
+    pfc_wd_poll_time: 100
+    testname: functional_test
+
+- set_fact:
+    class_enable: "{{(1).__lshift__(pfc_queue_index)}}"
+
+- set_fact:
+    peer_device_item: "{{ neighbors[item]['peerdevice']}}"
+  with_items: "{{port_list}}"
+  register: peer_devices_result
+
+- set_fact:
+    peer_port_item: "{{ neighbors[item]['peerport']}}"
+  with_items: "{{port_list}}"
+  register: peer_ports_result
+
+- set_fact:
+    peer_devices: "{{peer_devices_result.results | map(attribute='ansible_facts.peer_device_item') | list}}"
+    peer_ports: "{{peer_ports_result.results | map(attribute='ansible_facts.peer_port_item') | list}}"
+
+- set_fact:
+    pfc_gen_file: pfc_gen.py
+
+- name: Get the peer device and peer port map
+  combine_list_to_dict: keys={{peer_devices}} values={{peer_ports}}
+  become: no
+  delegate_to: localhost
+  failed_when: False
+
+- block:
+    - name: Apply drop config to all ports
+      shell: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time }} {{ ports }} {{ pfc_wd_detect_time }}"
+      become: yes
+
+    - name: Start to copy and send PFC packets from all peers
+      vars:
+        test_expect_file: "expect_pfc_wd_detect"
+        test_ignore_file: "ignore_pfc_wd_messages"
+        storm_action: "start"
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/storm_all_action.yml
+      with_dict: "{{combined_dict}}"
+
+    - name: Stop PFC packets from all peers
+      vars:
+        test_expect_file: "expect_pfc_wd_restore"
+        test_ignore_file: "ignore_pfc_wd_messages"
+        storm_action: "stop"
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/storm_all_action.yml
+      with_dict: "{{combined_dict}}"
+  always:
+
+    - name: Clean up config
+      vars:
+        command_to_run: "pfcwd stop"
+        errors_expected: false
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml

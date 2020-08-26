@@ -1,0 +1,34 @@
+Value port_num (\d+)
+Value priority (\d+)
+Value path_cost (\d+)
+Value port_state (\S+)
+Value desig_cost (\d+)
+Value desig_root (\S+)
+Value desig_bridge (\S+)
+Value desig_port (\d+)
+Value bpdu_sent (\d+)
+Value bpdu_received (\d+)
+Value config_bpdu_sent (\d+)
+Value config_bpdu_received (\d+)
+Value tc_sent (\d+)
+Value tc_received (\d+)
+Value root_guard_timer (\d+)
+Value role (\S+)
+
+Start
+  ^\s*2\)\s*"${port_num}"\s*$$
+  ^\s*4\)\s*"${priority}"\s*$$
+  ^\s*6\)\s*"${path_cost}"\s*$$
+  ^\s*8\)\s*\"${port_state}\"\s*$$
+  ^\s*10\)\s*\"${desig_cost}\"\s*$$
+  ^\s*12\)\s*\"${desig_root}\"\s*$$
+  ^\s*14\)\s*\"${desig_bridge}\"\s*$$
+  ^\s*16\)\s*\"${desig_port}\"\s*$$
+  ^\s*18\)\s*\"${bpdu_sent}\"\s*$$
+  ^\s*20\)\s*\"${bpdu_received}\"\s*$$
+  ^\s*22\)\s*\"${config_bpdu_sent}\"\s*$$
+  ^\s*24\)\s*\"${config_bpdu_received}\"\s*$$
+  ^\s*26\)\s*\"${tc_sent}\"\s*$$
+  ^\s*28\)\s*\"${tc_received}\"\s*$$
+  ^\s*30\)\s*\"${root_guard_timer}\"\s*$$
+  ^\s*32\)\s*\"${role}\"\s*$$ -> Record

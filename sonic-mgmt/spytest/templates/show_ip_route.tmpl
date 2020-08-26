@@ -1,0 +1,33 @@
+Value Filldown TYPE (\w)
+Value Filldown SELECTED (\S|\s)
+Value Filldown FIB (\S|\s)
+Value Filldown NOT_INSTALLED (\S|\s)
+Value Filldown IP_ADDRESS (\S+)
+Value INTERFACE (\S+)
+Value Filldown DURATION (\S+)
+Value NEXTHOP (\S+)
+Value NH_TYPE (\S+)
+Value Filldown DISTANCE (\d+)
+Value Filldown COST (\d+)
+Value Filldown vrf_name (\S+)
+Value dest_vrf_name (\S+)
+
+Start
+  ^\s*VRF ${vrf_name}:
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*is directly connected,\s*${INTERFACE},\s*${DURATION}\s*$$ -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*is directly connected,\s*${INTERFACE}\(vrf\s${dest_vrf_name}\),\s*${DURATION}\s*$$ -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*is directly connected,\s*${INTERFACE},\s*${DURATION}\s*$$ -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP},\s*${INTERFACE},\s*${DURATION}\s*$$ -> Record
+  ^\s*${FIB}\s*via\s*${NEXTHOP},\s*${INTERFACE},\s*${DURATION}\s*$$ -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP},\s*${INTERFACE}\s*onlink,\s*${DURATION}\s*$$ -> Record
+  ^\s*${TYPE}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP},\s*${INTERFACE}\s*inactive\s*onlink,\s*${DURATION}\s*$$ -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*${NEXTHOP}\s*\(${INTERFACE}\),\s*${DURATION}\s*$$ -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}${NOT_INSTALLED}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP},\s*${INTERFACE},\s*${DURATION}\s*$$ -> Record
+  ^\s*${TYPE}${SELECTED}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP}\s*${INTERFACE},\s*${DURATION}\s*$$ -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}${NOT_INSTALLED}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP},\s*${INTERFACE}(\(vrf\s*${dest_vrf_name}\))*\s*${NH_TYPE},\s*${DURATION}\s*$$ -> Record
+  ^\s*Codes:.* -> Clearall
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*via\s*${NEXTHOP}\s*${DISTANCE}\/${COST}\s*${DURATION}\s* -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*Direct\s*${DISTANCE}\/${COST}\s*${DURATION}\s* -> Record
+  ^\s*via\s*${NEXTHOP}$$ -> Record
+  ^$$
+

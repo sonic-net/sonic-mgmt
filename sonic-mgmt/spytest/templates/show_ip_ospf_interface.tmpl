@@ -1,0 +1,53 @@
+Value Filldown VRFNAME (\S+)
+Value Filldown NAME (\S+)
+Value Filldown STATE (\S+)
+Value Filldown INDEX (\d+)
+Value Filldown MTU (\d+)
+Value Filldown BW (\d+)
+Value Filldown LINESTATE (\S+)
+Value Filldown IPV4 (\S+)
+Value Filldown PEERADDR (\S+)
+Value Filldown AREA (\S+)
+Value Filldown MTUMISSMATCH (\S+)
+Value Filldown RTRID (\S+)
+Value Filldown NWTYPE (\S+)
+Value Filldown COST (\d+)
+Value Filldown TXDELAY (\d+)
+Value Filldown DR (\S+)
+Value Filldown BDR (\S+)
+Value Filldown NBDR (\S+)
+Value Filldown BDRIFIP (\S+)
+Value Filldown OTHER (\S+)
+Value Filldown NBRSTATE (\S+)
+Value Filldown PRIORITY (\d+)
+Value Filldown LSASEQ (\S+)
+Value Filldown MCASTMEM (\S+)
+Value Filldown HELLOTMR (\d+)
+Value Filldown DEADTMR (\d+)
+Value Filldown WAITTMR (\d+)
+Value Filldown RTXTTMR (\d+)
+Value Filldown HELLODUE (\S+)
+Value Filldown PASSIVE (\S+)
+Value NBRCNT (\d+)
+Value ADJCNT (\d+)
+
+Start
+  ^VRF Name:\s+${VRFNAME}\s*$$
+  ^${NAME}\s+is\s+${STATE}\s*$$
+  ^\s+ifindex\s+${INDEX},\s+MTU\s+${MTU}\s+bytes, BW\s+${BW}\s+Mbit\s+${LINESTATE}\s*$$
+  ^\s+Internet Address\s+${IPV4}, Area\s+${AREA}\s*$$
+  ^\s+Internet Address\s+${IPV4}, Peer\s+${PEERADDR}, Area\s+${AREA}\s*$$
+  ^\s+MTU mismatch detection:\s+${MTUMISSMATCH}\s*$$
+  ^\s+Router ID\s+${RTRID}, Network Type\s+${NWTYPE}, Cost:\s+${COST}\s*$$
+  ^\s+Transmit Delay is\s+${TXDELAY}\s+sec, State\s+${NBRSTATE}, Priority\s+${PRIORITY}\s*$$
+  ^\s+Backup Designated Router \(ID\)\s+${BDR}, Interface Address\s+${BDRIFIP}\s*$$
+  ^\s+No\s+${NBDR}\s+designated router on this network\s*$$
+  ^\s+Saved Network-LSA sequence number 0x${LSASEQ}\s*$$
+  ^\s+Multicast group memberships:\s+${MCASTMEM}\s*$$
+  ^\s+Timer intervals configured, Hello\s+${HELLOTMR}s, Dead\s+${DEADTMR}s, Wait\s+${WAITTMR}s, Retransmit\s+${RTXTTMR}\s*$$
+  ^\s+Hello due in\s+${HELLODUE}s\s*$$
+  ^\s+No Hellos \(${PASSIVE}\s+interface\)\s*$$
+  ^\s+Neighbor Count is\s+${NBRCNT}, Adjacent neighbor count is\s+${ADJCNT}\s*$$ -> Record
+
+EOF
+

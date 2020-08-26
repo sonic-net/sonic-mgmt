@@ -1,0 +1,15 @@
+Value translated_ip (\d+.\d+.\d+.\d+)
+Value translated_l4_port (\d+)
+Value nat_type (\S+at)
+Value entry_type (\S+)
+
+Start
+  ^\s*\d+\S+\s+"translated_ip"\s*$$
+  ^\s*\d+\S+\s+"${translated_ip}"\s*$$
+  ^\s*\d+\S+\s+"translated_l4_port"\s*$$
+  ^\s*\d+\S+\s+"${translated_l4_port}"\s*$$
+  ^\s*\d+\S+\s+"nat_type"\s*$$
+  ^\s*\d+\S+\s+"${nat_type}"\s*$$
+  ^\s*\d+\S+\s+"entry_type"\s*$$
+  ^\s*\d+\S+\s+"${entry_type}"\s*$$ -> Record
+

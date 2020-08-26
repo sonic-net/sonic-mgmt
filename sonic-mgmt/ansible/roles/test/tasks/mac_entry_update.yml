@@ -1,0 +1,59 @@
+- set_fact:
+    addr: "{{ item['addr'] }}"               
+    name: "{{ item['name'] }}"
+    peer_addr: "{{ item['peer_addr'] }}"
+
+- name: Get Broadcom ASIC tables
+  switch_tables: asic='broadcom' nexthop=yes neighbor=yes
+  become: yes
+
+- set_fact:
+    prev_mac_addr: "{{ neighbor[peer_addr] }}"
+    new_mac_addr:  "aa:bb:cc:dd:ee:ff"
+    interface:     "et1"
+
+- name: Assert the previous MAC entry is in neighbor table
+  assert:
+    that:
+      - prev_mac_addr == neighbor[peer_addr]
+
+- name: Update neighbor MAC address
+  action: cisco template=mac_neighbor_update.j2 root=yes
+  args:
+    host: "{{ minigraph_devices[minigraph_neighbors[name]['name']]['mgmt_addr'] }}"
+    login: "{{ switch_login[minigraph_devices[minigraph_neighbors[name]['name']]['hwsku']] }}"
+  connection: cisco
+
+- name: Pause for 30 seconds
+  pause: seconds=30
+
+- name: Get Broadcom ASIC tables
+  switch_tables: asic='broadcom' nexthop=yes neighbor=yes
+  become: yes
+
+- name: Asssert the new MAC entry is in neighbor table
+  assert:
+    that:
+      - new_mac_addr == neighbor[peer_addr]
+
+- set_fact:
+    new_mac_addr: "{{ prev_mac_addr }}"
+
+- name: Revert previous neighbor MAC address
+  action: cisco template=mac_neighbor_update.j2 root=yes
+  args:
+    host: "{{ minigraph_devices[minigraph_neighbors[name]['name']]['mgmt_addr'] }}"
+    login: "{{ switch_login[minigraph_devices[minigraph_neighbors[name]['name']]['hwsku']] }}"
+  connection: cisco
+
+- name: Pause for 30 seconds
+  pause: seconds=30
+
+- name: Get Broadcom ASIC tables
+  switch_tables: asic='broadcom' nexthop=yes neighbor=yes
+  become: yes
+
+- name: Assert the previous MAC entry is in neighbor table
+  assert:
+    that:
+      - prev_mac_addr == neighbor[peer_addr]

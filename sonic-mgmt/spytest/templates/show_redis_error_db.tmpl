@@ -1,0 +1,15 @@
+Value ifname (Ethernet\d+|Ethernet\d+,Ethernet\d+)
+Value opcode (\S+te|\S+ve)
+Value nhp (\d+.\d+.\d+.\d+|\d+::\d+|\d+.\d+.\d+.\d+,\d+.\d+.\d+.\d+)
+Value rc (\S+_\S+_\S+|\S+_\S+_\S+_\S+)
+
+Start
+  ^\s*\d+\S+\s+"nexthop"\s*$$
+  ^\s*\d+\S+\s+"${nhp}"\s*$$
+  ^\s*\d+\S+\s+"ifname"\s*$$
+  ^\s*\d+\S+\s+"${ifname}"\s*$$
+  ^\s*\d+\S+\s+"rc"\s*$$
+  ^\s*\d+\S+\s+"${rc}"\s*$$  
+  ^\s*\d+\S+\s+"operation"\s*$$ 
+  ^\s*\d+\S+\s+"${opcode}"\s*$$ -> Record  
+

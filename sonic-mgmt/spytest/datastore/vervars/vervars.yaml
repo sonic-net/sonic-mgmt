@@ -1,0 +1,9 @@
+
+common: !include common.yaml
+3.0.x.0: !include 3.0.x.0.yaml
+3.0.1: !include 3.0.1.yaml
+
+vervars:
+  default: [common]
+  3.0.x.0: [common, 3.0.x.0]
+  3.0.1: [common, 3.0.1]

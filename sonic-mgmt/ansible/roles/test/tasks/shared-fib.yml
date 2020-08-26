@@ -1,0 +1,45 @@
+#-----------------------------------------
+# Contains shared part for fib test cases.
+#-----------------------------------------
+# Pre-check testbed_type value
+- debug: msg="Fib Pre Checks"
+
+- fail: msg="testbed_type is not defined."
+  when: testbed_type is not defined
+
+- fail: msg="testbed_type {{testbed_type}} is invalid."
+  when: testbed_type not in testcases['fib']['topologies']
+
+- include_vars: "vars/topo_{{testbed_type}}.yml"
+
+- name: Expand properties into props
+  set_fact: props="{{configuration_properties['spine']}}"
+  when: testbed_type in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet']
+
+- name: Expand properties into props
+  set_fact: props="{{configuration_properties['common']}}"
+  when: testbed_type in ['t0',  't0-52', 't0-56', 't0-64', 't0-64-32', 't0-116']
+
+- name: Expand ToR properties into props
+  set_fact: props_tor="{{configuration_properties['tor']}}"
+  when: testbed_type in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet']
+
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+
+# Generate route file
+- name: Generate route-port map information
+  template: src=roles/test/templates/fib.j2
+            dest=/root/fib_info.txt
+  delegate_to: "{{ptf_host}}"
+
+
+- name: copy the test to ptf container
+  copy: src=roles/test/files/ptftests dest=/root
+  delegate_to: "{{ ptf_host }}"
+
+- set_fact: ipv4=true
+  when: ipv4 is not defined
+
+- set_fact: ipv6=true
+  when: ipv6 is not defined

@@ -1,0 +1,12 @@
+Value vrf (\d+)
+Value route (\d+.\d+.\d+.\d+)
+Value mask_len (\d+)
+Value nhpmac (\d+:\d+:\d+:\d+:\d+:\d+)
+Value intf (\d+)
+Value port (\d+)
+Value vlan (\d+)
+
+Start
+  ^\s*\d+\s+${vrf}\s+${route}\S${mask_len}\s+${nhpmac}\s+${intf}\s+\d+\s+${port}\s+\d+\s+\d+\s+\S+ -> Record
+  ^\s*\d+\s+${vrf}\s+${route}\S${mask_len}\s+${nhpmac}\s+${intf}\s+\d+\s+${port}\s+\d+\s+\d+\s+\S+\s+${vlan} -> Record
+

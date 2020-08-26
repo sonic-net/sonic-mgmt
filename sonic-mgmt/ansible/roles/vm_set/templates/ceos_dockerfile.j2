@@ -1,0 +1,3 @@
+FROM {{ ceos_image_orig }}
+
+RUN sed -e "/^fs.inotify.max_user_watches/s/[0-9]\+/1024000/" -e "/^fs.inotify.max_user_instances/s/[0-9]\+/8192/" /etc/sysctl.d/99-eos.conf > /etc/sysctl.d/99-eos.conf.bak; mv /etc/sysctl.d/99-eos.conf.bak /etc/sysctl.d/99-eos.conf

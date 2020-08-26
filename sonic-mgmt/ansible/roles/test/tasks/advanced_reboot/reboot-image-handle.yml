@@ -1,0 +1,53 @@
+- block:
+    - fail: msg="Please set new_sonic_image variable"
+      when: new_sonic_image is not defined
+
+    - fail: msg="Please set cleanup_old_sonic_images variable"
+      when: cleanup_old_sonic_images is not defined
+
+    - fail: msg="Please set stay_in_target_image variable"
+      when: stay_in_target_image is not defined
+
+    - name: Save image version
+      shell: 'sonic_installer list | grep Current | cut -f2 -d " "'
+      register: current_sonic_image
+      become: true
+      when: not stay_in_target_image
+
+    - name: Generate temp file name on target device
+      shell: mktemp
+      register: tempfile
+
+    - set_fact:
+        new_image_location: '{{ tempfile.stdout }}'
+
+    - debug: msg='Setting image file name to {{ new_image_location }}'
+
+    - name: Download SONiC image.
+      local_action: get_url url={{ new_sonic_image }} dest={{ new_image_location }}
+
+    - name: Upload SONiC image to device.
+      copy:
+        src: "{{ new_image_location }}"
+        dest: "{{ new_image_location }}"
+
+    - name: Cleanup sonic images that is not current and/or next
+      shell: sonic_installer cleanup -y
+      become: true
+      when: cleanup_old_sonic_images
+
+    - name: 'Setup restoring initial image {{ current_sonic_image }}'
+      shell: /bin/true
+      delegate_to: localhost
+      notify:
+      - restore current image
+      - reboot sonic
+      when: not stay_in_target_image
+
+    - name: Installing new SONiC image
+      shell: sonic_installer install -y {{ new_image_location }}
+      become: true
+
+    - name: Remove config_db.json so the new image will reload minigraph
+      file: path=/host/old_config/config_db.json state=absent
+      become: true

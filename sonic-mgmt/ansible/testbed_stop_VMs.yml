@@ -1,0 +1,16 @@
+---
+# This Playbook removes all VMs defined in an inventory file under vms_x
+# 
+# We need to run this playbook before server restart to clean up everything.
+#
+# To stop all vm_sets on all servers:
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_stop_VMs.yml --vault-password-file=~/.password
+#
+# To run this on the first server only:
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_stop_VMs.yml --vault-password-file=~/.password -l server_1
+#
+
+- hosts: servers:&vm_host
+  gather_facts: no
+  roles:
+  - { role: vm_set, action: 'stop' }

@@ -1,0 +1,5 @@
+# Compiled Python files
+*.pyc
+__pycache__/
+.pytest_cache/
+tests/logs

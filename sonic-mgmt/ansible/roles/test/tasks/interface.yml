@@ -1,0 +1,68 @@
+- name: Gather minigraph facts about the device
+  minigraph_facts: host={{inventory_hostname}}
+
+- name: Get interface facts
+  interface_facts: up_ports={{minigraph_ports}}
+
+- block:
+  - debug: msg="Found link down ports {{ansible_interface_link_down_ports}}, reload SONiC and reenable down ports"
+
+  - name: reboot
+    include_tasks: common_tasks/reboot_sonic.yml
+
+  - name: figure out fanout switch port in case it was down
+    conn_graph_facts: host={{ inventory_hostname }}
+    delegate_to: localhost
+
+  - set_fact: neighbors="{{device_conn}}"
+
+  - include_tasks: resume_fanout_ports.yml
+    with_items: "{{ ansible_interface_link_down_ports }}"
+
+  - name: pause and wait interface to be up
+    pause: seconds=30
+
+  - name: Get interface facts
+    interface_facts: up_ports={{minigraph_ports}}
+
+  when:
+    - ansible_interface_link_down_ports | length > 0
+    - recover is defined and recover | bool
+
+- debug: msg="Found link down ports {{ansible_interface_link_down_ports}}"
+  when: ansible_interface_link_down_ports | length > 0
+
+- block:
+  - name: Verify interfaces are up correctly
+    assert: { that: "{{ ansible_interface_link_down_ports | length }} == 0" }
+
+  rescue:
+  - include_tasks: check_fanout_interfaces.yml
+    vars:
+      check_fanout: true
+
+  - fail: msg="Not all interfaces are up"
+
+- block:
+  - name: Verify port channel interfaces are up correctly
+    assert: { that: "'{{ ansible_interface_facts[item]['active'] }}' == 'True'" }
+    with_items: "{{ minigraph_portchannels.keys() }}"
+
+  rescue:
+  - include_tasks: check_sw_vm_interfaces.yml
+    vars:
+      check_vms: true
+
+  - debug: msg="PortChannel status '{{ portchannel_status['stdout_lines'] }}'"
+    when: portchannel_status is defined
+
+  - fail: msg="Not all PortChannels are up"
+
+- name: Verify VLAN interfaces are up correctly
+  assert: { that: "'{{ ansible_interface_facts[item]['active'] }}' == 'True'" }
+  with_items: "{{ minigraph_vlans.keys() }}"
+
+# TODO: uncomment when issue https://github.com/Azure/sonic-buildimage/issues/2738 will be fixed
+# and PR https://github.com/Azure/sonic-mgmt/pull/1165 will be merged
+# - name: Verify interfaces counters
+#   include: interface_counters.yml

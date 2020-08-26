@@ -1,0 +1,36 @@
+
+- block:
+    - name: Check if Redis DB contains corresponding data.
+      shell: docker exec -i database redis-cli -n 1 KEYS \* | grep "ASIC_STATE:SAI_OBJECT_TYPE_ACL_COUNTER"
+      register: grep_redis
+      failed_when: (expect_data == true and grep_redis.rc != 0) or (expect_data == false and grep_redis.rc == 0)
+
+    - name: Wait for data to be written into Counters DB ...
+      pause:
+        seconds: 10
+
+    - name: Read counters value.
+      shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name_check }}:{{ rule_name_check }}" Packets
+      register: counters_value
+      when: expect_data == true
+
+    - name: Check if corresponding data was removed from Counters DB.
+      shell: docker exec -i database redis-cli -n 2 KEYS \* | grep {{ rule_name_check }}
+      register: grep_counters
+      failed_when: grep_counters.rc == 0
+      when: expect_data == false
+
+  always:
+      # check for successful creating.
+    - fail: msg="Failed to find corresponding data in Redis DB. Used {{ table_name_check }} / {{ rule_name_check }}"
+      when: expect_data == true and grep_redis.rc != 0
+
+    - fail: msg="Failed to find corresponding data in Counters DB. Used {{ table_name_check }} / {{ rule_name_check }}"
+      when: expect_data == true and counters_value.stdout != "{{ expected_counter_value }}"
+
+      # check for successful deleting.
+    - fail: msg="Failed to delete corresponding rule-data from Redis DB. Used {{ table_name_check }} / {{ rule_name_check }}"
+      when: expect_data == false and grep_redis.rc == 0
+
+    - fail: msg="Failed to delete corresponding rule-data from Counters DB. Used {{ table_name_check }} / {{ rule_name_check }}"
+      when: expect_data == false and grep_counters.rc == 0

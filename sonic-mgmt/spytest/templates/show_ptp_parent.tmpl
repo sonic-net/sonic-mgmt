@@ -1,0 +1,26 @@
+Value parent_clock_id (\w+\.\w+\.\w+) 
+Value port_number (\d+)
+Value gm_clock_class (\d+)
+Value gm_off_scale_log_var (\d+)
+Value gm_clock_accuracy (\d+)
+Value gm_id (\w+\.\w+\.\w+) 
+Value gm_priority1 (\d+)
+Value gm_priority2 (\d+)
+Value stats_valid (\w+)
+Value observed_off_scale_log_var (\d+)
+Value observed_clock_phase_change_rate (\d+)
+
+Start
+  ^\s*Parent\s+Clock\s+Identity\s+${parent_clock_id}\s*$$
+  ^\s*Port\s+Number\s+${port_number}\s*$$
+  ^\s*Grandmaster\s+Clock\s+Class\s+${gm_clock_class}\s*$$
+  ^\s*Grandmaster\s+Off\s+Scaled\s+Log\s+Var\s+${gm_off_scale_log_var}\s*$$
+  ^\s*Grandmaster\s+Clock\s+Accuracy\s+${gm_clock_accuracy}\s*$$
+  ^\s*Grandmaster\s+Identity\s+${gm_id}\s*$$
+  ^\s*Grandmaster\s+Priority1\s+${gm_priority1}\s*$$
+  ^\s*Grandmaster\s+Priority2\s+${gm_priority2}\s*$$
+  ^\s*Stats\s+Valid\s+${stats_valid}\s*$$
+  ^\s*Observed\s+Off\s+Scaled\s+Log\s+Var\s+${observed_off_scale_log_var}\s*$$
+  ^\s*Observed\s+Clock\s+Phase\s+Chg\s+Rate\s+${observed_clock_phase_change_rate}\s*$$ -> Record
+
+EOF

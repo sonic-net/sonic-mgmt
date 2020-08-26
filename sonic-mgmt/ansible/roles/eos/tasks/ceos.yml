@@ -1,0 +1,28 @@
+- include_tasks: ceos_config.yml
+
+- name: Create cEOS container ceos_{{ vm_set_name }}_{{ inventory_hostname }}
+  become: yes
+  docker_container:
+    name: ceos_{{ vm_set_name }}_{{ inventory_hostname }}
+    image: "{{ ceos_image }}"
+    command: /sbin/init systemd.setenv=INTFTYPE=eth systemd.setenv=ETBA=1 systemd.setenv=SKIP_ZEROTOUCH_BARRIER_IN_SYSDBINIT=1 systemd.setenv=CEOS=1 systemd.setenv=EOS_PLATFORM=ceoslab systemd.setenv=container=docker systemd.setenv=MGMT_INTF=eth0
+    pull: no
+    state: started
+    restart: yes
+    tty: yes
+    network_mode: container:net_{{ vm_set_name }}_{{ inventory_hostname }}
+    detach: True
+    capabilities:
+      - net_admin
+    privileged: yes
+    env:
+      CEOS=1
+      container=docker
+      EOS_PLATFORM=ceoslab
+      SKIP_ZEROTOUCH_BARRIER_IN_SYSDBINIT=1
+      ETBA=1
+      INTFTYPE=eth
+      MGMT_INTF=eth0
+    volumes:
+      - /{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}:/mnt/flash
+  delegate_to: "{{ VM_host[0] }}"

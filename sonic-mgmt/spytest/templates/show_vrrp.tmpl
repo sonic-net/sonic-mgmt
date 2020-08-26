@@ -1,0 +1,25 @@
+Value Required vrid (\d+)
+Value interface ([\w\d]+)
+Value version (\d+)
+Value state (\w+)
+Value vip ([\d\.]+)
+Value vmac ([\w\d\.]+)
+Value config_prio (\d+)
+Value current_prio (\d+)
+Value List track_interface_list (\w+)
+Value List track_state_list (\w+)
+Value List track_priority_list (\d+)
+Value adv_interval (\d+)
+Value preempt (\w+)
+
+Start
+  ^\s*${interface},\s*VRID\s*${vrid}$$
+  ^\s*Version\s*is\s*${version}$$
+  ^\s*State\s*is\s*${state}$$
+  ^\s*${vip}$$
+  ^\s*Virtual\s*MAC\s*address\s*is\s*${vmac}$$
+  ^\s*Configured\s*Priority\s*is\s*${config_prio},\s*Current\s*Priority\s*is\s*${current_prio}$$
+  ^\s*(.*)VRID(.*) -> Continue.Record
+  ^\s*${track_interface_list}\s*${track_state_list}\s*${track_priority_list}
+  ^\s*Advertisement\s*interval\s*is\s*${adv_interval}\s*sec$$
+  ^\s*Preemption\s*is\s*${preempt}$$ -> Record

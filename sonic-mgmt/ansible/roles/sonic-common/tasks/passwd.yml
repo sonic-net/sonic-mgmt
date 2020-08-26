@@ -1,0 +1,13 @@
+- block: 
+  - name: setup bootstrap password
+    set_fact: ansible_ssh_pass={{ sonicadmin_initial_password }} ansible_become_pass={{ sonicadmin_initial_password }}
+
+  - name: setup local user
+    become: yes
+    user: name={{ ansible_ssh_user }} password={{ sonicadmin_password|password_hash('sha512', 'acs') }}
+
+  # End block
+  when: bootstrap is defined
+
+- name: setup normal password
+  set_fact: ansible_ssh_pass={{ sonicadmin_password }} ansible_become_pass={{ sonicadmin_password }}

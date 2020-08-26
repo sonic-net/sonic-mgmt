@@ -1,0 +1,15 @@
+Value vrf (\S+)
+Value route (\d+.\d+.\d+.\d+|\d+::|\d+::\d+)
+Value subnet (\d+)
+Value nexthop (\d+.\d+.\d+.\d+|\d+::\d+|\S+|\s)
+Value interface (\S+)
+Value failure (\S+)
+Value operation (\S+)
+Value mac (\w+:\w+:\w+:\w+:\w+:\w+|\s)
+
+Start
+  ^\s*${route}/${subnet}\s+${nexthop}\s+${interface}\s+${failure}\s+${operation}\s*$$ -> Record
+  ^\s*${vrf}\s+${route}/${subnet}\s+${nexthop}\s+${interface}\s+${failure}\s+${operation}\s*$$ -> Record
+  ^\s*${route}/${subnet}\s+${failure}\s+${operation}\s*$$ -> Record
+  ^\s*${vrf}\s+${route}/${subnet}\s+${failure}\s+${operation}\s*$$ -> Record
+  ^\s*${nexthop}\s+${mac}\s+${interface}\s+${failure}\s+${operation}\s*$$ -> Record

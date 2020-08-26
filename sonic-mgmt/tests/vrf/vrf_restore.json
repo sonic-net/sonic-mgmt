@@ -1,0 +1,16 @@
+{
+    "VRF": {
+        "Vrf1": {
+            "v4": true,
+            "v6": true,
+            "ttl_action": "trap",
+            "ip_opt_action": "trap"
+        },
+        "Vrf2": {
+            "v4": true,
+            "v6": true,
+            "ttl_action": "trap",
+            "ip_opt_action": "trap"
+        }
+    }
+}

@@ -1,0 +1,18 @@
+[
+    {
+        "ACL_TABLE:Drop_IP": {
+            "policy_desc" : "Drop_IP_Traffic_to_l4_port",
+            "type" : "L3",
+            "ports" : "Ethernet0,Ethernet4"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:Drop_IP:TheDrop": {
+            "priority" : "55",
+            "L4_DST_PORT" : "80",
+            "PACKET_ACTION" : "DROP"
+        },
+        "OP": "SET"
+    }
+]

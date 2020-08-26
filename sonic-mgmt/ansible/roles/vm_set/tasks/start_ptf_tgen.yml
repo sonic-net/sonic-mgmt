@@ -1,0 +1,55 @@
+---
+- name: Include variables for PTF containers
+  include_vars:
+    dir: "{{ playbook_dir }}/group_vars/ptf_host/"
+
+- block:
+    - name: Set ptf host
+      set_fact:
+        ptf_host: "ptf_{{ vm_set_name }}"
+        ptf_host_ip: "{{ ptf_ip.split('/')[0] }}"
+
+    - name: Add ptf host
+      add_host:
+        hostname: "{{ ptf_host }}"
+        ansible_user: "{{ ptf_host_user }}"
+        ansible_ssh_host: "{{ ptf_host_ip }}"
+        ansible_ssh_pass: "{{ ptf_host_pass }}"
+        groups:
+          - ptf_host
+
+    - name: Check if ptf_tgen exists
+      supervisorctl:
+        name: ptf_tgen
+        state: present
+      become: True
+      delegate_to: "{{ ptf_host }}"
+      ignore_errors: True
+      register: ptf_tgen_state
+
+    - block:
+        - name: Copy scapy scripts to ptf host
+          copy:
+            src: "{{ item }}"
+            dest: "/ptf_tgen/"
+          with_fileglob:
+            - "{{ playbook_dir }}/../spytest/spytest/tgen/scapy/*"
+            - "{{ playbook_dir }}/../spytest/spytest/dicts.py"
+
+        - name: Create ptf_tgen service
+          copy:
+            src: "/ptf_tgen/service.sh"
+            dest: "/ptf_tgen/ptf_tgen.sh"
+            mode: "0755"
+            remote_src: yes
+
+        - name: Start ptf_tgen
+          supervisorctl:
+            name: ptf_tgen
+            state: restarted
+      become: True
+      delegate_to: "{{ ptf_host }}"
+      when: ptf_tgen_state is not failed
+  when:
+    - ptf_host_user is defined
+    - ptf_host_pass is defined

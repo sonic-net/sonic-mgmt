@@ -1,0 +1,311 @@
+# This Playbook run time generate matching configuration file for SONiC switch(Minigraph) based on a specific testbed topology specified in testbed.csv
+# When user call testbed-cli to deploy a testbed topology, use this playbook to generate matching SONiC minigraph file and deploy it into SONiC switch under test.
+# Or when you know your topology name, you may use this playbook alone to generate a minigraph matching your topology name without deploy it.
+#
+# VM Topologies are defined inside of vars/ directory in files vars/topo_{{ topology_name}}.yml
+#  Every topology should have a name to distinct one topology from another on the server
+#  Every topology contains a ptf container which will be used as placeholder for the injected interfaces from VMs, or direct connections to PTF host
+# VMs inventory file is also required to have all VMs ready for generating the minigraph file
+# VMs inventory is in file 'veos'
+#
+# Template files for generating minigraph.xml are defined in template/topo directory
+#
+# To generate and deploy minigraph for SONiC switch matching the VM topology please use following command
+# ansible-playbook -i lab config_sonic_basedon_testbed.yml -l sonic_dut_name -e vm_base=VM0300 -e topo=t0 [-e deploy=true -e save=true]
+# ansible-playbook -i lab config_sonic_basedon_testbed.yml -l sonic_dut_name -e testbed_name=vms1-1 [-e deploy=true -e save=true]
+
+# Parameters
+# -l str-msn2700-01          - the sonic_dut_name you are going to generate minigraph for
+# -e vm_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
+# -e topo=t0                 - the name of topology to generate minigraph file
+# -e testbed_name=vms1-1     - the testbed name specified in testbed.csv file
+#                              (if you give 'testbed_name' option, will use info from testbed and ignore topo and vm_base options)
+# -e vm_file=veos            - the virtual machine file name
+# -e deploy=True             - if deploy the newly generated minigraph to the targent DUT, default is false if not defined
+# -e save=True               - if save the newly generated minigraph to the targent DUT as starup-config, default is false if not defined
+#
+# After minigraph.xml is generated, the playbook will replace the original minigraph file under ansible/minigraph/ with the newly generated minigraph file for the SONiC device.
+# The playbook will based on deploy=True or False to deside if load the SONiC device with new minigraph or not.
+# If deploy=true, the playbook will apply the newly generated minigraph to the SONiC switch
+# If save=true, the playbook will save the newly generated minigraph to SONiC switch as startup-config
+#
+####################################################################################################################################################################################
+
+- hosts: sonic
+  gather_facts: no
+  tasks:
+
+  - block:
+    - name: set default testbed file
+      set_fact:
+        testbed_file: testbed.csv
+      when: testbed_file is not defined
+
+    - name: Set default dut index
+      set_fact:
+        dut_index: 0
+      when: dut_index is not defined
+
+    - name: Gathering testbed information
+      test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
+      delegate_to: localhost
+
+    - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
+      when: testbed_facts['duts'][dut_index] != inventory_hostname
+
+    - name: set testbed_type
+      set_fact:
+        topo: "{{ testbed_facts['topo'] }}"
+
+    - name: set vm
+      set_fact:
+        vm_base: "{{ testbed_facts['vm_base'] }}"
+      when: "testbed_facts['vm_base'] != ''"
+    when: testbed_name is defined
+
+  - topo_facts: topo={{ topo }}
+    delegate_to: localhost
+
+  - name: set default vm file path
+    set_fact:
+      vm_file: veos
+    when: vm_file is not defined
+
+  - set_fact:
+      VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
+      remote_dut: "{{ ansible_ssh_host }}"
+
+  - name: gather testbed VM informations
+    testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }}
+    delegate_to: localhost
+    when: "VM_topo | bool"
+
+  - name: find interface name mapping and individual interface speed if defined
+    port_alias: hwsku="{{ hwsku }}"
+
+  - name: find all enabled host_interfaces
+    set_fact:
+      host_if_indexes: "{{ vm_topo_config['host_interfaces'] | difference(vm_topo_config['disabled_host_interfaces']) }}"
+
+  - name: find all vlan interface names for T0 topology
+    set_fact:
+      vlan_intfs: "{{ vlan_intfs|default([])}} + ['{{ port_alias[item] }}' ]"
+    with_items: "{{ host_if_indexes }}"
+    when: "('host_interfaces' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+
+  - name: find all vlan configurations for T0 topology
+    vlan_config:
+      vm_topo_config: "{{ vm_topo_config }}"
+      port_alias: "{{ port_alias }}"
+      vlan_config: "{{ vlan_config | default(None) }}"
+    delegate_to: localhost
+    when: "('host_interfaces' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+
+  - name: find all interface indexes mapping connecting to VM
+    set_fact:
+      interface_to_vms: "{{ interface_to_vms|default({}) | combine({ item.key: item.value['interface_indexes'] }) }}"
+    with_dict: "{{ vm_topo_config['vm'] }}"
+
+  - name: find all interface indexes connecting to VM
+    set_fact:
+      ifindex_to_vms: "{{ ifindex_to_vms|default([]) }} + {{ item.value['interface_indexes']}}"
+    with_dict: "{{ vm_topo_config['vm'] }}"
+
+  - name: find all interface names
+    set_fact:
+      intf_names: "{{ intf_names | default({}) | combine({item.key: port_alias[item.value[0]|int:item.value[-1]|int+1] }) }}"
+    with_dict: "{{ interface_to_vms }}"
+
+  - name: create minigraph file in ansible minigraph folder
+    template: src=templates/minigraph_template.j2
+              dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
+    delegate_to: localhost
+    when: local_minigraph is defined and local_minigraph|bool == true
+
+  - block:
+    - name: Init telemetry keys
+      set_fact:
+        server_key: ""
+        server_cer: ""
+        dsmsroot_key: ""
+        dsmsroot_cer: ""
+        dir_path: ""
+
+    - name: read server key
+      set_fact:
+        server_key: "{{ telemetry_certs['server_key'] }}"
+      when: telemetry_certs['server_key'] is defined
+
+    - name: read server cer
+      set_fact:
+        server_cer: "{{ telemetry_certs['server_cer'] }}"
+      when: telemetry_certs['server_cer'] is defined
+
+    - name: read dsmsroot key
+      set_fact:
+        dsmsroot_key: "{{ telemetry_certs['dsmsroot_key'] }}"
+      when: telemetry_certs['dsmsroot_key'] is defined
+
+    - name: read dsmsroot cer
+      set_fact:
+        dsmsroot_cer: "{{ telemetry_certs['dsmsroot_cer'] }}"
+      when: telemetry_certs['dsmsroot_cer'] is defined
+
+    - name: read directory path
+      set_fact:
+        dir_path: "{{ telemetry_certs['dir_path'] }}"
+      when: telemetry_certs['dir_path'] is defined
+
+    - name: Create telemetry directory
+      file:
+        path: "{{ dir_path }}"
+        state: directory
+        mode: '0755'
+      become: true
+
+    # {{ server_cer }}/ streamingtelemetryserver.cer need to be copied on PTFDocker and renamed as dsmsroot.cer    
+    - name: Generate server cert using openssl.
+      command: openssl req \
+          -x509 \
+          -sha256 \
+          -nodes \
+          -newkey rsa:2048 \
+          -keyout "{{ server_key }}"
+          -subj "/CN=ndastreamingservertest"
+          -out "{{ server_cer }}" 
+      become: true
+
+    # {{ dsmsroot_cer }}/ dsmsroot.cer need to be copied on PTFDocker and renamed as streamingtelemetryclient.cer
+    # {{ dsms_key }}/ dsmsroot.key need to be copied and renamed as streamingtelemetryclient.key
+    - name: Generate dsmsroot cert using openssl.
+      command: openssl req \
+          -x509 \
+          -sha256 \
+          -nodes \
+          -newkey rsa:2048 \
+          -keyout "{{ dsmsroot_key }}"
+          -subj "/CN=ndastreamingclienttest"
+          -out "{{ dsmsroot_cer }}"
+      become: true
+
+  - block:
+      - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)
+        shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
+        become: true
+        ignore_errors: true
+
+      - name: create new minigraph file for SONiC device
+        template: src=templates/minigraph_template.j2
+                  dest=/etc/sonic/minigraph.xml
+        become: true
+
+      - name: Test if configlet script exist
+        stat:
+            path: vars/configlet/{{ topo }}/apply_clet.sh
+        register: stat_result
+        delegate_to: localhost
+
+      - name: debug print stat_result
+        debug:
+          msg: Stat result is {{ stat_result }}
+
+      - name: Copy corresponding configlet files if exist
+        copy: src=vars/configlet/{{ topo }}/
+              dest=/etc/sonic/
+        become: true
+        when: stat_result.stat.exists is defined and stat_result.stat.exists
+
+      - name: Init account key and proxy
+        set_fact:
+            core_key: ""
+            core_proxy: ""
+
+      - name: Test if core_analyzer.rc.json exists
+        stat:
+            path: /etc/sonic/core_analyzer.rc.json
+        register: rc_stat
+
+      - name: read account key
+        set_fact:
+            core_key: "{{ corefile_uploader['azure_sonic_core_storage']['account_key'] }}"
+        when: rc_stat.stat.exists is defined and rc_stat.stat.exists and corefile_uploader['azure_sonic_core_storage']['account_key'] is defined
+
+      - name: read https proxy
+        set_fact:
+            core_proxy: "{{ corefile_uploader['env']['https_proxy'] }}"
+        when: rc_stat.stat.exists is defined and rc_stat.stat.exists and corefile_uploader['env']['https_proxy'] is defined
+
+      - name: Put secret in core_analyzer.rc.json
+        lineinfile:
+            name: /etc/sonic/core_analyzer.rc.json
+            regexp: '(^.*)account_key'
+            line: '\1account_key": "{{ core_key }}",'
+            backrefs: yes
+        become: true
+        when: core_key != ""
+
+      - name: Put https-proxy in core_analyzer.rc.json
+        lineinfile:
+            name: /etc/sonic/core_analyzer.rc.json
+            regexp: '(^.*)https_proxy'
+            line: '\1https_proxy": "{{ core_proxy }}"'
+            backrefs: yes
+        become: true
+        when: core_proxy != ""
+
+      - name: enable core uploader service
+        become: true
+        command: systemctl enable core_uploader.service
+        when: core_key != ""
+
+      - name: start core uploader service
+        become: true
+        command: systemctl start core_uploader.service
+        when: core_key != ""
+
+      - name: Replace snmp community string
+        lineinfile:
+            name: /etc/sonic/snmp.yml
+            regexp: '^snmp_rocommunity:'
+            line: 'snmp_rocommunity: {{ snmp_rocommunity }}'
+        become: true
+
+      - name: disable automatic minigraph update if we are deploying new minigraph into SONiC
+        lineinfile:
+            name: /etc/sonic/updategraph.conf
+            regexp: '^enabled='
+            line: 'enabled=false'
+        become: true
+        register: updategraph_conf
+
+      - name: restart automatic minigraph update service
+        become: true
+        service:
+          name: updategraph
+          state: restarted
+        when: updategraph_conf.changed
+
+      - name: docker status
+        shell: docker ps
+        register: docker_status
+
+      - debug: msg={{ docker_status.stdout_lines }}
+
+      - name: execute cli "config load_minigraph -y" to apply new minigraph
+        become: true
+        shell: config load_minigraph -y
+
+      - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
+        become: true
+        shell: config bgp startup all
+
+      - name: execute configlet application script, which applies configlets in strict order.
+        become: true
+        shell: bash "/etc/sonic/apply_clet.sh"
+        when: stat_result.stat.exists is defined and stat_result.stat.exists
+
+      - name: execute cli "config save -y" to save current minigraph as startup-config
+        become: true
+        shell: config save -y
+        when: save is defined and save|bool == true
+    when: deploy is defined and deploy|bool == true

@@ -1,0 +1,14 @@
+Value RuleName (\S+)
+Value TableName (\S+)
+Value Type (\S+)
+Value Priority (\d+)
+Value Action (\S+)
+Value PacketsCnt (\d+)
+Value BytesCnt (\d+)
+Value Bindpoint (\S+)
+
+
+Start
+  ^\s*${RuleName}\s+${TableName}\s+${Type}\s+${Priority}\s+${Action}\s+${PacketsCnt}\s+${BytesCnt}\s*$$ -> Record
+  ^\s*${RuleName}\s+${TableName}\s+${Priority}\s+${Bindpoint}\s+${PacketsCnt}\s+${BytesCnt}\s*$$ -> Record
+  ^\s*${RuleName}\s+${TableName}\s+${Priority}\s+${PacketsCnt}\s+${BytesCnt}\s*$$ -> Record

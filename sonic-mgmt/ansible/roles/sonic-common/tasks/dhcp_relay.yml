@@ -1,0 +1,10 @@
+- name: Ensure DHCP Relay container started
+  include_tasks: sonicdocker.yml
+  vars:
+    docker_container: dhcp_relay
+    docker_image: "{{ image_id_dhcp_relay }}"
+    docker_privileged: yes
+    docker_state: reloaded
+    docker_volumes:
+      -  /etc/sonic/:/etc/sonic/:ro
+

@@ -1,0 +1,57 @@
+####################################################
+#sonic# show mclag brief 
+# 
+#Domain ID            : 2
+#Role                 : standby
+#Session Status       : up
+#Peer Link Status     : up
+#Source Address       : 12.1.1.2
+#Peer Address         : 12.1.1.1
+#Peer Link            : PortChannel0002
+#Keepalive Interval   : 1 secs
+#Session Timeout      : 15 secs
+#System Mac           : 3c:2c:99:53:c7:c0
+# 
+# 
+#Number of MLAG Interfaces:4
+#-----------------------------------------------------------
+#MLAG Interface       Local/Remote Status 
+#-----------------------------------------------------------
+#PortChannel10            down/down
+#PortChannel20            down/down
+#PortChannel30            down/down
+#PortChannel40            down/down
+#sonic# 
+#
+#Output:
+#['session_status', 'domain_id', 'local_ip', 'peer_ip', 'peer_link_inf', 'keepalive_timer', 'session_timer', 'peer_link_mac', 'node_role', 'num_mclag_intfs', 'mclag_intfs', 'local_status', 'remote_status']
+#[['up', '2', '12.1.1.2', '12.1.1.1', 'PortChannel0002', '1', '15', '3c:2c:99:53:c7:c0', 'standby', '4', [], [], []], ['', '', '', '', '', '', '', '', '', '', ['PortChannel10', 'PortChannel20', 'PortChannel30', 'PortChannel40'], ['down', 'down', 'down', 'down'], ['down', 'down', 'down', 'down']]]
+#
+#####################################################
+Value session_status (\w+)
+Value domain_id (\d+)
+Value local_ip (\d+\.\d+\.\d+\.\d+)
+Value peer_ip (\d+\.\d+\.\d+\.\d+)
+Value peer_link_inf (\w+)
+Value keepalive_timer (\d+)
+Value session_timer (\d+)
+Value peer_link_mac (\w\w:\w\w:\w\w:\w\w:\w\w:\w\w)
+Value node_role (\w+)
+Value num_mclag_intfs (\d+)
+Value List mclag_intfs (\w+)
+Value List local_status (\w+)
+Value List remote_status (\w+)
+
+Start
+  ^\s*Session Status\s*: ${session_status}$$
+  ^\s*Domain ID\s*: ${domain_id}$$
+  ^\s*Source Address\s*: ${local_ip}$$
+  ^\s*Peer Address\s*: ${peer_ip}$$
+  ^\s*Peer Link\s*: ${peer_link_inf}$$
+  ^\s*Keepalive Interval\s*: ${keepalive_timer} secs
+  ^\s*Session Timeout\s*: ${session_timer} secs
+  ^\s*System Mac\s*: ${peer_link_mac}$$
+  ^\s*Role\s*: ${node_role}$$
+  ^\s*Number of MLAG Interfaces:${num_mclag_intfs}$$ -> Record
+  ^\s*${mclag_intfs}\s*${local_status}/${remote_status}\s*$$
+  ^\s*-> Record

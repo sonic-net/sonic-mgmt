@@ -1,0 +1,4 @@
+#!/bin/bash -ex
+
+ip netns exec {{ namespace[0] }} env exabgp.daemon.user=root nohup exabgp {{ exabgp_dir }}/config.ini >/tmp/exabgp_{{ namespace[0] }}.log 2>&1 &
+ip netns exec {{ namespace[1] }} env exabgp.daemon.user=root nohup exabgp {{ exabgp_dir }}/config.ini >/tmp/exabgp_{{ namespace[1] }}.log 2>&1 &

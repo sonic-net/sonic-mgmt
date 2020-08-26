@@ -1,0 +1,15 @@
+eos_default_login: "admin"
+eos_default_password: ""
+eos_login: admin
+eos_password: 123456
+eos_root_user: root
+eos_root_password: 123456
+
+sonic_login: "admin"
+sonic_default_passwords:
+ - "YourPaSsWoRd"
+ - "password"
+sonic_password: "password"
+
+ceos_image_orig: ceosimage:4.23.2F
+ceos_image: ceosimage:4.23.2F-1

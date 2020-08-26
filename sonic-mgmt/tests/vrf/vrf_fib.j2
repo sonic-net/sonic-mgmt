@@ -1,0 +1,36 @@
+{% macro gen_dst_ports(intf_list) -%}
+{% for intf in intf_list -%}
+[{% for m in intf_member_indices.get(intf, []) %}{{ m | int }}{{ ' ' if not loop.last else '' }}{% endfor %}]{{ ' ' if not loop.last else '' }}
+{%- endfor %}
+{%- endmacro %}
+
+{# defualt route#}
+{% if testbed_type == 't0' %}
+0.0.0.0/0 {{ gen_dst_ports(dst_intfs) }}
+::/0 {{ gen_dst_ports(dst_intfs) }}
+
+{#routes to uplink#}
+{#Limit the number of podsets and subnets to be covered to limit script execution time#}
+{% for podset in range(0, [props.podset_number, limited_podset_number|default(10)]|min) %}
+{% for tor in range(0, [props.tor_number, limited_tor_number|default(10)]|min) %}
+{% for subnet in range(0, props.tor_subnet_number) %}
+{% set suffix = ( (podset * props.tor_number * props.max_tor_subnet_number * props.tor_subnet_size) +
+                  (tor * props.max_tor_subnet_number * props.tor_subnet_size) +
+                  (subnet * props.tor_subnet_size) ) %}
+{% set octet2 = (168 + ((suffix // (256 ** 2)))) %}
+{% set octet1 = (192 + (octet2 // 256)) %}
+{% set octet2 = (octet2 % 256) %}
+{% set octet3 = ((suffix // 256) % 256) %}
+{% set octet4 = (suffix % 256) %}
+{% set prefixlen_v4 = (32 - ((props.tor_subnet_size | log(2))) | int) %}
+{# Skip 192.168.0.0 as it is in Vlan1000 subnet  #}
+{% if octet2 != 168 and octet3 != 0 and octet4 != 0 %}
+{{ octet1 }}.{{ octet2 }}.{{ octet3 }}.{{ octet4 }}/{{ prefixlen_v4 }} {{ gen_dst_ports(dst_intfs) }}
+
+{{ '20%02x' % octet1 }}:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/64 {{ gen_dst_ports(dst_intfs) }}
+
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% endfor %}
+{% endif %}

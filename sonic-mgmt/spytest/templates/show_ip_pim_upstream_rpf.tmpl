@@ -1,0 +1,16 @@
+###############################################################
+#sonic# show ip pim upstream-rpf          
+#Source          Group           RpfIface RibNextHop      RpfAddress     
+#10.2.1.20       232.0.0.20      Ethernet47 10.2.1.20       10.2.1.20  
+#
+###############################################################
+Value source ([\w\.]+)
+Value group ([\w\.]+)
+Value rpfiface (\w+)
+Value ribnexthop ([\w\.]+)
+Value rpfaddress ([\w\.]+)
+Value vrf (\w+)
+
+Start
+  ^\s*VRF:\s*${vrf}$$
+  ^\s*${source}\s*${group}\s*${rpfiface}\s*${ribnexthop}\s*${rpfaddress}$$ -> Record

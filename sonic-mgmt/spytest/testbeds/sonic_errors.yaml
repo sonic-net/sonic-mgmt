@@ -1,0 +1,139 @@
+################################################
+# error_identifier:
+#     command: <regex to match command>
+#     search: <regex to search in the output>
+#     action: <list of actions to be taken>
+# actions supported
+#    raise: raise exception to the caller
+#    reboot: reboot the system
+#    ignore: ignore the match
+# Note:
+#    The output is matched for error identifiers
+#    in the same order specified. The matching
+#    will stop once an error identifier matches
+################################################
+
+default:
+    containing_swss_service_failed:
+      command: ".*"
+      search: ".*Job for swss.service failed.*"
+      action: [raise, core-dump, tech-support]
+      result: [DUTFail, critical_swss_service_failed]
+
+    containing_syncd_exited:
+      command: ".*"
+      search: ".*Process syncd exited unxepectedly.*"
+      action: [raise, core-dump, tech-support]
+      result: [DUTFail, critical_syncd_exited]
+
+    containing_orchagent_exited:
+      command: ".*"
+      search: ".*Process orchagent exited unxepectedly.*"
+      action: [raise, core-dump, tech-support]
+      result: [DUTFail, critical_orchagent_exited]
+
+    containing_vlanmgrd_exited:
+      command: ".*"
+      search: ".*Process vlanmgrd exited unxepectedly.*"
+      action: [raise, core-dump, tech-support]
+      result: [DUTFail, critical_vlanmgrd_exited]
+
+    containing_abort:
+      command: ".*"
+      search: ".*terminated by SIGABRT.*"
+      action: [raise, core-dump, tech-support]
+      result: [DUTFail, critical_terminated_by_sigabrt]
+
+    containing_err_syncd:
+      command: ".*"
+      search: ".*syncd_main: Runtime error.*"
+      action: [raise, core-dump, tech-support]
+      result: [DUTFail, critical_err_syncd]
+
+    containing_core_dump:
+      command: ".*"
+      search: ".*core dumped.*"
+      action: [raise, core-dump, tech-support]
+      result: [DUTFail, critical_core_dumped]
+
+    containing_kernel_panic:
+      command: ".*"
+      search: ".*Kernel panic - not syncing.*"
+      action: [raise, core-dump, tech-support]
+      result: [DUTFail, critical_core_dumped]
+
+    containing_no_response_from_container:
+      command: ".*"
+      search: ".*Error response from daemon.*"
+      action: [raise]
+      result: [DUTFail, container_not_running]
+
+    containing_failed_diag_cmd:
+      command: ".*"
+      search: ".*Failed to execute the diagnostic command.*"
+      action: [raise]
+      result: [DUTFail, config_cmd_error]
+
+    containing_error_mgmt_rest_server:
+      command: ".*"
+      search: ".*Error: Could not connect to Management REST Server.*"
+      action: [raise]
+      result: [DUTFail, config_cmd_error]
+
+    containing_python_traceback:
+      command: ".*"
+      search: ".*Traceback \\(most recent call last\\):.*"
+      action: [raise]
+      result: [DUTFail, config_cmd_error]
+
+    containing_restartcheck_failed:
+      command: ".*reboot.*"
+      search: ".*RESTARTCHECK failed.*"
+      action: [raise]
+
+    config_cmd_error:
+      command: ".*sudo config .*"
+      search: ".*Usage: config .*"
+      action: [raise]
+      result: config_cmd_error
+
+    unrecognized_command:
+      command: ".*"
+      search: ".*Error: Unrecognized command.*"
+      action: [raise]
+
+    containing_error:
+      command: ".*"
+      search: ".*Error:.*"
+      action: [raise]
+
+    containing_bang:
+      command: ".*"
+      search: ".*\\^.*"
+      action: [raise]
+
+    containing_failed:
+      command: ".*"
+      search: ".*Failed.*"
+      action: [raise]
+
+    bash_command_not_found:
+      command: ".*"
+      search: ".*bash: .*: command not found.*"
+      action: [raise]
+
+    syntax_error:
+      command: ".*"
+      search: ".*Syntax error:.*"
+      action: [raise]
+
+    invalid_input:
+      command: ".*"
+      search: ".*Invalid input:.*"
+      action: [raise]
+
+    unknown_command:
+      command: ".*"
+      search: ".*Unknown command:.*"
+      action: [raise]
+

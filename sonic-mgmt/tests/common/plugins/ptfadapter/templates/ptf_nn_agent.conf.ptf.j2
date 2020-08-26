@@ -1,0 +1,11 @@
+[program:ptf_nn_agent]
+command=/usr/bin/python /opt/ptf_nn_agent.py --device-socket {{ device_num }}@tcp://0.0.0.0:{{ ptf_nn_port }} {% for id in ifaces_map -%} -i {{ device_num }}-{{ id }}@{{ ifaces_map[id] }} {% endfor %}
+
+process_name=ptf_nn_agent
+stdout_logfile=/tmp/ptf_nn_agent.out.log
+stderr_logfile=/tmp/ptf_nn_agent.err.log
+redirect_stderr=false
+autostart=true
+autorestart=true
+startsecs=1
+numprocs=1

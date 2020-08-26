@@ -1,0 +1,9 @@
+Value PSU (\S+\s+\d+)
+Value Status (\S+)
+
+Start
+  ^\s*PSU\s+Status\s*$$
+  ^(-+\s*)*$$
+  ^\s*${PSU}\s+${Status}\s*$$ -> Record
+  ^$$
+  ^Error.* -> Error "Error: fail to get psu status from state DB"

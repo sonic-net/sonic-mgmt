@@ -1,0 +1,8 @@
+Value binding_name (\S+)
+Value pool_name (\S+)
+Value acl_name (\S+|\s)
+Value nat_type (\S+)
+Value twice_nat_id (\d+|---)
+
+Start
+  ^\s*${binding_name}\s+${pool_name}\s+${acl_name}\s+${nat_type}\s+${twice_nat_id}\s*$$ -> Record

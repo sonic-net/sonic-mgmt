@@ -1,0 +1,138 @@
+[
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_1": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1020-4096"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_2": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1028-4096"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_3": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1020-4096"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_4": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1028-4096"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_5": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1020-4096"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_6": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1028-4096"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_7": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1020-4096"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_8": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1028-4096"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_9": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1020-4096"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_10": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1028-4096"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_11": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1020-4096"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_12": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1028-4096"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_13": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1020-4096"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_14": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1028-4096"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_15": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1020-4096"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_16": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1028-4096"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_valid_17": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "1028-4096"
+        },
+        "OP": "SET"
+    }
+]

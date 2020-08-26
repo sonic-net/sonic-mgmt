@@ -1,0 +1,12 @@
+- name: reboot 
+  include_tasks: common_tasks/reboot_sonic.yml 
+
+- name: sanity check to pass
+  include_tasks: base_sanity.yml
+
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+  when: minigraph_interfaces is not defined 
+        
+- include_tasks: interface.yml
+

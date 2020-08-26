@@ -1,0 +1,265 @@
+# Gather minigraph facts
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: broadcom
+  when: sonic_hwsku in broadcom_hwskus
+  tags: always
+
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: mellanox
+  when: sonic_hwsku in mellanox_hwskus
+  tags: always
+
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: cavium
+  when: sonic_hwsku in cavium_hwskus
+  tags: always
+
+- name: Set sonic_asic_type fact
+    set_fact:
+    sonic_asic_type: barefoot
+  when: sonic_hwsku in barefoot_hwskus
+  tags: always
+
+- name: Set sonic_asic_type fact
+    set_fact:
+    sonic_asic_type: marvell
+  when: sonic_hwsku in marvell_hwskus
+  tags: always
+
+- name: update sonicadmin password
+  include_tasks: passwd.yml
+  tags: system
+
+# Setup apt repo
+- include_tasks: aptrepo.yml
+  tags: repo
+
+- name: Ensure /etc/sonic path exists
+  file: path=/etc/sonic state=directory
+
+- name: Copy minigraph
+  become: true
+  copy: src=../minigraph/{{ inventory_hostname }}.xml
+        dest=/etc/sonic/minigraph.xml
+        mode=0644
+  tags: always
+
+# Syslog
+- name: Install Syslog daemon
+  become: true
+  apt: pkg=rsyslog
+       state=latest
+  tags: syslog
+
+- name: Setup Syslog Daemon Config File
+  become: true
+  template: src=rsyslog.conf.j2
+            dest=/etc/rsyslog.conf
+  notify:
+    - Restart Syslog Daemon
+  tags: syslog
+
+- name: Setup Syslog Config Directory
+  become: true
+  copy: src=rsyslog.d/
+        dest=/etc/rsyslog.d/
+  notify:
+    - Restart Syslog Daemon
+  tags: syslog
+
+- name: Ensure Syslog Daemon started and enabled
+  become: true
+  service: name=rsyslog
+           state=started
+           enabled=yes
+  tags: syslog
+
+# NTP
+# This needs to be early in the playbook otherwise clock changes can cause problems
+- name: Install NTP daemon and ntpstat
+  become: true
+  apt: pkg={{ item }}
+       state=latest
+  with_items:
+  - ntp
+  - ntpstat
+  tags: ntp
+
+- name: Setup NTP Daemon Config File
+  become: true
+  template: src=ntp.conf.j2
+            dest=/etc/ntp.conf
+  notify:
+    - Restart NTP Daemon
+  tags: ntp
+
+# Update initramfs
+- name: Update initramfs to prevent fsck error 2 at bootup
+  become: yes
+  shell: update-initramfs -u
+  when: bootstrap is defined
+
+# Hosts File
+- name: Setup Hosts File
+  become: true
+  template: src=hosts.j2
+            dest=/etc/hosts
+  tags: system
+
+# Assign hostname
+- name: Assign hostname
+  become: true
+  hostname: name={{ inventory_hostname }}
+  tags: system
+
+# Setup environment file
+- name: Copy /etc/environment
+  become: true
+  copy: src=environment
+        dest=/etc
+        owner=root
+        group=root
+        mode=0644
+  tags: system
+
+# Setup motd file
+- name: Copy Message of the Day
+  become: true
+  copy: directory_mode=0755
+        src=etc/motd
+        dest=/etc/motd
+        owner=root
+        group=root
+        mode=0644
+  tags: system
+
+# Setup Interfaces
+- name: Copy Interfaces File.
+  become: true
+  template: src=interfaces.j2
+            dest=/etc/network/interfaces
+            owner=root
+            group=root
+            mode=0644
+  register: if_copy
+  tags: network,unsafe
+
+# Do the same change in /etc/network/interfaces here
+- name: Add MGMT Default Route to table default
+  become: true
+  command: ip route add default via {{ minigraph_mgmt_interface["gwaddr"] }} dev eth0 table default
+  register: route_add_result
+  failed_when: 'route_add_result.rc != 0 and "RTNETLINK answers: File exists" not in route_add_result.stderr'
+  when: if_copy.changed
+  tags: network,unsafe
+
+- name: Test if there is mgmt ip rule
+  command: /bin/ip rule show
+  register: ip_rules
+  tags: network
+  changed_when: False
+
+- name: Add mgmt ip rule if it does not exist
+  become: true
+  shell: /bin/ip rule add from {{ minigraph_mgmt_interface['addr'] }}/32 table default
+  tags: network,unsafe
+  when: ip_rules.stdout.find("from {{ minigraph_mgmt_interface['addr'] }} lookup default") == -1
+
+- name: Setup loopback ip address
+  become: true
+  command: ifup --force lo
+  changed_when: False
+  tags: network,unsafe
+
+# Docker engine
+- include_tasks: docker.yml
+  tags: docker
+ 
+## Redis database
+- include_tasks: database.yml
+  tags:
+    - swss
+    - database
+    - unsafe
+
+# DHCP exit hooks hostname sync.
+- name: DHCP Client Exit Script Sync.
+  become: true
+  template: src=dhclient-exit-hook-hostname
+            dest=/etc/dhcp/dhclient-exit-hooks.d/hostname
+
+# SSW
+- name: Copy all SSW files.
+  become: true
+  copy: directory_mode=0755
+        src=ssw/{{ sonic_hwsku }}
+        dest=/etc/ssw
+        owner=root
+        group=root
+        mode=0644
+  tags: ssw
+  when: sonic_hwsku != "AS7512"
+
+# Setup Platform
+- include_tasks: platform.yml
+  tags: platform,unsafe
+
+# Install Persistent Iptables Package
+- name: Install iptables-persistent
+  become: true
+  apt: pkg=iptables-persistent
+       state=latest
+  tags: unsafe
+
+# setup sudoers
+- include_tasks: sudoers.yml
+
+# Install Logrotate
+- include_tasks: logrotate.yml
+
+# SNMP
+- include_tasks: snmp.yml
+  tags: snmp
+
+# LLDP
+- include_tasks: lldp.yml
+  tags: lldp
+
+# DHCP Relay
+- include_tasks: dhcp_relay.yml
+  tags: dhcp_relay
+  when: minigraph_devices[inventory_hostname]['type'] == "ToRRouter"
+
+- command: /bin/true
+  notify: Clean up apt
+
+### Final Actions below this line
+
+- meta: flush_handlers
+
+- name: Reboot if required
+  shell: sleep 2 && shutdown -r now "Ansible updates triggered reboot."
+  async: 1
+  poll: 0
+  become: true
+  ignore_errors: true
+  when: reboot_required is defined
+  tags: unsafe
+
+- name: After rebooting, wait for switch to come back
+  become: false
+  local_action: wait_for
+  args:
+    host: "{{ inventory_hostname }}"
+    port: 22
+    state: started
+    delay: 30
+    timeout: 300
+  when: reboot_required is defined
+  tags: unsafe

@@ -1,0 +1,12 @@
+Value Table (\S+)
+Value Rule (\S+)
+Value Priority (\S+)
+Value Action (\S+)
+Value Match (\S+:\s+\S+)
+
+Start
+  ^\s*Table\s+Rule\s+Priority\s+Action\s+Match\s*$$
+  ^(-+\s*)*$$
+  ^\s*${Table}\s+${Rule}\s+${Priority}\s+${Action}\s+${Match}\s*$$ -> Record
+  ^\s*\s+${Match}\s*$$ -> Record
+  ^$$

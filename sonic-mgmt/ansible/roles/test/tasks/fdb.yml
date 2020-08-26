@@ -1,0 +1,174 @@
+- fail: msg="testbed_type is not defined"
+  when: testbed_type is not defined
+
+- fail: msg="testbed_type {{test_type}} is invalid"
+  when: testbed_type not in ['t0', 't0-64', 't0-116', 't0-52']
+
+- name: Gather minigraph facts about the device
+  minigraph_facts: host={{inventory_hostname}}
+
+- block:
+  - name: Remove existing IPs from PTF host
+    script: roles/test/files/helpers/remove_ip.sh
+    delegate_to: "{{ptf_host}}"
+
+  - name: Set unique MACs to PTF interfaces
+    script: roles/test/files/helpers/change_mac.sh
+    delegate_to: "{{ptf_host}}"
+
+  - name: Copy tests to PTF
+    copy: src=roles/test/files/ptftests dest=/root
+    delegate_to: "{{ptf_host}}"
+
+  - name: Copy FDB information file to PTF
+    template: src=roles/test/templates/fdb.j2 dest=/root/fdb_info.txt
+    delegate_to: "{{ ptf_host }}"
+
+  - name: clear FDB table
+    command: sonic-clear fdb all
+
+  - name: Initialize variables
+    set_fact:
+      dummy_mac_prefix: "02:11:22:33"
+      dummy_mac_number: "10"
+      vlan_member_count: 0
+
+  - name: Set dummy mac number for SimX virtual testbed
+    set_fact:
+      dummy_mac_number: "1"
+    when:
+      - hostvars[ansible_hostname]['type'] is defined
+      - hostvars[ansible_hostname]['type'] == 'simx'
+
+  - name: "Start PTF runner"
+    include_tasks: ptf_runner.yml
+    vars:
+      ptf_test_name: FDB test
+      ptf_test_dir: ptftests
+      ptf_test_path: fdb_test.FdbTest
+      ptf_platform: remote
+      ptf_platform_dir: ptftests
+      ptf_test_params:
+        - testbed_type='{{testbed_type}}'
+        - router_mac='{{ansible_Ethernet0['macaddress']}}'
+        - fdb_info='/root/fdb_info.txt'
+        - vlan_ip='{{minigraph_vlan_interfaces[0]['addr']}}'
+        - dummy_mac_prefix='{{ dummy_mac_prefix }}'
+        - dummy_mac_number='{{ dummy_mac_number }}'
+      ptf_extra_options: "--relax --debug info --log-file /tmp/fdb_test.FdbTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
+
+  - name: Get the output of 'show mac'
+    command: "show mac"
+    register: show_mac_output
+
+  - name: Count the total number of members of all VLANs
+    set_fact:
+      vlan_member_count: "{{ vlan_member_count|int + minigraph_vlans[item.key]['members']|length }}"
+    with_dict: "{{ minigraph_vlans }}"
+
+  - name: Set variables for expected number of MAC entries
+    set_fact:
+      expected_dummy_mac_number: "{{ dummy_mac_number|int * vlan_member_count|int }}"
+      expected_total_mac_number: "{{ dummy_mac_number|int * vlan_member_count|int + vlan_member_count|int }}"
+
+  - name: Verify that the number of dummy MAC entries is expected
+    assert: { that: "{{ show_mac_output.stdout_lines|select('search', dummy_mac_prefix)|list|length == expected_dummy_mac_number|int }}"}
+
+  - name: Verify that total number of MAC entries is expected
+    assert: { that: "{{ show_mac_output.stdout_lines|select('search', 'Dynamic')|list|length == expected_total_mac_number|int }}"}
+
+  always:
+    - name: clear FDB table
+      command: sonic-clear fdb all
+
+- block:
+  - name: clear FDB table
+    command: sonic-clear fdb all
+
+  - name: Get ports in portchannels
+    set_fact:
+      portchannel_members_all: []
+  - set_fact:
+      portchannel_members_all: "{{ portchannel_members_all + item['members'] }}"
+    with_items: "{{ minigraph_portchannels.values() }}"
+
+  - name: Get DUT ports info
+    set_fact:
+      vlan_ports: "{%for port in minigraph_vlans['Vlan1000']['members'] %}{{minigraph_port_indices[port]}}{%if not loop.last%} {%endif%}{%endfor%}"
+      lag_ports: "{%for port in portchannel_members_all %}{{minigraph_port_indices[port]}}{%if not loop.last%} {%endif%}{%endfor%}"
+
+  - name: Initialize variables
+    set_fact:
+      dummy_mac_prefix: "02:11:22:33"
+
+  - name: "Set ptf facts"
+    set_fact:
+      ptf_test_name: FDB test
+      ptf_test_dir: ptftests
+      ptf_test_path: fdb_test.FdbConfigReloadTest
+      ptf_platform: remote
+      ptf_platform_dir: ptftests
+      ptf_test_params:
+        - testbed_type='{{ testbed_type }}'
+        - vlan_ports='{{ vlan_ports }}'
+        - lag_ports='{{ lag_ports }}'
+        - router_mac='{{ ansible_interface_facts['Ethernet0']['macaddress'] }}'
+        - dummy_mac_prefix='{{ dummy_mac_prefix }}'
+      ptf_extra_options: "--relax --debug info --log-file /tmp/fdb_test.FdbTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
+
+  - debug: msg="ptf --test-dir {{ ptf_test_dir }} {{ ptf_test_path }} {% if ptf_qlen is defined %} --qlen={{ ptf_qlen }} {% endif %} {% if ptf_platform_dir is defined %} --platform-dir {{ ptf_platform_dir }} {% endif %} --platform {{ ptf_platform }} {% if ptf_test_params is defined %} -t \"{{ ptf_test_params | default([]) | join(';') }}\" {% endif %} {{ ptf_extra_options | default(\"\")}} 2>&1"
+
+  - name: Run PTF script to inject packets with different src MAC
+    shell: ptf --test-dir {{ ptf_test_dir }} {{ ptf_test_path }} {% if ptf_qlen is defined %} --qlen={{ ptf_qlen }} {% endif %} {% if ptf_platform_dir is defined %} --platform-dir {{ ptf_platform_dir }} {% endif %} --platform {{ ptf_platform }} {% if ptf_test_params is defined %} -t "{{ ptf_test_params | default([]) | join(';') }}" {% endif %} {{ ptf_extra_options | default("")}} 2>&1
+    args:
+      chdir: /root
+    delegate_to: "{{ ptf_host }}"
+    async: 300
+    poll: 0
+
+  - name: Reload config
+    include_tasks: "roles/test/tasks/common_tasks/reload_config.yml"
+    vars:
+      config_source: "config_db"
+
+  - name: Get PID of the PTF script
+    command: "pgrep -f '/usr/bin/python /usr/bin/ptf'"
+    register: ptf_script_pid
+    delegate_to: "{{ ptf_host }}"
+    ignore_errors: yes
+
+  - name: Wait until the PTF script completed execution
+    shell: "tail --pid={{ ptf_script_pid.stdout }} -f /dev/null"
+    delegate_to: "{{ ptf_host }}"
+    when: ptf_script_pid.rc == 0
+
+  - name: Wait some extra time to ensure that all FDB entries are in DB
+    pause: seconds=10
+
+  - name: Count FDB entries from SDK
+    shell: "docker exec syncd sx_api_fdb_dump.py | grep AGEABLE | wc -l"
+    register: sdk_fdb_count
+
+  - debug: msg="{{ sdk_fdb_count.stdout_lines }}"
+
+  - name: Count FDB entries from 'show mac'
+    shell: "show mac | grep Dynamic | wc -l"
+    register: show_mac_output
+
+  - debug: msg="{{ show_mac_output.stdout_lines }}"
+
+  - name: clear FDB table when test case pass
+    command: sonic-clear fdb all
+    when: sdk_fdb_count.stdout == show_mac_output.stdout
+
+  - fail: msg="No FDB is learned, something wrong with the switch"
+    when: sdk_fdb_count.stdout | int == 0 or show_mac_output.stdout | int == 0
+
+  - fail: msg="In consistent number MAC entries between SDK and DB"
+    when: sdk_fdb_count.stdout != show_mac_output.stdout
+
+  when: sonic_asic_type == 'mellanox'
+
+  always:
+    - name: clear FDB table
+      command: sonic-clear fdb all

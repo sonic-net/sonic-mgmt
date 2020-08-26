@@ -1,0 +1,8 @@
+####################################
+#sonic# show ip pim group-type 
+#SSM group range : 232.0.0.0/8
+####################################
+Value ssm_group_range ([\w\.\/]+)
+
+Start
+  ^\s*SSM\s*group\s*range\s*:\s*${ssm_group_range}$$ -> Record

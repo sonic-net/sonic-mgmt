@@ -1,0 +1,30 @@
+- name: prepare fanout switch admin login info
+  set_fact: ansible_ssh_user={{ fanout_admin_user }} ansible_ssh_pass={{ fanout_admin_password }}
+
+- name: create persistent shell login
+  file: path=/mnt/flash/rc.eos state=touch
+  become: yes
+
+- name: save persistent shell login
+  template: src=rc.eos.j2
+            dest=/mnt/flash/rc.eos
+  become: yes
+
+- name: build fanout startup config for Arista fanout leaf
+  template: src=arista_7260_deploy.j2
+            dest=/mnt/flash/startup-config
+  when: device_info.HwSku == "Arista-7260QX-64"
+  become: yes
+
+- name: build fanout startup config for 7060
+  template: src=arista_7060_deploy.j2
+            dest=/mnt/flash/startup-config
+  when: device_info.HwSku == "Arista-7060CX-32S"
+  become: yes
+
+- name: reboot
+  shell: sleep 2 && shutdown -r now "Reboot"
+  async: 1
+  poll: 0
+  ignore_errors: true
+  become: yes

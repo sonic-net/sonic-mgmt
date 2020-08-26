@@ -1,0 +1,42 @@
+#--------------------------------------------------
+# --- lag_2.yml test---
+#-------------------------------------------------
+# Using PTF test framework, check the LACP packets timing
+# for each VM that has LAG configured.
+#
+# @ params: iface_behind_lag_member_0   -   PTF docker iface, that receives all the packets that VM LAG member does.
+# @ params: iface_behind_lag_member_1   -   PTF docker iface, that receives all the packets that VM LAG member does.
+# @ params: vm_name     -       VM hostname that will be printed before running test.
+# @ params: interval_count              -   specifying how many packet internvals to test.
+#                                           When internval count is n, n+1 packets will be
+#                                           received to get n internvals, the test will
+#                                           then check the median internval.
+# 
+# Originally in lagall.yml, and lag_2.yml should cover it 
+#--------------------------------------------------------
+
+- set_fact:
+    lacp_ether_type: '0x8809'
+    packet_timing: "{{ lacp_timer }}"
+    packet_timeout: 35
+
+- set_fact:
+    interval_count: 3
+  when: interval_count is not defined
+
+- debug: msg="Finding median of {{ interval_count }} packet intervals"
+
+- name: Check LACP timing on eth{{ iface_behind_lag_member[0] }} (interface behind {{ vm_name }}).
+  include_tasks: lag_run_ptf.yml
+  vars:
+    lag_ptf_test_name: LacpTimingTest
+    params: "exp_iface={{ iface_behind_lag_member[0] }}; timeout={{ packet_timeout }}; packet_timing={{ packet_timing }}; ether_type={{ lacp_ether_type }}; interval_count={{ interval_count }}"
+    change_dir: /tmp
+
+- name: Check LACP timing on eth{{ iface_behind_lag_member[1] }} (interface behind {{ vm_name }}).
+  include_tasks: lag_run_ptf.yml
+  vars:
+    lag_ptf_test_name: LacpTimingTest
+    params: "exp_iface={{ iface_behind_lag_member[1] }}; timeout={{ packet_timeout }}; packet_timing={{ packet_timing }}; ether_type={{ lacp_ether_type }}; interval_count={{ interval_count }}"
+    change_dir: /tmp
+  when: iface_behind_lag_member[1] is defined

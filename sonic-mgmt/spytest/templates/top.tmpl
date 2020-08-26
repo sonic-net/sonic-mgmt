@@ -1,0 +1,14 @@
+Value total (\d+)
+Value free (\d+)
+Value used (\d+)
+Value buff_cache (\d+)
+Value pid (\d+)
+Value user (\S+)
+Value cpu (\S+)
+Value mem (\S+)
+Value time (\S+)
+Value command (\S+)
+
+Start
+  ^\s*KiB\s*Mem\s*:\s*${total}\s*total,\s*${free}\s*free,\s*${used}\s*used,\s*${buff_cache}\s*buff\/cache\s*$$ -> Record
+  ^\s*${pid}\s+${user}\s+\S+\s+\S+\s+\d+\s+\d+\s+\d+\s+\w+\s+${cpu}\s+${mem}\s+${time}\s+${command}\s*$$ -> Record

@@ -1,0 +1,75 @@
+#---------------------------------
+# This script runs script for Cisco cli on remote host:
+#   1) Reads terminal length value.
+#   2) Sets terminal length to 0.
+#   2) Runs script.
+#   3) Sets terminal value to default.
+#
+# @ params: template    -   j2-file that contains cli commands
+# @ params: host        -   remote host, where to run the script
+# @ params: log_in      -   credentials to host
+#---------------------------------
+
+- set_fact:
+    inform_msg: "Current host is {{ host }}"
+
+- debug:
+    msg: "{{ inform_msg }}"
+
+- name: Get terminal characteristics.
+  action: apswitch template=roles/vm_set/templates/get_terminal_length.j2
+  connection: switch
+  args:
+    host: "{{ host }}"
+    enable: no
+    login: "{{ log_in }}"
+    timeout: 300
+  register: cisco_script_res
+
+- debug:
+    msg: "{{ inform_msg }}"
+
+- name: Get terminal length default.
+  shell: echo {{ cisco_script_res }} | grep --ignore-case length | sed -n "s/.*Length. \|.*length. \+//p" | sed -n "s/ rows.*//p"
+  register: terminal_length
+
+- debug:
+    msg: "{{ inform_msg }}"
+
+- name: Disable terminal paging.
+  action: apswitch template=roles/vm_set/templates/set_terminal_length.j2
+  connection: switch
+  args:
+    host: "{{ host }}"
+    enable: no
+    login: "{{ log_in }}"
+    timeout: 300
+  vars:
+    terminal_length_value: '0'
+
+- debug:
+    msg: "{{ inform_msg }}"
+
+- name: Run cisco-script.
+  action: apswitch template={{ template }}
+  connection: switch
+  args:
+    host: "{{ host }}"
+    enable: no
+    login: "{{ log_in }}"
+    timeout: 300
+  register: cisco_script_res
+
+- debug:
+    msg: "{{ inform_msg }}"
+
+- name: Set terminal length back to default.
+  action: apswitch template=roles/vm_set/templates/set_terminal_length.j2
+  connection: switch
+  args:
+    host: "{{ host }}"
+    enable: no
+    login: "{{ log_in }}"
+    timeout: 300
+  vars:
+    terminal_length_value: "{{ terminal_length.stdout }}"

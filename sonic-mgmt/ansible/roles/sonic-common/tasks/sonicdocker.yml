@@ -1,0 +1,194 @@
+##
+## Encapsulate docker module with private docker registry, manage the container service
+## by systemd on host, so it has full featured depdency control and restart policy
+##
+## The encapsulated module - sonicdocker
+## docker_state: emulate the behavior of docker module
+##   ref: http://docs.ansible.com/ansible/docker_module.html
+##
+## +-------------+------+--------------+----------+---------------------+----------------+-------------+
+## | sonicdocker | pull | stop service |  docker  |    post service     | enable service | clean image |
+## +-------------+------+--------------+----------+---------------------+----------------+-------------+
+## | present     |      |              | present  |                     | y              |             |
+## | started     |      |              | present  | started             | y              |             |
+## | reloaded    | y    | pulled?      | reloaded | restarted if pulled | y              | if pulled   |
+## |             |      |              |          | started if not      |                |             |
+## | restarted   |      |              | present  | restarted           | y              |             |
+## | stopped     |      | y            | stopped  | stopped             | n              |             |
+## | killed      |      | y            | killed   |                     | n              |             |
+## | absent      |      | y            | absent   |                     | n              | y           |
+## +-------------+------+--------------+----------+---------------------+----------------+-------------+
+##
+
+## Set default values for the module variables, emulating local variable definition
+## Note: must be consistent with tail part
+- name: "{{docker_container}} - Set docker variable - docker_net"
+  set_fact:
+    docker_net: host
+  when: docker_net is undefined
+- name: "{{docker_container}} - Set docker variable - docker_state"
+  set_fact:
+    docker_state: reloaded
+  when: docker_state is undefined
+- name: "{{docker_container}} - Set docker variable - docker_volumes"
+  set_fact:
+    docker_volumes: []
+  when: docker_volumes is undefined
+- name: "{{docker_container}} - Set docker variable - docker_volumes_from"
+  set_fact:
+    docker_volumes_from: []
+  when: docker_volumes_from is undefined
+- name: "{{docker_container}} - Set docker variable - docker_privileged"
+  set_fact:
+    docker_privileged: no
+  when: docker_privileged is undefined
+- name: "{{docker_container}} - Set docker variable - docker_log_driver"
+  set_fact:
+    docker_log_driver: json-file
+  when: docker_log_driver is undefined
+- name: "{{docker_container}} - Set docker variable - docker_env"
+  set_fact:
+    docker_env: {}
+  when: docker_env is undefined
+- name: "{{docker_container}} - Set docker variable - docker_tty"
+  set_fact:
+    docker_tty: yes
+  when: docker_tty is undefined
+- name: "{{docker_container}} - Set docker variable - docker_log_opt"
+  set_fact:
+    docker_log_opt: {}
+  when: docker_log_driver != "syslog"
+- name: "{{docker_container}} - Set docker variable - docker_log_opt"
+  set_fact:
+    docker_log_opt:
+      ## TRICK! TRICK! TRICK!
+      ## in ansible 2.0.0.2, reference set_fact varialbe will introduce recursive templating
+      ## so double escape by {{'...'}} and {%raw%}...{%endraw%}
+      tag: "{{'{%raw%}{{.ID}}({{.Name}}{%endraw%}'}})"
+  when: docker_log_driver == "syslog"
+
+## Local variables
+- name: "{{docker_container}} - Set docker variable - sonicdocker_container_state"
+  set_fact:
+    sonicdocker_container_state: "{{docker_state}}"
+- name: "{{docker_container}} - Set docker variable - sonicdocker_container_state"
+  set_fact:
+    sonicdocker_container_state: present
+  when: docker_state in ['present', 'started', 'restarted']
+
+## Copy systemd config files for docker container
+- name: "{{docker_container}} - Copy systemd config files for docker container"
+  become: true
+  template:
+    src="etc/systemd/system/{{docker_container}}.j2"
+    dest="/etc/systemd/system/{{docker_container}}.service"
+    owner=root
+    group=root
+    mode=0644
+  register: configfile_result
+  when: "docker_state not in ['absent']"
+
+- name: "{{docker_container}} - Reload systemd"
+  command: systemctl daemon-reload
+  become: yes
+  when: configfile_result.changed
+
+- block:
+  ## Clean up images before pulling
+  - name: "{{docker_container}} - Clean up images before pulling"
+    include_tasks: sonicdocker_clean.yml
+
+  ## Pull docker image from registry
+  - name: "{{docker_container}} - Pull docker image from registry"
+    shell: docker pull {{docker_registry_host}}/{{docker_image}}
+    register: pull_result
+    changed_when: "'Status: Downloaded newer image' in pull_result.stdout"
+  when: docker_state == 'reloaded'
+
+## Stop container service after pulled
+- name: "{{docker_container}} - Stop container service after pulled"
+  become: true
+  service: name="{{docker_container}}"
+           state=stopped
+  when: "(docker_state == 'reloaded' and 'Status: Downloaded newer image' in pull_result.stdout)      \
+        or docker_state in ['stopped', 'killed']"
+
+## Clean up systemd config files for docker container
+- name: "{{docker_container}} - Delete systemd config file for docker container"
+  become: true
+  file:
+    path="/etc/systemd/system/{{docker_container}}.service"
+    state=absent
+  when: "docker_state in ['absent']"
+  register: configfile_remove
+
+- name: "{{docker_container}} - Reload systemd"
+  command: systemctl daemon-reload
+  become: yes
+  when: configfile_remove.changed
+
+- name: "{{docker_container}} - Control docker container"
+  docker:
+    name: "{{docker_container}}"
+    image: "{{docker_registry_host}}/{{docker_image}}"
+    state: "{{sonicdocker_container_state}}"
+    ## Already pulled by upper task
+    pull: missing
+    detach: yes
+    net: "{{docker_net}}"
+    tty: "{{docker_tty}}"
+    stdin_open: yes
+    registry: "https://{{docker_registry_host}}"
+    email: "@"
+    volumes: "{{docker_volumes}}"
+    volumes_from: "{{docker_volumes_from}}"
+    privileged: "{{docker_privileged}}"
+    env: "{{docker_env}}"
+    log_driver: "{{docker_log_driver}}"
+    log_opt: "{{docker_log_opt}}"
+
+## Container service operation
+- name: "{{docker_container}} - Post docker - restart container service"
+  become: true
+  service: name="{{docker_container}}"
+           state=restarted
+  when: "docker_state == 'restarted' or      \
+        docker_state == 'reloaded' and 'Status: Downloaded newer image' in pull_result.stdout"
+
+- name: "{{docker_container}} - Post docker - start container service"
+  become: true
+  service: name="{{docker_container}}"
+           state=started
+  when: "docker_state == 'started' or docker_state == 'reloaded'"
+
+- name: "{{docker_container}} - Post docker - stop and disable container service"
+  become: true
+  service: name="{{docker_container}}"
+           state=stopped
+           enabled=no
+  when: docker_state == 'stopped'
+
+- name: "{{docker_container}} - Post docker - enable container service"
+  become: true
+  service: name="{{docker_container}}"
+           enabled={{docker_state in ['present', 'started', 'reloaded', 'restarted']}}
+
+## Clean up images after pulled and running
+- name: "{{docker_container}} - Clean up images after pulled and running"
+  include_tasks: sonicdocker_clean.yml
+  when: "(docker_state == 'reloaded' and 'Status: Downloaded newer image' in pull_result.stdout) or  \
+        docker_state == 'absent'"
+
+## Reset the module variables to default values to prevent global side-effect
+## Note: must be consistent with header part
+- name: "{{docker_container}} - Clean up sonicdocker variables"
+  set_fact:
+    docker_image: ''
+    docker_net: host
+    docker_state: reloaded
+    docker_volumes: []
+    docker_volumes_from: []
+    docker_privileged: no
+    docker_log_driver: json-file
+    docker_env: {}
+    docker_tty: yes

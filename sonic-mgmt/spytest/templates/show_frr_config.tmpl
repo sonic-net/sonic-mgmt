@@ -1,0 +1,13 @@
+Value Filldown ROUTEROSPF (\S+)
+Value Filldown VRFNAME (\S+)
+Value Filldown NETWORK (\S+)
+Value ROUTERID (\S+)
+Value Filldown INTERFACE (\S+)
+Value IFAREA (\S+)
+
+Start
+  ^\s*router ospf${ROUTEROSPF}\s*$$ 
+  ^\s*router ospf vrf\s+${VRFNAME}\s*$$
+  ^\s*ospf router-id\s+${ROUTERID}\s*$$ -> Record
+
+EOF

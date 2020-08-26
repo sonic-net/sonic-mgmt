@@ -1,0 +1,21 @@
+- fail: msg="config_source is not defined"
+  when: "config_source is not defined"
+
+- fail: msg="config_source is provided with invalid value"
+  when: "config_source not in [ 'minigraph', 'config_db' ]"
+
+- name: "Reload SONiC configuration using minigraph"
+  shell: "{{ item }}"
+  become: "yes"
+  with_items:
+    - "config load_minigraph -y"
+    - "config save -y"
+  when: "config_source == 'minigraph'"
+
+- name: "Reload SONiC configuration using config_db"
+  shell: "config reload -y"
+  become: "yes"
+  when: "config_source == 'config_db'"
+
+- name: "Wait for 2 minutes for prcesses and interfaces to be stable"
+  pause: minutes=2

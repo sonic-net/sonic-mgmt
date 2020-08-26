@@ -1,0 +1,18 @@
+Value Filldown RD_NAME (\S+)
+Value Filldown RD (\d+\:\d+)
+Value STATUS_CODE (\S+)
+Value Required EVPN_TYPE_5_PREFIX (\s*\[5\]:\[\d+\]:\[\d+\]:\[\d+\.\d+\.\d+\.\d+\])
+Value NEXT_HOP (\d+\.\d+\.\d+\.\d)
+Value METRIC (\s|\d)
+Value WEIGHT (\d+|\s{1,4}\d+)
+Value PATH ([\d+\s]+|\s{0})
+Value ORIGIN_CODE (i|e|\?)
+Value Fillup DISPLAYED_PREFIXES (\d+)
+Value Fillup TOTAL_PREFIXES (\d+)
+
+Start
+  ^\s*Route Distinguisher:\s${RD_NAME}\s${RD}
+  ^\s*${STATUS_CODE}\s*${EVPN_TYPE_5_PREFIX}
+  ^\s*${NEXT_HOP}          \s{1,8}${METRIC}                 ${WEIGHT}\s${PATH}\s{0,1}${ORIGIN_CODE}$$ -> Continue.Record
+  ^\s*Displayed\s${DISPLAYED_PREFIXES}\sout of\s${TOTAL_PREFIXES}\stotal\sprefixes
+

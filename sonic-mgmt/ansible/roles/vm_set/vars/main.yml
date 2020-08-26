@@ -1,0 +1,5 @@
+tor_memory: 1572864
+spine_memory: 2097152
+
+fp_mtu_size: 9216
+

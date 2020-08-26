@@ -1,0 +1,80 @@
+# SONiC
+
+# Remove v1 docker containers
+- name: Remove docker-sswsyncd docker container
+  include_tasks: sonicdocker.yml
+  vars:
+    docker_container: docker-sswsyncd
+    docker_image: "docker-sswsyncd"
+    docker_privileged: yes
+    docker_state: absent
+
+- name: Remove sswsyncd docker container
+  include_tasks: sonicdocker.yml
+  vars:
+    docker_container: sswsyncd
+    docker_image: "docker-sswsyncd"
+    docker_privileged: yes
+    docker_state: absent
+
+# Ensure newer version of BCM OpenNSL
+- name: Remove old version of BCM OpenNSL Linux Module
+  become: yes
+  apt: pkg={{ opennsl.name }}={{ opennsl.version }}
+       state=absent
+       force=yes
+
+- name: Install new version of BCM OpenNSL Linux Module
+  become: yes
+  apt: pkg={{ opennslv2.name }}={{ opennslv2.version }}
+       state=present
+       default_release={{ apt_default_release }}
+       force=yes
+
+# Install docker containers
+- name: Start syncd docker container
+  include_tasks: sonicdocker.yml
+  vars:
+    docker_container: syncd
+    docker_image: "{{ image_id_syncd_rpc if host_saithrift is defined else image_id_syncd }}"
+    docker_privileged: yes
+    docker_state: reloaded
+    docker_volumes: "{{ syncd_docker_volumes }}"
+    docker_volumes_from:
+    - database
+  tags: syncd
+
+- name: Remove old copies of bcmcmd
+  become: true
+  file: path=/usr/sbin/bcmcmd
+        state=absent
+                                   
+- name: Copy bcmcmd helper script
+  become: true
+  copy: src=bin/bcmcmd.v2
+        dest=/usr/bin/bcmcmd
+        owner=root
+        group=root
+        mode=0755
+
+# Remove deprecated orchagent container
+- name: Remove orchagent docker container
+  include_tasks: sonicdocker.yml
+  vars:
+    docker_container: orchagent
+    docker_image: "{{ image_id_orchagent }}"
+    docker_privileged: yes
+    docker_state: absent
+  tags: orchagent
+
+- name: Start swss docker container
+  include_tasks: sonicdocker.yml
+  vars:
+    docker_container: swss
+    docker_image: "{{ image_id_orchagent }}"
+    docker_privileged: yes
+    docker_state: reloaded
+    docker_volumes: "{{ orchagent_docker_volumes }}"
+    docker_volumes_from:
+    - database
+  tags: orchagent

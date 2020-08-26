@@ -1,0 +1,65 @@
+<domain type='kvm'>
+  <name>{{ vm_name }}</name>
+  <memory unit='KiB'>{{ memory }}</memory>
+  <currentMemory unit='KiB'>{{ memory }}</currentMemory>
+  <vcpu placement='static'>1</vcpu>
+  <resource>
+    <partition>/machine</partition>
+  </resource>
+  <os>
+    <type arch='x86_64' machine='pc-i440fx-1.5'>hvm</type>
+    <boot dev='cdrom'/>
+    <boot dev='hd'/>
+  </os>
+  <features>
+    <acpi/>
+    <apic/>
+  </features>
+  <clock offset='utc'/>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>restart</on_crash>
+  <devices>
+    <emulator>/usr/bin/qemu-system-x86_64</emulator>
+    <disk type='file' device='cdrom'>
+      <driver name='qemu' type='raw'/>
+      <source file='{{ cdrom_image }}'/>
+      <target bus='ide' dev='hdc'/>
+      <readonly/>
+    </disk>
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='vmdk' cache='writeback'/>
+      <source file='{{ disk_image }}'/>
+      <target bus='ide' dev='hda'/>
+    </disk>
+    <interface type='bridge'>
+      <model type='virtio'/>
+      <source bridge='{{ mgmt_bridge }}'/>
+      <target dev='{{ mgmt_tap }}'/>
+    </interface>
+{% for fp_num in range(0, max_fp_num) %}
+    <interface type='bridge'>
+      <model type='virtio'/>
+      <source bridge='br-{{ vm_name }}-{{ fp_num }}'/>
+      <target dev='{{ vm_name }}-t{{ fp_num }}'/>
+      <virtualport type='openvswitch'/>
+    </interface>
+{% endfor %}
+    <interface type='ethernet'>
+      <model type='virtio'/>
+      <target dev='{{ backplane_tap }}'/>
+    </interface>
+    <serial type='tcp'>
+      <source host='127.0.0.1' mode='bind' service='{{ serial_port }}'/>
+      <target port='0'/>
+      <protocol type='telnet'/>
+    </serial>
+    <controller type='usb' index='0'/>
+    <memballoon model='virtio'>
+      <alias name='balloon0'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
+    </memballoon>
+  </devices>
+  <seclabel type='dynamic' model='apparmor' relabel='yes'/>
+</domain>
+

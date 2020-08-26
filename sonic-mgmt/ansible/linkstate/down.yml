@@ -1,0 +1,79 @@
+# ansible-playbook -i linkstate/testbed_inv.py -e target_host=vms3-t0-s6100 --vault-password-file=~/.password linkstate/down.yml
+
+- hosts: lab
+  gather_facts: no
+  tasks:
+    - name: prepare admin password
+      set_fact: ansible_ssh_user=root ansible_ssh_pass={{ lab_admin_pass }}
+    - name: Check list of processes
+      command: ps ax
+      changed_when: False
+      register: out
+    - name: Stop the script
+      shell: pkill -f "python fanout_listener.py"
+      when: '"python fanout_listener.py" in out.stdout'
+    - name: Remove the scripts
+      file:
+        dest: fanout_listener.py
+        state: absent
+
+- hosts: ptf_host
+  gather_facts: no
+  tasks:
+    - name: Check list of processes
+      command: ps ax
+      changed_when: False
+      register: out
+    - name: Stop the script
+      shell: pkill -f "python ptf_proxy.py"
+      when: '"python ptf_proxy.py" in out.stdout'
+      ignore_errors: yes  # pkill does it work but returns error -15, which is not documented for pkill
+    - name: Remove the scripts
+      file:
+        dest: "{{ item }}"
+        state: absent
+      with_items:
+        - sonic_str_links.csv
+        - sonic_str_devices.csv
+        - sonic_lab_devices.csv
+        - sonic_lab_links.csv
+        - veos
+        - ptf_proxy.py
+        - topo.yaml
+
+- hosts: eos
+  gather_facts: no
+  tasks:
+    - include_vars: ../group_vars/all/creds.yml
+    - name: Set ansible login user name and password
+      set_fact: ansible_user="root" ansible_password={{ eos_root_password }}
+    - name: Check list of processes
+      command: ps ax
+      changed_when: False
+      register: out
+    - name: Stop script vm_tcp_listener.py
+      shell: pkill -f "python vm_tcp_listener.py"
+      when: '"python vm_tcp_listener.py" in out.stdout'
+# It requires double check because vm_state_changer.py exits as soon as vm_tcp_listener.py exited
+    - name: Check list of processes
+      command: ps ax
+      changed_when: False
+      register: out
+    - name: Stop script vm_state_changer.py
+      shell: pkill -f "python vm_state_changer.py"
+      when: '"python vm_state_changer.py" in out.stdout'
+    - name: Remove scripts
+      file:
+        dest: "{{ item }}"
+        state: absent
+      with_items:
+        - vm_state_changer.py
+        - vm_tcp_listener.py
+    - name: Check if the rule exists
+      command: ip netns exec ns-MGMT iptables -L -n
+      changed_when: False
+      register: iptables_out
+    - name: Deinstall iptable rule
+      shell: ip netns exec ns-MGMT iptables -D INPUT 1
+      when: '"tcp dpt:9876" in iptables_out.stdout'      
+

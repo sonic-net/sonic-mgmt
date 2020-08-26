@@ -1,0 +1,55 @@
+Value Filldown stp_mode (\w+)
+Value Filldown vid (\d+)
+Value Filldown inst (\d+)
+#Bridge Params
+Value Filldown br_id ([a-f0-9]{16})
+Value Filldown br_maxage (\d+)
+Value Filldown br_hello (\d+)
+Value Filldown br_fwddly (\d+)
+Value Filldown br_hold (\d+)
+Value Filldown br_lasttopo (\d+)
+Value Filldown br_topoch (\d+)
+#Root bridge Params
+Value Filldown rt_id ([a-f0-9]{16})
+Value Filldown rt_pathcost (\d+)
+Value Filldown rt_desigbridgeid ([a-f0-9]{16})
+Value Filldown rt_port (\S+)
+Value Filldown rt_maxage (\d+)
+Value Filldown rt_hello (\d+)
+Value Filldown rt_fwddly (\d+)
+#Port Params
+Value Filldown port_name (\w+)
+Value Filldown port_priority (\d+)
+Value Filldown port_pathcost (\d+)
+Value Filldown port_portfast (Y|N)
+Value Filldown port_uplinkfast (Y|N)
+Value Filldown port_bpdufilter (Y|N)
+Value Filldown port_state (\w+(\-\w+)?)
+Value Filldown port_desigcost (\d+)
+Value Filldown port_desigrootid ([a-f0-9]{16})
+Value Filldown port_desigbridgeid ([a-f0-9]{16})
+Value Filldown p2pMac (Y|N)
+Value Filldown Edgeport (Y|N)
+Value Filldown Role (\S+|\s*)
+
+
+
+Start
+  ^\s*Spanning-tree\s+Mode:\s+${stp_mode}\s*$$
+  ^\s*VLAN\s*${vid}\s*-\s*STP\s*instance\s*${inst}\s*$$
+  ^\s*${br_id}\s+${br_maxage}\s+${br_hello}\s+${br_fwddly}\s+${br_hold}\s+${br_lasttopo}\s+${br_topoch}\s*$$
+  ^\s*${rt_id}\s+${rt_pathcost}\s+${rt_desigbridgeid}\s+${rt_port}\s+${rt_maxage}\s+${rt_hello}\s+${rt_fwddly}\s*$$
+  ^\s*(Port|Port Num)\s+(Prio|Priority)\s+(Path|Path Cost)\s+(Port|Port Fast)\s+(Uplink|Uplink Fast)\s+State\s+(Designated|Designated Cost)\s+(Designated|Designated Root)\s+(Designated|DesignatedBridge)\s*$$ -> NOBPDU
+  ^\s*(Port|Port Num)\s+(Prio|Priority)\s+(Path|Path Cost)\s+(Port|Port Fast)\s+(Uplink|Uplink Fast)\s+(BPDU|BPDU Filter)\s+State\s+(Designated|Designated Cost)\s+(Designated|Designated Root)\s+(Designated|DesignatedBridge)\s*$$ -> BPDU
+  ^\s*(Port|Port Num)\s+(Prio|Priority)\s+(Path|Path Cost)\s+(P2P|P2P Mac)\s+(Edge|Edge Port)\s+(BPDU|BPDU Filter)\s+Role\s+State\s+(Designa-|Designa-ted cost|Designated cost)\s+(Designated|DesignatedBridge)\s*$$ -> KLISH
+
+NOBPDU
+  ^\s*${port_name}\s+${port_priority}\s+${port_pathcost}\s+${port_portfast}\s+${port_uplinkfast}\s+${port_state}\s+${port_desigcost}\s+${port_desigrootid}\s+${port_desigbridgeid}\s*$$ -> Record
+
+BPDU
+  ^\s*${port_name}\s+${port_priority}\s+${port_pathcost}\s+${port_portfast}\s+${port_uplinkfast}\s+${port_bpdufilter}\s+${port_state}\s+${port_desigcost}\s+${port_desigrootid}\s+${port_desigbridgeid}\s*$$ -> Record
+
+KLISH
+  ^\s*${port_name}\s+${port_priority}\s+${port_pathcost}\s+${p2pMac}\s+${Edgeport}\s+${port_bpdufilter}\s+${Role}\s+${port_state}\s+${port_desigcost}\s+${port_desigbridgeid}\s*$$ -> Record
+
+EOF

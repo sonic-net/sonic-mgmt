@@ -1,0 +1,30 @@
+- name: Initialize session_name variable.
+  set_fact:
+    session_name: "test_session_1"
+    session_src_ip: "1.1.1.1"
+    session_dst_ip: "2.2.2.2"
+    session_ttl: "1"
+    session_dscp: "8"
+    session_gre: "0x6558"
+    session_queue: "0"
+
+- name: Set Barefoot GRE protocol type
+  set_fact:
+    session_gre: "0x22EB"
+  when: sonic_hwsku in barefoot_hwskus
+
+- name: Set Mellanox GRE protocol type
+  set_fact:
+    session_gre: "0x8949"
+  when: sonic_hwsku in mellanox_hwskus
+
+- debug: msg=session name {{ session_name }}
+
+- set_fact:
+    addr_1: "{{ session_dst_ip }}/24"
+    addr_2: "{{ session_dst_ip }}/30"
+
+- name: Initialize session prefixes.
+  set_fact:
+    session_prefix_1: "{{ addr_1|ipaddr('network') }}/{{ addr_1|ipaddr('prefix') }}"
+    session_prefix_2: "{{ addr_2|ipaddr('network') }}/{{ addr_2|ipaddr('prefix') }}"

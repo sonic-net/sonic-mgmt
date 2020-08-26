@@ -1,0 +1,7 @@
+# Ensure Platform Modules for as7512 are installed
+- name: Confirm Platform Modules are installed
+  become: true
+  apt: pkg=cavm-platform-modules
+       state=present
+       force=yes
+

@@ -1,0 +1,57 @@
+- name: Gathering lab graph facts about the device
+  conn_graph_facts: host={{ ansible_host }}
+  delegate_to: localhost
+  tags: always
+
+- name: Init variables.
+  set_fact:
+      vm_name: ""
+      vm_intf: ""
+      vm_ip: ""
+      peer_ipv4: ""
+      peer_ipv6: ""
+
+- name: Get neighbor VM info.
+  set_fact:
+      vm_name: "{{ item.value.name }}"
+      vm_intf: "{{ item.key }}"
+  with_dict: "{{ minigraph_neighbors }}"
+  when: "testbed_type in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet'] and 'T0' in item.value.name and not vm_name"
+
+- name: Get neighbor IPv4 address.
+  set_fact:
+      peer_ipv4: "{{ item.addr }}"
+  with_items: "{{ minigraph_bgp }}"
+  when: "item.name == vm_name and item.addr|ipv4"
+
+- name: Get neighbor IPv6 address.
+  set_fact:
+      peer_ipv6: "{{ item.addr|lower }}"
+  with_items: "{{ minigraph_bgp }}"
+  when: "item.name == vm_name and item.addr|ipv6"
+
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: lldp
+
+- name: Gather information from LLDP
+  lldp:
+  delegate_to: "{{ ansible_host }}_lldp"
+
+- name: Get VM IP address.
+  set_fact:
+      vm_ip: "{{ lldp[vm_intf]['chassis']['mgmt-ip'] }}"
+
+- name: Add host
+  add_host:
+    name: "{{ vm_ip }}"
+    groups: "lldp_neighbors,eos"
+
+- debug:
+    var: vm_name
+- debug:
+    var: vm_intf
+- debug:
+    var: vm_ipv4
+- debug:
+    var: vm_ipv6

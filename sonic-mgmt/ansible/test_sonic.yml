@@ -1,0 +1,25 @@
+---
+# This Playbook would test all the devices.
+#
+# Examples of running this playbook:
+#
+## QoS tests using sonic switch1 and ptf_host 10.0.0.200
+# ansible-playbook -i inventory --limit switch1 test.yml -b --ask-vault-pass -e "ptf_host=10.0.0.200" --tags qos
+#
+## Test CPU SNMP utilization
+# ansible-playbook -i inventory --limit switch1 test.yml -b --ask-vault-pass --tags snmp_cpu
+#
+## Basic test of syslog functionality
+# ansible-playbook -i inventory --limit switch1 test.yml -b --ask-vault-pass --tags syslog
+
+
+- hosts: sonic
+  roles:
+    - { role: test, scope: 'sonic' }
+  force_handlers: true
+
+- hosts: [lldp_neighbors]
+  gather_facts: no
+  roles:
+    - { role: test, scope: 'lldp_neighbors' }
+

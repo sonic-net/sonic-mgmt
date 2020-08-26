@@ -1,0 +1,4 @@
+- name: Run DHCP relay test (pytest-ansible)
+  include_tasks: roles/test/tasks/pytest_runner.yml
+  vars:
+    test_node: dhcp_relay/test_dhcp_relay.py

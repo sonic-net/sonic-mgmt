@@ -1,0 +1,17 @@
+- name: Execute "show version" command on fanout
+  action: apswitch template=mlnx_show_version.j2
+  connection: switch
+  register: onyx_version
+  args:
+    login: "{{ switch_login['MLNX-OS'] }}"
+    enable: False
+
+- name: Parse version summary line
+  command: bash -c "echo '{{ onyx_version.stdout }}' | grep -m 1 'Version summary' | sed -e 's/^Version summary:[[:space:]]*//'"
+  register: onyx_version
+  connection: local
+
+- name: Set Onyx OS version
+  set_fact:
+    onyx_version: "{{ onyx_version.stdout }}"
+

@@ -1,0 +1,22 @@
+- name: set default reboot_limit in seconds
+  set_fact:
+      reboot_limit: 1
+  when: reboot_limit is not defined
+
+# preboot_list format is 'preboot oper type:number of VMS down:number of lag members down'. for non lag member cases, this parameter will be skipped
+- name: Set vars
+  set_fact:
+      pre_list: ['neigh_bgp_down:2', 'dut_bgp_down:3']
+
+- name: set default values vnet variables
+  set_fact:
+      vnet: False
+      vnet_pkts: ''
+  when: (vnet is not defined) or (vnet_pkts is not defined)
+
+- name: Warm-reboot test
+  include_tasks: advanced-reboot.yml
+  vars:
+      reboot_type: warm-reboot
+      preboot_list: "{{ pre_list }}"
+      preboot_files: "peer_dev_info,neigh_port_info"

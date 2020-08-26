@@ -1,0 +1,86 @@
+# Common runner for ptf tests
+#
+# Parameters:
+# ptf_host          - ip address of ptf host. This ip address should be presented in str inventory file with credentials
+# ptf_test_name     - name of the test
+# ptf_test_dir      - directory where test was copied to
+# ptf_test_path     - ptf path to the test
+# ptf_platform_dir  - directory where ptf platform was copied to (only required when using customized platform)
+# ptf_platform      - ptf platform
+# ptf_test_params   - a list with the test parameters
+# ptf_qlen          - qlen parameter for ptf
+# ptf_extra_options - extra options for ptf
+#
+# Example:
+#    - include_tasks: ptf_runner.yml
+#      vars:
+#        ptf_test_name: COPP test - {{ item }}
+#        ptf_test_dir: ptftests
+#        ptf_test_path: copp_tests.{{ item }}
+#        ptf_platform: nn
+#        ptf_qlen: 100000
+#        ptf_extra_options: --device-socket 0-3@tcp://127.0.0.1:10900 --device-socket 1-3@tcp://{{ ansible_eth0['ipv4']['address'] }}:10900
+#        ptf_test_params:
+#        - verbose=False
+#        - dut_username=\"{{ ansible_ssh_user }}\"
+#        - dut_hostname=\"{{ ansible_host }}\"
+#        - reboot_limit_in_seconds=30
+#      with_items:
+#        - ARPTest
+#        - DHCPTest
+#        - LLDPTest
+#        - BGPTest
+#        - LACPTest
+#        - SNMPTest
+#        - SSHTest
+#        - IP2METest
+#
+
+- fail: msg="Please set ptf_host variable"
+  when: ptf_host is not defined
+
+- name: "PTF Test - {{ ptf_test_name }}"
+  debug: msg="ptf --test-dir {{ ptf_test_dir }} {{ ptf_test_path }} {% if ptf_qlen is defined %} --qlen={{ ptf_qlen }} {% endif %} {% if ptf_platform_dir is defined %} --platform-dir {{ ptf_platform_dir }} {% endif %} --platform {{ ptf_platform }} {% if ptf_test_params is defined %} -t \"{{ ptf_test_params | default([]) | join(';') }}\" {% endif %} {{ ptf_extra_options | default(\"\")}} 2>&1"
+
+- shell: ptf --test-dir {{ ptf_test_dir }} {{ ptf_test_path }} {% if ptf_qlen is defined %} --qlen={{ ptf_qlen }} {% endif %} {% if ptf_platform_dir is defined %} --platform-dir {{ ptf_platform_dir }} {% endif %} --platform {{ ptf_platform }} {% if ptf_test_params is defined %} -t "{{ ptf_test_params | default([]) | join(';') }}" {% endif %} {{ ptf_extra_options | default("")}} 2>&1
+  args:
+    chdir: /root
+  delegate_to: "{{ ptf_host }}"
+  failed_when: False
+  register: out
+
+- debug: var=out.stdout_lines
+
+- name: Set default PTF log filename
+  set_fact:
+    ptf_log_file: "/root/ptf.log"
+    ptf_log_file_param_index: "{{ out.cmd.find('--log-file') }}"
+
+- name: Parse custom log filename specified in PTF command
+  set_fact:
+    ptf_log_file: "{{ out.cmd[ptf_log_file_param_index|int:].split(' ')[1] }}"
+  when: ptf_log_file_param_index|int >= 0
+
+- name: Set PTF pcap filename
+  set_fact:
+    ptf_pcap_file: "{{ ptf_log_file | replace('.log', '.pcap') }}"
+
+- name : Fetch result files from switch to ansible machine
+  fetch:
+    src: "{{ item }}"
+    dest: "test/{{ inventory_hostname }}/ptf/{{ item | basename }}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}"
+    flat: yes
+  with_items:
+    - "{{ ptf_log_file }}"
+    - "{{ ptf_pcap_file }}"
+  delegate_to: "{{ ptf_host }}"
+  when: out.rc != 0 and save_ptf_log is defined and save_ptf_log|bool == true
+
+- debug: msg="File {{ item }} saved to test/{{ inventory_hostname }}/ptf/"
+  with_items:
+    - "{{ptf_log_file}}"
+    - "{{ptf_pcap_file}}"
+  when: out.rc != 0 and save_ptf_log is defined and save_ptf_log|bool == true
+
+- fail: msg="Failed test '{{ ptf_test_name }}'"
+  when: out.rc != 0

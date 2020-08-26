@@ -1,0 +1,48 @@
+#-----------------------------------------
+# Execute ping and check the log.
+#-----------------------------------------
+
+- name: Initialize some variables for loganalyzer
+  set_fact:
+    testname_unique: "{{ testname }}.{{ lookup('pipe','date +%Y-%m-%d-%H:%M:%S') }}"
+- set_fact:
+    test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
+    summary_file: "summary.loganalysis.{{ testname_unique }}.log"
+    result_file: "result.loganalysis.{{ testname_unique }}.log"
+
+- name: Start log analyser
+  include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+- block:
+    - name: Execute ping from host to switch to validate link
+      shell: ping {{ switch_ip1 }} -c 3
+      register: pingrc
+      failed_when: pingrc.rc != 0
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Set ACL rules.
+      command: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_file }}
+
+    - debug: msg="=== test json = {{ config_file }}"
+
+    - name: Execute ping from host to switch
+      shell: ping {{ switch_ip1 }} -c 3
+      register: pingrc
+      failed_when: (pingrc.rc != 0 and errors_expected == false) or (pingrc.rc == 0 and errors_expected == true)
+      delegate_to: "{{ ptf_host }}"
+
+  always:
+    - name: Stop log analyser
+      include_tasks: "{{ loganalyzer_analyze }}"
+
+    - name: Get the total number of error messages.
+      shell: grep "TOTAL MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL MATCHES:[[:space:]]*//p"
+      register: errors_found
+
+    - name: Check the number of error messages (positive tests only).
+      fail: msg="{{ errors_found.stdout }} errors found while running {{ testname }} / {{ config_file }}. Please see {{ test_out_dir }}/{{ result_file }}"
+      when: errors_found.rc != 0
+
+    - name: Do configuration cleanup.
+      include_tasks: "{{ run_config_cleanup }}"
+      when: run_cleanup == true

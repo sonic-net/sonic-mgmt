@@ -1,0 +1,2 @@
+- include_tasks: remove_ceos.yml
+  with_items: "{{ VM_targets }}"

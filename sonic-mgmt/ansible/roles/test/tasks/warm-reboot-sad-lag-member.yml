@@ -1,0 +1,28 @@
+- name: set default reboot_limit in seconds
+  set_fact:
+      reboot_limit: 1
+  when: reboot_limit is not defined
+
+# preboot_list format is 'preboot oper type:number of VMS down:number of lag members down'. for non lag member cases, this parameter will be skipped
+- name: Set vars
+  set_fact:
+      pre_list: ['dut_lag_member_down:3:1', 'neigh_lag_member_down:2:1']
+      lag_memb_cnt: "{{ minigraph_portchannels.values()[0]['members']|length }}"
+
+- name: Add all lag member down case
+  set_fact:
+      pre_list: "{{ pre_list + ['dut_lag_member_down:2:{{ lag_memb_cnt }}', 'neigh_lag_member_down:3:{{ lag_memb_cnt }}']}}"
+  when: testbed_type in ['t0-64', 't0-116', 't0-64-32']
+
+- name: set default values vnet variables
+  set_fact:
+      vnet: False
+      vnet_pkts: ''
+  when: (vnet is not defined) or (vnet_pkts is not defined)
+
+- name: Warm-reboot test
+  include_tasks: advanced-reboot.yml
+  vars:
+      reboot_type: warm-reboot
+      preboot_list: "{{ pre_list }}"
+      preboot_files: "peer_dev_info,neigh_port_info"

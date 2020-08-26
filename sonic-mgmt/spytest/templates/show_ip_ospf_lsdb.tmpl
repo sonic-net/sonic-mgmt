@@ -1,0 +1,230 @@
+# Author: naveen.suvarna@broadcom.com
+Value Filldown VRFNAME (\S+)
+Value Filldown ROUTERID (\S+)
+Value Filldown AREAID (\S+)
+Value Filldown LSTYPE (\S+)
+Value Filldown LSAGE (\S+)
+Value Filldown LSOPTIONS (\S+)
+Value Filldown LSFLAGS (\S+)
+Value Filldown STATEFLG (\S+)
+Value Filldown LINKSTATEID (\S+)
+Value Filldown ADVROUTER (\S+)
+Value Filldown LSSEQNUM (\S+)
+Value Filldown LSCHECKSUM (\S+)
+Value Filldown LSLENGTH (\S+)
+Value Filldown STATE (\S+\s+\S+)
+Value LINKCOUNT (\d+)
+Value TOSCOUNT (\S+)
+Value LINKTYPE (\S+)
+Value LINKID (\S+)
+Value LINKDATA (\S+)
+Value NWMASK (\S+)
+Value ATTACHEDROUTER (\S+)
+Value TOS (\d+)
+Value TOSMETRIC (\d+)
+Value METRICTYPE (\S+)
+Value METRICVALUE (\S+)
+Value FWDADDR (\S+)
+Value ROUTETAG (\S+)
+
+
+Start
+  ^\s*$$ -> Next
+  ^\s*VRF Name:\s+${VRFNAME}\s*$$
+  ^\s*$$ -> Next
+  ^\s*OSPF Router with ID\s*\(${ROUTERID}\)\s*$$ -> Routerid_record
+
+Emptyline_record
+  ^\s*$$ -> Next
+  ^\s*$$ -> Emptyline_record
+  
+Routerid_record
+  ^\s*$$ -> Next
+  ^\s*OSPF Router with ID\s*\(${ROUTERID}\)\s*$$
+  ^\s*Router Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Routerlsa_area_record
+  ^\s*Net Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Networklsa_area_record
+  ^\s*Summary Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Summarylsa_area_record
+  ^\s*ASBR-Summary Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Asbrsummarylsa_area_record
+  ^\s*AS External Link States\s*$$ -> Externallsa_area_record
+
+Routerlsa_area_record
+  ^\s*$$ -> Next
+  ^\s*LS age: ${LSAGE}\s*$$ -> Routerlsa_record
+  ^\s*VRF Name:\s+${VRFNAME}\s*$$ -> Start
+  ^\s*OSPF Router with ID\s*\(${ROUTERID}\)\s*$$ -> Routerid_record
+
+Routerlsa_record
+  ^\s*Options: 0x${LSOPTIONS}\s*:\.*$$
+  ^\s*LS Flags: 0x${LSFLAGS}\.*$$
+  ^\s*Flags: 0x${STATEFLG}\s*:\s*ABR\s${STATE}\s*$$
+  ^\s*LS Type: ${LSTYPE}\s*$$
+  ^\s*Link State ID: ${LINKSTATEID}\s*$$
+  ^\s*Advertising Router: ${ADVROUTER}\s*$$
+  ^\s*LS Seq Number: ${LSSEQNUM}\s*$$
+  ^\s*Checksum: 0x${LSCHECKSUM}\s*$$
+  ^\s*Length: ${LSLENGTH}\s*$$
+  ^\s*$$ -> Next
+  ^\s*Number of Links: ${LINKCOUNT}\s*$$
+  ^\s*$$ -> Next
+  ^\s*Link connected to:\s*a\s*${LINKTYPE}\s*Network\s*$$ -> Routerlsa_link_record
+  ^\s*Link connected to:\s*${LINKTYPE}\s*Network\s*$$ -> Routerlsa_link_record
+  ^\s*LS age: ${LSAGE}\s*$$ -> Routerlsa_record
+
+Routerlsa_link_record
+  ^\s*\(Link ID\) Designated Router address: ${LINKID}\s*$$
+  ^\s*\(Link Data\) Router Interface address: ${LINKDATA}\s*$$
+  ^\s*Number of TOS metrics: ${TOSCOUNT}\s*$$ -> Routerlsa_tos_record
+
+Routerlsa_tos_record
+  ^\s*TOS\s*${TOS}\s*Metric:\s*${TOSMETRIC}\s*$$ -> Record
+  ^\s*$$ -> Next
+  ^\s*$$ -> Next
+  ^\s*Link connected to:\s*a\s*${LINKTYPE}\s*Network\s*$$ -> Routerlsa_link_record
+  ^\s*Link connected to:\s*${LINKTYPE}\s*Network\s*$$ -> Routerlsa_link_record
+  ^\s*LS age: ${LSAGE}\s*$$ -> Routerlsa_record
+  ^\s*Router Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Routerlsa_area_record
+  ^\s*Net Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Networklsa_area_record
+  ^\s*Summary Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Summarylsa_area_record
+  ^\s*ASBR-Summary Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Asbrsummarylsa_area_record
+  ^\s*AS External Link States\s*$$ -> Externallsa_area_record
+  ^\s*OSPF Router with ID\s*\(${ROUTERID}\)\s*$$ -> Routerid_record
+  ^\s*VRF Name:\s+${VRFNAME}\s*$$ -> Start
+
+Networklsa_area_record
+  ^\s*$$ -> Next
+  ^\s*LS age: ${LSAGE}\s*$$ -> Networklsa_record
+  ^\s*OSPF Router with ID\s*\(${ROUTERID}\)\s*$$ -> Routerid_record
+  ^\s*VRF Name:\s+${VRFNAME}\s*$$ -> Start
+
+Networklsa_record
+  ^\s*LS age: ${LSAGE}\s*$$
+  ^\s*Options: 0x${LSOPTIONS}\s*:\.*$$
+  ^\s*LS Flags: 0x${LSFLAGS}\s*$$
+  ^\s*LS Type: ${LSTYPE}\s*$$
+  ^\s*Link State ID:\s*${LINKSTATEID}\s*\(address of Designated Router\)\s*$$
+  ^\s*Advertising Router: ${ADVROUTER}\s*$$
+  ^\s*LS Seq Number: ${LSSEQNUM}\s*$$
+  ^\s*Checksum: 0x${LSCHECKSUM}\s*$$
+  ^\s*Length: ${LSLENGTH}\s*$$
+  ^\s*$$ -> Next
+  ^\s*Network Mask:\s*/${NWMASK}\s*$$ -> Networklsa_router_record
+  ^\s*LS age: ${LSAGE}\s*$$ -> Networklsa_record
+
+Networklsa_router_record
+  ^\s*Attached Router:\s*${ATTACHEDROUTER}\s*$$ -> Record
+  ^\s*$$ -> Next
+  ^\s*Network Mask:\s*/${NWMASK}\s*$$ -> Networklsa_router_record
+  ^\s*LS age: ${LSAGE}\s*$$ -> Networklsa_record
+  ^\s*Router Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Routerlsa_area_record
+  ^\s*Net Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Networklsa_area_record
+  ^\s*Summary Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Summarylsa_area_record
+  ^\s*ASBR-Summary Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Asbrsummarylsa_area_record
+  ^\s*AS External Link States\s*$$ -> Externallsa_area_record
+  ^\s*OSPF Router with ID\s*\(${ROUTERID}\)\s*$$ -> Routerid_record
+  ^\s*VRF Name:\s+${VRFNAME}\s*$$ -> Start
+
+
+Summarylsa_area_record
+  ^\s*$$ -> Next
+  ^\s*LS age: ${LSAGE}\s*$$ -> Summarylsa_record
+  ^\s*OSPF Router with ID\s*\(${ROUTERID}\)\s*$$ -> Routerid_record
+  ^\s*VRF Name:\s+${VRFNAME}\s*$$ -> Start
+
+Summarylsa_record
+  ^\s*LS age: ${LSAGE}\s*$$
+  ^\s*Options: 0x${LSOPTIONS}\s*:\.*$$
+  ^\s*LS Flags: 0x${LSFLAGS}\s*$$
+  ^\s*LS Type:\s*${LSTYPE}\s*$$
+  ^\s*Link State ID: ${LINKSTATEID}\s*\(summary Network Number\)\s*$$
+  ^\s*Advertising Router: ${ADVROUTER}\s*$$
+  ^\s*LS Seq Number: ${LSSEQNUM}\s*$$
+  ^\s*Checksum: 0x${LSCHECKSUM}\s*$$
+  ^\s*Length:\s*${LSLENGTH}\s*$$ 
+  ^\s*$$ -> Next
+  ^\s*Network Mask:\s*/${NWMASK}\s*$$ -> Summarylsa_tos_record
+  ^\s*LS age: ${LSAGE}\s*$$ -> Summarylsa_record
+
+Summarylsa_tos_record
+  ^\s*TOS:\s*${TOS}\s*Metric:\s*${TOSMETRIC}\s*$$ -> Record
+  ^\s*$$ -> Next
+  ^\s*Network Mask:\s*/${NWMASK}\s*$$ -> Summarylsa_tos_record
+  ^\s*LS age: ${LSAGE}\s*$$ -> Summarylsa_record
+  ^\s*Router Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Routerlsa_area_record
+  ^\s*Net Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Networklsa_area_record
+  ^\s*Summary Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Summarylsa_area_record
+  ^\s*ASBR-Summary Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Asbrsummarylsa_area_record
+  ^\s*AS External Link States\s*$$ -> Externallsa_area_record
+  ^\s*OSPF Router with ID\s*\(${ROUTERID}\)\s*$$ -> Routerid_record
+  ^\s*VRF Name:\s+${VRFNAME}\s*$$ -> Start
+
+
+Asbrsummarylsa_area_record
+  ^\s*$$ -> Next
+  ^\s*LS age: ${LSAGE}\s*$$ -> Asbrsummarylsa_record
+  ^VRF Name:\s+${VRFNAME}\s*$$ -> Start
+
+Asbrsummarylsa_record
+  ^\s*LS age: ${LSAGE}\s*$$
+  ^\s*Options: 0x${LSOPTIONS}\s*:\.*$$
+  ^\s*LS Flags: 0x${LSFLAGS}\s*$$
+  ^\s*LS Type:\s*${LSTYPE}\s*$$
+  ^\s*Link State ID: ${LINKSTATEID}\s*\(AS Boundary Router address\)\s*$$
+  ^\s*Advertising Router: ${ADVROUTER}\s*$$
+  ^\s*LS Seq Number: ${LSSEQNUM}\s*$$
+  ^\s*Checksum: 0x${LSCHECKSUM}\s*$$
+  ^\s*Length:\s*${LSLENGTH}\s*$$ 
+  ^\s*$$ -> Next
+  ^\s*Network Mask:\s*/${NWMASK}\s*$$ -> Asbrsummarylsa_nw_record
+  ^\s*LS age: ${LSAGE}\s*$$ -> Asbrsummarylsa_record
+
+Asbrsummarylsa_nw_record
+  ^\s*TOS:\s*${TOS}\s*Metric:\s*${TOSMETRIC}\s*$$ -> Record
+  ^\s*$$ -> Next
+  ^\s*Network Mask:\s*/${NWMASK}\s*$$ -> Asbrsummarylsa_nw_record
+  ^\s*LS age: ${LSAGE}\s*$$ -> Asbrsummarylsa_record
+  ^\s*Router Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Routerlsa_area_record
+  ^\s*Net Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Networklsa_area_record
+  ^\s*Summary Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Asbrsummarylsa_area_record
+  ^\s*AS External Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Externallsa_area_record
+  ^\s*ASBR-Summary Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Asbrsummarylsa_area_record
+  ^\s*OSPF Router with ID\s*\(${ROUTERID}\)\s*$$ -> Start
+
+
+Externallsa_area_record
+  ^\s*$$ -> Next
+  ^\s*LS age: ${LSAGE}\s*$$ -> Externallsa_record
+  ^VRF Name:\s+${VRFNAME}\s*$$ -> Start
+
+Externallsa_record
+  ^\s*LS age: ${LSAGE}\s*$$
+  ^\s*Options: 0x${LSOPTIONS}\s*:\.*$$
+  ^\s*LS Flags: 0x${LSFLAGS}\s*$$
+  ^\s*LS Type:\s*${LSTYPE}\s*$$
+  ^\s*Link State ID: ${LINKSTATEID}\s*\(External Network Number\)\s*$$
+  ^\s*Advertising Router: ${ADVROUTER}\s*$$
+  ^\s*LS Seq Number: ${LSSEQNUM}\s*$$
+  ^\s*Checksum: 0x${LSCHECKSUM}\s*$$
+  ^\s*Length:\s*${LSLENGTH}\s*$$ 
+  ^\s*$$ -> Next
+  ^\s*Network Mask:\s*/${NWMASK}\s*$$ -> Externallsa_nw_record
+  ^\s*LS age: ${LSAGE}\s*$$ -> Externallsa_record
+
+Externallsa_nw_record
+  ^\s*Metric Type:\s*${METRICTYPE}\s*\(Larger than any link state path\)\s*$$
+  ^\s*TOS:\s*${TOS}\s*$$
+  ^\s*Metric:\s*${METRICVALUE}\s*$$
+  ^\s*Forward Address:\s*${FWDADDR}\s*$$
+  ^\s*External Route Tag:\s*${ROUTETAG}\s*$$ -> Record
+  ^\s*$$ -> Next
+  ^\s*Network Mask:\s*/${NWMASK}\s*$$ -> Externallsa_nw_record
+  ^\s*LS age: ${LSAGE}\s*$$ -> Externallsa_record
+  ^\s*Router Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Routerlsa_area_record
+  ^\s*Net Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Networklsa_area_record
+  ^\s*Summary Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Summarylsa_area_record
+  ^\s*ASBR-Summary Link States\s*\(Area\s*${AREAID}\)\s*$$ -> Asbrsummarylsa_area_record
+  ^\s*AS External Link States\s*$$ -> Externallsa_area_record
+  ^\s*OSPF Router with ID\s*\(${ROUTERID}\)\s*$$ -> Start
+
+
+EOF
+

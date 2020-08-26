@@ -1,0 +1,30 @@
+- name: copy dscp_mapping.py
+  copy: src=roles/test/files/acstests/dscp_mapping.py
+        dest=/root/acstests/dscp_mapping.py
+  delegate_to: "{{ ptf_host }}"
+
+- name: Send Arp packets to populate the ARP table in ACS
+  command: ptf --test-dir acstests --platform remote dscp_mapping.ArpPopulate -t "router_mac='{{ ansible_Ethernet0['macaddress'] }}'"
+  args:
+    chdir: /root
+  delegate_to: "{{ ptf_host }}"
+
+- name: Clear switch counters
+  clear_switch_counters:
+
+- name: Send dscp packets
+  command: ptf --test-dir acstests --platform remote dscp_mapping.DscpMappingTest -t "router_mac='{{ ansible_Ethernet0['macaddress'] }}'"
+  args:
+    chdir: /root
+  delegate_to: "{{ ptf_host }}"
+
+- name: Get switch counters
+  switch_counters:
+
+- name: Check switch counters
+  assert: 
+    that:
+      - "{{ switch_counters['Ethernet4']['0']['ucq']['pkt'] == 61 }}"
+      - "{{ switch_counters['Ethernet4']['1']['ucq']['pkt'] == 1 }}"
+      - "{{ switch_counters['Ethernet4']['3']['ucq']['pkt'] == 1 }}"
+      - "{{ switch_counters['Ethernet4']['4']['ucq']['pkt'] == 1 }}"

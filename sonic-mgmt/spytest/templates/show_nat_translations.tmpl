@@ -1,0 +1,18 @@
+Value protocol (\S+)
+Value src_ip (\d+.\d+.\d+.\d+|-+)
+Value src_ip_port (\d+|\s+)
+Value dst_ip (\d+.\d+.\d+.\d+|-+)
+Value dst_ip_port (\d+|\s+)
+Value trn_src_ip (\d+.\d+.\d+.\d+|-+)
+Value trn_src_ip_port (\d+|\s+)
+Value trn_dst_ip (\d+.\d+.\d+.\d+|-+)
+Value trn_dst_ip_port (\d+|\s+)
+
+Start
+  ^\s*Protocol\s+Source IP\s+Destination IP\s+Translated Source\s+Translated Destination\s*$$
+  ^(-+\s*)*$$
+  ^\s*${protocol}\s+${src_ip}:${src_ip_port}\s+${dst_ip}:${dst_ip_port}\s+${trn_src_ip}:${trn_src_ip_port}\s+${trn_dst_ip}:${trn_dst_ip_port}\s*$$ -> Record
+  ^\s*${protocol}\s+${src_ip}:${src_ip_port}\s+${dst_ip}\s+${trn_src_ip}:${trn_src_ip_port}\s+${trn_dst_ip}\s*$$ -> Record
+  ^\s*${protocol}\s+${src_ip}\s+${dst_ip}:${dst_ip_port}\s+${trn_src_ip}\s+${trn_dst_ip}:${trn_dst_ip_port}\s*$$ -> Record
+  ^\s*${protocol}\s+${src_ip}\s+${dst_ip}\s+${trn_src_ip}\s+${trn_dst_ip}\s*$$ -> Record
+

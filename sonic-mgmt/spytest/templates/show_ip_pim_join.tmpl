@@ -1,0 +1,19 @@
+###############################################################
+#sonic# show ip pim join
+#Interface Address         Source          Group           State      Uptime   Expire Prune
+#Ethernet46 10.1.1.2        10.2.1.20       232.0.0.20      NOINFO     --:--:-- --:--  --:--
+#
+###############################################################
+Value interface (\w+)
+Value address ([\w\.]+)
+Value source ([\w\.]+)
+Value group ([\w\.]+)
+Value state (\w+)
+Value uptime ([\d\:\-]+)
+Value expire ([\d\:\-]+)
+Value prune ([\d\:\-]+)
+Value vrf (\w+)
+
+Start
+  ^\s*VRF:\s*${vrf}$$
+  ^\s*${interface}\s*${address}\s*${source}\s*${group}\s*${state}\s*${uptime}\s*${expire}\s*${prune}$$ -> Record

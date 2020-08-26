@@ -1,0 +1,49 @@
+- set_fact:
+    pfc_wd_available_port_ids: "{{range(16,32) | list | shuffle}}"
+  when: testbed_type == "t1-lag"
+
+- set_fact:
+    pfc_wd_available_port_ids: "{{range(32) | list | shuffle}}"
+  when: testbed_type == "t1"
+
+- set_fact:
+    pfc_wd_test_port_id: "{{pfc_wd_available_port_ids[0]}}"
+    pfc_wd_rx_port_id: "{{pfc_wd_available_port_ids[1]}}"
+  when: testbed_type in ["t1", "t1-lag"]
+
+- set_fact:
+    pfc_wd_test_port: "Ethernet{{(pfc_wd_test_port_id | int) * 4}}"
+    pfc_wd_rx_port: "Ethernet{{(pfc_wd_rx_port_id | int) * 4}}"
+  when: testbed_type in ["t1", "t1-lag"]
+
+- set_fact:
+    pfc_wd_test_port_addr: "{{ansible_interface_facts[pfc_wd_test_port]['ipv4']['address']}}"
+    pfc_wd_rx_port_addr: "{{ansible_interface_facts[pfc_wd_rx_port]['ipv4']['address']}}"
+  when: testbed_type in ["t1", "t1-lag"]
+
+- set_fact:
+    random_seed: "{{range(4) | list | shuffle}}"
+  when: testbed_type in ["t0", "t0-64", "t0-116"]
+
+- set_fact:
+    pfc_wd_test_portchannel: "{{minigraph_portchannel_interfaces[0].attachto}}"
+  when: testbed_type in ["t0", "t0-64", "t0-116"]
+
+- set_fact:
+    pfc_wd_rx_portchannel: "{%for p in minigraph_portchannel_interfaces if p['attachto']!=pfc_wd_test_portchannel %}{%if loop.first %}{{p['attachto']}}{%endif%}{%endfor%}"
+  when: testbed_type in ["t0", "t0-64", "t0-116"]
+
+- set_fact:
+    pfc_wd_test_port: "{{minigraph_portchannels[pfc_wd_test_portchannel]['members'][0]}}"
+    pfc_wd_rx_port: "{{minigraph_portchannels[pfc_wd_rx_portchannel]['members'][0]}}"
+  when: testbed_type in ["t0", "t0-64", "t0-116"]
+
+- set_fact:
+    pfc_wd_test_port_addr: "{%for p in minigraph_portchannel_interfaces%}{%if p['attachto']==pfc_wd_test_portchannel and p['addr']|ipv4%}{{p['addr']}}{%endif %}{%endfor%}"
+    pfc_wd_rx_port_addr: "{%for p in minigraph_portchannel_interfaces%}{%if p['attachto']==pfc_wd_rx_portchannel and p['addr']|ipv4%}{{p['addr']}}{%endif %}{%endfor%}"
+  when: testbed_type in ["t0", "t0-64", "t0-116"]
+
+- set_fact:
+    pfc_wd_test_port_id: "{{minigraph_port_indices[pfc_wd_test_port]}}"
+    pfc_wd_rx_port_id: "{{minigraph_port_indices[pfc_wd_rx_port]}}"
+  when: testbed_type in ["t0", "t0-64", "t0-116"]

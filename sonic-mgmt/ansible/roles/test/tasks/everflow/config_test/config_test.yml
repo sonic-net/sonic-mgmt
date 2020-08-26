@@ -1,0 +1,173 @@
+- name: Define variables for test
+  set_fact:
+    testname: config_test
+    config_files:
+        - config_src_ip_invalid_1.json
+        - config_dst_ip_invalid_1.json
+        - config_gre_type_invalid_1.json
+        - config_gre_type_invalid_2.json
+        - config_gre_type_invalid_3.json
+        - config_dscp_invalid_1.json
+        - config_dscp_invalid_2.json
+        - config_dscp_invalid_3.json
+        - config_ttl_invalid_1.json
+        - config_ttl_invalid_2.json
+        - config_ttl_invalid_3.json
+        - config_queue_invalid_1.json
+        - config_queue_invalid_2.json
+        - config_queue_invalid_3.json
+        - config_valid_1.json
+        - config_valid_2.json
+        - config_delete.json
+
+- name: Initialize config test
+  include_tasks: roles/test/tasks/init_config_test.yml
+
+- block:
+    - name: Config tests - invalid SRC IP address.
+      vars:
+        config_file: config_src_ip_invalid_1.json
+        test_expect_file: config_test_expect_file
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - invalid DST IP address.
+      vars:
+        config_file: config_dst_ip_invalid_1.json
+        test_expect_file: config_test_expect_file
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - invalid GRE type (non integer value).
+      vars:
+        config_file: config_gre_type_invalid_1.json
+        test_expect_file: config_test_expect_file
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - invalid GRE type (value < that min bound).
+      vars:
+        config_file: config_gre_type_invalid_2.json
+        test_expect_file: config_test_expect_file
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - invalid GRE type (value > that min bound).
+      vars:
+        config_file: config_gre_type_invalid_3.json
+        test_expect_file: config_test_expect_file
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - invalid DSCP (non integer value).
+      vars:
+        config_file: config_dscp_invalid_1.json
+        test_expect_file: config_test_expect_file
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - invalid DSCP (value < that min bound).
+      vars:
+        config_file: config_dscp_invalid_2.json 
+        test_expect_file: config_test_expect_file
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - invalid DSCP (value > that min bound).
+      vars:
+        config_file: config_dscp_invalid_3.json
+        test_expect_file: config_test_expect_file
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - invalid TTL (non integer value).
+      vars:
+        config_file:  config_ttl_invalid_1.json
+        test_expect_file: config_test_expect_file
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - invalid TTL (value < that min bound).
+      vars:
+        config_file: config_ttl_invalid_2.json
+        test_expect_file: config_test_expect_file
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - invalid TTL (value > that min bound).
+      vars:
+        config_file: config_ttl_invalid_3.json
+        test_expect_file: config_test_expect_file
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - invalid queue (non integer value).
+      vars:
+        config_file: config_queue_invalid_1.json
+        test_expect_file: config_test_expect_file
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - invalid queue (value < that min bound).
+      vars:
+        config_file: config_queue_invalid_2.json
+        test_expect_file: config_test_expect_file
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - invalid queue (value > that max bound).
+      vars:
+        config_file: config_queue_invalid_3.json 
+        test_expect_file: config_test_expect_file
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - valid config (all integers are in 10 base).
+      vars:
+        config_file: config_valid_1.json
+        test_expect_file: config_test_expect_file
+        errors_expected: false
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - valid config (all integers are in hex).
+      vars:
+        config_file: config_valid_2.json
+        test_expect_file: config_test_expect_file
+        errors_expected: false
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - delete configuration part 1 (apply config).
+      vars:
+        config_file: config_valid_2.json
+        test_expect_file: config_test_expect_file
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Config tests - delete configuration part 2 (delete config).
+      vars:
+        config_file: config_delete.json
+        test_expect_file: config_test_expect_file
+        errors_expected: false
+        run_cleanup: true
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+  always:
+    - name: Remove all the temporary files created by the test.
+      include_tasks: roles/test/tasks/deinit_config_test.yml

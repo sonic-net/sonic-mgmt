@@ -1,0 +1,72 @@
+Value Required NEIGHBORIP ([\:\d\.]+)
+Value REMOTEASN (\d+)
+Value LOCALASN (\d+)
+Value BGPVERSION (\d+)
+Value REMROUTERID (\S+)
+Value LOCALROUTERID (\S+)
+Value STATE (\S+)
+Value LASTREAD (\S+)
+Value LASTWRITE (\S+)
+Value HOLDTIME (\d+)
+Value KEEPALIVE (\d+)
+Value INQDEPTH (\d+)
+Value OUTQDEPTH (\d+)
+Value OPENSENT (\S+)
+Value OPENRCVD (\S+)
+Value NOTIFICATIONSENT (\S+)
+Value NOTIFICATIONRCVD (\S+)
+Value UPDATESENT (\S+)
+Value UPDATERCVD (\S+)
+Value KEEPALIVESENT (\S+)
+Value KEEPALIVERCVD (\S+)
+Value ROUTEREFRESHSENT (\S+)
+Value ROUTEREFRESHRCVD (\S+)
+Value CAPABLITYSENT (\S+)
+Value CAPABILITYRCVD (\S+)
+Value SENTTOTAL (\S+)
+Value RCVDTOTAL (\S+)
+Value PEERGROUP (\S+)
+Value ASBYTE (\S+)
+Value GRCAPABILITY (\S+)
+Value BGPDOWNREASON ([\S\s]+)
+Value BGPLASTRESET ([\d\:]+)
+Value BFDTYPE (\S+)
+Value BFDMultiplier (\S+)
+Value BFDRXINTR (\S+)
+Value BFDTXINTR (\S+)
+Value BFDSTATUS (\S+)
+Value BFDLASTUPDATE (\S+)
+
+
+Start
+  ^\s*BGP\s*neighbor\s*is\s*${NEIGHBORIP},\s*remote\s*AS\s*${REMOTEASN},\s*local\s*AS\s*${LOCALASN},\s*external\s*link
+  ^\s*BGP\s*neighbor\s*is\s*${NEIGHBORIP},\s*remote\s*AS\s*${REMOTEASN},\s*local\s*AS\s*${LOCALASN},\s*internal\s*link
+  ^\s*Member of peer-group ${PEERGROUP} for session parameters\s*$$
+  ^\s*BGP\s+version\s+${BGPVERSION},\s+remote\s+router\s+ID\s+${REMROUTERID},\s+local\s+router\s+ID\s+${LOCALROUTERID}\s*$$
+  ^\s*BGP\s+state\s+=\s+${STATE}
+  ^\s*Last\s+read\s+${LASTREAD},\s+Last\s+write\s+${LASTWRITE}
+  ^\s*Hold time is ${HOLDTIME}, keepalive interval is ${KEEPALIVE} seconds\s*$$
+  ^\s*Neighbor capabilities:
+  ^\s*${ASBYTE} Byte AS: advertised
+  ^\s*Graceful Restart Capabilty: ${GRCAPABILITY}
+  ^\s*Message statistics:\s*$$
+  ^\s*Inq depth is ${INQDEPTH}\s*$$
+  ^\s*Outq depth is ${OUTQDEPTH}\s*$$
+  ^\s*Sent\s*Rcvd\s*$$
+  ^\s*Opens:\s*${OPENSENT}\s*${OPENRCVD}\s*$$
+  ^\s*Notifications:\s*${NOTIFICATIONSENT}\s*${NOTIFICATIONRCVD}\s*$$
+  ^\s*Updates:\s*${UPDATESENT}\s*${UPDATERCVD}\s*$$
+  ^\s*Keepalives:\s*${KEEPALIVESENT}\s*${KEEPALIVERCVD}\s*$$
+  ^\s*Route Refresh:\s*${ROUTEREFRESHSENT}\s*${ROUTEREFRESHRCVD}\s*$$
+  ^\s*Capability:\s*${CAPABLITYSENT}\s*${CAPABILITYRCVD}\s*$$
+  ^\s*Total:\s*${SENTTOTAL}\s*${RCVDTOTAL}\s*$$ 
+  ^\s*Last\s*reset\s*${BGPLASTRESET},\s*due\s*to\s*NOTIFICATION\s*sent\s*\(\s*${BGPDOWNREASON}\)
+  ^\s*Last\s*reset\s*${BGPLASTRESET},\s*due\s*to\s*NOTIFICATION\s*received\s*\(\s*${BGPDOWNREASON}\)
+  ^\s*Last\s*reset\s*${BGPLASTRESET},\s*due\s*to\s*${BGPDOWNREASON}
+  ^\s*BFD: Type: ${BFDTYPE} hop 
+  ^\s*Detect Multiplier: ${BFDMultiplier}, Min Rx interval: ${BFDRXINTR}, Min Tx interval: ${BFDTXINTR} 
+  ^\s*Status: ${BFDSTATUS}, Last update: ${BFDLASTUPDATE}\s*$$ -> Record
+
+
+
+

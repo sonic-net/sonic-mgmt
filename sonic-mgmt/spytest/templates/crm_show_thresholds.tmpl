@@ -1,0 +1,11 @@
+Value ResourceName (\S+)
+Value ThresholdType (\S+)
+Value LowThreshold (\d+)
+Value HighThreshold (\d+)
+
+Start
+  ^\s*Resource Name\s+Threshold Type\s+Low Threshold\s+High Threshold\s*$$
+  ^(-+\s*)*$$
+  ^\s*${ResourceName}\s+${ThresholdType}\s+${LowThreshold}\s+${HighThreshold}\s*$$ -> Record
+  ^$$
+

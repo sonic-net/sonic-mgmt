@@ -1,0 +1,5 @@
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+
+- include_tasks: mac_entry_update.yml
+  with_items: "{{ minigraph_interfaces }}"

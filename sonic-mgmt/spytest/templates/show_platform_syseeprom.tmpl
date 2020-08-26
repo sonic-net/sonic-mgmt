@@ -1,0 +1,14 @@
+Value tlv_name (\S+\s+\S+|\S+|\S+\s+\S+\s+\S+)
+Value code (\S+)
+Value len (\d+)
+Value value (\S+|\S+\s+\S+)
+
+Start
+  ^\s*TlvInfo\s+Header:
+  ^\s*Id\s+String:\s+TlvInfo
+  ^\s*Version:\s+\d+
+  ^\s*Total\s+Length:\s+\d+
+  ^\s*TLV Name\s+Code\s+Len\s+Value\s*$$
+  ^(-+\s*)*$$
+  ^\s*${tlv_name}\s+${code}\s+${len}\s+${value}\s*$$ -> Record
+  ^\s*${tlv_name}\s+${code}\s+${len}\s*$$ -> Record
