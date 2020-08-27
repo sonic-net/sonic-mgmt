@@ -9,6 +9,7 @@ import pytest
 from check_sysfs import check_sysfs
 
 pytestmark = [
+    pytest.mark.asic('mellanox'),
     pytest.mark.topology('any')
 ]
 

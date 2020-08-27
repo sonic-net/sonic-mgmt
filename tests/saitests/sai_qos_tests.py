@@ -583,7 +583,10 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
-        margin = 2
+        if 'pkts_num_margin' in self.test_params.keys():
+            margin = int(self.test_params['pkts_num_margin'])
+        else:
+            margin = 2
 
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
 
@@ -692,7 +695,12 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
         pkts_num_dismiss_pfc = int(self.test_params['pkts_num_dismiss_pfc'])
+        if 'pkts_num_hysteresis' in self.test_params.keys():
+            hysteresis = int(self.test_params['pkts_num_hysteresis'])
+        else:
+            hysteresis = 0
         default_packet_length = 64
+
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
         recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
@@ -702,12 +710,15 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         # The number of packets that will trek into the headroom space;
         # We observe in test that if the packets are sent to multiple destination ports,
         # the ingress may not trigger PFC sharp at its boundary
-        margin = 1
+        if 'pkts_num_margin' in self.test_params.keys():
+            margin = int(self.test_params['pkts_num_margin'])
+        else:
+            margin = 1
 
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id, dst_port_2_id, dst_port_3_id])
 
         try:
-            # send packets to dst port 0
+            # send packets to dst port 1, occupying the "xon"
             pkt = simple_tcp_packet(pktlen=default_packet_length,
                                     eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                     eth_src=src_port_mac,
@@ -715,8 +726,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ip_dst=dst_port_ip,
                                     ip_tos=tos,
                                     ip_ttl=ttl)
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc)
-            # send packets to dst port 1
+            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc - hysteresis)
+            # send packets to dst port 2, occupying the shared buffer
             pkt = simple_tcp_packet(pktlen=default_packet_length,
                                     eth_dst=router_mac if router_mac != '' else dst_port_2_mac,
                                     eth_src=src_port_mac,
@@ -724,8 +735,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ip_dst=dst_port_2_ip,
                                     ip_tos=tos,
                                     ip_ttl=ttl)
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1)
-            # send 1 packet to dst port 2
+            send_packet(self, src_port_id, pkt, pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1 + hysteresis)
+            # send 1 packet to dst port 3, triggering PFC
             pkt = simple_tcp_packet(pktlen=default_packet_length,
                                     eth_dst=router_mac if router_mac != '' else dst_port_3_mac,
                                     eth_src=src_port_mac,
@@ -1343,14 +1354,26 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
 
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_trig_egr_drp = int(self.test_params['pkts_num_trig_egr_drp'])
-        default_packet_length = 64
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
+        if 'packet_size' in self.test_params.keys():
+            packet_length = int(self.test_params['packet_size'])
+            cell_size = int(self.test_params['cell_size'])
+            if packet_length != 64:
+                cell_occupancy = (packet_length + cell_size - 1) / cell_size
+                pkts_num_trig_egr_drp /= cell_occupancy
+                # It is possible that pkts_num_trig_egr_drp * cell_occupancy < original pkts_num_trig_egr_drp,
+                # which probably can fail the assert(xmit_counters[EGRESS_DROP] > xmit_counters_base[EGRESS_DROP])
+                # due to not sending enough packets.
+                # To avoid that we need a larger margin
+        else:
+            packet_length = 64
+        pkt = simple_tcp_packet(pktlen=packet_length,
                                 eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                 eth_src=src_port_mac,
                                 ip_src=src_port_ip,
                                 ip_dst=dst_port_ip,
                                 ip_tos=tos,
                                 ip_ttl=ttl)
+
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
         recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
@@ -1358,7 +1381,10 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         # add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
-        margin = 2
+        if 'pkts_num_margin' in self.test_params.keys():
+            margin = int(self.test_params['pkts_num_margin'])
+        else:
+            margin = 2
 
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
 
@@ -1421,17 +1447,17 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_fill_shared = int(self.test_params['pkts_num_fill_shared'])
         cell_size = int(self.test_params['cell_size'])
         if 'packet_size' in self.test_params.keys():
-            default_packet_length = int(self.test_params['packet_size'])
+            packet_length = int(self.test_params['packet_size'])
         else:
-            default_packet_length = 64
+            packet_length = 64
 
-        cell_occupancy = (default_packet_length + cell_size - 1) / cell_size
+        cell_occupancy = (packet_length + cell_size - 1) / cell_size
 
         # Prepare TCP packet data
         tos = dscp << 2
         tos |= ecn
         ttl = 64
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
+        pkt = simple_tcp_packet(pktlen=packet_length,
                                 eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                 eth_src=src_port_mac,
                                 ip_src=src_port_ip,
@@ -1495,7 +1521,6 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             time.sleep(8)
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[src_port_id])
             print >> sys.stderr, "exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (pkts_num, ((expected_wm + cell_occupancy) * cell_size), pg_shared_wm_res[pg])
-#            assert(expected_wm == total_shared)
             assert(fragment < cell_occupancy)
             assert(expected_wm * cell_size <= pg_shared_wm_res[pg])
             assert(pg_shared_wm_res[pg] <= (expected_wm + margin + cell_occupancy) * cell_size)
@@ -1543,7 +1568,10 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
-        margin = 0
+        if 'pkts_num_margin' in self.test_params.keys():
+            margin = int(self.test_params['pkts_num_margin'])
+        else:
+            margin = 0
 
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
 
@@ -1571,8 +1599,8 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt, pkts_num)
                 time.sleep(8)
                 q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[src_port_id])
-                print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size, pg_headroom_wm_res[pg], (expected_wm * cell_size))
-                assert(pg_headroom_wm_res[pg] <= expected_wm * cell_size)
+                print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size, pg_headroom_wm_res[pg], ((expected_wm + margin) * cell_size))
+                assert(pg_headroom_wm_res[pg] <= (expected_wm + margin) * cell_size)
                 assert((expected_wm - margin) * cell_size <= pg_headroom_wm_res[pg])
 
                 pkts_num = pkts_inc
@@ -1581,9 +1609,11 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             send_packet(self, src_port_id, pkt, pkts_num)
             time.sleep(8)
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[src_port_id])
-            print >> sys.stderr, "exceeded pkts num sent: %d, actual value: %d, expected watermark: %d" % (pkts_num, pg_headroom_wm_res[pg], (expected_wm * cell_size))
+            print >> sys.stderr, "exceeded pkts num sent: %d" % (pkts_num)
+            print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size, pg_headroom_wm_res[pg], ((expected_wm + margin) * cell_size))
             assert(expected_wm == total_hdrm)
-            assert(pg_headroom_wm_res[pg] == expected_wm * cell_size)
+            assert(pg_headroom_wm_res[pg] <= (expected_wm + margin) * cell_size)
+            assert((expected_wm - margin) * cell_size <= pg_headroom_wm_res[pg])
 
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
@@ -1611,13 +1641,18 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_fill_min = int(self.test_params['pkts_num_fill_min'])
         pkts_num_trig_drp = int(self.test_params['pkts_num_trig_drp'])
         cell_size = int(self.test_params['cell_size'])
+        if 'packet_size' in self.test_params.keys():
+            packet_length = int(self.test_params['packet_size'])
+        else:
+            packet_length = 64
+
+        cell_occupancy = (packet_length + cell_size - 1) / cell_size
 
         # Prepare TCP packet data
         tos = dscp << 2
         tos |= ecn
         ttl = 64
-        default_packet_length = 64
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
+        pkt = simple_tcp_packet(pktlen=packet_length,
                                 eth_dst=router_mac if router_mac != '' else dst_port_mac,
                                 eth_src=src_port_mac,
                                 ip_src=src_port_ip,
@@ -1654,21 +1689,24 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # first round sends only 1 packet
             expected_wm = 0
             total_shared = pkts_num_trig_drp - pkts_num_fill_min - 1
-            pkts_inc = total_shared >> 2
+            pkts_inc = (total_shared / cell_occupancy) >> 2
             pkts_num = 1 + margin
-            while (expected_wm < total_shared):
-                expected_wm += pkts_num
+            fragment = 0
+            while (expected_wm < total_shared - fragment):
+                expected_wm += pkts_num * cell_occupancy
                 if (expected_wm > total_shared):
-                    pkts_num -= (expected_wm - total_shared)
-                    expected_wm = total_shared
+                    diff = (expected_wm - total_shared + cell_occupancy - 1) / cell_occupancy
+                    pkts_num -= diff
+                    expected_wm -= diff * cell_occupancy
+                    fragment = total_shared - expected_wm
                 print >> sys.stderr, "pkts num to send: %d, total pkts: %d, queue shared: %d" % (pkts_num, expected_wm, total_shared)
 
                 send_packet(self, src_port_id, pkt, pkts_num)
                 time.sleep(8)
                 q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
-                print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % (expected_wm * cell_size, q_wm_res[queue], (expected_wm * cell_size))
-                assert(q_wm_res[queue] <= expected_wm * cell_size)
-                assert(expected_wm * cell_size <= q_wm_res[queue])
+                print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size, q_wm_res[queue], (expected_wm + margin) * cell_size)
+                assert(q_wm_res[queue] <= (expected_wm + margin) * cell_size)
+                assert((expected_wm - margin) * cell_size <= q_wm_res[queue])
 
                 pkts_num = pkts_inc
 
@@ -1676,8 +1714,8 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             send_packet(self, src_port_id, pkt, pkts_num)
             time.sleep(8)
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
-            print >> sys.stderr, "exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (pkts_num, (expected_wm * cell_size), q_wm_res[queue])
-            assert(expected_wm == total_shared)
+            print >> sys.stderr, "exceeded pkts num sent: %d, actual value: %d, lower bound: %d, upper bound: %d" % (pkts_num, q_wm_res[queue], expected_wm * cell_size, (expected_wm + margin) * cell_size)
+            assert(fragment < cell_occupancy)
             assert(expected_wm * cell_size <= q_wm_res[queue])
             assert(q_wm_res[queue] <= (expected_wm + margin) * cell_size)
 

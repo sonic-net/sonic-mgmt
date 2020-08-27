@@ -64,7 +64,7 @@ Using a parametrized fixture, for each supported configuration named in test exe
 from sonic-mgmt, docker container, tests folder:
 
 ```
-$  py.test --inventory ../ansible/inventory --host-pattern <host> --module-path ../ansible/library/
+$  pytest --inventory ../ansible/inventory --host-pattern <host> --module-path ../ansible/library/
 --testbed <host>-<topology> --testbed_file ../ansible/testbed.csv --show-capture=no --capture=no
  --log-cli-level debug -ra -vvvvv techsupport/test_techsupport.py 
  --loop_num=5 --loop_delay=8 --logs_since=3

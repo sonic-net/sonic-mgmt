@@ -5,6 +5,7 @@ from datetime import datetime
 
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
+from tests.common import config_reload
 
 pytestmark = [
     pytest.mark.topology('t1')
@@ -51,7 +52,7 @@ def common_setup_teardown(duthost, ptfhost):
         yield duthost, ptfhost, int_facts, intf1, intf2, intf1_indice, intf2_indice
     finally:
         # Recover DUT interface IP address
-        duthost.shell("sudo config reload -y &>/dev/null", executable="/bin/bash")
+        config_reload(duthost, config_source='config_db', wait=120)
 
 def test_arp_unicast_reply(common_setup_teardown):
     duthost, ptfhost, int_facts, intf1, intf2, intf1_indice, intf2_indice = common_setup_teardown

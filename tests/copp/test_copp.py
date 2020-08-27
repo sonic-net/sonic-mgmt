@@ -27,12 +27,12 @@
 """
 
 import logging
-import time
 import pytest
 from collections import namedtuple
 
 from tests.copp import copp_utils
 from tests.ptf_runner import ptf_runner
+from tests.common import config_reload
 from tests.common.system_utils import docker
 
 # Module-level fixtures
@@ -49,7 +49,9 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "swap_syncd",
                                   "topo",
                                   "bgp_graph"])
-_SUPPORTED_TOPOS = ["ptf32", "ptf64", "t1", "t1-lag"]
+_SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
+_SUPPORTED_T1_TOPOS = ["t1", "t1-lag"]
+_T1_NO_COPP_PROTOCOL = ["DHCP"]
 _TEST_RATE_LIMIT = 600
 
 class TestCOPP(object):
@@ -91,18 +93,18 @@ class TestCOPP(object):
                      copp_testbed)
 
 @pytest.fixture(scope="class")
-def copp_testbed(duthost, ptfhost, testbed, request):
+def copp_testbed(duthost, creds, ptfhost, testbed, request):
     """
         Pytest fixture to handle setup and cleanup for the COPP tests.
     """
     test_params = _gather_test_params(testbed, duthost, request)
 
-    if test_params.topo not in _SUPPORTED_TOPOS:
+    if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T1_TOPOS):
         pytest.skip("Topology not supported by COPP tests")
 
-    _setup_testbed(duthost, ptfhost, test_params)
+    _setup_testbed(duthost, creds, ptfhost, test_params)
     yield test_params
-    _teardown_testbed(duthost, ptfhost, test_params)
+    _teardown_testbed(duthost, creds, ptfhost, test_params)
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
@@ -144,7 +146,9 @@ def _copp_runner(dut, ptf, protocol, test_params):
     # nightly test runs.
     ptf_runner(host=ptf,
                testdir="ptftests",
-               testname="copp_tests.{}Test".format(protocol),
+               # Special Handling for DHCP if we are using T1 Topo
+               testname="copp_tests.{}Test".format((protocol+"TopoT1")
+                         if test_params.topo in _SUPPORTED_T1_TOPOS and protocol in _T1_NO_COPP_PROTOCOL else protocol),
                platform="nn",
                qlen=100000,
                params=params,
@@ -169,7 +173,7 @@ def _gather_test_params(testbed, duthost, request):
                                topo=topo,
                                bgp_graph=bgp_graph)
 
-def _setup_testbed(dut, ptf, test_params):
+def _setup_testbed(dut, creds, ptf, test_params):
     """
         Sets up the testbed to run the COPP tests.
     """
@@ -186,17 +190,17 @@ def _setup_testbed(dut, ptf, test_params):
 
     if test_params.swap_syncd:
         logging.info("Swap out syncd to use RPC image...")
-        docker.swap_syncd(dut)
+        docker.swap_syncd(dut, creds)
     else:
         # NOTE: Even if the rpc syncd image is already installed, we need to restart
         # SWSS for the COPP changes to take effect.
-        logging.info("Restart SWSS...")
-        _restart_swss(dut)
+        logging.info("Reloading config and restarting swss...")
+        config_reload(dut)
 
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port)
 
-def _teardown_testbed(dut, ptf, test_params):
+def _teardown_testbed(dut, creds, ptf, test_params):
     """
         Tears down the testbed, returning it to its initial state.
     """
@@ -209,22 +213,11 @@ def _teardown_testbed(dut, ptf, test_params):
 
     if test_params.swap_syncd:
         logging.info("Restore default syncd docker...")
-        docker.restore_default_syncd(dut)
+        docker.restore_default_syncd(dut, creds)
     else:
-        logging.info("Restart SWSS...")
-        _restart_swss(dut)
+        logging.info("Reloading config and restarting swss...")
+        config_reload(dut)
 
     logging.info("Restore LLDP")
     dut.command("docker exec lldp supervisorctl start lldpd")
     dut.command("docker exec lldp supervisorctl start lldp-syncd")
-
-def _restart_swss(dut):
-    """
-        Restarts SWSS and waits for the system to stabilize.
-    """
-
-    # The failure counter may be incremented by other test cases, so we clear it
-    # first to avoid crashing the testbed.
-    dut.command("systemctl reset-failed swss")
-    dut.command("systemctl restart swss")
-    time.sleep(60)

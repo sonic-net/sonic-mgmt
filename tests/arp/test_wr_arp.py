@@ -2,15 +2,17 @@ import json
 import logging
 import pytest
 
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0'),
+    pytest.mark.disable_loganalyzer
 ]
 
 # Globals
@@ -97,7 +99,8 @@ class TestWrArp:
             sed -ne 's/0\/.*$/1/p'
             '''
         )
-        assert len(result['stderr_lines']) == 0, 'Could not obtain DIP'
+
+        pytest_assert(len(result['stdout'].strip()) > 0, 'Empty DIP returned')
 
         dip = result['stdout']
         logger.info('VxLan Sender {0}'.format(dip))
@@ -120,6 +123,12 @@ class TestWrArp:
 
         logger.info('Refreshing supervisor control with ferret configuration')
         ptfhost.shell('supervisorctl reread && supervisorctl update')
+
+    @pytest.fixture(scope='class', autouse=True)
+    def clean_dut(self, duthost):
+        yield
+        logger.info("Clear ARP cache on DUT")
+        duthost.command('sonic-clear arp')
 
     @pytest.fixture(scope='class', autouse=True)
     def setupRouteToPtfhost(self, duthost, ptfhost):
@@ -156,35 +165,7 @@ class TestWrArp:
             assert result["rc"] == 0 or "No such process" in result["stderr"], \
                 "Failed to delete route with error '{0}'".format(result["stderr"])
 
-    @pytest.fixture(scope='class', autouse=True)
-    def removePtfhostIp(self, ptfhost):
-        '''
-            Removes IP assigned to eth<n> inerface of PTF host. This class-scope fixture runs once before test start
-
-            Args:
-                ptfhost (AnsibleHost): Packet Test Framework (PTF)
-
-            Returns:
-                None
-        '''
-        ptfhost.script('./scripts/remove_ip.sh')
-
-    @pytest.fixture(scope='class', autouse=True)
-    def prepareSshKeys(self, duthost, ptfhost, creds):
-        '''
-            Prepares testbed ssh keys by generating ssh key on ptf host and adding this key to known_hosts on duthost
-            This class-scope fixture runs once before test start
-
-            Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
-                ptfhost (AnsibleHost): Packet Test Framework (PTF)
-
-            Returns:
-                None
-        '''
-        prepareTestbedSshKeys(duthost, ptfhost, creds['sonicadmin_user'])
-
-    def testWrArp(self, request, duthost, ptfhost):
+    def testWrArp(self, request, duthost, ptfhost, creds):
         '''
             Control Plane Assistant test for Warm-Reboot.
 
@@ -216,6 +197,8 @@ class TestWrArp:
             params={
                 'ferret_ip' : ptfIp,
                 'dut_ssh' : dutIp,
+                'dut_username': creds['sonicadmin_user'],
+                'dut_password': creds['sonicadmin_password'],
                 'config_file' : VXLAN_CONFIG_FILE,
                 'how_long' : testDuration,
             },

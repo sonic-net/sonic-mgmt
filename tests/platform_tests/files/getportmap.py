@@ -2,13 +2,13 @@
 # This script runs on the DUT and is intended to retrieve the portmapping from logical interfaces to physical ones
 # The way the port mapping retrieved is exactly the same as what xcvrd does
 
-import sonic_platform_base.sonic_sfp.sfputilhelper
 import json
-from sonic_daemon_base.daemon_base import DaemonBase
+
+import sonic_platform_base.sonic_sfp.sfputilhelper
+from sonic_py_common import device_info
 
 # load and parse the port configuration file on DUT
-db = DaemonBase()
-port_config_path = db.get_path_to_port_config_file()
+port_config_path = device_info.get_path_to_port_config_file()
 platform_sfputil = sonic_platform_base.sonic_sfp.sfputilhelper.SfpUtilHelper()
 platform_sfputil.read_porttab_mappings(port_config_path)
 

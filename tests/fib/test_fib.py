@@ -170,6 +170,9 @@ def setup_hash(testbed, duthost, config_facts):
     if duthost.facts['asic_type'] in ["mellanox"]:
         if 'ip-proto' in hash_keys:
             hash_keys.remove('ip-proto')
+    if duthost.facts['asic_type'] in ["barefoot"]:
+        if 'ingress-port' in hash_keys:
+            hash_keys.remove('ingress-port')
     setup_info['hash_keys'] = hash_keys
 
     setup_info['testbed_type'] = testbed['topo']['name']

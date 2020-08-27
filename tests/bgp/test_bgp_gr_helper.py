@@ -21,18 +21,24 @@ def test_bgp_gr_helper_routes_perserved(duthost, nbrhosts, setup_bgp_graceful_re
     po = config_facts.get('PORTCHANNEL', {})
     dev_nbr = config_facts.get('DEVICE_NEIGHBOR', {})
 
-    rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_address(u'0.0.0.0'))
+    rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network(u'0.0.0.0/0'))
     if len(rtinfo_v4['nexthops']) == 0:
         pytest.skip("there is no next hop for v4 default route")
 
-    rtinfo_v6 = duthost.get_ip_route_info(ipaddress.ip_address(u'::'))
+    rtinfo_v6 = duthost.get_ip_route_info(ipaddress.ip_network(u'::/0'))
     if len(rtinfo_v6['nexthops']) == 0:
         pytest.skip("there is no next hop for v6 default route")
 
     ifnames_v4 = [nh[1] for nh in rtinfo_v4['nexthops']]
     ifnames_v6 = [nh[1] for nh in rtinfo_v6['nexthops']]
 
+    logger.info("ifnames_v4: %s" % ifnames_v4)
+    logger.info("ifnames_v6: %s" % ifnames_v6)
+
     ifnames_common = [ ifname for ifname in ifnames_v4 if ifname in ifnames_v6 ]
+    if len(ifnames_common) == 0:
+        pytest.skip("No common ifnames between ifnames_v4 and ifname_v6: %s and %s" % (ifnames_v4, ifnames_v6))
+
     ifname = ifnames_common[0]
 
     # get neighbor device connected ports
@@ -74,11 +80,11 @@ def test_bgp_gr_helper_routes_perserved(duthost, nbrhosts, setup_bgp_graceful_re
             "neighbor {} does not enter NSF state".format(bgp_nbr_ipv6))
 
     # confirm ip route still there
-    rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_address(u'0.0.0.0'))
+    rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network(u'0.0.0.0/0'))
     pytest_assert(ipaddress.ip_address(bgp_nbr_ipv4) in [ nh[0] for nh in rtinfo_v4['nexthops'] ], \
         "cannot find nexthop {} in the new default route nexthops. {}".format(bgp_nbr_ipv4, rtinfo_v4))
 
-    rtinfo_v6 = duthost.get_ip_route_info(ipaddress.ip_address(u'::'))
+    rtinfo_v6 = duthost.get_ip_route_info(ipaddress.ip_network(u'::/0'))
     pytest_assert(ipaddress.ip_address(bgp_nbr_ipv6) in [ nh[0] for nh in rtinfo_v6['nexthops'] ], \
         "cannot find nexthop {} in the new default route nexthops. {}".format(bgp_nbr_ipv6, rtinfo_v6))
 

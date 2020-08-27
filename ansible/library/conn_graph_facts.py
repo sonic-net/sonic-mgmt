@@ -188,6 +188,8 @@ class Parse_Lab_Graph():
             self.vlanport[hostname] = {}
             for port in self.links[hostname]:
                 peerdevice = self.links[hostname][port]['peerdevice']
+                if self.devices[peerdevice]["Type"].lower() == "devsonic":
+                    continue
                 peerport = self.links[hostname][port]['peerport']
                 peerportmode = self.vlanport[peerdevice][peerport]['mode']
                 peervlanids = self.vlanport[peerdevice][peerport]['vlanids']
