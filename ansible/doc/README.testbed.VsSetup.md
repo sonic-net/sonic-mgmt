@@ -20,6 +20,7 @@ $ sudo ./setup-management-network.sh
    - `vEOS-lab-4.20.15M.vmdk`
 
 ### Use cEOS image (experimental)
+#### Option 1, download and import cEOS image manually
 - Download cEOS image from [arista](https://www.arista.com/en/support/software-download) onto your testbed server
 - Import cEOS image (It will take several minutes to import, so please be patient)
 
@@ -29,6 +30,10 @@ $ docker images
 REPOSITORY                                     TAG                 IMAGE ID            CREATED             SIZE
 ceosimage                                      4.23.2F             d53c28e38448        2 hours ago         1.82GB
 ```
+#### Option 2, download and image cEOS image automatically
+Alternatively, you can host the cEOS image on a http server. Specify `vm_images_url` for downloading the image [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/group_vars/vm_host/main.yml#L2). If a saskey is required for downloading cEOS image, specify `ceosimage_saskey` in `sonic-mgmt/ansible/vars/azure_storage.yml`.
+
+If you want to skip image downloading when the cEOS image is not imported locally, set `skip_ceos_image_downloading` to `true` in `sonic-mgmt/ansible/group_vars/all/ceos.yml`. Then when cEOS image is not locally imported, the scripts will not try to download it and will fail with an error message. Please use option 1 to download and import the cEOS image manually.
 
 ## Download sonic-vs image
 
@@ -107,7 +112,7 @@ index 3e7b3c4e..edabfc40 100644
 ```
 
 - Create dummy `password.txt` under `/data/sonic-mgmt/ansible`
-  
+
   Please note: Here "password.txt" is the Ansible Vault password file name/path. Ansible allows user to use Ansible Vault to encrypt password files. By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line. The file name and location is created and maintained by user.
 
 - Add user `foo`'s public key to `/home/foo/.ssh/authorized_keys` on the host

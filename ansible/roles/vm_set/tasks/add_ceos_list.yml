@@ -13,6 +13,10 @@
   become: yes
   register: ceos_stat
 
+- name: Fail if cEOS image does not exist and downloading is not enabled
+  fail: msg="Please ensure that cEOS docker image {{ ceos_image_orig }} is imported locally in test server"
+  when: (ceos_stat.images | length == 0) and skip_ceos_image_downloading
+
 - include_vars: vars/azure_storage.yml
 
 - name: Download cEOS image
@@ -21,12 +25,12 @@
     url: "{{ vm_images_url }}/{{ ceos_image_filename }}?{{ ceosimage_saskey }}"
     dest: "{{ root_path }}/images/{{ ceos_image_filename }}"
     timeout: 1800
-  when: ceos_stat.images | length == 0
+  when: (ceos_stat.images | length == 0) and not skip_ceos_image_downloading
 
 - name: Import cEOS image
   become: yes
   shell: "docker import {{ root_path }}/images/{{ ceos_image_filename }} {{ ceos_image_orig }}"
-  when: ceos_stat.images | length == 0
+  when: (ceos_stat.images | length == 0) and not skip_ceos_image_downloading
 
 - name: create directory for build ceos image
   become: yes
