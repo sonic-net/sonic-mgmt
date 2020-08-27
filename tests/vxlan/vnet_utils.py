@@ -11,7 +11,10 @@ logger = logging.getLogger(__name__)
 
 def safe_open_template(template_path):
     """
-    Wraps calls to `open()` using `with` to ensure cleanup
+    Safely loads Jinja2 template from given path
+
+    Note:
+        All Jinja2 templates should be accessed with this method to ensure proper garbage disposal
 
     Args:
         template_path: String containing the location of the template file to be opened
