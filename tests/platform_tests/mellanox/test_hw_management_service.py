@@ -9,6 +9,7 @@ from check_hw_mgmt_service import check_hw_management_service
 
 pytestmark = [
     pytest.mark.asic('mellanox'),
+    pytest.mark.usefixtures('check_dut_asic_type'),
     pytest.mark.topology('any')
 ]
 

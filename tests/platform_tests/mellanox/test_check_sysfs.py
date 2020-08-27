@@ -10,6 +10,7 @@ from check_sysfs import check_sysfs
 
 pytestmark = [
     pytest.mark.asic('mellanox'),
+    pytest.mark.usefixtures('check_dut_asic_type'),
     pytest.mark.topology('any')
 ]
 

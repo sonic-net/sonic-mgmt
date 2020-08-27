@@ -423,3 +423,11 @@ def tag_test_report(request, pytestconfig, testbed, duthost, record_testsuite_pr
         record_testsuite_property("os_version", duthost.os_version)
 
         __report_metadata_added = True
+
+@pytest.fixture(scope="function")
+def check_dut_asic_type(request, duthost):
+    dut_asic_type = duthost.facts["asic_type"]
+    asic_marks = [mark for mark in request.node.iter_markers(name="asic")]
+    if asic_marks and dut_asic_type.lower() != asic_marks[0].args[0].lower():
+        pytest.skip("test requires asic {!r}, current DUT asic is {!r}".format(asic_marks[0], dut_asic_type))
+
