@@ -11,6 +11,8 @@ Identified meaningful levels (in increasing order) -
         
         thorough
 
+An unordered level `diagnose` is also supported. If `diagnose` level is specified and a test doesn’t support it, then it shall fall back to `basic` mode. This level doesn’t have any implication of above or below any existing level. Furthermore, this level is not the same as `debug` level, which is intended to take a sample test to debug test code. `diagnose` level is to be used to diagnose sonic feature/behavior.
+
 ### To use CompletenessLevel:
 - Mark the testcase with marker ```supported_completeness_level```. This marker is a list of all the completeness levels supported by a testcase.
 - During Pytest execution, use command line option ```--completeness_level``` to specify the test completeness level.
