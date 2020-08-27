@@ -13,6 +13,9 @@ pytestmark = [
 ]
 
 class TestLinkFlap:
+    def __init__(self, request):
+        self.completeness_level = CompletenessLevel.get_normalized_level(request)
+        
     def __get_dut_if_status(self, dut, ifname=None):
         if not ifname:
             status = dut.show_interface(command='status')['ansible_facts']['int_status']
@@ -47,7 +50,7 @@ class TestLinkFlap:
         self.ports_shutdown_by_test.discard((fanout, fanout_port))
 
 
-    def __build_test_candidates(self, dut, fanouthosts, completeness_level):
+    def __build_test_candidates(self, dut, fanouthosts):
         status = self.__get_dut_if_status(dut)
         candidates = []
 
@@ -60,17 +63,17 @@ class TestLinkFlap:
                 logging.info("Skipping port {} that is admin down".format(dut_port))
             else:
                 candidates.append((dut_port, fanout, fanout_port))
-                if CompletenessLevel.debug in completeness_level:
+                if self.completeness_level == 'debug':
                     # Run the test for one port only - to just test if the test works fine
                     return candidates
 
         return candidates
 
 
-    def run_link_flap_test(self, dut, fanouthosts, completeness_level):
+    def run_link_flap_test(self, dut, fanouthosts):
         self.ports_shutdown_by_test = set()
 
-        candidates = self.__build_test_candidates(dut, fanouthosts, completeness_level)
+        candidates = self.__build_test_candidates(dut, fanouthosts)
         if not candidates:
             pytest.skip("Didn't find any port that is admin up and present in the connection graph")
 
@@ -85,7 +88,5 @@ class TestLinkFlap:
 
 @pytest.mark.platform('physical')
 def test_link_flap(request, duthost, fanouthosts):
-    normalized_level = [mark.args for mark in request.node.iter_markers(name="supported_completeness_level")][0]
-    logging.info("Completeness level set: {}".format(str(normalized_level)))
-    tlf = TestLinkFlap()
-    tlf.run_link_flap_test(duthost, fanouthosts, normalized_level)
+    tlf = TestLinkFlap(request)
+    tlf.run_link_flap_test(duthost, fanouthosts)

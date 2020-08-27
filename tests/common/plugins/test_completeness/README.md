@@ -3,13 +3,13 @@ CompletenessLevel marker enables testcases to be executed in different meaningfu
 Each level is a representation of a scope of execution of a testcase. This document describes the usage of CompletenessLevel marker.
 Identified meaningful levels (in increasing order) -
         
-        Debug
+        debug
         
-        Basic
+        basic
         
-        Confident
+        confident
         
-        Thorough
+        thorough
 
 ### To use CompletenessLevel:
 - Mark the testcase with marker ```supported_completeness_level```. This marker is a list of all the completeness levels supported by a testcase.
@@ -17,6 +17,7 @@ Identified meaningful levels (in increasing order) -
 - Automatic normalization between specified ```--completeness_level``` and defined ```supported_completeness_level``` will be performed and the test will be executed at the resultant normalized level of completeness.
 - If module/session/testcase have different supported levels of completeness, the inner most level will supersede any defined level.
   For eg., if the module and testcase have supported levels "debug, basic, thorough" and "confident" respectively, the resultant defined level for this testcase will be "confident".
+- Within a testcase - Class method `CompletenessLevel.get_normalized_level()` can be called with the test's `request` object to get the normalized level. 
 
 ### Different cases for CompletenessLevel
 
@@ -37,20 +38,20 @@ To handle any discrepancy between specified and defined completeness levels, nor
 import pytest
 from tests.common.plugins.test_completeness import CompletenessLevel
 
-pytestmark = [pytest.mark.supported_completeness_level(CompletenessLevel.Debug, CompletenessLevel.Thorough)]
+pytestmark = [pytest.mark.supported_completeness_level(CompletenessLevel.debug, CompletenessLevel.thorough)]
 
 def test_test_completeness_default(request):
-    normalized_level = [mark.args for mark in request.node.iter_markers(name="supported_completeness_level")]
+    normalized_level = CompletenessLevel.get_normalized_level(request)
     logger.info("Completeness level set to: {}".format(str(normalized_level)))
 
     ## Continue execution of the testecase until the completeness level specified.
-    # Debug - Do something - end the test if the specified level is Debug
+    # debug - Do something - end the test if the specified level is debug
     ...
     ...
-    # Basic - Do something more - extra tests/verifications - end the test now if the level is Basic
+    # basic - Do something more - extra tests/verifications - end the test now if the level is basic
     ...
     ...
-    # Thorough - Run entire test - if the set level is Thorough
+    # thorough - Run entire test - if the set level is thorough
 ```
 
 ### CompletenessLevel execution snippets
