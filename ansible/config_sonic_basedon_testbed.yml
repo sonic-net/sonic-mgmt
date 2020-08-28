@@ -102,6 +102,73 @@
               dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
     connection: local
     when: local_minigraph is defined and local_minigraph|bool == true
+    
+  - block:
+    - name: Init telemetry keys
+      set_fact:
+        server_key: ""
+        server_cer: ""
+        dsmsroot_key: ""
+        dsmsroot_cer: ""
+        dir_path: ""
+
+    - name: read server key
+      set_fact:
+        server_key: "{{ telemetry_certs['server_key'] }}"
+      when: telemetry_certs['server_key'] is defined
+
+    - name: read server cer
+      set_fact:
+        server_cer: "{{ telemetry_certs['server_cer'] }}"
+      when: telemetry_certs['server_cer'] is defined
+
+    - name: read dsmsroot key
+      set_fact:
+        dsmsroot_key: "{{ telemetry_certs['dsmsroot_key'] }}"
+      when: telemetry_certs['dsmsroot_key'] is defined
+
+    - name: read dsmsroot cer
+      set_fact:
+        dsmsroot_cer: "{{ telemetry_certs['dsmsroot_cer'] }}"
+      when: telemetry_certs['dsmsroot_cer'] is defined
+
+    - name: read directory path
+      set_fact:
+        dir_path: "{{ telemetry_certs['dir_path'] }}"
+      when: telemetry_certs['dir_path'] is defined
+
+    - name: Create telemetry directory
+      file:
+        path: "{{ dir_path }}"
+        state: directory
+        mode: '0755'
+      become: true
+
+    # {{ server_cer }}/ streamingtelemetryserver.cer need to be copied on PTFDocker and renamed as dsmsroot.cer    
+    - name: Generate server cert using openssl.
+      command: openssl req \
+          -x509 \
+          -sha256 \
+          -nodes \
+          -newkey rsa:2048 \
+          -keyout "{{ server_key }}"
+          -subj "/CN=ndastreamingservertest"
+          -out "{{ server_cer }}" 
+      become: true
+
+    # {{ dsmsroot_cer }}/ dsmsroot.cer need to be copied on PTFDocker and renamed as streamingtelemetryclient.cer
+    # {{ dsms_key }}/ dsmsroot.key need to be copied and renamed as streamingtelemetryclient.key
+    - name: Generate dsmsroot cert using openssl.
+      command: openssl req \
+          -x509 \
+          -sha256 \
+          -nodes \
+          -newkey rsa:2048 \
+          -keyout "{{ dsmsroot_key }}"
+          -subj "/CN=ndastreamingclienttest"
+          -out "{{ dsmsroot_cer }}"
+      become: true
+
 
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)
