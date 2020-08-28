@@ -20,6 +20,12 @@
       - [Test Objective](#test-objective-2)
       - [Test Configuration](#test-configuration-2)
       - [Test Steps](#test-steps-2)
+  
+ Revision of the Document
+
+| Rev |     Date    |       Author       | Change Description                |
+|:---:|:-----------:|:------------------:|-----------------------------------|
+| 0.1 |        Aug-28-2020     | Microsoft & Keysight     | Initial version                   |
 
 ## Overview
 
@@ -45,27 +51,72 @@ different QoS requirement, gets entirely blocked irrespective of their
 QoS. Thus enabling PAUSE for one application can affect the performance
 of the other network applications sharing the same Ethernet segment.
 IEEE 802.1Qbb PFC (Priority Flow Control) extends the basic PAUSE
-mechanism for multiple CoS, thus enabling coexistence of flows which
+mechanism for multiple priorities, thus enabling coexistence of flows which
 needs flow control with other flows which performs better without it.
-Upto 8 CoSs can be used. PFC uses the same 64Byte MAC Control frame
+Upto 8 priorities can be used. PFC uses the same 64Byte MAC Control frame
 format that PAUSE frames do. It has a two byte Class-Enable vector to
-mention the CoS value for which the PAUSE should apply. As PFC acts
-independently on eight different CoSs, the frame describes the PAUSE
-duration for each CoS. The pause duration for each priority is a 2-byte
+mention the priority value for which the PAUSE should apply. As PFC acts
+independently on eight different priorities, the frame describes the PAUSE
+duration for each priority. The pause duration for each priority is a 2-byte
 value that expresses time as a number of quanta, where each quanta
 represents the time needed to transmit 512 bits at the current network
-speed. For user data traffic, the CoS maps to either CoS values defined
-in 802.1Q VLAN tag or the IP DSCP values.
+speed. For user data traffic, the priority maps to either priority values defined
+in 802.1Q VLAN tag or the IP DSCP values. PFC is widely used to enable RoCE deployments.
+
+The PFC PAUSE frame :
+```
++-------------------------+
+| Destination Address     |    6 octets
++-------------------------+
++-------------------------+
+| Source address          |    6 octets
++-------------------------+
++-------------------------+
+| Ethertype               |    2 octets
++-------------------------+
++-------------------------+
+| Control opcode = 01-01  |    2 octets
++-------------------------+                     ms octet          1st octet
++-------------------------+                  +-------------------------------------+
+| Priority enable vector  |    2 octets ---> |    0       | e(7)... e(n)..e(0)     |
++-------------------------+                  +-------------------------------------+
++-------------------------+
+| Time(0)                 |    2 octets
++-------------------------+     
+            |              -----+
++-------------------------+     |
+| Time(n)                 |     | 12 ( 6X2 ) octets
++-------------------------+     |
+            |              -----+
++-------------------------+     
+| Time(7)                 |    2 octets
++-------------------------+
++-------------------------+
+|  Pad                    |    26 octets
++-------------------------+
++-------------------------+
+|  CRC                    |    4 octets
++-------------------------+
+
+Priority enable vector : e[n] = 1 => time (n) valid 
+                         e[n] =0 => time (n)invalid
+
+Time (n) is defined as the pause timer for priority n.
+
+```
+
 
 SONiC has two lossless priorities: 3 and 4, by default. It is to be
 noted that only the lossless priorities can react to or generate PFC
 frames. In other words, PFC frames should not have any impact on traffic
 on lossy priorities. Packets with Differentiated Services Code Point
-(DSCP) 3 and 4 are mapped to priority 3 and 4, respectively.
+(DSCP) 3 and 4 are mapped to priority 3 and 4, respectively. SONiC does not react to IEEE 802.3x PAUSE.
+
+
 
 ### Scope
 
-The purpose of this test plan is to test the PFC PAUSE processing behavior of a SONiC DUT and its capability to pause or un-pause traffic with right priorities. The test assumes all necessary configuration is already pre-configured on the SONIC DUT before test runs.
+The purpose of this test plan is to test the PFC PAUSE processing behavior of a SONiC Device Under Test ( DUT) and its capability to pause or un-pause traffic with right priorities. The test assumes all necessary configuration is already pre-configured on the SONIC DUT before test runs.
 
 ### Testbed
 
@@ -80,7 +131,8 @@ Keysight ports are connected with SONiC switch as shown in the illustration abov
 
 ### DUT configuration
 
-- PFC watch dog is disabled
+- [PFC watchdog](https://github.com/Azure/SONiC/wiki/PFC-Watchdog-Design) is disabled. The PFC functionality under test here is when PFC watchdog is not active. Device Under Test should drop traffic with lossless priority upon receiving PFC PAUSE storm for the same priority even in absence of PFC watchdog. Hence its desired to keep watchdog disabled.
+- 
 
 ### Keysight configuration
 
@@ -92,12 +144,12 @@ Keysight ports are connected with SONiC switch as shown in the illustration abov
 
 #### Test Objective
 
-Verify DUT processes the PFC PAUSE frame with single lossless CoS
+Verify DUT processes the PFC PAUSE frame with single lossless priority
 properly.
 
 #### Test Configuration
 
-- On SONiC DUT configure a single lossless CoS value Pi. (0 \<= i \<= 7).
+- On SONiC DUT configure a single lossless priority value Pi. (0 \<= i \<= 7).
 - Configure following traffic items on the Keysight device:
   1. Test data traffic: A traffic item from the Keysight Tx port to
         the Keysight Rx port with lossless priority (DSCP value == Pi).
@@ -131,12 +183,12 @@ properly.
 
 #### Test Objective
 
-Verify DUT processes the PFC PAUSE frame for multiple lossless CoSs
+Verify DUT processes the PFC PAUSE frame for multiple lossless priorities
 properly.
 
 #### Test Configuration
 
-- On SONiC DUT configure multiple lossless CoS values, eg. Pi, Pm (0 <= Pi, Pm, Pn <= 7). Maximum seven lossless priorities can be configured.
+- On SONiC DUT configure multiple lossless priority values, eg. Pi, Pm (0 <= Pi, Pm, Pn <= 7). Maximum seven lossless priorities can be configured.
 - Configure following traffic items on the Keysight device:
     1. Test data traffic: A traffic item from the Keysight Tx port to
         the Keysight Rx port with two lossless priorities (DSCP value ==
@@ -164,17 +216,17 @@ properly.
 5. Stop the PFC PAUSE storm.
 6. Now start the Test data traffic again for a fixed duration.
 7. Verify as there is no PFC PAUSE received by DUT, the Keysight Rx port should receive all the Test data packets.
-8. Repeat the test with a different set of lossless CoS values
+8. Repeat the test with a different set of lossless priority values
 
 ### Test Case #3 - PFC PAUSE with lossy priorities
 
 #### Test Objective
 
-Verify DUT processes the PFC PAUSE frame with lossy CoSs properly.
+Verify DUT processes the PFC PAUSE frame with lossy priorities properly.
 
 #### Test Configuration
 
-- On SONiC DUT configure a single lossless CoS value Pi (0 \<= i \<=
+- On SONiC DUT configure a single lossless priority value Pi (0 \<= i \<=
     7).
 - Configure following traffic items on the Keysight device:
   1. Test data traffic: A traffic item from the Keysight Tx port to
