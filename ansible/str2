@@ -13,6 +13,8 @@ all:
         ansible_ssh_user: root
         ansible_ssh_pass: root
       hosts:
+        vms12-9:
+          ansible_host: 10.64.246.118
         v17-1:
           ansible_host: 10.64.246.105
         vms17-2:
@@ -33,6 +35,8 @@ fanout:
       ansible_host: 10.3.146.245
     str-7260cx3-acs-8:
       ansible_host: 10.3.146.220
+    str-7260cx3-acs-fan-08:
+      ansible_host: 10.3.146.55
 
 sonic:
   vars:
@@ -81,10 +85,14 @@ sonic_nexus_3164:
 
 sonic_arista:
   vars:
-    hwsku: Arista-7060CX-32S-C32
     iface_speed: 100000
   hosts:
+    str2-7050cx3-acs-01:
+      ansible_host: 10.3.146.85
+      hwsku: Arista-7050CX3-32S-C32
     str2-a7060-spy-1:
       ansible_host: 10.3.146.241
+      hwsku: Arista-7060CX-32S-C32
     str2-a7060-spy-2:
       ansible_host: 10.3.146.240
+      hwsku: Arista-7060CX-32S-C32
