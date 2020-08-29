@@ -95,6 +95,8 @@ all:
           ansible_host: 10.64.246.79
         vms7-11:
           ansible_host: 10.64.246.59
+        vms7-12:
+          ansible_host: 10.64.246.117
         vms11-1:
           ansible_host: 10.64.247.27
         vms11-4:
@@ -524,6 +526,8 @@ sonic_dx010_100:
       pdu_host: pdu-108
     str-dx010-acs-4:
       ansible_host: 10.64.246.98
+    str-dx010-acs-5:
+      ansible_host: 10.64.246.99
   vars:
     hwsku: Celestica-DX010-C32
     iface_speed: 100000
@@ -632,6 +636,8 @@ fanout:
       ansible_host: 10.3.146.147
     str-7260cx3-64-17:
       ansible_host: 10.3.146.148
+    str-7260cx3-64-18:
+      ansible_host: 10.3.146.149
     str-7260cx3-fan-03:
       ansible_host: 10.64.246.47
     str-7260cx3-fan-04:
