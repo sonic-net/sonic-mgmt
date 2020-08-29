@@ -23,9 +23,10 @@
   
  Revision of the Document
 
-| Rev |     Date    |       Author       | Change Description                |
-|:---:|:-----------:|:------------------:|-----------------------------------|
-| 0.1 |        Aug-28-2020     | Microsoft & Keysight     | Initial version                   |
+| Rev |     Date       |       Author         | Change Description               |
+|:---:|:---------------|:---------------------|:-----------------------------------|
+| 0.1 |        Aug-28-2020     | Wei Bai, Microsoft<br>                           Suvendu Mozumdar, Keysight     | Initial version of test plan <br> More test in subsequent version                 |
+|
 
 ## Overview
 
