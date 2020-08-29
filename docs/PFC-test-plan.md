@@ -5,7 +5,7 @@
     - [Scope](#scope)
     - [Testbed](#testbed)
   - [Setup configuration](#setup-configuration)
-    - [DUT configuration](#dut-configuration)
+    - [Device Under Test ( DUT ) configuration](#device-under-test--dut--configuration)
     - [Keysight configuration](#keysight-configuration)
   - [Test cases](#test-cases)
     - [Test Case #1 - PFC PAUSE with single lossless priority](#test-case-1---pfc-pause-with-single-lossless-priority)
@@ -116,23 +116,23 @@ on lossy priorities. Packets with Differentiated Services Code Point
 
 ### Scope
 
-The purpose of this test plan is to test the PFC PAUSE processing behavior of a SONiC Device Under Test ( DUT) and its capability to pause or un-pause traffic with right priorities. The test assumes all necessary configuration is already pre-configured on the SONIC DUT before test runs.
+The purpose of this test plan is to test the PFC PAUSE processing behavior of a SONiC Device Under Test ( DUT) and its capability to pause or un-pause traffic with right priorities. The test assumes all necessary configuration is already pre-configured on the SONIC Device Under Test ( DUT ) before test runs.
 
 ### Testbed
 
 ```
-+-------------+      +--------------+      +-------------+
-| Keysight TX |------|   SONiC DUT  |------| Keysight RX |
-+-------------+      +--------------+      +-------------+
++-------------+      +------------------------------------+      +-------------+
+| Keysight TX |------|   SONiC Device Under Test ( DUT )  |------| Keysight RX |
++-------------+      +------------------------------------+      +-------------+
 
 Keysight ports are connected with SONiC switch as shown in the illustration above.
 ```
 ## Setup configuration
 
-### DUT configuration
+### Device Under Test ( DUT ) configuration
 
-- [PFC watchdog](https://github.com/Azure/SONiC/wiki/PFC-Watchdog-Design) is disabled. The PFC functionality under test here is when PFC watchdog is not active. Device Under Test should drop traffic with lossless priority upon receiving PFC PAUSE storm for the same priority even in absence of PFC watchdog. Hence its desired to keep watchdog disabled.
-- 
+- [PFC watchdog](https://github.com/Azure/SONiC/wiki/PFC-Watchdog-Design) is disabled. We need to disable PFC watchdog as if a queue has been paused for long time (e.g., several hundreds of milliseconds), PFC watchdog will be triggered to disable PFC and drop packets. Since we will generate continuous PFC pause frames (which is unlikely to happen in production) to test PFC functionality, we decide to disable PFC watchdog.
+   
 
 ### Keysight configuration
 
@@ -144,12 +144,12 @@ Keysight ports are connected with SONiC switch as shown in the illustration abov
 
 #### Test Objective
 
-Verify DUT processes the PFC PAUSE frame with single lossless priority
+Verify Device Under Test ( DUT ) processes the PFC PAUSE frame with single lossless priority
 properly.
 
 #### Test Configuration
 
-- On SONiC DUT configure a single lossless priority value Pi. (0 \<= i \<= 7).
+- On SONiC DDevice Under Test ( DUT ) configure a single lossless priority value Pi. (0 \<= i \<= 7).
 - Configure following traffic items on the Keysight device:
   1. Test data traffic: A traffic item from the Keysight Tx port to
         the Keysight Rx port with lossless priority (DSCP value == Pi).
@@ -166,29 +166,29 @@ properly.
 #### Test Steps
 
 1. Start PFC PAUSE storm to fully block the lossless priority at the
-    DUT.
+    Device Under Test ( DUT ).
 2. After a fixed duration (eg. 1 sec), start the Test data traffic and
     Background data traffic simultaneously.
 3. Keep the Test and Background traffic running for a fixed duration
     and then stop both the traffic items.
 4. Verify the following:
    * Keysight Rx port should receive all the Background data traffic with DSCP != Pi.
-   * Keysight Rx port should not receive any Test data traffic with DSCP == Pi, as these frames should not be transmitted by the DUT due to the PFC PAUSE storm received from Keysight Rx port.
+   * Keysight Rx port should not receive any Test data traffic with DSCP == Pi, as these frames should not be transmitted by the Device Under Test ( DUT ) due to the PFC PAUSE storm received from Keysight Rx port.
 5. Stop the PFC PAUSE storm.
 6. Now start the Test data traffic again for a fixed duration.
-7. Verify as there is no PFC PAUSE received by DUT, the Keysight Rx port should receive all the Test data packets.
+7. Verify as there is no PFC PAUSE received by Device Under Test ( DUT ), the Keysight Rx port should receive all the Test data packets.
 8. Repeat the test with a different Lossless priority (!=Pi).
 
 ### Test Case #2 - PFC PAUSE with multiple lossless priorities
 
 #### Test Objective
 
-Verify DUT processes the PFC PAUSE frame for multiple lossless priorities
+Verify Device Under Test ( DUT ) processes the PFC PAUSE frame for multiple lossless priorities
 properly.
 
 #### Test Configuration
 
-- On SONiC DUT configure multiple lossless priority values, eg. Pi, Pm (0 <= Pi, Pm, Pn <= 7). Maximum seven lossless priorities can be configured.
+- On SONiC Device Under Test ( DUT ) configure multiple lossless priority values, eg. Pi, Pm (0 <= Pi, Pm, Pn <= 7). Maximum seven lossless priorities can be configured.
 - Configure following traffic items on the Keysight device:
     1. Test data traffic: A traffic item from the Keysight Tx port to
         the Keysight Rx port with two lossless priorities (DSCP value ==
@@ -204,7 +204,7 @@ properly.
 
 #### Test Steps
 
-1. Start PFC PAUSE storm to fully block the lossless priorities at the DUT.
+1. Start PFC PAUSE storm to fully block the lossless priorities at the Device Under Test ( DUT ).
 2. After a fixed duration (eg. 1 sec), start the Test data traffic and Background data traffic simultaneously.
 3. Keep the Test and Background traffic running for a fixed duration and then stop both the traffic items.
 4. Verify the following:
@@ -212,21 +212,21 @@ properly.
         with DSCP != Pi, Pm.
    * Keysight Rx port should not receive any Test data traffic with
         DSCP == Pi, Pm as these frames should not be transmitted by the
-        DUT due to the PFC PAUSE storm received from Keysight Rx port.
+        Device Under Test ( DUT ) due to the PFC PAUSE storm received from Keysight Rx port.
 5. Stop the PFC PAUSE storm.
 6. Now start the Test data traffic again for a fixed duration.
-7. Verify as there is no PFC PAUSE received by DUT, the Keysight Rx port should receive all the Test data packets.
+7. Verify as there is no PFC PAUSE received by Device Under Test ( DUT ), the Keysight Rx port should receive all the Test data packets.
 8. Repeat the test with a different set of lossless priority values
 
 ### Test Case #3 - PFC PAUSE with lossy priorities
 
 #### Test Objective
 
-Verify DUT processes the PFC PAUSE frame with lossy priorities properly.
+Verify Device Under Test ( DUT ) processes the PFC PAUSE frame with lossy priorities properly.
 
 #### Test Configuration
 
-- On SONiC DUT configure a single lossless priority value Pi (0 \<= i \<=
+- On SONiC Device Under Test ( DUT ) configure a single lossless priority value Pi (0 \<= i \<=
     7).
 - Configure following traffic items on the Keysight device:
   1. Test data traffic: A traffic item from the Keysight Tx port to
