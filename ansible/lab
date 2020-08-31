@@ -82,7 +82,7 @@ sonic_s6100:
     lab-s6100-01:
       ansible_host: 10.251.0.190
     vlab-02:
-      ansible_host: 10.250.0.102
+      ansible_host: 10.250.0.103
 
 sonic_a7260:
   vars:
@@ -91,3 +91,12 @@ sonic_a7260:
     lab-a7260-01:
       ansible_host: 10.251.0.191
       hwsku: Arista-7260CX3-D108C8
+
+sonic_multi_asic:
+  vars:
+    hwsku: msft_multi_asic_vs
+    iface_speed: 40000
+  hosts:
+    vlab-05:
+      ansible_host: 10.250.0.109
+      ansible_hostv6: fec0::ffff:afa:7

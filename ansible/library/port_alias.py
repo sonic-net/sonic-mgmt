@@ -40,7 +40,7 @@ RETURN = '''
 ### Here are the expectation of files of device port_config.ini located, in case changed please modify it here
 FILE_PATH = '/usr/share/sonic/device'
 PORTMAP_FILE = 'port_config.ini'
-ALLOWED_HEADER = ['name', 'lanes', 'alias', 'index', 'speed']
+ALLOWED_HEADER = ['name', 'lanes', 'alias', 'index', 'asic_port_name', 'role', 'speed']
 
 MACHINE_CONF = '/host/machine.conf'
 ONIE_PLATFORM_KEY = 'onie_platform'
@@ -69,27 +69,46 @@ class SonicPortAliasMap():
                     return value
         return None
 
-    def get_portconfig_path(self):
+    def get_num_asic(self):
+        num_asic = 1
+        platform = self.get_platform_type()
+        if platform is None:
+            return num_asic
+        asic_conf = os.path.join(FILE_PATH, platform, "asic.conf")
+        if os.path.exists(asic_conf):
+            with open(asic_conf) as f:
+                lines = f.readlines()
+            for line in lines:
+                key, value = line.split("=")
+                if key.strip().upper() == "NUM_ASIC":
+                    num_asic = value.strip()
+        return int(num_asic)
+
+    def get_portconfig_path(self, asic_id=None):
         platform = self.get_platform_type()
         if platform is None:
             return None
-        portconfig = os.path.join(FILE_PATH, platform, self.hwsku, PORTMAP_FILE)
+        if asic_id is None:
+            portconfig = os.path.join(FILE_PATH, platform, self.hwsku, PORTMAP_FILE)
+        else:
+            portconfig = os.path.join(FILE_PATH, platform, self.hwsku, str(asic_id), PORTMAP_FILE)
         if os.path.exists(portconfig):
             return portconfig
         return None
 
-    def get_portmap(self):
+    def get_portmap(self, asic_id=None):
         aliases = []
         portmap = {}
         aliasmap = {}
         portspeed = {}
-        filename = self.get_portconfig_path()
+        filename = self.get_portconfig_path(asic_id)
         if filename is None:
             raise Exception("Something wrong when trying to find the portmap file, either the hwsku is not available or file location is not correct")
         with open(filename) as f:
             lines = f.readlines()
         alias_index = -1
         speed_index = -1
+        role_index = -1
         while len(lines) != 0:
             line = lines.pop(0)
             if re.match('^#', line):
@@ -101,19 +120,26 @@ class SonicPortAliasMap():
                             alias_index = index
                         if 'speed' in text:
                             speed_index = index
+                        if 'role' in text:
+                            role_index = index
             else:
                 if re.match('^Ethernet', line):
                     mapping = line.split()
                     name = mapping[0]
+                    if (role_index != -1) and (len(mapping) > role_index):
+                        role = mapping[role_index]
+                    else:
+                        role = "Ext"
                     if alias_index != -1 and len(mapping) > alias_index:
                         alias = mapping[alias_index]
                     else:
                         alias = name
-                    aliases.append(alias)
-                    portmap[name] = alias
-                    aliasmap[alias] = name
-                    if (speed_index != -1) and (len(mapping) > speed_index):
-                        portspeed[alias] = mapping[speed_index]
+                    if role is "Ext":
+                        aliases.append(alias)
+                        portmap[name] = alias
+                        aliasmap[alias] = name
+                        if (speed_index != -1) and (len(mapping) > speed_index):
+                            portspeed[alias] = mapping[speed_index]
 
         return (aliases, portmap, aliasmap, portspeed)
 
@@ -126,8 +152,25 @@ def main():
     )
     m_args = module.params
     try:
+        aliases = []
+        portmap = {}
+        aliasmap = {}
+        portspeed = {}
         allmap = SonicPortAliasMap(m_args['hwsku'])
-        (aliases, portmap, aliasmap, portspeed) = allmap.get_portmap()
+        num_asic = allmap.get_num_asic()
+        if num_asic == 1:
+            (aliases, portmap, aliasmap, portspeed) = allmap.get_portmap()
+        else:
+            for asic_id in range(num_asic):
+                (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic) = allmap.get_portmap(asic_id)
+                if aliases_asic is not None:
+                    aliases.extend(aliases_asic)
+                if portmap_asic is not None:
+                    portmap.update(portmap_asic)
+                if aliasmap_asic is not None:
+                    aliasmap.update(aliasmap_asic)
+                if portspeed_asic is not None:
+                    portspeed.update(portspeed_asic)
         module.exit_json(ansible_facts={'port_alias': aliases,
                                         'port_name_map': portmap,
                                         'port_alias_map': aliasmap,
