@@ -12,10 +12,13 @@ class CompletenessLevel(enum.IntEnum):
 
     @classmethod
     def get_normalized_level(cls, request):
-        """Takes a request instance and returns normalized completeness level in string format.
-        For example, if a testcase supports "CompletenessLevel.basic, CompletenessLevel.thorough", and specified level
-        during test execution is "confident", this method will make use of normalization logic during
-        pytest_runtest_setup and returns the normalized level as "basic" (str type of CompletenessLevel.basic)
+        """Get the normalized completeness level for a given test instance.
+
+        For example, if a testcase supports "CompletenessLevel.basic, CompletenessLevel.thorough", and the specified level
+        during test execution is "confident", then this method will normalize the level to "basic".
+
+         Returns:
+             CompletenessLevel as a string
         """
         all_supported_levels = [mark.args for mark in request.node.iter_markers(name="supported_completeness_level")]
         logging.info("All supported completeness levels of the test: {}".format(str(all_supported_levels)))
@@ -27,9 +30,14 @@ class CompletenessLevel(enum.IntEnum):
     @classmethod
     def get_level_name(cls, level):
         """Converts a type CompletenessLevel to type str.
-        For example, if input is CompletenessLevel.basic, this method will return "basic"
+
+        For example, if input is CompletenessLevel.basic, this method will return "basic."
+
         Arguments:
-        level - An enum value of type CompletenessLevel
+            level - An enum value of type CompletenessLevel
+
+        Returns:
+            CompletenessLevel as a string
         """
         if type(level) is not CompletenessLevel:
             logging.error("Invalid completeness type. Expected: {}. Format {}".format(str(CompletenessLevel), type(level))) 

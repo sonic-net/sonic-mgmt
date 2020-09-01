@@ -1,7 +1,7 @@
 ### CompletenessLevel markers
 CompletenessLevel marker enables testcases to be executed in different meaningful levels.
 Each level is a representation of a scope of execution of a testcase. This document describes the usage of CompletenessLevel marker.
-Identified meaningful levels (in increasing order) -
+Defined levels (in increasing order) -
         
         debug
         
@@ -11,7 +11,9 @@ Identified meaningful levels (in increasing order) -
         
         thorough
 
-An unordered level `diagnose` is also supported. If `diagnose` level is specified and a test doesn’t support it, then it shall fall back to `basic` mode. This level doesn’t have any implication of above or below any existing level. Furthermore, this level is not the same as `debug` level, which is intended to take a sample test to debug test code. `diagnose` level is to be used to diagnose sonic feature/behavior.
+An unordered level `diagnose` is also supported:
+`diagnose` is meant to analyze an existing defect or a feature. This level is different from the ordered levels that are primarily meant to validate SONiC. 
+Diagnose encompasses a special set of test scenarios that are known to fail because of an existing image issue. This level is intended for a manual test targetted at executing unhealthy scenarios only as defined in the test. If `diagnose` level is specified and a test doesn’t support it, then it shall fall back to `basic` mode.
 
 ### To use CompletenessLevel:
 - Mark the testcase with marker ```supported_completeness_level```. This marker is a list of all the completeness levels supported by a testcase.
