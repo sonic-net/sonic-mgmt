@@ -68,3 +68,5 @@ rw_netgroups: [
 ro_netgroups: [
         "NWK-ALLDVC-PERSISTENTRO",                     # users with full time RO access to all network devices
 ]
+# bgp slb passive range
+bgp_slb_passive_range: 10.255.0.0/25

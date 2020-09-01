@@ -21,6 +21,8 @@ all:
           ansible_host: 10.64.246.106
         vms17-3:
           ansible_host: 10.64.246.107
+        vms17-4:
+          ansible_host: 10.64.246.58
 
 fanout:
   hosts:
@@ -31,6 +33,8 @@ fanout:
       ansible_host: 10.3.146.176
     str2-7260cx3-fan-07:
       ansible_host: 10.3.146.244
+    str2-7260cx3-acs-fan-07:
+      ansible_host: 10.3.146.54
     str2-7260cx3-fan-08:
       ansible_host: 10.3.146.245
     str-7260cx3-acs-8:
@@ -44,6 +48,7 @@ sonic:
   children:
     sonic_mlnx:
     sonic_arista:
+    sonic_arista_Q32:
     sonic_mlnx_3800:
     sonic_mlnx_3800_50:
 
@@ -96,3 +101,11 @@ sonic_arista:
     str2-a7060-spy-2:
       ansible_host: 10.3.146.240
       hwsku: Arista-7060CX-32S-C32
+
+sonic_arista_Q32:
+  vars:
+    hwsku: Arista-7060CX-32S-Q32
+    iface_speed: 40000
+  hosts:
+    str2-7060cx-32s-29:
+      ansible_host: 10.3.146.57
