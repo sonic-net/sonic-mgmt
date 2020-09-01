@@ -94,9 +94,6 @@ def ptf_params(duthost, nbrhosts, creds):
         #TODO:Update to vm_hosts.append(value['host'].host.mgmt_ip)
         vm_hosts.append(value['host'].host.options['inventory_manager'].get_host(value['host'].hostname).vars['ansible_host'])
 
-    hostVars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
-    inventory = hostVars['inventory_file'].split('/')[-1]
-
     ptf_params = {
         "verbose": False,
         "dut_username": creds.get('sonicadmin_user'),
