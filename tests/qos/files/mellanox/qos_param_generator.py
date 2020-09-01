@@ -102,11 +102,11 @@ class QosParamMellanox(object):
         xon = {}
         xon['pkts_num_trig_pfc'] = pkts_num_trig_pfc
         xon['pkts_num_dismiss_pfc'] = pkts_num_dismiss_pfc
-        xon['pkts_num_hysteresis'] = pkts_num_hysteresis
+        xon['pkts_num_hysteresis'] = pkts_num_hysteresis + 16
         if self.asic_type == 'spc2':
             xon['pkts_num_margin'] = 2
         elif self.asic_type == 'spc3':
-            xon['pkts_num_margin'] = 0
+            xon['pkts_num_margin'] = 3
         self.qos_params_mlnx['xon_1'].update(xon)
         self.qos_params_mlnx['xon_2'].update(xon)
 
