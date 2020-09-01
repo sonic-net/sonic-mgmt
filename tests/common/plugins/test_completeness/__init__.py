@@ -4,11 +4,11 @@ import logging
 import warnings
 
 class CompletenessLevel(enum.IntEnum):
-    diagnose = 0
     debug = 1 # Minimum execution
     basic = 2
     confident = 3
     thorough = 4 # Maximum execution 
+    diagnose = 100 # diagnose is an unordered level. INT value 100 is assigned for simplicity reasons
 
     @classmethod
     def get_normalized_level(cls, request):
