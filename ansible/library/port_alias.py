@@ -134,7 +134,7 @@ class SonicPortAliasMap():
                         alias = mapping[alias_index]
                     else:
                         alias = name
-                    if role is "Ext":
+                    if role == "Ext":
                         aliases.append(alias)
                         portmap[name] = alias
                         aliasmap[alias] = name
