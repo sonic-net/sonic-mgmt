@@ -30,7 +30,6 @@ echo
 echo "STEP 4: Creating management bridge br1..."
 brctl addbr br1
 ifconfig br1 10.250.0.1/24
-ifconfig br1 inet6 add fec0::ffff:afa:1/64
 ifconfig br1 up
 echo
 
