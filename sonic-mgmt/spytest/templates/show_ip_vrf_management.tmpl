@@ -1,0 +1,7 @@
+Value VrfName (\S+)
+Value Iface (\S+)
+
+Start
+  ^\s*VRF-NAME\s+INTERFACES\s*$$
+  ^(-+\s*)*$$
+  ^\s*${VrfName}\s+${Iface}\s*$$ -> Record

@@ -1,0 +1,19 @@
+#----------------------------------------------------------------------------------
+# Invoke loganalyzer with init phase
+#----------------------------------------------------------------------------------
+- set_fact:
+    loganalyzer_location: "{{ 'roles/test/files/tools/loganalyzer' }}"
+
+- name: Copy loganalyzer.py to run directory
+  copy: src="{{ loganalyzer_location }}/loganalyzer.py" dest="{{ run_dir }}"
+
+- set_fact:
+    testname_unique: "{{ testname }}.{{ lookup('pipe', 'date +%Y-%m-%d.%H:%M:%S') }}"
+  when: testname_unique is not defined or (testname_unique_gen is defined and testname_unique_gen == true)
+
+- debug: msg="starting loganalyzer_init.py"
+- debug: msg="python {{ run_dir }}/loganalyzer.py --action init --run_id {{ testname_unique }}"
+- name: Initialize loganalyzer
+  become: True
+  shell: "python {{ run_dir }}/loganalyzer.py --action init --run_id {{ testname_unique }}"
+- debug: msg="Finished calling loganalyzer init phase"

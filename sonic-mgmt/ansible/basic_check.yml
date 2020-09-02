@@ -1,0 +1,28 @@
+
+- hosts: sonic
+  gather_facts: no
+  tasks:
+
+   - name: Get process information in syncd docker
+     shell: docker exec -i syncd ps aux | grep /usr/bin/syncd
+     register: ps_out
+
+   - debug: var=ps_out.stdout_lines
+   
+   - name: Verify that syncd process is running
+     assert: { that: "{{ ps_out.stdout_lines | length }} > 0"}
+
+   - name: Get syslog error information
+     shell: cat /var/log/syslog |tail -n 5000 |grep error
+     become: true
+     register: syslog_out
+     failed_when: false
+
+   - debug: var=syslog_out.stdout_lines
+
+   - name: Gathering minigraph facts about the device
+     minigraph_facts: host={{ inventory_hostname }}
+     tags: always
+
+   - include_tasks: roles/test/tasks/interface.yml
+

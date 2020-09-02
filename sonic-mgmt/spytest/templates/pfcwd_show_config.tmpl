@@ -1,0 +1,9 @@
+Value PORT (\S+)
+Value ACTION (\S+)
+Value DETECTIONTIME (\d+)
+Value RESTORATIONTIME (\d+)
+
+Start
+  ^\s+PORT\s+ACTION\s+DETECTION\sTIME\s+RESTORATION\sTIME\s*$$
+  ^(-+\s*)*$$
+  ^\s*${PORT}\s+${ACTION}\s+${DETECTIONTIME}\s+${RESTORATIONTIME}\s*$$ -> Record

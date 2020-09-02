@@ -1,0 +1,14 @@
+{# routes to spines #}
+{% for podset in range(0, podset_number) %}
+{% for tor in range(0, tor_number) %}
+{% for subnet in range(0, tor_subnet_number) %}
+192.168.{{ podset }}.{{ tor * 16 + subnet }}/32 {% for pc_interface in minigraph_portchannel_interfaces %}
+[{% for member in pc_interface['members']%}{{ '%d' % (member|replace("Ethernet","")|int / 4)}}{% if not loop.last %},{% endif %}{% endfor %}]{% if not loop.last %};{% endif %}{% endfor %}
+
+20C0:A8{{ '%02X' % podset }}:0:{{ '%02X' % (tor * 16 + subnet)}}::/64 {% for pc_interface in minigraph_portchannel_interfaces %}
+[{% for member in pc_interface['members']%}{{ '%d' % (member|replace("Ethernet","")|int / 4)}}{% if not loop.last %},{% endif %}{% endfor %}]{% if not loop.last %};{% endif %}{% endfor %}
+
+{% endfor %}
+{% endfor %}
+{% endfor %}
+

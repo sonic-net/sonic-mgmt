@@ -1,0 +1,40 @@
+- name: Remove ptf docker container ptf_{{ vm_set_name }}
+  docker_container:
+    name: ptf_{{ vm_set_name }}
+    state: absent
+  become: yes
+
+- name: Create ptf container ptf_{{ vm_set_name }}
+  docker_container:
+    name: ptf_{{ vm_set_name }}
+    image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
+    pull: yes
+    state: started
+    restart: yes
+    network_mode: none
+    detach: True
+    capabilities:
+      - net_admin
+    privileged: yes
+  become: yes
+
+- name: Set front panel/mgmt port for dut
+  include_tasks: set_dut_port.yml
+
+- name: Renumber topology {{ topo }} to VMs. base vm = {{ VM_base }}
+  vm_topology:
+    cmd: "renumber"
+    vm_set_name: "{{ vm_set_name }}"
+    topo: "{{ topology }}"
+    vm_names: "{{ VM_hosts }}"
+    vm_base: "{{ VM_base }}"
+    ptf_mgmt_ip_addr: "{{ ptf_ip }}"
+    ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
+    ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
+    ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
+    mgmt_bridge: "{{ mgmt_bridge }}"
+    dut_fp_ports: "{{ dut_fp_ports }}"
+    dut_mgmt_port: "{{ dut_mgmt_port }}"
+    fp_mtu: "{{ fp_mtu_size }}"
+    max_fp_num: "{{ max_fp_num }}"
+  become: yes

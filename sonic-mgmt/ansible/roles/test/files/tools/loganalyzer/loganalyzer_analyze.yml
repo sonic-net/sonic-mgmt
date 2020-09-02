@@ -1,0 +1,134 @@
+#------------------------------------------------
+# Call loganalyzer with analyze phase
+#------------------------------------------------
+
+- debug: msg="starting loganalyzer analysis phase"
+
+- set_fact:
+    loganalyzer_location: "{{ 'roles/test/files/tools/loganalyzer' }}"
+
+- set_fact:
+    match_file: loganalyzer_common_match.txt
+  when: match_file is not defined
+
+- set_fact:
+    ignore_file: loganalyzer_common_ignore.txt
+  when: ignore_file is not defined
+
+- set_fact:
+    expect_file: "loganalyzer_common_expect.txt"
+  when: expect_file is not defined
+
+- set_fact:
+    testname_unique: "{{ testname }}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}"
+  when: testname_unique is not defined
+
+- set_fact:
+    test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
+  when: test_out_dir is not defined
+
+- name: Init variables
+  set_fact:
+    match_file_option: "-m "
+    ignore_file_option: "-i {{ ignore_file }}"
+    expect_file_option: "-e {{ expect_file }}"
+    match_file_list: []
+
+- name: Collect list of match files - common_match
+  set_fact:
+      match_file_list: "{{ match_file_list + [match_file] }}"
+  when: skip_common_match is not defined
+
+- name: Collect list of match files - test_match
+  set_fact:
+      match_file_list: "{{ match_file_list + [test_match_file] }}"
+  when: test_match_file is defined
+
+- name: Add match file option
+  set_fact:
+      match_file_option: "{{ match_file_option }}{{ match_file_list | join(',') }}"
+
+- name: Add test specific ignore file
+  set_fact:
+      ignore_file_option: "{{ ignore_file_option }},{{ test_ignore_file }}"
+  when: test_ignore_file is defined
+
+- name: Use test specific expect file
+  set_fact:
+      expect_file_option: "-e {{ test_expect_file }}"
+  when: test_expect_file is defined
+
+- name: Set temporary file location for accumulated syslog
+  set_fact:
+      tmp_log_file: '/tmp/syslog'
+
+#----------------------------------------------------------------------------------
+# Copy all loganalyzer related file to DUT, and invoke loganalyzer with init phase
+#----------------------------------------------------------------------------------
+
+- name: Copy loganalyzer common match and ignore files to switch
+  copy: src="{{ loganalyzer_location }}/{{ item }}"  dest="{{ run_dir }}/{{ item }}"
+  with_items:
+        - "{{ match_file }}"
+        - "{{ ignore_file }}"
+        - "{{ expect_file }}"
+
+- name: Copy test specific file match-files to switch
+  copy: src="{{ tests_location }}/{{ testname }}/{{ test_match_file }}"  dest="{{ run_dir }}/{{ test_match_file }}"
+  when: test_match_file is defined
+
+- name: Copy test specific ignore-files to switch
+  copy: src="{{ tests_location }}/{{ testname }}/{{ test_ignore_file }}"  dest="{{ run_dir }}/{{ test_ignore_file }}"
+  when: test_ignore_file is defined
+
+- name: Copy test specific expect-files to switch
+  copy: src="{{ tests_location }}/{{ testname }}/{{ test_expect_file }}"  dest="{{ run_dir }}/{{ test_expect_file }}"
+  when: test_expect_file is defined
+
+- name: Copy loganalyzer.py to run directory
+  copy: src="{{ loganalyzer_location }}/loganalyzer.py" dest="{{ run_dir }}"
+
+# Create directory to hold results for different runs of loganalyzer
+- name: create output directory
+  file: path="{{ out_dir }}" state=directory
+
+# Create directory where loganalyzer will write output files for current run.
+- name: create output directory for current test run
+  file: path="{{ test_out_dir }}" state=directory
+
+- block:
+    - name: Disable logrotate cron task
+      shell: sed -i 's/^/#/g' /etc/cron.d/logrotate
+      become: yes
+
+    - name: Wait for logrotate from previous cron task run to finish
+      shell: ! pgrep -f logrotate
+      register: output
+      until: output.rc == 0
+      retries: 6
+      delay: 10
+      ignore_errors: yes
+
+    - name: Extract all syslog entries since the latest start marker
+      extract_log:
+        directory: '/var/log'
+        file_prefix: 'syslog'
+        start_string: "{% if start_marker is defined %}{{ start_marker }}{% else %}start-LogAnalyzer-{{ testname_unique }}{% endif %}"
+        target_filename: "/tmp/syslog"
+      become: yes
+
+  always:
+    - name: Enable logrotate cron task back
+      shell: sed -i 's/^#//g' /etc/cron.d/logrotate
+      become: yes
+
+- set_fact: cmd="python {{ run_dir }}/loganalyzer.py --action analyze --logs {{ tmp_log_file }} --run_id {{ testname_unique }} {% if start_marker is defined %}--start_marker '{{ start_marker }}'{% endif %} --out_dir {{ test_out_dir }} {{ match_file_option }} {{ ignore_file_option }} {{ expect_file_option }} -v"
+
+- debug: msg={{cmd}}
+
+- name: Invoke loganalyzer analyse {{ testname }}
+  become: True
+  shell: "{{ cmd }}"
+  args:
+      chdir: "{{ run_dir }}"
+- debug: msg="Finished calling loganalyzer analyze phase"

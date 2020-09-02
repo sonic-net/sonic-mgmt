@@ -1,0 +1,8 @@
+Value policy_name (\S+)
+Value stage (\w+)
+Value interface_name (\w+)
+
+Start
+  ^${interface_name}
+  ^\s*qos policy ${policy_name} at ${stage}\s*$$ -> Record
+  ^$$ -> Record

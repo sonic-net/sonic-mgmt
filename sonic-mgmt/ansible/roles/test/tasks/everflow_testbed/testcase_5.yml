@@ -1,0 +1,108 @@
+# Test case 5 - Policer enforced DSCP value/mask test
+
+- set_fact:
+    policer_name: TEST_POLICER
+    policer_session_name: TEST_POLICER_SESSION
+    policer_meter_type: "packets"
+    policer_mode: "sr_tcm"
+    policer_cir: "100"
+    policer_cbs: "100"
+    policer_red_packet_action: "drop"
+    policer_tolerance: "10"
+    dscp_table_name: EVERFLOW_DSCP
+
+- set_fact:
+    rule_action: "MIRROR_INGRESS_ACTION"
+  when: mirror_stage == "ingress"
+
+- set_fact:
+    rule_action: "MIRROR_EGRESS_ACTION"
+  when: mirror_stage == "egress"
+
+- name: Create route with next hop {{ dst_port_1 }}.
+  shell: vtysh -e "conf t" -e "ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}"
+  become: yes
+
+- block:
+  - name: Create a policer
+    shell: |
+      redis-cli -n 4 hmset "POLICER|{{ policer_name }}" \
+      "meter_type" "{{ policer_meter_type }}" \
+      "mode" "{{ policer_mode }}" \
+      "cir" "{{ policer_cir }}" \
+      "cbs" "{{ policer_cbs }}" \
+      "red_packet_action" "{{ policer_red_packet_action }}"
+    become: yes
+
+  - name: Create a policer enforced mirror session
+    shell: |
+      config mirror_session add {{policer_session_name}} {{session_src_ip}} {{session_dst_ip}} {{session_dscp}} {{session_ttl}} {{session_gre}} --policer {{policer_name}}
+    become: yes
+
+  - name: Create an ACL table with MIRROR_DSCP type
+    shell: config acl add table {{dscp_table_name}} "MIRROR_DSCP" --description "EVERFLOW_TEST" --stage={{ acl_stage }}
+    become: yes
+
+  - name: Create a rule with DSCP value and mask
+    shell: |
+      redis-cli -n 4 hmset "ACL_RULE|{{dscp_table_name}}|RULE_1" "PRIORITY" "9999" "{{ rule_action }}" "{{policer_session_name}}" "DSCP" "8/56"
+    become: yes
+
+  - name: Pause to sync the rule
+    pause: seconds=3
+
+  - name: "Start PTF runner"
+    include_tasks: roles/test/tasks/ptf_runner.yml
+    vars:
+      ptf_test_name: EVERFLOW Policer Test
+      ptf_test_dir: acstests
+      ptf_test_path: everflow_policer_test.EverflowPolicerTest
+      ptf_platform: remote
+      ptf_platform_dir: ptftests
+      ptf_test_params:
+        - asic_type='{{sonic_asic_type}}'
+        - hwsku='{{sonic_hwsku}}'
+        - router_mac='{{ansible_Ethernet0['macaddress']}}'
+        - src_port='{{src_port_ptf_id}}'
+        - dst_ports='{{",".join((spine_ptf_ports))}}'
+        - dst_mirror_ports='{{dst_port_1_ptf_id}}'
+        - mirror_stage='{{ mirror_stage }}'
+        - session_src_ip='{{ session_src_ip }}'
+        - session_dst_ip='{{ session_dst_ip }}'
+        - session_ttl='{{ session_ttl }}'
+        - session_dscp='{{ session_dscp }}'
+        - meter_type='{{ policer_meter_type }}'
+        - cir='{{ policer_cir }}'
+        - cbs='{{ policer_cbs }}'
+        - tolerance='{{ policer_tolerance }}'
+      ptf_extra_options: "--relax --debug info --log-file /tmp/everflow_policer_test.EverflowPolicerTest.{{ lookup('pipe','date +%Y-%m-%d-%H:%M:%S') }}.log"
+
+  always:
+    - name: Remove the rule with DSCP value and mask
+      shell: |
+        redis-cli -n 4 del "ACL_RULE|{{dscp_table_name}}|RULE_1"
+      ignore_errors: yes
+      become: yes
+
+    - name: Remove the ACL table with MIRROR_DSCP type
+      shell: config acl remove table {{dscp_table_name}}
+      ignore_errors: yes
+      become: yes
+
+    - name: Remove the policer enforced mirror session
+      shell: |
+        config mirror_session remove {{policer_session_name}}
+      ignore_errors: yes
+      become: yes
+
+    - name: Remove policer
+      shell: |
+        redis-cli -n 4 del "POLICER|{{policer_name}}"
+      ignore_errors: yes
+      become: yes
+
+    - name: Remove route
+      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}"
+      ignore_errors: yes
+      become: yes
+

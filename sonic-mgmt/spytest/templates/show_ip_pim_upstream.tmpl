@@ -1,0 +1,20 @@
+###############################################################
+#sonic# show ip pim upstream 
+#Iif Source Group State Uptime JoinTimer RSTimer KATimer RefCnt
+#br0 172.16.5.105 239.1.1.1 Prune 00:07:40 --:--:-- 00:00:36 00:02:50 1
+#
+###############################################################
+Value iif (\w+)
+Value source ([\w\.]+)
+Value group ([\w\.]+)
+Value state (\w+)
+Value uptime ([\d\:\-]+)
+Value jointimer ([\d\:\-]+)
+Value rstimer ([\d\:\-]+)
+Value katimer ([\d\:\-]+)
+Value refcnt (\d+)
+Value vrf (\w+)
+
+Start
+  ^\s*VRF:\s*${vrf}$$
+  ^\s*${iif}\s*${source}\s*${group}\s*${state}\s*${uptime}\s*${jointimer}\s*${rstimer}\s*${katimer}\s*${refcnt}$$ -> Record

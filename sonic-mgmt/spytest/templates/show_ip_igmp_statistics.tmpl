@@ -1,0 +1,39 @@
+########################################
+#sonic# show ip igmp statistics 
+#IGMP RX statistics
+#Interface       : global
+#V1 query        : 0
+#V2 query        : 0
+#V3 query        : 2401
+#V2 leave        : 0
+#V1 report       : 0
+#V2 report       : 0
+#V3 report       : 2404
+#mtrace response : 0
+#mtrace request  : 0
+#unsupported     : 0
+########################################
+Value interface (\w+)
+Value query_v1 (\d+)
+Value query_v2 (\d+)
+Value query_v3 (\d+)
+Value leave_v2 (\d+)
+Value report_v1 (\d+)
+Value report_v2 (\d+)
+Value report_v3 (\d+)
+Value mtrace_response (\d+)
+Value mtrace_request (\d+)
+Value unsupported (\d+)
+
+Start
+  ^\s*Interface\s*:\s*${interface}$$
+  ^\s*V1\s*query\s*:\s*${query_v1}$$
+  ^\s*V2\s*query\s*:\s*${query_v2}$$
+  ^\s*V3\s*query\s*:\s*${query_v3}$$
+  ^\s*V2\s*leave\s*:\s*${leave_v2}$$
+  ^\s*V1\s*report\s*:\s*${report_v1}$$
+  ^\s*V2\s*report\s*:\s*${report_v2}$$
+  ^\s*V3\s*report\s*:\s*${report_v3}$$
+  ^\s*mtrace\s*response\s*:\s*${mtrace_response}$$
+  ^\s*mtrace\s*request\s*:\s*${mtrace_request}$$
+  ^\s*unsupported\s*:\s*${unsupported}$$ -> Record

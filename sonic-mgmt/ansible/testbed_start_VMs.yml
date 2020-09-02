@@ -1,0 +1,24 @@
+---
+# This Playbook deploys all VMs defined in an inventory file under vms_x
+# 
+# We need to run this playbook first, before we run any testbed_add script
+#
+# Every VM has 10 interfaces:
+#  - mgmt interface which is connected to the routable physical network. This address is defined as ansible_host in veos playbook   
+#  - Eth1/1 - Eth1/8 is connected to an ovs-bridge and later it could bound by testbed_add_vm_topology.yml
+#  - Eth1/9 is connected to other vm_set VMs Eth1/9
+#
+# To start all vm_sets on all servers:
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_start_VMs.yml --vault-password-file=~/.password
+#
+# To run on the first server only:
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_start_VMs.yml --vault-password-file=~/.password -l server_1
+#
+
+- hosts: servers:&vm_host
+  gather_facts: no
+  vars_files:
+    - vars/azure_storage.yml
+  tasks:
+  roles:
+    - { role: vm_set, action: 'start' }

@@ -1,0 +1,33 @@
+- name: Set front panel/mgmt port for dut
+  include_tasks: set_dut_port.yml
+
+- name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }}
+  vm_topology:
+    cmd: "unbind"
+    vm_set_name: "{{ vm_set_name }}"
+    topo: "{{ topology }}"
+    vm_names: "{{ VM_hosts }}"
+    vm_base: "{{ VM_base }}"
+    dut_fp_ports: "{{ dut_fp_ports }}"
+    dut_mgmt_port: "{{ dut_mgmt_port }}"
+    max_fp_num: "{{ max_fp_num }}"
+    is_multi_duts: "{{ dut_name is defined and dut_name.split(',')|length > 1 }}"
+  become: yes
+
+- include_tasks: remove_ceos_list.yml
+  when: vm_type is defined and vm_type == "ceos"
+
+- name: Remove vlan port for vlan tunnel
+  vlan_port:
+    external_port: "{{ external_port }}"
+    vlan_ids: "{{ device_vlan_list }}"
+    is_multi_duts: "{{ dut_name is defined and dut_name.split(',')|length > 1 }}"
+    cmd: "remove"
+  become: yes
+  when: external_port is defined
+
+- name: Remove ptf docker container ptf_{{ vm_set_name }}
+  docker_container:
+    name: "ptf_{{ vm_set_name }}"
+    state: absent
+  become: yes

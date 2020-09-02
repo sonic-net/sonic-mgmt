@@ -1,0 +1,68 @@
+Value pkt_rx_64_octets (\S+)
+Value pkt_rx_65_127_octets (\S+)
+Value pkt_rx_128_255_octets (\S+)
+Value pkt_rx_256_511_octets (\S+)
+Value pkt_rx_512_1023_octets (\S+)
+Value pkt_rx_1024_1518_octets (\S+)
+Value pkt_rx_1519_2047_octets (\S+)
+Value pkt_rx_2048_4095_octets (\S+)
+Value pkt_rx_4096_9216_octets (\S+)
+Value pkt_rx_9217_16383_octets (\S+)
+Value pkt_rx_without_errors (\S+)
+Value pkt_rx_unicast (\S+)
+Value pkt_rx_multicast (\S+)
+Value pkt_rx_broadcast (\S+)
+Value pkt_rx_jabbers (\S+)
+Value pkt_rx_fragments (\S+)
+Value pkt_rx_undersize (\S+)
+Value pkt_rx_overruns (\S+)
+Value pkt_tx_64_octets (\S+)
+Value pkt_tx_65_127_octets (\S+)
+Value pkt_tx_128_255_octets (\S+)
+Value pkt_tx_256_511_octets (\S+)
+Value pkt_tx_512_1023_octets (\S+)
+Value pkt_tx_1024_1518_octets (\S+)
+Value pkt_tx_1519_2047_octets (\S+)
+Value pkt_tx_2048_4095_octets (\S+)
+Value pkt_tx_4096_9216_octets (\S+)
+Value pkt_tx_9217_16383_octets (\S+)
+Value pkt_tx_successfully (\S+)
+Value pkt_tx_unicast (\S+)
+Value pkt_tx_multicast (\S+)
+Value pkt_tx_broadcast (\S+)
+Value time_since_counters_last_cleared (\S+)
+
+Start
+  ^\s*Packets\s+Received\s+64\s+Octets\.+\s+${pkt_rx_64_octets}$$
+  ^\s*Packets\s+Received\s+65-127\s+Octets\.+\s+${pkt_rx_65_127_octets}$$
+  ^\s*Packets\s+Received\s+128-255\s+Octets\.+\s+${pkt_rx_128_255_octets}$$
+  ^\s*Packets\s+Received\s+256-511\s+Octets\.+\s+${pkt_rx_256_511_octets}$$
+  ^\s*Packets\s+Received\s+512-1023\s+Octets\.+\s+${pkt_rx_512_1023_octets}$$
+  ^\s*Packets\s+Received\s+1024-1518\s+Octets\.+\s+${pkt_rx_1024_1518_octets}$$
+  ^\s*Packets\s+Received\s+1519-2047\s+Octets\.+\s+${pkt_rx_1519_2047_octets}$$
+  ^\s*Packets\s+Received\s+2048-4095\s+Octets\.+\s+${pkt_rx_2048_4095_octets}$$
+  ^\s*Packets\s+Received\s+4096-9216\s+Octets\.+\s+${pkt_rx_4096_9216_octets}$$
+  ^\s*Packets\s+Received\s+9217-16383\s+Octets\.+\s+${pkt_rx_9217_16383_octets}$$
+  ^\s*Total\s+Packets\s+Received\s+Without\s+Errors\.+\s+${pkt_rx_without_errors}$$
+  ^\s*Unicast\s+Packets\s+Received\.+\s+${pkt_rx_unicast}$$
+  ^\s*Multicast\s+Packets\s+Received\.+\s+${pkt_rx_multicast}$$
+  ^\s*Broadcast\s+Packets\s+Received\.+\s+${pkt_rx_broadcast}$$
+  ^\s*Jabbers\s+Received\.+\s+${pkt_rx_jabbers}$$
+  ^\s*Fragments\s+Received\.+\s+${pkt_rx_fragments}$$
+  ^\s*Undersize\s+Received\.+\s+${pkt_rx_undersize}$$
+  ^\s*Overruns\s+Received\.+\s+${pkt_rx_overruns}$$
+  ^\s*Packets\s+Transmitted\s+64\s+Octets\.+\s+${pkt_tx_64_octets}$$
+  ^\s*Packets\s+Transmitted\s+65-127\s+Octets\.+\s+${pkt_tx_65_127_octets}$$
+  ^\s*Packets\s+Transmitted\s+128-255\s+Octets\.+\s+${pkt_tx_128_255_octets}$$
+  ^\s*Packets\s+Transmitted\s+256-511\s+Octets\.+\s+${pkt_tx_256_511_octets}$$
+  ^\s*Packets\s+Transmitted\s+512-1023\s+Octets\.+\s+${pkt_tx_512_1023_octets}$$
+  ^\s*Packets\s+Transmitted\s+1024-1518\s+Octets\.+\s+${pkt_tx_1024_1518_octets}$$
+  ^\s*Packets\s+Transmitted\s+1519-2047\s+Octets\.+\s+${pkt_tx_1519_2047_octets}$$
+  ^\s*Packets\s+Transmitted\s+2048-4095\s+Octets\.+\s+${pkt_tx_2048_4095_octets}$$
+  ^\s*Packets\s+Transmitted\s+4096-9216\s+Octets\.+\s+${pkt_tx_4096_9216_octets}$$
+  ^\s*Packets\s+Transmitted\s+9217-16383\s+Octets\.+\s+${pkt_tx_9217_16383_octets}$$
+  ^\s*Total\s+Packets\s+Transmitted\s+Successfully\.+\s+${pkt_tx_successfully}$$
+  ^\s*Unicast\s+Packets\s+Transmitted\.+\s+${pkt_tx_unicast}$$
+  ^\s*Multicast\s+Packets\s+Transmitted\.+\s+${pkt_tx_multicast}$$
+  ^\s*Broadcast\s+Packets\s+Transmitted\.+\s+${pkt_tx_broadcast}$$
+  ^\s*Time\s+Since\s+Counters\s+Last\s+Cleared\.+\s+${time_since_counters_last_cleared}$$ -> Record

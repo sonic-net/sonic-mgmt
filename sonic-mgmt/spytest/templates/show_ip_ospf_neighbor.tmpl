@@ -1,0 +1,25 @@
+Value Filldown VRFNAME (\S+)
+Value NEIGHBHORID (\S+)
+Value PRIORITY (\d+)
+Value STATE (\S+)
+Value ROLE (\S*)
+Value DEADTIME (\S+)
+Value NEIGHBORADDR (\S+)
+Value IFNAME (\S+)
+Value IFIP (\S+)
+Value RXMTL (\d+)
+Value RQSTL (\d+)
+Value DBSML (\d+)
+
+Start
+  ^VRF Name:\s+${VRFNAME}\s*$$
+  ^Neighbor ID\s+Pri\s+State\s+Dead Time\s+Address\s+Interface\s+RXmtL\s+RqstL\s+DBsmL\s*$$
+  ^${NEIGHBHORID}\s+${PRIORITY}\s+${STATE}[/]${ROLE}\s+${DEADTIME}\s+${NEIGHBORADDR}\s+${IFNAME}:${IFIP}\s+${RXMTL}\s+${RQSTL}\s+${DBSML}\s*$$ -> Record
+  ^${NEIGHBHORID}\s+${PRIORITY}\s+${STATE}[/]${ROLE}\s+${DEADTIME}\s+${NEIGHBORADDR}\s+${IFNAME}\s+${RXMTL}\s+${RQSTL}\s+${DBSML}\s*$$ -> Record
+  ^${NEIGHBHORID}\s+${PRIORITY}\s+${STATE}[/]${ROLE}\s+${DEADTIME}\s*usecs\s+${NEIGHBORADDR}\s+${IFNAME}:${IFIP}\s+${RXMTL}\s+${RQSTL}\s+${DBSML}\s*$$ -> Record
+  ^${NEIGHBHORID}\s+${PRIORITY}\s+${STATE}[/]${ROLE}\s+${DEADTIME}\s*usecs\s+${NEIGHBORADDR}\s+${IFNAME}\s+${RXMTL}\s+${RQSTL}\s+${DBSML}\s*$$ -> Record
+  ^${NEIGHBHORID}\s+${PRIORITY}\s+${STATE}\s+${DEADTIME}\s+${NEIGHBORADDR}\s+${IFNAME}:${IFIP}\s+${RXMTL}\s+${RQSTL}\s+${DBSML}\s*$$ -> Record
+  ^${NEIGHBHORID}\s+${PRIORITY}\s+${STATE}\s+${DEADTIME}\s*usecs\s+${NEIGHBORADDR}\s+${IFNAME}:${IFIP}\s+${RXMTL}\s+${RQSTL}\s+${DBSML}\s*$$ -> Record
+  ^${NEIGHBHORID}\s+${PRIORITY}\s+${STATE}\s+${DEADTIME}\s*usecs\s+${NEIGHBORADDR}\s+${IFNAME}\s+${RXMTL}\s+${RQSTL}\s+${DBSML}\s*$$ -> Record
+
+EOF

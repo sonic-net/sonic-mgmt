@@ -1,0 +1,38 @@
+##############################################################################################
+### playbook to deploy the fanout switch
+### Use this playbook to deploy the VLAN configurations of fanout switch in SONiC testbed
+### This playbook will run based on hardware platform. Each fanout switch hardware type has its
+### own unique feature and configuration command or format. Unless you use the hardware switch
+### specified in this playbook, you would need to come up with your own fanout switch deployment
+### playbook
+################################################################################################
+- name: Gathering lab graph facts about the device
+  conn_graph_facts: host={{ inventory_hostname }}
+  delegate_to: localhost
+  tags: always
+
+- set_fact: sw_type="{{ device_info['Type'] }}"
+
+- set_fact: os='eos'
+  when: os is not defined
+  tags: always
+
+- import_tasks: fanout_eos.yml
+  when: os == 'eos'
+
+- import_tasks: fanout_sonic.yml
+  when: os == 'sonic'
+
+- import_tasks: fanout_mlnx.yml
+  when: os == 'mellanox'
+
+- block:
+  - set_fact:
+      leaf_name: "{{ inventory_hostname }}"
+      leaf: "{{ ansible_host }}"
+
+  - import_tasks: rootfanout_connect.yml
+    vars:
+      deploy_leaf: true
+  when: sw_type == 'FanoutLeaf'
+  tags: always

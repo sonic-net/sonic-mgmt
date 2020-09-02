@@ -1,0 +1,443 @@
+##Port
+port_shut_fail : failed to shutdown the port {}
+portchannel_member_shut_fail: failed to shutdown the portchannel member {}
+portchannel_member_verify_fail: failed to verify given portchannel member {}
+failed_to_config_speed : Failed to config speed
+Dut_failed_to_get_speed : Dut failed to get speed
+failed_to_config_interface : Failed to config on interface
+failed_to_receive_valid_traffic : Failed to receive valid traffic
+fail_to_configure_mtu_on_device : Fail to configure mtu on Device {}
+interface_is_down_on_dut : interface is down on DUT {}
+interface_is_up_on_dut : interface is up on dut {}
+interface_admin_shut_down_fail: admin shutdown fail on interface {}
+interface_admin_startup_fail: fail to bring up interface {}
+fail_to_configure_mtu_on_Device: fail to configure mtu on Device {}
+interface_is_down_on_partner:  interface is down on partner device
+interface_down_after_all_iterations: interface is down after all iterations
+interfaces_not_listed_after_max_poll: Interfaces are not listed after max polling interval
+interface_counters_not_found: Interface counters not found
+
+##NTP
+ntpserver_not_configured: mentioned server ip is not configured
+ntp_sync_failed: NTP is not Synchronized
+ntp_sync_failed_after_disable_enabled: NTP is not synchronized after disable and enable
+time_not_updated: time is not updated
+None_of_the_configured_ntp_server_reachable: None of the configured ntp server reachable
+
+##SSH
+dut_not_getting_ip_address : Dut is Not getting IP address
+ssh_failed : SSH failed
+ssh_is_not_disabled : SSH is not Disabled
+ssh_service_not_started : SSH service not started
+
+##Reboot
+After_hard_reboot_DUT_access_fail : Either Fail to login to DUT  after hard reboot >>iteration no>>{} or  fail to get proper output of 'show platform summary'
+After_hard_reboot_DUT_access_pass : After {} hard reboot iterations DUT is stable and accessible
+After_soft_reboot_DUT_access_fail : Either DUT is not accessible or  Fail to login to DUT after reload iteration number {} or fail to get hwsku
+After_soft_reboot_DUT_access_pass : After {} reload iterations DUT is stable and accessible
+verify_soft_reboot_show_reboot_cause_fail: After soft reboot 'show reboot-cause' reason is incorrect in {}
+verify_hard_reboot_show_reboot_cause_fail: After hards reboot 'show reboot-cause' reason is incorrect in {}
+verify_mac_entries_cleared: After Fast reboot mac entries are cleared
+clear_config_failed: Clear config failed in {}
+fast_or_warm_reboot_failed: Fast or Warm reboot command failed
+reboot_failed: Reboot command failed
+Warmboot_unsupported_platform : Warm boot is not supported on this platform {}
+data_traffic_loss_during_fast_reboot: Traffic loss observed during fast reboot more than 25 seconds
+
+##Bootup
+build_remove_fail: Failed to remove the build {}
+verify_additional_builds_remove_fail: Additional builds are not removed successfully
+current_active_not_in_available: Current active build is not shown in the available builds list
+build_load_fail: Failed to load the build
+build_load_unsuccessful: Build is not loaded successfully
+set_next_active_build_fail: Failed to configure next active build
+set_next_active_build_as_new_build_fail: Failed to configure newly loaded build as next active build
+current_active_build_is_not_newly_loaded_build: The current active build is not the newly loaded build as per the configuration
+set_next_active_build_as_old_fail: Failed to configure next active build as old build
+verify_next_active_build_as_old_build_fail: Next active build is not set to the old build as per the configuration
+verify_active_build_as_old_build_fail: DUT is not loaded with old image as per the configuration
+set_new_build_as_default_fail: Failed to set the newly loaded image as default image
+verify_active_build_as_new_build_fail: DUT is not loaded with newly loaded image as per the configuration
+set_old_build_as_default_fail: Failed to set the old image default image
+verify_next_active_build_as_new_build_fail: Next boot image is not set to old image as per the configuration
+remove_new_build_fail: Failed to remove the new build
+verify_remove_new_build_fail: The new build is not removed as per the configuration
+sytem_uptime_fail: In DUT {},After 5 min system uptime is not updated with correct value
+remove_old_build_fail: Failed to remove the old build
+verify_remove_old_build_fail: The old build is not removed as per the configuration
+
+##Ansible
+ansible_host_ping_error: Ansible host {} ping not successful
+ansible_fail: Ansible operation failed
+ansible_playbook_success: Ansible playbook success
+ansible_cmd_success: Ansible Command Successful
+ansible_ping_success: Ansible Ping Successful
+ansible_ssh_success: Ansible SSH success
+
+##Chef
+client_not_running: Chef client not running
+client_running: Chef client is running
+error_update_role_chef_server: Error while updating role on chef server
+error_update_node_run_list: Error while updating node run list
+error_client_pem_file_not_present: Client pem file not present under {}
+error_validation_pem_file_not_present: Validation pem file not present under {}
+chef_mclag_delete_fail: MCLAG deletion using Chef failed
+chef_l2mclag_pass: L2 MCLAG creation and state check successful using Chef
+chef_l3mclag_pass: L3 MCLAG creation and state check successful using Chef
+chef_mclag_state_fail: MCLAG state check failed after creation using Chef
+chef_bootstrap_fail: Bootstrap to DUT failed
+
+## Config
+Config_not_loaded_from_config_db_json: Config from config_db.json is not loaded to running configuration
+
+
+## CRM
+threshold_config_success: Successfully configured threshold values.
+threshold_config_fail: Failed to configure threshold values.
+threshold_exceeded_success: Threshold exceeded - logs generated successfully
+threshold_exceeded_fail: Failed to generate 'Threshold exceeded' logs
+threshold_clear_success: Threshold  logs generated successfully
+threshold_clear_fail: Failed to generate 'Threshold clear' logs
+polling_interval: Polling interval configured as {}
+polling_interval_fail: Polling interval configuration failed.
+max_threshold_exceed: Max threshold exceeds the default value.
+
+
+## ZTP
+ztp_status_verification_failed: ZTP status verification failed.
+ztp_log_verification_failed: ZTP log {} verification failed for message {}
+ztp_file_found_error: Error file should not be found under {}
+ztp_admin_mode_mismatch_during_reboot: ZTP admin mode not matching with before {} and after {} reboot
+ztp_status_mismatch_during_reboot: ZTP status not matching with before {} and after {} reboot
+ztp_disable_failed: Disabling ZTP failed
+ztp_source_verification_failed: ZTP source verification failed with {} against {}
+ztp_max_polling_interval: Max polling interval reached.
+ztp_dhclient_error: DHCLIENT on required interface is not found.
+snmp_params_verification_failed: SNMP parameter verification failed.
+
+##logging
+failed_to _clear_logs: Failed to clear all logs
+logs_are_not_getting_generated_after_reboot: logs are not getting generated after reboot
+syslog_server_entry_not_stored_in_config_db: syslog server entry not stored in config_db file
+logs_are_getting_generated_after_reboot: logs are getting generated after reboot
+logging_severity_level_change_failed: logging severity level change got failed
+Tech_support_operation_failed: Tech support operation failed
+
+##SNMP
+snmp_operation_fail: SNMP {} operation is failed due to - {}
+sysName_verification_fail : sysname output is not in sync between system and snmp
+sysUptime_verification_fail : sysUpTime output is not in sync between system and snmp
+sysLocation_verification_fail : sysLocation output is not in sync between system and snmp
+sysContact_verification_fail: sysContact output is not in sync between system and snmp
+sysObjectId_verification_fail: sysObjectId output is not in sync between system and snmp
+sysDescr_verification_fail: sysDescr output is not in sync between system and snmp
+ip_verification_fail: Ip address is not a valid one or the ip is not presented on the device
+get_snmp_output_fail: SNMP output is not found after walk
+snmp_output_failed: SNMP output is not found after walk of {} OID
+snmp_service_not_up: SNMP service is not up
+sysName_verification_fail_after_docker_restart : sysname output is not in sync between system and snmp after docker restart
+snmptrapd_not_running: snmptrapd application is not running on the server.
+snmptrap_not_generated: snmp trap {} not received as expected.
+snmptrap_generated: snmp trap {} received as expected.
+snmp_parameters_config_unsuccessful: Failed to configure SNMP parameters such as contact info-{}, location-{} and sysname-{}
+snmp_config_unsuccessful: Failed to configure SNMP parameter {} - {}
+snmp_cli_config_verified: snmp cli verification successful after fast-reboot.
+snmp_output_status: snmp output stauts of {} after get or walk operations is {}.
+snmp_invalid_case_status: snmp{} {} operation with invalid {} is {}
+snmp_operation_invalid_credentials_status: snmp operations such as walk and get with invalid credentials is successful.
+snmp_trap_informs_status: snmp trap informs status of {} are {}
+snmp_community_invalid_error_code: Observed invalid error code {} when snmp community - {} is configured via rest.
+snmp_community_config_gnmi_unsuccessful: Failed to {} snmp community - {} via gnmi.
+snmp_agent_address_config_verify_unsuccessful: Failed to configure snmp agent addresses - {} with non-default port - {}
+
+##PMON
+pmon_service_not_up : PMON service is not up
+pmon_show_command_fail : show command doesn't showed valid output after PMON docker restart
+
+##running config
+running_config_failed: Running config failed
+
+
+### PFC
+set_map_pfc_priority_to_queue_fail : Failed to map PFC priority to queue in DUT-{}
+set_map_tc_to_queue_fail : Failed to map TC to queue in DUT-{}
+set_map_tc_to_pg_fail : Failed to map TC to priority group in DUT-{}
+set_map_dscp_to_tc_fail : Failed to map DSCP to TC in DUT-{}
+set_pfc_enable_fail : Failed to enable PFC on the Queues-{} of the ports-{} in DUT-{}
+asymmetric_instead_of_symmetric_in_interface_status: Asymmetric PFC configuration shown instead of symmetric on port-{} of DUT-{} in interfaces status output
+set_asymmetric_pfc_enable_fail: Failed to enable asymmetric PFC on port-{} of DUT-{}
+verify_asymmetric_pfc_enable_fail: Asymmetric PFC is not enabled on port-{} of DUT-{} as per the configuration
+verify_asymmetric_pfc_in_interface_status_fail: Asymmetric PFC is not shown as enabled in interface status on port-{} of DUT-{} as per the configuration
+set_pfc_counters_clear_fail: Failed to clear PFC counters on DUT-{}
+verify_pfc_counters_clear_fail: PFC counters on the Port-{} in DUT-{} are not cleared as per the configuration
+traffic_loss_for_loss_less_traffic: Traffic loss is observed for the loss less traffic(priority-{} traffic)
+invalid_pfc_rx_counter: invalid PFC RX counters are observed on port-{} in DUT-{}
+invalid_pfc_tx_counter: invalid PFC TX counters are observed on port-{} in DUT-{}
+pfc_rx_counter_fail: PFC RX counter for lossless priority-{} is not incremented on port-{} in DUT-{}
+pfc_tx_counter_fail: PFC RX counter for lossless priority-{} is not incremented on port-{} in DUT-{}
+no_traffic_loss_for_lossy_traffic: No traffic loss is observed for the lossy traffic(priority-{} traffic)
+verify_pfc_priority_to_queue_map_fail: PFC priority-{} is not mapped to queue-{} as per the configuration in DUT-{}
+verify_tc_to_queue_map_fail: TC-{} is not mapped to queue-{} as per the configuration in DUT-{}
+verify_tc_to_pg_map_fail: TC-{} is not mapped to priority-group-{} as per the configuration in DUT-{}
+verify_pfc_enable_fail: PFC is not enabled on the ports-{} and on the queues-{} as per the configuration in DUT-{}
+pfc_priority_to_queue_map_config_exist_after_cold_boot: Mapping for pfc priority-{} to queue-{} still exist in DUT-{} after cold boot
+tc_to_queue_map_config_exist_after_cold_boot: Mapping for tc-{} to queue-{} still exist in DUT-{} after cold boot
+tc_to_pg_map_config_exist_after_cold_boot: Mapping for tc-{} to priority-group-{} still exist in DUT-{} after cold boot
+pfc_enabled_after_cold_boot: PFC is still enabled on the ports-{} and on the queues-{} in DUT-{}
+invalid_platform_for_buffer_config: Invalid platform for buffer configuration
+pfc_counters_not_initialized: PFC counters are not initialized
+verify_asymmetric_pfc_mode_fail: Verification of asymmetric PFC mode as {} on port {} in DUT {} is failed
+pfc_validation_fail: PFC validation failed {}
+
+#docker
+docker_operation_failed: Failed to {} docker {}
+
+###lldp
+lldp_snmp_not_matching: LLDP and SNMP values are not matching
+no_lldp_entries_are_available : No LLDP entries are available
+both_are_not_matching : DUT Management IP and LLDP entries Management IP is not matching
+hostname_is_not_matching : DUT hostname and LLDP entries hostname is not matching
+interfaces_not_up_after_poll : Interfaces are not up even after polling
+lldp_neighbors_info_not_found_after_poll : LLDP neighbors information is not found after polling
+lldp_invalid : Invalid LLDP output
+LLDP_non_default_config_is_failed : LLDP nondefault configuration on neighbor is not reflecting properly
+lldp_service_not_up : LLDP service is not Up
+
+#SPAN
+
+mirror_session_verification_failed: Mirror session not configured or observed some other error
+mirror_prt_func_with_dir_as_rx_not_working : Mirroring with port functionality is not working on rx direction
+mirroring_with_port_rx_working_fine: Mirroring with port functionality is working on rx direction
+mirror_prt_func_with_dir_as_tx_not_working : Mirroring with port functionality is not working on tx direction
+mirroring_with_port_tx_working_fine: Mirroring with port functionality is working on tx direction
+mirror_prt_func_with_dir_as_both_not_working : Mirroring with port functionality is not working on both direction
+mirroring_with_port_both_working_fine: Mirroring with port functionality is working on direction as both
+mirror_prt_channel_func_with_dir_as_rx_not_working: Mirroring with port channel functionality is not working on rx
+                                                    direction
+mirroring_with_port_channel_rx_working_fine: Mirroring with portchannel functionality is working on rx direction
+mirror_vlan_func_with_dir_as_rx_not_working: Mirroring with VLAN functionality is not working on rx direction
+mirroring_with_vlan_tx_working_fine: Mirroring with VLAN functionality is working on tx direction
+mirror_vlan_func_with_dir_as_tx_not_working: Mirroring with VLAN functionality is not working on tx direction
+mirroring_with_vlan_both_working_fine: Mirroring with VLAN functionality is working on both direction
+mirror_vlan_func_with_dir_as_both_not_working: Mirroring with VLAN functionality is not working on both direction
+mirroring_with_vlan_rx_working_fine: Mirroring with VLAN functionality is working on rx direction
+mirror_stat_prtchannel_inactive: Mirroring with port channel with no members avialable is showing active which is false
+mirror_stat_prtchannel_status_pass: Mirroring with port channel status when no members is working fine
+mirror_negative_case_same_dest_sourece_fail: Mirroring with Negative scenario  configuring source and destination as
+                                             same is failing
+mirror_negative_case_same_dest_prtchannel_fail: Mirroring with Negative scenario  configuring destination as portchannel
+                                                is Failed
+mirror_config_same_twice_failed: Mirroring configured twice with same ports should failed and should throw error message
+mirror_config_with_wrong_direction_fail: Mirroring with direction other than rx,tx and both should fail
+mirror_config_as_source_and_dst_with_same_intf_fail: Mirroring with Source port used in one session cannot be used as
+                                                     the destination port in another session
+mirror_with_negative_scenarios_pass : Mirroring with negative scenarios passed
+mirror_erspan_func_status : Mirroring configured with ERSPAN functionality {}
+mirror_erspan_span_func_pass : Mirroring with ERSPAN to SPAN to ERSPAN functionality is passed
+mirror_erspan_mode_status : Mirroring configured as ERSPAN with {} as source port is {}
+mirror_max_sessions_not_formed : Mirroring with max mirror sessions are not formed
+mirror_func_with_max_session_status : Mirroring functionality is {} with max session configured
+mirroring_with_multi_source_verify_pass_fail : Mirroring with mutiple source  direction {} verification is {}
+mirroring_gnmi_get_or_set_operation_has_invalid_values : Mirroring {} value has invalid data
+mirroring_after_gnmi_config_status : Mirroring config after using gnmi is {}
+mirror_traffic_is_not_forwarded : Traffic is not forwareded correctly for mirroing , please check tg
+mirroring_destination_CPU_both_working_fine : Mirroing with {} as source and CPU as destination is {}
+# ERSPAN
+ip_config_fail : Failed to configure ip address {} on interface {}
+mirror_session_fail : Failed to create mirror session {}
+acl_table_fail : Failed to create acl table as {}
+acl_rule_fail : Failed to create acl rule
+ping_fail : Failed to ping ip address {}
+traffic_verification_fail : Traffic verification failed at {}
+neg_traffic_verification_fail : Invalid Traffic verification failed at {}
+
+#Error Handling
+entry_not_found_in_error_db: Entry for {} not found in error db
+entry_found_in_error_db: Entry for {} found in error db
+entry_not_found_in_show_error_db: Entry for {} not found in show error database
+entry_found_in_show_error_db: Entry for {} found in show error database
+test_case_pass: Test case {} passed
+Failed_to_clear_error_db: Failed to clear entries in error db
+failed_to_recv_notification: Bgp failed to recv notification
+
+#IFA
+device_id_is_persent: ifa device id is not cleared
+flow_is_present:  ifa flow is not cleared
+device_id_is_not_created: failed to create the ifa device id
+flow_is_not_created: failed to create a ifa flow
+collector_is_not_created: failed to created the ifa eggress collector
+collector_is_present: failed to clear the ifa eggress collector
+ifa_Status_is_not_correct: ifa status is not correct
+ifa_status_params_are_not_correct: ifa status parms are not correct
+get_ifa_status_failed: failed to get ifa status
+get_ifa_flow_failed: failed to get flow
+get_ifa_session_failed: failed to get ifa session
+get_ifa_collector_failed: failed to get ifa collector info
+configure_ifa_feature_failed: failed to configure ifa feature
+create_ifa_flow_failed: failed to create a ifa flow
+ifa_flow_parameters_are_not_correct: ifa flow params are not correct
+create_ifa_session_failed: failed to create the ifa session
+ifa_session_params_are_not_correct: ifa session params are not correct
+create_ifa_collector_failed: create ifa collector failed
+ifa_collector_parameteres_are_not_correct: ifa collector parameters are not correct
+start_ifa_session_failed: start ifa session failed
+stop_ifa_session_failed: stop ifa session failed
+remove_ifa_collector_failed: remove ifa collector failed
+config_clear_failed: ifa config clear failed
+sampled_packets_count_not_correct : sampled packet count is not correct
+ifa_int_header_meta_data_not_correct: ifa int header and meta data in sampled packet are not correct
+invalid_rest_request_successfull: invalid rest request is successfull
+ifa_is_unsupported_on_this_platform: ifa is unsupported on this platform
+config_is_failed_ableit_on_supported_build_platform: ifa config is failed on supported platform with supported build
+config_is_successful_ableit_on_unsupported_build_platform: ifa config is successful on unsupported platform with unsupported build
+ifa_firmware_is_not_running: IFA Firmware is not running in Supported Platform and Build.
+ifa_statistics_not_incrementing: ifa statistics not incrementing
+
+#Branding
+invalid_build_version_format: Build version format is invalid in {} output
+found_string_dirty: The string dirty is found in {} output
+
+#PDDF
+pddf_mode_set_failed: "{0}: Failed to {1} {0} mode on device."
+empty_values_observed: "{}: Observed empty values for some or all fields {}."
+value_mismatch: "{}: Observed value mismatch in sys-eeprom field {}."
+show_platform_syseeprom_command_verified: "{}: Successfully verified the output of 'show platform syseeprom' command."
+decode_syseeprom_command_verified: "{}: Successfully verified the output of 'decode-syseeprom' command."
+fan_params_verification_failed: "{}: Verification of fan parameters failed."
+pddf_fanutil_verification_failed: "{}: FAN util '{}' verification failed."
+pddf_fanstatus_verification_success: "{}: Platform FAN status / util verification success."
+platform_psu_summary_verification_failed: "{}: Platform PSU summary verification failed."
+pddf_psu_summary_util_verification_success: "{}: Platform PSU UTIL summary verification success."
+pddf_psu_util_verification_failed: "{}: Failed to verify PDDF PSU-UTIL data."
+pddf_psu_mfr_info_verification_failed: "{}: Failed to verify PDDF_PSU_MFR_info."
+sfp_lp_mode_x_failed: "{}: Failed to {} sfp lp mode on the interface-{}."
+sfp_presence_not_found: "{}: Unable to find sfp presence on up interface {}."
+sfp_reset_failed: "{}: Failed to perform sfp reset on interface {}."
+sfp_eeprom_detection_failed: "{}: Unable to find sfp EEPROM status on up interface {}."
+pddf_show_sfputil_verification_success: "{}: show sfputil verification successful."
+pddf_led_validation_failed: "{}: Failed to validate LED commands."
+pddf_led_validation_success: "{}: LED commands validation is successful."
+pddf_thermalutil_validation_failed: "{}: Failed to validate thermalutil - {}."
+pddf_thermalutil_validation_success: "{}: Successfully validated thermalutil commands."
+show_environment_o/p_validation_failed: "{}: Failed to validate - show environment o/p"
+show_environment_o/p_validation_success: "{}: Validation of show environment o/p is successful."
+system_down_status_observed: "{}: System is Down - post executing pddf debug commands."
+system_status_up_post_pddf_debug: "{}: No Change in system status post executing pddf debug commands."
+pddf_reboot_cause_validation_failed: "{}: Failed to validate reboot cause for reboot type - {}."
+pddf_reboot_cause_validation_success: "{}: Successfully validated reboot cause for reboot type - {}."
+up_interface_not_found: "{}: Unable to find any UP ports in the device."
+pddf_unsupported: "{}: Feature is not supported for platform - {}."
+pddf_get_constanc_fail: "{}: Failed to get constants for platform - {}."
+
+#Domain
+domain_names_present: Broadcom domain names are present in the {} file
+domain_names_not_present: Broadcom domain names are not Present in the {} file
+
+
+#storm-control
+storm_control_traffic_verification_successful: Storm control traffic verification got passed
+storm_control_traffic_verification_failed: Storm control traffic verification is failed
+storm_control_config_verify_failed: Storm control config verification failed for {} on interface {}
+storm_control_negative_verification_successful: Storm control negative scenarios verification got passed
+storm_control_negative_verification_failed: Storm control negative scenarios  verification is failed
+storm_control_portchannel_verification_failed : Stormcontrol portchannel verification got failed
+storm_control_portchannel_verification_successful : Stormcontrol portchannel verification is passed
+storm_control_traffic_incremental_bps_max_vlan_successful: Storm control incremental bps value and max vlan  traffic verification got passed
+storm_control_traffic_incremental_bps_max_vlan_failed: Storm control incremental bps value and max vlan traffic verification got failed
+storm_control_reboot_successful: Storm Control config save reboot operation is successful
+storm_control_reboot_failed: Storm Control config save reboot operation got failed
+storm_control_unsupported : Stormcontrol control is unsupported on this platform
+
+#sFlow
+failed_to_config_sflow: failed to config sflow configuration.
+failed_to_receive_sflow_packets: sFlow collector failed to receive sflow sample packets with {} {}.
+failed_to_generate_sflow_log_in_syslog: failed to generate sflow log in syslog
+failed_to_config_non_default_sampling_rate: failed to config non default sampling_rate
+sflow_test_case_passed: Successfully verified sFlow sampling functionality.
+sflow_negative_verifcation_failed: Sflow negative scenario  verification failed
+sflow_docker_restart_status: Sflow collector {} to receive sflow packets after sflow docker restart.
+sflow_fast_reboot_status: Sflow collector {} to receive sflow packets after fast reboot.
+sflow_warm_reboot_status: Sflow collector {} to receive sflow packets after warm reboot.
+sflow_control_plane_traffic_status: Sflow collector {} to receive sflow packets for control plane traffic
+sflow_invalid_config_status: DUT is {} throwing error when tried to config invalid sflow {}
+sflow_REST_config_status: through rest {} to config sflow configuration
+sflow_gNMI_config_status: sflow admin {} using gNMI {} is {}
+
+#Tail time stamping
+tail_ts_is_unsupported_on_this_platform: Tail Time-Stamping is unsupported on this platform
+device_id_is_not_present: tam device id is not created
+ts_flow_is_not_created: failed to create a TS flow
+failed_to_observe_timestamps: failed to observe timestamps at captured result
+statistics_are_not_incremented: TS flow statistics are not incremented
+tail_ts_status: Verification of tail time-stamping {} functionality got {}
+
+
+#Drop-monitor
+sample_cfg_fail: Failed to configure sample.
+drop_monitor_aging_interval_cfg_pass: Drop monitor aging interval configured successfully.
+drop_monitor_aging_interval_cfg_fail: Failed to configure aging interval.
+drop_monitor_aging_interval_clear_pass: Drop monitor aging interval cleared successfully.
+drop_monitor_aging_interval_clear_fail: Drop monitor aging interval clear failed.
+drop_monitor_flow_cfg_pass: Drop monitor flow configured successfully.
+drop_monitor_flow_cfg_fail: Failed to configure drop monitor flow.
+drop_monitor_flow_delete_pass: Drop monitor flow delete successfully.
+drop_monitor_flow_delete_fail: Drop monitor flow delete failed.
+drop_monitor_appl_db_entry_fail: Drop monitor flow APPL_DB entry verification failed.
+drop_monitor_appl_db_entry_pass: Drop monitor flow APPL_DB entry verification passed.
+drop_monitor_collector_cfg_fail: Drop monitor collector config failed.
+drop_monitor_stats_fail: Failed to get drop monitor stats.
+drop_monitor_stats_pass: Verified drop monitor stats.
+drop_monitor_unsupported_platform: Drop Monitor feature is not supported on {}
+drop_monitor_unsupported_build: This build does not support drop monitor feature
+no_mod_drop_events_observed: MOD drop events are not observed
+verify_flow_configuration_failed: Verification of flow configuration for Drop Monitor feature failed
+mod_support: MOD support is set to {}
+mod_feature_enable_fail: Failed to enable drop monitor feature
+drop_monitor_max_flows_config_successful: Drop Monitor maximum flows configuration is successful
+mod_config_fail: Drop monitor configuration failed
+verify_failed: Verification of {} failed
+drop_reason_validation_pass: Successfully validated the drop reason {}
+
+
+
+#Management VRF
+mgmt_vrf_eth0_bind_fail: Failure to bind eth0 to Managemnt VRF
+mgmt_vrf_eth0_bind_success: Successful binding of eth0 to Management VRF
+mgmt_vrf_ssh_fail: SSH over Management VRF failed
+mgmt_vrf_ssh_pass: Successful to SSH over Management VRF
+mgmt_vrf_ping_fail: PING over Management VRF failed
+mgmt_vrf_ping_pass: PING successful using Management VRF
+mgmt_vrf_tr_fail: Traceroute over Management VRF failed
+mgmt_vrf_tr_pass: Traceroute successful using Management VRF
+mgmt_vrf_dataport_bind: Front panel data ports bind to Management VRF
+mgmt_vrf_dataport_nobind: No front-panel/data ports bind to Management VRF
+mgmt_vrf_reboot_fail: Management VRF bind failed after reboot
+mgmt_vrf_reboot_pass: Management VRF bind success after reboot
+mgmt_vrf_cfgreload_fail: Management VRF bind failed after config reload
+mgmt_vrf_cfgreload_pass: Management VRF bind success after config reload
+mgmt_vrf_http_fail: HTTP/CURL un-successful with eth0 bind to Management VRF
+mgmt_vrf_http_pass: HTTP/CURL successful with eth0 bind to Management VRF
+mgmt_vrf_snmp_fail: SNMP operation NOT successful with eth0 in MGMT VRF
+mgmt_vrf_snmp_pass: SNMP operation successful with eth0 in MGMT VRF
+mgmt_vrf_ntp: NTP synchronized {} in Management VRF
+mgmt_vrf_warmboot: After warmboot, {} network conenctivity over eth0 in Management VRF
+mgmt_vrf_tacacs: SSH login using TACACS {} over Management VRF
+mgmt_vrf_static_dhcp: Static and DHCP address assigment to eth0 {} in Management VRF
+
+#snapshot
+snapshot_telemetry_interval_config_and_reset : verification of configured telemetry interval and reset to default interval is {}
+snapshot_interval_config : configuring snapshot interval is {}
+snapshot_interval_config_and_reset : verification of configured snapshot interval and reset to default interval is {}
+snapshot_verify_default_interval: verification of snapshot default interval is {}
+snapshot_tc_verify : verification of {} counter is {}
+snapshot_clear_verify : verification of {} is {}
+snapshot_all_buffer_counters : verification of all buffer counters using {} traffic is {}
+snapshot_tc_counter_DB_verify : verification of {} counter using counter DB is {}
+snapshot_clear_counter_DB_verify : verification of {} counter using counter DB is {}
+
+#BARE BONE OC YANG VERSION
+rest_error_observed: REST error response {} status code observed
+no_response_found: No response found with {}
+bare_bone_ocyang_version_status: Verification the bare bone oc yang version using correct, no version and incorrect version using {} call is {}.
+ocyang_unsupported_build_version: OCYANG version is unsupported on this build.
+ocyang_error_is_not_as_per_the_design: OCYANG ERROR {} is not as per the design.

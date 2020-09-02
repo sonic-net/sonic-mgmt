@@ -1,0 +1,9 @@
+Value Login (\S+\s*\(\S+\)|\S+)
+Value Failthrough (\S+\s*\(\S+\)|\S+)
+Value Fallback (\S+\s*\(\S+\)|\S+)
+
+Start
+  ^AAA\s+authentication\s+login\s+${Login}\s*$$
+  ^AAA\s+authentication\s+failthrough\s+${Failthrough}\s*$$
+  ^AAA\s+authentication\s+fallback\s+${Fallback}\s*$$
+  ^$$

@@ -1,0 +1,21 @@
+###############################################################
+#sonic# show ip pim assert 
+#Interface Address         Source          Group           State  Winner          Uptime   Timer
+#Ethernet46 10.1.1.2        10.2.1.20       232.0.0.20      NOINFO *               00:08:49 --:--
+#
+###############################################################
+Value interface (\w+)
+Value address ([\w\.]+)
+Value source ([\w\.]+)
+Value group ([\w\.]+)
+Value state (\w+)
+Value winner ([\w\.]+|\**)
+Value uptime ([\d\:]+)
+Value timer ([\d\:\-]+)
+Value vrf (\w+)
+
+Start
+  ^\s*VRF:\s*${vrf}$$
+  ^\s*${interface}\s*${address}\s*${source}\s*${group}\s*${state}\s*${winner}\s*${uptime}\s*${timer} -> Record
+
+EOF

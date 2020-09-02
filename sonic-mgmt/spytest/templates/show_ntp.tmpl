@@ -1,0 +1,15 @@
+Value remote (\S+)
+Value refid (\S+)
+Value st (\d+)
+Value t (\S+)
+Value when (\S+)
+Value poll (\S+)
+Value reach (\S+)
+Value delay (\S+)
+Value offset (\S+)
+Value jitter (\S+)
+
+Start
+  ^\s*remote\s+refid\s+st\s+t\s+when\s+poll\s+reach\s+delay\s+offset\s+jitter\s*$$
+  ^(=+\s*)*$$
+  ^\s*${remote}\s+${refid}\s+${st}\s+${t}\s+${when}\s+${poll}\s+${reach}\s+${delay}\s+${offset}\s+${jitter}\s*$$ -> Record

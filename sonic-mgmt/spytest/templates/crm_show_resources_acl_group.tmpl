@@ -1,0 +1,11 @@
+Value Stage (\S+)
+Value BindPoint (\S+)
+Value ResourceName (\S+)
+Value UsedCount (\d+)
+Value AvailableCount (\d+)
+
+Start
+  ^\s*Stage\s+Bind Point\s+Resource Name\s+Used Count\s+Available Count\s*$$
+  ^(-+\s*)*$$
+  ^\s*${Stage}\s+${BindPoint}\s+${ResourceName}\s+${UsedCount}\s+${AvailableCount}\s*$$ -> Record
+  ^$$  

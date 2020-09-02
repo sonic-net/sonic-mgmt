@@ -1,0 +1,12 @@
+Value QUEUE (\S+)
+Value STATUS (\S+)
+Value STORM (\S+)
+Value TX (\S+)
+Value RX (\S+)
+Value TXLAST (\S+)
+Value RXLAST (\S+)
+
+Start
+  ^\s+QUEUE\s+STATUS\s+STORM\s+DETECTED/RESTORED\s+TX\s+OK/DROP\s+RX\s+OK/DROP\s+TX\s+LAST\s+OK/DROP\s+RX\s+LAST\s+OK/DROP\s*$$
+  ^(-+\s*)*$$
+  ^\s*${QUEUE}\s+${STATUS}\s+${STORM}\s+${TX}\s+${RX}\s+${TXLAST}\s+${RXLAST}\s*$$ -> Record

@@ -1,0 +1,28 @@
+#!/bin/bash
+
+set -e
+
+# stop rynning VMs
+test -z "$(virsh list --state-running --name)" || virsh list --state-running --name | xargs -I % virsh destroy %
+
+# stop paused VMs
+test -z "$(virsh list --state-paused --name)" || virsh list --state-running --name | xargs -I % virsh destroy %
+
+# undefine all VMs
+test -z "$(virsh list --all --name)" || virsh list --all --name | xargs -I % virsh undefine %
+
+# remove all VM disks
+rm -f {{ root_path }}/disks/*
+
+# remove all ovs bridges
+test -z "$(ovs-vsctl list-br)" || ovs-vsctl list-br | sed -e 's/^/-- del-br /' | xargs ovs-vsctl
+
+# stop all running docker containers
+test -z "$(docker ps -q)" || docker stop $(docker ps -q)
+
+# remove all docker containers
+test -z "$(docker ps -a -q)" || docker rm $(docker ps -a -q)
+
+# remove all docker images
+test -z "$(docker images -q)" || docker rmi $(docker images -q)
+

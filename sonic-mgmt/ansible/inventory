@@ -1,0 +1,49 @@
+all:
+  children:
+    sonic:
+      children:
+        sonic_latest:
+    leaf_topo_1:
+      hosts:
+        switch1:
+        switch5:
+    ptf:
+      hosts:
+        ptf-1:
+          ansible_host: 10.0.0.200
+          ansible_ssh_user: root
+          ansible_ssh_pass: password
+    pdu:
+      hosts:
+        pdu-1:
+          ansible_host: 192.168.9.2
+          protocol: snmp
+        pdu-2:
+          ansible_host: 192.168.9.3
+
+sonic_latest:
+  hosts:
+    switch1:
+      ansible_host: 10.0.0.100
+      sonic_version: v2
+      sonic_hwsku: Force10-S6000
+      pdu_host: pdu-1
+    switch2:
+      ansible_host: 10.0.0.101
+      sonic_version: v2
+      sonic_hwsku: ACS-MSN2700
+      pdu_host: pdu-1
+    switch3:  # LAG topo: 8 LAGs x 2 members/lag to spines; 16 ports to Tors
+      ansible_host: 10.0.0.102
+      sonic_version: v2
+      sonic_hwsku: Force10-S6000
+    switch4:
+      ansible_host: 10.0.0.103
+      sonic_version: v2
+      sonic_hwsku: AS7512
+      sonic_portsku: 32x40
+      pdu_host: pdu-2
+    switch5:  # LAG topo: 8 LAGs x 2 members/lag to spines; 16 ports to Tors
+      ansible_host: 10.0.0.104
+      sonic_version: v2
+      sonic_hwsku: ACS-MSN2700

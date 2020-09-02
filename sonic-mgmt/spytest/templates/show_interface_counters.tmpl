@@ -1,0 +1,12 @@
+Value iface (\S+)
+Value state (\w{1})
+Value rx_ok (\d+)
+Value rx_err (\d+)
+Value rx_drp (\d+)
+Value tx_ok (\d+)
+Value tx_err (\d+)
+Value tx_drp (\d+)
+
+Start
+  ^\s*${iface}\s+${state}\s+${rx_ok}\s+${rx_err}\s+${rx_drp}\s+${tx_ok}\s+${tx_err}\s+${tx_drp}\s*$$ -> Record
+

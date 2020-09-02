@@ -1,0 +1,17 @@
+- name: Use loganalyzer to check for the error messages {{ testname }}.
+  include_tasks: "{{ loganalyzer_analyze }}"
+
+- name: Get the total number of error messages.
+  shell: grep "TOTAL MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL MATCHES:[[:space:]]*//p"
+  register: errors_found
+
+- name: Check the number of error messages.
+  fail: msg="{{ errors_found.stdout }} errors found while running {{ testname }}. Please see {{ test_out_dir }}/{{ result_file }}"
+  when: errors_found.stdout != "0"
+
+- name: Copy test data to host.
+  fetch: src={{ test_out_dir }}/{{ item }} dest=failed-test-data/{{ testname_unique }}/{{ item }}
+  with_items:
+      - "{{ summary_file }}"
+      - "{{ result_file }}"
+  when: errors_found.stdout != "0"

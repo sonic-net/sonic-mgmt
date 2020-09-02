@@ -1,0 +1,123 @@
+- name: Define variables for test
+  set_fact:
+    testname: logic_test
+    sw_if: Ethernet8
+    session_name: session1
+    session_ip_prefix_1: 2.2.2.0/24
+    session_ip_prefix_2: 2.2.2.0/30
+    config_files:
+      - config_valid.json
+
+- fail: msg="Please set sw_if variable (interface that switch is connected to host)"
+  when: sw_if is not defined
+
+- name: Initialize config test.
+  include_tasks: roles/test/tasks/init_config_test.yml
+
+- name: Get IP address of one switch interface
+  shell: ifconfig {{ sw_if }} | grep "inet addr:" | awk '{print $2}' | sed "s/addr://"
+  register: sw_if_ip
+
+- name: Print {{ sw_if }} IP address
+  debug: msg="{{ sw_if_ip }}"
+
+- name: Generate neighbor IP and MAC addresses.
+  set_fact:
+    neigh_ip: "{{ sw_if_ip.stdout.split(\".\")[:3]|join(\".\") + \".\" + (sw_if_ip.stdout.split(\".\")[3]|int + 1)|string }}"
+    neigh_mac_1: "00:11:22:33:44:55"
+    neigh_mac_2: "00:11:22:33:44:66"
+
+- name: Print  neighbor IP address
+  debug: msg="{{neigh_ip}}"
+
+- block:
+    - name: Create session entry.
+      vars:
+        config_file: config_valid.json
+        test_expect_file: create_session_expect_file
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: roles/test/tasks/run_config_test.yml
+
+    - name: Create route with prefix that matches session DST IP and unresolved next hop.
+      command: ip route add {{ session_ip_prefix_1 }} via {{ neigh_ip }}
+      
+    - name: Resolve session route.
+      command: ip neigh replace {{ neigh_ip }} lladdr {{ neigh_mac_1 }} nud permanent dev {{ sw_if }}
+
+    - name: Wait for route initialization.
+      pause:
+        seconds: 10
+
+    - name: Verify session state is active.
+      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
+      register: session_status
+      failed_when: session_status.stdout != "active"
+
+    - name: Create route with longer prefix and resolved next hop.
+      command: ip route add {{ session_ip_prefix_2 }} via {{ neigh_ip }}
+
+    - name: Wait for route initialization.
+      pause:
+        seconds: 10
+
+    - name: Verify session state is active
+      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
+      register: session_status
+      failed_when: session_status.stdout != "active"
+
+    - name: Remove route with longer prefix.
+      command: ip route del {{ session_ip_prefix_2 }}
+
+    - name: Wait for route initialization.
+      pause:
+        seconds: 10
+
+    - name: Verify session state is active
+      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
+      register: session_status
+      failed_when: session_status.stdout != "active"
+
+    - name: Change neighbor MAC address.
+      command: ip neigh replace {{ neigh_ip }} lladdr {{ neigh_mac_2 }} nud permanent dev {{ sw_if }}
+
+    - name: Wait for next hop initialization.
+      pause:
+        seconds: 10
+
+    - name: Verify session state is active
+      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
+      register: session_status
+      failed_when: session_status.stdout != "active"
+
+    - name: Remove session route
+      command: ip route del {{ session_ip_prefix_1 }}
+
+    - name: Wait for route initialization.
+      pause:
+        seconds: 10
+
+    - name: Verify session state is inactive.
+      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
+      register: session_status
+      failed_when: session_status.stdout != "inactive"
+
+  always:
+    - name: Remove session route.
+      command: ip route del {{ session_ip_prefix_1 }}
+      ignore_errors: yes
+
+    - name: Remove session route.
+      command: ip route del {{ session_ip_prefix_2 }}
+      ignore_errors: yes
+
+    - name: Remove neighbor
+      command: ip neigh del {{ neigh_ip }} dev {{ sw_if }}
+      ignore_errors: yes
+
+    - name: Clear session configuration
+      include_tasks: roles/test/tasks/run_config_cleanup.yml
+
+    - name: Remove all the temporary files created by the test.
+      include_tasks: roles/test/tasks/deinit_config_test.yml
+

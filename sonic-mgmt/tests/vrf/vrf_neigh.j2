@@ -1,0 +1,18 @@
+{% macro gen_dst_ports(dst_intf) -%}
+{% if 'Vlan' in dst_intf -%}
+{# use first port of vlan as peer port -#}
+[{{ intf_member_indices[dst_intf][0] | int }}]
+{% else -%}
+[{% for m in intf_member_indices[dst_intf] %}{{ m | int }}{{ ' ' if not loop.last else '' }}{% endfor %}]
+{% endif -%}
+{%- endmacro %}
+
+{% for intf, ip_facts in intf_ips.iteritems() -%}
+{% if 'Loopback' not in intf -%}
+{% for ver, ips in ip_facts.iteritems() -%}
+{% for ip in ips -%}
+{{ ip.ip + 1 }} {{ gen_dst_ports(intf) }}
+{% endfor -%}
+{% endfor -%}
+{% endif -%}
+{% endfor -%}

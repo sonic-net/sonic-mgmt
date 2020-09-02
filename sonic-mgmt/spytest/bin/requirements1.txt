@@ -1,0 +1,13 @@
+pyflakes
+flake8
+autoflake
+autopep8
+scapy==2.4.3rc1
+sphinx
+python-jenkins
+jira
+pysnmp
+pyang
+mmh3
+Pyro4
+protobuf

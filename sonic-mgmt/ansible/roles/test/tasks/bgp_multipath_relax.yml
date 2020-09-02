@@ -1,0 +1,112 @@
+############################################################################
+### playbook to test leaf router BGP multipath relex
+### There are presumptions for this test that:
+#       1) all pre-configured vips are from the same asn and
+#       2) each prefix is "multipath" for leaf router
+#       3) we only test vips advertised ipv4 prefixes for now
+############################################################################ 
+
+- fail: msg="please provide testbed_type for bgp_multipath_relax test"
+  when: testbed_type is not defined 
+
+- fail: mgs="This test only works for leaf routers as DUT in topology, t1, t1-lag, t1-64-lag, t1-64-lag-clet"
+  when: testbed_type not in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet']
+
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+
+- name:  Find all V4 bgp neighbors from minigraph
+  set_fact:
+    bgp_v4nei: "{{ bgp_v4nei | default({}) | combine({ item['name']: item['addr'] }) }}"
+  with_items: "{{ minigraph_bgp }}"
+  when: "'::' not in item['addr']"
+
+- include_vars: "vars/topo_{{ testbed_type }}.yml"
+
+- name: get all t0 routers name which has vips defined
+  set_fact:
+    dut_t0_nei: "{{ dut_t0_nei|default([]) + [ item ] }}"
+  with_items: "{{ topology['VMs'] }}"
+  when:
+    - "'T0' in item"
+    - "'vips' in configuration[item].keys()"
+
+- name: fail if we cannot find multiple t0s with vips configured
+  fail: msg="Didn't find multipath t0's"
+  when: dut_t0_nei | length <= 1
+
+- name: get all t2 routers names
+  set_fact:
+    dut_t2_nei: "{{ dut_t2_nei|default([]) + [ item ] }}"
+  with_items: "{{ topology['VMs'] }}"
+  when: '"T2" in item'
+
+- name: find all vips prefixes
+  set_fact:
+     vips_prefixes: "{{ (vips_prefixes | default([])  + configuration[item]['vips']['ipv4']['prefixes']) | unique}}"
+  with_items: "{{ dut_t0_nei }}"
+
+- name: pick first vips prefix to test
+  set_fact:
+     vips_prefix: "{{ vips_prefixes[0] }}"
+
+- name: find all pathes of the prefix for test
+  set_fact: 
+     vips_t0: "{{ vips_t0 | default([]) + [configuration[item]['bgp']['asn']] }}"
+     vips_asn: "{{ configuration[item]['vips']['ipv4']['asn'] }}"
+  with_items:  "{{ dut_t0_nei }}"
+  when: vips_prefix in "{{ configuration[item]['vips']['ipv4']['prefixes'] }}"
+
+- name: fail if the vips prefix is not multiplathed
+  fail: msg="Did not find preconfigured multipath for the vips prefix under test, something wrong??"
+  when: vips_t0 | length <= 1
+
+- name: gather Sonic DUT bgp routing info for vips_prefix range {{ vips_prefix }}
+  bgp_route: prefix="{{ vips_prefix }}"
+
+- name: Verify found vips prefix entry in Sonic bgp routes; and total multipath match number of t0 with vips that has prefix for test
+  assert:
+    that:
+        - bgp_route[vips_prefix]['found'] == True
+        - bgp_route[vips_prefix]['path_num'] | int == vips_t0 | length
+        
+- name: verify vips asn in each path of installed BGP vips prefix
+  assert:
+    that:
+        - vips_asn in item
+  with_items: "{{ bgp_route[vips_prefix]['aspath'] }}"
+
+#### Verify each t2 adv routes: this option takes time and resources; verified working but print out too much, comment this 
+#### out unless we have a reason to do so
+#- name: get BGP advertized routes to eatch T2 neighbor 
+#  bgp_route: neighbor="{{ bgp_v4nei[item] }}" direction="adv"
+#  with_items: dut_t2_nei
+#  register: adv_t2_results
+#
+#- name: Verify vips prefix is in advertized prefixes for each T2 neighbor; and the vips path just has one t0 and vips 
+#  assert:
+#    that:
+#        - vips_prefix in item.ansible_facts['bgp_route_neiadv'].keys()
+#        - item.ansible_facts['bgp_route_neiadv'][vips_prefix]['aspath'] | length == 2
+#        - vips_asn in item.ansible_facts['bgp_route_neiadv'][vips_prefix]['aspath']
+#        - vips_asn == item.ansible_facts['bgp_route_neiadv'][vips_prefix]['aspath'][-1]
+#  with_items: "{{ adv_t2_results.results }}"
+######### Verify each t2 option 
+
+
+- name: gather one t2 neighbor advertised routes to validate routes advertised to t2 are correct with relaxed multipath
+  bgp_route: neighbor="{{ bgp_v4nei[dut_t2_nei[0]] }}" direction="adv"
+
+- name: Verify vips prefix in advertised routes to t2 neighbor; vips prefix path has only 2 hops; vips_asn in path and is the last hop
+  assert:
+     that:
+         - vips_prefix in bgp_route_neiadv.keys()
+         - bgp_route_neiadv[vips_prefix]['aspath'] | length == 2
+         - vips_asn in bgp_route_neiadv[vips_prefix]['aspath']
+         - vips_asn == bgp_route_neiadv[vips_prefix]['aspath'][-1]
+
+- name: verify the advertised route path for vips has only t0 and vips path.
+  assert:
+    that:
+        - item in "{{ vips_t0 + [vips_asn] }}"
+  with_items: "{{ bgp_route_neiadv[vips_prefix]['aspath'] }}"

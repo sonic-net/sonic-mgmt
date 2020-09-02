@@ -1,0 +1,9 @@
+Value link_type (point-to-point|auto|shared)
+Value edge_port (yes|no)
+
+Start
+  ^\s*\d+\)\s*"link_type"\s*$$
+  ^\s*\d+\)\s*"${link_type}"\s*$$
+  ^\s*\d+\)\s*"edge_port"\s*$$
+  ^\s*\d+\)\s*"${edge_port}"\s*$$ -> Record
+

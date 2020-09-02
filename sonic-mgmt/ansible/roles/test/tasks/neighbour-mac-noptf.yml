@@ -1,0 +1,162 @@
+##################################################################################
+# Playbook to test IPv4 and IPv4 neighbor mac address change
+# test use Linux kernel ip neigh change command to similate SONiC change mac
+# ansible-playbook -i lab -l {DUT_NAME} test_sonic.yml --tags neighbour_mac_noptf
+##################################################################################
+- block:
+  - setup:
+
+  - name: Get orchagent process information, make sure Orchagent is running before test
+    shell: pgrep orchagent
+    register: pgrep_out
+
+  - debug: var=pgrep_out.stdout_lines
+
+  - name: Verify that orchagent process is running
+    assert: { that: "{{ pgrep_out.stdout_lines | length }} > 0"}
+
+  - set_fact:
+      testname: "mgtest"
+      out_dir: "/tmp"
+      run_dir: "/tmp"
+      v4_mac1: "08:bc:27:af:cc:45"
+      v4_mac2: "08:bc:27:af:cc:47"
+      v6_mac1: "08:bc:27:af:cc:65"
+      v6_mac2: "08:bc:27:af:cc:67"
+      v4_intf_ip: "29.0.0.1/24"
+      v4_intf_nei: "29.0.0.2"
+      v6_intf_ip: "fe00::1/64"
+      v6_intf_nei: "fe00::2"
+
+  - name: init loganalyzer for later syslog analysis
+    include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+
+  - name: gather DUT interface table
+    show_interface: command='status'
+
+  # To pick an interface which is up and a routing interface for the test.
+  # For a routing interface, the item.value['vlan'] contains string 'routed'.
+  # The key name 'vlan' aligns with the title of column where its data comes.
+  # It doesn't mean to use a 'vlan' interface for the test.
+  - name: select A routing interface for testing
+    set_fact:
+      routing_interface: "{{ item.key }}"
+    with_dict: "{{int_status}}"
+    when:
+      - ('routed' in item.value['vlan'] and 'up' in item.value['oper_state'])
+      - int_status | length != 0
+
+  ########## Test V4 mac address change #################
+  - name: pick {{routing_interface}} to test change mac behavior
+    set_fact:
+      v4_intf: "{{routing_interface}}"
+      v4_nei: "{{ v4_intf_nei }}"
+
+  - name: add an ip entry for {{v4_intf}}
+    command: "config interface ip add {{ v4_intf }} {{ v4_intf_ip }}"
+
+  - name: add neighbor for {{v4_intf}}
+    command: "/sbin/ip neigh add {{ v4_intf_nei }} lladdr {{ v4_mac1 }} dev {{ v4_intf }}"
+
+  - name: change v4 neighbor mac address 1st time
+    command: "ip neigh change {{ v4_nei }} lladdr {{ v4_mac1 }} dev {{ v4_intf }}"
+
+  - name: change v4 neighbor mac address 2nd time
+    command: "ip neigh change {{ v4_nei }} lladdr {{ v4_mac2 }} dev {{ v4_intf }}"
+
+  - name: pause a second and check
+    pause: seconds=2
+
+  - name: gather orchagent pid, make sure orchagent is still running after v4 neighbor change mac
+    command: "pgrep orchagent"
+    register: orchid
+
+  - assert: { that: orchid.stdout != '' }
+
+  - name: check kernel arp table again
+    switch_arptable:
+
+  - name: make sure neighbor mac address was changed on SONiC
+    assert: { that: "arptable.v4[v4_nei]['macaddress'] | lower ==  v4_mac2" }
+
+  - name: Get the SONiC Asic DB key holding neighbour MAC for {{ v4_nei }}
+    shell: docker exec database redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep -Fe '"{{ v4_nei }}"'
+    register: neighbour_key
+    failed_when: neighbour_key.rc != 0
+
+  - name: Check if mac changed in DUT ASIC DB. Should be {{ v4_mac2 }}
+    shell: docker exec database redis-cli -n 1 HGETALL '{{ neighbour_key.stdout }}' | grep "_ATTR_DST_MAC_ADDRESS" -A 1 | tail -1
+    register: neighbour_mac
+
+  - assert: { that: "neighbour_mac.stdout | lower == v4_mac2" }
+
+  ############## Test V6 mac change   ##################
+  - name: pick {{routing_interface}} as test interface
+    set_fact:
+      v6_intf: "{{routing_interface}}"
+      v6_nei: "{{ v6_intf_nei }}"
+
+  - name: add an ipv6 entry for {{v6_intf}}
+    command: "config interface ip add {{v6_intf}} {{ v6_intf_ip }}"
+
+  - name: add an ipv6 neighbor for {{v6_intf}}
+    command: "/sbin/ip neigh add {{ v6_intf_nei }} lladdr {{ v6_mac1 }} dev {{v6_intf}}"
+
+  - name: change v6 neighbor mac address 1st time
+    command: "ip -6 neigh change {{ v6_nei }} lladdr {{ v6_mac1 }} dev {{ v6_intf }}"
+
+  - name: change v6 neighbor mac address 2nd time
+    command: "ip -6 neigh change {{ v6_nei }} lladdr {{ v6_mac2 }} dev {{ v6_intf }}"
+
+  - name: pause and check orchagent
+    pause: seconds=2
+
+  - name: gather orchagent pid, make sure orchagent is still running after v6 neighbor change
+    command: "pgrep orchagent"
+    register: orchid
+
+  - assert: { that: "orchid.stdout != ''" }
+
+  - name: check kernel arp table again
+    switch_arptable:
+
+  - name: make sure neighbor mac address was changed on SONiC
+    assert: { that: "arptable.v6[v6_nei]['macaddress'] | lower == v6_mac2" }
+
+  - name: Get the SONiC DB key holding neighbour MAC for {{ v6_nei }}
+    shell: docker exec database redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep -Fe '"{{ v6_nei }}"'
+    register: neighbour_key
+    failed_when: neighbour_key.rc != 0
+
+  - name: Check if mac changed in DUT ASIC. Should be {{ v6_mac2 }}
+    shell: docker exec database redis-cli -n 1 HGETALL '{{ neighbour_key.stdout }}' | grep "_ATTR_DST_MAC_ADDRESS" -A 1 | tail -1
+    register: neighbour_mac
+
+  - assert: { that: "neighbour_mac.stdout | lower == v6_mac2" }
+
+  - name: analyze the syslog to make sure no syncd errors
+    include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+
+  - name: close out the loganalyzer
+    include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+  become: yes
+
+  always:
+    - name: reset all changes
+      include_tasks: "roles/test/tasks/common_tasks/reload_config.yml"
+      vars:
+        config_source: "config_db"
+
+    - name: check port status
+      interface_facts: up_ports={{ minigraph_ports }}
+
+    - name: wait again if still not up
+      pause: seconds=30
+      when: ansible_interface_link_down_ports | length != 0
+
+    - name: second chance to check
+      interface_facts: up_ports={{ minigraph_ports }}
+      when: ansible_interface_link_down_ports | length != 0
+
+    - name: last wait if still not up
+      pause: seconds=30

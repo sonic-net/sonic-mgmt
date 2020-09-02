@@ -1,0 +1,65 @@
+- name: look for core files under /var/core
+  become: true
+  find:
+    path: /var/core/
+    file_type: file
+  register: core_files_before
+
+- debug: msg="{{ core_files_before.matched }} - {{ core_files_before.files }}"
+
+- name: Stop syncd process
+  shell: docker exec -i syncd /usr/bin/syncd_request_shutdown --cold
+
+- name: Wait 10 seconds for syncd to quit
+  pause:
+    seconds: 10
+
+- name: Look for syncd process
+  shell: pgrep syncd -a -x
+  register: syncd_out
+  ignore_errors: yes
+
+- debug: msg="{{ syncd_out.stdout_lines }}"
+
+- fail: msg="Syncd is still running?"
+  when: 
+    - ({{ syncd_out.stdout_lines | length }} > 0)
+
+- name: look for core files under /var/core
+  become: true
+  find:
+    path: /var/core/
+    file_type: file
+  register: core_files_after
+
+- debug: msg="{{ core_files_after.matched }} - {{ core_files_after.files }}"
+
+- fail: msg="Found new core(s) under /var/core/"
+  when: 
+    - ({{ core_files_after.files|length > core_files_before.files|length }})
+
+- name: Restart swss service
+  become: true
+  service:
+    name: swss
+    state: restarted
+
+- name: wait for 2 minutes for swss service to recover
+  pause:
+    seconds: 120
+
+- name: check basic sanity of the device
+  include_tasks: base_sanity.yml
+  vars:
+     recover: false
+
+- name: validate all interfaces are up
+  include_tasks: interface.yml
+  vars:
+     recover: false
+
+- name: Restart dhcp_relay service
+  become: true
+  service:
+    name: dhcp_relay
+    state: restarted

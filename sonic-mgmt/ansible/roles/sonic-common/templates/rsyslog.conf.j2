@@ -1,0 +1,71 @@
+###############################################################################
+# Managed by Ansible
+# file: ansible/roles/acs/templates/rsyslog.conf.j2
+###############################################################################
+#
+#  /etc/rsyslog.conf    Configuration file for rsyslog.
+#
+#                       For more information see
+#                       /usr/share/doc/rsyslog-doc/html/rsyslog_conf.html
+
+
+#################
+#### MODULES ####
+#################
+
+$ModLoad imuxsock # provides support for local system logging
+$ModLoad imklog   # provides kernel logging support
+#$ModLoad immark  # provides --MARK-- message capability
+
+# provides UDP syslog reception
+$ModLoad imudp
+$UDPServerAddress 127.0.0.1 # bind to localhost before udp server run
+$UDPServerRun 514
+
+# provides TCP syslog reception
+#$ModLoad imtcp
+#$InputTCPServerRun 514
+
+
+###########################
+#### GLOBAL DIRECTIVES ####
+###########################
+#Set remote syslog server
+{% for server in syslog_servers %}
+*.* @{{ server }}:514
+{% endfor %}
+
+#
+# Use traditional timestamp format.
+# To enable high precision timestamps, comment out the following line.
+#
+#$ActionFileDefaultTemplate RSYSLOG_TraditionalFileFormat
+
+# Define a custom template
+$template ACSFileFormat,"%TIMESTAMP% %HOSTNAME% %syslogseverity-text:::uppercase% %syslogtag%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
+$ActionFileDefaultTemplate ACSFileFormat
+
+#
+# Set the default permissions for all log files.
+#
+$FileOwner root
+$FileGroup adm
+$FileCreateMode 0640
+$DirCreateMode 0755
+$Umask 0022
+
+#
+# Where to place spool and state files
+#
+$WorkDirectory /var/spool/rsyslog
+
+#
+# Include all config files in /etc/rsyslog.d/
+#
+$IncludeConfig /etc/rsyslog.d/*.conf
+
+
+###############
+#### RULES ####
+###############
+

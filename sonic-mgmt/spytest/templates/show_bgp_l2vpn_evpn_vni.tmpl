@@ -1,0 +1,21 @@
+Value Filldown GW_MACIP (\S+)
+Value Filldown ALL_VNI_FLAG (\S+)
+Value Filldown BUM_FLOODING ([\S\s]+)
+Value Filldown NO_L2VNI (\d+)
+Value Filldown NO_L3VNI (\d+)
+Value Required VNI (\d+)
+Value TYPE (\S+)
+Value RD (\d+\:\d+|\d+\.\d+\.\d+\.\d+\:\d+)
+Value IMPORT_RT (\d+\:\d+)
+Value EXPORT_RT (\d+\:\d+)
+Value TENANT_VRF (\S+)
+
+
+Start
+  ^\s*Advertise Gateway Macip:\s${GW_MACIP}$$
+  ^\s*Advertise All VNI flag:\s${ALL_VNI_FLAG}$$
+  ^\s*BUM flooding:\s${BUM_FLOODING}$$
+  ^\s*Number of L2 VNIs:\s${NO_L2VNI}$$
+  ^\s*Number of L3 VNIs:\s${NO_L3VNI}$$
+  ^\s*${VNI}\s*${TYPE}\s*${RD}\s*${IMPORT_RT}\s*${EXPORT_RT}\s*${TENANT_VRF}\s* -> Record
+  ^\*\s${VNI}\s*${TYPE}\s*${RD}\s*${IMPORT_RT}\s*${EXPORT_RT}\s*${TENANT_VRF}\s* -> Record

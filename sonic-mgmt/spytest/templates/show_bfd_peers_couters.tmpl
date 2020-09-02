@@ -1,0 +1,24 @@
+Value Required peerAddress ([\:\.\d]+)
+Value localAddr ([\:\.\d]+)
+Value interface ([\w]+)
+Value cntrlPktIn (\d+)
+Value cntrlPktOut (\d+)
+Value echoPktIn (\d+)
+Value echoPktOut (\d+)
+Value SessionUpEv (\d+)
+Value SessionDownEv (\d+)
+Value ZebraNotifys (\d+)
+
+Start
+  ^\s*peer\s*${peerAddress}\s*interface\s*${interface}
+  ^\s*peer\s*${peerAddress}\s*local-address\s*${localAddr}\s*interface\s*${interface}
+  ^\s*peer\s*${peerAddress}\s*local-address\s*${localAddr}$$
+  ^\s*peer\s*${peerAddress}\s*multihop\s*local-address\s*${localAddr}\s*interface\s*${interface}
+  ^\s*Control packet input:\s*${cntrlPktIn}\s*packets
+  ^\s*Control packet output:\s*${cntrlPktOut}\s*packets
+  ^\s*Echo packet input:\s*${echoPktIn}\s*packets
+  ^\s*Echo packet output:\s*${echoPktOut}\s*packets
+  ^\s*Session up events:\s*${SessionUpEv}
+  ^\s*Session down events:\s*${SessionDownEv}
+  ^\s*Zebra notifications:\s*${ZebraNotifys} -> Record
+

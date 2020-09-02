@@ -1,0 +1,221 @@
+[
+    {
+        "PORT": {
+            "Ethernet63": {
+                "description": "ARISTA20T0:Ethernet1",
+                "mtu": "9100",
+                "admin_status": "down"
+            }
+        }
+    },
+    {
+        "PORTCHANNEL": {
+            "PortChannel0024": {
+                "admin_status": "up",
+                "min_links": "1",
+                "mtu": "9100"
+            } 
+        }
+    },
+    {
+        "PORTCHANNEL_MEMBER": {
+            "PortChannel0024|Ethernet63": {}
+        }
+    },
+    {
+        "PORTCHANNEL_INTERFACE": {
+            "PortChannel0024|10.0.0.70/31": {},
+            "PortChannel0024|FC00::8D/126": {}
+        }
+    },
+    {
+        "ACL_TABLE": {
+            "EVERFLOW": {
+                "type": "MIRROR",
+                "policy_desc": "EVERFLOW",
+                "ports": [
+                    "PortChannel0001",
+                    "PortChannel0002",
+                    "PortChannel0003",
+                    "PortChannel0004",
+                    "PortChannel0005",
+                    "PortChannel0006",
+                    "PortChannel0007",
+                    "PortChannel0008",
+                    "PortChannel0009",
+                    "PortChannel0010",
+                    "PortChannel0011",
+                    "PortChannel0012",
+                    "PortChannel0013",
+                    "PortChannel0014",
+                    "PortChannel0015",
+                    "PortChannel0016",
+                    "PortChannel0017",
+                    "PortChannel0018",
+                    "PortChannel0019",
+                    "PortChannel0020",
+                    "PortChannel0021",
+                    "PortChannel0022",
+                    "PortChannel0023",
+                    "PortChannel0024"
+                ]
+            },
+            "EVERFLOWV6": {
+                "type": "MIRRORV6",
+                "policy_desc": "EVERFLOWV6",
+                "ports": [
+                    "PortChannel0001",
+                    "PortChannel0002",
+                    "PortChannel0003",
+                    "PortChannel0004",
+                    "PortChannel0005",
+                    "PortChannel0006",
+                    "PortChannel0007",
+                    "PortChannel0008",
+                    "PortChannel0009",
+                    "PortChannel0010",
+                    "PortChannel0011",
+                    "PortChannel0012",
+                    "PortChannel0013",
+                    "PortChannel0014",
+                    "PortChannel0015",
+                    "PortChannel0016",
+                    "PortChannel0017",
+                    "PortChannel0018",
+                    "PortChannel0019",
+                    "PortChannel0020",
+                    "PortChannel0021",
+                    "PortChannel0022",
+                    "PortChannel0023",
+                    "PortChannel0024"
+                ]
+            }
+        }
+    },
+    {
+        "DEVICE_NEIGHBOR": {
+            "Ethernet63": {
+                "name": "ARISTA20T0",
+                "port": "Ethernet1"
+            }   
+        }   
+    },
+    {
+        "DEVICE_NEIGHBOR_METADATA": {
+            "ARISTA20T0": {
+                "lo_addr": "None",
+                "mgmt_addr": "10.64.247.223",
+                "hwsku": "Arista-VM", 
+                "type": "ToRRouter",
+                "deployment_id": "2"
+            }   
+        }
+    },
+    {
+        "CABLE_LENGTH": {
+            "AZURE": {
+                "Ethernet63": "300m"
+            }
+        }
+    },
+    {
+        "QUEUE": {
+            "Ethernet63|0": {
+                "scheduler": "[SCHEDULER|scheduler.0]"
+            },
+            "Ethernet63|1": {
+                "scheduler": "[SCHEDULER|scheduler.0]"
+            },
+            "Ethernet63|2": {
+                "scheduler": "[SCHEDULER|scheduler.0]"
+            },
+            "Ethernet63|3": {
+                "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]",
+                "scheduler": "[SCHEDULER|scheduler.1]"
+            },
+            "Ethernet63|4": {
+                "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]",
+                "scheduler": "[SCHEDULER|scheduler.1]"
+            },
+            "Ethernet63|5": {
+                "scheduler": "[SCHEDULER|scheduler.0]"
+            },
+            "Ethernet63|6": {
+                "scheduler": "[SCHEDULER|scheduler.0]"
+            }
+        }
+    },
+    {
+        "BUFFER_PG": {
+            "Ethernet63|0": {
+                "profile": "[BUFFER_PROFILE|ingress_lossy_profile]"
+            }
+        }
+    },
+    {
+        "BUFFER_QUEUE": {
+            "Ethernet63|0-2": {
+                "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
+            },  
+            "Ethernet63|3-4": {
+                "profile": "[BUFFER_PROFILE|egress_lossless_profile]"
+            },  
+            "Ethernet63|5-6": {
+                "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
+            }  
+
+        }
+    },
+    {
+        "PORT_QOS_MAP": {
+            "Ethernet63": {
+                "tc_to_pg_map": "[TC_TO_PRIORITY_GROUP_MAP|AZURE]",
+                "tc_to_queue_map": "[TC_TO_QUEUE_MAP|AZURE]",
+                "pfc_enable": "3,4",
+                "pfc_to_queue_map": "[MAP_PFC_PRIORITY_TO_QUEUE|AZURE]",
+                "dscp_to_tc_map": "[DSCP_TO_TC_MAP|AZURE]"
+            }
+        }
+    },
+    {
+        "PFC_WD": {
+            "Ethernet63": {
+                "action": "drop",
+                "detection_time": "400",
+                "restoration_time": "400"
+            }
+        }
+    },
+    {
+        "BGP_NEIGHBOR": {
+            "10.0.0.71": {
+                "rrclient": "0",
+                "name": "ARISTA20T0",
+                "local_addr": "10.0.0.70",
+                "nhopself": "0",
+                "admin_status": "up",
+                "holdtime": "10",
+                "asn": "64020",
+                "keepalive": "3"
+            },
+            "fc00::8e": {
+                "rrclient": "0",
+                "name": "ARISTA20T0",
+                "local_addr": "fc00::8d",
+                "nhopself": "0",
+                "admin_status": "up",
+                "holdtime": "10",
+                "asn": "64020",
+                "keepalive": "3"
+            }
+        }
+    },
+    {
+        "PORT": {
+            "Ethernet63": {
+                "admin_status": "up"
+            }
+        }
+    }
+]
+

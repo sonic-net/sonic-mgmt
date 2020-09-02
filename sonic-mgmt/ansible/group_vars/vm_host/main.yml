@@ -1,0 +1,12 @@
+root_path: veos-vm
+vm_images_url: https://acsbe.blob.core.windows.net/vmimages
+cd_image_filename: Aboot-veos-serial-8.0.0.iso
+hdd_image_filename: vEOS-lab-4.20.15M.vmdk
+skip_image_downloading: false
+
+vm_console_base: 7000
+memory: 2097152
+max_fp_num: 4
+
+ptf_bp_ip: 10.10.246.254/24
+ptf_bp_ipv6: fc0a::ff/64

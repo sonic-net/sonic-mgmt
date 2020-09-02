@@ -1,0 +1,78 @@
+#------------------------------------
+# Test the PFC restore action
+# Iterate the test over a list of lossless queues
+# 1. Verify restore is detected via syslog entry analysis on the dut
+# 2. Verity the forward action on both ingress and egress via ptf dataplane traffic test
+#------------------------------------
+
+- name: Set fact for item values
+  set_fact:
+   peer_device: "{{item.value.peer_device}}"
+   pfc_wd_test_port: "{{item.key}}"
+   pfc_wd_rx_port: "{{item.value.rx_port}}"
+   pfc_wd_test_neighbor_addr: "{{item.value.test_neighbor_addr}}"
+   pfc_wd_rx_neighbor_addr: "{{item.value.rx_neighbor_addr}}"
+   pfc_wd_test_port_id: "{{item.value.test_port_id}}"
+   pfc_wd_rx_port_id: "{{item.value.rx_port_id}}"
+   port_type: "{{item.value.test_port_type}}"
+
+- name: Set fact for test port ids and include portchannel other members if exists
+  set_fact:
+    pfc_wd_test_port_ids: "[{{item.value.test_portchannel_members | join(' ')}}]"
+  when: port_type == "portchannel"
+
+- set_fact:
+    pfc_wd_test_port_ids: "[{{pfc_wd_test_port_id}}]"
+  when: port_type in ["vlan", "interface"]
+
+- name: Remove existing IPs from PTF host
+  script: roles/test/files/helpers/remove_ip.sh
+  delegate_to: "{{ptf_host}}"
+  when: port_type == "vlan"
+
+- name: "Set {{pfc_wd_test_neighbor_addr}} to eth{{pfc_wd_test_port_id}} on PTF host"
+  shell: ifconfig eth{{pfc_wd_test_port_id}} {{pfc_wd_test_neighbor_addr}}
+  delegate_to: "{{ptf_host}}"
+  when: port_type == "vlan"
+
+- name: "Update ARP entry on DUT"
+  shell: ping {{minigraph_vlan_interfaces[0]['addr']}} -c 10
+  delegate_to: "{{ptf_host}}"
+  when: port_type == "vlan"
+
+- name: "Update ARP entry on DUT"
+  shell: docker exec -i swss arping {{pfc_wd_test_neighbor_addr}} -c 5
+  when: port_type == "vlan"
+
+- conn_graph_facts: host={{ peer_device }}
+  delegate_to: localhost
+  become: no
+
+- name: Prepare variables required for PFC test
+  set_fact:
+    pfc_queue_indices: [4]
+    pfc_frames_number: 100000000
+    pfc_wd_test_pkt_count: 100
+    pfc_fanout_interface: "{{neighbors[pfc_wd_test_port]['peerport']}}"
+    peer_hwsku: "{{device_info['HwSku']}}"
+    peer_mgmt: "{{device_info['mgmtip']}}"
+    testname: functional_test
+
+- name: Add queue index 3 to pfc_queue_indices when seed is an odd number
+  set_fact:
+    pfc_queue_indices: "{{pfc_queue_indices + [3]}}"
+  when: seed | int is odd
+
+- set_fact:
+      peer_login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+
+- name: set pfc storm templates based on fanout platform sku
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
+
+
+- name: Test PFC restore function per pg/queue
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/functional_test_restore_perq.yml
+  vars:
+    pfc_queue_index: "{{item}}"
+    class_enable: "{{(1).__lshift__(item)}}"
+  with_items: "{{pfc_queue_indices}}"

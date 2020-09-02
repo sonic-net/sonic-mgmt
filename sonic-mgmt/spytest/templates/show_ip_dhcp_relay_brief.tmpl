@@ -1,0 +1,10 @@
+Value Filldown intf (Ethernet\d+|Vlan\d+|PortChannel\d+|Loopback\d+)
+Value dhcprelay_addr (\S+)
+
+Start
+  ^\s*${intf}\s+${dhcprelay_addr}\s* -> Record
+  ^\|\s+${intf}\s+\|\s+(${dhcprelay_addr}|.)\s+\| -> Record
+  ^\|\s+\|\s+(${dhcprelay_addr}|.)\s+\| -> Record
+  ^\+\S+
+
+EOF

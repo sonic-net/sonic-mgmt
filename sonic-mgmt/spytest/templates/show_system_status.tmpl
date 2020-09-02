@@ -1,0 +1,18 @@
+Value status (ready|not ready)
+Value swss (\S+)
+Value bgp (\S+)
+Value teamd (\S+)
+Value pmon (\S+)
+Value syncd (\S+)
+Value database (\S+)
+
+Start
+  ^System is $status
+  ^System is $status - Core services are not up -> Record
+  ^\s+swss\s+: $swss
+  ^\s+bgp\s+: $bgp
+  ^\s+teamd\s+: $teamd
+  ^\s+pmon\s+: $pmon
+  ^\s+syncd\s+: $syncd
+  ^\s+database\s+: $database
+

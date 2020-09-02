@@ -1,0 +1,125 @@
+# This Playbook add a topology to a server
+#
+# Topologies are defined inside of vars/ directorie in files vars/topo_{{ topology_name}}.yml
+# This file contains three structures:
+#  - topology
+#  - configuration property
+#  - configuration
+#
+#  topology key contains a dictionary of hostnames with 'vm_offset' and 'vlans' keys in it.
+#  'vm_offset' is used to map current hostname vm_set VM to server VM (like ARISTA01T0 -> VM0300).
+#  This offset is used on VM_base
+#  'vlans' is a list of vlan offsets which helps us to calculate vlan numbers which will be connected to Eth1/1..Eth1/8 interfaces.
+#  These offsets are used with vlan_base
+#
+#  Every topology should have a name to distinct one topology from another on the server
+#  Every topology contains a ptf container which will be used as placeholder for the injected interfaces from VMs, or direct connections to PTF host
+#
+# To add a topology please use following command
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_add_vm_topology.yml --vault-password-file=~/.password -l server_3 -e vm_set_name=first -e dut_name=str-msn2700-01 -e VM_base=VM0300 -e ptf_ip=10.255.0.255/23 -e topo=t0 -e ptf_imagename="docker_ptf"
+#
+# Parameters
+# -l server_3                - this playbook have to be limited to run only on one server
+# -e vm_set_name=first       - the name of vm_set
+# -e dut_name=str-msn2700-01 - the name of target dut
+# -e VM_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
+# -e ptf_ip=10.255.0.255/23 - the ip address and prefix of ptf container mgmt interface
+# -e ptf_ipv6=fec0::ffff:afa:a/64 - the ipv6 address and prefix of ptf container mgmt interface
+# -e topo=t0                 - the name of removed topo
+# -e ptf_imagename=docker-ptf - name of a docker-image which will be used for the ptf docker container
+# -e vm_type=veos|ceos
+
+- hosts: servers:&vm_host
+  gather_facts: no
+  vars_files:
+    - vars/docker_registry.yml
+  pre_tasks:
+  - name: Check for a single host
+    fail: msg="Please use -l server_X to limit this playbook to one host"
+    when: "{{ play_hosts|length }} != 1"
+
+  - name: Check that variable vm_set_name is defined
+    fail: msg="Define vm_set_name variable with -e vm_set_name=something"
+    when: vm_set_name is not defined
+
+  - name: Check that variable dut_name is defined
+    fail: msg="Define dut_name variable with -e dut_name=something"
+    when: dut_name is not defined
+
+  - name: Check that variable VM_base is defined
+    fail: msg="Define VM_base variable with -e VM_base=something"
+    when: VM_base is not defined
+
+  - name: Check that variable ptf_ip is defined
+    fail: msg="Define ptf ip variable with -e ptf_ip=something"
+    when: ptf_ip is not defined
+
+  - name: Check that variable ptf_ipv6 is defined
+    fail: msg="Define ptf ipv6 variable with -e ptf_ipv6=something"
+    when: ptf_ipv6 is not defined
+
+  - name: Check that variable topo is defined
+    fail: msg="Define topo variable with -e topo=something"
+    when: topo is not defined
+
+  - name: Check if it is a known topology
+    fail: msg="Unknown topology {{ topo }}"
+    when: topo not in topologies
+
+  - name: Check that variable ptf_imagename is defined
+    fail: msg="Define ptf_imagename variable with -e ptf_imagename=something"
+    when: ptf_imagename is not defined
+
+  - name: Load topo variables
+    include_vars: "vars/topo_{{ topo }}.yml"
+
+  - name: Read dut minigraph
+    conn_graph_facts:
+      host: "{{ dut_name }}"
+    delegate_to: localhost
+    when: dut_name.split(',')|length == 1
+
+  - name: Read duts minigraph
+    conn_graph_facts:
+      hosts: "{{ dut_name.split(',') }}"
+    delegate_to: localhost
+    when: dut_name.split(',')|length > 1
+
+  roles:
+    - { role: vm_set, action: 'start_sonic_vm' }
+    - { role: vm_set, action: 'start_sid' }
+    - { role: vm_set, action: 'add_topo' }
+
+- hosts: servers:&eos
+  gather_facts: no
+  pre_tasks:
+    - block:
+        - name: Check that variable topo is defined
+          fail: msg="Define topo variable with -e topo=something"
+          when: topo is not defined
+
+        - name: Check if it is a known topology
+          fail: msg="Unknown topology {{ topo }}"
+          when: topo not in topologies
+
+        - name: Check that variable VM_base is defined
+          fail: msg="Define VM_base variable with -e VM_base=something"
+          when: VM_base is not defined
+
+        - name: Load topo variables
+          include_vars: "vars/topo_{{ topo }}.yml"
+
+        - name: Find current server group
+          set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
+
+        - name: Extract VM names from the inventory
+          set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') | sort }}
+
+        - name: Generate vm list of target VMs
+          set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) }}
+          when: topology['VMs'] is defined
+      run_once: True
+      delegate_to: localhost
+
+  roles:
+    - { role: eos, when: topology.VMs is defined and inventory_hostname in VM_targets } # role eos will be executed in any case, and when will evaluate with every task

@@ -1,0 +1,36 @@
+---
+
+testname: acl_counter_traffic_test
+
+acl_check_db: "{{ tests_location }}/acl_counter_traffic_test/acl_check_db.yml"
+
+config_table_type_l3: config_table_type_l3.json
+config_rule: config_rule.json
+config_rule_delete: config_rule_delete.json
+
+config_mirror_session: config_mirror_session.json
+config_table_type_mirror: config_table_type_mirror.json
+config_rule_mirror: config_rule_mirror.json
+config_rule_mirror_delete: config_rule_mirror_delete.json
+
+table_name: acl_test_table
+rule_name: acl_config_rule
+mirror_table_name: acl_test_table_mirror
+mirror_rule_name: acl_config_rule_mirror
+
+switch_if1_ip: 10.0.0.0
+neighbor1_ip: 10.0.0.1
+switch_if2_ip: 10.0.0.2
+neighbor2_ip: 10.0.0.3
+dst_mirror_subnet: 2.2.2.0/24
+packets_sent: 3
+
+config_files:
+    - "{{ config_table_type_l3 }}"
+    - "{{ config_rule }}"
+    - "{{ config_rule_delete }}"
+    - "{{ config_mirror_session }}"
+    - "{{ config_table_type_mirror }}"
+    - "{{ config_rule_mirror }}"
+    - "{{ config_rule_mirror_delete }}"
+

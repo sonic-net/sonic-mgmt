@@ -1,0 +1,10 @@
+Value Filldown rg_timeout (\d+)
+Value rg_ifname (\w+)
+Value rg_vid (\d+)
+Value rg_status (.*)
+
+Start
+  ^Root guard timeout: ${rg_timeout} secs
+  ^${rg_ifname}\s+${rg_vid}\s+${rg_status}$$ -> Record
+
+EOF

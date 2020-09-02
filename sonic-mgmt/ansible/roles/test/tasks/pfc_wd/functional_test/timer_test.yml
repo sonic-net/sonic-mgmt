@@ -1,0 +1,73 @@
+- name: Flush logs
+  shell: logrotate -f /etc/logrotate.conf
+  become: true
+
+- name: Wait for queue to recover from PFC storm
+  pause:
+    seconds: 1
+
+- name: Generate PFC storm on fanout switch
+  action: apswitch template="{{pfc_wd_storm_template}}"
+  args:
+    host: "{{peer_mgmt}}"
+    login: "{{peer_login}}"
+  connection: switch
+
+- name: Wait for queue to recover from PFC storm
+  pause:
+    seconds: 5
+
+- name: Find PFC storm start marker
+  shell: grep "[P]FC_STORM_START" /var/log/syslog
+  register: storm_start
+  become: true
+
+- name: Convert start marker time to milliseconds
+  shell: "date -d {{storm_start.stdout.replace('  ',' ').split(' ')[2]}} +'%s%3N'"
+  register: storm_start_millis
+
+- name: Find PFC storm detect message
+  shell: grep "[d]etected PFC storm" /var/log/syslog
+  register: storm_detect
+  become: true
+
+- name: Convert detect message time to milliseconds
+  shell: "date -d {{storm_detect.stdout.replace('  ',' ').split(' ')[2]}} +'%s%3N'"
+  register: storm_detect_millis
+
+- name: Wait for PFC storm end marker to appear in logs
+  pause:
+    seconds: 1
+
+- name: Find PFC storm end marker
+  shell: grep "[P]FC_STORM_END" /var/log/syslog
+  register: storm_end
+  become: true
+
+- name: Convert end marker time to milliseconds
+  shell: "date -d {{storm_end.stdout.replace('  ',' ').split(' ')[2]}} +'%s%3N'"
+  register: storm_end_millis
+
+- name: Find PFC storm restore message
+  shell: grep "[s]torm restored" /var/log/syslog
+  register: storm_restore
+  become: true
+
+- name: Convert restore message time to milliseconds
+  shell: "date -d {{storm_restore.stdout.replace('  ',' ').split(' ')[2]}} +'%s%3N'"
+  register: storm_restore_millis
+
+- set_fact:
+    real_detect_time: "{{(storm_detect_millis.stdout | int) - (storm_start_millis.stdout | int)}}"
+    real_restore_time: "{{(storm_restore_millis.stdout | int) - (storm_end_millis.stdout | int)}}"
+
+- debug:
+    var: "{{item}}"
+  with_items:
+    - "{{ real_detect_time }}"
+    - "{{ real_restore_time }}"
+
+- name: Append detect and restore time to lists
+  set_fact:
+    detect_time_list: "{{detect_time_list}} + [{{real_detect_time}}]"
+    restore_time_list: "{{restore_time_list}} + [{{real_restore_time}}]"

@@ -1,0 +1,25 @@
+- name: Set front panel port for vlan tunnel
+  vlan_port:
+    external_port: "{{ external_port }}"
+    vlan_ids: "{{ device_vlan_list }}"
+    is_multi_duts: "{{ dut_name is defined and dut_name.split(',')|length > 1 }}"
+    cmd: "list"
+  become: yes
+  when: external_port is defined
+
+- name: Setup mgmt port for physical dut
+  set_fact:
+    dut_mgmt_port: ""
+  when: external_port is defined
+
+- name: Get front panel and mgmt port for kvm vm
+  kvm_port:
+    vmname: "{{ dut_name }}"
+  when: external_port is not defined and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == 'kvm'
+  become: yes
+
+- name: Get front panel and mgmt port for SID
+  mellanox_simx_port:
+    vmname: "{{ dut_name }}"
+  when: external_port is not defined and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == 'simx'
+  become: yes

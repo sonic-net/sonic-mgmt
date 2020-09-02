@@ -1,0 +1,26 @@
+#--------------------------------------------------
+# Run VNET Warm Reboot test.
+#--------------------------------------------------
+
+- debug : msg="Start VNET_WARM Test"
+
+# Apply VNET configuration
+- name: Run VNET test
+  include_tasks: roles/test/tasks/vnet_vxlan.yml
+  vars:
+    cleanup: False
+
+# Run warm-reboot test
+- name: Run warm-reboot test
+  include_tasks: roles/test/tasks/warm-reboot.yml
+  vars:
+    reboot_limit: 1
+    vnet: True
+    vnet_pkts: "/tmp/vnet_pkts.json"
+
+# Cleanup VNET configuration
+- name: Run VNET test
+  include_tasks: roles/test/tasks/vnet_vxlan.yml
+  vars:
+    cleanup: True
+

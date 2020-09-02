@@ -1,0 +1,11 @@
+### this is the Lag_2 lag test that tests each Lag interface minimum link and rate of sending LACP DU packets
+### this test could be consider as an additional/alternative lag test from existing lagall.yml.
+### Due to some labs are using two layer fanout switches, and one DUT might connects to multiple fanoutleaf switches
+### so for minimum link test of lag member flaps, it requires to use lab connection facts to determine the fanout neighbor ports,
+### Also, most of the traffic load balancing tests of LAG interface are covered in new FIB tests. so we are ignoring traffic test
+### for lag member flaps for now, will consider add traffic back if required
+
+- name: run test
+  include_tasks: roles/test/tasks/pytest_runner.yml
+  vars:
+    test_node: pc/test_lag_2.py

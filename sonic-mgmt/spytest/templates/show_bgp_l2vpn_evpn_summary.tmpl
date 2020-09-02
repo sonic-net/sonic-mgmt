@@ -1,0 +1,25 @@
+Value Filldown IDENTIFIER (\d+\.\d+\.\d+\.\d)
+Value Filldown LOCAL_AS (\d+)
+Value Filldown VRF_ID (\d+)
+Value Filldown RIB_ENTRIES (\d+)
+Value Filldown NO_PEERS (\d+)
+Value Required NEIGHBOR ([\.\d]+|[\d+:]+|\w+)
+Value VERSION (\d+)
+Value AS_NO (\d+)
+Value MSGRCVD (\d+)
+Value MSGSENT (\d+)
+Value TBLVER (\d+)
+Value INQ (\d+)
+Value OUTQ (\d+)
+Value UPDOWN (\S+)
+Value PFXRCD (\S+)
+
+
+Start
+  ^\s*BGP\srouter\sidentifier\s${IDENTIFIER},\slocal\sAS\snumber\s${LOCAL_AS}\svrf-id\s${VRF_ID}
+  ^\s*BGP\srouter\sidentifier\s${IDENTIFIER},\slocal\sAS\snumber\s${LOCAL_AS}
+  ^\s*RIB entries\s${RIB_ENTRIES},\s*
+  ^\s*Peers\s${NO_PEERS},\s*
+  ^\s*${NEIGHBOR}\s*${VERSION}\s*${AS_NO}\s*${MSGRCVD}\s*${MSGSENT}\s*${TBLVER}\s*${INQ}\s*${OUTQ}\s*${UPDOWN}\s*${PFXRCD}$$ -> Record
+  ^\s*${NEIGHBOR}\s*${VERSION}\s*${AS_NO}\s*${MSGRCVD}\s*${MSGSENT}\s*${INQ}\s*${OUTQ}\s*${UPDOWN}\s*${PFXRCD} -> Record
+

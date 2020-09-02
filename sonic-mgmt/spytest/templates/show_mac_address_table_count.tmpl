@@ -1,0 +1,10 @@
+Value dynamic_cnt (\d+)
+Value static_cnt (\d+)
+Value count (\d+)
+
+
+Start
+  ^\s*Dynamic\s+Address\s+Count\s*:\s+${dynamic_cnt}\s*$$ -> Record
+  ^\s*Static\s+Address\s+\(User-defined\)\s+Count\s*:\s+${static_cnt}\s*$$ -> Record
+  ^\s*Total\s+MAC\s+Addresses\s+in\s+Use\s*:\s+${count}\s*$$ -> Record
+  ^$$

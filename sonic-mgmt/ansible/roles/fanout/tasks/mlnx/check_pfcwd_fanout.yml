@@ -1,0 +1,22 @@
+##############################################################################################
+### sub-playbook to deploy the docker images needed for the pfcwd test to fanout swtich
+### to run separately:
+### ansible-playbook -i lab fanout.yml -l ${FANOUT} --become --tags check_pfcwd_config -vvvv
+################################################################################################
+
+- name: Load and start dockers
+  action: apswitch template=mlnx_check_pfcwd_fanout.j2
+  connection: switch
+  register: output
+  args:
+    login: "{{ switch_login['MLNX-OS'] }}"
+
+- set_fact:
+    dockers_installed: "{{output.stdout|search(\"pfc_storm\")}}"
+    dockers_running: "{{output.stdout|search(\"storm\")|bool}}"
+
+- fail: msg="PFCWD dockers not installed"
+  when: not dockers_installed
+
+- fail: msg="PFCWD dockers are not running"
+  when: not dockers_running

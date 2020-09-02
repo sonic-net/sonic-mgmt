@@ -1,0 +1,12 @@
+Value rocommunity (\S+)
+Value rocommunityv6 (\S+)
+Value sysName (\S+)
+Value sysContact (\S+)
+Value sysLocation (\S+)
+
+Start
+  ^\s*rocommunity\s+${rocommunity}\s*$$
+  ^\s*rocommunity6\s+${rocommunityv6}\s*$$
+  ^\s*sysName\s+${sysName}\s*$$
+  ^\s*sysContact\s+${sysContact}\s*$$
+  ^\s*sysLocation\s+${sysLocation}\s*$$ -> Record

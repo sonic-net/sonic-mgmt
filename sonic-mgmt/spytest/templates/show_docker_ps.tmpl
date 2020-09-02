@@ -1,0 +1,7 @@
+Value IMAGE (\S+)
+Value STATUS (\S+)
+Value NAMES (\S+)
+
+Start
+  ^\s*\w+\s+${IMAGE}\s+\S+\s+\d+\s+hours ago\s+${STATUS}\s+\d+\s+\S+\s+${NAMES}\s*$$ -> Record
+  ^$$

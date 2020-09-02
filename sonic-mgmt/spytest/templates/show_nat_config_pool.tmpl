@@ -1,0 +1,6 @@
+Value pool_name (\S+)
+Value global_port_range (\S+)
+Value global_ip_range (\S+)
+
+Start
+  ^\s*${pool_name}\s+${global_ip_range}\s+${global_port_range}\s*$$ -> Record

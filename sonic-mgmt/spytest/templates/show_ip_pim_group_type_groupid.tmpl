@@ -1,0 +1,8 @@
+#################################################
+#sonic# show ip pim group-type 225.1.1.1
+#Group type : ASM
+################################################
+Value group_type (\w+)
+
+Start
+  ^\s*Group type\s*:\s*${group_type}$$ -> Record

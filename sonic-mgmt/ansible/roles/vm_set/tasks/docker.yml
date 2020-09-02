@@ -1,0 +1,57 @@
+- name: Add docker official GPG key
+  apt_key: url=https://download.docker.com/linux/ubuntu/gpg state=present
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+
+- name: Add docker repository for 16.04
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable
+    state: present
+  become: yes
+  when: host_distribution_version.stdout == "16.04"
+
+- name: Add docker repository for 17.04
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu zesty stable
+    state: present
+  become: yes
+  when: host_distribution_version == "17.04"
+
+- name: Add docker repository for 18.04
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable
+    state: present
+  become: yes
+  when: host_distribution_version.stdout == "18.04"
+
+- name: Add docker repository for 20.04
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+    state: present
+  become: yes
+  when: host_distribution_version.stdout == "20.04"
+
+- name: Install docker-ce
+  apt: pkg=docker-ce update_cache=yes
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+
+- name: Get default pip_executable
+  set_fact:
+    pip_executable: pip
+  when: pip_executable is not defined and host_distribution_version.stdout != "20.04"
+
+- name: Get default pip_executable
+  set_fact:
+    pip_executable: pip3
+  when: pip_executable is not defined and host_distribution_version.stdout == "20.04"
+
+- name: remove old python packages
+  pip: name=docker-py state=absent executable={{ pip_executable }}
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+
+- name: Install python packages
+  pip: name=docker version=4.1.0 state=forcereinstall executable={{ pip_executable }}
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"

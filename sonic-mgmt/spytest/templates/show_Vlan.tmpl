@@ -1,0 +1,11 @@
+Value Filldown VID (\d+)
+Value Filldown Status (\w+)
+Value Member (\S+)
+Value Mode (\S+)
+
+Start
+  ^\s*${VID}\s+${Status}\s+${Mode}\s+${Member}\s*$$ -> Record
+  ^\s*${VID}\s+${Status}\s*$$ -> Record
+  ^\s*${Mode}\s+${Member}\s*$$ -> Record
+
+EOF

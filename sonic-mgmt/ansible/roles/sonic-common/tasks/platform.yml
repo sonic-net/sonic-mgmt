@@ -1,0 +1,18 @@
+# Install Platform Modules for Dell
+- name: Confirm Platform Modules for Dell are installed
+  become: true
+  include_tasks: platform-dell.yml
+  when: sonic_hwsku == "Force10-S6000"
+
+# Install Platform Modules for Mellanox
+- name: Confirm Platform Modules for Mellanox are installed
+  become: true
+  include_tasks: platform-mlnx.yml
+  when: sonic_hwsku == "ACS-MSN2700"
+
+# Install Platform Modules for Cavium
+- name: Confirm Platform Modules for Cavium are installed
+  become: true
+  include_tasks: platform-cavm.yml
+  when: sonic_hwsku == "AS7512"
+

@@ -1,0 +1,5 @@
+#!/bin/sh
+useradd -d /persist/local/{{ fanout_admin_user }} -G eosadmin {{ fanout_admin_user }}
+echo {{ fanout_admin_password }} | sudo passwd --stdin {{ fanout_admin_user }}
+
+

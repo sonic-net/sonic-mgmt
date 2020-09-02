@@ -1,0 +1,16 @@
+Value Packets_relayed_from_client_to_server (\S+)
+Value Packets_relayed_from_server_to_client (\S+)
+Value Errors_relaying_packets_from_clients (\S+)
+Value Errors_relaying_packets_from_servers (\S+)
+Value Packets_wrong_type_drop_on_downstream (\S+)
+Value Packets_wrong_type_drop_on_upstream (\S+)
+
+Start
+  ^\s*Packets\s+relayed\s+from\s+client\s+to\s+server\:+\s+${Packets_relayed_from_client_to_server}$$
+  ^\s*Packets\s+relayed\s+from\s+server\s+to\s+client\:+\s+${Packets_relayed_from_server_to_client}$$
+  ^\s*Errors\s+relaying\s+packets\s+from\s+clients\:+\s+${Errors_relaying_packets_from_clients}$$
+  ^\s*Errors\s+relaying\s+packets\s+from\s+servers\:+\s+${Errors_relaying_packets_from_servers}$$
+  ^\s*Packets\s+with\s+wrong\s+message\s+type\s+dropped\s+on\s+downstream\s+interface\:+\s+${Packets_wrong_type_drop_on_downstream}$$
+  ^\s*Packets\s+with\s+wrong\s+message\s+type\s+dropped\s+on\s+upstream\s+interface\:+\s+${Packets_wrong_type_drop_on_upstream}$$ -> Record
+
+EOF

@@ -1,0 +1,11 @@
+Value forwarding (\S+)
+Value rate_limit (\d+)
+Value enable_ports ([\S+ ,]+|\S+)
+Value disable_ports ([\S+ ,]+|\S+)
+
+
+Start
+  ^\s*UDP\s+forwarding\s+:\s*${forwarding}\s*$$
+  ^\s*UDP\s+rate\s+limit\s*:\s+${rate_limit}\s*pps\s*$$
+  ^\s*UDP forwarding enabled on the ports:\s+${enable_ports}\s*$$
+  ^\s*UDP forwarding disabled on the ports:\s+${disable_ports}\s*$$

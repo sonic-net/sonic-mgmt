@@ -1,0 +1,26 @@
+- name: Setup internal management bridge
+  copy:
+    src: 60-kvm-testbed.yaml
+    dest: /etc/netplan/60-kvm-testbed.yaml
+  become: yes
+  register: br1
+
+- name: apply bridge change
+  command: "netplan apply"
+  become: yes
+  when: br1.changed
+
+- name: Enable traffic forward
+  iptables:
+    chain: FORWARD
+    policy: ACCEPT
+  become: yes
+
+- name: Enable NAT
+  iptables:
+    table: nat
+    chain: POSTROUTING
+    source: 10.250.0.0/24
+    out_interface: eth0
+    jump: MASQUERADE
+  become: yes

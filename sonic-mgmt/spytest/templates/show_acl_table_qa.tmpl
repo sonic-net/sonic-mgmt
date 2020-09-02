@@ -1,0 +1,13 @@
+Value Filldown Name (\S+)
+Value Filldown Type (\S+)
+Value Binding (\S+)
+Value Filldown Description (.+)
+
+Start
+  ^\s*Name\s+Type\s+Binding\s+Description\s*$$
+  ^(-+\s*)*$$
+  ^\s*${Name}\s+${Type}\s+${Binding}\s+${Description}\s*$$ -> Record
+  ^\s+${Binding}\s*$$ -> Record
+  ^$$
+
+EOF

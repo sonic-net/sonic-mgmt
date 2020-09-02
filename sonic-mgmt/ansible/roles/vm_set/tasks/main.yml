@@ -1,0 +1,255 @@
+# This role creates a set of VM with veos
+# Input parameters for the role:
+# - action: 'start', 'stop' or 'renumber' for creating, removeing, or renumbering vm set respectively
+# - id: sequence number for vm set on the host.
+# - external_port: interface which will be used as parent for vlan interface creation
+# - vlan_base: first vlan id for the VMs
+# - VMs: a dictionary which contains hostnames of VMs as a key and a dictionary with parameters (num, memory, mgmt_ip) for every VM.
+# - topology: a dictionary which contains hostnames of VMs as a key and vlans value which define a topology (numbers of connected ports for every VM)
+# - mgmt_bridge: linux bridge which is used for management interface connections
+# - root_path: path where disk images for VMs are created
+# - hdd_image_filename: base hdd image for VMs
+# - cd_image_filename: base cd image for VMs
+# - vm_images_url: url where base images are located
+# - vmimages_saskey: a key for Azure download service. Could be set to ''
+
+# Need latest ubuntu 4.10 kernel to fix a openvswitch bug
+# https://bugs.launchpad.net/ubuntu/+source/kernel-package/+bug/1685742
+- name: get host distribution
+  shell: grep ^NAME /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
+  register: host_distribution
+  changed_when: False
+
+- name: get host distribution version
+  shell: grep ^VERSION_ID /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
+  register: host_distribution_version
+  changed_when: False
+
+- name: get host kernel version
+  shell: uname -r
+  register: host_kernel
+  changed_when: False
+
+- name: Check if kernel upgrade needed
+  set_fact:
+    kernel_upgrade_needed: true
+  when:
+    - host_distribution.stdout == "Ubuntu"
+    - host_distribution_version.stdout == "17.04"
+    - host_kernel.stdout.find('4.10.0') != -1
+    - "{{ host_kernel.stdout | regex_replace('4.10.0-([0-9]+)-.*', '\\1') | int < 25 }}"
+
+- block:
+    - debug: msg="{{ host_kernel.stdout }}"
+
+    - name: Upgrade kernel package
+      apt: pkg={{ item }} state=latest
+      become: yes
+      with_items:
+        - linux-image-generic
+        - linux-image-extra-virtual
+
+    - name: Prompt for rebooting
+      fail:
+        msg: "Kernel upgraded, need to reboot!"
+  when: kernel_upgrade_needed is defined
+
+- name: Install necessary packages
+  apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
+  become: yes
+  with_items:
+    - ifupdown
+    - qemu
+    - openvswitch-switch
+    - net-tools
+    - bridge-utils
+    - util-linux
+    - iproute2
+    - vlan
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    - software-properties-common
+    - libvirt-clients
+
+- name:
+  apt:
+    pkg:
+    - python
+    - libvirt-bin
+    - python-libvirt
+    - python-pip
+  become: yes
+  when: host_distribution_version.stdout == "18.04"
+
+- name:
+  apt:
+    pkg:
+    - python3-libvirt
+    - python3-pip
+    - libvirt-daemon-system
+    - qemu-system-x86
+  become: yes
+  when: host_distribution_version.stdout == "20.04"
+
+- include_tasks: docker.yml
+
+- name: Ensure {{ ansible_user }} in docker,sudo group
+  user:
+    name: "{{ ansible_user }}"
+    append: yes
+    groups: docker,sudo
+  become: yes
+
+- name: Ensure {{ ansible_user }} in libvirt group
+  user:
+    name: "{{ ansible_user }}"
+    append: yes
+    groups: libvirt
+  become: yes
+  when: host_distribution_version.stdout == "20.04"
+
+- name: Install br_netfilter kernel module
+  become: yes
+  modprobe: name=br_netfilter state=present
+
+- name: Set sysctl bridge parameters for testbed
+  sysctl:
+    name: "{{ item }}"
+    value: "0"
+    sysctl_set: yes
+  become: yes
+  with_items:
+   - net.bridge.bridge-nf-call-arptables
+   - net.bridge.bridge-nf-call-ip6tables
+   - net.bridge.bridge-nf-call-iptables
+
+- name: Set sysctl RCVBUF max parameter for testbed
+  sysctl:
+    name: "net.core.rmem_max"
+    value: "509430500"
+    sysctl_set: yes
+  become: yes
+
+- name: Set sysctl RCVBUF default parameter for testbed
+  sysctl:
+    name: "net.core.rmem_default"
+    value: "31457280"
+    sysctl_set: yes
+  become: yes
+
+- name: Setup external front port
+  include_tasks: external_port.yml
+  when: external_port is defined
+
+- name: Setup internal management network
+  include_tasks: internal_mgmt_network.yml
+  when: internal_mgmt_network is defined and internal_mgmt_network == True
+
+- block:
+    - getent:
+        database: passwd
+        key: "{{ ansible_user }}"
+        split: ":"
+    - set_fact:
+        home_path: "{{ getent_passwd[ansible_user][4] }}"
+      when: home_path is not defined
+    - debug: msg="{{ home_path }}"
+
+- name: Ensure {{ root_path }} exists
+  file: path={{ root_path }} state=directory
+
+- name: Install cleanup script
+  template: src=cleanup.sh.j2
+            dest={{ root_path }}/cleanup.sh
+
+- name: Copy vm_resumer.py to the {{ root_path }}
+  become: true
+  copy:
+    src: roles/vm_set/files/vm_resumer.py
+    dest: "{{ root_path }}"
+    mode: 0755
+
+- name: Retrieve a list of the defined VMs
+  virt: command=list_vms
+        uri=qemu:///system
+  register: vm_list_defined
+  become: true
+
+- name: Retrieve a list of the running VMs
+  virt: command=list_vms
+        uri=qemu:///system
+        state=running
+  register: vm_list_running
+  become: true
+
+- name: Retrieve a list of the paused VMs
+  virt: command=list_vms
+        uri=qemu:///system
+        state=pause
+  register: vm_list_paused
+  become: true
+
+- name: Find current server group
+  set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
+
+- name: Extract VM names from the inventory
+  set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') | sort}}
+
+- name: Limit VM
+  set_fact: VM_hosts="{{ VM_hosts | first_n_elements(VM_num) }}"
+  when: VM_num is defined and VM_num|int > 0
+
+- name: Generate vm list of target VMs
+  set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
+  when: topology['VMs'] is defined
+
+- name: Stop VMs
+  include_tasks: stop.yml
+  when: action == 'stop'
+
+- name: Start VMs
+  include_tasks: start.yml
+  when: action == 'start'
+
+- name: Add topology
+  include_tasks: add_topo.yml
+  when: action == 'add_topo'
+
+- name: Remove topology
+  include_tasks: remove_topo.yml
+  when: action == 'remove_topo'
+
+- name: Renumber topology
+  include_tasks: renumber_topo.yml
+  when: action == 'renumber_topo'
+
+- name: Connect VMs
+  include_tasks: connect_vms.yml
+  when: action == 'connect_vms'
+
+- name: Disconnect VMs
+  include_tasks: disconnect_vms.yml
+  when: action == 'disconnect_vms'
+
+- block:
+    - name: Start SONiC VM
+      include_tasks: start_sonic_vm.yml
+      when: action == 'start_sonic_vm' and hostvars[dut_name]['type'] == 'kvm'
+
+    - name: Stop SONiC VM
+      include_tasks: stop_sonic_vm.yml
+      when: action == 'stop_sonic_vm' and hostvars[dut_name]['type'] == 'kvm'
+
+    - name: Start SID
+      include_tasks: start_sid.yml
+      when: action == 'start_sid' and hostvars[dut_name]['type'] == 'simx'
+
+    - name: Stop SID
+      include_tasks: stop_sid.yml
+      when: action == 'stop_sid' and hostvars[dut_name]['type'] == 'simx'
+  when:
+    - dut_name is defined
+    - dut_name.split(',')|length == 1
+    - hostvars[dut_name] is defined
+    - hostvars[dut_name].type is defined

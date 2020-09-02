@@ -1,0 +1,10 @@
+---
+# This Playbook deploys vm configurations
+# 
+# ansible-playbook -i veos -l vm_set_2 veos.yml --vault-password-file password.txt
+
+- hosts: eos
+  gather_facts: no
+  roles:
+    - { role: eos }
+

@@ -1,0 +1,115 @@
+- fail: msg="testbed_type is not defined"
+  when: testbed_type is not defined
+
+- fail: msg="testbed_type {{test_type}} is invalid"
+  when: testbed_type not in ['t0', 't0-64', 't0-64-32', 't0-116', 't0-52']
+
+- name: set fdb_aging_time to default if no user input
+  set_fact:
+    fdb_aging_time: 60
+  when: fdb_aging_time is not defined
+
+- include_vars: "vars/topo_{{testbed_type}}.yml"
+
+- name: Gather minigraph facts about the device
+  minigraph_facts: host={{inventory_hostname}}
+
+- name: Copy tests to PTF
+  copy: src=roles/test/files/ptftests dest=/root
+  delegate_to: "{{ptf_host}}"
+
+- name: Copy FDB information file to PTF
+  template: src=roles/test/templates/fdb.j2 dest=/root/fdb_info.txt
+  delegate_to: "{{ ptf_host }}"
+
+- name: Clear FDB table
+  shell: sonic-clear fdb all
+
+  # Change the config, populate fdb and observe expire time
+- block:
+    - name: copy current switch.json from docker to host
+      shell: docker cp swss:/etc/swss/config.d/switch.json .
+
+    - name: set fdb value to "{{fdb_aging_time}}"
+      replace:
+        dest: switch.json
+        regexp: '"fdb_aging_time": ".*"'
+        replace: '"fdb_aging_time": "{{fdb_aging_time}}"'
+      become: true
+
+    - name: copy current switch.json from host to docker
+      shell: docker cp switch.json swss:/etc/swss/config.d/switch.json
+
+    - name: run swssconfig switch.json command in container swss
+      shell: docker exec swss bash -c "swssconfig /etc/swss/config.d/switch.json"
+
+    - name: set dummy mac prefix to look for in mac table
+      set_fact: dummy_mac_prefix="00:11:22:33:44"
+
+    - name: check entries in mac table before adding dummy mac
+      shell: show mac | grep {{dummy_mac_prefix}} | wc -l
+      register: show_mac_output
+      failed_when: "show_mac_output.stdout|int > 0"
+
+    - debug: msg="{{show_mac_output.stdout}}"
+
+    - name: "Start PTF runner"
+      include_tasks: ptf_runner.yml
+      vars:
+        ptf_test_name: FDB Mac Expire test
+        ptf_test_dir: ptftests
+        ptf_test_path: fdb_mac_expire_test.FdbMacExpireTest
+        ptf_platform: remote
+        ptf_platform_dir: ptftests
+        ptf_test_params:
+          - testbed_type='{{testbed_type}}'
+          - router_mac='{{ansible_Ethernet0['macaddress']}}'
+          - fdb_info='/root/fdb_info.txt'
+          - dummy_mac_prefix='{{dummy_mac_prefix}}'
+        ptf_extra_options: "--relax --debug info --log-file /tmp/fdb_mac_expire_test.FdbMacExpireTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
+
+    - name: check entries in mac table after adding dummy mac
+      shell: show mac | grep {{dummy_mac_prefix}} | wc -l
+      register: show_mac_output
+      failed_when: "show_mac_output.stdout|int == 0"
+
+    - debug: msg="{{show_mac_output}}"
+
+    - name: wait for "{{fdb_aging_time}}" secs
+      pause: seconds="{{fdb_aging_time}}"
+
+    - name: check entries in mac table after wait
+      shell: show mac | grep {{dummy_mac_prefix}} | wc -l
+      register: show_mac_after_wait
+
+    - debug: msg="{{show_mac_after_wait}}"
+
+    - name: set extra wait time period
+      set_fact:
+        extra_retries: "{{fdb_aging_time|int / 15 + 1}}"
+
+    - debug: msg="{{extra_retries}}"
+
+      # wait in slot of 15 secs to find when MAC expires
+    - block:
+        - name: check in mac table after "{{fdb_aging_time}}" secs to find exact time
+          shell: show mac | grep {{dummy_mac_prefix}} | wc -l
+          register: show_mac_after_more_wait
+          until: "show_mac_after_more_wait.stdout|int == 0"
+          retries: "{{extra_retries|int}}"
+          delay: 15
+
+        - fail:
+            msg: "MAC Entires are not cleaned even after {{2*fdb_aging_time|int}} secs"
+          when: "show_mac_after_more_wait.stdout|int > 0"
+
+        - debug: msg="MAC Entires are Cleared within {{2*fdb_aging_time|int}} secs."
+      when: "show_mac_after_wait|int > 0"
+
+    - debug: msg="MAC Entires are Cleared {{fdb_aging_time}} secs."
+      when: "show_mac_after_wait|int == 0"
+
+  always:
+    - name: Clear FDB table
+      shell: sonic-clear fdb all
+

@@ -1,0 +1,69 @@
+- include_vars: group_vars/sonic/variables
+
+- set_fact:
+    sonic_hwsku: "{{ hostvars[dut_name]['hwsku'] }}"
+    mgmt_ip_address: " {{ hostvars[dut_name]['ansible_host'] }}/{{ mgmt_prefixlen }}"
+
+- fail: msg="sonic_hwsku is not defined"
+  when: "sonic_hwsku is not defined"
+
+- fail: msg="mellanox_spc1_hwskus is not defined"
+  when: "mellanox_spc1_hwskus is not defined"
+
+- fail: msg="mellanox_spc2_hwskus is not defined"
+  when: "mellanox_spc2_hwskus is not defined"
+
+- fail: msg="mellanox_spc3_hwskus is not defined"
+  when: "mellanox_spc3_hwskus is not defined"
+  
+- set_fact:
+    chip: "spectrum"
+  when: hostvars[dut_name]['hwsku'] in mellanox_spc1_hwskus
+
+- set_fact:
+    chip: "spectrum2"
+  when: hostvars[dut_name]['hwsku'] in mellanox_spc2_hwskus
+
+- set_fact:
+    chip: "spectrum3"
+  when: hostvars[dut_name]['hwsku'] in mellanox_spc3_hwskus
+
+- set_fact:
+    simx_image_name: "sdk-ver-simx/sonic_simx"
+    mgmt_ip_address: " {{ hostvars[dut_name]['ansible_host'] }}/{{ mgmt_prefixlen }}"
+    sid_env: {
+      "IMAGE": "None",
+      "MAC": "{{ '52:54:00' | random_mac }}",
+      "CHIPTYPE": "{{ chip }}",
+      "HOSTNAME": "{{ dut_name }}-0",
+      "IP": "{{ mgmt_ip_address | ipaddr('address') }}",
+      "MASK": "{{ mgmt_ip_address | ipaddr('netmask') }}",
+      "GATEWAY": "{{ vm_mgmt_gw }}",
+      "SRVC_PORT": "12000"
+    }
+
+- debug:
+    var: sid_env
+
+- name: Create SID container
+  docker_container:
+    name: "{{ dut_name }}"
+    image: "{{ docker_registry_host }}/{{ simx_image_name }}:latest"
+    pull: yes
+    state: started
+    restart: yes
+    network_mode: host
+    detach: True
+    capabilities:
+      - net_admin
+    privileged: yes
+    env: "{{ sid_env }}"
+    command: /usr/sbin/init
+  become: yes
+
+- name: Start simulation inside container
+  shell: "docker exec {{ dut_name }} /opt/simx_docker/sid_prepare_switch.py -s -c"
+
+- name: Wait for SID to start
+  pause:
+    seconds: 60

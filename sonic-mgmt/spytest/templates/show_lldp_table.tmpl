@@ -1,0 +1,15 @@
+Value LocalPort (\S+)
+Value RemoteDevice (\S+)
+Value RemotePortID (\S+)
+Value Capability (\S+)
+Value RemotePortDescr (\S+)
+
+Start
+  ^\s*Capability\s*codes:\s*(R)\s*Router,\s*(B)\s*Bridge,\s*(O)\s*Other
+  ^\s*LocalPort\s+RemoteDevice\s+RemotePortID\s+Capability\s+RemotePortDescr\s*$$
+  ^(-+\s*)*$$
+  ^\s*${LocalPort}\s+${RemoteDevice}\s+${RemotePortID}\s+${Capability}\s+${RemotePortDescr}\s*$$ -> Record
+  ^\s*${LocalPort}\s+${RemotePortID}\s*$$ -> Record
+  ^(-+\s*)*$$
+  ^\s*Total\s*entries\s*displayed:\s*\d+\s*$$
+  ^$$

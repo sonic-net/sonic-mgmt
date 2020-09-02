@@ -1,0 +1,19 @@
+# Setup Logrotate
+- name: Install Logrotate package
+  tags: logrotate
+  become: true
+  apt: pkg=logrotate
+       state=latest
+
+- name: Setup rsyslog logrotate.d script
+  tags: logrotate
+  become: true
+  copy: src=rsyslog.logrotate
+        dest=/etc/logrotate.d/rsyslog
+
+- name: Install cron script to hourly schedule
+  tags: logrotate
+  become: true
+  copy: src=cron.logrotate
+        dest=/etc/cron.hourly/logrotate
+    

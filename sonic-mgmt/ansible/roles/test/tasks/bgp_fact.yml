@@ -1,0 +1,40 @@
+# Gather minigraph facts
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+
+- name: Print bgp neighbors in minigraph
+  debug: msg="{{ minigraph_bgp }}"
+
+- name: Print AS numbers in minigraph
+  debug: msg="{{ minigraph_bgp_asn }}"
+
+- name: Gather facts from bgp container
+  bgp_facts:
+
+- name: Print bgp facts
+  debug: msg="{{ bgp_neighbors }}"
+
+- name: Prepare neighbor info
+  shell: ip neigh show
+  register: ip_neighbors
+  ignore_errors: yes
+
+- name: Print neighbor info
+  debug: msg="{{ip_neighbors.stdout_lines}}"
+
+- name: Verify bgp sessions are established
+  assert: { that: "'{{ bgp_neighbors[item]['state'] }}' == 'established'" }
+  with_items: "{{ bgp_neighbors.keys() }}"
+  
+- name: Verify locat ASNs in bgp sessions
+  assert: { that: "'{{ bgp_neighbors[item]['local AS'] }}' == '{{ minigraph_bgp_asn }}'" }
+  with_items: "{{ bgp_neighbors.keys() }}"
+
+- name: Compare the bgp neighbors name with minigraph bgp neigbhors name
+  assert: { that: "'{{ item['name'] }}' == '{{ bgp_neighbors[item['addr'].lower()]['description'] }}'" }
+  with_items: "{{ minigraph_bgp }}"
+
+- name: Compare the bgp neighbors ASN with minigraph
+  assert: { that: "'{{ item['asn'] }}' == '{{ bgp_neighbors[item['addr'].lower()]['remote AS'] }}'" }
+  with_items: "{{ minigraph_bgp }}"
+

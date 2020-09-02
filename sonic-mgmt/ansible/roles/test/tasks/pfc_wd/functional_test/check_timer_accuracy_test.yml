@@ -1,0 +1,92 @@
+# Verify timers
+- set_fact:
+    pfc_wd_test_port: "{{test_ports.keys()[0]}}"
+    testname: functional_test
+
+- conn_graph_facts: host={{test_ports[pfc_wd_test_port]['peer_device']}}
+  delegate_to: localhost
+  become: no
+
+- name: Prepare variables required for PFC test
+  set_fact:
+    pfc_gen_file: pfc_gen.py
+    pfc_queue_index: 4
+    pfc_frames_number: 100000
+    pfc_wd_test_pkt_count: 100
+    pfc_fanout_interface: "{{neighbors[pfc_wd_test_port]['peerport']}}"
+    peer_hwsku: "{{device_info['HwSku']}}"
+    peer_mgmt: "{{device_info['mgmtip']}}"
+    peer_login: "{{switch_login[hwsku_map[device_info['HwSku']]]}}"
+
+- name: set pfc storm templates based on fanout platform sku
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
+
+- name: Deploy pfc packet generater file to fanout switch
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
+
+- block:
+    - name: Apply config with proper timers to {{ pfc_wd_test_port }}.
+      vars:
+        command_to_run: "pfcwd start --action drop --restoration-time {{ pfc_wd_restore_time }} {{ ports }} {{ pfc_wd_detect_time }}"
+        errors_expected: false
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
+
+    - name: Enable routing from mgmt interface to localhost
+      sysctl:
+        name: net.ipv4.conf.eth0.route_localnet
+        value: 1
+        sysctl_set: yes
+      become: true
+
+      # Cannot use iptables module, because it does not support to_destination in 2.0
+    - name: Add iptables rule to forward syslog packets from mgmt interface to localhost
+      shell: "iptables -t nat -I PREROUTING -p udp -d {{ansible_eth0_ipv4_addr}} --dport 514 -j DNAT --to-destination 127.0.0.1:514"
+      become: true
+
+    - set_fact:
+        detect_time_list: []
+        restore_time_list: []
+
+    - set_fact:
+        pfc_frames_number: 300000
+
+    - name: Calculate detection and restoration timings
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/timer_test.yml
+      with_sequence: start=1 end=19
+
+    - set_fact:
+        detect_time_list: "{{detect_time_list | sort}}"
+        restore_time_list: "{{restore_time_list | sort}}"
+
+    - debug:
+        var: "{{item}}"
+      with_items:
+        - "{{ detect_time_list }}"
+        - "{{ restore_time_list }}"
+
+    - name: Verify that real detection time is not greater than configured
+      fail:
+        msg: Real detection time is greater than configured
+      when: "{{(detect_time_list[9]) > pfc_wd_detect_time + pfc_wd_poll_time}}"
+
+    - name: Verify that real detection time is not less than configured
+      fail:
+        msg: Real detection time is less than configured
+      when: "{{(detect_time_list[9])  <  pfc_wd_detect_time}}"
+
+    - name: Verify that real restoration time is not less than configured
+      fail:
+          msg: Real restoration time is less than configured
+      when: "{{(restore_time_list[9]) < pfc_wd_restore_time}}"
+
+    - name: Verify that real restoration time is less than configured
+      fail:
+          msg: Real restoration time is greater than configured
+      when: "{{(restore_time_list[9]) > pfc_wd_restore_time + pfc_wd_poll_time}}"
+
+  always:
+    - name: Clean up config
+      vars:
+        command_to_run: "pfcwd stop"
+        errors_expected: false
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml

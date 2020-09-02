@@ -1,0 +1,49 @@
+- name: get switch capabilities
+  switch_capabilities_facts:
+
+- name: initialize variables
+  set_fact:
+    test_mirror_v4: False
+    test_mirror_v6: False
+    test_ingress_mirror_on_ingress_acl: False
+    test_ingress_mirror_on_egress_acl: False
+    test_egress_mirror_on_egress_acl: False
+    test_egress_mirror_on_ingress_acl: False
+
+- name: set flag if mirroring is supported
+  set_fact:
+    test_mirror_v4: True
+  when: switch_capabilities['switch']['MIRROR'] | lower == 'true'
+
+- name: set flag if V6 mirroring is supported
+  set_fact:
+    test_mirror_v6: True
+  when: switch_capabilities['switch']['MIRRORV6'] | lower == 'true'
+
+- name: set flag if ingress mirroring on ingress ACL is supported
+  set_fact:
+    test_ingress_mirror_on_ingress_acl: True
+  when: "{{ 'MIRROR_INGRESS_ACTION' in switch_capabilities['switch']['ACL_ACTIONS|INGRESS'] }}"
+
+- name: set flag if egress mirroring on ingress ACL is supported
+  set_fact:
+    test_egress_mirror_on_ingress_acl: True
+  when: "{{ 'MIRROR_EGRESS_ACTION' in switch_capabilities['switch']['ACL_ACTIONS|INGRESS'] }}"
+
+- name: set flag if ingress mirroring on egress ACL is supported
+  set_fact:
+    test_ingress_mirror_on_egress_acl: True
+  when: "{{ 'MIRROR_INGRESS_ACTION' in switch_capabilities['switch']['ACL_ACTIONS|EGRESS'] }}"
+
+- name: set flag if egress mirroring on egress ACL is supported
+  set_fact:
+    test_egress_mirror_on_egress_acl: True
+  when: "{{ 'MIRROR_EGRESS_ACTION' in switch_capabilities['switch']['ACL_ACTIONS|EGRESS'] }}"
+
+- debug: var=test_mirror_v4
+- debug: var=test_mirror_v6
+- debug: var=test_ingress_mirror_on_ingress_acl
+- debug: var=test_ingress_mirror_on_egress_acl
+- debug: var=test_egress_mirror_on_ingress_acl
+- debug: var=test_egress_mirror_on_egress_acl
+

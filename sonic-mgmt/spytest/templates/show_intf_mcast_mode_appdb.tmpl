@@ -1,0 +1,5 @@
+Value mcast_forwarding (\S+)
+
+Start
+  ^\s*\d+\S+\s+"mcast_forwarding"\s*$$ -> Continue
+  ^\s*4\)\s+"${mcast_forwarding}"\s*$$ 

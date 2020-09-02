@@ -1,0 +1,10 @@
+Value Filldown sCount (\d+)
+Value Required sessionId (\d+)
+Value ourAddress ((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([0-9a-fA-F]|:){1,4}(:([0-9a-fA-F]{0,4})*){1,7})
+Value peerAddress ((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([0-9a-fA-F]|:){1,4}(:([0-9a-fA-F]{0,4})*){1,7})
+Value status ([\w\-]*)
+
+Start
+  ^\s*Session count:\s*${sCount}
+  ^\s*${sessionId}\s*${ourAddress}\s*${peerAddress}\s*${status} -> Record
+

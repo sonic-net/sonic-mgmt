@@ -1,0 +1,42 @@
+#-----------------------------------------
+# Run dir_bcast test and Perform log analysis.
+#-----------------------------------------
+
+# Pre-check testbed_type value
+- fail: msg="testbed_type is not defined."
+  when: testbed_type is not defined
+
+- fail: msg="testbed_type {{testbed_type}} is invalid."
+  when: testbed_type not in ['t0', 't0-16', 't0-56', 't0-64', 't0-64-32', 't0-116']
+
+- include_vars: "vars/topo_{{testbed_type}}.yml"
+
+- name: Expand properties into props
+  set_fact: props="{{configuration_properties['common']}}"
+
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{inventory_hostname}}
+
+- debug : msg="Start dir_bcast Test"
+
+- name: Copy the test to ptf container
+  copy: src=roles/test/files/ptftests dest=/root
+  delegate_to: "{{ptf_host}}"
+
+- name: Copy Vlan information file to PTF
+  template: src=roles/test/templates/fdb.j2 dest=/root/vlan_info.txt
+  delegate_to: "{{ptf_host}}"
+
+- name: "Start PTF runner"
+  include_tasks: ptf_runner.yml
+  vars:
+    ptf_test_name: dir_bcast test
+    ptf_test_dir: ptftests
+    ptf_test_path: dir_bcast_test.BcastTest
+    ptf_platform: remote
+    ptf_platform_dir: ptftests
+    ptf_test_params:
+      - testbed_type='{{testbed_type}}'
+      - router_mac='{{ansible_Ethernet0['macaddress']}}'
+      - vlan_info='/root/vlan_info.txt'
+    ptf_extra_options: "--relax --debug info --log-file /tmp/dir_bcast.BcastTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log"

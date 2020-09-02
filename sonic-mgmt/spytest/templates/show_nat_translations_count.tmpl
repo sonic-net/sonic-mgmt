@@ -1,0 +1,14 @@
+Value static_nat_entries (\d+)
+Value static_napt_entries (\d+)
+Value dynamic_nat_entries (\d+)
+Value dynamic_napt_entries (\d+)
+Value total_entries (\d+)
+
+
+
+Start
+  ^\s*Static NAT Entries\s*\.+\s+${static_nat_entries}\s*$$
+  ^\s*Static NAPT Entries\s*\.+\s+${static_napt_entries}\s*$$
+  ^\s*Dynamic NAT Entries\s*\.+\s+${dynamic_nat_entries}\s*$$
+  ^\s*Dynamic NAPT Entries\s*\.+\s+${dynamic_napt_entries}\s*$$
+  ^\s*Total Entries\s*\.+\s+${total_entries}\s*$$

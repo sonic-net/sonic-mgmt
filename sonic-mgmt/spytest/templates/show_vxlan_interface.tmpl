@@ -1,0 +1,10 @@
+Value VTEP_NAME (\S+)
+Value SIP (\S+)
+Value NVO_NAME (\S+)
+
+Start
+  ^\s*VTEP Name\s*:\s*${VTEP_NAME},\s*SIP\s*:\s*${SIP}\s*
+  ^\s*NVO Name\s*:\s*${NVO_NAME},.*$$ -> Record
+  ^\s*VTEP Name\s*:\s*${VTEP_NAME},\s*SIP\s*:\s*${SIP} -> Record
+  ^$$
+

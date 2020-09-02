@@ -1,0 +1,146 @@
+#-----------------------------------------
+# Run BGP GR helper mode test and Perform log analysis.
+#-----------------------------------------
+
+- fail: msg="testbed_type is not defined."
+  when: testbed_type is not defined
+
+- fail: msg="testbed_type {{testbed_type}} is unsupported."
+  when: testbed_type not in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet']
+
+- name: Get VM info.
+  include_tasks: "roles/test/tasks/bgp_gr_helper/get_vm_info.yml"
+
+- name: Gather facts from bgp container.
+  bgp_facts:
+
+- name: Get VM GR timer.
+  set_fact:
+      bgp_gr_timer: "{{ bgp_neighbors[peer_ipv4]['capabilities']['peer restart timer'] }}"
+
+- name: Set default value for GR simulation time in seconds.
+  set_fact:
+      bgp_gr_simulation_timer: 100
+
+- set_fact:
+    testname: "bgp_gr_helper"
+    run_dir: /tmp
+    out_dir: /tmp/ansible-loganalyzer-results
+    tests_location: "{{ 'roles/test/tasks' }}"
+
+# Test case 1: Verify that routes are preserved when peer performed graceful restart
+- block:
+    - set_fact:
+        testname_unique: "{{ testname }}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}"
+
+    - set_fact:
+        test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
+
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      vars:
+        test_match_file: routes_update_match.txt
+
+    - name: Set log level to INFO bo be able to catch route update messages from orchagent
+      command: "swssloglevel -l INFO -c orchagent"
+
+    # When RIBD up and send bgp open message it will set F bit to 1. Which means that during restart
+    # all routes were preserved in FIB. When DUT receives open message with F bit set to 1 it also
+    # should preserve all routes (no route update should happens).
+    - name: Force stop RIBD to simulate GR.
+      shell: "killall -9 ribd; sleep 0.5; ifconfig et1 down"
+      delegate_to: "{{ vm_ip }}"
+
+    - name: Simulate GR.
+      pause:
+        seconds: "{{ bgp_gr_simulation_timer if (bgp_gr_timer|int - 30) > bgp_gr_simulation_timer else (bgp_gr_timer|int - 30) }}"
+
+    - name: Up interface to allow RIBD to send open message. End of GR.
+      command: ifconfig et1 up
+      delegate_to: "{{ vm_ip }}"
+
+    - name: Wait for BGP session state update.
+      pause:
+        seconds: 10
+
+    - name: Gather facts from bgp container.
+      bgp_facts:
+
+    - name: Verify IPv4 bgp session is established
+      assert: { that: "'{{ bgp_neighbors[peer_ipv4]['state'] }}' == 'established'" }
+
+    - name: Verify IPv6 bgp session is established
+      assert: { that: "'{{ bgp_neighbors[peer_ipv6]['state'] }}' == 'established'" }
+
+    - name: Verify that IPv4 unicast routes were preserved during GR.
+      assert: { that: "'{{ bgp_neighbors[peer_ipv4]['capabilities']['peer af ipv4 unicast'] }}' == 'preserved'" }
+
+    - name: Verify that IPv6 unicast routes were preserved during GR.
+      assert: { that: "'{{ bgp_neighbors[peer_ipv6]['capabilities']['peer af ipv6 unicast'] }}' == 'preserved'" }
+
+    # Analyze syslog, no log message related with routes update should be observed
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      vars:
+        test_match_file: routes_update_match.txt
+
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+
+  always:
+    - name: Set log level back to NOTICE
+      command: "swssloglevel -l NOTICE -c orchagent"
+
+# Test case 2: Verify that routes are not preserved when peer performed normal reboot
+- block:
+    - set_fact:
+        testname_unique: "{{ testname }}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}"
+
+    - set_fact:
+        test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
+
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      vars:
+        test_expect_file: routes_update_expect.txt
+
+    - name: Set log level to INFO bo be able to catch route update messages from orchagent
+      command: "swssloglevel -l INFO -c orchagent"
+
+    # Reboot the VM, this is not a graceful restart
+    - name: Reboot the VM
+      shell: killall -9 ribd ; reboot
+      delegate_to: "{{ vm_ip }}"
+
+    - name: Wait for the VM to go down
+      pause:
+        seconds: 90
+
+    - name: Wait for the VM to come back
+      local_action: wait_for port=22 host="{{ vm_ip }}" delay=20 timeout="{{ bgp_gr_timer|int - 90 }}" state=started
+
+    - name: Wait for BGP session state update.
+      pause:
+        seconds: 30
+
+    - name: Gather facts from bgp container.
+      bgp_facts:
+
+    - name: Verify IPv4 bgp session is established
+      assert: { that: "'{{ bgp_neighbors[peer_ipv4]['state'] }}' == 'established'" }
+
+    - name: Verify IPv6 bgp session is established
+      assert: { that: "'{{ bgp_neighbors[peer_ipv6]['state'] }}' == 'established'" }
+
+    - name: Verify that IPv4 unicast routes were not preserved during GR. FIB should be updated.
+      assert: { that: "'{{ bgp_neighbors[peer_ipv4]['capabilities']['peer af ipv4 unicast'] }}' == 'not preserved'" }
+
+    - name: Verify that IPv6 unicast routes were not preserved during GR. FIB should be updated.
+      assert: { that: "'{{ bgp_neighbors[peer_ipv6]['capabilities']['peer af ipv6 unicast'] }}' == 'not preserved'" }
+
+    # Analyze syslog, log messages related with routes update are expected
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      vars:
+        test_expect_file: routes_update_expect.txt
+
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+
+  always:
+    - name: Set log level back to NOTICE
+      command: "swssloglevel -l NOTICE -c orchagent"

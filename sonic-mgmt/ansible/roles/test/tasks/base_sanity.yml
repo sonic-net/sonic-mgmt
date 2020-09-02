@@ -1,0 +1,47 @@
+   - name: Get process information in syncd docker
+     shell: docker exec -i syncd ps aux | grep /usr/bin/syncd
+     register: ps_out
+     ignore_errors: yes
+
+   - debug: var=ps_out.stdout_lines
+   
+   - name: Get orchagent process information
+     shell: pgrep orchagent -a
+     register: orch_out
+     ignore_errors: yes
+
+   - debug: var=orch_out.stdout_lines
+
+   - block:
+     - name: reboot
+       include_tasks: common_tasks/reboot_sonic.yml
+
+     - name: Get process information in syncd docker
+       shell: docker exec -i syncd ps aux | grep /usr/bin/syncd
+       register: psnew_out
+
+     - debug: var=psnew_out.stdout_lines
+
+     - name: Verify that syncd process is running
+       assert: { that: "{{ psnew_out.stdout_lines | length }} > 0"}
+
+     - name: Get orchagent process information
+       shell: pgrep orchagent -a
+       register: orchnew_out
+
+     - debug: var=orchnew_out.stdout_lines
+
+     - name: Verify that orchagent process is running
+       assert: { that: "{{ orchnew_out.stdout_lines | length }} > 0"}
+
+     when:
+       - ({{ ps_out.stdout_lines | length }} <= 0) or ({{ orch_out.stdout_lines | length }} <= 0)
+       - recover is defined and recover | bool
+
+   - name: Get syslog error information
+     shell: cat /var/log/syslog |tail -n 5000 |grep -i error
+     become: true
+     register: syslog_out
+     failed_when: false
+
+   - debug: var=syslog_out.stdout_lines

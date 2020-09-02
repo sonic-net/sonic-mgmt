@@ -1,0 +1,99 @@
+- name: Load topo variables
+  include_vars: "vars/topo_{{ topo }}.yml"
+  when: topo is defined
+
+- name: Filter VMs for specified topology
+  set_fact: VM_hosts={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
+  when: topology['VMs'] is defined and VM_base is defined
+
+- name: Create directory for vm images and vm disks
+  file: path={{ item }} state=directory mode=0755
+  with_items:
+    - "{{ root_path }}/images"
+    - "{{ root_path }}/disks"
+
+- name: Check hdd image
+  stat: path={{ root_path }}/images/{{ hdd_image_filename }}
+  register: hdd_stat
+
+- name: Fail if there are no hdd image and skip image downloading is active
+  fail: msg="Please put {{ hdd_image_filename }} to {{ root_path }}/images"
+  when: not hdd_stat.stat.exists and skip_image_downloading
+
+- name: Download hdd image
+  get_url: url="{{ vm_images_url }}/{{ hdd_image_filename }}?{{ vmimage_saskey }}" dest="{{ root_path }}/images/{{ hdd_image_filename }}"
+  when: not hdd_stat.stat.exists and not skip_image_downloading
+
+- name: Check cd image
+  stat: path={{ root_path }}/images/{{ cd_image_filename }}
+  register: cd_stat
+
+- name: Fail if there are no cd image and skip image downloading is active
+  fail: msg="Please put {{ cd_image_filename }} to {{ root_path }}/images"
+  when: not cd_stat.stat.exists and skip_image_downloading
+
+- name: Download cd image
+  get_url: url="{{ vm_images_url }}/{{ cd_image_filename }}?{{ cdimage_saskey }}" dest="{{ root_path }}/images/{{ cd_image_filename }}"
+  when: not cd_stat.stat.exists and not skip_image_downloading
+
+- name: Create VMs network
+  become: yes
+  vm_topology:
+    cmd:          'create'
+    vm_names:     "{{ VM_hosts }}"
+    fp_mtu:       "{{ fp_mtu_size }}"
+    max_fp_num:   "{{ max_fp_num }}"
+
+- name: Default autostart to no when it is not defined
+  set_fact:
+    autostart: no
+  when: autostart is not defined
+
+- name: Default batch_size to 1 when it is not defined
+  set_fact:
+    batch_size: "{{ VM_hosts|length }}"
+  when: batch_size is not defined
+
+- name: Default wait interval to 0 if it is not defined
+  set_fact:
+    interval: 0
+  when: interval is not defined
+
+- name: Start VMs
+  include_tasks: start_vm.yml
+  vars:
+    vm_name: "{{ item }}"
+    hostname: "{{ vm_name }}"
+    mgmt_ip_address: "{{ hostvars[vm_name]['ansible_host'] }}"
+    serial_port: "{{ vm_console_base|int + vm_name[4:]|int }}"
+    src_disk_image: "{{ root_path }}/images/{{ hdd_image_filename }}"
+    disk_image: "{{ home_path }}/{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
+    cdrom_image: "{{ home_path }}/{{ root_path }}/images/{{ cd_image_filename }}"
+    mgmt_tap:  "{{ vm_name }}-m"
+    backplane_tap: "{{ vm_name }}-back"
+  with_items: "{{ VM_hosts }}"
+
+- set_fact:
+    kickstart_failed_vms: []
+
+- name: Kickstart VMs
+  include_tasks: kickstart_vm.yml
+  vars:
+    vm_name: "{{ item }}"
+    hostname: "{{ vm_name }}"
+    mgmt_ip_address: "{{ hostvars[vm_name]['ansible_host'] }}"
+    serial_port: "{{ vm_console_base|int + vm_name[4:]|int }}"
+    src_disk_image: "{{ root_path }}/images/{{ hdd_image_filename }}"
+    disk_image: "{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
+    cdrom_image: "{{ root_path }}/images/{{ cd_image_filename }}"
+    mgmt_tap:  "{{ vm_name }}-m"
+    backplane_tap: "{{ vm_name }}-back"
+  with_items: "{{ VM_hosts }}"
+
+- block:
+    - name: Log all kickstart failed VMs
+      debug: msg="{{ kickstart_failed_vms }}"
+
+    - name: Fail if kickstart any VM failed
+      fail: msg="Please run start-vms again with -e 'respin_vms=["VMXXX"]' to retry the failed VMs"
+  when: kickstart_failed_vms | length > 0

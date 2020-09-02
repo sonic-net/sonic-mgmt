@@ -1,0 +1,32 @@
+{
+    "hwsku_map": {
+        "Arista-7050-Q4S48": "Arista",
+        "Arista-7508-Q288": "Arista",
+        "Arista-7260QX-64": "Arista",
+        "Arista-7060CX-32S": "Arista",
+        "Arista-7060CX-32S-C32": "Arista",
+        "Arista-7060CX-32S-C32-T1": "Arista",
+        "Arista-7170-64C": "Arista",
+        "Arista-VM": "Arista",
+        "Nexus-3064-NX": "Nexus",
+        "Force10-S6100": "Force10",
+        "Force10-S6000": "Force10"
+    },
+    "switch_login": {
+        "Nexus": { 
+            "user": "admin",
+            "passwd": ["password"], 
+            "enable": null
+        },
+        "Arista": {
+            "user": "admin",
+            "passwd": ["password", "123456"],
+            "enable": ["", null]
+        },
+        "Force10": {
+            "user": "admin",
+            "passwd": ["password"],
+            "enable": ["password"] 
+        }
+    }
+}

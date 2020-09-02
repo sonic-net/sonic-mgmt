@@ -1,0 +1,11 @@
+[
+    {
+        "ACL_TABLE:acl_test_table_extra_field": {
+		    "policy_desc" : "Permit_some_traffic_for_the_customer_#4",
+            "type" : "L3",
+            "ports" : "Ethernet0",
+            "GATEWAY" : "DEFAULT_GATEWAY"
+        },
+        "OP": "SET"
+    }
+]

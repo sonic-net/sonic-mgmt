@@ -1,0 +1,39 @@
+- name: Init variables.
+  set_fact:
+    tor_ports: []
+    spine_ports: []
+    spine_ptf_ports: []
+
+- name: Get tor ports
+  set_fact:
+    tor_ports: "{{ tor_ports + [item.key]  }}"
+  with_dict: "{{ minigraph_neighbors }}"
+  when: "'T0' in item.value.name"
+
+- name: Print tor ports
+  debug: msg={{ tor_ports }}
+
+- name: Get spine ports
+  set_fact:
+    spine_ports: "{{ spine_ports + [item.key]  }}"
+  with_dict: "{{ minigraph_neighbors }}"
+  when: "'T2' in item.value.name"
+
+- name: Print spine ports
+  debug: msg={{ spine_ports }}
+
+- name: Define spine PTF ports
+  set_fact:
+    spine_ptf_ports: "{{ spine_ptf_ports + [minigraph_port_indices[item] | string] }}"
+  with_items: "{{ spine_ports }}"
+
+- name: Get the list of portchannel ports
+  set_fact:
+    portchannel_ports: "{% for portchannel in minigraph_portchannels.items() %}{{ portchannel[0] }},{% endfor %}"
+- set_fact:
+    portchannel_ports: "{{ portchannel_ports.split(',')[:-1]}}"
+
+- name: Get the list of ports to be combined to Everflow ACL tables
+  set_fact:
+    everflow_table_ports: "{{ (testbed_type in ['t1-lag', 't1-64-lag', 't1-64-lag-clet']) | ternary(portchannel_ports + tor_ports, spine_ports + tor_ports) }}"
+

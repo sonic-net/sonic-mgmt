@@ -1,0 +1,26 @@
+{%set local_ip = item.local_ip.split('/') %}
+group exabgp {
+    process dump {
+        encoder json;
+        receive {
+            parsed;
+            update;
+        }
+        run /usr/bin/python {{helper_dir}}/dump.py;
+    }
+    process http-api {
+        run /usr/bin/python {{helper_dir}}/http_api.py {{item.port_num}};
+    }
+
+   neighbor {{minigraph_lo_interfaces[0]['addr']}} {
+       router-id {{local_ip[0]}};
+       local-address {{local_ip[0]}};
+       peer-as {{minigraph_bgp_asn}};
+       local-as {{bgp_speaker_asn}};
+       auto-flush false;
+       group-updates true;
+   }
+
+}
+
+

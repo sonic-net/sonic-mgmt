@@ -1,0 +1,14 @@
+Value portchannel (\S+)
+Value desc (\S+)
+Value mtu (\d+)
+Value qdisc (\S+)
+Value state (\S+)
+Value mode (\S+)
+Value group (\S+)
+Value qlen (\d+)
+Value mac (\S+)
+Value brd (\S+)
+
+Start
+  ^\s*\d+:\s*${portchannel}:\s*<${desc}>\s+mtu\s+${mtu}\s+qdisc\s+${qdisc}\s+state\s+${state}\s+mode\s+${mode}\s+group\s+${group}\s+qlen\s+${qlen}$$
+  ^\s*link/ether\s+${mac}\s+brd\s+${brd}\s*$$ -> Record

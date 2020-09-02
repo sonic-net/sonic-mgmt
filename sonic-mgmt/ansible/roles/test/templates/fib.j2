@@ -1,0 +1,95 @@
+{# defualt route#}
+{% if testbed_type == 't1' %}
+0.0.0.0/0 {% for ifname, v in minigraph_neighbors.iteritems() %}
+{% if "T2" in v.name %}{{ '[%d]' % minigraph_port_indices[ifname]}}{% if not loop.last %} {% endif %}{% endif %}{% endfor %}
+
+::/0 {% for ifname, v in minigraph_neighbors.iteritems() %}
+{% if "T2" in v.name %}{{ '[%d]' % minigraph_port_indices[ifname]}}{% if not loop.last %} {% endif %}{% endif %}{% endfor %}
+
+{% elif testbed_type == 't0' or testbed_type == 't0-52'or testbed_type == 't0-64' or testbed_type == 't1-lag' or testbed_type == 't0-64-32' %}
+0.0.0.0/0 {% for portchannel, v in minigraph_portchannels.iteritems() %}
+[{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}
+
+::/0 {% for portchannel, v in minigraph_portchannels.iteritems() %}
+[{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}
+
+{% elif (testbed_type == 't1-64-lag') or (testbed_type == 't1-64-lag-clet') %}
+0.0.0.0/0 [0 1] [4 5] [16 17] [20 21]
+::/0 [0 1] [4 5] [16 17] [20 21]
+{% elif testbed_type == 't0-116' %}
+0.0.0.0/0 [24 25] [26 27] [28 29] [30 31]
+::/0 [24 25] [26 27] [28 29] [30 31]
+{% endif %}
+{#routes to uplink#}
+{#Limit the number of podsets and subnets to be covered to limit script execution time#}
+{% for podset in range(0, [props.podset_number, 10]|min) %}
+{% for tor in range(0, [props.tor_number, 10]|min) %}
+{% for subnet in range(0, props.tor_subnet_number) %}
+{% if testbed_type == 't1' %}
+192.168.{{ podset }}.{{ tor * 16 + subnet }}/32 {% for ifname, v in minigraph_neighbors.iteritems() %}
+{% if "T2" in v.name %}{{ '[%d]' % minigraph_port_indices[ifname]}}{% if not loop.last %} {% endif %}{% endif %}{% endfor %}
+
+20C0:A8{{ '%02X' % podset }}:0:{{ '%02X' % (tor * 16 + subnet)}}::/64 {% for ifname, v in minigraph_neighbors.iteritems() %}
+{% if "T2" in v.name %}{{ '[%d]' %  minigraph_port_indices[ifname]}}{% if not loop.last %} {% endif %}{% endif %}{% endfor %}
+
+{% elif testbed_type == 't1-lag' %}
+192.168.{{ podset }}.{{ tor * 16 + subnet }}/32 {% for portchannel, v in minigraph_portchannels.iteritems() %}
+[{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}
+
+20C0:A8{{ '%02X' % podset }}:0:{{ '%02X' % (tor * 16 + subnet)}}::/64 {% for portchannel, v in minigraph_portchannels.iteritems() %}
+[{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}
+
+{% elif (testbed_type == 't1-64-lag') or (testbed_type == 't1-64-lag-clet') %}
+192.168.{{ podset }}.{{ tor * 16 + subnet }}/32 [0 1] [4 5] [16 17] [20 21]
+20C0:A8{{ '%02X' % podset }}:0:{{ '%02X' % (tor * 16 + subnet)}}::/64 [0 1] [4 5] [16 17] [20 21]
+{% elif testbed_type == 't0' or testbed_type == 't0-52' or testbed_type == 't0-64' or testbed_type == 't0-64-32' %}
+{% set suffix = ( (podset * props.tor_number * props.max_tor_subnet_number * props.tor_subnet_size) +
+                  (tor * props.max_tor_subnet_number * props.tor_subnet_size) +
+                  (subnet * props.tor_subnet_size) ) %}
+{% set octet2 = (168 + ((suffix // (256 ** 2)))) %}
+{% set octet1 = (192 + (octet2 // 256)) %}
+{% set octet2 = (octet2 % 256) %}
+{% set octet3 = ((suffix // 256) % 256) %}
+{% set octet4 = (suffix % 256) %}
+{% set prefixlen_v4 = (32 - ((props.tor_subnet_size | log(2))) | int) %}
+{# Skip 192.168.0.0 as it is in Vlan1000 subnet  #}
+{% if octet2 != 168 and octet3 != 0 and octet4 != 0 %}
+{{ octet1 }}.{{ octet2 }}.{{ octet3 }}.{{ octet4 }}/{{ prefixlen_v4 }} {% for portchannel, v in minigraph_portchannels.iteritems() %}
+[{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}
+
+{{ '20%02x' % octet1 }}:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/64 {% for portchannel, v in minigraph_portchannels.iteritems() %}
+[{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}
+
+{% endif %}
+{% elif testbed_type == 't0-116' %}
+{% set suffix = ( (podset * props.tor_number * props.max_tor_subnet_number * props.tor_subnet_size) +
+                  (tor * props.max_tor_subnet_number * props.tor_subnet_size) +
+                  (subnet * props.tor_subnet_size) ) %}
+{% set octet2 = (168 + ((suffix // (256 ** 2)))) %}
+{% set octet1 = (192 + (octet2 // 256)) %}
+{% set octet2 = (octet2 % 256) %}
+{% set octet3 = ((suffix // 256) % 256) %}
+{% set octet4 = (suffix % 256) %}
+{% set prefixlen_v4 = (32 - ((props.tor_subnet_size | log(2))) | int) %}
+{# Skip 192.168.0.0 as it is in Vlan1000 subnet  #}
+{% if octet2 != 168 and octet3 != 0 and octet4 != 0 %}
+{{ octet1 }}.{{ octet2 }}.{{ octet3 }}.{{ octet4 }}/{{ prefixlen_v4 }} [24 25] [26 27] [28 29] [30 31]
+{{ '20%02x' % octet1 }}:{{ '%02X%02X' % (octet2, octet3) }}:0:{{ '%02X' % octet4 }}::/64 [24 25] [26 27] [28 29] [30 31]
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% endfor %}
+{# routes to downlink #}
+{% if testbed_type == 't1' or testbed_type == 't1-lag' %}
+{% for ifname, v in minigraph_neighbors.iteritems() %}
+{% if "T0" in v.name %}
+{% for subnet in range(0, props_tor.tor_subnet_number) %}
+172.16.{{ v.name|replace("ARISTA", "")|replace("T0", "")|int }}.{{ subnet }}/32 {{ '[%d]' % minigraph_port_indices[ifname]}}{% if not loop.last %} {% endif %}
+
+20AC:10{{ '%02X' % v.name|replace("ARISTA", "")|replace("T0", "")|int }}:0:{{ '%02X' % subnet }}::/64 {{ '[%d] ' % minigraph_port_indices[ifname]}}{% if not loop.last %} {% endif %}
+
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}

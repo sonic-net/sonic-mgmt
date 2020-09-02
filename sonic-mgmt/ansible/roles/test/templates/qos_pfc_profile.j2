@@ -1,0 +1,22 @@
+{
+    {% if pfc_generate_buffer_profile == 'True' %}
+    "BUFFER_PROFILE": {
+        "pg_lossless_PFC_TEST_profile": {
+            "xon": "{{ buffer_xon.stdout }}",
+            "dynamic_th": "-8",
+            "xoff": "{{ buffer_xoff.stdout }}",
+            "pool": "[{{ buffer_pool_id }}]",
+            "size": "{{ buffer_headroom.stdout }}"
+        }
+    },
+    {% endif %}
+    "BUFFER_PG": {
+        "{{ dut_switch_ports[src_port_id|int] }}|3-4": {
+            {% if pfc_generate_buffer_profile == 'True' %}
+            "profile": "[BUFFER_PROFILE|pg_lossless_PFC_TEST_profile]"
+            {% else %}
+            "profile": "[{{ buffer_profile }}]"
+            {% endif %}
+        }
+    }
+}
