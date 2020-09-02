@@ -1,4 +1,4 @@
-# Godiva-test
+# godiva-test
 Test Scripts and Libraries 
 
 Steps before working/using Godiva based test scripts and libraries
