@@ -1,1 +1,0 @@
-../../sonic-common/files/docker_clean.sh

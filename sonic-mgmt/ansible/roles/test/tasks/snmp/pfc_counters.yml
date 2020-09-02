@@ -1,4 +1,0 @@
-- name: run test
-  include_tasks: roles/test/tasks/pytest_runner.yml
-  vars:
-    test_node: snmp/test_snmp_pfc_counters.py

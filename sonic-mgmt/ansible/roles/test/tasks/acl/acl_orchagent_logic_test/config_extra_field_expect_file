@@ -1,2 +1,0 @@
-r, ".*Unknown table attribute.*"
-r, ".* Failed to create.*table. Table configuration is invalid"

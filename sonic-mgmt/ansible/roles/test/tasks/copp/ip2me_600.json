@@ -1,9 +1,0 @@
-[
-    {
-         "COPP_TABLE:trap.group.ip2me": {
-             "cir":"600",
-             "cbs":"600"
-         },
-         "OP": "SET"
-     }
- ]
