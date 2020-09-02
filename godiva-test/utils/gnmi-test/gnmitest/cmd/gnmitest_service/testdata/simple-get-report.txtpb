@@ -1,0 +1,84 @@
+results: {
+  instance: {
+    test: {
+      test: {
+        timeout: 20
+        schema: "openconfig"
+        connection: {
+          address: "%%HOST%%:%%PORT%%"
+          credentials: {
+            username: "robjs"
+            password: "robjs"
+          }
+          timeout: 10
+        }
+        get_set: {
+          oper_validation: {
+            test_oper: {
+              common_getrequest: "getreq"
+              common_getresponse: "getres"
+            }
+          }
+        }
+      }
+      result: SUCCESS
+      getset: {
+        result: SUCCESS
+        test_oper: {
+          result: SUCCESS
+          get_response: {
+            notification: {
+              timestamp: 42
+              prefix: {
+                elem: {
+                  name: "interfaces"
+                }
+              }
+              update: {
+                path: {
+                  elem: {
+                    name: "interface"
+                    key: {
+                      key: "name"
+                      value: "eth1"
+                    }
+                  }
+                  elem: {
+                    name: "config"
+                  }
+                  elem: {
+                    name: "name"
+                  }
+                }
+                val: {
+                  string_val: "eth1"
+                }
+              }
+              update: {
+                path: {
+                  elem: {
+                    name: "interface"
+                    key: {
+                      key: "name"
+                      value: "eth0"
+                    }
+                  }
+                  elem: {
+                    name: "config"
+                  }
+                  elem: {
+                    name: "name"
+                  }
+                }
+                val: {
+                  string_val: "eth0"
+                }
+              }
+            }
+          }
+          get_response_matched: MR_EQUAL
+        }
+      }
+    }
+  }
+}

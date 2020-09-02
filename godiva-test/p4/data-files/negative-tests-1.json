@@ -1,0 +1,32 @@
+{
+    "NEG_WriteRPC_1": [
+        {
+            "table": "ingress.encap.encap_in_ipv4_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.encap_id": 200
+        },
+            "action_name": "ingress.encap.encap_ip_in_ip",
+            "action_params": {
+                "src_addr": "201.1.1.101",
+                "dst_addr": "202.2.2.202"
+        },
+            "priority": 0
+        }
+    ],
+    "NEG_WriteInsert_2": [
+        {
+            "table": "ingress.encap.encap_in_ipv4_table",
+            "entry_oper": "INSERT",
+            "match": {
+                "local_metadata.encap_id": 201
+        },
+            "action_name": "ingress.encap.encap_ip_in_ip",
+            "action_params": {
+                "src_addr": "201.1.1.101",
+                "dst_addr": "202.2.2.202"
+        },
+            "priority": 201
+        }
+    ]
+}

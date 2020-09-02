@@ -1,0 +1,314 @@
+results {
+  description: "Base Telemetry Tests"
+  instance {
+    description: "Interfaces tests"
+    test {
+      test {
+        description: "Path validation"
+        timeout: 20
+        schema: "openconfig"
+        connection {
+          address: "%%HOST%%:%%PORT%%"
+          credentials {
+            username: "robjs"
+            password: "robjs"
+          }
+          timeout: 10
+        }
+        subscribe {
+          request {
+            subscribe {
+              prefix {
+                origin: "openconfig"
+                target: "DUT"
+              }
+              subscription {
+                path {
+                  elem {
+                    name: "interfaces"
+                  }
+                }
+              }
+              mode: ONCE
+            }
+          }
+          path_validation {
+          }
+        }
+      }
+      result: SUCCESS
+      subscribe {
+        status: EARLY_FINISHED
+      }
+    }
+  }
+  instance {
+    description: "Interfaces tests"
+    test {
+      test {
+        description: "Value validation"
+        timeout: 20
+        schema: "openconfig"
+        connection {
+          address: "%%HOST%%:%%PORT%%"
+          credentials {
+            username: "robjs"
+            password: "robjs"
+          }
+          timeout: 10
+        }
+        subscribe {
+          request {
+            subscribe {
+              prefix {
+                origin: "openconfig"
+                target: "DUT"
+              }
+              subscription {
+                path {
+                  elem {
+                    name: "interfaces"
+                  }
+                }
+              }
+              mode: ONCE
+            }
+          }
+          value_validation {
+          }
+        }
+      }
+      result: SUCCESS
+      subscribe {
+        status: EARLY_FINISHED
+      }
+    }
+  }
+  instance {
+    description: "Interfaces tests"
+    test {
+      test {
+        description: "gNMI Path 0.4.0 Compliance"
+        timeout: 20
+        schema: "openconfig"
+        connection {
+          address: "%%HOST%%:%%PORT%%"
+          credentials {
+            username: "robjs"
+            password: "robjs"
+          }
+          timeout: 10
+        }
+        subscribe {
+          request {
+            subscribe {
+              prefix {
+                origin: "openconfig"
+                target: "DUT"
+              }
+              subscription {
+                path {
+                  elem {
+                    name: "interfaces"
+                  }
+                }
+              }
+              mode: ONCE
+            }
+          }
+          gnmipath_compliance {
+          }
+        }
+      }
+      result: SUCCESS
+      subscribe {
+        status: EARLY_FINISHED
+      }
+    }
+  }
+  instance {
+    test {
+      test {
+        description: "Schema path complete"
+        timeout: 20
+        schema: "openconfig"
+        connection {
+          address: "%%HOST%%:%%PORT%%"
+          credentials {
+            username: "robjs"
+            password: "robjs"
+          }
+          timeout: 10
+        }
+        subscribe {
+          request {
+            subscribe {
+              prefix {
+                origin: "openconfig"
+                target: "DUT"
+              }
+              subscription {
+                path {
+                  elem {
+                    name: "interfaces"
+                  }
+                }
+              }
+              mode: ONCE
+            }
+          }
+          schemapath_complete {
+            prefix {
+              elem {
+                name: "interfaces"
+              }
+              elem {
+                name: "interface"
+              }
+              elem {
+                name: "state"
+              }
+            }
+            path {
+              elem {
+                name: "oper-status"
+              }
+            }
+          }
+        }
+      }
+      result: SUCCESS
+      subscribe {
+        status: EARLY_FINISHED
+      }
+    }
+  }
+  instance {
+    test {
+      test {
+        description: "Has keys"
+        timeout: 20
+        schema: "openconfig"
+        connection {
+          address: "%%HOST%%:%%PORT%%"
+          credentials {
+            username: "robjs"
+            password: "robjs"
+          }
+          timeout: 10
+        }
+        subscribe {
+          request {
+            subscribe {
+              prefix {
+                origin: "openconfig"
+                target: "DUT"
+              }
+              subscription {
+                path {
+                  elem {
+                    name: "interfaces"
+                  }
+                }
+              }
+              mode: ONCE
+            }
+          }
+          has_keys {
+            path {
+              elem {
+                name: "interfaces"
+              }
+              elem {
+                name: "interface"
+              }
+            }
+            item {
+              key {
+                key: "name"
+                value: "eth1"
+              }
+            }
+          }
+        }
+      }
+      result: SUCCESS
+      subscribe {
+        status: EARLY_FINISHED
+      }
+    }
+  }
+  instance {
+    test {
+      test {
+        description: "data tree paths"
+        timeout: 20
+        schema: "openconfig"
+        connection {
+          address: "%%HOST%%:%%PORT%%"
+          credentials {
+            username: "robjs"
+            password: "robjs"
+          }
+          timeout: 10
+        }
+        subscribe {
+          request {
+            subscribe {
+              prefix {
+                origin: "openconfig"
+                target: "DUT"
+              }
+              subscription {
+                path {
+                  elem {
+                    name: "interfaces"
+                  }
+                }
+              }
+              mode: ONCE
+            }
+          }
+          data_tree_paths {
+            test_oper {
+              steps {
+                name: "interfaces"
+              }
+              steps {
+                name: "interface"
+              }
+              get_list_keys {
+                var_name: "%%interface%%"
+                next_query {
+                  steps {
+                    name: "interfaces"
+                  }
+                  steps {
+                    name: "interface"
+                    key_name: "%%interface%%"
+                  }
+                  required_paths {
+                    prefix {
+                      elem {
+                        name: "state"
+                      }
+                    }
+                    paths {
+                      elem {
+                        name: "oper-status"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      result: SUCCESS
+      subscribe {
+        status: EARLY_FINISHED
+      }
+    }
+  }
+}

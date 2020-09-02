@@ -1,0 +1,166 @@
+{
+    "Topology": {
+        "Nodes": {  
+            "R1": {  
+                "alias": "R1", 
+                "platform": "linux",
+                "os": "linux",
+                "custom": "cmal-agent"
+            },
+            "EX1": {
+                "alias": "EX1",
+                "platform": "linux",
+                "os": "linux",
+                "custom" : "cmal-client"
+            }
+        },
+        "Links": {
+            "R1_EX1_1": {
+                "devices": ["R1","EX1"],
+                "bandwidth": "1G",
+                "alias": "R1_EX1_1"
+            },
+            "R1_EX1_2": {
+                "devices": ["R1","EX1"],
+                "bandwidth": "1G",
+                "alias": "R1_EX1_2"
+            }
+        }
+    },
+    "TestArguments": {
+        "base_configuration": {
+            "tftp_server": "223.255.254.254"
+
+        },
+        "interface_configuration": { 
+            "R1_EX1_1.R1": {
+                "name": "df1y022.mtv25.net.google.com:eth-1/1/1",
+                "port_params_profile_name": "lan-phy-no-rate-cp",
+                "port_type": "TRUNK",
+                "of_port_name": "eth-1/1/1",
+                "admin_state": "DISABLED",
+                "description": "df1y129.mtv25.net.google.com:eth-1/1/1 [(member of trk-df1y022s1i22.mtv25-1)]",
+                "link_event_damp_control_profile_name": "fabric",
+                "of_port_no": 1,
+                "card_slot_number": 1,
+                "port_number": 1,
+                "channel_number": 1,
+                "port_set_profile_name": [
+                    "uplinks-df1y022s1i22.mtv25",
+                    "all-uplinks"
+                ]
+            },
+            "R1_EX1_2.R1": {
+                "name": "df1y022.mtv25.net.google.com:eth-1/1/3",
+                "port_params_profile_name": "lan-phy-no-rate-cp",
+                "port_type": "TRUNK",
+                "of_port_name": "eth-1/1/3",
+                "admin_state": "DISABLED",
+                "description": "df1y129.mtv25.net.google.com:eth-1/1/3 [(member of trk-df1y022s1i22.mtv25-1)]",
+                "link_event_damp_control_profile_name": "fabric",
+                "of_port_no": 3,
+                "card_slot_number": 1,
+                "port_number": 3,
+                "channel_number": 1,
+                "port_set_profile_name": [
+                    "uplinks-df1y022s1i22.mtv25",
+                    "all-uplinks"
+                ]
+            }
+        },
+        "testcase_configuration": {
+            "test_ingress_encapIn_ipv4_table_crudTests": {
+                "input_conf_file": "./data-files/ingress-encapin-ipv4-table.json"
+            },
+            "direct_table_tests": {
+                "ingress.encap.encap_in_ipv4_table": {
+                    "input_conf_file": "./data-files/ingress-encapin-ipv4-table.json"
+                }
+            },
+            "indirect_table_tests": {
+                "ingress.l3_fwd.l3_ipv4_vrf_table": {
+                    "input_conf_file": "./data-files/ingress-l3fwd-ipv4vrf-table.json"
+                }
+            },
+            "test_action_profile_groups": {
+                "input_conf_file": "./data-files/groups.json"
+            },
+            "test_action_profile_members": {
+                "input_conf_file": "./data-files/groups.json"
+            },
+            "test_multicontrollers_blocking_tableEdit": {
+                "input_conf_file": "./data-files/ingress-encapin-ipv4-table.json"
+            },
+            "test_multicontrollers_non_blocking_tableEdit": {
+                "input_conf_file": "./data-files/ingress-encapin-ipv4-table.json"
+            },
+            "test_ingress_l3Fwd_ipv4Vrf_table_crudTests": {
+                "input_conf_file": "./data-files/ingress-l3fwd-ipv4vrf-table.json"
+            },
+            "test_actionMem_Neg1": {
+                "input_conf_file": "./data-files/groups.json"
+            },
+            "test_actionMem_Neg2": {
+                "input_conf_file": "./data-files/groups.json"
+            },
+            "test_actionMem_Neg3": {
+                "input_conf_file": "./data-files/groups.json"
+            },
+            "test_writeRPC_Neg1": {
+                "input_conf_file": "./data-files/negative-tests-1.json"
+            },
+            "test_setFwd_Opt1": {
+                "input_conf_file": "./data-files/part-tbl.txt"
+            }
+        },
+        "feature_configuration": {
+            "cmal": {
+                "R1": {
+                    "svr_addr": "172.17.0.2",
+                    "svr_port": "50051",
+                    "chassis_id_name": "df1y022.mtv25.net.google.com",
+                    "lock_id": "None",
+                    "config_name": "cname",
+                    "copy_overwrite": "True",
+                    "node_id": {
+                        "name": "df1y022s1i22.mtv25.net.google.com"
+                    },
+                    "default_port_params_profile":"port_params_test"
+                }
+            },
+            "p4": {
+                "p4info": "./data-files/bmv2/bmv2-b4.p4info.txt",
+                "p4json": "./data-files/bmv2/bmv2-b4.json",
+                "input_conf_file": "./data-files/ingress-encapin-ipv4-table.json",
+                "R1": {
+                    "name": "s1",
+                    "svr_addr": "172.17.0.1",
+                    "svr_port": "50001",
+                    "proto_dump_file": "s1-p4runtime-requests-log.txt",
+                    "device_id": "1"
+                }
+            },
+            "gnmi": {
+                "R1": {
+                    "name": "s1",
+                    "svr_addr": "172.17.0.2",
+                    "svr_port": "5555",
+                    "proto_dump_file": "s1-gnmi-requests-log.txt"
+                }
+            },
+            "bsp": {
+                "R1": {
+                    "name": "godiva",
+                    "svr_addr": "172.26.228.14",
+                    "svr_port": "65122",
+                    "username": "cisco",
+                    "password": "lab",
+                    "platform": "spitfire_f-dev",
+                    "os_type": "godiva",
+                    "image": "/auto/vxr1/images/onie-server/onie-x86_64-cisco_8000-r0.iso",
+                    "onie-image": "http://172.29.93.10/sonic-images/godiva-cisco-pacific.bin"
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,10 @@
+ydk-models-openconfig==0.1.2
+-e git+https://github.com/kuamrend/cafy-pytest#egg=pytest-cafy
+-e git+https://github.com/kuamrend/netmiko.git#egg=netmiko
+-e git+https://github.com/kuamrend/allure-pytest.git#egg=pytest-allure-adaptor
+-e git+https://github.com/kuamrend/raritan-pdu-json-rpc#egg=pdu-python-api
+http://arcee.cisco.com/auto/cafy/ydk/models/651/5I/ydk-0.5.5a0.tar.gz
+http://arcee.cisco.com/auto/cafy/ydk/models/711/ydk-models-cisco-ios-xr-7.1.1.tar.gz
+http://arcee.cisco.com/auto/cafy/ydk/models/651/5I/ydk-models-openconfig-network-instance-0.1.4.tar.gz
+http://arcee.cisco.com/auto/cafy/ydk/models/651/5I/ydk-models-cisco-thinxr-install-6.5.1.tar.gz
+

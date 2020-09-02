@@ -1,0 +1,59 @@
+update {
+  prefix {
+    target: "targetB"
+    origin: "openconfig"
+  }
+  update {
+    path {
+      elem {
+        name: "components"
+      }
+      elem {
+        name: "component"
+        key {
+          key: "name"
+          value: "arbitrary_key"
+        }
+      }
+      elem {
+        name: "state"
+      }
+      elem {
+        name: "hardware-version"
+      }
+    }
+    val {
+      string_val:  "hard-ver"
+    }
+  }
+}
+
+update {
+  prefix {
+    target: "targetB"
+    origin: "openconfig"
+  }
+  update {
+    path {
+      elem {
+        name: "components"
+      }
+      elem {
+        name: "component"
+        key {
+          key: "name"
+          value: "arbitrary_key"
+        }
+      }
+      elem {
+        name: "state"
+      }
+      elem {
+        name: "software-version"
+      }
+    }
+    val {
+      string_val:  "soft-ver"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "IND_OPTICS_LASER_STATUS": {
+    "SLOT_LIST": [1, 2],
+    "VERIFY": {"Status" : ["On","On"]}
+  },
+  "IND_OPTICS_PRESENCE": {
+    "SLOT_LIST": [1, 2],
+    "VERIFY": {"Status" : ["Yes","Yes"]}
+  },
+  "FLAP_INTF_DOWN": {
+    "SLOT_LIST": [1, 2],
+    "VERIFY": {"Status" : ["Off","Off"]}
+  },
+  "FLAP_INTF_UP": {
+    "SLOT_LIST": [1, 2],
+    "VERIFY": {"Status" : ["On","On"]}
+  }
+}

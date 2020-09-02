@@ -1,0 +1,40 @@
+name: "Arista Telemetry Tests"
+timeout: 20
+schema: "openconfig"
+connection: {
+  address: "%%HOST%%:%%PORT%%"
+  timeout: 10
+  credentials {
+    username: "robjs"
+    password: "robjs"
+  }
+}
+
+instance_group_list {
+  description: "Base Telemetry Tests"
+  instance {
+    description: "OpenConfig interfaces schema path validation"
+    test {
+      description: "Interfaces"
+      subscribe {
+        request {
+          subscribe {
+            prefix {
+              target: "DUT"
+              origin: "openconfig"
+            }
+            subscription {
+              path {
+                elem {
+                  name: "interfaces"
+                }
+              }
+            }
+            mode: STREAM
+          }
+        }
+        path_validation {}
+      }
+    }
+  }
+}

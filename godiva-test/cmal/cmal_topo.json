@@ -1,0 +1,80 @@
+{
+    "name": "GD-CMAL",
+    "nodes": [
+        {
+            "alias": "R1",
+            "name": "docker",
+            "id": 3,
+            "type": "linux",
+            "access_info": [
+              {
+                "name": "docker",
+                "interface": "docker",
+                "address_info": [
+                  {
+                    "name": "ai",
+                    "address": "172.17.0.1"
+                  }
+                ]
+              }
+            ],
+            "handles": [{
+                      "name": "vty",
+                      "via": "docker.ai",
+                      "credential": "default",
+                      "connection": "ssh",
+                      "default": true
+            }],
+            "interfaces": [
+              {
+                "interface": "eth-1/1/1",
+                "link": "R1_EX1_1"
+              },
+              {
+                "interface": "eth-1/1/2",
+                "link": "R1_EX1_2"
+              }
+            ],  
+            "credential": "default",
+            "platform": "linux"
+        },
+        {
+            "alias": "EX1",
+            "name": "ubuntu",
+            "id": 3,
+            "type": "linux",
+            "access_info": [
+              {
+                "name": "ens33",
+                "interface": "ens33",
+                "address_info": [
+                  {
+                    "name": "ai",
+                    "address": "192.168.2.157"
+                  }
+                ]
+              }
+            ],
+            "handles": [{
+                      "name": "vty",
+                      "via": "ens33.ai",
+                      "credential": "default",
+                      "connection": "ssh",
+                      "default": true
+            }],  
+            "credential": "server",
+            "platform": "linux"
+        }     
+    ],
+    "credentials": [{
+            "name": "default",
+            "username": "root",
+            "password": ""
+        },
+        {
+            "name": "server",
+            "username": "venkat",
+            "password": "venkat"
+        }
+    ]
+}

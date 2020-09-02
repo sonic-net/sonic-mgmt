@@ -1,0 +1,40 @@
+results: <
+  instance: <
+    test: <
+      test: <
+        timeout: 20
+        schema: "openconfig"
+        connection: <
+          address: "127.0.0.1:9339"
+          timeout: 10
+        >
+        get_set: <
+          oper_validation: <
+            test_oper: <
+              common_getrequest: "getreq"
+              common_getresponse: "getres"
+            >
+          >
+        >
+      >
+      result: FAIL
+      getset: <
+        result: FAIL
+        test_oper: <
+          result: FAIL
+          get_response: <
+            notification: <
+              timestamp: 1584495249220663135
+              update: <
+                val: <
+                  json_ietf_val: "{\n  \"data\": {\n  }\n}\n"
+                >
+              >
+            >
+          >
+          get_response_matched: MR_UNEQUAL
+        >
+      >
+    >
+  >
+>

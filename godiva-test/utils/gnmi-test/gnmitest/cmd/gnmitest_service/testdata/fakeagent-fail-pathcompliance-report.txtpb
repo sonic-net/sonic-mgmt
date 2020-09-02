@@ -1,0 +1,121 @@
+results: <
+  description: "Subscription tests"
+  instance: <
+    description: "Interfaces tests"
+    test: <
+      test: <
+        description: "Path validation"
+        timeout: 20
+        schema: "openconfig"
+        connection: <
+          address: "%%ADDRESS%%"
+          timeout: 20
+        >
+        subscribe: <
+          request: <
+            subscribe: <
+              prefix: <
+                origin: "openconfig"
+                target: "DUT"
+              >
+              subscription: <
+                path: <
+                  elem: <
+                    name: "interfaces"
+                  >
+                >
+              >
+              mode: ONCE
+            >
+          >
+          path_validation: <
+          >
+        >
+      >
+      result: FAIL
+      subscribe: <
+        errors: <
+          message: "failed to create map value for insert, root map[string]*gostructs.OpenconfigInterfaces_Interfaces_Interface, keys map[SHOULD_BE_name:eth0]: missing name key in map[SHOULD_BE_name:eth0]"
+        >
+        status: EARLY_FINISHED
+      >
+    >
+  >
+  instance: <
+    description: "Interfaces tests"
+    test: <
+      test: <
+        description: "Path validation with logged responses"
+        timeout: 20
+        schema: "openconfig"
+        connection: <
+          address: "%%ADDRESS%%"
+          timeout: 20
+        >
+        subscribe: <
+          request: <
+            subscribe: <
+              prefix: <
+                origin: "openconfig"
+                target: "DUT"
+              >
+              subscription: <
+                path: <
+                  elem: <
+                    name: "interfaces"
+                  >
+                >
+              >
+              mode: ONCE
+            >
+          >
+          log_responses: true
+          path_validation: <
+          >
+        >
+      >
+      result: FAIL
+      subscribe: <
+        responses: <
+          response: <
+            update: <
+              prefix: <
+                origin: "openconfig"
+                elem: <
+                  name: "interfaces"
+                >
+                target: "DUT"
+              >
+              update: <
+                path: <
+                  elem: <
+                    name: "interface"
+                    key: <
+                      key: "SHOULD_BE_name"
+                      value: "eth0"
+                    >
+                  >
+                  elem: <
+                    name: "name"
+                  >
+                >
+                val: <
+                  string_val: "eth0"
+                >
+              >
+            >
+          >
+        >
+        responses: <
+          response: <
+            sync_response: true
+          >
+        >
+        errors: <
+          message: "failed to create map value for insert, root map[string]*gostructs.OpenconfigInterfaces_Interfaces_Interface, keys map[SHOULD_BE_name:eth0]: missing name key in map[SHOULD_BE_name:eth0]"
+        >
+        status: EARLY_FINISHED
+      >
+    >
+  >
+>

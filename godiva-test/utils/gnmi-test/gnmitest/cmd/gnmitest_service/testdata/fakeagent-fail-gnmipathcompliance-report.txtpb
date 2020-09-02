@@ -1,0 +1,45 @@
+results: <
+  description: "Subscription tests"
+  instance: <
+    description: "Interfaces tests"
+    test: <
+      test: <
+        description: "gNMI Path Compliance"
+        timeout: 20
+        schema: "openconfig"
+        connection: <
+          address: "%%ADDRESS%%"
+          timeout: 20
+        >
+        subscribe: <
+          request: <
+            subscribe: <
+              prefix: <
+                origin: "openconfig"
+                target: "DUT"
+              >
+              subscription: <
+                path: <
+                  elem: <
+                    name: "interfaces"
+                  >
+                >
+              >
+              mode: ONCE
+            >
+          >
+          gnmipath_compliance: <
+            check_origin: "*"
+          >
+        >
+      >
+      result: FAIL
+      subscribe: <
+        errors: <
+          message: "origin isn't set in prefix gNMI Path elem:<name:\"interfaces\" > target:\"DUT\" "
+        >
+        status: EARLY_FINISHED
+      >
+    >
+  >
+>

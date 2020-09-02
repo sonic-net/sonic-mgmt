@@ -1,0 +1,160 @@
+/*
+Copyright 2018 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+syntax = "proto3";
+
+import "github.com/openconfig/gnmi/proto/gnmi/gnmi.proto";
+import "github.com/openconfig/gnmitest/proto/tests/tests.proto";
+import "google/rpc/status.proto";
+import "google/protobuf/any.proto";
+import "github.com/openconfig/gnmitest/proto/perf/perf.proto";
+
+package report;
+option go_package = "github.com/openconfig/gnmitest/proto/report";
+
+// CompletionStatus indicates the reason why the test ended.
+enum CompletionStatus {
+  // Test finished with an unknown reason.
+  UNKNOWN = 0;
+  // Test successfully runs to completion.
+  FINISHED = 1;
+  // Test successfully runs to completion, but the completion is triggered by
+  // test.
+  EARLY_FINISHED = 2;
+  // RPC request fails during test execution.
+  RPC_ERROR = 3;
+  // Test execution finished because of RPC request timeout.
+  TIMEOUT = 4;
+}
+
+// SubscribeResponseResult proto is used to pair a gnmi SubscribeResponse and
+// the error returned from Process function of the test.
+message SubscribeResponseResult {
+  // gnmi SubscribeResponse received by the test.
+  gnmi.SubscribeResponse response = 1;
+  // error returned by Process function of the test.
+  string error = 2;
+}
+
+// TestError corresponds to a single error case reported during execution of a
+// test. Test can emit multiple errors as a result of processing single
+// SubscribeResponse message.
+message TestError {
+  // Message has human readable error that is set by the test.
+  string message = 1;
+  // gnmi path corresponding to the message set. path is set by test as well.
+  gnmi.Path path = 2;
+  // Additional details test can provide in the error.
+  google.protobuf.Any details = 3;
+}
+
+// SubscribeTestResult is result of running an individual
+// suite.SubscribeTest.
+message SubscribeTestResult {
+  // SubscribeResponse messages received as a result of subscription.
+  repeated SubscribeResponseResult responses = 1;
+  // If test is stateful, error is set as a result of calling Check function of
+  // the test. If test is stateless, error set here can be ignored.
+  string error = 2 [deprecated=true];
+  // CompletionStatus indicates why the test ended.
+  CompletionStatus status = 3;
+  // List of errors received while running the test.
+  repeated TestError errors = 4;
+}
+
+// Result of running an individual test.
+enum Status {
+  // Indicates that test result is not set.
+  UNSET = 0;
+  // Indicates that test passes.
+  SUCCESS = 1;
+  // Indicates that test fails.
+  FAIL = 2;
+}
+
+// GetSetTestResult is the result of a GetSet test towards a target.
+message GetSetTestResult {
+  tests.Test test = 1;
+  // Result of running the test.
+  Status result = 2;
+  // Result of the initialisation operation specified in the input test.
+  GetSetOperResult initialise_oper = 3;
+  // Result of the test operation specified in the input test.
+  GetSetOperResult test_oper = 4;
+}
+
+// MatchResult enumerates the outcome of a match comparison.
+enum MatchResult {
+  MR_UNSET = 0;
+  MR_EQUAL = 1;
+  MR_UNEQUAL = 2;
+}
+
+// GetSetOperResult is the result of an individual operation within the
+// GetSetTest.
+message GetSetOperResult {
+  // Result of the operation.
+  Status result = 1;
+  // set_responses is the SetResponse message received from the target.
+  gnmi.SetResponse set_response = 2;
+  // set_status is the status.proto message received from the target in
+  // response to the Set RPC within the operation.
+  google.rpc.Status set_status = 3;
+  // get_response is the GetResponse received from the target.
+  gnmi.GetResponse get_response = 4;
+  // get_status is the status.proto message received from the target in
+  // response to the Get RPC within the operation.
+  google.rpc.Status get_status = 5;
+  // get_response_matched indicates whether the GetResponse received from
+  // the target matched that specified in the test.
+  MatchResult get_response_matched = 6;
+}
+
+// Test is used to pair a tests.Test and its result.
+message TestResult {
+  tests.Test test = 1;
+  // Result of running the test.
+  Status result = 2;
+  // Oneof field can be expanded to include results of other gnmi RPCs.
+  oneof type {
+    SubscribeTestResult subscribe = 10;
+    GetSetTestResult getset = 11;
+  }
+  // Time taken by the operation mentioned in the input test
+  int64 oper_time = 12;
+}
+
+// Instance stores test results of main test and its extensions.
+message Instance {
+  string description = 1;
+  TestResult test = 2;
+  repeated TestResult extensions = 3;
+}
+
+// InstanceGroup stores a set of Instances.
+message InstanceGroup {
+  string description = 1;
+  repeated Instance instance = 2;
+  // Skipped indicates whether the instance group was skipped during
+  // test execution based on a prior group being fatal.
+  bool skipped = 3;
+}
+
+// Report is result of running suite.Suite
+message Report {
+  repeated InstanceGroup results = 1;
+  perf.Perf perf_results = 2;
+}

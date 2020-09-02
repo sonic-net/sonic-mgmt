@@ -1,0 +1,5 @@
+#infra_ap.py::TestInfra::()::test_Optics_Laser_Status_All
+#infra_ap.py::TestInfra::()::test_Optics_Presence_All
+#infra_ap.py::TestInfra::()::test_Memory_Usage
+infra_ap.py::TestInfra::()::test_Optics_Laser_Status
+infra_ap.py::TestInfra::()::test_Flap_Intf_LS

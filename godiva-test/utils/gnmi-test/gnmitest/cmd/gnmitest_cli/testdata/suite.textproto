@@ -1,0 +1,45 @@
+name: "hello suite"
+# duration in seconds a test is allowed to run.
+timeout: 20
+schema: "openconfig"
+
+instance_group_list {
+  description: "instancegroup1"
+  instance {
+    description: "instance1"
+    test {
+      connection {
+        target: "targetA"
+        address: "localhost:55556"
+        # dial timeout.
+        timeout: 10
+      }
+      description: "test1"
+      subscribe {
+        request {
+          subscribe {
+            prefix {
+              target: "targetA"
+              origin: "openconfig"
+              elem {
+                name: "interfaces"
+              }
+              elem {
+                name: "interface"
+              }
+            }
+            subscription {
+              path {
+                elem {
+                  name: "int0"
+                }
+              }
+            }
+            mode: ONCE
+          }
+        }
+        path_validation {}
+      }
+    }
+  }
+}

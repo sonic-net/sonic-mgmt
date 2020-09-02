@@ -1,0 +1,99 @@
+timeout: 20
+connection: {
+  address: "%%HOST%%:%%PORT%%"
+  timeout: 10
+  credentials {
+    username: "robjs"
+    password: "robjs"
+  }
+}
+
+common {
+  get_requests {
+    key: "getreq"
+    value {
+      path {
+        elem {
+          name: "interfaces"
+        }
+        elem {
+          name: "interface"
+        }
+        elem {
+          name: "config"
+        }
+        elem {
+          name: "name"
+        }
+      }
+    }
+  }
+  get_responses {
+    key: "getres"
+    value {
+      notification {
+        timestamp: 42
+        prefix {
+          elem {
+            name: "interfaces"
+          }
+        }
+        update {
+          path {
+            elem {
+              name: "interface"
+              key {
+                key: "name"
+                value: "eth0"
+              }
+            }
+            elem {
+              name: "config"
+            }
+            elem {
+              name: "name"
+            }
+          }
+          val {
+            string_val: "eth0"
+          }
+        }
+        update {
+          path {
+            elem {
+              name: "interface"
+              key {
+                key: "name"
+                value: "eth1"
+              }
+            }
+            elem {
+              name: "config"
+            }
+            elem {
+              name: "name"
+            }
+          }
+          val {
+            string_val: "eth1"
+          }
+        }
+      }
+    }
+  }
+}
+
+instance_group_list {
+  instance {
+    test {
+      get_set {
+        oper_validation {
+          test_oper {
+            common_getrequest: "getreq"
+            common_getresponse: "getres"
+          }
+        }
+      }
+    }
+  }
+}

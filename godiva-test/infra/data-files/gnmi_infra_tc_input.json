@@ -1,0 +1,282 @@
+{
+  "PORT_INTF": {
+    "config": {
+      "openconfig-interfaces:interfaces": {
+        "interface": [
+          {
+            "name": "eth-1/1/0",
+            "config": {
+              "name": "eth-1/1/0",
+              "description": "For GET_WITH_PFX TC ETH1/1/0",
+              "type": "iana-if-type:ethernetCsmacd",
+              "mtu": "1500",
+              "enabled": true,
+              "openconfig-hercules-interfaces:id": 1001
+            },
+            "openconfig-if-ethernet:ethernet": {
+              "config": {
+                "mac-address": "01:02:03:04:05:06",
+                "auto-negotiate": true,
+                "duplex-mode": "FULL",
+                "port-speed": "openconfig-if-ethernet:SPEED_1GB",
+                "openconfig-hercules-interfaces:forwarding-viable": true
+              }
+            }
+          },
+          {
+            "name": "eth-1/1/1",
+            "config": {
+              "name": "eth-1/1/1",
+              "description": "For GET_WITH_PFX TC ETH1/1/1",
+              "type": "iana-if-type:ethernetCsmacd",
+              "mtu": "1500",
+              "enabled": true,
+              "openconfig-hercules-interfaces:id": 1002
+            },
+            "openconfig-if-ethernet:ethernet": {
+              "config": {
+                "mac-address": "01:02:03:04:05:07",
+                "auto-negotiate": true,
+                "duplex-mode": "FULL",
+                "port-speed": "openconfig-if-ethernet:SPEED_1GB",
+                "openconfig-hercules-interfaces:forwarding-viable": true
+              }
+            }
+          },
+          {
+            "name": "eth-1/1/2",
+            "config": {
+              "name": "eth-1/1/2",
+              "description": "For GET_WITH_PFX TC ETH1/1/2",
+              "type": "iana-if-type:ethernetCsmacd",
+              "mtu": "1500",
+              "enabled": true,
+              "openconfig-hercules-interfaces:id": 1003
+            },
+            "openconfig-if-ethernet:ethernet": {
+              "config": {
+                "mac-address": "01:02:03:04:05:08",
+                "auto-negotiate": true,
+                "duplex-mode": "FULL",
+                "port-speed": "openconfig-if-ethernet:SPEED_1GB",
+                "openconfig-hercules-interfaces:forwarding-viable": true
+              }
+            }
+          }
+        ]
+      },
+      "openconfig-platform:components": {
+          "component": [
+            {
+              "name": "eth-1/1/0",
+              "config": {
+                "name": "eth-1/1/0",
+                "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
+              },
+              "port": {
+                "config": {
+                  "openconfig-hercules-platform:port-id": "1"
+                }
+              }
+            },
+            {
+              "name": "eth-1/1/1",
+              "config": {
+                "name": "eth-1/1/1",
+                "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
+              },
+              "port": {
+                "config": {
+                  "openconfig-hercules-platform:port-id": "2"
+                }
+              }
+            },
+            {
+              "name": "eth-1/1/2",
+              "config": {
+                "name": "eth-1/1/2",
+                "openconfig-hercules-platform:type": "openconfig-platform-types:PORT"
+              },
+              "port": {
+                "config": {
+                  "openconfig-hercules-platform:port-id": "3"
+                }
+              }
+            }
+          ]
+      }
+    },
+    "verfiy": [
+      {
+        "prefix": "/oc-if:interfaces",
+        "path": "/oc-if:interface",
+        "config": [
+          {
+            "name": "eth-1/1/0",
+            "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",0,"config"],
+                "set_list_index": "0","check_var_list": ["name","type","description","mtu"]
+          },
+          {
+            "name": "eth-1/1/1",
+            "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"config"],
+                "set_list_index": "1","check_var_list": ["name","type","description","mtu","enabled","id"]
+          },
+          {
+            "name": "eth-1/1/1",
+            "get_key": "interfaces,interface,ethernet,config","set_key": ["openconfig-interfaces:interfaces","interface",1,"openconfig-if-ethernet:ethernet","config"],
+                "set_list_index": "1","check_var_list": ["mac-address","auto-negotiate","duplex-mode","port-speed","forwarding-viable"]
+          },
+          {
+            "name": "eth-1/1/2",
+            "get_key": "interfaces,interface,config","set_key": ["openconfig-interfaces:interfaces","interface",2,"config"],
+                "set_list_index": "2","check_var_list": ["name","type","description","mtu"]
+          }
+        ]
+      },
+      {
+        "prefix": "/oc-platform:components",
+        "path": "/oc-platform:component",
+        "config": [
+          {
+            "name": "eth-1/1/1",
+            "get_key": "components,component,port,config","set_key": ["openconfig-platform:components","component",1,"port","config"],
+                "set_list_index": "1","check_var_list": ["port-id"]
+          },
+          {
+            "name": "eth-1/1/2",
+            "get_key": "components,component,port,config","set_key": ["openconfig-platform:components","component",2,"port","config"],
+              "set_list_index": "2","check_var_list": ["port-id"]
+          }
+        ]
+      }
+    ]
+  },
+  "FLAP_INTF_DOWN": {
+    "config": {
+      "openconfig-interfaces:interfaces": {
+        "interface": [
+          {
+            "name": "eth-1/1/0",
+            "config": {
+              "name": "eth-1/1/0",
+              "description": "FLAP INTF Down TC ETH1/1/0",
+              "type": "iana-if-type:ethernetCsmacd",
+              "mtu": "1500",
+              "enabled": false
+            }
+          },
+          {
+            "name": "eth-1/1/1",
+            "config": {
+              "name": "eth-1/1/1",
+              "description": "FLAP INTF Down TC ETH1/1/1",
+              "type": "iana-if-type:ethernetCsmacd",
+              "mtu": "1500",
+              "enabled": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  "FLAP_INTF_UP": {
+    "config": {
+      "openconfig-interfaces:interfaces": {
+        "interface": [
+          {
+            "name": "eth-1/1/0",
+            "config": {
+              "name": "eth-1/1/0",
+              "description": "FLAP INTF Down TC ETH1/1/0",
+              "type": "iana-if-type:ethernetCsmacd",
+              "mtu": "1500",
+              "enabled": true
+            }
+          },
+          {
+            "name": "eth-1/1/1",
+            "config": {
+              "name": "eth-1/1/1",
+              "description": "FLAP INTF Down TC ETH1/1/1",
+              "type": "iana-if-type:ethernetCsmacd",
+              "mtu": "1500",
+              "enabled": true
+            }
+          }
+        ]
+      }
+    }
+  },
+ "EEPROM_TH4_ALL": {
+   "PORTS": [
+     {
+      "name": "Port 0",
+      "Manufacture Name": "2015911010",
+      "Model Name": "02530043      18",
+      "HW Rev": "01",
+      "Serial Nul": " ",
+      "Vendor OUI": 18,
+      "Vendor Date": " "
+    },
+    {
+      "name": "Port 2",
+      "Manufacture Name": "2015911010",
+      "Model Name": "22530233-A    19",
+      "HW Rev": "03",
+      "Serial Nul": "UCAA",
+      "Vendor OUI": 118,
+      "Vendor Date": " "
+    },
+    {
+      "name": "Port 14",
+      "Manufacture Name": "CISCO-AVAGO",
+      "Model Name": "SFBR-89CDDZ-CS5",
+      "HW Rev": "06",
+      "Serial Nul": "AVF2325S05Y",
+      "Vendor OUI": " ",
+      "Vendor Date": 190620
+    },
+    {
+      "name": "Port 16",
+      "Manufacture Name": "CISCO-INNOLIGHT",
+      "Model Name": "TR-FC85S-NC2",
+      "HW Rev": "1B",
+      "Serial Nul": "INL23137994",
+      "Vendor OUI": "D|",
+      "Vendor Date": 190328
+    },
+    {
+      "name": "Port 18",
+      "Manufacture Name": "CISCO-FINISAR",
+      "Model Name": "FCBN425QE1C15-C1",
+      "HW Rev": "D",
+      "Serial Nul": "FIW210400JN-A",
+      "Vendor OUI": " ",
+      "Vendor Date": 170122
+    }        
+  ]
+},
+ "EEPROM_TH4_PORT": {
+   "PORTS": [
+     {
+      "name": "Port 1",
+      "Manufacture Name": "2015911010",
+      "Model Name": "10930522      18",
+      "HW Rev": "04",
+      "Serial Nul": " ",
+      "Vendor OUI": 18,
+      "Vendor Date": " "
+    },
+    {
+      "name": "Port 4",
+      "Manufacture Name": "CISCO-FINISAR",
+      "Model Name": "FCBN425QE1C15-C1",
+      "HW Rev": "D",
+      "Serial Nul": "FIW210400JN-A",
+      "Vendor OUI": " ",
+      "Vendor Date": 170122
+    }        
+  ]
+}
+
+}

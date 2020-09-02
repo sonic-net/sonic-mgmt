@@ -1,0 +1,639 @@
+/*
+Copyright 2018 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+syntax = "proto3";
+
+import "github.com/openconfig/gnmi/proto/gnmi/gnmi.proto";
+
+package tests;
+option go_package = "github.com/openconfig/gnmitest/proto/tests";
+
+// Default message to use if test doesn't need any arguments. Default message
+// will be type of the field in the message. The name of the field discriminates
+// one test from another.
+message Default{}
+
+// Message that contains all the information specific to a gnmi Subscribe RPC.
+message SubscribeTest {
+  // Request to use by framework during gnmi Subscribe RPC. If test is part of
+  // an extension list, a real subscription isn't created, but the query is
+  // registered to receive updates corresponding to its path from subscription
+  // of parent test.
+  gnmi.SubscribeRequest request = 1;
+  // log_responses indicates to the test whether it should log all
+  // SubscribeResponse messages that are received from the target.
+  bool log_responses = 2;
+  oneof args {
+    string fake_test = 10;
+    Default path_validation = 11;
+    HasKeys has_keys = 12;
+    SchemaPathComplete schemapath_complete = 13;
+    DataTreePaths data_tree_paths = 14;
+    Default value_validation = 15;
+    GNMIPathCompliance gnmipath_compliance = 16;
+  }
+}
+
+// Test specifies a gNMI test. The type indicates the form of test that is
+// being performed.
+//
+// The authentication for the RPC(s) used in the test is specified in
+// username_key and password_key. These values are references to an external
+// storage of authentication data that can be retrieved by the framework.
+message Test {
+  // Description of the individual test to use for reporting purposes.
+  string description = 1;
+  // Amount of time in seconds test is allowed to run before cancelled.
+  int32 timeout = 2;
+  // The compiled schema that should be used within the test.
+  string schema = 3;
+  // Connection parameters to dial into target. If not specified, the one
+  // specified by Suite proto is used.
+  Connection connection = 4;
+
+  // Can be extended to include other gNMI RPCs.
+  oneof type {
+    SubscribeTest subscribe = 10;
+    GetSetTest get_set = 11;
+    // fake_test is used to verify the functionality of the test running
+    // framework.
+    FakeTest fake_test = 12;
+  }
+}
+
+// Credentials to use while connecting to target.
+message Credentials {
+  // Resolver value is used to determine which credentials resolver to pick
+  // while resolving username and password to use during gNMI connection. By
+  // default, plaintext resolver is used if nothing is specified here. If a
+  // special resolver is needed, it needs to be registered into global resolvers
+  // table.
+  string resolver = 1;
+  string username = 2;
+  string password = 3;
+}
+
+// Connection contains required information to be able to dial into a target.
+message Connection {
+  // The name of the target to be set in gNMI messages. For gNMI implementations
+  // that can be address multiple targets, this value can be used to specify
+  // which one should be the device under test.
+  string target = 1;
+  // Address is used while dialing into gNMI server under test. It needs to be
+  // in the form "host:port" or it should resolve to a "host:port".
+  string address = 2;
+  Credentials credentials = 3;
+  // Dial timeout in seconds while connecting to gNMI server under test.
+  int32 timeout = 4;
+}
+
+// FakeTest is the configuration used for a fake test within the framework.
+message FakeTest {
+  // pass indicates whether the faked test should pass or fail.
+  bool pass = 1;
+}
+
+// HasKeys defines the input for a test that checks that a particular list
+// in the schema has a specified set of keys in the list. It can be used
+// to check for data completeness of a particular list within the schema.
+message HasKeys {
+  // Item defines an entry in the list.
+  message Item {
+    map<string,string> key = 1;
+  }
+  // Path to the list that should be checked.
+  gnmi.Path path = 1;
+  // Items that should be found in the list.
+  repeated Item item = 2;
+}
+
+// GNMIPathCompliance defines the test to validate target and origin fields of
+// gNMI Path as well as usage of Elem field instead of deprecated Element field.
+// If check_target and/or check_origin fields are set to "*", corresponding
+// field in gNMI prefix path must exist, but can be any value. If they are set
+// to a value other than "*", corresponding field must be equal to the value. If
+// check_target and/or check_origin isn't set or set to an empty string, this
+// means no validation is needed on the corresponding field. For instance:
+//
+// {
+//   // target must exist, but can have any value other than empty string
+//   check_target: "*"
+//   // origin must exist and be equal to "openconfig"
+//   check_origin: "openconfig"
+//   // Elem field of gNMI Path must be used instead of Element field
+//   check_elem: true
+// }
+message GNMIPathCompliance {
+  bool check_elem = 1;
+  string check_target = 2;
+  string check_origin = 3;
+}
+
+// DataTreePaths specifies a test which allows for checks for the
+// existence of particular data within the data tree. It allows recursion
+// into lists, or simple queries for data tree paths.
+//
+// A test which performs a simple check for a data tree path consists
+// of a single TestQuery, which specifies the path to be queried. For example,
+// to query for the existence of the
+// /interfaces/interface[name=eth0]/state/counters/{in,out}-pkts leaves in the
+// received data a query specifying:
+//
+// {
+//   steps { name: "interfaces" }
+//   steps { name: "interface" key { name: "name" value: "eth0" } }
+//   required_paths {
+//     prefix {
+//       elem { name: "state" }
+//       elem { name: "counters" }
+//     }
+//     paths { elem { name: "in-pkts" } }
+//     paths { elem { name: "out-pkts" } }
+//   }
+// }
+//
+// is specified. This query is simply expanded to check for the specified paths.
+//
+// The test also supports querying recursively down the data tree using the
+// GetListKeys message within a particular TestQuery. Such a query specifies
+// that the query described by the "steps" repeated should be made, and the
+// resulting key values of the list found should be assigned into an array.
+// Subsequent nested queries can then refer to a value within that array using
+// the variable name specified.
+//
+// For example, if a test wishes to performn a check for
+// each interface within the data tree, then nested TestQuery
+// messages are required. The first retrieves the keys of the
+// /interfaces/interface list from the data tree - and calls a nested TestQuery
+// for each key within the /interfaces/interface list (referred to as
+// %%interface%%) which performs the actual check:
+//
+// {
+//   steps { name: "interfaces" }
+//   steps { name: "interface"  }
+//   get_list_keys {
+//     var_name: "%%interface%%"
+//     next_query {
+//       steps { name: "interfaces" }
+//       steps { name: "interface" key_name: "%%interface%%" }
+//       required_paths {
+//         prefix: {
+//           elem: "state"
+//           elem: "counters"
+//        }
+//        paths { elem { name: "in-pkts" } }
+//        paths { elem { name: "out-pkts" } }
+//      }
+//    }
+//   }
+// }
+//
+// Will execute first a query for /interfaces/interface and assign the
+// results to the %%interface%% variable. The child operation will execute
+// for each element of the %%interface%% list, and subsequently make a query
+// for /interfaces/interface[%%interface%%] where %%interface%% is an individual
+// key found in the parent query (e.g., "name=eth0"). The child operation
+// checks for the required paths at state/counters/{in,out}-pkts relative to
+// the query made in the ListQuery operation.
+//
+// Where multiple get_list_keys queries are nested, each next_query is called
+// for each value of its parent query, such that it is possible to express
+// nested list traversals such as:
+//
+// foreach interface in /interfaces/interface:
+//   foreach subinterface of that interface:
+//     foreach ipv4 address of that subinterface:
+//       ... etc ...
+//
+//  using nested queries:
+//
+//  {
+//    steps { name: "interfaces" }
+//    steps { name: "interface" }
+//    get_list_keys {
+//      var_name: "%%interface%%"
+//      next_query {
+//        steps { name: "interfaces" }
+//        steps { name: "interface" key_name: "%%interface%%" }
+//        steps { name: "subinterfaces" }
+//        steps { name: "subinterface" }
+//        get_list_keys {
+//          var_name: "%%subinterface%%"
+//          next_query {
+//            steps { name: "interfaces" }
+//            steps { name: "interface" key_name: "%%interface%%" }
+//            steps { name: "subinterfaces" }
+//            steps { name: "subinterface" key_name: "%%subinterface%%" }
+//            steps { name: "ipv4" }
+//            steps { name: "addresses" }
+//            steps { name: "address" }
+//            get_list_keys {
+//              var_name: "%%v4address%%"
+//              next_query {
+//                steps { name: "interfaces" }
+//                steps { name: "interface" key_name: "%%interface%%" }
+//                steps { name: "subinterfaces" }
+//                steps { name: "subinterface" key_name: "%%subinterface%%" }
+//                steps { name: "ipv4" }
+//                steps { name: "addresses" }
+//                steps { name: "address"  key_name: "%%v4address%%" }
+//                required_paths {
+//                  ... actual test with required paths ...
+//                }
+//              }
+//            }
+//          }
+//        }
+//      }
+//    }
+//  }
+//
+//
+// The filter field within a TestQuery can be used to filter the set of list
+// items that are to be iterated over. When a PathValueMatch filter is
+// specified, its contents are evaluated, and only when the result of the match
+// is true is the item in the list iterated over.
+//
+// For example, it is possible to iterate over components of a particular type
+// within the OpenConfig schema by specifying a filter:
+//
+// {
+//   steps: "components"
+//   steps: "component"
+//   get_list_keys {
+//     var_name: "%%component_name%%"
+//     filter {
+//       path {
+//         elem { name: "state" }
+//         elem { name: "type" }
+//       }
+//       equal { string_val: "TRANSCEIVER" }
+//     }
+//     next_query {
+//       required_paths {
+//         prefix { name: "state" }
+//         paths { name: "mfg-name" }
+//         paths { name: "serial-no" }
+//       }
+//     }
+//   }
+// }
+//
+// The get_list_keys query is filtered according to the criteria described in
+// the "filter". The path specified in this message must be relative to the
+// current selection.
+//
+// It is also possible to filter based on multiple queries, using the "and" and
+// "or" fields of the PathValueMatch message, for example, to filter on
+// components of type LINECARD or PORT, the following PathValueMatch is
+// specified:
+//
+// {
+//   path {
+//     elem { name: "state" }
+//     elem { name: "type" }
+//   }
+//   equal { string_val: "LINECARD" }
+//   or {
+//     path {
+//       elem { name: "state" }
+//       elem { name: "type" }
+//     }
+//     equal { string_val: PORT" }
+//   }
+// }
+//
+// The "or" field specifies that a PathValueMatch should be evaluated to true if
+// the parent or any "or" query evaluates to true.
+//
+// If multiple filters, are required, for example, to match multiple list keys,
+// the "and" field can be used within a PathValueMatch:
+//
+// {
+//   // Assume we are within a query of the
+//   // network-instances/network-instance/protocols/protocol list.
+//   path {
+//     elem { name: "state" }
+//     elem { name: "identifier" }
+//   }
+//   equal { string_val: "BGP" }
+//   and {
+//     path {
+//       elem { name: "state" }
+//       elem { name: "name" }
+//     }
+//     equal { string_val: "15169" }
+//   }
+// }
+//
+// As well as requiring a specific set of paths to exist, the datatreepaths test
+// can be used to test values within the data tree, using the required_values
+// field. For example, to validate that all non-logical interfaces have LLDP
+// enabled, the following query can be formulated -- checking that
+// /lldp/interfaces/interface[name=<if-name>]/state/enabled = true:
+//
+// {
+//   steps { name: "interfaces" }
+//   steps { name: "interface" }
+//   get_list_keys {
+//     var_name: "<if-name>"
+//     filter {
+//       path {
+//         elem { name: "state" }
+//         elem { name: "logical" }
+//       }
+//       equal { bool_val: false }
+//     }
+//     next_query {
+//       steps { name: "lldp" }
+//       steps { name: "interfaces" }
+//       steps { name: "interface" key_name: "<if-name>" }
+//       required_values {
+//         prefix {
+//           elem { name: "state" }
+//         }
+//         matches {
+//           path {
+//             elem { name: "enabled" }
+//           }
+//           equal { bool_val: true }
+//         }
+//       }
+//     }
+//   }
+// }
+message DataTreePaths {
+  // QueryStep defines a query against the gNMI path of a data tree element.
+  message QueryStep {
+    // name specifies a name that should be explicitly matched in the
+    // gnmi.PathElem the QueryStep is being compared to.
+    string name = 1;
+    // key specifies the key map which should be explicitly matched in
+    // the gnmi.PathElem the QueryStep is being compared to.
+    map<string, string> key = 2;
+    // key_name specifies the name of a variable that has been written to
+    // by a previous stage of the test. The value of the key map in the
+    // PathElem is substituted for the value currently being iterated over
+    // for the variable.
+    string key_name = 3;
+  }
+  // TestQuery specifies a single stage of a query within the test.
+  message TestQuery {
+    // steps specifies the set of QuerySteps that should be made against the
+    // data tree to retrieve the data for the operation being performed.
+    repeated QueryStep steps = 1;
+    oneof type {
+      // get_list_keys specifies that the query is used to retrieve a set
+      // of list keys from the data tree and assign them to a variable. The
+      // QuerySteps specified must therefore point to a list within the
+      // data tree.
+      ListQuery get_list_keys = 2;
+      // required_paths specifies that the query results are to be used to
+      // check for required paths in the data tree.
+      RequiredPaths required_paths = 3;
+      // required_values specifies that the query results are to be used to
+      // check whether values that are found at the path match a certain
+      // criteria.
+      RequiredValues required_values = 4;
+    }
+  }
+  // ListQuery specifies an operation that retrieves the keys from a list.
+  message ListQuery {
+    // var_name specifies the variable name by which the key values will
+    // be referred to in subsequent queries.
+    string var_name = 1;
+    // next_query specifies a query that should be run for each key that
+    // is retrieved by the ListQuery operation.
+    TestQuery next_query = 2;
+    // filter specifies a set of filters that must be met for each entry
+    // in the list for it to be included in subsequent iterations. If it
+    // is not set then all entries are iterated.
+    repeated PathValueMatch filter = 3;
+  }
+  // RequiredPaths specifies an operation that checks for paths within
+  // the data tree.
+  message RequiredPaths {
+    // prefix is a common prefix for the paths within the required_paths
+    // list.
+    gnmi.Path prefix = 1;
+    // paths is the set of paths that are to be checked for.
+    repeated gnmi.Path paths = 2;
+  }
+  // RequiredValues specifies an operation that checks values within
+  // the data tree.
+  message RequiredValues {
+    // prefix is a common prefix for the paths within the required_values
+    // list.
+    gnmi.Path prefix = 1;
+    // matches specifies a set of path to value criteria that must be met.
+    // Each match is considered in isolation to evalute to true or false.
+    // The test fails if any of the matches evaluate to false.
+    repeated PathValueMatch matches = 2;
+  }
+  // test_oper is the operation to be performed for the test.
+  TestQuery test_oper = 1;
+}
+
+// PathValueMatch specifies a match critiera for a set of gNMI paths.
+// It is used to express criteria that a gNMI path must match.
+message PathValueMatch {
+  // path is the path to be verified. It can be absolute or relative
+  // based pon the context that the PathValueMatch message is used.
+  gnmi.Path path = 1;
+  // criteria specifies the condition to be met for the value at the
+  // path.
+  oneof criteria {
+    // equal is a gNMI TypedValue that the value found at the path must
+    // be equal to.
+    gnmi.TypedValue equal = 2;
+  }
+  // and specifies a set of additional matches that must be met for
+  // the test to evaluate to true. If any matches are not met, the
+  // match is false.
+  //
+  // For example, if the following message is specified:
+  // {
+  //   path {
+  //     elem { name: "system" }
+  //     elem { name: "state" }
+  //     elem { name: "hostname" }
+  //   }
+  //   equal { string_val: "box0" }
+  //   and {
+  //     path {
+  //       elem { name: "system" }
+  //       elem { name: "state" }
+  //       elem { name: "domain-name" }
+  //     }
+  //     equal { string_val: "openconfig.net" }
+  //   }
+  //   and {
+  //     path {
+  //       elem { name: "system" }
+  //       elem { name: "clock" }
+  //       elem { name: "state" }
+  //       elem { name: "timezone-name" }
+  //     }
+  //     equal { string_val: "Europe/London" }
+  //   }
+  // }
+  //
+  // Then the query only evaluates to true if /system/state/hostname
+  // == "box0" && /system/state/domain-name == "openconfig.net" &&
+  // /system/clock/state/timezone-name == "Europe/London".
+  repeated PathValueMatch and = 20;
+  // or specifies a set of matches that any one of which must be
+  // met for the test to evaluate to true.
+  //
+  // For example, if the following message is spceified:
+  //
+  // {
+  //   or {
+  //     path {
+  //       elem { name: "system" }
+  //       elem { name: "state" }
+  //       elem { name: "hostname" }
+  //     }
+  //     equal { string_val: "box0.openconfig.net" }
+  //     and {
+  //       path {
+  //         elem { name: "system" }
+  //         elem { name: "state" }
+  //         elem { name: "domain-name" }
+  //       }
+  //       equal { string_val: "openconfig.net" }
+  //   }
+  //   or {
+  //     path {
+  //       elem { name: "system" }
+  //       elem { name: "state" }
+  //       elem { name: "hostname" }
+  //     }
+  //     equal { string_val: "box0" }
+  //     and {
+  //       path {
+  //         elem { name: "system" }
+  //         elem { name: "state" }
+  //         elem { name: "domain-name" }
+  //       }
+  //       equal { string_val: "openconfig.net" }
+  //     }
+  //   }
+  // }
+  //
+  // Then the query only evaluates to true if:
+  //  (/system/state/hostname == "box0.openconfig.net" &&
+  //  /system/state/domain-name == "openconfig") ||
+  //  (/system/state/hostname == "box0" && /system/state/domain-name ==
+  //  "openconfig.net")
+  //
+  //  In this case, the top-level query has no specified path or criteria. Such
+  //  a query evaluates to true to allow such nesting.
+  repeated PathValueMatch or = 21;
+}
+
+// SchemaPathComplete defines the input for a test that checks that at least
+// one instance of a particular schema path is sent to the test framework. It
+// can be used to check for path coverage of a particular target.
+message SchemaPathComplete {
+  // prefix is a gNMI path that should be appended to each path in the
+  // paths list to form an absolute schema path.
+  gnmi.Path prefix = 2;
+  // paths is the list of paths that are expected to be received by the
+  // test framework.
+  repeated gnmi.Path path = 1;
+}
+
+// GetSetTest contains all the information specific to a configuration
+// test - which is expected to use RPCs to interact with configuration. Set is
+// used to change the configuration, and Get or Subscribe can be used to
+// retrieve configuration values to verify the target's initial or final states.
+message GetSetTest {
+  oneof args {
+    GetSetValidationTest oper_validation = 10;
+  }
+}
+
+// GetSetValidationTest describes a test that validates configuration sets
+// on a target. It does not validate the underlying behaviour of the system,
+// but restricts itself to validating that setting and retrieving configuration
+// returns the expected result.
+//
+// The expected test methodology is as follows:
+//   1. Set the configuration of the target to a "known good" initial state.
+//   2. Validate that the configuration running on the target matches this
+//      state.
+//   3. Perform an update or replace operation on the configuration.
+//   4. Validate that the new state of the target matches that which is
+//      expected.
+message GetSetValidationTest {
+  // initialise_oper is the operation to initialise the target. It may consist
+  // of a configuration to be set and/or get request that validates the target's
+  // current state.
+  GetSetValidationOper initialise_oper = 1;
+  // test_oper is the operation that is under test in the validation test.  The
+  // Get and/or Set operations may be set within the operation such that the
+  // test can validate a set, a set followed by a get, or solely a get
+  // operation.
+  GetSetValidationOper test_oper = 2;
+}
+
+// GetSetValidationOper describes an individual operation within a
+// GetSetValidationTest. If the message consists of:
+//
+//  * Solely a SetRequest - the SetRequest is sent to the test target, and the
+//    result checked against the expected error status in set_ok.
+//  * Solely a GetRequest - the GetRequest is sent to the test target, and the
+//    result checked against the expected GetResponse.
+//  * Both a SetRequest and a GetRequest - the SetRequest is sent to the test
+//    target, and the return value compared against set_ok. Subsequently, the
+//    GetRequest is sent to the test target, the return code compared to get_ok
+//    and the GetResponse compared to the expected GetResponse.
+message GetSetValidationOper {
+  // OperResult specifies the expected result of an operation. By
+  // default an operation is expected to succeed.
+  enum OperResult {
+    NO_ERROR = 0;
+    FAILED = 1;
+  }
+  oneof setrequest {
+    // set specifies a SetRequest to be sent to the target.
+    gnmi.SetRequest set = 1;
+    // common_setrequest specifies a key within the Suite common_setrequests
+    // to be used.
+    string common_setrequest = 2;
+  }
+  // set_ok specifies whether the Set RPC should be successful.
+  OperResult set_ok = 10;
+
+  oneof getrequest {
+    // get specifies a GetRequest to be sent to the target.
+    gnmi.GetRequest get = 11;
+    // common_getrequest specifies a key within the Suite common_getrequests
+    // to be used.
+    string common_getrequest = 12;
+  }
+  OperResult get_ok = 20;
+
+  oneof getresponse {
+    // get_response specifies the GetResponse that is expected from
+    // the target.
+    gnmi.GetResponse get_response = 21;
+    // common_getresponse specifies a key within the Suite common_getresponses
+    // to be used.
+    string common_getresponse = 22;
+  }
+}
