@@ -19,8 +19,8 @@ def bgp_module_hooks(request):
     st.ensure_min_topology('D1D2:1', 'D1T1:1', 'D2T1:1')
     bgplib.init_resource_data(st.get_testbed_vars())
     #bgp_cli_type = st.get_ui_type()
-    #bgp_cli_type = "click"
-    bgp_cli_type = "klish"
+    bgp_cli_type = "click"
+    #bgp_cli_type = "klish"
     if bgp_cli_type == 'click':
         bgp_cli_type = 'vtysh'
     bgp_pre_config()

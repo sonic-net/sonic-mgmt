@@ -50,7 +50,7 @@ def deploy_mg(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("docker container start e9c2a75d5aa7 \n")
+    chan.send("docker container start docker-sonic-mgmt \n")
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
