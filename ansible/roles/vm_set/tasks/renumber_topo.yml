@@ -31,7 +31,6 @@
     ptf_mgmt_ip_addr: "{{ ptf_ip }}"
     ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
     ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
-    ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
     mgmt_bridge: "{{ mgmt_bridge }}"
     dut_fp_ports: "{{ dut_fp_ports }}"
     dut_mgmt_port: "{{ dut_mgmt_port }}"
