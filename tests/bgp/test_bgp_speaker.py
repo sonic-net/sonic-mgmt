@@ -163,6 +163,9 @@ def common_setup_teardown(duthost, ptfhost, localhost):
     for ip in vlan_ips:
         duthost.command("ip route flush %s/32" % ip.ip, module_ignore_errors=True)
 
+    duthost.command("sonic-clear arp")
+    duthost.command("sonic-clear fdb all")
+
     logging.info("########### Done teardown for bgp speaker testing ###########")
 
 
