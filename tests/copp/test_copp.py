@@ -192,6 +192,25 @@ def _setup_testbed(dut, creds, ptf, test_params):
         Sets up the testbed to run the COPP tests.
     """
 
+    if dut.facts['asic_type'] in ["barefoot"]:
+        output = dut.command("docker exec syncd bash -c '[ -d /usr/local/include/nanomsg ] || echo copp'")
+
+        if output["stdout"] == "copp":
+            http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
+            https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
+            import pdb; pdb.set_trace()
+            cmd = '''docker exec -e http_proxy={} -e https_proxy={} syncd bash -c " \
+                    apt-get update \
+                    && apt-get install -y python-pip build-essential libssl-dev python-dev wget cmake \
+                    && wget https://github.com/nanomsg/nanomsg/archive/1.0.0.tar.gz \
+                    && tar xvfz 1.0.0.tar.gz && cd nanomsg-1.0.0 \
+                    && mkdir -p build && cmake . && make install && ldconfig && cd .. && rm -fr nanomsg-1.0.0 \
+                    && rm -f 1.0.0.tar.gz && pip install cffi==1.7.0 && pip install --upgrade cffi==1.7.0 && pip install nnpy \
+                    && mkdir -p /opt && cd /opt && wget https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
+                    && mkdir ptf && cd ptf && wget https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
+                    " '''.format(http_proxy, https_proxy)
+            dut.command(cmd)
+
     logging.info("Disable LLDP for COPP tests")
     dut.command("docker exec lldp supervisorctl stop lldp-syncd")
     dut.command("docker exec lldp supervisorctl stop lldpd")
