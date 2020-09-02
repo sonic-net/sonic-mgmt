@@ -1,4 +1,4 @@
-# godiva-test
+# godiva-test - a simple test for subtrees
 Test Scripts and Libraries 
 
 Steps before working/using Godiva based test scripts and libraries
