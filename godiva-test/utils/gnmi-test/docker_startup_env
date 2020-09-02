@@ -1,3 +1,0 @@
-# /bin/sh
-unset https_proxy http_proxy no_proxy HTTPS_PROXY NO_PROXY
-export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION='python'

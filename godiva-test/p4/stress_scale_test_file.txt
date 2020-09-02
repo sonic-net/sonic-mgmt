@@ -1,4 +1,0 @@
-p4_ap.py::()::reset_p4
-p4_ap.py::TestP4::()::test_multicontrollers_blocking_tableEdit
-p4_ap.py::TestP4::()::test_multicontrollers_non_blocking_tableEdit
-p4_ap.py::TestP4::()::test_max_connections
