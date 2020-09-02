@@ -95,11 +95,14 @@ def common_setup_teardown(duthost, ptfhost, localhost):
     vlan_if_name = vlan_ipv6_entry['attachto']
     nexthops_ipv6 = generate_ips(3, vlan_ipv6_prefix, [IPAddress(vlan_ipv6_address)])
     logging.info("Generated nexthops_ipv6: %s" % str(nexthops_ipv6))
-
+    logging.info("setup ip/routes in ptf")
+    for i in [0, 1, 2]:
+        ptfhost.shell("ip -6 addr add %s dev eth%d:%d" % (nexthops_ipv6[i], vlan_ports[0], i))
     # Set ipv6 nexthop addresses on the ptf interfaces
+    duthost.command("ip -6 route flush %s" % vlan_ipv6_prefix)
+    duthost.command("ip -6 route add %s dev %s" % (vlan_ipv6_prefix, vlan_if_name))
     for nh in nexthops_ipv6:
-        duthost.command("ip -6 route flush %s/64" % nh.ip)
-        duthost.command("ip -6 route add %s/64 dev %s" % (nh.ip, vlan_if_name))
+        duthost.shell("ping6 %s -c 3" % nh.ip)
 
     logging.info("setup ip/routes in ptf")
     ptfhost.shell("ifconfig eth%d %s" % (vlan_ports[0], vlan_ips[0]))
@@ -123,11 +126,6 @@ def common_setup_teardown(duthost, ptfhost, localhost):
         duthost.shell("ping %s -c 3" % ip.ip)
         time.sleep(2)
         duthost.command("ip route add %s/32 dev %s" % (ip.ip, mg_facts['minigraph_vlan_interfaces'][0]['attachto']))
-
-
-    logging.info("setup ip/routes in ptf")
-    for i in [0, 1, 2]:
-        ptfhost.shell("ip -6 addr add %s dev eth%d:%d" % (nexthops_ipv6[i], vlan_ports[0], i))
 
     logging.info("Start exabgp on ptf")
     for i in range(0, 3):
