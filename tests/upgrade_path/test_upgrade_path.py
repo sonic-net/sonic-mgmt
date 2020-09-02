@@ -14,7 +14,9 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # lgtm[
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # lgtm[py/unused-import]
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.sanity_check(skip_sanity=True),
+    pytest.mark.disable_loganalyzer
 ]
 
 logger = logging.getLogger(__name__)
