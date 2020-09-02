@@ -234,6 +234,12 @@
       include_tasks: disconnect_vms.yml
       when: action == 'disconnect_vms'
 
+    - name: Renumber topology
+      include_tasks: renumber_topo.yml
+      when:
+        - action == 'renumber_topo'
+        - container_type is defined and container_type == "PTF"
+
   when: vm_required is defined and vm_required == True
 
 - name: Add topology
@@ -243,12 +249,6 @@
 - name: Remove topology
   include_tasks: remove_topo.yml
   when: action == 'remove_topo'
-
-- name: Renumber topology
-  include_tasks: renumber_topo.yml
-  when:
-    - action == 'renumber_topo'
-    - container_type is defined and container_type == "PTF"
 
 - block:
     - name: Start SONiC VM
