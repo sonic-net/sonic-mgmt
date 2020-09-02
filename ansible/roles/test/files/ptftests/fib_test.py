@@ -149,8 +149,9 @@ class FibTest(BaseTest):
             ip_ranges = self.fib.ipv6_ranges()
 
         for ip_range in ip_ranges:
-            next_hop = self.fib[ip_range.get_first_ip()]
-            self.check_ip_range(ip_range, next_hop, ipv4)
+            if ip_range.get_first_ip() in self.fib:
+                next_hop = self.fib[ip_range.get_first_ip()]
+                self.check_ip_range(ip_range, next_hop, ipv4)
 
     def check_ip_range(self, ip_range, next_hop, ipv4=True):
         # Get the expected list of ports that would receive the packets

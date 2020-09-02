@@ -2,7 +2,10 @@
 
 import subprocess
 import re
+import sys
 import time
+import random
+import argparse
 from collections import defaultdict
 
 # Global parameter for memory scanners
@@ -11,9 +14,7 @@ MEMORY_SCAN_ENTRIES = 16384
 SRAM_SCAN_INTERVAL_USEC = int(3e5)
 SRAM_SCAN_ENTRIES = 16384
 
-DEFAULT_SER_TEST_TIME_SEC = 1200
-
-DEFAULT_SER_INJECTION_INTERVAL_SEC = 5
+DEFAULT_SER_INJECTION_INTERVAL_SEC = 0.1
 DEFAULT_SYSLOG_POLLING_INTERVAL_SEC = 0.1
 
 # The following memory tables do not get corrected when a ser is injected into them! Let's take them out for now
@@ -23,10 +24,54 @@ UNTESTABLE_MEMORY_TABLES = [u'L3_ENTRY_IPV6_MULTICAST.ipipe0', u'L3_DEFIP_ALPM_I
                             u'L3_ENTRY_IPV6_UNICAST.ipipe0', u'L3_DEFIP_ALPM_IPV4.ipipe0', u'FP_GLOBAL_MASK_TCAM.ipipe0',
                             u'FP_STORM_CONTROL_METERS.ipipe0', u'FP_GM_FIELDS.ipipe0']
 
-# Not every memory table orrection is detected by the test case. This could be due to the
-# losses over syslog transport. Make the test iterate over different memory tables in order to cover
-# every memory table
-DEFAULT_TEST_ITERATION = 3
+# Correction address issue: when corruption these following addresses, the correction came up from a different
+# address. Therefore the test failed to correlate the corruption and correction.
+CORRECTION_MISS_ALIGNS = [u'THDI_PORT_SP_CONFIG_PIPE2.mmu_xpe0', u'MMU_THDU_OFFSET_QGROUP_PIPE3.mmu_xpe0',
+                          u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE2.mmu_xpe0', u'MMU_THDM_DB_PORTSP_CONFIG_PIPE3.mmu_xpe0', u'IFP_TCAM.ipipe0',
+                          u'MMU_THDU_OFFSET_QUEUE_PIPE1.mmu_xpe0', u'MMU_THDU_OFFSET_QGROUP_PIPE1.mmu_xpe0',
+                          u'MMU_THDU_CONFIG_PORT_PIPE2.mmu_xpe0', u'MMU_THDU_RESUME_PORT_PIPE1.mmu_xpe0', u'EGR_IP_TUNNEL_IPV6.epipe0',
+                          u'MMU_THDU_CONFIG_QUEUE_PIPE3.mmu_xpe0', u'MMU_REPL_GROUP_INITIAL_COPY_COUNT_SC0.mmu_xpe0',
+                          u'THDI_PORT_SP_CONFIG_PIPE3.mmu_xpe0', u'THDI_PORT_SP_CONFIG_PIPE0.mmu_xpe0',
+                          u'MMU_THDU_CONFIG_PORT_PIPE3.mmu_xpe0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE1.mmu_xpe0',
+                          u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE3.mmu_xpe0', u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE2.mmu_sc0',
+                          u'IFP_TCAM_WIDE_PIPE2.ipipe0', u'VLAN_XLATE.ipipe0', u'MMU_THDU_CONFIG_QUEUE_PIPE1.mmu_xpe0',
+                          u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE0.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_7.mmu_xpe0',
+                          u'MMU_THDU_Q_TO_QGRP_MAP_PIPE0.mmu_xpe0', u'MMU_THDU_CONFIG_QGROUP_PIPE1.mmu_xpe0',
+                          u'MMU_THDU_OFFSET_QGROUP_PIPE2.mmu_xpe0', u'MMU_THDU_CONFIG_PORT_PIPE1.mmu_xpe0',
+                          u'MMU_THDU_CONFIG_QGROUP_PIPE3.mmu_xpe0', u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE1.mmu_sc0',
+                          u'MMU_WRED_DROP_CURVE_PROFILE_3.mmu_xpe0', u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE2.mmu_xpe0',
+                          u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE1.mmu_xpe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE2.mmu_xpe0',
+                          u'MMU_REPL_GROUP_INITIAL_COPY_COUNT_SC1.mmu_xpe0', u'MMU_THDU_CONFIG_QGROUP_PIPE2.mmu_xpe0',
+                          u'MMU_THDU_CONFIG_QUEUE_PIPE2.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE2.mmu_xpe0',
+                          u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE0.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE1.mmu_xpe0',
+                          u'MMU_WRED_DROP_CURVE_PROFILE_5.mmu_xpe0', u'MMU_THDM_DB_PORTSP_CONFIG_PIPE2.mmu_xpe0',
+                          u'MMU_THDM_DB_QUEUE_CONFIG_PIPE2.mmu_xpe0', u'MMU_THDM_DB_PORTSP_CONFIG_PIPE0.mmu_xpe0',
+                          u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE3.mmu_xpe0', u'EGR_VLAN_XLATE.epipe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE1.mmu_xpe0',
+                          u'MPLS_ENTRY_DOUBLE.ipipe0', u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE0.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_2.mmu_xpe0',
+                          u'IFP_TCAM_WIDE_PIPE1.ipipe0', u'MMU_THDU_OFFSET_QUEUE_PIPE2.mmu_xpe0', u'THDI_PORT_SP_CONFIG_PIPE1.mmu_xpe0',
+                          u'L3_ENTRY_IPV4_UNICAST.ipipe0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE3.mmu_xpe0',
+                          u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE0.mmu_sc0', u'MMU_THDU_OFFSET_QUEUE_PIPE3.mmu_xpe0',
+                          u'MMU_WRED_DROP_CURVE_PROFILE_4.mmu_xpe0', u'MMU_THDU_OFFSET_QUEUE_PIPE0.mmu_xpe0', u'VLAN_MAC.ipipe0',
+                          u'MMU_THDU_CONFIG_QGROUP_PIPE0.mmu_xpe0', u'IFP_TCAM_WIDE_PIPE3.ipipe0', u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE0.mmu_xpe0',
+                          u'MMU_THDU_OFFSET_QGROUP_PIPE0.mmu_xpe0', u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE3.mmu_xpe0',
+                          u'MMU_WRED_DROP_CURVE_PROFILE_1.mmu_xpe0', u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE3.mmu_sc0', u'L2_ENTRY.ipipe0',
+                          u'MMU_WRED_DROP_CURVE_PROFILE_8.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_0.mmu_xpe0',
+                          u'MMU_THDU_RESUME_PORT_PIPE2.mmu_xpe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE3.mmu_xpe0',
+                          u'MMU_THDM_DB_QUEUE_CONFIG_PIPE1.mmu_xpe0', u'MMU_THDM_DB_PORTSP_CONFIG_PIPE1.mmu_xpe0',
+                          u'MMU_THDU_RESUME_PORT_PIPE3.mmu_xpe0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE0.mmu_xpe0',
+                          u'MMU_THDU_RESUME_PORT_PIPE0.mmu_xpe0', u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE1.mmu_xpe0', u'IFP_TCAM_WIDE_PIPE0.ipipe0',
+                          u'MMU_THDU_Q_TO_QGRP_MAP_PIPE2.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_6.mmu_xpe0',
+                          u'MMU_THDM_DB_QUEUE_CONFIG_PIPE3.mmu_xpe0']
+
+# Stop trying if stall has been detected for so many consecutive iterations
+# Combined with the test duration below. If we don't make progress for so
+# long, then we stop waiting.
+DEFAULT_STALL_INDICATION = 15
+DEFAULT_SER_TEST_TIME_SEC = 60
+DEFAULT_BATCH_SIZE=10
+
+# Print verbose output for debugging
+VERBOSE=False
 
 def run_cmd(cmd):
     '''
@@ -55,7 +100,7 @@ class BcmMemory():
 
     def get_memory_attributes(self, mem):
         '''
-        @summary: Reads Broadcom memory attributes using list command. Attributes include start address, flags, 
+        @summary: Reads Broadcom memory attributes using list command. Attributes include start address, flags,
                   number of entries, entry size in bytes and entry size in words. The method uses regex to parse
                   the command output since there is not SAI APIs for it.
         '''
@@ -98,7 +143,7 @@ class BcmMemory():
         cache_flag = False
         memories = stdout.decode("utf-8").split("\n")
 
-        # remove Head line and 3 trailing prompt lines 
+        # remove Head line and 3 trailing prompt lines
         memories = memories[1 : len(memories) - 3]
         for memory in memories:
             if memory.find("Caching is off") > -1:
@@ -115,6 +160,8 @@ class BcmMemory():
         for mem in self.cached_memory:
             self.cached_memory[mem] = self.get_memory_attributes(mem)
             self.memory_address[self.cached_memory[mem]['address']].append(mem)
+            if VERBOSE:
+                print('--- found cache memory {} : {} : {}'.format(mem, hex(self.cached_memory[mem]['address']), self.memory_address[self.cached_memory[mem]['address']]))
 
     def get_cached_memory(self):
         '''
@@ -131,28 +178,30 @@ class BcmMemory():
 class SerTest(object):
     '''
     @summary: SerTest conducts SER injection test on Broadcom ASIC. SER injection test use Broadcom SER injection
-              utility to insert SER into different memory tables. Before the SER injection, Broadcom mem/sram scanners 
+              utility to insert SER into different memory tables. Before the SER injection, Broadcom mem/sram scanners
               are started and syslog file location is marked. Subsequently, the test proceeeds into monitoring syslog
               for any SER correction taking place.
     '''
-    def __init__(self, test_time_sec = DEFAULT_SER_TEST_TIME_SEC, 
+    def __init__(self, test_time_sec = DEFAULT_SER_TEST_TIME_SEC,
                  ser_injection_interval_sec = DEFAULT_SER_INJECTION_INTERVAL_SEC,
                  syslog_poll_interval_sec = DEFAULT_SYSLOG_POLLING_INTERVAL_SEC,
-                 test_iteration = DEFAULT_TEST_ITERATION):
+                 stall_indication = DEFAULT_STALL_INDICATION):
         '''
         @summary: Class constructor
         '''
         self.syslog_poll_interval_sec = syslog_poll_interval_sec
         self.test_time_sec = test_time_sec
         self.ser_injection_interval_sec = ser_injection_interval_sec
-        self.test_iteration = test_iteration
+        self.stall_indication = stall_indication
+        self.test_candidates = []
         self.mem_verification_pending = []
         self.mem_verified = {}
         self.mem_failed = {}
         self.mem_ser_unsupported = []
+        self.miss_counts = {}
         self.bcmMemory = BcmMemory()
 
-    def test_memory(self):
+    def test_memory(self, completeness='basic'):
         '''
         @summary: perform SER memory test
         '''
@@ -161,26 +210,82 @@ class SerTest(object):
         global SRAM_SCAN_INTERVAL_USEC
         global SRAM_SCAN_ENTRIES
         global UNTESTABLE_MEMORY_TABLES
+        global CORRECTION_MISS_ALIGNS
 
         self.bcmMemory.read_memory()
-        self.mem_verification_pending = list(set(self.bcmMemory.get_cached_memory().keys()) - set(UNTESTABLE_MEMORY_TABLES))
+        if completeness == 'thorough':
+            self.test_candidates = list(set(self.bcmMemory.get_cached_memory().keys()) - set(UNTESTABLE_MEMORY_TABLES))
+        elif completeness == 'diagnose':
+            self.test_candidates = CORRECTION_MISS_ALIGNS
+        else:
+            self.test_candidates = list(set(self.bcmMemory.get_cached_memory().keys()) - set(UNTESTABLE_MEMORY_TABLES) - set(CORRECTION_MISS_ALIGNS))
+
+        if completeness == 'debug':
+            batch_size = min(1, len(self.test_candidates))
+            self.mem_verification_pending = random.sample(self.test_candidates, batch_size)
+        elif completeness == 'basic':
+            batch_size = min(DEFAULT_BATCH_SIZE, len(self.test_candidates))
+            self.mem_verification_pending = random.sample(self.test_candidates, batch_size)
+        else:
+            batch_size = min(DEFAULT_BATCH_SIZE, len(self.test_candidates))
+            # Still go through random to ramdomize the ordering
+            self.mem_verification_pending = random.sample(self.test_candidates, len(self.test_candidates))
 
         # Enable memory scan and sram scan once for all memories
         self.enable_mem_scan(MEMORY_SCAN_INTERVAL_USEC, MEMORY_SCAN_ENTRIES)
         self.enable_sram_scan(SRAM_SCAN_INTERVAL_USEC, SRAM_SCAN_ENTRIES)
 
         count = 0
-        while (count < self.test_iteration and len(self.mem_verification_pending) > 0):
+        stall = 0
+        # Test idea: initiaate small batches and wait for short timeout, until the test
+        #            is either done or stalled.
+        #            running test this way because:
+        #            - Injecting too many errors takes too long.
+        #            - Lots of memory name reported identical address. So chances are one
+        #              test will cover many memory names.
+        #            - Because the test is watching the syslog and take hit memory out of
+        #              the candidate list, so we could afford to use short timeout.
+        #            - As result of short timeout, we need to make sure we don't declare
+        #              stalling too fast.
+        #            - Increase batch size when stalling is detected. So that eventually,
+        #              all remaining memory will be tested in each iteration.
+        while (len(self.mem_verification_pending) > 0):
             count += 1
-            print("Test iteration no. %s" % count)
-            test_memory = list(self.mem_verification_pending)
-            del self.mem_verification_pending[:]
+            print("Test iteration {}, stalled {}, candidate(s) left {}".format(count, stall, len(self.mem_verification_pending)))
+            size_before = len(self.mem_verification_pending)
+            batch_size = min(batch_size, size_before)
+            test_memory = list(self.mem_verification_pending[0:batch_size])
             self.run_test(test_memory)
+            size_after = len(self.mem_verification_pending)
+            if size_before != size_after:
+                # No need to track misses until the stalling starts
+                self.miss_counts = {}
+                stall = 0
+            else:
+                stall = stall + 1
+                batch_size = min(len(self.mem_verification_pending), batch_size + DEFAULT_BATCH_SIZE) # Increase batch size when stall is detected
+                if stall >= self.stall_indication:
+                    if VERBOSE:
+                        print('--- stall detected. Stop testing')
+                    break
 
-        print("SER Test succeeded for memories (%s): %s" % (len(self.mem_verified), self.mem_verified))
+        if VERBOSE:
+            print("SER Test memories candidates (%s): %s" % (len(self.test_candidates), self.test_candidates))
+            print("SER Test succeeded for memories (%s): %s" % (len(self.mem_verified), self.mem_verified))
+            print("SER Test misaligned memories (%s): %s" % (len(CORRECTION_MISS_ALIGNS), CORRECTION_MISS_ALIGNS))
+        else:
+            print("SER Test memories candidates (%s)" % (len(self.test_candidates)))
+            print("SER Test succeeded for memories (%s)" % (len(self.mem_verified)))
         print("SER Test failed for memories (%s): %s" % (len(self.mem_failed), self.mem_failed))
         print("SER Test timed out for memories (%s): %s" % (len(self.mem_verification_pending), self.mem_verification_pending))
         print("SER Test is not supported for memories (%s): %s" % (len(self.mem_ser_unsupported), self.mem_ser_unsupported))
+
+        if VERBOSE:
+            print("--- found {} memory location(s) reported misaligned correction events ---".format(len(self.miss_counts)))
+            for address, count in self.miss_counts.items():
+                print("--- unknown address {} was triggered {} times".format(hex(address), count))
+
+        return len(self.mem_failed) + len(self.mem_verification_pending)
 
     def enable_memory_scan(self, cmd, interval_usec, rate):
         '''
@@ -195,7 +300,7 @@ class SerTest(object):
             if lines[1].find('mSCAN: Started on unit 0') > -1:
                 return
 
-        raise ValueError('Failed to start memory scanner: %s' % cmd) 
+        raise ValueError('Failed to start memory scanner: %s' % cmd)
 
     def enable_mem_scan(self, interval_usec, rate):
         '''
@@ -231,14 +336,24 @@ class SerTest(object):
         if address in memory:
             return memory[address], entry == mem_entry
 
+        if address in self.miss_counts:
+            self.miss_counts[address] = self.miss_counts[address] + 1
+        else:
+            self.miss_counts[address] = 1
+
+        if VERBOSE:
+            print("--- addr {} ({}) not found in dict: {} time(s)".format(hex(address), address, self.miss_counts[address]))
+
         return None, None
 
-    def inject_ser(self, mem, index = 0):
+    def inject_ser(self, mem, index = 0, tag = None):
         '''
         @summary: Inject SER error suing Broadcom ser inject command
         @param mem: name of the memory table to inject SER into
         @param index: index of the entry to inject SER into
         '''
+        if VERBOSE:
+            print('--- injecting error at {} index {} tag {}'.format(mem, index, tag))
         return run_cmd(["bcmcmd",  "ser inject memory=" + mem + " index=" + str(index)])
 
     def verify_and_update_test_result(self, entry, line):
@@ -268,7 +383,7 @@ class SerTest(object):
                     self.mem_verification_pending.remove(m)
                 else:
                     print("Memory %s appeared more than once" % m)
-        else:
+        elif VERBOSE:
             print("Memory corresponding to the following syslog was not found! Syslog: '%s'" % line)
 
     def run_test(self, memory, entry = 0):
@@ -280,8 +395,13 @@ class SerTest(object):
         with open('/var/log/syslog') as syslog_file:
             # mark current location of the syslog file
             syslog_file.seek(0, 2)
+            cnt = len(memory)
+            idx = 0
             for mem in memory:
-                stdout, stderr = self.inject_ser(mem)
+                idx = idx + 1
+                tag = '{} / {}'.format(idx, cnt)
+                self.mem_verification_pending.remove(mem)
+                stdout, stderr = self.inject_ser(mem, tag = tag)
                 if stdout.find('SER correction for it is not currently supported') > -1:
                     print("memory %s does not support ser" % mem)
                     self.mem_ser_unsupported.append(mem)
@@ -303,10 +423,22 @@ class SerTest(object):
                         break
 
 def main():
+    global VERBOSE
+
+    parser = argparse.ArgumentParser(description='Completeness level')
+    parser.add_argument('-c', '--completeness', help='Completeness level: debug, basic, confident, thorough, diagnose',
+                        type=str, required=False, default='basic',
+                        choices=['debug', 'basic', 'confident', 'thorough', 'diagnose'])
+    parser.add_argument('-v', '--verbose', help='Set verbose output', action='store_true', required=False, default=False)
+    args = parser.parse_args()
+
+    VERBOSE = args.verbose
+
     start_time = time.time()
     serTest = SerTest()
-    serTest.test_memory()
-    print("--- %s seconds ---" % (time.time() - start_time))
+    rc = serTest.test_memory(args.completeness)
+    print("--- %s seconds, rc %d ---" % ((time.time() - start_time), rc))
+    sys.exit(rc)
 
 if __name__ == "__main__":
     main()

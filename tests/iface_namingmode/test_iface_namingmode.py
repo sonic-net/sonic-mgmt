@@ -28,6 +28,7 @@ def setup(duthost):
     port_alias_facts = duthost.port_alias(hwsku=hwsku)['ansible_facts']
     up_ports = minigraph_facts['minigraph_ports'].keys()
     default_interfaces = port_alias_facts['port_name_map'].keys()
+    minigraph_portchannels = minigraph_facts['minigraph_portchannels']
 
     port_alias = list()
     port_name_map = dict()
@@ -48,9 +49,12 @@ def setup(duthost):
         duthost.command('redis-cli -n 4 HSET "PORT|{}" alias {}'.format(item, port_alias_new))
 
     upport_alias_list = [ port_name_map[item] for item in up_ports ]
+    portchannel_members = [ member for portchannel in minigraph_portchannels.values() for member in portchannel['members'] ]
+    physical_interfaces = [ item for item in up_ports if item not in portchannel_members ]
     setup_info = {
          'default_interfaces' : default_interfaces,
          'minigraph_facts' : minigraph_facts,
+         'physical_interfaces' : physical_interfaces,
          'port_alias' : port_alias,
          'port_name_map' : port_name_map,
          'port_alias_map' : port_alias_map,
@@ -115,8 +119,21 @@ def sample_intf(setup):
         sample_intf: a dictionary containing the alias, name and native
         speed of the test interface
     """
-    interface = sorted(setup['up_ports'])[0]
+    minigraph_interfaces = setup['minigraph_facts']['minigraph_interfaces']
     interface_info = dict()
+    interface_info['ip'] = None
+
+    if setup['physical_interfaces']:
+        interface = sorted(setup['physical_interfaces'])[0]
+        interface_info['is_portchannel_member'] = False
+        for item in minigraph_interfaces:
+            if (item['attachto'] == interface) and (IPAddress(item['addr']).version == 4):
+                interface_info['ip'] = item['subnet']
+                break
+    else:
+        interface = sorted(setup['up_ports'])[0]
+        interface_info['is_portchannel_member'] = True
+
     interface_info['default'] = interface
     interface_info['alias'] = setup['port_name_map'][interface]
     interface_info['native_speed'] = setup['port_speed'][interface_info['alias']]
@@ -246,7 +263,7 @@ class TestShowInterfaces():
         test_intf = sample_intf[mode]
         interface = sample_intf['default']
         interface_alias = sample_intf['alias']
-        regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
+        regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+[\w\/]+\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
 
         show_intf_status = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={0} show interfaces status {1} | grep -w {1}'.format(ifmode, test_intf))
         logger.info('show_intf_status:\n{}'.format(show_intf_status['stdout']))
@@ -543,11 +560,14 @@ class TestConfigInterface():
             None
         """
         interface = sample_intf['default']
+        interface_ip = sample_intf['ip']
         native_speed = sample_intf['native_speed']
 
         yield
 
-        duthost.shell('config interface ip add {} 10.0.0.0/31'.format(interface))
+        if interface_ip is not None:
+            duthost.shell('config interface ip add {} {}'.format(interface, interface_ip))
+
         duthost.shell('config interface startup {}'.format(interface))
         duthost.shell('config interface speed {} {}'.format(interface, native_speed))
 
@@ -557,9 +577,14 @@ class TestConfigInterface():
         adds/removes the ip on the test interface when its interface
         alias/name is provided as per the configured naming mode
         """
+        if sample_intf['ip'] is None:
+            pytest.skip('No L3 physical interface present')
+
         dutHostGuest, mode, ifmode = setup_config_mode
         test_intf = sample_intf[mode]
-        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface ip remove {} 10.0.0.0/31'.format(ifmode, test_intf))
+        test_intf_ip = sample_intf['ip']
+
+        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface ip remove {} {}'.format(ifmode, test_intf, test_intf_ip))
         if out['rc'] != 0:
             pytest.fail()
 
@@ -567,9 +592,9 @@ class TestConfigInterface():
         show_ip_intf = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ip interface'.format(ifmode))['stdout']
         logger.info('show_ip_intf:\n{}'.format(show_ip_intf))
 
-        assert re.search(r'{}\s+10.0.0.0/31'.format(test_intf), show_ip_intf) is None
+        assert re.search(r'{}\s+{}'.format(test_intf, test_intf_ip), show_ip_intf) is None
 
-        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface ip add {} 10.0.0.0/31'.format(ifmode, test_intf))
+        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface ip add {} {}'.format(ifmode, test_intf, test_intf_ip))
         if out['rc'] != 0:
             pytest.fail()
 
@@ -577,7 +602,7 @@ class TestConfigInterface():
         show_ip_intf = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ip interface'.format(ifmode))['stdout']
         logger.info('show_ip_intf:\n{}'.format(show_ip_intf))
 
-        assert re.search(r'{}\s+10.0.0.0/31'.format(test_intf), show_ip_intf) is not None
+        assert re.search(r'{}\s+{}'.format(test_intf, test_intf_ip), show_ip_intf) is not None
 
     def test_config_interface_state(self, setup_config_mode, sample_intf):
         """
@@ -589,7 +614,7 @@ class TestConfigInterface():
         dutHostGuest, mode, ifmode = setup_config_mode
         test_intf = sample_intf[mode]
         interface = sample_intf['default']
-        regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
+        regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+[\w\/]+\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface shutdown {}'.format(ifmode, test_intf))
         if out['rc'] != 0:
@@ -656,15 +681,17 @@ def test_show_acl_table(setup, setup_config_mode, testbed):
     if testbed['topo']['type'] != 't1':
         pytest.skip('Unsupported topology')
 
+    if not setup['physical_interfaces']:
+        pytest.skip('No non-portchannel member interface present')
+
     dutHostGuest, mode, ifmode = setup_config_mode
     minigraph_acls = setup['minigraph_facts']['minigraph_acls']
-    minigraph_portchannels = setup['minigraph_facts']['minigraph_portchannels']
 
     acl_table = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show acl table DATAACL'.format(ifmode))['stdout']
     logger.info('acl_table:\n{}'.format(acl_table))
 
     for item in minigraph_acls['DataAcl']:
-        if item not in minigraph_portchannels:
+        if item in setup['physical_interfaces']:
             if mode == 'alias':
                 assert setup['port_name_map'][item] in acl_table
             elif mode == 'default':
@@ -694,9 +721,12 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, testbed):
 class TestNeighbors():
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_check_topo(self, testbed):
+    def setup_check_topo(self, setup, testbed):
         if testbed['topo']['type'] != 't1':
             pytest.skip('Unsupported topology')
+
+        if not setup['physical_interfaces']:
+            pytest.skip('No non-portchannel member interface present')
 
     def test_show_arp(self, duthost, setup, setup_config_mode):
         """
@@ -705,12 +735,13 @@ class TestNeighbors():
         """
         dutHostGuest, mode, ifmode = setup_config_mode
         arptable = duthost.switch_arptable()['ansible_facts']['arptable']
+        minigraph_portchannels = setup['minigraph_facts']['minigraph_portchannels']
 
         arp_output = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show arp'.format(ifmode))['stdout']
         logger.info('arp_output:\n{}'.format(arp_output))
 
         for item in arptable['v4']:
-            if arptable['v4'][item]['interface'] != 'eth0':
+            if (arptable['v4'][item]['interface'] != 'eth0') and (arptable['v4'][item]['interface'] not in minigraph_portchannels):
                 if mode == 'alias':
                     assert re.search(r'{}.*\s+{}'.format(item, setup['port_name_map'][arptable['v4'][item]['interface']]), arp_output) is not None
                 elif mode == 'default':
@@ -723,22 +754,27 @@ class TestNeighbors():
         """
         dutHostGuest, mode, ifmode = setup_config_mode
         arptable = duthost.switch_arptable()['ansible_facts']['arptable']
+        minigraph_portchannels = setup['minigraph_facts']['minigraph_portchannels']
 
         ndp_output = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ndp'.format(ifmode))['stdout']
         logger.info('ndp:\n{}'.format(ndp_output))
 
         for item in arptable['v6']:
-            if (mode == 'alias') and (arptable['v6'][item]['interface'] in setup['port_alias']):
-                assert re.search(r'{}.*\s+{}'.format(item, setup['port_name_map'][arptable['v6'][item]['interface']]), ndp_output) is not None
-            elif (mode == 'default') and (arptable['v6'][item]['interface'] in setup['default_interfaces']):
-                assert re.search(r'{}.*\s+{}'.format(item, arptable['v6'][item]['interface']), ndp_output) is not None
+            if (arptable['v6'][item]['interface'] != 'eth0') and (arptable['v6'][item]['interface'] not in minigraph_portchannels):
+                if mode == 'alias':
+                    assert re.search(r'{}.*\s+{}'.format(item, setup['port_name_map'][arptable['v6'][item]['interface']]), ndp_output) is not None
+                elif mode == 'default':
+                    assert re.search(r'{}.*\s+{}'.format(item, arptable['v6'][item]['interface']), ndp_output) is not None
 
 class TestShowIP():
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_check_topo(self, testbed):
+    def setup_check_topo(self, setup, testbed):
         if testbed['topo']['type'] != 't1':
             pytest.skip('Unsupported topology')
+
+        if not setup['physical_interfaces']:
+            pytest.skip('No non-portchannel member interface present')
 
     @pytest.fixture(scope='class')
     def spine_ports(self, setup):
@@ -757,9 +793,12 @@ class TestShowIP():
         spine_ports['alias'] = list()
 
         for key, value in minigraph_neighbors.items():
-            if 'T2' in value['name']:
+            if (key in setup['physical_interfaces']) and ('T2' in value['name']):
                 spine_ports['interface'].append(key)
                 spine_ports['alias'].append(setup['port_name_map'][key])
+
+        if not spine_ports['interface']:
+            pytest.skip('No non-portchannel member interface present')
 
         logger.info('spine_ports:\n{}'.format(spine_ports))
         return spine_ports

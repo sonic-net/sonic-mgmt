@@ -24,6 +24,8 @@ def pytest_addoption(parser):
                      help='Warm reboot needs to be enabled or not')
     parser.addoption('--restore-time', action='store', type=int, default=3000,
                      help='PFC WD storm restore interval')
+    parser.addoption('--fake-storm', action='store', type=bool, default=True,
+                     help='Fake storm for most ports instead of using pfc gen')
 
 @pytest.fixture(scope="module")
 def setup_pfc_test(duthost, ptfhost, conn_graph_facts):

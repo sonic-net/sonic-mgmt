@@ -24,7 +24,7 @@
 # -e dut_name=str-msn2700-01 - the name of target dut
 # -e VM_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
 # -e ptf_ip=10.255.0.255/23 - the ip address and prefix of ptf container mgmt interface
-# -e ptf_ipv6=fec0::ffff:afa:1/64 - the ipv6 address and prefix of ptf container mgmt interface
+# -e ptf_ipv6=fec0::ffff:afa:a/64 - the ipv6 address and prefix of ptf container mgmt interface
 # -e topo=t0                 - the name of removed topo
 # -e ptf_imagename=docker-ptf - name of a docker-image which will be used for the ptf docker container
 # -e vm_type=veos|ceos
@@ -113,7 +113,7 @@
           set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
 
         - name: Extract VM names from the inventory
-          set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') }}
+          set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') | sort }}
 
         - name: Generate vm list of target VMs
           set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) }}

@@ -28,10 +28,23 @@ if (rc != SX_STATUS_SUCCESS):
     print >> sys.stderr, "Failed to open api handle.\nPlease check that SDK is running."
     sys.exit(errno.EACCES)
 
-# Get list of ports
-port_attributes_list = new_sx_port_attributes_t_arr(64)
+# Get number of ports
+port_attributes_list = new_sx_port_attributes_t_arr(0)
 port_cnt_p = new_uint32_t_p()
-uint32_t_p_assign(port_cnt_p, 64)
+uint32_t_p_assign(port_cnt_p, 0)
+
+rc = sx_api_port_device_get(handle, 1 , 0, port_attributes_list,  port_cnt_p)
+if (rc != SX_STATUS_SUCCESS):
+    print >> sys.stderr, "An error returned by sx_api_port_device_get."
+    sys.exit()
+port_cnt = uint32_t_p_value(port_cnt_p)
+
+print >> sys.stderr, "Got port count {}".format(port_cnt)
+
+# Get list of ports
+port_attributes_list = new_sx_port_attributes_t_arr(port_cnt)
+port_cnt_p = new_uint32_t_p()
+uint32_t_p_assign(port_cnt_p, port_cnt)
 
 rc = sx_api_port_device_get(handle, 1 , 0, port_attributes_list,  port_cnt_p)
 if (rc != SX_STATUS_SUCCESS):

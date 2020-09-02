@@ -6,6 +6,7 @@
 #
 # ARPTest
 # DHCPTest
+# DHCPTopoT1Test
 # LLDPTest
 # BGPTest
 # LACPTest
@@ -256,6 +257,41 @@ class ARPTest(PolicyTest):
                        hw_tgt='ff:ff:ff:ff:ff:ff')
 
         return packet
+
+# SONIC configuration has no packets to CPU for DHCP-T1 Topo
+class DHCPTopoT1Test(PolicyTest):
+    def __init__(self):
+        PolicyTest.__init__(self)
+        # T1 DHCP no packet to packet to CPU so police rate is 0
+        self.PPS_LIMIT_MIN = 0
+        self.PPS_LIMIT_MAX = 0
+
+    def runTest(self):
+        self.log("DHCPTopoT1Test")
+        self.run_suite()
+
+    def contruct_packet(self, port_number):
+        src_mac = self.my_mac[port_number]
+        packet = simple_udp_packet(pktlen=100,
+                          eth_dst='ff:ff:ff:ff:ff:ff',
+                          eth_src=src_mac,
+                          dl_vlan_enable=False,
+                          vlan_vid=0,
+                          vlan_pcp=0,
+                          dl_vlan_cfi=0,
+                          ip_src='0.0.0.0',
+                          ip_dst='255.255.255.255',
+                          ip_tos=0,
+                          ip_ttl=64,
+                          udp_sport=68,
+                          udp_dport=67,
+                          ip_ihl=None,
+                          ip_options=False,
+                          with_udp_chksum=True
+                          )
+
+        return packet
+
 
 # SONIC configuration has no policer limiting for DHCP
 class DHCPTest(NoPolicyTest):

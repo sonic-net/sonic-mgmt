@@ -1,10 +1,8 @@
-import sys
 import os
 import glob
 import json
 import tarfile
 import logging
-import time
 import string
 import re
 import getpass
@@ -17,8 +15,6 @@ import ipaddr as ipaddress
 
 from collections import defaultdict
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.fixtures.conn_graph_facts import fanout_graph_facts
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts_multi_duts
 from tests.common.devices import SonicHost, Localhost
 from tests.common.devices import PTFHost, EosHost, FanoutHost
 
@@ -35,7 +31,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.sanity_check',
                   'tests.common.plugins.custom_markers',
                   'tests.common.plugins.test_completeness',
-                  'tests.common.plugins.log_section_start')
+                  'tests.common.plugins.log_section_start',
+                  'tests.vxlan')
 
 
 class TestbedInfo(object):
@@ -199,32 +196,6 @@ def testbed(request):
     return tbinfo.testbed_topo[tbname]
 
 
-def disable_ssh_timout(dut):
-    '''
-    @summary disable ssh session on target dut
-    @param dut: Ansible host DUT
-    '''
-    logger.info('Disabling ssh time out on dut: %s' % dut.hostname)
-    dut.command("sudo sed -i 's/^ClientAliveInterval/#&/' /etc/ssh/sshd_config")
-    dut.command("sudo sed -i 's/^ClientAliveCountMax/#&/' /etc/ssh/sshd_config")
-
-    dut.command("sudo systemctl restart ssh")
-    time.sleep(5)
-
-
-def enable_ssh_timout(dut):
-    '''
-    @summary: enable ssh session on target dut
-    @param dut: Ansible host DUT
-    '''
-    logger.info('Enabling ssh time out on dut: %s' % dut.hostname)
-    dut.command("sudo sed -i '/^#ClientAliveInterval/s/^#//' /etc/ssh/sshd_config")
-    dut.command("sudo sed -i '/^#ClientAliveCountMax/s/^#//' /etc/ssh/sshd_config")
-
-    dut.command("sudo systemctl restart ssh")
-    time.sleep(5)
-
-
 @pytest.fixture(name="duthosts", scope="session")
 def fixture_duthosts(ansible_adhoc, testbed):
     """
@@ -246,20 +217,14 @@ def duthost(duthosts, request):
     @param duthosts: fixture to get DUT hosts
     @param request: request parameters for duthost test fixture
     '''
-    stop_ssh_timeout = getattr(request.session, "pause_ssh_timeout", None)
     dut_index = getattr(request.session, "dut_index", 0)
     assert dut_index < len(duthosts), \
         "DUT index '{0}' is out of bound '{1}'".format(dut_index,
                                                        len(duthosts))
 
     duthost = duthosts[dut_index]
-    if stop_ssh_timeout is not None:
-        disable_ssh_timout(duthost)
 
-    yield duthost
-
-    if stop_ssh_timeout is not None:
-        enable_ssh_timout(duthost)
+    return duthost
 
 @pytest.fixture(scope="module", autouse=True)
 def reset_critical_services_list(duthost):
@@ -369,6 +334,7 @@ def creds(duthost):
     groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
     files = glob.glob("../ansible/group_vars/all/*.yml")
+    files += glob.glob("../ansible/vars/*.yml")
     for group in groups:
         files += glob.glob("../ansible/group_vars/{}/*.yml".format(group))
     creds = {}
@@ -380,7 +346,13 @@ def creds(duthost):
             else:
                 logging.info("skip empty var file {}".format(f))
 
-    cred_vars = ["sonicadmin_user", "sonicadmin_password"]
+    cred_vars = [
+        "sonicadmin_user",
+        "sonicadmin_password",
+        "docker_registry_host",
+        "docker_registry_username",
+        "docker_registry_password"
+    ]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     for cred_var in cred_vars:
         if cred_var in creds:
