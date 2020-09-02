@@ -14,7 +14,8 @@ pytestmark = [
     pytest.mark.topology("t0")
 ]
 
-BGP_WAIT_TIMEOUT = 120
+BGP_WAIT_TIMEOUT = 240
+BGP_POLL_RATE = 10
 
 TESTING_STATUS = "Testing"
 CLEANUP_STATUS = "Cleanup"
@@ -67,9 +68,43 @@ def configure_dut(minigraph_facts, duthost, vnet_config, vnet_test_params):
         cleanup_dut_vnets(duthost, minigraph_facts, vnet_config)
         cleanup_vxlan_tunnels(duthost, vnet_test_params)
 
+        logger.info("Restarting BGP and waiting for BGP sessions")
         duthost.shell(RESTART_BGP_CMD)
+
+        if not wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, bgp_connected, duthost):
+            logger.warning("BGP sessions not up {} seconds after BGP restart, restoring with `config_reload`".format(BGP_WAIT_TIMEOUT))
+            duthost.shell(CONFIG_RELOAD_CMD)
     else:
         logger.info("Skipping cleanup")
+
+
+def get_bgp_neighbors(duthost):
+    """
+    Retrieve IPs of BGP neighbors
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        A Python list containing the IP addresses of all BGP neighbors as strings
+    """
+
+    # Match only IP addresses at the beginning of the line
+    # Only IP addresses of neighbors should be matched by this
+    bgp_neighbor_addr_regex = re.compile(r"^([0-9]{1,3}\.){3}[0-9]{1,3}")
+
+    bgp_summary = duthost.shell(SHOW_BGP_SUMMARY_CMD)["stdout"].split("\n")
+    logger.debug("BGP Summary: {}".format(bgp_summary))
+
+    bgp_neighbors = []
+
+    for line in bgp_summary:
+        matched = bgp_neighbor_addr_regex.match(line)
+
+        if matched:
+            bgp_neighbors.append(str(matched.group(0)))
+
+    return bgp_neighbors
 
 
 def bgp_connected(duthost):
@@ -80,33 +115,17 @@ def bgp_connected(duthost):
 
     Args:
         duthost: DUT host object
+
+    Returns:
+        True if BGP sessions are up, False otherwise
     """
 
-    bgp_summary = duthost.shell(SHOW_BGP_SUMMARY_CMD)["stdout"].split("\n")
-    logger.debug("BGP Summary: {}".format(bgp_summary))
-
-    # Match entire line containing BGP neighbor information such as:
-    # 10.0.0.1        4      64802    6419   10273        0    0    0 00:09:36         6400   ARISTA01T1
-    bgp_neighbor_regex = re.compile(r"^([0-9]{1,3}\.){3}[0-9]{1,3}.*")
-
-    bgp_neighbors = []
-
-    for line in bgp_summary:
-        matched = bgp_neighbor_regex.match(line)
-
-        if matched:
-            bgp_neighbors.append(str(matched.group(0)))
+    bgp_neighbors = get_bgp_neighbors(duthost)
 
     if not bgp_neighbors:
         return False
 
-    for neighbor in bgp_neighbors:
-        if neighbor.split()[9] != "6400":
-            return False
-
-    logger.info("BGP sessions up")
-
-    return True
+    return duthost.check_bgp_session_state(bgp_neighbors)
 
 
 def get_leaked_routes(duthost):
@@ -115,6 +134,9 @@ def get_leaked_routes(duthost):
 
     Args:
         duthost: DUT host object
+
+    Returns:
+        A defaultdict where each key is a BGP neighbor that has had routes leaked (formatted as "Neighbor <IP address>")to it and each value is a Python list of VNET routes (as strings) that were leaked to that neighbor. Neighbors that did not have routes leaked to them are not included.
     """
 
     vnet_routes = duthost.shell(SHOW_VNET_ROUTES_CMD)["stdout"].split("\n")
@@ -128,20 +150,7 @@ def get_leaked_routes(duthost):
         if any(char.isdigit() for char in line):
             vnet_prefixes.append(line.split()[1])
 
-    bgp_summary = duthost.shell(SHOW_BGP_SUMMARY_CMD)["stdout"].split("\n")
-    logger.debug("BGP Summary: {}".format(bgp_summary))
-
-    # Match only IP addresses at the beginning of the line
-    # Only IP addresses of neighbors should be matched by this
-    bgp_neighbor_addr_regex = re.compile(r"^([0-9]{1,3}\.){3}[0-9]{1,3}")
-
-    bgp_neighbors = []
-
-    for line in bgp_summary:
-        matched = bgp_neighbor_addr_regex.match(line)
-
-        if matched:
-            bgp_neighbors.append(str(matched.group(0)))
+    bgp_neighbors = get_bgp_neighbors(duthost)
 
     leaked_routes = defaultdict(list)
 
@@ -162,6 +171,10 @@ def test_vnet_route_leak(configure_dut, duthost):
     Gets a list of all VNET routes programmed to the DUT, and a list of all BGP neighbors
     Verifies that no VNET routes are being advertised to BGP neighbors
 
+    Restarts the BGP service and checks for leaked routes again
+
+    Performs `config reload` and checks for leaked routes again
+
     Args:
         configure_dut: Pytest fixture to prepare DUT for testing
         duthost: DUT host object
@@ -173,7 +186,7 @@ def test_vnet_route_leak(configure_dut, duthost):
     logger.info("Restarting BGP")
     duthost.shell(RESTART_BGP_CMD)
 
-    pytest_assert(wait_until(BGP_WAIT_TIMEOUT, 5, bgp_connected, duthost), BGP_ERROR_TEMPLATE.format(BGP_WAIT_TIMEOUT))
+    pytest_assert(wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, bgp_connected, duthost), BGP_ERROR_TEMPLATE.format(BGP_WAIT_TIMEOUT))
 
     leaked_routes = get_leaked_routes(duthost)
     pytest_assert(not leaked_routes, LEAKED_ROUTES_TEMPLATE.format(leaked_routes))
@@ -182,7 +195,7 @@ def test_vnet_route_leak(configure_dut, duthost):
     duthost.shell(CONFIG_SAVE_CMD)
     duthost.shell(CONFIG_RELOAD_CMD)
 
-    pytest_assert(wait_until(BGP_WAIT_TIMEOUT, 5, bgp_connected, duthost), BGP_ERROR_TEMPLATE.format(BGP_WAIT_TIMEOUT))
+    pytest_assert(wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, bgp_connected, duthost), BGP_ERROR_TEMPLATE.format(BGP_WAIT_TIMEOUT))
 
     leaked_routes = get_leaked_routes(duthost)
     pytest_assert(not leaked_routes, LEAKED_ROUTES_TEMPLATE.format(leaked_routes))
