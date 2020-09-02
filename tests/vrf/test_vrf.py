@@ -5,13 +5,11 @@ import Queue
 import yaml
 import json
 import random
-import re
 import logging
 
 from collections import OrderedDict
 from natsort import natsorted
 from netaddr import IPNetwork
-from functools import partial
 
 import pytest
 
@@ -19,7 +17,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
-
+from tests.common.reboot import reboot
 
 """
     During vrf testing, a vrf basic configuration need to be setup before any tests,
@@ -36,6 +34,8 @@ from tests.common.utilities import wait_until
 pytestmark = [
     pytest.mark.topology('any')
 ]
+
+logger = logging.getLogger(__name__)
 
 # global variables
 g_vars = {}
@@ -179,34 +179,34 @@ def finalize_warmboot(duthost, comp_list=None, retry=30, interval=5):
     for _ in range(retry):
         for comp in comp_list:
             state =  duthost.shell('/usr/bin/redis-cli -n 6 hget "WARM_RESTART_TABLE|{}" state'.format(comp), module_ignore_errors=True)['stdout']
-            logging.info("{} : {}".format(comp, state))
+            logger.info("{} : {}".format(comp, state))
             if EXP_STATE == state:
                 comp_list.remove(comp)
         if len(comp_list) == 0:
             break
         time.sleep(interval)
-        logging.info("Slept {} seconds!".format(interval))
+        logger.info("Slept {} seconds!".format(interval))
 
     return  comp_list
 
 def check_interface_status(duthost, up_ports):
     intf_facts = duthost.interface_facts(up_ports=up_ports)['ansible_facts']
     if len(intf_facts['ansible_interface_link_down_ports']) != 0:
-        logging.info("Some ports went down: {} ...".format(intf_facts['ansible_interface_link_down_ports']))
+        logger.info("Some ports went down: {} ...".format(intf_facts['ansible_interface_link_down_ports']))
         return False
     return True
 
 def check_bgp_peer_state(duthost, vrf, peer_ip, expected_state):
     peer_info = json.loads(duthost.shell("vtysh -c 'show bgp vrf {} neighbors {} json'".format(vrf, peer_ip))['stdout'])
 
-    logging.debug("Vrf {} bgp peer {} infos: {}".format(vrf, peer_ip, peer_info))
+    logger.debug("Vrf {} bgp peer {} infos: {}".format(vrf, peer_ip, peer_info))
 
     try:
         peer_state = peer_info[peer_ip].get('bgpState', 'Unknown')
-    except:
+    except Exception as e:
         peer_state = 'Unknown'
     if  peer_state != expected_state:
-        logging.info("Vrf {} bgp peer {} is {}, exptected {}!".format(vrf, peer_ip, peer_state, expected_state))
+        logger.info("Vrf {} bgp peer {} is {}, exptected {}!".format(vrf, peer_ip, peer_state, expected_state))
         return False
 
     return True
@@ -223,43 +223,6 @@ def check_bgp_facts(duthost, cfg_facts):
         result[(vrf, peer_ip)] = check_bgp_peer_state(duthost, vrf, peer_ip, expected_state='Established')
 
     return all(result.values())
-
-# FIXME later may move to "common.reboot"
-#
-# The reason to introduce a new 'reboot' here is due to
-# the difference of fixture 'localhost' between the two 'reboot' functions.
-#
-# 'common.reboot' request *ansible_fixtures.localhost*,
-# but here it request *common.devices.Localhost*.
-def reboot(duthost, localhost, timeout=120, basic_check=True):
-    duthost.shell("nohup reboot &")
-
-    dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).address
-
-    logging.info('waiting for dut to go down')
-    res = localhost.wait_for(host=dut_ip,
-                             port=22,
-                             state="stopped",
-                             delay=10,
-                             timeout=timeout,
-                             module_ignore_errors=True)
-    if res.is_failed:
-        raise Exception('DUT did not shutdown in {}s'.format(timeout))
-
-    logging.info('waiting for dut to startup')
-    res = localhost.wait_for(host=dut_ip,
-                             port=22,
-                             state="started",
-                             delay=10,
-                             timeout=timeout,
-                             module_ignore_errors=True)
-    if res.is_failed:
-        raise Exception('DUT did not startup in {}s'.format(timeout))
-
-    # Basic check after reboot
-    if basic_check:
-        assert wait_until(timeout, 10, duthost.critical_services_fully_started), \
-               "All critical services should fully started!{}".format(duthost.critical_services)
 
 def setup_vrf_cfg(duthost, localhost, cfg_facts):
     '''
@@ -290,25 +253,11 @@ def setup_vrf_cfg(duthost, localhost, cfg_facts):
 
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
 
-    # backup config_db.json
-    duthost.shell("mv /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
-
     duthost.template(src="vrf/vrf_config_db.j2", dest="/tmp/config_db_vrf.json")
     duthost.shell("cp /tmp/config_db_vrf.json /etc/sonic/config_db.json")
 
-    # FIXME use a better way to load config
     reboot(duthost, localhost)
 
-def cleanup_vrf_cfg(duthost, localhost):
-    '''
-    teardown after test suite
-    '''
-    # recover config_db.json
-    duthost.shell("cp /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
-    duthost.shell("rm /etc/sonic/config_db.json.bak")
-
-    # FIXME use a better way to load config
-    reboot(duthost, localhost)
 
 def setup_vlan_peer(duthost, ptfhost, cfg_facts):
     '''
@@ -396,44 +345,75 @@ def host_facts(duthost):
 def cfg_facts(duthost):
     return get_cfg_facts(duthost)
 
+def restore_config_db(localhost, duthost, ptfhost):
+    # In case something went wrong in previous reboot, wait until the DUT is accessible to ensure that
+    # the `mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json` is executed on DUT.
+    # If the DUT is still inaccessible after timeout, we may have already lose the DUT. Something sad happened.
+    localhost.wait_for(host=g_vars["dut_ip"],
+                        port=22,
+                        state='started',
+                        search_regex='OpenSSH_[\\w\\.]+ Debian',
+                        timeout=180)   # Similiar approach to increase the chance that the next line get executed.
+    duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
+    reboot(duthost, localhost)
+
+    if 'vlan_peer_vrf2ns_map' in g_vars:
+        cleanup_vlan_peer(ptfhost, g_vars['vlan_peer_vrf2ns_map'])
+
 @pytest.fixture(scope="module", autouse=True)
 def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
-    ## Setup dut
-    duthost.critical_services = ["swss", "syncd", "database", "teamd", "bgp"]  # Don't care about 'pmon' and 'lldp' here
-    cfg_t0 = get_cfg_facts(duthost)  # generate cfg_facts for t0 topo
 
-    setup_vrf_cfg(duthost, localhost, cfg_t0)
-
-    cfg_facts = get_cfg_facts(duthost)  # generate cfg_facts for t0-vrf topo, should not use cfg_facts fixture here.
-
-    duthost.shell("sonic-clear arp")
-    duthost.shell("sonic-clear nd")
-    duthost.shell("sonic-clear fdb all")
+    # backup config_db.json
+    duthost.shell("mv /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
 
     ## Setup global variables
     global g_vars
 
-    with open("../ansible/vars/topo_{}.yml".format(testbed['topo']['name']), 'r') as fh:
-        g_vars['topo_properties'] = yaml.safe_load(fh)
+    try:
+        ## Setup dut
+        g_vars["dut_ip"] = duthost.host.options["inventory_manager"].get_host(duthost.hostname).vars["ansible_host"]
+        duthost.critical_services = ["swss", "syncd", "database", "teamd", "bgp"]  # Don't care about 'pmon' and 'lldp' here
+        cfg_t0 = get_cfg_facts(duthost)  # generate cfg_facts for t0 topo
 
-    g_vars['props'] = g_vars['topo_properties']['configuration_properties']['common']
+        setup_vrf_cfg(duthost, localhost, cfg_t0)
 
-    g_vars['vlan_peer_ips'], g_vars['vlan_peer_vrf2ns_map'] = setup_vlan_peer(duthost, ptfhost, cfg_facts)
+        # Generate cfg_facts for t0-vrf topo, should not use cfg_facts fixture here. Otherwise, the cfg_facts
+        # fixture will be executed before setup_vrf and will have the original non-VRF config facts.
+        cfg_facts = get_cfg_facts(duthost)
 
-    g_vars['vrf_intfs'] = get_vrf_intfs(cfg_facts)
+        duthost.shell("sonic-clear arp")
+        duthost.shell("sonic-clear nd")
+        duthost.shell("sonic-clear fdb all")
 
-    g_vars['vrf_intf_member_port_indices'], g_vars['vrf_member_port_indices'] = get_vrf_ports(cfg_facts)
+        with open("../ansible/vars/topo_{}.yml".format(testbed['topo']['name']), 'r') as fh:
+            g_vars['topo_properties'] = yaml.safe_load(fh)
 
+        g_vars['props'] = g_vars['topo_properties']['configuration_properties']['common']
+
+        g_vars['vlan_peer_ips'], g_vars['vlan_peer_vrf2ns_map'] = setup_vlan_peer(duthost, ptfhost, cfg_facts)
+
+        g_vars['vrf_intfs'] = get_vrf_intfs(cfg_facts)
+
+        g_vars['vrf_intf_member_port_indices'], g_vars['vrf_member_port_indices'] = get_vrf_ports(cfg_facts)
+
+    except Exception as e:
+        # Ensure that config_db is restored.
+        # If exception is raised in setup, the teardown code won't be executed. That's why we need to capture
+        # exception and do cleanup here in setup part (code before 'yield').
+        logger.error("Exception raised in setup: {}".format(repr(e)))
+        logger.error(json.dumps(traceback.format_exception(*sys.exc_info()), indent=2))
+
+        restore_config_db(localhost, duthost, ptfhost)
+
+        # Setup failed. There is no point to continue running the cases.
+        pytest.fail("VRF testing setup failed")    # If this line is hit, script execution will stop here
 
     # --------------------- Testing -----------------------
     yield
 
-
     # --------------------- Teardown -----------------------
+    restore_config_db(localhost, duthost, ptfhost)
 
-    cleanup_vlan_peer(ptfhost, g_vars['vlan_peer_vrf2ns_map'])
-
-    cleanup_vrf_cfg(duthost, localhost)
 
 @pytest.fixture
 def partial_ptf_runner(request, ptfhost, testbed, host_facts):
@@ -924,15 +904,15 @@ class TestVrfWarmReboot():
 
         # send background traffic
         traffic_in_bg.start()
-        logging.info("Start transmiting packets...")
+        logger.info("Start transmiting packets...")
 
         # start swss warm-reboot
         duthost.shell("service swss restart")
-        logging.info("Warm reboot swss...")
+        logger.info("Warm reboot swss...")
 
         # wait until background traffic finished
         traffic_in_bg.join()
-        logging.info("Transmit done.")
+        logger.info("Transmit done.")
 
         passed = True
         if exc_que.qsize() != 0:
@@ -966,15 +946,15 @@ class TestVrfWarmReboot():
 
         # send background traffic
         traffic_in_bg.start()
-        logging.info("Start transmiting packets...")
+        logger.info("Start transmiting packets...")
 
         # start system warm-reboot
-        duthost.shell("nohup warm-reboot >/dev/null 2>&1 &")
-        logging.info("Warm reboot ...")
+        logger.info("Warm reboot ...")
+        reboot(duthost, localhost, reboot_type="warm")
 
         # wait until background traffic finished
         traffic_in_bg.join()
-        logging.info("Transmit done.")
+        logger.info("Transmit done.")
 
         passed = True
         if exc_que.qsize() != 0:

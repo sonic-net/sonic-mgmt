@@ -112,7 +112,7 @@ class TestWatchdogApi(PlatformApiTestBase):
         if self.expect(remaining_time is not None, "Failed to get the remaining time of watchdog"):
             self.expect(remaining_time is -1, "Watchdog remaining_time {} seconds is wrong for disarmed state".format(remaining_time))
 
-        res = localhost.wait_for(host=duthost.hostname, port=22, state="stopped", delay=5, timeout=watchdog_timeout + TIMEOUT_DEVIATION, module_ignore_errors=True)
+        res = localhost.wait_for(host=duthost.mgmt_ip, port=22, state="stopped", delay=5, timeout=watchdog_timeout + TIMEOUT_DEVIATION, module_ignore_errors=True)
 
         self.expect('Timeout' in res.get('msg', ''), "unexpected disconnection from dut")
         self.assert_expectations()

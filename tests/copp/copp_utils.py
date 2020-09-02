@@ -14,6 +14,9 @@ _UPDATE_COPP_SCRIPT = "copp/scripts/update_copp_config.py"
 _BASE_COPP_CONFIG = "/tmp/00-copp.config.json"
 _SWSS_COPP_CONFIG = "swss:/etc/swss/config.d/00-copp.config.json"
 _TEMP_COPP_CONFIG = "/tmp/copp_config.json"
+_TEMP_COPP_TEMPLATE = "/tmp/copp.json.j2"
+_COPP_TEMPLATE_PATH = "/usr/share/sonic/templates/copp.json.j2"
+_SWSS_COPP_TEMPLATE = "swss:" + _COPP_TEMPLATE_PATH
 
 _PTF_NN_TEMPLATE = "templates/ptf_nn_agent.conf.ptf.j2"
 _PTF_NN_DEST = "/etc/supervisor/conf.d/ptf_nn_agent.conf"
@@ -38,6 +41,12 @@ def limit_policer(dut, pps_limit):
                                         _BASE_COPP_CONFIG, _TEMP_COPP_CONFIG))
     dut.command("docker cp {} {}".format(_TEMP_COPP_CONFIG, _SWSS_COPP_CONFIG))
 
+    # As copp config is regenerated each time swss starts need to replace the template with
+    # config updated above. But before doing that need store the original template in a temporary file
+    # for restore after test.
+    dut.command("docker cp {} {}".format(_SWSS_COPP_TEMPLATE, _TEMP_COPP_TEMPLATE))
+    dut.command("docker cp {} {}".format(_TEMP_COPP_CONFIG, _SWSS_COPP_TEMPLATE))
+
 def restore_policer(dut):
     """
         Reloads the default COPP configuration in the SWSS container.
@@ -47,7 +56,8 @@ def restore_policer(dut):
 
             The SWSS container must be restarted for the config change to take effect.
     """
-    dut.command("docker cp {} {}".format(_BASE_COPP_CONFIG, _SWSS_COPP_CONFIG))
+    # Restore the copp template in swss 
+    dut.command("docker cp {} {}".format(_TEMP_COPP_TEMPLATE, _SWSS_COPP_TEMPLATE))
 
 def configure_ptf(ptf, nn_target_port):
     """
