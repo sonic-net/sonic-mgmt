@@ -4,10 +4,10 @@ import logging
 import warnings
 
 class CompletenessLevel(enum.IntEnum):
-    debug = 1 # Minimum execution
-    basic = 2
-    confident = 3
-    thorough = 4 # Maximum execution 
+    debug = 0 # Minimum execution
+    basic = 1
+    confident = 2
+    thorough = 3 # Maximum execution
     diagnose = 100 # diagnose is an unordered level. INT value 100 is assigned for simplicity reasons
 
     @classmethod
