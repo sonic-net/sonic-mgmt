@@ -1,0 +1,28 @@
+- name: Set ansible login user name and password
+  set_fact: ansible_user="cisco" ansible_password={{ iosxr_root_password }}
+
+- name: Set EOS backplane port name
+  set_fact: bp_ifname="GigabitEthernet0/0/0/9"
+
+- name: for idempotency, use full-form commands
+  iosxr_config:
+    lines:
+      - no shutdown
+    parents: interface GigabitEthernet0/0/0/0
+
+- name: update startup-config
+  template: src="{{ topo }}-{{ props.swrole }}.j2"
+            dest=startup.cfg
+  when: hostname in configuration
+
+- name: Give insecure permissions to an existing file
+  file:
+    path: startup.cfg
+    mode: '1777'
+
+- name: load a config from disk and replace the current config
+  iosxr_config:
+    src: startup.cfg
+    replace: config
+    backup: yes
+
