@@ -63,6 +63,8 @@ example-ixia,vms6-1,t0-64,docker-keysight-api-server,example-ixia-ptf-1,10.0.0.3
 Note that it's mandatory to name the image "docker-keysight-api-server", as that triggers the Ixia IxNetwork API server deployment.
 Much like the PTF docker image, this image will be pulled from the configured docker registry.
 
+Also, topologies with the Keysight API server will not be using any VMs.
+
 The most recent IxNetwork API Server docker image can be found [here](http://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/9.00_Update-3/Ixia_IxNetworkWeb_Docker_9.00.100.213.tar.bz2).
 See also the [Ixia software download](https://support.ixiacom.com/public/support-overview/product-support/downloads-updates/versions/68) page for any newer versions.
 
