@@ -198,7 +198,7 @@ def _setup_testbed(dut, creds, ptf, test_params):
         if output["stdout"] == "copp":
             http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
             https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
-            import pdb; pdb.set_trace()
+
             cmd = '''docker exec -e http_proxy={} -e https_proxy={} syncd bash -c " \
                     apt-get update \
                     && apt-get install -y python-pip build-essential libssl-dev python-dev wget cmake \
