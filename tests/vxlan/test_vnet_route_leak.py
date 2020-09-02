@@ -63,7 +63,11 @@ def configure_dut(minigraph_facts, duthost, vnet_config, vnet_test_params):
         duthost.shell(RESTORE_CONFIG_DB_CMD)
         duthost.shell(DELETE_BACKUP_CONFIG_DB_CMD)
 
-        duthost.shell(CONFIG_RELOAD_CMD)
+        cleanup_vnet_routes(duthost, vnet_test_params)
+        cleanup_dut_vnets(duthost, minigraph_facts, vnet_config)
+        cleanup_vxlan_tunnels(duthost, vnet_test_params)
+
+        duthost.shell(RESTART_BGP_CMD)
     else:
         logger.info("Skipping cleanup")
 
