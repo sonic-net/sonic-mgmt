@@ -15,6 +15,14 @@
       - [Test Objective](#test-objective-1)
       - [Test Configuration](#test-configuration-1)
       - [Test Steps](#test-steps-1)
+
+| Rev |     Date       |       Author         | Change Description               |
+|:---:|:---------------|:---------------------|:-----------------------------------|
+| 0.1 |        Sep-02-2020     | Wei Bai, Microsoft<br>                           Suvendu Mozumdar, Keysight     | Initial version of test plan                 |
+|
+
+
+
 ## Overview
 
 Explicit Congestion Notification (ECN) allows end-to-end notification of network congestion without dropping packets. ECN is an optional feature that may be used between two ECN-enabled endpoints when the underlying network infrastructure also supports it.
@@ -24,7 +32,7 @@ Conventionally, TCP/IP networks signal congestion by dropping packets. When ECN 
 Commodity switches typically use Random Early Detection (RED) algorithm to perform ECN marking. RED algorithm has at least three parameters: the minimum threshold Kmin, the maximum threshold Kmax, and the maximum marking (or dropping) probability Pmax. When the instantaneous queue length is smaller than the minimum marking threshold, the marking probability is 0%. When the instantaneous queue length is larger than the maximum marking threshold, the marking probability is 100%. Otherwise, the marking probability varies as ((queue_length - Kmin) / (Kmax - Kmin)) * Pmax. The figure below describes the theoretical ECN marking probability as a function of queue length.
 
 
-  ![](image/RED_ECN_marking_algorithm.png)
+  ![](image/RED_ECN_marking_algorithm.PNG)
 
 
 Commodity switches can run RED at ingress (enqueue packet to the switch buffer) or egress (dequeue packet from the switch buffer). Compared to ingress RED/ECN, egress RED/ECN can achieve lower feedback delay.
