@@ -138,9 +138,8 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
         ".*ERR monit.*'lldp_syncd' process is not running",
         ".*snmp#snmp-subagent.*",
     ]
-    loganalyzer.ignore_regex.extend(ignoreRegex)
-
-    yield
+    if loganalyzer:  # Skip if loganalyzer is disabled
+        loganalyzer.ignore_regex.extend(ignoreRegex)
 
 def _copp_runner(dut, ptf, protocol, test_params, dut_type):
     """
