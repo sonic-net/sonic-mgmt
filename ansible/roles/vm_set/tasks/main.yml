@@ -234,9 +234,7 @@
 
     - name: Renumber topology
       include_tasks: renumber_topo.yml
-      when:
-        - action == 'renumber_topo'
-        - container_type is defined and container_type == "PTF"
+      when: action == 'renumber_topo'
 
   when: vm_required is defined and vm_required == True
 
