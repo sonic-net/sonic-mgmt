@@ -159,12 +159,10 @@
 - name: Require VMs by default
   set_fact:
     vm_required: true
-    container_type: "PTF"
 
 - name: VMs not needed in case of Keysight API Server
   set_fact:
     vm_required: false
-    container_type: "API-SERVER"
   when:
     - ptf_imagename is defined
     - ptf_imagename == "docker-keysight-api-server"
