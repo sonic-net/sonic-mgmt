@@ -117,6 +117,33 @@ def configure_syncd(dut, nn_target_port):
     dut.command("docker exec syncd supervisorctl reread")
     dut.command("docker exec syncd supervisorctl update")
 
+def update_syncd(dut, creds):
+    """
+        Update syncd container with new packages.
+
+        Args:
+            dut (SonicHost): The target device.
+            creds (dict): Credential information according to the dut inventory
+    """
+
+    output = dut.command("docker exec syncd bash -c '[ -d /usr/local/include/nanomsg ] || echo copp'")
+
+    if output["stdout"] == "copp":
+        http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
+        https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
+
+        cmd = '''docker exec -e http_proxy={} -e https_proxy={} syncd bash -c " \
+                apt-get update \
+                && apt-get install -y python-pip build-essential libssl-dev python-dev wget cmake \
+                && wget https://github.com/nanomsg/nanomsg/archive/1.0.0.tar.gz \
+                && tar xvfz 1.0.0.tar.gz && cd nanomsg-1.0.0 \
+                && mkdir -p build && cmake . && make install && ldconfig && cd .. && rm -fr nanomsg-1.0.0 \
+                && rm -f 1.0.0.tar.gz && pip install cffi==1.7.0 && pip install --upgrade cffi==1.7.0 && pip install nnpy \
+                && mkdir -p /opt && cd /opt && wget https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
+                && mkdir ptf && cd ptf && wget https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
+                " '''.format(http_proxy, https_proxy)
+        dut.command(cmd)
+
 def _map_port_number_to_interface(dut, nn_target_port):
     """
         Retrieves the correct interface for a given port number.

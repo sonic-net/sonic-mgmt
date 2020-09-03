@@ -23,7 +23,10 @@
             Default is 100000.
 
         --copp_swap_syncd: Used to install the RPC syncd image before running the tests. Default
-            is enabled.
+            is disabled.
+
+        --update_syncd: Used to update packages of syncd container before running the tests.
+            Default is disabled
 """
 
 import logging
@@ -49,7 +52,8 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "pkt_tx_count",
                                   "swap_syncd",
                                   "topo",
-                                  "bgp_graph"])
+                                  "bgp_graph",
+                                  "update_syncd"])
 _SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
 _SUPPORTED_T1_TOPOS = ["t1", "t1-lag"]
 _TOR_ONLY_PROTOCOL = ["DHCP"]
@@ -178,12 +182,14 @@ def _gather_test_params(testbed, duthost, request):
     nn_target_port = request.config.getoption("--nn_target_port")
     pkt_tx_count = request.config.getoption("--pkt_tx_count")
     swap_syncd = request.config.getoption("--copp_swap_syncd")
+    update_syncd = request.config.getoption("--update_syncd")
     topo = testbed["topo"]["name"]
     bgp_graph = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]["minigraph_bgp"]
 
     return _COPPTestParameters(nn_target_port=nn_target_port,
                                pkt_tx_count=pkt_tx_count,
                                swap_syncd=swap_syncd,
+                               update_syncd=update_syncd,
                                topo=topo,
                                bgp_graph=bgp_graph)
 
@@ -192,24 +198,9 @@ def _setup_testbed(dut, creds, ptf, test_params):
         Sets up the testbed to run the COPP tests.
     """
 
-    if dut.facts['asic_type'] in ["barefoot"]:
-        output = dut.command("docker exec syncd bash -c '[ -d /usr/local/include/nanomsg ] || echo copp'")
-
-        if output["stdout"] == "copp":
-            http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
-            https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
-
-            cmd = '''docker exec -e http_proxy={} -e https_proxy={} syncd bash -c " \
-                    apt-get update \
-                    && apt-get install -y python-pip build-essential libssl-dev python-dev wget cmake \
-                    && wget https://github.com/nanomsg/nanomsg/archive/1.0.0.tar.gz \
-                    && tar xvfz 1.0.0.tar.gz && cd nanomsg-1.0.0 \
-                    && mkdir -p build && cmake . && make install && ldconfig && cd .. && rm -fr nanomsg-1.0.0 \
-                    && rm -f 1.0.0.tar.gz && pip install cffi==1.7.0 && pip install --upgrade cffi==1.7.0 && pip install nnpy \
-                    && mkdir -p /opt && cd /opt && wget https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
-                    && mkdir ptf && cd ptf && wget https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
-                    " '''.format(http_proxy, https_proxy)
-            dut.command(cmd)
+    if test_params.update_syncd:
+        logging.info("Update syncd container")
+        copp_utils.update_syncd(dut, creds)
 
     logging.info("Disable LLDP for COPP tests")
     dut.command("docker exec lldp supervisorctl stop lldp-syncd")

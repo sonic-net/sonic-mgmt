@@ -25,8 +25,14 @@ def pytest_addoption(parser):
 
     parser.addoption(
         "--copp_swap_syncd",
-        action="store",
-        type=bool,
+        action="store_true",
         default=False,
         help="Swap syncd container with syncd-rpc container",
+    )
+
+    parser.addoption(
+        "--update_syncd",
+        action="store_true",
+        default=False,
+        help="Update configuratoin of syncd container",
     )
