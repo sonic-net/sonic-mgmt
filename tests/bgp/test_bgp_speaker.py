@@ -98,9 +98,8 @@ def common_setup_teardown(duthost, ptfhost, localhost):
     logging.info("setup ip/routes in ptf")
     for i in [0, 1, 2]:
         ptfhost.shell("ip -6 addr add %s dev eth%d:%d" % (nexthops_ipv6[i], vlan_ports[0], i))
-    # Set ipv6 nexthop addresses on the ptf interfaces
-    duthost.command("ip -6 route flush %s" % vlan_ipv6_prefix)
-    duthost.command("ip -6 route add %s dev %s" % (vlan_ipv6_prefix, vlan_if_name))
+
+    # Issue a ping command to populate entry for next_hop
     for nh in nexthops_ipv6:
         duthost.shell("ping6 %s -c 3" % nh.ip)
 
@@ -156,15 +155,12 @@ def common_setup_teardown(duthost, ptfhost, localhost):
         ptfhost.exabgp(name="bgps%d" % i, state="absent")
     logging.info("exabgp stopped")
 
-    for nh in nexthops_ipv6:
-        duthost.command("ip -6 route flush %s/64" % nh.ip)
-    logging.info("Flushed ipv6 nexthop routes from dut")
-
     for ip in vlan_ips:
         duthost.command("ip route flush %s/32" % ip.ip, module_ignore_errors=True)
 
     duthost.command("sonic-clear arp")
     duthost.command("sonic-clear fdb all")
+    duthost.command("ip -6 neigh flush all")
 
     logging.info("########### Done teardown for bgp speaker testing ###########")
 
