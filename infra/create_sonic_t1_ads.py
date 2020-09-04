@@ -34,7 +34,7 @@ def _create_parser():
                       required=True,default=None)
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
                       required=False,default="YourPaSsWoRd")
-    parser.add_argument('-p', '--dut_uname', type=str, help='Dut username, when it is different from admin',
+    parser.add_argument('-u', '--dut_uname', type=str, help='Dut username, when it is different from admin',
                       required=False,default="admin")
     parser.add_argument('-n', '--vEOS_count', type=int, help='Number of vEOS vm',
                       required=False,default=32)
