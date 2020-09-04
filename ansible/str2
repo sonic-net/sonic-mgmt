@@ -13,8 +13,6 @@ all:
         ansible_ssh_user: root
         ansible_ssh_pass: root
       hosts:
-        vms12-9:
-          ansible_host: 10.64.246.118
         v17-1:
           ansible_host: 10.64.246.105
         vms17-2:
@@ -23,6 +21,8 @@ all:
           ansible_host: 10.64.246.107
         vms17-4:
           ansible_host: 10.64.246.58
+        vms17-5:
+          ansible_host: 10.64.246.118
 
 fanout:
   hosts:
