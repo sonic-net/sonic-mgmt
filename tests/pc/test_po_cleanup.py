@@ -23,10 +23,7 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     # when loganalyzer is disabled, the object could be None
     if loganalyzer:
         ignoreRegex = [
-            ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*",
-            ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs, bug.*",
-            ".*ERR syncd#syncd: :- translate_vid_to_rid: unable to get RID for VID.*",
-            ".*ERR swss#orchagent: :- removeLag.*",
+            ".*",
         ]
         loganalyzer.ignore_regex.extend(ignoreRegex)
         expectRegex = [
