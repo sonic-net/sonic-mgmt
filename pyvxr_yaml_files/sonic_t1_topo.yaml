@@ -1,9 +1,6 @@
 simulation:
-  sim_rel: /auto/vxr/vxr2_user/vxr2_2925_pvt_kbanawa
-  sim_flags:
-    - -k ConfigEnableNgdp=true
-    - -k ConfigLeabaSdkVer=1.29.0
-    - -k ConfigNgdpLibName=/auto/vxr1/kbanawa/sonic/libngdp.so
+  sim_rel: /auto/vxr/vxr2_user/vxr2_npsuite_1.61.1
+  sim_flags: [-k ConfigLeabaSdkVer=1.32.0 -k ConfigDsimNplPath=/ws/balajib-sjc/b2b_ping_issue/npl -k ConfigNpsuiteVer=1.61.1]
   slurm_flags:
     hours: 120
     cores: 80
@@ -25,7 +22,7 @@ devices:
     os_type: sonic
     xr_port_redir: [22]
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/sonic-cisco-8000.bin.test
+    onie-install: http://172.29.93.10/sonic-images/pevenkat/sonic-cisco-8000-sfd.bin
     linecard_versions: [p7]
     linux_username: admin
     linux_password: YourPaSsWoRd
