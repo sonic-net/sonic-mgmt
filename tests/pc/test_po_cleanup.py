@@ -35,8 +35,6 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
         ]
         loganalyzer.expect_regex.extend(expectRegex)
 
-    yield
-
 
 def check_kernel_po_interface_cleaned(duthost):
     res = duthost.shell("ip link show | grep -c PortChannel",  module_ignore_errors=True)["stdout_lines"][0].decode("utf-8")
