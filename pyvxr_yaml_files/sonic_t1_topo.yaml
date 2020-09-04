@@ -21,6 +21,8 @@ devices:
     platform: spitfire_f
     os_type: sonic
     xr_port_redir: [22]
+    linux_username: "cisco"
+    linux_password: "cisco123"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     onie-install: http://172.29.93.10/sonic-images/pevenkat/sonic-cisco-8000-sfd.bin
     linecard_versions: [p7]

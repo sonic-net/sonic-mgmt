@@ -31,7 +31,9 @@ def _create_parser():
     parser.add_argument('-i', '--input_file', type=str, help='Input port file',
                       required=False,default=None)
     parser.add_argument('-t', '--topo_yaml', type=str, help='topo yaml file',
-                      required=False,default=None)
+                      required=True,default=None)
+    parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
+                      required=False,default="YourPaSsWoRd")
     parser.add_argument('-n', '--vEOS_count', type=int, help='Number of vEOS vm',
                       required=False,default=32)
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
@@ -143,11 +145,11 @@ def create_testbed_file(data):
         yaml.dump(tdata,f)
         f.close()
 
-def change_dut_passwd(data):
+def change_dut_passwd(data,dut_passwd="YourPaSsWoRd"):
     host = data['sonic_dut']['HostAgent']
     port = data['sonic_dut']['xr_redir22']
     user = "admin"
-    passwd = "YourPaSsWoRd"
+    passwd = dut_passwd
     #passwd = "cisco123"
     new_passwd = "cisco123"
     mgmt_ip = data['sonic_dut']['xr_mgmt_ip']
@@ -396,6 +398,7 @@ def main():
     args = vars(argparser.parse_args())
     topo_yaml = args['topo_yaml']
     clean_sim = args['clean_sim']
+    dut_passwd = args['dut_passwd']
     if clean_sim:
         os.system("/auto/vxr/pyvxr/pyvxr-0.6.2/vxr.py --cmd clean")
     os.system("cp /ws/pevenkat-sjc/sonic/sonic_t1_topo/* .")
@@ -425,7 +428,7 @@ def main():
 
     # Change DUT password and set mgmt ip address
     print("********** Change DUT password and set mgmt ip address ***********")
-    change_dut_passwd(data)
+    change_dut_passwd(data,dut_passwd)
 
     # Start docker container, deploy DUT minigraph
     print("********** Start docker container, deploy DUT minigraph ***********")
