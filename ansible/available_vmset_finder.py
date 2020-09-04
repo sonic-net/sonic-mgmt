@@ -17,9 +17,10 @@ Usage:
 
 Arguments:
    -t <topo_name>
+   -i <inventory file hosting the DUT>
 
 Optional args:
-   -i <testbed file to parse>  default: testbed.csv
+   -f <testbed file to parse>  default: testbed.csv
    -v <vm info file>            default: veos
 
 Return:
@@ -27,7 +28,7 @@ Return:
 '''
 
 TOPO_PATH = 'vars/'
-        
+
 
 def build_topo_vmcnt():
     topo_vm_cnt = dict()
@@ -44,8 +45,8 @@ def build_topo_vmcnt():
         exit(1)
 
     return topo_vm_cnt
-        
-def parse_file(topo_vm_cnt, testbed_file):
+
+def parse_file(topo_vm_cnt, testbed_file, server_pool):
     server_info = defaultdict(list)
 
     try:
@@ -54,7 +55,8 @@ def parse_file(topo_vm_cnt, testbed_file):
              for line in content:
                  if 'ptf' in line['# conf-name'] or '#' in line['# conf-name']:
                      continue
-                 server_info[line['server']].append((line['vm_base'], topo_vm_cnt[line['topo']]))
+                 if line['server'] in server_pool:
+                     server_info[line['server']].append((line['vm_base'], topo_vm_cnt[line['topo']]))
     except EnvironmentError as e:
         print 'Error while trying to open/read testbed file: {}'.format(str(e))
         exit(1)
@@ -62,8 +64,8 @@ def parse_file(topo_vm_cnt, testbed_file):
     for key in server_info:
         server_info[key] = sorted(server_info[key], key=itemgetter(0))
     return server_info
-              
-def parse_vm_file(vm_file):
+
+def parse_vm_file(vm_file, server_pool):
     vms = dict()
     try:
         with open(vm_file) as f:
@@ -71,10 +73,11 @@ def parse_vm_file(vm_file):
             vms_names = [key for key in veos_info if 'vms_' in key]
             for name in vms_names:
                 server_name = 'server_{}'.format(name.split('_')[1])
-                vm_list = sorted(veos_info[name]['hosts'].keys())
-                vms[server_name] = {'start_vm': vm_list[0],
-                                    'end_vm': vm_list[-1]
-                                   }
+                if server_name in server_pool:
+                    vm_list = sorted(veos_info[name]['hosts'].keys())
+                    vms[server_name] = {'start_vm': vm_list[0],
+                                        'end_vm': vm_list[-1]
+                                       }
     except EnvironmentError as e:
         print 'Error while trying to open/read vms file: {}'.format(str(e))
         exit(1)
@@ -82,9 +85,10 @@ def parse_vm_file(vm_file):
 
 def define_parser(topo_vm_cnt):
     parser = argparse.ArgumentParser(description="Process testbed csv file")
-    parser.add_argument('-i', "--testbed-file", help='testbed info file', nargs="?", default="testbed.csv")
+    parser.add_argument('-f', "--testbed-file", help='testbed info file', nargs="?", default="testbed.csv")
     parser.add_argument('-v', "--vm-file", help='vms info file', nargs="?", default="veos")
     parser.add_argument('-t', "--topo-type", help='topo name for which VMs are needed (eg, t0, t1)`', required=True)
+    parser.add_argument('-i', "--inventory", help='inventory file hosting the DUT`', required=True)
     args = parser.parse_args()
     if not os.path.isfile(args.testbed_file):
         print 'Cannot open testbed file: %s' % args.testbed_file
@@ -104,7 +108,7 @@ def get_base_vm(server_info, vms, need_vm_cnt=4):
             curr_vm = int(item[0][2:])
             curr_vm_cnt = item[1]
 
-            # get free block in the beginning if it exists  
+            # get free block in the beginning if it exists
             if index == 0:
                 if server in vms and vms[server]['start_vm'] != item[0]:
                     server_start_vm = int(vms[server]['start_vm'][2:])
@@ -116,10 +120,10 @@ def get_base_vm(server_info, vms, need_vm_cnt=4):
                     if prev_vm_cnt > curr_vm_cnt:
                         curr_vm_cnt = prev_vm_cnt
 
-                # there might be a free block in between 
+                # there might be a free block in between
                 elif (block_start_vm < curr_vm) and (block_start_vm + need_vm_cnt <= curr_vm):
-                   return server, block_start_vm 
-               
+                   return server, block_start_vm
+
             prev_vm = curr_vm
             prev_vm_cnt = curr_vm_cnt
             block_start_vm = prev_vm + prev_vm_cnt
@@ -133,14 +137,31 @@ def get_base_vm(server_info, vms, need_vm_cnt=4):
     for server in vms:
         if server not in server_info:
             return server, int(vms[server]['start_vm'][2:])
-         
+
     return None, 0
-        
+
+def parse_devices_file(inv):
+    devices_file = os.path.join("files", "sonic_{}_devices.csv".format(inv))
+    server_pool = set()
+    try:
+        with open(devices_file) as f:
+             content = csv.DictReader(f)
+             for line in content:
+                 if 'Server' in line['Type']:
+                     server_id = line['Hostname'].split('-')[-1]
+                     server_pool.add("server_{}".format(server_id))
+    except EnvironmentError as e:
+        print 'Error while trying to open/read devices file: {}'.format(str(e))
+        exit(1)
+
+    return server_pool
+
 def main():
     topo_vm_cnt = build_topo_vmcnt()
     args = define_parser(topo_vm_cnt)
-    server_info = parse_file(topo_vm_cnt, args.testbed_file)
-    vms = parse_vm_file(args.vm_file)
+    server_pool = parse_devices_file(args.inventory)
+    server_info = parse_file(topo_vm_cnt, args.testbed_file, server_pool)
+    vms = parse_vm_file(args.vm_file, server_pool)
     server, base_vm = get_base_vm(server_info, vms, need_vm_cnt=topo_vm_cnt[args.topo_type])
     if not server:
         print 'Need {} VMs for topo {}. No free VMs'.format(topo_vm_cnt[args.topo_type], args.topo_type)
