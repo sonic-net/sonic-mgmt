@@ -91,7 +91,7 @@ def psu_test_setup_teardown(duthost):
     logging.info("Starting psu test teardown")
     sensord_running_status, sensord_pid = check_sensord_status(duthost)
     if not sensord_running_status:
-        ans_host.command("docker exec pmon supervisorctl restart lm-sensors")
+        duthost.command("docker exec pmon supervisorctl restart lm-sensors")
         time.sleep(3)
         sensord_running_status, sensord_pid = check_sensord_status(duthost)
         if sensord_running_status:
