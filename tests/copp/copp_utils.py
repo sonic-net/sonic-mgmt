@@ -94,7 +94,7 @@ def restore_ptf(ptf):
 
     ptf.supervisorctl(name="ptf_nn_agent", state="restarted")
 
-def configure_syncd(dut, nn_target_port):
+def configure_syncd(dut, nn_target_port, creds):
     """
         Configures syncd to run the NN agent on the specified port.
 
@@ -105,11 +105,14 @@ def configure_syncd(dut, nn_target_port):
         Args:
             dut (SonicHost): The target device.
             nn_target_port (int): The port to run NN agent on.
+            creds (dict): Credential information according to the dut inventory
     """
 
     facts = {"nn_target_port": nn_target_port,
              "nn_target_interface": _map_port_number_to_interface(dut, nn_target_port)}
     dut.host.options["variable_manager"].extra_vars.update(facts)
+
+    _install_nano(dut, creds)
 
     dut.template(src=_SYNCD_NN_TEMPLATE, dest=_SYNCD_NN_DEST)
     dut.command("docker cp {} syncd:/etc/supervisor/conf.d/".format(_SYNCD_NN_DEST))
@@ -117,9 +120,9 @@ def configure_syncd(dut, nn_target_port):
     dut.command("docker exec syncd supervisorctl reread")
     dut.command("docker exec syncd supervisorctl update")
 
-def update_syncd(dut, creds):
+def _install_nano(dut, creds):
     """
-        Update syncd container with new packages.
+        Install nanomsg package to syncd container.
 
         Args:
             dut (SonicHost): The target device.

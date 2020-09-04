@@ -25,8 +25,6 @@
         --copp_swap_syncd: Used to install the RPC syncd image before running the tests. Default
             is disabled.
 
-        --update_syncd: Used to update packages of syncd container before running the tests.
-            Default is disabled
 """
 
 import logging
@@ -52,8 +50,7 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "pkt_tx_count",
                                   "swap_syncd",
                                   "topo",
-                                  "bgp_graph",
-                                  "update_syncd"])
+                                  "bgp_graph"])
 _SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
 _SUPPORTED_T1_TOPOS = ["t1", "t1-lag"]
 _TOR_ONLY_PROTOCOL = ["DHCP"]
@@ -182,14 +179,12 @@ def _gather_test_params(testbed, duthost, request):
     nn_target_port = request.config.getoption("--nn_target_port")
     pkt_tx_count = request.config.getoption("--pkt_tx_count")
     swap_syncd = request.config.getoption("--copp_swap_syncd")
-    update_syncd = request.config.getoption("--update_syncd")
     topo = testbed["topo"]["name"]
     bgp_graph = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]["minigraph_bgp"]
 
     return _COPPTestParameters(nn_target_port=nn_target_port,
                                pkt_tx_count=pkt_tx_count,
                                swap_syncd=swap_syncd,
-                               update_syncd=update_syncd,
                                topo=topo,
                                bgp_graph=bgp_graph)
 
@@ -197,10 +192,6 @@ def _setup_testbed(dut, creds, ptf, test_params):
     """
         Sets up the testbed to run the COPP tests.
     """
-
-    if test_params.update_syncd:
-        logging.info("Update syncd container")
-        copp_utils.update_syncd(dut, creds)
 
     logging.info("Disable LLDP for COPP tests")
     dut.command("docker exec lldp supervisorctl stop lldp-syncd")
@@ -222,7 +213,7 @@ def _setup_testbed(dut, creds, ptf, test_params):
         config_reload(dut)
 
     logging.info("Configure syncd RPC for testing")
-    copp_utils.configure_syncd(dut, test_params.nn_target_port)
+    copp_utils.configure_syncd(dut, test_params.nn_target_port, creds)
 
 def _teardown_testbed(dut, creds, ptf, test_params):
     """
