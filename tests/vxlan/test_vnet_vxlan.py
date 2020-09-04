@@ -14,7 +14,8 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("t0"),
+    pytest.mark.sanity_check(post_check=True)
 ]
 
 def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
