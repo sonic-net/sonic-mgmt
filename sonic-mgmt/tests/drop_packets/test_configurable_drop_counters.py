@@ -230,7 +230,7 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthost)
         a server within a VLAN under a T0.
 
     """
-    server_dst_port = random.choice(testbed_params["vlan_ports"])
+    server_dst_port = random.choice(arp_responder.keys())
     server_dst_addr = random.choice(arp_responder[server_dst_port].keys())
     server_dst_intf = testbed_params["physical_port_map"][server_dst_port]
     logging.info("Creating mock server with IP %s; dut port = %s, dut intf = %s",

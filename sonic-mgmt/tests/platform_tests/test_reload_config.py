@@ -10,9 +10,9 @@ import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.utilities import wait_until
-from check_critical_services import check_critical_services
-from check_transceiver_status import check_transceiver_basic
-from check_all_interface_info import check_interface_information
+from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.platform.transceiver_utils import check_transceiver_basic
+from tests.common.platform.interface_utils import check_interface_information
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -31,7 +31,7 @@ def test_reload_configuration(duthost, conn_graph_facts):
     duthost.shell("sudo config reload -y &>/dev/null", executable="/bin/bash")
 
     logging.info("Wait until all critical services are fully started")
-    check_critical_services(duthost)
+    wait_critical_processes(duthost)
 
     logging.info("Wait some time for all the transceivers to be detected")
     assert wait_until(300, 20, check_interface_information, duthost, interfaces), \

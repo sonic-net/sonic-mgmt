@@ -8,7 +8,7 @@ import logging
 import re
 import os
 import pytest
-from check_transceiver_status import check_transceiver_status
+from tests.common.platform.transceiver_utils import check_transceiver_status
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 
 pytestmark = [
