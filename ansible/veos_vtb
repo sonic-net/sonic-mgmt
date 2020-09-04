@@ -33,8 +33,8 @@ all:
           hwsku: Force10-S6000
           serial_port: 9000
         vlab-02:
-          ansible_host: 10.250.0.103
-          ansible_hostv6: fec0::ffff:afa:3
+          ansible_host: 10.250.0.102
+          ansible_hostv6: fec0::ffff:afa:2
           type: kvm
           hwsku: Force10-S6100
           serial_port: 9000
@@ -79,7 +79,7 @@ vm_host_1:
   hosts:
     STR-ACS-VSERV-01:
       ansible_host: 172.17.0.1
-      ansible_user: suvarna 
+      ansible_user: use_own_value
 
 vms_1:
   hosts:

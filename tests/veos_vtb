@@ -62,7 +62,7 @@ all:
           ansible_host: 10.250.0.109
           ansible_hostv6: fec0::ffff:afa:9
           type: kvm
-          hwsku: msft_multi_asic_vs 
+          hwsku: msft_multi_asic_vs
           ansible_password: password
           ansible_user: admin
         ptf-01:

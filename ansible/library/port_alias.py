@@ -96,7 +96,7 @@ class SonicPortAliasMap():
             return portconfig
         return None
 
-    def get_portmap(self, asic_id=None):
+    def get_portmap(self, all_ports, asic_id=None):
         aliases = []
         portmap = {}
         aliasmap = {}
@@ -134,7 +134,8 @@ class SonicPortAliasMap():
                         alias = mapping[alias_index]
                     else:
                         alias = name
-                    if role == "Ext":
+                    if (all_ports == "False" and role == "Ext") or \
+                       (all_ports == "True"):
                         aliases.append(alias)
                         portmap[name] = alias
                         aliasmap[alias] = name
@@ -146,7 +147,8 @@ class SonicPortAliasMap():
 def main():
     module = AnsibleModule(
         argument_spec=dict(
-            hwsku=dict(required=True, type='str')
+            hwsku=dict(required=True, type='str'),
+            all_ports=dict(type='str', default='True')
         ),
         supports_check_mode=True
     )
@@ -157,12 +159,13 @@ def main():
         aliasmap = {}
         portspeed = {}
         allmap = SonicPortAliasMap(m_args['hwsku'])
+        all_ports = m_args['all_ports']
         num_asic = allmap.get_num_asic()
         if num_asic == 1:
             (aliases, portmap, aliasmap, portspeed) = allmap.get_portmap()
         else:
             for asic_id in range(num_asic):
-                (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic) = allmap.get_portmap(asic_id)
+                (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic) = allmap.get_portmap(all_ports, asic_id)
                 if aliases_asic is not None:
                     aliases.extend(aliases_asic)
                 if portmap_asic is not None:
