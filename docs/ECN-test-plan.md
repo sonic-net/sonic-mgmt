@@ -53,9 +53,9 @@ Keysight ports are connected via SONiC switch as shown in the illustration above
 ## Setup configuration
 
 ### DUT Configuration
-•	PFC watchdog is disabled so that the SONiC DUT does not discard packets from the egress queue as  PFC PAUSE storm mitigation action.
+•	PFC watchdog is disabled so that the SONiC DUT does not discard packets when it receives continuous PFC PAUSE frames.
 
-•	Enable ECN at queue 3.
+•	Enable ECN at the priority to test, e.g., 3.
 
 •	Configure minimum threshold to Kmin Bytes.
 
@@ -79,7 +79,7 @@ This test aims to verify the DUT’s dequeue based ECN marking behavior (Egress 
 #### Test Configuration
 
 - On SONiC DUT configure the following:
-  1. A single lossless priority Pi (0 <= i <= 7).
+  1. Enable ECN on a lossless priority Pi (0 <= i <= 7).
   2. Configure minimum and maximum ECN marking threshold of the lossless priority Pi to N KB (e.g., 100 KB).
   3. DUT should have enough buffer to hold 2N KB packets.
 
@@ -97,7 +97,7 @@ This test aims to verify the DUT’s dequeue based ECN marking behavior (Egress 
 1. Start PFC PAUSE storm to fully block the lossless priority at the
     DUT.
 2. From the Keysight Tx port, send 2N data packets to the receiver. The packets should be mapped to priority Pi on the DUT.
-3. After all the test data packets are sent, start data capture on the Keysight Rx port. Then, stop PFC PAUSE.
+3. After all the test data packets are sent, start data capture on the Keysight Rx port. Then, stop PFC PAUSE storm.
 4. Stop capture after all packets are received.
 5. Verify the following:
    * Keysight Rx port must receive 2N test data packets.
@@ -116,7 +116,7 @@ This test aims to verify the DUT’s ECN marking accuracy, e.g., if the actual E
 
 - On SONiC DUT configure the following:
   1. A single lossless priority Pi (0 <= i <= 7).
-  2. Configure the minimum ECN marking threshold, the maximum ECN marking threshold, and the maximum marking probability of the Priority Pi to Kmin KB, Kmax KB, and Pmax % respectively. Let the Kmin, Kmax, and Pmax be 500 KB, 2000 KB, and 5% respectively for the first iteration.
+  2. Configure the minimum ECN marking threshold, the maximum ECN marking threshold, and the maximum marking probability of the Priority Pi to Kmin KB, Kmax KB, and Pmax % respectively. For this test, Kmin, Kmax, and Pmax are set to 500 KB, 2000 KB, and 5% respectively.
   3. DUT should have enough buffer to hold (Kmax+10) packets each of 1KB size.
 
 - Configure following traffic items on the Keysight device:
@@ -139,7 +139,7 @@ This test aims to verify the DUT’s ECN marking accuracy, e.g., if the actual E
    * All Kmax+10 packets must be received at the Rx port.
    * As per egress ECN marking algorithm, the queue length associated with the data packet i (i = 1, 2, … Kmax + 10) is (Kmax + 10 – i) KB.
    * If instantaneous queue length is q, then, for the first 10 packets, q>=Kmax. Hence, their theoretical ECN marking probability should be 100%.
-   * For the next (Kmax-Kmin) packets, Kmin <= q < Kmax, so their theoretical ECN marking probability should be less than equal to Pmax%. As q varies from Kmax to Kmin, the ECN marking probability varies linearly from Pmax to 0.
+   * For the next (Kmax-Kmin) packets, Kmin <= q < Kmax, so their theoretical ECN marking probability should be no larger than Pmax%. As q varies from Kmax to Kmin, the ECN marking probability varies linearly from Pmax to 0.
    * For the last Kmin packets, q<Kmin. So, none of them should be ECN marked.
 6. Repeat steps 1 to 4 at least 200 times.
 7. After 200 iterations, compare between theoretical probability of ECN marking with the actual ECN marking yielded as test results against queue length.
