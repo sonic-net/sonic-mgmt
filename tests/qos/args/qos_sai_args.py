@@ -13,14 +13,6 @@ def add_qos_sai_args(parser):
     qos_group = parser.getgroup("QoS test suite options")
 
     qos_group.addoption(
-        "--ptf_portmap",
-        action="store",
-        type=str,
-        default=None,
-        help="PTF port index to DUT port alias map",
-    )
-
-    qos_group.addoption(
         "--disable_test",
         action="store",
         type=bool,
