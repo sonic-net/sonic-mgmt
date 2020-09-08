@@ -136,6 +136,7 @@ def create_testbed_file(data):
         f.close()
 
     tdata['devices']['sherman-01']['ansible']['ansible_host'] = data['sonic_dut']['xr_mgmt_ip']
+    tdata['devices']['sherman-01']['ansible']['ansible_ssh_user'] = data['sonic_dut']['uname']
     tdata['devices']['docker-ptf']['ansible']['ansible_host'] = data['ptf']['xr_mgmt_ip'] + '/24'
     tdata['testbed']['docker-ptf']['ptf_ip'] = data['ptf']['xr_mgmt_ip'] + '/24'
     base = 100
