@@ -404,10 +404,9 @@ def main():
     dut_uname = args['dut_uname']
     if clean_sim:
         os.system("/auto/vxr/pyvxr/pyvxr-0.6.2/vxr.py --cmd clean")
-    os.system("cp /ws/pevenkat-sjc/sonic/sonic_t1_topo/* .")
+    os.system("cp sonic_t1_topo/* .")
     os.system("/auto/vxr/pyvxr/pyvxr-0.6.2/vxr.py --cmd start {}".format(topo_yaml))
     os.system("/auto/vxr/pyvxr/pyvxr-0.6.2/vxr.py --cmd ports > vxr_ports.yaml")
-    #os.system("scp pevenkat-sjc:/ws/pevenkat-sjc/sonic/vxr_ports.yaml .")
     input_file = args['input_file']
     vEOS_count = args['vEOS_count']
     
