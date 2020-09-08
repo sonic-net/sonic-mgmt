@@ -1,0 +1,152 @@
+!
+no errdisable detect cause link-flap
+!
+no schedule tech-support
+!
+transceiver qsfp default-mode 4x10G
+!
+no lldp run
+!
+hostname {{ inventory_hostname }}
+!
+ntp source vrf management Management1
+{% for ntp_server in ntp_servers %}
+ntp server vrf management {{ ntp_server }}
+{% endfor %}
+!
+spanning-tree mode none
+no spanning-tree vlan {{ device_vlan_range | list | join(',') }}
+!
+!
+aaa authorization exec default local
+aaa root secret 0 {{ lab_admin_pass }}
+!
+username admin privilege 15 role network-admin secret 0 {{ lab_admin_pass }}
+username eapi privilege 15 secret 0 {{ lab_admin_pass }}
+!
+vlan {{ device_vlan_range | list | join(',') }}
+!
+vrf definition management
+   rd 1:1
+!
+{% for i in range(1,65) %}
+{% set intf =  'Ethernet' + i|string + '/1'  %}
+{% if intf in device_port_vlans and device_port_vlans[intf]['mode'] != "Trunk" %}
+{%     if device_conn[intf]['speed'] == "100000" %}
+   interface {{ intf }}
+   description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+   switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
+   switchport mode dot1q-tunnel
+   spanning-tree portfast
+   speed forced 100gfull
+   error-correction encoding reed-solomon
+   no shutdown
+{%     elif device_conn[intf]['speed'] == "40000" %}
+   interface {{ intf }}
+   description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+   switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
+   switchport mode dot1q-tunnel
+   spanning-tree portfast
+   speed forced 40gfull
+   no shutdown
+{%     elif device_conn[intf]['speed'] == "10000" %}
+{%          for sub in range (1,5) %}
+{%             set subintf = 'Ethernet' + i|string + '/' + sub|string %}
+   interface {{ subintf }}
+   description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+   switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
+   switchport mode dot1q-tunnel
+   spanning-tree portfast
+   speed forced 10gfull
+   no shutdown
+!
+{% endfor %}   
+{%     elif device_conn[intf]['speed'] == "50000" %}
+interface {{ intf }}
+   description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+   switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
+   switchport mode dot1q-tunnel
+   spanning-tree portfast
+   speed forced 50gfull
+   no error-correction encoding
+   no shutdown
+!
+{% set intf =  'Ethernet' + i|string + '/3'  %}
+interface {{ intf }}
+{%         if intf in device_port_vlans and device_port_vlans[intf]['mode'] != "Trunk" %}
+   description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+   switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
+   switchport mode dot1q-tunnel
+   spanning-tree portfast
+   speed forced 50gfull
+   no error-correction encoding
+   no shutdown
+{%         else %}
+   shutdown
+{%         endif %}
+{%     else %}
+{#        Not valid speed value #}
+   shutdown
+{%     endif %}
+{% elif intf in device_port_vlans and device_port_vlans[intf]['mode'] == 'Trunk' %}
+   interface {{ intf }}
+   description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+   switchport mode trunk
+   switchport trunk allowed vlan {{ device_port_vlans[intf]['vlanids'] }}
+   spanning-tree portfast
+{%       if device_conn[intf]['speed'] == "100000" %}
+            speed forced 100gfull
+            error-correction encoding reed-solomon
+{%       elif device_conn[intf]['speed'] == "40000" %}
+            speed forced 40gfull
+{%       endif %}
+   no shutdown
+{% else %}
+   interface {{  intf }}
+   shutdown
+{% endif %}
+!
+{% endfor %}
+!
+interface Management 1
+ description TO LAB MGMT SWITCH
+ ip address {{ device_info["ManagementIp"] }} 
+ no shutdown
+!
+# LACP packets pass through
+mac address-table reserved forward 0180.c200.0002
+# LLDP packets pass through
+mac address-table reserved forward 0180.c200.000e
+!
+ip route 0.0.0.0/0 {{ device_info["ManagementGw"] }}
+ip route vrf management 0.0.0.0/0 {{ device_info["ManagementGw"] }}
+!
+ip routing
+no ip routing vrf management
+!
+banner login
+NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE
+
+Unauthorized access and/or use prohibited. All access and/or use subject to monitoring.
+
+NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE
+EOF
+!
+management api http-commands
+   vrf management
+      no shutdown
+!
+management api http-commands
+ no protocol https
+ protocol http
+ no shutdown
+!
+management console
+   idle-timeout 60
+!
+management ssh
+   idle-timeout 60
+   authentication mode password
+!
+!
+end

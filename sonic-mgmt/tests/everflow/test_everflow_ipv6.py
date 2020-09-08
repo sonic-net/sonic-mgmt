@@ -11,6 +11,8 @@ pytestmark = [
     pytest.mark.topology("t1")
 ]
 
+EVERFLOW_V6_RULES = "ipv6_test_rules.yaml"
+
 
 class EverflowIPv6Tests(BaseEverflowTest):
     """
@@ -466,30 +468,23 @@ class TestIngressEverflowIPv6(EverflowIPv6Tests):
         return "ingress"
 
     @pytest.fixture(scope='class',  autouse=True)
-    def setup_acl_table(self, duthost, setup_info, setup_mirror_session):
-        duthost.command("rm -rf everflow_v6_tests")
-        duthost.command("mkdir -p everflow_v6_tests")
-
+    def setup_acl_table(self, duthost, setup_info, setup_mirror_session, config_method):
         table_name = self._get_table_name(duthost)
         temporary_table = False
 
         if not table_name:
             table_name = "EVERFLOWV6"
             temporary_table = True
-            duthost.command("config acl add table {} MIRRORV6".format(table_name))
+            self.apply_acl_table_config(duthost, table_name, "MIRRORV6", config_method)
 
-        duthost.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})
-        duthost.template(src="everflow/templates/acl_rule_v6.json.j2", dest="everflow_v6_tests/acl_rule_v6.json")
-        duthost.command("acl-loader update full everflow_v6_tests/acl_rule_v6.json --session_name={}".format(setup_mirror_session["session_name"]))
+        self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"], config_method, rules=EVERFLOW_V6_RULES)
 
         yield
 
-        duthost.copy(src="everflow/templates/acl_rule_persistent-del.json", dest="everflow_v6_tests/acl_rule_persistent-del.json")
-        duthost.command("acl-loader update full everflow_v6_tests/acl_rule_persistent-del.json")
-        duthost.command("rm -rf everflow_v6_tests")
+        self.remove_acl_rule_config(duthost, table_name, config_method)
 
         if temporary_table:
-            duthost.command("config acl remove table {}".format(table_name))
+            self.remove_acl_table_config(duthost, table_name, config_method)
 
     # TODO: This can probably be refactored into a common utility method later.
     def _get_table_name(self, duthost):

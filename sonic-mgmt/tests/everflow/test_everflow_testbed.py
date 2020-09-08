@@ -1,6 +1,5 @@
 """Test cases to support the Everflow Mirroring feature in SONiC."""
 import logging
-import os
 import time
 import pytest
 
@@ -13,18 +12,12 @@ from everflow_test_utilities import BaseEverflowTest
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
 from tests.common.fixtures.ptfhost_utils import copy_acstests_directory   # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
-from everflow_test_utilities import setup_info                            # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
+from everflow_test_utilities import setup_info, EVERFLOW_DSCP_RULES       # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
 
 pytestmark = [
     pytest.mark.topology("t1")
 ]
 
-TEMPLATE_DIR = "everflow/templates"
-EVERFLOW_TABLE_RULE_CREATE_TEMPLATE = "acl_rule_persistent.json.j2"
-
-DUT_RUN_DIR = "/home/admin/everflow_tests"
-EVERFLOW_TABLE_RULE_CREATE_FILE = "acl_rule_persistent.json"
-EVERFLOW_TABLE_RULE_DELETE_FILE = "acl_rule_persistent-del.json"
 
 @pytest.fixture
 def partial_ptf_runner(request, duthost, ptfhost):
@@ -407,7 +400,15 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
             raise
 
-    def test_everflow_dscp_with_policer(self, duthost, setup_info, policer_mirror_session, dest_port_type, partial_ptf_runner):
+    def test_everflow_dscp_with_policer(
+            self,
+            duthost,
+            setup_info,
+            policer_mirror_session,
+            dest_port_type,
+            partial_ptf_runner,
+            config_method
+    ):
         """Verify that we can rate-limit mirrored traffic from the MIRROR_DSCP table."""
 
         # Add explicit route for the mirror session
@@ -417,15 +418,16 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         try:
             # Add MIRROR_DSCP table for test
-            duthost.command("config acl add table EVERFLOW_DSCP MIRROR_DSCP --stage={}".format(self.acl_stage()))
+            table_name = "EVERFLOW_DSCP"
+            table_type = "MIRROR_DSCP"
+            self.apply_acl_table_config(duthost, table_name, table_type, config_method)
 
             # Add rule to match on DSCP
-            mirror_action = "MIRROR_INGRESS_ACTION" if self.mirror_type() == 'ingress' else "MIRROR_EGRESS_ACTION"
-            duthost.command("redis-cli -n 4 hmset \"ACL_RULE|EVERFLOW_DSCP|RULE_1\" PRIORITY 9999 {} {} DSCP 8/56"
-                            .format(mirror_action, policer_mirror_session["session_name"]))
-
-            # Sync rule
-            time.sleep(3)
+            self.apply_acl_rule_config(duthost,
+                                       table_name,
+                                       policer_mirror_session["session_name"],
+                                       config_method,
+                                       rules=EVERFLOW_DSCP_RULES)
 
             # Run test with expected CIR/CBS in packets/sec and tolerance %
             rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
@@ -446,8 +448,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                tolerance="10")
         finally:
             # Clean up ACL rules and routes
-            duthost.command("redis-cli -n 4 del \"ACL_RULE|EVERFLOW_DSCP|RULE_1\"")
-            duthost.command("config acl remove table EVERFLOW_DSCP")
+            self.remove_acl_rule_config(duthost, table_name, config_method)
+            self.remove_acl_table_config(duthost, table_name, config_method)
             everflow_utils.remove_route(duthost, policer_mirror_session["session_prefixes"][0], peer_ip)
 
     def _run_everflow_test_scenarios(self, ptfadapter, setup, mirror_session, duthost, rx_port, tx_ports, expect_recv=True):
@@ -503,14 +505,11 @@ class EverflowIPv4Tests(BaseEverflowTest):
             ip_src=src_ip,
             ip_dst=dst_ip,
             ip_ttl=64,
+            ip_dscp=dscp,
             tcp_sport=sport,
             tcp_dport=dport,
             tcp_flags=flags
         )
-
-        # NOTE: Yes testutils has an `ip_dscp` field, no it does not work here. I don't know why either. /shrug
-        if dscp:
-            pkt["IP"].tos = dscp << 2
 
         if ip_protocol:
             pkt["IP"].proto = ip_protocol
@@ -519,28 +518,6 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
 
 class TestEverflowV4IngressAclIngressMirror(EverflowIPv4Tests):
-    @pytest.fixture(scope="class", autouse=True)
-    def setup_acl_table(self, duthost, setup_info, setup_mirror_session):
-        if not setup_info[self.acl_stage()][self.mirror_type()]:
-            pytest.skip("Feature Not Supported: {} ACL w/ {} Mirroring"
-                        .format(self.acl_stage(), self.mirror_type()))
-
-        duthost.shell("mkdir -p {}".format(DUT_RUN_DIR))
-
-        duthost.host.options["variable_manager"].extra_vars.update({"acl_table_name": "EVERFLOW"})
-        duthost.template(src=os.path.join(TEMPLATE_DIR, EVERFLOW_TABLE_RULE_CREATE_TEMPLATE),
-                         dest=os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_CREATE_FILE))
-
-        duthost.command("acl-loader update full {} --session_name={}"
-                        .format(os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_CREATE_FILE),
-                                setup_mirror_session["session_name"]))
-
-        yield
-
-        duthost.copy(src=os.path.join(TEMPLATE_DIR, EVERFLOW_TABLE_RULE_DELETE_FILE), dest=DUT_RUN_DIR)
-        duthost.command("acl-loader update full {}".format(os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_DELETE_FILE)))
-        duthost.shell("rm -rf {}".format(DUT_RUN_DIR))
-
     def acl_stage(self):
         return "ingress"
 
@@ -549,28 +526,6 @@ class TestEverflowV4IngressAclIngressMirror(EverflowIPv4Tests):
 
 
 class TestEverflowV4IngressAclEgressMirror(EverflowIPv4Tests):
-    @pytest.fixture(scope="class", autouse=True)
-    def setup_acl_table(self, duthost, setup_info, setup_mirror_session):
-        if not setup_info[self.acl_stage()][self.mirror_type()]:
-            pytest.skip("Feature Not Supported: {} ACL w/ {} Mirroring"
-                        .format(self.acl_stage(), self.mirror_type()))
-
-        duthost.shell("mkdir -p {}".format(DUT_RUN_DIR))
-
-        duthost.host.options["variable_manager"].extra_vars.update({"acl_table_name": "EVERFLOW"})
-        duthost.template(src=os.path.join(TEMPLATE_DIR, EVERFLOW_TABLE_RULE_CREATE_TEMPLATE),
-                         dest=os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_CREATE_FILE))
-
-        duthost.command("acl-loader update full {} --session_name={}"
-                        .format(os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_CREATE_FILE),
-                                setup_mirror_session["session_name"]))
-
-        yield
-
-        duthost.copy(src=os.path.join(TEMPLATE_DIR, EVERFLOW_TABLE_RULE_DELETE_FILE), dest=DUT_RUN_DIR)
-        duthost.command("acl-loader update full {}".format(os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_DELETE_FILE)))
-        duthost.shell("rm -rf {}".format(DUT_RUN_DIR))
-
     def acl_stage(self):
         return "ingress"
 
@@ -579,30 +534,6 @@ class TestEverflowV4IngressAclEgressMirror(EverflowIPv4Tests):
 
 
 class TestEverflowV4EgressAclIngressMirror(EverflowIPv4Tests):
-    @pytest.fixture(scope="class", autouse=True)
-    def setup_acl_table(self, duthost, setup_info, setup_mirror_session):
-        if not setup_info[self.acl_stage()][self.mirror_type()]:
-            pytest.skip("Feature Not Supported: {} ACL w/ {} Mirroring"
-                        .format(self.acl_stage(), self.mirror_type()))
-
-        duthost.shell("mkdir -p {}".format(DUT_RUN_DIR))
-
-        duthost.host.options["variable_manager"].extra_vars.update({"acl_table_name": "EVERFLOW_EGRESS"})
-        duthost.template(src=os.path.join(TEMPLATE_DIR, EVERFLOW_TABLE_RULE_CREATE_TEMPLATE),
-                         dest=os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_CREATE_FILE))
-
-        duthost.command("config acl add table EVERFLOW_EGRESS MIRROR --stage=egress")
-        duthost.command("acl-loader update full {} --session_name={}"
-                        .format(os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_CREATE_FILE),
-                                setup_mirror_session["session_name"]))
-
-        yield
-
-        duthost.copy(src=os.path.join(TEMPLATE_DIR, EVERFLOW_TABLE_RULE_DELETE_FILE), dest=DUT_RUN_DIR)
-        duthost.command("acl-loader update full {}".format(os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_DELETE_FILE)))
-        duthost.command("config acl remove table EVERFLOW_EGRESS")
-        duthost.shell("rm -rf {}".format(DUT_RUN_DIR))
-
     def acl_stage(self):
         return "egress"
 
@@ -611,30 +542,6 @@ class TestEverflowV4EgressAclIngressMirror(EverflowIPv4Tests):
 
 
 class TestEverflowV4EgressAclEgressMirror(EverflowIPv4Tests):
-    @pytest.fixture(scope='class', autouse=True)
-    def setup_acl_table(self, duthost, setup_info, setup_mirror_session):
-        if not setup_info[self.acl_stage()][self.mirror_type()]:
-            pytest.skip("Feature Not Supported: {} ACL w/ {} Mirroring"
-                        .format(self.acl_stage(), self.mirror_type()))
-
-        duthost.shell("mkdir -p {}".format(DUT_RUN_DIR))
-
-        duthost.host.options["variable_manager"].extra_vars.update({"acl_table_name": "EVERFLOW_EGRESS"})
-        duthost.template(src=os.path.join(TEMPLATE_DIR, EVERFLOW_TABLE_RULE_CREATE_TEMPLATE),
-                         dest=os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_CREATE_FILE))
-
-        duthost.command("config acl add table EVERFLOW_EGRESS MIRROR --stage=egress")
-        duthost.command("acl-loader update full {} --session_name={} --mirror_stage=egress"
-                        .format(os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_CREATE_FILE),
-                                setup_mirror_session["session_name"]))
-
-        yield
-
-        duthost.copy(src=os.path.join(TEMPLATE_DIR, EVERFLOW_TABLE_RULE_DELETE_FILE), dest=DUT_RUN_DIR)
-        duthost.command("acl-loader update full {}".format(os.path.join(DUT_RUN_DIR, EVERFLOW_TABLE_RULE_DELETE_FILE)))
-        duthost.command("config acl remove table EVERFLOW_EGRESS")
-        duthost.shell("rm -rf {}".format(DUT_RUN_DIR))
-
     def acl_stage(self):
         return "egress"
 

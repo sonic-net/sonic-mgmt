@@ -102,11 +102,11 @@ class QosParamMellanox(object):
         xon = {}
         xon['pkts_num_trig_pfc'] = pkts_num_trig_pfc
         xon['pkts_num_dismiss_pfc'] = pkts_num_dismiss_pfc
-        xon['pkts_num_hysteresis'] = pkts_num_hysteresis
+        xon['pkts_num_hysteresis'] = pkts_num_hysteresis + 16
         if self.asic_type == 'spc2':
             xon['pkts_num_margin'] = 2
         elif self.asic_type == 'spc3':
-            xon['pkts_num_margin'] = 0
+            xon['pkts_num_margin'] = 3
         self.qos_params_mlnx['xon_1'].update(xon)
         self.qos_params_mlnx['xon_2'].update(xon)
 
@@ -114,8 +114,8 @@ class QosParamMellanox(object):
         wm_pg_headroom['pkts_num_trig_pfc'] = pkts_num_trig_pfc
         wm_pg_headroom['pkts_num_trig_ingr_drp'] = pkts_num_trig_ingr_drp
         wm_pg_headroom['cell_size'] = self.cell_size
-        if self.asic_type == 'spc1':
-            wm_pg_headroom['pkts_num_margin'] = 1
+        if self.asic_type == 'spc3':
+            wm_pg_headroom['pkts_num_margin'] = 3
         else:
             wm_pg_headroom['pkts_num_margin'] = 2
 

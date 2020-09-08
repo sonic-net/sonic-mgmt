@@ -23,7 +23,8 @@
             Default is 100000.
 
         --copp_swap_syncd: Used to install the RPC syncd image before running the tests. Default
-            is enabled.
+            is disabled.
+
 """
 
 import logging
@@ -212,7 +213,7 @@ def _setup_testbed(dut, creds, ptf, test_params):
         config_reload(dut)
 
     logging.info("Configure syncd RPC for testing")
-    copp_utils.configure_syncd(dut, test_params.nn_target_port)
+    copp_utils.configure_syncd(dut, test_params.nn_target_port, creds)
 
 def _teardown_testbed(dut, creds, ptf, test_params):
     """

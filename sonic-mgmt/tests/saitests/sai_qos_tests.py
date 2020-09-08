@@ -1578,10 +1578,12 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # send packets
         try:
             # send packets to trigger pfc but not trek into headroom
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc)
+            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - margin)
             time.sleep(8)
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[src_port_id])
             assert(pg_headroom_wm_res[pg] == 0)
+
+            send_packet(self, src_port_id, pkt, margin)
 
             # send packet batch of fixed packet numbers to fill pg headroom
             # first round sends only 1 packet
