@@ -332,7 +332,7 @@ class SonicHost(AnsibleHostBase):
         logging.debug("Status of critical services: %s" % str(result))
         return all(result.values())
 
-    def get_critical_group_and_process_list(self, container_name):
+    def get_critical_group_and_process_lists(self, container_name):
         """
         @summary: Get critical group and process lists by parsing the
                   critical_processes file in the specified container
@@ -345,7 +345,7 @@ class SonicHost(AnsibleHostBase):
         file_content = self.shell("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] \
                 && cat /etc/supervisor/critical_processes'".format(container_name), module_ignore_errors=True)
         for line in file_content["stdout_lines"]:
-            line_info = line.strip('\n').split(':')
+            line_info = line.strip().split(':')
             if len(line_info) != 2:
                 succeeded = False
                 break
