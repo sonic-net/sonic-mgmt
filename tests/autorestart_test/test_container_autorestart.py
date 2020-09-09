@@ -237,7 +237,7 @@ def test_containers_autorestart(duthost):
         verify_no_autorestart_with_non_critical_process(duthost, container_name, "rsyslogd",
                                                         program_status, program_pid)
 
-        critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_list(container_name)
+        critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name)
         if not succeeded:
             pytest.fail("Failed to get critical group and process lists of container '{}'".format(container_name))
 
