@@ -800,7 +800,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
     def get_container_autorestart_states(self):
         """
         @summary: Get container names and their autorestart states by analyzing
-                  the command output of "show container feature autorestart"
+                  the command output of "show feature autorestart"
         @return:  A dictionary where keys are the names of containers which have the
                   autorestart feature implemented and values are the autorestart feature
                   state for that container
