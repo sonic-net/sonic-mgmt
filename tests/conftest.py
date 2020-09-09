@@ -98,6 +98,9 @@ def pytest_addoption(parser):
     parser.addoption("--vrf_capacity", action="store", default=None, type=int, help="vrf capacity of dut (4-1000)")
     parser.addoption("--vrf_test_count", action="store", default=None, type=int, help="number of vrf to be tested (1-997)")
 
+    # qos_sai options
+    parser.addoption("--ptf_portmap", action="store", default=None, type=str, help="PTF port index to DUT port alias map")
+
     ############################
     # pfc_asym options         #
     ############################
